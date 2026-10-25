@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dirname, resolve as pathResolve } from "node:path";
@@ -103,12 +103,26 @@ export type LoadedModelCatalogPayload = {
 export function loadModelCatalogPayload(): LoadedModelCatalogPayload | undefined {
   if (!hasLocalOverride() && remoteCatalog) return remoteCatalog;
   const candidate = resolveModelCatalogPath();
-  return candidate
-    ? {
-        loadedFrom: candidate,
-        payload: JSON.parse(readFileSync(candidate, "utf8")) as unknown
-      }
-    : undefined;
+  if (!candidate) return undefined;
+  const payload = JSON.parse(readFileSync(candidate, "utf8")) as unknown;
+  warnOnceIfStale(candidate, payload);
+  return { loadedFrom: candidate, payload };
+}
+
+const staleCatalogAfterMs = 7 * 24 * 60 * 60 * 1000;
+let staleCatalogWarned = false;
+
+// Only a process that will never download (one-shot CLI commands, gateway
+// workers) reading the cache a daemon once wrote needs telling; the server and
+// desktop app refresh on their own, and the bundled file is as old as the build.
+function warnOnceIfStale(file: string, payload: unknown): void {
+  if (staleCatalogWarned || refreshStarted || hasLocalOverride() || file !== modelCatalogCachePath()) return;
+  const generatedAt = Date.parse(String((payload as { generatedAt?: unknown })?.generatedAt ?? ""));
+  const ageMs = Date.now() - (Number.isFinite(generatedAt) ? generatedAt : statSync(file).mtimeMs);
+  if (ageMs < staleCatalogAfterMs) return;
+  staleCatalogWarned = true;
+  const days = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+  console.warn(`[models] catalog ${file} is ${days} days old and this process does not refresh it; run \`ccr start\` to download the current catalog.`);
 }
 
 export function resolveModelCatalogPath(): string | undefined {
