@@ -73,6 +73,7 @@
     "benchmark:request-logs": "node build/benchmark-request-logs.mjs",
     "typecheck": "tsc --noEmit",
     "rebuild:sqlite3": "electron-rebuild -f -w better-sqlite3",
+    "sqlite:electron": "node scripts/prepare-electron-sqlite.mjs",
     "models:build": "node scripts/generate-models-json.mjs",
     "version": "npm run models:build"
   },

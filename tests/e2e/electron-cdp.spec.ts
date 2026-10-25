@@ -367,7 +367,9 @@ function writeElectronE2eConfig(
 function createLegacyApiKeyDatabase(file: string): void {
   runElectronNode(`
     const Database = require("better-sqlite3");
-    const database = new Database(process.env.CCR_E2E_SQLITE_FILE);
+    const database = new Database(process.env.CCR_E2E_SQLITE_FILE, {
+      nativeBinding: require.resolve("better-sqlite3/build/Release/better_sqlite3.electron-" + process.versions.modules + ".node")
+    });
     database.exec(\`
       CREATE TABLE api_keys (
         id TEXT PRIMARY KEY,
@@ -407,7 +409,10 @@ function readGatewayRuntimeMarker(file: string): Record<string, unknown> | undef
 function readSqliteRows<Row>(file: string, query: string): Row[] {
   const output = runElectronNode(`
     const Database = require("better-sqlite3");
-    const database = new Database(process.env.CCR_E2E_SQLITE_FILE, { readonly: true });
+    const database = new Database(process.env.CCR_E2E_SQLITE_FILE, {
+      nativeBinding: require.resolve("better-sqlite3/build/Release/better_sqlite3.electron-" + process.versions.modules + ".node"),
+      readonly: true
+    });
     const rows = database.prepare(process.env.CCR_E2E_SQLITE_QUERY).all();
     database.close();
     process.stdout.write(JSON.stringify(rows));
