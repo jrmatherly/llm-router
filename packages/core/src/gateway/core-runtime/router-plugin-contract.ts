@@ -1,15 +1,15 @@
 import type { RouterFallbackConfig } from "@ccr/core/contracts/app";
 
-export const ccrRouterPluginKey = "ccr-router";
-export const ccrRouterRequestTransformKey = "ccr-router-request-transform";
+export const ccrRouterPluginKey = "llm-router";
+export const ccrRouterRequestTransformKey = "llm-router-request-transform";
 export const ccrAnthropicReasoningResponseHookKey = "ccr-anthropic-reasoning-response-hook";
 export const ccrCodexBridgeRequestTransformKey = "ccr-codex-bridge-request-transform";
 export const ccrCodexBridgeResponseHookKey = "ccr-codex-bridge-response-hook";
 export const ccrCodexBridgeStreamHookKey = "ccr-codex-bridge-stream-hook";
 export const ccrOpenRouterDiscountFinalizeResponseHookKey = "ccr-openrouter-discount-finalize-response-hook";
 export const ccrOpenRouterDiscountFinalizeStreamHookKey = "ccr-openrouter-discount-finalize-stream-hook";
-export const ccrRouterRouteResolverKey = "ccr-router-route-resolver";
-export const ccrRouterHttpRouteKey = "ccr-router-route";
+export const ccrRouterRouteResolverKey = "llm-router-route-resolver";
+export const ccrRouterHttpRouteKey = "llm-router-route";
 export const ccrRouterHttpRoutePath = "/__ccr/route";
 export const ccrRawTraceSyncAckRouteKey = "ccr-raw-trace-sync-ack";
 export const ccrRuntimeConfigReloadMessageType = "ccr:runtime-config-reload";

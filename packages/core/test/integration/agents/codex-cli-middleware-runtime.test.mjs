@@ -62,11 +62,11 @@ test("generated Codex middleware fallback retains the catalog's tool commentary 
 
 test("generated Codex CLI middleware converts Windows SDK paths before URL scheme detection", () => {
   const fn = evaluateRuntimeFunction("botGatewaySdkImportSpecifier");
-  const windowsPath = "C:\\Users\\macao\\AppData\\Local\\Programs\\Claude Code Router\\resources\\app.asar\\dist\\main\\bot-gateway-sdk\\dist\\index.js";
+  const windowsPath = "C:\\Users\\macao\\AppData\\Local\\Programs\\LLM Router\\resources\\app.asar\\dist\\main\\bot-gateway-sdk\\dist\\index.js";
 
   assert.equal(
     fn(windowsPath),
-    "file:///C:/Users/macao/AppData/Local/Programs/Claude%20Code%20Router/resources/app.asar/dist/main/bot-gateway-sdk/dist/index.js"
+    "file:///C:/Users/macao/AppData/Local/Programs/LLM%20Router/resources/app.asar/dist/main/bot-gateway-sdk/dist/index.js"
   );
   assert.equal(fn("file:///tmp/sdk/index.js"), "file:///tmp/sdk/index.js");
   assert.equal(fn("@the-next-ai/bot-gateway-sdk"), "@the-next-ai/bot-gateway-sdk");

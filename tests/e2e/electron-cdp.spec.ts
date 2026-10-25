@@ -61,7 +61,7 @@ test("exposes the desktop renderer through CDP", async () => {
   const current = requireRuntime();
   expect(current.cdpUrl).toBe(`http://${host}:${new URL(current.cdpUrl).port}`);
   expect(current.mainPage.url()).toContain("/pages/home/index.html");
-  await expect(current.mainPage).toHaveTitle("Claude Code Router");
+  await expect(current.mainPage).toHaveTitle("LLM Router");
 });
 
 test("loads the Electron preload bridge and IPC contract", async () => {
@@ -74,7 +74,7 @@ test("loads the Electron preload bridge and IPC contract", async () => {
 
   const appInfo = await page.evaluate(async () => window.ccr?.getAppInfo());
   expect(appInfo?.desktop).toBe(true);
-  expect(appInfo?.name).toBe("Claude Code Router");
+  expect(appInfo?.name).toBe("LLM Router");
   expect(appInfo?.configDir).toContain(current.testHome);
   expect(appInfo?.configDbFile).toContain("config.sqlite");
 
@@ -179,7 +179,7 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
         model: "Workbuddy E2E Provider/gpt-5-codex",
         name: "Workbuddy E2E",
         providerId: "claude-code-router",
-        providerName: "Claude Code Router",
+        providerName: "LLM Router",
         showAllSessions: true,
         scope: "ccr",
         surface: "app"

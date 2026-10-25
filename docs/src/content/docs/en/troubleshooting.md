@@ -1,5 +1,5 @@
 ---
-title: Claude Code Router Q&A
+title: LLM Router Q&A
 pageTitle: Q&A
 eyebrow: Q&A
 lead: Start here when an agent bypasses CCR, a provider returns an error, routing hits the wrong model, Fusion does not call tools, or the Bot stops receiving messages. Issues are grouped by symptom; each answer gives the conclusion first, then the checks to run.

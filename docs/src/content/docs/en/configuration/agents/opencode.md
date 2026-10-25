@@ -42,7 +42,7 @@ Use this page to route OpenCode to any CCR provider or Fusion model, or to attac
 | Effect scope | `Only opened from CCR` / `System default` | Keeps changes limited to CCR launches, or makes this the system-default OpenCode profile. Only one enabled system-default OpenCode profile is allowed. |
 | Entry mode | `CLI & APP` / `CLI only` / `App only` | Which launch entries (terminal command and/or App) are exposed. |
 | Provider ID | Default `claude-code-router` | Provider reference for this OpenCode profile. |
-| Provider name | Free text; default `Claude Code Router` | Display name shown in OpenCode. |
+| Provider name | Free text; default `LLM Router` | Display name shown in OpenCode. |
 | OpenCode model | A provider model or Fusion model | Default model OpenCode uses through CCR. |
 | Config file | Path | Used for the system-default OpenCode profile. |
 | Environment variables | Key/value rows | Optional advanced overrides; leave empty for normal use. |

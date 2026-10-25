@@ -148,7 +148,7 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
     ];
     routingConfig.virtualModelProfiles = [{ id: "glm-vision", key: "glm-vision", displayName: "GLM 5.3 Vision", enabled: true, match: { exactAliases: ["GLM 5.3 Vision"], prefixes: [], suffixes: [] }, baseModel: { mode: "fixed", fixedModel: "Backup/glm-5.3" }, tools: [], execution: { mode: "tool_loop", maxTurns: 4, maxToolCalls: 4, clientToolsPolicy: "passthrough", streamMode: "optimistic" }, materialization: { enabled: true, includeInGatewayModels: true } }];
     const routingCompiled = await compileCoreGatewayConfig(routingConfig, "trace", "billing", "auth");
-    const router = routingCompiled.plugins.find(plugin => plugin.key === "ccr-router");
+    const router = routingCompiled.plugins.find(plugin => plugin.key === "llm-router");
     assert.ok(router, "CCR route resolver must be installed for #1804");
     router.modulePath = path.resolve(__dirname, "../../../runtime/router-plugin.js");
     gateway = await startGateway(root, { ...baseConfig, providers: routingCompiled.providers, plugins: [router], virtualModelProfiles: routingCompiled.virtualModelProfiles, rawTrace: { enabled: false }, billing: { enabled: false } });

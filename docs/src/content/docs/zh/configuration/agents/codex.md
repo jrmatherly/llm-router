@@ -42,7 +42,7 @@ Codex 是 OpenAI 的编码 Agent。CCR 同时支持两种形态：
 | 生效范围 | `仅从 CCR 打开时生效` / `系统默认` | 仅影响从 CCR 打开的 Codex，或作为系统默认 Codex 配置。同一 Agent 只允许一个启用的系统默认配置。 |
 | 入口模式 | `CLI 与 APP` / `仅 CLI` / `仅 App` | 提供哪些启动入口（终端命令和/或 ChatGPT 应用）。 |
 | 供应商 ID | 字母、数字、`.`、`_`、`-`；默认 `claude-code-router` | 当前 Codex 配置使用的供应商引用，请保持稳定。 |
-| 供应商名称 | 自由文本；默认 `Claude Code Router` | 在 Codex 中显示的名称。 |
+| 供应商名称 | 自由文本；默认 `LLM Router` | 在 Codex 中显示的名称。 |
 | Codex 模型 | 供应商模型或 Fusion 模型 | Codex 默认模型。留空时 CCR 使用第一个可用默认模型。 |
 | 显示全部会话 | 开关 | 让 Codex 列出全部会话。 |
 | 配置文件 | 路径 | 用于系统默认 Codex 配置。 |

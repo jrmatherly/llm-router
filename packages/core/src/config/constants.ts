@@ -8,7 +8,8 @@ export const LEGACY_CONFIG_FILE = path.join(LEGACY_CONFIGDIR, "config.json");
 export { APP_NAME, APP_STORAGE_NAME, LEGACY_CONFIGDIR };
 
 export const CONFIGDIR = resolveRuntimeConfigDir();
-export const LEGACY_WINDOWS_CONFIGDIR = path.join(resolveRuntimeAppPath("appData"), APP_NAME);
+// Pre-4.0 Windows builds stored config under the old product name; the migration below must keep finding it.
+export const LEGACY_WINDOWS_CONFIGDIR = path.join(resolveRuntimeAppPath("appData"), "Claude Code Router");
 export const LEGACY_WINDOWS_CONFIG_FILE = path.join(LEGACY_WINDOWS_CONFIGDIR, "config.json");
 export const LEGACY_ACTIVE_CONFIG_FILE = path.join(CONFIGDIR, "config.json");
 export const ONBOARDING_FINISHED_FILE = path.join(CONFIGDIR, ".onboard_finished");

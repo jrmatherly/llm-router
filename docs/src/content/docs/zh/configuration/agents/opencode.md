@@ -42,7 +42,7 @@ OpenCode 是一款采用 OpenAI 兼容供应商模型的编码 Agent。CCR 同�
 | 生效范围 | `仅从 CCR 打开时生效` / `系统默认` | 仅影响从 CCR 打开的 OpenCode，或作为系统默认 OpenCode 配置。同一 Agent 只允许一个启用的系统默认配置。 |
 | 入口模式 | `CLI 与 APP` / `仅 CLI` / `仅 App` | 提供哪些启动入口（终端命令和/或 App）。 |
 | 供应商 ID | 默认 `claude-code-router` | 当前 OpenCode 配置使用的供应商引用。 |
-| 供应商名称 | 自由文本；默认 `Claude Code Router` | 在 OpenCode 中显示的名称。 |
+| 供应商名称 | 自由文本；默认 `LLM Router` | 在 OpenCode 中显示的名称。 |
 | OpenCode 模型 | 供应商模型或 Fusion 模型 | OpenCode 通过 CCR 使用的默认模型。 |
 | 配置文件 | 路径 | 用于系统默认 OpenCode 配置。 |
 | 环境变量 | 键值对 | 可选高级设置；普通使用保持为空。 |

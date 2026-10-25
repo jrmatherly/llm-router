@@ -1,8 +1,8 @@
-# Claude Code Router CLI
+# LLM Router CLI
 
 [中文](README_zh.md) · [Documentation](https://ccrdesk.top/en/) · [GitHub](https://github.com/musistudio/claude-code-router)
 
-`@musistudio/claude-code-router` is the Node.js distribution of Claude Code Router. It provides the `ccr` command, the browser-based management UI, the local model gateway, and profile launch commands without requiring Electron.
+`@musistudio/claude-code-router` is the Node.js distribution of LLM Router. It provides the `ccr` command, the browser-based management UI, the local model gateway, and profile launch commands without requiring Electron.
 
 Use the CLI on developer machines and headless hosts. If you want the tray, desktop notifications, automatic app updates, or desktop-only browser integrations, install the desktop application instead.
 

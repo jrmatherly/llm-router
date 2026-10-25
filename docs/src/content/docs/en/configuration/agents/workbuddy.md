@@ -32,7 +32,7 @@ WorkBuddy is fixed to **App only**, so the entry mode is not editable. The field
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from CCR` / `System default` | Keeps the profile limited to CCR launches, or makes it the system-default WorkBuddy profile. Only one enabled system-default WorkBuddy profile is allowed. |
 | Provider ID | Default `claude-code-router` | Provider reference for this WorkBuddy profile. |
-| Provider name | Free text; default `Claude Code Router` | Display name used by the generated profile. |
+| Provider name | Free text; default `LLM Router` | Display name used by the generated profile. |
 | WorkBuddy model | A provider model or Fusion model | Default model when WorkBuddy App opens. |
 | Allowed model list | Optional multi-select | Controls which CCR models appear in WorkBuddy. Empty means all models. |
 | APP_PATH | Optional executable path | Overrides app auto-detection. Use it when WorkBuddy is installed in a custom location. |

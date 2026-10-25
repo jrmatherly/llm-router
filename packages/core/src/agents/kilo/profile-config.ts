@@ -91,7 +91,7 @@ export function kiloProviderId(profile: Pick<ProfileConfig, "providerId">): stri
 
 function kiloGatewayOverrides(config: AppConfig, profile: ProfileConfig, token: string): Record<string, unknown> {
   const providerId = kiloProviderId(profile);
-  const providerName = profile.providerName?.trim() || "Claude Code Router";
+  const providerName = profile.providerName?.trim() || "LLM Router";
   const model = normalizeClientModel(profile.model) || defaultClientModel(config);
   const modelRef = `${providerId}/${model}`;
   const models = buildCodexModelCatalogIds(config, model, { allowedModels: profileAllowedModels({ ...profile, model }) });

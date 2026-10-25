@@ -273,7 +273,7 @@ async function fetchText(url: string, maxBytes: number): Promise<string> {
       cache: "no-store",
       headers: {
         accept: "application/json,text/plain,*/*",
-        "user-agent": "ClaudeCodeRouter Plugin Marketplace"
+        "user-agent": "LLMRouter Plugin Marketplace"
       },
       signal: controller.signal
     });

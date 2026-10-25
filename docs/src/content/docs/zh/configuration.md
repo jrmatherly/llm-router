@@ -1,5 +1,5 @@
 ---
-title: Claude Code Router 详细配置
+title: LLM Router 详细配置
 pageTitle: 详细配置
 eyebrow: 详细配置
 lead: 详细配置按应用内的实际顺序拆成独立页面，覆盖概览、供应商、Agent 配置、API 密钥、日志与可观测性、服务，以及设置中的配置数据库和托盘。AgentClaw、Fusion、ToolHub、智能路由、一键导入和扩展在顶部一级目录单独说明。

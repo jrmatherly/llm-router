@@ -64,7 +64,7 @@ Claude App 和 Claude Code CLI 的模型列表适配方式不同：
 | 配置项 | 作用 |
 | --- | --- |
 | Provider ID | 当前 OpenCode 配置使用的供应商引用，默认是 `claude-code-router`。 |
-| Provider name | OpenCode 中展示的供应商名称，默认是 `Claude Code Router`。 |
+| Provider name | OpenCode 中展示的供应商名称，默认是 `LLM Router`。 |
 | OpenCode model | OpenCode CLI 和 App 的默认模型，可以选择普通供应商模型或 Fusion 模型。 |
 | 配置文件 | 用于系统默认 OpenCode 配置。 |
 | 环境变量 | 可选高级设置；普通使用保持为空。 |
@@ -77,7 +77,7 @@ Claude App 和 Claude Code CLI 的模型列表适配方式不同：
 | 配置项 | 作用 |
 | --- | --- |
 | Provider ID | 当前 Codex 配置使用的供应商引用。建议保持稳定，只使用字母、数字、点、下划线或短横线。 |
-| Provider name | Codex 中展示的供应商名称，默认是 `Claude Code Router`。 |
+| Provider name | Codex 中展示的供应商名称，默认是 `LLM Router`。 |
 | Codex model | 写入 Codex 默认模型。可以选择普通供应商模型或 Fusion 模型；留空时 CCR 使用可用模型中的默认值。 |
 | Show all sessions | 让 Codex 显示所有会话。 |
 | 配置文件 | 用于系统默认 Codex 配置。 |
@@ -99,7 +99,7 @@ Kimi CLI 配置固定为 **仅从 CCR 打开时生效** 和 **CLI only**。请�
 | 配置项 | 作用 |
 | --- | --- |
 | Provider ID | 当前 ZCode 配置使用的供应商引用，默认是 `claude-code-router`。 |
-| Provider name | ZCode 中展示的供应商名称，默认是 `Claude Code Router`。 |
+| Provider name | ZCode 中展示的供应商名称，默认是 `LLM Router`。 |
 | ZCode model | ZCode App 打开后的默认模型。可以选择普通供应商模型或 Fusion 模型。 |
 | 配置文件 | 用于系统默认 ZCode 配置。 |
 | 环境变量 | 可选高级设置；普通使用保持为空。 |
@@ -112,7 +112,7 @@ ZCode 只支持 App 打开，因此入口模式固定为 `App only`，也不会�
 | 配置项 | 作用 |
 | --- | --- |
 | Provider ID | 当前 WorkBuddy 配置使用的供应商引用，默认是 `claude-code-router`。 |
-| Provider name | 生成配置中使用的显示名称，默认是 `Claude Code Router`。 |
+| Provider name | 生成配置中使用的显示名称，默认是 `LLM Router`。 |
 | WorkBuddy model | WorkBuddy App 打开后的默认模型。可以选择普通供应商模型或 Fusion 模型。 |
 | 允许模型列表 | WorkBuddy 中可见的模型；留空表示全部 CCR 模型。 |
 | APP_PATH | 自动探测不到 App 时填写 WorkBuddy 可执行文件路径。 |

@@ -1,6 +1,6 @@
 ---
-title: Claude Code Router
-pageTitle: Claude Code Router documentation
+title: LLM Router
+pageTitle: LLM Router documentation
 eyebrow: Product Documentation
 lead: "Covers what CCR does, how the docs are organized, and the recommended reading order. Start here if you are new to CCR."
 ---

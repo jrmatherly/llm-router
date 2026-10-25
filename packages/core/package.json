@@ -2,7 +2,7 @@
   "name": "@claude-code-router/core",
   "version": "4.0.1",
   "private": true,
-  "description": "Claude Code Router core gateway, routing, provider, and storage services.",
+  "description": "LLM Router core gateway, routing, provider, and storage services.",
   "main": "dist/main/server.js",
   "bin": {
     "ccr-core-server": "dist/main/server.js"

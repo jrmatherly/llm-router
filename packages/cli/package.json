@@ -2,7 +2,7 @@
   "name": "@musistudio/claude-code-router",
   "version": "4.0.1",
   "license": "MIT",
-  "description": "Local Claude Code Router gateway with CLI and web management UI.",
+  "description": "Local LLM Router gateway with CLI and web management UI.",
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/jrmatherly/llm-router.git"

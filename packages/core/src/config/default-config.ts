@@ -148,7 +148,7 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
         managedCompact: false,
         model: "",
         providerId: "claude-code-router",
-        providerName: "Claude Code Router",
+        providerName: "LLM Router",
         showAllSessions: false
       },
       enabled: true,
@@ -184,7 +184,7 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
           model: "",
           name: "Codex",
           providerId: "claude-code-router",
-          providerName: "Claude Code Router",
+          providerName: "LLM Router",
           showAllSessions: false,
           scope: "global",
           surface: "auto"

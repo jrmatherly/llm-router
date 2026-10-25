@@ -64,7 +64,7 @@ Claude App and Claude Code CLI expose models differently:
 | Option | What it does |
 | --- | --- |
 | Provider ID | Provider reference for this OpenCode profile, defaulting to `claude-code-router`. |
-| Provider name | Display name shown in OpenCode, defaulting to `Claude Code Router`. |
+| Provider name | Display name shown in OpenCode, defaulting to `LLM Router`. |
 | OpenCode model | Default model for OpenCode CLI and App. It can be a provider model or Fusion model. |
 | Config file | Used for the system-default OpenCode profile. |
 | Environment variables | Optional advanced overrides; leave empty for normal use. |
@@ -77,7 +77,7 @@ With a Bot bound, OpenCode can relay conversations through the selected IM chann
 | Option | What it does |
 | --- | --- |
 | Provider ID | Provider reference for this Codex profile. Keep it stable and use only letters, numbers, dots, underscores, or hyphens. |
-| Provider name | Display name shown in Codex, defaulting to `Claude Code Router`. |
+| Provider name | Display name shown in Codex, defaulting to `LLM Router`. |
 | Codex model | Default Codex model. It can be a provider model or Fusion model; if left empty, CCR uses the first available default model. |
 | Show all sessions | Lets Codex show all sessions. |
 | Config file | Used for the system-default Codex profile. |
@@ -99,7 +99,7 @@ Kimi CLI profiles are fixed to **Only opened from CCR** and **CLI only**. Select
 | Option | What it does |
 | --- | --- |
 | Provider ID | Provider reference for this ZCode profile, defaulting to `claude-code-router`. |
-| Provider name | Display name shown in ZCode, defaulting to `Claude Code Router`. |
+| Provider name | Display name shown in ZCode, defaulting to `LLM Router`. |
 | ZCode model | Default model when ZCode App opens. It can be a provider model or Fusion model. |
 | Config file | Used for the system-default ZCode profile. |
 | Environment variables | Optional advanced overrides; leave empty for normal use. |
@@ -112,7 +112,7 @@ ZCode supports App only, so its entry mode is fixed to `App only`. The `Show all
 | Option | What it does |
 | --- | --- |
 | Provider ID | Provider reference for this WorkBuddy profile, defaulting to `claude-code-router`. |
-| Provider name | Display name used by the generated profile, defaulting to `Claude Code Router`. |
+| Provider name | Display name used by the generated profile, defaulting to `LLM Router`. |
 | WorkBuddy model | Default model when WorkBuddy App opens. It can be a provider model or Fusion model. |
 | Allowed model list | Models visible in WorkBuddy; empty means every CCR model. |
 | APP_PATH | Optional WorkBuddy executable path when auto-detection does not find the App. |

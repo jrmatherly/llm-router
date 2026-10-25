@@ -19,7 +19,7 @@ In desktop/CLI deployments, management and the model gateway use different ports
 
 1. Open [GitHub Releases](https://github.com/musistudio/claude-code-router/releases).
 2. Download `.dmg`/`.zip` for macOS, `.exe` for Windows, or `.AppImage` for Linux.
-3. Install and open **Claude Code Router**.
+3. Install and open **LLM Router**.
 4. Add a provider/model, create a client key under **API Keys**, then click **Start** under **Server**.
 
 When Server shows Running, the model gateway defaults to `http://127.0.0.1:3456`. Enable automatic startup under Server if the gateway should start whenever the app opens.

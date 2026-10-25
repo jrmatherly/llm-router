@@ -811,7 +811,7 @@ async function exportAppData(): Promise<AppDataExportResult> {
   const exportedAt = new Date().toISOString();
   const exportDir = defaultExportDir();
   mkdirSync(exportDir, { recursive: true });
-  const file = path.join(exportDir, `claude-code-router-data-${fileSafeTimestamp(exportedAt)}.json`);
+  const file = path.join(exportDir, `llm-router-data-${fileSafeTimestamp(exportedAt)}.json`);
   assertExportTargetIsNotInternalDataFile(file);
   const payload = {
     app: {

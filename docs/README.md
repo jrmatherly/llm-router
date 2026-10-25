@@ -1,6 +1,6 @@
-# Claude Code Router Docs
+# LLM Router Docs
 
-Astro-powered documentation site for Claude Code Router.
+Astro-powered documentation site for LLM Router.
 
 ## Commands
 

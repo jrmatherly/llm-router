@@ -10,7 +10,7 @@ import { compactProviderUrl, providerUrlWithDefaultScheme } from "@ccr/core/prov
 const faviconServiceUrl = "https://t0.gstatic.com/faviconV2";
 const maxProviderIconBytes = 1024 * 1024;
 const providerIconFetchTimeoutMs = 8_000;
-const providerIconUserAgent = "Mozilla/5.0 (compatible; ClaudeCodeRouter/3.0; +https://github.com/)";
+const providerIconUserAgent = "Mozilla/5.0 (compatible; LLMRouter/3.0; +https://github.com/)";
 
 export async function detectProviderIcon(request: ProviderIconDetectionRequest): Promise<ProviderIconDetectionResult> {
   const siteUrls = providerIconSiteUrls(request.baseUrl);

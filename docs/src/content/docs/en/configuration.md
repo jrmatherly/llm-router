@@ -1,5 +1,5 @@
 ---
-title: Claude Code Router detailed configuration
+title: LLM Router detailed configuration
 pageTitle: Detailed configuration
 eyebrow: Detailed configuration
 lead: Detailed configuration is split into standalone pages that follow the app's own order, covering the overview dashboard, providers, Agent Config, API keys, logs and observability, and server, plus the config database and tray pages under settings. AgentClaw, Fusion, ToolHub, routing, import, and extensions are documented as standalone top-level sections.

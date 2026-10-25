@@ -2,7 +2,7 @@
   "name": "@claude-code-router/electron",
   "version": "4.0.1",
   "private": true,
-  "description": "Claude Code Router Electron desktop shell.",
+  "description": "LLM Router Electron desktop shell.",
   "author": "Jason Matherly",
   "main": "dist/main/main.js",
   "scripts": {
