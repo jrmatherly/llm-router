@@ -38,6 +38,13 @@ module.exports = async function verifyPackagedApp(context) {
 
   const nativeModule = path.join(resourcesDir, betterSqliteNativeRelativePath);
   assertFile(nativeModule, "better-sqlite3 native module");
+  const sidecars = fs.readdirSync(path.dirname(nativeModule)).filter((name) => /^better_sqlite3\.electron-.*\.node$/.test(name));
+  if (sidecars.length > 0) {
+    throw new Error(
+      `Packaged better-sqlite3 carries the local Electron sidecar ${sidecars.join(", ")}; ` +
+        "electron-builder.json must exclude better_sqlite3.electron-*.node."
+    );
+  }
 
   const nativeInfo = inspectNativeModule(nativeModule);
   if (nativeInfo.platform !== platform) {

@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|mcp__serena__replace_content|mcp__serena__replace_in_files|mcp__serena__replace_symbol_body|mcp__serena__insert_after_symbol|mcp__serena__insert_before_symbol",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/protect-generated.mjs"], "onFailure": "block", "timeout": 10 }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "if": "Bash(git *)", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/gate-commit.mjs"], "onFailure": "block", "timeout": 120 }
+        ]
+      },
+      {
+        "matcher": "mcp__jean__create_commit",
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/gate-commit.mjs"], "onFailure": "block", "timeout": 120 }
+        ]
+      }
+    ]
+  }
+}

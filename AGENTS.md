@@ -1,0 +1,49 @@
+# llm-router: instructions for coding assistants
+
+Fork of claude-code-router v3.1.3. Divergence from upstream is intended; never weigh "upstream parity".
+
+## Commands
+
+- `npm ci` installs. npm only; see Repository etiquette.
+- `npm run typecheck` runs `tsc --noEmit` across the workspace.
+- `npm run test:architecture` runs `tests/architecture/*.test.mjs`.
+- `npm run test:core`, `npm run test:ui`, `npm run test:electron`, `npm run test:cli` run one package.
+- `npm run test:e2e` runs Playwright after building the Electron sidecar of better-sqlite3 (`npm run sqlite:electron`, idempotent). Once per install, run `npm run test:e2e:install` first. Never run `rebuild:sqlite3` locally: it rebuilds the main binary for Electron and breaks every node suite; it is for packaging on the target platform.
+- `npm run build:assets` builds dist. `npm run dev:electron` runs the desktop app.
+- One test file: `node build/test.mjs <pkg> && node --test .test-dist/<pkg>/test/<unit-or-integration>/<path>.test.js`. Do not pass `--scope`; it drops the `unit/` or `integration/` segment from the output path.
+
+## Where the standards are enforced
+
+Read the check before changing the structure it guards. Change a rule only together with its check.
+
+- `tests/architecture/*.test.mjs`: package boundaries, UI build contract, packaging, hooks. `npm run test:architecture`; the commit gate also runs it.
+- `packages/core/test/architecture/gateway-service-architecture.test.mjs`: gateway module layout and size limits. `npm run test:core`; the gate does not run it.
+- `validateLightweightMcpBundles` and `forbiddenLightweightMcpInputs` in `build/esbuild.config.mjs`: MCP bundle size cap and forbidden imports. Only `npm run build:assets` runs it.
+- Path-scoped rules under `.claude/rules/` load on Read, Edit and Write of matching files and name their check. MCP reads such as `codegraph_explore` load no rule (measured 2026-10-25), so read a file with Read before changing it.
+
+## Style that differs from defaults
+
+Double quotes, semicolons, two-space indent. Object keys and type members usually alphabetized; follow the surrounding file. `node:` imports first, then `@ccr/<pkg>/...` aliases. `type` aliases unless the surrounding file already uses `interface`. No comments except a non-obvious why.
+
+Tests are `node:test` with `node:assert/strict`. Core, Electron and CLI tests are `*.test.mjs`; UI component tests are `*.test.ts` or `*.test.tsx`. They live under `packages/<pkg>/test/{unit,integration,component}` or `tests/architecture/`.
+
+## Generated files
+
+Never hand-edit these; regenerate them.
+
+- `packages/core/models.json`: `npm run models:build`.
+- `packages/ui/src/generated/claude-code-config-options.json`: `node scripts/generate-claude-code-config-options.mjs`.
+- `package-lock.json`: npm.
+- `dist/` and `.test-dist/`: build output.
+
+`npm run build:assets` and `npm run test:e2e` rewrite the first two with a new timestamp; restore them with `git checkout -- packages/core/models.json packages/ui/src/generated` unless the change is intended. Bulk replaces with Serena `replace_in_files` must set `relative_path` to a file or directory; a project-wide replace is blocked.
+
+## Repository etiquette
+
+- npm only, never pnpm or yarn. `allowScripts` in the root `package.json` lists the native dependencies whose install scripts may run; approve a new one with `npm install-scripts approve <pkg>`.
+- Nothing AI-written goes under `docs/` except `docs/superpowers/`. No review notes or plan files elsewhere.
+- Tests that need `CCR_EXTENSIONS_DIR` create their own temp dirs. Nothing depends on sibling checkouts.
+
+## Local checks
+
+In Claude Code sessions, `.claude/settings.json` blocks hand-edits to generated files and runs typecheck plus `npm run test:architecture` before a `git commit` run through Bash and before the Jean commit tool (about 11 s). A fresh worktree without `node_modules` blocks commits until `npm ci` runs there. `CCR_GATE_COMMANDS`, `CCR_VERIFY_COMMANDS` and `CCR_VERIFY_E2E_COMMAND` exist for tests only; never set them in a session. Edits made through Bash (`sed`, redirects) and commits from other tools are not hooked; the tests above are the check.

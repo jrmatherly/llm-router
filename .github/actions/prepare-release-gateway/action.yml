@@ -3,19 +3,19 @@ description: Build and verify upstream gateway source for release artifacts.
 runs:
   using: composite
   steps:
-    - name: Check out gateway source
-      uses: actions/checkout@v4
+    - name: 📥 Check out gateway source
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: The-NeXT-AI/ai-gateway
         ref: 0a2c0abd48d2144ed0ac2ce4d954a661c51ffcb1
         path: .tmp/release-gateway
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
+    - name: ⚙️ Set up Node.js
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: 24
 
-    - name: Build and verify gateway
+    - name: 📦 Build and verify gateway
       shell: bash
       working-directory: .tmp/release-gateway
       run: |

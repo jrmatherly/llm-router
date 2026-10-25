@@ -6,6 +6,7 @@ import test from "node:test";
 import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
 import { pluginService } from "@ccr/core/plugins/service.ts";
 import { CCR_DESKTOP_APP_ENV } from "@ccr/core/runtime/desktop-app.ts";
+import { withDesktopRuntime } from "../../support/desktop-runtime.mjs";
 
 test("plugin permissions gate dynamic gateway route registration", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-permissions-"));
@@ -318,16 +319,6 @@ function baseConfig(dir) {
   config.gateway.enabled = false;
   config.plugins = [];
   return config;
-}
-
-async function withDesktopRuntime(run) {
-  const previousDesktopApp = process.env[CCR_DESKTOP_APP_ENV];
-  try {
-    process.env[CCR_DESKTOP_APP_ENV] = "1";
-    return await run();
-  } finally {
-    restoreEnv(CCR_DESKTOP_APP_ENV, previousDesktopApp);
-  }
 }
 
 function restoreEnv(key, value) {

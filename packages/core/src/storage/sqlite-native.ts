@@ -26,15 +26,23 @@ export function createBetterSqliteDatabase(
     : new DatabaseConstructor(filename, options);
 }
 
+export function betterSqliteNativeBindingCandidates(versions: { electron?: string }): string[] {
+  const defaultBinding = "better-sqlite3/build/Release/better_sqlite3.node";
+  return versions.electron
+    ? [`better-sqlite3/build/Release/better_sqlite3.electron-${versions.electron}.node`, defaultBinding]
+    : [defaultBinding];
+}
+
 function resolveBetterSqliteNativeBinding(): string | undefined {
   if (nativeBindingResolved) {
     return resolvedNativeBinding;
   }
   nativeBindingResolved = true;
-  try {
-    resolvedNativeBinding = requireFromHere.resolve("better-sqlite3/build/Release/better_sqlite3.node");
-  } catch {
-    resolvedNativeBinding = undefined;
+  for (const candidate of betterSqliteNativeBindingCandidates(process.versions)) {
+    try {
+      resolvedNativeBinding = requireFromHere.resolve(candidate);
+      break;
+    } catch {}
   }
   return resolvedNativeBinding;
 }

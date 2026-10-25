@@ -12,6 +12,8 @@
 
 **Revision 3 (2026-10-25):** after a second independent review. Hooks block on their own failure (`onFailure: "block"`), resolve the repo root from the input `cwd`, refuse to gate a tree with no `node_modules`, match every `git ... commit` spelling and the Jean commit tool, close the Serena `replace_in_files` scope hole, and compare temp paths by realpath. The verify runner is a node script that restores generated files only when they were clean before the run, and its tests run inside a throwaway git repo. `node-abi` is replaced by Electron's own ABI report. Single-file test commands drop `--scope`. Rules name their check instead of restating its numbers.
 
+**Revision 4 (2026-10-25, as built on branch `ai-assistant-guardrails`):** the sidecar is named by Electron version (`better_sqlite3.electron-<version>.node`, from `process.versions.electron` and `electron/package.json`) instead of ABI, because learning the ABI meant launching Electron, whose first launch after `npm ci` prints a download banner. `npm run test:e2e` runs `npm run sqlite:electron` itself, and the e2e fixture helpers run under node. The commit gate runs only when the resolved root's `package.json` names this project. `protect-generated.mjs` blocks on unparsable input. `build/verify-packaged-app.cjs` rejects a bundle that carries a sidecar, with fixture tests. The commit regex accepts long git options. Tasks 1 to 9 are complete.
+
 ## Global Constraints
 
 - Package manager is npm. Every install step is `npm ci` against `package-lock.json`. `allowScripts` in the root `package.json` lists the native dependencies whose install scripts may run; approve a new one with `npm install-scripts approve <pkg>`. Never run pnpm in this repo.

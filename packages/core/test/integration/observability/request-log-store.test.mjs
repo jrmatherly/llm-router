@@ -1874,14 +1874,17 @@ test("RequestLogStore streams more body text than the bounded worker heap", {
   try {
     const dbFile = path.join(dir, "request-logs.sqlite");
     store = new RequestLogStore(dbFile);
-    const requestCount = 384;
+    const paddingBytes = 256 * 1024;
+    const heapLimit = getHeapStatistics().heap_size_limit;
+    const requestCount = Math.min(2048, Math.ceil(heapLimit / (2 * paddingBytes)) + 16);
+    assert.ok(requestCount * 2 * paddingBytes > heapLimit, `cap of 2048 requests cannot exceed heap limit ${heapLimit}`);
     const totalBodyBytes = await recordLargeAgentRequests(store, dbFile, {
-      paddingBytes: 256 * 1024,
+      paddingBytes,
       requestCount,
       sessionId: "bounded-heap-session"
     });
 
-    assert.ok(totalBodyBytes > getHeapStatistics().heap_size_limit);
+    assert.ok(totalBodyBytes > heapLimit);
     const analysis = await store.analyze({ range: "30d" });
     assert.equal(analysis.scannedRequestCount, requestCount);
     assert.equal(analysis.totals.requestCount, requestCount);
