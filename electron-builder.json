@@ -11,8 +11,8 @@
   "publish": [
     {
       "provider": "github",
-      "owner": "musistudio",
-      "repo": "claude-code-router",
+      "owner": "jrmatherly",
+      "repo": "llm-router",
       "releaseType": "release"
     }
   ],
