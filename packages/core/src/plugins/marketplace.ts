@@ -11,7 +11,7 @@ type MarketplaceCache = {
   url: string;
 };
 
-const defaultMarketplaceUrl = "https://raw.githubusercontent.com/jrmatherly/ccr-extensions/main/marketplace/plugins.json";
+const defaultMarketplaceUrl = "https://raw.githubusercontent.com/jrmatherly/llm-router-extensions/main/marketplace/plugins.json";
 const marketplaceCacheDir = path.join(DATADIR, "plugin-marketplace");
 const marketplaceModuleCacheDir = path.join(marketplaceCacheDir, "modules");
 const marketplaceManifestCacheFile = path.join(marketplaceCacheDir, "plugins.json");

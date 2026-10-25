@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { marketplaceUrl, normalizeMarketplaceManifest } from "@ccr/core/plugins/marketplace.ts";
 
-const manifestUrl = "https://raw.githubusercontent.com/jrmatherly/ccr-extensions/main/marketplace/plugins.json";
+const manifestUrl = "https://raw.githubusercontent.com/jrmatherly/llm-router-extensions/main/marketplace/plugins.json";
 
 test("default marketplace URL points at the fork's manifest", () => {
   const previous = process.env.CCR_PLUGIN_MARKETPLACE_URL;
@@ -19,7 +19,7 @@ test("default marketplace URL points at the fork's manifest", () => {
 });
 
 test("committed marketplace manifest normalizes without error", async () => {
-  // Copy of marketplace/plugins.json in jrmatherly/ccr-extensions; keep the two in step.
+  // Copy of marketplace/plugins.json in jrmatherly/llm-router-extensions; keep the two in step.
   const source = readFileSync(path.resolve("packages/core/test/fixtures/plugin-marketplace/plugins.json"), "utf8");
   const manifest = JSON.parse(source);
   assert.ok(Array.isArray(manifest.plugins));
