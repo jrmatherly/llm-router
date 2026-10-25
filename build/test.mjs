@@ -1,5 +1,5 @@
 import esbuild from "esbuild";
-import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -83,11 +83,18 @@ for (const [name, project] of selectedProjects) {
     Object.assign(entryPoints, project.runtimeEntryPoints ?? {});
   }
 
-  rmSync(projectOutDir, { force: true, recursive: true });
   if (Object.keys(entryPoints).length === 0) {
+    rmSync(projectOutDir, { force: true, recursive: true });
     continue;
   }
 
+  // Build beside the output and swap it in: a suite already running from the
+  // output spawns runtimes and loads test files by path, and a rebuild that
+  // emptied the directory first made those spawns fail with "Cannot find module".
+  const stagingOutDir = `${projectOutDir}.${process.pid}.staging`;
+  const previousOutDir = `${projectOutDir}.${process.pid}.previous`;
+  rmSync(stagingOutDir, { force: true, recursive: true });
+  rmSync(previousOutDir, { force: true, recursive: true });
   await esbuild.build({
     absWorkingDir: projectRoot,
     bundle: true,
@@ -109,11 +116,28 @@ for (const [name, project] of selectedProjects) {
       ".webp": "file"
     },
     logLevel: "info",
-    outdir: projectOutDir,
+    outdir: stagingOutDir,
     platform: "node",
     plugins: [rendererAliasPlugin(), packageAliasPlugin()],
     target: "node24"
   });
+  swapDirectory(stagingOutDir, projectOutDir, previousOutDir);
+}
+
+function swapDirectory(stagingDir, targetDir, previousDir) {
+  try {
+    renameSync(targetDir, previousDir);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  try {
+    renameSync(stagingDir, targetDir);
+  } catch (error) {
+    // A concurrent build of the same project won the swap; its output is equivalent.
+    if (error.code !== "ENOTEMPTY" && error.code !== "EEXIST") throw error;
+    rmSync(stagingDir, { force: true, recursive: true });
+  }
+  rmSync(previousDir, { force: true, recursive: true });
 }
 
 function projectTestRoots(project) {
