@@ -384,7 +384,7 @@ function codexMediaPreviewPageBootstrap(config: {
 }): void {
   type PreviewAsset = { blobUrl: string; key: string; lastUsed: number; mimeType: string; size: number };
   type PreviewTransfer = { chunks: Uint8Array[]; mimeType: string; received: number; size: number };
-  type HiddenState = { count: number; display: string; hidden: boolean };
+  type HiddenState = { count: number; display: string; hidden: HTMLElement["hidden"] };
   type PreviewScope = typeof globalThis & {
     __ccrMediaPreviewBridge?: { dispose: () => void; receive: (message: Record<string, unknown>) => void; scan: () => void; version: string };
   };
