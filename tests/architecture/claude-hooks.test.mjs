@@ -46,6 +46,10 @@ test("protect allows ordinary source and ignores payloads with no path", () => {
   assert.equal(run("protect-generated.mjs", { tool_name: "Edit", tool_input: { file_path: "/repo/packages/core/src/x.ts" } }).status, 0);
   assert.equal(run("protect-generated.mjs", { tool_name: "Edit", tool_input: {} }).status, 0);
 });
+test("protect blocks when its hook input is not JSON", () => {
+  const r = spawnSync(process.execPath, [path.join(hooksDir, "protect-generated.mjs")], { encoding: "utf8", input: "not json" });
+  assert.equal(r.status, 2);
+});
 test("gate passes through non-commit git commands without running checks", () => {
   assert.equal(run("gate-commit.mjs", { cwd: "/nonexistent", tool_name: "Bash", tool_input: { command: "git status" } }).status, 0);
   assert.equal(run("gate-commit.mjs", { cwd: "/nonexistent", tool_name: "Bash", tool_input: { command: "git log --oneline" } }).status, 0);

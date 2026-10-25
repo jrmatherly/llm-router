@@ -8,7 +8,7 @@ Fork of claude-code-router v3.1.3. Divergence from upstream is intended; never w
 - `npm run typecheck` runs `tsc --noEmit` across the workspace.
 - `npm run test:architecture` runs `tests/architecture/*.test.mjs`.
 - `npm run test:core`, `npm run test:ui`, `npm run test:electron`, `npm run test:cli` run one package.
-- `npm run test:e2e` runs Playwright after building the Electron sidecar of better-sqlite3 (`npm run sqlite:electron`, idempotent). Once per install, run `npm run test:e2e:install` first.
+- `npm run test:e2e` runs Playwright after building the Electron sidecar of better-sqlite3 (`npm run sqlite:electron`, idempotent). Once per install, run `npm run test:e2e:install` first. Never run `rebuild:sqlite3` locally: it rebuilds the main binary for Electron and breaks every node suite; it is for packaging on the target platform.
 - `npm run build:assets` builds dist. `npm run dev:electron` runs the desktop app.
 - One test file: `node build/test.mjs <pkg> && node --test .test-dist/<pkg>/test/<unit-or-integration>/<path>.test.js`. Do not pass `--scope`; it drops the `unit/` or `integration/` segment from the output path.
 
@@ -46,4 +46,4 @@ Never hand-edit these; regenerate them.
 
 ## Local checks
 
-In Claude Code sessions, `.claude/settings.json` blocks hand-edits to generated files and runs typecheck plus `npm run test:architecture` before every `git commit` and before the Jean commit tool (about 11 s). A fresh worktree without `node_modules` blocks commits until `npm ci` runs there. `CCR_GATE_COMMANDS` and `CCR_VERIFY_COMMANDS` exist for tests only; never set them in a session. Edits made through Bash (`sed`, redirects) and commits from other tools are not hooked; the tests above are the check.
+In Claude Code sessions, `.claude/settings.json` blocks hand-edits to generated files and runs typecheck plus `npm run test:architecture` before a `git commit` run through Bash and before the Jean commit tool (about 11 s). A fresh worktree without `node_modules` blocks commits until `npm ci` runs there. `CCR_GATE_COMMANDS`, `CCR_VERIFY_COMMANDS` and `CCR_VERIFY_E2E_COMMAND` exist for tests only; never set them in a session. Edits made through Bash (`sed`, redirects) and commits from other tools are not hooked; the tests above are the check.

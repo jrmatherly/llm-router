@@ -10,7 +10,7 @@ let input;
 try {
   input = JSON.parse(readFileSync(0, "utf8"));
 } catch {
-  process.exit(0);
+  block("protect-generated could not parse its hook input");
 }
 
 const toolInput = input?.tool_input ?? {};
