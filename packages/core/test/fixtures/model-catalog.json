@@ -877,6 +877,264 @@
           }
         }
       ]
+    },
+    {
+      "id": "deepseek/deepseek-chat",
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "displayName": "DeepSeek Chat",
+      "family": "deepseek",
+      "mode": "chat",
+      "providers": [
+        "deepseek"
+      ],
+      "aliases": [
+        "deepseek/deepseek-chat"
+      ],
+      "limits": {
+        "contextTokens": 1000000,
+        "inputTokens": 163840,
+        "maxTokens": 16384,
+        "outputTokens": 384000,
+        "supports1MContext": true
+      },
+      "modalities": {
+        "input": [
+          "pdf",
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "audioInput": false,
+        "audioOutput": false,
+        "embedding": false,
+        "functionCalling": true,
+        "imageGeneration": false,
+        "imageInput": false,
+        "imageOutput": false,
+        "moderation": false,
+        "nativeStreaming": true,
+        "parallelFunctionCalling": true,
+        "pdfInput": true,
+        "promptCaching": true,
+        "rerank": false,
+        "responseSchema": true,
+        "speech": false,
+        "systemMessages": true,
+        "toolChoice": true,
+        "transcription": false,
+        "videoInput": false,
+        "assistantPrefill": true,
+        "supports1MContext": true,
+        "attachments": true,
+        "openWeights": true,
+        "reasoning": false,
+        "structuredOutput": true,
+        "temperature": true,
+        "toolCalling": true,
+        "vision": false,
+        "webSearch": false
+      },
+      "sourceRecords": [
+        {
+          "source": "litellm",
+          "sourceUrl": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+          "provider": "deepseek",
+          "model": "deepseek-chat",
+          "mode": "chat"
+        },
+        {
+          "source": "litellm",
+          "sourceUrl": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+          "provider": "deepseek",
+          "model": "deepseek/deepseek-chat",
+          "mode": "chat"
+        }
+      ]
+    },
+    {
+      "id": "minimax/minimax-m3",
+      "provider": "minimax",
+      "model": "minimax-m3",
+      "displayName": "MiniMax-M3",
+      "family": "minimax",
+      "mode": "chat",
+      "providers": [
+        "openrouter"
+      ],
+      "aliases": [
+        "openrouter/minimax/minimax-m3"
+      ],
+      "limits": {
+        "contextTokens": 1048576,
+        "inputTokens": 1048576,
+        "maxTokens": 1048576,
+        "outputTokens": 1048576,
+        "supports1MContext": true
+      },
+      "modalities": {
+        "input": [
+          "image",
+          "pdf",
+          "text",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "attachments": true,
+        "audioInput": false,
+        "audioOutput": false,
+        "imageInput": true,
+        "imageOutput": false,
+        "openWeights": true,
+        "pdfInput": true,
+        "reasoning": true,
+        "temperature": true,
+        "toolCalling": true,
+        "videoInput": true,
+        "embedding": false,
+        "functionCalling": true,
+        "imageGeneration": false,
+        "moderation": false,
+        "promptCaching": true,
+        "rerank": false,
+        "speech": false,
+        "systemMessages": true,
+        "toolChoice": true,
+        "transcription": false,
+        "vision": true,
+        "supports1MContext": true,
+        "structuredOutput": true,
+        "responseSchema": true,
+        "webSearch": false,
+        "parallelFunctionCalling": true,
+        "lowReasoningEffort": true,
+        "mediumReasoningEffort": true,
+        "highReasoningEffort": true,
+        "noneReasoningEffort": true,
+        "maxReasoningEffort": true,
+        "minimalReasoningEffort": true,
+        "xhighReasoningEffort": true,
+        "adaptiveThinking": true,
+        "nativeStreaming": true
+      },
+      "sourceRecords": [
+        {
+          "source": "models.dev",
+          "sourceUrl": "https://models.dev/api.json",
+          "provider": "openrouter",
+          "providerName": "OpenRouter",
+          "providerApi": "https://openrouter.ai/api/v1",
+          "providerDoc": "https://openrouter.ai/models",
+          "model": "minimax/minimax-m3",
+          "modelKey": "minimax/minimax-m3",
+          "displayName": "MiniMax-M3",
+          "family": "minimax",
+          "metadata": {
+            "reasoningOptions": [
+              {
+                "type": "toggle"
+              }
+            ]
+          }
+        },
+        {
+          "source": "litellm",
+          "sourceUrl": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+          "provider": "openrouter",
+          "model": "openrouter/minimax/minimax-m3",
+          "mode": "chat"
+        },
+        {
+          "source": "openrouter",
+          "sourceUrl": "https://openrouter.ai/api/v1/models",
+          "provider": "openrouter",
+          "model": "minimax/minimax-m3",
+          "displayName": "MiniMax: MiniMax M3",
+          "metadata": {
+            "topProvider": {
+              "context_length": 524288,
+              "max_completion_tokens": 512000,
+              "is_moderated": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "alibaba/qwen2.5-coder-32b-instruct",
+      "provider": "alibaba",
+      "model": "qwen2.5-coder-32b-instruct",
+      "displayName": "Qwen2.5 Coder 32B Instruct",
+      "family": "qwen",
+      "mode": "chat",
+      "providers": [
+        "nvidia"
+      ],
+      "aliases": [
+        "nvidia/qwen/qwen2.5-coder-32b-instruct"
+      ],
+      "limits": {
+        "contextTokens": 131072,
+        "inputTokens": 32768,
+        "maxTokens": 32768,
+        "outputTokens": 32768,
+        "supports1MContext": false
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "attachments": false,
+        "audioInput": false,
+        "audioOutput": false,
+        "imageInput": false,
+        "imageOutput": false,
+        "openWeights": true,
+        "pdfInput": false,
+        "reasoning": false,
+        "structuredOutput": true,
+        "temperature": true,
+        "toolCalling": true,
+        "videoInput": false,
+        "supports1MContext": false,
+        "embedding": false,
+        "imageGeneration": false,
+        "moderation": false,
+        "rerank": false,
+        "speech": false,
+        "transcription": false,
+        "functionCalling": true,
+        "parallelFunctionCalling": true,
+        "systemMessages": true,
+        "toolChoice": true,
+        "responseSchema": true
+      },
+      "sourceRecords": [
+        {
+          "source": "models.dev",
+          "sourceUrl": "https://models.dev/api.json",
+          "provider": "nvidia",
+          "providerName": "Nvidia",
+          "providerApi": "https://integrate.api.nvidia.com/v1",
+          "providerDoc": "https://docs.api.nvidia.com/nim/",
+          "model": "qwen/qwen2.5-coder-32b-instruct",
+          "modelKey": "qwen/qwen2.5-coder-32b-instruct",
+          "displayName": "Qwen2.5 Coder 32b Instruct",
+          "status": "deprecated"
+        }
+      ]
     }
   ]
 }
