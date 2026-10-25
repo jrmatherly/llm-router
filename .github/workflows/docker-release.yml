@@ -6,11 +6,11 @@ on:
       ref:
         description: Git ref to build, usually a release tag.
         required: true
-        default: v3.0.21
+        default: v3.1.3
       version:
         description: Docker version tag without leading v.
         required: true
-        default: 3.0.21
+        default: 3.1.3
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE_NAME: musistudio/claude-code-router
+  IMAGE_NAME: jrmatherly/llm-router
 
 jobs:
   docker:

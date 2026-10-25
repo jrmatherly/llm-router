@@ -11,11 +11,9 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: docs
   cancel-in-progress: false
 
 jobs:
@@ -39,20 +37,9 @@ jobs:
       - name: 📚 Build and upload docs
         uses: withastro/action@a8b97df764791eb61fbf3338ef713b0e61ae05c5 # v6.1.4
         env:
-          ASTRO_SITE: https://ccrdesk.top
-          ASTRO_BASE: /
+          ASTRO_SITE: https://jrmatherly.github.io
+          ASTRO_BASE: /llm-router/
         with:
           path: docs
           node-version: 24
 
-  deploy:
-    name: 🚀 Deploy
-    needs: build
-    runs-on: ubuntu-24.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: 🚀 Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

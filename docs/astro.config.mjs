@@ -29,8 +29,8 @@ function uiAssetsAsUrlPlugin() {
   };
 }
 
-const site = process.env.ASTRO_SITE ?? "https://ccrdesk.top";
-const base = process.env.ASTRO_BASE ?? "/";
+const site = process.env.ASTRO_SITE ?? "https://jrmatherly.github.io";
+const base = process.env.ASTRO_BASE ?? "/llm-router/";
 
 const agentClawPlatforms = [
   "slack",
