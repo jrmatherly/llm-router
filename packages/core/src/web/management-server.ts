@@ -1,4 +1,4 @@
-import { refreshModelCatalog } from "@ccr/core/models/catalog-file";
+import { modelCatalogRefreshError, refreshModelCatalog } from "@ccr/core/models/catalog-file";
 import { spawn } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -558,6 +558,7 @@ function logProfileApplyResult(result: ProfileApplyResult): void {
 
 function getCliAppInfo(): AppInfo {
   const { chatgptAppPath, opencodeAppPath, workbuddyAppPath } = getAppInfoPaths();
+  const catalogRefreshError = modelCatalogRefreshError();
   return {
     ...(chatgptAppPath ? { chatgptAppPath } : {}),
     configDbFile: APP_CONFIG_DB_FILE,
@@ -565,6 +566,7 @@ function getCliAppInfo(): AppInfo {
     dataDir: DATADIR,
     desktop: false,
     launchAtLoginSupported: false,
+    ...(catalogRefreshError ? { modelCatalogRefreshError: catalogRefreshError } : {}),
     name: APP_NAME,
     ...(opencodeAppPath ? { opencodeAppPath } : {}),
     platform: process.platform,

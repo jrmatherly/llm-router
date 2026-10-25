@@ -11,6 +11,7 @@ let refreshStarted = false;
 let lastAttempt = 0;
 let pendingRefresh: Promise<void> | undefined;
 let remoteCatalog: LoadedModelCatalogPayload | undefined;
+let lastRefreshError: string | undefined;
 
 export function scheduleModelCatalogRefresh(): void {
   if (refreshStarted) void refreshModelCatalog();
@@ -18,6 +19,11 @@ export function scheduleModelCatalogRefresh(): void {
 
 export function modelCatalogRevision(): number {
   return revision;
+}
+
+/** Why the most recent CDN refresh failed, or undefined after a successful one. */
+export function modelCatalogRefreshError(): string | undefined {
+  return lastRefreshError;
 }
 
 export function modelCatalogCachePath(): string {
@@ -51,6 +57,7 @@ async function downloadModelCatalog(): Promise<void> {
     if (!isModelCatalogPayload(payload)) throw new Error("Invalid model catalog (expected schemaVersion 2 and non-empty model records)");
     remoteCatalog = { loadedFrom: url, payload };
     revision += 1;
+    lastRefreshError = undefined;
     const file = modelCatalogCachePath();
     const temporaryFile = `${file}.${randomUUID()}.tmp`;
     try {
@@ -61,7 +68,8 @@ async function downloadModelCatalog(): Promise<void> {
       await rm(temporaryFile, { force: true });
     }
   } catch (error) {
-    console.warn(`[models] CDN refresh failed; using available local catalog: ${error instanceof Error ? error.message : String(error)}`);
+    lastRefreshError = error instanceof Error ? error.message : String(error);
+    console.warn(`[models] CDN refresh failed; using available local catalog: ${lastRefreshError}`);
   }
 }
 

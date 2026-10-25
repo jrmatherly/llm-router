@@ -1189,6 +1189,9 @@ function DataSettingsSection({
         <DataPathRow label={t("Config database")} value={appInfo.configDbFile} />
         <DataPathRow label={t("Request log database")} value={appInfo.requestLogsDbFile} />
         <DataPathRow label={t("Usage database")} value={appInfo.usageDbFile} />
+        {appInfo.modelCatalogRefreshError ? (
+          <DataPathRow label={t("Model catalog")} value={`${t("Cached copy; CDN refresh failed:")} ${appInfo.modelCatalogRefreshError}`} />
+        ) : null}
       </div>
 
       <div className="rounded-md border border-border bg-muted/20 px-3 py-3">

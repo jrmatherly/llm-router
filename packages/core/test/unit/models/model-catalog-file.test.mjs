@@ -82,7 +82,7 @@ test("a fresh offline install resolves the bundled catalog without a CDN cache",
 
 test("CDN catalog refresh deduplicates requests, updates indexes and preserves cache on failure", async () => {
   const { readFileSync, readdirSync } = await import("node:fs");
-  const { refreshModelCatalog, modelCatalogCachePath, modelCatalogRevision } = await import("@ccr/core/models/catalog-file.ts");
+  const { refreshModelCatalog, modelCatalogCachePath, modelCatalogRefreshError, modelCatalogRevision } = await import("@ccr/core/models/catalog-file.ts");
   const { findModelCatalogEntry } = await import("@ccr/core/gateway/model-catalog.ts");
   const { getProviderCatalogModels } = await import("@ccr/core/providers/model-catalog.ts");
   const dir = mkdtempSync(path.join(tmpdir(), "ccr-cdn-catalog-test-"));
@@ -127,10 +127,16 @@ test("CDN catalog refresh deduplicates requests, updates indexes and preserves c
     assert.ok(findModelCatalogEntry("cdn-second"));
     assert.deepEqual(getProviderCatalogModels({ providerIds: ["cdn-test"] }).models, ["cdn-second"]);
     const goodRevision = modelCatalogRevision();
-    for (const response of [() => new Response("{}"), () => new Response("bad", { status: 503 }), () => { throw new Error("offline"); }]) {
+    assert.equal(modelCatalogRefreshError(), undefined);
+    for (const [response, reason] of [
+      [() => new Response("{}"), /Invalid model catalog/],
+      [() => new Response("bad", { status: 503 }), /HTTP 503/],
+      [() => { throw new Error("offline"); }, /offline/]
+    ]) {
       time += 60 * 60 * 1000 + 1;
       globalThis.fetch = async () => response();
       await refreshModelCatalog();
+      assert.match(modelCatalogRefreshError(), reason);
       assert.equal(modelCatalogRevision(), goodRevision);
       assert.deepEqual(JSON.parse(readFileSync(modelCatalogCachePath(), "utf8")), payload);
       assert.ok(findModelCatalogEntry("cdn-second"));

@@ -48,12 +48,21 @@ test("web management server is ready before the catalog CDN answers", async () =
     const deadline = Date.now() + 2_000;
     while (downloadRequests === 0 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
     assert.equal(downloadRequests, 1, "startup still kicks off the catalog download");
-    const response = await fetch(new URL("/api/ccr/rpc", runtime.url), {
-      body: JSON.stringify({ args: [], method: "getAppInfo" }),
-      headers: { "content-type": "application/json", "x-ccr-web-auth": "catalog-startup-token" },
-      method: "POST"
-    });
-    assert.equal(response.status, 200);
+    const appInfo = async () => {
+      const response = await fetch(new URL("/api/ccr/rpc", runtime.url), {
+        body: JSON.stringify({ args: [], method: "getAppInfo" }),
+        headers: { "content-type": "application/json", "x-ccr-web-auth": "catalog-startup-token" },
+        method: "POST"
+      });
+      assert.equal(response.status, 200);
+      return (await response.json()).value;
+    };
+    assert.equal((await appInfo()).modelCatalogRefreshError, undefined);
+    cdn.closeAllConnections();
+    const { modelCatalogRefreshError } = await import("@ccr/core/models/catalog-file.ts");
+    while (modelCatalogRefreshError() === undefined && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.ok(modelCatalogRefreshError(), "the failed download is recorded");
+    assert.equal((await appInfo()).modelCatalogRefreshError, modelCatalogRefreshError());
   } finally {
     await runtime.close();
     cdn.closeAllConnections();
