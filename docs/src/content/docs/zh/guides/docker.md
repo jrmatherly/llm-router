@@ -226,12 +226,12 @@ docker compose logs --tail=200 ccr
 
 ## 构建和烟雾测试
 
-默认使用 `node:22-bookworm` 构建原生依赖，再把生产依赖和构建产物复制到 `node:22-bookworm-slim`。需要替换基础镜像时：
+默认使用 `node:24-bookworm` 构建原生依赖，再把生产依赖和构建产物复制到 `node:24-bookworm-slim`。需要替换基础镜像时：
 
 ```sh
 docker build \
-  --build-arg NODE_IMAGE=node:22-bookworm \
-  --build-arg RUNTIME_NODE_IMAGE=node:22-bookworm-slim \
+  --build-arg NODE_IMAGE=node:24-bookworm \
+  --build-arg RUNTIME_NODE_IMAGE=node:24-bookworm-slim \
   -t claude-code-router:local .
 ```
 

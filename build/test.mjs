@@ -112,7 +112,7 @@ for (const [name, project] of selectedProjects) {
     outdir: projectOutDir,
     platform: "node",
     plugins: [rendererAliasPlugin(), packageAliasPlugin()],
-    target: "node22"
+    target: "node24"
   });
 }
 

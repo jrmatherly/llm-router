@@ -226,12 +226,12 @@ Changing internal ports requires keeping the PM2 and Nginx variables consistent,
 
 ## Build and smoke test
 
-By default, native dependencies are built on `node:22-bookworm`, then production dependencies and build output are copied into `node:22-bookworm-slim`. To swap the base images:
+By default, native dependencies are built on `node:24-bookworm`, then production dependencies and build output are copied into `node:24-bookworm-slim`. To swap the base images:
 
 ```sh
 docker build \
-  --build-arg NODE_IMAGE=node:22-bookworm \
-  --build-arg RUNTIME_NODE_IMAGE=node:22-bookworm-slim \
+  --build-arg NODE_IMAGE=node:24-bookworm \
+  --build-arg RUNTIME_NODE_IMAGE=node:24-bookworm-slim \
   -t claude-code-router:local .
 ```
 

@@ -18,7 +18,7 @@ CCR 有两个相关命令：
 
 ## 安装、升级与卸载
 
-CLI 要求 Node.js 22 或更高版本：
+CLI 要求 Node.js 24 或更高版本：
 
 ```sh
 node --version

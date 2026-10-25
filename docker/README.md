@@ -207,12 +207,12 @@ Changing internal ports requires corresponding Nginx/PM2 variables and offers no
 
 ## Build Options And Smoke Test
 
-The Dockerfile builds native dependencies with `node:22-bookworm`, then copies production dependencies and built assets into `node:22-bookworm-slim`. Override the base images when required:
+The Dockerfile builds native dependencies with `node:24-bookworm`, then copies production dependencies and built assets into `node:24-bookworm-slim`. Override the base images when required:
 
 ```sh
 docker build \
-  --build-arg NODE_IMAGE=node:22-bookworm \
-  --build-arg RUNTIME_NODE_IMAGE=node:22-bookworm-slim \
+  --build-arg NODE_IMAGE=node:24-bookworm \
+  --build-arg RUNTIME_NODE_IMAGE=node:24-bookworm-slim \
   -t claude-code-router:local .
 ```
 

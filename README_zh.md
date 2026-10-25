@@ -180,7 +180,7 @@ CCR 支持 OpenAI Chat / Responses、Anthropic Messages、Gemini Generate Conten
 
 ### CLI
 
-npm CLI 要求 Node.js 22 或更高版本。无需 Electron，也能启动相同的模型网关与浏览器管理界面：
+npm CLI 要求 Node.js 24 或更高版本。无需 Electron，也能启动相同的模型网关与浏览器管理界面：
 
 ```sh
 npm install -g @musistudio/claude-code-router
@@ -199,7 +199,7 @@ Docker 默认通过 `http://127.0.0.1:3458` 提供管理界面与网关路由。
 
 ## 构建桌面应用
 
-先安装 Node.js 22+，然后执行 `npm ci`。
+先安装 Node.js 24+，然后执行 `npm ci`。
 
 | 目标 | 命令 | 产物目录 |
 | --- | --- | --- |

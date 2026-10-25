@@ -7,7 +7,7 @@ lead: "The first-run path for CCR: install and start the service, connect a prov
 
 ## Install and start CCR
 
-CCR is available as a desktop app, a Node.js 22+ npm CLI, and a single-entrypoint Docker deployment.
+CCR is available as a desktop app, a Node.js 24+ npm CLI, and a single-entrypoint Docker deployment.
 
 | Distribution | Start entry | Default management | Default model gateway |
 | --- | --- | --- | --- |

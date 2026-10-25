@@ -1,5 +1,5 @@
-ARG NODE_IMAGE=node:22-bookworm-slim
-ARG RUNTIME_NODE_IMAGE=node:22-bookworm-slim
+ARG NODE_IMAGE=node:24-bookworm-slim
+ARG RUNTIME_NODE_IMAGE=node:24-bookworm-slim
 
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app

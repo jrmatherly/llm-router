@@ -2,7 +2,7 @@
 title: 安装并启动 CCR
 pageTitle: 安装并启动 CCR
 eyebrow: 快速开始
-lead: 按运行场景在桌面应用、npm CLI 和 Docker 三种发行方式中选择并完成安装，然后验证管理界面与模型网关地址。CLI 要求 Node.js 22 或更高版本。
+lead: 按运行场景在桌面应用、npm CLI 和 Docker 三种发行方式中选择并完成安装，然后验证管理界面与模型网关地址。CLI 要求 Node.js 24 或更高版本。
 ---
 
 ## 选择发行方式
@@ -26,7 +26,7 @@ lead: 按运行场景在桌面应用、npm CLI 和 Docker 三种发行方式中�
 
 ## 安装 npm CLI
 
-要求 Node.js 22 或更高版本：
+要求 Node.js 24 或更高版本：
 
 ```sh
 npm install -g @musistudio/claude-code-router

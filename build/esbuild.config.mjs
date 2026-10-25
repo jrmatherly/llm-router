@@ -339,7 +339,7 @@ export function createMainBuildOptions({ mode = "production", plugins = [] } = {
     platform: "node",
     plugins: [packageAliasPlugin(), ...plugins],
     sourcemap: mode !== "production",
-    target: "node22"
+    target: "node24"
   };
 }
 
@@ -371,7 +371,7 @@ export function createCliBuildOptions({ mode = "production", plugins = [] } = {}
     platform: "node",
     plugins: [forbidCliElectronPlugin(), packageAliasPlugin(), ...plugins],
     sourcemap: mode !== "production",
-    target: "node22"
+    target: "node24"
   };
 }
 
@@ -403,7 +403,7 @@ export function createCoreServerBuildOptions({ mode = "production", plugins = []
     platform: "node",
     plugins: [forbidCliElectronPlugin(), packageAliasPlugin(), ...plugins],
     sourcemap: mode !== "production",
-    target: "node22"
+    target: "node24"
   };
 }
 
@@ -509,7 +509,7 @@ export function createBotGatewaySdkBuildOptions({ mode = "production", plugins =
     platform: "node",
     plugins,
     sourcemap: mode !== "production",
-    target: "node22"
+    target: "node24"
   };
 }
 

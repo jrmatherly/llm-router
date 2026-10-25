@@ -180,7 +180,7 @@ Your agent is now connected to CCR. To add conditions, retries, request rewrites
 
 ### CLI
 
-The npm CLI requires Node.js 22 or newer. It starts the same gateway and a browser-based management UI without Electron:
+The npm CLI requires Node.js 24 or newer. It starts the same gateway and a browser-based management UI without Electron:
 
 ```sh
 npm install -g @musistudio/claude-code-router
@@ -199,7 +199,7 @@ Docker exposes the management UI and gateway routes through `http://127.0.0.1:34
 
 ## Build desktop apps
 
-Install Node.js 22+, then run `npm ci`.
+Install Node.js 24+, then run `npm ci`.
 
 | Target | Command | Output |
 | --- | --- | --- |

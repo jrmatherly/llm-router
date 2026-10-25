@@ -2,7 +2,7 @@
 title: Install and start CCR
 pageTitle: Install and start CCR
 eyebrow: Quick start
-lead: Choose among the desktop app, npm CLI, and Docker distributions, complete installation and first startup, and verify the management UI and model gateway addresses. The CLI requires Node.js 22 or newer.
+lead: Choose among the desktop app, npm CLI, and Docker distributions, complete installation and first startup, and verify the management UI and model gateway addresses. The CLI requires Node.js 24 or newer.
 ---
 
 ## Choose a distribution
@@ -26,7 +26,7 @@ When Server shows Running, the model gateway defaults to `http://127.0.0.1:3456`
 
 ## Install the npm CLI
 
-Node.js 22 or newer is required:
+Node.js 24 or newer is required:
 
 ```sh
 npm install -g @musistudio/claude-code-router

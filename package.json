@@ -24,7 +24,7 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "publishConfig": {
     "access": "public"
@@ -128,5 +128,13 @@
     "socks": {
       "ip-address": "10.5.0"
     }
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "core-js@2.6.12": true,
+    "electron-winstaller@5.4.0": true,
+    "esbuild@0.27.7": true,
+    "@parcel/watcher@2.5.1": true,
+    "fsevents@2.3.2": true
   }
 }

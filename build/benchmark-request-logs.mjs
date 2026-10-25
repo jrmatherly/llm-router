@@ -30,7 +30,7 @@ try {
     outdir: outputDir,
     platform: "node",
     plugins: [packageAliasPlugin()],
-    target: "node22"
+    target: "node24"
   });
 
   const runtime = resolveRuntime();

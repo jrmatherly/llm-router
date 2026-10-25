@@ -18,7 +18,7 @@ Both distributions read the same local configuration directory, but do not mix u
 
 ## Install, upgrade, and uninstall
 
-The CLI requires Node.js 22 or newer:
+The CLI requires Node.js 24 or newer:
 
 ```sh
 node --version
