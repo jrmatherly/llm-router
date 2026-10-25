@@ -21,3 +21,7 @@ blob-report
 .tmp
 .test-dist
 docker/local-ai-gateway/*.tgz
+.codegraph/
+.remember/
+private/
+
