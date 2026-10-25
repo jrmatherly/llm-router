@@ -133,7 +133,9 @@ const webBridgeScriptTag = '    <script src="../../assets/web-client-bridge.js">
 
 
 export async function startWebManagementServer(options: WebManagementServerOptions = {}): Promise<WebManagementServerRuntime> {
-  await refreshModelCatalog();
+  // Serve from the bundled or cached catalog at once; the catalog indexes
+  // rebuild on the next lookup when the download lands.
+  void refreshModelCatalog();
   const host = options.host?.trim() || readEnvString("CCR_WEB_HOST") || defaultWebHost;
   const requestedPort = options.port ?? readEnvPort("CCR_WEB_PORT") ?? defaultWebPort;
   const authToken = options.authToken?.trim() || readEnvString("CCR_WEB_AUTH_TOKEN") || randomBytes(32).toString("base64url");

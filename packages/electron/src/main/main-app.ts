@@ -48,7 +48,7 @@ function startPrimaryInstance(): void {
   });
 
   void app.whenReady().then(async () => {
-    await refreshModelCatalog();
+    void refreshModelCatalog();
     const config = await loadAppConfig();
     applyNativeThemePreference(config.theme);
     windowsManager.setOnboardingFinished(await loadOnboardingFinished());
