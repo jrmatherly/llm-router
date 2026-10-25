@@ -1,6 +1,7 @@
 import {
   appLogoUrl, formatCompactNumber, Power, useTrayText
 } from "../shared";
+import { productShortName } from "../../home/shared/brand";
 
 export function TrayStatusStrip({ totalTokens }: { totalTokens: number }) {
   const t = useTrayText();
@@ -17,7 +18,7 @@ export function TrayStatusStrip({ totalTokens }: { totalTokens: number }) {
         <TrayWindowHeaderIcon />
         <div className="min-w-0">
           <div className="truncate text-[12px] font-semibold text-slate-50">{formatCompactNumber(totalTokens)} {t("tokens")}</div>
-          <div className="truncate text-[10px] font-medium text-slate-400">CCR</div>
+          <div className="truncate text-[10px] font-medium text-slate-400">{productShortName}</div>
         </div>
       </button>
       <button

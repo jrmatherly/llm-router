@@ -4,6 +4,7 @@ import {
   providerAccountSnapshotKey, ReactNode, UsageStatsRange, UsageStatsSnapshot, useRef, useState,
   useAppText, type OverviewWidgetType, type ProviderAccountMeter, type ProviderAccountSnapshot
 } from "../shared/index";
+import { productShortName } from "../shared/brand";
 import { buildTokenActivity, type TokenActivityCell } from "@/lib/usage-activity";
 
 type ShareCardTone = "amber" | "blue" | "emerald" | "indigo" | "rose" | "slate" | "teal";
@@ -250,7 +251,7 @@ function UsageWrappedCard({ usageStats }: { usageStats: UsageStatsSnapshot }) {
   );
 }
 
-function RouteMapCard({ usageStats }: { usageStats: UsageStatsSnapshot }) {
+export function RouteMapCard({ usageStats }: { usageStats: UsageStatsSnapshot }) {
   const t = useAppText();
   const routes = buildRouteRows(usageStats, t);
   const total = routes.reduce((sum, row) => sum + row.value, 0) || 1;
@@ -261,7 +262,7 @@ function RouteMapCard({ usageStats }: { usageStats: UsageStatsSnapshot }) {
       <div className="mt-7 rounded-[22px] border border-indigo-200/80 bg-white/62 p-4 shadow-[0_16px_34px_rgba(79,70,229,0.10)]">
         <div className="grid grid-cols-[1fr_64px_1fr] items-center gap-3 text-center text-[10px] font-bold uppercase text-indigo-950/55">
           <span>{t("Client")}</span>
-          <span>CCR</span>
+          <span>{productShortName}</span>
           <span>{t("Model")}</span>
         </div>
         <div className="mt-4 space-y-3">
@@ -483,7 +484,7 @@ function SharePoster({
   );
 }
 
-function SharePosterHeader({
+export function SharePosterHeader({
   title,
   tone
 }: {
@@ -497,7 +498,7 @@ function SharePosterHeader({
         <h4 className="text-[30px] font-black leading-[1.02] tracking-normal">{title}</h4>
       </div>
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-white/70 bg-white/58 shadow-[0_12px_28px_rgba(15,23,42,0.10)]">
-        <span className="text-[16px] font-black" style={{ color: theme.accent }}>CCR</span>
+        <span className="text-[16px] font-black" style={{ color: theme.accent }}>{productShortName}</span>
       </div>
     </div>
   );

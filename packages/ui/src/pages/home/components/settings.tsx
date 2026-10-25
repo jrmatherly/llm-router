@@ -13,6 +13,7 @@ import {
   appLogoUrl, trayMascotIconUrls, arrayMove, defaultTrayWidgetVariant, isTraySingletonWidgetType, normalizeTrayWidget, normalizeTrayWidgets, Switch, Textarea, Trash2, trayWidgetVariantOptions, useAppText, useEffect, useMemo, useRef, useSensor, useSensors, useSortable, useState, validateMcpServerDraft,
   providerAccountSnapshotKey, providerAccountSnapshotLabel, uniqueStrings, X
 } from "../shared/index";
+import { productShortName } from "../shared/brand";
 import { ModelSelector } from "./model-selector";
 
 const settingsPageContentWidthClassName = "mx-auto w-full max-w-[900px]";
@@ -2693,7 +2694,7 @@ function TrayWindowPreview({
           <TrayWindowHeaderIcon />
           <div className="min-w-0">
             <div className="truncate text-[12px] font-semibold text-slate-50">88.4k {trayPreviewText(copy, "tokens", "tokens")}</div>
-            <div className="truncate text-[10px] font-medium text-slate-400">CCR</div>
+            <div className="truncate text-[10px] font-medium text-slate-400">{productShortName}</div>
           </div>
         </div>
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[.04] text-slate-300" aria-hidden="true">

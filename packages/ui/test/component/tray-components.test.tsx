@@ -120,7 +120,8 @@ test("TrayStatusStrip renders open and quit actions", () => {
   assert.match(html, /aria-label="Open CCR"/);
   assert.match(html, /title="Open CCR"/);
   assert.match(html, /12\.5K tokens/);
-  assert.match(html, /CCR/);
+  assert.match(html, /LLMR/);
+  assert.doesNotMatch(html, />CCR</);
   assert.match(html, /aria-label="Quit"/);
 });
 
