@@ -1,5 +1,5 @@
 ---
-title: Claude Code Router 快速开始
+title: LLM Router 快速开始
 pageTitle: 快速开始
 eyebrow: 快速开始
 lead: 本页是 CCR 的首次上手路径：安装并启动服务、接入第一个供应商、把 Agent 指向 CCR 网关，最后用请求日志和观测面板确认链路生效。适合第一次部署 CCR 的读者。

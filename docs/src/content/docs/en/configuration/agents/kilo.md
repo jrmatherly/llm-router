@@ -39,7 +39,7 @@ Kilo Code is fixed to **CLI only**, so the entry mode is not editable. The field
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from CCR` / `System default` | Keeps changes limited to CCR launches, or makes this the system-default Kilo profile. Only one enabled system-default Kilo profile is allowed. |
 | Provider ID | Default `claude-code-router` | Provider reference for this Kilo profile. |
-| Provider name | Free text; default `Claude Code Router` | Display name shown in Kilo. |
+| Provider name | Free text; default `LLM Router` | Display name shown in Kilo. |
 | Kilo model | A provider model or Fusion model | Default model Kilo uses through CCR. |
 | Config file | Path | Used for the system-default Kilo profile. |
 | Environment variables | Key/value rows | Optional advanced overrides; leave empty for normal use. |

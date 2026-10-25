@@ -1,5 +1,5 @@
 ---
-title: Claude Code Router quick start
+title: LLM Router quick start
 pageTitle: Quick start
 eyebrow: Getting started
 lead: "The first-run path for CCR: install and start the service, connect a provider, point an agent at the CCR gateway, then confirm requests in logs and on the Observability page."

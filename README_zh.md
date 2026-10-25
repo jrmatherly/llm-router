@@ -1,6 +1,6 @@
 <div align="center">
 
-# Claude Code Router
+# LLM Router
 
 ### 在一个地方，管理你所有的 Agent 与 Provider
 
@@ -21,13 +21,13 @@
 
 <br />
 
-<img src="blog/images/claude-code-router.png" width="820" alt="Claude Code Router 桌面端控制台" />
+<img src="blog/images/claude-code-router.png" width="820" alt="LLM Router 桌面端控制台" />
 
 </div>
 
-## 为什么使用 Claude Code Router？
+## 为什么使用 LLM Router？
 
-Claude Code Router（CCR）是面向编程 Agent 的本地模型网关与控制平面。它为 Claude Code、Claude Design、Codex、Grok CLI、Kimi CLI、Kilo Code、OpenCode、Pi、ZCode、WorkBuddy 和兼容 API 客户端提供**一个稳定的本地入口**，让你在一个地方管理入口背后的供应商、模型、账号、路由规则与工具。
+LLM Router（CCR）是面向编程 Agent 的本地模型网关与控制平面。它为 Claude Code、Claude Design、Codex、Grok CLI、Kimi CLI、Kilo Code、OpenCode、Pi、ZCode、WorkBuddy 和兼容 API 客户端提供**一个稳定的本地入口**，让你在一个地方管理入口背后的供应商、模型、账号、路由规则与工具。
 
 你可以使用 CCR：
 
@@ -130,7 +130,7 @@ CCR 支持 OpenAI Chat / Responses、Anthropic Messages、Gemini Generate Conten
 ### 桌面端（推荐）
 
 1. <details open>
-   <summary><strong>下载 Claude Code Router，选择 macOS、Windows 或 Linux 版本并启动应用。</strong></summary>
+   <summary><strong>下载 LLM Router，选择 macOS、Windows 或 Linux 版本并启动应用。</strong></summary>
 
    <div align="center">
 
@@ -214,7 +214,7 @@ Windows App 打包必须在 Windows x64 上运行，因为 `better-sqlite3` 包�
 Claude Code · Claude Design · Codex · Grok CLI · Kimi CLI · Kilo Code · OpenCode · Pi · ZCode · WorkBuddy · 兼容 API 客户端
                               │
                               ▼
-                 Claude Code Router :3456
+                 LLM Router :3456
               配置档案 · 路由 · 凭据 · 工具 · 日志
                               │
                               ▼

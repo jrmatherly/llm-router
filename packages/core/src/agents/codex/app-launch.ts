@@ -404,7 +404,7 @@ function workbuddyModelVendor(model: string, providerName?: string): string {
       return provider;
     }
   }
-  return providerName?.trim() || "Claude Code Router";
+  return providerName?.trim() || "LLM Router";
 }
 
 function workbuddyGatewayBaseUrl(config?: Pick<AppConfig, "gateway">): string {
@@ -858,7 +858,7 @@ function workbuddyVirtualAuthAccount(profile: Pick<ProfileConfig, "id" | "name">
   return {
     avatarUrl: "",
     lastLogin: true,
-    nickname: profile.name?.trim() || "Claude Code Router",
+    nickname: profile.name?.trim() || "LLM Router",
     pluginEnabled: true,
     type: "personal",
     uid: workbuddyVirtualAuthUserId

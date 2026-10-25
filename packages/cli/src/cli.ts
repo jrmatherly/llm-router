@@ -8,7 +8,7 @@ import { applyClaudeAppGatewayConfig } from "@ccr/core/agents/claude-app/gateway
 import { launchClaudeAppProfile, resolveClaudeAppProfileUserDataDir } from "@ccr/core/agents/claude-app/launch";
 import { codexDesktopAppName, launchZcodeAppProfile } from "@ccr/core/agents/codex/app-launch";
 import { loadAppConfig } from "@ccr/core/config/config";
-import { CONFIGDIR } from "@ccr/core/config/constants";
+import { APP_NAME, CONFIGDIR } from "@ccr/core/config/constants";
 import { installSocketTypeOfServiceCompat } from "@ccr/core/platform/socket-compat";
 import { applyProfileConfig, applyProfileRuntimeConfig } from "@ccr/core/profiles/service";
 import { ensureProfileGateway, ProfileGatewayUnavailableError } from "@ccr/core/profiles/launch-service";
@@ -941,7 +941,7 @@ async function verifyServiceState(state: ServiceState): Promise<ServiceStateVeri
   }
 
   const appInfo = await callServiceRpc<{ name?: unknown }>(state, "getAppInfo").catch(() => undefined);
-  return appInfo?.name === "Claude Code Router"
+  return appInfo?.name === APP_NAME
     ? { ok: true, trustedPid: false }
     : { ok: false };
 }
@@ -950,13 +950,13 @@ async function waitForServiceUnavailable(state: ServiceState, timeoutMs: number)
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     const appInfo = await callServiceRpc<{ name?: unknown }>(state, "getAppInfo").catch(() => undefined);
-    if (appInfo?.name !== "Claude Code Router") {
+    if (appInfo?.name !== APP_NAME) {
       return true;
     }
     await delay(150);
   }
   const appInfo = await callServiceRpc<{ name?: unknown }>(state, "getAppInfo").catch(() => undefined);
-  return appInfo?.name !== "Claude Code Router";
+  return appInfo?.name !== APP_NAME;
 }
 
 async function callServiceRpc<T>(state: ServiceState, method: string, args: unknown[] = [], timeoutMs = serviceRpcTimeoutMs): Promise<T> {

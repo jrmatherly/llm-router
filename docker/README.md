@@ -62,12 +62,12 @@ Build and run without Compose:
 ```sh
 npm run docker:build
 docker run -d \
-  --name claude-code-router \
+  --name llm-router \
   --restart unless-stopped \
   -p 127.0.0.1:3458:8080 \
   -e CCR_PUBLIC_BASE_URL=http://127.0.0.1:3458 \
   -v ccr-data:/data \
-  claude-code-router:local
+  llm-router:local
 ```
 
 The temporary run script is also available:
@@ -213,7 +213,7 @@ The Dockerfile builds native dependencies with `node:24-bookworm`, then copies p
 docker build \
   --build-arg NODE_IMAGE=node:24-bookworm \
   --build-arg RUNTIME_NODE_IMAGE=node:24-bookworm-slim \
-  -t claude-code-router:local .
+  -t llm-router:local .
 ```
 
 Run the isolated Docker smoke test:

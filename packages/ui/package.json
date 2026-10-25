@@ -2,7 +2,7 @@
   "name": "@claude-code-router/ui",
   "version": "4.0.1",
   "private": true,
-  "description": "Claude Code Router web management UI.",
+  "description": "LLM Router web management UI.",
   "scripts": {
     "test": "node ../../build/test.mjs ui && node ../../build/run-tests.mjs ui",
     "test:unit": "node ../../build/test.mjs ui --scope unit && node ../../build/run-tests.mjs ui",

@@ -178,7 +178,7 @@ module.exports = {
       }
     });
     assert.equal(
-      compiled.plugins.some((plugin) => plugin.key === "ccr-router"),
+      compiled.plugins.some((plugin) => plugin.key === "llm-router"),
       gatewayRuntimeSupportsRouterPlugin()
     );
     assert.ok(compiled.plugins.some((plugin) => plugin.key === "good-context-core-plugin"));

@@ -56,7 +56,7 @@ test("#1850/#1861 fallback attribution reaches OpenAI JSON/SSE clients and reque
     config.Router.fallback = { mode: "model-chain", models: ["Backup/backup"], retryCount: 0 };
     config.observability = { ...config.observability, requestLogs: true, requestLogBodyCapture: "all", requestLogSuccessSampleRate: 1 };
     const compiled = await compileCoreGatewayConfig(config, "trace", "billing", "auth");
-    const router = compiled.plugins.find(plugin => plugin.key === "ccr-router");
+    const router = compiled.plugins.find(plugin => plugin.key === "llm-router");
     router.modulePath = path.resolve(__dirname, "../../../runtime/router-plugin.js");
     gateway = await startGateway(root, { providers: compiled.providers, plugins: [router] });
     const plugin = new ClaudeCodeRouterPlugin(config);

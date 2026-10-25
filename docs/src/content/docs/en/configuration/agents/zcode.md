@@ -39,7 +39,7 @@ ZCode is fixed to **App only**, so the entry mode is not editable. The fields yo
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from CCR` / `System default` | Keeps the profile limited to CCR launches, or makes it the system-default ZCode profile. Only one enabled system-default ZCode profile is allowed. |
 | Provider ID | Default `claude-code-router` | Provider reference for this ZCode profile. |
-| Provider name | Free text; default `Claude Code Router` | Display name shown in ZCode. |
+| Provider name | Free text; default `LLM Router` | Display name shown in ZCode. |
 | ZCode model | A provider model or Fusion model | Default model when ZCode App opens. |
 | Config file | Path | Used for the system-default ZCode profile. |
 | Environment variables | Key/value rows | Optional advanced overrides; leave empty for normal use. |

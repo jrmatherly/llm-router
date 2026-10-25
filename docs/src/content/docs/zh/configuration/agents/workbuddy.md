@@ -32,7 +32,7 @@ WorkBuddy 固定为 **仅 App**，入口模式不可编辑。可配置的字段�
 | 启用 | 开关 | 关闭的配置不会被应用，也不会出现在启动入口。 |
 | 生效范围 | `仅从 CCR 打开时生效` / `系统默认` | 仅影响从 CCR 打开的 WorkBuddy，或作为系统默认 WorkBuddy 配置。同一 Agent 只允许一个启用的系统默认配置。 |
 | 供应商 ID | 默认 `claude-code-router` | 当前 WorkBuddy 配置使用的供应商引用。 |
-| 供应商名称 | 自由文本；默认 `Claude Code Router` | 生成配置中使用的显示名称。 |
+| 供应商名称 | 自由文本；默认 `LLM Router` | 生成配置中使用的显示名称。 |
 | WorkBuddy 模型 | 供应商模型或 Fusion 模型 | WorkBuddy App 打开时的默认模型。 |
 | 允许模型列表 | 可选多选 | 控制 WorkBuddy 中可见的 CCR 模型。留空表示全部模型。 |
 | APP_PATH | 可选可执行文件路径 | 覆盖 App 自动探测。WorkBuddy 安装在自定义位置时使用。 |

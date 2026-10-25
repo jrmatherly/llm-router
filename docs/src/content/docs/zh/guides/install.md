@@ -19,7 +19,7 @@ lead: 按运行场景在桌面应用、npm CLI 和 Docker 三种发行方式中�
 
 1. 打开 [GitHub Releases](https://github.com/musistudio/claude-code-router/releases) 页面。
 2. 按系统下载：macOS 使用 `.dmg` 或 `.zip`，Windows 使用 `.exe`，Linux 使用 `.AppImage`。
-3. 安装并打开 **Claude Code Router**。
+3. 安装并打开 **LLM Router**。
 4. 添加供应商和模型，在 **API 密钥** 中创建客户端 Key，然后从 **服务** 页面点击 **启动**。
 
 页面显示运行中后，模型网关默认监听 `http://127.0.0.1:3456`。需要打开应用时自动启动网关，可在 **服务** 页面开启自动启动。

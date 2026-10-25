@@ -123,9 +123,9 @@ const logoSrc = withBase("/logo.png");
 const pageDescription =
   description ??
   (locale === "zh"
-    ? "Claude Code Router（CCR）文档：安装、配置、供应商接入与故障排查指南。"
-    : "Claude Code Router (CCR) documentation: installation, configuration, provider setup, and troubleshooting guides.");
-const pageTitle = isHome && docTitle ? String(docTitle) : `${title} | Claude Code Router`;
+    ? "LLM Router（CCR）文档：安装、配置、供应商接入与故障排查指南。"
+    : "LLM Router (CCR) documentation: installation, configuration, provider setup, and troubleshooting guides.");
+const pageTitle = isHome && docTitle ? String(docTitle) : `${title} | LLM Router`;
 const canonicalUrl = absoluteHref(currentPath);
 const ogImageUrl = absoluteHref("/logo.png");
 const sitemapUrl = withBase("/sitemap-index.xml");
@@ -188,7 +188,7 @@ const featuredNavLabel = locale === "zh" ? "主要入口" : "Primary navigation"
     <div class="shell">
       <header class="topbar" data-topbar>
         <div class="top-left">
-          <a class="brand" href={homeHref} aria-label="Claude Code Router Docs">
+          <a class="brand" href={homeHref} aria-label="LLM Router Docs">
             <img src={logoSrc} alt="" class="brand-logo" />
             <span>CCR docs</span>
           </a>
@@ -438,7 +438,7 @@ const featuredNavLabel = locale === "zh" ? "主要入口" : "Primary navigation"
                 </a>
               )
             }
-            <p class="copyright">© {currentYear} Claude Code Router</p>
+            <p class="copyright">© {currentYear} LLM Router</p>
           </footer>
         </main>
 

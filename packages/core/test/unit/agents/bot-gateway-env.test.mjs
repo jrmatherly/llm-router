@@ -160,11 +160,11 @@ test("botGatewayProfileEnv defaults iMessage to local auth", () => {
 });
 
 test("botGatewaySdkImportSpecifier converts Windows absolute paths before URL scheme detection", () => {
-  const windowsPath = "C:\\Users\\macao\\AppData\\Local\\Programs\\Claude Code Router\\resources\\app.asar\\dist\\main\\bot-gateway-sdk\\dist\\index.js";
+  const windowsPath = "C:\\Users\\macao\\AppData\\Local\\Programs\\LLM Router\\resources\\app.asar\\dist\\main\\bot-gateway-sdk\\dist\\index.js";
 
   assert.equal(
     botGatewaySdkImportSpecifier(windowsPath),
-    "file:///C:/Users/macao/AppData/Local/Programs/Claude%20Code%20Router/resources/app.asar/dist/main/bot-gateway-sdk/dist/index.js"
+    "file:///C:/Users/macao/AppData/Local/Programs/LLM%20Router/resources/app.asar/dist/main/bot-gateway-sdk/dist/index.js"
   );
   assert.equal(botGatewaySdkImportSpecifier("file:///tmp/sdk/index.js"), "file:///tmp/sdk/index.js");
   assert.equal(botGatewaySdkImportSpecifier("@the-next-ai/bot-gateway-sdk"), "@the-next-ai/bot-gateway-sdk");

@@ -466,8 +466,8 @@ const DEFAULT_ME = {
   accountUuid: "00000000-0000-4000-8000-000000000001",
   organizationUuid: "00000000-0000-4000-8000-000000000002",
   email: "claude-code-router@example.local",
-  displayName: "Claude Code Router",
-  orgName: "Claude Code Router Organization",
+  displayName: "LLM Router",
+  orgName: "LLM Router Organization",
   growthbookPayload: "{}",
   modelPresets: [
     {
@@ -507,7 +507,7 @@ const DEFAULT_ME = {
   memberships: [
     {
       uuid: "00000000-0000-4000-8000-000000000002",
-      name: "Claude Code Router Organization"
+      name: "LLM Router Organization"
     }
   ]
 };

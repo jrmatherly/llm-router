@@ -1,6 +1,6 @@
 {
   "appId": "com.claudecoderouter.desktop",
-  "productName": "Claude Code Router",
+  "productName": "LLM Router",
   "asar": true,
   "asarUnpack": [
     "**/*.node",
@@ -24,7 +24,7 @@
   "afterAllArtifactBuild": "build/verify-update-metadata.cjs",
   "protocols": [
     {
-      "name": "Claude Code Router Provider Import",
+      "name": "LLM Router Provider Import",
       "schemes": ["ccr"]
     }
   ],
@@ -49,7 +49,7 @@
     "entitlementsInherit": "build/entitlements.mac.inherit.plist",
     "notarize": true,
     "target": ["dmg", "zip"],
-    "artifactName": "Claude-Code-Router_${version}.${ext}"
+    "artifactName": "LLM-Router_${version}.${ext}"
   },
   "afterSign": "build/verify-macos-notarization.cjs",
   "win": {
@@ -60,12 +60,12 @@
         "arch": ["x64"]
       }
     ],
-    "artifactName": "Claude-Code-Router_${version}.${ext}"
+    "artifactName": "LLM-Router_${version}.${ext}"
   },
   "linux": {
-    "executableName": "claude-code-router",
+    "executableName": "llm-router",
     "target": ["AppImage"],
-    "artifactName": "Claude-Code-Router_${version}.${ext}"
+    "artifactName": "LLM-Router_${version}.${ext}"
   },
   "nsis": {
     "oneClick": false,
@@ -76,6 +76,6 @@
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "runAfterFinish": true,
-    "shortcutName": "Claude Code Router"
+    "shortcutName": "LLM Router"
   }
 }

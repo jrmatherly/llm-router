@@ -60,7 +60,7 @@ test("web RPC ignores Origin and Referer when the auth token is valid", async ()
 
     assert.equal(response.status, 200);
     assert.equal(payload.ok, true);
-    assert.equal(payload.value.name, "Claude Code Router");
+    assert.equal(payload.value.name, "LLM Router");
   } finally {
     await runtime.close();
   }

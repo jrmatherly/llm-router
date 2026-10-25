@@ -588,7 +588,7 @@ async function imageExportFile(window: BrowserWindow | null, fileName: string, e
 function dataExportSaveDialogOptions(exportedAt: string): SaveDialogOptions {
   return {
     buttonLabel: "Export",
-    defaultPath: path.join(app.getPath("downloads"), `claude-code-router-data-${fileSafeTimestamp(exportedAt)}.json`),
+    defaultPath: path.join(app.getPath("downloads"), `llm-router-data-${fileSafeTimestamp(exportedAt)}.json`),
     filters: [
       { extensions: ["json"], name: "CCR data export" }
     ],

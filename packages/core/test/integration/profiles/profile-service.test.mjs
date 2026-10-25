@@ -539,7 +539,7 @@ test("profile service can exclude ZCode from automatic synchronization", async (
         model: "Provider/model",
         name: "ZCode",
         providerId: "claude-code-router",
-        providerName: "Claude Code Router",
+        providerName: "LLM Router",
         scope: "global",
         showAllSessions: false,
         surface: "app"
@@ -973,7 +973,7 @@ test("Codex profile launcher bypasses middleware for Browser and Computer Use he
       model: "Provider/model",
       name: "Browser Helper Bypass",
       providerId: "claude-code-router",
-      providerName: "Claude Code Router",
+      providerName: "LLM Router",
       scope: "ccr",
       showAllSessions: false,
       surface: "app"
@@ -1070,7 +1070,7 @@ test("profile service injects ToolHub MCP into Codex config", { skip: !process.e
       model: "Provider/model",
       name: "Codex ToolHub Test",
       providerId: "claude-code-router",
-      providerName: "Claude Code Router",
+      providerName: "LLM Router",
       scope: "ccr",
       showAllSessions: false,
       surface: "auto"
@@ -1252,7 +1252,7 @@ test("profile service injects Context Archive MCP for managed Codex profile", { 
       model: "Provider/model",
       name: "Managed Compact Codex",
       providerId: "claude-code-router",
-      providerName: "Claude Code Router",
+      providerName: "LLM Router",
       scope: "ccr",
       showAllSessions: false,
       surface: "auto"
@@ -1683,7 +1683,7 @@ test("profile service writes an OpenCode CLI wrapper and shared CLI/App config",
       model: "Provider/model",
       name: "OpenCode Gateway Test",
       providerId: "claude-code-router",
-      providerName: "Claude Code Router",
+      providerName: "LLM Router",
       scope: "ccr",
       surface: "auto"
     }
@@ -1746,7 +1746,7 @@ test("profile service removes disabled and deleted OpenCode wrappers and API key
     model: "Provider/model",
     name: "OpenCode Cleanup Test",
     providerId: "claude-code-router",
-    providerName: "Claude Code Router",
+    providerName: "LLM Router",
     scope: "ccr",
     surface: "auto"
   };

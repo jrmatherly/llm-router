@@ -1,6 +1,6 @@
 ---
-title: Claude Code Router 文档
-pageTitle: Claude Code Router 文档
+title: LLM Router 文档
+pageTitle: LLM Router 文档
 eyebrow: 产品文档
 lead: 介绍 CCR 的核心能力、文档的组织方式和推荐的阅读顺序。第一次接触 CCR 时从这一页开始。
 ---

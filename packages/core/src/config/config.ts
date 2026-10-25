@@ -3733,7 +3733,7 @@ function parseProfiles(value: unknown): ProfileConfig[] | undefined {
         model,
         name,
         providerId: readString(item.providerId) || readString(item.provider) || "claude-code-router",
-        providerName: readString(item.providerName) || "Claude Code Router",
+        providerName: readString(item.providerName) || "LLM Router",
         remoteFrontendMode: parseCodexRemoteFrontendMode(readString(item.remoteFrontendMode) || readString(item.frontendMode) || readString(item.coreMode)) || "app",
         ...(routing ? { routing } : {}),
         scope: parseProfileScope(readString(item.scope) || readString(item.applyScope) || readString(item.effectScope)) || "global",

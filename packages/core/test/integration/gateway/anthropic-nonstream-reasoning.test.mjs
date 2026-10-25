@@ -136,7 +136,7 @@ test("#1793 coalesces OpenAI reasoning for non-streaming Anthropic clients", { t
       }],
       plugins: [
         {
-          key: "ccr-router",
+          key: "llm-router",
           modulePath: path.resolve(".test-dist/core/runtime/router-plugin.js"),
           config: { appConfig }
         },

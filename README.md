@@ -1,6 +1,6 @@
 <div align="center">
 
-# Claude Code Router
+# LLM Router
 
 ### Manage every agent and provider from one place.
 
@@ -21,13 +21,13 @@ Connect Claude Code, Claude Design, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCo
 
 <br />
 
-<img src="blog/images/claude-code-router.png" width="820" alt="Claude Code Router Desktop dashboard" />
+<img src="blog/images/claude-code-router.png" width="820" alt="LLM Router Desktop dashboard" />
 
 </div>
 
-## Why use Claude Code Router?
+## Why use LLM Router?
 
-Claude Code Router (CCR) is a local model gateway and control plane for coding agents. It gives Claude Code, Claude Design, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCode, Pi, ZCode, WorkBuddy, and compatible API clients **one stable local endpoint**, while you manage the providers, models, accounts, routing rules, and tools behind it from one place.
+LLM Router (CCR) is a local model gateway and control plane for coding agents. It gives Claude Code, Claude Design, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCode, Pi, ZCode, WorkBuddy, and compatible API clients **one stable local endpoint**, while you manage the providers, models, accounts, routing rules, and tools behind it from one place.
 
 Use CCR to:
 
@@ -130,7 +130,7 @@ CCR supports OpenAI Chat / Responses, Anthropic Messages, Gemini Generate Conten
 ### Desktop app (recommended)
 
 1. <details open>
-   <summary><strong>Download Claude Code Router for macOS, Windows, or Linux, then launch the app.</strong></summary>
+   <summary><strong>Download LLM Router for macOS, Windows, or Linux, then launch the app.</strong></summary>
 
    <div align="center">
 
@@ -214,7 +214,7 @@ Windows app packaging must run on Windows x64 because `better-sqlite3` ships a n
 Claude Code · Claude Design · Codex · Grok CLI · Kimi CLI · Kilo Code · OpenCode · Pi · ZCode · WorkBuddy · Compatible API clients
                               │
                               ▼
-                 Claude Code Router :3456
+                 LLM Router :3456
           Profiles · Routing · Credentials · Tools · Logs
                               │
                               ▼
