@@ -636,7 +636,7 @@ async function searchSerply(input: WebSearchProviderInput): Promise<WebSearchPro
   url.searchParams.set("num", String(Math.min(input.count, 10)));
   const raw = await fetchJson(url.toString(), {
     headers: {
-      "user-agent": "claude-code-router",
+      "user-agent": "llm-router",
       "x-api-key": apiKey
     },
     signal: AbortSignal.timeout(input.timeoutMs)

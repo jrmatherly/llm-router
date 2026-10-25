@@ -59,7 +59,7 @@ async function fetchDocs(urls) {
     const response = await fetch(url, {
       headers: {
         "accept": "text/markdown,text/plain,*/*",
-        "user-agent": "claude-code-router-build"
+        "user-agent": "llm-router-build"
       }
     });
     if (!response.ok) {

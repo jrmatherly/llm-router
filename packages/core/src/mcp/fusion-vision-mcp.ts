@@ -778,7 +778,7 @@ async function searchSerply(input: SearchInput): Promise<SearchResult[]> {
   if (input.language) url.searchParams.set("hl", input.language);
   const raw = await fetchJson(url.toString(), {
     headers: {
-      "user-agent": "claude-code-router",
+      "user-agent": "llm-router",
       "x-api-key": apiKey
     },
     signal: AbortSignal.timeout(input.timeoutMs)

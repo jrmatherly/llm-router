@@ -941,7 +941,7 @@ async function verifyServiceState(state: ServiceState): Promise<ServiceStateVeri
   }
 
   const appInfo = await callServiceRpc<{ name?: unknown }>(state, "getAppInfo").catch(() => undefined);
-  return appInfo?.name === APP_NAME
+  return isGatewayServiceName(appInfo?.name)
     ? { ok: true, trustedPid: false }
     : { ok: false };
 }
@@ -950,13 +950,18 @@ async function waitForServiceUnavailable(state: ServiceState, timeoutMs: number)
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     const appInfo = await callServiceRpc<{ name?: unknown }>(state, "getAppInfo").catch(() => undefined);
-    if (appInfo?.name !== APP_NAME) {
+    if (!isGatewayServiceName(appInfo?.name)) {
       return true;
     }
     await delay(150);
   }
   const appInfo = await callServiceRpc<{ name?: unknown }>(state, "getAppInfo").catch(() => undefined);
-  return appInfo?.name !== APP_NAME;
+  return !isGatewayServiceName(appInfo?.name);
+}
+
+function isGatewayServiceName(name: unknown): boolean {
+  // A service left running by a pre-rebrand ccr still reports the old name.
+  return name === APP_NAME || name === "Claude Code Router";
 }
 
 async function callServiceRpc<T>(state: ServiceState, method: string, args: unknown[] = [], timeoutMs = serviceRpcTimeoutMs): Promise<T> {
