@@ -68,6 +68,11 @@ type StoredRawTraceBundle = {
   sizeBytes: number;
 };
 
+type AdmittedRawTraceBundle = {
+  deadLettered: boolean;
+  stored: StoredRawTraceBundle;
+};
+
 type RawTraceInboxIndex = {
   bundles: Map<string, StoredRawTraceBundle>;
   bundleIdsByDirectory: Map<string, string>;
@@ -208,9 +213,9 @@ export class RawTraceSynchronizer {
       sendJson(response, 503, { accepted: false, ok: false, reason: "initializing" });
       return;
     }
-    let stored: StoredRawTraceBundle;
+    let admitted: AdmittedRawTraceBundle;
     try {
-      stored = await this.withStorageMutation(() => persistRawTraceBundle(
+      admitted = await this.admitStoredBundle(() => persistRawTraceBundle(
         manifest,
         spoolDirectory,
         this.dependencies.syncPartFile,
@@ -221,12 +226,7 @@ export class RawTraceSynchronizer {
       sendJson(response, 503, { accepted: false, ok: false, reason: "spool_unavailable" });
       return;
     }
-    let deadLettered = false;
-    try {
-      deadLettered = await this.registerStoredBundle(stored);
-    } catch (error) {
-      console.warn(`[gateway] Raw trace capacity enforcement deferred: ${formatError(error)}`);
-    }
+    const { deadLettered, stored } = admitted;
 
     // The producer may stop retrying after this response. Acknowledge only
     // after the bundle is owned by the durable inbox; database application is
@@ -484,33 +484,45 @@ export class RawTraceSynchronizer {
     }
   }
 
-  private async registerStoredBundle(stored: StoredRawTraceBundle): Promise<boolean> {
+  // Persist and index under one storage mutation: a replay pass that refreshes
+  // the inbox index between the two would re-read the new directory as unknown.
+  private async admitStoredBundle(persist: () => Promise<StoredRawTraceBundle>): Promise<AdmittedRawTraceBundle> {
     return await this.withStorageMutation(async () => {
-      const index = await this.ensureInboxIndex();
-      const existing = index.bundles.get(stored.bundleId);
-      if (existing) {
-        index.totalBytes = Math.max(0, index.totalBytes - existing.sizeBytes + stored.sizeBytes);
-        if (existing.directory !== stored.directory) {
-          index.bundleIdsByDirectory.delete(existing.directory);
-        }
-        index.bundles.set(stored.bundleId, stored);
-        index.bundleIdsByDirectory.set(stored.directory, stored.bundleId);
-      } else {
-        index.bundles.set(stored.bundleId, stored);
-        index.bundleIdsByDirectory.set(stored.directory, stored.bundleId);
-        index.totalBytes += stored.sizeBytes;
+      const stored = await persist();
+      try {
+        return { deadLettered: await this.indexStoredBundle(stored), stored };
+      } catch (error) {
+        console.warn(`[gateway] Raw trace capacity enforcement deferred: ${formatError(error)}`);
+        return { deadLettered: false, stored };
       }
-      const limits = this.storageLimits();
-      if (index.bundles.size <= limits.inboxMaxBundles && index.totalBytes <= limits.inboxMaxBytes) {
-        return false;
-      }
-      // Reject the newly admitted bundle instead of scanning or moving the
-      // whole backlog on the producer's ACK path.
-      await moveRawTraceBundleToDeadLetter(stored, this.spoolDirectory(), "inbox_capacity");
-      this.removeIndexedBundle(index, stored);
-      this.scheduleDeadLetterPrune();
-      return true;
     });
+  }
+
+  private async indexStoredBundle(stored: StoredRawTraceBundle): Promise<boolean> {
+    const index = await this.ensureInboxIndex();
+    const existing = index.bundles.get(stored.bundleId);
+    if (existing) {
+      index.totalBytes = Math.max(0, index.totalBytes - existing.sizeBytes + stored.sizeBytes);
+      if (existing.directory !== stored.directory) {
+        index.bundleIdsByDirectory.delete(existing.directory);
+      }
+      index.bundles.set(stored.bundleId, stored);
+      index.bundleIdsByDirectory.set(stored.directory, stored.bundleId);
+    } else {
+      index.bundles.set(stored.bundleId, stored);
+      index.bundleIdsByDirectory.set(stored.directory, stored.bundleId);
+      index.totalBytes += stored.sizeBytes;
+    }
+    const limits = this.storageLimits();
+    if (index.bundles.size <= limits.inboxMaxBundles && index.totalBytes <= limits.inboxMaxBytes) {
+      return false;
+    }
+    // Reject the newly admitted bundle instead of scanning or moving the
+    // whole backlog on the producer's ACK path.
+    await moveRawTraceBundleToDeadLetter(stored, this.spoolDirectory(), "inbox_capacity");
+    this.removeIndexedBundle(index, stored);
+    this.scheduleDeadLetterPrune();
+    return true;
   }
 
   private async refreshInboxIndex(): Promise<StoredRawTraceBundle[]> {
@@ -613,14 +625,13 @@ export class RawTraceSynchronizer {
           }
           continue;
         }
-        const stored = await this.withStorageMutation(() => persistRawTraceBundle(
+        await this.admitStoredBundle(() => persistRawTraceBundle(
           manifest,
           this.spoolDirectory(),
           this.dependencies.syncPartFile,
           this.dependencies.measureDirectorySize
         ));
         this.sourceObservations.delete(directory);
-        await this.registerStoredBundle(stored);
       } catch (error) {
         console.warn(`[gateway] Failed to adopt raw trace spool ${directory}: ${formatError(error)}`);
         await this.observeIncompleteSource(directory, "source", formatError(error), scanGeneration);
@@ -632,14 +643,13 @@ export class RawTraceSynchronizer {
     for await (const directory of iterateRawTraceStagingDirectories(this.spoolDirectory())) {
       try {
         if (await pathExists(join(directory, rawTraceReadyFileName))) {
-          const stored = await this.withStorageMutation(() => publishStagedRawTraceBundle(
+          await this.admitStoredBundle(() => publishStagedRawTraceBundle(
             directory,
             this.spoolDirectory(),
             this.dependencies.syncPartFile,
             this.dependencies.measureDirectorySize
           ));
           this.sourceObservations.delete(directory);
-          await this.registerStoredBundle(stored);
           continue;
         }
         await this.observeIncompleteSource(directory, "staging", "incomplete_staging", scanGeneration);

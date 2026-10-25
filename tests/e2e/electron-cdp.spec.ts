@@ -282,6 +282,7 @@ async function startElectronOverCdp(): Promise<ElectronCdpRuntime> {
         CCR_INTERNAL_APP_DATA_DIR: path.join(testHome, "app-data"),
         CCR_INTERNAL_HOME_DIR: testHome,
         CCR_INTERNAL_USER_DATA_DIR: path.join(testHome, "user-data"),
+        CCR_MODEL_CATALOG_PATH: path.join(projectRoot, "packages", "core", "models.json"),
         ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
         HOME: testHome,
         NODE_ENV: "test"

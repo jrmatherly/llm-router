@@ -337,6 +337,15 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // The catalog refresh usually settles after the first app-info fetch, so a
+    // failure recorded since then must be picked up when Settings opens.
+    if (!settingsOpen || !window.ccr) {
+      return;
+    }
+    void window.ccr.getAppInfo().then(setAppInfo).catch(() => undefined);
+  }, [settingsOpen]);
+
+  useEffect(() => {
     if (!window.ccr) {
       return;
     }

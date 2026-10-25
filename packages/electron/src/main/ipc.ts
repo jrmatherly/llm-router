@@ -10,6 +10,7 @@ import { cancelBotGatewayQrLogin, startBotGatewayQrLogin, waitBotGatewayQrLogin 
 import { closeBotGatewayQrWindow, openBotGatewayQrWindow } from "./bot-gateway-qr-window-service";
 import { syncClaudeAppGatewayConfig } from "@ccr/core/agents/claude-app/gateway-service";
 import { getAppInfoPaths } from "@ccr/core/agents/app-info-paths";
+import { modelCatalogRefreshError } from "@ccr/core/models/catalog-file";
 import { loadAppConfig, saveApiKeysConfig, saveAppConfig, saveAppThemePreference, withClaudeDesignRuntimePluginConfig } from "@ccr/core/config/config";
 import {
   APP_CONFIG_DB_FILE,
@@ -68,6 +69,7 @@ function applyAppThemePreference(theme: AppConfig["theme"]): void {
 
 ipcMain.handle(IPC_CHANNELS.appGetInfo, () => {
   const { chatgptAppPath, opencodeAppPath, workbuddyAppPath } = getAppInfoPaths();
+  const catalogRefreshError = modelCatalogRefreshError();
   return {
     ...(chatgptAppPath ? { chatgptAppPath } : {}),
     configDbFile: APP_CONFIG_DB_FILE,
@@ -75,6 +77,7 @@ ipcMain.handle(IPC_CHANNELS.appGetInfo, () => {
     dataDir: DATADIR,
     desktop: true,
     launchAtLoginSupported: isLaunchAtLoginSupported(),
+    ...(catalogRefreshError ? { modelCatalogRefreshError: catalogRefreshError } : {}),
     name: APP_NAME,
     ...(opencodeAppPath ? { opencodeAppPath } : {}),
     platform: process.platform,

@@ -39,6 +39,9 @@ export async function startCliWebServer(authToken: string): Promise<CliWebRuntim
       CCR_INTERNAL_APP_DATA_DIR: path.join(testHome, "app-data"),
       CCR_INTERNAL_HOME_DIR: testHome,
       CCR_INTERNAL_USER_DATA_DIR: path.join(testHome, "user-data"),
+      // Without a local catalog the service downloads one from the CDN in the
+      // background; keep the suite off the network.
+      CCR_MODEL_CATALOG_PATH: path.join(projectRoot, "packages", "core", "models.json"),
       CCR_WEB_AUTH_TOKEN: authToken,
       HOME: testHome
     },

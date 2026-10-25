@@ -692,6 +692,66 @@ test("raw trace ACK measures only the newly admitted bundle after startup indexi
   }
 });
 
+test("raw trace ACK indexes the admitted bundle before a queued replay pass can re-read it", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "ccr-raw-trace-admit-lock-test-"));
+  const spoolDirectory = path.join(dir, "spool");
+  const measuredDirectories = [];
+  let syncing = false;
+  let releaseSync = () => {};
+  const syncGate = new Promise((resolve) => { releaseSync = resolve; });
+  const synchronizer = new RawTraceSynchronizer({
+    enqueueUpdate: async () => ({ accepted: false, degraded: false, reason: "record_pending" }),
+    getConfig: createConfig,
+    measureDirectorySize: async (directory) => {
+      measuredDirectories.push(directory);
+      return 1;
+    },
+    replayIntervalMs: 5,
+    spoolDirectory,
+    syncPartFile: async () => {
+      syncing = true;
+      await syncGate;
+    }
+  });
+  try {
+    await synchronizer.start();
+    const producerDirectory = path.join(spoolDirectory, "gated-producer-bundle");
+    const bodyFile = path.join(producerDirectory, "upstream_request.json");
+    mkdirSync(producerDirectory, { recursive: true });
+    writeFileSync(bodyFile, '{"message":"gated"}');
+    const manifest = {
+      parts: [{ filePath: bodyFile, partType: "upstream_request" }],
+      requestId: "gated-admission-bundle",
+      turnKey: "gated-admission-request"
+    };
+    let admission;
+    while (!admission) {
+      let resolved;
+      const attempt = sendRawTrace(synchronizer, manifest).then((result) => { resolved = result; return result; });
+      await waitFor(() => syncing || resolved !== undefined);
+      if (syncing) {
+        admission = attempt;
+        break;
+      }
+      assert.equal(resolved.body.reason, "initializing");
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    // Replay passes now queue behind the held storage lock; the admission must
+    // leave the bundle indexed before any of them can read the inbox.
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    releaseSync();
+    const result = await admission;
+    assert.equal(result.statusCode, 202);
+    await waitFor(() => measuredDirectories.length >= 1);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(measuredDirectories.filter((directory) => directory.includes(".ccr-inbox")).length, 1);
+  } finally {
+    releaseSync();
+    await synchronizer.stop();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("raw trace moves permanently pending bundles to bounded dead letter after max attempts", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "ccr-raw-trace-max-attempt-test-"));
   const spoolDirectory = path.join(dir, "spool");

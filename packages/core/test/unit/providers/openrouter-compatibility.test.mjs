@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
 import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
 import { getProviderCatalogModels } from "@ccr/core/providers/model-catalog.ts";
 import { providerCapabilityForClientProtocol } from "@ccr/core/providers/runtime-topology.ts";
 import { createClaudeCliAutoCompactWindows } from "@ccr/core/gateway/features/model-discovery.ts";
+
+// Catalog assertions use the fixture catalog; the bundled models.json follows live sources.
+process.env.CCR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");
 
 const baseUrl = "https://openrouter.ai/api/v1";
 const provider = {

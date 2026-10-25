@@ -5,6 +5,7 @@ export type AppInfo = {
   dataDir: string;
   desktop: boolean;
   launchAtLoginSupported: boolean;
+  modelCatalogRefreshError?: string;
   requestLogsDbFile: string;
   name: string;
   opencodeAppPath?: string;

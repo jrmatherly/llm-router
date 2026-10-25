@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dirname, resolve as pathResolve } from "node:path";
@@ -11,6 +11,7 @@ let refreshStarted = false;
 let lastAttempt = 0;
 let pendingRefresh: Promise<void> | undefined;
 let remoteCatalog: LoadedModelCatalogPayload | undefined;
+let lastRefreshError: string | undefined;
 
 export function scheduleModelCatalogRefresh(): void {
   if (refreshStarted) void refreshModelCatalog();
@@ -18,6 +19,11 @@ export function scheduleModelCatalogRefresh(): void {
 
 export function modelCatalogRevision(): number {
   return revision;
+}
+
+/** Message of the last CDN download that failed; undefined before any attempt, with a local override, or after a clean download. */
+export function modelCatalogRefreshError(): string | undefined {
+  return lastRefreshError;
 }
 
 export function modelCatalogCachePath(): string {
@@ -51,18 +57,34 @@ async function downloadModelCatalog(): Promise<void> {
     if (!isModelCatalogPayload(payload)) throw new Error("Invalid model catalog (expected schemaVersion 2 and non-empty model records)");
     remoteCatalog = { loadedFrom: url, payload };
     revision += 1;
-    const file = modelCatalogCachePath();
-    const temporaryFile = `${file}.${randomUUID()}.tmp`;
-    try {
-      await mkdir(dirname(file), { recursive: true });
-      await writeFile(temporaryFile, JSON.stringify(payload), "utf8");
-      await rename(temporaryFile, file);
-    } finally {
-      await rm(temporaryFile, { force: true });
-    }
+    lastRefreshError = undefined;
+    await writeModelCatalogCache(payload);
   } catch (error) {
-    console.warn(`[models] CDN refresh failed; using available local catalog: ${error instanceof Error ? error.message : String(error)}`);
+    lastRefreshError = errorMessage(error);
+    console.warn(`[models] CDN refresh failed; using available local catalog: ${lastRefreshError}`);
   }
+}
+
+// A failed cache write is not a failed download: the fresh catalog is already
+// in use, only the next start would fall back, so it stays out of lastRefreshError.
+async function writeModelCatalogCache(payload: unknown): Promise<void> {
+  const file = modelCatalogCachePath();
+  const temporaryFile = `${file}.${randomUUID()}.tmp`;
+  try {
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(temporaryFile, JSON.stringify(payload), "utf8");
+    await rename(temporaryFile, file);
+  } catch (error) {
+    console.warn(`[models] downloaded catalog could not be cached at ${file}: ${errorMessage(error)}`);
+  } finally {
+    await rm(temporaryFile, { force: true });
+  }
+}
+
+// Node's fetch reports every transport failure as "fetch failed" and keeps the reason in cause.
+function errorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return error instanceof Error && error.cause instanceof Error ? `${message}: ${error.cause.message}` : message;
 }
 
 function isModelCatalogPayload(value: unknown): boolean {
@@ -81,12 +103,26 @@ export type LoadedModelCatalogPayload = {
 export function loadModelCatalogPayload(): LoadedModelCatalogPayload | undefined {
   if (!hasLocalOverride() && remoteCatalog) return remoteCatalog;
   const candidate = resolveModelCatalogPath();
-  return candidate
-    ? {
-        loadedFrom: candidate,
-        payload: JSON.parse(readFileSync(candidate, "utf8")) as unknown
-      }
-    : undefined;
+  if (!candidate) return undefined;
+  const payload = JSON.parse(readFileSync(candidate, "utf8")) as unknown;
+  warnOnceIfStale(candidate, payload);
+  return { loadedFrom: candidate, payload };
+}
+
+const staleCatalogAfterMs = 7 * 24 * 60 * 60 * 1000;
+let staleCatalogWarned = false;
+
+// Only a process that will never download (one-shot CLI commands, gateway
+// workers) reading the cache a daemon once wrote needs telling; the server and
+// desktop app refresh on their own, and the bundled file is as old as the build.
+function warnOnceIfStale(file: string, payload: unknown): void {
+  if (staleCatalogWarned || refreshStarted || hasLocalOverride() || file !== modelCatalogCachePath()) return;
+  const generatedAt = Date.parse(String((payload as { generatedAt?: unknown })?.generatedAt ?? ""));
+  const ageMs = Date.now() - (Number.isFinite(generatedAt) ? generatedAt : statSync(file).mtimeMs);
+  if (ageMs < staleCatalogAfterMs) return;
+  staleCatalogWarned = true;
+  const days = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+  console.warn(`[models] catalog ${file} is ${days} days old and this process does not refresh it; run \`ccr start\` to download the current catalog.`);
 }
 
 export function resolveModelCatalogPath(): string | undefined {

@@ -16,6 +16,9 @@ import {
   probeGatewayProviderCandidates
 } from "@ccr/core/providers/probe.ts";
 
+// Catalog assertions use the fixture catalog; the bundled models.json follows live sources.
+process.env.CCR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");
+
 test("#1778 Gemini probe does not present an AI Studio API key as an OAuth bearer token", async (t) => {
   const previousFetch = globalThis.fetch;
   const requests = [];

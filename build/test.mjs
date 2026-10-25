@@ -2,6 +2,7 @@ import esbuild from "esbuild";
 import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { previousDirectoryFor, removeStaleSwapDirectories, stagingDirectoryFor, swapDirectory } from "./swap-directory.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
@@ -83,11 +84,17 @@ for (const [name, project] of selectedProjects) {
     Object.assign(entryPoints, project.runtimeEntryPoints ?? {});
   }
 
-  rmSync(projectOutDir, { force: true, recursive: true });
   if (Object.keys(entryPoints).length === 0) {
+    rmSync(projectOutDir, { force: true, recursive: true });
     continue;
   }
 
+  // Build beside the output and swap it in: a suite already running from the
+  // output spawns runtimes and loads test files by path, and a rebuild that
+  // emptied the directory first made those spawns fail with "Cannot find module".
+  const stagingOutDir = stagingDirectoryFor(projectOutDir);
+  const previousOutDir = previousDirectoryFor(projectOutDir);
+  removeStaleSwapDirectories(projectOutDir);
   await esbuild.build({
     absWorkingDir: projectRoot,
     bundle: true,
@@ -109,11 +116,12 @@ for (const [name, project] of selectedProjects) {
       ".webp": "file"
     },
     logLevel: "info",
-    outdir: projectOutDir,
+    outdir: stagingOutDir,
     platform: "node",
     plugins: [rendererAliasPlugin(), packageAliasPlugin()],
     target: "node24"
   });
+  swapDirectory(stagingOutDir, projectOutDir, previousOutDir);
 }
 
 function projectTestRoots(project) {
