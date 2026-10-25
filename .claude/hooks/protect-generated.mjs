@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 const GENERATED = [
   { command: "npm run models:build", path: "/packages/core/models.json" },
   { command: "node scripts/generate-claude-code-config-options.mjs", path: "/packages/ui/src/generated/" },
-  { command: "npm (never hand-edit the lockfile)", path: "/package-lock.json" }
+  { command: "edit package.json and run npm install", path: "/package-lock.json" }
 ];
 
 let input;
@@ -42,7 +42,7 @@ if (!segments.includes("node_modules") && segments.some((segment) => segment ===
 process.exit(0);
 
 function normalize(value) {
-  const forward = String(value).replace(/\\/g, "/");
+  const forward = String(value).replace(/\\/g, "/").replace(/^\.\//, "");
   return forward.startsWith("/") ? forward : `/${forward}`;
 }
 

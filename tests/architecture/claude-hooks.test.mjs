@@ -32,6 +32,9 @@ test("protect blocks a Serena edit by relative path", () => {
 test("protect blocks a project-wide Serena replace_in_files", () => {
   assert.equal(run("protect-generated.mjs", { tool_name: "mcp__serena__replace_in_files", tool_input: { needle: "a", repl: "b", mode: "literal" } }).status, 2);
 });
+test("protect blocks a dot-prefixed Serena scope that contains a generated file", () => {
+  assert.equal(run("protect-generated.mjs", { tool_name: "mcp__serena__replace_in_files", tool_input: { relative_path: "./packages/core", needle: "a", repl: "b", mode: "literal" } }).status, 2);
+});
 test("protect allows a scoped Serena replace_in_files", () => {
   assert.equal(run("protect-generated.mjs", { tool_name: "mcp__serena__replace_in_files", tool_input: { relative_path: "packages/core/src/routing", needle: "a", repl: "b", mode: "literal" } }).status, 0);
 });
@@ -48,9 +51,9 @@ test("gate passes through non-commit git commands without running checks", () =>
   assert.equal(run("gate-commit.mjs", { cwd: "/nonexistent", tool_name: "Bash", tool_input: { command: "git log --oneline" } }).status, 0);
 });
 test("gate recognizes every commit spelling", () => {
-  for (const command of ["git commit -m x", "git -C sub commit", "git -c a=b commit -m x", "rtk git commit -m x", "npm test && git commit -m x"]) {
-    const r = run("gate-commit.mjs", { cwd: tempRepo(), tool_name: "Bash", tool_input: { command } }, { CCR_GATE_COMMANDS: pass });
-    assert.equal(r.status, 0, command);
+  for (const command of ["git commit -m x", "git -C sub commit", "git -c a=b commit -m x", "git --no-pager commit -m x", "git --git-dir=.git --work-tree=. commit", "rtk git commit -m x", "npm test && git commit -m x"]) {
+    const r = run("gate-commit.mjs", { cwd: tempRepo(), tool_name: "Bash", tool_input: { command } }, { CCR_GATE_COMMANDS: fail });
+    assert.equal(r.status, 2, command);
   }
 });
 test("gate blocks a Bash commit and the Jean commit tool when a check fails, reporting its output", () => {

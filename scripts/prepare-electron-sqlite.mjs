@@ -20,6 +20,7 @@ try {
   copyFileSync(path.join(nodeModules, "better-sqlite3", "package.json"), path.join(tempDir, "package.json"));
   const install = spawnSync(bin("prebuild-install"), ["--runtime", "electron", "--target", electronVersion], {
     cwd: tempDir,
+    shell: process.platform === "win32",
     stdio: "inherit"
   });
   if (install.status !== 0) {

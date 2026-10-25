@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const COMMIT_COMMAND = /(^|[\s;&|])(rtk\s+)?git(\s+-[A-Za-z]\S*(\s+\S+)?)*\s+commit\b/;
+const COMMIT_COMMAND = /(^|[\s;&|])(rtk\s+)?git(\s+--?[A-Za-z]\S*(\s+\S+)?)*\s+commit\b/;
 const DEFAULT_CHECKS = [["npm", ["run", "typecheck"]], ["npm", ["run", "test:architecture"]]];
 
 let input;
