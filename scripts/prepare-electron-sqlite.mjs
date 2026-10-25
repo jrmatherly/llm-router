@@ -3,21 +3,13 @@ import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from "nod
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { readElectronAbi } from "./electron-abi.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const nodeModules = path.join(root, "node_modules");
+const bin = (name) => path.join(nodeModules, ".bin", process.platform === "win32" ? `${name}.cmd` : name);
 const electronVersion = JSON.parse(readFileSync(path.join(nodeModules, "electron", "package.json"), "utf8")).version;
-let abi;
-try {
-  abi = readElectronAbi(root);
-} catch (error) {
-  console.error(error.message);
-  process.exit(1);
-}
+const sidecar = path.join(nodeModules, "better-sqlite3", "build", "Release", `better_sqlite3.electron-${electronVersion}.node`);
 
-const releaseDir = path.join(nodeModules, "better-sqlite3", "build", "Release");
-const sidecar = path.join(releaseDir, `better_sqlite3.electron-${abi}.node`);
 if (existsSync(sidecar)) {
   console.log(sidecar);
   process.exit(0);
@@ -26,7 +18,7 @@ if (existsSync(sidecar)) {
 const tempDir = mkdtempSync(path.join(os.tmpdir(), "ccr-electron-sqlite-"));
 try {
   copyFileSync(path.join(nodeModules, "better-sqlite3", "package.json"), path.join(tempDir, "package.json"));
-  const install = spawnSync(path.join(nodeModules, ".bin", "prebuild-install"), ["--runtime", "electron", "--target", electronVersion], {
+  const install = spawnSync(bin("prebuild-install"), ["--runtime", "electron", "--target", electronVersion], {
     cwd: tempDir,
     stdio: "inherit"
   });

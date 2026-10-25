@@ -20,16 +20,14 @@ function throwawayRepo() {
   git("init", "-q");
   git("add", "-A");
   git("commit", "-qm", "init");
-  const sidecar = path.join(dir, "fake-sidecar.node");
-  writeFileSync(sidecar, "");
-  return { dir, git, sidecar };
+  return { dir, git };
 }
 
 function runVerify(repo, args, env) {
   return spawnSync(process.execPath, [script, ...args], {
     cwd: repo.dir,
     encoding: "utf8",
-    env: { ...process.env, CCR_VERIFY_SIDECAR: repo.sidecar, ...env }
+    env: { ...process.env, ...env }
   });
 }
 
@@ -54,7 +52,7 @@ test("verify --e2e restores generated files that were clean before the run", () 
   const result = runVerify(repo, ["--e2e"], { CCR_VERIFY_COMMANDS: "[]", CCR_VERIFY_E2E_COMMAND: e2e });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /RESTORED generated files/);
-  assert.equal(repo.git("status", "--short", "--", "packages").stdout, "");
+  assert.equal(repo.git("status", "--short").stdout, "");
 });
 
 test("verify --e2e keeps prior edits to generated files when it skips the restore", () => {

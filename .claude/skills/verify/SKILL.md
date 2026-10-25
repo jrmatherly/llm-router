@@ -12,7 +12,7 @@ Run the suites:
 node ${CLAUDE_SKILL_DIR}/scripts/verify.mjs $ARGUMENTS
 ```
 
-Add `--e2e` when the change touches the renderer, the Electron main process, the CLI entry, or the build. The e2e run needs `npm run test:e2e:install` and `npm run sqlite:electron` once per install; the script says so when the sidecar is missing.
+Add `--e2e` when the change touches the renderer, the Electron main process, the CLI entry, or the build. The e2e run needs `npm run test:e2e:install` once per install.
 
 Paste the `PASS`, `FAIL`, `RESTORED` and `SKIPPED` lines into the reply. Stop at the first `FAIL` and fix its cause instead of rerunning.
 

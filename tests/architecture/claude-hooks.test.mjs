@@ -19,6 +19,7 @@ const tempRepo = (name = projectName) => {
   return dir;
 };
 const pass = JSON.stringify([[process.execPath, ["-e", "process.exit(0)"]]]);
+const fail = JSON.stringify([[process.execPath, ["-e", "console.log('tsc says no'); process.exit(1)"]]]);
 
 test("protect blocks the model catalog and names the generator", () => {
   const r = run("protect-generated.mjs", { tool_name: "Edit", tool_input: { file_path: "/repo/packages/core/models.json" } });
@@ -52,20 +53,14 @@ test("gate recognizes every commit spelling", () => {
     assert.equal(r.status, 0, command);
   }
 });
-test("gate treats the Jean commit tool as a commit", () => {
-  const fail = JSON.stringify([[process.execPath, ["-e", "console.log('tsc says no'); process.exit(1)"]]]);
-  const r = run("gate-commit.mjs", { cwd: tempRepo(), tool_name: "mcp__jean__create_commit", tool_input: { message: "x" } }, { CCR_GATE_COMMANDS: fail });
-  assert.equal(r.status, 2);
-  assert.match(r.stderr, /tsc says no/);
-});
-test("gate blocks when a check fails and reports its output", () => {
-  const fail = JSON.stringify([[process.execPath, ["-e", "console.log('tsc says no'); process.exit(1)"]]]);
-  const r = run("gate-commit.mjs", { cwd: tempRepo(), tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { CCR_GATE_COMMANDS: fail });
-  assert.equal(r.status, 2);
-  assert.match(r.stderr, /tsc says no/);
+test("gate blocks a Bash commit and the Jean commit tool when a check fails, reporting its output", () => {
+  for (const tool of [{ tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { tool_name: "mcp__jean__create_commit", tool_input: { message: "x" } }]) {
+    const r = run("gate-commit.mjs", { cwd: tempRepo(), ...tool }, { CCR_GATE_COMMANDS: fail });
+    assert.equal(r.status, 2, tool.tool_name);
+    assert.match(r.stderr, /tsc says no/);
+  }
 });
 test("gate skips a checkout of another project instead of running its scripts", () => {
-  const fail = JSON.stringify([[process.execPath, ["-e", "process.exit(1)"]]]);
   const r = run("gate-commit.mjs", { cwd: tempRepo("someone-elses-package"), tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { CCR_GATE_COMMANDS: fail });
   assert.equal(r.status, 0, r.stderr);
 });

@@ -1884,7 +1884,7 @@ test("RequestLogStore streams more body text than the bounded worker heap", {
       sessionId: "bounded-heap-session"
     });
 
-    assert.ok(totalBodyBytes > getHeapStatistics().heap_size_limit);
+    assert.ok(totalBodyBytes > heapLimit);
     const analysis = await store.analyze({ range: "30d" });
     assert.equal(analysis.scannedRequestCount, requestCount);
     assert.equal(analysis.totals.requestCount, requestCount);

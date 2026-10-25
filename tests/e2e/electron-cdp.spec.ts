@@ -365,11 +365,9 @@ function writeElectronE2eConfig(
 }
 
 function createLegacyApiKeyDatabase(file: string): void {
-  runElectronNode(`
+  runSqliteHelper(`
     const Database = require("better-sqlite3");
-    const database = new Database(process.env.CCR_E2E_SQLITE_FILE, {
-      nativeBinding: require.resolve("better-sqlite3/build/Release/better_sqlite3.electron-" + process.versions.modules + ".node")
-    });
+    const database = new Database(process.env.CCR_E2E_SQLITE_FILE);
     database.exec(\`
       CREATE TABLE api_keys (
         id TEXT PRIMARY KEY,
@@ -407,12 +405,9 @@ function readGatewayRuntimeMarker(file: string): Record<string, unknown> | undef
 }
 
 function readSqliteRows<Row>(file: string, query: string): Row[] {
-  const output = runElectronNode(`
+  const output = runSqliteHelper(`
     const Database = require("better-sqlite3");
-    const database = new Database(process.env.CCR_E2E_SQLITE_FILE, {
-      nativeBinding: require.resolve("better-sqlite3/build/Release/better_sqlite3.electron-" + process.versions.modules + ".node"),
-      readonly: true
-    });
+    const database = new Database(process.env.CCR_E2E_SQLITE_FILE, { readonly: true });
     const rows = database.prepare(process.env.CCR_E2E_SQLITE_QUERY).all();
     database.close();
     process.stdout.write(JSON.stringify(rows));
@@ -430,19 +425,18 @@ function workbuddyVirtualAuthFile(profileHome: string): string {
   return path.join(virtualHome, ...sharedAuthSegments, "workbuddy-desktop-ai.info");
 }
 
-function runElectronNode(script: string, file: string, query = ""): string {
-  const result = spawnSync(electronExecutable, ["-e", script], {
+function runSqliteHelper(script: string, file: string, query = ""): string {
+  const result = spawnSync(process.execPath, ["-e", script], {
     cwd: projectRoot,
     encoding: "utf8",
     env: {
       ...process.env,
       CCR_E2E_SQLITE_FILE: file,
-      CCR_E2E_SQLITE_QUERY: query,
-      ELECTRON_RUN_AS_NODE: "1"
+      CCR_E2E_SQLITE_QUERY: query
     }
   });
   if (result.status !== 0) {
-    throw new Error(`Electron SQLite helper failed:\n${result.stderr || result.stdout}`);
+    throw new Error(`SQLite helper failed:\n${result.stderr || result.stdout}`);
   }
   return result.stdout;
 }

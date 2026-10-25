@@ -17,14 +17,10 @@ const toolInput = input?.tool_input ?? {};
 const rawPath = toolInput.file_path ?? toolInput.relative_path;
 
 if (input?.tool_name === "mcp__serena__replace_in_files") {
-  const scope = normalize(rawPath ?? "");
-  if (scope === "/" || scope === "/.") {
-    block("replace_in_files has no relative_path (project-wide scope): set relative_path to a specific file or a directory without generated files");
-  }
-  const dir = scope.endsWith("/") ? scope : `${scope}/`;
-  const covered = GENERATED.find((entry) => entry.path.startsWith(dir));
+  const scope = normalize(rawPath ?? "").replace(/\/\.?$/, "") + "/";
+  const covered = GENERATED.find((entry) => entry.path.startsWith(scope));
   if (covered) {
-    block(`replace_in_files over ${rawPath} would touch the generated file ${covered.path}: set relative_path to a specific file or a directory without generated files`);
+    block(`replace_in_files over ${rawPath || "the whole project"} would touch the generated file ${covered.path}: set relative_path to a specific file or a directory without generated files`);
   }
 }
 

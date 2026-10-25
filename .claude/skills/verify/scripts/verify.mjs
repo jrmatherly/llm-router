@@ -1,7 +1,4 @@
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import path from "node:path";
-import { readElectronAbi } from "../../../../scripts/electron-abi.mjs";
 
 const GENERATED_FILES = ["packages/core/models.json", "packages/ui/src/generated"];
 const DEFAULT_SUITES = ["test:core", "test:ui", "test:electron", "test:cli"].map((suite) => ["npm", ["run", suite]]);
@@ -18,25 +15,16 @@ for (const [command, args] of suites) {
 }
 
 if (withE2e) {
-  const sidecar = process.env.CCR_VERIFY_SIDECAR ?? electronSidecar();
-  if (!existsSync(sidecar)) {
-    console.log(`missing ${sidecar}: run npm run sqlite:electron`);
-    process.exit(1);
-  }
   const clean = spawnSync("git", ["diff", "--quiet", "--", ...GENERATED_FILES], { cwd: root, stdio: "ignore" }).status === 0;
   const [command, args] = process.env.CCR_VERIFY_E2E_COMMAND ? JSON.parse(process.env.CCR_VERIFY_E2E_COMMAND) : DEFAULT_E2E;
-  try {
-    if (!runSuite(command, args)) {
-      process.exitCode = 1;
-    }
-  } finally {
-    if (clean) {
-      spawnSync("git", ["checkout", "--", ...GENERATED_FILES], { cwd: root, stdio: "inherit" });
-      console.log("RESTORED generated files");
-    } else {
-      console.log("SKIPPED restore: generated files had prior changes");
-    }
+  const passed = runSuite(command, args);
+  if (clean) {
+    spawnSync("git", ["checkout", "--", ...GENERATED_FILES], { cwd: root, stdio: "inherit" });
+    console.log("RESTORED generated files");
+  } else {
+    console.log("SKIPPED restore: generated files had prior changes");
   }
+  process.exit(passed ? 0 : 1);
 }
 
 function runSuite(command, args) {
@@ -49,8 +37,4 @@ function runSuite(command, args) {
 function resolveRoot() {
   const git = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: "pipe" });
   return git.status === 0 && git.stdout.trim() ? git.stdout.trim() : process.cwd();
-}
-
-function electronSidecar() {
-  return path.join(root, "node_modules", "better-sqlite3", "build", "Release", `better_sqlite3.electron-${readElectronAbi(root)}.node`);
 }
