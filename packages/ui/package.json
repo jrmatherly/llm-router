@@ -1,6 +1,6 @@
 {
   "name": "@claude-code-router/ui",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "private": true,
   "description": "Claude Code Router web management UI.",
   "scripts": {
