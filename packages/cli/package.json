@@ -1,6 +1,6 @@
 {
   "name": "@musistudio/claude-code-router",
-  "version": "4.0.1",
+  "version": "4.1.0",
   "license": "MIT",
   "description": "Local LLM Router gateway with CLI and web management UI.",
   "repository": {
