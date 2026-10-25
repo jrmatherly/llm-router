@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { readElectronAbi } from "../../../../scripts/electron-abi.mjs";
 
 const GENERATED_FILES = ["packages/core/models.json", "packages/ui/src/generated"];
 const DEFAULT_SUITES = ["test:core", "test:ui", "test:electron", "test:cli"].map((suite) => ["npm", ["run", suite]]);
@@ -51,11 +52,5 @@ function resolveRoot() {
 }
 
 function electronSidecar() {
-  const electron = path.join(root, "node_modules", ".bin", "electron");
-  const abi = spawnSync(electron, ["-p", "process.versions.modules"], {
-    encoding: "utf8",
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-    stdio: "pipe"
-  }).stdout?.trim() ?? "unknown";
-  return path.join(root, "node_modules", "better-sqlite3", "build", "Release", `better_sqlite3.electron-${abi}.node`);
+  return path.join(root, "node_modules", "better-sqlite3", "build", "Release", `better_sqlite3.electron-${readElectronAbi(root)}.node`);
 }

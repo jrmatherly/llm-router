@@ -3,18 +3,16 @@ import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from "nod
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readElectronAbi } from "./electron-abi.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const nodeModules = path.join(root, "node_modules");
-const electronBin = path.join(nodeModules, ".bin", "electron");
 const electronVersion = JSON.parse(readFileSync(path.join(nodeModules, "electron", "package.json"), "utf8")).version;
-const abiResult = spawnSync(electronBin, ["-p", "process.versions.modules"], {
-  encoding: "utf8",
-  env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
-});
-const abi = (abiResult.stdout ?? "").trim();
-if (!/^\d+$/.test(abi)) {
-  console.error(`could not read the Electron ABI from ${electronBin}: ${abiResult.stderr || abiResult.error?.message || "no output"}`);
+let abi;
+try {
+  abi = readElectronAbi(root);
+} catch (error) {
+  console.error(error.message);
   process.exit(1);
 }
 
