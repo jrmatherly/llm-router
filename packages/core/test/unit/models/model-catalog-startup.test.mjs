@@ -30,7 +30,8 @@ after(() => {
 });
 
 test("web management server is ready before the catalog CDN answers", async () => {
-  const cdn = createServer(() => {});
+  let downloadRequests = 0;
+  const cdn = createServer(() => { downloadRequests += 1; });
   await new Promise((resolve) => cdn.listen(0, "127.0.0.1", resolve));
   process.env.CCR_MODEL_CATALOG_URL = `http://127.0.0.1:${cdn.address().port}/models.json`;
   const { startWebManagementServer } = await import("@ccr/core/web/management-server.ts");
@@ -44,6 +45,9 @@ test("web management server is ready before the catalog CDN answers", async () =
   const readyAfterMs = Date.now() - startedAt;
   try {
     assert.ok(readyAfterMs < 2_000, `ready after ${readyAfterMs}ms while the CDN never answered`);
+    const deadline = Date.now() + 2_000;
+    while (downloadRequests === 0 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(downloadRequests, 1, "startup still kicks off the catalog download");
     const response = await fetch(new URL("/api/ccr/rpc", runtime.url), {
       body: JSON.stringify({ args: [], method: "getAppInfo" }),
       headers: { "content-type": "application/json", "x-ccr-web-auth": "catalog-startup-token" },
