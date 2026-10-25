@@ -301,7 +301,7 @@ curl -H "x-api-key: <CCR_API_KEY>" http://127.0.0.1:3456/plugins/hello
 
 **安装本地目录是受支持的第三方分发方式。** 可以发布包含 `plugin.json`、入口 JS 文件及运行依赖的 ZIP 或 Git 仓库。用户解压后在 **扩展 → 安装本地目录** 选择目录、确认运行面与权限、保存并重启网关。CCR 直接加载所选目录，因此安装后需要保留该目录；依赖应事先安装或打包。Release 附件不是本地安装或市场加载的必要条件。
 
-截至 2026-09-26，默认市场仓库 `musistudio/ccr-extensions` 的公开 URL 返回 404。此时可用本地安装；该状态不代表第三方插件格式有误。CCR 会尝试已缓存的市场清单，没有缓存时市场列表为空。市场仓库的公开与投稿安排需要仓库维护者确认。
+默认市场清单是 [jrmatherly/llm-router-extensions](https://github.com/jrmatherly/llm-router-extensions) 仓库中的 `marketplace/plugins.json`。该清单目前为空，因此在那里发布插件之前，扩展页面不会从市场列出任何条目；本地安装不受影响。无法获取清单时，CCR 会使用已缓存的市场清单，没有缓存时市场列表为空。
 
 市场作者可参考 [JSON Schema](/schemas/plugin-marketplace.schema.json)。这是推荐字段的编写格式；运行时也兼容部分旧字段别名。最小目录示例：
 

@@ -301,7 +301,7 @@ Proxy route matching rules:
 
 **Installing a local directory is a supported distribution method.** Ship `plugin.json`, the JavaScript entry, and runtime dependencies in a ZIP or repository. Users unpack it, select **Extensions → Install local directory**, review surfaces and permissions, save, and restart the gateway. Keep the directory in place: CCR loads it directly. Install dependencies beforehand or bundle them. Release attachments are optional.
 
-On 2026-09-26 the public URL for the default `musistudio/ccr-extensions` marketplace returned 404. Use local installation while its availability and submission process are being confirmed by the repository maintainer. CCR falls back to its cached catalog, or an empty list when no cache exists.
+The default marketplace is `marketplace/plugins.json` in [jrmatherly/llm-router-extensions](https://github.com/jrmatherly/llm-router-extensions). It starts empty, so the Extensions page lists nothing from it until plugins are published there; local installation works regardless. When the manifest cannot be fetched, CCR falls back to its cached catalog, or an empty list when no cache exists.
 
 See the [canonical authoring JSON Schema](/schemas/plugin-marketplace.schema.json). The runtime also accepts legacy field aliases. For `marketplace/plugins.json`, a provider usage connector entry can be:
 
