@@ -19,7 +19,7 @@ Read the check before changing the structure it guards. Change a rule only toget
 - `tests/architecture/*.test.mjs`: package boundaries, UI build contract, packaging, hooks. `npm run test:architecture`; the commit gate also runs it.
 - `packages/core/test/architecture/gateway-service-architecture.test.mjs`: gateway module layout and size limits. `npm run test:core`; the gate does not run it.
 - `validateLightweightMcpBundles` and `forbiddenLightweightMcpInputs` in `build/esbuild.config.mjs`: MCP bundle size cap and forbidden imports. Only `npm run build:assets` runs it.
-- Path-scoped rules under `.claude/rules/` load on Read, Edit and Write of matching files and name their check.
+- Path-scoped rules under `.claude/rules/` load on Read, Edit and Write of matching files and name their check. MCP reads such as `codegraph_explore` load no rule (measured 2026-10-25), so read a file with Read before changing it.
 
 ## Style that differs from defaults
 
