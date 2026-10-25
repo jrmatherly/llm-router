@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isolateTestHome } from "./test-home.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
@@ -45,11 +46,7 @@ async function runProject(project) {
       const child = spawn(executable, ["--test", ...testFiles], {
         cwd: projectRoot,
         env: {
-          ...process.env,
-          CCR_INTERNAL_APP_DATA_DIR: path.join(testHome, "app-data"),
-          CCR_INTERNAL_HOME_DIR: testHome,
-          CCR_INTERNAL_USER_DATA_DIR: path.join(testHome, "user-data"),
-          HOME: testHome,
+          ...isolateTestHome(testHome, { ...process.env }),
           ...(runtime === "electron" ? { ELECTRON_RUN_AS_NODE: "1" } : {})
         },
         stdio: "inherit"

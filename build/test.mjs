@@ -1,5 +1,5 @@
 import esbuild from "esbuild";
-import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { previousDirectoryFor, removeStaleSwapDirectories, stagingDirectoryFor, swapDirectory } from "./swap-directory.mjs";
@@ -118,7 +118,7 @@ for (const [name, project] of selectedProjects) {
     logLevel: "info",
     outdir: stagingOutDir,
     platform: "node",
-    plugins: [rendererAliasPlugin(), packageAliasPlugin()],
+    plugins: [testHomeGuardPlugin(), rendererAliasPlugin(), packageAliasPlugin()],
     target: "node24"
   });
   swapDirectory(stagingOutDir, projectOutDir, previousOutDir);
@@ -162,6 +162,20 @@ function findTestFiles(dir) {
     }
   }
   return files.sort();
+}
+
+function testHomeGuardPlugin() {
+  const guard = path.join(__dirname, "test-home.mjs");
+  const loaders = { ".mjs": "js", ".ts": "ts", ".tsx": "tsx" };
+  return {
+    name: "test-home-guard",
+    setup(build) {
+      build.onLoad({ filter: /\.(test|spec)\.(mjs|ts|tsx)$/ }, (args) => ({
+        contents: `import ${JSON.stringify(guard)};\n${readFileSync(args.path, "utf8")}`,
+        loader: loaders[path.extname(args.path)]
+      }));
+    }
+  };
 }
 
 function rendererAliasPlugin() {
