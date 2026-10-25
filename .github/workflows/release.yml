@@ -1,4 +1,4 @@
-name: Release
+name: 🚀 Release
 
 on:
   push:
@@ -14,26 +14,26 @@ concurrency:
 
 jobs:
   model-catalog:
-    name: Prepare model catalog
-    runs-on: ubuntu-latest
+    name: 🗂️ Prepare model catalog
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: 📥 Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: ⚙️ Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
 
-      - name: Generate model catalog
+      - name: 🗂️ Generate model catalog
         run: node scripts/generate-models-json.mjs
 
-      - name: Validate generated model catalog
+      - name: 🔎 Validate generated model catalog
         run: node -e "JSON.parse(require('node:fs').readFileSync('packages/core/models.json', 'utf8'))"
 
-      - name: Upload model catalog
-        uses: actions/upload-artifact@v4
+      - name: 📤 Upload model catalog
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-model-catalog
           path: packages/core/models.json
@@ -41,17 +41,17 @@ jobs:
           retention-days: 1
 
   gateway:
-    name: Build gateway
-    runs-on: ubuntu-latest
+    name: 📦 Build gateway
+    runs-on: ubuntu-24.04
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: 📥 Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Prepare gateway package
+      - name: 📦 Prepare gateway package
         uses: ./.github/actions/prepare-release-gateway
 
-      - name: Upload gateway package
-        uses: actions/upload-artifact@v4
+      - name: 📤 Upload gateway package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-gateway
           path: docker/local-ai-gateway/the-next-ai-ai-gateway-*.tgz
@@ -59,7 +59,7 @@ jobs:
           retention-days: 1
 
   macos:
-    name: macOS (${{ matrix.display_name }})
+    name: 🍎 macOS (${{ matrix.display_name }})
     needs: [model-catalog, gateway]
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -68,46 +68,46 @@ jobs:
         include:
           - arch: arm64
             arch_flag: --arm64
-            runner: macos-14
+            runner: macos-26
             display_name: Apple Silicon
             release_label: Apple-Silicon
             artifact_name: macos-apple-silicon-arm64
           - arch: x64
             arch_flag: --x64
-            runner: macos-15-intel
+            runner: macos-26-intel
             display_name: Intel
             release_label: Intel
             artifact_name: macos-intel-x64
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: 📥 Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: ⚙️ Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: npm ci
 
-      - name: Download gateway package
-        uses: actions/download-artifact@v4
+      - name: 📥 Download gateway package
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-gateway
           path: .tmp/gateway-package
 
-      - name: Install gateway
+      - name: 📦 Install gateway
         shell: bash
         run: npm install --no-save --package-lock=false .tmp/gateway-package/*.tgz
 
-      - name: Download updated model catalog
-        uses: actions/download-artifact@v4
+      - name: 📥 Download updated model catalog
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-model-catalog
           path: packages/core
 
-      - name: Verify tag version
+      - name: 🔎 Verify tag version
         shell: bash
         run: |
           tag_version="${GITHUB_REF_NAME#v}"
@@ -117,7 +117,7 @@ jobs:
             exit 1
           fi
 
-      - name: Build ad-hoc macOS artifacts
+      - name: 📦 Build ad-hoc macOS artifacts
         run: |
           npm run build:assets
           npx electron-builder \
@@ -126,8 +126,8 @@ jobs:
             --publish never \
             -c.mac.artifactName='Claude-Code-Router_${version}-mac-${{ matrix.release_label }}-${arch}.${ext}'
 
-      - name: Upload macOS release files
-        uses: actions/upload-artifact@v4
+      - name: 📤 Upload macOS release files
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.artifact_name }}
           path: |
@@ -136,39 +136,39 @@ jobs:
           if-no-files-found: error
 
   publish-macos:
-    name: Publish macOS
+    name: 🚀 Publish macOS
     needs: macos
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: 📥 Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: ⚙️ Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
 
-      - name: Install metadata merge dependencies
+      - name: 📦 Install metadata merge dependencies
         run: npm ci --ignore-scripts
 
-      - name: Download macOS release files
-        uses: actions/download-artifact@v4
+      - name: 📥 Download macOS release files
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: macos-*
           path: macos-release-artifacts
 
-      - name: Merge macOS update metadata
+      - name: 🗂️ Merge macOS update metadata
         run: node build/merge-macos-update-metadata.mjs latest-mac.yml macos-release-artifacts/*/latest-mac.yml
 
-      - name: Create GitHub release
+      - name: 🚀 Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
             gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
 
-      - name: Upload macOS release assets
+      - name: 📤 Upload macOS release assets
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -201,39 +201,39 @@ jobs:
           gh release upload "$GITHUB_REF_NAME" "${upload_args[@]}" --clobber
 
   windows:
-    name: Windows
+    name: 🪟 Windows
     needs: publish-macos
-    runs-on: windows-latest
+    runs-on: windows-2025
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: 📥 Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: ⚙️ Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: npm ci
 
-      - name: Download gateway package
-        uses: actions/download-artifact@v4
+      - name: 📥 Download gateway package
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-gateway
           path: .tmp/gateway-package
 
-      - name: Install gateway
+      - name: 📦 Install gateway
         shell: bash
         run: npm install --no-save --package-lock=false .tmp/gateway-package/*.tgz
 
-      - name: Download updated model catalog
-        uses: actions/download-artifact@v4
+      - name: 📥 Download updated model catalog
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-model-catalog
           path: packages/core
 
-      - name: Verify tag version
+      - name: 🔎 Verify tag version
         shell: bash
         run: |
           tag_version="${GITHUB_REF_NAME#v}"
@@ -243,45 +243,45 @@ jobs:
             exit 1
           fi
 
-      - name: Build and publish Windows artifacts
+      - name: 🚀 Build and publish Windows artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build:app:win:release -- --publish always
 
   linux:
-    name: Linux
+    name: 🐧 Linux
     needs: publish-macos
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: 📥 Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: ⚙️ Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: npm ci
 
-      - name: Download gateway package
-        uses: actions/download-artifact@v4
+      - name: 📥 Download gateway package
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-gateway
           path: .tmp/gateway-package
 
-      - name: Install gateway
+      - name: 📦 Install gateway
         shell: bash
         run: npm install --no-save --package-lock=false .tmp/gateway-package/*.tgz
 
-      - name: Download updated model catalog
-        uses: actions/download-artifact@v4
+      - name: 📥 Download updated model catalog
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-model-catalog
           path: packages/core
 
-      - name: Verify tag version
+      - name: 🔎 Verify tag version
         shell: bash
         run: |
           tag_version="${GITHUB_REF_NAME#v}"
@@ -291,7 +291,7 @@ jobs:
             exit 1
           fi
 
-      - name: Build and publish Linux artifacts
+      - name: 🚀 Build and publish Linux artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
