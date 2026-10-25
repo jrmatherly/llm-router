@@ -60,8 +60,9 @@ test("web management server is ready before the catalog CDN answers", async () =
     assert.equal((await appInfo()).modelCatalogRefreshError, undefined);
     cdn.closeAllConnections();
     const { modelCatalogRefreshError } = await import("@ccr/core/models/catalog-file.ts");
-    while (modelCatalogRefreshError() === undefined && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
-    assert.ok(modelCatalogRefreshError(), "the failed download is recorded");
+    const failureDeadline = Date.now() + 2_000;
+    while (modelCatalogRefreshError() === undefined && Date.now() < failureDeadline) await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.match(modelCatalogRefreshError() ?? "", /^fetch failed: .+/, "the failed download is recorded with its cause");
     assert.equal((await appInfo()).modelCatalogRefreshError, modelCatalogRefreshError());
   } finally {
     await runtime.close();

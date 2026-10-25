@@ -141,6 +141,11 @@ test("CDN catalog refresh deduplicates requests, updates indexes and preserves c
       assert.deepEqual(JSON.parse(readFileSync(modelCatalogCachePath(), "utf8")), payload);
       assert.ok(findModelCatalogEntry("cdn-second"));
     }
+    time += 60 * 60 * 1000 + 1;
+    globalThis.fetch = async () => new Response(JSON.stringify(payload));
+    await refreshModelCatalog();
+    assert.equal(modelCatalogRefreshError(), undefined);
+    assert.equal(modelCatalogRevision(), goodRevision + 1);
     assert.deepEqual(readdirSync(path.dirname(modelCatalogCachePath())), ["models.json"]);
     process.env.CCR_MODEL_CATALOG_PATH = path.join(dir, "override.json");
     writeFileSync(process.env.CCR_MODEL_CATALOG_PATH, JSON.stringify({ models: [{ id: "override" }] }));

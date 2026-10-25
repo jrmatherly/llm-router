@@ -21,7 +21,7 @@ export function modelCatalogRevision(): number {
   return revision;
 }
 
-/** Why the most recent CDN refresh failed, or undefined after a successful one. */
+/** Message of the last CDN download that failed; undefined before any attempt, with a local override, or after a clean download. */
 export function modelCatalogRefreshError(): string | undefined {
   return lastRefreshError;
 }
@@ -58,19 +58,33 @@ async function downloadModelCatalog(): Promise<void> {
     remoteCatalog = { loadedFrom: url, payload };
     revision += 1;
     lastRefreshError = undefined;
-    const file = modelCatalogCachePath();
-    const temporaryFile = `${file}.${randomUUID()}.tmp`;
-    try {
-      await mkdir(dirname(file), { recursive: true });
-      await writeFile(temporaryFile, JSON.stringify(payload), "utf8");
-      await rename(temporaryFile, file);
-    } finally {
-      await rm(temporaryFile, { force: true });
-    }
+    await writeModelCatalogCache(payload);
   } catch (error) {
-    lastRefreshError = error instanceof Error ? error.message : String(error);
+    lastRefreshError = errorMessage(error);
     console.warn(`[models] CDN refresh failed; using available local catalog: ${lastRefreshError}`);
   }
+}
+
+// A failed cache write is not a failed download: the fresh catalog is already
+// in use, only the next start would fall back, so it stays out of lastRefreshError.
+async function writeModelCatalogCache(payload: unknown): Promise<void> {
+  const file = modelCatalogCachePath();
+  const temporaryFile = `${file}.${randomUUID()}.tmp`;
+  try {
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(temporaryFile, JSON.stringify(payload), "utf8");
+    await rename(temporaryFile, file);
+  } catch (error) {
+    console.warn(`[models] downloaded catalog could not be cached at ${file}: ${errorMessage(error)}`);
+  } finally {
+    await rm(temporaryFile, { force: true });
+  }
+}
+
+// Node's fetch reports every transport failure as "fetch failed" and keeps the reason in cause.
+function errorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return error instanceof Error && error.cause instanceof Error ? `${message}: ${error.cause.message}` : message;
 }
 
 function isModelCatalogPayload(value: unknown): boolean {
