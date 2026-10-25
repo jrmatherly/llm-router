@@ -1,6 +1,6 @@
 # AI assistant guardrails for llm-router
 
-Date: 2026-10-25, revision 2 (after two independent plan reviews). Repo: `jrmatherly/llm-router`, a fork of `musistudio/claude-code-router` v3.1.3. Divergence from upstream is intended.
+Date: 2026-10-25, revision 3 (after two rounds of independent plan review). Repo: `jrmatherly/llm-router`, a fork of `musistudio/claude-code-router` v3.1.3. Divergence from upstream is intended.
 
 ## Problem
 
@@ -10,7 +10,7 @@ Coding assistants (Claude Code, Codex, OpenCode) working in this repo have nothi
 
 1. Config is committed to the fork. `.gitignore` un-ignores `.claude/settings.json`, `rules/`, `skills/` and `hooks/`.
 2. Full instructions live in `AGENTS.md`, hand-written and under 120 lines. `CLAUDE.md` is a one-line `@AGENTS.md` import so Codex and OpenCode read the same file. No auto-memory plugin config or markers: the plugin would switch on for anyone who has it and rewrite sections past the size budget.
-3. Advisory text stays short. Anything that must hold every time in a Claude Code session is a hook. Hooks and the `verify` skill bind Claude Code only; Codex, OpenCode, Serena's write tools and a human terminal are bound only by the tests, the build, and `AGENTS.md`. A git pre-commit hook would bind everyone and is out of scope.
+3. Advisory text stays short. Anything that must hold every time in a Claude Code session is a hook, and every hook sets `onFailure: "block"` so its own crash or timeout cannot let the action through. The protect hook covers Edit, Write and Serena's five edit tools (including a project-wide `replace_in_files`, which is refused); the commit gate covers every `git ... commit` spelling in Bash and the Jean commit tool. Not covered: edits made through Bash (`sed`, redirects), Codex, OpenCode, and a human terminal. Those are bound only by the tests, the build, and `AGENTS.md`. A git pre-commit hook would bind everyone and is out of scope.
 4. No custom subagents. Bundled `/code-review`, the owner's jstack tooling, and the architecture tests cover review.
 5. All five suites (core, ui, electron, cli, e2e) must pass on one local install before any hook gates on them.
 6. A project skill named `verify` replaces the bundled app-driving `/verify` at the repo root. Here `/verify` runs the test suites; `/run` drives the app.
@@ -39,19 +39,25 @@ Coding assistants (Claude Code, Codex, OpenCode) working in this repo have nothi
 ## Facts the plan depends on
 
 - Only exit code 2 blocks a `PreToolUse` hook. Any other non-zero exit is a non-blocking error and the tool call proceeds, so hooks must exit 2 explicitly on every failure path and must not depend on tools that may be missing (no `jq`; node scripts).
-- `CLAUDE_PROJECT_DIR` stays at the original checkout inside a worktree; the hook input's `cwd` follows Claude. The gate must use `cwd`.
+- `CLAUDE_PROJECT_DIR` stays at the original checkout inside a worktree; the hook input's `cwd` follows Claude, including after `cd`. The gate resolves the repo root with `git rev-parse --show-toplevel` from `cwd`. The owner's worktrees are created `fresh` (`worktree.baseRef` in `~/.claude/settings.json`), so they have no `node_modules` until `npm ci` runs there; the gate must say so instead of failing with a confusing `npm` error.
+- A hook that cannot start, times out, or exits with a code other than 0 or 2 is a non-blocking error unless its settings entry has `onFailure: "block"` (Claude Code 2.1.295+). `spawnSync` returns `status: null` on a signal or `ENOENT`, so hooks test `status !== 0`.
+- On macOS `os.tmpdir()` is under `/var`, a symlink to `/private/var`; a child's `process.cwd()` returns the realpath. Tests compare realpaths.
+- The user-level hooks include `rtk hook claude` on Bash; project hooks run in parallel with it and do not rewrite input.
+- Electron reports its own ABI through `process.versions.modules` (146 for 42.4.1). The plan reads that rather than depending on `node-abi`, which is present only as a hoisted transitive dependency.
+- `better-sqlite3`'s `prebuild-install` works from a temp directory holding only its `package.json` and writes `build/Release/better_sqlite3.node` there (verified; 0.5 s, 1.9 MB download).
 - `npm run build:assets` (and `npm run test:e2e`) rewrites `packages/core/models.json` (24 MB, new timestamp, network fetch) and `packages/ui/src/generated/claude-code-config-options.json`. The config-options generator has no npm script of its own.
 - The renderer already imports 60 core modules (`contracts/*`, `providers/presets/*`, `providers/url`, `providers/new-api`, `media/models`, `config/default-config`). The real boundary is "browser-safe modules only", enforced by the esbuild browser build, not by `ui-build-contract.test.mjs`.
 - The lightweight MCP bundle guard (`validateLightweightMcpBundles`) runs only during `npm run build:assets`.
 - A project skill named `verify` is run before commits by Claude Code 2.1.286+ when it is model-invocable and `includeGitInstructions` is on; it is advisory text, loads at session start, and is unknown to Codex and OpenCode.
-- `/doctor prompt-audit` with no path also audits `~/.claude`; scope it to `AGENTS.md` and `.claude`.
+- `/doctor prompt-audit` with no path also audits `~/.claude`; scope it to `AGENTS.md` and `.claude`. It reads rules and skills, not `settings.json` or hook scripts.
+- Path-scoped rules load on Read, Write and Edit of a matching file (and single-file `cat`/`head`). Whether MCP reads such as `codegraph_explore` trigger them is undocumented; the plan measures it and keeps the essentials in `AGENTS.md` regardless.
 
 ## Deliverables
 
 1. Toolchain baseline: done except recording the per-suite counts.
 2. Core test fixes: heap test sized from the live heap limit; a shared desktop-runtime helper.
 3. Dual-runtime SQLite binding: sidecar script, resolver, both e2e inline scripts, packaging exclusion with a test.
-4. Guardrail files: `AGENTS.md`, `CLAUDE.md`, four path-scoped rules, two node hooks with tests under `tests/architecture/`, `.claude/settings.json`, a project `verify` skill that runs the four suites and restores generated files, `.gitignore` change.
+4. Guardrail files: `AGENTS.md`, `CLAUDE.md`, four path-scoped rules, two node hooks with tests under `tests/architecture/`, `.claude/settings.json`, a project `verify` skill (node runner) that runs the four suites and restores generated files only when they were clean before the run, `.gitignore` change. The hook and verify tests run against throwaway temp repos, never the real tree.
 5. Proof: every suite green from a scratch install, `/doctor prompt-audit` scoped to the repo, hooks exercised live.
 
 ## Not in this plan
