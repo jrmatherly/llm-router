@@ -11,7 +11,7 @@ type MarketplaceCache = {
   url: string;
 };
 
-const defaultMarketplaceUrl = "https://raw.githubusercontent.com/musistudio/ccr-extensions/main/marketplace/plugins.json";
+const defaultMarketplaceUrl = "https://raw.githubusercontent.com/jrmatherly/ccr-extensions/main/marketplace/plugins.json";
 const marketplaceCacheDir = path.join(DATADIR, "plugin-marketplace");
 const marketplaceModuleCacheDir = path.join(marketplaceCacheDir, "modules");
 const marketplaceManifestCacheFile = path.join(marketplaceCacheDir, "plugins.json");
@@ -50,7 +50,7 @@ export async function getPluginMarketplace(): Promise<PluginMarketplaceEntry[]> 
   return entries.map(cloneMarketplaceEntry);
 }
 
-function marketplaceUrl(): string {
+export function marketplaceUrl(): string {
   return process.env.CCR_PLUGIN_MARKETPLACE_URL?.trim() || defaultMarketplaceUrl;
 }
 
@@ -80,7 +80,7 @@ async function readCachedMarketplace(url: string): Promise<PluginMarketplaceEntr
   }
 }
 
-async function normalizeMarketplaceManifest(
+export async function normalizeMarketplaceManifest(
   value: unknown,
   manifestUrl: string,
   options: { offline?: boolean } = {}
