@@ -257,7 +257,7 @@ function normalizePluginAppUrlForSettings(value: string | undefined): { ok: true
     return { ok: false, message: "Plugin app URL cannot be protocol-relative." };
   }
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
-    return { ok: false, message: "Plugin app URL must be an http(s) URL or a CCR gateway path." };
+    return { ok: false, message: "Plugin app URL must be an http(s) URL or a LLMR gateway path." };
   }
   return { ok: true, value: trimmed.startsWith("/") ? trimmed : `/${trimmed}` };
 }

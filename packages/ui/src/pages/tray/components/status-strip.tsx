@@ -9,9 +9,9 @@ export function TrayStatusStrip({ totalTokens }: { totalTokens: number }) {
   return (
     <div className="tray-status-strip mb-3 flex min-w-0 items-center justify-between gap-3 border-b pb-2.5">
       <button
-        aria-label={t("Open CCR")}
+        aria-label={t("Open LLMR")}
         className="tray-header-action -ml-1 flex min-w-0 items-center gap-2 rounded-[9px] px-1 py-0.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/35"
-        title={t("Open CCR")}
+        title={t("Open LLMR")}
         type="button"
         onClick={() => void window.ccr?.showMainWindow()}
       >

@@ -446,7 +446,7 @@ export function AddRoutingRuleDialog({
     if (!file) return;
     const filePath = window.ccr?.getFilePath?.(file);
     if (!filePath) {
-      setScriptMessage({ ok: false, text: t("Selecting a local script file requires CCR Desktop. Enter the server-local path manually when using the web UI.") });
+      setScriptMessage({ ok: false, text: t("Selecting a local script file requires LLMR Desktop. Enter the server-local path manually when using the web UI.") });
       return;
     }
     onChange({ scriptFile: filePath });

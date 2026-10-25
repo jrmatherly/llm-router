@@ -112,7 +112,7 @@ test("AddProfileForm shows enhanced route as a sibling of profile routing", () =
   assert.match(html, /rounded-b-none/);
   assert.match(html, /rounded-b-md border border-t-0/);
   assert.doesNotMatch(html, /Profile routes/);
-  assert.match(html, /CCR built-in Claude Code routing optimizes requests to third-party models for this profile\./);
+  assert.match(html, /LLMR built-in Claude Code routing optimizes requests to third-party models for this profile\./);
 });
 
 test("AddProfileForm shows private profile routes when profile routing is enabled", () => {
@@ -134,7 +134,7 @@ test("AddProfileForm shows private profile routes when profile routing is enable
   assert.match(html, /Enhanced route/);
   assert.match(html, /Profile routes/);
   assert.ok(html.indexOf("Enhanced route") < html.indexOf("Profile routing"));
-  assert.match(html, /CCR built-in Claude Code routing optimizes requests to third-party models for this profile\./);
+  assert.match(html, /LLMR built-in Claude Code routing optimizes requests to third-party models for this profile\./);
   assert.match(html, /data-ui-tooltip-trigger/);
 });
 
@@ -155,7 +155,7 @@ test("AddProfileForm uses Codex-specific enhanced route info for Codex profiles"
   );
 
   assert.match(html, /Enhanced route/);
-  assert.match(html, /CCR built-in Codex routing optimizes requests to third-party models for this profile\./);
+  assert.match(html, /LLMR built-in Codex routing optimizes requests to third-party models for this profile\./);
   assert.doesNotMatch(html, /Provider ID/);
   assert.doesNotMatch(html, /Provider name/);
   assert.equal(isProfileDraftSubmittable(draft), true);
@@ -554,7 +554,7 @@ test("profileSummaryItems omits disabled profile properties from cards", () => {
   }, config, (value) => value);
 
   assert.match(enabledItems.map((item) => item.label).join(" "), /Show all sessions/);
-  assert.match(enabledItems.map((item) => item.label).join(" "), /CCR managed compact/);
+  assert.match(enabledItems.map((item) => item.label).join(" "), /LLMR managed compact/);
   assert.doesNotMatch(enabledItems.map((item) => item.label).join(" "), /Provider ID/);
 });
 

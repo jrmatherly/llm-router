@@ -69,7 +69,7 @@ test("OverviewView renders every overview widget type", () => {
   assert.match(html, /openai/);
   assert.match(html, /Save image/);
   assert.match(html, /AI Usage Wrapped/);
-  assert.match(html, /CCR Route Map/);
+  assert.match(html, /LLMR Route Map/);
   assert.match(html, /Model Leaderboard/);
   assert.match(html, /AI Fuel Cockpit/);
   assert.match(html, /Token Calendar Poster/);

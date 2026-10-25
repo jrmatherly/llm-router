@@ -117,8 +117,8 @@ test("UsageDetailPanel renders configured detail widgets and empty state", () =>
 test("TrayStatusStrip renders open and quit actions", () => {
   const html = renderToStaticMarkup(<TrayStatusStrip totalTokens={12500} />);
 
-  assert.match(html, /aria-label="Open CCR"/);
-  assert.match(html, /title="Open CCR"/);
+  assert.match(html, /aria-label="Open LLMR"/);
+  assert.match(html, /title="Open LLMR"/);
   assert.match(html, /12\.5K tokens/);
   assert.match(html, /LLMR/);
   assert.doesNotMatch(html, />CCR</);
@@ -357,7 +357,7 @@ test("TrayApp and TrayDetailApp render their shell components without browser ru
   const detailHtml = renderToStaticMarkup(<TrayDetailApp provider="openai" />);
 
   assert.match(trayHtml, /Usage Overview/);
-  assert.match(trayHtml, /Open CCR/);
+  assert.match(trayHtml, /Open LLMR/);
   assert.match(detailHtml, /Usage Detail/);
   assert.match(detailHtml, /OpenAI/);
 });

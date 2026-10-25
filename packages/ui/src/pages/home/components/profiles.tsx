@@ -308,7 +308,7 @@ function ManagedCompactSetting({
   onChange: (checked: boolean) => void;
 }) {
   const t = useAppText();
-  const title = t("CCR managed compact");
+  const title = t("LLMR managed compact");
 
   return (
     <div className="rounded-md border border-border bg-muted/20 px-3 py-3">
@@ -319,7 +319,7 @@ function ManagedCompactSetting({
             <div className="min-w-0">
               <div className="truncate text-[13px] font-semibold">{title}</div>
               <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">
-                {t("Use CCR context archive for this profile's auto compact requests.")}
+                {t("Use LLMR context archive for this profile's auto compact requests.")}
               </div>
             </div>
           </div>
@@ -2044,7 +2044,7 @@ function BotGatewaySelectForm({
     });
   }
 
-  const botScopeHint = t("Bot only forwards messages when opening the APP from CCR. CLI does not forward messages yet.");
+  const botScopeHint = t("Bot only forwards messages when opening the APP from LLMR. CLI does not forward messages yet.");
 
   return (
     <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
