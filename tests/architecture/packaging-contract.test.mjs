@@ -12,9 +12,13 @@ test("packaged apps never carry the Electron sidecar binary", () => {
 
 const verifyPackagedApp = createRequire(path.join(process.cwd(), "package.json"))("./build/verify-packaged-app.cjs");
 
+const hostPlatform = process.platform;
+
 function packagedApp() {
   const appOutDir = mkdtempSync(path.join(os.tmpdir(), "ccr-packaged-"));
-  const resources = path.join(appOutDir, "Fake.app", "Contents", "Resources");
+  const resources = hostPlatform === "darwin"
+    ? path.join(appOutDir, "Fake.app", "Contents", "Resources")
+    : path.join(appOutDir, "resources");
   const release = path.join(resources, "app.asar.unpacked", "node_modules", "better-sqlite3", "build", "Release");
   mkdirSync(release, { recursive: true });
   writeFileSync(path.join(resources, "app.asar"), "asar");
@@ -24,11 +28,11 @@ function packagedApp() {
 
 test("packaged-app verification accepts a bundle with only the main binary", async () => {
   const { appOutDir } = packagedApp();
-  await verifyPackagedApp({ appOutDir, arch: process.arch, electronPlatformName: "darwin" });
+  await verifyPackagedApp({ appOutDir, arch: process.arch, electronPlatformName: hostPlatform });
 });
 
 test("packaged-app verification rejects a bundle that carries an Electron sidecar", async () => {
   const { appOutDir, release } = packagedApp();
   writeFileSync(path.join(release, "better_sqlite3.electron-42.4.1.node"), "");
-  await assert.rejects(verifyPackagedApp({ appOutDir, arch: process.arch, electronPlatformName: "darwin" }), /better_sqlite3\.electron-42\.4\.1\.node/);
+  await assert.rejects(verifyPackagedApp({ appOutDir, arch: process.arch, electronPlatformName: hostPlatform }), /better_sqlite3\.electron-42\.4\.1\.node/);
 });
