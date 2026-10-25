@@ -5,64 +5,63 @@ import path from "node:path";
 import test from "node:test";
 import { claudeDesignRuntimePluginConfig, claudeShipRuntimePluginConfig, migrateKnownGatewayPluginConfigsForTest, withClaudeDesignRuntimePluginConfig } from "@ccr/core/config/config.ts";
 import { CCR_DESKTOP_APP_ENV } from "@ccr/core/runtime/desktop-app.ts";
+import { withDesktopRuntime } from "../../support/desktop-runtime.mjs";
 
-test("legacy combined Claude Design plugin config migrates to split Design and Ship plugins", () => {
+test("legacy combined Claude Design plugin config migrates to split Design and Ship plugins", async () => {
   const extensionsRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-extensions-migration-"));
   const previousExtensionsDir = process.env.CCR_EXTENSIONS_DIR;
-  const previousDesktopApp = process.env[CCR_DESKTOP_APP_ENV];
   try {
     writePluginModule(extensionsRoot, "claude-design");
     writePluginModule(extensionsRoot, "claude-ship");
     process.env.CCR_EXTENSIONS_DIR = extensionsRoot;
-    process.env[CCR_DESKTOP_APP_ENV] = "1";
-
-    const result = migrateKnownGatewayPluginConfigsForTest([{
-      apps: [
-        {
-          description: "Open Claude Design in a dedicated CCR Electron window.",
-          icon: "palette",
-          id: "claude-design",
-          name: "Claude Design",
-          url: "https://claude.ai/design"
+    await withDesktopRuntime(async () => {
+      const result = migrateKnownGatewayPluginConfigsForTest([{
+        apps: [
+          {
+            description: "Open Claude Design in a dedicated CCR Electron window.",
+            icon: "palette",
+            id: "claude-design",
+            name: "Claude Design",
+            url: "https://claude.ai/design"
+          },
+          {
+            description: "Open Claude Ship in a dedicated CCR Electron window.",
+            icon: "rocket",
+            id: "claude-ship",
+            name: "Claude Ship",
+            url: "https://claude.ai/claude-ship"
+          }
+        ],
+        config: {
+          adminAuth: "gateway",
+          autoAnswerQuestions: true,
+          host: "claude.ai"
         },
-        {
-          description: "Open Claude Ship in a dedicated CCR Electron window.",
-          icon: "rocket",
-          id: "claude-ship",
-          name: "Claude Ship",
-          url: "https://claude.ai/claude-ship"
-        }
-      ],
-      config: {
-        adminAuth: "gateway",
-        autoAnswerQuestions: true,
-        host: "claude.ai"
-      },
-      enabled: true,
-      id: "claude-design",
-      module: "/Users/example/products/CCR/claude-code-router/examples/plugins/claude-design/index.cjs",
-      permissions: ["trusted-code", "apps", "gateway-routes", "proxy-routes", "http-backends", "sqlite-store"],
-      surfaces: { apps: true, gateway: true, provider: false }
-    }]);
+        enabled: true,
+        id: "claude-design",
+        module: "/Users/example/products/CCR/claude-code-router/examples/plugins/claude-design/index.cjs",
+        permissions: ["trusted-code", "apps", "gateway-routes", "proxy-routes", "http-backends", "sqlite-store"],
+        surfaces: { apps: true, gateway: true, provider: false }
+      }]);
 
-    assert.equal(result.changed, true);
-    assert.deepEqual(result.plugins.map((plugin) => plugin.id), ["claude-design", "claude-ship"]);
-    assert.equal(result.plugins[0].module, bundledPluginModule("claude-design"));
-    assert.deepEqual(result.plugins[0].apps?.map((app) => app.id), ["claude-design"]);
-    assert.equal(result.plugins[0].apps?.[0]?.url, "https://claude-design.ccrdesk.top/design");
-    assert.deepEqual(result.plugins[0].config, {
-      adminAuth: "gateway",
-      host: "claude.ai"
-    });
-    assert.equal(result.plugins[1].module, bundledPluginModule("claude-ship"));
-    assert.equal(result.plugins[1].apps?.[0]?.url, "https://claude.ai/claude-ship");
-    assert.deepEqual(result.plugins[1].config, {
-      adminAuth: "gateway",
-      host: "claude.ai"
+      assert.equal(result.changed, true);
+      assert.deepEqual(result.plugins.map((plugin) => plugin.id), ["claude-design", "claude-ship"]);
+      assert.equal(result.plugins[0].module, bundledPluginModule("claude-design"));
+      assert.deepEqual(result.plugins[0].apps?.map((app) => app.id), ["claude-design"]);
+      assert.equal(result.plugins[0].apps?.[0]?.url, "https://claude-design.ccrdesk.top/design");
+      assert.deepEqual(result.plugins[0].config, {
+        adminAuth: "gateway",
+        host: "claude.ai"
+      });
+      assert.equal(result.plugins[1].module, bundledPluginModule("claude-ship"));
+      assert.equal(result.plugins[1].apps?.[0]?.url, "https://claude.ai/claude-ship");
+      assert.deepEqual(result.plugins[1].config, {
+        adminAuth: "gateway",
+        host: "claude.ai"
+      });
     });
   } finally {
     restoreEnv("CCR_EXTENSIONS_DIR", previousExtensionsDir);
-    restoreEnv(CCR_DESKTOP_APP_ENV, previousDesktopApp);
     rmSync(extensionsRoot, { force: true, recursive: true });
   }
 });
@@ -97,11 +96,8 @@ test("legacy Claude Design migration does not duplicate an existing Claude Ship 
   }
 });
 
-test("Claude Design runtime plugin config resolves from the bundled plugin in CCR Desktop without persisting", () => {
-  const previousDesktopApp = process.env[CCR_DESKTOP_APP_ENV];
-  try {
-    process.env[CCR_DESKTOP_APP_ENV] = "1";
-
+test("Claude Design runtime plugin config resolves from the bundled plugin in CCR Desktop without persisting", async () => {
+  await withDesktopRuntime(async () => {
     const plugin = claudeDesignRuntimePluginConfig();
     const shipPlugin = claudeShipRuntimePluginConfig();
     assert.equal(plugin?.id, "claude-design");
@@ -125,9 +121,7 @@ test("Claude Design runtime plugin config resolves from the bundled plugin in CC
 
     const configured = { plugins: [{ enabled: true, id: "claude-design", module: "/custom/design.cjs" }] };
     assert.equal(withClaudeDesignRuntimePluginConfig(configured), configured);
-  } finally {
-    restoreEnv(CCR_DESKTOP_APP_ENV, previousDesktopApp);
-  }
+  });
 });
 
 test("Claude Design runtime plugin config is unavailable outside CCR Desktop", () => {
