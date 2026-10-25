@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const COMMIT_COMMAND = /(^|[\s;&|])(rtk\s+)?git(\s+-[A-Za-z]\S*(\s+\S+)?)*\s+commit\b/;
 const DEFAULT_CHECKS = [["npm", ["run", "typecheck"]], ["npm", ["run", "test:architecture"]]];
@@ -18,6 +19,9 @@ if (!isCommit) {
 }
 
 const root = resolveRoot(input.cwd);
+if (packageName(root) !== packageName(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".."))) {
+  process.exit(0);
+}
 if (!existsSync(path.join(root, "node_modules"))) {
   block(`run npm ci in ${root} before committing`);
 }
@@ -43,6 +47,14 @@ function resolveRoot(cwd) {
     return cwd;
   }
   return process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
+}
+
+function packageName(dir) {
+  try {
+    return JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")).name;
+  } catch {
+    return undefined;
+  }
 }
 
 function block(message) {

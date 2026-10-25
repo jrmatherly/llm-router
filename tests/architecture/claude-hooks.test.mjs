@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -11,9 +11,11 @@ const run = (script, payload, env = {}) => spawnSync(process.execPath, [path.joi
   env: { ...process.env, ...env },
   input: JSON.stringify(payload)
 });
-const tempRepo = () => {
+const projectName = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")).name;
+const tempRepo = (name = projectName) => {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), "ccr-gate-")));
   mkdirSync(path.join(dir, "node_modules"));
+  writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name }));
   return dir;
 };
 const pass = JSON.stringify([[process.execPath, ["-e", "process.exit(0)"]]]);
@@ -62,8 +64,14 @@ test("gate blocks when a check fails and reports its output", () => {
   assert.equal(r.status, 2);
   assert.match(r.stderr, /tsc says no/);
 });
+test("gate skips a checkout of another project instead of running its scripts", () => {
+  const fail = JSON.stringify([[process.execPath, ["-e", "process.exit(1)"]]]);
+  const r = run("gate-commit.mjs", { cwd: tempRepo("someone-elses-package"), tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { CCR_GATE_COMMANDS: fail });
+  assert.equal(r.status, 0, r.stderr);
+});
 test("gate blocks a tree without node_modules", () => {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), "ccr-gate-bare-")));
+  writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: projectName }));
   const r = run("gate-commit.mjs", { cwd: dir, tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { CCR_GATE_COMMANDS: pass });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /npm ci/);
