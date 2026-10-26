@@ -80,3 +80,7 @@ test("the docs site no longer carries bare CCR or the upstream author's path", (
   const paths = gitGrepFiles(["/Volumes/Data/Products/claude-code-router", "--", "docs/src"]);
   assert.deepEqual(paths, []);
 });
+
+test("renderer HTML pages no longer carry bare CCR", () => {
+  assert.deepEqual(gitGrepFiles(["-P", "(?<![A-Za-z0-9_-])CCR(?![A-Za-z0-9_-])", "--", "packages/ui/src/**/*.html"]), []);
+});

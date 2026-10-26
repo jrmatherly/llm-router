@@ -83,19 +83,19 @@ const zhPatternErrorMessages: PatternTranslator[] = [
     translate: (command) => `未找到配置档案启动器：${command}。请重新保存配置档案后重试。`
   },
   {
-    pattern: /^Profile launcher was not found: (.+)\. Open CCR once or re-save the profile\.$/,
+    pattern: /^Profile launcher was not found: (.+)\. Open LLMR once or re-save the profile\.$/,
     translate: (command) => `未找到配置档案启动器：${command}。请打开一次 LLMR，或重新保存配置档案。`
   },
   {
-    pattern: /^CCR CLI runtime was not found\. Rebuild or reinstall CCR and try again\.$/,
+    pattern: /^LLMR CLI runtime was not found\. Rebuild or reinstall LLMR and try again\.$/,
     translate: () => "未找到 LLMR CLI 运行时。请重新构建或重新安装 LLMR 后重试。"
   },
   {
-    pattern: /^CCR config was not found: (.+)$/,
+    pattern: /^LLMR config was not found: (.+)$/,
     translate: (file) => `未找到 LLMR 配置：${file}`
   },
   {
-    pattern: /^CCR config has no profiles: (.+)$/,
+    pattern: /^LLMR config has no profiles: (.+)$/,
     translate: (file) => `LLMR 配置中没有配置档案：${file}`
   },
   {
@@ -111,11 +111,11 @@ const zhPatternErrorMessages: PatternTranslator[] = [
     translate: (profile, surface) => `${profile} 不支持以 ${surface} 方式打开。`
   },
   {
-    pattern: /^(.+) does not support stopping ([A-Z]+) from CCR\.$/,
+    pattern: /^(.+) does not support stopping ([A-Z]+) from LLMR\.$/,
     translate: (profile, surface) => `${profile} 不支持从 LLMR 停止 ${surface}。`
   },
   {
-    pattern: /^No CCR API key was found for profile "(.+)"\. Re-save the profile and try again\.$/,
+    pattern: /^No LLMR API key was found for profile "(.+)"\. Re-save the profile and try again\.$/,
     translate: (profile) => `未找到配置档案 "${profile}" 的 LLMR API Key。请重新保存配置档案后重试。`
   },
   {
@@ -135,7 +135,7 @@ const zhPatternErrorMessages: PatternTranslator[] = [
     translate: (profile) => `已打开 ${profile}。`
   },
   {
-    pattern: /^CCR gateway did not start for (.+)\.$/,
+    pattern: /^LLMR gateway did not start for (.+)\.$/,
     translate: (appName) => `${appName} 的 LLMR 网关未能启动。`
   },
   {
