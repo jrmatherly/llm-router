@@ -2093,13 +2093,14 @@ function userOwnedClaudeSettingsWithGatewayTakeover() {
     enabledPlugins: { "example@marketplace": true },
     env: {
       ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
+      ANTHROPIC_API_KEY: "user-key",
       ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
       CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456",
       CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1",
       CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY: "1",
       HINDSIGHT_API_LLM_PROVIDER: "claude-code",
-      NO_PROXY: "127.0.0.1,localhost",
-      no_proxy: "127.0.0.1,localhost"
+      NO_PROXY: "corp.internal,127.0.0.1,localhost,::1",
+      no_proxy: "127.0.0.1,localhost,::1"
     },
     hooks: { PreToolUse: [] },
     permissions: { allow: ["Bash(ls)"] }
@@ -2109,13 +2110,17 @@ function userOwnedClaudeSettingsWithGatewayTakeover() {
 function assertUserOwnedClaudeSettingsStripped(settingsFile) {
   const restored = JSON.parse(readFileSync(settingsFile, "utf8"));
   assert.equal(restored.apiKeyHelper, undefined);
-  assert.deepEqual(restored.env, { HINDSIGHT_API_LLM_PROVIDER: "claude-code" });
+  assert.deepEqual(restored.env, {
+    ANTHROPIC_API_KEY: "user-key",
+    HINDSIGHT_API_LLM_PROVIDER: "claude-code",
+    NO_PROXY: "corp.internal"
+  });
   assert.deepEqual(restored.permissions, { allow: ["Bash(ls)"] });
   assert.deepEqual(restored.hooks, { PreToolUse: [] });
   assert.deepEqual(restored.enabledPlugins, { "example@marketplace": true });
 }
 
-function withScratchRuntimeHome(run, { takeoverBackup = true } = {}) {
+function withScratchRuntimeHome(run, { originalSnapshot = false, takeoverBackup = true } = {}) {
   const previousHome = process.env.HOME;
   const previousRuntimeHome = process.env.CCR_INTERNAL_HOME_DIR;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
@@ -2126,6 +2131,9 @@ function withScratchRuntimeHome(run, { takeoverBackup = true } = {}) {
     mkdirSync(path.dirname(settingsFile), { recursive: true });
     if (takeoverBackup) {
       writeFileSync(`${settingsFile}.ccr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`);
+    }
+    if (originalSnapshot) {
+      writeFileSync(`${settingsFile}.ccr-original`, `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`);
     }
     writeFileSync(settingsFile, `${JSON.stringify(userOwnedClaudeSettingsWithGatewayTakeover(), null, 2)}\n`);
     run(settingsFile);
@@ -2168,6 +2176,48 @@ test("profile service leaves a user-owned settings file alone when LLMR never to
     assert.equal(statuses.length, 0);
     assert.equal(readFileSync(settingsFile, "utf8"), before);
   }, { takeoverBackup: false });
+});
+
+test("profile service treats a .ccr-original snapshot as takeover evidence", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const statuses = restoreInactiveGlobalProfileConfigs([]);
+    assert.equal(statuses.length, 1);
+    assertUserOwnedClaudeSettingsStripped(settingsFile);
+  }, { originalSnapshot: true, takeoverBackup: false });
+});
+
+test("profile service does not strip the global settings file while a router-scoped Claude profile is enabled", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const before = readFileSync(settingsFile, "utf8");
+    const statuses = restoreInactiveGlobalProfileConfigs([
+      {
+        agent: "claude-code",
+        enabled: true,
+        env: {},
+        id: "claude-code-2",
+        model: "Provider/model",
+        name: "Claude Code",
+        scope: "ccr",
+        settingsFile: "~/.claude/settings.json",
+        smallFastModel: "",
+        surface: "auto"
+      }
+    ]);
+    assert.equal(statuses.length, 0);
+    assert.equal(readFileSync(settingsFile, "utf8"), before);
+  });
+});
+
+test("profile service writes no backup when a user-owned settings file holds nothing LLMR-managed", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const userOnly = `${JSON.stringify({ env: { USER_VALUE: "kept" }, permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`;
+    writeFileSync(settingsFile, userOnly);
+    const backupsBefore = readdirSync(path.dirname(settingsFile)).filter((name) => name.includes(".ccr-backup-")).length;
+    const statuses = restoreInactiveGlobalProfileConfigs([]);
+    assert.equal(statuses.length, 0);
+    assert.equal(readFileSync(settingsFile, "utf8"), userOnly);
+    assert.equal(readdirSync(path.dirname(settingsFile)).filter((name) => name.includes(".ccr-backup-")).length, backupsBefore);
+  });
 });
 
 test("profile service strips LLMR-managed Claude settings from a user-owned settings file on exit", () => {

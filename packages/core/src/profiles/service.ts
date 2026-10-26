@@ -91,6 +91,7 @@ const claudeCodeNoProxyEnvKeys = [
   "NO_PROXY",
   "no_proxy"
 ] as const;
+const gatewayLocalNoProxyHosts = new Set(["127.0.0.1", "localhost", "::1"]);
 const claudeCodeGatewayCompatibilityEnvKeys = [
   "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"
 ] as const;
@@ -3874,7 +3875,7 @@ function restoreGlobalConfigFile(
     const backupFile = backupCurrentConfigFile(file, options.mode);
     writeFileSync(file, stripped, options.mode === undefined ? "utf8" : { encoding: "utf8", mode: options.mode });
     chmodFileIfRequested(file, options.mode);
-    return { backupFile, changed: true, file, missingBackup: false, restored: true, stripped: true };
+    return { backupFile, changed: true, file, missingBackup: false, restored: false, stripped: true };
   }
 
   const snapshot = originalSnapshotCandidate(file, options.isManagedContent);
@@ -4046,11 +4047,40 @@ function stripManagedClaudeCodeSettingsContent(
   }
   const nextSettings = withoutManagedClaudeCodeApiKeyHelper(removeClaudeCodeProfileSettings(settings, managedSettingPaths, []));
   if (isRecord(nextSettings.env)) {
-    nextSettings.env = Object.fromEntries(Object.entries(nextSettings.env).filter(([key]) =>
-      !isManagedClaudeCodeSettingsEnvKey(key) && !managedEnvKeys.includes(key)
-    ));
+    nextSettings.env = withoutManagedClaudeCodeEnv(nextSettings.env, managedEnvKeys);
   }
   return jsonValuesEqual(settings, nextSettings) ? undefined : `${JSON.stringify(nextSettings, null, 2)}\n`;
+}
+
+function withoutManagedClaudeCodeEnv(env: Record<string, unknown>, managedEnvKeys: string[]): Record<string, unknown> {
+  const routerWif = env.ANTHROPIC_FEDERATION_RULE_ID === claudeCodeWifFederationRuleId;
+  const next = Object.fromEntries(Object.entries(env).filter(([key]) =>
+    !managedEnvKeys.includes(key) &&
+    !(claudeCodeGatewayEnvKeys as readonly string[]).includes(key) &&
+    !(claudeCodeNoProxyEnvKeys as readonly string[]).includes(key) &&
+    !(claudeCodeGatewayCompatibilityEnvKeys as readonly string[]).includes(key) &&
+    !(routerWif && isClaudeCodeWifEnvKey(key)) &&
+    key !== CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV &&
+    key !== CLAUDE_CODE_MCP_CONFIG_ENV &&
+    key !== CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV &&
+    !isClaudeCodeManagedModelEnvKey(key) &&
+    !isBotGatewayEnvKey(key)
+  ));
+  for (const key of claudeCodeNoProxyEnvKeys) {
+    const remaining = typeof env[key] === "string" ? withoutGatewayNoProxyHosts(env[key]) : "";
+    if (remaining) {
+      next[key] = remaining;
+    }
+  }
+  return next;
+}
+
+function withoutGatewayNoProxyHosts(value: string): string {
+  return value
+    .split(",")
+    .map((host) => host.trim())
+    .filter((host) => host && !gatewayLocalNoProxyHosts.has(host))
+    .join(",");
 }
 
 function isPureManagedClaudeCodeSettings(settings: Record<string, unknown>, managedSettingPaths: string[] = []): boolean {
