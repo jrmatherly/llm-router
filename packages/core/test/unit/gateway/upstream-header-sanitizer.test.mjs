@@ -246,5 +246,6 @@ test("Claude apps gateway identity headers are attributed at ingress and never r
     assert.equal(result.headers[name], undefined, name);
   }
   assert.deepEqual(sanitizeUpstreamProviderHeaders({ ...identity, "x-keep": "yes" }), { "x-keep": "yes" });
+  assert.deepEqual(sanitizeUpstreamProviderHeaders({ "X-Claude-Gateway-User-Email": "a@b", " X-LiteLLM-End-User-Id ": "a@b", "x-keep": "yes" }), { "x-keep": "yes" });
   assert.equal(inferGatewayClient(undefined, request.headers), "kilgore@kilgore.trout");
 });

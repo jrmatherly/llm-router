@@ -283,9 +283,7 @@ export const localObservabilityHeaderNames = new Set([
   "x-ccr-provider-credential-saturated"
 ]);
 
-// The Claude apps gateway adds these with forward_user_identity. LLMR attributes
-// the request from them at ingress; the upstream header sanitizer keeps them out
-// of provider calls in both runtime topologies.
+// Added by the Claude apps gateway with forward_user_identity. Stripped in the upstream header sanitizer, not the pipeline executor, because only the sanitizer runs in both gateway runtimes.
 export const claudeAppsGatewayIdentityHeaderNames = new Set([
   "x-claude-gateway-user-email",
   "x-claude-gateway-user-id",
