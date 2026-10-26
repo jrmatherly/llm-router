@@ -113,6 +113,13 @@ export const docPages: DocPageDef[] = [
     source: { zh: "guides/observability.md", en: "guides/observability.md" },
   },
   {
+    key: "guides/claude-apps-gateway",
+    section: "guides",
+    label: { zh: "Claude apps gateway 上游", en: "Behind a Claude apps gateway" },
+    path: { zh: "/guides/claude-apps-gateway/", en: "/en/guides/claude-apps-gateway/" },
+    source: { zh: "guides/claude-apps-gateway.md", en: "guides/claude-apps-gateway.md" },
+  },
+  {
     key: "configuration/overview",
     section: "configuration",
     label: { zh: "概览仪表盘", en: "Overview dashboard" },
