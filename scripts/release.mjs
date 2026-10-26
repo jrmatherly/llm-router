@@ -51,8 +51,8 @@ export function nextVersion(current, spec) {
   return spec;
 }
 
-function run(command, args, options = {}) {
-  return execFileSync(command, args, { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], ...options }).trim();
+export function run(command, args, options = {}) {
+  return (execFileSync(command, args, { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], ...options }) ?? "").trim();
 }
 
 function preflight(version) {
