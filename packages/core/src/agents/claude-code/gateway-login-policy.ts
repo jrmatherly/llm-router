@@ -9,7 +9,7 @@ export function claudeCodeManagedSettingsDir(platform: NodeJS.Platform = process
     return "/Library/Application Support/ClaudeCode";
   }
   if (platform === "win32") {
-    return "C:\\Program Files\\ClaudeCode";
+    return `${process.env.ProgramFiles ?? "C:\\Program Files"}\\ClaudeCode`;
   }
   return "/etc/claude-code";
 }

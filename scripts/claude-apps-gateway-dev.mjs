@@ -15,7 +15,7 @@ const oidcClient = { id: "llmr-dev", secret: "llmr-dev-secret" };
 /** @param {GatewayConfigOptions} options */
 export function renderGatewayConfig(options) {
   if (options.adminWriteKey.length < 32 || Buffer.byteLength(options.jwtSecret) < 32) {
-    throw new Error("admin write key and JWT secret must be at least 32 characters");
+    throw new Error("admin write key must be at least 32 characters and the JWT secret at least 32 bytes");
   }
   if (!options.loadTest && !options.upstreamApiKey) {
     throw new Error("an LLMR client key is required; pass --api-key <key> or use --load-test");
