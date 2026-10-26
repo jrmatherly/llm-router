@@ -158,7 +158,7 @@ The reverse proxy should forward all paths to the LLMR Nginx and must:
 The entrypoint sets `HOME=/data`; the actual data lives at:
 
 ```text
-/data/.claude-code-router/
+/data/.llm-router/
 ├── config.sqlite
 ├── gateway.config.json
 ├── app-data/

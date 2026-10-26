@@ -139,7 +139,7 @@ Proxy all paths to Nginx and preserve streaming. The external proxy should allow
 The entrypoint sets `HOME=/data`, so CCR stores files under:
 
 ```text
-/data/.claude-code-router/
+/data/.llm-router/
 ├── config.sqlite
 ├── gateway.config.json
 ├── app-data/
@@ -309,7 +309,7 @@ environment:
 
 ### 数据、备份与升级
 
-数据实际位于 `/data/.claude-code-router/`，其中包括 `config.sqlite`、`app-data/`、Agent 配置和生成文件。优先使用命名卷，不要让两个运行中的 CCR 容器共享同一个数据目录。
+数据实际位于 `/data/.llm-router/`，其中包括 `config.sqlite`、`app-data/`、Agent 配置和生成文件。优先使用命名卷，不要让两个运行中的 CCR 容器共享同一个数据目录。
 
 完整文件备份前先停止写入：
 

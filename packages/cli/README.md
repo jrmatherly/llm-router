@@ -116,7 +116,7 @@ The desktop application installs a related command named `ccr-app`. Commands cop
 
 | Platform | Config directory |
 | --- | --- |
-| macOS / Linux | `~/.claude-code-router` |
+| macOS / Linux | `~/.llm-router` |
 | Windows | `%APPDATA%\claude-code-router` |
 
 Important files include:

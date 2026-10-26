@@ -60,8 +60,8 @@ A reachable management UI does not prove that the model gateway is usable. Docke
 
 | Distribution | Configuration location |
 | --- | --- |
-| Desktop / CLI on macOS or Linux | `~/.claude-code-router` |
+| Desktop / CLI on macOS or Linux | `~/.llm-router` |
 | Desktop / CLI on Windows | `%APPDATA%\claude-code-router` |
-| Docker | `/data/.claude-code-router`; persist `/data` |
+| Docker | `/data/.llm-router`; persist `/data` |
 
 Current configuration is stored in `config.sqlite`. Legacy `config.json` is only a migration source when SQLite does not exist, or an initial Docker bootstrap. Do not edit live SQLite files.

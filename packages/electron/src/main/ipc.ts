@@ -22,7 +22,6 @@ import {
   LEGACY_APP_CONFIG_DB_FILES,
   LEGACY_API_KEYS_DB_FILES,
   LEGACY_CONFIG_FILE,
-  LEGACY_WINDOWS_CONFIG_FILE,
   PROXY_CA_CERT_FILE,
   REQUEST_LOGS_DB_FILE,
   USAGE_DB_FILE
@@ -1004,7 +1003,6 @@ function assertExportTargetIsNotInternalDataFile(file: string): void {
   const target = path.resolve(file);
   const reserved = new Set([
     LEGACY_ACTIVE_CONFIG_FILE,
-    LEGACY_WINDOWS_CONFIG_FILE,
     LEGACY_CONFIG_FILE,
     ...dataExportCandidateFiles()
   ].map((item) => path.resolve(item)));

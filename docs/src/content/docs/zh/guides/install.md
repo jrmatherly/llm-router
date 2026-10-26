@@ -60,8 +60,8 @@ docker compose up -d --build
 
 | 方式 | 配置位置 |
 | --- | --- |
-| 桌面 / CLI（macOS、Linux） | `~/.claude-code-router` |
+| 桌面 / CLI（macOS、Linux） | `~/.llm-router` |
 | 桌面 / CLI（Windows） | `%APPDATA%\claude-code-router` |
-| Docker | `/data/.claude-code-router`，应持久化挂载 `/data` |
+| Docker | `/data/.llm-router`，应持久化挂载 `/data` |
 
 LLMR 当前配置存储在 `config.sqlite` 中；`config.json` 只在没有 SQLite 配置时作为旧版迁移或 Docker 首次引导来源。不要在 LLMR 运行时直接编辑 SQLite。

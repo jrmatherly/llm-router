@@ -92,7 +92,7 @@ try {
   assert.equal(appInfo.status, 200);
   const appInfoPayload = await appInfo.json();
   assert.equal(appInfoPayload.ok, true);
-  assert.equal(appInfoPayload.value.configDir, "/data/.claude-code-router");
+  assert.equal(appInfoPayload.value.configDir, "/data/.llm-router");
 
   const presets = await rpc(baseUrl, "getProviderPresets", token);
   assert.equal(presets.status, 200);
@@ -192,7 +192,7 @@ function seedLegacyDockerConfig(volume) {
   const script = `
 const fs = require("node:fs");
 const path = require("node:path");
-const configDir = "/data/.claude-code-router";
+const configDir = "/data/.llm-router";
 const config = {
   HOST: "0.0.0.0",
   PORT: 3456,
@@ -233,7 +233,7 @@ function dockerConfigStorage(containerId) {
   const script = `
 const fs = require("node:fs");
 const path = require("node:path");
-const configDir = "/data/.claude-code-router";
+const configDir = "/data/.llm-router";
 const appConfigDbFile = path.join(configDir, "config.sqlite");
 let persistedGateway = null;
 if (fs.existsSync(appConfigDbFile)) {

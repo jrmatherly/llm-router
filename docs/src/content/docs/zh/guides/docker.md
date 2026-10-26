@@ -158,7 +158,7 @@ services:
 EntryPoint 会设置 `HOME=/data`，实际数据位于：
 
 ```text
-/data/.claude-code-router/
+/data/.llm-router/
 ├── config.sqlite
 ├── gateway.config.json
 ├── app-data/

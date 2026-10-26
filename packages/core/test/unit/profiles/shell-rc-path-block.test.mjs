@@ -13,6 +13,7 @@ test("an rc file with the Claude Code Router PATH block ends up with one LLM Rou
   assert.equal((text.match(/>>> .* CLI >>>/g) ?? []).length, 1);
   assert.match(text, /# >>> LLM Router CLI >>>/);
   assert.doesNotMatch(text, /Claude Code Router CLI/);
-  assert.match(text, /\.claude-code-router\/bin/);
+  assert.match(text, /\.llm-router\/bin/);
+  assert.doesNotMatch(text, /claude-code-router/);
   assert.match(text, /^export A=1$/m);
 });

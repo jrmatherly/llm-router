@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { APP_STORAGE_NAME, resolveRuntimeConfigDir, resolveRuntimeDataDir } from "@ccr/core/runtime/app-paths.ts";
+import { APP_STORAGE_NAME, LEGACY_CONFIGDIR, resolveRuntimeConfigDir, resolveRuntimeDataDir } from "@ccr/core/runtime/app-paths.ts";
+
+test("the storage name and the JSON import dir carry the rebranded name", () => {
+  assert.equal(APP_STORAGE_NAME, "llm-router");
+  assert.equal(path.basename(LEGACY_CONFIGDIR), ".llm-router");
+});
 
 test("runtime config and data dirs default to the shared LLMR storage", () => {
   withRuntimePathEnv({

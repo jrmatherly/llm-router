@@ -156,7 +156,7 @@ ccr profile-id -- --help
 
 | 平台 | 配置目录 |
 | --- | --- |
-| macOS / Linux | `~/.claude-code-router` |
+| macOS / Linux | `~/.llm-router` |
 | Windows | `%APPDATA%\claude-code-router` |
 
 常见文件和目录：

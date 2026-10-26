@@ -2805,7 +2805,7 @@ function normalizeToolDefinitionForCache(value: unknown): ToolDefinition | null 
 }
 
 function toolHubCacheFile(): string {
-  return env("TOOLHUB_CACHE_FILE") || path.join(os.homedir(), ".claude-code-router", "toolhub-cache.json");
+  return env("TOOLHUB_CACHE_FILE") || path.join(os.homedir(), ".llm-router", "toolhub-cache.json");
 }
 
 function hashToolHubMcpServerConfig(config: GatewayMcpServerConfig): string {

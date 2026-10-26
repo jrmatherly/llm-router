@@ -79,11 +79,9 @@ function resolveConfigDir() {
   }
   if (process.platform === "win32") {
     const appData = process.env.APPDATA || process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Roaming");
-    const current = path.join(appData, "claude-code-router");
-    const legacy = path.join(appData, "Claude Code Router");
-    return fs.existsSync(current) || !fs.existsSync(legacy) ? current : legacy;
+    return path.join(appData, "llm-router");
   }
-  return path.join(os.homedir(), ".claude-code-router");
+  return path.join(os.homedir(), ".llm-router");
 }
 
 function botBridge() {
@@ -6701,7 +6699,7 @@ function claudeConfigSourceDirs(template, order) {
 
 function inferBaseClaudeConfigDirFromSession(value) {
   const text = String(value || "");
-  const marker = path.sep + ".claude-code-router" + path.sep;
+  const marker = path.sep + ".llm-router" + path.sep;
   const index = text.indexOf(marker);
   return index > 0 ? text.slice(0, index) : "";
 }

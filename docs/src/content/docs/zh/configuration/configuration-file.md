@@ -7,10 +7,10 @@ lead: 找到 LLMR 桌面 App 默认维护的 SQLite 配置数据库。
 
 ## 默认位置
 
-- macOS/Linux：`~/.claude-code-router/config.sqlite`
+- macOS/Linux：`~/.llm-router/config.sqlite`
 - Windows：`%APPDATA%\claude-code-router\config.sqlite`
 
-Docker 设置 `HOME=/data`，因此配置数据库位于 `/data/.claude-code-router/config.sqlite`；持久化挂载时请挂载整个 `/data` 目录，以保证配置数据库和相关文件都被保存。
+Docker 设置 `HOME=/data`，因此配置数据库位于 `/data/.llm-router/config.sqlite`；持久化挂载时请挂载整个 `/data` 目录，以保证配置数据库和相关文件都被保存。
 
 ## 生效方式
 

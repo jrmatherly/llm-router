@@ -878,7 +878,7 @@ function workbuddyVirtualAuthEnv(result: WorkbuddyVirtualAuthResult): Record<str
 }
 
 function workbuddyAppVirtualHomeDir(configDir: string): string {
-  return path.join(configDir, ".claude-code-router", "workbuddy-app-home");
+  return path.join(configDir, ".llm-router", "workbuddy-app-home");
 }
 
 function workbuddyAppVirtualAuthFile(homeDir: string): string {
@@ -1036,7 +1036,7 @@ function macAppBundleFromExecutable(executable: string): string | undefined {
 function codexElectronUserDataDir(codexHome: string, profile: ProfileConfig, spec: CodexCompatibleAppSpec): string {
   return path.join(
     codexHome,
-    ".claude-code-router",
+    ".llm-router",
     spec.userDataDirName,
     sanitizeProfilePathSegment(profile.id || profile.name || "default") || "default"
   );

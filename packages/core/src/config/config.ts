@@ -11,7 +11,7 @@ import {
   updatePersistedAppConfig,
   replacePersistedConfigSnapshot
 } from "@ccr/core/config/config-repository";
-import { LEGACY_ACTIVE_CONFIG_FILE, LEGACY_CONFIG_FILE, LEGACY_WINDOWS_CONFIG_FILE } from "@ccr/core/config/constants";
+import { LEGACY_ACTIVE_CONFIG_FILE, LEGACY_CONFIG_FILE } from "@ccr/core/config/constants";
 import { normalizeCodexProviderAccountConfig } from "@ccr/core/agents/local-providers/codex";
 import { normalizeGrokProviderAccountConfig, normalizeGrokProviderMediaCapabilities } from "@ccr/core/agents/local-providers/grok";
 import { removeOpenCodeProviderAccountConfig } from "@ccr/core/agents/local-providers/opencode";
@@ -695,7 +695,7 @@ async function loadRawAppConfig(): Promise<RawAppConfigLoadResult> {
 }
 
 function readLegacyJsonConfig(): LegacyJsonConfigLoadResult | undefined {
-  const files = uniqueStrings([LEGACY_ACTIVE_CONFIG_FILE, LEGACY_WINDOWS_CONFIG_FILE, LEGACY_CONFIG_FILE]);
+  const files = uniqueStrings([LEGACY_ACTIVE_CONFIG_FILE, LEGACY_CONFIG_FILE]);
   for (const file of files) {
     if (!existsSync(file)) {
       continue;
@@ -3889,7 +3889,7 @@ function defaultCodexConfigFile(agent: ProfileConfig["agent"]): string {
         : agent === "pi"
           ? "~/.pi/agent"
           : agent === CLAUDE_DESIGN_PLUGIN_ID
-            ? "~/.claude-code-router/claude-design"
+            ? "~/.llm-router/claude-design"
             : "~/.codex/config.toml";
 }
 

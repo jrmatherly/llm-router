@@ -8,7 +8,7 @@ import { gatewayFetchPreloadScriptForTest, writeGatewayFetchPreloadFile } from "
 
 test("gateway fetch preload file is stored with private permissions", { skip: process.platform === "win32" }, () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-gateway-preload-permissions-"));
-  const configDir = path.join(root, ".claude-code-router");
+  const configDir = path.join(root, ".llm-router");
   const preloadFile = path.join(configDir, "gateway-proxy-preload.cjs");
 
   try {

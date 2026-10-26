@@ -2026,7 +2026,7 @@ export function ensureShellRcPathBlock(rcFile: string, binDir: string): void {
 }
 
 function shellRcPathBlock(): string {
-  const binDir = "$HOME/.claude-code-router/bin";
+  const binDir = "$HOME/.llm-router/bin";
   return [
     ccrPathBlockStart,
     "# Added by LLM Router. Enables the ccr-app command in new shells.",
@@ -2063,7 +2063,7 @@ function fishPathBlock(): string {
   return [
     ccrPathBlockStart,
     "# Added by LLM Router. Enables the ccr-app command in new shells.",
-    'set -l ccr_bin "$HOME/.claude-code-router/bin"',
+    'set -l ccr_bin "$HOME/.llm-router/bin"',
     "if not contains $ccr_bin $PATH",
     "    set -gx PATH $ccr_bin $PATH",
     "end",
@@ -2072,8 +2072,8 @@ function fishPathBlock(): string {
 }
 
 function shellRcAlreadyAddsCcrBin(source: string, binDir: string): boolean {
-  return source.includes("$HOME/.claude-code-router/bin") ||
-    source.includes("~/.claude-code-router/bin") ||
+  return source.includes("$HOME/.llm-router/bin") ||
+    source.includes("~/.llm-router/bin") ||
     source.includes(binDir);
 }
 

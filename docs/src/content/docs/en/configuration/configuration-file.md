@@ -7,10 +7,10 @@ lead: Locate the SQLite configuration database maintained by the LLMR desktop ap
 
 ## Default locations
 
-- **macOS/Linux**: `~/.claude-code-router/config.sqlite`
+- **macOS/Linux**: `~/.llm-router/config.sqlite`
 - **Windows**: `%APPDATA%\claude-code-router\config.sqlite`
 
-Docker sets `HOME=/data`, so its configuration database is `/data/.claude-code-router/config.sqlite`. Persist the complete `/data` directory so the configuration database and companion files are preserved.
+Docker sets `HOME=/data`, so its configuration database is `/data/.llm-router/config.sqlite`. Persist the complete `/data` directory so the configuration database and companion files are preserved.
 
 ## Applying changes
 

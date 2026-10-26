@@ -958,7 +958,7 @@ function createBotGatewayIntegrationId(profileId: string): string {
 
 function createBotGatewayStateDir(configId: string): string {
   const safe = configId.replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "") || "default";
-  return `~/.claude-code-router/bot-gateway/${safe}`;
+  return `~/.llm-router/bot-gateway/${safe}`;
 }
 
 function uniqueBotGatewayConfigId(configs: BotGatewaySavedConfig[], value: string): string {
@@ -1817,7 +1817,7 @@ function defaultCodexConfigFile(agent: ProfileConfig["agent"]): string {
         : agent === "pi"
           ? "~/.pi/agent"
           : agent === "claude-design"
-            ? "~/.claude-code-router/claude-design"
+            ? "~/.llm-router/claude-design"
             : "~/.codex/config.toml";
 }
 

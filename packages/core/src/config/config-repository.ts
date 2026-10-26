@@ -7,7 +7,6 @@ import {
   LEGACY_APP_CONFIG_DB_FILES,
   LEGACY_API_KEYS_DB_FILES,
   LEGACY_CONFIG_FILE,
-  LEGACY_WINDOWS_CONFIG_FILE,
   ONBOARDING_FINISHED_AT_SETTING_KEY,
   ONBOARDING_FINISHED_FILE
 } from "@ccr/core/config/constants";
@@ -36,7 +35,6 @@ const cleanupQueueBackfillMigrationId = "legacy-storage-cleanup-queue-v1";
 const unifiedConfigMigrationId = "unified-config-store-v1";
 const legacyJsonConfigFiles = [
   LEGACY_ACTIVE_CONFIG_FILE,
-  LEGACY_WINDOWS_CONFIG_FILE,
   LEGACY_CONFIG_FILE
 ];
 

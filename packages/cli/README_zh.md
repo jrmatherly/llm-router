@@ -116,7 +116,7 @@ ccr <配置名称或 ID> [cli|app] [-- <Agent 参数>]
 
 | 平台 | 配置目录 |
 | --- | --- |
-| macOS / Linux | `~/.claude-code-router` |
+| macOS / Linux | `~/.llm-router` |
 | Windows | `%APPDATA%\claude-code-router` |
 
 重要文件包括：

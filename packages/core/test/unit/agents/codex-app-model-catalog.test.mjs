@@ -76,7 +76,7 @@ test("ChatGPT model catalog write includes patch bridge capabilities", () => {
     assert.equal(path.basename(result.file), "ccr-codex-model-catalog.json");
     assert.equal(
       result.userDataDir,
-      path.join(configDir, "profiles", "codex-main", "codex", ".claude-code-router", "codex-app-user-data", "codex-main")
+      path.join(configDir, "profiles", "codex-main", "codex", ".llm-router", "codex-app-user-data", "codex-main")
     );
 
     const catalog = JSON.parse(readFileSync(result.file, "utf8"));

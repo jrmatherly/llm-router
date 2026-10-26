@@ -306,7 +306,7 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
       outputStyle: "backup"
     }, null, 2)}\n`;
     const userSettings = `${JSON.stringify({
-      apiKeyHelper: "/home/user/.claude-code-router/bin/ccr-claude-code-api-key-claude-code",
+      apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-claude-code",
       env: {
         ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
         ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",

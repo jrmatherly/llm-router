@@ -106,3 +106,12 @@ test("the docs site no longer carries bare CCR or the upstream author's path", (
 test("renderer HTML pages no longer carry bare CCR", () => {
   assert.deepEqual(gitGrepFiles(["-P", "(?<![A-Za-z0-9_-])CCR(?![A-Za-z0-9_-])", "--", "packages/ui/src/**/*.html"]), []);
 });
+
+test("nothing points at the old data directory", () => {
+  const paths = [
+    "packages/core/src", "packages/ui/src", "packages/cli/src", "packages/electron/src", "packages/electron/bundled-plugins",
+    "packages/core/test", "packages/ui/test", "packages/cli/test", "packages/electron/test", "tests/e2e", "tests/system",
+    "docker", "docs/src", "README.md"
+  ];
+  assert.deepEqual(gitGrepFiles(["-E", "\\.claude-code-router|Claude Code Router\"\\)|appData, \"claude-code-router\"", "--", ...paths]), []);
+});

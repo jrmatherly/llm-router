@@ -7175,7 +7175,7 @@ function listClaudeShipWorkspaceFiles(root) {
 function shouldIgnoreClaudeShipWorkspaceEntry(name) {
   return name === ".git" ||
     name === ".claude" ||
-    name === ".claude-code-router" ||
+    name === ".llm-router" ||
     name === "node_modules" ||
     name === ".DS_Store";
 }
