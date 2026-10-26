@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, availableGatewayModelIds, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@ccr/core/contracts/app";
 import { CLAUDE_CODE_AUTH_MODE_ENV, resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@ccr/core/agents/claude-code/auth-mode";
+import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@ccr/core/agents/claude-code/gateway-login-policy";
 import { updatePersistedApiKeys } from "@ccr/core/config/config-repository";
 import { botGatewayProfileEnv } from "@ccr/core/agents/bot-gateway/env";
 import {
@@ -401,6 +402,17 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
   if (!profile.enabled) {
     cleanupClaudeCodeGeneratedFiles(profile);
     return restoreDisabledGlobalProfile(profile, settingsFile, "Claude Code profile is disabled.", claudeCodeManagedContentPredicate(profile));
+  }
+
+  const gatewayPolicy = readClaudeCodeGatewayLoginPolicy([...claudeCodeManagedSettingsFiles(), settingsFile]);
+  if (gatewayPolicy) {
+    return {
+      client: "claude-code",
+      enabled: true,
+      message: `Claude Code on this machine is pinned to a Claude apps gateway by ${gatewayPolicy.key} in ${gatewayPolicy.file}. LLMR did not change ${settingsFile}; sign Claude Code in to the gateway, or point the gateway's upstream at LLMR instead.`,
+      ok: false,
+      path: settingsFile
+    };
   }
 
   try {
