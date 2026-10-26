@@ -11,7 +11,7 @@ Runs Anthropic's Claude apps gateway on this machine with LLM Router as its sing
 | Dex | Docker, `http://127.0.0.1:15556` | Mock OIDC issuer. The `mockCallback` connector signs every login in as `kilgore@kilgore.trout` with groups `[authors]`. |
 | LLM Router | Wherever you run it, default `http://127.0.0.1:3456` | The gateway forwards `/v1/messages` here with `forward_user_identity: true`, so LLMR's request log attributes each call to the developer's e-mail. |
 
-The script renders `dex.rendered.yaml` and `gateway.rendered.yaml` into this directory from one options object, so the gateway's `public_url`, Dex's `issuer` and the registered redirect URI always agree. Both rendered files and `.env` are gitignored. The JWT secret and the admin write key are generated per run, printed once, and never committed.
+The script renders `dex.rendered.yaml` and `gateway.rendered.yaml` into this directory from one options object, so the gateway's `public_url`, Dex's `issuer` and the registered redirect URI always agree. Both rendered files and `.env` are gitignored. The JWT secret and the admin write key are generated per run and never committed; the admin write key is printed once, the JWT secret lives only in `gateway.rendered.yaml`.
 
 ## Run it
 
@@ -37,7 +37,7 @@ curl -s http://127.0.0.1:18080/.well-known/oauth-authorization-server | jq .devi
 
 ## Sign a Claude Code session in
 
-1. Back up `~/.claude/settings.json`, then add `"forceLoginMethod": "gateway"` and `"forceLoginGatewayUrl": "http://127.0.0.1:18080"`. LLMR's Claude Code profile apply refuses to touch a settings file that carries these keys, so the pin survives a running LLMR.
+1. Back up `~/.claude/settings.json`, then add `"forceLoginMethod": "gateway"` and `"forceLoginGatewayUrl": "http://127.0.0.1:18080"`. LLMR's Claude Code profile apply refuses to touch a settings file whose `forceLoginMethod` is `gateway`, so the pin survives a running LLMR.
 2. Run `claude`, then `/login`. Accept the fingerprint prompt and approve the mock user in the browser.
 3. Pick with `/model` a model id that LLMR routes. The gateway forwards the id unchanged to its `anthropic` upstream, so an LLMR provider or virtual model must answer to that exact id.
 4. Send a prompt. With Request logs enabled under Settings, LLMR's Logs page shows a row whose detail panel reads Client `kilgore@kilgore.trout`. The gateway resolves a model alias such as `claude-sonnet-4-5` to its dated id (`claude-sonnet-4-5-20250929`) before forwarding, so the LLMR provider must list the dated id.

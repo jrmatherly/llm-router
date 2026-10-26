@@ -31,13 +31,13 @@ LLMR 会把这三个身份头原样转发给请求最终路由到的供应商，
 
 ## 被网关锁定的机器上的 Claude Code 配置
 
-托管设置里写了 `forceLoginMethod: "gateway"` 或 `allowedProviders: ["gateway"]` 的机器只允许 Claude Code 通过网关登录；用 API 密钥或 `apiKeyHelper` 鉴权的会话会在启动时退出。LLMR 的 Claude Code 配置应用写入的正是这些设置，所以写入前会先读取各系统的托管设置（macOS 的 `/Library/Application Support/ClaudeCode/managed-settings.json`，Linux 和 WSL 的 `/etc/claude-code/managed-settings.json`，Windows 的 `C:\Program Files\ClaudeCode\managed-settings.json`，以及同目录下的 `managed-settings.d/*.json`）和配置自己的设置文件。任一处锁定了机器，应用就会被拒绝，并提示：
+托管设置里写了 `forceLoginMethod: "gateway"` 或 `allowedProviders: ["gateway"]` 的机器只允许 Claude Code 通过网关登录；用 API 密钥或 `apiKeyHelper` 鉴权的会话会在启动时退出。LLMR 的 Claude Code 配置应用写入的正是这类鉴权（API 密钥或 `apiKeyHelper`），所以写入前会先读取各系统的托管设置（macOS 的 `/Library/Application Support/ClaudeCode/managed-settings.json`，Linux 和 WSL 的 `/etc/claude-code/managed-settings.json`，Windows 的 `%ProgramFiles%\ClaudeCode\managed-settings.json`，以及同目录下的 `managed-settings.d/*.json`）和配置自己的设置文件。任一处锁定了机器，应用就会被拒绝，并提示：
 
 ```text
-Claude Code on this machine is pinned to a Claude apps gateway by forceLoginMethod in <file>. LLMR did not change <settings file>; sign Claude Code in to the gateway, or point the gateway's upstream at LLMR instead.
+Claude Code on this machine is pinned to a Claude apps gateway by <key> in <file>. LLMR did not change <settings file>; sign Claude Code in to the gateway, or point the gateway's upstream at LLMR instead.
 ```
 
-通过 macOS plist 或 Windows 注册表下发的托管设置不会被读取。这类机器上请让 Claude Code 登录网关，再按上文把网关的上游指向 LLMR。
+`<key>` 是锁定机器的那个键，`forceLoginMethod` 或 `allowedProviders`。通过 macOS plist 或 Windows 注册表下发的托管设置不会被读取。这类机器上请让 Claude Code 登录网关，再按上文把网关的上游指向 LLMR。
 
 ## 本地试一下
 

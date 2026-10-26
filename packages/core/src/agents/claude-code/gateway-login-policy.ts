@@ -4,7 +4,15 @@ import { isRecord } from "@ccr/core/agents/local-providers/shared";
 
 export type ClaudeCodeGatewayLoginPolicy = { file: string; key: "allowedProviders" | "forceLoginMethod" };
 
-export function claudeCodeManagedSettingsDir(platform: NodeJS.Platform = process.platform): string {
+const managedSettingsDirEnv = "CCR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR";
+
+// shortcut: plist and HKLM managed sources are not read; they need platform APIs. Upgrade when a user reports a pinned machine the file check misses.
+export function claudeCodeManagedSettingsDir(platform?: NodeJS.Platform): string {
+  const override = platform === undefined ? process.env[managedSettingsDirEnv]?.trim() : undefined;
+  if (override) {
+    return override;
+  }
+  platform ??= process.platform;
   if (platform === "darwin") {
     return "/Library/Application Support/ClaudeCode";
   }
@@ -20,7 +28,6 @@ export function claudeCodeManagedSettingsFiles(dir: string = claudeCodeManagedSe
   return [path.join(dir, "managed-settings.json"), ...dropIns].filter((file) => existsSync(file));
 }
 
-// shortcut: plist and HKLM managed sources are not read; they need platform APIs. Upgrade when a user reports a pinned machine the file check misses.
 export function readClaudeCodeGatewayLoginPolicy(files: string[]): ClaudeCodeGatewayLoginPolicy | undefined {
   for (const file of files) {
     const settings = readJsonObject(file);
@@ -40,7 +47,10 @@ export function readClaudeCodeGatewayLoginPolicy(files: string[]): ClaudeCodeGat
 function readDirSafe(dir: string): string[] {
   try {
     return readdirSync(dir);
-  } catch {
+  } catch (error) {
+    if (!isAbsent(error)) {
+      console.warn(`[claude-code] Cannot list ${dir}; gateway login policy drop-ins were not checked: ${String(error)}`);
+    }
     return [];
   }
 }
@@ -49,7 +59,15 @@ function readJsonObject(file: string): Record<string, unknown> | undefined {
   try {
     const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
     return isRecord(parsed) ? parsed : undefined;
-  } catch {
+  } catch (error) {
+    if (!isAbsent(error)) {
+      console.warn(`[claude-code] Cannot read ${file} as JSON; it was not checked for a gateway login policy: ${String(error)}`);
+    }
     return undefined;
   }
+}
+
+function isAbsent(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === "ENOENT" || code === "ENOTDIR";
 }

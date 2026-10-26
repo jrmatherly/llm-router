@@ -31,13 +31,13 @@ LLMR forwards the three identity headers unchanged to the provider it routes the
 
 ## Claude Code profiles on a gateway-pinned machine
 
-A machine whose managed settings set `forceLoginMethod: "gateway"` or `allowedProviders: ["gateway"]` runs Claude Code against the gateway only; a session that authenticates with an API key or `apiKeyHelper` exits at startup. LLMR's Claude Code profile apply writes exactly those settings, so before writing it reads the per-OS managed settings (`/Library/Application Support/ClaudeCode/managed-settings.json` on macOS, `/etc/claude-code/managed-settings.json` on Linux and WSL, `C:\Program Files\ClaudeCode\managed-settings.json` on Windows, plus `managed-settings.d/*.json` beside each) and the profile's own settings file. When either pins the machine, the apply is refused with:
+A machine whose managed settings set `forceLoginMethod: "gateway"` or `allowedProviders: ["gateway"]` runs Claude Code against the gateway only; a session that authenticates with an API key or `apiKeyHelper` exits at startup. LLMR's Claude Code profile apply writes exactly that kind of authentication (an API key or `apiKeyHelper`), so before writing it reads the per-OS managed settings (`/Library/Application Support/ClaudeCode/managed-settings.json` on macOS, `/etc/claude-code/managed-settings.json` on Linux and WSL, `%ProgramFiles%\ClaudeCode\managed-settings.json` on Windows, plus `managed-settings.d/*.json` beside each) and the profile's own settings file. When either pins the machine, the apply is refused with:
 
 ```text
-Claude Code on this machine is pinned to a Claude apps gateway by forceLoginMethod in <file>. LLMR did not change <settings file>; sign Claude Code in to the gateway, or point the gateway's upstream at LLMR instead.
+Claude Code on this machine is pinned to a Claude apps gateway by <key> in <file>. LLMR did not change <settings file>; sign Claude Code in to the gateway, or point the gateway's upstream at LLMR instead.
 ```
 
-Managed settings delivered through a macOS plist or the Windows registry are not read. Sign Claude Code in to the gateway on such a machine, and route the gateway to LLMR as above.
+`<key>` is whichever of `forceLoginMethod` or `allowedProviders` pinned the machine. Managed settings delivered through a macOS plist or the Windows registry are not read. Sign Claude Code in to the gateway on such a machine, and route the gateway to LLMR as above.
 
 ## Try it locally
 

@@ -122,18 +122,22 @@ function parsePort(value, flag) {
 function main(argv) {
   const args = parseArgs(argv);
   try {
-    execFileSync("sh", ["-c", "command -v claude"], { stdio: "ignore" });
-  } catch {
-    console.error("claude is not on PATH; install Claude Code (this harness was verified with 2.1.310).");
-    process.exit(1);
+    execFileSync("claude", ["--version"], { stdio: "ignore" });
+  } catch (error) {
+    throw error?.code === "ENOENT" ? new Error("claude is not on PATH; install Claude Code (this harness was verified with 2.1.310).") : error;
   }
   const harnessDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "docker", "claude-apps-gateway");
   const composeFile = path.join(harnessDir, "compose.yaml");
+  const teardownHint = `containers may still be running: docker compose -f ${composeFile} down -v`;
   const secrets = { adminWriteKey: randomBytes(32).toString("base64url"), jwtSecret: randomBytes(32).toString("base64url") };
   const gatewayYaml = renderGatewayConfig({ ...args, ...secrets });
   const env = { ...process.env, CLAUDE_GATEWAY_ALLOW_LOOPBACK: "1", DEX_PORT: String(args.dexPort) };
   writeFileSync(path.join(harnessDir, "dex.rendered.yaml"), renderDexConfig(args));
-  execFileSync("docker", ["compose", "-f", composeFile, "up", "-d", "--wait"], { env, stdio: "inherit" });
+  try {
+    execFileSync("docker", ["compose", "-f", composeFile, "up", "-d", "--wait"], { env, stdio: "inherit" });
+  } catch (error) {
+    throw new Error(error?.code === "ENOENT" ? "docker is not on PATH" : `docker compose failed; ${teardownHint}`);
+  }
   const gatewayFile = path.join(harnessDir, "gateway.rendered.yaml");
   writeFileSync(gatewayFile, gatewayYaml, { mode: 0o600 });
   console.log(`gateway config: ${gatewayFile}`);
@@ -144,9 +148,21 @@ function main(argv) {
   const child = spawn("claude", ["gateway", "--config", gatewayFile], { env, stdio: "inherit" });
   process.on("SIGINT", () => child.kill("SIGINT"));
   process.on("SIGTERM", () => child.kill("SIGTERM"));
-  child.on("exit", (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
+  child.on("error", (error) => {
+    console.error(`failed to start claude gateway: ${error.message}; ${teardownHint}`);
+    process.exit(1);
+  });
+  child.on("exit", (code, signal) => {
+    console.log(`gateway stopped; ${teardownHint}`);
+    process.exit(signal === "SIGINT" || signal === "SIGTERM" ? 0 : code ?? 1);
+  });
 }
 
 if (process.argv[1] && path.basename(process.argv[1]) === "claude-apps-gateway-dev.mjs") {
-  main(process.argv.slice(2));
+  try {
+    main(process.argv.slice(2));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
 }

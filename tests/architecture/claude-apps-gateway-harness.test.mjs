@@ -44,4 +44,5 @@ test("parseArgs defaults and flags", () => {
   const parsed = parseArgs(["--load-test", "--port", "18090", "--dex-port", "15557", "--upstream", "http://10.0.0.5:3456", "--api-key", "k"]);
   assert.deepEqual(parsed, { dexPort: 15557, gatewayPort: 18090, loadTest: true, upstreamApiKey: "k", upstreamBaseUrl: "http://10.0.0.5:3456" });
   assert.throws(() => parseArgs(["--bogus"]), /--bogus/);
+  assert.throws(() => parseArgs(["--port", "abc"]), /--port/);
 });
