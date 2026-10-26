@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -54,4 +54,17 @@ test("managed settings directory follows the platform", () => {
   assert.equal(claudeCodeManagedSettingsDir("linux"), "/etc/claude-code");
   assert.equal(claudeCodeManagedSettingsDir("win32"), "C:\\Program Files\\ClaudeCode");
   assert.deepEqual(claudeCodeManagedSettingsFiles(path.join(os.tmpdir(), "ccr-gateway-login-policy-absent")), []);
+});
+
+test("an unreadable managed-settings.d is no policy", { skip: process.getuid?.() === 0 }, () => {
+  withTempDir((dir) => {
+    const dropInDir = path.join(dir, "managed-settings.d");
+    mkdirSync(dropInDir);
+    chmodSync(dropInDir, 0o000);
+    try {
+      assert.deepEqual(claudeCodeManagedSettingsFiles(dir), []);
+    } finally {
+      chmodSync(dropInDir, 0o700);
+    }
+  });
 });

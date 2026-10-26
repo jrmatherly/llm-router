@@ -124,7 +124,7 @@ function main(argv) {
   try {
     execFileSync("sh", ["-c", "command -v claude"], { stdio: "ignore" });
   } catch {
-    console.error("claude is not on PATH; install Claude Code 2.1.282 or later, which ships the gateway subcommand.");
+    console.error("claude is not on PATH; install Claude Code (this harness was verified with 2.1.310).");
     process.exit(1);
   }
   const harnessDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "docker", "claude-apps-gateway");

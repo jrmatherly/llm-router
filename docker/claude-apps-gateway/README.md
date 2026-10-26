@@ -6,7 +6,7 @@ Runs Anthropic's Claude apps gateway on this machine with LLM Router as its sing
 
 | Piece | Where | Notes |
 | --- | --- | --- |
-| `claude gateway` | Native process on the host, `http://127.0.0.1:18080` | The `gateway` subcommand of the installed Claude Code binary (2.1.282 or later). Started by the script with `CLAUDE_GATEWAY_ALLOW_LOOPBACK=1`. |
+| `claude gateway` | Native process on the host, `http://127.0.0.1:18080` | The `gateway` subcommand of the installed Claude Code binary (verified with 2.1.310). Started by the script with `CLAUDE_GATEWAY_ALLOW_LOOPBACK=1`. |
 | PostgreSQL | Docker, `127.0.0.1:15432` | `postgres:16-alpine`, database `gateway`, user `gw`, password `pw`, named volume `pgdata`. |
 | Dex | Docker, `http://127.0.0.1:15556` | Mock OIDC issuer. The `mockCallback` connector signs every login in as `kilgore@kilgore.trout` with groups `[authors]`. |
 | LLM Router | Wherever you run it, default `http://127.0.0.1:3456` | The gateway forwards `/v1/messages` here with `forward_user_identity: true`, so LLMR's request log attributes each call to the developer's e-mail. |

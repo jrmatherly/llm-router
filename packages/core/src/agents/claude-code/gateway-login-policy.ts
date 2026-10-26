@@ -16,9 +16,7 @@ export function claudeCodeManagedSettingsDir(platform: NodeJS.Platform = process
 
 export function claudeCodeManagedSettingsFiles(dir: string = claudeCodeManagedSettingsDir()): string[] {
   const dropInDir = path.join(dir, "managed-settings.d");
-  const dropIns = existsSync(dropInDir)
-    ? readdirSync(dropInDir).filter((name) => name.endsWith(".json")).sort().map((name) => path.join(dropInDir, name))
-    : [];
+  const dropIns = readDirSafe(dropInDir).filter((name) => name.endsWith(".json")).sort().map((name) => path.join(dropInDir, name));
   return [path.join(dir, "managed-settings.json"), ...dropIns].filter((file) => existsSync(file));
 }
 
@@ -37,6 +35,14 @@ export function readClaudeCodeGatewayLoginPolicy(files: string[]): ClaudeCodeGat
     }
   }
   return undefined;
+}
+
+function readDirSafe(dir: string): string[] {
+  try {
+    return readdirSync(dir);
+  } catch {
+    return [];
+  }
 }
 
 function readJsonObject(file: string): Record<string, unknown> | undefined {

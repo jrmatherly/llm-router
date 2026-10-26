@@ -27,7 +27,7 @@ The gateway appends `/v1/messages` itself, so `base_url` carries no `/v1` suffix
 
 With `forward_user_identity: true` the gateway adds `x-claude-gateway-user-email`, `x-litellm-end-user-id` and `x-claude-gateway-user-id` to each forwarded request. LLMR takes the client label of the request from `x-claude-gateway-user-email`, or from `x-litellm-end-user-id` when the first is absent, so the request log shows the developer's e-mail as the client. A request that also carries `x-ccr-client` keeps that label; an LLMR-aware proxy in front of the gateway wins.
 
-Request logs are local and keep that e-mail for the current day. Enable **Request logs** under **Settings → Logs & Observability** to see the rows.
+LLMR forwards the three identity headers unchanged to the provider it routes the request to, so the developer's e-mail reaches that provider as well. Request logs are local and keep that e-mail for the current day. Enable **Request logs** under **Settings → Logs & Observability** to see the rows.
 
 ## Claude Code profiles on a gateway-pinned machine
 

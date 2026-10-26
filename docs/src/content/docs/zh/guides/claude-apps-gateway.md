@@ -27,7 +27,7 @@ upstreams:
 
 开启 `forward_user_identity: true` 后，网关会给每条转发请求加上 `x-claude-gateway-user-email`、`x-litellm-end-user-id` 和 `x-claude-gateway-user-id`。LLMR 用 `x-claude-gateway-user-email` 作为请求的客户端标签，没有时退回 `x-litellm-end-user-id`，所以请求日志里的客户端就是开发者的邮箱。同时带有 `x-ccr-client` 的请求保留该标签；网关前面的 LLMR 感知代理优先。
 
-请求日志只保留本地当天的数据，邮箱也随之保存。到 **设置 → 日志与观测** 打开 **请求日志** 才能看到这些记录。
+LLMR 会把这三个身份头原样转发给请求最终路由到的供应商，因此开发者邮箱也会到达该供应商。请求日志只保留本地当天的数据，邮箱也随之保存。到 **设置 → 日志与观测** 打开 **请求日志** 才能看到这些记录。
 
 ## 被网关锁定的机器上的 Claude Code 配置
 
