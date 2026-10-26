@@ -406,13 +406,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
 
   const gatewayPolicy = readClaudeCodeGatewayLoginPolicy([...claudeCodeManagedSettingsFiles(), settingsFile]);
   if (gatewayPolicy) {
-    return {
-      client: "claude-code",
-      enabled: true,
-      message: `Claude Code on this machine is pinned to a Claude apps gateway by ${gatewayPolicy.key} in ${gatewayPolicy.file}. LLMR did not change ${settingsFile}; sign Claude Code in to the gateway, or point the gateway's upstream at LLMR instead.`,
-      ok: false,
-      path: settingsFile
-    };
+    return refusedProfileStatus(profile, settingsFile, `Claude Code on this machine is pinned to a Claude apps gateway by ${gatewayPolicy.key} in ${gatewayPolicy.file}. LLMR did not change ${settingsFile}; sign Claude Code in to the gateway, or point the gateway's upstream at LLMR instead.`);
   }
 
   try {
@@ -3981,10 +3975,14 @@ function disabledStatus(client: ProfileClientKind, file: string, message: string
 }
 
 function unavailableModelStatus(profile: ProfileConfig, file: string): ProfileClientApplyStatus {
+  return refusedProfileStatus(profile, file, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE);
+}
+
+function refusedProfileStatus(profile: ProfileConfig, file: string, message: string): ProfileClientApplyStatus {
   return {
     client: profile.agent,
     enabled: true,
-    message: NO_AVAILABLE_GATEWAY_MODELS_MESSAGE,
+    message,
     ok: false,
     path: resolveUserPath(file)
   };

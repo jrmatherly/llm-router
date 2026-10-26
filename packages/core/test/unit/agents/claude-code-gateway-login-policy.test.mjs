@@ -14,21 +14,18 @@ function withTempDir(run) {
   }
 }
 
-test("forceLoginMethod gateway in managed settings pins the machine", () => {
-  withTempDir((dir) => {
-    const file = path.join(dir, "managed-settings.json");
-    writeFileSync(file, JSON.stringify({ forceLoginGatewayUrl: "https://gw.internal", forceLoginMethod: "gateway" }));
-    assert.deepEqual(readClaudeCodeGatewayLoginPolicy([file]), { file, key: "forceLoginMethod" });
+for (const [key, settings] of [
+  ["forceLoginMethod", { forceLoginGatewayUrl: "https://gw.internal", forceLoginMethod: "gateway" }],
+  ["allowedProviders", { allowedProviders: ["gateway"] }]
+]) {
+  test(`${key} gateway in managed settings pins the machine`, () => {
+    withTempDir((dir) => {
+      const file = path.join(dir, "managed-settings.json");
+      writeFileSync(file, JSON.stringify(settings));
+      assert.deepEqual(readClaudeCodeGatewayLoginPolicy([file]), { file, key });
+    });
   });
-});
-
-test("allowedProviders containing gateway pins the machine", () => {
-  withTempDir((dir) => {
-    const file = path.join(dir, "managed-settings.json");
-    writeFileSync(file, JSON.stringify({ allowedProviders: ["gateway"] }));
-    assert.deepEqual(readClaudeCodeGatewayLoginPolicy([file]), { file, key: "allowedProviders" });
-  });
-});
+}
 
 test("a drop-in file in managed-settings.d is read after managed-settings.json", () => {
   withTempDir((dir) => {
@@ -53,10 +50,8 @@ test("missing, invalid JSON and non-gateway settings are no policy", () => {
 });
 
 test("managed settings directory follows the platform", () => {
-  withTempDir((dir) => {
-    assert.equal(claudeCodeManagedSettingsDir("darwin"), "/Library/Application Support/ClaudeCode");
-    assert.equal(claudeCodeManagedSettingsDir("linux"), "/etc/claude-code");
-    assert.equal(claudeCodeManagedSettingsDir("win32"), "C:\\Program Files\\ClaudeCode");
-    assert.equal(claudeCodeManagedSettingsFiles(path.join(dir, "absent")).length, 0);
-  });
+  assert.equal(claudeCodeManagedSettingsDir("darwin"), "/Library/Application Support/ClaudeCode");
+  assert.equal(claudeCodeManagedSettingsDir("linux"), "/etc/claude-code");
+  assert.equal(claudeCodeManagedSettingsDir("win32"), "C:\\Program Files\\ClaudeCode");
+  assert.deepEqual(claudeCodeManagedSettingsFiles(path.join(os.tmpdir(), "ccr-gateway-login-policy-absent")), []);
 });

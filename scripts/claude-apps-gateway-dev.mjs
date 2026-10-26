@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs as parseNodeArgs } from "node:util";
 
 /**
  * @typedef {{ adminWriteKey: string; dexPort: number; gatewayPort: number; jwtSecret: string; loadTest: boolean; upstreamApiKey?: string; upstreamBaseUrl: string }} GatewayConfigOptions
@@ -32,9 +33,9 @@ export function renderGatewayConfig(options) {
     : [
       "upstreams:",
       "  - provider: anthropic",
-      `    base_url: ${options.upstreamBaseUrl}`,
+      `    base_url: ${JSON.stringify(options.upstreamBaseUrl)}`,
       "    auth:",
-      `      api_key: ${options.upstreamApiKey}`,
+      `      api_key: ${JSON.stringify(options.upstreamApiKey)}`,
       "    forward_user_identity: true"
     ];
   return [
@@ -90,27 +91,24 @@ export function renderDexConfig(options) {
 
 /** @param {string[]} argv */
 export function parseArgs(argv) {
-  const parsed = { dexPort: 15556, gatewayPort: 18080, loadTest: false, upstreamApiKey: undefined, upstreamBaseUrl: "http://127.0.0.1:3456" };
-  const valueFlags = {
-    "--api-key": (value) => { parsed.upstreamApiKey = value; },
-    "--dex-port": (value) => { parsed.dexPort = parsePort(value, "--dex-port"); },
-    "--port": (value) => { parsed.gatewayPort = parsePort(value, "--port"); },
-    "--upstream": (value) => { parsed.upstreamBaseUrl = value; }
+  const { values } = parseNodeArgs({
+    args: argv,
+    options: {
+      "api-key": { type: "string" },
+      "dex-port": { default: "15556", type: "string" },
+      "load-test": { default: false, type: "boolean" },
+      port: { default: "18080", type: "string" },
+      upstream: { default: "http://127.0.0.1:3456", type: "string" }
+    },
+    strict: true
+  });
+  return {
+    dexPort: parsePort(values["dex-port"], "--dex-port"),
+    gatewayPort: parsePort(values.port, "--port"),
+    loadTest: values["load-test"],
+    upstreamApiKey: values["api-key"],
+    upstreamBaseUrl: values.upstream
   };
-  for (let index = 0; index < argv.length; index += 1) {
-    const flag = argv[index];
-    if (flag === "--load-test") {
-      parsed.loadTest = true;
-      continue;
-    }
-    const assign = valueFlags[flag];
-    if (!assign || argv[index + 1] === undefined) {
-      throw new Error(`unknown or incomplete flag ${flag}; expected --load-test, --upstream <url>, --api-key <key>, --port <n>, --dex-port <n>`);
-    }
-    assign(argv[index + 1]);
-    index += 1;
-  }
-  return parsed;
 }
 
 function parsePort(value, flag) {

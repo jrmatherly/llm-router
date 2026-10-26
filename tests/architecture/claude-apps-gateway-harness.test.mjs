@@ -9,8 +9,8 @@ test("rendered gateway.yaml points the anthropic upstream at LLMR with identity 
   assert.match(yaml, /host: 127\.0\.0\.1/);
   assert.match(yaml, /issuer: http:\/\/127\.0\.0\.1:15556/);
   assert.match(yaml, /provider: anthropic/);
-  assert.match(yaml, /base_url: http:\/\/127\.0\.0\.1:3456/);
-  assert.match(yaml, /api_key: llmr-key/);
+  assert.match(yaml, /base_url: "http:\/\/127\.0\.0\.1:3456"/);
+  assert.match(yaml, /api_key: "llmr-key"/);
   assert.match(yaml, /forward_user_identity: true/);
   assert.match(yaml, /admin_groups: \[authors\]/);
   assert.doesNotMatch(yaml, /load_test_mode/);
@@ -30,11 +30,13 @@ test("renderer refuses secrets below the gateway's floors and a missing upstream
 
 test("gateway and Dex configs move ports together", () => {
   const options = { ...base, dexPort: 15557, gatewayPort: 18090, loadTest: true, upstreamBaseUrl: "x" };
-  assert.match(renderGatewayConfig(options), /public_url: http:\/\/127\.0\.0\.1:18090/);
-  assert.match(renderGatewayConfig(options), /issuer: http:\/\/127\.0\.0\.1:15557/);
-  assert.match(renderDexConfig(options), /issuer: http:\/\/127\.0\.0\.1:15557/);
-  assert.match(renderDexConfig(options), /redirectURIs:\n\s+- http:\/\/127\.0\.0\.1:18090\/oauth\/callback/);
-  assert.match(renderDexConfig(options), /type: mockCallback/);
+  const gateway = renderGatewayConfig(options);
+  const dex = renderDexConfig(options);
+  assert.match(gateway, /public_url: http:\/\/127\.0\.0\.1:18090/);
+  assert.match(gateway, /issuer: http:\/\/127\.0\.0\.1:15557/);
+  assert.match(dex, /issuer: http:\/\/127\.0\.0\.1:15557/);
+  assert.match(dex, /redirectURIs:\n\s+- http:\/\/127\.0\.0\.1:18090\/oauth\/callback/);
+  assert.match(dex, /type: mockCallback/);
 });
 
 test("parseArgs defaults and flags", () => {

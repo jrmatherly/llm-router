@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { isRecord } from "@ccr/core/agents/local-providers/shared";
 
 export type ClaudeCodeGatewayLoginPolicy = { file: string; key: "allowedProviders" | "forceLoginMethod" };
 
@@ -41,7 +42,7 @@ export function readClaudeCodeGatewayLoginPolicy(files: string[]): ClaudeCodeGat
 function readJsonObject(file: string): Record<string, unknown> | undefined {
   try {
     const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
+    return isRecord(parsed) ? parsed : undefined;
   } catch {
     return undefined;
   }

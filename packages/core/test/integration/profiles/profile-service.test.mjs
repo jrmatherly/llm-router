@@ -264,7 +264,7 @@ test("profile service refuses to apply a Claude Code profile when the settings f
     const status = result.clients.find((client) => client.client === "claude-code");
     assert.equal(status?.ok, false);
     assert.match(status?.message ?? "", /forceLoginMethod/);
-    assert.match(status?.message ?? "", new RegExp(settingsFile.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.ok(status?.message.includes(settingsFile));
     assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), pinned);
   } finally {
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
