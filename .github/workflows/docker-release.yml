@@ -1,23 +1,26 @@
 name: 🐳 Docker Release
 
 on:
+  workflow_run:
+    workflows: ["🚀 Release"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       ref:
         description: Git ref to build, usually a release tag.
         required: true
-        default: v3.1.3
+        default: v4.2.0
       version:
-        description: Docker version tag without leading v.
-        required: true
-        default: 3.1.3
+        description: Docker version tag without leading v; defaults to the ref without its v.
+        required: false
+        default: ""
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: docker-release-${{ inputs.version }}
+  group: docker-release-${{ inputs.ref || github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 env:
@@ -26,20 +29,22 @@ env:
 jobs:
   docker:
     name: 🐳 Build and Push
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - name: 📥 Check out release ref
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.event.workflow_run.head_branch }}
 
       - name: 🗂️ Prepare metadata
         id: meta
         shell: bash
         run: |
+          ref="${{ inputs.ref || github.event.workflow_run.head_branch }}"
           version="${{ inputs.version }}"
-          ref="${{ inputs.ref }}"
+          version="${version:-${ref#v}}"
           package_version="$(node -p "require('./package.json').version")"
 
           if [[ "$version" != "$package_version" ]]; then

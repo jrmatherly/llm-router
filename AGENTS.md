@@ -10,6 +10,7 @@ Fork of claude-code-router v3.1.3. Divergence from upstream is intended; never w
 - `npm run test:core`, `npm run test:ui`, `npm run test:electron`, `npm run test:cli` run one package.
 - `npm run test:e2e` runs Playwright after building the Electron sidecar of better-sqlite3 (`npm run sqlite:electron`, idempotent). Once per install, run `npm run test:e2e:install` first. Never run `rebuild:sqlite3` locally: it rebuilds the main binary for Electron and breaks every node suite; it is for packaging on the target platform.
 - `npm run build:assets` builds dist. `npm run dev:electron` runs the desktop app.
+- `npm run release -- <major|minor|patch|x.y.z>` cuts a release from a clean, up-to-date `main`: bumps every workspace manifest and the lockfile, runs typecheck and the architecture tests, commits `chore: release vX.Y.Z`, tags, and pushes. The tag push runs the Release workflow (GitHub release with desktop assets), and the Docker Release workflow follows a successful Release run on its own. `--dry-run` prints the plan.
 - One test file: `node build/test.mjs <pkg> && node --test .test-dist/<pkg>/test/<unit-or-integration>/<path>.test.js`. Do not pass `--scope`; it drops the `unit/` or `integration/` segment from the output path.
 
 ## Where the standards are enforced
