@@ -520,10 +520,15 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
 
     const result = await applyProfileFixture(loadedConfig);
     assert.equal(result.enabled, false);
-    assert.equal(readFileSync(settingsFile, "utf8"), userSettings);
-    assert.deepEqual(
-      readdirSync(path.dirname(settingsFile)).filter((name) => name.startsWith("settings.json.ccr-backup-")).sort(),
-      backupNames
+    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), {
+      env: { USER_VALUE: "kept" },
+      model: "user-model",
+      outputStyle: "concise",
+      permissions: { allow: ["Bash(echo:*)"] }
+    });
+    assert.equal(
+      readdirSync(path.dirname(settingsFile)).filter((name) => name.startsWith("settings.json.ccr-backup-")).length,
+      backupNames.length + 1
     );
   } finally {
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
@@ -673,6 +678,19 @@ test("profile service applies and removes profile Claude settings", { skip: !pro
     assert.deepEqual(secondSettings.permissions.allow, ["Bash(echo:*)"]);
     assert.equal(secondSettings.env.CLAUDE_CODE_MAX_RETRIES, undefined);
     assert.equal(secondSettings.env.USER_VALUE, "kept");
+
+    config.profile.profiles = [profile];
+    await applyProfileFixture(config);
+    assert.equal(JSON.parse(readFileSync(settingsFile, "utf8")).permissions.defaultMode, "acceptEdits");
+
+    config.profile.profiles = [{ ...profile, enabled: false }];
+    const disabledResult = await applyProfileFixture(config);
+    assert.equal(disabledResult.clients.some((client) => client.client === "claude-code" && client.ok), true);
+    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), {
+      env: { USER_VALUE: "kept" },
+      permissions: { allow: ["Bash(echo:*)"] },
+      theme: "dark"
+    });
   } finally {
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
     rmSync(takeoverFile, { force: true });
@@ -2071,7 +2089,7 @@ test("profile service restores managed global Claude settings when only LLMR-sco
 
 function userOwnedClaudeSettingsWithGatewayTakeover() {
   return {
-    apiKeyHelper: "/Users/jason/.llm-router/bin/ccr-claude-code-api-key-default-claude-code",
+    apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-default-claude-code",
     enabledPlugins: { "example@marketplace": true },
     env: {
       ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
@@ -2097,7 +2115,7 @@ function assertUserOwnedClaudeSettingsStripped(settingsFile) {
   assert.deepEqual(restored.enabledPlugins, { "example@marketplace": true });
 }
 
-function withScratchRuntimeHome(run) {
+function withScratchRuntimeHome(run, { takeoverBackup = true } = {}) {
   const previousHome = process.env.HOME;
   const previousRuntimeHome = process.env.CCR_INTERNAL_HOME_DIR;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
@@ -2106,6 +2124,9 @@ function withScratchRuntimeHome(run) {
   try {
     const settingsFile = path.join(home, ".claude", "settings.json");
     mkdirSync(path.dirname(settingsFile), { recursive: true });
+    if (takeoverBackup) {
+      writeFileSync(`${settingsFile}.ccr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`);
+    }
     writeFileSync(settingsFile, `${JSON.stringify(userOwnedClaudeSettingsWithGatewayTakeover(), null, 2)}\n`);
     run(settingsFile);
   } finally {
@@ -2140,6 +2161,15 @@ test("profile service strips LLMR-managed Claude settings from a user-owned sett
   });
 });
 
+test("profile service leaves a user-owned settings file alone when LLMR never took it over", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const before = readFileSync(settingsFile, "utf8");
+    const statuses = restoreInactiveGlobalProfileConfigs([]);
+    assert.equal(statuses.length, 0);
+    assert.equal(readFileSync(settingsFile, "utf8"), before);
+  }, { takeoverBackup: false });
+});
+
 test("profile service strips LLMR-managed Claude settings from a user-owned settings file on exit", () => {
   withScratchRuntimeHome((settingsFile) => {
     const statuses = restoreGlobalProfileConfigsOnExit([
@@ -2159,7 +2189,7 @@ test("profile service strips LLMR-managed Claude settings from a user-owned sett
 
     assert.equal(statuses.length, 1);
     assert.equal(statuses[0].ok, true);
-    assert.match(statuses[0].message, /managed settings were removed/);
+    assert.match(statuses[0].message, /LLMR-managed settings removed/);
     assertUserOwnedClaudeSettingsStripped(settingsFile);
   });
 });
