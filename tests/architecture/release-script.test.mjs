@@ -10,6 +10,7 @@ test("nextVersion bumps by keyword or accepts a higher explicit version", () => 
   assert.throws(() => nextVersion("4.2.0", "4.2.0"), /not above/);
   assert.throws(() => nextVersion("4.2.0", "4.1.9"), /not above/);
   assert.throws(() => nextVersion("4.2.0", "v4.3.0"), /not major, minor, patch/);
+  assert.throws(() => nextVersion("4.2.0", "04.3.0"), /not major, minor, patch/);
   assert.throws(() => nextVersion("4.2", "patch"), /not x\.y\.z/);
 });
 

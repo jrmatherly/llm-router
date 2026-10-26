@@ -36,15 +36,17 @@ jobs:
       - name: 📥 Check out release ref
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.event.workflow_run.head_branch }}
+          ref: ${{ inputs.ref || github.event.workflow_run.head_sha }}
 
       - name: 🗂️ Prepare metadata
         id: meta
         shell: bash
+        env:
+          REF: ${{ inputs.ref || github.event.workflow_run.head_branch }}
+          VERSION: ${{ inputs.version }}
         run: |
-          ref="${{ inputs.ref || github.event.workflow_run.head_branch }}"
-          version="${{ inputs.version }}"
-          version="${version:-${ref#v}}"
+          ref="$REF"
+          version="${VERSION:-${ref#v}}"
           package_version="$(node -p "require('./package.json').version")"
 
           if [[ "$version" != "$package_version" ]]; then
