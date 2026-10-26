@@ -56,4 +56,4 @@ docker compose -f docker/claude-apps-gateway/compose.yaml down -v
 
 ## Verified
 
-2026-10-26, Claude Code 2.1.310 (`claude gateway`), Dex v2.44.0, postgres:16-alpine. Device-flow sign-in as `kilgore@kilgore.trout`, one `POST /v1/messages` through the gateway to an LLMR built from this branch with a local mock upstream: HTTP 200, the Logs detail panel shows Client `kilgore@kilgore.trout`, and the upstream received `x-claude-gateway-user-email`, `x-litellm-end-user-id` and `x-claude-gateway-user-id`.
+2026-10-26, Claude Code 2.1.310 (`claude gateway`), Dex v2.44.0, postgres:16-alpine. Device-flow sign-in as `kilgore@kilgore.trout`, one `POST /v1/messages` through the gateway to an LLMR built from this branch on port 3457 (`--upstream http://127.0.0.1:3457`) with a local mock upstream on 3999 that logs received headers: HTTP 200 and the request log row shows Client `kilgore@kilgore.trout`. The mock upstream logged the headers it received: `x-claude-gateway-user-email`, `x-litellm-end-user-id` and `x-claude-gateway-user-id` were absent, while a request sent to LLMR directly with those headers was attributed the same way and reached the upstream without them.

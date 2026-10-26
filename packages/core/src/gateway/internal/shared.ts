@@ -283,6 +283,13 @@ export const localObservabilityHeaderNames = new Set([
   "x-ccr-provider-credential-saturated"
 ]);
 
+// Added by the Claude apps gateway with forward_user_identity. Stripped in the upstream header sanitizer, not the pipeline executor, because only the sanitizer runs in both gateway runtimes.
+export const claudeAppsGatewayIdentityHeaderNames = new Set([
+  "x-claude-gateway-user-email",
+  "x-claude-gateway-user-id",
+  "x-litellm-end-user-id"
+]);
+
 export const proxyHeaderDenyList = new Set(["connection", coreGatewayAuthHeader, "host", "upgrade"]);
 
 export const responseHeaderDenyList = new Set(["connection", "content-encoding", "transfer-encoding"]);
