@@ -1179,7 +1179,8 @@ test("raw trace usage capture keeps the client label the request log gets", asyn
   const clientMetadataFile = path.join(bundleDirectory, "client_request_metadata.json");
   const responseMetadataFile = path.join(bundleDirectory, "upstream_response_metadata.json");
   const responseFile = path.join(bundleDirectory, "upstream_response.json");
-  const responseBody = JSON.stringify({ model: "stub-model", usage: { input_tokens: 11, output_tokens: 7 } });
+  const model = `stub-model-${Date.now()}`;
+  const responseBody = JSON.stringify({ model, usage: { input_tokens: 11, output_tokens: 7 } });
   mkdirSync(bundleDirectory, { recursive: true });
   writeFileSync(clientMetadataFile, JSON.stringify({ headers: { "x-claude-gateway-user-email": "dev@example.com" } }));
   writeFileSync(responseMetadataFile, JSON.stringify({ headers: { "content-type": "application/json" }, statusCode: 200 }));
@@ -1202,7 +1203,7 @@ test("raw trace usage capture keeps the client label the request log gets", asyn
         { contentType: "application/json", filePath: responseFile, originalBytes: responseBody.length, partType: "upstream_response" }
       ],
       requestId: "core-bundle-usage-client",
-      target: { model: "stub-model", providerName: "Stub" },
+      target: { model, providerName: "Stub" },
       turnKey: requestId
     });
     assert.equal(result.statusCode, 202);
@@ -1211,7 +1212,7 @@ test("raw trace usage capture keeps the client label the request log gets", asyn
     assert.equal(enqueued.client, "dev@example.com");
     assert.equal(await usageStore.hasRequestId(requestId), true);
     const stats = await usageStore.getStats("today", { includeProxy: true });
-    const row = stats.clientModels.find((entry) => entry.model === "stub-model" && entry.provider === "Stub");
+    const row = stats.clientModels.find((entry) => entry.model === model && entry.provider === "Stub");
     assert.ok(row, JSON.stringify(stats.clientModels));
     assert.equal(row.client, "dev@example.com");
   } finally {
