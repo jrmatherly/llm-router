@@ -5,6 +5,7 @@ import { resolveKiloConfigFile as resolveKiloProfileConfigFile } from "@ccr/core
 import { resolveOpenCodeConfigFile as resolveOpenCodeProfileConfigFile } from "@ccr/core/agents/opencode/profile-config";
 import { piWrapperFilename, resolvePiAgentDir, resolvePiSessionDir } from "@ccr/core/agents/pi/profile-config";
 import { resolveZcodeConfigFile } from "@ccr/core/agents/zcode/profile-config";
+import { resolveUserPath } from "@ccr/core/runtime/app-paths";
 
 export type ProfileLaunchPlan = {
   args: string[];
@@ -401,21 +402,6 @@ function normalizeProfileSurface(value: ProfileConfig["surface"]): "auto" | "cli
 
 function isGeneratedProfileScope(value: ProfileConfig["scope"]): boolean {
   return value === "ccr" || value === "custom";
-}
-
-function resolveUserPath(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "~") {
-    return homeDir();
-  }
-  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
-    return path.join(homeDir(), trimmed.slice(2));
-  }
-  return path.resolve(trimmed || ".");
-}
-
-function homeDir(): string {
-  return process.env.HOME || process.env.USERPROFILE || ".";
 }
 
 function sanitizeCodexProviderId(value: string): string {

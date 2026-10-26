@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { CONFIGDIR } from "@ccr/core/config/constants";
+import { resolveUserPath } from "@ccr/core/runtime/app-paths";
 import type {
   BotGatewayQrLoginCancelRequest,
   BotGatewayQrLoginCancelResult,
@@ -201,7 +201,7 @@ function resolveBotGatewayCommand(sdk: BotGatewaySdkModule, bot: BotGatewayRunti
   if (bot.command) {
     return {
       args: bot.args,
-      command: resolveUserPath(bot.command),
+      command: bot.command.trim().startsWith("~") ? resolveUserPath(bot.command) : bot.command.trim(),
       cwd: bot.cwd ? resolveUserPath(bot.cwd) : process.cwd()
     };
   }
@@ -514,17 +514,6 @@ function resolveBotGatewayStateDir(bot: BotGatewayRuntimeConfig, configId: strin
   }
   const slug = safePathSegment(configId || bot.integrationId || bot.tenantId) || "default";
   return path.join(CONFIGDIR, "bot-gateway", slug);
-}
-
-function resolveUserPath(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "~") {
-    return os.homedir();
-  }
-  if (trimmed.startsWith("~/")) {
-    return path.join(os.homedir(), trimmed.slice(2));
-  }
-  return trimmed;
 }
 
 function safePathSegment(value: string): string {

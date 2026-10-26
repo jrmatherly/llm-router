@@ -1,8 +1,7 @@
 import { constants, copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, rmSync, statSync, symlinkSync, chmodSync, renameSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import os from "node:os";
 import path from "node:path";
-import { resolveRuntimeAppPath } from "@ccr/core/runtime/app-paths";
+import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
 
 const claudeAppVmBundlesDir = "vm_bundles";
 const claudeAppVmBundleName = "claudevm.bundle";
@@ -382,16 +381,6 @@ function uniqueStrings(values: string[]): string[] {
     result.push(value);
   }
   return result;
-}
-
-function resolveUserPath(value: string): string {
-  if (value === "~") {
-    return os.homedir();
-  }
-  if (value.startsWith(`~${path.sep}`) || value.startsWith("~/")) {
-    return path.join(os.homedir(), value.slice(2));
-  }
-  return path.resolve(value);
 }
 
 function chmodBestEffort(file: string, mode: number): void {

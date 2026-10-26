@@ -12,6 +12,7 @@ import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from
 import { buildZcodeModelCatalog } from "@ccr/core/agents/zcode/model-catalog";
 import { writeZcodeGatewayConfig, zcodeHomeFromConfigFile } from "@ccr/core/agents/zcode/profile-config";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
+import { resolveUserPath } from "@ccr/core/runtime/app-paths";
 
 export type CodexAppLookupResult = {
   checked: string[];
@@ -1192,17 +1193,6 @@ function sanitizeCodexProviderId(value: string): string {
 
 function sanitizeProfilePathSegment(value: string): string {
   return value.trim().replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-function resolveUserPath(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "~") {
-    return os.homedir();
-  }
-  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
-    return path.join(os.homedir(), trimmed.slice(2));
-  }
-  return path.resolve(trimmed);
 }
 
 function isFile(file: string): boolean {

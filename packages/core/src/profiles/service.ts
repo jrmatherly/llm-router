@@ -1,6 +1,5 @@
 import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readlinkSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import os from "node:os";
 import path from "node:path";
 import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, availableGatewayModelIds, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@ccr/core/contracts/app";
 import { CLAUDE_CODE_AUTH_MODE_ENV, resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@ccr/core/agents/claude-code/auth-mode";
@@ -60,6 +59,7 @@ import {
   type ToolHubMcpRuntimeConfig
 } from "@ccr/core/mcp/toolhub-config";
 import { getProviderCatalogModels } from "@ccr/core/providers/model-catalog";
+import { resolveUserPath } from "@ccr/core/runtime/app-paths";
 import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
 
 const managedRootStart = "# BEGIN CCR managed profile";
@@ -4117,17 +4117,6 @@ function normalizeUrlForMatch(value: string | undefined): string {
 
 function normalizeClientModel(value: string | undefined): string {
   return normalizeRouteSelector(value)?.trim() || "";
-}
-
-function resolveUserPath(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "~") {
-    return os.homedir();
-  }
-  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
-    return path.join(os.homedir(), trimmed.slice(2));
-  }
-  return path.resolve(trimmed || ".");
 }
 
 function sanitizeCodexProviderId(value: string): string {

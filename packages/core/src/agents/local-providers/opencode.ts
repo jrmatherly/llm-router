@@ -1,5 +1,4 @@
 import { existsSync, readFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import type {
   GatewayProviderCapabilityProtocol,
@@ -29,6 +28,7 @@ import {
 } from "@ccr/core/agents/local-providers/shared";
 import { findProviderPresetByBaseUrl } from "@ccr/core/providers/presets/index";
 import { openCodePublicFreeTierPlugin } from "@ccr/core/agents/local-providers/opencode-freetier";
+import { resolveRuntimeAppPath } from "@ccr/core/runtime/app-paths";
 
 type OpenCodeCredential = {
   apiKey?: string;
@@ -676,20 +676,16 @@ function openCodeXdgRoot(environmentName: "XDG_CACHE_HOME" | "XDG_CONFIG_HOME" |
     return path.join(internalHome, fallback);
   }
   const explicitRoot = process.env[environmentName]?.trim();
-  return explicitRoot || path.join(openCodeHomeDir(), fallback);
-}
-
-function openCodeHomeDir(): string {
-  return process.env.HOME?.trim() || process.env.USERPROFILE?.trim() || os.homedir();
+  return explicitRoot || path.join(resolveRuntimeAppPath("home"), fallback);
 }
 
 function resolveOpenCodeReferencePath(value: string, baseDirectory?: string): string {
   const trimmed = value.trim();
   if (trimmed === "~") {
-    return openCodeHomeDir();
+    return resolveRuntimeAppPath("home");
   }
   if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
-    return path.join(openCodeHomeDir(), trimmed.slice(2));
+    return path.join(resolveRuntimeAppPath("home"), trimmed.slice(2));
   }
   return path.resolve(baseDirectory || process.cwd(), trimmed);
 }
