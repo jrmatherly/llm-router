@@ -1,10 +1,10 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { isGatewayProviderEnabled, type AppConfig, type ProfileConfig } from "@ccr/core/contracts/app";
 import { normalizeRouteSelector } from "@ccr/core/gateway/claude-code-router-plugin";
 import { buildZcodeModelCatalog } from "@ccr/core/agents/zcode/model-catalog";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
+import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
 
 export type ZcodeProfileConfigWriteResult = {
   backupFile?: string;
@@ -286,7 +286,7 @@ function ensureOriginalSnapshot(file: string, previous: string | undefined): voi
 
 function isLegacyZcodeTomlConfigFile(value: string): boolean {
   return value === legacyZcodeTomlConfigFile ||
-    resolveUserPath(value) === path.join(os.homedir(), ".zcode", "config.toml");
+    resolveUserPath(value) === path.join(resolveRuntimeAppPath("home"), ".zcode", "config.toml");
 }
 
 function gatewayEndpoint(config: AppConfig): string {
@@ -328,17 +328,6 @@ function uniqueStrings(values: string[]): string[] {
 
 function positiveNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
-}
-
-function resolveUserPath(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "~") {
-    return os.homedir();
-  }
-  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
-    return path.join(os.homedir(), trimmed.slice(2));
-  }
-  return path.resolve(trimmed || ".");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

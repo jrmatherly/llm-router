@@ -1,9 +1,9 @@
-import os from "node:os";
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import type { AppConfig, BotGatewayRuntimeConfig, ProfileConfig, ProfileOpenSurface } from "@ccr/core/contracts/app";
 import { CONFIGDIR } from "@ccr/core/config/constants";
+import { resolveUserPath } from "@ccr/core/runtime/app-paths";
 
 const requireFromHere = createRequire(__filename);
 
@@ -287,17 +287,6 @@ function resolveBotGatewayStateDir(bot: BotGatewayRuntimeConfig, profile: Profil
   }
   const slug = sanitizePathSegment(profile.id || profile.name || profile.agent) || "default";
   return path.join(CONFIGDIR, "bot-gateway", slug);
-}
-
-function resolveUserPath(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "~") {
-    return os.homedir();
-  }
-  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
-    return path.join(os.homedir(), trimmed.slice(2));
-  }
-  return path.resolve(trimmed || ".");
 }
 
 function sanitizePathSegment(value: string): string {

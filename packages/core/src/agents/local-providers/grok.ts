@@ -1,5 +1,4 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import type {
   GatewayProviderCapability,
@@ -35,6 +34,7 @@ import {
 } from "@ccr/core/agents/local-providers/shared";
 import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
 import { normalizeProviderBaseUrl } from "@ccr/core/providers/url";
+import { resolveUserPath } from "@ccr/core/runtime/app-paths";
 
 export const grokDefaultBaseUrl = "https://cli-chat-proxy.grok.com/v1";
 export const grokDefaultBillingEndpoint = "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
@@ -789,8 +789,7 @@ function grokStorageRoot(): string {
   if (explicitRoot) {
     return explicitRoot;
   }
-  const homeDir = process.env.CCR_INTERNAL_HOME_DIR?.trim() || process.env.HOME?.trim() || process.env.USERPROFILE?.trim() || os.homedir();
-  return path.join(homeDir, ".grok");
+  return resolveUserPath("~/.grok");
 }
 
 function grokRuntimeDefaultBaseUrl(): string {

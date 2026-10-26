@@ -1,4 +1,3 @@
-import os from "node:os";
 import path from "node:path";
 import type {
   LocalAgentProviderCandidate,
@@ -15,6 +14,7 @@ import type {
 } from "@ccr/core/contracts/app";
 import { normalizeProviderBaseUrl } from "@ccr/core/providers/url";
 import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
+import { resolveRuntimeAppPath } from "@ccr/core/runtime/app-paths";
 import {
   isRecord,
   localAgentProviderApiKey,
@@ -852,7 +852,7 @@ export function codexModelCatalogFromPayloadForTest(payload: unknown): LocalAgen
 }
 
 function codexHomeDir(): string {
-  return process.env.CCR_INTERNAL_HOME_DIR?.trim() || process.env.HOME?.trim() || process.env.USERPROFILE?.trim() || os.homedir();
+  return resolveRuntimeAppPath("home");
 }
 
 function readCodexIdTokenClaims(idToken: string | undefined): { accountId?: string; isFedrampAccount?: boolean } {

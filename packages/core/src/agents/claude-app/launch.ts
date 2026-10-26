@@ -9,6 +9,7 @@ import { prepareClaudeAppVmStorage } from "@ccr/core/agents/claude-app/vm-storag
 import { claudeCodeModelEnv as claudeCodeProfileModelEnv, claudeCodeUtcTimezoneEnvOverride, isClaudeCodeManagedModelEnvKey } from "@ccr/core/agents/claude-code/environment";
 import { resolveClaudeCodeSettingsFile } from "@ccr/core/profiles/launch-core";
 import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@ccr/core/platform/windows-app-discovery";
+import { resolveUserPath } from "@ccr/core/runtime/app-paths";
 
 type ClaudeAppLookupResult = {
   checked: string[];
@@ -390,17 +391,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function sanitizeProfilePathSegment(value: string): string {
   return value.trim().replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-function resolveUserPath(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "~") {
-    return os.homedir();
-  }
-  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
-    return path.join(os.homedir(), trimmed.slice(2));
-  }
-  return path.resolve(trimmed);
 }
 
 function isFile(file: string): boolean {

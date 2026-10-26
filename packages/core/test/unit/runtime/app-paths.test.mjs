@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { APP_STORAGE_NAME, LEGACY_CONFIGDIR, resolveRuntimeConfigDir, resolveRuntimeDataDir } from "@ccr/core/runtime/app-paths.ts";
+import { APP_STORAGE_NAME, LEGACY_CONFIGDIR, resolveRuntimeConfigDir, resolveRuntimeDataDir, resolveUserPath } from "@ccr/core/runtime/app-paths.ts";
 
 test("the storage name and the JSON import dir carry the rebranded name", () => {
   assert.equal(APP_STORAGE_NAME, "llm-router");
@@ -34,6 +34,18 @@ test("runtime data dir still allows explicit test and deployment overrides", () 
     userData: path.join(os.tmpdir(), "ccr-app-paths-override-user-data")
   }, () => {
     assert.equal(resolveRuntimeDataDir(), path.join(os.tmpdir(), "ccr-app-paths-override-user-data"));
+  });
+});
+
+test("a tilde path follows the runtime home override, so an isolated run never touches the user's dotfiles", () => {
+  const home = path.join(os.tmpdir(), "ccr-app-paths-tilde-home");
+  withRuntimePathEnv({ home }, () => {
+    assert.equal(resolveUserPath("~"), home);
+    assert.equal(resolveUserPath("~/.claude/settings.json"), path.join(home, ".claude", "settings.json"));
+    assert.equal(resolveUserPath("/abs/file"), path.resolve("/abs/file"));
+  });
+  withRuntimePathEnv({}, () => {
+    assert.equal(resolveUserPath("~/.codex/config.toml"), path.join(os.homedir(), ".codex", "config.toml"));
   });
 });
 

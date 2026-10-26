@@ -1,5 +1,4 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { buildCodexModelCatalogIds } from "@ccr/core/agents/codex/model-catalog";
 import type { AppConfig, GatewayProviderConfig, ProfileConfig, ProviderModelMetadata } from "@ccr/core/contracts/app";
@@ -11,6 +10,7 @@ import {
 } from "@ccr/core/gateway/model-catalog";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
 import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
+import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
 import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
 
 export type PiProfileConfigWriteResult = {
@@ -40,7 +40,7 @@ export function resolvePiAgentDir(configDir: string, profile: ProfileConfig): st
   }
 
   const configured = profile.configFile?.trim();
-  return configured ? resolveUserPath(configured) : path.join(homeDir(), ".pi", "agent");
+  return configured ? resolveUserPath(configured) : path.join(resolveRuntimeAppPath("home"), ".pi", "agent");
 }
 
 export function resolvePiSessionDir(configDir: string, profile: ProfileConfig): string {
@@ -234,19 +234,4 @@ function sanitizeProviderId(value: string): string {
 
 function sanitizePathSegment(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-function resolveUserPath(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "~") {
-    return homeDir();
-  }
-  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
-    return path.join(homeDir(), trimmed.slice(2));
-  }
-  return path.resolve(trimmed || ".");
-}
-
-function homeDir(): string {
-  return process.env.HOME || process.env.USERPROFILE || os.homedir() || ".";
 }

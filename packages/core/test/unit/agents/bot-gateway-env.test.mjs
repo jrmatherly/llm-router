@@ -65,6 +65,9 @@ test("default bot gateway config disables stream replies", () => {
 });
 
 test("botGatewayProfileEnv merges saved config and normalizes websocket integration", () => {
+  const runtimeHome = path.join(os.tmpdir(), "ccr-bot-gateway-runtime-home");
+  const previousRuntimeHome = process.env.CCR_INTERNAL_HOME_DIR;
+  process.env.CCR_INTERNAL_HOME_DIR = runtimeHome;
   const env = botGatewayProfileEnv(
     {
       botConfigs: [
@@ -85,12 +88,13 @@ test("botGatewayProfileEnv merges saved config and normalizes websocket integrat
     profile,
     "app"
   );
+  process.env.CCR_INTERNAL_HOME_DIR = previousRuntimeHome;
 
   assert.equal(env.CCR_BOT_GATEWAY_ENABLED, "true");
   assert.equal(env.CCR_BOT_GATEWAY_PLATFORM, "feishu");
   assert.equal(env.CCR_BOT_GATEWAY_AUTH_TYPE, "app_secret");
   assert.equal(env.CCR_BOT_GATEWAY_CREATE_INTEGRATION, "true");
-  assert.equal(env.CCR_BOT_GATEWAY_STATE_DIR, `${process.env.HOME}/bot-state`);
+  assert.equal(env.CCR_BOT_GATEWAY_STATE_DIR, path.join(runtimeHome, "bot-state"));
   assert.equal(env.CCR_BOT_PROFILE_ID, "codex-main");
   assert.equal(env.CCR_BOT_PROFILE_NAME, "Codex Main");
 

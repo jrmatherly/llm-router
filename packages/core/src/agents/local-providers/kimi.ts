@@ -12,6 +12,7 @@ import type {
 } from "@ccr/core/contracts/app";
 import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
 import { findProviderPresetByBaseUrl } from "@ccr/core/providers/presets/index";
+import { resolveUserPath } from "@ccr/core/runtime/app-paths";
 import {
   bearerAuthPlugin,
   cloneProviderAccountConfig,
@@ -661,8 +662,7 @@ function kimiStorageRoot(): string {
   if (explicit) {
     return resolveUserPath(explicit);
   }
-  const internalHome = process.env.CCR_INTERNAL_HOME_DIR?.trim();
-  return internalHome ? path.join(internalHome, ".kimi-code") : path.join(os.homedir(), ".kimi-code");
+  return resolveUserPath("~/.kimi-code");
 }
 
 function kimiCliVersion(): string {
@@ -739,13 +739,6 @@ function withoutHeader(headers: Record<string, string>, header: string): Record<
 
 function sanitizeId(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-function resolveUserPath(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "~") return os.homedir();
-  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) return path.join(os.homedir(), trimmed.slice(2));
-  return path.resolve(trimmed);
 }
 
 function stringValue(value: unknown): string | undefined {

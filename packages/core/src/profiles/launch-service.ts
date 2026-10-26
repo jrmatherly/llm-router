@@ -1,6 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { assertAvailableGatewayModels, type AppConfig, type ProfileConfig, type ProfileOpenCommandResult, type ProfileOpenRequest, type ProfileOpenResult, type ProfileRuntimeEntry, type ProfileRuntimeStatus, type ProfileStopResult } from "@ccr/core/contracts/app";
 import { botGatewayProfileEnv } from "@ccr/core/agents/bot-gateway/env";
@@ -23,6 +22,7 @@ import { profileApiKeyId } from "@ccr/core/profiles/api-key";
 import { applyProfileConfig, cleanupGeneratedBinBackups } from "@ccr/core/profiles/service";
 import { isDesktopAppRuntime } from "@ccr/core/runtime/desktop-app";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@ccr/core/platform/windows-system";
+import { resolveRuntimeAppPath } from "@ccr/core/runtime/app-paths";
 
 const ccrPathBlockStart = "# >>> LLM Router CLI >>>";
 const ccrPathBlockEnd = "# <<< LLM Router CLI <<<";
@@ -1971,14 +1971,14 @@ function ensureWindowsUserPath(binDir: string): boolean {
 function ensurePosixShellPath(binDir: string): void {
   const shellName = path.basename(process.env.SHELL || "").toLowerCase();
   if (shellName.includes("fish")) {
-    ensureFishPathBlock(path.join(os.homedir(), ".config", "fish", "conf.d", "ccr.fish"), binDir);
+    ensureFishPathBlock(path.join(resolveRuntimeAppPath("home"), ".config", "fish", "conf.d", "ccr.fish"), binDir);
     return;
   }
   ensureShellRcPathBlock(preferredShellRcFile(shellName), binDir);
 }
 
 function preferredShellRcFile(shellName = path.basename(process.env.SHELL || "").toLowerCase()): string {
-  const home = os.homedir();
+  const home = resolveRuntimeAppPath("home");
   if (shellName.includes("zsh")) {
     return path.join(home, ".zshrc");
   }

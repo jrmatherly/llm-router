@@ -6,6 +6,7 @@ import path from "node:path";
 import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@ccr/core/platform/windows-app-discovery";
 import { windowsSystemCommand } from "@ccr/core/platform/windows-system";
 import type { ProfileConfig } from "@ccr/core/contracts/app";
+import { resolveUserPath } from "@ccr/core/runtime/app-paths";
 
 export type OpenCodeAppLookupResult = {
   checked: string[];
@@ -283,17 +284,6 @@ function findWindowsExecutablePid(executable: string): number | undefined {
 
 function powershellString(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
-}
-
-function resolveUserPath(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "~") {
-    return os.homedir();
-  }
-  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
-    return path.join(os.homedir(), trimmed.slice(2));
-  }
-  return path.resolve(trimmed);
 }
 
 function isFile(file: string): boolean {

@@ -78,10 +78,10 @@ function resolveConfigDir() {
     return expandHome(configured);
   }
   if (process.platform === "win32") {
-    const appData = process.env.APPDATA || process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Roaming");
+    const appData = process.env.APPDATA || process.env.LOCALAPPDATA || path.join(runtimeHomeDir(), "AppData", "Roaming");
     return path.join(appData, "llm-router");
   }
-  return path.join(os.homedir(), ".llm-router");
+  return path.join(runtimeHomeDir(), ".llm-router");
 }
 
 function botBridge() {
@@ -7404,9 +7404,13 @@ function normalizeProfileSurface(value) {
 
 function expandHome(value) {
   const text = String(value || "");
-  if (text === "~") return os.homedir();
-  if (text.startsWith("~/")) return path.join(os.homedir(), text.slice(2));
+  if (text === "~") return runtimeHomeDir();
+  if (text.startsWith("~/")) return path.join(runtimeHomeDir(), text.slice(2));
   return text;
+}
+
+function runtimeHomeDir() {
+  return nonEmptyEnv("CCR_INTERNAL_HOME_DIR") || os.homedir();
 }
 
 function tomlEscape(value) {

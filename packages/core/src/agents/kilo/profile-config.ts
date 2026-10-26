@@ -1,10 +1,10 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { buildCodexModelCatalogIds } from "@ccr/core/agents/codex/model-catalog";
 import { parseJsoncRecord } from "@ccr/core/agents/local-providers/shared";
 import { isGatewayProviderEnabled, type AppConfig, type ProfileConfig } from "@ccr/core/contracts/app";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
+import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
 
 export type KiloProfileConfigWriteResult = {
   backupFile?: string;
@@ -235,18 +235,7 @@ function kiloXdgRoot(environmentName: "XDG_CONFIG_HOME", fallback: string): stri
     return path.join(internalHome, fallback);
   }
   const configured = process.env[environmentName]?.trim();
-  return configured ? resolveUserPath(configured) : path.join(os.homedir(), fallback);
-}
-
-function resolveUserPath(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "~") {
-    return os.homedir();
-  }
-  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
-    return path.join(os.homedir(), trimmed.slice(2));
-  }
-  return path.resolve(trimmed || ".");
+  return configured ? resolveUserPath(configured) : path.join(resolveRuntimeAppPath("home"), fallback);
 }
 
 function sanitizeProviderId(value: string): string {
