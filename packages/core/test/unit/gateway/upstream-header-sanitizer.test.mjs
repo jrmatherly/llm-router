@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { inferGatewayClient } from "@ccr/core/gateway/http/io.ts";
 import {
   createGatewayPlugin,
   rewriteUpstreamProviderUrl,
@@ -223,4 +224,27 @@ test("gateway sanitizer hook does not forward reverse proxy metadata to provider
     "content-type": "application/json",
     "x-custom-provider-header": "custom-value"
   });
+});
+
+test("Claude apps gateway identity headers are attributed at ingress and never reach the provider", () => {
+  const [hook] = createGatewayPlugin().providerHooks;
+  const identity = {
+    "x-claude-gateway-user-email": "kilgore@kilgore.trout",
+    "x-claude-gateway-user-id": "sub-123",
+    "x-litellm-end-user-id": "kilgore@kilgore.trout"
+  };
+  const request = { headers: { ...identity, "content-type": "application/json", "user-agent": "claude-cli/2.1.310" }, id: "request-1" };
+  const result = hook.transformRequest({
+    request,
+    targetProviderConfig: { apikey: "provider-key", type: "anthropic_messages" },
+    upstreamRequest: { body: {}, headers: { ...identity, "x-api-key": "provider-key" }, url: "https://api.anthropic.com/v1/messages" }
+  }).value;
+
+  assert.equal(result.headers["x-api-key"], "provider-key");
+  assert.equal(result.headers["content-type"], "application/json");
+  for (const name of Object.keys(identity)) {
+    assert.equal(result.headers[name], undefined, name);
+  }
+  assert.deepEqual(sanitizeUpstreamProviderHeaders({ ...identity, "x-keep": "yes" }), { "x-keep": "yes" });
+  assert.equal(inferGatewayClient(undefined, request.headers), "kilgore@kilgore.trout");
 });

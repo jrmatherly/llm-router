@@ -8,7 +8,7 @@ import {
   normalizeDeepSeekCacheUsage,
   normalizeDeepSeekCacheUsageStream
 } from "@ccr/core/gateway/features/opencode-cache-usage";
-import { sdkCompatibleTokenHeaderNames } from "@ccr/core/gateway/internal/shared";
+import { claudeAppsGatewayIdentityHeaderNames, sdkCompatibleTokenHeaderNames } from "@ccr/core/gateway/internal/shared";
 
 type UpstreamRequest = {
   body: unknown;
@@ -172,7 +172,7 @@ export function sanitizeUpstreamProviderHeaders(headers: Record<string, string>)
   const sanitized: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers)) {
     const normalized = name.trim().toLowerCase();
-    if (normalized.startsWith("x-ccr-") || ccrAuthHeaderNames.has(normalized)) continue;
+    if (normalized.startsWith("x-ccr-") || ccrAuthHeaderNames.has(normalized) || claudeAppsGatewayIdentityHeaderNames.has(normalized)) continue;
     sanitized[name] = value;
   }
   return sanitized;
@@ -205,6 +205,7 @@ export function mergeUpstreamProviderHeaders(
       normalized.startsWith("x-ccr-") ||
       ccrAuthHeaderNames.has(normalized) ||
       ccrRoutingHeaderNames.has(normalized) ||
+      claudeAppsGatewayIdentityHeaderNames.has(normalized) ||
       clientAuthHeaderNames.has(normalized) ||
       proxyMetadataHeaderNames.has(normalized) ||
       normalized.startsWith("x-forwarded-") ||
