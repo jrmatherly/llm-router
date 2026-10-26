@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { nextVersion, parseReleaseArgs } from "../../scripts/release.mjs";
+import { nextVersion, parseReleaseArgs, run } from "../../scripts/release.mjs";
 
 test("nextVersion bumps by keyword or accepts a higher explicit version", () => {
   assert.equal(nextVersion("4.2.0", "major"), "5.0.0");
@@ -20,4 +20,10 @@ test("parseReleaseArgs needs exactly one version spec and knows its flags", () =
   assert.throws(() => parseReleaseArgs([]), /usage/);
   assert.throws(() => parseReleaseArgs(["minor", "patch"]), /usage/);
   assert.throws(() => parseReleaseArgs(["minor", "--bogus"]), /--bogus/);
+});
+
+test("run returns trimmed stdout, and an empty string when stdout is inherited", () => {
+  assert.equal(run("node", ["-p", "' ok '"]), "ok");
+  assert.equal(run("node", ["-e", ""], { stdio: "inherit" }), "");
+  assert.throws(() => run("node", ["-e", "process.exit(3)"]), /3/);
 });
