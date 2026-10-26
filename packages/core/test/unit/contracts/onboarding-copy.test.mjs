@@ -24,3 +24,9 @@ test("launch errors renamed to LLMR still match their Chinese translations", asy
     assert.notEqual(translateErrorMessage("zh", message), message, message);
   }
 });
+
+test("the CLI runtime error is translated even with the checked paths appended", async () => {
+  const { translateErrorMessage } = await import("@ccr/core/contracts/i18n.ts");
+  const message = "LLMR CLI runtime was not found. Rebuild or reinstall LLMR and try again. Checked: /a, /b";
+  assert.notEqual(translateErrorMessage("zh", message), message);
+});

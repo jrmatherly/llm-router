@@ -2008,10 +2008,7 @@ export function ensureShellRcPathBlock(rcFile: string, binDir: string): void {
   mkdirSync(path.dirname(rcFile), { recursive: true });
   const source = existsSync(rcFile) ? readFileSync(rcFile, "utf8") : "";
   const block = shellRcPathBlock();
-  const managedPattern = new RegExp(
-    `\\n?(?:${escapeRegExp(ccrPathBlockStart)}|${escapeRegExp(legacyPathBlockStart)})[\\s\\S]*?(?:${escapeRegExp(ccrPathBlockEnd)}|${escapeRegExp(legacyPathBlockEnd)})\\n?`,
-    "m"
-  );
+  const managedPattern = managedPathBlockPattern();
   if (managedPattern.test(source)) {
     const next = ensureTrailingNewline(source.replace(managedPattern, `\n${block}\n`)).replace(/^\n+/, "");
     writeFileIfChanged(rcFile, next);
@@ -2038,14 +2035,11 @@ function shellRcPathBlock(): string {
   ].join("\n");
 }
 
-function ensureFishPathBlock(file: string, binDir: string): void {
+export function ensureFishPathBlock(file: string, binDir: string): void {
   mkdirSync(path.dirname(file), { recursive: true });
   const source = existsSync(file) ? readFileSync(file, "utf8") : "";
   const block = fishPathBlock();
-  const managedPattern = new RegExp(
-    `\\n?${escapeRegExp(ccrPathBlockStart)}[\\s\\S]*?${escapeRegExp(ccrPathBlockEnd)}\\n?`,
-    "m"
-  );
+  const managedPattern = managedPathBlockPattern();
   if (managedPattern.test(source)) {
     const next = ensureTrailingNewline(source.replace(managedPattern, `\n${block}\n`)).replace(/^\n+/, "");
     writeFileIfChanged(file, next);
@@ -2057,6 +2051,13 @@ function ensureFishPathBlock(file: string, binDir: string): void {
 
   const separator = source.trim() ? (source.endsWith("\n") ? "\n" : "\n\n") : "";
   writeFileIfChanged(file, `${source}${separator}${block}\n`);
+}
+
+function managedPathBlockPattern(): RegExp {
+  return new RegExp(
+    `\\n?(?:${escapeRegExp(ccrPathBlockStart)}|${escapeRegExp(legacyPathBlockStart)})[\\s\\S]*?(?:${escapeRegExp(ccrPathBlockEnd)}|${escapeRegExp(legacyPathBlockEnd)})\\n?`,
+    "m"
+  );
 }
 
 function fishPathBlock(): string {

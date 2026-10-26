@@ -17,3 +17,15 @@ test("an rc file with the Claude Code Router PATH block ends up with one LLM Rou
   assert.doesNotMatch(text, /claude-code-router/);
   assert.match(text, /^export A=1$/m);
 });
+
+test("a fish config with the Claude Code Router PATH block ends up with one LLM Router block", async () => {
+  const { ensureFishPathBlock } = await import("@ccr/core/profiles/launch-service.ts");
+  const file = path.join(mkdtempSync(path.join(os.tmpdir(), "ccr-fish-")), "ccr.fish");
+  writeFileSync(file, "set -g A 1\n# >>> Claude Code Router CLI >>>\nset -l ccr_bin old\n# <<< Claude Code Router CLI <<<\n");
+  ensureFishPathBlock(file, "/opt/llm-router/bin");
+  const text = readFileSync(file, "utf8");
+  assert.equal((text.match(/>>> .* CLI >>>/g) ?? []).length, 1);
+  assert.match(text, /# >>> LLM Router CLI >>>/);
+  assert.doesNotMatch(text, /claude-code-router/);
+  assert.match(text, /^set -g A 1$/m);
+});

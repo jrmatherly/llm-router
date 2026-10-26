@@ -121,7 +121,7 @@ test("TrayStatusStrip renders open and quit actions", () => {
   assert.match(html, /title="Open LLMR"/);
   assert.match(html, /12\.5K tokens/);
   assert.match(html, /LLMR/);
-  assert.doesNotMatch(html, />CCR</);
+  assert.doesNotMatch(html, /(?<![A-Za-z0-9_-])CCR(?![A-Za-z0-9_-])/);
   assert.match(html, /aria-label="Quit"/);
 });
 
