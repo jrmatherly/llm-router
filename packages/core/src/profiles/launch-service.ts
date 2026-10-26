@@ -24,8 +24,10 @@ import { applyProfileConfig, cleanupGeneratedBinBackups } from "@ccr/core/profil
 import { isDesktopAppRuntime } from "@ccr/core/runtime/desktop-app";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@ccr/core/platform/windows-system";
 
-const ccrPathBlockStart = "# >>> Claude Code Router CLI >>>";
-const ccrPathBlockEnd = "# <<< Claude Code Router CLI <<<";
+const ccrPathBlockStart = "# >>> LLM Router CLI >>>";
+const ccrPathBlockEnd = "# <<< LLM Router CLI <<<";
+const legacyPathBlockStart = "# >>> Claude Code Router CLI >>>";
+const legacyPathBlockEnd = "# <<< Claude Code Router CLI <<<";
 export const desktopCliCommandName = "ccr-app";
 const desktopCliRuntimeFileName = "ccr-cli.js";
 const desktopCliCommandNameEnv = "CCR_CLI_COMMAND_NAME";
@@ -2002,12 +2004,12 @@ function normalizeWindowsPathSegment(value: string): string {
   return value.trim().replace(/[\\/]+$/g, "").toLowerCase();
 }
 
-function ensureShellRcPathBlock(rcFile: string, binDir: string): void {
+export function ensureShellRcPathBlock(rcFile: string, binDir: string): void {
   mkdirSync(path.dirname(rcFile), { recursive: true });
   const source = existsSync(rcFile) ? readFileSync(rcFile, "utf8") : "";
   const block = shellRcPathBlock();
   const managedPattern = new RegExp(
-    `\\n?${escapeRegExp(ccrPathBlockStart)}[\\s\\S]*?${escapeRegExp(ccrPathBlockEnd)}\\n?`,
+    `\\n?(?:${escapeRegExp(ccrPathBlockStart)}|${escapeRegExp(legacyPathBlockStart)})[\\s\\S]*?(?:${escapeRegExp(ccrPathBlockEnd)}|${escapeRegExp(legacyPathBlockEnd)})\\n?`,
     "m"
   );
   if (managedPattern.test(source)) {
