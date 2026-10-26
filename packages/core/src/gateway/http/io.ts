@@ -7,11 +7,10 @@ import { ccrRemoteControlPathPrefix } from "@ccr/core/gateway/remote-control-ser
 import { coreGatewayAuthHeader, localObservabilityHeaderNames, proxyHeaderDenyList, responseHeaderDenyList, sdkCompatibleTokenHeaderNames } from "@ccr/core/gateway/internal/shared";
 
 
+const clientNameHeaders = ["x-ccr-client", "x-client-name", "x-forwarded-client-cert", "x-claude-gateway-user-email", "x-litellm-end-user-id"];
+
 export function inferGatewayClient(apiKey: ApiKeyConfig | undefined, headers: IncomingHttpHeaders): string | undefined {
-  const explicit =
-    readHeader(headers["x-ccr-client"]) ??
-    readHeader(headers["x-client-name"]) ??
-    readHeader(headers["x-forwarded-client-cert"]);
+  const explicit = clientNameHeaders.map((name) => readHeader(headers[name])).find(Boolean);
   if (explicit) {
     return explicit;
   }

@@ -17,5 +17,6 @@ export function isolateTestHome(testHome, env = process.env) {
   env.CCR_INTERNAL_HOME_DIR = testHome;
   env.CCR_INTERNAL_APP_DATA_DIR = path.join(testHome, "app-data");
   env.CCR_INTERNAL_USER_DATA_DIR = path.join(testHome, "user-data");
+  env.CCR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR = path.join(testHome, "claude-code-managed-settings");
   return env;
 }

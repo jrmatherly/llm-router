@@ -222,6 +222,112 @@ test("profile service does not overwrite invalid global Claude settings JSON", {
   }
 });
 
+test("profile service refuses to apply a Claude Code profile when the settings file pins Claude Code to a cloud gateway", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-gateway-pinned-"));
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  try {
+    rmSync(takeoverFile, { force: true });
+    const settingsFile = path.join(root, ".claude", "settings.json");
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    const pinned = { forceLoginGatewayUrl: "http://127.0.0.1:18080", forceLoginMethod: "gateway" };
+    writeFileSync(settingsFile, `${JSON.stringify(pinned, null, 2)}\n`);
+
+    const profile = {
+      agent: "claude-code",
+      enabled: true,
+      env: {},
+      id: "gateway-pinned-claude",
+      model: "Provider/model",
+      name: "Gateway Pinned Claude",
+      scope: "global",
+      settingsFile,
+      smallFastModel: "",
+      surface: "auto"
+    };
+    const config = createDefaultAppConfig();
+    config.APIKEY = "ccr-profile-gateway-pinned-test";
+    config.APIKEYS = [{
+      createdAt: "2026-01-01T00:00:00.000Z",
+      id: `profile:${profile.id}`,
+      key: "ccr-profile-gateway-pinned-test",
+      name: "Profile: Gateway Pinned Claude"
+    }];
+    config.Providers = [{
+      api_base_url: "https://example.test/v1",
+      api_key: "provider-key",
+      models: ["model"],
+      name: "Provider"
+    }];
+    config.profile.profiles = [profile];
+
+    const result = await applyProfileFixture(config);
+    const status = result.clients.find((client) => client.client === "claude-code");
+    assert.equal(status?.ok, false);
+    assert.match(status?.message ?? "", /forceLoginMethod/);
+    assert.ok((status?.message ?? "").includes(settingsFile));
+    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), pinned);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("profile service refuses to apply a Claude Code profile when a managed settings file pins Claude Code to a cloud gateway", { skip: !process.env.CCR_INTERNAL_HOME_DIR || !process.env.CCR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-managed-pinned-"));
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  const managedDir = process.env.CCR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR;
+  const managedFile = path.join(managedDir, "managed-settings.json");
+  try {
+    rmSync(takeoverFile, { force: true });
+    mkdirSync(managedDir, { recursive: true });
+    writeFileSync(managedFile, JSON.stringify({ allowedProviders: ["gateway"] }));
+    const settingsFile = path.join(root, ".claude", "settings.json");
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, "{}\n");
+
+    const profile = {
+      agent: "claude-code",
+      enabled: true,
+      env: {},
+      id: "managed-pinned-claude",
+      model: "Provider/model",
+      name: "Managed Pinned Claude",
+      scope: "global",
+      settingsFile,
+      smallFastModel: "",
+      surface: "auto"
+    };
+    const config = createDefaultAppConfig();
+    config.APIKEY = "ccr-profile-managed-pinned-test";
+    config.APIKEYS = [{
+      createdAt: "2026-01-01T00:00:00.000Z",
+      id: `profile:${profile.id}`,
+      key: "ccr-profile-managed-pinned-test",
+      name: "Profile: Managed Pinned Claude"
+    }];
+    config.Providers = [{
+      api_base_url: "https://example.test/v1",
+      api_key: "provider-key",
+      models: ["model"],
+      name: "Provider"
+    }];
+    config.profile.profiles = [profile];
+
+    const result = await applyProfileFixture(config);
+    const status = result.clients.find((client) => client.client === "claude-code");
+    assert.equal(status?.ok, false);
+    assert.match(status?.message ?? "", /allowedProviders/);
+    assert.ok((status?.message ?? "").includes(managedFile));
+    assert.equal(readFileSync(settingsFile, "utf8"), "{}\n");
+  } finally {
+    rmSync(managedFile, { force: true });
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test("profile service honors the top-level profile disabled flag", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-profile-disabled-"));
   try {
