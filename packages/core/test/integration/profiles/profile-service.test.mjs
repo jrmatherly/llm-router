@@ -172,6 +172,68 @@ test("profile service preserves user statusLine when the active global Claude ta
   }
 });
 
+test("profile service writes global Claude settings under the runtime home, never the process HOME", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const runtimeHome = process.env.CCR_INTERNAL_HOME_DIR;
+  const processHome = mkdtempSync(path.join(os.tmpdir(), "ccr-process-home-"));
+  const previousEnv = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  const processSettingsFile = path.join(processHome, ".claude", "settings.json");
+  const runtimeSettingsFile = path.join(runtimeHome, ".claude", "settings.json");
+  const untouched = `${JSON.stringify({ theme: "dark" }, null, 2)}\n`;
+  try {
+    rmSync(takeoverFile, { force: true });
+    mkdirSync(path.dirname(processSettingsFile), { recursive: true });
+    writeFileSync(processSettingsFile, untouched);
+    mkdirSync(path.dirname(runtimeSettingsFile), { recursive: true });
+    writeFileSync(runtimeSettingsFile, "{}\n");
+    process.env.HOME = processHome;
+    process.env.USERPROFILE = processHome;
+
+    const profile = {
+      agent: "claude-code",
+      enabled: true,
+      env: {},
+      id: "default-claude-code",
+      model: "Provider/model",
+      name: "Claude Code",
+      scope: "global",
+      settingsFile: "~/.claude/settings.json",
+      smallFastModel: "",
+      surface: "auto"
+    };
+    const config = createDefaultAppConfig();
+    config.APIKEY = "ccr-profile-runtime-home-test";
+    config.APIKEYS = [{
+      createdAt: "2026-01-01T00:00:00.000Z",
+      id: `profile:${profile.id}`,
+      key: "ccr-profile-runtime-home-test",
+      name: "Profile: Claude Code"
+    }];
+    config.Providers = [{
+      api_base_url: "https://example.test/v1",
+      api_key: "provider-key",
+      models: ["model"],
+      name: "Provider"
+    }];
+    config.profile.profiles = [profile];
+
+    const result = await applyProfileFixture(config);
+    assert.equal(result.clients.some((client) => client.client === "claude-code" && client.ok), true);
+    assert.equal(readFileSync(processSettingsFile, "utf8"), untouched);
+    assert.deepEqual(readdirSync(path.dirname(processSettingsFile)), ["settings.json"]);
+    const helperFile = path.join(CONFIGDIR, "bin", "ccr-claude-code-api-key-default-claude-code");
+    const written = JSON.parse(readFileSync(runtimeSettingsFile, "utf8"));
+    assert.equal(written.apiKeyHelper, process.platform === "win32" ? `"${helperFile}"` : helperFile);
+  } finally {
+    restoreEnv("HOME", previousEnv.HOME);
+    restoreEnv("USERPROFILE", previousEnv.USERPROFILE);
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(path.dirname(runtimeSettingsFile), { force: true, recursive: true });
+    rmSync(processHome, { force: true, recursive: true });
+  }
+});
+
 test("profile service does not overwrite invalid global Claude settings JSON", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-invalid-settings-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
@@ -845,9 +907,11 @@ test("profile service overwrites generated bin files without creating backups", 
 test("profile service refreshes LLMR-managed global Claude gateway env for generated profiles", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-generated-claude-global-env-"));
   const previousHome = process.env.HOME;
+  const previousRuntimeHome = process.env.CCR_INTERNAL_HOME_DIR;
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
     process.env.HOME = home;
+    process.env.CCR_INTERNAL_HOME_DIR = home;
     rmSync(takeoverFile, { force: true });
     const settingsFile = path.join(home, ".claude", "settings.json");
     mkdirSync(path.dirname(settingsFile), { recursive: true });
@@ -907,11 +971,8 @@ test("profile service refreshes LLMR-managed global Claude gateway env for gener
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
     rmSync(takeoverFile, { force: true });
     rmSync(home, { force: true, recursive: true });
-    if (previousHome === undefined) {
-      delete process.env.HOME;
-    } else {
-      process.env.HOME = previousHome;
-    }
+    restoreEnv("CCR_INTERNAL_HOME_DIR", previousRuntimeHome);
+    restoreEnv("HOME", previousHome);
   }
 });
 
@@ -1955,8 +2016,10 @@ test("profile service clears stale Claude Code ToolHub artifacts when no gateway
 
 test("profile service restores managed global Claude settings when only LLMR-scoped Claude profiles are active", () => {
   const previousHome = process.env.HOME;
+  const previousRuntimeHome = process.env.CCR_INTERNAL_HOME_DIR;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
   process.env.HOME = home;
+  process.env.CCR_INTERNAL_HOME_DIR = home;
   try {
     const settingsFile = path.join(home, ".claude", "settings.json");
     mkdirSync(path.dirname(settingsFile), { recursive: true });
@@ -2001,11 +2064,8 @@ test("profile service restores managed global Claude settings when only LLMR-sco
     assert.equal(restored.env.CCR_CLAUDE_CODE_MODEL, undefined);
     assert.equal(restored.env.CODEXL_CLAUDE_CODE_MODEL, undefined);
   } finally {
-    if (previousHome === undefined) {
-      delete process.env.HOME;
-    } else {
-      process.env.HOME = previousHome;
-    }
+    restoreEnv("CCR_INTERNAL_HOME_DIR", previousRuntimeHome);
+    restoreEnv("HOME", previousHome);
     rmSync(home, { force: true, recursive: true });
   }
 });
@@ -2296,4 +2356,12 @@ test("profile service reports a failed model discovery cache invalidation withou
 async function applyProfileFixture(config, options) {
   await replacePersistedApiKeys(config.APIKEYS ?? []);
   return applyProfileConfig(config, options);
+}
+
+function restoreEnv(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
 }

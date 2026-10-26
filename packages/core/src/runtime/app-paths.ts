@@ -32,6 +32,17 @@ export function resolveRuntimeAppPath(name: RuntimePathName): string {
   return fallbackUserDataDir();
 }
 
+export function resolveUserPath(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "~") {
+    return resolveRuntimeAppPath("home");
+  }
+  if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
+    return path.join(resolveRuntimeAppPath("home"), trimmed.slice(2));
+  }
+  return path.resolve(trimmed || ".");
+}
+
 export const LEGACY_CONFIGDIR = path.join(resolveRuntimeAppPath("home"), `.${APP_STORAGE_NAME}`);
 
 export function resolveRuntimeConfigDir(): string {
