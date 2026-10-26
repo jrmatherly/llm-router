@@ -189,7 +189,7 @@ function resolveGatewayBootstrapEntry(): string {
       : [])
   ].find((candidate) => existsSync(candidate));
   if (!entry) {
-    throw new Error("CCR gateway IPC bootstrap was not found. Run npm run build:assets.");
+    throw new Error("LLMR gateway IPC bootstrap was not found. Run npm run build:assets.");
   }
   return entry;
 }

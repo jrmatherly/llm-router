@@ -25,7 +25,7 @@ test("Claude App VM storage prepares profile bundle from the default Claude App 
   });
 });
 
-test("Claude App VM storage can seed new profiles from an existing CCR profile", () => {
+test("Claude App VM storage can seed new profiles from an existing LLMR profile", () => {
   withRuntimeEnv((root) => {
     const configDir = path.join(root, "ccr");
     const sourceUserDataDir = path.join(configDir, "profiles", "source", "claude", ".claude-code-router", "claude-app-user-data", "source");

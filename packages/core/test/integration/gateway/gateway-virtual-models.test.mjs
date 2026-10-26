@@ -868,7 +868,7 @@ test("gateway fallback explains In-app Browser web search requires Desktop integ
   const definitions = fusionFallbackToolDefinitions(profiles);
 
   assert.equal(definitions[0].name, "fusion_2_web_search");
-  assert.match(definitions[0].unavailableMessage, /requires CCR Desktop/);
+  assert.match(definitions[0].unavailableMessage, /requires LLMR Desktop/);
   assert.match(definitions[0].unavailableMessage, /switch the Fusion web search provider/);
 });
 

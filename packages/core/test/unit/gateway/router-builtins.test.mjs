@@ -1110,7 +1110,7 @@ test("built-in Claude Code route injects ToolHub resolver instructions when Tool
     url: "/v1/messages"
   });
 
-  assert.match(result.body.system.at(-1).text, /CCR ToolHub tool resolution is enabled/);
+  assert.match(result.body.system.at(-1).text, /LLMR ToolHub tool resolution is enabled/);
   assert.match(result.body.system.at(-1).text, /ToolHub search\/resolution tool is mcp__ccr-toolhub__tool_hub_resolve/);
   assert.match(result.body.system.at(-1).text, /call this actual tool, do not merely mention its name in text/);
   assert.match(result.body.system.at(-1).text, /MUST call the ToolHub search\/resolution tool mcp__ccr-toolhub__tool_hub_resolve before answering/);
@@ -2131,7 +2131,7 @@ test("built-in Claude Code route publishes and accepts client-visible subagent m
   const routeMatch = /- (anthropic\/claude-ccr-h[0-9a-f]+) -> Provider\/gpt-5-codex: Use for long refactors/.exec(description);
   assert.ok(routeMatch);
   const clientModel = routeMatch[1];
-  assert.match(description, /client model -> CCR target/);
+  assert.match(description, /client model -> LLMR target/);
   assert.match(description, /tool model field accepts exact strings, set it to the same client model ID/i);
 
   const routed = await plugin.routeRequest({
@@ -2262,7 +2262,7 @@ test("built-in Claude Code route injects workflow subagent model instructions in
   });
 
   const tool = result.body.tools[0];
-  assert.match(tool.description, /CCR workflow subagent routing is enabled/);
+  assert.match(tool.description, /LLMR workflow subagent routing is enabled/);
   assert.match(tool.description, /Agent\/Task subagents/);
   assert.match(tool.description, /each spawned agent prompt MUST start with <CCR-SUBAGENT-MODEL>Provider\/model<\/CCR-SUBAGENT-MODEL>/);
   assert.match(tool.description, /Provider\/claude-sonnet: Balanced coding model/);

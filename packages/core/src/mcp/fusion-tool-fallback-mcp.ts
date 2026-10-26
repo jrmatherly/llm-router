@@ -114,7 +114,7 @@ async function handleJsonRpcRequest(payload: unknown): Promise<JsonRpcResponse |
           protocolVersion,
           serverInfo: {
             name: "ccr-fusion-tool-fallback",
-            title: "CCR Fusion Tool Fallback",
+            title: "LLMR Fusion Tool Fallback",
             version: "1.0.0"
           }
         });
@@ -141,7 +141,7 @@ function callTool(params: unknown): ToolCallResult {
     content: [{
       text: tool?.unavailableMessage ||
         `Fusion MCP tool "${toolLabel}" is temporarily unavailable. ` +
-        "CCR registered a fallback definition because the real MCP server did not provide the tool during discovery. " +
+        "LLMR registered a fallback definition because the real MCP server did not provide the tool during discovery. " +
         `Check the Fusion MCP server logs and retry.${knownSuffix}`,
       type: "text"
     }],

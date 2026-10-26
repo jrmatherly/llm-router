@@ -491,7 +491,7 @@ function withPlatform(platform, callback) {
   }
 }
 
-test("ChatGPT migration removes only the exact legacy CCR auth marker", () => {
+test("ChatGPT migration removes only the exact legacy LLMR auth marker", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-chatgpt-auth-migration-"));
   const authFile = path.join(root, "auth.json");
   try {

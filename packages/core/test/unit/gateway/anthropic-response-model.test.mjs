@@ -92,7 +92,7 @@ test("gateway pipeline preserves Claude Code hex model id in Anthropic SSE respo
   assert.doesNotMatch(result.output, /"model":"k3"/);
 });
 
-test("gateway pipeline strips client supplied CCR route headers", async () => {
+test("gateway pipeline strips client supplied LLMR route headers", async () => {
   const result = await runAnthropicPipelineModelRewrite("kimi-test/k3", {
     "x-ccr-route-fallback": "forged-fallback",
     "x-ccr-route-stage": "forged-stage",

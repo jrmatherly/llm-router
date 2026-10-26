@@ -110,7 +110,7 @@ export function compactHandoffTask(input: {
 }): string {
   const footer = archiveHandoffFooter(input);
   return [
-    "CCR compact handoff task:",
+    "LLMR compact handoff task:",
     "You are the previous-context agent. Produce a concise, action-oriented handoff for a successor agent that will start with a fresh context.",
     "Do not solve new work. Do not call tools. Do not invent details. Use only the conversation and tool results already in context.",
     "Do not expand scope: do not propose broad refactors, exhaustive new test suites, documentation work, or extra validation unless the user explicitly requested it or a failing check already requires it.",
@@ -152,7 +152,7 @@ export function archiveHandoffFooter(input: {
         `${input.toolName}(${argumentsJson})`
       ];
   return [
-    "CCR ARCHIVED HISTORY ACCESS",
+    "LLMR ARCHIVED HISTORY ACCESS",
     `Archive id: ${input.archiveId}`,
     `Archive session id: ${input.sessionId}`,
     `Archive generation: ${input.generation}`,
@@ -165,7 +165,7 @@ export function archiveHandoffFooter(input: {
 
 export function historyReplayTask(task: string): string {
   return [
-    "CCR history task from the successor agent:",
+    "LLMR history task from the successor agent:",
     "Use the complete conversation and request parameters already present in this request as your previous context.",
     "Answer only the task below from that context. If the context is insufficient, say so directly.",
     "Do not continue the previous task, modify files, or call external tools.",
@@ -256,7 +256,7 @@ function claudeCodeCompactHandoffTask(task: string): string {
     "",
     "Your response must be plain text: an <analysis> block followed by a <summary> block.",
     "Keep <analysis> brief: identify what the continuation summary must preserve, but do not solve the task.",
-    "Put the CCR handoff in <summary> and follow this task exactly:",
+    "Put the LLMR handoff in <summary> and follow this task exactly:",
     "",
     task
   ].join("\n");

@@ -653,7 +653,7 @@ class GatewayService {
       );
       this.markExternalGatewayRunning(config, externalGateway.endpoint, externalGateway.apiKey);
     } catch (error) {
-      const message = `Failed to update the externally managed CCR gateway: ${formatError(error)}`;
+      const message = `Failed to update the externally managed LLMR gateway: ${formatError(error)}`;
       this.status = {
         ...this.status,
         lastError: message,
@@ -683,7 +683,7 @@ class GatewayService {
       if (restartRequired) {
         const status = await this.start(nextConfig);
         if (status.state === "error") {
-          throw new Error(status.lastError || "CCR gateway failed to restart with the updated configuration.");
+          throw new Error(status.lastError || "LLMR gateway failed to restart with the updated configuration.");
         }
       } else {
         await this.updateConfig(nextConfig);

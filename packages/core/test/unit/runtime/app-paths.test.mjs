@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { APP_STORAGE_NAME, resolveRuntimeConfigDir, resolveRuntimeDataDir } from "@ccr/core/runtime/app-paths.ts";
 
-test("runtime config and data dirs default to the shared CCR storage", () => {
+test("runtime config and data dirs default to the shared LLMR storage", () => {
   withRuntimePathEnv({
     appData: path.join(os.tmpdir(), "ccr-app-paths-app-data"),
     home: path.join(os.tmpdir(), "ccr-app-paths-home")

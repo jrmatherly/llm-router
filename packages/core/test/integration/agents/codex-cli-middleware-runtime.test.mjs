@@ -256,7 +256,7 @@ test("Codex app-server keeps a ChatGPT-shaped account for workspace routing with
       CCR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
       CODEXL_CODEX_CHATGPT_AUTH_FILE: "",
-      CODEXL_CODEX_WORKSPACE_NAME: "CCR Workspace",
+      CODEXL_CODEX_WORKSPACE_NAME: "LLMR Workspace",
       HOME: isolatedHome
     },
     input: [
@@ -286,7 +286,7 @@ test("Codex app-server keeps a ChatGPT-shaped account for workspace routing with
     requiresOpenaiAuth: true
   });
   assert.deepEqual(responses[3].result, {
-    account: { type: "chatgpt", account_id: "ccr-virtual-account", id: "ccr-virtual-account", email: "CCR Workspace", planType: "plus" },
+    account: { type: "chatgpt", account_id: "ccr-virtual-account", id: "ccr-virtual-account", email: "LLMR Workspace", planType: "plus" },
     requiresOpenaiAuth: true
   });
   assert.equal(existsSync(path.join(codexHome, "auth.json")), false);
@@ -505,7 +505,7 @@ test("Codex app-server preserves workspace routing surfaced by newer app-servers
       CCR_PROFILE_SCOPE: "ccr",
       CCR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
-      CODEXL_CODEX_WORKSPACE_NAME: "CCR Workspace",
+      CODEXL_CODEX_WORKSPACE_NAME: "LLMR Workspace",
       HOME: isolatedHome
     },
     input: [
@@ -517,7 +517,7 @@ test("Codex app-server preserves workspace routing surfaced by newer app-servers
   assert.equal(result.status, 0, result.stderr);
   const responses = result.stdout.trim().split(/\r?\n/).map((line) => JSON.parse(line));
   assert.deepEqual(responses[0].result, {
-    account: { type: "chatgpt", account_id: "ccr-virtual-account", id: "ccr-virtual-account", email: "CCR Workspace", planType: "plus" },
+    account: { type: "chatgpt", account_id: "ccr-virtual-account", id: "ccr-virtual-account", email: "LLMR Workspace", planType: "plus" },
     workspaceRouting,
     requiresOpenaiAuth: true
   });
@@ -714,7 +714,7 @@ test("Codex app-server preserves auto-review without an opt-in environment varia
   assert.deepEqual(response.result.sandboxPolicy, { type: "workspaceWrite" });
 });
 
-test("Codex app-server merges CCR Fast Mode catalog metadata without spoofing auth", { skip: process.platform === "win32" }, () => {
+test("Codex app-server merges LLMR Fast Mode catalog metadata without spoofing auth", { skip: process.platform === "win32" }, () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-native-models-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
@@ -1005,9 +1005,9 @@ test("OpenCode bot worker keeps commands responsive while preserving per-convers
     const calls = await waitForJsonLines(callsFile, 5, 2000, () => stderr);
     const replyTexts = replies.map((reply) => reply.intent.text);
     assert.ok(replyTexts.includes("Unknown Bot command. Send /project or /session to see available commands."));
-    assert.ok(replyTexts.some((text) => /^CCR App project commands \(OpenCode\):/.test(text)));
+    assert.ok(replyTexts.some((text) => /^LLMR App project commands \(OpenCode\):/.test(text)));
     assert.ok(replyTexts.some((text) => /^OpenCode projects:/.test(text)));
-    assert.ok(replyTexts.some((text) => /^CCR App session commands \(OpenCode\):/.test(text)));
+    assert.ok(replyTexts.some((text) => /^LLMR App session commands \(OpenCode\):/.test(text)));
     assert.ok(replyTexts.some((text) => /^OpenCode sessions in /.test(text)));
     assert.ok(replyTexts.some((text) => text.includes(otherProject)));
     assert.ok(!replyTexts.some((text) => text.includes("Other session")));

@@ -9,7 +9,7 @@ import {
   syncCcrCliModelCatalog
 } from "@ccr/core/profiles/launch-service.ts";
 
-test("CCR CLI launcher copies every bundled companion runtime next to ccr-cli.js", () => {
+test("LLMR CLI launcher copies every bundled companion runtime next to ccr-cli.js", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-cli-runtime-"));
   try {
     const sourceDir = path.join(root, "dist", "main");
@@ -34,7 +34,7 @@ test("CCR CLI launcher copies every bundled companion runtime next to ccr-cli.js
   }
 });
 
-test("CCR CLI launcher copies the model catalog where the installed runtime can resolve it", () => {
+test("LLMR CLI launcher copies the model catalog where the installed runtime can resolve it", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-cli-model-catalog-"));
   try {
     const sourceDir = path.join(root, "dist", "main");

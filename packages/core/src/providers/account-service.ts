@@ -855,7 +855,7 @@ async function resolveLocalEstimateConnector(
   return {
     errors: [],
     meters: meters.filter((meter): meter is ProviderAccountMeter => Boolean(meter)),
-    message: "Local estimate from CCR usage history.",
+    message: "Local estimate from LLMR usage history.",
     source: "local-estimate"
   };
 }

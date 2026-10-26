@@ -55,14 +55,14 @@ test("builds Claude Code ToolHub MCP config when ToolHub has backend MCP servers
       requestTimeoutMs: 60000
     }
   }, {
-    command: "/Applications/CCR.app/Contents/MacOS/CCR",
-    entryPath: "/Applications/CCR.app/Contents/Resources/app/dist/main/toolhub-mcp.js"
+    command: "/Applications/LLMR.app/Contents/MacOS/LLMR",
+    entryPath: "/Applications/LLMR.app/Contents/Resources/app/dist/main/toolhub-mcp.js"
   });
 
   assert.equal(Object.keys(config.mcpServers).length, 1);
   const server = config.mcpServers["ccr-toolhub"];
-  assert.equal(server.command, "/Applications/CCR.app/Contents/MacOS/CCR");
-  assert.deepEqual(server.args, ["/Applications/CCR.app/Contents/Resources/app/dist/main/toolhub-mcp.js"]);
+  assert.equal(server.command, "/Applications/LLMR.app/Contents/MacOS/LLMR");
+  assert.deepEqual(server.args, ["/Applications/LLMR.app/Contents/Resources/app/dist/main/toolhub-mcp.js"]);
   assert.equal(server.env.ELECTRON_RUN_AS_NODE, "1");
   assert.equal(server.env.TOOLHUB_OPENAI_MODEL, "resolver-model");
   assert.equal(server.env.TOOLHUB_MAX_TOOLS, "10");

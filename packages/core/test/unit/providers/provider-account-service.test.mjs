@@ -246,7 +246,7 @@ test("webcontent-json connector defaults browser request origin to login URL ori
   assert.equal(result.meters[0].remaining, 7);
 });
 
-test("webcontent-json connector reports unsupported outside CCR Desktop", async () => {
+test("webcontent-json connector reports unsupported outside LLMR Desktop", async () => {
   setProviderAccountWebContentFetchHandler(undefined);
 
   await assert.rejects(
@@ -259,7 +259,7 @@ test("webcontent-json connector reports unsupported outside CCR Desktop", async 
       },
       providerName: "Vendor"
     }),
-    /only available in CCR Desktop/
+    /only available in LLMR Desktop/
   );
 });
 

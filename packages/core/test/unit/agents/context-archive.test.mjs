@@ -275,7 +275,7 @@ test("compact stores an immutable full request and appends one handoff task", as
   assert.equal(forwarded.tools, undefined);
   assert.equal(forwarded.tool_choice, undefined);
   assert.equal(forwarded.stream, true);
-  assert.match(forwarded.messages.at(-1).content, /CCR compact handoff task/);
+  assert.match(forwarded.messages.at(-1).content, /LLMR compact handoff task/);
   assert.match(forwarded.messages.at(-1).content, /ccr_history_ask/);
   assert.match(forwarded.messages.at(-1).content, /mcp__ccr-context-archive__ccr_history_ask/);
 });
@@ -540,7 +540,7 @@ test("Anthropic compact continuation injects the archive tool for Claude Code", 
   const config = testConfig();
   const toolName = "mcp__ccr-context-archive__ccr_history_ask";
   const handoff = [
-    "CCR ARCHIVED HISTORY ACCESS",
+    "LLMR ARCHIVED HISTORY ACCESS",
     "Archive id: arc_anthropic_test",
     "Archive session token: token_anthropic_test"
   ].join("\n");
@@ -570,7 +570,7 @@ test("Anthropic compact continuation injects the archive tool for Claude Code", 
   assert.deepEqual(forwarded.tool_choice, { type: "auto" });
   assert.ok(forwarded.tools.some((tool) => tool.name === "Read"));
   assert.ok(forwarded.tools.some((tool) => tool.name === toolName));
-  assert.match(JSON.stringify(forwarded.system), /CCR context archive is available/);
+  assert.match(JSON.stringify(forwarded.system), /LLMR context archive is available/);
 });
 
 test("Anthropic archive tool calls are converted into tool results for continuation", () => {
@@ -691,7 +691,7 @@ test("compact handoff strips protocol-specific tool and schema constraints", asy
   assert.equal(forwarded.max_output_tokens, undefined);
   assert.equal(forwarded.maxTokens, undefined);
   assert.equal(forwarded.input.length, 2);
-  assert.match(forwarded.input.at(-1).content[0].text, /CCR compact handoff task/);
+  assert.match(forwarded.input.at(-1).content[0].text, /LLMR compact handoff task/);
 });
 
 test("Codex /responses/compact prepares a Responses handoff and Codex compact JSON response", async () => {
@@ -730,7 +730,7 @@ test("Codex /responses/compact prepares a Responses handoff and Codex compact JS
   assert.equal(forwarded.parallel_tool_calls, undefined);
   assert.equal(forwarded.client_metadata.session_id, "codex-session");
   assert.equal(forwarded.input.length, 2);
-  assert.match(forwarded.input.at(-1).content[0].text, /CCR compact handoff task/);
+  assert.match(forwarded.input.at(-1).content[0].text, /LLMR compact handoff task/);
 
   const transformed = await streamText(contextArchiveHandoffResponseStream(
     Readable.from([JSON.stringify({ output: [{ content: [{ text: "Handoff summary", type: "output_text" }], role: "assistant", type: "message" }] })]),
@@ -775,7 +775,7 @@ test("Codex Responses compaction trigger prepares a compact SSE response item", 
   assert.equal(forwarded.tools, undefined);
   assert.equal(forwarded.input.some((item) => item.type === "compaction_trigger"), false);
   assert.equal(forwarded.input.length, 2);
-  assert.match(forwarded.input.at(-1).content[0].text, /CCR compact handoff task/);
+  assert.match(forwarded.input.at(-1).content[0].text, /LLMR compact handoff task/);
 
   const upstreamSse = [
     "event: response.output_text.delta",
@@ -857,7 +857,7 @@ test("Codex CLI compaction item exposes archive access that can recall omitted c
   const compactionEvent = sseJsonPayloads(transformed).find((payload) => payload.type === "response.output_item.done");
   assert.ok(compactionEvent, "expected Codex compact SSE output item");
   assert.equal(compactionEvent.item.type, "compaction");
-  assert.match(compactionEvent.item.encrypted_content, /CCR ARCHIVED HISTORY ACCESS/);
+  assert.match(compactionEvent.item.encrypted_content, /LLMR ARCHIVED HISTORY ACCESS/);
   assert.doesNotMatch(compactionEvent.item.encrypted_content, new RegExp(preservedMarker));
   const credentials = archiveCredentialsFromText(compactionEvent.item.encrypted_content);
   assert.equal(credentials.archiveId, result.record.archiveId);
@@ -917,7 +917,7 @@ test("Claude Code auto compact handoff exposes archive access that can recall om
   ));
   const compactResponse = JSON.parse(transformed);
   const compactText = compactResponse.content.map((item) => item.text ?? "").join("\n");
-  assert.match(compactText, /CCR ARCHIVED HISTORY ACCESS/);
+  assert.match(compactText, /LLMR ARCHIVED HISTORY ACCESS/);
   assert.match(compactText, /mcp__ccr-context-archive__ccr_history_ask/);
   assert.doesNotMatch(compactText, new RegExp(preservedMarker));
   const credentials = archiveCredentialsFromText(compactText);
@@ -1008,7 +1008,7 @@ test("only explicit or structural compact signals create archives", async () => 
     { content: "Earlier assistant answer.", role: "assistant" }
   ]);
   const handoffText = forwarded.messages.at(-1).content[0].text;
-  assert.match(handoffText, /CCR compact handoff task/);
+  assert.match(handoffText, /LLMR compact handoff task/);
   assert.match(handoffText, /<analysis> block followed by a <summary> block/);
   assert.match(handoffText, /descriptive, not authoritative/);
   assert.match(handoffText, /public runtime API shape/);
@@ -1038,7 +1038,7 @@ test("Claude Code auto compact handoff keeps the trailing tool_result paired wit
   const content = JSON.parse(auto.body.toString("utf8")).messages.at(-1).content;
   assert.deepEqual(content[0], toolResult);
   assert.equal(content.length, 2);
-  assert.match(content[1].text, /CCR compact handoff task/);
+  assert.match(content[1].text, /LLMR compact handoff task/);
 });
 
 test("#1823 compact preserves parallel tool results, error flags and multimodal result payloads", async () => {
@@ -1111,7 +1111,7 @@ test("history replay reports upstream and tool-call failures without fallback", 
 test("compact responses deterministically include archive access for JSON and SSE", async () => {
   const record = {
     archiveId: "arc_footer",
-    footer: "CCR ARCHIVED HISTORY ACCESS\nArchive id: arc_footer\nArchive session token: footer-token",
+    footer: "LLMR ARCHIVED HISTORY ACCESS\nArchive id: arc_footer\nArchive session token: footer-token",
     generation: 1,
     sessionId: "footer-session"
   };
@@ -1139,7 +1139,7 @@ test("compact responses deterministically include archive access for JSON and SS
     "text/event-stream"
   ));
   assert.match(transformedSse, /Archive id: arc_footer/);
-  assert.equal((transformedSse.match(/CCR ARCHIVED HISTORY ACCESS/g) ?? []).length, 1);
+  assert.equal((transformedSse.match(/LLMR ARCHIVED HISTORY ACCESS/g) ?? []).length, 1);
 });
 
 test("context archive MCP server points at the built-in gateway endpoint", () => {

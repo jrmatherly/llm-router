@@ -258,7 +258,7 @@ function resolveLocalModulePath(value: string, label: string): string {
 
   const resolved = path.resolve(CONFIGDIR, expanded);
   if (!isPathInside(resolved, CONFIGDIR)) {
-    throw new Error(`${label} relative paths must stay inside the CCR config directory.`);
+    throw new Error(`${label} relative paths must stay inside the LLMR config directory.`);
   }
   return resolved;
 }
@@ -772,29 +772,29 @@ const ccrSubagentModelPlaceholder = "provider/model";
 const claudeCodeBillingSystemHeaderPrefix = "x-anthropic-billing-header";
 const claudeCodeSubagentModelEnv = "CLAUDE_CODE_SUBAGENT_MODEL";
 const ccrSubagentToolModelInstruction =
-  `CCR subagent routing is enabled. When calling this tool, the prompt parameter MUST start with ` +
+  `LLMR subagent routing is enabled. When calling this tool, the prompt parameter MUST start with ` +
   `${ccrSubagentModelTagExample} on its own first line, replacing Provider/model with the best client model ID from the list below. ` +
   `When the tool model field accepts exact strings, set it to the same client model ID so the client initializes the child with the correct model limits. ` +
-  `CCR consumes the tag, removes it from the prompt, and routes the spawned agent request to that model. ` +
+  `LLMR consumes the tag, removes it from the prompt, and routes the spawned agent request to that model. ` +
   `If the model field only permits built-in aliases, leave it unset and use the tag as the routing fallback. ` +
   `Do not omit the tag or put it in description or subagent_type. ` +
   `中文要求：调用该工具时，prompt 参数第一行必须写入 ${ccrSubagentModelTagExample}，并将 Provider/model 替换成列表中的客户端模型 ID；若 model 字段支持任意字符串，也必须使用同一个 ID。`;
 const ccrWorkflowSubagentModelInstruction =
-  `CCR workflow subagent routing is enabled. When this workflow creates Agent/Task subagents, each spawned agent prompt MUST start with ` +
+  `LLMR workflow subagent routing is enabled. When this workflow creates Agent/Task subagents, each spawned agent prompt MUST start with ` +
   `${ccrSubagentModelTagExample} on its own first line, replacing Provider/model with the best client model ID from the list below. ` +
   `Set each spawned agent's model option to that same client model ID when the agent API accepts exact strings. ` +
   `Put the tag inside the Agent/Task prompt created by the workflow, not in the workflow description or subagent_type. ` +
-  `CCR consumes the tag from the spawned agent request, removes it, and routes that request to the selected model. ` +
+  `LLMR consumes the tag from the spawned agent request, removes it, and routes that request to the selected model. ` +
   `中文要求：Workflow 中创建 Agent/Task 时，每个被创建 agent 的 prompt 第一行必须写入 ${ccrSubagentModelTagExample}，并替换成列表中的客户端模型 ID；若 agent API 支持任意模型字符串，也必须将 model 设为同一个 ID。`;
 const ccrSubagentPromptFieldInstruction =
-  `CCR subagent routing is enabled. This prompt string MUST start with ${ccrSubagentModelTagExample} on its own first line, ` +
+  `LLMR subagent routing is enabled. This prompt string MUST start with ${ccrSubagentModelTagExample} on its own first line, ` +
   `with Provider/model replaced by one client model ID from the list below. When the adjacent model field accepts exact strings, use the same client model ID there. ` +
-  `Put the subagent task after that line; CCR removes the tag before the subagent runs. ` +
+  `Put the subagent task after that line; LLMR removes the tag before the subagent runs. ` +
   `中文要求：这个 prompt 字符串第一行必须是替换后的模型标签，后面再写 subagent 任务正文。`;
 type ClaudeCodeSubagentToolKind = "subagent" | "workflow";
 const claudeCodeAgentToolNames = new Set(["agent", "task"]);
 const claudeCodeWorkflowToolNames = new Set(["workflow"]);
-const ccrToolHubSystemInstructionMarker = "CCR ToolHub tool resolution is enabled.";
+const ccrToolHubSystemInstructionMarker = "LLMR ToolHub tool resolution is enabled.";
 
 function claudeCodeToolName(tool: Record<string, unknown>): string | undefined {
   const functionSpec = isRecord(tool.function) ? tool.function : undefined;
@@ -974,7 +974,7 @@ function claudeCodeAgentToolInstructions(config: AppConfig, profile?: ProfileCon
     return undefined;
   }
   const modelList = [
-    "Configured CCR gateway models (client model -> CCR target):",
+    "Configured LLMR gateway models (client model -> LLMR target):",
     ...modelRows
   ].join("\n");
   return {

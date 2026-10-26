@@ -45,7 +45,7 @@ const maxMcpRequestBytes = 2 * 1024 * 1024;
 
 const networkCaptureTools: McpTool[] = [
   {
-    description: "Return CCR proxy capture status, proxy status, capture limits, and current capture count.",
+    description: "Return LLMR proxy capture status, proxy status, capture limits, and current capture count.",
     inputSchema: objectSchema({}),
     name: "network_capture_status"
   },
@@ -150,7 +150,7 @@ async function handleJsonRpcRequest(payload: unknown): Promise<JsonRpcResponse |
           protocolVersion,
           serverInfo: {
             name: "ccr-network-capture",
-            title: "CCR Network Capture",
+            title: "LLMR Network Capture",
             version: appVersion()
           }
         });

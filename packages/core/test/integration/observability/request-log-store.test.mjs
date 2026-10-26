@@ -624,7 +624,7 @@ test("RequestLogStore persists actively reported route hops without synthesizing
   }
 });
 
-test("RequestLogStore redacts secrets and records CCR metadata", async () => {
+test("RequestLogStore redacts secrets and records LLMR metadata", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "ccr-request-log-metadata-test-"));
   let store;
   try {

@@ -64,7 +64,7 @@ function testProfile(overrides = {}) {
   };
 }
 
-test("OpenCode profile config routes primary and small models through CCR", () => {
+test("OpenCode profile config routes primary and small models through LLMR", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-profile-"));
   try {
     const profile = testProfile();

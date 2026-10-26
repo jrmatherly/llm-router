@@ -704,7 +704,7 @@ function pluginAppLoadFailurePageUrl(options: {
 <body>
   <main>
     <h1>${escapeHtml(options.title)} could not load</h1>
-    <p>CCR could not reach the plugin page. Check that CCR is running and the plugin is enabled, then retry.</p>
+    <p>LLMR could not reach the plugin page. Check that LLMR is running and the plugin is enabled, then retry.</p>
     <code>${escapeHtml(options.errorDescription || `Load failed with code ${options.errorCode}`)}<br>${escapeHtml(options.url)}</code>
     <a href="${escapeHtml(options.url)}">Retry</a>
   </main>

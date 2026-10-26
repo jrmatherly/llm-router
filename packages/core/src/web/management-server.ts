@@ -142,7 +142,7 @@ export async function startWebManagementServer(options: WebManagementServerOptio
   let security: WebManagementSecurityContext | undefined;
   const server = createServer((request, response) => {
     if (!security) {
-      sendJson(response, 503, { error: { message: "CCR web management server is not ready." }, ok: false });
+      sendJson(response, 503, { error: { message: "LLMR web management server is not ready." }, ok: false });
       return;
     }
     void handleRequest(request, response, security).catch((error) => {
@@ -227,7 +227,7 @@ async function handleRpcRequest(request: IncomingMessage, response: ServerRespon
     return;
   }
   if (!hasValidWebAuthToken(request, security)) {
-    sendJson(response, 401, { error: { message: "CCR web authentication token is missing or invalid." }, ok: false });
+    sendJson(response, 401, { error: { message: "LLMR web authentication token is missing or invalid." }, ok: false });
     return;
   }
 
@@ -242,7 +242,7 @@ async function handleRpcRequest(request: IncomingMessage, response: ServerRespon
   const method = typeof payload.method === "string" ? payload.method.trim() : "";
   const handler = rpcHandlers[method];
   if (!method || !handler) {
-    sendJson(response, 404, { error: { message: `Unknown CCR web RPC method: ${method || "(empty)"}` }, ok: false });
+    sendJson(response, 404, { error: { message: `Unknown LLMR web RPC method: ${method || "(empty)"}` }, ok: false });
     return;
   }
 
@@ -290,9 +290,9 @@ const rpcHandlers: Record<string, RpcHandler> = {
       invalidateProviderAccountSnapshotCache();
     }
     const gatewayDetail = runtimeStatus.state === "running"
-      ? "CCR gateway is running."
-      : `CCR gateway did not start: ${runtimeStatus.lastError || "unknown error"}`;
-    const apiKeyDetail = synced.result.apiKeyGenerated ? "Generated a Claude App API key." : "Reused an existing CCR API key.";
+      ? "LLMR gateway is running."
+      : `LLMR gateway did not start: ${runtimeStatus.lastError || "unknown error"}`;
+    const apiKeyDetail = synced.result.apiKeyGenerated ? "Generated a Claude App API key." : "Reused an existing LLMR API key.";
     return {
       ...synced.result,
       message: `${synced.result.message}\n${gatewayDetail}\n${apiKeyDetail}`
@@ -386,7 +386,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
     const config = syncedClaudeAppConfig.config;
     const status = await gatewayService.ensureStarted(config);
     if (status.state !== "running") {
-      throw new Error(status.lastError || "CCR gateway did not start.");
+      throw new Error(status.lastError || "LLMR gateway did not start.");
     }
     logProfileApplyResult(await applyProfileConfig(config));
     return openProfileFromCcr(config, request as ProfileOpenRequest);
@@ -579,7 +579,7 @@ function getCliAppInfo(): AppInfo {
 
 function sendHomeHtml(response: ServerResponse, headOnly: boolean): void {
   if (!existsSync(homeHtmlFile)) {
-    sendText(response, 500, "CCR renderer assets were not found. Run npm run build:assets first.");
+    sendText(response, 500, "LLMR renderer assets were not found. Run npm run build:assets first.");
     return;
   }
   let html = readFileSync(homeHtmlFile, "utf8");
@@ -782,7 +782,7 @@ async function listenWithFallback(server: Server, port: number, host: string): P
       candidate += 1;
     }
   }
-  throw new Error(`No available CCR web management port found starting at ${port}.`);
+  throw new Error(`No available LLMR web management port found starting at ${port}.`);
 }
 
 function listen(server: Server, port: number, host: string): Promise<void> {
@@ -886,7 +886,7 @@ function assertExportTargetIsNotInternalDataFile(file: string): void {
     ...dataExportCandidateFiles()
   ].map((item) => path.resolve(item)));
   if (reserved.has(target)) {
-    throw new Error("Choose a different export path. Internal CCR data files cannot be overwritten.");
+    throw new Error("Choose a different export path. Internal LLMR data files cannot be overwritten.");
   }
 }
 
@@ -1253,7 +1253,7 @@ function normalizePluginAppUrl(value: string | undefined): string {
     throw new Error("Plugin app URL cannot be protocol-relative.");
   }
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
-    throw new Error("Plugin app URL must be an http(s) URL or a CCR gateway path.");
+    throw new Error("Plugin app URL must be an http(s) URL or a LLMR gateway path.");
   }
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
@@ -1472,7 +1472,7 @@ function normalizeExternalTarget(target: unknown): string | undefined {
   if (url.protocol === "ccr:" && url.hostname.toLowerCase() === "plugin") {
     return url.toString();
   }
-  throw new Error("Only http, https, and CCR plugin URLs can be opened.");
+  throw new Error("Only http, https, and LLMR plugin URLs can be opened.");
 }
 
 function execDetached(command: string, args: string[]): Promise<void> {

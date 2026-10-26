@@ -35,7 +35,7 @@ function testProfile(overrides = {}) {
   };
 }
 
-test("Kilo profile config routes primary and small models through CCR", () => {
+test("Kilo profile config routes primary and small models through LLMR", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-kilo-profile-"));
   try {
     const profile = testProfile();

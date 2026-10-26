@@ -3011,7 +3011,7 @@ function withClaudeProductRuntimePluginConfig(config: AppConfig, pluginId: strin
     return config;
   }
   if (!isDesktopAppRuntime()) {
-    throw new Error(`${productName} is only available in CCR Desktop.`);
+    throw new Error(`${productName} is only available in LLMR Desktop.`);
   }
   const plugin = claudeProductRuntimePluginConfig(pluginId);
   if (!plugin) {

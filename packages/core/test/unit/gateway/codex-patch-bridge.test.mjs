@@ -126,7 +126,7 @@ test("Codex compact compat rewrites compact endpoint without context archive", a
   const compact = JSON.parse(transformed);
   assert.equal(compact.output[0].type, "compaction");
   assert.equal(compact.output[0].encrypted_content, "Compat summary");
-  assert.doesNotMatch(compact.output[0].encrypted_content, /CCR ARCHIVED HISTORY ACCESS/);
+  assert.doesNotMatch(compact.output[0].encrypted_content, /LLMR ARCHIVED HISTORY ACCESS/);
 });
 
 test("Codex compact compat rewrites compaction trigger without context archive", async () => {
@@ -171,7 +171,7 @@ test("Codex compact compat rewrites compaction trigger without context archive",
   assert.match(transformed, /event: response.output_item.done/);
   assert.match(transformed, /"type":"compaction"/);
   assert.match(transformed, /Trigger summary/);
-  assert.doesNotMatch(transformed, /CCR ARCHIVED HISTORY ACCESS/);
+  assert.doesNotMatch(transformed, /LLMR ARCHIVED HISTORY ACCESS/);
 });
 
 test("Codex patch bridge rewrites non-GPT models with legacy global Codex route disabled", () => {

@@ -291,7 +291,7 @@ class BrowserWebSearchToolServer {
             protocolVersion,
             serverInfo: {
               name: "ccr-browser-web-search",
-              title: "CCR In-app Browser Web Search",
+              title: "LLMR In-app Browser Web Search",
               version: "1.0.0"
             }
           });
@@ -512,7 +512,7 @@ class HiddenBrowserSearchPool {
       paintWhenInitiallyHidden: true,
       show: false,
       skipTaskbar: true,
-      title: "CCR In-app Browser Web Search",
+      title: "LLMR In-app Browser Web Search",
       webPreferences: {
         backgroundThrottling: false,
         contextIsolation: true,

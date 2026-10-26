@@ -18,14 +18,14 @@ test("legacy combined Claude Design plugin config migrates to split Design and S
       const result = migrateKnownGatewayPluginConfigsForTest([{
         apps: [
           {
-            description: "Open Claude Design in a dedicated CCR Electron window.",
+            description: "Open Claude Design in a dedicated LLMR Electron window.",
             icon: "palette",
             id: "claude-design",
             name: "Claude Design",
             url: "https://claude.ai/design"
           },
           {
-            description: "Open Claude Ship in a dedicated CCR Electron window.",
+            description: "Open Claude Ship in a dedicated LLMR Electron window.",
             icon: "rocket",
             id: "claude-ship",
             name: "Claude Ship",
@@ -39,7 +39,7 @@ test("legacy combined Claude Design plugin config migrates to split Design and S
         },
         enabled: true,
         id: "claude-design",
-        module: "/Users/example/products/CCR/claude-code-router/examples/plugins/claude-design/index.cjs",
+        module: "/Users/example/products/LLMR/claude-code-router/examples/plugins/claude-design/index.cjs",
         permissions: ["trusted-code", "apps", "gateway-routes", "proxy-routes", "http-backends", "sqlite-store"],
         surfaces: { apps: true, gateway: true, provider: false }
       }]);
@@ -79,7 +79,7 @@ test("legacy Claude Design migration does not duplicate an existing Claude Ship 
         apps: [{ id: "claude-ship", name: "Claude Ship", url: "https://claude.ai/claude-ship" }],
         enabled: true,
         id: "claude-design",
-        module: "/Users/example/products/CCR/claude-code-router/examples/plugins/claude-design/index.cjs"
+        module: "/Users/example/products/LLMR/claude-code-router/examples/plugins/claude-design/index.cjs"
       },
       {
         enabled: true,
@@ -96,7 +96,7 @@ test("legacy Claude Design migration does not duplicate an existing Claude Ship 
   }
 });
 
-test("Claude Design runtime plugin config resolves from the bundled plugin in CCR Desktop without persisting", async () => {
+test("Claude Design runtime plugin config resolves from the bundled plugin in LLMR Desktop without persisting", async () => {
   await withDesktopRuntime(async () => {
     const plugin = claudeDesignRuntimePluginConfig();
     const shipPlugin = claudeShipRuntimePluginConfig();
@@ -124,7 +124,7 @@ test("Claude Design runtime plugin config resolves from the bundled plugin in CC
   });
 });
 
-test("Claude Design runtime plugin config is unavailable outside CCR Desktop", () => {
+test("Claude Design runtime plugin config is unavailable outside LLMR Desktop", () => {
   const previousDesktopApp = process.env[CCR_DESKTOP_APP_ENV];
   try {
     delete process.env[CCR_DESKTOP_APP_ENV];
@@ -132,7 +132,7 @@ test("Claude Design runtime plugin config is unavailable outside CCR Desktop", (
     assert.equal(claudeDesignRuntimePluginConfig(), undefined);
     assert.throws(
       () => withClaudeDesignRuntimePluginConfig({ plugins: [] }),
-      /Claude Design is only available in CCR Desktop/
+      /Claude Design is only available in LLMR Desktop/
     );
   } finally {
     restoreEnv(CCR_DESKTOP_APP_ENV, previousDesktopApp);
@@ -211,7 +211,7 @@ test("externalized plugin modules migrate from the old marketplace path to ccr-e
     const result = migrateKnownGatewayPluginConfigsForTest([{
       enabled: true,
       id: "cursor-proxy",
-      module: "/Users/example/products/CCR/claude-code-router/marketplace/plugins/cursor-proxy/index.cjs"
+      module: "/Users/example/products/LLMR/claude-code-router/marketplace/plugins/cursor-proxy/index.cjs"
     }]);
 
     assert.equal(result.changed, true);

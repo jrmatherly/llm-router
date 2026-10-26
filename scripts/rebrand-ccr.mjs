@@ -21,12 +21,19 @@ const literalKinds = new Set([
 ]);
 
 const wholeLiteralKinds = new Set([ts.SyntaxKind.StringLiteral, ts.SyntaxKind.NoSubstitutionTemplateLiteral]);
+const nestedWholeLiteral = /(["'])CCR\1/g;
+
+function rebrandSpan(text) {
+  const kept = [];
+  const masked = text.replace(nestedWholeLiteral, (match) => `\u0000${kept.push(match) - 1}\u0000`);
+  return masked.replace(word, replacement).replace(/\u0000(\d+)\u0000/g, (_, index) => kept[Number(index)]);
+}
 
 function rebrandCode(source, kind) {
   const file = ts.createSourceFile("rebrand.tsx", source, ts.ScriptTarget.Latest, true, scriptKinds[kind]);
   const spans = [];
   const visit = (node) => {
-    if (literalKinds.has(node.kind) && !(wholeLiteralKinds.has(node.kind) && node.text === "CCR")) {
+    if (literalKinds.has(node.kind) && !(wholeLiteralKinds.has(node.kind) && (node.text === "CCR" || node.text.startsWith("# ")))) {
       spans.push([node.getStart(file), node.getEnd()]);
     }
     ts.forEachChild(node, visit);
@@ -34,7 +41,7 @@ function rebrandCode(source, kind) {
   visit(file);
   let out = source;
   for (const [start, end] of spans.reverse()) {
-    out = out.slice(0, start) + out.slice(start, end).replace(word, replacement) + out.slice(end);
+    out = out.slice(0, start) + rebrandSpan(out.slice(start, end)) + out.slice(end);
   }
   return out;
 }

@@ -208,7 +208,7 @@ function createClaudeCliAdditionalModelOptions(config: AppConfig, profile?: Prof
 function formatClaudeCliAdditionalModelDescription(maxInputTokens: number): string {
   const tokens = positiveInteger(maxInputTokens);
   if (!tokens) {
-    return "CCR gateway model";
+    return "LLMR gateway model";
   }
   return `${formatCompactTokenCount(tokens)} context window`;
 }

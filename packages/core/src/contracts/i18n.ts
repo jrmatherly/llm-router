@@ -15,8 +15,8 @@ const zhExactErrorMessages: Record<string, string> = {
   "Bot Gateway QR start response missing qrCodeUrl.": "Bot Gateway 扫码登录启动响应缺少 qrCodeUrl。",
   "Bot Gateway QR start response missing sessionId.": "Bot Gateway 扫码登录启动响应缺少 sessionId。",
   "Bot Gateway SDK client does not expose request().": "Bot Gateway SDK client 未暴露 request()。",
-  "CCR gateway did not start.": "CCR 网关未能启动。",
-  "Claude App opening is available from the CCR desktop app.": "Claude App 打开功能仅可在 CCR 桌面端使用。",
+  "LLMR gateway did not start.": "LLMR 网关未能启动。",
+  "Claude App opening is available from the LLMR desktop app.": "Claude App 打开功能仅可在 LLMR 桌面端使用。",
   "Claude Code access token was not found.": "未找到 Claude Code access token。",
   "Codex login token was not found.": "未找到 Codex 登录 token。",
   "CONNECT target is missing.": "缺少 CONNECT 目标。",
@@ -32,7 +32,7 @@ const zhExactErrorMessages: Record<string, string> = {
   "Model name is too long.": "模型名称过长。",
   "Network capture MCP is disabled.": "网络捕获 MCP 已禁用。",
   "No available models": "没有可用模型",
-  "No available models. Configure at least one provider with a model before starting CCR Gateway or opening an agent through CCR.": "没有可用模型。请先配置至少一个包含模型的供应商，再启动 CCR 网关或通过 CCR 打开 Agent。",
+  "No available models. Configure at least one provider with a model before starting LLMR Gateway or opening an agent through LLMR.": "没有可用模型。请先配置至少一个包含模型的供应商，再启动 LLMR 网关或通过 LLMR 打开 Agent。",
   "OpenCode CLI API key was not found.": "未找到 OpenCode CLI API key。",
   "OpenCode CLI public models were not found.": "未找到 OpenCode CLI 公共模型。",
   "No Bot Gateway conversationRef is available for inbound bot response.": "没有可用于入站 Bot 响应的 Bot Gateway conversationRef。",
@@ -66,7 +66,7 @@ const zhExactErrorMessages: Record<string, string> = {
   "tools/call params must include a tool name.": "tools/call 参数必须包含工具名称。",
   "This app build does not expose API key persistence. Rebuild and restart the Electron app.": "当前应用构建未暴露 API Key 持久化能力。请重新构建并重启 Electron App。",
   "Unable to load @the-next-ai/bot-gateway-sdk.": "无法加载 @the-next-ai/bot-gateway-sdk。",
-  "Unsupported CCR link target.": "不支持的 CCR 链接目标。",
+  "Unsupported LLMR link target.": "不支持的 LLMR 链接目标。",
   "Unsupported link protocol.": "不支持的链接协议。",
   "Unknown error": "未知错误",
   "ZCode profiles can only open the app; agent arguments are not supported.": "ZCode 配置档案只能打开 App，不支持 Agent 参数。",
@@ -84,19 +84,19 @@ const zhPatternErrorMessages: PatternTranslator[] = [
   },
   {
     pattern: /^Profile launcher was not found: (.+)\. Open CCR once or re-save the profile\.$/,
-    translate: (command) => `未找到配置档案启动器：${command}。请打开一次 CCR，或重新保存配置档案。`
+    translate: (command) => `未找到配置档案启动器：${command}。请打开一次 LLMR，或重新保存配置档案。`
   },
   {
     pattern: /^CCR CLI runtime was not found\. Rebuild or reinstall CCR and try again\.$/,
-    translate: () => "未找到 CCR CLI 运行时。请重新构建或重新安装 CCR 后重试。"
+    translate: () => "未找到 LLMR CLI 运行时。请重新构建或重新安装 LLMR 后重试。"
   },
   {
     pattern: /^CCR config was not found: (.+)$/,
-    translate: (file) => `未找到 CCR 配置：${file}`
+    translate: (file) => `未找到 LLMR 配置：${file}`
   },
   {
     pattern: /^CCR config has no profiles: (.+)$/,
-    translate: (file) => `CCR 配置中没有配置档案：${file}`
+    translate: (file) => `LLMR 配置中没有配置档案：${file}`
   },
   {
     pattern: /^Profile "(.+)" is ambiguous\. Use the profile ID instead\.$/,
@@ -112,11 +112,11 @@ const zhPatternErrorMessages: PatternTranslator[] = [
   },
   {
     pattern: /^(.+) does not support stopping ([A-Z]+) from CCR\.$/,
-    translate: (profile, surface) => `${profile} 不支持从 CCR 停止 ${surface}。`
+    translate: (profile, surface) => `${profile} 不支持从 LLMR 停止 ${surface}。`
   },
   {
     pattern: /^No CCR API key was found for profile "(.+)"\. Re-save the profile and try again\.$/,
-    translate: (profile) => `未找到配置档案 "${profile}" 的 CCR API Key。请重新保存配置档案后重试。`
+    translate: (profile) => `未找到配置档案 "${profile}" 的 LLMR API Key。请重新保存配置档案后重试。`
   },
   {
     pattern: /^(.+ App) did not open a window for (.+)\. Command: (.+) User data: (.+)$/,
@@ -136,7 +136,7 @@ const zhPatternErrorMessages: PatternTranslator[] = [
   },
   {
     pattern: /^CCR gateway did not start for (.+)\.$/,
-    translate: (appName) => `${appName} 的 CCR 网关未能启动。`
+    translate: (appName) => `${appName} 的 LLMR 网关未能启动。`
   },
   {
     pattern: /^Core gateway endpoint is already in use: (.+)$/,

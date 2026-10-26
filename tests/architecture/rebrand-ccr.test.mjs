@@ -31,6 +31,16 @@ test("a literal that is exactly CCR is an identifier, not copy, and stays", () =
   assert.equal(rebrandText("const client = { name: \"CCR\" };\nreturn \"CCR\";", "ts"), "const client = { name: \"CCR\" };\nreturn \"CCR\";");
 });
 
+test("a quoted CCR literal nested in an embedded script template stays while the copy around it changes", () => {
+  const source = "const script = `const name = env.NAME || \"CCR\"; log('[CCR remote] ' + text); const d = 'CCR model';`;";
+  assert.equal(rebrandText(source, "ts"), "const script = `const name = env.NAME || \"CCR\"; log('[LLMR remote] ' + text); const d = 'LLMR model';`;");
+});
+
+test("marker comments written into user config files keep their CCR text", () => {
+  const source = "const start = \"# BEGIN CCR managed profile\";\nconst prefix = \"# CCR configured model = \";\nconst copy = \"CCR managed profile\";";
+  assert.equal(rebrandText(source, "ts"), "const start = \"# BEGIN CCR managed profile\";\nconst prefix = \"# CCR configured model = \";\nconst copy = \"LLMR managed profile\";");
+});
+
 test("comments with apostrophes, regex literals and template substitutions do not derail the rewrite", () => {
   const source = "// don't\nconst re = /CCR/;\nconst s = `CCR ${name} runs CCR`;\nconst t = \"CCR ui\";";
   assert.equal(rebrandText(source, "ts"), "// don't\nconst re = /CCR/;\nconst s = `LLMR ${name} runs LLMR`;\nconst t = \"LLMR ui\";");
