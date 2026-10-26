@@ -306,7 +306,7 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
       outputStyle: "backup"
     }, null, 2)}\n`;
     const userSettings = `${JSON.stringify({
-      apiKeyHelper: "/home/user/.claude-code-router/bin/ccr-claude-code-api-key-claude-code",
+      apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-claude-code",
       env: {
         ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
         ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
@@ -736,7 +736,7 @@ test("profile service overwrites generated bin files without creating backups", 
   assert.deepEqual(backupEntries, []);
 });
 
-test("profile service refreshes CCR-managed global Claude gateway env for generated profiles", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+test("profile service refreshes LLMR-managed global Claude gateway env for generated profiles", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-generated-claude-global-env-"));
   const previousHome = process.env.HOME;
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
@@ -1325,7 +1325,7 @@ test("profile service injects Context Archive MCP for managed Claude Code withou
   assert.equal(mcpConfig.mcpServers["ccr-context-archive"].headers.Authorization, "Bearer ccr-context-archive-profile-test");
 });
 
-test("profile service writes a Grok CLI wrapper that points model discovery and inference to CCR", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+test("profile service writes a Grok CLI wrapper that points model discovery and inference to LLMR", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const profileId = "grok-gateway-test";
   const sourceGrokHome = path.join(process.env.CCR_INTERNAL_HOME_DIR, ".grok");
   mkdirSync(path.join(sourceGrokHome, "sessions"), { recursive: true });
@@ -1402,7 +1402,7 @@ test("profile service writes a Grok CLI wrapper that points model discovery and 
   assert.equal(existsSync(path.join(profileGrokHome, "auth.json")), false);
 });
 
-test("profile service writes a multi-model Kimi CLI home that points inference to CCR", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+test("profile service writes a multi-model Kimi CLI home that points inference to LLMR", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const profileId = "kimi-gateway-test";
   const sourceKimiHome = path.join(process.env.CCR_INTERNAL_HOME_DIR, ".kimi-code");
   const sourceKimiConfig = path.join(sourceKimiHome, "config.toml");
@@ -1555,7 +1555,7 @@ test("profile service writes a multi-model Kimi CLI home that points inference t
   assert.match(legacyProfileConfigContent, /\[models\."Fusion\/catalog-context"\]\nprovider = "claude-code-router"\nmodel = "Fusion\/catalog-context"\nmax_context_size = 1050000\ncapabilities = \["tool_use", "image_in", "thinking"\]/);
 });
 
-test("profile service writes a Pi config and wrapper that points inference to CCR", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+test("profile service writes a Pi config and wrapper that points inference to LLMR", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const profileId = "pi-gateway-test";
   const config = createDefaultAppConfig();
   config.Providers = [
@@ -1847,7 +1847,7 @@ test("profile service clears stale Claude Code ToolHub artifacts when no gateway
   });
 });
 
-test("profile service restores managed global Claude settings when only CCR-scoped Claude profiles are active", () => {
+test("profile service restores managed global Claude settings when only LLMR-scoped Claude profiles are active", () => {
   const previousHome = process.env.HOME;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
   process.env.HOME = home;

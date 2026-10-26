@@ -28,7 +28,7 @@ import { createGatewayPlugin } from "@ccr/core/gateway/core-runtime/router-plugi
 import { providerRuntimeId } from "@ccr/core/routing/model-registry.ts";
 import { sanitizeHeaderValue, toCoreGatewayProviders } from "@ccr/core/providers/runtime-topology.ts";
 
-test("CCR route resolver preserves the selected protocol for bare provider IDs", async (t) => {
+test("LLMR route resolver preserves the selected protocol for bare provider IDs", async (t) => {
   const chat = { type: "openai_chat_completions", baseUrl: "https://example.test/v1" };
   const responses = { type: "openai_responses", baseUrl: "https://example.test/v1" };
   const anthropic = { type: "anthropic_messages", baseUrl: "https://example.test/anthropic" };
@@ -96,7 +96,7 @@ test("CCR route resolver preserves the selected protocol for bare provider IDs",
   }
 });
 
-test("CCR router core plugin exposes route endpoint and beforeRouting transform", async () => {
+test("LLMR router core plugin exposes route endpoint and beforeRouting transform", async () => {
   const config = createDefaultAppConfig();
   config.Providers = [
     { models: ["alpha"], name: "Primary", type: "openai_chat_completions" },
@@ -157,7 +157,7 @@ test("CCR router core plugin exposes route endpoint and beforeRouting transform"
   assert.equal(resolved.requestBody.model, "beta");
 });
 
-test("CCR router core plugin publishes live token rate snapshots from the single runtime", async () => {
+test("LLMR router core plugin publishes live token rate snapshots from the single runtime", async () => {
   const originalSend = process.send;
   const messages = [];
   process.send = (message) => {
@@ -233,7 +233,7 @@ test("CCR router core plugin publishes live token rate snapshots from the single
   }
 });
 
-test("CCR router core plugin resolves bare Codex companion models through the authenticated profile provider", async () => {
+test("LLMR router core plugin resolves bare Codex companion models through the authenticated profile provider", async () => {
   const config = createDefaultAppConfig();
   config.APIKEY = "bs-key";
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "profile:bs-2", key: "bs-key" }];
@@ -336,7 +336,7 @@ test("CCR router core plugin resolves bare Codex companion models through the au
   assert.equal(resolved.requestBody.model, "gpt-5.6-luna");
 });
 
-test("CCR router core plugin applies Codex bridge request and response hooks", async () => {
+test("LLMR router core plugin applies Codex bridge request and response hooks", async () => {
   const config = createDefaultAppConfig();
   config.Providers = [{
     models: ["claude-sonnet"],
@@ -458,7 +458,7 @@ test("CCR router core plugin applies Codex bridge request and response hooks", a
   assert.match(streamText, /"name":"apply_patch"/);
 });
 
-test("CCR router core plugin coalesces adjacent unsigned Anthropic thinking fragments", async () => {
+test("LLMR router core plugin coalesces adjacent unsigned Anthropic thinking fragments", async () => {
   const payload = {
     id: "msg_reasoning",
     type: "message",
@@ -489,7 +489,7 @@ test("CCR router core plugin coalesces adjacent unsigned Anthropic thinking frag
   assert.deepEqual(hookResult.responsePayload, transformed.value);
 });
 
-test("CCR router core plugin skips Codex bridge for native Responses passthrough", async () => {
+test("LLMR router core plugin skips Codex bridge for native Responses passthrough", async () => {
   const config = createDefaultAppConfig();
   config.Providers = [{
     models: ["gpt-5.5"],
@@ -536,7 +536,7 @@ test("CCR router core plugin skips Codex bridge for native Responses passthrough
   assert.equal(transformed, undefined);
 });
 
-test("CCR router core plugin applies OpenRouter discount provider routing", async (t) => {
+test("LLMR router core plugin applies OpenRouter discount provider routing", async (t) => {
   const config = createDefaultAppConfig();
   config.Providers = [{
     api_base_url: "https://openrouter.ai/api/v1",
@@ -682,7 +682,7 @@ test("CCR router core plugin applies OpenRouter discount provider routing", asyn
   });
 });
 
-test("CCR router core plugin maps public API keys before gateway auth", async () => {
+test("LLMR router core plugin maps public API keys before gateway auth", async () => {
   const config = createDefaultAppConfig();
   config.APIKEY = "client-key";
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "profile:limited", key: "client-key" }];
@@ -696,7 +696,7 @@ test("CCR router core plugin maps public API keys before gateway auth", async ()
   assert.equal(headers["x-auth-sub"], "profile:limited");
 });
 
-test("CCR router core plugin maps SDK-compatible public API key headers before gateway auth", async () => {
+test("LLMR router core plugin maps SDK-compatible public API key headers before gateway auth", async () => {
   const config = createDefaultAppConfig();
   config.APIKEY = "client-key";
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "profile:limited", key: "client-key" }];
@@ -712,7 +712,7 @@ test("CCR router core plugin maps SDK-compatible public API key headers before g
   }
 });
 
-test("CCR router core plugin rejects expired public API keys before gateway static auth", async () => {
+test("LLMR router core plugin rejects expired public API keys before gateway static auth", async () => {
   const config = createDefaultAppConfig();
   config.APIKEY = "expired-key";
   config.APIKEYS = [{
@@ -735,7 +735,7 @@ test("CCR router core plugin rejects expired public API keys before gateway stat
   assert.equal(headers["x-auth-sub"], undefined);
 });
 
-test("CCR router core plugin protects internal route decisions with the core token", async () => {
+test("LLMR router core plugin protects internal route decisions with the core token", async () => {
   const config = createDefaultAppConfig();
   config.APIKEY = "client-key";
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "client", key: "client-key" }];
@@ -756,7 +756,7 @@ test("CCR router core plugin protects internal route decisions with the core tok
   });
 
   assert.equal(clientReply.statusCode, 401);
-  assert.match(denied.error.message, /Unauthorized CCR router route/);
+  assert.match(denied.error.message, /Unauthorized LLMR router route/);
 
   const allowed = await route.handler({
     request: {
@@ -772,7 +772,7 @@ test("CCR router core plugin protects internal route decisions with the core tok
   assert.equal(allowed.decision.source, "default");
 });
 
-test("CCR router core plugin exposes runtime config control through the managed parent process", async (t) => {
+test("LLMR router core plugin exposes runtime config control through the managed parent process", async (t) => {
   const config = createDefaultAppConfig();
   config.APIKEY = "primary-key";
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "primary", key: "primary-key" }];
@@ -823,7 +823,7 @@ test("CCR router core plugin exposes runtime config control through the managed 
   });
 });
 
-test("CCR router core plugin allows internal core auth tokens before public gateway auth", async () => {
+test("LLMR router core plugin allows internal core auth tokens before public gateway auth", async () => {
   const config = createDefaultAppConfig();
   config.APIKEY = "client-key";
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "client", key: "client-key" }];
@@ -837,7 +837,7 @@ test("CCR router core plugin allows internal core auth tokens before public gate
   assert.equal(headers["x-auth-sub"], undefined);
 });
 
-test("CCR router core plugin serves remote control capabilities with query auth", async () => {
+test("LLMR router core plugin serves remote control capabilities with query auth", async () => {
   const config = createDefaultAppConfig();
   config.APIKEY = "client-key";
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "client", key: "client-key" }];
@@ -863,7 +863,7 @@ test("CCR router core plugin serves remote control capabilities with query auth"
   assert.equal(JSON.parse(response.body).name, "ccr-remote-control");
 });
 
-test("CCR router core plugin serves public model discovery before built-in gateway routes", async () => {
+test("LLMR router core plugin serves public model discovery before built-in gateway routes", async () => {
   const config = createDefaultAppConfig();
   config.Providers = [{
     models: ["alpha", "beta"],
@@ -893,7 +893,7 @@ test("CCR router core plugin serves public model discovery before built-in gatew
   assert.deepEqual(payload.data.map((model) => model.id), ["Primary/alpha"]);
 });
 
-test("CCR router core plugin rejects profile-disallowed routed models", async () => {
+test("LLMR router core plugin rejects profile-disallowed routed models", async () => {
   const config = createDefaultAppConfig();
   config.Providers = [{
     models: ["alpha", "beta"],

@@ -36,3 +36,10 @@ test("packaged-app verification rejects a bundle that carries an Electron sideca
   writeFileSync(path.join(release, "better_sqlite3.electron-42.4.1.node"), "");
   await assert.rejects(verifyPackagedApp({ appOutDir, arch: process.arch, electronPlatformName: hostPlatform }), /better_sqlite3\.electron-42\.4\.1\.node/);
 });
+
+test("the packaged Electron app and electron-builder agree on the product name", () => {
+  const builder = JSON.parse(readFileSync(path.join(process.cwd(), "electron-builder.json"), "utf8"));
+  const electron = JSON.parse(readFileSync(path.join(process.cwd(), "packages", "electron", "package.json"), "utf8"));
+  assert.equal(builder.productName, "LLM Router");
+  assert.equal(electron.productName, "LLM Router", "Electron derives app.name, and so the Hide and Quit menu labels, from the packaged package.json");
+});

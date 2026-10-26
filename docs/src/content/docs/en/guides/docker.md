@@ -2,12 +2,12 @@
 title: Docker deployment
 pageTitle: Docker deployment
 eyebrow: Quick start
-lead: "For persistent server deployments: run CCR Core and the browser management UI in Docker behind a single Nginx entrypoint, and configure ports, authentication, persistence, remote access, backup, and upgrades."
+lead: "For persistent server deployments: run LLMR Core and the browser management UI in Docker behind a single Nginx entrypoint, and configure ports, authentication, persistence, remote access, backup, and upgrades."
 ---
 
 ## Scope and limitations
 
-The Docker image is intended for a persistent model gateway and browser administration. It contains CCR Core, the built management UI, PM2, and Nginx. It does not include:
+The Docker image is intended for a persistent model gateway and browser administration. It contains LLMR Core, the built management UI, PM2, and Nginx. It does not include:
 
 - The Electron desktop app, system tray, or desktop notifications;
 - The `ccr` command from the npm distribution;
@@ -52,10 +52,10 @@ The npm Compose script prepares a local `../../next-ai/gateway` checkout before 
 Complete the first-time configuration in this order:
 
 1. Add a provider and at least one model.
-2. Create a CCR client key on the **API Keys** page.
+2. Create an LLMR client key on the **API Keys** page.
 3. Start the gateway on the **Server** page.
 4. Request `/health` and confirm it returns `200` with status `ok`.
-5. Point the client Base URL at `http://127.0.0.1:3458` and use the CCR client key you just created.
+5. Point the client Base URL at `http://127.0.0.1:3458` and use the LLMR client key you just created.
 
 Stopping or removing the container does not delete the named volume:
 
@@ -64,7 +64,7 @@ docker compose stop
 docker compose down
 ```
 
-Do not add `--volumes` to `docker compose down` unless you explicitly want to delete all CCR data.
+Do not add `--volumes` to `docker compose down` unless you explicitly want to delete all LLMR data.
 
 ## Local-only access
 
@@ -101,8 +101,8 @@ The repository also provides `npm run docker:run`. It uses `3458` and `ccr-data`
 | Credential | Purpose | Where configured |
 | --- | --- | --- |
 | `CCR_WEB_AUTH_TOKEN` | Management UI / RPC authentication | Container environment variable |
-| CCR client API key | Model gateway request authentication | **API Keys** page in the UI |
-| Upstream provider credential | CCR calling model providers | **Providers** page in the UI |
+| LLMR client API key | Model gateway request authentication | **API Keys** page in the UI |
+| Upstream provider credential | LLMR calling model providers | **Providers** page in the UI |
 
 Without `CCR_WEB_AUTH_TOKEN`, the entrypoint generates a new random token on every container start and prints the management URL once to the container log. Nginx never sends the token to a client: opening the root address without a token loads the page, but every management call fails with `401` until the token is supplied in the URL. The page keeps it for the browser tab session. Persistent and remote deployments should pin a sufficiently long, strong token.
 
@@ -129,7 +129,7 @@ services:
       CCR_WEB_AUTH_TOKEN: ${CCR_WEB_AUTH_TOKEN:?set CCR_WEB_AUTH_TOKEN}
 ```
 
-`CCR_PUBLIC_BASE_URL` is synchronized into CCR's public router endpoint. It does not publish a Docker port by itself, nor does it change the Nginx listen address.
+`CCR_PUBLIC_BASE_URL` is synchronized into LLMR's public router endpoint. It does not publish a Docker port by itself, nor does it change the Nginx listen address.
 
 ## Domain, HTTPS, and reverse proxy
 
@@ -145,7 +145,7 @@ services:
       CCR_WEB_AUTH_TOKEN: ${CCR_WEB_AUTH_TOKEN:?set CCR_WEB_AUTH_TOKEN}
 ```
 
-The reverse proxy should forward all paths to the CCR Nginx and must:
+The reverse proxy should forward all paths to the LLMR Nginx and must:
 
 - Support long-running model requests;
 - Not buffer SSE and streaming model responses;
@@ -158,7 +158,7 @@ The reverse proxy should forward all paths to the CCR Nginx and must:
 The entrypoint sets `HOME=/data`; the actual data lives at:
 
 ```text
-/data/.claude-code-router/
+/data/.llm-router/
 ├── config.sqlite
 ├── gateway.config.json
 ├── app-data/
@@ -170,7 +170,7 @@ The entrypoint sets `HOME=/data`; the actual data lives at:
 └── bin/
 ```
 
-Prefer a named volume. A bind-mount directory must be writable by the container, and two running CCR containers must not share the same data.
+Prefer a named volume. A bind-mount directory must be writable by the container, and two running LLMR containers must not share the same data.
 
 On a brand-new data directory with neither `config.json` nor `config.sqlite`, the entrypoint writes a minimal legacy-format `config.json` as the first boot. Once the UI saves configuration, SQLite becomes authoritative. On every start, the gateway listener fields and `routerEndpoint` in the JSON / SQLite are also synchronized to the current Docker public address by default.
 
@@ -184,7 +184,7 @@ docker compose cp ccr:/data/. ./ccr-data-backup/
 docker compose start ccr
 ```
 
-The backup contains provider credentials and CCR client keys, and may contain request / response data; store it as sensitive data.
+The backup contains provider credentials and LLMR client keys, and may contain request / response data; store it as sensitive data.
 
 For a full restore, copy the backup into a new empty volume or an empty `/data` directory with the container stopped. Do not overlay an old backup onto an active directory that still has newer data, otherwise old SQLite WAL / SHM files may mix with new runtime files. Take another backup before replacing existing data.
 
@@ -209,7 +209,7 @@ A typical deployment only needs `CCR_WEB_AUTH_TOKEN`, `CCR_PUBLIC_BASE_URL`, and
 | Variable | Default | Description |
 | --- | --- | --- |
 | `CCR_WEB_AUTH_TOKEN` | Randomly generated per start | Management UI / RPC token. Persistent or remote deployments should set a fixed strong value. |
-| `CCR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Full public address written into CCR configuration; takes precedence over Public Host / Port once set. |
+| `CCR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Full public address written into LLMR configuration; takes precedence over Public Host / Port once set. |
 | `CCR_PUBLIC_HOST` | `127.0.0.1` | Only used to compose the public address when no full public URL is set; does not change the Docker port binding. |
 | `CCR_PUBLIC_PORT` | `3458` | Only used to compose the public address when no full public URL is set. |
 | `CCR_DATA_DIR` | `/data` | Data root, also used as the process `HOME`. |
@@ -282,7 +282,7 @@ Confirm the host directory exists, is writable by the container, and is not moun
 
 ### The container is healthy, but model requests fail
 
-Container health only means Nginx / UI are reachable. Continue checking **Server** status, provider connectivity, the CCR client key, routing, and request logs, and inspect:
+Container health only means Nginx / UI are reachable. Continue checking **Server** status, provider connectivity, the LLMR client key, routing, and request logs, and inspect:
 
 ```sh
 docker compose logs --tail=200 ccr
@@ -290,7 +290,7 @@ docker compose logs --tail=200 ccr
 
 ## Related pages
 
-- [Install and start CCR](../install/)
+- [Install and start LLMR](../install/)
 - [CLI installation and command reference](../cli/)
 - [Server](../../configuration/server/)
 - [API Keys](../../configuration/api-keys/)

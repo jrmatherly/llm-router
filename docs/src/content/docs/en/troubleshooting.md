@@ -2,19 +2,19 @@
 title: LLM Router Q&A
 pageTitle: Q&A
 eyebrow: Q&A
-lead: Start here when an agent bypasses CCR, a provider returns an error, routing hits the wrong model, Fusion does not call tools, or the Bot stops receiving messages. Issues are grouped by symptom; each answer gives the conclusion first, then the checks to run.
+lead: Start here when an agent bypasses LLMR, a provider returns an error, routing hits the wrong model, Fusion does not call tools, or the Bot stops receiving messages. Issues are grouped by symptom; each answer gives the conclusion first, then the checks to run.
 ---
 
 ## Q&A
 
 ### Agent setup and observability
 
-#### Q: The agent does not go through CCR. Where do I check?
+#### Q: The agent does not go through LLMR. Where do I check?
 
-A: Four things decide whether requests pass through CCR: service status, how the agent was launched, whether the Agent Config is applied, and its scope. If any of them is wrong, requests bypass CCR. Check in order:
+A: Four things decide whether requests pass through LLMR: service status, how the agent was launched, whether the Agent Config is applied, and its scope. If any of them is wrong, requests bypass LLMR. Check in order:
 
-1. Confirm the CCR service is running.
-2. Confirm the agent was launched from CCR, not opened directly.
+1. Confirm the LLMR service is running.
+2. Confirm the agent was launched from LLMR, not opened directly.
 3. On the Agent Config page, confirm the config is applied and its scope covers the current project.
 
 #### Q: The Observability page shows no agent execution trace.
@@ -39,7 +39,7 @@ A: The model name routing resolved is not in the provider's model list. A model 
 
 #### Q: One key keeps failing.
 
-A: Filter the request logs by credential first to confirm the failures concentrate on that key. If they do, the problem is the key itself: check its quota, permissions, and account state in the provider's console instead of changing the CCR config.
+A: Filter the request logs by credential first to confirm the failures concentrate on that key. If they do, the problem is the key itself: check its quota, permissions, and account state in the provider's console instead of changing the LLMR config.
 
 #### Q: Requests time out.
 
@@ -70,4 +70,4 @@ A: Usually one link in the tool chain is not configured. Check in order:
 
 #### Q: The Bot does not receive messages.
 
-A: Any broken link in the message chain shows up as no messages. Check in order: the Bot switch, message-forwarding settings, platform token, callback configuration, and whether the agent was opened from CCR.
+A: Any broken link in the message chain shows up as no messages. Check in order: the Bot switch, message-forwarding settings, platform token, callback configuration, and whether the agent was opened from LLMR.

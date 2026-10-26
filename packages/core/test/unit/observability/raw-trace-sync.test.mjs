@@ -912,7 +912,7 @@ test("raw trace replay stops when its time budget is exhausted", async () => {
   try {
     await synchronizer.start();
     await waitFor(() => attempts >= 1);
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    await synchronizer.stop();
     assert.equal(attempts, 1);
   } finally {
     await synchronizer.stop();

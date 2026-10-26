@@ -3,7 +3,7 @@ import test from "node:test";
 import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
 import { singleGatewayRuntimeBlockersForTest } from "@ccr/core/gateway/application/gateway-service.ts";
 
-test("single gateway runtime falls back when Media Tools need CCR HTTP routes", () => {
+test("single gateway runtime falls back when Media Tools need LLMR HTTP routes", () => {
   const config = createDefaultAppConfig();
   config.mediaTools.enabled = true;
 

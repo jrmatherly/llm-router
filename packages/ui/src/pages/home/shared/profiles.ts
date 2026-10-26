@@ -958,7 +958,7 @@ function createBotGatewayIntegrationId(profileId: string): string {
 
 function createBotGatewayStateDir(configId: string): string {
   const safe = configId.replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "") || "default";
-  return `~/.claude-code-router/bot-gateway/${safe}`;
+  return `~/.llm-router/bot-gateway/${safe}`;
 }
 
 function uniqueBotGatewayConfigId(configs: BotGatewaySavedConfig[], value: string): string {
@@ -1310,7 +1310,7 @@ export function profileSummaryItems(
   const managedCompactItems = profile.agent === "zcode"
     ? []
     : profile.managedCompact
-      ? [{ label: t("CCR managed compact"), value: t("Enabled") }]
+      ? [{ label: t("LLMR managed compact"), value: t("Enabled") }]
       : [];
   const routing = normalizeProfileRoutingConfig(profile.routing);
   const routingParts = [
@@ -1721,7 +1721,7 @@ export function profileScopeLabel(scope: ProfileScope): string {
   if (scope === "custom") {
     return "Custom config path";
   }
-  return "Only opened from CCR";
+  return "Only opened from LLMR";
 }
 
 export function profileSurfaceLabel(surface: ProfileSurface): string {
@@ -1817,7 +1817,7 @@ function defaultCodexConfigFile(agent: ProfileConfig["agent"]): string {
         : agent === "pi"
           ? "~/.pi/agent"
           : agent === "claude-design"
-            ? "~/.claude-code-router/claude-design"
+            ? "~/.llm-router/claude-design"
             : "~/.codex/config.toml";
 }
 

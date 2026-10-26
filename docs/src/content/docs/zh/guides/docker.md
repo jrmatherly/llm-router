@@ -2,12 +2,12 @@
 title: Docker 部署
 pageTitle: Docker 部署
 eyebrow: 快速开始
-lead: 面向常驻服务器部署：用 Docker 和 Nginx 单入口运行 CCR Core 与浏览器管理界面，并配置端口、鉴权、持久化、远程访问、备份和升级。
+lead: 面向常驻服务器部署：用 Docker 和 Nginx 单入口运行 LLMR Core 与浏览器管理界面，并配置端口、鉴权、持久化、远程访问、备份和升级。
 ---
 
 ## 适用范围与限制
 
-Docker 镜像适合常驻模型网关和浏览器管理。它包含 CCR Core、构建后的管理 UI、PM2 和 Nginx，但不包含：
+Docker 镜像适合常驻模型网关和浏览器管理。它包含 LLMR Core、构建后的管理 UI、PM2 和 Nginx，但不包含：
 
 - Electron 桌面应用、系统托盘和桌面通知；
 - npm 发行版的 `ccr` 命令；
@@ -52,10 +52,10 @@ docker compose logs -f ccr
 首次配置顺序：
 
 1. 添加供应商和至少一个模型。
-2. 在 **API 密钥** 页面创建 CCR 客户端 Key。
+2. 在 **API 密钥** 页面创建 LLMR 客户端 Key。
 3. 在 **服务** 页面启动网关。
 4. 请求 `/health`，确认返回 `200` 和 `ok` 状态。
-5. 把客户端 Base URL 指向 `http://127.0.0.1:3458`，并使用刚创建的 CCR 客户端 Key。
+5. 把客户端 Base URL 指向 `http://127.0.0.1:3458`，并使用刚创建的 LLMR 客户端 Key。
 
 停止或移除容器不会自动删除命名卷：
 
@@ -64,7 +64,7 @@ docker compose stop
 docker compose down
 ```
 
-不要给 `docker compose down` 添加 `--volumes`，除非你明确要删除全部 CCR 数据。
+不要给 `docker compose down` 添加 `--volumes`，除非你明确要删除全部 LLMR 数据。
 
 ## 只允许本机访问
 
@@ -101,8 +101,8 @@ docker run -d \
 | 凭据 | 用途 | 配置位置 |
 | --- | --- | --- |
 | `CCR_WEB_AUTH_TOKEN` | 管理 UI / RPC 鉴权 | 容器环境变量 |
-| CCR 客户端 API Key | 模型网关请求鉴权 | UI 的 **API 密钥** 页面 |
-| 上游供应商凭据 | CCR 调用模型供应商 | UI 的 **供应商** 页面 |
+| LLMR 客户端 API Key | 模型网关请求鉴权 | UI 的 **API 密钥** 页面 |
+| 上游供应商凭据 | LLMR 调用模型供应商 | UI 的 **供应商** 页面 |
 
 不设置 `CCR_WEB_AUTH_TOKEN` 时，EntryPoint 每次启动容器都会生成新的随机 Token，并把管理地址在容器日志中打印一次。Nginx 不会向客户端返回 Token：不带 Token 打开根地址只能加载页面，所有管理请求都会返回 `401`，需要在 URL 中带上 Token。页面会在当前浏览器标签页会话内保留它。持久部署和远程部署应固定一个足够长的强 Token。
 
@@ -129,7 +129,7 @@ services:
       CCR_WEB_AUTH_TOKEN: ${CCR_WEB_AUTH_TOKEN:?set CCR_WEB_AUTH_TOKEN}
 ```
 
-`CCR_PUBLIC_BASE_URL` 会同步到 CCR 的公开 Router Endpoint。它本身不会发布 Docker 端口，也不会改变 Nginx 监听地址。
+`CCR_PUBLIC_BASE_URL` 会同步到 LLMR 的公开 Router Endpoint。它本身不会发布 Docker 端口，也不会改变 Nginx 监听地址。
 
 ## 域名、HTTPS 与反向代理
 
@@ -145,7 +145,7 @@ services:
       CCR_WEB_AUTH_TOKEN: ${CCR_WEB_AUTH_TOKEN:?set CCR_WEB_AUTH_TOKEN}
 ```
 
-反向代理应把全部路径交给 CCR Nginx，并满足：
+反向代理应把全部路径交给 LLMR Nginx，并满足：
 
 - 支持长时间模型请求；
 - 不缓冲 SSE 和流式模型响应；
@@ -158,7 +158,7 @@ services:
 EntryPoint 会设置 `HOME=/data`，实际数据位于：
 
 ```text
-/data/.claude-code-router/
+/data/.llm-router/
 ├── config.sqlite
 ├── gateway.config.json
 ├── app-data/
@@ -170,7 +170,7 @@ EntryPoint 会设置 `HOME=/data`，实际数据位于：
 └── bin/
 ```
 
-优先使用命名卷。Bind Mount 目录必须允许容器写入，而且不能让两个运行中的 CCR 容器共享同一份数据。
+优先使用命名卷。Bind Mount 目录必须允许容器写入，而且不能让两个运行中的 LLMR 容器共享同一份数据。
 
 全新数据目录中既没有 `config.json` 也没有 `config.sqlite` 时，EntryPoint 默认写入最小的旧格式 `config.json` 作为首次引导。UI 保存后 SQLite 成为权威配置。每次启动默认还会把 JSON / SQLite 中的网关监听字段和 `routerEndpoint` 同步到当前 Docker 公开地址。
 
@@ -184,7 +184,7 @@ docker compose cp ccr:/data/. ./ccr-data-backup/
 docker compose start ccr
 ```
 
-备份包含供应商凭据、CCR 客户端 Key，并可能包含请求 / 响应数据，必须按敏感数据保存。
+备份包含供应商凭据、LLMR 客户端 Key，并可能包含请求 / 响应数据，必须按敏感数据保存。
 
 完整恢复时，应把备份复制到新的空卷或空 `/data` 目录，并确保容器已停止。不要把旧备份直接覆盖到仍有新数据的活动目录，否则旧 SQLite WAL / SHM 和新运行文件可能混合。替换现有数据前再做一份备份。
 
@@ -209,7 +209,7 @@ docker compose logs --tail=200 ccr
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `CCR_WEB_AUTH_TOKEN` | 每次启动随机生成 | 管理 UI / RPC Token。持久或远程部署应设置固定强值。 |
-| `CCR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | 写入 CCR 配置的完整公开地址；设置后优先于 Public Host / Port。 |
+| `CCR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | 写入 LLMR 配置的完整公开地址；设置后优先于 Public Host / Port。 |
 | `CCR_PUBLIC_HOST` | `127.0.0.1` | 仅在没有完整公开 URL 时用于拼接公开地址，不会改变 Docker 端口绑定。 |
 | `CCR_PUBLIC_PORT` | `3458` | 仅在没有完整公开 URL 时用于拼接公开地址。 |
 | `CCR_DATA_DIR` | `/data` | 数据根目录，同时作为进程 `HOME`。 |
@@ -282,7 +282,7 @@ docker compose config
 
 ### 容器健康，但模型请求失败
 
-容器健康只代表 Nginx / UI 可访问。继续检查 **服务** 状态、供应商连通性、CCR 客户端 Key、路由和请求日志，并查看：
+容器健康只代表 Nginx / UI 可访问。继续检查 **服务** 状态、供应商连通性、LLMR 客户端 Key、路由和请求日志，并查看：
 
 ```sh
 docker compose logs --tail=200 ccr
@@ -290,7 +290,7 @@ docker compose logs --tail=200 ccr
 
 ## 相关页面
 
-- [安装并启动 CCR](../install/)
+- [安装并启动 LLMR](../install/)
 - [CLI 安装与命令参考](../cli/)
 - [服务配置](../../configuration/server/)
 - [API 密钥](../../configuration/api-keys/)

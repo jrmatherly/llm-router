@@ -873,7 +873,7 @@ export function ProviderDeepLinkDialog({
                   <span>{t("Remote provider manifest")}</span>
                 </div>
                 <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                  {t("CCR will fetch this HTTPS manifest with strict safety checks before showing provider details.")}
+                  {t("LLMR will fetch this HTTPS manifest with strict safety checks before showing provider details.")}
                 </div>
               </div>
               <ProviderDeepLinkDetail label={t("Manifest URL")} value={manifest.url} mono />
@@ -1468,7 +1468,7 @@ function LocalAgentProviderImportPanel({
       <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate text-[12px] font-semibold text-foreground">{t("Import local agent provider")}</div>
-          <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">{t("CCR scanned this computer for local Claude Code, Codex, Grok CLI, Kimi CLI, OpenCode CLI, and ZCode providers. Click Import to add one as a gateway provider.")}</div>
+          <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">{t("LLMR scanned this computer for local Claude Code, Codex, Grok CLI, Kimi CLI, OpenCode CLI, and ZCode providers. Click Import to add one as a gateway provider.")}</div>
         </div>
         <Button aria-label={t("Scan local providers again")} disabled={loading || Boolean(importingId)} onClick={() => setScanAttempt((value) => value + 1)} size="sm" variant="outline">
           {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -1766,10 +1766,10 @@ function ProviderConnectionStatusPanel({
         ? "Protocols detected"
         : "Waiting for provider details";
   const protocolDescription = probeLoading
-    ? "CCR is checking which API protocols this endpoint supports."
+    ? "LLMR is checking which API protocols this endpoint supports."
     : protocolDetected
       ? "Compatible API protocols were found automatically. You can turn off auto detection in Advanced settings and select protocols manually."
-      : "Choose a provider endpoint so CCR can detect compatible protocols.";
+      : "Choose a provider endpoint so LLMR can detect compatible protocols.";
   const requestTitle = connectivityLoading
     ? "Checking connection"
     : localAgentImport
@@ -1780,7 +1780,7 @@ function ProviderConnectionStatusPanel({
           ? "Not verified yet"
           : "Waiting for required fields";
   const requestDescription = connectivityLoading
-    ? "CCR is sending a limited real model request."
+    ? "LLMR is sending a limited real model request."
     : localAgentImport
       ? "The imported local agent login is connected when this provider is saved."
       : connectionVerified
@@ -3083,7 +3083,7 @@ function ProviderUsageSettings({
 
           {draft.accountMode === "standard" ? (
             <div className="sm:col-span-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-[12px] leading-5 text-muted-foreground">
-              {t("Standard usage endpoint will try provider-hosted CCR account endpoints.")}
+              {t("Standard usage endpoint will try provider-hosted LLMR account endpoints.")}
               {customEndpoint ? <span> {t("Switch to HTTP JSON request to configure method, URL, headers, body, and response fields.")}</span> : null}
             </div>
           ) : null}
@@ -3107,7 +3107,7 @@ function ProviderUsageSettings({
               {draft.accountMode === "browser" ? (
                 <>
                   <div className="sm:col-span-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-[12px] leading-5 text-muted-foreground">
-                    {t("Browser request uses CCR Desktop's built-in browser login state. Sign in in the in-app browser before testing.")}
+                    {t("Browser request uses LLMR Desktop's built-in browser login state. Sign in in the in-app browser before testing.")}
                   </div>
                   <Field className="sm:col-span-2" label={t("Browser login URL")}>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">

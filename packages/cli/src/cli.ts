@@ -129,7 +129,7 @@ async function main(): Promise<void> {
     throw new Error("ZCode profiles can only open the app; agent arguments are not supported.");
   }
   if (profile.agent === "claude-design") {
-    throw new Error("Claude Design profiles can only be opened from CCR Desktop.");
+    throw new Error("Claude Design profiles can only be opened from LLMR Desktop.");
   }
   if (profile.agent === "claude-code" && resolvedSurface === "app" && profileOptions.agentArgs.length > 0) {
     throw new Error("Claude App profiles do not support agent arguments.");
@@ -217,7 +217,7 @@ async function main(): Promise<void> {
     const plan = buildProfileLaunchPlan(configDir, profile, resolvedSurface, profileOptions.agentArgs);
 
     if (path.isAbsolute(plan.command) && !existsSync(plan.command)) {
-      throw new Error(`Profile launcher was not found: ${plan.command}. Open CCR once or re-save the profile.`);
+      throw new Error(`Profile launcher was not found: ${plan.command}. Open LLMR once or re-save the profile.`);
     }
 
     const childEnv = {
@@ -418,15 +418,15 @@ async function startService(options: WebCliOptions): Promise<ServiceState> {
     });
     const spawnError = await waitForImmediateSpawnError(child, 1000);
     if (spawnError) {
-      throw new Error(`Failed to start CCR service: ${spawnError}`);
+      throw new Error(`Failed to start LLMR service: ${spawnError}`);
     }
     child.unref();
 
     const state = await waitForServiceState(child.pid, serviceStartTimeoutMs);
     if (!state) {
-      throw new Error(`CCR service did not report ready within ${serviceStartTimeoutMs}ms.`);
+      throw new Error(`LLMR service did not report ready within ${serviceStartTimeoutMs}ms.`);
     }
-    process.stdout.write(`CCR service started at ${state.url} (pid ${state.pid}).\n`);
+    process.stdout.write(`LLMR service started at ${state.url} (pid ${state.pid}).\n`);
     if (options.open) {
       await openManagementUrl(state.url);
     }
@@ -441,7 +441,7 @@ async function reuseRunningService(current: ServiceState, options: WebCliOptions
   if (options.startGateway && (!state.startGateway || options.ensureGatewayRunning)) {
     const gatewayStatus = await callServiceRpc<GatewayStatus>(state, "startGateway");
     if (gatewayStatus.state !== "running") {
-      throw new Error(gatewayStatus.lastError || "CCR service did not start the gateway.");
+      throw new Error(gatewayStatus.lastError || "LLMR service did not start the gateway.");
     }
     state = { ...state, startGateway: true };
   }
@@ -451,7 +451,7 @@ async function reuseRunningService(current: ServiceState, options: WebCliOptions
   if (state !== current) {
     writeServiceState(state);
   }
-  process.stdout.write(`CCR service is already running at ${state.url} (pid ${state.pid}).\n`);
+  process.stdout.write(`LLMR service is already running at ${state.url} (pid ${state.pid}).\n`);
   if (options.open) {
     await openManagementUrl(state.url);
   }
@@ -468,10 +468,10 @@ async function openManagementUi(options: WebCliOptions): Promise<void> {
 async function openManagementUrl(url: string): Promise<void> {
   try {
     await openSystemExternal(url);
-    process.stdout.write(`Opened CCR management UI at ${url}\n`);
+    process.stdout.write(`Opened LLMR management UI at ${url}\n`);
   } catch (error) {
     process.stderr.write(`Failed to open browser: ${formatError(error)}\n`);
-    process.stdout.write(`CCR management UI is available at ${url}\n`);
+    process.stdout.write(`LLMR management UI is available at ${url}\n`);
   }
 }
 
@@ -505,7 +505,7 @@ async function runWebServer(options: WebCliOptions): Promise<void> {
       url: runtime.url
     });
   }
-  process.stdout.write(`CCR web management is running at ${runtime.url}\n`);
+  process.stdout.write(`LLMR web management is running at ${runtime.url}\n`);
 
   let closing = false;
   let profileLeaseMonitor: NodeJS.Timeout | undefined;
@@ -554,13 +554,13 @@ async function runWebServer(options: WebCliOptions): Promise<void> {
 async function stopService(): Promise<void> {
   const state = readServiceState();
   if (!state) {
-    process.stdout.write("CCR service is not running.\n");
+    process.stdout.write("LLMR service is not running.\n");
     return;
   }
   const verification = await verifyServiceState(state);
   if (!verification.ok) {
     clearServiceState(state.pid);
-    process.stdout.write("CCR service is not running.\n");
+    process.stdout.write("LLMR service is not running.\n");
     return;
   }
 
@@ -569,10 +569,10 @@ async function stopService(): Promise<void> {
     ? await waitForProcessExit(state.pid, serviceStopTimeoutMs)
     : await waitForServiceUnavailable(state, serviceStopTimeoutMs);
   if (!stopped) {
-    throw new Error(`CCR service did not stop within ${serviceStopTimeoutMs}ms.`);
+    throw new Error(`LLMR service did not stop within ${serviceStopTimeoutMs}ms.`);
   }
   clearServiceState(state.pid);
-  process.stdout.write("CCR service stopped.\n");
+  process.stdout.write("LLMR service stopped.\n");
 }
 
 function printHelp(exitCode: number): void {
@@ -635,7 +635,7 @@ function printUiHelp(exitCode: number): void {
     "Usage:",
     `  ${command} ui [--daemon] [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
     "",
-    "Starts the background CCR service if needed and opens the management UI in the default browser.",
+    "Starts the background LLMR service if needed and opens the management UI in the default browser.",
     "",
     "Options:",
     "  --daemon         Run the management server in the background (default for ui).",
@@ -662,7 +662,7 @@ function printStopHelp(exitCode: number): void {
     "Usage:",
     `  ${command} stop`,
     "",
-    `Stops the background CCR service started by \`${command} start\`.`
+    `Stops the background LLMR service started by \`${command} start\`.`
   ].join("\n");
   const stream = exitCode === 0 ? process.stdout : process.stderr;
   stream.write(`${output}\n`);
@@ -857,7 +857,7 @@ async function acquireServiceStartLock(): Promise<() => void> {
       await delay(100);
     }
   }
-  throw new Error(`Timed out waiting for the CCR service startup lock after ${serviceStartTimeoutMs + 5_000}ms.`);
+  throw new Error(`Timed out waiting for the LLMR service startup lock after ${serviceStartTimeoutMs + 5_000}ms.`);
 }
 
 function readJsonRecord(file: string): Record<string, unknown> | undefined {
@@ -968,7 +968,7 @@ async function callServiceRpc<T>(state: ServiceState, method: string, args: unkn
   const endpoint = serviceRpcEndpoint(state.url);
   const authToken = serviceAuthToken(state.url);
   if (!endpoint || !authToken) {
-    throw new Error("CCR service state does not include a usable management URL.");
+    throw new Error("LLMR service state does not include a usable management URL.");
   }
 
   const controller = new AbortController();
@@ -985,7 +985,7 @@ async function callServiceRpc<T>(state: ServiceState, method: string, args: unkn
     });
     const payload = await response.json().catch(() => undefined) as { ok?: boolean; value?: T } | undefined;
     if (!response.ok || !payload?.ok) {
-      throw new Error(`CCR service RPC ${method} failed with HTTP ${response.status}`);
+      throw new Error(`LLMR service RPC ${method} failed with HTTP ${response.status}`);
     }
     return payload.value as T;
   } finally {

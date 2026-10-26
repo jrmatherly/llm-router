@@ -142,7 +142,7 @@ test("known bundled plugins without persisted permissions receive scoped default
   }
 });
 
-test("Claude browser plugins are skipped outside CCR Desktop", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+test("Claude browser plugins are skipped outside LLMR Desktop", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-desktop-only-"));
   const previousDesktopApp = process.env[CCR_DESKTOP_APP_ENV];
   try {

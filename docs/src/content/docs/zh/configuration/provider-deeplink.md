@@ -2,12 +2,12 @@
 title: 一键导入供应商
 pageTitle: 一键导入供应商
 eyebrow: 一键导入
-lead: 通过预设按钮或 ccr://provider 深度链接（deeplink）一键导入模型供应商：CCR 先展示将写入的配置，确认后再保存。供应商也可以嵌入按钮或发布 manifest，让用户从网页完成导入。
+lead: 通过预设按钮或 ccr://provider 深度链接（deeplink）一键导入模型供应商：LLMR 先展示将写入的配置，确认后再保存。供应商也可以嵌入按钮或发布 manifest，让用户从网页完成导入。
 ---
 
 ## 一键导入
 
-选择下面的供应商即可开始添加。CCR 会先显示即将添加的内容，确认无误后再保存；使用自定义入口时，请确保来源可信。
+选择下面的供应商即可开始添加。LLMR 会先显示即将添加的内容，确认无误后再保存；使用自定义入口时，请确保来源可信。
 
 <div class="provider-import-grid" aria-label="Preset provider import buttons">
   <a class="provider-import-button provider-openai" href="ccr://provider?name=OpenAI&amp;base_url=https%3A%2F%2Fapi.openai.com%2Fv1&amp;protocol=openai_responses&amp;models=gpt-5.5%2Cgpt-5.5-pro%2Cgpt-5.5-instant%2Cgpt-5.4-mini" aria-label="导入 OpenAI 官方供应商">
@@ -118,7 +118,7 @@ lead: 通过预设按钮或 ccr://provider 深度链接（deeplink）一键导�
 
 ## 嵌入式按钮组件
 
-CCR 也提供了一个无框架的按钮脚本，供应商可以嵌入到自己的网页，让用户一键把该供应商导入 CCR。脚本会自动注册 Web Components。
+LLMR 也提供了一个无框架的按钮脚本，供应商可以嵌入到自己的网页，让用户一键把该供应商导入 LLMR。脚本会自动注册 Web Components。
 
 ### HTML 写法
 
@@ -194,7 +194,7 @@ CCR 也提供了一个无框架的按钮脚本，供应商可以嵌入到自己�
 
 ## 协议格式
 
-CCR 支持两种写法，推荐使用 host 写法：
+LLMR 支持两种写法，推荐使用 host 写法：
 
 ```text
 ccr://provider?name=Example%20AI&base_url=https%3A%2F%2Fapi.example.com%2Fv1&protocol=openai_chat_completions&models=example-chat%2Cexample-coder
@@ -220,7 +220,7 @@ ccr://provider?payload=%7B%22name%22%3A%22Example%20AI%22%2C%22base_url%22%3A%22
 ccr://provider?manifest=https%3A%2F%2Fexample.com%2Fccr-provider.json
 ```
 
-Manifest 必须使用 HTTPS，返回 JSON，不能指向本地或内网地址，体积不能超过 128 KB。CCR 会在 App 内拉取 manifest，展示确认页，然后再写入配置。
+Manifest 必须使用 HTTPS，返回 JSON，不能指向本地或内网地址，体积不能超过 128 KB。LLMR 会在 App 内拉取 manifest，展示确认页，然后再写入配置。
 
 Manifest 可以把供应商信息放在顶层 `provider` 对象中：
 

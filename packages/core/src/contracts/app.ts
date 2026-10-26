@@ -854,14 +854,14 @@ export type GatewayPluginAppConfig = {
 export const CLAUDE_DESIGN_PLUGIN_ID = "claude-design";
 export const CLAUDE_SHIP_PLUGIN_ID = "claude-ship";
 export const DEFAULT_CLAUDE_DESIGN_APP: GatewayPluginAppConfig = {
-  description: "Open Claude Design in a dedicated CCR Electron window.",
+  description: "Open Claude Design in a dedicated LLMR Electron window.",
   icon: "palette",
   id: "claude-design",
   name: "Claude Design",
   url: "https://claude-design.ccrdesk.top/design"
 };
 export const DEFAULT_CLAUDE_SHIP_APP: GatewayPluginAppConfig = {
-  description: "Open Claude Ship in a dedicated CCR Electron window.",
+  description: "Open Claude Ship in a dedicated LLMR Electron window.",
   icon: "rocket",
   id: "claude-ship",
   name: "Claude Ship",
@@ -1129,7 +1129,7 @@ export type VirtualModelProfileConfig = {
 };
 
 export const NO_AVAILABLE_GATEWAY_MODELS_MESSAGE =
-  "No available models. Configure at least one provider with a model before starting CCR Gateway or opening an agent through CCR.";
+  "No available models. Configure at least one provider with a model before starting LLMR Gateway or opening an agent through LLMR.";
 
 export function assertAvailableGatewayModels(config: Pick<AppConfig, "Providers" | "virtualModelProfiles">): void {
   if (!hasAvailableGatewayModels(config)) {

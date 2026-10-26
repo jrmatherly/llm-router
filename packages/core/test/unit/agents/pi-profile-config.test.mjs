@@ -10,7 +10,7 @@ import {
   modelCatalogMaxInputTokens
 } from "@ccr/core/gateway/model-catalog.ts";
 
-test("Pi profile config writes a CCR OpenAI Responses provider", () => {
+test("Pi profile config writes an LLMR OpenAI Responses provider", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-profile-"));
   try {
     const config = createDefaultAppConfig();

@@ -52,7 +52,7 @@ Not renamed, because they are protocol or on-disk contracts that existing 4.0.1 
 
 - `CCR_*` environment variables, `x-ccr-*` headers, `/__ccr/` routes, the `ccr://` scheme (276 distinct identifiers in `packages/*/src`).
 - The `ccr` CLI command and its subcommands as typed by users (`ccr ui`, `ccr start`); copy that quotes a command keeps it.
-- `~/.claude-code-router` (`APP_STORAGE_NAME`), the Windows legacy config dir, the npm package name `@musistudio/claude-code-router`, the `appId` `com.claudecoderouter.desktop`.
+- The npm package name `@musistudio/claude-code-router` and the `appId` `com.claudecoderouter.desktop`.
 - The proxy CA subject "Claude Code Router CA" and its keychain cleanup commands. Renaming the CA forces every user through a new trust prompt and leaves the old CA trusted; that is a migration of its own.
 - Code identifiers (`ClaudeCodeRouterPlugin`, `ccrRouterHttpRouteKey`, `@ccr/` import aliases, `window.ccr`), the gateway plugin id `claude-code-router`, and test fixtures that assert on them.
 - Any string literal whose whole text is `CCR`. There are four: the MCP client name in `packages/core/src/mcp/tool-discovery.ts:30`, an account name in a Codex payload in `packages/core/src/agents/codex/app-net-responder.ts:48`, a profile-name fallback in `packages/core/src/agents/codex/cli-middleware-runtime.ts:5273`, and the three-letter client badge `clientInitial` returns in `packages/ui/src/pages/home/shared/network.ts:171`. They are identifiers that other software reads, not copy.
@@ -60,15 +60,19 @@ Not renamed, because they are protocol or on-disk contracts that existing 4.0.1 
 
 Shell PATH blocks written into users' rc files by `launch-service.ts` carry the markers `# >>> Claude Code Router CLI >>>`. New writes use `# >>> LLM Router CLI >>>`; reads must recognize both so an existing block is replaced, not duplicated.
 
+## Data directory (decided 2026-10-25, during implementation)
+
+The owner withdrew the deferral. `APP_STORAGE_NAME` is `llm-router`: `~/.llm-router` on macOS and Linux, `%APPDATA%\llm-router` on Windows, `/data/.llm-router` in Docker; the desktop CLI launcher lives in `~/.llm-router/bin` and the shell PATH block points there. There is no migration from `~/.claude-code-router`: existing installs are uninstalled and reinstalled cleanly. The pre-4.0 JSON import reads from the new directory, and the Windows "Claude Code Router" legacy directory with its copy-on-startup is removed. Provider and plugin ids spelled `claude-code-router` are identifiers written into agent configs, not paths, and stay.
+
 ## Deferred, owner's call later
 
-1. Moving the data directory to `~/.llm-router`. Needs a one-time move on startup shared by CLI and desktop, and re-sync of the absolute `apiKeyHelper` paths the profile service writes into `~/.claude/settings.json`.
-2. Renaming the proxy CA, with removal of the old trusted CA from the keychain.
-3. Publishing the CLI under a new npm name.
+1. Renaming the proxy CA, with removal of the old trusted CA from the keychain.
+2. Publishing the CLI under a new npm name.
 
 ## Done means
 
 - The five screenshotted surfaces show LLM Router or LLMR, never CCR or @claude-code-router.
 - `git grep -P '(?<![A-Z_])CCR(?![A-Z_])' -- packages/*/src docs/src/content` returns only lines that quote a `ccr` command, an identifier, or a path.
-- `git grep --fixed-strings "Claude Code Router" -- packages` returns only the legacy matcher, the legacy Windows dir, the PATH block legacy marker, and the CA strings.
+- `git grep --fixed-strings "Claude Code Router" -- packages` returns only the legacy service-name matcher, the PATH block legacy marker, and the CA strings.
+- No source, plugin, Docker, docs or test path names `.claude-code-router`; `tests/architecture/rebrand-ccr.test.mjs` guards it.
 - Typecheck, `build:assets` and every suite pass; the sweep script is committed so a reviewer can rerun it.

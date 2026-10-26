@@ -24,8 +24,10 @@ import { applyProfileConfig, cleanupGeneratedBinBackups } from "@ccr/core/profil
 import { isDesktopAppRuntime } from "@ccr/core/runtime/desktop-app";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@ccr/core/platform/windows-system";
 
-const ccrPathBlockStart = "# >>> Claude Code Router CLI >>>";
-const ccrPathBlockEnd = "# <<< Claude Code Router CLI <<<";
+const ccrPathBlockStart = "# >>> LLM Router CLI >>>";
+const ccrPathBlockEnd = "# <<< LLM Router CLI <<<";
+const legacyPathBlockStart = "# >>> Claude Code Router CLI >>>";
+const legacyPathBlockEnd = "# <<< Claude Code Router CLI <<<";
 export const desktopCliCommandName = "ccr-app";
 const desktopCliRuntimeFileName = "ccr-cli.js";
 const desktopCliCommandNameEnv = "CCR_CLI_COMMAND_NAME";
@@ -105,7 +107,7 @@ export async function getProfileOpenCommand(config: AppConfig, request: ProfileO
   const profile = findProfileForOpen(config, request.profileId);
   const surface = resolveProfileOpenSurface(profile, request.surface);
   if (profile.agent === "claude-design" && !isDesktopAppRuntime()) {
-    throw new Error("Claude Design profiles can only be opened from CCR Desktop.");
+    throw new Error("Claude Design profiles can only be opened from LLMR Desktop.");
   }
   if (options.ensureLauncher) {
     ensureCcrCliLauncher(config);
@@ -124,7 +126,7 @@ export async function openProfileFromCcr(config: AppConfig, request: ProfileOpen
   const profile = findProfileForOpen(config, request.profileId);
   const surface = resolveProfileOpenSurface(profile, request.surface);
   if (profile.agent === "claude-design") {
-    throw new Error("Claude Design profiles can only be opened from CCR Desktop.");
+    throw new Error("Claude Design profiles can only be opened from LLMR Desktop.");
   }
   if (profile.agent === "claude-code" && surface === "app") {
     return openClaudeAppProfile(config, profile);
@@ -218,7 +220,7 @@ async function openOpenCodeAppProfile(config: AppConfig, profile: ReturnType<typ
   const unmanagedPid = findRunningOpenCodeAppPid(profile.appPath);
   if (unmanagedPid) {
     throw new Error(
-      `OpenCode App is already running outside CCR (PID ${unmanagedPid}). ` +
+      `OpenCode App is already running outside LLMR (PID ${unmanagedPid}). ` +
       "Close it before opening an OpenCode App profile."
     );
   }
@@ -240,7 +242,7 @@ async function openOpenCodeAppProfile(config: AppConfig, profile: ReturnType<typ
     throw new Error([
       `${appName} did not stay open for ${profile.name || profile.id}.`,
       ...(entry.spawnError ? [`Error: ${entry.spawnError}`] : []),
-      "Close any OpenCode App instance that was not opened by CCR, then try again.",
+      "Close any OpenCode App instance that was not opened by LLMR, then try again.",
       `Command: ${entry.command}`,
       `User data: ${entry.userDataDir}`
     ].join(" "));
@@ -410,7 +412,7 @@ async function ensureGatewayConfigRunning(
     if (existingGateway.state === "unavailable") {
       if (!startIfMissing) {
         const reason = existingGateway.reason ? `: ${existingGateway.reason}` : "";
-        throw new ProfileGatewayUnavailableError(`CCR gateway is not running at ${profileGatewayEndpoint(config)}${reason}. Start CCR Desktop or run ccr start before opening ${appName}.`);
+        throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason}. Start LLMR Desktop or run ccr start before opening ${appName}.`);
       }
     } else {
       throw new Error(existingGatewayConflictMessage(existingGateway, appName));
@@ -418,7 +420,7 @@ async function ensureGatewayConfigRunning(
   }
 
   if (!startIfMissing) {
-    throw new ProfileGatewayUnavailableError(`CCR gateway is not running at ${profileGatewayEndpoint(config)}. Start CCR Desktop or run ccr start before opening ${appName}.`);
+    throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}. Start LLMR Desktop or run ccr start before opening ${appName}.`);
   }
 
   const startedStatus = await gatewayService.start(config);
@@ -434,7 +436,7 @@ async function ensureGatewayConfigRunning(
     throw new Error(existingGatewayConflictMessage(existingGateway, appName));
   }
 
-  throw new Error(startedStatus.lastError || `CCR gateway did not start for ${appName}.`);
+  throw new Error(startedStatus.lastError || `LLMR gateway did not start for ${appName}.`);
 }
 
 type ExistingProfileGatewayProbe =
@@ -488,7 +490,7 @@ async function probeExistingProfileGateway(
         if (!rootSupportsClaudeCodeWif(rootProbe.payload)) {
           return {
             endpoint,
-            message: "The running CCR gateway does not advertise the Claude Code WIF token endpoint. Restart CCR Desktop or run ccr start to use WIF authentication.",
+            message: "The running LLMR gateway does not advertise the Claude Code WIF token endpoint. Restart LLMR Desktop or run ccr start to use WIF authentication.",
             state: "incompatible"
           };
         }
@@ -719,21 +721,21 @@ function unquoteShellValue(value: string): string {
 function existingGatewayConflictMessage(probe: ExistingProfileGatewayProbe, appName: string): string {
   if (probe.state === "unauthorized") {
     const details = probe.message ? ` ${probe.message}` : "";
-    return `CCR gateway is already running at ${probe.endpoint}, but it does not accept the API key for ${appName}.${details} Restart CCR Desktop or run ccr start to refresh the gateway before opening this profile.`;
+    return `LLMR gateway is already running at ${probe.endpoint}, but it does not accept the API key for ${appName}.${details} Restart LLMR Desktop or run ccr start to refresh the gateway before opening this profile.`;
   }
   if (probe.state === "unusable") {
-    return `CCR gateway is already running at ${probe.endpoint}, but it cannot serve ${appName} right now (HTTP ${probe.status}). Restart CCR Desktop or run ccr start to refresh the gateway before opening this profile.`;
+    return `LLMR gateway is already running at ${probe.endpoint}, but it cannot serve ${appName} right now (HTTP ${probe.status}). Restart LLMR Desktop or run ccr start to refresh the gateway before opening this profile.`;
   }
   if (probe.state === "incompatible") {
-    return `CCR gateway is already running at ${probe.endpoint}, but it is not compatible with ${appName}. ${probe.message}`;
+    return `LLMR gateway is already running at ${probe.endpoint}, but it is not compatible with ${appName}. ${probe.message}`;
   }
   if (probe.state === "not-ccr") {
-    return `Port ${probe.endpoint} is already in use by a non-CCR service. Stop that process or change the CCR gateway port.`;
+    return `Port ${probe.endpoint} is already in use by a non-LLMR service. Stop that process or change the LLMR gateway port.`;
   }
   if (probe.state === "unavailable") {
-    return `CCR gateway is not reachable at ${probe.endpoint}${probe.reason ? `: ${probe.reason}` : ""}.`;
+    return `LLMR gateway is not reachable at ${probe.endpoint}${probe.reason ? `: ${probe.reason}` : ""}.`;
   }
-  return `CCR gateway is already running at ${probe.endpoint}.`;
+  return `LLMR gateway is already running at ${probe.endpoint}.`;
 }
 
 function isAddressInUseError(message: string | undefined): boolean {
@@ -758,7 +760,7 @@ function probeGatewayHost(host: string): string {
 function profileGatewayConfigFor(config: AppConfig, profile: ReturnType<typeof findProfileForOpen>): AppConfig {
   const token = findProfileApiKey(config, profile);
   if (!token) {
-    throw new Error(`No CCR API key was found for profile "${profile.name || profile.id}". Re-save the profile and try again.`);
+    throw new Error(`No LLMR API key was found for profile "${profile.name || profile.id}". Re-save the profile and try again.`);
   }
   return profileGatewayConfigWithToken(config, profile, token);
 }
@@ -834,7 +836,7 @@ export async function stopProfileFromCcr(config: AppConfig, request: ProfileOpen
   const profile = findProfileForOpen(config, request.profileId);
   const surface = resolveProfileOpenSurface(profile, request.surface);
   if (surface !== "app") {
-    throw new Error(`${profile.name || profile.id} does not support stopping ${surface.toUpperCase()} from CCR.`);
+    throw new Error(`${profile.name || profile.id} does not support stopping ${surface.toUpperCase()} from LLMR.`);
   }
 
   const key = profileRuntimeKey(profile.id, surface);
@@ -1761,7 +1763,7 @@ function findBundledCcrCliSource(): string {
   ];
   const source = candidates.find((candidate) => existsSync(candidate));
   if (!source) {
-    throw new Error(`CCR CLI runtime was not found. Rebuild or reinstall CCR and try again. Checked: ${candidates.join(", ")}`);
+    throw new Error(`LLMR CLI runtime was not found. Rebuild or reinstall LLMR and try again. Checked: ${candidates.join(", ")}`);
   }
   return source;
 }
@@ -2002,14 +2004,11 @@ function normalizeWindowsPathSegment(value: string): string {
   return value.trim().replace(/[\\/]+$/g, "").toLowerCase();
 }
 
-function ensureShellRcPathBlock(rcFile: string, binDir: string): void {
+export function ensureShellRcPathBlock(rcFile: string, binDir: string): void {
   mkdirSync(path.dirname(rcFile), { recursive: true });
   const source = existsSync(rcFile) ? readFileSync(rcFile, "utf8") : "";
   const block = shellRcPathBlock();
-  const managedPattern = new RegExp(
-    `\\n?${escapeRegExp(ccrPathBlockStart)}[\\s\\S]*?${escapeRegExp(ccrPathBlockEnd)}\\n?`,
-    "m"
-  );
+  const managedPattern = managedPathBlockPattern();
   if (managedPattern.test(source)) {
     const next = ensureTrailingNewline(source.replace(managedPattern, `\n${block}\n`)).replace(/^\n+/, "");
     writeFileIfChanged(rcFile, next);
@@ -2024,7 +2023,7 @@ function ensureShellRcPathBlock(rcFile: string, binDir: string): void {
 }
 
 function shellRcPathBlock(): string {
-  const binDir = "$HOME/.claude-code-router/bin";
+  const binDir = "$HOME/.llm-router/bin";
   return [
     ccrPathBlockStart,
     "# Added by LLM Router. Enables the ccr-app command in new shells.",
@@ -2036,14 +2035,11 @@ function shellRcPathBlock(): string {
   ].join("\n");
 }
 
-function ensureFishPathBlock(file: string, binDir: string): void {
+export function ensureFishPathBlock(file: string, binDir: string): void {
   mkdirSync(path.dirname(file), { recursive: true });
   const source = existsSync(file) ? readFileSync(file, "utf8") : "";
   const block = fishPathBlock();
-  const managedPattern = new RegExp(
-    `\\n?${escapeRegExp(ccrPathBlockStart)}[\\s\\S]*?${escapeRegExp(ccrPathBlockEnd)}\\n?`,
-    "m"
-  );
+  const managedPattern = managedPathBlockPattern();
   if (managedPattern.test(source)) {
     const next = ensureTrailingNewline(source.replace(managedPattern, `\n${block}\n`)).replace(/^\n+/, "");
     writeFileIfChanged(file, next);
@@ -2057,11 +2053,18 @@ function ensureFishPathBlock(file: string, binDir: string): void {
   writeFileIfChanged(file, `${source}${separator}${block}\n`);
 }
 
+function managedPathBlockPattern(): RegExp {
+  return new RegExp(
+    `\\n?(?:${escapeRegExp(ccrPathBlockStart)}|${escapeRegExp(legacyPathBlockStart)})[\\s\\S]*?(?:${escapeRegExp(ccrPathBlockEnd)}|${escapeRegExp(legacyPathBlockEnd)})\\n?`,
+    "m"
+  );
+}
+
 function fishPathBlock(): string {
   return [
     ccrPathBlockStart,
     "# Added by LLM Router. Enables the ccr-app command in new shells.",
-    'set -l ccr_bin "$HOME/.claude-code-router/bin"',
+    'set -l ccr_bin "$HOME/.llm-router/bin"',
     "if not contains $ccr_bin $PATH",
     "    set -gx PATH $ccr_bin $PATH",
     "end",
@@ -2070,8 +2073,8 @@ function fishPathBlock(): string {
 }
 
 function shellRcAlreadyAddsCcrBin(source: string, binDir: string): boolean {
-  return source.includes("$HOME/.claude-code-router/bin") ||
-    source.includes("~/.claude-code-router/bin") ||
+  return source.includes("$HOME/.llm-router/bin") ||
+    source.includes("~/.llm-router/bin") ||
     source.includes(binDir);
 }
 

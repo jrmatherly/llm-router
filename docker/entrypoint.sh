@@ -33,7 +33,7 @@ export CCR_WEB_AUTH_TOKEN_QUERY
 export CCR_WEB_HOST
 export CCR_WEB_PORT
 
-CONFIG_DIR="${HOME}/.claude-code-router"
+CONFIG_DIR="${HOME}/.llm-router"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 APP_CONFIG_DB_FILE="${CONFIG_DIR}/config.sqlite"
 
@@ -44,7 +44,7 @@ if [ "${CCR_DOCKER_INIT_CONFIG:-1}" != "0" ] && [ ! -f "${CONFIG_FILE}" ] && [ !
 const fs = require("node:fs");
 const path = require("node:path");
 
-const configDir = path.join(process.env.HOME, ".claude-code-router");
+const configDir = path.join(process.env.HOME, ".llm-router");
 const configFile = path.join(configDir, "config.json");
 const gatewayHost = process.env.CCR_GATEWAY_HOST || "0.0.0.0";
 const gatewayPort = Number(process.env.CCR_GATEWAY_PORT || "3456");
@@ -69,7 +69,7 @@ if [ "${CCR_DOCKER_SYNC_PUBLIC_ENDPOINT:-1}" != "0" ]; then
 const fs = require("node:fs");
 const path = require("node:path");
 
-const configDir = path.join(process.env.HOME, ".claude-code-router");
+const configDir = path.join(process.env.HOME, ".llm-router");
 const configFile = path.join(configDir, "config.json");
 const appConfigDbFile = path.join(configDir, "config.sqlite");
 const gatewayHost = process.env.CCR_GATEWAY_HOST || "127.0.0.1";
@@ -195,7 +195,7 @@ EOF
 
 # A generated token is only reachable through the container logs.
 if [ "${CCR_WEB_AUTH_TOKEN_GENERATED}" = "1" ]; then
-  echo "CCR management UI: ${CCR_PUBLIC_BASE_URL%/}/?ccr_web_token=${CCR_WEB_AUTH_TOKEN_QUERY}"
+  echo "LLMR management UI: ${CCR_PUBLIC_BASE_URL%/}/?ccr_web_token=${CCR_WEB_AUTH_TOKEN_QUERY}"
 fi
 
 if [ "$#" -gt 0 ]; then

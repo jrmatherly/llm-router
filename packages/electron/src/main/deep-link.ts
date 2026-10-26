@@ -61,7 +61,7 @@ class DeepLinkService {
       console.error(`[deep-link] Invalid plugin link ${url}: ${detail}`);
       if (app.isReady()) {
         try {
-          dialog.showErrorBox("Invalid CCR plugin link", detail);
+          dialog.showErrorBox("Invalid LLMR plugin link", detail);
         } catch {
           // The console error above remains available when the dialog API is unavailable.
         }
@@ -136,7 +136,7 @@ class DeepLinkService {
       const startedGateway = currentStatus.state !== "running";
       const status = startedGateway ? await gatewayService.start(config) : currentStatus;
       if (status.state !== "running") {
-        throw new Error(status.lastError || "CCR gateway did not start.");
+        throw new Error(status.lastError || "LLMR gateway did not start.");
       }
       const appUrl = resolveGatewayPluginAppUrl(config, pluginAppUrlForOpen(config, request.pluginId, pluginApp.url));
       const claudeDesignCdp = isClaudeBrowserPlugin(request.pluginId)
@@ -160,7 +160,7 @@ class DeepLinkService {
       const detail = formatError(error);
       console.error(`[deep-link] Failed to open plugin app from ${request.rawUrl}: ${detail}`);
       try {
-        dialog.showErrorBox("Failed to open CCR plugin app", detail);
+        dialog.showErrorBox("Failed to open LLMR plugin app", detail);
       } catch {
         // The console error above remains available when the dialog API is unavailable.
       }
@@ -199,7 +199,7 @@ async function ensurePluginAppUrlAvailable(config: AppConfig, appUrl: string, st
 
   const restartedStatus = await gatewayService.start(config);
   if (restartedStatus.state !== "running") {
-    throw new Error(restartedStatus.lastError || "CCR gateway did not restart.");
+    throw new Error(restartedStatus.lastError || "LLMR gateway did not restart.");
   }
   await waitForPluginAppUrl(appUrl, pluginAppStartupProbeTimeoutMs);
 }
@@ -220,7 +220,7 @@ async function ensureClaudeDesignWindowCdpOptions(
 
   const restartedStatus = await gatewayService.start(config);
   if (restartedStatus.state !== "running") {
-    throw new Error(restartedStatus.lastError || "CCR gateway did not restart.");
+    throw new Error(restartedStatus.lastError || "LLMR gateway did not restart.");
   }
   return await loadClaudeDesignWindowCdpOptions(config, pluginId);
 }
@@ -398,7 +398,7 @@ function normalizePluginAppUrl(value: string): string {
     throw new Error("Plugin app URL cannot be protocol-relative.");
   }
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
-    throw new Error("Plugin app URL must be an http(s) URL or a CCR gateway path.");
+    throw new Error("Plugin app URL must be an http(s) URL or an LLMR gateway path.");
   }
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }

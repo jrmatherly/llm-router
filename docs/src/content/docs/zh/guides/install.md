@@ -1,6 +1,6 @@
 ---
-title: 安装并启动 CCR
-pageTitle: 安装并启动 CCR
+title: 安装并启动 LLMR
+pageTitle: 安装并启动 LLMR
 eyebrow: 快速开始
 lead: 按运行场景在桌面应用、npm CLI 和 Docker 三种发行方式中选择并完成安装，然后验证管理界面与模型网关地址。CLI 要求 Node.js 24 或更高版本。
 ---
@@ -43,15 +43,15 @@ ccr ui
 docker compose up -d --build
 ```
 
-打开 <http://127.0.0.1:3458>。Docker 只发布 Nginx 单入口，管理 UI 和模型网关共用该地址。首次启动后仍需添加供应商 / 模型、创建 CCR 客户端 Key，并从 **服务** 页面启动网关。端口、鉴权、持久化、备份和远程部署见 [Docker 部署](../docker/)。
+打开 <http://127.0.0.1:3458>。Docker 只发布 Nginx 单入口，管理 UI 和模型网关共用该地址。首次启动后仍需添加供应商 / 模型、创建 LLMR 客户端 Key，并从 **服务** 页面启动网关。端口、鉴权、持久化、备份和远程部署见 [Docker 部署](../docker/)。
 
 ## 验证安装
 
-完成供应商、模型和 CCR 客户端 Key 配置后：
+完成供应商、模型和 LLMR 客户端 Key 配置后：
 
 1. 在 **服务** 页面确认状态为运行中。
 2. 请求当前部署的 `/health`；成功时应返回 `200` 和运行状态。
-3. 用 CCR 客户端 Key 向兼容路径发送一个最小模型请求。
+3. 用 LLMR 客户端 Key 向兼容路径发送一个最小模型请求。
 4. 在 **日志** 页面确认请求模型、最终供应商 / 模型、状态码和耗时。
 
 管理界面能打开并不代表模型网关已经可用。没有供应商 / 模型时，Docker 的 `/health` 返回 `502` 属于预期行为。
@@ -60,8 +60,8 @@ docker compose up -d --build
 
 | 方式 | 配置位置 |
 | --- | --- |
-| 桌面 / CLI（macOS、Linux） | `~/.claude-code-router` |
+| 桌面 / CLI（macOS、Linux） | `~/.llm-router` |
 | 桌面 / CLI（Windows） | `%APPDATA%\claude-code-router` |
-| Docker | `/data/.claude-code-router`，应持久化挂载 `/data` |
+| Docker | `/data/.llm-router`，应持久化挂载 `/data` |
 
-CCR 当前配置存储在 `config.sqlite` 中；`config.json` 只在没有 SQLite 配置时作为旧版迁移或 Docker 首次引导来源。不要在 CCR 运行时直接编辑 SQLite。
+LLMR 当前配置存储在 `config.sqlite` 中；`config.json` 只在没有 SQLite 配置时作为旧版迁移或 Docker 首次引导来源。不要在 LLMR 运行时直接编辑 SQLite。

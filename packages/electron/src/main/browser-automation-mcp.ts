@@ -161,7 +161,7 @@ const maxBrowserResultTextChars = maxSnapshotTextLimit;
 const defaultWaitTimeoutMs = 10_000;
 
 const sessionSchema = objectSchema({
-  frameId: { description: "Optional frame id. CCR currently targets the main frame.", type: "string" },
+  frameId: { description: "Optional frame id. LLMR currently targets the main frame.", type: "string" },
   sessionId: { description: "Browser automation session id.", type: "string" },
   tabId: { description: "Built-in browser tab id.", type: "string" },
   userId: { description: "Optional logical user id.", type: "string" }
@@ -175,8 +175,8 @@ const cursorSchema = objectSchema({
 }, ["subscriptionId", "seq"]);
 
 const targetSchema = objectSchema({
-  axNodeId: { description: "Accessibility node id returned by browser_ax_snapshot/query. In CCR this is a stable element ref.", type: "string" },
-  backendNodeId: { description: "Reserved for CDP-compatible clients. CSS/ref targeting is preferred in CCR.", type: "number" },
+  axNodeId: { description: "Accessibility node id returned by browser_ax_snapshot/query. In LLMR this is a stable element ref.", type: "string" },
+  backendNodeId: { description: "Reserved for CDP-compatible clients. CSS/ref targeting is preferred in LLMR.", type: "number" },
   exact: { description: "Match text/name exactly instead of by substring.", type: "boolean" },
   index: { description: "Zero-based match index when text/role resolves multiple elements.", minimum: 0, type: "number" },
   ref: { description: "Element ref returned by browser_snapshot. Refs are CSS selectors.", type: "string" },
@@ -193,7 +193,7 @@ const browserAutomationTools: McpTool[] = [
 function browserPublicAutomationTools(): McpTool[] {
   return [
     {
-      description: "Open a URL or attach an existing CCR built-in browser tab and create an automation session.",
+      description: "Open a URL or attach an existing LLMR built-in browser tab and create an automation session.",
       inputSchema: objectSchema({
         observeOnly: { description: "If true, action tools reject this session.", type: "boolean" },
         tabId: { description: "Existing tab id to attach.", type: "string" },
@@ -201,7 +201,7 @@ function browserPublicAutomationTools(): McpTool[] {
         url: { description: "Optional URL or search query to open.", type: "string" },
         userId: { description: "Optional logical user id.", type: "string" },
         waitUntil: { description: "Readiness condition. Default/recommended: interactive, which waits until the page is inspectable/actionable and avoids long-lived network requests. network_idle is rarely appropriate for SPAs, Google, mail, chat, auth, or streaming pages.", enum: ["none", "interactive", "domcontentloaded", "load", "network_idle"], type: "string" },
-        windowId: { description: "Ignored in CCR; included for agentic-browser compatibility.", type: "string" }
+        windowId: { description: "Ignored in LLMR; included for agentic-browser compatibility.", type: "string" }
       }),
       name: "browser_session_open",
       tags: ["browser", "automation", "session", "open", "tab"],
@@ -215,29 +215,29 @@ function browserPublicAutomationTools(): McpTool[] {
       title: "Close Browser Automation Session"
     },
     {
-      description: "Create a new CCR built-in browser tab. Accepts an existing session or the fixed CCR browser window id.",
+      description: "Create a new LLMR built-in browser tab. Accepts an existing session or the fixed LLMR browser window id.",
       inputSchema: objectSchema({
         activate: { description: "Whether the new tab should become active. Defaults to true.", type: "boolean" },
         session: sessionSchema,
         url: { description: "Optional URL or search query.", type: "string" },
-        windowId: { description: "Ignored in CCR; included for compatibility.", type: "string" }
+        windowId: { description: "Ignored in LLMR; included for compatibility.", type: "string" }
       }),
       name: "browser_tab_create",
       tags: ["browser", "automation", "tab", "create"],
       title: "Create Browser Tab"
     },
     {
-      description: "List all CCR built-in browser tabs with active, loading, URL, title, and navigation state.",
+      description: "List all LLMR built-in browser tabs with active, loading, URL, title, and navigation state.",
       inputSchema: objectSchema({
         session: sessionSchema,
-        windowId: { description: "Ignored in CCR; included for compatibility.", type: "string" }
+        windowId: { description: "Ignored in LLMR; included for compatibility.", type: "string" }
       }),
       name: "browser_tab_list",
       tags: ["browser", "automation", "tab", "list"],
       title: "List Browser Tabs"
     },
     {
-      description: "Activate an existing CCR built-in browser tab.",
+      description: "Activate an existing LLMR built-in browser tab.",
       inputSchema: objectSchema({
         session: sessionSchema,
         tabId: { description: "Tab id to activate. Defaults to session.tabId.", type: "string" }
@@ -247,7 +247,7 @@ function browserPublicAutomationTools(): McpTool[] {
       title: "Activate Browser Tab"
     },
     {
-      description: "Close a CCR built-in browser tab.",
+      description: "Close an LLMR built-in browser tab.",
       inputSchema: objectSchema({
         session: sessionSchema,
         tabId: { description: "Tab id to close. Defaults to session.tabId.", type: "string" }
@@ -293,11 +293,11 @@ function browserPublicAutomationTools(): McpTool[] {
     {
       description: "Read a condensed accessibility-oriented page snapshot. Nodes include axNodeId/ref, role, name, value, text, and rect.",
       inputSchema: objectSchema({
-        includeIgnored: { description: "Included for compatibility; CCR returns visible/high-signal nodes.", type: "boolean" },
+        includeIgnored: { description: "Included for compatibility; LLMR returns visible/high-signal nodes.", type: "boolean" },
         limit: { description: "Maximum nodes to return.", maximum: 300, minimum: 1, type: "number" },
         maxDepth: { description: "Included for compatibility.", type: "number" },
         rootAxNodeId: { description: "Optional root node/ref to scope the snapshot.", type: "string" },
-        scope: { description: "full or outline. CCR returns the same compact shape for both.", enum: ["full", "outline"], type: "string" },
+        scope: { description: "full or outline. LLMR returns the same compact shape for both.", enum: ["full", "outline"], type: "string" },
         session: sessionSchema
       }, ["session"]),
       name: "browser_ax_snapshot",
@@ -307,7 +307,7 @@ function browserPublicAutomationTools(): McpTool[] {
     {
       description: "Search the page accessibility outline by role, accessible name, visible text, label, placeholder, or value.",
       inputSchema: objectSchema({
-        includeIgnored: { description: "Included for compatibility; CCR searches visible/high-signal nodes.", type: "boolean" },
+        includeIgnored: { description: "Included for compatibility; LLMR searches visible/high-signal nodes.", type: "boolean" },
         limit: { description: "Maximum matches.", maximum: 300, minimum: 1, type: "number" },
         name: { description: "Accessible name filter.", type: "string" },
         role: { description: "Role filter such as button, link, textbox, combobox.", type: "string" },
@@ -478,14 +478,14 @@ function browserPublicAutomationTools(): McpTool[] {
       title: "Clear Browser Handoff"
     },
     {
-      description: "Ask the user to confirm importing Chrome cookies and localStorage for selected domains into CCR's in-app browser. Opens a browser confirmation page; the Chrome extension performs the import after user confirmation.",
+      description: "Ask the user to confirm importing Chrome cookies and localStorage for selected domains into LLMR's in-app browser. Opens a browser confirmation page; the Chrome extension performs the import after user confirmation.",
       inputSchema: objectSchema({
         domain: { description: "Single domain to import, such as github.com. Used with domains if both are provided.", type: "string" },
-        domains: { description: "Domains to import. If omitted, CCR derives the current tab hostname.", items: { type: "string" }, type: "array" },
+        domains: { description: "Domains to import. If omitted, LLMR derives the current tab hostname.", items: { type: "string" }, type: "array" },
         openConfirmationPage: { description: "Open the system browser confirmation page. Defaults to true.", type: "boolean" },
         session: sessionSchema,
         tabId: { description: "Optional tab id used to derive a domain when domain/domains are omitted.", type: "string" },
-        target: { description: "Target CCR browser storage partition.", enum: ["browser", "browser-and-web-search"], type: "string" }
+        target: { description: "Target LLMR browser storage partition.", enum: ["browser", "browser-and-web-search"], type: "string" }
       }),
       name: "browser_chrome_login_import",
       tags: ["browser", "automation", "chrome", "login", "import", "cookies", "localStorage"],
@@ -506,7 +506,7 @@ function browserPublicAutomationTools(): McpTool[] {
 function browserLegacyAliasTools(): McpTool[] {
   return [
   {
-    description: "Open or focus the CCR built-in browser window. Optionally navigate the active tab to a URL.",
+    description: "Open or focus the LLMR built-in browser window. Optionally navigate the active tab to a URL.",
     inputSchema: objectSchema({
       url: { description: "Optional URL or search query to load in the active tab.", type: "string" }
     }),
@@ -515,14 +515,14 @@ function browserLegacyAliasTools(): McpTool[] {
     title: "Open Browser"
   },
   {
-    description: "List CCR built-in browser tabs, including active tab, URL, title, and loading state.",
+    description: "List LLMR built-in browser tabs, including active tab, URL, title, and loading state.",
     inputSchema: objectSchema({}),
     name: "browser_tabs",
     tags: ["browser", "automation", "tabs"],
     title: "List Browser Tabs"
   },
   {
-    description: "Open a new CCR built-in browser tab. Optionally load a URL or search query.",
+    description: "Open a new LLMR built-in browser tab. Optionally load a URL or search query.",
     inputSchema: objectSchema({
       url: { description: "Optional URL or search query to load in the new tab.", type: "string" }
     }),
@@ -531,7 +531,7 @@ function browserLegacyAliasTools(): McpTool[] {
     title: "New Browser Tab"
   },
   {
-    description: "Focus a CCR built-in browser tab by tabId.",
+    description: "Focus an LLMR built-in browser tab by tabId.",
     inputSchema: objectSchema({
       tabId: { description: "Tab id returned by browser_tabs or browser_tab_new.", type: "string" }
     }, ["tabId"]),
@@ -540,7 +540,7 @@ function browserLegacyAliasTools(): McpTool[] {
     title: "Activate Browser Tab"
   },
   {
-    description: "Close a CCR built-in browser tab by tabId.",
+    description: "Close an LLMR built-in browser tab by tabId.",
     inputSchema: objectSchema({
       tabId: { description: "Tab id returned by browser_tabs or browser_tab_new.", type: "string" }
     }, ["tabId"]),
@@ -549,7 +549,7 @@ function browserLegacyAliasTools(): McpTool[] {
     title: "Close Browser Tab"
   },
   {
-    description: "Navigate a CCR built-in browser tab to a URL or search query.",
+    description: "Navigate an LLMR built-in browser tab to a URL or search query.",
     inputSchema: objectSchema({
       tabId: { description: "Optional tab id. Defaults to the active tab.", type: "string" },
       url: { description: "URL or search query to load.", type: "string" }
@@ -572,7 +572,7 @@ function browserLegacyAliasTools(): McpTool[] {
     title: "Browser Page Snapshot"
   },
   {
-    description: "Click an element in the CCR built-in browser by ref, CSS selector, role, or visible text.",
+    description: "Click an element in the LLMR built-in browser by ref, CSS selector, role, or visible text.",
     inputSchema: objectSchema({
       tabId: { description: "Optional tab id. Defaults to the active tab.", type: "string" },
       target: targetSchema
@@ -582,7 +582,7 @@ function browserLegacyAliasTools(): McpTool[] {
     title: "Click Browser Element"
   },
   {
-    description: "Type text into an input, textarea, select-like textbox, or contenteditable element in the CCR built-in browser.",
+    description: "Type text into an input, textarea, select-like textbox, or contenteditable element in the LLMR built-in browser.",
     inputSchema: objectSchema({
       replaceExisting: { description: "Replace existing text. Defaults to true.", type: "boolean" },
       tabId: { description: "Optional tab id. Defaults to the active tab.", type: "string" },
@@ -607,7 +607,7 @@ function browserLegacyAliasTools(): McpTool[] {
     title: "Select Browser Option"
   },
   {
-    description: "Press a keyboard key in the CCR built-in browser. Optionally focus an element first.",
+    description: "Press a keyboard key in the LLMR built-in browser. Optionally focus an element first.",
     inputSchema: objectSchema({
       key: { description: "Electron keyCode, for example Enter, Tab, Escape, Backspace, ArrowDown.", type: "string" },
       tabId: { description: "Optional tab id. Defaults to the active tab.", type: "string" },
@@ -618,7 +618,7 @@ function browserLegacyAliasTools(): McpTool[] {
     title: "Press Browser Key"
   },
   {
-    description: "Scroll the page or a target element in the CCR built-in browser.",
+    description: "Scroll the page or a target element in the LLMR built-in browser.",
     inputSchema: objectSchema({
       deltaX: { description: "Horizontal scroll delta in pixels.", type: "number" },
       deltaY: { description: "Vertical scroll delta in pixels.", type: "number" },
@@ -736,7 +736,7 @@ class BrowserAutomationMcpService implements BrowserAutomationMcpIntegration {
             protocolVersion,
             serverInfo: {
               name: "ccr-browser-automation",
-              title: "CCR Browser Automation",
+              title: "LLMR Browser Automation",
               version: "1.0.0"
             }
           });

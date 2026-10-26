@@ -2,12 +2,12 @@
 title: LLM Router
 pageTitle: LLM Router documentation
 eyebrow: Product Documentation
-lead: "Covers what CCR does, how the docs are organized, and the recommended reading order. Start here if you are new to CCR."
+lead: "Covers what LLMR does, how the docs are organized, and the recommended reading order. Start here if you are new to LLMR."
 ---
 
-## What CCR can do
+## What LLMR can do
 
-CCR is a model gateway that runs locally (or on your own server): it receives requests from agents like Claude Code and Codex, forwards them to any provider according to your routing config, and logs everything. Core capabilities:
+LLMR is a model gateway that runs locally (or on your own server): it receives requests from agents like Claude Code and Codex, forwards them to any provider according to your routing config, and logs everything. Core capabilities:
 
 - **Connect any provider**: OpenRouter, DeepSeek, Z.AI, or any service compatible with the OpenAI, Anthropic, or Gemini APIs, with multi-key rotation and usage tracking.
 - **Smart routing**: pick models with conditional rules, rewrite requests, retry on failure, and fall back to backup models; Claude Code Subagents and Workflows can pick different models automatically.
@@ -22,7 +22,7 @@ The top-level nav holds Quick start and the featured capabilities (Fusion, ToolH
 
 | Page | Contents |
 | --- | --- |
-| [Documentation](./) | What CCR does, the doc structure, and the reading path |
+| [Documentation](./) | What LLMR does, the doc structure, and the reading path |
 | [Quick start](guides/) | Desktop, CLI, and Docker installation, plus provider and Agent Config setup; the sidebar's "Detailed configuration" group covers every settings page |
 | [Fusion](fusion/) | Combine a base model with vision, web search, MCP tools, image generation, or video generation into a new model |
 | [ToolHub](toolhub/) | Collapse many MCP servers into one dynamic tool-resolution entry point |
@@ -35,10 +35,10 @@ AgentClaw platform guides are child pages under the AgentClaw section — one pa
 
 ## Reading path
 
-New to CCR? Read in this order:
+New to LLMR? Read in this order:
 
-1. [Install and start CCR](guides/install/): choose between the desktop app, npm CLI, and Docker; see the [CLI reference](guides/cli/) for commands and [Docker deployment](guides/docker/) for containers.
+1. [Install and start LLMR](guides/install/): choose between the desktop app, npm CLI, and Docker; see the [CLI reference](guides/cli/) for commands and [Docker deployment](guides/docker/) for containers.
 2. [Add a provider](guides/provider/): add at least one provider and verify it with protocol detection and connectivity checks.
-3. [Connect Agent Config](guides/agent-profile/): point agents like Claude Code at CCR.
-4. [Enable logging and observability](guides/observability/): confirm in the request log that traffic actually goes through CCR.
+3. [Connect Agent Config](guides/agent-profile/): point agents like Claude Code at LLMR.
+4. [Enable logging and observability](guides/observability/): confirm in the request log that traffic actually goes through LLMR.
 5. Then go deeper as needed: [Detailed configuration](configuration/overview/) covers every settings page; [Routing](routing/), [Fusion](fusion/), and [AgentClaw](agentclaw/) cover the featured capabilities; [Q&A](troubleshooting/) collects common issues like 401, 404, timeouts, and unexpected routing.

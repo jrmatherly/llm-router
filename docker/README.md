@@ -2,7 +2,7 @@
 
 [中文说明](#中文说明) · [Project documentation](https://ccrdesk.top/en/) · [GitHub](https://github.com/musistudio/claude-code-router)
 
-The Docker image runs the CCR core server under PM2 and serves the built management UI through Nginx. Nginx is the only public container entrypoint: the browser UI, management RPC, gateway API, and health route all share one published port.
+The Docker image runs the LLMR core server under PM2 and serves the built management UI through Nginx. Nginx is the only public container entrypoint: the browser UI, management RPC, gateway API, and health route all share one published port.
 
 The image is intended for a persistent gateway and browser-based administration. It does not include Electron, the npm `ccr` command, system tray features, desktop Agent/App launching, automatic desktop updates, or desktop-only browser integrations.
 
@@ -35,7 +35,7 @@ npm run docker:compose:up
 docker compose logs -f ccr
 ```
 
-Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?ccr_web_token=<token>`. It is only printed when the token was generated; if you set `CCR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a new volume, the management UI is immediately available. Add a provider and model, create a CCR client key under **API Keys**, and start the gateway from **Server**.
+Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?ccr_web_token=<token>`. It is only printed when the token was generated; if you set `CCR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a new volume, the management UI is immediately available. Add a provider and model, create an LLMR client key under **API Keys**, and start the gateway from **Server**.
 
 The npm Compose script prepares a local `../../next-ai/gateway` checkout before building so the image uses that plugin-capable ai-gateway runtime. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
@@ -53,7 +53,7 @@ docker compose stop
 docker compose down
 ```
 
-Do not add `--volumes` to `docker compose down` unless you intentionally want to delete all persisted CCR data.
+Do not add `--volumes` to `docker compose down` unless you intentionally want to delete all persisted LLMR data.
 
 ## `docker run`
 
@@ -83,7 +83,7 @@ npm run docker:run
 There are two independent authentication layers:
 
 1. `CCR_WEB_AUTH_TOKEN` protects management RPC. You open the management page with it in the URL (`/?ccr_web_token=<token>`), and the browser sends it to RPC as `x-ccr-web-auth`. Nginx never sends it to a client.
-2. CCR client API keys created in the **API Keys** page protect model gateway requests. These are separate from upstream provider credentials.
+2. LLMR client API keys created in the **API Keys** page protect model gateway requests. These are separate from upstream provider credentials.
 
 If `CCR_WEB_AUTH_TOKEN` is unset, the entrypoint generates a new random token on each container start and prints the management URL once to the container log. Opening `/` without a token loads the page, but every management call fails with `401` until the token is supplied. The page keeps the token for the browser tab session. A stable token is recommended for persistent or remote deployments.
 
@@ -101,8 +101,8 @@ Security guidance:
 - Bind the published port to `127.0.0.1` unless LAN or remote access is intentional.
 - Never expose the management UI over untrusted networks without TLS, a firewall/private network, and a fixed strong management token.
 - Treat tokenized management URLs as secrets; URLs may be recorded in browser history, proxy logs, screenshots, and support tickets.
-- Create scoped CCR client API keys before exposing gateway routes. Do not reuse upstream provider credentials as client keys.
-- Protect `/data` and its backups because they contain configuration, provider credentials, CCR client keys, request data, and generated certificates.
+- Create scoped LLMR client API keys before exposing gateway routes. Do not reuse upstream provider credentials as client keys.
+- Protect `/data` and its backups because they contain configuration, provider credentials, LLMR client keys, request data, and generated certificates.
 
 ## Changing The Public Address
 
@@ -118,7 +118,7 @@ services:
       CCR_WEB_AUTH_TOKEN: ${CCR_WEB_AUTH_TOKEN:?set CCR_WEB_AUTH_TOKEN}
 ```
 
-`CCR_PUBLIC_BASE_URL` is written to CCR's public router endpoint. It does not publish a Docker port by itself.
+`CCR_PUBLIC_BASE_URL` is written to LLMR's public router endpoint. It does not publish a Docker port by itself.
 
 For a reverse proxy or ingress that terminates HTTPS:
 
@@ -136,10 +136,10 @@ Proxy all paths to Nginx and preserve streaming. The external proxy should allow
 
 ## Persistent Data
 
-The entrypoint sets `HOME=/data`, so CCR stores files under:
+The entrypoint sets `HOME=/data`, so LLMR stores files under:
 
 ```text
-/data/.claude-code-router/
+/data/.llm-router/
 ├── config.sqlite
 ├── gateway.config.json
 ├── app-data/
@@ -151,7 +151,7 @@ The entrypoint sets `HOME=/data`, so CCR stores files under:
 └── bin/
 ```
 
-Use a named volume unless a bind mount is operationally required. Bind mounts must be writable by the container and should not be shared by two running CCR containers.
+Use a named volume unless a bind mount is operationally required. Bind mounts must be writable by the container and should not be shared by two running LLMR containers.
 
 The first-run bootstrap writes a minimal legacy `config.json` only when neither `config.json` nor `config.sqlite` exists. When the UI saves current settings, SQLite becomes authoritative. By default, every container start also synchronizes the stored gateway listener and `routerEndpoint` to the Docker public endpoint.
 
@@ -167,7 +167,7 @@ docker compose start ccr
 
 Keep the backup private. It contains secrets and may include request/response data.
 
-For a full restore, use a new empty volume or empty `/data` directory, copy the backup contents into it while the CCR container is stopped, then start the container. Do not overlay an old backup onto a populated live volume: stale SQLite WAL/SHM files and newer runtime files can produce an inconsistent result. Make a second backup before replacing existing data.
+For a full restore, use a new empty volume or empty `/data` directory, copy the backup contents into it while the LLMR container is stopped, then start the container. Do not overlay an old backup onto a populated live volume: stale SQLite WAL/SHM files and newer runtime files can produce an inconsistent result. Make a second backup before replacing existing data.
 
 ## Upgrade And Rollback
 
@@ -190,7 +190,7 @@ Most deployments should set only `CCR_WEB_AUTH_TOKEN`, `CCR_PUBLIC_BASE_URL`, an
 | Variable | Default | Description |
 | --- | --- | --- |
 | `CCR_WEB_AUTH_TOKEN` | Random per container start | Management UI/RPC token. Set a stable strong value for persistent or remote use. |
-| `CCR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Exact public gateway/UI base URL written into CCR configuration. Overrides `CCR_PUBLIC_HOST` and `CCR_PUBLIC_PORT`. |
+| `CCR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Exact public gateway/UI base URL written into LLMR configuration. Overrides `CCR_PUBLIC_HOST` and `CCR_PUBLIC_PORT`. |
 | `CCR_PUBLIC_HOST` | `127.0.0.1` | Used only to derive `CCR_PUBLIC_BASE_URL` when the full URL is unset; it does not change Docker port publishing. |
 | `CCR_PUBLIC_PORT` | `3458` | Used only to derive `CCR_PUBLIC_BASE_URL` when the full URL is unset. |
 | `CCR_DATA_DIR` | `/data` | Container data root and process `HOME`. Mount persistent storage here. |
@@ -261,13 +261,13 @@ Verify that the host directory exists, is writable by the container, and is not 
 
 ### The container is healthy but model requests fail
 
-Container health only verifies Nginx/UI reachability. Check **Server** status, provider connectivity, CCR client-key authentication, routing, and request logs. Then inspect `docker compose logs --tail=200 ccr` for startup or runtime errors.
+Container health only verifies Nginx/UI reachability. Check **Server** status, provider connectivity, LLMR client-key authentication, routing, and request logs. Then inspect `docker compose logs --tail=200 ccr` for startup or runtime errors.
 
 ---
 
 ## 中文说明
 
-Docker 镜像通过 PM2 运行 CCR Core，并由 Nginx 同时提供管理 UI、管理 RPC、模型网关和健康检查。对外只应发布 Nginx 的容器端口 `8080`；`3459` 和 `3456` 是容器内部实现端口，不应单独暴露。
+Docker 镜像通过 PM2 运行 LLMR Core，并由 Nginx 同时提供管理 UI、管理 RPC、模型网关和健康检查。对外只应发布 Nginx 的容器端口 `8080`；`3459` 和 `3456` 是容器内部实现端口，不应单独暴露。
 
 这个镜像面向常驻网关和浏览器管理，不包含 Electron、npm 的 `ccr` 命令、系统托盘、桌面 Agent/App 启动、桌面自动更新和桌面专属浏览器集成。
 
@@ -278,7 +278,7 @@ npm run docker:compose:up
 docker compose logs -f ccr
 ```
 
-打开容器日志中打印的管理地址 `http://127.0.0.1:3458/?ccr_web_token=<token>`（仅在 Token 自动生成时打印；自行设置了 `CCR_WEB_AUTH_TOKEN` 时，请自行拼到地址后）。首次启动时管理 UI 可以立即访问；添加供应商和模型、在 **API 密钥** 页面创建 CCR 客户端 Key，然后从 **服务** 页面启动网关。
+打开容器日志中打印的管理地址 `http://127.0.0.1:3458/?ccr_web_token=<token>`（仅在 Token 自动生成时打印；自行设置了 `CCR_WEB_AUTH_TOKEN` 时，请自行拼到地址后）。首次启动时管理 UI 可以立即访问；添加供应商和模型、在 **API 密钥** 页面创建 LLMR 客户端 Key，然后从 **服务** 页面启动网关。
 
 这个 npm Compose 脚本会在构建前准备本机的 `../../next-ai/gateway` checkout，让镜像使用支持插件的 ai-gateway runtime。如果直接运行 `docker compose up -d --build`，请先执行 `npm run docker:prepare-gateway`。`npm run docker:build` 也会自动打包这份本地 ai-gateway。
 
@@ -292,8 +292,8 @@ ports:
 ### 鉴权与远程访问
 
 - `CCR_WEB_AUTH_TOKEN` 用于管理 UI / RPC；不设置时，每次容器启动都会生成新的随机 Token。
-- **API 密钥** 页面创建的 CCR 客户端 Key 用于模型网关请求。
-- 上游供应商凭据是第三类凭据，不应拿来代替 CCR 客户端 Key。
+- **API 密钥** 页面创建的 LLMR 客户端 Key 用于模型网关请求。
+- 上游供应商凭据是第三类凭据，不应拿来代替 LLMR 客户端 Key。
 
 Nginx 不会向客户端返回 Token：根路径只会跳转到管理页，并保留请求中已有的 `ccr_web_token` 参数。自动生成的 Token 会在容器日志中打印一次，请把含 Token 的 URL 当作密码。远程部署至少应使用固定强 Token、TLS、主机防火墙或私网，并让反向代理把全部路径转发到 Nginx。流式响应和 SSE 不应被代理缓冲。
 
@@ -309,7 +309,7 @@ environment:
 
 ### 数据、备份与升级
 
-数据实际位于 `/data/.claude-code-router/`，其中包括 `config.sqlite`、`app-data/`、Agent 配置和生成文件。优先使用命名卷，不要让两个运行中的 CCR 容器共享同一个数据目录。
+数据实际位于 `/data/.llm-router/`，其中包括 `config.sqlite`、`app-data/`、Agent 配置和生成文件。优先使用命名卷，不要让两个运行中的 LLMR 容器共享同一个数据目录。
 
 完整文件备份前先停止写入：
 
@@ -335,6 +335,6 @@ docker compose logs --tail=200 ccr
 - `/health` 返回 `502`：它检查的是模型网关；首次启动尚未配置模型时属于预期行为。
 - 修改 Token 后 UI 返回 `401`：用当前 Token 重新打开 `/?ccr_web_token=<token>`，关闭仍使用旧 Token 的标签页。
 - 重建后配置消失：检查是否仍挂载同一个 `/data` 卷；`docker compose down --volumes` 会删除数据卷。
-- 容器健康但模型请求失败：继续检查服务状态、供应商连通性、CCR 客户端 Key、路由和请求日志；容器健康只表示 Nginx / UI 可访问。
+- 容器健康但模型请求失败：继续检查服务状态、供应商连通性、LLMR 客户端 Key、路由和请求日志；容器健康只表示 Nginx / UI 可访问。
 
 完整的环境变量、端口拓扑、远程部署、构建参数和烟雾测试说明见本页英文主体，对应变量名和命令在中英文环境中完全相同。

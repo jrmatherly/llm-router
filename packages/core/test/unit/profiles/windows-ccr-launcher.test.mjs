@@ -3,7 +3,7 @@ import path from "node:path";
 import test from "node:test";
 import { windowsCcrLauncher } from "@ccr/core/profiles/launch-service.ts";
 
-test("Windows CCR launcher prepares CLI profiles before direct TTY dispatch", { skip: process.platform !== "win32" }, () => {
+test("Windows LLMR launcher prepares CLI profiles before direct TTY dispatch", { skip: process.platform !== "win32" }, () => {
   const config = {
     profile: {
       profiles: [
@@ -19,7 +19,7 @@ test("Windows CCR launcher prepares CLI profiles before direct TTY dispatch", { 
       ]
     }
   };
-  const runtimeFile = path.join("C:\\CCR", "ccr-cli.js");
+  const runtimeFile = path.join("C:\\LLMR", "ccr-cli.js");
   const launcher = windowsCcrLauncher(runtimeFile, config);
 
   assert.match(launcher, /if \/I "%~1"=="Claude Main" goto ccr_profile_0/);

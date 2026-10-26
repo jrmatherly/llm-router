@@ -123,8 +123,8 @@ const logoSrc = withBase("/logo.png");
 const pageDescription =
   description ??
   (locale === "zh"
-    ? "LLM Router（CCR）文档：安装、配置、供应商接入与故障排查指南。"
-    : "LLM Router (CCR) documentation: installation, configuration, provider setup, and troubleshooting guides.");
+    ? "LLM Router 文档：安装、配置、供应商接入与故障排查指南。"
+    : "LLM Router documentation: installation, configuration, provider setup, and troubleshooting guides.");
 const pageTitle = isHome && docTitle ? String(docTitle) : `${title} | LLM Router`;
 const canonicalUrl = absoluteHref(currentPath);
 const ogImageUrl = absoluteHref("/logo.png");
@@ -190,7 +190,7 @@ const featuredNavLabel = locale === "zh" ? "主要入口" : "Primary navigation"
         <div class="top-left">
           <a class="brand" href={homeHref} aria-label="LLM Router Docs">
             <img src={logoSrc} alt="" class="brand-logo" />
-            <span>CCR docs</span>
+            <span>LLMR docs</span>
           </a>
 
           <details class="language-switcher">

@@ -5,7 +5,7 @@ import {
   isProfileAppRunningWithProbeForTest
 } from "@ccr/core/profiles/launch-service.ts";
 
-const userDataDir = "/Users/example/.claude-code-router/profiles/codex/codex/.claude-code-router/codex-app-user-data/codex";
+const userDataDir = "/Users/example/.llm-router/profiles/codex/codex/.llm-router/codex-app-user-data/codex";
 
 test("profile app process detection ignores persistent Chromium helper processes", () => {
   const main = `/Applications/ChatGPT.app/Contents/MacOS/ChatGPT --remote-debugging-port=0 --user-data-dir=${userDataDir}`;

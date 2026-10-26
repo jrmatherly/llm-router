@@ -118,9 +118,9 @@ export function translateProxyCertificateMessage(message: string | undefined, tr
     return `${translate("Proxy CA certificate is not trusted:")} ${message.slice(notTrustedPrefix.length)}`;
   }
 
-  const macosAuthorizationPrefix = "macOS did not allow CCR to request administrator authorization: ";
+  const macosAuthorizationPrefix = "macOS did not allow LLMR to request administrator authorization: ";
   if (message.startsWith(macosAuthorizationPrefix)) {
-    return `${translate("macOS did not allow CCR to request administrator authorization:")} ${translateMacosAuthorizationDetail(message.slice(macosAuthorizationPrefix.length), translate)}`;
+    return `${translate("macOS did not allow LLMR to request administrator authorization:")} ${translateMacosAuthorizationDetail(message.slice(macosAuthorizationPrefix.length), translate)}`;
   }
 
   return translate(message);
@@ -140,7 +140,7 @@ export function proxyCertificateTrustSteps(status: ProxyCertificateStatus): stri
   if (status.platform === "darwin") {
     return [
       "Click Install CA and approve the administrator prompt to install it into the System keychain.",
-      "If trust is still not detected, open Keychain Access > System and find the CCR MITM Proxy certificate.",
+      "If trust is still not detected, open Keychain Access > System and find the \"Claude Code Router CA\" certificate.",
       "Open Trust, set When using this certificate to Always Trust, then restart the browser or client.",
       "Return here and click Check Trust."
     ];

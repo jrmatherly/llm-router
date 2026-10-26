@@ -26,7 +26,7 @@ const claudeAppGatewayModelRouteOptions: ClaudeAppGatewayModelRouteOptions = {
 };
 
 export const NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE =
-  "No enabled claude-code profile can open the Claude App. Set a profile's Entry mode to App or Auto to configure the Claude App for CCR.";
+  "No enabled claude-code profile can open the Claude App. Set a profile's Entry mode to App or Auto to configure the Claude App for LLMR.";
 
 type ClaudeAppGatewayConfig = {
   bootstrapEnabled: false;
@@ -186,7 +186,7 @@ export function applyClaudeAppGatewayConfig(config: AppConfig, options: ClaudeAp
       configLibraryFile: activePaths.configLibraryFile,
       dataDir: activePaths.dataDir,
       endpoint,
-      message: `Claude App is configured for CCR gateway at ${endpoint}. Restart Claude App if it is already open.`,
+      message: `Claude App is configured for LLMR gateway at ${endpoint}. Restart Claude App if it is already open.`,
       model,
       requiresRestart: true
     }

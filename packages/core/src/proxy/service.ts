@@ -428,7 +428,7 @@ class ProxyService {
         return {
           caCertFile: proxyCaCertFile(),
           manualCommand: macosManualCertificateInstallCommand(),
-          message: `macOS did not allow CCR to request administrator authorization: ${formatError(error)}.${terminalMessage}`,
+          message: `macOS did not allow LLMR to request administrator authorization: ${formatError(error)}.${terminalMessage}`,
           ok: false,
           status
         };
@@ -1603,13 +1603,13 @@ function macosTerminalCertificateInstallScript(): string {
   return [
     "#!/bin/zsh",
     "set -e",
-    "echo 'Installing CCR Proxy CA into the macOS System keychain.'",
+    "echo 'Installing LLMR Proxy CA into the macOS System keychain.'",
     "echo 'Terminal will ask for your macOS password if sudo is required.'",
     "echo ''",
     "sudo /usr/bin/security delete-certificate -c 'Claude Code Router CA' /Library/Keychains/System.keychain >/dev/null 2>&1 || true",
     `sudo /usr/bin/security add-trusted-cert -d -r trustRoot -p ssl -k /Library/Keychains/System.keychain ${quoteShellArg(PROXY_CA_CERT_FILE)}`,
     "echo ''",
-    "echo 'Done. Return to CCR, click Check Trust, then restart proxy mode and Chrome.'",
+    "echo 'Done. Return to LLMR, click Check Trust, then restart proxy mode and Chrome.'",
     "printf 'Press Return to close this window...'",
     "read reply"
   ].join("\n");

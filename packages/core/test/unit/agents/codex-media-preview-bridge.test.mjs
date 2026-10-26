@@ -57,7 +57,7 @@ test("Codex App launch uses a random loopback DevTools port and removes stale di
   }
 });
 
-test("Codex media artifact URLs are restricted to the configured CCR origin, current path, UUID, and token", () => {
+test("Codex media artifact URLs are restricted to the configured LLMR origin, current path, UUID, and token", () => {
   const endpoint = "http://127.0.0.1:3457";
   const valid = `${endpoint}/__ccr/media/artifacts/${imageId}?token=${token}`;
   assert.deepEqual(codexMediaPreviewBridgeForTest.validateUrl(valid, endpoint), {

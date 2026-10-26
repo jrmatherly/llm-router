@@ -27,9 +27,9 @@ Connect Claude Code, Claude Design, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCo
 
 ## Why use LLM Router?
 
-LLM Router (CCR) is a local model gateway and control plane for coding agents. It gives Claude Code, Claude Design, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCode, Pi, ZCode, WorkBuddy, and compatible API clients **one stable local endpoint**, while you manage the providers, models, accounts, routing rules, and tools behind it from one place.
+LLM Router (LLMR) is a local model gateway and control plane for coding agents. It gives Claude Code, Claude Design, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCode, Pi, ZCode, WorkBuddy, and compatible API clients **one stable local endpoint**, while you manage the providers, models, accounts, routing rules, and tools behind it from one place.
 
-Use CCR to:
+Use LLMR to:
 
 - **Manage all agents and providers together** instead of maintaining a separate model configuration for every client.
 - **Switch providers or models without changing your workflow** or repeatedly editing agent configuration files.
@@ -37,7 +37,7 @@ Use CCR to:
 - **Add capabilities to existing models** with Fusion vision, web search, MCP tools, and ToolHub.
 - **See what actually happened** through request logs, resolved routes, latency, token usage, cost estimates, and account status.
 
-CCR supports OpenAI Chat / Responses, Anthropic Messages, Gemini Generate Content / Interactions, OpenRouter, DeepSeek, SiliconFlow, Moonshot, Kimi Code, Mistral, Z.AI, Bailian, and custom compatible providers.
+LLMR supports OpenAI Chat / Responses, Anthropic Messages, Gemini Generate Content / Interactions, OpenRouter, DeepSeek, SiliconFlow, Moonshot, Kimi Code, Mistral, Z.AI, Bailian, and custom compatible providers.
 
 <details open>
 <summary><strong>Supported Agents</strong></summary>
@@ -176,7 +176,7 @@ CCR supports OpenAI Chat / Responses, Anthropic Messages, Gemini Generate Conten
 4. Open **Agent Config**, choose Claude Code, Claude Design, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCode, Pi, ZCode, or WorkBuddy, select a model, and apply the profile.
 5. Start using your agent. Open **Logs** to confirm the resolved provider, model, status, tokens, latency, and errors.
 
-Your agent is now connected to CCR. To add conditions, retries, request rewrites, or fallback models, open **Routing**.
+Your agent is now connected to LLMR. To add conditions, retries, request rewrites, or fallback models, open **Routing**.
 
 ### CLI
 
@@ -195,7 +195,7 @@ Open `http://127.0.0.1:3458`, then follow the same **Providers → Server → Ag
 npm run docker:compose:up
 ```
 
-Docker exposes the management UI and gateway routes through `http://127.0.0.1:3458` by default. The npm script prepares the local plugin-capable ai-gateway runtime before building the image when `../../next-ai/gateway` exists. Read the [Docker deployment guide](https://ccrdesk.top/en/guides/docker/) before exposing CCR remotely.
+Docker exposes the management UI and gateway routes through `http://127.0.0.1:3458` by default. The npm script prepares the local plugin-capable ai-gateway runtime before building the image when `../../next-ai/gateway` exists. Read the [Docker deployment guide](https://ccrdesk.top/en/guides/docker/) before exposing LLMR remotely.
 
 ## Build desktop apps
 
@@ -229,7 +229,7 @@ Claude Code · Claude Design · Codex · Grok CLI · Kimi CLI · Kilo Code · Op
 | **Providers** | Presets and custom endpoints; protocol probing; model discovery; connectivity checks; local login import where supported; single keys and credential pools |
 | **Models & routing** | Searchable catalog; model descriptions for task selection; conditions on headers and bodies; prefixes; rewrites; retries; ordered fallbacks |
 | **Tools & extensions** | Fusion models; ToolHub; built-in browser automation; Chrome login-state import; wrapper and core gateway plugins; local routes and virtual models |
-| **Access & quotas** | Separate CCR client keys with expiration and local request, token, and image limits |
+| **Access & quotas** | Separate LLMR client keys with expiration and local request, token, and image limits |
 | **Observability** | Request and response details; resolved provider, model, and credential; status; latency; tokens; estimated cost; tool calls; agent traces |
 | **AgentClaw** | Agent relay through Weixin iLink, WeCom, Slack, Discord, Telegram, LINE, Feishu, and DingTalk |
 
@@ -237,7 +237,7 @@ Claude Code · Claude Design · Codex · Grok CLI · Kimi CLI · Kilo Code · Op
 
 The complete documentation lives at **[ccrdesk.top](https://ccrdesk.top/)**.
 
-- [Install and launch CCR](https://ccrdesk.top/en/guides/install/)
+- [Install and launch LLMR](https://ccrdesk.top/en/guides/install/)
 - [Configure providers](https://ccrdesk.top/en/guides/provider/)
 - [Explore routing and configuration](https://ccrdesk.top/en/configuration/)
 - [Use the CLI](https://ccrdesk.top/en/guides/cli/)

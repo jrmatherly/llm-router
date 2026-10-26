@@ -267,7 +267,7 @@ export function MediaModelConfigurationPanel({
           ))
         )}
       </div>
-      <p className="text-[11px] leading-4 text-muted-foreground">{t("CCR routes media through the selected ai-gateway provider. Imported Grok Agents reuse their existing login automatically.")}</p>
+      <p className="text-[11px] leading-4 text-muted-foreground">{t("LLMR routes media through the selected ai-gateway provider. Imported Grok Agents reuse their existing login automatically.")}</p>
     </div>
   );
 }

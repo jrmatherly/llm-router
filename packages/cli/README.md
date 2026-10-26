@@ -9,7 +9,7 @@ Use the CLI on developer machines and headless hosts. If you want the tray, desk
 ## Requirements And Installation
 
 - Node.js 22 or newer
-- A supported upstream model provider, or a locally logged-in agent account that CCR can import
+- A supported upstream model provider, or a locally logged-in agent account that LLMR can import
 - A locally installed agent executable when using profile launch commands
 
 Install globally:
@@ -26,7 +26,7 @@ npm install -g @musistudio/claude-code-router@latest
 npm uninstall -g @musistudio/claude-code-router
 ```
 
-Removing the package does not delete CCR's local configuration or databases.
+Removing the package does not delete LLMR's local configuration or databases.
 
 ## Quick Start
 
@@ -39,12 +39,12 @@ ccr ui
 Then:
 
 1. Add an upstream provider and at least one model.
-2. Create a CCR client key under **API Keys**.
+2. Create an LLMR client key under **API Keys**.
 3. Configure routing if the default provider/model is not sufficient.
 4. Confirm that the gateway is running under **Server**.
 5. Point your client at the gateway URL shown in the UI. The default gateway is `http://127.0.0.1:3456`; the management UI defaults to `http://127.0.0.1:3458`.
 
-The management token and CCR client API keys are different credentials. The management token protects the browser UI and RPC API. CCR client keys authenticate model requests sent to the gateway.
+The management token and LLMR client API keys are different credentials. The management token protects the browser UI and RPC API. LLMR client keys authenticate model requests sent to the gateway.
 
 ## Service Commands
 
@@ -84,7 +84,7 @@ ccr serve [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gat
 
 `serve` stays attached to the current terminal and handles `SIGINT`/`SIGTERM`. It is the appropriate mode for a process supervisor. `ccr stop` only manages the detached service; stop a foreground server through its terminal or supervisor.
 
-If the preferred management port is occupied, CCR tries the next available ports and prints the actual URL. When `start` or `ui` reuses an existing service, new host, port, and `--no-gateway` choices do not reconfigure that process. Run `ccr stop` first when those settings must change.
+If the preferred management port is occupied, LLMR tries the next available ports and prints the actual URL. When `start` or `ui` reuses an existing service, new host, port, and `--no-gateway` choices do not reconfigure that process. Run `ccr stop` first when those settings must change.
 
 ## Agent Profiles
 
@@ -104,11 +104,11 @@ ccr <profile-name-or-id> [cli|app] [-- <agent arguments>]
 ```
 
 - `--cli` and `--app` are accepted alternatives to the positional surface.
-- Put agent-specific arguments after `--` so they cannot be confused with CCR options.
-- If the surface is omitted, CCR uses the first surface allowed by the profile: CLI for Claude Code, Codex, Grok CLI, Kimi CLI, and Pi; App for ZCode.
+- Put agent-specific arguments after `--` so they cannot be confused with LLMR options.
+- If the surface is omitted, LLMR uses the first surface allowed by the profile: CLI for Claude Code, Codex, Grok CLI, Kimi CLI, and Pi; App for ZCode.
 - Grok CLI, Kimi CLI, and Pi support CLI only. ZCode supports App only. Claude App and ZCode App do not accept trailing agent arguments.
 - Desktop App launches require that app to be installed and a graphical session to be available.
-- Start the CCR service before opening most profiles. Grok CLI, Kimi CLI, and Pi profiles can start a temporary shared service automatically and stop it after the last managed session exits.
+- Start the LLMR service before opening most profiles. Grok CLI, Kimi CLI, and Pi profiles can start a temporary shared service automatically and stop it after the last managed session exits.
 
 The desktop application installs a related command named `ccr-app`. Commands copied from desktop Agent Profiles cards use `ccr-app`; the npm package documented here installs `ccr`.
 
@@ -116,7 +116,7 @@ The desktop application installs a related command named `ccr-app`. Commands cop
 
 | Platform | Config directory |
 | --- | --- |
-| macOS / Linux | `~/.claude-code-router` |
+| macOS / Linux | `~/.llm-router` |
 | Windows | `%APPDATA%\claude-code-router` |
 
 Important files include:
@@ -127,7 +127,7 @@ Important files include:
 - `gateway.config.json`: generated gateway runtime configuration.
 - `profiles/` and `bin/`: isolated profile configuration and launch wrappers.
 
-Do not edit or copy live SQLite files while CCR is writing to them. Use the UI export feature, or stop CCR before taking a filesystem backup.
+Do not edit or copy live SQLite files while LLMR is writing to them. Use the UI export feature, or stop LLMR before taking a filesystem backup.
 
 ## Environment And Security
 
@@ -139,7 +139,7 @@ Do not edit or copy live SQLite files while CCR is writing to them. Use the UI e
 
 The authenticated management URL contains `ccr_web_token` in its query string. Treat that URL like a password and avoid copying it into logs, tickets, or shell history. Bind to `127.0.0.1` unless remote access is intentional. For remote access, use a firewall or private network plus TLS at a trusted reverse proxy.
 
-Do not expose the gateway without creating CCR client API keys. Upstream provider credentials are stored in CCR's local data directory, so protect that directory and its backups.
+Do not expose the gateway without creating LLMR client API keys. Upstream provider credentials are stored in LLMR's local data directory, so protect that directory and its backups.
 
 ## Troubleshooting
 
@@ -156,7 +156,7 @@ Open a new shell after installation if your shell caches command paths.
 
 ### The management URL changed ports
 
-The requested port was already occupied. Use the URL printed by CCR, or stop the conflicting process and restart CCR.
+The requested port was already occupied. Use the URL printed by LLMR, or stop the conflicting process and restart LLMR.
 
 ### The UI opens but the gateway is unavailable
 

@@ -390,7 +390,7 @@ function applyClaudeDesignProfile(profile: ProfileConfig, appliedAt: string): Pr
     appliedAt,
     client: "claude-design",
     enabled: profile.enabled,
-    message: "Claude Design profile is managed by CCR Desktop.",
+    message: "Claude Design profile is managed by LLMR Desktop.",
     ok: true,
     path: resolveUserPath(CONFIGDIR)
   };
@@ -492,8 +492,8 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
       client: "claude-code",
       enabled: true,
       message: changed
-        ? `Claude Code settings are managed by CCR (wrapper ${wrapperResult.file}).`
-        : "Claude Code settings already match CCR.",
+        ? `Claude Code settings are managed by LLMR (wrapper ${wrapperResult.file}).`
+        : "Claude Code settings already match LLMR.",
       ok: true,
       path: settingsFile
     };
@@ -647,8 +647,8 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
       client: profile.agent,
       enabled: true,
       message: changed
-        ? `${clientName} config is managed by CCR${extras.length ? ` (${extras.join(", ")})` : ""}.`
-        : `${clientName} config already matches CCR.`,
+        ? `${clientName} config is managed by LLMR${extras.length ? ` (${extras.join(", ")})` : ""}.`
+        : `${clientName} config already matches LLMR.`,
       ok: true,
       path: configFile
     };
@@ -677,8 +677,8 @@ function applyGrokProfile(config: AppConfig, profile: ProfileConfig, token: stri
       client: "grok",
       enabled: true,
       message: wrapperResult.changed
-        ? `Grok CLI is configured to use CCR (wrapper ${wrapperResult.file}).`
-        : "Grok CLI already points to CCR.",
+        ? `Grok CLI is configured to use LLMR (wrapper ${wrapperResult.file}).`
+        : "Grok CLI already points to LLMR.",
       ok: true,
       path: wrapperResult.file
     };
@@ -708,8 +708,8 @@ function applyKimiProfile(config: AppConfig, profile: ProfileConfig, token: stri
       client: "kimi",
       enabled: true,
       message: wrapperResult.changed
-        ? `Kimi CLI is configured to use CCR (wrapper ${wrapperResult.file}).`
-        : "Kimi CLI already points to CCR.",
+        ? `Kimi CLI is configured to use LLMR (wrapper ${wrapperResult.file}).`
+        : "Kimi CLI already points to LLMR.",
       ok: true,
       path: wrapperResult.file
     };
@@ -738,8 +738,8 @@ function applyPiProfile(config: AppConfig, profile: ProfileConfig, token: string
       client: "pi",
       enabled: true,
       message: wrapperResult.changed
-        ? `Pi is configured to use CCR (config ${wrapperResult.configFile}, wrapper ${wrapperResult.file}).`
-        : "Pi config already matches CCR.",
+        ? `Pi is configured to use LLMR (config ${wrapperResult.configFile}, wrapper ${wrapperResult.file}).`
+        : "Pi config already matches LLMR.",
       ok: true,
       path: wrapperResult.configFile
     };
@@ -775,8 +775,8 @@ function applyOpenCodeProfile(config: AppConfig, profile: ProfileConfig, token: 
       client: "opencode",
       enabled: true,
       message: configResult.changed || wrapperResult.changed
-        ? `OpenCode is configured to use CCR (config ${configResult.file}, wrapper ${wrapperResult.file}).`
-        : "OpenCode config already matches CCR.",
+        ? `OpenCode is configured to use LLMR (config ${configResult.file}, wrapper ${wrapperResult.file}).`
+        : "OpenCode config already matches LLMR.",
       ok: true,
       path: configResult.file
     };
@@ -812,8 +812,8 @@ function applyKiloProfile(config: AppConfig, profile: ProfileConfig, token: stri
       client: "kilo",
       enabled: true,
       message: configResult.changed || wrapperResult.changed
-        ? `Kilo CLI is configured to use CCR (config ${configResult.file}, wrapper ${wrapperResult.file}).`
-        : "Kilo CLI config already matches CCR.",
+        ? `Kilo CLI is configured to use LLMR (config ${configResult.file}, wrapper ${wrapperResult.file}).`
+        : "Kilo CLI config already matches LLMR.",
       ok: true,
       path: configResult.file
     };
@@ -857,8 +857,8 @@ function applyZcodeProfile(config: AppConfig, profile: ProfileConfig, token: str
       client: "zcode",
       enabled: true,
       message: changed
-        ? `ZCode config is managed by CCR${extras.length ? ` (${extras.join(", ")})` : ""}.`
-        : "ZCode config already matches CCR.",
+        ? `ZCode config is managed by LLMR${extras.length ? ` (${extras.join(", ")})` : ""}.`
+        : "ZCode config already matches LLMR.",
       ok: true,
       path: configResult.file
     };
@@ -1066,7 +1066,7 @@ function writeCodexToolHubMcpRuntimeConfig(config: AppConfig, token: string): { 
 function ensureToolHubMcpRuntimeFile(file: string): { changed: boolean } {
   const source = bundledToolHubMcpEntryPathCandidates().find((candidate) => existsSync(candidate));
   if (!source) {
-    throw new Error(`ToolHub MCP runtime was not found. Rebuild or reinstall CCR and try again. Checked: ${bundledToolHubMcpEntryPathCandidates().join(", ")}`);
+    throw new Error(`ToolHub MCP runtime was not found. Rebuild or reinstall LLMR and try again. Checked: ${bundledToolHubMcpEntryPathCandidates().join(", ")}`);
   }
   return writeGeneratedFileIfChanged(file, readFileSync(source, "utf8"), { mode: publicExecutableMode });
 }
@@ -3739,7 +3739,7 @@ function inactiveGlobalCleanupStatus(
     client,
     enabled: false,
     message: restoreResult.missingBackup
-      ? `No active global ${codexCompatibleClientName(client)} profile is configured, but the global config is managed by CCR and no original backup was found.`
+      ? `No active global ${codexCompatibleClientName(client)} profile is configured, but the global config is managed by LLMR and no original backup was found.`
       : `${codexCompatibleClientName(client)} global config was restored because no active global profile is configured.`,
     ok: !restoreResult.missingBackup,
     path: resolveUserPath(file)
@@ -3805,8 +3805,8 @@ function restoreDisabledZcodeProfile(profile: ProfileConfig, configFile: string)
       ? `${disabledMessage} No original ZCode config backup was found for ${profile.name || profile.id || "this profile"}.`
       : restored
         ? changed
-          ? "ZCode config was restored from the CCR backup because the global profile is disabled."
-          : "ZCode config already matches the CCR backup; profile is disabled."
+          ? "ZCode config was restored from the LLMR backup because the global profile is disabled."
+          : "ZCode config already matches the LLMR backup; profile is disabled."
         : disabledMessage,
     ok: !missingBackup,
     path: resolveUserPath(configFile)
@@ -3828,8 +3828,8 @@ function disabledRestoreStatus(
       ? `${disabledMessage} No original ${codexCompatibleClientName(client)} config backup was found for ${profileName}.`
       : restoreResult.restored
         ? restoreResult.changed
-          ? `${codexCompatibleClientName(client)} config was restored from the CCR backup because the global profile is disabled.`
-          : `${codexCompatibleClientName(client)} config already matches the CCR backup; profile is disabled.`
+          ? `${codexCompatibleClientName(client)} config was restored from the LLMR backup because the global profile is disabled.`
+          : `${codexCompatibleClientName(client)} config already matches the LLMR backup; profile is disabled.`
         : disabledMessage,
     ok: !restoreResult.missingBackup,
     path: resolveUserPath(file)
@@ -4186,7 +4186,7 @@ function defaultCodexConfigFile(agent: ProfileConfig["agent"]): string {
     : agent === "pi"
       ? "~/.pi/agent"
       : agent === "claude-design"
-        ? "~/.claude-code-router/claude-design"
+        ? "~/.llm-router/claude-design"
         : "~/.codex/config.toml";
 }
 

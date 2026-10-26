@@ -87,7 +87,7 @@ test("loads the Electron preload bridge and IPC contract", async () => {
   const gatewayStatus = await page.evaluate(async () => window.ccr?.getGatewayStatus());
   expect(gatewayStatus?.state).toBe("stopped");
 
-  const configDir = path.join(current.testHome, ".claude-code-router");
+  const configDir = path.join(current.testHome, ".llm-router");
   const configDbFile = path.join(configDir, "config.sqlite");
   expect(existsSync(configDbFile)).toBe(true);
   expect(existsSync(path.join(configDir, "config.json"))).toBe(false);
@@ -128,7 +128,7 @@ test("starts the managed gateway from IPC without runtime config JSON", async ()
   });
 
   expect(status?.state).toBe("running");
-  const configDir = path.join(current.testHome, ".claude-code-router");
+  const configDir = path.join(current.testHome, ".llm-router");
   expect(existsSync(path.join(configDir, "gateway.config.json"))).toBe(false);
   expect(existsSync(path.join(configDir, "gateway-runtime.json"))).toBe(false);
 
@@ -199,7 +199,7 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
   const workbuddyStatus = result.applyResult?.clients.find((client) => client.client === "workbuddy");
   expect(workbuddyStatus?.ok, workbuddyStatus?.message).toBe(true);
 
-  const configDir = path.join(current.testHome, ".claude-code-router");
+  const configDir = path.join(current.testHome, ".llm-router");
   const profileHome = path.join(configDir, "profiles", profileId, "workbuddy");
   const configFile = path.join(profileHome, "config.toml");
   const launcherFile = path.join(
@@ -335,7 +335,7 @@ function writeElectronE2eConfig(
   testHome: string,
   ports: { gatewayCorePort: number; gatewayPort: number; proxyPort: number }
 ): void {
-  const configDir = path.join(testHome, ".claude-code-router");
+  const configDir = path.join(testHome, ".llm-router");
   mkdirSync(configDir, { recursive: true });
   writeFileSync(path.join(configDir, "config.json"), JSON.stringify({
     HOST: host,
@@ -417,7 +417,7 @@ function readSqliteRows<Row>(file: string, query: string): Row[] {
 }
 
 function workbuddyVirtualAuthFile(profileHome: string): string {
-  const virtualHome = path.join(profileHome, ".claude-code-router", "workbuddy-app-home");
+  const virtualHome = path.join(profileHome, ".llm-router", "workbuddy-app-home");
   const sharedAuthSegments = process.platform === "darwin"
     ? ["Library", "Application Support", "CodeBuddyExtension", "Data", "Public", "auth"]
     : process.platform === "win32"

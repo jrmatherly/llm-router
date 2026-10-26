@@ -624,7 +624,7 @@ export function LogsView({
                     <div className="max-w-[360px] px-4 text-[11px] leading-4 text-muted-foreground">
                       {t(hasActiveFilters
                         ? "Clear filters or broaden the search to find more request logs."
-                        : "Send a request through CCR, then refresh this page to inspect it.")}
+                        : "Send a request through LLMR, then refresh this page to inspect it.")}
                     </div>
                   ) : null}
                   {!loading && hasActiveFilters ? (

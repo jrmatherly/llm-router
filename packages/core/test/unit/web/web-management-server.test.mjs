@@ -23,15 +23,15 @@ after(() => {
   rmSync(runtimeRoot, { force: true, recursive: true });
 });
 
-test("normalizeExternalHttpTarget accepts absolute http, https, and CCR plugin URLs only", async () => {
+test("normalizeExternalHttpTarget accepts absolute http, https, and LLMR plugin URLs only", async () => {
   const { normalizeExternalHttpTarget } = await import("@ccr/core/web/management-server.ts");
   assert.equal(normalizeExternalHttpTarget(""), undefined);
   assert.equal(normalizeExternalHttpTarget(undefined), undefined);
   assert.equal(normalizeExternalHttpTarget("about:blank"), undefined);
   assert.equal(normalizeExternalHttpTarget(" https://example.com/path?q=1 "), "https://example.com/path?q=1");
   assert.equal(normalizeExternalHttpTarget("http://localhost:3458/"), "http://localhost:3458/");
-  assert.throws(() => normalizeExternalHttpTarget("file:///etc/passwd"), /Only http, https, and CCR plugin URLs/);
-  assert.throws(() => normalizeExternalHttpTarget("javascript:alert(1)"), /Only http, https, and CCR plugin URLs/);
+  assert.throws(() => normalizeExternalHttpTarget("file:///etc/passwd"), /Only http, https, and LLMR plugin URLs/);
+  assert.throws(() => normalizeExternalHttpTarget("javascript:alert(1)"), /Only http, https, and LLMR plugin URLs/);
   assert.throws(() => normalizeExternalHttpTarget("example.com"), /valid absolute URL/);
 });
 
@@ -66,7 +66,7 @@ test("web RPC ignores Origin and Referer when the auth token is valid", async ()
   }
 });
 
-test("startGateway reuses an already healthy CCR gateway on the configured port", async () => {
+test("startGateway reuses an already healthy LLMR gateway on the configured port", async () => {
   const { saveAppConfig } = await import("@ccr/core/config/config.ts");
   const { createDefaultAppConfig } = await import("@ccr/core/config/default-config.ts");
   const { gatewayRuntimeConfigRevision } = await import("@ccr/core/gateway/runtime-config-control.ts");

@@ -22,7 +22,6 @@ import {
   LEGACY_APP_CONFIG_DB_FILES,
   LEGACY_API_KEYS_DB_FILES,
   LEGACY_CONFIG_FILE,
-  LEGACY_WINDOWS_CONFIG_FILE,
   PROXY_CA_CERT_FILE,
   REQUEST_LOGS_DB_FILE,
   USAGE_DB_FILE
@@ -203,7 +202,7 @@ ipcMain.handle(IPC_CHANNELS.appOpenProfile, async (_event, request: ProfileOpenR
   if (profile.agent === CLAUDE_DESIGN_PLUGIN_ID) {
     const status = await gatewayService.ensureStarted(config);
     if (status.state !== "running") {
-      throw new Error(status.lastError || "CCR gateway did not start.");
+      throw new Error(status.lastError || "LLMR gateway did not start.");
     }
     logProfileApplyResult(await applyProfileConfig(config));
     await deepLinkService.openPluginApp(CLAUDE_DESIGN_PLUGIN_ID);
@@ -247,9 +246,9 @@ ipcMain.handle(IPC_CHANNELS.appApplyClaudeAppGateway, async (_event, config?: Ap
   }
 
   const gatewayDetail = runtimeStatus.state === "running"
-    ? "CCR gateway is running."
-    : `CCR gateway did not start: ${runtimeStatus.lastError || "unknown error"}`;
-  const apiKeyDetail = synced.result.apiKeyGenerated ? "Generated a Claude App API key." : "Reused an existing CCR API key.";
+    ? "LLMR gateway is running."
+    : `LLMR gateway did not start: ${runtimeStatus.lastError || "unknown error"}`;
+  const apiKeyDetail = synced.result.apiKeyGenerated ? "Generated a Claude App API key." : "Reused an existing LLMR API key.";
   return {
     ...synced.result,
     message: `${synced.result.message}\n${gatewayDetail}\n${apiKeyDetail}`
@@ -590,9 +589,9 @@ function dataExportSaveDialogOptions(exportedAt: string): SaveDialogOptions {
     buttonLabel: "Export",
     defaultPath: path.join(app.getPath("downloads"), `llm-router-data-${fileSafeTimestamp(exportedAt)}.json`),
     filters: [
-      { extensions: ["json"], name: "CCR data export" }
+      { extensions: ["json"], name: "LLMR data export" }
     ],
-    title: "Export CCR data"
+    title: "Export LLMR data"
   };
 }
 
@@ -1004,12 +1003,11 @@ function assertExportTargetIsNotInternalDataFile(file: string): void {
   const target = path.resolve(file);
   const reserved = new Set([
     LEGACY_ACTIVE_CONFIG_FILE,
-    LEGACY_WINDOWS_CONFIG_FILE,
     LEGACY_CONFIG_FILE,
     ...dataExportCandidateFiles()
   ].map((item) => path.resolve(item)));
   if (reserved.has(target)) {
-    throw new Error("Choose a different export path. Internal CCR data files cannot be overwritten.");
+    throw new Error("Choose a different export path. Internal LLMR data files cannot be overwritten.");
   }
 }
 
@@ -1130,7 +1128,7 @@ function normalizePluginAppUrl(value: string | undefined): string {
     throw new Error("Plugin app URL cannot be protocol-relative.");
   }
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
-    throw new Error("Plugin app URL must be an http(s) URL or a CCR gateway path.");
+    throw new Error("Plugin app URL must be an http(s) URL or an LLMR gateway path.");
   }
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }

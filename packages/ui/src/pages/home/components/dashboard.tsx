@@ -2039,7 +2039,7 @@ function overviewBreakdownDataOptions(): Array<{ label: string; value: "model-di
 function overviewShareCardDataOptions(): Array<{ label: string; value: ShareOverviewWidgetType }> {
   return [
     { label: "AI Usage Wrapped", value: "share-usage-wrapped" },
-    { label: "CCR Route Map", value: "share-route-map" },
+    { label: "LLMR Route Map", value: "share-route-map" },
     { label: "Model Leaderboard", value: "share-model-leaderboard" },
     { label: "AI Fuel Cockpit", value: "share-fuel-cockpit" },
     { label: "Token Calendar Poster", value: "share-token-calendar" },
@@ -2215,7 +2215,7 @@ function overviewWidgetTypeLabel(type: OverviewWidgetType): string {
   if (type === "provider-analysis") return "Provider Analysis";
   if (type === "share-fuel-cockpit") return "AI Fuel Cockpit";
   if (type === "share-model-leaderboard") return "Model Leaderboard";
-  if (type === "share-route-map") return "CCR Route Map";
+  if (type === "share-route-map") return "LLMR Route Map";
   if (type === "share-spend-receipt") return "Spend Receipt";
   if (type === "share-token-calendar") return "Token Calendar Poster";
   if (type === "share-usage-wrapped") return "AI Usage Wrapped";

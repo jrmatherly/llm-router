@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import path from "node:path";
 import test from "node:test";
 
-test("media tools stdio proxy exposes its compiled catalog and forwards calls with CCR auth", async (t) => {
+test("media tools stdio proxy exposes its compiled catalog and forwards calls with LLMR auth", async (t) => {
   const seen = { authorization: "", payload: undefined };
   const server = createServer(async (request, response) => {
     seen.authorization = request.headers.authorization ?? "";

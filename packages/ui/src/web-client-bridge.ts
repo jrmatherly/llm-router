@@ -29,8 +29,8 @@ async function rpc(method: string, args: unknown[] = []): Promise<unknown> {
     const message = payload && !payload.ok
       ? payload.error.message
       : response.status === 404
-        ? "CCR management service is unavailable. Make sure the CCR app or ccr ui command is running, then retry."
-        : `CCR web API failed with HTTP ${response.status}`;
+        ? "LLMR management service is unavailable. Make sure the LLMR app or ccr ui command is running, then retry."
+        : `LLMR web API failed with HTTP ${response.status}`;
     throw new Error(message);
   }
   return payload.value;

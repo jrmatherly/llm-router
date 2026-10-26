@@ -109,7 +109,7 @@ export function buildProfileLaunchPlan(
 ): ProfileLaunchPlan {
   const resolvedSurface = resolveProfileOpenSurface(profile, surface);
   if (profile.agent === "claude-design") {
-    throw new Error("Claude Design profiles can only be opened from CCR Desktop.");
+    throw new Error("Claude Design profiles can only be opened from LLMR Desktop.");
   }
   if (profile.agent === "grok") {
     return buildGrokLaunchPlan(configDir, profile, resolvedSurface, extraArgs);
@@ -139,7 +139,7 @@ function buildOpenCodeLaunchPlan(
   extraArgs: string[]
 ): ProfileLaunchPlan {
   if (surface !== "cli") {
-    throw new Error("OpenCode App profiles must be opened through CCR Desktop.");
+    throw new Error("OpenCode App profiles must be opened through LLMR Desktop.");
   }
   return {
     args: extraArgs,
@@ -315,7 +315,7 @@ function buildClaudeCodeLaunchPlan(
   extraArgs: string[]
 ): ProfileLaunchPlan {
   if (surface === "app") {
-    throw new Error("Claude App opening is available from the CCR desktop app.");
+    throw new Error("Claude App opening is available from the LLMR desktop app.");
   }
   const settingsFile = resolveClaudeCodeSettingsFile(configDir, profile);
   const launcher = path.join(configDir, "bin", claudeCodeWrapperFilename(profile));
@@ -345,7 +345,7 @@ function defaultCodexConfigFile(agent: ProfileConfig["agent"]): string {
     : agent === "pi"
       ? "~/.pi/agent"
       : agent === "claude-design"
-        ? "~/.claude-code-router/claude-design"
+        ? "~/.llm-router/claude-design"
         : "~/.codex/config.toml";
 }
 

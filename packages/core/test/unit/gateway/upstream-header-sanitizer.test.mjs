@@ -21,7 +21,7 @@ test("#1778 native Gemini sends AI Studio keys as API keys while OpenAI compatib
   }
 });
 
-test("provider boundary removes CCR-owned headers and preserves provider headers", () => {
+test("provider boundary removes LLMR-owned headers and preserves provider headers", () => {
   assert.deepEqual(sanitizeUpstreamProviderHeaders({
     authorization: "Bearer provider-token",
     "X-Auth-API-Key-ID": "profile:claude",

@@ -507,12 +507,12 @@ test("OpenCode removes the previously generated local account usage connector", 
     account: {
       connectors: [
         {
-          message: "Local usage from CCR history. OpenCode does not expose cloud balance through its API.",
+          message: "Local usage from LLMR history. OpenCode does not expose cloud balance through its API.",
           type: "local-estimate",
           windows: [
-            { id: "opencode_monthly_spend", label: "CCR monthly spend", unit: "USD", window: "monthly" },
-            { id: "opencode_monthly_tokens", label: "CCR monthly tokens", unit: "tokens", window: "monthly" },
-            { id: "opencode_monthly_requests", label: "CCR monthly requests", unit: "requests", window: "monthly" }
+            { id: "opencode_monthly_spend", label: "LLMR monthly spend", unit: "USD", window: "monthly" },
+            { id: "opencode_monthly_tokens", label: "LLMR monthly tokens", unit: "tokens", window: "monthly" },
+            { id: "opencode_monthly_requests", label: "LLMR monthly requests", unit: "requests", window: "monthly" }
           ]
         }
       ],

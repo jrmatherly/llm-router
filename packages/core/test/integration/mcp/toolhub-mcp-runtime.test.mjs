@@ -83,7 +83,7 @@ test("built ToolHub MCP runtime accepts newline JSON stdio used by MCP Inspector
   });
 });
 
-test("built ToolHub MCP runtime waits for local CCR resolver readiness", async (t) => {
+test("built ToolHub MCP runtime waits for local LLMR resolver readiness", async (t) => {
   const runtime = toolHubRuntimePath();
   if (!existsSync(runtime)) {
     t.skip("ToolHub MCP runtime has not been built.");
@@ -196,7 +196,7 @@ test("built ToolHub MCP runtime expands browser automation bundles with handoff 
     serverName: "ccr-browser-automation",
     tools: [
       {
-        description: "Open a URL or attach an existing CCR built-in browser tab and create an automation session.",
+        description: "Open a URL or attach an existing LLMR built-in browser tab and create an automation session.",
         inputSchema: { type: "object" },
         name: "browser_session_open"
       },
@@ -313,7 +313,7 @@ test("built ToolHub MCP runtime deterministically resolves Chrome login import t
     serverName: "ccr-browser-automation",
     tools: [
       {
-        description: "Ask the user to confirm importing Chrome cookies and localStorage into CCR's in-app browser.",
+        description: "Ask the user to confirm importing Chrome cookies and localStorage into LLMR's in-app browser.",
         inputSchema: { type: "object" },
         name: "browser_chrome_login_import"
       },
@@ -391,7 +391,7 @@ test("built ToolHub MCP runtime deterministically resolves Chrome login import t
       name: "tool_hub.resolve",
       arguments: {
         constraints: { maxTools: 10 },
-        task: "把 Chrome 里 github.com 的登录态导入 CCR in-app browser"
+        task: "把 Chrome 里 github.com 的登录态导入 LLMR in-app browser"
       }
     }
   });
@@ -407,7 +407,7 @@ test("built ToolHub MCP runtime deterministically resolves Chrome login import t
   assert.match(response.result.tsDefinitions, /browser_chrome_login_import/);
 });
 
-test("built ToolHub MCP runtime does not add CCR handoff tools for non-CCR browser tools", async (t) => {
+test("built ToolHub MCP runtime does not add LLMR handoff tools for non-LLMR browser tools", async (t) => {
   const runtime = toolHubRuntimePath();
   if (!existsSync(runtime)) {
     t.skip("ToolHub MCP runtime has not been built.");

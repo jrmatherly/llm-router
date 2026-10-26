@@ -193,7 +193,7 @@ type GatewayRouteResolution = {
 export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {}) {
   const config = readAppConfig(input.plugin?.config);
   if (!config) {
-    throw new Error("CCR router plugin requires plugin.config.appConfig.");
+    throw new Error("LLMR router plugin requires plugin.config.appConfig.");
   }
   const publicGatewayMode = readPublicGatewayMode(input.plugin?.config);
   const coreAuthToken = readCoreAuthToken(input.plugin?.config);
@@ -220,13 +220,13 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
       path: ccrRouterHttpRoutePath,
       handler: async ({ request, reply }: { request: GatewayPluginHttpRequest; reply: GatewayPluginHttpReply }) => {
         if (!isCoreGatewayRequest(request.headers, coreAuthToken)) {
-          return reply.code(401).send({ error: { message: "Unauthorized CCR router route." } });
+          return reply.code(401).send({ error: { message: "Unauthorized LLMR router route." } });
         }
         const payload = readRouteRequestPayload(request.body);
         if (!payload) {
           return reply.code(400).send({
             error: {
-              message: "CCR router plugin route requires a JSON body with body, method, and url."
+              message: "LLMR router plugin route requires a JSON body with body, method, and url."
             }
           });
         }
@@ -625,7 +625,7 @@ async function handleRuntimeConfigControlRoute(
     return reply.code(authorization.status).send({ error: { message: authorization.error } });
   }
   if (!config.APIKEY || authorization.apiKey?.key !== config.APIKEY) {
-    return reply.code(403).send({ error: { message: "The primary CCR API key is required for runtime configuration control." } });
+    return reply.code(403).send({ error: { message: "The primary LLMR API key is required for runtime configuration control." } });
   }
 
   const method = (request.method ?? "GET").toUpperCase();
@@ -674,7 +674,7 @@ async function handleRemoteControlRoute(
     return reply.code(authorization.status).send({ error: { message: authorization.error } });
   }
   if (!request.raw || !reply.raw || typeof reply.hijack !== "function") {
-    return reply.code(500).send({ error: { message: "CCR remote control route requires raw HTTP access." } });
+    return reply.code(500).send({ error: { message: "LLMR remote control route requires raw HTTP access." } });
   }
 
   reply.hijack();
@@ -1360,7 +1360,7 @@ async function requestParentRuntimeConfigReload(
   if (typeof send !== "function") {
     return {
       ok: false,
-      error: "CCR runtime configuration reload requires the managed CCR parent process."
+      error: "LLMR runtime configuration reload requires the managed LLMR parent process."
     };
   }
   return new Promise((resolve) => {
@@ -1371,7 +1371,7 @@ async function requestParentRuntimeConfigReload(
       type: ccrRuntimeConfigReloadMessageType
     }, (error: Error | null) => {
       if (error) {
-        resolve({ ok: false, error: `Failed to notify the CCR parent process: ${error.message}` });
+        resolve({ ok: false, error: `Failed to notify the LLMR parent process: ${error.message}` });
       } else {
         resolve({ ok: true });
       }

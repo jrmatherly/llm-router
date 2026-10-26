@@ -14,7 +14,7 @@ test("Claude App VM storage prepares profile bundle from the default Claude App 
   withRuntimeEnv((root) => {
     const configDir = path.join(root, "ccr");
     const sourceBundle = resolveClaudeAppVmBundleDir(resolveClaudeAppDefaultUserDataDirs()[0]);
-    const targetUserDataDir = path.join(configDir, "profiles", "target", "claude", ".claude-code-router", "claude-app-user-data", "target");
+    const targetUserDataDir = path.join(configDir, "profiles", "target", "claude", ".llm-router", "claude-app-user-data", "target");
     writeVmBundle(sourceBundle, "default-vm");
 
     const result = prepareClaudeAppVmStorage(configDir, targetUserDataDir);
@@ -25,11 +25,11 @@ test("Claude App VM storage prepares profile bundle from the default Claude App 
   });
 });
 
-test("Claude App VM storage can seed new profiles from an existing CCR profile", () => {
+test("Claude App VM storage can seed new profiles from an existing LLMR profile", () => {
   withRuntimeEnv((root) => {
     const configDir = path.join(root, "ccr");
-    const sourceUserDataDir = path.join(configDir, "profiles", "source", "claude", ".claude-code-router", "claude-app-user-data", "source");
-    const targetUserDataDir = path.join(configDir, "profiles", "target", "claude", ".claude-code-router", "claude-app-user-data", "target");
+    const sourceUserDataDir = path.join(configDir, "profiles", "source", "claude", ".llm-router", "claude-app-user-data", "source");
+    const targetUserDataDir = path.join(configDir, "profiles", "target", "claude", ".llm-router", "claude-app-user-data", "target");
     const sourceBundle = resolveClaudeAppVmBundleDir(sourceUserDataDir);
     writeVmBundle(sourceBundle, "profile-vm");
 
@@ -46,7 +46,7 @@ test("Claude App VM storage leaves an existing profile VM untouched", () => {
   withRuntimeEnv((root) => {
     const configDir = path.join(root, "ccr");
     const sourceBundle = resolveClaudeAppVmBundleDir(resolveClaudeAppDefaultUserDataDirs()[0]);
-    const targetUserDataDir = path.join(configDir, "profiles", "target", "claude", ".claude-code-router", "claude-app-user-data", "target");
+    const targetUserDataDir = path.join(configDir, "profiles", "target", "claude", ".llm-router", "claude-app-user-data", "target");
     const targetBundle = resolveClaudeAppVmBundleDir(targetUserDataDir);
     writeVmBundle(sourceBundle, "source-vm");
     writeVmBundle(targetBundle, "target-vm");
@@ -66,7 +66,7 @@ test("Claude App VM storage replaces incomplete temporary VM bundles", () => {
   withRuntimeEnv((root) => {
     const configDir = path.join(root, "ccr");
     const sourceBundle = resolveClaudeAppVmBundleDir(resolveClaudeAppDefaultUserDataDirs()[0]);
-    const targetUserDataDir = path.join(configDir, "profiles", "target", "claude", ".claude-code-router", "claude-app-user-data", "target");
+    const targetUserDataDir = path.join(configDir, "profiles", "target", "claude", ".llm-router", "claude-app-user-data", "target");
     const targetBundle = resolveClaudeAppVmBundleDir(targetUserDataDir);
     writeVmBundle(sourceBundle, "source-vm");
     mkdirSync(path.join(targetBundle, ".wvm-tmp-123"), { recursive: true });

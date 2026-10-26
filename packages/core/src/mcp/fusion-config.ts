@@ -303,9 +303,9 @@ function fusionFallbackToolUnavailableMessage(profile: unknown, toolName: string
 
 export function browserWebSearchUnavailableMessage(toolName: string): string {
   return [
-    `Fusion MCP tool "${toolName}" is unavailable because In-app Browser web search requires CCR Desktop.`,
+    `Fusion MCP tool "${toolName}" is unavailable because In-app Browser web search requires LLMR Desktop.`,
     "This runtime did not register the Electron browser web search integration, so the hidden browser search tool cannot run here.",
-    "Run the profile in CCR Desktop or switch the Fusion web search provider to Brave, Bing, Google CSE, Serper, SerpAPI, Serply, Tavily, or Exa."
+    "Run the profile in LLMR Desktop or switch the Fusion web search provider to Brave, Bing, Google CSE, Serper, SerpAPI, Serply, Tavily, or Exa."
   ].join(" ");
 }
 
@@ -321,7 +321,7 @@ function browserWebSearchFallbackToolDefinition(
     return undefined;
   }
   return {
-    description: "Fallback registration for CCR In-app Browser web search when the Electron browser integration is unavailable.",
+    description: "Fallback registration for LLMR In-app Browser web search when the Electron browser integration is unavailable.",
     inputSchema: {
       additionalProperties: true,
       properties: {

@@ -61,7 +61,7 @@ export async function startCliWebServer(authToken: string): Promise<CliWebRuntim
 
   const service = await new Promise<{ baseUrl: string; token: string }>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error(`CCR web service did not start within ${startupTimeoutMs}ms.\nstdout:\n${stdout}\nstderr:\n${stderr}`));
+      reject(new Error(`LLMR web service did not start within ${startupTimeoutMs}ms.\nstdout:\n${stdout}\nstderr:\n${stderr}`));
     }, startupTimeoutMs);
 
     const cleanup = () => {
@@ -71,10 +71,10 @@ export async function startCliWebServer(authToken: string): Promise<CliWebRuntim
     };
     const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
       cleanup();
-      reject(new Error(`CCR web service exited during startup code=${code ?? "null"} signal=${signal ?? "null"}.\nstdout:\n${stdout}\nstderr:\n${stderr}`));
+      reject(new Error(`LLMR web service exited during startup code=${code ?? "null"} signal=${signal ?? "null"}.\nstdout:\n${stdout}\nstderr:\n${stderr}`));
     };
     const onStdout = () => {
-      const match = stdout.match(/CCR web management is running at (http:\/\/[^\s]+)/);
+      const match = stdout.match(/LLMR web management is running at (http:\/\/[^\s]+)/);
       if (!match) {
         return;
       }
@@ -93,7 +93,7 @@ export async function startCliWebServer(authToken: string): Promise<CliWebRuntim
   if (!service.token) {
     await stopCliWebServer(child);
     rmSync(testHome, { force: true, recursive: true });
-    throw new Error("CCR web service started without a web auth token.");
+    throw new Error("LLMR web service started without a web auth token.");
   }
 
   return {
