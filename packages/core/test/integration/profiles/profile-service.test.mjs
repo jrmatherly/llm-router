@@ -520,10 +520,15 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
 
     const result = await applyProfileFixture(loadedConfig);
     assert.equal(result.enabled, false);
-    assert.equal(readFileSync(settingsFile, "utf8"), userSettings);
-    assert.deepEqual(
-      readdirSync(path.dirname(settingsFile)).filter((name) => name.startsWith("settings.json.ccr-backup-")).sort(),
-      backupNames
+    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), {
+      env: { USER_VALUE: "kept" },
+      model: "user-model",
+      outputStyle: "concise",
+      permissions: { allow: ["Bash(echo:*)"] }
+    });
+    assert.equal(
+      readdirSync(path.dirname(settingsFile)).filter((name) => name.startsWith("settings.json.ccr-backup-")).length,
+      backupNames.length + 1
     );
   } finally {
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
@@ -673,6 +678,19 @@ test("profile service applies and removes profile Claude settings", { skip: !pro
     assert.deepEqual(secondSettings.permissions.allow, ["Bash(echo:*)"]);
     assert.equal(secondSettings.env.CLAUDE_CODE_MAX_RETRIES, undefined);
     assert.equal(secondSettings.env.USER_VALUE, "kept");
+
+    config.profile.profiles = [profile];
+    await applyProfileFixture(config);
+    assert.equal(JSON.parse(readFileSync(settingsFile, "utf8")).permissions.defaultMode, "acceptEdits");
+
+    config.profile.profiles = [{ ...profile, enabled: false }];
+    const disabledResult = await applyProfileFixture(config);
+    assert.equal(disabledResult.clients.some((client) => client.client === "claude-code" && client.ok), true);
+    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), {
+      env: { USER_VALUE: "kept" },
+      permissions: { allow: ["Bash(echo:*)"] },
+      theme: "dark"
+    });
   } finally {
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
     rmSync(takeoverFile, { force: true });
@@ -2067,6 +2085,163 @@ test("profile service restores managed global Claude settings when only LLMR-sco
     restoreEnv("HOME", previousHome);
     rmSync(home, { force: true, recursive: true });
   }
+});
+
+function userOwnedClaudeSettingsWithGatewayTakeover() {
+  return {
+    apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-default-claude-code",
+    enabledPlugins: { "example@marketplace": true },
+    env: {
+      ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
+      ANTHROPIC_API_KEY: "user-key",
+      ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
+      CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456",
+      CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1",
+      CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY: "1",
+      HINDSIGHT_API_LLM_PROVIDER: "claude-code",
+      NO_PROXY: "corp.internal,127.0.0.1,localhost,::1",
+      no_proxy: "127.0.0.1,localhost,::1"
+    },
+    hooks: { PreToolUse: [] },
+    permissions: { allow: ["Bash(ls)"] }
+  };
+}
+
+function assertUserOwnedClaudeSettingsStripped(settingsFile) {
+  const restored = JSON.parse(readFileSync(settingsFile, "utf8"));
+  assert.equal(restored.apiKeyHelper, undefined);
+  assert.deepEqual(restored.env, {
+    ANTHROPIC_API_KEY: "user-key",
+    HINDSIGHT_API_LLM_PROVIDER: "claude-code",
+    NO_PROXY: "corp.internal"
+  });
+  assert.deepEqual(restored.permissions, { allow: ["Bash(ls)"] });
+  assert.deepEqual(restored.hooks, { PreToolUse: [] });
+  assert.deepEqual(restored.enabledPlugins, { "example@marketplace": true });
+}
+
+function withScratchRuntimeHome(run, { originalSnapshot = false, takeoverBackup = true } = {}) {
+  const previousHome = process.env.HOME;
+  const previousRuntimeHome = process.env.CCR_INTERNAL_HOME_DIR;
+  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
+  process.env.HOME = home;
+  process.env.CCR_INTERNAL_HOME_DIR = home;
+  try {
+    const settingsFile = path.join(home, ".claude", "settings.json");
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    if (takeoverBackup) {
+      writeFileSync(`${settingsFile}.ccr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`);
+    }
+    if (originalSnapshot) {
+      writeFileSync(`${settingsFile}.ccr-original`, `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`);
+    }
+    writeFileSync(settingsFile, `${JSON.stringify(userOwnedClaudeSettingsWithGatewayTakeover(), null, 2)}\n`);
+    run(settingsFile);
+  } finally {
+    restoreEnv("CCR_INTERNAL_HOME_DIR", previousRuntimeHome);
+    restoreEnv("HOME", previousHome);
+    rmSync(home, { force: true, recursive: true });
+  }
+}
+
+test("profile service strips LLMR-managed Claude settings from a user-owned settings file when no global profile is active", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const statuses = restoreInactiveGlobalProfileConfigs([
+      {
+        agent: "claude-code",
+        enabled: false,
+        env: { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY: "1" },
+        id: "default-claude-code",
+        model: "",
+        name: "Claude Code",
+        scope: "global",
+        settingsFile: "~/.claude/settings.json",
+        smallFastModel: "",
+        surface: "auto"
+      }
+    ]);
+
+    assert.equal(statuses.length, 1);
+    assert.equal(statuses[0].client, "claude-code");
+    assert.equal(statuses[0].ok, true);
+    assert.ok(existsSync(statuses[0].backupFile));
+    assertUserOwnedClaudeSettingsStripped(settingsFile);
+  });
+});
+
+test("profile service leaves a user-owned settings file alone when LLMR never took it over", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const before = readFileSync(settingsFile, "utf8");
+    const statuses = restoreInactiveGlobalProfileConfigs([]);
+    assert.equal(statuses.length, 0);
+    assert.equal(readFileSync(settingsFile, "utf8"), before);
+  }, { takeoverBackup: false });
+});
+
+test("profile service treats a .ccr-original snapshot as takeover evidence", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const statuses = restoreInactiveGlobalProfileConfigs([]);
+    assert.equal(statuses.length, 1);
+    assertUserOwnedClaudeSettingsStripped(settingsFile);
+  }, { originalSnapshot: true, takeoverBackup: false });
+});
+
+test("profile service does not strip the global settings file while a router-scoped Claude profile is enabled", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const before = readFileSync(settingsFile, "utf8");
+    const statuses = restoreInactiveGlobalProfileConfigs([
+      {
+        agent: "claude-code",
+        enabled: true,
+        env: {},
+        id: "claude-code-2",
+        model: "Provider/model",
+        name: "Claude Code",
+        scope: "ccr",
+        settingsFile: "~/.claude/settings.json",
+        smallFastModel: "",
+        surface: "auto"
+      }
+    ]);
+    assert.equal(statuses.length, 0);
+    assert.equal(readFileSync(settingsFile, "utf8"), before);
+  });
+});
+
+test("profile service writes no backup when a user-owned settings file holds nothing LLMR-managed", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const userOnly = `${JSON.stringify({ env: { USER_VALUE: "kept" }, permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`;
+    writeFileSync(settingsFile, userOnly);
+    const backupsBefore = readdirSync(path.dirname(settingsFile)).filter((name) => name.includes(".ccr-backup-")).length;
+    const statuses = restoreInactiveGlobalProfileConfigs([]);
+    assert.equal(statuses.length, 0);
+    assert.equal(readFileSync(settingsFile, "utf8"), userOnly);
+    assert.equal(readdirSync(path.dirname(settingsFile)).filter((name) => name.includes(".ccr-backup-")).length, backupsBefore);
+  });
+});
+
+test("profile service strips LLMR-managed Claude settings from a user-owned settings file on exit", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const statuses = restoreGlobalProfileConfigsOnExit([
+      {
+        agent: "claude-code",
+        enabled: true,
+        env: { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY: "1" },
+        id: "default-claude-code",
+        model: "",
+        name: "Claude Code",
+        scope: "global",
+        settingsFile: "~/.claude/settings.json",
+        smallFastModel: "",
+        surface: "auto"
+      }
+    ], { manageMarker: false });
+
+    assert.equal(statuses.length, 1);
+    assert.equal(statuses[0].ok, true);
+    assert.match(statuses[0].message, /LLMR-managed settings removed/);
+    assertUserOwnedClaudeSettingsStripped(settingsFile);
+  });
 });
 
 test("profile service keeps managed global Claude settings when a global Claude profile is active", () => {

@@ -91,6 +91,7 @@ const claudeCodeNoProxyEnvKeys = [
   "NO_PROXY",
   "no_proxy"
 ] as const;
+const gatewayLocalNoProxyHosts = new Set(["127.0.0.1", "localhost", "::1"]);
 const claudeCodeGatewayCompatibilityEnvKeys = [
   "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"
 ] as const;
@@ -401,7 +402,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
   const settingsFile = resolveClaudeCodeSettingsFile(profile);
   if (!profile.enabled) {
     cleanupClaudeCodeGeneratedFiles(profile);
-    return restoreDisabledGlobalProfile(profile, settingsFile, "Claude Code profile is disabled.", claudeCodeManagedContentPredicate(profile));
+    return restoreDisabledGlobalProfile(profile, settingsFile, "Claude Code profile is disabled.", claudeCodeManagedContent(profile));
   }
 
   const gatewayPolicy = readClaudeCodeGatewayLoginPolicy([...claudeCodeManagedSettingsFiles(), settingsFile]);
@@ -581,7 +582,7 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
       profile,
       configFile,
       `${clientName} profile is disabled.`,
-      (content) => isManagedCodexConfigContent(content, sanitizeCodexProviderId(profile.providerId || "") || "claude-code-router")
+      { isManagedContent: (content) => isManagedCodexConfigContent(content, sanitizeCodexProviderId(profile.providerId || "") || "claude-code-router") }
     );
   }
 
@@ -768,7 +769,7 @@ function applyOpenCodeProfile(config: AppConfig, profile: ProfileConfig, token: 
       profile,
       configFile,
       "OpenCode profile is disabled.",
-      (content) => isManagedOpenCodeConfigContent(content, providerId)
+      { isManagedContent: (content) => isManagedOpenCodeConfigContent(content, providerId) }
     );
   }
 
@@ -805,7 +806,7 @@ function applyKiloProfile(config: AppConfig, profile: ProfileConfig, token: stri
       profile,
       configFile,
       "Kilo CLI profile is disabled.",
-      (content) => isManagedKiloConfigContent(content, providerId)
+      { isManagedContent: (content) => isManagedKiloConfigContent(content, providerId) }
     );
   }
 
@@ -952,14 +953,22 @@ function readClaudeCodeProfileSettingsState(profile: ProfileConfig): { envKeys: 
   };
 }
 
-function claudeCodeManagedContentPredicate(profile: ProfileConfig): (content: string) => boolean {
+function claudeCodeManagedSettingsScope(profile: ProfileConfig): { envKeys: string[]; paths: string[] } {
   const profileSettings = claudeCodeProfileSettings(profile);
   delete profileSettings.env;
-  const managedSettingPaths = uniquePathStrings([
-    ...readClaudeCodeProfileSettingsState(profile).paths,
-    ...claudeCodeProfileSettingsPaths(profileSettings)
-  ]);
-  return (content) => isManagedClaudeCodeSettingsContent(content, managedSettingPaths);
+  const state = readClaudeCodeProfileSettingsState(profile);
+  return {
+    envKeys: state.envKeys,
+    paths: uniquePathStrings([...state.paths, ...claudeCodeProfileSettingsPaths(profileSettings)])
+  };
+}
+
+function claudeCodeManagedContent(profile: ProfileConfig): RestoreManagedContentMatchers {
+  const scope = claudeCodeManagedSettingsScope(profile);
+  return {
+    isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, scope.paths),
+    stripManagedContent: (content) => stripManagedClaudeCodeSettingsContent(content, scope.envKeys, scope.paths)
+  };
 }
 
 function writeClaudeCodeProfileSettingsState(
@@ -3419,25 +3428,31 @@ type RestoreFileResult = {
   file: string;
   missingBackup: boolean;
   restored: boolean;
+  stripped?: boolean;
+};
+
+type RestoreManagedContentMatchers = {
+  isManagedContent: (content: string) => boolean;
+  stripManagedContent?: (content: string) => string | undefined;
 };
 
 function restoreDisabledGlobalProfile(
   profile: ProfileConfig,
   file: string,
   disabledMessage: string,
-  isManagedContent: (content: string) => boolean
+  matchers: RestoreManagedContentMatchers
 ): ProfileClientApplyStatus {
   if (!isGlobalProfile(profile)) {
     return disabledStatus(profile.agent, file, disabledMessage);
   }
 
-  const restoreResult = restoreGlobalConfigFile(file, { isManagedContent, mode: privateFileMode });
+  const restoreResult = restoreGlobalConfigFile(file, { ...matchers, mode: privateFileMode });
   return disabledRestoreStatus(profile.agent, file, disabledMessage, restoreResult, profile.name || profile.id || profile.agent);
 }
 
 function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus {
   if (profile.agent === "claude-code") {
-    return restoreDisabledGlobalProfile(profile, resolveClaudeCodeSettingsFile(profile), "Claude Code profile is disabled.", claudeCodeManagedContentPredicate(profile));
+    return restoreDisabledGlobalProfile(profile, resolveClaudeCodeSettingsFile(profile), "Claude Code profile is disabled.", claudeCodeManagedContent(profile));
   }
   if (profile.agent === "zcode") {
     return restoreDisabledZcodeProfile(profile, resolveZcodeConfigFile(profile));
@@ -3460,7 +3475,7 @@ function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus
       profile,
       resolveOpenCodeConfigFile(CONFIGDIR, profile),
       "OpenCode profile is disabled.",
-      (content) => isManagedOpenCodeConfigContent(content, providerId)
+      { isManagedContent: (content) => isManagedOpenCodeConfigContent(content, providerId) }
     );
   }
   if (profile.agent === "kilo") {
@@ -3469,7 +3484,7 @@ function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus
       profile,
       resolveKiloConfigFile(CONFIGDIR, profile),
       "Kilo CLI profile is disabled.",
-      (content) => isManagedKiloConfigContent(content, providerId)
+      { isManagedContent: (content) => isManagedKiloConfigContent(content, providerId) }
     );
   }
   const providerId = sanitizeCodexProviderId(profile.providerId || "") || "claude-code-router";
@@ -3478,13 +3493,14 @@ function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus
     profile,
     resolveCodexConfigFile(profile),
     `${clientName} profile is disabled.`,
-    (content) => isManagedCodexConfigContent(content, providerId)
+    { isManagedContent: (content) => isManagedCodexConfigContent(content, providerId) }
   );
 }
 
 export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): ProfileClientApplyStatus[] {
   const statuses: ProfileClientApplyStatus[] = [];
-  if (!profiles.some((profile) => profile.agent === "claude-code" && profile.enabled && isGlobalProfile(profile))) {
+  const enabledClaudeProfiles = profiles.filter((profile) => profile.agent === "claude-code" && profile.enabled);
+  if (!enabledClaudeProfiles.some(isGlobalProfile)) {
     for (const file of uniqueResolvedPaths([
       "~/.claude/settings.json",
       ...profiles
@@ -3494,7 +3510,8 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
     ])) {
       const restoreResult = restoreGlobalConfigFile(file, {
         isManagedContent: isManagedClaudeCodeSettingsContent,
-        mode: privateFileMode
+        mode: privateFileMode,
+        stripManagedContent: enabledClaudeProfiles.length === 0 ? stripManagedClaudeCodeSettingsContent : undefined
       });
       if (restoreResult.changed || restoreResult.missingBackup) {
         statuses.push(inactiveGlobalCleanupStatus("claude-code", file, restoreResult));
@@ -3744,7 +3761,9 @@ function inactiveGlobalCleanupStatus(
     enabled: false,
     message: restoreResult.missingBackup
       ? `No active global ${codexCompatibleClientName(client)} profile is configured, but the global config is managed by LLMR and no original backup was found.`
-      : `${codexCompatibleClientName(client)} global config was restored because no active global profile is configured.`,
+      : restoreResult.stripped
+        ? `${codexCompatibleClientName(client)} global config had its LLMR-managed settings removed because no active global profile is configured.`
+        : `${codexCompatibleClientName(client)} global config was restored because no active global profile is configured.`,
     ok: !restoreResult.missingBackup,
     path: resolveUserPath(file)
   };
@@ -3830,11 +3849,13 @@ function disabledRestoreStatus(
     enabled: false,
     message: restoreResult.missingBackup
       ? `${disabledMessage} No original ${codexCompatibleClientName(client)} config backup was found for ${profileName}.`
-      : restoreResult.restored
-        ? restoreResult.changed
-          ? `${codexCompatibleClientName(client)} config was restored from the LLMR backup because the global profile is disabled.`
-          : `${codexCompatibleClientName(client)} config already matches the LLMR backup; profile is disabled.`
-        : disabledMessage,
+      : restoreResult.stripped
+        ? `${codexCompatibleClientName(client)} config had its LLMR-managed settings removed because the global profile is disabled.`
+        : restoreResult.restored
+          ? restoreResult.changed
+            ? `${codexCompatibleClientName(client)} config was restored from the LLMR backup because the global profile is disabled.`
+            : `${codexCompatibleClientName(client)} config already matches the LLMR backup; profile is disabled.`
+          : disabledMessage,
     ok: !restoreResult.missingBackup,
     path: resolveUserPath(file)
   };
@@ -3842,15 +3863,19 @@ function disabledRestoreStatus(
 
 function restoreGlobalConfigFile(
   file: string,
-  options: {
-    isManagedContent: (content: string) => boolean;
-    mode?: number;
-  }
+  options: RestoreManagedContentMatchers & { mode?: number }
 ): RestoreFileResult {
   const current = existsSync(file) ? readFileSync(file, "utf8") : undefined;
   const currentManaged = current !== undefined && options.isManagedContent(current);
   if (current !== undefined && !currentManaged) {
-    return { changed: false, file, missingBackup: false, restored: false };
+    const stripped = options.stripManagedContent && hasTakeoverSnapshot(file) ? options.stripManagedContent(current) : undefined;
+    if (stripped === undefined) {
+      return { changed: false, file, missingBackup: false, restored: false };
+    }
+    const backupFile = backupCurrentConfigFile(file, options.mode);
+    writeFileSync(file, stripped, options.mode === undefined ? "utf8" : { encoding: "utf8", mode: options.mode });
+    chmodFileIfRequested(file, options.mode);
+    return { backupFile, changed: true, file, missingBackup: false, restored: false, stripped: true };
   }
 
   const snapshot = originalSnapshotCandidate(file, options.isManagedContent);
@@ -3882,6 +3907,10 @@ function restoreGlobalConfigFile(
     missingBackup: Boolean(currentManaged),
     restored: false
   };
+}
+
+function hasTakeoverSnapshot(file: string): boolean {
+  return backupFiles(file).length > 0 || existsSync(originalBackupFilePath(file)) || existsSync(originalMissingFilePath(file));
 }
 
 function originalSnapshotCandidate(
@@ -4005,6 +4034,53 @@ function isManagedClaudeCodeSettingsContent(content: string, managedSettingPaths
   return typeof env.ANTHROPIC_BASE_URL === "string" &&
     typeof env.ANTHROPIC_API_BASE_URL === "string" &&
     typeof env.CLAUDE_AGENT_API_BASE_URL === "string";
+}
+
+function stripManagedClaudeCodeSettingsContent(
+  content: string,
+  managedEnvKeys: string[] = [],
+  managedSettingPaths: string[] = []
+): string | undefined {
+  const settings = parseJsonContent(content);
+  if (!settings) {
+    return undefined;
+  }
+  const nextSettings = withoutManagedClaudeCodeApiKeyHelper(removeClaudeCodeProfileSettings(settings, managedSettingPaths, []));
+  if (isRecord(nextSettings.env)) {
+    nextSettings.env = withoutManagedClaudeCodeEnv(nextSettings.env, managedEnvKeys);
+  }
+  return jsonValuesEqual(settings, nextSettings) ? undefined : `${JSON.stringify(nextSettings, null, 2)}\n`;
+}
+
+function withoutManagedClaudeCodeEnv(env: Record<string, unknown>, managedEnvKeys: string[]): Record<string, unknown> {
+  const routerWif = env.ANTHROPIC_FEDERATION_RULE_ID === claudeCodeWifFederationRuleId;
+  const next = Object.fromEntries(Object.entries(env).filter(([key]) =>
+    !managedEnvKeys.includes(key) &&
+    !(claudeCodeGatewayEnvKeys as readonly string[]).includes(key) &&
+    !(claudeCodeNoProxyEnvKeys as readonly string[]).includes(key) &&
+    !(claudeCodeGatewayCompatibilityEnvKeys as readonly string[]).includes(key) &&
+    !(routerWif && isClaudeCodeWifEnvKey(key)) &&
+    key !== CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV &&
+    key !== CLAUDE_CODE_MCP_CONFIG_ENV &&
+    key !== CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV &&
+    !isClaudeCodeManagedModelEnvKey(key) &&
+    !isBotGatewayEnvKey(key)
+  ));
+  for (const key of claudeCodeNoProxyEnvKeys) {
+    const remaining = typeof env[key] === "string" ? withoutGatewayNoProxyHosts(env[key]) : "";
+    if (remaining) {
+      next[key] = remaining;
+    }
+  }
+  return next;
+}
+
+function withoutGatewayNoProxyHosts(value: string): string {
+  return value
+    .split(",")
+    .map((host) => host.trim())
+    .filter((host) => host && !gatewayLocalNoProxyHosts.has(host))
+    .join(",");
 }
 
 function isPureManagedClaudeCodeSettings(settings: Record<string, unknown>, managedSettingPaths: string[] = []): boolean {
