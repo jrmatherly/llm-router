@@ -1170,3 +1170,53 @@ test("#1807 accepted but uncommitted bundles retain their retry budget after res
     assert.equal(attempts, 1);
   } finally { await first.stop(); await second.stop(); rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("raw trace usage capture keeps the client label the request log gets", async () => {
+  const { usageStore } = await import("@ccr/core/usage/store.ts");
+  const dir = mkdtempSync(path.join(tmpdir(), "ccr-raw-trace-usage-client-"));
+  const spoolDirectory = path.join(dir, "spool");
+  const bundleDirectory = path.join(spoolDirectory, "bundle");
+  const clientMetadataFile = path.join(bundleDirectory, "client_request_metadata.json");
+  const responseMetadataFile = path.join(bundleDirectory, "upstream_response_metadata.json");
+  const responseFile = path.join(bundleDirectory, "upstream_response.json");
+  const model = `stub-model-${Date.now()}`;
+  const responseBody = JSON.stringify({ model, usage: { input_tokens: 11, output_tokens: 7 } });
+  mkdirSync(bundleDirectory, { recursive: true });
+  writeFileSync(clientMetadataFile, JSON.stringify({ headers: { "x-claude-gateway-user-email": "dev@example.com" } }));
+  writeFileSync(responseMetadataFile, JSON.stringify({ headers: { "content-type": "application/json" }, statusCode: 200 }));
+  writeFileSync(responseFile, responseBody);
+  const requestId = `usage-client-${Date.now()}`;
+  let enqueued;
+  const synchronizer = new RawTraceSynchronizer({
+    enqueueUpdate: async (input) => {
+      enqueued = input;
+      return true;
+    },
+    getConfig: createConfig,
+    spoolDirectory
+  });
+  try {
+    const result = await sendRawTrace(synchronizer, {
+      parts: [
+        { filePath: clientMetadataFile, partType: "client_request_metadata" },
+        { filePath: responseMetadataFile, partType: "upstream_response_metadata" },
+        { contentType: "application/json", filePath: responseFile, originalBytes: responseBody.length, partType: "upstream_response" }
+      ],
+      requestId: "core-bundle-usage-client",
+      target: { model, providerName: "Stub" },
+      turnKey: requestId
+    });
+    assert.equal(result.statusCode, 202);
+    // Usage is recorded before the request-log update is enqueued.
+    await waitFor(() => enqueued !== undefined);
+    assert.equal(enqueued.client, "dev@example.com");
+    assert.equal(await usageStore.hasRequestId(requestId), true);
+    const stats = await usageStore.getStats("today", { includeProxy: true });
+    const row = stats.clientModels.find((entry) => entry.model === model && entry.provider === "Stub");
+    assert.ok(row, JSON.stringify(stats.clientModels));
+    assert.equal(row.client, "dev@example.com");
+  } finally {
+    await synchronizer.stop();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
