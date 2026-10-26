@@ -662,8 +662,7 @@ function kimiStorageRoot(): string {
   if (explicit) {
     return resolveUserPath(explicit);
   }
-  const internalHome = process.env.CCR_INTERNAL_HOME_DIR?.trim();
-  return internalHome ? path.join(internalHome, ".kimi-code") : path.join(os.homedir(), ".kimi-code");
+  return resolveUserPath("~/.kimi-code");
 }
 
 function kimiCliVersion(): string {

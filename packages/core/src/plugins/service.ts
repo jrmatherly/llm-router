@@ -1,7 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { createRequire } from "node:module";
-import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -28,6 +27,7 @@ import { openRouterDiscountProviderRouterTransform } from "@ccr/core/plugins/bui
 import { CONFIGDIR, DATADIR } from "@ccr/core/config/constants";
 import { isDesktopAppRuntime } from "@ccr/core/runtime/desktop-app";
 import type { ProviderAccountWebContentFetchRequest } from "@ccr/core/providers/account-webcontent";
+import { resolveRuntimeAppPath } from "@ccr/core/runtime/app-paths";
 
 type MaybePromise<T> = T | Promise<T>;
 type PluginLogger = {
@@ -1212,10 +1212,10 @@ function readBody(request: IncomingMessage): Promise<Buffer> {
 
 function expandHome(value: string): string {
   if (value === "~") {
-    return os.homedir();
+    return resolveRuntimeAppPath("home");
   }
   if (value.startsWith("~/")) {
-    return path.join(os.homedir(), value.slice(2));
+    return path.join(resolveRuntimeAppPath("home"), value.slice(2));
   }
   return value;
 }

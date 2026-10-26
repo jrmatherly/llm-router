@@ -455,9 +455,11 @@ test("profile service honors the top-level profile disabled flag", { skip: !proc
 test("profile service does not rewrite user Claude settings for stale legacy profile flags without profiles", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-stale-legacy-profile-home-"));
   const previousHome = process.env.HOME;
+  const previousRuntimeHome = process.env.CCR_INTERNAL_HOME_DIR;
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
     process.env.HOME = home;
+    process.env.CCR_INTERNAL_HOME_DIR = home;
     assert.equal(os.homedir(), home);
     const settingsFile = path.join(home, ".claude", "settings.json");
     mkdirSync(path.dirname(settingsFile), { recursive: true });
@@ -527,11 +529,8 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
     rmSync(takeoverFile, { force: true });
     rmSync(home, { force: true, recursive: true });
-    if (previousHome === undefined) {
-      delete process.env.HOME;
-    } else {
-      process.env.HOME = previousHome;
-    }
+    restoreEnv("CCR_INTERNAL_HOME_DIR", previousRuntimeHome);
+    restoreEnv("HOME", previousHome);
   }
 });
 

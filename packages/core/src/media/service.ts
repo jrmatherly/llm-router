@@ -15,6 +15,7 @@ import { mediaToolBindingsForConfig } from "@ccr/core/media/tools";
 import type { MediaToolBinding } from "@ccr/core/media/tools";
 import { activeProviderCredentials, inferProtocol, providerCapabilityInternalName, providerCredentialInternalName, sortProviderCredentialsForConfig } from "@ccr/core/providers/runtime-topology";
 import { modelRegistryForConfig, parseProviderModelSelector, providerRuntimeId } from "@ccr/core/routing/model-registry";
+import { resolveRuntimeAppPath } from "@ccr/core/runtime/app-paths";
 
 type QueueItem = {
   jobId: string;
@@ -662,7 +663,7 @@ function safeTokenEqual(expected: string, actual: string): boolean {
 }
 
 function expandHome(value: string): string {
-  return value === "~" ? os.homedir() : value.startsWith(`~${path.sep}`) ? path.join(os.homedir(), value.slice(2)) : value;
+  return value === "~" ? resolveRuntimeAppPath("home") : value.startsWith(`~${path.sep}`) ? path.join(resolveRuntimeAppPath("home"), value.slice(2)) : value;
 }
 
 function isPathInside(candidate: string, root: string): boolean {

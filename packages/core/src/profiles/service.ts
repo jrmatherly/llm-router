@@ -59,7 +59,7 @@ import {
   type ToolHubMcpRuntimeConfig
 } from "@ccr/core/mcp/toolhub-config";
 import { getProviderCatalogModels } from "@ccr/core/providers/model-catalog";
-import { resolveUserPath } from "@ccr/core/runtime/app-paths";
+import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
 import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
 
 const managedRootStart = "# BEGIN CCR managed profile";
@@ -2244,10 +2244,7 @@ export function resolveKimiSourceHome(profile: Pick<ProfileConfig, "env">): stri
   if (explicitRoot) {
     return resolveUserPath(explicitRoot);
   }
-  const internalHome = process.env.CCR_INTERNAL_HOME_DIR?.trim();
-  return internalHome
-    ? path.join(internalHome, ".kimi-code")
-    : resolveUserPath("~/.kimi-code");
+  return resolveUserPath("~/.kimi-code");
 }
 
 function writeGrokWrapper(config: AppConfig, profile: ProfileConfig, token: string, model: string): { changed: boolean; file: string } {
@@ -2474,10 +2471,7 @@ export function resolveGrokSourceHome(profile: Pick<ProfileConfig, "env">): stri
   if (explicitRoot) {
     return resolveUserPath(explicitRoot);
   }
-  const internalHome = process.env.CCR_INTERNAL_HOME_DIR?.trim();
-  return internalHome
-    ? path.join(internalHome, ".grok")
-    : resolveUserPath("~/.grok");
+  return resolveUserPath("~/.grok");
 }
 
 function ensureGrokProfileConfigCopy(source: string, target: string): void {
@@ -2756,6 +2750,8 @@ function codexMiddlewareShellScript(
         `export CCR_CODEX_PROFILE=${shellQuote(values.providerId)}`,
         `export CCR_CODEX_MODEL=${shellQuote(values.model)}`,
         `export CCR_CODEX_MODEL_CATALOG_FILE=${shellQuote(values.modelCatalogFile)}`,
+        `export CCR_CONFIG_DIR=${shellQuote(CONFIGDIR)}`,
+        `export CCR_INTERNAL_HOME_DIR=${shellQuote(resolveRuntimeAppPath("home"))}`,
         `export CCR_CODEX_MODEL_PROVIDER=${shellQuote(values.providerId)}`,
         `export CCR_CODEX_PROFILE_CONFIG_FORMAT=${shellQuote(values.configFormat)}`,
         `export CCR_PROFILE_SCOPE=${shellQuote(normalizeProfileScope(profile.scope))}`,
@@ -2892,6 +2888,8 @@ function codexMiddlewareCmdScript(
         cmdSetLine("CCR_CODEX_PROFILE", values.providerId),
         cmdSetLine("CCR_CODEX_MODEL", values.model),
         cmdSetLine("CCR_CODEX_MODEL_CATALOG_FILE", values.modelCatalogFile),
+        cmdSetLine("CCR_CONFIG_DIR", CONFIGDIR),
+        cmdSetLine("CCR_INTERNAL_HOME_DIR", resolveRuntimeAppPath("home")),
         cmdSetLine("CCR_CODEX_MODEL_PROVIDER", values.providerId),
         cmdSetLine("CCR_CODEX_PROFILE_CONFIG_FORMAT", values.configFormat),
         cmdSetLine("CCR_PROFILE_SCOPE", normalizeProfileScope(profile.scope)),

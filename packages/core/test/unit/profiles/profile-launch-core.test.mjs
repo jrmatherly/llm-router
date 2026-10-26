@@ -265,7 +265,14 @@ test("profile config paths honor LLMR, custom, and global scopes", () => {
     resolveCodexConfigFile(configDir, workbuddyProfile),
     path.join(configDir, "profiles", "workbuddy-main", "workbuddy", "config.toml")
   );
-  assert.equal(resolveCodexConfigFile(configDir, globalCodex), path.join(process.env.HOME, "codex-home", "config.toml"));
+  const runtimeHome = path.join(configDir, "runtime-home");
+  const previousRuntimeHome = process.env.CCR_INTERNAL_HOME_DIR;
+  process.env.CCR_INTERNAL_HOME_DIR = runtimeHome;
+  try {
+    assert.equal(resolveCodexConfigFile(configDir, globalCodex), path.join(runtimeHome, "codex-home", "config.toml"));
+  } finally {
+    process.env.CCR_INTERNAL_HOME_DIR = previousRuntimeHome;
+  }
   assert.equal(
     resolveOpenCodeConfigFile(configDir, openCodeProfile),
     path.join(configDir, "profiles", "opencode-main", "opencode", "opencode.jsonc")

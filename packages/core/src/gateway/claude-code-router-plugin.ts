@@ -1,6 +1,5 @@
 import { createRequire } from "node:module";
 import { EventEmitter } from "node:events";
-import os from "node:os";
 import path from "node:path";
 import { isGatewayProviderEnabled, type AppConfig, type ProfileClientKind, type ProfileConfig, type RequestRouteTraceChange, type RouterBuiltInAgentRuleId, type RouterFallbackConfig, type RouterRule, type RouterRuleCondition } from "@ccr/core/contracts/app";
 import { CONFIGDIR } from "@ccr/core/config/constants";
@@ -19,6 +18,7 @@ import { calculateTokenCount } from "@ccr/core/routing/token-estimator";
 import type { RouteScriptRuntime } from "@ccr/core/routing/route-script-runtime";
 import { profileApiKeyId } from "@ccr/core/profiles/api-key";
 import { isModelAllowedForProfile } from "@ccr/core/profiles/model-allowlist";
+import { resolveRuntimeAppPath } from "@ccr/core/runtime/app-paths";
 
 export { normalizeRouteSelector } from "@ccr/core/routing/model-registry";
 
@@ -272,10 +272,10 @@ function assertJavaScriptModulePath(resolved: string, label: string): void {
 
 function expandHome(value: string): string {
   if (value === "~") {
-    return os.homedir();
+    return resolveRuntimeAppPath("home");
   }
   if (value.startsWith("~/")) {
-    return path.join(os.homedir(), value.slice(2));
+    return path.join(resolveRuntimeAppPath("home"), value.slice(2));
   }
   return value;
 }

@@ -1,4 +1,3 @@
-import os from "node:os";
 import path from "node:path";
 import type {
   LocalAgentProviderCandidate,
@@ -6,6 +5,7 @@ import type {
   ProviderAccountConfig
 } from "@ccr/core/contracts/app";
 import { findProviderPresetByBaseUrl } from "@ccr/core/providers/presets/index";
+import { resolveUserPath } from "@ccr/core/runtime/app-paths";
 import {
   apiKeyAuthPlugin,
   cloneProviderAccountConfig,
@@ -322,6 +322,5 @@ function zcodeStorageRoot(): string {
   if (explicitRoot) {
     return explicitRoot;
   }
-  const homeDir = process.env.CCR_INTERNAL_HOME_DIR?.trim() || process.env.HOME?.trim() || process.env.USERPROFILE?.trim() || os.homedir();
-  return path.join(homeDir, ".zcode");
+  return resolveUserPath("~/.zcode");
 }
