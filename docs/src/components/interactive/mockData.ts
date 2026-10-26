@@ -1,5 +1,5 @@
 /**
- * Real data fixtures exported from a running local CCR instance via the
+ * Real data fixtures exported from a running local LLMR instance via the
  * management RPC. NOT mocked — these are actual request logs and agent
  * analysis snapshots captured from the app.
  */

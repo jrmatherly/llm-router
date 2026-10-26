@@ -73,7 +73,7 @@ export const docPages: DocPageDef[] = [
   {
     key: "guides/install",
     section: "guides",
-    label: { zh: "安装并启动 CCR", en: "Install and start CCR" },
+    label: { zh: "安装并启动 LLMR", en: "Install and start LLMR" },
     path: { zh: "/guides/install/", en: "/en/guides/install/" },
     source: { zh: "guides/install.md", en: "guides/install.md" },
   },
@@ -405,7 +405,7 @@ export const docSections: DocSectionDef[] = [
         items: [
           {
             key: "documentation/capabilities",
-            label: { zh: "CCR 能帮你做什么", en: "What CCR can do" },
+            label: { zh: "LLMR 能帮你做什么", en: "What LLMR can do" },
             anchor: true,
           },
           {

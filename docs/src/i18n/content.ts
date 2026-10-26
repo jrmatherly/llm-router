@@ -12,7 +12,7 @@ export const docsContent = {
   zh: {
     htmlLang: "zh-CN",
     pageTitle: "文档",
-    metaDescription: "LLM Router（CCR）文档：安装、配置、供应商接入与故障排查指南。",
+    metaDescription: "LLM Router 文档：安装、配置、供应商接入与故障排查指南。",
     languageLabel: "中文",
     languageOptions,
     navItems: navItems("zh"),
@@ -41,7 +41,7 @@ export const docsContent = {
   en: {
     htmlLang: "en",
     pageTitle: "Documentation",
-    metaDescription: "LLM Router (CCR) documentation: installation, configuration, provider setup, and troubleshooting guides.",
+    metaDescription: "LLM Router documentation: installation, configuration, provider setup, and troubleshooting guides.",
     languageLabel: "English",
     languageOptions,
     navItems: navItems("en"),

@@ -6689,7 +6689,7 @@
             "callId": "call_a778118bf9a247a7b704f1be",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ProvidersViewDemo.tsx\",\n  \"offset\": 127,\n  \"limit\": 80\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ProvidersViewDemo.tsx\",\n  \"offset\": 127,\n  \"limit\": 80\n}",
               "sizeBytes": 148,
               "truncated": false
             }
@@ -7041,13 +7041,13 @@
             "callId": "call_791d455c9f3d41ad8c7f6b34",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"wc -l /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"description\": \"Count lines in providers.tsx\"\n}",
+              "preview": "{\n  \"command\": \"wc -l /Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"description\": \"Count lines in providers.tsx\"\n}",
               "sizeBytes": 167,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "    4283 /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx",
+              "preview": "    4283 /Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx",
               "sizeBytes": 102,
               "truncated": false
             },
@@ -7085,7 +7085,7 @@
             "callId": "call_ecaa007617314360b44c3816",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"AddProviderForm\\\\|ProviderPresetCombobox\\\\|function.*Step\\\\|wizard\\\\|step ===\\\\|currentStep\\\\|wizardStep\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx | head -80\",\n  \"description\": \"Find key component and step references\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"AddProviderForm\\\\|ProviderPresetCombobox\\\\|function.*Step\\\\|wizard\\\\|step ===\\\\|currentStep\\\\|wizardStep\\\" /Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx | head -80\",\n  \"description\": \"Find key component and step references\"\n}",
               "sizeBytes": 299,
               "truncated": false
             },
@@ -7185,7 +7185,7 @@
             "callId": "call_520398114eff428ab1bd9c69",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"offset\": 1949,\n  \"limit\": 350\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"offset\": 1949,\n  \"limit\": 350\n}",
               "sizeBytes": 148,
               "truncated": false
             },
@@ -7229,7 +7229,7 @@
             "callId": "call_337d192c63ac435791e663ad",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"offset\": 935,\n  \"limit\": 370\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"offset\": 935,\n  \"limit\": 370\n}",
               "sizeBytes": 147,
               "truncated": false
             },
@@ -7273,7 +7273,7 @@
             "callId": "call_071585f8d8be463483ef3d9f",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"offset\": 1296,\n  \"limit\": 30\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"offset\": 1296,\n  \"limit\": 30\n}",
               "sizeBytes": 147,
               "truncated": false
             },
@@ -7317,7 +7317,7 @@
             "callId": "call_6c87d1a5cbdd4c87ad7f919a",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"offset\": 1705,\n  \"limit\": 80\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"offset\": 1705,\n  \"limit\": 80\n}",
               "sizeBytes": 147,
               "truncated": false
             },
@@ -7417,7 +7417,7 @@
             "callId": "call_d5eddeb19e8147b295b8ed73",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 400,\n  \"offset\": 2298\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 400,\n  \"offset\": 2298\n}",
               "sizeBytes": 148,
               "truncated": false
             },
@@ -7517,7 +7517,7 @@
             "callId": "call_7adaa6290bfd440c99b90780",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"function ProviderModelPicker\\\\|function ProviderApiKeyInput\\\\|ProviderSetupStepId\\\\|providerSetupStepIds\\\\|function ProviderSetupProgress\\\\|function ProviderCredentialModeTabs\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"description\": \"Find component definitions and step ids\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"function ProviderModelPicker\\\\|function ProviderApiKeyInput\\\\|ProviderSetupStepId\\\\|providerSetupStepIds\\\\|function ProviderSetupProgress\\\\|function ProviderCredentialModeTabs\\\" /Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"description\": \"Find component definitions and step ids\"\n}",
               "sizeBytes": 360,
               "truncated": false
             },
@@ -7561,13 +7561,13 @@
             "callId": "call_7b27a4b46aa6425e97525357",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -rn \\\"ProviderModelPicker\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/ | head -20\",\n  \"description\": \"Find ProviderModelPicker references\"\n}",
+              "preview": "{\n  \"command\": \"grep -rn \\\"ProviderModelPicker\\\" /Users/you/llm-router/packages/ui/src/ | head -20\",\n  \"description\": \"Find ProviderModelPicker references\"\n}",
               "sizeBytes": 177,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx:2344:              <ProviderModelPicker\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx:3547:function ProviderModelPicker({",
+              "preview": "/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx:2344:              <ProviderModelPicker\n/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx:3547:function ProviderModelPicker({",
               "sizeBytes": 263,
               "truncated": false
             },
@@ -7661,7 +7661,7 @@
             "callId": "call_a31473bcfb98495cb3bd38c3",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 420,\n  \"offset\": 3547\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 420,\n  \"offset\": 3547\n}",
               "sizeBytes": 148,
               "truncated": false
             },
@@ -7705,7 +7705,7 @@
             "callId": "call_c72d27d839ab400f815dbf69",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 50,\n  \"offset\": 1851\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 50,\n  \"offset\": 1851\n}",
               "sizeBytes": 147,
               "truncated": false
             },
@@ -7749,7 +7749,7 @@
             "callId": "call_ec4c53731e3d425da37b97ec",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 220,\n  \"offset\": 3180\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 220,\n  \"offset\": 3180\n}",
               "sizeBytes": 148,
               "truncated": false
             },
@@ -7849,7 +7849,7 @@
             "callId": "call_cb429ee139594737a0f90e13",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 120,\n  \"offset\": 1583\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 120,\n  \"offset\": 1583\n}",
               "sizeBytes": 148,
               "truncated": false
             },
@@ -7893,7 +7893,7 @@
             "callId": "call_6801de24663e47188738c320",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 100,\n  \"offset\": 1780\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 100,\n  \"offset\": 1780\n}",
               "sizeBytes": 148,
               "truncated": false
             },
@@ -7937,7 +7937,7 @@
             "callId": "call_23c70148237f44bd85593b72",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 60,\n  \"offset\": 1889\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx\",\n  \"limit\": 60,\n  \"offset\": 1889\n}",
               "sizeBytes": 147,
               "truncated": false
             },
@@ -8037,7 +8037,7 @@
             "callId": "call_ac2f4ff2731c41fa956c5a17",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"credentialMode\\\\|modelsText\\\\|createDefaultProviderAccountDraft\\\\|createProviderAccountDraftFromConfig\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx | head -30\",\n  \"description\": \"Check default credential mode and modelsText usage\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"credentialMode\\\\|modelsText\\\\|createDefaultProviderAccountDraft\\\\|createProviderAccountDraftFromConfig\\\" /Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx | head -30\",\n  \"description\": \"Check default credential mode and modelsText usage\"\n}",
               "sizeBytes": 309,
               "truncated": false
             },
@@ -8081,13 +8081,13 @@
             "callId": "call_30dac988f28342f7a2a04639",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -rn \\\"credentialMode.*apiKey\\\\|credentialMode.*:.*\\\\\\\"apiKey\\\\\\\"\\\\|defaultCredentialMode\\\\|credentialMode =\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/ | grep -i \\\"default\\\\|initial\\\\|= \\\\\\\"api\\\" | head -15\",\n  \"description\": \"Find default credential mode initialization\"\n}",
+              "preview": "{\n  \"command\": \"grep -rn \\\"credentialMode.*apiKey\\\\|credentialMode.*:.*\\\\\\\"apiKey\\\\\\\"\\\\|defaultCredentialMode\\\\|credentialMode =\\\" /Users/you/llm-router/packages/ui/src/ | grep -i \\\"default\\\\|initial\\\\|= \\\\\\\"api\\\" | head -15\",\n  \"description\": \"Find default credential mode initialization\"\n}",
               "sizeBytes": 311,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/providers.tsx:2303:              {draft.credentialMode === \"apiKey\" ? (",
+              "preview": "/Users/you/llm-router/packages/ui/src/pages/home/components/providers.tsx:2303:              {draft.credentialMode === \"apiKey\" ? (",
               "sizeBytes": 151,
               "truncated": false
             },
@@ -8181,13 +8181,13 @@
             "callId": "call_10328377f3284ce883c84e8a",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -rn \\\"function createDefaultProviderAccountDraft\\\\|credentialMode\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/ --include=\\\"*.ts\\\" --include=\\\"*.tsx\\\" | grep -v \\\"providers.tsx\\\" | grep -i \\\"default\\\\|credentialMode\\\" | head -15\",\n  \"description\": \"Find default credential mode in shared types\"\n}",
+              "preview": "{\n  \"command\": \"grep -rn \\\"function createDefaultProviderAccountDraft\\\\|credentialMode\\\" /Users/you/llm-router/packages/ui/src/ --include=\\\"*.ts\\\" --include=\\\"*.tsx\\\" | grep -v \\\"providers.tsx\\\" | grep -i \\\"default\\\\|credentialMode\\\" | head -15\",\n  \"description\": \"Find default credential mode in shared types\"\n}",
               "sizeBytes": 332,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/App.tsx:1397:  }, [activeView, onboardingStep, providerAddOpen, providerDraft.apiKey, providerDraft.baseUrl, providerDraft.credentialMode, providerDraft.credentials, providerDraft.presetId, providerDraft.protocol, providerDraft.protocolDetectionMode, providerDraft.providerPlugins]);\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/App.tsx:1498:    const useCredentialPool = providerDraft.credentialMode === \"pool\";\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/providers.ts:642:    credentialMode: \"apiKey\",\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/providers.ts:738:    credentialMode: \"apiKey\",\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/providers.ts:768:    credentialMode: providerDraftHasReadyCredentialPool({ credentials }) ? \"pool\" : \"apiKey\",\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/providers.ts:912:export function providerConnectivityApiKeyFromDraft(draft: Pick<AddProviderDraft, \"apiKey\" | \"credentialMode\" | \"credentials\">): string {\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/providers.ts:913:  if (draft.credentialMode === \"pool\") {\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/providers.ts:1008:    credentialMode: \"pool\",\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/providers.ts:1123:export function createDefaultProviderAccountDraft(): Pick<\n/Volumes/Data/Product\n...",
+              "preview": "/Users/you/llm-router/packages/ui/src/pages/home/App.tsx:1397:  }, [activeView, onboardingStep, providerAddOpen, providerDraft.apiKey, providerDraft.baseUrl, providerDraft.credentialMode, providerDraft.credentials, providerDraft.presetId, providerDraft.protocol, providerDraft.protocolDetectionMode, providerDraft.providerPlugins]);\n/Users/you/llm-router/packages/ui/src/pages/home/App.tsx:1498:    const useCredentialPool = providerDraft.credentialMode === \"pool\";\n/Users/you/llm-router/packages/ui/src/pages/home/shared/providers.ts:642:    credentialMode: \"apiKey\",\n/Users/you/llm-router/packages/ui/src/pages/home/shared/providers.ts:738:    credentialMode: \"apiKey\",\n/Users/you/llm-router/packages/ui/src/pages/home/shared/providers.ts:768:    credentialMode: providerDraftHasReadyCredentialPool({ credentials }) ? \"pool\" : \"apiKey\",\n/Users/you/llm-router/packages/ui/src/pages/home/shared/providers.ts:912:export function providerConnectivityApiKeyFromDraft(draft: Pick<AddProviderDraft, \"apiKey\" | \"credentialMode\" | \"credentials\">): string {\n/Users/you/llm-router/packages/ui/src/pages/home/shared/providers.ts:913:  if (draft.credentialMode === \"pool\") {\n/Users/you/llm-router/packages/ui/src/pages/home/shared/providers.ts:1008:    credentialMode: \"pool\",\n/Users/you/llm-router/packages/ui/src/pages/home/shared/providers.ts:1123:export function createDefaultProviderAccountDraft(): Pick<\n/Volumes/Data/Product\n...",
               "sizeBytes": 1846,
               "truncated": true
             },
@@ -8633,7 +8633,7 @@
             "callId": "call_88fb7cf50ced40a2a4591237",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/demoRuntime.tsx\",\n  \"old_string\": \"export function createCursorApi(\\n  setCursor: (updater: (prev: CursorState) => CursorState) => void\\n): CursorApi {\\n  return {\\n    async moveTo(el) {\\n      // The real app is a wide desktop layout that can overflow the docs iframe,\\n      // so scroll the target into view first — otherwise its viewport coords are\\n      // off-screen and the cursor points into empty space.\\n      try {\\n        el.scrollIntoView({ block: \\\"center\\\", inline: \\\"center\\\" });\\n      } catch {\\n        /* not scrollable */\\n      }\\n      await sleep(140);\\n      const { x, y } = center(el);\\n      setCursor((c) => ({ ...c, visible: true, x, y }));\\n      await sleep(MOVE_MS + 80);\\n    },\\n    async pointAt(el) {\\n      await this.moveTo(el);\\n      setCursor((c) => ({ ...c, clicking: true }));\\n      await sleep(140);\\n      setCursor((c) => ({ ...c, clicking: false }));\\n      await sleep(120);\\n    },\\n    async click(el) {\\n      await this.moveTo(el);\\n      setCursor((c) => ({ ...c, clicking: true }));\\n      await sleep(130);\\n      fireClick(el);\\n      await sleep(190);\\n      setCursor((c) => ({ ...c, clicking: false }));\\n    },\\n    async type(el, text) {\\n      await this.moveTo(el);\\n      setCursor((c) => ({ ...c, clicking: true }));\\n      await sleep(120);\\n      el.focus();\\n      setCursor((c) => ({ ...c, clicking: false }));\\n      const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputE\n...",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/demoRuntime.tsx\",\n  \"old_string\": \"export function createCursorApi(\\n  setCursor: (updater: (prev: CursorState) => CursorState) => void\\n): CursorApi {\\n  return {\\n    async moveTo(el) {\\n      // The real app is a wide desktop layout that can overflow the docs iframe,\\n      // so scroll the target into view first — otherwise its viewport coords are\\n      // off-screen and the cursor points into empty space.\\n      try {\\n        el.scrollIntoView({ block: \\\"center\\\", inline: \\\"center\\\" });\\n      } catch {\\n        /* not scrollable */\\n      }\\n      await sleep(140);\\n      const { x, y } = center(el);\\n      setCursor((c) => ({ ...c, visible: true, x, y }));\\n      await sleep(MOVE_MS + 80);\\n    },\\n    async pointAt(el) {\\n      await this.moveTo(el);\\n      setCursor((c) => ({ ...c, clicking: true }));\\n      await sleep(140);\\n      setCursor((c) => ({ ...c, clicking: false }));\\n      await sleep(120);\\n    },\\n    async click(el) {\\n      await this.moveTo(el);\\n      setCursor((c) => ({ ...c, clicking: true }));\\n      await sleep(130);\\n      fireClick(el);\\n      await sleep(190);\\n      setCursor((c) => ({ ...c, clicking: false }));\\n    },\\n    async type(el, text) {\\n      await this.moveTo(el);\\n      setCursor((c) => ({ ...c, clicking: true }));\\n      await sleep(120);\\n      el.focus();\\n      setCursor((c) => ({ ...c, clicking: false }));\\n      const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputE\n...",
               "sizeBytes": 4901,
               "truncated": true
             }
@@ -8725,7 +8725,7 @@
             "callId": "call_5ec37eea30c947278391343c",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/demoRuntime.tsx\",\n  \"old_string\": \"/** Dispatch a realistic mouse press+release+click so React onClick handlers fire. */\\nfunction fireClick(el: Element) {\\n  const opts = { bubbles: true, cancelable: true, view: window };\\n  el.dispatchEvent(new MouseEvent(\\\"mousedown\\\", opts));\\n  el.dispatchEvent(new MouseEvent(\\\"mouseup\\\", opts));\\n  el.dispatchEvent(new MouseEvent(\\\"click\\\", opts));\\n}\",\n  \"new_string\": \"/** Trigger a real click via the native HTMLElement.click() method — the most\\n *  reliable way to fire React onClick handlers (delegated at the root). */\\nfunction fireClick(el: Element) {\\n  (el as HTMLElement).click();\\n}\"\n}",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/demoRuntime.tsx\",\n  \"old_string\": \"/** Dispatch a realistic mouse press+release+click so React onClick handlers fire. */\\nfunction fireClick(el: Element) {\\n  const opts = { bubbles: true, cancelable: true, view: window };\\n  el.dispatchEvent(new MouseEvent(\\\"mousedown\\\", opts));\\n  el.dispatchEvent(new MouseEvent(\\\"mouseup\\\", opts));\\n  el.dispatchEvent(new MouseEvent(\\\"click\\\", opts));\\n}\",\n  \"new_string\": \"/** Trigger a real click via the native HTMLElement.click() method — the most\\n *  reliable way to fire React onClick handlers (delegated at the root). */\\nfunction fireClick(el: Element) {\\n  (el as HTMLElement).click();\\n}\"\n}",
               "sizeBytes": 758,
               "truncated": false
             }
@@ -8817,7 +8817,7 @@
             "callId": "call_30aa0442de6d411abb7fa4cb",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ProvidersViewDemo.tsx\",\n  \"old_string\": \"  /**\\n   * Automated \\\"add a provider\\\" walkthrough with a VISIBLE virtual cursor, using\\n   * the REAL add flow: open the Add dialog -> SELECT a provider preset (the\\n   * cursor points at the preset combobox and OpenAI is chosen, which fills name\\n   * + endpoint) -> enter API key -> enter a model -> Save.\\n   */\\n  async function play() {\\n    if (playing) return;\\n    setPlaying(true);\\n    try {\\n      const dialog = () => document.querySelector('[role=\\\"dialog\\\"]') as HTMLElement | null;\\n      const point = async (el: Element | null) => {\\n        await cursorApi.pointAt(el ?? dialog() ?? document.body);\\n      };\\n      const typeField = async (el: Element | null, value: string, apply: (v: string) => void) => {\\n        await point(el);\\n        for (let i = 1; i <= value.length; i++) {\\n          apply(value.slice(0, i));\\n          await sleep(55);\\n        }\\n        await sleep(220);\\n      };\\n\\n      // 1) open the Add dialog (add mode = wizard, step 1 \\\"provider\\\")\\n      await point(findByAria(\\\"button\\\", [\\\"添加供应商\\\", \\\"Add provider\\\"]));\\n      let d = createProviderDraft(providers);\\n      setEditIndex(undefined);\\n      setDialogMode(\\\"add\\\");\\n      setDialogTitle(undefined);\\n      setDraft(d);\\n      setDialogOpen(true);\\n      await sleep(900);\\n\\n      // 2) SELECT the OpenAI preset: cursor points at the preset combobox, then\\n      //    the preset is chosen (combobox shows OpenAI; name + endpoi\n...",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ProvidersViewDemo.tsx\",\n  \"old_string\": \"  /**\\n   * Automated \\\"add a provider\\\" walkthrough with a VISIBLE virtual cursor, using\\n   * the REAL add flow: open the Add dialog -> SELECT a provider preset (the\\n   * cursor points at the preset combobox and OpenAI is chosen, which fills name\\n   * + endpoint) -> enter API key -> enter a model -> Save.\\n   */\\n  async function play() {\\n    if (playing) return;\\n    setPlaying(true);\\n    try {\\n      const dialog = () => document.querySelector('[role=\\\"dialog\\\"]') as HTMLElement | null;\\n      const point = async (el: Element | null) => {\\n        await cursorApi.pointAt(el ?? dialog() ?? document.body);\\n      };\\n      const typeField = async (el: Element | null, value: string, apply: (v: string) => void) => {\\n        await point(el);\\n        for (let i = 1; i <= value.length; i++) {\\n          apply(value.slice(0, i));\\n          await sleep(55);\\n        }\\n        await sleep(220);\\n      };\\n\\n      // 1) open the Add dialog (add mode = wizard, step 1 \\\"provider\\\")\\n      await point(findByAria(\\\"button\\\", [\\\"添加供应商\\\", \\\"Add provider\\\"]));\\n      let d = createProviderDraft(providers);\\n      setEditIndex(undefined);\\n      setDialogMode(\\\"add\\\");\\n      setDialogTitle(undefined);\\n      setDraft(d);\\n      setDialogOpen(true);\\n      await sleep(900);\\n\\n      // 2) SELECT the OpenAI preset: cursor points at the preset combobox, then\\n      //    the preset is chosen (combobox shows OpenAI; name + endpoi\n...",
               "sizeBytes": 6978,
               "truncated": true
             }
@@ -8909,7 +8909,7 @@
             "callId": "call_0892ad67d72a49dc976ec02b",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -10; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\",\n  \"description\": \"Build with real-time cursor + correct provider flow\",\n  \"timeout\": 300000\n}",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -10; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\",\n  \"description\": \"Build with real-time cursor + correct provider flow\",\n  \"timeout\": 300000\n}",
               "sizeBytes": 346,
               "truncated": false
             }
@@ -9057,7 +9057,7 @@
             "callId": "call_adb72d20e50841029e191e82",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncat > /Volumes/Data/Products/claude-code-router/verify-wizard-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/provider-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nconst before = await p.locator('[aria-label*=\\\"移除\\\"]').count();\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\n// Check at ~4s: dialog open + preset selected?\\nawait p.waitForTimeout(4000);\\nconst mid = await p.evaluate(() => {\\n  const txt = document.body.textContent || \\\"\\\";\\n  const cursor = !!Array.from(document.querySelectorAll(\\\"div\\\")).find(d=>d.style.zIndex===\\\"99999\\\");\\n  return { cursor, dialogOpen: txt.includes(\\\"添加供应商\\\"), presetSelected: txt.includes(\\\"OpenAI\\\"), step2Visible: txt.includes(\\\"API\\\") };\\n});\\n// Wait for completion (~15s total)\\nawait p.waitForTimeout(12000);\\nconst after = await p.locator('[aria-label*=\\\"移除\\\"]').count();\\nconst dlgEnd = (await p.locator(\\\"body\\\").textContent()).includes(\\\"添加供应商\\\");\\nconsole.log(JSON.stringify({ mid, removeBefore: before, removeAfter: after, added: after>before, dialogEndOpen: dlgEnd }));\\nawait b.close();\\nEOF\\ncd /Volumes/Data/Products/claude-code-router/docs\\npkill -f \\\"astro dev\\\" 2>/dev/null; sleep 1\\n(npm run dev > /tmp/ccr-dev.log 2>&1 &) && sleep 8\\ncd /Volumes/Data/Products/claude-code-router\\n/usr/bin/env node verify-wizard-tmp.mjs 2>&1 | tail -5\\npkill -f \\\"astro \n...",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncat > /Users/you/llm-router/verify-wizard-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/provider-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nconst before = await p.locator('[aria-label*=\\\"移除\\\"]').count();\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\n// Check at ~4s: dialog open + preset selected?\\nawait p.waitForTimeout(4000);\\nconst mid = await p.evaluate(() => {\\n  const txt = document.body.textContent || \\\"\\\";\\n  const cursor = !!Array.from(document.querySelectorAll(\\\"div\\\")).find(d=>d.style.zIndex===\\\"99999\\\");\\n  return { cursor, dialogOpen: txt.includes(\\\"添加供应商\\\"), presetSelected: txt.includes(\\\"OpenAI\\\"), step2Visible: txt.includes(\\\"API\\\") };\\n});\\n// Wait for completion (~15s total)\\nawait p.waitForTimeout(12000);\\nconst after = await p.locator('[aria-label*=\\\"移除\\\"]').count();\\nconst dlgEnd = (await p.locator(\\\"body\\\").textContent()).includes(\\\"添加供应商\\\");\\nconsole.log(JSON.stringify({ mid, removeBefore: before, removeAfter: after, added: after>before, dialogEndOpen: dlgEnd }));\\nawait b.close();\\nEOF\\ncd /Users/you/llm-router/docs\\npkill -f \\\"astro dev\\\" 2>/dev/null; sleep 1\\n(npm run dev > /tmp/ccr-dev.log 2>&1 &) && sleep 8\\ncd /Users/you/llm-router\\n/usr/bin/env node verify-wizard-tmp.mjs 2>&1 | tail -5\\npkill -f \\\"astro \n...",
               "sizeBytes": 1802,
               "truncated": true
             }
@@ -9485,7 +9485,7 @@
             "callId": "call_bebb5638744a4004812937a7",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"limit\": 35,\n  \"offset\": 57\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"limit\": 35,\n  \"offset\": 57\n}",
               "sizeBytes": 145,
               "truncated": false
             }
@@ -9577,7 +9577,7 @@
             "callId": "call_2a1a469996bd4565a4dec58d",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"limit\": 30,\n  \"offset\": 90\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"limit\": 30,\n  \"offset\": 90\n}",
               "sizeBytes": 145,
               "truncated": false
             }
@@ -9669,7 +9669,7 @@
             "callId": "call_2ed5f50128b843fc8684816a",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"old_string\": \"  /** Automated walkthrough: cursor opens the Add Profile dialog, fills the\\n   *  model, and saves — showing the real intermediate form. */\\n  async function play() {\\n    if (playing) return;\\n    setPlaying(true);\\n    try {\\n      const dialog = () => document.querySelector('[role=\\\"dialog\\\"]') as HTMLElement | null;\\n      const point = async (el: Element | null) => {\\n        await cursorApi.pointAt(el ?? dialog() ?? document.body);\\n      };\\n\\n      // 1) open the Add Profile dialog\\n      await point(findByAria(\\\"button\\\", [\\\"添加配置\\\", \\\"添加\\\", \\\"Add profile\\\", \\\"Add\\\"]));\\n      openAddProfile();\\n      await sleep(900);\\n\\n      // 2) enter the default model (character by character)\\n      const modelInput = findInputByLabels([\\\"模型\\\", \\\"Model\\\"]);\\n      await point(modelInput);\\n      let model = \\\"\\\";\\n      for (const ch of \\\"OpenAI/gpt-4o\\\") {\\n        model += ch;\\n        changeDraft({ model });\\n        await sleep(55);\\n      }\\n      await sleep(250);\\n\\n      // 3) Save (build + append from the local model to avoid stale closure)\\n      const buttons = Array.from(dialog()?.querySelectorAll(\\\"button\\\") ?? []);\\n      await point(buttons[buttons.length - 1] ?? null);\\n      const profile = {\\n        id: slugify(\\\"Claude Code\\\"),\\n        name: \\\"Claude Code\\\",\\n        agent: \\\"claude-code\\\",\\n        model,\\n        enabled: true,\\n      } as ProfileConfig;\\n      setConfig((cfg) => ({\\n        ...cfg,\\n\n...",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"old_string\": \"  /** Automated walkthrough: cursor opens the Add Profile dialog, fills the\\n   *  model, and saves — showing the real intermediate form. */\\n  async function play() {\\n    if (playing) return;\\n    setPlaying(true);\\n    try {\\n      const dialog = () => document.querySelector('[role=\\\"dialog\\\"]') as HTMLElement | null;\\n      const point = async (el: Element | null) => {\\n        await cursorApi.pointAt(el ?? dialog() ?? document.body);\\n      };\\n\\n      // 1) open the Add Profile dialog\\n      await point(findByAria(\\\"button\\\", [\\\"添加配置\\\", \\\"添加\\\", \\\"Add profile\\\", \\\"Add\\\"]));\\n      openAddProfile();\\n      await sleep(900);\\n\\n      // 2) enter the default model (character by character)\\n      const modelInput = findInputByLabels([\\\"模型\\\", \\\"Model\\\"]);\\n      await point(modelInput);\\n      let model = \\\"\\\";\\n      for (const ch of \\\"OpenAI/gpt-4o\\\") {\\n        model += ch;\\n        changeDraft({ model });\\n        await sleep(55);\\n      }\\n      await sleep(250);\\n\\n      // 3) Save (build + append from the local model to avoid stale closure)\\n      const buttons = Array.from(dialog()?.querySelectorAll(\\\"button\\\") ?? []);\\n      await point(buttons[buttons.length - 1] ?? null);\\n      const profile = {\\n        id: slugify(\\\"Claude Code\\\"),\\n        name: \\\"Claude Code\\\",\\n        agent: \\\"claude-code\\\",\\n        model,\\n        enabled: true,\\n      } as ProfileConfig;\\n      setConfig((cfg) => ({\\n        ...cfg,\\n\n...",
               "sizeBytes": 3614,
               "truncated": true
             }
@@ -9761,7 +9761,7 @@
             "callId": "call_37f3a576ff7e4b139d81d6f3",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify both ===\\\"\\ncat > /Volumes/Data/Products/claude-code-router/verify-final2-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch();\\n// PROVIDER: 4-step wizard\\nconst pp = await b.newPage();\\nawait pp.goto(\\\"http://localhost:4321/guides/provider-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await pp.waitForTimeout(2500);\\nconst pb = await pp.locator('[aria-label*=\\\"移除\\\"]').count();\\nawait pp.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait pp.waitForTimeout(16000);\\nconst pa = await pp.locator('[aria-label*=\\\"移除\\\"]').count();\\nconsole.log(`PROVIDER: added=${pa>pb} (${pb}->${pa})`);\\nawait pp.close();\\n// PROFILE: dialog flow\\nconst ap = await b.newPage();\\nawait ap.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await ap.waitForTimeout(2500);\\nawait ap.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait ap.waitForTimeout(2000);\\nconst dlgMid = /添加配置|Add profile|模型|Model/.test(await ap.locator(\\\"body\\\").textContent());\\nawait ap.waitForTimeout(5000);\\nconst profiles = ((await ap.locator(\\\"body\\\").textContent()).match(/gpt-4o/g)||[]).length;\\nconsole.log(`PROFILE: dialogMid=${dlgMid} profilesAdded=${profiles}`);\\nawait ap.close();\\nawait b.close();\\n\n...",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify both ===\\\"\\ncat > /Users/you/llm-router/verify-final2-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch();\\n// PROVIDER: 4-step wizard\\nconst pp = await b.newPage();\\nawait pp.goto(\\\"http://localhost:4321/guides/provider-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await pp.waitForTimeout(2500);\\nconst pb = await pp.locator('[aria-label*=\\\"移除\\\"]').count();\\nawait pp.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait pp.waitForTimeout(16000);\\nconst pa = await pp.locator('[aria-label*=\\\"移除\\\"]').count();\\nconsole.log(`PROVIDER: added=${pa>pb} (${pb}->${pa})`);\\nawait pp.close();\\n// PROFILE: dialog flow\\nconst ap = await b.newPage();\\nawait ap.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await ap.waitForTimeout(2500);\\nawait ap.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait ap.waitForTimeout(2000);\\nconst dlgMid = /添加配置|Add profile|模型|Model/.test(await ap.locator(\\\"body\\\").textContent());\\nawait ap.waitForTimeout(5000);\\nconst profiles = ((await ap.locator(\\\"body\\\").textContent()).match(/gpt-4o/g)||[]).length;\\nconsole.log(`PROFILE: dialogMid=${dlgMid} profilesAdded=${profiles}`);\\nawait ap.close();\\nawait b.close();\\n\n...",
               "sizeBytes": 2004,
               "truncated": true
             }
@@ -10021,7 +10021,7 @@
             "callId": "call_097eebb901e64d938b1244e0",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncat > /Volumes/Data/Products/claude-code-router/debug-profile-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait p.waitForTimeout(8000);\\nconst r = await p.evaluate(() => {\\n  const dialog = document.querySelector('[role=\\\"dialog\\\"]');\\n  const buttons = dialog ? Array.from(dialog.querySelectorAll(\\\"button\\\")) : [];\\n  const lastBtn = buttons[buttons.length-1];\\n  const inputs = dialog ? Array.from(dialog.querySelectorAll(\\\"input\\\")).map(i=>({type:i.type,val:(i.value||\\\"\\\").slice(0,20),aria:i.getAttribute(\\\"aria-label\\\")||\\\"?\\\"})) : [];\\n  // profile cards (in ProfileView, not dialog)\\n  const profileCards = document.querySelectorAll('[class*=\\\"rounded-lg\\\"][class*=\\\"border\\\"]');\\n  return { dialogOpen: !!dialog, lastBtnText: lastBtn?.textContent?.trim().slice(0,16), lastBtnDisabled: lastBtn?.disabled, inputCount: inputs.length, inputs, profileCardCount: profileCards.length };\\n});\\nconsole.log(JSON.stringify(r, null, 2));\\nawait b.close();\\nEOF\\ncd /Volumes/Data/Products/claude-code-router/docs\\npkill -f \\\"astro dev\\\" 2>/dev/null; sleep 1\\n(npm run dev > /tmp/ccr-dev.log 2>&1 &) && sleep 8\\ncd /Volumes/Data/Products/claude-code-router\\n/usr/bin/env node debug-profile-tmp.mjs 2>&1 | tail -2\n...",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncat > /Users/you/llm-router/debug-profile-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait p.waitForTimeout(8000);\\nconst r = await p.evaluate(() => {\\n  const dialog = document.querySelector('[role=\\\"dialog\\\"]');\\n  const buttons = dialog ? Array.from(dialog.querySelectorAll(\\\"button\\\")) : [];\\n  const lastBtn = buttons[buttons.length-1];\\n  const inputs = dialog ? Array.from(dialog.querySelectorAll(\\\"input\\\")).map(i=>({type:i.type,val:(i.value||\\\"\\\").slice(0,20),aria:i.getAttribute(\\\"aria-label\\\")||\\\"?\\\"})) : [];\\n  // profile cards (in ProfileView, not dialog)\\n  const profileCards = document.querySelectorAll('[class*=\\\"rounded-lg\\\"][class*=\\\"border\\\"]');\\n  return { dialogOpen: !!dialog, lastBtnText: lastBtn?.textContent?.trim().slice(0,16), lastBtnDisabled: lastBtn?.disabled, inputCount: inputs.length, inputs, profileCardCount: profileCards.length };\\n});\\nconsole.log(JSON.stringify(r, null, 2));\\nawait b.close();\\nEOF\\ncd /Users/you/llm-router/docs\\npkill -f \\\"astro dev\\\" 2>/dev/null; sleep 1\\n(npm run dev > /tmp/ccr-dev.log 2>&1 &) && sleep 8\\ncd /Users/you/llm-router\\n/usr/bin/env node debug-profile-tmp.mjs 2>&1 | tail -2\n...",
               "sizeBytes": 1767,
               "truncated": true
             }
@@ -10801,7 +10801,7 @@
             "callId": "call_b4563911a2604a91829cd896",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"offset\": 1,\n  \"limit\": 150\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"offset\": 1,\n  \"limit\": 150\n}",
               "sizeBytes": 144,
               "truncated": false
             },
@@ -10845,13 +10845,13 @@
             "callId": "call_3fc44fda451c4e3b9b3e310a",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"wc -l /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"description\": \"Count lines in profiles.tsx\"\n}",
+              "preview": "{\n  \"command\": \"wc -l /Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"description\": \"Count lines in profiles.tsx\"\n}",
               "sizeBytes": 165,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "    1743 /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx",
+              "preview": "    1743 /Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx",
               "sizeBytes": 101,
               "truncated": false
             },
@@ -10889,7 +10889,7 @@
             "callId": "call_998be0d9cea142bca456a164",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"function ProfileView\\\\|function AddProfileDialog\\\\|function AddProfileForm\\\\|const ProfileView\\\\|const AddProfileDialog\\\\|const AddProfileForm\\\\|addProfile\\\\|AddProfileDialog\\\\|AddProfileForm\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"description\": \"Find key component definitions and addProfile references\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"function ProfileView\\\\|function AddProfileDialog\\\\|function AddProfileForm\\\\|const ProfileView\\\\|const AddProfileDialog\\\\|const AddProfileForm\\\\|addProfile\\\\|AddProfileDialog\\\\|AddProfileForm\\\" /Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"description\": \"Find key component definitions and addProfile references\"\n}",
               "sizeBytes": 392,
               "truncated": false
             },
@@ -10989,7 +10989,7 @@
             "callId": "call_2f13b386eb6640238487a9a9",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"offset\": 682,\n  \"limit\": 200\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"offset\": 682,\n  \"limit\": 200\n}",
               "sizeBytes": 146,
               "truncated": false
             },
@@ -11033,7 +11033,7 @@
             "callId": "call_464975fb35da49bfbf3c8372",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"offset\": 1673,\n  \"limit\": 71\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"offset\": 1673,\n  \"limit\": 71\n}",
               "sizeBytes": 146,
               "truncated": false
             },
@@ -11077,13 +11077,13 @@
             "callId": "call_c8d65766d19840e7a91dc5ea",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -rn \\\"addProfile\\\\|ProfileView\\\\|AddProfileDialog\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/ --include=\\\"*.tsx\\\" | grep -v \\\"profiles.tsx\\\"\",\n  \"description\": \"Find where ProfileView and addProfile are used outside profiles.tsx\"\n}",
+              "preview": "{\n  \"command\": \"grep -rn \\\"addProfile\\\\|ProfileView\\\\|AddProfileDialog\\\" /Users/you/llm-router/packages/ui/src/pages/home/ --include=\\\"*.tsx\\\" | grep -v \\\"profiles.tsx\\\"\",\n  \"description\": \"Find where ProfileView and addProfile are used outside profiles.tsx\"\n}",
               "sizeBytes": 280,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/App.tsx:2518:  function openAddProfileDialog(agent: ProfileConfig[\"agent\"] = profileAgentTab) {\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/App.tsx:3044:                  addProfile: openAddProfileDialog,\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/layout.tsx:16:import { ProfileView } from \"./profiles\";\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/layout.tsx:64:  profile: ComponentProps<typeof ProfileView>;\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/layout.tsx:454:        {activeView === \"profile\" ? <ProfileView {...viewProps.profile} /> : null}\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/dialog-stack.tsx:5:import { AddProfileDialog, DeleteProfileDialog, ProfileOpenDialog } from \"./profiles\";\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/dialog-stack.tsx:42:  profileAdd?: ComponentProps<typeof AddProfileDialog>;\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/dialog-stack.tsx:44:  profileEdit?: ComponentProps<typeof AddProfileDialog>;\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/dialog-stack.tsx:58:    profileAdd ? { key: \"profile-add\", node: <AddProfileDialog {...profileAdd} /> } : null,\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/dialog-stack.tsx:59:    profileEdit ? { key: \"profile-edit\", node: <AddProf\n...",
+              "preview": "/Users/you/llm-router/packages/ui/src/pages/home/App.tsx:2518:  function openAddProfileDialog(agent: ProfileConfig[\"agent\"] = profileAgentTab) {\n/Users/you/llm-router/packages/ui/src/pages/home/App.tsx:3044:                  addProfile: openAddProfileDialog,\n/Users/you/llm-router/packages/ui/src/pages/home/components/layout.tsx:16:import { ProfileView } from \"./profiles\";\n/Users/you/llm-router/packages/ui/src/pages/home/components/layout.tsx:64:  profile: ComponentProps<typeof ProfileView>;\n/Users/you/llm-router/packages/ui/src/pages/home/components/layout.tsx:454:        {activeView === \"profile\" ? <ProfileView {...viewProps.profile} /> : null}\n/Users/you/llm-router/packages/ui/src/pages/home/components/dialog-stack.tsx:5:import { AddProfileDialog, DeleteProfileDialog, ProfileOpenDialog } from \"./profiles\";\n/Users/you/llm-router/packages/ui/src/pages/home/components/dialog-stack.tsx:42:  profileAdd?: ComponentProps<typeof AddProfileDialog>;\n/Users/you/llm-router/packages/ui/src/pages/home/components/dialog-stack.tsx:44:  profileEdit?: ComponentProps<typeof AddProfileDialog>;\n/Users/you/llm-router/packages/ui/src/pages/home/components/dialog-stack.tsx:58:    profileAdd ? { key: \"profile-add\", node: <AddProfileDialog {...profileAdd} /> } : null,\n/Users/you/llm-router/packages/ui/src/pages/home/components/dialog-stack.tsx:59:    profileEdit ? { key: \"profile-edit\", node: <AddProf\n...",
               "sizeBytes": 1639,
               "truncated": true
             },
@@ -11177,7 +11177,7 @@
             "callId": "call_6d8076547df846e5bf75c49e",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/App.tsx\",\n  \"limit\": 80,\n  \"offset\": 2510\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/App.tsx\",\n  \"limit\": 80,\n  \"offset\": 2510\n}",
               "sizeBytes": 130,
               "truncated": false
             },
@@ -11221,7 +11221,7 @@
             "callId": "call_85484c51425d4d5fb5dc4468",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"limit\": 200,\n  \"offset\": 881\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"limit\": 200,\n  \"offset\": 881\n}",
               "sizeBytes": 146,
               "truncated": false
             },
@@ -11265,7 +11265,7 @@
             "callId": "call_7c7ffde103a7487897be6d11",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/dialog-stack.tsx\",\n  \"limit\": 80,\n  \"offset\": 1\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/dialog-stack.tsx\",\n  \"limit\": 80,\n  \"offset\": 1\n}",
               "sizeBytes": 147,
               "truncated": false
             },
@@ -11365,7 +11365,7 @@
             "callId": "call_0b8fea4d0cda4423bcbf9653",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"profileAddOpen\\\\|profileAdd\\\\b\\\\|onSubmit\\\\|canSubmit\\\\|submitProfileDraft\\\\|profileDraft\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/App.tsx | head -60\",\n  \"description\": \"Find profileAdd state and submit handler in App.tsx\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"profileAddOpen\\\\|profileAdd\\\\b\\\\|onSubmit\\\\|canSubmit\\\\|submitProfileDraft\\\\|profileDraft\\\" /Users/you/llm-router/packages/ui/src/pages/home/App.tsx | head -60\",\n  \"description\": \"Find profileAdd state and submit handler in App.tsx\"\n}",
               "sizeBytes": 280,
               "truncated": false
             },
@@ -11409,13 +11409,13 @@
             "callId": "call_bcbdc85c1acb4a46a3637efa",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"function ModelSelector\\\\|function AgentSelectControl\\\\|function SelectControl\\\\|export function ModelSelector\\\\|export function ModelMultiSelector\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/model-selector.tsx /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx 2>/dev/null\",\n  \"description\": \"Find ModelSelector and AgentSelectControl definitions\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"function ModelSelector\\\\|function AgentSelectControl\\\\|function SelectControl\\\\|export function ModelSelector\\\\|export function ModelMultiSelector\\\" /Users/you/llm-router/packages/ui/src/pages/home/components/model-selector.tsx /Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx 2>/dev/null\",\n  \"description\": \"Find ModelSelector and AgentSelectControl definitions\"\n}",
               "sizeBytes": 455,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/model-selector.tsx:36:export function ModelSelector({\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/model-selector.tsx:315:export function ModelMultiSelector({\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx:519:function AgentSelectControl({",
+              "preview": "/Users/you/llm-router/packages/ui/src/pages/home/components/model-selector.tsx:36:export function ModelSelector({\n/Users/you/llm-router/packages/ui/src/pages/home/components/model-selector.tsx:315:export function ModelMultiSelector({\n/Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx:519:function AgentSelectControl({",
               "sizeBytes": 400,
               "truncated": false
             },
@@ -11509,7 +11509,7 @@
             "callId": "call_0f560c41d57c4786ac4f78c6",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/model-selector.tsx\",\n  \"limit\": 120,\n  \"offset\": 36\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/model-selector.tsx\",\n  \"limit\": 120,\n  \"offset\": 36\n}",
               "sizeBytes": 151,
               "truncated": false
             },
@@ -11553,7 +11553,7 @@
             "callId": "call_075743d394564036bb404217",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"limit\": 60,\n  \"offset\": 519\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"limit\": 60,\n  \"offset\": 519\n}",
               "sizeBytes": 145,
               "truncated": false
             },
@@ -11597,7 +11597,7 @@
             "callId": "call_06e48476a59b45bca71ff2ea",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/App.tsx\",\n  \"limit\": 30,\n  \"offset\": 3163\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/App.tsx\",\n  \"limit\": 30,\n  \"offset\": 3163\n}",
               "sizeBytes": 130,
               "truncated": false
             },
@@ -11641,7 +11641,7 @@
             "callId": "call_1e9c87ca7a1646b198849b60",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/App.tsx\",\n  \"limit\": 50,\n  \"offset\": 2774\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/App.tsx\",\n  \"limit\": 50,\n  \"offset\": 2774\n}",
               "sizeBytes": 130,
               "truncated": false
             },
@@ -11741,7 +11741,7 @@
             "callId": "call_39517ec68a814d94b1ed73af",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/model-selector.tsx\",\n  \"limit\": 160,\n  \"offset\": 156\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/model-selector.tsx\",\n  \"limit\": 160,\n  \"offset\": 156\n}",
               "sizeBytes": 152,
               "truncated": false
             },
@@ -11785,7 +11785,7 @@
             "callId": "call_d213604858254657a7cbee52",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"limit\": 160,\n  \"offset\": 583\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"limit\": 160,\n  \"offset\": 583\n}",
               "sizeBytes": 146,
               "truncated": false
             },
@@ -11885,13 +11885,13 @@
             "callId": "call_31d4322ee00e421fa77fe43c",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -rn \\\"export function SelectControl\\\\|function SelectControl\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/ 2>/dev/null; echo \\\"---\\\"; grep -rn \\\"SelectControl\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/ 2>/dev/null | head -5\",\n  \"description\": \"Find SelectControl component definition\"\n}",
+              "preview": "{\n  \"command\": \"grep -rn \\\"export function SelectControl\\\\|function SelectControl\\\" /Users/you/llm-router/packages/ui/src/pages/home/ 2>/dev/null; echo \\\"---\\\"; grep -rn \\\"SelectControl\\\" /Users/you/llm-router/packages/ui/src/pages/home/shared/ 2>/dev/null | head -5\",\n  \"description\": \"Find SelectControl component definition\"\n}",
               "sizeBytes": 369,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/controls.tsx:105:export function SelectControl({\n---\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/controls.tsx:105:export function SelectControl({\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/controls.tsx:136:  return <SelectControl onChange={onChange} options={translateOptions(options, t)} value={normalizedValue} />;",
+              "preview": "/Users/you/llm-router/packages/ui/src/pages/home/shared/controls.tsx:105:export function SelectControl({\n---\n/Users/you/llm-router/packages/ui/src/pages/home/shared/controls.tsx:105:export function SelectControl({\n/Users/you/llm-router/packages/ui/src/pages/home/shared/controls.tsx:136:  return <SelectControl onChange={onChange} options={translateOptions(options, t)} value={normalizedValue} />;",
               "sizeBytes": 457,
               "truncated": false
             },
@@ -11929,7 +11929,7 @@
             "callId": "call_29ef5db093104cd6b9388b85",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"limit\": 40,\n  \"offset\": 150\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/profiles.tsx\",\n  \"limit\": 40,\n  \"offset\": 150\n}",
               "sizeBytes": 145,
               "truncated": false
             },
@@ -12029,7 +12029,7 @@
             "callId": "call_b2f7e3d0f7ba46b6a18b0df2",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/controls.tsx\",\n  \"limit\": 60,\n  \"offset\": 105\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/shared/controls.tsx\",\n  \"limit\": 60,\n  \"offset\": 105\n}",
               "sizeBytes": 141,
               "truncated": false
             },
@@ -12129,13 +12129,13 @@
             "callId": "call_fc4aae4f67234e6f83b55a80",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -rn \\\"export function Select\\\\b\\\\|export const Select\\\\b\\\\|^export function Select\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/ 2>/dev/null | head; echo \\\"---\\\"; grep -rln \\\"function Select\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/components/ui/ 2>/dev/null\",\n  \"description\": \"Find Select component definition\"\n}",
+              "preview": "{\n  \"command\": \"grep -rn \\\"export function Select\\\\b\\\\|export const Select\\\\b\\\\|^export function Select\\\" /Users/you/llm-router/packages/ui/src/ 2>/dev/null | head; echo \\\"---\\\"; grep -rln \\\"function Select\\\" /Users/you/llm-router/packages/ui/src/components/ui/ 2>/dev/null\",\n  \"description\": \"Find Select component definition\"\n}",
               "sizeBytes": 369,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/controls.tsx:105:export function SelectControl({\n---",
+              "preview": "/Users/you/llm-router/packages/ui/src/pages/home/shared/controls.tsx:105:export function SelectControl({\n---",
               "sizeBytes": 128,
               "truncated": false
             },
@@ -12229,13 +12229,13 @@
             "callId": "call_221aaf1a585243498a100d34",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -rn \\\"Select\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/index.ts 2>/dev/null | head; echo \\\"---search for Select import---\\\"; grep -rn \\\"from.*select\\\\|from.*Select\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/ 2>/dev/null | head\",\n  \"description\": \"Trace Select import chain\"\n}",
+              "preview": "{\n  \"command\": \"grep -rn \\\"Select\\\" /Users/you/llm-router/packages/ui/src/pages/home/shared/index.ts 2>/dev/null | head; echo \\\"---search for Select import---\\\"; grep -rn \\\"from.*select\\\\|from.*Select\\\" /Users/you/llm-router/packages/ui/src/pages/home/shared/ 2>/dev/null | head\",\n  \"description\": \"Trace Select import chain\"\n}",
               "sizeBytes": 367,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "---search for Select import---\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/external.tsx:102:import { Select } from \"@/components/ui/select\";\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/controls.tsx:15:import { Select } from \"@/components/ui/select\";",
+              "preview": "---search for Select import---\n/Users/you/llm-router/packages/ui/src/pages/home/shared/external.tsx:102:import { Select } from \"@/components/ui/select\";\n/Users/you/llm-router/packages/ui/src/pages/home/shared/controls.tsx:15:import { Select } from \"@/components/ui/select\";",
               "sizeBytes": 313,
               "truncated": false
             },
@@ -12329,13 +12329,13 @@
             "callId": "call_3c34d0cde522490aa6102cd5",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"SelectTrigger\\\\|SelectContent\\\\|SelectItem\\\\|SelectValue\\\\|role=\\\\|aria-label\\\\|native\\\\|<select\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/components/ui/select.tsx 2>/dev/null | head -30; echo \\\"---WC lines---\\\"; wc -l /Volumes/Data/Products/claude-code-router/packages/ui/src/components/ui/select.tsx 2>/dev/null\",\n  \"description\": \"Inspect Select component DOM structure\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"SelectTrigger\\\\|SelectContent\\\\|SelectItem\\\\|SelectValue\\\\|role=\\\\|aria-label\\\\|native\\\\|<select\\\" /Users/you/llm-router/packages/ui/src/components/ui/select.tsx 2>/dev/null | head -30; echo \\\"---WC lines---\\\"; wc -l /Users/you/llm-router/packages/ui/src/components/ui/select.tsx 2>/dev/null\",\n  \"description\": \"Inspect Select component DOM structure\"\n}",
               "sizeBytes": 419,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "17:    <select\n---WC lines---\n      42 /Volumes/Data/Products/claude-code-router/packages/ui/src/components/ui/select.tsx",
+              "preview": "17:    <select\n---WC lines---\n      42 /Users/you/llm-router/packages/ui/src/components/ui/select.tsx",
               "sizeBytes": 121,
               "truncated": false
             },
@@ -12429,7 +12429,7 @@
             "callId": "call_fd61d705458340539ad20d74",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/components/ui/select.tsx\"\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/components/ui/select.tsx\"\n}",
               "sizeBytes": 103,
               "truncated": false
             },
@@ -12641,7 +12641,7 @@
             "callId": "call_5ae456357158491ab345f2d1",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"limit\": 30\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"limit\": 30\n}",
               "sizeBytes": 129,
               "truncated": false
             }
@@ -12733,7 +12733,7 @@
             "callId": "call_97bdcb009ebe4527bb1d0f2c",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"content\": \"/**\\n * Docs wrapper rendering the REAL, UNMODIFIED ProfileView + AddProfileDialog.\\n * The \\\"Play tutorial\\\" cursor: clicks \\\"Add profile\\\" → dialog opens → clicks the\\n * ModelSelector → picks a model → clicks \\\"Add\\\" — the real intermediate form.\\n * Includes demo providers so the ModelSelector has models to pick.\\n */\\nimport { useMemo, useState } from \\\"react\\\";\\nimport { AddProfileDialog, ProfileView } from \\\"@/pages/home/components/profiles\\\";\\nimport { BaseUiProvider } from \\\"@/lib/baseui-provider\\\";\\nimport { AppI18nContext, appCopy } from \\\"@/pages/home/shared/i18n\\\";\\nimport { fallbackConfig } from \\\"@/pages/home/shared/fallbacks\\\";\\nimport { createProfileDraft } from \\\"@/pages/home/shared/profiles\\\";\\nimport { profileAgentOptions } from \\\"@/pages/home/shared/options\\\";\\nimport {\\n  DemoNotice,\\n  DemoTitle,\\n  readDemoLocale,\\n  sleep,\\n  VirtualCursor,\\n  createCursorApi,\\n  findByText,\\n} from \\\"./demoRuntime\\\";\\nimport type { AppConfig, GatewayProviderConfig, ProfileConfig, ProfileRuntimeStatus } from \\\"@ccr/core/contracts/app\\\";\\nimport type { AddProfileDraft } from \\\"@/pages/home/shared/types\\\";\\n\\nconst noop = () => {};\\n\\nconst DEMO_PROVIDERS: GatewayProviderConfig[] = [\\n  { name: \\\"OpenAI\\\", provider: \\\"openai\\\", type: \\\"openai_chat_completions\\\", api_base_url: \\\"https://api.openai.com/v1\\\", api_key: \\\"sk-••••\\\", models: [\\\"gpt-4o\\\", \\\"gpt-4o-mini\\\"] },\\n  { name: \\\"Anthropic\\\", provider: \\\"anthropic\\\", type: \\\"anthropic_messag\n...",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"content\": \"/**\\n * Docs wrapper rendering the REAL, UNMODIFIED ProfileView + AddProfileDialog.\\n * The \\\"Play tutorial\\\" cursor: clicks \\\"Add profile\\\" → dialog opens → clicks the\\n * ModelSelector → picks a model → clicks \\\"Add\\\" — the real intermediate form.\\n * Includes demo providers so the ModelSelector has models to pick.\\n */\\nimport { useMemo, useState } from \\\"react\\\";\\nimport { AddProfileDialog, ProfileView } from \\\"@/pages/home/components/profiles\\\";\\nimport { BaseUiProvider } from \\\"@/lib/baseui-provider\\\";\\nimport { AppI18nContext, appCopy } from \\\"@/pages/home/shared/i18n\\\";\\nimport { fallbackConfig } from \\\"@/pages/home/shared/fallbacks\\\";\\nimport { createProfileDraft } from \\\"@/pages/home/shared/profiles\\\";\\nimport { profileAgentOptions } from \\\"@/pages/home/shared/options\\\";\\nimport {\\n  DemoNotice,\\n  DemoTitle,\\n  readDemoLocale,\\n  sleep,\\n  VirtualCursor,\\n  createCursorApi,\\n  findByText,\\n} from \\\"./demoRuntime\\\";\\nimport type { AppConfig, GatewayProviderConfig, ProfileConfig, ProfileRuntimeStatus } from \\\"@ccr/core/contracts/app\\\";\\nimport type { AddProfileDraft } from \\\"@/pages/home/shared/types\\\";\\n\\nconst noop = () => {};\\n\\nconst DEMO_PROVIDERS: GatewayProviderConfig[] = [\\n  { name: \\\"OpenAI\\\", provider: \\\"openai\\\", type: \\\"openai_chat_completions\\\", api_base_url: \\\"https://api.openai.com/v1\\\", api_key: \\\"sk-••••\\\", models: [\\\"gpt-4o\\\", \\\"gpt-4o-mini\\\"] },\\n  { name: \\\"Anthropic\\\", provider: \\\"anthropic\\\", type: \\\"anthropic_messag\n...",
               "sizeBytes": 6575,
               "truncated": true
             }
@@ -12825,7 +12825,7 @@
             "callId": "call_af2e34ef3132495b98b8bb1e",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify profile play ===\\\"\\ncat > /Volumes/Data/Products/claude-code-router/verify-prof-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\n// Check dialog opens at ~2s\\nawait p.waitForTimeout(2000);\\nconst dlg = (await p.locator(\\\"body\\\").textContent()).includes(\\\"添加\\\");\\nconst cursor = await p.evaluate(() => !!Array.from(document.querySelectorAll(\\\"div\\\")).find(d=>d.style.zIndex===\\\"99999\\\"));\\n// Wait for full flow (~10s)\\nawait p.waitForTimeout(8000);\\nconst r = await p.evaluate(() => ({\\n  dialogOpen: !!document.querySelector('[role=\\\"dialog\\\"]'),\\n  // count profile cards (non-dialog rounded-lg bordered divs in ProfileView)\\n  profileCards: document.querySelectorAll('[role=\\\"dialog\\\"] ~ * [class*=\\\"rounded-lg\\\"][class*=\\\"border\\\"]').length,\\n}));\\n// Also check if any profile with \\\"Claude Code\\\" or \\\"claude-code\\\" appears\\nconst hasProfile = /Claude Code|claude-code/i.test(await p.locator(\\\"body\\\").textContent());\\nconsole.log(JSON.stringify({ dialogMid: dlg, cursorMid: cursor, dialogEndOpen: r.dialogOpen, hasProfile\n...",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify profile play ===\\\"\\ncat > /Users/you/llm-router/verify-prof-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\n// Check dialog opens at ~2s\\nawait p.waitForTimeout(2000);\\nconst dlg = (await p.locator(\\\"body\\\").textContent()).includes(\\\"添加\\\");\\nconst cursor = await p.evaluate(() => !!Array.from(document.querySelectorAll(\\\"div\\\")).find(d=>d.style.zIndex===\\\"99999\\\"));\\n// Wait for full flow (~10s)\\nawait p.waitForTimeout(8000);\\nconst r = await p.evaluate(() => ({\\n  dialogOpen: !!document.querySelector('[role=\\\"dialog\\\"]'),\\n  // count profile cards (non-dialog rounded-lg bordered divs in ProfileView)\\n  profileCards: document.querySelectorAll('[role=\\\"dialog\\\"] ~ * [class*=\\\"rounded-lg\\\"][class*=\\\"border\\\"]').length,\\n}));\\n// Also check if any profile with \\\"Claude Code\\\" or \\\"claude-code\\\" appears\\nconst hasProfile = /Claude Code|claude-code/i.test(await p.locator(\\\"body\\\").textContent());\\nconsole.log(JSON.stringify({ dialogMid: dlg, cursorMid: cursor, dialogEndOpen: r.dialogOpen, hasProfile\n...",
               "sizeBytes": 1998,
               "truncated": true
             }
@@ -12973,7 +12973,7 @@
             "callId": "call_88e93883fd10445d913e9e2b",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncat > /Volumes/Data/Products/claude-code-router/debug-prof2-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait p.waitForTimeout(8000); // full play\\nconst r = await p.evaluate(() => {\\n  const dialog = document.querySelector('[role=\\\"dialog\\\"]');\\n  if (!dialog) return { dialogOpen: false };\\n  // find ModelSelector trigger\\n  const modelTrigger = dialog.querySelector('button[aria-haspopup=\\\"dialog\\\"]');\\n  // find all buttons with text \\\"添加\\\" or \\\"Add\\\"\\n  const addBtns = Array.from(dialog.querySelectorAll(\\\"button\\\")).filter(b => {\\n    const t = (b.textContent||\\\"\\\").trim().toLowerCase();\\n    return t === \\\"添加\\\" || t === \\\"add\\\";\\n  }).map(b => ({ text: (b.textContent||\\\"\\\").trim(), disabled: b.disabled, classes: b.className.slice(0,30) }));\\n  // check if a popover is open (search for [role=\\\"listbox\\\"] or model buttons outside dialog)\\n  const popovers = document.querySelectorAll('[role=\\\"listbox\\\"]').length;\\n  // model selector value (the display inside the trigger)\\n  const modelDisplay = modelTrigger?.textContent?.trim().slice(0,40) || \\\"?\\\";\\n  return { dialogOpen: true, modelTriggerFound: !!modelTrigger, modelDisplay, addButtons: addBtns, popoverCount: popovers };\\n});\\nconsole.\n...",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncat > /Users/you/llm-router/debug-prof2-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait p.waitForTimeout(8000); // full play\\nconst r = await p.evaluate(() => {\\n  const dialog = document.querySelector('[role=\\\"dialog\\\"]');\\n  if (!dialog) return { dialogOpen: false };\\n  // find ModelSelector trigger\\n  const modelTrigger = dialog.querySelector('button[aria-haspopup=\\\"dialog\\\"]');\\n  // find all buttons with text \\\"添加\\\" or \\\"Add\\\"\\n  const addBtns = Array.from(dialog.querySelectorAll(\\\"button\\\")).filter(b => {\\n    const t = (b.textContent||\\\"\\\").trim().toLowerCase();\\n    return t === \\\"添加\\\" || t === \\\"add\\\";\\n  }).map(b => ({ text: (b.textContent||\\\"\\\").trim(), disabled: b.disabled, classes: b.className.slice(0,30) }));\\n  // check if a popover is open (search for [role=\\\"listbox\\\"] or model buttons outside dialog)\\n  const popovers = document.querySelectorAll('[role=\\\"listbox\\\"]').length;\\n  // model selector value (the display inside the trigger)\\n  const modelDisplay = modelTrigger?.textContent?.trim().slice(0,40) || \\\"?\\\";\\n  return { dialogOpen: true, modelTriggerFound: !!modelTrigger, modelDisplay, addButtons: addBtns, popoverCount: popovers };\\n});\\nconsole.\n...",
               "sizeBytes": 2101,
               "truncated": true
             }
@@ -13401,7 +13401,7 @@
             "callId": "call_9f40f27d09e44c9fb0c9224c",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"old_string\": \"      // 3) click a model button in the ModelSelector popover (contains \\\"gpt-4o\\\")\\n      const modelBtn = await waitFor(() => findByText(\\\"button\\\", [\\\"gpt-4o\\\"]), 4000);\\n      if (modelBtn) await cursorApi.click(modelBtn);\\n      await sleep(500);\\n\\n      // 4) click \\\"Add\\\" button in the dialog footer (text \\\"添加\\\"/\\\"Add\\\")\\n      const saveBtn = await waitFor(() => {\\n        const dlg = document.querySelector('[role=\\\"dialog\\\"]');\\n        if (!dlg) return null;\\n        return Array.from(dlg.querySelectorAll<HTMLElement>(\\\"button\\\")).find(\\n          (b) => { const t = (b.textContent || \\\"\\\").trim().toLowerCase(); return t === \\\"添加\\\" || t === \\\"add\\\"; }\\n        ) ?? null;\\n      });\\n      if (saveBtn) await cursorApi.click(saveBtn);\",\n  \"new_string\": \"      // 3) click a model button in the ModelSelector popover (contains \\\"gpt-4o\\\")\\n      const modelBtn = await waitFor(() => findByText(\\\"button\\\", [\\\"gpt-4o\\\"]), 4000);\\n      if (modelBtn) await cursorApi.click(modelBtn);\\n      // safety: ensure draft.model is set so canSubmit becomes true\\n      changeDraft({ model: \\\"OpenAI/gpt-4o\\\" });\\n      await sleep(600);\\n\\n      // 4) click \\\"Add\\\" button (must be ENABLED — wait for canSubmit)\\n      const saveBtn = await waitFor(() => {\\n        const dlg = document.querySelector('[role=\\\"dialog\\\"]');\\n        if (!dlg) return null;\\n        return Array.from(dlg.querySelectorAll<HTMLElement>(\\\"button\\\")).find(\\n  \n...",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ProfileViewDemo.tsx\",\n  \"old_string\": \"      // 3) click a model button in the ModelSelector popover (contains \\\"gpt-4o\\\")\\n      const modelBtn = await waitFor(() => findByText(\\\"button\\\", [\\\"gpt-4o\\\"]), 4000);\\n      if (modelBtn) await cursorApi.click(modelBtn);\\n      await sleep(500);\\n\\n      // 4) click \\\"Add\\\" button in the dialog footer (text \\\"添加\\\"/\\\"Add\\\")\\n      const saveBtn = await waitFor(() => {\\n        const dlg = document.querySelector('[role=\\\"dialog\\\"]');\\n        if (!dlg) return null;\\n        return Array.from(dlg.querySelectorAll<HTMLElement>(\\\"button\\\")).find(\\n          (b) => { const t = (b.textContent || \\\"\\\").trim().toLowerCase(); return t === \\\"添加\\\" || t === \\\"add\\\"; }\\n        ) ?? null;\\n      });\\n      if (saveBtn) await cursorApi.click(saveBtn);\",\n  \"new_string\": \"      // 3) click a model button in the ModelSelector popover (contains \\\"gpt-4o\\\")\\n      const modelBtn = await waitFor(() => findByText(\\\"button\\\", [\\\"gpt-4o\\\"]), 4000);\\n      if (modelBtn) await cursorApi.click(modelBtn);\\n      // safety: ensure draft.model is set so canSubmit becomes true\\n      changeDraft({ model: \\\"OpenAI/gpt-4o\\\" });\\n      await sleep(600);\\n\\n      // 4) click \\\"Add\\\" button (must be ENABLED — wait for canSubmit)\\n      const saveBtn = await waitFor(() => {\\n        const dlg = document.querySelector('[role=\\\"dialog\\\"]');\\n        if (!dlg) return null;\\n        return Array.from(dlg.querySelectorAll<HTMLElement>(\\\"button\\\")).find(\\n  \n...",
               "sizeBytes": 1872,
               "truncated": true
             }
@@ -13493,7 +13493,7 @@
             "callId": "call_7251ab0c175a4495911b52cf",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify profile play (dialog opens → model picked → save → dialog closes) ===\\\"\\ncat > /Volumes/Data/Products/claude-code-router/verify-prof2-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait p.waitForTimeout(2000);\\nconst midDlg = !!document.querySelector; // placeholder\\nconst midCursor = await p.evaluate(() => !!Array.from(document.querySelectorAll(\\\"div\\\")).find(d=>d.style.zIndex===\\\"99999\\\"));\\nconst midDialog = (await p.locator(\\\"body\\\").textContent()).includes(\\\"添加\\\");\\nawait p.waitForTimeout(10000);\\nconst end = await p.evaluate(() => {\\n  const dialog = document.querySelector('[role=\\\"dialog\\\"]');\\n  // count profile rows in ProfileView (not in dialog)\\n  const allCards = document.querySelectorAll('[class*=\\\"rounded-lg\\\"][class*=\\\"border\\\"]');\\n  return { dialogOpen: !!dialog, cardCount: allCards.length };\\n});\\nconsole.log(JSON.stringify({ midCursor, midDialog, dialogEndOpen: end.dialogOpen, cardCount: end.cardCount }));\\nawait b.close();\\nEOF\\npkill -f \\\"astro dev\\\" 2>/dev/null; sleep 1\\n(npm run dev > /t\n...",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify profile play (dialog opens → model picked → save → dialog closes) ===\\\"\\ncat > /Users/you/llm-router/verify-prof2-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait p.waitForTimeout(2000);\\nconst midDlg = !!document.querySelector; // placeholder\\nconst midCursor = await p.evaluate(() => !!Array.from(document.querySelectorAll(\\\"div\\\")).find(d=>d.style.zIndex===\\\"99999\\\"));\\nconst midDialog = (await p.locator(\\\"body\\\").textContent()).includes(\\\"添加\\\");\\nawait p.waitForTimeout(10000);\\nconst end = await p.evaluate(() => {\\n  const dialog = document.querySelector('[role=\\\"dialog\\\"]');\\n  // count profile rows in ProfileView (not in dialog)\\n  const allCards = document.querySelectorAll('[class*=\\\"rounded-lg\\\"][class*=\\\"border\\\"]');\\n  return { dialogOpen: !!dialog, cardCount: allCards.length };\\n});\\nconsole.log(JSON.stringify({ midCursor, midDialog, dialogEndOpen: end.dialogOpen, cardCount: end.cardCount }));\\nawait b.close();\\nEOF\\npkill -f \\\"astro dev\\\" 2>/dev/null; sleep 1\\n(npm run dev > /t\n...",
               "sizeBytes": 1914,
               "truncated": true
             }
@@ -13865,7 +13865,7 @@
             "callId": "call_8d5920c8c3e84897a7ee18ad",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncat > /Volumes/Data/Products/claude-code-router/verify-prof3-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait p.waitForTimeout(2000);\\nconst mid = await p.evaluate(() => ({\\n  cursor: !!Array.from(document.querySelectorAll(\\\"div\\\")).find(d=>d.style.zIndex===\\\"99999\\\"),\\n  dialog: !!document.querySelector('[role=\\\"dialog\\\"]'),\\n}));\\nawait p.waitForTimeout(10000);\\nconst end = await p.evaluate(() => ({\\n  dialogOpen: !!document.querySelector('[role=\\\"dialog\\\"]'),\\n  cards: document.querySelectorAll('[class*=\\\"rounded-lg\\\"][class*=\\\"border\\\"]').length,\\n}));\\nconsole.log(JSON.stringify({ mid, end }));\\nawait b.close();\\nEOF\\ncd /Volumes/Data/Products/claude-code-router/docs\\npkill -f \\\"astro dev\\\" 2>/dev/null; sleep 1\\n(npm run dev > /tmp/ccr-dev.log 2>&1 &) && sleep 8\\ncd /Volumes/Data/Products/claude-code-router\\n/usr/bin/env node verify-prof3-tmp.mjs 2>&1 | tail -3\\npkill -f \\\"astro dev\\\" 2>/dev/null; rm -f verify-prof3-tmp.mjs; echo \\\"(cleaned)\\\"\",\n  \"description\": \"Re-verify profile play with fixed script\",\n  \"timeout\": 150000\n}",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncat > /Users/you/llm-router/verify-prof3-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/agent-profile-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2500);\\nawait p.locator(\\\"button\\\").filter({ hasText: \\\"播放教程\\\" }).first().click({ force:true });\\nawait p.waitForTimeout(2000);\\nconst mid = await p.evaluate(() => ({\\n  cursor: !!Array.from(document.querySelectorAll(\\\"div\\\")).find(d=>d.style.zIndex===\\\"99999\\\"),\\n  dialog: !!document.querySelector('[role=\\\"dialog\\\"]'),\\n}));\\nawait p.waitForTimeout(10000);\\nconst end = await p.evaluate(() => ({\\n  dialogOpen: !!document.querySelector('[role=\\\"dialog\\\"]'),\\n  cards: document.querySelectorAll('[class*=\\\"rounded-lg\\\"][class*=\\\"border\\\"]').length,\\n}));\\nconsole.log(JSON.stringify({ mid, end }));\\nawait b.close();\\nEOF\\ncd /Users/you/llm-router/docs\\npkill -f \\\"astro dev\\\" 2>/dev/null; sleep 1\\n(npm run dev > /tmp/ccr-dev.log 2>&1 &) && sleep 8\\ncd /Users/you/llm-router\\n/usr/bin/env node verify-prof3-tmp.mjs 2>&1 | tail -3\\npkill -f \\\"astro dev\\\" 2>/dev/null; rm -f verify-prof3-tmp.mjs; echo \\\"(cleaned)\\\"\",\n  \"description\": \"Re-verify profile play with fixed script\",\n  \"timeout\": 150000\n}",
               "sizeBytes": 1448,
               "truncated": false
             }
@@ -14441,13 +14441,13 @@
             "callId": "call_23f01c9a69554558ab35fc32",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"find /Volumes/Data/Products/claude-code-router -type f \\\\( -name \\\"app.ts\\\" -path \\\"*/contracts/*\\\" -o -name \\\"usage.ts\\\" -path \\\"*/shared/*\\\" -o -name \\\"network-logs.tsx\\\" -o -name \\\"agent-analysis*.tsx\\\" \\\\) 2>/dev/null\",\n  \"description\": \"Find key type and component files\"\n}",
+              "preview": "{\n  \"command\": \"find /Users/you/llm-router -type f \\\\( -name \\\"app.ts\\\" -path \\\"*/contracts/*\\\" -o -name \\\"usage.ts\\\" -path \\\"*/shared/*\\\" -o -name \\\"network-logs.tsx\\\" -o -name \\\"agent-analysis*.tsx\\\" \\\\) 2>/dev/null\",\n  \"description\": \"Find key type and component files\"\n}",
               "sizeBytes": 294,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "/Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/usage.ts\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/network-logs.tsx",
+              "preview": "/Users/you/llm-router/packages/core/src/contracts/app.ts\n/Users/you/llm-router/packages/ui/src/pages/home/shared/usage.ts\n/Users/you/llm-router/packages/ui/src/pages/home/components/network-logs.tsx",
               "sizeBytes": 258,
               "truncated": false
             },
@@ -14485,13 +14485,13 @@
             "callId": "call_b4c143996449465e94adfb97",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"wc -l /Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts 2>/dev/null\",\n  \"description\": \"Check size of app.ts contracts file\"\n}",
+              "preview": "{\n  \"command\": \"wc -l /Users/you/llm-router/packages/core/src/contracts/app.ts 2>/dev/null\",\n  \"description\": \"Check size of app.ts contracts file\"\n}",
               "sizeBytes": 169,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "    2447 /Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts",
+              "preview": "    2447 /Users/you/llm-router/packages/core/src/contracts/app.ts",
               "sizeBytes": 85,
               "truncated": false
             },
@@ -14585,7 +14585,7 @@
             "callId": "call_6d99a3cdfe0747329373034a",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts\",\n  \"offset\": 2050,\n  \"limit\": 200\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/core/src/contracts/app.ts\",\n  \"offset\": 2050,\n  \"limit\": 200\n}",
               "sizeBytes": 131,
               "truncated": false
             },
@@ -14629,7 +14629,7 @@
             "callId": "call_3618bd83be2f4b23afadf3a7",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts\",\n  \"offset\": 2380,\n  \"limit\": 70\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/core/src/contracts/app.ts\",\n  \"offset\": 2380,\n  \"limit\": 70\n}",
               "sizeBytes": 130,
               "truncated": false
             },
@@ -14673,7 +14673,7 @@
             "callId": "call_86c883ef937947e89d142bb4",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/usage.ts\"\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/shared/usage.ts\"\n}",
               "sizeBytes": 105,
               "truncated": false
             },
@@ -14773,7 +14773,7 @@
             "callId": "call_60e1a89eea504338870079f7",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts\",\n  \"limit\": 135,\n  \"offset\": 2248\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/core/src/contracts/app.ts\",\n  \"limit\": 135,\n  \"offset\": 2248\n}",
               "sizeBytes": 131,
               "truncated": false
             },
@@ -14817,7 +14817,7 @@
             "callId": "call_66fe85354e884cbebdf687da",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"RequestLogListFilter\\\\|RequestLogBody\\\\b\\\\|RequestLogRetryAttempt\\\\b\\\\|AgentAnalysisTrace\\\\b\\\\|AgentAnalysisToolRow\\\\b\\\\|AgentAnalysisSubagentRow\\\\b\\\\|AgentAnalysisSessionModelRow\\\\b\\\\|AgentObservabilityClientRow\\\\b\\\\|AgentObservabilityEndpointRow\\\\b\\\" /Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts\",\n  \"description\": \"Find line numbers for remaining type definitions\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"RequestLogListFilter\\\\|RequestLogBody\\\\b\\\\|RequestLogRetryAttempt\\\\b\\\\|AgentAnalysisTrace\\\\b\\\\|AgentAnalysisToolRow\\\\b\\\\|AgentAnalysisSubagentRow\\\\b\\\\|AgentAnalysisSessionModelRow\\\\b\\\\|AgentObservabilityClientRow\\\\b\\\\|AgentObservabilityEndpointRow\\\\b\\\" /Users/you/llm-router/packages/core/src/contracts/app.ts\",\n  \"description\": \"Find line numbers for remaining type definitions\"\n}",
               "sizeBytes": 427,
               "truncated": false
             },
@@ -14861,13 +14861,13 @@
             "callId": "call_1b203ca993ae43499b5600d5",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"find /Volumes/Data/Products/claude-code-router/packages/ui -name \\\"*.tsx\\\" | xargs grep -l \\\"AgentAnalysisView\\\\|agent-analysis\\\" 2>/dev/null | head -10\",\n  \"description\": \"Find AgentAnalysisView component files\"\n}",
+              "preview": "{\n  \"command\": \"find /Users/you/llm-router/packages/ui -name \\\"*.tsx\\\" | xargs grep -l \\\"AgentAnalysisView\\\\|agent-analysis\\\" 2>/dev/null | head -10\",\n  \"description\": \"Find AgentAnalysisView component files\"\n}",
               "sizeBytes": 230,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "/Volumes/Data/Products/claude-code-router/packages/ui/test/component/observability.test.tsx\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/dashboard.tsx\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/layout.tsx",
+              "preview": "/Users/you/llm-router/packages/ui/test/component/observability.test.tsx\n/Users/you/llm-router/packages/ui/src/pages/home/components/dashboard.tsx\n/Users/you/llm-router/packages/ui/src/pages/home/components/layout.tsx",
               "sizeBytes": 276,
               "truncated": false
             },
@@ -14905,13 +14905,13 @@
             "callId": "call_46e875d773e44d0a9ef4a6d4",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"wc -l /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/network-logs.tsx\",\n  \"description\": \"Check size of network-logs.tsx\"\n}",
+              "preview": "{\n  \"command\": \"wc -l /Users/you/llm-router/packages/ui/src/pages/home/components/network-logs.tsx\",\n  \"description\": \"Check size of network-logs.tsx\"\n}",
               "sizeBytes": 172,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "    2292 /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/network-logs.tsx",
+              "preview": "    2292 /Users/you/llm-router/packages/ui/src/pages/home/components/network-logs.tsx",
               "sizeBytes": 105,
               "truncated": false
             },
@@ -15005,7 +15005,7 @@
             "callId": "call_666e0259991547e1b4892b2f",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts\",\n  \"limit\": 90,\n  \"offset\": 1951\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/core/src/contracts/app.ts\",\n  \"limit\": 90,\n  \"offset\": 1951\n}",
               "sizeBytes": 130,
               "truncated": false
             },
@@ -15049,7 +15049,7 @@
             "callId": "call_84f8d276649543f1849f2f6f",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/network-logs.tsx\",\n  \"limit\": 350,\n  \"offset\": 340\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/network-logs.tsx\",\n  \"limit\": 350,\n  \"offset\": 340\n}",
               "sizeBytes": 150,
               "truncated": false
             },
@@ -15093,7 +15093,7 @@
             "callId": "call_86161911fdea49f198a3f5db",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"ProxyNetworkBody\\\" /Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts | head -5\",\n  \"description\": \"Find ProxyNetworkBody type definition\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"ProxyNetworkBody\\\" /Users/you/llm-router/packages/core/src/contracts/app.ts | head -5\",\n  \"description\": \"Find ProxyNetworkBody type definition\"\n}",
               "sizeBytes": 192,
               "truncated": false
             },
@@ -15137,7 +15137,7 @@
             "callId": "call_92d7a5a976f4410b9d789368",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"AgentAnalysisView\\\\|recharts\\\\|AreaChart\\\\|BarChart\\\\|LineChart\\\\|ResponsiveContainer\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/dashboard.tsx | head -30\",\n  \"description\": \"Find chart usage in dashboard.tsx\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"AgentAnalysisView\\\\|recharts\\\\|AreaChart\\\\|BarChart\\\\|LineChart\\\\|ResponsiveContainer\\\" /Users/you/llm-router/packages/ui/src/pages/home/components/dashboard.tsx | head -30\",\n  \"description\": \"Find chart usage in dashboard.tsx\"\n}",
               "sizeBytes": 275,
               "truncated": false
             },
@@ -15237,7 +15237,7 @@
             "callId": "call_4514eef018494d8ab23d86bf",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts\",\n  \"limit\": 50,\n  \"offset\": 1908\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/core/src/contracts/app.ts\",\n  \"limit\": 50,\n  \"offset\": 1908\n}",
               "sizeBytes": 130,
               "truncated": false
             },
@@ -15281,7 +15281,7 @@
             "callId": "call_054158beeab745be9e21973e",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"RequestLogStatusFilter\\\" /Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts | head -5\",\n  \"description\": \"Find RequestLogStatusFilter type\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"RequestLogStatusFilter\\\" /Users/you/llm-router/packages/core/src/contracts/app.ts | head -5\",\n  \"description\": \"Find RequestLogStatusFilter type\"\n}",
               "sizeBytes": 193,
               "truncated": false
             },
@@ -15325,7 +15325,7 @@
             "callId": "call_de5d83657d9c44bfb56c6d23",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"function LogRow\\\\|function LogMobileCard\\\\|function NetworkClientCell\\\\|function NetworkHeaderCell\\\\|logTableColumn\\\\|function logHasCredentialInfo\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/network-logs.tsx | head -20\",\n  \"description\": \"Find LogRow and related component definitions\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"function LogRow\\\\|function LogMobileCard\\\\|function NetworkClientCell\\\\|function NetworkHeaderCell\\\\|logTableColumn\\\\|function logHasCredentialInfo\\\" /Users/you/llm-router/packages/ui/src/pages/home/components/network-logs.tsx | head -20\",\n  \"description\": \"Find LogRow and related component definitions\"\n}",
               "sizeBytes": 352,
               "truncated": false
             },
@@ -15369,7 +15369,7 @@
             "callId": "call_54fdbdb2a5f14641ac0ca128",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/dashboard.tsx\",\n  \"limit\": 250,\n  \"offset\": 3379\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/dashboard.tsx\",\n  \"limit\": 250,\n  \"offset\": 3379\n}",
               "sizeBytes": 148,
               "truncated": false
             },
@@ -15469,7 +15469,7 @@
             "callId": "call_f7a82c4417a04ec19c6272fc",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/network-logs.tsx\",\n  \"limit\": 350,\n  \"offset\": 772\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/network-logs.tsx\",\n  \"limit\": 350,\n  \"offset\": 772\n}",
               "sizeBytes": 150,
               "truncated": false
             },
@@ -15513,7 +15513,7 @@
             "callId": "call_b947df2a0336402ba5fb9e52",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"function AgentSessionsCard\\\\|function AgentTracePanel\\\\|AreaChart\\\\|BarChart\\\\|ResponsiveContainer\\\\|recharts\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/dashboard.tsx | head -30\",\n  \"description\": \"Find AgentSessionsCard and chart components in dashboard\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"function AgentSessionsCard\\\\|function AgentTracePanel\\\\|AreaChart\\\\|BarChart\\\\|ResponsiveContainer\\\\|recharts\\\" /Users/you/llm-router/packages/ui/src/pages/home/components/dashboard.tsx | head -30\",\n  \"description\": \"Find AgentSessionsCard and chart components in dashboard\"\n}",
               "sizeBytes": 322,
               "truncated": false
             },
@@ -15613,7 +15613,7 @@
             "callId": "call_fd42784f5473483199b4d17b",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/dashboard.tsx\",\n  \"limit\": 200,\n  \"offset\": 4051\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/dashboard.tsx\",\n  \"limit\": 200,\n  \"offset\": 4051\n}",
               "sizeBytes": 148,
               "truncated": false
             },
@@ -15657,7 +15657,7 @@
             "callId": "call_8ceb057ed3084883884a2671",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"function LogStatusDot\\\\|function LogStreamCell\\\\|function LogModelRouteCell\\\\|function LogCredentialCell\\\\|function formatLogTokenSummary\\\\|function logRequestModel\\\\|function logResponseModel\\\\|function logCredentialCellLabel\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/network-logs.tsx\",\n  \"description\": \"Find log rendering helper functions\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"function LogStatusDot\\\\|function LogStreamCell\\\\|function LogModelRouteCell\\\\|function LogCredentialCell\\\\|function formatLogTokenSummary\\\\|function logRequestModel\\\\|function logResponseModel\\\\|function logCredentialCellLabel\\\" /Users/you/llm-router/packages/ui/src/pages/home/components/network-logs.tsx\",\n  \"description\": \"Find log rendering helper functions\"\n}",
               "sizeBytes": 410,
               "truncated": false
             },
@@ -15757,7 +15757,7 @@
             "callId": "call_c1b881ffe49b4446b6b003c2",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/network-logs.tsx\",\n  \"limit\": 120,\n  \"offset\": 1379\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/components/network-logs.tsx\",\n  \"limit\": 120,\n  \"offset\": 1379\n}",
               "sizeBytes": 151,
               "truncated": false
             },
@@ -15801,7 +15801,7 @@
             "callId": "call_9178cb8563584bdca81f58f9",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -n \\\"formatLogTokenSummary\\\\|logRequestModel\\\\|logResponseModel\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/components/network-logs.tsx | head -10\",\n  \"description\": \"Find formatLogTokenSummary and model helper definitions\"\n}",
+              "preview": "{\n  \"command\": \"grep -n \\\"formatLogTokenSummary\\\\|logRequestModel\\\\|logResponseModel\\\" /Users/you/llm-router/packages/ui/src/pages/home/components/network-logs.tsx | head -10\",\n  \"description\": \"Find formatLogTokenSummary and model helper definitions\"\n}",
               "sizeBytes": 273,
               "truncated": false
             },
@@ -15845,13 +15845,13 @@
             "callId": "call_6002e7bca0014a95bf945f11",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -rn \\\"GatewayProviderProtocol\\\" /Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts | head -3\",\n  \"description\": \"Find GatewayProviderProtocol type\"\n}",
+              "preview": "{\n  \"command\": \"grep -rn \\\"GatewayProviderProtocol\\\" /Users/you/llm-router/packages/core/src/contracts/app.ts | head -3\",\n  \"description\": \"Find GatewayProviderProtocol type\"\n}",
               "sizeBytes": 196,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "/Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts:145:export type GatewayProviderProtocol =\n/Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts:157:export type GatewayProviderCapabilityProtocol = GatewayProviderProtocol | GatewayMediaProtocol;\n/Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts:183:  type?: GatewayProviderProtocol | string;",
+              "preview": "/Users/you/llm-router/packages/core/src/contracts/app.ts:145:export type GatewayProviderProtocol =\n/Users/you/llm-router/packages/core/src/contracts/app.ts:157:export type GatewayProviderCapabilityProtocol = GatewayProviderProtocol | GatewayMediaProtocol;\n/Users/you/llm-router/packages/core/src/contracts/app.ts:183:  type?: GatewayProviderProtocol | string;",
               "sizeBytes": 419,
               "truncated": false
             },
@@ -15945,13 +15945,13 @@
             "callId": "call_95ec45c2fb204ed3aff9a368",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"grep -rn \\\"export function formatLogTokenSummary\\\\|export function logRequestModel\\\\|export function logResponseModel\\\" /Volumes/Data/Products/claude-code-router/packages/ui/src/ 2>/dev/null\",\n  \"description\": \"Find formatLogTokenSummary and logRequestModel definitions\"\n}",
+              "preview": "{\n  \"command\": \"grep -rn \\\"export function formatLogTokenSummary\\\\|export function logRequestModel\\\\|export function logResponseModel\\\" /Users/you/llm-router/packages/ui/src/ 2>/dev/null\",\n  \"description\": \"Find formatLogTokenSummary and logRequestModel definitions\"\n}",
               "sizeBytes": 288,
               "truncated": false
             },
             "result": {
               "kind": "text",
-              "preview": "/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/logs.ts:30:export function formatLogTokenSummary(entry: RequestLogEntry, t: (value: string) => string, locale?: Intl.LocalesArgument): string {\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/logs.ts:59:export function logRequestModel(entry: RequestLogEntry): string {\n/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/logs.ts:63:export function logResponseModel(entry: RequestLogEntry): string {",
+              "preview": "/Users/you/llm-router/packages/ui/src/pages/home/shared/logs.ts:30:export function formatLogTokenSummary(entry: RequestLogEntry, t: (value: string) => string, locale?: Intl.LocalesArgument): string {\n/Users/you/llm-router/packages/ui/src/pages/home/shared/logs.ts:59:export function logRequestModel(entry: RequestLogEntry): string {\n/Users/you/llm-router/packages/ui/src/pages/home/shared/logs.ts:63:export function logResponseModel(entry: RequestLogEntry): string {",
               "sizeBytes": 526,
               "truncated": false
             },
@@ -15989,7 +15989,7 @@
             "callId": "call_93774138a1fe448dac5309cc",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/core/src/contracts/app.ts\",\n  \"limit\": 15,\n  \"offset\": 145\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/core/src/contracts/app.ts\",\n  \"limit\": 15,\n  \"offset\": 145\n}",
               "sizeBytes": 129,
               "truncated": false
             },
@@ -16089,7 +16089,7 @@
             "callId": "call_cf07ca3dd3ec4535978ea171",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/packages/ui/src/pages/home/shared/logs.ts\",\n  \"limit\": 50,\n  \"offset\": 30\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/packages/ui/src/pages/home/shared/logs.ts\",\n  \"limit\": 50,\n  \"offset\": 30\n}",
               "sizeBytes": 135,
               "truncated": false
             },
@@ -16301,7 +16301,7 @@
             "callId": "call_2297ee6dc95b4810a88a5e57",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/mockData.ts\",\n  \"content\": \"/**\\n * Realistic mock data for the LogsView + AgentAnalysisView demos.\\n * Built on the empty-data factories (correct structure / concurrency series)\\n * with 1-2 real-looking entries overlaid so the components render content.\\n */\\nimport { createEmptyAgentAnalysis, createEmptyRequestLogPage } from \\\"@/pages/home/shared/usage\\\";\\nimport type { AgentAnalysisSnapshot, RequestLogPage } from \\\"@ccr/core/contracts/app\\\";\\n\\nconst NOW = \\\"2026-08-06T10:00:00.000Z\\\";\\n\\n/* ── Request logs: 1 success + 1 rate-limit error ── */\\n\\nexport function getMockRequestLogPage(): RequestLogPage {\\n  const base = createEmptyRequestLogPage({});\\n  return {\\n    ...base,\\n    generatedAt: NOW,\\n    total: 2,\\n    totalPages: 1,\\n    options: {\\n      providers: [\\\"anthropic\\\", \\\"openai\\\"],\\n      models: [\\\"claude-sonnet-4-20250514\\\", \\\"gpt-4o\\\"],\\n      credentials: [\\\"sk-ant-key-1\\\"],\\n    },\\n    items: [\\n      {\\n        id: 1001,\\n        createdAt: \\\"2026-08-06T09:58:32.000Z\\\",\\n        completedAt: \\\"2026-08-06T09:58:35.200Z\\\",\\n        method: \\\"POST\\\",\\n        path: \\\"/v1/messages\\\",\\n        url: \\\"http://127.0.0.1:3456/v1/messages\\\",\\n        statusCode: 200,\\n        ok: true,\\n        provider: \\\"anthropic\\\",\\n        model: \\\"claude-sonnet-4-20250514\\\",\\n        requestedModel: \\\"claude-sonnet-4-20250514\\\",\\n        resolvedModel: \\\"Anthropic/claude-sonnet-4-20250514\\\",\\n        responseModel: \\\"claude-sonnet-4-20250514\\\",\\n        isStream: true,\\n        cl\n...",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/mockData.ts\",\n  \"content\": \"/**\\n * Realistic mock data for the LogsView + AgentAnalysisView demos.\\n * Built on the empty-data factories (correct structure / concurrency series)\\n * with 1-2 real-looking entries overlaid so the components render content.\\n */\\nimport { createEmptyAgentAnalysis, createEmptyRequestLogPage } from \\\"@/pages/home/shared/usage\\\";\\nimport type { AgentAnalysisSnapshot, RequestLogPage } from \\\"@ccr/core/contracts/app\\\";\\n\\nconst NOW = \\\"2026-08-06T10:00:00.000Z\\\";\\n\\n/* ── Request logs: 1 success + 1 rate-limit error ── */\\n\\nexport function getMockRequestLogPage(): RequestLogPage {\\n  const base = createEmptyRequestLogPage({});\\n  return {\\n    ...base,\\n    generatedAt: NOW,\\n    total: 2,\\n    totalPages: 1,\\n    options: {\\n      providers: [\\\"anthropic\\\", \\\"openai\\\"],\\n      models: [\\\"claude-sonnet-4-20250514\\\", \\\"gpt-4o\\\"],\\n      credentials: [\\\"sk-ant-key-1\\\"],\\n    },\\n    items: [\\n      {\\n        id: 1001,\\n        createdAt: \\\"2026-08-06T09:58:32.000Z\\\",\\n        completedAt: \\\"2026-08-06T09:58:35.200Z\\\",\\n        method: \\\"POST\\\",\\n        path: \\\"/v1/messages\\\",\\n        url: \\\"http://127.0.0.1:3456/v1/messages\\\",\\n        statusCode: 200,\\n        ok: true,\\n        provider: \\\"anthropic\\\",\\n        model: \\\"claude-sonnet-4-20250514\\\",\\n        requestedModel: \\\"claude-sonnet-4-20250514\\\",\\n        resolvedModel: \\\"Anthropic/claude-sonnet-4-20250514\\\",\\n        responseModel: \\\"claude-sonnet-4-20250514\\\",\\n        isStream: true,\\n        cl\n...",
               "sizeBytes": 7739,
               "truncated": true
             }
@@ -16393,7 +16393,7 @@
             "callId": "call_3caa6458a8be4009abcae70e",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/LogsViewDemo.tsx\",\n  \"old_string\": \"import { createEmptyRequestLogPage } from \\\"@/pages/home/shared/usage\\\";\",\n  \"new_string\": \"import { getMockRequestLogPage } from \\\"./mockData\\\";\"\n}",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/LogsViewDemo.tsx\",\n  \"old_string\": \"import { createEmptyRequestLogPage } from \\\"@/pages/home/shared/usage\\\";\",\n  \"new_string\": \"import { getMockRequestLogPage } from \\\"./mockData\\\";\"\n}",
               "sizeBytes": 300,
               "truncated": false
             }
@@ -16485,7 +16485,7 @@
             "callId": "call_54b7635e3df6426a8c66f88c",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/LogsViewDemo.tsx\",\n  \"old_string\": \"            page={createEmptyRequestLogPage({}) as RequestLogPage}\",\n  \"new_string\": \"            page={getMockRequestLogPage()}\"\n}",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/LogsViewDemo.tsx\",\n  \"old_string\": \"            page={createEmptyRequestLogPage({}) as RequestLogPage}\",\n  \"new_string\": \"            page={getMockRequestLogPage()}\"\n}",
               "sizeBytes": 283,
               "truncated": false
             }
@@ -16577,7 +16577,7 @@
             "callId": "call_a1de41d175484c159624d93f",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ObservabilityViewDemo.tsx\",\n  \"old_string\": \"import { createEmptyAgentAnalysis } from \\\"@/pages/home/shared/usage\\\";\",\n  \"new_string\": \"import { getMockAgentAnalysis } from \\\"./mockData\\\";\"\n}",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ObservabilityViewDemo.tsx\",\n  \"old_string\": \"import { createEmptyAgentAnalysis } from \\\"@/pages/home/shared/usage\\\";\",\n  \"new_string\": \"import { getMockAgentAnalysis } from \\\"./mockData\\\";\"\n}",
               "sizeBytes": 307,
               "truncated": false
             }
@@ -16669,7 +16669,7 @@
             "callId": "call_0b6481e84b7f41828b0e6631",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ObservabilityViewDemo.tsx\",\n  \"old_string\": \"            snapshot={createEmptyAgentAnalysis(\\\"today\\\")}\",\n  \"new_string\": \"            snapshot={getMockAgentAnalysis()}\"\n}",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ObservabilityViewDemo.tsx\",\n  \"old_string\": \"            snapshot={createEmptyAgentAnalysis(\\\"today\\\")}\",\n  \"new_string\": \"            snapshot={getMockAgentAnalysis()}\"\n}",
               "sizeBytes": 287,
               "truncated": false
             }
@@ -16761,7 +16761,7 @@
             "callId": "call_dd4b4bd71b9e408daa3098b2",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify mock data renders ===\\\"\\ncat > /Volumes/Data/Products/claude-code-router/verify-mock-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch();\\n// LOGS\\nconst lp = await b.newPage();\\nawait lp.goto(\\\"http://localhost:4321/guides/logs-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await lp.waitForTimeout(2800);\\nconst logs = await lp.evaluate(() => {\\n  const txt = document.body.textContent || \\\"\\\";\\n  return {\\n    hasLogModel: txt.includes(\\\"claude-sonnet\\\") || txt.includes(\\\"gpt-4o\\\"),\\n    has200: txt.includes(\\\"200\\\"),\\n    has429: txt.includes(\\\"429\\\"),\\n    hasDuration: txt.includes(\\\"ms\\\") || txt.includes(\\\"3\\\"),\\n    hasTokens: txt.includes(\\\"12500\\\") || txt.includes(\\\"850\\\") || txt.includes(\\\"25850\\\"),\\n    textLen: txt.replace(/\\\\s+/g,\\\"\\\").length,\\n  };\\n});\\nconsole.log(\\\"LOGS:\\\", JSON.stringify(logs));\\nawait lp.close();\\n// OBSERVABILITY\\nconst op = await b.newPage();\\nawait op.goto(\\\"http://localhost:4321/guides/observability-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await op.waitForTimeout(2800);\\nconst obs = await op.evaluate(() => {\\n  const txt = document.body.textContent || \\\"\\\";\\n  return {\\n    hasSession: txt.includes(\\\"session_abc\\\") || txt.includes(\\\"Claude Code\\\"),\\n    hasToolCalls: txt.includes(\\\"156\\\") || txt.includes(\\\"Bash\\\"),\\n    has\n...",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify mock data renders ===\\\"\\ncat > /Users/you/llm-router/verify-mock-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch();\\n// LOGS\\nconst lp = await b.newPage();\\nawait lp.goto(\\\"http://localhost:4321/guides/logs-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await lp.waitForTimeout(2800);\\nconst logs = await lp.evaluate(() => {\\n  const txt = document.body.textContent || \\\"\\\";\\n  return {\\n    hasLogModel: txt.includes(\\\"claude-sonnet\\\") || txt.includes(\\\"gpt-4o\\\"),\\n    has200: txt.includes(\\\"200\\\"),\\n    has429: txt.includes(\\\"429\\\"),\\n    hasDuration: txt.includes(\\\"ms\\\") || txt.includes(\\\"3\\\"),\\n    hasTokens: txt.includes(\\\"12500\\\") || txt.includes(\\\"850\\\") || txt.includes(\\\"25850\\\"),\\n    textLen: txt.replace(/\\\\s+/g,\\\"\\\").length,\\n  };\\n});\\nconsole.log(\\\"LOGS:\\\", JSON.stringify(logs));\\nawait lp.close();\\n// OBSERVABILITY\\nconst op = await b.newPage();\\nawait op.goto(\\\"http://localhost:4321/guides/observability-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await op.waitForTimeout(2800);\\nconst obs = await op.evaluate(() => {\\n  const txt = document.body.textContent || \\\"\\\";\\n  return {\\n    hasSession: txt.includes(\\\"session_abc\\\") || txt.includes(\\\"Claude Code\\\"),\\n    hasToolCalls: txt.includes(\\\"156\\\") || txt.includes(\\\"Bash\\\"),\\n    has\n...",
               "sizeBytes": 2298,
               "truncated": true
             }
@@ -17021,7 +17021,7 @@
             "callId": "call_eb96a93867d44c9aae14875c",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/pages/guides/observability.astro\"\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/pages/guides/observability.astro\"\n}",
               "sizeBytes": 104,
               "truncated": false
             }
@@ -17057,7 +17057,7 @@
             "callId": "call_db3a62fb11db428f81706dd5",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/pages/guides/logs-app.astro\"\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/pages/guides/logs-app.astro\"\n}",
               "sizeBytes": 99,
               "truncated": false
             }
@@ -17149,7 +17149,7 @@
             "callId": "call_002fb50421624da082b14467",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ObservabilityViewDemo.tsx\"\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ObservabilityViewDemo.tsx\"\n}",
               "sizeBytes": 120,
               "truncated": false
             }
@@ -17241,7 +17241,7 @@
             "callId": "call_bc1120e204ef4f1e8ee3a77e",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/ObservabilityViewDemo.tsx\",\n  \"content\": \"/**\\n * Docs wrapper rendering the REAL, UNMODIFIED AgentAnalysisView (observability)\\n * with mock data. setSelectedSession is wired to local state so clicking\\n * \\\"Details\\\" on a session row opens the detail panel.\\n */\\nimport { useState } from \\\"react\\\";\\nimport { AgentAnalysisView } from \\\"@/pages/home/components/dashboard\\\";\\nimport { BaseUiProvider } from \\\"@/lib/baseui-provider\\\";\\nimport { AppI18nContext, appCopy } from \\\"@/pages/home/shared/i18n\\\";\\nimport { getMockAgentAnalysis } from \\\"./mockData\\\";\\nimport { DemoNotice, DemoTitle, readDemoLocale } from \\\"./demoRuntime\\\";\\nimport type { AgentFilterValue } from \\\"@/pages/home/shared/options\\\";\\nimport type { AgentAnalysisSessionSelection } from \\\"@ccr/core/contracts/app\\\";\\n\\nconst noop = () => {};\\n\\nexport default function ObservabilityViewDemo() {\\n  const locale = readDemoLocale();\\n  const [selectedSession, setSelectedSession] = useState<AgentAnalysisSessionSelection | undefined>(undefined);\\n\\n  return (\\n    <AppI18nContext.Provider value={locale === \\\"zh\\\" ? appCopy.zh : appCopy.en}>\\n      <DemoTitle\\n        locale={locale}\\n        title={{\\n          zh: \\\"Agent 观测 — 查看执行轨迹、工具调用与结果\\\",\\n          en: \\\"Agent observability — inspect execution traces, tool calls, and results\\\",\\n        }}\\n      />\\n      <DemoNotice locale={locale} />\\n      <BaseUiProvider>\\n        <div style={{ padding: \\\"1rem\\\" }}>\\n          <AgentAnalysisView\\n            agentFilter={\\\"all\\\" as A\n...",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/ObservabilityViewDemo.tsx\",\n  \"content\": \"/**\\n * Docs wrapper rendering the REAL, UNMODIFIED AgentAnalysisView (observability)\\n * with mock data. setSelectedSession is wired to local state so clicking\\n * \\\"Details\\\" on a session row opens the detail panel.\\n */\\nimport { useState } from \\\"react\\\";\\nimport { AgentAnalysisView } from \\\"@/pages/home/components/dashboard\\\";\\nimport { BaseUiProvider } from \\\"@/lib/baseui-provider\\\";\\nimport { AppI18nContext, appCopy } from \\\"@/pages/home/shared/i18n\\\";\\nimport { getMockAgentAnalysis } from \\\"./mockData\\\";\\nimport { DemoNotice, DemoTitle, readDemoLocale } from \\\"./demoRuntime\\\";\\nimport type { AgentFilterValue } from \\\"@/pages/home/shared/options\\\";\\nimport type { AgentAnalysisSessionSelection } from \\\"@ccr/core/contracts/app\\\";\\n\\nconst noop = () => {};\\n\\nexport default function ObservabilityViewDemo() {\\n  const locale = readDemoLocale();\\n  const [selectedSession, setSelectedSession] = useState<AgentAnalysisSessionSelection | undefined>(undefined);\\n\\n  return (\\n    <AppI18nContext.Provider value={locale === \\\"zh\\\" ? appCopy.zh : appCopy.en}>\\n      <DemoTitle\\n        locale={locale}\\n        title={{\\n          zh: \\\"Agent 观测 — 查看执行轨迹、工具调用与结果\\\",\\n          en: \\\"Agent observability — inspect execution traces, tool calls, and results\\\",\\n        }}\\n      />\\n      <DemoNotice locale={locale} />\\n      <BaseUiProvider>\\n        <div style={{ padding: \\\"1rem\\\" }}>\\n          <AgentAnalysisView\\n            agentFilter={\\\"all\\\" as A\n...",
               "sizeBytes": 2082,
               "truncated": true
             }
@@ -17333,7 +17333,7 @@
             "callId": "call_0d752cc841b344d8acdd5809",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/pages/guides/observability.astro\",\n  \"old_string\": \"    <iframe src={logsUrl} title=\\\"CCR 请求日志 — 实际界面\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:680px;`} />\\n    <div style=\\\"height:16px\\\" aria-hidden=\\\"true\\\"></div>\\n    <iframe src={obsUrl} title=\\\"CCR 观测 — 实际界面\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:900px;`} />\",\n  \"new_string\": \"    <iframe src={logsUrl} title=\\\"CCR 请求日志 — 实际界面\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:960px;`} />\\n    <div style=\\\"height:16px\\\" aria-hidden=\\\"true\\\"></div>\\n    <iframe src={obsUrl} title=\\\"CCR 观测 — 实际界面\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:1100px;`} />\"\n}",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/pages/guides/observability.astro\",\n  \"old_string\": \"    <iframe src={logsUrl} title=\\\"LLMR 请求日志 — 实际界面\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:680px;`} />\\n    <div style=\\\"height:16px\\\" aria-hidden=\\\"true\\\"></div>\\n    <iframe src={obsUrl} title=\\\"LLMR 观测 — 实际界面\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:900px;`} />\",\n  \"new_string\": \"    <iframe src={logsUrl} title=\\\"LLMR 请求日志 — 实际界面\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:960px;`} />\\n    <div style=\\\"height:16px\\\" aria-hidden=\\\"true\\\"></div>\\n    <iframe src={obsUrl} title=\\\"LLMR 观测 — 实际界面\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:1100px;`} />\"\n}",
               "sizeBytes": 783,
               "truncated": false
             }
@@ -17425,7 +17425,7 @@
             "callId": "call_8f543fd6f6d64297963ae5b3",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/pages/guides/logs-app.astro\",\n  \"old_string\": \"  <body style=\\\"margin: 0; background: var(--background); color: var(--foreground);\\\">\",\n  \"new_string\": \"  <body style=\\\"margin: 0; background: var(--background); color: var(--foreground); overflow-y: auto;\\\">\"\n}",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/pages/guides/logs-app.astro\",\n  \"old_string\": \"  <body style=\\\"margin: 0; background: var(--background); color: var(--foreground);\\\">\",\n  \"new_string\": \"  <body style=\\\"margin: 0; background: var(--background); color: var(--foreground); overflow-y: auto;\\\">\"\n}",
               "sizeBytes": 353,
               "truncated": false
             }
@@ -17517,7 +17517,7 @@
             "callId": "call_362990242ea1463d80038a44",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/pages/guides/observability-app.astro\",\n  \"old_string\": \"  <body style=\\\"margin: 0; background: var(--background); color: var(--foreground);\\\">\",\n  \"new_string\": \"  <body style=\\\"margin: 0; background: var(--background); color: var(--foreground); overflow-y: auto;\\\">\"\n}",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/pages/guides/observability-app.astro\",\n  \"old_string\": \"  <body style=\\\"margin: 0; background: var(--background); color: var(--foreground);\\\">\",\n  \"new_string\": \"  <body style=\\\"margin: 0; background: var(--background); color: var(--foreground); overflow-y: auto;\\\">\"\n}",
               "sizeBytes": 362,
               "truncated": false
             }
@@ -17609,7 +17609,7 @@
             "callId": "call_7b2bc77e32c440c7b46445b8",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/pages/en/guides/observability.astro\"\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/pages/en/guides/observability.astro\"\n}",
               "sizeBytes": 107,
               "truncated": false
             }
@@ -17701,7 +17701,7 @@
             "callId": "call_37f55442ae4a4594a6c657da",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/pages/en/guides/observability.astro\",\n  \"old_string\": \"    <iframe src={logsUrl} title=\\\"CCR request logs — live UI\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:680px;`} />\\n    <div style=\\\"height:16px\\\" aria-hidden=\\\"true\\\"></div>\\n    <iframe src={obsUrl} title=\\\"CCR observability — live UI\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:900px;`} />\",\n  \"new_string\": \"    <iframe src={logsUrl} title=\\\"CCR request logs — live UI\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:960px;`} />\\n    <div style=\\\"height:16px\\\" aria-hidden=\\\"true\\\"></div>\\n    <iframe src={obsUrl} title=\\\"CCR observability — live UI\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:1100px;`} />\"\n}",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/pages/en/guides/observability.astro\",\n  \"old_string\": \"    <iframe src={logsUrl} title=\\\"LLMR request logs — live UI\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:680px;`} />\\n    <div style=\\\"height:16px\\\" aria-hidden=\\\"true\\\"></div>\\n    <iframe src={obsUrl} title=\\\"LLMR observability — live UI\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:900px;`} />\",\n  \"new_string\": \"    <iframe src={logsUrl} title=\\\"LLMR request logs — live UI\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:960px;`} />\\n    <div style=\\\"height:16px\\\" aria-hidden=\\\"true\\\"></div>\\n    <iframe src={obsUrl} title=\\\"LLMR observability — live UI\\\" loading=\\\"lazy\\\" style={`${frameStyle}height:1100px;`} />\"\n}",
               "sizeBytes": 780,
               "truncated": false
             }
@@ -17793,7 +17793,7 @@
             "callId": "call_d215669e89b64df1911223e0",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify ===\\\"\\ncat > /Volumes/Data/Products/claude-code-router/verify-fix-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch();\\n// OBS: check detail panel can open (click Details → session detail visible)\\nconst op = await b.newPage();\\nawait op.goto(\\\"http://localhost:4321/guides/observability-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await op.waitForTimeout(2800);\\n// click \\\"Details\\\" button on the session row\\nconst detailBtn = op.locator(\\\"button\\\").filter({ hasText: /详情|Details/i }).first();\\nconst btnCount = await detailBtn.count();\\nif (btnCount) { await detailBtn.click({ force:true }); await op.waitForTimeout(1500); }\\nconst detailOpen = await op.evaluate(() => {\\n  const txt = document.body.textContent || \\\"\\\";\\n  // detail panel shows trace/request table or \\\"no data\\\" but panel IS open\\n  return txt.includes(\\\"Run\\\") || txt.includes(\\\"运行\\\") || txt.includes(\\\"Trace\\\") || txt.includes(\\\"轨迹\\\") || txt.includes(\\\"session_abc\\\");\\n});\\nconsole.log(`OBS: detailsBtn=${btnCount} detailOpened=${detailOpen}`);\\nawait op.close();\\n// LOGS: check iframe height + scrollbar\\nconst lp = await b.newPage();\\nawait lp.goto(\\\"http://localhost:4321/guides/logs-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await lp.waitForTimeout(2800);\\nconst logsInfo = await lp.evaluate(() =>\n...",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify ===\\\"\\ncat > /Users/you/llm-router/verify-fix-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch();\\n// OBS: check detail panel can open (click Details → session detail visible)\\nconst op = await b.newPage();\\nawait op.goto(\\\"http://localhost:4321/guides/observability-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await op.waitForTimeout(2800);\\n// click \\\"Details\\\" button on the session row\\nconst detailBtn = op.locator(\\\"button\\\").filter({ hasText: /详情|Details/i }).first();\\nconst btnCount = await detailBtn.count();\\nif (btnCount) { await detailBtn.click({ force:true }); await op.waitForTimeout(1500); }\\nconst detailOpen = await op.evaluate(() => {\\n  const txt = document.body.textContent || \\\"\\\";\\n  // detail panel shows trace/request table or \\\"no data\\\" but panel IS open\\n  return txt.includes(\\\"Run\\\") || txt.includes(\\\"运行\\\") || txt.includes(\\\"Trace\\\") || txt.includes(\\\"轨迹\\\") || txt.includes(\\\"session_abc\\\");\\n});\\nconsole.log(`OBS: detailsBtn=${btnCount} detailOpened=${detailOpen}`);\\nawait op.close();\\n// LOGS: check iframe height + scrollbar\\nconst lp = await b.newPage();\\nawait lp.goto(\\\"http://localhost:4321/guides/logs-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await lp.waitForTimeout(2800);\\nconst logsInfo = await lp.evaluate(() =>\n...",
               "sizeBytes": 2380,
               "truncated": true
             }
@@ -18165,7 +18165,7 @@
             "callId": "call_3ef42b81164144d9bfc47673",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"cd /Volumes/Data/Products/claude-code-router\\necho \\\"=== AgentAnalysisSessionDetail type ===\\\" && sed -n '/export type AgentAnalysisSessionDetail/,/^}/p' packages/core/src/contracts/app.ts\\necho \\\"\\\"\\necho \\\"=== AgentAnalysisSessionSelection type ===\\\" && grep -n \\\"AgentAnalysisSessionSelection\\\" packages/core/src/contracts/app.ts | head -3\\nsed -n '/export type AgentAnalysisSessionSelection/,/;/p' packages/core/src/contracts/app.ts | head -5\\necho \\\"\\\"\\necho \\\"=== AgentAnalysisView detail rendering: what triggers loading? ===\\\" && grep -nE \\\"selectedSession|loading|Loading|正在加载|session.*metric|session.*indicator\\\" packages/ui/src/pages/home/components/dashboard.tsx | head -20\",\n  \"description\": \"Find session detail type + loading condition\"\n}",
+              "preview": "{\n  \"command\": \"cd /Users/you/llm-router\\necho \\\"=== AgentAnalysisSessionDetail type ===\\\" && sed -n '/export type AgentAnalysisSessionDetail/,/^}/p' packages/core/src/contracts/app.ts\\necho \\\"\\\"\\necho \\\"=== AgentAnalysisSessionSelection type ===\\\" && grep -n \\\"AgentAnalysisSessionSelection\\\" packages/core/src/contracts/app.ts | head -3\\nsed -n '/export type AgentAnalysisSessionSelection/,/;/p' packages/core/src/contracts/app.ts | head -5\\necho \\\"\\\"\\necho \\\"=== AgentAnalysisView detail rendering: what triggers loading? ===\\\" && grep -nE \\\"selectedSession|loading|Loading|正在加载|session.*metric|session.*indicator\\\" packages/ui/src/pages/home/components/dashboard.tsx | head -20\",\n  \"description\": \"Find session detail type + loading condition\"\n}",
               "sizeBytes": 777,
               "truncated": false
             }
@@ -18313,7 +18313,7 @@
             "callId": "call_9b12e52a3edb4f92b1b2422c",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"cd /Volumes/Data/Products/claude-code-router\\necho \\\"=== AgentSessionDetailCard: what triggers 'Loading session metrics'? ===\\\" && sed -n '3475,3515p' packages/ui/src/pages/home/components/dashboard.tsx\\necho \\\"\\\"\\necho \\\"=== AgentAnalysisTrace + AgentAnalysisTraceRun ===\\\" && sed -n '/export type AgentAnalysisTrace /,/}/p' packages/core/src/contracts/app.ts\\nsed -n '/export type AgentAnalysisTraceRun/,/^}/p' packages/core/src/contracts/app.ts | head -20\\necho \\\"\\\"\\necho \\\"=== AgentAnalysisSessionModelRow ===\\\" && grep -nE \\\"AgentAnalysisSessionModelRow\\\" packages/core/src/contracts/app.ts | head -2\\nsed -n '/export type AgentAnalysisSessionModelRow/,/^}/p' packages/core/src/contracts/app.ts | head -10\",\n  \"description\": \"Check detail loading condition + trace types\"\n}",
+              "preview": "{\n  \"command\": \"cd /Users/you/llm-router\\necho \\\"=== AgentSessionDetailCard: what triggers 'Loading session metrics'? ===\\\" && sed -n '3475,3515p' packages/ui/src/pages/home/components/dashboard.tsx\\necho \\\"\\\"\\necho \\\"=== AgentAnalysisTrace + AgentAnalysisTraceRun ===\\\" && sed -n '/export type AgentAnalysisTrace /,/}/p' packages/core/src/contracts/app.ts\\nsed -n '/export type AgentAnalysisTraceRun/,/^}/p' packages/core/src/contracts/app.ts | head -20\\necho \\\"\\\"\\necho \\\"=== AgentAnalysisSessionModelRow ===\\\" && grep -nE \\\"AgentAnalysisSessionModelRow\\\" packages/core/src/contracts/app.ts | head -2\\nsed -n '/export type AgentAnalysisSessionModelRow/,/^}/p' packages/core/src/contracts/app.ts | head -10\",\n  \"description\": \"Check detail loading condition + trace types\"\n}",
               "sizeBytes": 795,
               "truncated": false
             }
@@ -18685,7 +18685,7 @@
             "callId": "call_a65ee751d0324a44aeb95cbf",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"cd /Volumes/Data/Products/claude-code-router\\necho \\\"=== AgentAnalysisTraceRun full type ===\\\" && sed -n '/export type AgentAnalysisTraceRun = {/,/^}/p' packages/core/src/contracts/app.ts\",\n  \"description\": \"Get full AgentAnalysisTraceRun type\"\n}",
+              "preview": "{\n  \"command\": \"cd /Users/you/llm-router\\necho \\\"=== AgentAnalysisTraceRun full type ===\\\" && sed -n '/export type AgentAnalysisTraceRun = {/,/^}/p' packages/core/src/contracts/app.ts\",\n  \"description\": \"Get full AgentAnalysisTraceRun type\"\n}",
               "sizeBytes": 262,
               "truncated": false
             }
@@ -19057,7 +19057,7 @@
             "callId": "call_6f94bf2b0917495da0290d53",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/mockData.ts\",\n  \"limit\": 20,\n  \"offset\": 135\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/mockData.ts\",\n  \"limit\": 20,\n  \"offset\": 135\n}",
               "sizeBytes": 138,
               "truncated": false
             }
@@ -19149,7 +19149,7 @@
             "callId": "call_4b14f1e035ad4c54806b92c5",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/mockData.ts\",\n  \"limit\": 30,\n  \"offset\": 190\n}",
+              "preview": "{\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/mockData.ts\",\n  \"limit\": 30,\n  \"offset\": 190\n}",
               "sizeBytes": 138,
               "truncated": false
             }
@@ -19241,7 +19241,7 @@
             "callId": "call_8a3e8add8371482b8322c924",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Volumes/Data/Products/claude-code-router/docs/src/components/interactive/mockData.ts\",\n  \"old_string\": \"    ] as AgentAnalysisSnapshot[\\\"recentRequests\\\"],\\n  };\\n}\",\n  \"new_string\": \"    ] as AgentAnalysisSnapshot[\\\"recentRequests\\\"],\\n    selectedSession: {\\n      endpoints: [],\\n      errors: [],\\n      models: [],\\n      requests: [\\n        {\\n          agent: \\\"claude-code\\\",\\n          id: 1001,\\n          createdAt: \\\"2026-08-06T09:58:32.000Z\\\",\\n          statusCode: 200,\\n          ok: true,\\n          method: \\\"POST\\\",\\n          path: \\\"/v1/messages\\\",\\n          model: \\\"claude-sonnet-4-20250514\\\",\\n          provider: \\\"Anthropic\\\",\\n          client: \\\"claude-code/1.0.0\\\",\\n          durationMs: 3200,\\n          inputTokens: 12500,\\n          outputTokens: 850,\\n          cacheReadTokens: 8000,\\n          cacheWriteTokens: 4500,\\n          totalTokens: 25850,\\n          costUsd: 0.087,\\n          requestId: \\\"req_abc123def456\\\",\\n          sessionId: \\\"session_abc123def456789\\\",\\n          tools: [\\\"Bash\\\", \\\"Read\\\"],\\n          toolCallCount: 3,\\n          concurrentRequests: 2,\\n        },\\n      ],\\n      routes: [],\\n      session: {\\n        ...TOTALS,\\n        agent: \\\"claude-code\\\",\\n        client: \\\"claude-code/1.0.0\\\",\\n        durationMs: 3600000,\\n        id: \\\"session_abc123def456789\\\",\\n        lastRequestId: \\\"req_abc123def456\\\",\\n        lastSeenAt: \\\"2026-08-06T09:58:35.000Z\\\",\\n        startedAt: \\\"2026-08-06T08:58:00.000Z\\\",\\n        models: [\\\"claude-sonnet-4-20250514\\\"],\\n        providers: [\\\"An\n...",
+              "preview": "{\n  \"replace_all\": false,\n  \"file_path\": \"/Users/you/llm-router/docs/src/components/interactive/mockData.ts\",\n  \"old_string\": \"    ] as AgentAnalysisSnapshot[\\\"recentRequests\\\"],\\n  };\\n}\",\n  \"new_string\": \"    ] as AgentAnalysisSnapshot[\\\"recentRequests\\\"],\\n    selectedSession: {\\n      endpoints: [],\\n      errors: [],\\n      models: [],\\n      requests: [\\n        {\\n          agent: \\\"claude-code\\\",\\n          id: 1001,\\n          createdAt: \\\"2026-08-06T09:58:32.000Z\\\",\\n          statusCode: 200,\\n          ok: true,\\n          method: \\\"POST\\\",\\n          path: \\\"/v1/messages\\\",\\n          model: \\\"claude-sonnet-4-20250514\\\",\\n          provider: \\\"Anthropic\\\",\\n          client: \\\"claude-code/1.0.0\\\",\\n          durationMs: 3200,\\n          inputTokens: 12500,\\n          outputTokens: 850,\\n          cacheReadTokens: 8000,\\n          cacheWriteTokens: 4500,\\n          totalTokens: 25850,\\n          costUsd: 0.087,\\n          requestId: \\\"req_abc123def456\\\",\\n          sessionId: \\\"session_abc123def456789\\\",\\n          tools: [\\\"Bash\\\", \\\"Read\\\"],\\n          toolCallCount: 3,\\n          concurrentRequests: 2,\\n        },\\n      ],\\n      routes: [],\\n      session: {\\n        ...TOTALS,\\n        agent: \\\"claude-code\\\",\\n        client: \\\"claude-code/1.0.0\\\",\\n        durationMs: 3600000,\\n        id: \\\"session_abc123def456789\\\",\\n        lastRequestId: \\\"req_abc123def456\\\",\\n        lastSeenAt: \\\"2026-08-06T09:58:35.000Z\\\",\\n        startedAt: \\\"2026-08-06T08:58:00.000Z\\\",\\n        models: [\\\"claude-sonnet-4-20250514\\\"],\\n        providers: [\\\"An\n...",
               "sizeBytes": 5067,
               "truncated": true
             }
@@ -19333,7 +19333,7 @@
             "callId": "call_fa348d1005b04223bbd0c3d7",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify detail panel shows content (not loading) ===\\\"\\ncat > /Volumes/Data/Products/claude-code-router/verify-detail-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/observability-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2800);\\n// click \\\"Details\\\" on the session row\\nconst btn = p.locator(\\\"button\\\").filter({ hasText: /详情|Details/i }).first();\\nif (await btn.count()) { await btn.click({ force:true }); await p.waitForTimeout(1500); }\\nconst r = await p.evaluate(() => {\\n  const txt = document.body.textContent || \\\"\\\";\\n  return {\\n    loading: txt.includes(\\\"正在加载\\\") || txt.includes(\\\"Loading session\\\"),\\n    hasTrace: txt.includes(\\\"Run\\\") || txt.includes(\\\"运行\\\") || txt.includes(\\\"POST /v1\\\"),\\n    hasTool: txt.includes(\\\"Bash\\\"),\\n    hasRequests: txt.includes(\\\"1001\\\") || txt.includes(\\\"Session Requests\\\") || txt.includes(\\\"会话请求\\\"),\\n  };\\n});\\nconsole.log(JSON.stringify(r));\\nawait b.close();\\nEOF\\npkill -f \\\"astro dev\\\" 2>/dev/null; sleep 1\\n(npm run dev > /tmp/ccr-dev.log 2>&1 &) && sleep 8\\ncd /Volumes/Data/Products/claude-code-router\\n/usr/bin/env node verify-detail-tmp.mjs 2>&1 | tail -3\\npkill -f \\\"astro dev\\\" 2>/dev/null; rm -f verify-detail-tmp.mjs; echo \\\"(\n...",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router/docs\\nnpm run build 2>&1 | grep -iE \\\"error|cannot|fail\\\" | head -8; echo \\\"--- tail ---\\\"; npm run build 2>&1 | tail -2\\necho \\\"=== verify detail panel shows content (not loading) ===\\\"\\ncat > /Users/you/llm-router/verify-detail-tmp.mjs <<'EOF'\\nimport { chromium } from \\\"playwright\\\";\\nconst b = await chromium.launch(); const p = await b.newPage();\\nawait p.goto(\\\"http://localhost:4321/guides/observability-app/?locale=zh\\\", { waitUntil:\\\"networkidle\\\"}); await p.waitForTimeout(2800);\\n// click \\\"Details\\\" on the session row\\nconst btn = p.locator(\\\"button\\\").filter({ hasText: /详情|Details/i }).first();\\nif (await btn.count()) { await btn.click({ force:true }); await p.waitForTimeout(1500); }\\nconst r = await p.evaluate(() => {\\n  const txt = document.body.textContent || \\\"\\\";\\n  return {\\n    loading: txt.includes(\\\"正在加载\\\") || txt.includes(\\\"Loading session\\\"),\\n    hasTrace: txt.includes(\\\"Run\\\") || txt.includes(\\\"运行\\\") || txt.includes(\\\"POST /v1\\\"),\\n    hasTool: txt.includes(\\\"Bash\\\"),\\n    hasRequests: txt.includes(\\\"1001\\\") || txt.includes(\\\"Session Requests\\\") || txt.includes(\\\"会话请求\\\"),\\n  };\\n});\\nconsole.log(JSON.stringify(r));\\nawait b.close();\\nEOF\\npkill -f \\\"astro dev\\\" 2>/dev/null; sleep 1\\n(npm run dev > /tmp/ccr-dev.log 2>&1 &) && sleep 8\\ncd /Users/you/llm-router\\n/usr/bin/env node verify-detail-tmp.mjs 2>&1 | tail -3\\npkill -f \\\"astro dev\\\" 2>/dev/null; rm -f verify-detail-tmp.mjs; echo \\\"(\n...",
               "sizeBytes": 1732,
               "truncated": true
             }
@@ -19761,7 +19761,7 @@
             "callId": "call_aa5c750058ea4b048a7d90df",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router\\n# Check if CCR is running\\npgrep -f \\\"dist/main/server.js\\\" > /dev/null 2>&1 && echo \\\"CCR is running\\\" || echo \\\"CCR not running\\\"\\n# Check for a running management server on 3458\\n/usr/bin/curl -s -o /dev/null -w \\\"%{http_code}\\\" http://127.0.0.1:3458/ 2>/dev/null || echo \\\"port 3458 not responding\\\"\",\n  \"description\": \"Check if local CCR is running\"\n}",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router\\n# Check if LLMR is running\\npgrep -f \\\"dist/main/server.js\\\" > /dev/null 2>&1 && echo \\\"LLMR is running\\\" || echo \\\"LLMR not running\\\"\\n# Check for a running management server on 3458\\n/usr/bin/curl -s -o /dev/null -w \\\"%{http_code}\\\" http://127.0.0.1:3458/ 2>/dev/null || echo \\\"port 3458 not responding\\\"\",\n  \"description\": \"Check if local LLMR is running\"\n}",
               "sizeBytes": 486,
               "truncated": false
             }
@@ -19909,7 +19909,7 @@
             "callId": "call_64bbfa4d78484363af807ea2",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router\\n# Start CCR to get real data\\npkill -f \\\"dist/main/server.js\\\" 2>/dev/null; sleep 1\\n(node packages/core/dist/main/server.js > /tmp/ccr-server.log 2>&1 &) && sleep 6\\nTOKEN=$(grep -oE \\\"ccr_web_token=[^ ]+\\\" /tmp/ccr-server.log | head -1 | cut -d= -f2)\\necho \\\"token: ${TOKEN:0:12}...\\\"\\n\\n# Check what providers/models exist in the config\\necho \\\"=== current providers ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getConfig\\\",\\\"args\\\":[]}' | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const cfg=JSON.parse(d).value;\\n      console.log('Providers:', (cfg.Providers||[]).map(p=>p.name+'('+(p.models||[]).length+' models)').join(', '));\\n      console.log('Profiles:', (cfg.profile?.profiles||[]).map(p=>p.name).join(', ')||'(none)');\\n    })\\\"\\n\\n# Fetch real request logs\\necho \\\"=== request logs ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getRequestLogs\\\",\\\"args\\\":[{\\\"page\\\":1,\\\"pageSize\\\":5}]}' > /tmp/ccr-logs.json\\nnode -e \\\"const d=require('/tmp/ccr-logs.json'); console.log('logs ok:', d.ok, '| items:', d.value?.items?.length, '| total:', d.value?.total)\\\"\\n\\n# Fetch real agent analysis\\necho \\\"=== agent analysis ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/cc\n...",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router\\n# Start LLMR to get real data\\npkill -f \\\"dist/main/server.js\\\" 2>/dev/null; sleep 1\\n(node packages/core/dist/main/server.js > /tmp/ccr-server.log 2>&1 &) && sleep 6\\nTOKEN=$(grep -oE \\\"ccr_web_token=[^ ]+\\\" /tmp/ccr-server.log | head -1 | cut -d= -f2)\\necho \\\"token: ${TOKEN:0:12}...\\\"\\n\\n# Check what providers/models exist in the config\\necho \\\"=== current providers ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getConfig\\\",\\\"args\\\":[]}' | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const cfg=JSON.parse(d).value;\\n      console.log('Providers:', (cfg.Providers||[]).map(p=>p.name+'('+(p.models||[]).length+' models)').join(', '));\\n      console.log('Profiles:', (cfg.profile?.profiles||[]).map(p=>p.name).join(', ')||'(none)');\\n    })\\\"\\n\\n# Fetch real request logs\\necho \\\"=== request logs ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getRequestLogs\\\",\\\"args\\\":[{\\\"page\\\":1,\\\"pageSize\\\":5}]}' > /tmp/ccr-logs.json\\nnode -e \\\"const d=require('/tmp/ccr-logs.json'); console.log('logs ok:', d.ok, '| items:', d.value?.items?.length, '| total:', d.value?.total)\\\"\\n\\n# Fetch real agent analysis\\necho \\\"=== agent analysis ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/cc\n...",
               "sizeBytes": 2173,
               "truncated": true
             }
@@ -20057,7 +20057,7 @@
             "callId": "call_170ace1f322e423394a73c81",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router\\nTOKEN=$(cat /tmp/ccr-token.txt)\\n\\n# Check the actual RPC method names\\necho \\\"=== getRequestLogs error ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getRequestLogs\\\",\\\"args\\\":[{\\\"page\\\":1,\\\"pageSize\\\":5}]}' | node -e \\\"let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.stringify(d).slice(0,200)))\\\"\\n\\necho \\\"\\\"\\necho \\\"=== getAgentAnalysis error ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getAgentAnalysis\\\",\\\"args\\\":[{\\\"range\\\":\\\"today\\\"}]}' | node -e \\\"let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.stringify(d).slice(0,200)))\\\"\\n\\necho \\\"\\\"\\necho \\\"=== available RPC methods (grep management-server) ===\\\"\\ngrep -oE '\\\"[a-zA-Z]+\\\"' packages/core/src/web/management-server.ts | grep -iE \\\"log|request|analysis|agent|usage|trace|observ\\\" | sort -u | head -20\",\n  \"description\": \"Check RPC method names for logs + analysis\"\n}",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router\\nTOKEN=$(cat /tmp/ccr-token.txt)\\n\\n# Check the actual RPC method names\\necho \\\"=== getRequestLogs error ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getRequestLogs\\\",\\\"args\\\":[{\\\"page\\\":1,\\\"pageSize\\\":5}]}' | node -e \\\"let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.stringify(d).slice(0,200)))\\\"\\n\\necho \\\"\\\"\\necho \\\"=== getAgentAnalysis error ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getAgentAnalysis\\\",\\\"args\\\":[{\\\"range\\\":\\\"today\\\"}]}' | node -e \\\"let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.stringify(d).slice(0,200)))\\\"\\n\\necho \\\"\\\"\\necho \\\"=== available RPC methods (grep management-server) ===\\\"\\ngrep -oE '\\\"[a-zA-Z]+\\\"' packages/core/src/web/management-server.ts | grep -iE \\\"log|request|analysis|agent|usage|trace|observ\\\" | sort -u | head -20\",\n  \"description\": \"Check RPC method names for logs + analysis\"\n}",
               "sizeBytes": 1252,
               "truncated": false
             }
@@ -20261,7 +20261,7 @@
             "callId": "call_b2992f50b6e14fc9bc28d299",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router\\n# The sqlite native module mismatch — need to rebuild for current Node\\necho \\\"=== node version ===\\\" && node -v\\necho \\\"=== rebuild better-sqlite3 ===\\\" && npm rebuild better-sqlite3 2>&1 | tail -3\\n# Restart CCR\\npkill -f \\\"dist/main/server.js\\\" 2>/dev/null; sleep 1\\n(node packages/core/dist/main/server.js > /tmp/ccr-server.log 2>&1 &) && sleep 6\\nTOKEN=$(grep -oE \\\"ccr_web_token=[^ ]+\\\" /tmp/ccr-server.log | head -1 | cut -d= -f2)\\necho \\\"$TOKEN\\\" > /tmp/ccr-token.txt\\n\\n# Try again\\necho \\\"=== getRequestLogs ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getRequestLogs\\\",\\\"args\\\":[{\\\"page\\\":1,\\\"pageSize\\\":5}]}' | node -e \\\"let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const r=JSON.parse(d);console.log('ok:',r.ok,'items:',r.value?.items?.length,'total:',r.value?.total)})\\\"\\n\\necho \\\"=== getAgentAnalysis ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getAgentAnalysis\\\",\\\"args\\\":[{\\\"range\\\":\\\"today\\\"}]}' | node -e \\\"let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const r=JSON.parse(d);console.log('ok:',r.ok,'sessions:',r.value?.sessions?.length,'requests:',r.value?.scannedRequestCount)})\\\"\",\n  \"description\": \"Rebuild sqlite + retry fetching real data\",\n  \"timeout\": 120000\n}",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router\\n# The sqlite native module mismatch — need to rebuild for current Node\\necho \\\"=== node version ===\\\" && node -v\\necho \\\"=== rebuild better-sqlite3 ===\\\" && npm rebuild better-sqlite3 2>&1 | tail -3\\n# Restart LLMR\\npkill -f \\\"dist/main/server.js\\\" 2>/dev/null; sleep 1\\n(node packages/core/dist/main/server.js > /tmp/ccr-server.log 2>&1 &) && sleep 6\\nTOKEN=$(grep -oE \\\"ccr_web_token=[^ ]+\\\" /tmp/ccr-server.log | head -1 | cut -d= -f2)\\necho \\\"$TOKEN\\\" > /tmp/ccr-token.txt\\n\\n# Try again\\necho \\\"=== getRequestLogs ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getRequestLogs\\\",\\\"args\\\":[{\\\"page\\\":1,\\\"pageSize\\\":5}]}' | node -e \\\"let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const r=JSON.parse(d);console.log('ok:',r.ok,'items:',r.value?.items?.length,'total:',r.value?.total)})\\\"\\n\\necho \\\"=== getAgentAnalysis ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getAgentAnalysis\\\",\\\"args\\\":[{\\\"range\\\":\\\"today\\\"}]}' | node -e \\\"let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const r=JSON.parse(d);console.log('ok:',r.ok,'sessions:',r.value?.sessions?.length,'requests:',r.value?.scannedRequestCount)})\\\"\",\n  \"description\": \"Rebuild sqlite + retry fetching real data\",\n  \"timeout\": 120000\n}",
               "sizeBytes": 1585,
               "truncated": false
             }
@@ -20465,7 +20465,7 @@
             "callId": "call_0a1997e14e7d4cb5987d8ed5",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router\\nTOKEN=$(cat /tmp/ccr-token.txt)\\n\\n# Fetch full request log page (5 entries)\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getRequestLogs\\\",\\\"args\\\":[{\\\"page\\\":1,\\\"pageSize\\\":5}]}' | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const r=JSON.parse(d);\\n      if(r.ok) require('fs').writeFileSync('docs/src/components/interactive/fixtures-request-logs.json', JSON.stringify(r.value,null,2));\\n      console.log('saved request logs: items='+r.value?.items?.length+' total='+r.value?.total);\\n    })\\\"\\n\\n# Fetch agent analysis with session detail\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getAgentAnalysis\\\",\\\"args\\\":[{\\\"range\\\":\\\"today\\\"}]}' | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const r=JSON.parse(d);\\n      if(r.ok) require('fs').writeFileSync('docs/src/components/interactive/fixtures-agent-analysis.json', JSON.stringify(r.value,null,2));\\n      const s=r.value;\\n      console.log('saved agent analysis: sessions='+s?.sessions?.length+' requests='+s?.scannedRequestCount+' tools='+s?.tools?.length+' selectedSession='+(!!s?.selectedSession));\\n    })\\\"\\n\\n# If selectedSession is missing, fetch with a specific session\\nnode -e \\\"\\nconst a=require('./\n...",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router\\nTOKEN=$(cat /tmp/ccr-token.txt)\\n\\n# Fetch full request log page (5 entries)\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getRequestLogs\\\",\\\"args\\\":[{\\\"page\\\":1,\\\"pageSize\\\":5}]}' | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const r=JSON.parse(d);\\n      if(r.ok) require('fs').writeFileSync('docs/src/components/interactive/fixtures-request-logs.json', JSON.stringify(r.value,null,2));\\n      console.log('saved request logs: items='+r.value?.items?.length+' total='+r.value?.total);\\n    })\\\"\\n\\n# Fetch agent analysis with session detail\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d '{\\\"method\\\":\\\"getAgentAnalysis\\\",\\\"args\\\":[{\\\"range\\\":\\\"today\\\"}]}' | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const r=JSON.parse(d);\\n      if(r.ok) require('fs').writeFileSync('docs/src/components/interactive/fixtures-agent-analysis.json', JSON.stringify(r.value,null,2));\\n      const s=r.value;\\n      console.log('saved agent analysis: sessions='+s?.sessions?.length+' requests='+s?.scannedRequestCount+' tools='+s?.tools?.length+' selectedSession='+(!!s?.selectedSession));\\n    })\\\"\\n\\n# If selectedSession is missing, fetch with a specific session\\nnode -e \\\"\\nconst a=require('./\n...",
               "sizeBytes": 2019,
               "truncated": true
             }
@@ -20613,7 +20613,7 @@
             "callId": "call_ddbe9e0e9680470fb1521867",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Volumes/Data/Products/claude-code-router\\n# Restart CCR to get session detail\\n(node packages/core/dist/main/server.js > /tmp/ccr-server.log 2>&1 &) && sleep 6\\nTOKEN=$(grep -oE \\\"ccr_web_token=[^ ]+\\\" /tmp/ccr-server.log | head -1 | cut -d= -f2)\\n\\n# Get agent analysis WITH selectedSession by passing session selection\\nSESSION_ID=\\\"ea811d1f-6b77-440d-8329-010d5505da9a\\\"\\necho \\\"=== fetching with selectedSession ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d \\\"{\\\\\\\"method\\\\\\\":\\\\\\\"getAgentAnalysis\\\\\\\",\\\\\\\"args\\\\\\\":[{\\\\\\\"range\\\\\\\":\\\\\\\"today\\\\\\\",\\\\\\\"selectedSession\\\\\\\":{\\\\\\\"agent\\\\\\\":\\\\\\\"claude-code\\\\\\\",\\\\\\\"id\\\\\\\":\\\\\\\"$SESSION_ID\\\\\\\"}}]}\\\" | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const r=JSON.parse(d);\\n      if(r.ok) {\\n        require('fs').writeFileSync('docs/src/components/interactive/fixtures-agent-analysis.json', JSON.stringify(r.value,null,2));\\n        console.log('saved: selectedSession='+!!r.value?.selectedSession+' trace_runs='+r.value?.selectedSession?.trace?.runs?.length);\\n      } else { console.log('error:', r.error?.message); }\\n    })\\\"\\n\\npkill -f \\\"dist/main/server.js\\\" 2>/dev/null\\necho \\\"=== fixture sizes ===\\\" \\nwc -c docs/src/components/interactive/fixtures-request-logs.json docs/src/components/interactive/fixtures-agent-analysis.json\",\n  \"description\": \"Fetch agent analysis with session detail\",\n  \"timeout\": 30000\n}",
+              "preview": "{\n  \"command\": \"export PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\ncd /Users/you/llm-router\\n# Restart LLMR to get session detail\\n(node packages/core/dist/main/server.js > /tmp/ccr-server.log 2>&1 &) && sleep 6\\nTOKEN=$(grep -oE \\\"ccr_web_token=[^ ]+\\\" /tmp/ccr-server.log | head -1 | cut -d= -f2)\\n\\n# Get agent analysis WITH selectedSession by passing session selection\\nSESSION_ID=\\\"ea811d1f-6b77-440d-8329-010d5505da9a\\\"\\necho \\\"=== fetching with selectedSession ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d \\\"{\\\\\\\"method\\\\\\\":\\\\\\\"getAgentAnalysis\\\\\\\",\\\\\\\"args\\\\\\\":[{\\\\\\\"range\\\\\\\":\\\\\\\"today\\\\\\\",\\\\\\\"selectedSession\\\\\\\":{\\\\\\\"agent\\\\\\\":\\\\\\\"claude-code\\\\\\\",\\\\\\\"id\\\\\\\":\\\\\\\"$SESSION_ID\\\\\\\"}}]}\\\" | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const r=JSON.parse(d);\\n      if(r.ok) {\\n        require('fs').writeFileSync('docs/src/components/interactive/fixtures-agent-analysis.json', JSON.stringify(r.value,null,2));\\n        console.log('saved: selectedSession='+!!r.value?.selectedSession+' trace_runs='+r.value?.selectedSession?.trace?.runs?.length);\\n      } else { console.log('error:', r.error?.message); }\\n    })\\\"\\n\\npkill -f \\\"dist/main/server.js\\\" 2>/dev/null\\necho \\\"=== fixture sizes ===\\\" \\nwc -c docs/src/components/interactive/fixtures-request-logs.json docs/src/components/interactive/fixtures-agent-analysis.json\",\n  \"description\": \"Fetch agent analysis with session detail\",\n  \"timeout\": 30000\n}",
               "sizeBytes": 1593,
               "truncated": false
             }
@@ -20761,7 +20761,7 @@
             "callId": "call_8a192b4cb0184aab8b4afdc4",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"cd /Volumes/Data/Products/claude-code-router\\necho \\\"=== getAgentAnalysis RPC handler ===\\\" && grep -A5 '\\\"getAgentAnalysis\\\"' packages/core/src/web/management-server.ts | head -10\\necho \\\"\\\"\\necho \\\"=== getRequestLogs RPC handler ===\\\" && grep -A5 '\\\"getRequestLogs\\\"' packages/core/src/web/management-server.ts | head -10\\necho \\\"\\\"\\necho \\\"=== check if fixtures have real data ===\\\" \\nnode -e \\\"\\nconst logs=require('./docs/src/components/interactive/fixtures-request-logs.json');\\nconsole.log('LOGS: items='+logs.items.length+' total='+logs.total);\\nconsole.log('  first: model='+logs.items[0].model+' status='+logs.items[0].statusCode+' ok='+logs.items[0].ok+' dur='+logs.items[0].durationMs);\\nconst analysis=require('./docs/src/components/interactive/fixtures-agent-analysis.json');\\nconsole.log('ANALYSIS: sessions='+analysis.sessions.length+' scanned='+analysis.scannedRequestCount+' tools='+analysis.tools.length);\\nif(analysis.sessions[0]) console.log('  session: agent='+analysis.sessions[0].agent+' reqs='+analysis.sessions[0].requestCount+' tools='+analysis.sessions[0].toolCallCount+' cost='+analysis.sessions[0].costUsd);\\nconsole.log('  totals: reqs='+analysis.totals.requestCount+' tokens='+analysis.totals.totalTokens+' cost='+analysis.totals.costUsd);\\n\\\"\",\n  \"description\": \"Verify fixture data + check session detail RPC\"\n}",
+              "preview": "{\n  \"command\": \"cd /Users/you/llm-router\\necho \\\"=== getAgentAnalysis RPC handler ===\\\" && grep -A5 '\\\"getAgentAnalysis\\\"' packages/core/src/web/management-server.ts | head -10\\necho \\\"\\\"\\necho \\\"=== getRequestLogs RPC handler ===\\\" && grep -A5 '\\\"getRequestLogs\\\"' packages/core/src/web/management-server.ts | head -10\\necho \\\"\\\"\\necho \\\"=== check if fixtures have real data ===\\\" \\nnode -e \\\"\\nconst logs=require('./docs/src/components/interactive/fixtures-request-logs.json');\\nconsole.log('LOGS: items='+logs.items.length+' total='+logs.total);\\nconsole.log('  first: model='+logs.items[0].model+' status='+logs.items[0].statusCode+' ok='+logs.items[0].ok+' dur='+logs.items[0].durationMs);\\nconst analysis=require('./docs/src/components/interactive/fixtures-agent-analysis.json');\\nconsole.log('ANALYSIS: sessions='+analysis.sessions.length+' scanned='+analysis.scannedRequestCount+' tools='+analysis.tools.length);\\nif(analysis.sessions[0]) console.log('  session: agent='+analysis.sessions[0].agent+' reqs='+analysis.sessions[0].requestCount+' tools='+analysis.sessions[0].toolCallCount+' cost='+analysis.sessions[0].costUsd);\\nconsole.log('  totals: reqs='+analysis.totals.requestCount+' tokens='+analysis.totals.totalTokens+' cost='+analysis.totals.costUsd);\\n\\\"\",\n  \"description\": \"Verify fixture data + check session detail RPC\"\n}",
               "sizeBytes": 1361,
               "truncated": false
             }
@@ -20909,7 +20909,7 @@
             "callId": "call_32b74386ecbc4077b259ec62",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"cd /Volumes/Data/Products/claude-code-router\\necho \\\"=== all RPC methods ===\\\" && grep -oE '\\\"[a-zA-Z]+\\\"\\\\s*:' packages/core/src/web/management-server.ts | tr -d '\\\" :' | sort -u | head -50\",\n  \"description\": \"List all available RPC methods\"\n}",
+              "preview": "{\n  \"command\": \"cd /Users/you/llm-router\\necho \\\"=== all RPC methods ===\\\" && grep -oE '\\\"[a-zA-Z]+\\\"\\\\s*:' packages/core/src/web/management-server.ts | tr -d '\\\" :' | sort -u | head -50\",\n  \"description\": \"List all available RPC methods\"\n}",
               "sizeBytes": 260,
               "truncated": false
             }
@@ -21001,7 +21001,7 @@
             "callId": "call_8a07dbde5dd94b48a2a4263d",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"cd /Volumes/Data/Products/claude-code-router\\necho \\\"=== all RPC method strings ===\\\" && grep -oE '\\\"(get|save|apply|start|stop|restart|probe|check|test|import|open|close|cancel|fetch|list|detect|reset|remove|add|export)[A-Za-z]+\\\"' packages/core/src/web/management-server.ts | tr -d '\\\"' | sort -u\",\n  \"description\": \"List all RPC method names\"\n}",
+              "preview": "{\n  \"command\": \"cd /Users/you/llm-router\\necho \\\"=== all RPC method strings ===\\\" && grep -oE '\\\"(get|save|apply|start|stop|restart|probe|check|test|import|open|close|cancel|fetch|list|detect|reset|remove|add|export)[A-Za-z]+\\\"' packages/core/src/web/management-server.ts | tr -d '\\\"' | sort -u\",\n  \"description\": \"List all RPC method names\"\n}",
               "sizeBytes": 363,
               "truncated": false
             }
@@ -21093,7 +21093,7 @@
             "callId": "call_ac3a22e7a8fa40bf84851c5c",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"cd /Volumes/Data/Products/claude-code-router\\ngrep -nE 'method ===\\\\s*\\\"' packages/core/src/web/management-server.ts | head -40\",\n  \"description\": \"Find all RPC method dispatch cases\"\n}",
+              "preview": "{\n  \"command\": \"cd /Users/you/llm-router\\ngrep -nE 'method ===\\\\s*\\\"' packages/core/src/web/management-server.ts | head -40\",\n  \"description\": \"Find all RPC method dispatch cases\"\n}",
               "sizeBytes": 201,
               "truncated": false
             }
@@ -21185,7 +21185,7 @@
             "callId": "call_feb2d8d3a9c54f869ffacc01",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"cd /Volumes/Data/Products/claude-code-router\\ngrep -nE 'case \\\"' packages/core/src/web/management-server.ts | head -50\",\n  \"description\": \"Find RPC dispatch cases\"\n}",
+              "preview": "{\n  \"command\": \"cd /Users/you/llm-router\\ngrep -nE 'case \\\"' packages/core/src/web/management-server.ts | head -50\",\n  \"description\": \"Find RPC dispatch cases\"\n}",
               "sizeBytes": 181,
               "truncated": false
             }
@@ -21277,7 +21277,7 @@
             "callId": "call_fe027f1ed05740758417b82b",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"cd /Volumes/Data/Products/claude-code-router\\nsed -n '235,320p' packages/core/src/web/management-server.ts | grep -E 'method|case|===|getRequestLogs|getAgentAnalysis|handleRpc' | head -20\\necho \\\"---\\\"\\necho \\\"=== find getRequestLogs/getAgentAnalysis in the RPC handler ===\\\"\\ngrep -n \\\"getRequestLogs\\\\|getAgentAnalysis\\\\|handleRpcRequest\\\" packages/core/src/web/management-server.ts | head -10\",\n  \"description\": \"Find how RPC methods are dispatched\"\n}",
+              "preview": "{\n  \"command\": \"cd /Users/you/llm-router\\nsed -n '235,320p' packages/core/src/web/management-server.ts | grep -E 'method|case|===|getRequestLogs|getAgentAnalysis|handleRpc' | head -20\\necho \\\"---\\\"\\necho \\\"=== find getRequestLogs/getAgentAnalysis in the RPC handler ===\\\"\\ngrep -n \\\"getRequestLogs\\\\|getAgentAnalysis\\\\|handleRpcRequest\\\" packages/core/src/web/management-server.ts | head -10\",\n  \"description\": \"Find how RPC methods are dispatched\"\n}",
               "sizeBytes": 470,
               "truncated": false
             }
@@ -21369,7 +21369,7 @@
             "callId": "call_930199850c9a486cbf555f0f",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"cd /Volumes/Data/Products/claude-code-router\\necho \\\"=== AgentAnalysisFilter type ===\\\" && grep -A10 \\\"export type AgentAnalysisFilter\\\" packages/core/src/contracts/app.ts | head -12\\necho \\\"\\\"\\necho \\\"=== try fetching with selectedSession in filter ===\\\"\\nexport PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\n(node packages/core/dist/main/server.js > /tmp/ccr-server.log 2>&1 &) && sleep 6\\nTOKEN=$(grep -oE \\\"ccr_web_token=[^ ]+\\\" /tmp/ccr-server.log | head -1 | cut -d= -f2)\\nSESSION_ID=$(node -e \\\"const a=require('./docs/src/components/interactive/fixtures-agent-analysis.json');console.log(a.sessions[0]?.id||'')\\\")\\necho \\\"session=$SESSION_ID agent=claude-code\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d \\\"{\\\\\\\"method\\\\\\\":\\\\\\\"getAgentAnalysis\\\\\\\",\\\\\\\"args\\\\\\\":[{\\\\\\\"range\\\\\\\":\\\\\\\"today\\\\\\\",\\\\\\\"selectedSession\\\\\\\":{\\\\\\\"agent\\\\\\\":\\\\\\\"claude-code\\\\\\\",\\\\\\\"id\\\\\\\":\\\\\\\"$SESSION_ID\\\\\\\"}}]}\\\" | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const r=JSON.parse(d);\\n      if(r.ok) {\\n        require('fs').writeFileSync('docs/src/components/interactive/fixtures-agent-analysis.json', JSON.stringify(r.value,null,2));\\n        const ss = r.value?.selectedSession;\\n        console.log('selectedSession: '+(!!ss)+' trace_runs='+(ss?.trace?.runs?.length||0)+' requests='+(ss?.requests?.length||0));\\n      } else console.log('error:',r.error?.message);\\n    })\\\"\\npkill -f \\\"dist/main/server.js\\\" 2>/dev/null\\necho \\\"=== final fixtur\n...",
+              "preview": "{\n  \"command\": \"cd /Users/you/llm-router\\necho \\\"=== AgentAnalysisFilter type ===\\\" && grep -A10 \\\"export type AgentAnalysisFilter\\\" packages/core/src/contracts/app.ts | head -12\\necho \\\"\\\"\\necho \\\"=== try fetching with selectedSession in filter ===\\\"\\nexport PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\n(node packages/core/dist/main/server.js > /tmp/ccr-server.log 2>&1 &) && sleep 6\\nTOKEN=$(grep -oE \\\"ccr_web_token=[^ ]+\\\" /tmp/ccr-server.log | head -1 | cut -d= -f2)\\nSESSION_ID=$(node -e \\\"const a=require('./docs/src/components/interactive/fixtures-agent-analysis.json');console.log(a.sessions[0]?.id||'')\\\")\\necho \\\"session=$SESSION_ID agent=claude-code\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d \\\"{\\\\\\\"method\\\\\\\":\\\\\\\"getAgentAnalysis\\\\\\\",\\\\\\\"args\\\\\\\":[{\\\\\\\"range\\\\\\\":\\\\\\\"today\\\\\\\",\\\\\\\"selectedSession\\\\\\\":{\\\\\\\"agent\\\\\\\":\\\\\\\"claude-code\\\\\\\",\\\\\\\"id\\\\\\\":\\\\\\\"$SESSION_ID\\\\\\\"}}]}\\\" | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const r=JSON.parse(d);\\n      if(r.ok) {\\n        require('fs').writeFileSync('docs/src/components/interactive/fixtures-agent-analysis.json', JSON.stringify(r.value,null,2));\\n        const ss = r.value?.selectedSession;\\n        console.log('selectedSession: '+(!!ss)+' trace_runs='+(ss?.trace?.runs?.length||0)+' requests='+(ss?.requests?.length||0));\\n      } else console.log('error:',r.error?.message);\\n    })\\\"\\npkill -f \\\"dist/main/server.js\\\" 2>/dev/null\\necho \\\"=== final fixtur\n...",
               "sizeBytes": 1970,
               "truncated": true
             }
@@ -21573,7 +21573,7 @@
             "callId": "call_1788018c79ec467dad2129ba",
             "input": {
               "kind": "json",
-              "preview": "{\n  \"command\": \"cd /Volumes/Data/Products/claude-code-router\\nexport PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\n(node packages/core/dist/main/server.js > /tmp/ccr-server.log 2>&1 &) && sleep 6\\nTOKEN=$(grep -oE \\\"ccr_web_token=[^ ]+\\\" /tmp/ccr-server.log | head -1 | cut -d= -f2)\\nSESSION_ID=$(node -e \\\"const a=require('./docs/src/components/interactive/fixtures-agent-analysis.json');console.log(a.sessions[0]?.id||'')\\\")\\n\\necho \\\"=== try sessionId/sessionAgent format ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d \\\"{\\\\\\\"method\\\\\\\":\\\\\\\"getAgentAnalysis\\\\\\\",\\\\\\\"args\\\\\\\":[{\\\\\\\"range\\\\\\\":\\\\\\\"today\\\\\\\",\\\\\\\"sessionId\\\\\\\":\\\\\\\"$SESSION_ID\\\\\\\",\\\\\\\"sessionAgent\\\\\\\":\\\\\\\"claude-code\\\\\\\"}]}\\\" | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const r=JSON.parse(d);\\n      if(r.ok) {\\n        require('fs').writeFileSync('docs/src/components/interactive/fixtures-agent-analysis.json', JSON.stringify(r.value,null,2));\\n        const ss = r.value?.selectedSession;\\n        console.log('selectedSession: '+(!!ss)+' trace_runs='+(ss?.trace?.runs?.length||0)+' requests='+(ss?.requests?.length||0));\\n      } else console.log('error:',r.error?.message);\\n    })\\\"\\n\\npkill -f \\\"dist/main/server.js\\\" 2>/dev/null\\necho \\\"=== fixture check ===\\\"\\nnode -e \\\"const a=require('./docs/src/components/interactive/fixtures-agent-analysis.json');console.log('selectedSession:',!!a.selectedSession,'trace_runs:',a.selectedSession?.trace?.runs?.length)\\\"\",\n  \"de\n...",
+              "preview": "{\n  \"command\": \"cd /Users/you/llm-router\\nexport PATH=\\\"/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH\\\"\\n(node packages/core/dist/main/server.js > /tmp/ccr-server.log 2>&1 &) && sleep 6\\nTOKEN=$(grep -oE \\\"ccr_web_token=[^ ]+\\\" /tmp/ccr-server.log | head -1 | cut -d= -f2)\\nSESSION_ID=$(node -e \\\"const a=require('./docs/src/components/interactive/fixtures-agent-analysis.json');console.log(a.sessions[0]?.id||'')\\\")\\n\\necho \\\"=== try sessionId/sessionAgent format ===\\\"\\n/usr/bin/curl -s -X POST \\\"http://127.0.0.1:3458/api/ccr/rpc\\\" \\\\\\n  -H \\\"content-type: application/json\\\" -H \\\"x-ccr-web-auth: $TOKEN\\\" \\\\\\n  -d \\\"{\\\\\\\"method\\\\\\\":\\\\\\\"getAgentAnalysis\\\\\\\",\\\\\\\"args\\\\\\\":[{\\\\\\\"range\\\\\\\":\\\\\\\"today\\\\\\\",\\\\\\\"sessionId\\\\\\\":\\\\\\\"$SESSION_ID\\\\\\\",\\\\\\\"sessionAgent\\\\\\\":\\\\\\\"claude-code\\\\\\\"}]}\\\" | node -e \\\"\\n    let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{\\n      const r=JSON.parse(d);\\n      if(r.ok) {\\n        require('fs').writeFileSync('docs/src/components/interactive/fixtures-agent-analysis.json', JSON.stringify(r.value,null,2));\\n        const ss = r.value?.selectedSession;\\n        console.log('selectedSession: '+(!!ss)+' trace_runs='+(ss?.trace?.runs?.length||0)+' requests='+(ss?.requests?.length||0));\\n      } else console.log('error:',r.error?.message);\\n    })\\\"\\n\\npkill -f \\\"dist/main/server.js\\\" 2>/dev/null\\necho \\\"=== fixture check ===\\\"\\nnode -e \\\"const a=require('./docs/src/components/interactive/fixtures-agent-analysis.json');console.log('selectedSession:',!!a.selectedSession,'trace_runs:',a.selectedSession?.trace?.runs?.length)\\\"\",\n  \"de\n...",
               "sizeBytes": 1676,
               "truncated": true
             }

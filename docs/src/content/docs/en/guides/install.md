@@ -1,6 +1,6 @@
 ---
-title: Install and start CCR
-pageTitle: Install and start CCR
+title: Install and start LLMR
+pageTitle: Install and start LLMR
 eyebrow: Quick start
 lead: Choose among the desktop app, npm CLI, and Docker distributions, complete installation and first startup, and verify the management UI and model gateway addresses. The CLI requires Node.js 24 or newer.
 ---
@@ -43,15 +43,15 @@ From a source checkout:
 docker compose up -d --build
 ```
 
-Open <http://127.0.0.1:3458>. Docker publishes one Nginx endpoint shared by management and the gateway. Add a provider/model, create a CCR client key, and start the gateway under Server. See [Docker deployment](../docker/) for ports, authentication, persistence, backups, and remote access.
+Open <http://127.0.0.1:3458>. Docker publishes one Nginx endpoint shared by management and the gateway. Add a provider/model, create a LLMR client key, and start the gateway under Server. See [Docker deployment](../docker/) for ports, authentication, persistence, backups, and remote access.
 
 ## Verify the installation
 
-After configuring a provider, model, and CCR client key:
+After configuring a provider, model, and LLMR client key:
 
 1. Confirm Server shows Running.
 2. Request `/health` on the deployment's gateway address and expect a `200` running response.
-3. Send one minimal model request to a compatible endpoint using the CCR client key.
+3. Send one minimal model request to a compatible endpoint using the LLMR client key.
 4. Confirm requested/resolved model, provider, status, and latency under Logs.
 
 A reachable management UI does not prove that the model gateway is usable. Docker `/health` returning `502` is expected before a provider/model has been configured.

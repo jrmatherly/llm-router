@@ -2,19 +2,19 @@
 title: 扩展机制
 pageTitle: 扩展机制
 eyebrow: 扩展
-lead: 了解 CCR 扩展如何加载、能注册哪些能力，并从零创建、安装和调试自己的扩展。
+lead: 了解 LLMR 扩展如何加载、能注册哪些能力，并从零创建、安装和调试自己的扩展。
 ---
 
 ## 扩展类型
 
-CCR 的扩展分为两层：
+LLMR 的扩展分为两层：
 
 | 类型 | 配置位置 | 运行位置 | 适合做什么 |
 | --- | --- | --- | --- |
-| Wrapper plugin | `plugins` | CCR Desktop 的 Electron wrapper 进程 | 注册本地 HTTP 路由、启动本地后端、拦截代理流量、添加内置浏览器入口、连接供应商账号用量 |
+| Wrapper plugin | `plugins` | LLMR Desktop 的 Electron wrapper 进程 | 注册本地 HTTP 路由、启动本地后端、拦截代理流量、添加内置浏览器入口、连接供应商账号用量 |
 | Core gateway plugin | `providerPlugins` 或 `plugins[].coreGateway.providerPlugins` | core gateway runtime | 扩展上游供应商、认证方式或 core gateway 内部能力 |
 
-多数用户自定义扩展应从 Wrapper plugin 开始。它能拿到 CCR 配置、私有数据目录和日志对象，并通过 `ctx` 注册能力。
+多数用户自定义扩展应从 Wrapper plugin 开始。它能拿到 LLMR 配置、私有数据目录和日志对象，并通过 `ctx` 注册能力。
 
 `plugins[]` 是扩展包的安装单位。一个扩展包可以分别暴露三个运行面：
 
@@ -28,14 +28,14 @@ CCR 的扩展分为两层：
 
 ## 加载机制
 
-启动网关时，CCR 会读取配置里的 `plugins` 数组，并按顺序处理每个 `enabled !== false` 的扩展：
+启动网关时，LLMR 会读取配置里的 `plugins` 数组，并按顺序处理每个 `enabled !== false` 的扩展：
 
 1. 先按启用的运行面应用配置：App 运行面的 `apps`，Gateway 运行面的 `proxy.routes`、`coreGateway.virtualModelProfiles` 和 `coreGateway.config`，以及 Provider 运行面的 `coreGateway.providerPlugins`。
-2. 当任一启用的运行面需要 JavaScript 注册能力时，会加载扩展模块。`module` 必须解析到明确的本地 JavaScript 文件路径，例如绝对路径、`~/` 开头路径，或相对 CCR 配置目录的 `./...` 路径。
-3. 任何通过 `module` 加载 JavaScript 的扩展都必须显式声明 `trusted-code` 权限。权限不是操作系统级沙箱；它用于限制 CCR 插件 API，并把“执行本地代码”的信任边界显式化。
-4. 如果没有配置 `module`，CCR 不会再加载内置兜底扩展。
+2. 当任一启用的运行面需要 JavaScript 注册能力时，会加载扩展模块。`module` 必须解析到明确的本地 JavaScript 文件路径，例如绝对路径、`~/` 开头路径，或相对 LLMR 配置目录的 `./...` 路径。
+3. 任何通过 `module` 加载 JavaScript 的扩展都必须显式声明 `trusted-code` 权限。权限不是操作系统级沙箱；它用于限制 LLMR 插件 API，并把“执行本地代码”的信任边界显式化。
+4. 如果没有配置 `module`，LLMR 不会再加载内置兜底扩展。
 5. 模块可以导出函数，也可以导出包含 `setup(ctx)` 或 `activate(ctx)` 的对象。
-6. 扩展停止时，CCR 会反向执行 `stop`、`onStop` 钩子，并关闭该扩展注册的 HTTP 后端和 SQLite store。
+6. 扩展停止时，LLMR 会反向执行 `stop`、`onStop` 钩子，并关闭该扩展注册的 HTTP 后端和 SQLite store。
 
 扩展模块常见导出形式：
 
@@ -72,12 +72,12 @@ module.exports = async function setup(ctx) {
 | --- | --- |
 | `ctx.pluginId` | 当前扩展 ID |
 | `ctx.pluginConfig` | `plugins[].config` 中的自定义配置 |
-| `ctx.config` | 当前 CCR AppConfig 快照 |
+| `ctx.config` | 当前 LLMR AppConfig 快照 |
 | `ctx.logger` | 带 `[plugin:<id>]` 前缀的 `debug/info/warn/error` 日志 |
-| `ctx.paths.configDir` | CCR 配置目录 |
-| `ctx.paths.dataDir` | CCR 数据目录 |
+| `ctx.paths.configDir` | LLMR 配置目录 |
+| `ctx.paths.dataDir` | LLMR 数据目录 |
 | `ctx.paths.pluginDataDir` | 当前扩展专属数据目录 |
-| `ctx.registerGatewayRoute(route)` | 在 CCR 网关上注册本地 HTTP 路由 |
+| `ctx.registerGatewayRoute(route)` | 在 LLMR 网关上注册本地 HTTP 路由 |
 | `ctx.registerHttpBackend(backend)` | 启动一个本地 HTTP 后端，返回 `{ url, host, port }` |
 | `ctx.registerProxyRoute(route)` | 把代理模式捕获到的某个 host/path 转发到扩展后端或其他 upstream |
 | `ctx.registerApp(app)` | 在内置浏览器应用列表里添加入口 |
@@ -86,7 +86,7 @@ module.exports = async function setup(ctx) {
 | `ctx.registerCoreGatewayProviderPlugin(plugin)` | 向 core gateway 注入 provider plugin |
 | `ctx.registerCoreGatewayVirtualModelProfile(profile)` | 向 core gateway 注入虚拟模型配置 |
 
-Provider account connector 的 `resolve(request)` 会收到 `request.fetchProviderAccountJson({ endpoint, method, requestOrigin, credentials, headers, body, timeoutMs })`。它通过 CCR Desktop 的内置浏览器会话发请求，因此 `credentials: "include"` 可以为同源账号 API 带上浏览器 Cookie。
+Provider account connector 的 `resolve(request)` 会收到 `request.fetchProviderAccountJson({ endpoint, method, requestOrigin, credentials, headers, body, timeoutMs })`。它通过 LLMR Desktop 的内置浏览器会话发请求，因此 `credentials: "include"` 可以为同源账号 API 带上浏览器 Cookie。
 
 Gateway route handler 会额外收到 helper：
 
@@ -96,7 +96,7 @@ Gateway route handler 会额外收到 helper：
 | `helpers.readJson(request)` | 读取并解析 JSON body |
 | `helpers.sendJson(response, statusCode, body)` | 返回 JSON 响应 |
 
-`registerGatewayRoute` 默认使用 `auth: "gateway"`。如果 CCR 配置了 API Key，请求必须带 `Authorization: Bearer <key>` 或 `x-api-key: <key>`。仅调试或本地公开状态页建议使用 `auth: "none"`。
+`registerGatewayRoute` 默认使用 `auth: "gateway"`。如果 LLMR 配置了 API Key，请求必须带 `Authorization: Bearer <key>` 或 `x-api-key: <key>`。仅调试或本地公开状态页建议使用 `auth: "none"`。
 
 ## 创建第一个扩展
 
@@ -108,7 +108,7 @@ hello-extension/
   index.cjs
 ```
 
-`plugin.json` 用于让 CCR 的本地扩展选择器识别扩展 ID、名称和入口文件：
+`plugin.json` 用于让 LLMR 的本地扩展选择器识别扩展 ID、名称和入口文件：
 
 ```json
 {
@@ -143,7 +143,7 @@ module.exports = {
         helpers.sendJson(response, 200, {
           ok: true,
           plugin: ctx.pluginId,
-          message: ctx.pluginConfig?.message || "hello from CCR"
+          message: ctx.pluginConfig?.message || "hello from LLMR"
         });
       }
     });
@@ -178,8 +178,8 @@ module.exports = {
 
 这个扩展会暴露：
 
-- `GET /plugins/hello`：直接挂在 CCR 网关上，用来验证扩展是否加载。
-- 一个本地 echo 后端：由 CCR 自动分配端口。
+- `GET /plugins/hello`：直接挂在 LLMR 网关上，用来验证扩展是否加载。
+- 一个本地 echo 后端：由 LLMR 自动分配端口。
 - 一个代理规则：当代理模式捕获到 `api.example.local/v1...` 时转发到 echo 后端。
 
 ## 安装扩展
@@ -192,7 +192,7 @@ module.exports = {
 4. 保存配置。
 5. 打开 **Server** 页面，重启网关。
 
-CCR 的运行配置存储在 SQLite 中。请通过 UI 添加扩展；旧版 JSON 配置文件仅用于参考。扩展条目的配置结构如下：
+LLMR 的运行配置存储在 SQLite 中。请通过 UI 添加扩展；旧版 JSON 配置文件仅用于参考。扩展条目的配置结构如下：
 
 ```json
 {
@@ -221,7 +221,7 @@ CCR 的运行配置存储在 SQLite 中。请通过 UI 添加扩展；旧版 JSO
 - `.codex-plugin/plugin.json`
 - `package.json` 里的 `main`、`ccr.module` 或 `ccrPlugin.module`
 
-如果没有显式入口文件，CCR 会尝试目录里的 `index.cjs`、`index.mjs`、`index.js`、`plugin.cjs`、`plugin.mjs` 或 `plugin.js`。
+如果没有显式入口文件，LLMR 会尝试目录里的 `index.cjs`、`index.mjs`、`index.js`、`plugin.cjs`、`plugin.mjs` 或 `plugin.js`。
 
 ## 调试扩展
 
@@ -235,16 +235,16 @@ node --check ~/ccr-extensions/hello-extension/index.cjs
 
 如果扩展依赖 npm 包，先在扩展目录安装依赖，并确保入口文件能被 Node 解析。
 
-### 2. 用源码模式启动 CCR
+### 2. 用源码模式启动 LLMR
 
-在 CCR 仓库根目录运行：
+在 LLMR 仓库根目录运行：
 
 ```bash
 npm install
 npm run dev
 ```
 
-扩展里的 `ctx.logger.info/warn/error` 会出现在启动 CCR 的终端中，前缀类似 `[plugin:hello-extension]`。
+扩展里的 `ctx.logger.info/warn/error` 会出现在启动 LLMR 的终端中，前缀类似 `[plugin:hello-extension]`。
 
 ### 3. 验证 Gateway route
 
@@ -254,7 +254,7 @@ npm run dev
 curl http://127.0.0.1:3456/plugins/hello
 ```
 
-如果路由使用默认的 `auth: "gateway"`，并且 CCR 已配置 API Key：
+如果路由使用默认的 `auth: "gateway"`，并且 LLMR 已配置 API Key：
 
 ```bash
 curl -H "Authorization: Bearer <CCR_API_KEY>" http://127.0.0.1:3456/plugins/hello
@@ -274,7 +274,7 @@ curl -H "x-api-key: <CCR_API_KEY>" http://127.0.0.1:3456/plugins/hello
 
 - `host` 必须匹配目标 hostname，支持精确 host、`.example.com` 后缀和 `*.example.com` 通配。
 - `paths` 为空时匹配该 host 的所有路径。
-- 多个路径匹配时，CCR 会选最长的 path prefix。
+- 多个路径匹配时，LLMR 会选最长的 path prefix。
 - `stripPathPrefix` 会从转发路径中移除匹配前缀。
 - `rewritePathPrefix` 会把匹配前缀替换成指定前缀。
 
@@ -285,7 +285,7 @@ curl -H "x-api-key: <CCR_API_KEY>" http://127.0.0.1:3456/plugins/hello
 | 扩展没有加载 | 检查 `plugins[].enabled`、`plugins[].module` 路径和终端里的 `[plugin:<id>]` 报错 |
 | `GET /plugins/hello` 返回 404 | 确认网关已重启，路由 `path` 或 `pathPrefix` 是否以 `/` 开头 |
 | 返回 401 | 路由默认需要 gateway API Key；调试路由可显式设置 `auth: "none"` |
-| 修改代码不生效 | Wrapper plugin 会在网关重启时重新加载；只有进程卡住时才需要重启 CCR |
+| 修改代码不生效 | Wrapper plugin 会在网关重启时重新加载；只有进程卡住时才需要重启 LLMR |
 | 端口被占用 | `registerHttpBackend` 不传 `port` 会自动分配端口；固定端口冲突时改回自动分配 |
 | 代理规则不命中 | 检查代理模式是否开启、证书是否安装、host 是否匹配真实请求的 hostname |
 
@@ -299,9 +299,9 @@ curl -H "x-api-key: <CCR_API_KEY>" http://127.0.0.1:3456/plugins/hello
 
 ## 分发扩展与市场清单
 
-**安装本地目录是受支持的第三方分发方式。** 可以发布包含 `plugin.json`、入口 JS 文件及运行依赖的 ZIP 或 Git 仓库。用户解压后在 **扩展 → 安装本地目录** 选择目录、确认运行面与权限、保存并重启网关。CCR 直接加载所选目录，因此安装后需要保留该目录；依赖应事先安装或打包。Release 附件不是本地安装或市场加载的必要条件。
+**安装本地目录是受支持的第三方分发方式。** 可以发布包含 `plugin.json`、入口 JS 文件及运行依赖的 ZIP 或 Git 仓库。用户解压后在 **扩展 → 安装本地目录** 选择目录、确认运行面与权限、保存并重启网关。LLMR 直接加载所选目录，因此安装后需要保留该目录；依赖应事先安装或打包。Release 附件不是本地安装或市场加载的必要条件。
 
-默认市场清单是 [jrmatherly/llm-router-extensions](https://github.com/jrmatherly/llm-router-extensions) 仓库中的 `marketplace/plugins.json`。该清单目前为空，因此在那里发布插件之前，扩展页面不会从市场列出任何条目；本地安装不受影响。无法获取清单时，CCR 会使用已缓存的市场清单，没有缓存时市场列表为空。
+默认市场清单是 [jrmatherly/llm-router-extensions](https://github.com/jrmatherly/llm-router-extensions) 仓库中的 `marketplace/plugins.json`。该清单目前为空，因此在那里发布插件之前，扩展页面不会从市场列出任何条目；本地安装不受影响。无法获取清单时，LLMR 会使用已缓存的市场清单，没有缓存时市场列表为空。
 
 市场作者可参考 [JSON Schema](/schemas/plugin-marketplace.schema.json)。这是推荐字段的编写格式；运行时也兼容部分旧字段别名。最小目录示例：
 
@@ -332,7 +332,7 @@ plugins/example-usage/index.cjs
 - 建议加 `integrity`，值为实际模块的 64 位十六进制 SHA-256，或 `sha256-<base64>`。修改模块后必须同步更新摘要。可使用 `shasum -a 256 index.cjs` 计算。
 - `dependencies` 可列依赖插件 ID，或带 `id`、`module`、`integrity`、`permissions`、`surfaces` 的对象。它表示插件依赖，不是 npm 安装清单。
 - `apps` 可列 `{ "id": "status", "name": "Status", "url": "/plugins/status" }`；只有 App 入口时可以省略 `module`。`capabilities` 为描述字符串数组。
-- 自建市场可在启动 CCR 前设置 `CCR_PLUGIN_MARKETPLACE_URL` 为自己的 HTTPS 清单地址。
+- 自建市场可在启动 LLMR 前设置 `CCR_PLUGIN_MARKETPLACE_URL` 为自己的 HTTPS 清单地址。
 
 ### 桌面插件调用外部 CLI
 

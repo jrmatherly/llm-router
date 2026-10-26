@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import { rebrandText } from "../../scripts/rebrand-ccr.mjs";
 
@@ -62,4 +63,20 @@ test("markdown leaves code fences and inline code alone", () => {
 
 test("chinese copy is rewritten", () => {
   assert.equal(rebrandText("\"再启动 CCR 网关或通过 CCR 打开 Agent。\"", "ts"), "\"再启动 LLMR 网关或通过 LLMR 打开 Agent。\"");
+});
+
+function gitGrepFiles(args) {
+  try {
+    return execFileSync("git", ["grep", "-l", ...args], { encoding: "utf8" }).split("\n").filter(Boolean);
+  } catch (error) {
+    if (error.status === 1) return [];
+    throw error;
+  }
+}
+
+test("the docs site no longer carries bare CCR or the upstream author's path", () => {
+  const ccr = gitGrepFiles(["-P", "(?<![A-Za-z0-9_-])CCR(?![A-Za-z0-9_-])", "--", "docs/src"]);
+  assert.deepEqual(ccr, []);
+  const paths = gitGrepFiles(["/Volumes/Data/Products/claude-code-router", "--", "docs/src"]);
+  assert.deepEqual(paths, []);
 });
