@@ -54,7 +54,7 @@ ccr ui --no-open
 Then complete the configuration in this order:
 
 1. Add a provider and at least one model.
-2. Create a LLMR client key on the **API Keys** page for gateway access.
+2. Create an LLMR client key on the **API Keys** page for gateway access.
 3. Set the default model, routing rules, and fallbacks as needed.
 4. Confirm the gateway is running on the **Server** page.
 5. Point the client Base URL at the gateway address shown in the UI.
@@ -194,7 +194,7 @@ In production, use `ccr serve --no-open` and let an external manager handle rest
 
 ### The UI opens, but `/health` or model requests fail
 
-The management service can run without a usable model gateway. Add a provider and model, create a LLMR client key, then start or restart the gateway from the **Server** page. Use `ccr serve` to see startup errors.
+The management service can run without a usable model gateway. Add a provider and model, create an LLMR client key, then start or restart the gateway from the **Server** page. Use `ccr serve` to see startup errors.
 
 ### The management port shifted
 

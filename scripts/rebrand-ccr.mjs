@@ -2,7 +2,8 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 
-const word = /(?<![A-Za-z0-9_-])CCR(?![A-Za-z0-9_-])/g;
+const word = /(?<![A-Za-z0-9_])(?<![A-Z0-9_]-)CCR(?![A-Za-z0-9_])(?!-[A-Z0-9_])/g;
+const article = /\b([aA]) LLMR\b/g;
 const replacement = "LLMR";
 
 const scriptKinds = {
@@ -21,19 +22,24 @@ const literalKinds = new Set([
 ]);
 
 const wholeLiteralKinds = new Set([ts.SyntaxKind.StringLiteral, ts.SyntaxKind.NoSubstitutionTemplateLiteral]);
+const keptLiterals = new Set(["CCR", "CCR ARCHIVED HISTORY ACCESS", "CCR MITM Proxy"]);
 const nestedWholeLiteral = /(["'])CCR\1/g;
+
+function rebrandProse(text) {
+  return text.replace(word, replacement).replace(article, (_, a) => `${a}n LLMR`);
+}
 
 function rebrandSpan(text) {
   const kept = [];
   const masked = text.replace(nestedWholeLiteral, (match) => `\u0000${kept.push(match) - 1}\u0000`);
-  return masked.replace(word, replacement).replace(/\u0000(\d+)\u0000/g, (_, index) => kept[Number(index)]);
+  return rebrandProse(masked).replace(/\u0000(\d+)\u0000/g, (_, index) => kept[Number(index)]);
 }
 
 function rebrandCode(source, kind) {
   const file = ts.createSourceFile("rebrand.tsx", source, ts.ScriptTarget.Latest, true, scriptKinds[kind]);
   const spans = [];
   const visit = (node) => {
-    if (literalKinds.has(node.kind) && !(wholeLiteralKinds.has(node.kind) && (node.text === "CCR" || node.text.startsWith("# ")))) {
+    if (literalKinds.has(node.kind) && !(wholeLiteralKinds.has(node.kind) && (keptLiterals.has(node.text) || node.text.startsWith("# ")))) {
       spans.push([node.getStart(file), node.getEnd()]);
     }
     ts.forEachChild(node, visit);
@@ -55,7 +61,7 @@ function rebrandMarkdown(source) {
       return line;
     }
     if (fenced) return line;
-    return line.split(/(`[^`]*`)/).map((part) => (part.startsWith("`") ? part : part.replace(word, replacement))).join("");
+    return line.split(/(`[^`]*`)/).map((part) => (part.startsWith("`") ? part : rebrandProse(part))).join("");
   }).join("\n");
 }
 

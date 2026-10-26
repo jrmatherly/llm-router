@@ -174,7 +174,7 @@ test("Grok and Kimi CLI start a temporary LLMR gateway when none is already runn
   assert.equal(shouldAutoStartProfileGateway(claudeDesignProfile, "app"), false);
 });
 
-test("buildProfileLaunchPlan creates CCR-managed launcher paths", () => {
+test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
   const configDir = path.join(path.sep, "tmp", "ccr-config");
   const codexPlan = buildProfileLaunchPlan(configDir, codexProfile, "app");
   const claudePlan = buildProfileLaunchPlan(configDir, claudeProfile, "cli", ["--debug"]);

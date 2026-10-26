@@ -736,7 +736,7 @@ test("profile service overwrites generated bin files without creating backups", 
   assert.deepEqual(backupEntries, []);
 });
 
-test("profile service refreshes CCR-managed global Claude gateway env for generated profiles", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+test("profile service refreshes LLMR-managed global Claude gateway env for generated profiles", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-generated-claude-global-env-"));
   const previousHome = process.env.HOME;
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
@@ -1847,7 +1847,7 @@ test("profile service clears stale Claude Code ToolHub artifacts when no gateway
   });
 });
 
-test("profile service restores managed global Claude settings when only CCR-scoped Claude profiles are active", () => {
+test("profile service restores managed global Claude settings when only LLMR-scoped Claude profiles are active", () => {
   const previousHome = process.env.HOME;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
   process.env.HOME = home;

@@ -140,7 +140,7 @@ export function proxyCertificateTrustSteps(status: ProxyCertificateStatus): stri
   if (status.platform === "darwin") {
     return [
       "Click Install CA and approve the administrator prompt to install it into the System keychain.",
-      "If trust is still not detected, open Keychain Access > System and find the LLMR MITM Proxy certificate.",
+      "If trust is still not detected, open Keychain Access > System and find the \"Claude Code Router CA\" certificate.",
       "Open Trust, set When using this certificate to Always Trust, then restart the browser or client.",
       "Return here and click Check Trust."
     ];

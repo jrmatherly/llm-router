@@ -2,7 +2,7 @@
 title: Grok CLI setup and configuration
 pageTitle: Grok CLI
 eyebrow: Detailed configuration
-lead: "Connect Grok CLI to LLMR. Grok CLI is CLI-only and always scoped to CCR-launched sessions."
+lead: "Connect Grok CLI to LLMR. Grok CLI is CLI-only and always scoped to LLMR-launched sessions."
 ---
 
 ## Who this is for
@@ -64,7 +64,7 @@ Create separate Grok CLI profiles when you want separate launch entries with dif
 1. Run the desktop `ccr-app` command copied from the profile card, or the CLI `ccr` command.
 2. Send one message in Grok CLI and confirm it replies.
 3. Open **Request logs** in LLMR and confirm the request passed through the gateway.
-4. Run `/model` and confirm the CCR-exposed models appear.
+4. Run `/model` and confirm the LLMR-exposed models appear.
 
 ## Common issues
 

@@ -41,7 +41,7 @@ Recommended setup:
 2. Open **Models** and fill Description for the models you want Subagents to choose automatically. Describe task fit, speed, cost, and limits.
 3. Enable a Claude Code config under **Agent Config**, and choose the default model. Claude Code uses it when the client has not selected a recognized model.
 4. Confirm that the built-in **Claude Code** route is enabled on the **Routing** page.
-5. Use Agent, Task, or Workflow in Claude Code. When Claude Code spawns an agent, it can choose a LLMR model from the descriptions and write the tag.
+5. Use Agent, Task, or Workflow in Claude Code. When Claude Code spawns an agent, it can choose an LLMR model from the descriptions and write the tag.
 
 Write descriptions around the tasks the model handles. For example:
 
@@ -119,7 +119,7 @@ Each execution receives its own read-only `input` object:
 | Field | Type | Description |
 | --- | --- | --- |
 | `input.body` | `Record<string, unknown>` | Complete JSON request body. |
-| `input.headers` | `Record<string, string \| string[]>` | Complete request headers, potentially including authentication, cookies, API keys, and CCR-internal headers. |
+| `input.headers` | `Record<string, string \| string[]>` | Complete request headers, potentially including authentication, cookies, API keys, and LLMR-internal headers. |
 | `input.method` | `string` | HTTP method, such as `POST`. |
 | `input.url` | `string` | Gateway-relative request URL, such as `/v1/messages`. |
 | `input.model` | `string \| undefined` | Shortcut for `input.body.model` when that value is a string. |

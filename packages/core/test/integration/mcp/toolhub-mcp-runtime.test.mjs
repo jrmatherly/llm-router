@@ -407,7 +407,7 @@ test("built ToolHub MCP runtime deterministically resolves Chrome login import t
   assert.match(response.result.tsDefinitions, /browser_chrome_login_import/);
 });
 
-test("built ToolHub MCP runtime does not add LLMR handoff tools for non-CCR browser tools", async (t) => {
+test("built ToolHub MCP runtime does not add LLMR handoff tools for non-LLMR browser tools", async (t) => {
   const runtime = toolHubRuntimePath();
   if (!existsSync(runtime)) {
     t.skip("ToolHub MCP runtime has not been built.");

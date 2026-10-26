@@ -31,7 +31,7 @@ const emptyUsageStats: UsageStatsSnapshot = {
 
 const minimalPosterHeaderProps = { title: "Route Map", tone: "indigo" as const };
 
-test("share card route map and poster header name the product, not CCR", () => {
+test("share card route map and poster header name the product, not LLMR", () => {
   const map = renderToStaticMarkup(<RouteMapCard usageStats={emptyUsageStats} />);
   assert.doesNotMatch(map, />CCR</);
   assert.match(map, /LLMR/);

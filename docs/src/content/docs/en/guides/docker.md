@@ -52,7 +52,7 @@ The npm Compose script prepares a local `../../next-ai/gateway` checkout before 
 Complete the first-time configuration in this order:
 
 1. Add a provider and at least one model.
-2. Create a LLMR client key on the **API Keys** page.
+2. Create an LLMR client key on the **API Keys** page.
 3. Start the gateway on the **Server** page.
 4. Request `/health` and confirm it returns `200` with status `ok`.
 5. Point the client Base URL at `http://127.0.0.1:3458` and use the LLMR client key you just created.

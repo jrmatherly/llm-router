@@ -16,7 +16,7 @@ lead: Create reusable launch configs for Claude Code, Codex, OpenCode, Grok CLI,
 5. If the entry mode includes App, optionally bind the Bot used by AgentClaw and choose whether to forward agent messages or enable handoff.
 6. Save the config, then open it from the Agent Config card: the terminal button copies the CLI command, and the play button starts the App instance.
 
-During trial, prefer **Only opened from LLMR** and always open the agent from LLMR. That keeps the config limited to CCR-launched instances and avoids changing the Claude Code, Codex, Grok CLI, Kimi CLI, ZCode, or WorkBuddy setup you open directly from the system.
+During trial, prefer **Only opened from LLMR** and always open the agent from LLMR. That keeps the config limited to LLMR-launched instances and avoids changing the Claude Code, Codex, Grok CLI, Kimi CLI, ZCode, or WorkBuddy setup you open directly from the system.
 
 ## Multi-instance
 

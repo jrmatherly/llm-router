@@ -88,7 +88,7 @@ If you bind a Bot and open Claude App from LLMR, Claude App can relay conversati
 1. Open Claude Code from LLMR.
 2. Send one message and confirm it replies.
 3. Open **Request logs** in LLMR and confirm the request passed through the LLMR gateway (and which provider/model it used).
-4. In the CLI, run `/model` and confirm the CCR-exposed models appear.
+4. In the CLI, run `/model` and confirm the LLMR-exposed models appear.
 
 ## Common issues
 

@@ -62,7 +62,7 @@ http://127.0.0.1:3456/__ccr/media/mcp
 Authorization: Bearer <LLMR API Key>
 ```
 
-The endpoint uses a LLMR API key, while artifact URLs use separate expiring tokens. Legacy `/__ccr/grok-media/*` routes remain available for migration.
+The endpoint uses an LLMR API key, while artifact URLs use separate expiring tokens. Legacy `/__ccr/grok-media/*` routes remain available for migration.
 Internally, Fusion registers these tools through a `stdio` MCP proxy generated with the Core configuration. The proxy returns the profile's deterministic tool catalog directly and forwards actual calls to the private endpoint above, avoiding missing tools caused by HTTP MCP discovery or startup ordering.
 
 Internal policy example (normally no manual changes are needed):

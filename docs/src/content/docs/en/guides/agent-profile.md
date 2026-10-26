@@ -20,7 +20,7 @@ Supports both CLI and App.
 1. **Add Profile** → choose **Claude Code**, enter a **Profile name**, and pick a **Scope** and **Entry mode**.
 2. Choose a **Model** (leave blank to keep Claude Code's default).
 3. **Save**, then open the CLI with the terminal button or the Claude App with the play button.
-4. Send a message to confirm it replies, and check **Request logs** to verify the request went through the gateway; use `/model` in the CLI to list and switch CCR-exposed models.
+4. Send a message to confirm it replies, and check **Request logs** to verify the request went through the gateway; use `/model` in the CLI to list and switch LLMR-exposed models.
 
 For tier models and advanced settings, see [Claude Code setup and configuration](../../configuration/agents/claude-code/).
 
@@ -42,7 +42,7 @@ CLI-only, always scoped to **Only opened from LLMR** — your global Grok config
 1. **Add Profile** → choose **Grok CLI**, enter a **Profile name**.
 2. Choose a **Model**.
 3. **Save**, then run the profile command: desktop card `ccr-app "<profile-name>"`, or CLI `ccr "<profile-name>"`.
-4. Send a message in Grok to confirm it replies, and check **Request logs** to verify the request went through the gateway; use `/model` to switch CCR-exposed models.
+4. Send a message in Grok to confirm it replies, and check **Request logs** to verify the request went through the gateway; use `/model` to switch LLMR-exposed models.
 
 For all fields, see [Grok CLI setup and configuration](../../configuration/agents/grok/).
 

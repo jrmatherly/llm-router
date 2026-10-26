@@ -247,7 +247,7 @@ function browserPublicAutomationTools(): McpTool[] {
       title: "Activate Browser Tab"
     },
     {
-      description: "Close a LLMR built-in browser tab.",
+      description: "Close an LLMR built-in browser tab.",
       inputSchema: objectSchema({
         session: sessionSchema,
         tabId: { description: "Tab id to close. Defaults to session.tabId.", type: "string" }
@@ -531,7 +531,7 @@ function browserLegacyAliasTools(): McpTool[] {
     title: "New Browser Tab"
   },
   {
-    description: "Focus a LLMR built-in browser tab by tabId.",
+    description: "Focus an LLMR built-in browser tab by tabId.",
     inputSchema: objectSchema({
       tabId: { description: "Tab id returned by browser_tabs or browser_tab_new.", type: "string" }
     }, ["tabId"]),
@@ -540,7 +540,7 @@ function browserLegacyAliasTools(): McpTool[] {
     title: "Activate Browser Tab"
   },
   {
-    description: "Close a LLMR built-in browser tab by tabId.",
+    description: "Close an LLMR built-in browser tab by tabId.",
     inputSchema: objectSchema({
       tabId: { description: "Tab id returned by browser_tabs or browser_tab_new.", type: "string" }
     }, ["tabId"]),
@@ -549,7 +549,7 @@ function browserLegacyAliasTools(): McpTool[] {
     title: "Close Browser Tab"
   },
   {
-    description: "Navigate a LLMR built-in browser tab to a URL or search query.",
+    description: "Navigate an LLMR built-in browser tab to a URL or search query.",
     inputSchema: objectSchema({
       tabId: { description: "Optional tab id. Defaults to the active tab.", type: "string" },
       url: { description: "URL or search query to load.", type: "string" }

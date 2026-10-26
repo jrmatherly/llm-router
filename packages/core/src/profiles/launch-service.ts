@@ -730,7 +730,7 @@ function existingGatewayConflictMessage(probe: ExistingProfileGatewayProbe, appN
     return `LLMR gateway is already running at ${probe.endpoint}, but it is not compatible with ${appName}. ${probe.message}`;
   }
   if (probe.state === "not-ccr") {
-    return `Port ${probe.endpoint} is already in use by a non-CCR service. Stop that process or change the LLMR gateway port.`;
+    return `Port ${probe.endpoint} is already in use by a non-LLMR service. Stop that process or change the LLMR gateway port.`;
   }
   if (probe.state === "unavailable") {
     return `LLMR gateway is not reachable at ${probe.endpoint}${probe.reason ? `: ${probe.reason}` : ""}.`;

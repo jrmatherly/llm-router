@@ -573,6 +573,28 @@ test("Anthropic compact continuation injects the archive tool for Claude Code", 
   assert.match(JSON.stringify(forwarded.system), /LLMR context archive is available/);
 });
 
+test("a compaction footer written by 4.1.0 as LLMR ARCHIVED HISTORY ACCESS still grants archive access", () => {
+  const handoff = [
+    "CCR ARCHIVED HISTORY ACCESS",
+    "Archive id: arc_legacy",
+    "Archive session token: token_legacy"
+  ].join("\n");
+  const result = prepareContextArchiveToolContinuationRequestForTest({
+    body: Buffer.from(JSON.stringify({
+      messages: [{ content: [{ text: handoff, type: "text" }], role: "user" }],
+      model: "claude-test",
+      system: "You are Claude Code."
+    })),
+    config: testConfig(),
+    method: "POST",
+    path: "/v1/messages",
+    protocol: "anthropic_messages"
+  });
+  assert.ok(result);
+  assert.equal(result.archiveId, "arc_legacy");
+  assert.equal(result.sessionToken, "token_legacy");
+});
+
 test("Anthropic archive tool calls are converted into tool results for continuation", () => {
   const toolName = "mcp__ccr-context-archive__ccr_history_ask";
   const response = {

@@ -2,7 +2,7 @@
 title: Pi setup and configuration
 pageTitle: Pi
 eyebrow: Detailed configuration
-lead: "Connect Pi to LLMR. Pi is CLI-only and always scoped to CCR-launched sessions."
+lead: "Connect Pi to LLMR. Pi is CLI-only and always scoped to LLMR-launched sessions."
 ---
 
 ## Who this is for

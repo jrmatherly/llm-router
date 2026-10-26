@@ -32,7 +32,7 @@ Claude Design is fixed to **App only** and **Only opened from LLMR**. Most agent
 
 | Field | How to set it | Effect |
 | --- | --- | --- |
-| Agent | Choose **Claude Design** | Registers an App-only, CCR-managed profile. |
+| Agent | Choose **Claude Design** | Registers an App-only, LLMR-managed profile. |
 | Config name | Free text, e.g. `Claude Design` | Identifies the profile in LLMR. |
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Routing | Optional routing rules | Rules that affect how this profile's requests are routed. See [Routing](/en/routing/). |

@@ -668,7 +668,7 @@ function anthropicMessagesContextArchiveTexts(body: Record<string, unknown>): st
 }
 
 function contextArchiveAccessFromText(text: string): { archiveId: string; sessionToken: string } | undefined {
-  if (!text.includes("LLMR ARCHIVED HISTORY ACCESS")) {
+  if (!text.includes("LLMR ARCHIVED HISTORY ACCESS") && !text.includes("CCR ARCHIVED HISTORY ACCESS")) {
     return undefined;
   }
   const archiveId = (/Archive id:\s*([A-Za-z0-9_-]+)/.exec(text) ?? [])[1];

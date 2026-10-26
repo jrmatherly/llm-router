@@ -2,7 +2,7 @@
 title: Kimi CLI setup and configuration
 pageTitle: Kimi CLI
 eyebrow: Detailed configuration
-lead: "Connect Kimi CLI to LLMR. Kimi CLI is CLI-only and always scoped to CCR-launched sessions."
+lead: "Connect Kimi CLI to LLMR. Kimi CLI is CLI-only and always scoped to LLMR-launched sessions."
 ---
 
 ## Who this is for

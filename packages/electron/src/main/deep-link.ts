@@ -398,7 +398,7 @@ function normalizePluginAppUrl(value: string): string {
     throw new Error("Plugin app URL cannot be protocol-relative.");
   }
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
-    throw new Error("Plugin app URL must be an http(s) URL or a LLMR gateway path.");
+    throw new Error("Plugin app URL must be an http(s) URL or an LLMR gateway path.");
   }
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }

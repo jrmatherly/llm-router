@@ -23,7 +23,7 @@ Handoff means that after your screen locks and the idle threshold passes, furthe
 | Concept | Meaning |
 | --- | --- |
 | AgentClaw | The IM access layer LLMR provides for local agents, with an interface styled after [OpenClaw](https://openclaw.ai) (an open-source personal AI assistant that runs on your own machine and interacts through IM platforms) |
-| Local agent | A Claude Code, Codex, OpenCode, ZCode, or similar agent opened through a LLMR Agent Config |
+| Local agent | A Claude Code, Codex, OpenCode, ZCode, or similar agent opened through an LLMR Agent Config |
 | Bot | The IM message entry; the LLMR UI still calls this **Bot Management** |
 | Project | An agent-native project or working directory |
 | Session | An agent-native conversation inside a Project |
@@ -42,7 +42,7 @@ AgentClaw follows the Agent App opened by LLMR. Closing the App stops the Bot co
 | WorkBuddy App | Full Bot forwarding, handoff, and WorkBuddy companion relay |
 | Claude Code, Codex CLI | Can use LLMR model routing; Bot forwarding is not active yet |
 | Grok CLI, Kimi CLI | Can use LLMR model routing; these are CLI-only and do not enter AgentClaw relay |
-| Other local agents | They need a CCR-managed App entry before they can act as AgentClaw executors |
+| Other local agents | They need an LLMR-managed App entry before they can act as AgentClaw executors |
 
 ## Three modes
 

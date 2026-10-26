@@ -53,12 +53,34 @@ test("json mode rewrites string values and keeps formatting", () => {
 });
 
 test("js mode handles a CommonJS bundle", () => {
-  assert.equal(rebrandText("module.exports = { appDescription: 'Open in a CCR window.' };", "js"), "module.exports = { appDescription: 'Open in a LLMR window.' };");
+  assert.equal(rebrandText("module.exports = { appDescription: 'Open in a CCR window.' };", "js"), "module.exports = { appDescription: 'Open in an LLMR window.' };");
 });
 
 test("markdown leaves code fences and inline code alone", () => {
   const md = "CCR routes requests.\n\n```bash\nCCR_LOG=1 ccr start\n```\n\nSet `CCR_PLUGIN_MARKETPLACE_URL` before starting CCR.";
   assert.equal(rebrandText(md, "md"), "LLMR routes requests.\n\n```bash\nCCR_LOG=1 ccr start\n```\n\nSet `CCR_PLUGIN_MARKETPLACE_URL` before starting LLMR.");
+});
+
+test("hyphenated copy is rewritten while hyphenated identifiers stay", () => {
+  const source = "\"a non-CCR service and a CCR-managed profile\"; \"<CCR-SUBAGENT-MODEL>\"; \"Proxy-agent: CCR-MITM\"";
+  assert.equal(rebrandText(source, "ts"), "\"a non-LLMR service and an LLMR-managed profile\"; \"<CCR-SUBAGENT-MODEL>\"; \"Proxy-agent: CCR-MITM\"");
+});
+
+test("the indefinite article follows the new name", () => {
+  assert.equal(rebrandText("\"a CCR gateway path. A CCR window.\"", "ts"), "\"an LLMR gateway path. An LLMR window.\"");
+  assert.equal(rebrandText("a CCR-managed profile", "md"), "an LLMR-managed profile");
+});
+
+test("the proxy CA subject and the help text that names it keep the certificate name Keychain Access shows", () => {
+  assert.deepEqual(gitGrepFiles(["--fixed-strings", "LLMR MITM Proxy", "--", "packages"]), []);
+});
+
+test("the proxy CA organizational unit stays part of the kept CA subject", () => {
+  assert.equal(rebrandText("{ shortName: \"OU\", value: \"CCR MITM Proxy\" }", "ts"), "{ shortName: \"OU\", value: \"CCR MITM Proxy\" }");
+});
+
+test("the legacy compaction footer the read-both check looks for stays", () => {
+  assert.equal(rebrandText("text.includes(\"CCR ARCHIVED HISTORY ACCESS\") || text.includes(\"CCR archived history\")", "ts"), "text.includes(\"CCR ARCHIVED HISTORY ACCESS\") || text.includes(\"LLMR archived history\")");
 });
 
 test("chinese copy is rewritten", () => {

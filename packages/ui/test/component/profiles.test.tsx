@@ -367,7 +367,7 @@ test("AddProfileForm shows Kimi allowed models as selected by default", () => {
   assert.equal(profileConfigFromDraft(draft, []).availableModels, undefined);
 });
 
-test("AddProfileForm treats Pi as a CCR-only CLI profile", () => {
+test("AddProfileForm treats Pi as an LLMR-only CLI profile", () => {
   const config = appConfigFixture();
   const draft = createProfileDraft("pi");
   const html = renderToStaticMarkup(
@@ -389,7 +389,7 @@ test("AddProfileForm treats Pi as a CCR-only CLI profile", () => {
   assert.doesNotMatch(html, /Allowed model list/);
 });
 
-test("AddProfileForm treats Claude Design as a CCR-only App profile", () => {
+test("AddProfileForm treats Claude Design as an LLMR-only App profile", () => {
   const config = appConfigFixture();
   const draft = createProfileDraft("claude-design");
   const html = renderToStaticMarkup(
@@ -604,7 +604,7 @@ test("detected WORKBUDDY_APP_PATH is used as the Workbuddy profile default", () 
   assert.equal(profileDraftWithDetectedAppPath({ ...draft, appPath: "/custom/workbuddy" }, undefined, undefined, detectedPath).appPath, "/custom/workbuddy");
 });
 
-test("Grok CLI profile defaults to a CCR-scoped CLI entry", () => {
+test("Grok CLI profile defaults to an LLMR-scoped CLI entry", () => {
   const draft = createProfileDraft("grok");
 
   assert.equal(draft.name, "Grok CLI");
