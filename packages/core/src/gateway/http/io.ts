@@ -16,6 +16,11 @@ export function inferGatewayClient(apiKey: ApiKeyConfig | undefined, headers: In
     return explicit;
   }
 
+  const forwardedIdentity = readHeader(headers["x-claude-gateway-user-email"]) || readHeader(headers["x-litellm-end-user-id"]);
+  if (forwardedIdentity) {
+    return forwardedIdentity;
+  }
+
   const apiKeyClient = apiKey?.name?.trim() || apiKey?.id?.trim();
   const userAgentClient = inferClientFromUserAgent(headers);
   if (readHeader(headers["x-ccr-proxy-mode"]) === "gateway") {

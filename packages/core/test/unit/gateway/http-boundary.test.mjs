@@ -169,3 +169,11 @@ test("gateway method and abort helpers cover body and cancellation edge cases", 
   textController.abort("  timed out  ");
   assert.equal(abortSignalMessage(textController.signal), "timed out");
 });
+
+test("inferGatewayClient names the developer a Claude apps gateway forwards", () => {
+  assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-claude-gateway-user-email": " dev@example.com ", "user-agent": "claude-cli/2.1.310" }), "dev@example.com");
+  assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-litellm-end-user-id": "dev@example.com" }), "dev@example.com");
+  assert.equal(inferGatewayClient(undefined, { "x-ccr-client": "Proxy", "x-claude-gateway-user-email": "dev@example.com" }), "Proxy");
+  assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-claude-gateway-user-email": "   " }), "Apps gateway key");
+  assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-claude-gateway-user-id": "sub-123" }), "Apps gateway key");
+});
