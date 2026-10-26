@@ -2069,6 +2069,101 @@ test("profile service restores managed global Claude settings when only LLMR-sco
   }
 });
 
+function userOwnedClaudeSettingsWithGatewayTakeover() {
+  return {
+    apiKeyHelper: "/Users/jason/.llm-router/bin/ccr-claude-code-api-key-default-claude-code",
+    enabledPlugins: { "example@marketplace": true },
+    env: {
+      ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
+      ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
+      CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456",
+      CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1",
+      CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY: "1",
+      HINDSIGHT_API_LLM_PROVIDER: "claude-code",
+      NO_PROXY: "127.0.0.1,localhost",
+      no_proxy: "127.0.0.1,localhost"
+    },
+    hooks: { PreToolUse: [] },
+    permissions: { allow: ["Bash(ls)"] }
+  };
+}
+
+function assertUserOwnedClaudeSettingsStripped(settingsFile) {
+  const restored = JSON.parse(readFileSync(settingsFile, "utf8"));
+  assert.equal(restored.apiKeyHelper, undefined);
+  assert.deepEqual(restored.env, { HINDSIGHT_API_LLM_PROVIDER: "claude-code" });
+  assert.deepEqual(restored.permissions, { allow: ["Bash(ls)"] });
+  assert.deepEqual(restored.hooks, { PreToolUse: [] });
+  assert.deepEqual(restored.enabledPlugins, { "example@marketplace": true });
+}
+
+function withScratchRuntimeHome(run) {
+  const previousHome = process.env.HOME;
+  const previousRuntimeHome = process.env.CCR_INTERNAL_HOME_DIR;
+  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
+  process.env.HOME = home;
+  process.env.CCR_INTERNAL_HOME_DIR = home;
+  try {
+    const settingsFile = path.join(home, ".claude", "settings.json");
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, `${JSON.stringify(userOwnedClaudeSettingsWithGatewayTakeover(), null, 2)}\n`);
+    run(settingsFile);
+  } finally {
+    restoreEnv("CCR_INTERNAL_HOME_DIR", previousRuntimeHome);
+    restoreEnv("HOME", previousHome);
+    rmSync(home, { force: true, recursive: true });
+  }
+}
+
+test("profile service strips LLMR-managed Claude settings from a user-owned settings file when no global profile is active", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const statuses = restoreInactiveGlobalProfileConfigs([
+      {
+        agent: "claude-code",
+        enabled: false,
+        env: { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY: "1" },
+        id: "default-claude-code",
+        model: "",
+        name: "Claude Code",
+        scope: "global",
+        settingsFile: "~/.claude/settings.json",
+        smallFastModel: "",
+        surface: "auto"
+      }
+    ]);
+
+    assert.equal(statuses.length, 1);
+    assert.equal(statuses[0].client, "claude-code");
+    assert.equal(statuses[0].ok, true);
+    assert.ok(existsSync(statuses[0].backupFile));
+    assertUserOwnedClaudeSettingsStripped(settingsFile);
+  });
+});
+
+test("profile service strips LLMR-managed Claude settings from a user-owned settings file on exit", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    const statuses = restoreGlobalProfileConfigsOnExit([
+      {
+        agent: "claude-code",
+        enabled: true,
+        env: { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY: "1" },
+        id: "default-claude-code",
+        model: "",
+        name: "Claude Code",
+        scope: "global",
+        settingsFile: "~/.claude/settings.json",
+        smallFastModel: "",
+        surface: "auto"
+      }
+    ], { manageMarker: false });
+
+    assert.equal(statuses.length, 1);
+    assert.equal(statuses[0].ok, true);
+    assert.match(statuses[0].message, /managed settings were removed/);
+    assertUserOwnedClaudeSettingsStripped(settingsFile);
+  });
+});
+
 test("profile service keeps managed global Claude settings when a global Claude profile is active", () => {
   const previousHome = process.env.HOME;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
