@@ -18,6 +18,7 @@ import {
   normalizeClaudeCodeClientModel
 } from "@ccr/core/agents/claude-code/environment";
 import { writeCodexCompatibleAppModelCatalog } from "@ccr/core/agents/codex/app-launch";
+import { backupFilePath, backupFiles, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, pruneBackups, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { codexCliMiddlewareRuntimeScript } from "@ccr/core/agents/codex/cli-middleware-runtime";
 import { codexModelCatalogJson } from "@ccr/core/agents/codex/model-catalog";
 import {
@@ -71,8 +72,6 @@ const managedToolHubMcpEnd = "# END CCR managed ToolHub MCP";
 const managedContextArchiveMcpStart = "# BEGIN CCR managed Context Archive MCP";
 const managedContextArchiveMcpEnd = "# END CCR managed Context Archive MCP";
 const managedConfiguredModelPrefix = "# CCR configured model = ";
-const originalBackupSuffix = ".ccr-original";
-const originalMissingSuffix = ".ccr-original-missing";
 const globalProfileTakeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
 const fallbackClientToken = "ccr-local";
 const privateDirMode = 0o700;
@@ -3312,9 +3311,9 @@ function writeFileWithBackup(
   if (backupFile) {
     copyFileSync(file, backupFile);
     chmodFileIfRequested(backupFile, options.mode);
+    pruneBackups(file);
   }
-  writeFileSync(file, content, options.mode === undefined ? "utf8" : { encoding: "utf8", mode: options.mode });
-  chmodFileIfRequested(file, options.mode);
+  writeFileAtomic(file, content, { mode: options.mode });
   return { backupFile, changed: true };
 }
 
@@ -3933,8 +3932,7 @@ function restoreGlobalConfigFile(
       return { changed: false, file, missingBackup: false, restored: false };
     }
     const backupFile = backupCurrentConfigFile(file, options.mode);
-    writeFileSync(file, stripped, options.mode === undefined ? "utf8" : { encoding: "utf8", mode: options.mode });
-    chmodFileIfRequested(file, options.mode);
+    writeFileAtomic(file, stripped, { mode: options.mode });
     return { backupFile, changed: true, file, missingBackup: false, restored: false, stripped: true };
   }
 
@@ -3947,8 +3945,7 @@ function restoreGlobalConfigFile(
 
     const backupFile = current === undefined ? undefined : backupCurrentConfigFile(file, options.mode);
     mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, snapshot.content, options.mode === undefined ? "utf8" : { encoding: "utf8", mode: options.mode });
-    chmodFileIfRequested(file, options.mode);
+    writeFileAtomic(file, snapshot.content, { mode: options.mode });
     return { backupFile, changed: true, file, missingBackup: false, restored: true };
   }
 
@@ -3997,51 +3994,8 @@ function backupCurrentConfigFile(file: string, mode: number | undefined): string
   const backupFile = backupFilePath(file);
   copyFileSync(file, backupFile);
   chmodFileIfRequested(backupFile, mode);
+  pruneBackups(file);
   return backupFile;
-}
-
-function backupFiles(file: string): string[] {
-  const dir = path.dirname(file);
-  const prefix = `${path.basename(file)}.ccr-backup-`;
-  try {
-    return readdirSync(dir)
-      .filter((entry) => entry.startsWith(prefix))
-      .sort()
-      .map((entry) => path.join(dir, entry));
-  } catch {
-    return [];
-  }
-}
-
-function ensureOriginalSnapshot(file: string, previous: string | undefined, mode: number | undefined): void {
-  const originalBackup = originalBackupFilePath(file);
-  const originalMissing = originalMissingFilePath(file);
-  if (existsSync(originalBackup) || existsSync(originalMissing)) {
-    return;
-  }
-  if (previous === undefined) {
-    writeFileSync(originalMissing, "", "utf8");
-    chmodFileIfRequested(originalMissing, mode);
-    return;
-  }
-  copyFileSync(file, originalBackup);
-  chmodFileIfRequested(originalBackup, mode);
-}
-
-function chmodFileIfRequested(file: string, mode: number | undefined): void {
-  if (mode === undefined || process.platform === "win32") {
-    return;
-  }
-  try {
-    chmodSync(file, mode);
-  } catch {
-    // Best effort; the write itself should still succeed on filesystems without chmod.
-  }
-}
-
-function backupFilePath(file: string): string {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return `${file}.ccr-backup-${timestamp}`;
 }
 
 function originalBackupFilePath(file: string): string {

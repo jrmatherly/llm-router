@@ -1,4 +1,4 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { buildCodexModelCatalog, type CodexModelCatalogItem } from "@ccr/core/agents/codex/model-catalog";
 import { parseJsoncRecord } from "@ccr/core/agents/local-providers/shared";
@@ -6,6 +6,7 @@ import { isGatewayProviderEnabled, type AppConfig, type GatewayProviderConfig, t
 import { findModelCatalogEntry, findProviderModelCatalogEntry, type ModelCatalogEntry, modelCatalogMaxInputTokens, modelCatalogMaxOutputTokens } from "@ccr/core/gateway/model-catalog";
 import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
 import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
+import { backupFilePath, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, pruneBackups, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
 import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
 
@@ -16,8 +17,6 @@ export type OpenCodeProfileConfigWriteResult = {
   inlineConfig: string;
 };
 
-const originalBackupSuffix = ".ccr-original";
-const originalMissingSuffix = ".ccr-original-missing";
 const defaultOpenCodeContextWindow = 128_000;
 const defaultOpenCodeMaxOutputTokens = 8_192;
 
@@ -225,31 +224,16 @@ function writeJsonFile(
     return { changed: false };
   }
   if (options.backup !== false) {
-    ensureOriginalSnapshot(file, previous);
+    ensureOriginalSnapshot(file, previous, 0o600);
   }
   const backupFile = options.backup === false || previous === undefined ? undefined : backupFilePath(file);
   if (backupFile) {
     copyFileSync(file, backupFile);
     chmodPrivateFile(backupFile);
+    pruneBackups(file);
   }
-  writeFileSync(file, content, { encoding: "utf8", mode: 0o600 });
-  chmodPrivateFile(file);
+  writeFileAtomic(file, content, { mode: 0o600 });
   return { backupFile, changed: true };
-}
-
-function ensureOriginalSnapshot(file: string, previous: string | undefined): void {
-  const originalBackup = `${file}${originalBackupSuffix}`;
-  const originalMissing = `${file}${originalMissingSuffix}`;
-  if (existsSync(originalBackup) || existsSync(originalMissing)) {
-    return;
-  }
-  if (previous === undefined) {
-    writeFileSync(originalMissing, "", { encoding: "utf8", mode: 0o600 });
-    chmodPrivateFile(originalMissing);
-    return;
-  }
-  copyFileSync(file, originalBackup);
-  chmodPrivateFile(originalBackup);
 }
 
 function chmodPrivateFile(file: string): void {
@@ -281,11 +265,6 @@ function chmodPrivateConfigArtifacts(file: string): void {
       chmodPrivateFile(path.join(path.dirname(file), entry));
     }
   }
-}
-
-function backupFilePath(file: string): string {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return `${file}.ccr-backup-${timestamp}`;
 }
 
 function gatewayEndpoint(config: AppConfig): string {
