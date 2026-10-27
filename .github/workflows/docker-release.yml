@@ -9,11 +9,15 @@ on:
       ref:
         description: Git ref to build, usually a release tag.
         required: true
-        default: v4.2.0
       version:
         description: Docker version tag without leading v; defaults to the ref without its v.
         required: false
         default: ""
+      latest:
+        description: Also move the latest tag to this build. Leave off when rebuilding an older release.
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -91,7 +95,7 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
             ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.major_minor }}
-            ${{ env.IMAGE_NAME }}:latest
+            ${{ (github.event_name == 'workflow_run' || inputs.latest) && format('{0}:latest', env.IMAGE_NAME) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

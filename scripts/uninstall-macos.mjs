@@ -7,9 +7,22 @@ import { parseArgs as parseNodeArgs } from "node:util";
 // Claude Code Router names cover this fork's pre-5.0 builds, and also upstream's app, which 5.0 can sit beside; hence opt-in.
 const current = { appBundles: ["LLM Router.app"], dataDirs: [".llm-router", "Library/Application Support/LLM Router"], schemes: ["llmr"] };
 const legacy = { appBundles: ["Claude Code Router.app"], dataDirs: [".claude-code-router", "Library/Application Support/Claude Code Router"], schemes: ["ccr"] };
-const agentDirs = [".claude", ".codex"];
-export const agentLeftover = /\.ccr-backup-|\.ccr-original(-missing)?$|^ccr-.*model-catalog\.json$|^claude-code-router\.config\.toml$/;
-const managedConfigs = [".claude/settings.json", ".codex/config.toml"];
+// Where global profiles write. shortcut: OpenCode and Kilo honor XDG_CONFIG_HOME, which this ignores; read it if someone sets one on a Mac.
+const agentDirs = [".claude", ".codex", ".config/kilo", ".config/opencode", ".pi/agent", ".workbuddy", ".zcode", ".zcode/cli", ".zcode/v2"];
+// .llm-router inside an agent home holds the app user data LLMR launches Codex, Workbuddy and ZCode with.
+export const agentLeftover = /\.ccr-backup-|\.ccr-original(-missing)?$|^ccr-.*model-catalog\.json$|^claude-code-router\.config\.toml$|^\.llm-router$/;
+const managedConfigs = [
+  ".claude/settings.json",
+  ".codex/config.toml",
+  ...["kilo.json", "kilo.jsonc", "opencode.json", "opencode.jsonc"].map((name) => `.config/kilo/${name}`),
+  ".config/opencode/opencode.json",
+  ".config/opencode/opencode.jsonc",
+  ".pi/agent/models.json",
+  ".workbuddy/config.toml",
+  ".zcode/cli/config.json",
+  ".zcode/v2/config.json",
+  ".zcode/v2/bots-model-cache.v2.json"
+];
 const gatewayMarker = /127\.0\.0\.1:3456|\.llm-router\/bin\//;
 export const schemes = [...legacy.schemes, ...current.schemes];
 const caName = "Claude Code Router CA";

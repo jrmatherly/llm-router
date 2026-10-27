@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile
     image: llm-router:local
     ports:
-      # Publish only Nginx. Internal web/gateway listeners stay inside the container.
-      - "3458:8080"
+      # Publish only Nginx, on loopback. docker/README.md says how to expose it on a LAN.
+      - "127.0.0.1:3458:8080"
     volumes:
       - ccr-data:/data
     restart: unless-stopped
