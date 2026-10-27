@@ -2918,3 +2918,71 @@ for (const [label, makeProfile, relativeFile, managedContent] of [
     }
   });
 }
+
+function serializedApplyFixture(root, model) {
+  const settingsFile = path.join(root, ".claude", "settings.json");
+  const profile = {
+    agent: "claude-code",
+    enabled: true,
+    env: {},
+    id: "default-claude-code",
+    model,
+    name: "Claude Code",
+    scope: "global",
+    settingsFile,
+    smallFastModel: "",
+    surface: "auto"
+  };
+  const config = createDefaultAppConfig();
+  config.APIKEY = "ccr-profile-serialize-test";
+  config.APIKEYS = [{
+    createdAt: "2026-01-01T00:00:00.000Z",
+    id: `profile:${profile.id}`,
+    key: "ccr-profile-serialize-test",
+    name: "Profile: Claude Code"
+  }];
+  config.Providers = [{
+    api_base_url: "https://example.test/v1",
+    api_key: "provider-key",
+    models: ["one", "two"],
+    name: "Provider"
+  }];
+  config.profile.profiles = [profile];
+  return { config, settingsFile };
+}
+
+test("concurrent applies land in call order", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-apply-serialize-"));
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  try {
+    rmSync(takeoverFile, { force: true });
+    const { config: first, settingsFile } = serializedApplyFixture(root, "Provider/one");
+    const { config: second } = serializedApplyFixture(root, "Provider/two");
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, "{}\n");
+    await Promise.all([applyProfileFixture(first), applyProfileFixture(second)]);
+    assert.equal(JSON.parse(readFileSync(settingsFile, "utf8")).env.ANTHROPIC_MODEL, "Provider/two");
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a rejected apply does not block the next one", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-apply-serialize-"));
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  try {
+    rmSync(takeoverFile, { force: true });
+    const { config, settingsFile } = serializedApplyFixture(root, "Provider/two");
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, "{}\n");
+    await assert.rejects(applyProfileConfig(null));
+    await applyProfileFixture(config);
+    assert.equal(JSON.parse(readFileSync(settingsFile, "utf8")).env.ANTHROPIC_MODEL, "Provider/two");
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(root, { force: true, recursive: true });
+  }
+});

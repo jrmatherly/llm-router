@@ -146,9 +146,20 @@ type ApplyProfileConfigOptions = {
   excludeAgents?: readonly ProfileClientKind[];
 };
 
-export async function applyProfileConfig(
+let applyQueue: Promise<unknown> = Promise.resolve();
+
+export function applyProfileConfig(
   config: AppConfig,
   options: ApplyProfileConfigOptions = {}
+): Promise<ProfileApplyResult> {
+  const run = applyQueue.then(() => applyProfileConfigNow(config, options));
+  applyQueue = run.catch(() => undefined);
+  return run;
+}
+
+async function applyProfileConfigNow(
+  config: AppConfig,
+  options: ApplyProfileConfigOptions
 ): Promise<ProfileApplyResult> {
   cleanupGeneratedBinBackups();
   const appliedAt = new Date().toISOString();
