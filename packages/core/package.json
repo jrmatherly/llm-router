@@ -1,5 +1,5 @@
 {
-  "name": "@claude-code-router/core",
+  "name": "@llm-router/core",
   "version": "5.2.0",
   "private": true,
   "description": "LLM Router core gateway, routing, provider, and storage services.",

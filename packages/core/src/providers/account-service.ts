@@ -1584,7 +1584,7 @@ function zcodeProviderTextMatches(values: Array<string | undefined>): boolean {
     text.includes("z.ai") ||
     text.includes("bigmodel") ||
     text.includes("open.bigmodel.cn")
-  ) && !text.includes("claude-code-router");
+  ) && !text.includes("claude-code-router") && !text.includes("llm-router");
 }
 
 async function localCodexAccountCredential(plugin: Record<string, unknown>): Promise<LocalAgentAccountCredential> {

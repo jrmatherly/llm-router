@@ -21,6 +21,10 @@ export type PemPair = {
   key: string;
 };
 
+export const PROXY_CA_NAME = "LLM Router CA";
+// Builds before the rename trusted a CA under the upstream name; installs and uninstalls remove both.
+export const PROXY_CA_NAMES = [PROXY_CA_NAME, "Claude Code Router CA"];
+
 type SubjectAltName = {
   ip?: string;
   type: 2 | 7;
@@ -45,11 +49,11 @@ export function ensureProxyCertificateAuthority(): void {
   cert.validity.notAfter.setFullYear(cert.validity.notAfter.getFullYear() + 20);
 
   const attrs = [
-    { name: "commonName", value: `Claude Code Router CA (${os.hostname()})` },
+    { name: "commonName", value: `${PROXY_CA_NAME} (${os.hostname()})` },
     { name: "countryName", value: "US" },
     { shortName: "ST", value: "California" },
     { name: "localityName", value: "San Francisco" },
-    { name: "organizationName", value: "Claude Code Router" },
+    { name: "organizationName", value: "LLM Router" },
     { shortName: "OU", value: "CCR MITM Proxy" }
   ];
   cert.setSubject(attrs);
