@@ -1,0 +1,77 @@
+name: 🗂️ Model catalog
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-catalog
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: 🗂️ Publish model catalog
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: ⚙️ Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - name: 🗂️ Generate model catalog
+        run: |
+          set -euo pipefail
+          node scripts/generate-models-json.mjs --strict
+
+      - name: 🔎 Validate generated model catalog
+        run: |
+          set -euo pipefail
+          node -e "const c = JSON.parse(require('node:fs').readFileSync('packages/core/models.json', 'utf8')); if (c.schemaVersion !== 2 || !Array.isArray(c.models) || c.models.length === 0) { console.error('invalid model catalog'); process.exit(1); } console.log(c.models.length + ' models');"
+
+      - name: 🔀 Compare with the published catalog
+        id: compare
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}"
+          published="$RUNNER_TEMP/published-models.json"
+          if git ls-remote --exit-code --heads "$remote" models-catalog > /dev/null; then
+            git fetch --depth=1 "$remote" models-catalog
+            git show FETCH_HEAD:models.json > "$published"
+          else
+            status=$?
+            if [ "$status" -ne 2 ]; then exit "$status"; fi
+            echo "{}" > "$published"
+          fi
+          # generatedAt changes on every run, so it is left out of the comparison.
+          changed=$(node -e "const fs = require('node:fs'); const strip = (p) => { const { generatedAt, ...rest } = JSON.parse(fs.readFileSync(p, 'utf8')); return JSON.stringify(rest); }; console.log(strip(process.argv[1]) === strip(process.argv[2]) ? 'false' : 'true');" "$published" packages/core/models.json)
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "Catalog changed: $changed"
+
+      - name: 📤 Push models-catalog branch
+        if: steps.compare.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cp packages/core/models.json "$RUNNER_TEMP/models.json"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan models-catalog-next
+          cp "$RUNNER_TEMP/models.json" models.json
+          git add models.json
+          git commit -m "chore(models): update model catalog"
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}" HEAD:models-catalog

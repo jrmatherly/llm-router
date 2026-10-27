@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { dirname, resolve as pathResolve } from "node:path";
 import { resolveRuntimeDataDir } from "@ccr/core/runtime/app-paths";
 
-export const DEFAULT_MODEL_CATALOG_URL = "https://models.ccrdesk.top/models.json";
+export const DEFAULT_MODEL_CATALOG_URL = "https://raw.githubusercontent.com/jrmatherly/llm-router/models-catalog/models.json";
 const refreshIntervalMs = 60 * 60 * 1000;
 let revision = 0;
 let refreshStarted = false;

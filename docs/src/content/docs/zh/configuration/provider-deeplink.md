@@ -123,7 +123,7 @@ LLMR 也提供了一个无框架的按钮脚本，供应商可以嵌入到自己
 ### HTML 写法
 
 ```html
-<script src="https://cdn.ccrdesk.top/ccr-provider-buttons.js" defer></script>
+<script src="https://jrmatherly.github.io/llm-router/llmr-provider-buttons.js" defer></script>
 
 <ccr-provider-button
   name="Example AI"
@@ -138,7 +138,7 @@ LLMR 也提供了一个无框架的按钮脚本，供应商可以嵌入到自己
 如果配置较大，可以只传 manifest：
 
 ```html
-<script src="https://cdn.ccrdesk.top/ccr-provider-buttons.js" defer></script>
+<script src="https://jrmatherly.github.io/llm-router/llmr-provider-buttons.js" defer></script>
 
 <ccr-provider-button
   name="Example AI"
@@ -150,7 +150,7 @@ LLMR 也提供了一个无框架的按钮脚本，供应商可以嵌入到自己
 
 ```html
 <div id="ccr-buttons"></div>
-<script src="https://cdn.ccrdesk.top/ccr-provider-buttons.js"></script>
+<script src="https://jrmatherly.github.io/llm-router/llmr-provider-buttons.js"></script>
 <script>
   CCRProviderButtons.render("#ccr-buttons", {
     name: "Example AI",

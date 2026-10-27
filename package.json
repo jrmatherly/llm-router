@@ -43,7 +43,6 @@
     "build:app:win": "npm run build:app:win:local",
     "build:app:win:local": "node build/windows-package-preflight.mjs && npm run build:assets && electron-builder --config build/electron-builder.local.cjs --win --publish never",
     "build:app:win:release": "node build/windows-package-preflight.mjs && npm run build:assets && electron-builder --win",
-    "models:update": "node scripts/update-models-cdn.mjs",
     "prepack": "npm run build:assets",
     "prepublishOnly": "npm run typecheck",
     "preview": "npm run build:assets && electron .",

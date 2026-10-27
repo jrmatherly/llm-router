@@ -2,7 +2,7 @@
 title: One-click provider import
 pageTitle: One-click provider import
 eyebrow: Import
-lead: "Import a model provider into LLMR with a preset button or a llmr://provider deeplink: LLMR previews the config before anything is saved. Providers can also embed a button or publish a manifest so users can import from a webpage."
+lead: "Import a model provider into LLMR with a preset button or an llmr://provider deeplink: LLMR previews the config before anything is saved. Providers can also embed a button or publish a manifest so users can import from a webpage."
 ---
 
 ## One-click import
@@ -123,7 +123,7 @@ LLMR also ships a framework-free button script that providers can embed on their
 ### HTML
 
 ```html
-<script src="https://cdn.ccrdesk.top/ccr-provider-buttons.js" defer></script>
+<script src="https://jrmatherly.github.io/llm-router/llmr-provider-buttons.js" defer></script>
 
 <ccr-provider-button
   name="Example AI"
@@ -138,7 +138,7 @@ LLMR also ships a framework-free button script that providers can embed on their
 For larger configs, pass a manifest:
 
 ```html
-<script src="https://cdn.ccrdesk.top/ccr-provider-buttons.js" defer></script>
+<script src="https://jrmatherly.github.io/llm-router/llmr-provider-buttons.js" defer></script>
 
 <ccr-provider-button
   name="Example AI"
@@ -150,7 +150,7 @@ For larger configs, pass a manifest:
 
 ```html
 <div id="ccr-buttons"></div>
-<script src="https://cdn.ccrdesk.top/ccr-provider-buttons.js"></script>
+<script src="https://jrmatherly.github.io/llm-router/llmr-provider-buttons.js"></script>
 <script>
   CCRProviderButtons.render("#ccr-buttons", {
     name: "Example AI",

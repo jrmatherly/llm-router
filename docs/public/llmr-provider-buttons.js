@@ -3,7 +3,7 @@
 
   var VERSION = "0.2.0";
   var STYLE_ID = "ccr-provider-buttons-style";
-  var OFFICIAL_CCR_ICON_URL = "https://cdn.ccrdesk.top/ccr-icon.png";
+  var OFFICIAL_CCR_ICON_URL = "https://jrmatherly.github.io/llm-router/llmr-icon.png";
 
   var LINK_PARAMS = [
     "name",
@@ -100,14 +100,14 @@
     var params = new URLSearchParams();
     if (isPresent(options.manifest)) {
       params.set("manifest", stringifyValue(options.manifest));
-      return "ccr://provider?" + params.toString();
+      return "llmr://provider?" + params.toString();
     }
     LINK_PARAMS.forEach(function (key) {
       appendParam(params, key, options[key]);
     });
     appendParam(params, "models", options.models);
     appendParam(params, "fetch_usage", options.fetch_usage);
-    return "ccr://provider?" + params.toString();
+    return "llmr://provider?" + params.toString();
   }
 
   function createImage(src, alt) {
