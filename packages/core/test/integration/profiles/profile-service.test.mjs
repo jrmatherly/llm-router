@@ -10,7 +10,7 @@ import { loadAppConfig } from "@ccr/core/config/config.ts";
 import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
 import { replacePersistedApiKeys, replacePersistedAppConfig } from "@ccr/core/config/config-repository.ts";
 import { CONFIGDIR } from "@ccr/core/config/constants.ts";
-import { applyProfileConfig, cleanupGeneratedBinBackups, resolveGrokSourceHome, resolveKimiSourceHome, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit } from "@ccr/core/profiles/service.ts";
+import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, resolveGrokSourceHome, resolveKimiSourceHome, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit } from "@ccr/core/profiles/service.ts";
 
 test("Grok profile source home follows profile and process environment overrides", () => {
   const previous = {
@@ -2505,6 +2505,102 @@ test("release after a re-takeover never restores a backup that still points at L
   });
 });
 
+test("deleting the global Claude profile restores the user's own provider env", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, config, readSettings, settingsFile }) => {
+    await apply();
+    config.profile.profiles = [];
+    await applyProfileFixture(config);
+    assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+  });
+});
+
+test("the sweep restores the user's own provider env from a deleted profile's takeover state", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ config, readSettings, settingsFile }) => {
+    const profile = config.profile.profiles[0];
+    const stateFile = path.join(CONFIGDIR, "profiles", profile.id, "claude", "settings-state.json");
+    assert.equal(applyProfileRuntimeConfig(config, profile, "ccr-profile-displaced-env-test").ok, true);
+    config.profile.profiles = [];
+    await applyProfileFixture(config);
+    assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+    const state = JSON.parse(readFileSync(stateFile, "utf8"));
+    assert.deepEqual(state.displacedEnv, {});
+    assert.deepEqual(state.endpoints, []);
+  });
+});
+
+test("a fresh takeover records the user's current env, not a stale stored value", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const original = { env: { ANTHROPIC_API_KEY: "new", USER_VALUE: "kept" }, permissions: { allow: ["Bash(ls)"] } };
+  await withGlobalClaudeProfileRelease(original, async ({ apply, config, readSettings, release }) => {
+    const stateFile = path.join(CONFIGDIR, "profiles", config.profile.profiles[0].id, "claude", "settings-state.json");
+    mkdirSync(path.dirname(stateFile), { recursive: true });
+    writeFileSync(stateFile, `${JSON.stringify({ displacedEnv: { ANTHROPIC_API_KEY: "old" }, endpoints: [], envKeys: [], paths: [], version: 1 }, null, 2)}\n`);
+    await apply();
+    release();
+    assert.deepEqual(readSettings(), original);
+  });
+});
+
+test("release restores the user's own workload identity federation env", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const original = {
+    env: {
+      ANTHROPIC_FEDERATION_RULE_ID: "user-rule",
+      ANTHROPIC_IDENTITY_TOKEN_FILE: "/home/user/.config/token",
+      ANTHROPIC_ORGANIZATION_ID: "user-org",
+      USER_VALUE: "kept"
+    },
+    permissions: { allow: ["Bash(ls)"] }
+  };
+  await withGlobalClaudeProfileRelease(original, async ({ apply, readSettings, release }) => {
+    await apply();
+    assert.notEqual(readSettings().env.ANTHROPIC_FEDERATION_RULE_ID, "user-rule");
+    release();
+    assert.deepEqual(readSettings(), original);
+  });
+});
+
+test("the sweep strips a mixed backup while a router-scoped Claude profile is enabled", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    writeFileSync(`${settingsFile}.ccr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({
+      apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-default-claude-code",
+      env: {
+        ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
+        ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
+        CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456",
+        USER_VALUE: "kept"
+      },
+      permissions: { allow: ["Bash(ls)"] }
+    }, null, 2)}\n`);
+    writeFileSync(settingsFile, `${JSON.stringify({
+      apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-default-claude-code",
+      env: {
+        ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
+        ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
+        CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456"
+      }
+    }, null, 2)}\n`);
+    restoreInactiveGlobalProfileConfigs([
+      {
+        agent: "claude-code",
+        enabled: true,
+        env: {},
+        id: "claude-code-2",
+        model: "Provider/model",
+        name: "Claude Code",
+        scope: "ccr",
+        settingsFile: "~/.claude/settings.json",
+        smallFastModel: "",
+        surface: "auto"
+      }
+    ]);
+    const restored = readFileSync(settingsFile, "utf8");
+    assert.doesNotMatch(restored, /127\.0\.0\.1:3456/);
+    assert.doesNotMatch(restored, /apiKeyHelper/);
+    assert.deepEqual(JSON.parse(restored), { env: { USER_VALUE: "kept" }, permissions: { allow: ["Bash(ls)"] } });
+  }, { takeoverBackup: false });
+});
+
 test("profile service keeps managed global Claude settings when a global Claude profile is active", () => {
   const previousHome = process.env.HOME;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
@@ -2844,6 +2940,22 @@ test("a global Pi profile deletes the models.json it created", () => {
   }
 });
 
+test("the Pi sweep leaves a models.json alone when LLMR never took it over", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-sweep-untouched-"));
+  try {
+    const agentDir = path.join(root, "pi-agent");
+    const piModels = path.join(agentDir, "models.json");
+    mkdirSync(agentDir, { recursive: true });
+    const userModels = `${JSON.stringify({ providers: { "claude-code-router": { baseUrl: "http://localhost:9999" } } })}\n`;
+    writeFileSync(piModels, userModels);
+    const statuses = restoreInactiveGlobalProfileConfigs([{ ...globalPiProfile(agentDir), scope: "ccr" }]);
+    assert.deepEqual(statuses.filter((status) => status.client === "pi"), []);
+    assert.equal(readFileSync(piModels, "utf8"), userModels);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 function globalWorkbuddyProfile(workbuddyHome) {
   return { agent: "workbuddy", codexHome: workbuddyHome, enabled: true, env: {}, id: "workbuddy-global", model: "gpt-5-codex", name: "WorkBuddy", scope: "global", surface: "app" };
 }
@@ -2888,9 +3000,9 @@ test("a global Workbuddy profile deletes the models.json it created", () => {
   }
 });
 
-for (const [label, makeProfile, relativeFile, managedContent] of [
-  ["Pi", (dir) => globalPiProfile(dir), "models.json", `${JSON.stringify({ providers: { "claude-code-router": { models: [] } } })}\n`],
-  ["Workbuddy", (dir) => globalWorkbuddyProfile(dir), "models.json", `${JSON.stringify({ models: [{ apiKey: "${CCR_PROFILE_API_KEY}", id: "gpt-5-codex" }] })}\n`]
+for (const [label, makeProfile, relativeFile, managedContent, sweepWarns] of [
+  ["Pi", (dir) => globalPiProfile(dir), "models.json", `${JSON.stringify({ providers: { "claude-code-router": { models: [] } } })}\n`, false],
+  ["Workbuddy", (dir) => globalWorkbuddyProfile(dir), "models.json", `${JSON.stringify({ models: [{ apiKey: "${CCR_PROFILE_API_KEY}", id: "gpt-5-codex" }] })}\n`, true]
 ]) {
   test(`a global ${label} release warns but succeeds when an upgraded models.json has no backup`, () => {
     const root = mkdtempSync(path.join(os.tmpdir(), "ccr-models-no-backup-"));
@@ -2908,9 +3020,8 @@ for (const [label, makeProfile, relativeFile, managedContent] of [
 
       const inactiveStatuses = restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }])
         .filter((status) => status.path === file);
-      assert.equal(inactiveStatuses.length, 1);
-      assert.equal(inactiveStatuses[0].ok, true);
-      assert.match(inactiveStatuses[0].message, /backup was found/);
+      assert.equal(inactiveStatuses.length, sweepWarns ? 1 : 0);
+      assert.equal(inactiveStatuses.every((status) => status.ok && /backup was found/.test(status.message)), true);
 
       assert.equal(readFileSync(file, "utf8"), managedContent);
     } finally {

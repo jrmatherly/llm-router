@@ -501,7 +501,13 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
       managedEnvKeys.add(key);
     }
     const writeResult = writeClaudeCodeSettingsIfManagedChanged(settingsFile, currentSettings, nextSettings, managedEnvKeys, managedSettingComparePaths, claudeCodeManagedContent(profile).isManagedContent);
-    const settingsStateResult = writeClaudeCodeProfileSettingsState(profile, managedSettingPaths, managedProfileEnvKeys, displacedEnv, takeoverEndpoints);
+    const settingsStateResult = writeClaudeCodeSettingsStateFile(claudeCodeProfileSettingsStateFile(profile), {
+      displacedEnv,
+      endpoints: takeoverEndpoints,
+      envKeys: managedProfileEnvKeys,
+      paths: managedSettingPaths,
+      settingsFile
+    });
     const changed = writeResult.changed ||
       settingsStateResult.changed ||
       Boolean(helperResult?.changed) ||
@@ -963,10 +969,14 @@ function claudeCodeProfileSettingsStateFile(profile: ProfileConfig): string {
   return path.join(ccrManagedProfileDir(profile), "claude", "settings-state.json");
 }
 
-type ClaudeCodeProfileSettingsState = { displacedEnv: Record<string, string>; endpoints: string[]; envKeys: string[]; paths: string[] };
+type ClaudeCodeProfileSettingsState = { displacedEnv: Record<string, string>; endpoints: string[]; envKeys: string[]; paths: string[]; settingsFile?: string };
 
 function readClaudeCodeProfileSettingsState(profile: ProfileConfig): ClaudeCodeProfileSettingsState {
-  const state = readJsonObject(claudeCodeProfileSettingsStateFile(profile));
+  return readClaudeCodeSettingsStateFile(claudeCodeProfileSettingsStateFile(profile));
+}
+
+function readClaudeCodeSettingsStateFile(file: string): ClaudeCodeProfileSettingsState {
+  const state = readJsonObject(file);
   const paths = Array.isArray(state.paths)
     ? state.paths.filter((item): item is string => typeof item === "string")
     : [];
@@ -980,7 +990,8 @@ function readClaudeCodeProfileSettingsState(profile: ProfileConfig): ClaudeCodeP
     displacedEnv: Object.fromEntries(stringRecord(state.displacedEnv)),
     endpoints: uniqueStrings(endpoints),
     envKeys: uniqueStrings(envKeys),
-    paths: uniquePathStrings(paths)
+    paths: uniquePathStrings(paths),
+    ...(typeof state.settingsFile === "string" ? { settingsFile: state.settingsFile } : {})
   };
 }
 
@@ -995,13 +1006,14 @@ function claudeCodeDisplacedEnv(
   if (isClaudeCodeGatewayTakeoverEnv(env) || claudeCodeGatewayEnvKeys.some((key) => recorded.includes(env[key]))) {
     return stored.displacedEnv;
   }
-  const displaced = Object.fromEntries(Object.entries(env).filter(([key, value]) =>
+  const userWif = env.ANTHROPIC_FEDERATION_RULE_ID !== claudeCodeWifFederationRuleId;
+  return Object.fromEntries(Object.entries(env).filter(([key, value]) =>
     !recorded.includes(value) &&
     ((claudeCodeFirstPartyProviderEnvKeys as readonly string[]).includes(key) ||
       (claudeCodeGatewayEnvKeys as readonly string[]).includes(key) ||
+      (userWif && isClaudeCodeWifEnvKey(key)) ||
       isClaudeCodeManagedModelEnvKey(key))
   ));
-  return { ...displaced, ...stored.displacedEnv };
 }
 
 // LLMR writes all three gateway keys to its endpoint; a user's own base URL rarely sets all three alike.
@@ -1023,12 +1035,7 @@ function claudeCodeManagedContent(profile: ProfileConfig): RestoreManagedContent
   const scope = claudeCodeManagedSettingsScope(profile);
   return {
     isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, scope.paths),
-    onReleased: () => {
-      const state = readClaudeCodeProfileSettingsState(profile);
-      if (hasClaudeCodeTakeoverState(state)) {
-        writeClaudeCodeProfileSettingsState(profile, state.paths, state.envKeys, {}, []);
-      }
-    },
+    onReleased: () => releaseClaudeCodeSettingsState(claudeCodeProfileSettingsStateFile(profile)),
     stripManagedContent: (content) => stripManagedClaudeCodeSettingsContent(content, scope.envKeys, scope.paths, scope.displacedEnv, scope.endpoints)
   };
 }
@@ -1037,22 +1044,45 @@ function hasClaudeCodeTakeoverState(state: ClaudeCodeProfileSettingsState): bool
   return state.endpoints.length > 0 || Object.keys(state.displacedEnv).length > 0;
 }
 
-function writeClaudeCodeProfileSettingsState(
-  profile: ProfileConfig,
-  paths: string[],
-  envKeys: string[],
-  displacedEnv: Record<string, string>,
-  endpoints: string[]
-): { changed: boolean } {
-  const file = claudeCodeProfileSettingsStateFile(profile);
+function writeClaudeCodeSettingsStateFile(file: string, state: ClaudeCodeProfileSettingsState): { changed: boolean } {
   const content = `${JSON.stringify({
     version: 1,
-    displacedEnv,
-    endpoints,
-    envKeys: uniqueStrings(envKeys),
-    paths: uniquePathStrings(paths)
+    displacedEnv: state.displacedEnv,
+    endpoints: state.endpoints,
+    envKeys: uniqueStrings(state.envKeys),
+    paths: uniquePathStrings(state.paths),
+    settingsFile: state.settingsFile
   }, null, 2)}\n`;
   return writeGeneratedFileIfChanged(file, content, { mode: privateFileMode });
+}
+
+function releaseClaudeCodeSettingsState(file: string): void {
+  const state = readClaudeCodeSettingsStateFile(file);
+  if (hasClaudeCodeTakeoverState(state)) {
+    writeClaudeCodeSettingsStateFile(file, { ...state, displacedEnv: {}, endpoints: [] });
+  }
+}
+
+// A deleted profile has no owner in the config, but its state file outlives it and still holds what its takeover displaced.
+function orphanedClaudeCodeManagedContent(settingsFile: string): RestoreManagedContentMatchers | undefined {
+  const key = normalizedFileKey(settingsFile);
+  const stateFiles = managedClaudeCodeGeneratedFiles("settings-state.json").filter((file) => {
+    const state = readClaudeCodeSettingsStateFile(file);
+    return state.settingsFile !== undefined && normalizedFileKey(state.settingsFile) === key && hasClaudeCodeTakeoverState(state);
+  });
+  if (stateFiles.length === 0) {
+    return undefined;
+  }
+  const states = stateFiles.map(readClaudeCodeSettingsStateFile);
+  const paths = uniquePathStrings(states.flatMap((state) => state.paths));
+  const envKeys = uniqueStrings(states.flatMap((state) => state.envKeys));
+  const endpoints = uniqueStrings(states.flatMap((state) => state.endpoints));
+  const displacedEnv = Object.assign({}, ...states.map((state) => state.displacedEnv)) as Record<string, string>;
+  return {
+    isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, paths),
+    onReleased: () => stateFiles.forEach(releaseClaudeCodeSettingsState),
+    stripManagedContent: (content) => stripManagedClaudeCodeSettingsContent(content, envKeys, paths, displacedEnv, endpoints)
+  };
 }
 
 function writeClaudeCodeToolHubMcpConfig(config: AppConfig, profile: ProfileConfig, token: string): { changed: boolean; file?: string } {
@@ -2011,16 +2041,20 @@ function disabledPiStatus(profile: ProfileConfig): ProfileClientApplyStatus {
     return disabledStatus("pi", piWrapperPath(profile), "Pi profile is disabled.");
   }
   const providerId = piProviderId(profile);
-  // An install from before backups existed has no snapshot; failing would pin the takeover marker forever.
-  return {
-    ...restoreDisabledGlobalProfile(
-      profile,
-      piModelsFile(profile),
-      "Pi profile is disabled.",
-      { isManagedContent: (content) => isManagedPiModelsContent(content, providerId) }
-    ),
-    ok: true
-  };
+  const file = piModelsFile(profile);
+  const restoreResult = restoreGlobalConfigFile(file, {
+    isManagedContent: (content) => isManagedPiModelsContent(content, providerId),
+    mode: privateFileMode
+  });
+  return toleratingMissingBackup(
+    disabledRestoreStatus("pi", file, "Pi profile is disabled.", restoreResult, profile.name || profile.id || profile.agent),
+    restoreResult
+  );
+}
+
+// An install from before backups existed has no snapshot; failing would pin the takeover marker forever.
+function toleratingMissingBackup(status: ProfileClientApplyStatus, restoreResult: RestoreFileResult): ProfileClientApplyStatus {
+  return restoreResult.missingBackup ? { ...status, ok: true } : status;
 }
 
 function piWrapperPath(profile: ProfileConfig): string {
@@ -3615,14 +3649,16 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
         .filter(Boolean)
     ])) {
       const owners = claudeProfiles.filter((profile) => resolveClaudeCodeSettingsFile(profile) === file);
-      const owner = owners.find((profile) => hasClaudeCodeTakeoverState(readClaudeCodeProfileSettingsState(profile))) ?? owners[0];
-      const matchers: RestoreManagedContentMatchers = owner
-        ? claudeCodeManagedContent(owner)
-        : { isManagedContent: isManagedClaudeCodeSettingsContent, stripManagedContent: stripManagedClaudeCodeSettingsContent };
+      const liveOwner = owners.find((profile) => hasClaudeCodeTakeoverState(readClaudeCodeProfileSettingsState(profile)));
+      const owner = liveOwner ?? owners[0];
+      const matchers: RestoreManagedContentMatchers = (liveOwner ? undefined : orphanedClaudeCodeManagedContent(file)) ??
+        (owner
+          ? claudeCodeManagedContent(owner)
+          : { isManagedContent: isManagedClaudeCodeSettingsContent, stripManagedContent: stripManagedClaudeCodeSettingsContent });
       const restoreResult = restoreGlobalConfigFile(file, {
-        isManagedContent: matchers.isManagedContent,
-        mode: privateFileMode,
-        stripManagedContent: enabledClaudeProfiles.length === 0 ? matchers.stripManagedContent : undefined
+        ...matchers,
+        keepLiveFile: enabledClaudeProfiles.length > 0,
+        mode: privateFileMode
       });
       if (restoreResult.changed || restoreResult.restored) {
         matchers.onReleased?.();
@@ -3663,7 +3699,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
       const modelsFile = workbuddyModelsFile(file);
       const modelsResult = restoreGlobalConfigFile(modelsFile, { isManagedContent: isManagedWorkbuddyModelsContent });
       if (modelsResult.changed || modelsResult.missingBackup) {
-        statuses.push({ ...inactiveGlobalCleanupStatus("workbuddy", modelsFile, modelsResult), ok: true });
+        statuses.push(toleratingMissingBackup(inactiveGlobalCleanupStatus("workbuddy", modelsFile, modelsResult), modelsResult));
       }
     }
   }
@@ -3703,12 +3739,16 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
   if (piProfiles.length > 0 && !piProfiles.some((profile) => profile.enabled && isGlobalProfile(profile))) {
     const providerIds = [...new Set(["claude-code-router", ...piProfiles.map(piProviderId)])];
     for (const file of uniqueResolvedPaths(piProfiles.map((profile) => piModelsFile({ ...profile, scope: "global" })))) {
+      // A user's own Pi config may name its provider claude-code-router; only a file LLMR snapshotted was ever taken over.
+      if (!hasTakeoverSnapshot(file)) {
+        continue;
+      }
       const restoreResult = restoreGlobalConfigFile(file, {
         isManagedContent: (content) => providerIds.some((providerId) => isManagedPiModelsContent(content, providerId)),
         mode: privateFileMode
       });
       if (restoreResult.changed || restoreResult.missingBackup) {
-        statuses.push({ ...inactiveGlobalCleanupStatus("pi", file, restoreResult), ok: true });
+        statuses.push(toleratingMissingBackup(inactiveGlobalCleanupStatus("pi", file, restoreResult), restoreResult));
       }
     }
   }
@@ -3995,12 +4035,12 @@ function disabledRestoreStatus(
 
 function restoreGlobalConfigFile(
   file: string,
-  options: RestoreManagedContentMatchers & { mode?: number }
+  options: RestoreManagedContentMatchers & { keepLiveFile?: boolean; mode?: number }
 ): RestoreFileResult {
   const current = existsSync(file) ? readFileSync(file, "utf8") : undefined;
   const currentManaged = current !== undefined && options.isManagedContent(current);
   if (current !== undefined && !currentManaged) {
-    const stripped = options.stripManagedContent && hasTakeoverSnapshot(file) ? options.stripManagedContent(current) : undefined;
+    const stripped = options.stripManagedContent && !options.keepLiveFile && hasTakeoverSnapshot(file) ? options.stripManagedContent(current) : undefined;
     if (stripped === undefined) {
       return { changed: false, file, missingBackup: false, restored: false };
     }

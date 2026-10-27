@@ -81,11 +81,25 @@ export function writeFileAtomic(file: string, content: string, options: { mode?:
   try {
     writeFileSync(temporaryFile, content, mode === undefined ? "utf8" : { encoding: "utf8", mode });
     chmodFileIfRequested(temporaryFile, mode);
-    renameSync(temporaryFile, target);
+    try {
+      renameSync(temporaryFile, target);
+    } catch (error) {
+      if (!isWindowsLockedTargetError(error)) {
+        throw error;
+      }
+      // Windows refuses to rename over a file another process holds open; writing in place still lands the content.
+      writeFileSync(target, content, "utf8");
+      rmSync(temporaryFile, { force: true });
+    }
   } catch (error) {
     rmSync(temporaryFile, { force: true });
     throw error;
   }
+}
+
+function isWindowsLockedTargetError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException).code;
+  return process.platform === "win32" && (code === "EPERM" || code === "EBUSY" || code === "EACCES");
 }
 
 export function chmodFileIfRequested(file: string, mode: number | undefined): void {
