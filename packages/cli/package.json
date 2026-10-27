@@ -1,6 +1,6 @@
 {
   "name": "@claude-code-router/cli",
-  "version": "5.1.0",
+  "version": "5.2.0",
   "private": true,
   "license": "MIT",
   "description": "Local LLM Router gateway with CLI and web management UI.",
