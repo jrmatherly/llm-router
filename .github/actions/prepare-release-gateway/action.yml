@@ -6,6 +6,7 @@ runs:
     - name: 📥 Check out gateway source
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
+        persist-credentials: false
         repository: The-NeXT-AI/ai-gateway
         ref: 0a2c0abd48d2144ed0ac2ce4d954a661c51ffcb1
         path: .tmp/release-gateway

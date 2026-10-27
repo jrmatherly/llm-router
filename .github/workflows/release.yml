@@ -6,7 +6,7 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: ⚙️ Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -46,6 +48,8 @@ jobs:
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: 📦 Prepare gateway package
         uses: ./.github/actions/prepare-release-gateway
@@ -81,6 +85,8 @@ jobs:
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: ⚙️ Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -157,10 +163,14 @@ jobs:
   publish-macos:
     name: 🚀 Publish macOS
     needs: macos
+    permissions:
+      contents: write
     runs-on: ubuntu-24.04
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: ⚙️ Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -222,10 +232,14 @@ jobs:
   windows:
     name: 🪟 Windows
     needs: publish-macos
+    permissions:
+      contents: write
     runs-on: windows-2025
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: ⚙️ Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -270,10 +284,14 @@ jobs:
   linux:
     name: 🐧 Linux
     needs: publish-macos
+    permissions:
+      contents: write
     runs-on: ubuntu-24.04
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: ⚙️ Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
