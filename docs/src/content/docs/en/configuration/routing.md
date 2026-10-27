@@ -527,7 +527,7 @@ When Fallback runs, response headers include `x-ccr-fallback-attempts`, `x-ccr-f
 
 ### Optional: semantic routing with Jev
 
-Load [`examples/routing/jev.js`](https://github.com/musistudio/claude-code-router/blob/main/examples/routing/jev.js) as a Node.js script rule. It uses the [TypeSafe HTTP API](https://docs.typesafe.ai/api) and [Choice](https://docs.typesafe.ai/primitives/choice) to select between two configured models.
+Load [`examples/routing/jev.js`](https://github.com/jrmatherly/llm-router/blob/main/examples/routing/jev.js) as a Node.js script rule. It uses the [TypeSafe HTTP API](https://docs.typesafe.ai/api) and [Choice](https://docs.typesafe.ai/primitives/choice) to select between two configured models.
 
 Set `CCR_JEV_ROUTING_ENABLED=1`, `CCR_JEV_FAST_MODEL=provider/fast-model`, `CCR_JEV_REASONING_MODEL=provider/reasoning-model`, and `TYPESAFE_API_KEY` in the environment that starts LLMR. Select the script file in a rule, initially use a 1500 ms timeout, and put a static fallback rule for `auto` after it. Only requests whose model is `auto` are classified. Explicit models, images, missing configuration, uncertain answers, errors, and timeouts continue to later rules.
 

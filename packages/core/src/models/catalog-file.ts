@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { dirname, resolve as pathResolve } from "node:path";
 import { resolveRuntimeDataDir } from "@ccr/core/runtime/app-paths";
 
-export const DEFAULT_MODEL_CATALOG_URL = "https://models.ccrdesk.top/models.json";
+export const DEFAULT_MODEL_CATALOG_URL = "https://raw.githubusercontent.com/jrmatherly/llm-router/models-catalog/models.json";
 const refreshIntervalMs = 60 * 60 * 1000;
 let revision = 0;
 let refreshStarted = false;
@@ -122,7 +122,7 @@ function warnOnceIfStale(file: string, payload: unknown): void {
   if (ageMs < staleCatalogAfterMs) return;
   staleCatalogWarned = true;
   const days = Math.floor(ageMs / (24 * 60 * 60 * 1000));
-  console.warn(`[models] catalog ${file} is ${days} days old and this process does not refresh it; run \`ccr start\` to download the current catalog.`);
+  console.warn(`[models] catalog ${file} is ${days} days old and this process does not refresh it; run \`llmr start\` to download the current catalog.`);
 }
 
 export function resolveModelCatalogPath(): string | undefined {

@@ -1744,7 +1744,7 @@ export function profileOpenSurfaces(profile: ProfileConfig): ProfileOpenSurface[
 
 export function profileOpenCommandFallback(profile: ProfileConfig, surface: ProfileOpenSurface = profile.agent === "workbuddy" || profile.agent === "zcode" || profile.agent === "claude-design" ? "app" : "cli"): string {
   const profileRef = profile.name.trim() || profile.id;
-  return ["ccr", shellCommandQuote(profileRef), ...(surface === "app" ? ["app"] : [])].join(" ");
+  return ["llmr", shellCommandQuote(profileRef), ...(surface === "app" ? ["app"] : [])].join(" ");
 }
 
 function shellCommandQuote(value: string): string {

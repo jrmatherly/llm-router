@@ -14,10 +14,10 @@ By default the Claude Ship window opens `https://claude.ai/claude-ship` so relat
 
 Claude Ship no longer loads from Claude Desktop's local `ion-dist` assets. Keep the Cloudflare Pages frontend available, or use an explicit `assetDir` only for local development fixtures.
 
-When the packaged app owns the `ccr://` protocol handler, the window can also be opened with:
+When the packaged app owns the `llmr://` protocol handler, the window can also be opened with:
 
 ```sh
-open 'ccr://plugin/claude-ship/open'
+open 'llmr://plugin/claude-ship/open'
 ```
 
 The local test is considered healthy when Claude Ship opens, exposes a non-empty agent list, can create a session/project through `/v1/code/sessions`, lists it through `/v1/code/sessions` and `/v1/code/session_groupings`, previews locally, and can publish through `/v1/code/baku/sessions/:id/deploy`.

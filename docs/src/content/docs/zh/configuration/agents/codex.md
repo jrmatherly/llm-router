@@ -37,7 +37,7 @@ Codex 是 OpenAI 的编码 Agent。LLMR 同时支持两种形态：
 | 字段 | 如何配置 | 效果 |
 | --- | --- | --- |
 | Agent | 选择 **Codex** | 在 LLMR 中创建 Codex 启动入口。 |
-| 配置名称 | 自由文本，例如 `Codex - Work` | 标识该配置。桌面端命令使用 `ccr-app "<名称>"`，CLI 命令使用 `ccr "<名称>"`。 |
+| 配置名称 | 自由文本，例如 `Codex - Work` | 标识该配置。命令使用 `llmr "<名称>"`。 |
 | 启用 | 开关 | 关闭的配置不会被应用，也不会出现在启动入口。 |
 | 生效范围 | `仅从 LLMR 打开时生效` / `系统默认` | 仅影响从 LLMR 打开的 Codex，或作为系统默认 Codex 配置。同一 Agent 只允许一个启用的系统默认配置。 |
 | 入口模式 | `CLI 与 APP` / `仅 CLI` / `仅 App` | 提供哪些启动入口（终端命令和/或 ChatGPT 应用）。 |
@@ -57,11 +57,11 @@ Codex 是 OpenAI 的编码 Agent。LLMR 同时支持两种形态：
 
 - **CLI**：在桌面端点击终端按钮，运行复制出的命令：
   ```text
-  ccr-app "Codex - Work"
+  llmr "Codex - Work"
   ```
   CLI请执行：
   ```text
-  ccr "Codex - Work"
+  llmr "Codex - Work"
   ```
 - **App**：点击播放按钮，用该配置的模型和供应商打开 ChatGPT。再次打开同一配置会激活已有窗口。
 

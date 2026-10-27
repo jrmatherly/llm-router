@@ -15,6 +15,7 @@ import { ensureProfileGateway, ProfileGatewayUnavailableError } from "@ccr/core/
 import { buildProfileLaunchPlan, defaultProfileOpenSurface, findProfileForOpen, profileLaunchSpawnCommand, resolveProfileOpenSurface, shouldAutoStartProfileGateway } from "@ccr/core/profiles/launch-core";
 import { openSystemExternal, startWebManagementServer } from "@ccr/core/web/management-server";
 import { assertAvailableGatewayModels, type AppConfig, type GatewayStatus, type ProfileConfig, type ProfileOpenResult, type ProfileOpenSurface } from "@ccr/core/contracts/app";
+import { staleDesktopRuntimeWarning } from "@ccr/cli/stale-runtime";
 
 installSocketTypeOfServiceCompat();
 
@@ -44,7 +45,11 @@ type StopCliOptions = {
   help: boolean;
 };
 
-type CliOptions = ProfileCliOptions | StopCliOptions | WebCliOptions;
+type VersionCliOptions = {
+  command: "version";
+};
+
+type CliOptions = ProfileCliOptions | StopCliOptions | VersionCliOptions | WebCliOptions;
 
 type ServiceState = {
   host?: string;
@@ -67,11 +72,23 @@ const profileGatewayIdleGraceMs = 2_000;
 const profileGatewayLeasePollMs = 500;
 const webAuthHeader = "x-ccr-web-auth";
 const webAuthQueryParam = "ccr_web_token";
-const defaultCliCommandName = "ccr";
+const defaultCliCommandName = "llmr";
 const prepareProfileOnlyEnv = "CCR_CLI_PREPARE_PROFILE_ONLY";
 
 async function main(): Promise<void> {
+  const staleWarning = staleDesktopRuntimeWarning({
+    cliVersion: process.env.LLMR_VERSION,
+    electronVersion: process.versions.electron,
+    execPath: process.execPath,
+    platform: process.platform,
+    readFile: (file) => readFileSync(file, "utf8")
+  });
+  if (staleWarning) process.stderr.write(staleWarning);
   const options = parseArgs(process.argv.slice(2));
+  if (options.command === "version") {
+    process.stdout.write(`llmr ${process.env.LLMR_VERSION ?? "dev"}\n`);
+    return;
+  }
   if (options.command === "start") {
     if (options.help) {
       printStartHelp(0);
@@ -121,7 +138,6 @@ async function main(): Promise<void> {
   const configDir = CONFIGDIR;
   const config = await loadAppConfig();
   assertAvailableGatewayModels(config);
-  await applyProfileConfig(config);
   const profile = findProfileForOpen(config, profileOptions.profileRef);
   const surface = profileOptions.surface ?? defaultProfileOpenSurface(profile);
   const resolvedSurface = resolveProfileOpenSurface(profile, surface);
@@ -134,6 +150,7 @@ async function main(): Promise<void> {
   if (profile.agent === "claude-code" && resolvedSurface === "app" && profileOptions.agentArgs.length > 0) {
     throw new Error("Claude App profiles do not support agent arguments.");
   }
+  await applyProfileConfig(config);
   if (profile.agent === "codex" && resolvedSurface === "app" && profileOptions.agentArgs.length === 0) {
     const state = await startService({
       command: "start",
@@ -241,6 +258,9 @@ async function main(): Promise<void> {
 }
 
 function parseArgs(args: string[]): CliOptions {
+  if (args[0] === "--version" || args[0] === "-v") {
+    return { command: "version" };
+  }
   if (args[0] === "start") {
     return parseWebArgs(args.slice(1), "start");
   }
@@ -584,6 +604,7 @@ function printHelp(exitCode: number): void {
     `  ${command} serve [--daemon] [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
     `  ${command} stop`,
     `  ${command} <profile-name-or-id> [cli|app] [-- <agent args>]`,
+    `  ${command} --version`,
     "",
     "Notes:",
     `  ${command} web is an alias for ${command} serve.`,

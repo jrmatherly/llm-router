@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
 const ccrExtensionsRoot = path.resolve(process.env.CCR_EXTENSIONS_DIR || path.join(projectRoot, "..", "ccr-extensions"));
 const testsOutDir = path.join(projectRoot, ".test-dist");
+const rootPackageVersion = JSON.parse(readFileSync(path.join(projectRoot, "package.json"), "utf8")).version;
 const packageRoots = {
   cli: path.join(projectRoot, "packages", "cli", "src"),
   core: path.join(projectRoot, "packages", "core", "src"),
@@ -98,6 +99,9 @@ for (const [name, project] of selectedProjects) {
   await esbuild.build({
     absWorkingDir: projectRoot,
     bundle: true,
+    define: {
+      "process.env.LLMR_VERSION": JSON.stringify(rootPackageVersion)
+    },
     entryPoints,
     external: [
       "better-sqlite3",

@@ -10,6 +10,7 @@ const requireFromHere = createRequire(import.meta.url);
 
 export const projectRoot = path.resolve(__dirname, "..");
 export const packagesRoot = path.join(projectRoot, "packages");
+const rootPackageVersion = JSON.parse(readFileSync(path.join(projectRoot, "package.json"), "utf8")).version;
 export const cliRoot = path.join(packagesRoot, "cli");
 export const coreRoot = path.join(packagesRoot, "core");
 export const electronRoot = path.join(packagesRoot, "electron");
@@ -347,6 +348,9 @@ export function createCliBuildOptions({ mode = "production", plugins = [] } = {}
   return {
     absWorkingDir: projectRoot,
     bundle: true,
+    define: {
+      "process.env.LLMR_VERSION": JSON.stringify(rootPackageVersion)
+    },
     entryNames: "[name]",
     entryPoints: [
       path.join(cliSourceRoot, "cli.ts"),

@@ -26,6 +26,7 @@ import {
   REQUEST_LOGS_DB_FILE,
   USAGE_DB_FILE
 } from "@ccr/core/config/constants";
+import { appDeepLinkProtocol } from "@ccr/core/contracts/deep-link";
 import { detectProviderIcon } from "@ccr/core/providers/icons";
 import { fetchProviderManifest } from "@ccr/core/providers/manifest-service";
 import { getLocalAgentProviderCandidates, importLocalAgentProvider, probeLocalAgentProvider } from "@ccr/core/agents/local-providers/service";
@@ -1467,7 +1468,7 @@ function normalizeExternalTarget(target: unknown): string | undefined {
   if (url.protocol === "http:" || url.protocol === "https:") {
     return url.toString();
   }
-  if (url.protocol === "ccr:" && url.hostname.toLowerCase() === "plugin") {
+  if (url.protocol === `${appDeepLinkProtocol}:` && url.hostname.toLowerCase() === "plugin") {
     return url.toString();
   }
   throw new Error("Only http, https, and LLMR plugin URLs can be opened.");

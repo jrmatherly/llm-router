@@ -2,53 +2,37 @@
 title: CLI 安装与命令参考
 pageTitle: CLI 安装与命令参考
 eyebrow: 快速开始
-lead: 面向不使用桌面应用的部署：通过 npm 安装 LLMR CLI，管理后台服务、网关端口与凭据，并按 Agent 配置启动本机 Agent。
+lead: 使用 llmr 命令管理后台服务、网关端口与凭据，并按 Agent 配置启动本机 Agent。
 ---
 
-## CLI 与桌面版命令的区别
+## `llmr` 命令
 
-LLMR 有两个相关命令：
-
-| 命令 | 来源 | 主要用途 |
-| --- | --- | --- |
-| `ccr` | npm 包 `@musistudio/claude-code-router` | 不依赖 Electron，提供浏览器管理界面和模型网关，并按配置启动 Agent。 |
-| `ccr-app` | LLMR 桌面应用 | 桌面版生成的配置启动器；Agent 配置卡片复制的命令使用这个名称。 |
-
-两个发行版会读取同一套本机配置目录，但不要把命令名混用。需要托盘、桌面通知、自动更新和桌面专属浏览器集成时，使用桌面版；需要无桌面部署或由进程管理器托管时，使用 npm CLI。
+LLMR 只有一个命令：`llmr`。桌面应用首次启动时会把它写入 LLMR 的 `bin/` 目录，并把该目录加入 `PATH`。Agent 配置卡片复制出来的命令使用同一个名称。
 
 ## 安装、升级与卸载
 
-CLI 要求 Node.js 24 或更高版本：
+安装桌面应用并打开一次，然后打开一个新终端：
 
 ```sh
-node --version
-npm install -g @musistudio/claude-code-router
-ccr --help
+llmr --help
 ```
 
-升级和卸载：
+打开升级后的桌面应用会刷新 `llmr`。本分支不向 npm 发布 CLI；npm 包 `@musistudio/claude-code-router` 属于上游项目，安装的是另一个命令。
 
-```sh
-npm install -g @musistudio/claude-code-router@latest
-npm uninstall -g @musistudio/claude-code-router
-```
-
-卸载 npm 包不会删除 LLMR 的本地配置和数据库。
-
-如果安装成功但找不到命令，执行 `npm prefix -g`，确认 npm 全局可执行目录已经加入 `PATH`，然后打开一个新终端。
+如果找不到命令，再打开一次 LLMR，然后打开一个新终端。
 
 ## 第一次启动
 
 在后台启动 LLMR 并打开管理界面：
 
 ```sh
-ccr ui
+llmr ui
 ```
 
 SSH 或无桌面环境使用：
 
 ```sh
-ccr ui --no-open
+llmr ui --no-open
 ```
 
 随后按这个顺序完成配置：
@@ -65,17 +49,17 @@ ccr ui --no-open
 
 | 命令 | 运行方式 | 用途 |
 | --- | --- | --- |
-| `ccr start` | 后台 | 启动管理服务和模型网关，打印带认证信息的管理 URL。 |
-| `ccr ui` | 后台 | 复用或启动后台服务，并打开浏览器。 |
-| `ccr stop` | 一次性 | 停止由 `start` 或 `ui` 启动的后台服务。 |
-| `ccr serve` | 前台 | 在当前终端运行，适合查看日志或交给进程管理器。 |
-| `ccr web` | 前台 | `serve` 的别名。 |
-| `ccr <配置名称或 ID>` | 前台 | 启动一个已启用的 Agent 配置。 |
+| `llmr start` | 后台 | 启动管理服务和模型网关，打印带认证信息的管理 URL。 |
+| `llmr ui` | 后台 | 复用或启动后台服务，并打开浏览器。 |
+| `llmr stop` | 一次性 | 停止由 `start` 或 `ui` 启动的后台服务。 |
+| `llmr serve` | 前台 | 在当前终端运行，适合查看日志或交给进程管理器。 |
+| `llmr web` | 前台 | `serve` 的别名。 |
+| `llmr <配置名称或 ID>` | 前台 | 启动一个已启用的 Agent 配置。 |
 
-## `ccr start`
+## `llmr start`
 
 ```text
-ccr start [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr start [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 | 选项 | 说明 |
@@ -89,23 +73,23 @@ ccr start [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gat
 
 如果首选端口被占用，LLMR 会继续尝试后续端口并打印实际 URL。端口必须是 `1` 到 `65535` 的整数。
 
-## `ccr ui`
+## `llmr ui`
 
 ```text
-ccr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 `ui` 与 `start` 使用同一个后台服务，但默认会打开浏览器。管理 URL 包含 `ccr_web_token` 查询参数；请把完整 URL 当作密码，不要粘贴到日志、工单或公开截图。
 
-## `ccr serve`
+## `llmr serve`
 
 ```text
-ccr serve [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr serve [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 `serve` 留在前台，收到 `SIGINT` 或 `SIGTERM` 后关闭管理服务和已配置服务。排查启动错误时优先使用它，因为错误会直接输出到当前终端。
 
-`ccr stop` 只管理后台服务。前台 `serve` 应通过当前终端或外部进程管理器停止。
+`llmr stop` 只管理后台服务。前台 `serve` 应通过当前终端或外部进程管理器停止。
 
 ## 后台服务的复用规则
 
@@ -119,8 +103,8 @@ ccr serve [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gat
 需要修改监听参数时先执行：
 
 ```sh
-ccr stop
-ccr start --host 127.0.0.1 --port 3458
+llmr stop
+llmr start --host 127.0.0.1 --port 3458
 ```
 
 ## 按 Agent 配置启动
@@ -128,16 +112,16 @@ ccr start --host 127.0.0.1 --port 3458
 先在 **Agent 配置** 中创建并启用配置，然后使用：
 
 ```text
-ccr <配置名称或 ID> [cli|app] [-- <Agent 参数>]
+llmr <配置名称或 ID> [cli|app] [-- <Agent 参数>]
 ```
 
 示例：
 
 ```sh
-ccr "Codex - Work"
-ccr "Codex - Work" app
-ccr "Claude - Review" cli -- --model sonnet
-ccr profile-id -- --help
+llmr "Codex - Work"
+llmr "Codex - Work" app
+llmr "Claude - Review" cli -- --model sonnet
+llmr profile-id -- --help
 ```
 
 规则如下：
@@ -188,13 +172,13 @@ ccr profile-id -- --help
 
 ## 进程管理器示例
 
-生产环境应使用 `ccr serve --no-open`，让外部管理器负责重启和日志。启动命令至少应固定工作用户、`HOME`、监听地址和 `CCR_WEB_AUTH_TOKEN`。不要同时运行由 `ccr start` 创建的后台服务，否则可能得到两个管理端口或竞争同一套配置。
+生产环境应使用 `llmr serve --no-open`，让外部管理器负责重启和日志。启动命令至少应固定工作用户、`HOME`、监听地址和 `CCR_WEB_AUTH_TOKEN`。不要同时运行由 `llmr start` 创建的后台服务，否则可能得到两个管理端口或竞争同一套配置。
 
 ## 常见问题
 
 ### UI 能打开，但 `/health` 或模型请求失败
 
-管理服务可以在没有可用模型网关时运行。添加供应商和模型、创建 LLMR 客户端 Key，然后从 **服务** 页面启动或重启网关。使用 `ccr serve` 查看启动错误。
+管理服务可以在没有可用模型网关时运行。添加供应商和模型、创建 LLMR 客户端 Key，然后从 **服务** 页面启动或重启网关。使用 `llmr serve` 查看启动错误。
 
 ### 管理端口发生偏移
 
@@ -210,7 +194,7 @@ ccr profile-id -- --help
 
 ### 后台服务无法停止
 
-先运行 `ccr stop`。如果状态文件已经失效，命令会清理它并报告服务未运行。前台 `ccr serve` 不受 `ccr stop` 管理，应回到对应终端或进程管理器停止。
+先运行 `llmr stop`。如果状态文件已经失效，命令会清理它并报告服务未运行。前台 `llmr serve` 不受 `llmr stop` 管理，应回到对应终端或进程管理器停止。
 
 ## 相关页面
 

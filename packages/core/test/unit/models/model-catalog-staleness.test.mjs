@@ -39,7 +39,7 @@ test("a process that never refreshes warns once about a week-old catalog", async
     assert.equal(loadModelCatalogPayload()?.loadedFrom, modelCatalogCachePath());
     loadModelCatalogPayload();
     assert.equal(warnings.length, 1);
-    assert.match(warnings[0], /is 30 days old and this process does not refresh it; run `ccr start`/);
+    assert.match(warnings[0], /is 30 days old and this process does not refresh it; run `llmr start`/);
   } finally {
     console.warn = originalWarn;
     keys.forEach((key, index) => { if (previous[index] === undefined) delete process.env[key]; else process.env[key] = previous[index]; });
