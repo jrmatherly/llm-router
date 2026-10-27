@@ -15,6 +15,7 @@ import { ensureProfileGateway, ProfileGatewayUnavailableError } from "@ccr/core/
 import { buildProfileLaunchPlan, defaultProfileOpenSurface, findProfileForOpen, profileLaunchSpawnCommand, resolveProfileOpenSurface, shouldAutoStartProfileGateway } from "@ccr/core/profiles/launch-core";
 import { openSystemExternal, startWebManagementServer } from "@ccr/core/web/management-server";
 import { assertAvailableGatewayModels, type AppConfig, type GatewayStatus, type ProfileConfig, type ProfileOpenResult, type ProfileOpenSurface } from "@ccr/core/contracts/app";
+import { staleDesktopRuntimeWarning } from "@ccr/cli/stale-runtime";
 
 installSocketTypeOfServiceCompat();
 
@@ -75,6 +76,14 @@ const defaultCliCommandName = "llmr";
 const prepareProfileOnlyEnv = "CCR_CLI_PREPARE_PROFILE_ONLY";
 
 async function main(): Promise<void> {
+  const staleWarning = staleDesktopRuntimeWarning({
+    cliVersion: process.env.LLMR_VERSION,
+    electronVersion: process.versions.electron,
+    execPath: process.execPath,
+    platform: process.platform,
+    readFile: (file) => readFileSync(file, "utf8")
+  });
+  if (staleWarning) process.stderr.write(staleWarning);
   const options = parseArgs(process.argv.slice(2));
   if (options.command === "version") {
     process.stdout.write(`llmr ${process.env.LLMR_VERSION}\n`);
