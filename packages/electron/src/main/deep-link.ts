@@ -1,5 +1,4 @@
 import { app, dialog } from "electron";
-import path from "node:path";
 import { appDeepLinkProtocol, createProviderDeepLinkRequest as createSharedProviderDeepLinkRequest, isAppDeepLinkUrl } from "@ccr/core/contracts/deep-link";
 import { CLAUDE_DESIGN_PLUGIN_ID, CLAUDE_SHIP_PLUGIN_ID, knownGatewayPluginDefaultApps, type AppConfig, type GatewayPluginAppConfig, type ProviderDeepLinkRequest } from "@ccr/core/contracts/app";
 import { IPC_CHANNELS } from "@ccr/core/config/constants";
@@ -171,11 +170,11 @@ class DeepLinkService {
   }
 
   private registerProtocolClient(): void {
+    // A dev or e2e run would otherwise take the scheme from the installed app, and the binding outlives the run.
+    if (!app.isPackaged) {
+      return;
+    }
     try {
-      if (process.defaultApp && process.argv.length >= 2) {
-        app.setAsDefaultProtocolClient(appDeepLinkProtocol, process.execPath, [path.resolve(process.argv[1])]);
-        return;
-      }
       app.setAsDefaultProtocolClient(appDeepLinkProtocol);
     } catch (error) {
       console.warn(`[deep-link] Failed to register ${appDeepLinkProtocol} protocol: ${formatError(error)}`);
