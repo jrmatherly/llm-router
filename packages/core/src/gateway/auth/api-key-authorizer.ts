@@ -74,7 +74,7 @@ export async function handleClaudeCodeWifTokenRequest(
   response: ServerResponse,
   config: AppConfig
 ): Promise<void> {
-  const result = await exchangeClaudeCodeWifToken(config, await readRequestBody(request));
+  const result = await exchangeClaudeCodeWifToken(config, await readRequestBody(request, 64 * 1024));
   sendJson(response, result.statusCode, result.payload);
 }
 

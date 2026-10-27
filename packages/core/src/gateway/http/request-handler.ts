@@ -13,13 +13,14 @@ import {
   isContextArchiveMcpPath,
   type ContextArchiveReplayExecutor
 } from "@ccr/core/gateway/context-archive";
-import { ccrRemoteControlPathPrefix, ccrRemoteControlService } from "@ccr/core/gateway/remote-control-service";
+import { ccrRemoteControlPathPrefix, ccrRemoteControlService, remoteControlOwnerId } from "@ccr/core/gateway/remote-control-service";
 import { gatewayRuntimeConfigControlPath } from "@ccr/core/gateway/runtime-config-control";
 import { authorize, claudeCodeWifTokenPath, handleClaudeCodeWifTokenRequest, reserveApiKeyLimits } from "@ccr/core/gateway/auth/api-key-authorizer";
 import { parseJsonObject, readRequestBody, sendJson } from "@ccr/core/gateway/http/io";
 import { shouldRecordRequestLogs } from "@ccr/core/observability/raw-trace-sync";
 import { requestLogRequestedModel } from "@ccr/core/observability/request-log-model";
 import { isModelAllowedForProfile, profileForApiKey } from "@ccr/core/profiles/model-allowlist";
+import { coreGatewayBodyLimitBytes } from "@ccr/core/gateway/core-runtime/config-compiler";
 import { applyCors, shouldServeGatewayRequest } from "@ccr/core/gateway/core-runtime/supervisor";
 import { billingUsageSyncPath, rawTraceSyncPath } from "@ccr/core/gateway/internal/shared";
 import type { BrowserAutomationMcpIntegration } from "@ccr/core/gateway/internal/shared";
@@ -127,6 +128,7 @@ export class GatewayHttpRequestHandler {
         }
         await ccrRemoteControlService.handleRequest({
           endpoint: this.status.endpoint,
+          ownerId: remoteControlOwnerId(authorization.apiKey),
           path,
           readBody: readRequestBody,
           request,
@@ -264,7 +266,7 @@ export class GatewayHttpRequestHandler {
       }
 
       if (request.method === "POST" && path === "/v1/messages/count_tokens") {
-        const requestBody = await readRequestBody(request);
+        const requestBody = await readRequestBody(request, coreGatewayBodyLimitBytes);
         const body = parseJsonObject(requestBody);
         const requestedModel = requestLogRequestedModel(requestBody, path);
         const profile = profileForApiKey(this.config, authorization.apiKey);

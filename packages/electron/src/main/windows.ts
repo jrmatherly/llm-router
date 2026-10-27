@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { APP_NAME, IPC_CHANNELS } from "@ccr/core/config/constants";
 import { configureClaudeDesignWindowCdp, type ClaudeDesignWindowCdpOptions } from "./claude-design-window";
+import { openHttpExternal } from "./external-url";
 
 type WindowName = "main" | string;
 type WindowBounds = { height: number; width: number; x?: number; y?: number };
@@ -98,7 +99,20 @@ class WindowsManager {
       window.setTitle(title || APP_NAME);
     });
 
-    void window.loadURL(this.resolveRendererUrl("pages/home/index.html"));
+    const rendererUrl = this.resolveRendererUrl("pages/home/index.html");
+    window.webContents.setWindowOpenHandler(({ url }) => {
+      openHttpExternal(url, shell.openExternal);
+      return { action: "deny" };
+    });
+    window.webContents.on("will-navigate", (event, url) => {
+      if (url.startsWith(rendererUrl)) {
+        return;
+      }
+      event.preventDefault();
+      openHttpExternal(url, shell.openExternal);
+    });
+
+    void window.loadURL(rendererUrl);
 
     if (process.env.NODE_ENV === "development") {
       window.webContents.openDevTools({ mode: "detach" });
@@ -206,7 +220,7 @@ class WindowsManager {
           }
         };
       }
-      void shell.openExternal(url);
+      openHttpExternal(url, shell.openExternal);
       return { action: "deny" };
     });
     window.webContents.on("did-create-window", (childWindow, details) => {
@@ -224,7 +238,7 @@ class WindowsManager {
         return;
       }
       event.preventDefault();
-      void shell.openExternal(url);
+      openHttpExternal(url, shell.openExternal);
     });
     window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
       if (isMainFrame === false || window.isDestroyed() || loadingFailurePage) {
@@ -374,7 +388,7 @@ function configurePluginChildWindow(
     if (handlePluginChildWindowControl(window, url)) {
       return { action: "deny" };
     }
-    void shell.openExternal(url);
+    openHttpExternal(url, shell.openExternal);
     return { action: "deny" };
   });
   window.webContents.on("will-navigate", (event, url) => {
@@ -382,7 +396,7 @@ function configurePluginChildWindow(
       return;
     }
     event.preventDefault();
-    void shell.openExternal(url);
+    openHttpExternal(url, shell.openExternal);
   });
 }
 

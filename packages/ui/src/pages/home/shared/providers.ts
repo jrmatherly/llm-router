@@ -666,6 +666,19 @@ export function createProviderDraftFromDeepLinkPayload(
   };
 }
 
+export function buildProviderImportDraft(
+  payload: ProviderDeepLinkPayload,
+  providers: GatewayProviderConfig[],
+  catalog?: Omit<ProviderDeepLinkCatalogModelsResolution, "models">
+): AddProviderDraft {
+  const draft = createProviderDraftFromDeepLinkPayload(payload, providers);
+  return {
+    ...draft,
+    catalogModelMetadata: mergeModelMetadata(draft.catalogModelMetadata, catalog?.modelMetadata),
+    modelDisplayNames: mergeModelDisplayNames(draft.modelDisplayNames, catalog?.modelDisplayNames)
+  };
+}
+
 export function createProviderConfigFromDeepLink(
   payload: ProviderDeepLinkPayload,
   providers: GatewayProviderConfig[],

@@ -3,7 +3,7 @@ const button = document.getElementById("ccr-confirm-import");
 const statusElement = document.getElementById("ccr-import-status");
 
 if (root && button && statusElement) {
-  const importUrl = root.getAttribute("data-import-url") || "";
+  const importUrl = location.origin + location.pathname.replace(/\/confirm$/, "");
   button.disabled = false;
   button.textContent = "Confirm and Import";
   setStatus("CCR Login Import extension is connected. Review the domains, then confirm.");

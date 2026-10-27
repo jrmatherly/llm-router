@@ -22,6 +22,8 @@ import type {
   ProxyStatus
 } from "@ccr/core/contracts/app";
 import { PROXY_CA_CERT_FILE } from "@ccr/core/config/constants";
+import { isLoopbackAddress } from "@ccr/core/net/loopback";
+import { isSensitiveRequestLogHeaderName } from "@ccr/core/observability/sensitive-headers";
 import { windowsSystemCommand } from "@ccr/core/platform/windows-system";
 import { pluginService, type GatewayPluginProxyRouteMatch } from "@ccr/core/plugins/service";
 import {
@@ -628,6 +630,11 @@ class ProxyService {
   }
 
   private async handleConnect(request: IncomingMessage, clientSocket: Socket, head: Buffer): Promise<void> {
+    if (!isLoopbackAddress(clientSocket.remoteAddress)) {
+      clientSocket.once("error", () => clientSocket.destroy());
+      clientSocket.end("HTTP/1.1 403 Forbidden\r\n\r\n", () => clientSocket.destroy());
+      return;
+    }
     const target = parseConnectTarget(request.url);
     const mitmServer = await this.getMitmServer(target.hostname);
     const localSocket = net.connect(mitmServer.port, "127.0.0.1");
@@ -697,6 +704,11 @@ class ProxyService {
   }
 
   private async handleProxyRequest(request: IncomingMessage, response: ServerResponse, defaultProtocol: "http:" | "https:"): Promise<void> {
+    // MITM'd HTTPS arrives from 127.0.0.1 via the internal bridge, so this check cannot protect it; the CONNECT guard in handleConnect does and must stay.
+    if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      sendProxyError(response, 403, "The proxy serves loopback clients only.");
+      return;
+    }
     if (!this.config) {
       sendProxyError(response, 503, "Proxy service is not configured.");
       return;
@@ -766,7 +778,7 @@ class ProxyService {
       mode,
       path: `${targetUrl.pathname}${targetUrl.search}`,
       protocol: targetUrl.protocol === "https:" ? "https" : "http",
-      requestHeaders: cloneHeaders(request.headers),
+      requestHeaders: cloneCapturedHeaders(request.headers),
       requestSampler: new NetworkBodySampler(maxNetworkCaptureBodyBytes),
       responseSampler: new NetworkBodySampler(maxNetworkCaptureBodyBytes),
       routedToGateway,
@@ -806,7 +818,7 @@ class ProxyService {
       fail: (message, statusCode) => finish("error", message, statusCode),
       setResponse: (statusCode, headers) => {
         record.statusCode = statusCode;
-        record.responseHeaders = cloneHeaders(headers);
+        record.responseHeaders = cloneCapturedHeaders(headers);
       }
     };
   }
@@ -1731,13 +1743,16 @@ function inferProxyClient(headers: IncomingHttpHeaders): string {
   return userAgent.split(/[/(]/)[0]?.trim() || "Client";
 }
 
-function cloneHeaders(headers: CapturedHeaders | IncomingHttpHeaders): CapturedHeaders {
+export function cloneCapturedHeaders(headers: CapturedHeaders | IncomingHttpHeaders): CapturedHeaders {
   const result: CapturedHeaders = {};
   for (const [key, value] of Object.entries(headers)) {
     if (value === undefined) {
       continue;
     }
-    result[key.toLowerCase()] = Array.isArray(value) ? value.map(String) : String(value);
+    const name = key.toLowerCase();
+    result[name] = isSensitiveRequestLogHeaderName(name)
+      ? "[redacted]"
+      : Array.isArray(value) ? value.map(String) : String(value);
   }
   return result;
 }

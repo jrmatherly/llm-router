@@ -11,6 +11,7 @@ import { xiaomiMimoProviderPreset } from "@ccr/core/providers/presets/xiaomi/ind
 import { AddProviderDialog, AddProviderForm, ProviderConnectivityCheckDialog, ProvidersView, localAgentProviderAlreadyImported, localAgentProviderPluginSuffixesForCandidate, uniqueProviderProbeProtocolRows } from "@ccr/ui/pages/home/components/providers.tsx";
 import {
   applyProviderProbeResult,
+  buildProviderImportDraft,
   createProviderConfigFromDeepLink,
   createProviderAccountDraftFromConfig,
   createProviderCredentialDraft,
@@ -44,6 +45,50 @@ import {
 import { installBrowserGlobals } from "../fixtures/index.ts";
 
 installBrowserGlobals();
+
+test("building the import draft for a deep link makes no network call", () => {
+  const calls = { getProviderCatalogModels: 0, probeProvider: 0 };
+  const ccr = (globalThis.window as unknown as { ccr: Record<string, unknown> }).ccr;
+  const original = { ...ccr };
+  ccr.getProviderCatalogModels = async () => {
+    calls.getProviderCatalogModels += 1;
+    return {};
+  };
+  ccr.probeProvider = async () => {
+    calls.probeProvider += 1;
+    return {};
+  };
+  try {
+    const draft = buildProviderImportDraft({ apiKey: "k", baseUrl: "http://169.254.169.254/latest", models: [] }, []);
+    assert.equal(draft.baseUrl, "http://169.254.169.254/latest");
+    assert.equal(calls.probeProvider, 0);
+    assert.equal(calls.getProviderCatalogModels, 0);
+  } finally {
+    delete ccr.getProviderCatalogModels;
+    delete ccr.probeProvider;
+    Object.assign(ccr, original);
+  }
+});
+
+test("the import dialog offers detection only until it has run", () => {
+  const importProvider = { apiKey: "k", baseUrl: "http://169.254.169.254/latest", models: [] };
+  const render = (onDetect?: () => Promise<unknown>) => renderToStaticMarkup(
+    React.createElement(AddProviderForm, {
+      activeStep: "provider",
+      draft: buildProviderImportDraft(importProvider, []),
+      error: "",
+      importProvider,
+      mode: "add",
+      onChange: () => undefined,
+      onDetect,
+      probeLoading: false,
+      providers: []
+    })
+  );
+
+  assert.match(render(async () => undefined), /Detect models and protocols/);
+  assert.doesNotMatch(render(), /Detect models and protocols/);
+});
 
 test("composite field groups do not label their nested controls", () => {
   const html = renderToStaticMarkup(

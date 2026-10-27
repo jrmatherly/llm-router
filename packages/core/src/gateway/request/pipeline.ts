@@ -40,7 +40,7 @@ import { createGatewayModelsResponse, prepareClaudeAppDiscoveredModelRequest, pr
 import { providerProtocolForClientProtocol, resolveProviderLogName, resolveResponseProviderProtocol, sanitizeHeaderValue } from "@ccr/core/providers/runtime-topology";
 import { createBodySampler, requestLogSampled, shouldRecordRequestLogs } from "@ccr/core/observability/raw-trace-sync";
 import { RequestRouteTraceRecorder } from "@ccr/core/observability/route-trace";
-import { coreGatewayUsageAttributionConfig } from "@ccr/core/gateway/core-runtime/config-compiler";
+import { coreGatewayBodyLimitBytes, coreGatewayUsageAttributionConfig } from "@ccr/core/gateway/core-runtime/config-compiler";
 import { providerModelPricingForUsage } from "@ccr/core/models/pricing-service";
 import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
 import { clientClosedRequestStatusCode, clientDisconnectMessage, coreGatewayAuthHeader, resolveStreamRequestLogOutcome, UpstreamRequestError } from "@ccr/core/gateway/internal/shared";
@@ -132,7 +132,7 @@ export class GatewayRequestPipeline {
       const startedAt = Date.now();
       const startedAtIso = new Date(startedAt).toISOString();
       const requestId = randomUUID();
-      const requestBody = await readRequestBody(request);
+      const requestBody = await readRequestBody(request, coreGatewayBodyLimitBytes);
       const requestedModel = requestLogRequestedModel(requestBody, path);
       const requestUrl = new URL(request.url || path, this.status.endpoint || "http://127.0.0.1").toString();
       const routeTrace = shouldRecordRequestLogs(this.config)
