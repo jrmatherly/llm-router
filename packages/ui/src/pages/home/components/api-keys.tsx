@@ -32,8 +32,8 @@ export function ApiKeysView({
   );
 
   async function copyApiKey(apiKey: ApiKeyListItem) {
-    await copyTextToClipboard(apiKey.keyValue);
-    notify(t("Copied API key"));
+    const copied = await copyTextToClipboard(apiKey.keyValue);
+    notify(t(copied ? "Copied API key" : "Copy failed."));
   }
 
   return (
@@ -215,8 +215,7 @@ export function ApiKeyCreatedDialog({
   const [copied, setCopied] = useState(false);
 
   async function copyApiKey() {
-    await copyTextToClipboard(apiKeyValue);
-    setCopied(true);
+    setCopied(await copyTextToClipboard(apiKeyValue));
   }
 
   return (

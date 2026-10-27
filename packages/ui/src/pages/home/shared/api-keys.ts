@@ -296,11 +296,11 @@ export function positiveInteger(value: unknown): number | undefined {
   return Number.isFinite(number) && number > 0 ? Math.trunc(number) : undefined;
 }
 
-export async function copyTextToClipboard(value: string): Promise<void> {
+export async function copyTextToClipboard(value: string): Promise<boolean> {
   if (navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(value);
-      return;
+      return true;
     } catch {
       // Fall back to a temporary textarea for Electron/file contexts where clipboard permissions vary.
     }
@@ -312,8 +312,9 @@ export async function copyTextToClipboard(value: string): Promise<void> {
   textarea.style.position = "fixed";
   document.body.appendChild(textarea);
   textarea.select();
-  document.execCommand("copy");
+  const copied = document.execCommand("copy");
   textarea.remove();
+  return copied;
 }
 
 export function addDays(date: Date, days: number): Date {

@@ -41,6 +41,7 @@ import {
   formatPercent
 } from "./usage";
 
+import { copyTextToClipboard } from "./api-keys";
 import { metricToneBar, normalizeProviderModelSelector } from "./common";
 import { profileAgentLabel, profileAgentLogoUrl } from "./profiles";
 import { routeTargetOptions } from "./providers";
@@ -402,7 +403,7 @@ export function EndpointTitleBar({
   const networkEndpoints = running ? gatewayStatus.networkEndpoints ?? [] : [];
 
   async function copyEndpoint(valueToCopy: string, key: string) {
-    await copyEndpointTextToClipboard(valueToCopy);
+    await copyTextToClipboard(valueToCopy);
     setCopiedKey(key);
     if (copyResetTimer.current) {
       window.clearTimeout(copyResetTimer.current);
@@ -590,24 +591,4 @@ function appendGatewayBasePath(pathname: string): string {
     return normalized;
   }
   return `${normalized}/v1`;
-}
-
-async function copyEndpointTextToClipboard(value: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return;
-    } catch {
-      // Fall back to a temporary textarea for Electron/file contexts where clipboard permissions vary.
-    }
-  }
-  const textarea = document.createElement("textarea");
-  textarea.value = value;
-  textarea.setAttribute("readonly", "true");
-  textarea.style.left = "-9999px";
-  textarea.style.position = "fixed";
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand("copy");
-  textarea.remove();
 }

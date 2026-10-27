@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { ArrowLeft, ArrowRight, Check, KeyRound, LoaderCircle, Plus, RotateCw, UserRound, X } from "lucide-react";
 import type { BuiltInBrowserState, ChromeLoginImportJob, ChromeLoginImportRequest } from "@ccr/core/contracts/app";
+import { pollChromeImportJob } from "../home/shared/chrome-import";
 
 declare global {
   interface Window {
@@ -66,7 +67,11 @@ function BrowserChrome() {
       return;
     }
     const interval = window.setInterval(() => {
-      void window.ccrBrowser?.getChromeLoginImport(chromeImportJob.id).then((job) => {
+      const getChromeLoginImport = window.ccrBrowser?.getChromeLoginImport;
+      if (!getChromeLoginImport) {
+        return;
+      }
+      void pollChromeImportJob(getChromeLoginImport, chromeImportJob.id).then((job) => {
         if (!job) {
           setChromeImportJob(undefined);
           return;
@@ -84,7 +89,11 @@ function BrowserChrome() {
     if (!action) {
       return;
     }
-    setState(await action);
+    try {
+      setState(await action);
+    } catch (error) {
+      console.error("Browser action failed:", error);
+    }
   }
 
   function submitNavigation(event: FormEvent<HTMLFormElement>) {
