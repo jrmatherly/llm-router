@@ -20,6 +20,7 @@ import { parseJsonObject, readRequestBody, sendJson } from "@ccr/core/gateway/ht
 import { shouldRecordRequestLogs } from "@ccr/core/observability/raw-trace-sync";
 import { requestLogRequestedModel } from "@ccr/core/observability/request-log-model";
 import { isModelAllowedForProfile, profileForApiKey } from "@ccr/core/profiles/model-allowlist";
+import { coreGatewayBodyLimitBytes } from "@ccr/core/gateway/core-runtime/config-compiler";
 import { applyCors, shouldServeGatewayRequest } from "@ccr/core/gateway/core-runtime/supervisor";
 import { billingUsageSyncPath, rawTraceSyncPath } from "@ccr/core/gateway/internal/shared";
 import type { BrowserAutomationMcpIntegration } from "@ccr/core/gateway/internal/shared";
@@ -264,7 +265,7 @@ export class GatewayHttpRequestHandler {
       }
 
       if (request.method === "POST" && path === "/v1/messages/count_tokens") {
-        const requestBody = await readRequestBody(request);
+        const requestBody = await readRequestBody(request, coreGatewayBodyLimitBytes);
         const body = parseJsonObject(requestBody);
         const requestedModel = requestLogRequestedModel(requestBody, path);
         const profile = profileForApiKey(this.config, authorization.apiKey);

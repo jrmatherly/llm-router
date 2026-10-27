@@ -308,10 +308,29 @@ export function readHeader(value: string | string[] | undefined): string | undef
 }
 
 
-export function readRequestBody(request: IncomingMessage): Promise<Buffer> {
+export class RequestBodyTooLargeError extends Error {
+  readonly status = 413;
+
+  constructor(maxBytes: number) {
+    super(`Request body exceeds ${maxBytes} bytes.`);
+    this.name = "RequestBodyTooLargeError";
+  }
+}
+
+export function readRequestBody(request: IncomingMessage, maxBytes = 16 * 1024 * 1024): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    request.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    let totalBytes = 0;
+    request.on("data", (chunk) => {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      totalBytes += buffer.length;
+      if (totalBytes > maxBytes) {
+        reject(new RequestBodyTooLargeError(maxBytes));
+        request.destroy();
+        return;
+      }
+      chunks.push(buffer);
+    });
     request.on("end", () => resolve(Buffer.concat(chunks)));
     request.on("error", reject);
   });

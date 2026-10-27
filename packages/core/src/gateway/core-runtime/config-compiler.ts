@@ -32,6 +32,10 @@ const internalGatewayPluginKeys = [
 ];
 export const unlimitedVirtualModelToolCalls = Number.MAX_SAFE_INTEGER;
 export const unlimitedVirtualModelToolTurns = Number.MAX_SAFE_INTEGER;
+// Seven 25 MB reference images expand to roughly 234 MB when encoded as
+// JSON data URLs, so the gateway must accept the complete media request
+// even though normal chat payloads are much smaller.
+export const coreGatewayBodyLimitBytes = 256 * 1024 * 1024;
 
 export type CoreGatewayCompileOptions = {
   publicAuthKeys?: string[];
@@ -149,10 +153,7 @@ export async function compileCoreGatewayConfig(
     billingWebhook: {
       enabled: false
     },
-    // Seven 25 MB reference images expand to roughly 234 MB when encoded as
-    // JSON data URLs, so the internal gateway must accept the complete media
-    // request even though normal chat payloads are much smaller.
-    bodyLimitBytes: 256 * 1024 * 1024,
+    bodyLimitBytes: coreGatewayBodyLimitBytes,
     host: runtimeHost,
     mcpGateway: {
       enabled: false
