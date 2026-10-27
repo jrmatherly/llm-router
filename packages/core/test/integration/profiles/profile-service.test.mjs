@@ -2244,6 +2244,126 @@ test("profile service strips LLMR-managed Claude settings from a user-owned sett
   });
 });
 
+const userProviderClaudeSettings = {
+  env: {
+    ANTHROPIC_API_KEY: "sk-user-own",
+    ANTHROPIC_BASE_URL: "https://corp-proxy.example",
+    ANTHROPIC_MODEL: "user-model",
+    CLAUDE_CODE_USE_BEDROCK: "1",
+    USER_VALUE: "kept"
+  },
+  permissions: { allow: ["Bash(ls)"] }
+};
+
+async function withGlobalClaudeProfileRelease(original, run) {
+  const settingsFile = path.join(process.env.CCR_INTERNAL_HOME_DIR, ".claude", "settings.json");
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  const profile = {
+    agent: "claude-code",
+    enabled: true,
+    env: {},
+    id: "displaced-env-claude-code",
+    model: "Provider/model",
+    name: "Claude Code",
+    scope: "global",
+    settingsFile: "~/.claude/settings.json",
+    smallFastModel: "",
+    surface: "auto"
+  };
+  const config = createDefaultAppConfig();
+  config.APIKEY = "ccr-profile-displaced-env-test";
+  config.APIKEYS = [{
+    createdAt: "2026-01-01T00:00:00.000Z",
+    id: `profile:${profile.id}`,
+    key: "ccr-profile-displaced-env-test",
+    name: "Profile: Claude Code"
+  }];
+  config.Providers = [{
+    api_base_url: "https://example.test/v1",
+    api_key: "provider-key",
+    models: ["model"],
+    name: "Provider"
+  }];
+  config.profile.profiles = [profile];
+  const apply = async () => {
+    const result = await applyProfileFixture(config);
+    assert.equal(result.clients.some((client) => client.client === "claude-code" && client.ok), true);
+  };
+  const release = () => restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+  try {
+    rmSync(takeoverFile, { force: true });
+    rmSync(path.dirname(settingsFile), { force: true, recursive: true });
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, `${JSON.stringify(original, null, 2)}\n`);
+    await run({ apply, config, readSettings: () => JSON.parse(readFileSync(settingsFile, "utf8")), release, settingsFile });
+  } finally {
+    release();
+    rmSync(takeoverFile, { force: true });
+    rmSync(path.dirname(settingsFile), { force: true, recursive: true });
+    rmSync(path.join(CONFIGDIR, "profiles", profile.id), { force: true, recursive: true });
+  }
+}
+
+test("release restores the user's own provider env that apply displaced", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, readSettings, release }) => {
+    await apply();
+    assert.notEqual(readSettings().env.ANTHROPIC_API_KEY, "sk-user-own");
+    release();
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+  });
+});
+
+test("a second apply does not record LLMR values as displaced", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, readSettings, release }) => {
+    await apply();
+    await apply();
+    release();
+    assert.equal(readSettings().env.ANTHROPIC_BASE_URL, "https://corp-proxy.example");
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+  });
+});
+
+test("a second apply on a new gateway port does not record the old LLMR endpoint as displaced", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, config, readSettings, release, settingsFile }) => {
+    config.gateway.port = 4101;
+    await apply();
+    config.gateway.port = 4202;
+    await apply();
+    release();
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+    assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1:4101/);
+  });
+});
+
+test("disabling the global profile restores the user's own provider env", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, config, readSettings }) => {
+    await apply();
+    config.profile.profiles[0].enabled = false;
+    await applyProfileFixture(config);
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+  });
+});
+
+test("release keeps a user edit made while the profile was on", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, readSettings, release, settingsFile }) => {
+    await apply();
+    const live = readSettings();
+    live.permissions.allow.push("Bash(pwd)");
+    writeFileSync(settingsFile, `${JSON.stringify(live, null, 2)}\n`);
+    release();
+    assert.deepEqual(readSettings().permissions.allow, ["Bash(ls)", "Bash(pwd)"]);
+    assert.equal(readSettings().env.ANTHROPIC_API_KEY, "sk-user-own");
+  });
+});
+
+test("release does not invent a base URL the user never had", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease({ env: { USER_VALUE: "kept" } }, async ({ apply, readSettings, release }) => {
+    await apply();
+    release();
+    assert.deepEqual(readSettings().env, { USER_VALUE: "kept" });
+  });
+});
+
 test("profile service keeps managed global Claude settings when a global Claude profile is active", () => {
   const previousHome = process.env.HOME;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
