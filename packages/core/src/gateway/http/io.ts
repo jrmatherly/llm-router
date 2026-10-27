@@ -317,23 +317,52 @@ export class RequestBodyTooLargeError extends Error {
   }
 }
 
+const oversizedBodyDrainMs = 2_000;
+
 export function readRequestBody(request: IncomingMessage, maxBytes = 16 * 1024 * 1024): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let totalBytes = 0;
-    request.on("data", (chunk) => {
+    const onData = (chunk: Buffer | string) => {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       totalBytes += buffer.length;
       if (totalBytes > maxBytes) {
+        // Drain instead of destroying so the caller can still send the 413, but cut off a sender that never stops.
+        request.off("data", onData);
+        chunks.length = 0;
+        request.resume();
+        const cutoff = setTimeout(() => request.destroy(), oversizedBodyDrainMs);
+        request.once("end", () => clearTimeout(cutoff));
         reject(new RequestBodyTooLargeError(maxBytes));
-        request.destroy();
         return;
       }
       chunks.push(buffer);
-    });
+    };
+    request.on("data", onData);
     request.on("end", () => resolve(Buffer.concat(chunks)));
     request.on("error", reject);
   });
+}
+
+
+export function sendGatewayError(response: ServerResponse, error: unknown): void {
+  if (response.headersSent) {
+    response.destroy();
+    return;
+  }
+  const body = JSON.stringify({ error: { message: formatError(error) } });
+  if (!(error instanceof RequestBodyTooLargeError)) {
+    response.writeHead(502, { "content-type": "application/json" });
+    response.end(body);
+    return;
+  }
+  response.writeHead(error.status, { connection: "close", "content-type": "application/json" });
+  // Closing while the client still uploads resets the socket before it reads the 413, so end after readRequestBody's drain.
+  if (response.req.readableEnded) {
+    response.end(body);
+  } else {
+    response.req.once("end", () => response.end(body));
+  }
 }
 
 

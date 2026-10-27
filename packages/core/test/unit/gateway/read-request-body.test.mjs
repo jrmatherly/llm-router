@@ -16,7 +16,6 @@ function requestWithBody(byteLength) {
 test("readRequestBody rejects past the cap with a 413 error", async () => {
   const request = requestWithBody(2048);
   await assert.rejects(readRequestBody(request, 1024), (error) => error instanceof RequestBodyTooLargeError && error.status === 413);
-  assert.equal(request.destroyed, true);
 });
 
 test("readRequestBody returns bodies under the cap", async () => {
