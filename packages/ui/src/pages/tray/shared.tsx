@@ -633,19 +633,6 @@ export function formatAccountMeterTitle(meter: ProviderAccountMeter, translate: 
   return meter.resetAt ? `${label} (${formatAccountReset(meter.resetAt, translate)})` : label;
 }
 
-export function accountStatusClass(status: ProviderAccountSnapshot["status"]): string {
-  if (status === "critical" || status === "error") {
-    return "bg-rose-400/15 text-rose-100";
-  }
-  if (status === "warning") {
-    return "bg-amber-300/15 text-amber-100";
-  }
-  if (status === "ok") {
-    return "bg-[#30d158]/15 text-[#b7f7c6]";
-  }
-  return "bg-slate-400/15 text-slate-200";
-}
-
 export function accountProgressClass(status: ProviderAccountSnapshot["status"]): string {
   if (status === "critical" || status === "error") {
     return "bg-rose-300";

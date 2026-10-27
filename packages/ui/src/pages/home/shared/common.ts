@@ -27,7 +27,6 @@ import type {
 import type { AppCopy } from "./i18n";
 
 import { positiveInteger } from "./api-keys";
-import type { MetricTone } from "./controls";
 import type { AppLanguagePreference, ResolvedLanguage, ResolvedTheme } from "./types";
 
 export const languagePreferenceStorageKey = "ccr.ui.language";
@@ -42,10 +41,6 @@ export function providerBaseUrl(provider: GatewayProviderConfig): string {
 
 export function cloneConfig(config: AppConfig): AppConfig {
   return JSON.parse(JSON.stringify(config)) as AppConfig;
-}
-
-export function formatJson(value: unknown): string {
-  return JSON.stringify(value);
 }
 
 export function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -622,22 +617,4 @@ export function themeDisplayName(theme: ResolvedTheme, copy: AppCopy): string {
 
 export function languageDisplayName(language: ResolvedLanguage, copy: AppCopy): string {
   return language === "zh" ? copy.settings.languageChinese : copy.settings.languageEnglish;
-}
-
-export function metricToneBar(tone: MetricTone) {
-  if (tone === "teal") return "bg-teal-500";
-  if (tone === "blue") return "bg-blue-500";
-  if (tone === "indigo") return "bg-indigo-500";
-  if (tone === "amber") return "bg-amber-500";
-  if (tone === "slate") return "bg-slate-500";
-  return "bg-rose-500";
-}
-
-export function metricToneStroke(tone: MetricTone): string {
-  if (tone === "teal") return "rgb(20,184,166)";
-  if (tone === "blue") return "rgb(59,130,246)";
-  if (tone === "indigo") return "rgb(99,102,241)";
-  if (tone === "amber") return "rgb(245,158,11)";
-  if (tone === "slate") return "rgb(100,116,139)";
-  return "rgb(244,63,94)";
 }

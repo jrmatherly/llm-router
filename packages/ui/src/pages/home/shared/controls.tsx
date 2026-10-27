@@ -8,7 +8,6 @@ import {
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PopoverContent } from "@/components/ui/popover";
@@ -42,7 +41,7 @@ import {
 } from "./usage";
 
 import { copyTextToClipboard } from "./api-keys";
-import { metricToneBar, normalizeProviderModelSelector } from "./common";
+import { normalizeProviderModelSelector } from "./common";
 import { profileAgentLabel, profileAgentLogoUrl } from "./profiles";
 import { routeTargetOptions } from "./providers";
 import { createKeyValueDraftRow } from "./virtual-models";
@@ -251,20 +250,6 @@ export function Toggle({
 
 export type MetricTone = "amber" | "blue" | "indigo" | "rose" | "slate" | "teal";
 
-export function MetricCard({ className, label, tone, value }: { className?: string; label: string; tone: MetricTone; value: string }) {
-  return (
-    <Card className={cn("flex h-full min-h-0 min-w-0 flex-col overflow-hidden", className)}>
-      <div className={cn("h-1", metricToneBar(tone))} />
-      <CardContent className="flex min-h-[88px] flex-1 flex-col justify-center">
-        <div className="min-w-0">
-          <div className="truncate text-[11px] font-medium text-muted-foreground">{label}</div>
-          <div className="mt-1 truncate text-[20px] font-semibold">{value}</div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export type SystemStatusTone = "error" | "idle" | "ok" | "warn";
 
 export type SystemStatusPoint = {
@@ -323,20 +308,6 @@ export function systemStatusPointTooltip(segment: SystemStatusPoint, t: (value: 
     `${t("Failed requests")}: ${formatCompactNumber(segment.point.errorCount)}`,
     `${t("Duration")}: ${formatDuration(segment.point.avgDurationMs)}`
   ].join("\n");
-}
-
-export function systemStatusIconClass(tone: SystemStatusTone): string {
-  if (tone === "ok") return "bg-emerald-500 text-white";
-  if (tone === "warn") return "bg-amber-400 text-amber-950";
-  if (tone === "error") return "bg-rose-500 text-white";
-  return "bg-muted text-muted-foreground";
-}
-
-export function systemStatusSegmentClass(tone: SystemStatusTone): string {
-  if (tone === "ok") return "bg-emerald-500";
-  if (tone === "warn") return "bg-amber-400";
-  if (tone === "error") return "bg-rose-500";
-  return "bg-muted-foreground/25";
 }
 
 export function ServiceControlButton({
