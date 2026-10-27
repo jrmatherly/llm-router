@@ -22,6 +22,7 @@ import type {
   ProxyStatus
 } from "@ccr/core/contracts/app";
 import { PROXY_CA_CERT_FILE } from "@ccr/core/config/constants";
+import { isLoopbackAddress } from "@ccr/core/net/loopback";
 import { windowsSystemCommand } from "@ccr/core/platform/windows-system";
 import { pluginService, type GatewayPluginProxyRouteMatch } from "@ccr/core/plugins/service";
 import {
@@ -628,6 +629,11 @@ class ProxyService {
   }
 
   private async handleConnect(request: IncomingMessage, clientSocket: Socket, head: Buffer): Promise<void> {
+    if (!isLoopbackAddress(clientSocket.remoteAddress)) {
+      clientSocket.once("error", () => clientSocket.destroy());
+      clientSocket.end("HTTP/1.1 403 Forbidden\r\n\r\n", () => clientSocket.destroy());
+      return;
+    }
     const target = parseConnectTarget(request.url);
     const mitmServer = await this.getMitmServer(target.hostname);
     const localSocket = net.connect(mitmServer.port, "127.0.0.1");
@@ -697,6 +703,10 @@ class ProxyService {
   }
 
   private async handleProxyRequest(request: IncomingMessage, response: ServerResponse, defaultProtocol: "http:" | "https:"): Promise<void> {
+    if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      sendProxyError(response, 403, "The proxy serves loopback clients only.");
+      return;
+    }
     if (!this.config) {
       sendProxyError(response, 503, "Proxy service is not configured.");
       return;
