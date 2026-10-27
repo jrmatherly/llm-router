@@ -3594,9 +3594,7 @@ function formatProviderAccountMeterDetailLabel(value: string, t: (value: string)
     if (!qualifier) {
       return t("Full reset");
     }
-    return appTextLooksTranslated(t)
-      ? `${t("Full reset")}（${qualifier}）`
-      : `${t("Full reset")} (${qualifier})`;
+    return `${t("Full reset")} (${qualifier})`;
   }
   return t(trimmed);
 }
@@ -3616,10 +3614,6 @@ function formatCodexResetCreditQualifier(value: string, t: (value: string) => st
     .replace(/\bmonths?\b/gi, t("month"))
     .replace(/\s*\+\s*/g, " + ")
     .trim();
-}
-
-function appTextLooksTranslated(t: (value: string) => string): boolean {
-  return t("Manual reset credit") !== "Manual reset credit";
 }
 
 function providerAccountMeterDetailStatusLabel(status: string | undefined, t: (value: string) => string): string {
@@ -4348,10 +4342,10 @@ function providerAccountBentoLayout(accounts: ProviderAccountSnapshot[], dimensi
     }
   }
 
-  // 格子预算挡不住「行数超限」：双行卡片会把 dense 排布撑出额外行，
-  // auto-rows-fr 会把组件高度均分给实际用到的每一行，行数超过组件高度档位时
-  // 行高会被压到卡片最小内容高度以下，单行卡片内容被裁切。
-  // 这里按真实 dense 排布模拟行数，超限时先降级双行卡片（跳过手动尺寸），再从尾部隐藏。
+  // The cell budget alone cannot stop row overflow: two-row cards push the dense packing into extra rows,
+  // and auto-rows-fr splits the widget height across every used row, so once rows exceed the widget's
+  // height steps the row height drops below a card's minimum content height and one-row cards get clipped.
+  // Simulate the real dense packing; on overflow, demote two-row cards first (skipping manual sizes), then hide from the end.
   for (let guard = 0; guard <= items.length * 2 + 1; guard += 1) {
     const rowsUsed = providerAccountBentoPackedRowCount(visibleItems, columns, visibleItems.length < items.length);
     if (rowsUsed <= maxRows || visibleItems.length === 0) {
@@ -4439,9 +4433,9 @@ function providerAccountBentoColumnCount(dimensions: OverviewWidgetDimensions, i
 }
 
 function providerAccountBentoRowCount(dimensions: OverviewWidgetDimensions): number {
-  // Bento 行高由 auto-rows-fr 在组件内容高度内均分，单行卡片的最小内容高度约 100px，
-  // 组件每个高度档位（overview 网格一行约 148px）只够容纳等量的 bento 行；
-  // 行数一旦超过组件高度档位，行高会被均分压缩到卡片最小高度以下，内容被裁切。
+  // auto-rows-fr splits the widget's content height evenly across bento rows, and a one-row card needs about 100px.
+  // Each widget height step (one overview grid row, about 148px) fits exactly one bento row;
+  // more rows than height steps squeeze rows below the card minimum and clip the content.
   return dimensions.height;
 }
 

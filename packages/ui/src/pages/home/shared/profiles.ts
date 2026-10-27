@@ -795,7 +795,6 @@ export function createBotGatewayConfigDraft(config?: BotGatewaySavedConfig): Bot
     botHandoffIdleSeconds: botDraft.botHandoffIdleSeconds,
     botHandoffPhoneBluetoothTargets: botDraft.botHandoffPhoneBluetoothTargets,
     botHandoffPhoneWifiTargets: botDraft.botHandoffPhoneWifiTargets,
-    botLanguage: bot.language,
     botMaxAttachmentMb: String(Math.max(1, Math.round(bot.maxAttachmentBytes / (1024 * 1024)))),
     botMaxTurnMinutes: String(Math.max(1, Math.round(bot.maxTurnTimeMs / 60_000))),
     botMediaEnabled: bot.mediaEnabled,
@@ -871,7 +870,6 @@ function botGatewayConfigFromDraft(
     },
     integrationConfig: authPayload.integrationConfig,
     integrationId: existingBotGateway?.integrationId?.trim() || createBotGatewayIntegrationId(configId),
-    language: draft.botLanguage,
     maxAttachmentBytes: numberDraftValue(draft.botMaxAttachmentMb, 20, 1, 100) * 1024 * 1024,
     maxTurnTimeMs: numberDraftValue(draft.botMaxTurnMinutes, 10, 1, 60) * 60_000,
     mediaEnabled: draft.botMediaEnabled,
@@ -1198,7 +1196,6 @@ export function normalizeBotGatewayRuntimeConfig(value: unknown): BotGatewayRunt
     },
     integrationConfig: websocketBotGatewayIntegrationConfig(platform, isPlainRecord(record.integrationConfig) ? record.integrationConfig : {}),
     integrationId: typeof record.integrationId === "string" ? record.integrationId : fallbackConfig.botGateway.integrationId,
-    language: record.language === "en" || record.language === "zh-CN" || record.language === "auto" ? record.language : fallbackConfig.botGateway.language,
     maxAttachmentBytes: Number.isFinite(Number(record.maxAttachmentBytes))
       ? numberDraftValue(String(record.maxAttachmentBytes), fallbackConfig.botGateway.maxAttachmentBytes, 1024, 100 * 1024 * 1024)
       : fallbackConfig.botGateway.maxAttachmentBytes,

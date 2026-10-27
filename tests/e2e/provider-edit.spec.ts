@@ -55,7 +55,7 @@ test("keeps config-only provider fields when the provider is saved from the dial
   const editButton = page.locator(`button[aria-label="Edit ${configOnlyProvider.name}"]:visible`).first();
   await editButton.click();
 
-  const saveButton = page.getByRole("button", { name: /^(Save|保存)$/ });
+  const saveButton = page.getByRole("button", { name: "Save", exact: true });
   await expect(saveButton).toBeEnabled();
   await saveButton.click();
   await expect(saveButton).toBeHidden();
@@ -92,14 +92,14 @@ test("edits extraBody from the advanced settings section", async ({ page }) => {
 
   await page.getByRole("button", { name: "Providers", exact: true }).click();
   await page.locator(`button[aria-label="Edit ${configOnlyProvider.name}"]:visible`).first().click();
-  await page.getByRole("button", { name: /^(Advanced settings|高级设置)$/ }).click();
+  await page.getByRole("button", { name: "Advanced settings", exact: true }).click();
 
   // The box opens pre-filled with what the config already carries.
-  const extraBodyBox = page.getByLabel(/Extra request body|附加请求体/);
+  const extraBodyBox = page.getByLabel(/Extra request body/);
   await expect(extraBodyBox).toHaveValue(JSON.stringify(configOnlyProvider.extraBody, null, 2));
 
   await extraBodyBox.fill('{ "default": { "reasoning_effort": "max" } }');
-  const saveButton = page.getByRole("button", { name: /^(Save|保存)$/ });
+  const saveButton = page.getByRole("button", { name: "Save", exact: true });
   await saveButton.click();
   await expect(saveButton).toBeHidden();
 
@@ -126,11 +126,11 @@ test("refuses to save a malformed advanced JSON box", async ({ page }) => {
 
   await page.getByRole("button", { name: "Providers", exact: true }).click();
   await page.locator(`button[aria-label="Edit ${configOnlyProvider.name}"]:visible`).first().click();
-  await page.getByRole("button", { name: /^(Advanced settings|高级设置)$/ }).click();
-  await page.getByLabel(/Extra request body|附加请求体/).fill("{ not json");
-  await page.getByRole("button", { name: /^(Save|保存)$/ }).click();
+  await page.getByRole("button", { name: "Advanced settings", exact: true }).click();
+  await page.getByLabel(/Extra request body/).fill("{ not json");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
 
-  await expect(page.getByText(/Extra request body JSON is invalid|附加请求体不是合法的 JSON/)).toBeVisible();
+  await expect(page.getByText(/Extra request body JSON is invalid/)).toBeVisible();
   await expect.poll(async () => page.evaluate(async () => {
     const config = await window.ccr!.getConfig();
     return config.Providers[0]?.extraBody;

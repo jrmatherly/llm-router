@@ -270,7 +270,6 @@ import {
 import {
   AppI18nContext,
   appCopy,
-  languagePreferenceStorageKey,
   translateOptions,
   translateText,
   useAppText,
@@ -378,7 +377,6 @@ import type { MotionSafeDivAttributes } from "./motion";
 export {
   AppI18nContext,
   appCopy,
-  languagePreferenceStorageKey,
   translateOptions,
   translateText,
   useAppText

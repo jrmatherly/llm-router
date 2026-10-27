@@ -5,9 +5,8 @@ import { formatCompactNumber, formatPercentFixed, formatUsdCost as formatHomeUsd
 import { formatUsdCost as formatTrayUsdCost } from "@ccr/ui/pages/tray/shared.tsx";
 import type { RequestLogEntry } from "@ccr/core/contracts/app.ts";
 
-test("formatCompactNumber can be bound to the UI language locale", () => {
+test("formatCompactNumber formats large counts in compact notation", () => {
   assert.equal(formatCompactNumber(123456, "en-US"), "123.5K");
-  assert.equal(formatCompactNumber(123456, "zh-CN"), "12.3万");
 });
 
 test("formatUsdCost formats large values without conflicting fraction digits", () => {
@@ -54,8 +53,7 @@ test("formatLogTokenSummary uses the provided locale for token counts", () => {
   };
   const translate = (value: string) => value;
 
-  assert.equal(formatLogTokenSummary(entry, translate, "en-US"), "123.5K 入  12K 出");
-  assert.equal(formatLogTokenSummary(entry, translate, "zh-CN"), "12.3万 入  1.2万 出");
+  assert.equal(formatLogTokenSummary(entry, translate, "en-US"), "123.5K in  12K out");
 });
 
 test("request log model summaries stay stable without list body text", () => {

@@ -30,7 +30,7 @@ export default function ObservabilityViewDemo() {
     : BASE_SNAPSHOT;
 
   return (
-    <AppI18nContext.Provider value={appCopy.en}>
+    <AppI18nContext.Provider value={appCopy}>
       <DemoShell
         title="Agent observability — inspect execution traces, tool calls, and results"
         contentClassName="docs-demo-content--data"

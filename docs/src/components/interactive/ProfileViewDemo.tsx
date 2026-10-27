@@ -112,7 +112,7 @@ export default function ProfileViewDemo() {
   }
 
   return (
-    <AppI18nContext.Provider value={appCopy.en}>
+    <AppI18nContext.Provider value={appCopy}>
       <DemoShell
         title="Agent configuration — create a profile for Claude Code / Codex and choose its default model"
         onPlay={play}

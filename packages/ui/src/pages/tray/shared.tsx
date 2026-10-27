@@ -7,10 +7,10 @@ import trayCyanIconUrl from "@/assets/tray-cyan.png";
 import trayOrangeIconUrl from "@/assets/tray-orange.png";
 import trayVioletIconUrl from "@/assets/tray-violet.png";
 import { DEFAULT_TRAY_COMPONENT_VARIANTS, DEFAULT_TRAY_WIDGETS, DEFAULT_TRAY_WINDOW_MODULES, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS } from "@ccr/core/contracts/app";
-import { formatLocalizedErrorMessage } from "@ccr/core/contracts/i18n";
+import { formatErrorMessage } from "@ccr/core/contracts/error-message";
 import { findProviderPreset, findProviderPresetByBaseUrl, providerPresets } from "@ccr/core/providers/presets";
 import { providerPresetIconUrls } from "../home/shared/options";
-import { clampNumber, detectSystemLanguage, providerBaseUrl, readLanguagePreference } from "../home/shared/common";
+import { clampNumber, providerBaseUrl } from "../home/shared/common";
 import { formatCompactNumber } from "../home/shared/usage";
 import type {
   AppConfig,
@@ -52,101 +52,10 @@ export type SourceTab = {
   provider?: string;
 };
 
-export type AppLanguagePreference = "system" | "en" | "zh";
-export type ResolvedLanguage = "en" | "zh";
-
-export const trayText: Record<ResolvedLanguage, Record<string, string>> = {
-  en: {},
-  zh: {
-    "24h": "24 小时",
-    "7d": "7 天",
-    "30d": "30 天",
-    "All": "全部",
-    "accounts selected": "个账户已选择",
-    "Account": "账户",
-    "Accounts": "账户",
-    "All providers": "全部供应商",
-    "Activity": "活跃度",
-    "Avg / day": "日均",
-    "Avg / week": "周均",
-    "Avg latency": "平均延迟",
-    "Balance": "余额",
-    "Cache": "缓存",
-    "Cash balance": "现金余额",
-    "Charge balance": "充值余额",
-    "Circular metrics": "环形指标",
-    "Cost": "成本",
-    "Credit balance": "信用余额",
-    "Current balance": "当前余额",
-    "5h quota": "5 小时额度",
-    "F": "五",
-    "Granted balance": "赠送余额",
-    "Input": "输入",
-    "Individual limit": "个人额度",
-    "Less": "少",
-    "Lifetime tokens": "累计令牌",
-    "Longest streak": "最长连续",
-    "M": "一",
-    "Manual resets": "主动重置次数",
-    "Monthly budget": "月度预算",
-    "Model Share": "模型占比",
-    "More": "多",
-    "No account data configured": "未配置账户数据",
-    "No model yet": "暂无模型",
-    "No tray modules enabled": "未启用 Tray 模块",
-    "No usage captured yet": "暂无用量记录",
-    "Output": "输出",
-    "Overview": "概览",
-    "Open LLMR": "打开 LLMR",
-    "Peak daily tokens": "日峰值令牌",
-    "Primary quota": "主额度",
-    "Quit": "退出",
-    "Refresh": "刷新",
-    "Secondary quota": "副额度",
-    "Subscription": "订阅",
-    "Success": "成功",
-    "Success rate": "成功率",
-    "Syncing usage...": "正在同步用量...",
-    "Today": "今天",
-    "Today req": "今日请求",
-    "Today tokens": "今日令牌",
-    "Token Flow": "Token 趋势",
-    "Token Mix": "令牌构成",
-    "Tokens": "令牌",
-    "Total": "总计",
-    "Topped-up balance": "充值余额",
-    "Total credits": "总额度",
-    "Total usage": "总用量",
-    "Unavailable": "不可用",
-    "Updated just now": "刚刚更新",
-    "Voucher balance": "代金券余额",
-    "Weekly quota": "周额度",
-    "W": "三",
-    "Usage Detail": "用量详情",
-    "Usage Overview": "用量概览",
-    "Usage chart": "用量图表",
-    "critical": "严重",
-    "day": "天",
-    "days": "天",
-    "error": "错误",
-    "expired": "已过期",
-    "expires in": "剩余",
-    "hours": "小时",
-    "minutes": "分钟",
-    "ok": "正常",
-    "requests": "请求",
-    "resets": "次",
-    "soon": "即将",
-    "tokens": "令牌",
-    "unsupported": "不支持",
-    "warning": "警告"
-  }
-};
-
-export const TrayI18nContext = createContext<(value: string) => string>((value) => value);
+const identityText = (value: string) => value;
 
 export function useTrayText() {
-  return useContext(TrayI18nContext);
+  return identityText;
 }
 
 export function applyTrayThemePreference(theme: AppConfig["theme"] | undefined): void {
@@ -180,8 +89,7 @@ export function useTrayThemePreference(): void {
 }
 
 export function useTrayErrorText() {
-  const language = useResolvedTrayLanguage();
-  return useMemo(() => (error: unknown) => formatLocalizedErrorMessage(language, error), [language]);
+  return formatErrorMessage;
 }
 
 export const ranges: UsageStatsRange[] = ["today", "24h", "7d", "30d"];
@@ -205,38 +113,6 @@ export const emptySnapshots: SnapshotMap = {
   "7d": createEmptySnapshot("7d"),
   "30d": createEmptySnapshot("30d")
 };
-
-export function TrayI18nProvider({ children }: { children: ReactNode }) {
-  const language = useResolvedTrayLanguage();
-  const translate = useMemo(() => {
-    const copy = trayText[language];
-    return (value: string) => copy[value] ?? value;
-  }, [language]);
-
-  useEffect(() => {
-    document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
-  }, [language]);
-
-  return <TrayI18nContext.Provider value={translate}>{children}</TrayI18nContext.Provider>;
-}
-
-export function useResolvedTrayLanguage(): ResolvedLanguage {
-  const [languagePreference, setLanguagePreference] = useState<AppLanguagePreference>(() => readLanguagePreference());
-  const [systemLanguage, setSystemLanguage] = useState<ResolvedLanguage>(() => detectSystemLanguage());
-
-  useEffect(() => {
-    const updateSystemLanguage = () => setSystemLanguage(detectSystemLanguage());
-    const updateLanguagePreference = () => setLanguagePreference(readLanguagePreference());
-    window.addEventListener("languagechange", updateSystemLanguage);
-    window.addEventListener("storage", updateLanguagePreference);
-    return () => {
-      window.removeEventListener("languagechange", updateSystemLanguage);
-      window.removeEventListener("storage", updateLanguagePreference);
-    };
-  }, []);
-
-  return languagePreference === "system" ? systemLanguage : languagePreference;
-}
 
 export function createSourceTabs(rows: UsageComparisonRow[], configuredProviders: GatewayProviderConfig[]): SourceTab[] {
   const providers = new Map<string, { iconUrl?: string; index: number; score: number }>();
@@ -306,13 +182,6 @@ export function resolveTrayProviderIcon(provider: GatewayProviderConfig): string
     ?? providerPresets.find((candidate) => providerNameMatchesPreset(normalizedName, candidate.name, candidate.aliases));
   if (preset) {
     return providerPresetIconUrls[preset.id];
-  }
-
-  if (normalizedName.includes("智谱")) {
-    const presetId = normalizedName.includes("通用") || normalizedName.includes("general")
-      ? "zhipu-cn-general"
-      : "zhipu-cn-coding";
-    return providerPresetIconUrls[presetId];
   }
 
   return undefined;
@@ -466,13 +335,7 @@ export function formatUpdated(value: string, translate: (value: string) => strin
     return translate("Updated just now");
   }
   if (seconds < 3600) {
-    if (translate("Updated just now") !== "Updated just now") {
-      return `${Math.round(seconds / 60)} 分钟前更新`;
-    }
     return `Updated ${Math.round(seconds / 60)}m ago`;
-  }
-  if (translate("Updated just now") !== "Updated just now") {
-    return `${Math.round(seconds / 3600)} 小时前更新`;
   }
   return `Updated ${Math.round(seconds / 3600)}h ago`;
 }

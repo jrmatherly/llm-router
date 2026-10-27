@@ -214,7 +214,7 @@ export default function ProvidersViewDemo() {
   const deleteItem = deleteIndex === undefined ? undefined : providers[deleteIndex];
 
   return (
-    <AppI18nContext.Provider value={appCopy.en}>
+    <AppI18nContext.Provider value={appCopy}>
       <DemoShell
         title="Provider management — add, edit, and remove upstream model providers"
         onPlay={play}

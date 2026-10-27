@@ -1,13 +1,13 @@
 import {
-  Activity, AppConfig, AppCopy, AppInfo, AppLanguagePreference, Boxes, BotGatewayConfigDraft, botGatewayAuthSpecsForPlatform,
+  Activity, AppConfig, AppCopy, AppInfo, Boxes, BotGatewayConfigDraft, botGatewayAuthSpecsForPlatform,
   botGatewayDefaultAuthType, botGatewayFieldsForAuth, botGatewayPickAuthFields, botGatewayPlatformLabel, botGatewayPlatformOptions,
   botGatewaySavedConfigFromDraft, BotGatewayQrLoginStartResult, BotGatewayQrLoginWaitResult, BotGatewayQrWindowOpenResult, BotGatewaySavedConfig, Button,
   Checkbox, ChevronDown, CircleAlert, closestCenter, cn, compareProviderAccountSnapshots, CSS, Database, Dialog, DialogBody, DialogContent,
   DialogFooter, DialogHeader, DialogTitle, endpointFromHostPort, Field, formatAppError, formatProviderAccountMeterValue, formatSystemOption, Gauge,
   Globe,
-  createBotGatewayConfigDraft, createMcpServerDraft, createMcpServerDraftFromConfig, createMcpServerDraftFromUnknown, DndContext, DragEndEvent, GatewayMcpServerConfig, GatewayProviderConfig, Input, isBotGatewayConfigDraftSubmittable, isTrayMascotIconPreference, KeyboardSensor, KeyRound, KeyValueRowsControl, languageDisplayName, Layers3, LoaderCircle,
+  createBotGatewayConfigDraft, createMcpServerDraft, createMcpServerDraftFromConfig, createMcpServerDraftFromUnknown, DndContext, DragEndEvent, GatewayMcpServerConfig, GatewayProviderConfig, Input, isBotGatewayConfigDraftSubmittable, isTrayMascotIconPreference, KeyboardSensor, KeyRound, KeyValueRowsControl, Layers3, LoaderCircle,
   mcpServerConfigFromDraft, mcpServerEndpointSummary, mcpServerTransportOptions, mcpStdioMessageModeOptions, McpServerDraft, normalizeBotGatewayAuthType, normalizeBotGatewayPlatform, normalizeProviderModelSelector, normalizeProxyUpstreamConfig, normalizeToolHubConfig, numberValue, Palette, Pencil, Plus, ProfileConfig, profileAgentLabel,
-  PanelLeftOpen, Power, ProviderAccountMeter, ProviderAccountSnapshot, ReactNode, ResolvedLanguage, ResolvedTheme, Select, SelectControl,
+  PanelLeftOpen, Power, ProviderAccountMeter, ProviderAccountSnapshot, ReactNode, ResolvedTheme, Select, SelectControl,
   PointerSensor, rectSortingStrategy, Settings, SettingsPageId, SortableContext, sortableKeyboardCoordinates, themeDisplayName,
   translateOptions, TrayBalanceProgressConfig, TrayComponentVariants, TrayWidgetConfig, TrayWidgetType, TrayWidgetVariant,
   appLogoUrl, trayMascotIconUrls, arrayMove, defaultTrayWidgetVariant, isTraySingletonWidgetType, normalizeTrayWidget, normalizeTrayWidgets, Switch, Textarea, Trash2, trayWidgetVariantOptions, useAppText, useEffect, useMemo, useRef, useSensor, useSensors, useSortable, useState, validateMcpServerDraft,
@@ -26,7 +26,6 @@ export function AppSettingsDialog({
   config,
   copy,
   initialPage = "appearance",
-  languagePreference,
   launchAtLogin,
   onChangeBotConfigs,
   onChangeLaunchAtLogin,
@@ -34,7 +33,6 @@ export function AppSettingsDialog({
   onChangeProxy,
   onChangeToolHub,
   onChangeTrayBalanceProgress,
-  onChangeLanguage,
   onChangeTheme,
   onChangeTrayIcon,
   onChangeTrayShowTokenRate,
@@ -45,7 +43,6 @@ export function AppSettingsDialog({
   proxy,
   providers,
   providerAccountSnapshots,
-  systemLanguage,
   systemTheme,
   themePreference,
   toolHub,
@@ -63,7 +60,6 @@ export function AppSettingsDialog({
   config: AppConfig;
   copy: AppCopy;
   initialPage?: SettingsPageId;
-  languagePreference: AppLanguagePreference;
   launchAtLogin: boolean;
   onChangeBotConfigs: (configs: BotGatewaySavedConfig[]) => void;
   onChangeLaunchAtLogin: (checked: boolean) => void;
@@ -71,7 +67,6 @@ export function AppSettingsDialog({
   onChangeProxy: (patch: Partial<AppConfig["proxy"]>) => void;
   onChangeToolHub: (patch: Partial<AppConfig["toolHub"]>) => void;
   onChangeTrayBalanceProgress: (config: TrayBalanceProgressConfig) => void;
-  onChangeLanguage: (value: string) => void;
   onChangeTheme: (value: string) => void;
   onChangeTrayIcon: (value: string) => void;
   onChangeTrayShowTokenRate: (checked: boolean) => void;
@@ -82,7 +77,6 @@ export function AppSettingsDialog({
   proxy: AppConfig["proxy"];
   providers: GatewayProviderConfig[];
   providerAccountSnapshots: ProviderAccountSnapshot[];
-  systemLanguage: ResolvedLanguage;
   systemTheme: ResolvedTheme;
   themePreference: AppConfig["theme"];
   toolHub: AppConfig["toolHub"];
@@ -119,10 +113,7 @@ export function AppSettingsDialog({
           return (
             <AppearanceSettingsPage
               copy={copy}
-              languagePreference={languagePreference}
-              onChangeLanguage={onChangeLanguage}
               onChangeTheme={onChangeTheme}
-              systemLanguage={systemLanguage}
               systemTheme={systemTheme}
               themePreference={themePreference}
             />
@@ -328,18 +319,12 @@ function SettingsPageButton({
 
 function AppearanceSettingsPage({
   copy,
-  languagePreference,
-  onChangeLanguage,
   onChangeTheme,
-  systemLanguage,
   systemTheme,
   themePreference
 }: {
   copy: AppCopy;
-  languagePreference: AppLanguagePreference;
-  onChangeLanguage: (value: string) => void;
   onChangeTheme: (value: string) => void;
-  systemLanguage: ResolvedLanguage;
   systemTheme: ResolvedTheme;
   themePreference: AppConfig["theme"];
 }) {
@@ -348,11 +333,6 @@ function AppearanceSettingsPage({
     { label: copy.settings.themeLight, value: "light" },
     { label: copy.settings.themeDark, value: "dark" }
   ];
-  const languageOptions = [
-    { label: formatSystemOption(copy.settings.languageSystem, languageDisplayName(systemLanguage, copy)), value: "system" },
-    { label: copy.settings.languageChinese, value: "zh" },
-    { label: copy.settings.languageEnglish, value: "en" }
-  ];
 
   return (
     <div className={cn(settingsPageContentWidthClassName, "grid grid-cols-1 gap-5")}>
@@ -360,9 +340,6 @@ function AppearanceSettingsPage({
       <div className="grid grid-cols-1 gap-4">
         <Field label={copy.settings.theme}>
           <SelectControl onChange={onChangeTheme} options={themeOptions} value={themePreference} />
-        </Field>
-        <Field label={copy.settings.language}>
-          <SelectControl onChange={onChangeLanguage} options={languageOptions} value={languagePreference} />
         </Field>
       </div>
     </div>
@@ -1790,17 +1767,6 @@ function BotConfigDialog({
                 />
               </Field>
             ))}
-            <Field label={t("Bot language")}>
-              <SelectControl
-                onChange={(value) => update({ botLanguage: value as BotGatewayConfigDraft["botLanguage"] })}
-                options={[
-                  { label: t("Automatic"), value: "auto" },
-                  { label: "English", value: "en" },
-                  { label: "简体中文", value: "zh-CN" }
-                ]}
-                value={draft.botLanguage}
-              />
-            </Field>
             <Field label={t("Maximum turn time (minutes)")}>
               <Input min="1" max="60" type="number" value={draft.botMaxTurnMinutes} onChange={(event) => update({ botMaxTurnMinutes: event.target.value })} />
             </Field>
@@ -2866,7 +2832,7 @@ function TrayPreviewHeader({ copy }: { copy: AppCopy }) {
       <div className="min-w-0">
         <div className="truncate text-[13px] font-bold text-slate-50">{copy.settings.trayModuleHeader}</div>
         <div className="mt-0.5 truncate text-[10px] font-medium text-slate-400">
-          {trayPreviewText(copy, "Today", "Today")} - {trayPreviewText(copy, "All providers", "All providers", "全部供应商")}
+          {trayPreviewText(copy, "Today", "Today")} - {trayPreviewText(copy, "All providers", "All providers")}
         </div>
       </div>
       <div className="flex shrink-0 rounded-md border border-white/10 bg-slate-900/70 p-0.5">
@@ -3113,10 +3079,10 @@ function TrayPreviewStats({
   variant: TrayComponentVariants["stats"];
 }) {
   const stats = [
-    { label: trayPreviewText(copy, "Input", "Input", "输入"), value: "41k" },
-    { label: trayPreviewText(copy, "Output", "Output", "输出"), value: "19k" },
-    { label: trayPreviewText(copy, "Cache read", "Cache read", "缓存读取"), value: "28k" },
-    { label: trayPreviewText(copy, "Success", "Success", "成功"), value: "99%" }
+    { label: trayPreviewText(copy, "Input", "Input"), value: "41k" },
+    { label: trayPreviewText(copy, "Output", "Output"), value: "19k" },
+    { label: trayPreviewText(copy, "Cache read", "Cache read"), value: "28k" },
+    { label: trayPreviewText(copy, "Success", "Success"), value: "99%" }
   ];
 
   if (variant === "compact") {
@@ -3164,9 +3130,9 @@ function TrayPreviewTokenMix({
   variant: TrayComponentVariants["tokenMix"];
 }) {
   const bars = [
-    { label: trayPreviewText(copy, "Input", "Input", "输入"), percent: 0.46, value: "46%", className: "bg-blue-400", color: "rgb(96,165,250)" },
-    { label: trayPreviewText(copy, "Output", "Output", "输出"), percent: 0.28, value: "28%", className: "bg-amber-300", color: "rgb(252,211,77)" },
-    { label: trayPreviewText(copy, "Cache read", "Cache read", "缓存读取"), percent: 0.26, value: "26%", className: "bg-rose-300", color: "rgb(253,164,175)" }
+    { label: trayPreviewText(copy, "Input", "Input"), percent: 0.46, value: "46%", className: "bg-blue-400", color: "rgb(96,165,250)" },
+    { label: trayPreviewText(copy, "Output", "Output"), percent: 0.28, value: "28%", className: "bg-amber-300", color: "rgb(252,211,77)" },
+    { label: trayPreviewText(copy, "Cache read", "Cache read"), percent: 0.26, value: "26%", className: "bg-rose-300", color: "rgb(253,164,175)" }
   ];
 
   return (
@@ -3450,6 +3416,6 @@ function trayBalanceProgressMeterLabel(meter: ProviderAccountMeter, t: (value: s
   return `${t(meter.label)} - ${formatProviderAccountMeterValue(meter)}`;
 }
 
-function trayPreviewText(copy: AppCopy, key: string, fallback: string, alternateKey?: string): string {
-  return copy.text[key] ?? (alternateKey ? copy.text[alternateKey] : undefined) ?? fallback;
+function trayPreviewText(copy: AppCopy, key: string, fallback: string): string {
+  return copy.text[key] ?? fallback;
 }

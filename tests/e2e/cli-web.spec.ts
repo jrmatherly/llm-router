@@ -34,7 +34,7 @@ test("serves the management UI in a browser", async ({ page }) => {
     return presets?.map((preset) => preset.id) ?? [];
   })).resolves.toContain("openai");
 
-  await page.getByRole("button", { name: /Select preset provider|选择 预设供应商/ }).first().click();
+  await page.getByRole("button", { name: /Select preset provider/ }).first().click();
   await expect(page.getByRole("option", { name: "OpenAI" })).toBeVisible();
 });
 

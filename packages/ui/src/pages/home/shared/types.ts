@@ -45,8 +45,6 @@ import type { RouterConditionSource } from "./options";
 export type ViewId = "onboarding" | "overview" | "observability" | "api-keys" | "server" | "profile" | "networking" | "logs" | "providers" | "models" | "routing" | "virtual-models" | "extensions";
 export type NavigationId = ViewId;
 export type OnboardingStepId = "provider" | "profile" | "enter";
-export type AppLanguagePreference = "system" | "en" | "zh";
-export type ResolvedLanguage = "en" | "zh";
 export type ResolvedTheme = "light" | "dark";
 export type SettingsPageId = "general" | "appearance" | "toolhub" | "observability" | "bots" | "tray";
 export type TrayEditableModuleId = Exclude<TrayWindowModuleId, "footer">;
@@ -197,7 +195,6 @@ export type BotGatewayConfigDraft = {
   botHandoffIdleSeconds: string;
   botHandoffPhoneBluetoothTargets: string;
   botHandoffPhoneWifiTargets: string;
-  botLanguage: "auto" | "en" | "zh-CN";
   botMaxAttachmentMb: string;
   botMaxTurnMinutes: string;
   botMediaEnabled: boolean;

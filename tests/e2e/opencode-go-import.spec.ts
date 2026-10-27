@@ -4,9 +4,7 @@ import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./c
 const cliWebAuthToken = "playwright-opencode-go-token";
 
 const lockedDetail = "OpenCode Go credential was found, but no OpenCode Go models were detected. Connect OpenCode Go in OpenCode to refresh its model cache, then rescan.";
-const lockedDetailZh = "已找到 OpenCode Go 凭据，但未检测到 OpenCode Go 模型。请先在 OpenCode 中连接 OpenCode Go 并刷新模型缓存，然后重新扫描。";
 const availableDetail = "OpenCode Go login detected. Click Import to add it as a gateway provider.";
-const availableDetailZh = "已检测到 OpenCode Go 登录态。点击导入即可添加为网关供应商。";
 const genericDetail = /Cannot read local login information/;
 
 const candidates = [
@@ -65,17 +63,16 @@ test("locked OpenCode Go candidates render the actionable message instead of the
   await expect(importButtons.nth(1)).toBeEnabled();
 });
 
-test.describe("zh locale", () => {
+test.describe("zh-CN browser locale", () => {
   test.use({ locale: "zh-CN" });
 
-  test("locked OpenCode Go candidates render the translated guidance", async ({ page }) => {
+  test("the UI stays in English", async ({ page }) => {
     const current = requireRuntime();
-    await page.addInitScript(() => window.localStorage.setItem("ccr.ui.language", "zh"));
     await mockCandidates(page);
-    await openAddProviderDialog(page, current, "供应商", "添加供应商");
+    await openAddProviderDialog(page, current, "Providers", "Add provider");
 
-    await expect(page.getByText(lockedDetailZh)).toBeVisible();
-    await expect(page.getByText(availableDetailZh)).toBeVisible();
+    await expect(page.getByText(lockedDetail)).toBeVisible();
+    await expect(page.getByText(availableDetail)).toBeVisible();
     await expect(page.getByText(genericDetail)).toHaveCount(0);
   });
 });

@@ -15,7 +15,7 @@ const noop = () => {};
 
 export default function LogsViewDemo() {
   return (
-    <AppI18nContext.Provider value={appCopy.en}>
+    <AppI18nContext.Provider value={appCopy}>
       <DemoShell
         title="Request logs — inspect each request's details, status, and latency"
         contentClassName="docs-demo-content--data"
