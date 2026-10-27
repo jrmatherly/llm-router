@@ -1,7 +1,8 @@
 import { createRequire } from "node:module";
 import { EventEmitter } from "node:events";
+import { statSync } from "node:fs";
 import path from "node:path";
-import { isGatewayProviderEnabled, type AppConfig, type ProfileClientKind, type ProfileConfig, type RequestRouteTraceChange, type RouterBuiltInAgentRuleId, type RouterFallbackConfig, type RouterRule, type RouterRuleCondition } from "@ccr/core/contracts/app";
+import { ROUTER_SCRIPT_MAX_TIMEOUT_MS, isGatewayProviderEnabled, type AppConfig, type ProfileClientKind, type ProfileConfig, type RequestRouteTraceChange, type RouterBuiltInAgentRuleId, type RouterFallbackConfig, type RouterRule, type RouterRuleCondition } from "@ccr/core/contracts/app";
 import { CONFIGDIR } from "@ccr/core/config/constants";
 import { applyAgentRequestEnrichers } from "@ccr/core/agents/request-enricher";
 import { buildClaudeAppGatewayModelRoutes, type ClaudeAppGatewayModelRoute, resolveClaudeAppGatewayRouteModel, stripClaudeAppGatewayOneMillionContextSuffix } from "@ccr/core/agents/claude-app/gateway-routes";
@@ -49,6 +50,7 @@ type ResolvedConfiguredRouteDecision = ConfiguredRouteDecision & {
 };
 
 const requireFromHere = createRequire(__filename);
+const customRouterCache = new Map<string, { router?: (...args: unknown[]) => unknown; stamp: string }>();
 
 export class ClaudeCodeRouterPlugin {
   private readonly compiled: CompiledRouterConfig;
@@ -216,21 +218,40 @@ export class ClaudeCodeRouterPlugin {
     }
 
     try {
-      const resolvedRouterPath = resolveCustomRouterModule(routerPath);
-      delete requireFromHere.cache[resolvedRouterPath];
-      const loaded = requireFromHere(resolvedRouterPath) as unknown;
-      const customRouter = typeof loaded === "function" ? loaded : readDefaultFunction(loaded);
+      const customRouter = loadCustomRouter(resolveCustomRouterModule(routerPath));
       if (!customRouter) {
         request.log.warn(`Custom router does not export a function: ${routerPath}`);
         return undefined;
       }
-      const result = await customRouter(request, this.config, { event: this.event });
-      return normalizeRouteSelector(typeof result === "string" ? result : undefined);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timedOut = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`Custom router timed out after ${ROUTER_SCRIPT_MAX_TIMEOUT_MS} ms.`)), ROUTER_SCRIPT_MAX_TIMEOUT_MS);
+      });
+      try {
+        const result = await Promise.race([customRouter(request, this.config, { event: this.event }), timedOut]);
+        return normalizeRouteSelector(typeof result === "string" ? result : undefined);
+      } finally {
+        clearTimeout(timer);
+      }
     } catch (error) {
-      request.log.error(`Failed to load custom router "${routerPath}": ${formatError(error)}`);
+      request.log.error(`Custom router "${routerPath}" failed: ${formatError(error)}`);
       return undefined;
     }
   }
+}
+
+function loadCustomRouter(resolvedRouterPath: string): ((...args: unknown[]) => unknown) | undefined {
+  const { mtimeMs, size } = statSync(resolvedRouterPath);
+  const stamp = `${mtimeMs}:${size}`;
+  const cached = customRouterCache.get(resolvedRouterPath);
+  if (cached?.stamp === stamp) {
+    return cached.router;
+  }
+  delete requireFromHere.cache[resolvedRouterPath];
+  const loaded = requireFromHere(resolvedRouterPath) as unknown;
+  const router = typeof loaded === "function" ? loaded as (...args: unknown[]) => unknown : readDefaultFunction(loaded);
+  customRouterCache.set(resolvedRouterPath, { router, stamp });
+  return router;
 }
 
 function resolveCustomRouterModule(routerPath: string): string {

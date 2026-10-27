@@ -150,6 +150,42 @@ test("#1869 custom routers retain the token getter without forcing unused estima
   }
 });
 
+test("custom routers load once per file version", async () => {
+  const file = path.join(routeScriptDirectory, "load-count-router.cjs");
+  globalThis.__customRouterLoads = 0;
+  writeFileSync(file, 'globalThis.__customRouterLoads += 1; module.exports = () => "Provider/beta";');
+  const plugin = new ClaudeCodeRouterPlugin({ ...routingConfig(), CUSTOM_ROUTER_PATH: file });
+  try {
+    assert.equal((await plugin.routeRequest(routingInput({ model: "Provider/alpha" }))).decision.model, "Provider/beta");
+    await plugin.routeRequest(routingInput({ model: "Provider/alpha" }));
+    assert.equal(globalThis.__customRouterLoads, 1);
+
+    writeFileSync(file, 'globalThis.__customRouterLoads += 1; module.exports = () => "Provider/fallback";');
+    assert.equal((await plugin.routeRequest(routingInput({ model: "Provider/alpha" }))).decision.model, "Provider/fallback");
+    assert.equal(globalThis.__customRouterLoads, 2);
+  } finally {
+    delete globalThis.__customRouterLoads;
+  }
+});
+
+test("custom routers that never settle fall back to configured routing after the timeout", async (t) => {
+  const file = path.join(routeScriptDirectory, "hung-router.cjs");
+  writeFileSync(file, "module.exports = () => new Promise(() => {});");
+  const plugin = new ClaudeCodeRouterPlugin({ ...routingConfig(), CUSTOM_ROUTER_PATH: file });
+  const errors = t.mock.method(console, "error", () => {});
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let settled = false;
+  const pending = plugin.routeRequest(routingInput({ model: "Provider/alpha" }))
+    .finally(() => { settled = true; });
+  for (let turn = 0; turn < 50 && !settled; turn += 1) {
+    await new Promise(setImmediate);
+    t.mock.timers.tick(30_000);
+  }
+  assert.equal(settled, true);
+  assert.equal((await pending).decision.model, "Provider/alpha");
+  assert.match(String(errors.mock.calls[0]?.arguments[0]), /timed out/);
+});
+
 test("#1869 scripts preserve custom router token overrides and cached estimates", async (t) => {
   const runtime = new RouteScriptRuntime({ workerCount: 1, workerFile });
   const file = path.join(routeScriptDirectory, "token-override-router.cjs");

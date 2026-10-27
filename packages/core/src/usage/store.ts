@@ -114,6 +114,9 @@ type UsageSnapshot = UsageNumbers & {
 const usageEvents = new EventEmitter();
 const usageStatsRanges = new Set<UsageStatsRange>(["today", "24h", "7d", "30d"]);
 const usageStatsResetAtKey = "usage_stats_reset_at";
+// Longer than every stats range (30d) and local account window (monthly).
+const usageEventRetentionMs = 90 * 24 * 60 * 60 * 1_000;
+const requestLogBackfillBackoffMs = 60_000;
 const emptyTotals: UsageTotals = {
   avgDurationMs: 0,
   cacheRatio: 0,
@@ -132,7 +135,9 @@ export class UsageStore {
   private readonly estimateCost: typeof estimateUsageCostUsd;
   private initPromise?: Promise<SqlDatabase>;
   private readonly requestLogDbFile?: string;
+  private lastRetentionCleanupDay?: string;
   private requestLogBackfillFailureLogged = false;
+  private requestLogBackfillRetryAt = 0;
 
   constructor(private readonly dbFile: string, options: UsageStoreOptions = {}) {
     this.estimateCost = options.estimateCost ?? estimateUsageCostUsd;
@@ -174,6 +179,7 @@ export class UsageStore {
       ? estimatedCost?.source ?? ""
       : normalizeLabel(event.costSource, "gateway_billing");
 
+    this.pruneOldUsageEvents(database);
     const statement = database.prepare(`
       INSERT INTO usage_events (
         created_at,
@@ -386,7 +392,7 @@ export class UsageStore {
 
   private backfillFromRequestLogs(database: SqlDatabase, since: Date): void {
     const requestLogDbFile = this.requestLogDbFile;
-    if (!requestLogDbFile || !existsSync(requestLogDbFile)) {
+    if (!requestLogDbFile || Date.now() < this.requestLogBackfillRetryAt || !existsSync(requestLogDbFile)) {
       return;
     }
     const backfillSince = usageBackfillSinceAfterReset(database, since);
@@ -396,6 +402,8 @@ export class UsageStore {
       try {
         this.backfillFromAttachedRequestLog(database, requestLogDbFile, backfillSince);
       } catch {
+        // The copy fallback duplicates the whole request-log database, so run it at most once per backoff window.
+        this.requestLogBackfillRetryAt = Date.now() + requestLogBackfillBackoffMs;
         tempRequestLogDbFile = copySqliteDatabaseToTemp(requestLogDbFile);
         this.backfillFromAttachedRequestLog(database, tempRequestLogDbFile, backfillSince);
       }
@@ -410,6 +418,16 @@ export class UsageStore {
         cleanupSqliteTempCopy(tempRequestLogDbFile);
       }
     }
+  }
+
+  private pruneOldUsageEvents(database: SqlDatabase): void {
+    const now = new Date();
+    const dayKey = floorDay(now).toISOString();
+    if (this.lastRetentionCleanupDay === dayKey) {
+      return;
+    }
+    database.prepare("DELETE FROM usage_events WHERE created_at < ?").run(new Date(now.getTime() - usageEventRetentionMs).toISOString());
+    this.lastRetentionCleanupDay = dayKey;
   }
 
   private backfillFromAttachedRequestLog(database: SqlDatabase, requestLogDbFile: string, since: Date): void {

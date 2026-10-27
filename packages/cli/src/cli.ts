@@ -150,7 +150,6 @@ async function main(): Promise<void> {
   if (profile.agent === "claude-code" && resolvedSurface === "app" && profileOptions.agentArgs.length > 0) {
     throw new Error("Claude App profiles do not support agent arguments.");
   }
-  await applyProfileConfig(config);
   if (profile.agent === "codex" && resolvedSurface === "app" && profileOptions.agentArgs.length === 0) {
     const state = await startService({
       command: "start",
@@ -166,6 +165,7 @@ async function main(): Promise<void> {
     process.stdout.write(`${opened.message}\n`);
     return;
   }
+  await applyProfileConfig(config);
 
   const autoStartProfileGateway = shouldAutoStartProfileGateway(profile, resolvedSurface);
   let profileGatewayLease = autoStartProfileGateway ? acquireManagedProfileGatewayLease() : undefined;

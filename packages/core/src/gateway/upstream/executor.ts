@@ -354,6 +354,11 @@ export async function fetchUpstreamWithFallback(input: {
     target: attempts[0]?.model ? { model: attempts[0].model } : undefined
   });
 
+  // Retry mode shares one budget so a large retryCount cannot hold a request open indefinitely;
+  // a model chain is already bounded by its model list.
+  const retryDeadline = planningRouting.fallback.mode === "retry"
+    ? Date.now() + (Number(input.config.API_TIMEOUT_MS) || 600_000)
+    : Number.POSITIVE_INFINITY;
   for (let index = 0; index < attempts.length; index += 1) {
     if (input.signal?.aborted) {
       throw new UpstreamRequestError(abortSignalMessage(input.signal), {
@@ -435,7 +440,7 @@ export async function fetchUpstreamWithFallback(input: {
       }
       attempt.headers = headers;
     }
-    const hasNextAttempt = index < attempts.length - 1;
+    const hasNextAttempt = index < attempts.length - 1 && Date.now() < retryDeadline;
     const attemptUrl = rewriteRouteModelInUrl(input.upstreamUrl, attempt.model);
     const upstreamHeaders = {
       ...withCoreGatewayAuthHeader(
@@ -528,7 +533,7 @@ export async function fetchUpstreamWithFallback(input: {
         // waiting for upstream cleanup before trying the next provider.
         void cancelResponseBody(response);
         if (delayMs > 0) {
-          await delay(delayMs, input.signal);
+          await delay(Math.min(delayMs, retryDeadline - Date.now()), input.signal);
         }
         continue;
       }
@@ -594,7 +599,7 @@ export async function fetchUpstreamWithFallback(input: {
       }
       if (hasNextAttempt) {
         if (delayMs > 0) {
-          await delay(delayMs, input.signal);
+          await delay(Math.min(delayMs, retryDeadline - Date.now()), input.signal);
         }
         continue;
       }
