@@ -35,14 +35,15 @@ type ModelPrice = {
   source: UsagePricingSource;
 };
 
-type PriceCatalog = {
-  index: PriceIndex;
-  loadedAt: number;
+type SourcePrices = {
+  expiresAt: number;
+  prices: Map<string, ModelPrice>;
 };
 
-type PriceIndex = Map<ModelPricingSource, Map<string, ModelPrice>>;
+type PriceCatalog = Map<ModelPricingSource, SourcePrices>;
 
 const catalogTtlMs = 24 * 60 * 60 * 1000;
+const failedSourceRetryMs = 5 * 60 * 1000;
 const fetchTimeoutMs = 5000;
 const liteLlmPricesUrl = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
 const modelsDevPricesUrl = "https://models.dev/api.json";
@@ -65,8 +66,7 @@ export async function estimateUsageCostUsd(input: UsageCostInput): Promise<Usage
     return customEstimate;
   }
 
-  const prices = await getPriceCatalog();
-  return estimateUsageCostFromIndex(input, prices.index, model);
+  return estimateUsageCostFromCatalog(input, await getPriceCatalog(), model);
 }
 
 /**
@@ -82,10 +82,11 @@ export async function preloadUsagePriceCatalog(options: { forceRefresh?: boolean
 }
 
 export function usagePriceCatalogNeedsRefresh(): boolean {
-  return !catalog || Date.now() - catalog.loadedAt >= catalogTtlMs;
+  const now = Date.now();
+  return !catalog || Array.from(catalog.values()).some((source) => now >= source.expiresAt);
 }
 
-/** Never performs I/O. Returns undefined when no fresh catalog is loaded. */
+/** Never performs I/O. Uses the loaded catalog even when a source is due for a refresh. */
 export function estimateUsageCostUsdFromLoadedCatalog(
   input: UsageCostInput
 ): UsageCostEstimate | undefined {
@@ -100,10 +101,7 @@ export function estimateUsageCostUsdFromLoadedCatalog(
   if (customEstimate) {
     return customEstimate;
   }
-  if (usagePriceCatalogNeedsRefresh() || !catalog) {
-    return undefined;
-  }
-  return estimateUsageCostFromIndex(input, catalog.index, model);
+  return catalog ? estimateUsageCostFromCatalog(input, catalog, model) : undefined;
 }
 
 export function providerModelPricingForUsage(
@@ -170,12 +168,12 @@ function estimateUsageCostFromCustomPricing(
   return estimateUsageCostFromPrice(input, price);
 }
 
-function estimateUsageCostFromIndex(
+function estimateUsageCostFromCatalog(
   input: UsageCostInput,
-  index: PriceIndex,
+  prices: PriceCatalog,
   model: string
 ): UsageCostEstimate | undefined {
-  const price = findModelPrice(index, model, input.provider);
+  const price = findModelPrice(prices, model, input.provider);
   if (!price) {
     return undefined;
   }
@@ -223,11 +221,11 @@ function hasBillableUsage(input: UsageCostInput): boolean {
 }
 
 async function getPriceCatalog(): Promise<PriceCatalog> {
-  if (catalog && Date.now() - catalog.loadedAt < catalogTtlMs) {
+  if (catalog && !usagePriceCatalogNeedsRefresh()) {
     return catalog;
   }
 
-  catalogPromise ??= loadPriceCatalog();
+  catalogPromise ??= loadPriceCatalog(catalog);
   try {
     catalog = await catalogPromise;
     return catalog;
@@ -236,17 +234,30 @@ async function getPriceCatalog(): Promise<PriceCatalog> {
   }
 }
 
-async function loadPriceCatalog(): Promise<PriceCatalog> {
-  const results = await Promise.allSettled([
-    fetchLiteLlmPrices(),
-    fetchModelsDevPrices(),
-    fetchOpenRouterPrices()
-  ]);
-  const prices = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
-  return {
-    index: buildPriceIndex(prices),
-    loadedAt: Date.now()
-  };
+const priceSources: Record<ModelPricingSource, () => Promise<ModelPrice[]>> = {
+  litellm: fetchLiteLlmPrices,
+  "models.dev": fetchModelsDevPrices,
+  openrouter: fetchOpenRouterPrices
+};
+
+// Refetches only the sources that expired. A source that fails or returns no
+// prices keeps its previous prices and is retried after failedSourceRetryMs.
+async function loadPriceCatalog(previous: PriceCatalog | undefined): Promise<PriceCatalog> {
+  const now = Date.now();
+  const next: PriceCatalog = new Map();
+  await Promise.all(Object.entries(priceSources).map(async ([name, fetchPrices]) => {
+    const source = name as ModelPricingSource;
+    const cached = previous?.get(source);
+    if (cached && now < cached.expiresAt) {
+      next.set(source, cached);
+      return;
+    }
+    const prices = await fetchPrices().catch((): ModelPrice[] => []);
+    next.set(source, prices.length > 0
+      ? { expiresAt: now + catalogTtlMs, prices: indexPrices(prices) }
+      : { expiresAt: now + failedSourceRetryMs, prices: cached?.prices ?? new Map() });
+  }));
+  return next;
 }
 
 async function fetchLiteLlmPrices(): Promise<ModelPrice[]> {
@@ -413,7 +424,7 @@ function priceFromTokenCosts(input: {
   };
 }
 
-function findModelPrice(index: PriceIndex, model: string, provider: string | undefined): ModelPrice | undefined {
+function findModelPrice(prices: PriceCatalog, model: string, provider: string | undefined): ModelPrice | undefined {
   const candidateKeys = modelCandidateKeys(model, provider);
   const providerIsOpenRouter = normalizeKey(provider).includes("openrouter");
   const sourcePriority: ModelPricingSource[] = providerIsOpenRouter
@@ -421,7 +432,7 @@ function findModelPrice(index: PriceIndex, model: string, provider: string | und
     : ["models.dev", "litellm", "openrouter"];
 
   for (const source of sourcePriority) {
-    const sourceIndex = index.get(source);
+    const sourceIndex = prices.get(source)?.prices;
     if (!sourceIndex) continue;
     for (const key of candidateKeys) {
       const price = sourceIndex.get(key);
@@ -433,17 +444,11 @@ function findModelPrice(index: PriceIndex, model: string, provider: string | und
   return undefined;
 }
 
-function buildPriceIndex(prices: ModelPrice[]): PriceIndex {
-  const index: PriceIndex = new Map();
+function indexPrices(prices: ModelPrice[]): Map<string, ModelPrice> {
+  const index = new Map<string, ModelPrice>();
   for (const price of prices) {
-    if (price.source === "custom") continue;
-    let sourceIndex = index.get(price.source);
-    if (!sourceIndex) {
-      sourceIndex = new Map();
-      index.set(price.source, sourceIndex);
-    }
     for (const key of priceIndexKeys(price)) {
-      if (!sourceIndex.has(key)) sourceIndex.set(key, price);
+      if (!index.has(key)) index.set(key, price);
     }
   }
   return index;

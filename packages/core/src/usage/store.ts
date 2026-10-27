@@ -5,7 +5,14 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { decodeClaudeAppGatewayRouteId } from "@ccr/core/agents/claude-app/gateway-routes";
 import { REQUEST_LOGS_DB_FILE, USAGE_DB_FILE } from "@ccr/core/config/constants";
-import { estimateUsageCostUsd, providerModelPricingForUsage } from "@ccr/core/models/pricing-service";
+import {
+  estimateUsageCostUsdFromLoadedCatalog,
+  preloadUsagePriceCatalog,
+  providerModelPricingForUsage,
+  usagePriceCatalogNeedsRefresh,
+  type UsageCostEstimate,
+  type UsageCostInput
+} from "@ccr/core/models/pricing-service";
 import { createBetterSqliteDatabase, type BetterSqliteDatabase } from "@ccr/core/storage/sqlite-native";
 import { normalizeUsageInputTokens } from "@ccr/core/usage/normalization";
 import { isKnownProviderSelector, resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
@@ -75,8 +82,14 @@ type UsageStatsQueryOptions = {
   includeProxy?: boolean;
 };
 
+type UsageCostEstimator = (
+  input: UsageCostInput
+) => UsageCostEstimate | undefined | Promise<UsageCostEstimate | undefined>;
+
 type UsageStoreOptions = {
-  estimateCost?: typeof estimateUsageCostUsd;
+  estimateCost?: UsageCostEstimator;
+  loadPriceCatalog?: () => Promise<void>;
+  priceCatalogNeedsRefresh?: () => boolean;
   requestLogDbFile?: string;
 };
 
@@ -114,6 +127,9 @@ type UsageSnapshot = UsageNumbers & {
 const usageEvents = new EventEmitter();
 const usageStatsRanges = new Set<UsageStatsRange>(["today", "24h", "7d", "30d"]);
 const usageStatsResetAtKey = "usage_stats_reset_at";
+// Bounds the sweep so rows for models no catalog prices are not rescanned forever.
+const unpricedUsageSweepWindowMs = 7 * 24 * 60 * 60 * 1000;
+const unpricedUsageSweepPageSize = 500;
 // Longer than every stats range (30d) and local account window (monthly).
 const usageEventRetentionMs = 90 * 24 * 60 * 60 * 1_000;
 const requestLogBackfillBackoffMs = 60_000;
@@ -132,15 +148,21 @@ const emptyTotals: UsageTotals = {
 
 export class UsageStore {
   private database?: SqlDatabase;
-  private readonly estimateCost: typeof estimateUsageCostUsd;
+  private readonly estimateCost: UsageCostEstimator;
   private initPromise?: Promise<SqlDatabase>;
+  private readonly loadPriceCatalog: () => Promise<void>;
+  private readonly priceCatalogNeedsRefresh: () => boolean;
+  private pricingSweep?: Promise<void>;
+  private pricingSweepQueued = false;
   private readonly requestLogDbFile?: string;
   private lastRetentionCleanupDay?: string;
   private requestLogBackfillFailureLogged = false;
   private requestLogBackfillRetryAt = 0;
 
   constructor(private readonly dbFile: string, options: UsageStoreOptions = {}) {
-    this.estimateCost = options.estimateCost ?? estimateUsageCostUsd;
+    this.estimateCost = options.estimateCost ?? estimateUsageCostUsdFromLoadedCatalog;
+    this.loadPriceCatalog = options.loadPriceCatalog ?? preloadUsagePriceCatalog;
+    this.priceCatalogNeedsRefresh = options.priceCatalogNeedsRefresh ?? usagePriceCatalogNeedsRefresh;
     this.requestLogDbFile = options.requestLogDbFile;
   }
 
@@ -161,6 +183,8 @@ export class UsageStore {
     const logicalModel = normalizeLabel(event.logicalModel ?? event.model, model);
     const credentialId = normalizeLabel(event.credentialId, "");
     const explicitCost = normalizeOptionalCost(event.costUsd);
+    // Read before estimating: a catalog that lands in between must still sweep this row.
+    const catalogNeedsRefresh = this.priceCatalogNeedsRefresh();
     const estimatedCost = explicitCost === undefined
       ? await this.estimateCost({
           cacheReadTokens,
@@ -224,6 +248,73 @@ export class UsageStore {
       costSource
     );
     usageEvents.emit("recorded");
+    if (costUsd === undefined && totalTokens > 0 && model !== "unknown" && catalogNeedsRefresh) {
+      this.priceUnpricedEventsAfterCatalogLoads(database);
+    }
+  }
+
+  // The remote price catalog can take seconds to load, so recording never
+  // waits for it. A sweep after each load prices every recent row still missing
+  // a cost, including rows left by an earlier run or a partial catalog.
+  private priceUnpricedEventsAfterCatalogLoads(database: SqlDatabase): void {
+    if (this.pricingSweep) {
+      this.pricingSweepQueued = true;
+      return;
+    }
+    this.pricingSweep = this.loadPriceCatalog()
+      .then(() => this.priceUnpricedEvents(database))
+      .catch((error) => {
+        console.warn(`[usage] Failed to price usage events: ${formatError(error)}`);
+      })
+      .finally(() => {
+        this.pricingSweep = undefined;
+        if (this.pricingSweepQueued) {
+          this.pricingSweepQueued = false;
+          this.priceUnpricedEventsAfterCatalogLoads(database);
+        }
+      });
+  }
+
+  private async priceUnpricedEvents(database: SqlDatabase): Promise<void> {
+    const since = new Date(Date.now() - unpricedUsageSweepWindowMs).toISOString();
+    const update = database.prepare("UPDATE usage_events SET cost_usd = ?, cost_source = ? WHERE id = ? AND cost_usd IS NULL");
+    let beforeId = Number.MAX_SAFE_INTEGER;
+    let updated = 0;
+    for (;;) {
+      const rows = queryRows(
+        database,
+        `
+          SELECT id, cache_read_tokens, cache_write_tokens, input_tokens, model, output_tokens, provider
+          FROM usage_events
+          WHERE id < ?
+            AND created_at >= ?
+            AND cost_usd IS NULL
+            AND (cache_read_tokens + cache_write_tokens + input_tokens + output_tokens) > 0
+          ORDER BY id DESC
+          LIMIT ?
+        `,
+        [beforeId, since, unpricedUsageSweepPageSize]
+      );
+      const costs: Array<[number, UsageCostEstimate]> = [];
+      for (const row of rows) {
+        const cost = await this.estimateCost({
+          cacheReadTokens: normalizeCount(row.cache_read_tokens),
+          cacheWriteTokens: normalizeCount(row.cache_write_tokens),
+          inputTokens: normalizeCount(row.input_tokens),
+          model: String(row.model ?? ""),
+          outputTokens: normalizeCount(row.output_tokens),
+          provider: String(row.provider ?? "")
+        });
+        if (cost) costs.push([normalizeCount(row.id), cost]);
+      }
+      database.transaction(() => {
+        for (const [id, cost] of costs) updated += Number(update.run(cost.amountUsd, cost.source, id).changes);
+      })();
+      if (rows.length < unpricedUsageSweepPageSize) break;
+      beforeId = normalizeCount(rows[rows.length - 1]?.id);
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    if (updated > 0) usageEvents.emit("recorded");
   }
 
   async recordCapture(input: UsageCaptureInput): Promise<void> {

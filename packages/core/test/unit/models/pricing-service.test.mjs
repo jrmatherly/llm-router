@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { mock } from "node:test";
 import {
   estimateUsageCostUsd,
   estimateUsageCostUsdFromLoadedCatalog,
+  preloadUsagePriceCatalog,
   providerModelPricingForUsage
 } from "@ccr/core/models/pricing-service.ts";
 
@@ -98,4 +99,45 @@ test("provider model pricing lookup is case-insensitive and accepts a full selec
   );
   assert.equal(providerModelPricingForUsage(config, "custom", "my-alias"), undefined);
   assert.equal(providerModelPricingForUsage(config, "other", "custom-model"), undefined);
+});
+
+test("a price source that failed is fetched again well before the 24h catalog TTL", async () => {
+  const originalFetch = globalThis.fetch;
+  let modelsDevUp = false;
+  const fetched = [];
+  globalThis.fetch = async (url) => {
+    fetched.push(String(url));
+    if (String(url).includes("litellm")) {
+      return Response.json({ "litellm-model": { input_cost_per_token: 0.000001, output_cost_per_token: 0.000002 } });
+    }
+    if (String(url).includes("models.dev")) {
+      if (!modelsDevUp) throw new Error("models.dev unreachable");
+      return Response.json({
+        anthropic: { models: { "retry-model": { cost: { input: 2, output: 8 }, id: "retry-model" } } }
+      });
+    }
+    return Response.json({ data: [] });
+  };
+  mock.timers.enable({ apis: ["Date"], now: Date.now() });
+  const usage = { inputTokens: 1_000_000, model: "retry-model", outputTokens: 0, provider: "anthropic" };
+  try {
+    await preloadUsagePriceCatalog({ forceRefresh: true });
+    assert.equal(estimateUsageCostUsdFromLoadedCatalog(usage), undefined);
+
+    modelsDevUp = true;
+    mock.timers.tick(5 * 60 * 1000);
+    await preloadUsagePriceCatalog();
+    assert.deepEqual(estimateUsageCostUsdFromLoadedCatalog(usage), {
+      amountUsd: 2,
+      model: "retry-model",
+      source: "models.dev"
+    });
+    assert.equal(fetched.filter((url) => url.includes("litellm")).length, 1, "a healthy source is not refetched");
+
+    mock.timers.tick(60 * 60 * 1000);
+    assert.ok(estimateUsageCostUsdFromLoadedCatalog(usage), "a complete catalog keeps the full TTL");
+  } finally {
+    mock.timers.reset();
+    globalThis.fetch = originalFetch;
+  }
 });
