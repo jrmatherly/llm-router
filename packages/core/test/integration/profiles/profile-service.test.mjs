@@ -2887,3 +2887,34 @@ test("a global Workbuddy profile deletes the models.json it created", () => {
     rmSync(root, { force: true, recursive: true });
   }
 });
+
+for (const [label, makeProfile, relativeFile, managedContent] of [
+  ["Pi", (dir) => globalPiProfile(dir), "models.json", `${JSON.stringify({ providers: { "claude-code-router": { models: [] } } })}\n`],
+  ["Workbuddy", (dir) => globalWorkbuddyProfile(dir), "models.json", `${JSON.stringify({ models: [{ apiKey: "${CCR_PROFILE_API_KEY}", id: "gpt-5-codex" }] })}\n`]
+]) {
+  test(`a global ${label} release warns but succeeds when an upgraded models.json has no backup`, () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "ccr-models-no-backup-"));
+    try {
+      const dir = path.join(root, "home");
+      const file = path.join(dir, relativeFile);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(file, managedContent);
+      const profile = makeProfile(dir);
+
+      const exitStatuses = restoreGlobalProfileConfigsOnExit([profile], { manageMarker: false });
+      assert.equal(exitStatuses.length, 1);
+      assert.equal(exitStatuses[0].ok, true);
+      assert.match(exitStatuses[0].message, /backup was found/);
+
+      const inactiveStatuses = restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }])
+        .filter((status) => status.path === file);
+      assert.equal(inactiveStatuses.length, 1);
+      assert.equal(inactiveStatuses[0].ok, true);
+      assert.match(inactiveStatuses[0].message, /backup was found/);
+
+      assert.equal(readFileSync(file, "utf8"), managedContent);
+    } finally {
+      rmSync(root, { force: true, recursive: true });
+    }
+  });
+}

@@ -2000,12 +2000,16 @@ function disabledPiStatus(profile: ProfileConfig): ProfileClientApplyStatus {
     return disabledStatus("pi", piWrapperPath(profile), "Pi profile is disabled.");
   }
   const providerId = piProviderId(profile);
-  return restoreDisabledGlobalProfile(
-    profile,
-    piModelsFile(profile),
-    "Pi profile is disabled.",
-    { isManagedContent: (content) => isManagedPiModelsContent(content, providerId) }
-  );
+  // An install from before backups existed has no snapshot; failing would pin the takeover marker forever.
+  return {
+    ...restoreDisabledGlobalProfile(
+      profile,
+      piModelsFile(profile),
+      "Pi profile is disabled.",
+      { isManagedContent: (content) => isManagedPiModelsContent(content, providerId) }
+    ),
+    ok: true
+  };
 }
 
 function piWrapperPath(profile: ProfileConfig): string {
@@ -3585,8 +3589,9 @@ function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus
     return status;
   }
   const modelsResult = restoreGlobalConfigFile(workbuddyModelsFile(configFile), { isManagedContent: isManagedWorkbuddyModelsContent });
+  // An install from before backups existed has no snapshot; warn instead of pinning the takeover marker.
   return modelsResult.missingBackup
-    ? { ...status, message: `${status.message} No original ${clientName} models.json backup was found.`, ok: false }
+    ? { ...status, message: `${status.message} No original ${clientName} models.json backup was found.` }
     : status;
 }
 
@@ -3654,7 +3659,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
       const modelsFile = workbuddyModelsFile(file);
       const modelsResult = restoreGlobalConfigFile(modelsFile, { isManagedContent: isManagedWorkbuddyModelsContent });
       if (modelsResult.changed || modelsResult.missingBackup) {
-        statuses.push(inactiveGlobalCleanupStatus("workbuddy", modelsFile, modelsResult));
+        statuses.push({ ...inactiveGlobalCleanupStatus("workbuddy", modelsFile, modelsResult), ok: true });
       }
     }
   }
@@ -3699,7 +3704,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
         mode: privateFileMode
       });
       if (restoreResult.changed || restoreResult.missingBackup) {
-        statuses.push(inactiveGlobalCleanupStatus("pi", file, restoreResult));
+        statuses.push({ ...inactiveGlobalCleanupStatus("pi", file, restoreResult), ok: true });
       }
     }
   }
