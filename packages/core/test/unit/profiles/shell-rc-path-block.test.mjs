@@ -29,3 +29,11 @@ test("a fish config with the Claude Code Router PATH block ends up with one LLM 
   assert.doesNotMatch(text, /claude-code-router/);
   assert.match(text, /^set -g A 1$/m);
 });
+
+test("an rc file that already adds the LLM Router bin dir loses the Claude Code Router PATH block instead of gaining a new one", async () => {
+  const { ensureShellRcPathBlock } = await import("@ccr/core/profiles/launch-service.ts");
+  const rc = path.join(mkdtempSync(path.join(os.tmpdir(), "ccr-rc-")), ".zshrc");
+  writeFileSync(rc, "# zsh/path.zsh adds $HOME/.llm-router/bin\nexport A=1\n# >>> Claude Code Router CLI >>>\nexport PATH=\"old:$PATH\"\n# <<< Claude Code Router CLI <<<\n");
+  ensureShellRcPathBlock(rc, "/opt/llm-router/bin");
+  assert.equal(readFileSync(rc, "utf8"), "# zsh/path.zsh adds $HOME/.llm-router/bin\nexport A=1\n");
+});

@@ -2003,13 +2003,18 @@ function normalizeWindowsPathSegment(value: string): string {
 }
 
 export function ensureShellRcPathBlock(rcFile: string, binDir: string): void {
-  mkdirSync(path.dirname(rcFile), { recursive: true });
-  const source = existsSync(rcFile) ? readFileSync(rcFile, "utf8") : "";
-  const block = shellRcPathBlock();
+  ensurePathBlock(rcFile, binDir, shellRcPathBlock());
+}
+
+function ensurePathBlock(file: string, binDir: string, block: string): void {
+  mkdirSync(path.dirname(file), { recursive: true });
+  const source = existsSync(file) ? readFileSync(file, "utf8") : "";
   const managedPattern = managedPathBlockPattern();
   if (managedPattern.test(source)) {
-    const next = ensureTrailingNewline(source.replace(managedPattern, `\n${block}\n`)).replace(/^\n+/, "");
-    writeFileIfChanged(rcFile, next);
+    const withoutBlock = source.replace(managedPattern, "\n");
+    // The rest of the file (often a dotfiles repo) already adds the bin dir, so the managed block is redundant.
+    const next = shellRcAlreadyAddsCcrBin(withoutBlock, binDir) ? withoutBlock : source.replace(managedPattern, `\n${block}\n`);
+    writeFileIfChanged(file, ensureTrailingNewline(next).replace(/^\n+/, ""));
     return;
   }
   if (shellRcAlreadyAddsCcrBin(source, binDir)) {
@@ -2017,7 +2022,7 @@ export function ensureShellRcPathBlock(rcFile: string, binDir: string): void {
   }
 
   const separator = source.trim() ? (source.endsWith("\n") ? "\n" : "\n\n") : "";
-  writeFileIfChanged(rcFile, `${source}${separator}${block}\n`);
+  writeFileIfChanged(file, `${source}${separator}${block}\n`);
 }
 
 function shellRcPathBlock(): string {
@@ -2034,21 +2039,7 @@ function shellRcPathBlock(): string {
 }
 
 export function ensureFishPathBlock(file: string, binDir: string): void {
-  mkdirSync(path.dirname(file), { recursive: true });
-  const source = existsSync(file) ? readFileSync(file, "utf8") : "";
-  const block = fishPathBlock();
-  const managedPattern = managedPathBlockPattern();
-  if (managedPattern.test(source)) {
-    const next = ensureTrailingNewline(source.replace(managedPattern, `\n${block}\n`)).replace(/^\n+/, "");
-    writeFileIfChanged(file, next);
-    return;
-  }
-  if (shellRcAlreadyAddsCcrBin(source, binDir)) {
-    return;
-  }
-
-  const separator = source.trim() ? (source.endsWith("\n") ? "\n" : "\n\n") : "";
-  writeFileIfChanged(file, `${source}${separator}${block}\n`);
+  ensurePathBlock(file, binDir, fishPathBlock());
 }
 
 function managedPathBlockPattern(): RegExp {
