@@ -16,6 +16,8 @@ CCR_WEB_AUTH_TOKEN_GENERATED=0
 if [ -z "${CCR_WEB_AUTH_TOKEN:-}" ]; then
   CCR_WEB_AUTH_TOKEN="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
   CCR_WEB_AUTH_TOKEN_GENERATED=1
+elif [ "${#CCR_WEB_AUTH_TOKEN}" -lt 32 ]; then
+  echo "Warning: CCR_WEB_AUTH_TOKEN is shorter than 32 characters; use a long random value before exposing the port beyond loopback." >&2
 fi
 CCR_WEB_AUTH_TOKEN_QUERY="$(node -e "process.stdout.write(encodeURIComponent(process.argv[1] || ''))" "${CCR_WEB_AUTH_TOKEN}")"
 

@@ -39,11 +39,11 @@ Open the management URL that the entrypoint prints in the container log, `http:/
 
 The npm Compose script prepares a local `../../next-ai/gateway` checkout before building so the image uses that plugin-capable ai-gateway runtime. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
-The repository Compose file publishes `3458:8080`, stores data in the `ccr-data` named volume, and restarts the service unless explicitly stopped. A mapping without a host IP binds on every host interface. For local-only access, change it to:
+The repository Compose file publishes `127.0.0.1:3458:8080`, stores data in the `ccr-data` named volume, and restarts the service unless explicitly stopped. Only this machine can reach it. Nginx forwards every request to the management server as a loopback request, so the published port is the only network boundary in front of management RPC besides `CCR_WEB_AUTH_TOKEN`. To expose it on a LAN deliberately, set a stable strong `CCR_WEB_AUTH_TOKEN` (32 characters or more) and `CCR_PUBLIC_BASE_URL`, then publish on a specific host address, or on every interface:
 
 ```yaml
 ports:
-  - "127.0.0.1:3458:8080"
+  - "3458:8080"
 ```
 
 Stop or remove the container without deleting its named volume:
@@ -207,7 +207,7 @@ Changing internal ports requires corresponding Nginx/PM2 variables and offers no
 
 ## Build Options And Smoke Test
 
-The Dockerfile builds native dependencies with `node:24-bookworm`, then copies production dependencies and built assets into `node:24-bookworm-slim`. Override the base images when required:
+The Dockerfile builds and runs on `node:24-bookworm-slim`, pinned by digest. Update the digest when Node publishes a fix (`docker buildx imagetools inspect node:24-bookworm-slim`). Override the base images when required:
 
 ```sh
 docker build \

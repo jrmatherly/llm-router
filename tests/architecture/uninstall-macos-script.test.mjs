@@ -180,6 +180,43 @@ test("a running app or an agent config still pointing at the gateway blocks the 
   assert.match(plan.blockers[1], /\.claude\/settings\.json still points at LLM Router/);
 });
 
+test("global profiles of OpenCode, Kilo, Pi, ZCode and Workbuddy leave only their LLMR files to remove", (t) => {
+  const { applications, home } = scratch(t);
+  const llmrFiles = [
+    ".codex/.llm-router/codex-app-user-data/default/ccr-codex-model-catalog.json",
+    ".config/kilo/kilo.jsonc.ccr-original",
+    ".config/opencode/opencode.jsonc.ccr-backup-2026-10-26T05-16-29-585Z",
+    ".config/opencode/opencode.jsonc.ccr-original-missing",
+    ".pi/agent/models.json.ccr-original",
+    ".workbuddy/.llm-router/workbuddy-app-user-data/default/ccr-workbuddy-model-catalog.json",
+    ".workbuddy/models.json.ccr-backup-2026-10-26T05-16-29-585Z",
+    ".zcode/cli/config.json.ccr-original",
+    ".zcode/v2/config.json.ccr-original-missing"
+  ];
+  const userFiles = [".config/kilo/kilo.jsonc", ".config/opencode/opencode.jsonc", ".pi/agent/models.json", ".pi/agent/sessions/s.jsonl", ".workbuddy/config.toml", ".zcode/cli/config.json", ".zcode/v2/config.json"];
+  for (const file of [...llmrFiles, ...userFiles]) {
+    mkdirSync(path.dirname(path.join(home, file)), { recursive: true });
+    writeFileSync(path.join(home, file), "{}");
+  }
+  const plan = planUninstall({ applications, home, system: fakeSystem().system });
+  assert.deepEqual(plan.blockers, []);
+  for (const step of plan.steps) step.run();
+
+  for (const gone of llmrFiles) assert.equal(existsSync(path.join(home, gone)), false, gone);
+  for (const kept of userFiles) assert.ok(existsSync(path.join(home, kept)), kept);
+});
+
+test("an OpenCode, Kilo, Pi, ZCode or Workbuddy config still pointing at the gateway blocks the uninstall", (t) => {
+  const { applications, home } = scratch(t);
+  const configs = [".config/kilo/kilo.jsonc", ".config/opencode/opencode.json", ".pi/agent/models.json", ".workbuddy/config.toml", ".zcode/v2/config.json"];
+  for (const file of configs) {
+    mkdirSync(path.dirname(path.join(home, file)), { recursive: true });
+    writeFileSync(path.join(home, file), JSON.stringify({ baseURL: "http://127.0.0.1:3456/v1" }));
+  }
+  const { blockers } = planUninstall({ applications, home, system: fakeSystem().system });
+  assert.deepEqual(blockers.map((blocker) => /^~\/(\S+) still points/.exec(blocker)?.[1]), configs);
+});
+
 test("a settings file that merely mentions the repo path does not block", (t) => {
   const { applications, home } = scratch(t);
   writeFileSync(path.join(home, ".claude/settings.json"), JSON.stringify({ permissions: { allow: ["Read(/Users/me/dev/llm-router/**)"] } }));

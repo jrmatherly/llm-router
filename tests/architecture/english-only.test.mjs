@@ -34,3 +34,7 @@ test("source files spell no Chinese as unicode escapes", () => {
     .map(({ file }) => file);
   assert.deepEqual(offenders, []);
 });
+
+test("the desktop app ships the English Electron locale only", () => {
+  assert.deepEqual(JSON.parse(readFileSync("electron-builder.json", "utf8")).electronLanguages, ["en-US"]);
+});

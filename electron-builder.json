@@ -6,7 +6,7 @@
     "**/*.node",
     "dist/bundled-plugins/**"
   ],
-  "electronLanguages": ["en-US", "zh-CN", "zh-TW", "zh_CN", "zh_TW"],
+  "electronLanguages": ["en-US"],
   "npmRebuild": true,
   "publish": [
     {

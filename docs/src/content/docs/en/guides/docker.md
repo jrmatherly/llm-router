@@ -226,7 +226,7 @@ Changing internal ports requires keeping the PM2 and Nginx variables consistent,
 
 ## Build and smoke test
 
-By default, native dependencies are built on `node:24-bookworm`, then production dependencies and build output are copied into `node:24-bookworm-slim`. To swap the base images:
+By default the image builds and runs on `node:24-bookworm-slim`, pinned by digest. To swap the base images:
 
 ```sh
 docker build \
