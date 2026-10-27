@@ -10,7 +10,7 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "if": "Bash(git *)", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/gate-commit.mjs"], "onFailure": "block", "timeout": 120 }
+          { "type": "command", "if": "Bash(*git *)", "command": "node", "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/gate-commit.mjs"], "onFailure": "block", "timeout": 120 }
         ]
       },
       {
