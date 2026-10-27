@@ -704,6 +704,7 @@ class ProxyService {
   }
 
   private async handleProxyRequest(request: IncomingMessage, response: ServerResponse, defaultProtocol: "http:" | "https:"): Promise<void> {
+    // MITM'd HTTPS arrives from 127.0.0.1 via the internal bridge, so this check cannot protect it; the CONNECT guard in handleConnect does and must stay.
     if (!isLoopbackAddress(request.socket.remoteAddress)) {
       sendProxyError(response, 403, "The proxy serves loopback clients only.");
       return;

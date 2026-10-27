@@ -331,8 +331,8 @@ export function readRequestBody(request: IncomingMessage, maxBytes = 16 * 1024 *
         request.off("data", onData);
         chunks.length = 0;
         request.resume();
-        const cutoff = setTimeout(() => request.destroy(), oversizedBodyDrainMs);
-        request.once("end", () => clearTimeout(cutoff));
+        const cutoff = setTimeout(() => request.destroy(), oversizedBodyDrainMs).unref();
+        request.once("close", () => clearTimeout(cutoff));
         reject(new RequestBodyTooLargeError(maxBytes));
         return;
       }

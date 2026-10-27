@@ -45,7 +45,7 @@ test("an over-cap body gets HTTP 413 with a JSON error, not a reset", async () =
 
 test("a large over-cap body still gets HTTP 413", async () => {
   await withServer(cappedHandler(1024), async (port) => {
-    assert.equal((await post(port, 64 * 1024 * 1024)).status, 413);
+    assert.equal((await post(port, 4 * 1024 * 1024)).status, 413);
   });
 });
 

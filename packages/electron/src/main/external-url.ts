@@ -11,6 +11,6 @@ export function openHttpExternal(url: string, open: (url: string) => Promise<voi
   if (!isHttpUrl(url)) {
     return false;
   }
-  open(url).catch(() => undefined);
+  open(url).catch((error) => console.warn("[external-url]", error));
   return true;
 }
