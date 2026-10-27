@@ -16,3 +16,11 @@ blob-report
 docs/node_modules
 docs/dist
 docs/.astro
+.test-dist
+.codegraph
+.serena
+.remember
+.superpowers
+private
+.claude
+docker/claude-apps-gateway/*.rendered.yaml
