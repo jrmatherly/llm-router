@@ -1,9 +1,9 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { isGatewayProviderEnabled, type AppConfig, type ProfileConfig } from "@ccr/core/contracts/app";
 import { normalizeRouteSelector } from "@ccr/core/gateway/claude-code-router-plugin";
 import { buildZcodeModelCatalog } from "@ccr/core/agents/zcode/model-catalog";
-import { backupFilePath, ensureOriginalSnapshot, pruneBackups, writeFileAtomic } from "@ccr/core/profiles/backup-files";
+import { backupBeforeWrite, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
 import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
 
@@ -246,14 +246,7 @@ function writeJsonFile(
   if (previous === content) {
     return { changed: false, file };
   }
-  if (options.backup !== false) {
-    ensureOriginalSnapshot(file, previous, undefined);
-  }
-  const backupFile = options.backup === false || previous === undefined ? undefined : backupFilePath(file);
-  if (backupFile) {
-    copyFileSync(file, backupFile);
-    pruneBackups(file, undefined, options.isManagedContent);
-  }
+  const backupFile = options.backup === false ? undefined : backupBeforeWrite(file, previous, { isManagedContent: options.isManagedContent });
   writeFileAtomic(file, content);
   return { backupFile, changed: true, file };
 }

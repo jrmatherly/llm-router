@@ -4,7 +4,7 @@ import path from "node:path";
 
 export const originalBackupSuffix = ".ccr-original";
 export const originalMissingSuffix = ".ccr-original-missing";
-const backupMarker = ".ccr-backup-";
+export const backupMarker = ".ccr-backup-";
 
 export function backupFilePath(file: string): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -27,20 +27,23 @@ export function backupFiles(file: string): string[] {
 // The newest unmanaged backup is the one restore prefers, so it survives pruning however old it is.
 export function pruneBackups(file: string, keep = 5, isManagedContent?: (content: string) => boolean): void {
   const backups = backupFiles(file);
+  if (backups.length <= keep) {
+    return;
+  }
   const restorable = isManagedContent
     ? [...backups].reverse().find((backup) => {
         const content = readFileIfPresent(backup);
         return content !== undefined && !isManagedContent(content);
       })
     : undefined;
-  for (const backup of backups.slice(0, Math.max(0, backups.length - keep))) {
+  for (const backup of backups.slice(0, backups.length - keep)) {
     if (backup !== restorable) {
       rmSync(backup, { force: true });
     }
   }
 }
 
-export function ensureOriginalSnapshot(file: string, previous: string | undefined, mode: number | undefined): void {
+export function ensureOriginalSnapshot(file: string, previous: string | undefined, mode?: number): void {
   const originalBackup = `${file}${originalBackupSuffix}`;
   const originalMissing = `${file}${originalMissingSuffix}`;
   if (existsSync(originalBackup) || existsSync(originalMissing)) {
@@ -53,6 +56,21 @@ export function ensureOriginalSnapshot(file: string, previous: string | undefine
   }
   copyFileSync(file, originalBackup);
   chmodFileIfRequested(originalBackup, mode);
+}
+
+type BackupOptions = { isManagedContent?: (content: string) => boolean; mode?: number };
+
+export function backupCurrentFile(file: string, options: BackupOptions = {}): string {
+  const backupFile = backupFilePath(file);
+  copyFileSync(file, backupFile);
+  chmodFileIfRequested(backupFile, options.mode);
+  pruneBackups(file, undefined, options.isManagedContent);
+  return backupFile;
+}
+
+export function backupBeforeWrite(file: string, previous: string | undefined, options: BackupOptions = {}): string | undefined {
+  ensureOriginalSnapshot(file, previous, options.mode);
+  return previous === undefined ? undefined : backupCurrentFile(file, options);
 }
 
 export function writeFileAtomic(file: string, content: string, options: { mode?: number } = {}): void {

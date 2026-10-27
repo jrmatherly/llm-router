@@ -1,4 +1,4 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { buildCodexModelCatalogIds } from "@ccr/core/agents/codex/model-catalog";
 import type { AppConfig, GatewayProviderConfig, ProfileConfig, ProviderModelMetadata } from "@ccr/core/contracts/app";
@@ -8,7 +8,7 @@ import {
   modelCatalogMaxInputTokens,
   type ModelCatalogEntry
 } from "@ccr/core/gateway/model-catalog";
-import { backupFilePath, ensureOriginalSnapshot, pruneBackups, writeFileAtomic } from "@ccr/core/profiles/backup-files";
+import { backupBeforeWrite, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
 import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
 import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
@@ -90,7 +90,7 @@ export function writePiGatewayConfig(
   const { backupFile, changed } = writeJsonFileIfChanged(
     file,
     content,
-    isLlmrOwnedScope(profile) ? undefined : (candidate) => isManagedPiModelsContent(candidate, providerId)
+    { backup: !isLlmrOwnedScope(profile), isManagedContent: (candidate) => isManagedPiModelsContent(candidate, providerId) }
   );
   mkdirSync(sessionDir, { mode: privateDirMode, recursive: true });
   chmodPrivateDir(profileHome);
@@ -201,11 +201,11 @@ function isLlmrOwnedScope(profile: ProfileConfig): boolean {
   return profile.scope === "ccr" || profile.scope === "custom";
 }
 
-// isManagedContent is set only for a user-owned models.json, which gets an original snapshot and a backup before LLMR writes it.
+// Only a user-owned models.json gets an original snapshot and a backup before LLMR writes it.
 function writeJsonFileIfChanged(
   file: string,
   content: string,
-  isManagedContent?: (content: string) => boolean
+  options: { backup: boolean; isManagedContent: (content: string) => boolean }
 ): { backupFile?: string; changed: boolean } {
   mkdirSync(path.dirname(file), { mode: privateDirMode, recursive: true });
   chmodPrivateDir(path.dirname(file));
@@ -214,16 +214,9 @@ function writeJsonFileIfChanged(
     chmodPrivateFile(file);
     return { changed: false };
   }
-  let backupFile: string | undefined;
-  if (isManagedContent) {
-    ensureOriginalSnapshot(file, previous, privateFileMode);
-    if (previous !== undefined) {
-      backupFile = backupFilePath(file);
-      copyFileSync(file, backupFile);
-      chmodPrivateFile(backupFile);
-      pruneBackups(file, undefined, isManagedContent);
-    }
-  }
+  const backupFile = options.backup
+    ? backupBeforeWrite(file, previous, { isManagedContent: options.isManagedContent, mode: privateFileMode })
+    : undefined;
   writeFileAtomic(file, content, { mode: privateFileMode });
   return { backupFile, changed: true };
 }

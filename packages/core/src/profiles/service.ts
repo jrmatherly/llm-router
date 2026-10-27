@@ -41,7 +41,7 @@ import {
 } from "@ccr/core/agents/pi/profile-config";
 import { CONFIGDIR } from "@ccr/core/config/constants";
 import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@ccr/core/profiles/api-key";
-import { backupFilePath, backupFiles, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, pruneBackups, writeFileAtomic } from "@ccr/core/profiles/backup-files";
+import { backupBeforeWrite, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
 import { refreshClaudeAppModelDiscoveryCache } from "@ccr/core/agents/claude-app/gateway-service";
 import { resolveClaudeAppProfileUserDataDir } from "@ccr/core/agents/claude-app/launch";
@@ -3355,13 +3355,7 @@ function writeFileWithBackup(
     chmodFileIfRequested(file, options.mode);
     return { changed: false };
   }
-  ensureOriginalSnapshot(file, previous, options.mode);
-  const backupFile = previous === undefined ? undefined : backupFilePath(file);
-  if (backupFile) {
-    copyFileSync(file, backupFile);
-    chmodFileIfRequested(backupFile, options.mode);
-    pruneBackups(file, undefined, options.isManagedContent);
-  }
+  const backupFile = backupBeforeWrite(file, previous, options);
   writeFileAtomic(file, content, { mode: options.mode });
   return { backupFile, changed: true };
 }
@@ -3487,7 +3481,6 @@ function isClaudeCodeGeneratedRuntimeFile(fileName: string): boolean {
 }
 
 function generatedBinBackupBaseName(entry: string): string | undefined {
-  const backupMarker = ".ccr-backup-";
   const backupIndex = entry.indexOf(backupMarker);
   if (backupIndex !== -1) {
     return entry.slice(0, backupIndex);
@@ -4071,11 +4064,7 @@ function originalSnapshotCandidate(
 }
 
 function backupCurrentConfigFile(file: string, options: RestoreManagedContentMatchers & { mode?: number }): string {
-  const backupFile = backupFilePath(file);
-  copyFileSync(file, backupFile);
-  chmodFileIfRequested(backupFile, options.mode);
-  pruneBackups(file, undefined, options.isManagedContent);
-  return backupFile;
+  return backupCurrentFile(file, { isManagedContent: options.isManagedContent, mode: options.mode });
 }
 
 function originalBackupFilePath(file: string): string {
