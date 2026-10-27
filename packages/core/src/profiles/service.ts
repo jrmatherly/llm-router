@@ -3938,7 +3938,7 @@ function restoreGlobalConfigFile(
     return { backupFile, changed: true, file, missingBackup: false, restored: false, stripped: true };
   }
 
-  const snapshot = originalSnapshotCandidate(file, options.isManagedContent);
+  const snapshot = originalSnapshotCandidate(file, options);
   if (snapshot) {
     if (current === snapshot.content) {
       chmodFileIfRequested(file, options.mode);
@@ -3975,7 +3975,7 @@ function hasTakeoverSnapshot(file: string): boolean {
 
 function originalSnapshotCandidate(
   file: string,
-  isManagedContent: (content: string) => boolean
+  matchers: RestoreManagedContentMatchers
 ): { content: string; file: string } | undefined {
   // Prefer the most recent non-CCR snapshot captured immediately before the
   // latest takeover. The permanent .ccr-original file can be stale when the
@@ -3985,8 +3985,9 @@ function originalSnapshotCandidate(
       continue;
     }
     const content = readFileSync(candidate, "utf8");
-    if (!isManagedContent(content)) {
-      return { content, file: candidate };
+    if (!matchers.isManagedContent(content)) {
+      // A backup taken at release can still hold the previous takeover's keys.
+      return { content: matchers.stripManagedContent?.(content) ?? content, file: candidate };
     }
   }
   return undefined;

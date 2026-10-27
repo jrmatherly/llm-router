@@ -2391,6 +2391,22 @@ test("release does not invent a base URL the user never had", { skip: !process.e
   });
 });
 
+test("release after a re-takeover never restores a backup that still points at LLMR", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const original = { env: { USER_VALUE: "kept" }, permissions: { allow: ["Bash(ls)"] } };
+  await withGlobalClaudeProfileRelease(original, async ({ apply, readSettings, release, settingsFile }) => {
+    await apply();
+    release();
+    rmSync(settingsFile);
+    await apply();
+    release();
+    const after = readFileSync(settingsFile, "utf8");
+    assert.doesNotMatch(after, /127\.0\.0\.1:3456/);
+    assert.doesNotMatch(after, /ccr-claude-code-api-key-/);
+    assert.equal(readSettings().env.USER_VALUE, "kept");
+    assert.deepEqual(readSettings(), original);
+  });
+});
+
 test("profile service keeps managed global Claude settings when a global Claude profile is active", () => {
   const previousHome = process.env.HOME;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
