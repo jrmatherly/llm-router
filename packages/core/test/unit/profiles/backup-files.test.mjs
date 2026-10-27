@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -61,6 +62,44 @@ test("writeFileAtomic writes through a symlink and keeps the link", posixOnly, (
   assert.ok(lstatSync(link).isSymbolicLink());
   assert.equal(readFileSync(target, "utf8"), "new");
   assert.deepEqual(readdirSync(dir).filter((name) => name.endsWith(".tmp")), []);
+});
+
+test("writeFileAtomic removes temp files left by a dead writer and keeps a live writer's", posixOnly, (t) => {
+  const { dir, file } = setup(t);
+  const deadPid = spawnSync(process.execPath, ["-e", ""]).pid;
+  const stale = `${file}.${deadPid}.00000000-0000-4000-8000-000000000000.tmp`;
+  const live = `${file}.${process.pid}.00000000-0000-4000-8000-000000000001.tmp`;
+  writeFileSync(stale, "partial", "utf8");
+  writeFileSync(live, "in flight", "utf8");
+  writeFileAtomic(file, "new");
+  assert.ok(!existsSync(stale));
+  assert.ok(existsSync(live));
+  assert.equal(readFileSync(file, "utf8"), "new");
+  assert.deepEqual(readdirSync(dir).filter((name) => name.endsWith(".tmp")), [path.basename(live)]);
+});
+
+test("pruneBackups keeps the newest unmanaged backup beyond the newest five", (t) => {
+  const { file } = setup(t);
+  const backups = [];
+  for (let index = 0; index < 7; index += 1) {
+    const backup = `${file}.ccr-backup-2026-10-2${index}T00-00-00-000Z`;
+    writeFileSync(backup, index === 0 ? "user" : "managed", "utf8");
+    backups.push(backup);
+  }
+  pruneBackups(file, 5, (content) => content === "managed");
+  assert.deepEqual(backupFiles(file), [backups[0], ...backups.slice(2)]);
+});
+
+test("pruneBackups drops old backups when a newer one is already unmanaged", (t) => {
+  const { file } = setup(t);
+  const backups = [];
+  for (let index = 0; index < 7; index += 1) {
+    const backup = `${file}.ccr-backup-2026-10-2${index}T00-00-00-000Z`;
+    writeFileSync(backup, index === 0 || index === 6 ? "user" : "managed", "utf8");
+    backups.push(backup);
+  }
+  pruneBackups(file, 5, (content) => content === "managed");
+  assert.deepEqual(backupFiles(file), backups.slice(2));
 });
 
 test("pruneBackups keeps the five newest backups and never the originals", (t) => {

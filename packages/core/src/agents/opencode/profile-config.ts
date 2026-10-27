@@ -4,9 +4,9 @@ import { buildCodexModelCatalog, type CodexModelCatalogItem } from "@ccr/core/ag
 import { parseJsoncRecord } from "@ccr/core/agents/local-providers/shared";
 import { isGatewayProviderEnabled, type AppConfig, type GatewayProviderConfig, type ProfileConfig, type ProviderModelMetadata } from "@ccr/core/contracts/app";
 import { findModelCatalogEntry, findProviderModelCatalogEntry, type ModelCatalogEntry, modelCatalogMaxInputTokens, modelCatalogMaxOutputTokens } from "@ccr/core/gateway/model-catalog";
+import { backupFilePath, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, pruneBackups, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
 import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
-import { backupFilePath, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, pruneBackups, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
 import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
 
@@ -67,7 +67,7 @@ export function writeOpenCodeGatewayConfig(
     small_model: overrides.small_model
   };
   const content = `${JSON.stringify(next, null, 2)}\n`;
-  const writeResult = writeJsonFile(file, content, options);
+  const writeResult = writeJsonFile(file, content, options, (candidate) => isManagedOpenCodeConfigContent(candidate, providerId));
   return {
     ...writeResult,
     file,
@@ -215,7 +215,8 @@ function readJsoncObject(file: string): Record<string, unknown> {
 function writeJsonFile(
   file: string,
   content: string,
-  options: { backup?: boolean }
+  options: { backup?: boolean },
+  isManagedContent: (content: string) => boolean
 ): { backupFile?: string; changed: boolean } {
   mkdirSync(path.dirname(file), { recursive: true });
   const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
@@ -230,7 +231,7 @@ function writeJsonFile(
   if (backupFile) {
     copyFileSync(file, backupFile);
     chmodPrivateFile(backupFile);
-    pruneBackups(file);
+    pruneBackups(file, undefined, isManagedContent);
   }
   writeFileAtomic(file, content, { mode: 0o600 });
   return { backupFile, changed: true };

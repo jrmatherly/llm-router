@@ -1,5 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { assertAvailableGatewayModels, type AppConfig, type ProfileConfig, type ProfileOpenCommandResult, type ProfileOpenRequest, type ProfileOpenResult, type ProfileRuntimeEntry, type ProfileRuntimeStatus, type ProfileStopResult } from "@ccr/core/contracts/app";
 import { botGatewayProfileEnv } from "@ccr/core/agents/bot-gateway/env";
@@ -19,6 +19,7 @@ import { TOOL_HUB_MCP_RUNTIME_FILE_NAME, bundledToolHubMcpEntryPathCandidates } 
 import { mediaToolsGatewayEndpoint } from "@ccr/core/mcp/grok-media-config";
 import { buildProfileLaunchPlan, findProfileForOpen, profileLaunchSpawnCommand, profileOpenCommand, profileOpenSurfaces, resolveClaudeCodeSettingsFile, resolveProfileOpenSurface } from "@ccr/core/profiles/launch-core";
 import { profileApiKeyId } from "@ccr/core/profiles/api-key";
+import { backupFiles } from "@ccr/core/profiles/backup-files";
 import { applyProfileConfig, cleanupGeneratedBinBackups } from "@ccr/core/profiles/service";
 import { isDesktopAppRuntime } from "@ccr/core/runtime/desktop-app";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@ccr/core/platform/windows-system";
@@ -625,7 +626,7 @@ function readClaudeCodeWifTokenCandidates(profile: ReturnType<typeof findProfile
   const file = path.join(CONFIGDIR, "bin", claudeCodeWifIdentityTokenFilename(profile));
   const files = [
     file,
-    ...readBackupFiles(file)
+    ...backupFiles(file).reverse()
   ];
   return uniqueStrings(files.map(readFirstLineToken));
 }
@@ -641,7 +642,7 @@ function readClaudeCodeLegacyApiKeyHelperCandidates(profile: ReturnType<typeof f
   const file = path.join(CONFIGDIR, "bin", claudeCodeLegacyApiKeyHelperFilename(profile));
   const files = [
     file,
-    ...readBackupFiles(file)
+    ...backupFiles(file).reverse()
   ];
   return uniqueStrings(files.map(readClaudeCodeLegacyApiKeyHelperToken));
 }
@@ -651,20 +652,6 @@ function claudeCodeLegacyApiKeyHelperFilename(profile: ReturnType<typeof findPro
   return process.platform === "win32"
     ? `ccr-claude-code-api-key-${slug}.cmd`
     : `ccr-claude-code-api-key-${slug}`;
-}
-
-function readBackupFiles(file: string): string[] {
-  const dir = path.dirname(file);
-  const prefix = `${path.basename(file)}.ccr-backup-`;
-  try {
-    return readdirSync(dir)
-      .filter((entry) => entry.startsWith(prefix))
-      .sort()
-      .reverse()
-      .map((entry) => path.join(dir, entry));
-  } catch {
-    return [];
-  }
 }
 
 function readFirstLineToken(file: string): string {

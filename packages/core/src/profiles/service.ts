@@ -18,7 +18,6 @@ import {
   normalizeClaudeCodeClientModel
 } from "@ccr/core/agents/claude-code/environment";
 import { writeCodexCompatibleAppModelCatalog } from "@ccr/core/agents/codex/app-launch";
-import { backupFilePath, backupFiles, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, pruneBackups, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { codexCliMiddlewareRuntimeScript } from "@ccr/core/agents/codex/cli-middleware-runtime";
 import { codexModelCatalogJson } from "@ccr/core/agents/codex/model-catalog";
 import {
@@ -40,6 +39,7 @@ import {
 } from "@ccr/core/agents/pi/profile-config";
 import { CONFIGDIR } from "@ccr/core/config/constants";
 import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@ccr/core/profiles/api-key";
+import { backupFilePath, backupFiles, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, pruneBackups, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
 import { refreshClaudeAppModelDiscoveryCache } from "@ccr/core/agents/claude-app/gateway-service";
 import { resolveClaudeAppProfileUserDataDir } from "@ccr/core/agents/claude-app/launch";
@@ -312,7 +312,10 @@ function normalizedFileKey(file: string): string {
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
-function cleanupClaudeCodeToolHubSettingsFile(file: string, options: { backup: boolean }): { changed: boolean } {
+function cleanupClaudeCodeToolHubSettingsFile(
+  file: string,
+  options: { backup: boolean; isManagedContent?: (content: string) => boolean }
+): { changed: boolean } {
   const settings = readJsonObject(file);
   const env = isRecord(settings.env) ? { ...settings.env } : {};
   if (!deleteClaudeCodeToolHubEnv(env)) {
@@ -320,7 +323,7 @@ function cleanupClaudeCodeToolHubSettingsFile(file: string, options: { backup: b
   }
   const content = `${JSON.stringify({ ...settings, env }, null, 2)}\n`;
   const writeResult = options.backup
-    ? writeFileWithBackup(file, content, { mode: privateFileMode })
+    ? writeFileWithBackup(file, content, { isManagedContent: options.isManagedContent, mode: privateFileMode })
     : writeGeneratedFileIfChanged(file, content, { mode: privateFileMode });
   return { changed: writeResult.changed };
 }
@@ -344,7 +347,7 @@ function cleanupClaudeCodeToolHubArtifacts(profile: ProfileConfig): { changed?: 
       rmSync(mcpConfigFile, { force: true });
       changed = true;
     }
-    changed = cleanupClaudeCodeToolHubSettingsFile(resolveClaudeCodeSettingsFile(profile), { backup: true }).changed || changed;
+    changed = cleanupClaudeCodeToolHubSettingsFile(resolveClaudeCodeSettingsFile(profile), { backup: true, isManagedContent: claudeCodeManagedContent(profile).isManagedContent }).changed || changed;
     return { changed, ok: true };
   } catch (error) {
     return {
@@ -484,7 +487,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     for (const key of profileSettingsState.envKeys) {
       managedEnvKeys.add(key);
     }
-    const writeResult = writeClaudeCodeSettingsIfManagedChanged(settingsFile, currentSettings, nextSettings, managedEnvKeys, managedSettingComparePaths);
+    const writeResult = writeClaudeCodeSettingsIfManagedChanged(settingsFile, currentSettings, nextSettings, managedEnvKeys, managedSettingComparePaths, claudeCodeManagedContent(profile).isManagedContent);
     const settingsStateResult = writeClaudeCodeProfileSettingsState(profile, managedSettingPaths, managedProfileEnvKeys, displacedEnv, takeoverEndpoints);
     const changed = writeResult.changed ||
       settingsStateResult.changed ||
@@ -618,7 +621,10 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
       token,
       toolHubMcp: toolHubMcpResult.runtime
     });
-    const writeResult = writeFileWithBackup(configFile, nextConfig, { mode: privateFileMode });
+    const writeResult = writeFileWithBackup(configFile, nextConfig, {
+      isManagedContent: (content) => isManagedCodexConfigContent(content, providerId),
+      mode: privateFileMode
+    });
     const separateProfileResult = maybeWriteSeparateCodexProfileFile(configFile, source, {
       configFormat,
       model,
@@ -2444,7 +2450,10 @@ function syncClaudeCodeManagedGatewaySettingsFile(config: AppConfig, file: strin
     chmodFileIfRequested(file, privateFileMode);
     return;
   }
-  writeFileWithBackup(file, `${JSON.stringify(nextSettings, null, 2)}\n`, { mode: privateFileMode });
+  writeFileWithBackup(file, `${JSON.stringify(nextSettings, null, 2)}\n`, {
+    isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content),
+    mode: privateFileMode
+  });
 }
 
 function claudeCodeManagedGatewaySyncEnvKeys(): Set<string> {
@@ -3181,13 +3190,14 @@ function writeClaudeCodeSettingsIfManagedChanged(
   settings: Record<string, unknown>,
   nextSettings: Record<string, unknown>,
   managedEnvKeys: Set<string>,
-  managedSettingPaths: string[] = []
+  managedSettingPaths: string[] = [],
+  isManagedContent?: (content: string) => boolean
 ): { backupFile?: string; changed: boolean } {
   if (!claudeCodeSettingsManagedFieldsChanged(settings, nextSettings, managedEnvKeys, managedSettingPaths)) {
     chmodFileIfRequested(file, privateFileMode);
     return { changed: false };
   }
-  return writeFileWithBackup(file, `${JSON.stringify(nextSettings, null, 2)}\n`, { mode: privateFileMode });
+  return writeFileWithBackup(file, `${JSON.stringify(nextSettings, null, 2)}\n`, { isManagedContent, mode: privateFileMode });
 }
 
 function claudeCodeSettingsManagedFieldsChanged(
@@ -3298,7 +3308,7 @@ function isClaudeCodeWifEnvKey(key: string): boolean {
 function writeFileWithBackup(
   file: string,
   content: string,
-  options: { mode?: number } = {}
+  options: { isManagedContent?: (content: string) => boolean; mode?: number } = {}
 ): { backupFile?: string; changed: boolean } {
   mkdirSync(path.dirname(file), { recursive: true });
   const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
@@ -3311,7 +3321,7 @@ function writeFileWithBackup(
   if (backupFile) {
     copyFileSync(file, backupFile);
     chmodFileIfRequested(backupFile, options.mode);
-    pruneBackups(file);
+    pruneBackups(file, undefined, options.isManagedContent);
   }
   writeFileAtomic(file, content, { mode: options.mode });
   return { backupFile, changed: true };
@@ -3931,7 +3941,7 @@ function restoreGlobalConfigFile(
     if (stripped === undefined) {
       return { changed: false, file, missingBackup: false, restored: false };
     }
-    const backupFile = backupCurrentConfigFile(file, options.mode);
+    const backupFile = backupCurrentConfigFile(file, options);
     writeFileAtomic(file, stripped, { mode: options.mode });
     return { backupFile, changed: true, file, missingBackup: false, restored: false, stripped: true };
   }
@@ -3943,7 +3953,7 @@ function restoreGlobalConfigFile(
       return { changed: false, file, missingBackup: false, restored: true };
     }
 
-    const backupFile = current === undefined ? undefined : backupCurrentConfigFile(file, options.mode);
+    const backupFile = current === undefined ? undefined : backupCurrentConfigFile(file, options);
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileAtomic(file, snapshot.content, { mode: options.mode });
     return { backupFile, changed: true, file, missingBackup: false, restored: true };
@@ -3951,7 +3961,7 @@ function restoreGlobalConfigFile(
 
   if (existsSync(originalMissingFilePath(file))) {
     if (currentManaged) {
-      const backupFile = backupCurrentConfigFile(file, options.mode);
+      const backupFile = backupCurrentConfigFile(file, options);
       rmSync(file, { force: true });
       return { backupFile, changed: true, file, missingBackup: false, restored: true };
     }
@@ -3990,11 +4000,11 @@ function originalSnapshotCandidate(
   return undefined;
 }
 
-function backupCurrentConfigFile(file: string, mode: number | undefined): string {
+function backupCurrentConfigFile(file: string, options: RestoreManagedContentMatchers & { mode?: number }): string {
   const backupFile = backupFilePath(file);
   copyFileSync(file, backupFile);
-  chmodFileIfRequested(backupFile, mode);
-  pruneBackups(file);
+  chmodFileIfRequested(backupFile, options.mode);
+  pruneBackups(file, undefined, options.isManagedContent);
   return backupFile;
 }
 

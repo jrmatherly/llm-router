@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { chmodSync, copyFileSync, existsSync, lstatSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 export const originalBackupSuffix = ".ccr-original";
@@ -24,10 +24,19 @@ export function backupFiles(file: string): string[] {
   }
 }
 
-export function pruneBackups(file: string, keep = 5): void {
+// The newest unmanaged backup is the one restore prefers, so it survives pruning however old it is.
+export function pruneBackups(file: string, keep = 5, isManagedContent?: (content: string) => boolean): void {
   const backups = backupFiles(file);
+  const restorable = isManagedContent
+    ? [...backups].reverse().find((backup) => {
+        const content = readFileIfPresent(backup);
+        return content !== undefined && !isManagedContent(content);
+      })
+    : undefined;
   for (const backup of backups.slice(0, Math.max(0, backups.length - keep))) {
-    rmSync(backup, { force: true });
+    if (backup !== restorable) {
+      rmSync(backup, { force: true });
+    }
   }
 }
 
@@ -48,6 +57,7 @@ export function ensureOriginalSnapshot(file: string, previous: string | undefine
 
 export function writeFileAtomic(file: string, content: string, options: { mode?: number } = {}): void {
   const target = resolveWriteTarget(file);
+  removeStaleTemporaryFiles(target);
   const mode = options.mode ?? (existsSync(target) ? statSync(target).mode & 0o777 : undefined);
   const temporaryFile = `${target}.${process.pid}.${randomUUID()}.tmp`;
   try {
@@ -68,6 +78,41 @@ export function chmodFileIfRequested(file: string, mode: number | undefined): vo
     chmodSync(file, mode);
   } catch {
     // Best effort; the write itself should still succeed on filesystems without chmod.
+  }
+}
+
+function readFileIfPresent(file: string): string | undefined {
+  try {
+    return readFileSync(file, "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+// A crash between the temp write and the rename leaves the temp file behind; sweep those whose writer is gone.
+function removeStaleTemporaryFiles(target: string): void {
+  const dir = path.dirname(target);
+  const prefix = `${path.basename(target)}.`;
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const match = entry.startsWith(prefix) ? /^(\d+)\.[0-9a-f-]{36}\.tmp$/.exec(entry.slice(prefix.length)) : null;
+    if (match && !isProcessAlive(Number(match[1]))) {
+      rmSync(path.join(dir, entry), { force: true });
+    }
+  }
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
   }
 }
 

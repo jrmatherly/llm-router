@@ -14,7 +14,6 @@ export type KiloProfileConfigWriteResult = {
   inlineConfig: string;
 };
 
-
 export function resolveKiloConfigFile(configDir: string, profile: ProfileConfig): string {
   if (profile.scope === "ccr" || profile.scope === "custom") {
     const slug = sanitizePathSegment(profile.id || profile.name || "kilo") || "kilo";
@@ -63,7 +62,7 @@ export function writeKiloGatewayConfig(
     small_model: overrides.small_model
   };
   const content = `${JSON.stringify(next, null, 2)}\n`;
-  const writeResult = writeJsonFile(file, content, options);
+  const writeResult = writeJsonFile(file, content, options, (candidate) => isManagedKiloConfigContent(candidate, providerId));
   return {
     ...writeResult,
     file,
@@ -130,7 +129,8 @@ function readJsoncObject(file: string): Record<string, unknown> {
 function writeJsonFile(
   file: string,
   content: string,
-  options: { backup?: boolean }
+  options: { backup?: boolean },
+  isManagedContent: (content: string) => boolean
 ): { backupFile?: string; changed: boolean } {
   mkdirSync(path.dirname(file), { recursive: true });
   const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
@@ -145,7 +145,7 @@ function writeJsonFile(
   if (backupFile) {
     copyFileSync(file, backupFile);
     chmodPrivateFile(backupFile);
-    pruneBackups(file);
+    pruneBackups(file, undefined, isManagedContent);
   }
   writeFileAtomic(file, content, { mode: 0o600 });
   return { backupFile, changed: true };
