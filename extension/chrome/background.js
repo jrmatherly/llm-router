@@ -1,16 +1,16 @@
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.type !== "ccr-login-import-confirm") {
     return false;
   }
 
-  runImport(message.importUrl)
+  runImport(message.importUrl, sender.tab?.url)
     .then((result) => sendResponse({ ok: true, result }))
     .catch((error) => sendResponse({ error: formatError(error), ok: false }));
   return true;
 });
 
-async function runImport(importUrl) {
-  const normalizedImportUrl = normalizeImportUrl(importUrl);
+async function runImport(importUrl, senderUrl) {
+  const normalizedImportUrl = normalizeImportUrl(importUrl, senderUrl);
   if (!normalizedImportUrl) {
     throw new Error("Invalid CCR import URL.");
   }
@@ -217,13 +217,17 @@ async function ensureHostPermissions(domains) {
   );
 }
 
-function normalizeImportUrl(value) {
+function normalizeImportUrl(value, senderUrl) {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) {
     return "";
   }
   try {
     const url = new URL(raw);
+    const senderOrigin = new URL(senderUrl).origin;
+    if (url.origin !== senderOrigin) {
+      return "";
+    }
     if (!["127.0.0.1", "localhost"].includes(url.hostname)) {
       return "";
     }

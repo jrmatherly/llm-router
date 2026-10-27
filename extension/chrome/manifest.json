@@ -16,8 +16,8 @@
         "confirm.js"
       ],
       "matches": [
-        "http://127.0.0.1/*",
-        "http://localhost/*"
+        "http://127.0.0.1/chrome-import/jobs/*/confirm",
+        "http://localhost/chrome-import/jobs/*/confirm"
       ]
     }
   ],
