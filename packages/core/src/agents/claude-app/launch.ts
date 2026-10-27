@@ -136,7 +136,6 @@ function claudeElectronArgs(userDataDir: string, cdpPort?: number): string[] {
         ]
       : []),
     `--user-data-dir=${userDataDir}`,
-    "--remote-allow-origins=*",
     "--disable-renderer-backgrounding",
     "--disable-background-timer-throttling",
     "--disable-backgrounding-occluded-windows"

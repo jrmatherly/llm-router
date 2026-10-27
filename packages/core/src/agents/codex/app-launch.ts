@@ -988,7 +988,6 @@ function codexElectronArgs(userDataDir: string): string[] {
     "--remote-debugging-port=0",
     "--remote-debugging-address=127.0.0.1",
     `--user-data-dir=${userDataDir}`,
-    "--remote-allow-origins=*",
     "--disable-renderer-backgrounding",
     "--disable-background-timer-throttling",
     "--disable-backgrounding-occluded-windows"

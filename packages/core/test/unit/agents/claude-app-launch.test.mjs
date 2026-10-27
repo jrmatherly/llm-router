@@ -45,6 +45,7 @@ test("claudeAppLaunchCommand opens macOS app bundles through LaunchServices", (t
   assert.ok(launch.args.includes("--remote-debugging-port=49152"));
   assert.ok(launch.args.includes("--remote-debugging-address=127.0.0.1"));
   assert.equal(launch.args.some((arg) => arg.startsWith("--proxy-server=")), false);
+  assert.equal(launch.args.some((arg) => arg.startsWith("--remote-allow-origins")), false, "CDP must reject WebSocket clients that send an Origin");
   assert.ok(launch.args.includes(`--user-data-dir=${path.join(tempDir, "profile data")}`));
 });
 

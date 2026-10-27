@@ -106,6 +106,16 @@ test("loads the Electron preload bridge and IPC contract", async () => {
   ]));
 });
 
+test("denies browser permissions outside the allowlist", async () => {
+  const page = requireRuntime().mainPage;
+  const states = await page.evaluate(async () => ({
+    clipboardWrite: (await navigator.permissions.query({ name: "clipboard-write" as PermissionName })).state,
+    geolocation: (await navigator.permissions.query({ name: "geolocation" })).state,
+    notifications: await Notification.requestPermission()
+  }));
+  expect(states).toEqual({ clipboardWrite: "granted", geolocation: "denied", notifications: "denied" });
+});
+
 test("starts the managed gateway from IPC without runtime config JSON", async () => {
   const current = requireRuntime();
   const status = await current.mainPage.evaluate(async () => {
