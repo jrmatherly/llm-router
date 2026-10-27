@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { RequestLogBody } from "@ccr/core/contracts/app";
 import { formatLogBodyForWorker } from "@ccr/ui/pages/home/shared/log-body-worker-protocol.ts";
-import { formatRouteTracePath } from "@ccr/ui/pages/home/shared/network.ts";
+import { clientInitial, formatRouteTracePath } from "@ccr/ui/pages/home/shared/network.ts";
 
 test("route trace paths use request and response dotted notation", () => {
   assert.equal(
@@ -78,4 +78,8 @@ test("preview mode truncates an over-large JSON text body instead of parsing it"
   assert.equal(view.json, undefined);
   assert.ok(view.text.length < hugeText.length, "should be truncated");
   assert.match(view.text, /characters omitted from preview/);
+});
+
+test("Codex clients get their own badge", () => {
+  assert.equal(clientInitial("codex-cli"), "CX");
 });

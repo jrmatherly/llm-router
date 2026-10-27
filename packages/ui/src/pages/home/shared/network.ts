@@ -168,7 +168,7 @@ export function clientInitial(value: string): string {
     return "C";
   }
   if (normalized.toLowerCase().includes("codex")) {
-    return "CCR";
+    return "CX";
   }
   return normalized.slice(0, 3).toUpperCase();
 }

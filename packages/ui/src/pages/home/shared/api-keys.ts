@@ -341,10 +341,10 @@ export function generateApiKeyId(): string {
 
 export function maskApiKey(value: string): string {
   const trimmed = value.trim();
-  if (trimmed.length <= 8) {
+  if (trimmed.length <= 12) {
     return "****";
   }
-  return `${trimmed.slice(0, Math.min(18, trimmed.length - 4))}***`;
+  return `${trimmed.slice(0, Math.min(8, Math.floor(trimmed.length / 4)))}***`;
 }
 
 export function generateApiKeyValue(): string {
