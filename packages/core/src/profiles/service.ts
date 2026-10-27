@@ -3926,13 +3926,13 @@ function readStateJson(file: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(content) as unknown;
     return isRecord(parsed) ? parsed : {};
-  } catch (error) {
+  } catch {
     const kept = `${file}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
     try {
       renameSync(file, kept);
-      console.warn(`[profile] ${file} is not valid JSON (${formatError(error)}); moved it to ${kept} and continued without it.`);
+      console.warn(`[profile] ${file} is not valid JSON; moved it to ${kept} and continued without it.`);
     } catch (renameError) {
-      console.warn(`[profile] ${file} is not valid JSON (${formatError(error)}) and could not be moved aside (${formatError(renameError)}); continued without it.`);
+      console.warn(`[profile] ${file} is not valid JSON and could not be moved aside (${formatError(renameError)}); continued without it.`);
     }
     return {};
   }
