@@ -3,7 +3,6 @@ import test from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { OnboardingView } from "@ccr/ui/pages/home/components/onboarding.tsx";
-import { AppI18nContext, appCopy } from "@ccr/ui/pages/home/shared/i18n.tsx";
 import {
   createProfileDraft,
   createProviderDraft,
@@ -20,29 +19,27 @@ test("Onboarding provider step renders only the active provider setup section", 
     name: "Example Provider"
   };
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy}>
-      <OnboardingView
-        activeStep="provider"
-        canSubmitProfile={false}
-        canSubmitProvider={false}
-        config={config}
-        endpoint="http://127.0.0.1:3456"
-        gatewayStatus={fallbackGatewayStatus}
-        onCheckProvider={async () => ({ failed: [], passed: [], results: [] })}
-        onChangeProfile={() => undefined}
-        onChangeProvider={() => undefined}
-        onComplete={() => undefined}
-        onSelectStep={() => undefined}
-        onSubmitProfile={async () => false}
-        onSubmitProvider={async () => false}
-        profileDraft={createProfileDraft()}
-        profileError=""
-        providerConnectivityLoading={false}
-        providerDraft={providerDraft}
-        providerError=""
-        providerProbeLoading={false}
-      />
-    </AppI18nContext.Provider>
+    <OnboardingView
+      activeStep="provider"
+      canSubmitProfile={false}
+      canSubmitProvider={false}
+      config={config}
+      endpoint="http://127.0.0.1:3456"
+      gatewayStatus={fallbackGatewayStatus}
+      onCheckProvider={async () => ({ failed: [], passed: [], results: [] })}
+      onChangeProfile={() => undefined}
+      onChangeProvider={() => undefined}
+      onComplete={() => undefined}
+      onSelectStep={() => undefined}
+      onSubmitProfile={async () => false}
+      onSubmitProvider={async () => false}
+      profileDraft={createProfileDraft()}
+      profileError=""
+      providerConnectivityLoading={false}
+      providerDraft={providerDraft}
+      providerError=""
+      providerProbeLoading={false}
+    />
   );
 
   assert.match(html, /Choose provider/);
@@ -76,29 +73,27 @@ test("Onboarding profile step does not prompt to save before continuing", () => 
     name: "Example Provider"
   };
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy}>
-      <OnboardingView
-        activeStep="profile"
-        canSubmitProfile
-        canSubmitProvider={false}
-        config={config}
-        endpoint="http://127.0.0.1:3456"
-        gatewayStatus={fallbackGatewayStatus}
-        onCheckProvider={async () => ({ failed: [], passed: [], results: [] })}
-        onChangeProfile={() => undefined}
-        onChangeProvider={() => undefined}
-        onComplete={() => undefined}
-        onSelectStep={() => undefined}
-        onSubmitProfile={async () => false}
-        onSubmitProvider={async () => false}
-        profileDraft={createProfileDraft()}
-        profileError=""
-        providerConnectivityLoading={false}
-        providerDraft={providerDraft}
-        providerError=""
-        providerProbeLoading={false}
-      />
-    </AppI18nContext.Provider>
+    <OnboardingView
+      activeStep="profile"
+      canSubmitProfile
+      canSubmitProvider={false}
+      config={config}
+      endpoint="http://127.0.0.1:3456"
+      gatewayStatus={fallbackGatewayStatus}
+      onCheckProvider={async () => ({ failed: [], passed: [], results: [] })}
+      onChangeProfile={() => undefined}
+      onChangeProvider={() => undefined}
+      onComplete={() => undefined}
+      onSelectStep={() => undefined}
+      onSubmitProfile={async () => false}
+      onSubmitProvider={async () => false}
+      profileDraft={createProfileDraft()}
+      profileError=""
+      providerConnectivityLoading={false}
+      providerDraft={providerDraft}
+      providerError=""
+      providerProbeLoading={false}
+    />
   );
 
   assert.doesNotMatch(html, /Save this agent profile to continue/);

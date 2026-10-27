@@ -1,6 +1,6 @@
 import {
   AddApiKeyDraft, AddProfileDraft, AddProviderDraft, AddRoutingRuleDraft, AgentAnalysisSessionSelection, AgentAnalysisSnapshot, AgentFilterValue,
-  ApiKeyConfig, AppConfig, appCopy, AppI18nContext, AppInfo, AppSaveConfigOptions, AppUpdateStatus,
+  ApiKeyConfig, AppConfig, appCopy, AppInfo, AppSaveConfigOptions, AppUpdateStatus, localAgentProviderApiKey,
   applyProviderProbeResult, AppToast, BotGatewaySavedConfig, buildExtensionList, buildProviderImportDraft, claudeDesignRoutingConfigFromDraft,
   ClaudeDesignRoutingDraft, ClaudeDesignRoutingRuleDraft, cloneConfig, createApiKeyDraft, createApiKeyEditDraft,
   createApiKeyList, createClaudeDesignRoutingDraft, createClaudeDesignRoutingRuleDraft, createCursorProxyRoutingDraft, createCursorProxyRoutingRuleDraft, createEmptyAgentAnalysis,
@@ -28,7 +28,7 @@ import {
   providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, ProxyNetworkSnapshot,
   ProxyStatus, RequestLogListFilter, RequestLogPage,
   ResolvedTheme, resolvePluginInstallPlan, resolveProviderDeepLinkCatalogModels, removeLocalAgentProviderPluginsForProvider, RouterRule, routingRuleFromDraft, SettingsPageId,
-  setProviderPresets, splitLines, translateAppErrorMessage, translateText, TrayBalanceProgressConfig, TrayWidgetConfig,
+  setProviderPresets, splitLines, appErrorMessage, TrayBalanceProgressConfig, TrayWidgetConfig,
   uniqueProviderProtocols, updateApiKeyEditableConfig, UsageStatsFilter, UsageStatsRange, UsageStatsSnapshot, useEffect,
   useMemo, useReducedMotion, useRef, useState, validateVirtualModelDraft, ViewId,
   VirtualModelDraft, virtualModelProfileFromDraft, virtualModelProfilesUseMediaTools
@@ -59,7 +59,6 @@ type ConfigSaveFeedbackTarget = "global" | "form" | "silent";
 const providerNamePlaceholder = "__CCR_PROVIDER_NAME__";
 const providerNameSlugPlaceholder = "__CCR_PROVIDER_NAME_SLUG__";
 const providerInternalNamePlaceholder = "__CCR_PROVIDER_INTERNAL_NAME__";
-const localAgentProviderApiKey = "ccr-local-agent-login";
 const localCodexDefaultBaseUrl = "https://chatgpt.com/backend-api/codex";
 const localCodexProviderId = "codex-api";
 
@@ -146,6 +145,8 @@ function providerNameSlug(value: string): string {
     .replace(/[^a-z0-9_.-]+/g, "-")
     .replace(/^-+|-+$/g, "") || "provider";
 }
+
+const disconnectedPoll = "runtime connection";
 
 async function loadProviderAccountSnapshots(forceRefresh = false): Promise<ProviderAccountSnapshot[]> {
   if (!window.ccr) {
@@ -294,8 +295,6 @@ function App() {
   const updateActionBusyRef = useRef(false);
   const usageStatsRequestId = useRef(0);
   const copy = appCopy;
-  const t = useMemo(() => (value: string) => translateText(copy, value), [copy]);
-  const formatError = useMemo(() => (error: unknown) => formatAppError(copy, error), [copy]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 720px)");
@@ -330,7 +329,10 @@ function App() {
     if (!settingsOpen || !window.ccr) {
       return;
     }
-    void window.ccr.getAppInfo().then(setAppInfo).catch(() => undefined);
+    void window.ccr.getAppInfo().then((info) => {
+      clearPollFailure("app info");
+      setAppInfo(info);
+    }).catch((error) => reportPollFailure("app info", error));
   }, [settingsOpen]);
 
   useEffect(() => {
@@ -338,7 +340,10 @@ function App() {
       return;
     }
 
-    void window.ccr.getAppInfo().then(setAppInfo).catch(() => undefined);
+    void window.ccr.getAppInfo().then((info) => {
+      clearPollFailure("app info");
+      setAppInfo(info);
+    }).catch((error) => reportPollFailure("app info", error));
     void window.ccr.getProviderPresets()
       .then(setProviderPresets)
       .catch(() => setProviderPresets([]))
@@ -357,7 +362,10 @@ function App() {
       })
       .catch(() => setActiveView("onboarding"))
       .finally(() => setOnboardingStatusLoaded(true));
-    void window.ccr.getPluginMarketplace().then(setPluginMarketplace).catch(() => setPluginMarketplace([]));
+    void window.ccr.getPluginMarketplace().then(setPluginMarketplace).catch((error) => {
+      setPluginMarketplace([]);
+      showToast(`Could not load the plugin marketplace: ${formatAppError(error)}`);
+    });
     const unsubscribeOpenSettings = window.ccr.onOpenSettingsRequest(openSettingsDialog);
     const unsubscribeOpenUpdate = window.ccr.onOpenUpdateRequest(openUpdateDialog);
     const refreshRuntimeStatus = async () => {
@@ -368,8 +376,10 @@ function App() {
       await Promise.allSettled([
         ccr.getGatewayStatus().then((next) => {
           setGatewayStatus((current) => preserveEqualPollingSnapshot(current, next));
+          clearPollFailure(disconnectedPoll);
           setRuntimeDisconnected(false);
         }).catch(() => {
+          failingPolls.current.add(disconnectedPoll);
           setRuntimeDisconnected(true);
         }),
         ccr.getProxyStatus().then((next) => {
@@ -492,10 +502,15 @@ function App() {
       const requestId = ++usageStatsRequestId.current;
       const filter = overviewUsageStatsFilter(usageRange, usageProviderFilter, usageModelFilter);
       void window.ccr?.getUsageStats(usageRange, filter).then((snapshot) => {
+        clearPollFailure("usage statistics");
         if (!cancelled && requestId === usageStatsRequestId.current) {
           setUsageStats(snapshot);
         }
-      }).catch(() => undefined);
+      }).catch((error) => {
+        if (!cancelled) {
+          reportPollFailure("usage statistics", error);
+        }
+      });
     };
     const stopPolling = startVisiblePolling(refreshUsageStats, 5000);
     return () => {
@@ -537,13 +552,15 @@ function App() {
     const refreshProviderAccounts = () => {
       void loadProviderAccountSnapshots()
         .then((snapshots) => {
+          clearPollFailure("provider accounts");
           if (!cancelled) {
             setProviderAccountSnapshots(snapshots);
           }
         })
-        .catch(() => {
+        .catch((error) => {
           if (!cancelled) {
             setProviderAccountSnapshots([]);
+            reportPollFailure("provider accounts", error);
           }
         });
     };
@@ -561,8 +578,9 @@ function App() {
     setProviderAccountRefreshing(true);
     try {
       setProviderAccountSnapshots(await loadProviderAccountSnapshots(true));
-    } catch {
+    } catch (error) {
       setProviderAccountSnapshots([]);
+      showToast(`Could not refresh provider accounts: ${formatAppError(error)}`);
     } finally {
       setProviderAccountRefreshing(false);
     }
@@ -611,7 +629,7 @@ function App() {
         })
         .catch((error) => {
           if (!cancelled) {
-            setAgentAnalysisError(formatError(error));
+            setAgentAnalysisError(formatAppError(error));
           }
         })
         .finally(() => {
@@ -660,7 +678,7 @@ function App() {
         })
         .catch((error) => {
           if (!cancelled) {
-            setRequestLogError(formatError(error));
+            setRequestLogError(formatAppError(error));
           }
         })
         .finally(() => {
@@ -733,7 +751,7 @@ function App() {
   const providers = useMemo(() => draftConfig.Providers.map((provider, index) => ({ provider, index })), [draftConfig.Providers]);
   const gatewayEndpoint = gatewayStatus.endpoint || draftConfig.routerEndpoint;
   const gatewayStartupError = gatewayStatus.state === "error"
-    ? translateAppErrorMessage(copy, gatewayStatus.lastError || "Service did not start.")
+    ? appErrorMessage(gatewayStatus.lastError || "Service did not start.")
     : "";
   const networkCaptureEnabled = draftConfig.proxy.enabled && draftConfig.proxy.captureNetwork;
   const visibleNavigation = useMemo(
@@ -758,6 +776,7 @@ function App() {
   const providerProbeRequestId = useRef(0);
   const providerConnectivityRequestId = useRef(0);
   const toastTimer = useRef<number>();
+  const failingPolls = useRef(new Set<string>());
 
   const shouldReduceMotion = useReducedMotion();
   const isMac = isMacPlatform(appInfo.platform);
@@ -777,9 +796,9 @@ function App() {
   const canSubmitClaudeDesignRouting = isClaudeDesignRoutingDraftValid(claudeDesignRoutingDraft);
   const canSubmitCursorProxyRouting = isClaudeDesignRoutingDraftValid(cursorProxyRoutingDraft);
   const virtualModelValidationError = useMemo(() => validateVirtualModelDraft(virtualModelDraft), [virtualModelDraft]);
-  const translatedVirtualModelValidationError = useMemo(
-    () => virtualModelValidationError ? translateAppErrorMessage(copy, virtualModelValidationError) : "",
-    [copy, virtualModelValidationError]
+  const virtualModelValidationMessage = useMemo(
+    () => virtualModelValidationError ? appErrorMessage(virtualModelValidationError) : "",
+    [virtualModelValidationError]
   );
   const canSubmitVirtualModel = !virtualModelValidationError;
   const canInstallExtension = canInstallExtensionCandidate({
@@ -909,7 +928,7 @@ function App() {
         })
         .catch((error) => {
           if (autoSaveRequestId.current === requestId) {
-            setConfigSaveError(formatError(error));
+            setConfigSaveError(formatAppError(error));
             setConfigSaveState("error");
           }
         });
@@ -936,6 +955,20 @@ function App() {
     setDraftConfig(nextDraft);
   }
 
+  // Polls repeat every few seconds, so each failing load is announced once until it recovers,
+  // and not at all while the connection-lost banner already explains it.
+  function reportPollFailure(load: string, error: unknown) {
+    if (failingPolls.current.has(load) || failingPolls.current.has(disconnectedPoll)) {
+      return;
+    }
+    failingPolls.current.add(load);
+    showToast(`Could not load ${load}: ${formatAppError(error)}`);
+  }
+
+  function clearPollFailure(load: string) {
+    failingPolls.current.delete(load);
+  }
+
   function showToast(message: string) {
     if (toastTimer.current !== undefined) {
       window.clearTimeout(toastTimer.current);
@@ -949,7 +982,7 @@ function App() {
 
   async function resetOverviewStatistics() {
     if (!window.ccr?.resetOverviewStatistics) {
-      throw new Error(t("Overview statistics reset is unavailable."));
+      throw new Error("Overview statistics reset is unavailable.");
     }
 
     usageStatsRequestId.current += 1;
@@ -962,7 +995,7 @@ function App() {
     if (requestId === usageStatsRequestId.current) {
       setUsageStats(snapshot);
     }
-    showToast(t("Overview statistics reset."));
+    showToast("Overview statistics reset.");
   }
 
   function openUpdateDialog() {
@@ -987,7 +1020,7 @@ function App() {
       setUpdateDialogStatus({
         ...fallbackUpdateStatus,
         currentVersion: appInfo.version,
-        lastError: t("Updates are only available in packaged builds."),
+        lastError: "Updates are only available in packaged builds.",
         state: "error"
       });
       return;
@@ -999,7 +1032,7 @@ function App() {
     try {
       setUpdateDialogStatus(await window.ccr.updateCheck());
     } catch (error) {
-      setUpdateActionError(formatError(error));
+      setUpdateActionError(formatAppError(error));
     } finally {
       updateActionBusyRef.current = false;
       setUpdateActionBusy("");
@@ -1017,7 +1050,7 @@ function App() {
     try {
       setUpdateDialogStatus(await window.ccr.updateDownload());
     } catch (error) {
-      setUpdateActionError(formatError(error));
+      setUpdateActionError(formatAppError(error));
     } finally {
       updateActionBusyRef.current = false;
       setUpdateActionBusy("");
@@ -1035,7 +1068,7 @@ function App() {
     try {
       await window.ccr.updateInstall();
     } catch (error) {
-      setUpdateActionError(formatError(error));
+      setUpdateActionError(formatAppError(error));
       updateActionBusyRef.current = false;
       setUpdateActionBusy("");
     }
@@ -1095,7 +1128,7 @@ function App() {
       setError("");
       return true;
     } catch (error) {
-      const message = formatError(error);
+      const message = formatAppError(error);
       setError(message);
       if (showSaveFeedback && autoSaveRequestId.current === requestId) {
         setConfigSaveError(message);
@@ -1127,7 +1160,7 @@ function App() {
 
   async function persistApiKeys(apiKeys: ApiKeyConfig[], setError: (message: string) => void): Promise<boolean> {
     if (!window.ccr) {
-      setError(t("API key persistence is only available in the Electron app."));
+      setError("API key persistence is only available in the Electron app.");
       return false;
     }
 
@@ -1150,7 +1183,7 @@ function App() {
       setError("");
       return true;
     } catch (error) {
-      setError(formatError(error));
+      setError(formatAppError(error));
       return false;
     } finally {
       apiKeySaveBusy.current = false;
@@ -1186,11 +1219,11 @@ function App() {
 
   async function submitApiKeyDraft() {
     if (!apiKeyDraft.name.trim()) {
-      setApiKeyError(t("Name is required."));
+      setApiKeyError("Name is required.");
       return;
     }
     if (!canSubmitApiKey) {
-      setApiKeyError(t("Expiration is required."));
+      setApiKeyError("Expiration is required.");
       return;
     }
     const apiKey = createGeneratedApiKey(apiKeyDraft);
@@ -1212,7 +1245,7 @@ function App() {
       return;
     }
     if (!canSubmitApiKeyEdit) {
-      setApiKeyError(t("Expiration is required."));
+      setApiKeyError("Expiration is required.");
       return;
     }
 
@@ -1458,7 +1491,7 @@ function App() {
           .catch((error) => {
             if (providerProbeRequestId.current === requestId) {
               setProviderProbe(undefined);
-              setProviderProbeError(formatError(error));
+              setProviderProbeError(formatAppError(error));
             }
           })
           .finally(() => {
@@ -1508,7 +1541,7 @@ function App() {
           }
           if (!result) {
             setProviderProbe(undefined);
-            setProviderProbeError(t("Request failed."));
+            setProviderProbeError("Request failed.");
             return;
           }
 
@@ -1531,13 +1564,13 @@ function App() {
           // (a provider can expose a working catalog while a protocol probe endpoint 404s).
           if (!providerProbeHasSupportedProtocol(result.probe) && (probeMode !== "models" || result.probe.models.length === 0)) {
             const message = result.probe.protocols.find((item) => item.message)?.message || "Request failed.";
-            setProviderProbeError(translateAppErrorMessage(copy, message));
+            setProviderProbeError(appErrorMessage(message));
           }
         })
         .catch((error) => {
           if (providerProbeRequestId.current === requestId) {
             setProviderProbe(undefined);
-            setProviderProbeError(formatError(error));
+            setProviderProbeError(formatAppError(error));
           }
         })
         .finally(() => {
@@ -1561,7 +1594,7 @@ function App() {
       return;
     }
     if (!window.ccr) {
-      setProviderProbeError(t("Request failed."));
+      setProviderProbeError("Request failed.");
       return;
     }
 
@@ -1605,7 +1638,7 @@ function App() {
       const candidates = providerProbeCandidates(providerDraft).filter(isProviderProbeCandidateReady);
       if (candidates.length === 0) {
         setProviderProbe(undefined);
-        setProviderProbeError(t("No endpoint candidates available."));
+        setProviderProbeError("No endpoint candidates available.");
         return;
       }
 
@@ -1622,7 +1655,7 @@ function App() {
       }
       if (!result) {
         setProviderProbe(undefined);
-        setProviderProbeError(t("Request failed."));
+        setProviderProbeError("Request failed.");
         return;
       }
 
@@ -1639,12 +1672,12 @@ function App() {
 
       if (result.probe.models.length === 0 && !providerProbeHasSupportedProtocol(result.probe)) {
         const message = result.probe.protocols.find((item) => item.message)?.message || "Request failed.";
-        setProviderProbeError(translateAppErrorMessage(copy, message));
+        setProviderProbeError(appErrorMessage(message));
       }
     } catch (error) {
       if (providerProbeRequestId.current === requestId) {
         setProviderProbe(undefined);
-        setProviderProbeError(formatError(error));
+        setProviderProbeError(formatAppError(error));
       }
     } finally {
       if (providerProbeRequestId.current === requestId) {
@@ -1671,15 +1704,15 @@ function App() {
 
     setProviderProbeError("");
     if (!window.ccr) {
-      setProviderProbeError(t("Request failed."));
+      setProviderProbeError("Request failed.");
       return emptyReport;
     }
     if (candidates.length === 0) {
-      setProviderProbeError(t("No endpoint candidates available."));
+      setProviderProbeError("No endpoint candidates available.");
       return emptyReport;
     }
     if (models.length === 0) {
-      setProviderProbeError(t("Select or enter at least one model."));
+      setProviderProbeError("Select or enter at least one model.");
       return emptyReport;
     }
     const safetyIssue = providerProbeCandidatesApiKeySafetyIssue(
@@ -1689,7 +1722,7 @@ function App() {
       providerDraft.presetId
     );
     if (safetyIssue) {
-      setProviderProbeError(translateAppErrorMessage(copy, safetyIssue.message));
+      setProviderProbeError(appErrorMessage(safetyIssue.message));
       return emptyReport;
     }
 
@@ -1710,13 +1743,13 @@ function App() {
       setProviderConnectivityProbe(report.probe);
 
       if (report.passed.length === 0) {
-        setProviderProbeError(translateAppErrorMessage(copy, report.failed[0]?.message || "Request failed."));
+        setProviderProbeError(appErrorMessage(report.failed[0]?.message || "Request failed."));
       }
       return report;
     } catch (error) {
       if (providerConnectivityRequestId.current === requestId) {
         setProviderConnectivityProbe(undefined);
-        setProviderProbeError(formatError(error));
+        setProviderProbeError(formatAppError(error));
       }
       return emptyReport;
     } finally {
@@ -1737,26 +1770,26 @@ function App() {
     const typedModels = splitLines(providerDraft.modelsText);
     const models = mergeProviderModelLists(providerDraft.selectedModels, typedModels);
     if (models.length === 0) {
-      setProviderProbeError(t(usesCatalog ? "Select or enter at least one model." : "Enter at least one model."));
+      setProviderProbeError(usesCatalog ? "Select or enter at least one model." : "Enter at least one model.");
       return false;
     }
 
     const providerName = providerDraft.name.trim();
     if (isProviderNameDuplicate(draftConfig.Providers, providerName, providerEditIndex)) {
-      setProviderProbeError(t("Provider name already exists."));
+      setProviderProbeError("Provider name already exists.");
       return false;
     }
 
     const accountConfig = parseProviderAccountDraft(providerDraft);
     if (typeof accountConfig === "string") {
-      setProviderProbeError(translateAppErrorMessage(copy, accountConfig));
+      setProviderProbeError(appErrorMessage(accountConfig));
       return false;
     }
     const useCredentialPool = providerDraft.credentialMode === "pool";
     const primaryApiKey = useCredentialPool ? "" : providerDraft.apiKey.trim();
     const credentials = useCredentialPool ? providerCredentialsFromDraft(providerDraft) : [];
     if (typeof credentials === "string") {
-      setProviderProbeError(translateAppErrorMessage(copy, credentials));
+      setProviderProbeError(appErrorMessage(credentials));
       return false;
     }
     const manualProtocolDetection = providerDraft.protocolDetectionMode === "manual";
@@ -1768,7 +1801,7 @@ function App() {
         : providerDraft.selectedProtocols.filter((protocol) => !saveProbe || selectableProtocols.includes(protocol))
       : [];
     if ((manualProtocolDetection || selectableProtocols.length > 0) && selectedProtocols.length === 0) {
-      setProviderProbeError(t("Select at least one protocol."));
+      setProviderProbeError("Select at least one protocol.");
       return false;
     }
 
@@ -1802,7 +1835,7 @@ function App() {
       presetId: providerDraft.presetId
     });
     if (keySafetyIssue) {
-      setProviderProbeError(translateAppErrorMessage(copy, keySafetyIssue.message));
+      setProviderProbeError(appErrorMessage(keySafetyIssue.message));
       return false;
     }
     for (const credential of credentials) {
@@ -1813,7 +1846,7 @@ function App() {
         presetId: providerDraft.presetId
       });
       if (credentialKeySafetyIssue) {
-        setProviderProbeError(translateAppErrorMessage(copy, credentialKeySafetyIssue.message));
+        setProviderProbeError(appErrorMessage(credentialKeySafetyIssue.message));
         return false;
       }
     }
@@ -1823,7 +1856,7 @@ function App() {
       presetId: providerDraft.presetId
     });
     if (identityIssue) {
-      setProviderProbeError(translateAppErrorMessage(copy, identityIssue.message));
+      setProviderProbeError(appErrorMessage(identityIssue.message));
       return false;
     }
 
@@ -1834,18 +1867,18 @@ function App() {
       providerPresetId: providerDraft.presetId
     });
     if (accountKeySafetyIssue) {
-      setProviderProbeError(translateAppErrorMessage(copy, accountKeySafetyIssue.message));
+      setProviderProbeError(appErrorMessage(accountKeySafetyIssue.message));
       return false;
     }
 
     const extraBody = parseProviderExtraJsonDraft(providerDraft.extraBodyText, "extraBody");
     if (typeof extraBody === "string") {
-      setProviderProbeError(translateAppErrorMessage(copy, extraBody));
+      setProviderProbeError(appErrorMessage(extraBody));
       return false;
     }
     const extraHeaders = parseProviderExtraJsonDraft(providerDraft.extraHeadersText, "extraHeaders");
     if (typeof extraHeaders === "string") {
-      setProviderProbeError(translateAppErrorMessage(copy, extraHeaders));
+      setProviderProbeError(appErrorMessage(extraHeaders));
       return false;
     }
 
@@ -1900,7 +1933,7 @@ function App() {
       setProviderImportPayload(undefined);
       setProviderAddOpen(false);
       if (wasImport) {
-        showToast(`${copy.text["Imported provider"] ?? "Imported provider"} ${provider.name}`.trim());
+        showToast(`Imported provider ${provider.name}`.trim());
       }
       if (activeView === "onboarding") {
         setOnboardingStep(getDefaultOnboardingStep(next, onboardingReadiness));
@@ -1939,7 +1972,7 @@ function App() {
 
       setProviderDeepLinkBusy(false);
     } catch (error) {
-      setProviderDeepLinkError(formatError(error));
+      setProviderDeepLinkError(formatAppError(error));
       setProviderDeepLinkBusy(false);
     }
   }
@@ -2108,7 +2141,7 @@ function App() {
 
   function submitVirtualModelDraft() {
     if (virtualModelValidationError) {
-      setVirtualModelError(translatedVirtualModelValidationError);
+      setVirtualModelError(virtualModelValidationMessage);
       return;
     }
 
@@ -2184,7 +2217,7 @@ function App() {
 
   async function chooseLocalExtensionDirectory() {
     if (!window.ccr?.selectPluginDirectory) {
-      setActionError(t("Local plugin selection is available in the Electron app."));
+      setActionError("Local plugin selection is available in the Electron app.");
       return;
     }
 
@@ -2215,7 +2248,7 @@ function App() {
       }));
       installExtensionCandidate(candidate);
     } catch (error) {
-      setActionError(formatError(error));
+      setActionError(formatAppError(error));
     }
   }
 
@@ -2271,11 +2304,11 @@ function App() {
   async function openExtensionApp(index: number, appId?: string) {
     const plugin = draftConfig.plugins[index];
     if (!plugin?.id) {
-      setActionError(t("Plugin app is not configured or enabled."));
+      setActionError("Plugin app is not configured or enabled.");
       return;
     }
     if (!window.ccr?.openPluginApp) {
-      setActionError(t("Plugin apps can be opened from the Electron app."));
+      setActionError("Plugin apps can be opened from the Electron app.");
       return;
     }
 
@@ -2286,7 +2319,7 @@ function App() {
       await window.ccr.openPluginApp(plugin.id, appId);
       setActionError("");
     } catch (error) {
-      setActionError(formatError(error));
+      setActionError(formatAppError(error));
     }
   }
 
@@ -2521,7 +2554,7 @@ function App() {
           return;
         }
         setThemePreference(previousTheme);
-        setActionError(formatError(error));
+        setActionError(formatAppError(error));
       });
   }
 
@@ -2655,7 +2688,7 @@ function App() {
       try {
         await window.ccr.setOnboardingFinished();
       } catch (error) {
-        setActionError(formatError(error));
+        setActionError(formatAppError(error));
         return;
       }
     }
@@ -2670,7 +2703,7 @@ function App() {
 
   async function toggleGatewayService() {
     if (!window.ccr) {
-      setActionError(t("Service control is available in the Electron app."));
+      setActionError("Service control is available in the Electron app.");
       return;
     }
 
@@ -2684,9 +2717,9 @@ function App() {
       setGatewayStatus(status);
       const nextProxyStatus = await window.ccr.getProxyStatus();
       setProxyStatus(nextProxyStatus);
-      setActionMessage(translateAppErrorMessage(copy, gatewayServiceMessage(status, shouldStop)));
+      setActionMessage(appErrorMessage(gatewayServiceMessage(status, shouldStop)));
     } catch (error) {
-      setActionError(formatError(error));
+      setActionError(formatAppError(error));
     } finally {
       setGatewayActionBusy(false);
       setGatewayActionTargetActive(undefined);
@@ -2718,7 +2751,7 @@ function App() {
       setRequestLogPage(await window.ccr.getRequestLogs(requestLogFilter));
       setRequestLogError("");
     } catch (error) {
-      setRequestLogError(formatError(error));
+      setRequestLogError(formatAppError(error));
     } finally {
       setRequestLogLoading(false);
     }
@@ -2746,7 +2779,7 @@ function App() {
       }));
       setAgentAnalysisError("");
     } catch (error) {
-      setAgentAnalysisError(formatError(error));
+      setAgentAnalysisError(formatAppError(error));
     } finally {
       setAgentAnalysisLoading(false);
     }
@@ -2791,7 +2824,7 @@ function App() {
       setProxyNetworkSnapshot(await window.ccr.setProxyNetworkCaptureEnabled(enabled));
       setActionError("");
     } catch (error) {
-      setActionError(formatError(error));
+      setActionError(formatAppError(error));
     }
   }
 
@@ -2834,7 +2867,7 @@ function App() {
       };
       if (!(await persistConfig(draftConfig, setSaveError))) {
         if (!saveError) {
-          setProfileActionError(t("Failed to save profile before copying."));
+          setProfileActionError("Failed to save profile before copying.");
         }
         return;
       }
@@ -2846,9 +2879,9 @@ function App() {
       }
       await copyTextToClipboard(command);
       setProfileActionError("");
-      showToast(t("Copied"));
+      showToast("Copied");
     } catch (error) {
-      setProfileActionError(formatError(error));
+      setProfileActionError(formatAppError(error));
     } finally {
       setProfileActionBusy((current) =>
         current?.profileId === profile.id && current.surface === "cli" ? undefined : current
@@ -2872,20 +2905,20 @@ function App() {
       };
       if (!(await persistConfig(draftConfig, setSaveError, undefined, "silent"))) {
         if (!saveError) {
-          setProfileActionError(t("Failed to save profile before opening."));
+          setProfileActionError("Failed to save profile before opening.");
         }
         return;
       }
 
       if (!window.ccr?.openProfile) {
-        setProfileActionError(t("Profile opening is only available in the Electron app."));
+        setProfileActionError("Profile opening is only available in the Electron app.");
         return;
       }
       const result = await window.ccr.openProfile({ profileId: profile.id, surface: "app" });
       await refreshProfileRuntimeStatus();
-      showToast(translateAppErrorMessage(copy, result.message));
+      showToast(appErrorMessage(result.message));
     } catch (error) {
-      setProfileActionError(formatError(error));
+      setProfileActionError(formatAppError(error));
     } finally {
       setProfileActionBusy((current) =>
         current?.profileId === profile.id && current.surface === "app" ? undefined : current
@@ -2903,15 +2936,15 @@ function App() {
     setProfileActionBusy({ profileId: profile.id, surface: "app" });
     try {
       if (!window.ccr?.stopProfile) {
-        setProfileActionError(t("Profile stopping is only available in the Electron app."));
+        setProfileActionError("Profile stopping is only available in the Electron app.");
         return;
       }
       const result = await window.ccr.stopProfile({ profileId: profile.id, surface: "app" });
       removeProfileRuntimeEntry(result.profileId, result.surface);
       await refreshProfileRuntimeStatus();
-      showToast(translateAppErrorMessage(copy, result.message));
+      showToast(appErrorMessage(result.message));
     } catch (error) {
-      setProfileActionError(formatError(error));
+      setProfileActionError(formatAppError(error));
     } finally {
       setProfileActionBusy((current) =>
         current?.profileId === profile.id && current.surface === "app" ? undefined : current
@@ -2947,7 +2980,7 @@ function App() {
         : current);
     } catch (error) {
       setProfileOpenDialog((current) => current?.profile.id === profile.id
-        ? { ...current, busy: "", error: formatError(error) }
+        ? { ...current, busy: "", error: formatAppError(error) }
         : current);
     }
   }
@@ -2963,13 +2996,13 @@ function App() {
     };
     if (!(await persistConfig(draftConfig, setSaveError, undefined, "silent"))) {
       setProfileOpenDialog((current) => current?.profile.id === profile.id
-        ? { ...current, busy: "", error: saveError || t("Failed to save profile before opening.") }
+        ? { ...current, busy: "", error: saveError || "Failed to save profile before opening." }
         : current);
       return;
     }
     if (!window.ccr?.openProfile) {
       setProfileOpenDialog((current) => current?.profile.id === profile.id
-        ? { ...current, busy: "", error: t("Profile opening is only available in the Electron app.") }
+        ? { ...current, busy: "", error: "Profile opening is only available in the Electron app." }
         : current);
       return;
     }
@@ -2977,10 +3010,10 @@ function App() {
       const result = await window.ccr.openProfile({ profileId: profile.id, surface: "app" });
       await refreshProfileRuntimeStatus();
       setProfileOpenDialog(undefined);
-      showToast(translateAppErrorMessage(copy, result.message));
+      showToast(appErrorMessage(result.message));
     } catch (error) {
       setProfileOpenDialog((current) => current?.profile.id === profile.id
-        ? { ...current, busy: "", error: formatError(error) }
+        ? { ...current, busy: "", error: formatAppError(error) }
         : current);
     }
   }
@@ -2991,7 +3024,7 @@ function App() {
       : current);
     if (!window.ccr?.stopProfile) {
       setProfileOpenDialog((current) => current?.profile.id === profile.id
-        ? { ...current, busy: "", error: t("Profile stopping is only available in the Electron app.") }
+        ? { ...current, busy: "", error: "Profile stopping is only available in the Electron app." }
         : current);
       return;
     }
@@ -3000,10 +3033,10 @@ function App() {
       removeProfileRuntimeEntry(result.profileId, result.surface);
       await refreshProfileRuntimeStatus();
       setProfileOpenDialog(undefined);
-      showToast(translateAppErrorMessage(copy, result.message));
+      showToast(appErrorMessage(result.message));
     } catch (error) {
       setProfileOpenDialog((current) => current?.profile.id === profile.id
-        ? { ...current, busy: "", error: formatError(error) }
+        ? { ...current, busy: "", error: formatAppError(error) }
         : current);
     }
   }
@@ -3015,9 +3048,11 @@ function App() {
     }
     try {
       const next = await window.ccr.getProfileRuntimeStatus();
+      clearPollFailure("profile runtime status");
       setProfileRuntimeStatus((current) => preserveEqualPollingSnapshot(current, next));
-    } catch {
+    } catch (error) {
       setProfileRuntimeStatus((current) => preserveEqualPollingSnapshot(current, { profiles: [] }));
+      reportPollFailure("profile runtime status", error);
     }
   }
 
@@ -3062,11 +3097,11 @@ function App() {
       return false;
     }
     if (!profileRouteTargetReady) {
-      setProfileActionError(t("Configure at least one enabled provider model before saving an agent profile."));
+      setProfileActionError("Configure at least one enabled provider model before saving an agent profile.");
       return false;
     }
     if (!canSubmitProfile) {
-      setProfileActionError(t("Profile name, required target settings, and environment variable keys are required."));
+      setProfileActionError("Profile name, required target settings, and environment variable keys are required.");
       return false;
     }
     setProfileSubmitBusy("add");
@@ -3118,18 +3153,18 @@ function App() {
       return false;
     }
     if (!profileRouteTargetReady) {
-      setProfileActionError(t("Configure at least one enabled provider model before saving an agent profile."));
+      setProfileActionError("Configure at least one enabled provider model before saving an agent profile.");
       return false;
     }
     if (!canSubmitProfileEdit) {
-      setProfileActionError(t("Profile name, required target settings, and environment variable keys are required."));
+      setProfileActionError("Profile name, required target settings, and environment variable keys are required.");
       return false;
     }
     setProfileSubmitBusy("edit");
     const currentProfile = draftConfig.profile.profiles[profileEditIndex];
     if (!currentProfile) {
       setProfileSubmitBusy("");
-      setProfileActionError(t("Profile no longer exists."));
+      setProfileActionError("Profile no longer exists.");
       return false;
     }
     const nextProfile = profileConfigFromDraft(profileEditDraft, draftConfig.profile.profiles, currentProfile, draftConfig.botConfigs);
@@ -3208,441 +3243,439 @@ function App() {
   );
 
   return (
-    <AppI18nContext.Provider value={copy}>
-      <LayoutGroup id="home-shell">
-        <div className="relative flex h-full min-h-0 w-full min-w-0 overflow-hidden bg-background text-foreground max-[720px]:flex-col">
-          {activeView === "onboarding" ? (
-            <OnboardingLayout
-              gatewayStartupError={gatewayStartupError}
-              loaded={configLoaded && onboardingStatusLoaded && providerPresetsLoaded}
-              onboarding={{
-                activeStep: onboardingStep,
-                agentOptions: availableProfileAgentOptions,
-                canSubmitProfile,
-                canSubmitProvider,
-                config: draftConfig,
-                endpoint: gatewayEndpoint,
-                gatewayStatus,
-                onCheckProvider: checkProviderDraft,
-                onComplete: completeOnboarding,
-                onChangeProfile: updateProfileDraft,
-                onChangeProvider: updateProviderDraft,
-                onSelectStep: setOnboardingStep,
-                onSubmitProfile: submitProfileDraft,
-                onSubmitProvider: submitProviderDraft,
-                profileDraft,
-                profileError: profileActionError,
-                providerDraft,
-                providerError: providerProbeError,
-                providerConnectivityLoading,
-                providerConnectivityProbe,
-                providerProbe,
-                providerProbeLoading,
-                readiness: onboardingReadiness
-              }}
-            />
-          ) : (
-            <MainLayout
-              activeView={activeView}
-              agentAnalysisEnabled={agentAnalysisEnabled}
-              compactLayout={compactLayout}
-              config={draftConfig}
-              copy={copy}
-              gatewayActionBusy={gatewayActionBusy}
-              gatewayEndpoint={gatewayEndpoint}
-              gatewayStartupError={gatewayStartupError}
-              gatewayStatus={gatewayStatus}
-              gatewayTargetActive={gatewayActionTargetActive}
-              isMac={isMac}
-              needsTrafficLightSafeArea={needsTrafficLightSafeArea}
-              networkCaptureEnabled={networkCaptureEnabled}
-              onOpenUpdate={openSidebarUpdateDialog}
-              onOpenServerSettings={openGeneralSettingsDialog}
-              onOpenSettings={openSettingsDialog}
-              onSelectNavigationItem={selectNavigationItem}
-              onToggleSidebar={() => setSidebarOpen((current) => !current)}
-              requestLogsEnabled={requestLogsEnabled}
-              shouldReduceMotion={shouldReduceMotion}
-              sidebarOpen={sidebarOpen}
-              toggleGatewayService={toggleGatewayService}
-              updateActionBusy={Boolean(updateActionBusy)}
-              updateStatus={updateDialogStatus}
-              visibleNavigation={visibleNavigation}
-              viewProps={{
-                apiKeys: {
-                  addApiKey: openAddApiKeyDialog,
-                  apiKeys,
-                  editApiKey: openEditApiKeyDialog,
-                  error: apiKeyError,
-                  notify: showToast,
-                  removeApiKey
-                },
-                extensions: {
-                  configureExtension: openConfigureExtension,
-                  config: draftConfig,
-                  installExtension: openInstallExtensionDialog,
-                  openExtensionApp: (index, appId) => void openExtensionApp(index, appId),
-                  removeExtension: (source, index, groupIndexes) => setExtensionDeleteTarget({ groupIndexes: extensionActionIndexes(index, groupIndexes), index, source }),
-                  setExtensionEnabled
-                },
-                logs: {
-                  enabled: requestLogsEnabled,
-                  error: requestLogError,
-                  filter: requestLogFilter,
-                  focusedRequestId: focusedRequestLogId,
-                  loading: requestLogLoading,
-                  onEnable: () => changeObservabilityConfig({ requestLogs: true }),
-                  onFocusedRequestHandled: () => setFocusedRequestLogId(undefined),
-                  page: requestLogPage,
-                  refreshLogs: () => void refreshRequestLogs(),
-                  updateFilter: updateRequestLogFilter
-                },
-                models: {
-                  config: draftConfig,
-                  updateModelDescription: updateProviderModelDescription
-                },
-                networking: {
-                  clearCaptures: () => void clearProxyNetworkCaptures(),
-                  proxyStatus,
-                  refreshCaptures: () => void refreshProxyNetworkCaptures(),
-                  setCaptureEnabled: (enabled) => void setProxyNetworkCaptureEnabled(enabled),
-                  snapshot: proxyNetworkSnapshot
-                },
-                observability: {
-                  agentFilter: agentAnalysisAgent,
-                  error: agentAnalysisError,
-                  loading: agentAnalysisLoading,
-                  range: agentAnalysisRange,
-                  refreshAnalysis: () => void refreshAgentAnalysis(),
-                  selectedSession: agentAnalysisSession,
-                  setAgentFilter: updateAgentAnalysisAgent,
-                  setRange: updateAgentAnalysisRange,
-                  setSelectedSession: setAgentAnalysisSession,
-                  snapshot: agentAnalysis
-                },
-                overview: {
-                  onConfigureProviderAccounts: () => selectNavigationItem("providers"),
-                  usageFilters: {
-                    modelFilter: usageModelFilter,
-                    providerFilter: usageProviderFilter,
-                    providers: draftConfig.Providers,
-                    setModelFilter: setUsageModelFilter,
-                    setProviderFilter: setUsageProviderFilter
-                  },
-                  resetOverviewStatistics,
-                  onWidgetsChange: changeOverviewWidgets,
-                  overviewWidgets: normalizeOverviewWidgets(draftConfig.overviewWidgets),
-                  providerAccounts: providerAccountSnapshots,
-                  providerAccountRefreshing,
-                  refreshProviderAccounts: () => void refreshProviderAccountsNow(),
-                  setUsageRange,
-                  usageRange,
-                  usageStats
-                },
-                profile: {
-                  addProfile: openAddProfileDialog,
-                  agentOptions: availableProfileAgentOptions,
-                  applyError: profileActionError,
-                  copyProfileCliCommand: (index) => void copyProfileCliCommand(index),
-                  config: draftConfig,
-                  editProfile: openEditProfileDialog,
-                  openProfileApp: (index) => void openProfileAppFromList(index),
-                  profileActionBusy,
-                  profileRuntimeStatus,
-                  removeProfile: setProfileDeleteIndex,
-                  stopProfileApp: (index) => void stopProfileAppFromList(index),
-                  updateProfileItem
-                },
-                providers: {
-                  accountSnapshots: providerAccountSnapshots,
-                  addProvider: openAddProviderDialog,
-                  editProvider: openEditProviderDialog,
-                  notify: showToast,
-                  providers,
-                  removeProvider: setProviderDeleteIndex,
-                  setProviderEnabled
-                },
-                routing: {
-                  addRule: openAddRoutingRuleDialog,
-                  config: draftConfig,
-                  editRule: openEditRoutingRuleDialog,
-                  moveRule: moveRoutingRule,
-                  providers: draftConfig.Providers,
-                  removeRule: setRoutingDeleteIndex,
-                  updateFallback: (fallback) => updateConfig((config) => {
-                    config.Router.fallback = normalizeRouterFallbackConfig(fallback);
-                    return config;
-                  }),
-                  updateRule: updateRoutingRule
-                },
-                virtualModels: {
-                  addVirtualModel: openAddVirtualModelDialog,
-                  editVirtualModel: openEditVirtualModelDialog,
-                  profiles: draftConfig.virtualModelProfiles ?? [],
-                  removeVirtualModel,
-                  setVirtualModelEnabled
-                }
-              }}
-            />
-          )}
-
-          <AppDialogStack
-            apiKeyAdd={apiKeyAddOpen ? {
-              canSubmit: canSubmitApiKey,
-              draft: apiKeyDraft,
-              error: apiKeyError,
-              onChange: updateApiKeyDraft,
-              onClose: () => setApiKeyAddOpen(false),
-              onSubmit: submitApiKeyDraft
-            } : undefined}
-            apiKeyCreated={createdApiKey ? {
-              apiKeyName: createdApiKey.name?.trim() || t("API key"),
-              apiKeyValue: createdApiKey.key,
-              onClose: () => setCreatedApiKey(undefined)
-            } : undefined}
-            apiKeyEdit={apiKeyEditItem ? {
-              canSubmit: canSubmitApiKeyEdit,
-              draft: apiKeyEditDraft,
-              error: apiKeyError,
-              onChange: updateApiKeyEditDraft,
-              onClose: () => setApiKeyEditIndex(undefined),
-              onSubmit: submitApiKeyEditDraft
-            } : undefined}
-            claudeDesignConfig={pluginRoutingConfigItem && isClaudeDesignPluginConfig(pluginRoutingConfigItem) ? {
-              canSubmit: canSubmitClaudeDesignRouting,
-              draft: claudeDesignRoutingDraft,
-              routesLabel: "Claude Design routes",
-              sourceModelLabel: "Claude Design model",
-              sourceModelDefaults: { model: "claude-opus-4-8", pattern: "claude-" },
-              onAddRule: addClaudeDesignRoutingRule,
-              onChange: updateClaudeDesignRoutingDraft,
-              onChangeRule: updateClaudeDesignRoutingRule,
-              onClose: () => setPluginRoutingConfigTarget(undefined),
-              onRemoveRule: removeClaudeDesignRoutingRule,
-              onSubmit: submitClaudeDesignRoutingDraft,
-              providers: draftConfig.Providers
-            } : undefined}
-            cursorProxyConfig={pluginRoutingConfigItem && isCursorProxyPluginConfig(pluginRoutingConfigItem) ? {
-              canSubmit: canSubmitCursorProxyRouting,
-              draft: cursorProxyRoutingDraft,
-              routesLabel: "Cursor Proxy routes",
-              sourceModelLabel: "Cursor model",
-              sourceModelDefaults: { model: "default", pattern: "cursor-" },
-              onAddRule: addCursorProxyRoutingRule,
-              onChange: updateCursorProxyRoutingDraft,
-              onChangeRule: updateCursorProxyRoutingRule,
-              onClose: () => setPluginRoutingConfigTarget(undefined),
-              onRemoveRule: removeCursorProxyRoutingRule,
-              onSubmit: submitCursorProxyRoutingDraft,
-              providers: draftConfig.Providers
-            } : undefined}
-            extensionDelete={extensionDeleteItem ? {
-              extension: extensionDeleteItem,
-              onClose: () => setExtensionDeleteTarget(undefined),
-              onConfirm: confirmExtensionDelete
-            } : undefined}
-            extensionInstall={extensionInstallOpen ? {
-              canSubmit: canInstallExtension,
-              draft: extensionInstallDraft,
-              error: extensionInstallError,
-              marketplace: pluginMarketplace,
-              onChange: updateExtensionInstallDraft,
-              onChooseLocal: chooseLocalExtensionDirectory,
-              onClose: () => setExtensionInstallOpen(false),
-              onSubmit: submitExtensionInstallDraft
-            } : undefined}
-            extensionSettings={extensionConfigItem ? {
-              draft: pluginSettingsDraft,
-              error: pluginSettingsError,
-              extension: extensionConfigItem,
-              onChange: updatePluginSettingsDraft,
-              onClose: () => setExtensionConfigTarget(undefined),
-              onSubmit: submitPluginSettingsDraft
-            } : undefined}
-            profileAdd={profileAddOpen ? {
+    <LayoutGroup id="home-shell">
+      <div className="relative flex h-full min-h-0 w-full min-w-0 overflow-hidden bg-background text-foreground max-[720px]:flex-col">
+        {activeView === "onboarding" ? (
+          <OnboardingLayout
+            gatewayStartupError={gatewayStartupError}
+            loaded={configLoaded && onboardingStatusLoaded && providerPresetsLoaded}
+            onboarding={{
+              activeStep: onboardingStep,
               agentOptions: availableProfileAgentOptions,
-              botConfigs: draftConfig.botConfigs,
-              canSubmit: canSubmitProfile,
-              draft: profileDraft,
-              error: profileActionError,
-              mode: "add",
-              onChange: updateProfileDraft,
-              onCreateBot: openBotSettingsWithAddDialog,
-              onClose: () => setProfileAddOpen(false),
-              providers: draftConfig.Providers,
-              submitting: profileSubmitBusy === "add",
-              virtualModelProfiles: draftConfig.virtualModelProfiles ?? [],
-              onSubmit: submitProfileDraft
-            } : undefined}
-            profileDelete={profileDeleteItem ? {
-              onClose: () => setProfileDeleteIndex(undefined),
-              onConfirm: confirmProfileDelete,
-              profile: profileDeleteItem
-            } : undefined}
-            profileEdit={profileEditIndex !== undefined ? {
-              agentOptions: availableProfileAgentOptions,
-              botConfigs: draftConfig.botConfigs,
-              canSubmit: canSubmitProfileEdit,
-              draft: profileEditDraft,
-              error: profileActionError,
-              mode: "edit",
-              onChange: updateProfileEditDraft,
-              onCreateBot: openBotSettingsWithAddDialog,
-              onClose: () => {
-                setProfileEditIndex(undefined);
-                setProfileActionError("");
-              },
-              providers: draftConfig.Providers,
-              submitting: profileSubmitBusy === "edit",
-              virtualModelProfiles: draftConfig.virtualModelProfiles ?? [],
-              onSubmit: submitProfileEditDraft
-            } : undefined}
-            profileOpen={profileOpenDialog ? {
-              appRunning: profileRuntimeStatus.profiles.some((entry) =>
-                entry.profileId === profileOpenDialog.profile.id && entry.surface === "app" && entry.state === "running"
-              ),
-              busy: profileOpenDialog.busy,
-              command: profileOpenDialog.command,
-              error: profileOpenDialog.error,
-              mode: profileOpenDialog.mode,
-              onChooseApp: () => void openProfileApp(profileOpenDialog.profile),
-              onClose: () => setProfileOpenDialog(undefined),
-              onStopApp: () => void stopProfileApp(profileOpenDialog.profile),
-              profile: profileOpenDialog.profile
-            } : undefined}
-            providerDeepLink={providerDeepLinkRequest && !providerDeepLinkRequest.provider ? {
-              busy: providerDeepLinkBusy,
-              error: providerDeepLinkError,
-              onClose: () => {
-                if (!providerDeepLinkBusy) {
-                  setProviderDeepLinkRequest(undefined);
-                }
-              },
-              onSubmit: confirmProviderDeepLinkImport,
-              presetsLoaded: providerPresetsLoaded,
-              request: providerDeepLinkRequest
-            } : undefined}
-            providerDelete={providerDeleteItem ? {
-              onClose: () => setProviderDeleteIndex(undefined),
-              onConfirm: confirmProviderDelete,
-              provider: providerDeleteItem
-            } : undefined}
-            providerUpsert={providerAddOpen ? {
-              canSubmit: canSubmitProvider,
-              connectivityLoading: providerConnectivityLoading,
-              connectivityProbe: providerConnectivityProbe,
-              draft: providerDraft,
-              error: providerProbeError,
-              importProvider: providerImportOpen ? providerImportPayload : undefined,
-              onChange: updateProviderDraft,
-              mode: providerEditIndex === undefined ? "add" : "edit",
-              onClose: () => {
-                providerProbeRequestId.current += 1;
-                setProviderAddOpen(false);
-                setProviderEditIndex(undefined);
-                setProviderImportOpen(false);
-                setProviderImportPayload(undefined);
-              },
-              onCheck: checkProviderDraft,
-              onDetect: providerImportOpen && providerImportDetectPending ? detectImportedProvider : undefined,
-              onRefreshModels: refreshProviderModels,
-              onSubmit: submitProviderDraft,
-              probe: providerProbe,
-              probeLoading: providerProbeLoading,
-              providerPlugins: draftConfig.providerPlugins ?? [],
-              providers: draftConfig.Providers,
-              submitLabel: providerImportOpen ? t("Import") : undefined,
-              title: providerImportOpen ? t("Import Provider") : undefined
-            } : undefined}
-            routingDelete={routingDeleteRule ? {
-              onClose: () => setRoutingDeleteIndex(undefined),
-              onConfirm: confirmRoutingRuleDelete,
-              rule: routingDeleteRule
-            } : undefined}
-            routingUpsert={routingAddOpen ? {
-              canSubmit: canSubmitRoutingRule,
-              draft: routingRuleDraft,
-              mode: routingEditIndex === undefined ? "add" : "edit",
-              onChange: updateRoutingRuleDraft,
-              onClose: () => {
-                setRoutingAddOpen(false);
-                setRoutingEditIndex(undefined);
-              },
-              onSubmit: submitRoutingRuleDraft,
-              providers: draftConfig.Providers
-            } : undefined}
-            settings={settingsOpen ? {
-              saveFeedback: persistenceFeedback,
-              appInfo,
-              botAddRequestKey: settingsBotAddRequestKey,
-              botConfigs: draftConfig.botConfigs,
+              canSubmitProfile,
+              canSubmitProvider,
               config: draftConfig,
-              copy,
-              initialPage: settingsInitialPage,
-              launchAtLogin: Boolean(draftConfig.launchAtLogin),
-              onChangeBotConfigs: changeBotConfigs,
-              onChangeLaunchAtLogin: changeLaunchAtLogin,
-              onChangeObservability: changeObservabilityConfig,
-              onChangeProxy: changeProxyConfig,
-              onChangeTheme: changeThemePreference,
-              onChangeToolHub: changeToolHubConfig,
-              onChangeTrayBalanceProgress: changeTrayBalanceProgress,
-              onChangeTrayIcon: changeTrayIconPreference,
-              onChangeTrayShowTokenRate: changeTrayShowTokenRate,
-              onChangeTrayWidgets: changeTrayWidgets,
-              onClose: () => setSettingsOpen(false),
-              observability: draftConfig.observability,
-              profiles: draftConfig.profile.profiles,
-              proxy: draftConfig.proxy,
-              providers: draftConfig.Providers,
-              systemTheme,
-              themePreference,
-              toolHub: draftConfig.toolHub,
-              providerAccountSnapshots,
-              trayBalanceProgress: normalizeTrayBalanceProgressConfig(draftConfig.trayBalanceProgress),
-              trayIconPreference: draftConfig.trayIcon || "random",
-              trayShowTokenRate: Boolean(draftConfig.trayShowTokenRate),
-              traySupported,
-              trayWidgets: normalizeTrayWidgets(draftConfig.trayWidgets ?? DEFAULT_TRAY_WIDGETS, draftConfig.trayWindowModules, draftConfig.trayComponentVariants),
-              updateConfig
-            } : undefined}
-            update={updateDialogOpen ? {
-              actionBusy: updateActionBusy,
-              actionError: updateActionError,
-              copy,
-              onCheck: checkForAppUpdate,
-              onClose: () => {
-                if (updateActionBusy !== "install") {
-                  setUpdateDialogOpen(false);
-                  setUpdateActionError("");
-                }
-              },
-              onDownload: downloadAppUpdate,
-              onInstall: installAppUpdate,
-              status: updateDialogStatus
-            } : undefined}
-            virtualModelUpsert={virtualModelDialogOpen ? {
-              canSubmit: canSubmitVirtualModel,
-              draft: virtualModelDraft,
-              error: virtualModelError || translatedVirtualModelValidationError,
-              mcpServers: draftConfig.agent?.mcpServers ?? [],
-              mode: virtualModelEditIndex === undefined ? "add" : "edit",
-              onChange: updateVirtualModelDraft,
-              onClose: () => {
-                setVirtualModelDialogOpen(false);
-                setVirtualModelEditIndex(undefined);
-              },
-              onSubmit: submitVirtualModelDraft,
-              providers: draftConfig.Providers
-            } : undefined}
+              endpoint: gatewayEndpoint,
+              gatewayStatus,
+              onCheckProvider: checkProviderDraft,
+              onComplete: completeOnboarding,
+              onChangeProfile: updateProfileDraft,
+              onChangeProvider: updateProviderDraft,
+              onSelectStep: setOnboardingStep,
+              onSubmitProfile: submitProfileDraft,
+              onSubmitProvider: submitProviderDraft,
+              profileDraft,
+              profileError: profileActionError,
+              providerDraft,
+              providerError: providerProbeError,
+              providerConnectivityLoading,
+              providerConnectivityProbe,
+              providerProbe,
+              providerProbeLoading,
+              readiness: onboardingReadiness
+            }}
           />
-          <FeedbackStack>
-            {!settingsOpen ? persistenceFeedback : null}
-            <LightToast contained toast={toast} />
-          </FeedbackStack>
-        </div>
-      </LayoutGroup>
-    </AppI18nContext.Provider>
+        ) : (
+          <MainLayout
+            activeView={activeView}
+            agentAnalysisEnabled={agentAnalysisEnabled}
+            compactLayout={compactLayout}
+            config={draftConfig}
+            copy={copy}
+            gatewayActionBusy={gatewayActionBusy}
+            gatewayEndpoint={gatewayEndpoint}
+            gatewayStartupError={gatewayStartupError}
+            gatewayStatus={gatewayStatus}
+            gatewayTargetActive={gatewayActionTargetActive}
+            isMac={isMac}
+            needsTrafficLightSafeArea={needsTrafficLightSafeArea}
+            networkCaptureEnabled={networkCaptureEnabled}
+            onOpenUpdate={openSidebarUpdateDialog}
+            onOpenServerSettings={openGeneralSettingsDialog}
+            onOpenSettings={openSettingsDialog}
+            onSelectNavigationItem={selectNavigationItem}
+            onToggleSidebar={() => setSidebarOpen((current) => !current)}
+            requestLogsEnabled={requestLogsEnabled}
+            shouldReduceMotion={shouldReduceMotion}
+            sidebarOpen={sidebarOpen}
+            toggleGatewayService={toggleGatewayService}
+            updateActionBusy={Boolean(updateActionBusy)}
+            updateStatus={updateDialogStatus}
+            visibleNavigation={visibleNavigation}
+            viewProps={{
+              apiKeys: {
+                addApiKey: openAddApiKeyDialog,
+                apiKeys,
+                editApiKey: openEditApiKeyDialog,
+                error: apiKeyError,
+                notify: showToast,
+                removeApiKey
+              },
+              extensions: {
+                configureExtension: openConfigureExtension,
+                config: draftConfig,
+                installExtension: openInstallExtensionDialog,
+                openExtensionApp: (index, appId) => void openExtensionApp(index, appId),
+                removeExtension: (source, index, groupIndexes) => setExtensionDeleteTarget({ groupIndexes: extensionActionIndexes(index, groupIndexes), index, source }),
+                setExtensionEnabled
+              },
+              logs: {
+                enabled: requestLogsEnabled,
+                error: requestLogError,
+                filter: requestLogFilter,
+                focusedRequestId: focusedRequestLogId,
+                loading: requestLogLoading,
+                onEnable: () => changeObservabilityConfig({ requestLogs: true }),
+                onFocusedRequestHandled: () => setFocusedRequestLogId(undefined),
+                page: requestLogPage,
+                refreshLogs: () => void refreshRequestLogs(),
+                updateFilter: updateRequestLogFilter
+              },
+              models: {
+                config: draftConfig,
+                updateModelDescription: updateProviderModelDescription
+              },
+              networking: {
+                clearCaptures: () => void clearProxyNetworkCaptures(),
+                proxyStatus,
+                refreshCaptures: () => void refreshProxyNetworkCaptures(),
+                setCaptureEnabled: (enabled) => void setProxyNetworkCaptureEnabled(enabled),
+                snapshot: proxyNetworkSnapshot
+              },
+              observability: {
+                agentFilter: agentAnalysisAgent,
+                error: agentAnalysisError,
+                loading: agentAnalysisLoading,
+                range: agentAnalysisRange,
+                refreshAnalysis: () => void refreshAgentAnalysis(),
+                selectedSession: agentAnalysisSession,
+                setAgentFilter: updateAgentAnalysisAgent,
+                setRange: updateAgentAnalysisRange,
+                setSelectedSession: setAgentAnalysisSession,
+                snapshot: agentAnalysis
+              },
+              overview: {
+                onConfigureProviderAccounts: () => selectNavigationItem("providers"),
+                usageFilters: {
+                  modelFilter: usageModelFilter,
+                  providerFilter: usageProviderFilter,
+                  providers: draftConfig.Providers,
+                  setModelFilter: setUsageModelFilter,
+                  setProviderFilter: setUsageProviderFilter
+                },
+                resetOverviewStatistics,
+                onWidgetsChange: changeOverviewWidgets,
+                overviewWidgets: normalizeOverviewWidgets(draftConfig.overviewWidgets),
+                providerAccounts: providerAccountSnapshots,
+                providerAccountRefreshing,
+                refreshProviderAccounts: () => void refreshProviderAccountsNow(),
+                setUsageRange,
+                usageRange,
+                usageStats
+              },
+              profile: {
+                addProfile: openAddProfileDialog,
+                agentOptions: availableProfileAgentOptions,
+                applyError: profileActionError,
+                copyProfileCliCommand: (index) => void copyProfileCliCommand(index),
+                config: draftConfig,
+                editProfile: openEditProfileDialog,
+                openProfileApp: (index) => void openProfileAppFromList(index),
+                profileActionBusy,
+                profileRuntimeStatus,
+                removeProfile: setProfileDeleteIndex,
+                stopProfileApp: (index) => void stopProfileAppFromList(index),
+                updateProfileItem
+              },
+              providers: {
+                accountSnapshots: providerAccountSnapshots,
+                addProvider: openAddProviderDialog,
+                editProvider: openEditProviderDialog,
+                notify: showToast,
+                providers,
+                removeProvider: setProviderDeleteIndex,
+                setProviderEnabled
+              },
+              routing: {
+                addRule: openAddRoutingRuleDialog,
+                config: draftConfig,
+                editRule: openEditRoutingRuleDialog,
+                moveRule: moveRoutingRule,
+                providers: draftConfig.Providers,
+                removeRule: setRoutingDeleteIndex,
+                updateFallback: (fallback) => updateConfig((config) => {
+                  config.Router.fallback = normalizeRouterFallbackConfig(fallback);
+                  return config;
+                }),
+                updateRule: updateRoutingRule
+              },
+              virtualModels: {
+                addVirtualModel: openAddVirtualModelDialog,
+                editVirtualModel: openEditVirtualModelDialog,
+                profiles: draftConfig.virtualModelProfiles ?? [],
+                removeVirtualModel,
+                setVirtualModelEnabled
+              }
+            }}
+          />
+        )}
+
+        <AppDialogStack
+          apiKeyAdd={apiKeyAddOpen ? {
+            canSubmit: canSubmitApiKey,
+            draft: apiKeyDraft,
+            error: apiKeyError,
+            onChange: updateApiKeyDraft,
+            onClose: () => setApiKeyAddOpen(false),
+            onSubmit: submitApiKeyDraft
+          } : undefined}
+          apiKeyCreated={createdApiKey ? {
+            apiKeyName: createdApiKey.name?.trim() || "API key",
+            apiKeyValue: createdApiKey.key,
+            onClose: () => setCreatedApiKey(undefined)
+          } : undefined}
+          apiKeyEdit={apiKeyEditItem ? {
+            canSubmit: canSubmitApiKeyEdit,
+            draft: apiKeyEditDraft,
+            error: apiKeyError,
+            onChange: updateApiKeyEditDraft,
+            onClose: () => setApiKeyEditIndex(undefined),
+            onSubmit: submitApiKeyEditDraft
+          } : undefined}
+          claudeDesignConfig={pluginRoutingConfigItem && isClaudeDesignPluginConfig(pluginRoutingConfigItem) ? {
+            canSubmit: canSubmitClaudeDesignRouting,
+            draft: claudeDesignRoutingDraft,
+            routesLabel: "Claude Design routes",
+            sourceModelLabel: "Claude Design model",
+            sourceModelDefaults: { model: "claude-opus-4-8", pattern: "claude-" },
+            onAddRule: addClaudeDesignRoutingRule,
+            onChange: updateClaudeDesignRoutingDraft,
+            onChangeRule: updateClaudeDesignRoutingRule,
+            onClose: () => setPluginRoutingConfigTarget(undefined),
+            onRemoveRule: removeClaudeDesignRoutingRule,
+            onSubmit: submitClaudeDesignRoutingDraft,
+            providers: draftConfig.Providers
+          } : undefined}
+          cursorProxyConfig={pluginRoutingConfigItem && isCursorProxyPluginConfig(pluginRoutingConfigItem) ? {
+            canSubmit: canSubmitCursorProxyRouting,
+            draft: cursorProxyRoutingDraft,
+            routesLabel: "Cursor Proxy routes",
+            sourceModelLabel: "Cursor model",
+            sourceModelDefaults: { model: "default", pattern: "cursor-" },
+            onAddRule: addCursorProxyRoutingRule,
+            onChange: updateCursorProxyRoutingDraft,
+            onChangeRule: updateCursorProxyRoutingRule,
+            onClose: () => setPluginRoutingConfigTarget(undefined),
+            onRemoveRule: removeCursorProxyRoutingRule,
+            onSubmit: submitCursorProxyRoutingDraft,
+            providers: draftConfig.Providers
+          } : undefined}
+          extensionDelete={extensionDeleteItem ? {
+            extension: extensionDeleteItem,
+            onClose: () => setExtensionDeleteTarget(undefined),
+            onConfirm: confirmExtensionDelete
+          } : undefined}
+          extensionInstall={extensionInstallOpen ? {
+            canSubmit: canInstallExtension,
+            draft: extensionInstallDraft,
+            error: extensionInstallError,
+            marketplace: pluginMarketplace,
+            onChange: updateExtensionInstallDraft,
+            onChooseLocal: chooseLocalExtensionDirectory,
+            onClose: () => setExtensionInstallOpen(false),
+            onSubmit: submitExtensionInstallDraft
+          } : undefined}
+          extensionSettings={extensionConfigItem ? {
+            draft: pluginSettingsDraft,
+            error: pluginSettingsError,
+            extension: extensionConfigItem,
+            onChange: updatePluginSettingsDraft,
+            onClose: () => setExtensionConfigTarget(undefined),
+            onSubmit: submitPluginSettingsDraft
+          } : undefined}
+          profileAdd={profileAddOpen ? {
+            agentOptions: availableProfileAgentOptions,
+            botConfigs: draftConfig.botConfigs,
+            canSubmit: canSubmitProfile,
+            draft: profileDraft,
+            error: profileActionError,
+            mode: "add",
+            onChange: updateProfileDraft,
+            onCreateBot: openBotSettingsWithAddDialog,
+            onClose: () => setProfileAddOpen(false),
+            providers: draftConfig.Providers,
+            submitting: profileSubmitBusy === "add",
+            virtualModelProfiles: draftConfig.virtualModelProfiles ?? [],
+            onSubmit: submitProfileDraft
+          } : undefined}
+          profileDelete={profileDeleteItem ? {
+            onClose: () => setProfileDeleteIndex(undefined),
+            onConfirm: confirmProfileDelete,
+            profile: profileDeleteItem
+          } : undefined}
+          profileEdit={profileEditIndex !== undefined ? {
+            agentOptions: availableProfileAgentOptions,
+            botConfigs: draftConfig.botConfigs,
+            canSubmit: canSubmitProfileEdit,
+            draft: profileEditDraft,
+            error: profileActionError,
+            mode: "edit",
+            onChange: updateProfileEditDraft,
+            onCreateBot: openBotSettingsWithAddDialog,
+            onClose: () => {
+              setProfileEditIndex(undefined);
+              setProfileActionError("");
+            },
+            providers: draftConfig.Providers,
+            submitting: profileSubmitBusy === "edit",
+            virtualModelProfiles: draftConfig.virtualModelProfiles ?? [],
+            onSubmit: submitProfileEditDraft
+          } : undefined}
+          profileOpen={profileOpenDialog ? {
+            appRunning: profileRuntimeStatus.profiles.some((entry) =>
+              entry.profileId === profileOpenDialog.profile.id && entry.surface === "app" && entry.state === "running"
+            ),
+            busy: profileOpenDialog.busy,
+            command: profileOpenDialog.command,
+            error: profileOpenDialog.error,
+            mode: profileOpenDialog.mode,
+            onChooseApp: () => void openProfileApp(profileOpenDialog.profile),
+            onClose: () => setProfileOpenDialog(undefined),
+            onStopApp: () => void stopProfileApp(profileOpenDialog.profile),
+            profile: profileOpenDialog.profile
+          } : undefined}
+          providerDeepLink={providerDeepLinkRequest && !providerDeepLinkRequest.provider ? {
+            busy: providerDeepLinkBusy,
+            error: providerDeepLinkError,
+            onClose: () => {
+              if (!providerDeepLinkBusy) {
+                setProviderDeepLinkRequest(undefined);
+              }
+            },
+            onSubmit: confirmProviderDeepLinkImport,
+            presetsLoaded: providerPresetsLoaded,
+            request: providerDeepLinkRequest
+          } : undefined}
+          providerDelete={providerDeleteItem ? {
+            onClose: () => setProviderDeleteIndex(undefined),
+            onConfirm: confirmProviderDelete,
+            provider: providerDeleteItem
+          } : undefined}
+          providerUpsert={providerAddOpen ? {
+            canSubmit: canSubmitProvider,
+            connectivityLoading: providerConnectivityLoading,
+            connectivityProbe: providerConnectivityProbe,
+            draft: providerDraft,
+            error: providerProbeError,
+            importProvider: providerImportOpen ? providerImportPayload : undefined,
+            onChange: updateProviderDraft,
+            mode: providerEditIndex === undefined ? "add" : "edit",
+            onClose: () => {
+              providerProbeRequestId.current += 1;
+              setProviderAddOpen(false);
+              setProviderEditIndex(undefined);
+              setProviderImportOpen(false);
+              setProviderImportPayload(undefined);
+            },
+            onCheck: checkProviderDraft,
+            onDetect: providerImportOpen && providerImportDetectPending ? detectImportedProvider : undefined,
+            onRefreshModels: refreshProviderModels,
+            onSubmit: submitProviderDraft,
+            probe: providerProbe,
+            probeLoading: providerProbeLoading,
+            providerPlugins: draftConfig.providerPlugins ?? [],
+            providers: draftConfig.Providers,
+            submitLabel: providerImportOpen ? "Import" : undefined,
+            title: providerImportOpen ? "Import Provider" : undefined
+          } : undefined}
+          routingDelete={routingDeleteRule ? {
+            onClose: () => setRoutingDeleteIndex(undefined),
+            onConfirm: confirmRoutingRuleDelete,
+            rule: routingDeleteRule
+          } : undefined}
+          routingUpsert={routingAddOpen ? {
+            canSubmit: canSubmitRoutingRule,
+            draft: routingRuleDraft,
+            mode: routingEditIndex === undefined ? "add" : "edit",
+            onChange: updateRoutingRuleDraft,
+            onClose: () => {
+              setRoutingAddOpen(false);
+              setRoutingEditIndex(undefined);
+            },
+            onSubmit: submitRoutingRuleDraft,
+            providers: draftConfig.Providers
+          } : undefined}
+          settings={settingsOpen ? {
+            saveFeedback: persistenceFeedback,
+            appInfo,
+            botAddRequestKey: settingsBotAddRequestKey,
+            botConfigs: draftConfig.botConfigs,
+            config: draftConfig,
+            copy,
+            initialPage: settingsInitialPage,
+            launchAtLogin: Boolean(draftConfig.launchAtLogin),
+            onChangeBotConfigs: changeBotConfigs,
+            onChangeLaunchAtLogin: changeLaunchAtLogin,
+            onChangeObservability: changeObservabilityConfig,
+            onChangeProxy: changeProxyConfig,
+            onChangeTheme: changeThemePreference,
+            onChangeToolHub: changeToolHubConfig,
+            onChangeTrayBalanceProgress: changeTrayBalanceProgress,
+            onChangeTrayIcon: changeTrayIconPreference,
+            onChangeTrayShowTokenRate: changeTrayShowTokenRate,
+            onChangeTrayWidgets: changeTrayWidgets,
+            onClose: () => setSettingsOpen(false),
+            observability: draftConfig.observability,
+            profiles: draftConfig.profile.profiles,
+            proxy: draftConfig.proxy,
+            providers: draftConfig.Providers,
+            systemTheme,
+            themePreference,
+            toolHub: draftConfig.toolHub,
+            providerAccountSnapshots,
+            trayBalanceProgress: normalizeTrayBalanceProgressConfig(draftConfig.trayBalanceProgress),
+            trayIconPreference: draftConfig.trayIcon || "random",
+            trayShowTokenRate: Boolean(draftConfig.trayShowTokenRate),
+            traySupported,
+            trayWidgets: normalizeTrayWidgets(draftConfig.trayWidgets ?? DEFAULT_TRAY_WIDGETS, draftConfig.trayWindowModules, draftConfig.trayComponentVariants),
+            updateConfig
+          } : undefined}
+          update={updateDialogOpen ? {
+            actionBusy: updateActionBusy,
+            actionError: updateActionError,
+            copy,
+            onCheck: checkForAppUpdate,
+            onClose: () => {
+              if (updateActionBusy !== "install") {
+                setUpdateDialogOpen(false);
+                setUpdateActionError("");
+              }
+            },
+            onDownload: downloadAppUpdate,
+            onInstall: installAppUpdate,
+            status: updateDialogStatus
+          } : undefined}
+          virtualModelUpsert={virtualModelDialogOpen ? {
+            canSubmit: canSubmitVirtualModel,
+            draft: virtualModelDraft,
+            error: virtualModelError || virtualModelValidationMessage,
+            mcpServers: draftConfig.agent?.mcpServers ?? [],
+            mode: virtualModelEditIndex === undefined ? "add" : "edit",
+            onChange: updateVirtualModelDraft,
+            onClose: () => {
+              setVirtualModelDialogOpen(false);
+              setVirtualModelEditIndex(undefined);
+            },
+            onSubmit: submitVirtualModelDraft,
+            providers: draftConfig.Providers
+          } : undefined}
+        />
+        <FeedbackStack>
+          {!settingsOpen ? persistenceFeedback : null}
+          <LightToast contained toast={toast} />
+        </FeedbackStack>
+      </div>
+    </LayoutGroup>
   );
 }
 

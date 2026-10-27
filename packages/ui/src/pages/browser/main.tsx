@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { ArrowLeft, ArrowRight, Check, KeyRound, LoaderCircle, Plus, RotateCw, UserRound, X } from "lucide-react";
 import type { BuiltInBrowserState, ChromeLoginImportJob, ChromeLoginImportRequest } from "@ccr/core/contracts/app";
-import { pollChromeImportJob } from "../home/shared/chrome-import";
+import { formatErrorMessage } from "@ccr/core/contracts/error-message";
 
 declare global {
   interface Window {
@@ -71,7 +71,7 @@ function BrowserChrome() {
       if (!getChromeLoginImport) {
         return;
       }
-      void pollChromeImportJob(getChromeLoginImport, chromeImportJob.id).then((job) => {
+      void getChromeLoginImport(chromeImportJob.id).then((job) => {
         if (!job) {
           setChromeImportJob(undefined);
           return;
@@ -80,6 +80,9 @@ function BrowserChrome() {
         if (job.status === "completed" && activeTab?.id && activeTabMatchesImport(activeTab.url, job.domains)) {
           void run(window.ccrBrowser?.reload(activeTab.id));
         }
+      }).catch((error) => {
+        setChromeImportJob(undefined);
+        setChromeImportError(formatErrorMessage(error));
       });
     }, 2000);
     return () => window.clearInterval(interval);
@@ -120,7 +123,7 @@ function BrowserChrome() {
       setChromeImportDomainsDraft(job.domains.join(", "));
       setChromeImportMessage("Confirmation page opened. If it did not open in Chrome, copy the extension import URL into the Chrome extension popup.");
     } catch (error) {
-      setChromeImportError(error instanceof Error ? error.message : String(error));
+      setChromeImportError(formatErrorMessage(error));
     } finally {
       setChromeImportStarting(false);
     }
@@ -166,7 +169,7 @@ function BrowserChrome() {
       setChromeImportMessage(kind === "confirm" ? "Confirmation page URL copied." : "Extension import URL copied.");
     } catch (error) {
       setChromeImportMessage("");
-      setChromeImportError(error instanceof Error ? error.message : String(error));
+      setChromeImportError(formatErrorMessage(error));
     }
   }
 

@@ -17,8 +17,8 @@ import {
   providerAccountSnapshotKey, providerAccountSnapshotLabel, providerDisplayIcon,
   ProviderAccountMeter, ProviderAccountSnapshot, ReactNode, ReactPointerEvent, rectSortingStrategy, RefreshCw, RequestLogEntry, Select,
   SelectControl, SortableContext, sortableKeyboardCoordinates, systemStatusPointTooltip,
-  Tabs, TabsList, TabsTrigger, Tooltip, translateOptions, Trash2, UsageComparisonRow, usageRangeOptions,
-  GatewayProviderConfig, UsageSeriesPoint, UsageStatsRange, UsageStatsSnapshot, usageStatusTone, UsageTotals, useAppText,
+  Tabs, TabsList, TabsTrigger, Tooltip, Trash2, UsageComparisonRow, usageRangeOptions,
+  GatewayProviderConfig, UsageSeriesPoint, UsageStatsRange, UsageStatsSnapshot, usageStatusTone, UsageTotals,
   useEffect, useMemo, useRef, useSensor, useSensors, useSortable,
   useState, X, XAxis, YAxis
 } from "../shared/index";
@@ -70,7 +70,6 @@ export function OverviewView({
   usageRange: UsageStatsRange;
   usageStats: UsageStatsSnapshot;
 }) {
-  const t = useAppText();
   const viewRef = useRef<HTMLDivElement>(null);
   const [activeWidgetId, setActiveWidgetId] = useState<string>();
   const [selectedWidgetId, setSelectedWidgetId] = useState<string>();
@@ -101,8 +100,8 @@ export function OverviewView({
   const filterProviders = usageFilters?.providers ?? emptyOverviewProviders;
   const providerFilter = usageFilters?.providerFilter ?? "";
   const modelFilter = usageFilters?.modelFilter ?? "";
-  const providerOptions = useMemo(() => overviewProviderFilterOptions(filterProviders, t), [filterProviders, t]);
-  const modelOptions = useMemo(() => overviewModelFilterOptions(filterProviders, providerFilter, t), [filterProviders, providerFilter, t]);
+  const providerOptions = useMemo(() => overviewProviderFilterOptions(filterProviders), [filterProviders]);
+  const modelOptions = useMemo(() => overviewModelFilterOptions(filterProviders, providerFilter), [filterProviders, providerFilter]);
 
   useEffect(() => {
     if (!editing) {
@@ -328,7 +327,7 @@ export function OverviewView({
       return;
     }
     if (!resetOverviewStatistics) {
-      setResetError(t("Overview statistics reset is unavailable."));
+      setResetError("Overview statistics reset is unavailable.");
       return;
     }
 
@@ -382,13 +381,13 @@ export function OverviewView({
               </SortableOverviewWidget>
             ))}
             {visibleWidgets.length === 0 ? (
-              <OverviewEmptyState className="col-span-1 sm:col-span-2 xl:col-span-4" label={t("No widgets configured")} />
+              <OverviewEmptyState className="col-span-1 sm:col-span-2 xl:col-span-4" label="No widgets configured" />
             ) : null}
           </section>
           {showAccountSetup ? (
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-[13px]">
-              <span className="text-muted-foreground">{t("No account balance connectors configured")}</span>
-              {onConfigureProviderAccounts ? <Button onClick={onConfigureProviderAccounts} variant="outline">{t("Configure account usage")}</Button> : null}
+              <span className="text-muted-foreground">No account balance connectors configured</span>
+              {onConfigureProviderAccounts ? <Button onClick={onConfigureProviderAccounts} variant="outline">Configure account usage</Button> : null}
             </div>
           ) : null}
         </LayoutGroup>
@@ -422,14 +421,14 @@ export function OverviewView({
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <OverviewUsageRangeSelector range={usageRange} setRange={setUsageRange} />
           <Select
-            aria-label={t("Provider")}
+            aria-label="Provider"
             className="h-9 w-[168px] rounded-[10px] bg-[length:14px] px-3 pr-8 text-[12px] shadow-none"
             onValueChange={changeProviderFilter}
             options={providerOptions}
             value={providerFilter}
           />
           <Select
-            aria-label={t("Model")}
+            aria-label="Model"
             className="h-9 w-[220px] rounded-[10px] bg-[length:14px] px-3 pr-8 text-[12px] shadow-none"
             onValueChange={changeModelFilter}
             options={modelOptions}
@@ -441,29 +440,29 @@ export function OverviewView({
             className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={openResetDialog}
             size="sm"
-            title={t("Reset statistics")}
+            title="Reset statistics"
             type="button"
             variant="outline"
           >
             <Trash2 className="h-3.5 w-3.5" />
-            {t("Reset statistics")}
+            Reset statistics
           </Button>
           {editing ? (
             <Button onClick={resetLayout} size="sm" type="button" variant="outline">
               <RefreshCw className="h-3.5 w-3.5" />
-              {t("Reset layout")}
+              Reset layout
             </Button>
           ) : null}
           <Button
-            aria-label={editing ? t("Done") : t("Edit widgets")}
+            aria-label={editing ? "Done" : "Edit widgets"}
             onClick={() => setEditing((value) => !value)}
             size={editing ? "sm" : "iconSm"}
-            title={editing ? t("Done") : t("Edit widgets")}
+            title={editing ? "Done" : "Edit widgets"}
             type="button"
             variant={editing ? "default" : "outline"}
           >
             <Pencil className="h-3.5 w-3.5" />
-            {editing ? t("Done") : null}
+            {editing ? "Done" : null}
           </Button>
         </div>
       </div>
@@ -472,7 +471,7 @@ export function OverviewView({
         <div className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[220px_minmax(0,1fr)_260px]">
           <aside className="overview-editor-panel min-w-0 border p-3 xl:sticky xl:top-4 xl:self-start">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="truncate text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t("Components")}</h3>
+              <h3 className="truncate text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Components</h3>
               <Badge variant="outline">{overviewWidgetTemplates().length}</Badge>
             </div>
             <OverviewWidgetPalette onAdd={addWidget} />
@@ -480,7 +479,7 @@ export function OverviewView({
 
           <main className="min-w-0 space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="truncate text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t("Preview")}</h3>
+              <h3 className="truncate text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Preview</h3>
               <Badge variant="outline">{visibleWidgets.length}</Badge>
             </div>
             {widgetGrid}
@@ -534,16 +533,15 @@ export function OverviewStatisticsResetDialog({
   onConfirm: () => void;
   open: boolean;
 }) {
-  const t = useAppText();
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen && !busy) onClose(); }}>
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Reset overview statistics")}</DialogTitle>
+            <DialogTitle>Reset overview statistics</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} disabled={busy} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" disabled={busy} onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -552,11 +550,11 @@ export function OverviewStatisticsResetDialog({
           <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
             <div className="flex items-start gap-2 text-[12px] font-medium text-destructive">
               <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{t("Reset Overview statistics?")}</span>
+              <span>Reset Overview statistics?</span>
             </div>
             <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
-              <div>{t("Overview statistics data will be deleted and cannot be recovered.")}</div>
-              <div>{t("This clears the usage events used by the Overview page. Request logs and configuration are not deleted.")}</div>
+              <div>Overview statistics data will be deleted and cannot be recovered.</div>
+              <div>This clears the usage events used by the Overview page. Request logs and configuration are not deleted.</div>
             </div>
           </div>
           {error ? <div className="mt-3 rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">{error}</div> : null}
@@ -564,11 +562,11 @@ export function OverviewStatisticsResetDialog({
 
         <DialogFooter>
           <Button autoFocus disabled={busy} onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button disabled={busy} onClick={onConfirm} type="button" variant="destructive">
             {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            {busy ? t("Resetting") : t("Reset")}
+            {busy ? "Resetting" : "Reset"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -583,10 +581,9 @@ function OverviewUsageRangeSelector({
   range: UsageStatsRange;
   setRange: (range: UsageStatsRange) => void;
 }) {
-  const t = useAppText();
 
   return (
-    <div aria-label={t("Usage over time")} className="overview-segmented flex" role="group">
+    <div aria-label="Usage over time" className="overview-segmented flex" role="group">
       {usageRangeOptions.map((option) => (
         <Button
           aria-pressed={range === option.value}
@@ -600,7 +597,7 @@ function OverviewUsageRangeSelector({
           type="button"
           unstyled
         >
-          {t(option.label)}
+          {option.label}
         </Button>
       ))}
     </div>
@@ -679,7 +676,7 @@ function OverviewDonutCenter({ label, value }: { label: string; value: string })
   );
 }
 
-function overviewProviderFilterOptions(providers: GatewayProviderConfig[], translate: (value: string) => string): Array<{ label: string; value: string }> {
+function overviewProviderFilterOptions(providers: GatewayProviderConfig[]): Array<{ label: string; value: string }> {
   const providerNames = new Set<string>();
   for (const provider of providers) {
     if (!isGatewayProviderEnabled(provider)) {
@@ -691,15 +688,14 @@ function overviewProviderFilterOptions(providers: GatewayProviderConfig[], trans
     }
   }
   return [
-    { label: translate("All providers"), value: "" },
+    { label: "All providers", value: "" },
     ...Array.from(providerNames).map((provider) => ({ label: provider, value: provider }))
   ];
 }
 
 function overviewModelFilterOptions(
   providers: GatewayProviderConfig[],
-  providerFilter: string,
-  translate: (value: string) => string
+  providerFilter: string
 ): Array<{ label: string; value: string }> {
   const models = new Set<string>();
   for (const provider of providers) {
@@ -717,7 +713,7 @@ function overviewModelFilterOptions(
     }
   }
   return [
-    { label: translate("All models"), value: "" },
+    { label: "All models", value: "" },
     ...Array.from(models).map((model) => ({ label: model, value: model }))
   ];
 }
@@ -747,7 +743,6 @@ function OverviewWidgetPalette({
 }: {
   onAdd: (widget: OverviewWidgetConfig) => void;
 }) {
-  const t = useAppText();
   const templates = overviewWidgetTemplates();
 
   return (
@@ -762,8 +757,8 @@ function OverviewWidgetPalette({
         >
           <Plus className="h-3.5 w-3.5 text-muted-foreground" />
           <div className="min-w-0">
-            <div className="truncate text-[12px] font-semibold text-foreground">{t(overviewWidgetPaletteTitle(template))}</div>
-            <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{t(overviewWidgetPaletteDescription(template))}</div>
+            <div className="truncate text-[12px] font-semibold text-foreground">{overviewWidgetPaletteTitle(template)}</div>
+            <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{overviewWidgetPaletteDescription(template)}</div>
           </div>
         </Button>
       ))}
@@ -796,10 +791,9 @@ function OverviewWidgetProperties({
   onChangeVariant: (variant: OverviewWidgetVariant) => void;
   onRemove: () => void;
 }) {
-  const t = useAppText();
 
   if (!widget) {
-    return <OverviewEmptyState compact label={t("No widget selected")} />;
+    return <OverviewEmptyState compact label="No widget selected" />;
   }
 
   const category = overviewWidgetCategory(widget.type);
@@ -827,15 +821,15 @@ function OverviewWidgetProperties({
   return (
     <div className="space-y-3">
       <div className="min-w-0">
-        <h3 className="truncate text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t("Component properties")}</h3>
-        <div className="mt-1 truncate text-[13px] font-semibold text-foreground">{overviewWidgetTitle(widget, t)}</div>
+        <h3 className="truncate text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Component properties</h3>
+        <div className="mt-1 truncate text-[13px] font-semibold text-foreground">{overviewWidgetTitle(widget)}</div>
       </div>
 
-      <Field label={t("Component category")}>
-        <SelectControl onChange={(value) => onChangeCategory(value as OverviewWidgetCategory)} options={translateOptions(overviewWidgetCategoryOptions(), t)} value={overviewWidgetCategory(widget.type)} />
+      <Field label="Component category">
+        <SelectControl onChange={(value) => onChangeCategory(value as OverviewWidgetCategory)} options={overviewWidgetCategoryOptions()} value={overviewWidgetCategory(widget.type)} />
       </Field>
 
-      <Field label={t("Data")}>
+      <Field label="Data">
         {category === "account-balance" ? (
           <OverviewAccountDataSelector
             options={dataOptions}
@@ -843,21 +837,21 @@ function OverviewWidgetProperties({
             onChange={onChangeAccountProviders}
           />
         ) : (
-          <SelectControl onChange={changeData} options={translateOptions(dataOptions, t)} value={dataValue} />
+          <SelectControl onChange={changeData} options={dataOptions} value={dataValue} />
         )}
       </Field>
 
-      <Field label={t("Widget size")}>
-        <SelectControl onChange={(value) => onChangeSize(value as OverviewWidgetSize)} options={translateOptions(sizeOptions, t)} value={widget.size} />
+      <Field label="Widget size">
+        <SelectControl onChange={(value) => onChangeSize(value as OverviewWidgetSize)} options={sizeOptions} value={widget.size} />
       </Field>
 
-      <Field label={t("Style")}>
-        <SelectControl onChange={(value) => onChangeVariant(value as OverviewWidgetVariant)} options={translateOptions(overviewWidgetVariantOptions(widget.type), t)} value={widget.variant} />
+      <Field label="Style">
+        <SelectControl onChange={(value) => onChangeVariant(value as OverviewWidgetVariant)} options={overviewWidgetVariantOptions(widget.type)} value={widget.variant} />
       </Field>
 
       <Button className="w-full justify-center" onClick={onRemove} size="sm" type="button" variant="outline">
         <Trash2 className="h-3.5 w-3.5" />
-        {t("Remove widget")}
+        Remove widget
       </Button>
     </div>
   );
@@ -872,7 +866,6 @@ function OverviewAccountDataSelector({
   options: Array<{ label: string; value: string }>;
   value: string[];
 }) {
-  const t = useAppText();
   const selected = new Set(value);
   const accountOptions = options.filter((option) => option.value);
   const allSelected = selected.size === 0;
@@ -891,7 +884,7 @@ function OverviewAccountDataSelector({
     <div className="overview-account-data-picker min-w-0 overflow-hidden rounded-md border border-border/70 bg-card/50 p-1.5">
       <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors hover:bg-muted/50">
         <Checkbox checked={allSelected} onCheckedChange={(checked) => checked ? onChange([]) : undefined} />
-        <span className="min-w-0 flex-1 truncate">{t("All accounts")}</span>
+        <span className="min-w-0 flex-1 truncate">All accounts</span>
       </label>
       <div className="mt-1 max-h-44 space-y-0.5 overflow-y-auto pr-1">
         {accountOptions.map((option) => (
@@ -1019,7 +1012,6 @@ function OverviewWidgetFrame({
   onResize: (size: OverviewWidgetSize) => void;
   onSelect: () => void;
 }) {
-  const t = useAppText();
   const frameRef = useRef<HTMLDivElement>(null);
   const selectFrame = () => {
     if (!editing) {
@@ -1097,19 +1089,19 @@ function OverviewWidgetFrame({
           </span>
           <OverviewWidgetResizeHandle
             axis="width"
-            label={t("Resize widget width")}
+            label="Resize widget width"
             selected={selected}
             onPointerDown={(event) => startResize("width", event)}
           />
           <OverviewWidgetResizeHandle
             axis="height"
-            label={t("Resize widget height")}
+            label="Resize widget height"
             selected={selected}
             onPointerDown={(event) => startResize("height", event)}
           />
           <OverviewWidgetResizeHandle
             axis="both"
-            label={t("Resize widget size")}
+            label="Resize widget size"
             selected={selected}
             onPointerDown={(event) => startResize("both", event)}
           />
@@ -1293,8 +1285,7 @@ function OverviewMetricWidget({
   totals: UsageTotals;
   variant: "bar" | "card" | "compact" | "ring";
 }) {
-  const t = useAppText();
-  const item = overviewMetricDatum(metric, totals, t);
+  const item = overviewMetricDatum(metric, totals);
   const showsRatio = totals.requestCount > 0 && overviewMetricShowsRatio(metric);
 
   if (variant === "compact") {
@@ -1412,29 +1403,28 @@ function UsageTrendWidget({
   usageStats: UsageStatsSnapshot;
   variant: "area" | "bar" | "composed" | "line";
 }) {
-  const t = useAppText();
   const chartMargin = dimensions.height <= 1
     ? { bottom: 0, left: 0, right: 4, top: 8 }
     : { bottom: 4, left: 0, right: 8, top: 8 };
   const legendItems = variant === "composed"
     ? [
-        { color: "#007aff", label: t("Total tokens") },
-        { color: "#34c759", label: t("Requests") },
-        { color: overviewCacheColor, label: t("Cache tokens") }
+        { color: "#007aff", label: "Total tokens" },
+        { color: "#34c759", label: "Requests" },
+        { color: overviewCacheColor, label: "Cache tokens" }
       ]
     : variant === "bar"
       ? [
-          { color: "#007aff", label: t("Total tokens") },
-          { color: "#34c759", label: t("Requests") }
+          { color: "#007aff", label: "Total tokens" },
+          { color: "#34c759", label: "Requests" }
         ]
       : [
-          { color: "#007aff", label: t("Total tokens") },
-          { color: overviewCacheColor, label: t("Cache tokens") }
+          { color: "#007aff", label: "Total tokens" },
+          { color: overviewCacheColor, label: "Cache tokens" }
         ];
 
   return (
     <Card className="overview-card flex h-full min-h-0 min-w-0 flex-col">
-      <OverviewCardHeading icon={ChartNoAxesCombined} title={t("Usage Trend")} trailing={dimensions.width >= 2 ? <OverviewChartLegend items={legendItems} /> : null} />
+      <OverviewCardHeading icon={ChartNoAxesCombined} title="Usage Trend" trailing={dimensions.width >= 2 ? <OverviewChartLegend items={legendItems} /> : null} />
       <CardContent className="min-h-0 flex-1">
         <ChartFrame fill>
           {({ height, width }) => (
@@ -1446,29 +1436,29 @@ function UsageTrendWidget({
               <Tooltip content={<UsageTooltip />} portal={chartTooltipPortal()} />
               {variant === "composed" ? (
                 <>
-                  <Area dataKey="totalTokens" fill="#007aff" fillOpacity={0.12} name={t("Total tokens")} stroke="#007aff" strokeWidth={2.25} type="monotone" yAxisId="tokens" />
-                  <Bar barSize={12} dataKey="requestCount" fill="#34c759" name={t("Requests")} radius={[4, 4, 0, 0]} yAxisId="requests">
+                  <Area dataKey="totalTokens" fill="#007aff" fillOpacity={0.12} name="Total tokens" stroke="#007aff" strokeWidth={2.25} type="monotone" yAxisId="tokens" />
+                  <Bar barSize={12} dataKey="requestCount" fill="#34c759" name="Requests" radius={[4, 4, 0, 0]} yAxisId="requests">
                     <LabelList content={<RequestHealthBarLabel />} dataKey="requestCount" />
                   </Bar>
-                  <Line dataKey="cacheTokens" dot={false} name={t("Cache tokens")} stroke={overviewCacheColor} strokeWidth={2} type="monotone" yAxisId="tokens" />
+                  <Line dataKey="cacheTokens" dot={false} name="Cache tokens" stroke={overviewCacheColor} strokeWidth={2} type="monotone" yAxisId="tokens" />
                 </>
               ) : null}
               {variant === "area" ? (
                 <>
-                  <Area dataKey="totalTokens" fill="#007aff" fillOpacity={0.14} name={t("Total tokens")} stroke="#007aff" strokeWidth={2.25} type="monotone" yAxisId="tokens" />
-                  <Area dataKey="cacheTokens" fill={overviewCacheColor} fillOpacity={0.12} name={t("Cache tokens")} stroke={overviewCacheColor} strokeWidth={2} type="monotone" yAxisId="tokens" />
+                  <Area dataKey="totalTokens" fill="#007aff" fillOpacity={0.14} name="Total tokens" stroke="#007aff" strokeWidth={2.25} type="monotone" yAxisId="tokens" />
+                  <Area dataKey="cacheTokens" fill={overviewCacheColor} fillOpacity={0.12} name="Cache tokens" stroke={overviewCacheColor} strokeWidth={2} type="monotone" yAxisId="tokens" />
                 </>
               ) : null}
               {variant === "line" ? (
                 <>
-                  <Line dataKey="totalTokens" dot={false} name={t("Total tokens")} stroke="#007aff" strokeWidth={2.5} type="monotone" yAxisId="tokens" />
-                  <Line dataKey="cacheTokens" dot={false} name={t("Cache tokens")} stroke={overviewCacheColor} strokeWidth={2} type="monotone" yAxisId="tokens" />
+                  <Line dataKey="totalTokens" dot={false} name="Total tokens" stroke="#007aff" strokeWidth={2.5} type="monotone" yAxisId="tokens" />
+                  <Line dataKey="cacheTokens" dot={false} name="Cache tokens" stroke={overviewCacheColor} strokeWidth={2} type="monotone" yAxisId="tokens" />
                 </>
               ) : null}
               {variant === "bar" ? (
                 <>
-                  <Bar barSize={14} dataKey="totalTokens" fill="#007aff" name={t("Total tokens")} radius={[4, 4, 0, 0]} yAxisId="tokens" />
-                  <Line dataKey="requestCount" dot={false} name={t("Requests")} stroke="#34c759" strokeWidth={2} type="monotone" yAxisId="requests" />
+                  <Bar barSize={14} dataKey="totalTokens" fill="#007aff" name="Total tokens" radius={[4, 4, 0, 0]} yAxisId="tokens" />
+                  <Line dataKey="requestCount" dot={false} name="Requests" stroke="#34c759" strokeWidth={2} type="monotone" yAxisId="requests" />
                 </>
               ) : null}
             </ComposedChart>
@@ -1486,7 +1476,6 @@ function TokenActivityOverviewWidget({
   dimensions: OverviewWidgetDimensions;
   usageStats: UsageStatsSnapshot;
 }) {
-  const t = useAppText();
   const weekCount = overviewActivityWeekCount(dimensions);
   const activity = buildTokenActivity(usageStats.series, {
     maxWeeks: weekCount,
@@ -1497,14 +1486,14 @@ function TokenActivityOverviewWidget({
 
   return (
     <Card className="overview-card flex h-full min-h-0 min-w-0 flex-col">
-      <OverviewCardHeading icon={CalendarDays} title={t("Activity")} tone="green" trailing={<Badge variant="outline">{t("Tokens")}</Badge>} />
+      <OverviewCardHeading icon={CalendarDays} title="Activity" tone="green" trailing={<Badge variant="outline">Tokens</Badge>} />
       <CardContent className="flex min-h-0 flex-1 flex-col overflow-visible p-3">
         {showSummary ? (
           <div className={cn("overview-nested-surface mb-3 grid overflow-hidden border", dimensions.width >= 2 ? "grid-cols-4" : "grid-cols-2")}>
-            <OverviewActivityStat label={t("Longest streak")} value={formatCompactNumber(activity.longestStreak)} unit={t(activity.longestStreak === 1 ? "day" : "days")} />
-            <OverviewActivityStat label={t("Avg / day")} value={formatCompactNumber(Math.round(activity.avgPerDay))} />
-            <OverviewActivityStat label={t("Avg / week")} value={formatCompactNumber(Math.round(activity.avgPerWeek))} />
-            <OverviewActivityStat label={t("Total")} value={formatCompactNumber(activity.totalTokens)} />
+            <OverviewActivityStat label="Longest streak" value={formatCompactNumber(activity.longestStreak)} unit={activity.longestStreak === 1 ? "day" : "days"} />
+            <OverviewActivityStat label="Avg / day" value={formatCompactNumber(Math.round(activity.avgPerDay))} />
+            <OverviewActivityStat label="Avg / week" value={formatCompactNumber(Math.round(activity.avgPerWeek))} />
+            <OverviewActivityStat label="Total" value={formatCompactNumber(activity.totalTokens)} />
           </div>
         ) : null}
 
@@ -1512,7 +1501,7 @@ function TokenActivityOverviewWidget({
 
         {showLegend ? (
           <div className="mt-2 flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-            <span>{t("Less")}</span>
+            <span>Less</span>
             {[0, 1, 2, 3, 4].map((intensity) => (
               <span
                 aria-hidden="true"
@@ -1521,7 +1510,7 @@ function TokenActivityOverviewWidget({
                 style={{ backgroundColor: overviewActivityColor(intensity as TokenActivityCell["intensity"], true) }}
               />
             ))}
-            <span>{t("More")}</span>
+            <span>More</span>
           </div>
         ) : null}
       </CardContent>
@@ -1569,14 +1558,13 @@ function OverviewActivityGrid({
   activity: ReturnType<typeof buildTokenActivity>;
   dimensions: OverviewWidgetDimensions;
 }) {
-  const t = useAppText();
   const gridFrameRef = useRef<HTMLDivElement>(null);
   const gridFrameSize = useElementSize(gridFrameRef);
   const monthLabelRef = useRef<HTMLDivElement>(null);
   const monthLabelSize = useElementSize(monthLabelRef);
   const showDayLabels = dimensions.width >= 2;
   const showMonthLabels = dimensions.height >= 2;
-  const dayLabels = [t("M"), "", t("W"), "", t("F"), "", ""];
+  const dayLabels = ["M", "", "W", "", "F", "", ""];
   const cellGap = dimensions.height <= 1 ? 2 : dimensions.width >= 3 ? 4 : 3;
   const labelColumnWidth = showDayLabels ? 20 : 0;
   // Reserve the month label row's measured height plus its `mb-1` margin: a hard-coded
@@ -1624,7 +1612,7 @@ function OverviewActivityGrid({
             <div
               className="grid min-h-[64px]"
               role="img"
-              aria-label={`${t("Activity")} ${t("Tokens")}`}
+              aria-label={`Activity Tokens`}
               style={{
                 gap: `${cellGap}px`,
                 gridTemplateColumns,
@@ -1642,13 +1630,13 @@ function OverviewActivityGrid({
               )) : null}
               {activity.cells.map((cell) => (
                 <UiTooltip
-                  aria-label={`${cell.dateLabel}: ${formatActivityTokenCount(cell.totalTokens)} ${t("tokens")}`}
+                  aria-label={`${cell.dateLabel}: ${formatActivityTokenCount(cell.totalTokens)} tokens`}
                   align={cell.weekIndex <= 1 ? "start" : cell.weekIndex >= activity.weekCount - 2 ? "end" : "center"}
                   className="overview-activity-cell rounded-[4px]"
                   content={(
                     <>
                       <span className="block font-semibold">{cell.dateLabel}</span>
-                      <span className="mt-0.5 block text-muted-foreground">{formatActivityTokenCount(cell.totalTokens)} {t("tokens")}</span>
+                      <span className="mt-0.5 block text-muted-foreground">{formatActivityTokenCount(cell.totalTokens)} tokens</span>
                     </>
                   )}
                   contentClassName="min-w-[112px] border-border/70 px-2 py-1.5 text-left text-[11px] font-normal"
@@ -1729,11 +1717,10 @@ function TokenMixOverviewWidget({
   totals: UsageTotals;
   variant: "bars" | "donut" | "pie" | "stacked";
 }) {
-  const t = useAppText();
   const tokenMix = [
-    { color: "#007aff", name: t("Input"), value: totals.inputTokens },
-    { color: "#ff9f0a", name: t("Output"), value: totals.outputTokens },
-    { color: overviewCacheColor, name: t("Cache"), value: totals.cacheTokens }
+    { color: "#007aff", name: "Input", value: totals.inputTokens },
+    { color: "#ff9f0a", name: "Output", value: totals.outputTokens },
+    { color: overviewCacheColor, name: "Cache", value: totals.cacheTokens }
   ];
   const total = tokenMix.reduce((sum, item) => sum + item.value, 0);
   const showLegend = dimensions.height >= 2 && dimensions.width >= 2;
@@ -1743,7 +1730,7 @@ function TokenMixOverviewWidget({
 
   return (
     <Card className="overview-card flex h-full min-h-0 min-w-0 flex-col">
-      <OverviewCardHeading icon={ChartPie} title={t("Token Mix")} tone="purple" trailing={<Badge variant="outline">{formatCompactNumber(totals.totalTokens)}</Badge>} />
+      <OverviewCardHeading icon={ChartPie} title="Token Mix" tone="purple" trailing={<Badge variant="outline">{formatCompactNumber(totals.totalTokens)}</Badge>} />
       <CardContent className="min-h-0 flex-1 overflow-hidden">
         {variant === "stacked" ? (
           <div className="space-y-3">
@@ -1779,7 +1766,7 @@ function TokenMixOverviewWidget({
                   </PieChart>
                 )}
               </ChartFrame>
-              {variant === "donut" ? <OverviewDonutCenter label={t("Tokens")} value={formatCompactNumber(total)} /> : null}
+              {variant === "donut" ? <OverviewDonutCenter label="Tokens" value={formatCompactNumber(total)} /> : null}
             </div>
             {showLegend ? <OverviewTokenLegend rows={tokenMix} /> : null}
           </div>
@@ -1815,8 +1802,7 @@ function ModelDistributionOverviewWidget({
   rows: UsageComparisonRow[];
   variant: "bars" | "donut" | "pie" | "stacked";
 }) {
-  const t = useAppText();
-  const modelRows = overviewModelDistributionRows(rows, t);
+  const modelRows = overviewModelDistributionRows(rows);
   const total = modelRows.reduce((sum, item) => sum + item.value, 0);
   const showLegend = dimensions.height >= 2 && dimensions.width >= 2;
   const chartMargin = dimensions.height <= 1
@@ -1825,10 +1811,10 @@ function ModelDistributionOverviewWidget({
 
   return (
     <Card className="overview-card flex h-full min-h-0 min-w-0 flex-col">
-      <OverviewCardHeading icon={Layers3} title={t("Model Distribution")} tone="orange" trailing={<Badge variant="outline">{formatCompactNumber(total)}</Badge>} />
+      <OverviewCardHeading icon={Layers3} title="Model Distribution" tone="orange" trailing={<Badge variant="outline">{formatCompactNumber(total)}</Badge>} />
       <CardContent className="min-h-0 flex-1 overflow-hidden">
         {modelRows.length === 0 ? (
-          <OverviewEmptyState className="h-full py-4" compact label={t("No model activity")} />
+          <OverviewEmptyState className="h-full py-4" compact label="No model activity" />
         ) : variant === "stacked" ? (
           <div className="space-y-3">
             <div className="flex h-3 overflow-hidden rounded-full bg-muted">
@@ -1862,7 +1848,7 @@ function ModelDistributionOverviewWidget({
                   </PieChart>
                 )}
               </ChartFrame>
-              {variant === "donut" ? <OverviewDonutCenter label={t("Tokens")} value={formatCompactNumber(total)} /> : null}
+              {variant === "donut" ? <OverviewDonutCenter label="Tokens" value={formatCompactNumber(total)} /> : null}
             </div>
             {showLegend ? <OverviewTokenLegend rows={modelRows} /> : null}
           </div>
@@ -1888,7 +1874,7 @@ function ModelDistributionOverviewWidget({
   );
 }
 
-function overviewModelDistributionRows(rows: UsageComparisonRow[], translate: (value: string) => string): Array<{ color: string; name: string; value: number }> {
+function overviewModelDistributionRows(rows: UsageComparisonRow[]): Array<{ color: string; name: string; value: number }> {
   const colors = ["#007aff", "#34c759", "#ff9f0a", "#ff3b30", "#af52de", "#8e8e93"];
   const positiveRows = rows
     .filter((row) => row.totalTokens > 0)
@@ -1902,7 +1888,7 @@ function overviewModelDistributionRows(rows: UsageComparisonRow[], translate: (v
   if (otherValue > 0) {
     topRows.push({
       color: colors[5],
-      name: translate("Other"),
+      name: "Other",
       value: otherValue
     });
   }
@@ -1934,19 +1920,18 @@ function OverviewAnalysisWidget({
   rows: UsageComparisonRow[];
   variant: "compact" | "table";
 }) {
-  const t = useAppText();
-  const title = kind === "client" ? t("Client Analysis") : t("Provider Analysis");
-  const emptyLabel = kind === "client" ? t("No client usage yet") : t("No provider usage yet");
+  const title = kind === "client" ? "Client Analysis" : "Provider Analysis";
+  const emptyLabel = kind === "client" ? "No client usage yet" : "No provider usage yet";
   const columns: UsageAnalysisColumn[] = kind === "client"
     ? [
-      { key: "client", label: t("Client") },
-      { key: "model", label: t("Model") },
-      { key: "provider", label: t("Provider") }
+      { key: "client", label: "Client" },
+      { key: "model", label: "Model" },
+      { key: "provider", label: "Provider" }
     ]
     : [
-      { key: "provider", label: t("Provider") },
-      { key: "credentialId", label: t("Credential") },
-      { key: "model", label: t("Model") }
+      { key: "provider", label: "Provider" },
+      { key: "credentialId", label: "Credential" },
+      { key: "model", label: "Model" }
     ];
 
   const rowLimit = overviewAnalysisRowLimit(dimensions);
@@ -2200,11 +2185,11 @@ function overviewWidgetPaletteDescription(widget: OverviewWidgetConfig): string 
     : overviewWidgetCategoryDescription(overviewWidgetCategory(widget.type));
 }
 
-function overviewWidgetTitle(widget: OverviewWidgetConfig, translate: (value: string) => string): string {
+function overviewWidgetTitle(widget: OverviewWidgetConfig): string {
   if (widget.type === "metric") {
-    return translate(overviewMetricLabel(widget.metric ?? "requests"));
+    return overviewMetricLabel(widget.metric ?? "requests");
   }
-  return translate(overviewWidgetTypeLabel(widget.type));
+  return overviewWidgetTypeLabel(widget.type);
 }
 
 function overviewWidgetTypeLabel(type: OverviewWidgetType): string {
@@ -2382,35 +2367,35 @@ function overviewTokenMixVariant(value: OverviewWidgetVariant): "bars" | "donut"
   return value === "donut" || value === "pie" || value === "stacked" ? value : "bars";
 }
 
-function overviewMetricDatum(metric: OverviewMetricKind, totals: UsageTotals, translate: (value: string) => string): { label: string; ratio: number; tone: MetricTone; value: string } {
+function overviewMetricDatum(metric: OverviewMetricKind, totals: UsageTotals): { label: string; ratio: number; tone: MetricTone; value: string } {
   if (metric === "total-tokens") {
-    return { label: translate("Total tokens"), ratio: totals.totalTokens > 0 ? 1 : 0, tone: "teal", value: formatCompactNumber(totals.totalTokens) };
+    return { label: "Total tokens", ratio: totals.totalTokens > 0 ? 1 : 0, tone: "teal", value: formatCompactNumber(totals.totalTokens) };
   }
   if (metric === "input-tokens") {
-    return { label: translate("Input tokens"), ratio: totals.totalTokens > 0 ? totals.inputTokens / totals.totalTokens : 0, tone: "blue", value: formatCompactNumber(totals.inputTokens) };
+    return { label: "Input tokens", ratio: totals.totalTokens > 0 ? totals.inputTokens / totals.totalTokens : 0, tone: "blue", value: formatCompactNumber(totals.inputTokens) };
   }
   if (metric === "output-tokens") {
-    return { label: translate("Output tokens"), ratio: totals.totalTokens > 0 ? totals.outputTokens / totals.totalTokens : 0, tone: "amber", value: formatCompactNumber(totals.outputTokens) };
+    return { label: "Output tokens", ratio: totals.totalTokens > 0 ? totals.outputTokens / totals.totalTokens : 0, tone: "amber", value: formatCompactNumber(totals.outputTokens) };
   }
   if (metric === "cache-tokens") {
-    return { label: translate("Cache tokens"), ratio: totals.totalTokens > 0 ? totals.cacheTokens / totals.totalTokens : 0, tone: "indigo", value: formatCompactNumber(totals.cacheTokens) };
+    return { label: "Cache tokens", ratio: totals.totalTokens > 0 ? totals.cacheTokens / totals.totalTokens : 0, tone: "indigo", value: formatCompactNumber(totals.cacheTokens) };
   }
   if (metric === "cache-ratio") {
-    return { label: translate("Cache ratio"), ratio: totals.cacheRatio, tone: "indigo", value: formatPercent(totals.cacheRatio) };
+    return { label: "Cache ratio", ratio: totals.cacheRatio, tone: "indigo", value: formatPercent(totals.cacheRatio) };
   }
   if (metric === "estimated-cost") {
-    return { label: translate("Estimated cost"), ratio: Math.min(1, Math.max(0, (totals.costUsd ?? 0) / 1)), tone: "slate", value: formatUsdCost(totals.costUsd) };
+    return { label: "Estimated cost", ratio: Math.min(1, Math.max(0, (totals.costUsd ?? 0) / 1)), tone: "slate", value: formatUsdCost(totals.costUsd) };
   }
   if (metric === "success-rate") {
-    return { label: translate("Request success rate"), ratio: totals.successRate, tone: "teal", value: totals.requestCount > 0 ? formatPercent(totals.successRate) : "—" };
+    return { label: "Request success rate", ratio: totals.successRate, tone: "teal", value: totals.requestCount > 0 ? formatPercent(totals.successRate) : "—" };
   }
   if (metric === "errors") {
-    return { label: translate("Errors"), ratio: totals.requestCount > 0 ? totals.errorCount / totals.requestCount : 0, tone: "rose", value: formatCompactNumber(totals.errorCount) };
+    return { label: "Errors", ratio: totals.requestCount > 0 ? totals.errorCount / totals.requestCount : 0, tone: "rose", value: formatCompactNumber(totals.errorCount) };
   }
   if (metric === "avg-latency") {
-    return { label: translate("Average latency"), ratio: Math.min(1, Math.max(0, totals.avgDurationMs / 10_000)), tone: "amber", value: totals.requestCount > 0 ? formatDuration(totals.avgDurationMs) : "—" };
+    return { label: "Average latency", ratio: Math.min(1, Math.max(0, totals.avgDurationMs / 10_000)), tone: "amber", value: totals.requestCount > 0 ? formatDuration(totals.avgDurationMs) : "—" };
   }
-  return { label: translate("Requests"), ratio: totals.requestCount > 0 ? 1 : 0, tone: "teal", value: formatCompactNumber(totals.requestCount) };
+  return { label: "Requests", ratio: totals.requestCount > 0 ? 1 : 0, tone: "teal", value: formatCompactNumber(totals.requestCount) };
 }
 
 function overviewMetricLabel(metric: OverviewMetricKind): string {
@@ -2471,7 +2456,6 @@ function SystemStatusBar({
   usageRange: UsageStatsRange;
   usageStats: UsageStatsSnapshot;
 }) {
-  const t = useAppText();
   const [statusTooltip, setStatusTooltip] = useState<SystemStatusTooltipState>();
   const segments = usageStats.series.map((point) => ({
     dateLabel: formatStatusBucketDate(point.bucket, usageRange),
@@ -2479,8 +2463,8 @@ function SystemStatusBar({
     tone: usageStatusTone(point)
   }));
   const successLabel = usageStats.totals.requestCount > 0
-    ? `${formatPercent(usageStats.totals.successRate)} ${t("Request success rate")}`
-    : t("No requests yet");
+    ? `${formatPercent(usageStats.totals.successRate)} Request success rate`
+    : "No requests yet";
   const overallTone = usageStatusTone(usageStats.totals);
   const StatusIcon = overallTone === "ok" ? Check : CircleAlert;
   const rangeLabel = formatSystemStatusRange(segments, usageRange);
@@ -2511,7 +2495,7 @@ function SystemStatusBar({
               <StatusIcon className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0">
-              <div className="truncate text-[13px] font-semibold">{t("API Service")}</div>
+              <div className="truncate text-[13px] font-semibold">API Service</div>
               <div className="truncate text-[11px] text-muted-foreground">{rangeLabel}</div>
             </div>
           </div>
@@ -2527,7 +2511,7 @@ function SystemStatusBar({
     <Card className="overview-card flex h-full min-h-0 min-w-0 flex-col">
       <OverviewCardHeading
         icon={Server}
-        title={t("System status")}
+        title="System status"
         tone={overallTone === "ok" ? "green" : overallTone === "warn" ? "orange" : overallTone === "error" ? "red" : "slate"}
         trailing={<span className="overview-date-pill block max-w-[320px] truncate">{rangeLabel}</span>}
       />
@@ -2538,17 +2522,17 @@ function SystemStatusBar({
               <span className="overview-status-icon flex h-4 w-4 shrink-0 items-center justify-center rounded-full" data-tone={overallTone}>
                 <StatusIcon className="h-3 w-3" />
               </span>
-              <span className="min-w-0 truncate text-[13px] font-semibold">{t("API Service")}</span>
+              <span className="min-w-0 truncate text-[13px] font-semibold">API Service</span>
             </div>
             <Badge variant={overallTone === "ok" ? "success" : overallTone === "warn" ? "warning" : overallTone === "error" ? "danger" : "outline"}>
               {successLabel}
             </Badge>
           </div>
 
-          <div className="flex min-w-0 gap-1" aria-label={t("System status")}>
+          <div className="flex min-w-0 gap-1" aria-label="System status">
             {segments.map((segment, index) => (
               <span
-                aria-label={systemStatusPointTooltip(segment, t)}
+                aria-label={systemStatusPointTooltip(segment)}
                 className="relative flex h-5 min-w-[3px] flex-1 outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 key={`${segment.point.bucket}-${index}`}
                 onBlur={() => setStatusTooltip(undefined)}
@@ -2558,7 +2542,7 @@ function SystemStatusBar({
                 tabIndex={0}
               >
                 <span
-                  aria-label={systemStatusPointTooltip(segment, t)}
+                  aria-label={systemStatusPointTooltip(segment)}
                   className="overview-status-segment h-full w-full rounded-[4px]"
                   data-tone={segment.tone}
                 />
@@ -2581,19 +2565,19 @@ function SystemStatusBar({
                 />
                 <span className="block font-semibold">{statusTooltip.segment.dateLabel}</span>
                 <span className="mt-1 flex justify-between gap-3">
-                  <span className="text-muted-foreground">{t("Requests")}</span>
+                  <span className="text-muted-foreground">Requests</span>
                   <span className="font-medium">{formatCompactNumber(statusTooltip.segment.point.requestCount)}</span>
                 </span>
                 <span className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">{t("Success rate")}</span>
+                  <span className="text-muted-foreground">Success rate</span>
                   <span className="font-medium">{statusTooltip.segment.point.requestCount > 0 ? formatPercent(statusTooltip.segment.point.successRate) : "—"}</span>
                 </span>
                 <span className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">{t("Failed requests")}</span>
+                  <span className="text-muted-foreground">Failed requests</span>
                   <span className="font-medium">{formatCompactNumber(statusTooltip.segment.point.errorCount)}</span>
                 </span>
                 <span className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">{t("Duration")}</span>
+                  <span className="text-muted-foreground">Duration</span>
                   <span className="font-medium">{formatDuration(statusTooltip.segment.point.avgDurationMs)}</span>
                 </span>
               </TooltipPortal>
@@ -2632,7 +2616,6 @@ function ProviderAccountsOverview({
   refreshing?: boolean;
   variant?: OverviewAccountVariant;
 }) {
-  const t = useAppText();
   const selectedAccountProviders = new Set((accountProviders ?? []).map((provider) => provider.trim()).filter(Boolean));
   const sortedAccounts = accounts.map(providerAccountSnapshotForOverview).sort(compareProviderAccountSnapshots);
   const filteredAccounts = selectedAccountProviders.size > 0
@@ -2680,14 +2663,14 @@ function ProviderAccountsOverview({
       {showHeading ? (
         <OverviewCardHeading
           icon={WalletCards}
-          title={t("Account Balance")}
+          title="Account Balance"
           tone="green"
           trailing={<Badge variant="outline">{visibleAccounts.length}</Badge>}
         />
       ) : null}
       <CardContent className={cn("min-h-0 flex-1 overflow-hidden", providerAccountContentPaddingClass(dimensions))}>
         {visibleAccounts.length === 0 ? (
-          <OverviewEmptyState className="h-full py-4" compact label={t("No account balance connectors configured")} />
+          <OverviewEmptyState className="h-full py-4" compact label="No account balance connectors configured" />
         ) : isSingleAccount ? (
           <ProviderAccountSinglePanel account={visibleAccounts[0]} dimensions={dimensions} providers={providers} refreshing={refreshing} variant={variant} onRefresh={onRefresh} />
         ) : variant === "compact" ? (
@@ -2700,8 +2683,8 @@ function ProviderAccountsOverview({
                     <ProviderAccountLogo account={account} className="h-7 w-7 rounded-md" providers={providers} />
                     <div className="min-w-0">
                       <div className="truncate text-[12px] font-semibold">{providerAccountSnapshotLabel(account)}</div>
-                      {providerAccountShowSource(dimensions) && meter ? <div className="truncate text-[11px] text-muted-foreground">{t(meter.label)}</div> : null}
-                      {providerAccountShowRefreshTime(dimensions) ? <div className="truncate text-[11px] text-muted-foreground">{formatProviderAccountRefreshTime(account, t)}</div> : null}
+                      {providerAccountShowSource(dimensions) && meter ? <div className="truncate text-[11px] text-muted-foreground">{meter.label}</div> : null}
+                      {providerAccountShowRefreshTime(dimensions) ? <div className="truncate text-[11px] text-muted-foreground">{formatProviderAccountRefreshTime(account)}</div> : null}
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1 text-right">
@@ -2724,8 +2707,8 @@ function ProviderAccountsOverview({
                       <ProviderAccountLogo account={account} className="h-6 w-6 rounded-md" providers={providers} />
                       <div className="min-w-0">
                         <div className="truncate text-[12px] font-semibold">{providerAccountSnapshotLabel(account)}</div>
-                        {providerAccountShowSource(dimensions) && meter ? <div className="truncate text-[11px] text-muted-foreground">{t(meter.label)}</div> : null}
-                        {providerAccountShowRefreshTime(dimensions) ? <div className="truncate text-[11px] text-muted-foreground">{formatProviderAccountRefreshTime(account, t)}</div> : null}
+                        {providerAccountShowSource(dimensions) && meter ? <div className="truncate text-[11px] text-muted-foreground">{meter.label}</div> : null}
+                        {providerAccountShowRefreshTime(dimensions) ? <div className="truncate text-[11px] text-muted-foreground">{formatProviderAccountRefreshTime(account)}</div> : null}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2 text-[12px] font-semibold">
@@ -2800,7 +2783,6 @@ function SortableProviderAccountCard({
   disabled: boolean;
   span?: ProviderAccountBentoSpan;
 }) {
-  const t = useAppText();
   const accountKey = providerAccountSnapshotKey(account);
   const {
     attributes,
@@ -2819,7 +2801,7 @@ function SortableProviderAccountCard({
     <button
       {...attributes}
       {...dragListeners}
-      aria-label={t("Move account card")}
+      aria-label="Move account card"
       className="shrink-0 cursor-grab rounded-md p-1 text-muted-foreground/75 opacity-0 transition-[background-color,color,opacity] hover:bg-muted hover:text-foreground active:cursor-grabbing focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25 group-hover/account-card:opacity-100"
       data-account-card-drag-handle="true"
       data-overview-widget-drag-lock="true"
@@ -2833,7 +2815,7 @@ function SortableProviderAccountCard({
         onPointerDown?.(event);
       }}
       ref={setActivatorNodeRef}
-      title={t("Move account card")}
+      title="Move account card"
       type="button"
     >
       <GripHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
@@ -2887,7 +2869,6 @@ function ProviderAccountSinglePanel({
   refreshing?: boolean;
   variant: OverviewAccountVariant;
 }) {
-  const t = useAppText();
   const quotaMeters = providerAccountQuotaMeters(account);
   const balanceMeter = primaryProviderAccountBalanceMeter(account);
   const meterLimit = providerAccountMeterLimitAvoidingOrphanExtra(
@@ -2904,7 +2885,7 @@ function ProviderAccountSinglePanel({
           <ProviderAccountLogo account={account} className={cn("rounded-md", dimensions.height <= 1 ? "h-7 w-7" : "h-9 w-9")} providers={providers} />
           <div className="min-w-0">
             <div className={cn("truncate font-semibold", dimensions.height <= 1 ? "text-[12px]" : "text-[13px]")}>{providerAccountSnapshotLabel(account)}</div>
-            {providerAccountShowRefreshTime(dimensions) ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{formatProviderAccountRefreshTime(account, t)}</div> : null}
+            {providerAccountShowRefreshTime(dimensions) ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{formatProviderAccountRefreshTime(account)}</div> : null}
           </div>
         </div>
         {providerAccountShowRefresh(dimensions) ? <ProviderAccountRefreshButton account={account} refreshing={refreshing} onRefresh={onRefresh} /> : null}
@@ -2920,7 +2901,7 @@ function ProviderAccountSinglePanel({
           ))}
         </div>
       ) : (
-        <div className="truncate text-[12px] text-muted-foreground">{account.message || account.errors?.[0]?.message || t("Unavailable")}</div>
+        <div className="truncate text-[12px] text-muted-foreground">{account.message || account.errors?.[0]?.message || "Unavailable"}</div>
       )}
     </div>
   );
@@ -2949,7 +2930,6 @@ function ProviderAccountSummaryCard({
   refreshing?: boolean;
   variant: OverviewAccountVariant;
 }) {
-  const t = useAppText();
   const quotaMeters = providerAccountQuotaMeters(account);
   const balanceMeter = primaryProviderAccountBalanceMeter(account);
   const showQuotaVisual = providerAccountUsesQuotaVisual(variant) && quotaMeters.length > 0;
@@ -2994,13 +2974,13 @@ function ProviderAccountSummaryCard({
             {primaryMeter ? (
               <div className="min-w-0 text-right" data-provider-account-compact-meter="true">
                 <div className="truncate text-[10px] font-semibold leading-none text-muted-foreground">
-                  {formatProviderAccountMeterTitle(primaryMeter, t)}
+                  {formatProviderAccountMeterTitle(primaryMeter)}
                 </div>
-                <div className="mt-1 truncate text-[19px] font-semibold leading-none tracking-tight">{formatProviderAccountMeterValue(primaryMeter, t)}</div>
+                <div className="mt-1 truncate text-[19px] font-semibold leading-none tracking-tight">{formatProviderAccountMeterValue(primaryMeter)}</div>
               </div>
             ) : (
               <div className="line-clamp-2 min-w-0 text-[11px] font-medium leading-snug text-muted-foreground" data-provider-account-compact-message="true">
-                {account.message || account.errors?.[0]?.message || t("Unavailable")}
+                {account.message || account.errors?.[0]?.message || "Unavailable"}
               </div>
             )}
           </div>
@@ -3021,7 +3001,7 @@ function ProviderAccountSummaryCard({
             <ProviderAccountLogo account={account} className="h-8 w-8 rounded-md" providers={providers} />
             <div className="min-w-0">
               <div className="truncate text-[13px] font-semibold">{providerAccountSnapshotLabel(account)}</div>
-              {providerAccountShowRefreshTime(dimensions) ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{formatProviderAccountRefreshTime(account, t)}</div> : null}
+              {providerAccountShowRefreshTime(dimensions) ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{formatProviderAccountRefreshTime(account)}</div> : null}
             </div>
           </div>
           {dragHandle || providerAccountShowRefresh(dimensions) ? (
@@ -3037,8 +3017,8 @@ function ProviderAccountSummaryCard({
             <div className="mt-3 min-w-0">
               <div className="flex min-w-0 items-end justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="truncate text-[11px] font-medium text-muted-foreground">{formatProviderAccountMeterTitle(primaryMeter, t)}</div>
-                  <div className={cn("truncate font-semibold tracking-tight", dimensions.height >= 3 ? "text-[22px]" : "text-[20px]")}>{formatProviderAccountMeterValue(primaryMeter, t)}</div>
+                  <div className="truncate text-[11px] font-medium text-muted-foreground">{formatProviderAccountMeterTitle(primaryMeter)}</div>
+                  <div className={cn("truncate font-semibold tracking-tight", dimensions.height >= 3 ? "text-[22px]" : "text-[20px]")}>{formatProviderAccountMeterValue(primaryMeter)}</div>
                 </div>
                 {primaryProgress !== undefined && primaryMeter.unit.trim() !== "%" ? (
                   <div className="overview-account-bento-badge shrink-0">{primaryProgress}%</div>
@@ -3061,7 +3041,7 @@ function ProviderAccountSummaryCard({
           </>
         ) : (
           <div className="mt-3 flex min-h-0 flex-1 items-center overflow-hidden text-[12px] text-muted-foreground">
-            <span className="min-w-0 truncate">{account.message || account.errors?.[0]?.message || t("Unavailable")}</span>
+            <span className="min-w-0 truncate">{account.message || account.errors?.[0]?.message || "Unavailable"}</span>
           </div>
         )}
         {resizeHandle}
@@ -3076,7 +3056,7 @@ function ProviderAccountSummaryCard({
           <ProviderAccountLogo account={account} className="h-8 w-8 rounded-md" providers={providers} />
           <div className="min-w-0">
             <div className="truncate text-[13px] font-semibold">{providerAccountSnapshotLabel(account)}</div>
-            {providerAccountShowRefreshTime(dimensions) ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{formatProviderAccountRefreshTime(account, t)}</div> : null}
+            {providerAccountShowRefreshTime(dimensions) ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{formatProviderAccountRefreshTime(account)}</div> : null}
           </div>
         </div>
         {providerAccountShowRefresh(dimensions) ? <ProviderAccountRefreshButton account={account} refreshing={refreshing} onRefresh={onRefresh} /> : null}
@@ -3096,7 +3076,7 @@ function ProviderAccountSummaryCard({
           ))}
         </div>
       ) : (
-        <div className="mt-2 truncate text-[12px] text-muted-foreground">{account.message || account.errors?.[0]?.message || t("Unavailable")}</div>
+        <div className="mt-2 truncate text-[12px] text-muted-foreground">{account.message || account.errors?.[0]?.message || "Unavailable"}</div>
       )}
     </div>
   );
@@ -3115,7 +3095,6 @@ function ProviderAccountCardResizeHandle({
   maxWidth: 1 | 2;
   onResize: (accountKey: string, size: OverviewAccountCardSize) => void;
 }) {
-  const t = useAppText();
   const size = overviewAccountCardSizeDimensions(currentSize);
 
   function startResize(handle: OverviewAccountCardResizeHandle, event: ReactPointerEvent<HTMLButtonElement>) {
@@ -3167,7 +3146,7 @@ function ProviderAccountCardResizeHandle({
     <>
       {overviewAccountCardResizeHandles.map((handle) => (
         <button
-          aria-label={t("Resize account card")}
+          aria-label="Resize account card"
           className={providerAccountCardResizeHandleClass(handle)}
           data-account-card-resize-handle={handle}
           key={handle}
@@ -3176,7 +3155,7 @@ function ProviderAccountCardResizeHandle({
             event.stopPropagation();
           }}
           onPointerDown={(event) => startResize(handle, event)}
-          title={t("Resize account card")}
+          title="Resize account card"
           type="button"
         >
           {providerAccountCardResizeHandleIcon(handle)}
@@ -3336,11 +3315,10 @@ function providerAccountCardResizeHandleIcon(handle: OverviewAccountCardResizeHa
 }
 
 function ProviderAccountBentoOverflowTile({ count }: { count: number }) {
-  const t = useAppText();
   return (
     <div className="overview-account-bento-more overview-account-bento-tile overview-nested-surface row-span-1 flex min-h-0 min-w-0 flex-col justify-center overflow-hidden border p-3 text-center" data-account-status="unknown">
       <div className="truncate text-[22px] font-semibold tracking-tight">+{count}</div>
-      <div className="truncate text-[11px] font-medium text-muted-foreground">{t("More")}</div>
+      <div className="truncate text-[11px] font-medium text-muted-foreground">More</div>
     </div>
   );
 }
@@ -3400,8 +3378,7 @@ function ProviderAccountRefreshButton({
   onRefresh?: () => void | Promise<void>;
   refreshing?: boolean;
 }) {
-  const t = useAppText();
-  const label = refreshing ? t("Refreshing account") : t("Refresh account");
+  const label = refreshing ? "Refreshing account" : "Refresh account";
   return (
     <button
       aria-label={label}
@@ -3419,8 +3396,8 @@ function ProviderAccountRefreshButton({
   );
 }
 
-function formatProviderAccountRefreshTime(account: ProviderAccountSnapshot, t: (value: string) => string): string {
-  return `${t("Last updated")}: ${formatProviderAccountUpdatedAt(account.updatedAt) || "-"}`;
+function formatProviderAccountRefreshTime(account: ProviderAccountSnapshot): string {
+  return `Last updated: ${formatProviderAccountUpdatedAt(account.updatedAt) || "-"}`;
 }
 
 function formatProviderAccountUpdatedAt(value: string): string {
@@ -3452,12 +3429,11 @@ function ProviderAccountMeterLine({
   onRefresh?: () => void | Promise<void>;
   single?: boolean;
 }) {
-  const t = useAppText();
   const progress = isProviderAccountQuotaMeter(meter) ? providerAccountMeterProgress(meter) : undefined;
   const canExpandDetails = dimensions.height >= 2 && isProviderAccountManualResetMeter(meter) && (meter.details?.length ?? 0) > 0;
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [resetDialogDetail, setResetDialogDetail] = useState<NonNullable<ProviderAccountMeter["details"]>[number]>();
-  const title = formatProviderAccountMeterTitle(meter, t);
+  const title = formatProviderAccountMeterTitle(meter);
   const detailsId = `provider-account-meter-${providerAccountSnapshotKey(account)}-${meter.id}-details`.replace(/[^a-zA-Z0-9_-]/g, "-");
   const titleClassName = cn("min-w-0 truncate font-medium text-muted-foreground", compact ? "text-[10px]" : single && dimensions.height >= 2 ? "text-[13px]" : "text-[12px]");
   const valueClassName = cn("shrink-0 font-semibold tracking-tight", compact ? "text-[12px]" : single && dimensions.height >= 2 ? "text-[18px]" : "text-[15px]");
@@ -3471,7 +3447,7 @@ function ProviderAccountMeterLine({
         ) : null}
         <div className={titleClassName}>{title}</div>
       </div>
-      <div className={valueClassName}>{formatProviderAccountMeterValue(meter, t)}</div>
+      <div className={valueClassName}>{formatProviderAccountMeterValue(meter)}</div>
     </>
   );
 
@@ -3481,7 +3457,7 @@ function ProviderAccountMeterLine({
         <button
           aria-controls={detailsId}
           aria-expanded={detailsOpen}
-          aria-label={`${t(detailsOpen ? "Collapse" : "Expand")} ${title}`}
+          aria-label={`${detailsOpen ? "Collapse" : "Expand"} ${title}`}
           className={cn("group -mx-1 flex w-[calc(100%+8px)] min-w-0 items-end justify-between gap-3 rounded-md px-1 text-left transition-colors hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25", compact ? "py-0" : "py-0.5")}
           onClick={() => setDetailsOpen((current) => !current)}
           type="button"
@@ -3528,15 +3504,14 @@ function ProviderAccountMeterDetails({
   meter: ProviderAccountMeter;
   onReset: (detail: NonNullable<ProviderAccountMeter["details"]>[number]) => void;
 }) {
-  const t = useAppText();
   const details = meter.details ?? [];
 
   return (
     <div className="mt-2 max-h-48 space-y-2 overflow-y-auto pr-1" id={detailsId}>
       {details.map((detail, index) => {
         const detailProgress = providerAccountMeterDetailValidityProgress(detail);
-        const label = providerAccountMeterDetailLabel(detail, index, t);
-        const status = providerAccountMeterDetailStatusLabel(detail.status, t);
+        const label = providerAccountMeterDetailLabel(detail, index);
+        const status = providerAccountMeterDetailStatusLabel(detail.status);
         return (
           <div className="min-w-0 rounded-md border border-border/70 bg-background/70 px-2.5 py-2 text-[10px] leading-tight text-muted-foreground" key={detail.id ?? `${meter.id}-${index}`}>
             <div className="flex min-w-0 items-start justify-between gap-3">
@@ -3547,24 +3522,24 @@ function ProviderAccountMeterDetails({
                 {status ? <div className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] tracking-wide text-muted-foreground">{status}</div> : null}
                 {detail.redeemable ? (
                   <Button
-                    aria-label={`${t("Reset")} ${label}`}
+                    aria-label={`Reset ${label}`}
                     className="h-5 px-1.5 text-[10px]"
                     onClick={(event) => {
                       event.stopPropagation();
                       onReset(detail);
                     }}
-                    title={`${t("Reset")} ${label}`}
+                    title={`Reset ${label}`}
                     type="button"
                     variant="outline"
                   >
-                    {t("Reset")}
+                    Reset
                   </Button>
                 ) : null}
               </div>
             </div>
             <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2">
-              <div className="truncate">{t("Effective")}: {formatProviderAccountDetailDate(detail.effectiveAt)}</div>
-              <div className="truncate text-right">{t("Expires")}: {formatProviderAccountDetailDate(detail.expiresAt)}</div>
+              <div className="truncate">Effective: {formatProviderAccountDetailDate(detail.effectiveAt)}</div>
+              <div className="truncate text-right">Expires: {formatProviderAccountDetailDate(detail.expiresAt)}</div>
             </div>
             {detailProgress !== undefined ? (
               <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
@@ -3580,52 +3555,51 @@ function ProviderAccountMeterDetails({
 
 function providerAccountMeterDetailLabel(
   detail: NonNullable<ProviderAccountMeter["details"]>[number],
-  index: number,
-  t: (value: string) => string
+  index: number
 ): string {
-  return detail.label ? formatProviderAccountMeterDetailLabel(detail.label, t) : `#${index + 1}`;
+  return detail.label ? formatProviderAccountMeterDetailLabel(detail.label) : `#${index + 1}`;
 }
 
-function formatProviderAccountMeterDetailLabel(value: string, t: (value: string) => string): string {
+function formatProviderAccountMeterDetailLabel(value: string): string {
   const trimmed = value.trim();
   const fullResetMatch = /^full reset(?:\s*\(([^)]*)\))?$/i.exec(trimmed);
   if (fullResetMatch) {
-    const qualifier = fullResetMatch[1] ? formatCodexResetCreditQualifier(fullResetMatch[1], t) : "";
+    const qualifier = fullResetMatch[1] ? formatCodexResetCreditQualifier(fullResetMatch[1]) : "";
     if (!qualifier) {
-      return t("Full reset");
+      return "Full reset";
     }
-    return `${t("Full reset")} (${qualifier})`;
+    return `Full reset (${qualifier})`;
   }
-  return t(trimmed);
+  return trimmed;
 }
 
-function formatCodexResetCreditQualifier(value: string, t: (value: string) => string): string {
+function formatCodexResetCreditQualifier(value: string): string {
   return value
-    .replace(/\bweekly\b/gi, t("Weekly"))
-    .replace(/\bdaily\b/gi, t("Daily"))
-    .replace(/\bmonthly\b/gi, t("Monthly"))
-    .replace(/\byearly\b/gi, t("Yearly"))
-    .replace(/\bhours?\b/gi, t("hour"))
-    .replace(/\bhrs?\b/gi, t("hr"))
-    .replace(/\bminutes?\b/gi, t("minute"))
-    .replace(/\bmins?\b/gi, t("min"))
-    .replace(/\bdays?\b/gi, t("day"))
-    .replace(/\bweeks?\b/gi, t("week"))
-    .replace(/\bmonths?\b/gi, t("month"))
+    .replace(/\bweekly\b/gi, "Weekly")
+    .replace(/\bdaily\b/gi, "Daily")
+    .replace(/\bmonthly\b/gi, "Monthly")
+    .replace(/\byearly\b/gi, "Yearly")
+    .replace(/\bhours?\b/gi, "hour")
+    .replace(/\bhrs?\b/gi, "hr")
+    .replace(/\bminutes?\b/gi, "minute")
+    .replace(/\bmins?\b/gi, "min")
+    .replace(/\bdays?\b/gi, "day")
+    .replace(/\bweeks?\b/gi, "week")
+    .replace(/\bmonths?\b/gi, "month")
     .replace(/\s*\+\s*/g, " + ")
     .trim();
 }
 
-function providerAccountMeterDetailStatusLabel(status: string | undefined, t: (value: string) => string): string {
+function providerAccountMeterDetailStatusLabel(status: string | undefined): string {
   const normalized = status?.trim().toLowerCase();
   if (!normalized) {
     return "";
   }
-  if (normalized === "available") return t("Available");
-  if (normalized === "active") return t("Active");
-  if (normalized === "expired") return t("Expired");
-  if (normalized === "used") return t("Used");
-  return t(status ?? "");
+  if (normalized === "available") return "Available";
+  if (normalized === "active") return "Active";
+  if (normalized === "expired") return "Expired";
+  if (normalized === "used") return "Used";
+  return status ?? "";
 }
 
 type CodexResetCardStatus = "idle" | "resetting" | "complete";
@@ -3646,15 +3620,14 @@ function CodexResetCreditDialog({
   onResetComplete?: () => void | Promise<void>;
   open: boolean;
 }) {
-  const t = useAppText();
   const cards = useMemo(() => details.filter((item) => Boolean(item.id)), [details]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [status, setStatus] = useState<CodexResetCardStatus>("idle");
   const [error, setError] = useState("");
   const activeDetail = cards[activeIndex] ?? detail;
-  const detailLabel = activeDetail ? providerAccountMeterDetailLabel(activeDetail, activeIndex, t) : "";
-  const detailStatus = providerAccountMeterDetailStatusLabel(activeDetail?.status, t);
+  const detailLabel = activeDetail ? providerAccountMeterDetailLabel(activeDetail, activeIndex) : "";
+  const detailStatus = providerAccountMeterDetailStatusLabel(activeDetail?.status);
   const canNavigate = cards.length > 1 && status === "idle";
 
   useEffect(() => {
@@ -3695,7 +3668,7 @@ function CodexResetCreditDialog({
       return;
     }
     if (!window.ccr?.resetCodexRateLimitCredit) {
-      setError(t("Reset is unavailable."));
+      setError("Reset is unavailable.");
       return;
     }
 
@@ -3740,12 +3713,12 @@ function CodexResetCreditDialog({
         >
           <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_20%_0%,rgba(16,185,129,0.12),transparent_42%),radial-gradient(circle_at_90%_15%,rgba(99,102,241,0.12),transparent_38%)]" />
           <Button
-            aria-label={t("Close")}
+            aria-label="Close"
             className="absolute right-4 top-4 z-20 text-muted-foreground hover:bg-muted hover:text-foreground"
             disabled={status === "resetting"}
             onClick={onClose}
             size="iconSm"
-            title={t("Close")}
+            title="Close"
             type="button"
             variant="ghost"
           >
@@ -3754,20 +3727,20 @@ function CodexResetCreditDialog({
           <div className="relative z-10 px-6 pb-3 pt-6 sm:px-8">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               <CreditCard className="h-3.5 w-3.5" />
-              {t("Manual reset credit")}
+              Manual reset credit
             </div>
-            <h2 className="mt-1.5 text-[21px] font-semibold tracking-tight">{t("Choose a reset card")}</h2>
-            <p className="mt-1 text-[12px] text-muted-foreground">{t("Use the arrows to switch between available reset credits.")}</p>
+            <h2 className="mt-1.5 text-[21px] font-semibold tracking-tight">Choose a reset card</h2>
+            <p className="mt-1 text-[12px] text-muted-foreground">Use the arrows to switch between available reset credits.</p>
           </div>
           <div className="relative z-10 px-3 pb-2 sm:px-5">
             <div className="grid grid-cols-[36px_minmax(0,440px)_36px] items-center justify-center gap-1 sm:grid-cols-[40px_minmax(0,440px)_40px] sm:gap-3">
               <Button
-                aria-label={t("Previous reset card")}
+                aria-label="Previous reset card"
                 className="rounded-full border border-border/80 bg-background/90 text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground"
                 disabled={!canNavigate}
                 onClick={showPreviousCard}
                 size="iconSm"
-                title={t("Previous reset card")}
+                title="Previous reset card"
                 type="button"
                 variant="ghost"
               >
@@ -3823,18 +3796,18 @@ function CodexResetCreditDialog({
                           </div>
                           <Wifi className="h-6 w-6 rotate-90 text-white/50" />
                         </div>
-                        <div aria-label={`${t("Card number")}: ${activeDetail?.id ?? "-"}`} className="flex min-h-10 flex-wrap content-center gap-x-3 gap-y-0.5 font-mono text-[clamp(14px,3.8vw,20px)] font-medium tracking-[0.1em] text-white" title={activeDetail?.id}>
+                        <div aria-label={`Card number: ${activeDetail?.id ?? "-"}`} className="flex min-h-10 flex-wrap content-center gap-x-3 gap-y-0.5 font-mono text-[clamp(14px,3.8vw,20px)] font-medium tracking-[0.1em] text-white" title={activeDetail?.id}>
                           {formatCodexResetCardNumber(activeDetail?.id).map((group, index) => <span key={`${group}-${index}`}>{group}</span>)}
                         </div>
                       </div>
 
                       <div className="flex items-end justify-between gap-4">
                         <div className="min-w-0">
-                          <div className="text-[7px] font-medium uppercase tracking-[0.18em] text-white/40">{t("Reset type")}</div>
+                          <div className="text-[7px] font-medium uppercase tracking-[0.18em] text-white/40">Reset type</div>
                           <div className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-[0.13em] text-white/85" title={detailLabel || undefined}>{detailLabel || "-"}</div>
                         </div>
                         <div className="shrink-0 text-right">
-                          <div className="text-[7px] font-medium uppercase tracking-[0.18em] text-white/40">{t("Valid thru")}</div>
+                          <div className="text-[7px] font-medium uppercase tracking-[0.18em] text-white/40">Valid thru</div>
                           <div className="mt-0.5 font-mono text-[13px] font-semibold tracking-[0.12em]">{formatCodexResetCardExpiry(activeDetail?.expiresAt)}</div>
                         </div>
                       </div>
@@ -3844,12 +3817,12 @@ function CodexResetCreditDialog({
               </div>
 
               <Button
-                aria-label={t("Next reset card")}
+                aria-label="Next reset card"
                 className="rounded-full border border-border/80 bg-background/90 text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground"
                 disabled={!canNavigate}
                 onClick={showNextCard}
                 size="iconSm"
-                title={t("Next reset card")}
+                title="Next reset card"
                 type="button"
                 variant="ghost"
               >
@@ -3857,10 +3830,10 @@ function CodexResetCreditDialog({
               </Button>
             </div>
 
-            <div aria-label={`${t("Reset card")} ${activeIndex + 1} / ${Math.max(cards.length, 1)}`} className="mt-1 flex h-5 items-center justify-center gap-1.5">
+            <div aria-label={`Reset card ${activeIndex + 1} / ${Math.max(cards.length, 1)}`} className="mt-1 flex h-5 items-center justify-center gap-1.5">
               {cards.map((card, index) => (
                 <button
-                  aria-label={`${t("Reset card")} ${index + 1}`}
+                  aria-label={`Reset card ${index + 1}`}
                   className={cn("h-1.5 rounded-full transition-all", index === activeIndex ? "w-5 bg-foreground" : "w-1.5 bg-muted-foreground/25 hover:bg-muted-foreground/50")}
                   disabled={status !== "idle"}
                   key={card.id}
@@ -3874,7 +3847,7 @@ function CodexResetCreditDialog({
           <div className="relative z-10 border-t border-border/70 bg-muted/20 px-6 py-5 sm:px-8">
             <div className="mb-4 flex min-w-0 items-center justify-between gap-4 text-[11px]">
               <div className="min-w-0">
-                <div className="text-muted-foreground">{t("Expires")}</div>
+                <div className="text-muted-foreground">Expires</div>
                 <div className="mt-0.5 truncate font-medium text-foreground">{formatProviderAccountDetailDate(activeDetail?.expiresAt)}</div>
               </div>
               <div className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-muted-foreground">{activeIndex + 1} / {Math.max(cards.length, 1)}</div>
@@ -3893,7 +3866,7 @@ function CodexResetCreditDialog({
                 className="relative z-10 flex items-center justify-center gap-2.5 text-[14px] font-bold uppercase tracking-[0.1em]"
                 transition={status === "resetting" ? { duration: 0.22, repeat: Infinity } : {}}
               >
-                {status === "idle" ? <><Rocket className="h-5 w-5" /><span>{t("Launch reset")}</span></> : null}
+                {status === "idle" ? <><Rocket className="h-5 w-5" /><span>Launch reset</span></> : null}
                 {status === "resetting" ? (
                   <>
                     <span className="relative">
@@ -3904,10 +3877,10 @@ function CodexResetCreditDialog({
                         transition={{ duration: 0.12, repeat: Infinity }}
                       />
                     </span>
-                    <span>{t("Resetting")}</span>
+                    <span>Resetting</span>
                   </>
                 ) : null}
-                {status === "complete" ? <><CheckCircle2 className="h-5 w-5" /><span>{t("Reset complete")}</span></> : null}
+                {status === "complete" ? <><CheckCircle2 className="h-5 w-5" /><span>Reset complete</span></> : null}
               </motion.span>
               <AnimatePresence>
                 {status === "resetting" ? (
@@ -3962,12 +3935,11 @@ function ProviderAccountBalanceMetric({
   dimensions: OverviewWidgetDimensions;
   meter: ProviderAccountMeter;
 }) {
-  const t = useAppText();
   const large = !compact && dimensions.height >= 2;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-col justify-center overflow-hidden">
-      <div className={cn("truncate font-medium text-muted-foreground", large ? "text-[12px]" : "text-[11px]")}>{formatProviderAccountMeterTitle(meter, t)}</div>
+      <div className={cn("truncate font-medium text-muted-foreground", large ? "text-[12px]" : "text-[11px]")}>{formatProviderAccountMeterTitle(meter)}</div>
       <div className={cn("truncate font-semibold tracking-tight", large ? "text-[24px]" : "text-[18px]")}>{formatProviderAccountMeterValue(meter)}</div>
     </div>
   );
@@ -3984,7 +3956,6 @@ function ProviderAccountQuotaVisual({
   meters: ProviderAccountMeter[];
   variant: OverviewAccountVariant;
 }) {
-  const t = useAppText();
   const displayMeters = providerAccountQuotaMetersForVisual(meters, variant);
   const showLabels = dimensions.width >= 2 && dimensions.height >= 2;
   const primary = displayMeters[0];
@@ -4001,7 +3972,7 @@ function ProviderAccountQuotaVisual({
           {displayMeters.slice(0, variant === "nested-rings" ? 2 : 1).map((meter) => {
             return (
               <div className="min-w-0" key={meter.id}>
-                <div className="truncate text-[12px] font-medium text-muted-foreground">{formatProviderAccountMeterTitle(meter, t)}</div>
+                <div className="truncate text-[12px] font-medium text-muted-foreground">{formatProviderAccountMeterTitle(meter)}</div>
                 <div className="truncate text-[17px] font-semibold tracking-tight">{formatProviderAccountMeterValue(meter)}</div>
               </div>
             );
@@ -4023,7 +3994,6 @@ function ProviderAccountQuotaGauge({
   meters: ProviderAccountMeter[];
   variant: OverviewAccountVariant;
 }) {
-  const t = useAppText();
   const primary = meters[0];
   const secondary = meters[1];
   const primaryRatio = providerAccountMeterRatio(primary) ?? 0;
@@ -4061,7 +4031,7 @@ function ProviderAccountQuotaGauge({
     <svg aria-hidden="true" className={sizeClass} viewBox="0 0 120 120">
       <ProviderAccountQuotaCircle cx={60} cy={60} ratio={primaryRatio} radius={40} stroke={stroke} strokeWidth={10} />
       <text className="fill-foreground text-[20px] font-semibold" dy="0.35em" textAnchor="middle" x="60" y={dimensions.height >= 2 ? "57" : "60"}>{formatProviderAccountMeterValue(primary)}</text>
-      {dimensions.height >= 2 ? <text className="fill-muted-foreground text-[10px] font-medium" dy="0.35em" textAnchor="middle" x="60" y="75">{formatProviderAccountMeterTitle(primary, t)}</text> : null}
+      {dimensions.height >= 2 ? <text className="fill-muted-foreground text-[10px] font-medium" dy="0.35em" textAnchor="middle" x="60" y="75">{formatProviderAccountMeterTitle(primary)}</text> : null}
     </svg>
   );
 }
@@ -4538,7 +4508,6 @@ export function AgentAnalysisView({
   setSelectedSession: (value?: AgentAnalysisSessionSelection) => void;
   snapshot: AgentAnalysisSnapshot;
 }) {
-  const t = useAppText();
 
   return (
     <motion.div
@@ -4549,17 +4518,17 @@ export function AgentAnalysisView({
     >
       <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
         <div className="min-w-0">
-          <div className="text-[13px] font-semibold">{t("Sessions")}</div>
+          <div className="text-[13px] font-semibold">Sessions</div>
           <div className="mt-0.5 text-[11px] text-muted-foreground">
-            {formatCompactNumber(snapshot.sessions.length)} {t("Sessions")} / {formatCompactNumber(snapshot.scannedRequestCount)} {t("Requests")}
+            {formatCompactNumber(snapshot.sessions.length)} Sessions / {formatCompactNumber(snapshot.scannedRequestCount)} Requests
           </div>
         </div>
         <div className="min-w-0 flex-1" />
         <Select
-          aria-label={t("Filter agent")}
+          aria-label="Filter agent"
           className="h-8 w-[160px] bg-[length:14px] px-2 pr-7 text-[12px]"
           onValueChange={(value) => setAgentFilter(normalizeAgentFilterValue(value))}
-          options={translateOptions(agentFilterOptions, t)}
+          options={agentFilterOptions}
           value={agentFilter}
         />
         <div className="flex rounded-md border border-border bg-background p-0.5">
@@ -4574,13 +4543,13 @@ export function AgentAnalysisView({
               type="button"
               unstyled
             >
-              {t(option.label)}
+              {option.label}
             </Button>
           ))}
         </div>
-        <Button aria-label={t("Refresh observability")} className="h-8 gap-1.5 px-2.5 text-[12px]" onClick={refreshAnalysis} title={t("Refresh observability")} type="button" variant="outline">
+        <Button aria-label="Refresh observability" className="h-8 gap-1.5 px-2.5 text-[12px]" onClick={refreshAnalysis} title="Refresh observability" type="button" variant="outline">
           <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-          {t("Refresh")}
+          Refresh
         </Button>
       </div>
 
@@ -4593,7 +4562,7 @@ export function AgentAnalysisView({
 
       {snapshot.requestScanTruncated ? (
         <AnalysisNotice>
-          {t("Analysis is limited to the newest")} {formatCompactNumber(snapshot.requestScanLimit)} {t("requests in the selected range.")}
+          Analysis is limited to the newest {formatCompactNumber(snapshot.requestScanLimit)} requests in the selected range.
         </AnalysisNotice>
       ) : null}
 
@@ -4628,13 +4597,12 @@ function AgentSessionDetailCard({
   loading: boolean;
   selectedSession?: AgentAnalysisSessionSelection;
 }) {
-  const t = useAppText();
   const session = detail?.session;
   const headerLabel = session
-    ? `${t(agentKindLabel(session.agent))} / ${compactId(session.id)}`
+    ? `${agentKindLabel(session.agent)} / ${compactId(session.id)}`
     : selectedSession
-      ? `${t(agentKindLabel(selectedSession.agent))} / ${compactId(selectedSession.id)}`
-      : t("Session");
+      ? `${agentKindLabel(selectedSession.agent)} / ${compactId(selectedSession.id)}`
+      : "Session";
   const [detailTab, setDetailTab] = useState<AgentSessionDetailTab>("trace");
 
   return (
@@ -4642,18 +4610,18 @@ function AgentSessionDetailCard({
       <DialogContent className="h-[calc(100dvh-1.5rem)] max-w-[1200px] origin-top sm:h-[min(900px,calc(100dvh-3rem))]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Trace Detail")}</DialogTitle>
+            <DialogTitle>Trace Detail</DialogTitle>
             <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground" title={session?.id ?? selectedSession?.id}>
               {headerLabel}
             </div>
           </div>
-          <Button aria-label={t("Close")} onClick={clearSession} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close" onClick={clearSession} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-3.5 w-3.5" />
           </Button>
         </DialogHeader>
         <DialogBody className={detailTab === "trajectory" ? "overflow-hidden" : undefined}>
         {!detail ? (
-          <AnalysisEmptyState label={t(loading ? "Loading session metrics" : "Session not found or outside the selected range")} />
+          <AnalysisEmptyState label={loading ? "Loading session metrics" : "Session not found or outside the selected range"} />
         ) : (
           <div className={detailTab === "trajectory" ? "flex h-full min-h-0 flex-col gap-4" : "space-y-4"}>
             <AgentSessionDetailTabs activeTab={detailTab} setActiveTab={setDetailTab} />
@@ -4678,7 +4646,6 @@ function AgentSessionDetailTabs({
   activeTab: AgentSessionDetailTab;
   setActiveTab: (tab: AgentSessionDetailTab) => void;
 }) {
-  const t = useAppText();
   const tabs: Array<{ label: string; value: AgentSessionDetailTab }> = [
     { label: "Call chain", value: "trace" },
     { label: "Session Trajectory", value: "trajectory" },
@@ -4691,14 +4658,14 @@ function AgentSessionDetailTabs({
       onValueChange={(value) => setActiveTab(value as AgentSessionDetailTab)}
       value={activeTab}
     >
-      <TabsList aria-label={t("Trace Detail")} className="w-fit max-w-full flex-wrap items-center gap-1 rounded-md border border-border bg-background p-1">
+      <TabsList aria-label="Trace Detail" className="w-fit max-w-full flex-wrap items-center gap-1 rounded-md border border-border bg-background p-1">
         {tabs.map((tab) => (
           <TabsTrigger
             className="h-8 rounded px-3 text-[12px] font-medium data-[state=active]:bg-card data-[state=active]:text-foreground"
             key={tab.value}
             value={tab.value}
           >
-            {t(tab.label)}
+            {tab.label}
           </TabsTrigger>
         ))}
       </TabsList>
@@ -4707,31 +4674,30 @@ function AgentSessionDetailTabs({
 }
 
 function AgentSessionRequestsPanel({ detail }: { detail: AgentSessionDetail }) {
-  const t = useAppText();
   const requests = useMemo(() => [...detail.requests].sort(compareSessionRequestsByTime), [detail.requests]);
   const [selectedRequestLogId, setSelectedRequestLogId] = useState<number>();
 
   return (
     <div className="min-w-0">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-[12px] font-semibold">{t("Session Records")}</div>
+        <div className="text-[12px] font-semibold">Session Records</div>
       </div>
       {requests.length === 0 ? (
-        <AnalysisEmptyState label={t("No session records")} />
+        <AnalysisEmptyState label="No session records" />
       ) : (
         <div className={cn("max-h-[620px]", agentListFrameClassName)}>
           <table className={cn("min-w-[1060px]", agentListTableClassName)}>
             <thead className={agentListHeadClassName}>
               <tr>
-                <th className="px-3 py-2 font-semibold">{t("Time")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Status")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Route")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Model")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Tools")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Token")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Cost")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Duration")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Details")}</th>
+                <th className="px-3 py-2 font-semibold">Time</th>
+                <th className="px-3 py-2 font-semibold">Status</th>
+                <th className="px-3 py-2 font-semibold">Route</th>
+                <th className="px-3 py-2 font-semibold">Model</th>
+                <th className="px-3 py-2 text-right font-semibold">Tools</th>
+                <th className="px-3 py-2 text-right font-semibold">Token</th>
+                <th className="px-3 py-2 text-right font-semibold">Cost</th>
+                <th className="px-3 py-2 text-right font-semibold">Duration</th>
+                <th className="px-3 py-2 text-right font-semibold">Details</th>
               </tr>
             </thead>
             <tbody className={agentListBodyClassName}>
@@ -4752,7 +4718,7 @@ function AgentSessionRequestsPanel({ detail }: { detail: AgentSessionDetail }) {
                       type="button"
                       variant="outline"
                     >
-                      {t("View details")}
+                      View details
                     </Button>
                   </td>
                 </tr>
@@ -4778,7 +4744,6 @@ function AgentSessionRequestLogDialog({
   onClose: () => void;
   requestLogId: number;
 }) {
-  const t = useAppText();
   const [entry, setEntry] = useState<RequestLogEntry>();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -4790,7 +4755,7 @@ function AgentSessionRequestLogDialog({
     setLoading(true);
 
     if (!window.ccr?.getRequestLogDetail) {
-      setError(t("Request log detail is unavailable."));
+      setError("Request log detail is unavailable.");
       setLoading(false);
       return () => {
         active = false;
@@ -4805,7 +4770,7 @@ function AgentSessionRequestLogDialog({
         if (detail) {
           setEntry(detail);
         } else {
-          setError(t("Request log not found."));
+          setError("Request log not found.");
         }
       })
       .catch((requestError) => {
@@ -4822,19 +4787,19 @@ function AgentSessionRequestLogDialog({
     return () => {
       active = false;
     };
-  }, [requestLogId, t]);
+  }, [requestLogId]);
 
   return (
     <Dialog className="items-start" onOpenChange={(open) => !open && onClose()} open>
       <DialogContent className="h-[calc(100dvh-1.5rem)] max-w-[1180px] origin-top sm:h-[min(820px,calc(100dvh-3rem))]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Request Log")}</DialogTitle>
+            <DialogTitle>Request Log</DialogTitle>
             <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground" title={String(requestLogId)}>
               #{requestLogId}{entry ? ` · ${entry.method} ${entry.path}` : ""}
             </div>
           </div>
-          <Button aria-label={t("Close")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-3.5 w-3.5" />
           </Button>
         </DialogHeader>
@@ -4846,11 +4811,11 @@ function AgentSessionRequestLogDialog({
               {loading ? (
                 <div className="flex items-center gap-2">
                   <LoaderCircle className="h-4 w-4 animate-spin" />
-                  <span>{t("Loading full payload...")}</span>
+                  <span>Loading full payload...</span>
                 </div>
               ) : (
                 <div className={cn("rounded-md border px-4 py-3 font-semibold", error && "border-rose-200 bg-rose-50 text-rose-700")}>
-                  {error || t("Request log not found.")}
+                  {error || "Request log not found."}
                 </div>
               )}
             </div>
@@ -4862,7 +4827,6 @@ function AgentSessionRequestLogDialog({
 }
 
 function AgentSessionTrajectoryPanel({ detail }: { detail: AgentSessionDetail }) {
-  const t = useAppText();
   const trajectory = useMemo(() => buildAgentTrajectoryTree(detail), [detail]);
   const expandableNodeIds = useMemo(() => trajectory.flat.filter(trajectoryNodeHasVisibleChildren).map((node) => node.id), [trajectory.flat]);
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => new Set(expandableNodeIds));
@@ -4898,20 +4862,20 @@ function AgentSessionTrajectoryPanel({ detail }: { detail: AgentSessionDetail })
     <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md border border-border/70 bg-card/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/60 px-3 py-2.5">
         <div className="min-w-0 flex-1">
-          <div className="text-[12px] font-semibold">{t("Session Trajectory")}</div>
+          <div className="text-[12px] font-semibold">Session Trajectory</div>
           <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground" title={detail.trace.sessionId}>
             {compactId(detail.trace.sessionId)} | {formatLogDateTime(detail.trace.startedAt)} - {formatLogDateTime(detail.trace.endedAt)}
           </div>
         </div>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
-          <Badge variant="outline">{t("Duration")} {formatDuration(detail.trace.durationMs)}</Badge>
-          <Badge variant="outline">{formatCompactNumber(detail.conversation.length)} {t("Turns")}</Badge>
-          <Badge variant="outline">{formatCompactNumber(callCount)} {t("Calls")}</Badge>
+          <Badge variant="outline">Duration {formatDuration(detail.trace.durationMs)}</Badge>
+          <Badge variant="outline">{formatCompactNumber(detail.conversation.length)} Turns</Badge>
+          <Badge variant="outline">{formatCompactNumber(callCount)} Calls</Badge>
           <input
-            aria-label={t("Search")}
+            aria-label="Search"
             className="h-7 w-[190px] rounded-md border border-border bg-background px-2 text-[11px] outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/60"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("Search")}
+            placeholder="Search"
             value={query}
           />
         </div>
@@ -4923,9 +4887,9 @@ function AgentSessionTrajectoryPanel({ detail }: { detail: AgentSessionDetail })
       )}>
         <div className={cn("min-h-0 min-w-0 overflow-auto", detailDrawerOpen && "border-b border-border/60 lg:border-b-0 lg:border-r")}>
           {listNodes.length === 0 ? (
-            <AnalysisEmptyState label={t("No trajectory events")} />
+            <AnalysisEmptyState label="No trajectory events" />
           ) : visibleRows.length === 0 ? (
-            <AnalysisEmptyState label={t("No matching events")} />
+            <AnalysisEmptyState label="No matching events" />
           ) : (
             <div className="divide-y divide-border/50">
               {visibleRows.map(({ level, node }) => (
@@ -5392,7 +5356,6 @@ function trajectoryNodeSearchText(node: AgentTrajectoryNode): string {
 }
 
 function AgentTracePanel({ trace }: { trace: AgentTraceDetail }) {
-  const t = useAppText();
   const durationMs = Math.max(trace.durationMs, 1);
   const runs = useMemo(() => [...trace.runs].sort(compareTraceRunsByTime), [trace.runs]);
   const [selectedToolRun, setSelectedToolRun] = useState<AgentAnalysisTraceRun>();
@@ -5401,30 +5364,30 @@ function AgentTracePanel({ trace }: { trace: AgentTraceDetail }) {
     <div className="min-w-0">
       <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[12px] font-semibold">{t("Call chain")}</div>
+          <div className="text-[12px] font-semibold">Call chain</div>
           <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground" title={trace.sessionId}>
             {compactId(trace.sessionId)} - {formatLogDateTime(trace.startedAt)}{" -> "}{formatLogDateTime(trace.endedAt)}
           </div>
         </div>
-        <Badge variant="outline">{formatCompactNumber(trace.runCount)} {t("Runs")}</Badge>
+        <Badge variant="outline">{formatCompactNumber(trace.runCount)} Runs</Badge>
       </div>
 
       {runs.length === 0 ? (
-        <AnalysisEmptyState label={t("No trace runs")} />
+        <AnalysisEmptyState label="No trace runs" />
       ) : (
         <div className={cn("max-h-[520px]", agentListFrameClassName)}>
           <table className={cn("min-w-[1260px]", agentListTableClassName)}>
             <thead className={agentListHeadClassName}>
               <tr>
-                <th className="px-3 py-2 font-semibold">{t("Run")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Timeline")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Status")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Target")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Token")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Cache")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Cost")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Concurrency")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Duration")}</th>
+                <th className="px-3 py-2 font-semibold">Run</th>
+                <th className="px-3 py-2 font-semibold">Timeline</th>
+                <th className="px-3 py-2 font-semibold">Status</th>
+                <th className="px-3 py-2 font-semibold">Target</th>
+                <th className="px-3 py-2 text-right font-semibold">Token</th>
+                <th className="px-3 py-2 text-right font-semibold">Cache</th>
+                <th className="px-3 py-2 text-right font-semibold">Cost</th>
+                <th className="px-3 py-2 text-right font-semibold">Concurrency</th>
+                <th className="px-3 py-2 text-right font-semibold">Duration</th>
               </tr>
             </thead>
             <tbody className={agentListBodyClassName}>
@@ -5439,7 +5402,7 @@ function AgentTracePanel({ trace }: { trace: AgentTraceDetail }) {
                       <div className="min-w-0">
                         <div className="truncate font-semibold" title={run.name}>{run.name}</div>
                         <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
-                          <span className="font-mono uppercase">{t(traceRunKindLabel(run.kind))}</span>
+                          <span className="font-mono uppercase">{traceRunKindLabel(run.kind)}</span>
                           {run.requestId ? <span className="truncate font-mono" title={run.requestId}>{compactId(run.requestId)}</span> : null}
                         </div>
                       </div>
@@ -5456,7 +5419,7 @@ function AgentTracePanel({ trace }: { trace: AgentTraceDetail }) {
                   </td>
                   <td className="px-3 py-2">
                     <Badge className={cn("border", traceRunStatusBadgeClass(run.status))} variant="outline">
-                      {t(traceRunStatusLabel(run.status))}
+                      {traceRunStatusLabel(run.status)}
                     </Badge>
                   </td>
                   <td className="max-w-[260px] px-3 py-2" title={traceRunTarget(run)}>
@@ -5490,7 +5453,6 @@ function TraceRunTarget({
   onOpenTool: () => void;
   run: AgentAnalysisTraceRun;
 }) {
-  const t = useAppText();
   if (run.kind !== "tool") {
     return <span>{traceRunTarget(run)}</span>;
   }
@@ -5500,7 +5462,7 @@ function TraceRunTarget({
       <span className="min-w-0 truncate" title={traceRunTarget(run)}>{traceRunTarget(run)}</span>
       {run.tool ? (
         <Button className="h-6 shrink-0 border-border bg-transparent px-2 text-[10px] shadow-none hover:bg-transparent active:bg-transparent" onClick={onOpenTool} type="button" variant="outline">
-          {t("Parameters")} / {t("Result")}
+          Parameters / Result
         </Button>
       ) : null}
     </div>
@@ -5522,8 +5484,7 @@ function AgentTrajectoryNodeRow({
   onToggle: () => void;
   selected: boolean;
 }) {
-  const t = useAppText();
-  const preview = trajectoryNodePreview(trajectoryNodeListContent(node, t));
+  const preview = trajectoryNodePreview(trajectoryNodeListContent(node));
   const hasChildren = trajectoryNodeHasVisibleChildren(node);
 
   return (
@@ -5545,13 +5506,13 @@ function AgentTrajectoryNodeRow({
       <div className="flex min-w-0 flex-1 items-center gap-2" style={{ paddingLeft: `${Math.min(level, 10) * 18}px` }}>
         {hasChildren ? (
           <button
-            aria-label={t(expanded ? "Collapse" : "Expand")}
+            aria-label={expanded ? "Collapse" : "Expand"}
             className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={(event) => {
               event.stopPropagation();
               onToggle();
             }}
-            title={t(expanded ? "Collapse" : "Expand")}
+            title={expanded ? "Collapse" : "Expand"}
             type="button"
           >
             {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -5562,8 +5523,8 @@ function AgentTrajectoryNodeRow({
         <span className={cn("min-w-[84px] shrink-0 rounded px-1.5 py-0.5 text-center font-mono text-[9px] font-semibold uppercase", trajectoryNodeBadgeClass(node))}>
           {trajectoryNodeRoleTag(node.kind)}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[12px] text-foreground/90" title={preview || trajectoryNodeTitle(node, t)}>
-          {preview || trajectoryNodeTitle(node, t)}
+        <span className="min-w-0 flex-1 truncate text-[12px] text-foreground/90" title={preview || trajectoryNodeTitle(node)}>
+          {preview || trajectoryNodeTitle(node)}
         </span>
       </div>
     </div>
@@ -5577,7 +5538,6 @@ function AgentTrajectoryDetailPanel({
   node?: AgentTrajectoryNode;
   onClose: () => void;
 }) {
-  const t = useAppText();
   const [tab, setTab] = useState<AgentTrajectoryDetailTab>("preview");
 
   useEffect(() => {
@@ -5585,7 +5545,7 @@ function AgentTrajectoryDetailPanel({
   }, [node?.id]);
 
   if (!node) {
-    return <AnalysisEmptyState label={t("No trajectory events")} />;
+    return <AnalysisEmptyState label="No trajectory events" />;
   }
 
   return (
@@ -5596,15 +5556,15 @@ function AgentTrajectoryDetailPanel({
             <span className={cn("rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase", trajectoryNodeBadgeClass(node))}>
               {trajectoryNodeRoleTag(node.kind)}
             </span>
-            <span className="truncate text-[12px] font-medium" title={trajectoryNodeTitle(node, t)}>
-              {trajectoryNodeTitle(node, t)}
+            <span className="truncate text-[12px] font-medium" title={trajectoryNodeTitle(node)}>
+              {trajectoryNodeTitle(node)}
             </span>
           </div>
           <div className="mt-1 text-[10px] text-muted-foreground">
-            {node.turnIndex ? `${t("Round")} ${node.turnIndex} | ` : ""}{t("Step")} {node.stepIndex}
+            {node.turnIndex ? `Round ${node.turnIndex} | ` : ""}Step {node.stepIndex}
           </div>
         </div>
-        <Button aria-label={t("Collapse details")} onClick={onClose} size="iconSm" title={t("Collapse details")} type="button" variant="ghost">
+        <Button aria-label="Collapse details" onClick={onClose} size="iconSm" title="Collapse details" type="button" variant="ghost">
           <ChevronRight className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -5620,7 +5580,7 @@ function AgentTrajectoryDetailPanel({
             onClick={() => setTab(item)}
             type="button"
           >
-            {t(item === "preview" ? "Preview" : "Raw")}
+            {item === "preview" ? "Preview" : "Raw"}
           </button>
         ))}
       </div>
@@ -5634,7 +5594,6 @@ function AgentTrajectoryDetailPanel({
 }
 
 function AgentTrajectoryNodePreview({ node }: { node: AgentTrajectoryNode }) {
-  const t = useAppText();
   const run = node.run;
   const tool = run?.tool;
   const inputRequest = tool && run?.requestLogId
@@ -5651,8 +5610,8 @@ function AgentTrajectoryNodePreview({ node }: { node: AgentTrajectoryNode }) {
   if (run?.kind === "tool") {
     return (
       <div className="space-y-3 p-3">
-        <TracePayloadPane fallback={tool?.input} label={t("Tool parameters")} request={inputRequest} />
-        <TracePayloadPane fallback={tool?.result} label={t("Tool result")} request={resultRequest} />
+        <TracePayloadPane fallback={tool?.input} label="Tool parameters" request={inputRequest} />
+        <TracePayloadPane fallback={tool?.result} label="Tool result" request={resultRequest} />
       </div>
     );
   }
@@ -5664,39 +5623,39 @@ function AgentTrajectoryNodePreview({ node }: { node: AgentTrajectoryNode }) {
   return (
     <div className="space-y-4 p-4 text-[12px]">
       <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-x-4 gap-y-2">
-        <div className="text-muted-foreground">{t("Source")}</div>
-        <div>{t(trajectoryNodeKindLabel(node.kind))}</div>
-        <div className="text-muted-foreground">{t("Status")}</div>
-        <div>{t(traceRunStatusLabel(node.status))}{node.statusCode ? ` (${node.statusCode})` : ""}</div>
-        <div className="text-muted-foreground">{t("Target")}</div>
+        <div className="text-muted-foreground">Source</div>
+        <div>{trajectoryNodeKindLabel(node.kind)}</div>
+        <div className="text-muted-foreground">Status</div>
+        <div>{traceRunStatusLabel(node.status)}{node.statusCode ? ` (${node.statusCode})` : ""}</div>
+        <div className="text-muted-foreground">Target</div>
         <div className="truncate" title={run ? traceRunTarget(run) : undefined}>{run ? traceRunTarget(run) : "-"}</div>
-        <div className="text-muted-foreground">{t("Request")}</div>
+        <div className="text-muted-foreground">Request</div>
         <div className="truncate font-mono" title={node.requestId}>{node.requestId ? compactId(node.requestId) : "-"}</div>
-        <div className="text-muted-foreground">{t("Model")}</div>
+        <div className="text-muted-foreground">Model</div>
         <div className="truncate" title={node.provider && node.model ? `${node.provider}/${node.model}` : node.model}>
           {node.provider && node.model ? `${node.provider}/${node.model}` : node.model || "-"}
         </div>
-        <div className="text-muted-foreground">{t("Tokens")}</div>
+        <div className="text-muted-foreground">Tokens</div>
         <div>{node.totalTokens > 0 ? `${formatCompactNumber(node.totalTokens)} tok` : "-"}</div>
-        <div className="text-muted-foreground">{t("Cost")}</div>
+        <div className="text-muted-foreground">Cost</div>
         <div>{node.costUsd !== undefined ? formatUsdCost(node.costUsd) : "-"}</div>
       </div>
 
       <div>
-        <div className="mb-2 font-medium">{t("Request Timing")}</div>
+        <div className="mb-2 font-medium">Request Timing</div>
         <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-x-4 gap-y-1.5">
-          <div className="text-muted-foreground">{t("Started")}</div>
+          <div className="text-muted-foreground">Started</div>
           <div className="font-mono">{formatLogDateTime(node.createdAt)}</div>
-          <div className="text-muted-foreground">{t("Total duration")}</div>
+          <div className="text-muted-foreground">Total duration</div>
           <div>{formatDuration(node.durationMs)}</div>
-          <div className="text-muted-foreground">{t("Offset")}</div>
+          <div className="text-muted-foreground">Offset</div>
           <div>{formatDuration(node.offsetMs)}</div>
         </div>
       </div>
 
       {node.content.trim() ? (
         <div>
-          <div className="mb-2 font-medium">{t("Preview")}</div>
+          <div className="mb-2 font-medium">Preview</div>
           <TracePayloadContent content={node.content} kind="text" />
         </div>
       ) : null}
@@ -5711,7 +5670,6 @@ function ToolPayloadDialog({
   onClose: () => void;
   run: AgentAnalysisTraceRun;
 }) {
-  const t = useAppText();
   const tool = run.tool;
   const inputRequest = tool && run.requestLogId
     ? { callId: tool.callId, part: "tool-input" as const, requestLogId: run.requestLogId }
@@ -5727,10 +5685,10 @@ function ToolPayloadDialog({
           <div className="min-w-0">
             <DialogTitle>{run.toolName || run.name}</DialogTitle>
             <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground" title={tool?.callId}>
-              {tool?.callId ? compactId(tool.callId) : t("Tool")}
+              {tool?.callId ? compactId(tool.callId) : "Tool"}
             </div>
           </div>
-          <Button aria-label={t("Close")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-3.5 w-3.5" />
           </Button>
         </DialogHeader>
@@ -5738,12 +5696,12 @@ function ToolPayloadDialog({
           <div className="grid h-full min-h-0 grid-cols-1 gap-3 xl:grid-cols-2">
             <TracePayloadPane
               fallback={tool?.input}
-              label={t("Parameters")}
+              label="Parameters"
               request={inputRequest}
             />
             <TracePayloadPane
               fallback={tool?.result}
-              label={t("Result")}
+              label="Result"
               request={resultRequest}
             />
           </div>
@@ -5762,7 +5720,6 @@ function TracePayloadPane({
   label: string;
   request?: AgentAnalysisTracePayloadRequest;
 }) {
-  const t = useAppText();
   const requestCallId = request?.callId;
   const requestLogId = request?.requestLogId;
   const requestPart = request?.part;
@@ -5820,16 +5777,16 @@ function TracePayloadPane({
       <div className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
         <div className="text-[12px] font-semibold">{label}</div>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
-          {loading ? <Badge variant="outline">{t("Loading")}</Badge> : null}
+          {loading ? <Badge variant="outline">Loading</Badge> : null}
           {sizeBytes > 0 ? <Badge variant="outline">{formatBytes(sizeBytes)}</Badge> : null}
-          {previewOnly && !loading ? <Badge variant="outline">{t("Preview")}</Badge> : null}
-          {truncated ? <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">{t("Source truncated")}</Badge> : null}
-          {loadFailed || unavailable ? <Badge className="border-rose-200 bg-rose-50 text-rose-700" variant="outline">{t("Full content unavailable")}</Badge> : null}
+          {previewOnly && !loading ? <Badge variant="outline">Preview</Badge> : null}
+          {truncated ? <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">Source truncated</Badge> : null}
+          {loadFailed || unavailable ? <Badge className="border-rose-200 bg-rose-50 text-rose-700" variant="outline">Full content unavailable</Badge> : null}
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {loading && !content ? (
-          <div className="px-3 py-4 text-[11px] text-muted-foreground">{t("Loading")}</div>
+          <div className="px-3 py-4 text-[11px] text-muted-foreground">Loading</div>
         ) : (
           <TracePayloadContent content={content} kind={kind} />
         )}
@@ -5845,7 +5802,6 @@ function TracePayloadContent({
   content: string;
   kind: AgentAnalysisTracePayloadFullResult["kind"];
 }) {
-  const t = useAppText();
   const parsed = useMemo<{ value: unknown } | undefined>(() => {
     if (kind !== "json") {
       return undefined;
@@ -5858,7 +5814,7 @@ function TracePayloadContent({
   }, [content, kind]);
 
   if (!content.trim() || kind === "empty") {
-    return <div className="px-3 py-4 text-[11px] text-muted-foreground">{t("No data")}</div>;
+    return <div className="px-3 py-4 text-[11px] text-muted-foreground">No data</div>;
   }
 
   if (parsed) {
@@ -5913,7 +5869,6 @@ function JsonComplexNode({
   openToken: string;
   root?: boolean;
 }) {
-  const t = useAppText();
   const [expanded, setExpanded] = useState(Boolean(root));
   const empty = entries.length === 0;
 
@@ -5924,7 +5879,7 @@ function JsonComplexNode({
           <span className="h-4 w-4 shrink-0" />
         ) : (
           <button
-            aria-label={t(expanded ? "Collapse" : "Expand")}
+            aria-label={expanded ? "Collapse" : "Expand"}
             className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={() => setExpanded((current) => !current)}
             type="button"
@@ -6047,17 +6002,17 @@ function traceRunStatusLabel(status: AgentAnalysisTraceRun["status"]): string {
   return "Success";
 }
 
-function trajectoryNodeTitle(node: AgentTrajectoryNode, t: (value: string) => string): string {
-  if (node.kind === "user") return t("User sent");
-  if (node.kind === "assistant") return t("Model reply");
-  if (node.kind === "context") return t("Context");
-  if (node.kind === "developer") return t("Developer");
-  if (node.kind === "system") return t("System");
-  if (node.kind === "tool-result") return t("Tool result");
+function trajectoryNodeTitle(node: AgentTrajectoryNode): string {
+  if (node.kind === "user") return "User sent";
+  if (node.kind === "assistant") return "Model reply";
+  if (node.kind === "context") return "Context";
+  if (node.kind === "developer") return "Developer";
+  if (node.kind === "system") return "System";
+  if (node.kind === "tool-result") return "Tool result";
   return node.title;
 }
 
-function trajectoryNodeListContent(node: AgentTrajectoryNode, t: (value: string) => string): string {
+function trajectoryNodeListContent(node: AgentTrajectoryNode): string {
   const content = node.content.trim();
   if (node.kind === "tool-result") {
     return content;
@@ -6073,7 +6028,7 @@ function trajectoryNodeListContent(node: AgentTrajectoryNode, t: (value: string)
     return content;
   }
   if (node.kind === "llm") {
-    return node.error ? node.error : t("Request");
+    return node.error ? node.error : "Request";
   }
   if (node.kind === "route") {
     return content || node.run?.routeReason || node.title;
@@ -6176,33 +6131,32 @@ function AgentSessionsCard({
   selectedSession?: AgentAnalysisSessionSelection;
   sessions: AgentAnalysisSnapshot["sessions"];
 }) {
-  const t = useAppText();
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
       {sessions.length === 0 ? (
-        <AnalysisEmptyState label={t("No session activity")} />
+        <AnalysisEmptyState label="No session activity" />
       ) : (
         <div className={cn("h-full", agentListFrameClassName)}>
           <table className={cn("min-w-[1420px]", agentListTableClassName)}>
             <thead className={agentListHeadClassName}>
               <tr>
-                <th className="px-3 py-2 font-semibold">{t("Session")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Agent")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Client")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Started")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Last seen")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Duration")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Requests")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Tools")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Subagents")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Errors")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Cache rate")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Cost")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Models")}</th>
-                <th className="px-3 py-2 font-semibold">{t("Providers")}</th>
-                <th className="px-3 py-2 font-semibold">{t("UA")}</th>
-                <th className="px-3 py-2 text-right font-semibold">{t("Action")}</th>
+                <th className="px-3 py-2 font-semibold">Session</th>
+                <th className="px-3 py-2 font-semibold">Agent</th>
+                <th className="px-3 py-2 font-semibold">Client</th>
+                <th className="px-3 py-2 font-semibold">Started</th>
+                <th className="px-3 py-2 font-semibold">Last seen</th>
+                <th className="px-3 py-2 text-right font-semibold">Duration</th>
+                <th className="px-3 py-2 text-right font-semibold">Requests</th>
+                <th className="px-3 py-2 text-right font-semibold">Tools</th>
+                <th className="px-3 py-2 text-right font-semibold">Subagents</th>
+                <th className="px-3 py-2 text-right font-semibold">Errors</th>
+                <th className="px-3 py-2 text-right font-semibold">Cache rate</th>
+                <th className="px-3 py-2 text-right font-semibold">Cost</th>
+                <th className="px-3 py-2 font-semibold">Models</th>
+                <th className="px-3 py-2 font-semibold">Providers</th>
+                <th className="px-3 py-2 font-semibold">UA</th>
+                <th className="px-3 py-2 text-right font-semibold">Action</th>
               </tr>
             </thead>
             <tbody className={agentListBodyClassName}>
@@ -6213,7 +6167,7 @@ function AgentSessionsCard({
                     <td className="max-w-[180px] px-3 py-2" title={session.id}>
                       <span className="block truncate font-mono font-semibold">{compactId(session.id)}</span>
                     </td>
-                    <td className="px-3 py-2">{t(agentKindLabel(session.agent))}</td>
+                    <td className="px-3 py-2">{agentKindLabel(session.agent)}</td>
                     <td className="max-w-[150px] px-3 py-2" title={session.client}>{session.client}</td>
                     <td className="px-3 py-2 font-mono">{formatLogDateTime(session.startedAt)}</td>
                     <td className="px-3 py-2 font-mono">{formatLogDateTime(session.lastSeenAt)}</td>
@@ -6229,7 +6183,7 @@ function AgentSessionsCard({
                     <td className="max-w-[220px] px-3 py-2 font-mono" title={session.userAgent}>{compactUserAgent(session.userAgent)}</td>
                     <td className="px-3 py-2 text-right">
                       <Button className="h-7 border-border bg-transparent px-2 text-[11px] shadow-none hover:bg-transparent active:bg-transparent" onClick={() => onSelectSession({ agent: session.agent, id: session.id })} type="button" variant="outline">
-                        {t("Details")}
+                        Details
                       </Button>
                     </td>
                   </tr>
@@ -6278,7 +6232,6 @@ function UsageAnalysisCard({
   rows: UsageComparisonRow[];
   title: string;
 }) {
-  const t = useAppText();
   const visibleColumns = dimensions.width >= 4 ? columns : columns.slice(0, 1);
   const visibleRows = rows.slice(0, overviewAnalysisRowLimit(dimensions));
   const showCost = dimensions.width >= 4;
@@ -6299,13 +6252,13 @@ function UsageAnalysisCard({
                   {visibleColumns.map((column) => (
                     <th className="px-3 py-2 font-semibold" key={column.key}>{column.label}</th>
                   ))}
-                  <th className="px-3 py-2 text-right font-semibold">{t("Token")}</th>
-                  {showCost ? <th className="px-3 py-2 text-right font-semibold">{t("Cost")}</th> : null}
-                  <th className="px-3 py-2 text-right font-semibold">{t("Requests")}</th>
-                  {showTokenBreakdown ? <th className="px-3 py-2 text-right font-semibold">{t("Input")}</th> : null}
-                  {showTokenBreakdown ? <th className="px-3 py-2 text-right font-semibold">{t("Output")}</th> : null}
-                  {showTokenBreakdown ? <th className="px-3 py-2 text-right font-semibold">{t("Cache")}</th> : null}
-                  {showCacheRate ? <th className="px-3 py-2 text-right font-semibold">{t("Cache rate")}</th> : null}
+                  <th className="px-3 py-2 text-right font-semibold">Token</th>
+                  {showCost ? <th className="px-3 py-2 text-right font-semibold">Cost</th> : null}
+                  <th className="px-3 py-2 text-right font-semibold">Requests</th>
+                  {showTokenBreakdown ? <th className="px-3 py-2 text-right font-semibold">Input</th> : null}
+                  {showTokenBreakdown ? <th className="px-3 py-2 text-right font-semibold">Output</th> : null}
+                  {showTokenBreakdown ? <th className="px-3 py-2 text-right font-semibold">Cache</th> : null}
+                  {showCacheRate ? <th className="px-3 py-2 text-right font-semibold">Cache rate</th> : null}
                 </tr>
               </thead>
               <tbody className={agentListBodyClassName}>
@@ -6382,7 +6335,6 @@ function UsageTooltip({
   label?: string;
   payload?: UsageTooltipPayloadItem[];
 }) {
-  const t = useAppText();
   if (!active || !payload?.length) {
     return null;
   }
@@ -6405,15 +6357,15 @@ function UsageTooltip({
         {point ? (
           <>
             <div className="flex min-w-[150px] items-center justify-between gap-4 border-t border-border/60 pt-1">
-              <span className="text-muted-foreground">{t("Success rate")}</span>
+              <span className="text-muted-foreground">Success rate</span>
               <span className="font-medium">{formatPercent(point.successRate)}</span>
             </div>
             <div className="flex min-w-[150px] items-center justify-between gap-4">
-              <span className="text-muted-foreground">{t("Failed requests")}</span>
+              <span className="text-muted-foreground">Failed requests</span>
               <span className="font-medium">{formatCompactNumber(point.errorCount)}</span>
             </div>
             <div className="flex min-w-[150px] items-center justify-between gap-4">
-              <span className="text-muted-foreground">{t("Cost")}</span>
+              <span className="text-muted-foreground">Cost</span>
               <span className="font-medium">{formatUsdCost(point.costUsd)}</span>
             </div>
           </>

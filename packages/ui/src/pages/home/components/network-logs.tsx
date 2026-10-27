@@ -14,8 +14,7 @@ import {
   networkExchangeMatchesQuery, networkHeaderRows, networkLifecycleLabel, networkQueryRows, networkRowId, networkSummaryRows,
   Pause, Play, ProxyNetworkBody, ProxyNetworkExchange, ProxyNetworkSnapshot, ProxyStatus,
   ReactNode, ReactPointerEvent, RefreshCw, RequestLogBody, RequestLogBodyChunk, RequestLogEntry, RequestLogListFilter,
-  RequestLogPage, requestLogPageSizeOptions, RequestLogStatusFilter, requestLogStatusOptions, Search, Select,
-  translateOptions, Trash2, useAppText, useCallback, useEffect, useMemo, useRef,
+  RequestLogPage, requestLogPageSizeOptions, RequestLogStatusFilter, requestLogStatusOptions, Search, Select, Trash2, useCallback, useEffect, useMemo, useRef,
   useState
 } from "../shared/index";
 import { TooltipPortal } from "@/components/ui/tooltip";
@@ -62,7 +61,6 @@ export function NetworkingView({
   setCaptureEnabled: (enabled: boolean) => void;
   snapshot: ProxyNetworkSnapshot;
 }) {
-  const t = useAppText();
   const [requestTab, setRequestTab] = useState<NetworkRequestTab>("header");
   const [responseTab, setResponseTab] = useState<NetworkResponseTab>("body");
   const [query, setQuery] = useState("");
@@ -157,10 +155,10 @@ export function NetworkingView({
           <div className="relative min-w-[220px] flex-1 max-[720px]:min-w-0 max-[720px]:basis-full">
             <Search className="network-search-icon pointer-events-none absolute left-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2" />
             <input
-              aria-label={t("Search network captures")}
+              aria-label="Search network captures"
               className="network-filter-input h-7 w-full rounded-md border pl-8 pr-2 text-[12px] font-semibold outline-none"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Filter")}
+              placeholder="Filter"
               value={query}
             />
           </div>
@@ -168,28 +166,28 @@ export function NetworkingView({
             "rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase",
             proxyStatus.state === "running" ? "network-service-running" : "network-service-muted"
           )}>
-            {t(proxyStatus.state)}
+            {proxyStatus.state}
           </span>
           <span className={cn(
             "rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase",
             snapshot.captureEnabled ? "network-service-running" : "network-service-paused"
           )}>
-            {snapshot.captureEnabled ? t("capturing") : t("paused")}
+            {snapshot.captureEnabled ? "capturing" : "paused"}
           </span>
           <span className="network-count rounded-full px-2 py-0.5 text-[11px] font-semibold">{captures.length}</span>
           <button
-            aria-label={snapshot.captureEnabled ? t("Pause network capture") : t("Resume network capture")}
+            aria-label={snapshot.captureEnabled ? "Pause network capture" : "Resume network capture"}
             className="network-control-button flex h-7 w-7 items-center justify-center rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             onClick={() => setCaptureEnabled(!snapshot.captureEnabled)}
-            title={snapshot.captureEnabled ? t("Pause capture") : t("Resume capture")}
+            title={snapshot.captureEnabled ? "Pause capture" : "Resume capture"}
             type="button"
           >
             {snapshot.captureEnabled ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
           </button>
-          <button aria-label={t("Refresh network captures")} className="network-control-button flex h-7 w-7 items-center justify-center rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring/30" onClick={refreshCaptures} title={t("Refresh")} type="button">
+          <button aria-label="Refresh network captures" className="network-control-button flex h-7 w-7 items-center justify-center rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring/30" onClick={refreshCaptures} title="Refresh" type="button">
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
-          <button aria-label={t("Clear network captures")} className="network-control-button flex h-7 w-7 items-center justify-center rounded-md border outline-none disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring/30" disabled={snapshot.items.length === 0} onClick={clearCaptures} title={t("Clear")} type="button">
+          <button aria-label="Clear network captures" className="network-control-button flex h-7 w-7 items-center justify-center rounded-md border outline-none disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring/30" disabled={snapshot.items.length === 0} onClick={clearCaptures} title="Clear" type="button">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -215,17 +213,17 @@ export function NetworkingView({
                 <NetworkHeaderCell label="" />
                 <NetworkHeaderCell label="ID" />
                 <NetworkHeaderCell label="URL" />
-                <NetworkHeaderCell label={t("Client")} />
-                <NetworkHeaderCell label={t("Method")} />
-                <NetworkHeaderCell label={t("Status")} />
-                <NetworkHeaderCell label={t("Code")} />
+                <NetworkHeaderCell label="Client" />
+                <NetworkHeaderCell label="Method" />
+                <NetworkHeaderCell label="Status" />
+                <NetworkHeaderCell label="Code" />
               </div>
 
               {captures.length === 0 ? (
                 <div className="network-empty flex h-[320px] flex-col items-center justify-center gap-2 text-center text-[12px]">
                   <Network className="network-empty-icon h-7 w-7" />
-                  <div>{snapshot.items.length === 0 ? (snapshot.captureEnabled ? t("No network captures") : t("Network capture is paused")) : t("No matching captures")}</div>
-                  <div className="network-empty-subtle font-mono text-[11px]">{proxyStatus.endpoint || t("Proxy not running")}</div>
+                  <div>{snapshot.items.length === 0 ? (snapshot.captureEnabled ? "No network captures" : "Network capture is paused") : "No matching captures"}</div>
+                  <div className="network-empty-subtle font-mono text-[11px]">{proxyStatus.endpoint || "Proxy not running"}</div>
                 </div>
               ) : null}
 
@@ -259,10 +257,10 @@ export function NetworkingView({
           {selected ? (
             <>
               <button
-                aria-label={t("Resize request list and detail panels")}
+                aria-label="Resize request list and detail panels"
                 className="network-resize-handle-y shrink-0"
                 onPointerDown={startListResize}
-                title={t("Resize list/detail")}
+                title="Resize list/detail"
                 type="button"
               />
               <div className="network-detail flex min-h-0 flex-1 flex-col">
@@ -286,10 +284,10 @@ export function NetworkingView({
                     <NetworkRequestInspector exchange={selected} selectedTab={requestTab} setSelectedTab={setRequestTab} />
                   </div>
                   <button
-                    aria-label={t("Resize request and response panels")}
+                    aria-label="Resize request and response panels"
                     className="network-resize-handle-x shrink-0 max-[720px]:hidden"
                     onPointerDown={startDetailResize}
-                    title={t("Resize request/response")}
+                    title="Resize request/response"
                     type="button"
                   />
                   <div className="min-w-0 flex-1">
@@ -374,7 +372,6 @@ export function LogsView({
   refreshLogs: () => void;
   updateFilter: (patch: RequestLogListFilter, resetPage?: boolean) => void;
 }) {
-  const t = useAppText();
   const [expandedId, setExpandedId] = useState<number>();
   const [detailById, setDetailById] = useState<Record<number, RequestLogEntry>>({});
   const [detailErrorById, setDetailErrorById] = useState<Record<number, string>>({});
@@ -407,7 +404,7 @@ export function LogsView({
           setDetailById((current) => ({ ...current, [id]: detail }));
           return;
         }
-        setDetailErrorById((current) => ({ ...current, [id]: t("Request log not found.") }));
+        setDetailErrorById((current) => ({ ...current, [id]: "Request log not found." }));
       })
       .catch((error) => {
         setDetailErrorById((current) => ({ ...current, [id]: error instanceof Error ? error.message : String(error) }));
@@ -415,7 +412,7 @@ export function LogsView({
       .finally(() => {
         setDetailLoadingId((current) => current === id ? undefined : current);
       });
-  }, [detailById, detailLoadingId, t]);
+  }, [detailById, detailLoadingId]);
   const toggleExpandedLog = useCallback((id: number) => {
     setExpandedId((current) => {
       const next = current === id ? undefined : id;
@@ -515,50 +512,50 @@ export function LogsView({
           <div className="relative min-w-[220px] flex-1">
             <Search className="network-search-icon pointer-events-none absolute left-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2" />
             <input
-              aria-label={t("Search request logs")}
+              aria-label="Search request logs"
               className="network-filter-input h-7 w-full rounded-md border pl-8 pr-2 text-[12px] font-semibold outline-none"
               onChange={(event) => updateFilter({ query: event.target.value })}
-              placeholder={t("Filter logs, models, requests, or responses")}
+              placeholder="Filter logs, models, requests, or responses"
               value={filter.query ?? ""}
             />
           </div>
           <Select
-            aria-label={t("Filter request log status")}
+            aria-label="Filter request log status"
             className="h-7 w-[118px] bg-[length:14px] px-2 pr-7 text-[11px]"
             onValueChange={(value) => updateFilter({ status: value as RequestLogStatusFilter })}
-            options={translateOptions(requestLogStatusOptions, t)}
+            options={requestLogStatusOptions}
             value={filter.status ?? "all"}
           />
           <Select
-            aria-label={t("Filter request log provider")}
+            aria-label="Filter request log provider"
             className="h-7 w-[148px] bg-[length:14px] px-2 pr-7 text-[11px]"
             onValueChange={(value) => updateFilter({ provider: value || undefined })}
-            options={logSelectOptions(t("All providers"), page.options.providers, filter.provider)}
+            options={logSelectOptions("All providers", page.options.providers, filter.provider)}
             value={filter.provider ?? ""}
           />
           <Select
-            aria-label={t("Filter request log model")}
+            aria-label="Filter request log model"
             className="h-7 w-[168px] bg-[length:14px] px-2 pr-7 text-[11px]"
             onValueChange={(value) => updateFilter({ model: value || undefined })}
-            options={logSelectOptions(t("All models"), page.options.models, filter.model)}
+            options={logSelectOptions("All models", page.options.models, filter.model)}
             value={filter.model ?? ""}
           />
           {hasAnyCredentialInfo ? (
             <Select
-              aria-label={t("Filter request log credential")}
+              aria-label="Filter request log credential"
               className="h-7 w-[150px] bg-[length:14px] px-2 pr-7 text-[11px]"
               onValueChange={(value) => updateFilter({ credential: value || undefined })}
-              options={logSelectOptions(t("All credentials"), page.options.credentials, filter.credential)}
+              options={logSelectOptions("All credentials", page.options.credentials, filter.credential)}
               value={filter.credential ?? ""}
             />
           ) : null}
           <div className="flex shrink-0 items-center gap-2">
             <button
-              aria-label={t("Previous page")}
+              aria-label="Previous page"
               className="network-control-button flex h-7 w-7 items-center justify-center rounded-md border outline-none disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring/30"
               disabled={page.page <= 1}
               onClick={() => updateFilter({ page: page.page - 1 }, false)}
-              title={t("Previous page")}
+              title="Previous page"
               type="button"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
@@ -567,28 +564,28 @@ export function LogsView({
               {firstItem}-{lastItem} / {page.total}
             </span>
             <button
-              aria-label={t("Next page")}
+              aria-label="Next page"
               className="network-control-button flex h-7 w-7 items-center justify-center rounded-md border outline-none disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring/30"
               disabled={page.page >= page.totalPages}
               onClick={() => updateFilter({ page: page.page + 1 }, false)}
-              title={t("Next page")}
+              title="Next page"
               type="button"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
             <Select
-              aria-label={t("Request log page size")}
+              aria-label="Request log page size"
               className="h-7 w-[92px] bg-[length:14px] px-2 pr-7 text-[11px]"
               onValueChange={(value) => updateFilter({ pageSize: Number(value) })}
-              options={translateOptions(requestLogPageSizeOptions, t)}
+              options={requestLogPageSizeOptions}
               value={String(page.pageSize)}
             />
           </div>
           <button
-            aria-label={t("Refresh request logs")}
+            aria-label="Refresh request logs"
             className="network-control-button flex h-7 w-7 items-center justify-center rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             onClick={refreshLogs}
-            title={t("Refresh")}
+            title="Refresh"
             type="button"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
@@ -610,9 +607,9 @@ export function LogsView({
                 {visibleLogColumns.map((column, index) => (
                   <NetworkHeaderCell
                     key={column.id}
-                    label={logTableColumnLabel(column.id, t)}
+                    label={logTableColumnLabel(column.id)}
                     onResizeStart={index < visibleLogColumns.length - 1 ? (event) => startLogColumnResize(index, event) : undefined}
-                    resizeLabel={t("Resize column width")}
+                    resizeLabel="Resize column width"
                   />
                 ))}
               </div>
@@ -620,12 +617,12 @@ export function LogsView({
               {page.items.length === 0 ? (
                 <div className="network-empty flex h-[240px] flex-col items-center justify-center gap-2 text-center text-[12px]">
                   <Database className="network-empty-icon h-7 w-7" />
-                  <div>{loading ? t("Loading logs") : t(hasActiveFilters ? "No request logs match the current filters." : "No request logs yet.")}</div>
+                  <div>{loading ? "Loading logs" : (hasActiveFilters ? "No request logs match the current filters." : "No request logs yet.")}</div>
                   {!loading ? (
                     <div className="max-w-[360px] px-4 text-[11px] leading-4 text-muted-foreground">
-                      {t(hasActiveFilters
+                      {hasActiveFilters
                         ? "Clear filters or broaden the search to find more request logs."
-                        : "Send a request through LLMR, then refresh this page to inspect it.")}
+                        : "Send a request through LLMR, then refresh this page to inspect it."}
                     </div>
                   ) : null}
                   {!loading && hasActiveFilters ? (
@@ -634,7 +631,7 @@ export function LogsView({
                       onClick={() => updateFilter(clearRequestLogFilters())}
                       type="button"
                     >
-                      {t("Clear filters")}
+                      Clear filters
                     </button>
                   ) : null}
                 </div>
@@ -695,7 +692,6 @@ export function MonitorDisabledView({
   onEnable?: () => void;
   title: string;
 }) {
-  const t = useAppText();
 
   return (
     <motion.div
@@ -709,15 +705,15 @@ export function MonitorDisabledView({
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground">
             {icon}
           </div>
-          <div className="mt-4 text-[15px] font-semibold text-foreground">{t(title)}</div>
-          <div className="mt-2 text-[12px] leading-5 text-muted-foreground">{t(description)}</div>
+          <div className="mt-4 text-[15px] font-semibold text-foreground">{title}</div>
+          <div className="mt-2 text-[12px] leading-5 text-muted-foreground">{description}</div>
           {onEnable ? (
             <button
               className="network-control-button mt-4 rounded-md border px-3 py-2 text-[12px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               onClick={onEnable}
               type="button"
             >
-              {t(actionLabel)}
+              {actionLabel}
             </button>
           ) : null}
         </div>
@@ -773,22 +769,22 @@ function createLogTableGridStyle(columns: LogTableColumn[], widths: LogTableColu
   };
 }
 
-function logTableColumnLabel(columnId: LogTableColumnId, t: (value: string) => string): string {
+function logTableColumnLabel(columnId: LogTableColumnId): string {
   switch (columnId) {
     case "time":
-      return t("Time");
+      return "Time";
     case "status":
-      return t("Status");
+      return "Status";
     case "stream":
-      return t("Stream");
+      return "Stream";
     case "model":
-      return t("Model");
+      return "Model";
     case "credential":
-      return t("Credential");
+      return "Credential";
     case "tokens":
-      return t("Token");
+      return "Token";
     case "duration":
-      return t("Duration");
+      return "Duration";
   }
 }
 
@@ -809,9 +805,8 @@ function LogMobileCard({
   item: RequestLogEntry;
   onToggle: (id: number) => void;
 }) {
-  const t = useAppText();
   const createdAt = useMemo(() => formatLogDateTime(item.createdAt), [item.createdAt]);
-  const tokenSummary = useMemo(() => formatLogTokenSummary(item, t, numberLocale), [item, t]);
+  const tokenSummary = useMemo(() => formatLogTokenSummary(item, numberLocale), [item]);
 
   return (
     <div className={cn("network-row rounded-md border text-[12px]", expanded && "network-row-selected")}>
@@ -836,7 +831,7 @@ function LogMobileCard({
               )}>
                 HTTP {item.statusCode || "-"}
               </span>
-              <span className="network-row-secondary rounded-full px-2 py-0.5 text-[11px] font-semibold">{item.isStream ? t("Streaming") : t("Non-streaming")}</span>
+              <span className="network-row-secondary rounded-full px-2 py-0.5 text-[11px] font-semibold">{item.isStream ? "Streaming" : "Non-streaming"}</span>
               {item.retryAttempts.length > 0 ? (
                 <span className="network-service-paused rounded px-1.5 py-0.5 text-[10px] font-bold">
                   R{item.retryAttempts.length}
@@ -852,13 +847,13 @@ function LogMobileCard({
               </div>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
-              <LogCompactMetric label={t("Token")} value={tokenSummary} />
-              <LogCompactMetric label={t("Duration")} value={formatDuration(item.durationMs)} />
+              <LogCompactMetric label="Token" value={tokenSummary} />
+              <LogCompactMetric label="Duration" value={formatDuration(item.durationMs)} />
               {item.outputTokensPerSecond !== undefined ? (
-                <LogCompactMetric label={t("Output speed")} value={formatTokenRate(item.outputTokensPerSecond)} />
+                <LogCompactMetric label="Output speed" value={formatTokenRate(item.outputTokensPerSecond)} />
               ) : null}
-              {hasCredentialInfo ? <LogCompactMetric label={t("Credential")} value={logCredentialCellLabel(item)} /> : null}
-              <LogCompactMetric label={t("Provider")} value={item.provider || "-"} />
+              {hasCredentialInfo ? <LogCompactMetric label="Credential" value={logCredentialCellLabel(item)} /> : null}
+              <LogCompactMetric label="Provider" value={item.provider || "-"} />
             </div>
           </div>
         </div>
@@ -898,9 +893,8 @@ const LogRow = memo(function LogRow({
   logTableGridStyle?: LogTableGridStyle;
   onToggle: (id: number) => void;
 }) {
-  const t = useAppText();
   const createdAt = useMemo(() => formatLogDateTime(item.createdAt), [item.createdAt]);
-  const tokenSummary = useMemo(() => formatLogTokenSummary(item, t, numberLocale), [item, t]);
+  const tokenSummary = useMemo(() => formatLogTokenSummary(item, numberLocale), [item]);
 
   return (
     <div>
@@ -926,7 +920,7 @@ const LogRow = memo(function LogRow({
           {item.retryAttempts.length > 0 ? (
             <span
               className="network-service-paused shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold"
-              title={`${t("Retry attempts")}: ${item.retryAttempts.length}`}
+              title={`Retry attempts: ${item.retryAttempts.length}`}
             >
               R{item.retryAttempts.length}
             </span>
@@ -952,7 +946,6 @@ export function LogExpandedDetails({
   detailLoading?: boolean;
   entry: RequestLogEntry;
 }) {
-  const t = useAppText();
   const hasCredentialInfo = logHasCredentialInfo(entry);
 
   return (
@@ -969,43 +962,43 @@ export function LogExpandedDetails({
         </span>
       </div>
       <div className={cn("network-body-meta grid grid-cols-2 gap-y-2 border-b px-3 py-2 text-[12px] sm:grid-cols-4", hasCredentialInfo ? "lg:grid-cols-12" : "lg:grid-cols-9")}>
-        <LogMetric label={t("Duration")} value={formatDuration(entry.durationMs)} />
-        <LogMetric label={t("Stream")} value={entry.isStream ? t("Streaming") : t("Non-streaming")} />
-        {entry.outputTokensPerSecond !== undefined ? <LogMetric label={t("Output speed")} value={formatTokenRate(entry.outputTokensPerSecond)} /> : null}
-        {entry.responseHeadersMs !== undefined ? <LogMetric label={t("Headers ready")} value={formatDuration(entry.responseHeadersMs)} /> : null}
-        {entry.timeToFirstSignalMs !== undefined ? <LogMetric label={t("First signal")} value={formatDuration(entry.timeToFirstSignalMs)} /> : null}
-        {entry.timeToFirstTextMs !== undefined ? <LogMetric label={t("First text")} value={formatDuration(entry.timeToFirstTextMs)} /> : null}
-        {entry.upstreamTimeToFirstSignalMs !== undefined ? <LogMetric label={t("Upstream first signal")} value={formatDuration(entry.upstreamTimeToFirstSignalMs)} /> : null}
-        {entry.activeOutputMs !== undefined ? <LogMetric label={t("Output window")} value={formatDuration(entry.activeOutputMs)} /> : null}
-        {entry.p95InterEventGapMs !== undefined ? <LogMetric label={t("P95 gap")} value={formatDuration(entry.p95InterEventGapMs)} /> : null}
-        {entry.maxInterEventGapMs !== undefined ? <LogMetric label={t("Max stall")} value={formatDuration(entry.maxInterEventGapMs)} /> : null}
-        {entry.tailMs !== undefined ? <LogMetric label={t("Tail wait")} value={formatDuration(entry.tailMs)} /> : null}
-        {entry.streamSpeedSampleStatus ? <LogMetric label={t("Speed sample")} value={t(streamSpeedSampleLabel(entry.streamSpeedSampleStatus))} /> : null}
-        <LogMetric label={t("Request ID")} value={entry.requestId || "-"} />
-        <LogMetric label={t("Client")} value={entry.client || "-"} />
-        <LogMetric label={t("Provider")} value={entry.provider || "-"} />
-        <LogMetric label={t("Model")} value={entry.model || "-"} />
-        {entry.credentialId ? <LogMetric label={t("Credential")} value={entry.credentialId} /> : null}
-        {entry.credentialChain.length ? <LogMetric label={t("Credential chain")} value={entry.credentialChain.join(" > ")} /> : null}
-        {hasCredentialInfo ? <LogMetric label={t("Credential saturated")} value={entry.credentialSaturated ? t("Yes") : t("No")} /> : null}
-        {entry.retryAttempts.length > 0 ? <LogMetric label={t("Retry attempts")} value={String(entry.retryAttempts.length)} /> : null}
-        <LogMetric label={t("Input")} value={formatCompactNumber(entry.inputTokens, numberLocale)} />
-        <LogMetric label={t("Output")} value={formatCompactNumber(entry.outputTokens, numberLocale)} />
-        <LogMetric label={t("Thinking")} value={formatCompactNumber(entry.reasoningTokens, numberLocale)} />
-        <LogMetric label={t("Cache read")} value={formatCompactNumber(entry.cacheReadTokens, numberLocale)} />
-        <LogMetric label={t("Cache write")} value={formatCompactNumber(entry.cacheWriteTokens, numberLocale)} />
-        <LogMetric label={t("Total")} value={formatCompactNumber(entry.totalTokens, numberLocale)} />
-        <LogMetric label={t("Cost")} value={formatUsdCost(entry.costUsd ?? 0)} />
+        <LogMetric label="Duration" value={formatDuration(entry.durationMs)} />
+        <LogMetric label="Stream" value={entry.isStream ? "Streaming" : "Non-streaming"} />
+        {entry.outputTokensPerSecond !== undefined ? <LogMetric label="Output speed" value={formatTokenRate(entry.outputTokensPerSecond)} /> : null}
+        {entry.responseHeadersMs !== undefined ? <LogMetric label="Headers ready" value={formatDuration(entry.responseHeadersMs)} /> : null}
+        {entry.timeToFirstSignalMs !== undefined ? <LogMetric label="First signal" value={formatDuration(entry.timeToFirstSignalMs)} /> : null}
+        {entry.timeToFirstTextMs !== undefined ? <LogMetric label="First text" value={formatDuration(entry.timeToFirstTextMs)} /> : null}
+        {entry.upstreamTimeToFirstSignalMs !== undefined ? <LogMetric label="Upstream first signal" value={formatDuration(entry.upstreamTimeToFirstSignalMs)} /> : null}
+        {entry.activeOutputMs !== undefined ? <LogMetric label="Output window" value={formatDuration(entry.activeOutputMs)} /> : null}
+        {entry.p95InterEventGapMs !== undefined ? <LogMetric label="P95 gap" value={formatDuration(entry.p95InterEventGapMs)} /> : null}
+        {entry.maxInterEventGapMs !== undefined ? <LogMetric label="Max stall" value={formatDuration(entry.maxInterEventGapMs)} /> : null}
+        {entry.tailMs !== undefined ? <LogMetric label="Tail wait" value={formatDuration(entry.tailMs)} /> : null}
+        {entry.streamSpeedSampleStatus ? <LogMetric label="Speed sample" value={streamSpeedSampleLabel(entry.streamSpeedSampleStatus)} /> : null}
+        <LogMetric label="Request ID" value={entry.requestId || "-"} />
+        <LogMetric label="Client" value={entry.client || "-"} />
+        <LogMetric label="Provider" value={entry.provider || "-"} />
+        <LogMetric label="Model" value={entry.model || "-"} />
+        {entry.credentialId ? <LogMetric label="Credential" value={entry.credentialId} /> : null}
+        {entry.credentialChain.length ? <LogMetric label="Credential chain" value={entry.credentialChain.join(" > ")} /> : null}
+        {hasCredentialInfo ? <LogMetric label="Credential saturated" value={entry.credentialSaturated ? "Yes" : "No"} /> : null}
+        {entry.retryAttempts.length > 0 ? <LogMetric label="Retry attempts" value={String(entry.retryAttempts.length)} /> : null}
+        <LogMetric label="Input" value={formatCompactNumber(entry.inputTokens, numberLocale)} />
+        <LogMetric label="Output" value={formatCompactNumber(entry.outputTokens, numberLocale)} />
+        <LogMetric label="Thinking" value={formatCompactNumber(entry.reasoningTokens, numberLocale)} />
+        <LogMetric label="Cache read" value={formatCompactNumber(entry.cacheReadTokens, numberLocale)} />
+        <LogMetric label="Cache write" value={formatCompactNumber(entry.cacheWriteTokens, numberLocale)} />
+        <LogMetric label="Total" value={formatCompactNumber(entry.totalTokens, numberLocale)} />
+        <LogMetric label="Cost" value={formatUsdCost(entry.costUsd ?? 0)} />
       </div>
       {entry.retryAttempts.length > 0 ? <LogRetryAttempts attempts={entry.retryAttempts} /> : null}
       {entry.routeTrace ? <LogRouteTrace trace={entry.routeTrace} /> : null}
       {detailLoading || detailError ? (
         <div className={cn("border-b px-3 py-2 text-[12px] font-semibold", detailError ? "network-error-box" : "network-body-meta")}>
-          {detailError || t("Loading full payload...")}
+          {detailError || "Loading full payload..."}
         </div>
       ) : null}
       <div className="network-detail-panes grid h-[440px] min-h-0 grid-cols-1 lg:grid-cols-2">
-        <LogJsonPanel body={entry.requestBody} headerEmptyLabel="No request headers" headers={entry.requestHeaders} requestLogId={entry.id} side="request" title={t("Request")} />
+        <LogJsonPanel body={entry.requestBody} headerEmptyLabel="No request headers" headers={entry.requestHeaders} requestLogId={entry.id} side="request" title="Request" />
         <LogJsonPanel
           body={entry.responseBody}
           className="border-t lg:border-l lg:border-t-0"
@@ -1014,7 +1007,7 @@ export function LogExpandedDetails({
           requestLogId={entry.id}
           side="response"
           subtitle={`HTTP ${entry.statusCode || "-"}`}
-          title={t("Response")}
+          title="Response"
         />
       </div>
     </div>
@@ -1032,7 +1025,6 @@ function visibleRouteTraceHops(trace: RequestRouteTrace): RequestRouteTraceHop[]
 }
 
 function LogRouteTrace({ trace }: { trace: RequestRouteTrace }) {
-  const t = useAppText();
   const [dialogOpen, setDialogOpen] = useState(false);
   const visibleHopCount = visibleRouteTraceHops(trace).length;
 
@@ -1040,10 +1032,10 @@ function LogRouteTrace({ trace }: { trace: RequestRouteTrace }) {
     <>
       <div className="network-body-meta flex min-w-0 flex-wrap items-center justify-between gap-3 border-b px-3 py-2.5 text-[12px]">
         <div className="min-w-0">
-          <div className="font-semibold">{t("Route trace")}</div>
+          <div className="font-semibold">Route trace</div>
           <div className="network-muted mt-0.5 text-[11px]">
-            {visibleHopCount} {t("hops")}
-            {trace.truncated ? ` · ${t("truncated")}` : ""}
+            {visibleHopCount} hops
+            {trace.truncated ? ` · truncated` : ""}
           </div>
         </div>
         <button
@@ -1052,7 +1044,7 @@ function LogRouteTrace({ trace }: { trace: RequestRouteTrace }) {
           type="button"
         >
           <Route className="h-3.5 w-3.5" aria-hidden="true" />
-          {t("View route graph")}
+          View route graph
         </button>
       </div>
       {dialogOpen ? <LogRouteTraceDialog onClose={() => setDialogOpen(false)} trace={trace} /> : null}
@@ -1067,7 +1059,6 @@ function LogRouteTraceDialog({
   onClose: () => void;
   trace: RequestRouteTrace;
 }) {
-  const t = useAppText();
   const [activeHopSequence, setActiveHopSequence] = useState<number>();
   const hops = visibleRouteTraceHops(trace);
   const activeHopIndex = hops.findIndex((hop) => hop.seq === activeHopSequence);
@@ -1086,17 +1077,17 @@ function LogRouteTraceDialog({
       <DialogContent className="h-[calc(100dvh-1.5rem)] max-w-[1240px] origin-top sm:h-[min(820px,calc(100dvh-3rem))]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Route graph")}</DialogTitle>
+            <DialogTitle>Route graph</DialogTitle>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-              <span>{hops.length} {t("hops")}</span>
-              {trace.truncated ? <><span aria-hidden="true">·</span><span>{t("truncated")}</span></> : null}
+              <span>{hops.length} hops</span>
+              {trace.truncated ? <><span aria-hidden="true">·</span><span>truncated</span></> : null}
             </div>
           </div>
           <button
-            aria-label={t("Close")}
+            aria-label="Close"
             className="network-control-button flex h-7 w-7 items-center justify-center rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             onClick={onClose}
-            title={t("Close")}
+            title="Close"
             type="button"
           >
             <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1104,12 +1095,12 @@ function LogRouteTraceDialog({
         </DialogHeader>
         <DialogBody className="flex min-h-0 flex-col overflow-hidden p-0">
           <div className="network-body-meta shrink-0 border-b px-4 py-3">
-            <div className="network-muted text-[11px] font-semibold">{t("Select a route node to inspect routing operations")}</div>
+            <div className="network-muted text-[11px] font-semibold">Select a route node to inspect routing operations</div>
             <div className="mt-3 overflow-x-auto rounded-md border border-[color:var(--network-border)] bg-card/40">
               {hops.length === 0 ? (
-                <div className="network-muted flex min-h-40 items-center justify-center px-4 text-[12px]">{t("No route activity")}</div>
+                <div className="network-muted flex min-h-40 items-center justify-center px-4 text-[12px]">No route activity</div>
               ) : (
-                <div className="flex min-w-max items-center px-5 py-6" role="list" aria-label={t("Route graph")}>
+                <div className="flex min-w-max items-center px-5 py-6" role="list" aria-label="Route graph">
                   {hops.map((hop, index) => (
                     <div className="flex items-center" key={`${hop.seq}-${hop.name}`} role="listitem">
                       {index > 0 ? (
@@ -1119,7 +1110,7 @@ function LogRouteTraceDialog({
                         </div>
                       ) : null}
                       <button
-                        aria-label={`${t("Route node")} ${index + 1}: ${routeHopDisplayName(hop.name, t)}`}
+                        aria-label={`Route node ${index + 1}: ${routeHopDisplayName(hop.name)}`}
                         className={cn(
                           "flex h-[116px] w-[184px] shrink-0 flex-col rounded-md border border-border bg-card p-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40",
                           activeHopSequence === hop.seq && "border-primary/60 bg-primary/5 ring-2 ring-primary/10"
@@ -1141,7 +1132,7 @@ function LogRouteTraceDialog({
                           <span className="network-muted truncate text-[10px] font-bold uppercase">#{index + 1}</span>
                           {hop.attempt ? <span className="network-muted ml-auto shrink-0 text-[10px]">A{hop.attempt}</span> : null}
                         </span>
-                        <span className="mt-3 line-clamp-2 break-words text-[12px] font-bold leading-4">{routeHopDisplayName(hop.name, t)}</span>
+                        <span className="mt-3 line-clamp-2 break-words text-[12px] font-bold leading-4">{routeHopDisplayName(hop.name)}</span>
                         <span className="network-muted mt-auto flex items-center justify-end text-[10px]">
                           <span>{formatDuration(hop.durationMs)}</span>
                         </span>
@@ -1157,7 +1148,7 @@ function LogRouteTraceDialog({
               <LogRouteHopDetails hop={activeHop} index={activeHopIndex} />
             ) : (
               <div className="network-muted flex min-h-52 items-center justify-center rounded-md border border-dashed border-border px-4 text-center text-[12px]">
-                {t("Select a route node to inspect its operations.")}
+                Select a route node to inspect its operations.
               </div>
             )}
           </div>
@@ -1168,7 +1159,6 @@ function LogRouteTraceDialog({
 }
 
 function LogRouteHopDetails({ hop, index }: { hop: RequestRouteTraceHop; index: number }) {
-  const t = useAppText();
   const target = routeHopTargetSummary(hop);
   const outcome = routeHopOutcomeSummary(hop);
   const explanation = [hop.decision?.source, hop.decision?.ruleName ?? hop.decision?.ruleId, hop.decision?.reason]
@@ -1180,13 +1170,13 @@ function LogRouteHopDetails({ hop, index }: { hop: RequestRouteTraceHop; index: 
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="network-muted text-[10px] font-bold uppercase">{t("Route node")} #{index + 1}</span>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">{t(hop.phase)}</span>
+            <span className="network-muted text-[10px] font-bold uppercase">Route node #{index + 1}</span>
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">{hop.phase}</span>
             <span className={cn(
               "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
               hop.status === "error" ? "network-state-pill-error" : hop.status === "noop" ? "network-service-muted" : "network-state-pill-completed"
-            )}>{t(hop.status)}</span>
-            {hop.attempt ? <span className="network-muted text-[10px]">{t("Attempt")} #{hop.attempt}</span> : null}
+            )}>{hop.status}</span>
+            {hop.attempt ? <span className="network-muted text-[10px]">Attempt #{hop.attempt}</span> : null}
           </div>
           <div className="mt-1 break-words font-mono text-[13px] font-bold">{hop.name}</div>
         </div>
@@ -1196,21 +1186,21 @@ function LogRouteHopDetails({ hop, index }: { hop: RequestRouteTraceHop; index: 
       </div>
       {explanation || target || outcome ? (
         <div className="grid gap-2 border-b border-border py-3 text-[11px] md:grid-cols-3">
-          {explanation ? <RouteHopDetail label={t("Decision")} value={explanation} /> : null}
-          {target ? <RouteHopDetail label={t("Target")} mono value={target} /> : null}
-          {outcome ? <RouteHopDetail danger={hop.status === "error"} label={t("Result")} value={outcome} /> : null}
+          {explanation ? <RouteHopDetail label="Decision" value={explanation} /> : null}
+          {target ? <RouteHopDetail label="Target" mono value={target} /> : null}
+          {outcome ? <RouteHopDetail danger={hop.status === "error"} label="Result" value={outcome} /> : null}
         </div>
       ) : null}
       <div className="pt-3">
-        <div className="mb-2 text-[11px] font-semibold">{t("Routing operations")}</div>
+        <div className="mb-2 text-[11px] font-semibold">Routing operations</div>
         {hop.changes.length > 0 ? (
           <div className="overflow-x-auto rounded border border-[color:var(--network-border)]">
             {hop.changes.map((change, changeIndex) => (
               <LogRouteChange change={change} index={changeIndex} key={`${change.path}-${changeIndex}`} />
             ))}
           </div>
-        ) : <div className="network-muted rounded border border-dashed border-border px-3 py-4 text-[11px]">{t("No request fields changed")}</div>}
-        {hop.truncated ? <div className="network-service-paused mt-2 text-[10px]">{t("This hop was truncated")}</div> : null}
+        ) : <div className="network-muted rounded border border-dashed border-border px-3 py-4 text-[11px]">No request fields changed</div>}
+        {hop.truncated ? <div className="network-service-paused mt-2 text-[10px]">This hop was truncated</div> : null}
       </div>
     </div>
   );
@@ -1235,21 +1225,21 @@ function RouteHopDetail({
   );
 }
 
-function routeHopDisplayName(name: string, t: (value: string) => string): string {
-  if (name.startsWith("router.rewrite:") || name.startsWith("customer.rewrite:")) return t("Apply request rewrite");
+function routeHopDisplayName(name: string): string {
+  if (name.startsWith("router.rewrite:") || name.startsWith("customer.rewrite:")) return "Apply request rewrite";
   if (
     name === "agent-enricher.claude-code" ||
     name === "builtins.claude-code-request-enrichment" ||
     name === "enrichment.claude-code-request"
   ) {
-    return t("Enrich Claude Code request");
+    return "Enrich Claude Code request";
   }
-  if (name.startsWith("agent-enricher.") || name.endsWith("-request-enrichment")) return t("Enrich agent request");
+  if (name.startsWith("agent-enricher.") || name.endsWith("-request-enrichment")) return "Enrich agent request";
   if (
     (name.startsWith("builtins.") && (name.endsWith("-route") || name.includes(".builtin-agent-"))) ||
     name === "customer.custom-router-decision" ||
     name === "customer.rule-decision"
-  ) return t("Select target model");
+  ) return "Select target model";
   const labels: Record<string, string> = {
     "compatibility.codex-apply-patch": "Convert apply_patch calls",
     "compatibility.cursor-openai": "Convert Cursor request",
@@ -1271,18 +1261,17 @@ function routeHopDisplayName(name: string, t: (value: string) => string): string
     "upstream.attempt.outcome": "Record upstream result",
     "upstream.attempt.prepare": "Build upstream request"
   };
-  return t(labels[name] ?? name);
+  return labels[name] ?? name;
 }
 
 function LogRouteChange({ change, index }: { change: RequestRouteTraceChange; index: number }) {
-  const t = useAppText();
   const displayPath = formatRouteTracePath(change);
   return (
     <div className={cn(
       "grid min-w-[560px] grid-cols-[76px_minmax(160px,0.8fr)_minmax(0,1fr)_28px_minmax(0,1fr)] border-b last:border-b-0 text-[10px]",
       index % 2 === 0 ? "network-kv-row-even" : "network-kv-row-odd"
     )}>
-      <div className="border-r border-[color:var(--network-border)] px-2 py-1.5 font-bold uppercase">{t(change.operation)}</div>
+      <div className="border-r border-[color:var(--network-border)] px-2 py-1.5 font-bold uppercase">{change.operation}</div>
       <div className="border-r border-[color:var(--network-border)] px-2 py-1.5 font-mono" title={displayPath}>{displayPath}</div>
       <RouteTraceChangeValue change={change} side="before" />
       <div className="network-muted flex items-center justify-center border-r border-[color:var(--network-border)]">→</div>
@@ -1298,14 +1287,13 @@ function RouteTraceChangeValue({
   change: RequestRouteTraceChange;
   side: "after" | "before";
 }) {
-  const t = useAppText();
   const hasRecordedValue = Object.prototype.hasOwnProperty.call(change, side);
   const value = change[side];
   const isAbsentValue = side === "before" && change.operation === "add" ||
     side === "after" && change.operation === "remove";
   const text = hasRecordedValue
     ? formatRouteTraceValue(value)
-    : t(isAbsentValue ? "Not present" : "Not recorded");
+    : (isAbsentValue ? "Not present" : "Not recorded");
   return (
     <div className="max-h-24 overflow-auto whitespace-pre-wrap break-all border-r border-[color:var(--network-border)] px-2 py-1.5 font-mono last:border-r-0" title={text}>
       {text}
@@ -1347,20 +1335,19 @@ function formatRouteTraceValue(value: unknown): string {
 }
 
 function LogRetryAttempts({ attempts }: { attempts: RequestLogEntry["retryAttempts"] }) {
-  const t = useAppText();
 
   return (
     <div className="network-body-meta border-b px-3 py-2 text-[12px]">
       <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
-        <div className="min-w-0 truncate font-semibold">{t("Retry attempts")}</div>
+        <div className="min-w-0 truncate font-semibold">Retry attempts</div>
         <div className="network-muted shrink-0 font-mono text-[11px]">{attempts.length}</div>
       </div>
       <div className="overflow-x-auto rounded border border-[color:var(--network-border)]">
         <div className="network-kv-header grid min-w-[520px] grid-cols-[96px_1fr_140px_120px] border-b text-[11px] font-bold">
-          <div className="border-r border-[color:var(--network-border-strong)] px-3 py-2">{t("Attempt")}</div>
-          <div className="border-r border-[color:var(--network-border-strong)] px-3 py-2">{t("Result")}</div>
-          <div className="border-r border-[color:var(--network-border-strong)] px-3 py-2">{t("Next retry wait")}</div>
-          <div className="px-3 py-2">{t("Type")}</div>
+          <div className="border-r border-[color:var(--network-border-strong)] px-3 py-2">Attempt</div>
+          <div className="border-r border-[color:var(--network-border-strong)] px-3 py-2">Result</div>
+          <div className="border-r border-[color:var(--network-border-strong)] px-3 py-2">Next retry wait</div>
+          <div className="px-3 py-2">Type</div>
         </div>
         {attempts.map((attempt, index) => (
           <div
@@ -1375,7 +1362,7 @@ function LogRetryAttempts({ attempts }: { attempts: RequestLogEntry["retryAttemp
             <div className="border-r border-[color:var(--network-border-strong)] px-3 py-2 font-mono">
               {attempt.final ? "-" : formatDuration(attempt.delayMs)}
             </div>
-            <div className="px-3 py-2">{attempt.final ? t("Final attempt") : t("Retry")}</div>
+            <div className="px-3 py-2">{attempt.final ? "Final attempt" : "Retry"}</div>
           </div>
         ))}
       </div>
@@ -1518,8 +1505,7 @@ function LogStatusDot({ entry }: { entry: RequestLogEntry }) {
 }
 
 function LogStreamCell({ entry }: { entry: RequestLogEntry }) {
-  const t = useAppText();
-  const label = entry.isStream ? t("Streaming") : t("Non-streaming");
+  const label = entry.isStream ? "Streaming" : "Non-streaming";
 
   return (
     <div className="network-row-secondary truncate px-2" title={label}>{label}</div>
@@ -1796,7 +1782,6 @@ function LogJsonPanel({
   subtitle?: string;
   title: string;
 }) {
-  const t = useAppText();
   const [selectedTab, setSelectedTab] = useState<LogPayloadTab>("body");
   const [preferTextBody, setPreferTextBody] = useState(false);
   const [bodyMode, setBodyMode] = useState<LogBodyFormatMode>("preview");
@@ -1902,7 +1887,7 @@ function LogJsonPanel({
         return;
       }
       if (!chunk) {
-        throw new Error(t("Request log body is not available."));
+        throw new Error("Request log body is not available.");
       }
       setChunkView({
         bodyKey: sourceBodyKey,
@@ -1947,7 +1932,7 @@ function LogJsonPanel({
           return;
         }
         if (!chunk) {
-          throw new Error(t("Request log body is not available."));
+          throw new Error("Request log body is not available.");
         }
         chunks.push(chunk.text);
         lastChunk = chunk;
@@ -2021,7 +2006,7 @@ function LogJsonPanel({
               onClick={() => setSelectedTab(tab)}
               type="button"
             >
-              {t(tab)}
+              {tab === "header" ? "Headers" : tab}
             </button>
           ))}
         </div>
@@ -2039,9 +2024,9 @@ function LogJsonPanel({
               title={title}
             />
             <LogBodyViewer
-              copyLabel={`${t("Copy")} ${title} ${t("body")}`}
+              copyLabel={`Copy ${title} Body`}
               copyText={displayedCopyText}
-              fullscreenLabel={t("Open fullscreen JSON viewer")}
+              fullscreenLabel="Open fullscreen JSON viewer"
               onFullscreen={() => setFullscreenOpen(true)}
             >
               {chunkViewActive ? (
@@ -2061,7 +2046,7 @@ function LogJsonPanel({
                 body={effectiveBody}
                 bodyView={displayedToolbarBodyView}
                 chunkView={chunkViewActive ? chunkView : undefined}
-                copyLabel={`${t("Copy")} ${title} ${t("body")}`}
+                copyLabel={`Copy ${title} Body`}
                 copyText={displayedCopyText}
                 expandedJsonPaths={expandedJsonPaths}
                 onClose={() => setFullscreenOpen(false)}
@@ -2106,19 +2091,18 @@ function LogJsonBodyToolbar({
   query: string;
   title: string;
 }) {
-  const t = useAppText();
   const canToggleJsonText = bodyView.json !== undefined && query.trim() === "";
-  const toggleLabel = preferTextBody ? "JSON" : t("Text");
+  const toggleLabel = preferTextBody ? "JSON" : "Text";
 
   return (
     <div className="network-body-meta flex min-h-9 shrink-0 items-center gap-2 border-b px-3 py-1.5">
       <div className="relative min-w-[180px] flex-1">
         <Search className="network-search-icon pointer-events-none absolute left-2 top-1/2 z-[1] h-3 w-3 -translate-y-1/2" />
         <input
-          aria-label={`${t("Filter")} ${title} JSON`}
+          aria-label={`Filter ${title} JSON`}
           className="network-filter-input h-6 w-full rounded border pl-7 pr-2 text-[11px] font-semibold outline-none"
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={t("Filter JSON...")}
+          placeholder="Filter JSON..."
           value={query}
         />
       </div>
@@ -2131,11 +2115,11 @@ function LogJsonBodyToolbar({
           {toggleLabel}
         </button>
       ) : null}
-      {bodyView.loading ? <span className="network-muted shrink-0 text-[11px] font-semibold">{t("Loading full payload...")}</span> : null}
+      {bodyView.loading ? <span className="network-muted shrink-0 text-[11px] font-semibold">Loading full payload...</span> : null}
       {bodyView.error ? <span className="network-error-box shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold">{bodyView.error}</span> : null}
       {bodyView.sourceSizeBytes > 0 ? <span className="network-muted hidden shrink-0 text-[11px] font-semibold sm:inline">{formatBytes(bodyView.sourceSizeBytes)}</span> : null}
       {body?.contentType ? <span className="network-muted hidden shrink-0 text-[11px] font-semibold sm:inline">{body.contentType}</span> : null}
-      {body?.truncated ? <span className="network-service-paused rounded-full px-2 py-0.5 text-[11px] font-semibold">{t("truncated")}</span> : null}
+      {body?.truncated ? <span className="network-service-paused rounded-full px-2 py-0.5 text-[11px] font-semibold">truncated</span> : null}
     </div>
   );
 }
@@ -2171,7 +2155,6 @@ function LogBodyChunkContent({
   query: string;
   visible: string;
 }) {
-  const t = useAppText();
   const chunk = chunkView.chunk;
   const previousOffset = chunkView.previousOffsets.at(-1) ?? Math.max(0, (chunk?.offset ?? 0) - 1024 * 1024);
   const hasPrevious = Boolean(chunk && (chunkView.previousOffsets.length > 0 || chunk.offset > 0));
@@ -2180,7 +2163,7 @@ function LogBodyChunkContent({
     ? `${formatBytes(chunk.offset)}-${formatBytes(chunk.offset + chunk.length)} / ${formatBytes(chunk.sizeBytes)}`
     : "";
   const content = chunkView.loading && !chunk
-    ? t("Loading full payload...")
+    ? "Loading full payload..."
     : chunkView.error && !chunk
       ? chunkView.error
       : visible || (query.trim() ? "No matching lines" : "");
@@ -2189,27 +2172,27 @@ function LogBodyChunkContent({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="network-body-meta flex min-h-9 shrink-0 items-center gap-2 border-b px-3 py-1.5 pr-24">
         <button
-          aria-label={t("Previous")}
+          aria-label="Previous"
           className="network-control-button flex h-7 w-7 shrink-0 items-center justify-center rounded border outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-40"
           disabled={!hasPrevious || chunkView.loading}
           onClick={() => void onLoadChunk(previousOffset)}
-          title={t("Previous")}
+          title="Previous"
           type="button"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
         </button>
         <button
-          aria-label={t("Next")}
+          aria-label="Next"
           className="network-control-button flex h-7 w-7 shrink-0 items-center justify-center rounded border outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-40"
           disabled={!hasNext || chunkView.loading}
           onClick={() => chunk?.nextOffset !== undefined && void onLoadChunk(chunk.nextOffset)}
-          title={t("Next")}
+          title="Next"
           type="button"
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
         {rangeLabel ? <span className="network-muted min-w-0 truncate text-[11px] font-semibold">{rangeLabel}</span> : null}
-        {chunkView.loading ? <span className="network-muted shrink-0 text-[11px] font-semibold">{t("Loading full payload...")}</span> : null}
+        {chunkView.loading ? <span className="network-muted shrink-0 text-[11px] font-semibold">Loading full payload...</span> : null}
         {chunkView.error ? <span className="network-error-box shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold">{chunkView.error}</span> : null}
       </div>
       <pre className="network-code min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-3 pr-20 font-mono text-[11px] leading-5">{content}</pre>
@@ -2256,11 +2239,10 @@ function LogJsonFullscreenViewer({
   value: unknown;
   visible: string;
 }) {
-  const t = useAppText();
 
   return (
     <div
-      aria-label={`${title} ${t("Fullscreen JSON viewer")}`}
+      aria-label={`${title} Fullscreen JSON viewer`}
       aria-modal="true"
       className="network-json-fullscreen fixed inset-0 z-[100] flex min-h-0"
       role="dialog"
@@ -2270,10 +2252,10 @@ function LogJsonFullscreenViewer({
           <span className="network-pane-title min-w-0 truncate text-[15px] font-bold">{title}</span>
           {subtitle ? <span className="network-muted shrink-0 text-[12px] font-semibold">{subtitle}</span> : null}
           <button
-            aria-label={t("Close fullscreen JSON viewer")}
+            aria-label="Close fullscreen JSON viewer"
             className="network-control-button ml-auto flex h-7 w-7 items-center justify-center rounded border outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             onClick={onClose}
-            title={t("Close")}
+            title="Close"
             type="button"
           >
             <X className="h-3.5 w-3.5" />
@@ -2435,7 +2417,6 @@ function LogBodyViewer({
   fullscreenLabel?: string;
   onFullscreen?: () => void;
 }) {
-  const t = useAppText();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -2456,10 +2437,10 @@ function LogBodyViewer({
       <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
         {onFullscreen ? (
           <button
-            aria-label={fullscreenLabel ?? t("Open fullscreen JSON viewer")}
+            aria-label={fullscreenLabel ?? "Open fullscreen JSON viewer"}
             className="network-control-button flex h-7 w-7 items-center justify-center rounded border outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             onClick={onFullscreen}
-            title={fullscreenLabel ?? t("Open fullscreen JSON viewer")}
+            title={fullscreenLabel ?? "Open fullscreen JSON viewer"}
             type="button"
           >
             <Maximize2 className="h-3.5 w-3.5" />
@@ -2472,7 +2453,7 @@ function LogBodyViewer({
             copied && "network-json-copy-success"
           )}
           onClick={() => void copyBody()}
-          title={copied ? t("Copied") : t("Copy")}
+          title={copied ? "Copied" : "Copy"}
           type="button"
         >
           <AnimatedIconSwap iconKey={copied ? "copied" : "copy"}>
@@ -2520,7 +2501,6 @@ function JsonTreeNode({
   trailingComma?: boolean;
   value: unknown;
 }) {
-  const t = useAppText();
 
   if (!isJsonContainer(value)) {
     return (
@@ -2555,10 +2535,10 @@ function JsonTreeNode({
       <div className="min-w-0 whitespace-pre-wrap break-words" style={{ paddingLeft: depth * 16 }}>
         <button
           aria-expanded={expanded}
-          aria-label={expanded ? `${t("Collapse")} JSON` : `${t("Expand")} JSON`}
+          aria-label={expanded ? `Collapse JSON` : `Expand JSON`}
           className="network-control-button mr-1 inline-flex h-4 w-4 items-center justify-center rounded border align-[-2px] outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
           onClick={() => onToggle(path)}
-          title={expanded ? t("Collapse") : t("Expand")}
+          title={expanded ? "Collapse" : "Expand"}
           type="button"
         >
           {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
@@ -2694,12 +2674,11 @@ function NetworkRequestInspector({
   selectedTab: NetworkRequestTab;
   setSelectedTab: (tab: NetworkRequestTab) => void;
 }) {
-  const t = useAppText();
 
   return (
     <div className="network-pane-split flex h-full min-w-0 flex-col">
       <div className="network-pane-header flex h-10 min-w-0 shrink-0 items-center gap-3 border-b px-3">
-        <span className="network-pane-title shrink-0 text-[14px] font-bold">{t("Request")}</span>
+        <span className="network-pane-title shrink-0 text-[14px] font-bold">Request</span>
         <div className="flex min-w-0 items-center gap-3">
           {(["header", "query", "body", "raw", "summary"] as const).map((tab) => (
             <button
@@ -2711,7 +2690,7 @@ function NetworkRequestInspector({
               onClick={() => setSelectedTab(tab)}
               type="button"
             >
-              {t(tab)}
+              {tab === "header" ? "Headers" : tab}
             </button>
           ))}
           <span className="network-tab-divider h-4 w-px border-l" />
@@ -2721,7 +2700,7 @@ function NetworkRequestInspector({
 
       <div className="network-pane-body min-h-0 flex-1 overflow-auto">
         {selectedTab === "header" ? <NetworkKeyValueTable rows={networkHeaderRows(exchange.requestHeaders)} /> : null}
-        {selectedTab === "query" ? <NetworkKeyValueTable rows={networkQueryRows(exchange.url)} emptyLabel={t("No query parameters")} /> : null}
+        {selectedTab === "query" ? <NetworkKeyValueTable rows={networkQueryRows(exchange.url)} emptyLabel="No query parameters" /> : null}
         {selectedTab === "body" ? <NetworkBodyViewer body={exchange.requestBody} /> : null}
         {selectedTab === "raw" ? <NetworkInspectorCode value={formatNetworkRequestRaw(exchange)} /> : null}
         {selectedTab === "summary" ? <NetworkKeyValueTable rows={networkSummaryRows(exchange)} /> : null}
@@ -2739,12 +2718,11 @@ function NetworkResponseInspector({
   selectedTab: NetworkResponseTab;
   setSelectedTab: (tab: NetworkResponseTab) => void;
 }) {
-  const t = useAppText();
 
   return (
     <div className="flex h-full min-w-0 flex-col">
       <div className="network-pane-header flex h-10 min-w-0 shrink-0 items-center justify-between gap-3 border-b px-3">
-        <span className="network-pane-title shrink-0 text-[14px] font-bold">{t("Response")}</span>
+        <span className="network-pane-title shrink-0 text-[14px] font-bold">Response</span>
         <div className="flex items-center gap-3">
           {(["body", "header", "raw"] as const).map((tab) => (
             <button
@@ -2756,7 +2734,7 @@ function NetworkResponseInspector({
               onClick={() => setSelectedTab(tab)}
               type="button"
             >
-              {t(tab)}
+              {tab === "header" ? "Headers" : tab}
             </button>
           ))}
         </div>
@@ -2767,7 +2745,7 @@ function NetworkResponseInspector({
           <div className="network-error-box m-4 rounded-md border px-3 py-2 text-[12px]">{exchange.error}</div>
         ) : null}
         {selectedTab === "body" ? <NetworkBodyViewer body={exchange.responseBody} /> : null}
-        {selectedTab === "header" ? <NetworkKeyValueTable rows={networkHeaderRows(exchange.responseHeaders ?? {})} emptyLabel={t("No response headers")} /> : null}
+        {selectedTab === "header" ? <NetworkKeyValueTable rows={networkHeaderRows(exchange.responseHeaders ?? {})} emptyLabel="No response headers" /> : null}
         {selectedTab === "raw" ? <NetworkInspectorCode value={formatNetworkResponseRaw(exchange)} /> : null}
       </div>
     </div>
@@ -2775,17 +2753,16 @@ function NetworkResponseInspector({
 }
 
 function NetworkKeyValueTable({ emptyLabel = "No values", rows }: { emptyLabel?: string; rows: Array<[string, string]> }) {
-  const t = useAppText();
 
   if (rows.length === 0) {
-    return <div className="network-kv-empty px-4 py-10 text-center text-[12px] font-semibold">{t(emptyLabel)}</div>;
+    return <div className="network-kv-empty px-4 py-10 text-center text-[12px] font-semibold">{emptyLabel}</div>;
   }
 
   return (
     <div className="min-w-[520px]">
       <div className="network-kv-header grid h-9 grid-cols-[minmax(180px,0.9fr)_minmax(280px,1.6fr)] items-center border-b text-[12px] font-bold">
-        <div className="network-kv-key-head border-r px-3">{t("Key")}</div>
-        <div className="px-3">{t("Value")}</div>
+        <div className="network-kv-key-head border-r px-3">Key</div>
+        <div className="px-3">Value</div>
       </div>
       {rows.map(([key, value], index) => (
         <div
@@ -2804,10 +2781,9 @@ function NetworkKeyValueTable({ emptyLabel = "No values", rows }: { emptyLabel?:
 }
 
 function NetworkBodyViewer({ body }: { body?: ProxyNetworkBody }) {
-  const t = useAppText();
 
   if (!body || (!body.text && body.sizeBytes === 0)) {
-    return <div className="px-4 py-10 text-center text-[12px] font-semibold text-[#777d86]">{t("No body")}</div>;
+    return <div className="px-4 py-10 text-center text-[12px] font-semibold text-[#777d86]">No body</div>;
   }
 
   return (
@@ -2816,11 +2792,11 @@ function NetworkBodyViewer({ body }: { body?: ProxyNetworkBody }) {
         <span>{formatBytes(body.sizeBytes)}</span>
         {body.contentType ? <span>{body.contentType}</span> : null}
         {body.encoding === "base64" ? <span>base64</span> : null}
-        {body.decodedFrom ? <span>{body.decodedFrom} {t("decoded")}</span> : null}
-        {body.truncated ? <span>{t("truncated")}</span> : null}
+        {body.decodedFrom ? <span>{body.decodedFrom} decoded</span> : null}
+        {body.truncated ? <span>truncated</span> : null}
       </div>
       {body.error ? <div className="network-body-warning border-b px-3 py-2 text-[12px]">{body.error}</div> : null}
-      <NetworkInspectorCode value={body.text || t("No body")} />
+      <NetworkInspectorCode value={body.text || "No body"} />
     </div>
   );
 }

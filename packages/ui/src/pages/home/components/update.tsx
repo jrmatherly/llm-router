@@ -28,14 +28,13 @@ export function UpdateDialog({
   onInstall: () => Promise<void>;
   status: AppUpdateStatus;
 }) {
-  const t = (value: string) => copy.text[value] ?? value;
   const busy = Boolean(actionBusy) || status.state === "checking" || status.state === "downloading" || status.state === "installing";
   const canDownload = status.canDownload || status.state === "available";
   const canRetryDownload = status.state === "error" && status.supported && Boolean(status.availableVersion);
   const canInstall = status.canInstall || status.state === "downloaded";
   const progressPercent = clampPercent(status.progress?.percent);
   const error = actionError || status.lastError || "";
-  const displayedError = error ? t(error) : "";
+  const displayedError = error ? error : "";
   const installing = actionBusy === "install" || status.state === "installing";
   const primaryAction = updatePrimaryAction({
     actionBusy,
@@ -44,8 +43,7 @@ export function UpdateDialog({
     onCheck,
     onDownload,
     onInstall,
-    status,
-    t
+    status
   });
   const releaseNotes = formatUpdateReleaseNotes(status.releaseNotes);
   const showStateBadge = status.state === "error" ||
@@ -59,10 +57,10 @@ export function UpdateDialog({
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
           <div className="flex min-w-0 flex-1 items-center gap-2 pr-2">
-            <DialogTitle>{t("Online updates")}</DialogTitle>
+            <DialogTitle>Online updates</DialogTitle>
             {showStateBadge ? (
               <UpdateStateBadge
-                label={updateStateLabel(status, t)}
+                label={updateStateLabel(status)}
                 status={status}
               />
             ) : null}
@@ -74,9 +72,9 @@ export function UpdateDialog({
 
         <DialogBody className="grid gap-3">
           <div className="grid grid-cols-2 gap-2 max-[520px]:grid-cols-1">
-            <UpdateInfoRow label={t("Current version")} value={status.currentVersion} />
+            <UpdateInfoRow label="Current version" value={status.currentVersion} />
             <UpdateInfoRow
-              label={t("Latest version")}
+              label="Latest version"
               value={status.availableVersion || (status.state === "not-available" ? status.currentVersion : "-")}
             />
           </div>
@@ -84,11 +82,11 @@ export function UpdateDialog({
           {status.state === "downloading" ? (
             <div className="grid gap-2 rounded-md border border-border bg-muted/20 px-3 py-3">
               <div className="flex min-w-0 items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground">
-                <span>{t("Downloading update")}</span>
+                <span>Downloading update</span>
                 <span>{progressPercent !== undefined ? `${progressPercent.toFixed(0)}%` : ""}</span>
               </div>
               <div
-                aria-label={t("Downloading update")}
+                aria-label="Downloading update"
                 aria-valuemax={100}
                 aria-valuemin={0}
                 aria-valuenow={progressPercent ?? 0}
@@ -103,13 +101,13 @@ export function UpdateDialog({
 
           {canInstall ? (
             <div className="rounded-md border border-primary/20 bg-primary/10 px-3 py-2 text-[12px] text-primary">
-              {t("Update downloaded. Restart to finish updating.")}
+              Update downloaded. Restart to finish updating.
             </div>
           ) : null}
 
           {!status.supported ? (
             <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[12px] text-muted-foreground">
-              {t("Updates are only available in packaged builds.")}
+              Updates are only available in packaged builds.
             </div>
           ) : null}
 
@@ -122,7 +120,7 @@ export function UpdateDialog({
 
           {releaseNotes ? (
             <div className="grid gap-1 rounded-md border border-border bg-background px-3 py-2">
-              <div className="text-[11px] font-semibold text-muted-foreground">{t("Release notes")}</div>
+              <div className="text-[11px] font-semibold text-muted-foreground">Release notes</div>
               <div className="max-h-44 overflow-auto whitespace-pre-wrap text-[12px] leading-5 text-foreground">{releaseNotes}</div>
             </div>
           ) : null}
@@ -130,7 +128,7 @@ export function UpdateDialog({
 
         <DialogFooter>
           <Button disabled={installing} onClick={onClose} type="button" variant="outline">
-            {t("Close")}
+            Close
           </Button>
           {primaryAction ? (
             <Button disabled={primaryAction.disabled || busy} onClick={() => void primaryAction.onClick()} type="button">
@@ -165,8 +163,7 @@ function updatePrimaryAction({
   onCheck,
   onDownload,
   onInstall,
-  status,
-  t
+  status
 }: {
   actionBusy: UpdateActionBusy;
   canDownload: boolean;
@@ -175,14 +172,13 @@ function updatePrimaryAction({
   onDownload: () => Promise<void>;
   onInstall: () => Promise<void>;
   status: AppUpdateStatus;
-  t: (value: string) => string;
 }): { disabled: boolean; icon: JSX.Element; label: string; onClick: () => Promise<void> } | undefined {
   if (canInstall || status.state === "installing" || actionBusy === "install") {
     const installing = status.state === "installing" || actionBusy === "install";
     return {
       disabled: installing || !canInstall,
       icon: installing ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />,
-      label: t("Install and restart"),
+      label: "Install and restart",
       onClick: onInstall
     };
   }
@@ -192,7 +188,7 @@ function updatePrimaryAction({
     return {
       disabled: downloading || !canDownload,
       icon: downloading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />,
-      label: status.state === "error" ? t("Retry download") : downloading ? t("Downloading update") : t("Download update"),
+      label: status.state === "error" ? "Retry download" : downloading ? "Downloading update" : "Download update",
       onClick: onDownload
     };
   }
@@ -202,7 +198,7 @@ function updatePrimaryAction({
     return {
       disabled: checking || !status.canCheck,
       icon: checking ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />,
-      label: checking ? t("Checking for updates") : t("Check for updates"),
+      label: checking ? "Checking for updates" : "Check for updates",
       onClick: onCheck
     };
   }
@@ -227,16 +223,16 @@ function UpdateStateBadge({ label, status }: { label: string; status: AppUpdateS
   );
 }
 
-function updateStateLabel(status: AppUpdateStatus, t: (value: string) => string): string {
-  if (!status.supported) return t("Not configured");
-  if (status.state === "checking") return t("Checking for updates");
-  if (status.state === "available") return t("Update available");
-  if (status.state === "not-available") return t("No updates available");
-  if (status.state === "downloading") return t("Downloading update");
-  if (status.state === "downloaded") return t("Update ready to install");
-  if (status.state === "installing") return t("Install and restart");
-  if (status.state === "error") return t("Update failed");
-  return t("Check for updates");
+function updateStateLabel(status: AppUpdateStatus): string {
+  if (!status.supported) return "Not configured";
+  if (status.state === "checking") return "Checking for updates";
+  if (status.state === "available") return "Update available";
+  if (status.state === "not-available") return "No updates available";
+  if (status.state === "downloading") return "Downloading update";
+  if (status.state === "downloaded") return "Update ready to install";
+  if (status.state === "installing") return "Install and restart";
+  if (status.state === "error") return "Update failed";
+  return "Check for updates";
 }
 
 export function formatUpdateReleaseNotes(notes: string | undefined): string {

@@ -477,7 +477,7 @@ test("profileSummaryItems uses Kimi-specific model labels", () => {
     name: "Kimi Main",
     scope: "ccr",
     surface: "cli"
-  }, config, (value) => value);
+  }, config);
 
   assert.equal(items[0]?.label, "Kimi model");
   assert.equal(items[1]?.label, "Allowed model list");
@@ -494,7 +494,7 @@ test("profileSummaryItems uses Pi-specific model labels", () => {
     name: "Pi Main",
     scope: "ccr",
     surface: "cli"
-  }, config, (value) => value);
+  }, config);
 
   assert.equal(items[0]?.label, "Pi model");
 });
@@ -510,7 +510,7 @@ test("profileSummaryItems uses a generic App path label", () => {
     name: "Workbuddy Main",
     scope: "ccr",
     surface: "app"
-  }, config, (value) => value);
+  }, config);
 
   assert.equal(items.find((item) => item.value.includes("WorkBuddy AI.app"))?.label, "APP_PATH");
   assert.doesNotMatch(items.map((item) => item.label).join(" "), /CHATGPT_APP_PATH|WORKBUDDY_APP_PATH/);
@@ -530,7 +530,7 @@ test("profileSummaryItems omits disabled profile properties from cards", () => {
     scope: "ccr",
     showAllSessions: false,
     surface: "auto"
-  }, config, (value) => value);
+  }, config);
 
   assert.deepEqual(disabledItems.map((item) => item.label), ["Model"]);
   assert.doesNotMatch(disabledItems.map((item) => item.value).join(" "), /Disabled/);
@@ -546,7 +546,7 @@ test("profileSummaryItems omits disabled profile properties from cards", () => {
     scope: "ccr",
     showAllSessions: true,
     surface: "auto"
-  }, config, (value) => value);
+  }, config);
 
   assert.match(enabledItems.map((item) => item.label).join(" "), /Show all sessions/);
   assert.match(enabledItems.map((item) => item.label).join(" "), /LLMR managed compact/);
@@ -568,7 +568,7 @@ test("profileSummaryItems shows disabled profile enhanced route without private 
     },
     scope: "ccr",
     surface: "cli"
-  }, config, (value) => value);
+  }, config);
   const text = items.map((item) => `${item.label} ${item.value}`).join(" ");
 
   assert.doesNotMatch(text, /Routing disabled/);

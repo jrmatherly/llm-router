@@ -7,7 +7,6 @@ import trayCyanIconUrl from "@/assets/tray-cyan.png";
 import trayOrangeIconUrl from "@/assets/tray-orange.png";
 import trayVioletIconUrl from "@/assets/tray-violet.png";
 import { DEFAULT_TRAY_COMPONENT_VARIANTS, DEFAULT_TRAY_WIDGETS, DEFAULT_TRAY_WINDOW_MODULES, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS } from "@ccr/core/contracts/app";
-import { formatErrorMessage } from "@ccr/core/contracts/error-message";
 import { findProviderPreset, findProviderPresetByBaseUrl, providerPresets } from "@ccr/core/providers/presets";
 import { providerPresetIconUrls } from "../home/shared/options";
 import { clampNumber, providerBaseUrl } from "../home/shared/common";
@@ -52,12 +51,6 @@ export type SourceTab = {
   provider?: string;
 };
 
-const identityText = (value: string) => value;
-
-export function useTrayText() {
-  return identityText;
-}
-
 export function applyTrayThemePreference(theme: AppConfig["theme"] | undefined): void {
   const root = document.documentElement;
   if (theme === "light" || theme === "dark") {
@@ -86,10 +79,6 @@ export function useTrayThemePreference(): void {
       window.removeEventListener("focus", syncTheme);
     };
   }, []);
-}
-
-export function useTrayErrorText() {
-  return formatErrorMessage;
 }
 
 export const ranges: UsageStatsRange[] = ["today", "24h", "7d", "30d"];
@@ -325,14 +314,14 @@ export function formatProviderName(provider: string): string {
     .slice(0, 18);
 }
 
-export function formatUpdated(value: string, translate: (value: string) => string): string {
+export function formatUpdated(value: string): string {
   const timestamp = new Date(value).getTime();
   if (!Number.isFinite(timestamp)) {
-    return translate("Updated just now");
+    return "Updated just now";
   }
   const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
   if (seconds < 60) {
-    return translate("Updated just now");
+    return "Updated just now";
   }
   if (seconds < 3600) {
     return `Updated ${Math.round(seconds / 60)}m ago`;
@@ -432,11 +421,7 @@ function meterDetailTimestamp(value: string | undefined): number | undefined {
   return Number.isFinite(timestamp) ? timestamp : undefined;
 }
 
-export function translateAccountMeterLabel(label: string, translate: (value: string) => string): string {
-  return translate(label);
-}
-
-export function formatAccountMeterValue(meter: ProviderAccountMeter, translate: (value: string) => string): string {
+export function formatAccountMeterValue(meter: ProviderAccountMeter): string {
   const value = meter.remaining ?? meter.used ?? meter.limit;
   if (value === undefined) {
     return "-";
@@ -462,25 +447,25 @@ export function formatAccountMeterValue(meter: ProviderAccountMeter, translate: 
     return `${formatMeterNumber(value)}m`;
   }
   if (meter.kind === "balance") {
-    return `${formatMeterNumber(value)} ${translate(unit)}`;
+    return `${formatMeterNumber(value)} ${unit}`;
   }
-  return `${formatCompactNumber(value)} ${translate(unit)}`;
+  return `${formatCompactNumber(value)} ${unit}`;
 }
 
 export function formatMeterNumber(value: number): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 }).format(value);
 }
 
-export function formatAccountReset(value: string, translate: (value: string) => string = (item) => item): string {
+export function formatAccountReset(value: string): string {
   const timestamp = new Date(value).getTime();
   if (!Number.isFinite(timestamp)) {
     return value;
   }
   const minutes = Math.round((timestamp - Date.now()) / 60000);
   if (minutes <= 0) {
-    return translate("expired");
+    return "expired";
   }
-  const prefix = translate("expires in");
+  const prefix = "expires in";
   if (minutes < 60) {
     return `${prefix} ${minutes}m`;
   }
@@ -491,9 +476,9 @@ export function formatAccountReset(value: string, translate: (value: string) => 
   return `${prefix} ${Math.round(hours / 24)}d`;
 }
 
-export function formatAccountMeterTitle(meter: ProviderAccountMeter, translate: (value: string) => string): string {
-  const label = translateAccountMeterLabel(meter.label, translate);
-  return meter.resetAt ? `${label} (${formatAccountReset(meter.resetAt, translate)})` : label;
+export function formatAccountMeterTitle(meter: ProviderAccountMeter): string {
+  const label = meter.label;
+  return meter.resetAt ? `${label} (${formatAccountReset(meter.resetAt)})` : label;
 }
 
 export function accountProgressClass(status: ProviderAccountSnapshot["status"]): string {

@@ -1,6 +1,6 @@
 import {
   formatCompactNumber, formatUsdCost, ProviderAccountSnapshot, TrayComponentVariants, TrayWindowModuleId, UsageComparisonRow,
-  UsageStatsSnapshot, UsageTotals, useTrayText
+  UsageStatsSnapshot, UsageTotals
 } from "../shared";
 import { AccountSummaryPanel } from "./account-panel";
 import { AnimatedUsageChart, ChartShell, ModelShareChart, RingMetrics, StatsGrid, TokenActivityPanel, TokenMixPanel } from "./widgets";
@@ -30,7 +30,6 @@ export function UsageOverviewPanel({
   weekTotals: UsageTotals;
   onRefreshAccount?: () => void | Promise<void>;
 }) {
-  const t = useTrayText();
   const showTokenMix = modules.has("token-mix");
   const showRings = modules.has("rings");
 
@@ -40,8 +39,8 @@ export function UsageOverviewPanel({
 
       {modules.has("token-flow") ? (
       <ChartShell
-        meta={topModel?.label ?? t("No model yet")}
-        title={`${t("30d")} ${t("Token Flow")}`}
+        meta={topModel?.label ?? "No model yet"}
+        title={`30d Token Flow`}
       >
         <AnimatedUsageChart chartId="overview-flow" series={activeStats.series} variant={componentVariants.tokenFlow} />
       </ChartShell>
@@ -52,11 +51,11 @@ export function UsageOverviewPanel({
       {modules.has("stats") ? (
       <StatsGrid
         items={[
-          { label: t("Today tokens"), value: formatCompactNumber(todayTotals.totalTokens) },
-          { label: `${t("7d")} ${t("tokens")}`, value: formatCompactNumber(weekTotals.totalTokens) },
-          { label: `${t("30d")} ${t("tokens")}`, value: formatCompactNumber(monthTotals.totalTokens) },
-          { label: t("Today req"), value: formatCompactNumber(todayTotals.requestCount) },
-          { label: `${t("Today")} ${t("Cost")}`, value: formatUsdCost(todayTotals.costUsd) }
+          { label: "Today tokens", value: formatCompactNumber(todayTotals.totalTokens) },
+          { label: `7d tokens`, value: formatCompactNumber(weekTotals.totalTokens) },
+          { label: `30d tokens`, value: formatCompactNumber(monthTotals.totalTokens) },
+          { label: "Today req", value: formatCompactNumber(todayTotals.requestCount) },
+          { label: `Today Cost`, value: formatUsdCost(todayTotals.costUsd) }
         ]}
         variant={componentVariants.stats}
       />
@@ -71,7 +70,7 @@ export function UsageOverviewPanel({
 
       {modules.has("model-share") ? <ModelShareChart rows={activeStats.models} variant={componentVariants.modelShare} /> : null}
 
-      {loading ? <div className="mt-1.5 text-[11px] font-medium text-slate-200/60">{t("Syncing usage...")}</div> : null}
+      {loading ? <div className="mt-1.5 text-[11px] font-medium text-slate-200/60">Syncing usage...</div> : null}
     </section>
   );
 }

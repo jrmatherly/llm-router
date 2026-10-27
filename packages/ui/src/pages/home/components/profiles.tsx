@@ -8,7 +8,7 @@ import {
   DialogTitle, Field, GatewayProviderConfig, Info, Input, KeyValueRowsControl, LoaderCircle, motion,
   normalizeProfileScope, normalizeProfileSurface, Pencil, Plus, PopoverContent,
   profileAgentLabel, profileAgentOptions, ProfileConfig, type ProfileAgentOption, profileModelProviderOptions, profileOpenSurfaces, profileScopeLabel, profileScopeOptions, profileSummaryItems, profileSurfaceLabel, profileSurfaceOptions,
-  Play, Power, RefreshCw, Search, Select, SelectControl, Settings, Terminal, Toggle, translateOptions, Trash2, useAppErrorText, useAppText, useLayoutEffect, type KeyValueDraftRow, type ProfileOpenSurface, type ProfileRuntimeStatus, type ReactDragEvent, type ReactNode, type VirtualModelProfileConfig,
+  Play, Power, RefreshCw, Search, Select, SelectControl, Settings, Terminal, Toggle, Trash2, formatAppError, useLayoutEffect, type KeyValueDraftRow, type ProfileOpenSurface, type ProfileRuntimeStatus, type ReactDragEvent, type ReactNode, type VirtualModelProfileConfig,
   copyTextToClipboard, formatClaudeSettingsDraft, formatRouterRuleCondition, formatRouterRuleTarget, isClaudeSettingsDraftValid, isPlainRecord, isRoutingRuleDraftSubmittable, normalizeProviderModelSelector, routerRuleTypeLabel, routingRuleFromDraft, type RouterRule, uniqueStrings, validateProfileEnvRows,
   useCallback, useEffect, useMemo, useRef, useState, X
 } from "../shared/index";
@@ -74,7 +74,6 @@ export function ProfileView({
   stopProfileApp: (index: number) => void;
   updateProfileItem: (index: number, patch: Partial<ProfileConfig>) => void;
 }) {
-  const t = useAppText();
   const profiles = config.profile.profiles;
   const visibleAgentValues = new Set(agentOptions.map((option) => option.value));
   const visibleProfiles = profiles
@@ -92,15 +91,15 @@ export function ProfileView({
         <CardHeader>
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <CardTitle>{t("Agent profiles")}</CardTitle>
+              <CardTitle>Agent profiles</CardTitle>
               <p className="mt-1 text-[12px] text-muted-foreground">
-                {t("Create profiles that tell each agent which model and entry mode to use.")}
+                Create profiles that tell each agent which model and entry mode to use.
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Button onClick={() => addProfile()} size="sm" type="button">
                 <Plus className="h-3.5 w-3.5" />
-                {t("Add profile")}
+                Add profile
               </Button>
             </div>
           </div>
@@ -109,14 +108,14 @@ export function ProfileView({
           <div className="grid min-w-0 gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))] max-[720px]:gap-2.5">
             {visibleProfiles.length === 0 ? (
               <div className="col-span-full flex h-32 items-center justify-center rounded-md border border-dashed border-border bg-muted/20 text-[12px] text-muted-foreground">
-                {t("No profiles configured")}
+                No profiles configured
               </div>
             ) : null}
             {visibleProfiles.map(({ profile, index }) => {
               const scope = normalizeProfileScope(profile.scope);
               const surface = profile.agent === "zcode" || profile.agent === "claude-design" ? "app" : normalizeProfileSurface(profile.surface);
               const openSurfaces = profileOpenSurfaces(profile);
-              const summaryItems = profileSummaryItems(profile, config, t);
+              const summaryItems = profileSummaryItems(profile, config);
               const cliBusy = profileActionBusy?.profileId === profile.id && profileActionBusy.surface === "cli";
               const appBusy = profileActionBusy?.profileId === profile.id && profileActionBusy.surface === "app";
               const runtimeEntry = profileRuntimeStatus.profiles.find((entry) =>
@@ -124,8 +123,8 @@ export function ProfileView({
               );
               const appRunning = Boolean(runtimeEntry);
               const appActionLabel = appRunning ? "Stop" : "Start";
-              const appActionTooltip = `${t(appActionLabel)} ${t("App")}`;
-              const cliActionTooltip = `${t("Copy")} ${t("CLI command")}`;
+              const appActionTooltip = `${appActionLabel} App`;
+              const cliActionTooltip = `Copy CLI command`;
               const showProfileLaunchActions = profile.enabled;
               const profileActionDisabled = Boolean(profileActionBusy);
 
@@ -144,7 +143,7 @@ export function ProfileView({
                       <AgentLogo agent={profile.agent} />
                       <div className="min-w-0">
                         <div className="truncate text-[13px] font-semibold">
-                          {profile.name || t("Unnamed")}
+                          {profile.name || "Unnamed"}
                         </div>
                       </div>
                     </div>
@@ -153,24 +152,24 @@ export function ProfileView({
                       onChange={(enabled) =>
                         updateProfileItem(index, { enabled })
                       }
-                      title={t(profile.enabled ? "Enabled" : "Disabled")}
+                      title={profile.enabled ? "Enabled" : "Disabled"}
                     />
                   </div>
                   <div className="mt-3 min-w-0 flex-1 space-y-1.5 border-t border-border/60 pt-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                      <Badge variant="secondary">{t(profileAgentLabel(profile.agent))}</Badge>
+                      <Badge variant="secondary">{profileAgentLabel(profile.agent)}</Badge>
                       <Badge variant={scope === "ccr" ? "success" : scope === "global" ? "warning" : "outline"}>
-                        {t(profileScopeLabel(scope))}
+                        {profileScopeLabel(scope)}
                       </Badge>
-                      <Badge variant="outline">{t(profileSurfaceLabel(surface))}</Badge>
+                      <Badge variant="outline">{profileSurfaceLabel(surface)}</Badge>
                       {runtimeEntry?.botGateway ? (
                         <Badge variant={runtimeEntry.botGateway.state === "connected" ? "success" : runtimeEntry.botGateway.lastError ? "warning" : "outline"}>
-                          {t("Bot")} · {t(runtimeEntry.botGateway.state === "connected" ? "Connected" : runtimeEntry.botGateway.state === "starting" ? "Starting" : runtimeEntry.botGateway.state)}
+                          Bot · {runtimeEntry.botGateway.state === "connected" ? "Connected" : runtimeEntry.botGateway.state === "starting" ? "Starting" : runtimeEntry.botGateway.state}
                         </Badge>
                       ) : null}
                     </div>
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
-                      {t("Configuration")}
+                      Configuration
                     </div>
                     {summaryItems.map((item) => (
                       <div className="grid min-w-0 grid-cols-[92px_minmax(0,1fr)] items-baseline gap-2 text-[12px]" key={item.label}>
@@ -180,20 +179,20 @@ export function ProfileView({
                     ))}
                     {runtimeEntry?.botGateway ? (
                       <div className="grid min-w-0 grid-cols-[92px_minmax(0,1fr)] items-baseline gap-2 text-[12px]">
-                        <div className="truncate text-muted-foreground">{t("Bot activity")}</div>
+                        <div className="truncate text-muted-foreground">Bot activity</div>
                         <div className="min-w-0 truncate font-medium text-foreground" title={runtimeEntry.botGateway.lastError || runtimeEntry.botGateway.lastEventAt || ""}>
                           {runtimeEntry.botGateway.lastError
                             ? runtimeEntry.botGateway.lastError
                             : runtimeEntry.botGateway.lastEventAt
-                              ? `${t("Last event")}: ${new Date(runtimeEntry.botGateway.lastEventAt).toLocaleString()}`
-                              : t("Waiting for messages")}
-                          {runtimeEntry.botGateway.outboxCount > 0 ? ` · ${runtimeEntry.botGateway.outboxCount} ${t("pending")}` : ""}
+                              ? `Last event: ${new Date(runtimeEntry.botGateway.lastEventAt).toLocaleString()}`
+                              : "Waiting for messages"}
+                          {runtimeEntry.botGateway.outboxCount > 0 ? ` · ${runtimeEntry.botGateway.outboxCount} pending` : ""}
                         </div>
                       </div>
                     ) : null}
                   </div>
                   <div
-                    aria-label={`${profile.name || t("Profile")} ${t("Profile actions")}`}
+                    aria-label={`${profile.name || "Profile"} Profile actions`}
                     className="mt-3 flex min-w-0 items-center justify-between gap-2 border-t border-border/60 pt-2"
                     role="group"
                   >
@@ -201,7 +200,7 @@ export function ProfileView({
                       {showProfileLaunchActions && openSurfaces.includes("cli") ? (
                         <ProfileActionTooltip label={cliActionTooltip}>
                           <Button
-                            aria-label={`${cliActionTooltip} ${profile.name || t("Profile")}`}
+                            aria-label={`${cliActionTooltip} ${profile.name || "Profile"}`}
                             disabled={profileActionDisabled}
                             onClick={() => copyProfileCliCommand(index)}
                             size="iconSm"
@@ -223,7 +222,7 @@ export function ProfileView({
                       {showProfileLaunchActions && openSurfaces.includes("app") ? (
                         <ProfileActionTooltip label={appActionTooltip}>
                           <Button
-                            aria-label={`${appActionTooltip} ${profile.name || t("Profile")}`}
+                            aria-label={`${appActionTooltip} ${profile.name || "Profile"}`}
                             disabled={profileActionDisabled}
                             onClick={() =>
                               appRunning
@@ -252,10 +251,10 @@ export function ProfileView({
                       ) : null}
                     </div>
                     <div className="ml-auto flex shrink-0 items-center gap-1">
-                      <ProfileActionTooltip label={t("Edit")}>
+                      <ProfileActionTooltip label="Edit">
                         <Button
-                          aria-label={`${t("Edit")} ${
-                            profile.name || t("Profile")
+                          aria-label={`Edit ${
+                            profile.name || "Profile"
                           }`}
                           onClick={() => editProfile(index)}
                           size="iconSm"
@@ -265,9 +264,9 @@ export function ProfileView({
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       </ProfileActionTooltip>
-                      <ProfileActionTooltip label={t("Remove profile")}>
+                      <ProfileActionTooltip label="Remove profile">
                         <Button
-                          aria-label={t("Remove profile")}
+                          aria-label="Remove profile"
                           className="hover:bg-destructive/10 hover:text-destructive focus-visible:text-destructive"
                           onClick={() => removeProfile(index)}
                           size="iconSm"
@@ -286,7 +285,7 @@ export function ProfileView({
 
           {applyError ? (
             <div className="whitespace-pre-wrap rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
-              {t(applyError)}
+              {applyError}
             </div>
           ) : null}
         </CardContent>
@@ -304,8 +303,7 @@ function ManagedCompactSetting({
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
-  const t = useAppText();
-  const title = t("LLMR managed compact");
+  const title = "LLMR managed compact";
 
   return (
     <div className="rounded-md border border-border bg-muted/20 px-3 py-3">
@@ -316,7 +314,7 @@ function ManagedCompactSetting({
             <div className="min-w-0">
               <div className="truncate text-[13px] font-semibold">{title}</div>
               <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">
-                {t("Use LLMR context archive for this profile's auto compact requests.")}
+                Use LLMR context archive for this profile's auto compact requests.
               </div>
             </div>
           </div>
@@ -340,18 +338,17 @@ export function DeleteProfileDialog({
   onConfirm: () => void;
   profile: ProfileConfig;
 }) {
-  const t = useAppText();
-  const name = profile.name || t("Unnamed");
-  const agent = t(profileAgentLabel(profile.agent));
+  const name = profile.name || "Unnamed";
+  const agent = profileAgentLabel(profile.agent);
 
   return (
     <Dialog onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Delete Profile")}</DialogTitle>
+            <DialogTitle>Delete Profile</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -360,27 +357,27 @@ export function DeleteProfileDialog({
           <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
             <div className="flex items-start gap-2 text-[12px] font-medium text-destructive">
               <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{t("Delete this agent profile from the configuration?")}</span>
+              <span>Delete this agent profile from the configuration?</span>
             </div>
             <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
               <div className="truncate" title={name}>
-                <span className="font-medium text-foreground">{t("Name")}:</span> {name}
+                <span className="font-medium text-foreground">Name:</span> {name}
               </div>
               <div className="truncate" title={agent}>
-                <span className="font-medium text-foreground">{t("Agent")}:</span> {agent}
+                <span className="font-medium text-foreground">Agent:</span> {agent}
               </div>
-              <div>{t("This action is applied immediately to the draft config and will auto-save with other changes.")}</div>
+              <div>This action is applied immediately to the draft config and will auto-save with other changes.</div>
             </div>
           </div>
         </DialogBody>
 
         <DialogFooter>
           <Button autoFocus onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button onClick={onConfirm} type="button" variant="destructive">
             <Trash2 className="h-4 w-4" />
-            {t("Delete")}
+            Delete
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -409,7 +406,6 @@ export function ProfileOpenDialog({
   onStopApp: () => void;
   profile: ProfileConfig;
 }) {
-  const t = useAppText();
   const surfaces = profileOpenSurfaces(profile);
   const appActionLabel = appRunning ? "Stop" : "App";
   const [copied, setCopied] = useState(false);
@@ -442,7 +438,7 @@ export function ProfileOpenDialog({
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Open Agent")}</DialogTitle>
+            <DialogTitle>Open Agent</DialogTitle>
           </div>
         </DialogHeader>
         <DialogBody>
@@ -455,7 +451,7 @@ export function ProfileOpenDialog({
 	                  <AnimatedIconSwap iconKey={busy === "app" ? "busy" : appRunning ? "stop" : "play"}>
 	                    {busy === "app" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : appRunning ? <Power className="h-4 w-4" /> : <Play className="h-4 w-4" />}
 	                  </AnimatedIconSwap>
-                  {t(appActionLabel)}
+                  {appActionLabel}
                 </Button>
               ) : null}
             </div>
@@ -466,7 +462,6 @@ export function ProfileOpenDialog({
                     command={command}
                     copied={copied}
                     onCopy={() => void copyCommand()}
-                    t={t}
                   />
                 ) : null}
               </div>
@@ -475,19 +470,18 @@ export function ProfileOpenDialog({
                 command={command}
                 copied={copied}
                 onCopy={() => void copyCommand()}
-                t={t}
               />
             )}
             {error ? (
               <div className="whitespace-pre-wrap rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
-                {t(error)}
+                {error}
               </div>
             ) : null}
           </div>
         </DialogBody>
         <DialogFooter>
           <Button onClick={onClose} type="button" variant="outline">
-            {t("Close")}
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -516,22 +510,20 @@ function ProfileActionTooltip({
 function ProfileCliCommandBlock({
   command,
   copied,
-  onCopy,
-  t
+  onCopy
 }: {
   command?: string;
   copied: boolean;
   onCopy: () => void;
-  t: (value: string) => string;
 }) {
   return (
     <div className="space-y-2">
-      <div className="text-[12px] font-medium text-muted-foreground">{t("CLI command")}</div>
+      <div className="text-[12px] font-medium text-muted-foreground">CLI command</div>
       <div className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-muted/20 p-2">
         <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-[5px] bg-background px-2 py-2 font-mono text-[12px] text-foreground">
-          {command || t("Loading")}
+          {command || "Loading"}
         </code>
-        <Button aria-label={copied ? t("Copied") : t("Copy")} disabled={!command} onClick={onCopy} size="iconSm" title={copied ? t("Copied") : t("Copy")} type="button" variant={copied ? "default" : "outline"}>
+        <Button aria-label={copied ? "Copied" : "Copy"} disabled={!command} onClick={onCopy} size="iconSm" title={copied ? "Copied" : "Copy"} type="button" variant={copied ? "default" : "outline"}>
 	          <AnimatedIconSwap iconKey={copied ? "copied" : "copy"}>
 	            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
 	          </AnimatedIconSwap>
@@ -550,7 +542,6 @@ function AgentSelectControl({
   onChange: (agent: ProfileConfig["agent"]) => void;
   value: ProfileConfig["agent"];
 }) {
-  const t = useAppText();
   const [open, setOpen] = useState(false);
   const [popoverLayout, setPopoverLayout] = useState<{
     left: number;
@@ -644,7 +635,7 @@ function AgentSelectControl({
         type="button"
       >
         <AgentLogo agent={value} className="h-5 w-5 rounded-[5px]" />
-        <span className="min-w-0 flex-1 truncate">{t(profileAgentLabel(value))}</span>
+        <span className="min-w-0 flex-1 truncate">{profileAgentLabel(value)}</span>
         <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
 
@@ -690,7 +681,7 @@ function AgentSelectControl({
                       type="button"
                     >
                       <AgentLogo agent={agent} className="h-6 w-6 rounded-[5px]" />
-                      <span className="min-w-0 flex-1 truncate">{t(profileAgentLabel(agent))}</span>
+                      <span className="min-w-0 flex-1 truncate">{profileAgentLabel(agent)}</span>
                       {selected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
                     </button>
                   );
@@ -725,7 +716,6 @@ export function AddProfileForm({
   providers: GatewayProviderConfig[];
   virtualModelProfiles?: VirtualModelProfileConfig[];
 }) {
-  const t = useAppText();
   const [advancedOpen, setAdvancedOpen] = useState(mode === "edit");
   const [appPathDragActive, setAppPathDragActive] = useState(false);
   const appPathLabel = profileAppPathLabel(draft.agent);
@@ -747,8 +737,8 @@ export function AddProfileForm({
   const validation = profileDraftValidation(draft, botConfigs, availableModelCount);
   const isClaudeDesignProfile = draft.agent === "claude-design";
   const showAdvancedSettings = !isClaudeDesignProfile;
-  const optionalFieldLabel = t("Optional");
-  const requiredFieldLabel = t("Required");
+  const optionalFieldLabel = "Optional";
+  const requiredFieldLabel = "Required";
   const advancedIssueCount = [
     validation.allowedModels,
     validation.bot,
@@ -757,8 +747,8 @@ export function AddProfileForm({
     validation.env
   ].filter(Boolean).length;
   const advancedSummary = advancedIssueCount > 0
-    ? t("Advanced settings need attention")
-    : t("Models, paths, routing, bot, compact, Claude settings, and env");
+    ? "Advanced settings need attention"
+    : "Models, paths, routing, bot, compact, Claude settings, and env";
   const handleAppPathDrop = useCallback((event: ReactDragEvent<HTMLElement>) => {
     if (!showAppPathField) {
       return;
@@ -791,7 +781,7 @@ export function AddProfileForm({
         onDragOver={showAppPathField ? handleAppPathDragOver : undefined}
         onDrop={showAppPathField ? handleAppPathDrop : undefined}
       >
-        <Field label={t("Agent")} requirement="required" requirementLabel={requiredFieldLabel}>
+        <Field label="Agent" requirement="required" requirementLabel={requiredFieldLabel}>
           <AgentSelectControl
             agentOptions={agentOptions}
             onChange={(agent) => onChange(agent === "grok" || agent === "kimi" || agent === "pi"
@@ -831,24 +821,21 @@ export function AddProfileForm({
             value={draft.agent}
           />
         </Field>
-        <Field label={t("Profile name")} requirement="required" requirementLabel={requiredFieldLabel}>
+        <Field label="Profile name" requirement="required" requirementLabel={requiredFieldLabel}>
           <Input value={draft.name} onChange={(event) => onChange({ name: event.target.value })} />
-          {validation.name ? <ProfileFieldHint>{t(validation.name)}</ProfileFieldHint> : null}
+          {validation.name ? <ProfileFieldHint>{validation.name}</ProfileFieldHint> : null}
         </Field>
-        <Field label={t("Effect scope")} requirement="required" requirementLabel={requiredFieldLabel}>
+        <Field label="Effect scope" requirement="required" requirementLabel={requiredFieldLabel}>
           <SelectControl
             onChange={(scope) => onChange({ scope: normalizeProfileScope(scope) })}
-            options={translateOptions(
-              draft.agent === "grok" || draft.agent === "kimi" || draft.agent === "pi"
+            options={draft.agent === "grok" || draft.agent === "kimi" || draft.agent === "pi"
                 || draft.agent === "claude-design"
                 ? profileScopeOptions.filter((option) => option.value === "ccr")
-                : profileScopeOptions,
-              t
-            )}
+                : profileScopeOptions}
             value={draft.scope}
           />
         </Field>
-        <Field label={t("Entry mode")} requirement="required" requirementLabel={requiredFieldLabel}>
+        <Field label="Entry mode" requirement="required" requirementLabel={requiredFieldLabel}>
           <SelectControl
             onChange={(surface) => {
               const nextSurface = normalizeProfileSurface(surface);
@@ -861,59 +848,56 @@ export function AddProfileForm({
                     surface: nextSurface
                   });
             }}
-            options={translateOptions(
-              draft.agent === "workbuddy" || draft.agent === "zcode" || draft.agent === "claude-design"
+            options={draft.agent === "workbuddy" || draft.agent === "zcode" || draft.agent === "claude-design"
                 ? profileSurfaceOptions.filter((option) => option.value === "app")
                 : draft.agent === "grok" || draft.agent === "kimi" || draft.agent === "pi" || draft.agent === "kilo"
                     ? profileSurfaceOptions.filter((option) => option.value === "cli")
-                    : profileSurfaceOptions,
-              t
-            )}
+                    : profileSurfaceOptions}
             value={draft.surface}
           />
         </Field>
         {draft.agent === "claude-code" ? (
           <>
-            <Field label={t("Default model")} requirement="required" requirementLabel={requiredFieldLabel}>
+            <Field label="Default model" requirement="required" requirementLabel={requiredFieldLabel}>
               <ModelSelector
-                placeholder={modelPlaceholder || t("Select default model")}
+                placeholder={modelPlaceholder || "Select default model"}
                 providers={providers}
                 value={draft.model}
                 virtualModelProfiles={virtualModelProfiles}
                 onChange={(model) => onChange({ model })}
               />
-              {validation.defaultModel ? <ProfileFieldHint>{t(validation.defaultModel)}</ProfileFieldHint> : null}
+              {validation.defaultModel ? <ProfileFieldHint>{validation.defaultModel}</ProfileFieldHint> : null}
             </Field>
-            <Field label={t("Fable model")} requirement="optional" requirementLabel={optionalFieldLabel}>
+            <Field label="Fable model" requirement="optional" requirementLabel={optionalFieldLabel}>
               <ModelSelector
-                placeholder={t("Keep Claude Code default")}
+                placeholder="Keep Claude Code default"
                 providers={providers}
                 value={draft.fableModel}
                 virtualModelProfiles={virtualModelProfiles}
                 onChange={(fableModel) => onChange({ fableModel })}
               />
             </Field>
-            <Field label={t("Opus model")} requirement="optional" requirementLabel={optionalFieldLabel}>
+            <Field label="Opus model" requirement="optional" requirementLabel={optionalFieldLabel}>
               <ModelSelector
-                placeholder={t("Keep Claude Code default")}
+                placeholder="Keep Claude Code default"
                 providers={providers}
                 value={draft.opusModel}
                 virtualModelProfiles={virtualModelProfiles}
                 onChange={(opusModel) => onChange({ opusModel })}
               />
             </Field>
-            <Field label={t("Sonnet model")} requirement="optional" requirementLabel={optionalFieldLabel}>
+            <Field label="Sonnet model" requirement="optional" requirementLabel={optionalFieldLabel}>
               <ModelSelector
-                placeholder={t("Keep Claude Code default")}
+                placeholder="Keep Claude Code default"
                 providers={providers}
                 value={draft.sonnetModel}
                 virtualModelProfiles={virtualModelProfiles}
                 onChange={(sonnetModel) => onChange({ sonnetModel })}
               />
             </Field>
-            <Field label={t("Haiku model")} requirement="optional" requirementLabel={optionalFieldLabel}>
+            <Field label="Haiku model" requirement="optional" requirementLabel={optionalFieldLabel}>
               <ModelSelector
-                placeholder={t("Keep Claude Code default")}
+                placeholder="Keep Claude Code default"
                 providers={providers}
                 value={draft.haikuModel}
                 virtualModelProfiles={virtualModelProfiles}
@@ -922,7 +906,7 @@ export function AddProfileForm({
             </Field>
           </>
         ) : draft.agent === "grok" ? (
-          <Field className="sm:col-span-2" label={t("Grok model")} requirement="optional" requirementLabel={optionalFieldLabel}>
+          <Field className="sm:col-span-2" label="Grok model" requirement="optional" requirementLabel={optionalFieldLabel}>
             <ModelSelector
               placeholder={modelPlaceholder}
               providers={providers}
@@ -932,7 +916,7 @@ export function AddProfileForm({
             />
           </Field>
         ) : draft.agent === "pi" ? (
-          <Field className="sm:col-span-2" label={t("Pi model")} requirement="optional" requirementLabel={optionalFieldLabel}>
+          <Field className="sm:col-span-2" label="Pi model" requirement="optional" requirementLabel={optionalFieldLabel}>
             <ModelSelector
               placeholder={modelPlaceholder}
               providers={providers}
@@ -943,7 +927,7 @@ export function AddProfileForm({
           </Field>
         ) : draft.agent === "kimi" ? (
           <>
-            <Field className="sm:col-span-2" label={t("Kimi model")} requirement="required" requirementLabel={requiredFieldLabel}>
+            <Field className="sm:col-span-2" label="Kimi model" requirement="required" requirementLabel={requiredFieldLabel}>
               <ModelSelector
                 placeholder={modelPlaceholder}
                 providers={providers}
@@ -951,12 +935,12 @@ export function AddProfileForm({
                 virtualModelProfiles={virtualModelProfiles}
                 onChange={(model) => onChange({ model })}
               />
-              {validation.kimiModel ? <ProfileFieldHint>{t(validation.kimiModel)}</ProfileFieldHint> : null}
+              {validation.kimiModel ? <ProfileFieldHint>{validation.kimiModel}</ProfileFieldHint> : null}
             </Field>
           </>
         ) : draft.agent === "claude-design" ? null : (
           <>
-            <Field className="sm:col-span-2" label={t(draft.agent === "zcode" ? "ZCode model" : draft.agent === "opencode" ? "OpenCode model" : draft.agent === "kilo" ? "Kilo model" : draft.agent === "workbuddy" ? "Workbuddy model" : "Codex model")} requirement="optional" requirementLabel={optionalFieldLabel}>
+            <Field className="sm:col-span-2" label={draft.agent === "zcode" ? "ZCode model" : draft.agent === "opencode" ? "OpenCode model" : draft.agent === "kilo" ? "Kilo model" : draft.agent === "workbuddy" ? "Workbuddy model" : "Codex model"} requirement="optional" requirementLabel={optionalFieldLabel}>
               <ModelSelector
                 placeholder={modelPlaceholder}
                 providers={providers}
@@ -978,7 +962,7 @@ export function AddProfileForm({
               type="button"
             >
               <span className="min-w-0">
-                <span className="block truncate text-[12px] font-semibold text-foreground">{t("Advanced settings")}</span>
+                <span className="block truncate text-[12px] font-semibold text-foreground">Advanced settings</span>
                 <span className={cn("mt-0.5 block truncate text-[11px]", advancedIssueCount > 0 ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground")}>
                   {advancedSummary}
                 </span>
@@ -1006,7 +990,7 @@ export function AddProfileForm({
                       onChange={onChange}
                       providers={providers}
                     />
-                    <Field className="sm:col-span-2" label={t("Allowed model list")} requirement="optional" requirementLabel={optionalFieldLabel}>
+                    <Field className="sm:col-span-2" label="Allowed model list" requirement="optional" requirementLabel={optionalFieldLabel}>
                       <ModelMultiSelector
                         providers={providers}
                         hasExplicitSelection={hasExplicitAllowedModelSelection}
@@ -1021,11 +1005,11 @@ export function AddProfileForm({
                           });
                         }}
                       />
-                      {validation.allowedModels ? <ProfileFieldHint>{t(validation.allowedModels)}</ProfileFieldHint> : null}
+                      {validation.allowedModels ? <ProfileFieldHint>{validation.allowedModels}</ProfileFieldHint> : null}
                     </Field>
                     {draft.agent === "codex" ? (
                       <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
-                        <span className="text-[12px] font-medium">{t("Show all sessions")}</span>
+                        <span className="text-[12px] font-medium">Show all sessions</span>
                         <Toggle checked={draft.showAllSessions} onChange={(showAllSessions) => onChange({ showAllSessions })} />
                       </div>
                     ) : null}
@@ -1041,15 +1025,15 @@ export function AddProfileForm({
                     {draft.surface !== "cli" ? (
                       <div className="sm:col-span-2">
                         <BotGatewaySelectForm botConfigs={botConfigs} draft={draft} onChange={onChange} onCreateBot={onCreateBot} />
-                        {validation.bot ? <ProfileFieldHint>{t(validation.bot)}</ProfileFieldHint> : null}
-                        {validation.handoff ? <ProfileFieldHint>{t(validation.handoff)}</ProfileFieldHint> : null}
+                        {validation.bot ? <ProfileFieldHint>{validation.bot}</ProfileFieldHint> : null}
+                        {validation.handoff ? <ProfileFieldHint>{validation.handoff}</ProfileFieldHint> : null}
                       </div>
                     ) : null}
                     {showAppPathField && appPathLabel ? (
-                      <Field className="sm:col-span-2" label={t(appPathLabel)} requirement="optional" requirementLabel={optionalFieldLabel}>
+                      <Field className="sm:col-span-2" label={appPathLabel} requirement="optional" requirementLabel={optionalFieldLabel}>
                         <Input
                           className={appPathDragActive ? "border-primary bg-primary/5" : undefined}
-                          placeholder={t("Drop the app here or paste the executable path")}
+                          placeholder="Drop the app here or paste the executable path"
                           value={draft.appPath}
                           onChange={(event) => onChange({ appPath: event.target.value })}
                         />
@@ -1058,17 +1042,17 @@ export function AddProfileForm({
                     {draft.agent === "claude-code" ? (
                       <ClaudeConfigEditor
                         draft={draft}
-                        error={validation.claudeSettings ? t(validation.claudeSettings) : ""}
+                        error={validation.claudeSettings ? validation.claudeSettings : ""}
                         onChange={onChange}
                       />
                     ) : null}
-                    <Field className="sm:col-span-2" label={t("Environment variables")} requirement="optional" requirementLabel={optionalFieldLabel}>
+                    <Field className="sm:col-span-2" label="Environment variables" requirement="optional" requirementLabel={optionalFieldLabel}>
                       <KeyValueRowsControl
-                        addLabel={t("Add env variable")}
+                        addLabel="Add env variable"
                         rows={draft.envRows}
                         onChange={(envRows) => onChange({ envRows })}
                       />
-                      {validation.env ? <ProfileFieldHint>{t(validation.env)}</ProfileFieldHint> : null}
+                      {validation.env ? <ProfileFieldHint>{validation.env}</ProfileFieldHint> : null}
                     </Field>
                   </div>
                 </motion.div>
@@ -1080,12 +1064,12 @@ export function AddProfileForm({
       {validation.models ? (
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
           <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>{t(validation.models)}</span>
+          <span>{validation.models}</span>
         </div>
       ) : null}
       {error ? (
         <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
-          {t(error)}
+          {error}
         </div>
       ) : null}
     </>
@@ -1101,7 +1085,6 @@ function ProfileRoutingSettings({
   onChange: (patch: Partial<AddProfileDraft>) => void;
   providers: GatewayProviderConfig[];
 }) {
-  const t = useAppText();
   const [ruleDialog, setRuleDialog] = useState<{ draft: AddRoutingRuleDraft; index?: number }>();
   const canSubmitRule = ruleDialog ? isRoutingRuleDraftSubmittable(ruleDialog.draft) : false;
 
@@ -1155,10 +1138,10 @@ function ProfileRoutingSettings({
     <div className="sm:col-span-2 rounded-md border border-border bg-muted/20 p-3">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[12px] font-semibold">{t("Profile routing")}</div>
+          <div className="text-[12px] font-semibold">Profile routing</div>
           {draft.routingEnabled ? (
             <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-              {`${draft.routingRules.length} ${t(draft.routingRules.length === 1 ? "route" : "routes")}`}
+              {`${draft.routingRules.length} ${draft.routingRules.length === 1 ? "route" : "routes"}`}
             </div>
           ) : null}
         </div>
@@ -1171,16 +1154,16 @@ function ProfileRoutingSettings({
         <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border/70 pt-3">
           <div className="rounded-md border border-border bg-background p-3">
             <div className="flex min-w-0 items-center justify-between gap-3">
-              <span className="text-[12px] font-medium">{t("Profile routes")}</span>
+              <span className="text-[12px] font-medium">Profile routes</span>
               <Button onClick={openAddRuleDialog} size="sm" type="button" variant="outline">
                 <Plus className="h-3.5 w-3.5" />
-                {t("Add")}
+                Add
               </Button>
             </div>
             <div className="mt-3 space-y-2 border-t border-border/70 pt-3">
               {draft.routingRules.length === 0 ? (
                 <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
-                  {t("No routing rules configured")}
+                  No routing rules configured
                 </div>
               ) : draft.routingRules.map((rule, index) => (
                 <div className="grid min-w-0 grid-cols-[1fr_auto] gap-2 rounded-md border border-border px-3 py-2" key={`${rule.id}-${index}`}>
@@ -1190,9 +1173,9 @@ function ProfileRoutingSettings({
                     type="button"
                   >
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                      <span className="truncate text-[12px] font-semibold">{rule.name || t("Unnamed")}</span>
-                      <Badge variant={rule.enabled ? "success" : "outline"}>{t(rule.enabled ? "Enabled" : "Disabled")}</Badge>
-                      <Badge variant="outline">{t(routerRuleTypeLabel(rule.type))}</Badge>
+                      <span className="truncate text-[12px] font-semibold">{rule.name || "Unnamed"}</span>
+                      <Badge variant={rule.enabled ? "success" : "outline"}>{rule.enabled ? "Enabled" : "Disabled"}</Badge>
+                      <Badge variant="outline">{routerRuleTypeLabel(rule.type)}</Badge>
                     </div>
                     <div className="mt-1 min-w-0 truncate text-[11px] text-muted-foreground" title={formatRouterRuleCondition(rule)}>
                       {formatRouterRuleCondition(rule)}
@@ -1202,10 +1185,10 @@ function ProfileRoutingSettings({
                     </div>
                   </button>
                   <div className="flex shrink-0 items-center gap-1">
-                    <Button aria-label={t("Edit")} onClick={() => openEditRuleDialog(index)} size="iconSm" title={t("Edit")} type="button" variant="ghost">
+                    <Button aria-label="Edit" onClick={() => openEditRuleDialog(index)} size="iconSm" title="Edit" type="button" variant="ghost">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button aria-label={t("Remove")} onClick={() => removeRule(index)} size="iconSm" title={t("Remove")} type="button" variant="ghost">
+                    <Button aria-label="Remove" onClick={() => removeRule(index)} size="iconSm" title="Remove" type="button" variant="ghost">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -1238,16 +1221,15 @@ function ProfileEnhancedRouteSetting({
   draft: AddProfileDraft;
   onChange: (patch: Partial<AddProfileDraft>) => void;
 }) {
-  const t = useAppText();
   const enhancedRouteDescription = draft.agent === "codex"
-    ? t("Enhanced route description Codex")
-    : t("Enhanced route description Claude Code");
+    ? "LLMR built-in Codex routing optimizes requests to third-party models for this profile."
+    : "LLMR built-in Claude Code routing optimizes requests to third-party models for this profile.";
 
   return (
     <div className="sm:col-span-2 rounded-md border border-border bg-muted/20 p-3">
       <div className="flex min-w-0 items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="text-[12px] font-semibold">{t("Enhanced route")}</span>
+          <span className="text-[12px] font-semibold">Enhanced route</span>
           <Tooltip
             aria-label={enhancedRouteDescription}
             className="h-5 w-5 items-center justify-center rounded-full text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
@@ -1283,7 +1265,6 @@ function ClaudeConfigEditor({
   error: string;
   onChange: (patch: Partial<AddProfileDraft>) => void;
 }) {
-  const t = useAppText();
   const [open, setOpen] = useState(false);
 
   return (
@@ -1292,13 +1273,13 @@ function ClaudeConfigEditor({
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
             <Settings className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="truncate text-[12px] font-semibold">{t("Claude settings")}</span>
+            <span className="truncate text-[12px] font-semibold">Claude settings</span>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button onClick={() => setOpen(true)} size="sm" type="button" variant="outline">
             <Settings className="h-3.5 w-3.5" />
-            {t("Edit Claude settings")}
+            Edit Claude settings
           </Button>
         </div>
       </div>
@@ -1307,8 +1288,8 @@ function ClaudeConfigEditor({
         <Dialog onOpenChange={setOpen} open>
           <DialogContent className="h-[min(780px,calc(100dvh-1.5rem))] max-w-[980px]">
             <DialogHeader>
-              <DialogTitle>{t("Claude settings")}</DialogTitle>
-              <Button aria-label={t("Close dialog")} onClick={() => setOpen(false)} size="iconSm" title={t("Close")} type="button" variant="ghost">
+              <DialogTitle>Claude settings</DialogTitle>
+              <Button aria-label="Close dialog" onClick={() => setOpen(false)} size="iconSm" title="Close" type="button" variant="ghost">
                 <X className="h-4 w-4" />
               </Button>
             </DialogHeader>
@@ -1321,7 +1302,7 @@ function ClaudeConfigEditor({
             </DialogBody>
             <DialogFooter>
               <Button onClick={() => setOpen(false)} type="button" variant="outline">
-                {t("Done")}
+                Done
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1340,7 +1321,6 @@ function ClaudeConfigEditorContent({
   error: string;
   onChange: (patch: Partial<AddProfileDraft>) => void;
 }) {
-  const t = useAppText();
   const [tab, setTab] = useState<typeof CLAUDE_CONFIG_SETTINGS_TAB | typeof CLAUDE_CONFIG_ENV_TAB>(CLAUDE_CONFIG_SETTINGS_TAB);
   const [query, setQuery] = useState("");
   const [configuredFilter, setConfiguredFilter] = useState("all");
@@ -1428,7 +1408,7 @@ function ClaudeConfigEditorContent({
               onClick={() => setTab(item.value)}
               type="button"
             >
-              {t(item.label)}
+              {item.label}
             </button>
           ))}
         </div>
@@ -1436,7 +1416,7 @@ function ClaudeConfigEditorContent({
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="h-8 pl-8"
-            placeholder={t(tab === CLAUDE_CONFIG_SETTINGS_TAB ? "Search Claude settings" : "Search environment variables")}
+            placeholder={tab === CLAUDE_CONFIG_SETTINGS_TAB ? "Search Claude settings" : "Search environment variables"}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -1444,11 +1424,11 @@ function ClaudeConfigEditorContent({
         <div className="min-w-[150px] shrink-0">
           <SelectControl
             onChange={setConfiguredFilter}
-            options={translateOptions([
+            options={[
               { label: "All items", value: "all" },
               { label: "Configured", value: "configured" },
               { label: "Unset", value: "unset" }
-            ], t)}
+            ]}
             value={configuredFilter}
           />
         </div>
@@ -1463,7 +1443,7 @@ function ClaudeConfigEditorContent({
       <div className="min-h-0 flex-1 overflow-auto bg-background">
         {filteredOptions.length === 0 ? (
           <div className="px-3 py-8 text-center text-[12px] text-muted-foreground">
-            {t(tab === CLAUDE_CONFIG_SETTINGS_TAB ? "No matching Claude settings" : "No matching environment variables")}
+            {tab === CLAUDE_CONFIG_SETTINGS_TAB ? "No matching Claude settings" : "No matching environment variables"}
           </div>
         ) : filteredOptions.map((option) => {
           const inputId = claudeConfigInputId(tab, option.key);
@@ -1485,7 +1465,7 @@ function ClaudeConfigEditorContent({
                   {option.key}
                 </code>
                 {option.valueKind ? <Badge variant="outline">{option.valueKind}</Badge> : null}
-                {active ? <Badge variant="success">{t("Set")}</Badge> : null}
+                {active ? <Badge variant="success">Set</Badge> : null}
               </div>
               {description ? (
                 <div className="text-[11px] leading-4 text-muted-foreground">
@@ -1506,7 +1486,7 @@ function ClaudeConfigEditorContent({
                   <Input
                     className="min-h-8 flex-1 font-mono text-[12px]"
                     disabled={managedOnly}
-                    placeholder={managedOnly ? t("Managed settings can only be set by administrators.") : claudeConfigPlaceholder(option, tab)}
+                    placeholder={managedOnly ? "Managed settings can only be set by administrators." : claudeConfigPlaceholder(option, tab)}
                     value={managedOnly ? "" : rawValue}
                     onChange={(event) =>
                       tab === CLAUDE_CONFIG_SETTINGS_TAB
@@ -1516,14 +1496,14 @@ function ClaudeConfigEditorContent({
                 )}
                 {active ? (
                   <Button
-                    aria-label={`${t("Remove")} ${option.key}`}
+                    aria-label={`Remove ${option.key}`}
                     disabled={managedOnly}
                     onClick={() =>
                       tab === CLAUDE_CONFIG_SETTINGS_TAB
                         ? updateSetting(option, undefined)
                         : updateEnv(option, "")}
                     size="iconSm"
-                    title={t("Remove")}
+                    title="Remove"
                     type="button"
                     variant="ghost"
                   >
@@ -1531,7 +1511,7 @@ function ClaudeConfigEditorContent({
                   </Button>
                 ) : null}
               </div>
-              {inputError ? <ProfileFieldHint>{t(inputError)}</ProfileFieldHint> : null}
+              {inputError ? <ProfileFieldHint>{inputError}</ProfileFieldHint> : null}
             </div>
           );
         })}
@@ -1946,13 +1926,11 @@ function BotGatewaySelectForm({
   onChange: (patch: Partial<AddProfileDraft>) => void;
   onCreateBot: () => void;
 }) {
-  const t = useAppText();
-  const formatError = useAppErrorText();
-  const requiredFieldLabel = t("Required");
+  const requiredFieldLabel = "Required";
   const options = [
-    { label: t("None"), value: "none" },
-    ...botConfigs.map((config) => ({ label: botGatewaySavedConfigLabel(config, t), value: config.id })),
-    { label: t("Add new bot"), value: ADD_BOT_SELECT_VALUE }
+    { label: "None", value: "none" },
+    ...botConfigs.map((config) => ({ label: botGatewaySavedConfigLabel(config), value: config.id })),
+    { label: "Add new bot", value: ADD_BOT_SELECT_VALUE }
   ];
   const selectedValue = draft.botEnabled && draft.botConfigId ? draft.botConfigId : "none";
   const selectedBot = draft.botEnabled
@@ -1969,7 +1947,7 @@ function BotGatewaySelectForm({
       : window.ccr?.scanBotHandoffBluetoothTargets;
     if (!scanner) {
       setScan({
-        error: t("Handoff target scan is available in the Electron app."),
+        error: "Handoff target scan is available in the Electron app.",
         loading: false,
         results: []
       });
@@ -1985,12 +1963,12 @@ function BotGatewaySelectForm({
       });
     } catch (error) {
       setScan({
-        error: formatError(error),
+        error: formatAppError(error),
         loading: false,
         results: []
       });
     }
-  }, [formatError, t]);
+  }, []);
 
   useEffect(() => {
     if (!draft.botEnabled || !draft.botHandoffEnabled || !selectedBot) {
@@ -2038,13 +2016,13 @@ function BotGatewaySelectForm({
     });
   }
 
-  const botScopeHint = t("Bot only forwards messages when opening the APP from LLMR. CLI does not forward messages yet.");
+  const botScopeHint = "Bot only forwards messages when opening the APP from LLMR. CLI does not forward messages yet.";
 
   return (
     <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
       <div className="flex min-w-0 items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="text-[12px] font-medium">{t("Bot")}</span>
+          <span className="text-[12px] font-medium">Bot</span>
           <Tooltip
             content={botScopeHint}
             contentClassName="w-[260px] max-w-[calc(100vw-64px)] whitespace-normal px-2 py-1.5 text-left font-medium leading-4 sm:w-[280px]"
@@ -2066,23 +2044,23 @@ function BotGatewaySelectForm({
       </div>
       {draft.botEnabled ? (
         <div className="mt-3 space-y-3 border-t border-border/70 pt-3">
-          <Field label={t("Select bot")} requirement="required" requirementLabel={requiredFieldLabel}>
+          <Field label="Select bot" requirement="required" requirementLabel={requiredFieldLabel}>
             <SelectControl onChange={updateBot} options={options} value={selectedValue} />
           </Field>
           {selectedBot ? (
             <>
               <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
-                <span className="text-[12px] font-medium">{t("Forward agent messages")}</span>
+                <span className="text-[12px] font-medium">Forward agent messages</span>
                 <Toggle checked={draft.botForwardAllAgentMessages} onChange={(botForwardAllAgentMessages) => onChange({ botForwardAllAgentMessages })} />
               </div>
               <div className="rounded-md border border-border bg-background p-3">
                 <div className="flex min-w-0 items-center justify-between gap-3">
-                  <span className="text-[12px] font-medium">{t("Handoff")}</span>
+                  <span className="text-[12px] font-medium">Handoff</span>
                   <Toggle checked={draft.botHandoffEnabled} onChange={(botHandoffEnabled) => onChange({ botHandoffEnabled })} />
                 </div>
                 {draft.botHandoffEnabled ? (
                   <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border/70 pt-3 sm:grid-cols-2">
-                    <Field label={t("Idle seconds")} requirement="required" requirementLabel={requiredFieldLabel}>
+                    <Field label="Idle seconds" requirement="required" requirementLabel={requiredFieldLabel}>
                       <Input
                         min={30}
                         max={86400}
@@ -2092,7 +2070,7 @@ function BotGatewaySelectForm({
                       />
                     </Field>
                     <HandoffTargetPicker
-                      label={t("Phone Wi-Fi target")}
+                      label="Phone Wi-Fi target"
                       scan={wifiScan}
                       selectedTarget={firstHandoffTarget(draft.botHandoffPhoneWifiTargets)}
                       onRefresh={() => void scanHandoffTargets("wifi")}
@@ -2100,14 +2078,14 @@ function BotGatewaySelectForm({
                     />
                     <HandoffTargetPicker
                       className="sm:col-span-2"
-                      label={t("Phone Bluetooth target")}
+                      label="Phone Bluetooth target"
                       scan={bluetoothScan}
                       selectedTarget={firstHandoffTarget(draft.botHandoffPhoneBluetoothTargets)}
                       onRefresh={() => void scanHandoffTargets("bluetooth")}
                       onSelect={(botHandoffPhoneBluetoothTargets) => onChange({ botHandoffPhoneBluetoothTargets })}
                     />
                     <div className="sm:col-span-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] leading-4 text-amber-700 dark:text-amber-300">
-                      {t("Phone presence targets are experimental and do not affect runtime handoff yet. Handoff currently uses screen lock and idle time.")}
+                      Phone presence targets are experimental and do not affect runtime handoff yet. Handoff currently uses screen lock and idle time.
                     </div>
                   </div>
                 ) : null}
@@ -2135,7 +2113,6 @@ function HandoffTargetPicker({
   onRefresh: () => void;
   onSelect: (targetValue: string) => void;
 }) {
-  const t = useAppText();
   const options = selectedTarget && !scan.results.some((target) => handoffTargetMatchesSavedValue(target, selectedTarget))
     ? [
         {
@@ -2149,14 +2126,14 @@ function HandoffTargetPicker({
       ]
     : scan.results;
   const placeholderText = scan.loading
-    ? t("Scanning targets")
+    ? "Scanning targets"
     : options.length > 0
-      ? t("Select a scanned target")
-      : t("No targets found");
+      ? "Select a scanned target"
+      : "No targets found";
   const selectedOption = options.find((target) => handoffTargetMatchesSavedValue(target, selectedTarget));
   const selectValue = selectedTarget || HANDOFF_TARGET_NONE_VALUE;
   const selectOptions = [
-    ...(selectedTarget ? [{ label: t("None"), value: HANDOFF_TARGET_NONE_VALUE }] : []),
+    ...(selectedTarget ? [{ label: "None", value: HANDOFF_TARGET_NONE_VALUE }] : []),
     ...(!selectedTarget ? [{ disabled: true, label: placeholderText, value: HANDOFF_TARGET_NONE_VALUE }] : []),
     ...options.map((target) => ({
       label: handoffTargetSelectionText(target),
@@ -2177,10 +2154,10 @@ function HandoffTargetPicker({
         />
         <Button
           className="h-8 w-8 border-0 bg-transparent p-0 shadow-none hover:bg-transparent"
-          aria-label={t("Refresh targets")}
+          aria-label="Refresh targets"
           disabled={scan.loading}
           onClick={onRefresh}
-          title={t("Refresh targets")}
+          title="Refresh targets"
           type="button"
           unstyled
         >
@@ -2255,7 +2232,6 @@ export function AddProfileDialog({
   virtualModelProfiles?: VirtualModelProfileConfig[];
   onSubmit: () => Promise<boolean> | boolean | void;
 }) {
-  const t = useAppText();
   const { close, confirmation } = useDraftClose(draft, onClose);
 
   return (
@@ -2264,7 +2240,7 @@ export function AddProfileDialog({
       <DialogContent>
         <DialogHeader>
           <div>
-            <DialogTitle>{mode === "edit" ? t("Edit Profile") : t("Add Profile")}</DialogTitle>
+            <DialogTitle>{mode === "edit" ? "Edit Profile" : "Add Profile"}</DialogTitle>
           </div>
         </DialogHeader>
         <DialogBody>
@@ -2283,7 +2259,7 @@ export function AddProfileDialog({
         <DialogFooter>
           <div className="flex justify-end gap-2">
             <Button disabled={submitting} onClick={close} type="button" variant="outline">
-              {t("Cancel")}
+              Cancel
             </Button>
             <Button disabled={!canSubmit || submitting} onClick={() => void onSubmit()} type="button">
               {submitting || mode === "add" ? (
@@ -2291,7 +2267,7 @@ export function AddProfileDialog({
                   {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 </AnimatedIconSwap>
               ) : null}
-              {mode === "edit" ? t("Save") : t("Add")}
+              {mode === "edit" ? "Save" : "Add"}
             </Button>
           </div>
         </DialogFooter>

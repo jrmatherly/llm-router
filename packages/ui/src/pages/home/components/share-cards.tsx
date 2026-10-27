@@ -1,8 +1,7 @@
 import {
   Button, cn, Download, formatCompactNumber, formatDuration, formatPercent, formatProviderAccountMeterTitle,
   formatProviderAccountMeterValue, formatUsdCost, LoaderCircle, primaryProviderAccountMeter, providerAccountMeterRemainingRatio,
-  providerAccountSnapshotKey, rangeLabel, ReactNode, UsageStatsRange, UsageStatsSnapshot, useRef, useState,
-  useAppText, type OverviewWidgetType, type ProviderAccountMeter, type ProviderAccountSnapshot
+  providerAccountSnapshotKey, rangeLabel, ReactNode, UsageStatsRange, UsageStatsSnapshot, useRef, useState, type OverviewWidgetType, type ProviderAccountMeter, type ProviderAccountSnapshot
 } from "../shared/index";
 import { productShortName } from "../shared/brand";
 import { buildTokenActivity, type TokenActivityCell } from "@/lib/usage-activity";
@@ -99,7 +98,6 @@ export function ShareCardWidget({
   usageRange,
   usageStats
 }: ShareCardWidgetProps) {
-  const t = useAppText();
   const definition = shareCardDefinition(type);
 
   if (!definition) {
@@ -107,7 +105,7 @@ export function ShareCardWidget({
   }
 
   return (
-    <ShareCardShell fileName={definition.fileName} title={t(definition.title)}>
+    <ShareCardShell fileName={definition.fileName} title={definition.title}>
       {type === "share-usage-wrapped" ? <UsageWrappedCard usageStats={usageStats} /> : null}
       {type === "share-route-map" ? <RouteMapCard usageStats={usageStats} /> : null}
       {type === "share-model-leaderboard" ? <ModelLeaderboardCard usageStats={usageStats} /> : null}
@@ -137,7 +135,6 @@ function ShareCardShell({
   fileName: string;
   title: string;
 }) {
-  const t = useAppText();
   const cardRef = useRef<HTMLDivElement>(null);
   const exportCardRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
@@ -185,12 +182,12 @@ function ShareCardShell({
       <div className="flex min-w-0 items-center justify-between gap-2">
         <div className="min-w-0 truncate text-[12px] font-semibold text-muted-foreground">{title}</div>
         <div className="flex shrink-0 items-center gap-2">
-          {status === "error" ? <span className="text-[11px] font-medium text-destructive">{t("Export failed")}</span> : null}
+          {status === "error" ? <span className="text-[11px] font-medium text-destructive">Export failed</span> : null}
           <Button
-            aria-label={status === "saving" ? t("Saving") : t("Save image")}
+            aria-label={status === "saving" ? "Saving" : "Save image"}
             className="inline-flex items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25 disabled:pointer-events-none disabled:opacity-45"
             disabled={status === "saving"}
-            title={status === "saving" ? t("Saving") : t("Save image")}
+            title={status === "saving" ? "Saving" : "Save image"}
             type="button"
             unstyled
             onClick={() => void saveImage()}
@@ -221,7 +218,6 @@ function ShareCardShell({
 }
 
 function UsageWrappedCard({ usageStats }: { usageStats: UsageStatsSnapshot }) {
-  const t = useAppText();
   const totals = usageStats.totals;
   const topModel = usageStats.models[0];
   const topProvider = usageStats.providerModels[0];
@@ -230,21 +226,21 @@ function UsageWrappedCard({ usageStats }: { usageStats: UsageStatsSnapshot }) {
 
   return (
     <SharePoster tone="teal">
-      <SharePosterHeader title={t("AI Usage Wrapped")} tone="teal" />
+      <SharePosterHeader title="AI Usage Wrapped" tone="teal" />
       <div className="mt-8">
         <div className="text-[60px] font-black leading-none tracking-normal text-teal-950">{formatCompactNumber(totals.totalTokens)}</div>
-        <div className="mt-2 text-[17px] font-semibold text-teal-950/70">{t("tokens routed through LLMR")}</div>
+        <div className="mt-2 text-[17px] font-semibold text-teal-950/70">tokens routed through LLMR</div>
       </div>
       <div className="mt-8 grid grid-cols-2 gap-3">
-        <PosterStat label={t("Requests")} value={formatCompactNumber(totals.requestCount)} />
-        <PosterStat label={t("Estimated cost")} value={formatUsdCost(totals.costUsd)} />
-        <PosterStat label={t("Cache ratio")} value={formatPercent(totals.cacheRatio)} />
-        <PosterStat label={t("Longest streak")} value={`${formatCompactNumber(activity.longestStreak)} ${t(activity.longestStreak === 1 ? "day" : "days")}`} />
+        <PosterStat label="Requests" value={formatCompactNumber(totals.requestCount)} />
+        <PosterStat label="Estimated cost" value={formatUsdCost(totals.costUsd)} />
+        <PosterStat label="Cache ratio" value={formatPercent(totals.cacheRatio)} />
+        <PosterStat label="Longest streak" value={`${formatCompactNumber(activity.longestStreak)} ${activity.longestStreak === 1 ? "day" : "days"}`} />
       </div>
       <div className="mt-8 grid gap-3">
-        <PosterHighlight label={t("Top model")} value={topModel?.label ?? t("No model activity")} />
-        <PosterHighlight label={t("Top provider")} value={topProvider?.provider || topProvider?.label || t("No provider activity")} />
-        <PosterHighlight label={t("Peak day")} value={bestDay ? `${bestDay.label} / ${formatCompactNumber(bestDay.totalTokens)}` : "-"} />
+        <PosterHighlight label="Top model" value={topModel?.label ?? "No model activity"} />
+        <PosterHighlight label="Top provider" value={topProvider?.provider || topProvider?.label || "No provider activity"} />
+        <PosterHighlight label="Peak day" value={bestDay ? `${bestDay.label} / ${formatCompactNumber(bestDay.totalTokens)}` : "-"} />
       </div>
       <SharePosterFooter tone="teal" />
     </SharePoster>
@@ -252,18 +248,17 @@ function UsageWrappedCard({ usageStats }: { usageStats: UsageStatsSnapshot }) {
 }
 
 export function RouteMapCard({ usageStats }: { usageStats: UsageStatsSnapshot }) {
-  const t = useAppText();
-  const routes = buildRouteRows(usageStats, t);
+  const routes = buildRouteRows(usageStats);
   const total = routes.reduce((sum, row) => sum + row.value, 0) || 1;
 
   return (
     <SharePoster tone="indigo">
-      <SharePosterHeader title={t("LLMR Route Map")} tone="indigo" />
+      <SharePosterHeader title="LLMR Route Map" tone="indigo" />
       <div className="mt-7 rounded-[22px] border border-indigo-200/80 bg-white/62 p-4 shadow-[0_16px_34px_rgba(79,70,229,0.10)]">
         <div className="grid grid-cols-[1fr_64px_1fr] items-center gap-3 text-center text-[10px] font-bold uppercase text-indigo-950/55">
-          <span>{t("Client")}</span>
+          <span>Client</span>
           <span>{productShortName}</span>
-          <span>{t("Model")}</span>
+          <span>Model</span>
         </div>
         <div className="mt-4 space-y-3">
           {routes.length > 0 ? routes.slice(0, 5).map((route, index) => {
@@ -281,15 +276,15 @@ export function RouteMapCard({ usageStats }: { usageStats: UsageStatsSnapshot })
             );
           }) : (
             <div className="rounded-[18px] border border-dashed border-indigo-300 bg-indigo-50/60 px-4 py-12 text-center text-[14px] font-semibold text-indigo-950/55">
-              {t("No route activity")}
+              No route activity
             </div>
           )}
         </div>
       </div>
       <div className="mt-6 grid grid-cols-3 gap-2">
-        <MiniRouteMetric label={t("Clients")} value={formatCompactNumber(uniqueCount(routes.map((row) => row.client)))} />
-        <MiniRouteMetric label={t("Providers")} value={formatCompactNumber(uniqueCount(routes.map((row) => row.provider)))} />
-        <MiniRouteMetric label={t("Models")} value={formatCompactNumber(uniqueCount(routes.map((row) => row.model)))} />
+        <MiniRouteMetric label="Clients" value={formatCompactNumber(uniqueCount(routes.map((row) => row.client)))} />
+        <MiniRouteMetric label="Providers" value={formatCompactNumber(uniqueCount(routes.map((row) => row.provider)))} />
+        <MiniRouteMetric label="Models" value={formatCompactNumber(uniqueCount(routes.map((row) => row.model)))} />
       </div>
       <SharePosterFooter tone="indigo" />
     </SharePoster>
@@ -297,13 +292,12 @@ export function RouteMapCard({ usageStats }: { usageStats: UsageStatsSnapshot })
 }
 
 function ModelLeaderboardCard({ usageStats }: { usageStats: UsageStatsSnapshot }) {
-  const t = useAppText();
   const rows = usageStats.models.filter((row) => row.totalTokens > 0).slice(0, 5);
   const max = Math.max(...rows.map((row) => row.totalTokens), 1);
 
   return (
     <SharePoster tone="blue">
-      <SharePosterHeader title={t("Model Leaderboard")} tone="blue" />
+      <SharePosterHeader title="Model Leaderboard" tone="blue" />
       <div className="mt-7 space-y-3">
         {rows.length > 0 ? rows.map((row, index) => (
           <div className="rounded-[20px] border border-blue-200/80 bg-white/66 p-3 shadow-[0_12px_28px_rgba(37,99,235,0.10)]" key={row.key}>
@@ -311,7 +305,7 @@ function ModelLeaderboardCard({ usageStats }: { usageStats: UsageStatsSnapshot }
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-blue-600 text-[17px] font-black text-white">{index + 1}</span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[15px] font-black text-blue-950">{row.label}</div>
-                <div className="mt-0.5 truncate text-[11px] font-semibold text-blue-950/55">{row.provider ?? t("All providers")}</div>
+                <div className="mt-0.5 truncate text-[11px] font-semibold text-blue-950/55">{row.provider ?? "All providers"}</div>
               </div>
               <div className="shrink-0 text-right">
                 <div className="text-[16px] font-black text-blue-950">{formatPercent(row.maxShare)}</div>
@@ -323,7 +317,7 @@ function ModelLeaderboardCard({ usageStats }: { usageStats: UsageStatsSnapshot }
             </div>
           </div>
         )) : (
-          <EmptyPosterState label={t("No model activity")} tone="blue" />
+          <EmptyPosterState label="No model activity" tone="blue" />
         )}
       </div>
       <SharePosterFooter tone="blue" />
@@ -332,7 +326,6 @@ function ModelLeaderboardCard({ usageStats }: { usageStats: UsageStatsSnapshot }
 }
 
 function FuelCockpitCard({ providerAccounts }: { providerAccounts: ProviderAccountSnapshot[] }) {
-  const t = useAppText();
   const accountRows = providerAccounts
     .filter((account) => account.meters.length > 0)
     .map((account) => ({
@@ -344,7 +337,7 @@ function FuelCockpitCard({ providerAccounts }: { providerAccounts: ProviderAccou
 
   return (
     <SharePoster tone="emerald">
-      <SharePosterHeader title={t("AI Fuel Cockpit")} tone="emerald" />
+      <SharePosterHeader title="AI Fuel Cockpit" tone="emerald" />
       <div className="mt-7 grid gap-4">
         {accountRows.length > 0 ? accountRows.map(({ account, meter }, index) => {
           const ratio = providerAccountMeterRemainingRatio(meter) ?? (meter.kind === "balance" ? 1 : 0);
@@ -352,14 +345,14 @@ function FuelCockpitCard({ providerAccounts }: { providerAccounts: ProviderAccou
             <div className="grid grid-cols-[112px_minmax(0,1fr)] items-center gap-4 rounded-[22px] border border-emerald-200/80 bg-white/66 p-4 shadow-[0_14px_30px_rgba(5,150,105,0.10)]" key={providerAccountSnapshotKey(account)}>
               <CircularGauge color={index === 0 ? "#059669" : index === 1 ? "#2563eb" : "#d97706"} ratio={ratio} value={formatPercent(ratio)} />
               <div className="min-w-0">
-                <div className="truncate text-[16px] font-black text-emerald-950">{safeProviderName(account.provider, t)}</div>
-                <div className="mt-1 truncate text-[12px] font-semibold text-emerald-950/58">{formatProviderAccountMeterTitle(meter, t)}</div>
+                <div className="truncate text-[16px] font-black text-emerald-950">{safeProviderName(account.provider)}</div>
+                <div className="mt-1 truncate text-[12px] font-semibold text-emerald-950/58">{formatProviderAccountMeterTitle(meter)}</div>
                 <div className="mt-3 text-[26px] font-black leading-none text-emerald-950">{formatProviderAccountMeterValue(meter)}</div>
               </div>
             </div>
           );
         }) : (
-          <EmptyPosterState label={t("No account balance connectors configured")} tone="emerald" />
+          <EmptyPosterState label="No account balance connectors configured" tone="emerald" />
         )}
       </div>
       <SharePosterFooter tone="emerald" />
@@ -368,12 +361,11 @@ function FuelCockpitCard({ providerAccounts }: { providerAccounts: ProviderAccou
 }
 
 function TokenCalendarPosterCard({ usageStats }: { usageStats: UsageStatsSnapshot }) {
-  const t = useAppText();
   const activity = buildTokenActivity(usageStats.series, { maxWeeks: 26, minWeeks: 18 });
 
   return (
     <SharePoster tone="rose">
-      <SharePosterHeader title={t("Token Calendar Poster")} tone="rose" />
+      <SharePosterHeader title="Token Calendar Poster" tone="rose" />
       <div className="mt-7 rounded-[22px] border border-rose-200/80 bg-white/66 p-4 shadow-[0_14px_30px_rgba(225,29,72,0.10)]">
         <div
           className="grid"
@@ -397,12 +389,12 @@ function TokenCalendarPosterCard({ usageStats }: { usageStats: UsageStatsSnapsho
         </div>
       </div>
       <div className="mt-5 grid grid-cols-3 gap-2">
-        <PosterStat label={t("Longest streak")} value={`${formatCompactNumber(activity.longestStreak)}d`} />
-        <PosterStat label={t("Avg / day")} value={formatCompactNumber(Math.round(activity.avgPerDay))} />
-        <PosterStat label={t("Total")} value={formatCompactNumber(activity.totalTokens)} />
+        <PosterStat label="Longest streak" value={`${formatCompactNumber(activity.longestStreak)}d`} />
+        <PosterStat label="Avg / day" value={formatCompactNumber(Math.round(activity.avgPerDay))} />
+        <PosterStat label="Total" value={formatCompactNumber(activity.totalTokens)} />
       </div>
       <div className="mt-5 flex items-center gap-2 text-[12px] font-bold text-rose-950/62">
-        <span>{t("Less")}</span>
+        <span>Less</span>
         {[0, 1, 2, 3, 4].map((intensity) => (
           <span
             className="h-4 w-4 rounded-[5px]"
@@ -410,7 +402,7 @@ function TokenCalendarPosterCard({ usageStats }: { usageStats: UsageStatsSnapsho
             style={{ backgroundColor: calendarColor(intensity as TokenActivityCell["intensity"], true) }}
           />
         ))}
-        <span>{t("More")}</span>
+        <span>More</span>
       </div>
       <SharePosterFooter tone="rose" />
     </SharePoster>
@@ -424,25 +416,24 @@ function SpendReceiptCard({
   usageRange: UsageStatsRange;
   usageStats: UsageStatsSnapshot;
 }) {
-  const t = useAppText();
   const totals = usageStats.totals;
   const rows = [
-    { label: t("Range"), value: rangeLabel(usageRange, t) },
-    { label: t("Requests"), value: formatCompactNumber(totals.requestCount) },
-    { label: t("Input tokens"), value: formatCompactNumber(totals.inputTokens) },
-    { label: t("Output tokens"), value: formatCompactNumber(totals.outputTokens) },
-    { label: t("Cache tokens"), value: formatCompactNumber(totals.cacheTokens) },
-    { label: t("Average latency"), value: formatDuration(totals.avgDurationMs) },
-    { label: t("Success rate"), value: formatPercent(totals.successRate) }
+    { label: "Range", value: rangeLabel(usageRange) },
+    { label: "Requests", value: formatCompactNumber(totals.requestCount) },
+    { label: "Input tokens", value: formatCompactNumber(totals.inputTokens) },
+    { label: "Output tokens", value: formatCompactNumber(totals.outputTokens) },
+    { label: "Cache tokens", value: formatCompactNumber(totals.cacheTokens) },
+    { label: "Average latency", value: formatDuration(totals.avgDurationMs) },
+    { label: "Success rate", value: formatPercent(totals.successRate) }
   ];
 
   return (
     <SharePoster tone="slate">
-      <SharePosterHeader title={t("Spend Receipt")} tone="slate" />
+      <SharePosterHeader title="Spend Receipt" tone="slate" />
       <div className="mt-7 rounded-[22px] border border-slate-300 bg-white/74 p-5 shadow-[0_16px_34px_rgba(71,85,105,0.12)]">
         <div className="border-b border-dashed border-slate-300 pb-4 text-center">
           <div className="text-[40px] font-black leading-none text-slate-950">{formatUsdCost(totals.costUsd)}</div>
-          <div className="mt-2 text-[12px] font-bold uppercase text-slate-500">{t("Estimated cost")}</div>
+          <div className="mt-2 text-[12px] font-bold uppercase text-slate-500">Estimated cost</div>
         </div>
         <div className="mt-4 space-y-2 border-b border-dashed border-slate-300 pb-4">
           {rows.map((row) => (
@@ -453,7 +444,7 @@ function SpendReceiptCard({
           ))}
         </div>
         <div className="mt-4 flex items-center justify-between gap-4">
-          <div className="text-[11px] font-bold uppercase text-slate-500">{t("Total tokens")}</div>
+          <div className="text-[11px] font-bold uppercase text-slate-500">Total tokens</div>
           <div className="text-[30px] font-black leading-none text-slate-950">{formatCompactNumber(totals.totalTokens)}</div>
         </div>
       </div>
@@ -505,11 +496,10 @@ export function SharePosterHeader({
 }
 
 function SharePosterFooter({ tone }: { tone: ShareCardTone }) {
-  const t = useAppText();
   const theme = shareCardTones[tone];
   return (
     <div className={cn("mt-auto flex min-w-0 items-center justify-between gap-3 pt-5 text-[11px] font-black uppercase tracking-[0.12em]", theme.muted)}>
-      <span>{t("Generated by LLMR")}</span>
+      <span>Generated by LLMR</span>
       <span>{new Date().getFullYear()}</span>
     </div>
   );
@@ -585,13 +575,13 @@ function CircularGauge({ color, ratio, value }: { color: string; ratio: number; 
   );
 }
 
-function buildRouteRows(usageStats: UsageStatsSnapshot, translate: (value: string) => string): Array<{ client: string; model: string; provider: string; value: number }> {
+function buildRouteRows(usageStats: UsageStatsSnapshot): Array<{ client: string; model: string; provider: string; value: number }> {
   const rows = usageStats.clientModels
     .filter((row) => row.totalTokens > 0)
     .map((row) => ({
-      client: row.client || row.label || translate("Agent"),
+      client: row.client || row.label || "Agent",
       model: row.model || modelNameFromLabel(row.label),
-      provider: row.provider || translate("Provider"),
+      provider: row.provider || "Provider",
       value: row.totalTokens
     }));
 
@@ -602,9 +592,9 @@ function buildRouteRows(usageStats: UsageStatsSnapshot, translate: (value: strin
   return usageStats.models
     .filter((row) => row.totalTokens > 0)
     .map((row) => ({
-      client: translate("Agent"),
+      client: "Agent",
       model: row.model || row.label,
-      provider: row.provider || translate("Provider"),
+      provider: row.provider || "Provider",
       value: row.totalTokens
     }))
     .sort((a, b) => b.value - a.value);
@@ -621,8 +611,8 @@ function fuelMeter(account: ProviderAccountSnapshot): ProviderAccountMeter | und
     .sort((a, b) => (providerAccountMeterRemainingRatio(a) ?? 1) - (providerAccountMeterRemainingRatio(b) ?? 1))[0] ?? primaryProviderAccountMeter(account);
 }
 
-function safeProviderName(value: string, translate: (value: string) => string): string {
-  return value.trim() || translate("Provider");
+function safeProviderName(value: string): string {
+  return value.trim() || "Provider";
 }
 
 function uniqueCount(values: string[]): number {

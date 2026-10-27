@@ -1,4 +1,5 @@
 import type { GatewayStatus } from "@ccr/core/contracts/app";
+import { formatAppError } from "./i18n";
 
 export function endpointFromHostPort(host: string, port: number): string {
   const trimmedHost = host.trim() || "127.0.0.1";
@@ -17,26 +18,10 @@ export function gatewayServiceMessage(status: GatewayStatus, stopped: boolean): 
   return status.lastError || "Service did not start.";
 }
 
-export function translateProxyCertificateMessage(message: string | undefined, translate: (value: string) => string): string {
-  if (!message) {
-    return "";
+export function openExternalUrl(url: string, onError: (message: string) => void) {
+  if (window.ccr?.openExternal) {
+    void window.ccr.openExternal(url).catch((error) => onError(formatAppError(error)));
+    return;
   }
-
-  const notTrustedPrefix = "Proxy CA certificate is not trusted: ";
-  if (message.startsWith(notTrustedPrefix)) {
-    return `${translate("Proxy CA certificate is not trusted:")} ${message.slice(notTrustedPrefix.length)}`;
-  }
-
-  const macosAuthorizationPrefix = "macOS did not allow LLMR to request administrator authorization: ";
-  if (message.startsWith(macosAuthorizationPrefix)) {
-    return `${translate("macOS did not allow LLMR to request administrator authorization:")} ${translateMacosAuthorizationDetail(message.slice(macosAuthorizationPrefix.length), translate)}`;
-  }
-
-  return translate(message);
-}
-
-export function translateMacosAuthorizationDetail(detail: string, translate: (value: string) => string): string {
-  return detail
-    .replace(" Opened Terminal installer:", ` ${translate("Opened Terminal installer:")}`)
-    .replace(" Could not open Terminal installer:", ` ${translate("Could not open Terminal installer:")}`);
+  window.open(url, "_blank", "noopener,noreferrer");
 }

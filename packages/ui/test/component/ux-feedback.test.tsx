@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogTitle } from "@ccr/ui/components/ui/dialog
 import { OverviewView } from "@ccr/ui/pages/home/components/dashboard.tsx";
 import { FeedbackStack, LightToast, PersistenceFeedback } from "@ccr/ui/pages/home/components/feedback.tsx";
 import { normalizeOverviewWidget, normalizeOverviewWidgets } from "@ccr/ui/pages/home/shared/common.ts";
-import { AppI18nContext, appCopy } from "@ccr/ui/pages/home/shared/i18n.tsx";
 import { createEmptyUsageStats } from "@ccr/ui/pages/home/shared/usage.ts";
 
 test("dialog accessible name refers to its rendered title", () => {
@@ -20,9 +19,7 @@ test("dialog accessible name refers to its rendered title", () => {
 
 test("failed saves expose an actionable alert and collapsed diagnostic details", () => {
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy}>
-      <PersistenceFeedback actionError="" disconnected={false} error="Storage unavailable" onDismissAction={() => {}} onRetry={() => {}} state="error" />
-    </AppI18nContext.Provider>
+    <PersistenceFeedback actionError="" disconnected={false} error="Storage unavailable" onDismissAction={() => {}} onRetry={() => {}} state="error" />
   );
   assert.match(html, /role="alert"/);
   assert.match(html, /Changes have not been saved\./);
@@ -33,12 +30,10 @@ test("failed saves expose an actionable alert and collapsed diagnostic details",
 
 test("global feedback stack keeps save feedback and toast notifications at the top", () => {
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy}>
-      <FeedbackStack>
-        <PersistenceFeedback actionError="" contained disconnected={false} error="" onDismissAction={() => {}} onRetry={() => {}} state="saving" />
-        <LightToast contained toast={{ id: 1, message: "Copied" }} />
-      </FeedbackStack>
-    </AppI18nContext.Provider>
+    <FeedbackStack>
+      <PersistenceFeedback actionError="" contained disconnected={false} error="" onDismissAction={() => {}} onRetry={() => {}} state="saving" />
+      <LightToast contained toast={{ id: 1, message: "Copied" }} />
+    </FeedbackStack>
   );
   assert.match(html, /fixed left-1\/2 top-5/);
   assert.match(html, /Saving changes/);

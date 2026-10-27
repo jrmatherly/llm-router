@@ -5,11 +5,11 @@ import {
   CardHeader, Check, CircleAlert, clampNumber, cn, createRouteModelOptions, createRoutingRewriteDraftRow,
   Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle,
   disclosureSpringTransition, Field, formatRouterRuleCondition, formatRouterRuleTarget, GatewayProviderConfig, Input,
-  ExternalLink, FolderOpen, motion, normalizeRouteScriptSampleRequest, normalizeRouterFallbackConfig, Pencil, Plus, Route, RouterFallbackConfig,
+  ExternalLink, FolderOpen, motion, normalizeRouteScriptSampleRequest, normalizeRouterFallbackConfig, openExternalUrl, Pencil, Plus, Route, RouterFallbackConfig,
   RouterFallbackMode, routerConditionSourceOptions, routerFallbackModeOptions, RouterRule, routerRewriteOperationOptions, routerRuleOperatorOptions,
   routerRuleTypeOptions,
-  RouteTargetControl, routingRuleRowMatchesQuery, Search, SelectControl, Toggle, translateOptions,
-  Textarea, Trash2, uniqueStrings, useAppText, useMemo, useRef, useState, X
+  RouteTargetControl, routingRuleRowMatchesQuery, Search, SelectControl, Toggle,
+  Textarea, Trash2, uniqueStrings, useMemo, useRef, useState, X
 } from "../shared/index";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
@@ -36,7 +36,6 @@ export function RoutingView({
   updateFallback: (fallback: RouterFallbackConfig) => void;
   updateRule: (index: number, patch: Partial<RouterRule>) => void;
 }) {
-  const t = useAppText();
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
   const rows = useMemo(() => buildRoutingRuleRows(config), [config]);
@@ -58,23 +57,23 @@ export function RoutingView({
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label={t("Search routing rules")}
+              aria-label="Search routing rules"
               className="pl-8"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search routing rules")}
+              placeholder="Search routing rules"
               value={query}
             />
           </div>
-          <Button aria-label={t("Add routing rule")} onClick={addRule} title={t("Add routing rule")} type="button">
+          <Button aria-label="Add routing rule" onClick={addRule} title="Add routing rule" type="button">
             <Plus className="h-4 w-4" />
-            {t("Add")}
+            Add
           </Button>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 overflow-auto p-0">
           <div className="border-b border-border/60 px-4 py-3">
             <RouterFallbackControl
               fallback={fallback}
-              label={t("Default on failure")}
+              label="Default on failure"
               onChange={updateFallback}
               providers={providers}
             />
@@ -82,29 +81,29 @@ export function RoutingView({
           {rows.length === 0 ? (
             <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center">
               <Route className="mx-auto mb-2 h-7 w-7 text-muted-foreground/40" />
-              <div className="text-[12px] text-muted-foreground">{t("No routing rules configured")}</div>
-              <div className="mt-1 text-[11px] text-muted-foreground/60">{t("Click Add to create one")}</div>
+              <div className="text-[12px] text-muted-foreground">No routing rules configured</div>
+              <div className="mt-1 text-[11px] text-muted-foreground/60">Click Add to create one</div>
             </div>
           ) : null}
           {rows.length > 0 && visibleRules.length === 0 ? (
-            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">{t("No matching routing rules")}</div>
+            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">No matching routing rules</div>
           ) : null}
           {visibleRules.length > 0 ? (
             <div className="min-w-0">
               <div className="min-w-[940px]">
                 <div className="sticky top-0 z-10 grid h-10 grid-cols-[minmax(160px,0.8fr)_minmax(220px,1fr)_minmax(240px,1.15fr)_84px_148px] items-center gap-3 border-b border-border/60 bg-muted/95 px-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  <div className="truncate">{t("Name")}</div>
-                  <div className="truncate">{t("Condition")}</div>
-                  <div className="truncate">{t("Request action")}</div>
-                  <div className="truncate">{t("Status")}</div>
-                  <div className="truncate text-right">{t("Action")}</div>
+                  <div className="truncate">Name</div>
+                  <div className="truncate">Condition</div>
+                  <div className="truncate">Request action</div>
+                  <div className="truncate">Status</div>
+                  <div className="truncate text-right">Action</div>
                 </div>
                 <div className="divide-y divide-border/60">
                   <AnimatePresence initial={false}>
                   {visibleRules.map((row) => {
                     const rowSourceLabel = row.sourceLabel;
-                    const rowTarget = row.target === "Profile model unset" ? t(row.target) : row.target;
-                    const toggleDisabledReason = row.toggleDisabledReason ? t(row.toggleDisabledReason) : undefined;
+                    const rowTarget = row.target === "Profile model unset" ? row.target : row.target;
+                    const toggleDisabledReason = row.toggleDisabledReason ? row.toggleDisabledReason : undefined;
                     return (
                       <AnimatedListItem
                         className="grid min-h-[58px] grid-cols-[minmax(160px,0.8fr)_minmax(220px,1fr)_minmax(240px,1.15fr)_84px_148px] items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/35"
@@ -112,8 +111,8 @@ export function RoutingView({
                       >
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
-                          <div className="truncate text-[12px] font-semibold">{row.name || t("Unnamed")}</div>
-                          {row.readonly ? <Badge variant="outline">{t("Plugin")}</Badge> : null}
+                          <div className="truncate text-[12px] font-semibold">{row.name || "Unnamed"}</div>
+                          {row.readonly ? <Badge variant="outline">Plugin</Badge> : null}
                         </div>
                         <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground" title={`${rowSourceLabel}: ${row.ruleId}`}>
                           {rowSourceLabel}: {row.ruleId}
@@ -121,7 +120,7 @@ export function RoutingView({
                       </div>
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
-                          <Badge variant="outline">{t(row.typeLabel)}</Badge>
+                          <Badge variant="outline">{row.typeLabel}</Badge>
                           <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground" title={row.condition}>
                             {row.condition}
                           </span>
@@ -152,14 +151,14 @@ export function RoutingView({
                         </Tooltip>
                       </div>
                       <div className="flex items-center justify-end gap-1">
-                        <Button aria-label={`${t("Move")} ${row.name || t("rule")} ${t("up")}`} disabled={row.readonly || row.index === undefined || row.index === 0} onClick={() => row.index !== undefined && moveRule(row.index, -1)} size="iconSm" title={t("Move up")} type="button" variant="ghost">
+                        <Button aria-label={`Move ${row.name || "rule"} up`} disabled={row.readonly || row.index === undefined || row.index === 0} onClick={() => row.index !== undefined && moveRule(row.index, -1)} size="iconSm" title="Move up" type="button" variant="ghost">
                           <ArrowUp className="h-3.5 w-3.5" />
                         </Button>
-                        <Button aria-label={`${t("Move")} ${row.name || t("rule")} ${t("down")}`} disabled={row.readonly || row.index === undefined || row.index === row.ruleCount - 1} onClick={() => row.index !== undefined && moveRule(row.index, 1)} size="iconSm" title={t("Move down")} type="button" variant="ghost">
+                        <Button aria-label={`Move ${row.name || "rule"} down`} disabled={row.readonly || row.index === undefined || row.index === row.ruleCount - 1} onClick={() => row.index !== undefined && moveRule(row.index, 1)} size="iconSm" title="Move down" type="button" variant="ghost">
                           <ArrowDown className="h-3.5 w-3.5" />
                         </Button>
                         <Button
-                          aria-label={`${t("Edit")} ${row.name || t("rule")}`}
+                          aria-label={`Edit ${row.name || "rule"}`}
                           disabled={row.readonly || row.index === undefined}
                           onClick={() => {
                             if (row.index !== undefined) {
@@ -167,13 +166,13 @@ export function RoutingView({
                             }
                           }}
                           size="iconSm"
-                          title={t("Edit rule")}
+                          title="Edit rule"
                           type="button"
                           variant="ghost"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button aria-label={`${t("Remove")} ${row.name || t("rule")}`} disabled={row.readonly || row.index === undefined} onClick={() => row.index !== undefined && removeRule(row.index)} size="iconSm" title={t("Remove rule")} type="button" variant="ghost">
+                        <Button aria-label={`Remove ${row.name || "rule"}`} disabled={row.readonly || row.index === undefined} onClick={() => row.index !== undefined && removeRule(row.index)} size="iconSm" title="Remove rule" type="button" variant="ghost">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -191,14 +190,6 @@ export function RoutingView({
   );
 }
 
-function openExternalUrl(url: string) {
-  if (window.ccr?.openExternal) {
-    void window.ccr.openExternal(url).catch(() => undefined);
-    return;
-  }
-  window.open(url, "_blank", "noopener,noreferrer");
-}
-
 export function RouterFallbackControl({
   className,
   fallback,
@@ -212,10 +203,9 @@ export function RouterFallbackControl({
   onChange: (fallback: RouterFallbackConfig) => void;
   providers: GatewayProviderConfig[];
 }) {
-  const t = useAppText();
   const [fallbackModelDraft, setFallbackModelDraft] = useState("");
   const modelOptions = useMemo(() => createRouteModelOptions(providers), [providers]);
-  const fallbackModeOptions = translateOptions(routerFallbackModeOptions, t);
+  const fallbackModeOptions = routerFallbackModeOptions;
 
   function updateFallbackPatch(patch: Partial<RouterFallbackConfig>) {
     onChange(normalizeRouterFallbackConfig({
@@ -259,7 +249,7 @@ export function RouterFallbackControl({
           />
         </Field>
         {fallback.mode === "retry" ? (
-          <Field label={t("Retries")}>
+          <Field label="Retries">
             <Input
               max={ROUTER_FALLBACK_MAX_RETRY_COUNT}
               min={0}
@@ -271,7 +261,7 @@ export function RouterFallbackControl({
         ) : null}
         {fallback.mode === "model-chain" ? (
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2 sm:col-span-2">
-            <Field label={t("Fallback target")}>
+            <Field label="Fallback target">
               <RouteTargetControl
                 modelOptions={modelOptions}
                 onChange={setFallbackModelDraft}
@@ -280,7 +270,7 @@ export function RouterFallbackControl({
             </Field>
             <Button disabled={!fallbackModelDraft.trim()} onClick={addFallbackModel} type="button">
               <Plus className="h-4 w-4" />
-              {t("Add")}
+              Add
             </Button>
           </div>
         ) : null}
@@ -288,18 +278,18 @@ export function RouterFallbackControl({
       {fallback.mode === "model-chain" ? (
         <div className="mt-3 flex min-w-0 flex-wrap gap-2">
           {fallback.models.length === 0 ? (
-            <div className="text-[12px] text-muted-foreground">{t("No fallback targets configured")}</div>
+            <div className="text-[12px] text-muted-foreground">No fallback targets configured</div>
           ) : (
             fallback.models.map((model, index) => (
               <div className="flex max-w-full items-center gap-1 rounded-md border border-border bg-background px-2 py-1" key={`${model}-${index}`}>
                 <span className="min-w-0 truncate font-mono text-[11px]" title={model}>{model}</span>
-                <Button aria-label={`${t("Move")} ${model} ${t("up")}`} disabled={index === 0} onClick={() => moveFallbackModel(index, -1)} size="iconSm" title={t("Move up")} type="button" variant="ghost">
+                <Button aria-label={`Move ${model} up`} disabled={index === 0} onClick={() => moveFallbackModel(index, -1)} size="iconSm" title="Move up" type="button" variant="ghost">
                   <ArrowUp className="h-3.5 w-3.5" />
                 </Button>
-                <Button aria-label={`${t("Move")} ${model} ${t("down")}`} disabled={index === fallback.models.length - 1} onClick={() => moveFallbackModel(index, 1)} size="iconSm" title={t("Move down")} type="button" variant="ghost">
+                <Button aria-label={`Move ${model} down`} disabled={index === fallback.models.length - 1} onClick={() => moveFallbackModel(index, 1)} size="iconSm" title="Move down" type="button" variant="ghost">
                   <ArrowDown className="h-3.5 w-3.5" />
                 </Button>
-                <Button aria-label={`${t("Remove")} ${model}`} onClick={() => removeFallbackModel(index)} size="iconSm" title={t("Remove")} type="button" variant="ghost">
+                <Button aria-label={`Remove ${model}`} onClick={() => removeFallbackModel(index)} size="iconSm" title="Remove" type="button" variant="ghost">
                   <X className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -320,8 +310,7 @@ export function DeleteRoutingRuleDialog({
   onConfirm: () => void;
   rule: RouterRule;
 }) {
-  const t = useAppText();
-  const name = rule.name || t("Unnamed rule");
+  const name = rule.name || "Unnamed rule";
   const condition = formatRouterRuleCondition(rule);
   const target = formatRouterRuleTarget(rule);
 
@@ -330,9 +319,9 @@ export function DeleteRoutingRuleDialog({
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Delete Routing Rule")}</DialogTitle>
+            <DialogTitle>Delete Routing Rule</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -341,30 +330,30 @@ export function DeleteRoutingRuleDialog({
           <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
             <div className="flex items-start gap-2 text-[12px] font-medium text-destructive">
               <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{t("Delete this routing rule from the configuration?")}</span>
+              <span>Delete this routing rule from the configuration?</span>
             </div>
             <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
               <div className="truncate" title={name}>
-                <span className="font-medium text-foreground">{t("Name")}:</span> {name}
+                <span className="font-medium text-foreground">Name:</span> {name}
               </div>
               <div className="truncate" title={condition}>
-                <span className="font-medium text-foreground">{t("Condition")}:</span> {condition}
+                <span className="font-medium text-foreground">Condition:</span> {condition}
               </div>
               <div className="truncate" title={target}>
-                <span className="font-medium text-foreground">{t("Request action")}:</span> {target}
+                <span className="font-medium text-foreground">Request action:</span> {target}
               </div>
-              <div>{t("This action is applied immediately to the draft config and will auto-save with other changes.")}</div>
+              <div>This action is applied immediately to the draft config and will auto-save with other changes.</div>
             </div>
           </div>
         </DialogBody>
 
         <DialogFooter>
           <Button autoFocus onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button onClick={onConfirm} type="button" variant="destructive">
             <Trash2 className="h-4 w-4" />
-            {t("Delete")}
+            Delete
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -391,16 +380,12 @@ export function AddRoutingRuleDialog({
   onSubmit: () => void;
   providers: GatewayProviderConfig[];
 }) {
-  const t = useAppText();
   const { close, confirmation } = useDraftClose(draft, onClose);
-  const conditionSourceOptions = translateOptions(routerConditionSourceOptions, t);
-  const rewriteOperationOptions = translateOptions(routerRewriteOperationOptions, t);
-  const ruleTypeOptions = translateOptions(
-    allowedRuleTypes?.length
+  const conditionSourceOptions = routerConditionSourceOptions;
+  const rewriteOperationOptions = routerRewriteOperationOptions;
+  const ruleTypeOptions = allowedRuleTypes?.length
       ? routerRuleTypeOptions.filter((option) => allowedRuleTypes.includes(option.value))
-      : routerRuleTypeOptions,
-    t
-  );
+      : routerRuleTypeOptions;
   const [scriptBusy, setScriptBusy] = useState<"submit" | "test" | "validate">();
   const [scriptMessage, setScriptMessage] = useState<{ ok: boolean; text: string }>();
   const scriptFileInputRef = useRef<HTMLInputElement>(null);
@@ -445,7 +430,7 @@ export function AddRoutingRuleDialog({
     if (!file) return;
     const filePath = window.ccr?.getFilePath?.(file);
     if (!filePath) {
-      setScriptMessage({ ok: false, text: t("Selecting a local script file requires LLMR Desktop. Enter the server-local path manually when using the web UI.") });
+      setScriptMessage({ ok: false, text: "Selecting a local script file requires LLMR Desktop. Enter the server-local path manually when using the web UI." });
       return;
     }
     onChange({ scriptFile: filePath });
@@ -457,10 +442,10 @@ export function AddRoutingRuleDialog({
     setScriptMessage(undefined);
     try {
       const ccr = window.ccr;
-      if (!ccr) throw new Error(t("Gateway API is unavailable"));
+      if (!ccr) throw new Error("Gateway API is unavailable");
       const result = await ccr.validateRouteScript({ script: scriptFromDraft() });
       const message = result.ok
-        ? t("Script validation passed")
+        ? "Script validation passed"
         : result.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
       setScriptMessage({ ok: result.ok, text: message });
       if (result.ok && action === "submit") onSubmit();
@@ -478,16 +463,16 @@ export function AddRoutingRuleDialog({
     setScriptMessage(undefined);
     try {
       const ccr = window.ccr;
-      if (!ccr) throw new Error(t("Gateway API is unavailable"));
+      if (!ccr) throw new Error("Gateway API is unavailable");
       const parsed = JSON.parse(scriptSample) as unknown;
       const request = normalizeRouteScriptSampleRequest(parsed);
       const result = await ccr.testRouteScript({ request, script: scriptFromDraft() });
       const details = result.ok
-        ? `${result.matched ? t("Matched") : t("Not matched")} · ${Math.round(result.durationMs ?? 0)}ms${result.output === undefined ? "" : `\n${JSON.stringify(result.output, null, 2)}`}`
+        ? `${result.matched ? "Matched" : "Not matched"} · ${Math.round(result.durationMs ?? 0)}ms${result.output === undefined ? "" : `\n${JSON.stringify(result.output, null, 2)}`}`
         : result.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
       setScriptMessage({ ok: result.ok, text: details });
     } catch (error) {
-      setScriptMessage({ ok: false, text: error instanceof Error ? t(error.message) : String(error) });
+      setScriptMessage({ ok: false, text: error instanceof Error ? error.message : String(error) });
     } finally {
       setScriptBusy(undefined);
     }
@@ -499,19 +484,19 @@ export function AddRoutingRuleDialog({
       <DialogContent>
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{mode === "edit" ? t("Edit Routing Rule") : t("Add Routing Rule")}</DialogTitle>
+            <DialogTitle>{mode === "edit" ? "Edit Routing Rule" : "Add Routing Rule"}</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={close} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={close} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
 
         <DialogBody>
           <motion.div className="grid grid-cols-1 gap-3 sm:grid-cols-2" layout="position" transition={disclosureSpringTransition}>
-            <Field className="sm:col-span-2" label={t("Name")}>
+            <Field className="sm:col-span-2" label="Name">
               <Input value={draft.name} onChange={(event) => onChange({ name: event.target.value })} />
             </Field>
-            {ruleTypeOptions.length > 1 ? <Field className="sm:col-span-2" label={t("Rule type")}>
+            {ruleTypeOptions.length > 1 ? <Field className="sm:col-span-2" label="Rule type">
               <SelectControl
                 onChange={(type) => onChange({
                   type: type as AddRoutingRuleDraft["type"],
@@ -527,7 +512,7 @@ export function AddRoutingRuleDialog({
                 value={draft.type}
               />
             </Field> : null}
-            {draft.type === "condition" ? <Field className="sm:col-span-2" label={t("Condition")}>
+            {draft.type === "condition" ? <Field className="sm:col-span-2" label="Condition">
               <div className="rounded-md border border-border bg-muted/20 p-2">
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[160px_minmax(0,1fr)_112px_minmax(0,1fr)]">
                   <SelectControl
@@ -549,7 +534,7 @@ export function AddRoutingRuleDialog({
                   <Input
                     className="font-mono text-[12px]"
                     onChange={(event) => onChange({ conditionRight: event.target.value })}
-                    placeholder={t("Value")}
+                    placeholder="Value"
                     value={draft.conditionRight}
                   />
                 </div>
@@ -559,25 +544,25 @@ export function AddRoutingRuleDialog({
                 <div className="sm:col-span-2 min-w-0 space-y-1">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="min-w-0 truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      {t("Node.js route script file")}
+                      Node.js route script file
                     </span>
                     <a
                       className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                       href={routeScriptDocsUrl}
                       onClick={(event) => {
                         event.preventDefault();
-                        openExternalUrl(routeScriptDocsUrl);
+                        openExternalUrl(routeScriptDocsUrl, (text) => setScriptMessage({ ok: false, text }));
                       }}
                       rel="noreferrer"
                       target="_blank"
                     >
-                      {t("Docs")}
+                      Docs
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   </div>
                   <div className="flex min-w-0 gap-2">
                     <Input
-                      aria-label={t("Node.js route script file")}
+                      aria-label="Node.js route script file"
                       className="min-w-0 flex-1 font-mono text-[12px]"
                       onChange={(event) => onChange({ scriptFile: event.target.value })}
                       placeholder="/path/to/route-script.js"
@@ -585,7 +570,7 @@ export function AddRoutingRuleDialog({
                     />
                     <Button onClick={() => scriptFileInputRef.current?.click()} type="button" variant="outline">
                       <FolderOpen className="h-4 w-4" />
-                      {t("Choose file")}
+                      Choose file
                     </Button>
                     <input
                       accept=".js,.mjs,.cjs,text/javascript,application/javascript"
@@ -599,7 +584,7 @@ export function AddRoutingRuleDialog({
                     />
                   </div>
                 </div>
-                <Field label={t("Timeout (ms)")}>
+                <Field label="Timeout (ms)">
                   <Input
                     inputMode="numeric"
                     max={30000}
@@ -609,7 +594,7 @@ export function AddRoutingRuleDialog({
                     value={draft.scriptTimeoutMs}
                   />
                 </Field>
-                <Field className="sm:col-span-2" label={t("Test request JSON")}>
+                <Field className="sm:col-span-2" label="Test request JSON">
                   <Textarea
                     className="min-h-36 resize-y font-mono text-[12px]"
                     onChange={(event) => setScriptSample(event.target.value)}
@@ -619,10 +604,10 @@ export function AddRoutingRuleDialog({
                 </Field>
                 <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
                   <Button disabled={Boolean(scriptBusy)} onClick={() => void validateScript()} type="button" variant="outline">
-                    {t("Validate")}
+                    Validate
                   </Button>
                   <Button disabled={Boolean(scriptBusy)} onClick={() => void testScript()} type="button" variant="outline">
-                    {t("Test script")}
+                    Test script
                   </Button>
                 </div>
                 {scriptMessage ? (
@@ -635,7 +620,7 @@ export function AddRoutingRuleDialog({
                 ) : null}
               </>
             )}
-            {draft.type === "condition" ? <Field className="sm:col-span-2" label={t("Rewrite request parameters")}>
+            {draft.type === "condition" ? <Field className="sm:col-span-2" label="Rewrite request parameters">
               <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2">
                 {draft.rewrites.map((rewrite, index) => (
                   <div
@@ -660,13 +645,13 @@ export function AddRoutingRuleDialog({
                         <Input
                           className="font-mono text-[12px]"
                           onChange={(event) => updateRewrite(index, { match: event.target.value })}
-                          placeholder={t("Match value")}
+                          placeholder="Match value"
                           value={rewrite.match}
                         />
                         <Input
                           className="font-mono text-[12px]"
                           onChange={(event) => updateRewrite(index, { value: event.target.value })}
-                          placeholder={t("Value")}
+                          placeholder="Value"
                           value={rewrite.value}
                         />
                       </div>
@@ -674,16 +659,16 @@ export function AddRoutingRuleDialog({
                       <Input
                         className="font-mono text-[12px]"
                         onChange={(event) => updateRewrite(index, { value: event.target.value })}
-                        placeholder={rewrite.operation === "set" ? "glm-5.2" : t("Value")}
+                        placeholder={rewrite.operation === "set" ? "glm-5.2" : "Value"}
                         value={rewrite.value}
                       />
                     )}
                     <Button
-                      aria-label={t("Remove")}
+                      aria-label="Remove"
                       disabled={draft.rewrites.length <= 1}
                       onClick={() => removeRewrite(index)}
                       size="iconSm"
-                      title={t("Remove")}
+                      title="Remove"
                       type="button"
                       variant="ghost"
                     >
@@ -693,17 +678,17 @@ export function AddRoutingRuleDialog({
                 ))}
                 <Button onClick={addRewrite} type="button" variant="outline">
                   <Plus className="h-4 w-4" />
-                  {t("Add parameter")}
+                  Add parameter
                 </Button>
               </div>
             </Field> : null}
-            <Field label={t("Enabled")}>
+            <Field label="Enabled">
               <Toggle checked={draft.enabled} onChange={(enabled) => onChange({ enabled })} />
             </Field>
             <RouterFallbackControl
               className="sm:col-span-2"
               fallback={draft.fallback}
-              label={t("On failure")}
+              label="On failure"
               onChange={(fallback) => onChange({ fallback })}
               providers={providers}
             />
@@ -712,7 +697,7 @@ export function AddRoutingRuleDialog({
 
         <DialogFooter>
           <Button onClick={close} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button
             disabled={!canSubmit || Boolean(scriptBusy)}
@@ -720,7 +705,7 @@ export function AddRoutingRuleDialog({
             type="button"
           >
             {mode === "edit" ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {mode === "edit" ? t("Save") : t("Add")}
+            {mode === "edit" ? "Save" : "Add"}
           </Button>
         </DialogFooter>
       </DialogContent>
