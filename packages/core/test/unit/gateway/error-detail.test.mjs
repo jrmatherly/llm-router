@@ -123,7 +123,7 @@ test("appendAggregateErrorAttemptSummary extracts structured detail causes for g
     error: {
       attempts: [
         {
-          details: { code: "InvalidParameter", message: "messages.content.type 参数非法，取值范围 ['text']", request_id: "abc" },
+          details: { code: "InvalidParameter", message: "messages.content.type is invalid; allowed values ['text']", request_id: "abc" },
           message: "Upstream request failed.",
           stage: "upstream_response",
           status: 400
@@ -143,7 +143,7 @@ test("appendAggregateErrorAttemptSummary extracts structured detail causes for g
   assert.equal(
     JSON.parse(enriched).error.message,
     "All target providers failed. "
-      + "[upstream_response|400] InvalidParameter: messages.content.type 参数非法，取值范围 ['text'] "
+      + "[upstream_response|400] InvalidParameter: messages.content.type is invalid; allowed values ['text'] "
       + "| [upstream_response|403] authentication_error: invalid api-key"
   );
 });
@@ -273,7 +273,7 @@ test("appendAggregateErrorAttemptSummary extracts causes from SSE error frames i
     error: {
       attempts: [
         {
-          details: { raw: 'event:error\ndata:{"code":"InvalidParameter","message":"messages.content.type 参数非法，取值范围 [\'text\']","request_id":"f956-1"}\n\n' },
+          details: { raw: 'event:error\ndata:{"code":"InvalidParameter","message":"messages.content.type is invalid; allowed values [\'text\']","request_id":"f956-1"}\n\n' },
           message: "Upstream request failed.",
           stage: "upstream_response",
           status: 400
@@ -287,7 +287,7 @@ test("appendAggregateErrorAttemptSummary extracts causes from SSE error frames i
   assert.equal(
     JSON.parse(enriched).error.message,
     "All target providers failed. "
-      + "[upstream_response|400] InvalidParameter: messages.content.type 参数非法，取值范围 ['text']"
+      + "[upstream_response|400] InvalidParameter: messages.content.type is invalid; allowed values ['text']"
   );
 
   // unparsable raw frames fall back to the trimmed raw text

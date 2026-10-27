@@ -921,17 +921,17 @@ test("gateway preserves Anthropic tool_use stop reason when client tools remain"
 
 test("gateway injects prefetched web search evidence into Anthropic requests", () => {
   const body = Buffer.from(JSON.stringify({
-    messages: [{ role: "user", content: [{ type: "text", text: "北京天气怎么样" }] }],
+    messages: [{ role: "user", content: [{ type: "text", text: "What is the weather in Beijing" }] }],
     model: "Fusion/kimisearch",
     output_config: { effort: "high" },
-    system: [{ type: "text", text: "Answer in Chinese." }],
+    system: [{ type: "text", text: "Answer in English." }],
     thinking: { type: "enabled" },
     tools: [{ name: "web_search", type: "web_search_20250305" }]
   }));
   const record = sampleSearchRecord();
-  record.results[0].content = "北京市当前天气晴，气温 28 摄氏度，空气质量良。";
+  record.results[0].content = "Beijing is currently sunny at 28 degrees Celsius with good air quality.";
 
-  const transformed = prepareAnthropicWebSearchProtocolRequestBody(body, [record], { queryHint: "北京天气怎么样" });
+  const transformed = prepareAnthropicWebSearchProtocolRequestBody(body, [record], { queryHint: "What is the weather in Beijing" });
   const parsed = JSON.parse(transformed.toString("utf8"));
 
   assert.match(parsed.system[1].text, /Use the evidence below to answer the user's question directly/);
@@ -939,13 +939,13 @@ test("gateway injects prefetched web search evidence into Anthropic requests", (
   assert.equal(parsed.tool_choice, undefined);
   assert.equal(parsed.output_config.effort, "low");
   assert.equal(parsed.thinking, undefined);
-  assert.match(parsed.system[1].text, /北京市当前天气晴/);
+  assert.match(parsed.system[1].text, /Beijing is currently sunny/);
 });
 
 test("gateway forces Claude Code WebSearch continuations to answer without tools", () => {
   const body = Buffer.from(JSON.stringify({
     messages: [
-      { role: "user", content: [{ type: "text", text: "搜索 shadcn官方有哪些New Components" }] },
+      { role: "user", content: [{ type: "text", text: "Search for the new official shadcn components" }] },
       {
         role: "assistant",
         content: [
@@ -1000,7 +1000,7 @@ test("gateway forces Claude Code WebSearch continuations to answer without tools
 test("gateway ignores stale Claude Code WebSearch results on later turns", () => {
   const body = Buffer.from(JSON.stringify({
     messages: [
-      { role: "user", content: [{ type: "text", text: "搜索 shadcn官方有哪些New Components" }] },
+      { role: "user", content: [{ type: "text", text: "Search for the new official shadcn components" }] },
       {
         role: "assistant",
         content: [
@@ -1458,19 +1458,19 @@ test("gateway extracts OpenAI responses web search query after Codex runtime con
       {
         type: "message",
         role: "assistant",
-        content: [{ type: "output_text", text: "之前的回答" }]
+        content: [{ type: "output_text", text: "Earlier answer" }]
       },
       {
         type: "message",
         role: "user",
-        content: [{ type: "input_text", text: "搜索今天黄金价格" }]
+        content: [{ type: "input_text", text: "Search for today's gold price" }]
       }
     ],
     model: "Fusion/kimisearch",
     tools: [{ type: "web_search_preview" }]
   };
 
-  assert.equal(extractHostedWebSearchQueryHint(body, "openai_responses"), "今天黄金价格");
+  assert.equal(extractHostedWebSearchQueryHint(body, "openai_responses"), "today's gold price");
 });
 
 test("gateway synthesizes OpenAI responses output for hosted web search fallback", () => {
@@ -1514,7 +1514,7 @@ test("gateway synthesizes OpenAI responses SSE output for hosted web search fall
 });
 
 test("gateway normalizes OpenAI responses SSE with visible text for hosted web search", () => {
-  const answer = "杭州今天湿润有雨，气温约24℃到29.3℃。";
+  const answer = "Hangzhou is humid and rainy today, around 24°C to 29.3°C.";
   const sse = [
     openAiSseEvent({ type: "response.created", response: { id: "resp_1", status: "in_progress", output: [] } }),
     openAiSseEvent({ type: "response.output_item.added", output_index: 0, item: { id: "rs_1", type: "reasoning", status: "in_progress", content: [] } }),
@@ -1544,12 +1544,12 @@ test("gateway normalizes OpenAI responses SSE with visible text for hosted web s
     sse,
     [sampleSearchRecord()],
     "req-1",
-    "杭州天气怎么样"
+    "What is the weather in Hangzhou"
   );
 
   assert.match(transformed, /event: response.output_text.delta/);
   assert.match(transformed, /"output_index":0/);
-  assert.match(transformed, /"output_text":"杭州今天湿润有雨/);
+  assert.match(transformed, /"output_text":"Hangzhou is humid and rainy today/);
   assert.doesNotMatch(transformed, /"output_index":1/);
   assert.doesNotMatch(transformed, /response.reasoning_text.delta/);
   assert.doesNotMatch(transformed, /"type":"reasoning"/);

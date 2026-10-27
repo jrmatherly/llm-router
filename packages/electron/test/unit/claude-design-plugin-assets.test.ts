@@ -209,7 +209,7 @@ test("Claude Design downloads return concrete files or a project zip", async () 
     {
       body: pngBody,
       contentType: "image/png",
-      path: "分享大纲.png",
+      path: "résumé-outline.png",
       projectId
     }
   ]);
@@ -217,14 +217,14 @@ test("Claude Design downloads return concrete files or a project zip", async () 
   const image = await claudeDesignPlugin.__test.routeMockRequest(
     runtime,
     "GET",
-    new URL("http://127.0.0.1/v1/design/projects/project-download-test/download?path=%E5%88%86%E4%BA%AB%E5%A4%A7%E7%BA%B2.png"),
+    new URL("http://127.0.0.1/v1/design/projects/project-download-test/download?path=r%C3%A9sum%C3%A9-outline.png"),
     { headers: {} },
     Buffer.alloc(0)
   );
   assert.equal(image.status, 200);
   assert.equal(image.headers["content-type"], "image/png");
   assert.match(image.headers["content-disposition"], /attachment/);
-  assert.match(image.headers["content-disposition"], /filename\*=UTF-8''%E5%88%86%E4%BA%AB%E5%A4%A7%E7%BA%B2\.png/);
+  assert.match(image.headers["content-disposition"], /filename\*=UTF-8''r%C3%A9sum%C3%A9-outline\.png/);
   assert.deepEqual(image.body, pngBody);
 
   const archive = await claudeDesignPlugin.__test.routeMockRequest(
@@ -239,7 +239,7 @@ test("Claude Design downloads return concrete files or a project zip", async () 
   assert.match(archive.headers["content-disposition"], /project-download-test\.zip/);
   assert.deepEqual(archive.body.subarray(0, 4), Buffer.from([0x50, 0x4b, 0x03, 0x04]));
   assert.match(archive.body.toString("utf8"), /index\.html/);
-  assert.match(archive.body.toString("utf8"), /分享大纲\.png/);
+  assert.match(archive.body.toString("utf8"), /résumé-outline\.png/);
 });
 
 type FakeProjectFile = {

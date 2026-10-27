@@ -294,7 +294,7 @@ export function providerCapabilityNameMatches(provider: GatewayProviderConfig, p
 
 export function sanitizeHeaderValue(value: unknown): string {
   // HTTP header values must be ByteString (code point <= 255). Values derived
-  // from user-facing names — model selectors like "小米mimo/...", provider
+  // from user-facing names — model selectors like "🚀mimo/...", provider
   // names, route reasons — can contain non-ASCII characters that crash Node's
   // fetch/undici with "Cannot convert argument to a ByteString" (surfaced as
   // 502). Normalize to ASCII while preserving case and printable punctuation.

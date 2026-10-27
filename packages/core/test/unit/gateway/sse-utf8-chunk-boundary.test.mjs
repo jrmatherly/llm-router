@@ -9,8 +9,8 @@ const sseHeaders = () => new Headers({ "content-type": "text/event-stream" });
 
 const webSearchRecords = [{
   engine: "test",
-  query: "北京天气",
-  results: [{ content: "多云", snippet: "多云", title: "天气", url: "https://example.test/weather" }],
+  query: "Paris weather",
+  results: [{ content: "Cloudy", snippet: "Cloudy", title: "Weather", url: "https://example.test/weather" }],
   searchUrl: "https://example.test/search"
 }];
 
@@ -18,7 +18,7 @@ function hostedWebSearchContext(protocol) {
   return {
     maxUses: 1,
     protocol,
-    queryHint: "北京天气",
+    queryHint: "Paris weather",
     records: webSearchRecords,
     requestId: "req-utf8",
     sinceMs: 0,
@@ -60,16 +60,16 @@ async function assertSurvivesEveryByteSplit(makeStream, text, marker) {
 test("Codex multi-agent bridge SSE keeps multi-byte characters split across chunks", async () => {
   await assertSurvivesEveryByteSplit(
     (input) => codexMultiAgentBridgeResponseStream(input, sseHeaders()),
-    'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"北京今天多云"}\n\n',
-    "北"
+    'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"€ café ✓ cloudy today"}\n\n',
+    "€"
   );
 });
 
 test("Codex apply_patch bridge SSE keeps multi-byte characters split across chunks", async () => {
   await assertSurvivesEveryByteSplit(
     (input) => codexApplyPatchBridgeResponseStream(input, sseHeaders()),
-    'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"北京今天多云"}\n\n',
-    "北"
+    'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"€ café ✓ cloudy today"}\n\n',
+    "€"
   );
 });
 
@@ -81,8 +81,8 @@ test("Hosted web search Anthropic SSE keeps multi-byte characters split across c
       hostedWebSearchContext("anthropic_messages"),
       undefined
     ),
-    'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"北京今天多云"}}\n\n',
-    "北"
+    'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"€ café ✓ cloudy today"}}\n\n',
+    "€"
   );
 });
 
@@ -94,8 +94,8 @@ test("Hosted web search OpenAI Responses SSE keeps multi-byte characters split a
       hostedWebSearchContext("openai_responses"),
       undefined
     ),
-    'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","output_index":0,"delta":"北京今天多云"}\n\n',
-    "北"
+    'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","output_index":0,"delta":"€ café ✓ cloudy today"}\n\n',
+    "€"
   );
 });
 

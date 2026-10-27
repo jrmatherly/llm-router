@@ -269,22 +269,18 @@ export function synthesizeWebSearchAnswer(records: BrowserWebSearchProtocolRecor
     if (!sources) {
       return undefined;
     }
-    return containsCjkText(query)
-      ? `搜索已完成，但页面可提取正文不足。较相关的来源包括：${sources}。`
-      : `The search completed, but the pages did not expose enough extractable text. The most relevant sources are: ${sources}.`;
+    return `The search completed, but the pages did not expose enough extractable text. The most relevant sources are: ${sources}.`;
   }
   const sources = webSearchSourceNames(records, 3);
-  return containsCjkText(query)
-    ? `根据搜索结果，${evidence.join("；")}。${sources ? `来源：${sources}。` : ""}`
-    : `Based on the search results, ${evidence.join("; ")}.${sources ? ` Sources: ${sources}.` : ""}`;
+  return `Based on the search results, ${evidence.join("; ")}.${sources ? ` Sources: ${sources}.` : ""}`;
 }
 
 
 
 function synthesizeComponentChangelogWebSearchAnswer(records: BrowserWebSearchProtocolRecord[], query: string): string | undefined {
   const normalizedQuery = normalizeSearchComparisonText(query);
-  const asksForComponents = /component|components|组件/i.test(query);
-  const asksForNewOrChangelog = /new|latest|recent|changelog|release|新增|新组件|最新|更新|官方/i.test(query);
+  const asksForComponents = /component|components/i.test(query);
+  const asksForNewOrChangelog = /new|latest|recent|changelog|release|official/i.test(query);
   if (!asksForComponents || !asksForNewOrChangelog) {
     return undefined;
   }
@@ -299,16 +295,8 @@ function synthesizeComponentChangelogWebSearchAnswer(records: BrowserWebSearchPr
   const release = extractComponentReleaseTitle(preferred.text);
   const components = extractLikelyComponentNames(preferred.text);
   const sources = webSearchSourceNames(records, 2);
-  const cjk = containsCjkText(query);
   if (!release && components.length === 0) {
     return undefined;
-  }
-  if (cjk) {
-    return [
-      release ? `官方相关条目是 ${release}` : "官方页面包含新增组件相关内容",
-      components.length > 0 ? `可提取到的相关组件包括 ${components.join("、")}` : "",
-      sources ? `来源：${sources}。` : ""
-    ].filter(Boolean).join("；");
   }
   return [
     release ? `The relevant official entry is ${release}` : "The official page contains new component information",
@@ -355,8 +343,10 @@ function extractLikelyComponentNames(text: string): string[] {
 
 
 
+const celsiusValue = String.raw`(-?\d{1,2}(?:\.\d+)?)\s*(?:°\s*C|℃)`;
+
 function synthesizeWeatherWebSearchAnswer(records: BrowserWebSearchProtocolRecord[], query: string): string | undefined {
-  if (!/天气|气温|温度|weather|forecast|temperature/i.test(query)) {
+  if (!/weather|forecast|temperature/i.test(query)) {
     return undefined;
   }
   const items = webSearchEvidenceItems(records);
@@ -364,43 +354,37 @@ function synthesizeWeatherWebSearchAnswer(records: BrowserWebSearchProtocolRecor
   if (!text) {
     return undefined;
   }
-  const cjk = containsCjkText(query);
   const location = extractWeatherLocation(query);
   const temperatureRange = weatherTemperatureRange(text);
   const currentTemperature = firstRegexGroup(text, [
-    /(?:当前|现在|实时|实况|气温|温度)[^。；，,\d-]{0,12}(-?\d{1,2}(?:\.\d+)?)\s*℃/i,
-    location ? new RegExp(`${escapeRegExp(location)}\\s+(-?\\d{1,2}(?:\\.\\d+)?)\\s*℃`) : undefined
+    new RegExp(`(?:currently|current|now|temperature|temp)[^.;,\\d-]{0,12}${celsiusValue}`, "i"),
+    location ? new RegExp(`${escapeRegExp(location)}\\s+${celsiusValue}`, "i") : undefined
   ]);
-  const feelsLike = firstRegexGroup(text, [/体感温度[：:\s]*(-?\d{1,2}(?:\.\d+)?)\s*℃/]);
-  const high = firstRegexGroup(text, [/最高气温[：:\s]*(-?\d{1,2}(?:\.\d+)?)\s*℃/]);
-  const low = firstRegexGroup(text, [/最低气温[：:\s]*(-?\d{1,2}(?:\.\d+)?)\s*℃/]);
-  const humidity = firstRegexGroup(text, [/(?:最大相对湿度|相对湿度)[：:\s]*(-?\d{1,3}(?:\.\d+)?%)/]);
-  const aqi = firstRegexGroup(text, [/AQI最高值[：:\s]*(\d{1,3})/i]);
-  const airQuality = firstRegexGroup(text, [/空气质量[：:\s]*([^\s，。；,;]{1,12})/]);
-  const rain = firstRegexGroup(text, [/(?:过去24小时总降水量|总降水量|降水量)[：:\s]*(-?\d+(?:\.\d+)?mm)/i]);
-  const wind = firstRegexGroup(text, [/最大风力[：:\s]*([<>]?\d+级|微风)/, /(东风|东南风|南风|西南风|西风|西北风|北风|东北风)\s*([<>]?\d+级|微风)/]);
+  const feelsLike = firstRegexGroup(text, [new RegExp(`feels like[:\\s]*${celsiusValue}`, "i")]);
+  const high = firstRegexGroup(text, [new RegExp(`\\bhighs?(?: of)?[:\\s]*${celsiusValue}`, "i")]);
+  const low = firstRegexGroup(text, [new RegExp(`\\blows?(?: of)?[:\\s]*${celsiusValue}`, "i")]);
+  const humidity = firstRegexGroup(text, [/humidity[:\s]*(\d{1,3}(?:\.\d+)?%)/i]);
+  const aqi = firstRegexGroup(text, [/\bAQI[:\s]*(\d{1,3})\b/i]);
+  const airQuality = firstRegexGroup(text, [/air quality(?:\s+is)?[:\s]+(excellent|good|fair|moderate|poor|very poor|unhealthy|hazardous)\b/i]);
+  const rain = firstRegexGroup(text, [/(?:precipitation|rainfall)[:\s]*(\d+(?:\.\d+)?\s*mm)/i]);
+  const wind = firstRegexGroup(text, [/\bwinds?[:\s]*((?:[NESW]{1,3}\s+)?\d+(?:\.\d+)?\s*(?:km\/h|mph|m\/s))/i]);
 
   const facts = [
-    currentTemperature ? (cjk ? `当前约 ${currentTemperature}℃` : `currently about ${currentTemperature}°C`) : undefined,
-    !currentTemperature && temperatureRange ? (cjk ? `气温约 ${temperatureRange}` : `temperatures are around ${temperatureRange}`) : undefined,
-    feelsLike ? (cjk ? `体感约 ${feelsLike}℃` : `feels like about ${feelsLike}°C`) : undefined,
-    high || low ? (cjk
-      ? `过去24小时${high ? `最高 ${high}℃` : ""}${high && low ? "、" : ""}${low ? `最低 ${low}℃` : ""}`
-      : `over the past 24 hours ${high ? `the high was ${high}°C` : ""}${high && low ? " and " : ""}${low ? `the low was ${low}°C` : ""}`) : undefined,
-    humidity ? (cjk ? `相对湿度最高 ${humidity}` : `relative humidity reached ${humidity}`) : undefined,
-    aqi ? (cjk ? `AQI 最高 ${aqi}` : `AQI reached ${aqi}`) : undefined,
-    airQuality && !aqi ? (cjk ? `空气质量 ${airQuality}` : `air quality is ${airQuality}`) : undefined,
-    rain ? (cjk ? `过去24小时降水量 ${rain}` : `24-hour rainfall is ${rain}`) : undefined,
-    wind ? (cjk ? `风力 ${wind}` : `wind ${wind}`) : undefined
+    currentTemperature ? `currently about ${currentTemperature}°C` : undefined,
+    !currentTemperature && temperatureRange ? `temperatures are around ${temperatureRange}` : undefined,
+    feelsLike ? `feels like about ${feelsLike}°C` : undefined,
+    high || low ? `${high ? `the high is ${high}°C` : ""}${high && low ? " and " : ""}${low ? `the low is ${low}°C` : ""}` : undefined,
+    humidity ? `relative humidity is ${humidity}` : undefined,
+    aqi ? `AQI is ${aqi}` : undefined,
+    airQuality && !aqi ? `air quality is ${airQuality}` : undefined,
+    rain ? `rainfall is ${rain}` : undefined,
+    wind ? `wind ${wind}` : undefined
   ].filter((item): item is string => Boolean(item));
 
   if (facts.length === 0) {
     return undefined;
   }
   const sources = webSearchSourceNames(records, 2);
-  if (cjk) {
-    return `${location ? `${location}天气` : "天气"}：${facts.slice(0, 6).join("，")}。${sources ? `来源：${sources}。` : ""}`;
-  }
   return `${location ? `${location} weather` : "Weather"}: ${facts.slice(0, 6).join(", ")}.${sources ? ` Sources: ${sources}.` : ""}`;
 }
 
@@ -467,14 +451,13 @@ function relevantSearchTerms(query: string): string[] {
   const normalizedTerms = normalizeSearchComparisonText(query)
     .split(" ")
     .filter((term) => term.length >= 2);
-  const cjkTerms = query.match(/[\p{Script=Han}]{2,}/gu) ?? [];
-  return uniqueStrings([...normalizedTerms, ...cjkTerms].map((term) => term.toLowerCase()));
+  return uniqueStrings(normalizedTerms.map((term) => term.toLowerCase()));
 }
 
 
 
 function weatherTemperatureRange(text: string): string | undefined {
-  const values = Array.from(text.matchAll(/(-?\d{1,2}(?:\.\d+)?)\s*℃/g))
+  const values = Array.from(text.matchAll(new RegExp(celsiusValue, "g")))
     .map((match) => Number(match[1]))
     .filter((value) => Number.isFinite(value) && value > -80 && value < 60)
     .slice(0, 8);
@@ -484,7 +467,7 @@ function weatherTemperatureRange(text: string): string | undefined {
   const min = Math.min(...values);
   const max = Math.max(...values);
   const format = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(1);
-  return min === max ? `${format(min)}℃` : `${format(min)}-${format(max)}℃`;
+  return min === max ? `${format(min)}°C` : `${format(min)}-${format(max)}°C`;
 }
 
 
@@ -492,7 +475,9 @@ function weatherTemperatureRange(text: string): string | undefined {
 function extractWeatherLocation(query: string): string | undefined {
   const cleaned = query
     .replace(/perform\s+a\s+web\s+search\s+for\s+the\s+query:\s*/i, "")
-    .replace(/天气预报|天气|气温|温度|怎么样|如何|查询|搜索|今天|今日|现在|当前|请问|weather|forecast|temperature/gi, " ")
+    .replace(/[?!,]/g, " ")
+    .replace(/\.\s*$/, "")
+    .replace(/\b(?:what(?:'s| is)|how(?:'s| is)|the|in|for|at|like|today|now|current|currently|search|weather|forecast|temperature)\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned || cleaned.length > 24) {
@@ -521,12 +506,6 @@ function firstRegexGroup(text: string, patterns: Array<RegExp | undefined>): str
 
 function sanitizeWebSearchEvidenceText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
-}
-
-
-
-function containsCjkText(text: string): boolean {
-  return /\p{Script=Han}/u.test(text);
 }
 
 

@@ -382,7 +382,7 @@ test("RequestLogStore keeps large request bodies in sidecar storage and reads th
     const body = JSON.stringify({
       messages: [{ content: "hello", role: "user" }],
       model: "request-model",
-      padding: "中🙂".repeat(40 * 1024),
+      padding: "€🙂".repeat(40 * 1024),
       tail: "request-tail"
     });
     const response = JSON.stringify({

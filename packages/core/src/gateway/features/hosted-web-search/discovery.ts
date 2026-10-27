@@ -210,7 +210,7 @@ function extractExplicitWebSearchQuery(value: string): string | undefined {
 
 function stripSearchIntentPrefix(value: string): string {
   const trimmed = value.trim();
-  const match = /^(?:请)?(?:帮我)?(?:搜索|查询|查一下|帮我查一下|搜一下)\s*[:：]?\s*([\s\S]+)$/i.exec(trimmed);
+  const match = /^(?:please\s+)?(?:search\s+(?:the\s+web\s+)?for\b|search\s*:|look\s+up\b)\s*([\s\S]+)$/i.exec(trimmed);
   return (match?.[1] || trimmed).trim();
 }
 

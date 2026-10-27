@@ -69,7 +69,7 @@ test("LLMR route resolver preserves the selected protocol for bare provider IDs"
     await t.test(scenario.name, async () => {
       const config = createDefaultAppConfig();
       const provider = {
-        id: "multi", name: "供应商 multi", type: "anthropic_messages",
+        id: "multi", name: "✨🚀 multi", type: "anthropic_messages",
         api_base_url: anthropic.baseUrl, models: ["kimi-k3", "glm-5.3"],
         capabilities: scenario.capabilities ?? [chat, responses, anthropic], credentials: scenario.credentials
       };
@@ -259,7 +259,7 @@ test("LLMR router core plugin resolves bare Codex companion models through the a
     {
       id: "baishan",
       models: ["gpt-5.5", "gpt-5.6-luna"],
-      name: "白山",
+      name: "🏔️⛰️",
       type: "openai_chat_completions"
     }
   ];

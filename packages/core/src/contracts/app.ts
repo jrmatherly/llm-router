@@ -1742,7 +1742,6 @@ export type BotGatewayRuntimeConfig = {
   handoff: BotGatewayHandoffConfig;
   integrationConfig: Record<string, unknown>;
   integrationId: string;
-  language: "auto" | "en" | "zh-CN";
   maxAttachmentBytes: number;
   maxTurnTimeMs: number;
   mediaEnabled: boolean;

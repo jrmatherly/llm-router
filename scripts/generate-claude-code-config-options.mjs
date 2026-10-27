@@ -7,10 +7,8 @@ const projectRoot = path.resolve(__dirname, "..");
 const outputFile = path.join(projectRoot, "packages", "ui", "src", "generated", "claude-code-config-options.json");
 
 const sources = {
-  envEn: "https://code.claude.com/docs/en/env-vars.md",
-  envZh: "https://code.claude.com/docs/zh-CN/env-vars.md",
-  settingsEn: "https://code.claude.com/docs/en/settings-reference.md",
-  settingsZh: "https://code.claude.com/docs/zh-CN/settings.md"
+  env: "https://code.claude.com/docs/en/env-vars.md",
+  settings: "https://code.claude.com/docs/en/settings-reference.md"
 };
 
 const excludedSettingKeys = new Set([
@@ -29,16 +27,12 @@ async function main() {
 
   try {
     const docs = await fetchDocs(sources);
-    const settingsEn = parseSettingsReference(docs.settingsEn, "en");
-    const settingsZh = parseSettingsReference(docs.settingsZh, "zh");
-    const envEn = parseEnvReference(docs.envEn);
-    const envZh = parseEnvReference(docs.envZh);
     const generated = {
       generatedAt: new Date().toISOString(),
       generatedBy,
       sourceUrls: sources,
-      settings: mergeLocalizedSettings(settingsEn, settingsZh),
-      env: mergeLocalizedEnv(envEn, envZh)
+      settings: finalizeSettings(parseSettingsReference(docs.settings)),
+      env: finalizeEnv(parseEnvReference(docs.env))
     };
     if (!generated.settings.length || !generated.env.length) {
       throw new Error("Official documentation produced an empty settings or environment catalog");
@@ -70,27 +64,27 @@ async function fetchDocs(urls) {
   return Object.fromEntries(entries);
 }
 
-function parseSettingsReference(markdown, locale) {
+function parseSettingsReference(markdown) {
   const globalConfigIndex = markdown.indexOf("\n## Global config settings");
   const scopedMarkdown = globalConfigIndex > 0 ? markdown.slice(0, globalConfigIndex) : markdown;
   const sections = markdownSections(scopedMarkdown, /^### `([^`]+)`/gm);
   if (sections.length > 0) {
     return sections
-      .map((section) => settingFromSection(section, locale))
+      .map((section) => settingFromSection(section))
       .filter((option) => option && !excludedSettingKeys.has(option.key));
   }
   return settingOptionsFromTables(scopedMarkdown)
     .filter((option) => !excludedSettingKeys.has(option.key));
 }
 
-function settingFromSection(section, locale) {
+function settingFromSection(section) {
   const key = section.title.trim();
   if (!key || key.includes(" ")) {
     return undefined;
   }
-  const scope = firstMetadataValue(section.body, locale === "zh" ? "作用域" : "Scope");
-  const type = firstMetadataValue(section.body, locale === "zh" ? "类型" : "Type");
-  const defaultValue = firstMetadataValue(section.body, locale === "zh" ? "默认值" : "Default");
+  const scope = firstMetadataValue(section.body, "Scope");
+  const type = firstMetadataValue(section.body, "Type");
+  const defaultValue = firstMetadataValue(section.body, "Default");
   const example = firstCodeBlock(section.body, "json");
   return {
     key,
@@ -108,22 +102,19 @@ function settingFromSection(section, locale) {
 function parseEnvReference(markdown) {
   const variablesIndex = markdown.indexOf("\n## Variables");
   const scopedMarkdown = variablesIndex > 0 ? markdown.slice(variablesIndex) : markdown;
-  const sections = markdownSections(scopedMarkdown, /^### `([^`]+)`/gm);
-  if (sections.length > 0) {
-    return sections
-      .map((section) => envFromSection(section))
-      .filter(Boolean);
-  }
-  return envFromTables(scopedMarkdown);
+  const fromSections = markdownSections(scopedMarkdown, /^### `([^`]+)`/gm)
+    .map((section) => envFromSection(section))
+    .filter(Boolean);
+  return fromSections.length > 0 ? fromSections : envFromTables(scopedMarkdown);
 }
 
 function settingOptionsFromTables(markdown) {
   const options = [];
   for (const table of markdownTables(markdown)) {
     const headers = table.headers.map((item) => stripMarkdown(item).toLowerCase());
-    const keyIndex = headers.findIndex((item) => item.includes("key") || item.includes("键"));
-    const descriptionIndex = headers.findIndex((item) => item.includes("description") || item.includes("描述"));
-    const exampleIndex = headers.findIndex((item) => item.includes("example") || item.includes("示例"));
+    const keyIndex = headers.findIndex((item) => item.includes("key"));
+    const descriptionIndex = headers.findIndex((item) => item.includes("description"));
+    const exampleIndex = headers.findIndex((item) => item.includes("example"));
     if (keyIndex < 0 || descriptionIndex < 0) {
       continue;
     }
@@ -167,8 +158,8 @@ function envFromTables(markdown) {
   const rows = [];
   for (const table of markdownTables(markdown)) {
     const headers = table.headers.map((item) => item.toLowerCase());
-    const keyIndex = headers.findIndex((item) => item.includes("variable") || item.includes("变量"));
-    const purposeIndex = headers.findIndex((item) => item.includes("purpose") || item.includes("description") || item.includes("用途") || item.includes("目的") || item.includes("描述"));
+    const keyIndex = headers.findIndex((item) => item.includes("variable"));
+    const purposeIndex = headers.findIndex((item) => item.includes("purpose") || item.includes("description"));
     if (keyIndex < 0 || purposeIndex < 0) {
       continue;
     }
@@ -190,51 +181,37 @@ function envFromTables(markdown) {
   return rows;
 }
 
-function mergeLocalizedSettings(enOptions, zhOptions) {
-  const zhByKey = new Map(zhOptions.map((item) => [item.key, item]));
-  return enOptions
-    .map((option) => {
-      const zh = zhByKey.get(option.key);
-      return {
-        key: option.key,
-        path: option.path,
-        scope: option.scope,
-        type: option.type,
-        default: option.default,
-        example: option.example || zh?.example || placeholderForKind(option.valueKind),
-        valueKind: option.valueKind,
-        enumValues: option.enumValues.length ? option.enumValues : zh?.enumValues ?? [],
-        description: {
-          en: option.description,
-          zh: zh?.description || option.description
-        }
-      };
-    })
+function finalizeSettings(options) {
+  return options
+    .map((option) => ({
+      key: option.key,
+      path: option.path,
+      scope: option.scope,
+      type: option.type,
+      default: option.default,
+      example: option.example || placeholderForKind(option.valueKind),
+      valueKind: option.valueKind,
+      enumValues: option.enumValues,
+      description: option.description
+    }))
     .filter((option) => isConfigurableSettingsOption(option))
     .sort((a, b) => a.key.localeCompare(b.key));
 }
 
-function mergeLocalizedEnv(enOptions, zhOptions) {
-  const zhByKey = new Map(zhOptions.map((item) => [item.key, item]));
-  return uniqueByKey(enOptions)
-    .map((option) => {
-      const zh = zhByKey.get(option.key);
-      return {
-        key: option.key,
-        example: option.example || zh?.example || placeholderForEnvName(option.key),
-        valueKind: option.valueKind,
-        description: {
-          en: option.description,
-          zh: zh?.description || option.description
-        }
-      };
-    })
-    .filter((option) => isEnvName(option.key) && option.description.en)
+function finalizeEnv(options) {
+  return uniqueByKey(options)
+    .map((option) => ({
+      key: option.key,
+      example: option.example || placeholderForEnvName(option.key),
+      valueKind: option.valueKind,
+      description: option.description
+    }))
+    .filter((option) => isEnvName(option.key) && option.description)
     .sort((a, b) => a.key.localeCompare(b.key));
 }
 
 function isConfigurableSettingsOption(option) {
-  if (!option.description.en) {
+  if (!option.description) {
     return false;
   }
   if (option.scope && /^global config$/i.test(stripMarkdown(option.scope))) {
@@ -307,7 +284,7 @@ function splitMarkdownTableRow(line) {
 }
 
 function isTableSeparator(line) {
-  return /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+  return /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(line);
 }
 
 function firstMetadataValue(markdown, label) {
@@ -427,7 +404,7 @@ function backtickValues(markdown) {
 function enumValuesFromSection(markdown) {
   const values = [];
   const seen = new Set();
-  const enumIntro = /one of|valid values|accepts|有效值|可选值|以下值/i;
+  const enumIntro = /one of|valid values|accepts/i;
   if (!enumIntro.test(markdown)) {
     return values;
   }
@@ -479,8 +456,7 @@ function inferEnvValueKind(key, description, example) {
   if (
     /\b(?:1|true)\b.*\b(?:0|false)\b/.test(text) ||
     /\b(?:0|false)\b.*\b(?:1|true)\b/.test(text) ||
-    /\bset to\s+(?:1|0|true|false)\b/.test(text) ||
-    /设置为\s*(?:1|0|true|false)\b/.test(text)
+    /\bset to\s+(?:1|0|true|false)\b/.test(text)
   ) {
     return "boolean-string";
   }

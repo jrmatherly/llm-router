@@ -592,13 +592,13 @@ test("model-chain fallback refreshes the routed model before core gateway resolu
       api_base_url: "https://fallback.example/v1/chat/completions",
       id: "fallback",
       models: ["glm-5.3"],
-      name: "智谱 AI（国内）",
+      name: "Zhipu AI (China) ✓",
       type: "openai_chat_completions"
     }
   ];
   const fallback = {
     mode: "model-chain",
-    models: ["智谱 AI（国内）/glm-5.3"],
+    models: ["Zhipu AI (China) ✓/glm-5.3"],
     retryCount: 0
   };
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config } } });

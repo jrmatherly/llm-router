@@ -33,7 +33,7 @@ function createXiaomiMimoProviderPreset(input: {
 }
 
 export const xiaomiMimoProviderPreset = createXiaomiMimoProviderPreset({
-  aliases: ["mimo", "xiaomi", "xiaomi mimo", "小米", "小米 mimo"],
+  aliases: ["mimo", "xiaomi", "xiaomi mimo"],
   anthropicBaseUrl: "https://api.xiaomimimo.com/anthropic",
   id: "xiaomi",
   name: "Xiaomi MiMo",

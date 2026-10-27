@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import { browserErrorI18nLanguage, formatLocalizedErrorMessage } from "@ccr/core/contracts/i18n";
+import { formatErrorMessage } from "@ccr/core/contracts/error-message";
 import { IPC_CHANNELS } from "@ccr/core/contracts/ipc-channels";
 import type {
   AgentAnalysisFilter,
@@ -91,16 +91,16 @@ import type { ProviderPreset } from "@ccr/core/providers/presets/types";
 
 function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
   return ipcRenderer.invoke(channel, ...args).catch((error) => {
-    throw localizedIpcError(error);
+    throw cleanIpcError(error);
   });
 }
 
-function localizedIpcError(error: unknown): Error {
-  const localized = new Error(formatLocalizedErrorMessage(browserErrorI18nLanguage(), error));
+function cleanIpcError(error: unknown): Error {
+  const cleaned = new Error(formatErrorMessage(error));
   if (error instanceof Error && error.stack) {
-    localized.stack = error.stack.replace(error.message, localized.message);
+    cleaned.stack = error.stack.replace(error.message, cleaned.message);
   }
-  return localized;
+  return cleaned;
 }
 
 contextBridge.exposeInMainWorld("ccr", {

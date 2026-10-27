@@ -200,7 +200,7 @@ test("media gateway errors expose the concrete failed provider attempt", async (
 });
 
 test("media gateway sanitizes target model header while preserving unicode body model", async (t) => {
-  const rawModel = "「中文模型」image-model";
+  const rawModel = "🎨✨image-model";
   let requestBody;
   let targetModelHeader;
   const server = createServer(async (request, response) => {

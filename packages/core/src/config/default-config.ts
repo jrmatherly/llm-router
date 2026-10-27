@@ -74,7 +74,6 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
       },
       integrationConfig: {},
       integrationId: "",
-      language: "auto",
       maxAttachmentBytes: 20 * 1024 * 1024,
       maxTurnTimeMs: 10 * 60 * 1000,
       mediaEnabled: true,
