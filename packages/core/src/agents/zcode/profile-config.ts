@@ -48,7 +48,7 @@ export function writeZcodeGatewayConfig(
   config: AppConfig,
   profile: ProfileConfig,
   token: string,
-  options: { backup?: boolean } = {}
+  options: { backup?: boolean; isManagedContent?: (content: string) => boolean } = {}
 ): ZcodeProfileConfigWriteResult {
   const file = resolveZcodeConfigFile(profile);
   const model = normalizeClientModel(profile.model) || defaultClientModel(config);
@@ -235,7 +235,11 @@ function zcodeV2CacheRevision(source: Record<string, unknown>): number {
   return Math.max(0, revision) + 1;
 }
 
-function writeJsonFile(file: string, value: Record<string, unknown>, options: { backup?: boolean }): ZcodeProfileConfigWriteResult {
+function writeJsonFile(
+  file: string,
+  value: Record<string, unknown>,
+  options: { backup?: boolean; isManagedContent?: (content: string) => boolean }
+): ZcodeProfileConfigWriteResult {
   const content = `${JSON.stringify(value, null, 2)}\n`;
   mkdirSync(path.dirname(file), { recursive: true });
   const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
@@ -248,7 +252,7 @@ function writeJsonFile(file: string, value: Record<string, unknown>, options: { 
   const backupFile = options.backup === false || previous === undefined ? undefined : backupFilePath(file);
   if (backupFile) {
     copyFileSync(file, backupFile);
-    pruneBackups(file);
+    pruneBackups(file, undefined, options.isManagedContent);
   }
   writeFileAtomic(file, content);
   return { backupFile, changed: true, file };

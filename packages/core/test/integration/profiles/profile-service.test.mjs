@@ -643,6 +643,56 @@ test("profile service restores between-session user edits after many takeover re
   }
 });
 
+test("profile service restores between-session ZCode edits after many takeover rewrites prune old backups", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-zcode-prune-restore-"));
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  try {
+    rmSync(takeoverFile, { force: true });
+    const configFile = path.join(root, ".zcode", "cli", "config.json");
+    mkdirSync(path.dirname(configFile), { recursive: true });
+    writeFileSync(configFile, `${JSON.stringify({ model: { main: "builtin:zai/glm-5" } }, null, 2)}\n`);
+    const models = ["m1", "m2", "m3", "m4", "m5", "m6", "m7"];
+    const profile = {
+      agent: "zcode",
+      configFile,
+      enabled: true,
+      env: {},
+      id: "prune-restore-zcode",
+      model: "Provider/m1",
+      name: "Prune Restore ZCode",
+      providerId: "claude-code-router",
+      scope: "global",
+      surface: "cli"
+    };
+    const config = createDefaultAppConfig();
+    config.APIKEY = "ccr-prune-restore-test";
+    config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "ccr-prune-restore-test", name: "Profile: Prune Restore ZCode" }];
+    config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models, name: "Provider" }];
+
+    config.profile.profiles = [profile];
+    await applyProfileFixture(config);
+    config.profile.profiles = [{ ...profile, enabled: false }];
+    await applyProfileFixture(config);
+    const userEdit = { model: { main: "builtin:zai/glm-6" } };
+    writeFileSync(configFile, `${JSON.stringify(userEdit, null, 2)}\n`);
+
+    for (const model of models) {
+      config.profile.profiles = [{ ...profile, model: `Provider/${model}` }];
+      await applyProfileFixture(config);
+    }
+    const backups = readdirSync(path.dirname(configFile)).filter((name) => name.startsWith("config.json.ccr-backup-"));
+    assert.equal(backups.length, 6);
+
+    config.profile.profiles = [{ ...profile, enabled: false }];
+    await applyProfileFixture(config);
+    assert.deepEqual(JSON.parse(readFileSync(configFile, "utf8")), userEdit);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test("profile service applies and removes profile Claude settings", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-profile-settings-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");

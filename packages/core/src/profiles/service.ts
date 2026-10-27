@@ -851,7 +851,10 @@ function applyZcodeProfile(config: AppConfig, profile: ProfileConfig, token: str
   try {
     const providerId = sanitizeCodexProviderId(profile.providerId || "") || "claude-code-router";
     const model = normalizeClientModel(profile.model) || defaultClientModel(config);
-    const configResult = writeZcodeGatewayConfig(config, profile, token, { backup: true });
+    const configResult = writeZcodeGatewayConfig(config, profile, token, {
+      backup: true,
+      isManagedContent: (content) => isManagedZcodeConfigContent(content, providerId)
+    });
     const middlewareResult = profile.cliMiddleware
       ? writeCodexCliMiddleware(config, profile, {
           configFile,
