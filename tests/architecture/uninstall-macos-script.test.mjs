@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, wri
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { agentLeftover, bundlesClaimingSchemes, parseUninstallArgs, planUninstall, proxyPointsAtLoopback, schemes } from "../../scripts/uninstall-macos.mjs";
+import { agentLeftover, bundlesClaimingSchemes, caNames, parseUninstallArgs, planUninstall, proxyPointsAtLoopback, schemes } from "../../scripts/uninstall-macos.mjs";
 
 function sourceString(file, name) {
   const match = new RegExp(`export const ${name} = "([^"]+)"`).exec(readFileSync(file, "utf8"));
@@ -32,6 +32,7 @@ function scratch(t) {
     ".codex/config.toml": "",
     ".codex/ccr-model-catalog.json": "{}",
     ".codex/claude-code-router.config.toml": "",
+    ".codex/llm-router.config.toml": "",
     ".codex/auth.json": "{}",
     ".llm-router/config.sqlite": "",
     ".llm-router/bin/llmr": "",
@@ -57,7 +58,7 @@ function fakeSystem(overrides = {}) {
     calls,
     system: {
       appRunning: () => false,
-      caInstalled: () => false,
+      trustedCaNames: () => [],
       handlerIndexes: (_plist, wanted) => {
         calls.push(["handlerIndexes", wanted]);
         return handlers;
@@ -104,7 +105,7 @@ test("a full uninstall backs up first, then removes apps, handlers, agent leftov
   const plan = planUninstall({ applications, home, now: new Date("2026-10-27T18:00:00Z"), system });
 
   assert.deepEqual(plan.blockers, []);
-  assert.match(plan.steps[0].describe, /^Back up 6 item/);
+  assert.match(plan.steps[0].describe, /^Back up 7 item/);
   for (const step of plan.steps) step.run();
 
   assert.deepEqual(calls[0], ["handlerIndexes", ["llmr"]], "only the current scheme without --include-legacy");
@@ -115,6 +116,7 @@ test("a full uninstall backs up first, then removes apps, handlers, agent leftov
     ".claude/settings.json.ccr-backup-2026-10-26T05-16-29-585Z",
     ".codex/ccr-model-catalog.json",
     ".codex/claude-code-router.config.toml",
+    ".codex/llm-router.config.toml",
     ".llm-router",
     "Library/Application Support/LLM Router"
   ], [".llm-router/bin", ".llm-router/models.json"]]);
@@ -145,6 +147,19 @@ test("--include-legacy also removes Claude Code Router builds, data and the ccr 
   assert.deepEqual(calls[0], ["handlerIndexes", ["llmr", "ccr"]]);
   assert.equal(existsSync(path.join(applications, "Claude Code Router.app")), false);
   assert.equal(existsSync(path.join(home, ".claude-code-router")), false);
+});
+
+test("a note names each still-trusted proxy CA, the pre-rename one included", (t) => {
+  const { applications, home } = scratch(t);
+  const plan = planUninstall({ applications, home, system: fakeSystem({ trustedCaNames: () => ["LLM Router CA", "Claude Code Router CA"] }).system });
+  const notes = plan.notes.join("\n");
+  assert.match(notes, /delete-certificate -c 'LLM Router CA'/);
+  assert.match(notes, /delete-certificate -c 'Claude Code Router CA'/);
+});
+
+test("the uninstaller looks for the CA under the name the app gives it, plus the pre-rename name", () => {
+  assert.equal(caNames[0], sourceString("packages/core/src/proxy/certificates.ts", "PROXY_CA_NAME"));
+  assert.match(readFileSync("packages/core/src/proxy/certificates.ts", "utf8"), new RegExp(`PROXY_CA_NAMES = \\[PROXY_CA_NAME, "${caNames[1]}"\\]`));
 });
 
 test("a note says so when LaunchServices writes the handlers back", (t) => {

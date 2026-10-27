@@ -145,8 +145,17 @@ test("AddProfileForm uses Codex-specific enhanced route info for Codex profiles"
   assert.doesNotMatch(html, /Provider ID/);
   assert.doesNotMatch(html, /Provider name/);
   assert.equal(isProfileDraftSubmittable(draft), true);
-  assert.equal(profileConfigFromDraft(draft, []).providerId, "claude-code-router");
+  assert.equal(profileConfigFromDraft(draft, []).providerId, "llm-router");
   assert.equal(profileConfigFromDraft(draft, []).providerName, "LLM Router");
+});
+
+test("new profiles default to the llm-router provider ID and saved claude-code-router profiles keep theirs", () => {
+  assert.equal(createProfileDraft("opencode").providerId, "llm-router");
+
+  const saved = normalizeUnknownProfileItem({ agent: "opencode", id: "opencode-old", name: "OpenCode", providerId: "claude-code-router" }, 0);
+  assert.ok(saved);
+  assert.equal(saved.providerId, "claude-code-router");
+  assert.equal(profileConfigFromDraft(createProfileDraftFromProfile(saved), []).providerId, "claude-code-router");
 });
 
 test("explicit allowed model lists require a default model", () => {

@@ -38,7 +38,7 @@ Kilo Code is fixed to **CLI only**, so the entry mode is not editable. The field
 | Config name | Free text, e.g. `Kilo - Work` | Identifies the profile. Commands use `llmr "<name>"`. |
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps changes limited to LLMR launches, or makes this the system-default Kilo profile. Only one enabled system-default Kilo profile is allowed. |
-| Provider ID | Default `claude-code-router` | Provider reference for this Kilo profile. |
+| Provider ID | Default `llm-router` (`claude-code-router` in profiles made before the rename) | Provider reference for this Kilo profile. |
 | Provider name | Free text; default `LLM Router` | Display name shown in Kilo. |
 | Kilo model | A provider model or Fusion model | Default model Kilo uses through LLMR. |
 | Config file | Path | Used for the system-default Kilo profile. |

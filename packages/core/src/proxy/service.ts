@@ -28,6 +28,7 @@ import { windowsSystemCommand } from "@ccr/core/platform/windows-system";
 import { pluginService, type GatewayPluginProxyRouteMatch } from "@ccr/core/plugins/service";
 import {
   createCertificateForHost,
+  PROXY_CA_NAMES,
   ensureProxyCertificateAuthority,
   proxyCertificateAuthorityKeyMatches,
   proxyCertificateAuthorityExists,
@@ -1557,17 +1558,21 @@ function normalizeFingerprint(value: string): string {
   return value.replace(/[^a-fA-F0-9]/g, "").toUpperCase();
 }
 
+function macosDeleteProxyCaCommands(prefix: string, suffix: string): string[] {
+  return PROXY_CA_NAMES.map((name) => `${prefix}/usr/bin/security delete-certificate -c ${quoteShellArg(name)} /Library/Keychains/System.keychain${suffix}`);
+}
+
 function macosSystemCertificateInstallScript(): string {
   return [
     "set -e",
-    "/usr/bin/security delete-certificate -c 'Claude Code Router CA' /Library/Keychains/System.keychain >/dev/null 2>&1 || true",
+    ...macosDeleteProxyCaCommands("", " >/dev/null 2>&1 || true"),
     `/usr/bin/security add-trusted-cert -d -r trustRoot -p ssl -k /Library/Keychains/System.keychain ${quoteShellArg(PROXY_CA_CERT_FILE)}`
   ].join("; ");
 }
 
-function macosManualCertificateInstallCommand(): string {
+export function macosManualCertificateInstallCommand(): string {
   return [
-    "sudo /usr/bin/security delete-certificate -c 'Claude Code Router CA' /Library/Keychains/System.keychain || true",
+    ...macosDeleteProxyCaCommands("sudo ", " || true"),
     `sudo /usr/bin/security add-trusted-cert -d -r trustRoot -p ssl -k /Library/Keychains/System.keychain ${quoteShellArg(PROXY_CA_CERT_FILE)}`
   ].join("\n");
 }
@@ -1618,7 +1623,7 @@ function macosTerminalCertificateInstallScript(): string {
     "echo 'Installing LLMR Proxy CA into the macOS System keychain.'",
     "echo 'Terminal will ask for your macOS password if sudo is required.'",
     "echo ''",
-    "sudo /usr/bin/security delete-certificate -c 'Claude Code Router CA' /Library/Keychains/System.keychain >/dev/null 2>&1 || true",
+    ...macosDeleteProxyCaCommands("sudo ", " >/dev/null 2>&1 || true"),
     `sudo /usr/bin/security add-trusted-cert -d -r trustRoot -p ssl -k /Library/Keychains/System.keychain ${quoteShellArg(PROXY_CA_CERT_FILE)}`,
     "echo ''",
     "echo 'Done. Return to LLMR, click Check Trust, then restart proxy mode and Chrome.'",

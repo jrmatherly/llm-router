@@ -71,8 +71,12 @@ test("the indefinite article follows the new name", () => {
   assert.equal(rebrandText("a CCR-managed profile", "md"), "an LLMR-managed profile");
 });
 
-test("the proxy CA subject and the help text that names it keep the certificate name Keychain Access shows", () => {
+test("the proxy CA organizational unit keeps the literal the rebrand script protects", () => {
   assert.deepEqual(gitGrepFiles(["--fixed-strings", "LLMR MITM Proxy", "--", "packages"]), []);
+});
+
+test("only the CA module and the uninstall script name the pre-rename proxy CA, so every keychain cleanup removes it", () => {
+  assert.deepEqual(gitGrepFiles(["--fixed-strings", "Claude Code Router CA", "--", ":(glob)packages/*/src/**", "scripts"]), ["packages/core/src/proxy/certificates.ts", "scripts/uninstall-macos.mjs"]);
 });
 
 test("the proxy CA organizational unit stays part of the kept CA subject", () => {

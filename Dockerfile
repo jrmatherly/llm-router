@@ -23,7 +23,7 @@ ENV NODE_ENV=production
 
 COPY package.json package-lock.json ./
 COPY packages/core/package.json packages/core/package.json
-RUN npm ci --omit=dev --workspace=@claude-code-router/core --include-workspace-root=false \
+RUN npm ci --omit=dev --workspace=@llm-router/core --include-workspace-root=false \
   && npm cache clean --force
 
 FROM ${RUNTIME_NODE_IMAGE} AS runtime

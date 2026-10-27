@@ -10,7 +10,7 @@ const legacy = { appBundles: ["Claude Code Router.app"], dataDirs: [".claude-cod
 // Where global profiles write. shortcut: OpenCode and Kilo honor XDG_CONFIG_HOME, which this ignores; read it if someone sets one on a Mac.
 const agentDirs = [".claude", ".codex", ".config/kilo", ".config/opencode", ".pi/agent", ".workbuddy", ".zcode", ".zcode/cli", ".zcode/v2"];
 // .llm-router inside an agent home holds the app user data LLMR launches Codex, Workbuddy and ZCode with.
-export const agentLeftover = /\.ccr-backup-|\.ccr-original(-missing)?$|^ccr-.*model-catalog\.json$|^claude-code-router\.config\.toml$|^\.llm-router$/;
+export const agentLeftover = /\.ccr-backup-|\.ccr-original(-missing)?$|^ccr-.*model-catalog\.json$|^(claude-code-router|llm-router)\.config\.toml$|^\.llm-router$/;
 const managedConfigs = [
   ".claude/settings.json",
   ".codex/config.toml",
@@ -25,7 +25,8 @@ const managedConfigs = [
 ];
 const gatewayMarker = /127\.0\.0\.1:3456|\.llm-router\/bin\//;
 export const schemes = [...legacy.schemes, ...current.schemes];
-const caName = "Claude Code Router CA";
+// Mirrors PROXY_CA_NAMES in packages/core/src/proxy/certificates.ts; pre-rename builds trusted the CA under the upstream name.
+export const caNames = ["LLM Router CA", "Claude Code Router CA"];
 const launchServicesPlist = "Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist";
 const lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
 
@@ -59,7 +60,7 @@ function succeeds(command, args) {
 
 export const macSystem = {
   appRunning: () => succeeds("pgrep", ["-f", "Router\\.app/Contents/MacOS/"]),
-  caInstalled: () => succeeds("security", ["find-certificate", "-c", caName, "/Library/Keychains/System.keychain"]),
+  trustedCaNames: () => caNames.filter((name) => succeeds("security", ["find-certificate", "-c", name, "/Library/Keychains/System.keychain"])),
   handlerIndexes(plist, wanted) {
     if (!existsSync(plist)) return [];
     const handlers = JSON.parse(run("plutil", ["-convert", "json", "-o", "-", plist])).LSHandlers ?? [];
@@ -98,7 +99,7 @@ export function planUninstall({ applications = "/Applications", home, includeLeg
   }
 
   const notes = [];
-  if (system.caInstalled()) notes.push(`The proxy CA is still trusted. Remove it with: sudo security delete-certificate -c '${caName}' /Library/Keychains/System.keychain`);
+  for (const name of system.trustedCaNames()) notes.push(`The proxy CA "${name}" is still trusted. Remove it with: sudo security delete-certificate -c '${name}' /Library/Keychains/System.keychain`);
   if (system.localProxyActive()) notes.push("A system proxy still points at 127.0.0.1. Turn it off in System Settings > Network > Details > Proxies.");
 
   const leftovers = agentDirs.flatMap((dir) => {

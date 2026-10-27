@@ -41,7 +41,7 @@ Use this page to route Codex to a non-OpenAI provider, pin a model, or run separ
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps changes limited to LLMR launches, or makes this the system-default Codex profile. Only one enabled system-default Codex profile is allowed. |
 | Entry mode | `CLI & APP` / `CLI only` / `App only` | Which launch entries (terminal command and/or ChatGPT app) are exposed. |
-| Provider ID | Alphanumerics, `.`, `_`, `-`; default `claude-code-router` | Provider reference for this Codex profile. Keep it stable. |
+| Provider ID | Alphanumerics, `.`, `_`, `-`; default `llm-router` (`claude-code-router` in profiles made before the rename) | Provider reference for this Codex profile. Keep it stable. |
 | Provider name | Free text; default `LLM Router` | Display name shown in Codex. |
 | Codex model | Provider model or Fusion model | Default Codex model. If left empty, LLMR uses the first available default model. |
 | Show all sessions | Toggle | Writes `show_all_sessions` so Codex lists all sessions. |
