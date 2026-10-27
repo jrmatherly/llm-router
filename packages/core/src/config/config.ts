@@ -242,6 +242,14 @@ function isWebhookRelatedBotGatewayKey(key: string): boolean {
   return normalized.includes("webhook") || normalized === "sendmode";
 }
 
+// A symbol key survives object spread but never reaches disk or IPC.
+const configLoadError = Symbol("configLoadError");
+
+// The fallback holds only default profiles, so anything that syncs agents from it must check this first.
+export function appConfigLoadError(config: AppConfig): string | undefined {
+  return (config as { [configLoadError]?: string })[configLoadError];
+}
+
 export async function loadAppConfig(): Promise<AppConfig> {
   try {
     const loadedRawConfig = await loadRawAppConfig();
@@ -368,11 +376,12 @@ export async function loadAppConfig(): Promise<AppConfig> {
         console.warn(`[config] Failed to persist generated API key: ${formatError(storeError)}`);
       });
     }
-    return {
+    const fallback: AppConfig = {
       ...DEFAULT_CONFIG,
       APIKEY: apiKeys[0]?.key ?? "",
       APIKEYS: apiKeys
     };
+    return Object.assign(fallback, { [configLoadError]: formatError(error) });
   }
 }
 

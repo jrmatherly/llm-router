@@ -2542,6 +2542,41 @@ test("a fresh takeover records the user's current env, not a stale stored value"
   });
 });
 
+const userDisplacedEnv = Object.fromEntries(Object.entries(userProviderClaudeSettings.env).filter(([key]) => key !== "USER_VALUE"));
+
+for (const [name, removeEnv] of [
+  ["settings.json is deleted", (settingsFile) => rmSync(settingsFile)],
+  ["its env block is removed", (settingsFile, live) => {
+    delete live.env;
+    writeFileSync(settingsFile, `${JSON.stringify(live, null, 2)}\n`);
+  }]
+]) {
+  test(`release restores the user's displaced env after ${name} while the profile was on`, { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+    await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, readSettings, release, settingsFile }) => {
+      await apply();
+      removeEnv(settingsFile, readSettings());
+      await apply();
+      release();
+      const restored = readSettings().env ?? {};
+      assert.deepEqual(Object.fromEntries(Object.keys(userDisplacedEnv).map((key) => [key, restored[key]])), userDisplacedEnv);
+    });
+  });
+}
+
+test("a corrupt takeover state file is reported and kept aside, not overwritten", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async (t) => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, config }) => {
+    const stateFile = path.join(CONFIGDIR, "profiles", config.profile.profiles[0].id, "claude", "settings-state.json");
+    await apply();
+    writeFileSync(stateFile, "{\"displacedEnv\": {\"ANTHROPIC_MODEL\": \"user-mo");
+    const warn = t.mock.method(console, "warn", () => undefined);
+    await apply();
+    const kept = readdirSync(path.dirname(stateFile)).filter((entry) => entry.startsWith("settings-state.json.corrupt-"));
+    assert.equal(kept.length, 1);
+    assert.equal(readFileSync(path.join(path.dirname(stateFile), kept[0]), "utf8"), "{\"displacedEnv\": {\"ANTHROPIC_MODEL\": \"user-mo");
+    assert.ok(warn.mock.calls.some((call) => String(call.arguments[0]).includes(stateFile)));
+  });
+});
+
 test("release restores the user's own workload identity federation env", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const original = {
     env: {

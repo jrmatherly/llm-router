@@ -1,9 +1,10 @@
-import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readlinkSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readlinkSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, availableGatewayModelIds, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@ccr/core/contracts/app";
 import { CLAUDE_CODE_AUTH_MODE_ENV, resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@ccr/core/agents/claude-code/auth-mode";
 import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@ccr/core/agents/claude-code/gateway-login-policy";
+import { appConfigLoadError } from "@ccr/core/config/config";
 import { updatePersistedApiKeys } from "@ccr/core/config/config-repository";
 import { botGatewayProfileEnv } from "@ccr/core/agents/bot-gateway/env";
 import {
@@ -161,6 +162,11 @@ async function applyProfileConfigNow(
   config: AppConfig,
   options: ApplyProfileConfigOptions
 ): Promise<ProfileApplyResult> {
+  const loadError = appConfigLoadError(config);
+  if (loadError) {
+    // The defaults hold no profiles, so syncing them would release every agent the user's real config takes over.
+    throw new Error(`LLMR left agent profiles unchanged because its config failed to load: ${loadError}`);
+  }
   cleanupGeneratedBinBackups();
   const appliedAt = new Date().toISOString();
   const excludedAgents = new Set(options.excludeAgents ?? []);
@@ -594,7 +600,7 @@ function readClaudeModelDiscoveryFingerprintState(): Record<string, unknown> {
 
 function writeClaudeModelDiscoveryFingerprintState(state: Record<string, unknown>): void {
   mkdirSync(path.dirname(claudeModelDiscoveryFingerprintStateFile), { recursive: true });
-  writeFileSync(claudeModelDiscoveryFingerprintStateFile, `${JSON.stringify(state, null, 2)}\n`, { mode: privateFileMode });
+  writeFileAtomic(claudeModelDiscoveryFingerprintStateFile, `${JSON.stringify(state, null, 2)}\n`, { mode: privateFileMode });
 }
 
 function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: string, appliedAt: string): ProfileClientApplyStatus {
@@ -976,7 +982,7 @@ function readClaudeCodeProfileSettingsState(profile: ProfileConfig): ClaudeCodeP
 }
 
 function readClaudeCodeSettingsStateFile(file: string): ClaudeCodeProfileSettingsState {
-  const state = readJsonObject(file);
+  const state = readStateJson(file);
   const paths = Array.isArray(state.paths)
     ? state.paths.filter((item): item is string => typeof item === "string")
     : [];
@@ -1007,13 +1013,15 @@ function claudeCodeDisplacedEnv(
     return stored.displacedEnv;
   }
   const userWif = env.ANTHROPIC_FEDERATION_RULE_ID !== claudeCodeWifFederationRuleId;
-  return Object.fromEntries(Object.entries(env).filter(([key, value]) =>
+  const current = Object.fromEntries(Object.entries(env).filter(([key, value]) =>
     !recorded.includes(value) &&
     ((claudeCodeFirstPartyProviderEnvKeys as readonly string[]).includes(key) ||
       (claudeCodeGatewayEnvKeys as readonly string[]).includes(key) ||
       (userWif && isClaudeCodeWifEnvKey(key)) ||
       isClaudeCodeManagedModelEnvKey(key))
   ));
+  // A takeover whose settings file or env block was deleted still owes the user what it displaced.
+  return stored.endpoints.length > 0 && Object.keys(current).length === 0 ? stored.displacedEnv : current;
 }
 
 // LLMR writes all three gateway keys to its endpoint; a user's own base URL rarely sets all three alike.
@@ -3405,8 +3413,7 @@ function writeGeneratedFileIfChanged(
     chmodFileIfRequested(file, options.mode);
     return { changed: false };
   }
-  writeFileSync(file, content, options.mode === undefined ? "utf8" : { encoding: "utf8", mode: options.mode });
-  chmodFileIfRequested(file, options.mode);
+  writeFileAtomic(file, content, { mode: options.mode });
   return { changed: true };
 }
 
@@ -3896,28 +3903,44 @@ function dedupeGlobalProfileTakeovers(records: GlobalProfileTakeoverRecord[]): G
 }
 
 function readGlobalProfileTakeoverMarker(): GlobalProfileTakeoverRecord[] {
-  try {
-    const parsed = JSON.parse(readFileSync(globalProfileTakeoverFile, "utf8")) as { profiles?: unknown };
-    if (!Array.isArray(parsed.profiles)) {
-      return [];
-    }
-    return parsed.profiles.filter((value): value is GlobalProfileTakeoverRecord =>
-      isRecord(value) &&
-      (value.agent === "claude-code" || value.agent === "codex" || value.agent === "opencode" || value.agent === "kilo" || value.agent === "pi" || value.agent === "workbuddy" || value.agent === "zcode") &&
-      typeof value.id === "string" &&
-      typeof value.name === "string"
-    );
-  } catch {
+  const { profiles } = readStateJson(globalProfileTakeoverFile);
+  if (!Array.isArray(profiles)) {
     return [];
+  }
+  return profiles.filter((value): value is GlobalProfileTakeoverRecord =>
+    isRecord(value) &&
+    (value.agent === "claude-code" || value.agent === "codex" || value.agent === "opencode" || value.agent === "kilo" || value.agent === "pi" || value.agent === "workbuddy" || value.agent === "zcode") &&
+    typeof value.id === "string" &&
+    typeof value.name === "string"
+  );
+}
+
+// An unparseable state file still holds what LLMR last recorded; move it aside so the next write cannot erase it.
+function readStateJson(file: string): Record<string, unknown> {
+  let content: string;
+  try {
+    content = readFileSync(file, "utf8");
+  } catch {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(content) as unknown;
+    return isRecord(parsed) ? parsed : {};
+  } catch {
+    const kept = `${file}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+    try {
+      renameSync(file, kept);
+      console.warn(`[profile] ${file} is not valid JSON; moved it to ${kept} and continued without it.`);
+    } catch (renameError) {
+      console.warn(`[profile] ${file} is not valid JSON and could not be moved aside (${formatError(renameError)}); continued without it.`);
+    }
+    return {};
   }
 }
 
 function writeGlobalProfileTakeoverMarker(records: GlobalProfileTakeoverRecord[]): void {
   mkdirSync(path.dirname(globalProfileTakeoverFile), { recursive: true });
-  writeFileSync(globalProfileTakeoverFile, `${JSON.stringify({ profiles: records, version: 1 }, null, 2)}\n`, {
-    encoding: "utf8",
-    mode: privateFileMode
-  });
+  writeFileAtomic(globalProfileTakeoverFile, `${JSON.stringify({ profiles: records, version: 1 }, null, 2)}\n`, { mode: privateFileMode });
 }
 
 function clearGlobalProfileTakeoverMarker(): void {
