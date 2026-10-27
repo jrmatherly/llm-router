@@ -2247,9 +2247,11 @@ test("profile service strips LLMR-managed Claude settings from a user-owned sett
 const userProviderClaudeSettings = {
   env: {
     ANTHROPIC_API_KEY: "sk-user-own",
+    ANTHROPIC_AUTH_TOKEN: "user-auth-token",
     ANTHROPIC_BASE_URL: "https://corp-proxy.example",
     ANTHROPIC_MODEL: "user-model",
     CLAUDE_CODE_USE_BEDROCK: "1",
+    CLAUDE_CODE_USE_VERTEX: "1",
     USER_VALUE: "kept"
   },
   permissions: { allow: ["Bash(ls)"] }
@@ -2343,6 +2345,31 @@ test("disabling the global profile restores the user's own provider env", { skip
     assert.deepEqual(readSettings(), userProviderClaudeSettings);
   });
 });
+
+for (const [name, editGatewayEnv, reapply] of [
+  ["points one gateway URL back at its proxy", (env) => { env.ANTHROPIC_BASE_URL = "https://user-edit.example"; }, false],
+  ["points one gateway URL back at its proxy and LLMR re-applies on a new port", (env) => { env.ANTHROPIC_BASE_URL = "https://user-edit.example"; }, true],
+  ["deletes one gateway URL", (env) => { delete env.CLAUDE_AGENT_API_BASE_URL; }, false]
+]) {
+  test(`release strips LLMR's gateway and model env after the user ${name} while the profile was on`, { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+    await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, config, readSettings, release, settingsFile }) => {
+      config.gateway.port = 4303;
+      await apply();
+      const live = readSettings();
+      editGatewayEnv(live.env);
+      writeFileSync(settingsFile, `${JSON.stringify(live, null, 2)}\n`);
+      if (reapply) {
+        config.gateway.port = 4404;
+        await apply();
+      }
+      release();
+      assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1:(4303|4404)/);
+      const restored = readSettings();
+      assert.equal(restored.env.ANTHROPIC_BASE_URL, reapply || name.startsWith("deletes") ? "https://corp-proxy.example" : "https://user-edit.example");
+      assert.deepEqual(restored.env, { ...userProviderClaudeSettings.env, ANTHROPIC_BASE_URL: restored.env.ANTHROPIC_BASE_URL });
+    });
+  });
+}
 
 test("release keeps a user edit made while the profile was on", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, readSettings, release, settingsFile }) => {

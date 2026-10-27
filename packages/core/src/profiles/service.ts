@@ -421,7 +421,8 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     const currentSettings = readClaudeCodeSettingsObject(settingsFile);
     const authMode = resolveClaudeCodeGatewayAuthMode(profile);
     const profileSettingsState = readClaudeCodeProfileSettingsState(profile);
-    const displacedEnv = claudeCodeDisplacedEnv(currentSettings.env, profileSettingsState.displacedEnv, endpoint);
+    const displacedEnv = claudeCodeDisplacedEnv(currentSettings.env, profileSettingsState, endpoint);
+    const takeoverEndpoints = uniqueStrings([...profileSettingsState.endpoints, endpoint]);
     const profileSettings = claudeCodeProfileSettings(profile, authMode);
     const profileSettingsEnv = withoutBotGatewayEnv(Object.fromEntries(stringRecord(profileSettings.env)));
     delete profileSettings.env;
@@ -485,7 +486,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
       managedEnvKeys.add(key);
     }
     const writeResult = writeClaudeCodeSettingsIfManagedChanged(settingsFile, currentSettings, nextSettings, managedEnvKeys, managedSettingComparePaths);
-    const settingsStateResult = writeClaudeCodeProfileSettingsState(profile, managedSettingPaths, managedProfileEnvKeys, displacedEnv);
+    const settingsStateResult = writeClaudeCodeProfileSettingsState(profile, managedSettingPaths, managedProfileEnvKeys, displacedEnv, takeoverEndpoints);
     const changed = writeResult.changed ||
       settingsStateResult.changed ||
       Boolean(helperResult?.changed) ||
@@ -940,7 +941,7 @@ function claudeCodeProfileSettingsStateFile(profile: ProfileConfig): string {
   return path.join(ccrManagedProfileDir(profile), "claude", "settings-state.json");
 }
 
-type ClaudeCodeProfileSettingsState = { displacedEnv: Record<string, string>; envKeys: string[]; paths: string[] };
+type ClaudeCodeProfileSettingsState = { displacedEnv: Record<string, string>; endpoints: string[]; envKeys: string[]; paths: string[] };
 
 function readClaudeCodeProfileSettingsState(profile: ProfileConfig): ClaudeCodeProfileSettingsState {
   const state = readJsonObject(claudeCodeProfileSettingsStateFile(profile));
@@ -950,26 +951,35 @@ function readClaudeCodeProfileSettingsState(profile: ProfileConfig): ClaudeCodeP
   const envKeys = Array.isArray(state.envKeys)
     ? state.envKeys.filter((item): item is string => typeof item === "string")
     : [];
+  const endpoints = Array.isArray(state.endpoints)
+    ? state.endpoints.filter((item): item is string => typeof item === "string")
+    : [];
   return {
     displacedEnv: Object.fromEntries(stringRecord(state.displacedEnv)),
+    endpoints: uniqueStrings(endpoints),
     envKeys: uniqueStrings(envKeys),
     paths: uniquePathStrings(paths)
   };
 }
 
 // The user's own provider, auth, base-URL and model env that apply overwrites or deletes, so release can put it back.
-function claudeCodeDisplacedEnv(currentEnv: unknown, stored: Record<string, string>, endpoint: string): Record<string, string> {
+function claudeCodeDisplacedEnv(
+  currentEnv: unknown,
+  stored: Pick<ClaudeCodeProfileSettingsState, "displacedEnv" | "endpoints">,
+  endpoint: string
+): Record<string, string> {
   const env = Object.fromEntries(stringRecord(currentEnv));
-  if (isClaudeCodeGatewayTakeoverEnv(env)) {
-    return stored;
+  const recorded = [...stored.endpoints, endpoint];
+  if (isClaudeCodeGatewayTakeoverEnv(env) || claudeCodeGatewayEnvKeys.some((key) => recorded.includes(env[key]))) {
+    return stored.displacedEnv;
   }
   const displaced = Object.fromEntries(Object.entries(env).filter(([key, value]) =>
-    value !== endpoint &&
+    !recorded.includes(value) &&
     ((claudeCodeFirstPartyProviderEnvKeys as readonly string[]).includes(key) ||
       (claudeCodeGatewayEnvKeys as readonly string[]).includes(key) ||
       isClaudeCodeManagedModelEnvKey(key))
   ));
-  return { ...displaced, ...stored };
+  return { ...displaced, ...stored.displacedEnv };
 }
 
 // LLMR writes all three gateway keys to its endpoint; a user's own base URL rarely sets all three alike.
@@ -982,8 +992,7 @@ function claudeCodeManagedSettingsScope(profile: ProfileConfig): ClaudeCodeProfi
   delete profileSettings.env;
   const state = readClaudeCodeProfileSettingsState(profile);
   return {
-    displacedEnv: state.displacedEnv,
-    envKeys: state.envKeys,
+    ...state,
     paths: uniquePathStrings([...state.paths, ...claudeCodeProfileSettingsPaths(profileSettings)])
   };
 }
@@ -994,24 +1003,30 @@ function claudeCodeManagedContent(profile: ProfileConfig): RestoreManagedContent
     isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, scope.paths),
     onReleased: () => {
       const state = readClaudeCodeProfileSettingsState(profile);
-      if (Object.keys(state.displacedEnv).length > 0) {
-        writeClaudeCodeProfileSettingsState(profile, state.paths, state.envKeys, {});
+      if (hasClaudeCodeTakeoverState(state)) {
+        writeClaudeCodeProfileSettingsState(profile, state.paths, state.envKeys, {}, []);
       }
     },
-    stripManagedContent: (content) => stripManagedClaudeCodeSettingsContent(content, scope.envKeys, scope.paths, scope.displacedEnv)
+    stripManagedContent: (content) => stripManagedClaudeCodeSettingsContent(content, scope.envKeys, scope.paths, scope.displacedEnv, scope.endpoints)
   };
+}
+
+function hasClaudeCodeTakeoverState(state: ClaudeCodeProfileSettingsState): boolean {
+  return state.endpoints.length > 0 || Object.keys(state.displacedEnv).length > 0;
 }
 
 function writeClaudeCodeProfileSettingsState(
   profile: ProfileConfig,
   paths: string[],
   envKeys: string[],
-  displacedEnv: Record<string, string>
+  displacedEnv: Record<string, string>,
+  endpoints: string[]
 ): { changed: boolean } {
   const file = claudeCodeProfileSettingsStateFile(profile);
   const content = `${JSON.stringify({
     version: 1,
     displacedEnv,
+    endpoints,
     envKeys: uniqueStrings(envKeys),
     paths: uniquePathStrings(paths)
   }, null, 2)}\n`;
@@ -3546,7 +3561,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
         .filter(Boolean)
     ])) {
       const owners = claudeProfiles.filter((profile) => resolveClaudeCodeSettingsFile(profile) === file);
-      const owner = owners.find((profile) => Object.keys(readClaudeCodeProfileSettingsState(profile).displacedEnv).length > 0) ?? owners[0];
+      const owner = owners.find((profile) => hasClaudeCodeTakeoverState(readClaudeCodeProfileSettingsState(profile))) ?? owners[0];
       const matchers: RestoreManagedContentMatchers = owner
         ? claudeCodeManagedContent(owner)
         : { isManagedContent: isManagedClaudeCodeSettingsContent, stripManagedContent: stripManagedClaudeCodeSettingsContent };
@@ -4085,7 +4100,8 @@ function stripManagedClaudeCodeSettingsContent(
   content: string,
   managedEnvKeys: string[] = [],
   managedSettingPaths: string[] = [],
-  displacedEnv: Record<string, string> = {}
+  displacedEnv: Record<string, string> = {},
+  endpoints: string[] = []
 ): string | undefined {
   const settings = parseJsonContent(content);
   if (!settings) {
@@ -4093,7 +4109,7 @@ function stripManagedClaudeCodeSettingsContent(
   }
   const nextSettings = withoutManagedClaudeCodeApiKeyHelper(removeClaudeCodeProfileSettings(settings, managedSettingPaths, []));
   if (isRecord(nextSettings.env)) {
-    nextSettings.env = withoutManagedClaudeCodeEnv(nextSettings.env, managedEnvKeys, displacedEnv);
+    nextSettings.env = withoutManagedClaudeCodeEnv(nextSettings.env, managedEnvKeys, displacedEnv, endpoints);
   }
   return jsonValuesEqual(settings, nextSettings) ? undefined : `${JSON.stringify(nextSettings, null, 2)}\n`;
 }
@@ -4101,20 +4117,22 @@ function stripManagedClaudeCodeSettingsContent(
 function withoutManagedClaudeCodeEnv(
   env: Record<string, unknown>,
   managedEnvKeys: string[],
-  displacedEnv: Record<string, string> = {}
+  displacedEnv: Record<string, string> = {},
+  endpoints: string[] = []
 ): Record<string, unknown> {
   const routerWif = env.ANTHROPIC_FEDERATION_RULE_ID === claudeCodeWifFederationRuleId;
-  const takenOver = isClaudeCodeGatewayTakeoverEnv(env);
-  const next = Object.fromEntries(Object.entries(env).filter(([key]) =>
+  const trioIntact = isClaudeCodeGatewayTakeoverEnv(env);
+  const takeoverActive = trioIntact || endpoints.length > 0;
+  const next = Object.fromEntries(Object.entries(env).filter(([key, value]) =>
     !managedEnvKeys.includes(key) &&
-    !(takenOver && (claudeCodeGatewayEnvKeys as readonly string[]).includes(key)) &&
+    !((claudeCodeGatewayEnvKeys as readonly string[]).includes(key) && (trioIntact || (typeof value === "string" && endpoints.includes(value)))) &&
     !(claudeCodeNoProxyEnvKeys as readonly string[]).includes(key) &&
     !(claudeCodeGatewayCompatibilityEnvKeys as readonly string[]).includes(key) &&
     !(routerWif && isClaudeCodeWifEnvKey(key)) &&
     key !== CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV &&
     key !== CLAUDE_CODE_MCP_CONFIG_ENV &&
     key !== CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV &&
-    !(takenOver && isClaudeCodeManagedModelEnvKey(key)) &&
+    !(takeoverActive && isClaudeCodeManagedModelEnvKey(key)) &&
     !isBotGatewayEnvKey(key)
   ));
   for (const key of claudeCodeNoProxyEnvKeys) {
