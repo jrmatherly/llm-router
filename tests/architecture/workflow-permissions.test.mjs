@@ -11,3 +11,12 @@ for (const file of readdirSync(".github/workflows").map((name) => `.github/workf
     if (file.includes("/workflows/")) assert.match(text, /^permissions:\n  contents: read$/m);
   });
 }
+
+test("release builds wait for the test job", () => {
+  const release = readFileSync(".github/workflows/release.yml", "utf8");
+  assert.match(release, /^  test:$/m);
+  for (const job of ["model-catalog", "gateway"]) {
+    assert.match(release, new RegExp(`^  ${job}:\\n(?:(?: {4}.*)?\\n)*? {4}needs: \\[?test\\b`, "m"), job);
+  }
+  assert.match(readFileSync(".github/workflows/test.yml", "utf8"), /npm run test:system/);
+});
