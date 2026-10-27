@@ -33,6 +33,8 @@ import {
   writeOpenCodeGatewayConfig
 } from "@ccr/core/agents/opencode/profile-config";
 import {
+  isManagedPiModelsContent,
+  piProviderId,
   piWrapperFilename,
   resolvePiAgentDir,
   writePiGatewayConfig
@@ -741,7 +743,7 @@ function applyKimiProfile(config: AppConfig, profile: ProfileConfig, token: stri
 function applyPiProfile(config: AppConfig, profile: ProfileConfig, token: string, appliedAt: string): ProfileClientApplyStatus {
   const wrapperFile = piWrapperPath(profile);
   if (!profile.enabled) {
-    return disabledStatus("pi", wrapperFile, "Pi profile is disabled.");
+    return disabledPiStatus(profile);
   }
 
   try {
@@ -749,6 +751,7 @@ function applyPiProfile(config: AppConfig, profile: ProfileConfig, token: string
     const wrapperResult = writePiWrapper(config, profile, token, model);
     return {
       appliedAt,
+      backupFile: wrapperResult.backupFile,
       client: "pi",
       enabled: true,
       message: wrapperResult.changed
@@ -924,7 +927,7 @@ function profilePath(profile: ProfileConfig): string {
       : profile.agent === "kimi"
         ? kimiWrapperPath(profile)
         : profile.agent === "pi"
-          ? path.join(resolvePiAgentDir(CONFIGDIR, profile), "models.json")
+          ? piModelsFile(profile)
           : profile.agent === "claude-design"
             ? CONFIGDIR
             : profile.agent === "opencode"
@@ -1967,7 +1970,7 @@ function writePiWrapper(
   profile: ProfileConfig,
   token: string,
   defaultModel: string
-): { changed: boolean; configFile: string; file: string } {
+): { backupFile?: string; changed: boolean; configFile: string; file: string } {
   const binDir = path.join(CONFIGDIR, "bin");
   mkdirSync(binDir, { mode: privateDirMode, recursive: true });
   const configResult = writePiGatewayConfig(CONFIGDIR, config, profile, token, defaultModel);
@@ -1981,10 +1984,28 @@ function writePiWrapper(
     : piWrapperShellScript(config, profile, configResult);
   const writeResult = writeGeneratedFileIfChanged(file, content, { mode: privateExecutableMode });
   return {
+    backupFile: configResult.backupFile,
     changed: configResult.changed || writeResult.changed || runtimeResult.changed,
     configFile: configResult.file,
     file
   };
+}
+
+function piModelsFile(profile: ProfileConfig): string {
+  return path.join(resolvePiAgentDir(CONFIGDIR, profile), "models.json");
+}
+
+function disabledPiStatus(profile: ProfileConfig): ProfileClientApplyStatus {
+  if (!isGlobalProfile(profile)) {
+    return disabledStatus("pi", piWrapperPath(profile), "Pi profile is disabled.");
+  }
+  const providerId = piProviderId(profile);
+  return restoreDisabledGlobalProfile(
+    profile,
+    piModelsFile(profile),
+    "Pi profile is disabled.",
+    { isManagedContent: (content) => isManagedPiModelsContent(content, providerId) }
+  );
 }
 
 function piWrapperPath(profile: ProfileConfig): string {
@@ -3528,7 +3549,7 @@ function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus
     return disabledStatus("kimi", kimiWrapperPath(profile), "Kimi CLI profile is disabled.");
   }
   if (profile.agent === "pi") {
-    return disabledStatus("pi", piWrapperPath(profile), "Pi profile is disabled.");
+    return disabledPiStatus(profile);
   }
   if (profile.agent === "claude-design") {
     return disabledStatus("claude-design", CONFIGDIR, "Claude Design profile is disabled.");
@@ -3649,6 +3670,19 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
       });
       if (restoreResult.changed || restoreResult.missingBackup) {
         statuses.push(inactiveGlobalCleanupStatus("kilo", file, restoreResult));
+      }
+    }
+  }
+  const piProfiles = profiles.filter((profile) => profile.agent === "pi");
+  if (piProfiles.length > 0 && !piProfiles.some((profile) => profile.enabled && isGlobalProfile(profile))) {
+    const providerIds = [...new Set(["claude-code-router", ...piProfiles.map(piProviderId)])];
+    for (const file of uniqueResolvedPaths(piProfiles.map((profile) => piModelsFile({ ...profile, scope: "global" })))) {
+      const restoreResult = restoreGlobalConfigFile(file, {
+        isManagedContent: (content) => providerIds.some((providerId) => isManagedPiModelsContent(content, providerId)),
+        mode: privateFileMode
+      });
+      if (restoreResult.changed || restoreResult.missingBackup) {
+        statuses.push(inactiveGlobalCleanupStatus("pi", file, restoreResult));
       }
     }
   }
@@ -3801,7 +3835,7 @@ function readGlobalProfileTakeoverMarker(): GlobalProfileTakeoverRecord[] {
     }
     return parsed.profiles.filter((value): value is GlobalProfileTakeoverRecord =>
       isRecord(value) &&
-      (value.agent === "claude-code" || value.agent === "codex" || value.agent === "opencode" || value.agent === "kilo" || value.agent === "workbuddy" || value.agent === "zcode") &&
+      (value.agent === "claude-code" || value.agent === "codex" || value.agent === "opencode" || value.agent === "kilo" || value.agent === "pi" || value.agent === "workbuddy" || value.agent === "zcode") &&
       typeof value.id === "string" &&
       typeof value.name === "string"
     );

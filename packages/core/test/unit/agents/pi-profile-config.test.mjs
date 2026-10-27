@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { writePiGatewayConfig } from "@ccr/core/agents/pi/profile-config.ts";
+import { isManagedPiModelsContent, writePiGatewayConfig } from "@ccr/core/agents/pi/profile-config.ts";
 import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
 import {
   findProviderModelCatalogEntry,
@@ -59,6 +59,53 @@ test("Pi profile config writes an LLMR OpenAI Responses provider", () => {
 
     const second = writePiGatewayConfig(root, config, profile, "ccr-profile-token", "Example/alpha");
     assert.equal(second.changed, false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("isManagedPiModelsContent matches only an LLMR-only provider map", () => {
+  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "claude-code-router": {} } }), "claude-code-router"), true);
+  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "claude-code-router": {}, "my-ollama": {} } }), "claude-code-router"), false);
+  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "my-ollama": {} } }), "claude-code-router"), false);
+  assert.equal(isManagedPiModelsContent("not json", "claude-code-router"), false);
+});
+
+test("a global Pi profile snapshots and backs up the user's models.json before writing", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-global-"));
+  try {
+    const agentDir = path.join(root, "pi-agent");
+    const file = path.join(agentDir, "models.json");
+    const original = `${JSON.stringify({ providers: { "my-ollama": { baseUrl: "http://localhost:11434" } } })}\n`;
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(file, original);
+    const profile = { agent: "pi", configFile: agentDir, enabled: true, id: "pi-global", model: "", name: "Pi", scope: "global", surface: "cli" };
+
+    const result = writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token", "default");
+
+    assert.equal(result.file, file);
+    assert.equal(readFileSync(`${file}.ccr-original`, "utf8"), original);
+    const backups = readdirSync(agentDir).filter((entry) => entry.startsWith("models.json.ccr-backup-"));
+    assert.equal(backups.length, 1);
+    assert.equal(readFileSync(path.join(agentDir, backups[0]), "utf8"), original);
+    if (process.platform !== "win32") {
+      assert.equal(statSync(file).mode & 0o777, 0o600);
+      assert.equal(statSync(path.join(agentDir, backups[0])).mode & 0o777, 0o600);
+    }
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("an LLMR-scoped Pi profile writes models.json without backups", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-scoped-"));
+  try {
+    const profile = { agent: "pi", enabled: true, id: "pi-ccr", model: "", name: "Pi", scope: "ccr", surface: "cli" };
+    writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token-a", "default");
+    const result = writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token-b", "default");
+
+    assert.deepEqual(readdirSync(path.dirname(result.file)).filter((entry) => entry.startsWith("models.json")), ["models.json"]);
+    assert.equal(existsSync(`${result.file}.ccr-original-missing`), false);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

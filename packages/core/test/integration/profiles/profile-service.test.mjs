@@ -4,6 +4,7 @@ import { chmodSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, 
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { writePiGatewayConfig } from "@ccr/core/agents/pi/profile-config.ts";
 import { loadAppConfig } from "@ccr/core/config/config.ts";
 import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
 import { replacePersistedApiKeys, replacePersistedAppConfig } from "@ccr/core/config/config-repository.ts";
@@ -2798,3 +2799,46 @@ function restoreEnv(name, value) {
   }
   process.env[name] = value;
 }
+
+function globalPiProfile(agentDir) {
+  return { agent: "pi", configFile: agentDir, enabled: true, env: {}, id: "pi-global", model: "", name: "Pi", scope: "global", surface: "cli" };
+}
+
+test("a global Pi profile restores the user's models.json on release", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-release-"));
+  try {
+    const agentDir = path.join(root, "pi-agent");
+    const piModels = path.join(agentDir, "models.json");
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(piModels, `${JSON.stringify({ providers: { "my-ollama": { baseUrl: "http://localhost:11434" } } })}\n`);
+    const profile = globalPiProfile(agentDir);
+
+    writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token", "default");
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["claude-code-router"]);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["my-ollama"]);
+
+    writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token", "default");
+    const statuses = restoreGlobalProfileConfigsOnExit([profile], { manageMarker: false });
+    assert.equal(statuses.every((status) => status.ok), true);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["my-ollama"]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a global Pi profile deletes the models.json it created", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-release-missing-"));
+  try {
+    const agentDir = path.join(root, "pi-agent");
+    const piModels = path.join(agentDir, "models.json");
+    const profile = globalPiProfile(agentDir);
+
+    writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token", "default");
+    assert.equal(existsSync(piModels), true);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.equal(existsSync(piModels), false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
