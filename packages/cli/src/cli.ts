@@ -130,7 +130,6 @@ async function main(): Promise<void> {
   const config = await loadAppConfig();
   assertAvailableGatewayModels(config);
   const profile = findProfileForOpen(config, profileOptions.profileRef);
-  await applyProfileConfig(config);
   const surface = profileOptions.surface ?? defaultProfileOpenSurface(profile);
   const resolvedSurface = resolveProfileOpenSurface(profile, surface);
   if (profile.agent === "zcode" && profileOptions.agentArgs.length > 0) {
@@ -142,6 +141,7 @@ async function main(): Promise<void> {
   if (profile.agent === "claude-code" && resolvedSurface === "app" && profileOptions.agentArgs.length > 0) {
     throw new Error("Claude App profiles do not support agent arguments.");
   }
+  await applyProfileConfig(config);
   if (profile.agent === "codex" && resolvedSurface === "app" && profileOptions.agentArgs.length === 0) {
     const state = await startService({
       command: "start",

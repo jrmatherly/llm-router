@@ -88,40 +88,47 @@ test("--version prints the release version and touches no config", () => {
   }
 });
 
-test("an unknown profile fails before any agent config is written", () => {
-  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-cli-unknown-profile-"));
-  try {
-    mkdirSync(path.join(home, ".llm-router"), { recursive: true });
-    writeFileSync(path.join(home, ".llm-router", "config.json"), `${JSON.stringify({
-      Providers: [{
-        api_base_url: "https://example.test/v1",
-        api_key: "provider-key",
-        models: ["model"],
-        name: "Provider"
-      }],
-      profile: {
-        profiles: [{
-          agent: "claude-code",
-          enabled: true,
-          id: "default-claude-code",
-          model: "Provider/model",
-          name: "Claude Code",
-          scope: "global",
-          smallFastModel: "",
-          surface: "auto"
-        }]
+for (const [name, args, error] of [
+  ["an unknown profile", ["no-such-profile"], /not found/i],
+  ["agent arguments for a Claude App profile", ["Claude Code", "app", "--", "--model", "x"], /Claude App profiles do not support agent arguments/]
+]) {
+  test(`${name} fails before any agent config is written`, () => {
+    const home = mkdtempSync(path.join(os.tmpdir(), "llmr-cli-bad-args-"));
+    try {
+      mkdirSync(path.join(home, ".llm-router"), { recursive: true });
+      writeFileSync(path.join(home, ".llm-router", "config.json"), `${JSON.stringify({
+        Providers: [{
+          api_base_url: "https://example.test/v1",
+          api_key: "provider-key",
+          models: ["model"],
+          name: "Provider"
+        }],
+        profile: {
+          profiles: [{
+            agent: "claude-code",
+            enabled: true,
+            id: "default-claude-code",
+            model: "Provider/model",
+            name: "Claude Code",
+            scope: "global",
+            smallFastModel: "",
+            surface: "auto"
+          }]
+        }
+      }, null, 2)}\n`);
+
+      const result = runCli(args, { env: isolateTestHome(home, {}) });
+
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, error);
+      for (const dir of [".claude", ".codex"]) {
+        assert.equal(existsSync(path.join(home, dir)), false, dir);
       }
-    }, null, 2)}\n`);
-
-    const result = runCli(["no-such-profile"], { env: isolateTestHome(home, {}) });
-
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /not found/i);
-    assert.equal(existsSync(path.join(home, ".claude", "settings.json")), false);
-  } finally {
-    rmSync(home, { force: true, recursive: true });
-  }
-});
+    } finally {
+      rmSync(home, { force: true, recursive: true });
+    }
+  });
+}
 
 function runCli(args, { env = {} } = {}) {
   return spawnSync(process.execPath, [cliRuntime, ...args], {

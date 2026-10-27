@@ -107,11 +107,11 @@ process.once("exit", () => {
 export async function getProfileOpenCommand(config: AppConfig, request: ProfileOpenRequest, options: ProfileOpenCommandOptions = {}): Promise<ProfileOpenCommandResult> {
   assertAvailableGatewayModels(config);
   const profile = findProfileForOpen(config, request.profileId);
-  await applyProfileConfig(config);
   const surface = resolveProfileOpenSurface(profile, request.surface);
   if (profile.agent === "claude-design" && !isDesktopAppRuntime()) {
     throw new Error("Claude Design profiles can only be opened from LLMR Desktop.");
   }
+  await applyProfileConfig(config);
   if (options.ensureLauncher) {
     ensureCcrCliLauncher(config);
   }
@@ -126,11 +126,11 @@ export async function getProfileOpenCommand(config: AppConfig, request: ProfileO
 export async function openProfileFromCcr(config: AppConfig, request: ProfileOpenRequest): Promise<ProfileOpenResult> {
   assertAvailableGatewayModels(config);
   const profile = findProfileForOpen(config, request.profileId);
-  await applyProfileConfig(config);
   const surface = resolveProfileOpenSurface(profile, request.surface);
   if (profile.agent === "claude-design") {
     throw new Error("Claude Design profiles can only be opened from LLMR Desktop.");
   }
+  await applyProfileConfig(config);
   if (profile.agent === "claude-code" && surface === "app") {
     return openClaudeAppProfile(config, profile);
   }
