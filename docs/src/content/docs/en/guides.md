@@ -7,12 +7,12 @@ lead: "The first-run path for LLMR: install and start the service, connect a pro
 
 ## Install and start LLMR
 
-LLMR is available as a desktop app, a Node.js 24+ npm CLI, and a single-entrypoint Docker deployment.
+LLMR is available as a desktop app, the `llmr` CLI, and a single-entrypoint Docker deployment.
 
 | Distribution | Start entry | Default management | Default model gateway |
 | --- | --- | --- | --- |
-| Desktop | App UI / `ccr-app` | In-app window | `http://127.0.0.1:3456` |
-| npm CLI | `ccr ui` / `ccr serve` | `http://127.0.0.1:3458` | `http://127.0.0.1:3456` |
+| Desktop | App UI / `llmr` | In-app window | `http://127.0.0.1:3456` |
+| CLI | `llmr ui` / `llmr serve` | `http://127.0.0.1:3458` | `http://127.0.0.1:3456` |
 | Docker | `docker compose up -d --build` | Shared `http://127.0.0.1:3458` | Shared Nginx endpoint |
 
 Use the [installation page](install/) to choose a distribution. See the [CLI reference](cli/) for terminal commands and [Docker deployment](docker/) for container ports, authentication, persistence, and upgrades.
@@ -77,7 +77,7 @@ In **Agent Config**, choose Codex and confirm Provider ID, Provider Name, model,
 
 ### Grok CLI
 
-Choose Grok CLI and select a default model, then run the copied `ccr-app <profile-name>` command. The command starts a shared temporary gateway service when LLMR Desktop is not already serving one; concurrent Grok sessions keep it alive until the last session exits. LLMR points Grok model discovery and inference at the local gateway; use `/model` inside Grok to switch LLMR models.
+Choose Grok CLI and select a default model, then run the copied `llmr <profile-name>` command. The command starts a shared temporary gateway service when LLMR Desktop is not already serving one; concurrent Grok sessions keep it alive until the last session exits. LLMR points Grok model discovery and inference at the local gateway; use `/model` inside Grok to switch LLMR models.
 
 ### ZCode
 

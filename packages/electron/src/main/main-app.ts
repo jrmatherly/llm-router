@@ -57,7 +57,7 @@ function startPrimaryInstance(): void {
     try {
       ccrLauncherPreparation = prepareCcrCliLauncherRuntime();
     } catch (error) {
-      console.error(`Failed to prepare ccr CLI runtime: ${formatError(error)}`);
+      console.error(`Failed to prepare llmr CLI runtime: ${formatError(error)}`);
     }
     setupApplicationMenu();
     const mainWindow = windowsManager.createMainWindow();
@@ -67,7 +67,7 @@ function startPrimaryInstance(): void {
           try {
             persistPreparedCcrCliPath(ccrLauncherPreparation);
           } catch (error) {
-            console.error(`Failed to persist ccr CLI PATH: ${formatError(error)}`);
+            console.error(`Failed to persist llmr CLI PATH: ${formatError(error)}`);
           }
         }, 0);
       });
@@ -224,7 +224,7 @@ function startConfiguredServices(reason: string): Promise<void> {
         try {
           ensureCcrCliLauncher(config, { persistPath: false });
         } catch (error) {
-          console.error(`Failed to install ccr CLI launcher during ${reason}: ${formatError(error)}`);
+          console.error(`Failed to install llmr CLI launcher during ${reason}: ${formatError(error)}`);
         }
         try {
           syncLaunchAtLogin(config);

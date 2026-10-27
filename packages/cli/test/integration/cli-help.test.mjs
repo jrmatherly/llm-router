@@ -10,8 +10,8 @@ test("built CLI exposes package-owned help", () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Usage:/);
-  assert.match(result.stdout, /ccr serve/);
-  assert.match(result.stdout, /ccr <profile-name-or-id>/);
+  assert.match(result.stdout, /llmr serve/);
+  assert.match(result.stdout, /llmr <profile-name-or-id>/);
 });
 
 test("built CLI rejects invalid ports before starting services", () => {
@@ -23,10 +23,10 @@ test("built CLI rejects invalid ports before starting services", () => {
 
 test("every service command exposes its package-owned command help", () => {
   for (const [command, usage] of [
-    ["start", /ccr start/],
-    ["ui", /ccr ui/],
-    ["serve", /ccr serve/],
-    ["stop", /ccr stop/]
+    ["start", /llmr start/],
+    ["ui", /llmr ui/],
+    ["serve", /llmr serve/],
+    ["stop", /llmr stop/]
   ]) {
     const result = runCli([command, "--help"]);
     assert.equal(result.status, 0, `${command}: ${result.stderr}`);
@@ -67,7 +67,7 @@ test("built CLI requires a profile reference when no command is supplied", () =>
   const result = runCli([]);
 
   assert.equal(result.status, 2, result.stderr);
-  assert.match(`${result.stdout}${result.stderr}`, /ccr <profile-name-or-id>/);
+  assert.match(`${result.stdout}${result.stderr}`, /llmr <profile-name-or-id>/);
 });
 
 function runCli(args) {
@@ -75,7 +75,7 @@ function runCli(args) {
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CLI_COMMAND_NAME: "ccr"
+      CCR_CLI_COMMAND_NAME: ""
     }
   });
 }

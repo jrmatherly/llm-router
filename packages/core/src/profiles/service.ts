@@ -3529,7 +3529,9 @@ function generatedBinBackupBaseName(entry: string): string | undefined {
 
 function isManagedGeneratedBinFile(fileName: string): boolean {
   const normalized = fileName.replace(/\.cmd$/i, "");
-  return normalized === "ccr" ||
+  return normalized === "llmr" ||
+    normalized === "llmr-cli.js" ||
+    normalized === "ccr" ||
     normalized === "ccr-app" ||
     normalized === "ccr-cli.js" ||
     normalized === TOOL_HUB_MCP_RUNTIME_FILE_NAME ||

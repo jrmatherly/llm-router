@@ -122,7 +122,7 @@ function warnOnceIfStale(file: string, payload: unknown): void {
   if (ageMs < staleCatalogAfterMs) return;
   staleCatalogWarned = true;
   const days = Math.floor(ageMs / (24 * 60 * 60 * 1000));
-  console.warn(`[models] catalog ${file} is ${days} days old and this process does not refresh it; run \`ccr start\` to download the current catalog.`);
+  console.warn(`[models] catalog ${file} is ${days} days old and this process does not refresh it; run \`llmr start\` to download the current catalog.`);
 }
 
 export function resolveModelCatalogPath(): string | undefined {

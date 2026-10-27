@@ -37,7 +37,7 @@ Use this page to route OpenCode to any LLMR provider or Fusion model, or to atta
 | Field | How to set it | Effect |
 | --- | --- | --- |
 | Agent | Choose **OpenCode** | Creates OpenCode launch entries in LLMR. |
-| Config name | Free text, e.g. `OpenCode - Work` | Identifies the profile. Desktop commands use `ccr-app "<name>"`; CLI commands use `ccr "<name>"`. |
+| Config name | Free text, e.g. `OpenCode - Work` | Identifies the profile. Commands use `llmr "<name>"`. |
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps changes limited to LLMR launches, or makes this the system-default OpenCode profile. Only one enabled system-default OpenCode profile is allowed. |
 | Entry mode | `CLI & APP` / `CLI only` / `App only` | Which launch entries (terminal command and/or App) are exposed. |
@@ -52,11 +52,11 @@ Use this page to route OpenCode to any LLMR provider or Fusion model, or to atta
 
 - **CLI:** click the terminal button in the desktop app and run the copied command:
   ```text
-  ccr-app "OpenCode - Work"
+  llmr "OpenCode - Work"
   ```
   For CLI, run:
   ```text
-  ccr "OpenCode - Work"
+  llmr "OpenCode - Work"
   ```
 - **App:** click the play button to open OpenCode Desktop with this profile. OpenCode Desktop is single-instance, so LLMR switches the active profile for you.
 

@@ -91,7 +91,7 @@ export function shouldAutoStartProfileGateway(
 export function profileOpenCommand(
   profile: ProfileConfig,
   surface: ProfileOpenSurface = defaultProfileOpenSurface(profile),
-  command = "ccr",
+  command = "llmr",
   profileRef = profile.name?.trim() || profile.id
 ): string {
   const quote = process.platform === "win32" ? windowsCommandQuote : shellQuote;

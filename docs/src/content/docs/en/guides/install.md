@@ -2,15 +2,15 @@
 title: Install and start LLMR
 pageTitle: Install and start LLMR
 eyebrow: Quick start
-lead: Choose among the desktop app, npm CLI, and Docker distributions, complete installation and first startup, and verify the management UI and model gateway addresses. The CLI requires Node.js 24 or newer.
+lead: Choose among the desktop app, the llmr CLI, and Docker, complete installation and first startup, and verify the management UI and model gateway addresses.
 ---
 
 ## Choose a distribution
 
 | Distribution | Best for | Entry | Default management address | Default gateway address |
 | --- | --- | --- | --- | --- |
-| Desktop app | Daily local use, tray, multi-instance Agent Apps, desktop integrations | App UI, `ccr-app` | In-app window | `http://127.0.0.1:3456` |
-| npm CLI | Terminal, SSH, no Electron, external process supervisors | `ccr` | `http://127.0.0.1:3458` | `http://127.0.0.1:3456` |
+| Desktop app | Daily local use, tray, multi-instance Agent Apps, desktop integrations | App UI, `llmr` | In-app window | `http://127.0.0.1:3456` |
+| CLI | Terminal, SSH, external process supervisors | `llmr` | `http://127.0.0.1:3458` | `http://127.0.0.1:3456` |
 | Docker | Persistent servers and container operations | Nginx | Shared public endpoint | `http://127.0.0.1:3458` with the default mapping |
 
 In desktop/CLI deployments, management and the model gateway use different ports. CLI management uses `3458` by default, while the model gateway uses `3456`. Docker intentionally combines both through one Nginx endpoint.
@@ -24,16 +24,15 @@ In desktop/CLI deployments, management and the model gateway use different ports
 
 When Server shows Running, the model gateway defaults to `http://127.0.0.1:3456`. Enable automatic startup under Server if the gateway should start whenever the app opens.
 
-## Install the npm CLI
+## Use the CLI
 
-Node.js 24 or newer is required:
+The desktop app puts `llmr` on `PATH` on first launch. Open a new terminal, then run:
 
 ```sh
-npm install -g @musistudio/claude-code-router
-ccr ui
+llmr ui
 ```
 
-`ccr ui` starts a background service and opens the browser. Use `ccr ui --no-open` on a headless host or `ccr serve --no-open` under a process supervisor. See the [CLI installation and reference](../cli/) for all commands and profile launches.
+`llmr ui` starts a background service and opens the browser. Use `llmr ui --no-open` on a headless host or `llmr serve --no-open` under a process supervisor. See the [CLI installation and reference](../cli/) for all commands and profile launches.
 
 ## Use Docker
 

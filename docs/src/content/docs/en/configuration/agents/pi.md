@@ -34,7 +34,7 @@ Pi is fixed to **Only opened from LLMR** and **CLI only**, so those two fields a
 | Field | How to set it | Effect |
 | --- | --- | --- |
 | Agent | Choose **Pi** | Creates a Pi launch entry in LLMR. |
-| Config name | Free text, e.g. `Pi - Work` | Identifies the profile. Desktop commands use `ccr-app "<name>"`; CLI commands use `ccr "<name>"`. |
+| Config name | Free text, e.g. `Pi - Work` | Identifies the profile. Commands use `llmr "<name>"`. |
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Model | A provider model or Fusion model | The model Pi uses for every turn. |
 | Environment variables | Key/value rows | Optional advanced overrides; leave empty for normal use. |
@@ -44,13 +44,13 @@ Pi is fixed to **Only opened from LLMR** and **CLI only**, so those two fields a
 Desktop command copied from the profile card:
 
 ```text
-ccr-app "Pi - Work"
+llmr "Pi - Work"
 ```
 
 For CLI, run:
 
 ```text
-ccr "Pi - Work"
+llmr "Pi - Work"
 ```
 
 ## Multi-instance
@@ -59,7 +59,7 @@ Create separate Pi profiles when you want separate launch entries with different
 
 ## Verify
 
-1. Run the desktop `ccr-app` command copied from the profile card, or the CLI `ccr` command.
+1. Run the `llmr` command copied from the profile card.
 2. Send one message in Pi and confirm it replies.
 3. Open **Request logs** in LLMR and confirm the request passed through the gateway.
 

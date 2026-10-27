@@ -1,6 +1,7 @@
 {
-  "name": "@musistudio/claude-code-router",
+  "name": "@claude-code-router/cli",
   "version": "4.3.2",
+  "private": true,
   "license": "MIT",
   "description": "Local LLM Router gateway with CLI and web management UI.",
   "repository": {
@@ -20,7 +21,7 @@
   ],
   "main": "dist/main/cli.js",
   "bin": {
-    "ccr": "dist/main/cli.js"
+    "llmr": "dist/main/cli.js"
   },
   "files": [
     "dist",
@@ -31,12 +32,7 @@
   "engines": {
     "node": ">=24"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
-    "prepack": "npm --prefix ../.. run build:assets",
-    "prepublishOnly": "npm --prefix ../.. run typecheck",
     "test": "node ../../build/test.mjs cli && node ../../build/run-tests.mjs cli",
     "test:integration": "node ../../build/test.mjs cli --scope integration && node ../../build/run-tests.mjs cli"
   },

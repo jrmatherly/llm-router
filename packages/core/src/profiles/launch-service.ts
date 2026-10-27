@@ -29,8 +29,10 @@ const ccrPathBlockStart = "# >>> LLM Router CLI >>>";
 const ccrPathBlockEnd = "# <<< LLM Router CLI <<<";
 const legacyPathBlockStart = "# >>> Claude Code Router CLI >>>";
 const legacyPathBlockEnd = "# <<< Claude Code Router CLI <<<";
-export const desktopCliCommandName = "ccr-app";
-const desktopCliRuntimeFileName = "ccr-cli.js";
+export const desktopCliCommandName = "llmr";
+const desktopCliRuntimeFileName = "llmr-cli.js";
+const legacyCliRuntimeFileName = "ccr-cli.js";
+export const legacyCliLauncherFileNames = ["ccr", "ccr.cmd", "ccr-app", "ccr-app.cmd", legacyCliRuntimeFileName];
 const desktopCliCommandNameEnv = "CCR_CLI_COMMAND_NAME";
 export const CCR_CLI_COMPANION_RUNTIME_FILE_NAMES = [
   "browser-web-search-proxy-mcp.js",
@@ -114,7 +116,7 @@ export async function getProfileOpenCommand(config: AppConfig, request: ProfileO
     ensureCcrCliLauncher(config);
   }
   return {
-    command: profileOpenCommand(profile, surface, options.commandName ?? "ccr", commandProfileRef(config, profile)),
+    command: profileOpenCommand(profile, surface, options.commandName ?? desktopCliCommandName, commandProfileRef(config, profile)),
     profileId: profile.id,
     profileName: profile.name,
     surface
@@ -413,7 +415,7 @@ async function ensureGatewayConfigRunning(
     if (existingGateway.state === "unavailable") {
       if (!startIfMissing) {
         const reason = existingGateway.reason ? `: ${existingGateway.reason}` : "";
-        throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason}. Start LLMR Desktop or run ccr start before opening ${appName}.`);
+        throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
       }
     } else {
       throw new Error(existingGatewayConflictMessage(existingGateway, appName));
@@ -421,7 +423,7 @@ async function ensureGatewayConfigRunning(
   }
 
   if (!startIfMissing) {
-    throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}. Start LLMR Desktop or run ccr start before opening ${appName}.`);
+    throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
   }
 
   const startedStatus = await gatewayService.start(config);
@@ -491,7 +493,7 @@ async function probeExistingProfileGateway(
         if (!rootSupportsClaudeCodeWif(rootProbe.payload)) {
           return {
             endpoint,
-            message: "The running LLMR gateway does not advertise the Claude Code WIF token endpoint. Restart LLMR Desktop or run ccr start to use WIF authentication.",
+            message: "The running LLMR gateway does not advertise the Claude Code WIF token endpoint. Restart LLMR Desktop or run llmr start to use WIF authentication.",
             state: "incompatible"
           };
         }
@@ -708,10 +710,10 @@ function unquoteShellValue(value: string): string {
 function existingGatewayConflictMessage(probe: ExistingProfileGatewayProbe, appName: string): string {
   if (probe.state === "unauthorized") {
     const details = probe.message ? ` ${probe.message}` : "";
-    return `LLMR gateway is already running at ${probe.endpoint}, but it does not accept the API key for ${appName}.${details} Restart LLMR Desktop or run ccr start to refresh the gateway before opening this profile.`;
+    return `LLMR gateway is already running at ${probe.endpoint}, but it does not accept the API key for ${appName}.${details} Restart LLMR Desktop or run llmr start to refresh the gateway before opening this profile.`;
   }
   if (probe.state === "unusable") {
-    return `LLMR gateway is already running at ${probe.endpoint}, but it cannot serve ${appName} right now (HTTP ${probe.status}). Restart LLMR Desktop or run ccr start to refresh the gateway before opening this profile.`;
+    return `LLMR gateway is already running at ${probe.endpoint}, but it cannot serve ${appName} right now (HTTP ${probe.status}). Restart LLMR Desktop or run llmr start to refresh the gateway before opening this profile.`;
   }
   if (probe.state === "incompatible") {
     return `LLMR gateway is already running at ${probe.endpoint}, but it is not compatible with ${appName}. ${probe.message}`;
@@ -1646,7 +1648,7 @@ export function prepareCcrCliLauncherRuntime(): CcrCliLauncherPreparation {
   const persistentPathRequired = !processPathIncludes(binDir);
   mkdirSync(binDir, { recursive: true });
   cleanupGeneratedBinBackups();
-  cleanupLegacyCcrCliLauncher(binDir);
+  cleanupLegacyCcrCliLaunchers(binDir);
 
   const runtimeFile = path.join(binDir, desktopCliRuntimeFileName);
   const runtimeSource = findBundledCcrCliSource();
@@ -1713,27 +1715,36 @@ export function ensureCcrCliLauncher(config?: AppConfig, options: EnsureCcrCliLa
   return launcherFile;
 }
 
-function cleanupLegacyCcrCliLauncher(binDir: string): void {
-  const legacyLauncherFile = path.join(binDir, process.platform === "win32" ? "ccr.cmd" : "ccr");
-  if (!existsSync(legacyLauncherFile)) {
-    return;
-  }
-  try {
-    const source = readFileSync(legacyLauncherFile, "utf8");
-    if (!isLegacyManagedCcrCliLauncher(source)) {
-      return;
+export function cleanupLegacyCcrCliLaunchers(binDir: string): void {
+  for (const fileName of legacyCliLauncherFileNames) {
+    const legacyFile = path.join(binDir, fileName);
+    if (!existsSync(legacyFile)) {
+      continue;
     }
-    rmSync(legacyLauncherFile, { force: true });
-  } catch (error) {
-    console.warn(`[profile] Failed to remove legacy ccr launcher: ${formatError(error)}`);
+    try {
+      const source = readFileSync(legacyFile, "utf8");
+      const owned = fileName === legacyCliRuntimeFileName
+        ? isLegacyManagedCcrCliRuntime(source)
+        : isLegacyManagedCcrCliLauncher(source);
+      if (owned) {
+        rmSync(legacyFile, { force: true });
+      }
+    } catch (error) {
+      console.warn(`[profile] Failed to remove legacy ${fileName}: ${formatError(error)}`);
+    }
   }
 }
 
 function isLegacyManagedCcrCliLauncher(source: string): boolean {
   return source.includes("CCR_CLI_NODE_PATH") &&
-    source.includes(desktopCliRuntimeFileName) &&
+    source.includes(legacyCliRuntimeFileName) &&
     source.includes("ELECTRON_RUN_AS_NODE=1") &&
     source.includes("CCR_NODE_BIN");
+}
+
+// The legacy runtime is the bundled CLI, which reads both of these env vars.
+function isLegacyManagedCcrCliRuntime(source: string): boolean {
+  return source.includes(desktopCliCommandNameEnv) && source.includes("CCR_CLI_PREPARE_PROFILE_ONLY");
 }
 
 function findBundledCcrCliSource(): string {
@@ -1891,7 +1902,7 @@ function persistCcrBinOnPath(binDir: string): void {
     }
     ensurePosixShellPath(binDir);
   } catch (error) {
-    console.warn(`[profile] Failed to persist ccr PATH: ${formatError(error)}`);
+    console.warn(`[profile] Failed to persist llmr PATH: ${formatError(error)}`);
   }
 }
 
@@ -2013,7 +2024,7 @@ function shellRcPathBlock(): string {
   const binDir = "$HOME/.llm-router/bin";
   return [
     ccrPathBlockStart,
-    "# Added by LLM Router. Enables the ccr-app command in new shells.",
+    "# Added by LLM Router. Enables the llmr command in new shells.",
     'case ":$PATH:" in',
     `  *":${binDir}:"*) ;;`,
     `  *) export PATH="${binDir}:$PATH" ;;`,
@@ -2050,7 +2061,7 @@ function managedPathBlockPattern(): RegExp {
 function fishPathBlock(): string {
   return [
     ccrPathBlockStart,
-    "# Added by LLM Router. Enables the ccr-app command in new shells.",
+    "# Added by LLM Router. Enables the llmr command in new shells.",
     'set -l ccr_bin "$HOME/.llm-router/bin"',
     "if not contains $ccr_bin $PATH",
     "    set -gx PATH $ccr_bin $PATH",

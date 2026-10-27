@@ -184,7 +184,7 @@ The npm CLI requires Node.js 24 or newer. It starts the same gateway and a brows
 
 ```sh
 npm install -g @musistudio/claude-code-router
-ccr ui
+llmr ui
 ```
 
 Open `http://127.0.0.1:3458`, then follow the same **Providers → Server → Agent Profiles** flow above. The model gateway remains at `http://127.0.0.1:3456`. See the [CLI reference](https://ccrdesk.top/en/guides/cli/) for service modes, authentication, and profile commands.

@@ -37,7 +37,7 @@ Use this page to route Codex to a non-OpenAI provider, pin a model, or run separ
 | Field | How to set it | Effect |
 | --- | --- | --- |
 | Agent | Choose **Codex** | Creates Codex launch entries in LLMR. |
-| Config name | Free text, e.g. `Codex - Work` | Identifies the profile. Desktop commands use `ccr-app "<name>"`; CLI commands use `ccr "<name>"`. |
+| Config name | Free text, e.g. `Codex - Work` | Identifies the profile. Commands use `llmr "<name>"`. |
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps changes limited to LLMR launches, or makes this the system-default Codex profile. Only one enabled system-default Codex profile is allowed. |
 | Entry mode | `CLI & APP` / `CLI only` / `App only` | Which launch entries (terminal command and/or ChatGPT app) are exposed. |
@@ -57,11 +57,11 @@ Use this page to route Codex to a non-OpenAI provider, pin a model, or run separ
 
 - **CLI:** click the terminal button in the desktop app and run the copied command:
   ```text
-  ccr-app "Codex - Work"
+  llmr "Codex - Work"
   ```
   For CLI, run:
   ```text
-  ccr "Codex - Work"
+  llmr "Codex - Work"
   ```
 - **App:** click the play button to open ChatGPT with this profile's model and provider. Reopening the same profile activates the existing window.
 
