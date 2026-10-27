@@ -16,6 +16,7 @@ import { appUpdateService } from "./update-service";
 import { browserAutomationMcpService } from "./browser-automation-mcp";
 import { browserWebSearchMcpService } from "./electron-web-search-mcp";
 import { applyNativeThemePreference } from "./native-theme";
+import { installPermissionPolicy } from "./permission-policy";
 import windowsManager from "./windows";
 import { closeRequestLogRuntime } from "@ccr/core/observability/request-log-store";
 import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@ccr/core/providers/model-auto-refresh";
@@ -36,6 +37,8 @@ if (!gotTheLock) {
 }
 
 function startPrimaryInstance(): void {
+  // Fires for the default session and every partition, so no session escapes the policy.
+  app.on("session-created", installPermissionPolicy);
   gatewayService.setBrowserAutomationMcpIntegration(browserAutomationMcpService);
   gatewayService.setBrowserWebSearchMcpIntegration(browserWebSearchMcpService);
   deepLinkService.register();
