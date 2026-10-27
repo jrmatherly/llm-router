@@ -7,15 +7,14 @@ const observabilityDoc = Object.entries(enGuideDocs).find(
   ([filePath]) => sectionSlugFromPath(filePath) === "observability"
 )?.[1];
 const base = import.meta.env.BASE_URL;
-const logsUrl = `${base}guides/logs-app/?locale=en`;
-const obsUrl = `${base}guides/observability-app/?locale=en`;
+const logsUrl = `${base}guides/logs-app/`;
+const obsUrl = `${base}guides/observability-app/`;
 ---
 
 <DocPage
-  locale="en"
   pageKey="guides"
   doc={observabilityDoc}
-  activeSidebarItem={pageKeyFromSlug("guides", "en", "observability")}
+  activeSidebarItem={pageKeyFromSlug("guides", "observability")}
 >
   <div slot="interactive" class="interactive-stack">
     <iframe src={logsUrl} title="LLMR request logs — live UI" loading="lazy" class="interactive-frame interactive-frame--logs" />

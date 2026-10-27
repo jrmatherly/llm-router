@@ -1,10 +1,5 @@
-import type { APIRoute, GetStaticPaths } from "astro";
-import { docModule, docPages, getSection, type Locale } from "../docs-structure";
-
-export const getStaticPaths: GetStaticPaths = () => [
-  { params: { locale: "zh" } },
-  { params: { locale: "en" } },
-];
+import type { APIRoute } from "astro";
+import { docModule, docPages, getSection } from "../docs-structure";
 
 const baseUrl = import.meta.env.BASE_URL ?? "/";
 const basePath = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
@@ -67,18 +62,16 @@ const sectionSlices = (markdown: string, headings: Heading[]) => {
   return slices;
 };
 
-export const GET: APIRoute = ({ params }) => {
-  const locale = params.locale as Locale;
-
+export const GET: APIRoute = () => {
   const entries = docPages.flatMap((page) => {
-    const doc = docModule(locale, page.source[locale]);
+    const doc = docModule(page.source);
     const section = getSection(page.section);
-    const title = String(doc.frontmatter.title ?? page.label[locale]);
+    const title = String(doc.frontmatter.title ?? page.label);
     const breadcrumb =
       page.key === page.section
-        ? section.navLabel[locale]
-        : `${section.navLabel[locale]} / ${page.label[locale]}`;
-    const path = withBasePath(page.path[locale]);
+        ? section.navLabel
+        : `${section.navLabel} / ${page.label}`;
+    const path = withBasePath(page.path);
     const headings = doc
       .getHeadings()
       .filter((heading) => heading.depth >= 2 && heading.depth <= 5)

@@ -26,8 +26,8 @@ DingTalk is for bringing agent messages into an enterprise collaboration environ
 1. Open the [DingTalk developer backend](https://open-dev.dingtalk.com/).
 2. Log in with your DingTalk account.
 3. Pick the dev organization to connect.
-4. Open `应用开发` (App Development) at the top.
-5. Click `创建应用` (Create App).
+4. Open `App Development` at the top.
+5. Click `Create App`.
 6. Name it, e.g. `LLMR`.
 7. Fill in the description; leave other options default.
 8. Click create.
@@ -35,7 +35,7 @@ DingTalk is for bringing agent messages into an enterprise collaboration environ
 ## Step 2: Copy the App Key and App Secret
 
 1. Open the app you just created.
-2. On the left, open `应用信息` (App Info) or `凭证与基础信息` (Credentials & Basic Info).
+2. On the left, open `App Info` or `Credentials & Basic Info`.
 3. Copy `Client ID` for LLMR's App Key.
 4. Copy `Client Secret` for LLMR's App Secret.
 
@@ -43,8 +43,8 @@ DingTalk is for bringing agent messages into an enterprise collaboration environ
 
 ## Step 3: Enable the bot capability
 
-1. In the app, open `机器人与消息推送` (Bot & Message Push), or open `应用能力` (App Capabilities) and choose `机器人` (Bot).
-2. Enable `机器人配置` (Bot Config).
+1. In the app, open `Bot & Message Push`, or open `App Capabilities` and choose `Bot`.
+2. Enable `Bot Config`.
 3. Fill in the bot name, avatar, and description.
 4. Choose **Stream mode** for message receiving.
 5. Save.
@@ -52,7 +52,7 @@ DingTalk is for bringing agent messages into an enterprise collaboration environ
 
 ## Step 4: Publish the app and join a chat
 
-1. Open `版本管理与发布` (Version Management & Release) and create a new version.
+1. Open `Version Management & Release` and create a new version.
 2. Set the visibility scope — for testing, choose just yourself or a test group.
 3. Submit for release.
 4. After release, search the bot name in the DingTalk client.

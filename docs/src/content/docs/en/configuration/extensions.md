@@ -303,13 +303,21 @@ Proxy route matching rules:
 
 The default marketplace is `marketplace/plugins.json` in [jrmatherly/llm-router-extensions](https://github.com/jrmatherly/llm-router-extensions). It starts empty, so the Extensions page lists nothing from it until plugins are published there; local installation works regardless. When the manifest cannot be fetched, LLMR falls back to its cached catalog, or an empty list when no cache exists.
 
-See the [canonical authoring JSON Schema](/schemas/plugin-marketplace.schema.json). The runtime also accepts legacy field aliases. For `marketplace/plugins.json`, a provider usage connector entry can be:
+See the [canonical authoring JSON Schema](/schemas/plugin-marketplace.schema.json). It documents the recommended fields; the runtime also accepts legacy field aliases. A minimal marketplace repository looks like this:
+
+```text
+marketplace/plugins.json
+plugins/example-usage/index.cjs
+```
+
+For `marketplace/plugins.json`, a provider usage connector entry can be:
 
 ```json
 {
   "plugins": [{
     "id": "example-usage",
     "name": "Example account usage",
+    "description": "Provider account usage connector",
     "module": "../plugins/example-usage/index.cjs",
     "surfaces": { "apps": false, "gateway": false, "provider": true },
     "permissions": ["trusted-code", "provider-account-connectors"]
@@ -317,7 +325,7 @@ See the [canonical authoring JSON Schema](/schemas/plugin-marketplace.schema.jso
 }
 ```
 
-Catalogs and modules require HTTPS. Relative module paths resolve against the catalog URL. Modules must be `.cjs`, `.mjs`, or `.js` files with dependencies bundled: the downloader fetches one file without installing npm packages or neighboring files. Prefer an `integrity` field containing the module's actual 64-character hexadecimal SHA-256 or `sha256-<base64>` digest; update it whenever the module changes. Compute it with `shasum -a 256 index.cjs`.
+Catalogs and modules require HTTPS. Relative module paths resolve against the catalog URL. Modules must be `.cjs`, `.mjs`, or `.js` files with dependencies bundled: the downloader fetches one file without installing npm packages or neighboring files. Distribute multi-file extensions as a local directory instead. Prefer an `integrity` field containing the module's actual 64-character hexadecimal SHA-256 or `sha256-<base64>` digest; update it whenever the module changes. Compute it with `shasum -a 256 index.cjs`.
 
 `dependencies` lists plugin IDs or objects with `id`, `module`, `integrity`, `permissions`, and `surfaces`; these are plugin dependencies, not npm packages. `apps` contains entries such as `{ "id": "status", "name": "Status", "url": "/plugins/status" }`; app-only entries can omit `module`. `capabilities` is a string array. Set `CCR_PLUGIN_MARKETPLACE_URL` before starting LLMR to use your own HTTPS catalog.
 

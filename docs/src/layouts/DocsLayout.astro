@@ -3,7 +3,6 @@ import "../styles/global.css";
 import {
   ArrowLeft,
   ArrowRight,
-  ChevronDown,
   Download,
   Github,
   List,
@@ -13,20 +12,11 @@ import {
   Sun,
 } from "lucide-astro";
 
-import { enToZhPath, zhToEnPath } from "../docs-structure";
-
 const {
   title = "Documentation",
   docTitle,
   isHome = false,
   description,
-  htmlLang = "zh-CN",
-  locale = "zh",
-  languageLabel = "中文",
-  languageOptions = [
-    { locale: "zh", label: "中文", href: "/" },
-    { locale: "en", label: "English", href: "/en/" },
-  ],
   navItems = ["Documentation", "Guides", "API reference", "Changelog"],
   sidebarTree = [],
   sidebarGroups = [],
@@ -80,34 +70,6 @@ const currentPath =
   basePath !== "/" && rawCurrentPath.startsWith(basePath)
     ? ensureTrailingSlash(`/${rawCurrentPath.slice(basePath.length)}`)
     : rawCurrentPath;
-const toEnglishPath = (path) => {
-  const normalizedPath = ensureTrailingSlash(path);
-
-  if (normalizedPath === "/") return "/en/";
-  if (normalizedPath.startsWith("/en/")) return normalizedPath;
-  if (zhToEnPath[normalizedPath]) return zhToEnPath[normalizedPath];
-
-  return "/en/";
-};
-const toChinesePath = (path) => {
-  const normalizedPath = ensureTrailingSlash(path);
-
-  if (normalizedPath === "/" || !normalizedPath.startsWith("/en/")) return normalizedPath;
-  if (normalizedPath === "/en/") return "/";
-  if (enToZhPath[normalizedPath]) return enToZhPath[normalizedPath];
-
-  return ensureTrailingSlash(normalizedPath.slice("/en".length));
-};
-const languageHref = (option) => {
-  if (option.locale === "en") return toEnglishPath(currentPath);
-  if (option.locale === "zh") return toChinesePath(currentPath);
-  return option.href;
-};
-const resolvedLanguageOptions = languageOptions.map((option) => ({
-  ...option,
-  href: withBase(languageHref(option)),
-  absoluteHref: absoluteHref(languageHref(option)),
-}));
 const resolvedNavItems = navItems.map((item, index) => {
   const navItem = typeof item === "string" ? { label: item, href: "#" } : item;
 
@@ -117,28 +79,26 @@ const resolvedNavItems = navItems.map((item, index) => {
     active: navItem.active ?? index === 0,
   };
 });
-const homeHref = withBase(locale === "en" ? "/en/" : "/");
+const homeHref = withBase("/en/");
 const faviconHref = withBase("/llmr-icon.png");
 const logoSrc = withBase("/logo.png");
 const pageDescription =
   description ??
-  (locale === "zh"
-    ? "LLM Router 文档：安装、配置、供应商接入与故障排查指南。"
-    : "LLM Router documentation: installation, configuration, provider setup, and troubleshooting guides.");
+  "LLM Router documentation: installation, configuration, provider setup, and troubleshooting guides.";
 const pageTitle = isHome && docTitle ? String(docTitle) : `${title} | LLM Router`;
 const canonicalUrl = absoluteHref(currentPath);
 const ogImageUrl = absoluteHref("/logo.png");
 const sitemapUrl = withBase("/sitemap-index.xml");
-const searchIndexUrl = withBase(`/search-index-${locale}.json`);
+const searchIndexUrl = withBase("/search-index.json");
 const currentYear = new Date().getFullYear();
-const searchNoResults = locale === "zh" ? "没有匹配结果" : "No results";
-const sidebarToggleLabel = locale === "zh" ? "打开目录" : "Open navigation";
-const sidebarCloseLabel = locale === "zh" ? "关闭目录" : "Close navigation";
-const featuredNavLabel = locale === "zh" ? "主要入口" : "Primary navigation";
+const searchNoResults = "No results";
+const sidebarToggleLabel = "Open navigation";
+const sidebarCloseLabel = "Close navigation";
+const featuredNavLabel = "Primary navigation";
 ---
 
 <!doctype html>
-<html lang={htmlLang}>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -173,15 +133,6 @@ const featuredNavLabel = locale === "zh" ? "主要入口" : "Primary navigation"
       })();
     </script>
     <link rel="icon" href={faviconHref} type="image/png" />
-    {
-      resolvedLanguageOptions.map((option) => (
-        <link
-          rel="alternate"
-          hreflang={option.locale === "zh" ? "zh-CN" : "en"}
-          href={option.absoluteHref}
-        />
-      ))
-    }
     <title>{pageTitle}</title>
   </head>
   <body>
@@ -193,25 +144,6 @@ const featuredNavLabel = locale === "zh" ? "主要入口" : "Primary navigation"
             <span>LLMR docs</span>
           </a>
 
-          <details class="language-switcher">
-            <summary>
-              <span>{languageLabel}</span>
-              <ChevronDown size={16} aria-hidden="true" />
-            </summary>
-            <div class="language-menu">
-              {
-                resolvedLanguageOptions.map((option) => (
-                  <a
-                    class:list={{ active: option.locale === locale }}
-                    href={option.href}
-                    hreflang={option.locale === "zh" ? "zh-CN" : "en"}
-                  >
-                    {option.label}
-                  </a>
-                ))
-              }
-            </div>
-          </details>
         </div>
 
         <nav class="top-tabs" aria-label={featuredNavLabel}>
@@ -298,7 +230,7 @@ const featuredNavLabel = locale === "zh" ? "主要入口" : "Primary navigation"
               sectionNav.length > 0 && (
                 <nav class="sidebar-sections" aria-label={featuredNavLabel}>
                   <h2 class="sidebar-sections-title">
-                    {locale === "zh" ? "全部栏目" : "All sections"}
+                    All sections
                   </h2>
                   <ul>
                     {sectionNav.map((item) => (
@@ -547,18 +479,6 @@ const featuredNavLabel = locale === "zh" ? "主要入口" : "Primary navigation"
           applyTheme(getSystemTheme(), "system");
         }
       });
-
-      const languageSwitcher = document.querySelector(".language-switcher");
-
-      if (languageSwitcher instanceof HTMLDetailsElement) {
-        document.addEventListener("click", (event) => {
-          if (!(event.target instanceof Node)) return;
-
-          if (languageSwitcher.open && !languageSwitcher.contains(event.target)) {
-            languageSwitcher.open = false;
-          }
-        });
-      }
 
       const sidebarToggle = document.querySelector("[data-sidebar-toggle]");
       const sidebarBackdrop = document.querySelector("[data-sidebar-backdrop]");

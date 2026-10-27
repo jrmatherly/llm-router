@@ -396,76 +396,6 @@ pre {
   min-width: 0;
 }
 
-.language-switcher {
-  position: relative;
-  flex: 0 0 auto;
-  min-width: auto;
-  color: var(--muted);
-  font-size: 13.5px;
-}
-
-.language-switcher summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 34px;
-  padding: 0 8px;
-  border-radius: 8px;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-  white-space: nowrap;
-  transition:
-    background 140ms ease,
-    color 140ms ease;
-}
-
-.language-switcher summary::-webkit-details-marker {
-  display: none;
-}
-
-.language-switcher summary:hover {
-  background: var(--surface-muted);
-  color: var(--button-hover-text);
-}
-
-.language-switcher svg {
-  width: 13px;
-  height: 13px;
-  color: var(--subtle);
-}
-
-.language-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  display: grid;
-  min-width: 136px;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-
-.language-menu a {
-  display: flex;
-  align-items: center;
-  min-height: 34px;
-  padding: 0 10px;
-  border-radius: 8px;
-  color: var(--menu-text);
-}
-
-.language-menu a:hover {
-  background: var(--surface-soft);
-}
-
-.language-menu a.active {
-  color: var(--green);
-  font-weight: 720;
-}
-
 .top-actions {
   justify-self: end;
   display: inline-flex;
@@ -2107,8 +2037,6 @@ pre code span {
 }
 
 .brand:focus-visible,
-.language-switcher summary:focus-visible,
-.language-menu a:focus-visible,
 .edit-page:focus-visible,
 .page-nav-link:focus-visible,
 .toc-inline summary:focus-visible,
@@ -2375,14 +2303,6 @@ pre code span {
 @media (max-width: 420px) {
   .brand span {
     display: none;
-  }
-
-  .language-switcher {
-    min-width: auto;
-  }
-
-  .language-switcher summary {
-    padding-inline: 6px;
   }
 }
 

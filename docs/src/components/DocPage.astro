@@ -1,6 +1,6 @@
 ---
 import DocsLayout from "../layouts/DocsLayout.astro";
-import { docsContent, type DocPageKey, type Locale } from "../i18n/content";
+import { docsContent as content, type DocPageKey } from "../i18n/content";
 import {
   docModule,
   docSections,
@@ -13,22 +13,19 @@ import {
 import { Check, ChevronDown, Copy, List } from "lucide-astro";
 
 interface Props {
-  locale: Locale;
   pageKey?: DocPageKey;
   doc?: any;
   activeSidebarItem?: string;
 }
 
 const {
-  locale,
   pageKey = "documentation",
   doc: docProp,
   activeSidebarItem: activeSidebarItemProp,
 } = Astro.props;
-const content = docsContent[locale];
 const section = getSection(pageKey);
-const sectionDoc = docModule(locale, sectionIndexSource(section)[locale]);
-const sectionHref = section.navPath[locale] ?? (locale === "en" ? "/en/" : "/");
+const sectionDoc = docModule(sectionIndexSource(section));
+const sectionHref = section.navPath;
 const isSectionDoc = !docProp || docProp === sectionDoc;
 const doc = docProp ?? sectionDoc;
 const { Content, frontmatter } = doc;
@@ -86,11 +83,11 @@ const featuredNavItems = (content.featureNavItems ?? navItems).map((item) => ({
 // (including standalone feature pages whose drawer otherwise lists only their
 // own sub-pages).
 const sectionNav = docSections.map((s) => ({
-  label: s.navLabel[locale],
-  href: s.navPath[locale],
+  label: s.navLabel,
+  href: s.navPath,
   active: s.key === section.key,
 }));
-const pageGroups = resolveSidebarGroups(pageKey, locale);
+const pageGroups = resolveSidebarGroups(pageKey);
 const pageSidebarGroups = pageGroups.map((group) => {
   const activeKey = activeSidebarItemProp
     ? group.items.some((item) => item.key === activeSidebarItemProp)
@@ -116,8 +113,8 @@ const buildSectionTree = (
   treeSections: typeof docSections,
   options: { openCurrent: boolean; useLocalHashes: boolean }
 ) => treeSections.map((treeSection) => {
-  const treeSectionDoc = docModule(locale, sectionIndexSource(treeSection)[locale]);
-  const navHref = treeSection.navPath[locale] ?? "#";
+  const treeSectionDoc = docModule(sectionIndexSource(treeSection));
+  const navHref = treeSection.navPath;
   const navActive = treeSection.key === pageKey;
   const isCurrentSectionIndex = navActive && isSectionDoc;
   const navHeadingLinks = getHeadingLinks(
@@ -127,11 +124,11 @@ const buildSectionTree = (
   );
 
   return {
-    label: treeSection.navLabel[locale],
+    label: treeSection.navLabel,
     href: navHref,
     active: navActive,
     open: options.openCurrent && navActive,
-    groups: resolveSidebarGroups(treeSection.key, locale).map((group) => ({
+    groups: resolveSidebarGroups(treeSection.key).map((group) => ({
       label: group.label,
       icon: group.icon,
       active: navActive && (group.activeItem ?? ""),
@@ -160,12 +157,12 @@ const tocItems = tocHeadings.map((heading) => ({
 const currentPageKey = activeSidebarItemProp ?? pageKey;
 const currentPage = getPage(currentPageKey);
 const { prev: prevPageDef, next: nextPageDef } = getPrevNext(currentPageKey);
-const toPageNavLink = (page?: { label: Record<Locale, string>; path: Record<Locale, string> }) =>
-  page ? { label: page.label[locale], href: page.path[locale] } : undefined;
+const toPageNavLink = (page?: { label: string; path: string }) =>
+  page ? { label: page.label, href: page.path } : undefined;
 const prevPage = toPageNavLink(prevPageDef);
 const nextPage = toPageNavLink(nextPageDef);
-const editSource = (currentPage?.source ?? sectionIndexSource(section))[locale];
-const editUrl = `https://github.com/jrmatherly/llm-router/edit/main/docs/src/content/docs/${locale}/${editSource}`;
+const editSource = currentPage?.source ?? sectionIndexSource(section);
+const editUrl = `https://github.com/jrmatherly/llm-router/edit/main/docs/src/content/docs/en/${editSource}`;
 const isHome = pageKey === "documentation" && isSectionDoc;
 const pageMarkdown = doc.rawContent();
 ---
@@ -175,10 +172,6 @@ const pageMarkdown = doc.rawContent();
   docTitle={frontmatter.title}
   isHome={isHome}
   description={frontmatter.lead ?? content.metaDescription}
-  htmlLang={content.htmlLang}
-  locale={locale}
-  languageLabel={content.languageLabel}
-  languageOptions={content.languageOptions}
   navItems={featuredNavItems}
   sectionNav={sectionNav}
   sidebarTree={sidebarTree}

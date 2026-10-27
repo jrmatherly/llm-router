@@ -11,18 +11,8 @@ export type ConfigurationDocModule = {
   rawContent: () => string;
 };
 
-export const zhConfigurationDocs = import.meta.glob<ConfigurationDocModule>(
-  "./content/docs/zh/configuration/*.md",
-  { eager: true }
-);
-
 export const enConfigurationDocs = import.meta.glob<ConfigurationDocModule>(
   "./content/docs/en/configuration/*.md",
-  { eager: true }
-);
-
-export const zhConfigurationAgentDocs = import.meta.glob<ConfigurationDocModule>(
-  "./content/docs/zh/configuration/agents/*.md",
   { eager: true }
 );
 

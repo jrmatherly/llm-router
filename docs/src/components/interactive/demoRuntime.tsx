@@ -1,5 +1,5 @@
 /**
- * Shared runtime for the interactive docs demos: locale, the title + "tutorial
+ * Shared runtime for the interactive docs demos: the title + "tutorial
  * demo only" notice, and a VIRTUAL CURSOR used by the "Play tutorial" button.
  *
  * The play walkthroughs move a visible cursor to each real element and actually
@@ -7,17 +7,6 @@
  * own handlers fire) — the user sees the mouse operate, step by step.
  */
 import type { CSSProperties, ReactNode } from "react";
-
-export type Locale = "zh" | "en";
-
-export function readDemoLocale(): Locale {
-  if (typeof window === "undefined") return "zh";
-  try {
-    return new URLSearchParams(window.location.search).get("locale") === "en" ? "en" : "zh";
-  } catch {
-    return "zh";
-  }
-}
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -27,10 +16,7 @@ export function sleep(ms: number): Promise<void> {
 /* Title + notice                                                     */
 /* ------------------------------------------------------------------ */
 
-const NOTICE_TEXT: Record<Locale, string> = {
-  zh: "该组件仅供教程演示。",
-  en: "This component is for tutorial demonstration only.",
-};
+const NOTICE_TEXT = "This component is for tutorial demonstration only.";
 
 function PlayIcon() {
   return (
@@ -43,23 +29,21 @@ function PlayIcon() {
 export function DemoShell({
   children,
   contentClassName,
-  locale,
   onPlay,
   playing,
   title,
 }: {
   children: ReactNode;
   contentClassName?: string;
-  locale: Locale;
   onPlay?: () => void;
   playing?: boolean;
-  title: Record<Locale, string>;
+  title: string;
 }) {
   return (
     <main className="docs-demo-shell">
-      <section className="docs-demo-window" aria-label={title[locale]}>
-        <DemoTitle locale={locale} title={title} onPlay={onPlay} playing={playing} />
-        <DemoNotice locale={locale} />
+      <section className="docs-demo-window" aria-label={title}>
+        <DemoTitle title={title} onPlay={onPlay} playing={playing} />
+        <DemoNotice />
         <div className={["docs-demo-content", contentClassName].filter(Boolean).join(" ")}>
           {children}
         </div>
@@ -69,23 +53,19 @@ export function DemoShell({
 }
 
 export function DemoTitle({
-  locale,
   title,
   onPlay,
   playing,
 }: {
-  locale: Locale;
-  title: Record<Locale, string>;
+  title: string;
   onPlay?: () => void;
   playing?: boolean;
 }) {
-  const buttonLabel = playing
-    ? locale === "zh" ? "播放中…" : "Playing…"
-    : locale === "zh" ? "播放教程" : "Play tutorial";
+  const buttonLabel = playing ? "Playing…" : "Play tutorial";
   return (
     <div className="docs-demo-title">
       <div className="docs-demo-title-copy">
-        {title[locale]}
+        {title}
       </div>
       {onPlay ? (
         <button
@@ -102,11 +82,11 @@ export function DemoTitle({
   );
 }
 
-export function DemoNotice({ locale }: { locale: Locale }) {
+export function DemoNotice() {
   return (
     <div className="docs-demo-notice">
       <span className="docs-demo-notice-icon" aria-hidden="true">i</span>
-      <span>{NOTICE_TEXT[locale]}</span>
+      <span>{NOTICE_TEXT}</span>
     </div>
   );
 }
@@ -283,7 +263,7 @@ export function createCursorApi(
 }
 
 /* ------------------------------------------------------------------ */
-/* Element finders (robust across locales)                            */
+/* Element finders                                                    */
 /* ------------------------------------------------------------------ */
 
 /** First element matching `selector` whose aria-label/title matches any of `labels`

@@ -6,14 +6,13 @@ import { enGuideDocs, sectionSlugFromPath } from "../../../section-docs";
 const providerDoc = Object.entries(enGuideDocs).find(
   ([filePath]) => sectionSlugFromPath(filePath) === "provider"
 )?.[1];
-const appUrl = `${import.meta.env.BASE_URL}guides/provider-app/?locale=en`;
+const appUrl = `${import.meta.env.BASE_URL}guides/provider-app/`;
 ---
 
 <DocPage
-  locale="en"
   pageKey="guides"
   doc={providerDoc}
-  activeSidebarItem={pageKeyFromSlug("guides", "en", "provider")}
+  activeSidebarItem={pageKeyFromSlug("guides", "provider")}
 >
   <iframe
     slot="interactive"

@@ -4,15 +4,13 @@ import "../../components/interactive/demo.css";
 import ProfileViewDemo from "../../components/interactive/ProfileViewDemo.tsx";
 ---
 <!doctype html>
-<html lang="zh-CN" class="interactive-demo-html">
+<html lang="en" class="interactive-demo-html">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LLMR — Agent Config (demo)</title>
     <script is:inline>
       (() => {
-        document.documentElement.lang =
-          new URLSearchParams(location.search).get("locale") === "en" ? "en" : "zh-CN";
         try {
           const storedTheme = localStorage.getItem("ccr-docs-theme");
           const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;

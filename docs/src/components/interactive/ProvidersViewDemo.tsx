@@ -21,7 +21,6 @@ import type { AddProviderDraft } from "@/pages/home/shared/types";
 import type { GatewayProviderConfig, ProviderAccountSnapshot } from "@ccr/core/contracts/app";
 import {
   DemoShell,
-  readDemoLocale,
   sleep,
   VirtualCursor,
   createCursorApi,
@@ -70,7 +69,6 @@ const INITIAL_PROVIDERS: GatewayProviderConfig[] = [
 ];
 
 export default function ProvidersViewDemo() {
-  const locale = readDemoLocale();
   const [providers, setProviders] = useState<GatewayProviderConfig[]>(INITIAL_PROVIDERS);
   const [draft, setDraft] = useState<AddProviderDraft>(() => createProviderDraft(INITIAL_PROVIDERS));
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -153,13 +151,13 @@ export default function ProvidersViewDemo() {
       };
 
       // ── Step 1: open Add dialog ──
-      const addBtn = await waitFor(() => findByAria("button", ["添加供应商", "Add provider"]));
+      const addBtn = await waitFor(() => findByAria("button", ["Add provider"]));
       if (addBtn) await cursorApi.click(addBtn);
       await sleep(800);
 
       // ── Step 1: click preset combobox (opens dropdown) ──
       const combo = await waitFor(() =>
-        findByText("span", ["预设供应商", "preset provider"])?.parentElement?.querySelector<HTMLElement>('[role="button"]') ?? null
+        findByText("span", ["preset provider"])?.parentElement?.querySelector<HTMLElement>('[role="button"]') ?? null
       );
       if (combo) await cursorApi.click(combo);
 
@@ -169,41 +167,41 @@ export default function ProvidersViewDemo() {
       await sleep(500);
 
       // ── Step 1 → 2: click "Next" ──
-      const next1 = await waitFor(() => findByText("button", ["下一步", "Next"]));
+      const next1 = await waitFor(() => findByText("button", ["Next"]));
       if (next1) await cursorApi.click(next1);
       await sleep(500);
 
       // ── Step 2: type API key ──
-      const keyInput = await waitFor(() => findInputByLabels(["API 密钥", "API key"])) as HTMLInputElement | null;
+      const keyInput = await waitFor(() => findInputByLabels(["API key"])) as HTMLInputElement | null;
       if (keyInput) await cursorApi.type(keyInput, "sk-demo-tutorial-key");
       await sleep(300);
 
       // ── Step 2 → 3: click "Next" ──
-      const next2 = await waitFor(() => findByText("button", ["下一步", "Next"]));
+      const next2 = await waitFor(() => findByText("button", ["Next"]));
       if (next2) await cursorApi.click(next2);
       await sleep(500);
 
       // ── Step 3: click "Custom model" button ──
-      const customBtn = await waitFor(() => findByAria("button", ["自定义模型", "Custom model"]));
+      const customBtn = await waitFor(() => findByAria("button", ["Custom model"]));
       if (customBtn) await cursorApi.click(customBtn);
 
       // ── Step 3: type model ID ──
-      const modelInput = await waitFor(() => findByAria("input", ["自定义模型", "Custom model"])) as HTMLInputElement | null;
+      const modelInput = await waitFor(() => findByAria("input", ["Custom model"])) as HTMLInputElement | null;
       if (modelInput) await cursorApi.type(modelInput, "gpt-4o");
       await sleep(200);
 
       // ── Step 3: click "Add custom model" (✓) ──
-      const addModelBtn = await waitFor(() => findByAria("button", ["添加自定义模型", "Add custom model"]));
+      const addModelBtn = await waitFor(() => findByAria("button", ["Add custom model"]));
       if (addModelBtn) await cursorApi.click(addModelBtn);
       await sleep(400);
 
       // ── Step 3 → 4: click "Next" ──
-      const next3 = await waitFor(() => findByText("button", ["下一步", "Next"]));
+      const next3 = await waitFor(() => findByText("button", ["Next"]));
       if (next3) await cursorApi.click(next3);
       await sleep(500);
 
       // ── Step 4: click "Done" (submit) ──
-      const doneBtn = await waitFor(() => findByText("button", ["完成", "Done"]));
+      const doneBtn = await waitFor(() => findByText("button", ["Done"]));
       if (doneBtn) await cursorApi.click(doneBtn);
     } finally {
       cursorApi.hide();
@@ -216,13 +214,9 @@ export default function ProvidersViewDemo() {
   const deleteItem = deleteIndex === undefined ? undefined : providers[deleteIndex];
 
   return (
-    <AppI18nContext.Provider value={locale === "zh" ? appCopy.zh : appCopy.en}>
+    <AppI18nContext.Provider value={appCopy.en}>
       <DemoShell
-        locale={locale}
-        title={{
-          zh: "供应商管理 — 添加、编辑、移除上游模型供应商",
-          en: "Provider management — add, edit, and remove upstream model providers",
-        }}
+        title="Provider management — add, edit, and remove upstream model providers"
         onPlay={play}
         playing={playing}
       >

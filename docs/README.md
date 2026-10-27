@@ -25,9 +25,6 @@ The Astro build reads `ASTRO_SITE` and `ASTRO_BASE`, defaulting to `https://jrma
 
 ## Content
 
-Docs pages are authored in Markdown:
-
-- Chinese: `src/content/docs/zh/index.md`
-- English: `src/content/docs/en/index.md`
+Docs pages are authored in Markdown under `src/content/docs/en/`, starting at `src/content/docs/en/index.md`. The site is served under `/en/`, and `/` redirects there.
 
 Frontmatter provides the page title, eyebrow, and lead text. Markdown headings generate the right-side table of contents, and fenced code blocks are compiled with Shiki highlighting.

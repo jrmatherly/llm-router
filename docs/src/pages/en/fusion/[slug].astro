@@ -8,12 +8,12 @@ export function getStaticPaths() {
   );
 
   return fusionPages.map((page) => ({
-    params: { slug: urlSlugFromPath(page.path.en) },
-    props: { mod: docModule("en", page.source.en), activeSidebarItem: page.key },
+    params: { slug: urlSlugFromPath(page.path) },
+    props: { mod: docModule(page.source), activeSidebarItem: page.key },
   }));
 }
 
 const { mod, activeSidebarItem } = Astro.props;
 ---
 
-<DocPage locale="en" pageKey="fusion" doc={mod} activeSidebarItem={activeSidebarItem} />
+<DocPage pageKey="fusion" doc={mod} activeSidebarItem={activeSidebarItem} />

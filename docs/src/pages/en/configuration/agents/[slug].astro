@@ -11,7 +11,7 @@ export function getStaticPaths() {
       params: { slug },
       props: {
         mod,
-        activeSidebarItem: pageKeyFromSlug("configuration", "en", slug),
+        activeSidebarItem: pageKeyFromSlug("configuration", slug),
       },
     };
   });
@@ -20,4 +20,4 @@ export function getStaticPaths() {
 const { mod, activeSidebarItem } = Astro.props;
 ---
 
-<DocPage locale="en" pageKey="configuration" doc={mod} activeSidebarItem={activeSidebarItem} />
+<DocPage pageKey="configuration" doc={mod} activeSidebarItem={activeSidebarItem} />

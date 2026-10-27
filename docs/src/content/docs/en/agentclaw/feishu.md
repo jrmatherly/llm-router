@@ -23,8 +23,8 @@ Feishu is for teams that want agent messages in a Feishu group or app chat. LLMR
 
 1. Open the [Feishu Open Platform](https://open.feishu.cn/).
 2. Go to the developer backend.
-3. Click `创建应用` (Create App).
-4. Choose `企业自建应用` (Enterprise Self-Built App).
+3. Click `Create App`.
+4. Choose `Enterprise Self-Built App`.
 5. Name it, e.g. `LLMR`.
 6. Fill in the description and upload an icon.
 7. Create the app.
@@ -32,8 +32,8 @@ Feishu is for teams that want agent messages in a Feishu group or app chat. LLMR
 ## Step 2: Copy the App ID and App Secret
 
 1. Open the app you just created.
-2. Open `基础信息` (Basic Info).
-3. Go to `凭证与基础信息` (Credentials & Basic Info).
+2. Open `Basic Info`.
+3. Go to `Credentials & Basic Info`.
 4. Copy `App ID`.
 5. Copy `App Secret`.
 
@@ -41,17 +41,17 @@ These two are the required fields in LLMR.
 
 ## Step 3: Enable the bot capability
 
-1. In the app backend, open `应用能力` (App Capabilities).
-2. Click `添加应用能力` (Add App Capability).
-3. Find `机器人` (Bot) and add or enable it.
+1. In the app backend, open `App Capabilities`.
+2. Click `Add App Capability`.
+3. Find `Bot` and add or enable it.
 4. Set the bot name and avatar.
 
 > Without the bot capability, the Feishu chat may show no input box and won't receive user messages.
 
 ## Step 4: Request message permissions
 
-1. Open `开发配置` (Development Config).
-2. Go to `权限管理` (Permission Management).
+1. Open `Development Config`.
+2. Go to `Permission Management`.
 3. Add application identity permissions.
 4. At minimum, enable "read single-chat messages sent to the bot".
 5. To support @-mentions in groups, enable "read group messages that @-mention the bot".
@@ -62,14 +62,14 @@ These two are the required fields in LLMR.
 
 ## Step 5: Configure event subscriptions
 
-1. Open `事件与回调` (Events & Callbacks).
+1. Open `Events & Callbacks`.
 2. Choose long-connection (or WebSocket) mode.
 3. Add the event `im.message.receive_v1`.
 4. Save.
 
 ## Step 6: Publish or install the app
 
-1. Open `版本管理与发布` (Version Management & Release) and create a new version.
+1. Open `Version Management & Release` and create a new version.
 2. Confirm the visibility scope — for testing, choose just yourself or a small range.
 3. Submit for release.
 4. If the enterprise requires review, wait for approval.

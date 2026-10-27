@@ -24,6 +24,6 @@ Request logs record model request details passing through LLMR, including reques
 
 The Logs page supports filtering by status, provider, model, credential, request ID, model name, request body, or response body. A single record shows the main request and response fields, including `request model`, `resolved provider`, `resolved model`, status code, response body, errors, duration, tokens, and cost estimate.
 
-Regular request logs are kept locally for the current day. When the local date changes, the next request-log read or write cleans up the previous day's regular logs; they are useful for same-day troubleshooting, not long-term audit archiving.
+Regular request logs are kept locally for the current day. When the local date changes, the next request-log read or write cleans up the previous day's regular logs; they are useful for same-day troubleshooting, not long-term audit archiving. To keep them longer, export them (**Settings → Export data** includes the request-log database) or archive them separately.
 
 See the [logs and observability configuration reference](../../configuration/observability/) for the full set of switches and page capabilities.
