@@ -44,7 +44,11 @@ type StopCliOptions = {
   help: boolean;
 };
 
-type CliOptions = ProfileCliOptions | StopCliOptions | WebCliOptions;
+type VersionCliOptions = {
+  command: "version";
+};
+
+type CliOptions = ProfileCliOptions | StopCliOptions | VersionCliOptions | WebCliOptions;
 
 type ServiceState = {
   host?: string;
@@ -72,6 +76,10 @@ const prepareProfileOnlyEnv = "CCR_CLI_PREPARE_PROFILE_ONLY";
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
+  if (options.command === "version") {
+    process.stdout.write(`llmr ${process.env.LLMR_VERSION}\n`);
+    return;
+  }
   if (options.command === "start") {
     if (options.help) {
       printStartHelp(0);
@@ -121,8 +129,8 @@ async function main(): Promise<void> {
   const configDir = CONFIGDIR;
   const config = await loadAppConfig();
   assertAvailableGatewayModels(config);
-  await applyProfileConfig(config);
   const profile = findProfileForOpen(config, profileOptions.profileRef);
+  await applyProfileConfig(config);
   const surface = profileOptions.surface ?? defaultProfileOpenSurface(profile);
   const resolvedSurface = resolveProfileOpenSurface(profile, surface);
   if (profile.agent === "zcode" && profileOptions.agentArgs.length > 0) {
@@ -241,6 +249,9 @@ async function main(): Promise<void> {
 }
 
 function parseArgs(args: string[]): CliOptions {
+  if (args[0] === "--version" || args[0] === "-v") {
+    return { command: "version" };
+  }
   if (args[0] === "start") {
     return parseWebArgs(args.slice(1), "start");
   }
@@ -584,6 +595,7 @@ function printHelp(exitCode: number): void {
     `  ${command} serve [--daemon] [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
     `  ${command} stop`,
     `  ${command} <profile-name-or-id> [cli|app] [-- <agent args>]`,
+    `  ${command} --version`,
     "",
     "Notes:",
     `  ${command} web is an alias for ${command} serve.`,

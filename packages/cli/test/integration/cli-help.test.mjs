@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { isolateTestHome } from "../../../../build/test-home.mjs";
 
 const cliRuntime = path.join(process.cwd(), ".test-dist", "cli", "runtime", "cli.js");
+const rootPackageVersion = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")).version;
 
 test("built CLI exposes package-owned help", () => {
   const result = runCli(["--help"]);
@@ -70,12 +74,62 @@ test("built CLI requires a profile reference when no command is supplied", () =>
   assert.match(`${result.stdout}${result.stderr}`, /llmr <profile-name-or-id>/);
 });
 
-function runCli(args) {
+test("--version prints the release version and touches no config", () => {
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-cli-version-"));
+  try {
+    for (const flag of ["--version", "-v"]) {
+      const result = runCli([flag], { env: isolateTestHome(home, {}) });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.trim(), `llmr ${rootPackageVersion}`);
+    }
+    assert.deepEqual(readdirSync(home), []);
+  } finally {
+    rmSync(home, { force: true, recursive: true });
+  }
+});
+
+test("an unknown profile fails before any agent config is written", () => {
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-cli-unknown-profile-"));
+  try {
+    mkdirSync(path.join(home, ".llm-router"), { recursive: true });
+    writeFileSync(path.join(home, ".llm-router", "config.json"), `${JSON.stringify({
+      Providers: [{
+        api_base_url: "https://example.test/v1",
+        api_key: "provider-key",
+        models: ["model"],
+        name: "Provider"
+      }],
+      profile: {
+        profiles: [{
+          agent: "claude-code",
+          enabled: true,
+          id: "default-claude-code",
+          model: "Provider/model",
+          name: "Claude Code",
+          scope: "global",
+          smallFastModel: "",
+          surface: "auto"
+        }]
+      }
+    }, null, 2)}\n`);
+
+    const result = runCli(["no-such-profile"], { env: isolateTestHome(home, {}) });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /not found/i);
+    assert.equal(existsSync(path.join(home, ".claude", "settings.json")), false);
+  } finally {
+    rmSync(home, { force: true, recursive: true });
+  }
+});
+
+function runCli(args, { env = {} } = {}) {
   return spawnSync(process.execPath, [cliRuntime, ...args], {
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CLI_COMMAND_NAME: ""
+      CCR_CLI_COMMAND_NAME: "",
+      ...env
     }
   });
 }
