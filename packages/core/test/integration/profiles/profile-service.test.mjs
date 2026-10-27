@@ -4,11 +4,13 @@ import { chmodSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, 
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { writeWorkbuddyModelsConfig } from "@ccr/core/agents/codex/app-launch.ts";
+import { writePiGatewayConfig } from "@ccr/core/agents/pi/profile-config.ts";
 import { loadAppConfig } from "@ccr/core/config/config.ts";
 import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
 import { replacePersistedApiKeys, replacePersistedAppConfig } from "@ccr/core/config/config-repository.ts";
 import { CONFIGDIR } from "@ccr/core/config/constants.ts";
-import { applyProfileConfig, cleanupGeneratedBinBackups, resolveGrokSourceHome, resolveKimiSourceHome, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit } from "@ccr/core/profiles/service.ts";
+import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, resolveGrokSourceHome, resolveKimiSourceHome, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit } from "@ccr/core/profiles/service.ts";
 
 test("Grok profile source home follows profile and process environment overrides", () => {
   const previous = {
@@ -590,6 +592,102 @@ test("profile service does not rewrite Claude settings when only user-managed fi
     const secondResult = await applyProfileFixture(config);
     assert.equal(secondResult.clients.some((client) => client.client === "claude-code" && client.ok), true);
     assert.equal(readFileSync(settingsFile, "utf8"), userEditedContent);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("profile service restores between-session user edits after many takeover rewrites prune old backups", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-prune-restore-"));
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  try {
+    rmSync(takeoverFile, { force: true });
+    const configFile = path.join(root, "opencode.json");
+    writeFileSync(configFile, `${JSON.stringify({ theme: "dark" }, null, 2)}\n`);
+    const models = ["m1", "m2", "m3", "m4", "m5", "m6", "m7"];
+    const profile = {
+      agent: "opencode",
+      configFile,
+      enabled: true,
+      id: "prune-restore-opencode",
+      model: "Provider/m1",
+      name: "Prune Restore OpenCode",
+      scope: "global"
+    };
+    const config = createDefaultAppConfig();
+    config.APIKEY = "ccr-prune-restore-test";
+    config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "ccr-prune-restore-test", name: "Profile: Prune Restore OpenCode" }];
+    config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models, name: "Provider" }];
+
+    config.profile.profiles = [profile];
+    await applyProfileFixture(config);
+    config.profile.profiles = [{ ...profile, enabled: false }];
+    await applyProfileFixture(config);
+    const userEdit = { theme: "light" };
+    writeFileSync(configFile, `${JSON.stringify(userEdit, null, 2)}\n`);
+
+    for (const model of models) {
+      config.profile.profiles = [{ ...profile, model: `Provider/${model}` }];
+      await applyProfileFixture(config);
+    }
+    const backups = readdirSync(root).filter((name) => name.startsWith("opencode.json.ccr-backup-"));
+    assert.equal(backups.length, 6);
+
+    config.profile.profiles = [{ ...profile, enabled: false }];
+    await applyProfileFixture(config);
+    assert.deepEqual(JSON.parse(readFileSync(configFile, "utf8")), userEdit);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("profile service restores between-session ZCode edits after many takeover rewrites prune old backups", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-zcode-prune-restore-"));
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  try {
+    rmSync(takeoverFile, { force: true });
+    const configFile = path.join(root, ".zcode", "cli", "config.json");
+    mkdirSync(path.dirname(configFile), { recursive: true });
+    writeFileSync(configFile, `${JSON.stringify({ model: { main: "builtin:zai/glm-5" } }, null, 2)}\n`);
+    const models = ["m1", "m2", "m3", "m4", "m5", "m6", "m7"];
+    const profile = {
+      agent: "zcode",
+      configFile,
+      enabled: true,
+      env: {},
+      id: "prune-restore-zcode",
+      model: "Provider/m1",
+      name: "Prune Restore ZCode",
+      providerId: "claude-code-router",
+      scope: "global",
+      surface: "cli"
+    };
+    const config = createDefaultAppConfig();
+    config.APIKEY = "ccr-prune-restore-test";
+    config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "ccr-prune-restore-test", name: "Profile: Prune Restore ZCode" }];
+    config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models, name: "Provider" }];
+
+    config.profile.profiles = [profile];
+    await applyProfileFixture(config);
+    config.profile.profiles = [{ ...profile, enabled: false }];
+    await applyProfileFixture(config);
+    const userEdit = { model: { main: "builtin:zai/glm-6" } };
+    writeFileSync(configFile, `${JSON.stringify(userEdit, null, 2)}\n`);
+
+    for (const model of models) {
+      config.profile.profiles = [{ ...profile, model: `Provider/${model}` }];
+      await applyProfileFixture(config);
+    }
+    const backups = readdirSync(path.dirname(configFile)).filter((name) => name.startsWith("config.json.ccr-backup-"));
+    assert.equal(backups.length, 6);
+
+    config.profile.profiles = [{ ...profile, enabled: false }];
+    await applyProfileFixture(config);
+    assert.deepEqual(JSON.parse(readFileSync(configFile, "utf8")), userEdit);
   } finally {
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
     rmSync(takeoverFile, { force: true });
@@ -2244,6 +2342,265 @@ test("profile service strips LLMR-managed Claude settings from a user-owned sett
   });
 });
 
+const userProviderClaudeSettings = {
+  env: {
+    ANTHROPIC_API_KEY: "sk-user-own",
+    ANTHROPIC_AUTH_TOKEN: "user-auth-token",
+    ANTHROPIC_BASE_URL: "https://corp-proxy.example",
+    ANTHROPIC_MODEL: "user-model",
+    CLAUDE_CODE_USE_BEDROCK: "1",
+    CLAUDE_CODE_USE_VERTEX: "1",
+    USER_VALUE: "kept"
+  },
+  permissions: { allow: ["Bash(ls)"] }
+};
+
+async function withGlobalClaudeProfileRelease(original, run) {
+  const settingsFile = path.join(process.env.CCR_INTERNAL_HOME_DIR, ".claude", "settings.json");
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  const profile = {
+    agent: "claude-code",
+    enabled: true,
+    env: {},
+    id: "displaced-env-claude-code",
+    model: "Provider/model",
+    name: "Claude Code",
+    scope: "global",
+    settingsFile: "~/.claude/settings.json",
+    smallFastModel: "",
+    surface: "auto"
+  };
+  const config = createDefaultAppConfig();
+  config.APIKEY = "ccr-profile-displaced-env-test";
+  config.APIKEYS = [{
+    createdAt: "2026-01-01T00:00:00.000Z",
+    id: `profile:${profile.id}`,
+    key: "ccr-profile-displaced-env-test",
+    name: "Profile: Claude Code"
+  }];
+  config.Providers = [{
+    api_base_url: "https://example.test/v1",
+    api_key: "provider-key",
+    models: ["model"],
+    name: "Provider"
+  }];
+  config.profile.profiles = [profile];
+  const apply = async () => {
+    const result = await applyProfileFixture(config);
+    assert.equal(result.clients.some((client) => client.client === "claude-code" && client.ok), true);
+  };
+  const release = () => restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+  try {
+    rmSync(takeoverFile, { force: true });
+    rmSync(path.dirname(settingsFile), { force: true, recursive: true });
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, `${JSON.stringify(original, null, 2)}\n`);
+    await run({ apply, config, readSettings: () => JSON.parse(readFileSync(settingsFile, "utf8")), release, settingsFile });
+  } finally {
+    release();
+    rmSync(takeoverFile, { force: true });
+    rmSync(path.dirname(settingsFile), { force: true, recursive: true });
+    rmSync(path.join(CONFIGDIR, "profiles", profile.id), { force: true, recursive: true });
+  }
+}
+
+test("release restores the user's own provider env that apply displaced", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, readSettings, release }) => {
+    await apply();
+    assert.notEqual(readSettings().env.ANTHROPIC_API_KEY, "sk-user-own");
+    release();
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+  });
+});
+
+test("a second apply does not record LLMR values as displaced", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, readSettings, release }) => {
+    await apply();
+    await apply();
+    release();
+    assert.equal(readSettings().env.ANTHROPIC_BASE_URL, "https://corp-proxy.example");
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+  });
+});
+
+test("a second apply on a new gateway port does not record the old LLMR endpoint as displaced", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, config, readSettings, release, settingsFile }) => {
+    config.gateway.port = 4101;
+    await apply();
+    config.gateway.port = 4202;
+    await apply();
+    release();
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+    assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1:4101/);
+  });
+});
+
+test("disabling the global profile restores the user's own provider env", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, config, readSettings }) => {
+    await apply();
+    config.profile.profiles[0].enabled = false;
+    await applyProfileFixture(config);
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+  });
+});
+
+for (const [name, editGatewayEnv, reapply] of [
+  ["points one gateway URL back at its proxy", (env) => { env.ANTHROPIC_BASE_URL = "https://user-edit.example"; }, false],
+  ["points one gateway URL back at its proxy and LLMR re-applies on a new port", (env) => { env.ANTHROPIC_BASE_URL = "https://user-edit.example"; }, true],
+  ["deletes one gateway URL", (env) => { delete env.CLAUDE_AGENT_API_BASE_URL; }, false]
+]) {
+  test(`release strips LLMR's gateway and model env after the user ${name} while the profile was on`, { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+    await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, config, readSettings, release, settingsFile }) => {
+      config.gateway.port = 4303;
+      await apply();
+      const live = readSettings();
+      editGatewayEnv(live.env);
+      writeFileSync(settingsFile, `${JSON.stringify(live, null, 2)}\n`);
+      if (reapply) {
+        config.gateway.port = 4404;
+        await apply();
+      }
+      release();
+      assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1:(4303|4404)/);
+      const restored = readSettings();
+      assert.equal(restored.env.ANTHROPIC_BASE_URL, reapply || name.startsWith("deletes") ? "https://corp-proxy.example" : "https://user-edit.example");
+      assert.deepEqual(restored.env, { ...userProviderClaudeSettings.env, ANTHROPIC_BASE_URL: restored.env.ANTHROPIC_BASE_URL });
+    });
+  });
+}
+
+test("release keeps a user edit made while the profile was on", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, readSettings, release, settingsFile }) => {
+    await apply();
+    const live = readSettings();
+    live.permissions.allow.push("Bash(pwd)");
+    writeFileSync(settingsFile, `${JSON.stringify(live, null, 2)}\n`);
+    release();
+    assert.deepEqual(readSettings().permissions.allow, ["Bash(ls)", "Bash(pwd)"]);
+    assert.equal(readSettings().env.ANTHROPIC_API_KEY, "sk-user-own");
+  });
+});
+
+test("release does not invent a base URL the user never had", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease({ env: { USER_VALUE: "kept" } }, async ({ apply, readSettings, release }) => {
+    await apply();
+    release();
+    assert.deepEqual(readSettings().env, { USER_VALUE: "kept" });
+  });
+});
+
+test("release after a re-takeover never restores a backup that still points at LLMR", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const original = { env: { USER_VALUE: "kept" }, permissions: { allow: ["Bash(ls)"] } };
+  await withGlobalClaudeProfileRelease(original, async ({ apply, readSettings, release, settingsFile }) => {
+    await apply();
+    release();
+    rmSync(settingsFile);
+    await apply();
+    release();
+    const after = readFileSync(settingsFile, "utf8");
+    assert.doesNotMatch(after, /127\.0\.0\.1:3456/);
+    assert.doesNotMatch(after, /ccr-claude-code-api-key-/);
+    assert.equal(readSettings().env.USER_VALUE, "kept");
+    assert.deepEqual(readSettings(), original);
+  });
+});
+
+test("deleting the global Claude profile restores the user's own provider env", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, config, readSettings, settingsFile }) => {
+    await apply();
+    config.profile.profiles = [];
+    await applyProfileFixture(config);
+    assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+  });
+});
+
+test("the sweep restores the user's own provider env from a deleted profile's takeover state", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ config, readSettings, settingsFile }) => {
+    const profile = config.profile.profiles[0];
+    const stateFile = path.join(CONFIGDIR, "profiles", profile.id, "claude", "settings-state.json");
+    assert.equal(applyProfileRuntimeConfig(config, profile, "ccr-profile-displaced-env-test").ok, true);
+    config.profile.profiles = [];
+    await applyProfileFixture(config);
+    assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
+    assert.deepEqual(readSettings(), userProviderClaudeSettings);
+    const state = JSON.parse(readFileSync(stateFile, "utf8"));
+    assert.deepEqual(state.displacedEnv, {});
+    assert.deepEqual(state.endpoints, []);
+  });
+});
+
+test("a fresh takeover records the user's current env, not a stale stored value", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const original = { env: { ANTHROPIC_API_KEY: "new", USER_VALUE: "kept" }, permissions: { allow: ["Bash(ls)"] } };
+  await withGlobalClaudeProfileRelease(original, async ({ apply, config, readSettings, release }) => {
+    const stateFile = path.join(CONFIGDIR, "profiles", config.profile.profiles[0].id, "claude", "settings-state.json");
+    mkdirSync(path.dirname(stateFile), { recursive: true });
+    writeFileSync(stateFile, `${JSON.stringify({ displacedEnv: { ANTHROPIC_API_KEY: "old" }, endpoints: [], envKeys: [], paths: [], version: 1 }, null, 2)}\n`);
+    await apply();
+    release();
+    assert.deepEqual(readSettings(), original);
+  });
+});
+
+test("release restores the user's own workload identity federation env", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const original = {
+    env: {
+      ANTHROPIC_FEDERATION_RULE_ID: "user-rule",
+      ANTHROPIC_IDENTITY_TOKEN_FILE: "/home/user/.config/token",
+      ANTHROPIC_ORGANIZATION_ID: "user-org",
+      USER_VALUE: "kept"
+    },
+    permissions: { allow: ["Bash(ls)"] }
+  };
+  await withGlobalClaudeProfileRelease(original, async ({ apply, readSettings, release }) => {
+    await apply();
+    assert.notEqual(readSettings().env.ANTHROPIC_FEDERATION_RULE_ID, "user-rule");
+    release();
+    assert.deepEqual(readSettings(), original);
+  });
+});
+
+test("the sweep strips a mixed backup while a router-scoped Claude profile is enabled", () => {
+  withScratchRuntimeHome((settingsFile) => {
+    writeFileSync(`${settingsFile}.ccr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({
+      apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-default-claude-code",
+      env: {
+        ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
+        ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
+        CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456",
+        USER_VALUE: "kept"
+      },
+      permissions: { allow: ["Bash(ls)"] }
+    }, null, 2)}\n`);
+    writeFileSync(settingsFile, `${JSON.stringify({
+      apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-default-claude-code",
+      env: {
+        ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
+        ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
+        CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456"
+      }
+    }, null, 2)}\n`);
+    restoreInactiveGlobalProfileConfigs([
+      {
+        agent: "claude-code",
+        enabled: true,
+        env: {},
+        id: "claude-code-2",
+        model: "Provider/model",
+        name: "Claude Code",
+        scope: "ccr",
+        settingsFile: "~/.claude/settings.json",
+        smallFastModel: "",
+        surface: "auto"
+      }
+    ]);
+    const restored = readFileSync(settingsFile, "utf8");
+    assert.doesNotMatch(restored, /127\.0\.0\.1:3456/);
+    assert.doesNotMatch(restored, /apiKeyHelper/);
+    assert.deepEqual(JSON.parse(restored), { env: { USER_VALUE: "kept" }, permissions: { allow: ["Bash(ls)"] } });
+  }, { takeoverBackup: false });
+});
+
 test("profile service keeps managed global Claude settings when a global Claude profile is active", () => {
   const previousHome = process.env.HOME;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
@@ -2539,3 +2896,204 @@ function restoreEnv(name, value) {
   }
   process.env[name] = value;
 }
+
+function globalPiProfile(agentDir) {
+  return { agent: "pi", configFile: agentDir, enabled: true, env: {}, id: "pi-global", model: "", name: "Pi", scope: "global", surface: "cli" };
+}
+
+test("a global Pi profile restores the user's models.json on release", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-release-"));
+  try {
+    const agentDir = path.join(root, "pi-agent");
+    const piModels = path.join(agentDir, "models.json");
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(piModels, `${JSON.stringify({ providers: { "my-ollama": { baseUrl: "http://localhost:11434" } } })}\n`);
+    const profile = globalPiProfile(agentDir);
+
+    writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token", "default");
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["claude-code-router"]);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["my-ollama"]);
+
+    writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token", "default");
+    const statuses = restoreGlobalProfileConfigsOnExit([profile], { manageMarker: false });
+    assert.equal(statuses.every((status) => status.ok), true);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["my-ollama"]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a global Pi profile deletes the models.json it created", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-release-missing-"));
+  try {
+    const agentDir = path.join(root, "pi-agent");
+    const piModels = path.join(agentDir, "models.json");
+    const profile = globalPiProfile(agentDir);
+
+    writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token", "default");
+    assert.equal(existsSync(piModels), true);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.equal(existsSync(piModels), false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("the Pi sweep leaves a models.json alone when LLMR never took it over", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-sweep-untouched-"));
+  try {
+    const agentDir = path.join(root, "pi-agent");
+    const piModels = path.join(agentDir, "models.json");
+    mkdirSync(agentDir, { recursive: true });
+    const userModels = `${JSON.stringify({ providers: { "claude-code-router": { baseUrl: "http://localhost:9999" } } })}\n`;
+    writeFileSync(piModels, userModels);
+    const statuses = restoreInactiveGlobalProfileConfigs([{ ...globalPiProfile(agentDir), scope: "ccr" }]);
+    assert.deepEqual(statuses.filter((status) => status.client === "pi"), []);
+    assert.equal(readFileSync(piModels, "utf8"), userModels);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+function globalWorkbuddyProfile(workbuddyHome) {
+  return { agent: "workbuddy", codexHome: workbuddyHome, enabled: true, env: {}, id: "workbuddy-global", model: "gpt-5-codex", name: "WorkBuddy", scope: "global", surface: "app" };
+}
+
+test("a global Workbuddy profile restores the user's models.json on release", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-release-"));
+  try {
+    const workbuddyHome = path.join(root, ".workbuddy");
+    const workbuddyModels = path.join(workbuddyHome, "models.json");
+    const userModels = { models: [{ apiKey: "sk-user", id: "my-model" }] };
+    mkdirSync(workbuddyHome, { recursive: true });
+    writeFileSync(workbuddyModels, `${JSON.stringify(userModels)}\n`);
+    const profile = globalWorkbuddyProfile(workbuddyHome);
+
+    writeWorkbuddyModelsConfig(workbuddyHome, profile);
+    assert.notDeepEqual(JSON.parse(readFileSync(workbuddyModels, "utf8")), userModels);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.deepEqual(JSON.parse(readFileSync(workbuddyModels, "utf8")), userModels);
+
+    writeWorkbuddyModelsConfig(workbuddyHome, profile);
+    const statuses = restoreGlobalProfileConfigsOnExit([profile], { manageMarker: false });
+    assert.equal(statuses.every((status) => status.ok), true);
+    assert.deepEqual(JSON.parse(readFileSync(workbuddyModels, "utf8")), userModels);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a global Workbuddy profile deletes the models.json it created", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-release-missing-"));
+  try {
+    const workbuddyHome = path.join(root, ".workbuddy");
+    const workbuddyModels = path.join(workbuddyHome, "models.json");
+    const profile = globalWorkbuddyProfile(workbuddyHome);
+
+    writeWorkbuddyModelsConfig(workbuddyHome, profile);
+    assert.equal(existsSync(workbuddyModels), true);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.equal(existsSync(workbuddyModels), false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+for (const [label, makeProfile, relativeFile, managedContent, sweepWarns] of [
+  ["Pi", (dir) => globalPiProfile(dir), "models.json", `${JSON.stringify({ providers: { "claude-code-router": { models: [] } } })}\n`, false],
+  ["Workbuddy", (dir) => globalWorkbuddyProfile(dir), "models.json", `${JSON.stringify({ models: [{ apiKey: "${CCR_PROFILE_API_KEY}", id: "gpt-5-codex" }] })}\n`, true]
+]) {
+  test(`a global ${label} release warns but succeeds when an upgraded models.json has no backup`, () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "ccr-models-no-backup-"));
+    try {
+      const dir = path.join(root, "home");
+      const file = path.join(dir, relativeFile);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(file, managedContent);
+      const profile = makeProfile(dir);
+
+      const exitStatuses = restoreGlobalProfileConfigsOnExit([profile], { manageMarker: false });
+      assert.equal(exitStatuses.length, 1);
+      assert.equal(exitStatuses[0].ok, true);
+      assert.match(exitStatuses[0].message, /backup was found/);
+
+      const inactiveStatuses = restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }])
+        .filter((status) => status.path === file);
+      assert.equal(inactiveStatuses.length, sweepWarns ? 1 : 0);
+      assert.equal(inactiveStatuses.every((status) => status.ok && /backup was found/.test(status.message)), true);
+
+      assert.equal(readFileSync(file, "utf8"), managedContent);
+    } finally {
+      rmSync(root, { force: true, recursive: true });
+    }
+  });
+}
+
+function serializedApplyFixture(root, model) {
+  const settingsFile = path.join(root, ".claude", "settings.json");
+  const profile = {
+    agent: "claude-code",
+    enabled: true,
+    env: {},
+    id: "default-claude-code",
+    model,
+    name: "Claude Code",
+    scope: "global",
+    settingsFile,
+    smallFastModel: "",
+    surface: "auto"
+  };
+  const config = createDefaultAppConfig();
+  config.APIKEY = "ccr-profile-serialize-test";
+  config.APIKEYS = [{
+    createdAt: "2026-01-01T00:00:00.000Z",
+    id: `profile:${profile.id}`,
+    key: "ccr-profile-serialize-test",
+    name: "Profile: Claude Code"
+  }];
+  config.Providers = [{
+    api_base_url: "https://example.test/v1",
+    api_key: "provider-key",
+    models: ["one", "two"],
+    name: "Provider"
+  }];
+  config.profile.profiles = [profile];
+  return { config, settingsFile };
+}
+
+test("concurrent applies land in call order", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-apply-serialize-"));
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  try {
+    rmSync(takeoverFile, { force: true });
+    const { config: first, settingsFile } = serializedApplyFixture(root, "Provider/one");
+    const { config: second } = serializedApplyFixture(root, "Provider/two");
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, "{}\n");
+    await Promise.all([applyProfileFixture(first), applyProfileFixture(second)]);
+    assert.equal(JSON.parse(readFileSync(settingsFile, "utf8")).env.ANTHROPIC_MODEL, "Provider/two");
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a rejected apply does not block the next one", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-apply-serialize-"));
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  try {
+    rmSync(takeoverFile, { force: true });
+    const { config, settingsFile } = serializedApplyFixture(root, "Provider/two");
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, "{}\n");
+    await assert.rejects(applyProfileConfig(null));
+    await applyProfileFixture(config);
+    assert.equal(JSON.parse(readFileSync(settingsFile, "utf8")).env.ANTHROPIC_MODEL, "Provider/two");
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(root, { force: true, recursive: true });
+  }
+});

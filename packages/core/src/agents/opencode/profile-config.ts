@@ -1,9 +1,10 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { buildCodexModelCatalog, type CodexModelCatalogItem } from "@ccr/core/agents/codex/model-catalog";
 import { parseJsoncRecord } from "@ccr/core/agents/local-providers/shared";
 import { isGatewayProviderEnabled, type AppConfig, type GatewayProviderConfig, type ProfileConfig, type ProviderModelMetadata } from "@ccr/core/contracts/app";
 import { findModelCatalogEntry, findProviderModelCatalogEntry, type ModelCatalogEntry, modelCatalogMaxInputTokens, modelCatalogMaxOutputTokens } from "@ccr/core/gateway/model-catalog";
+import { backupBeforeWrite, backupMarker, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
 import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
@@ -16,8 +17,6 @@ export type OpenCodeProfileConfigWriteResult = {
   inlineConfig: string;
 };
 
-const originalBackupSuffix = ".ccr-original";
-const originalMissingSuffix = ".ccr-original-missing";
 const defaultOpenCodeContextWindow = 128_000;
 const defaultOpenCodeMaxOutputTokens = 8_192;
 
@@ -68,7 +67,7 @@ export function writeOpenCodeGatewayConfig(
     small_model: overrides.small_model
   };
   const content = `${JSON.stringify(next, null, 2)}\n`;
-  const writeResult = writeJsonFile(file, content, options);
+  const writeResult = writeJsonFile(file, content, options, (candidate) => isManagedOpenCodeConfigContent(candidate, providerId));
   return {
     ...writeResult,
     file,
@@ -216,7 +215,8 @@ function readJsoncObject(file: string): Record<string, unknown> {
 function writeJsonFile(
   file: string,
   content: string,
-  options: { backup?: boolean }
+  options: { backup?: boolean },
+  isManagedContent: (content: string) => boolean
 ): { backupFile?: string; changed: boolean } {
   mkdirSync(path.dirname(file), { recursive: true });
   const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
@@ -224,32 +224,9 @@ function writeJsonFile(
   if (previous === content) {
     return { changed: false };
   }
-  if (options.backup !== false) {
-    ensureOriginalSnapshot(file, previous);
-  }
-  const backupFile = options.backup === false || previous === undefined ? undefined : backupFilePath(file);
-  if (backupFile) {
-    copyFileSync(file, backupFile);
-    chmodPrivateFile(backupFile);
-  }
-  writeFileSync(file, content, { encoding: "utf8", mode: 0o600 });
-  chmodPrivateFile(file);
+  const backupFile = options.backup === false ? undefined : backupBeforeWrite(file, previous, { isManagedContent, mode: 0o600 });
+  writeFileAtomic(file, content, { mode: 0o600 });
   return { backupFile, changed: true };
-}
-
-function ensureOriginalSnapshot(file: string, previous: string | undefined): void {
-  const originalBackup = `${file}${originalBackupSuffix}`;
-  const originalMissing = `${file}${originalMissingSuffix}`;
-  if (existsSync(originalBackup) || existsSync(originalMissing)) {
-    return;
-  }
-  if (previous === undefined) {
-    writeFileSync(originalMissing, "", { encoding: "utf8", mode: 0o600 });
-    chmodPrivateFile(originalMissing);
-    return;
-  }
-  copyFileSync(file, originalBackup);
-  chmodPrivateFile(originalBackup);
 }
 
 function chmodPrivateFile(file: string): void {
@@ -276,16 +253,11 @@ function chmodPrivateConfigArtifacts(file: string): void {
     if (
       entry === `${basename}${originalBackupSuffix}` ||
       entry === `${basename}${originalMissingSuffix}` ||
-      entry.startsWith(`${basename}.ccr-backup-`)
+      entry.startsWith(`${basename}${backupMarker}`)
     ) {
       chmodPrivateFile(path.join(path.dirname(file), entry));
     }
   }
-}
-
-function backupFilePath(file: string): string {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return `${file}.ccr-backup-${timestamp}`;
 }
 
 function gatewayEndpoint(config: AppConfig): string {

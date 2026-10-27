@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -8,8 +8,10 @@ import {
   codexSharedChatGptAuthEnvForTest,
   findInstalledCodexAppExecutable,
   findInstalledWorkbuddyAppExecutable,
+  isManagedWorkbuddyModelsContent,
   removeLegacyCodexVirtualAuthMarker,
-  writeCodexCompatibleAppModelCatalog
+  writeCodexCompatibleAppModelCatalog,
+  writeWorkbuddyModelsConfig
 } from "@ccr/core/agents/codex/app-launch.ts";
 
 test("ChatGPT app launch shares explicit or default Codex login when available", () => {
@@ -513,5 +515,54 @@ test("ChatGPT migration removes only the exact legacy LLMR auth marker", () => {
     assert.deepEqual(JSON.parse(readFileSync(authFile, "utf8")), customApiKey);
   } finally {
     rmSync(root, { force: true, recursive: true });
+  }
+});
+
+function workbuddyModelsProfile(scope) {
+  return { agent: "workbuddy", enabled: true, env: {}, id: "workbuddy-main", model: "gpt-5-codex", name: "WorkBuddy", scope, surface: "app" };
+}
+
+test("isManagedWorkbuddyModelsContent recognizes only the models.json LLMR writes", () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-managed-"));
+  try {
+    const result = writeWorkbuddyModelsConfig(dir, workbuddyModelsProfile("ccr"));
+    assert.equal(isManagedWorkbuddyModelsContent(readFileSync(result.file, "utf8")), true);
+    assert.equal(isManagedWorkbuddyModelsContent(JSON.stringify({ models: [{ apiKey: "sk-user", id: "mine" }] })), false);
+    assert.equal(isManagedWorkbuddyModelsContent(JSON.stringify({ models: [{ apiKey: "${CCR_PROFILE_API_KEY}" }, { apiKey: "sk-user" }] })), false);
+    assert.equal(isManagedWorkbuddyModelsContent(JSON.stringify({ models: [] })), false);
+    assert.equal(isManagedWorkbuddyModelsContent("{not json"), false);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a global WorkBuddy models.json is snapshotted and backed up before LLMR overwrites it", () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-backup-"));
+  try {
+    const file = path.join(dir, "models.json");
+    const userModels = `${JSON.stringify({ models: [{ apiKey: "sk-user", id: "mine" }] })}\n`;
+    writeFileSync(file, userModels);
+
+    const result = writeWorkbuddyModelsConfig(dir, workbuddyModelsProfile("global"));
+
+    assert.equal(result.changed, true);
+    assert.equal(readFileSync(`${file}.ccr-original`, "utf8"), userModels);
+    const backups = readdirSync(dir).filter((entry) => entry.startsWith("models.json.ccr-backup-"));
+    assert.equal(backups.length, 1);
+    assert.equal(readFileSync(path.join(dir, backups[0]), "utf8"), userModels);
+    assert.equal(isManagedWorkbuddyModelsContent(readFileSync(file, "utf8")), true);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("an LLMR-owned WorkBuddy models.json gets no backup", () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-owned-"));
+  try {
+    writeFileSync(path.join(dir, "models.json"), "{}\n");
+    writeWorkbuddyModelsConfig(dir, workbuddyModelsProfile("ccr"));
+    assert.deepEqual(readdirSync(dir), ["models.json"]);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
   }
 });

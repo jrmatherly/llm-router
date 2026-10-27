@@ -1,8 +1,9 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { isGatewayProviderEnabled, type AppConfig, type ProfileConfig } from "@ccr/core/contracts/app";
 import { normalizeRouteSelector } from "@ccr/core/gateway/claude-code-router-plugin";
 import { buildZcodeModelCatalog } from "@ccr/core/agents/zcode/model-catalog";
+import { backupBeforeWrite, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
 import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
 
@@ -24,8 +25,6 @@ type ZcodeGatewayConfigValues = {
 };
 
 const legacyZcodeTomlConfigFile = "~/.zcode/config.toml";
-const originalBackupSuffix = ".ccr-original";
-const originalMissingSuffix = ".ccr-original-missing";
 const defaultZcodeContextWindow = 128_000;
 const defaultZcodeMaxOutputTokens = 8_192;
 
@@ -49,7 +48,7 @@ export function writeZcodeGatewayConfig(
   config: AppConfig,
   profile: ProfileConfig,
   token: string,
-  options: { backup?: boolean } = {}
+  options: { backup?: boolean; isManagedContent?: (content: string) => boolean } = {}
 ): ZcodeProfileConfigWriteResult {
   const file = resolveZcodeConfigFile(profile);
   const model = normalizeClientModel(profile.model) || defaultClientModel(config);
@@ -236,21 +235,19 @@ function zcodeV2CacheRevision(source: Record<string, unknown>): number {
   return Math.max(0, revision) + 1;
 }
 
-function writeJsonFile(file: string, value: Record<string, unknown>, options: { backup?: boolean }): ZcodeProfileConfigWriteResult {
+function writeJsonFile(
+  file: string,
+  value: Record<string, unknown>,
+  options: { backup?: boolean; isManagedContent?: (content: string) => boolean }
+): ZcodeProfileConfigWriteResult {
   const content = `${JSON.stringify(value, null, 2)}\n`;
   mkdirSync(path.dirname(file), { recursive: true });
   const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
   if (previous === content) {
     return { changed: false, file };
   }
-  if (options.backup !== false) {
-    ensureOriginalSnapshot(file, previous);
-  }
-  const backupFile = options.backup === false || previous === undefined ? undefined : backupFilePath(file);
-  if (backupFile) {
-    copyFileSync(file, backupFile);
-  }
-  writeFileSync(file, content, "utf8");
+  const backupFile = options.backup === false ? undefined : backupBeforeWrite(file, previous, { isManagedContent: options.isManagedContent });
+  writeFileAtomic(file, content);
   return { backupFile, changed: true, file };
 }
 
@@ -264,24 +261,6 @@ function readJsonObject(file: string): Record<string, unknown> {
   } catch {
     return {};
   }
-}
-
-function backupFilePath(file: string): string {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return `${file}.ccr-backup-${timestamp}`;
-}
-
-function ensureOriginalSnapshot(file: string, previous: string | undefined): void {
-  const originalBackup = `${file}${originalBackupSuffix}`;
-  const originalMissing = `${file}${originalMissingSuffix}`;
-  if (existsSync(originalBackup) || existsSync(originalMissing)) {
-    return;
-  }
-  if (previous === undefined) {
-    writeFileSync(originalMissing, "", "utf8");
-    return;
-  }
-  copyFileSync(file, originalBackup);
 }
 
 function isLegacyZcodeTomlConfigFile(value: string): boolean {

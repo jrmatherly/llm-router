@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { buildCodexModelCatalogIds } from "@ccr/core/agents/codex/model-catalog";
 import type { AppConfig, GatewayProviderConfig, ProfileConfig, ProviderModelMetadata } from "@ccr/core/contracts/app";
@@ -8,12 +8,14 @@ import {
   modelCatalogMaxInputTokens,
   type ModelCatalogEntry
 } from "@ccr/core/gateway/model-catalog";
+import { backupBeforeWrite, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
 import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
 import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
 import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
 
 export type PiProfileConfigWriteResult = {
+  backupFile?: string;
   changed: boolean;
   file: string;
   model: string;
@@ -33,7 +35,7 @@ type PiResolvedModelMetadata = {
 };
 
 export function resolvePiAgentDir(configDir: string, profile: ProfileConfig): string {
-  if (profile.scope === "ccr" || profile.scope === "custom") {
+  if (isLlmrOwnedScope(profile)) {
     const slug = sanitizePathSegment(profile.id || profile.name || "pi") || "pi";
     const baseDir = path.join(configDir, "profiles", slug);
     return path.join(profile.scope === "custom" ? path.join(baseDir, "custom") : baseDir, "pi");
@@ -41,6 +43,23 @@ export function resolvePiAgentDir(configDir: string, profile: ProfileConfig): st
 
   const configured = profile.configFile?.trim();
   return configured ? resolveUserPath(configured) : path.join(resolveRuntimeAppPath("home"), ".pi", "agent");
+}
+
+export function isManagedPiModelsContent(content: string, providerId: string): boolean {
+  try {
+    const providers = (JSON.parse(content) as { providers?: unknown })?.providers;
+    if (!providers || typeof providers !== "object" || Array.isArray(providers)) {
+      return false;
+    }
+    const keys = Object.keys(providers);
+    return keys.length === 1 && keys[0] === providerId;
+  } catch {
+    return false;
+  }
+}
+
+export function piProviderId(profile: Pick<ProfileConfig, "providerId">): string {
+  return sanitizeProviderId(profile.providerId || "") || "claude-code-router";
 }
 
 export function resolvePiSessionDir(configDir: string, profile: ProfileConfig): string {
@@ -64,15 +83,20 @@ export function writePiGatewayConfig(
   const profileHome = resolvePiAgentDir(configDir, profile);
   const sessionDir = resolvePiSessionDir(configDir, profile);
   const file = path.join(profileHome, "models.json");
-  const providerId = sanitizeProviderId(profile.providerId || "") || "claude-code-router";
+  const providerId = piProviderId(profile);
   const models = piProfileModels(config, profile, defaultModel);
   const model = models.includes(defaultModel) ? defaultModel : models[0] || defaultModel || "default";
   const content = `${JSON.stringify(piModelsJson(config, profile, providerId, token, models), null, 2)}\n`;
-  const changed = writeJsonFileIfChanged(file, content);
+  const { backupFile, changed } = writeJsonFileIfChanged(
+    file,
+    content,
+    { backup: !isLlmrOwnedScope(profile), isManagedContent: (candidate) => isManagedPiModelsContent(candidate, providerId) }
+  );
   mkdirSync(sessionDir, { mode: privateDirMode, recursive: true });
   chmodPrivateDir(profileHome);
   chmodPrivateDir(sessionDir);
   return {
+    backupFile,
     changed,
     file,
     model,
@@ -173,17 +197,28 @@ function gatewayEndpoint(config: AppConfig): string {
   return `http://${normalizedHost}:${config.gateway.port}`;
 }
 
-function writeJsonFileIfChanged(file: string, content: string): boolean {
+function isLlmrOwnedScope(profile: ProfileConfig): boolean {
+  return profile.scope === "ccr" || profile.scope === "custom";
+}
+
+// Only a user-owned models.json gets an original snapshot and a backup before LLMR writes it.
+function writeJsonFileIfChanged(
+  file: string,
+  content: string,
+  options: { backup: boolean; isManagedContent: (content: string) => boolean }
+): { backupFile?: string; changed: boolean } {
   mkdirSync(path.dirname(file), { mode: privateDirMode, recursive: true });
   chmodPrivateDir(path.dirname(file));
   const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
   if (previous === content) {
     chmodPrivateFile(file);
-    return false;
+    return { changed: false };
   }
-  writeFileSync(file, content, { encoding: "utf8", mode: privateFileMode });
-  chmodPrivateFile(file);
-  return true;
+  const backupFile = options.backup
+    ? backupBeforeWrite(file, previous, { isManagedContent: options.isManagedContent, mode: privateFileMode })
+    : undefined;
+  writeFileAtomic(file, content, { mode: privateFileMode });
+  return { backupFile, changed: true };
 }
 
 function chmodPrivateDir(dir: string): void {
