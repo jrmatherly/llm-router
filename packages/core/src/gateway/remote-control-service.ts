@@ -1,12 +1,18 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { ApiKeyConfig } from "@ccr/core/contracts/app";
 
 export const ccrRemoteControlPathPrefix = "/__ccr/remote";
+
+export function remoteControlOwnerId(apiKey: Pick<ApiKeyConfig, "id"> | undefined): string {
+  return apiKey ? `key:${apiKey.id}` : "anonymous";
+}
 
 type RemoteDirection = "inbound" | "local" | "remote" | "system";
 
 export type CcrRemoteControlRequestContext = {
   endpoint: string;
+  ownerId: string;
   path: string;
   readBody: (request: IncomingMessage) => Promise<Buffer>;
   request: IncomingMessage;
@@ -62,8 +68,8 @@ const maxEventsPerSession = 2_000;
 const maxInboundEventsPerSession = 500;
 const sseHeartbeatMs = 15_000;
 
-class CcrRemoteControlService {
-  private readonly sessions = new Map<string, RemoteSession>();
+export class CcrRemoteControlService {
+  private readonly sessionsByOwner = new Map<string, Map<string, RemoteSession>>();
 
   async handleRequest(context: CcrRemoteControlRequestContext): Promise<void> {
     const segments = remotePathSegments(context.path);
@@ -89,23 +95,29 @@ class CcrRemoteControlService {
       return;
     }
 
+    const session = this.ownedSession(sessionId, context.ownerId);
+    if (!session) {
+      context.sendJson(context.response, 404, { error: { message: "Remote session not found." } });
+      return;
+    }
+
     if (!resource) {
-      await this.handleSessionRequest(context, sessionId);
+      await this.handleSessionRequest(context, session);
       return;
     }
 
     if (resource === "events") {
-      await this.handleEventsRequest(context, sessionId);
+      await this.handleEventsRequest(context, session);
       return;
     }
 
     if (resource === "inbound") {
-      await this.handleInboundRequest(context, sessionId);
+      await this.handleInboundRequest(context, session);
       return;
     }
 
     if (resource === "presence") {
-      await this.handlePresenceRequest(context, sessionId);
+      await this.handlePresenceRequest(context, session);
       return;
     }
 
@@ -134,7 +146,7 @@ class CcrRemoteControlService {
   private async handleSessionsRequest(context: CcrRemoteControlRequestContext): Promise<void> {
     if (context.request.method === "GET") {
       context.sendJson(context.response, 200, {
-        sessions: [...this.sessions.values()].map((session) => this.sessionSummary(session, context.endpoint))
+        sessions: [...(this.sessionsByOwner.get(context.ownerId)?.values() ?? [])].map((session) => this.sessionSummary(session, context.endpoint))
       });
       return;
     }
@@ -151,7 +163,7 @@ class CcrRemoteControlService {
     const id = sanitizeSessionId(readString(body.id) || readString(body.sessionId)) || randomUUID();
     const title = readString(body.title) || readString(body.name) || `LLMR Remote ${id.slice(0, 8)}`;
     const metadata = readRecord(body.metadata) ?? {};
-    const session = this.ensureSession(id, title, metadata);
+    const session = this.ensureSession(id, context.ownerId, title, metadata);
     this.appendEvent(session, {
       direction: "system",
       payload: { title },
@@ -164,13 +176,7 @@ class CcrRemoteControlService {
     });
   }
 
-  private async handleSessionRequest(context: CcrRemoteControlRequestContext, sessionId: string): Promise<void> {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      context.sendJson(context.response, 404, { error: { message: "Remote session not found." } });
-      return;
-    }
-
+  private async handleSessionRequest(context: CcrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
     if (context.request.method === "GET") {
       context.sendJson(context.response, 200, { session: this.sessionSnapshot(session, context.endpoint) });
       return;
@@ -216,13 +222,7 @@ class CcrRemoteControlService {
     context.sendJson(context.response, 405, { error: { message: "Method not allowed." } });
   }
 
-  private async handleEventsRequest(context: CcrRemoteControlRequestContext, sessionId: string): Promise<void> {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      context.sendJson(context.response, 404, { error: { message: "Remote session not found." } });
-      return;
-    }
-
+  private async handleEventsRequest(context: CcrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
     if (context.request.method === "GET") {
       const after = remoteAfterSeq(context.request);
       if (wantsSse(context.request)) {
@@ -259,13 +259,7 @@ class CcrRemoteControlService {
     });
   }
 
-  private async handleInboundRequest(context: CcrRemoteControlRequestContext, sessionId: string): Promise<void> {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      context.sendJson(context.response, 404, { error: { message: "Remote session not found." } });
-      return;
-    }
-
+  private async handleInboundRequest(context: CcrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
     if (context.request.method === "GET") {
       const after = remoteAfterSeq(context.request);
       if (wantsSse(context.request)) {
@@ -302,13 +296,7 @@ class CcrRemoteControlService {
     });
   }
 
-  private async handlePresenceRequest(context: CcrRemoteControlRequestContext, sessionId: string): Promise<void> {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      context.sendJson(context.response, 404, { error: { message: "Remote session not found." } });
-      return;
-    }
-
+  private async handlePresenceRequest(context: CcrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
     if (context.request.method === "GET") {
       context.sendJson(context.response, 200, { presence: session.presence });
       return;
@@ -340,8 +328,21 @@ class CcrRemoteControlService {
     context.sendJson(context.response, 202, { event, presence: session.presence });
   }
 
-  private ensureSession(id: string, title: string, metadata: Record<string, unknown>): RemoteSession {
-    const existing = this.sessions.get(id);
+  private ownerSessions(ownerId: string): Map<string, RemoteSession> {
+    let sessions = this.sessionsByOwner.get(ownerId);
+    if (!sessions) {
+      sessions = new Map();
+      this.sessionsByOwner.set(ownerId, sessions);
+    }
+    return sessions;
+  }
+
+  private ownedSession(id: string, ownerId: string): RemoteSession | undefined {
+    return this.sessionsByOwner.get(ownerId)?.get(id);
+  }
+
+  private ensureSession(id: string, ownerId: string, title: string, metadata: Record<string, unknown>): RemoteSession {
+    const existing = this.ownedSession(id, ownerId);
     if (existing) {
       existing.metadata = { ...existing.metadata, ...metadata };
       existing.title = title || existing.title;
@@ -349,7 +350,8 @@ class CcrRemoteControlService {
       return existing;
     }
 
-    this.pruneSessions();
+    const sessions = this.ownerSessions(ownerId);
+    pruneSessions(sessions);
     const now = new Date().toISOString();
     const session: RemoteSession = {
       createdAt: now,
@@ -364,7 +366,7 @@ class CcrRemoteControlService {
       title,
       updatedAt: now
     };
-    this.sessions.set(id, session);
+    sessions.set(id, session);
     return session;
   }
 
@@ -495,21 +497,6 @@ class CcrRemoteControlService {
     };
   }
 
-  private pruneSessions(): void {
-    while (this.sessions.size >= maxSessions) {
-      const oldest = [...this.sessions.values()]
-        .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))[0];
-      if (!oldest) {
-        return;
-      }
-      for (const subscriber of oldest.subscribers) {
-        subscriber.close();
-        subscriber.response.end();
-      }
-      this.sessions.delete(oldest.id);
-    }
-  }
-
   private async readJsonBody(context: CcrRemoteControlRequestContext): Promise<Record<string, unknown> | undefined> {
     const body = await context.readBody(context.request);
     if (body.length === 0) {
@@ -563,6 +550,21 @@ function normalizeEventInputs(body: Record<string, unknown>): RemoteEventInput[]
         type: readString(event.type)
       };
     });
+}
+
+function pruneSessions(sessions: Map<string, RemoteSession>): void {
+  while (sessions.size >= maxSessions) {
+    const oldest = [...sessions.values()]
+      .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))[0];
+    if (!oldest) {
+      return;
+    }
+    for (const subscriber of oldest.subscribers) {
+      subscriber.close();
+      subscriber.response.end();
+    }
+    sessions.delete(oldest.id);
+  }
 }
 
 function writeSseEvent(response: ServerResponse, event: RemoteEvent): void {

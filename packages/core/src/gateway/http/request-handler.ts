@@ -13,7 +13,7 @@ import {
   isContextArchiveMcpPath,
   type ContextArchiveReplayExecutor
 } from "@ccr/core/gateway/context-archive";
-import { ccrRemoteControlPathPrefix, ccrRemoteControlService } from "@ccr/core/gateway/remote-control-service";
+import { ccrRemoteControlPathPrefix, ccrRemoteControlService, remoteControlOwnerId } from "@ccr/core/gateway/remote-control-service";
 import { gatewayRuntimeConfigControlPath } from "@ccr/core/gateway/runtime-config-control";
 import { authorize, claudeCodeWifTokenPath, handleClaudeCodeWifTokenRequest, reserveApiKeyLimits } from "@ccr/core/gateway/auth/api-key-authorizer";
 import { parseJsonObject, readRequestBody, sendJson } from "@ccr/core/gateway/http/io";
@@ -128,6 +128,7 @@ export class GatewayHttpRequestHandler {
         }
         await ccrRemoteControlService.handleRequest({
           endpoint: this.status.endpoint,
+          ownerId: remoteControlOwnerId(authorization.apiKey),
           path,
           readBody: readRequestBody,
           request,

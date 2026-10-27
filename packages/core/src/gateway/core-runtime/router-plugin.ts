@@ -7,7 +7,7 @@ import {
   exchangeClaudeCodeWifToken,
   resolveApiKeyFromHeaders
 } from "@ccr/core/gateway/auth/api-key-authorizer";
-import { ccrRemoteControlPathPrefix, ccrRemoteControlService } from "@ccr/core/gateway/remote-control-service";
+import { ccrRemoteControlPathPrefix, ccrRemoteControlService, remoteControlOwnerId } from "@ccr/core/gateway/remote-control-service";
 import {
   ClaudeCodeRouterPlugin,
   type ClaudeCodeRouteDecision
@@ -680,6 +680,7 @@ async function handleRemoteControlRoute(
   reply.hijack();
   await ccrRemoteControlService.handleRequest({
     endpoint: pluginPublicEndpoint(config),
+    ownerId: remoteControlOwnerId(authorization.apiKey),
     path: requestPath(request.url ?? ccrRemoteControlPathPrefix),
     readBody: async () => httpRequestBodyBuffer(request.body),
     request: request.raw,
