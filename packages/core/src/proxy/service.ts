@@ -23,6 +23,7 @@ import type {
 } from "@ccr/core/contracts/app";
 import { PROXY_CA_CERT_FILE } from "@ccr/core/config/constants";
 import { isLoopbackAddress } from "@ccr/core/net/loopback";
+import { isSensitiveRequestLogHeaderName } from "@ccr/core/observability/sensitive-headers";
 import { windowsSystemCommand } from "@ccr/core/platform/windows-system";
 import { pluginService, type GatewayPluginProxyRouteMatch } from "@ccr/core/plugins/service";
 import {
@@ -776,7 +777,7 @@ class ProxyService {
       mode,
       path: `${targetUrl.pathname}${targetUrl.search}`,
       protocol: targetUrl.protocol === "https:" ? "https" : "http",
-      requestHeaders: cloneHeaders(request.headers),
+      requestHeaders: cloneCapturedHeaders(request.headers),
       requestSampler: new NetworkBodySampler(maxNetworkCaptureBodyBytes),
       responseSampler: new NetworkBodySampler(maxNetworkCaptureBodyBytes),
       routedToGateway,
@@ -816,7 +817,7 @@ class ProxyService {
       fail: (message, statusCode) => finish("error", message, statusCode),
       setResponse: (statusCode, headers) => {
         record.statusCode = statusCode;
-        record.responseHeaders = cloneHeaders(headers);
+        record.responseHeaders = cloneCapturedHeaders(headers);
       }
     };
   }
@@ -1741,13 +1742,16 @@ function inferProxyClient(headers: IncomingHttpHeaders): string {
   return userAgent.split(/[/(]/)[0]?.trim() || "Client";
 }
 
-function cloneHeaders(headers: CapturedHeaders | IncomingHttpHeaders): CapturedHeaders {
+export function cloneCapturedHeaders(headers: CapturedHeaders | IncomingHttpHeaders): CapturedHeaders {
   const result: CapturedHeaders = {};
   for (const [key, value] of Object.entries(headers)) {
     if (value === undefined) {
       continue;
     }
-    result[key.toLowerCase()] = Array.isArray(value) ? value.map(String) : String(value);
+    const name = key.toLowerCase();
+    result[name] = isSensitiveRequestLogHeaderName(name)
+      ? "[redacted]"
+      : Array.isArray(value) ? value.map(String) : String(value);
   }
   return result;
 }
