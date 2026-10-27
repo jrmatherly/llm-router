@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript in `packages/core`, `packages/electron` and `packages/ui`; plain JS in `extension/chrome`; `node:test` with `node:assert/strict`.
 
-**Spec:** `docs/superpowers/specs/2026-10-27-audit-remediation.md` (findings S1 to S9)
+**Spec:** `docs/superpowers/specs/completed/2026-10-27-audit-remediation.md` (findings S1 to S9)
 
 ## Global Constraints
 

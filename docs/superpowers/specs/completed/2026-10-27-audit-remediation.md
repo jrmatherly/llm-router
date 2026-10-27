@@ -91,7 +91,7 @@ Each plan produces working, tested software on its own and lands as its own PR o
 
 1. `docs/superpowers/plans/completed/2026-10-27-profile-config-safety.md`. P1 to P7.
 2. `docs/superpowers/plans/completed/2026-10-27-security-hardening.md`. S1 to S9.
-3. `docs/superpowers/plans/2026-10-27-fork-identity.md`. F1 to F6 and the catalog decision.
+3. `docs/superpowers/plans/completed/2026-10-27-fork-identity.md`. F1 to F6 and the catalog decision.
 4. `docs/superpowers/plans/completed/2026-10-27-pipeline-and-cleanup.md`. D1 to D5, C1 to C8, and the node-forge dismissal.
 
 Plan 1 goes first, because its defects are already damaging the operator's own config. Plans 2 and 4 are independent of each other and of Plan 1. Plan 3 touches the CLI and launcher names that Plan 1's tests assert on, so it rebases after Plan 1 merges.

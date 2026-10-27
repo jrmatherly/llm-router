@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript in `packages/core`, `packages/cli`, `packages/electron` and `packages/ui`; electron-builder; GitHub Actions; `node:test` with `node:assert/strict`.
 
-**Spec:** `docs/superpowers/specs/2026-10-27-audit-remediation.md` (findings F1 to F6, and the Decisions section)
+**Spec:** `docs/superpowers/specs/completed/2026-10-27-audit-remediation.md` (findings F1 to F6, and the Decisions section)
 
 ## Global Constraints
 

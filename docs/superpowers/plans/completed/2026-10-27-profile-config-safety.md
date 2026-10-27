@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript in `packages/core`, `node:test` with `node:assert/strict`, esbuild test bundles via `node build/test.mjs core`.
 
-**Spec:** `docs/superpowers/specs/2026-10-27-audit-remediation.md` (findings P1 to P7)
+**Spec:** `docs/superpowers/specs/completed/2026-10-27-audit-remediation.md` (findings P1 to P7)
 
 ## Global Constraints
 

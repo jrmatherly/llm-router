@@ -8,7 +8,7 @@
 
 **Tech Stack:** Docker (Debian runtime with nginx and pm2), GitHub Actions, TypeScript and React in `packages/ui`, `node:test` with `node:assert/strict`.
 
-**Spec:** `docs/superpowers/specs/2026-10-27-audit-remediation.md` (findings D1 to D5 and C1 to C8, plus the node-forge decision)
+**Spec:** `docs/superpowers/specs/completed/2026-10-27-audit-remediation.md` (findings D1 to D5 and C1 to C8, plus the node-forge decision)
 
 ## Global Constraints
 
