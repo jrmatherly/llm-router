@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node 24 (`engines`, CI and `.node-version` pin 24; 24.22.1 locally), npm workspaces with `allowScripts`, esbuild, `node:test`, Playwright 1.61.1, Electron 42.4.1, better-sqlite3 12.11.1, Claude Code 2.1.310 hooks and skills.
 
-**Spec:** `docs/superpowers/specs/2026-10-25-ai-assistant-guardrails.md`
+**Spec:** `docs/superpowers/specs/completed/2026-10-25-ai-assistant-guardrails.md`
 
 **Revision 3 (2026-10-25):** after a second independent review. Hooks block on their own failure (`onFailure: "block"`), resolve the repo root from the input `cwd`, refuse to gate a tree with no `node_modules`, match every `git ... commit` spelling and the Jean commit tool, close the Serena `replace_in_files` scope hole, and compare temp paths by realpath. The verify runner is a node script that restores generated files only when they were clean before the run, and its tests run inside a throwaway git repo. `node-abi` is replaced by Electron's own ABI report. Single-file test commands drop `--scope`. Rules name their check instead of restating its numbers.
 

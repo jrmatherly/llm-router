@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node 24 scripts under `scripts/`, `node:test` with `node:assert/strict`, esbuild test bundles via `node build/test.mjs <pkg>`.
 
-**Spec:** `docs/superpowers/specs/2026-10-25-rebrand-phase-2.md`
+**Spec:** `docs/superpowers/specs/completed/2026-10-25-rebrand-phase-2.md`
 
 ## Global Constraints
 

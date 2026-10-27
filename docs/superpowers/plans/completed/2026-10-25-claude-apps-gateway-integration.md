@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript under `packages/core`, `node:test` with `node:assert/strict`, esbuild test bundles via `node build/test.mjs <pkg>`, Docker Compose, the `claude` CLI (2.1.310 installed at `~/.local/bin/claude`), Astro docs under `docs/`.
 
-**Spec:** `docs/superpowers/specs/2026-10-25-claude-apps-gateway-integration.md`
+**Spec:** `docs/superpowers/specs/completed/2026-10-25-claude-apps-gateway-integration.md`
 
 ## Global Constraints
 
