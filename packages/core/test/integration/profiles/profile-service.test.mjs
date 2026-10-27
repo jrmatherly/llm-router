@@ -4,6 +4,7 @@ import { chmodSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, 
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { writeWorkbuddyModelsConfig } from "@ccr/core/agents/codex/app-launch.ts";
 import { writePiGatewayConfig } from "@ccr/core/agents/pi/profile-config.ts";
 import { loadAppConfig } from "@ccr/core/config/config.ts";
 import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
@@ -2838,6 +2839,50 @@ test("a global Pi profile deletes the models.json it created", () => {
     assert.equal(existsSync(piModels), true);
     restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
     assert.equal(existsSync(piModels), false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+function globalWorkbuddyProfile(workbuddyHome) {
+  return { agent: "workbuddy", codexHome: workbuddyHome, enabled: true, env: {}, id: "workbuddy-global", model: "gpt-5-codex", name: "WorkBuddy", scope: "global", surface: "app" };
+}
+
+test("a global Workbuddy profile restores the user's models.json on release", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-release-"));
+  try {
+    const workbuddyHome = path.join(root, ".workbuddy");
+    const workbuddyModels = path.join(workbuddyHome, "models.json");
+    const userModels = { models: [{ apiKey: "sk-user", id: "my-model" }] };
+    mkdirSync(workbuddyHome, { recursive: true });
+    writeFileSync(workbuddyModels, `${JSON.stringify(userModels)}\n`);
+    const profile = globalWorkbuddyProfile(workbuddyHome);
+
+    writeWorkbuddyModelsConfig(workbuddyHome, profile);
+    assert.notDeepEqual(JSON.parse(readFileSync(workbuddyModels, "utf8")), userModels);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.deepEqual(JSON.parse(readFileSync(workbuddyModels, "utf8")), userModels);
+
+    writeWorkbuddyModelsConfig(workbuddyHome, profile);
+    const statuses = restoreGlobalProfileConfigsOnExit([profile], { manageMarker: false });
+    assert.equal(statuses.every((status) => status.ok), true);
+    assert.deepEqual(JSON.parse(readFileSync(workbuddyModels, "utf8")), userModels);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a global Workbuddy profile deletes the models.json it created", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-release-missing-"));
+  try {
+    const workbuddyHome = path.join(root, ".workbuddy");
+    const workbuddyModels = path.join(workbuddyHome, "models.json");
+    const profile = globalWorkbuddyProfile(workbuddyHome);
+
+    writeWorkbuddyModelsConfig(workbuddyHome, profile);
+    assert.equal(existsSync(workbuddyModels), true);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.equal(existsSync(workbuddyModels), false);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

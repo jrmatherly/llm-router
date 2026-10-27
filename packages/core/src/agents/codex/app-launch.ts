@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { AppConfig, ProfileConfig } from "@ccr/core/contracts/app";
@@ -7,6 +7,7 @@ import { botGatewayProfileEnv } from "@ccr/core/agents/bot-gateway/env";
 import { buildCodexModelCatalog, type CodexModelCatalog, type CodexModelCatalogItem } from "@ccr/core/agents/codex/model-catalog";
 import { CODEX_APP_NET_RESPONDER_PORT, codexAppApiBaseUrl, ensureCodexAppNetResponder } from "@ccr/core/agents/codex/app-net-responder";
 import { prepareCodexAppCdpUserDataDir } from "@ccr/core/agents/codex/media-preview-bridge";
+import { backupFilePath, ensureOriginalSnapshot, pruneBackups, writeFileAtomic } from "@ccr/core/profiles/backup-files";
 import { buildProfileLaunchPlan, resolveCodexConfigFile } from "@ccr/core/profiles/launch-core";
 import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@ccr/core/platform/windows-app-discovery";
 import { buildZcodeModelCatalog } from "@ccr/core/agents/zcode/model-catalog";
@@ -73,6 +74,7 @@ export type WorkbuddyVirtualAuthResult = {
 export const codexDesktopAppName = "ChatGPT";
 export const workbuddyDesktopAppName = "WorkBuddy AI";
 
+const workbuddyModelApiKeyPlaceholder = "${CCR_PROFILE_API_KEY}";
 const workbuddyVirtualAuthId = "workbuddy-desktop-ai";
 const workbuddyVirtualAuthUserId = "ccr-local-profile";
 const workbuddyVirtualAuthToken = "ccr-local-profile";
@@ -325,10 +327,30 @@ export function writeWorkbuddyModelsConfig(
   const content = `${JSON.stringify(workbuddyModelsConfig(model, profile, config), null, 2)}\n`;
   mkdirSync(path.dirname(file), { recursive: true });
   const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
-  if (previous !== content) {
-    writeFileSync(file, content, "utf8");
+  if (previous === content) {
+    return { changed: false, file, model };
   }
-  return { changed: previous !== content, file, model };
+  // Only the user's own Workbuddy home needs a restorable copy; an LLMR-owned one is regenerated.
+  if (profile.scope !== "ccr" && profile.scope !== "custom") {
+    ensureOriginalSnapshot(file, previous, undefined);
+    if (previous !== undefined) {
+      copyFileSync(file, backupFilePath(file));
+      pruneBackups(file, undefined, isManagedWorkbuddyModelsContent);
+    }
+  }
+  writeFileAtomic(file, content);
+  return { changed: true, file, model };
+}
+
+export function isManagedWorkbuddyModelsContent(content: string): boolean {
+  try {
+    const models = (JSON.parse(content) as { models?: unknown })?.models;
+    return Array.isArray(models) && models.length > 0 && models.every((item) =>
+      Boolean(item) && typeof item === "object" && (item as { apiKey?: unknown }).apiKey === workbuddyModelApiKeyPlaceholder
+    );
+  } catch {
+    return false;
+  }
 }
 
 function workbuddySelectedModel(
@@ -371,7 +393,7 @@ function workbuddyModelConfig(
   const vendor = workbuddyModelVendor(model, profile.providerName);
   const displayName = model.includes("/") ? model : `${vendor} / ${model}`;
   const workbuddyModel: Record<string, unknown> = {
-    apiKey: "${CCR_PROFILE_API_KEY}",
+    apiKey: workbuddyModelApiKeyPlaceholder,
     disabled: false,
     id: model,
     isDefault: model === defaultModel,

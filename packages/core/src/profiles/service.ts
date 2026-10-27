@@ -17,7 +17,7 @@ import {
   isClaudeCodeManagedModelEnvKey,
   normalizeClaudeCodeClientModel
 } from "@ccr/core/agents/claude-code/environment";
-import { writeCodexCompatibleAppModelCatalog } from "@ccr/core/agents/codex/app-launch";
+import { isManagedWorkbuddyModelsContent, writeCodexCompatibleAppModelCatalog } from "@ccr/core/agents/codex/app-launch";
 import { codexCliMiddlewareRuntimeScript } from "@ccr/core/agents/codex/cli-middleware-runtime";
 import { codexModelCatalogJson } from "@ccr/core/agents/codex/model-catalog";
 import {
@@ -3574,12 +3574,24 @@ function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus
   }
   const providerId = sanitizeCodexProviderId(profile.providerId || "") || "claude-code-router";
   const clientName = codexCompatibleClientName(profile.agent);
-  return restoreDisabledGlobalProfile(
+  const configFile = resolveCodexConfigFile(profile);
+  const status = restoreDisabledGlobalProfile(
     profile,
-    resolveCodexConfigFile(profile),
+    configFile,
     `${clientName} profile is disabled.`,
     { isManagedContent: (content) => isManagedCodexConfigContent(content, providerId) }
   );
+  if (profile.agent !== "workbuddy" || !isGlobalProfile(profile)) {
+    return status;
+  }
+  const modelsResult = restoreGlobalConfigFile(workbuddyModelsFile(configFile), { isManagedContent: isManagedWorkbuddyModelsContent });
+  return modelsResult.missingBackup
+    ? { ...status, message: `${status.message} No original ${clientName} models.json backup was found.`, ok: false }
+    : status;
+}
+
+function workbuddyModelsFile(configFile: string): string {
+  return path.join(path.dirname(resolveUserPath(configFile)), "models.json");
 }
 
 export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): ProfileClientApplyStatus[] {
@@ -3638,6 +3650,11 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
       });
       if (restoreResult.changed || restoreResult.missingBackup) {
         statuses.push(inactiveGlobalCleanupStatus("workbuddy", file, restoreResult));
+      }
+      const modelsFile = workbuddyModelsFile(file);
+      const modelsResult = restoreGlobalConfigFile(modelsFile, { isManagedContent: isManagedWorkbuddyModelsContent });
+      if (modelsResult.changed || modelsResult.missingBackup) {
+        statuses.push(inactiveGlobalCleanupStatus("workbuddy", modelsFile, modelsResult));
       }
     }
   }
