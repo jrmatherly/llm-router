@@ -1,15 +1,14 @@
+import { formatErrorMessage } from "@ccr/core/contracts/error-message";
 import {
   applyTrayThemePreference, DEFAULT_TRAY_WIDGETS, emptySnapshots,
   normalizeTrayWidgets, ProviderAccountSnapshot, SnapshotMap, TrayWidgetConfig, UsageStatsFilter,
-  UsageStatsRange, useCallback, useEffect, useState, useTrayErrorText, useTrayText, useTrayThemePreference
+  UsageStatsRange, useCallback, useEffect, useState, useTrayThemePreference
 } from "./shared";
 import {
   TrayStatusStrip, UsageDetailPanel
 } from "./components/index";
 
 export function TrayDetailApp({ provider }: { provider?: string }) {
-  const t = useTrayText();
-  const formatError = useTrayErrorText();
   useTrayThemePreference();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,11 +42,11 @@ export function TrayDetailApp({ provider }: { provider?: string }) {
       setTrayWidgets(normalizeTrayWidgets(config.trayWidgets, config.trayWindowModules, config.trayComponentVariants));
       applyTrayThemePreference(config.theme);
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError(formatErrorMessage(nextError));
     } finally {
       setLoading(false);
     }
-  }, [formatError, provider]);
+  }, [provider]);
 
   const refreshAccountSnapshots = useCallback(async () => {
     if (!window.ccr) {
@@ -61,11 +60,11 @@ export function TrayDetailApp({ provider }: { provider?: string }) {
       const accounts = await window.ccr.getProviderAccountSnapshots(provider, { forceRefresh: true });
       setAccountSnapshots(accounts);
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError(formatErrorMessage(nextError));
     } finally {
       setAccountRefreshing(false);
     }
-  }, [formatError, provider]);
+  }, [provider]);
 
   useEffect(() => {
     document.body.classList.add("tray-window");
@@ -97,7 +96,7 @@ export function TrayDetailApp({ provider }: { provider?: string }) {
     >
       <TrayStatusStrip totalTokens={snapshots[range].totals.totalTokens} />
       <UsageDetailPanel activeStats={snapshots[range]} accountRefreshing={accountRefreshing} accountSnapshots={accountSnapshots} provider={provider} range={range} widgets={trayWidgets} onRefreshAccount={refreshAccountSnapshots} onRangeChange={setRange} />
-      {loading ? <div className="mt-2 text-[11px] font-medium text-slate-300/55">{t("Syncing usage...")}</div> : null}
+      {loading ? <div className="mt-2 text-[11px] font-medium text-slate-300/55">Syncing usage...</div> : null}
       {error ? <div className="mt-3 rounded-[12px] border border-rose-400/20 bg-rose-500/15 px-3 py-2 text-[12px] font-medium text-rose-100">{error}</div> : null}
     </main>
   );

@@ -1007,9 +1007,9 @@ function normalizeBotGatewaySavedConfig(value: unknown, index = 0): BotGatewaySa
   };
 }
 
-export function botGatewaySavedConfigLabel(config: BotGatewaySavedConfig, translate: (value: string) => string): string {
-  const name = config.name.trim() || translate(botGatewayPlatformLabel(config.botGateway.platform));
-  const platform = translate(botGatewayPlatformLabel(config.botGateway.platform));
+export function botGatewaySavedConfigLabel(config: BotGatewaySavedConfig): string {
+  const name = config.name.trim() || botGatewayPlatformLabel(config.botGateway.platform);
+  const platform = botGatewayPlatformLabel(config.botGateway.platform);
   return name === platform ? name : `${name} / ${platform}`;
 }
 
@@ -1272,41 +1272,40 @@ function normalizeBotGatewayConversationRef(value: unknown): BotGatewayRuntimeCo
 
 export function profileSummaryItems(
   profile: ProfileConfig,
-  config: AppConfig,
-  t: (value: string) => string
+  config: AppConfig
 ): Array<{ label: string; value: string }> {
   const surface = normalizeProfileSurfaceForAgent(profile.agent, profile.surface);
   const envCount = Object.keys(profile.env ?? {}).length;
   const envSummaryItems = envCount > 0
-    ? [{ label: t("Environment variables"), value: String(envCount) }]
+    ? [{ label: "Environment variables", value: String(envCount) }]
     : [];
   const claudeSettingsItemCount = profile.agent === "claude-code" ? claudeSettingsCount(profile.claudeSettings) : 0;
   const claudeSettingsSummaryItems = claudeSettingsItemCount > 0
-    ? [{ label: t("Claude settings"), value: String(claudeSettingsItemCount) }]
+    ? [{ label: "Claude settings", value: String(claudeSettingsItemCount) }]
     : [];
   const appPath = profile.appPath?.trim() || "";
   const appPathSummaryItems = appPath && surface !== "cli" && profile.agent !== "zcode"
-    ? [{ label: t("APP_PATH"), value: appPath }]
+    ? [{ label: "APP_PATH", value: appPath }]
     : [];
   const savedBot = profile.botConfigId
     ? config.botConfigs.find((item) => item.id === profile.botConfigId)
     : undefined;
   const resolvedBotGateway = savedBot?.botGateway ?? profile.botGateway ?? config.botGateway;
   const botSummaryItems = surface !== "cli" && resolvedBotGateway?.enabled && resolvedBotGateway.platform !== "none"
-    ? [{ label: t("Bot"), value: `${t("Enabled")} (${savedBot ? botGatewaySavedConfigLabel(savedBot, t) : t(botGatewayPlatformLabel(resolvedBotGateway.platform))})` }]
+    ? [{ label: "Bot", value: `Enabled (${savedBot ? botGatewaySavedConfigLabel(savedBot) : botGatewayPlatformLabel(resolvedBotGateway.platform)})` }]
     : [];
   const managedCompactItems = profile.agent === "zcode"
     ? []
     : profile.managedCompact
-      ? [{ label: t("LLMR managed compact"), value: t("Enabled") }]
+      ? [{ label: "LLMR managed compact", value: "Enabled" }]
       : [];
   const routing = normalizeProfileRoutingConfig(profile.routing);
   const routingParts = [
-    ...(routing?.enabled ? [`${routing.rules.length} ${t(routing.rules.length === 1 ? "route" : "routes")}`] : []),
-    routing?.enhancedRoute === false ? t("Enhanced route off") : ""
+    ...(routing?.enabled ? [`${routing.rules.length} ${routing.rules.length === 1 ? "route" : "routes"}`] : []),
+    routing?.enhancedRoute === false ? "Enhanced route off" : ""
   ].filter(Boolean);
   const routingSummaryItems = routingParts.length > 0
-    ? [{ label: t("Routing"), value: routingParts.join(" · ") }]
+    ? [{ label: "Routing", value: routingParts.join(" · ") }]
     : [];
   const displayProfileModel = (value: string) => profileModelDisplayValue(
     value,
@@ -1318,11 +1317,11 @@ export function profileSummaryItems(
   const modelValue = profile.model.trim()
     ? displayProfileModel(profile.model)
     : profile.agent === "claude-code"
-      ? t("Keep Claude Code default")
+      ? "Keep Claude Code default"
       : defaultProfileClientModel(config);
   const allowedModelSummaryItems = profile.availableModels?.length
     ? [{
-        label: t("Allowed model list"),
+        label: "Allowed model list",
         value: String(uniqueStrings([profile.model, ...profile.availableModels].filter(Boolean)).length)
       }]
     : [];
@@ -1336,11 +1335,11 @@ export function profileSummaryItems(
     ]
       .filter((item) => item.value)
       .map((item) => ({
-        label: t(item.label),
+        label: item.label,
         value: displayProfileModel(item.value)
       }));
     return [
-      { label: t("Model"), value: modelValue },
+      { label: "Model", value: modelValue },
       ...allowedModelSummaryItems,
       ...aliasItems,
       ...managedCompactItems,
@@ -1354,7 +1353,7 @@ export function profileSummaryItems(
 
   if (profile.agent === "grok" || profile.agent === "kimi" || profile.agent === "pi") {
     return [
-      { label: t(profile.agent === "kimi" ? "Kimi model" : profile.agent === "pi" ? "Pi model" : "Model"), value: modelValue },
+      { label: profile.agent === "kimi" ? "Kimi model" : profile.agent === "pi" ? "Pi model" : "Model", value: modelValue },
       ...allowedModelSummaryItems,
       ...routingSummaryItems,
       ...envSummaryItems
@@ -1363,15 +1362,15 @@ export function profileSummaryItems(
 
   if (profile.agent === "claude-design") {
     return [
-      { label: t("Entry mode"), value: t("App only") },
+      { label: "Entry mode", value: "App only" },
       ...routingSummaryItems
     ];
   }
 
   return [
-    { label: t(profile.agent === "kilo" ? "Kilo model" : profile.agent === "workbuddy" ? "Workbuddy model" : "Model"), value: modelValue },
+    { label: profile.agent === "kilo" ? "Kilo model" : profile.agent === "workbuddy" ? "Workbuddy model" : "Model", value: modelValue },
     ...allowedModelSummaryItems,
-    ...(profile.agent === "zcode" || profile.agent === "opencode" || profile.agent === "kilo" || profile.agent === "workbuddy" || !profile.showAllSessions ? [] : [{ label: t("Show all sessions"), value: t("Enabled") }]),
+    ...(profile.agent === "zcode" || profile.agent === "opencode" || profile.agent === "kilo" || profile.agent === "workbuddy" || !profile.showAllSessions ? [] : [{ label: "Show all sessions", value: "Enabled" }]),
     ...managedCompactItems,
     ...routingSummaryItems,
     ...appPathSummaryItems,

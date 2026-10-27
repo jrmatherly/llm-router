@@ -72,7 +72,7 @@ export const localAgentProviderIconUrls: Record<LocalAgentProviderKind, string> 
   zcode: zcodeLogoUrl
 };
 
-const localAgentProviderApiKeyValue = "ccr-local-agent-login";
+export const localAgentProviderApiKey = "ccr-local-agent-login";
 
 export function createModelCatalogItems(config: AppConfig): ModelCatalogItem[] {
   const rows: ModelCatalogItem[] = [];
@@ -527,7 +527,7 @@ export function providerDisplayIcon(provider: GatewayProviderConfig): string {
 }
 
 function isLocalGrokProvider(provider: GatewayProviderConfig): boolean {
-  if (providerApiKey(provider) !== localAgentProviderApiKeyValue) {
+  if (providerApiKey(provider) !== localAgentProviderApiKey) {
     return false;
   }
   const baseUrl = normalizeProviderBaseUrl(providerBaseUrl(provider)).toLowerCase();
@@ -773,7 +773,7 @@ export function providerConnectivityProviderPlugins(
   if (draft.providerPlugins.length > 0) {
     return draft.providerPlugins.filter(providerPluginEnabled);
   }
-  if (providerConnectivityApiKeyFromDraft(draft) !== localAgentProviderApiKeyValue) {
+  if (providerConnectivityApiKeyFromDraft(draft) !== localAgentProviderApiKey) {
     return [];
   }
 
@@ -788,7 +788,7 @@ export function removeLocalAgentProviderPluginsForProvider(
   current: unknown[] | undefined,
   provider: GatewayProviderConfig | undefined
 ): unknown[] | undefined {
-  if (!provider || providerApiKey(provider) !== localAgentProviderApiKeyValue) {
+  if (!provider || providerApiKey(provider) !== localAgentProviderApiKey) {
     return current;
   }
 
@@ -2355,12 +2355,12 @@ export function providerApiKey(provider: GatewayProviderConfig): string {
   return provider.api_key || provider.apiKey || provider.apikey || "";
 }
 
-export function providerCapabilitiesSummary(provider: GatewayProviderConfig, translate: (value: string) => string = (value) => value): string {
+export function providerCapabilitiesSummary(provider: GatewayProviderConfig): string {
   const capabilities = provider.capabilities ?? [];
   if (capabilities.length === 0) {
-    return translatedProviderProtocolLabel(toProviderProtocol(provider.type) ?? toProviderProtocol(provider.provider) ?? "openai_chat_completions", translate);
+    return providerProtocolLabel(toProviderProtocol(provider.type) ?? toProviderProtocol(provider.provider) ?? "openai_chat_completions");
   }
-  return capabilities.map((capability) => translatedProviderProtocolLabel(capability.type, translate)).join(", ");
+  return capabilities.map((capability) => providerProtocolLabel(capability.type)).join(", ");
 }
 
 export function providerListItemKey(provider: GatewayProviderConfig, index: number): string {
@@ -2420,11 +2420,7 @@ export function providerProtocolLabel(protocol: GatewayProviderProtocol | string
   return providerProtocolOptions.find((option) => option.value === protocol)?.label ?? String(protocol);
 }
 
-export function translatedProviderProtocolLabel(protocol: GatewayProviderProtocol | string, translate: (value: string) => string): string {
-  return translate(providerProtocolLabel(protocol));
-}
-
-export function translateProbeProtocolMessage(message: string | undefined, translate: (value: string) => string): string {
+export function probeProtocolMessage(message: string | undefined): string {
   const trimmed = message?.trim() ?? "";
   if (!trimmed) {
     return "";
@@ -2435,12 +2431,12 @@ export function translateProbeProtocolMessage(message: string | undefined, trans
 
   const httpMatch = /^HTTP\s+(\d{3})(?::\s*(.*))?$/i.exec(trimmed);
   if (!httpMatch) {
-    return translate(trimmed);
+    return trimmed;
   }
 
   const status = httpMatch[1];
   const detail = httpMatch[2]?.trim();
-  return detail ? `HTTP ${status}: ${translate(detail)}` : `HTTP ${status}`;
+  return detail ? `HTTP ${status}: ${detail}` : `HTTP ${status}`;
 }
 
 function isProbeAuthorizationMissingMessage(message: string): boolean {

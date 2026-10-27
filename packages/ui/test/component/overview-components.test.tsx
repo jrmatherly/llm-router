@@ -813,7 +813,7 @@ test("OverviewView does not render an outer progress bar for Codex manual resets
   assert.doesNotMatch(html, /Full reset/);
 });
 
-test("provider account meter values localize textual units", () => {
+test("provider account meter values keep textual units", () => {
   const value = formatProviderAccountMeterValue(
     {
       id: "codex_manual_resets",
@@ -821,11 +821,10 @@ test("provider account meter values localize textual units", () => {
       label: "Manual resets",
       remaining: 0,
       unit: "resets"
-    },
-    (unit) => (unit === "resets" ? "reset credits" : unit)
+    }
   );
 
-  assert.equal(value, "0 reset credits");
+  assert.equal(value, "0 resets");
 });
 
 test("provider account reset credit detail progress uses each validity window", () => {

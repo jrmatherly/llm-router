@@ -1,5 +1,5 @@
 import {
-  SourceTab, useState, useTrayText
+  SourceTab, useState
 } from "../shared";
 import { CircleHelp, Layers3 } from "lucide-react";
 
@@ -39,7 +39,6 @@ export function SourceGrid({
   tabs: SourceTab[];
   onSelect: (provider?: string) => void;
 }) {
-  const t = useTrayText();
 
   return (
     <div className="mb-2 grid min-w-0 grid-cols-4 gap-1.5">
@@ -51,12 +50,12 @@ export function SourceGrid({
             className="tray-source-tab flex min-w-0 items-center justify-center gap-1 px-1.5 py-1.5 text-center text-[10px] font-semibold"
             data-active={active}
             key={tab.id}
-            title={tab.provider ?? t(tab.label)}
+            title={tab.provider ?? tab.label}
             type="button"
             onClick={() => onSelect(tab.provider)}
           >
             <SourceTabIcon tab={tab} />
-            <span className="min-w-0 truncate">{t(tab.label)}</span>
+            <span className="min-w-0 truncate">{tab.label}</span>
           </button>
         );
       })}

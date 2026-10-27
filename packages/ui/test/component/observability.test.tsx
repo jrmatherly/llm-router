@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { AgentAnalysisSessionRow, AgentAnalysisTraceRun, RequestLogEntry, RequestLogPage } from "@ccr/core/contracts/app.ts";
 import { AgentAnalysisView } from "@ccr/ui/pages/home/components/dashboard.tsx";
 import { LogsView } from "@ccr/ui/pages/home/components/network-logs.tsx";
-import { AppI18nContext, appCopy } from "@ccr/ui/pages/home/shared/i18n.tsx";
 import { createEmptyAgentAnalysis } from "@ccr/ui/pages/home/shared/usage.ts";
 
 const emptyLogPage: RequestLogPage = {
@@ -57,36 +56,32 @@ const sampleRequestLogEntry: RequestLogEntry = {
 
 test("LogsView keeps disabled request logs discoverable with an enable action", () => {
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy}>
-      <LogsView
-        enabled={false}
-        error=""
-        filter={{ page: 1, pageSize: 25, status: "all" }}
-        loading={false}
-        onEnable={() => undefined}
-        page={emptyLogPage}
-        refreshLogs={() => undefined}
-        updateFilter={() => undefined}
-      />
-    </AppI18nContext.Provider>
+    <LogsView
+      enabled={false}
+      error=""
+      filter={{ page: 1, pageSize: 25, status: "all" }}
+      loading={false}
+      onEnable={() => undefined}
+      page={emptyLogPage}
+      refreshLogs={() => undefined}
+      updateFilter={() => undefined}
+    />
   );
 
   assert.match(html, /Request logs are off/);
   assert.match(html, /Enable request logs/);
 });
 
-test("LogsView explains filtered empty results and translates page sizes", () => {
+test("LogsView explains filtered empty results and labels page sizes", () => {
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy}>
-      <LogsView
-        error=""
-        filter={{ page: 1, pageSize: 25, query: "missing", status: "all" }}
-        loading={false}
-        page={emptyLogPage}
-        refreshLogs={() => undefined}
-        updateFilter={() => undefined}
-      />
-    </AppI18nContext.Provider>
+    <LogsView
+      error=""
+      filter={{ page: 1, pageSize: 25, query: "missing", status: "all" }}
+      loading={false}
+      page={emptyLogPage}
+      refreshLogs={() => undefined}
+      updateFilter={() => undefined}
+    />
   );
 
   assert.match(html, /No request logs match the current filters\./);
@@ -320,19 +315,17 @@ test("AgentAnalysisView keeps session headings horizontal and shows cache rate a
   };
 
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy}>
-      <AgentAnalysisView
-        agentFilter="all"
-        error=""
-        loading={false}
-        range="24h"
-        refreshAnalysis={() => undefined}
-        setAgentFilter={() => undefined}
-        setRange={() => undefined}
-        setSelectedSession={() => undefined}
-        snapshot={snapshot}
-      />
-    </AppI18nContext.Provider>
+    <AgentAnalysisView
+      agentFilter="all"
+      error=""
+      loading={false}
+      range="24h"
+      refreshAnalysis={() => undefined}
+      setAgentFilter={() => undefined}
+      setRange={() => undefined}
+      setSelectedSession={() => undefined}
+      snapshot={snapshot}
+    />
   );
 
   assert.match(html, /Duration/);
@@ -368,20 +361,18 @@ test("AgentAnalysisView surfaces bounded analysis and missing session states", (
   };
 
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy}>
-      <AgentAnalysisView
-        agentFilter="all"
-        error=""
-        loading={false}
-        range="30d"
-        refreshAnalysis={() => undefined}
-        selectedSession={{ agent: "codex", id: "missing-session" }}
-        setAgentFilter={() => undefined}
-        setRange={() => undefined}
-        setSelectedSession={() => undefined}
-        snapshot={snapshot}
-      />
-    </AppI18nContext.Provider>
+    <AgentAnalysisView
+      agentFilter="all"
+      error=""
+      loading={false}
+      range="30d"
+      refreshAnalysis={() => undefined}
+      selectedSession={{ agent: "codex", id: "missing-session" }}
+      setAgentFilter={() => undefined}
+      setRange={() => undefined}
+      setSelectedSession={() => undefined}
+      snapshot={snapshot}
+    />
   );
 
   assert.match(html, /Analysis is limited to the newest/);
@@ -393,10 +384,8 @@ test("AgentAnalysisView surfaces bounded analysis and missing session states", (
 test("#1801 LogsView shows missing HTTP status as neutral", () => {
   const entry = { ...sampleRequestLogEntry, ok: false, statusCode: 0 };
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy}>
-      <LogsView error="" filter={{ page: 1, pageSize: 25, status: "all" }} loading={false}
-        page={{ ...emptyLogPage, items: [entry], total: 1 }} refreshLogs={() => undefined} updateFilter={() => undefined} />
-    </AppI18nContext.Provider>
+    <LogsView error="" filter={{ page: 1, pageSize: 25, status: "all" }} loading={false}
+      page={{ ...emptyLogPage, items: [entry], total: 1 }} refreshLogs={() => undefined} updateFilter={() => undefined} />
   );
   assert.match(html, /network-dot-unknown/);
   assert.doesNotMatch(html, /network-dot-error|network-state-pill-error/);

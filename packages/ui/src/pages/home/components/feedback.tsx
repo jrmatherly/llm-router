@@ -1,7 +1,6 @@
 import * as React from "react";
 import {
-  AnimatePresence, AppToast, Button, Check, CircleAlert, cn, LoaderCircle, motion, motionEase, reducedMotionTransition,
-  useAppText, useReducedMotion, X
+  AnimatePresence, AppToast, Button, Check, CircleAlert, cn, LoaderCircle, motion, motionEase, reducedMotionTransition, useReducedMotion, X
 } from "../shared/index";
 
 export function PersistenceFeedback({ actionError, contained = false, disconnected, error, inline = false, onDismissAction, onRetry, state }: {
@@ -14,7 +13,6 @@ export function PersistenceFeedback({ actionError, contained = false, disconnect
   onRetry: () => void;
   state: "idle" | "saving" | "saved" | "error";
 }) {
-  const t = useAppText();
   const [showSaved, setShowSaved] = React.useState(false);
   React.useEffect(() => {
     setShowSaved(state === "saved");
@@ -23,7 +21,7 @@ export function PersistenceFeedback({ actionError, contained = false, disconnect
     return () => window.clearTimeout(timer);
   }, [state]);
   const failed = state === "error";
-  const message = failed ? t("Changes have not been saved.") : disconnected ? t("Connection lost. Status may be out of date.") : actionError;
+  const message = failed ? "Changes have not been saved." : disconnected ? "Connection lost. Status may be out of date." : actionError;
   if (!message && state !== "saving" && !showSaved) return null;
   return (
     <div className={cn(
@@ -36,10 +34,10 @@ export function PersistenceFeedback({ actionError, contained = false, disconnect
     )} role={message ? "alert" : "status"}>
       <div className="flex items-center gap-3">
         {message ? <CircleAlert className="h-4 w-4 shrink-0 text-destructive" /> : state === "saving" ? <LoaderCircle className="h-4 w-4 shrink-0 animate-spin" /> : <Check className="h-4 w-4 shrink-0 text-primary" />}
-        <span>{message || t(state === "saving" ? "Saving changes…" : "Changes saved.")}</span>
-        {failed ? <Button onClick={onRetry} size="sm" variant="outline">{t("Retry saving")}</Button> : actionError && !disconnected ? <Button aria-label={t("Dismiss")} onClick={onDismissAction} size="iconSm" variant="ghost"><X className="h-4 w-4" /></Button> : null}
+        <span>{message || (state === "saving" ? "Saving changes…" : "Changes saved.")}</span>
+        {failed ? <Button onClick={onRetry} size="sm" variant="outline">Retry saving</Button> : actionError && !disconnected ? <Button aria-label="Dismiss" onClick={onDismissAction} size="iconSm" variant="ghost"><X className="h-4 w-4" /></Button> : null}
       </div>
-      {failed && error ? <details className="mt-2 text-[12px] text-muted-foreground"><summary className="cursor-pointer">{t("Technical details")}</summary><p className="mt-1 max-h-24 overflow-auto break-words">{error}</p></details> : null}
+      {failed && error ? <details className="mt-2 text-[12px] text-muted-foreground"><summary className="cursor-pointer">Technical details</summary><p className="mt-1 max-h-24 overflow-auto break-words">{error}</p></details> : null}
     </div>
   );
 }

@@ -20,7 +20,6 @@ import {
   profileModelProviderMatchesQuery,
   profileModelProviderOptions,
   Search,
-  useAppText,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -46,7 +45,6 @@ export function ModelSelector({
   value: string;
   virtualModelProfiles?: VirtualModelProfileConfig[];
 }) {
-  const t = useAppText();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [popoverLayout, setPopoverLayout] = useState<{
@@ -198,20 +196,20 @@ export function ModelSelector({
         </button>
         {value.trim() ? (
           <button
-            aria-label={t("Clear")}
+            aria-label="Clear"
             className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25"
             onClick={clearValue}
-            title={t("Clear")}
+            title="Clear"
             type="button"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         ) : null}
         <button
-          aria-label={open ? t("Collapse") : t("Expand")}
+          aria-label={open ? "Collapse" : "Expand"}
           className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25"
           onClick={openSelector}
-          title={open ? t("Collapse") : t("Expand")}
+          title={open ? "Collapse" : "Expand"}
           type="button"
         >
           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
@@ -238,17 +236,17 @@ export function ModelSelector({
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     autoFocus
-                    aria-label={t("Search models")}
+                    aria-label="Search models"
                     className="h-9 pl-8"
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder={t("Search providers or models")}
+                    placeholder="Search providers or models"
                     value={query}
                   />
                 </div>
 
                 {providerOptions.length === 0 ? (
                   <div className="mt-2 rounded-md border border-dashed border-border bg-muted/30 px-3 py-8 text-center text-[12px] text-muted-foreground">
-                    {t("No models configured")}
+                    No models configured
                   </div>
                 ) : (
                   <div
@@ -257,7 +255,7 @@ export function ModelSelector({
                   >
                     <div className="min-w-0 overflow-auto border-r border-border bg-muted/30 p-1">
                       {filteredProviders.length === 0 ? (
-                        <div className="px-2 py-6 text-center text-[11px] text-muted-foreground">{t("No matching providers")}</div>
+                        <div className="px-2 py-6 text-center text-[11px] text-muted-foreground">No matching providers</div>
                       ) : null}
                       {filteredProviders.map((provider) => {
                         const active = provider.name === activeProvider?.name;
@@ -279,10 +277,10 @@ export function ModelSelector({
                     </div>
                     <div className="min-w-0 overflow-auto bg-background p-1">
                       {!activeProvider ? (
-                        <div className="px-2 py-10 text-center text-[12px] text-muted-foreground">{t("No matching models")}</div>
+                        <div className="px-2 py-10 text-center text-[12px] text-muted-foreground">No matching models</div>
                       ) : null}
                       {activeProvider && filteredModels.length === 0 ? (
-                        <div className="px-2 py-10 text-center text-[12px] text-muted-foreground">{t("No matching models")}</div>
+                        <div className="px-2 py-10 text-center text-[12px] text-muted-foreground">No matching models</div>
                       ) : null}
                       {activeProvider && filteredModels.map((model) => {
                         const selected = parsedValue.provider === activeProvider.name && parsedValue.model === model;
@@ -329,7 +327,6 @@ export function ModelMultiSelector({
   value: string[];
   virtualModelProfiles?: VirtualModelProfileConfig[];
 }) {
-  const t = useAppText();
   const [query, setQuery] = useState("");
   const providerOptions = useMemo(
     () => profileModelProviderOptions(providers, virtualModelProfiles),
@@ -378,24 +375,24 @@ export function ModelMultiSelector({
         <div className="relative min-w-[180px] flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            aria-label={t("Search models")}
+            aria-label="Search models"
             className="pl-8"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("Search providers or models")}
+            placeholder="Search providers or models"
             value={query}
           />
         </div>
         <Button disabled={models.length === 0} onClick={selectVisibleModels} size="sm" type="button" variant="outline">
-          {t("All")}
+          All
         </Button>
         <Button disabled={!canClearSelection} onClick={clearOptionalModels} size="sm" type="button" variant="outline">
-          {t("Clear")}
+          Clear
         </Button>
       </div>
       <div className="max-h-[220px] overflow-auto p-2">
         {models.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-6 text-center text-[12px] text-muted-foreground">
-            {t(providerOptions.length === 0 ? "No models configured" : "No matching models")}
+            {providerOptions.length === 0 ? "No models configured" : "No matching models"}
           </div>
         ) : null}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

@@ -25,10 +25,6 @@ import type {
   UsageTotals
 } from "@ccr/core/contracts/app";
 import {
-  translateOptions,
-  useAppText
-} from "./i18n";
-import {
   AnimatedIconSwap,
   AnimatedPopover
 } from "./motion";
@@ -125,7 +121,6 @@ export function RouteTargetControl({
   onChange: (value: string) => void;
   value: string;
 }) {
-  const t = useAppText();
   const normalizedValue = normalizeProviderModelSelector(value);
 
   if (modelOptions.length === 0) {
@@ -133,7 +128,7 @@ export function RouteTargetControl({
   }
 
   const options = routeTargetOptions(modelOptions, normalizedValue);
-  return <SelectControl onChange={onChange} options={translateOptions(options, t)} value={normalizedValue} />;
+  return <SelectControl onChange={onChange} options={options} value={normalizedValue} />;
 }
 
 export function TextAreaControl({
@@ -172,7 +167,6 @@ export function KeyValueRowsControl({
   onChange: (rows: KeyValueDraftRow[]) => void;
   rows: KeyValueDraftRow[];
 }) {
-  const t = useAppText();
   const visibleRows = rows.length > 0 ? rows : [createKeyValueDraftRow()];
 
   function updateRow(index: number, patch: Partial<KeyValueDraftRow>) {
@@ -194,15 +188,15 @@ export function KeyValueRowsControl({
       {visibleRows.map((row, index) => (
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_28px_28px] gap-2" key={row.id}>
           <Input
-            aria-label={t("Key")}
+            aria-label="Key"
             onChange={(event) => updateRow(index, { key: event.target.value })}
-            placeholder={t("Key")}
+            placeholder="Key"
             value={row.key}
           />
           <Input
-            aria-label={t("Value")}
+            aria-label="Value"
             onChange={(event) => updateRow(index, { value: event.target.value })}
-            placeholder={t("Value")}
+            placeholder="Value"
             value={row.value}
           />
           <Button
@@ -216,11 +210,11 @@ export function KeyValueRowsControl({
             <Plus className="h-3.5 w-3.5" />
           </Button>
           <Button
-            aria-label={t("Remove")}
+            aria-label="Remove"
             disabled={visibleRows.length === 1 && !row.key.trim() && !row.value.trim()}
             onClick={() => removeRow(index)}
             size="iconSm"
-            title={t("Remove")}
+            title="Remove"
             type="button"
             variant="ghost"
           >
@@ -300,13 +294,13 @@ export function parseStatusBucketDate(bucket: string): Date | undefined {
   return new Date(Number(year), Number(month) - 1, Number(day), hour === undefined ? 0 : Number(hour), 0, 0, 0);
 }
 
-export function systemStatusPointTooltip(segment: SystemStatusPoint, t: (value: string) => string): string {
+export function systemStatusPointTooltip(segment: SystemStatusPoint): string {
   return [
     segment.dateLabel,
-    `${t("Requests")}: ${formatCompactNumber(segment.point.requestCount)}`,
-    `${t("Success rate")}: ${segment.point.requestCount > 0 ? formatPercent(segment.point.successRate) : "—"}`,
-    `${t("Failed requests")}: ${formatCompactNumber(segment.point.errorCount)}`,
-    `${t("Duration")}: ${formatDuration(segment.point.avgDurationMs)}`
+    `Requests: ${formatCompactNumber(segment.point.requestCount)}`,
+    `Success rate: ${segment.point.requestCount > 0 ? formatPercent(segment.point.successRate) : "—"}`,
+    `Failed requests: ${formatCompactNumber(segment.point.errorCount)}`,
+    `Duration: ${formatDuration(segment.point.avgDurationMs)}`
   ].join("\n");
 }
 
@@ -321,10 +315,9 @@ export function ServiceControlButton({
   state: GatewayStatus["state"];
   targetActive?: boolean;
 }) {
-  const t = useAppText();
   const runtimeActive = state === "running" || state === "starting";
   const active = targetActive ?? runtimeActive;
-  const title = active ? t("Pause service") : t("Start service");
+  const title = active ? "Pause service" : "Start service";
 
   return (
     <Button
@@ -361,14 +354,13 @@ export function EndpointTitleBar({
   endpoint: string;
   gatewayStatus: GatewayStatus;
 }) {
-  const t = useAppText();
   const [open, setOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState("");
   const copyResetTimer = useRef<number>();
   const rootRef = useRef<HTMLDivElement>(null);
   const running = gatewayStatus.state === "running";
-  const statusLabel = running ? t("running") : t("not running");
-  const value = endpoint.trim() || t("Not configured");
+  const statusLabel = running ? "running" : "not running";
+  const value = endpoint.trim() || "Not configured";
   const loopbackEndpoint = loopbackEndpointFromStatus(value, config);
   const loopbackBaseUrl = gatewayBaseUrlFromEndpoint(loopbackEndpoint);
   const networkEndpoints = running ? gatewayStatus.networkEndpoints ?? [] : [];
@@ -419,7 +411,7 @@ export function EndpointTitleBar({
     <div
       className="app-no-drag fixed left-1/2 top-2 z-50 w-[min(560px,56vw,calc(100%_-_48px))] min-w-[220px] -translate-x-1/2 max-[720px]:static max-[720px]:w-full max-[720px]:min-w-0 max-[720px]:translate-x-0"
       ref={rootRef}
-      title={`${t("Endpoint")} ${value} - ${statusLabel}`}
+      title={`Endpoint ${value} - ${statusLabel}`}
     >
       <Button
         aria-controls="endpoint-info-panel"
@@ -440,17 +432,17 @@ export function EndpointTitleBar({
             running ? "bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.16)]" : "bg-muted-foreground/45"
           )}
         />
-        <span className="shrink-0 text-[11px] font-medium text-muted-foreground">{t("Endpoint")}</span>
+        <span className="shrink-0 text-[11px] font-medium text-muted-foreground">Endpoint</span>
         <span className="h-3 w-px shrink-0 bg-border" />
         <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-foreground">{value}</span>
-        <span className="sr-only">{t("Service status")}: {statusLabel}</span>
+        <span className="sr-only">Service status: {statusLabel}</span>
       </Button>
 
       <AnimatePresence initial={false}>
         {open ? (
           <AnimatedPopover className="absolute left-1/2 top-full z-50 mt-2 w-[340px] max-w-[calc(100vw-24px)] -translate-x-1/2">
             <PopoverContent
-              aria-label={t("Endpoint information")}
+              aria-label="Endpoint information"
               className="p-3"
               id="endpoint-info-panel"
               role="dialog"
@@ -498,7 +490,6 @@ export function EndpointInfoRow({
   value: string;
   onCopy: (value: string) => void;
 }) {
-  const t = useAppText();
 
   return (
     <div className="grid grid-cols-[76px_minmax(0,1fr)_24px] items-center gap-2 text-[12px]">
@@ -508,14 +499,14 @@ export function EndpointInfoRow({
         {meta ? <span className="ml-1 text-[11px] font-normal text-muted-foreground">({meta})</span> : null}
       </span>
       <Button
-        aria-label={copied ? t("Copied") : t("Copy")}
+        aria-label={copied ? "Copied" : "Copy"}
         className={cn(
           "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/25",
           copied
             ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600"
             : "border-transparent bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
         )}
-        title={copied ? t("Copied") : t("Copy")}
+        title={copied ? "Copied" : "Copy"}
         type="button"
         unstyled
         onMouseDown={(event) => event.stopPropagation()}

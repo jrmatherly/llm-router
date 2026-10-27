@@ -124,8 +124,7 @@ export function providerAccountProgressClass(status: ProviderAccountSnapshot["st
 }
 
 export function formatProviderAccountMeterValue(
-  meter: ProviderAccountMeter,
-  translate: (value: string) => string = (value) => value
+  meter: ProviderAccountMeter
 ): string {
   const value = meter.remaining ?? meter.used ?? meter.limit;
   if (value === undefined) {
@@ -151,7 +150,7 @@ export function formatProviderAccountMeterValue(
   if (unit === "minutes") {
     return `${formatProviderAccountNumber(value)}m`;
   }
-  const displayUnit = translate(unit);
+  const displayUnit = unit;
   if (meter.kind === "balance") {
     return `${formatProviderAccountNumber(value)} ${displayUnit}`;
   }
@@ -162,16 +161,16 @@ export function formatProviderAccountNumber(value: number): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 }).format(value);
 }
 
-export function formatProviderAccountReset(value: string, translate: (value: string) => string = (item) => item): string {
+export function formatProviderAccountReset(value: string): string {
   const timestamp = new Date(value).getTime();
   if (!Number.isFinite(timestamp)) {
     return value;
   }
   const minutes = Math.round((timestamp - Date.now()) / 60000);
   if (minutes <= 0) {
-    return translate("expired");
+    return "expired";
   }
-  const prefix = translate("expires in");
+  const prefix = "expires in";
   if (minutes < 60) {
     return `${prefix} ${minutes}m`;
   }
@@ -182,9 +181,9 @@ export function formatProviderAccountReset(value: string, translate: (value: str
   return `${prefix} ${Math.round(hours / 24)}d`;
 }
 
-export function formatProviderAccountMeterTitle(meter: ProviderAccountMeter, translate: (value: string) => string): string {
-  const label = translate(meter.label);
-  return meter.resetAt ? `${label} (${formatProviderAccountReset(meter.resetAt, translate)})` : label;
+export function formatProviderAccountMeterTitle(meter: ProviderAccountMeter): string {
+  const label = meter.label;
+  return meter.resetAt ? `${label} (${formatProviderAccountReset(meter.resetAt)})` : label;
 }
 
 export function isProviderAccountManualResetMeter(meter: ProviderAccountMeter): boolean {

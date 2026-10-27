@@ -1,8 +1,9 @@
+import { formatErrorMessage } from "@ccr/core/contracts/error-message";
 import {
   AppConfig, applyTrayThemePreference, createSourceTabs, DEFAULT_TRAY_WIDGETS, defaultTrayWidgetVariant, emptySnapshots, formatCompactNumber, formatProviderName,
   formatPercent, formatUpdated, formatUsdCost, normalizeTrayWidgets, ProviderAccountSnapshot, rangeLabel,
   SnapshotMap, SourceTab, TrayComponentVariants, TrayWidgetConfig, UsageComparisonRow, UsageStatsFilter, UsageStatsRange, UsageTotals, useCallback, useEffect,
-  useMemo, useState, useTrayErrorText, useTrayText, useTrayThemePreference
+  useMemo, useState, useTrayThemePreference
 } from "./shared";
 import {
   AccountSummaryPanel, AnimatedUsageChart, ChartShell, ModelShareChart, RingMetrics,
@@ -15,8 +16,6 @@ type TrayHeaderRange = Exclude<UsageStatsRange, "today">;
 const trayHeaderRanges: TrayHeaderRange[] = ["24h", "7d", "30d"];
 
 export function TrayApp() {
-  const t = useTrayText();
-  const formatError = useTrayErrorText();
   useTrayThemePreference();
   const [allSnapshots, setAllSnapshots] = useState<SnapshotMap>(emptySnapshots);
   const [configuredProviders, setConfiguredProviders] = useState<AppConfig["Providers"]>([]);
@@ -58,11 +57,11 @@ export function TrayApp() {
       setTrayWidgets(normalizeTrayWidgets(config.trayWidgets, config.trayWindowModules, config.trayComponentVariants));
       applyTrayThemePreference(config.theme);
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError(formatErrorMessage(nextError));
     } finally {
       setLoading(false);
     }
-  }, [formatError, selectedProvider]);
+  }, [selectedProvider]);
 
   const refreshAccountSnapshots = useCallback(async () => {
     if (!window.ccr) {
@@ -76,11 +75,11 @@ export function TrayApp() {
       const accounts = await window.ccr.getProviderAccountSnapshots(selectedProvider, { forceRefresh: true });
       setAccountSnapshots(accounts);
     } catch (nextError) {
-      setError(formatError(nextError));
+      setError(formatErrorMessage(nextError));
     } finally {
       setAccountRefreshing(false);
     }
-  }, [formatError, selectedProvider]);
+  }, [selectedProvider]);
 
   useEffect(() => {
     document.body.classList.add("tray-window");
@@ -156,13 +155,13 @@ export function TrayApp() {
           ))}
         </section>
 
-        {loading ? <div className="mt-1.5 text-[11px] font-medium text-slate-300/55">{t("Syncing usage...")}</div> : null}
+        {loading ? <div className="mt-1.5 text-[11px] font-medium text-slate-300/55">Syncing usage...</div> : null}
 
         {error ? <div className="mt-3 rounded-[12px] border border-rose-400/20 bg-rose-500/15 px-3 py-2 text-[12px] font-medium text-rose-100">{error}</div> : null}
 
         {!hasAnyVisibleModule && !error ? (
           <div className="tray-panel-subtle flex min-h-[260px] items-center justify-center px-4 text-center text-[12px] font-medium text-slate-400">
-            {t("No tray modules enabled")}
+            No tray modules enabled
           </div>
         ) : null}
       </aside>
@@ -199,7 +198,6 @@ function TrayRuntimeWidget({
   onRefreshAccount: () => void | Promise<void>;
   onSelectProvider: (provider?: string) => void;
 }) {
-  const t = useTrayText();
 
   if (widget.type === "source-tabs") {
     return <SourceGrid selectedProvider={selectedProvider} tabs={tabs} onSelect={onSelectProvider} />;
@@ -209,8 +207,8 @@ function TrayRuntimeWidget({
     return (
       <div className="tray-panel flex min-w-0 items-start justify-between gap-2 px-3 py-2.5">
         <div className="min-w-0">
-          <h1 className="truncate text-[13px] font-bold text-slate-50">{selectedProvider ? formatProviderName(selectedProvider) : t("Usage Overview")}</h1>
-          <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400">{formatUpdated(activeStats.generatedAt, t)}</p>
+          <h1 className="truncate text-[13px] font-bold text-slate-50">{selectedProvider ? formatProviderName(selectedProvider) : "Usage Overview"}</h1>
+          <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400">{formatUpdated(activeStats.generatedAt)}</p>
         </div>
         <TrayHeaderRangeSwitch range={selectedRange} onChange={onChangeRange} />
       </div>
@@ -223,7 +221,7 @@ function TrayRuntimeWidget({
 
   if (widget.type === "token-flow") {
     return (
-      <ChartShell meta={topModel?.label ?? t("No model yet")} title={`${rangeLabel(selectedRange, t)} ${t("Token Flow")}`}>
+      <ChartShell meta={topModel?.label ?? "No model yet"} title={`${rangeLabel(selectedRange)} Token Flow`}>
         <AnimatedUsageChart chartId={`overview-flow-${index}`} series={activeStats.series} variant={(widget.variant ?? defaultTrayWidgetVariant("token-flow")) as TrayComponentVariants["tokenFlow"]} />
       </ChartShell>
     );
@@ -237,10 +235,10 @@ function TrayRuntimeWidget({
     return (
       <StatsGrid
         items={[
-          { label: `${rangeLabel(selectedRange, t)} ${t("tokens")}`, value: formatCompactNumber(activeTotals.totalTokens) },
-          { label: `${rangeLabel(selectedRange, t)} ${t("requests")}`, value: formatCompactNumber(activeTotals.requestCount) },
-          { label: `${rangeLabel(selectedRange, t)} ${t("Cost")}`, value: formatUsdCost(activeTotals.costUsd) },
-          { label: t("Success rate"), value: formatPercent(activeTotals.successRate) }
+          { label: `${rangeLabel(selectedRange)} tokens`, value: formatCompactNumber(activeTotals.totalTokens) },
+          { label: `${rangeLabel(selectedRange)} requests`, value: formatCompactNumber(activeTotals.requestCount) },
+          { label: `${rangeLabel(selectedRange)} Cost`, value: formatUsdCost(activeTotals.costUsd) },
+          { label: "Success rate", value: formatPercent(activeTotals.successRate) }
         ]}
         variant={(widget.variant ?? defaultTrayWidgetVariant("stats")) as TrayComponentVariants["stats"]}
       />
@@ -273,7 +271,6 @@ function TrayHeaderRangeSwitch({
   range: TrayHeaderRange;
   onChange: (range: TrayHeaderRange) => void;
 }) {
-  const t = useTrayText();
 
   return (
     <div className="tray-segmented flex shrink-0">
@@ -285,7 +282,7 @@ function TrayHeaderRangeSwitch({
           type="button"
           onClick={() => onChange(item)}
         >
-          {rangeLabel(item, t)}
+          {rangeLabel(item)}
         </button>
       ))}
     </div>

@@ -1,7 +1,6 @@
 import {
   accountMetersForDisplay, accountProgressClass, accountProgressColor, accountSnapshotKey, accountSnapshotLabel, compareAccountSnapshots, formatAccountMeterTitle, formatAccountMeterValue,
-  LoaderCircle, meterProgress, meterRemainingRatio, meterValidityProgress, ProviderAccountMeter, ProviderAccountSnapshot, RefreshCw, TrayComponentVariants,
-  useTrayText
+  LoaderCircle, meterProgress, meterRemainingRatio, meterValidityProgress, ProviderAccountMeter, ProviderAccountSnapshot, RefreshCw, TrayComponentVariants
 } from "../shared";
 import { RadialMetric } from "./widgets";
 
@@ -18,20 +17,19 @@ export function AccountSummaryPanel({
   snapshots: ProviderAccountSnapshot[];
   variant: TrayComponentVariants["account"];
 }) {
-  const t = useTrayText();
   const selectedSnapshots = accountSnapshotsForDisplay(snapshots, accountProviders);
 
   if (selectedSnapshots.length === 0) {
     return (
       <div className="tray-panel-subtle px-3 py-2 text-[11px] font-medium text-slate-400">
-        {t("No account data configured")}
+        No account data configured
       </div>
     );
   }
 
   const title = selectedSnapshots.length === 1
     ? accountSnapshotLabel(selectedSnapshots[0])
-    : t("Account");
+    : "Account";
 
   return (
     <div className="tray-panel p-2.5">
@@ -39,17 +37,17 @@ export function AccountSummaryPanel({
         <div className="min-w-0">
           <h3 className="truncate text-[11px] font-bold text-slate-100">{title}</h3>
           {selectedSnapshots.length > 1 ? (
-            <div className="mt-0.5 truncate text-[9px] font-medium text-slate-400">{selectedSnapshots.length} {t("accounts selected")}</div>
+            <div className="mt-0.5 truncate text-[9px] font-medium text-slate-400">{selectedSnapshots.length} accounts selected</div>
           ) : null}
         </div>
         <button
-          aria-label={t("Refresh")}
+          aria-label="Refresh"
           className={`inline-flex h-5 w-5 shrink-0 appearance-none items-center justify-center rounded-md border-0 bg-transparent p-0 shadow-none transition-colors hover:bg-white/[.07] disabled:cursor-not-allowed disabled:opacity-50 ${accountStatusButtonClass(highestAccountStatus(selectedSnapshots))}`}
           disabled={refreshing || !onRefresh}
           onClick={() => {
             void onRefresh?.();
           }}
-          title={t("Refresh")}
+          title="Refresh"
           type="button"
         >
           {refreshing ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
@@ -93,7 +91,6 @@ function AccountSnapshotBlock({
   snapshot: ProviderAccountSnapshot;
   variant: TrayComponentVariants["account"];
 }) {
-  const t = useTrayText();
   const meters = accountMetersForDisplay(snapshot, variant === "stacked" ? 3 : 2);
 
   return (
@@ -102,7 +99,7 @@ function AccountSnapshotBlock({
       {meters.length > 0 ? (
         <AccountMeters meters={meters} status={snapshot.status} variant={variant} />
       ) : (
-        <div className="truncate text-[10px] font-medium text-slate-400">{snapshot.message || snapshot.errors?.[0]?.message || t("Unavailable")}</div>
+        <div className="truncate text-[10px] font-medium text-slate-400">{snapshot.message || snapshot.errors?.[0]?.message || "Unavailable"}</div>
       )}
     </div>
   );
@@ -130,7 +127,6 @@ function AccountMeters({
   status: ProviderAccountSnapshot["status"];
   variant: TrayComponentVariants["account"];
 }) {
-  const t = useTrayText();
   const progressClass = accountProgressClass(status);
 
   if (variant === "compact") {
@@ -138,8 +134,8 @@ function AccountMeters({
       <div className="grid grid-cols-2 gap-1.5">
         {meters.map((meter) => (
           <div className="tray-stat-cell min-w-0 px-2 py-1" key={meter.id}>
-            <div className="truncate text-[9px] font-medium text-slate-400">{formatAccountMeterTitle(meter, t)}</div>
-            <div className="truncate text-[12px] font-bold text-slate-50">{formatAccountMeterValue(meter, t)}</div>
+            <div className="truncate text-[9px] font-medium text-slate-400">{formatAccountMeterTitle(meter)}</div>
+            <div className="truncate text-[12px] font-bold text-slate-50">{formatAccountMeterValue(meter)}</div>
           </div>
         ))}
       </div>
@@ -164,14 +160,14 @@ function AccountMeters({
           return (
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_56px] items-center gap-2" key={meter.id}>
               <div className="min-w-0">
-                <div className="truncate text-[10px] font-medium text-slate-400">{formatAccountMeterTitle(meter, t)}</div>
+                <div className="truncate text-[10px] font-medium text-slate-400">{formatAccountMeterTitle(meter)}</div>
                 {progress !== undefined ? (
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
                     <div className={`h-full rounded-full ${progressClass}`} style={{ width: `${progress}%` }} />
                   </div>
                 ) : null}
               </div>
-              <div className="truncate text-right text-[12px] font-bold text-slate-50">{formatAccountMeterValue(meter, t)}</div>
+              <div className="truncate text-right text-[12px] font-bold text-slate-50">{formatAccountMeterValue(meter)}</div>
             </div>
           );
         })}
@@ -186,8 +182,8 @@ function AccountMeters({
         return (
           <div className="min-w-0" key={meter.id}>
             <div className="flex min-w-0 items-end justify-between gap-2">
-              <div className="min-w-0 truncate text-[10px] font-medium text-slate-400">{formatAccountMeterTitle(meter, t)}</div>
-              <div className="shrink-0 text-[13px] font-bold text-slate-50">{formatAccountMeterValue(meter, t)}</div>
+              <div className="min-w-0 truncate text-[10px] font-medium text-slate-400">{formatAccountMeterTitle(meter)}</div>
+              <div className="shrink-0 text-[13px] font-bold text-slate-50">{formatAccountMeterValue(meter)}</div>
             </div>
             {progress !== undefined ? (
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
@@ -210,13 +206,12 @@ function AccountMeterGauge({
   status: ProviderAccountSnapshot["status"];
   variant: "arc" | "ring";
 }) {
-  const t = useTrayText();
   const ratio = meterRemainingRatio(meter) ?? 0;
   const color = accountProgressColor(status);
   return (
     <div className="min-w-0 text-center">
-      <RadialMetric color={color} label={formatAccountMeterValue(meter, t)} value={ratio} variant={variant} />
-      <div className="mt-0.5 truncate text-[9px] font-medium text-slate-400">{formatAccountMeterTitle(meter, t)}</div>
+      <RadialMetric color={color} label={formatAccountMeterValue(meter)} value={ratio} variant={variant} />
+      <div className="mt-0.5 truncate text-[9px] font-medium text-slate-400">{formatAccountMeterTitle(meter)}</div>
     </div>
   );
 }

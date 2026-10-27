@@ -8,7 +8,7 @@ import {
   mcpServerConfigFromDraft, mcpServerEndpointSummary, mcpServerTransportOptions,
   mcpStdioMessageModeOptions, motion, normalizeFusionToolName, Pencil,
   PluginMarketplaceEntry, pluginSurfaceSummary, Plus, PopoverContent, RouteTargetControl, Search, selectedFusionToolNames,
-  SelectControl, Toggle, Trash2, translateOptions, uniqueStrings, useAppErrorText, useAppText, useEffect, useLayoutEffect, useMemo,
+  SelectControl, Toggle, Trash2, uniqueStrings, formatAppError, useEffect, useLayoutEffect, useMemo,
   useRef, useState, validateMcpServerDraft, virtualModelBaseModelSummary, VirtualModelDraft, virtualModelMatchesQuery, virtualModelMatchSummary,
   type KeyValueDraftRow,
   VirtualModelProfileConfig, virtualModelToolSummary, X
@@ -75,7 +75,6 @@ export function VirtualModelsView({
   removeVirtualModel: (index: number) => void;
   setVirtualModelEnabled: (index: number, enabled: boolean) => void;
 }) {
-  const t = useAppText();
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
   const visibleProfiles = useMemo(
@@ -94,43 +93,43 @@ export function VirtualModelsView({
     >
       <Card className="flex h-full min-h-0 min-w-0 flex-col">
         <CardHeader className="flex-row items-center gap-2">
-          <CardTitle className="min-w-0 shrink-0 truncate">{t("Virtual Models")}</CardTitle>
+          <CardTitle className="min-w-0 shrink-0 truncate">Fusion</CardTitle>
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label={t("Search virtual models")}
+              aria-label="Search Fusion"
               className="pl-8"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search virtual models")}
+              placeholder="Search Fusion"
               value={query}
             />
           </div>
-          <Button aria-label={t("Add virtual model")} onClick={addVirtualModel} title={t("Add virtual model")} type="button">
+          <Button aria-label="Add Fusion" onClick={addVirtualModel} title="Add Fusion" type="button">
             <Plus className="h-4 w-4" />
-            {t("Add")}
+            Add
           </Button>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 overflow-auto p-0">
           {profiles.length === 0 ? (
             <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center">
               <Boxes className="mx-auto mb-2 h-7 w-7 text-muted-foreground/40" />
-              <div className="text-[13px] font-semibold text-foreground">{t("No virtual models configured")}</div>
-              <div className="mx-auto mt-1 max-w-[480px] text-[12px] leading-5 text-muted-foreground">{t("Fusion combines a model with another model or tools into a new model.")}</div>
-              <div className="mt-2 font-mono text-[11px] text-muted-foreground/70">{t("Fusion example")}</div>
+              <div className="text-[13px] font-semibold text-foreground">No Fusion profiles configured</div>
+              <div className="mx-auto mt-1 max-w-[480px] text-[12px] leading-5 text-muted-foreground">Fusion combines a model with another model or tools into a new model.</div>
+              <div className="mt-2 font-mono text-[11px] text-muted-foreground/70">Example: GLM 5.2 + GLM 5V Turbo = GLM 5.2V</div>
             </div>
           ) : null}
           {profiles.length > 0 && visibleProfiles.length === 0 ? (
-            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">{t("No matching virtual models")}</div>
+            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">No matching Fusion profiles</div>
           ) : null}
           {visibleProfiles.length > 0 ? (
             <div className="min-w-0">
               <div className={cn("w-full", virtualModelTableMinWidthClass)}>
                 <div className={cn("sticky top-0 z-10 grid h-10 items-center gap-3 border-b border-border/60 bg-muted/95 px-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground", virtualModelTableGridClass)}>
-                  <div className="truncate">{t("Name")}</div>
-                  <div className="truncate">{t("New model")}</div>
-                  <div className="truncate">{t("Base model")}</div>
-                  <div className="truncate">{t("Tools")}</div>
-                  <div className="truncate">{t("Status")}</div>
+                  <div className="truncate">Name</div>
+                  <div className="truncate">New model</div>
+                  <div className="truncate">Base model</div>
+                  <div className="truncate">Tools</div>
+                  <div className="truncate">Status</div>
                   <div aria-hidden="true" />
                 </div>
                 <div className="divide-y divide-border/60">
@@ -159,10 +158,10 @@ export function VirtualModelsView({
                           <Toggle checked={profile.enabled !== false} onChange={(enabled) => setVirtualModelEnabled(index, enabled)} />
                         </div>
                         <div className="flex items-center justify-end gap-1">
-                          <Button aria-label={`${t("Edit virtual model")} ${profile.displayName || profile.key}`} onClick={() => editVirtualModel(index)} size="iconSm" title={t("Edit virtual model")} type="button" variant="ghost">
+                          <Button aria-label={`Edit Fusion ${profile.displayName || profile.key}`} onClick={() => editVirtualModel(index)} size="iconSm" title="Edit Fusion" type="button" variant="ghost">
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button aria-label={`${t("Remove virtual model")} ${profile.displayName || profile.key}`} onClick={() => removeVirtualModel(index)} size="iconSm" title={t("Remove virtual model")} type="button" variant="ghost">
+                          <Button aria-label={`Remove Fusion ${profile.displayName || profile.key}`} onClick={() => removeVirtualModel(index)} size="iconSm" title="Remove Fusion" type="button" variant="ghost">
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -190,7 +189,6 @@ export function MediaModelConfigurationPanel({
   modelOptions: ReturnType<typeof createRouteModelOptions>;
   onChange: (patch: Partial<VirtualModelDraft>) => void;
 }) {
-  const t = useAppText();
   const value = kind === "image" ? draft.imageGenerationModel : draft.videoGenerationModel;
   const fallbackModels = kind === "image" ? draft.imageGenerationFallbackModels : draft.videoGenerationFallbackModels;
   const retryCount = kind === "image" ? draft.imageGenerationRetryCount : draft.videoGenerationRetryCount;
@@ -222,7 +220,7 @@ export function MediaModelConfigurationPanel({
 
   return (
     <div className="grid grid-cols-1 gap-3 rounded-md border border-border/70 bg-muted/25 p-3">
-      <Field label={t(kind === "image" ? "Image model" : "Video model")}>
+      <Field label={kind === "image" ? "Image model" : "Video model"}>
         <SelectControl
           onChange={(model) => onChange(kind === "image" ? { imageGenerationModel: model } : { videoGenerationModel: model })}
           options={options}
@@ -230,7 +228,7 @@ export function MediaModelConfigurationPanel({
         />
       </Field>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(96px,140px)_minmax(0,1fr)_auto]">
-        <Field label={t("Retries")}>
+        <Field label="Retries">
           <Input
             max={ROUTER_FALLBACK_MAX_RETRY_COUNT}
             min={0}
@@ -241,33 +239,33 @@ export function MediaModelConfigurationPanel({
             value={retryCount}
           />
         </Field>
-        <Field label={t(kind === "image" ? "Image fallback model" : "Video fallback model")}>
+        <Field label={kind === "image" ? "Image fallback model" : "Video fallback model"}>
           <SelectControl
             onChange={setFallbackModelDraft}
-            options={[{ label: t("Select model"), value: "" }, ...options]}
+            options={[{ label: "Select model", value: "" }, ...options]}
             value={fallbackModelDraft}
           />
         </Field>
         <Button disabled={!fallbackModelDraft.trim()} onClick={addFallbackModel} type="button">
           <Plus className="h-4 w-4" />
-          {t("Add")}
+          Add
         </Button>
       </div>
       <div className="flex min-w-0 flex-wrap gap-2">
         {fallbackModels.length === 0 ? (
-          <div className="text-[12px] text-muted-foreground">{t(kind === "image" ? "No image fallback models configured" : "No video fallback models configured")}</div>
+          <div className="text-[12px] text-muted-foreground">{kind === "image" ? "No image fallback models configured" : "No video fallback models configured"}</div>
         ) : (
           fallbackModels.map((model, index) => (
             <div className="flex max-w-full items-center gap-1 rounded-md border border-border bg-background px-2 py-1" key={`${model}-${index}`}>
               <span className="min-w-0 truncate font-mono text-[11px]" title={model}>{model}</span>
-              <Button aria-label={`${t("Remove")} ${model}`} onClick={() => onChange(patchFallbackModels(fallbackModels.filter((_, modelIndex) => modelIndex !== index)))} size="iconSm" title={t("Remove")} type="button" variant="ghost">
+              <Button aria-label={`Remove ${model}`} onClick={() => onChange(patchFallbackModels(fallbackModels.filter((_, modelIndex) => modelIndex !== index)))} size="iconSm" title="Remove" type="button" variant="ghost">
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
           ))
         )}
       </div>
-      <p className="text-[11px] leading-4 text-muted-foreground">{t("LLMR routes media through the selected ai-gateway provider. Imported Grok Agents reuse their existing login automatically.")}</p>
+      <p className="text-[11px] leading-4 text-muted-foreground">LLMR routes media through the selected ai-gateway provider. Imported Grok Agents reuse their existing login automatically.</p>
     </div>
   );
 }
@@ -293,8 +291,6 @@ export function VirtualModelDialog({
   onSubmit: () => void;
   providers: GatewayProviderConfig[];
 }) {
-  const t = useAppText();
-  const formatError = useAppErrorText();
   const modelOptions = useMemo(() => createRouteModelOptions(providers), [providers]);
   const imageModelOptions = useMemo(() => createGrokMediaModelOptions(providers, "image"), [providers]);
   const videoModelOptions = useMemo(() => createGrokMediaModelOptions(providers, "video"), [providers]);
@@ -424,10 +420,10 @@ export function VirtualModelDialog({
       }));
       return tools;
     } catch (discoverError) {
-      const message = formatError(discoverError);
+      const message = formatAppError(discoverError);
       setMcpToolStateByServer((current) => ({
         ...current,
-        [server.name]: { error: message || t("Tool discovery failed"), loading: false, tools: current[server.name]?.tools ?? [] }
+        [server.name]: { error: message || "Tool discovery failed", loading: false, tools: current[server.name]?.tools ?? [] }
       }));
       return [];
     }
@@ -442,7 +438,7 @@ export function VirtualModelDialog({
   async function submitCustomMcpDialog() {
     const validationError = validateMcpServerDraft(customMcpDialogDraft);
     if (validationError) {
-      setCustomMcpDialogError(formatError(new Error(validationError)));
+      setCustomMcpDialogError(formatAppError(new Error(validationError)));
       return;
     }
     const normalizedDraft = customMcpDialogDraft.transport === "stdio"
@@ -470,9 +466,9 @@ export function VirtualModelDialog({
       <DialogContent className="max-w-[640px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{mode === "edit" ? t("Edit Virtual Model") : t("Add Virtual Model")}</DialogTitle>
+            <DialogTitle>{mode === "edit" ? "Edit Fusion" : "Add Fusion"}</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -480,15 +476,15 @@ export function VirtualModelDialog({
         <DialogBody>
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3">
-              <Field label={t("New model")}>
+              <Field label="New model">
                 <Input value={draft.exactAliasesText} onChange={(event) => onChange({ exactAliasesText: event.target.value })} />
               </Field>
               <div className="flex h-5 items-center justify-center font-mono text-[13px] font-semibold text-muted-foreground">=</div>
-              <Field label={t("Base model")}>
+              <Field label="Base model">
                 <RouteTargetControl modelOptions={modelOptions} onChange={(fixedModel) => onChange({ fixedModel })} value={draft.fixedModel} />
               </Field>
               <div className="flex h-5 items-center justify-center font-mono text-[13px] font-semibold text-muted-foreground">+</div>
-              <Field label={t("Tools")}>
+              <Field label="Tools">
                 <FusionToolsListControl
                   adding={addingFusionTool}
                   draft={draft}
@@ -518,18 +514,18 @@ export function VirtualModelDialog({
             </div>
 
             {error ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">{t(error)}</div>
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">{error}</div>
             ) : null}
           </div>
         </DialogBody>
 
         <DialogFooter>
           <Button onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button disabled={!canSubmit} onClick={onSubmit} type="button">
             {mode === "edit" ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-	            {mode === "edit" ? t("Save") : t("Add")}
+	            {mode === "edit" ? "Save" : "Add"}
 	          </Button>
 	        </DialogFooter>
 	      </DialogContent>
@@ -558,8 +554,7 @@ function WebSearchToolConfigurationPanel({
   draft: VirtualModelDraft;
   onChange: (patch: Partial<VirtualModelDraft>) => void;
 }) {
-  const t = useAppText();
-  const providerOptions = translateOptions(fusionWebSearchProviderOptions, t);
+  const providerOptions = fusionWebSearchProviderOptions;
 
   function updateProvider(provider: string) {
     const webSearchProvider = fusionWebSearchProviderOptions.some((option) => option.value === provider)
@@ -573,7 +568,7 @@ function WebSearchToolConfigurationPanel({
 
   return (
     <div className="grid grid-cols-1 gap-3 rounded-md border border-border/70 bg-muted/25 p-3">
-      <Field label={t("Search provider")}>
+      <Field label="Search provider">
         <SelectControl onChange={updateProvider} options={providerOptions} value={draft.webSearchProvider} />
       </Field>
       {draft.webSearchProvider === "browser" ? (
@@ -582,9 +577,9 @@ function WebSearchToolConfigurationPanel({
           rows={draft.webSearchEnvRows}
         />
       ) : (
-        <Field label={t("Provider configuration")}>
+        <Field label="Provider configuration">
           <KeyValueRowsControl
-            addLabel={t("Add variable")}
+            addLabel="Add variable"
             onChange={(webSearchEnvRows) => onChange({ webSearchEnvRows })}
             rows={draft.webSearchEnvRows}
           />
@@ -601,7 +596,6 @@ function BrowserWebSearchConfigurationPanel({
   onChange: (rows: KeyValueDraftRow[]) => void;
   rows: KeyValueDraftRow[];
 }) {
-  const t = useAppText();
   const extraRows = browserWebSearchExtraRows(rows);
   const engine = browserWebSearchEnvValue(rows, browserWebSearchEngineEnvKey) || "bing";
   const language = browserWebSearchEnvValue(rows, browserWebSearchLanguageEnvKey);
@@ -619,28 +613,28 @@ function BrowserWebSearchConfigurationPanel({
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <Field label={t("Search engine")}>
+        <Field label="Search engine">
           <SelectControl
             onChange={(value) => updateKnownValue(browserWebSearchEngineEnvKey, value)}
             options={browserWebSearchEngineOptions}
             value={browserWebSearchEngineOptions.some((option) => option.value === engine) ? engine : "bing"}
           />
         </Field>
-        <Field label={t("Safe search")}>
+        <Field label="Safe search">
           <SelectControl
             onChange={(value) => updateKnownValue(browserWebSearchSafeSearchEnvKey, value)}
-            options={translateOptions(browserWebSearchSafeSearchOptions, t)}
+            options={browserWebSearchSafeSearchOptions}
             value={browserWebSearchSafeSearchOptions.some((option) => option.value === safeSearch) ? safeSearch : "default"}
           />
         </Field>
-        <Field label={t("Language")}>
+        <Field label="Language">
           <Input
             onChange={(event) => updateKnownValue(browserWebSearchLanguageEnvKey, event.target.value)}
             placeholder="en, zh-CN"
             value={language}
           />
         </Field>
-        <Field label={t("Country")}>
+        <Field label="Country">
           <Input
             onChange={(event) => updateKnownValue(browserWebSearchCountryEnvKey, event.target.value)}
             placeholder="US, CN"
@@ -648,9 +642,9 @@ function BrowserWebSearchConfigurationPanel({
           />
         </Field>
       </div>
-      <Field label={t("Advanced variables")}>
+      <Field label="Advanced variables">
         <KeyValueRowsControl
-          addLabel={t("Add variable")}
+          addLabel="Add variable"
           onChange={updateExtraRows}
           rows={extraRows}
         />
@@ -697,10 +691,9 @@ function CustomMcpToolDialog({
   onSubmit: () => void;
   open: boolean;
 }) {
-  const t = useAppText();
   const mcp = draft;
-  const transportOptions = translateOptions(mcpServerTransportOptions, t);
-  const stdioMessageModeOptions = translateOptions(mcpStdioMessageModeOptions, t);
+  const transportOptions = mcpServerTransportOptions;
+  const stdioMessageModeOptions = mcpStdioMessageModeOptions;
 
   function updateMcpServer(patch: Partial<VirtualModelDraft["customMcpServer"]>) {
     onChange(patch);
@@ -711,9 +704,9 @@ function CustomMcpToolDialog({
       <DialogContent className="max-w-[760px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Add custom MCP")}</DialogTitle>
+            <DialogTitle>Add custom MCP</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -721,10 +714,10 @@ function CustomMcpToolDialog({
         <DialogBody>
           <div className="grid grid-cols-1 gap-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label={t("MCP server")}>
+              <Field label="MCP server">
                 <Input onChange={(event) => updateMcpServer({ name: event.target.value })} value={mcp.name} />
               </Field>
-              <Field label={t("Transport")}>
+              <Field label="Transport">
                 <SelectControl
                   onChange={(transport) => updateMcpServer({ transport: transport as VirtualModelDraft["customMcpServer"]["transport"] })}
                   options={transportOptions}
@@ -734,17 +727,17 @@ function CustomMcpToolDialog({
             </div>
             {mcp.transport === "stdio" ? (
               <div className="grid grid-cols-1 gap-3">
-                <Field label={t("Command")}>
+                <Field label="Command">
                   <Input onChange={(event) => updateMcpServer({ command: event.target.value })} value={mcp.command} />
                 </Field>
-                <Field label={t("Arguments")}>
+                <Field label="Arguments">
                   <Input onChange={(event) => updateMcpServer({ argsText: event.target.value })} value={mcp.argsText} />
                 </Field>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label={t("Working directory")}>
+                  <Field label="Working directory">
                     <Input onChange={(event) => updateMcpServer({ cwd: event.target.value })} value={mcp.cwd} />
                   </Field>
-                  <Field label={t("Stdio message mode")}>
+                  <Field label="Stdio message mode">
                     <SelectControl
                       onChange={(stdioMessageMode) => updateMcpServer({ stdioMessageMode: stdioMessageMode as VirtualModelDraft["customMcpServer"]["stdioMessageMode"] })}
                       options={stdioMessageModeOptions}
@@ -752,9 +745,9 @@ function CustomMcpToolDialog({
                     />
                   </Field>
                 </div>
-                <Field label={t("Environment variables")}>
+                <Field label="Environment variables">
                   <KeyValueRowsControl
-                    addLabel={t("Add variable")}
+                    addLabel="Add variable"
                     onChange={(envRows) => updateMcpServer({ envRows })}
                     rows={mcp.envRows}
                   />
@@ -762,12 +755,12 @@ function CustomMcpToolDialog({
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3">
-                <Field label={t("URL")}>
+                <Field label="URL">
                   <Input onChange={(event) => updateMcpServer({ url: event.target.value })} value={mcp.url} />
                 </Field>
-                <Field label={t("Headers")}>
+                <Field label="Headers">
                   <KeyValueRowsControl
-                    addLabel={t("Add variable")}
+                    addLabel="Add variable"
                     onChange={(headerRows) => updateMcpServer({ headerRows })}
                     rows={mcp.headerRows}
                   />
@@ -775,26 +768,26 @@ function CustomMcpToolDialog({
               </div>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label={t("Request timeout")}>
+              <Field label="Request timeout">
                 <Input onChange={(event) => updateMcpServer({ requestTimeoutMs: event.target.value })} type="number" value={mcp.requestTimeoutMs} />
               </Field>
-              <Field label={t("Startup timeout")}>
+              <Field label="Startup timeout">
                 <Input onChange={(event) => updateMcpServer({ startupTimeoutMs: event.target.value })} type="number" value={mcp.startupTimeoutMs} />
               </Field>
             </div>
             {error ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">{t(error)}</div>
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">{error}</div>
             ) : null}
           </div>
         </DialogBody>
 
         <DialogFooter>
           <Button onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button onClick={onSubmit} type="button">
             <Plus className="h-4 w-4" />
-            {t("Add")}
+            Add
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -841,7 +834,6 @@ function VisionToolConfigurationPanel({
   modelOptions: ReturnType<typeof createRouteModelOptions>;
   onChange: (patch: Partial<VirtualModelDraft>) => void;
 }) {
-  const t = useAppText();
   const [fallbackModelDraft, setFallbackModelDraft] = useState("");
 
   function addFallbackModel() {
@@ -855,11 +847,11 @@ function VisionToolConfigurationPanel({
 
   return (
     <div className="grid grid-cols-1 gap-3 rounded-md border border-border/70 bg-muted/25 p-3">
-      <Field label={t("Vision model")}>
+      <Field label="Vision model">
         <RouteTargetControl modelOptions={modelOptions} onChange={(visionModel) => onChange({ visionModel })} value={draft.visionModel} />
       </Field>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(96px,140px)_minmax(0,1fr)_auto]">
-        <Field label={t("Retries")}>
+        <Field label="Retries">
           <Input
             max={ROUTER_FALLBACK_MAX_RETRY_COUNT}
             min={0}
@@ -868,22 +860,22 @@ function VisionToolConfigurationPanel({
             value={draft.visionRetryCount}
           />
         </Field>
-        <Field label={t("Vision fallback model")}>
+        <Field label="Vision fallback model">
           <RouteTargetControl modelOptions={modelOptions} onChange={setFallbackModelDraft} value={fallbackModelDraft} />
         </Field>
         <Button disabled={!fallbackModelDraft.trim()} onClick={addFallbackModel} type="button">
           <Plus className="h-4 w-4" />
-          {t("Add")}
+          Add
         </Button>
       </div>
       <div className="flex min-w-0 flex-wrap gap-2">
         {draft.visionFallbackModels.length === 0 ? (
-          <div className="text-[12px] text-muted-foreground">{t("No vision fallback models configured")}</div>
+          <div className="text-[12px] text-muted-foreground">No vision fallback models configured</div>
         ) : (
           draft.visionFallbackModels.map((model, index) => (
             <div className="flex max-w-full items-center gap-1 rounded-md border border-border bg-background px-2 py-1" key={`${model}-${index}`}>
               <span className="min-w-0 truncate font-mono text-[11px]" title={model}>{model}</span>
-              <Button aria-label={`${t("Remove")} ${model}`} onClick={() => onChange({ visionFallbackModels: draft.visionFallbackModels.filter((_, modelIndex) => modelIndex !== index) })} size="iconSm" title={t("Remove")} type="button" variant="ghost">
+              <Button aria-label={`Remove ${model}`} onClick={() => onChange({ visionFallbackModels: draft.visionFallbackModels.filter((_, modelIndex) => modelIndex !== index) })} size="iconSm" title="Remove" type="button" variant="ghost">
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -935,7 +927,6 @@ function FusionToolsListControl({
   videoModelOptions: ReturnType<typeof createGrokMediaModelOptions>;
   values: string[];
 }) {
-  const t = useAppText();
   const selectedToolValues = values.map(normalizeFusionToolName).filter(Boolean);
 
   return (
@@ -956,10 +947,10 @@ function FusionToolsListControl({
               />
             </div>
             <Button
-              aria-label={t("Remove tool")}
+              aria-label="Remove tool"
               onClick={() => onRemoveTool(index)}
               size="iconSm"
-              title={t("Remove tool")}
+              title="Remove tool"
               type="button"
               variant="ghost"
             >
@@ -992,10 +983,10 @@ function FusionToolsListControl({
             />
           </div>
           <Button
-            aria-label={t("Cancel")}
+            aria-label="Cancel"
             onClick={onCancelAddTool}
             size="iconSm"
-            title={t("Cancel")}
+            title="Cancel"
             type="button"
             variant="ghost"
           >
@@ -1012,7 +1003,7 @@ function FusionToolsListControl({
         variant="outline"
       >
         <Plus className="h-4 w-4" />
-        {t("Add tool")}
+        Add tool
       </Button>
     </div>
   );
@@ -1041,7 +1032,6 @@ function FusionToolSelectControl({
   selectedMcpServerName: string;
   value: string;
 }) {
-  const t = useAppText();
   const [open, setOpen] = useState(false);
   const [popoverLayout, setPopoverLayout] = useState<{
     left: number;
@@ -1058,7 +1048,7 @@ function FusionToolSelectControl({
   const selectedServer = selectedMcpServerName
     ? mcpServers.find((server) => server.name === selectedMcpServerName)
     : mcpServers.find((server) => mcpToolStateByServer[server.name]?.tools?.some((tool) => tool.name === normalizedValue));
-  const selectedLabel = selected ? t(selected.label) : (selectedServer && normalizedValue ? `${selectedServer.name} / ${normalizedValue}` : normalizedValue || t("Select tool"));
+  const selectedLabel = selected ? selected.label : (selectedServer && normalizedValue ? `${selectedServer.name} / ${normalizedValue}` : normalizedValue || "Select tool");
 
   useClientLayoutEffect(() => {
     if (!open) {
@@ -1195,9 +1185,9 @@ function FusionToolSelectControl({
                       type="button"
                     >
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12px] font-semibold">{t(option.label)}</span>
+                        <span className="block truncate text-[12px] font-semibold">{option.label}</span>
                         <span className={cn("mt-0.5 block text-[11px] leading-4", selectedOption ? "text-primary/80" : "text-muted-foreground")}>
-                          {t(option.description)}
+                          {option.description}
                         </span>
                       </span>
                       {selectedOption ? <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : null}
@@ -1216,7 +1206,7 @@ function FusionToolSelectControl({
                         <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
                         <span className="min-w-0 flex-1 truncate" title={server.name}>{server.name}</span>
                         <button
-                          aria-label={`${t("Discover tools")} ${server.name}`}
+                          aria-label={`Discover tools ${server.name}`}
                           className="rounded-[4px] px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25"
                           onClick={(event) => {
                             event.stopPropagation();
@@ -1225,7 +1215,7 @@ function FusionToolSelectControl({
                           title={mcpServerEndpointSummary(server)}
                           type="button"
                         >
-                          {state?.loading ? <LoaderCircle className="h-3 w-3 animate-spin" /> : t("Discover tools")}
+                          {state?.loading ? <LoaderCircle className="h-3 w-3 animate-spin" /> : "Discover tools"}
                         </button>
                       </div>
                       <div className="ml-3 border-l border-border/70 pl-2">
@@ -1261,17 +1251,17 @@ function FusionToolSelectControl({
                         {state?.loading && tools.length === 0 ? (
                           <div className="flex items-center gap-2 px-2 py-2 text-[11px] text-muted-foreground">
                             <LoaderCircle className="h-3 w-3 animate-spin" />
-                            <span>{t("Discover tools")}</span>
+                            <span>Discover tools</span>
                           </div>
                         ) : null}
                         {!state?.loading && state?.tools && discoveredTools.length > 0 && tools.length === 0 && !state.error ? (
-                          <div className="px-2 py-2 text-[11px] text-muted-foreground">{t("No tools available")}</div>
+                          <div className="px-2 py-2 text-[11px] text-muted-foreground">No tools available</div>
                         ) : null}
                         {!state?.loading && state?.tools && discoveredTools.length === 0 && !state.error ? (
-                          <div className="px-2 py-2 text-[11px] text-muted-foreground">{t("No tools discovered")}</div>
+                          <div className="px-2 py-2 text-[11px] text-muted-foreground">No tools discovered</div>
                         ) : null}
                         {state?.error ? (
-                          <div className="px-2 py-2 text-[11px] text-destructive" title={state.error}>{t("Tool discovery failed")}</div>
+                          <div className="px-2 py-2 text-[11px] text-destructive" title={state.error}>Tool discovery failed</div>
                         ) : null}
                       </div>
                     </div>
@@ -1287,7 +1277,7 @@ function FusionToolSelectControl({
                   type="button"
                 >
                   <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 truncate">{t("Add custom MCP")}</span>
+                  <span className="min-w-0 truncate">Add custom MCP</span>
                 </button>
               </PopoverContent>
             </AnimatedPopover>
@@ -1317,7 +1307,6 @@ export function InstallExtensionDialog({
   onClose: () => void;
   onSubmit: () => void;
 }) {
-  const t = useAppText();
 
   function selectMarketplace(entry: PluginMarketplaceEntry) {
     onChange({
@@ -1337,9 +1326,9 @@ export function InstallExtensionDialog({
       <DialogContent>
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Install Extension")}</DialogTitle>
+            <DialogTitle>Install Extension</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -1348,7 +1337,7 @@ export function InstallExtensionDialog({
           <div className="space-y-3">
             <div className="space-y-2">
               {marketplace.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-8 text-center text-[12px] text-muted-foreground">{t("No marketplace extensions")}</div>
+                <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-8 text-center text-[12px] text-muted-foreground">No marketplace extensions</div>
               ) : (
                 marketplace.map((entry) => (
                   <button
@@ -1363,12 +1352,12 @@ export function InstallExtensionDialog({
                     <span className="truncate font-semibold text-foreground">{entry.name}</span>
                     <span className="line-clamp-2 text-[11px] text-muted-foreground">{entry.description}</span>
                     <span className="truncate text-[10px] text-muted-foreground/80">{entry.capabilities.join(", ")}</span>
-                    <span className="truncate text-[10px] text-muted-foreground/80">{t("Surfaces")}: {pluginSurfaceSummary(entry.surfaces)}</span>
+                    <span className="truncate text-[10px] text-muted-foreground/80">Surfaces: {pluginSurfaceSummary(entry.surfaces)}</span>
                     {entry.permissions?.length ? (
-                      <span className="truncate text-[10px] text-muted-foreground/80">{t("Permissions")}: {entry.permissions.join(", ")}</span>
+                      <span className="truncate text-[10px] text-muted-foreground/80">Permissions: {entry.permissions.join(", ")}</span>
                     ) : null}
                     {entry.dependencies.length > 0 ? (
-                      <span className="truncate text-[10px] text-muted-foreground/80">{t("Dependencies")}: {formatPluginDependencies(entry.dependencies)}</span>
+                      <span className="truncate text-[10px] text-muted-foreground/80">Dependencies: {formatPluginDependencies(entry.dependencies)}</span>
                     ) : null}
                   </button>
                 ))
@@ -1384,15 +1373,15 @@ export function InstallExtensionDialog({
         <DialogFooter className="justify-between">
           <Button onClick={onChooseLocal} type="button" variant="outline">
             <FolderOpen className="h-4 w-4" />
-            {t("Choose folder")}
+            Choose folder
           </Button>
           <div className="flex items-center gap-2">
             <Button onClick={onClose} type="button" variant="outline">
-              {t("Cancel")}
+              Cancel
             </Button>
             <Button disabled={!canSubmit} onClick={onSubmit} type="button">
               <Plus className="h-4 w-4" />
-              {t("Install")}
+              Install
             </Button>
           </div>
         </DialogFooter>

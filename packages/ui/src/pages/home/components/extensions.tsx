@@ -5,8 +5,8 @@ import {
   DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, ExtensionListItem,
   cn, extensionMatchesQuery, ExtensionSource, Field, GatewayProviderConfig, Input, isClaudeDesignStaticRuleType,
   Label, motion, normalizeClaudeDesignRuleTypeChange, Play, PluginSettingsDraft, Plus, RouteTargetControl,
-  Search, SelectControl, Settings, TextAreaControl, Toggle, translateOptions,
-  Trash2, useAppText, useMemo, useState, X
+  Search, SelectControl, Settings, TextAreaControl, Toggle,
+  Trash2, useMemo, useState, X
 } from "../shared/index";
 export function ExtensionsView({
   configureExtension,
@@ -23,7 +23,6 @@ export function ExtensionsView({
   removeExtension: (source: ExtensionSource, index: number, groupIndexes: number[]) => void;
   setExtensionEnabled: (source: ExtensionSource, index: number, enabled: boolean, groupIndexes: number[]) => void;
 }) {
-  const t = useAppText();
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
   const extensions = useMemo(() => buildExtensionList(config), [config.plugins, config.providerPlugins]);
@@ -44,37 +43,37 @@ export function ExtensionsView({
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label={t("Search extensions")}
+              aria-label="Search extensions"
               className="pl-8"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search extensions")}
+              placeholder="Search extensions"
               value={query}
             />
           </div>
-          <Button aria-label={t("Install extension")} onClick={installExtension} title={t("Install extension")} type="button">
+          <Button aria-label="Install extension" onClick={installExtension} title="Install extension" type="button">
             <Plus className="h-4 w-4" />
-            {t("Install")}
+            Install
           </Button>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 overflow-auto p-0">
           {extensions.length === 0 ? (
             <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center">
               <Braces className="mx-auto mb-2 h-7 w-7 text-muted-foreground/40" />
-              <div className="text-[12px] text-muted-foreground">{t("No extensions installed")}</div>
-              <div className="mt-1 text-[11px] text-muted-foreground/60">{t("Click Install to add one")}</div>
+              <div className="text-[12px] text-muted-foreground">No extensions installed</div>
+              <div className="mt-1 text-[11px] text-muted-foreground/60">Click Install to add one</div>
             </div>
           ) : null}
           {extensions.length > 0 && visibleExtensions.length === 0 ? (
-            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">{t("No matching extensions")}</div>
+            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">No matching extensions</div>
           ) : null}
           {visibleExtensions.length > 0 ? (
             <div className="min-w-0">
               <div className="min-w-[720px]">
                 <div className="sticky top-0 z-10 grid h-10 grid-cols-[minmax(180px,0.95fr)_minmax(220px,1.15fr)_minmax(240px,1.2fr)_116px_116px] items-center gap-3 border-b border-border/60 bg-muted/95 px-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  <div className="truncate">{t("Name")}</div>
-                  <div className="truncate">{t("Path")}</div>
-                  <div className="truncate">{t("Capability")}</div>
-                  <div className="truncate">{t("Status")}</div>
+                  <div className="truncate">Name</div>
+                  <div className="truncate">Path</div>
+                  <div className="truncate">Capability</div>
+                  <div className="truncate">Status</div>
                   <div aria-hidden="true" />
                 </div>
                 <div className="divide-y divide-border/60">
@@ -103,10 +102,10 @@ export function ExtensionsView({
                       <div className="flex items-center justify-end gap-1">
                         {appId ? (
                           <Button
-                            aria-label={`${t("Open")} ${extension.name}`}
+                            aria-label={`Open ${extension.name}`}
                             onClick={() => openExtensionApp(extension.index, appId)}
                             size="iconSm"
-                            title={t("Open plugin app")}
+                            title="Open plugin app"
                             type="button"
                             variant="ghost"
                           >
@@ -114,17 +113,17 @@ export function ExtensionsView({
                           </Button>
                         ) : null}
                         <Button
-                          aria-label={`${t("Configure")} ${extension.name}`}
+                          aria-label={`Configure ${extension.name}`}
                           disabled={!extension.canConfigure}
                           onClick={() => configureExtension(extension.source, extension.index)}
                           size="iconSm"
-                          title={t("Configure plugin")}
+                          title="Configure plugin"
                           type="button"
                           variant="ghost"
                         >
                           <Settings className="h-3.5 w-3.5" />
                         </Button>
-                        <Button aria-label={`${t("Remove")} ${extension.name}`} onClick={() => removeExtension(extension.source, extension.index, extension.groupIndexes)} size="iconSm" title={t("Remove extension")} type="button" variant="ghost">
+                        <Button aria-label={`Remove ${extension.name}`} onClick={() => removeExtension(extension.source, extension.index, extension.groupIndexes)} size="iconSm" title="Remove extension" type="button" variant="ghost">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -169,16 +168,15 @@ export function DeleteExtensionDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  const t = useAppText();
 
   return (
     <Dialog onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Delete Extension")}</DialogTitle>
+            <DialogTitle>Delete Extension</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -187,30 +185,30 @@ export function DeleteExtensionDialog({
           <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
             <div className="flex items-start gap-2 text-[12px] font-medium text-destructive">
               <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{t("Delete this extension from the configuration?")}</span>
+              <span>Delete this extension from the configuration?</span>
             </div>
             <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
               <div className="truncate" title={extension.name}>
-                <span className="font-medium text-foreground">{t("Name")}:</span> {extension.name}
+                <span className="font-medium text-foreground">Name:</span> {extension.name}
               </div>
               <div className="truncate" title={extension.target}>
-                <span className="font-medium text-foreground">{t("Path")}:</span> {extension.target}
+                <span className="font-medium text-foreground">Path:</span> {extension.target}
               </div>
               <div className="truncate" title={extension.capability}>
-                <span className="font-medium text-foreground">{t("Capability")}:</span> {extension.capability}
+                <span className="font-medium text-foreground">Capability:</span> {extension.capability}
               </div>
-              <div>{t("This action is applied immediately to the draft config and will auto-save with other changes.")}</div>
+              <div>This action is applied immediately to the draft config and will auto-save with other changes.</div>
             </div>
           </div>
         </DialogBody>
 
         <DialogFooter>
           <Button autoFocus onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button onClick={onConfirm} type="button" variant="destructive">
             <Trash2 className="h-4 w-4" />
-            {t("Delete")}
+            Delete
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -233,7 +231,6 @@ export function PluginSettingsDialog({
   onClose: () => void;
   onSubmit: () => void;
 }) {
-  const t = useAppText();
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   return (
@@ -241,9 +238,9 @@ export function PluginSettingsDialog({
       <DialogContent className="max-w-[720px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Plugin Settings")}</DialogTitle>
+            <DialogTitle>Plugin Settings</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -251,13 +248,13 @@ export function PluginSettingsDialog({
         <DialogBody>
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-[160px_1fr]">
-              <Field label={t("Enabled")}>
+              <Field label="Enabled">
                 <Toggle checked={draft.enabled} onChange={(enabled) => onChange({ enabled })} />
               </Field>
-              <Field label={t("Name")}>
+              <Field label="Name">
                 <Input readOnly value={extension.name} />
               </Field>
-              <Field className="sm:col-span-2" label={t("Module path")}>
+              <Field className="sm:col-span-2" label="Module path">
                 <Input value={draft.modulePath} onChange={(event) => onChange({ modulePath: event.target.value })} />
               </Field>
             </div>
@@ -270,7 +267,7 @@ export function PluginSettingsDialog({
                 type="button"
                 unstyled
               >
-                <span className="min-w-0 truncate">{t("Advanced settings")}</span>
+                <span className="min-w-0 truncate">Advanced settings</span>
                 <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", advancedOpen && "rotate-180")} />
               </Button>
               <AnimatePresence initial={false}>
@@ -278,34 +275,34 @@ export function PluginSettingsDialog({
                   <AnimatedDisclosure key="plugin-settings-advanced">
                     <div className="space-y-4 border-t border-border p-3">
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <Field label={t("App surface")}>
+                        <Field label="App surface">
                           <Toggle checked={draft.appsSurfaceEnabled} onChange={(appsSurfaceEnabled) => onChange({ appsSurfaceEnabled })} />
                         </Field>
-                        <Field label={t("Gateway surface")}>
+                        <Field label="Gateway surface">
                           <Toggle checked={draft.gatewaySurfaceEnabled} onChange={(gatewaySurfaceEnabled) => onChange({ gatewaySurfaceEnabled })} />
                         </Field>
-                        <Field label={t("Provider surface")}>
+                        <Field label="Provider surface">
                           <Toggle checked={draft.providerSurfaceEnabled} onChange={(providerSurfaceEnabled) => onChange({ providerSurfaceEnabled })} />
                         </Field>
                       </div>
 
-                      <Field label={t("Browser apps JSON")}>
+                      <Field label="Browser apps JSON">
                         <TextAreaControl minHeight={132} value={draft.appsText} onChange={(appsText) => onChange({ appsText })} />
                       </Field>
 
-                      <Field label={t("Plugin permissions JSON")}>
+                      <Field label="Plugin permissions JSON">
                         <TextAreaControl minHeight={120} value={draft.permissionsText} onChange={(permissionsText) => onChange({ permissionsText })} />
                       </Field>
 
-                      <Field label={t("Plugin proxy JSON")}>
+                      <Field label="Plugin proxy JSON">
                         <TextAreaControl minHeight={120} value={draft.proxyText} onChange={(proxyText) => onChange({ proxyText })} />
                       </Field>
 
-                      <Field label={t("Plugin core gateway JSON")}>
+                      <Field label="Plugin core gateway JSON">
                         <TextAreaControl minHeight={132} value={draft.coreGatewayText} onChange={(coreGatewayText) => onChange({ coreGatewayText })} />
                       </Field>
 
-                      <Field label={t("Plugin config JSON")}>
+                      <Field label="Plugin config JSON">
                         <TextAreaControl minHeight={160} value={draft.configText} onChange={(configText) => onChange({ configText })} />
                       </Field>
                     </div>
@@ -315,18 +312,18 @@ export function PluginSettingsDialog({
             </div>
 
             {error ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">{t(error)}</div>
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">{error}</div>
             ) : null}
           </div>
         </DialogBody>
 
         <DialogFooter>
           <Button onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button onClick={onSubmit} type="button">
             <Check className="h-4 w-4" />
-            {t("Save")}
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -361,18 +358,17 @@ export function ConfigureClaudeDesignDialog({
   onSubmit: () => void;
   providers: GatewayProviderConfig[];
 }) {
-  const t = useAppText();
   const modelOptions = useMemo(() => createRouteModelOptions(providers), [providers]);
-  const ruleTypeOptions = translateOptions(claudeDesignRouteRuleTypeOptions, t);
+  const ruleTypeOptions = claudeDesignRouteRuleTypeOptions;
 
   return (
     <Dialog onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[760px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Configure Routing")}</DialogTitle>
+            <DialogTitle>Configure Routing</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -380,22 +376,22 @@ export function ConfigureClaudeDesignDialog({
         <DialogBody>
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-[160px_1fr]">
-              <Field label={t("Model routing")}>
+              <Field label="Model routing">
                 <Toggle checked={draft.enabled} onChange={(enabled) => onChange({ enabled })} />
               </Field>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t(routesLabel)}</div>
+                <div className="min-w-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{routesLabel}</div>
                 <Button onClick={onAddRule} size="sm" type="button" variant="outline">
                   <Plus className="h-3.5 w-3.5" />
-                  {t("Add")}
+                  Add
                 </Button>
               </div>
 
               {draft.rules.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-8 text-center text-[12px] text-muted-foreground">{t("No plugin routes configured")}</div>
+                <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-8 text-center text-[12px] text-muted-foreground">No plugin routes configured</div>
               ) : null}
 
               <div className="space-y-2">
@@ -403,10 +399,10 @@ export function ConfigureClaudeDesignDialog({
                 {draft.rules.map((rule, index) => (
                   <AnimatedListItem className="rounded-md border border-border bg-card p-3" key={rule.id || index}>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label={t("Name")}>
+                      <Field label="Name">
                         <Input value={rule.name} onChange={(event) => onChangeRule(index, { name: event.target.value })} />
                       </Field>
-                      <Field label={t("Condition")}>
+                      <Field label="Condition">
                         <SelectControl
                           value={rule.type}
                           onChange={(type) => onChangeRule(index, normalizeClaudeDesignRuleTypeChange(rule, type as ClaudeDesignRouteRuleType, sourceModelDefaults))}
@@ -414,19 +410,19 @@ export function ConfigureClaudeDesignDialog({
                         />
                       </Field>
                       {rule.type === "model" ? (
-                        <Field label={t(sourceModelLabel)}>
+                        <Field label={sourceModelLabel}>
                           <Input value={rule.model} onChange={(event) => onChangeRule(index, { model: event.target.value })} />
                         </Field>
                       ) : null}
                       {rule.type === "model-prefix" ? (
-                        <Field label={t("Model prefix")}>
+                        <Field label="Model prefix">
                           <Input value={rule.pattern} onChange={(event) => onChangeRule(index, { pattern: event.target.value })} />
                         </Field>
                       ) : null}
                       {isClaudeDesignStaticRuleType(rule.type) ? (
-                        <div className="flex min-h-[58px] items-end rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-[12px] text-muted-foreground">{t(claudeDesignRouteRuleTypeLabel(rule.type))}</div>
+                        <div className="flex min-h-[58px] items-end rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-[12px] text-muted-foreground">{claudeDesignRouteRuleTypeLabel(rule.type)}</div>
                       ) : null}
-                      <Field label={t("Target model")}>
+                      <Field label="Target model">
                         <RouteTargetControl
                           modelOptions={modelOptions}
                           onChange={(target) => onChangeRule(index, { target })}
@@ -437,9 +433,9 @@ export function ConfigureClaudeDesignDialog({
                     <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/60 pt-3">
                       <Label className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
                         <Toggle checked={rule.enabled} onChange={(enabled) => onChangeRule(index, { enabled })} />
-                        <span>{t("Enabled")}</span>
+                        <span>Enabled</span>
                       </Label>
-                      <Button aria-label={`${t("Remove")} ${rule.name || t("Plugin route")}`} onClick={() => onRemoveRule(index)} size="iconSm" title={t("Remove rule")} type="button" variant="ghost">
+                      <Button aria-label={`Remove ${rule.name || "Plugin route"}`} onClick={() => onRemoveRule(index)} size="iconSm" title="Remove rule" type="button" variant="ghost">
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -453,11 +449,11 @@ export function ConfigureClaudeDesignDialog({
 
         <DialogFooter>
           <Button onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button disabled={!canSubmit} onClick={onSubmit} type="button">
             <Check className="h-4 w-4" />
-            {t("Save")}
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>

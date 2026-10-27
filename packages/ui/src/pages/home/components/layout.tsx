@@ -5,8 +5,7 @@ import {
   AnimatePresence, AppConfig, AppCopy, Button, Check, CircleAlert, cn, EndpointTitleBar,
   AppUpdateStatus, GatewayStatus, listSpringTransition, LucideIcon, motion, motionEase,
   LoaderCircle, NavigationId, RefreshCw,
-  reducedMotionTransition, ServiceControlButton, Settings, ViewId,
-  useAppText, ViewMotionShell, viewUsesInternalScroll
+  reducedMotionTransition, ServiceControlButton, Settings, ViewId, ViewMotionShell, viewUsesInternalScroll
 } from "../shared/index";
 import { ApiKeysView } from "./api-keys";
 import { AgentAnalysisView, OverviewView } from "./dashboard";
@@ -182,7 +181,6 @@ export function MainLayout({
         {showUpdateButton ? (
           <UpdateEntryButton
             actionBusy={updateActionBusy}
-            copy={copy}
             onOpen={onOpenUpdate}
             status={updateStatus}
           />
@@ -221,7 +219,7 @@ export function MainLayout({
               {navigationGroups.map((group) => (
                 <div className="grid min-w-0 gap-1 max-[720px]:contents" key={group.id}>
                   <div className="px-2 text-[13px] font-medium text-muted-foreground max-[720px]:hidden">
-                    {copy.text[group.label] ?? group.label}
+                    {group.label}
                   </div>
                   <div className="grid min-w-0 gap-1 max-[720px]:contents">
                     {group.items.map((item) => (
@@ -341,25 +339,23 @@ function SidebarNavigationButton({
 
 export function UpdateEntryButton({
   actionBusy,
-  copy,
   onOpen,
   status
 }: {
   actionBusy: boolean;
-  copy: AppCopy;
   onOpen: () => void;
   status: AppUpdateStatus;
 }) {
   const busy = actionBusy || status.state === "checking" || status.state === "downloading" || status.state === "installing";
   const label = status.state === "downloaded"
-    ? copy.text["Update ready to install"] ?? "Update ready to install"
+    ? "Update ready to install"
     : status.state === "downloading"
-      ? copy.text["Downloading update"] ?? "Downloading update"
+      ? "Downloading update"
       : status.state === "checking"
-        ? copy.text["Checking for updates"] ?? "Checking for updates"
+        ? "Checking for updates"
         : status.state === "available"
-          ? copy.text["Update available"] ?? "Update available"
-          : copy.text["Online updates"] ?? "Online updates";
+          ? "Update available"
+          : "Online updates";
 
   return (
     <Button
@@ -398,7 +394,6 @@ export function GatewayStartupErrorBanner({
   message?: string;
   onOpenServerSettings?: () => void;
 }) {
-  const t = useAppText();
   const detail = message?.trim();
   if (!detail) {
     return null;
@@ -415,7 +410,7 @@ export function GatewayStartupErrorBanner({
     >
       <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <div className="min-w-0 flex-1">
-        <div className="font-semibold">{t("Service failed to start")}</div>
+        <div className="font-semibold">Service failed to start</div>
         <div className="mt-0.5 whitespace-pre-wrap break-words">{detail}</div>
       </div>
       {onOpenServerSettings ? (
@@ -427,7 +422,7 @@ export function GatewayStartupErrorBanner({
           variant="outline"
         >
           <Settings className="h-3.5 w-3.5" />
-          {t("Server")}
+          Server
         </Button>
       ) : null}
     </div>

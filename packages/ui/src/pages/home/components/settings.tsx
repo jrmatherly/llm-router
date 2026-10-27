@@ -8,9 +8,8 @@ import {
   createBotGatewayConfigDraft, createMcpServerDraft, createMcpServerDraftFromConfig, createMcpServerDraftFromUnknown, DndContext, DragEndEvent, GatewayMcpServerConfig, GatewayProviderConfig, Input, isBotGatewayConfigDraftSubmittable, isTrayMascotIconPreference, KeyboardSensor, KeyRound, KeyValueRowsControl, Layers3, LoaderCircle,
   mcpServerConfigFromDraft, mcpServerEndpointSummary, mcpServerTransportOptions, mcpStdioMessageModeOptions, McpServerDraft, normalizeBotGatewayAuthType, normalizeBotGatewayPlatform, normalizeProviderModelSelector, normalizeProxyUpstreamConfig, normalizeToolHubConfig, numberValue, Palette, Pencil, Plus, ProfileConfig, profileAgentLabel,
   PanelLeftOpen, Power, ProviderAccountMeter, ProviderAccountSnapshot, ReactNode, ResolvedTheme, Select, SelectControl,
-  PointerSensor, rectSortingStrategy, Settings, SettingsPageId, SortableContext, sortableKeyboardCoordinates, themeDisplayName,
-  translateOptions, TrayBalanceProgressConfig, TrayComponentVariants, TrayWidgetConfig, TrayWidgetType, TrayWidgetVariant,
-  appLogoUrl, trayMascotIconUrls, arrayMove, defaultTrayWidgetVariant, isTraySingletonWidgetType, normalizeTrayWidget, normalizeTrayWidgets, Switch, Textarea, Trash2, trayWidgetVariantOptions, useAppText, useEffect, useMemo, useRef, useSensor, useSensors, useSortable, useState, validateMcpServerDraft,
+  PointerSensor, rectSortingStrategy, Settings, SettingsPageId, SortableContext, sortableKeyboardCoordinates, themeDisplayName, TrayBalanceProgressConfig, TrayComponentVariants, TrayWidgetConfig, TrayWidgetType, TrayWidgetVariant,
+  appLogoUrl, trayMascotIconUrls, arrayMove, defaultTrayWidgetVariant, isTraySingletonWidgetType, normalizeTrayWidget, normalizeTrayWidgets, Switch, Textarea, Trash2, trayWidgetVariantOptions, useEffect, useMemo, useRef, useSensor, useSensors, useSortable, useState, validateMcpServerDraft,
   providerAccountSnapshotKey, providerAccountSnapshotLabel, uniqueStrings, X
 } from "../shared/index";
 import { productShortName } from "../shared/brand";
@@ -370,7 +369,7 @@ function GeneralSettingsPage({
   return (
     <div className={cn(settingsPageContentWidthClassName, "grid grid-cols-1 gap-5")}>
       <h3 className="text-[15px] font-semibold text-foreground">{copy.settings.general}</h3>
-      <ServerSettingsSection config={config} copy={copy} updateConfig={updateConfig} />
+      <ServerSettingsSection config={config} updateConfig={updateConfig} />
       {launchAtLoginSupported ? (
         <SettingsSwitchRow
           checked={launchAtLogin}
@@ -388,20 +387,17 @@ function GeneralSettingsPage({
 
 function ServerSettingsSection({
   config,
-  copy,
   updateConfig
 }: {
   config: AppConfig;
-  copy: AppCopy;
   updateConfig: (mutator: (config: AppConfig) => AppConfig) => void;
 }) {
-  const t = (value: string) => copy.text[value] ?? value;
 
   return (
     <section className="grid grid-cols-1 gap-3">
-      <h4 className="text-[13px] font-semibold text-foreground">{t("Server")}</h4>
+      <h4 className="text-[13px] font-semibold text-foreground">Server</h4>
       <div className="grid grid-cols-1 gap-3 rounded-md border border-border/70 bg-card/70 p-3 md:grid-cols-2">
-        <Field label={t("Host")}>
+        <Field label="Host">
           <Input
             value={config.HOST}
             onChange={(event) => updateConfig((next) => {
@@ -415,7 +411,7 @@ function ServerSettingsSection({
             })}
           />
         </Field>
-        <Field label={t("Port")}>
+        <Field label="Port">
           <Input
             type="number"
             value={String(config.PORT)}
@@ -444,12 +440,11 @@ function ProxySettingsSection({
   onChange: (patch: Partial<AppConfig["proxy"]>) => void;
   proxy: AppConfig["proxy"];
 }) {
-  const t = (value: string) => copy.text[value] ?? value;
   const upstream = normalizeProxyUpstreamConfig(proxy.upstream);
   const modeOptions = [
-    { label: t("Do not use proxy"), value: "none" },
-    { label: t("Use system proxy"), value: "system" },
-    { label: t("Use custom proxy"), value: "custom" }
+    { label: "Do not use proxy", value: "none" },
+    { label: "Use system proxy", value: "system" },
+    { label: "Use custom proxy", value: "custom" }
   ];
 
   const patchUpstream = (patch: Partial<AppConfig["proxy"]["upstream"]>) => {
@@ -477,7 +472,7 @@ function ProxySettingsSection({
     <section className="grid grid-cols-1 gap-3">
       <h4 className="text-[13px] font-semibold text-foreground">{copy.settings.proxy}</h4>
       <div className="grid grid-cols-1 gap-3 rounded-md border border-border/70 bg-card/70 p-3 md:grid-cols-2">
-        <Field className="md:col-span-2" label={t("Proxy source")}>
+        <Field className="md:col-span-2" label="Proxy source">
           <SelectControl
             onChange={(mode) => patchUpstream({ mode: mode as AppConfig["proxy"]["upstream"]["mode"] })}
             options={modeOptions}
@@ -487,14 +482,14 @@ function ProxySettingsSection({
 
         {upstream.mode === "custom" ? (
           <>
-            <Field label={t("Proxy server")}>
+            <Field label="Proxy server">
               <Input
                 onChange={(event) => patchCustom({ server: event.target.value })}
                 placeholder="127.0.0.1"
                 value={upstream.custom.server}
               />
             </Field>
-            <Field label={t("Port")}>
+            <Field label="Port">
               <Input
                 max={65535}
                 min={1}
@@ -508,14 +503,14 @@ function ProxySettingsSection({
                 value={String(upstream.custom.port)}
               />
             </Field>
-            <Field label={t("Username")}>
+            <Field label="Username">
               <Input
                 autoComplete="off"
                 onChange={(event) => patchCustom({ username: event.target.value })}
                 value={upstream.custom.username}
               />
             </Field>
-            <Field label={t("Password")}>
+            <Field label="Password">
               <Input
                 autoComplete="new-password"
                 onChange={(event) => patchCustom({ password: event.target.value })}
@@ -573,7 +568,6 @@ function ToolHubSettingsPage({
   providers: GatewayProviderConfig[];
   toolHub: AppConfig["toolHub"];
 }) {
-  const t = useAppText();
   const selectedProviderModel = useMemo(() => selectedToolHubProviderModelValue(toolHub, providers), [providers, toolHub]);
   const [mcpDialogDraft, setMcpDialogDraft] = useState<McpServerDraft>(() => createMcpServerDraft(toolHub.mcpServers));
   const [mcpDialogError, setMcpDialogError] = useState("");
@@ -740,21 +734,21 @@ function ToolHubSettingsPage({
           <div className="grid grid-cols-1 gap-3 rounded-md border border-border/70 bg-card/70 p-3">
             <div className="flex min-w-0 items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="truncate text-[12px] font-semibold text-foreground">{t("MCP servers")}</div>
+                <div className="truncate text-[12px] font-semibold text-foreground">MCP servers</div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <Button onClick={openImportMcpJsonDialog} size="sm" type="button" variant="outline">
-                  {t("Import JSON")}
+                  Import JSON
                 </Button>
                 <Button onClick={openAddMcpDialog} size="sm" type="button" variant="outline">
                   <Plus className="h-4 w-4" />
-                  {t("Add MCP server")}
+                  Add MCP server
                 </Button>
               </div>
             </div>
             {toolHub.mcpServers.length === 0 ? (
               <div className="rounded-md border border-dashed border-border/70 px-3 py-3 text-[12px] text-muted-foreground">
-                {t("No MCP servers configured")}
+                No MCP servers configured
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-2">
@@ -766,10 +760,10 @@ function ToolHubSettingsPage({
                         {server.transport} · {mcpServerEndpointSummary(server)}
                       </div>
                     </div>
-                    <Button aria-label={t("Edit MCP server")} onClick={() => openEditMcpDialog(index)} size="iconSm" title={t("Edit MCP server")} type="button" variant="ghost">
+                    <Button aria-label="Edit MCP server" onClick={() => openEditMcpDialog(index)} size="iconSm" title="Edit MCP server" type="button" variant="ghost">
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button aria-label={t("Remove MCP server")} onClick={() => removeMcpServer(index)} size="iconSm" title={t("Remove MCP server")} type="button" variant="ghost">
+                    <Button aria-label="Remove MCP server" onClick={() => removeMcpServer(index)} size="iconSm" title="Remove MCP server" type="button" variant="ghost">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -817,28 +811,27 @@ function ToolHubMcpServerDialog({
   onSubmit: () => void;
   open: boolean;
 }) {
-  const t = useAppText();
-  const transportOptions = translateOptions(mcpServerTransportOptions, t);
-  const stdioMessageModeOptions = translateOptions(mcpStdioMessageModeOptions, t);
+  const transportOptions = mcpServerTransportOptions;
+  const stdioMessageModeOptions = mcpStdioMessageModeOptions;
 
   return (
     <Dialog className="z-[110]" onOpenChange={(nextOpen) => !nextOpen && onClose()} open={open}>
       <DialogContent className="max-w-[760px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{mode === "add" ? t("Add MCP server") : t("Edit MCP server")}</DialogTitle>
+            <DialogTitle>{mode === "add" ? "Add MCP server" : "Edit MCP server"}</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
         <DialogBody>
           <div className="grid grid-cols-1 gap-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label={t("MCP server")}>
+              <Field label="MCP server">
                 <Input onChange={(event) => onChange({ name: event.target.value })} value={draft.name} />
               </Field>
-              <Field label={t("Transport")}>
+              <Field label="Transport">
                 <SelectControl
                   onChange={(transport) => onChange({ transport: transport as McpServerDraft["transport"] })}
                   options={transportOptions}
@@ -848,17 +841,17 @@ function ToolHubMcpServerDialog({
             </div>
             {draft.transport === "stdio" ? (
               <div className="grid grid-cols-1 gap-3">
-                <Field label={t("Command")}>
+                <Field label="Command">
                   <Input onChange={(event) => onChange({ command: event.target.value })} value={draft.command} />
                 </Field>
-                <Field label={t("Arguments")}>
+                <Field label="Arguments">
                   <Input onChange={(event) => onChange({ argsText: event.target.value })} value={draft.argsText} />
                 </Field>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label={t("Working directory")}>
+                  <Field label="Working directory">
                     <Input onChange={(event) => onChange({ cwd: event.target.value })} value={draft.cwd} />
                   </Field>
-                  <Field label={t("Stdio message mode")}>
+                  <Field label="Stdio message mode">
                     <SelectControl
                       onChange={(stdioMessageMode) => onChange({ stdioMessageMode: stdioMessageMode as McpServerDraft["stdioMessageMode"] })}
                       options={stdioMessageModeOptions}
@@ -866,9 +859,9 @@ function ToolHubMcpServerDialog({
                     />
                   </Field>
                 </div>
-                <Field label={t("Environment variables")}>
+                <Field label="Environment variables">
                   <KeyValueRowsControl
-                    addLabel={t("Add variable")}
+                    addLabel="Add variable"
                     onChange={(envRows) => onChange({ envRows })}
                     rows={draft.envRows}
                   />
@@ -876,20 +869,20 @@ function ToolHubMcpServerDialog({
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3">
-                <Field label={t("URL")}>
+                <Field label="URL">
                   <Input onChange={(event) => onChange({ url: event.target.value })} value={draft.url} />
                 </Field>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label={t("API key")}>
+                  <Field label="API key">
                     <Input autoComplete="off" onChange={(event) => onChange({ apiKey: event.target.value })} type="password" value={draft.apiKey} />
                   </Field>
-                  <Field label={t("API key env")}>
+                  <Field label="API key env">
                     <Input onChange={(event) => onChange({ apiKeyEnv: event.target.value })} value={draft.apiKeyEnv} />
                   </Field>
                 </div>
-                <Field label={t("Headers")}>
+                <Field label="Headers">
                   <KeyValueRowsControl
-                    addLabel={t("Add variable")}
+                    addLabel="Add variable"
                     onChange={(headerRows) => onChange({ headerRows })}
                     rows={draft.headerRows}
                   />
@@ -897,25 +890,25 @@ function ToolHubMcpServerDialog({
               </div>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label={t("Request timeout")}>
+              <Field label="Request timeout">
                 <Input onChange={(event) => onChange({ requestTimeoutMs: event.target.value })} type="number" value={draft.requestTimeoutMs} />
               </Field>
-              <Field label={t("Startup timeout")}>
+              <Field label="Startup timeout">
                 <Input onChange={(event) => onChange({ startupTimeoutMs: event.target.value })} type="number" value={draft.startupTimeoutMs} />
               </Field>
             </div>
             {error ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">{t(error)}</div>
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">{error}</div>
             ) : null}
           </div>
         </DialogBody>
         <DialogFooter>
           <Button onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button onClick={onSubmit} type="button">
             <Plus className="h-4 w-4" />
-            {mode === "add" ? t("Add") : t("Save")}
+            {mode === "add" ? "Add" : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -938,22 +931,21 @@ function ToolHubMcpJsonDialog({
   open: boolean;
   value: string;
 }) {
-  const t = useAppText();
 
   return (
     <Dialog className="z-[110]" onOpenChange={(nextOpen) => !nextOpen && onClose()} open={open}>
       <DialogContent className="max-w-[760px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Import MCP JSON")}</DialogTitle>
+            <DialogTitle>Import MCP JSON</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
         <DialogBody>
           <div className="grid grid-cols-1 gap-3">
-            <Field label={t("MCP JSON")}>
+            <Field label="MCP JSON">
               <Textarea
                 className="min-h-[260px] font-mono text-[12px]"
                 onChange={(event) => onChange(event.target.value)}
@@ -971,16 +963,16 @@ function ToolHubMcpJsonDialog({
               />
             </Field>
             {error ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">{t(error)}</div>
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">{error}</div>
             ) : null}
           </div>
         </DialogBody>
         <DialogFooter>
           <Button onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button onClick={onSubmit} type="button">
-            {t("Import")}
+            Import
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1129,7 +1121,6 @@ function DataSettingsSection({
   appInfo: AppInfo;
   copy: AppCopy;
 }) {
-  const t = (value: string) => copy.text[value] ?? value;
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const [exportedFile, setExportedFile] = useState("");
@@ -1139,7 +1130,7 @@ function DataSettingsSection({
       return;
     }
     if (!window.ccr?.exportData) {
-      setError(t("Data export is only available in the Electron app."));
+      setError("Data export is only available in the Electron app.");
       return;
     }
     setExporting(true);
@@ -1151,7 +1142,7 @@ function DataSettingsSection({
         setExportedFile(result.file || "");
       }
     } catch (exportError) {
-      setError(formatAppError(copy, exportError));
+      setError(formatAppError(exportError));
     } finally {
       setExporting(false);
     }
@@ -1164,11 +1155,11 @@ function DataSettingsSection({
       </div>
 
       <div className="grid gap-2 rounded-md border border-border bg-background p-3">
-        <DataPathRow label={t("Config database")} value={appInfo.configDbFile} />
-        <DataPathRow label={t("Request log database")} value={appInfo.requestLogsDbFile} />
-        <DataPathRow label={t("Usage database")} value={appInfo.usageDbFile} />
+        <DataPathRow label="Config database" value={appInfo.configDbFile} />
+        <DataPathRow label="Request log database" value={appInfo.requestLogsDbFile} />
+        <DataPathRow label="Usage database" value={appInfo.usageDbFile} />
         {appInfo.modelCatalogRefreshError ? (
-          <DataPathRow label={t("Model catalog")} value={`${t("Using local copy; CDN refresh failed:")} ${appInfo.modelCatalogRefreshError}`} />
+          <DataPathRow label="Model catalog" value={`Using local copy; CDN refresh failed: ${appInfo.modelCatalogRefreshError}`} />
         ) : null}
       </div>
 
@@ -1178,19 +1169,19 @@ function DataSettingsSection({
             <Database className="h-4 w-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold text-foreground">{t("Export data")}</div>
+            <div className="text-[13px] font-semibold text-foreground">Export data</div>
             <div className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
-              {t("Export current configuration and SQLite data into a single JSON backup file. The export contains API keys and should be stored securely.")}
+              Export current configuration and SQLite data into a single JSON backup file. The export contains API keys and should be stored securely.
             </div>
           </div>
           <Button disabled={exporting} onClick={exportData} size="sm" type="button">
             {exporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-            {exporting ? t("Exporting") : t("Export")}
+            {exporting ? "Exporting" : "Export"}
           </Button>
         </div>
         {exportedFile ? (
           <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
-            <span className="font-medium">{t("Exported")}:</span> <span className="break-all">{exportedFile}</span>
+            <span className="font-medium">Exported:</span> <span className="break-all">{exportedFile}</span>
           </div>
         ) : null}
         {error ? (
@@ -1231,7 +1222,6 @@ function BotSettingsPage({
   onChange: (configs: BotGatewaySavedConfig[]) => void;
   profiles: ProfileConfig[];
 }) {
-  const t = (value: string) => copy.text[value] ?? value;
   const [editor, setEditor] = useState<{ config?: BotGatewaySavedConfig; mode: "add" | "edit" }>();
   const [deleteTarget, setDeleteTarget] = useState<BotGatewaySavedConfig>();
   const lastAddRequestKey = useRef(0);
@@ -1265,17 +1255,17 @@ function BotSettingsPage({
       <div className="flex min-w-0 items-center justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[15px] font-semibold text-foreground">{copy.settings.bots}</h3>
-          <div className="mt-1 text-[12px] text-muted-foreground">{t("Manage bots used by agent profiles.")}</div>
+          <div className="mt-1 text-[12px] text-muted-foreground">Manage bots used by agent profiles.</div>
         </div>
         <Button onClick={() => setEditor({ mode: "add" })} size="sm" type="button">
-          {t("Add bot")}
+          Add bot
         </Button>
       </div>
 
       <div className="grid gap-2">
         {botConfigs.length === 0 ? (
           <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-8 text-center text-[12px] text-muted-foreground">
-            {t("No bots configured")}
+            No bots configured
           </div>
         ) : null}
         {botConfigs.map((config) => {
@@ -1285,17 +1275,17 @@ function BotSettingsPage({
               <div className="min-w-0">
                 <div className="truncate text-[13px] font-semibold text-foreground">{config.name}</div>
                 <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                  {t(botGatewayPlatformLabel(config.botGateway.platform))}
-                  {config.botGateway.authType ? ` / ${t(authMethodLabel(config.botGateway.platform, config.botGateway.authType))}` : ""}
-                  {usedByProfiles.length > 0 ? ` · ${botUsageCountLabel(usedByProfiles.length, t)}` : ""}
+                  {botGatewayPlatformLabel(config.botGateway.platform)}
+                  {config.botGateway.authType ? ` / ${authMethodLabel(config.botGateway.platform, config.botGateway.authType)}` : ""}
+                  {usedByProfiles.length > 0 ? ` · ${botUsageCountLabel(usedByProfiles.length)}` : ""}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <Button onClick={() => setEditor({ config, mode: "edit" })} size="sm" type="button" variant="outline">
-                  {t("Edit")}
+                  Edit
                 </Button>
                 <Button onClick={() => setDeleteTarget(config)} size="sm" type="button" variant="outline">
-                  {t("Delete")}
+                  Delete
                 </Button>
               </div>
             </div>
@@ -1330,14 +1320,14 @@ function botConfigUsageProfiles(config: BotGatewaySavedConfig, profiles: Profile
   return profiles.filter((profile) => profile.botConfigId === config.id);
 }
 
-function botUsageProfileLabel(profile: ProfileConfig, t: (value: string) => string): string {
-  const agent = t(profileAgentLabel(profile.agent));
+function botUsageProfileLabel(profile: ProfileConfig): string {
+  const agent = profileAgentLabel(profile.agent);
   const name = profile.name.trim();
   return name && name !== agent ? `${agent} / ${name}` : agent;
 }
 
-function botUsageCountLabel(count: number, t: (value: string) => string): string {
-  return t("{count} agent profiles use this bot").replace("{count}", String(count));
+function botUsageCountLabel(count: number): string {
+  return "{count} agent profiles use this bot".replace("{count}", String(count));
 }
 
 function DeleteBotDialog({
@@ -1353,14 +1343,13 @@ function DeleteBotDialog({
   onConfirm: () => void;
   usedByProfiles: ProfileConfig[];
 }) {
-  const t = (value: string) => copy.text[value] ?? value;
   const isBlocked = usedByProfiles.length > 0;
   return (
     <Dialog onOpenChange={(open) => !open && onClose()} open>
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Delete bot")}</DialogTitle>
+            <DialogTitle>Delete bot</DialogTitle>
           </div>
           <Button aria-label={copy.settings.close} onClick={onClose} size="iconSm" title={copy.settings.close} type="button" variant="ghost">
             <X className="h-4 w-4" />
@@ -1370,25 +1359,25 @@ function DeleteBotDialog({
           <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
             <div className="flex items-start gap-2 text-[12px] font-medium text-destructive">
               <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{isBlocked ? t("This bot is being used by the following agents and cannot be deleted.") : t("Delete this bot?")}</span>
+              <span>{isBlocked ? "This bot is being used by the following agents and cannot be deleted." : "Delete this bot?"}</span>
             </div>
             <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
               <div className="truncate" title={config.name}>
-                <span className="font-medium text-foreground">{t("Name")}:</span> {config.name}
+                <span className="font-medium text-foreground">Name:</span> {config.name}
               </div>
               <div className="truncate">
-                <span className="font-medium text-foreground">{t("Platform")}:</span> {t(botGatewayPlatformLabel(config.botGateway.platform))}
+                <span className="font-medium text-foreground">Platform:</span> {botGatewayPlatformLabel(config.botGateway.platform)}
               </div>
               {isBlocked ? (
                 <div className="space-y-1 pt-1">
                   {usedByProfiles.map((profile) => (
-                    <div className="truncate rounded border border-destructive/20 bg-background/70 px-2 py-1 text-foreground" key={profile.id} title={botUsageProfileLabel(profile, t)}>
-                      {botUsageProfileLabel(profile, t)}
+                    <div className="truncate rounded border border-destructive/20 bg-background/70 px-2 py-1 text-foreground" key={profile.id} title={botUsageProfileLabel(profile)}>
+                      {botUsageProfileLabel(profile)}
                     </div>
                   ))}
                 </div>
               ) : (
-                <div>{t("After deletion, this bot data cannot be recovered.")}</div>
+                <div>After deletion, this bot data cannot be recovered.</div>
               )}
             </div>
           </div>
@@ -1401,11 +1390,11 @@ function DeleteBotDialog({
           ) : (
             <>
               <Button autoFocus onClick={onClose} type="button" variant="outline">
-                {t("Cancel")}
+                Cancel
               </Button>
               <Button onClick={onConfirm} type="button" variant="destructive">
                 <Trash2 className="h-4 w-4" />
-                {t("Delete")}
+                Delete
               </Button>
             </>
           )}
@@ -1446,7 +1435,6 @@ function BotConfigDialog({
   onClose: () => void;
   onSave: (config: BotGatewaySavedConfig) => void;
 }) {
-  const t = (value: string) => copy.text[value] ?? value;
   const [draft, setDraft] = useState<BotGatewayConfigDraft>(() => createBotGatewayConfigDraft(config));
   const [error, setError] = useState("");
   const [qrLogin, setQrLogin] = useState<BotQrLoginState>(() => emptyBotQrLoginState());
@@ -1458,8 +1446,8 @@ function BotConfigDialog({
   const authType = normalizeBotGatewayAuthType(platform, draft.botAuthType);
   const authSpecs = botGatewayAuthSpecsForPlatform(platform);
   const authFields = botGatewayFieldsForAuth(platform, authType);
-  const platformOptions = botGatewayPlatformOptions.map((option) => ({ ...option, label: t(option.label) }));
-  const authOptions = authSpecs.map((option) => ({ label: t(option.label), value: option.value }));
+  const platformOptions = botGatewayPlatformOptions;
+  const authOptions = authSpecs.map((option) => ({ label: option.label, value: option.value }));
   const qrLoginSupported = platform === "weixin-ilink" && authType === "qr_login";
   const streamRepliesSupported = platform !== "weixin-ilink";
   const busy = saving || qrLogin.loading;
@@ -1494,7 +1482,7 @@ function BotConfigDialog({
       return;
     }
     if (!isBotGatewayConfigDraftSubmittable(draft)) {
-      setError(t("Bot name, platform, and required authentication fields are required."));
+      setError("Bot name, platform, and required authentication fields are required.");
       return;
     }
     const saved = botGatewaySavedConfigFromDraft(draft, botConfigs, config ?? qrLogin.savedConfig);
@@ -1571,12 +1559,12 @@ function BotConfigDialog({
       return undefined;
     }
     if (!window.ccr?.openBotGatewayQrWindow) {
-      throw new Error(t("QR window is available in the Electron app."));
+      throw new Error("QR window is available in the Electron app.");
     }
     return window.ccr.openBotGatewayQrWindow({
       scanTimeoutMs: 5 * 60 * 1000,
       sessionId: start.sessionId,
-      title: `${t("Weixin Login")} - ${draft.name.trim() || t("Bot")}`,
+      title: `Weixin Login - ${draft.name.trim() || "Bot"}`,
       url: display.src,
       waitForScan
     });
@@ -1591,7 +1579,7 @@ function BotConfigDialog({
       const start = await startQrLogin(savedConfig, true, generation);
       const display = normalizeBotQrDisplay(start.qrCodeUrl);
       if (display.kind !== "window") {
-        throw new Error(t("Weixin login requires a web login URL."));
+        throw new Error("Weixin login requires a web login URL.");
       }
       const opened = await openQrWindow(start, display, true);
       if (!qrMountedRef.current || generation !== qrStartGenerationRef.current) {
@@ -1599,20 +1587,20 @@ function BotConfigDialog({
         return;
       }
       if (opened?.reason === "timeout") {
-        throw new Error(t("QR scan timed out."));
+        throw new Error("QR scan timed out.");
       }
       if (opened?.reason === "error") {
-        throw new Error(t(opened.message || "QR scan observation failed."));
+        throw new Error(opened.message || "QR scan observation failed.");
       }
       if (display.kind === "window" && opened && !opened.observed) {
-        throw new Error(t("QR scan observation failed."));
+        throw new Error("QR scan observation failed.");
       }
       setQrLogin((current) => current.start?.sessionId === start.sessionId
         ? {
             ...current,
             error: "",
             loading: true,
-            message: t("Weixin login window closed, confirming login status."),
+            message: "Weixin login window closed, confirming login status.",
             status: "scanned"
           }
         : current);
@@ -1621,7 +1609,7 @@ function BotConfigDialog({
       onSave(configWithQrLoginResult(savedConfig, start, wait));
     } catch (error) {
       if (qrMountedRef.current && generation === qrStartGenerationRef.current) {
-        const message = formatAppError(copy, error);
+        const message = formatAppError(error);
         setError(message);
         setQrLogin((current) => ({
           ...current,
@@ -1645,27 +1633,27 @@ function BotConfigDialog({
     generation: number
   ): Promise<BotGatewayQrLoginStartResult> {
     if (!window.ccr?.startBotGatewayQrLogin) {
-      throw new Error(t("QR login is available in the Electron app."));
+      throw new Error("QR login is available in the Electron app.");
     }
 
     setQrLogin((current) => ({
       ...current,
       error: "",
       loading: true,
-      message: t("Preparing Weixin login."),
+      message: "Preparing Weixin login.",
       savedConfig,
       status: "starting"
     }));
     await cancelQrSession();
     if (!qrMountedRef.current || generation !== qrStartGenerationRef.current) {
-      throw new Error(t("QR login canceled."));
+      throw new Error("QR login canceled.");
     }
     const start = await window.ccr.startBotGatewayQrLogin({ config: savedConfig, force });
     if (!qrMountedRef.current || generation !== qrStartGenerationRef.current) {
       if (qrSessionRef.current !== start.sessionId) {
         await discardQrSession(start.sessionId);
       }
-      throw new Error(t("QR login canceled."));
+      throw new Error("QR login canceled.");
     }
     qrSessionRef.current = start.sessionId;
     const display = normalizeBotQrDisplay(start.qrCodeUrl);
@@ -1673,7 +1661,7 @@ function BotConfigDialog({
       display,
       error: "",
       loading: true,
-      message: start.message || t("Scan with Weixin in the opened window."),
+      message: start.message || "Scan with Weixin in the opened window.",
       savedConfig,
       start,
       status: "qr_pending"
@@ -1686,12 +1674,12 @@ function BotConfigDialog({
     generation: number
   ): Promise<BotGatewayQrLoginWaitResult> {
     if (!window.ccr?.waitBotGatewayQrLogin) {
-      throw new Error(t("QR login is available in the Electron app."));
+      throw new Error("QR login is available in the Electron app.");
     }
     while (qrMountedRef.current && generation === qrStartGenerationRef.current) {
       const wait = await window.ccr.waitBotGatewayQrLogin({ sessionId, timeoutMs: 5000 });
       if (!qrMountedRef.current || generation !== qrStartGenerationRef.current) {
-        throw new Error(t("QR login canceled."));
+        throw new Error("QR login canceled.");
       }
       setQrLogin((current) => current.start?.sessionId === sessionId
         ? {
@@ -1707,10 +1695,10 @@ function BotConfigDialog({
         return wait;
       }
       if (isTerminalBotQrLoginStatus(wait.status)) {
-        throw new Error(wait.message || t(botQrLoginStatusLabel(wait.status)));
+        throw new Error(wait.message || botQrLoginStatusLabel(wait.status));
       }
     }
-    throw new Error(t("QR login canceled."));
+    throw new Error("QR login canceled.");
   }
 
   useEffect(() => {
@@ -1730,28 +1718,28 @@ function BotConfigDialog({
     <Dialog onOpenChange={(open) => !open && !busy && onClose()} open>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{mode === "add" ? t("Add bot") : t("Edit bot")}</DialogTitle>
+          <DialogTitle>{mode === "add" ? "Add bot" : "Edit bot"}</DialogTitle>
           <Button aria-label={copy.settings.close} disabled={busy} onClick={onClose} size="iconSm" title={copy.settings.close} type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
         <DialogBody>
           <fieldset className="m-0 grid min-w-0 grid-cols-1 gap-3 border-0 p-0 sm:grid-cols-2" disabled={busy}>
-            <Field className="sm:col-span-2" label={t("Name")}>
+            <Field className="sm:col-span-2" label="Name">
               <Input value={draft.name} onChange={(event) => update({ name: event.target.value })} />
             </Field>
-            <Field label={t("Platform")}>
+            <Field label="Platform">
               <SelectControl onChange={updatePlatform} options={platformOptions} value={platform} />
             </Field>
             {authOptions.length > 0 ? (
-              <Field label={t("Auth method")}>
+              <Field label="Auth method">
                 <SelectControl onChange={updateAuthType} options={authOptions} value={authType} />
               </Field>
             ) : null}
             {authFields.map((field) => (
               <Field
                 key={field.key}
-                label={field.required ? t(field.label) : `${t(field.label)} (${t("Optional")})`}
+                label={field.required ? field.label : `${field.label} (Optional)`}
               >
                 <Input
                   autoComplete="off"
@@ -1767,32 +1755,32 @@ function BotConfigDialog({
                 />
               </Field>
             ))}
-            <Field label={t("Maximum turn time (minutes)")}>
+            <Field label="Maximum turn time (minutes)">
               <Input min="1" max="60" type="number" value={draft.botMaxTurnMinutes} onChange={(event) => update({ botMaxTurnMinutes: event.target.value })} />
             </Field>
-            <Field label={t("Session idle reset (minutes, 0 disables)")}>
+            <Field label="Session idle reset (minutes, 0 disables)">
               <Input min="0" max="43200" type="number" value={draft.botSessionIdleMinutes} onChange={(event) => update({ botSessionIdleMinutes: event.target.value })} />
             </Field>
-            <Field label={t("Long message chunk size")}>
+            <Field label="Long message chunk size">
               <Input min="500" max="20000" type="number" value={draft.botMessageChunkChars} onChange={(event) => update({ botMessageChunkChars: event.target.value })} />
             </Field>
-            <Field label={t("Maximum attachment size (MB)")}>
+            <Field label="Maximum attachment size (MB)">
               <Input min="1" max="100" type="number" value={draft.botMaxAttachmentMb} onChange={(event) => update({ botMaxAttachmentMb: event.target.value })} />
             </Field>
             {streamRepliesSupported ? (
               <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-                <span className="text-[12px] font-medium">{t("Stream replies and progress")}</span>
+                <span className="text-[12px] font-medium">Stream replies and progress</span>
                 <Switch checked={draft.botStreamReplies} onCheckedChange={(checked) => update({ botStreamReplies: checked })} />
               </div>
             ) : null}
             <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-              <span className="text-[12px] font-medium">{t("Send and receive attachments")}</span>
+              <span className="text-[12px] font-medium">Send and receive attachments</span>
               <Switch checked={draft.botMediaEnabled} onCheckedChange={(checked) => update({ botMediaEnabled: checked })} />
             </div>
             <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
               <div>
-                <div className="text-[12px] font-medium">{t("Allow Agent shell tools")}</div>
-                <div className="mt-0.5 text-[11px] text-muted-foreground">{t("Controls Agent tool permission; it does not add a Bot shell command.")}</div>
+                <div className="text-[12px] font-medium">Allow Agent shell tools</div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">Controls Agent tool permission; it does not add a Bot shell command.</div>
               </div>
               <Switch checked={draft.botShellEnabled} onCheckedChange={(checked) => update({ botShellEnabled: checked })} />
             </div>
@@ -1804,10 +1792,10 @@ function BotConfigDialog({
           ) : null}
         </DialogBody>
         <DialogFooter>
-          <Button disabled={busy} onClick={onClose} type="button" variant="outline">{t("Cancel")}</Button>
+          <Button disabled={busy} onClick={onClose} type="button" variant="outline">Cancel</Button>
           <Button disabled={busy} onClick={() => void save()} type="button">
             {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-            {t("Save")}
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1926,7 +1914,6 @@ function TraySettingsPage({
     { label: copy.settings.trayIconProgress, value: "progress" }
   ];
   const paletteItems = trayWidgetPalette(copy);
-  const trayT = (value: string) => copy.text[value] ?? value;
   const selectedCategory = selectedWidget ? trayComponentCategoryForType(selectedWidget.type) : "provider-tabs";
   const selectedCategoryOption = paletteItems.find((item) => item.value === selectedCategory) ?? paletteItems[0];
   const selectedStyleOptions = selectedWidget ? trayWidgetVariantOptions(selectedWidget.type) : [];
@@ -2105,7 +2092,7 @@ function TraySettingsPage({
                 <Select
                   onValueChange={changeProgressProvider}
                   options={[
-                    { disabled: true, label: trayT("Select account"), value: "" },
+                    { disabled: true, label: "Select account", value: "" },
                     ...progressAccounts.map((snapshot) => ({ label: snapshot.provider, value: snapshot.provider }))
                   ]}
                   value={progressProviderValue}
@@ -2116,8 +2103,8 @@ function TraySettingsPage({
                   disabled={!progressProvider}
                   onValueChange={changeProgressMeter}
                   options={[
-                    { disabled: true, label: trayT("Select data"), value: "" },
-                    ...progressMeters.map((meter) => ({ label: trayBalanceProgressMeterLabel(meter, trayT), value: meter.id }))
+                    { disabled: true, label: "Select data", value: "" },
+                    ...progressMeters.map((meter) => ({ label: trayBalanceProgressMeterLabel(meter), value: meter.id }))
                   ]}
                   value={progressMeterValue}
                 />
@@ -2247,14 +2234,14 @@ function TraySettingsPage({
                 <Field label={copy.settings.trayComponentStyle}>
                   <SelectControl
                     onChange={(value) => changeTrayWidgetVariant(value as TrayWidgetVariant)}
-                    options={selectedStyleOptions.map((option) => ({ ...option, label: trayT(option.label) }))}
+                    options={selectedStyleOptions}
                     value={selectedWidget.variant ?? defaultTrayWidgetVariant(selectedWidget.type) ?? ""}
                   />
                 </Field>
               ) : null}
 
               {selectedWidget.type === "account" ? (
-                <Field label={trayT("Accounts")}>
+                <Field label="Accounts">
                   <TrayAccountDataSelector
                     options={accountDataOptions}
                     value={selectedAccountProviderValues}
@@ -2264,12 +2251,12 @@ function TraySettingsPage({
               ) : null}
 
               <Button className="w-full justify-center" onClick={removeSelectedTrayWidget} size="sm" type="button" variant="outline">
-                {trayT("Remove widget")}
+                Remove widget
               </Button>
             </div>
             ) : (
               <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-8 text-center text-[12px] text-muted-foreground">
-                {trayT("No widget selected")}
+                No widget selected
               </div>
             )}
           </div>
@@ -2292,14 +2279,13 @@ type TrayWidgetPaletteItem = {
 };
 
 function trayWidgetPalette(copy: AppCopy): TrayWidgetPaletteItem[] {
-  const t = (value: string) => copy.text[value] ?? value;
 
   return [
     {
       dataOptions: [{ label: copy.settings.trayModuleSourceTabs, value: "source-tabs" }],
       description: copy.settings.trayModuleSourceTabs,
       icon: Layers3,
-      label: t("Provider component"),
+      label: "Provider component",
       repeatable: false,
       template: { id: "source-tabs", type: "source-tabs" },
       value: "provider-tabs"
@@ -2308,7 +2294,7 @@ function trayWidgetPalette(copy: AppCopy): TrayWidgetPaletteItem[] {
       dataOptions: [{ label: copy.settings.trayModuleHeader, value: "header" }],
       description: copy.settings.trayModuleHeader,
       icon: PanelLeftOpen,
-      label: t("Header component"),
+      label: "Header component",
       repeatable: false,
       template: { id: "header", type: "header" },
       value: "header"
@@ -2317,7 +2303,7 @@ function trayWidgetPalette(copy: AppCopy): TrayWidgetPaletteItem[] {
       dataOptions: [{ label: copy.settings.trayModuleAccount, value: "account" }],
       description: copy.settings.trayModuleAccount,
       icon: Database,
-      label: t("Account component"),
+      label: "Account component",
       repeatable: true,
       template: { id: "account", type: "account", variant: defaultTrayWidgetVariant("account") },
       value: "account"
@@ -2326,7 +2312,7 @@ function trayWidgetPalette(copy: AppCopy): TrayWidgetPaletteItem[] {
       dataOptions: [{ label: copy.settings.trayModuleTokenFlow, value: "token-flow" }],
       description: copy.settings.trayModuleTokenFlow,
       icon: Activity,
-      label: t("Trend component"),
+      label: "Trend component",
       repeatable: true,
       template: { id: "token-flow", type: "token-flow", variant: defaultTrayWidgetVariant("token-flow") },
       value: "trend"
@@ -2335,7 +2321,7 @@ function trayWidgetPalette(copy: AppCopy): TrayWidgetPaletteItem[] {
       dataOptions: [{ label: copy.settings.trayModuleActivity, value: "activity" }],
       description: copy.settings.trayModuleActivity,
       icon: Activity,
-      label: t("Activity component"),
+      label: "Activity component",
       repeatable: true,
       template: { id: "activity", type: "activity" },
       value: "activity"
@@ -2344,7 +2330,7 @@ function trayWidgetPalette(copy: AppCopy): TrayWidgetPaletteItem[] {
       dataOptions: [{ label: copy.settings.trayModuleStats, value: "stats" }],
       description: copy.settings.trayModuleStats,
       icon: Gauge,
-      label: t("Metric component"),
+      label: "Metric component",
       repeatable: true,
       template: { id: "stats", type: "stats", variant: defaultTrayWidgetVariant("stats") },
       value: "metrics"
@@ -2355,9 +2341,9 @@ function trayWidgetPalette(copy: AppCopy): TrayWidgetPaletteItem[] {
         { label: copy.settings.trayModuleRings, value: "rings" },
         { label: copy.settings.trayModuleModelShare, value: "model-share" }
       ],
-      description: t("Token mix, rings, model share"),
+      description: "Token mix, rings, model share",
       icon: Boxes,
-      label: t("Breakdown component"),
+      label: "Breakdown component",
       repeatable: true,
       template: { id: "token-mix", type: "token-mix", variant: defaultTrayWidgetVariant("token-mix") },
       value: "breakdown"
@@ -2431,7 +2417,6 @@ function TrayAccountDataSelector({
   options: Array<{ label: string; value: string }>;
   value: string[];
 }) {
-  const t = useAppText();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const selected = new Set(value);
@@ -2441,10 +2426,10 @@ function TrayAccountDataSelector({
     .filter((option) => selected.has(option.value))
     .map((option) => option.label);
   const summary = allSelected
-    ? t("All accounts")
+    ? "All accounts"
     : selected.size === 1
-      ? selectedLabels[0] ?? value[0] ?? t("Select account")
-      : `${selected.size} ${t("accounts selected")}`;
+      ? selectedLabels[0] ?? value[0] ?? "Select account"
+      : `${selected.size} accounts selected`;
 
   useEffect(() => {
     if (!open) {
@@ -2500,7 +2485,7 @@ function TrayAccountDataSelector({
         >
           <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors hover:bg-muted/50">
             <Checkbox checked={allSelected} onCheckedChange={(checked) => checked ? onChange([]) : undefined} />
-            <span className="min-w-0 flex-1 truncate">{t("All accounts")}</span>
+            <span className="min-w-0 flex-1 truncate">All accounts</span>
           </label>
           <div className="my-1 h-px bg-border/70" />
           {accountOptions.length > 0 ? (
@@ -2514,7 +2499,7 @@ function TrayAccountDataSelector({
               </label>
             ))
           ) : (
-            <div className="px-2 py-1.5 text-[12px] text-muted-foreground">{t("No account data configured")}</div>
+            <div className="px-2 py-1.5 text-[12px] text-muted-foreground">No account data configured</div>
           )}
         </div>
       ) : null}
@@ -2659,7 +2644,7 @@ function TrayWindowPreview({
         <div className="flex min-w-0 items-center gap-2">
           <TrayWindowHeaderIcon />
           <div className="min-w-0">
-            <div className="truncate text-[12px] font-semibold text-slate-50">88.4k {trayPreviewText(copy, "tokens", "tokens")}</div>
+            <div className="truncate text-[12px] font-semibold text-slate-50">88.4k tokens</div>
             <div className="truncate text-[10px] font-medium text-slate-400">{productShortName}</div>
           </div>
         </div>
@@ -2770,17 +2755,17 @@ function TrayPreviewWidget({
 }) {
   let content: ReactNode;
   if (widget.type === "source-tabs") {
-    content = <TrayPreviewSourceTabs copy={copy} />;
+    content = <TrayPreviewSourceTabs />;
   } else if (widget.type === "header") {
     content = <TrayPreviewHeader copy={copy} />;
   } else if (widget.type === "account") {
-    content = <TrayPreviewAccount copy={copy} title={copy.settings.trayModuleAccount} variant={(widget.variant ?? defaultTrayWidgetVariant("account")) as TrayComponentVariants["account"]} />;
+    content = <TrayPreviewAccount title={copy.settings.trayModuleAccount} variant={(widget.variant ?? defaultTrayWidgetVariant("account")) as TrayComponentVariants["account"]} />;
   } else if (widget.type === "token-flow") {
-    content = <TrayPreviewTokenFlow copy={copy} title={copy.settings.trayModuleTokenFlow} variant={(widget.variant ?? defaultTrayWidgetVariant("token-flow")) as TrayComponentVariants["tokenFlow"]} />;
+    content = <TrayPreviewTokenFlow title={copy.settings.trayModuleTokenFlow} variant={(widget.variant ?? defaultTrayWidgetVariant("token-flow")) as TrayComponentVariants["tokenFlow"]} />;
   } else if (widget.type === "activity") {
     content = <TrayPreviewActivity copy={copy} />;
   } else if (widget.type === "stats") {
-    content = <TrayPreviewStats copy={copy} variant={(widget.variant ?? defaultTrayWidgetVariant("stats")) as TrayComponentVariants["stats"]} />;
+    content = <TrayPreviewStats variant={(widget.variant ?? defaultTrayWidgetVariant("stats")) as TrayComponentVariants["stats"]} />;
   } else if (widget.type === "token-mix") {
     content = <TrayPreviewTokenMix copy={copy} variant={(widget.variant ?? defaultTrayWidgetVariant("token-mix")) as TrayComponentVariants["tokenMix"]} />;
   } else if (widget.type === "rings") {
@@ -2808,7 +2793,7 @@ function TrayPreviewWidget({
   );
 }
 
-function TrayPreviewSourceTabs({ copy }: { copy: AppCopy }) {
+function TrayPreviewSourceTabs() {
   return (
     <div className="grid min-w-0 grid-cols-4 gap-1.5">
       {["All", "OpenAI", "Claude", "More"].map((label, index) => (
@@ -2819,7 +2804,7 @@ function TrayPreviewSourceTabs({ copy }: { copy: AppCopy }) {
           )}
           key={label}
         >
-          {trayPreviewText(copy, label, label)}
+          {label}
         </div>
       ))}
     </div>
@@ -2832,7 +2817,7 @@ function TrayPreviewHeader({ copy }: { copy: AppCopy }) {
       <div className="min-w-0">
         <div className="truncate text-[13px] font-bold text-slate-50">{copy.settings.trayModuleHeader}</div>
         <div className="mt-0.5 truncate text-[10px] font-medium text-slate-400">
-          {trayPreviewText(copy, "Today", "Today")} - {trayPreviewText(copy, "All providers", "All providers")}
+          Today - All providers
         </div>
       </div>
       <div className="flex shrink-0 rounded-md border border-white/10 bg-slate-900/70 p-0.5">
@@ -2844,7 +2829,7 @@ function TrayPreviewHeader({ copy }: { copy: AppCopy }) {
             )}
             key={range}
           >
-            {trayPreviewText(copy, range, range)}
+            {range}
           </span>
         ))}
       </div>
@@ -2853,24 +2838,22 @@ function TrayPreviewHeader({ copy }: { copy: AppCopy }) {
 }
 
 function TrayPreviewAccount({
-  copy,
   title,
   variant
 }: {
-  copy: AppCopy;
   title: string;
   variant: TrayComponentVariants["account"];
 }) {
   const meters = [
-    { label: trayPreviewText(copy, "Weekly quota", "Weekly quota"), value: "7.8h", progress: 0.62, color: "rgb(45,212,191)" },
-    { label: trayPreviewText(copy, "5h quota", "5h quota"), value: "3.4h", progress: 0.74, color: "rgb(129,140,248)" }
+    { label: "Weekly quota", value: "7.8h", progress: 0.62, color: "rgb(45,212,191)" },
+    { label: "5h quota", value: "3.4h", progress: 0.74, color: "rgb(129,140,248)" }
   ];
 
   return (
     <div className="mb-2 rounded-[8px] border border-white/10 bg-white/[.04] p-2">
       <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
         <div className="truncate text-[11px] font-bold text-slate-100">{title}</div>
-        <span className="shrink-0 rounded-full bg-teal-300/15 px-1.5 py-0.5 text-[9px] font-bold text-teal-100">{trayPreviewText(copy, "ok", "ok")}</span>
+        <span className="shrink-0 rounded-full bg-teal-300/15 px-1.5 py-0.5 text-[9px] font-bold text-teal-100">ok</span>
       </div>
       {variant === "compact" ? (
         <div className="grid grid-cols-2 gap-1.5">
@@ -2920,11 +2903,9 @@ function TrayPreviewAccount({
 }
 
 function TrayPreviewTokenFlow({
-  copy,
   title,
   variant
 }: {
-  copy: AppCopy;
   title: string;
   variant: TrayComponentVariants["tokenFlow"];
 }) {
@@ -2936,7 +2917,7 @@ function TrayPreviewTokenFlow({
     <div className="mb-2 rounded-[8px] border border-white/10 bg-white/[.04] p-2">
       <div className="flex items-center justify-between gap-2">
         <div className="truncate text-[11px] font-bold text-slate-100">{title}</div>
-        <div className="shrink-0 text-[10px] font-medium text-slate-400">42 {trayPreviewText(copy, "Requests", "req")}</div>
+        <div className="shrink-0 text-[10px] font-medium text-slate-400">42 req</div>
       </div>
       <svg aria-hidden="true" className="mt-2 h-16 w-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 260 72">
         {[20, 68, 116, 164, 212].map((x) => (
@@ -2968,7 +2949,6 @@ function TrayPreviewTokenFlow({
 }
 
 function TrayPreviewActivity({ copy }: { copy: AppCopy }) {
-  const t = (value: string) => trayPreviewText(copy, value, value);
   const values = [
     0, 1, 0, 0, 2, 0, 0,
     0, 0, 2, 0, 3, 1, 0,
@@ -2986,7 +2966,7 @@ function TrayPreviewActivity({ copy }: { copy: AppCopy }) {
     { label: "May", weekIndex: 4 },
     { label: "Jun", weekIndex: 8 }
   ];
-  const dayLabels = [t("M"), "", t("W"), "", t("F"), "", ""];
+  const dayLabels = ["M", "", "W", "", "F", "", ""];
   const cellGap = 3;
   const cellSize = 9;
   const labelColumnWidth = 14;
@@ -2995,14 +2975,14 @@ function TrayPreviewActivity({ copy }: { copy: AppCopy }) {
     <div className="min-w-0 rounded-[8px] border border-white/10 bg-white/[.04] p-2">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="truncate text-[11px] font-bold text-slate-100">{copy.settings.trayModuleActivity}</div>
-        <div className="shrink-0 text-[10px] font-medium text-slate-400">{t("Tokens")}</div>
+        <div className="shrink-0 text-[10px] font-medium text-slate-400">Tokens</div>
       </div>
       <div className="mb-2 grid grid-cols-4 gap-px overflow-hidden rounded-[7px] border border-white/8 bg-white/[.08]">
         {[
-          { label: t("Longest streak"), value: "8", unit: t("days") },
-          { label: t("Avg / day"), value: "44K" },
-          { label: t("Avg / week"), value: "309K" },
-          { label: t("Total"), value: "23.1M" }
+          { label: "Longest streak", value: "8", unit: "days" },
+          { label: "Avg / day", value: "44K" },
+          { label: "Avg / week", value: "309K" },
+          { label: "Total", value: "23.1M" }
         ].map((item) => (
           <div className="min-w-0 bg-slate-950/35 px-1.5 py-1" key={item.label}>
             <div className="truncate text-[8px] font-semibold text-slate-400">{item.label}</div>
@@ -3053,11 +3033,11 @@ function TrayPreviewActivity({ copy }: { copy: AppCopy }) {
         </div>
       </div>
       <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-slate-400">
-        <span>{t("Less")}</span>
+        <span>Less</span>
         {[0, 1, 2, 3, 4].map((value) => (
           <span aria-hidden="true" className="h-2.5 w-2.5 rounded-[3px]" key={value} style={{ backgroundColor: previewActivityColor(value) }} />
         ))}
-        <span>{t("More")}</span>
+        <span>More</span>
       </div>
     </div>
   );
@@ -3072,17 +3052,15 @@ function previewActivityColor(value: number): string {
 }
 
 function TrayPreviewStats({
-  copy,
   variant
 }: {
-  copy: AppCopy;
   variant: TrayComponentVariants["stats"];
 }) {
   const stats = [
-    { label: trayPreviewText(copy, "Input", "Input"), value: "41k" },
-    { label: trayPreviewText(copy, "Output", "Output"), value: "19k" },
-    { label: trayPreviewText(copy, "Cache read", "Cache read"), value: "28k" },
-    { label: trayPreviewText(copy, "Success", "Success"), value: "99%" }
+    { label: "Input", value: "41k" },
+    { label: "Output", value: "19k" },
+    { label: "Cache read", value: "28k" },
+    { label: "Success", value: "99%" }
   ];
 
   if (variant === "compact") {
@@ -3130,9 +3108,9 @@ function TrayPreviewTokenMix({
   variant: TrayComponentVariants["tokenMix"];
 }) {
   const bars = [
-    { label: trayPreviewText(copy, "Input", "Input"), percent: 0.46, value: "46%", className: "bg-blue-400", color: "rgb(96,165,250)" },
-    { label: trayPreviewText(copy, "Output", "Output"), percent: 0.28, value: "28%", className: "bg-amber-300", color: "rgb(252,211,77)" },
-    { label: trayPreviewText(copy, "Cache read", "Cache read"), percent: 0.26, value: "26%", className: "bg-rose-300", color: "rgb(253,164,175)" }
+    { label: "Input", percent: 0.46, value: "46%", className: "bg-blue-400", color: "rgb(96,165,250)" },
+    { label: "Output", percent: 0.28, value: "28%", className: "bg-amber-300", color: "rgb(252,211,77)" },
+    { label: "Cache read", percent: 0.26, value: "26%", className: "bg-rose-300", color: "rgb(253,164,175)" }
   ];
 
   return (
@@ -3412,10 +3390,6 @@ function trayBalanceMeterProgress(meter: ProviderAccountMeter): number {
   return rawValue > 0 ? 1 : 0;
 }
 
-function trayBalanceProgressMeterLabel(meter: ProviderAccountMeter, t: (value: string) => string): string {
-  return `${t(meter.label)} - ${formatProviderAccountMeterValue(meter)}`;
-}
-
-function trayPreviewText(copy: AppCopy, key: string, fallback: string): string {
-  return copy.text[key] ?? fallback;
+function trayBalanceProgressMeterLabel(meter: ProviderAccountMeter): string {
+  return `${meter.label} - ${formatProviderAccountMeterValue(meter)}`;
 }

@@ -1,6 +1,6 @@
 import {
   defaultTrayWidgetVariant, formatCompactNumber, formatDuration, formatPercent, formatProviderName, ProviderAccountSnapshot, rangeLabel,
-  TrayComponentVariants, TrayWidgetConfig, UsageStatsRange, UsageStatsSnapshot, useTrayText
+  TrayComponentVariants, TrayWidgetConfig, UsageStatsRange, UsageStatsSnapshot
 } from "../shared";
 import { AccountSummaryPanel } from "./account-panel";
 import { AnimatedUsageChart, ChartShell, ModelShareChart, RangeSwitch, RingMetrics, StatsGrid, TokenActivityPanel, TokenMixPanel } from "./widgets";
@@ -24,7 +24,6 @@ export function UsageDetailPanel({
   onRefreshAccount?: () => void | Promise<void>;
   onRangeChange: (range: UsageStatsRange) => void;
 }) {
-  const t = useTrayText();
   const totals = activeStats.totals;
   const hasDetailModule = widgets.some((widget) => widget.type !== "source-tabs");
 
@@ -39,8 +38,8 @@ export function UsageDetailPanel({
             return (
               <div className="tray-panel flex min-w-0 items-start justify-between gap-2 px-3 py-2.5" key={`${widget.id}-${index}`}>
                 <div className="min-w-0">
-                  <h2 className="truncate text-[13px] font-bold text-slate-50">{t("Usage Detail")}</h2>
-                  <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400">{rangeLabel(range, t)} - {provider ? formatProviderName(provider) : t("All providers")}</p>
+                  <h2 className="truncate text-[13px] font-bold text-slate-50">Usage Detail</h2>
+                  <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400">{rangeLabel(range)} - {provider ? formatProviderName(provider) : "All providers"}</p>
                 </div>
                 <RangeSwitch range={range} onChange={onRangeChange} />
               </div>
@@ -50,10 +49,10 @@ export function UsageDetailPanel({
             return (
               <StatsGrid
                 items={[
-                  { label: `${rangeLabel(range, t)} ${t("tokens")}`, value: formatCompactNumber(totals.totalTokens) },
-                  { label: `${rangeLabel(range, t)} ${t("requests")}`, value: formatCompactNumber(totals.requestCount) },
-                  { label: t("Avg latency"), value: formatDuration(totals.avgDurationMs) },
-                  { label: t("Success rate"), value: formatPercent(totals.successRate) }
+                  { label: `${rangeLabel(range)} tokens`, value: formatCompactNumber(totals.totalTokens) },
+                  { label: `${rangeLabel(range)} requests`, value: formatCompactNumber(totals.requestCount) },
+                  { label: "Avg latency", value: formatDuration(totals.avgDurationMs) },
+                  { label: "Success rate", value: formatPercent(totals.successRate) }
                 ]}
                 key={`${widget.id}-${index}`}
                 variant={(widget.variant ?? defaultTrayWidgetVariant("stats")) as TrayComponentVariants["stats"]}
@@ -65,7 +64,7 @@ export function UsageDetailPanel({
           }
           if (widget.type === "token-flow") {
             return (
-              <ChartShell key={`${widget.id}-${index}`} meta={`${formatCompactNumber(totals.requestCount)} ${t("requests")}`} title={t("Token Flow")}>
+              <ChartShell key={`${widget.id}-${index}`} meta={`${formatCompactNumber(totals.requestCount)} requests`} title="Token Flow">
                 <AnimatedUsageChart chartId={`detail-flow-${index}`} series={activeStats.series} variant={(widget.variant ?? defaultTrayWidgetVariant("token-flow")) as TrayComponentVariants["tokenFlow"]} />
               </ChartShell>
             );
@@ -84,7 +83,7 @@ export function UsageDetailPanel({
       </div>
       {!hasDetailModule ? (
         <div className="tray-panel-subtle flex min-h-[260px] items-center justify-center px-4 text-center text-[12px] font-medium text-slate-400">
-          {t("No tray modules enabled")}
+          No tray modules enabled
         </div>
       ) : null}
     </>

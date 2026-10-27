@@ -245,9 +245,9 @@ export function formatToolCounts(values: Array<{ count: number; name: string }>)
   return values.map((item) => `${item.name} x${item.count}`).join(", ");
 }
 
-export function rangeLabel(range: UsageStatsRange, translate: (value: string) => string): string {
+export function rangeLabel(range: UsageStatsRange): string {
   if (range === "today") {
-    return translate("Today");
+    return "Today";
   }
-  return translate(range);
+  return range;
 }

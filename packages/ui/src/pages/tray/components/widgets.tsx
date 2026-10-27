@@ -1,12 +1,11 @@
 import {
   buildChartGeometry, formatCompactNumber, formatPercent, rangeLabel, ranges, ReactNode,
-  TrayComponentVariants, UsageComparisonRow, UsageStatsRange, UsageStatsSnapshot, UsageTotals, useTrayText
+  TrayComponentVariants, UsageComparisonRow, UsageStatsRange, UsageStatsSnapshot, UsageTotals
 } from "../shared";
 import { useEffect, useRef, useState } from "react";
 import { Tooltip } from "@/components/ui/tooltip";
 import { buildTokenActivity, type TokenActivityCell } from "../../../lib/usage-activity";
 export function RangeSwitch({ range, onChange }: { range: UsageStatsRange; onChange: (range: UsageStatsRange) => void }) {
-  const t = useTrayText();
 
   return (
     <div className="tray-segmented flex">
@@ -18,7 +17,7 @@ export function RangeSwitch({ range, onChange }: { range: UsageStatsRange; onCha
           type="button"
           onClick={() => onChange(item)}
         >
-          {rangeLabel(item, t)}
+          {rangeLabel(item)}
         </button>
       ))}
     </div>
@@ -96,14 +95,13 @@ export function AnimatedUsageChart({
   series: UsageStatsSnapshot["series"];
   variant: TrayComponentVariants["tokenFlow"];
 }) {
-  const t = useTrayText();
   const maxValue = Math.max(...series.map((point) => Math.max(point.totalTokens, point.cacheTokens)), 1);
   const tokenGeometry = buildChartGeometry(series, (point) => point.totalTokens, maxValue);
   const cacheGeometry = buildChartGeometry(series, (point) => point.cacheTokens, maxValue);
 
   return (
     <div className="min-w-0">
-      <svg className="mt-2 h-16 w-full overflow-visible" preserveAspectRatio="none" role="img" viewBox="0 0 260 72" aria-label={t("Usage chart")}>
+      <svg className="mt-2 h-16 w-full overflow-visible" preserveAspectRatio="none" role="img" viewBox="0 0 260 72" aria-label="Usage chart">
         <defs>
           <linearGradient id={`${chartId}-primary-fill`} x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" stopColor="rgba(10,132,255,.32)" />
@@ -153,27 +151,26 @@ export function TokenActivityPanel({
   range?: UsageStatsRange;
   series: UsageStatsSnapshot["series"];
 }) {
-  const t = useTrayText();
   const activity = buildTokenActivity(series, { maxWeeks: 30, minWeeks: 30, now: generatedAt, range });
 
   return (
     <div className="tray-panel min-w-0 p-2.5">
       <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-        <div className="truncate text-[11px] font-bold text-slate-100">{t("Activity")}</div>
-        <div className="shrink-0 text-[10px] font-medium text-slate-400">{t("Tokens")}</div>
+        <div className="truncate text-[11px] font-bold text-slate-100">Activity</div>
+        <div className="shrink-0 text-[10px] font-medium text-slate-400">Tokens</div>
       </div>
 
       <div className="tray-panel-subtle mb-2 grid grid-cols-4 gap-px overflow-hidden">
-        <TokenActivityStat label={t("Longest streak")} value={formatCompactNumber(activity.longestStreak)} unit={t(activity.longestStreak === 1 ? "day" : "days")} />
-        <TokenActivityStat label={t("Avg / day")} value={formatCompactNumber(Math.round(activity.avgPerDay))} />
-        <TokenActivityStat label={t("Avg / week")} value={formatCompactNumber(Math.round(activity.avgPerWeek))} />
-        <TokenActivityStat label={t("Total")} value={formatCompactNumber(activity.totalTokens)} />
+        <TokenActivityStat label="Longest streak" value={formatCompactNumber(activity.longestStreak)} unit={activity.longestStreak === 1 ? "day" : "days"} />
+        <TokenActivityStat label="Avg / day" value={formatCompactNumber(Math.round(activity.avgPerDay))} />
+        <TokenActivityStat label="Avg / week" value={formatCompactNumber(Math.round(activity.avgPerWeek))} />
+        <TokenActivityStat label="Total" value={formatCompactNumber(activity.totalTokens)} />
       </div>
 
       <TokenActivityGrid activity={activity} />
 
       <div className="mt-2 flex min-w-0 items-center gap-1.5 text-[10px] font-medium text-slate-400">
-        <span>{t("Less")}</span>
+        <span>Less</span>
         {[0, 1, 2, 3, 4].map((intensity) => (
           <span
             aria-hidden="true"
@@ -182,7 +179,7 @@ export function TokenActivityPanel({
             style={{ backgroundColor: trayActivityColor(intensity as TokenActivityCell["intensity"], true) }}
           />
         ))}
-        <span>{t("More")}</span>
+        <span>More</span>
       </div>
     </div>
   );
@@ -213,12 +210,11 @@ function TokenActivityGrid({
 }: {
   activity: ReturnType<typeof buildTokenActivity>;
 }) {
-  const t = useTrayText();
   const gridFrameRef = useRef<HTMLDivElement>(null);
   const gridFrameSize = useMeasuredElementSize(gridFrameRef);
   const monthLabelRef = useRef<HTMLDivElement>(null);
   const monthLabelSize = useMeasuredElementSize(monthLabelRef);
-  const dayLabels = [t("M"), "", t("W"), "", t("F"), "", ""];
+  const dayLabels = ["M", "", "W", "", "F", "", ""];
   const cellGap = 3;
   const labelColumnWidth = 14;
   // Reserve the month label row's measured height plus its `mb-1` margin: a hard-coded
@@ -263,7 +259,7 @@ function TokenActivityGrid({
           <div
             className="grid"
             role="img"
-            aria-label={`${t("Activity")} ${t("Tokens")}`}
+            aria-label={`Activity Tokens`}
             style={{
               gap: `${cellGap}px`,
               gridTemplateColumns,
@@ -281,13 +277,13 @@ function TokenActivityGrid({
             ))}
             {activity.cells.map((cell) => (
               <Tooltip
-                aria-label={`${cell.dateLabel}: ${formatActivityTokenCount(cell.totalTokens)} ${t("tokens")}`}
+                aria-label={`${cell.dateLabel}: ${formatActivityTokenCount(cell.totalTokens)} tokens`}
                 align={cell.weekIndex <= 1 ? "start" : cell.weekIndex >= activity.weekCount - 2 ? "end" : "center"}
                 className="rounded-[3px]"
                 content={(
                   <>
                     <span className="block font-bold">{cell.dateLabel}</span>
-                    <span className="tray-activity-tooltip-detail mt-0.5 block font-medium">{formatActivityTokenCount(cell.totalTokens)} {t("tokens")}</span>
+                    <span className="tray-activity-tooltip-detail mt-0.5 block font-medium">{formatActivityTokenCount(cell.totalTokens)} tokens</span>
                   </>
                 )}
                 contentClassName="tray-activity-tooltip min-w-[96px] px-2 py-1.5 text-left text-[10px] font-normal"
@@ -399,17 +395,16 @@ export function TokenMixPanel({
   totals: UsageTotals;
   variant: TrayComponentVariants["tokenMix"];
 }) {
-  const t = useTrayText();
   const rows = [
-    { className: "bg-[#0a84ff]", color: "rgb(10,132,255)", label: t("Input"), value: totals.inputTokens },
-    { className: "bg-[#ff9f0a]", color: "rgb(255,159,10)", label: t("Output"), value: totals.outputTokens },
-    { className: "bg-[#bf5af2]", color: "rgb(191,90,242)", label: t("Cache"), value: totals.cacheTokens }
+    { className: "bg-[#0a84ff]", color: "rgb(10,132,255)", label: "Input", value: totals.inputTokens },
+    { className: "bg-[#ff9f0a]", color: "rgb(255,159,10)", label: "Output", value: totals.outputTokens },
+    { className: "bg-[#bf5af2]", color: "rgb(191,90,242)", label: "Cache", value: totals.cacheTokens }
   ];
   const max = Math.max(...rows.map((row) => row.value), 1);
 
   return (
     <div className="tray-panel min-w-0 p-2.5">
-      <div className="mb-2 truncate text-[11px] font-bold text-slate-100">{t("Token Mix")}</div>
+      <div className="mb-2 truncate text-[11px] font-bold text-slate-100">Token Mix</div>
       {variant === "donut" || variant === "pie" ? (
         <div className="grid grid-cols-[64px_minmax(0,1fr)] items-center gap-2">
           <ShareChart rows={rows} variant={variant} />
@@ -454,15 +449,14 @@ export function RingMetrics({
   totals: UsageTotals;
   variant: TrayComponentVariants["rings"];
 }) {
-  const t = useTrayText();
   const successRequests = Math.round(totals.requestCount * Math.max(0, Math.min(1, totals.successRate)));
 
   return (
     <div className="tray-panel min-w-0 p-2.5">
-      <div className="mb-2 truncate text-[11px] font-bold text-slate-100">{t("Circular metrics")}</div>
+      <div className="mb-2 truncate text-[11px] font-bold text-slate-100">Circular metrics</div>
       <div className="grid grid-cols-2 gap-2">
-        <RingMetric centerUnit={t("requests")} centerValue={formatCompactNumber(successRequests)} label={t("Success")} value={totals.successRate} variant={variant} />
-        <RingMetric centerUnit={t("tokens")} centerValue={formatCompactNumber(totals.cacheTokens)} label={t("Cache")} value={totals.cacheRatio} variant={variant} />
+        <RingMetric centerUnit="requests" centerValue={formatCompactNumber(successRequests)} label="Success" value={totals.successRate} variant={variant} />
+        <RingMetric centerUnit="tokens" centerValue={formatCompactNumber(totals.cacheTokens)} label="Cache" value={totals.cacheRatio} variant={variant} />
       </div>
     </div>
   );
@@ -507,12 +501,11 @@ export function ModelShareChart({
   rows: UsageComparisonRow[];
   variant: TrayComponentVariants["modelShare"];
 }) {
-  const t = useTrayText();
 
   if (rows.length === 0) {
     return (
     <div className="tray-panel-subtle mb-2 px-3 py-8 text-center text-[12px] font-medium text-slate-400">
-        {t("No usage captured yet")}
+        No usage captured yet
       </div>
     );
   }
@@ -526,7 +519,7 @@ export function ModelShareChart({
 
   return (
     <div className="tray-panel mb-2 min-w-0 p-2.5">
-      <div className="mb-2 truncate text-[11px] font-bold text-slate-100">{t("Model Share")}</div>
+      <div className="mb-2 truncate text-[11px] font-bold text-slate-100">Model Share</div>
       {variant === "donut" || variant === "pie" ? (
         <div className="grid grid-cols-[64px_minmax(0,1fr)] items-center gap-2">
           <ShareChart rows={chartRows} variant={variant} />

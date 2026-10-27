@@ -268,11 +268,7 @@ import {
   fallbackUpdateStatus
 } from "./fallbacks";
 import {
-  AppI18nContext,
   appCopy,
-  translateOptions,
-  translateText,
-  useAppText,
   type AppCopy
 } from "./i18n";
 import {
@@ -375,11 +371,7 @@ import type { AgentFilterValue, RouterConditionSource } from "./options";
 import type { MotionSafeDivAttributes } from "./motion";
 
 export {
-  AppI18nContext,
-  appCopy,
-  translateOptions,
-  translateText,
-  useAppText
+  appCopy
 };
 export {
   fallbackConfig,

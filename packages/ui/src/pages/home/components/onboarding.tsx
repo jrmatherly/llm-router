@@ -2,7 +2,7 @@ import {
   AddProfileDraft, AddProviderDraft, AppConfig, Button, Check, ChevronLeft,
   ChevronRight, cn, findProviderPreset, GatewayProviderProbeResult, GatewayStatus, Gauge, getNextOnboardingStep,
   isOnboardingProfileReady, isOnboardingProviderReady, Layers3, LucideIcon, mergeProviderModelLists, motion, motionEase,
-  LoaderCircle, onboardingMascotSpriteUrl, OnboardingReadinessOptions, OnboardingStepId, onboardingStepOrder, type ProfileAgentOption, providerDraftHasReadyCredentialPool, ProviderConnectivityCheckReport, reducedMotionTransition, splitLines, useAppText, useEffect, useReducedMotion,
+  LoaderCircle, onboardingMascotSpriteUrl, OnboardingReadinessOptions, OnboardingStepId, onboardingStepOrder, type ProfileAgentOption, providerDraftHasReadyCredentialPool, ProviderConnectivityCheckReport, reducedMotionTransition, splitLines, useEffect, useReducedMotion,
   useState,
   UserRound, X
 } from "../shared/index";
@@ -86,7 +86,6 @@ export function OnboardingView({
   providerProbeLoading: boolean;
   readiness?: OnboardingReadinessOptions;
 }) {
-  const t = useAppText();
   const shouldReduceMotion = useReducedMotion();
   const [providerCheckOpen, setProviderCheckOpen] = useState(false);
   const [providerIconDetecting, setProviderIconDetecting] = useState(false);
@@ -236,7 +235,7 @@ export function OnboardingView({
                     unstyled
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    {t("Back")}
+                    Back
                   </Button>
                 ) : null}
               </div>
@@ -244,8 +243,8 @@ export function OnboardingView({
               <div className="onboarding-step-heading flex min-w-0 shrink-0 flex-col items-center gap-2 text-center">
                 <OnboardingMascotSprite activeStep={activeStep} />
                 <div className="min-w-0">
-                  <h2 className="text-[20px] font-semibold tracking-normal">{t(activeDetails.title)}</h2>
-                  <p className="mt-1 text-[12px] leading-5 text-muted-foreground">{t(activeDetails.description)}</p>
+                  <h2 className="text-[20px] font-semibold tracking-normal">{activeDetails.title}</h2>
+                  <p className="mt-1 text-[12px] leading-5 text-muted-foreground">{activeDetails.description}</p>
                 </div>
               </div>
 
@@ -301,20 +300,20 @@ export function OnboardingView({
                   className={cn("onboarding-step-panel flex min-w-0 flex-1 flex-col gap-3", activeStep === "enter" && "onboarding-step-panel-active")}
                 >
                   <div className="mx-auto flex w-full max-w-[520px] flex-col overflow-hidden rounded-lg border border-border bg-background/70">
-                    <OnboardingStatusRow label={t("Provider")} ready={providerReady} />
-                    <OnboardingStatusRow label={t("Profile")} ready={profileReady} />
-                    <OnboardingStatusRow label={t("Service")} ready={serviceReady} />
-                    <OnboardingDetailRow label={t("Endpoint")} value={endpoint} />
+                    <OnboardingStatusRow label="Provider" ready={providerReady} />
+                    <OnboardingStatusRow label="Profile" ready={profileReady} />
+                    <OnboardingStatusRow label="Service" ready={serviceReady} />
+                    <OnboardingDetailRow label="Endpoint" value={endpoint} />
                   </div>
                   <div className="mt-auto flex flex-wrap items-center justify-center gap-2">
                     {!providerReady ? (
                       <Button onClick={() => onSelectStep("provider")} type="button" variant="outline">
-                        {t("Configure provider")}
+                        Configure provider
                       </Button>
                     ) : null}
                     {providerReady && !profileReady ? (
                       <Button onClick={() => onSelectStep("profile")} type="button" variant="outline">
-                        {t("Connect agent")}
+                        Connect agent
                       </Button>
                     ) : null}
                   </div>
@@ -324,7 +323,7 @@ export function OnboardingView({
               <div className="mt-5 flex shrink-0 items-center justify-end gap-3 border-t border-border/60 pt-4 max-[640px]:items-stretch">
                 <Button disabled={nextDisabled} onClick={() => void goToNextStep()} type="button">
                   {providerSubmitLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : activeStep === "enter" ? <Check className="h-4 w-4" /> : null}
-                  {providerSubmitLoading ? t("Loading") : activeStep === "enter" ? t("Let's start") : t("Next step")}
+                  {providerSubmitLoading ? "Loading" : activeStep === "enter" ? "Let's start" : "Next step"}
                   {!providerSubmitLoading && activeStep !== "enter" ? <ChevronRight className="h-4 w-4" /> : null}
                 </Button>
               </div>
@@ -361,14 +360,13 @@ function OnboardingProgress({
   activeStep: OnboardingStepId;
   providerSetupStep: ProviderSetupStepId;
 }) {
-  const t = useAppText();
   const activeKey = activeStep === "provider" ? providerSetupStep : activeStep;
   const activeIndex = Math.max(0, onboardingProgressItems.findIndex((item) => item.key === activeKey));
   const stepCount = onboardingProgressItems.length;
   const progressWidth = `${((activeIndex + 1) / stepCount) * 100}%`;
 
   return (
-    <div className="relative shrink-0 border-b border-border/60 bg-card/95" aria-label={`${t("Step")} ${activeIndex + 1} / ${stepCount}`}>
+    <div className="relative shrink-0 border-b border-border/60 bg-card/95" aria-label={`Step ${activeIndex + 1} / ${stepCount}`}>
       <div className="mx-auto flex h-11 max-w-[920px] items-center justify-start overflow-x-auto px-3 text-[12px] font-medium sm:justify-center">
         {onboardingProgressItems.map((item, index) => (
           <div className="flex shrink-0 items-center" key={item.key}>
@@ -378,7 +376,7 @@ function OnboardingProgress({
                 index === activeIndex ? "text-foreground" : "text-muted-foreground"
               )}
             >
-              {t(item.label)}
+              {item.label}
             </span>
             {index < stepCount - 1 ? <ChevronRight className="mx-2.5 h-4 w-4 shrink-0 text-muted-foreground/70 max-[560px]:mx-1.5" /> : null}
           </div>

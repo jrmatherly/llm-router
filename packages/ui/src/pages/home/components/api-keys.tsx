@@ -5,8 +5,8 @@ import {
   cn, Copy, copyTextToClipboard, createApiKeyLimitDraftRow, Dialog, DialogBody,
   DialogContent, DialogFooter, DialogHeader, DialogTitle, disclosureSpringTransition, Field,
   formatApiKeyExpiration, formatApiKeyLimits, Input, KeyRound, limitWindowOptions, LimitWindowPreset,
-  motion, Pencil, Plus, Search, SelectControl, translateOptions,
-  Trash2, useAppText, useMemo, useState, X
+  motion, Pencil, Plus, Search, SelectControl,
+  Trash2, useMemo, useState, X
 } from "../shared/index";
 export function ApiKeysView({
   addApiKey,
@@ -23,7 +23,6 @@ export function ApiKeysView({
   notify: (message: string) => void;
   removeApiKey: (index: number) => void;
 }) {
-  const t = useAppText();
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
   const visibleApiKeys = useMemo(
@@ -33,7 +32,7 @@ export function ApiKeysView({
 
   async function copyApiKey(apiKey: ApiKeyListItem) {
     const copied = await copyTextToClipboard(apiKey.keyValue);
-    notify(t(copied ? "Copied API key" : "Copy failed."));
+    notify(copied ? "Copied API key" : "Copy failed.");
   }
 
   return (
@@ -48,16 +47,16 @@ export function ApiKeysView({
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label={t("Search API keys")}
+              aria-label="Search API keys"
               className="pl-8"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search API keys")}
+              placeholder="Search API keys"
               value={query}
             />
           </div>
-          <Button aria-label={t("Add API key")} onClick={addApiKey} title={t("Add API key")} type="button">
+          <Button aria-label="Add API key" onClick={addApiKey} title="Add API key" type="button">
             <Plus className="h-4 w-4" />
-            {t("Add")}
+            Add
           </Button>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 overflow-auto p-0">
@@ -65,21 +64,21 @@ export function ApiKeysView({
           {apiKeys.length === 0 ? (
             <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center">
               <KeyRound className="mx-auto mb-2 h-7 w-7 text-muted-foreground/40" />
-              <div className="text-[12px] text-muted-foreground">{t("No API keys configured")}</div>
-              <div className="mt-1 text-[11px] text-muted-foreground/60">{t("Click Add to create one")}</div>
+              <div className="text-[12px] text-muted-foreground">No API keys configured</div>
+              <div className="mt-1 text-[11px] text-muted-foreground/60">Click Add to create one</div>
             </div>
           ) : null}
           {apiKeys.length > 0 && visibleApiKeys.length === 0 ? (
-            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">{t("No matching API keys")}</div>
+            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">No matching API keys</div>
           ) : null}
           {visibleApiKeys.length > 0 ? (
             <div className="min-w-0">
               <div className="min-w-[980px]">
                 <div className="sticky top-0 z-10 grid h-10 grid-cols-[minmax(140px,0.7fr)_minmax(390px,1.7fr)_132px_minmax(160px,0.7fr)_76px] items-center gap-3 border-b border-border/60 bg-muted/95 px-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  <div className="truncate">{t("Name")}</div>
-                  <div className="truncate">{t("Key")}</div>
-                  <div className="truncate">{t("Expires")}</div>
-                  <div className="truncate">{t("Limits")}</div>
+                  <div className="truncate">Name</div>
+                  <div className="truncate">Key</div>
+                  <div className="truncate">Expires</div>
+                  <div className="truncate">Limits</div>
                   <div aria-hidden="true" />
                 </div>
                 <div className="divide-y divide-border/60">
@@ -97,10 +96,10 @@ export function ApiKeysView({
                           <span className="min-w-0 truncate font-mono">{apiKey.masked}</span>
                           <Button
                             className="shrink-0"
-                            aria-label={t("Copy API key")}
+                            aria-label="Copy API key"
                             onClick={() => void copyApiKey(apiKey)}
                             size="iconSm"
-                            title={t("Copy API key")}
+                            title="Copy API key"
                             type="button"
                             variant="ghost"
                           >
@@ -108,17 +107,17 @@ export function ApiKeysView({
                           </Button>
                         </div>
                       </div>
-                      <div className="min-w-0 truncate text-[11px] text-muted-foreground" title={t(formatApiKeyExpiration(apiKey))}>
-                        {t(formatApiKeyExpiration(apiKey))}
+                      <div className="min-w-0 truncate text-[11px] text-muted-foreground" title={formatApiKeyExpiration(apiKey)}>
+                        {formatApiKeyExpiration(apiKey)}
                       </div>
-                      <div className="min-w-0 truncate text-[11px] text-muted-foreground" title={t(formatApiKeyLimits(apiKey.limits))}>
-                        {t(formatApiKeyLimits(apiKey.limits))}
+                      <div className="min-w-0 truncate text-[11px] text-muted-foreground" title={formatApiKeyLimits(apiKey.limits)}>
+                        {formatApiKeyLimits(apiKey.limits)}
                       </div>
                       <div className="flex items-center justify-end gap-1">
-                        <Button aria-label={t("Edit API key")} onClick={() => editApiKey(apiKey.index)} size="iconSm" title={t("Edit API key")} type="button" variant="ghost">
+                        <Button aria-label="Edit API key" onClick={() => editApiKey(apiKey.index)} size="iconSm" title="Edit API key" type="button" variant="ghost">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button aria-label={t("Remove API key")} onClick={() => removeApiKey(apiKey.index)} size="iconSm" title={t("Remove API key")} type="button" variant="ghost">
+                        <Button aria-label="Remove API key" onClick={() => removeApiKey(apiKey.index)} size="iconSm" title="Remove API key" type="button" variant="ghost">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -150,27 +149,26 @@ export function AddApiKeyDialog({
   onClose: () => void;
   onSubmit: () => void;
 }) {
-  const t = useAppText();
-  const expirationOptions = translateOptions(apiKeyExpirationOptions, t);
+  const expirationOptions = apiKeyExpirationOptions;
 
   return (
     <Dialog onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Add API Key")}</DialogTitle>
+            <DialogTitle>Add API Key</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
 
         <DialogBody>
           <motion.div className="grid grid-cols-1 gap-3 sm:grid-cols-2" layout transition={disclosureSpringTransition}>
-            <Field label={t("Name")}>
+            <Field label="Name">
               <Input autoFocus value={draft.name} onChange={(event) => onChange({ name: event.target.value })} />
             </Field>
-            <Field label={t("Expiration")}>
+            <Field label="Expiration">
               <SelectControl
                 value={draft.expirationPreset}
                 onChange={(expirationPreset) => onChange({ expirationPreset: expirationPreset as ApiKeyExpirationPreset })}
@@ -178,7 +176,7 @@ export function AddApiKeyDialog({
               />
             </Field>
             {draft.expirationPreset === "custom" ? (
-              <Field className="sm:col-span-2" label={t("Expires at")}>
+              <Field className="sm:col-span-2" label="Expires at">
                 <Input type="datetime-local" value={draft.expiresAt} onChange={(event) => onChange({ expiresAt: event.target.value })} />
               </Field>
             ) : null}
@@ -190,11 +188,11 @@ export function AddApiKeyDialog({
 
         <DialogFooter>
           <Button onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button disabled={!canSubmit} onClick={onSubmit} type="button">
             <Plus className="h-4 w-4" />
-            {t("Add")}
+            Add
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -211,7 +209,6 @@ export function ApiKeyCreatedDialog({
   apiKeyValue: string;
   onClose: () => void;
 }) {
-  const t = useAppText();
   const [copied, setCopied] = useState(false);
 
   async function copyApiKey() {
@@ -223,9 +220,9 @@ export function ApiKeyCreatedDialog({
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("API key created")}</DialogTitle>
+            <DialogTitle>API key created</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -236,29 +233,29 @@ export function ApiKeyCreatedDialog({
               <Check className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0">
-              <div className="font-semibold">{t("API key created")}</div>
-              <div className="mt-0.5 text-emerald-700/80">{t("Copy this key now. It may not be shown again.")}</div>
+              <div className="font-semibold">API key created</div>
+              <div className="mt-0.5 text-emerald-700/80">Copy this key now. It may not be shown again.</div>
             </div>
           </div>
 
           <div className="mt-4 space-y-2">
-            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{apiKeyName || t("API key")}</div>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{apiKeyName || "API key"}</div>
             <div className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-muted/30 p-2">
               <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded bg-background px-2 py-1.5 font-mono text-[12px] text-foreground">
                 {apiKeyValue}
               </code>
               <Button
-                aria-label={copied ? t("Copied") : t("Copy API key")}
+                aria-label={copied ? "Copied" : "Copy API key"}
                 className="shrink-0"
                 onClick={() => void copyApiKey()}
-                title={copied ? t("Copied") : t("Copy API key")}
+                title={copied ? "Copied" : "Copy API key"}
                 type="button"
                 variant={copied ? "secondary" : "default"}
               >
                 <AnimatedIconSwap iconKey={copied ? "copied" : "copy"}>
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </AnimatedIconSwap>
-                {copied ? t("Copied") : t("Copy")}
+                {copied ? "Copied" : "Copy"}
               </Button>
             </div>
           </div>
@@ -266,7 +263,7 @@ export function ApiKeyCreatedDialog({
 
         <DialogFooter>
           <Button onClick={onClose} type="button">
-            {t("Done")}
+            Done
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -289,24 +286,23 @@ export function EditApiKeyDialog({
   onClose: () => void;
   onSubmit: () => void;
 }) {
-  const t = useAppText();
-  const expirationOptions = translateOptions(apiKeyExpirationOptions, t);
+  const expirationOptions = apiKeyExpirationOptions;
 
   return (
     <Dialog onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Edit API Key")}</DialogTitle>
+            <DialogTitle>Edit API Key</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
 
         <DialogBody>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label={t("Expiration")}>
+            <Field label="Expiration">
               <SelectControl
                 value={draft.expirationPreset}
                 onChange={(expirationPreset) => onChange({ expirationPreset: expirationPreset as ApiKeyExpirationPreset })}
@@ -314,7 +310,7 @@ export function EditApiKeyDialog({
               />
             </Field>
             {draft.expirationPreset === "custom" ? (
-              <Field label={t("Expires at")}>
+              <Field label="Expires at">
                 <Input type="datetime-local" value={draft.expiresAt} onChange={(event) => onChange({ expiresAt: event.target.value })} />
               </Field>
             ) : null}
@@ -327,11 +323,11 @@ export function EditApiKeyDialog({
 
         <DialogFooter>
           <Button onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button disabled={!canSubmit} onClick={onSubmit} type="button">
             <Check className="h-4 w-4" />
-            {t("Save")}
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -348,9 +344,8 @@ function ApiKeyAdvancedSettings({
   draft: AddApiKeyDraft;
   onChange: (patch: Partial<AddApiKeyDraft>) => void;
 }) {
-  const t = useAppText();
-  const limitMetricOptions = translateOptions(apiKeyLimitMetricOptions, t);
-  const limitWindowSelectOptions = translateOptions(limitWindowOptions, t);
+  const limitMetricOptions = apiKeyLimitMetricOptions;
+  const limitWindowSelectOptions = limitWindowOptions;
   const [advancedOpen, setAdvancedOpen] = useState(defaultOpen);
   const updateLimitRow = (id: string, patch: Partial<ApiKeyLimitDraftRow>) => {
     onChange({
@@ -376,7 +371,7 @@ function ApiKeyAdvancedSettings({
         type="button"
         unstyled
       >
-        <span className="min-w-0 truncate">{t("Advanced settings")}</span>
+        <span className="min-w-0 truncate">Advanced settings</span>
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", advancedOpen && "rotate-180")} />
       </Button>
       <AnimatePresence initial={false}>
@@ -385,7 +380,7 @@ function ApiKeyAdvancedSettings({
             <div className="space-y-2 border-t border-border p-3">
               {draft.limitRows.length === 0 ? (
                 <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-5 text-center text-[12px] text-muted-foreground">
-                  {t("No limits configured")}
+                  No limits configured
                 </div>
               ) : null}
               <AnimatePresence initial={false}>
@@ -402,7 +397,7 @@ function ApiKeyAdvancedSettings({
                       options={limitWindowSelectOptions}
                     />
                     <Input type="number" value={row.value} onChange={(event) => updateLimitRow(row.id, { value: event.target.value })} />
-                    <Button aria-label={t("Remove limit")} onClick={() => removeLimitRow(row.id)} size="iconSm" title={t("Remove limit")} type="button" variant="ghost">
+                    <Button aria-label="Remove limit" onClick={() => removeLimitRow(row.id)} size="iconSm" title="Remove limit" type="button" variant="ghost">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </AnimatedListItem>
@@ -410,7 +405,7 @@ function ApiKeyAdvancedSettings({
               </AnimatePresence>
               <Button onClick={addLimitRow} size="sm" type="button" variant="outline">
                 <Plus className="h-3.5 w-3.5" />
-                {t("Add limit")}
+                Add limit
               </Button>
             </div>
           </AnimatedDisclosure>

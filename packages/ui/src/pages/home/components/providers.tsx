@@ -1,6 +1,6 @@
 import { useDraftClose } from "./unsaved-changes";
 import {
-  AddProviderDraft, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
+  AddProviderDraft, localAgentProviderApiKey, openExternalUrl, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
   Box, Braces, Button, Card, CardContent, CardHeader, CardTitle,
   Check, Checkbox, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, cn,
   compareProviderAccountSnapshots, copyTextToClipboard, createDefaultProviderAccountDraft, createModelCatalogItems, createProviderAccountDraftFromConfig, createProviderCredentialDraft,
@@ -15,8 +15,8 @@ import {
   providerBrowserConnectorFromDraft, providerBrowserCredentialsOptions,
   ProviderConnectivityCheckReport, providerCapabilityBaseUrlForProtocol, providerConnectivityApiKeyFromDraft, providerDeepLinkDisplayIcon, providerDraftHasReadyCredentialPool, providerListItemKey, providerMatchesQuery, ProviderPreset, providerPresetIconUrls, providerProbeHasSupportedProtocol,
   providerDisplayIcon, providerGlobalBaseUrlForProbe, providerModelDisplayName, providerModelDisplayTitle, providerProbeModelsForProtocol, providerProtocolOptions, providerSelectableProtocolsFromProbe, providerUsageFieldPatch, ProviderUsageFieldTarget, providerUsageMethodOptions, Search, SelectControl,
-  RefreshCw, resolveProviderDeepLinkPreset, ShieldCheck, splitLines, Switch, Tabs, TabsList, TabsTrigger, Textarea, Toggle, translatedProviderProtocolLabel, translateOptions,
-  translateProbeProtocolMessage, Trash2, uniqueProviderName, uniqueProviderProtocols, useAppErrorText, useAppText, useEffect, useLayoutEffect, useMemo,
+  RefreshCw, resolveProviderDeepLinkPreset, ShieldCheck, splitLines, Switch, Tabs, TabsList, TabsTrigger, Textarea, Toggle, providerProtocolLabel,
+  probeProtocolMessage, Trash2, uniqueProviderName, uniqueProviderProtocols, formatAppError, useEffect, useLayoutEffect, useMemo,
   useRef, useState, X, isGatewayProviderEnabled, isPlainRecord
 } from "../shared/index";
 import { PopoverPortal } from "@/components/ui/popover";
@@ -24,7 +24,6 @@ import { Tooltip, TooltipPortal } from "@/components/ui/tooltip";
 import { providerUrlWithDefaultScheme } from "@ccr/core/providers/url";
 import type { ChromeLoginImportJob, LocalAgentProviderCandidate, OpenRouterProviderCatalogItem, OpenRouterProviderCatalogRequest, ProviderAccountHttpJsonConnectorConfig, ProviderAccountWebContentJsonConnectorConfig } from "@ccr/core/contracts/app";
 import type { ReactNode } from "react";
-import { pollChromeImportJob } from "../shared/chrome-import";
 
 const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 const emptyProviderPlugins: unknown[] = [];
@@ -38,7 +37,6 @@ export function ProvidersView({ accountSnapshots, addProvider, editProvider, not
   removeProvider: (index: number) => void;
   setProviderEnabled: (index: number, enabled: boolean) => void;
 }) {
-  const t = useAppText();
   const [query, setQuery] = useState("");
   const [expandedProviders, setExpandedProviders] = useState<Set<string>>(() => new Set());
   const normalizedQuery = query.trim().toLowerCase();
@@ -74,7 +72,7 @@ export function ProvidersView({ accountSnapshots, addProvider, editProvider, not
 
   async function copyModel(model: string) {
     await copyTextToClipboard(model);
-    notify(`${t("Copied")} ${model}`);
+    notify(`Copied ${model}`);
   }
 
   function changeProviderEnabled(provider: GatewayProviderConfig, index: number, enabled: boolean) {
@@ -104,28 +102,28 @@ export function ProvidersView({ accountSnapshots, addProvider, editProvider, not
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label={t("Search providers")}
+              aria-label="Search providers"
               className="pl-8"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search providers")}
+              placeholder="Search providers"
               value={query}
             />
           </div>
-          <Button aria-label={t("Add provider")} onClick={addProvider} title={t("Add provider")} type="button">
+          <Button aria-label="Add provider" onClick={addProvider} title="Add provider" type="button">
             <Plus className="h-4 w-4" />
-            {t("Add")}
+            Add
           </Button>
         </CardHeader>
         <CardContent className="@container min-h-0 flex-1 overflow-auto p-0">
           {providers.length === 0 ? (
             <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center">
               <Layers3 className="mx-auto mb-2 h-7 w-7 text-muted-foreground/40" />
-              <div className="text-[12px] text-muted-foreground">{t("No providers configured")}</div>
-              <div className="mt-1 text-[11px] text-muted-foreground/60">{t("Click Add to create one")}</div>
+              <div className="text-[12px] text-muted-foreground">No providers configured</div>
+              <div className="mt-1 text-[11px] text-muted-foreground/60">Click Add to create one</div>
             </div>
           ) : null}
           {providers.length > 0 && visibleProviders.length === 0 ? (
-            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">{t("No matching providers")}</div>
+            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">No matching providers</div>
           ) : null}
           {visibleProviders.length > 0 ? (
             <>
@@ -155,10 +153,10 @@ export function ProvidersView({ accountSnapshots, addProvider, editProvider, not
               <div className="hidden min-w-0 @[1080px]:block">
                 <div className="min-w-[1080px]">
                   <div className="sticky top-0 z-10 grid h-10 grid-cols-[minmax(260px,1fr)_80px_minmax(150px,0.65fr)_minmax(260px,1fr)_132px] items-center gap-3 border-b border-border/60 bg-muted/95 px-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    <div className="truncate">{t("Provider")}</div>
-                    <div className="truncate">{t("Models")}</div>
-                    <div className="truncate">{t("Account Usage")}</div>
-                    <div className="truncate">{t("Endpoint")}</div>
+                    <div className="truncate">Provider</div>
+                    <div className="truncate">Models</div>
+                    <div className="truncate">Account Usage</div>
+                    <div className="truncate">Endpoint</div>
                     <div aria-hidden="true" />
                   </div>
                   <div className="divide-y divide-border/60">
@@ -190,13 +188,13 @@ export function ProvidersView({ accountSnapshots, addProvider, editProvider, not
                                 {providerEnabled ? (
                                   <button
                                     aria-expanded={expanded}
-                                    aria-label={`${expanded ? t("Collapse") : t("Expand")} ${provider.name || t("provider")} ${t("models")}`}
+                                    aria-label={`${expanded ? "Collapse" : "Expand"} ${provider.name || "provider"} models`}
                                     className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30"
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       toggleProvider(provider, index);
                                     }}
-                                    title={expanded ? t("Collapse models") : t("Expand models")}
+                                    title={expanded ? "Collapse models" : "Expand models"}
                                     type="button"
                                   >
                                     {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -204,9 +202,9 @@ export function ProvidersView({ accountSnapshots, addProvider, editProvider, not
                                 ) : <div aria-hidden="true" className="h-6 w-6 shrink-0" />}
                                 <ProviderPresetIcon className="h-8 w-8 rounded-md" iconUrl={providerIconUrl} />
                                 <div className="min-w-0">
-                                  <div className="truncate text-[12px] font-semibold text-foreground">{provider.name || t("Unnamed")}</div>
-                                  <div className="mt-0.5 truncate text-[10px] text-muted-foreground" title={providerCapabilitiesSummary(provider, t)}>
-                                    {providerCapabilitiesSummary(provider, t)}
+                                  <div className="truncate text-[12px] font-semibold text-foreground">{provider.name || "Unnamed"}</div>
+                                  <div className="mt-0.5 truncate text-[10px] text-muted-foreground" title={providerCapabilitiesSummary(provider)}>
+                                    {providerCapabilitiesSummary(provider)}
                                   </div>
                                 </div>
                               </div>
@@ -219,7 +217,7 @@ export function ProvidersView({ accountSnapshots, addProvider, editProvider, not
                                       event.stopPropagation();
                                       toggleProvider(provider, index);
                                     }}
-                                    title={expanded ? t("Collapse models") : t("Expand models")}
+                                    title={expanded ? "Collapse models" : "Expand models"}
                                     type="button"
                                   >
                                     <Badge variant={provider.models.length > 0 ? "outline" : "warning"}>{provider.models.length}</Badge>
@@ -228,7 +226,7 @@ export function ProvidersView({ accountSnapshots, addProvider, editProvider, not
                               </div>
                               <ProviderAccountListCell provider={provider} snapshots={providerAccountSnapshots} />
                               <div className="min-w-0 truncate font-mono text-[11px] text-muted-foreground" title={providerBaseUrl(provider)}>
-                                {providerBaseUrl(provider) || t("Not set")}
+                                {providerBaseUrl(provider) || "Not set"}
                               </div>
                               <div className="flex items-center justify-end gap-2">
                                 <div
@@ -236,33 +234,33 @@ export function ProvidersView({ accountSnapshots, addProvider, editProvider, not
                                   role="presentation"
                                 >
                                   <Toggle
-                                    ariaLabel={`${t(providerEnabled ? "Disable provider" : "Enable provider")} ${provider.name || t("provider")}`}
+                                    ariaLabel={`${providerEnabled ? "Disable provider" : "Enable provider"} ${provider.name || "provider"}`}
                                     checked={providerEnabled}
                                     onChange={(enabled) => changeProviderEnabled(provider, index, enabled)}
-                                    title={t(providerEnabled ? "Enabled" : "Disabled")}
+                                    title={providerEnabled ? "Enabled" : "Disabled"}
                                   />
                                 </div>
                                 <Button
-                                  aria-label={`${t("Edit")} ${provider.name || t("provider")}`}
+                                  aria-label={`Edit ${provider.name || "provider"}`}
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     editProvider(index);
                                   }}
                                   size="iconSm"
-                                  title={t("Edit provider")}
+                                  title="Edit provider"
                                   type="button"
                                   variant="ghost"
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
                                 </Button>
                                 <Button
-                                  aria-label={`${t("Remove")} ${provider.name || t("provider")}`}
+                                  aria-label={`Remove ${provider.name || "provider"}`}
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     removeProvider(index);
                                   }}
                                   size="iconSm"
-                                  title={t("Remove provider")}
+                                  title="Remove provider"
                                   type="button"
                                   variant="ghost"
                                 >
@@ -278,13 +276,13 @@ export function ProvidersView({ accountSnapshots, addProvider, editProvider, not
                                       <div className="mb-3 flex flex-wrap gap-2">
                                         {provider.capabilities.map((capability) => (
                                           <Badge key={`${capability.type}:${capability.baseUrl}`} variant="secondary">
-                                            {translatedProviderProtocolLabel(capability.type, t)}
+                                            {providerProtocolLabel(capability.type)}
                                           </Badge>
                                         ))}
                                       </div>
                                     ) : null}
                                     {provider.models.length === 0 ? (
-                                      <div className="rounded-md border border-dashed border-border bg-background/60 px-3 py-4 text-center text-[12px] text-muted-foreground">{t("No models configured")}</div>
+                                      <div className="rounded-md border border-dashed border-border bg-background/60 px-3 py-4 text-center text-[12px] text-muted-foreground">No models configured</div>
                                     ) : (
                                       <div className="flex flex-wrap gap-2">
                                         {provider.models.map((model) => {
@@ -292,11 +290,11 @@ export function ProvidersView({ accountSnapshots, addProvider, editProvider, not
                                           const displayName = providerModelDisplayName(provider, model);
                                           return (
                                             <button
-                                              aria-label={`${t("Double click to copy")} ${displayName}`}
+                                              aria-label={`Double click to copy ${displayName}`}
                                               className="inline-flex max-w-full items-center rounded-full border border-border bg-background px-2.5 py-1 text-[11px] leading-4 text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                                               key={modelKey}
                                               onDoubleClick={() => void copyModel(model)}
-                                              title={`${providerModelDisplayTitle(provider, model)} · ${t("Double click to copy")}`}
+                                              title={`${providerModelDisplayTitle(provider, model)} · Double click to copy`}
                                               type="button"
                                             >
                                               <span className="min-w-0 truncate">{displayName}</span>
@@ -345,7 +343,6 @@ function ProviderMobileCard({
   provider: GatewayProviderConfig;
   snapshots: ProviderAccountSnapshot[];
 }) {
-  const t = useAppText();
   const providerIconUrl = providerDisplayIcon(provider);
   const providerEnabled = isGatewayProviderEnabled(provider);
   const models = providerEnabled ? provider.models : [];
@@ -357,35 +354,35 @@ function ProviderMobileCard({
           <ProviderPresetIcon className="h-9 w-9 rounded-md" iconUrl={providerIconUrl} />
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-2">
-              <h3 className="min-w-0 truncate text-[13px] font-semibold text-foreground">{provider.name || t("Unnamed")}</h3>
-              {providerEnabled ? <Badge variant={models.length > 0 ? "outline" : "warning"}>{models.length} {t("models")}</Badge> : null}
+              <h3 className="min-w-0 truncate text-[13px] font-semibold text-foreground">{provider.name || "Unnamed"}</h3>
+              {providerEnabled ? <Badge variant={models.length > 0 ? "outline" : "warning"}>{models.length} models</Badge> : null}
             </div>
             <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground" title={providerBaseUrl(provider)}>
-              {providerBaseUrl(provider) || t("Not set")}
+              {providerBaseUrl(provider) || "Not set"}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <Toggle
-              ariaLabel={`${t(providerEnabled ? "Disable provider" : "Enable provider")} ${provider.name || t("provider")}`}
+              ariaLabel={`${providerEnabled ? "Disable provider" : "Enable provider"} ${provider.name || "provider"}`}
               checked={providerEnabled}
               onChange={(enabled) => onSetEnabled(index, enabled)}
-              title={t(providerEnabled ? "Enabled" : "Disabled")}
+              title={providerEnabled ? "Enabled" : "Disabled"}
             />
             <Button
-              aria-label={`${t("Edit")} ${provider.name || t("provider")}`}
+              aria-label={`Edit ${provider.name || "provider"}`}
               onClick={() => onEdit(index)}
               size="iconSm"
-              title={t("Edit provider")}
+              title="Edit provider"
               type="button"
               variant="ghost"
             >
               <Pencil className="h-3.5 w-3.5" />
             </Button>
             <Button
-              aria-label={`${t("Remove")} ${provider.name || t("provider")}`}
+              aria-label={`Remove ${provider.name || "provider"}`}
               onClick={() => onRemove(index)}
               size="iconSm"
-              title={t("Remove provider")}
+              title="Remove provider"
               type="button"
               variant="ghost"
             >
@@ -396,11 +393,11 @@ function ProviderMobileCard({
 
         <dl className="mt-3 grid grid-cols-1 gap-2 text-[12px]">
           <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
-            <dt className="truncate text-muted-foreground">{t("Capability")}</dt>
-            <dd className="min-w-0 truncate font-medium" title={providerCapabilitiesSummary(provider, t)}>{providerCapabilitiesSummary(provider, t)}</dd>
+            <dt className="truncate text-muted-foreground">Capability</dt>
+            <dd className="min-w-0 truncate font-medium" title={providerCapabilitiesSummary(provider)}>{providerCapabilitiesSummary(provider)}</dd>
           </div>
           <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
-            <dt className="truncate text-muted-foreground">{t("Account Usage")}</dt>
+            <dt className="truncate text-muted-foreground">Account Usage</dt>
             <dd className="min-w-0"><ProviderAccountListCell provider={provider} snapshots={snapshots} /></dd>
           </div>
         </dl>
@@ -412,7 +409,7 @@ function ProviderMobileCard({
             onClick={() => onToggle(provider, index)}
             type="button"
           >
-            <span>{expanded ? t("Hide models") : t("Show models")}</span>
+            <span>{expanded ? "Hide models" : "Show models"}</span>
             {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           </button>
         ) : null}
@@ -422,7 +419,7 @@ function ProviderMobileCard({
             <AnimatedDisclosure key="provider-mobile-models">
               <div className="mt-2 rounded-md border border-border bg-muted/20 p-2">
                 {models.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-[12px] text-muted-foreground">{t("No models configured")}</div>
+                  <div className="px-2 py-3 text-center text-[12px] text-muted-foreground">No models configured</div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {models.map((model) => {
@@ -432,7 +429,7 @@ function ProviderMobileCard({
                           className="inline-flex max-w-full items-center rounded-full border border-border bg-background px-2.5 py-1 text-[11px] leading-4 text-foreground"
                           key={`${provider.name}:${model}`}
                           onDoubleClick={() => void onCopyModel(model)}
-                          title={`${providerModelDisplayTitle(provider, model)} · ${t("Double click to copy")}`}
+                          title={`${providerModelDisplayTitle(provider, model)} · Double click to copy`}
                           type="button"
                         >
                           <span className="truncate">{displayName}</span>
@@ -457,7 +454,6 @@ export function ModelsView({
   config: AppConfig;
   updateModelDescription: (providerIndex: number, model: string, description: string) => void;
 }) {
-  const t = useAppText();
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [descriptionTarget, setDescriptionTarget] = useState<{
     description: string;
@@ -513,16 +509,16 @@ export function ModelsView({
         <CardHeader className="flex-row flex-wrap items-center gap-2">
           <div className="min-w-[180px] flex-1">
             <div className="flex min-w-0 items-center gap-2">
-              <CardTitle className="min-w-0">{t("Models")}</CardTitle>
+              <CardTitle className="min-w-0">Models</CardTitle>
             </div>
           </div>
           <div className="relative w-[320px] max-w-full">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label={t("Search all models")}
+              aria-label="Search all models"
               className="pl-8"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("Search all models")}
+              placeholder="Search all models"
               value={query}
             />
           </div>
@@ -531,18 +527,18 @@ export function ModelsView({
           {rows.length === 0 ? (
             <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center">
               <Box className="mx-auto mb-2 h-7 w-7 text-muted-foreground/40" />
-              <div className="text-[12px] text-muted-foreground">{t("No models available")}</div>
+              <div className="text-[12px] text-muted-foreground">No models available</div>
             </div>
           ) : null}
           {rows.length > 0 && visibleRows.length === 0 ? (
-            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">{t("No matching models")}</div>
+            <div className="m-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-10 text-center text-[12px] text-muted-foreground">No matching models</div>
           ) : null}
           {visibleRows.length > 0 ? (
             <div className="min-w-0">
               <div className="min-w-[680px]">
                 <div className="sticky top-0 z-10 grid h-10 grid-cols-[minmax(0,1fr)_minmax(260px,1.5fr)] items-center gap-3 border-b border-border/60 bg-muted/95 px-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  <div className="truncate">{t("Model")}</div>
-                  <div className="truncate">{t("Description")}</div>
+                  <div className="truncate">Model</div>
+                  <div className="truncate">Description</div>
                 </div>
                 <div className="divide-y divide-border/60">
                   <AnimatePresence initial={false}>
@@ -568,10 +564,10 @@ export function ModelsView({
                                 </div>
                               </div>
                               <Button
-                                aria-label={`${t("Edit description")} ${row.displayName ?? row.model}`}
+                                aria-label={`Edit description ${row.displayName ?? row.model}`}
                                 className="h-7 w-7 shrink-0 p-0"
                                 onClick={() => openDescriptionDialog(row)}
-                                title={t("Edit description")}
+                                title="Edit description"
                                 type="button"
                                 variant="ghost"
                               >
@@ -622,38 +618,37 @@ function ModelCatalogDescriptionDialog({
     providerName?: string;
   };
 }) {
-  const t = useAppText();
   const open = Boolean(target);
-  const title = target?.displayName || target?.model || t("Model");
+  const title = target?.displayName || target?.model || "Model";
   const subtitle = target?.providerName ? `${target.providerName}/${target.model}` : target?.model;
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>{t("Edit description")}</DialogTitle>
+          <DialogTitle>Edit description</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-3">
           <div className="min-w-0">
             <div className="truncate text-[13px] font-semibold text-foreground" title={title}>{title}</div>
             {subtitle ? <div className="truncate font-mono text-[11px] text-muted-foreground" title={subtitle}>{subtitle}</div> : null}
           </div>
-          <Field label={t("Description")}>
+          <Field label="Description">
             <Textarea
-              aria-label={`${t("Description")} ${title}`}
+              aria-label={`Description ${title}`}
               className="min-h-[160px] resize-y text-[12px]"
               onChange={(event) => onChange(event.target.value)}
-              placeholder={t("Describe model strengths, tradeoffs, and best-fit tasks.")}
+              placeholder="Describe model strengths, tradeoffs, and best-fit tasks."
               value={draft}
             />
           </Field>
         </DialogBody>
         <DialogFooter>
           <Button onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button disabled={draft.trim() === (target?.description ?? "").trim()} onClick={onSave} type="button">
-            {t("Save")}
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -662,9 +657,8 @@ function ModelCatalogDescriptionDialog({
 }
 
 function ProviderAccountListCell({ provider, snapshots }: { provider: GatewayProviderConfig; snapshots: ProviderAccountSnapshot[] }) {
-  const t = useAppText();
   if (!isGatewayProviderEnabled(provider)) {
-    return <div className="min-w-0 truncate text-[11px] text-muted-foreground">{t("Disabled")}</div>;
+    return <div className="min-w-0 truncate text-[11px] text-muted-foreground">Disabled</div>;
   }
   const sortedSnapshots = [...snapshots].sort(compareProviderAccountSnapshots);
   const snapshot = sortedSnapshots[0];
@@ -672,18 +666,18 @@ function ProviderAccountListCell({ provider, snapshots }: { provider: GatewayPro
   const fallbackText = snapshot ? snapshot.message ?? snapshot.errors?.[0]?.message : undefined;
 
   if (!provider.account?.enabled && snapshots.length === 0) {
-    return <div className="min-w-0 text-[12px] text-muted-foreground">{t("Usage tracking not configured")}</div>;
+    return <div className="min-w-0 text-[12px] text-muted-foreground">Usage tracking not configured</div>;
   }
 
   if (!snapshot) {
-    return <div className="min-w-0 truncate text-[11px] text-muted-foreground">{t("Pending")}</div>;
+    return <div className="min-w-0 truncate text-[11px] text-muted-foreground">Pending</div>;
   }
 
   return (
     <div className="min-w-0">
       <div className="flex min-w-0 items-center gap-1.5 text-[11px]">
         {meter ? <span className="min-w-0 truncate text-[11px] font-medium">{formatProviderAccountMeterValue(meter)}</span> : null}
-        {sortedSnapshots.length > 1 ? <span className="shrink-0 text-muted-foreground">{sortedSnapshots.length} {t("keys")}</span> : null}
+        {sortedSnapshots.length > 1 ? <span className="shrink-0 text-muted-foreground">{sortedSnapshots.length} keys</span> : null}
       </div>
       {providerAccountSnapshotCredentialLabel(snapshot) ? (
         <div className="mt-0.5 truncate text-[10px] font-semibold text-muted-foreground" title={providerAccountSnapshotLabel(snapshot)}>
@@ -692,7 +686,7 @@ function ProviderAccountListCell({ provider, snapshots }: { provider: GatewayPro
       ) : null}
       {!meter && fallbackText ? (
         <div className="mt-0.5 truncate text-[10px] text-muted-foreground">
-          {t(fallbackText)}
+          {fallbackText}
         </div>
       ) : null}
     </div>
@@ -708,8 +702,7 @@ export function DeleteProviderDialog({
   onConfirm: () => void;
   provider: GatewayProviderConfig;
 }) {
-  const t = useAppText();
-  const name = provider.name || t("Unnamed provider");
+  const name = provider.name || "Unnamed provider";
   const baseUrl = providerBaseUrl(provider);
 
   return (
@@ -717,9 +710,9 @@ export function DeleteProviderDialog({
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Delete Provider")}</DialogTitle>
+            <DialogTitle>Delete Provider</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -728,27 +721,27 @@ export function DeleteProviderDialog({
           <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
             <div className="flex items-start gap-2 text-[12px] font-medium text-destructive">
               <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{t("Delete this provider from the configuration?")}</span>
+              <span>Delete this provider from the configuration?</span>
             </div>
             <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
               <div className="truncate">
-                <span className="font-medium text-foreground">{t("Name")}:</span> {name}
+                <span className="font-medium text-foreground">Name:</span> {name}
               </div>
               <div className="truncate" title={baseUrl}>
-                <span className="font-medium text-foreground">{t("Base URL")}:</span> {baseUrl || t("Not set")}
+                <span className="font-medium text-foreground">Base URL:</span> {baseUrl || "Not set"}
               </div>
-              <div>{t("This action is applied immediately to the draft config and will auto-save with other changes.")}</div>
+              <div>This action is applied immediately to the draft config and will auto-save with other changes.</div>
             </div>
           </div>
         </DialogBody>
 
         <DialogFooter>
           <Button autoFocus onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           <Button onClick={onConfirm} type="button" variant="destructive">
             <Trash2 className="h-4 w-4" />
-            {t("Delete")}
+            Delete
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -775,7 +768,6 @@ export function ProviderDeepLinkDialog({
   presetsLoaded?: boolean;
   request: ProviderDeepLinkRequest;
 }) {
-  const t = useAppText();
   const provider = request.provider;
   const manifest = request.manifest;
   const displayName = provider ? provider.name?.trim() || inferProviderNameFromBaseUrl(provider.baseUrl) : "";
@@ -790,9 +782,9 @@ export function ProviderDeepLinkDialog({
       <DialogContent className="max-w-[580px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{provider ? t("Import Provider") : manifest ? t("Import Provider Manifest") : t("Provider link failed")}</DialogTitle>
+            <DialogTitle>{provider ? "Import Provider" : manifest ? "Import Provider Manifest" : "Provider link failed"}</DialogTitle>
           </div>
-          <Button aria-label={t("Close dialog")} disabled={busy} onClick={onClose} size="iconSm" title={t("Close")} type="button" variant="ghost">
+          <Button aria-label="Close dialog" disabled={busy} onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
             <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
@@ -804,10 +796,10 @@ export function ProviderDeepLinkDialog({
                 <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5">
                   <div className="flex items-start gap-2 text-[12px] font-medium text-foreground">
                     <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>{t("External provider link")}</span>
+                    <span>External provider link</span>
                   </div>
                   <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                    {t("This provider link came from an external website. Review details before importing.")}
+                    This provider link came from an external website. Review details before importing.
                   </div>
                 </div>
               ) : null}
@@ -827,26 +819,26 @@ export function ProviderDeepLinkDialog({
               </div>
 
               <div className="grid grid-cols-1 gap-2 text-[12px] sm:grid-cols-2">
-                <ProviderDeepLinkDetail label={t("Name")} value={displayName} />
-                <ProviderDeepLinkDetail label={t("Protocol")} value={provider.protocol ? translatedProviderProtocolLabel(provider.protocol, t) : t("Detected automatically")} />
-                <ProviderDeepLinkDetail className="sm:col-span-2" label={t("Base URL")} value={provider.baseUrl} mono />
+                <ProviderDeepLinkDetail label="Name" value={displayName} />
+                <ProviderDeepLinkDetail label="Protocol" value={provider.protocol ? providerProtocolLabel(provider.protocol) : "Detected automatically"} />
+                <ProviderDeepLinkDetail className="sm:col-span-2" label="Base URL" value={provider.baseUrl} mono />
                 {manifest ? (
-                  <ProviderDeepLinkDetail className="sm:col-span-2" label={t("Manifest URL")} value={manifest.url} mono />
+                  <ProviderDeepLinkDetail className="sm:col-span-2" label="Manifest URL" value={manifest.url} mono />
                 ) : null}
                 {provider.source ? (
-                  <ProviderDeepLinkDetail className="sm:col-span-2" label={t("Provider website")} value={provider.source} mono />
+                  <ProviderDeepLinkDetail className="sm:col-span-2" label="Provider website" value={provider.source} mono />
                 ) : null}
                 <ProviderDeepLinkDetail
-                  label={t("API key")}
-                  value={provider.apiKey ? t("API key included") : t("API key not included")}
+                  label="API key"
+                  value={provider.apiKey ? "API key included" : "API key not included"}
                 />
                 <ProviderDeepLinkDetail
-                  label={t("Fetch usage")}
-                  value={provider.account?.enabled === false ? t("Disabled") : t("Enabled")}
+                  label="Fetch usage"
+                  value={provider.account?.enabled === false ? "Disabled" : "Enabled"}
                 />
                 <ProviderDeepLinkDetail
-                  label={t("Models")}
-                  value={provider.models.length > 0 ? String(provider.models.length) : t("Models will be detected automatically.")}
+                  label="Models"
+                  value={provider.models.length > 0 ? String(provider.models.length) : "Models will be detected automatically."}
                 />
               </div>
 
@@ -871,19 +863,19 @@ export function ProviderDeepLinkDialog({
               <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5">
                 <div className="flex items-start gap-2 text-[12px] font-medium text-foreground">
                   <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>{t("Remote provider manifest")}</span>
+                  <span>Remote provider manifest</span>
                 </div>
                 <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                  {t("LLMR will fetch this HTTPS manifest with strict safety checks before showing provider details.")}
+                  LLMR will fetch this HTTPS manifest with strict safety checks before showing provider details.
                 </div>
               </div>
-              <ProviderDeepLinkDetail label={t("Manifest URL")} value={manifest.url} mono />
+              <ProviderDeepLinkDetail label="Manifest URL" value={manifest.url} mono />
             </div>
           ) : (
             <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
               <div className="flex items-start gap-2 text-[12px] font-medium text-destructive">
                 <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>{request.error || t("Invalid")}</span>
+                <span>{request.error || "Invalid"}</span>
               </div>
             </div>
           )}
@@ -891,21 +883,21 @@ export function ProviderDeepLinkDialog({
           {error ? (
             <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
               <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{t(error)}</span>
+              <span>{error}</span>
             </div>
           ) : null}
         </DialogBody>
 
         <DialogFooter>
           <Button disabled={busy} onClick={onClose} type="button" variant="outline">
-            {t("Cancel")}
+            Cancel
           </Button>
           {provider || manifest ? (
             <Button disabled={actionLoading} onClick={() => void onSubmit()} type="button">
               <AnimatedIconSwap iconKey={actionLoading ? "busy" : "plus"}>
                 {actionLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               </AnimatedIconSwap>
-              {actionLoading ? t("Loading") : provider ? t("Import") : t("Fetch manifest")}
+              {actionLoading ? "Loading" : provider ? "Import" : "Fetch manifest"}
             </Button>
           ) : null}
         </DialogFooter>
@@ -951,7 +943,7 @@ function ProviderPresetCombobox({
   options: ProviderPresetComboboxOption[];
   value: string;
 }) {
-  const t = useAppText();
+  const [linkError, setLinkError] = useState("");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [popoverLayout, setPopoverLayout] = useState<{
@@ -1064,7 +1056,8 @@ function ProviderPresetCombobox({
     if (!selectedExternalUrl) {
       return;
     }
-    openExternalUrl(selectedExternalUrl);
+    setLinkError("");
+    openExternalUrl(selectedExternalUrl, setLinkError);
   }
 
   return (
@@ -1089,14 +1082,14 @@ function ProviderPresetCombobox({
       >
         <ProviderPresetIcon className="h-8 w-8 rounded-md" iconUrl={selected?.iconUrl} preset={selected?.preset} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-semibold text-foreground">{selected ? selected.label : t("Select preset provider")}</div>
+          <div className="truncate text-[13px] font-semibold text-foreground">{selected ? selected.label : "Select preset provider"}</div>
           {selectedEndpointUrl ? (
             <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground" title={selectedEndpointUrl}>{selectedEndpointUrl}</div>
           ) : null}
         </div>
         {selectedExternalUrl ? (
           <Button
-            aria-label={t("Open provider website")}
+            aria-label="Open provider website"
             onKeyDown={(event) => {
               event.stopPropagation();
             }}
@@ -1108,7 +1101,7 @@ function ProviderPresetCombobox({
               event.stopPropagation();
             }}
             size="iconSm"
-            title={t("Open provider website")}
+            title="Open provider website"
             type="button"
             variant="ghost"
           >
@@ -1117,6 +1110,7 @@ function ProviderPresetCombobox({
         ) : null}
         <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
       </div>
+      {linkError ? <div className="mt-1 text-[12px] text-destructive" role="alert">{linkError}</div> : null}
 
       <PopoverPortal open={open}>
         <AnimatedPopover
@@ -1137,7 +1131,7 @@ function ProviderPresetCombobox({
             <div className="relative mb-1">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                aria-label={t("Filter")}
+                aria-label="Filter"
                 className="h-8 pl-8"
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => {
@@ -1149,7 +1143,7 @@ function ProviderPresetCombobox({
                     }
                   }
                 }}
-                placeholder={t("Filter")}
+                placeholder="Filter"
                 ref={inputRef}
                 value={query}
               />
@@ -1182,7 +1176,7 @@ function ProviderPresetCombobox({
                   );
                 })
               ) : (
-                <div className="px-2 py-5 text-center text-[12px] text-muted-foreground">{t("No provider presets found")}</div>
+                <div className="px-2 py-5 text-center text-[12px] text-muted-foreground">No provider presets found</div>
               )}
             </div>
           </PopoverContent>
@@ -1232,7 +1226,7 @@ function ProviderImportHeader({
   provider: ProviderDeepLinkPayload;
   preset?: ProviderPreset;
 }) {
-  const t = useAppText();
+  const [linkError, setLinkError] = useState("");
   const baseUrl = draft.baseUrl.trim() || provider.baseUrl;
   const displayName = draft.name.trim() || provider.name?.trim() || inferProviderNameFromBaseUrl(baseUrl);
   const iconUrl = draft.icon.trim() || providerDeepLinkDisplayIcon(provider);
@@ -1242,7 +1236,8 @@ function ProviderImportHeader({
     if (!platformUrl) {
       return;
     }
-    openExternalUrl(platformUrl);
+    setLinkError("");
+    openExternalUrl(platformUrl, setLinkError);
   }
 
   return (
@@ -1251,13 +1246,14 @@ function ProviderImportHeader({
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-semibold text-foreground">{displayName}</div>
         <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground" title={baseUrl}>{baseUrl}</div>
+        {linkError ? <div className="mt-0.5 text-[11px] text-destructive" role="alert">{linkError}</div> : null}
       </div>
       {platformUrl ? (
         <Button
-          aria-label={t("Open provider website")}
+          aria-label="Open provider website"
           onClick={openPlatform}
           size="iconSm"
-          title={t("Open provider website")}
+          title="Open provider website"
           type="button"
           variant="ghost"
         >
@@ -1270,14 +1266,6 @@ function ProviderImportHeader({
 
 function providerImportPlatformUrl(provider: ProviderDeepLinkPayload, baseUrl: string, preset: ProviderPreset | undefined): string | undefined {
   return normalizedHttpUrl(provider.source) ?? providerPresetWebsiteUrlForBaseUrl(preset, baseUrl || provider.baseUrl);
-}
-
-function openExternalUrl(url: string) {
-  if (window.ccr?.openExternal) {
-    void window.ccr.openExternal(url).catch(() => undefined);
-    return;
-  }
-  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 function normalizedHttpUrl(value: string | undefined): string | undefined {
@@ -1340,8 +1328,7 @@ function providerPresetWebsiteUrlForEndpoint(
 
 function providerDraftNameShouldFollowPreset(
   name: string,
-  previousPreset: ProviderPreset | undefined,
-  t: (value: string) => string
+  previousPreset: ProviderPreset | undefined
 ): boolean {
   const trimmed = name.trim();
   if (!trimmed || /^provider-\d+$/i.test(trimmed)) {
@@ -1350,7 +1337,7 @@ function providerDraftNameShouldFollowPreset(
   if (!previousPreset) {
     return false;
   }
-  return [previousPreset.name, t(previousPreset.name)].some((baseName) =>
+  return [previousPreset.name, previousPreset.name].some((baseName) =>
     providerNameMatchesGeneratedPresetName(trimmed, baseName)
   );
 }
@@ -1381,8 +1368,6 @@ function LocalAgentProviderImportPanel({
   providerPlugins: unknown[];
   providers: GatewayProviderConfig[];
 }) {
-  const t = useAppText();
-  const formatError = useAppErrorText();
   const [candidates, setCandidates] = useState<LocalAgentProviderCandidate[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1407,7 +1392,7 @@ function LocalAgentProviderImportPanel({
       })
       .catch((scanError) => {
         if (!cancelled) {
-          setError(formatError(scanError));
+          setError(formatAppError(scanError));
         }
       })
       .finally(() => {
@@ -1458,7 +1443,7 @@ function LocalAgentProviderImportPanel({
         selectedProtocols: [protocol]
       }, true);
     } catch (importError) {
-      setError(formatError(importError));
+      setError(formatAppError(importError));
     } finally {
       setImportingId("");
     }
@@ -1468,12 +1453,12 @@ function LocalAgentProviderImportPanel({
     <div className="sm:col-span-2 rounded-md border border-border bg-muted/20 p-3">
       <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate text-[12px] font-semibold text-foreground">{t("Import local agent provider")}</div>
-          <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">{t("LLMR scanned this computer for local Claude Code, Codex, Grok CLI, Kimi CLI, OpenCode CLI, and ZCode providers. Click Import to add one as a gateway provider.")}</div>
+          <div className="truncate text-[12px] font-semibold text-foreground">Import local agent provider</div>
+          <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">LLMR scanned this computer for local Claude Code, Codex, Grok CLI, Kimi CLI, OpenCode CLI, and ZCode providers. Click Import to add one as a gateway provider.</div>
         </div>
-        <Button aria-label={t("Scan local providers again")} disabled={loading || Boolean(importingId)} onClick={() => setScanAttempt((value) => value + 1)} size="sm" variant="outline">
+        <Button aria-label="Scan local providers again" disabled={loading || Boolean(importingId)} onClick={() => setScanAttempt((value) => value + 1)} size="sm" variant="outline">
           {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          {t("Scan again")}
+          Scan again
         </Button>
       </div>
 
@@ -1495,17 +1480,17 @@ function LocalAgentProviderImportPanel({
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="min-w-0 truncate text-[12px] font-semibold">{candidate.name}</span>
                       <Badge variant={candidate.importable ? "success" : candidate.status === "locked" ? "warning" : "outline"}>
-                        {candidate.importable ? t("Ready") : t("Login unavailable")}
+                        {candidate.importable ? "Ready" : "Login unavailable"}
                       </Badge>
                     </div>
                     {candidate.importable ? (
                       <div className="mt-1 truncate text-[12px] text-muted-foreground" title={candidate.sourceFile || candidate.detail}>
-                        {candidate.detail ? t(candidate.detail) : candidate.sourceFile}
+                        {candidate.detail ? candidate.detail : candidate.sourceFile}
                       </div>
                     ) : (
                       <div className="mt-1 space-y-2 text-[12px] leading-5 text-muted-foreground">
-                        <p>{t(candidate.detail || "Cannot read local login information. Sign in to the agent and scan again, or configure an API key manually.")}</p>
-                        <Button onClick={() => onChange({ presetId: customProviderPresetId }, true)} size="sm" variant="outline">{t("Configure API key manually")}</Button>
+                        <p>{candidate.detail || "Cannot read local login information. Sign in to the agent and scan again, or configure an API key manually."}</p>
+                        <Button onClick={() => onChange({ presetId: customProviderPresetId }, true)} size="sm" variant="outline">Configure API key manually</Button>
                       </div>
                     )}
                   </div>
@@ -1520,7 +1505,7 @@ function LocalAgentProviderImportPanel({
                   <AnimatedIconSwap iconKey={importing ? "importing" : "import"}>
                     {importing ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                   </AnimatedIconSwap>
-                  {t("Import")}
+                  Import
                 </Button>
               </div>
             );
@@ -1528,21 +1513,20 @@ function LocalAgentProviderImportPanel({
         </div>
       ) : loading ? (
         <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-center text-[12px] text-muted-foreground">
-          {t("Scanning local agent logins")}
+          Scanning local agent logins
         </div>
       ) : null}
 
       {error ? (
         <div className="mt-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
           <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <div><p>{t("Local provider import failed. Scan again or configure an API key manually.")}</p><details className="mt-2"><summary className="cursor-pointer">{t("Technical details")}</summary><p className="mt-1 break-all">{error}</p></details></div>
+          <div><p>Local provider import failed. Scan again or configure an API key manually.</p><details className="mt-2"><summary className="cursor-pointer">Technical details</summary><p className="mt-1 break-all">{error}</p></details></div>
         </div>
       ) : null}
     </div>
   );
 }
 
-const localAgentProviderApiKey = "ccr-local-agent-login";
 const localAgentProviderPluginSuffixes: Record<Exclude<LocalAgentProviderCandidate["kind"], "opencode">, string[]> = {
   "claude-code": ["-claude-code-oauth", "-claude-code-oauth-internal"],
   codex: ["-codex-oauth", "-codex-oauth-internal"],
@@ -1620,7 +1604,6 @@ function ProviderSetupProgress({
   variant?: "block" | "divider";
   verified: boolean;
 }) {
-  const t = useAppText();
   const steps = [
     { complete: providerReady, description: "Endpoint and identity", id: "provider" as const, label: "Choose provider" },
     { complete: credentialReady, description: "Secret used for requests", id: "credentials" as const, label: "Add credentials" },
@@ -1637,7 +1620,7 @@ function ProviderSetupProgress({
 
     return (
       <div
-        aria-label={`${t("Step")} ${activeIndex + 1} / ${steps.length}`}
+        aria-label={`Step ${activeIndex + 1} / ${steps.length}`}
         className={cn("min-w-0", variant === "divider" && "shrink-0", className)}
         role="progressbar"
         aria-valuemin={1}
@@ -1691,9 +1674,9 @@ function ProviderSetupProgress({
               {complete ? <Check className="h-3.5 w-3.5" /> : index + 1}
             </span>
             <div className="min-w-0">
-              <div className="truncate text-[12px] font-semibold">{t(step.label)}</div>
+              <div className="truncate text-[12px] font-semibold">{step.label}</div>
               <div className="truncate text-[10.5px] leading-4 text-muted-foreground">
-                {complete ? t("Done") : active ? t("In progress") : t("Pending")}
+                {complete ? "Done" : active ? "In progress" : "Pending"}
               </div>
             </div>
           </>
@@ -1756,7 +1739,6 @@ function ProviderConnectionStatusPanel({
   probe?: GatewayProviderProbeResult;
   probeLoading: boolean;
 }) {
-  const t = useAppText();
   const protocolDetected = providerProbeHasSupportedProtocol(probe) || Boolean(probe?.detectedProtocol);
   const connectionVerified = providerProbeHasSupportedProtocol(connectivityProbe);
   const protocolTitle = probeLoading
@@ -1794,10 +1776,10 @@ function ProviderConnectionStatusPanel({
     <div className={cn("rounded-md border border-border bg-muted/20 p-3", className)}>
       <div className="grid grid-cols-1 gap-2">
         <ProviderConnectionStatusRow
-          description={t(protocolDescription)}
+          description={protocolDescription}
           loading={probeLoading}
           state={protocolDetected || localAgentImport ? "success" : "pending"}
-          title={t(protocolTitle)}
+          title={protocolTitle}
         />
         <ProviderConnectionStatusRow
           action={onCheck && hasConnectivityCheckInputs ? (
@@ -1811,13 +1793,13 @@ function ProviderConnectionStatusPanel({
               <AnimatedIconSwap iconKey={connectivityLoading ? "checking" : "check"}>
                 {connectivityLoading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
               </AnimatedIconSwap>
-              {t("Check Connection")}
+              Check Connection
             </Button>
           ) : null}
-          description={t(requestDescription)}
+          description={requestDescription}
           loading={connectivityLoading}
           state={connectionVerified || localAgentImport ? "success" : hasConnectivityCheckInputs ? "warning" : "pending"}
-          title={t(requestTitle)}
+          title={requestTitle}
         />
       </div>
     </div>
@@ -1870,7 +1852,6 @@ function ProviderApiKeyInput({
   resetProbe?: boolean;
   value: string;
 }) {
-  const t = useAppText();
   const [visible, setVisible] = useState(false);
   const label = visible ? "Hide API key" : "Show API key";
 
@@ -1883,13 +1864,13 @@ function ProviderApiKeyInput({
         onChange={(event) => onChange(event.target.value, resetProbe)}
       />
       <Button
-        aria-label={t(label)}
+        aria-label={label}
         aria-pressed={visible}
         className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2"
         onClick={() => setVisible((current) => !current)}
         onMouseDown={(event) => event.preventDefault()}
         size="iconSm"
-        title={t(label)}
+        title={label}
         type="button"
         variant="ghost"
       >
@@ -1906,7 +1887,6 @@ function ProviderCredentialModeTabs({
   onChange: (value: AddProviderDraft["credentialMode"]) => void;
   value: AddProviderDraft["credentialMode"];
 }) {
-  const t = useAppText();
   const options: Array<{
     description: string;
     label: string;
@@ -1930,7 +1910,7 @@ function ProviderCredentialModeTabs({
       value={value}
     >
       <TabsList
-        aria-label={t("Credential method")}
+        aria-label="Credential method"
         className="grid w-full grid-cols-1 gap-1 border border-border bg-muted/20 sm:grid-cols-2"
       >
         {options.map((option) => {
@@ -1947,9 +1927,9 @@ function ProviderCredentialModeTabs({
               key={option.value}
               value={option.value}
             >
-              <span className="block w-full text-[12px] font-semibold leading-4">{t(option.label)}</span>
+              <span className="block w-full text-[12px] font-semibold leading-4">{option.label}</span>
               <span className={cn("mt-0.5 block w-full text-[11px] font-normal leading-4", selected ? "text-primary/80" : "text-muted-foreground")}>
-                {t(option.description)}
+                {option.description}
               </span>
             </TabsTrigger>
           );
@@ -1998,7 +1978,6 @@ export function AddProviderForm({
   providerPlugins?: unknown[];
   providers: GatewayProviderConfig[];
 }) {
-  const t = useAppText();
   const [advancedOpen, setAdvancedOpen] = useState(() => Boolean(draft.autoFetchModels));
   const [iconDetecting, setIconDetecting] = useState(false);
   const [autoDetectInfoPosition, setAutoDetectInfoPosition] = useState<{ left: number; top: number }>();
@@ -2023,8 +2002,8 @@ export function AddProviderForm({
   );
   const manualProtocolDetection = draft.protocolDetectionMode === "manual";
   const providerPresetOptions = [
-    { iconUrl: draft.icon, label: t("Other / custom API endpoint"), value: customProviderPresetId },
-    ...getProviderPresets().map((preset) => ({ label: t(preset.name), preset, value: preset.id }))
+    { iconUrl: draft.icon, label: "Other / custom API endpoint", value: customProviderPresetId },
+    ...getProviderPresets().map((preset) => ({ label: preset.name, preset, value: preset.id }))
   ];
   const selectableProtocols = manualProtocolDetection
     ? providerProtocolOptions.map((option) => option.value)
@@ -2191,7 +2170,7 @@ export function AddProviderForm({
     const preset = findProviderPreset(presetId);
     const endpoint = preset ? primaryProviderPresetEndpoint(preset) : undefined;
     const previousPreset = findProviderPreset(draft.presetId);
-    const generatedName = providerDraftNameShouldFollowPreset(draft.name, previousPreset, t);
+    const generatedName = providerDraftNameShouldFollowPreset(draft.name, previousPreset);
     const accountDraft = createProviderAccountDraftFromConfig(defaultProviderAccountConfigForPreset(presetId));
     onChange({
       ...accountDraft,
@@ -2203,7 +2182,7 @@ export function AddProviderForm({
       modelMetadata: undefined,
       modelSearch: "",
       modelsText: draft.modelsText.trim() || preset?.defaultModels?.join("\n") || "",
-      name: mode === "add" && preset && generatedName ? uniqueProviderName(providers, t(preset.name)) : draft.name,
+      name: mode === "add" && preset && generatedName ? uniqueProviderName(providers, preset.name) : draft.name,
       presetId,
       providerPlugins: [],
       protocol: endpoint?.protocols[0] ?? draft.protocol,
@@ -2262,8 +2241,8 @@ export function AddProviderForm({
         {showStep("provider") ? (
           <>
             <ProviderFormStepHeader
-              description={t("Pick a preset provider or use a custom compatible API endpoint.")}
-              title={t("Choose provider")}
+              description="Pick a preset provider or use a custom compatible API endpoint."
+              title="Choose provider"
             />
             {importProvider ? (
               <>
@@ -2271,7 +2250,7 @@ export function AddProviderForm({
                 {onDetect ? (
                   <Button className="sm:col-span-2 justify-self-start" disabled={probeLoading} onClick={() => void onDetect()} type="button" variant="outline">
                     {probeLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                    {t("Detect models and protocols")}
+                    Detect models and protocols
                   </Button>
                 ) : null}
               </>
@@ -2284,7 +2263,7 @@ export function AddProviderForm({
                   providers={providers}
                 />
                 <div className="block min-w-0 space-y-1 sm:col-span-2">
-                  <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t("Select preset provider")}</span>
+                  <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Select preset provider</span>
                   <ProviderPresetCombobox
                     value={draft.presetId}
                     onChange={updatePreset}
@@ -2293,19 +2272,19 @@ export function AddProviderForm({
                 </div>
               </>
             )}
-            <Field className="sm:col-span-2" label={t("Name")}>
+            <Field className="sm:col-span-2" label="Name">
               <Input value={draft.name} onChange={(event) => onChange({ name: event.target.value })} />
             </Field>
             {showBaseUrl ? (
-              <Field className="sm:col-span-2" label={t("API endpoint")}>
+              <Field className="sm:col-span-2" label="API endpoint">
                 <Input value={draft.baseUrl} onChange={(event) => onChange({ baseUrl: event.target.value, icon: "" }, true)} />
                 {customEndpoint ? (
                   <div className="flex min-h-4 items-center gap-1.5 text-[12px] leading-5 text-muted-foreground">
                     {iconDetecting ? <LoaderCircle className="h-3 w-3 shrink-0 animate-spin" /> : null}
                     <span className="min-w-0">
                       {iconDetecting
-                        ? t("Detecting icon")
-                        : t("Enter API endpoint, API key, and at least one model to enable connectivity check.")}
+                        ? "Detecting icon"
+                        : "Enter API endpoint, API key, and at least one model to enable connectivity check."}
                     </span>
                   </div>
                 ) : null}
@@ -2316,8 +2295,8 @@ export function AddProviderForm({
         {showStep("credentials") ? (
           <>
             <ProviderFormStepHeader
-              description={t("Choose how this provider authenticates model requests.")}
-              title={t("Add credentials")}
+              description="Choose how this provider authenticates model requests."
+              title="Add credentials"
             />
             <div className="sm:col-span-2 space-y-4">
               <ProviderCredentialModeTabs
@@ -2326,7 +2305,7 @@ export function AddProviderForm({
               />
               {draft.credentialMode === "apiKey" ? (
                 <div className="space-y-3">
-                  <Field label={t("API key")}>
+                  <Field label="API key">
                     <ProviderApiKeyInput
                       value={draft.apiKey}
                       onChange={(apiKey, resetProbe) => onChange({ apiKey }, resetProbe)}
@@ -2360,8 +2339,8 @@ export function AddProviderForm({
         {showStep("models") ? (
           <>
             <ProviderFormStepHeader
-              description={t("Choose the models that should be available through this provider.")}
-              title={t("Pick models")}
+              description="Choose the models that should be available through this provider."
+              title="Pick models"
             />
             <div className="sm:col-span-2">
               <ProviderModelPicker
@@ -2390,8 +2369,8 @@ export function AddProviderForm({
         {showStep("verify") ? (
           <>
             <ProviderFormStepHeader
-              description={t("Run a real model request before relying on this provider.")}
-              title={t("Verify connection")}
+              description="Run a real model request before relying on this provider."
+              title="Verify connection"
             />
             <ProviderConnectionStatusPanel
               className="sm:col-span-2"
@@ -2412,7 +2391,7 @@ export function AddProviderForm({
                 type="button"
               >
                 <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", advancedOpen && "rotate-90")} />
-                <span>{t("Advanced settings")}</span>
+                <span>Advanced settings</span>
               </button>
             </div>
 
@@ -2422,11 +2401,11 @@ export function AddProviderForm({
                   <div className="grid grid-cols-1 gap-3 rounded-md border border-border bg-muted/20 p-3 sm:grid-cols-2">
                     <div className="sm:col-span-2 flex min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 text-[12px] font-semibold">
                       <span className="flex min-w-0 items-center gap-1.5">
-                        <span className="min-w-0 truncate">{t("Auto fetch latest models")}</span>
+                        <span className="min-w-0 truncate">Auto fetch latest models</span>
                         <Tooltip
-                          aria-label={t("Poll the provider models endpoint every 10 minutes and add newly discovered models automatically.")}
+                          aria-label="Poll the provider models endpoint every 10 minutes and add newly discovered models automatically."
                           className="h-5 w-5 items-center justify-center rounded-full text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                          content={t("Poll the provider models endpoint every 10 minutes and add newly discovered models automatically.")}
+                          content="Poll the provider models endpoint every 10 minutes and add newly discovered models automatically."
                           contentClassName="w-[260px] max-w-[calc(100vw-64px)] whitespace-normal px-2.5 py-2 text-left font-medium leading-4"
                           side="right"
                           tabIndex={0}
@@ -2435,16 +2414,16 @@ export function AddProviderForm({
                         </Tooltip>
                       </span>
                       <Switch
-                        aria-label={t("Auto fetch latest models")}
+                        aria-label="Auto fetch latest models"
                         checked={draft.autoFetchModels}
                         onCheckedChange={(autoFetchModels) => onChange({ autoFetchModels })}
                       />
                     </div>
                     <div className="sm:col-span-2 flex min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 text-[12px] font-semibold">
                       <span className="flex min-w-0 items-center gap-1.5">
-                        <span className="min-w-0 truncate">{t("Auto detect protocols")}</span>
+                        <span className="min-w-0 truncate">Auto detect protocols</span>
                         <button
-                          aria-label={t("Auto detect protocols info")}
+                          aria-label="Auto detect protocols info"
                           aria-pressed={Boolean(autoDetectInfoPosition)}
                           className={cn(
                             "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30",
@@ -2455,14 +2434,14 @@ export function AddProviderForm({
                             toggleAutoDetectInfo(event.currentTarget);
                           }}
                           onMouseDown={(event) => event.stopPropagation()}
-                          title={t("Auto detect protocols info")}
+                          title="Auto detect protocols info"
                           type="button"
                         >
                           <Info className="h-3.5 w-3.5" aria-hidden="true" />
                         </button>
                       </span>
                       <Switch
-                        aria-label={t("Auto detect protocols")}
+                        aria-label="Auto detect protocols"
                         checked={!manualProtocolDetection}
                         onCheckedChange={updateAutoProtocolDetection}
                       />
@@ -2473,7 +2452,7 @@ export function AddProviderForm({
                       onChange={onChange}
                       probe={probe}
                     />
-                    <Field className="sm:col-span-2" label={t("Extra request body")} requirement="optional" requirementLabel={t("Optional")}>
+                    <Field className="sm:col-span-2" label="Extra request body" requirement="optional" requirementLabel="Optional">
                       <Textarea
                         className="min-h-[92px] font-mono text-[11px]"
                         onChange={(event) => onChange({ extraBodyText: event.target.value })}
@@ -2481,10 +2460,10 @@ export function AddProviderForm({
                         value={draft.extraBodyText}
                       />
                       <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                        {t("Merged into every upstream request for this provider. Use \"default\" for all models, or a model name as the key to target one.")}
+                        Merged into every upstream request for this provider. Use "default" for all models, or a model name as the key to target one.
                       </div>
                     </Field>
-                    <Field className="sm:col-span-2" label={t("Extra request headers")} requirement="optional" requirementLabel={t("Optional")}>
+                    <Field className="sm:col-span-2" label="Extra request headers" requirement="optional" requirementLabel="Optional">
                       <Textarea
                         className="min-h-[68px] font-mono text-[11px]"
                         onChange={(event) => onChange({ extraHeadersText: event.target.value })}
@@ -2492,10 +2471,10 @@ export function AddProviderForm({
                         value={draft.extraHeadersText}
                       />
                       <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                        {t("Sent with every upstream request for this provider, alongside the API key header.")}
+                        Sent with every upstream request for this provider, alongside the API key header.
                       </div>
                     </Field>
-                    <Field className="sm:col-span-2" label={t("Protocol details")}>
+                    <Field className="sm:col-span-2" label="Protocol details">
                       <div className="max-h-[128px] overflow-auto rounded-md border border-border bg-background p-2">
                         {manualProtocolDetection ? (
                           <div className="space-y-1.5">
@@ -2505,7 +2484,7 @@ export function AddProviderForm({
                               return (
                                 <div className="grid grid-cols-[20px_minmax(118px,1fr)_minmax(88px,max-content)] items-center gap-2 text-[11px]" key={protocol}>
                                   <Checkbox
-                                    aria-label={`${t("Add")} ${translatedProviderProtocolLabel(protocol, t)}`}
+                                    aria-label={`Add ${providerProtocolLabel(protocol)}`}
                                     checked={checked}
                                     onCheckedChange={() => {
                                       onChange({
@@ -2516,9 +2495,9 @@ export function AddProviderForm({
                                       });
                                     }}
                                   />
-                                  <span className="truncate font-medium">{translatedProviderProtocolLabel(protocol, t)}</span>
+                                  <span className="truncate font-medium">{providerProtocolLabel(protocol)}</span>
                                   <span className={cn("inline-flex min-w-0 items-center justify-end", checked ? "text-foreground" : "text-muted-foreground")}>
-                                    <span className="truncate">{checked ? t("Selected") : ""}</span>
+                                    <span className="truncate">{checked ? "Selected" : ""}</span>
                                   </span>
                                 </div>
                               );
@@ -2535,7 +2514,7 @@ export function AddProviderForm({
                               return (
                                 <div className="grid grid-cols-[20px_minmax(118px,1fr)_minmax(88px,max-content)] items-center gap-2 text-[11px]" key={itemKey}>
                                   <Checkbox
-                                    aria-label={`${t("Add")} ${translatedProviderProtocolLabel(item.protocol, t)}`}
+                                    aria-label={`Add ${providerProtocolLabel(item.protocol)}`}
                                     checked={checked}
                                     disabled={!selectable}
                                     onCheckedChange={() => {
@@ -2550,11 +2529,11 @@ export function AddProviderForm({
                                       });
                                     }}
                                   />
-                                  <span className="truncate font-medium">{translatedProviderProtocolLabel(item.protocol, t)}</span>
+                                  <span className="truncate font-medium">{providerProtocolLabel(item.protocol)}</span>
                                   <span className={cn("inline-flex min-w-0 items-center justify-end gap-1.5", available ? "text-emerald-600 dark:text-emerald-300" : "text-muted-foreground")}>
-                                    <span className="truncate">{available ? t("Available") : t("Unavailable")}</span>
+                                    <span className="truncate">{available ? "Available" : "Unavailable"}</span>
                                     <button
-                                      aria-label={t("Protocol detection details")}
+                                      aria-label="Protocol detection details"
                                       aria-pressed={protocolProbeDetails?.key === itemKey}
                                       className={cn(
                                         "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30",
@@ -2565,7 +2544,7 @@ export function AddProviderForm({
                                         toggleProtocolProbeDetails(itemKey, item, event.currentTarget);
                                       }}
                                       onMouseDown={(event) => event.stopPropagation()}
-                                      title={t("Protocol detection details")}
+                                      title="Protocol detection details"
                                       type="button"
                                     >
                                       <Info className="h-3.5 w-3.5" aria-hidden="true" />
@@ -2577,7 +2556,7 @@ export function AddProviderForm({
                           </div>
                         ) : (
                           <div className="text-[11px] text-muted-foreground">
-                            <span>{t("No protocol detection yet")}</span>
+                            <span>No protocol detection yet</span>
                           </div>
                         )}
                       </div>
@@ -2591,13 +2570,11 @@ export function AddProviderForm({
                 item={protocolProbeDetails.item}
                 left={protocolProbeDetails.left}
                 top={protocolProbeDetails.top}
-                t={t}
               />
             ) : null}
             {autoDetectInfoPosition ? (
               <AutoDetectProtocolsTooltip
                 left={autoDetectInfoPosition.left}
-                t={t}
                 top={autoDetectInfoPosition.top}
               />
             ) : null}
@@ -2613,11 +2590,9 @@ export function AddProviderForm({
 
 function AutoDetectProtocolsTooltip({
   left,
-  t,
   top
 }: {
   left: number;
-  t: (value: string) => string;
   top: number;
 }) {
   return (
@@ -2626,8 +2601,8 @@ function AutoDetectProtocolsTooltip({
       onMouseDown={(event) => event.stopPropagation()}
       style={{ left, top }}
     >
-      <div className="mb-1.5 font-semibold">{t("Auto detect protocols")}</div>
-      <div className="text-muted-foreground">{t("Auto detect protocols description")}</div>
+      <div className="mb-1.5 font-semibold">Auto detect protocols</div>
+      <div className="text-muted-foreground">When enabled, LLMR probes the endpoint while editing and uses the detected protocols and models to update this provider. Turn it off to keep manually selected protocols and custom model IDs unchanged.</div>
     </TooltipPortal>
   );
 }
@@ -2675,16 +2650,14 @@ function providerProtocolProbeTooltipPosition(rect: DOMRect): { left: number; to
 function ProtocolProbeDetailsTooltip({
   item,
   left,
-  t,
   top
 }: {
   item: GatewayProviderProbeResult["protocols"][number];
   left: number;
-  t: (value: string) => string;
   top: number;
 }) {
   const status = item.status === undefined ? "-" : `HTTP ${item.status}`;
-  const message = translateProbeProtocolMessage(item.message, t) || "-";
+  const message = probeProtocolMessage(item.message) || "-";
 
   return (
     <TooltipPortal
@@ -2692,11 +2665,11 @@ function ProtocolProbeDetailsTooltip({
       onMouseDown={(event) => event.stopPropagation()}
       style={{ left, top }}
     >
-      <div className="mb-1.5 font-semibold">{t("Protocol detection details")}</div>
+      <div className="mb-1.5 font-semibold">Protocol detection details</div>
       <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-x-2 gap-y-1">
-        <span className="text-muted-foreground">{t("HTTP status")}</span>
+        <span className="text-muted-foreground">HTTP status</span>
         <span className="min-w-0 truncate font-mono">{status}</span>
-        <span className="text-muted-foreground">{t("Error message")}</span>
+        <span className="text-muted-foreground">Error message</span>
         <span className="min-w-0 break-words">{message}</span>
       </div>
     </TooltipPortal>
@@ -2710,8 +2683,6 @@ function ProviderCredentialSettings({
   draft: AddProviderDraft;
   onChange: (patch: Partial<AddProviderDraft>, resetProbe?: boolean) => void;
 }) {
-  const t = useAppText();
-  const formatError = useAppErrorText();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState("");
 
@@ -2747,13 +2718,13 @@ function ProviderCredentialSettings({
       const text = await file.text();
       const patch = providerCredentialDraftPatchFromJson(text);
       if (typeof patch === "string") {
-        setImportError(formatError(new Error(patch)));
+        setImportError(formatAppError(new Error(patch)));
         return;
       }
       onChange(patch, true);
       setImportError("");
     } catch (error) {
-      setImportError(formatError(error));
+      setImportError(formatAppError(error));
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -2765,8 +2736,8 @@ function ProviderCredentialSettings({
     <div className="space-y-3">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <Label className="text-[12px] font-semibold">{t("Pool keys")}</Label>
-          <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">{t("Use multiple API keys with optional priorities, weights, and limits.")}</div>
+          <Label className="text-[12px] font-semibold">Pool keys</Label>
+          <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">Use multiple API keys with optional priorities, weights, and limits.</div>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <input
@@ -2778,18 +2749,18 @@ function ProviderCredentialSettings({
           />
           <Button className="h-8 px-2" onClick={() => fileInputRef.current?.click()} type="button" variant="outline">
             <Braces className="h-3.5 w-3.5" />
-            {t("Import JSON")}
+            Import JSON
           </Button>
           <Button className="h-8 px-2" onClick={addCredential} type="button" variant="outline">
             <Plus className="h-3.5 w-3.5" />
-            {t("Add key")}
+            Add key
           </Button>
         </div>
       </div>
 
       {draft.credentials.length === 0 ? (
         <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-center text-[12px] text-muted-foreground">
-          {t("No provider credentials configured")}
+          No provider credentials configured
         </div>
       ) : (
         <div className="space-y-2">
@@ -2808,7 +2779,7 @@ function ProviderCredentialSettings({
       {importError ? (
         <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
           <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>{t(importError)}</span>
+          <span>{importError}</span>
         </div>
       ) : null}
     </div>
@@ -2826,7 +2797,6 @@ function ProviderCredentialRow({
   onChange: (patch: Partial<ProviderCredentialDraft>) => void;
   onRemove: () => void;
 }) {
-  const t = useAppText();
   const label = credential.name || `key-${index + 1}`;
   const [advancedOpen, setAdvancedOpen] = useState(
     () => Boolean(
@@ -2841,22 +2811,22 @@ function ProviderCredentialRow({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[auto_minmax(140px,0.75fr)_minmax(180px,1fr)_auto]">
         <div className="flex items-end pb-2">
           <Checkbox
-            aria-label={`${t("Enable")} ${label}`}
+            aria-label={`Enable ${label}`}
             checked={credential.enabled}
             onCheckedChange={(enabled) => onChange({ enabled })}
           />
         </div>
-        <Field label={t("Name")}>
+        <Field label="Name">
           <Input value={credential.name} onChange={(event) => onChange({ name: event.target.value })} />
         </Field>
-        <Field label={t("API key")}>
+        <Field label="API key">
           <ProviderApiKeyInput
             value={credential.apiKey}
             onChange={(apiKey) => onChange({ apiKey })}
           />
         </Field>
         <div className="flex items-end justify-end">
-          <Button aria-label={`${t("Remove")} ${label}`} onClick={onRemove} size="iconSm" title={t("Remove")} type="button" variant="ghost">
+          <Button aria-label={`Remove ${label}`} onClick={onRemove} size="iconSm" title="Remove" type="button" variant="ghost">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -2868,20 +2838,20 @@ function ProviderCredentialRow({
         type="button"
         unstyled
       >
-        <span className="min-w-0 truncate">{t("Advanced key options")}</span>
+        <span className="min-w-0 truncate">Advanced key options</span>
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", advancedOpen && "rotate-180")} />
       </Button>
       <AnimatePresence initial={false}>
         {advancedOpen ? (
           <AnimatedDisclosure key="credential-row-advanced">
             <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border/60 pt-3 sm:grid-cols-2">
-              <Field label={t("Priority")}>
+              <Field label="Priority">
                 <Input min={1} placeholder={String(index + 1)} type="number" value={credential.priority} onChange={(event) => onChange({ priority: event.target.value })} />
               </Field>
-              <Field label={t("Weight")}>
+              <Field label="Weight">
                 <Input min={1} placeholder="1" type="number" value={credential.weight} onChange={(event) => onChange({ weight: event.target.value })} />
               </Field>
-              <Field className="sm:col-span-2" label={t("Limits JSON")}>
+              <Field className="sm:col-span-2" label="Limits JSON">
                 <Textarea
                   className="min-h-[76px] font-mono text-[11px]"
                   placeholder={`{\n  "rpm": 60,\n  "tpm": 100000\n}`}
@@ -2908,8 +2878,6 @@ function ProviderUsageSettings({
   onChange: (patch: Partial<AddProviderDraft>, resetProbe?: boolean) => void;
   probe?: GatewayProviderProbeResult;
 }) {
-  const t = useAppText();
-  const formatError = useAppErrorText();
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<ProviderAccountTestResult>();
   const [testError, setTestError] = useState("");
@@ -2917,7 +2885,7 @@ function ProviderUsageSettings({
   const [chromeImportLoading, setChromeImportLoading] = useState(false);
   const [chromeImportMessage, setChromeImportMessage] = useState("");
   const [newApiUserId, setNewApiUserId] = useState("");
-  const modeOptions = translateOptions(providerAccountModeOptions, t);
+  const modeOptions = providerAccountModeOptions;
   const globalBaseUrl = providerGlobalBaseUrlForProbe(draft.baseUrl, probe, draft.selectedProtocols);
   const usageApiKey = providerConnectivityApiKeyFromDraft(draft);
   const isJsonUsageMode = draft.accountMode === "http-json" || draft.accountMode === "browser";
@@ -2944,14 +2912,17 @@ function ProviderUsageSettings({
       if (!getChromeLoginImport) {
         return;
       }
-      void pollChromeImportJob(getChromeLoginImport, chromeImportJob.id).then(setChromeImportJob);
+      void getChromeLoginImport(chromeImportJob.id).then(setChromeImportJob).catch((error) => {
+        setChromeImportJob(undefined);
+        setTestError(formatAppError(error));
+      });
     }, 2000);
     return () => window.clearInterval(interval);
   }, [chromeImportJob]);
 
   async function testUsageRequest() {
     if (!window.ccr?.testProviderAccountConnector) {
-      setTestError(t("Request failed."));
+      setTestError("Request failed.");
       return;
     }
     const connector = draft.accountMode === "raw"
@@ -2960,7 +2931,7 @@ function ProviderUsageSettings({
         ? providerBrowserConnectorFromDraft(draft, { requireMeters: false })
         : providerHttpJsonConnectorFromDraft(draft, { requireMeters: false });
     if (typeof connector === "string") {
-      setTestError(formatError(new Error(connector)));
+      setTestError(formatAppError(new Error(connector)));
       return;
     }
     const safetyIssue = providerAccountConnectorApiKeySafetyIssue(connector, {
@@ -2970,7 +2941,7 @@ function ProviderUsageSettings({
       providerPresetId: draft.presetId
     });
     if (safetyIssue) {
-      setTestError(formatError(new Error(safetyIssue.message)));
+      setTestError(formatAppError(new Error(safetyIssue.message)));
       return;
     }
 
@@ -2986,7 +2957,7 @@ function ProviderUsageSettings({
       setTestResult(result);
     } catch (error) {
       setTestResult(undefined);
-      setTestError(formatError(error));
+      setTestError(formatAppError(error));
     } finally {
       setTestLoading(false);
     }
@@ -2994,30 +2965,30 @@ function ProviderUsageSettings({
 
   async function openBrowserLogin() {
     if (!window.ccr?.openBuiltInBrowser) {
-      setTestError(t("Built-in browser is unavailable."));
+      setTestError("Built-in browser is unavailable.");
       return;
     }
     const targetUrl = browserLoginTargetUrl(draft);
     if (!targetUrl) {
-      setTestError(t("Browser login URL or usage request URL is required."));
+      setTestError("Browser login URL or usage request URL is required.");
       return;
     }
     setTestError("");
     try {
       await window.ccr.openBuiltInBrowser(targetUrl);
     } catch (error) {
-      setTestError(formatError(error));
+      setTestError(formatAppError(error));
     }
   }
 
   async function startChromeImportFromBrowserConfig() {
     if (!window.ccr?.startChromeLoginImport) {
-      setTestError(t("Chrome login import is unavailable."));
+      setTestError("Chrome login import is unavailable.");
       return;
     }
     const domains = browserChromeImportDomains(draft);
     if (domains.length === 0) {
-      setTestError(t("Browser login URL or usage request URL is required."));
+      setTestError("Browser login URL or usage request URL is required.");
       return;
     }
     setChromeImportLoading(true);
@@ -3030,10 +3001,10 @@ function ProviderUsageSettings({
         target: "browser"
       });
       setChromeImportJob(job);
-      setChromeImportMessage(t("Chrome import started. If the page did not open in Chrome, copy the extension import URL into the Chrome extension popup."));
+      setChromeImportMessage("Chrome import started. If the page did not open in Chrome, copy the extension import URL into the Chrome extension popup.");
     } catch (error) {
       setChromeImportJob(undefined);
-      setTestError(formatError(error));
+      setTestError(formatAppError(error));
     } finally {
       setChromeImportLoading(false);
     }
@@ -3045,7 +3016,7 @@ function ProviderUsageSettings({
       return;
     }
     await copyTextToClipboard(url);
-    setChromeImportMessage(t(kind === "confirm" ? "Confirmation page URL copied." : "Extension import URL copied."));
+    setChromeImportMessage(kind === "confirm" ? "Confirmation page URL copied." : "Extension import URL copied.");
   }
 
   function selectPath(target: ProviderUsageFieldTarget, path: string) {
@@ -3070,20 +3041,20 @@ function ProviderUsageSettings({
             checked={draft.accountEnabled}
             onCheckedChange={(checked) => onChange({ accountEnabled: checked })}
           />
-          <span className="min-w-0 truncate">{t("Fetch usage")}</span>
+          <span className="min-w-0 truncate">Fetch usage</span>
         </Label>
       </div>
 
       {draft.accountEnabled ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label={t("Usage mode")}>
+          <Field label="Usage mode">
             <SelectControl
               onChange={(accountMode) => onChange({ accountMode: accountMode as ProviderAccountDraftMode })}
               options={modeOptions}
               value={draft.accountMode}
             />
           </Field>
-          <Field label={t("Refresh interval ms")}>
+          <Field label="Refresh interval ms">
             <Input
               min={30000}
               placeholder="300000"
@@ -3095,21 +3066,21 @@ function ProviderUsageSettings({
 
           {draft.accountMode === "standard" ? (
             <div className="sm:col-span-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-[12px] leading-5 text-muted-foreground">
-              {t("Standard usage endpoint will try provider-hosted LLMR account endpoints.")}
-              {customEndpoint ? <span> {t("Switch to HTTP JSON request to configure method, URL, headers, body, and response fields.")}</span> : null}
+              Standard usage endpoint will try provider-hosted LLMR account endpoints.
+              {customEndpoint ? <span> Switch to HTTP JSON request to configure method, URL, headers, body, and response fields.</span> : null}
             </div>
           ) : null}
 
           {isJsonUsageMode ? (
             <div className="sm:col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label={t("Method")}>
+              <Field label="Method">
                 <SelectControl
                   onChange={(usageRequestMethod) => onChange({ usageRequestMethod: usageRequestMethod as "GET" | "POST" })}
                   options={providerUsageMethodOptions}
                   value={draft.usageRequestMethod}
                 />
               </Field>
-              <Field label={t("Usage request URL")}>
+              <Field label="Usage request URL">
                 <Input
                   placeholder="https://api.vendor.com/account"
                   value={draft.usageRequestUrl}
@@ -3119,9 +3090,9 @@ function ProviderUsageSettings({
               {draft.accountMode === "browser" ? (
                 <>
                   <div className="sm:col-span-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-[12px] leading-5 text-muted-foreground">
-                    {t("Browser request uses LLMR Desktop's built-in browser login state. Sign in in the in-app browser before testing.")}
+                    Browser request uses LLMR Desktop's built-in browser login state. Sign in in the in-app browser before testing.
                   </div>
-                  <Field className="sm:col-span-2" label={t("Browser login URL")}>
+                  <Field className="sm:col-span-2" label="Browser login URL">
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
                       <Input
                         placeholder="https://vendor.example.com/login"
@@ -3130,35 +3101,35 @@ function ProviderUsageSettings({
                       />
                       <Button size="sm" type="button" variant="outline" onClick={() => void openBrowserLogin()}>
                         <KeyRound className="h-3.5 w-3.5" />
-                        {t("Open login browser")}
+                        Open login browser
                       </Button>
                       <Button disabled={chromeImportLoading} size="sm" type="button" variant="outline" onClick={() => void startChromeImportFromBrowserConfig()}>
                         {chromeImportLoading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5" />}
-                        {t("Import from Chrome")}
+                        Import from Chrome
                       </Button>
                     </div>
                   </Field>
-                  <Field label={t("Browser storage origin")}>
+                  <Field label="Browser storage origin">
                     <Input
                       placeholder={browserEndpointOrigin(draft.usageBrowserLoginUrl) || browserEndpointOrigin(draft.usageRequestUrl) || "https://vendor.example.com"}
                       value={draft.usageBrowserRequestOrigin}
                       onChange={(event) => onChange({ usageBrowserRequestOrigin: event.target.value })}
                     />
                     <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                      {t("Origin used to read browser storage before fetching the usage URL.")}
+                      Origin used to read browser storage before fetching the usage URL.
                     </div>
                   </Field>
-                  <Field label={t("Fetch credentials")}>
+                  <Field label="Fetch credentials">
                     <SelectControl
                       onChange={(usageBrowserCredentials) => onChange({ usageBrowserCredentials: usageBrowserCredentials as AddProviderDraft["usageBrowserCredentials"] })}
-                      options={translateOptions(providerBrowserCredentialsOptions, t)}
+                      options={providerBrowserCredentialsOptions}
                       value={draft.usageBrowserCredentials}
                     />
                     <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                      {t("Use omit for token headers when the API returns Access-Control-Allow-Origin: *.")}
+                      Use omit for token headers when the API returns Access-Control-Allow-Origin: *.
                     </div>
                   </Field>
-                  <Field label={t("Browser timeout ms")}>
+                  <Field label="Browser timeout ms">
                     <Input
                       min={1000}
                       placeholder="15000"
@@ -3167,32 +3138,32 @@ function ProviderUsageSettings({
                       onChange={(event) => onChange({ usageBrowserTimeoutMs: event.target.value })}
                     />
                   </Field>
-                  <Field className="sm:col-span-2" label={t("Browser header templates")}>
+                  <Field className="sm:col-span-2" label="Browser header templates">
                     <KeyValueRowsControl
-                      addLabel={t("Add browser header template")}
+                      addLabel="Add browser header template"
                       rows={draft.usageBrowserHeaderTemplates}
                       onChange={(usageBrowserHeaderTemplates) => onChange({ usageBrowserHeaderTemplates })}
                     />
                     <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                      {t("Use ${localStorage.token} or ${sessionStorage.token} in values.")}
+                      {"Use ${localStorage.token} or ${sessionStorage.token} in values."}
                     </div>
                   </Field>
                   {chromeImportJob || chromeImportMessage ? (
                     <div className="sm:col-span-2 rounded-md border border-border bg-muted/20 px-3 py-2">
                       <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        {chromeImportJob ? <Badge variant={chromeImportJob.status === "completed" ? "success" : "outline"}>{t("Chrome import")} · {chromeImportJob.status}</Badge> : null}
+                        {chromeImportJob ? <Badge variant={chromeImportJob.status === "completed" ? "success" : "outline"}>Chrome import · {chromeImportJob.status}</Badge> : null}
                         {chromeImportJob?.result ? (
                           <span className="text-[11px] text-muted-foreground">
-                            {chromeImportJob.result.imported} {t("imported")}, {chromeImportJob.result.skipped} {t("skipped")}
+                            {chromeImportJob.result.imported} imported, {chromeImportJob.result.skipped} skipped
                           </span>
                         ) : null}
                         {chromeImportJob?.status === "pending" ? (
                           <>
                             <Button size="sm" type="button" variant="outline" onClick={() => void copyChromeImportUrl("import")}>
-                              {t("Copy import URL")}
+                              Copy import URL
                             </Button>
                             <Button size="sm" type="button" variant="outline" onClick={() => void copyChromeImportUrl("confirm")}>
-                              {t("Copy page URL")}
+                              Copy page URL
                             </Button>
                           </>
                         ) : null}
@@ -3202,14 +3173,14 @@ function ProviderUsageSettings({
                   ) : null}
                 </>
               ) : null}
-              <Field className="sm:col-span-2" label={t("Headers")}>
+              <Field className="sm:col-span-2" label="Headers">
                 <KeyValueRowsControl
-                  addLabel={t("Add header")}
+                  addLabel="Add header"
                   rows={draft.usageRequestHeaders}
                   onChange={(usageRequestHeaders) => onChange({ usageRequestHeaders })}
                 />
               </Field>
-              <Field className="sm:col-span-2" label={t("Body")}>
+              <Field className="sm:col-span-2" label="Body">
                 <Textarea
                   className="min-h-[92px] font-mono text-[11px]"
                   placeholder={`{\n  "query": "usage"\n}`}
@@ -3218,34 +3189,34 @@ function ProviderUsageSettings({
                 />
               </Field>
 
-              <Field label={t("Balance remaining field")}>
+              <Field label="Balance remaining field">
                 <Input placeholder="$.balance.remaining" value={draft.usageBalanceRemainingPath} onChange={(event) => onChange({ usageBalanceRemainingPath: event.target.value })} />
               </Field>
-              <Field label={t("Balance total field")}>
+              <Field label="Balance total field">
                 <Input placeholder="$.totalCredits" value={draft.usageBalanceLimitPath} onChange={(event) => onChange({ usageBalanceLimitPath: event.target.value })} />
               </Field>
-              <Field label={t("Balance used field")}>
+              <Field label="Balance used field">
                 <Input placeholder="$.totalUsage" value={draft.usageBalanceUsedPath} onChange={(event) => onChange({ usageBalanceUsedPath: event.target.value })} />
               </Field>
-              <Field label={t("Balance unit")}>
+              <Field label="Balance unit">
                 <Input placeholder="USD" value={draft.usageBalanceUnit} onChange={(event) => onChange({ usageBalanceUnit: event.target.value })} />
               </Field>
-              <Field label={t("Subscription remaining field")}>
+              <Field label="Subscription remaining field">
                 <Input placeholder="$.subscription.remaining" value={draft.usageSubscriptionRemainingPath} onChange={(event) => onChange({ usageSubscriptionRemainingPath: event.target.value })} />
               </Field>
-              <Field label={t("Subscription limit field")}>
+              <Field label="Subscription limit field">
                 <Input placeholder="$.subscription.limit" value={draft.usageSubscriptionLimitPath} onChange={(event) => onChange({ usageSubscriptionLimitPath: event.target.value })} />
               </Field>
-              <Field label={t("Subscription reset field")}>
+              <Field label="Subscription reset field">
                 <Input placeholder="$.subscription.resetAt" value={draft.usageSubscriptionResetPath} onChange={(event) => onChange({ usageSubscriptionResetPath: event.target.value })} />
               </Field>
-              <Field label={t("Subscription unit")}>
+              <Field label="Subscription unit">
                 <Input placeholder="tokens" value={draft.usageSubscriptionUnit} onChange={(event) => onChange({ usageSubscriptionUnit: event.target.value })} />
               </Field>
-              <Field label={t("Status field")}>
+              <Field label="Status field">
                 <Input placeholder="$.status" value={draft.usageStatusPath} onChange={(event) => onChange({ usageStatusPath: event.target.value })} />
               </Field>
-              <Field label={t("Message field")}>
+              <Field label="Message field">
                 <Input placeholder="$.message" value={draft.usageMessagePath} onChange={(event) => onChange({ usageMessagePath: event.target.value })} />
               </Field>
 
@@ -3254,9 +3225,9 @@ function ProviderUsageSettings({
                   <AnimatedIconSwap iconKey={testLoading ? "testing" : "check"}>
                     {testLoading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
                   </AnimatedIconSwap>
-                  {t(draft.accountMode === "browser" ? "Test browser request" : "Test usage request")}
+                  {draft.accountMode === "browser" ? "Test browser request" : "Test usage request"}
                 </Button>
-                {testResult ? <Badge variant={testResult.meters.length > 0 ? "success" : "outline"}>{testResult.meters.length} {t("meters")}</Badge> : null}
+                {testResult ? <Badge variant={testResult.meters.length > 0 ? "success" : "outline"}>{testResult.meters.length} meters</Badge> : null}
               </div>
 
               {testResult ? (
@@ -3267,27 +3238,27 @@ function ProviderUsageSettings({
 
           {draft.accountMode === "raw" ? (
             <div className="sm:col-span-2 space-y-2">
-              <Field label={t("Connectors JSON")}>
+              <Field label="Connectors JSON">
                 <Textarea
                   className="min-h-[180px] font-mono text-[11px]"
                   value={draft.accountConnectorsText}
                   onChange={(event) => onChange({ accountConnectorsText: event.target.value })}
                 />
                 <div className="flex min-w-0 items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                  <span className="min-w-0 truncate">{t("Supports standard, http-json, webcontent-json, plugin, and local-estimate connectors.")}</span>
+                  <span className="min-w-0 truncate">Supports standard, http-json, webcontent-json, plugin, and local-estimate connectors.</span>
                   <button
                     className="shrink-0 text-primary hover:underline"
                     type="button"
                     onClick={() => onChange({ accountConnectorsText: providerAccountConnectorExample() })}
                   >
-                    {t("Insert example")}
+                    Insert example
                   </button>
                 </div>
               </Field>
               {showNewApiUserBalanceTemplate ? (
                 <div className="grid grid-cols-1 items-end gap-2 rounded-md border border-border/60 bg-muted/20 p-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                   <div className="min-w-0 space-y-1">
-                    <Label className="text-[11px] font-medium text-muted-foreground">{t("New API user ID")}</Label>
+                    <Label className="text-[11px] font-medium text-muted-foreground">New API user ID</Label>
                     <Input
                       placeholder="<user-id>"
                       value={newApiUserId}
@@ -3295,7 +3266,7 @@ function ProviderUsageSettings({
                     />
                   </div>
                   <Button size="sm" type="button" variant="outline" onClick={insertNewApiUserBalanceTemplate}>
-                    {t("Insert New API user balance")}
+                    Insert New API user balance
                   </Button>
                 </div>
               ) : null}
@@ -3304,9 +3275,9 @@ function ProviderUsageSettings({
                   <AnimatedIconSwap iconKey={testLoading ? "testing" : "check"}>
                     {testLoading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
                   </AnimatedIconSwap>
-                  {t("Test first JSON connector")}
+                  Test first JSON connector
                 </Button>
-                {testResult ? <Badge variant={testResult.meters.length > 0 ? "success" : "outline"}>{testResult.meters.length} {t("meters")}</Badge> : null}
+                {testResult ? <Badge variant={testResult.meters.length > 0 ? "success" : "outline"}>{testResult.meters.length} meters</Badge> : null}
               </div>
               {testResult ? (
                 <ProviderUsageTestResultPanel result={testResult} onSelectPath={() => undefined} />
@@ -3319,7 +3290,7 @@ function ProviderUsageSettings({
       {testError ? (
         <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
           <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>{t(testError)}</span>
+          <span>{testError}</span>
         </div>
       ) : null}
     </div>
@@ -3418,17 +3389,16 @@ function ProviderUsageTestResultPanel({
   onSelectPath: (target: ProviderUsageFieldTarget, path: string) => void;
   result: ProviderAccountTestResult;
 }) {
-  const t = useAppText();
   const visiblePaths = result.paths.slice(0, 120);
 
   return (
     <div className="sm:col-span-2 rounded-md border border-border bg-muted/20">
       <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="min-w-0 truncate text-[12px] font-semibold">{t("Response fields")}</div>
+        <div className="min-w-0 truncate text-[12px] font-semibold">Response fields</div>
         <Badge variant="outline">{result.paths.length}</Badge>
       </div>
       {visiblePaths.length === 0 ? (
-        <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">{t("No response fields")}</div>
+        <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">No response fields</div>
       ) : (
         <div className="max-h-[260px] overflow-auto p-2">
           <div className="space-y-1.5">
@@ -3438,7 +3408,7 @@ function ProviderUsageTestResultPanel({
           </div>
           {result.paths.length > visiblePaths.length ? (
             <div className="px-1 py-2 text-[11px] text-muted-foreground">
-              {t("Showing first response fields only.")}
+              Showing first response fields only.
             </div>
           ) : null}
         </div>
@@ -3454,7 +3424,6 @@ function ProviderUsagePathRow({
   item: ProviderAccountTestPath;
   onSelectPath: (target: ProviderUsageFieldTarget, path: string) => void;
 }) {
-  const t = useAppText();
 
   return (
     <div className="grid min-w-0 grid-cols-[minmax(180px,1fr)_minmax(120px,0.6fr)_auto] items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-[11px]">
@@ -3464,12 +3433,12 @@ function ProviderUsagePathRow({
       </div>
       <Badge className="justify-self-start" variant="outline">{item.type}</Badge>
       <div className="flex flex-wrap justify-end gap-1">
-        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("balance", item.path)} type="button" variant="outline">{t("Balance rem")}</Button>
-        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("balanceLimit", item.path)} type="button" variant="outline">{t("Balance total")}</Button>
-        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("balanceUsed", item.path)} type="button" variant="outline">{t("Balance used")}</Button>
-        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("subscriptionRemaining", item.path)} type="button" variant="outline">{t("Sub rem")}</Button>
-        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("subscriptionLimit", item.path)} type="button" variant="outline">{t("Sub limit")}</Button>
-        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("subscriptionReset", item.path)} type="button" variant="outline">{t("Reset")}</Button>
+        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("balance", item.path)} type="button" variant="outline">Balance rem</Button>
+        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("balanceLimit", item.path)} type="button" variant="outline">Balance total</Button>
+        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("balanceUsed", item.path)} type="button" variant="outline">Balance used</Button>
+        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("subscriptionRemaining", item.path)} type="button" variant="outline">Sub rem</Button>
+        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("subscriptionLimit", item.path)} type="button" variant="outline">Sub limit</Button>
+        <Button className="h-6 px-1.5 text-[10px]" onClick={() => onSelectPath("subscriptionReset", item.path)} type="button" variant="outline">Reset</Button>
       </div>
     </div>
   );
@@ -3516,7 +3485,6 @@ export function AddProviderDialog({
   submitLabel?: string;
   title?: string;
 }) {
-  const t = useAppText();
   const { close, confirmation } = useDraftClose(draft, onClose);
   const [checkConfirmOpen, setCheckConfirmOpen] = useState(false);
   const [iconDetecting, setIconDetecting] = useState(false);
@@ -3617,8 +3585,8 @@ export function AddProviderDialog({
           )}
         >
           <DialogHeader className={cn("h-11", wizardMode && "border-b-0")}>
-            <DialogTitle>{title ?? (mode === "edit" ? t("Edit Provider") : t("Add Provider"))}</DialogTitle>
-            <Button aria-label={t("Close dialog")} disabled={submitting} onClick={close} size="iconSm" title={t("Close")} type="button" variant="ghost">
+            <DialogTitle>{title ?? (mode === "edit" ? "Edit Provider" : "Add Provider")}</DialogTitle>
+            <Button aria-label="Close dialog" disabled={submitting} onClick={close} size="iconSm" title="Close" type="button" variant="ghost">
               <X className="h-4 w-4" />
             </Button>
           </DialogHeader>
@@ -3661,13 +3629,13 @@ export function AddProviderDialog({
             {wizardMode && previousStep ? (
               <Button disabled={submitting} onClick={() => setActiveStep(previousStep)} type="button" variant="outline">
                 <ChevronLeft className="h-4 w-4" />
-                {t("Previous")}
+                Previous
               </Button>
             ) : null}
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
               {wizardMode && nextStep ? (
                 <Button disabled={nextDisabled} onClick={goToNextStep} type="button">
-                  {t("Next")}
+                  Next
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               ) : (
@@ -3675,7 +3643,7 @@ export function AddProviderDialog({
                   <AnimatedIconSwap iconKey={submitLoading ? "loading" : finalWizardSubmit ? "done" : mode}>
                     {submitLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : mode === "edit" || finalWizardSubmit ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                   </AnimatedIconSwap>
-                  {submitLoading ? t("Loading") : submitLabel ?? (finalWizardSubmit ? t("Done") : mode === "edit" ? t("Save") : t("Add"))}
+                  {submitLoading ? "Loading" : submitLabel ?? (finalWizardSubmit ? "Done" : mode === "edit" ? "Save" : "Add")}
                 </Button>
               )}
             </div>
@@ -3712,7 +3680,6 @@ export function ProviderConnectivityCheckDialog({
   onCheck: (models: string[]) => Promise<ProviderConnectivityCheckReport>;
   onClose: () => void;
 }) {
-  const t = useAppText();
   const [busy, setBusy] = useState(false);
   const [selection, setSelection] = useState<string[]>(() => mergeProviderModelLists(models));
   const [result, setResult] = useState<ProviderConnectivityCheckReport>();
@@ -3741,14 +3708,14 @@ export function ProviderConnectivityCheckDialog({
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
           <div className="min-w-0">
-            <DialogTitle>{t("Check Connection")}</DialogTitle>
+            <DialogTitle>Check Connection</DialogTitle>
           </div>
           <Button
-            aria-label={t("Close dialog")}
+            aria-label="Close dialog"
             disabled={busy}
             onClick={onClose}
             size="iconSm"
-            title={t("Close")}
+            title="Close"
             type="button"
             variant="ghost"
           >
@@ -3760,22 +3727,22 @@ export function ProviderConnectivityCheckDialog({
             <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
               <div className="flex items-start gap-2 text-[12px] font-medium text-amber-900 dark:text-amber-100">
                 <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>{t("This check sends real model requests with your provider API key and may consume account balance.")}</span>
+                <span>This check sends real model requests with your provider API key and may consume account balance.</span>
               </div>
               <div className="mt-2 text-[12px] leading-5 text-muted-foreground">
-                {t("Generated output is limited to 1 token for connectivity checks.")}
+                Generated output is limited to 1 token for connectivity checks.
               </div>
             </div>
 
             <div className="rounded-md border border-border bg-background p-2">
               <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0 truncate text-[12px] font-semibold">{t("Models to check")}</div>
+                <div className="min-w-0 truncate text-[12px] font-semibold">Models to check</div>
                 <div className="flex shrink-0 gap-1">
                   <Button className="h-6 px-1.5 text-[10px]" disabled={running || models.length === 0} onClick={() => { setSelection(mergeProviderModelLists(models)); setResult(undefined); }} type="button" variant="outline">
-                    {t("All")}
+                    All
                   </Button>
                   <Button className="h-6 px-1.5 text-[10px]" disabled={running || selection.length === 0} onClick={() => { setSelection([]); setResult(undefined); }} type="button" variant="outline">
-                    {t("Clear")}
+                    Clear
                   </Button>
                 </div>
               </div>
@@ -3805,13 +3772,13 @@ export function ProviderConnectivityCheckDialog({
         </DialogBody>
         <DialogFooter>
           <Button disabled={busy} onClick={onClose} type="button" variant="outline">
-            {result ? t("Close") : t("Cancel")}
+            {result ? "Close" : "Cancel"}
           </Button>
           <Button disabled={running || selection.length === 0} onClick={() => void confirmCheck()} type="button">
             <AnimatedIconSwap iconKey={running ? "checking" : "start"}>
               {running ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
             </AnimatedIconSwap>
-            {t("Start check")}
+            Start check
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -3820,29 +3787,28 @@ export function ProviderConnectivityCheckDialog({
 }
 
 function ProviderConnectivityResultPanel({ result }: { result: ProviderConnectivityCheckReport }) {
-  const t = useAppText();
 
   return (
     <div className="rounded-md border border-border bg-muted/20">
       <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="min-w-0 truncate text-[12px] font-semibold">{t("Check results")}</div>
+        <div className="min-w-0 truncate text-[12px] font-semibold">Check results</div>
         <div className="flex shrink-0 gap-1">
-          <Badge variant={result.passed.length > 0 ? "success" : "outline"}>{result.passed.length} {t("Available")}</Badge>
-          <Badge variant={result.failed.length > 0 ? "warning" : "outline"}>{result.failed.length} {t("Unavailable")}</Badge>
+          <Badge variant={result.passed.length > 0 ? "success" : "outline"}>{result.passed.length} Available</Badge>
+          <Badge variant={result.failed.length > 0 ? "warning" : "outline"}>{result.failed.length} Unavailable</Badge>
         </div>
       </div>
       <div className="max-h-[220px] overflow-auto p-2">
         <ProviderConnectivityResultGroup
-          emptyLabel={t("No available models")}
+          emptyLabel="No available models"
           items={result.passed}
-          label={t("Available models")}
+          label="Available models"
           variant="success"
         />
         <ProviderConnectivityResultGroup
           className="mt-2"
-          emptyLabel={t("No unavailable models")}
+          emptyLabel="No unavailable models"
           items={result.failed}
-          label={t("Unavailable models")}
+          label="Unavailable models"
           variant="warning"
         />
       </div>
@@ -3863,7 +3829,6 @@ function ProviderConnectivityResultGroup({
   label: string;
   variant: "success" | "warning";
 }) {
-  const t = useAppText();
 
   return (
     <div className={className}>
@@ -3880,16 +3845,16 @@ function ProviderConnectivityResultGroup({
               <div className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-[11px]" key={item.model}>
                 <div className="flex min-w-0 items-center justify-between gap-2">
                   <span className="min-w-0 truncate font-mono font-semibold" title={item.model}>{item.model}</span>
-                  <Badge variant={variant}>{item.supported ? t("Available") : t("Unavailable")}</Badge>
+                  <Badge variant={variant}>{item.supported ? "Available" : "Unavailable"}</Badge>
                 </div>
-                <div className="mt-1 truncate text-muted-foreground" title={translateProbeProtocolMessage(item.message, t)}>
-                  {translateProbeProtocolMessage(item.message, t)}
+                <div className="mt-1 truncate text-muted-foreground" title={probeProtocolMessage(item.message)}>
+                  {probeProtocolMessage(item.message)}
                 </div>
                 {supportedProtocols.length > 0 ? (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {supportedProtocols.map((protocol) => (
                       <Badge key={`${item.model}:${protocol.protocol}:${protocol.endpoint}`} variant="outline">
-                        {translatedProviderProtocolLabel(protocol.protocol, t)}
+                        {providerProtocolLabel(protocol.protocol)}
                       </Badge>
                     ))}
                   </div>
@@ -3941,7 +3906,6 @@ function ProviderModelPicker({
   query: string;
   selected: string[];
 }) {
-  const t = useAppText();
   const [addedQuery, setAddedQuery] = useState("");
   const [customModel, setCustomModel] = useState("");
   const [customModelEditing, setCustomModelEditing] = useState(false);
@@ -3967,7 +3931,7 @@ function ProviderModelPicker({
   const customModelControlGap = 8;
   const customModelEditorWidth = Math.max(customModelButtonWidth, addedControlsWidth);
   const returningSearchWidth = Math.max(0, customModelEditorWidth - customModelButtonWidth - customModelControlGap);
-  const refreshLabel = loading ? t("Refreshing provider models") : t("Refresh provider models");
+  const refreshLabel = loading ? "Refreshing provider models" : "Refresh provider models";
 
   function addCatalogModel(model: string) {
     if (selectedModelSet.has(model)) {
@@ -4036,8 +4000,8 @@ function ProviderModelPicker({
       <section className="flex h-[360px] min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card lg:h-full lg:min-h-0">
         <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border px-3 py-2.5">
           <div className="min-w-0">
-            <div className="truncate text-[12px] font-semibold">{t("Provider models")}</div>
-            <div className="truncate text-[11px] text-muted-foreground">{t("Models detected from this provider")}</div>
+            <div className="truncate text-[12px] font-semibold">Provider models</div>
+            <div className="truncate text-[11px] text-muted-foreground">Models detected from this provider</div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {onRefresh ? (
@@ -4061,11 +4025,11 @@ function ProviderModelPicker({
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label={t("Search provider models")}
+              aria-label="Search provider models"
               className="pl-8"
               disabled={loading}
               onChange={(event) => onQueryChange(event.target.value)}
-              placeholder={t("Search provider models")}
+              placeholder="Search provider models"
               value={query}
             />
           </div>
@@ -4075,9 +4039,9 @@ function ProviderModelPicker({
             <ProviderModelListSkeleton />
           ) : visibleCatalogModels.length === 0 ? (
             <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-8 text-center text-[12px] text-muted-foreground">
-              <div>{catalog.length === 0 ? t("No provider models") : t("No matching models")}</div>
+              <div>{catalog.length === 0 ? "No provider models" : "No matching models"}</div>
               {catalog.length === 0 ? (
-                <div className="mt-1 text-[11px] leading-4">{t("This provider did not return a model list. Add model IDs with Custom model.")}</div>
+                <div className="mt-1 text-[11px] leading-4">This provider did not return a model list. Add model IDs with Custom model.</div>
               ) : null}
             </div>
           ) : (
@@ -4104,7 +4068,7 @@ function ProviderModelPicker({
                     {added ? (
                       <Badge variant="secondary">
                         <Check className="h-3 w-3" />
-                        {t("Added")}
+                        Added
                       </Badge>
                     ) : (
                       <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -4126,8 +4090,8 @@ function ProviderModelPicker({
       <section className="flex h-[360px] min-w-0 flex-col overflow-hidden rounded-md border border-border bg-card lg:h-full lg:min-h-0">
         <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border px-3 py-2.5">
           <div className="min-w-0">
-            <div className="truncate text-[12px] font-semibold">{t("Added models")}</div>
-            <div className="truncate text-[11px] text-muted-foreground">{t("Click a model to edit settings")}</div>
+            <div className="truncate text-[12px] font-semibold">Added models</div>
+            <div className="truncate text-[11px] text-muted-foreground">Click a model to edit settings</div>
           </div>
           <Badge variant={selectedModels.length > 0 ? "secondary" : "outline"}>{selectedModels.length}</Badge>
         </div>
@@ -4147,7 +4111,7 @@ function ProviderModelPicker({
                   }}
                 >
                   <Input
-                    aria-label={t("Custom model")}
+                    aria-label="Custom model"
                     aria-invalid={customModelExists && trimmedCustomModel ? true : undefined}
                     className="h-7 min-w-0 flex-1 border-0 bg-transparent px-2 font-mono text-[12px] shadow-none focus-visible:ring-0"
                     onChange={(event) => setCustomModel(event.target.value)}
@@ -4161,29 +4125,29 @@ function ProviderModelPicker({
                         cancelCustomModel();
                       }
                     }}
-                    placeholder={customModelExists && trimmedCustomModel ? t("Model already added") : t("Custom model")}
+                    placeholder={customModelExists && trimmedCustomModel ? "Model already added" : "Custom model"}
                     ref={customModelInputRef}
-                    title={customModelExists && trimmedCustomModel ? t("Model already added") : undefined}
+                    title={customModelExists && trimmedCustomModel ? "Model already added" : undefined}
                     value={customModel}
                   />
                   <Button
-                    aria-label={t("Cancel custom model")}
+                    aria-label="Cancel custom model"
                     className="h-7 w-7 shrink-0"
                     onClick={cancelCustomModel}
                     size="iconSm"
-                    title={t("Cancel custom model")}
+                    title="Cancel custom model"
                     type="button"
                     variant="ghost"
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
                   <Button
-                    aria-label={t("Add custom model")}
+                    aria-label="Add custom model"
                     className="h-7 w-7 shrink-0"
                     disabled={!canAddCustomModel}
                     onClick={addCustomModel}
                     size="iconSm"
-                    title={t("Add custom model")}
+                    title="Add custom model"
                     type="button"
                     variant="ghost"
                   >
@@ -4208,10 +4172,10 @@ function ProviderModelPicker({
                   >
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      aria-label={t("Search added models")}
+                      aria-label="Search added models"
                       className="pl-8"
                       onChange={(event) => setAddedQuery(event.target.value)}
-                      placeholder={t("Search added models")}
+                      placeholder="Search added models"
                       value={addedQuery}
                     />
                   </motion.div>
@@ -4221,11 +4185,11 @@ function ProviderModelPicker({
                       setCustomModelReturning(false);
                       setCustomModelEditing(true);
                     }}
-                    title={t("Custom model")}
+                    title="Custom model"
                     type="button"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span className="truncate">{t("Custom model")}</span>
+                    <span className="truncate">Custom model</span>
                   </button>
                 </motion.div>
                 ) : (
@@ -4240,10 +4204,10 @@ function ProviderModelPicker({
                   <div className="relative min-w-0 flex-1">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      aria-label={t("Search added models")}
+                      aria-label="Search added models"
                       className="pl-8"
                       onChange={(event) => setAddedQuery(event.target.value)}
-                      placeholder={t("Search added models")}
+                      placeholder="Search added models"
                       value={addedQuery}
                     />
                   </div>
@@ -4253,11 +4217,11 @@ function ProviderModelPicker({
                       setCustomModelReturning(false);
                       setCustomModelEditing(true);
                     }}
-                    title={t("Custom model")}
+                    title="Custom model"
                     type="button"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span className="truncate">{t("Custom model")}</span>
+                    <span className="truncate">Custom model</span>
                   </button>
                 </motion.div>
                 )}
@@ -4268,7 +4232,7 @@ function ProviderModelPicker({
           <ModelMetadataEditor
             defaults={defaults}
             displayNames={displayNames}
-            emptyLabel={selectedModels.length === 0 ? t("No models added") : t("No matching models")}
+            emptyLabel={selectedModels.length === 0 ? "No models added" : "No matching models"}
             header={false}
             metadata={metadata}
             models={visibleAddedModels}
@@ -4293,8 +4257,6 @@ function OpenRouterProviderBlacklistSelect({
   request?: OpenRouterProviderCatalogRequest;
   value: string[];
 }) {
-  const t = useAppText();
-  const formatError = useAppErrorText();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [providers, setProviders] = useState<OpenRouterProviderCatalogItem[]>([]);
@@ -4319,8 +4281,8 @@ function OpenRouterProviderBlacklistSelect({
     ? options.filter((option) => openRouterProviderOptionMatchesQuery(option, normalizedQuery))
     : options;
   const label = selectedValues.length === 0
-    ? t("No providers blocked")
-    : `${selectedValues.length} ${t("blocked")}`;
+    ? "No providers blocked"
+    : `${selectedValues.length} blocked`;
   const requestKey = `${request?.baseUrl ?? ""}\n${request?.apiKey ?? ""}\n${request?.model ?? ""}`;
 
   useEffect(() => {
@@ -4429,7 +4391,7 @@ function OpenRouterProviderBlacklistSelect({
       return;
     }
     if (!request?.model?.trim()) {
-      setError(t("Select a model to load its OpenRouter providers."));
+      setError("Select a model to load its OpenRouter providers.");
       return;
     }
     setLoading(true);
@@ -4439,7 +4401,7 @@ function OpenRouterProviderBlacklistSelect({
       setProviders(result.providers);
     } catch (errorValue) {
       setProviders([]);
-      setError(formatError(errorValue));
+      setError(formatAppError(errorValue));
     } finally {
       setLoading(false);
     }
@@ -4448,10 +4410,10 @@ function OpenRouterProviderBlacklistSelect({
   return (
     <div className="space-y-1.5">
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t("Provider blacklist")}</Label>
+        <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Provider blacklist</Label>
         {selectedValues.length > 0 ? (
           <Button className="h-6 px-2 text-[10px]" onClick={() => onChange([])} type="button" variant="ghost">
-            {t("Clear blacklist")}
+            Clear blacklist
           </Button>
         ) : null}
       </div>
@@ -4493,21 +4455,21 @@ function OpenRouterProviderBlacklistSelect({
                 <div className="relative min-w-0 flex-1">
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    aria-label={t("Search providers")}
+                    aria-label="Search providers"
                     className="h-8 pl-8"
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder={t("Search providers")}
+                    placeholder="Search providers"
                     ref={inputRef}
                     value={query}
                   />
                 </div>
                 <Button
-                  aria-label={t("Refresh providers")}
+                  aria-label="Refresh providers"
                   className="h-8 w-8 shrink-0"
                   disabled={loading}
                   onClick={() => void loadProviders(true)}
                   size="iconSm"
-                  title={t("Refresh providers")}
+                  title="Refresh providers"
                   type="button"
                   variant="ghost"
                 >
@@ -4523,12 +4485,12 @@ function OpenRouterProviderBlacklistSelect({
                 {loading && options.length === 0 ? (
                   <div className="flex items-center justify-center gap-2 px-2 py-6 text-[12px] text-muted-foreground">
                     <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                    <span>{t("Loading providers")}</span>
+                    <span>Loading providers</span>
                   </div>
                 ) : filteredOptions.length > 0 ? (
                   filteredOptions.map((option) => {
                     const checked = selectedSet.has(option.slug);
-                    const metricText = openRouterProviderMetricText(option, t);
+                    const metricText = openRouterProviderMetricText(option);
                     return (
                       <button
                         aria-selected={checked}
@@ -4551,14 +4513,14 @@ function OpenRouterProviderBlacklistSelect({
                     );
                   })
                 ) : (
-                  <div className="px-2 py-6 text-center text-[12px] text-muted-foreground">{t("No providers found")}</div>
+                  <div className="px-2 py-6 text-center text-[12px] text-muted-foreground">No providers found</div>
                 )}
               </div>
             </PopoverContent>
           </AnimatedPopover>
         </PopoverPortal>
       </div>
-      <div className="text-[10px] leading-4 text-muted-foreground/75">{t("Excluded OpenRouter providers will be skipped by discount routing and OpenRouter fallbacks.")}</div>
+      <div className="text-[10px] leading-4 text-muted-foreground/75">Excluded OpenRouter providers will be skipped by discount routing and OpenRouter fallbacks.</div>
     </div>
   );
 }
@@ -4588,40 +4550,40 @@ function openRouterProviderOptionMatchesQuery(option: OpenRouterProviderCatalogI
     (option.quantizations ?? []).some((value) => value.toLowerCase().includes(query));
 }
 
-function openRouterProviderMetricText(option: OpenRouterProviderCatalogItem, t: (key: string) => string): string {
+function openRouterProviderMetricText(option: OpenRouterProviderCatalogItem): string {
   const parts = [
-    formatOpenRouterQuantizations(option.quantizations, t),
-    formatOpenRouterUptime(option.uptimePercent, t),
-    formatOpenRouterTokens(option.tokensYesterday, t)
+    formatOpenRouterQuantizations(option.quantizations),
+    formatOpenRouterUptime(option.uptimePercent),
+    formatOpenRouterTokens(option.tokensYesterday)
   ].filter(Boolean);
   return parts.join(" · ");
 }
 
-function formatOpenRouterQuantizations(values: string[] | undefined, t: (key: string) => string): string {
+function formatOpenRouterQuantizations(values: string[] | undefined): string {
   const quantizations = [...new Map((values ?? [])
     .map((value) => value.trim())
     .filter(Boolean)
     .map((value) => [value.toLowerCase(), value])).values()]
     .sort((left, right) => left.localeCompare(right));
-  return quantizations.length > 0 ? `${t("Quantization")} ${quantizations.join(", ")}` : "";
+  return quantizations.length > 0 ? `Quantization ${quantizations.join(", ")}` : "";
 }
 
-function formatOpenRouterUptime(value: number | undefined, t: (key: string) => string): string {
+function formatOpenRouterUptime(value: number | undefined): string {
   if (value === undefined || !Number.isFinite(value)) {
     return "";
   }
   const percent = value <= 1 ? value * 100 : value;
-  return `${t("Uptime")} ${percent.toLocaleString(undefined, {
+  return `Uptime ${percent.toLocaleString(undefined, {
     maximumFractionDigits: percent >= 99 ? 2 : 1,
     minimumFractionDigits: 0
   })}%`;
 }
 
-function formatOpenRouterTokens(value: number | undefined, t: (key: string) => string): string {
+function formatOpenRouterTokens(value: number | undefined): string {
   if (value === undefined || !Number.isFinite(value) || value < 0) {
     return "";
   }
-  return `${t("Yesterday")} ${formatCompactNumber(value)} ${t("tokens")}`;
+  return `Yesterday ${formatCompactNumber(value)} tokens`;
 }
 
 function formatCompactNumber(value: number): string {
@@ -4650,10 +4612,9 @@ function normalizeOpenRouterProviderValue(value: string): string {
 }
 
 function ProviderModelListSkeleton() {
-  const t = useAppText();
 
   return (
-    <div aria-busy="true" aria-label={t("Loading provider models")} className="space-y-1.5">
+    <div aria-busy="true" aria-label="Loading provider models" className="space-y-1.5">
       {Array.from({ length: 8 }).map((_, index) => (
         <div
           className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2.5 py-2"
@@ -4708,7 +4669,6 @@ function ModelMetadataEditor({
   openRouterProviderCatalogRequest?: OpenRouterProviderCatalogRequest;
   sourceModels?: string[];
 }) {
-  const t = useAppText();
   const normalizedModels = mergeProviderModelLists(models);
   const sourceModelSet = new Set(sourceModels ?? Object.keys(defaults ?? {}));
   const [expandedModels, setExpandedModels] = useState<Set<string>>(() => new Set());
@@ -4896,8 +4856,8 @@ function ModelMetadataEditor({
     <div className={cn("space-y-2", header && "rounded-md border border-border bg-muted/20 p-2", className)}>
       {header ? (
         <div className="flex min-w-0 items-center justify-between gap-2">
-          <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t("Model settings")}</span>
-          <span className="shrink-0 text-[12px] leading-5 text-muted-foreground/75">{t("Context, pricing, reasoning, Fast Mode, web search, and image")}</span>
+          <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Model settings</span>
+          <span className="shrink-0 text-[12px] leading-5 text-muted-foreground/75">Context, pricing, reasoning, Fast Mode, web search, and image</span>
         </div>
       ) : null}
       <div className="space-y-2">
@@ -4946,17 +4906,17 @@ function ModelMetadataEditor({
                 >
                   <ChevronRight className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-90")} />
                   <span className="min-w-0 flex-1 truncate text-[12px] font-medium" title={model}>{label}</span>
-                  {!fromSource ? <Badge variant="secondary">{t("Custom model")}</Badge> : null}
-                  {hasCustomDetails ? <Badge variant="secondary">{t("Custom")}</Badge> : null}
-                  {!hasCustomDetails && fromSource ? <Badge variant="outline">{t("Preset")}</Badge> : null}
+                  {!fromSource ? <Badge variant="secondary">Custom model</Badge> : null}
+                  {hasCustomDetails ? <Badge variant="secondary">Custom</Badge> : null}
+                  {!hasCustomDetails && fromSource ? <Badge variant="outline">Preset</Badge> : null}
                 </button>
                 {onRemoveModel ? (
                   <Button
-                    aria-label={`${t("Remove model")} ${label}`}
+                    aria-label={`Remove model ${label}`}
                     className="mr-1 h-7 w-7 shrink-0 text-muted-foreground"
                     onClick={() => onRemoveModel(model)}
                     size="iconSm"
-                    title={t("Remove model")}
+                    title="Remove model"
                     type="button"
                     variant="ghost"
                   >
@@ -4967,8 +4927,8 @@ function ModelMetadataEditor({
               {expanded ? (
                 <div className="space-y-3 border-t border-border/60 p-3">
                   <div className="flex min-w-0 items-center justify-between gap-2">
-                    <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t("Model settings")}</span>
-                    <span className="shrink-0 text-[12px] leading-5 text-muted-foreground/75">{t("Context, pricing, reasoning, Fast Mode, web search, and image")}</span>
+                    <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Model settings</span>
+                    <span className="shrink-0 text-[12px] leading-5 text-muted-foreground/75">Context, pricing, reasoning, Fast Mode, web search, and image</span>
                   </div>
                   {openRouterDiscountRouting ? (
                     <div className="space-y-2">
@@ -4977,9 +4937,9 @@ function ModelMetadataEditor({
                           checked={modelMetadata?.openRouterDiscountRouting?.enabled ?? false}
                           onCheckedChange={(checked) => updateOpenRouterDiscountRouting(model, checked)}
                         />
-                        <span>{t("OpenRouter discount routing")}</span>
+                        <span>OpenRouter discount routing</span>
                       </Label>
-                      <div className="text-[10px] leading-4 text-muted-foreground/75">{t("Automatically choose the cheapest live OpenRouter provider endpoint when savings exceed estimated cache loss.")}</div>
+                      <div className="text-[10px] leading-4 text-muted-foreground/75">Automatically choose the cheapest live OpenRouter provider endpoint when savings exceed estimated cache loss.</div>
                       {modelMetadata?.openRouterDiscountRouting?.enabled ? (
                         <OpenRouterProviderBlacklistSelect
                           onChange={(providerBlacklist) => updateOpenRouterProviderBlacklist(model, providerBlacklist)}
@@ -4993,17 +4953,17 @@ function ModelMetadataEditor({
                   ) : null}
                   <div className="space-y-2">
                     <div className="flex min-w-0 items-center justify-between gap-2">
-                      <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t("Context window (tokens)")}</Label>
+                      <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Context window (tokens)</Label>
                       {modelMetadata?.contextWindow !== undefined || modelMetadata?.maxContextWindow !== undefined ? (
                         <Button className="h-6 px-2 text-[10px]" onClick={() => resetContextWindow(model)} type="button" variant="ghost">
-                          {t("Use preset")}
+                          Use preset
                         </Button>
                       ) : null}
                     </div>
                     <Input
                       min={1}
                       onChange={(event) => updateContextWindow(model, event.target.value)}
-                      placeholder={t("Detected automatically")}
+                      placeholder="Detected automatically"
                       step={1}
                       type="number"
                       value={effectiveContextWindow ?? ""}
@@ -5011,28 +4971,28 @@ function ModelMetadataEditor({
                   </div>
                   <div className="space-y-2">
                     <div className="flex min-w-0 items-center justify-between gap-2">
-                      <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t("Pricing")}</Label>
+                      <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Pricing</Label>
                       {modelMetadata?.pricing ? (
                         <Button className="h-6 px-2 text-[10px]" onClick={() => resetPricing(model)} type="button" variant="ghost">
-                          {t("Use preset")}
+                          Use preset
                         </Button>
                       ) : null}
                     </div>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <ModelPriceInput label={`${t("Input")}(1M tokens/$)`} onChange={(value) => updatePricing(model, "inputUsdPerMillionTokens", value)} value={effectivePricing.inputUsdPerMillionTokens} />
-                      <ModelPriceInput label={`${t("Output")}(1M tokens/$)`} onChange={(value) => updatePricing(model, "outputUsdPerMillionTokens", value)} value={effectivePricing.outputUsdPerMillionTokens} />
-                      <ModelPriceInput label={`${t("Cache read")}(1M tokens/$)`} onChange={(value) => updatePricing(model, "cacheReadUsdPerMillionTokens", value)} value={effectivePricing.cacheReadUsdPerMillionTokens} />
-                      <ModelPriceInput label={`${t("Cache write 5m")}(1M tokens/$)`} onChange={(value) => updatePricing(model, "cacheWrite5mUsdPerMillionTokens", value)} value={effectivePricing.cacheWrite5mUsdPerMillionTokens} />
-                      <ModelPriceInput label={`${t("Cache write 1h")}(1M tokens/$)`} onChange={(value) => updatePricing(model, "cacheWrite1hUsdPerMillionTokens", value)} value={effectivePricing.cacheWrite1hUsdPerMillionTokens} />
+                      <ModelPriceInput label={`Input(1M tokens/$)`} onChange={(value) => updatePricing(model, "inputUsdPerMillionTokens", value)} value={effectivePricing.inputUsdPerMillionTokens} />
+                      <ModelPriceInput label={`Output(1M tokens/$)`} onChange={(value) => updatePricing(model, "outputUsdPerMillionTokens", value)} value={effectivePricing.outputUsdPerMillionTokens} />
+                      <ModelPriceInput label={`Cache read(1M tokens/$)`} onChange={(value) => updatePricing(model, "cacheReadUsdPerMillionTokens", value)} value={effectivePricing.cacheReadUsdPerMillionTokens} />
+                      <ModelPriceInput label={`Cache write 5m(1M tokens/$)`} onChange={(value) => updatePricing(model, "cacheWrite5mUsdPerMillionTokens", value)} value={effectivePricing.cacheWrite5mUsdPerMillionTokens} />
+                      <ModelPriceInput label={`Cache write 1h(1M tokens/$)`} onChange={(value) => updatePricing(model, "cacheWrite1hUsdPerMillionTokens", value)} value={effectivePricing.cacheWrite1hUsdPerMillionTokens} />
                     </div>
-                    <div className="text-[10px] leading-4 text-muted-foreground/75">{t("Input and output prices are both required to override catalog pricing.")}</div>
+                    <div className="text-[10px] leading-4 text-muted-foreground/75">Input and output prices are both required to override catalog pricing.</div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex min-w-0 items-center justify-between gap-2">
-                      <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t("Reasoning levels")}</Label>
+                      <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Reasoning levels</Label>
                       {reasoningConfigured ? (
                         <Button className="h-6 px-2 text-[10px]" onClick={() => resetReasoning(model)} type="button" variant="ghost">
-                          {t("Use preset")}
+                          Use preset
                         </Button>
                       ) : null}
                     </div>
@@ -5043,11 +5003,11 @@ function ModelMetadataEditor({
                             checked={configuredReasoningLevels.has(option.effort)}
                             onCheckedChange={(checked) => updateReasoningLevel(model, option.effort, checked)}
                           />
-                          <span className="truncate">{t(option.label)}</span>
+                          <span className="truncate">{option.label}</span>
                         </Label>
                       ))}
                     </div>
-                    <div className="text-[10px] leading-4 text-muted-foreground/75">{t("Select every reasoning effort supported by this model.")}</div>
+                    <div className="text-[10px] leading-4 text-muted-foreground/75">Select every reasoning effort supported by this model.</div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex min-w-0 items-center justify-between gap-2">
@@ -5056,15 +5016,15 @@ function ModelMetadataEditor({
                           checked={modelMetadata?.supportsFastMode ?? modelDefaults?.supportsFastMode ?? false}
                           onCheckedChange={(checked) => updateFastMode(model, checked)}
                         />
-                        <span>{t("Fast Mode")}</span>
+                        <span>Fast Mode</span>
                       </Label>
                       {modelMetadata?.supportsFastMode !== undefined ? (
                         <Button className="h-6 px-2 text-[10px]" onClick={() => resetFastMode(model)} type="button" variant="ghost">
-                          {t("Use preset")}
+                          Use preset
                         </Button>
                       ) : null}
                     </div>
-                    <div className="text-[10px] leading-4 text-muted-foreground/75">{t("Declare whether Codex app should expose the Speed control for this model.")}</div>
+                    <div className="text-[10px] leading-4 text-muted-foreground/75">Declare whether Codex app should expose the Speed control for this model.</div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex min-w-0 items-center justify-between gap-2">
@@ -5073,15 +5033,15 @@ function ModelMetadataEditor({
                           checked={modelMetadata?.capabilities?.webSearch ?? modelDefaults?.capabilities?.webSearch ?? false}
                           onCheckedChange={(checked) => updateCapability(model, "webSearch", checked)}
                         />
-                        <span>{t("Web search")}</span>
+                        <span>Web search</span>
                       </Label>
                       {modelMetadata?.capabilities?.webSearch !== undefined ? (
                         <Button className="h-6 px-2 text-[10px]" onClick={() => resetCapability(model, "webSearch")} type="button" variant="ghost">
-                          {t("Use preset")}
+                          Use preset
                         </Button>
                       ) : null}
                     </div>
-                    <div className="text-[10px] leading-4 text-muted-foreground/75">{t("Declare whether the model provides native web search.")}</div>
+                    <div className="text-[10px] leading-4 text-muted-foreground/75">Declare whether the model provides native web search.</div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex min-w-0 items-center justify-between gap-2">
@@ -5090,15 +5050,15 @@ function ModelMetadataEditor({
                           checked={modelMetadata?.capabilities?.imageInput ?? modelDefaults?.capabilities?.imageInput ?? false}
                           onCheckedChange={(checked) => updateCapability(model, "imageInput", checked)}
                         />
-                        <span>{t("Image")}</span>
+                        <span>Image</span>
                       </Label>
                       {modelMetadata?.capabilities?.imageInput !== undefined ? (
                         <Button className="h-6 px-2 text-[10px]" onClick={() => resetCapability(model, "imageInput")} type="button" variant="ghost">
-                          {t("Use preset")}
+                          Use preset
                         </Button>
                       ) : null}
                     </div>
-                    <div className="text-[10px] leading-4 text-muted-foreground/75">{t("Declare whether the model accepts image input.")}</div>
+                    <div className="text-[10px] leading-4 text-muted-foreground/75">Declare whether the model accepts image input.</div>
                   </div>
                 </div>
               ) : null}
