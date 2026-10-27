@@ -1187,6 +1187,11 @@ test("raw trace usage capture keeps the client label the request log gets", asyn
   writeFileSync(responseFile, responseBody);
   const requestId = `usage-client-${Date.now()}`;
   let enqueued;
+  const originalFetch = globalThis.fetch;
+  // The price catalog is remote; usage must be recorded while it hangs.
+  globalThis.fetch = (_url, init) => new Promise((_resolve, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+  });
   const synchronizer = new RawTraceSynchronizer({
     enqueueUpdate: async (input) => {
       enqueued = input;
@@ -1216,6 +1221,7 @@ test("raw trace usage capture keeps the client label the request log gets", asyn
     assert.ok(row, JSON.stringify(stats.clientModels));
     assert.equal(row.client, "dev@example.com");
   } finally {
+    globalThis.fetch = originalFetch;
     await synchronizer.stop();
     rmSync(dir, { force: true, recursive: true });
   }

@@ -10,6 +10,11 @@ import { GatewayBillingSynchronizer } from "@ccr/core/usage/billing-sync.ts";
 import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution.ts";
 import { UsageStore } from "@ccr/core/usage/store.ts";
 
+// Stores built without an injected loader warm the real price catalog.
+globalThis.fetch = async () => {
+  throw new Error("usage-store tests do not reach the network");
+};
+
 const fusionUsageConfig = {
   Providers: [
     {
@@ -145,6 +150,60 @@ test("UsageStore aggregates stats in SQLite without loading all events", async (
     assert.equal(stats.totals.outputTokens, 11);
     assert.equal(stats.recentRequests.length, 2);
     assert.equal(stats.models[0]?.requestCount, 1);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("UsageStore records usage while the price catalog loads and prices it afterwards", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "ccr-usage-catalog-pending-test-"));
+  try {
+    const file = path.join(dir, "usage.sqlite");
+    let catalogLoaded = false;
+    const pricing = {
+      estimateCost: (input) => catalogLoaded
+        ? { amountUsd: 0.25, model: input.model, source: "models.dev" }
+        : undefined,
+      priceCatalogNeedsRefresh: () => !catalogLoaded
+    };
+    const event = (requestId) => ({
+      durationMs: 10,
+      method: "POST",
+      model: "catalog-model",
+      path: "/v1/messages",
+      provider: "anthropic",
+      requestId,
+      statusCode: 200,
+      usage: { inputTokens: 10, outputTokens: 5 }
+    });
+
+    // The first process never sees its catalog load, as if it quit mid-fetch.
+    const stalled = new UsageStore(file, { ...pricing, loadPriceCatalog: () => new Promise(() => {}) });
+    await stalled.record(event("req-before-restart"));
+    assert.equal(await stalled.hasRequestId("req-before-restart"), true);
+    assert.equal((await stalled.getStats("today", { includeProxy: true })).totals.costUsd, 0);
+
+    let finishCatalogLoad;
+    const store = new UsageStore(file, {
+      ...pricing,
+      loadPriceCatalog: () => new Promise((resolve) => {
+        finishCatalogLoad = () => {
+          catalogLoaded = true;
+          resolve();
+        };
+      })
+    });
+    await store.record(event("req-after-restart"));
+    assert.equal((await store.getStats("today", { includeProxy: true })).totals.costUsd, 0);
+
+    finishCatalogLoad();
+    const deadline = Date.now() + 2_000;
+    let stats = await store.getStats("today", { includeProxy: true });
+    while (stats.totals.costUsd < 0.5 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      stats = await store.getStats("today", { includeProxy: true });
+    }
+    assert.equal(stats.totals.costUsd, 0.5, "both rows are priced once the catalog loads");
   } finally {
     rmSync(dir, { force: true, recursive: true });
   }
