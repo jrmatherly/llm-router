@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -926,5 +926,54 @@ test("#1801 unknown HTTP status is excluded from failure and success rate counts
     assert.equal(stats.totals.errorCount, 1);
     assert.equal(stats.totals.successRate, 0.5);
     assert.equal(stats.models[0].successRate, 0.5);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("UsageStore drops usage events older than the retention window", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "ccr-usage-retention-test-"));
+  try {
+    const dbFile = path.join(dir, "usage.sqlite");
+    const event = { durationMs: 1, method: "POST", model: "alpha-model", path: "/v1/messages", provider: "alpha", statusCode: 200 };
+    await new UsageStore(dbFile).record({ ...event, createdAt: new Date(Date.now() - 100 * 24 * 60 * 60 * 1_000).toISOString(), requestId: "old" });
+    await new UsageStore(dbFile).record({ ...event, createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1_000).toISOString(), requestId: "kept" });
+
+    const totals = await new UsageStore(dbFile).getTotalsSince(new Date(0), {}, { includeProxy: true });
+    assert.equal(totals.requestCount, 1);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("UsageStore backs off request-log backfill after it fails", async (t) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "ccr-usage-backfill-backoff-test-"));
+  try {
+    const requestLogDbFile = path.join(dir, "request-logs.sqlite");
+    writeFileSync(requestLogDbFile, "not a sqlite database");
+    t.mock.method(console, "warn", () => {});
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+    const usageStore = new UsageStore(path.join(dir, "usage.sqlite"), { requestLogDbFile });
+
+    assert.equal((await usageStore.getStats("today", { includeProxy: true })).totals.requestCount, 0);
+
+    rmSync(requestLogDbFile, { force: true });
+    const createdAt = new Date().toISOString();
+    await new RequestLogStore(requestLogDbFile).record({
+      client: "Claude Code",
+      completedAt: createdAt,
+      durationMs: 25,
+      method: "POST",
+      path: "/v1/messages",
+      providerName: "alpha",
+      requestBody: Buffer.from(JSON.stringify({ model: "alpha-model" })),
+      requestHeaders: { "content-type": "application/json" },
+      requestId: "req-backoff-1",
+      responseBodyText: JSON.stringify({ model: "alpha-model", usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } }),
+      responseHeaders: new Headers({ "content-type": "application/json" }),
+      startedAt: createdAt,
+      statusCode: 200,
+      url: "http://127.0.0.1:3456/v1/messages"
+    });
+
+    assert.equal((await usageStore.getStats("today", { includeProxy: true })).totals.requestCount, 0, "still backing off");
+    t.mock.timers.tick(60_001);
+    assert.equal((await usageStore.getStats("today", { includeProxy: true })).totals.requestCount, 1, "retried after the backoff");
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

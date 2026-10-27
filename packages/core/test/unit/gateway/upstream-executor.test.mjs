@@ -74,6 +74,34 @@ test("retry backoff stops after client aborts a network error", async () => {
   });
 });
 
+test("retries stop at the API_TIMEOUT_MS budget even with a huge retryCount", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCount = 0;
+  globalThis.fetch = async () => {
+    fetchCount += 1;
+    return new Response(null, { headers: { "retry-after": "0.02" }, status: 503 });
+  };
+  try {
+    const startedAt = Date.now();
+    const result = await fetchUpstreamWithFallback({
+      body: Buffer.from('{"model":"test-model"}'),
+      config: { ...retryConfig, API_TIMEOUT_MS: 100 },
+      coreAuthToken: "core-token",
+      fallback: { mode: "retry", models: [], retryCount: 9999 },
+      headers: {},
+      method: "POST",
+      path: "/v1/messages",
+      routedModel: "test-model",
+      upstreamUrl: "http://127.0.0.1:3456/v1/messages"
+    });
+    assert.equal(result.response.status, 503);
+    assert.ok(fetchCount > 1 && fetchCount < 20, `fetchCount ${fetchCount}`);
+    assert.ok(Date.now() - startedAt < 1_000);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("fallback cancels unfinished error bodies without waiting for cancellation", async () => {
   const originalFetch = globalThis.fetch;
   try {

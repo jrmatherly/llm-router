@@ -388,7 +388,6 @@ const rpcHandlers: Record<string, RpcHandler> = {
     if (status.state !== "running") {
       throw new Error(status.lastError || "LLMR gateway did not start.");
     }
-    logProfileApplyResult(await applyProfileConfig(config));
     return openProfileFromCcr(config, request as ProfileOpenRequest);
   },
   probeLocalAgentProvider: (request) => probeLocalAgentProvider(request as LocalAgentProviderProbeRequest),

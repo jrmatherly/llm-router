@@ -130,7 +130,11 @@ export async function openProfileFromCcr(config: AppConfig, request: ProfileOpen
   if (profile.agent === "claude-design") {
     throw new Error("Claude Design profiles can only be opened from LLMR Desktop.");
   }
-  await applyProfileConfig(config);
+  for (const client of (await applyProfileConfig(config)).clients) {
+    if (!client.ok) {
+      console.warn(`[profile:${client.client}] ${client.message}`);
+    }
+  }
   if (profile.agent === "claude-code" && surface === "app") {
     return openClaudeAppProfile(config, profile);
   }
