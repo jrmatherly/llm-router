@@ -1,6 +1,8 @@
 import type { ApiKeyConfig, AppConfig } from "@ccr/core/contracts/app";
+import { isApiKeyExpired } from "@ccr/core/gateway/auth/api-key-authorizer";
 import { endpoint as gatewayEndpoint } from "@ccr/core/gateway/core-runtime/supervisor";
 import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@ccr/core/gateway/runtime-config-control";
+import { isLocalHostname } from "@ccr/core/net/loopback";
 
 export type ExistingCcrGatewayProbe =
   | { endpoint: string; reason?: string; state: "unavailable" }
@@ -22,6 +24,9 @@ export async function probeExistingCcrGateway(
   config: Pick<AppConfig, "APIKEY" | "APIKEYS" | "gateway">
 ): Promise<ExistingCcrGatewayProbe> {
   const endpoint = publicGatewayEndpoint(config);
+  if (!isLocalGatewayEndpoint(endpoint)) {
+    return { endpoint, reason: nonLocalGatewayMessage, state: "unavailable" };
+  }
   const health = await fetchExistingGateway(endpoint, "/health");
   let ccrGateway = isCcrGatewayHealth(health.payload);
   let root: ExistingGatewayHttpProbe | undefined;
@@ -37,39 +42,36 @@ export async function probeExistingCcrGateway(
     return { endpoint, status: health.status ?? root?.status, state: "not-ccr" };
   }
 
-  const candidates = existingGatewayApiKeyCandidates(config);
-  if (candidates.length === 0) {
+  // The responder is unverified until it accepts a key, so it gets one key, never the whole list.
+  const apiKey = existingGatewayApiKeyCandidates(config).find((candidate) => !isApiKeyExpired(candidate))?.key;
+  if (!apiKey) {
     return { endpoint, message: "No configured LLMR API key is available.", status: 401, state: "unauthorized" };
   }
 
-  let lastUnauthorized: ExistingGatewayHttpProbe | undefined;
-  for (const apiKey of candidates) {
-    const models = await fetchExistingGateway(endpoint, "/v1/models", {
-      headers: {
-        authorization: `Bearer ${apiKey.key}`,
-        "user-agent": "Claude Code"
-      }
-    });
-    if (models.status === 200) {
-      return { apiKey: apiKey.key, endpoint, state: "usable" };
+  const models = await fetchExistingGateway(endpoint, "/v1/models", {
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "user-agent": "Claude Code"
     }
-    if (models.status === 401 || models.status === 403) {
-      lastUnauthorized = models;
-      continue;
-    }
-    return { endpoint, status: models.status ?? 0, state: "unusable" };
+  });
+  if (models.status === 200) {
+    return { apiKey, endpoint, state: "usable" };
   }
-
-  if (lastUnauthorized?.status === 401 || lastUnauthorized?.status === 403) {
+  if (models.status === 401 || models.status === 403) {
     return {
       endpoint,
-      message: readGatewayErrorMessage(lastUnauthorized.payload),
-      status: lastUnauthorized.status,
+      message: readGatewayErrorMessage(models.payload),
+      status: models.status,
       state: "unauthorized"
     };
   }
+  return { endpoint, status: models.status ?? 0, state: "unusable" };
+}
 
-  return { endpoint, status: 0, state: "unusable" };
+export const nonLocalGatewayMessage = "The configured gateway host is not an address of this machine.";
+
+export function isLocalGatewayEndpoint(endpoint: string): boolean {
+  return isLocalHostname(new URL(endpoint).hostname);
 }
 
 export function publicGatewayEndpoint(config: Pick<AppConfig, "gateway">): string {
@@ -123,6 +125,9 @@ export async function reloadExistingCcrGatewayConfig(
   }
 
   const expectedEndpoint = publicGatewayEndpoint(config);
+  if (!isLocalGatewayEndpoint(expectedEndpoint)) {
+    throw new Error(nonLocalGatewayMessage);
+  }
   const apiKeys = externalGatewayReloadApiKeys(config, currentKey);
   const deadline = Date.now() + runtimeConfigReloadTimeoutMs;
   let lastReason: string | undefined;
@@ -213,7 +218,8 @@ function existingGatewayApiKeyCandidates(config: Pick<AppConfig, "APIKEY" | "API
 function isCcrGatewayHealth(value: unknown): boolean {
   return isRecord(value) &&
     typeof value.status === "string" &&
-    typeof value.core === "string";
+    typeof value.core === "string" &&
+    typeof value.timestamp === "string";
 }
 
 function isCcrGatewayRoot(value: unknown): boolean {

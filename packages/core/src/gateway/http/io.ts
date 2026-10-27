@@ -2,6 +2,7 @@
  * Extracted from gateway/service.ts. Keep this module focused on its named gateway boundary.
  */
 import type { IncomingHttpHeaders, IncomingMessage, Server, ServerResponse } from "node:http";
+import { homedir } from "node:os";
 import type { ApiKeyConfig } from "@ccr/core/contracts/app";
 import { ccrRemoteControlPathPrefix } from "@ccr/core/gateway/remote-control-service";
 import { coreGatewayAuthHeader, localObservabilityHeaderNames, proxyHeaderDenyList, responseHeaderDenyList, sdkCompatibleTokenHeaderNames } from "@ccr/core/gateway/internal/shared";
@@ -242,6 +243,13 @@ function inferUpstreamErrorPhase(input: {
 
 
 function redactUpstreamCredentialValues(value: string): string {
+  return redactCredentialValues(value)
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+}
+
+function redactCredentialValues(value: string): string {
   return value
     .replace(/(\b(?:https?|wss?):\/\/[^/\s:@]+:)[^@\s/]+@/gi, "$1[redacted]@")
     .replace(/([?&](?:api[-_]?key|key|token|access[-_]?token|refresh[-_]?token|client[-_]?secret|auth|authorization|password)=)[^&\s#]*/gi, "$1[redacted]")
@@ -249,10 +257,7 @@ function redactUpstreamCredentialValues(value: string): string {
     .replace(/\b((?:proxy[-_])?authorization)\s*([:=])\s*(?:(?:Bearer|Basic)\s+)?[^\s,;&#]+/gi, "$1$2[redacted]")
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi, "Bearer [redacted]")
     .replace(/\b(?:sk|rk|pk)-[A-Za-z0-9_-]{12,}/gi, "[redacted-secret]")
-    .replace(/\b((?:x[-_](?:[a-z0-9]+[-_])*)?api[-_]?key|access[-_]?token|refresh[-_]?token|client[-_]?secret|token|password)\s*([:=])\s*(?:"[^"]*"|'[^']*'|[^\s,;&#"']+)/gi, "$1$2[redacted]")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 240);
+    .replace(/\b((?:x[-_](?:[a-z0-9]+[-_])*)?api[-_]?key|access[-_]?token|refresh[-_]?token|client[-_]?secret|token|password)\s*([:=])\s*(?:"[^"]*"|'[^']*'|[^\s,;&#"']+)/gi, "$1$2[redacted]");
 }
 
 
@@ -350,7 +355,11 @@ export function sendGatewayError(response: ServerResponse, error: unknown): void
     response.destroy();
     return;
   }
-  const body = JSON.stringify({ error: { message: formatError(error) } });
+  const home = homedir();
+  const text = formatError(error);
+  const raw = home.length > 1 ? text.replaceAll(home, "~") : text;
+  const message = redactCredentialValues(raw) || "Gateway request failed.";
+  const body = JSON.stringify({ error: { message } });
   if (!(error instanceof RequestBodyTooLargeError)) {
     response.writeHead(502, { "content-type": "application/json" });
     response.end(body);

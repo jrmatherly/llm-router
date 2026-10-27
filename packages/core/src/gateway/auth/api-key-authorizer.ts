@@ -248,7 +248,7 @@ function constantTimeEqual(left: string, right: string): boolean {
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
 }
 
-function isApiKeyExpired(apiKey: ApiKeyConfig): boolean {
+export function isApiKeyExpired(apiKey: ApiKeyConfig): boolean {
   if (!apiKey.expiresAt) return false;
   const expiresAt = Date.parse(apiKey.expiresAt);
   return Number.isFinite(expiresAt) && expiresAt <= Date.now();

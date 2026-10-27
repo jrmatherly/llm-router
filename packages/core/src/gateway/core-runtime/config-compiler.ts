@@ -172,7 +172,7 @@ export async function compileCoreGatewayConfig(
     upstreamTimeoutMs: Number(config.API_TIMEOUT_MS) || 0,
     agent: {
       ...pluginAgentConfig,
-      mcpServers
+      mcpServers: mcpServers.map(withoutCoreGatewayAuthTokenEnv)
     },
     rawTrace: buildRawTraceConfig(config, rawTraceSyncToken, {
       standaloneUsageCapture: options.publicGatewayMode === true
@@ -902,4 +902,13 @@ function addProviderNameVariants(names: Set<string>, providerName: string | unde
   if (capabilitySeparatorIndex > 0) {
     names.add(providerName.slice(0, capabilitySeparatorIndex));
   }
+}
+
+// The core runtime spawns stdio MCP servers with {...process.env, ...server.env}, and its
+// environment holds every client API key under coreGatewayAuthTokenEnv.
+function withoutCoreGatewayAuthTokenEnv<T>(server: T): T {
+  if (!isRecord(server) || typeof server.command !== "string") {
+    return server;
+  }
+  return { ...server, env: { [coreGatewayAuthTokenEnv]: "", ...(isRecord(server.env) ? server.env : {}) } };
 }

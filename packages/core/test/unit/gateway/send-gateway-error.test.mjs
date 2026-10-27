@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer, request as httpRequest } from "node:http";
+import os from "node:os";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
@@ -54,6 +55,25 @@ test("an error without a status gets HTTP 502", async () => {
     const result = await post(port, 0);
     assert.equal(result.status, 502);
     assert.deepEqual(JSON.parse(result.body), { error: { message: "boom" } });
+  });
+});
+
+test("a 502 body keeps the message but drops credentials and the home directory", async () => {
+  const error = new Error(`fetch https://api.example.com/v1?api_key=sk-live-1234567890abcdef failed reading ${os.homedir()}/.llm-router/config.json`);
+  await withServer((_request, response) => sendGatewayError(response, error), async (port) => {
+    const result = await post(port, 0);
+    assert.equal(result.status, 502);
+    assert.deepEqual(JSON.parse(result.body), {
+      error: { message: "fetch https://api.example.com/v1?api_key=[redacted] failed reading ~/.llm-router/config.json" }
+    });
+  });
+});
+
+test("a 502 body keeps a long message whole", async () => {
+  const message = `Upstream rejected the request: ${"field detail ".repeat(40)}last field is invalid`;
+  await withServer((_request, response) => sendGatewayError(response, new Error(message)), async (port) => {
+    const result = await post(port, 0);
+    assert.equal(JSON.parse(result.body).error.message, message);
   });
 });
 

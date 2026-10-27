@@ -10,7 +10,7 @@ import type {
   ProviderModelMetadata,
   ProviderModelPricing
 } from "@ccr/core/contracts/app";
-import { providerUrlWithDefaultScheme } from "@ccr/core/providers/url";
+import { assertWebContentStorageTarget, providerUrlWithDefaultScheme } from "@ccr/core/providers/url";
 
 export const appDeepLinkProtocol = "llmr";
 export const providerDeepLinkHost = "provider";
@@ -32,6 +32,14 @@ const providerProtocols = new Set<GatewayProviderProtocol>([
   "gemini_interactions",
   "openai_chat_completions",
   "openai_responses"
+]);
+
+const providerAccountConnectorTypes: ReadonlySet<string> = new Set<ProviderAccountConnectorConfig["type"]>([
+  "http-json",
+  "local-estimate",
+  "plugin",
+  "standard",
+  "webcontent-json"
 ]);
 
 export function isAppDeepLinkUrl(value: string): boolean {
@@ -345,9 +353,9 @@ function normalizeProviderAccountConfig(value: unknown): ProviderAccountConfig |
 
   const connectorsValue = value.connectors ?? value.connector;
   const connectors = Array.isArray(connectorsValue)
-    ? connectorsValue.filter(isRecord).map((connector) => ({ ...connector }) as ProviderAccountConnectorConfig)
+    ? connectorsValue.filter(isRecord).map(parseProviderAccountConnector)
     : isRecord(connectorsValue)
-      ? [{ ...connectorsValue } as ProviderAccountConnectorConfig]
+      ? [parseProviderAccountConnector(connectorsValue)]
       : undefined;
   const refreshIntervalMs = typeof value.refreshIntervalMs === "number" && Number.isFinite(value.refreshIntervalMs)
     ? value.refreshIntervalMs
@@ -362,6 +370,33 @@ function normalizeProviderAccountConfig(value: unknown): ProviderAccountConfig |
     enabled: typeof value.enabled === "boolean" ? value.enabled : true,
     ...(refreshIntervalMs && refreshIntervalMs > 0 ? { refreshIntervalMs } : {})
   };
+}
+
+function parseProviderAccountConnector(value: Record<string, unknown>): ProviderAccountConnectorConfig {
+  if (typeof value.type !== "string" || !providerAccountConnectorTypes.has(value.type)) {
+    throw new Error(`Unsupported provider account connector type: ${String(value.type)}.`);
+  }
+  if (value.type === "webcontent-json") {
+    const browser = isRecord(value.browser) ? value.browser : {};
+    if (typeof value.endpoint !== "string" || !value.endpoint.trim()) {
+      throw new Error("Browser session account connector endpoint is required.");
+    }
+    const headerTemplates = browser.headerTemplates;
+    if (headerTemplates !== undefined && !isStringRecord(headerTemplates)) {
+      throw new Error("Browser session header templates must map header names to strings.");
+    }
+    // Relative endpoints resolve against the provider base URL and are checked when fetched.
+    if (/^https?:\/\//i.test(value.endpoint)) {
+      const requestOrigin = [browser.requestOrigin, browser.loginUrl]
+        .find((item): item is string => typeof item === "string" && item.trim().length > 0) ?? value.endpoint;
+      assertWebContentStorageTarget(value.endpoint, requestOrigin, headerTemplates);
+    }
+  }
+  return { ...value } as ProviderAccountConnectorConfig;
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return isRecord(value) && Object.values(value).every((item) => typeof item === "string");
 }
 
 function normalizeUsageMethod(value: string | undefined): "GET" | "POST" {

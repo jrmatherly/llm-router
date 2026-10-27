@@ -14,6 +14,7 @@ import { writeOpenCodeGatewayConfig } from "@ccr/core/agents/opencode/profile-co
 import { codexCliMiddlewareRuntimeScript } from "@ccr/core/agents/codex/cli-middleware-runtime";
 import { CONFIGDIR } from "@ccr/core/config/constants";
 import { endpoint } from "@ccr/core/gateway/core-runtime/supervisor";
+import { isLocalGatewayEndpoint, nonLocalGatewayMessage } from "@ccr/core/gateway/existing-gateway-probe";
 import { gatewayService } from "@ccr/core/gateway/service";
 import { TOOL_HUB_MCP_RUNTIME_FILE_NAME, bundledToolHubMcpEntryPathCandidates } from "@ccr/core/mcp/toolhub-config";
 import { mediaToolsGatewayEndpoint } from "@ccr/core/mcp/grok-media-config";
@@ -468,6 +469,9 @@ async function probeExistingProfileGateway(
   candidateConfig: AppConfig = config
 ): Promise<ExistingProfileGatewayProbe> {
   const endpoint = profileGatewayEndpoint(config);
+  if (!isLocalGatewayEndpoint(endpoint)) {
+    return { endpoint, reason: nonLocalGatewayMessage, state: "unavailable" };
+  }
   const health = await fetchExistingGateway(endpoint, "/health");
   let ccrGateway = isCcrGatewayHealth(health.payload);
   let root: ExistingGatewayHttpProbe | undefined;

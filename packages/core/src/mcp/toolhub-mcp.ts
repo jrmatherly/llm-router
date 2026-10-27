@@ -5,6 +5,8 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import os from "node:os";
 import path from "node:path";
 import OpenAI from "openai";
+import { withoutLlmrSecretEnv } from "@ccr/core/mcp/child-env";
+import { isLoopbackHostname } from "@ccr/core/net/loopback";
 
 type JsonPrimitive = boolean | null | number | string;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -1273,10 +1275,7 @@ class StdioMcpClient implements McpClient {
     }
     const child = spawn(this.server.command, this.server.args ?? [], {
       cwd: this.server.cwd || undefined,
-      env: {
-        ...process.env,
-        ...(this.server.env ?? {})
-      },
+      env: { ...withoutLlmrSecretEnv(), ...this.server.env },
       stdio: ["pipe", "pipe", "pipe"]
     }) as ChildProcessWithoutNullStreams;
     child.stdout.on("data", (chunk: Buffer) => this.readStdout(chunk));
@@ -1751,14 +1750,6 @@ function localResolverReadinessUrl(baseURL: string): string | undefined {
   }
   const base = baseURL.replace(/\/+$/g, "");
   return `${base}/models`;
-}
-
-function isLoopbackHostname(hostname: string): boolean {
-  const normalized = hostname.trim().toLowerCase().replace(/^\[|\]$/g, "");
-  return normalized === "localhost" ||
-    normalized === "::1" ||
-    normalized === "0:0:0:0:0:0:0:1" ||
-    normalized.startsWith("127.");
 }
 
 function isRetryableLocalResolverError(error: unknown): boolean {

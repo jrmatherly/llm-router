@@ -149,6 +149,7 @@ test("browser account fetch script renders storage header templates", async () =
     assert.equal(fetchInit?.credentials, "omit");
     assert.equal((fetchInit?.headers as Record<string, string>).authorization, "Bearer access-123");
     assert.equal((fetchInit?.headers as Record<string, string>)["x-csrf-token"], "csrf-456");
+    assert.equal(fetchInit?.redirect, "error");
   } finally {
     (globalThis as any).fetch = previousFetch;
     (globalThis as any).localStorage = previousLocalStorage;

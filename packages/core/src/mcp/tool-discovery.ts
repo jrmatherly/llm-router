@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { withoutLlmrSecretEnv } from "@ccr/core/mcp/child-env";
 import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
 import type {
   GatewayMcpRemoteServerConfig,
@@ -50,10 +51,7 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
   return new Promise((resolve, reject) => {
     const child = spawn(server.command, server.args, {
       cwd: server.cwd || undefined,
-      env: {
-        ...process.env,
-        ...server.env
-      },
+      env: { ...withoutLlmrSecretEnv(), ...server.env },
       stdio: ["pipe", "pipe", "pipe"]
     }) as ChildProcessWithoutNullStreams;
     const pending = new Map<string, PendingRequest>();
