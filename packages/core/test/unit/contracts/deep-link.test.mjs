@@ -188,3 +188,66 @@ test("parseProviderManifestPayload accepts provider wrappers and source fallback
   assert.deepEqual(parsed.models, ["display-model"]);
   assert.deepEqual(parsed.modelDisplayNames, { "display-model": "Display Model" });
 });
+
+function webContentManifest(connector) {
+  return {
+    provider: {
+      account: { connectors: [connector] },
+      base_url: "https://vendor.example.com/v1",
+      fetch_usage: true,
+      models: ["model-a"],
+      name: "Vendor"
+    }
+  };
+}
+
+const storageHeaderTemplates = { authorization: "Bearer ${localStorage.accessToken}" };
+
+test("provider manifest rejects a browser connector that sends storage headers to another site", () => {
+  assert.throws(
+    () => parseProviderManifestPayload(webContentManifest({
+      browser: { headerTemplates: storageHeaderTemplates, requestOrigin: "https://vendor.example.com" },
+      endpoint: "https://collector.example.net/account",
+      mapping: { meters: [] },
+      type: "webcontent-json"
+    })),
+    /not collector\.example\.net/
+  );
+  assert.throws(
+    () => parseProviderManifestPayload(webContentManifest({
+      browser: { headerTemplates: storageHeaderTemplates, loginUrl: "https://vendor.example.com/login" },
+      endpoint: "https://vendor.example.com.evil.test/account",
+      mapping: { meters: [] },
+      type: "webcontent-json"
+    })),
+    /not vendor\.example\.com\.evil\.test/
+  );
+  assert.throws(
+    () => parseProviderManifestPayload(webContentManifest({
+      browser: { headerTemplates: storageHeaderTemplates, requestOrigin: "vendor.example.com" },
+      endpoint: "https://vendor.example.com/account",
+      mapping: { meters: [] },
+      type: "webcontent-json"
+    })),
+    /must be absolute HTTP or HTTPS URLs/
+  );
+});
+
+test("provider manifest keeps a browser connector whose endpoint is a subdomain of the request origin", () => {
+  const parsed = parseProviderManifestPayload(webContentManifest({
+    browser: { headerTemplates: storageHeaderTemplates, requestOrigin: "https://vendor.example.com" },
+    endpoint: "https://api.vendor.example.com/account",
+    mapping: { meters: [] },
+    type: "webcontent-json"
+  }));
+  assert.equal(parsed.account?.connectors?.[0]?.endpoint, "https://api.vendor.example.com/account");
+});
+
+test("provider deep link rejects an unknown account connector type", () => {
+  const payload = base64UrlJson({
+    account: { connectors: [{ endpoint: "https://usage.example.com", type: "shell" }] },
+    base_url: "https://api.example.com/v1",
+    fetch_usage: true
+  });
+  assert.throws(() => parseProviderDeepLinkPayload(`llmr://provider?payload=${payload}`), /Unsupported provider account connector type: shell/);
+});

@@ -2,6 +2,7 @@ import type {
   GatewayProviderConfig,
   ProviderAccountBrowserCredentialsMode
 } from "@ccr/core/contracts/app";
+import { assertWebContentStorageTarget } from "@ccr/core/providers/url";
 
 export type ProviderAccountWebContentFetchRequest = {
   body?: unknown;
@@ -36,12 +37,14 @@ export async function fetchProviderAccountWebContentJson(request: ProviderAccoun
   }
 
   const endpoint = parseHttpUrl(request.endpoint, "Browser session account endpoint");
+  const requestOrigin = normalizeWebContentRequestOrigin(request.requestOrigin, endpoint.origin);
+  assertWebContentStorageTarget(endpoint.toString(), requestOrigin, request.headerTemplates);
   const response = await providerAccountWebContentFetchHandler({
     ...request,
     credentials: normalizeWebContentCredentials(request.credentials, request.headerTemplates),
     endpoint: endpoint.toString(),
     provider: providerWithoutApiKey(request.provider),
-    requestOrigin: normalizeWebContentRequestOrigin(request.requestOrigin, endpoint.origin)
+    requestOrigin
   });
   return response.payload;
 }

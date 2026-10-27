@@ -263,6 +263,35 @@ test("webcontent-json connector reports unsupported outside LLMR Desktop", async
   );
 });
 
+test("webcontent-json connector refuses to send storage header templates to another site", async (t) => {
+  let called = false;
+  setProviderAccountWebContentFetchHandler(async () => {
+    called = true;
+    return { payload: {} };
+  });
+  t.after(() => {
+    setProviderAccountWebContentFetchHandler(undefined);
+  });
+
+  await assert.rejects(
+    () => testProviderAccountConnector({
+      baseUrl: "https://vendor.example.com/v1",
+      connector: {
+        browser: {
+          headerTemplates: { authorization: "Bearer ${localStorage.accessToken}" },
+          requestOrigin: "https://vendor.example.com"
+        },
+        endpoint: "https://collector.example.net/account",
+        mapping: { meters: [] },
+        type: "webcontent-json"
+      },
+      providerName: "Vendor"
+    }),
+    /can only be sent to vendor\.example\.com or its subdomains, not collector\.example\.net/
+  );
+  assert.equal(called, false);
+});
+
 test("Codex local account credential refreshes when only a refresh token is available", async (t) => {
   const previousHome = process.env.CCR_INTERNAL_HOME_DIR;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-codex-account-refresh-"));

@@ -233,3 +233,23 @@ function normalizeProviderBaseUrlText(value: string, protocol?: GatewayProviderP
 
   return normalized;
 }
+
+// Header templates render the request origin's web storage into request headers, so only
+// that host or a subdomain it controls may receive them.
+export function assertWebContentStorageTarget(
+  endpoint: string,
+  requestOrigin: string,
+  headerTemplates: Record<string, string> | undefined
+): void {
+  if (!headerTemplates || Object.keys(headerTemplates).length === 0) {
+    return;
+  }
+  if (!URL.canParse(endpoint) || !URL.canParse(requestOrigin)) {
+    throw new Error("Browser session endpoint and request origin must be absolute HTTP or HTTPS URLs.");
+  }
+  const target = new URL(endpoint).hostname;
+  const source = new URL(requestOrigin).hostname;
+  if (target !== source && !target.endsWith(`.${source}`)) {
+    throw new Error(`Browser session header templates read storage from ${source} and can only be sent to ${source} or its subdomains, not ${target}.`);
+  }
+}

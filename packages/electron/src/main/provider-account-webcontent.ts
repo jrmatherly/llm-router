@@ -114,14 +114,17 @@ export function createProviderAccountWebContentFetchHandler(
 }
 
 function webContentFetchScript(request: ProviderAccountWebContentFetchRequest, timeoutMs: number): string {
+  const headerTemplates = normalizeHeaderTemplates(request.headerTemplates);
   const serializedRequest = JSON.stringify({
     bodyJson: request.method === "POST" ? JSON.stringify(request.body ?? {}) : undefined,
     credentials: normalizeRequestCredentials(request.credentials),
     endpoint: request.endpoint,
-    headerTemplates: normalizeHeaderTemplates(request.headerTemplates),
+    headerTemplates,
     headers: normalizeRequestHeaders(request.headers),
     maxResponseBytes,
     method: request.method,
+    // A redirect would carry rendered storage headers to a host the endpoint check never saw.
+    redirect: Object.keys(headerTemplates).length > 0 ? "error" : "follow",
     timeoutMs
   });
 
@@ -160,6 +163,7 @@ function webContentFetchScript(request: ProviderAccountWebContentFetchRequest, t
           credentials: request.credentials,
           headers,
           method: request.method,
+          redirect: request.redirect,
           signal: controller.signal
         });
         const contentType = response.headers.get("content-type") || "";

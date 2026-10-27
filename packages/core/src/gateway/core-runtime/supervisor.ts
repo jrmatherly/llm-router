@@ -16,6 +16,7 @@ import {
 import type { AppConfig, GatewayNetworkEndpoint } from "@ccr/core/contracts/app";
 import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
 import { uniqueStrings } from "@ccr/core/gateway/internal/collections";
+import { withoutLlmrSecretEnv } from "@ccr/core/mcp/child-env";
 import { isRecord, numberValue, stringValue } from "@ccr/core/gateway/internal/value";
 import { formatError, readHeader } from "@ccr/core/gateway/http/io";
 import { coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayEntryOverrideEnv, gatewayPackageCandidates, gatewayRuntimeMarkerFile, requireFromHere } from "@ccr/core/gateway/internal/shared";
@@ -371,7 +372,7 @@ function createGatewayProcessEnv(
     ? publicGatewayAuthTokens(config, coreAuthToken)
     : [coreAuthToken];
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...withoutLlmrSecretEnv(),
     AUTH_ENABLED: "true",
     AUTH_MODE: "static_api_key",
     AUTH_REQUIRED: "true",
