@@ -54,6 +54,8 @@ try {
     return response?.status === 302;
   }, "Docker Nginx entrypoint");
 
+  assert.equal(dockerExec(containerId, ["id", "-u"]).trim(), "10001");
+
   const ports = dockerPorts(containerId);
   assert.ok(ports["8080/tcp"], "Docker container must publish only the Nginx port");
   assert.equal(ports["3456/tcp"], undefined, "Docker container must not publish the internal gateway port");
@@ -119,6 +121,7 @@ try {
 
   const gatewayHealth = await fetch(`${baseUrl}/health`);
   assert.equal(gatewayHealth.status, 502, "Gateway health should be proxied by Nginx and fail while no models are configured");
+  assert.equal(await waitForHealth(containerId), "healthy", "A container with no models configured is still healthy");
 
   const openRouterConfig = {
     ...configPayload.value,
@@ -227,6 +230,19 @@ async function rpc(baseUrl, method, authToken, args = []) {
 function dockerPorts(containerId) {
   const raw = run("docker", ["inspect", "--format", "{{json .NetworkSettings.Ports}}", containerId]);
   return JSON.parse(raw);
+}
+
+function dockerExec(containerId, args) {
+  return run("docker", ["exec", containerId, ...args]);
+}
+
+async function waitForHealth(containerId) {
+  let status;
+  await waitFor(async () => {
+    status = run("docker", ["inspect", "--format", "{{if .State.Health}}{{.State.Health.Status}}{{end}}", containerId]);
+    return status !== "starting";
+  }, "Docker HEALTHCHECK");
+  return status;
 }
 
 function dockerConfigStorage(containerId) {

@@ -37,7 +37,13 @@ CONFIG_DIR="${HOME}/.llm-router"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 APP_CONFIG_DB_FILE="${CONFIG_DIR}/config.sqlite"
 
-mkdir -p "${CONFIG_DIR}" "${CONFIG_DIR}/app-data" /run/nginx /var/lib/nginx /var/log/nginx
+# A volume first used by a root-run image (4.x and earlier) is owned by root.
+if [ ! -w "${CCR_DATA_DIR}" ] || { [ -e "${CONFIG_DIR}" ] && [ -n "$(find "${CONFIG_DIR}" ! -writable -print -quit)" ]; }; then
+  echo "/data is not writable by uid 10001; run: docker run --rm -v <volume>:/data --user 0 <image> chown -R 10001:10001 /data" >&2
+  exit 1
+fi
+
+mkdir -p "${CONFIG_DIR}" "${CONFIG_DIR}/app-data"
 
 if [ "${CCR_DOCKER_INIT_CONFIG:-1}" != "0" ] && [ ! -f "${CONFIG_FILE}" ] && [ ! -f "${APP_CONFIG_DB_FILE}" ]; then
   node - <<'NODE'

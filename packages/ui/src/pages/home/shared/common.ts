@@ -10,6 +10,7 @@ import {
 } from "@ccr/core/contracts/app";
 import type {
   AppConfig,
+  GatewayProviderConfig,
   OverviewAccountCardSize,
   OverviewMetricKind,
   OverviewWidgetConfig,
@@ -23,21 +24,23 @@ import type {
   TrayWidgetVariant,
   TrayWindowModuleId
 } from "@ccr/core/contracts/app";
-import {
-  languagePreferenceStorageKey,
-  type AppCopy
-} from "./i18n";
+import type { AppCopy } from "./i18n";
 
 import { positiveInteger } from "./api-keys";
-import type { MetricTone } from "./controls";
 import type { AppLanguagePreference, ResolvedLanguage, ResolvedTheme } from "./types";
+
+export const languagePreferenceStorageKey = "ccr.ui.language";
+
+export function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function providerBaseUrl(provider: GatewayProviderConfig): string {
+  return provider.api_base_url || provider.baseurl || provider.baseUrl || "";
+}
 
 export function cloneConfig(config: AppConfig): AppConfig {
   return JSON.parse(JSON.stringify(config)) as AppConfig;
-}
-
-export function formatJson(value: unknown): string {
-  return JSON.stringify(value);
 }
 
 export function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -131,6 +134,10 @@ export function normalizeLanguagePreference(value: unknown): AppLanguagePreferen
 
 export function normalizeThemePreference(value: unknown): AppConfig["theme"] {
   return value === "light" || value === "dark" || value === "system" ? value : "system";
+}
+
+export function isTrayMascotIconPreference(value: AppConfig["trayIcon"]): value is "cyan" | "orange" | "violet" {
+  return value === "cyan" || value === "orange" || value === "violet";
 }
 
 export function normalizeTrayIconPreference(value: unknown): AppConfig["trayIcon"] {
@@ -610,22 +617,4 @@ export function themeDisplayName(theme: ResolvedTheme, copy: AppCopy): string {
 
 export function languageDisplayName(language: ResolvedLanguage, copy: AppCopy): string {
   return language === "zh" ? copy.settings.languageChinese : copy.settings.languageEnglish;
-}
-
-export function metricToneBar(tone: MetricTone) {
-  if (tone === "teal") return "bg-teal-500";
-  if (tone === "blue") return "bg-blue-500";
-  if (tone === "indigo") return "bg-indigo-500";
-  if (tone === "amber") return "bg-amber-500";
-  if (tone === "slate") return "bg-slate-500";
-  return "bg-rose-500";
-}
-
-export function metricToneStroke(tone: MetricTone): string {
-  if (tone === "teal") return "rgb(20,184,166)";
-  if (tone === "blue") return "rgb(59,130,246)";
-  if (tone === "indigo") return "rgb(99,102,241)";
-  if (tone === "amber") return "rgb(245,158,11)";
-  if (tone === "slate") return "rgb(100,116,139)";
-  return "rgb(244,63,94)";
 }

@@ -27,7 +27,7 @@ module.exports = {
     {
       name: "ccr-nginx",
       script: "/usr/sbin/nginx",
-      args: ["-g", "daemon off;"],
+      args: ["-g", "daemon off; pid /run/nginx/nginx.pid;"],
       cwd: "/app",
       interpreter: "none"
     }

@@ -5,16 +5,12 @@ import {
   rectIntersection,
   type CollisionDetection
 } from "@dnd-kit/core";
-import {
-  type LucideIcon
-} from "lucide-react";
 import type {
   ApiKeyConfig,
   ApiKeyLimitConfig,
   GatewayProviderCapability,
   GatewayPluginPermission,
   GatewayPluginSurfacesConfig,
-  GatewayProviderConnectivityCheckModelResult,
   GatewayProviderConnectivityCheckReport,
   GatewayProviderProbeCandidate,
   GatewayProviderProbeCandidateResult,
@@ -33,7 +29,6 @@ import type {
   RouterRuleOperator,
   RouterRuleRewriteOperation,
   RouterRuleType,
-  TrayComponentVariants,
   TrayWindowModuleId,
   VirtualModelBaseModelMode,
   VirtualModelExecutionMode,
@@ -55,17 +50,6 @@ export type ResolvedLanguage = "en" | "zh";
 export type ResolvedTheme = "light" | "dark";
 export type SettingsPageId = "general" | "appearance" | "toolhub" | "observability" | "bots" | "tray";
 export type TrayEditableModuleId = Exclude<TrayWindowModuleId, "footer">;
-export type TrayComponentOptionGroup = {
-  key: keyof TrayComponentVariants;
-  label: string;
-  options: Array<{ label: string; value: string }>;
-};
-export type TrayModuleOption = {
-  icon: LucideIcon;
-  label: string;
-  styleKey?: keyof TrayComponentVariants;
-  value: TrayEditableModuleId;
-};
 
 export const overviewWidgetCollisionDetection: CollisionDetection = (args) => {
   const pointerCollisions = pointerWithin(args);
@@ -159,7 +143,6 @@ export type ProviderUsageFieldTarget =
 
 export type ProviderProbeCandidate = GatewayProviderProbeCandidate;
 export type ProviderProbeCandidateResult = GatewayProviderProbeCandidateResult;
-export type ProviderConnectivityCheckModelResult = GatewayProviderConnectivityCheckModelResult;
 export type ProviderConnectivityCheckReport = GatewayProviderConnectivityCheckReport;
 
 export type AddApiKeyDraft = {
@@ -472,5 +455,3 @@ export type AppToast = {
   id: number;
   message: string;
 };
-
-export type ServerActionBusy = "" | "cert" | "proxy";

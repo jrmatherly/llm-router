@@ -24,6 +24,7 @@ import { Tooltip, TooltipPortal } from "@/components/ui/tooltip";
 import { providerUrlWithDefaultScheme } from "@ccr/core/providers/url";
 import type { ChromeLoginImportJob, LocalAgentProviderCandidate, OpenRouterProviderCatalogItem, OpenRouterProviderCatalogRequest, ProviderAccountHttpJsonConnectorConfig, ProviderAccountWebContentJsonConnectorConfig } from "@ccr/core/contracts/app";
 import type { ReactNode } from "react";
+import { pollChromeImportJob } from "../shared/chrome-import";
 
 const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 const emptyProviderPlugins: unknown[] = [];
@@ -2939,11 +2940,11 @@ function ProviderUsageSettings({
       return;
     }
     const interval = window.setInterval(() => {
-      void window.ccr?.getChromeLoginImport?.(chromeImportJob.id).then((job) => {
-        if (job) {
-          setChromeImportJob(job);
-        }
-      });
+      const getChromeLoginImport = window.ccr?.getChromeLoginImport;
+      if (!getChromeLoginImport) {
+        return;
+      }
+      void pollChromeImportJob(getChromeLoginImport, chromeImportJob.id).then(setChromeImportJob);
     }, 2000);
     return () => window.clearInterval(interval);
   }, [chromeImportJob]);

@@ -103,7 +103,7 @@ export type AppCopy = {
   text: Record<string, string>;
 };
 
-export const languagePreferenceStorageKey = "ccr.ui.language";
+export { languagePreferenceStorageKey } from "./common";
 
 export const appCopy: Record<ResolvedLanguage, AppCopy> = {
   en: {
@@ -2120,6 +2120,7 @@ export const appCopy: Record<ResolvedLanguage, AppCopy> = {
       "Copied": "已复制",
       "Copied API key": "已复制 API 密钥",
       "Copy API key": "复制 API 密钥",
+      "Copy failed.": "复制失败。",
       "Model settings": "模型设置",
       "Context, pricing, reasoning, web search, and image": "上下文、价格、推理、网页搜索与图片",
       "Context, pricing, reasoning, Fast Mode, web search, and image": "上下文、价格、推理、Fast Mode、网页搜索与图片",

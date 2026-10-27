@@ -53,7 +53,7 @@ import {
 import type { RouterConditionSource } from "./options";
 
 import { normalizeApiKeyLimits, positiveInteger } from "./api-keys";
-import { isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
+import { isPlainRecord, normalizeProviderModelSelector, providerBaseUrl, stringValue, uniqueStrings } from "./common";
 import { formatEditableJson } from "./extensions";
 import { findProviderPreset, findProviderPresetByBaseUrl, findProviderPresetByIdentity, providerApiKeySafetyIssue, providerEndpointCanReceiveProviderApiKey, providerIdentitySafetyIssue } from "./external";
 import { fusionModelProviderName } from "./profiles";
@@ -227,10 +227,6 @@ export function formatRouterRuleTarget(rule: RouterRule): string {
   return rule.fallback ? `${action} · ${formatRouterFallbackSummary(rule.fallback)}` : action;
 }
 
-export function routerRuleRewriteFromRule(rule: RouterRule): RouterRuleRewrite | undefined {
-  return routerRuleRewritesFromRule(rule)[0];
-}
-
 export function routerRuleRewritesFromRule(rule: RouterRule): RouterRuleRewrite[] {
   if (rule.rewrites?.length) {
     return rule.rewrites.map(normalizeRouterModelRewrite);
@@ -266,22 +262,6 @@ export function formatRouterFallbackSummary(fallback: RouterFallbackConfig): str
   }
   const models = fallback.models.map(normalizeProviderModelSelector);
   return models.length ? `on failure ${models.join(" > ")}` : "fallback targets unset";
-}
-
-export function routerRuleMatchesQuery(rule: RouterRule, query: string): boolean {
-  if (!query) {
-    return true;
-  }
-
-  return [
-    rule.id,
-    rule.name,
-    routerRuleTypeLabel(rule.type),
-    formatRouterRuleCondition(rule),
-    formatRouterRuleTarget(rule)
-  ]
-    .filter(Boolean)
-    .some((value) => value.toLowerCase().includes(query));
 }
 
 export function routingRuleRowMatchesQuery(row: RoutingRuleRow, query: string): boolean {
@@ -592,35 +572,6 @@ function providerPresetModelDisplayNames(preset: ProviderPreset | undefined): Re
     .map(([model, displayName]) => [model.trim(), displayName.trim()] as const)
     .filter(([model, displayName]) => model && displayName && model !== displayName);
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
-}
-
-export async function resolveProviderDeepLinkIcon(payload: ProviderDeepLinkPayload): Promise<ProviderDeepLinkIconResolution> {
-  const existingIcon = payload.icon?.trim();
-  const preset = resolveProviderDeepLinkPreset(payload);
-  const presetIcon = preset ? providerPresetIconUrls[preset.id] ?? "" : "";
-  if (existingIcon || presetIcon) {
-    return {
-      displayIcon: presetIcon || existingIcon || undefined,
-      persistentIcon: existingIcon || undefined,
-      preset
-    };
-  }
-
-  const ccr = window.ccr;
-  if (!ccr?.detectProviderIcon) {
-    return {};
-  }
-
-  try {
-    const result = await ccr.detectProviderIcon({ baseUrl: payload.baseUrl });
-    const detectedIcon = result.icon?.trim();
-    return {
-      displayIcon: detectedIcon || undefined,
-      persistentIcon: detectedIcon || undefined
-    };
-  } catch {
-    return {};
-  }
 }
 
 export function createProviderDraftFromDeepLinkPayload(
@@ -1035,21 +986,6 @@ export function providerCredentialDraftPatchFromJson(text: string): Partial<AddP
     credentialMode: "pool",
     credentials
   };
-}
-
-export function providerCredentialImportExample(): string {
-  return JSON.stringify({
-    credentials: [
-      {
-        name: "Main key",
-        api_key: "sk-..."
-      },
-      {
-        name: "Backup key",
-        api_key: "sk-..."
-      }
-    ]
-  }, null, 2);
 }
 
 function providerCredentialDraftFromUnknown(value: unknown, index: number): ProviderCredentialDraft | undefined {
@@ -2412,17 +2348,6 @@ export function splitLines(value: string): string[] {
     .split("\n")
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-export function splitModelTagInput(value: string): string[] {
-  return value
-    .split(/[\n,]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-export function providerBaseUrl(provider: GatewayProviderConfig): string {
-  return provider.api_base_url || provider.baseurl || provider.baseUrl || "";
 }
 
 export function providerApiKey(provider: GatewayProviderConfig): string {

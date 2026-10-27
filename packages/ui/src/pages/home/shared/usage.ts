@@ -244,3 +244,10 @@ export function formatStatusCodeCounts(values: Array<{ count: number; statusCode
 export function formatToolCounts(values: Array<{ count: number; name: string }>): string {
   return values.map((item) => `${item.name} x${item.count}`).join(", ");
 }
+
+export function rangeLabel(range: UsageStatsRange, translate: (value: string) => string): string {
+  if (range === "today") {
+    return translate("Today");
+  }
+  return translate(range);
+}

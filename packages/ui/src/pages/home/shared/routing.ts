@@ -32,11 +32,10 @@ import {
 } from "./options";
 
 import { positiveInteger } from "./api-keys";
-import { isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
+import { clampNumber, isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
 import { sanitizeConfigId } from "./extensions";
 import { formatRouterRuleCondition, formatRouterRuleTarget, routerRuleTypeLabel } from "./providers";
-import { clampNumber } from "./services";
-import type { ClaudeDesignRouteRuleType, ClaudeDesignRoutingDraft, ClaudeDesignRoutingRuleDraft, PluginRoutingConfigItem, RoutingRuleRow } from "./types";
+import type { ClaudeDesignRouteRuleType, ClaudeDesignRoutingDraft, ClaudeDesignRoutingRuleDraft, RoutingRuleRow } from "./types";
 
 export function normalizeRouterConfig(value: Partial<RouterConfig> | undefined): RouterConfig {
   const router = {
@@ -339,26 +338,6 @@ export function isRouterRuleType(value: string): value is RouterRuleType {
   return routerRuleTypeOptions.some((option) => option.value === value) || legacyRouterRuleTypes.includes(value as RouterRuleType);
 }
 
-export function formatProxyTargets(targets: AppConfig["proxy"]["targets"]): string {
-  return targets
-    .map((target) => [target.host, ...(target.paths ?? [])].join(" "))
-    .join("\n");
-}
-
-export function parseProxyTargetsText(value: string): AppConfig["proxy"]["targets"] {
-  return value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [host, ...pathParts] = line.split(/[\s,]+/).filter(Boolean);
-      return {
-        host: host.toLowerCase(),
-        paths: pathParts.length ? pathParts.map((item) => (item.startsWith("/") ? item : `/${item}`)) : undefined
-      };
-    });
-}
-
 export type KnownWrapperPluginConfig<TId extends string> = AppConfig["plugins"][number] & { id: TId };
 
 export function isClaudeDesignPluginConfig(item: unknown): item is KnownWrapperPluginConfig<"claude-design"> {
@@ -570,44 +549,6 @@ export function buildRoutingRuleRows(config: AppConfig): RoutingRuleRow[] {
     target: formatRouterRuleTarget(rule),
     typeLabel: routerRuleTypeLabel(rule.type)
   }));
-}
-
-export function buildPluginRoutingRows(plugin: AppConfig["plugins"][number], pluginIndex: number): RoutingRuleRow[] {
-  if (!isClaudeDesignPluginConfig(plugin) && !isCursorProxyPluginConfig(plugin)) {
-    return [];
-  }
-  const pluginName = plugin.id || "plugin";
-  const routing = readClaudeDesignRoutingConfig(plugin.config);
-  const baseEnabled = plugin.enabled !== false && routing.enabled;
-  const rows: RoutingRuleRow[] = [];
-  routing.rules.forEach((rule, ruleIndex) => {
-    rows.push({
-      condition: formatClaudeDesignRoutingRuleCondition(rule),
-      enabled: baseEnabled && rule.enabled,
-      key: `plugin-${pluginIndex}-${pluginName}-${rule.id}-${ruleIndex}`,
-      name: rule.name || claudeDesignRouteRuleTypeLabel(rule.type),
-      pluginIndex,
-      readonly: true,
-      ruleCount: 0,
-      ruleId: rule.id,
-      sourceLabel: `Plugin: ${pluginName}`,
-      target: rule.target,
-      typeLabel: claudeDesignRouteRuleTypeLabel(rule.type)
-    });
-  });
-  return rows;
-}
-
-export function buildPluginRoutingConfigItems(config: AppConfig): PluginRoutingConfigItem[] {
-  return (config.plugins ?? []).flatMap((plugin, index): PluginRoutingConfigItem[] => {
-    if (!isClaudeDesignPluginConfig(plugin) && !isCursorProxyPluginConfig(plugin)) {
-      return [];
-    }
-    return [{
-      index,
-      name: plugin.id || `plugin-${index + 1}`
-    }];
-  });
 }
 
 export function formatClaudeDesignRoutingRuleCondition(rule: ClaudeDesignRoutingRuleDraft): string {

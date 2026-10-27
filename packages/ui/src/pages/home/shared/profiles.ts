@@ -33,18 +33,9 @@ import {
 import { isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
 import { virtualModelProfileModelNames } from "./providers";
 import { normalizeRouterRules } from "./routing";
-import { endpointFromHostPort } from "./services";
 import { keyValueRowsFromRecord, recordFromKeyValueRows, stringRecordValue, validateProfileEnvRows } from "./virtual-models";
 import { isGatewayProviderEnabled } from "@ccr/core/contracts/app";
 import type { AddProfileDraft, BotGatewayConfigDraft } from "./types";
-
-export function gatewayEndpointFromConfig(config: AppConfig): string {
-  if (config.routerEndpoint) {
-    return config.routerEndpoint;
-  }
-
-  return endpointFromHostPort(config.gateway.host, config.gateway.port);
-}
 
 export function defaultProfileClientModel(config: AppConfig): string {
   const enabledProviders = config.Providers.filter(isGatewayProviderEnabled);

@@ -351,7 +351,7 @@ function App() {
       return;
     }
 
-    void window.ccr.getAppInfo().then(setAppInfo);
+    void window.ccr.getAppInfo().then(setAppInfo).catch(() => undefined);
     void window.ccr.getProviderPresets()
       .then(setProviderPresets)
       .catch(() => setProviderPresets([]))

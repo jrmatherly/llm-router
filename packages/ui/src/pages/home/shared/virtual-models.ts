@@ -40,11 +40,10 @@ import {
   mcpServerStartupTimeoutMs
 } from "./options";
 
-import { isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
+import { clampNumber, isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
 import { sanitizeConfigId } from "./extensions";
 import { createRouteModelOptions, numberValue } from "./providers";
 import { createGrokMediaModelOptions, migrateLegacyGrokMediaModelSelector } from "@ccr/core/media/models";
-import { clampNumber } from "./services";
 import { fusionCustomToolMetadataKey, fusionMediaMetadataKey, fusionVisionMetadataKey, fusionWebSearchMetadataKey } from "./types";
 import type { KeyValueDraftRow, McpServerDraft, VirtualModelDraft, VirtualModelMatchMode, VirtualModelToolDraft } from "./types";
 
@@ -183,16 +182,6 @@ export function virtualModelMatchModeFromProfile(profile: VirtualModelProfileCon
     return "suffix";
   }
   return "alias";
-}
-
-export function virtualModelMatchModeLabel(mode: VirtualModelMatchMode): string {
-  if (mode === "prefix") {
-    return "Prefix";
-  }
-  if (mode === "suffix") {
-    return "Suffix";
-  }
-  return "Alias";
 }
 
 export function normalizeVirtualModelDraftPatch(current: VirtualModelDraft, patch: Partial<VirtualModelDraft>): VirtualModelDraft {
@@ -594,31 +583,6 @@ export function virtualModelBaseModelFromDraft(draft: VirtualModelDraft): Virtua
   };
 }
 
-export function virtualModelMatchFromDraft(
-  draft: VirtualModelDraft,
-  matchValues: string[]
-): VirtualModelProfileConfig["match"] {
-  if (draft.matchMode === "prefix") {
-    return {
-      exactAliases: [],
-      prefixes: matchValues,
-      suffixes: []
-    };
-  }
-  if (draft.matchMode === "suffix") {
-    return {
-      exactAliases: [],
-      prefixes: [],
-      suffixes: matchValues
-    };
-  }
-  return {
-    exactAliases: matchValues,
-    prefixes: [],
-    suffixes: []
-  };
-}
-
 export function virtualModelToolsFromDraft(draft: VirtualModelDraft, selectedToolNames = selectedFusionToolNames(draft.toolsText)): VirtualModelProfileConfig["tools"] {
   const existingTools = new Map(
     draft.tools
@@ -844,16 +808,8 @@ export function isFusionWebSearchToolName(name: string): boolean {
     normalized.includes("search_web");
 }
 
-export function selectedFusionToolName(toolsText: string): string {
-  return selectedFusionToolNames(toolsText)[0] ?? BUILTIN_FUSION_VISION_TOOL_NAME;
-}
-
 export function selectedFusionToolNames(toolsText: string): string[] {
   return uniqueStrings(parseVirtualModelTextList(toolsText).map(normalizeFusionToolName).filter(isFusionToolName));
-}
-
-export function selectedFusionToolNameFromProfile(toolDrafts: VirtualModelToolDraft[], profile: VirtualModelProfileConfig): string {
-  return selectedFusionToolNamesFromProfile(toolDrafts, profile)[0] ?? BUILTIN_FUSION_VISION_TOOL_NAME;
 }
 
 export function selectedFusionToolNamesFromProfile(toolDrafts: VirtualModelToolDraft[], profile: VirtualModelProfileConfig): string[] {
@@ -946,27 +902,6 @@ export function fusionToolBaseName(name: string): string {
     return BUILTIN_FUSION_WEB_SEARCH_TOOL_NAME;
   }
   return normalized;
-}
-
-export function createMcpToolOptions(mcpServers: GatewayMcpServerConfig[], selectedToolsText: string): Array<{ available: boolean; description: string; label: string; value: string }> {
-  const options = mcpServers.map((server) => ({
-    available: true,
-    description: mcpServerEndpointSummary(server),
-    label: server.name,
-    value: server.name
-  }));
-  const known = new Set(options.map((option) => option.value));
-  for (const name of parseVirtualModelTextList(selectedToolsText)) {
-    if (!known.has(name)) {
-      options.push({
-        available: false,
-        description: "Unavailable",
-        label: name,
-        value: name
-      });
-    }
-  }
-  return options;
 }
 
 export function virtualModelExecutionSummary(profile: VirtualModelProfileConfig): string {
@@ -1181,43 +1116,6 @@ export function uniqueMcpServerName(servers: GatewayMcpServerConfig[], editIndex
     }
   }
   return `mcp-${Date.now()}`;
-}
-
-export function parseKeyValueText(value: string): { ok: true; value: Record<string, string> } | { ok: false } {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return { ok: true, value: {} };
-  }
-  if (trimmed.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      return isPlainRecord(parsed) ? { ok: true, value: stringRecordValue(parsed) } : { ok: false };
-    } catch {
-      return { ok: false };
-    }
-  }
-  const result: Record<string, string> = {};
-  for (const rawLine of value.split(/\r?\n/g)) {
-    const line = rawLine.trim();
-    if (!line) {
-      continue;
-    }
-    const separator = line.indexOf("=");
-    if (separator <= 0) {
-      return { ok: false };
-    }
-    const key = line.slice(0, separator).trim();
-    const itemValue = line.slice(separator + 1).trim();
-    if (!key) {
-      return { ok: false };
-    }
-    result[key] = itemValue;
-  }
-  return { ok: true, value: result };
-}
-
-export function formatKeyValueText(value: Record<string, string>): string {
-  return Object.entries(value).map(([key, itemValue]) => `${key}=${itemValue}`).join("\n");
 }
 
 export function stringRecordValue(value: Record<string, unknown>): Record<string, string> {

@@ -17,7 +17,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: docker-release-${{ inputs.ref || github.event.workflow_run.head_branch }}
@@ -30,12 +29,16 @@ jobs:
   docker:
     name: 🐳 Build and Push
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v'))
+    permissions:
+      contents: read
+      packages: write
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - name: 📥 Check out release ref
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.event.workflow_run.head_sha }}
 
       - name: 🗂️ Prepare metadata

@@ -121,19 +121,6 @@ export type FormattedLogBody = {
   text: string;
 };
 
-export function logBodyKey(body: RequestLogBody | undefined): string {
-  if (!body) {
-    return "missing";
-  }
-  return JSON.stringify([
-    body.bodyRef ?? "",
-    body.encoding ?? "",
-    body.preview ? "preview" : "full",
-    body.sizeBytes,
-    body.text ?? ""
-  ]);
-}
-
 export function formatLogBodyView(body: RequestLogBody | undefined): FormattedLogBody {
   if (!body || (!body.text && body.sizeBytes === 0)) {
     return { text: "No body" };
@@ -1353,24 +1340,6 @@ export function isJsonContainer(value: unknown): value is Record<string, unknown
   return value !== null && typeof value === "object";
 }
 
-export function jsonContainerEntries(value: Record<string, unknown> | unknown[]): Array<[string, unknown]> {
-  if (Array.isArray(value)) {
-    return value.map((item, index) => [String(index), item]);
-  }
-  return Object.entries(value);
-}
-
-export function createInitialLogJsonExpandedPaths(value: unknown): Set<string> {
-  return isJsonContainer(value) ? new Set(["$"]) : new Set();
-}
-
 export function jsonChildPath(parentPath: string, key: string): string {
   return `${parentPath}/${encodeURIComponent(key)}`;
-}
-
-export function jsonContainerSummary(value: Record<string, unknown> | unknown[]): string {
-  if (Array.isArray(value)) {
-    return `Array(${value.length})`;
-  }
-  return `Object(${Object.keys(value).length})`;
 }

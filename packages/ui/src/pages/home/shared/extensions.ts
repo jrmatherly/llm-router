@@ -4,7 +4,6 @@ import {
 } from "@ccr/core/contracts/app";
 import type {
   AppConfig,
-  GatewayProviderConfig,
   GatewayPluginAppConfig,
   GatewayPluginConfig,
   GatewayPluginPermission,
@@ -687,26 +686,6 @@ function pluginSurfacesSatisfy(installedSurfaces: GatewayPluginSurfacesConfig | 
     return true;
   }
   return GATEWAY_PLUGIN_SURFACE_IDS.every((surface) => requiredSurfaces[surface] !== true || installedSurfaces?.[surface] !== false);
-}
-
-export function providerSelectOptions(providers: GatewayProviderConfig[], value: string): Array<{ label: string; value: string }> {
-  const options = [{ label: "Select provider", value: "" }, ...providers.map((provider) => ({ label: provider.name, value: provider.name }))];
-  if (value && !options.some((option) => option.value === value)) {
-    return [{ label: value, value }, ...options];
-  }
-  return options;
-}
-
-export function uniqueExtensionKey(items: unknown[], preferredKey: string): string {
-  const base = slugValue(preferredKey) || "extension";
-  const used = new Set(items.map(extensionKeyValue).filter((value): value is string => Boolean(value)));
-  let key = base;
-  let index = 2;
-  while (used.has(key)) {
-    key = `${base}-${index}`;
-    index += 1;
-  }
-  return key;
 }
 
 export function extensionKeyValue(item: unknown): string | undefined {

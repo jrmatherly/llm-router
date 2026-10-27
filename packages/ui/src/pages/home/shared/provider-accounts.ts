@@ -64,15 +64,6 @@ export function providerAccountMeterProgress(meter: ProviderAccountMeter): numbe
   return ratio === undefined ? undefined : Math.max(3, Math.round(ratio * 100));
 }
 
-export function providerAccountMeterValidityProgress(meter: ProviderAccountMeter, now = Date.now()): number | undefined {
-  const detail = providerAccountCurrentMeterDetail(meter, now);
-  if (!detail) {
-    return undefined;
-  }
-  const progress = providerAccountMeterDetailValidityProgress(detail, now);
-  return progress && progress > 0 ? progress : undefined;
-}
-
 export function providerAccountCurrentMeterDetail(meter: ProviderAccountMeter, now = Date.now()): NonNullable<ProviderAccountMeter["details"]>[number] | undefined {
   return (meter.details ?? [])
     .filter((detail) => {
@@ -120,19 +111,6 @@ function providerAccountDetailTimestamp(value: string | undefined): number | und
   }
   const timestamp = new Date(value).getTime();
   return Number.isFinite(timestamp) ? timestamp : undefined;
-}
-
-export function providerAccountBadgeVariant(status: ProviderAccountSnapshot["status"]): "danger" | "outline" | "success" | "warning" {
-  if (status === "critical" || status === "error") {
-    return "danger";
-  }
-  if (status === "warning") {
-    return "warning";
-  }
-  if (status === "ok") {
-    return "success";
-  }
-  return "outline";
 }
 
 export function providerAccountProgressClass(status: ProviderAccountSnapshot["status"]): string {
