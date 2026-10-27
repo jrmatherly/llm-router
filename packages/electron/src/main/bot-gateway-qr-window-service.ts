@@ -5,6 +5,7 @@ import type {
   BotGatewayQrWindowOpenRequest,
   BotGatewayQrWindowOpenResult
 } from "@ccr/core/contracts/app";
+import { isHttpUrl, openHttpExternal } from "./external-url";
 
 const qrWindows = new Map<string, BrowserWindow>();
 
@@ -52,9 +53,7 @@ export async function openBotGatewayQrWindow(
     }
   });
   window.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
-    if (isHttpUrl(targetUrl)) {
-      void shell.openExternal(targetUrl);
-    }
+    openHttpExternal(targetUrl, shell.openExternal);
     return { action: "deny" };
   });
 
@@ -114,13 +113,4 @@ async function waitForQrWindowClose(
     const onClosed = () => resolve({ observed: true, reason: "closed" });
     window.once("closed", onClosed);
   });
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
 }

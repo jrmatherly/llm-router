@@ -30,6 +30,7 @@ import { IPC_CHANNELS } from "@ccr/core/contracts/ipc-channels";
 import { APP_NAME } from "@ccr/core/config/constants";
 import { pluginService } from "@ccr/core/plugins/service";
 import { chromeLoginImportService } from "./chrome-login-import";
+import { isHttpUrl } from "./external-url";
 
 type BrowserTab = BuiltInBrowserTabState & {
   view: WebContentsView;
@@ -932,15 +933,6 @@ export const builtInBrowserService = new BuiltInBrowserService();
 
 function fitWindowSize(preferred: number, minimum: number, available: number): number {
   return Math.max(minimum, Math.min(preferred, available > 0 ? available : preferred));
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function normalizeBrowserUrl(value: string | undefined): string {
