@@ -162,9 +162,9 @@ export const profileSurfaceOptions: Array<{ label: string; value: ProfileSurface
 ];
 
 export const requestLogStatusOptions: Array<{ label: string; value: RequestLogStatusFilter }> = [
-  { label: "全部状态", value: "all" },
-  { label: "成功", value: "success" },
-  { label: "错误", value: "error" }
+  { label: "All statuses", value: "all" },
+  { label: "Success", value: "success" },
+  { label: "Error", value: "error" }
 ];
 
 export const requestLogPageSizeOptions = [

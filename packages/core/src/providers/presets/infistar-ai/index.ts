@@ -2,7 +2,7 @@ import { defaultProviderAccountConfig, type ProviderPreset } from "@ccr/core/pro
 
 export const infistarAiProviderPreset: ProviderPreset = {
   account: defaultProviderAccountConfig,
-  aliases: ["infistar", "infistar ai", "无限星河", "无限星河ai", "无限星河 ai"],
+  aliases: ["infistar", "infistar ai"],
   defaultModels: ["gpt-4o"],
   endpoints: [
     {
@@ -11,6 +11,6 @@ export const infistarAiProviderPreset: ProviderPreset = {
     }
   ],
   id: "infistar-ai",
-  name: "无限星河",
+  name: "Infistar AI",
   websiteUrl: "https://www.infistar.cc/register?aff=CCRCCR&ref_source=link"
 };

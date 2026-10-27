@@ -5,11 +5,11 @@ import {
   CardHeader, Check, CircleAlert, clampNumber, cn, createRouteModelOptions, createRoutingRewriteDraftRow,
   Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle,
   disclosureSpringTransition, Field, formatRouterRuleCondition, formatRouterRuleTarget, GatewayProviderConfig, Input,
-  AppI18nContext, appCopy, ExternalLink, FolderOpen, motion, normalizeRouteScriptSampleRequest, normalizeRouterFallbackConfig, Pencil, Plus, Route, RouterFallbackConfig,
+  ExternalLink, FolderOpen, motion, normalizeRouteScriptSampleRequest, normalizeRouterFallbackConfig, Pencil, Plus, Route, RouterFallbackConfig,
   RouterFallbackMode, routerConditionSourceOptions, routerFallbackModeOptions, RouterRule, routerRewriteOperationOptions, routerRuleOperatorOptions,
   routerRuleTypeOptions,
   RouteTargetControl, routingRuleRowMatchesQuery, Search, SelectControl, Toggle, translateOptions,
-  Textarea, Trash2, uniqueStrings, useAppText, useContext, useMemo, useRef, useState, X
+  Textarea, Trash2, uniqueStrings, useAppText, useMemo, useRef, useState, X
 } from "../shared/index";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
@@ -393,7 +393,6 @@ export function AddRoutingRuleDialog({
 }) {
   const t = useAppText();
   const { close, confirmation } = useDraftClose(draft, onClose);
-  const copy = useContext(AppI18nContext);
   const conditionSourceOptions = translateOptions(routerConditionSourceOptions, t);
   const rewriteOperationOptions = translateOptions(routerRewriteOperationOptions, t);
   const ruleTypeOptions = translateOptions(
@@ -564,10 +563,10 @@ export function AddRoutingRuleDialog({
                     </span>
                     <a
                       className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                      href={routeScriptDocsUrl(copy === appCopy.zh ? "zh" : "en")}
+                      href={routeScriptDocsUrl}
                       onClick={(event) => {
                         event.preventDefault();
-                        openExternalUrl(routeScriptDocsUrl(copy === appCopy.zh ? "zh" : "en"));
+                        openExternalUrl(routeScriptDocsUrl);
                       }}
                       rel="noreferrer"
                       target="_blank"
@@ -731,10 +730,4 @@ export function AddRoutingRuleDialog({
   );
 }
 
-function routeScriptDocsUrl(language: "en" | "zh"): string {
-  const path = language === "zh" ? "/routing/" : "/en/routing/";
-  const section = language === "zh"
-    ? "#nodejs-%E8%84%9A%E6%9C%AC%E8%A7%84%E5%88%99"
-    : "#nodejs-script-rules";
-  return `https://jrmatherly.github.io/llm-router${path}${section}`;
-}
+const routeScriptDocsUrl = "https://jrmatherly.github.io/llm-router/en/routing/#nodejs-script-rules";

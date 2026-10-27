@@ -1,6 +1,6 @@
 # LLM Router CLI
 
-[中文](README_zh.md) · [Documentation](https://jrmatherly.github.io/llm-router/en/) · [GitHub](https://github.com/jrmatherly/llm-router)
+[Documentation](https://jrmatherly.github.io/llm-router/en/) · [GitHub](https://github.com/jrmatherly/llm-router)
 
 `@claude-code-router/cli` is the workspace package behind LLM Router's `llmr` command. It provides the browser-based management UI, the local model gateway, and profile launch commands without requiring Electron.
 

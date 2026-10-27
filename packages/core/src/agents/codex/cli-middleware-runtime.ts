@@ -5260,7 +5260,6 @@ function readBotGatewayBridgeConfig() {
     },
     integrationConfig: websocketBotGatewayIntegrationConfig(platform, jsonObjectEnv("CCR_BOT_GATEWAY_CONFIG_JSON") || {}),
     integrationId: nonEmptyEnv("CCR_BOT_GATEWAY_INTEGRATION_ID") || nonEmptyEnv("CODEXL_BOT_GATEWAY_INTEGRATION_ID") || "",
-    language: normalizeBotLanguage(nonEmptyEnv("CCR_BOT_GATEWAY_LANGUAGE") || "auto"),
     maxAttachmentBytes: numberEnv("CCR_BOT_GATEWAY_MAX_ATTACHMENT_BYTES", 20 * 1024 * 1024),
     maxTurnTimeMs: numberEnv("CCR_BOT_GATEWAY_MAX_TURN_TIME_MS", 10 * 60 * 1000),
     mediaEnabled: boolEnv("CCR_BOT_GATEWAY_MEDIA_ENABLED"),
@@ -5278,13 +5277,6 @@ function readBotGatewayBridgeConfig() {
     streamReplies: boolEnv("CCR_BOT_GATEWAY_STREAM_REPLIES"),
     tenantId: nonEmptyEnv("CCR_BOT_GATEWAY_TENANT_ID") || nonEmptyEnv("CODEXL_BOT_GATEWAY_TENANT_ID") || "ccr"
   };
-}
-
-function normalizeBotLanguage(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (normalized === "zh" || normalized === "zh-cn" || normalized === "zh_cn") return "zh-CN";
-  if (normalized === "en" || normalized === "en-us" || normalized === "en_us") return "en";
-  return "auto";
 }
 
 function normalizeBotGatewayPlatform(value) {
@@ -5587,7 +5579,6 @@ class BotGatewayBridge {
   async sendReplyToEvent(event, text, key) {
     if (!text || !String(text).trim()) return;
     await this.ensureStarted();
-    text = localizeBotReply(String(text), botLanguageForEvent(this.config.language, event));
     const conversationRef = conversationRefFromEvent(event) || this.config.conversationRef;
     if (!conversationRef) {
       throw new Error("No Bot Gateway conversationRef is available for inbound bot response.");
@@ -5604,10 +5595,7 @@ class BotGatewayBridge {
     await this.ensureStarted();
     const conversationRef = conversationRefFromEvent(event) || this.config.conversationRef;
     if (!conversationRef) throw new Error("No Bot Gateway conversationRef is available for card response.");
-    const language = botLanguageForEvent(this.config.language, event);
-    const localizedFallback = localizeBotReply(fallbackText, language);
-    const localizedCard = language === "zh-CN" ? localizeBotCard(card) : card;
-    const outbound = this.outboundForEvent(event, conversationRef, { type: "card", card: localizedCard, fallbackText: localizedFallback }, key);
+    const outbound = this.outboundForEvent(event, conversationRef, { type: "card", card, fallbackText }, key);
     await this.sendDurable(outbound, { kind: "card", sourceKey: key });
   }
 
@@ -6220,94 +6208,6 @@ function botTextIntent(text) {
   return markdown
     ? { type: "markdown", markdown: value, fallbackText: value }
     : { type: "text", text: value };
-}
-
-function botLanguageForEvent(configured, event) {
-  if (configured === "en" || configured === "zh-CN") return configured;
-  const locale = valueStringAtPaths(event, ["/actor/locale", "/raw/locale", "/raw/language", "/raw/user/locale"]) || process.env.LANG || "";
-  return /^zh(?:[-_]|$)/i.test(locale) ? "zh-CN" : "en";
-}
-
-function localizeBotReply(text, language) {
-  if (language !== "zh-CN") return text;
-  const replacements = [
-    ["Unknown Bot command. Send /project or /session to see available commands.", "未知的 Bot 命令。发送 /project 或 /session 查看可用命令。"],
-    ["LLMR App project commands", "LLMR App 项目命令"],
-    ["LLMR App session commands", "LLMR App 会话命令"],
-    ["Projects are managed separately with /project. The relay is available only while this App is opened through LLMR.", "项目通过 /project 单独管理。只有通过 LLMR 打开此 App 时，消息接力才在线。"],
-    ["Sessions are managed separately with /session. The relay is available only while this App is opened through LLMR.", "会话通过 /session 单独管理。只有通过 LLMR 打开此 App 时，消息接力才在线。"],
-    [" - list Agent projects", " - 列出 Agent 项目"],
-    [" - search Agent projects", " - 搜索 Agent 项目"],
-    [" - show the selected project", " - 显示当前项目"],
-    [" - select a listed project", " - 选择列表中的项目"],
-    [" - set a Bot display label for the current project", " - 设置当前项目的 Bot 显示名称"],
-    [" - list sessions in the current project", " - 列出当前项目中的会话"],
-    [" - search sessions in the current project", " - 搜索当前项目中的会话"],
-    [" - show the selected session", " - 显示当前会话"],
-    [" - show the active turn and queue", " - 显示正在运行和排队的任务"],
-    [" - stop the active turn and clear queued turns", " - 停止当前任务并清空队列"],
-    [" - approve a pending Agent permission", " - 允许待处理的 Agent 权限"],
-    [" - deny a pending Agent permission or input request", " - 拒绝待处理的权限或输入请求"],
-    [" - answer a pending Agent input request", " - 回答待处理的 Agent 输入请求"],
-    [" - start a session in the current project", " - 在当前项目中新建会话"],
-    [" - continue a listed session", " - 继续列表中的会话"],
-    [" - clear the selected session", " - 清除当前会话选择"],
-    [" - rename the selected session", " - 重命名当前会话"],
-    [" - show recent turns", " - 显示最近的对话"],
-    [" - show or change model/provider", " - 查看或切换模型/Provider"],
-    [" - show the latest token and cost data", " - 显示最近的 Token 与费用数据"],
-    [" - manage persistent session context", " - 管理持久会话上下文"],
-    [" - list project and user skills", " - 列出项目和用户 Skills"],
-    [" - invoke an Agent-native skill", " - 调用 Agent 原生 Skill"],
-    [" - manage conversation shortcuts", " - 管理会话快捷指令"],
-    [" - show Bot connection and delivery diagnostics", " - 显示 Bot 连接和投递诊断"],
-    [" - show recent outbound delivery results", " - 显示最近的出站投递结果"],
-    ["No Agent turn is running or queued for this conversation.", "当前会话没有正在运行或排队的 Agent 任务。"],
-    ["No permission request is waiting for this conversation.", "当前会话没有待处理的权限请求。"],
-    ["Permission approved.", "已允许本次权限请求。"],
-    ["Permission denied.", "已拒绝本次权限请求。"],
-    ["Answer sent to the Agent.", "已将回答发送给 Agent。"],
-    ["Bot diagnostics:", "Bot 诊断："],
-    ["Recent Bot deliveries:", "最近的 Bot 投递："],
-    ["No recent Bot deliveries.", "暂无最近的 Bot 投递记录。"],
-    ["Current Claude App project:", "当前 Claude App 项目："],
-    ["Current OpenCode project:", "当前 OpenCode 项目："],
-    ["Current Claude App session:", "当前 Claude App 会话："],
-    ["Current OpenCode session:", "当前 OpenCode 会话："],
-    ["Available models:", "可用模型："],
-    ["Available skills:", "可用 Skills："],
-    ["Session memory:", "会话记忆："],
-    ["Session memory is empty.", "会话记忆为空。"],
-    ["Session memory cleared.", "会话记忆已清空。"],
-    ["Session memory added.", "已添加会话记忆。"],
-    ["Recent session history:", "最近会话历史："],
-    ["Session history is empty.", "会话历史为空。"],
-    ["Queued turns:", "排队任务："],
-    ["Running for ", "已运行 "],
-    ["Waiting for permission:", "等待权限确认："],
-    ["Agent turn failed:", "Agent 运行失败："]
-  ];
-  let output = String(text || "");
-  for (const [source, target] of replacements) output = output.split(source).join(target);
-  return output;
-}
-
-function localizeBotCard(card) {
-  const labelMap = {
-    "Agent permission required": "Agent 需要权限",
-    "Agent needs input": "Agent 需要输入",
-    "Approve once": "允许一次",
-    "Approve for session": "本会话始终允许",
-    "Deny": "拒绝",
-    "Project": "项目",
-    "Session": "会话"
-  };
-  return {
-    ...card,
-    title: labelMap[card.title] || card.title,
-    fields: Array.isArray(card.fields) ? card.fields.map((field) => ({ ...field, label: labelMap[field.label] || field.label })) : card.fields,
-    actions: Array.isArray(card.actions) ? card.actions.map((action) => ({ ...action, label: labelMap[action.label] || action.label })) : card.actions
-  };
 }
 
 function normalizeBotSessionStore(value) {

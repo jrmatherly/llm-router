@@ -2,7 +2,7 @@ import { defaultProviderAccountConfig, type ProviderPreset } from "@ccr/core/pro
 
 export const qiniuAiProviderPreset: ProviderPreset = {
   account: defaultProviderAccountConfig,
-  aliases: ["qiniu", "qiniu ai", "qiniu cloud ai", "qiniu yun ai", "qiniu yun", "七牛云", "七牛云ai", "七牛云 ai", "modelink"],
+  aliases: ["qiniu", "qiniu ai", "qiniu cloud ai", "qiniu yun ai", "qiniu yun", "modelink"],
   endpoints: [
     {
       baseUrl: "https://api.qnaigc.com",
@@ -30,6 +30,6 @@ export const qiniuAiProviderPreset: ProviderPreset = {
     }
   ],
   id: "qiniu-ai",
-  name: "七牛云 AI",
+  name: "Qiniu Cloud AI",
   websiteUrl: "https://s.qiniu.com/AVjMVf"
 };

@@ -82,14 +82,14 @@ If OpenCode Go is unavailable or does not appear as an import option, connect `O
 | Field | Capability |
 | --- | --- |
 | Select preset provider | Applies a built-in provider template, including default endpoint, supported protocols, default models, icon, provider website, and sometimes account usage settings. Choose `Other / custom API endpoint` for any OpenAI, Anthropic, or Gemini compatible upstream. |
-| Name | Internal LLMR display name. It is also used by routing, model selectors, logs, and config references. Names must be unique. |
+| Name | Internal LLMR display name. It is also used by routing, model selectors, logs, and config references. Names must be unique; keep them short and stable. |
 | API endpoint | Upstream API base URL. It controls where requests are sent, and is also used for protocol probing, model discovery, icon detection, and safety checks. Preset providers hide it by default while adding, but it can be overridden in Advanced settings. Custom providers must provide it. |
 | API key | Default provider credential. When the credential pool is empty, model requests use this key. Protocol probing, model discovery, connection checks, and default usage fetching also use it. Only use a key issued for the selected endpoint. |
 | Models | Model IDs exposed by LLMR. Routing rules, Agent Config model selectors, the model catalog, and client `/models` responses all use this list. |
 | Search models / All / Clear | When LLMR can discover models from the upstream or catalog, you can search, select all, clear, and choose models. Selected models are saved to the provider. |
 | Custom models | Manually adds model IDs that discovery did not return. Use this when the provider lacks a `/models` endpoint or a new model is not in the catalog yet. |
 | Check Connection | Sends real test requests with the current endpoint, API key, protocol, and selected models. It verifies key, model name, and protocol usability. |
-| Models to check | Model selection inside the connection-check confirmation dialog. Use it to test only some models. |
+| Models to check | Model selection inside the connection-check confirmation dialog. Use it to test only some models and avoid the extra usage of checking every model at once. |
 | Check results | Shows whether each model is available, which protocol matched, and the upstream diagnostic message. Results are diagnostic. Add models through the main model selection when you want them saved. |
 
 ## Connectivity checks
@@ -135,7 +135,7 @@ Example:
 }
 ```
 
-The credential pool is an upstream provider key pool. It is separate from the client access keys configured on the API Keys page.
+The credential pool is an upstream provider key pool. It is separate from the client access keys configured on the API Keys page: the pool decides which key LLMR uses to call a provider, while client access keys decide which key a client uses to call LLMR.
 
 ## Usage fetching
 
@@ -143,7 +143,7 @@ The credential pool is an upstream provider key pool. It is separate from the cl
 
 | Field | Capability |
 | --- | --- |
-| Fetch usage | Enables or disables account usage fetching for this provider. |
+| Fetch usage | Enables or disables account usage fetching for this provider. When off, LLMR does not call the usage endpoint. |
 | Usage mode | Usage connector mode. `Standard usage endpoint` uses LLMR standard account endpoints; `HTTP JSON request` maps a custom JSON endpoint; `Browser request` uses LLMR's in-app browser login state to run a browser-side request and map the JSON response; `Raw connector JSON` edits the connector array directly. |
 | Refresh interval ms | Usage refresh interval in milliseconds. Empty uses the default interval. The minimum effective interval is 30000ms. |
 

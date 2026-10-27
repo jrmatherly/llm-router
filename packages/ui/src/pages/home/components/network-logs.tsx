@@ -15,11 +15,12 @@ import {
   Pause, Play, ProxyNetworkBody, ProxyNetworkExchange, ProxyNetworkSnapshot, ProxyStatus,
   ReactNode, ReactPointerEvent, RefreshCw, RequestLogBody, RequestLogBodyChunk, RequestLogEntry, RequestLogListFilter,
   RequestLogPage, requestLogPageSizeOptions, RequestLogStatusFilter, requestLogStatusOptions, Search, Select,
-  translateOptions, Trash2, useAppNumberLocale, useAppText, useCallback, useEffect, useMemo, useRef,
+  translateOptions, Trash2, useAppText, useCallback, useEffect, useMemo, useRef,
   useState
 } from "../shared/index";
 import { TooltipPortal } from "@/components/ui/tooltip";
 type NetworkRequestTab = "body" | "header" | "query" | "raw" | "summary";
+const numberLocale = "en-US";
 type NetworkResponseTab = "body" | "header" | "raw";
 
 const logJsonAutoExpandEntryLimit = 60;
@@ -517,7 +518,7 @@ export function LogsView({
               aria-label={t("Search request logs")}
               className="network-filter-input h-7 w-full rounded-md border pl-8 pr-2 text-[12px] font-semibold outline-none"
               onChange={(event) => updateFilter({ query: event.target.value })}
-              placeholder={t("筛选日志、模型、请求或响应")}
+              placeholder={t("Filter logs, models, requests, or responses")}
               value={filter.query ?? ""}
             />
           </div>
@@ -532,14 +533,14 @@ export function LogsView({
             aria-label={t("Filter request log provider")}
             className="h-7 w-[148px] bg-[length:14px] px-2 pr-7 text-[11px]"
             onValueChange={(value) => updateFilter({ provider: value || undefined })}
-            options={logSelectOptions(t("全部供应商"), page.options.providers, filter.provider)}
+            options={logSelectOptions(t("All providers"), page.options.providers, filter.provider)}
             value={filter.provider ?? ""}
           />
           <Select
             aria-label={t("Filter request log model")}
             className="h-7 w-[168px] bg-[length:14px] px-2 pr-7 text-[11px]"
             onValueChange={(value) => updateFilter({ model: value || undefined })}
-            options={logSelectOptions(t("全部模型"), page.options.models, filter.model)}
+            options={logSelectOptions(t("All models"), page.options.models, filter.model)}
             value={filter.model ?? ""}
           />
           {hasAnyCredentialInfo ? (
@@ -557,7 +558,7 @@ export function LogsView({
               className="network-control-button flex h-7 w-7 items-center justify-center rounded-md border outline-none disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring/30"
               disabled={page.page <= 1}
               onClick={() => updateFilter({ page: page.page - 1 }, false)}
-              title={t("上一页")}
+              title={t("Previous page")}
               type="button"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
@@ -570,7 +571,7 @@ export function LogsView({
               className="network-control-button flex h-7 w-7 items-center justify-center rounded-md border outline-none disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring/30"
               disabled={page.page >= page.totalPages}
               onClick={() => updateFilter({ page: page.page + 1 }, false)}
-              title={t("下一页")}
+              title={t("Next page")}
               type="button"
             >
               <ChevronRight className="h-3.5 w-3.5" />
@@ -619,7 +620,7 @@ export function LogsView({
               {page.items.length === 0 ? (
                 <div className="network-empty flex h-[240px] flex-col items-center justify-center gap-2 text-center text-[12px]">
                   <Database className="network-empty-icon h-7 w-7" />
-                  <div>{loading ? t("正在加载日志") : t(hasActiveFilters ? "No request logs match the current filters." : "No request logs yet.")}</div>
+                  <div>{loading ? t("Loading logs") : t(hasActiveFilters ? "No request logs match the current filters." : "No request logs yet.")}</div>
                   {!loading ? (
                     <div className="max-w-[360px] px-4 text-[11px] leading-4 text-muted-foreground">
                       {t(hasActiveFilters
@@ -775,19 +776,19 @@ function createLogTableGridStyle(columns: LogTableColumn[], widths: LogTableColu
 function logTableColumnLabel(columnId: LogTableColumnId, t: (value: string) => string): string {
   switch (columnId) {
     case "time":
-      return t("时间");
+      return t("Time");
     case "status":
-      return t("状态");
+      return t("Status");
     case "stream":
       return t("Stream");
     case "model":
-      return t("模型");
+      return t("Model");
     case "credential":
       return t("Credential");
     case "tokens":
       return t("Token");
     case "duration":
-      return t("持续时间");
+      return t("Duration");
   }
 }
 
@@ -809,9 +810,8 @@ function LogMobileCard({
   onToggle: (id: number) => void;
 }) {
   const t = useAppText();
-  const numberLocale = useAppNumberLocale();
   const createdAt = useMemo(() => formatLogDateTime(item.createdAt), [item.createdAt]);
-  const tokenSummary = useMemo(() => formatLogTokenSummary(item, t, numberLocale), [item, numberLocale, t]);
+  const tokenSummary = useMemo(() => formatLogTokenSummary(item, t, numberLocale), [item, t]);
 
   return (
     <div className={cn("network-row rounded-md border text-[12px]", expanded && "network-row-selected")}>
@@ -853,7 +853,7 @@ function LogMobileCard({
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
               <LogCompactMetric label={t("Token")} value={tokenSummary} />
-              <LogCompactMetric label={t("持续时间")} value={formatDuration(item.durationMs)} />
+              <LogCompactMetric label={t("Duration")} value={formatDuration(item.durationMs)} />
               {item.outputTokensPerSecond !== undefined ? (
                 <LogCompactMetric label={t("Output speed")} value={formatTokenRate(item.outputTokensPerSecond)} />
               ) : null}
@@ -899,9 +899,8 @@ const LogRow = memo(function LogRow({
   onToggle: (id: number) => void;
 }) {
   const t = useAppText();
-  const numberLocale = useAppNumberLocale();
   const createdAt = useMemo(() => formatLogDateTime(item.createdAt), [item.createdAt]);
-  const tokenSummary = useMemo(() => formatLogTokenSummary(item, t, numberLocale), [item, numberLocale, t]);
+  const tokenSummary = useMemo(() => formatLogTokenSummary(item, t, numberLocale), [item, t]);
 
   return (
     <div>
@@ -954,7 +953,6 @@ export function LogExpandedDetails({
   entry: RequestLogEntry;
 }) {
   const t = useAppText();
-  const numberLocale = useAppNumberLocale();
   const hasCredentialInfo = logHasCredentialInfo(entry);
 
   return (
@@ -971,7 +969,7 @@ export function LogExpandedDetails({
         </span>
       </div>
       <div className={cn("network-body-meta grid grid-cols-2 gap-y-2 border-b px-3 py-2 text-[12px] sm:grid-cols-4", hasCredentialInfo ? "lg:grid-cols-12" : "lg:grid-cols-9")}>
-        <LogMetric label={t("持续时间")} value={formatDuration(entry.durationMs)} />
+        <LogMetric label={t("Duration")} value={formatDuration(entry.durationMs)} />
         <LogMetric label={t("Stream")} value={entry.isStream ? t("Streaming") : t("Non-streaming")} />
         {entry.outputTokensPerSecond !== undefined ? <LogMetric label={t("Output speed")} value={formatTokenRate(entry.outputTokensPerSecond)} /> : null}
         {entry.responseHeadersMs !== undefined ? <LogMetric label={t("Headers ready")} value={formatDuration(entry.responseHeadersMs)} /> : null}
@@ -991,12 +989,12 @@ export function LogExpandedDetails({
         {entry.credentialChain.length ? <LogMetric label={t("Credential chain")} value={entry.credentialChain.join(" > ")} /> : null}
         {hasCredentialInfo ? <LogMetric label={t("Credential saturated")} value={entry.credentialSaturated ? t("Yes") : t("No")} /> : null}
         {entry.retryAttempts.length > 0 ? <LogMetric label={t("Retry attempts")} value={String(entry.retryAttempts.length)} /> : null}
-        <LogMetric label={t("输入")} value={formatCompactNumber(entry.inputTokens, numberLocale)} />
-        <LogMetric label={t("输出")} value={formatCompactNumber(entry.outputTokens, numberLocale)} />
+        <LogMetric label={t("Input")} value={formatCompactNumber(entry.inputTokens, numberLocale)} />
+        <LogMetric label={t("Output")} value={formatCompactNumber(entry.outputTokens, numberLocale)} />
         <LogMetric label={t("Thinking")} value={formatCompactNumber(entry.reasoningTokens, numberLocale)} />
-        <LogMetric label={t("缓存读取")} value={formatCompactNumber(entry.cacheReadTokens, numberLocale)} />
-        <LogMetric label={t("缓存写入")} value={formatCompactNumber(entry.cacheWriteTokens, numberLocale)} />
-        <LogMetric label={t("总计")} value={formatCompactNumber(entry.totalTokens, numberLocale)} />
+        <LogMetric label={t("Cache read")} value={formatCompactNumber(entry.cacheReadTokens, numberLocale)} />
+        <LogMetric label={t("Cache write")} value={formatCompactNumber(entry.cacheWriteTokens, numberLocale)} />
+        <LogMetric label={t("Total")} value={formatCompactNumber(entry.totalTokens, numberLocale)} />
         <LogMetric label={t("Cost")} value={formatUsdCost(entry.costUsd ?? 0)} />
       </div>
       {entry.retryAttempts.length > 0 ? <LogRetryAttempts attempts={entry.retryAttempts} /> : null}
@@ -1007,7 +1005,7 @@ export function LogExpandedDetails({
         </div>
       ) : null}
       <div className="network-detail-panes grid h-[440px] min-h-0 grid-cols-1 lg:grid-cols-2">
-        <LogJsonPanel body={entry.requestBody} headerEmptyLabel="No request headers" headers={entry.requestHeaders} requestLogId={entry.id} side="request" title={t("请求")} />
+        <LogJsonPanel body={entry.requestBody} headerEmptyLabel="No request headers" headers={entry.requestHeaders} requestLogId={entry.id} side="request" title={t("Request")} />
         <LogJsonPanel
           body={entry.responseBody}
           className="border-t lg:border-l lg:border-t-0"
@@ -1016,7 +1014,7 @@ export function LogExpandedDetails({
           requestLogId={entry.id}
           side="response"
           subtitle={`HTTP ${entry.statusCode || "-"}`}
-          title={t("响应")}
+          title={t("Response")}
         />
       </div>
     </div>
@@ -2120,7 +2118,7 @@ function LogJsonBodyToolbar({
           aria-label={`${t("Filter")} ${title} JSON`}
           className="network-filter-input h-6 w-full rounded border pl-7 pr-2 text-[11px] font-semibold outline-none"
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={t("筛选 JSON...")}
+          placeholder={t("Filter JSON...")}
           value={query}
         />
       </div>
@@ -2474,7 +2472,7 @@ function LogBodyViewer({
             copied && "network-json-copy-success"
           )}
           onClick={() => void copyBody()}
-          title={copied ? t("Copied") : t("复制")}
+          title={copied ? t("Copied") : t("Copy")}
           type="button"
         >
           <AnimatedIconSwap iconKey={copied ? "copied" : "copy"}>

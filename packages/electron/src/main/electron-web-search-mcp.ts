@@ -872,10 +872,10 @@ function searchResultExtractionScript(engine: BrowserSearchEngine, count: number
           node.getAttribute && node.getAttribute("data-testid"),
           node.className
         ].filter(Boolean).join(" ");
-        if (/\\b(?:ad|ads|sponsored|promo|shopping)\\b|广告|赞助|推廣/i.test(attributes)) return true;
+        if (/\\b(?:ad|ads|sponsored|promo|shopping)\\b/i.test(attributes)) return true;
       }
       const firstText = compact(container && container.textContent).slice(0, 180);
-      if (/^(?:ad|ads|sponsored|promo|shopping)\\b|^(?:广告|赞助|推廣)/i.test(firstText)) return true;
+      if (/^(?:ad|ads|sponsored|promo|shopping)\\b/i.test(firstText)) return true;
       return false;
     }
     function cleanSnippetCandidate(value, title, url) {
@@ -963,7 +963,7 @@ function searchResultExtractionScript(engine: BrowserSearchEngine, count: number
     function detectBlocked() {
       const text = compact(document.body && document.body.innerText).toLowerCase();
       if (!text) return "";
-      if (text.includes("unusual traffic") || text.includes("detected unusual") || text.includes("not a robot") || text.includes("captcha") || text.includes("验证码") || text.includes("人机验证")) {
+      if (text.includes("unusual traffic") || text.includes("detected unusual") || text.includes("not a robot") || text.includes("captcha")) {
         return "Search engine returned an anti-bot or CAPTCHA page.";
       }
       if (text.includes("before you continue to google") || text.includes("consent.google") || text.includes("cookie consent")) {

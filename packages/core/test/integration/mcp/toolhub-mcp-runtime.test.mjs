@@ -166,7 +166,7 @@ test("built ToolHub MCP runtime waits for local LLMR resolver readiness", async 
       name: "tool_hub.resolve",
       arguments: {
         constraints: { maxTools: 10 },
-        task: "我想查询麦当劳这个月有什么优惠活动"
+        task: "I want to see which McDonald's promotions are running this month"
       }
     }
   });
@@ -284,7 +284,7 @@ test("built ToolHub MCP runtime expands browser automation bundles with handoff 
       name: "tool_hub.resolve",
       arguments: {
         constraints: { maxTools: 10 },
-        task: "打开 Gmail，如果需要登录就让用户接管"
+        task: "Open Gmail and let the user take over if a login is needed"
       }
     }
   });
@@ -391,7 +391,7 @@ test("built ToolHub MCP runtime deterministically resolves Chrome login import t
       name: "tool_hub.resolve",
       arguments: {
         constraints: { maxTools: 10 },
-        task: "把 Chrome 里 github.com 的登录态导入 LLMR in-app browser"
+        task: "Import the github.com login state from Chrome into the LLMR in-app browser"
       }
     }
   });
@@ -550,12 +550,12 @@ test("built ToolHub MCP runtime keeps resolve cache scoped by task", async (t) =
     serverName: "multi-mcp",
     tools: [
       {
-        description: "查询指定城市的天气预报。",
+        description: "Get the weather forecast for a given city.",
         inputSchema: { type: "object" },
         name: "weather-forecast"
       },
       {
-        description: "查询麦当劳中国当月的营销活动日历。",
+        description: "Get this month's McDonald's China campaign calendar.",
         inputSchema: { type: "object" },
         name: "campaign-calendar"
       }
@@ -628,7 +628,7 @@ test("built ToolHub MCP runtime keeps resolve cache scoped by task", async (t) =
     params: {
       name: "tool_hub.resolve",
       arguments: {
-        task: "查询北京今天的天气"
+        task: "Check today's weather in Beijing"
       }
     }
   });
@@ -646,7 +646,7 @@ test("built ToolHub MCP runtime keeps resolve cache scoped by task", async (t) =
     params: {
       name: "tool_hub.resolve",
       arguments: {
-        task: "查询麦当劳这个月有什么优惠活动"
+        task: "Which McDonald's promotions are running this month"
       }
     }
   });
@@ -723,7 +723,7 @@ function createMcpHttpServer(options = {}) {
   const serverName = options.serverName ?? "mcd-mcp";
   const tools = options.tools ?? [
     {
-      description: "查询麦当劳中国当月的营销活动日历，返回进行中、往期和未来日期的活动。",
+      description: "Get this month's McDonald's China campaign calendar, with current, past, and upcoming campaigns.",
       inputSchema: { type: "object" },
       name: "campaign-calendar"
     }
@@ -773,7 +773,7 @@ function createTaskAwareResolverServer() {
     if (request.method === "POST" && request.url === "/v1/chat/completions") {
       const payload = await readJsonBody(request);
       const query = readResolverQuery(payload);
-      const toolName = /天气|weather/i.test(query)
+      const toolName = /weather/i.test(query)
         ? "mcp.multi_mcp.weather-forecast"
         : "mcp.multi_mcp.campaign-calendar";
       response.setHeader("content-type", "application/json");

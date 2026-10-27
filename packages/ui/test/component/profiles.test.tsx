@@ -4,7 +4,6 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ProfileConfig } from "@ccr/core/contracts/app.ts";
 import { AddProfileForm, DeleteProfileDialog, ProfileView } from "@ccr/ui/pages/home/components/profiles.tsx";
-import { AppI18nContext, appCopy } from "@ccr/ui/pages/home/shared/i18n.tsx";
 import { createProfileDraft, createProfileDraftFromProfile, isProfileDraftSubmittable, normalizeUnknownProfileItem, profileAgentLogoUrl, profileConfigFromDraft, profileDraftWithDetectedAppPath, profileSummaryItems } from "@ccr/ui/pages/home/shared/profiles.ts";
 import { appConfigFixture } from "../fixtures/index.ts";
 
@@ -27,19 +26,6 @@ test("DeleteProfileDialog identifies the profile and requires an explicit confir
   assert.match(html, /Claude Code/);
   assert.match(html, />Cancel<\/button>/);
   assert.match(html, />Delete<\/button>/);
-});
-
-test("DeleteProfileDialog renders the Chinese confirmation copy", () => {
-  const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
-      <DeleteProfileDialog onClose={() => undefined} onConfirm={() => undefined} profile={profile} />
-    </AppI18nContext.Provider>
-  );
-
-  assert.match(html, /删除 Agent 配置/);
-  assert.match(html, /从配置中删除这个 Agent 配置档案？/);
-  assert.match(html, />取消<\/button>/);
-  assert.match(html, />删除<\/button>/);
 });
 
 test("AddProfileForm does not show the profile requirements panel", () => {

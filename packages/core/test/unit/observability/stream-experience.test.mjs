@@ -16,7 +16,7 @@ test("stream experience meter parses fragmented Anthropic semantic events", asyn
     protocol: "anthropic_messages"
   });
   const body = [
-    'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"分析"}}\n\n',
+    'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"analysis"}}\n\n',
     'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello world"}}\n\n',
     'event: message_stop\ndata: {"type":"message_stop"}\n\n'
   ].join("");
@@ -52,7 +52,7 @@ test("stream experience meter supports OpenAI chat, Responses, and Gemini NDJSON
       protocol: "openai_responses"
     },
     {
-      body: '{"candidates":[{"content":{"parts":[{"text":"你好"}]}}]}\n',
+      body: '{"candidates":[{"content":{"parts":[{"text":"héllo"}]}}]}\n',
       contentType: "application/x-ndjson",
       protocol: "gemini_generate_content"
     }

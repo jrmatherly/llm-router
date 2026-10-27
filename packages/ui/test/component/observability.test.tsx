@@ -57,7 +57,7 @@ const sampleRequestLogEntry: RequestLogEntry = {
 
 test("LogsView keeps disabled request logs discoverable with an enable action", () => {
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
+    <AppI18nContext.Provider value={appCopy}>
       <LogsView
         enabled={false}
         error=""
@@ -71,13 +71,13 @@ test("LogsView keeps disabled request logs discoverable with an enable action", 
     </AppI18nContext.Provider>
   );
 
-  assert.match(html, /请求日志已关闭/);
-  assert.match(html, /启用请求日志/);
+  assert.match(html, /Request logs are off/);
+  assert.match(html, /Enable request logs/);
 });
 
 test("LogsView explains filtered empty results and translates page sizes", () => {
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.en}>
+    <AppI18nContext.Provider value={appCopy}>
       <LogsView
         error=""
         filter={{ page: 1, pageSize: 25, query: "missing", status: "all" }}
@@ -92,25 +92,6 @@ test("LogsView explains filtered empty results and translates page sizes", () =>
   assert.match(html, /No request logs match the current filters\./);
   assert.match(html, /Clear filters/);
   assert.match(html, /25 \/ page/);
-  assert.doesNotMatch(html, /\/ 页/);
-});
-
-test("LogsView keeps Chinese token column copy as Token", () => {
-  const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
-      <LogsView
-        error=""
-        filter={{ page: 1, pageSize: 25, status: "all" }}
-        loading={false}
-        page={{ ...emptyLogPage, items: [sampleRequestLogEntry], total: 1 }}
-        refreshLogs={() => undefined}
-        updateFilter={() => undefined}
-      />
-    </AppI18nContext.Provider>
-  );
-
-  assert.match(html, /Token/);
-  assert.doesNotMatch(html, /令牌/);
 });
 
 test("AgentAnalysisView keeps session headings horizontal and shows cache rate and cost", () => {
@@ -339,7 +320,7 @@ test("AgentAnalysisView keeps session headings horizontal and shows cache rate a
   };
 
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
+    <AppI18nContext.Provider value={appCopy}>
       <AgentAnalysisView
         agentFilter="all"
         error=""
@@ -354,27 +335,25 @@ test("AgentAnalysisView keeps session headings horizontal and shows cache rate a
     </AppI18nContext.Provider>
   );
 
-  assert.match(html, /持续时间/);
-  assert.match(html, /子代理/);
-  assert.match(html, /缓存率/);
+  assert.match(html, /Duration/);
+  assert.match(html, />Subagents<\/th>/);
+  assert.match(html, /Cache rate/);
   assert.match(html, /37\.50%/);
-  assert.match(html, /成本/);
-  assert.match(html, /会话记录/);
-  assert.match(html, /调用链路/);
-  assert.match(html, /会话轨迹/);
-  assert.ok(html.indexOf("调用链路") >= 0);
-  assert.ok(html.indexOf("调用链路") < html.indexOf("会话轨迹"));
-  assert.ok(html.indexOf("会话轨迹") < html.indexOf("会话记录"));
+  assert.match(html, /Cost/);
+  assert.match(html, /Session Records/);
+  assert.match(html, /Call chain/);
+  assert.match(html, /Session Trajectory/);
+  assert.ok(html.indexOf("Call chain") >= 0);
+  assert.ok(html.indexOf("Call chain") < html.indexOf("Session Trajectory"));
+  assert.ok(html.indexOf("Session Trajectory") < html.indexOf("Session Records"));
   assert.ok(html.indexOf("Claude Code session") < html.indexOf("Subagent: repo-inspector"));
   assert.ok(html.indexOf("Subagent: repo-inspector") < html.indexOf("Model run: claude-sonnet-4"));
   assert.ok(html.indexOf("Model run: claude-sonnet-4") < html.indexOf("Read repository file"));
-  assert.match(html, /部分失败/);
+  assert.match(html, /Partial failure/);
   assert.match(html, /Token/);
-  assert.doesNotMatch(html, /令牌/);
   assert.match(html, /\$1\.25/);
   assert.match(html, /\$0\.75/);
-  assert.doesNotMatch(html, /会话详情仅展示最新的/);
-  assert.doesNotMatch(html, /1 \/ 2 条请求/);
+  assert.doesNotMatch(html, /1 \/ 2 requests\./);
   assert.match(html, /border-amber-200/);
   assert.match(html, /min-w-\[64px\]/);
   assert.match(html, /whitespace-nowrap/);
@@ -389,7 +368,7 @@ test("AgentAnalysisView surfaces bounded analysis and missing session states", (
   };
 
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
+    <AppI18nContext.Provider value={appCopy}>
       <AgentAnalysisView
         agentFilter="all"
         error=""
@@ -405,16 +384,16 @@ test("AgentAnalysisView surfaces bounded analysis and missing session states", (
     </AppI18nContext.Provider>
   );
 
-  assert.match(html, /分析结果仅包含最新的/);
+  assert.match(html, /Analysis is limited to the newest/);
   assert.match(html, /5,000/);
-  assert.match(html, /未找到该会话，或它不在当前时间范围内/);
-  assert.doesNotMatch(html, /正在加载会话指标/);
+  assert.match(html, /Session not found or outside the selected range/);
+  assert.doesNotMatch(html, /Loading session metrics/);
 });
 
 test("#1801 LogsView shows missing HTTP status as neutral", () => {
   const entry = { ...sampleRequestLogEntry, ok: false, statusCode: 0 };
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.en}>
+    <AppI18nContext.Provider value={appCopy}>
       <LogsView error="" filter={{ page: 1, pageSize: 25, status: "all" }} loading={false}
         page={{ ...emptyLogPage, items: [entry], total: 1 }} refreshLogs={() => undefined} updateFilter={() => undefined} />
     </AppI18nContext.Provider>

@@ -47,7 +47,7 @@ Once credentials and models are in place, click **Check Connection** to send a r
 
 ### Multiple keys and usage
 
-For teams or high-frequency usage, switch to the **Credential pool** tab, add multiple upstream keys, and configure priority, weight, and limits. After saving, filter request logs by credential to verify rotation.
+For teams or high-frequency usage, switch to the **Credential pool** tab in the credentials step, add multiple upstream keys, and configure priority, weight, and limits. After saving, filter request logs by credential to verify rotation.
 
 If you want the overview to show balance or remaining quota, turn on **Fetch usage** in the form, choose a usage mode, and test the field mapping.
 

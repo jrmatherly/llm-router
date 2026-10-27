@@ -45,20 +45,7 @@ const agentClawPlatforms = [
 
 /** Legacy URLs served as redirect stubs; excluded from the sitemap. */
 const redirectPaths = new Set([
-  "/configuration/",
-  "/configuration/bot-relay/",
-  "/configuration/bot-setup/",
-  "/configuration/extensions/",
-  "/configuration/fusion/",
-  "/configuration/fusion-mcp-tool/",
-  "/configuration/fusion-vision/",
-  "/configuration/fusion-web-search/",
-  "/configuration/provider-deeplink/",
-  "/configuration/routing/",
-  "/configuration/toolhub/",
-  "/configuration/provider/",
-  "/configuration/profile/",
-  "/configuration/config-file/",
+  "/",
   "/en/configuration/",
   "/en/configuration/bot-setup/",
   "/en/configuration/bots/",
@@ -70,7 +57,6 @@ const redirectPaths = new Set([
   "/en/configuration/provider-deeplink/",
   "/en/configuration/routing/",
   "/en/configuration/toolhub/",
-  ...agentClawPlatforms.map((platform) => `/bot-与-im-接力-agent/${platform}/`),
   ...agentClawPlatforms.map((platform) => `/en/relay-agents-in-im-with-bots/${platform}/`),
 ]);
 

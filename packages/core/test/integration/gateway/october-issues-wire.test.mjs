@@ -97,7 +97,7 @@ test("#1852 built gateway preserves native virtual-model content and usage with 
   const upstream = createServer(async (req, res) => {
     const body = await readJson(req);
     assert.equal(body.model, "native");
-    const payload = { id: "msg_native", type: "message", role: "assistant", model: "native", content: [{ type: "text", text: "native answer 你好 🌏" }], stop_reason: "end_turn", usage: { input_tokens: 5, output_tokens: 7 } };
+    const payload = { id: "msg_native", type: "message", role: "assistant", model: "native", content: [{ type: "text", text: "native answer café 🌏" }], stop_reason: "end_turn", usage: { input_tokens: 5, output_tokens: 7 } };
     res.writeHead(200, { "content-type": body.stream ? "text/event-stream" : "application/json" });
     if (!body.stream) { res.end(JSON.stringify(payload)); return; }
     const events = [
@@ -107,7 +107,7 @@ test("#1852 built gateway preserves native virtual-model content and usage with 
       ["content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "signature_delta", signature: "native signature" } }],
       ["content_block_stop", { type: "content_block_stop", index: 0 }],
       ["content_block_start", { type: "content_block_start", index: 1, content_block: { type: "text", text: "" } }],
-      ["content_block_delta", { type: "content_block_delta", index: 1, delta: { type: "text_delta", text: "native answer 你好 🌏" } }],
+      ["content_block_delta", { type: "content_block_delta", index: 1, delta: { type: "text_delta", text: "native answer café 🌏" } }],
       ["content_block_stop", { type: "content_block_stop", index: 1 }],
       ["message_delta", { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 7 } }],
       ["message_stop", { type: "message_stop" }],
@@ -127,7 +127,7 @@ test("#1852 built gateway preserves native virtual-model content and usage with 
         const response = await fetch(gateway.url + "/v1/messages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ model: "alias", max_tokens: 32, stream, messages: [{ role: "user", content: "hi" }] }) });
         const text = await response.text();
         assert.equal(response.status, 200, text);
-        assert.match(text, /native answer 你好 🌏/);
+        assert.match(text, /native answer café 🌏/);
         assert.match(text, /"output_tokens":7/);
         if (stream) { assert.match(text, /native reasoning/); assert.match(text, /native signature/); }
       }

@@ -20,7 +20,7 @@ test("Onboarding provider step renders only the active provider setup section", 
     name: "Example Provider"
   };
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.en}>
+    <AppI18nContext.Provider value={appCopy}>
       <OnboardingView
         activeStep="provider"
         canSubmitProfile={false}
@@ -76,7 +76,7 @@ test("Onboarding profile step does not prompt to save before continuing", () => 
     name: "Example Provider"
   };
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.en}>
+    <AppI18nContext.Provider value={appCopy}>
       <OnboardingView
         activeStep="profile"
         canSubmitProfile

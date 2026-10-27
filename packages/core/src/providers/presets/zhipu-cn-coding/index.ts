@@ -45,7 +45,7 @@ const zhipuCnProviderAccountConfig: ProviderAccountConfig = {
 
 export const zhipuCnCodingProviderPreset: ProviderPreset = {
   account: zhipuCnProviderAccountConfig,
-  aliases: ["zhipu", "bigmodel", "glm", "智谱", "智谱ai", "智谱清言"],
+  aliases: ["zhipu", "bigmodel", "glm"],
   defaultModels: ["glm-5.2", "glm-5.1", "glm-4.7", "glm-4.5-air"],
   endpoints: [
     {

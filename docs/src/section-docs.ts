@@ -11,11 +11,6 @@ export type SectionDocModule = {
   rawContent: () => string;
 };
 
-export const zhGuideDocs = import.meta.glob<SectionDocModule>(
-  "./content/docs/zh/guides/*.md",
-  { eager: true }
-);
-
 export const enGuideDocs = import.meta.glob<SectionDocModule>(
   "./content/docs/en/guides/*.md",
   { eager: true }

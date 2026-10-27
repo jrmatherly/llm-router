@@ -83,8 +83,8 @@ test("the legacy compaction footer the read-both check looks for stays", () => {
   assert.equal(rebrandText("text.includes(\"CCR ARCHIVED HISTORY ACCESS\") || text.includes(\"CCR archived history\")", "ts"), "text.includes(\"CCR ARCHIVED HISTORY ACCESS\") || text.includes(\"LLMR archived history\")");
 });
 
-test("chinese copy is rewritten", () => {
-  assert.equal(rebrandText("\"再启动 CCR 网关或通过 CCR 打开 Agent。\"", "ts"), "\"再启动 LLMR 网关或通过 LLMR 打开 Agent。\"");
+test("ui copy is rewritten", () => {
+  assert.equal(rebrandText("\"Start the CCR gateway or open an Agent through CCR.\"", "ts"), "\"Start the LLMR gateway or open an Agent through LLMR.\"");
 });
 
 function gitGrepFiles(args) {

@@ -2446,9 +2446,10 @@ export function translateProbeProtocolMessage(message: string | undefined, trans
 function isProbeAuthorizationMissingMessage(message: string): boolean {
   const normalized = message
     .trim()
-    .replace(/[。.\s]+$/g, "")
+    .replace(/[\u3002.\s]+$/g, "")
     .toLowerCase();
   const match = /^http\s+401\s*:\s*(.*)$/i.exec(normalized);
   const detail = match?.[1] ?? normalized;
-  return detail.includes("header中未收到authorization参数") && detail.includes("无法进行身份验证");
+  // Upstream 401 body from a provider that answers in Chinese ("no Authorization header, cannot authenticate").
+  return detail.includes("header\u4e2d\u672a\u6536\u5230authorization\u53c2\u6570") && detail.includes("\u65e0\u6cd5\u8fdb\u884c\u8eab\u4efd\u9a8c\u8bc1");
 }

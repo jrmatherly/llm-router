@@ -92,7 +92,7 @@ The official Claude Code organizes agents differently from the beta version, so 
 
 - The default model handles general tasks and acts as a fallback.
 
-- The `background` model manages lightweight background tasks. According to Anthropic, Claude Haiku 3.5 is often used here, so I routed this to a local `ollama` service.
+- The `background` model manages lightweight background tasks. According to Anthropic, Claude Haiku 3.5 is often used here for small tasks such as haiku generation and conversation summaries, so I routed this to a local `ollama` service.
 
 - The `think` model is responsible for reasoning and planning mode tasks. I use `DeepSeek-R1` here, though it doesn’t support cost control, so `Think` and `UltraThink` behave identically.
 

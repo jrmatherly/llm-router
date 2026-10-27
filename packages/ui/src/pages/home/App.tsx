@@ -1,12 +1,12 @@
 import {
   AddApiKeyDraft, AddProfileDraft, AddProviderDraft, AddRoutingRuleDraft, AgentAnalysisSessionSelection, AgentAnalysisSnapshot, AgentFilterValue,
   ApiKeyConfig, AppConfig, appCopy, AppI18nContext, AppInfo, AppSaveConfigOptions, AppUpdateStatus,
-  AppLanguagePreference, applyProviderProbeResult, AppToast, BotGatewaySavedConfig, buildExtensionList, buildProviderImportDraft, claudeDesignRoutingConfigFromDraft,
+  applyProviderProbeResult, AppToast, BotGatewaySavedConfig, buildExtensionList, buildProviderImportDraft, claudeDesignRoutingConfigFromDraft,
   ClaudeDesignRoutingDraft, ClaudeDesignRoutingRuleDraft, cloneConfig, createApiKeyDraft, createApiKeyEditDraft,
   createApiKeyList, createClaudeDesignRoutingDraft, createClaudeDesignRoutingRuleDraft, createCursorProxyRoutingDraft, createCursorProxyRoutingRuleDraft, createEmptyAgentAnalysis,
   copyTextToClipboard, createEmptyRequestLogPage, createEmptyUsageStats, createExtensionInstallDraft, createGeneratedApiKey, createPluginSettingsDraft, createProfileDraft,
   createProfileDraftFromProfile, createProviderDraft, createProviderDraftFromProvider, createRoutingRuleDraft, createRoutingRuleDraftFromRule,
-  createVirtualModelDraft, createVirtualModelDraftFromProfile, DEFAULT_TRAY_WIDGETS, detectSystemLanguage, detectSystemTheme,
+  createVirtualModelDraft, createVirtualModelDraftFromProfile, DEFAULT_TRAY_WIDGETS, detectSystemTheme,
   enforceSingleEnabledGlobalProfilePerAgent,
   ExtensionConfigTarget, ExtensionDeleteTarget, ExtensionInstallDraft, ExtensionSource, fallbackAgentAnalysis, fallbackConfig,
   fallbackGatewayStatus, fallbackInfo, fallbackProxyNetworkSnapshot, fallbackProxyStatus, fallbackRequestLogPage,
@@ -17,16 +17,16 @@ import {
   isRoutingRuleDraftSubmittable,
   isTraySupportedPlatform,
   LayoutGroup, mergeProviderModelLists, modelDescriptionsForModels, modelDisplayNamesForModels, modelMetadataForModels,
-  navigation, NavigationId, normalizeApiKeys, normalizeBotGatewaySavedConfigs, normalizeConfig, normalizeLanguagePreference, normalizeObservabilityConfig, normalizeOverviewWidgets, normalizeProxyConfig,
+  navigation, NavigationId, normalizeApiKeys, normalizeBotGatewaySavedConfigs, normalizeConfig, normalizeObservabilityConfig, normalizeOverviewWidgets, normalizeProxyConfig,
   normalizeProfileItem, normalizeProviderBaseUrl, normalizeRouterFallbackConfig, normalizeThemePreference, normalizeToolHubConfig, normalizeTrayBalanceProgressConfig, normalizeTrayIconPreference,
   normalizeTrayWidgets, normalizeTrayWindowModules, normalizeVirtualModelDraftPatch, OnboardingReadinessOptions, OnboardingStepId, onboardingStepOrder,
   OverviewWidgetConfig, parseProviderAccountDraft, parseProviderExtraJsonDraft, pluginConfigPatchFromSettingsDraft,
   providerCredentialsFromDraft,
-  persistLanguagePreference, PluginInstallCandidate, PluginMarketplaceEntry, PluginRoutingConfigTarget, PluginSettingsDraft, presetCapabilitiesFromDraft,
+  PluginInstallCandidate, PluginMarketplaceEntry, PluginRoutingConfigTarget, PluginSettingsDraft, presetCapabilitiesFromDraft,
   probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptionsForRuntime, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
   profileOpenCommandFallback, profileOpenSurfaces, ProviderAccountSnapshot, providerApiKeySafetyIssue, ProviderConnectivityCheckReport, ProviderDeepLinkPayload, ProviderDeepLinkRequest, providerIdentitySafetyIssue, providerProbeCandidates,
   providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, ProxyNetworkSnapshot,
-  ProxyStatus, readLanguagePreference, RequestLogListFilter, RequestLogPage, ResolvedLanguage,
+  ProxyStatus, RequestLogListFilter, RequestLogPage,
   ResolvedTheme, resolvePluginInstallPlan, resolveProviderDeepLinkCatalogModels, removeLocalAgentProviderPluginsForProvider, RouterRule, routingRuleFromDraft, SettingsPageId,
   setProviderPresets, splitLines, translateAppErrorMessage, translateText, TrayBalanceProgressConfig, TrayWidgetConfig,
   uniqueProviderProtocols, updateApiKeyEditableConfig, UsageStatsFilter, UsageStatsRange, UsageStatsSnapshot, useEffect,
@@ -268,9 +268,7 @@ function App() {
   const [settingsBotAddRequestKey, setSettingsBotAddRequestKey] = useState(0);
   const [compactLayout, setCompactLayout] = useState(() => window.matchMedia("(max-width: 720px)").matches);
   const [toast, setToast] = useState<AppToast>();
-  const [languagePreference, setLanguagePreference] = useState<AppLanguagePreference>(() => readLanguagePreference());
   const [themePreference, setThemePreference] = useState<AppConfig["theme"]>(() => fallbackConfig.theme || "system");
-  const [systemLanguage, setSystemLanguage] = useState<ResolvedLanguage>(() => detectSystemLanguage());
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => detectSystemTheme());
   const [requestLogError, setRequestLogError] = useState("");
   const [requestLogFilter, setRequestLogFilter] = useState<RequestLogListFilter>({
@@ -295,8 +293,7 @@ function App() {
   const [providerAccountRefreshing, setProviderAccountRefreshing] = useState(false);
   const updateActionBusyRef = useRef(false);
   const usageStatsRequestId = useRef(0);
-  const resolvedLanguage = languagePreference === "system" ? systemLanguage : languagePreference;
-  const copy = appCopy[resolvedLanguage];
+  const copy = appCopy;
   const t = useMemo(() => (value: string) => translateText(copy, value), [copy]);
   const formatError = useMemo(() => (error: unknown) => formatAppError(copy, error), [copy]);
 
@@ -318,16 +315,6 @@ function App() {
 
     root.dataset.theme = theme;
   }, [themePreference]);
-
-  useEffect(() => {
-    document.documentElement.lang = resolvedLanguage === "zh" ? "zh-CN" : "en";
-  }, [resolvedLanguage]);
-
-  useEffect(() => {
-    const updateSystemLanguage = () => setSystemLanguage(detectSystemLanguage());
-    window.addEventListener("languagechange", updateSystemLanguage);
-    return () => window.removeEventListener("languagechange", updateSystemLanguage);
-  }, []);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -2663,12 +2650,6 @@ function App() {
     }));
   }
 
-  function changeLanguagePreference(value: string) {
-    const language = normalizeLanguagePreference(value);
-    setLanguagePreference(language);
-    persistLanguagePreference(language);
-  }
-
   async function completeOnboarding() {
     if (window.ccr) {
       try {
@@ -3598,11 +3579,9 @@ function App() {
               config: draftConfig,
               copy,
               initialPage: settingsInitialPage,
-              languagePreference,
               launchAtLogin: Boolean(draftConfig.launchAtLogin),
               onChangeBotConfigs: changeBotConfigs,
               onChangeLaunchAtLogin: changeLaunchAtLogin,
-              onChangeLanguage: changeLanguagePreference,
               onChangeObservability: changeObservabilityConfig,
               onChangeProxy: changeProxyConfig,
               onChangeTheme: changeThemePreference,
@@ -3616,7 +3595,6 @@ function App() {
               profiles: draftConfig.profile.profiles,
               proxy: draftConfig.proxy,
               providers: draftConfig.Providers,
-              systemLanguage,
               systemTheme,
               themePreference,
               toolHub: draftConfig.toolHub,

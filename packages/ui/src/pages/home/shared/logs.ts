@@ -39,8 +39,8 @@ export function formatLogTokenSummary(entry: RequestLogEntry, t: (value: string)
     return "-";
   }
   const values = [
-    `${formatCompactNumber(entry.inputTokens, locale)} ${t("入")}`,
-    `${formatCompactNumber(entry.outputTokens, locale)} ${t("出")}`
+    `${formatCompactNumber(entry.inputTokens, locale)} ${t("in")}`,
+    `${formatCompactNumber(entry.outputTokens, locale)} ${t("out")}`
   ];
 
   if (entry.cacheReadTokens > 0) {

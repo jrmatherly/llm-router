@@ -9,7 +9,7 @@ import {
   normalizeProfileScope, normalizeProfileSurface, Pencil, Plus, PopoverContent,
   profileAgentLabel, profileAgentOptions, ProfileConfig, type ProfileAgentOption, profileModelProviderOptions, profileOpenSurfaces, profileScopeLabel, profileScopeOptions, profileSummaryItems, profileSurfaceLabel, profileSurfaceOptions,
   Play, Power, RefreshCw, Search, Select, SelectControl, Settings, Terminal, Toggle, translateOptions, Trash2, useAppErrorText, useAppText, useLayoutEffect, type KeyValueDraftRow, type ProfileOpenSurface, type ProfileRuntimeStatus, type ReactDragEvent, type ReactNode, type VirtualModelProfileConfig,
-  copyTextToClipboard, formatClaudeSettingsDraft, formatRouterRuleCondition, formatRouterRuleTarget, isClaudeSettingsDraftValid, isPlainRecord, isRoutingRuleDraftSubmittable, normalizeProviderModelSelector, routerRuleTypeLabel, routingRuleFromDraft, type RouterRule, uniqueStrings, useResolvedAppLanguage, validateProfileEnvRows,
+  copyTextToClipboard, formatClaudeSettingsDraft, formatRouterRuleCondition, formatRouterRuleTarget, isClaudeSettingsDraftValid, isPlainRecord, isRoutingRuleDraftSubmittable, normalizeProviderModelSelector, routerRuleTypeLabel, routingRuleFromDraft, type RouterRule, uniqueStrings, validateProfileEnvRows,
   useCallback, useEffect, useMemo, useRef, useState, X
 } from "../shared/index";
 import claudeCodeConfigOptionsJson from "@/generated/claude-code-config-options.json";
@@ -22,10 +22,7 @@ const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLay
 
 type ClaudeCodeConfigOption = {
   default?: string;
-  description?: {
-    en?: string;
-    zh?: string;
-  };
+  description?: string;
   enumValues?: string[];
   example?: string;
   key: string;
@@ -1344,7 +1341,6 @@ function ClaudeConfigEditorContent({
   onChange: (patch: Partial<AddProfileDraft>) => void;
 }) {
   const t = useAppText();
-  const language = useResolvedAppLanguage();
   const [tab, setTab] = useState<typeof CLAUDE_CONFIG_SETTINGS_TAB | typeof CLAUDE_CONFIG_ENV_TAB>(CLAUDE_CONFIG_SETTINGS_TAB);
   const [query, setQuery] = useState("");
   const [configuredFilter, setConfiguredFilter] = useState("all");
@@ -1357,12 +1353,11 @@ function ClaudeConfigEditorContent({
     options.filter((option) => claudeConfigOptionVisible(option, {
       configuredFilter,
       env,
-      language,
       query,
       settings,
       tab
     })),
-  [configuredFilter, env, language, options, query, settings, tab]);
+  [configuredFilter, env, options, query, settings, tab]);
 
   function clearInputState(inputId: string) {
     setRawInputs((current) => {
@@ -1472,7 +1467,7 @@ function ClaudeConfigEditorContent({
           </div>
         ) : filteredOptions.map((option) => {
           const inputId = claudeConfigInputId(tab, option.key);
-          const description = claudeConfigOptionDescription(option, language);
+          const description = claudeConfigOptionDescription(option);
           const currentValue = tab === CLAUDE_CONFIG_SETTINGS_TAB
             ? readSettingsPath(settings, claudeConfigOptionPath(option))
             : env[option.key];
@@ -1553,11 +1548,11 @@ function claudeConfigOptionPath(option: ClaudeCodeConfigOption): string[] {
   return option.path?.length ? option.path : option.key.split(".").filter(Boolean);
 }
 
-function claudeConfigOptionDescription(option: ClaudeCodeConfigOption, language: "en" | "zh"): string {
-  return option.description?.[language]?.trim() || option.description?.en?.trim() || "";
+function claudeConfigOptionDescription(option: ClaudeCodeConfigOption): string {
+  return option.description?.trim() || "";
 }
 
-function claudeConfigOptionMatches(option: ClaudeCodeConfigOption, query: string, language: "en" | "zh"): boolean {
+function claudeConfigOptionMatches(option: ClaudeCodeConfigOption, query: string): boolean {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) {
     return true;
@@ -1567,7 +1562,7 @@ function claudeConfigOptionMatches(option: ClaudeCodeConfigOption, query: string
     option.type ?? "",
     option.valueKind ?? "",
     option.default ?? "",
-    claudeConfigOptionDescription(option, language)
+    claudeConfigOptionDescription(option)
   ].some((value) => value.toLowerCase().includes(normalizedQuery));
 }
 
@@ -1576,13 +1571,12 @@ function claudeConfigOptionVisible(
   filter: {
     configuredFilter: string;
     env: Record<string, string>;
-    language: "en" | "zh";
     query: string;
     settings: Record<string, unknown>;
     tab: typeof CLAUDE_CONFIG_SETTINGS_TAB | typeof CLAUDE_CONFIG_ENV_TAB;
   }
 ): boolean {
-  if (!claudeConfigOptionMatches(option, filter.query, filter.language)) {
+  if (!claudeConfigOptionMatches(option, filter.query)) {
     return false;
   }
   const active = isClaudeConfigOptionActive(option, filter.tab, filter.settings, filter.env);

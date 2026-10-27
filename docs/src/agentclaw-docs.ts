@@ -11,11 +11,6 @@ export type AgentClawDocModule = {
   rawContent: () => string;
 };
 
-export const zhAgentClawDocs = import.meta.glob<AgentClawDocModule>(
-  "./content/docs/zh/agentclaw/*.md",
-  { eager: true }
-);
-
 export const enAgentClawDocs = import.meta.glob<AgentClawDocModule>(
   "./content/docs/en/agentclaw/*.md",
   { eager: true }

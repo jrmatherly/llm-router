@@ -77,7 +77,7 @@ test("#1780 official opencode-go requests use a stable fallback without overridi
   assert.ok(unsafeMetadata.headers["x-opencode-session"]?.startsWith("ccr-"));
 
   const unicodeMetadata = hook.transformRequest({
-    request: { body: { metadata: { user_id: "会话-1" } }, headers: {}, id: "request-8" },
+    request: { body: { metadata: { user_id: "sessión-✓-1" } }, headers: {}, id: "request-8" },
     upstreamRequest
   }).value;
   assert.ok(unicodeMetadata.headers["x-opencode-session"]?.startsWith("ccr-"));

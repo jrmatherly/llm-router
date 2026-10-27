@@ -2353,7 +2353,7 @@ function getLocalFallbackPreferredTools(taskText: string): Map<string, number> {
     "shop",
     "store",
     "website"
-  ]) || /咖啡|拿铁|生椰|点单|下单|外卖|配送|自取|门店|商品|购买|结账|订单/.test(normalizedText)) {
+  ])) {
     add("browser_session_open", 120);
     add("browser_navigate", 112);
     add("browser_snapshot", 108);
@@ -2374,17 +2374,15 @@ function getLocalFallbackPreferredTools(taskText: string): Map<string, number> {
     "session",
     "signin",
     "storage"
-  ]) || /chrome|cookie|cookies|localstorage|local storage|登录态|登录状态|导入登录|浏览器登录|本地存储/.test(normalizedText)) {
+  ]) || /chrome|cookie|cookies|localstorage|local storage/.test(normalizedText)) {
     add("browser_chrome_login_import", 128);
     add("browser_chrome_login_import_status", 92);
   }
-  if (hasAnyToken(tokens, ["address", "delivery", "geo", "geolocation", "location", "nearby", "pickup", "store"]) ||
-    /地址|定位|位置|附近|配送|外卖|自取|门店/.test(normalizedText)) {
+  if (hasAnyToken(tokens, ["address", "delivery", "geo", "geolocation", "location", "nearby", "pickup", "store"])) {
     add("location_permission_status", 90);
     add("location_get_current", 86);
   }
-  if (hasAnyToken(tokens, ["ask", "choice", "confirm", "confirmation", "missing", "option", "preference", "question", "select", "user"]) ||
-    /确认|选择|偏好|口味|缺少|询问|用户/.test(normalizedText)) {
+  if (hasAnyToken(tokens, ["ask", "choice", "confirm", "confirmation", "missing", "option", "preference", "question", "select", "user"])) {
     add("user_interaction_collect", 82);
   }
   return scores;
@@ -2403,9 +2401,7 @@ function getDeterministicTaskTools(taskText: string, catalog: CatalogEntry[]): C
 function taskWantsChromeLoginImport(taskText: string): boolean {
   const normalizedText = taskText.toLowerCase();
   return normalizedText.includes("browser_chrome_login_import") ||
-    /(chrome|谷歌浏览器|浏览器).*(login|signin|auth|cookie|localstorage|local storage|session|登录态|登录状态|登录信息|本地存储|cookie)/.test(normalizedText) ||
-    /(import|导入|迁移|同步).*(chrome|谷歌浏览器).*(login|signin|auth|cookie|localstorage|local storage|session|登录态|登录状态|登录信息|本地存储)/.test(normalizedText) ||
-    /(登录态|登录状态|登录信息).*(chrome|谷歌浏览器|浏览器).*(导入|迁移|同步)/.test(normalizedText);
+    /chrome.*(login|signin|auth|cookie|localstorage|local storage|session)/.test(normalizedText);
 }
 
 function catalogHasChromeLoginImportTool(catalog: CatalogEntry[]): boolean {

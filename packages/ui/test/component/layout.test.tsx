@@ -4,7 +4,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { GatewayStartupErrorBanner, groupSidebarNavigation, MainLayout, UpdateEntryButton } from "@ccr/ui/pages/home/components/layout.tsx";
 import { MediaModelConfigurationPanel, VirtualModelsView } from "@ccr/ui/pages/home/components/virtual-models.tsx";
-import { AppI18nContext, appCopy } from "@ccr/ui/pages/home/shared/i18n.tsx";
+import { appCopy } from "@ccr/ui/pages/home/shared/i18n.tsx";
 import { createVirtualModelDraft } from "@ccr/ui/pages/home/shared/virtual-models.ts";
 import { appConfigFixture } from "../fixtures/index.ts";
 import { fallbackGatewayStatus, fallbackUpdateStatus } from "@ccr/ui/pages/home/shared/fallbacks.ts";
@@ -39,7 +39,7 @@ test("sidebar navigation scrolls vertically without displacing the settings foot
       agentAnalysisEnabled={false}
       compactLayout={false}
       config={appConfigFixture()}
-      copy={appCopy.en}
+      copy={appCopy}
       gatewayActionBusy={false}
       gatewayEndpoint="http://127.0.0.1:3456"
       gatewayStatus={fallbackGatewayStatus}
@@ -69,16 +69,14 @@ test("sidebar navigation scrolls vertically without displacing the settings foot
 
 test("GatewayStartupErrorBanner renders startup failure details", () => {
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
-      <GatewayStartupErrorBanner message="没有可用模型。请先配置供应商。" onOpenServerSettings={() => undefined} />
-    </AppI18nContext.Provider>
+    <GatewayStartupErrorBanner message="No models are available. Configure a provider first." onOpenServerSettings={() => undefined} />
   );
 
   assert.match(html, /role="alert"/);
   assert.match(html, /aria-live="assertive"/);
-  assert.match(html, /服务启动失败/);
-  assert.match(html, /没有可用模型。请先配置供应商。/);
-  assert.match(html, />服务<\/button>/);
+  assert.match(html, /Service failed to start/);
+  assert.match(html, /No models are available\. Configure a provider first\./);
+  assert.match(html, />Server<\/button>/);
 });
 
 test("GatewayStartupErrorBanner stays hidden without a failure message", () => {
@@ -89,19 +87,17 @@ test("GatewayStartupErrorBanner stays hidden without a failure message", () => {
 
 test("Fusion page does not render a standalone Grok media panel", () => {
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
-      <VirtualModelsView
-        addVirtualModel={() => undefined}
-        editVirtualModel={() => undefined}
-        profiles={[]}
-        removeVirtualModel={() => undefined}
-        setVirtualModelEnabled={() => undefined}
-      />
-    </AppI18nContext.Provider>
+    <VirtualModelsView
+      addVirtualModel={() => undefined}
+      editVirtualModel={() => undefined}
+      profiles={[]}
+      removeVirtualModel={() => undefined}
+      setVirtualModelEnabled={() => undefined}
+    />
   );
 
-  assert.doesNotMatch(html, /Grok 生图与生视频/);
-  assert.doesNotMatch(html, /Fusion 内置工具/);
+  assert.doesNotMatch(html, /Grok image and video generation/i);
+  assert.doesNotMatch(html, /Fusion built-in tools/i);
 });
 
 test("media tool configuration renders a generic provider model selector without backend settings", () => {
@@ -115,29 +111,27 @@ test("media tool configuration renders a generic provider model selector without
   }];
   const draft = createVirtualModelDraft(config);
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
-      <MediaModelConfigurationPanel
-        draft={draft}
-        kind="image"
-        modelOptions={[{ label: "Media Provider/Image Model", value: "Media Provider/image-model" }]}
-        onChange={() => undefined}
-      />
-    </AppI18nContext.Provider>
+    <MediaModelConfigurationPanel
+      draft={draft}
+      kind="image"
+      modelOptions={[{ label: "Media Provider/Image Model", value: "Media Provider/image-model" }]}
+      onChange={() => undefined}
+    />
   );
 
-  assert.match(html, /图片模型/);
+  assert.match(html, /Image model/);
   assert.match(html, /Media Provider\/Image Model/);
   assert.match(html, /ai-gateway/);
   assert.match(html, /Grok Agent/);
-  assert.doesNotMatch(html, /Grok CLI（内置）/);
-  assert.doesNotMatch(html, /API Key|允许读取图片|产物保留|图片并发|视频并发|执行后端/);
+  assert.doesNotMatch(html, /Grok CLI \(built-in\)/);
+  assert.doesNotMatch(html, /API Key|Allow image reads|Artifact retention|Image concurrency|Video concurrency|Execution backend/);
 });
 
 test("UpdateEntryButton keeps update-center semantics when an update is available", () => {
   const html = renderToStaticMarkup(
     <UpdateEntryButton
       actionBusy={false}
-      copy={appCopy.en}
+      copy={appCopy}
       onOpen={() => undefined}
       status={{
         ...fallbackUpdateStatus,
@@ -160,7 +154,7 @@ test("UpdateDialog shows a compact action set and sanitized release notes", () =
     <UpdateDialog
       actionBusy=""
       actionError=""
-      copy={appCopy.en}
+      copy={appCopy}
       onCheck={async () => undefined}
       onClose={() => undefined}
       onDownload={async () => undefined}
@@ -173,7 +167,7 @@ test("UpdateDialog shows a compact action set and sanitized release notes", () =
         releaseNotes: `3.0.17
 <h2>What's Changed</h2>
 <ul>
-<li>fix(zcode): 保证模型同步正确的上下文长度 by <a class="user-mention" href="https://github.com/jesieleo">@jesieleo</a> in <a href="https://github.com/musistudio/claude-code-router/pull/437">#437</a></li>
+<li>fix(zcode): keep the correct context length when syncing models by <a class="user-mention" href="https://github.com/jesieleo">@jesieleo</a> in <a href="https://github.com/musistudio/claude-code-router/pull/437">#437</a></li>
 </ul>`,
         state: "available",
         supported: true
@@ -182,7 +176,7 @@ test("UpdateDialog shows a compact action set and sanitized release notes", () =
   );
 
   assert.match(html, /Download update/);
-  assert.match(html, /fix\(zcode\): 保证模型同步正确的上下文长度/);
+  assert.match(html, /fix\(zcode\): keep the correct context length when syncing models/);
   assert.doesNotMatch(html, /Check for updates|Install and restart|Feed URL|Last checked/);
   assert.doesNotMatch(html, /&lt;h2|user-mention|@jesieleo|#437/);
 });

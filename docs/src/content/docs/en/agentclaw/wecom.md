@@ -15,7 +15,7 @@ WeCom is for bringing the agent into an enterprise messaging environment, so tea
 
 | Name in the WeCom dashboard | LLMR field | Required | Notes |
 | --- | --- | --- | --- |
-| `企业ID` (CorpID) | Corp ID | Required | Enterprise-level ID, under "My Enterprise" |
+| `CorpID` | Corp ID | Required | Enterprise-level ID, under "My Enterprise" |
 | AgentId | Agent ID | Required | The self-built app's ID |
 | Secret | Secret | Required | App secret — admins usually confirm on their phone to view it |
 
@@ -25,15 +25,15 @@ WeCom is for bringing the agent into an enterprise messaging environment, so tea
 
 1. Open the [WeCom admin console](https://work.weixin.qq.com/wework_admin/frame).
 2. Log in as an admin.
-3. Open `我的企业` (My Enterprise) at the top.
-4. Go to `企业信息` (Enterprise Info).
-5. Find `企业ID` (CorpID) and copy it for LLMR's Corp ID.
+3. Open `My Enterprise` at the top.
+4. Go to `Enterprise Info`.
+5. Find `CorpID` and copy it for LLMR's Corp ID.
 
 ## Step 2: Create a self-built app
 
-1. In the admin console, open `应用管理` (App Management).
-2. Find the `自建` (Self-built) section.
-3. Click `创建应用` (Create App).
+1. In the admin console, open `App Management`.
+2. Find the `Self-built` section.
+3. Click `Create App`.
 4. Name it, e.g. `LLMR`.
 5. Upload a logo.
 6. Pick a visibility scope — for testing, choose just yourself or a small test department.
@@ -47,7 +47,7 @@ WeCom is for bringing the agent into an enterprise messaging environment, so tea
 4. Confirm on your phone's WeCom as prompted.
 5. Copy the displayed `Secret`.
 
-> If WeCom asks for `企业可信IP` (Trusted Enterprise IPs), add the outbound public IP of the machine running the LLMR Bot Gateway (or your relay service's outbound IP).
+> If WeCom asks for `Trusted Enterprise IPs`, add the outbound public IP of the machine running the LLMR Bot Gateway (or your relay service's outbound IP).
 
 ## Wire it up in LLMR
 
@@ -80,6 +80,6 @@ WeCom is for bringing the agent into an enterprise messaging environment, so tea
 
 - **Auth fails**: re-copy Corp ID, Agent ID, and Secret.
 - **Starts but receives nothing**: check that the WeCom app is allowed to receive messages and that the current member has access.
-- **Send fails with an untrusted IP**: configure `企业可信IP` in the WeCom dashboard.
+- **Send fails with an untrusted IP**: configure `Trusted Enterprise IPs` in the WeCom dashboard.
 - **Some members can't see the app**: check the self-built app's visibility scope.
 - **Handoff doesn't trigger**: confirm the screen is locked, and check the Handoff toggle, idle time, and target device.

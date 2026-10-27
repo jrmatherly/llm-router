@@ -15,7 +15,7 @@ lead: Manage API keys that clients use to access the LLMR gateway, with expirati
 | Key | Masked access key. Use `Copy API key` to copy the full key. |
 | Expires | Expiration time. After expiration, clients can no longer use the key to access LLMR. |
 | Limits | Local limit summary. Shows `No limits configured` when no limits are set. |
-| Edit API key | Edits expiration and limits. The key value itself is not shown again. |
+| Edit API key | Edits expiration and limits. For security, the key value itself is not shown again. |
 | Remove API key | Deletes the client access key. Deleted keys stop working immediately. |
 
 ## Create and edit

@@ -20,20 +20,20 @@ test("dialog accessible name refers to its rendered title", () => {
 
 test("failed saves expose an actionable alert and collapsed diagnostic details", () => {
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
+    <AppI18nContext.Provider value={appCopy}>
       <PersistenceFeedback actionError="" disconnected={false} error="Storage unavailable" onDismissAction={() => {}} onRetry={() => {}} state="error" />
     </AppI18nContext.Provider>
   );
   assert.match(html, /role="alert"/);
-  assert.match(html, /更改尚未保存/);
-  assert.match(html, />重新保存<\/button>/);
+  assert.match(html, /Changes have not been saved\./);
+  assert.match(html, />Retry saving<\/button>/);
   assert.match(html, /<details[^>]*><summary/);
   assert.doesNotMatch(html, /<details[^>]*open/);
 });
 
 test("global feedback stack keeps save feedback and toast notifications at the top", () => {
   const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.en}>
+    <AppI18nContext.Provider value={appCopy}>
       <FeedbackStack>
         <PersistenceFeedback actionError="" contained disconnected={false} error="" onDismissAction={() => {}} onRetry={() => {}} state="saving" />
         <LightToast contained toast={{ id: 1, message: "Copied" }} />

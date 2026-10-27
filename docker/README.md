@@ -1,6 +1,6 @@
 # Docker Deployment
 
-[中文说明](#中文说明) · [Project documentation](https://jrmatherly.github.io/llm-router/en/) · [GitHub](https://github.com/jrmatherly/llm-router)
+[Project documentation](https://jrmatherly.github.io/llm-router/en/) · [GitHub](https://github.com/jrmatherly/llm-router)
 
 The Docker image runs the LLMR core server under PM2 and serves the built management UI through Nginx. Nginx is the only public container entrypoint: the browser UI, management RPC, gateway API, and health route all share one published port.
 
@@ -151,7 +151,7 @@ The entrypoint sets `HOME=/data`, so LLMR stores files under:
 └── bin/
 ```
 
-Use a named volume unless a bind mount is operationally required. Bind mounts must be writable by the container and should not be shared by two running LLMR containers.
+Use a named volume unless a bind mount is operationally required. Bind mounts must be writable by the container. Never let two running LLMR containers share one data directory, whether it is a named volume or a bind mount.
 
 The first-run bootstrap writes a minimal legacy `config.json` only when neither `config.json` nor `config.sqlite` exists. When the UI saves current settings, SQLite becomes authoritative. By default, every container start also synchronizes the stored gateway listener and `routerEndpoint` to the Docker public endpoint.
 
@@ -262,79 +262,3 @@ Verify that the host directory exists, is writable by the container, and is not 
 ### The container is healthy but model requests fail
 
 Container health only verifies Nginx/UI reachability. Check **Server** status, provider connectivity, LLMR client-key authentication, routing, and request logs. Then inspect `docker compose logs --tail=200 ccr` for startup or runtime errors.
-
----
-
-## 中文说明
-
-Docker 镜像通过 PM2 运行 LLMR Core，并由 Nginx 同时提供管理 UI、管理 RPC、模型网关和健康检查。对外只应发布 Nginx 的容器端口 `8080`；`3459` 和 `3456` 是容器内部实现端口，不应单独暴露。
-
-这个镜像面向常驻网关和浏览器管理，不包含 Electron、`llmr` 命令、系统托盘、桌面 Agent/App 启动、桌面自动更新和桌面专属浏览器集成。
-
-### 快速启动
-
-```sh
-npm run docker:compose:up
-docker compose logs -f ccr
-```
-
-打开容器日志中打印的管理地址 `http://127.0.0.1:3458/?ccr_web_token=<token>`（仅在 Token 自动生成时打印；自行设置了 `CCR_WEB_AUTH_TOKEN` 时，请自行拼到地址后）。首次启动时管理 UI 可以立即访问；添加供应商和模型、在 **API 密钥** 页面创建 LLMR 客户端 Key，然后从 **服务** 页面启动网关。
-
-这个 npm Compose 脚本会在构建前准备本机的 `../../next-ai/gateway` checkout，让镜像使用支持插件的 ai-gateway runtime。如果直接运行 `docker compose up -d --build`，请先执行 `npm run docker:prepare-gateway`。`npm run docker:build` 也会自动打包这份本地 ai-gateway。
-
-仓库默认映射是 `3458:8080`，会监听宿主机所有网卡。如果只允许本机访问，请改为：
-
-```yaml
-ports:
-  - "127.0.0.1:3458:8080"
-```
-
-### 鉴权与远程访问
-
-- `CCR_WEB_AUTH_TOKEN` 用于管理 UI / RPC；不设置时，每次容器启动都会生成新的随机 Token。
-- **API 密钥** 页面创建的 LLMR 客户端 Key 用于模型网关请求。
-- 上游供应商凭据是第三类凭据，不应拿来代替 LLMR 客户端 Key。
-
-Nginx 不会向客户端返回 Token：根路径只会跳转到管理页，并保留请求中已有的 `ccr_web_token` 参数。自动生成的 Token 会在容器日志中打印一次，请把含 Token 的 URL 当作密码。远程部署至少应使用固定强 Token、TLS、主机防火墙或私网，并让反向代理把全部路径转发到 Nginx。流式响应和 SSE 不应被代理缓冲。
-
-外部端口、域名或协议变化时，必须同步设置公开地址：
-
-```yaml
-environment:
-  CCR_PUBLIC_BASE_URL: https://ccr.example.com
-  CCR_WEB_AUTH_TOKEN: ${CCR_WEB_AUTH_TOKEN:?set CCR_WEB_AUTH_TOKEN}
-```
-
-`CCR_PUBLIC_BASE_URL` 只负责写入客户端应使用的公开地址，不会自动发布 Docker 端口。
-
-### 数据、备份与升级
-
-数据实际位于 `/data/.llm-router/`，其中包括 `config.sqlite`、`app-data/`、Agent 配置和生成文件。优先使用命名卷，不要让两个运行中的 LLMR 容器共享同一个数据目录。
-
-完整文件备份前先停止写入：
-
-```sh
-docker compose stop ccr
-docker compose cp ccr:/data/. ./ccr-data-backup/
-docker compose start ccr
-```
-
-备份包含密钥和请求数据，必须按敏感数据保存。恢复时应复制到新的空卷或空 `/data`，不要把旧备份覆盖到仍有新数据的目录。升级前先备份，然后执行：
-
-```sh
-git pull
-docker compose build --pull
-docker compose up -d
-docker compose ps
-docker compose logs --tail=200 ccr
-```
-
-### 常见排查
-
-- `/` 返回 `302`：正常，Nginx 正在跳转到管理页，并保留请求里的查询参数。
-- `/health` 返回 `502`：它检查的是模型网关；首次启动尚未配置模型时属于预期行为。
-- 修改 Token 后 UI 返回 `401`：用当前 Token 重新打开 `/?ccr_web_token=<token>`，关闭仍使用旧 Token 的标签页。
-- 重建后配置消失：检查是否仍挂载同一个 `/data` 卷；`docker compose down --volumes` 会删除数据卷。
-- 容器健康但模型请求失败：继续检查服务状态、供应商连通性、LLMR 客户端 Key、路由和请求日志；容器健康只表示 Nginx / UI 可访问。
-
-完整的环境变量、端口拓扑、远程部署、构建参数和烟雾测试说明见本页英文主体，对应变量名和命令在中英文环境中完全相同。

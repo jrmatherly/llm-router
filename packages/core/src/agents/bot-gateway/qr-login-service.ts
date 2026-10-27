@@ -52,7 +52,7 @@ export async function startBotGatewayQrLogin(
   const savedConfig = request.config;
   const bot = normalizeBotGatewayForQr(savedConfig.botGateway);
   if (!bot.enabled || bot.platform !== "weixin-ilink" || bot.authType !== "qr_login") {
-    throw new Error("微信扫码登录只支持微信平台的扫码认证方式。");
+    throw new Error("Weixin QR login requires the Weixin platform with QR login authentication.");
   }
 
   const stateDir = resolveBotGatewayStateDir(bot, savedConfig.id);
@@ -125,7 +125,7 @@ export async function waitBotGatewayQrLogin(
   const sessionId = request.sessionId.trim();
   const session = qrSessions.get(sessionId);
   if (!session) {
-    throw new Error("微信扫码登录会话不存在，请重新生成二维码。");
+    throw new Error("The Weixin QR login session was not found. Generate a new QR code.");
   }
 
   const rawWait = await botGatewayClientRequest(session.client, "auth.qr.wait", {

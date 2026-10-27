@@ -11,7 +11,7 @@ lead: Choose among the desktop app, the llmr CLI, and Docker, complete installat
 | --- | --- | --- | --- | --- |
 | Desktop app | Daily local use, tray, multi-instance Agent Apps, desktop integrations | App UI, `llmr` | In-app window | `http://127.0.0.1:3456` |
 | CLI | Terminal, SSH, external process supervisors | `llmr` | `http://127.0.0.1:3458` | `http://127.0.0.1:3456` |
-| Docker | Persistent servers and container operations | Nginx | Shared public endpoint | `http://127.0.0.1:3458` with the default mapping |
+| Docker | Persistent servers, container operations, one browser entry point | Nginx | Shared public endpoint | `http://127.0.0.1:3458` with the default mapping |
 
 In desktop/CLI deployments, management and the model gateway use different ports. CLI management uses `3458` by default, while the model gateway uses `3456`. Docker intentionally combines both through one Nginx endpoint.
 

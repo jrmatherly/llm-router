@@ -395,8 +395,8 @@ function focusedWebSearchContent(content: string | undefined, queryHint: string 
   const queryTerms = normalizeSearchComparisonText(queryHint ?? "")
     .split(" ")
     .filter((term) => term.length >= 2);
-  const weatherTerms = /天气|weather/i.test(queryHint ?? "")
-    ? ["天气", "气温", "温度", "体感", "空气质量", "湿度", "风", "降水", "℃", "晴", "多云", "阴", "雨"]
+  const weatherTerms = /weather/i.test(queryHint ?? "")
+    ? ["weather", "temperature", "feels like", "air quality", "humidity", "wind", "precipitation", "°C", "℃", "sunny", "cloudy", "overcast", "rain"]
     : [];
   const terms = uniqueStrings([...queryTerms, ...weatherTerms]);
   const indexes = terms.flatMap((term) => {

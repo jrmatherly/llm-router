@@ -13,7 +13,6 @@ import { createProfileDraft } from "@/pages/home/shared/profiles";
 import { profileAgentOptions } from "@/pages/home/shared/options";
 import {
   DemoShell,
-  readDemoLocale,
   sleep,
   VirtualCursor,
   createCursorApi,
@@ -36,7 +35,6 @@ function slugify(value: string): string {
 }
 
 export default function ProfileViewDemo() {
-  const locale = readDemoLocale();
   const [config, setConfig] = useState<AppConfig>(DEMO_CONFIG);
   const [draft, setDraft] = useState<AddProfileDraft>(() => createProfileDraft());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -78,7 +76,7 @@ export default function ProfileViewDemo() {
       };
 
       // 1) click "Add profile" (text button — NO aria-label)
-      const addBtn = await waitFor(() => findByText("button", ["添加配置", "Add profile"]));
+      const addBtn = await waitFor(() => findByText("button", ["Add profile"]));
       if (addBtn) await cursorApi.click(addBtn);
       await sleep(800);
 
@@ -102,7 +100,7 @@ export default function ProfileViewDemo() {
         return Array.from(dlg.querySelectorAll<HTMLElement>("button")).find(
           (b) => {
             const t = (b.textContent || "").trim().toLowerCase();
-            return (t === "添加" || t === "add") && !b.disabled;
+            return t === "add" && !b.disabled;
           }
         ) ?? null;
       }, 5000);
@@ -114,13 +112,9 @@ export default function ProfileViewDemo() {
   }
 
   return (
-    <AppI18nContext.Provider value={locale === "zh" ? appCopy.zh : appCopy.en}>
+    <AppI18nContext.Provider value={appCopy}>
       <DemoShell
-        locale={locale}
-        title={{
-          zh: "Agent 配置 — 为 Claude Code / Codex 等创建配置并选择默认模型",
-          en: "Agent configuration — create a profile for Claude Code / Codex and choose its default model",
-        }}
+        title="Agent configuration — create a profile for Claude Code / Codex and choose its default model"
         onPlay={play}
         playing={playing}
       >

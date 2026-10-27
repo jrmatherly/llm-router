@@ -27,9 +27,7 @@ import type {
 import type { AppCopy } from "./i18n";
 
 import { positiveInteger } from "./api-keys";
-import type { AppLanguagePreference, ResolvedLanguage, ResolvedTheme } from "./types";
-
-export const languagePreferenceStorageKey = "ccr.ui.language";
+import type { ResolvedTheme } from "./types";
 
 export function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -99,37 +97,8 @@ export function isTraySupportedPlatform(platform: string): boolean {
   return isMacPlatform(normalized) || normalized === "win32" || normalized.includes("windows");
 }
 
-export function readLanguagePreference(): AppLanguagePreference {
-  try {
-    return normalizeLanguagePreference(window.localStorage.getItem(languagePreferenceStorageKey));
-  } catch {
-    return "system";
-  }
-}
-
-export function persistLanguagePreference(language: AppLanguagePreference) {
-  try {
-    if (language === "system") {
-      window.localStorage.removeItem(languagePreferenceStorageKey);
-      return;
-    }
-    window.localStorage.setItem(languagePreferenceStorageKey, language);
-  } catch {
-    // Language preference is a UI enhancement; ignore unavailable storage.
-  }
-}
-
-export function detectSystemLanguage(): ResolvedLanguage {
-  const languages = navigator.languages?.length ? navigator.languages : [navigator.language];
-  return languages.some((language) => language.toLowerCase().startsWith("zh")) ? "zh" : "en";
-}
-
 export function detectSystemTheme(): ResolvedTheme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-export function normalizeLanguagePreference(value: unknown): AppLanguagePreference {
-  return value === "en" || value === "zh" || value === "system" ? value : "system";
 }
 
 export function normalizeThemePreference(value: unknown): AppConfig["theme"] {
@@ -613,8 +582,4 @@ export function formatSystemOption(label: string, value: string): string {
 
 export function themeDisplayName(theme: ResolvedTheme, copy: AppCopy): string {
   return theme === "dark" ? copy.settings.themeDark : copy.settings.themeLight;
-}
-
-export function languageDisplayName(language: ResolvedLanguage, copy: AppCopy): string {
-  return language === "zh" ? copy.settings.languageChinese : copy.settings.languageEnglish;
 }

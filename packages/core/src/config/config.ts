@@ -2307,10 +2307,6 @@ function parseBotGateway(value: unknown): LoadedBotGatewayConfig | undefined {
   } else if (typeof value.shell_enabled === "boolean") {
     config.shellEnabled = value.shell_enabled;
   }
-  const language = readString(value.language);
-  if (language === "auto" || language === "en" || language === "zh-CN") {
-    config.language = language;
-  }
 
   const requestTimeoutMs = readNumber(value.requestTimeoutMs ?? value.request_timeout_ms);
   if (requestTimeoutMs !== undefined) {

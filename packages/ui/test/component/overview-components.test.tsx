@@ -3,7 +3,6 @@ import test from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { formatCodexResetCardExpiry, formatCodexResetCardNumber, OverviewStatisticsResetDialog, OverviewView } from "@ccr/ui/pages/home/components/dashboard.tsx";
-import { AppI18nContext, appCopy } from "@ccr/ui/pages/home/shared/i18n.tsx";
 import { parseStatusBucketDate } from "@ccr/ui/pages/home/shared/controls.tsx";
 import { formatProviderAccountMeterValue, providerAccountMeterDetailValidityProgress } from "@ccr/ui/pages/home/shared/provider-accounts.ts";
 import type { GatewayProviderConfig, OverviewWidgetConfig, ProviderAccountSnapshot } from "@ccr/core/contracts/app.ts";
@@ -92,54 +91,6 @@ test("OverviewStatisticsResetDialog warns before deleting statistics", () => {
   assert.match(html, /Request logs and configuration are not deleted\./);
   assert.match(html, />Cancel<\/button>/);
   assert.match(html, />Reset<\/button>/);
-});
-
-test("OverviewStatisticsResetDialog renders Chinese warning copy", () => {
-  const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
-      <OverviewStatisticsResetDialog
-        error=""
-        open
-        onClose={() => undefined}
-        onConfirm={() => undefined}
-      />
-    </AppI18nContext.Provider>
-  );
-
-  assert.match(html, /重置概览统计/);
-  assert.match(html, /要重置概览统计数据吗？/);
-  assert.match(html, /概览统计数据将被删除且无法恢复。/);
-  assert.match(html, /请求日志和配置不会被删除。/);
-  assert.match(html, />取消<\/button>/);
-  assert.match(html, />重置<\/button>/);
-});
-
-test("OverviewView keeps Chinese token copy as Token", () => {
-  const html = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
-      <OverviewView
-        overviewWidgets={[
-          { enabled: true, id: "metric-total", metric: "total-tokens", size: "1:1", type: "metric", variant: "card" },
-          { enabled: true, id: "trend", size: "3:2", type: "usage-trend", variant: "composed" },
-          { enabled: true, id: "activity", size: "4:2", type: "token-activity", variant: "heatmap" },
-          { enabled: true, id: "token-mix", size: "2:2", type: "token-mix", variant: "donut" },
-          { enabled: true, id: "share-usage", size: "1:4", type: "share-usage-wrapped", variant: "card" },
-          { enabled: true, id: "share-receipt", size: "1:4", type: "share-spend-receipt", variant: "card" }
-        ]}
-        providerAccounts={accountSnapshots()}
-        refreshProviderAccounts={() => undefined}
-        setUsageRange={() => undefined}
-        usageRange="30d"
-        usageStats={usageStats("30d")}
-        onWidgetsChange={() => undefined}
-      />
-    </AppI18nContext.Provider>
-  );
-
-  assert.match(html, /Token/);
-  assert.match(html, /Token 构成/);
-  assert.match(html, /总 Token/);
-  assert.doesNotMatch(html, /令牌/);
 });
 
 test("overview status dates accept ISO usage buckets", () => {
@@ -871,10 +822,10 @@ test("provider account meter values localize textual units", () => {
       remaining: 0,
       unit: "resets"
     },
-    (unit) => appCopy.zh.text[unit] ?? unit
+    (unit) => (unit === "resets" ? "reset credits" : unit)
   );
 
-  assert.equal(value, `0 ${appCopy.zh.text.resets}`);
+  assert.equal(value, "0 reset credits");
 });
 
 test("provider account reset credit detail progress uses each validity window", () => {

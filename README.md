@@ -13,7 +13,6 @@ Connect Claude Code, Claude Design, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCo
 </p>
 
 <p>
-  <a href="README_zh.md"><img alt="Chinese README" src="https://img.shields.io/badge/%F0%9F%87%A8%F0%9F%87%B3-%E4%B8%AD%E6%96%87%E7%89%88-ff0000?style=flat" /></a>
   <a href="https://github.com/jrmatherly/llm-router/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/jrmatherly/llm-router" /></a>
 </p>
 

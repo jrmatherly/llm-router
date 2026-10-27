@@ -6,7 +6,7 @@ import { configurationSlugFromPath, enConfigurationDocs } from "../../../configu
 export function getStaticPaths() {
   return Object.entries(enConfigurationDocs).flatMap(([filePath, mod]) => {
     const slug = configurationSlugFromPath(filePath);
-    const pageKey = pageKeyFromSlug("configuration", "en", slug);
+    const pageKey = pageKeyFromSlug("configuration", slug);
     if (!pageKey) return [];
 
     return {
@@ -19,4 +19,4 @@ export function getStaticPaths() {
 const { mod, activeSidebarItem } = Astro.props;
 ---
 
-<DocPage locale="en" pageKey="configuration" doc={mod} activeSidebarItem={activeSidebarItem} />
+<DocPage pageKey="configuration" doc={mod} activeSidebarItem={activeSidebarItem} />
