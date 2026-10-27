@@ -5,7 +5,7 @@ import {
   Checkbox, ChevronDown, CircleAlert, closestCenter, cn, compareProviderAccountSnapshots, CSS, Database, Dialog, DialogBody, DialogContent,
   DialogFooter, DialogHeader, DialogTitle, endpointFromHostPort, Field, formatAppError, formatProviderAccountMeterValue, formatSystemOption, Gauge,
   Globe,
-  createBotGatewayConfigDraft, createMcpServerDraft, createMcpServerDraftFromConfig, createMcpServerDraftFromUnknown, DndContext, DragEndEvent, GatewayMcpServerConfig, GatewayProviderConfig, Input, isBotGatewayConfigDraftSubmittable, KeyboardSensor, KeyRound, KeyValueRowsControl, languageDisplayName, Layers3, LoaderCircle,
+  createBotGatewayConfigDraft, createMcpServerDraft, createMcpServerDraftFromConfig, createMcpServerDraftFromUnknown, DndContext, DragEndEvent, GatewayMcpServerConfig, GatewayProviderConfig, Input, isBotGatewayConfigDraftSubmittable, isTrayMascotIconPreference, KeyboardSensor, KeyRound, KeyValueRowsControl, languageDisplayName, Layers3, LoaderCircle,
   mcpServerConfigFromDraft, mcpServerEndpointSummary, mcpServerTransportOptions, mcpStdioMessageModeOptions, McpServerDraft, normalizeBotGatewayAuthType, normalizeBotGatewayPlatform, normalizeProviderModelSelector, normalizeProxyUpstreamConfig, normalizeToolHubConfig, numberValue, Palette, Pencil, Plus, ProfileConfig, profileAgentLabel,
   PanelLeftOpen, Power, ProviderAccountMeter, ProviderAccountSnapshot, ReactNode, ResolvedLanguage, ResolvedTheme, Select, SelectControl,
   PointerSensor, rectSortingStrategy, Settings, SettingsPageId, SortableContext, sortableKeyboardCoordinates, themeDisplayName,
@@ -3448,10 +3448,6 @@ function trayBalanceMeterProgress(meter: ProviderAccountMeter): number {
 
 function trayBalanceProgressMeterLabel(meter: ProviderAccountMeter, t: (value: string) => string): string {
   return `${t(meter.label)} - ${formatProviderAccountMeterValue(meter)}`;
-}
-
-function isTrayMascotIconPreference(value: AppConfig["trayIcon"]): value is "cyan" | "orange" | "violet" {
-  return value === "cyan" || value === "orange" || value === "violet";
 }
 
 function trayPreviewText(copy: AppCopy, key: string, fallback: string, alternateKey?: string): string {

@@ -10,6 +10,8 @@ import { DEFAULT_TRAY_COMPONENT_VARIANTS, DEFAULT_TRAY_WIDGETS, DEFAULT_TRAY_WIN
 import { formatLocalizedErrorMessage } from "@ccr/core/contracts/i18n";
 import { findProviderPreset, findProviderPresetByBaseUrl, providerPresets } from "@ccr/core/providers/presets";
 import { providerPresetIconUrls } from "../home/shared/options";
+import { clampNumber, detectSystemLanguage, providerBaseUrl, readLanguagePreference } from "../home/shared/common";
+import { formatCompactNumber } from "../home/shared/usage";
 import type {
   AppConfig,
   GatewayProviderConfig,
@@ -27,6 +29,10 @@ import type {
   UsageStatsSnapshot,
   UsageTotals
 } from "@ccr/core/contracts/app";
+
+export { defaultTrayWidgetVariant, normalizeTrayComponentVariants, normalizeTrayIconPreference, normalizeTrayWidgets, normalizeTrayWindowModules } from "../home/shared/common";
+export { formatDuration } from "../home/shared/network";
+export { formatCompactNumber, formatPercent, formatUsdCost, rangeLabel } from "../home/shared/usage";
 
 export  {
   createContext, useCallback, useContext, useEffect, useMemo, useState, createRoot,
@@ -48,8 +54,6 @@ export type SourceTab = {
 
 export type AppLanguagePreference = "system" | "en" | "zh";
 export type ResolvedLanguage = "en" | "zh";
-
-export const languagePreferenceStorageKey = "ccr.ui.language";
 
 export const trayText: Record<ResolvedLanguage, Record<string, string>> = {
   en: {},
@@ -181,12 +185,6 @@ export function useTrayErrorText() {
 }
 
 export const ranges: UsageStatsRange[] = ["today", "24h", "7d", "30d"];
-
-export const trayMascotIconUrls: Record<"cyan" | "orange" | "violet", string> = {
-  cyan: trayCyanIconUrl,
-  orange: trayOrangeIconUrl,
-  violet: trayVioletIconUrl
-};
 
 export const emptyTotals: UsageTotals = {
   avgDurationMs: 0,
@@ -335,249 +333,6 @@ function providerNameMatchesPreset(normalizedName: string, presetName: string, a
   return identities.some((identity) => normalizedName === identity || normalizedName.startsWith(`${identity} `));
 }
 
-function providerBaseUrl(provider: GatewayProviderConfig): string {
-  return provider.baseUrl?.trim()
-    || provider.baseurl?.trim()
-    || provider.api_base_url?.trim()
-    || "";
-}
-
-export function normalizeTrayWindowModules(value: AppConfig["trayWindowModules"] | undefined): TrayWindowModuleId[] {
-  if (!Array.isArray(value)) {
-    return DEFAULT_TRAY_WINDOW_MODULES;
-  }
-  const allowed = new Set<string>(TRAY_WINDOW_MODULE_IDS);
-  const result: TrayWindowModuleId[] = [];
-  const seen = new Set<string>();
-  for (const item of value) {
-    if (!allowed.has(item) || seen.has(item)) {
-      continue;
-    }
-    seen.add(item);
-    result.push(item);
-  }
-  return result;
-}
-
-export function normalizeTrayComponentVariants(value: unknown): TrayComponentVariants {
-  const record = isObjectRecord(value) ? value : {};
-  return {
-    account: normalizeEnumValue(record.account, ["bar", "compact", "ring", "arc", "stacked"], DEFAULT_TRAY_COMPONENT_VARIANTS.account),
-    modelShare: normalizeEnumValue(record.modelShare, ["bars", "list", "donut", "pie"], DEFAULT_TRAY_COMPONENT_VARIANTS.modelShare),
-    rings: normalizeEnumValue(record.rings, ["rings", "arcs", "gauges"], DEFAULT_TRAY_COMPONENT_VARIANTS.rings),
-    stats: normalizeEnumValue(record.stats, ["cards", "compact", "pills"], DEFAULT_TRAY_COMPONENT_VARIANTS.stats),
-    tokenFlow: normalizeEnumValue(record.tokenFlow, ["line", "area", "bar", "sparkline"], DEFAULT_TRAY_COMPONENT_VARIANTS.tokenFlow),
-    tokenMix: normalizeEnumValue(record.tokenMix, ["bars", "stacked", "donut", "pie"], DEFAULT_TRAY_COMPONENT_VARIANTS.tokenMix)
-  };
-}
-
-export function normalizeTrayWidgets(value: unknown, fallbackModules?: unknown, fallbackVariants?: unknown): TrayWidgetConfig[] {
-  if (!Array.isArray(value)) {
-    if (Array.isArray(fallbackModules)) {
-      return orderTrayWidgetsForLayout(dedupeTraySingletonWidgets(trayWidgetsFromModules(normalizeTrayWindowModules(fallbackModules as AppConfig["trayWindowModules"]), normalizeTrayComponentVariants(fallbackVariants))));
-    }
-    return DEFAULT_TRAY_WIDGETS.map((widget) => ({ ...widget }));
-  }
-  return orderTrayWidgetsForLayout(dedupeTraySingletonWidgets(value
-    .map(normalizeTrayWidget)
-    .filter((widget): widget is TrayWidgetConfig => Boolean(widget))));
-}
-
-export function normalizeTrayWidget(value: unknown): TrayWidgetConfig | undefined {
-  if (!isObjectRecord(value)) {
-    return undefined;
-  }
-  const type = normalizeTrayWidgetType(value.type);
-  if (!type) {
-    return undefined;
-  }
-  const variant = normalizeTrayWidgetVariant(type, value.variant);
-  const accountProviders = type === "account" ? normalizeTrayWidgetAccountProviders(value) : [];
-  return {
-    ...(accountProviders.length === 1 ? { accountProvider: accountProviders[0] } : {}),
-    ...(accountProviders.length > 0 ? { accountProviders } : {}),
-    id: typeof value.id === "string" && value.id.trim() ? value.id.trim() : trayWidgetId(type),
-    type,
-    ...(variant ? { variant } : {})
-  };
-}
-
-export function normalizeTrayWidgetAccountProviders(value: Record<string, unknown>): string[] {
-  const accountProvider = stringValue(value.accountProvider);
-  return uniqueTrayStrings([
-    ...trayStringListValue(value.accountProviders),
-    ...(accountProvider ? [accountProvider] : [])
-  ]);
-}
-
-export function normalizeTrayWidgetType(value: unknown): TrayWidgetType | undefined {
-  return typeof value === "string" && ["account", "activity", "header", "model-share", "rings", "source-tabs", "stats", "token-flow", "token-mix"].includes(value)
-    ? value as TrayWidgetType
-    : undefined;
-}
-
-export function normalizeTrayWidgetVariant(type: TrayWidgetType, value: unknown): TrayWidgetVariant | undefined {
-  const variants = trayWidgetVariantOptions(type).map((option) => option.value);
-  return typeof value === "string" && (variants as readonly string[]).includes(value)
-    ? value as TrayWidgetVariant
-    : defaultTrayWidgetVariant(type);
-}
-
-export function trayWidgetVariantOptions(type: TrayWidgetType): Array<{ label: string; value: TrayWidgetVariant }> {
-  if (type === "account") {
-    return [
-      { label: "Bars", value: "bar" },
-      { label: "Compact", value: "compact" },
-      { label: "Ring", value: "ring" },
-      { label: "Arc", value: "arc" },
-      { label: "Stacked", value: "stacked" }
-    ];
-  }
-  if (type === "token-flow") {
-    return [
-      { label: "Line", value: "line" },
-      { label: "Area", value: "area" },
-      { label: "Bar", value: "bar" },
-      { label: "Sparkline", value: "sparkline" }
-    ];
-  }
-  if (type === "stats") {
-    return [
-      { label: "Cards", value: "cards" },
-      { label: "Compact", value: "compact" },
-      { label: "Pills", value: "pills" }
-    ];
-  }
-  if (type === "token-mix") {
-    return [
-      { label: "Bars", value: "bars" },
-      { label: "Stacked", value: "stacked" },
-      { label: "Donut", value: "donut" },
-      { label: "Pie", value: "pie" }
-    ];
-  }
-  if (type === "rings") {
-    return [
-      { label: "Rings", value: "rings" },
-      { label: "Arc", value: "arcs" },
-      { label: "Gauges", value: "gauges" }
-    ];
-  }
-  if (type === "model-share") {
-    return [
-      { label: "Bars", value: "bars" },
-      { label: "List", value: "list" },
-      { label: "Donut", value: "donut" },
-      { label: "Pie", value: "pie" }
-    ];
-  }
-  return [];
-}
-
-export function defaultTrayWidgetVariant(type: TrayWidgetType): TrayWidgetVariant | undefined {
-  if (type === "account") return DEFAULT_TRAY_COMPONENT_VARIANTS.account;
-  if (type === "model-share") return DEFAULT_TRAY_COMPONENT_VARIANTS.modelShare;
-  if (type === "rings") return DEFAULT_TRAY_COMPONENT_VARIANTS.rings;
-  if (type === "stats") return DEFAULT_TRAY_COMPONENT_VARIANTS.stats;
-  if (type === "token-flow") return DEFAULT_TRAY_COMPONENT_VARIANTS.tokenFlow;
-  if (type === "token-mix") return DEFAULT_TRAY_COMPONENT_VARIANTS.tokenMix;
-  return undefined;
-}
-
-export function trayWidgetId(type: TrayWidgetType): string {
-  return type;
-}
-
-export function isTraySingletonWidgetType(type: TrayWidgetType): boolean {
-  return (TRAY_SINGLETON_WIDGET_TYPES as readonly string[]).includes(type);
-}
-
-export function isTrayPinnedTopWidgetType(type: TrayWidgetType): boolean {
-  return (TRAY_TOP_WIDGET_TYPES as readonly string[]).includes(type);
-}
-
-export function orderTrayWidgetsForLayout(widgets: TrayWidgetConfig[]): TrayWidgetConfig[] {
-  return [
-    ...widgets.filter((widget) => isTrayPinnedTopWidgetType(widget.type)),
-    ...widgets.filter((widget) => !isTrayPinnedTopWidgetType(widget.type))
-  ];
-}
-
-function dedupeTraySingletonWidgets(widgets: TrayWidgetConfig[]): TrayWidgetConfig[] {
-  const seenSingletons = new Set<TrayWidgetType>();
-  return widgets.filter((widget) => {
-    if (!isTraySingletonWidgetType(widget.type)) {
-      return true;
-    }
-    if (seenSingletons.has(widget.type)) {
-      return false;
-    }
-    seenSingletons.add(widget.type);
-    return true;
-  });
-}
-
-export function trayWidgetsFromModules(modules: TrayWindowModuleId[], variants: TrayComponentVariants): TrayWidgetConfig[] {
-  return orderTrayWidgetsForLayout(modules
-    .filter((moduleId): moduleId is TrayWidgetType => moduleId !== "footer")
-    .map((type) => ({
-      id: trayWidgetId(type),
-      type,
-      ...((type === "account") ? { variant: variants.account } : {}),
-      ...((type === "model-share") ? { variant: variants.modelShare } : {}),
-      ...((type === "rings") ? { variant: variants.rings } : {}),
-      ...((type === "stats") ? { variant: variants.stats } : {}),
-      ...((type === "token-flow") ? { variant: variants.tokenFlow } : {}),
-      ...((type === "token-mix") ? { variant: variants.tokenMix } : {})
-    })));
-}
-
-export function normalizeEnumValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
-  return typeof value === "string" && (allowed as readonly string[]).includes(value) ? value as T : fallback;
-}
-
-export function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function trayStringListValue(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return uniqueTrayStrings(value.map((item) => stringValue(item)).filter((item): item is string => Boolean(item)));
-  }
-  if (typeof value === "string") {
-    return uniqueTrayStrings(value.split(/\r?\n|,/g).map((item) => item.trim()).filter(Boolean));
-  }
-  return [];
-}
-
-function uniqueTrayStrings(values: string[]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const value of values) {
-    const item = value.trim();
-    if (!item || seen.has(item)) {
-      continue;
-    }
-    seen.add(item);
-    result.push(item);
-  }
-  return result;
-}
-
-export function normalizeTrayIconPreference(value: AppConfig["trayIcon"] | undefined): AppConfig["trayIcon"] {
-  return value === "violet" || value === "orange" || value === "cyan" || value === "progress" || value === "random"
-    ? value
-    : "random";
-}
-
-export function isTrayMascotIconPreference(value: AppConfig["trayIcon"]): value is "cyan" | "orange" | "violet" {
-  return value === "cyan" || value === "orange" || value === "violet";
-}
-
 export function createEmptySnapshot(range: UsageStatsRange): UsageStatsSnapshot {
   return {
     clientModels: [],
@@ -692,10 +447,6 @@ export function buildSmoothLinePath(
   return commands.join(" ");
 }
 
-export function clampNumber(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
 export function formatProviderName(provider: string): string {
   return provider
     .replace(/[-_]+/g, " ")
@@ -724,49 +475,6 @@ export function formatUpdated(value: string, translate: (value: string) => strin
     return `${Math.round(seconds / 3600)} 小时前更新`;
   }
   return `Updated ${Math.round(seconds / 3600)}h ago`;
-}
-
-export function rangeLabel(range: UsageStatsRange, translate: (value: string) => string): string {
-  if (range === "today") {
-    return translate("Today");
-  }
-  return translate(range);
-}
-
-export function formatCompactNumber(value: number): string {
-  return new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: value >= 1000 ? 1 : 0,
-    notation: value >= 10000 ? "compact" : "standard"
-  }).format(value);
-}
-
-export function formatUsdCost(value: number | undefined): string {
-  const normalized = Number.isFinite(value) && value && value > 0 ? value : 0;
-  if (normalized === 0) {
-    return "$0.00";
-  }
-  if (normalized < 0.01) {
-    return `$${normalized.toFixed(6)}`;
-  }
-  return new Intl.NumberFormat(undefined, {
-    currency: "USD",
-    maximumFractionDigits: normalized >= 100 ? 0 : 2,
-    minimumFractionDigits: normalized >= 100 ? 0 : 2,
-    style: "currency"
-  }).format(normalized);
-}
-
-export function formatPercent(value: number): string {
-  return `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
-}
-
-export function formatDuration(value: number): string {
-  const milliseconds = Math.max(0, Number.isFinite(value) ? value : 0);
-  if (milliseconds < 1000) {
-    return `${Math.round(milliseconds)}ms`;
-  }
-  const seconds = milliseconds / 1000;
-  return `${seconds >= 10 ? Math.round(seconds).toString() : seconds.toFixed(1)}s`;
 }
 
 export function compareAccountSnapshots(a: ProviderAccountSnapshot, b: ProviderAccountSnapshot): number {
@@ -956,21 +664,4 @@ export function accountProgressColor(status: ProviderAccountSnapshot["status"]):
     return "rgb(252,211,77)";
   }
   return "rgb(48,209,88)";
-}
-
-export function readLanguagePreference(): AppLanguagePreference {
-  try {
-    return normalizeLanguagePreference(window.localStorage.getItem(languagePreferenceStorageKey));
-  } catch {
-    return "system";
-  }
-}
-
-export function normalizeLanguagePreference(value: unknown): AppLanguagePreference {
-  return value === "en" || value === "zh" || value === "system" ? value : "system";
-}
-
-export function detectSystemLanguage(): ResolvedLanguage {
-  const languages = navigator.languages?.length ? navigator.languages : [navigator.language];
-  return languages.some((language) => language.toLowerCase().startsWith("zh")) ? "zh" : "en";
 }

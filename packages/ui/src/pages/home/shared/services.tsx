@@ -163,7 +163,3 @@ export function proxyCertificateTrustSteps(status: ProxyCertificateStatus): stri
     "Return here and click Check Trust."
   ];
 }
-
-export function clampNumber(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}

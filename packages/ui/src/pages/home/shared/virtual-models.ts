@@ -40,11 +40,10 @@ import {
   mcpServerStartupTimeoutMs
 } from "./options";
 
-import { isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
+import { clampNumber, isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
 import { sanitizeConfigId } from "./extensions";
 import { createRouteModelOptions, numberValue } from "./providers";
 import { createGrokMediaModelOptions, migrateLegacyGrokMediaModelSelector } from "@ccr/core/media/models";
-import { clampNumber } from "./services";
 import { fusionCustomToolMetadataKey, fusionMediaMetadataKey, fusionVisionMetadataKey, fusionWebSearchMetadataKey } from "./types";
 import type { KeyValueDraftRow, McpServerDraft, VirtualModelDraft, VirtualModelMatchMode, VirtualModelToolDraft } from "./types";
 

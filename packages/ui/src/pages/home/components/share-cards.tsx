@@ -1,7 +1,7 @@
 import {
   Button, cn, Download, formatCompactNumber, formatDuration, formatPercent, formatProviderAccountMeterTitle,
   formatProviderAccountMeterValue, formatUsdCost, LoaderCircle, primaryProviderAccountMeter, providerAccountMeterRemainingRatio,
-  providerAccountSnapshotKey, ReactNode, UsageStatsRange, UsageStatsSnapshot, useRef, useState,
+  providerAccountSnapshotKey, rangeLabel, ReactNode, UsageStatsRange, UsageStatsSnapshot, useRef, useState,
   useAppText, type OverviewWidgetType, type ProviderAccountMeter, type ProviderAccountSnapshot
 } from "../shared/index";
 import { productShortName } from "../shared/brand";
@@ -627,13 +627,6 @@ function safeProviderName(value: string, translate: (value: string) => string): 
 
 function uniqueCount(values: string[]): number {
   return new Set(values.filter(Boolean)).size;
-}
-
-function rangeLabel(range: UsageStatsRange, translate: (value: string) => string): string {
-  if (range === "today") {
-    return translate("Today");
-  }
-  return translate(range);
 }
 
 function calendarColor(intensity: TokenActivityCell["intensity"], inRange: boolean): string {

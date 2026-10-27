@@ -103,7 +103,7 @@ export type AppCopy = {
   text: Record<string, string>;
 };
 
-export const languagePreferenceStorageKey = "ccr.ui.language";
+export { languagePreferenceStorageKey } from "./common";
 
 export const appCopy: Record<ResolvedLanguage, AppCopy> = {
   en: {

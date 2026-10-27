@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_TRAY_COMPONENT_VARIANTS } from "@ccr/core/contracts/app.ts";
+import { DEFAULT_TRAY_COMPONENT_VARIANTS, DEFAULT_TRAY_WIDGETS } from "@ccr/core/contracts/app.ts";
 import {
   normalizeTrayComponentVariants,
   normalizeTrayIconPreference,
@@ -73,4 +73,13 @@ test("tray icon preference accepts supported values and safely defaults", () => 
   }
   assert.equal(normalizeTrayIconPreference(undefined), "random");
   assert.equal(normalizeTrayIconPreference("unsupported" as never), "random");
+});
+
+test("tray widgets fall back to the default layout when nothing is stored", () => {
+  assert.deepEqual(normalizeTrayWidgets(undefined), DEFAULT_TRAY_WIDGETS);
+  assert.deepEqual(normalizeTrayWidgets(undefined, undefined, undefined), DEFAULT_TRAY_WIDGETS);
+});
+
+test("tray window modules ignore non-string entries", () => {
+  assert.deepEqual(normalizeTrayWindowModules(["header", 3, null, "stats"]), ["header", "stats"]);
 });

@@ -10,6 +10,7 @@ import {
 } from "@ccr/core/contracts/app";
 import type {
   AppConfig,
+  GatewayProviderConfig,
   OverviewAccountCardSize,
   OverviewMetricKind,
   OverviewWidgetConfig,
@@ -23,14 +24,21 @@ import type {
   TrayWidgetVariant,
   TrayWindowModuleId
 } from "@ccr/core/contracts/app";
-import {
-  languagePreferenceStorageKey,
-  type AppCopy
-} from "./i18n";
+import type { AppCopy } from "./i18n";
 
 import { positiveInteger } from "./api-keys";
 import type { MetricTone } from "./controls";
 import type { AppLanguagePreference, ResolvedLanguage, ResolvedTheme } from "./types";
+
+export const languagePreferenceStorageKey = "ccr.ui.language";
+
+export function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function providerBaseUrl(provider: GatewayProviderConfig): string {
+  return provider.api_base_url || provider.baseurl || provider.baseUrl || "";
+}
 
 export function cloneConfig(config: AppConfig): AppConfig {
   return JSON.parse(JSON.stringify(config)) as AppConfig;
@@ -131,6 +139,10 @@ export function normalizeLanguagePreference(value: unknown): AppLanguagePreferen
 
 export function normalizeThemePreference(value: unknown): AppConfig["theme"] {
   return value === "light" || value === "dark" || value === "system" ? value : "system";
+}
+
+export function isTrayMascotIconPreference(value: AppConfig["trayIcon"]): value is "cyan" | "orange" | "violet" {
+  return value === "cyan" || value === "orange" || value === "violet";
 }
 
 export function normalizeTrayIconPreference(value: unknown): AppConfig["trayIcon"] {

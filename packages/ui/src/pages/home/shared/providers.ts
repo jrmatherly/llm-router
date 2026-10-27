@@ -53,7 +53,7 @@ import {
 import type { RouterConditionSource } from "./options";
 
 import { normalizeApiKeyLimits, positiveInteger } from "./api-keys";
-import { isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
+import { isPlainRecord, normalizeProviderModelSelector, providerBaseUrl, stringValue, uniqueStrings } from "./common";
 import { formatEditableJson } from "./extensions";
 import { findProviderPreset, findProviderPresetByBaseUrl, findProviderPresetByIdentity, providerApiKeySafetyIssue, providerEndpointCanReceiveProviderApiKey, providerIdentitySafetyIssue } from "./external";
 import { fusionModelProviderName } from "./profiles";
@@ -2419,10 +2419,6 @@ export function splitModelTagInput(value: string): string[] {
     .split(/[\n,]+/)
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-export function providerBaseUrl(provider: GatewayProviderConfig): string {
-  return provider.api_base_url || provider.baseurl || provider.baseUrl || "";
 }
 
 export function providerApiKey(provider: GatewayProviderConfig): string {

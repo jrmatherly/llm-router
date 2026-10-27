@@ -32,10 +32,9 @@ import {
 } from "./options";
 
 import { positiveInteger } from "./api-keys";
-import { isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
+import { clampNumber, isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
 import { sanitizeConfigId } from "./extensions";
 import { formatRouterRuleCondition, formatRouterRuleTarget, routerRuleTypeLabel } from "./providers";
-import { clampNumber } from "./services";
 import type { ClaudeDesignRouteRuleType, ClaudeDesignRoutingDraft, ClaudeDesignRoutingRuleDraft, PluginRoutingConfigItem, RoutingRuleRow } from "./types";
 
 export function normalizeRouterConfig(value: Partial<RouterConfig> | undefined): RouterConfig {
