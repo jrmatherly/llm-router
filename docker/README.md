@@ -1,6 +1,6 @@
 # Docker Deployment
 
-[中文说明](#中文说明) · [Project documentation](https://ccrdesk.top/en/) · [GitHub](https://github.com/musistudio/claude-code-router)
+[中文说明](#中文说明) · [Project documentation](https://jrmatherly.github.io/llm-router/en/) · [GitHub](https://github.com/jrmatherly/llm-router)
 
 The Docker image runs the LLMR core server under PM2 and serves the built management UI through Nginx. Nginx is the only public container entrypoint: the browser UI, management RPC, gateway API, and health route all share one published port.
 

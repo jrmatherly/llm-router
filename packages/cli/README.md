@@ -1,6 +1,6 @@
 # LLM Router CLI
 
-[中文](README_zh.md) · [Documentation](https://ccrdesk.top/en/) · [GitHub](https://github.com/musistudio/claude-code-router)
+[中文](README_zh.md) · [Documentation](https://jrmatherly.github.io/llm-router/en/) · [GitHub](https://github.com/jrmatherly/llm-router)
 
 `@claude-code-router/cli` is the workspace package behind LLM Router's `llmr` command. It provides the browser-based management UI, the local model gateway, and profile launch commands without requiring Electron.
 
@@ -160,7 +160,7 @@ llmr start --host 127.0.0.1 --port 3458
 
 ## Docker
 
-The repository also includes a Docker image for gateway and browser-UI deployments. It does not install the `llmr` command into the runtime image. See the [Docker deployment guide](https://github.com/musistudio/claude-code-router/blob/main/docker/README.md).
+The repository also includes a Docker image for gateway and browser-UI deployments. It does not install the `llmr` command into the runtime image. See the [Docker deployment guide](https://github.com/jrmatherly/llm-router/blob/main/docker/README.md).
 
 ## License
 

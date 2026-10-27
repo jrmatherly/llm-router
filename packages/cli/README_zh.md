@@ -1,6 +1,6 @@
 # LLM Router CLI
 
-[English](README.md) · [完整文档](https://ccrdesk.top/) · [GitHub](https://github.com/musistudio/claude-code-router)
+[English](README.md) · [完整文档](https://jrmatherly.github.io/llm-router/) · [GitHub](https://github.com/jrmatherly/llm-router)
 
 `@claude-code-router/cli` 是 LLM Router `llmr` 命令背后的工作区包。它提供浏览器管理界面、本地模型网关和 Agent 配置启动能力，不需要安装 Electron。
 
@@ -160,7 +160,7 @@ llmr start --host 127.0.0.1 --port 3458
 
 ## Docker
 
-仓库还提供面向模型网关和浏览器 UI 的 Docker 镜像。运行时镜像不会安装 `llmr` 命令。请参阅 [Docker 部署文档](https://github.com/musistudio/claude-code-router/blob/main/docker/README.md)。
+仓库还提供面向模型网关和浏览器 UI 的 Docker 镜像。运行时镜像不会安装 `llmr` 命令。请参阅 [Docker 部署文档](https://github.com/jrmatherly/llm-router/blob/main/docker/README.md)。
 
 ## 许可证
 

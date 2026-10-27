@@ -732,9 +732,9 @@ export function AddRoutingRuleDialog({
 }
 
 function routeScriptDocsUrl(language: "en" | "zh"): string {
-  const path = language === "zh" ? "/configuration/routing" : "/en/configuration/routing";
+  const path = language === "zh" ? "/routing/" : "/en/routing/";
   const section = language === "zh"
     ? "#nodejs-%E8%84%9A%E6%9C%AC%E8%A7%84%E5%88%99"
     : "#nodejs-script-rules";
-  return `https://ccrdesk.top${path}${section}`;
+  return `https://jrmatherly.github.io/llm-router${path}${section}`;
 }

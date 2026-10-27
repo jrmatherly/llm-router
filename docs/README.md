@@ -18,10 +18,10 @@ The local development server runs from this `docs` directory.
 Docs are deployed from `.github/workflows/docs.yml` on pushes to `main` that change `docs/**` or the workflow itself. The default public URL is:
 
 ```text
-https://ccrdesk.top/
+https://jrmatherly.github.io/llm-router/
 ```
 
-The Astro build reads `ASTRO_SITE` and `ASTRO_BASE`, defaulting to `https://ccrdesk.top` and `/`.
+The Astro build reads `ASTRO_SITE` and `ASTRO_BASE`, defaulting to `https://jrmatherly.github.io` and `/llm-router/`.
 
 ## Content
 

@@ -86,7 +86,7 @@ async function main(): Promise<void> {
   if (staleWarning) process.stderr.write(staleWarning);
   const options = parseArgs(process.argv.slice(2));
   if (options.command === "version") {
-    process.stdout.write(`llmr ${process.env.LLMR_VERSION}\n`);
+    process.stdout.write(`llmr ${process.env.LLMR_VERSION ?? "dev"}\n`);
     return;
   }
   if (options.command === "start") {

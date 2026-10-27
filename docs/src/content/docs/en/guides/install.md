@@ -17,7 +17,7 @@ In desktop/CLI deployments, management and the model gateway use different ports
 
 ## Install the desktop app
 
-1. Open [GitHub Releases](https://github.com/musistudio/claude-code-router/releases).
+1. Open [GitHub Releases](https://github.com/jrmatherly/llm-router/releases/latest).
 2. Download `.dmg`/`.zip` for macOS, `.exe` for Windows, or `.AppImage` for Linux.
 3. Install and open **LLM Router**.
 4. Add a provider/model, create a client key under **API Keys**, then click **Start** under **Server**.

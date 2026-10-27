@@ -527,7 +527,7 @@ Header 名不区分大小写。Body 字段按点号路径读取，数字片段�
 
 ### 可选：Jev 语义路由示例
 
-仓库的 [`examples/routing/jev.js`](https://github.com/musistudio/claude-code-router/blob/main/examples/routing/jev.js) 可直接作为 Node.js 脚本规则加载。它使用 [TypeSafe HTTP API](https://docs.typesafe.ai/api) 的 [Choice](https://docs.typesafe.ai/primitives/choice) 在两个已配置模型之间选择；也可连接实现相同接口的本地服务。
+仓库的 [`examples/routing/jev.js`](https://github.com/jrmatherly/llm-router/blob/main/examples/routing/jev.js) 可直接作为 Node.js 脚本规则加载。它使用 [TypeSafe HTTP API](https://docs.typesafe.ai/api) 的 [Choice](https://docs.typesafe.ai/primitives/choice) 在两个已配置模型之间选择；也可连接实现相同接口的本地服务。
 
 1. 在 LLMR 的启动环境中设置 `CCR_JEV_ROUTING_ENABLED=1`、`CCR_JEV_FAST_MODEL=供应商/快速模型`、`CCR_JEV_REASONING_MODEL=供应商/推理模型` 和 `TYPESAFE_API_KEY`。桌面应用需从能继承这些环境变量的启动环境运行。
 2. 添加 Node.js 脚本规则并选择该文件。建议先使用 1500 ms 总超时进行测试，把规则放在处理 `auto` 的静态回退规则之前。

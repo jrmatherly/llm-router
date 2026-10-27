@@ -263,7 +263,7 @@ const featuredNavLabel = locale === "zh" ? "主要入口" : "Primary navigation"
             </div>
             <a
               class="icon-button github-button hide-small"
-              href="https://github.com/musistudio/claude-code-router"
+              href="https://github.com/jrmatherly/llm-router"
               aria-label={ui.githubLabel}
             >
               <Github size={18} aria-hidden="true" />
@@ -279,7 +279,7 @@ const featuredNavLabel = locale === "zh" ? "主要入口" : "Primary navigation"
             </button>
             <a
               class="cta-button"
-              href="https://github.com/musistudio/claude-code-router/releases"
+              href="https://github.com/jrmatherly/llm-router/releases/latest"
               aria-label={ui.downloadLabel}
             >
               <Download size={16} aria-hidden="true" />
@@ -484,7 +484,7 @@ const featuredNavLabel = locale === "zh" ? "主要入口" : "Primary navigation"
         return count.toLocaleString();
       };
 
-      fetch("https://api.github.com/repos/musistudio/claude-code-router", {
+      fetch("https://api.github.com/repos/jrmatherly/llm-router", {
         headers: { Accept: "application/vnd.github+json" },
       })
         .then((response) => {

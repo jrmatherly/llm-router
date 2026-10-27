@@ -17,7 +17,7 @@ lead: 按运行场景在桌面应用、llmr CLI 和 Docker 中选择并完成安
 
 ## 安装桌面应用
 
-1. 打开 [GitHub Releases](https://github.com/musistudio/claude-code-router/releases) 页面。
+1. 打开 [GitHub Releases](https://github.com/jrmatherly/llm-router/releases/latest) 页面。
 2. 按系统下载：macOS 使用 `.dmg` 或 `.zip`，Windows 使用 `.exe`，Linux 使用 `.AppImage`。
 3. 安装并打开 **LLM Router**。
 4. 添加供应商和模型，在 **API 密钥** 中创建客户端 Key，然后从 **服务** 页面点击 **启动**。

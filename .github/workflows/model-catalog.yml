@@ -57,7 +57,8 @@ jobs:
             echo "{}" > "$published"
           fi
           # generatedAt changes on every run, so it is left out of the comparison.
-          changed=$(node -e "const fs = require('node:fs'); const strip = (p) => { const { generatedAt, ...rest } = JSON.parse(fs.readFileSync(p, 'utf8')); return JSON.stringify(rest); }; console.log(strip(process.argv[1]) === strip(process.argv[2]) ? 'false' : 'true');" "$published" packages/core/models.json)
+          # An unparseable published catalog counts as changed so the next push repairs it.
+          changed=$(node -e "const fs = require('node:fs'); const strip = (p) => { const { generatedAt, ...rest } = JSON.parse(fs.readFileSync(p, 'utf8')); return JSON.stringify(rest); }; const fresh = strip(process.argv[2]); let published; try { published = strip(process.argv[1]); } catch {} console.log(published === fresh ? 'false' : 'true');" "$published" packages/core/models.json)
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
           echo "Catalog changed: $changed"
 
@@ -67,11 +68,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          cp packages/core/models.json "$RUNNER_TEMP/models.json"
+          # A fresh repository keeps the commit independent of the checkout, where the generator rewrote the tracked models.json.
+          catalog="$RUNNER_TEMP/models-catalog"
+          git init -q "$catalog"
+          cp packages/core/models.json "$catalog/models.json"
+          cd "$catalog"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch --orphan models-catalog-next
-          cp "$RUNNER_TEMP/models.json" models.json
           git add models.json
           git commit -m "chore(models): update model catalog"
           git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}" HEAD:models-catalog
