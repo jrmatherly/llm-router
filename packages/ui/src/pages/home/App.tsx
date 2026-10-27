@@ -1,11 +1,11 @@
 import {
   AddApiKeyDraft, AddProfileDraft, AddProviderDraft, AddRoutingRuleDraft, AgentAnalysisSessionSelection, AgentAnalysisSnapshot, AgentFilterValue,
   ApiKeyConfig, AppConfig, appCopy, AppI18nContext, AppInfo, AppSaveConfigOptions, AppUpdateStatus,
-  AppLanguagePreference, applyProviderProbeResult, AppToast, BotGatewaySavedConfig, buildExtensionList, claudeDesignRoutingConfigFromDraft,
+  AppLanguagePreference, applyProviderProbeResult, AppToast, BotGatewaySavedConfig, buildExtensionList, buildProviderImportDraft, claudeDesignRoutingConfigFromDraft,
   ClaudeDesignRoutingDraft, ClaudeDesignRoutingRuleDraft, cloneConfig, createApiKeyDraft, createApiKeyEditDraft,
   createApiKeyList, createClaudeDesignRoutingDraft, createClaudeDesignRoutingRuleDraft, createCursorProxyRoutingDraft, createCursorProxyRoutingRuleDraft, createEmptyAgentAnalysis,
   copyTextToClipboard, createEmptyRequestLogPage, createEmptyUsageStats, createExtensionInstallDraft, createGeneratedApiKey, createPluginSettingsDraft, createProfileDraft,
-  createProfileDraftFromProfile, createProviderDraft, createProviderDraftFromDeepLinkPayload, createProviderDraftFromProvider, createRoutingRuleDraft, createRoutingRuleDraftFromRule,
+  createProfileDraftFromProfile, createProviderDraft, createProviderDraftFromProvider, createRoutingRuleDraft, createRoutingRuleDraftFromRule,
   createVirtualModelDraft, createVirtualModelDraftFromProfile, DEFAULT_TRAY_WIDGETS, detectSystemLanguage, detectSystemTheme,
   enforceSingleEnabledGlobalProfilePerAgent,
   ExtensionConfigTarget, ExtensionDeleteTarget, ExtensionInstallDraft, ExtensionSource, fallbackAgentAnalysis, fallbackConfig,
@@ -16,7 +16,7 @@ import {
   isCursorProxyPluginConfig, isGatewayProviderEnabled, isMacPlatform, isPlainRecord, isProfileDraftSubmittable, isProviderNameDuplicate, isProviderProbeCandidateReady,
   isRoutingRuleDraftSubmittable,
   isTraySupportedPlatform,
-  LayoutGroup, mergeModelDisplayNames, mergeModelMetadata, mergeProviderModelLists, modelDescriptionsForModels, modelDisplayNamesForModels, modelMetadataForModels,
+  LayoutGroup, mergeProviderModelLists, modelDescriptionsForModels, modelDisplayNamesForModels, modelMetadataForModels,
   navigation, NavigationId, normalizeApiKeys, normalizeBotGatewaySavedConfigs, normalizeConfig, normalizeLanguagePreference, normalizeObservabilityConfig, normalizeOverviewWidgets, normalizeProxyConfig,
   normalizeProfileItem, normalizeProviderBaseUrl, normalizeRouterFallbackConfig, normalizeThemePreference, normalizeToolHubConfig, normalizeTrayBalanceProgressConfig, normalizeTrayIconPreference,
   normalizeTrayWidgets, normalizeTrayWindowModules, normalizeVirtualModelDraftPatch, OnboardingReadinessOptions, OnboardingStepId, onboardingStepOrder,
@@ -236,6 +236,7 @@ function App() {
   const [providerConnectivityProbe, setProviderConnectivityProbe] = useState<GatewayProviderProbeResult>();
   const [providerConnectivityLoading, setProviderConnectivityLoading] = useState(false);
   const [providerImportOpen, setProviderImportOpen] = useState(false);
+  const [providerImportDetectPending, setProviderImportDetectPending] = useState(false);
   const [providerImportPayload, setProviderImportPayload] = useState<ProviderDeepLinkPayload>();
   const [providerDeepLinkRequest, setProviderDeepLinkRequest] = useState<ProviderDeepLinkRequest>();
   const [providerDeepLinkBusy, setProviderDeepLinkBusy] = useState(false);
@@ -490,7 +491,7 @@ function App() {
     if (!payload || !configLoaded || !providerPresetsLoaded) {
       return;
     }
-    void openImportProviderDialog(payload);
+    openImportProviderDialog(payload);
   }, [configLoaded, providerDeepLinkRequest?.id, providerDeepLinkRequest?.provider, providerPresetsLoaded]);
 
   useEffect(() => {
@@ -1291,22 +1292,44 @@ function App() {
     setProviderAddOpen(true);
   }
 
-  async function openImportProviderDialog(payload: ProviderDeepLinkPayload) {
+  function openImportProviderDialog(payload: ProviderDeepLinkPayload) {
     if (!providerPresetsLoaded) {
+      return;
+    }
+    providerProbeRequestId.current += 1;
+    providerConnectivityRequestId.current += 1;
+    setProviderEditIndex(undefined);
+    setProviderImportOpen(true);
+    setProviderImportPayload(payload);
+    setProviderImportDetectPending(true);
+    setProviderDraft(buildProviderImportDraft(payload, draftConfig.Providers));
+    setProviderProbe(undefined);
+    setProviderConnectivityProbe(undefined);
+    setProviderProbeError("");
+    setProviderProbeLoading(false);
+    setProviderConnectivityLoading(false);
+    setProviderDeepLinkRequest(undefined);
+    setProviderDeepLinkError("");
+    setProviderDeepLinkBusy(false);
+    setProviderAddOpen(true);
+  }
+
+  async function detectImportedProvider() {
+    const payload = providerImportPayload;
+    if (!payload || providerProbeLoading) {
       return;
     }
     const requestId = providerProbeRequestId.current + 1;
     providerProbeRequestId.current = requestId;
     providerConnectivityRequestId.current += 1;
-    setProviderDeepLinkBusy(true);
+    setProviderProbeError("");
+    setProviderProbeLoading(true);
     let nextPayload = payload;
     let catalogModelDisplayNames: Record<string, string> | undefined;
     let catalogModelMetadata: ProviderDeepLinkPayload["modelMetadata"] | undefined;
-    let probe: GatewayProviderProbeResult | undefined;
     if (nextPayload.models.length === 0) {
       const catalogModels = await resolveProviderDeepLinkCatalogModels(nextPayload);
       if (providerProbeRequestId.current !== requestId) {
-        setProviderDeepLinkBusy(false);
         return;
       }
       catalogModelDisplayNames = catalogModels.modelDisplayNames;
@@ -1318,9 +1341,8 @@ function App() {
         };
       }
     }
-    probe = await probeProviderDeepLinkPayload(nextPayload);
+    const probe = await probeProviderDeepLinkPayload(nextPayload);
     if (providerProbeRequestId.current !== requestId) {
-      setProviderDeepLinkBusy(false);
       return;
     }
     if (nextPayload.apiKey?.trim() && probe?.models.length) {
@@ -1330,26 +1352,25 @@ function App() {
       };
     }
 
-    const initialDraftFromPayload = createProviderDraftFromDeepLinkPayload(nextPayload, draftConfig.Providers);
-    const initialDraft = {
-      ...initialDraftFromPayload,
-      catalogModelMetadata: mergeModelMetadata(initialDraftFromPayload.catalogModelMetadata, catalogModelMetadata),
-      modelDisplayNames: mergeModelDisplayNames(initialDraftFromPayload.modelDisplayNames, catalogModelDisplayNames),
-      modelMetadata: initialDraftFromPayload.modelMetadata
-    };
-    setProviderEditIndex(undefined);
-    setProviderImportOpen(true);
+    const detectedDraft = buildProviderImportDraft(nextPayload, draftConfig.Providers, {
+      modelDisplayNames: catalogModelDisplayNames,
+      modelMetadata: catalogModelMetadata
+    });
     setProviderImportPayload(nextPayload);
-    setProviderDraft(probe ? applyProviderProbeResult(initialDraft, probe) : initialDraft);
+    setProviderDraft((current) => {
+      const next = {
+        ...current,
+        catalogModelMetadata: detectedDraft.catalogModelMetadata,
+        modelDescriptions: detectedDraft.modelDescriptions,
+        modelDisplayNames: detectedDraft.modelDisplayNames,
+        modelMetadata: detectedDraft.modelMetadata,
+        modelsText: detectedDraft.modelsText
+      };
+      return probe ? applyProviderProbeResult(next, probe) : next;
+    });
     setProviderProbe(probe);
-    setProviderConnectivityProbe(undefined);
-    setProviderProbeError("");
     setProviderProbeLoading(false);
-    setProviderConnectivityLoading(false);
-    setProviderDeepLinkRequest(undefined);
-    setProviderDeepLinkError("");
-    setProviderDeepLinkBusy(false);
-    setProviderAddOpen(true);
+    setProviderImportDetectPending(false);
   }
 
   function updateProviderDraft(patch: Partial<AddProviderDraft>, resetProbe = false) {
@@ -1390,6 +1411,9 @@ function App() {
       };
     });
     setProviderProbeError("");
+    if (patch.baseUrl !== undefined) {
+      setProviderImportDetectPending(false);
+    }
     if (shouldResetConnectivityProbe) {
       providerConnectivityRequestId.current += 1;
       setProviderConnectivityProbe(undefined);
@@ -1405,6 +1429,10 @@ function App() {
   useEffect(() => {
     const providerFormVisible = providerAddOpen || (activeView === "onboarding" && onboardingStep === "provider");
     if (!window.ccr || !providerFormVisible) {
+      return;
+    }
+    // A deep-linked endpoint is untrusted: probe it only after the user clicks Detect.
+    if (providerImportOpen && providerImportDetectPending) {
       return;
     }
     if (providerDraft.protocolDetectionMode === "manual") {
@@ -1539,7 +1567,7 @@ function App() {
         setProviderProbeLoading(false);
       }
     };
-  }, [activeView, onboardingStep, providerAddOpen, providerDraft.apiKey, providerDraft.baseUrl, providerDraft.credentialMode, providerDraft.credentials, providerDraft.presetId, providerDraft.protocol, providerDraft.protocolDetectionMode, providerDraft.providerPlugins]);
+  }, [activeView, onboardingStep, providerAddOpen, providerDraft.apiKey, providerDraft.baseUrl, providerDraft.credentialMode, providerDraft.credentials, providerDraft.presetId, providerDraft.protocol, providerDraft.protocolDetectionMode, providerDraft.providerPlugins, providerImportDetectPending, providerImportOpen]);
 
   async function refreshProviderModels(): Promise<void> {
     if (providerProbeLoading) {
@@ -1902,7 +1930,7 @@ function App() {
     }
 
     if (request.provider) {
-      await openImportProviderDialog(request.provider);
+      openImportProviderDialog(request.provider);
       return;
     }
 
@@ -3528,12 +3556,14 @@ function App() {
               onChange: updateProviderDraft,
               mode: providerEditIndex === undefined ? "add" : "edit",
               onClose: () => {
+                providerProbeRequestId.current += 1;
                 setProviderAddOpen(false);
                 setProviderEditIndex(undefined);
                 setProviderImportOpen(false);
                 setProviderImportPayload(undefined);
               },
               onCheck: checkProviderDraft,
+              onDetect: providerImportOpen && providerImportDetectPending ? detectImportedProvider : undefined,
               onRefreshModels: refreshProviderModels,
               onSubmit: submitProviderDraft,
               probe: providerProbe,

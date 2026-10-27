@@ -1969,6 +1969,7 @@ export function AddProviderForm({
   mode,
   onCheck,
   onChange,
+  onDetect,
   onRefreshModels,
   onIconDetectingChange,
   onSelectStep,
@@ -1987,6 +1988,7 @@ export function AddProviderForm({
   mode: "add" | "edit";
   onCheck?: () => Promise<unknown>;
   onChange: (patch: Partial<AddProviderDraft>, resetProbe?: boolean) => void;
+  onDetect?: () => Promise<unknown>;
   onRefreshModels?: () => Promise<unknown>;
   onIconDetectingChange?: (detecting: boolean) => void;
   onSelectStep?: (step: ProviderSetupStepId) => void;
@@ -2005,6 +2007,7 @@ export function AddProviderForm({
   const selectedPreset = findProviderPreset(draft.presetId);
   const customEndpoint = draft.presetId === customProviderPresetId;
   const importMode = Boolean(importProvider);
+  const importDetectPending = Boolean(importProvider && onDetect);
   const showBaseUrl = customEndpoint;
   const selectedDisplayProtocols = uniqueProviderProtocols(draft.selectedProtocols);
   const detectedProtocol = selectedDisplayProtocols.length === 1
@@ -2122,7 +2125,7 @@ export function AddProviderForm({
 
     const baseUrl = draft.baseUrl.trim();
     const ccr = window.ccr;
-    if (!customEndpoint || !baseUrl || draft.icon || !ccr?.detectProviderIcon) {
+    if (!customEndpoint || !baseUrl || draft.icon || importDetectPending || !ccr?.detectProviderIcon) {
       return;
     }
 
@@ -2145,7 +2148,7 @@ export function AddProviderForm({
     }, 500);
 
     return () => window.clearTimeout(timer);
-  }, [customEndpoint, draft.baseUrl, draft.icon]);
+  }, [customEndpoint, draft.baseUrl, draft.icon, importDetectPending]);
 
   function updatePreset(presetId: string) {
     if (!presetId) {
@@ -2262,7 +2265,15 @@ export function AddProviderForm({
               title={t("Choose provider")}
             />
             {importProvider ? (
-              <ProviderImportHeader draft={draft} provider={importProvider} preset={selectedPreset} />
+              <>
+                <ProviderImportHeader draft={draft} provider={importProvider} preset={selectedPreset} />
+                {onDetect ? (
+                  <Button className="sm:col-span-2 justify-self-start" disabled={probeLoading} onClick={() => void onDetect()} type="button" variant="outline">
+                    {probeLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    {t("Detect models and protocols")}
+                  </Button>
+                ) : null}
+              </>
             ) : (
               <>
                 <LocalAgentProviderImportPanel
@@ -3474,6 +3485,7 @@ export function AddProviderDialog({
   onCheck,
   onChange,
   onClose,
+  onDetect,
   onRefreshModels,
   onSubmit,
   probe,
@@ -3493,6 +3505,7 @@ export function AddProviderDialog({
   onCheck?: (models: string[]) => Promise<ProviderConnectivityCheckReport>;
   onChange: (patch: Partial<AddProviderDraft>, resetProbe?: boolean) => void;
   onClose: () => void;
+  onDetect?: () => Promise<unknown>;
   onRefreshModels?: () => Promise<unknown>;
   onSubmit: () => Promise<boolean>;
   probe?: GatewayProviderProbeResult;
@@ -3632,6 +3645,7 @@ export function AddProviderDialog({
               mode={mode}
               onCheck={onCheck ? async () => setCheckConfirmOpen(true) : undefined}
               onChange={onChange}
+              onDetect={onDetect}
               onIconDetectingChange={setIconDetecting}
               onRefreshModels={onRefreshModels}
               onSelectStep={wizardMode ? selectSetupStep : undefined}
