@@ -33,6 +33,7 @@ import type {
   RouterRuleType,
   VirtualModelProfileConfig
 } from "@ccr/core/contracts/app";
+import { appDeepLinkProtocol } from "@ccr/core/contracts/deep-link";
 import {
   customProviderPresetId,
   defaultProviderAccountConfig,
@@ -1552,7 +1553,7 @@ export function createProviderInstallLinkFromDraft(draft: AddProviderDraft, prob
     name: providerName,
     protocol
   };
-  return `ccr://provider?payload=${base64UrlEncodeText(JSON.stringify(payload))}`;
+  return `${appDeepLinkProtocol}://provider?payload=${base64UrlEncodeText(JSON.stringify(payload))}`;
 }
 
 export function base64UrlEncodeText(value: string): string {

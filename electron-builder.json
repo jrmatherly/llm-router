@@ -1,5 +1,5 @@
 {
-  "appId": "com.claudecoderouter.desktop",
+  "appId": "net.matherly.llmrouter",
   "productName": "LLM Router",
   "asar": true,
   "asarUnpack": [
@@ -25,7 +25,7 @@
   "protocols": [
     {
       "name": "LLM Router Provider Import",
-      "schemes": ["ccr"]
+      "schemes": ["llmr"]
     }
   ],
   "files": [
