@@ -86,3 +86,22 @@ Totals: 15 gaps ported across 9 English files. No gap was left unported.
 ## Images
 
 `blog/images/wechat.jpg`, `wechat_group.jpg`, `alipay.jpg` and `sponsors/glm-zh.jpg` had no references anywhere in the repo, Chinese files included, and were deleted. No README or post had donation, sponsor or community content to port. `blog/images/sponsors/glm-en.jpg` is also unreferenced; it was out of scope and kept.
+
+## App code (`packages/core`, `packages/electron`, `packages/ui`, generator)
+
+| Chinese source | English result |
+| --- | --- |
+| `bot-gateway/qr-login-service.ts` errors (Chinese only) | "Weixin QR login requires the Weixin platform with QR login authentication." and "The Weixin QR login session was not found. Generate a new QR code." |
+| `hosted-web-search/evidence.ts` weather facts read from Chinese page text | Read from English page text: temperature, feels like, high and low, humidity, AQI, rainfall, wind |
+| `hosted-web-search/discovery.ts` Chinese "search for" prefix stripping | English `search for`, `search the web for`, `search:`, `look up`, optionally after "please" |
+| `hosted-web-search/request-transform.ts` Chinese weather focus terms | English weather terms |
+| Presets `infistar-ai` (无限星河), `qiniu-ai` (七牛云 AI) | "Infistar AI", "Qiniu Cloud AI"; Chinese aliases removed from xiaomi, zhipu-cn-*, qiniu-ai, infistar-ai |
+| `cli-middleware-runtime.ts` bot reply table, `claude-code-router-plugin.ts` 中文要求 lines, Chinese matchers in `toolhub-mcp.ts` and `electron-web-search-mcp.ts` | Dropped; each had an English twin already in place |
+| `contracts/i18n.ts` error translation | `contracts/error-message.ts` `formatErrorMessage` (the former English path) |
+| `BotGatewayRuntimeConfig.language` | Removed; stored configs with it still load (`legacy-bot-language.test.mjs`) |
+| UI `appCopy.zh`, tray zh map, language picker, 28 Chinese `t()` keys | `appCopy` is the English copy; call sites use the English each key resolved to. English copy diffed before and after: unchanged except the removed language keys |
+| `generate-claude-code-config-options.mjs` zh descriptions | Reads the English docs only; descriptions are plain strings |
+
+Kept on purpose, with no Chinese characters in source:
+- The CJK token-count range in `routing/token-estimator.ts` and the CJK name-normalizer ranges in `providers/presets/utils.ts` and `providers/model-catalog.ts`, which handle any user text.
+- Two `\u`-escaped matchers in `packages/ui/src/pages/home/shared/providers.ts` and `i18n.tsx` for one provider's Chinese 401 body, so English users see "Missing Authorization header..." instead of the raw Chinese text.
