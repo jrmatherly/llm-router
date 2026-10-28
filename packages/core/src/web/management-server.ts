@@ -125,8 +125,8 @@ const defaultWebHost = "127.0.0.1";
 const defaultWebPort = 3458;
 const maxRpcBodyBytes = 8 * 1024 * 1024;
 const webAuthHeader = "x-ccr-web-auth";
-const webAuthQueryParam = "ccr_web_token";
-const staticRoot = path.resolve(__dirname, "..", "renderer");
+const webAuthQueryParam = "llmr_web_token";
+const staticRoot = resolveRendererRoot();
 const homeHtmlFile = path.join(staticRoot, "pages", "home", "index.html");
 const rendererAssetsRoot = path.join(staticRoot, "assets");
 const webBridgeScriptTag = '    <script src="../../assets/web-client-bridge.js"></script>';
@@ -578,7 +578,7 @@ function getCliAppInfo(): AppInfo {
 
 function sendHomeHtml(response: ServerResponse, headOnly: boolean): void {
   if (!existsSync(homeHtmlFile)) {
-    sendText(response, 500, "LLMR renderer assets were not found. Run npm run build:assets first.");
+    sendText(response, 500, `LLMR renderer assets were not found at ${homeHtmlFile}. Reinstall LLMR, or run npm run build:assets in a source checkout.`);
     return;
   }
   let html = readFileSync(homeHtmlFile, "utf8");
@@ -648,6 +648,20 @@ function createWebManagementSecurityContext(host: string, port: number, authToke
     authToken,
     port
   };
+}
+
+// The desktop app copies the CLI into ~/.llm-router/bin, away from the renderer it ships.
+export function resolveRendererRoot(
+  moduleDir: string = __dirname,
+  resourcesPath: string | undefined = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+): string {
+  const candidates = [
+    path.resolve(moduleDir, "..", "renderer"),
+    ...(resourcesPath
+      ? [path.join(resourcesPath, "app.asar", "dist", "renderer"), path.join(resourcesPath, "app", "dist", "renderer")]
+      : [])
+  ];
+  return candidates.find((candidate) => existsSync(path.join(candidate, "pages", "home", "index.html"))) ?? candidates[0];
 }
 
 function urlWithWebAuthToken(value: string, authToken: string): string {

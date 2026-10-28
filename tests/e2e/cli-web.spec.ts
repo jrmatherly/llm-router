@@ -24,7 +24,7 @@ test("uses CCR_WEB_AUTH_TOKEN for CLI web authentication", async () => {
 
 test("serves the management UI in a browser", async ({ page }) => {
   const current = requireRuntime();
-  await page.goto(`${current.baseUrl}/?ccr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
   await expect(page).toHaveTitle("LLM Router");
   await expect(page.locator("#root")).toBeAttached();
   await expect(page.locator("body")).toContainText(/Configure provider|Connect agent|Let's start/, { timeout: 15_000 });

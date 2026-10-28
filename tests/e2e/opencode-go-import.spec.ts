@@ -92,7 +92,7 @@ async function mockCandidates(page: Page): Promise<void> {
 }
 
 async function openAddProviderDialog(page: Page, current: CliWebRuntime, providersLabel: string, addLabel: string): Promise<void> {
-  await page.goto(`${current.baseUrl}/?ccr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
   await waitForBridge(page);
   await page.evaluate(async () => {
     await window.ccr?.setOnboardingFinished?.();

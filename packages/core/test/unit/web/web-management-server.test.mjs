@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import net from "node:net";
 import os from "node:os";
@@ -33,6 +33,40 @@ test("normalizeExternalHttpTarget accepts absolute http, https, and LLMR plugin 
   assert.throws(() => normalizeExternalHttpTarget("file:///etc/passwd"), /Only http, https, and LLMR plugin URLs/);
   assert.throws(() => normalizeExternalHttpTarget("javascript:alert(1)"), /Only http, https, and LLMR plugin URLs/);
   assert.throws(() => normalizeExternalHttpTarget("example.com"), /valid absolute URL/);
+});
+
+test("the management URL carries the token as llmr_web_token", async () => {
+  const { startWebManagementServer } = await import("@ccr/core/web/management-server.ts");
+  const runtime = await startWebManagementServer({ authToken: "test-web-auth-token", host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    const url = new URL(runtime.url);
+    assert.equal(url.searchParams.get("llmr_web_token"), "test-web-auth-token");
+    assert.equal(url.searchParams.has("ccr_web_token"), false);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("resolveRendererRoot falls back to the app resources when the CLI runs from a copy outside the app", async () => {
+  const { resolveRendererRoot } = await import("@ccr/core/web/management-server.ts");
+  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-renderer-root-test-"));
+  try {
+    const copiedCliDir = path.join(root, "home", ".llm-router", "bin");
+    const resourcesPath = path.join(root, "LLM Router.app", "Contents", "Resources");
+    const bundledRenderer = path.join(resourcesPath, "app.asar", "dist", "renderer");
+    mkdirSync(path.join(bundledRenderer, "pages", "home"), { recursive: true });
+    writeFileSync(path.join(bundledRenderer, "pages", "home", "index.html"), "<html></html>");
+
+    assert.equal(resolveRendererRoot(copiedCliDir, resourcesPath), bundledRenderer);
+    assert.equal(resolveRendererRoot(copiedCliDir, undefined), path.resolve(copiedCliDir, "..", "renderer"));
+
+    const besideCli = path.join(root, "dist", "renderer");
+    mkdirSync(path.join(besideCli, "pages", "home"), { recursive: true });
+    writeFileSync(path.join(besideCli, "pages", "home", "index.html"), "<html></html>");
+    assert.equal(resolveRendererRoot(path.join(root, "dist", "main"), resourcesPath), besideCli, "a renderer beside the CLI wins");
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test("web RPC ignores Origin and Referer when the auth token is valid", async () => {

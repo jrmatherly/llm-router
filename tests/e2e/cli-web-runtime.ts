@@ -82,7 +82,7 @@ export async function startCliWebServer(authToken: string): Promise<CliWebRuntim
       const url = new URL(match[1]);
       resolve({
         baseUrl: `${url.protocol}//${url.host}`,
-        token: url.searchParams.get("ccr_web_token") ?? ""
+        token: url.searchParams.get("llmr_web_token") ?? ""
       });
     };
 

@@ -31,7 +31,7 @@ Nginx exposes:
 
 | Path | Purpose |
 | --- | --- |
-| `/`, `/pages/home/index.html` | Management UI. The root path redirects to the page and keeps a `ccr_web_token` query parameter if the request has one. Nginx never adds the token. |
+| `/`, `/pages/home/index.html` | Management UI. The root path redirects to the page and keeps a `llmr_web_token` query parameter if the request has one. Nginx never adds the token. |
 | `/api/ccr/rpc` | Management RPC, protected by the management token. |
 | `/health` | Model gateway health; container or UI status is not reflected here. |
 | `/v1/*`, `/v1beta/*`, `/messages`, `/chat/completions`, `/responses`, `/interactions`, `/mcp/*` | Model and MCP gateway endpoints. |
@@ -45,7 +45,7 @@ npm run docker:compose:up
 docker compose logs -f ccr
 ```
 
-Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?ccr_web_token=<token>`. It is only printed when the token was generated; if you set `CCR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a fresh volume the management UI is available immediately; the model gateway only starts working after a provider and a model have been added.
+Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `CCR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a fresh volume the management UI is available immediately; the model gateway only starts working after a provider and a model have been added.
 
 The npm Compose script prepares a local `../../next-ai/gateway` checkout before building so the image uses that plugin-capable ai-gateway runtime. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
@@ -113,7 +113,7 @@ CCR_WEB_AUTH_TOKEN=replace-with-a-long-random-value
 CCR_PUBLIC_BASE_URL=http://127.0.0.1:3458
 ```
 
-Use it via `docker run --env-file`, or map the same variables into the Compose service `environment`. The complete management URL containing `ccr_web_token` should also be protected like a password, because it can appear in browser history, reverse proxy logs, screenshots, and tickets.
+Use it via `docker run --env-file`, or map the same variables into the Compose service `environment`. The complete management URL containing `llmr_web_token` should also be protected like a password, because it can appear in browser history, reverse proxy logs, screenshots, and tickets.
 
 ## Change the external port or address
 
@@ -258,7 +258,7 @@ docker compose config
 
 ### The root address returns `302`
 
-This is expected behavior. Nginx redirects the root address to the management page and keeps the query string, so a `ccr_web_token` you supply survives. It does not add a token.
+This is expected behavior. Nginx redirects the root address to the management page and keeps the query string, so a `llmr_web_token` you supply survives. It does not add a token.
 
 ### `/health` returns `502`
 
@@ -266,7 +266,7 @@ It checks the model gateway, not Nginx or the UI. A fresh volume without a confi
 
 ### The UI returns `401` after a token change
 
-Reopen `/?ccr_web_token=<token>` with the current token (for a generated token, read it from `docker compose logs ccr`); close tabs and bookmarks that still use the old `ccr_web_token`.
+Reopen `/?llmr_web_token=<token>` with the current token (for a generated token, read it from `docker compose logs ccr`); close tabs and bookmarks that still use the old `llmr_web_token`.
 
 ### Clients still use the old port or domain
 

@@ -71,7 +71,7 @@ const serviceStopTimeoutMs = 10_000;
 const profileGatewayIdleGraceMs = 2_000;
 const profileGatewayLeasePollMs = 500;
 const webAuthHeader = "x-ccr-web-auth";
-const webAuthQueryParam = "ccr_web_token";
+const webAuthQueryParam = "llmr_web_token";
 const defaultCliCommandName = "llmr";
 const prepareProfileOnlyEnv = "CCR_CLI_PREPARE_PROFILE_ONLY";
 
@@ -962,7 +962,7 @@ async function verifyServiceState(state: ServiceState): Promise<ServiceStateVeri
   }
 
   const appInfo = await callServiceRpc<{ name?: unknown }>(state, "getAppInfo").catch(() => undefined);
-  return isGatewayServiceName(appInfo?.name)
+  return appInfo?.name === APP_NAME
     ? { ok: true, trustedPid: false }
     : { ok: false };
 }
@@ -971,18 +971,13 @@ async function waitForServiceUnavailable(state: ServiceState, timeoutMs: number)
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     const appInfo = await callServiceRpc<{ name?: unknown }>(state, "getAppInfo").catch(() => undefined);
-    if (!isGatewayServiceName(appInfo?.name)) {
+    if (appInfo?.name !== APP_NAME) {
       return true;
     }
     await delay(150);
   }
   const appInfo = await callServiceRpc<{ name?: unknown }>(state, "getAppInfo").catch(() => undefined);
-  return !isGatewayServiceName(appInfo?.name);
-}
-
-function isGatewayServiceName(name: unknown): boolean {
-  // A service left running by a pre-rebrand ccr still reports the old name.
-  return name === APP_NAME || name === "Claude Code Router";
+  return appInfo?.name !== APP_NAME;
 }
 
 async function callServiceRpc<T>(state: ServiceState, method: string, args: unknown[] = [], timeoutMs = serviceRpcTimeoutMs): Promise<T> {

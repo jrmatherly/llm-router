@@ -21,7 +21,7 @@ Nginx routes:
 
 | Public route | Purpose |
 | --- | --- |
-| `/` and `/pages/home/index.html` | Browser management UI. `/` redirects to the page and keeps a `ccr_web_token` query parameter if the request has one. The token is never added by Nginx. |
+| `/` and `/pages/home/index.html` | Browser management UI. `/` redirects to the page and keeps a `llmr_web_token` query parameter if the request has one. The token is never added by Nginx. |
 | `/api/ccr/rpc` | Authenticated management RPC. |
 | `/health` | Gateway health, not container/UI health. It can return `502` until a provider and model are configured and the gateway starts. |
 | `/v1/*`, `/v1beta/*`, `/messages`, `/chat/completions`, `/responses`, `/interactions`, `/mcp/*` | Supported model and MCP gateway requests. |
@@ -35,7 +35,7 @@ npm run docker:compose:up
 docker compose logs -f ccr
 ```
 
-Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?ccr_web_token=<token>`. It is only printed when the token was generated; if you set `CCR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a new volume, the management UI is immediately available. Add a provider and model, create an LLMR client key under **API Keys**, and start the gateway from **Server**.
+Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `CCR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a new volume, the management UI is immediately available. Add a provider and model, create an LLMR client key under **API Keys**, and start the gateway from **Server**.
 
 The npm Compose script prepares a local `../../next-ai/gateway` checkout before building so the image uses that plugin-capable ai-gateway runtime. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
@@ -82,7 +82,7 @@ npm run docker:run
 
 There are two independent authentication layers:
 
-1. `CCR_WEB_AUTH_TOKEN` protects management RPC. You open the management page with it in the URL (`/?ccr_web_token=<token>`), and the browser sends it to RPC as `x-ccr-web-auth`. Nginx never sends it to a client.
+1. `CCR_WEB_AUTH_TOKEN` protects management RPC. You open the management page with it in the URL (`/?llmr_web_token=<token>`), and the browser sends it to RPC as `x-ccr-web-auth`. Nginx never sends it to a client.
 2. LLMR client API keys created in the **API Keys** page protect model gateway requests. These are separate from upstream provider credentials.
 
 If `CCR_WEB_AUTH_TOKEN` is unset, the entrypoint generates a new random token on each container start and prints the management URL once to the container log. Opening `/` without a token loads the page, but every management call fails with `401` until the token is supplied. The page keeps the token for the browser tab session. A stable token is recommended for persistent or remote deployments.
@@ -237,7 +237,7 @@ docker compose config
 
 ### `/` returns `302`
 
-This is expected. Nginx redirects the root URL to the management page and keeps the query string, so a `ccr_web_token` you supply survives. It does not add a token.
+This is expected. Nginx redirects the root URL to the management page and keeps the query string, so a `llmr_web_token` you supply survives. It does not add a token.
 
 ### `/health` returns `502`
 
@@ -245,7 +245,7 @@ This is expected. Nginx redirects the root URL to the management page and keeps 
 
 ### The UI returns `401` after a token change
 
-Open `/?ccr_web_token=<token>` again with the current token (for a generated token, read it from `docker compose logs ccr`). Close stale tabs and avoid bookmarks that contain an old `ccr_web_token`.
+Open `/?llmr_web_token=<token>` again with the current token (for a generated token, read it from `docker compose logs ccr`). Close stale tabs and avoid bookmarks that contain an old `llmr_web_token`.
 
 ### Clients still use the old port or hostname
 
