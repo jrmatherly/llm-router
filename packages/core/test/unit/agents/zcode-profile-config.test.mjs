@@ -46,7 +46,7 @@ function testProfile(root) {
     id: "zcode-main",
     model: "Codex API,gpt-5.6-sol",
     name: "ZCode Main",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     providerName: "LLM Router",
     scope: "global",
     surface: "app"
@@ -67,7 +67,7 @@ test("ZCode profile config writes resolved model limits instead of fixed default
     const cache = JSON.parse(readFileSync(path.join(root, "v2", "bots-model-cache.v2.json"), "utf8"));
 
     for (const config of [cliConfig, v2Config]) {
-      const models = config.provider["claude-code-router"].models;
+      const models = config.provider["llm-router"].models;
       assert.equal(models[fusionModel].limit.context, 1_050_000);
       assert.equal(models[fusionModel].limit.output, 8_192);
       assert.equal(models[knownModel].limit.context, 1_050_000);
@@ -76,7 +76,7 @@ test("ZCode profile config writes resolved model limits instead of fixed default
       assert.equal(models[unknownModel].limit.output, 8_192);
     }
 
-    const cachedProvider = cache.providers.find((provider) => provider.id === "claude-code-router");
+    const cachedProvider = cache.providers.find((provider) => provider.id === "llm-router");
     const cachedModels = Object.fromEntries(cachedProvider.models.map((model) => [model.id, model]));
     assert.equal(cachedModels[fusionModel].contextWindow, 1_050_000);
     assert.equal(cachedModels[fusionModel].maxOutputTokens, 8_192);

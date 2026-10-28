@@ -59,7 +59,7 @@ export function isManagedPiModelsContent(content: string, providerId: string): b
 }
 
 export function piProviderId(profile: Pick<ProfileConfig, "providerId">): string {
-  return sanitizeProviderId(profile.providerId || "") || "claude-code-router";
+  return sanitizeProviderId(profile.providerId || "") || "llm-router";
 }
 
 export function resolvePiSessionDir(configDir: string, profile: ProfileConfig): string {

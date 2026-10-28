@@ -7,7 +7,7 @@ import path from "node:path";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
-import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
+import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
 import { closeRequestLogRuntime, flushRequestLogRuntime, requestLogRuntime } from "@llmr/core/observability/request-log-store.ts";
 
@@ -59,7 +59,7 @@ test("#1850/#1861 fallback attribution reaches OpenAI JSON/SSE clients and reque
     const router = compiled.plugins.find(plugin => plugin.key === "llm-router");
     router.modulePath = path.resolve(__dirname, "../../../runtime/router-plugin.js");
     gateway = await startGateway(root, { providers: compiled.providers, plugins: [router] });
-    const plugin = new ClaudeCodeRouterPlugin(config);
+    const plugin = new LLMRouterPlugin(config);
     const pipeline = new GatewayRequestPipeline({
       getConfig: () => config, getPlugin: () => plugin, getCoreAuthToken: () => "auth",
       getBrowserWebSearchMcpIntegration: () => undefined,

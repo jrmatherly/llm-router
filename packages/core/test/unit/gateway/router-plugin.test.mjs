@@ -269,7 +269,7 @@ test("LLMR router core plugin resolves bare Codex companion models through the a
     id: "bs-2",
     model: "uuroute/gpt-5.6-sol",
     name: "BS",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     routing: {
       enabled: false,
       enhancedRoute: false,

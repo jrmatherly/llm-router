@@ -146,7 +146,7 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
         enabled: true,
         managedCompact: false,
         model: "",
-        providerId: "claude-code-router",
+        providerId: "llm-router",
         providerName: "LLM Router",
         showAllSessions: false
       },

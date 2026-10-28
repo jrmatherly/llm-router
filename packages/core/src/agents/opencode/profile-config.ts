@@ -89,7 +89,7 @@ export function isManagedOpenCodeConfigContent(content: string, providerId: stri
 }
 
 export function openCodeProviderId(profile: Pick<ProfileConfig, "providerId">): string {
-  return sanitizeProviderId(profile.providerId || "") || "claude-code-router";
+  return sanitizeProviderId(profile.providerId || "") || "llm-router";
 }
 
 function openCodeGatewayOverrides(config: AppConfig, profile: ProfileConfig, token: string): Record<string, unknown> {

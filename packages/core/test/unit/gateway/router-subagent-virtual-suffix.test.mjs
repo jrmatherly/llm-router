@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
+import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 import { prepareClaudeAppDiscoveredModelRequest } from "@llmr/core/gateway/features/model-discovery.ts";
 import { prepareGatewayUpstreamAttemptForTest } from "@llmr/core/gateway/service.ts";
 
@@ -59,7 +59,7 @@ function claudeCodeSubagentBillingSystem() {
 }
 
 function routeIssue1693Request(config, body) {
-  const plugin = new ClaudeCodeRouterPlugin(config);
+  const plugin = new LLMRouterPlugin(config);
   return plugin.routeRequest({
     body,
     headers: {

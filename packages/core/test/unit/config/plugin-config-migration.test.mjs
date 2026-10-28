@@ -39,7 +39,7 @@ test("legacy combined Claude Design plugin config migrates to split Design and S
         },
         enabled: true,
         id: "claude-design",
-        module: "/Users/example/products/LLMR/claude-code-router/examples/plugins/claude-design/index.cjs",
+        module: "/Users/example/products/LLMR/llm-router/examples/plugins/claude-design/index.cjs",
         permissions: ["trusted-code", "apps", "gateway-routes", "proxy-routes", "http-backends", "sqlite-store"],
         surfaces: { apps: true, gateway: true, provider: false }
       }]);
@@ -79,7 +79,7 @@ test("legacy Claude Design migration does not duplicate an existing Claude Ship 
         apps: [{ id: "claude-ship", name: "Claude Ship", url: "https://claude.ai/claude-ship" }],
         enabled: true,
         id: "claude-design",
-        module: "/Users/example/products/LLMR/claude-code-router/examples/plugins/claude-design/index.cjs"
+        module: "/Users/example/products/LLMR/llm-router/examples/plugins/claude-design/index.cjs"
       },
       {
         enabled: true,
@@ -211,7 +211,7 @@ test("externalized plugin modules migrate from the old marketplace path to llmr-
     const result = migrateKnownGatewayPluginConfigsForTest([{
       enabled: true,
       id: "cursor-proxy",
-      module: "/Users/example/products/LLMR/claude-code-router/marketplace/plugins/cursor-proxy/index.cjs"
+      module: "/Users/example/products/LLMR/llm-router/marketplace/plugins/cursor-proxy/index.cjs"
     }]);
 
     assert.equal(result.changed, true);

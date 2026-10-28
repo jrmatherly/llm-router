@@ -107,7 +107,7 @@ Commands copied from desktop Agent Profiles cards use the same `llmr` command.
 | Platform | Config directory |
 | --- | --- |
 | macOS / Linux | `~/.llm-router` |
-| Windows | `%APPDATA%\claude-code-router` |
+| Windows | `%APPDATA%\llm-router` |
 
 Important files include:
 

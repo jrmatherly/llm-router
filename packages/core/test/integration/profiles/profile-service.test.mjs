@@ -662,7 +662,7 @@ test("profile service restores between-session ZCode edits after many takeover r
       id: "prune-restore-zcode",
       model: "Provider/m1",
       name: "Prune Restore ZCode",
-      providerId: "claude-code-router",
+      providerId: "llm-router",
       scope: "global",
       surface: "cli"
     };
@@ -821,7 +821,7 @@ test("profile service can exclude ZCode from automatic synchronization", async (
         id: "zcode",
         model: "Provider/model",
         name: "ZCode",
-        providerId: "claude-code-router",
+        providerId: "llm-router",
         providerName: "LLM Router",
         scope: "global",
         showAllSessions: false,
@@ -1254,7 +1254,7 @@ test("Codex profile launcher bypasses middleware for Browser and Computer Use he
       id: profileId,
       model: "Provider/model",
       name: "Browser Helper Bypass",
-      providerId: "claude-code-router",
+      providerId: "llm-router",
       providerName: "LLM Router",
       scope: "llmr",
       showAllSessions: false,
@@ -1351,7 +1351,7 @@ test("profile service injects ToolHub MCP into Codex config", { skip: !process.e
       id: profileId,
       model: "Provider/model",
       name: "Codex ToolHub Test",
-      providerId: "claude-code-router",
+      providerId: "llm-router",
       providerName: "LLM Router",
       scope: "llmr",
       showAllSessions: false,
@@ -1375,7 +1375,7 @@ test("profile service injects ToolHub MCP into Codex config", { skip: !process.e
   assert.match(content, new RegExp(`TOOLHUB_OPENAI_BASE_URL = "http://127\\.0\\.0\\.1:${config.gateway.port}/v1"`));
   assert.match(content, /TOOLHUB_OPENAI_MODEL = "Provider\/model"/);
 
-  const separateProfileFile = path.join(path.dirname(configFile), "claude-code-router.config.toml");
+  const separateProfileFile = path.join(path.dirname(configFile), "llm-router.config.toml");
   const initialSeparateProfile = readFileSync(separateProfileFile, "utf8");
   assert.equal(initialSeparateProfile.includes("model_reasoning_effort"), false);
 
@@ -1533,7 +1533,7 @@ test("profile service injects Context Archive MCP for managed Codex profile", { 
       managedCompact: true,
       model: "Provider/model",
       name: "Managed Compact Codex",
-      providerId: "claude-code-router",
+      providerId: "llm-router",
       providerName: "LLM Router",
       scope: "llmr",
       showAllSessions: false,
@@ -1803,7 +1803,7 @@ test("profile service writes a multi-model Kimi CLI home that points inference t
   assert.match(content, /\/custom\/bin\/kimi/);
   assert.equal(content.includes("https://ignored.example/v1"), false);
   assert.match(profileConfigContent, /default_model = "Provider\/model"/);
-  assert.match(profileConfigContent, /\[providers\."claude-code-router"\]/);
+  assert.match(profileConfigContent, /\[providers\."llm-router"\]/);
   assert.match(profileConfigContent, new RegExp(`base_url = "http://127\\.0\\.0\\.1:${config.gateway.port}/v1"`));
   assert.match(profileConfigContent, /api_key = "llmr-kimi-profile-test"/);
   assert.match(profileConfigContent, /\[models\."Provider\/model"\]/);
@@ -1828,13 +1828,13 @@ test("profile service writes a multi-model Kimi CLI home that points inference t
   assert.match(legacyProfileConfigContent, /default_model = "Provider\/model"/);
   assert.match(legacyProfileConfigContent, /\[models\."Provider\/model"\]/);
   assert.match(legacyProfileConfigContent, /\[models\."Provider\/fast"\]/);
-  assert.match(legacyProfileConfigContent, /\[models\."Provider\/gpt-5\.6-sol"\]\nprovider = "claude-code-router"\nmodel = "Provider\/gpt-5\.6-sol"\nmax_context_size = 1050000\ncapabilities = \["tool_use", "image_in", "thinking"\]/);
+  assert.match(legacyProfileConfigContent, /\[models\."Provider\/gpt-5\.6-sol"\]\nprovider = "llm-router"\nmodel = "Provider\/gpt-5\.6-sol"\nmax_context_size = 1050000\ncapabilities = \["tool_use", "image_in", "thinking"\]/);
   assert.match(legacyProfileConfigContent, /\[models\."Provider\/gpt-5\.5-pro"\][\s\S]*?capabilities = \["tool_use", "image_in", "thinking"\]/);
   assert.match(legacyProfileConfigContent, /\[models\."Provider\/legacy-extra"\]/);
-  assert.match(legacyProfileConfigContent, /\[models\."Custom Gemini\/gemini-2\.5-pro"\]\nprovider = "claude-code-router"\nmodel = "Custom Gemini\/gemini-2\.5-pro"\nmax_context_size = 1065535/);
-  assert.match(legacyProfileConfigContent, /\[models\."DeepSeek\/deepseek-v4-flash"\]\nprovider = "claude-code-router"\nmodel = "DeepSeek\/deepseek-v4-flash"\nmax_context_size = 1050000\ncapabilities = \["tool_use", "thinking"\]/);
-  assert.match(legacyProfileConfigContent, /\[models\."Zhipu Coding\/glm-5\.2"\]\nprovider = "claude-code-router"\nmodel = "Zhipu Coding\/glm-5\.2"\nmax_context_size = 1049000\ncapabilities = \["tool_use", "image_in", "thinking"\]/);
-  assert.match(legacyProfileConfigContent, /\[models\."Fusion\/catalog-context"\]\nprovider = "claude-code-router"\nmodel = "Fusion\/catalog-context"\nmax_context_size = 1050000\ncapabilities = \["tool_use", "image_in", "thinking"\]/);
+  assert.match(legacyProfileConfigContent, /\[models\."Custom Gemini\/gemini-2\.5-pro"\]\nprovider = "llm-router"\nmodel = "Custom Gemini\/gemini-2\.5-pro"\nmax_context_size = 1065535/);
+  assert.match(legacyProfileConfigContent, /\[models\."DeepSeek\/deepseek-v4-flash"\]\nprovider = "llm-router"\nmodel = "DeepSeek\/deepseek-v4-flash"\nmax_context_size = 1050000\ncapabilities = \["tool_use", "thinking"\]/);
+  assert.match(legacyProfileConfigContent, /\[models\."Zhipu Coding\/glm-5\.2"\]\nprovider = "llm-router"\nmodel = "Zhipu Coding\/glm-5\.2"\nmax_context_size = 1049000\ncapabilities = \["tool_use", "image_in", "thinking"\]/);
+  assert.match(legacyProfileConfigContent, /\[models\."Fusion\/catalog-context"\]\nprovider = "llm-router"\nmodel = "Fusion\/catalog-context"\nmax_context_size = 1050000\ncapabilities = \["tool_use", "image_in", "thinking"\]/);
 });
 
 test("profile service writes a Pi config and wrapper that points inference to LLMR", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
@@ -1964,7 +1964,7 @@ test("profile service writes an OpenCode CLI wrapper and shared CLI/App config",
       id: profileId,
       model: "Provider/model",
       name: "OpenCode Gateway Test",
-      providerId: "claude-code-router",
+      providerId: "llm-router",
       providerName: "LLM Router",
       scope: "llmr",
       surface: "auto"
@@ -1978,10 +1978,10 @@ test("profile service writes an OpenCode CLI wrapper and shared CLI/App config",
 
   const configFile = path.join(CONFIGDIR, "profiles", profileId, "opencode", "opencode.jsonc");
   const openCodeConfig = JSON.parse(readFileSync(configFile, "utf8"));
-  assert.equal(openCodeConfig.model, "claude-code-router/Provider/model");
+  assert.equal(openCodeConfig.model, "llm-router/Provider/model");
   assert.equal(openCodeConfig.small_model, openCodeConfig.model);
-  assert.equal(openCodeConfig.provider["claude-code-router"].options.apiKey, "llmr-opencode-profile-test");
-  assert.equal(openCodeConfig.provider["claude-code-router"].options.baseURL, `http://127.0.0.1:${config.gateway.port}/v1`);
+  assert.equal(openCodeConfig.provider["llm-router"].options.apiKey, "llmr-opencode-profile-test");
+  assert.equal(openCodeConfig.provider["llm-router"].options.baseURL, `http://127.0.0.1:${config.gateway.port}/v1`);
 
   const commandExtension = process.platform === "win32" ? ".cmd" : "";
   const wrapperFile = path.join(CONFIGDIR, "bin", `llmr-opencode-wrapper-${profileId}${commandExtension}`);
@@ -2027,7 +2027,7 @@ test("profile service removes disabled and deleted OpenCode wrappers and API key
     id: profileId,
     model: "Provider/model",
     name: "OpenCode Cleanup Test",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     providerName: "LLM Router",
     scope: "llmr",
     surface: "auto"
@@ -2714,17 +2714,17 @@ test("profile service restores global agent configs on exit", () => {
     })}\n`);
     writeFileSync(codexFile, "# BEGIN LLMR managed profile\nmodel = \"test\"\n# END LLMR managed profile\n");
     writeFileSync(openCodeFile, `${JSON.stringify({
-      model: "claude-code-router/test",
+      model: "llm-router/test",
       provider: {
-        "claude-code-router": {
+        "llm-router": {
           options: { headers: { "x-llmr-client": "opencode" } }
         }
       }
     })}\n`);
     for (const file of [zcodeFile, zcodeV2File]) {
-      writeFileSync(file, `${JSON.stringify({ provider: { "claude-code-router": {} } })}\n`);
+      writeFileSync(file, `${JSON.stringify({ provider: { "llm-router": {} } })}\n`);
     }
-    writeFileSync(zcodeCacheFile, `${JSON.stringify({ providers: [{ id: "claude-code-router" }] })}\n`);
+    writeFileSync(zcodeCacheFile, `${JSON.stringify({ providers: [{ id: "llm-router" }] })}\n`);
 
     const statuses = restoreGlobalProfileConfigsOnExit([
       {
@@ -2733,15 +2733,15 @@ test("profile service restores global agent configs on exit", () => {
       },
       {
         agent: "codex", configFile: codexFile, enabled: true, env: {}, id: "codex", model: "test", name: "Codex",
-        providerId: "claude-code-router", scope: "global", surface: "cli"
+        providerId: "llm-router", scope: "global", surface: "cli"
       },
       {
         agent: "opencode", configFile: openCodeFile, enabled: true, env: {}, id: "opencode", model: "test", name: "OpenCode",
-        providerId: "claude-code-router", scope: "global", surface: "auto"
+        providerId: "llm-router", scope: "global", surface: "auto"
       },
       {
         agent: "zcode", configFile: zcodeFile, enabled: true, env: {}, id: "zcode", model: "test", name: "ZCode",
-        providerId: "claude-code-router", scope: "global", surface: "app"
+        providerId: "llm-router", scope: "global", surface: "app"
       }
     ], { manageMarker: false });
 
@@ -2753,24 +2753,24 @@ test("profile service restores global agent configs on exit", () => {
 
     writeFileSync(codexFile, "# BEGIN LLMR managed profile\nmodel = \"test\"\n# END LLMR managed profile\n");
     writeFileSync(openCodeFile, `${JSON.stringify({
-      provider: { "claude-code-router": { options: { headers: { "x-llmr-client": "opencode" } } } }
+      provider: { "llm-router": { options: { headers: { "x-llmr-client": "opencode" } } } }
     })}\n`);
     for (const file of [zcodeFile, zcodeV2File]) {
-      writeFileSync(file, `${JSON.stringify({ provider: { "claude-code-router": {} } })}\n`);
+      writeFileSync(file, `${JSON.stringify({ provider: { "llm-router": {} } })}\n`);
     }
-    writeFileSync(zcodeCacheFile, `${JSON.stringify({ providers: [{ id: "claude-code-router" }] })}\n`);
+    writeFileSync(zcodeCacheFile, `${JSON.stringify({ providers: [{ id: "llm-router" }] })}\n`);
     const inactiveStatuses = restoreInactiveGlobalProfileConfigs([
       {
         agent: "codex", configFile: codexFile, enabled: false, env: {}, id: "codex", model: "test", name: "Codex",
-        providerId: "claude-code-router", scope: "llmr", surface: "cli"
+        providerId: "llm-router", scope: "llmr", surface: "cli"
       },
       {
         agent: "opencode", configFile: openCodeFile, enabled: false, env: {}, id: "opencode", model: "test", name: "OpenCode",
-        providerId: "claude-code-router", scope: "global", surface: "auto"
+        providerId: "llm-router", scope: "global", surface: "auto"
       },
       {
         agent: "zcode", configFile: zcodeFile, enabled: false, env: {}, id: "zcode", model: "test", name: "ZCode",
-        providerId: "claude-code-router", scope: "llmr", surface: "app"
+        providerId: "llm-router", scope: "llmr", surface: "app"
       }
     ]);
     assert.equal(inactiveStatuses.filter((status) => status.client === "codex").length, 1);
@@ -2946,7 +2946,7 @@ test("a global Pi profile restores the user's models.json on release", () => {
     const profile = globalPiProfile(agentDir);
 
     writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token", "default");
-    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["claude-code-router"]);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["llm-router"]);
     restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
     assert.deepEqual(Object.keys(JSON.parse(readFileSync(piModels, "utf8")).providers), ["my-ollama"]);
 
@@ -2981,7 +2981,7 @@ test("the Pi sweep leaves a models.json alone when LLMR never took it over", () 
     const agentDir = path.join(root, "pi-agent");
     const piModels = path.join(agentDir, "models.json");
     mkdirSync(agentDir, { recursive: true });
-    const userModels = `${JSON.stringify({ providers: { "claude-code-router": { baseUrl: "http://localhost:9999" } } })}\n`;
+    const userModels = `${JSON.stringify({ providers: { "llm-router": { baseUrl: "http://localhost:9999" } } })}\n`;
     writeFileSync(piModels, userModels);
     const statuses = restoreInactiveGlobalProfileConfigs([{ ...globalPiProfile(agentDir), scope: "llmr" }]);
     assert.deepEqual(statuses.filter((status) => status.client === "pi"), []);
@@ -3036,7 +3036,7 @@ test("a global Workbuddy profile deletes the models.json it created", () => {
 });
 
 for (const [label, makeProfile, relativeFile, managedContent, sweepWarns] of [
-  ["Pi", (dir) => globalPiProfile(dir), "models.json", `${JSON.stringify({ providers: { "claude-code-router": { models: [] } } })}\n`, false],
+  ["Pi", (dir) => globalPiProfile(dir), "models.json", `${JSON.stringify({ providers: { "llm-router": { models: [] } } })}\n`, false],
   ["Workbuddy", (dir) => globalWorkbuddyProfile(dir), "models.json", `${JSON.stringify({ models: [{ apiKey: "${LLMR_PROFILE_API_KEY}", id: "gpt-5-codex" }] })}\n`, true]
 ]) {
   test(`a global ${label} release warns but succeeds when an upgraded models.json has no backup`, () => {

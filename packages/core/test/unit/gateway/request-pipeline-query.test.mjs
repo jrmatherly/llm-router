@@ -3,7 +3,7 @@ import { Readable, Writable } from "node:stream";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
-import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
+import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 
 test("#1819 client-visible fallback error includes 429 and 404 before final model_resolution 400", async () => {
   const config = createDefaultAppConfig();
@@ -11,7 +11,7 @@ test("#1819 client-visible fallback error includes 429 and 404 before final mode
   config.contextArchive.enabled = false;
   config.Providers = ["Primary", "Secondary", "Final"].map(name => ({ name, models: ["model"], type: "openai_chat_completions", api_base_url: "http://127.0.0.1:9/v1" }));
   config.Router.fallback = { mode: "model-chain", models: ["Secondary/model", "Final/model"], retryCount: 0 };
-  const router = new ClaudeCodeRouterPlugin(config);
+  const router = new LLMRouterPlugin(config);
   const pipeline = new GatewayRequestPipeline({
     getBrowserWebSearchMcpIntegration: () => undefined, getConfig: () => config, getCoreAuthToken: () => "test", getPlugin: () => router,
     getStatus: () => ({ coreEndpoint: "http://127.0.0.1:3457", endpoint: "http://127.0.0.1:3456" })

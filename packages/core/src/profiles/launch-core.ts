@@ -296,7 +296,7 @@ function buildCodexLaunchPlan(
   surface: ProfileOpenSurface,
   extraArgs: string[]
 ): ProfileLaunchPlan {
-  const providerId = sanitizeCodexProviderId(profile.providerId || "") || "claude-code-router";
+  const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
   const launcher = path.join(configDir, "bin", codexMiddlewareFilename(profile, providerId));
   return {
     args: surface === "app" && extraArgs.length === 0 ? ["app"] : extraArgs,

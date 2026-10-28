@@ -50,7 +50,7 @@ import { resolveZcodeConfigFile, writeZcodeGatewayConfig, zcodeHomeFromConfigFil
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME, contextArchiveConfigForProfile, contextArchiveMcpEnabled, contextArchiveMcpServer } from "@llmr/core/gateway/context-archive";
 import { claudeClientDiscoveryPayloads, createClaudeCliAutoCompactWindows } from "@llmr/core/gateway/features/model-discovery";
 import { claudeCodeOneMillionContextSuffix } from "@llmr/core/gateway/internal/shared";
-import { normalizeRouteSelector } from "@llmr/core/gateway/claude-code-router-plugin";
+import { normalizeRouteSelector } from "@llmr/core/gateway/llm-router-plugin";
 import { findModelCatalogEntry, modelCatalogMaxInputTokens, readCatalogCapability, type ModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
 import { windowsBatchEscapeValue as cmdValue, windowsBatchSetLine as cmdSetLine } from "@llmr/core/platform/windows-batch";
 import {
@@ -611,13 +611,13 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
       profile,
       configFile,
       `${clientName} profile is disabled.`,
-      { isManagedContent: (content) => isManagedCodexConfigContent(content, sanitizeCodexProviderId(profile.providerId || "") || "claude-code-router") }
+      { isManagedContent: (content) => isManagedCodexConfigContent(content, sanitizeCodexProviderId(profile.providerId || "") || "llm-router") }
     );
   }
 
   try {
     const endpoint = `${gatewayEndpoint(config).replace(/\/+$/g, "")}/v1`;
-    const providerId = sanitizeCodexProviderId(profile.providerId || "") || "claude-code-router";
+    const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
     const providerName = profile.providerName?.trim() || "LLM Router";
     const model = normalizeClientModel(profile.model) || defaultClientModel(config);
     const source = existsSync(configFile) ? readFileSync(configFile, "utf8") : "";
@@ -875,7 +875,7 @@ function applyZcodeProfile(config: AppConfig, profile: ProfileConfig, token: str
   }
 
   try {
-    const providerId = sanitizeCodexProviderId(profile.providerId || "") || "claude-code-router";
+    const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
     const model = normalizeClientModel(profile.model) || defaultClientModel(config);
     const configResult = writeZcodeGatewayConfig(config, profile, token, {
       backup: true,
@@ -2170,7 +2170,7 @@ function buildKimiProfileConfigToml(
   const firstTableIndex = firstTomlTableIndex(preserved);
   const rootSource = firstTableIndex === -1 ? preserved : preserved.slice(0, firstTableIndex);
   const restSource = firstTableIndex === -1 ? "" : preserved.slice(firstTableIndex);
-  const providerId = "claude-code-router";
+  const providerId = "llm-router";
   const baseUrl = `${gatewayEndpoint(config).replace(/\/+$/g, "")}/v1`;
   const headers = kimiProfileCustomHeaderEntries(profile);
   const providerBlock = [
@@ -3623,7 +3623,7 @@ function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus
       { isManagedContent: (content) => isManagedKiloConfigContent(content, providerId) }
     );
   }
-  const providerId = sanitizeCodexProviderId(profile.providerId || "") || "claude-code-router";
+  const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
   const clientName = codexCompatibleClientName(profile.agent);
   const configFile = resolveCodexConfigFile(profile);
   const status = restoreDisabledGlobalProfile(
@@ -3715,7 +3715,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
   const openCodeProfiles = profiles.filter((profile) => profile.agent === "opencode");
   if (openCodeProfiles.length > 0 && !openCodeProfiles.some((profile) => profile.enabled && isGlobalProfile(profile))) {
     const providerIds = [...new Set([
-      "claude-code-router",
+      "llm-router",
       ...openCodeProfiles.map(openCodeProviderId)
     ])];
     for (const file of uniqueResolvedPaths(openCodeProfiles.map(globalOpenCodeConfigCandidate))) {
@@ -3731,7 +3731,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
   const kiloProfiles = profiles.filter((profile) => profile.agent === "kilo");
   if (kiloProfiles.length > 0 && !kiloProfiles.some((profile) => profile.enabled && isGlobalProfile(profile))) {
     const providerIds = [...new Set([
-      "claude-code-router",
+      "llm-router",
       ...kiloProfiles.map(kiloProviderId)
     ])];
     for (const file of uniqueResolvedPaths(kiloProfiles.map(globalKiloConfigCandidate))) {
@@ -3746,9 +3746,9 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
   }
   const piProfiles = profiles.filter((profile) => profile.agent === "pi");
   if (piProfiles.length > 0 && !piProfiles.some((profile) => profile.enabled && isGlobalProfile(profile))) {
-    const providerIds = [...new Set(["claude-code-router", ...piProfiles.map(piProviderId)])];
+    const providerIds = [...new Set(["llm-router", ...piProfiles.map(piProviderId)])];
     for (const file of uniqueResolvedPaths(piProfiles.map((profile) => piModelsFile({ ...profile, scope: "global" })))) {
-      // A user's own Pi config may name its provider claude-code-router; only a file LLMR snapshotted was ever taken over.
+      // A user's own Pi config may name its provider llm-router; only a file LLMR snapshotted was ever taken over.
       if (!hasTakeoverSnapshot(file)) {
         continue;
       }
@@ -3764,7 +3764,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
   const zcodeProfiles = profiles.filter((profile) => profile.agent === "zcode");
   if (zcodeProfiles.length > 0 && !zcodeProfiles.some((profile) => profile.enabled && isGlobalProfile(profile))) {
     const providerIds = [...new Set([
-      "claude-code-router",
+      "llm-router",
       ...zcodeProfiles.map((profile) => sanitizeCodexProviderId(profile.providerId || "")).filter(Boolean)
     ])];
     const configFiles = uniqueResolvedPaths([
@@ -3800,7 +3800,7 @@ function globalCodexConfigCandidate(profile: ProfileConfig): string {
 
 function codexCompatibleProviderIds(profiles: ProfileConfig[]): string[] {
   return [...new Set([
-    "claude-code-router",
+    "llm-router",
     ...profiles.map((profile) => sanitizeCodexProviderId(profile.providerId || "")).filter(Boolean)
   ])];
 }
@@ -4001,7 +4001,7 @@ function restoreDisabledZcodeProfile(profile: ProfileConfig, configFile: string)
     return disabledStatus("zcode", configFile, disabledMessage);
   }
 
-  const providerId = sanitizeCodexProviderId(profile.providerId || "") || "claude-code-router";
+  const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
   const storageRoot = zcodeHomeFromConfigFile(configFile);
   const files = [
     configFile,

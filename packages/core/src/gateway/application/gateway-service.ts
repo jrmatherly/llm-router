@@ -11,7 +11,7 @@ import { backendService } from "@llmr/core/plugins/backend-service";
 import { getSystemProxyUrlForProtocol } from "@llmr/core/proxy/system-proxy-fetch";
 import { pluginService } from "@llmr/core/plugins/service";
 import { proxyService } from "@llmr/core/proxy/service";
-import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin";
+import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler";
 import { isAddressInUseMessage, probeExistingLlmrGateway, reloadExistingLlmrGatewayConfig } from "@llmr/core/gateway/existing-gateway-probe";
 import { closeServer, formatError, sendGatewayError } from "@llmr/core/gateway/http/io";
@@ -122,7 +122,7 @@ class GatewayService {
   private config?: AppConfig;
   private coreAuthToken = "";
   private externalGatewayApiKey?: string;
-  private plugin?: ClaudeCodeRouterPlugin;
+  private plugin?: LLMRouterPlugin;
   private readonly rawTraceSynchronizer = new RawTraceSynchronizer({
     allowStandaloneRequestLogs: () => {
       const config = this.config;
@@ -170,7 +170,7 @@ class GatewayService {
     this.config = config;
     const coreAuthToken = generateCoreGatewayAuthToken();
     const scriptValidationErrors = await this.routeScriptRuntime.prepare(config.Router.rules);
-    this.plugin = new ClaudeCodeRouterPlugin(config, {
+    this.plugin = new LLMRouterPlugin(config, {
       scriptRuntime: this.routeScriptRuntime,
       scriptValidationErrors
     });
@@ -434,7 +434,7 @@ class GatewayService {
     }
 
     const scriptValidationErrors = await this.routeScriptRuntime.prepare(config.Router.rules);
-    const nextPlugin = new ClaudeCodeRouterPlugin(config, {
+    const nextPlugin = new LLMRouterPlugin(config, {
       scriptRuntime: this.routeScriptRuntime,
       scriptValidationErrors
     });

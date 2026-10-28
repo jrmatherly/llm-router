@@ -103,7 +103,7 @@ test("Claude Design local shell keeps official UI flags while replacing account 
   const runtimeMe = {
     accountUuid: "00000000-0000-4000-8000-000000000001",
     organizationUuid: "00000000-0000-4000-8000-000000000002",
-    email: "claude-code-router@example.local",
+    email: "llm-router@example.local",
     displayName: "LLM Router",
     growthbookPayload: "{}",
     defaultModelId: "glm-5.2",
@@ -296,7 +296,7 @@ function fakeClaudeDesignRuntime(files: FakeProjectFile[] = []) {
     me: {
       accountUuid: "00000000-0000-4000-8000-000000000001",
       displayName: "LLM Router",
-      email: "claude-code-router@example.local",
+      email: "llm-router@example.local",
       organizationUuid: "00000000-0000-4000-8000-000000000002"
     },
     pluginId: "claude-design",

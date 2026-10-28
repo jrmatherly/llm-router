@@ -137,7 +137,7 @@ function directProfileDispatchArgs(args) {
 async function runPiCliWrapper(args) {
   const realCli = expandHome(nonEmptyEnv("LLMR_REAL_PI_BIN") || "pi");
   const child = spawnAgentCli(realCli, [
-    "--provider", nonEmptyEnv("LLMR_PI_PROVIDER") || "claude-code-router",
+    "--provider", nonEmptyEnv("LLMR_PI_PROVIDER") || "llm-router",
     "--model", nonEmptyEnv("LLMR_PI_MODEL"), ...args
   ], {
     env: withoutKeys(process.env, ["LLMR_PI_WRAPPER", "LLMR_REAL_PI_BIN", "LLMR_PI_PROVIDER", "LLMR_PI_MODEL", "LLMR_CLI_DIRECT_PROFILE_DISPATCH"]),
@@ -4570,7 +4570,7 @@ function modelItemId(item) {
 }
 
 function codexModelItem(model, selectedModel) {
-  const provider = modelProviderFromSelector(model) || agentEnv(codexRuntimeAgent(), "MODEL_PROVIDER") || "claude-code-router";
+  const provider = modelProviderFromSelector(model) || agentEnv(codexRuntimeAgent(), "MODEL_PROVIDER") || "llm-router";
   const displayName = modelDisplayName(model);
   return {
     id: model,

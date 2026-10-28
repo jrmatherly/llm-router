@@ -150,7 +150,7 @@ test("Codex runtime ignores middleware recursion and uses the bundled real CLI f
     env: {
       ...process.env,
       LLMR_BUNDLED_CODEX_CLI_PATH: fakeCodex,
-      LLMR_CODEX_PROFILE: "claude-code-router",
+      LLMR_CODEX_PROFILE: "llm-router",
       LLMR_REAL_CODEX_CLI_PATH: "",
       CODEXL_REAL_CODEX_CLI_PATH: "",
       CODEX_CLI_PATH: path.join(dir, "llmr-codex-cli-stdio-profile")
@@ -178,8 +178,8 @@ test("Codex CLI middleware launches Windows cmd shims", { skip: process.platform
     encoding: "utf8",
     env: {
       ...process.env,
-      LLMR_CODEX_MODEL_PROVIDER: "claude-code-router",
-      LLMR_CODEX_PROFILE: "claude-code-router",
+      LLMR_CODEX_MODEL_PROVIDER: "llm-router",
+      LLMR_CODEX_PROFILE: "llm-router",
       LLMR_REAL_CODEX_CLI_PATH: fakeCli
     }
   });
@@ -187,7 +187,7 @@ test("Codex CLI middleware launches Windows cmd shims", { skip: process.platform
   assert.equal(result.status, 0, result.stderr);
   const forwardedArgs = JSON.parse(result.stdout);
   assert.equal(forwardedArgs.at(-1), "--version");
-  assert.equal(forwardedArgs.includes("claude-code-router"), true);
+  assert.equal(forwardedArgs.includes("llm-router"), true);
 });
 
 test("Windows direct profile dispatch strips the profile command arguments", { skip: process.platform !== "win32" }, () => {
@@ -1181,7 +1181,7 @@ test("Codex App bot worker uses native projects and sessions without enabling sh
       ...process.env,
       CODEX_HOME: codexHome,
       LLMR_CODEX_BOT_WORKER: "1",
-      LLMR_CODEX_PROFILE: "claude-code-router",
+      LLMR_CODEX_PROFILE: "llm-router",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       LLMR_BOT_GATEWAY_CWD: dir,
       LLMR_BOT_GATEWAY_ENABLED: "true",
@@ -1277,7 +1277,7 @@ test("Codex App bot worker passes image attachments to exec and avoids duplicate
       ...process.env,
       CODEX_HOME: codexHome,
       LLMR_CODEX_BOT_WORKER: "1",
-      LLMR_CODEX_PROFILE: "claude-code-router",
+      LLMR_CODEX_PROFILE: "llm-router",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       LLMR_BOT_GATEWAY_CWD: dir,
       LLMR_BOT_GATEWAY_ENABLED: "true",

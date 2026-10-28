@@ -27,7 +27,7 @@ function testProfile(overrides = {}) {
     id: "kilo-main",
     model: "Provider,model-a",
     name: "Kilo Main",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     providerName: "LLM Router",
     scope: "llmr",
     surface: "cli",
@@ -44,15 +44,15 @@ test("Kilo profile config routes primary and small models through LLMR", () => {
 
     assert.equal(result.file, path.join(root, "profiles", "kilo-main", "kilo", "kilo.jsonc"));
     assert.equal(config.$schema, "https://app.kilo.ai/config.json");
-    assert.equal(config.model, "claude-code-router/Provider/model-a");
+    assert.equal(config.model, "llm-router/Provider/model-a");
     assert.equal(config.small_model, config.model);
-    assert.equal(config.provider["claude-code-router"].npm, "@ai-sdk/openai-compatible");
-    assert.equal(config.provider["claude-code-router"].options.baseURL, "http://127.0.0.1:4567/v1");
-    assert.equal(config.provider["claude-code-router"].options.apiKey, "llmr-profile-key");
-    assert.equal(config.provider["claude-code-router"].options.headers["x-llmr-client"], "kilo");
-    assert.ok(config.provider["claude-code-router"].models["Provider/model-a"]);
+    assert.equal(config.provider["llm-router"].npm, "@ai-sdk/openai-compatible");
+    assert.equal(config.provider["llm-router"].options.baseURL, "http://127.0.0.1:4567/v1");
+    assert.equal(config.provider["llm-router"].options.apiKey, "llmr-profile-key");
+    assert.equal(config.provider["llm-router"].options.headers["x-llmr-client"], "kilo");
+    assert.ok(config.provider["llm-router"].models["Provider/model-a"]);
     assert.equal(JSON.parse(result.inlineConfig).model, config.model);
-    assert.equal(isManagedKiloConfigContent(readFileSync(result.file, "utf8"), "claude-code-router"), true);
+    assert.equal(isManagedKiloConfigContent(readFileSync(result.file, "utf8"), "llm-router"), true);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

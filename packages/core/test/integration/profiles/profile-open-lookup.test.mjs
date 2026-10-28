@@ -86,7 +86,7 @@ function globalProfilesConfig() {
       id: "default-codex",
       model: "Provider/model",
       name: "Codex",
-      providerId: "claude-code-router",
+      providerId: "llm-router",
       providerName: "LLM Router",
       scope: "global",
       showAllSessions: false,

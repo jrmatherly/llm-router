@@ -224,7 +224,7 @@ test("ZCode app model catalog uses the public model context window", () => {
       id: "zcode-main",
       model: "Codex API/gpt-5.6-sol",
       name: "ZCode Main",
-      providerId: "claude-code-router",
+      providerId: "llm-router",
       scope: "global",
       surface: "app"
     };
@@ -347,7 +347,7 @@ test("WorkBuddy AI app profile writes the virtual desktop auth session", () => {
       id: "workbuddy-main",
       model: "Codex API/gpt-5-codex",
       name: "WorkBuddy Main",
-      providerId: "claude-code-router",
+      providerId: "llm-router",
       scope: "llmr",
       surface: "app"
     };
@@ -427,7 +427,7 @@ test("WorkBuddy AI app profile writes every allowed model to models.json", () =>
       id: "workbuddy-main",
       model: "Codex API/gpt-5-codex",
       name: "WorkBuddy Main",
-      providerId: "claude-code-router",
+      providerId: "llm-router",
       scope: "llmr",
       surface: "app"
     };
@@ -459,7 +459,7 @@ test("WorkBuddy AI app profile writes every catalog model when the allowlist is 
       id: "workbuddy-main",
       model: "Codex API/gpt-5-codex",
       name: "WorkBuddy Main",
-      providerId: "claude-code-router",
+      providerId: "llm-router",
       scope: "llmr",
       surface: "app"
     };

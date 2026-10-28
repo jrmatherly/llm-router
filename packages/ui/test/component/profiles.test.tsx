@@ -526,7 +526,7 @@ test("profileSummaryItems omits disabled profile properties from cards", () => {
     managedCompact: false,
     model: "openai/gpt-5.2",
     name: "Codex Main",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     scope: "llmr",
     showAllSessions: false,
     surface: "auto"
@@ -542,7 +542,7 @@ test("profileSummaryItems omits disabled profile properties from cards", () => {
     managedCompact: true,
     model: "openai/gpt-5.2",
     name: "Codex Main",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     scope: "llmr",
     showAllSessions: true,
     surface: "auto"
@@ -724,7 +724,7 @@ test("Kilo CLI profiles support local CLI configuration", () => {
     id: "kilo-work",
     model: "Provider/model",
     name: "Kilo Work",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     scope: "global",
     showAllSessions: true,
     surface: "app"
@@ -766,7 +766,7 @@ test("Workbuddy profiles support local App configuration", () => {
     id: "workbuddy-work",
     model: "Provider/model",
     name: "Workbuddy Work",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     scope: "global",
     showAllSessions: true,
     surface: "app"

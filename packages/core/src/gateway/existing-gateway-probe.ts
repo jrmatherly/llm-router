@@ -224,8 +224,8 @@ function isLlmrGatewayHealth(value: unknown): boolean {
 
 function isLlmrGatewayRoot(value: unknown): boolean {
   return isRecord(value) &&
-    (value.name === "claude-code-router" ||
-      value.plugin === "claude-code-router" ||
+    (value.name === "llm-router" ||
+      value.plugin === "llm-router" ||
       (value.core === "next-ai-gateway" && Array.isArray(value.endpoints)));
 }
 

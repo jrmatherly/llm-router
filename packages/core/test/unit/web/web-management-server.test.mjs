@@ -201,8 +201,8 @@ function createHealthyLlmrGateway(apiKey, state) {
       sendJson(response, 200, {
         core: "next-ai-gateway",
         endpoints: ["GET /v1/models"],
-        name: "claude-code-router",
-        plugin: "claude-code-router"
+        name: "llm-router",
+        plugin: "llm-router"
       });
       return;
     }

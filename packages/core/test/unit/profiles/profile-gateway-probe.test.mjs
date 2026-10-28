@@ -80,7 +80,7 @@ test("existing profile gateway falls back to the root identity response", async 
       return Response.json({ status: "unknown" }, { status: 404 });
     }
     if (url.pathname === "/") {
-      return Response.json({ name: "claude-code-router" });
+      return Response.json({ name: "llm-router" });
     }
     if (url.pathname === "/v1/models") {
       return Response.json({ data: [], object: "list" });
@@ -121,7 +121,7 @@ test("existing profile gateway rejects WIF profiles when the root identity lacks
     if (url.pathname === "/") {
       return Response.json({
         endpoints: ["GET /v1/models"],
-        name: "claude-code-router"
+        name: "llm-router"
       });
     }
     throw new Error(`Unexpected gateway probe: ${url.pathname}`);
