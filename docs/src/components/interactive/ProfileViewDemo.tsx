@@ -7,7 +7,6 @@
 import { useMemo, useState } from "react";
 import { AddProfileDialog, ProfileView } from "@/pages/home/components/profiles";
 import { BaseUiProvider } from "@/lib/baseui-provider";
-import { AppI18nContext, appCopy } from "@/pages/home/shared/i18n";
 import { fallbackConfig } from "@/pages/home/shared/fallbacks";
 import { createProfileDraft } from "@/pages/home/shared/profiles";
 import { profileAgentOptions } from "@/pages/home/shared/options";
@@ -112,45 +111,43 @@ export default function ProfileViewDemo() {
   }
 
   return (
-    <AppI18nContext.Provider value={appCopy}>
-      <DemoShell
-        title="Agent configuration — create a profile for Claude Code / Codex and choose its default model"
-        onPlay={play}
-        playing={playing}
-      >
-        <VirtualCursor state={cursor} />
-        <BaseUiProvider>
-          <div className="docs-demo-app-surface docs-demo-app-surface--manager">
-            <ProfileView
-              addProfile={openAddProfile}
-              applyError=""
-              config={config}
-              copyProfileCliCommand={noop}
-              editProfile={noop}
-              openProfileApp={noop}
-              profileRuntimeStatus={{ profiles: [] } as ProfileRuntimeStatus}
-              removeProfile={noop}
-              stopProfileApp={noop}
-              updateProfileItem={noop}
-            />
-          </div>
-          {dialogOpen && (
-            <AddProfileDialog
-              agentOptions={profileAgentOptions}
-              botConfigs={[]}
-              canSubmit={canSubmit}
-              draft={draft}
-              error=""
-              mode="add"
-              onChange={changeDraft}
-              onCreateBot={noop}
-              onClose={() => setDialogOpen(false)}
-              providers={config.Providers ?? []}
-              onSubmit={submitProfile}
-            />
-          )}
-        </BaseUiProvider>
-      </DemoShell>
-    </AppI18nContext.Provider>
+    <DemoShell
+      title="Agent configuration — create a profile for Claude Code / Codex and choose its default model"
+      onPlay={play}
+      playing={playing}
+    >
+      <VirtualCursor state={cursor} />
+      <BaseUiProvider>
+        <div className="docs-demo-app-surface docs-demo-app-surface--manager">
+          <ProfileView
+            addProfile={openAddProfile}
+            applyError=""
+            config={config}
+            copyProfileCliCommand={noop}
+            editProfile={noop}
+            openProfileApp={noop}
+            profileRuntimeStatus={{ profiles: [] } as ProfileRuntimeStatus}
+            removeProfile={noop}
+            stopProfileApp={noop}
+            updateProfileItem={noop}
+          />
+        </div>
+        {dialogOpen && (
+          <AddProfileDialog
+            agentOptions={profileAgentOptions}
+            botConfigs={[]}
+            canSubmit={canSubmit}
+            draft={draft}
+            error=""
+            mode="add"
+            onChange={changeDraft}
+            onCreateBot={noop}
+            onClose={() => setDialogOpen(false)}
+            providers={config.Providers ?? []}
+            onSubmit={submitProfile}
+          />
+        )}
+      </BaseUiProvider>
+    </DemoShell>
   );
 }
