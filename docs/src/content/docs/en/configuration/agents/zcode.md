@@ -23,7 +23,7 @@ Use this page to route ZCode to any LLMR provider or Fusion model, or to attach 
 
 1. On **Agent Config**, click **Add profile** and choose **ZCode**.
 2. Enter a **Config name** (for example `ZCode - Work`).
-3. Confirm **Provider ID**, **Provider name**, and **ZCode model**.
+3. Confirm the **ZCode model**.
 4. Adjust advanced settings only if your local setup needs them.
 5. If you use AgentClaw, bind a **Bot**.
 6. **Save**, then open ZCode from LLMR with the play button.
@@ -38,8 +38,7 @@ ZCode is fixed to **App only**, so the entry mode is not editable. The fields yo
 | Config name | Free text, e.g. `ZCode - Work` | Identifies the profile. Commands use `llmr "<name>" app`. |
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps the profile limited to LLMR launches, or makes it the system-default ZCode profile. Only one enabled system-default ZCode profile is allowed. |
-| Provider ID | Default `llm-router` (`claude-code-router` in profiles made before the rename) | Provider reference for this ZCode profile. |
-| Provider name | Free text; default `LLM Router` | Display name shown in ZCode. |
+| Provider reference | Not editable | LLMR registers itself in ZCode as `llm-router` (`claude-code-router` in profiles made before the rename) with the display name `LLM Router`. |
 | ZCode model | A provider model or Fusion model | Default model when ZCode App opens. |
 | Config file | Path | Used for the system-default ZCode profile. |
 | Environment variables | Key/value rows | Optional advanced overrides; leave empty for normal use. |

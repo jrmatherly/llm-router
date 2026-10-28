@@ -73,7 +73,7 @@ In **Agent Config**, choose Claude Code, set the model, small fast model, and se
 
 ### Codex
 
-In **Agent Config**, choose Codex and confirm Provider ID, Provider Name, model, and config file. Only fill Codex CLI path and Codex home when you need a specific CLI or home directory.
+In **Agent Config**, choose Codex and confirm the model and config file. Only fill Codex CLI path and Codex home when you need a specific CLI or home directory.
 
 ### Grok CLI
 
@@ -81,7 +81,7 @@ Choose Grok CLI and select a default model, then run the copied `llmr <profile-n
 
 ### ZCode
 
-Choose ZCode and set the **ZCode model**, **Provider ID**, and **Provider Name**. ZCode is a desktop-app agent with entry fixed to **App only**; open it from the play button on the profile card.
+Choose ZCode and set the **ZCode model**. ZCode is a desktop-app agent with entry fixed to **App only**; open it from the play button on the profile card.
 
 ## Logs and observability
 
