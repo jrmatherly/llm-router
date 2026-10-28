@@ -1093,8 +1093,10 @@ test("#1867 broken source bundles expire even below inbox capacity", async () =>
   });
   try {
     await synchronizer.start();
-    await waitFor(() => !existsSync(source), 250);
-    await waitFor(() => readdirSync(path.join(spoolDirectory, ".ccr-dead-letter")).length === 1, 250);
+    // Each failed publish retry parks the source in staging, so its absence alone is not the end state.
+    await waitFor(() => readdirSync(path.join(spoolDirectory, ".ccr-dead-letter")).length === 1);
+    assert.equal(existsSync(source), false);
+    assert.equal(readdirSync(path.join(spoolDirectory, ".ccr-staging")).length, 0);
     assert.equal(readdirSync(path.join(spoolDirectory, ".ccr-inbox")).length, 0);
   } finally {
     await synchronizer.stop();
