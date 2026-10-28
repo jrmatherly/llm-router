@@ -17,6 +17,12 @@ const candidate = {
   status: "available"
 };
 
+const oauthPlugin = {
+  auth: { headers: { authorization: "Bearer playwright-oauth-token" }, removeHeaders: ["x-api-key"], strict: true },
+  key: "llmr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-claude-code-oauth",
+  providerName: "__LLMR_PROVIDER_NAME__"
+};
+
 const importResult = {
   candidate,
   provider: {
@@ -26,7 +32,20 @@ const importResult = {
     name: providerName,
     protocol: candidate.protocol
   },
-  providerPlugins: []
+  providerPlugins: [oauthPlugin]
+};
+
+const discoveredModels = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-sonnet-5", "claude-haiku-5-5"];
+
+const probeResult = {
+  candidate: { baseUrl: "https://api.anthropic.com", protocols: ["anthropic_messages"] },
+  probe: {
+    detectedProtocol: "anthropic_messages",
+    modelSource: "anthropic",
+    models: discoveredModels,
+    normalizedBaseUrl: "https://api.anthropic.com",
+    protocols: [{ endpoint: "https://api.anthropic.com/v1/messages", protocol: "anthropic_messages", status: 400, supported: true }]
+  }
 };
 
 let runtime: CliWebRuntime | undefined;
@@ -61,6 +80,26 @@ test("onboarding drops the credentials step after a local agent import", async (
   await expect(page.getByText("Choose the models that should be available through this provider.")).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "2");
   await expect(page.getByLabel("API key")).toHaveCount(0);
+});
+
+test("onboarding discovers the imported login's models through its plugins", async ({ page }) => {
+  const current = requireRuntime();
+  const probeRequests: Array<{ apiKey?: string; providerPlugins?: unknown[] }> = [];
+  await mockLocalAgentRpc(page, probeRequests);
+  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await waitForBridge(page);
+
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await page.getByRole("button", { name: "Next step" }).click();
+
+  await expect(page.getByText("Choose the models that should be available through this provider.")).toBeVisible();
+  for (const model of discoveredModels) {
+    await expect(page.getByText(model, { exact: true }).first()).toBeVisible();
+  }
+  await expect(page.getByText("No provider models")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Refresh provider models" })).toBeVisible();
+  expect(probeRequests.length).toBeGreaterThan(0);
+  expect(probeRequests[0]).toMatchObject({ apiKey: localAgentProviderApiKey, providerPlugins: [oauthPlugin] });
 });
 
 test("the add provider dialog goes from the import to Pick models and back", async ({ page }) => {
@@ -119,9 +158,14 @@ test("editing an imported provider shows the local login notice instead of the m
   await expect(dialog.locator(`input[value="${localAgentProviderApiKey}"]`)).toHaveCount(0);
 });
 
-async function mockLocalAgentRpc(page: Page): Promise<void> {
+async function mockLocalAgentRpc(page: Page, probeRequests?: Array<{ apiKey?: string; providerPlugins?: unknown[] }>): Promise<void> {
   await page.route("**/api/llmr/rpc", async (route) => {
-    const payload = route.request().postDataJSON() as { method?: string } | undefined;
+    const payload = route.request().postDataJSON() as { args?: unknown[]; method?: string } | undefined;
+    if (payload?.method === "probeProviderCandidates") {
+      probeRequests?.push(payload.args?.[0] as { apiKey?: string; providerPlugins?: unknown[] });
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: probeResult }) });
+      return;
+    }
     if (payload?.method === "getLocalAgentProviderCandidates") {
       await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: [candidate] }) });
       return;
