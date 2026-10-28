@@ -120,18 +120,34 @@ test("sync applies the gateway config for auto, app, and unset surfaces", async 
   }
 });
 
-test("sync applies the gateway config regardless of profile scope", async () => {
+test("sync applies the shared gateway config only for a System default profile", async () => {
   const { BACKUP_FILE, hasClaudeAppEntryProfile, syncClaudeAppGatewayConfig } = await loadModules();
-  for (const scope of ["llmr", "global", "custom"]) {
+  const synced = await syncClaudeAppGatewayConfig(createConfig({
+    profile: {
+      profiles: [claudeCodeProfile({ scope: "global", surface: "auto" })]
+    }
+  }));
+
+  assert.equal(hasClaudeAppEntryProfile(synced.config), true);
+  const libraryConfig = JSON.parse(readFileSync(claudeAppPaths().configLibraryFile, "utf8"));
+  assert.equal(libraryConfig.inferenceProvider, "gateway");
+  cleanup(BACKUP_FILE);
+});
+
+test("sync leaves a directly opened Claude App alone for Only opened from LLMR and custom scopes", async () => {
+  const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppEntryProfile, syncClaudeAppGatewayConfig } = await loadModules();
+  for (const scope of ["llmr", "custom"]) {
+    seedGatewayBackup(BACKUP_FILE);
     const synced = await syncClaudeAppGatewayConfig(createConfig({
       profile: {
         profiles: [claudeCodeProfile({ scope, surface: "auto" })]
       }
     }));
 
-    assert.equal(hasClaudeAppEntryProfile(synced.config), true);
-    const libraryConfig = JSON.parse(readFileSync(claudeAppPaths().configLibraryFile, "utf8"));
-    assert.equal(libraryConfig.inferenceProvider, "gateway");
+    assert.equal(hasClaudeAppEntryProfile(synced.config), false, scope);
+    assert.equal(synced.result.message, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, scope);
+    assert.equal(existsSync(BACKUP_FILE), false, scope);
+    assert.equal(JSON.parse(readFileSync(claudeAppPaths().rootConfigFile, "utf8")).deploymentMode, "native", scope);
     cleanup(BACKUP_FILE);
   }
 });
