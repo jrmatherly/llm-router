@@ -5,7 +5,7 @@ import {
   providerNamePlaceholder,
   providerNameSlugPlaceholder,
   readString
-} from "@ccr/core/agents/local-providers/shared";
+} from "@llmr/core/agents/local-providers/shared";
 
 /**
  * Free-tier client fingerprint for login-less ("public") OpenCode Zen imports.

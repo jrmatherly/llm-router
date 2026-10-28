@@ -12,7 +12,7 @@ test("#1819 verified endpoints outrank synthesized presets while explicit choice
 });
 import {
   normalizeProviderPresetCapabilitiesForTest
-} from "@ccr/core/config/config.ts";
+} from "@llmr/core/config/config.ts";
 import {
   findProviderPresetByBaseUrlInList,
   findProviderPresetByIdentityInList,
@@ -20,42 +20,42 @@ import {
   providerEndpointCanReceiveProviderApiKeyInList,
   providerIdentitySafetyIssueInList,
   providerPresetMatchesBaseUrl
-} from "@ccr/core/providers/presets/utils.ts";
+} from "@llmr/core/providers/presets/utils.ts";
 import {
   fennoProviderPreset
-} from "@ccr/core/providers/presets/fenno/index.ts";
+} from "@llmr/core/providers/presets/fenno/index.ts";
 import {
   infistarAiProviderPreset
-} from "@ccr/core/providers/presets/infistar-ai/index.ts";
+} from "@llmr/core/providers/presets/infistar-ai/index.ts";
 import {
   moonshotChinaProviderPreset,
   moonshotGlobalProviderPreset
-} from "@ccr/core/providers/presets/moonshot/index.ts";
+} from "@llmr/core/providers/presets/moonshot/index.ts";
 import {
   nvidiaProviderPreset
-} from "@ccr/core/providers/presets/nvidia/index.ts";
+} from "@llmr/core/providers/presets/nvidia/index.ts";
 import {
   openCodeGoProviderPreset
-} from "@ccr/core/providers/presets/opencode-go/index.ts";
+} from "@llmr/core/providers/presets/opencode-go/index.ts";
 import {
   providerPresets
-} from "@ccr/core/providers/presets/index.ts";
+} from "@llmr/core/providers/presets/index.ts";
 import {
   normalizedProviderCapabilities,
   providerCapabilityForClientProtocol
-} from "@ccr/core/providers/runtime-topology.ts";
+} from "@llmr/core/providers/runtime-topology.ts";
 import {
   qiniuAiProviderPreset
-} from "@ccr/core/providers/presets/qiniu-ai/index.ts";
+} from "@llmr/core/providers/presets/qiniu-ai/index.ts";
 import {
   unity2ProviderPreset
-} from "@ccr/core/providers/presets/unity2/index.ts";
+} from "@llmr/core/providers/presets/unity2/index.ts";
 import {
   xiaomiMimoProviderPreset,
   xiaomiMimoTokenPlanChinaProviderPreset,
   xiaomiMimoTokenPlanEuropeProviderPreset,
   xiaomiMimoTokenPlanSingaporeProviderPreset
-} from "@ccr/core/providers/presets/xiaomi/index.ts";
+} from "@llmr/core/providers/presets/xiaomi/index.ts";
 
 const openAiPreset = {
   aliases: ["OpenAI", "ChatGPT"],

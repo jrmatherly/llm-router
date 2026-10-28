@@ -14,7 +14,7 @@ import {
   resolveOpenCodeConfigFile,
   resolveProfileOpenSurface,
   shouldAutoStartProfileGateway
-} from "@ccr/core/profiles/launch-core.ts";
+} from "@llmr/core/profiles/launch-core.ts";
 
 const claudeProfile = {
   agent: "claude-code",

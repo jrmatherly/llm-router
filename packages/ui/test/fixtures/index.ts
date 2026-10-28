@@ -5,7 +5,7 @@ import type {
   UsageStatsRange,
   UsageStatsSnapshot,
   UsageTotals
-} from "@ccr/core/contracts/app.ts";
+} from "@llmr/core/contracts/app.ts";
 
 export function appConfigFixture(): AppConfig {
   return {

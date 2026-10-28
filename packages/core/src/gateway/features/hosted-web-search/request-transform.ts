@@ -1,12 +1,12 @@
-import type { AppConfig } from "@ccr/core/contracts/app";
-import { isRecord, rawStringValue, stringValue } from "@ccr/core/gateway/internal/value";
-import type { AnthropicWebSearchProtocolContext, BrowserWebSearchProtocolRecord, ClaudeCodeWebSearchContinuationContext, HostedWebSearchProtocolContext } from "@ccr/core/gateway/internal/shared";
-import { parseJsonObjectSafe, serializeJsonBody } from "@ccr/core/gateway/http/body";
-import { resolveGatewayPublicModelId } from "@ccr/core/gateway/features/model-discovery";
-import { uniqueStrings } from "@ccr/core/gateway/internal/collections";
-import { requestProtocolForPath } from "@ccr/core/routing/protocol-endpoints";
-import { claudeCodeWebSearchToolResultTexts, extractAnthropicWebSearchQueryHint, extractClaudeCodeWebSearchToolResultQuery, extractHostedWebSearchQueryHint, fusionWebSearchToolNameForRequest, hasHostedWebSearchDeclaration, isAnthropicHostedWebSearchTool, isOpenAiHostedWebSearchTool, openAiToolChoiceNamesWebSearch, readHostedWebSearchMaxUses } from "@ccr/core/gateway/features/hosted-web-search/discovery";
-import { normalizeSearchComparisonText } from "@ccr/core/gateway/features/hosted-web-search/evidence";
+import type { AppConfig } from "@llmr/core/contracts/app";
+import { isRecord, rawStringValue, stringValue } from "@llmr/core/gateway/internal/value";
+import type { AnthropicWebSearchProtocolContext, BrowserWebSearchProtocolRecord, ClaudeCodeWebSearchContinuationContext, HostedWebSearchProtocolContext } from "@llmr/core/gateway/internal/shared";
+import { parseJsonObjectSafe, serializeJsonBody } from "@llmr/core/gateway/http/body";
+import { resolveGatewayPublicModelId } from "@llmr/core/gateway/features/model-discovery";
+import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
+import { requestProtocolForPath } from "@llmr/core/routing/protocol-endpoints";
+import { claudeCodeWebSearchToolResultTexts, extractAnthropicWebSearchQueryHint, extractClaudeCodeWebSearchToolResultQuery, extractHostedWebSearchQueryHint, fusionWebSearchToolNameForRequest, hasHostedWebSearchDeclaration, isAnthropicHostedWebSearchTool, isOpenAiHostedWebSearchTool, openAiToolChoiceNamesWebSearch, readHostedWebSearchMaxUses } from "@llmr/core/gateway/features/hosted-web-search/discovery";
+import { normalizeSearchComparisonText } from "@llmr/core/gateway/features/hosted-web-search/evidence";
 
 export function createHostedWebSearchProtocolContext(input: {
   body: Buffer | undefined;

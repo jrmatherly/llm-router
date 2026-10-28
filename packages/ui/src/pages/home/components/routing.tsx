@@ -16,7 +16,7 @@ import {
   ROUTER_FALLBACK_MAX_RETRY_COUNT,
   ROUTER_SCRIPT_API_VERSION,
   type RouterRuleScript
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 export function RoutingView({
   addRule,
   config,

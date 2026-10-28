@@ -7,21 +7,21 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { networkInterfaces } from "node:os";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { delimiter as pathDelimiter, dirname as pathDirname, join as pathJoin, resolve as pathResolve } from "node:path";
-import { CONFIGDIR } from "@ccr/core/config/constants";
+import { CONFIGDIR } from "@llmr/core/config/constants";
 import {
   deletePersistedRuntimeState,
   loadPersistedRuntimeState,
   replacePersistedRuntimeState
-} from "@ccr/core/config/config-repository";
-import type { AppConfig, GatewayNetworkEndpoint } from "@ccr/core/contracts/app";
-import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
-import { uniqueStrings } from "@ccr/core/gateway/internal/collections";
-import { withoutLlmrSecretEnv } from "@ccr/core/mcp/child-env";
-import { isRecord, numberValue, stringValue } from "@ccr/core/gateway/internal/value";
-import { formatError, readHeader } from "@ccr/core/gateway/http/io";
-import { coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayEntryOverrideEnv, gatewayPackageCandidates, gatewayRuntimeMarkerFile, requireFromHere } from "@ccr/core/gateway/internal/shared";
-import type { CoreGatewayHealth, ManagedGatewayRuntimeMarker } from "@ccr/core/gateway/internal/shared";
-import { delay } from "@ccr/core/gateway/internal/clock";
+} from "@llmr/core/config/config-repository";
+import type { AppConfig, GatewayNetworkEndpoint } from "@llmr/core/contracts/app";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
+import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
+import { formatError, readHeader } from "@llmr/core/gateway/http/io";
+import { coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayEntryOverrideEnv, gatewayPackageCandidates, gatewayRuntimeMarkerFile, requireFromHere } from "@llmr/core/gateway/internal/shared";
+import type { CoreGatewayHealth, ManagedGatewayRuntimeMarker } from "@llmr/core/gateway/internal/shared";
+import { delay } from "@llmr/core/gateway/internal/clock";
 
 const gatewayRuntimeStateKey = "gateway";
 // The config-acceptance budget spans child spawn, the gateway module

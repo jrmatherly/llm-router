@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
-import type { ApiKeyConfig, AppConfig, ProfileConfig, RequestRouteTraceChange, RequestStreamMetrics, RouterFallbackConfig } from "@ccr/core/contracts/app";
+import type { ApiKeyConfig, AppConfig, ProfileConfig, RequestRouteTraceChange, RequestStreamMetrics, RouterFallbackConfig } from "@llmr/core/contracts/app";
 import {
   createSseErrorDetector,
   markGatewayRequestLogDropped,
   recordGatewayRequestLog
-} from "@ccr/core/observability/request-log-store";
-import { requestLogRequestedModel, requestLogResponseModel } from "@ccr/core/observability/request-log-model";
-import { recordGatewayUsageCapture, type UsageCaptureInput } from "@ccr/core/usage/store";
-import { ClaudeCodeRouterPlugin, type ClaudeCodeRouteDecision } from "@ccr/core/gateway/claude-code-router-plugin";
+} from "@llmr/core/observability/request-log-store";
+import { requestLogRequestedModel, requestLogResponseModel } from "@llmr/core/observability/request-log-model";
+import { recordGatewayUsageCapture, type UsageCaptureInput } from "@llmr/core/usage/store";
+import { ClaudeCodeRouterPlugin, type ClaudeCodeRouteDecision } from "@llmr/core/gateway/claude-code-router-plugin";
 import {
   codexCompactResponseStream,
   contextArchiveHandoffResponseStream,
@@ -19,39 +19,39 @@ import {
   type ContextArchiveRecord,
   type ContextArchiveReplayInput,
   type ContextArchiveReplayResult
-} from "@ccr/core/gateway/context-archive";
+} from "@llmr/core/gateway/context-archive";
 import {
   prepareCodexCompactCompatRequest,
   prepareContextArchiveToolContinuationRequest,
   resolveContextArchiveToolContinuation
-} from "@ccr/core/gateway/features/context-archive-continuation";
-import { isCodexResponsesCompactPath, type ContextArchiveResponseMode } from "@ccr/core/gateway/context-archive/protocol";
-import { adaptRouteRequestBody, restoreRouteRequestBody } from "@ccr/core/routing/protocol-adapter";
-import { reserveApiKeyLimits } from "@ccr/core/gateway/auth/api-key-authorizer";
-import { recordProviderCredentialOutcome } from "@ccr/core/providers/credential-pool";
-import { codexApplyPatchBridgeResponseStream, prepareCodexApplyPatchBridgeRequest } from "@ccr/core/gateway/features/codex-patch-bridge";
-import { codexMultiAgentBridgeResponseStream, prepareCodexMultiAgentBridgeRequest } from "@ccr/core/gateway/features/codex-multi-agent-bridge";
-import { rewriteAnthropicMessageStartModelStream, shouldRewriteAnthropicMessageStartModel } from "@ccr/core/gateway/features/anthropic-response-model";
-import { prepareCursorOpenAICompatChatBody } from "@ccr/core/gateway/features/cursor-compat";
-import { filteredResponseHeaders, formatError, formatUpstreamErrorForLog, forwardHeaders, inferGatewayClient, readRequestBody, sendJson, shouldCaptureGatewayUsage, shouldSendBody, stripLocalGatewayAuthHeaders } from "@ccr/core/gateway/http/io";
-import { appendAggregateErrorAttemptSummary, shouldBufferAggregateErrorBody } from "@ccr/core/gateway/http/error-detail";
-import { parseJsonObjectSafe, serializeJsonBody, takeJsonObject } from "@ccr/core/gateway/http/body";
-import { createGatewayModelsResponse, prepareClaudeAppDiscoveredModelRequest, prepareClaudeCodeDiscoveredModelRequest, shouldServeGatewayModelsResponse } from "@ccr/core/gateway/features/model-discovery";
-import { providerProtocolForClientProtocol, resolveProviderLogName, resolveResponseProviderProtocol, sanitizeHeaderValue } from "@ccr/core/providers/runtime-topology";
-import { createBodySampler, requestLogSampled, shouldRecordRequestLogs } from "@ccr/core/observability/raw-trace-sync";
-import { RequestRouteTraceRecorder } from "@ccr/core/observability/route-trace";
-import { coreGatewayBodyLimitBytes, coreGatewayUsageAttributionConfig } from "@ccr/core/gateway/core-runtime/config-compiler";
-import { providerModelPricingForUsage } from "@ccr/core/models/pricing-service";
-import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
-import { clientClosedRequestStatusCode, clientDisconnectMessage, coreGatewayAuthHeader, resolveStreamRequestLogOutcome, UpstreamRequestError } from "@ccr/core/gateway/internal/shared";
-import type { BrowserWebSearchMcpIntegration, BrowserWebSearchProtocolRecord, UpstreamFetchResult } from "@ccr/core/gateway/internal/shared";
-import { cancelResponseBody, destroyResponseStreams, fetchUpstreamWithFallback, mergeFallbackResponseHeaders, rewriteCapabilityResponseHeaders, uniqueStreams, upstreamResponseHeaders } from "@ccr/core/gateway/upstream/executor";
-import { requestProtocolForPath, shouldApplyGatewayRouting } from "@ccr/core/routing/protocol-endpoints";
-import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
-import { createClaudeCodeWebSearchContinuationContext, createHostedWebSearchProtocolContext, hostedWebSearchProtocolResponseStream, hostedWebSearchUnavailableMessage, prepareClaudeCodeWebSearchContinuationRequestBody, prepareHostedWebSearchProtocolRequestBody, selectClaudeCodeWebSearchContinuationRecords, selectHostedWebSearchProtocolRecords } from "@ccr/core/gateway/features/hosted-web-search/index";
-import { isModelAllowedForProfile, profileForApiKey } from "@ccr/core/profiles/model-allowlist";
-import { pluginService } from "@ccr/core/plugins/service";
-import { finalizeOpenRouterDiscountProviderRouterSelection } from "@ccr/core/plugins/built-ins/openrouter-discount-provider-router";
+} from "@llmr/core/gateway/features/context-archive-continuation";
+import { isCodexResponsesCompactPath, type ContextArchiveResponseMode } from "@llmr/core/gateway/context-archive/protocol";
+import { adaptRouteRequestBody, restoreRouteRequestBody } from "@llmr/core/routing/protocol-adapter";
+import { reserveApiKeyLimits } from "@llmr/core/gateway/auth/api-key-authorizer";
+import { recordProviderCredentialOutcome } from "@llmr/core/providers/credential-pool";
+import { codexApplyPatchBridgeResponseStream, prepareCodexApplyPatchBridgeRequest } from "@llmr/core/gateway/features/codex-patch-bridge";
+import { codexMultiAgentBridgeResponseStream, prepareCodexMultiAgentBridgeRequest } from "@llmr/core/gateway/features/codex-multi-agent-bridge";
+import { rewriteAnthropicMessageStartModelStream, shouldRewriteAnthropicMessageStartModel } from "@llmr/core/gateway/features/anthropic-response-model";
+import { prepareCursorOpenAICompatChatBody } from "@llmr/core/gateway/features/cursor-compat";
+import { filteredResponseHeaders, formatError, formatUpstreamErrorForLog, forwardHeaders, inferGatewayClient, readRequestBody, sendJson, shouldCaptureGatewayUsage, shouldSendBody, stripLocalGatewayAuthHeaders } from "@llmr/core/gateway/http/io";
+import { appendAggregateErrorAttemptSummary, shouldBufferAggregateErrorBody } from "@llmr/core/gateway/http/error-detail";
+import { parseJsonObjectSafe, serializeJsonBody, takeJsonObject } from "@llmr/core/gateway/http/body";
+import { createGatewayModelsResponse, prepareClaudeAppDiscoveredModelRequest, prepareClaudeCodeDiscoveredModelRequest, shouldServeGatewayModelsResponse } from "@llmr/core/gateway/features/model-discovery";
+import { providerProtocolForClientProtocol, resolveProviderLogName, resolveResponseProviderProtocol, sanitizeHeaderValue } from "@llmr/core/providers/runtime-topology";
+import { createBodySampler, requestLogSampled, shouldRecordRequestLogs } from "@llmr/core/observability/raw-trace-sync";
+import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace";
+import { coreGatewayBodyLimitBytes, coreGatewayUsageAttributionConfig } from "@llmr/core/gateway/core-runtime/config-compiler";
+import { providerModelPricingForUsage } from "@llmr/core/models/pricing-service";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
+import { clientClosedRequestStatusCode, clientDisconnectMessage, coreGatewayAuthHeader, resolveStreamRequestLogOutcome, UpstreamRequestError } from "@llmr/core/gateway/internal/shared";
+import type { BrowserWebSearchMcpIntegration, BrowserWebSearchProtocolRecord, UpstreamFetchResult } from "@llmr/core/gateway/internal/shared";
+import { cancelResponseBody, destroyResponseStreams, fetchUpstreamWithFallback, mergeFallbackResponseHeaders, rewriteCapabilityResponseHeaders, uniqueStreams, upstreamResponseHeaders } from "@llmr/core/gateway/upstream/executor";
+import { requestProtocolForPath, shouldApplyGatewayRouting } from "@llmr/core/routing/protocol-endpoints";
+import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
+import { createClaudeCodeWebSearchContinuationContext, createHostedWebSearchProtocolContext, hostedWebSearchProtocolResponseStream, hostedWebSearchUnavailableMessage, prepareClaudeCodeWebSearchContinuationRequestBody, prepareHostedWebSearchProtocolRequestBody, selectClaudeCodeWebSearchContinuationRecords, selectHostedWebSearchProtocolRecords } from "@llmr/core/gateway/features/hosted-web-search/index";
+import { isModelAllowedForProfile, profileForApiKey } from "@llmr/core/profiles/model-allowlist";
+import { pluginService } from "@llmr/core/plugins/service";
+import { finalizeOpenRouterDiscountProviderRouterSelection } from "@llmr/core/plugins/built-ins/openrouter-discount-provider-router";
 import {
   ccrRouteHeaderNames,
   ccrRouteDiagnosticsHeader,
@@ -59,9 +59,9 @@ import {
   ccrRouteSourceHeader,
   ccrRoutedModelHeader,
   ccrRouterHttpRoutePath
-} from "@ccr/core/gateway/core-runtime/router-plugin-contract";
-import { isRecord } from "@ccr/core/gateway/internal/value";
-import { combineStreamExperienceMetrics, createStreamExperienceMeter, monotonicNowMs } from "@ccr/core/observability/stream-experience";
+} from "@llmr/core/gateway/core-runtime/router-plugin-contract";
+import { isRecord } from "@llmr/core/gateway/internal/value";
+import { combineStreamExperienceMetrics, createStreamExperienceMeter, monotonicNowMs } from "@llmr/core/observability/stream-experience";
 
 export type GatewayRequestPipelineDependencies = {
   getBrowserWebSearchMcpIntegration: () => BrowserWebSearchMcpIntegration | undefined;

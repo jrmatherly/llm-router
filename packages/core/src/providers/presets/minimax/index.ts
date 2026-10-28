@@ -1,5 +1,5 @@
-import type { ProviderPreset } from "@ccr/core/providers/presets/types";
-import { standardProviderAccountConfig } from "@ccr/core/providers/presets/types";
+import type { ProviderPreset } from "@llmr/core/providers/presets/types";
+import { standardProviderAccountConfig } from "@llmr/core/providers/presets/types";
 
 export const minimaxGlobalProviderPreset: ProviderPreset = {
   account: standardProviderAccountConfig,

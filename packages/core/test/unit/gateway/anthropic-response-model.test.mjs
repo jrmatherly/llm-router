@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { Readable, Writable } from "node:stream";
 import test from "node:test";
-import { ClaudeCodeRouterPlugin } from "@ccr/core/gateway/claude-code-router-plugin.ts";
+import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
 import {
   rewriteAnthropicMessageStartModelStream,
   rewriteAnthropicSseBlockMessageStartModelForTest,
   shouldRewriteAnthropicMessageStartModel
-} from "@ccr/core/gateway/features/anthropic-response-model.ts";
-import { GatewayRequestPipeline } from "@ccr/core/gateway/request/pipeline.ts";
+} from "@llmr/core/gateway/features/anthropic-response-model.ts";
+import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
 
 async function streamText(stream) {
   const chunks = [];

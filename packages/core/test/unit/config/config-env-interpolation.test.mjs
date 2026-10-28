@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { interpolateRawAppConfigEnvVars } from "@ccr/core/config/config.ts";
+import { interpolateRawAppConfigEnvVars } from "@llmr/core/config/config.ts";
 
 test("config env interpolation is limited to legacy JSON config", () => {
   const previous = process.env.CCR_ENV_INTERPOLATION_SECRET;

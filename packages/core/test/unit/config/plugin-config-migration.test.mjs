@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { claudeDesignRuntimePluginConfig, claudeShipRuntimePluginConfig, migrateKnownGatewayPluginConfigsForTest, withClaudeDesignRuntimePluginConfig } from "@ccr/core/config/config.ts";
-import { CCR_DESKTOP_APP_ENV } from "@ccr/core/runtime/desktop-app.ts";
+import { claudeDesignRuntimePluginConfig, claudeShipRuntimePluginConfig, migrateKnownGatewayPluginConfigsForTest, withClaudeDesignRuntimePluginConfig } from "@llmr/core/config/config.ts";
+import { CCR_DESKTOP_APP_ENV } from "@llmr/core/runtime/desktop-app.ts";
 import { withDesktopRuntime } from "../../support/desktop-runtime.mjs";
 
 test("legacy combined Claude Design plugin config migrates to split Design and Ship plugins", async () => {

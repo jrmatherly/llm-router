@@ -10,7 +10,7 @@ process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(root, "user-data");
 
 let configApi;
 before(async () => {
-  configApi = await import("@ccr/core/config/config.ts");
+  configApi = await import("@llmr/core/config/config.ts");
 });
 
 const retained = { createdAt: "2026-01-01T00:00:00.000Z", id: "retained", key: "retained-token" };
@@ -44,7 +44,7 @@ test("interleaved settings saves preserve key rotations and updated limits", asy
 });
 
 test("profile maintenance cannot restore general keys from a stale config", async () => {
-  const { applyProfileConfig } = await import("@ccr/core/profiles/service.ts");
+  const { applyProfileConfig } = await import("@llmr/core/profiles/service.ts");
   const stale = await configApi.saveApiKeysConfig([retained, revoked]);
   await configApi.saveApiKeysConfig([retained]);
   stale.profile = { ...stale.profile, enabled: false, profiles: [] };
@@ -56,7 +56,7 @@ test("profile maintenance cannot restore general keys from a stale config", asyn
 });
 
 test("profile key generation uses the latest credentials without restoring revoked keys", async () => {
-  const { applyProfileConfig } = await import("@ccr/core/profiles/service.ts");
+  const { applyProfileConfig } = await import("@llmr/core/profiles/service.ts");
   const stale = await configApi.saveApiKeysConfig([retained, revoked]);
   await configApi.saveApiKeysConfig([retained]);
   stale.Providers = [{ name: "Provider", models: ["model"], api_base_url: "https://example.test/v1" }];

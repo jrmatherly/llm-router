@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { windowsBatchSetLine } from "@ccr/core/platform/windows-batch.ts";
+import { windowsBatchSetLine } from "@llmr/core/platform/windows-batch.ts";
 
 const specialValue = 'Habilynx/glm-5.3 (self hosted) 100% ^ & | < > "preview"';
 

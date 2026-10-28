@@ -1,15 +1,15 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import type { Event as ElectronEvent, WebContents } from "electron";
-import { loadAppConfig } from "@ccr/core/config/config";
+import { loadAppConfig } from "@llmr/core/config/config";
 import type {
   BuiltInBrowserAutomationHandoff,
   BuiltInBrowserAutomationHandoffKind,
   BuiltInBrowserState,
   BuiltInBrowserTabState
-} from "@ccr/core/contracts/app";
-import type { BrowserAutomationMcpIntegration } from "@ccr/core/gateway/service";
-import { BROWSER_AUTOMATION_MCP_PATH } from "@ccr/core/mcp/toolhub-config";
+} from "@llmr/core/contracts/app";
+import type { BrowserAutomationMcpIntegration } from "@llmr/core/gateway/service";
+import { BROWSER_AUTOMATION_MCP_PATH } from "@llmr/core/mcp/toolhub-config";
 import { builtInBrowserService, type BrowserAutomationEvent } from "./built-in-browser";
 import { chromeLoginImportService } from "./chrome-login-import";
 

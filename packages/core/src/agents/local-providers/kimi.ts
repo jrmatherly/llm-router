@@ -9,10 +9,10 @@ import type {
   LocalAgentProviderImportResult,
   ProviderAccountConfig,
   ProviderModelMetadata
-} from "@ccr/core/contracts/app";
-import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
-import { findProviderPresetByBaseUrl } from "@ccr/core/providers/presets/index";
-import { resolveUserPath } from "@ccr/core/runtime/app-paths";
+} from "@llmr/core/contracts/app";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
+import { findProviderPresetByBaseUrl } from "@llmr/core/providers/presets/index";
+import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 import {
   bearerAuthPlugin,
   cloneProviderAccountConfig,
@@ -25,7 +25,7 @@ import {
   readString,
   uniqueProviderName,
   uniqueStrings
-} from "@ccr/core/agents/local-providers/shared";
+} from "@llmr/core/agents/local-providers/shared";
 
 const kimiDefaultBaseUrl = "https://api.kimi.com/coding/v1";
 const kimiPlatformBaseUrl = "https://api.moonshot.ai/v1";

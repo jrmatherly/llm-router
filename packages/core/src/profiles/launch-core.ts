@@ -1,11 +1,11 @@
 import path from "node:path";
-import type { AppConfig, ProfileConfig, ProfileOpenSurface } from "@ccr/core/contracts/app";
-import { claudeCodeModelEnv as claudeCodeProfileModelEnv, claudeCodeUtcTimezoneEnvOverride } from "@ccr/core/agents/claude-code/environment";
-import { resolveKiloConfigFile as resolveKiloProfileConfigFile } from "@ccr/core/agents/kilo/profile-config";
-import { resolveOpenCodeConfigFile as resolveOpenCodeProfileConfigFile } from "@ccr/core/agents/opencode/profile-config";
-import { piWrapperFilename, resolvePiAgentDir, resolvePiSessionDir } from "@ccr/core/agents/pi/profile-config";
-import { resolveZcodeConfigFile } from "@ccr/core/agents/zcode/profile-config";
-import { resolveUserPath } from "@ccr/core/runtime/app-paths";
+import type { AppConfig, ProfileConfig, ProfileOpenSurface } from "@llmr/core/contracts/app";
+import { claudeCodeModelEnv as claudeCodeProfileModelEnv, claudeCodeUtcTimezoneEnvOverride } from "@llmr/core/agents/claude-code/environment";
+import { resolveKiloConfigFile as resolveKiloProfileConfigFile } from "@llmr/core/agents/kilo/profile-config";
+import { resolveOpenCodeConfigFile as resolveOpenCodeProfileConfigFile } from "@llmr/core/agents/opencode/profile-config";
+import { piWrapperFilename, resolvePiAgentDir, resolvePiSessionDir } from "@llmr/core/agents/pi/profile-config";
+import { resolveZcodeConfigFile } from "@llmr/core/agents/zcode/profile-config";
+import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 
 export type ProfileLaunchPlan = {
   args: string[];

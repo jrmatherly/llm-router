@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   createProviderAccountWebContentFetchHandler,
   providerAccountWebContentInternalsForTest
-} from "@ccr/electron/main/provider-account-webcontent.ts";
+} from "@llmr/electron/main/provider-account-webcontent.ts";
 
 test("browser account fetch handler uses built-in browser partition and sanitizes manual cookie headers", async () => {
   let browserWindowOptions: any;

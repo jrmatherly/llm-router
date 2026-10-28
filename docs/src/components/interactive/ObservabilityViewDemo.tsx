@@ -12,7 +12,7 @@ import { AppI18nContext, appCopy } from "@/pages/home/shared/i18n";
 import { getAgentAnalysisData } from "./mockData";
 import { DemoShell } from "./demoRuntime";
 import type { AgentFilterValue } from "@/pages/home/shared/options";
-import type { AgentAnalysisSessionSelection, AgentAnalysisSnapshot } from "@ccr/core/contracts/app";
+import type { AgentAnalysisSessionSelection, AgentAnalysisSnapshot } from "@llmr/core/contracts/app";
 
 const noop = () => {};
 

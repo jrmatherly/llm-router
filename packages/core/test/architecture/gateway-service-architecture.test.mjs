@@ -34,7 +34,7 @@ test("gateway implementation modules do not depend on the public facade", () => 
   const serviceFile = path.join(gatewayRoot, "service.ts");
   const reverseDependencies = typescriptFiles(gatewayRoot)
     .filter((file) => file !== serviceFile)
-    .filter((file) => /(?:@ccr\/core|\.\.)\/gateway\/service/.test(readFileSync(file, "utf8")));
+    .filter((file) => /(?:@llmr\/core|\.\.)\/gateway\/service/.test(readFileSync(file, "utf8")));
 
   assert.deepEqual(reverseDependencies, []);
 });

@@ -4,12 +4,12 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { normalizeGrokProviderMediaCapabilities } from "@ccr/core/agents/local-providers/grok.ts";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { GatewayMediaExecutor } from "@ccr/core/media/executors.ts";
-import { MediaService, mediaServiceForTest, resolveProviderMediaTarget } from "@ccr/core/media/service.ts";
-import { mediaMcpToolDefinition } from "@ccr/core/media/tools.ts";
-import { MEDIA_ARTIFACT_PATH_PREFIX, handleMediaArtifactRequest, handleMediaToolsMcpRequest } from "@ccr/core/mcp/grok-media-mcp.ts";
+import { normalizeGrokProviderMediaCapabilities } from "@llmr/core/agents/local-providers/grok.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { GatewayMediaExecutor } from "@llmr/core/media/executors.ts";
+import { MediaService, mediaServiceForTest, resolveProviderMediaTarget } from "@llmr/core/media/service.ts";
+import { mediaMcpToolDefinition } from "@llmr/core/media/tools.ts";
+import { MEDIA_ARTIFACT_PATH_PREFIX, handleMediaArtifactRequest, handleMediaToolsMcpRequest } from "@llmr/core/mcp/grok-media-mcp.ts";
 import { waitForTcpListener } from "../../support/loopback-listener.mjs";
 
 const png = Buffer.concat([

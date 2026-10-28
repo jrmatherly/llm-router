@@ -1,5 +1,5 @@
 import { ProxyAgent, type Dispatcher } from "undici";
-import { loadAppConfig } from "@ccr/core/config/config";
+import { loadAppConfig } from "@llmr/core/config/config";
 import {
   customUpstreamProxyFromConfig,
   readCurrentSystemUpstreamProxy,
@@ -7,8 +7,8 @@ import {
   upstreamProxyUrl,
   type UpstreamProxyConfig,
   type UpstreamProxyServer
-} from "@ccr/core/proxy/system-proxy";
-import type { AppConfig } from "@ccr/core/contracts/app";
+} from "@llmr/core/proxy/system-proxy";
+import type { AppConfig } from "@llmr/core/contracts/app";
 
 type FetchInitWithDispatcher = RequestInit & {
   dispatcher?: Dispatcher;

@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { Readable } from "node:stream";
 import test from "node:test";
-import { codexCompactResponseStream } from "@ccr/core/gateway/context-archive.ts";
+import { codexCompactResponseStream } from "@llmr/core/gateway/context-archive.ts";
 import {
   prepareCodexApplyPatchBridgeRequest,
   prepareCodexCompactCompatRequest,
   transformCodexApplyPatchBridgeResponseValue,
   transformCodexApplyPatchBridgeSseEvent
-} from "@ccr/core/gateway/service.ts";
+} from "@llmr/core/gateway/service.ts";
 
 const config = {
   Providers: [],

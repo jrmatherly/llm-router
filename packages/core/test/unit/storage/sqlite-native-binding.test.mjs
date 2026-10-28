@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { betterSqliteNativeBindingCandidates } from "@ccr/core/storage/sqlite-native.ts";
+import { betterSqliteNativeBindingCandidates } from "@llmr/core/storage/sqlite-native.ts";
 
 test("node runtime resolves only the default binary", () => {
   assert.deepEqual(betterSqliteNativeBindingCandidates({}), [

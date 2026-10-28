@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { mediaToolsConfigFromRawForTest, virtualModelProfileFromRawForTest } from "@ccr/core/config/config.ts";
-import { shouldRestartGatewayForRuntimeConfigChange } from "@ccr/core/gateway/runtime-change.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { mediaToolsConfigFromRawForTest, virtualModelProfileFromRawForTest } from "@llmr/core/config/config.ts";
+import { shouldRestartGatewayForRuntimeConfigChange } from "@llmr/core/gateway/runtime-change.ts";
 
 test("ToolHub config changes restart the gateway runtime", () => {
   const previous = createDefaultAppConfig();

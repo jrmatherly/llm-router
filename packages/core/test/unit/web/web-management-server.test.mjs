@@ -24,7 +24,7 @@ after(() => {
 });
 
 test("normalizeExternalHttpTarget accepts absolute http, https, and LLMR plugin URLs only", async () => {
-  const { normalizeExternalHttpTarget } = await import("@ccr/core/web/management-server.ts");
+  const { normalizeExternalHttpTarget } = await import("@llmr/core/web/management-server.ts");
   assert.equal(normalizeExternalHttpTarget(""), undefined);
   assert.equal(normalizeExternalHttpTarget(undefined), undefined);
   assert.equal(normalizeExternalHttpTarget("about:blank"), undefined);
@@ -36,7 +36,7 @@ test("normalizeExternalHttpTarget accepts absolute http, https, and LLMR plugin 
 });
 
 test("the management URL carries the token as llmr_web_token", async () => {
-  const { startWebManagementServer } = await import("@ccr/core/web/management-server.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
   const runtime = await startWebManagementServer({ authToken: "test-web-auth-token", host: "127.0.0.1", port: 0, startGateway: false });
   try {
     const url = new URL(runtime.url);
@@ -48,7 +48,7 @@ test("the management URL carries the token as llmr_web_token", async () => {
 });
 
 test("resolveRendererRoot falls back to the app resources when the CLI runs from a copy outside the app", async () => {
-  const { resolveRendererRoot } = await import("@ccr/core/web/management-server.ts");
+  const { resolveRendererRoot } = await import("@llmr/core/web/management-server.ts");
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-renderer-root-test-"));
   try {
     const copiedCliDir = path.join(root, "home", ".llm-router", "bin");
@@ -70,7 +70,7 @@ test("resolveRendererRoot falls back to the app resources when the CLI runs from
 });
 
 test("web RPC ignores Origin and Referer when the auth token is valid", async () => {
-  const { startWebManagementServer } = await import("@ccr/core/web/management-server.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
   const authToken = "test-web-auth-token";
   const runtime = await startWebManagementServer({
     authToken,
@@ -101,11 +101,11 @@ test("web RPC ignores Origin and Referer when the auth token is valid", async ()
 });
 
 test("startGateway reuses an already healthy LLMR gateway on the configured port", async () => {
-  const { saveAppConfig } = await import("@ccr/core/config/config.ts");
-  const { createDefaultAppConfig } = await import("@ccr/core/config/default-config.ts");
-  const { gatewayRuntimeConfigRevision } = await import("@ccr/core/gateway/runtime-config-control.ts");
-  const { gatewayService } = await import("@ccr/core/gateway/service.ts");
-  const { startWebManagementServer } = await import("@ccr/core/web/management-server.ts");
+  const { saveAppConfig } = await import("@llmr/core/config/config.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { gatewayRuntimeConfigRevision } = await import("@llmr/core/gateway/runtime-config-control.ts");
+  const { gatewayService } = await import("@llmr/core/gateway/service.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
   await gatewayService.stop();
   const gatewayPort = await findAvailablePort();
   const webAuthToken = "test-web-auth-token";

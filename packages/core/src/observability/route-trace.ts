@@ -6,8 +6,8 @@ import type {
   RequestRouteTraceOutcome,
   RequestRouteTracePhase,
   RequestRouteTraceTarget
-} from "@ccr/core/contracts/app";
-import { isSensitiveRequestLogHeaderName } from "@ccr/core/observability/sensitive-headers";
+} from "@llmr/core/contracts/app";
+import { isSensitiveRequestLogHeaderName } from "@llmr/core/observability/sensitive-headers";
 
 export type RouteTraceObservation = {
   attempt?: number;

@@ -2,17 +2,17 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync }
 import os from "node:os";
 import path from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
-import { resolveRuntimeAppPath } from "@ccr/core/runtime/app-paths";
-import { saveAppConfig } from "@ccr/core/config/config";
-import { updatePersistedApiKeys } from "@ccr/core/config/config-repository";
-import { CONFIGDIR } from "@ccr/core/config/constants";
+import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
+import { saveAppConfig } from "@llmr/core/config/config";
+import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
+import { CONFIGDIR } from "@llmr/core/config/constants";
 import {
   buildClaudeAppGatewayInferenceModels,
   type ClaudeAppGatewayInferenceModel,
   type ClaudeAppGatewayModelRouteOptions
-} from "@ccr/core/agents/claude-app/gateway-routes";
-import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, hasAvailableGatewayModels, type ApiKeyConfig, type AppConfig, type ClaudeAppGatewayApplyResult } from "@ccr/core/contracts/app";
-import { findModelCatalogEntry } from "@ccr/core/gateway/model-catalog";
+} from "@llmr/core/agents/claude-app/gateway-routes";
+import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, hasAvailableGatewayModels, type ApiKeyConfig, type AppConfig, type ClaudeAppGatewayApplyResult } from "@llmr/core/contracts/app";
+import { findModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
 
 const CLAUDE_APP_CONFIG_ID = "8f69f2f1-3275-4ad8-9317-4aa7e972f311";
 const CLAUDE_APP_CONFIG_NAME = "LLM Router";

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { monitorEventLoopDelay, performance } from "node:perf_hooks";
 import process from "node:process";
-import * as requestLogs from "@ccr/core/observability/request-log-store.ts";
+import * as requestLogs from "@llmr/core/observability/request-log-store.ts";
 
 const scenarios = [
   { bodyBytes: 256, hops: 0, name: "small-no-trace", records: 2_000 },

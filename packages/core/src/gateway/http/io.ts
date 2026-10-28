@@ -3,9 +3,9 @@
  */
 import type { IncomingHttpHeaders, IncomingMessage, Server, ServerResponse } from "node:http";
 import { homedir } from "node:os";
-import type { ApiKeyConfig } from "@ccr/core/contracts/app";
-import { ccrRemoteControlPathPrefix } from "@ccr/core/gateway/remote-control-service";
-import { coreGatewayAuthHeader, localObservabilityHeaderNames, proxyHeaderDenyList, responseHeaderDenyList, sdkCompatibleTokenHeaderNames } from "@ccr/core/gateway/internal/shared";
+import type { ApiKeyConfig } from "@llmr/core/contracts/app";
+import { ccrRemoteControlPathPrefix } from "@llmr/core/gateway/remote-control-service";
+import { coreGatewayAuthHeader, localObservabilityHeaderNames, proxyHeaderDenyList, responseHeaderDenyList, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
 
 
 const clientNameHeaders = ["x-ccr-client", "x-client-name", "x-forwarded-client-cert", "x-claude-gateway-user-email", "x-litellm-end-user-id"];

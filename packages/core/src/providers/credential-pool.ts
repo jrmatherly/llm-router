@@ -1,17 +1,17 @@
-import type { AppConfig, GatewayProviderConfig, ProviderCredentialConfig } from "@ccr/core/contracts/app";
-import { estimateLimitUsage, limitRules, readWindowCounter } from "@ccr/core/gateway/limits/window-limiter";
+import type { AppConfig, GatewayProviderConfig, ProviderCredentialConfig } from "@llmr/core/contracts/app";
+import { estimateLimitUsage, limitRules, readWindowCounter } from "@llmr/core/gateway/limits/window-limiter";
 import {
   type ApiKeyLimitRule,
   type ApiKeyLimitUsage,
   type UpstreamAttempt
-} from "@ccr/core/gateway/internal/shared";
+} from "@llmr/core/gateway/internal/shared";
 import {
   findProviderByPublicOrInternalName,
   findProviderCredentialByRuntimeId,
   findProviderCredentialBySlug,
   parseProviderCredentialInternalName,
   providerCredentialRuntimeId
-} from "@ccr/core/providers/runtime-topology";
+} from "@llmr/core/providers/runtime-topology";
 
 const providerCredentialCooldownMs = 60_000;
 const providerCredentialCooldowns = new Map<string, { reason: string; until: number }>();

@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildClaudeAppGatewayModelRoutes } from "@ccr/core/agents/claude-app/gateway-routes.ts";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
+import { buildClaudeAppGatewayModelRoutes } from "@llmr/core/agents/claude-app/gateway-routes.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import {
   ccrRoutedModelHeader,
   ccrRouterRouteResolverKey
-} from "@ccr/core/gateway/core-runtime/router-plugin-contract.ts";
-import { createGatewayPlugin } from "@ccr/core/gateway/core-runtime/router-plugin.ts";
-import { prepareClaudeAppDiscoveredModelRequest } from "@ccr/core/gateway/features/model-discovery.ts";
-import { fetchUpstreamWithFallback, prepareGatewayUpstreamAttemptForTest } from "@ccr/core/gateway/upstream/executor.ts";
-import { RequestRouteTraceRecorder } from "@ccr/core/observability/route-trace.ts";
+} from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
+import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/router-plugin.ts";
+import { prepareClaudeAppDiscoveredModelRequest } from "@llmr/core/gateway/features/model-discovery.ts";
+import { fetchUpstreamWithFallback, prepareGatewayUpstreamAttemptForTest } from "@llmr/core/gateway/upstream/executor.ts";
+import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace.ts";
 
 const retryConfig = {
   Providers: [],

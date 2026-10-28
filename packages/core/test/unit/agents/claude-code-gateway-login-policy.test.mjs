@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:f
 import os from "node:os";
 import path from "node:path";
 import test, { mock } from "node:test";
-import { claudeCodeManagedSettingsDir, claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@ccr/core/agents/claude-code/gateway-login-policy.ts";
+import { claudeCodeManagedSettingsDir, claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@llmr/core/agents/claude-code/gateway-login-policy.ts";
 
 function withTempDir(run) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-gateway-login-policy-"));

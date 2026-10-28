@@ -1,17 +1,17 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { pipeline, Readable } from "node:stream";
-import type { ApiKeyConfig, AppConfig, GatewayProviderConfig, GatewayProviderProtocol, ProfileConfig, RouterRule } from "@ccr/core/contracts/app";
+import type { ApiKeyConfig, AppConfig, GatewayProviderConfig, GatewayProviderProtocol, ProfileConfig, RouterRule } from "@llmr/core/contracts/app";
 import {
   claudeCodeWifTokenPath,
   exchangeClaudeCodeWifToken,
   resolveApiKeyFromHeaders
-} from "@ccr/core/gateway/auth/api-key-authorizer";
-import { ccrRemoteControlPathPrefix, ccrRemoteControlService, remoteControlOwnerId } from "@ccr/core/gateway/remote-control-service";
+} from "@llmr/core/gateway/auth/api-key-authorizer";
+import { ccrRemoteControlPathPrefix, ccrRemoteControlService, remoteControlOwnerId } from "@llmr/core/gateway/remote-control-service";
 import {
   ClaudeCodeRouterPlugin,
   type ClaudeCodeRouteDecision
-} from "@ccr/core/gateway/claude-code-router-plugin";
+} from "@llmr/core/gateway/claude-code-router-plugin";
 import {
   ccrAnthropicReasoningResponseHookKey,
   ccrCodexApplyPatchBridgeHeader,
@@ -42,41 +42,41 @@ import {
   ccrRouterRequestTransformKey,
   encodeCcrRouteFallbackHeader,
   type CcrRouterPluginRouteRequest
-} from "@ccr/core/gateway/core-runtime/router-plugin-contract";
-import { coalesceAnthropicReasoningResponse } from "@ccr/core/gateway/features/anthropic-reasoning-response";
-import { coreGatewayAuthHeader, rawTraceSyncHeader, rawTraceSyncPath, sdkCompatibleTokenHeaderNames } from "@ccr/core/gateway/internal/shared";
-import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@ccr/core/gateway/runtime-config-control";
+} from "@llmr/core/gateway/core-runtime/router-plugin-contract";
+import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response";
+import { coreGatewayAuthHeader, rawTraceSyncHeader, rawTraceSyncPath, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
+import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
 import {
   createClaudeCliBootstrapResponse,
   createGatewayModelsResponse,
   resolveGatewayPublicModelId
-} from "@ccr/core/gateway/features/model-discovery";
+} from "@llmr/core/gateway/features/model-discovery";
 import {
   codexApplyPatchBridgeResponseStream,
   prepareCodexApplyPatchBridgeRequest,
   transformCodexApplyPatchBridgeResponseValue
-} from "@ccr/core/gateway/features/codex-patch-bridge";
+} from "@llmr/core/gateway/features/codex-patch-bridge";
 import {
   codexMultiAgentBridgeResponseStream,
   prepareCodexMultiAgentBridgeRequest,
   transformCodexMultiAgentBridgeResponseValue
-} from "@ccr/core/gateway/features/codex-multi-agent-bridge";
-import { requestLogRequestedModel } from "@ccr/core/observability/request-log-model";
-import { createStreamExperienceMeter, LiveTokenRateTracker } from "@ccr/core/observability/stream-experience";
+} from "@llmr/core/gateway/features/codex-multi-agent-bridge";
+import { requestLogRequestedModel } from "@llmr/core/observability/request-log-model";
+import { createStreamExperienceMeter, LiveTokenRateTracker } from "@llmr/core/observability/stream-experience";
 import {
   finalizeOpenRouterDiscountProviderRouterSelection,
   openRouterDiscountProviderRouterTransform
-} from "@ccr/core/plugins/built-ins/openrouter-discount-provider-router";
+} from "@llmr/core/plugins/built-ins/openrouter-discount-provider-router";
 import type {
   GatewayPluginRequestTransformContext,
   GatewayPluginRequestTransformInput as CcrGatewayPluginRequestTransformInput
-} from "@ccr/core/plugins/service";
-import { isModelAllowedForProfile, profileForApiKey } from "@ccr/core/profiles/model-allowlist";
-import { profileApiKeyId } from "@ccr/core/profiles/api-key";
-import { adaptRouteRequestBody, restoreRouteRequestBody } from "@ccr/core/routing/protocol-adapter";
-import { requestProtocolForPath, shouldApplyGatewayRouting } from "@ccr/core/routing/protocol-endpoints";
-import { RouteScriptRuntime } from "@ccr/core/routing/route-script-runtime";
-import { modelRegistryForConfig, normalizeRouteSelector, parseProviderModelSelector, providerRuntimeId } from "@ccr/core/routing/model-registry";
+} from "@llmr/core/plugins/service";
+import { isModelAllowedForProfile, profileForApiKey } from "@llmr/core/profiles/model-allowlist";
+import { profileApiKeyId } from "@llmr/core/profiles/api-key";
+import { adaptRouteRequestBody, restoreRouteRequestBody } from "@llmr/core/routing/protocol-adapter";
+import { requestProtocolForPath, shouldApplyGatewayRouting } from "@llmr/core/routing/protocol-endpoints";
+import { RouteScriptRuntime } from "@llmr/core/routing/route-script-runtime";
+import { modelRegistryForConfig, normalizeRouteSelector, parseProviderModelSelector, providerRuntimeId } from "@llmr/core/routing/model-registry";
 import {
   activeProviderCredentials,
   normalizedProviderCapabilities,
@@ -87,7 +87,7 @@ import {
   providerProtocolForClientProtocol,
   sanitizeHeaderValue,
   sortProviderCredentialsForConfig
-} from "@ccr/core/providers/runtime-topology";
+} from "@llmr/core/providers/runtime-topology";
 
 type GatewayPluginFactoryInput = {
   plugin?: {

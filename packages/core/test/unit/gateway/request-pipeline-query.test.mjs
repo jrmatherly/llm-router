@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { Readable, Writable } from "node:stream";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { GatewayRequestPipeline } from "@ccr/core/gateway/request/pipeline.ts";
-import { ClaudeCodeRouterPlugin } from "@ccr/core/gateway/claude-code-router-plugin.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
+import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
 
 test("#1819 client-visible fallback error includes 429 and 404 before final model_resolution 400", async () => {
   const config = createDefaultAppConfig();

@@ -3,10 +3,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { codexDefaultBaseUrl } from "@ccr/core/agents/local-providers/service.ts";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { compileCoreGatewayConfig } from "@ccr/core/gateway/core-runtime/config-compiler.ts";
-import { prepareGatewayUpstreamAttemptForTest } from "@ccr/core/gateway/upstream/executor.ts";
+import { codexDefaultBaseUrl } from "@llmr/core/agents/local-providers/service.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
+import { prepareGatewayUpstreamAttemptForTest } from "@llmr/core/gateway/upstream/executor.ts";
 
 test("provider plugins use compiled runtime and capability identities", async () => {
   const unchangedPlugin = { key: "unscoped-plugin" };

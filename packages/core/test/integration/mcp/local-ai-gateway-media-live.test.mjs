@@ -5,18 +5,18 @@ import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { grokCandidate, importGrokProvider } from "@ccr/core/agents/local-providers/grok.ts";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { compileCoreGatewayConfig } from "@ccr/core/gateway/core-runtime/config-compiler.ts";
-import { isCoreGatewayHealthy, spawnGatewayProcess } from "@ccr/core/gateway/core-runtime/supervisor.ts";
-import { coreGatewayAuthHeader } from "@ccr/core/gateway/internal/shared.ts";
-import { MediaService } from "@ccr/core/media/service.ts";
+import { grokCandidate, importGrokProvider } from "@llmr/core/agents/local-providers/grok.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
+import { isCoreGatewayHealthy, spawnGatewayProcess } from "@llmr/core/gateway/core-runtime/supervisor.ts";
+import { coreGatewayAuthHeader } from "@llmr/core/gateway/internal/shared.ts";
+import { MediaService } from "@llmr/core/media/service.ts";
 import {
   MEDIA_ARTIFACT_PATH_PREFIX,
   handleMediaArtifactRequest,
   handleMediaToolsMcpRequest
-} from "@ccr/core/mcp/grok-media-mcp.ts";
-import { getSystemProxyUrlForProtocol } from "@ccr/core/proxy/system-proxy-fetch.ts";
+} from "@llmr/core/mcp/grok-media-mcp.ts";
+import { getSystemProxyUrlForProtocol } from "@llmr/core/proxy/system-proxy-fetch.ts";
 
 const localGatewayEntry = process.env.CCR_LIVE_AI_GATEWAY_ENTRY;
 const liveEnabled = process.env.CCR_LIVE_GROK_MEDIA === "1";

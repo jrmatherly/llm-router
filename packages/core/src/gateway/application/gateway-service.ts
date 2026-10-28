@@ -4,41 +4,41 @@
 import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import type { ApiKeyConfig, AppConfig, GatewayStatus, RouteScriptTestRequest, RouteScriptTestResult, RouteScriptValidationRequest, RouteScriptValidationResult, RouterRule } from "@ccr/core/contracts/app";
-import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, hasAvailableGatewayModels } from "@ccr/core/contracts/app";
-import { loadAppConfig } from "@ccr/core/config/config";
-import { backendService } from "@ccr/core/plugins/backend-service";
-import { getSystemProxyUrlForProtocol } from "@ccr/core/proxy/system-proxy-fetch";
-import { pluginService } from "@ccr/core/plugins/service";
-import { proxyService } from "@ccr/core/proxy/service";
-import { ClaudeCodeRouterPlugin } from "@ccr/core/gateway/claude-code-router-plugin";
-import { compileCoreGatewayConfig } from "@ccr/core/gateway/core-runtime/config-compiler";
-import { isAddressInUseMessage, probeExistingCcrGateway, reloadExistingCcrGatewayConfig } from "@ccr/core/gateway/existing-gateway-probe";
-import { closeServer, formatError, sendGatewayError } from "@ccr/core/gateway/http/io";
-import { RawTraceSynchronizer } from "@ccr/core/observability/raw-trace-sync";
-import { GatewayBillingSynchronizer } from "@ccr/core/usage/billing-sync";
-import { assertLoopbackCoreHost, endpoint, formatCoreGatewayChildExit, gatewayNetworkEndpoints, gatewayRuntimeSupportsRouterPlugin, generateCoreGatewayAuthToken, isCoreGatewayHealthy, loopbackCoreHostError, removeManagedCoreGatewayMarker, shouldRunGatewayRuntime, shouldRunUnifiedServer, spawnGatewayProcess, stopPreviousManagedCoreGateway, waitForCoreGatewayStop, waitForManagedCoreGatewayReady, writeManagedCoreGatewayMarker } from "@ccr/core/gateway/core-runtime/supervisor";
-import { coreGatewayAuthHeader } from "@ccr/core/gateway/internal/shared";
-import type { BrowserAutomationMcpIntegration, BrowserWebSearchMcpIntegration, GatewayStopOptions } from "@ccr/core/gateway/internal/shared";
+import type { ApiKeyConfig, AppConfig, GatewayStatus, RouteScriptTestRequest, RouteScriptTestResult, RouteScriptValidationRequest, RouteScriptValidationResult, RouterRule } from "@llmr/core/contracts/app";
+import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, hasAvailableGatewayModels } from "@llmr/core/contracts/app";
+import { loadAppConfig } from "@llmr/core/config/config";
+import { backendService } from "@llmr/core/plugins/backend-service";
+import { getSystemProxyUrlForProtocol } from "@llmr/core/proxy/system-proxy-fetch";
+import { pluginService } from "@llmr/core/plugins/service";
+import { proxyService } from "@llmr/core/proxy/service";
+import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin";
+import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler";
+import { isAddressInUseMessage, probeExistingCcrGateway, reloadExistingCcrGatewayConfig } from "@llmr/core/gateway/existing-gateway-probe";
+import { closeServer, formatError, sendGatewayError } from "@llmr/core/gateway/http/io";
+import { RawTraceSynchronizer } from "@llmr/core/observability/raw-trace-sync";
+import { GatewayBillingSynchronizer } from "@llmr/core/usage/billing-sync";
+import { assertLoopbackCoreHost, endpoint, formatCoreGatewayChildExit, gatewayNetworkEndpoints, gatewayRuntimeSupportsRouterPlugin, generateCoreGatewayAuthToken, isCoreGatewayHealthy, loopbackCoreHostError, removeManagedCoreGatewayMarker, shouldRunGatewayRuntime, shouldRunUnifiedServer, spawnGatewayProcess, stopPreviousManagedCoreGateway, waitForCoreGatewayStop, waitForManagedCoreGatewayReady, writeManagedCoreGatewayMarker } from "@llmr/core/gateway/core-runtime/supervisor";
+import { coreGatewayAuthHeader } from "@llmr/core/gateway/internal/shared";
+import type { BrowserAutomationMcpIntegration, BrowserWebSearchMcpIntegration, GatewayStopOptions } from "@llmr/core/gateway/internal/shared";
 import {
   ccrLiveTokenRateConfigMessageType,
   ccrLiveTokenRateSnapshotMessageType,
   ccrRuntimeConfigReloadMessageType
-} from "@ccr/core/gateway/core-runtime/router-plugin-contract";
-import { GatewayRequestPipeline } from "@ccr/core/gateway/request/pipeline";
-import { GatewayHttpRequestHandler } from "@ccr/core/gateway/http/request-handler";
-import { gatewayRuntimeConfigRevision } from "@ccr/core/gateway/runtime-config-control";
-import { shouldRestartGatewayForRuntimeConfigChange } from "@ccr/core/gateway/runtime-change";
-import { RouteScriptRuntime } from "@ccr/core/routing/route-script-runtime";
-import { buildRouteScriptInput } from "@ccr/core/routing/route-script-context";
-import { compileRouterConfig } from "@ccr/core/routing/config-compiler";
-import { normalizeRouteScriptResult, scriptResultPreview } from "@ccr/core/routing/route-script-result";
-import { mediaService } from "@ccr/core/media/service";
-import { mediaToolsGatewayEndpoint } from "@ccr/core/mcp/grok-media-config";
-import { browserAutomationMcpEnabled } from "@ccr/core/mcp/toolhub-config";
-import { installSocketTypeOfServiceCompat } from "@ccr/core/platform/socket-compat";
-import { profileApiKeyId } from "@ccr/core/profiles/api-key";
-import { setExternalLiveTokenRateSnapshot } from "@ccr/core/observability/stream-experience";
+} from "@llmr/core/gateway/core-runtime/router-plugin-contract";
+import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline";
+import { GatewayHttpRequestHandler } from "@llmr/core/gateway/http/request-handler";
+import { gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
+import { shouldRestartGatewayForRuntimeConfigChange } from "@llmr/core/gateway/runtime-change";
+import { RouteScriptRuntime } from "@llmr/core/routing/route-script-runtime";
+import { buildRouteScriptInput } from "@llmr/core/routing/route-script-context";
+import { compileRouterConfig } from "@llmr/core/routing/config-compiler";
+import { normalizeRouteScriptResult, scriptResultPreview } from "@llmr/core/routing/route-script-result";
+import { mediaService } from "@llmr/core/media/service";
+import { mediaToolsGatewayEndpoint } from "@llmr/core/mcp/grok-media-config";
+import { browserAutomationMcpEnabled } from "@llmr/core/mcp/toolhub-config";
+import { installSocketTypeOfServiceCompat } from "@llmr/core/platform/socket-compat";
+import { profileApiKeyId } from "@llmr/core/profiles/api-key";
+import { setExternalLiveTokenRateSnapshot } from "@llmr/core/observability/stream-experience";
 
 installSocketTypeOfServiceCompat();
 

@@ -3,12 +3,12 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { isManagedPiModelsContent, writePiGatewayConfig } from "@ccr/core/agents/pi/profile-config.ts";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
+import { isManagedPiModelsContent, writePiGatewayConfig } from "@llmr/core/agents/pi/profile-config.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import {
   findProviderModelCatalogEntry,
   modelCatalogMaxInputTokens
-} from "@ccr/core/gateway/model-catalog.ts";
+} from "@llmr/core/gateway/model-catalog.ts";
 
 test("Pi profile config writes an LLMR OpenAI Responses provider", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-profile-"));

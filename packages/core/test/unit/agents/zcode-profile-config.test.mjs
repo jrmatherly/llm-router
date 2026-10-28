@@ -3,9 +3,9 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { buildZcodeModelCatalog } from "@ccr/core/agents/zcode/model-catalog.ts";
-import { writeZcodeGatewayConfig } from "@ccr/core/agents/zcode/profile-config.ts";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
+import { buildZcodeModelCatalog } from "@llmr/core/agents/zcode/model-catalog.ts";
+import { writeZcodeGatewayConfig } from "@llmr/core/agents/zcode/profile-config.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 
 const fusionModel = "Fusion/catalog-context";
 const knownModel = "Codex API/gpt-5.6-sol";

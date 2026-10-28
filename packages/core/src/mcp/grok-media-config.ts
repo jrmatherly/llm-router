@@ -1,7 +1,7 @@
 import { join as pathJoin } from "node:path";
-import type { AppConfig, GatewayMcpServerConfig } from "@ccr/core/contracts/app";
-import { MEDIA_TOOLS_MCP_SERVER_NAME } from "@ccr/core/contracts/app";
-import { mediaMcpToolDefinition, mediaToolBindingsForConfig } from "@ccr/core/media/tools";
+import type { AppConfig, GatewayMcpServerConfig } from "@llmr/core/contracts/app";
+import { MEDIA_TOOLS_MCP_SERVER_NAME } from "@llmr/core/contracts/app";
+import { mediaMcpToolDefinition, mediaToolBindingsForConfig } from "@llmr/core/media/tools";
 
 export const MEDIA_TOOLS_MCP_PATH = "/__ccr/media/mcp";
 export const LEGACY_GROK_MEDIA_MCP_PATH = "/__ccr/grok-media/mcp";

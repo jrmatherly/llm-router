@@ -7,7 +7,7 @@ import test from "node:test";
 // Own file: the warning is suppressed once refreshModelCatalog has run in the
 // process, and the other catalog tests call it.
 test("a process that never refreshes warns once about a week-old catalog", async () => {
-  const { loadModelCatalogPayload, modelCatalogCachePath } = await import("@ccr/core/models/catalog-file.ts");
+  const { loadModelCatalogPayload, modelCatalogCachePath } = await import("@llmr/core/models/catalog-file.ts");
   const keys = ["CCR_MODEL_CATALOG_PATH", "CCR_MODELS_JSON_PATH", "CCR_INTERNAL_USER_DATA_DIR"];
   const previous = keys.map((key) => process.env[key]);
   const originalWarn = console.warn;

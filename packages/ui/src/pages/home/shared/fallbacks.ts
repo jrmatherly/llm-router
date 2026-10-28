@@ -6,8 +6,8 @@ import type {
   ProxyCertificateStatus,
   ProxyNetworkSnapshot,
   ProxyStatus
-} from "@ccr/core/contracts/app";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config";
+} from "@llmr/core/contracts/app";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config";
 
 export const fallbackInfo: AppInfo = {
   configDbFile: "Browser preview",

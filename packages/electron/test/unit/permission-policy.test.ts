@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { installPermissionPolicy, isPermissionAllowed } from "@ccr/electron/main/permission-policy.ts";
+import { installPermissionPolicy, isPermissionAllowed } from "@llmr/electron/main/permission-policy.ts";
 
 test("permission policy allows only clipboard write and fullscreen", () => {
   assert.equal(isPermissionAllowed("clipboard-sanitized-write"), true);

@@ -8,7 +8,7 @@ import type {
   ChromeLoginImportRequest,
   ChromeLoginImportResult,
   ChromeLoginImportTarget
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 
 type ServerInfo = {
   server: Server;

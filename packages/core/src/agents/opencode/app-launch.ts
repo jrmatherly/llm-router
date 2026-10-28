@@ -3,10 +3,10 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@ccr/core/platform/windows-app-discovery";
-import { windowsSystemCommand } from "@ccr/core/platform/windows-system";
-import type { ProfileConfig } from "@ccr/core/contracts/app";
-import { resolveUserPath } from "@ccr/core/runtime/app-paths";
+import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@llmr/core/platform/windows-app-discovery";
+import { windowsSystemCommand } from "@llmr/core/platform/windows-system";
+import type { ProfileConfig } from "@llmr/core/contracts/app";
+import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 
 export type OpenCodeAppLookupResult = {
   checked: string[];

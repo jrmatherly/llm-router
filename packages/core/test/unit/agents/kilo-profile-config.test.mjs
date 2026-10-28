@@ -3,12 +3,12 @@ import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, wri
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import {
   isManagedKiloConfigContent,
   resolveKiloConfigFile,
   writeKiloGatewayConfig
-} from "@ccr/core/agents/kilo/profile-config.ts";
+} from "@llmr/core/agents/kilo/profile-config.ts";
 
 function testConfig(root) {
   const config = createDefaultAppConfig();

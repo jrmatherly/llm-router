@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ModelRegistry } from "@ccr/core/routing/model-registry.ts";
+import { ModelRegistry } from "@llmr/core/routing/model-registry.ts";
 
 const anthropicOnly = {
   name: "anthropic-only",

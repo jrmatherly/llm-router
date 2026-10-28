@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   finalizeOpenRouterDiscountProviderRouterSelection,
   openRouterDiscountProviderRouterTransform
-} from "@ccr/core/plugins/built-ins/openrouter-discount-provider-router.ts";
+} from "@llmr/core/plugins/built-ins/openrouter-discount-provider-router.ts";
 
 test("OpenRouter discount router does not run unless the model opt-in is enabled", async () => {
   const originalFetch = globalThis.fetch;

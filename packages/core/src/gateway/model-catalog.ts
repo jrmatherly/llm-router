@@ -1,6 +1,6 @@
-import { loadModelCatalogPayload, modelCatalogRevision, scheduleModelCatalogRefresh } from "@ccr/core/models/catalog-file";
-import type { GatewayProviderConfig } from "@ccr/core/contracts/app";
-import { getProviderCatalogModels } from "@ccr/core/providers/model-catalog";
+import { loadModelCatalogPayload, modelCatalogRevision, scheduleModelCatalogRefresh } from "@llmr/core/models/catalog-file";
+import type { GatewayProviderConfig } from "@llmr/core/contracts/app";
+import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
 
 const claudeCodeDefaultContextTokens = 200_000;
 let catalogRevision = -1;

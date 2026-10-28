@@ -1,18 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildClaudeAppGatewayModelRoutes } from "@ccr/core/agents/claude-app/gateway-routes.ts";
-import { createClaudeCliBootstrapResponse, createGatewayModelsResponse } from "@ccr/core/gateway/features/model-discovery.ts";
+import { buildClaudeAppGatewayModelRoutes } from "@llmr/core/agents/claude-app/gateway-routes.ts";
+import { createClaudeCliBootstrapResponse, createGatewayModelsResponse } from "@llmr/core/gateway/features/model-discovery.ts";
 import {
   filterModelIdsForProfile,
   isModelAllowedForProfile,
   profileAllowedModels,
   profileForApiKey
-} from "@ccr/core/profiles/model-allowlist.ts";
+} from "@llmr/core/profiles/model-allowlist.ts";
 import {
   profileAllowedRouteFallbackForTest,
   profileDeniedModelForTest
-} from "@ccr/core/gateway/request/pipeline.ts";
-import { profileApiKeyId } from "@ccr/core/profiles/api-key.ts";
+} from "@llmr/core/gateway/request/pipeline.ts";
+import { profileApiKeyId } from "@llmr/core/profiles/api-key.ts";
 
 function testConfig(profileOverrides = {}) {
   const profile = {

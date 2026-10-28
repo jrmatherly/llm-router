@@ -6,11 +6,11 @@ import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import { getHeapStatistics } from "node:v8";
-import { createSseErrorDetector, RequestLogStore } from "@ccr/core/observability/request-log-store.ts";
-import { requestLogRequestedModel, requestLogResponseModel } from "@ccr/core/observability/request-log-model.ts";
-import { resolveStreamRequestLogOutcome } from "@ccr/core/gateway/internal/shared.ts";
-import { RequestRouteTraceRecorder } from "@ccr/core/observability/route-trace.ts";
-import { createBetterSqliteDatabase } from "@ccr/core/storage/sqlite-native.ts";
+import { createSseErrorDetector, RequestLogStore } from "@llmr/core/observability/request-log-store.ts";
+import { requestLogRequestedModel, requestLogResponseModel } from "@llmr/core/observability/request-log-model.ts";
+import { resolveStreamRequestLogOutcome } from "@llmr/core/gateway/internal/shared.ts";
+import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace.ts";
+import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
 
 const execFileAsync = promisify(execFile);
 const isBoundedHeapWorker = process.env.CCR_REQUEST_LOG_BOUNDED_HEAP_WORKER === "1";

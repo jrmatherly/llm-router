@@ -3,9 +3,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { preloadUsagePriceCatalog } from "@ccr/core/models/pricing-service.ts";
-import { RequestLogStore } from "@ccr/core/observability/request-log-store.ts";
-import { createBetterSqliteDatabase } from "@ccr/core/storage/sqlite-native.ts";
+import { preloadUsagePriceCatalog } from "@llmr/core/models/pricing-service.ts";
+import { RequestLogStore } from "@llmr/core/observability/request-log-store.ts";
+import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
 
 test("RequestLogStore commits while a background pricing refresh is stalled", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "ccr-request-log-pricing-lock-test-"));

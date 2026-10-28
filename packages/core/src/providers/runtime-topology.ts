@@ -1,12 +1,12 @@
 /**
  * Extracted from gateway/service.ts. Keep this module focused on its named gateway boundary.
  */
-import { isGatewayProviderEnabled } from "@ccr/core/contracts/app";
-import type { AppConfig, GatewayProviderCapability, GatewayProviderCapabilityProtocol, GatewayProviderConfig, GatewayProviderProtocol, ProviderCredentialConfig } from "@ccr/core/contracts/app";
-import { findProviderPresetByBaseUrl, providerApiKeySafetyIssue } from "@ccr/core/providers/presets/index";
-import { normalizeProviderBaseUrl as normalizeProviderBaseUrlInput } from "@ccr/core/providers/url";
-import { modelRegistryForConfig, parseProviderModelSelector, providerRuntimeId } from "@ccr/core/routing/model-registry";
-import { gatewayProviderProtocolFallbackOrder, type CoreGatewayProvider } from "@ccr/core/gateway/internal/shared";
+import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
+import type { AppConfig, GatewayProviderCapability, GatewayProviderCapabilityProtocol, GatewayProviderConfig, GatewayProviderProtocol, ProviderCredentialConfig } from "@llmr/core/contracts/app";
+import { findProviderPresetByBaseUrl, providerApiKeySafetyIssue } from "@llmr/core/providers/presets/index";
+import { normalizeProviderBaseUrl as normalizeProviderBaseUrlInput } from "@llmr/core/providers/url";
+import { modelRegistryForConfig, parseProviderModelSelector, providerRuntimeId } from "@llmr/core/routing/model-registry";
+import { gatewayProviderProtocolFallbackOrder, type CoreGatewayProvider } from "@llmr/core/gateway/internal/shared";
 
 export function providerCapabilityForClientProtocol(
   provider: GatewayProviderConfig,

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { compileCoreGatewayConfig } from "@ccr/core/gateway/core-runtime/config-compiler.ts";
-import { rawTraceSyncHeader, rawTraceSyncPath } from "@ccr/core/gateway/internal/shared.ts";
-import { publicGatewayAuthTokens } from "@ccr/core/gateway/core-runtime/supervisor.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
+import { rawTraceSyncHeader, rawTraceSyncPath } from "@llmr/core/gateway/internal/shared.ts";
+import { publicGatewayAuthTokens } from "@llmr/core/gateway/core-runtime/supervisor.ts";
 
 test("core gateway disables the full-trace billing webhook without disabling raw-trace observability", async () => {
   const config = createDefaultAppConfig();

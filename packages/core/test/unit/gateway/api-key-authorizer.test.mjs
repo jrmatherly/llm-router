@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { authorize, exchangeClaudeCodeWifToken } from "@ccr/core/gateway/auth/api-key-authorizer.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { authorize, exchangeClaudeCodeWifToken } from "@llmr/core/gateway/auth/api-key-authorizer.ts";
 
 const authorizerSourceFile = path.join(
   process.cwd(),

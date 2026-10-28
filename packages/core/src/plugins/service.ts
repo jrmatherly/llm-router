@@ -21,13 +21,13 @@ import {
   GATEWAY_PLUGIN_PERMISSION_IDS,
   knownGatewayPluginDefaultPermissions,
   knownGatewayPluginDefaultSurfaces
-} from "@ccr/core/contracts/app";
-import { backendService, type RegisteredHttpBackend, type SqliteStore, type SqliteStoreOptions } from "@ccr/core/plugins/backend-service";
-import { openRouterDiscountProviderRouterTransform } from "@ccr/core/plugins/built-ins/openrouter-discount-provider-router";
-import { CONFIGDIR, DATADIR } from "@ccr/core/config/constants";
-import { isDesktopAppRuntime } from "@ccr/core/runtime/desktop-app";
-import type { ProviderAccountWebContentFetchRequest } from "@ccr/core/providers/account-webcontent";
-import { resolveRuntimeAppPath } from "@ccr/core/runtime/app-paths";
+} from "@llmr/core/contracts/app";
+import { backendService, type RegisteredHttpBackend, type SqliteStore, type SqliteStoreOptions } from "@llmr/core/plugins/backend-service";
+import { openRouterDiscountProviderRouterTransform } from "@llmr/core/plugins/built-ins/openrouter-discount-provider-router";
+import { CONFIGDIR, DATADIR } from "@llmr/core/config/constants";
+import { isDesktopAppRuntime } from "@llmr/core/runtime/desktop-app";
+import type { ProviderAccountWebContentFetchRequest } from "@llmr/core/providers/account-webcontent";
+import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
 
 type MaybePromise<T> = T | Promise<T>;
 type PluginLogger = {

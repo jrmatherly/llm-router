@@ -1,4 +1,4 @@
-import { modelCatalogRefreshError, refreshModelCatalog } from "@ccr/core/models/catalog-file";
+import { modelCatalogRefreshError, refreshModelCatalog } from "@llmr/core/models/catalog-file";
 import { spawn } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -7,12 +7,12 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import packageJson from "../../package.json";
-import { loadOnboardingFinished, markOnboardingFinished } from "@ccr/core/config/onboarding-state";
-import { scanBotHandoffBluetoothTargets, scanBotHandoffWifiTargets } from "@ccr/core/agents/bot-gateway/handoff-scan-service";
-import { cancelBotGatewayQrLogin, startBotGatewayQrLogin, waitBotGatewayQrLogin } from "@ccr/core/agents/bot-gateway/qr-login-service";
-import { syncClaudeAppGatewayConfig, restoreClaudeAppGatewayConfig } from "@ccr/core/agents/claude-app/gateway-service";
-import { getAppInfoPaths } from "@ccr/core/agents/app-info-paths";
-import { loadAppConfig, saveApiKeysConfig, saveAppConfig } from "@ccr/core/config/config";
+import { loadOnboardingFinished, markOnboardingFinished } from "@llmr/core/config/onboarding-state";
+import { scanBotHandoffBluetoothTargets, scanBotHandoffWifiTargets } from "@llmr/core/agents/bot-gateway/handoff-scan-service";
+import { cancelBotGatewayQrLogin, startBotGatewayQrLogin, waitBotGatewayQrLogin } from "@llmr/core/agents/bot-gateway/qr-login-service";
+import { syncClaudeAppGatewayConfig, restoreClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
+import { getAppInfoPaths } from "@llmr/core/agents/app-info-paths";
+import { loadAppConfig, saveApiKeysConfig, saveAppConfig } from "@llmr/core/config/config";
 import {
   APP_CONFIG_DB_FILE,
   APP_NAME,
@@ -25,28 +25,28 @@ import {
   PROXY_CA_CERT_FILE,
   REQUEST_LOGS_DB_FILE,
   USAGE_DB_FILE
-} from "@ccr/core/config/constants";
-import { appDeepLinkProtocol } from "@ccr/core/contracts/deep-link";
-import { detectProviderIcon } from "@ccr/core/providers/icons";
-import { fetchProviderManifest } from "@ccr/core/providers/manifest-service";
-import { getLocalAgentProviderCandidates, importLocalAgentProvider, probeLocalAgentProvider } from "@ccr/core/agents/local-providers/service";
-import { getProviderCatalogModels } from "@ccr/core/providers/model-catalog";
-import { getOpenRouterProviderCatalog } from "@ccr/core/providers/openrouter-provider-catalog";
-import { getProviderPresets } from "@ccr/core/providers/presets/index";
-import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@ccr/core/providers/probe";
-import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@ccr/core/providers/model-auto-refresh";
-import { applyProfileConfig } from "@ccr/core/profiles/service";
-import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromCcr, stopProfileFromCcr } from "@ccr/core/profiles/launch-service";
-import { getPluginMarketplace } from "@ccr/core/plugins/marketplace";
-import { ensureProxyCertificateAuthority } from "@ccr/core/proxy/certificates";
-import { proxyService } from "@ccr/core/proxy/service";
-import { listMcpServerTools } from "@ccr/core/mcp/tool-discovery";
-import { closeRequestLogRuntime, getAgentAnalysis, getAgentTracePayload, getRequestLogBodyChunk, getRequestLogDetail, getRequestLogs } from "@ccr/core/observability/request-log-store";
-import { shouldRecordRequestLogs } from "@ccr/core/observability/raw-trace-sync";
-import { getUsageStats, resetOverviewStatistics } from "@ccr/core/usage/store";
-import { gatewayService } from "@ccr/core/gateway/service";
-import { shouldRestartGatewayForRuntimeConfigChange } from "@ccr/core/gateway/runtime-change";
-import { getProviderAccountSnapshots, invalidateProviderAccountSnapshotCache, resetCodexRateLimitCredit, testProviderAccountConnector } from "@ccr/core/providers/account-service";
+} from "@llmr/core/config/constants";
+import { appDeepLinkProtocol } from "@llmr/core/contracts/deep-link";
+import { detectProviderIcon } from "@llmr/core/providers/icons";
+import { fetchProviderManifest } from "@llmr/core/providers/manifest-service";
+import { getLocalAgentProviderCandidates, importLocalAgentProvider, probeLocalAgentProvider } from "@llmr/core/agents/local-providers/service";
+import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
+import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-provider-catalog";
+import { getProviderPresets } from "@llmr/core/providers/presets/index";
+import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
+import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
+import { applyProfileConfig } from "@llmr/core/profiles/service";
+import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromCcr, stopProfileFromCcr } from "@llmr/core/profiles/launch-service";
+import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
+import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
+import { proxyService } from "@llmr/core/proxy/service";
+import { listMcpServerTools } from "@llmr/core/mcp/tool-discovery";
+import { closeRequestLogRuntime, getAgentAnalysis, getAgentTracePayload, getRequestLogBodyChunk, getRequestLogDetail, getRequestLogs } from "@llmr/core/observability/request-log-store";
+import { shouldRecordRequestLogs } from "@llmr/core/observability/raw-trace-sync";
+import { getUsageStats, resetOverviewStatistics } from "@llmr/core/usage/store";
+import { gatewayService } from "@llmr/core/gateway/service";
+import { shouldRestartGatewayForRuntimeConfigChange } from "@llmr/core/gateway/runtime-change";
+import { getProviderAccountSnapshots, invalidateProviderAccountSnapshotCache, resetCodexRateLimitCredit, testProviderAccountConnector } from "@llmr/core/providers/account-service";
 import type {
   AgentAnalysisFilter,
   AgentAnalysisTracePayloadRequest,
@@ -87,8 +87,8 @@ import type {
   RouteScriptValidationRequest,
   UsageStatsFilter,
   UsageStatsRange
-} from "@ccr/core/contracts/app";
-import { GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS } from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
+import { GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS } from "@llmr/core/contracts/app";
 
 const gatewayPluginPermissionIdSet = new Set<string>(GATEWAY_PLUGIN_PERMISSION_IDS);
 const gatewayPluginSurfaceIdSet = new Set<string>(GATEWAY_PLUGIN_SURFACE_IDS);

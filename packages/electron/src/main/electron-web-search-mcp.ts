@@ -1,13 +1,13 @@
 import { BrowserWindow, WebContentsView, app, session, type WebContents } from "electron";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join as pathJoin } from "node:path";
-import { backendService } from "@ccr/core/plugins/backend-service";
-import type { GatewayMcpServerConfig } from "@ccr/core/contracts/app";
+import { backendService } from "@llmr/core/plugins/backend-service";
+import type { GatewayMcpServerConfig } from "@llmr/core/contracts/app";
 import type {
   BrowserWebSearchMcpIntegration,
   BrowserWebSearchMcpRegistration,
   BrowserWebSearchProtocolRecord
-} from "@ccr/core/gateway/service";
+} from "@llmr/core/gateway/service";
 
 type JsonPrimitive = boolean | null | number | string;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };

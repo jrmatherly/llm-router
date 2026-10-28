@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { newApiKeyUsageAccountConfig } from "@ccr/core/providers/new-api.ts";
-import { geminiProviderPreset } from "@ccr/core/providers/presets/gemini/index.ts";
-import { minimaxChinaProviderPreset } from "@ccr/core/providers/presets/minimax/index.ts";
-import { moonshotGlobalProviderPreset } from "@ccr/core/providers/presets/moonshot/index.ts";
-import { qiniuAiProviderPreset } from "@ccr/core/providers/presets/qiniu-ai/index.ts";
-import { xiaomiMimoProviderPreset } from "@ccr/core/providers/presets/xiaomi/index.ts";
-import { AddProviderDialog, AddProviderForm, ProviderConnectivityCheckDialog, ProvidersView, localAgentProviderAlreadyImported, localAgentProviderPluginSuffixesForCandidate, uniqueProviderProbeProtocolRows } from "@ccr/ui/pages/home/components/providers.tsx";
+import { newApiKeyUsageAccountConfig } from "@llmr/core/providers/new-api.ts";
+import { geminiProviderPreset } from "@llmr/core/providers/presets/gemini/index.ts";
+import { minimaxChinaProviderPreset } from "@llmr/core/providers/presets/minimax/index.ts";
+import { moonshotGlobalProviderPreset } from "@llmr/core/providers/presets/moonshot/index.ts";
+import { qiniuAiProviderPreset } from "@llmr/core/providers/presets/qiniu-ai/index.ts";
+import { xiaomiMimoProviderPreset } from "@llmr/core/providers/presets/xiaomi/index.ts";
+import { AddProviderDialog, AddProviderForm, ProviderConnectivityCheckDialog, ProvidersView, localAgentProviderAlreadyImported, localAgentProviderPluginSuffixesForCandidate, uniqueProviderProbeProtocolRows } from "@llmr/ui/pages/home/components/providers.tsx";
 import {
   applyProviderProbeResult,
   buildProviderImportDraft,
@@ -41,7 +41,7 @@ import {
   providerSelectableProtocolsFromProbe,
   removeLocalAgentProviderPluginsForProvider,
   setProviderPresets
-} from "@ccr/ui/pages/home/shared/index.tsx";
+} from "@llmr/ui/pages/home/shared/index.tsx";
 import { installBrowserGlobals } from "../fixtures/index.ts";
 
 installBrowserGlobals();

@@ -3,11 +3,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { compileCoreGatewayConfig, coreGatewayUsageAttributionConfig } from "@ccr/core/gateway/core-runtime/config-compiler.ts";
-import { gatewayRuntimeSupportsRouterPlugin } from "@ccr/core/gateway/core-runtime/supervisor.ts";
-import { pluginService } from "@ccr/core/plugins/service.ts";
-import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { compileCoreGatewayConfig, coreGatewayUsageAttributionConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
+import { gatewayRuntimeSupportsRouterPlugin } from "@llmr/core/gateway/core-runtime/supervisor.ts";
+import { pluginService } from "@llmr/core/plugins/service.ts";
+import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution.ts";
 
 test("plugin service skips failed plugins and rolls back their registrations", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "ccr-plugin-service-test-"));

@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { providerRuntimeId } from "@ccr/core/routing/model-registry.ts";
-import { rawTraceSyncHeader } from "@ccr/core/gateway/internal/shared.ts";
-import { rawTraceHardMaxBodyBytes, rawTraceMaxPartBytes } from "@ccr/core/observability/request-log-limits.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { providerRuntimeId } from "@llmr/core/routing/model-registry.ts";
+import { rawTraceSyncHeader } from "@llmr/core/gateway/internal/shared.ts";
+import { rawTraceHardMaxBodyBytes, rawTraceMaxPartBytes } from "@llmr/core/observability/request-log-limits.ts";
 import {
   applyRawTraceRequestLogPolicy,
   buildRawTraceConfig,
@@ -15,7 +15,7 @@ import {
   isToleratedDirectorySyncErrorForTest,
   readRawTraceRequestLogBundle,
   RawTraceSynchronizer
-} from "@ccr/core/observability/raw-trace-sync.ts";
+} from "@llmr/core/observability/raw-trace-sync.ts";
 
 test("#1809 raw trace resolves runtime provider aliases and custom pricing", () => {
   const config = createConfig();
@@ -1174,7 +1174,7 @@ test("#1807 accepted but uncommitted bundles retain their retry budget after res
 });
 
 test("raw trace usage capture keeps the client label the request log gets", async () => {
-  const { usageStore } = await import("@ccr/core/usage/store.ts");
+  const { usageStore } = await import("@llmr/core/usage/store.ts");
   const dir = mkdtempSync(path.join(tmpdir(), "ccr-raw-trace-usage-client-"));
   const spoolDirectory = path.join(dir, "spool");
   const bundleDirectory = path.join(spoolDirectory, "bundle");

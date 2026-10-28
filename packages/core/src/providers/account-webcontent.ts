@@ -1,8 +1,8 @@
 import type {
   GatewayProviderConfig,
   ProviderAccountBrowserCredentialsMode
-} from "@ccr/core/contracts/app";
-import { assertWebContentStorageTarget } from "@ccr/core/providers/url";
+} from "@llmr/core/contracts/app";
+import { assertWebContentStorageTarget } from "@llmr/core/providers/url";
 
 export type ProviderAccountWebContentFetchRequest = {
   body?: unknown;

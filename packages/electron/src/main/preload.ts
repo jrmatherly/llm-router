@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import { formatErrorMessage } from "@ccr/core/contracts/error-message";
-import { IPC_CHANNELS } from "@ccr/core/contracts/ipc-channels";
+import { formatErrorMessage } from "@llmr/core/contracts/error-message";
+import { IPC_CHANNELS } from "@llmr/core/contracts/ipc-channels";
 import type {
   AgentAnalysisFilter,
   AgentAnalysisSnapshot,
@@ -86,8 +86,8 @@ import type {
   UsageStatsRange,
   UsageStatsResetResult,
   UsageStatsSnapshot
-} from "@ccr/core/contracts/app";
-import type { ProviderPreset } from "@ccr/core/providers/presets/types";
+} from "@llmr/core/contracts/app";
+import type { ProviderPreset } from "@llmr/core/providers/presets/types";
 
 function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
   return ipcRenderer.invoke(channel, ...args).catch((error) => {

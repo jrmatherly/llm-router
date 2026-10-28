@@ -6,8 +6,8 @@ import {
   DEFAULT_TRAY_WINDOW_MODULES,
   type AppConfig,
   type ProxyRouteTarget
-} from "@ccr/core/contracts/app";
-import { defaultRequestLogBodyBytes } from "@ccr/core/observability/request-log-limits";
+} from "@llmr/core/contracts/app";
+import { defaultRequestLogBodyBytes } from "@llmr/core/observability/request-log-limits";
 
 export const DEFAULT_PROXY_TARGETS: ProxyRouteTarget[] = [
   { host: "api.anthropic.com", paths: ["/v1/messages", "/v1/messages/count_tokens"] },

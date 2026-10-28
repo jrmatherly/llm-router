@@ -9,7 +9,7 @@ import { BaseUiProvider } from "@/lib/baseui-provider";
 import { AppI18nContext, appCopy } from "@/pages/home/shared/i18n";
 import { getRequestLogData } from "./mockData";
 import { DemoShell } from "./demoRuntime";
-import type { RequestLogListFilter, RequestLogPage } from "@ccr/core/contracts/app";
+import type { RequestLogListFilter, RequestLogPage } from "@llmr/core/contracts/app";
 
 const noop = () => {};
 

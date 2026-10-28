@@ -1,7 +1,7 @@
 import { rmSync } from "node:fs";
 import { createServer, type AddressInfo } from "node:net";
 import path from "node:path";
-import { CdpClient } from "@ccr/core/agents/cdp-client";
+import { CdpClient } from "@llmr/core/agents/cdp-client";
 
 type ClaudeAppCdpLogger = Pick<Console, "info" | "warn">;
 

@@ -3,11 +3,11 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { CONFIGDIR } from "@ccr/core/config/constants.ts";
-import { replacePersistedApiKeys } from "@ccr/core/config/config-repository.ts";
-import { getProfileOpenCommand, openProfileFromCcr } from "@ccr/core/profiles/launch-service.ts";
-import { restoreGlobalProfileConfigsOnExit } from "@ccr/core/profiles/service.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { CONFIGDIR } from "@llmr/core/config/constants.ts";
+import { replacePersistedApiKeys } from "@llmr/core/config/config-repository.ts";
+import { getProfileOpenCommand, openProfileFromCcr } from "@llmr/core/profiles/launch-service.ts";
+import { restoreGlobalProfileConfigsOnExit } from "@llmr/core/profiles/service.ts";
 import { isolateTestHome } from "../../../../../build/test-home.mjs";
 
 const homeEnvKeys = ["CODEX_HOME", ...Object.keys(isolateTestHome("", {}))];

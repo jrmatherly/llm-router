@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
-import { gatewayFetchPreloadScriptForTest, writeGatewayFetchPreloadFile } from "@ccr/core/gateway/core-runtime/supervisor.ts";
+import { gatewayFetchPreloadScriptForTest, writeGatewayFetchPreloadFile } from "@llmr/core/gateway/core-runtime/supervisor.ts";
 
 test("gateway fetch preload file is stored with private permissions", { skip: process.platform === "win32" }, () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-gateway-preload-permissions-"));

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { ArrowLeft, ArrowRight, Check, KeyRound, LoaderCircle, Plus, RotateCw, UserRound, X } from "lucide-react";
-import type { BuiltInBrowserState, ChromeLoginImportJob, ChromeLoginImportRequest } from "@ccr/core/contracts/app";
-import { formatErrorMessage } from "@ccr/core/contracts/error-message";
+import type { BuiltInBrowserState, ChromeLoginImportJob, ChromeLoginImportRequest } from "@llmr/core/contracts/app";
+import { formatErrorMessage } from "@llmr/core/contracts/error-message";
 
 declare global {
   interface Window {

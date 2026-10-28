@@ -3,7 +3,7 @@ import {
   parseJsonObjectSafe,
   serializeJsonBody,
   takeJsonObject
-} from "@ccr/core/gateway/http/body.ts";
+} from "@llmr/core/gateway/http/body.ts";
 
 const iterations = positiveInteger(process.env.CCR_REQUEST_BODY_BENCHMARK_ITERATIONS, 200);
 const parsePasses = positiveInteger(process.env.CCR_REQUEST_BODY_BENCHMARK_PARSE_PASSES, 7);

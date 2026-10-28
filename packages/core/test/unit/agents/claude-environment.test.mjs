@@ -6,8 +6,8 @@ import {
   claudeCodeMcpConfigEnv,
   claudeCodeUtcTimezoneEnvOverride,
   isChinaTimeZone
-} from "@ccr/core/agents/claude-code/environment.ts";
-import { toolHubClaudeCodeMcpConfig } from "@ccr/core/mcp/toolhub-config.ts";
+} from "@llmr/core/agents/claude-code/environment.ts";
+import { toolHubClaudeCodeMcpConfig } from "@llmr/core/mcp/toolhub-config.ts";
 
 test("detects China time zones used by Claude Code", () => {
   assert.equal(isChinaTimeZone("Asia/Shanghai"), true);

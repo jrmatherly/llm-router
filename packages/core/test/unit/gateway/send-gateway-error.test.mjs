@@ -3,9 +3,9 @@ import { createServer, request as httpRequest } from "node:http";
 import os from "node:os";
 import { PassThrough } from "node:stream";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { handleClaudeCodeWifTokenRequest } from "@ccr/core/gateway/auth/api-key-authorizer.ts";
-import { readRequestBody, RequestBodyTooLargeError, sendGatewayError } from "@ccr/core/gateway/http/io.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { handleClaudeCodeWifTokenRequest } from "@llmr/core/gateway/auth/api-key-authorizer.ts";
+import { readRequestBody, RequestBodyTooLargeError, sendGatewayError } from "@llmr/core/gateway/http/io.ts";
 
 async function withServer(handler, run) {
   const server = createServer(handler);

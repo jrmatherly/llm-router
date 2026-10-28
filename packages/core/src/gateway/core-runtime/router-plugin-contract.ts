@@ -1,4 +1,4 @@
-import type { RouterFallbackConfig } from "@ccr/core/contracts/app";
+import type { RouterFallbackConfig } from "@llmr/core/contracts/app";
 
 export const ccrRouterPluginKey = "llm-router";
 export const ccrRouterRequestTransformKey = "llm-router-request-transform";

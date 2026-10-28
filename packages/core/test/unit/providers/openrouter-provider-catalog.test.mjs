@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getOpenRouterProviderCatalog } from "@ccr/core/providers/openrouter-provider-catalog.ts";
+import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-provider-catalog.ts";
 
 test("OpenRouter provider catalog loads provider names and slugs", async () => {
   const originalFetch = globalThis.fetch;

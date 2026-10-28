@@ -3,19 +3,19 @@ import { existsSync, realpathSync, rmSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { CONFIGDIR } from "@ccr/core/config/constants";
-import { ROUTER_FALLBACK_MAX_RETRY_COUNT } from "@ccr/core/contracts/app";
-import type { AppConfig, GatewayMediaProtocol, MediaToolsConfig } from "@ccr/core/contracts/app";
-import type { ImageEditRequest, ImageGenerateRequest, MediaArtifact, MediaExecutionContext, MediaExecutionResult, MediaJob, MediaJobError, MediaOperation, MediaRequest, PublicMediaArtifact, PublicMediaJob, VideoGenerateRequest } from "@ccr/core/media/contracts";
-import { GatewayMediaExecutor, mediaError } from "@ccr/core/media/executors";
-import type { GatewayMediaTarget, GatewayMediaTransport } from "@ccr/core/media/executors";
-import { grokMediaModelKind, isImportedGrokAgentProvider, migrateLegacyGrokMediaModelSelector, providerSupportsMediaKind, videoGenerationConstraints } from "@ccr/core/media/models";
-import { detectMediaType, MediaArtifactStore, MediaJobStore } from "@ccr/core/media/storage";
-import { mediaToolBindingsForConfig } from "@ccr/core/media/tools";
-import type { MediaToolBinding } from "@ccr/core/media/tools";
-import { activeProviderCredentials, inferProtocol, providerCapabilityInternalName, providerCredentialInternalName, sortProviderCredentialsForConfig } from "@ccr/core/providers/runtime-topology";
-import { modelRegistryForConfig, parseProviderModelSelector, providerRuntimeId } from "@ccr/core/routing/model-registry";
-import { resolveRuntimeAppPath } from "@ccr/core/runtime/app-paths";
+import { CONFIGDIR } from "@llmr/core/config/constants";
+import { ROUTER_FALLBACK_MAX_RETRY_COUNT } from "@llmr/core/contracts/app";
+import type { AppConfig, GatewayMediaProtocol, MediaToolsConfig } from "@llmr/core/contracts/app";
+import type { ImageEditRequest, ImageGenerateRequest, MediaArtifact, MediaExecutionContext, MediaExecutionResult, MediaJob, MediaJobError, MediaOperation, MediaRequest, PublicMediaArtifact, PublicMediaJob, VideoGenerateRequest } from "@llmr/core/media/contracts";
+import { GatewayMediaExecutor, mediaError } from "@llmr/core/media/executors";
+import type { GatewayMediaTarget, GatewayMediaTransport } from "@llmr/core/media/executors";
+import { grokMediaModelKind, isImportedGrokAgentProvider, migrateLegacyGrokMediaModelSelector, providerSupportsMediaKind, videoGenerationConstraints } from "@llmr/core/media/models";
+import { detectMediaType, MediaArtifactStore, MediaJobStore } from "@llmr/core/media/storage";
+import { mediaToolBindingsForConfig } from "@llmr/core/media/tools";
+import type { MediaToolBinding } from "@llmr/core/media/tools";
+import { activeProviderCredentials, inferProtocol, providerCapabilityInternalName, providerCredentialInternalName, sortProviderCredentialsForConfig } from "@llmr/core/providers/runtime-topology";
+import { modelRegistryForConfig, parseProviderModelSelector, providerRuntimeId } from "@llmr/core/routing/model-registry";
+import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
 
 type QueueItem = {
   jobId: string;
@@ -46,7 +46,7 @@ const mediaRoot = path.join(CONFIGDIR, "grok-media");
 const maxInputBytes = 25 * 1024 * 1024;
 const jobRetentionDays = 30;
 
-export type { MediaToolBinding } from "@ccr/core/media/tools";
+export type { MediaToolBinding } from "@llmr/core/media/tools";
 
 export class MediaService {
   private readonly active = new Map<string, AbortController>();

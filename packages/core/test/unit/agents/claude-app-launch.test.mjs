@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { claudeAppLaunchCommand, findInstalledClaudeAppExecutable, normalizeClaudeAppCandidate } from "@ccr/core/agents/claude-app/launch.ts";
+import { claudeAppLaunchCommand, findInstalledClaudeAppExecutable, normalizeClaudeAppCandidate } from "@llmr/core/agents/claude-app/launch.ts";
 
 test("claudeAppLaunchCommand opens macOS app bundles through LaunchServices", (t) => {
   const tempDir = mkdtempForTest();

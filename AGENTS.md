@@ -24,7 +24,7 @@ Read the check before changing the structure it guards. Change a rule only toget
 
 ## Style that differs from defaults
 
-Double quotes, semicolons, two-space indent. Object keys and type members usually alphabetized; follow the surrounding file. `node:` imports first, then `@ccr/<pkg>/...` aliases. `type` aliases unless the surrounding file already uses `interface`. No comments except a non-obvious why.
+Double quotes, semicolons, two-space indent. Object keys and type members usually alphabetized; follow the surrounding file. `node:` imports first, then `@llmr/<pkg>/...` aliases. `type` aliases unless the surrounding file already uses `interface`. No comments except a non-obvious why.
 
 Tests are `node:test` with `node:assert/strict`. Core, Electron and CLI tests are `*.test.mjs`; UI component tests are `*.test.ts` or `*.test.tsx`. They live under `packages/<pkg>/test/{unit,integration,component}` or `tests/architecture/`.
 

@@ -1,27 +1,27 @@
-import { requestLogOutcome } from "@ccr/core/contracts/app";
+import { requestLogOutcome } from "@llmr/core/contracts/app";
 import { randomUUID } from "node:crypto";
 import { closeSync, copyFileSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { StringDecoder } from "node:string_decoder";
-import { REQUEST_LOG_BODIES_DIR, REQUEST_LOGS_DB_FILE } from "@ccr/core/config/constants";
-import { decodeClaudeAppGatewayRouteId } from "@ccr/core/agents/claude-app/gateway-routes";
+import { REQUEST_LOG_BODIES_DIR, REQUEST_LOGS_DB_FILE } from "@llmr/core/config/constants";
+import { decodeClaudeAppGatewayRouteId } from "@llmr/core/agents/claude-app/gateway-routes";
 import {
   estimateUsageCostUsd,
   estimateUsageCostUsdFromLoadedCatalog,
   usagePriceCatalogNeedsRefresh
-} from "@ccr/core/models/pricing-service";
-import { createBetterSqliteDatabase, type BetterSqliteDatabase, type BetterSqliteStatement } from "@ccr/core/storage/sqlite-native";
-import { normalizeUsageInputTokens } from "@ccr/core/usage/normalization";
+} from "@llmr/core/models/pricing-service";
+import { createBetterSqliteDatabase, type BetterSqliteDatabase, type BetterSqliteStatement } from "@llmr/core/storage/sqlite-native";
+import { normalizeUsageInputTokens } from "@llmr/core/usage/normalization";
 import {
   createRequestLogRuntime,
   suppressRequestLogRawTraceBodies,
   type RequestLogEnqueueResult
-} from "@ccr/core/observability/request-log-runtime";
-import { maxRequestLogBodyBytes, rawTraceHardMaxBodyBytes } from "@ccr/core/observability/request-log-limits";
-import { compactBase64ImagePayloads } from "@ccr/core/observability/request-log-body";
-import { requestLogRequestedModel, requestLogResponseModel } from "@ccr/core/observability/request-log-model";
-import { isSensitiveRequestLogHeaderName } from "@ccr/core/observability/sensitive-headers";
-import { inferGatewayClient } from "@ccr/core/gateway/http/io";
+} from "@llmr/core/observability/request-log-runtime";
+import { maxRequestLogBodyBytes, rawTraceHardMaxBodyBytes } from "@llmr/core/observability/request-log-limits";
+import { compactBase64ImagePayloads } from "@llmr/core/observability/request-log-body";
+import { requestLogRequestedModel, requestLogResponseModel } from "@llmr/core/observability/request-log-model";
+import { isSensitiveRequestLogHeaderName } from "@llmr/core/observability/sensitive-headers";
+import { inferGatewayClient } from "@llmr/core/gateway/http/io";
 import type {
   AgentAnalysisAgentRow,
   AgentAnalysisConversationItem,
@@ -68,7 +68,7 @@ import type {
   RequestStreamMetrics,
   StreamSpeedSampleStatus,
   UsageStatsRange
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 
 type SqlDatabase = BetterSqliteDatabase;
 type SqlValue = bigint | Buffer | number | string | null;
@@ -1798,7 +1798,7 @@ function suppressedRawTraceBody(
 
 export const requestLogStore = new RequestLogStore(REQUEST_LOGS_DB_FILE);
 export const requestLogRuntime = createRequestLogRuntime({ dbFile: REQUEST_LOGS_DB_FILE });
-export { createRequestLogRuntime } from "@ccr/core/observability/request-log-runtime";
+export { createRequestLogRuntime } from "@llmr/core/observability/request-log-runtime";
 
 export function recordGatewayRequestLog(input: RequestLogRecordInput): RequestLogEnqueueResult {
   return requestLogRuntime.enqueueRecord(input);

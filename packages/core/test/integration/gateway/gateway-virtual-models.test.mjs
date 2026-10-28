@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { PassThrough, Readable } from "node:stream";
 import test from "node:test";
-import { createHostedWebSearchProtocolContext } from "@ccr/core/gateway/features/hosted-web-search/index.ts";
+import { createHostedWebSearchProtocolContext } from "@llmr/core/gateway/features/hosted-web-search/index.ts";
 import {
   fusionFallbackToolDefinitions,
   fusionWebSearchToolNameForRequest,
@@ -23,7 +23,7 @@ import {
   transformOpenAiResponsesHostedWebSearchResponseValue,
   transformOpenAiResponsesHostedWebSearchSseText,
   normalizeCoreGatewayVirtualModelProfiles
-} from "@ccr/core/gateway/service.ts";
+} from "@llmr/core/gateway/service.ts";
 
 test("gateway config rewrites Fusion fixed base and vision models to core provider selectors", () => {
   const providerName = "Zhipu AI (China) - Coding Plan";

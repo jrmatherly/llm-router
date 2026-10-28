@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractAnthropicWebSearchQueryHint } from "@ccr/core/gateway/features/hosted-web-search/discovery.ts";
-import { synthesizeWebSearchAnswer } from "@ccr/core/gateway/features/hosted-web-search/evidence.ts";
+import { extractAnthropicWebSearchQueryHint } from "@llmr/core/gateway/features/hosted-web-search/discovery.ts";
+import { synthesizeWebSearchAnswer } from "@llmr/core/gateway/features/hosted-web-search/evidence.ts";
 
 function queryHint(text) {
   return extractAnthropicWebSearchQueryHint({ messages: [{ content: text, role: "user" }] });

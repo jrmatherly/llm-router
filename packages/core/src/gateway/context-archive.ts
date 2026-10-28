@@ -2,7 +2,7 @@ import packageJson from "../../package.json";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:http";
 import { Readable, Transform } from "node:stream";
-import { CONTEXT_ARCHIVE_DB_FILE } from "@ccr/core/config/constants";
+import { CONTEXT_ARCHIVE_DB_FILE } from "@llmr/core/config/constants";
 import type {
   ApiKeyConfig,
   AppConfig,
@@ -10,7 +10,7 @@ import type {
   GatewayMcpServerConfig,
   GatewayProviderProtocol,
   ProfileConfig
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import {
   appendArchiveTask,
   appendCompactHandoffTask,
@@ -28,12 +28,12 @@ import {
   renderCodexCompactArchiveResponse,
   replayableArchiveProtocols,
   type ContextArchiveResponseMode
-} from "@ccr/core/gateway/context-archive/protocol";
+} from "@llmr/core/gateway/context-archive/protocol";
 import {
   ContextArchiveStore,
   type ArchiveRoute,
   type ArchiveSnapshot
-} from "@ccr/core/gateway/context-archive/store";
+} from "@llmr/core/gateway/context-archive/store";
 
 type JsonPrimitive = boolean | null | number | string;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };

@@ -1,17 +1,17 @@
 import {
   ROUTER_FALLBACK_MAX_RETRY_COUNT,
   type RouterFallbackConfig
-} from "@ccr/core/contracts/app";
-import type { CompiledRouterRule } from "@ccr/core/routing/config-compiler";
-import type { RouteDiagnostic, RouteModelRef, RouteSource } from "@ccr/core/routing/contracts";
-import type { ModelRegistry } from "@ccr/core/routing/model-registry";
+} from "@llmr/core/contracts/app";
+import type { CompiledRouterRule } from "@llmr/core/routing/config-compiler";
+import type { RouteDiagnostic, RouteModelRef, RouteSource } from "@llmr/core/routing/contracts";
+import type { ModelRegistry } from "@llmr/core/routing/model-registry";
 import {
   compileScriptRouteRewrite,
   effectiveBodyModelRewriteValue,
   effectiveTargetProviderName,
   isBodyModelCompiledRewrite,
   type CompiledRouteRewrite
-} from "@ccr/core/routing/rewrite";
+} from "@llmr/core/routing/rewrite";
 
 const maxScriptRewrites = 32;
 const maxScriptResultBytes = 64 * 1024;

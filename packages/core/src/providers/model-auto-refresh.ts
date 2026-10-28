@@ -1,4 +1,4 @@
-import { loadAppConfig, saveAppConfig } from "@ccr/core/config/config";
+import { loadAppConfig, saveAppConfig } from "@llmr/core/config/config";
 import {
   isGatewayProviderEnabled,
   type AppConfig,
@@ -8,12 +8,12 @@ import {
   type ProfileConfig,
   type ProviderCredentialConfig,
   type ProviderModelMetadata
-} from "@ccr/core/contracts/app";
-import { codexDefaultBaseUrl, readCodexLocalModelCatalog } from "@ccr/core/agents/local-providers/codex";
-import { localAgentProviderApiKey } from "@ccr/core/agents/local-providers/shared";
-import { modelRegistryForConfig, parseProviderModelSelector, providerRuntimeId } from "@ccr/core/routing/model-registry";
-import { probeGatewayProvider } from "@ccr/core/providers/probe";
-import { normalizeProviderBaseUrl } from "@ccr/core/providers/url";
+} from "@llmr/core/contracts/app";
+import { codexDefaultBaseUrl, readCodexLocalModelCatalog } from "@llmr/core/agents/local-providers/codex";
+import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared";
+import { modelRegistryForConfig, parseProviderModelSelector, providerRuntimeId } from "@llmr/core/routing/model-registry";
+import { probeGatewayProvider } from "@llmr/core/providers/probe";
+import { normalizeProviderBaseUrl } from "@llmr/core/providers/url";
 
 type ProviderModelProbe = typeof probeGatewayProvider;
 type ProviderModelCatalogSnapshot = {

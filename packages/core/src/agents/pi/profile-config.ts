@@ -1,18 +1,18 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { buildCodexModelCatalogIds } from "@ccr/core/agents/codex/model-catalog";
-import type { AppConfig, GatewayProviderConfig, ProfileConfig, ProviderModelMetadata } from "@ccr/core/contracts/app";
+import { buildCodexModelCatalogIds } from "@llmr/core/agents/codex/model-catalog";
+import type { AppConfig, GatewayProviderConfig, ProfileConfig, ProviderModelMetadata } from "@llmr/core/contracts/app";
 import {
   findModelCatalogEntry,
   findProviderModelCatalogEntry,
   modelCatalogMaxInputTokens,
   type ModelCatalogEntry
-} from "@ccr/core/gateway/model-catalog";
-import { backupBeforeWrite, writeFileAtomic } from "@ccr/core/profiles/backup-files";
-import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
-import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
-import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
-import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
+} from "@llmr/core/gateway/model-catalog";
+import { backupBeforeWrite, writeFileAtomic } from "@llmr/core/profiles/backup-files";
+import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
+import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
+import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-paths";
+import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
 
 export type PiProfileConfigWriteResult = {
   backupFile?: string;

@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { formatCodexResetCardExpiry, formatCodexResetCardNumber, OverviewStatisticsResetDialog, OverviewView } from "@ccr/ui/pages/home/components/dashboard.tsx";
-import { parseStatusBucketDate } from "@ccr/ui/pages/home/shared/controls.tsx";
-import { formatProviderAccountMeterValue, providerAccountMeterDetailValidityProgress } from "@ccr/ui/pages/home/shared/provider-accounts.ts";
-import type { GatewayProviderConfig, OverviewWidgetConfig, ProviderAccountSnapshot } from "@ccr/core/contracts/app.ts";
+import { formatCodexResetCardExpiry, formatCodexResetCardNumber, OverviewStatisticsResetDialog, OverviewView } from "@llmr/ui/pages/home/components/dashboard.tsx";
+import { parseStatusBucketDate } from "@llmr/ui/pages/home/shared/controls.tsx";
+import { formatProviderAccountMeterValue, providerAccountMeterDetailValidityProgress } from "@llmr/ui/pages/home/shared/provider-accounts.ts";
+import type { GatewayProviderConfig, OverviewWidgetConfig, ProviderAccountSnapshot } from "@llmr/core/contracts/app.ts";
 import { accountSnapshots, installBrowserGlobals, usageStats } from "../fixtures/index.ts";
 
 installBrowserGlobals();

@@ -9,8 +9,8 @@ import {
   ensureCodexAppNetResponder,
   matchCodexVirtualRoute,
   startCodexAppNetResponder
-} from "@ccr/core/agents/codex/app-net-responder.ts";
-import { codexAppNetResponderEnv, codexElectronArgsForTest } from "@ccr/core/agents/codex/app-launch.ts";
+} from "@llmr/core/agents/codex/app-net-responder.ts";
+import { codexAppNetResponderEnv, codexElectronArgsForTest } from "@llmr/core/agents/codex/app-launch.ts";
 
 test("virtual account routes match the gated Codex desktop endpoints", () => {
   const routes = codexVirtualAccountRoutes();

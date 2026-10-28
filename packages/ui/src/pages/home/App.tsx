@@ -39,7 +39,7 @@ import { renameProviderReferences } from "./shared/provider-references";
 import {
   AppDialogStack, FeedbackStack, LightToast, MainLayout, OnboardingLayout, PersistenceFeedback, shouldCheckForUpdateOnOpen
 } from "./components/index";
-import { hasAvailableGatewayModels } from "@ccr/core/contracts/app";
+import { hasAvailableGatewayModels } from "@llmr/core/contracts/app";
 
 type ProfileOpenDialogState = {
   busy?: "" | "cli" | "app";

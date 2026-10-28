@@ -1,4 +1,4 @@
-import { codexBaseInstructions } from "@ccr/core/agents/codex/base-instructions";
+import { codexBaseInstructions } from "@llmr/core/agents/codex/base-instructions";
 
 export function codexCliMiddlewareRuntimeScript(): string {
   return String.raw`#!/usr/bin/env node

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { GatewayHttpRequestHandler } from "@ccr/core/gateway/http/request-handler.ts";
-import { GatewayRequestPipeline } from "@ccr/core/gateway/request/pipeline.ts";
-import { ClaudeCodeRouterPlugin } from "@ccr/core/gateway/claude-code-router-plugin.ts";
-import { profileApiKeyId } from "@ccr/core/profiles/api-key.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { GatewayHttpRequestHandler } from "@llmr/core/gateway/http/request-handler.ts";
+import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
+import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
+import { profileApiKeyId } from "@llmr/core/profiles/api-key.ts";
 import { waitForTcpListener } from "../../support/loopback-listener.mjs";
 
 test("gateway HTTP model discovery and request access honor profile model allowlists", async (t) => {

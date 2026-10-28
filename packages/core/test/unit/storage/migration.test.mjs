@@ -13,7 +13,7 @@ import test from "node:test";
 import {
   copyMissingDirectoryContents,
   sameFilesystemPath
-} from "@ccr/core/storage/migration.ts";
+} from "@llmr/core/storage/migration.ts";
 
 test("filesystem path comparison normalizes relative segments and case", () => {
   assert.equal(sameFilesystemPath("./data/../config", "config"), true);

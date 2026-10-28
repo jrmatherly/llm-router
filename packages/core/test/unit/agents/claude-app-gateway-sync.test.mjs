@@ -20,8 +20,8 @@ async function loadModules() {
     NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE,
     hasClaudeAppEntryProfile,
     syncClaudeAppGatewayConfig
-  } = await import("@ccr/core/agents/claude-app/gateway-service.ts");
-  const { CONFIGDIR } = await import("@ccr/core/config/constants.ts");
+  } = await import("@llmr/core/agents/claude-app/gateway-service.ts");
+  const { CONFIGDIR } = await import("@llmr/core/config/constants.ts");
   return {
     BACKUP_FILE: path.join(CONFIGDIR, "claude-app-gateway-backup.json"),
     NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE,
@@ -138,8 +138,8 @@ test("sync applies the gateway config regardless of profile scope", async () => 
 
 test("sync persists a generated Claude App credential through the credential store", async () => {
   const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
-  const { createDefaultAppConfig } = await import("@ccr/core/config/default-config.ts");
-  const { loadPersistedApiKeys } = await import("@ccr/core/config/config-repository.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { loadPersistedApiKeys } = await import("@llmr/core/config/config-repository.ts");
   const config = createDefaultAppConfig();
   config.Providers = [{ name: "test-provider", models: ["test-model"], api_base_url: "https://example.test/v1" }];
   config.profile.profiles = [claudeCodeProfile({ surface: "app" })];

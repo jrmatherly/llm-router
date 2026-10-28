@@ -23,7 +23,7 @@ import type {
   UsageSeriesPoint,
   UsageStatsRange,
   UsageTotals
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import {
   AnimatedIconSwap,
   AnimatedPopover

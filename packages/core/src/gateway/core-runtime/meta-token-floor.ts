@@ -1,4 +1,4 @@
-import { isRecord } from "@ccr/core/gateway/internal/value";
+import { isRecord } from "@llmr/core/gateway/internal/value";
 
 type UpstreamRequest = {
   body?: unknown;

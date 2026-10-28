@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { isRecord } from "@ccr/core/agents/local-providers/shared";
+import { isRecord } from "@llmr/core/agents/local-providers/shared";
 
 export type ClaudeCodeGatewayLoginPolicy = { file: string; key: "allowedProviders" | "forceLoginMethod" };
 

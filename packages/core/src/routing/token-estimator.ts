@@ -1,4 +1,4 @@
-import { isRecord } from "@ccr/core/gateway/internal/value";
+import { isRecord } from "@llmr/core/gateway/internal/value";
 
 export function calculateTokenCount(messages: unknown, system: unknown, tools: unknown): number {
   return countMessageTokens(messages) + countSystemTokens(system) + countToolTokens(tools);

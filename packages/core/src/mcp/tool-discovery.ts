@@ -1,12 +1,12 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { withoutLlmrSecretEnv } from "@ccr/core/mcp/child-env";
-import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import type {
   GatewayMcpRemoteServerConfig,
   GatewayMcpServerConfig,
   GatewayMcpStdioServerConfig,
   GatewayMcpToolInfo
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 
 type JsonRpcMessage = {
   error?: unknown;

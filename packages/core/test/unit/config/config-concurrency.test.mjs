@@ -8,9 +8,9 @@ test("stale settings and unversioned RPC snapshots cannot overwrite another writ
   process.env.CCR_INTERNAL_HOME_DIR = path.join(root, "home");
   process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(root, "data");
   process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(root, "user");
-  const { loadAppConfig, saveAppConfig, saveAppThemePreference } = await import("@ccr/core/config/config.ts");
-  const { ConfigRepository, loadPersistedAppConfig } = await import("@ccr/core/config/config-repository.ts");
-  const { APP_CONFIG_DB_FILE } = await import("@ccr/core/config/constants.ts");
+  const { loadAppConfig, saveAppConfig, saveAppThemePreference } = await import("@llmr/core/config/config.ts");
+  const { ConfigRepository, loadPersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  const { APP_CONFIG_DB_FILE } = await import("@llmr/core/config/constants.ts");
   const stale = await loadAppConfig();
   const peer = new ConfigRepository(APP_CONFIG_DB_FILE);
   await peer.updateAppConfig((current) => ({ ...current, HOST: "peer.example" }));

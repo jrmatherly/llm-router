@@ -21,8 +21,8 @@ import {
 } from "../shared/index";
 import { PopoverPortal } from "@/components/ui/popover";
 import { Tooltip, TooltipPortal } from "@/components/ui/tooltip";
-import { providerUrlWithDefaultScheme } from "@ccr/core/providers/url";
-import type { ChromeLoginImportJob, LocalAgentProviderCandidate, OpenRouterProviderCatalogItem, OpenRouterProviderCatalogRequest, ProviderAccountHttpJsonConnectorConfig, ProviderAccountWebContentJsonConnectorConfig } from "@ccr/core/contracts/app";
+import { providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
+import type { ChromeLoginImportJob, LocalAgentProviderCandidate, OpenRouterProviderCatalogItem, OpenRouterProviderCatalogRequest, ProviderAccountHttpJsonConnectorConfig, ProviderAccountWebContentJsonConnectorConfig } from "@llmr/core/contracts/app";
 import type { ReactNode } from "react";
 
 const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;

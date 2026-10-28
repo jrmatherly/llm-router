@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyResponsesSessionAffinity, isCodexResponsesUpstream, resolveResponsesSessionKey } from "@ccr/core/gateway/core-runtime/responses-session-affinity.ts";
-import { createGatewayPlugin } from "@ccr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
+import { applyResponsesSessionAffinity, isCodexResponsesUpstream, resolveResponsesSessionKey } from "@llmr/core/gateway/core-runtime/responses-session-affinity.ts";
+import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
 
 function responsesInput(overrides = {}) {
   return {

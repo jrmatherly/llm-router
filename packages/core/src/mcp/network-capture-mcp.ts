@@ -1,7 +1,7 @@
 import packageJson from "../../package.json";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { ProxyNetworkExchange } from "@ccr/core/contracts/app";
-import { proxyService } from "@ccr/core/proxy/service";
+import type { ProxyNetworkExchange } from "@llmr/core/contracts/app";
+import { proxyService } from "@llmr/core/proxy/service";
 
 type JsonPrimitive = boolean | null | number | string;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
