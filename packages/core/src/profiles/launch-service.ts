@@ -569,7 +569,7 @@ function isLlmrGatewayRoot(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
-  return value.name === "claude-code-router" || value.plugin === "claude-code-router";
+  return value.name === "llm-router" || value.plugin === "llm-router";
 }
 
 function isLlmrGatewayHealth(value: unknown): boolean {

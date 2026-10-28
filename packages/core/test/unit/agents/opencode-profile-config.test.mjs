@@ -56,7 +56,7 @@ function testProfile(overrides = {}) {
     id: "opencode-main",
     model: "Provider,model-a",
     name: "OpenCode Main",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     providerName: "LLM Router",
     scope: "llmr",
     surface: "auto",
@@ -72,31 +72,31 @@ test("OpenCode profile config routes primary and small models through LLMR", () 
     const config = JSON.parse(readFileSync(result.file, "utf8"));
 
     assert.equal(result.file, path.join(root, "profiles", "opencode-main", "opencode", "opencode.jsonc"));
-    assert.equal(config.model, "claude-code-router/Provider/model-a");
+    assert.equal(config.model, "llm-router/Provider/model-a");
     assert.equal(config.small_model, config.model);
-    assert.equal(config.provider["claude-code-router"].npm, "@ai-sdk/openai-compatible");
-    assert.equal(config.provider["claude-code-router"].options.baseURL, "http://127.0.0.1:4567/v1");
-    assert.equal(config.provider["claude-code-router"].options.apiKey, "llmr-profile-key");
-    assert.equal(config.provider["claude-code-router"].options.headers["x-llmr-client"], "opencode");
-    assert.ok(config.provider["claude-code-router"].models["Provider/model-a"]);
-    assert.deepEqual(config.provider["claude-code-router"].models["Provider/model-a"].modalities, {
+    assert.equal(config.provider["llm-router"].npm, "@ai-sdk/openai-compatible");
+    assert.equal(config.provider["llm-router"].options.baseURL, "http://127.0.0.1:4567/v1");
+    assert.equal(config.provider["llm-router"].options.apiKey, "llmr-profile-key");
+    assert.equal(config.provider["llm-router"].options.headers["x-llmr-client"], "opencode");
+    assert.ok(config.provider["llm-router"].models["Provider/model-a"]);
+    assert.deepEqual(config.provider["llm-router"].models["Provider/model-a"].modalities, {
       input: ["text", "image"],
       output: ["text"]
     });
-    assert.deepEqual(config.provider["claude-code-router"].models["Provider/model-a"].limit, {
+    assert.deepEqual(config.provider["llm-router"].models["Provider/model-a"].limit, {
       context: 64_000,
       output: 16_000
     });
-    assert.deepEqual(config.provider["claude-code-router"].models["Provider/model-b"].modalities, {
+    assert.deepEqual(config.provider["llm-router"].models["Provider/model-b"].modalities, {
       input: ["text"],
       output: ["text"]
     });
-    assert.deepEqual(config.provider["claude-code-router"].models["Provider/model-b"].limit, {
+    assert.deepEqual(config.provider["llm-router"].models["Provider/model-b"].limit, {
       context: 32_000,
       output: 4_096
     });
     assert.equal(JSON.parse(result.inlineConfig).model, config.model);
-    assert.equal(isManagedOpenCodeConfigContent(readFileSync(result.file, "utf8"), "claude-code-router"), true);
+    assert.equal(isManagedOpenCodeConfigContent(readFileSync(result.file, "utf8"), "llm-router"), true);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
@@ -138,12 +138,12 @@ test("OpenCode profile config writes Fusion vision model metadata and resolved c
       { backup: false }
     );
     const written = JSON.parse(readFileSync(result.file, "utf8"));
-    const models = written.provider["claude-code-router"].models;
+    const models = written.provider["llm-router"].models;
     const catalogEntry = findProviderModelCatalogEntry(config.Providers[0], "gpt-5.6-sol", ["Codex API/gpt-5.6-sol"]);
     const expectedContext = modelCatalogMaxInputTokens(catalogEntry);
     const expectedOutput = modelCatalogMaxOutputTokens(catalogEntry);
 
-    assert.equal(written.model, "claude-code-router/Fusion/fusion-basic-vision");
+    assert.equal(written.model, "llm-router/Fusion/fusion-basic-vision");
     assert.deepEqual(models["Fusion/fusion-basic-vision"].modalities, {
       input: ["text", "image"],
       output: ["text"]

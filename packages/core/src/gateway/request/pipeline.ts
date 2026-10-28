@@ -9,7 +9,7 @@ import {
 } from "@llmr/core/observability/request-log-store";
 import { requestLogRequestedModel, requestLogResponseModel } from "@llmr/core/observability/request-log-model";
 import { recordGatewayUsageCapture, type UsageCaptureInput } from "@llmr/core/usage/store";
-import { ClaudeCodeRouterPlugin, type ClaudeCodeRouteDecision } from "@llmr/core/gateway/claude-code-router-plugin";
+import { LLMRouterPlugin, type ClaudeCodeRouteDecision } from "@llmr/core/gateway/llm-router-plugin";
 import {
   codexCompactResponseStream,
   contextArchiveHandoffResponseStream,
@@ -67,7 +67,7 @@ export type GatewayRequestPipelineDependencies = {
   getBrowserWebSearchMcpIntegration: () => BrowserWebSearchMcpIntegration | undefined;
   getConfig: () => AppConfig | undefined;
   getCoreAuthToken: () => string;
-  getPlugin: () => ClaudeCodeRouterPlugin | undefined;
+  getPlugin: () => LLMRouterPlugin | undefined;
   getStatus: () => { coreEndpoint: string; endpoint: string };
 };
 

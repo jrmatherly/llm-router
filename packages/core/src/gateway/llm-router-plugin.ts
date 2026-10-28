@@ -27,7 +27,7 @@ type HeaderValue = string | string[] | undefined;
 
 export type MutableRequestLike = RouteRequest;
 
-export type ClaudeCodeRouterPluginOptions = {
+export type LLMRouterPluginOptions = {
   scriptRuntime?: RouteScriptRuntime;
   scriptValidationErrors?: ReadonlyMap<string, string>;
 };
@@ -52,13 +52,13 @@ type ResolvedConfiguredRouteDecision = ConfiguredRouteDecision & {
 const requireFromHere = createRequire(__filename);
 const customRouterCache = new Map<string, { router?: (...args: unknown[]) => unknown; stamp: string }>();
 
-export class ClaudeCodeRouterPlugin {
+export class LLMRouterPlugin {
   private readonly compiled: CompiledRouterConfig;
   private readonly event = new EventEmitter();
   private readonly requiresProviderTokenCount: boolean;
   private readonly scriptRuntime?: RouteScriptRuntime;
 
-  constructor(private readonly config: AppConfig, options: ClaudeCodeRouterPluginOptions = {}) {
+  constructor(private readonly config: AppConfig, options: LLMRouterPluginOptions = {}) {
     this.compiled = compileRouterConfig(config, { scriptValidationErrors: options.scriptValidationErrors });
     this.scriptRuntime = options.scriptRuntime;
     // Provider selection consumes a plain token value after routing, including

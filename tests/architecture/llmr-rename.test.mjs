@@ -48,6 +48,16 @@ test("hosts we do not own and the pre-5.0 cleanup names survive", () => {
   assert.equal(renameText(legacy, ["rest"], "packages/core/src/other.ts").includes("ccr"), false);
 });
 
+test("longform keeps each spelling of the upstream name in the matching LLM Router spelling", () => {
+  const source = "ClaudeCodeRouterPlugin claudeCodeRouter claude-code-router \"Claude Code Router\" CLAUDE_CODE_ROUTER claude_code_router";
+  assert.equal(renameText(source, ["longform"]), "LLMRouterPlugin llmRouter llm-router \"LLM Router\" LLM_ROUTER llm_router");
+});
+
+test("longform keeps upstream attribution, partner codes and the names legacy cleanup matches", () => {
+  const source = "github.com/musistudio/claude-code-router utm_source=claudecoderouter \"Claude Code Router CA\" # >>> Claude Code Router CLI >>>";
+  assert.equal(renameText(source, ["longform"]), source);
+});
+
 test("the indefinite article follows the new name", () => {
   assert.equal(renameText("\"a CCR gateway. A CCR window.\"", ["rest"]), "\"an LLMR gateway. An LLMR window.\"");
 });

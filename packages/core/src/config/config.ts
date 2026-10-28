@@ -3159,7 +3159,7 @@ function llmrExtensionsRootFromLegacyModule(modulePath: string | undefined): str
   }
   const resolved = path.resolve(modulePath);
   const segments = resolved.split(path.sep);
-  const index = segments.lastIndexOf("claude-code-router");
+  const index = segments.lastIndexOf("llm-router");
   if (index <= 0) {
     return "";
   }
@@ -3737,7 +3737,7 @@ function parseProfiles(value: unknown): ProfileConfig[] | undefined {
         ...(availableModels ? { availableModels } : {}),
         model,
         name,
-        providerId: readString(item.providerId) || readString(item.provider) || "claude-code-router",
+        providerId: readString(item.providerId) || readString(item.provider) || "llm-router",
         providerName: readString(item.providerName) || "LLM Router",
         remoteFrontendMode: parseCodexRemoteFrontendMode(readString(item.remoteFrontendMode) || readString(item.frontendMode) || readString(item.coreMode)) || "app",
         ...(routing ? { routing } : {}),

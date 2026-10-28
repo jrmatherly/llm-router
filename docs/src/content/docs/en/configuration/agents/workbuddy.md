@@ -31,7 +31,7 @@ WorkBuddy is fixed to **App only**, so the entry mode is not editable. The field
 | Config name | Free text, e.g. `WorkBuddy - Work` | Identifies the profile. Commands use `llmr "<name>" app`. |
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps the profile limited to LLMR launches, or makes it the system-default WorkBuddy profile. Only one enabled system-default WorkBuddy profile is allowed. |
-| Provider ID | Default `llm-router` (`claude-code-router` in profiles made before the rename) | Provider reference for this WorkBuddy profile. |
+| Provider ID | Default `llm-router` (`llm-router` in profiles made before the rename) | Provider reference for this WorkBuddy profile. |
 | Provider name | Free text; default `LLM Router` | Display name used by the generated profile. |
 | WorkBuddy model | A provider model or Fusion model | Default model when WorkBuddy App opens. |
 | Allowed model list | Optional multi-select | Controls which LLMR models appear in WorkBuddy. Empty means all models. |

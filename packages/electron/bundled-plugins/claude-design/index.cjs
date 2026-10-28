@@ -465,7 +465,7 @@ const BAKU_PREVIEW_AGENT_BRIDGE_SCRIPT = `(function(){
 const DEFAULT_ME = {
   accountUuid: "00000000-0000-4000-8000-000000000001",
   organizationUuid: "00000000-0000-4000-8000-000000000002",
-  email: "claude-code-router@example.local",
+  email: "llm-router@example.local",
   displayName: "LLM Router",
   orgName: "LLM Router Organization",
   growthbookPayload: "{}",

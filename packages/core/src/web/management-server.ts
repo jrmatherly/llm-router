@@ -838,7 +838,7 @@ async function exportAppData(): Promise<AppDataExportResult> {
     config: await loadAppConfig(),
     exportedAt,
     files: readDataExportFiles(),
-    kind: "claude-code-router-data-export",
+    kind: "llm-router-data-export",
     version: 1
   };
 

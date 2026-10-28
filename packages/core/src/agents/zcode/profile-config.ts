@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { isGatewayProviderEnabled, type AppConfig, type ProfileConfig } from "@llmr/core/contracts/app";
-import { normalizeRouteSelector } from "@llmr/core/gateway/claude-code-router-plugin";
+import { normalizeRouteSelector } from "@llmr/core/gateway/llm-router-plugin";
 import { buildZcodeModelCatalog } from "@llmr/core/agents/zcode/model-catalog";
 import { backupBeforeWrite, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
@@ -52,7 +52,7 @@ export function writeZcodeGatewayConfig(
 ): ZcodeProfileConfigWriteResult {
   const file = resolveZcodeConfigFile(profile);
   const model = normalizeClientModel(profile.model) || defaultClientModel(config);
-  const providerId = sanitizeZcodeProviderId(profile.providerId || "") || "claude-code-router";
+  const providerId = sanitizeZcodeProviderId(profile.providerId || "") || "llm-router";
   const modelCatalog = buildZcodeModelCatalog(config, model, { allowedModels: profileAllowedModels({ ...profile, model }) });
   const values: ZcodeGatewayConfigValues = {
     baseUrl: gatewayEndpoint(config),

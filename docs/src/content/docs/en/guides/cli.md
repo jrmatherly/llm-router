@@ -141,7 +141,7 @@ Most profiles require the LLMR gateway to be running. Grok CLI, Kimi CLI, and Pi
 | Platform | Configuration directory |
 | --- | --- |
 | macOS / Linux | `~/.llm-router` |
-| Windows | `%APPDATA%\claude-code-router` |
+| Windows | `%APPDATA%\llm-router` |
 
 Common files and directories:
 

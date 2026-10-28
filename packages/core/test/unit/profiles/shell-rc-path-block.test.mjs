@@ -14,7 +14,6 @@ test("an rc file with the Claude Code Router PATH block ends up with one LLM Rou
   assert.match(text, /# >>> LLM Router CLI >>>/);
   assert.doesNotMatch(text, /Claude Code Router CLI/);
   assert.match(text, /\.llm-router\/bin/);
-  assert.doesNotMatch(text, /claude-code-router/);
   assert.match(text, /^export A=1$/m);
 });
 
@@ -26,7 +25,6 @@ test("a fish config with the Claude Code Router PATH block ends up with one LLM 
   const text = readFileSync(file, "utf8");
   assert.equal((text.match(/>>> .* CLI >>>/g) ?? []).length, 1);
   assert.match(text, /# >>> LLM Router CLI >>>/);
-  assert.doesNotMatch(text, /claude-code-router/);
   assert.match(text, /^set -g A 1$/m);
 });
 

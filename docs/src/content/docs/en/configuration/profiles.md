@@ -63,7 +63,7 @@ Claude App and Claude Code CLI expose models differently:
 
 | Option | What it does |
 | --- | --- |
-| Provider ID | Provider reference for this OpenCode profile, defaulting to `llm-router` (`claude-code-router` in profiles made before the rename). |
+| Provider ID | Provider reference for this OpenCode profile, defaulting to `llm-router` (`llm-router` in profiles made before the rename). |
 | Provider name | Display name shown in OpenCode, defaulting to `LLM Router`. |
 | OpenCode model | Default model for OpenCode CLI and App. It can be a provider model or Fusion model. |
 | Config file | Used for the system-default OpenCode profile. |
@@ -98,7 +98,7 @@ Kimi CLI profiles are fixed to **Only opened from LLMR** and **CLI only**. Selec
 
 | Option | What it does |
 | --- | --- |
-| Provider ID | Provider reference for this ZCode profile, defaulting to `llm-router` (`claude-code-router` in profiles made before the rename). |
+| Provider ID | Provider reference for this ZCode profile, defaulting to `llm-router` (`llm-router` in profiles made before the rename). |
 | Provider name | Display name shown in ZCode, defaulting to `LLM Router`. |
 | ZCode model | Default model when ZCode App opens. It can be a provider model or Fusion model. |
 | Config file | Used for the system-default ZCode profile. |
@@ -111,7 +111,7 @@ ZCode supports App only, so its entry mode is fixed to `App only`. The `Show all
 
 | Option | What it does |
 | --- | --- |
-| Provider ID | Provider reference for this WorkBuddy profile, defaulting to `llm-router` (`claude-code-router` in profiles made before the rename). |
+| Provider ID | Provider reference for this WorkBuddy profile, defaulting to `llm-router` (`llm-router` in profiles made before the rename). |
 | Provider name | Display name used by the generated profile, defaulting to `LLM Router`. |
 | WorkBuddy model | Default model when WorkBuddy App opens. It can be a provider model or Fusion model. |
 | Allowed model list | Models visible in WorkBuddy; empty means every LLMR model. |

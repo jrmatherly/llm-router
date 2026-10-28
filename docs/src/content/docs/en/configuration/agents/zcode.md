@@ -38,7 +38,7 @@ ZCode is fixed to **App only**, so the entry mode is not editable. The fields yo
 | Config name | Free text, e.g. `ZCode - Work` | Identifies the profile. Commands use `llmr "<name>" app`. |
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps the profile limited to LLMR launches, or makes it the system-default ZCode profile. Only one enabled system-default ZCode profile is allowed. |
-| Provider ID | Default `llm-router` (`claude-code-router` in profiles made before the rename) | Provider reference for this ZCode profile. |
+| Provider ID | Default `llm-router` (`llm-router` in profiles made before the rename) | Provider reference for this ZCode profile. |
 | Provider name | Free text; default `LLM Router` | Display name shown in ZCode. |
 | ZCode model | A provider model or Fusion model | Default model when ZCode App opens. |
 | Config file | Path | Used for the system-default ZCode profile. |

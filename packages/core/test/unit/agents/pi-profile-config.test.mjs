@@ -65,10 +65,10 @@ test("Pi profile config writes an LLMR OpenAI Responses provider", () => {
 });
 
 test("isManagedPiModelsContent matches only an LLMR-only provider map", () => {
-  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "claude-code-router": {} } }), "claude-code-router"), true);
-  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "claude-code-router": {}, "my-ollama": {} } }), "claude-code-router"), false);
-  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "my-ollama": {} } }), "claude-code-router"), false);
-  assert.equal(isManagedPiModelsContent("not json", "claude-code-router"), false);
+  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "llm-router": {} } }), "llm-router"), true);
+  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "llm-router": {}, "my-ollama": {} } }), "llm-router"), false);
+  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "my-ollama": {} } }), "llm-router"), false);
+  assert.equal(isManagedPiModelsContent("not json", "llm-router"), false);
 });
 
 test("a global Pi profile snapshots and backs up the user's models.json before writing", () => {

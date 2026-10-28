@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
+import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 import { fetchUpstreamWithFallback } from "@llmr/core/gateway/upstream/executor.ts";
 import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace.ts";
 import { profileApiKeyId } from "@llmr/core/profiles/api-key.ts";
@@ -26,7 +26,7 @@ function createRouterPlugin(options = {}) {
       scope: "global"
     }
   ];
-  const plugin = new ClaudeCodeRouterPlugin({
+  const plugin = new LLMRouterPlugin({
     CUSTOM_ROUTER_PATH: options.customRouterPath ?? "",
     Providers: options.providers ?? [
       {
@@ -1402,7 +1402,7 @@ test("router rules normalize legacy comma provider selectors before gateway prov
     },
     virtualModelProfiles: []
   };
-  const plugin = new ClaudeCodeRouterPlugin(config);
+  const plugin = new LLMRouterPlugin(config);
   const headers = {};
   const result = await plugin.routeRequest({
     body: {
@@ -1527,7 +1527,7 @@ test("router rules override explicit provider model requests", async () => {
     },
     virtualModelProfiles: []
   };
-  const plugin = new ClaudeCodeRouterPlugin(config);
+  const plugin = new LLMRouterPlugin(config);
   const headers = {
     "anthropic-background": "true"
   };
@@ -1564,7 +1564,7 @@ test("router rules override explicit provider model requests", async () => {
 
 test("issue 1480 raw user config no longer reproduces the Claude Code profile routing failure", async () => {
   const config = createIssue1480UserConfig();
-  const plugin = new ClaudeCodeRouterPlugin(config);
+  const plugin = new LLMRouterPlugin(config);
   const headers = {
     "user-agent": "claude-cli/2.1.187 (external, cli)"
   };
@@ -1587,7 +1587,7 @@ test("issue 1480 raw user config no longer reproduces the Claude Code profile ro
 
 test("issue 1480 raw user config reproduces the old failure precondition when Router rules are skipped", async () => {
   const config = createIssue1480UserConfig();
-  const plugin = new ClaudeCodeRouterPlugin({
+  const plugin = new LLMRouterPlugin({
     ...config,
     Router: {
       ...config.Router,
@@ -1617,7 +1617,7 @@ test("issue 1480 raw user config reproduces the old failure precondition when Ro
 
 test("issue 1480 raw user config ignores an unreplaced Provider/model subagent placeholder", async () => {
   const config = createIssue1480UserConfig();
-  const plugin = new ClaudeCodeRouterPlugin(config);
+  const plugin = new LLMRouterPlugin(config);
   const headers = {
     "x-auth-api-key-id": "profile:claude-code-main",
     "user-agent": "claude-cli/2.1.187 (external, cli)"
@@ -1643,7 +1643,7 @@ test("issue 1480 raw user config ignores an unreplaced Provider/model subagent p
 
 test("issue 1480 config routes Claude Code profile traffic through the user default OpenCode rule", async () => {
   const config = createIssue1480RouterConfig();
-  const plugin = new ClaudeCodeRouterPlugin(config);
+  const plugin = new LLMRouterPlugin(config);
   const headers = {
     "x-auth-api-key-id": "profile:claude-code-main",
     "user-agent": "claude-cli/2.1.187 (external, cli)"

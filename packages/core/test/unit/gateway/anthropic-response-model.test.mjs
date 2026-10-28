@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { Readable, Writable } from "node:stream";
 import test from "node:test";
-import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
+import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 import {
   rewriteAnthropicMessageStartModelStream,
   rewriteAnthropicSseBlockMessageStartModelForTest,
@@ -106,7 +106,7 @@ test("gateway pipeline strips client supplied LLMR route headers", async () => {
 
 async function runAnthropicPipelineModelRewrite(requestModel, requestHeaders = {}) {
   const config = createPipelineConfigForAnthropicModelRewrite();
-  const plugin = new ClaudeCodeRouterPlugin(config);
+  const plugin = new LLMRouterPlugin(config);
   const pipeline = new GatewayRequestPipeline({
     getBrowserWebSearchMcpIntegration: () => undefined,
     getConfig: () => config,

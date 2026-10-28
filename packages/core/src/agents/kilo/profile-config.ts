@@ -84,7 +84,7 @@ export function isManagedKiloConfigContent(content: string, providerId: string):
 }
 
 export function kiloProviderId(profile: Pick<ProfileConfig, "providerId">): string {
-  return sanitizeProviderId(profile.providerId || "") || "claude-code-router";
+  return sanitizeProviderId(profile.providerId || "") || "llm-router";
 }
 
 function kiloGatewayOverrides(config: AppConfig, profile: ProfileConfig, token: string): Record<string, unknown> {

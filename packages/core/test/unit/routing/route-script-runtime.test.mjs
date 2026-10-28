@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { ROUTER_SCRIPT_MAX_SOURCE_BYTES } from "@llmr/core/contracts/app.ts";
 import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
-import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
+import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 import { buildRouteScriptInput } from "@llmr/core/routing/route-script-context.ts";
 import { RouteScriptRuntime } from "@llmr/core/routing/route-script-runtime.ts";
 
@@ -85,7 +85,7 @@ function routingInput(body = tokenProbeBody()) {
 }
 
 test("#1869 routes without token consumers skip conversation estimation; count_tokens remains accurate", async (t) => {
-  const plugin = new ClaudeCodeRouterPlugin(routingConfig());
+  const plugin = new LLMRouterPlugin(routingConfig());
   const scans = tokenProbe(t);
   const result = await plugin.routeRequest(routingInput());
   assert.equal(scans(), 0);
@@ -96,7 +96,7 @@ test("#1869 routes without token consumers skip conversation estimation; count_t
 
 test("#1869 token condition aliases estimate once and keep selecting the same route", async (t) => {
   for (const key of ["tokenCount", "token_count"]) {
-    const plugin = new ClaudeCodeRouterPlugin(routingConfig([{
+    const plugin = new LLMRouterPlugin(routingConfig([{
       id: key, name: key, type: "condition", enabled: true,
       condition: { left: `request.${key}`, operator: ">", right: "100000" },
       rewrites: [{ key: "request.body.model", operation: "set", value: "Provider/beta" }],
@@ -116,7 +116,7 @@ test("#1869 scripts estimate tokens lazily in the worker only when read", async 
   try {
     for (const readTokens of [false, true]) {
       const script = routeScript(readTokens ? 'return input.tokenCount > 100000 ? { model: "Provider/beta" } : null;' : 'return null;');
-      const plugin = new ClaudeCodeRouterPlugin(routingConfig([scriptRule("tokens", script)]), { scriptRuntime: runtime });
+      const plugin = new LLMRouterPlugin(routingConfig([scriptRule("tokens", script)]), { scriptRuntime: runtime });
       const expected = readTokens ? plugin.countTokens(tokenProbeBody()).input_tokens : 0;
       const scans = tokenProbe(t);
       const result = await plugin.routeRequest(routingInput());
@@ -131,7 +131,7 @@ test("#1869 scripts estimate tokens lazily in the worker only when read", async 
 test("#1869 provider routing settings retain the token estimate for downstream selection", async () => {
   const config = routingConfig();
   config.Providers[0].modelMetadata = { alpha: { openRouterDiscountRouting: { enabled: true } } };
-  const plugin = new ClaudeCodeRouterPlugin(config);
+  const plugin = new LLMRouterPlugin(config);
   const expected = plugin.countTokens(tokenProbeBody()).input_tokens;
   const result = await plugin.routeRequest(routingInput());
   assert.equal(result.decision.tokenCount, expected);
@@ -141,7 +141,7 @@ test("#1869 custom routers retain the token getter without forcing unused estima
   const file = path.join(routeScriptDirectory, "token-router.cjs");
   for (const readTokens of [false, true]) {
     writeFileSync(file, readTokens ? 'module.exports = request => request.tokenCount > 100000 && request.tokenCount > 100000 ? "Provider/beta" : undefined;' : 'module.exports = () => undefined;');
-    const plugin = new ClaudeCodeRouterPlugin({ ...routingConfig(), CUSTOM_ROUTER_PATH: file });
+    const plugin = new LLMRouterPlugin({ ...routingConfig(), CUSTOM_ROUTER_PATH: file });
     const scans = tokenProbe(t);
     const result = await plugin.routeRequest(routingInput());
     assert.equal(scans(), readTokens ? 2 : 0);
@@ -154,7 +154,7 @@ test("custom routers load once per file version", async () => {
   const file = path.join(routeScriptDirectory, "load-count-router.cjs");
   globalThis.__customRouterLoads = 0;
   writeFileSync(file, 'globalThis.__customRouterLoads += 1; module.exports = () => "Provider/beta";');
-  const plugin = new ClaudeCodeRouterPlugin({ ...routingConfig(), CUSTOM_ROUTER_PATH: file });
+  const plugin = new LLMRouterPlugin({ ...routingConfig(), CUSTOM_ROUTER_PATH: file });
   try {
     assert.equal((await plugin.routeRequest(routingInput({ model: "Provider/alpha" }))).decision.model, "Provider/beta");
     await plugin.routeRequest(routingInput({ model: "Provider/alpha" }));
@@ -171,7 +171,7 @@ test("custom routers load once per file version", async () => {
 test("custom routers that never settle fall back to configured routing after the timeout", async (t) => {
   const file = path.join(routeScriptDirectory, "hung-router.cjs");
   writeFileSync(file, "module.exports = () => new Promise(() => {});");
-  const plugin = new ClaudeCodeRouterPlugin({ ...routingConfig(), CUSTOM_ROUTER_PATH: file });
+  const plugin = new LLMRouterPlugin({ ...routingConfig(), CUSTOM_ROUTER_PATH: file });
   const errors = t.mock.method(console, "error", () => {});
   t.mock.timers.enable({ apis: ["setTimeout"] });
   let settled = false;
@@ -198,7 +198,7 @@ test("#1869 scripts preserve custom router token overrides and cached estimates"
       writeFileSync(file, scenario.router);
       const script = routeScript(`return ${scenario.predicate} ? { model: "Provider/beta" } : null;`);
       const config = { ...routingConfig([scriptRule("override", script)]), CUSTOM_ROUTER_PATH: file };
-      const plugin = new ClaudeCodeRouterPlugin(config, { scriptRuntime: runtime });
+      const plugin = new LLMRouterPlugin(config, { scriptRuntime: runtime });
       const expected = scenario.count ?? plugin.countTokens(tokenProbeBody()).input_tokens;
       const scans = tokenProbe(t);
       const result = await plugin.routeRequest(routingInput());
@@ -497,7 +497,7 @@ test("Node.js script rules participate in ordered routing and return dynamic dec
   const config = routingConfig([rule]);
   try {
     const validationErrors = await runtime.prepare([rule]);
-    const plugin = new ClaudeCodeRouterPlugin(config, {
+    const plugin = new LLMRouterPlugin(config, {
       scriptRuntime: runtime,
       scriptValidationErrors: validationErrors
     });
@@ -557,7 +557,7 @@ test("Node.js script rules fail open and continue to the first valid dynamic dec
   try {
     const validationErrors = await runtime.prepare(rules);
     assert.deepEqual([...validationErrors], []);
-    const plugin = new ClaudeCodeRouterPlugin(config, {
+    const plugin = new LLMRouterPlugin(config, {
       scriptRuntime: runtime,
       scriptValidationErrors: validationErrors
     });
@@ -605,7 +605,7 @@ test("startup validation disables an invalid script without blocking later rules
     assert.equal(validationErrors.size, 1);
     assert.match(validationErrors.get("invalid-syntax"), /syntax|unexpected/i);
 
-    const plugin = new ClaudeCodeRouterPlugin(config, {
+    const plugin = new LLMRouterPlugin(config, {
       scriptRuntime: runtime,
       scriptValidationErrors: validationErrors
     });
@@ -638,7 +638,7 @@ test("a true script result applies the rule's static target, rewrites, and fallb
   const config = routingConfig([rule]);
   try {
     const validationErrors = await runtime.prepare([rule]);
-    const plugin = new ClaudeCodeRouterPlugin(config, {
+    const plugin = new LLMRouterPlugin(config, {
       scriptRuntime: runtime,
       scriptValidationErrors: validationErrors
     });
@@ -748,7 +748,7 @@ test("dynamic script model deletion overrides an earlier static model rewrite", 
   const config = routingConfig([rule]);
   try {
     const validationErrors = await runtime.prepare([rule]);
-    const plugin = new ClaudeCodeRouterPlugin(config, {
+    const plugin = new LLMRouterPlugin(config, {
       scriptRuntime: runtime,
       scriptValidationErrors: validationErrors
     });

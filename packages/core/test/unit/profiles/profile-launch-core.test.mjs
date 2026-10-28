@@ -78,7 +78,7 @@ const openCodeProfile = {
   id: "opencode-main",
   model: "provider,model",
   name: "OpenCode Main",
-  providerId: "claude-code-router",
+  providerId: "llm-router",
   scope: "llmr",
   surface: "auto"
 };
@@ -89,7 +89,7 @@ const kiloProfile = {
   id: "kilo-main",
   model: "provider,model",
   name: "Kilo Main",
-  providerId: "claude-code-router",
+  providerId: "llm-router",
   scope: "llmr",
   surface: "cli"
 };
@@ -100,7 +100,7 @@ const workbuddyProfile = {
   id: "workbuddy-main",
   model: "provider,model",
   name: "Workbuddy Main",
-  providerId: "claude-code-router",
+  providerId: "llm-router",
   scope: "llmr",
   surface: "app"
 };

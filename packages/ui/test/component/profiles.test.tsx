@@ -149,13 +149,13 @@ test("AddProfileForm uses Codex-specific enhanced route info for Codex profiles"
   assert.equal(profileConfigFromDraft(draft, []).providerName, "LLM Router");
 });
 
-test("new profiles default to the llm-router provider ID and saved claude-code-router profiles keep theirs", () => {
+test("new profiles default to the llm-router provider ID and saved llm-router profiles keep theirs", () => {
   assert.equal(createProfileDraft("opencode").providerId, "llm-router");
 
-  const saved = normalizeUnknownProfileItem({ agent: "opencode", id: "opencode-old", name: "OpenCode", providerId: "claude-code-router" }, 0);
+  const saved = normalizeUnknownProfileItem({ agent: "opencode", id: "opencode-old", name: "OpenCode", providerId: "llm-router" }, 0);
   assert.ok(saved);
-  assert.equal(saved.providerId, "claude-code-router");
-  assert.equal(profileConfigFromDraft(createProfileDraftFromProfile(saved), []).providerId, "claude-code-router");
+  assert.equal(saved.providerId, "llm-router");
+  assert.equal(profileConfigFromDraft(createProfileDraftFromProfile(saved), []).providerId, "llm-router");
 });
 
 test("explicit allowed model lists require a default model", () => {
@@ -526,7 +526,7 @@ test("profileSummaryItems omits disabled profile properties from cards", () => {
     managedCompact: false,
     model: "openai/gpt-5.2",
     name: "Codex Main",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     scope: "llmr",
     showAllSessions: false,
     surface: "auto"
@@ -542,7 +542,7 @@ test("profileSummaryItems omits disabled profile properties from cards", () => {
     managedCompact: true,
     model: "openai/gpt-5.2",
     name: "Codex Main",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     scope: "llmr",
     showAllSessions: true,
     surface: "auto"
@@ -724,7 +724,7 @@ test("Kilo CLI profiles support local CLI configuration", () => {
     id: "kilo-work",
     model: "Provider/model",
     name: "Kilo Work",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     scope: "global",
     showAllSessions: true,
     surface: "app"
@@ -766,7 +766,7 @@ test("Workbuddy profiles support local App configuration", () => {
     id: "workbuddy-work",
     model: "Provider/model",
     name: "Workbuddy Work",
-    providerId: "claude-code-router",
+    providerId: "llm-router",
     scope: "global",
     showAllSessions: true,
     surface: "app"

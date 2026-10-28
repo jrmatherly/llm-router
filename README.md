@@ -18,7 +18,7 @@ Connect Claude Code, Claude Design, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCo
 
 <br />
 
-<img src="blog/images/claude-code-router.png" width="820" alt="LLM Router Desktop dashboard" />
+<img src="blog/images/llm-router.png" width="820" alt="LLM Router Desktop dashboard" />
 
 </div>
 

@@ -473,7 +473,7 @@ async function exportAppData(window: BrowserWindow | null): Promise<AppDataExpor
     config,
     exportedAt,
     files: readDataExportFiles(),
-    kind: "claude-code-router-data-export",
+    kind: "llm-router-data-export",
     version: 1
   };
 

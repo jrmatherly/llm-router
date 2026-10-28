@@ -9,9 +9,9 @@ import {
 } from "@llmr/core/gateway/auth/api-key-authorizer";
 import { llmrRemoteControlPathPrefix, llmrRemoteControlService, remoteControlOwnerId } from "@llmr/core/gateway/remote-control-service";
 import {
-  ClaudeCodeRouterPlugin,
+  LLMRouterPlugin,
   type ClaudeCodeRouteDecision
-} from "@llmr/core/gateway/claude-code-router-plugin";
+} from "@llmr/core/gateway/llm-router-plugin";
 import {
   llmrAnthropicReasoningResponseHookKey,
   llmrCodexApplyPatchBridgeHeader,
@@ -205,7 +205,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
   const scriptValidationErrors = scriptRuntime
     ? await scriptRuntime.prepare(config.Router.rules)
     : undefined;
-  const router = new ClaudeCodeRouterPlugin(config, {
+  const router = new LLMRouterPlugin(config, {
     scriptRuntime,
     scriptValidationErrors
   });
@@ -283,8 +283,8 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
           "GET /models",
           "GET /v1/models"
         ],
-        name: "claude-code-router",
-        plugin: "claude-code-router",
+        name: "llm-router",
+        plugin: "llm-router",
         wrapperPlugins: config.plugins.filter((plugin) => plugin.enabled !== false).map((plugin) => plugin.id)
       })
     }, {
@@ -967,7 +967,7 @@ async function resolveApiKey(
 }
 
 async function routeWithRouter(
-  router: ClaudeCodeRouterPlugin,
+  router: LLMRouterPlugin,
   payload: LlmrRouterPluginRouteRequest
 ): Promise<{ body: Record<string, unknown>; decision: ClaudeCodeRouteDecision }> {
   const path = payload.path ?? requestPath(payload.url ?? "/");

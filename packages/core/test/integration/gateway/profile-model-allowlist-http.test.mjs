@@ -4,13 +4,13 @@ import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { GatewayHttpRequestHandler } from "@llmr/core/gateway/http/request-handler.ts";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
-import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
+import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 import { profileApiKeyId } from "@llmr/core/profiles/api-key.ts";
 import { waitForTcpListener } from "../../support/loopback-listener.mjs";
 
 test("gateway HTTP model discovery and request access honor profile model allowlists", async (t) => {
   const config = createProfileAllowlistHttpTestConfig();
-  const plugin = new ClaudeCodeRouterPlugin(config);
+  const plugin = new LLMRouterPlugin(config);
   const runtimeConfigRevision = "a".repeat(64);
   const runtimeConfigReloads = [];
   const status = {

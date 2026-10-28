@@ -188,7 +188,7 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
         managedCompact: false,
         model: "Workbuddy E2E Provider/gpt-5-codex",
         name: "Workbuddy E2E",
-        providerId: "claude-code-router",
+        providerId: "llm-router",
         providerName: "LLM Router",
         showAllSessions: true,
         scope: "llmr",
@@ -222,7 +222,7 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
   expect(workbuddyStatus?.path).toBe(configFile);
 
   const toml = readFileSync(configFile, "utf8");
-  expect(toml).toContain('model_provider = "claude-code-router"');
+  expect(toml).toContain('model_provider = "llm-router"');
   expect(toml).toContain('model = "Workbuddy E2E Provider/gpt-5-codex"');
   expect(toml).toContain(`model_catalog_json = "${path.join(profileHome, "llmr-model-catalog.json")}"`);
   expect(toml).toContain(`base_url = "http://${host}:${current.gatewayPort}/v1"`);

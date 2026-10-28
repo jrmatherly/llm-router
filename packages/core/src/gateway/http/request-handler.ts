@@ -5,7 +5,7 @@ import { LEGACY_GROK_MEDIA_ARTIFACT_PATH_PREFIX, MEDIA_ARTIFACT_PATH_PREFIX, han
 import { LEGACY_GROK_MEDIA_MCP_PATH, MEDIA_TOOLS_MCP_PATH } from "@llmr/core/mcp/grok-media-config";
 import { BROWSER_AUTOMATION_MCP_PATH, browserAutomationMcpEnabled } from "@llmr/core/mcp/toolhub-config";
 import { pluginService } from "@llmr/core/plugins/service";
-import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin";
+import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin";
 import { createClaudeCliBootstrapResponse, shouldServeClaudeCliBootstrapResponse } from "@llmr/core/gateway/features/model-discovery";
 import {
   contextArchiveConfigForApiKey,
@@ -28,7 +28,7 @@ import type { BrowserAutomationMcpIntegration } from "@llmr/core/gateway/interna
 export type GatewayHttpRequestHandlerDependencies = {
   getBrowserAutomationMcpIntegration: () => BrowserAutomationMcpIntegration | undefined;
   getConfig: () => AppConfig | undefined;
-  getPlugin: () => ClaudeCodeRouterPlugin | undefined;
+  getPlugin: () => LLMRouterPlugin | undefined;
   getRuntimeConfigControlStatus: () => { lastError?: string; revision?: string };
   getStatus: () => { coreEndpoint: string; coreManagedExternally?: boolean; endpoint: string; state: string };
   handleBillingUsageSync: (request: IncomingMessage, response: ServerResponse) => Promise<void>;
@@ -242,8 +242,8 @@ export class GatewayHttpRequestHandler {
         sendJson(response, 200, {
           core: "next-ai-gateway",
           endpoints: ["POST /v1/oauth/token", "GET /api/claude_cli/bootstrap", "POST /mcp", "POST /v1/messages", "POST /v1/messages/count_tokens", "GET /models", "GET /v1/models"],
-          name: "claude-code-router",
-          plugin: "claude-code-router",
+          name: "llm-router",
+          plugin: "llm-router",
           wrapperPlugins: this.config.plugins.filter((plugin) => plugin.enabled !== false).map((plugin) => plugin.id)
         });
         return;
