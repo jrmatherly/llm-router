@@ -1713,7 +1713,7 @@ function claudeCodeWrapperShellScript(
 ): string {
   const realClaude = profile.env?.CCR_CLAUDE_CODE_BIN?.trim() || "claude";
   const surface = normalizeProfileSurface(profile.surface);
-  const remoteEndpoint = `${gatewayEndpoint(config)}/__ccr/remote`;
+  const remoteEndpoint = `${gatewayEndpoint(config)}/__llmr/remote`;
   const settingsDir = path.dirname(resolveClaudeCodeSettingsFile(profile));
   const envExports = Object.entries(profileEnv(profile))
     .filter(([key]) => key !== "CCR_CLAUDE_CODE_BIN" && !isClaudeCodeManagedModelEnvKey(key) && !isClaudeCodeFirstPartyProviderEnvKey(key) && !isClaudeCodeWifEnvKey(key))
@@ -1752,7 +1752,7 @@ function claudeCodeWrapperCmdScript(
 ): string {
   const realClaude = profile.env?.CCR_CLAUDE_CODE_BIN?.trim() || "claude";
   const surface = normalizeProfileSurface(profile.surface);
-  const remoteEndpoint = `${gatewayEndpoint(config)}/__ccr/remote`;
+  const remoteEndpoint = `${gatewayEndpoint(config)}/__llmr/remote`;
   const settingsDir = path.dirname(resolveClaudeCodeSettingsFile(profile));
   const envExports = Object.entries(profileEnv(profile))
     .filter(([key]) => key !== "CCR_CLAUDE_CODE_BIN" && !isClaudeCodeManagedModelEnvKey(key) && !isClaudeCodeFirstPartyProviderEnvKey(key) && !isClaudeCodeWifEnvKey(key))
@@ -2244,8 +2244,8 @@ function kimiProfileCustomHeaderEntries(profile: ProfileConfig): Record<string, 
       headers[key] = value;
     }
   }
-  headers["x-ccr-client"] = "kimi";
-  headers["x-ccr-profile"] = profile.id || profile.name || "kimi";
+  headers["x-llmr-client"] = "kimi";
+  headers["x-llmr-profile"] = profile.id || profile.name || "kimi";
   return headers;
 }
 

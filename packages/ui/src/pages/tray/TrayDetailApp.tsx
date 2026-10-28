@@ -19,7 +19,7 @@ export function TrayDetailApp({ provider }: { provider?: string }) {
   const [trayWidgets, setTrayWidgets] = useState<TrayWidgetConfig[]>(DEFAULT_TRAY_WIDGETS);
 
   const refresh = useCallback(async () => {
-    if (!window.ccr) {
+    if (!window.llmr) {
       setSnapshots(emptySnapshots);
       setAccountSnapshots([]);
       return;
@@ -30,12 +30,12 @@ export function TrayDetailApp({ provider }: { provider?: string }) {
     try {
       const filter: UsageStatsFilter = provider ? { provider } : { includeProxy: true };
       const [today, day, week, month, config, accounts] = await Promise.all([
-        window.ccr.getUsageStats("today", filter),
-        window.ccr.getUsageStats("24h", filter),
-        window.ccr.getUsageStats("7d", filter),
-        window.ccr.getUsageStats("30d", filter),
-        window.ccr.getConfig(),
-        window.ccr.getProviderAccountSnapshots(provider)
+        window.llmr.getUsageStats("today", filter),
+        window.llmr.getUsageStats("24h", filter),
+        window.llmr.getUsageStats("7d", filter),
+        window.llmr.getUsageStats("30d", filter),
+        window.llmr.getConfig(),
+        window.llmr.getProviderAccountSnapshots(provider)
       ]);
       setSnapshots({ today, "24h": day, "7d": week, "30d": month });
       setAccountSnapshots(accounts);
@@ -49,7 +49,7 @@ export function TrayDetailApp({ provider }: { provider?: string }) {
   }, [provider]);
 
   const refreshAccountSnapshots = useCallback(async () => {
-    if (!window.ccr) {
+    if (!window.llmr) {
       setAccountSnapshots([]);
       return;
     }
@@ -57,7 +57,7 @@ export function TrayDetailApp({ provider }: { provider?: string }) {
     setAccountRefreshing(true);
     setError("");
     try {
-      const accounts = await window.ccr.getProviderAccountSnapshots(provider, { forceRefresh: true });
+      const accounts = await window.llmr.getProviderAccountSnapshots(provider, { forceRefresh: true });
       setAccountSnapshots(accounts);
     } catch (nextError) {
       setError(formatErrorMessage(nextError));
@@ -70,7 +70,7 @@ export function TrayDetailApp({ provider }: { provider?: string }) {
     document.body.classList.add("tray-window");
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        void window.ccr?.closeTray();
+        void window.llmr?.closeTray();
       }
     };
     window.addEventListener("keydown", closeOnEscape);

@@ -11,6 +11,6 @@ test("native theme source maps explicit preferences and system fallback", () => 
 });
 
 test("theme preference IPC uses separate save and renderer notification channels", () => {
-  assert.equal(IPC_CHANNELS.appSetThemePreference, "ccr:app:set-theme-preference");
-  assert.equal(IPC_CHANNELS.appThemePreferenceChanged, "ccr:app:theme-preference-changed");
+  assert.equal(IPC_CHANNELS.appSetThemePreference, "llmr:app:set-theme-preference");
+  assert.equal(IPC_CHANNELS.appThemePreferenceChanged, "llmr:app:theme-preference-changed");
 });

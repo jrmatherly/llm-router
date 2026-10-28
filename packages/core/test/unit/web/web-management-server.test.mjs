@@ -79,14 +79,14 @@ test("web RPC ignores Origin and Referer when the auth token is valid", async ()
     startGateway: false
   });
   try {
-    const endpoint = new URL("/api/ccr/rpc", runtime.url);
+    const endpoint = new URL("/api/llmr/rpc", runtime.url);
     const response = await fetch(endpoint, {
       body: JSON.stringify({ args: [], method: "getAppInfo" }),
       headers: {
         "content-type": "application/json",
         "origin": "http://127.0.0.1:8000",
         "referer": "http://127.0.0.1:8000/",
-        "x-ccr-web-auth": authToken
+        "x-llmr-web-auth": authToken
       },
       method: "POST"
     });
@@ -175,11 +175,11 @@ test("startGateway reuses an already healthy LLMR gateway on the configured port
 });
 
 async function rpc(baseUrl, authToken, method, args = []) {
-  const response = await fetch(new URL("/api/ccr/rpc", baseUrl), {
+  const response = await fetch(new URL("/api/llmr/rpc", baseUrl), {
     body: JSON.stringify({ args, method }),
     headers: {
       "content-type": "application/json",
-      "x-ccr-web-auth": authToken
+      "x-llmr-web-auth": authToken
     },
     method: "POST"
   });
@@ -215,7 +215,7 @@ function createHealthyCcrGateway(apiKey, state) {
       sendJson(response, 200, { data: [{ id: "test-model", object: "model" }], object: "list" });
       return;
     }
-    if (url.pathname === "/__ccr/runtime/config") {
+    if (url.pathname === "/__llmr/runtime/config") {
       if (request.headers.authorization !== `Bearer ${apiKey}`) {
         sendJson(response, 401, { error: { message: "Invalid API key." } });
         return;

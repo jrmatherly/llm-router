@@ -960,7 +960,7 @@ export function shouldServeGatewayRequest(config: AppConfig, request: IncomingMe
   if (config.gateway.enabled) {
     return true;
   }
-  return config.proxy.enabled && config.proxy.mode === "gateway" && readHeader(request.headers["x-ccr-proxy-mode"]) === "gateway";
+  return config.proxy.enabled && config.proxy.mode === "gateway" && readHeader(request.headers["x-llmr-proxy-mode"]) === "gateway";
 }
 
 export function applyCors(response: ServerResponse, config?: AppConfig): void {

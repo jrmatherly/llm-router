@@ -9,7 +9,7 @@ test.beforeAll(async () => { runtime = await startCliWebServer("issue-audit-test
 test.afterAll(async () => { if (runtime) await disposeCliWebRuntime(runtime); });
 
 test("#1825/#1826/#1819 stale RPC saves preserve providers, rules, fallback and detected endpoints", async ({ request }) => {
-  const rpc = async (method: string, args: unknown[] = []) => request.post(`${runtime.baseUrl}/api/ccr/rpc`, { headers: { "x-ccr-web-auth": runtime.token }, data: { method, args } });
+  const rpc = async (method: string, args: unknown[] = []) => request.post(`${runtime.baseUrl}/api/llmr/rpc`, { headers: { "x-llmr-web-auth": runtime.token }, data: { method, args } });
   const stale = (await (await rpc("getConfig")).json()).value;
   const peer = structuredClone(stale);
   const provider = { id: "issue-peer", name: "Peer Provider", api_base_url: "http://127.0.0.1:9/api/v3", type: "openai_chat_completions", models: ["old", "new"], capabilities: [{ type: "openai_chat_completions", baseUrl: "http://127.0.0.1:9/api/v3", source: "detected" }] };
@@ -34,12 +34,12 @@ test("#1825/#1826/#1819 stale RPC saves preserve providers, rules, fallback and 
 
 test("#1800 seven heatmap rows fit their clipping ancestor across wide layouts and resizes", async ({ page }) => {
   await page.goto(`${runtime.baseUrl}/?llmr_web_token=${runtime.token}`);
-  await expect.poll(() => page.evaluate(() => Boolean(window.ccr?.getConfig))).toBe(true);
+  await expect.poll(() => page.evaluate(() => Boolean(window.llmr?.getConfig))).toBe(true);
   await page.evaluate(async () => {
-    const config = await window.ccr!.getConfig();
+    const config = await window.llmr!.getConfig();
     config.overviewWidgets = [{ enabled: true, id: "activity-audit", size: "4:2", type: "token-activity", variant: "heatmap" }];
-    await window.ccr!.saveConfig(config, { applyProfile: false });
-    await window.ccr!.setOnboardingFinished?.();
+    await window.llmr!.saveConfig(config, { applyProfile: false });
+    await window.llmr!.setOnboardingFinished?.();
   });
   await page.reload();
   const grid = page.getByRole("img", { name: "Activity Tokens" });
@@ -65,11 +65,11 @@ test("#1800 tray renderer shows all seven activity rows at narrow and wide width
     .replace('<script type="module"', '<script src="/assets/web-client-bridge.js"></script><script type="module"');
   await page.route("**/pages/tray/index.html*", route => route.fulfill({ contentType: "text/html", body: html }));
   await page.goto(`${runtime.baseUrl}/?llmr_web_token=${runtime.token}`);
-  await expect.poll(() => page.evaluate(() => Boolean(window.ccr?.getConfig))).toBe(true);
+  await expect.poll(() => page.evaluate(() => Boolean(window.llmr?.getConfig))).toBe(true);
   await page.evaluate(async () => {
-    const config = await window.ccr!.getConfig();
+    const config = await window.llmr!.getConfig();
     config.trayWidgets = [{ id: "activity", type: "activity" }];
-    await window.ccr!.saveConfig(config, { applyProfile: false });
+    await window.llmr!.saveConfig(config, { applyProfile: false });
   });
   await page.goto(`${runtime.baseUrl}/pages/tray/index.html?llmr_web_token=${runtime.token}`);
   const grid = page.getByRole("img", { name: "Activity Tokens" });

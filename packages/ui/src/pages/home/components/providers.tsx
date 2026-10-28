@@ -1375,13 +1375,13 @@ function LocalAgentProviderImportPanel({
   const [scanAttempt, setScanAttempt] = useState(0);
 
   useEffect(() => {
-    if (mode !== "add" || !window.ccr?.getLocalAgentProviderCandidates) {
+    if (mode !== "add" || !window.llmr?.getLocalAgentProviderCandidates) {
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError("");
-    void window.ccr.getLocalAgentProviderCandidates()
+    void window.llmr.getLocalAgentProviderCandidates()
       .then((items) => {
         if (!cancelled) {
           setCandidates(items.filter((item) =>
@@ -1410,13 +1410,13 @@ function LocalAgentProviderImportPanel({
   }
 
   async function importCandidate(candidate: LocalAgentProviderCandidate) {
-    if (!window.ccr?.importLocalAgentProvider || !candidate.importable) {
+    if (!window.llmr?.importLocalAgentProvider || !candidate.importable) {
       return;
     }
     setImportingId(candidate.id);
     setError("");
     try {
-      const result = await window.ccr.importLocalAgentProvider({
+      const result = await window.llmr.importLocalAgentProvider({
         id: candidate.id,
         providerNames: providers.map((provider) => provider.name)
       });
@@ -2104,7 +2104,7 @@ export function AddProviderForm({
     setIconDetecting(false);
 
     const baseUrl = draft.baseUrl.trim();
-    const ccr = window.ccr;
+    const ccr = window.llmr;
     if (!customEndpoint || !baseUrl || draft.icon || importDetectPending || !ccr?.detectProviderIcon) {
       return;
     }
@@ -2904,11 +2904,11 @@ function ProviderUsageSettings({
   }, [draft.accountMode, draft.usageBrowserLoginUrl, draft.usageBrowserRequestOrigin, draft.usageRequestUrl]);
 
   useEffect(() => {
-    if (!chromeImportJob || chromeImportJob.status !== "pending" || !window.ccr?.getChromeLoginImport) {
+    if (!chromeImportJob || chromeImportJob.status !== "pending" || !window.llmr?.getChromeLoginImport) {
       return;
     }
     const interval = window.setInterval(() => {
-      const getChromeLoginImport = window.ccr?.getChromeLoginImport;
+      const getChromeLoginImport = window.llmr?.getChromeLoginImport;
       if (!getChromeLoginImport) {
         return;
       }
@@ -2921,7 +2921,7 @@ function ProviderUsageSettings({
   }, [chromeImportJob]);
 
   async function testUsageRequest() {
-    if (!window.ccr?.testProviderAccountConnector) {
+    if (!window.llmr?.testProviderAccountConnector) {
       setTestError("Request failed.");
       return;
     }
@@ -2948,7 +2948,7 @@ function ProviderUsageSettings({
     setTestLoading(true);
     setTestError("");
     try {
-      const result = await window.ccr.testProviderAccountConnector({
+      const result = await window.llmr.testProviderAccountConnector({
         apiKey: connector.type === "http-json" ? usageApiKey : undefined,
         baseUrl: draft.baseUrl.trim(),
         connector,
@@ -2964,7 +2964,7 @@ function ProviderUsageSettings({
   }
 
   async function openBrowserLogin() {
-    if (!window.ccr?.openBuiltInBrowser) {
+    if (!window.llmr?.openBuiltInBrowser) {
       setTestError("Built-in browser is unavailable.");
       return;
     }
@@ -2975,14 +2975,14 @@ function ProviderUsageSettings({
     }
     setTestError("");
     try {
-      await window.ccr.openBuiltInBrowser(targetUrl);
+      await window.llmr.openBuiltInBrowser(targetUrl);
     } catch (error) {
       setTestError(formatAppError(error));
     }
   }
 
   async function startChromeImportFromBrowserConfig() {
-    if (!window.ccr?.startChromeLoginImport) {
+    if (!window.llmr?.startChromeLoginImport) {
       setTestError("Chrome login import is unavailable.");
       return;
     }
@@ -2995,7 +2995,7 @@ function ProviderUsageSettings({
     setChromeImportMessage("");
     setTestError("");
     try {
-      const job = await window.ccr.startChromeLoginImport({
+      const job = await window.llmr.startChromeLoginImport({
         domains,
         openConfirmationPage: true,
         target: "browser"
@@ -4384,7 +4384,7 @@ function OpenRouterProviderBlacklistSelect({
   }
 
   async function loadProviders(force = false) {
-    if (!window.ccr?.getOpenRouterProviderCatalog) {
+    if (!window.llmr?.getOpenRouterProviderCatalog) {
       return;
     }
     if (!force && (providers.length > 0 || loading)) {
@@ -4397,7 +4397,7 @@ function OpenRouterProviderBlacklistSelect({
     setLoading(true);
     setError("");
     try {
-      const result = await window.ccr.getOpenRouterProviderCatalog(request);
+      const result = await window.llmr.getOpenRouterProviderCatalog(request);
       setProviders(result.providers);
     } catch (errorValue) {
       setProviders([]);

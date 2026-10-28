@@ -6,15 +6,15 @@ import path from "node:path";
 export const classes = {
   alias: [/@ccr(?=\\?\/)/g],
   wire: [
-    /x-ccr-/g,
-    /\/api\/ccr(?![A-Za-z0-9_-])/g,
-    /\/__ccr(?![A-Za-z0-9_])/g,
-    /window\.ccr/g,
+    /x-ccr-/gi,
+    /\\?\/api\\?\/ccr(?![A-Za-z0-9_-])/g,
+    /\\?\/__ccr(?![A-Za-z0-9_])/g,
+    /window\\?\.ccr/g,
     /exposeInMainWorld\("ccr/g,
     /Window\["ccr"\]/g,
-    /\bccr(?:Browser)?\?: \{/g,
+    /\bccr(?:Browser)?\??: \{/g,
     /\{ ccr: Record<string, unknown> \}\)\.ccr/g,
-    /(?<=["'`])ccr(?=:)/g
+    /(?<=["'`])ccr(?=:(?!\/\/))/g
   ],
   env: [/CCR_/g],
   rest: [/ccr/gi]

@@ -1,7 +1,7 @@
-type CcrApi = NonNullable<Window["ccr"]>;
+type CcrApi = NonNullable<Window["llmr"]>;
 
-const rpcEndpoint = "/api/ccr/rpc";
-const webAuthHeader = "x-ccr-web-auth";
+const rpcEndpoint = "/api/llmr/rpc";
+const webAuthHeader = "x-llmr-web-auth";
 const webAuthQueryParam = "llmr_web_token";
 const webAuthStorageKey = "ccr.webAuthToken";
 const webAuthToken = readWebAuthToken();
@@ -183,6 +183,6 @@ const webClientBridge: CcrApi = {
   waitBotGatewayQrLogin: (request) => rpc("waitBotGatewayQrLogin", [request]) as ReturnType<CcrApi["waitBotGatewayQrLogin"]>
 };
 
-if (!window.ccr) {
-  window.ccr = webClientBridge;
+if (!window.llmr) {
+  window.llmr = webClientBridge;
 }

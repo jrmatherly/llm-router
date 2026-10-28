@@ -896,7 +896,7 @@ test("OpenCode bot worker keeps commands responsive while preserving per-convers
   writeFileSync(path.join(stateDir, "opencode-bot-sessions.json"), JSON.stringify({
     version: 1,
     conversations: {
-      "ccr:bot-test:conversation-1:": {
+      "llmr:bot-test:conversation-1:": {
         sessionId: "ses_stale_directory",
         directory: "/stale/project",
         title: "Stale session"

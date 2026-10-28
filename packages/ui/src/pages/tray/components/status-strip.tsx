@@ -12,7 +12,7 @@ export function TrayStatusStrip({ totalTokens }: { totalTokens: number }) {
         className="tray-header-action -ml-1 flex min-w-0 items-center gap-2 rounded-[9px] px-1 py-0.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/35"
         title="Open LLMR"
         type="button"
-        onClick={() => void window.ccr?.showMainWindow()}
+        onClick={() => void window.llmr?.showMainWindow()}
       >
         <TrayWindowHeaderIcon />
         <div className="min-w-0">
@@ -25,7 +25,7 @@ export function TrayStatusStrip({ totalTokens }: { totalTokens: number }) {
         className="tray-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
         title="Quit"
         type="button"
-        onClick={() => void window.ccr?.quitApp()}
+        onClick={() => void window.llmr?.quitApp()}
       >
         <Power className="h-3.5 w-3.5" />
       </button>

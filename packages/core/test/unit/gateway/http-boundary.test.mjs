@@ -25,12 +25,12 @@ import {
 } from "@llmr/core/gateway/http/body.ts";
 
 test("gateway client inference honors explicit, proxy, API-key, and user-agent identity", () => {
-  assert.equal(inferGatewayClient(undefined, { "x-ccr-client": "  Desktop App  " }), "Desktop App");
+  assert.equal(inferGatewayClient(undefined, { "x-llmr-client": "  Desktop App  " }), "Desktop App");
   assert.equal(inferGatewayClient({ id: "key-id", name: "Team key" }, { "user-agent": "codex-cli/1.0" }), "Team key");
   assert.equal(
     inferGatewayClient(
       { id: "key-id", name: "Team key" },
-      { "user-agent": "codex-cli/1.0", "x-ccr-proxy-mode": "gateway" }
+      { "user-agent": "codex-cli/1.0", "x-llmr-proxy-mode": "gateway" }
     ),
     "Codex"
   );
@@ -49,11 +49,11 @@ test("gateway authentication accepts supported headers and scopes query tokens t
   assert.equal(readHeader([" first ", "second"]), "first");
 
   assert.equal(
-    readRemoteControlQueryAuthToken({ url: "/__ccr/remote/status?api_key=query-token" }),
+    readRemoteControlQueryAuthToken({ url: "/__llmr/remote/status?api_key=query-token" }),
     "query-token"
   );
   assert.equal(
-    readRemoteControlQueryAuthToken({ url: "/__ccr/remote/session?key=fallback-token" }),
+    readRemoteControlQueryAuthToken({ url: "/__llmr/remote/session?key=fallback-token" }),
     "fallback-token"
   );
   assert.equal(readRemoteControlQueryAuthToken({ url: "/v1/messages?api_key=must-not-leak" }), undefined);
@@ -63,7 +63,7 @@ test("gateway header forwarding strips hop-by-hop, local auth, and observability
   const forwarded = forwardHeaders({
     connection: "keep-alive",
     host: "127.0.0.1:3456",
-    "x-ccr-core-auth": "internal-secret",
+    "x-llmr-core-auth": "internal-secret",
     "x-extra": ["one", "two"],
     "x-keep": "yes"
   });
@@ -87,8 +87,8 @@ test("gateway header forwarding strips hop-by-hop, local auth, and observability
 
   assert.deepEqual(
     omitLocalObservabilityHeaders({
-      "x-ccr-logical-provider": "Provider",
-      "x-ccr-provider-credential-chain": "credential",
+      "x-llmr-logical-provider": "Provider",
+      "x-llmr-provider-credential-chain": "credential",
       "x-keep": "yes"
     }),
     { "x-keep": "yes" }
@@ -98,7 +98,7 @@ test("gateway header forwarding strips hop-by-hop, local auth, and observability
 test("core gateway auth and upstream response headers stay on their intended boundary", () => {
   assert.deepEqual(withCoreGatewayAuthHeader({ accept: "application/json" }, "core-token"), {
     accept: "application/json",
-    "x-ccr-core-auth": "core-token"
+    "x-llmr-core-auth": "core-token"
   });
   assert.throws(() => withCoreGatewayAuthHeader({}, ""), /not initialized/);
 
@@ -173,7 +173,7 @@ test("gateway method and abort helpers cover body and cancellation edge cases", 
 test("inferGatewayClient names the developer a Claude apps gateway forwards", () => {
   assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-claude-gateway-user-email": " dev@example.com ", "user-agent": "claude-cli/2.1.310" }), "dev@example.com");
   assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-litellm-end-user-id": "dev@example.com" }), "dev@example.com");
-  assert.equal(inferGatewayClient(undefined, { "x-ccr-client": "Proxy", "x-claude-gateway-user-email": "dev@example.com" }), "Proxy");
+  assert.equal(inferGatewayClient(undefined, { "x-llmr-client": "Proxy", "x-claude-gateway-user-email": "dev@example.com" }), "Proxy");
   assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-claude-gateway-user-email": "   " }), "Apps gateway key");
   assert.equal(inferGatewayClient({ id: "gw", name: "Apps gateway key" }, { "x-claude-gateway-user-id": "sub-123" }), "Apps gateway key");
 });

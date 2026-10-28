@@ -28,9 +28,9 @@ test("serves the management UI in a browser", async ({ page }) => {
   await expect(page).toHaveTitle("LLM Router");
   await expect(page.locator("#root")).toBeAttached();
   await expect(page.locator("body")).toContainText(/Configure provider|Connect agent|Let's start/, { timeout: 15_000 });
-  await expect(page.evaluate(() => Boolean(window.ccr?.getAppInfo))).resolves.toBe(true);
+  await expect(page.evaluate(() => Boolean(window.llmr?.getAppInfo))).resolves.toBe(true);
   await expect(page.evaluate(async () => {
-    const presets = await window.ccr?.getProviderPresets?.();
+    const presets = await window.llmr?.getProviderPresets?.();
     return presets?.map((preset) => preset.id) ?? [];
   })).resolves.toContain("openai");
 
@@ -47,10 +47,10 @@ test("serves static assets used by the web UI", async ({ request }) => {
 
 test("handles authenticated web RPC requests", async ({ request }) => {
   const current = requireRuntime();
-  const response = await request.post(`${current.baseUrl}/api/ccr/rpc`, {
+  const response = await request.post(`${current.baseUrl}/api/llmr/rpc`, {
     data: { args: [], method: "getAppInfo" },
     headers: {
-      "x-ccr-web-auth": current.token
+      "x-llmr-web-auth": current.token
     }
   });
   const payload = await response.json();
@@ -65,7 +65,7 @@ test("handles authenticated web RPC requests", async ({ request }) => {
 
 test("rejects RPC requests without the web auth token", async ({ request }) => {
   const current = requireRuntime();
-  const response = await request.post(`${current.baseUrl}/api/ccr/rpc`, {
+  const response = await request.post(`${current.baseUrl}/api/llmr/rpc`, {
     data: { args: [], method: "getAppInfo" }
   });
   const payload = await response.json();

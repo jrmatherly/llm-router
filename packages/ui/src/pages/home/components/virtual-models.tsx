@@ -384,7 +384,7 @@ export function VirtualModelDialog({
   }
 
   async function discoverMcpServerTools(server: GatewayMcpServerConfig, force = false): Promise<GatewayMcpToolInfo[]> {
-    if (!window.ccr?.listMcpServerTools) {
+    if (!window.llmr?.listMcpServerTools) {
       const message = "MCP tool discovery is available in the Electron app.";
       setMcpToolStateByServer((current) => ({
         ...current,
@@ -413,7 +413,7 @@ export function VirtualModelDialog({
       [server.name]: { ...current[server.name], error: "", loading: true }
     }));
     try {
-      const tools = await window.ccr.listMcpServerTools(savedServer.name);
+      const tools = await window.llmr.listMcpServerTools(savedServer.name);
       setMcpToolStateByServer((current) => ({
         ...current,
         [server.name]: { loading: false, tools }

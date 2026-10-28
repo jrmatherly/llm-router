@@ -23,7 +23,7 @@ test("Fusion vision MCP sends the core API key and retries a body-free lightweig
     const body = await readRequestBody(request);
     if (request.url === "/usage") {
       seen.usageRequestCount += 1;
-      seen.usageAuthorization = request.headers["x-ccr-billing-usage-token"] ?? "";
+      seen.usageAuthorization = request.headers["x-llmr-billing-usage-token"] ?? "";
       seen.usageRawBody = body;
       seen.usageBody = JSON.parse(body);
       seen.usageEventIds.push(seen.usageBody.eventId);
@@ -79,7 +79,7 @@ test("Fusion vision MCP sends the core API key and retries a body-free lightweig
       FUSION_BUILTIN_TOOL_KIND: "vision",
       FUSION_TOOL_NAME: "vision_understand_glm_5_2v",
       CCR_FUSION_USAGE_SYNC_ENDPOINT: `http://127.0.0.1:${address.port}/usage`,
-      CCR_FUSION_USAGE_SYNC_HEADER: "x-ccr-billing-usage-token",
+      CCR_FUSION_USAGE_SYNC_HEADER: "x-llmr-billing-usage-token",
       CCR_FUSION_USAGE_SYNC_TOKEN: "usage-token",
       VISION_GATEWAY_API_KEY: "core-token",
       VISION_GATEWAY_BASE_URL: `http://127.0.0.1:${address.port}/v1`,
@@ -189,7 +189,7 @@ test("Fusion vision MCP retries and falls back between configured vision models"
       FUSION_BUILTIN_TOOL_KIND: "vision",
       FUSION_TOOL_NAME: "vision_understand_with_fallback",
       CCR_FUSION_USAGE_SYNC_ENDPOINT: `http://127.0.0.1:${address.port}/usage`,
-      CCR_FUSION_USAGE_SYNC_HEADER: "x-ccr-billing-usage-token",
+      CCR_FUSION_USAGE_SYNC_HEADER: "x-llmr-billing-usage-token",
       CCR_FUSION_USAGE_SYNC_TOKEN: "usage-token",
       VISION_FALLBACK_MODELS_JSON: JSON.stringify([fallbackModel]),
       VISION_GATEWAY_API_KEY: "core-token",
@@ -280,7 +280,7 @@ test("Fusion vision MCP preserves billing headers and status from non-JSON provi
       FUSION_BUILTIN_TOOL_KIND: "vision",
       FUSION_TOOL_NAME: "vision_understand_non_json",
       CCR_FUSION_USAGE_SYNC_ENDPOINT: `http://127.0.0.1:${address.port}/usage`,
-      CCR_FUSION_USAGE_SYNC_HEADER: "x-ccr-billing-usage-token",
+      CCR_FUSION_USAGE_SYNC_HEADER: "x-llmr-billing-usage-token",
       CCR_FUSION_USAGE_SYNC_TOKEN: "usage-token",
       VISION_GATEWAY_API_KEY: "core-token",
       VISION_GATEWAY_BASE_URL: `http://127.0.0.1:${address.port}/v1`,
@@ -370,7 +370,7 @@ test("Fusion vision MCP preserves slash-containing model IDs for external runtim
       FUSION_BUILTIN_TOOL_KIND: "vision",
       FUSION_TOOL_NAME: "vision_understand_external",
       CCR_FUSION_USAGE_SYNC_ENDPOINT: `http://127.0.0.1:${address.port}/usage`,
-      CCR_FUSION_USAGE_SYNC_HEADER: "x-ccr-billing-usage-token",
+      CCR_FUSION_USAGE_SYNC_HEADER: "x-llmr-billing-usage-token",
       CCR_FUSION_USAGE_SYNC_TOKEN: "usage-token",
       VISION_API_KEY: "external-key",
       VISION_BASE_URL: `http://127.0.0.1:${address.port}/v1`,

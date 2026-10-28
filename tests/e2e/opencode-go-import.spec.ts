@@ -78,7 +78,7 @@ test.describe("zh-CN browser locale", () => {
 });
 
 async function mockCandidates(page: Page): Promise<void> {
-  await page.route("**/api/ccr/rpc", async (route) => {
+  await page.route("**/api/llmr/rpc", async (route) => {
     const payload = route.request().postDataJSON() as { method?: string } | undefined;
     if (payload?.method === "getLocalAgentProviderCandidates") {
       await route.fulfill({
@@ -95,7 +95,7 @@ async function openAddProviderDialog(page: Page, current: CliWebRuntime, provide
   await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
   await waitForBridge(page);
   await page.evaluate(async () => {
-    await window.ccr?.setOnboardingFinished?.();
+    await window.llmr?.setOnboardingFinished?.();
   });
   await page.reload();
   await waitForBridge(page);
@@ -105,7 +105,7 @@ async function openAddProviderDialog(page: Page, current: CliWebRuntime, provide
 }
 
 async function waitForBridge(page: Page): Promise<void> {
-  await page.waitForFunction(() => Boolean(window.ccr?.getConfig), undefined, { timeout: 20_000 });
+  await page.waitForFunction(() => Boolean(window.llmr?.getConfig), undefined, { timeout: 20_000 });
 }
 
 function requireRuntime(): CliWebRuntime {

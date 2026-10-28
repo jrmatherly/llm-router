@@ -1868,7 +1868,7 @@ function appPathFromDropEvent(event: ReactDragEvent<HTMLElement>): string {
 
 function filePathFromDroppedFile(file: File): string {
   try {
-    const bridgedPath = window.ccr?.getFilePath?.(file)?.trim();
+    const bridgedPath = window.llmr?.getFilePath?.(file)?.trim();
     if (bridgedPath) {
       return bridgedPath;
     }
@@ -1943,8 +1943,8 @@ function BotGatewaySelectForm({
   const scanHandoffTargets = useCallback(async (kind: "bluetooth" | "wifi") => {
     const setScan = kind === "wifi" ? setWifiScan : setBluetoothScan;
     const scanner = kind === "wifi"
-      ? window.ccr?.scanBotHandoffWifiTargets
-      : window.ccr?.scanBotHandoffBluetoothTargets;
+      ? window.llmr?.scanBotHandoffWifiTargets
+      : window.llmr?.scanBotHandoffBluetoothTargets;
     if (!scanner) {
       setScan({
         error: "Handoff target scan is available in the Electron app.",

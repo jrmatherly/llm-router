@@ -22,7 +22,7 @@ Nginx routes:
 | Public route | Purpose |
 | --- | --- |
 | `/` and `/pages/home/index.html` | Browser management UI. `/` redirects to the page and keeps a `llmr_web_token` query parameter if the request has one. The token is never added by Nginx. |
-| `/api/ccr/rpc` | Authenticated management RPC. |
+| `/api/llmr/rpc` | Authenticated management RPC. |
 | `/health` | Gateway health, not container/UI health. It can return `502` until a provider and model are configured and the gateway starts. |
 | `/v1/*`, `/v1beta/*`, `/messages`, `/chat/completions`, `/responses`, `/interactions`, `/mcp/*` | Supported model and MCP gateway requests. |
 
@@ -82,7 +82,7 @@ npm run docker:run
 
 There are two independent authentication layers:
 
-1. `CCR_WEB_AUTH_TOKEN` protects management RPC. You open the management page with it in the URL (`/?llmr_web_token=<token>`), and the browser sends it to RPC as `x-ccr-web-auth`. Nginx never sends it to a client.
+1. `CCR_WEB_AUTH_TOKEN` protects management RPC. You open the management page with it in the URL (`/?llmr_web_token=<token>`), and the browser sends it to RPC as `x-llmr-web-auth`. Nginx never sends it to a client.
 2. LLMR client API keys created in the **API Keys** page protect model gateway requests. These are separate from upstream provider credentials.
 
 If `CCR_WEB_AUTH_TOKEN` is unset, the entrypoint generates a new random token on each container start and prints the management URL once to the container log. Opening `/` without a token loads the page, but every management call fails with `401` until the token is supplied. The page keeps the token for the browser tab session. A stable token is recommended for persistent or remote deployments.

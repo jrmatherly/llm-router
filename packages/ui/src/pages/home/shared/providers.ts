@@ -464,13 +464,13 @@ export function uniqueRoutingRuleId(rules: RouterRule[]): string {
 }
 
 export async function probeProviderDeepLinkPayload(payload: ProviderDeepLinkPayload): Promise<GatewayProviderProbeResult | undefined> {
-  if (!window.ccr || !shouldAutoProbeProviderBaseUrl(payload.baseUrl)) {
+  if (!window.llmr || !shouldAutoProbeProviderBaseUrl(payload.baseUrl)) {
     return undefined;
   }
 
   const apiKey = payload.apiKey?.trim();
   try {
-    return await window.ccr.probeProvider({
+    return await window.llmr.probeProvider({
       apiKey: apiKey || undefined,
       baseUrl: payload.baseUrl,
       mode: apiKey ? "models" : "protocols",
@@ -542,7 +542,7 @@ export type ProviderDeepLinkCatalogModelsResolution = {
 };
 
 export async function resolveProviderDeepLinkCatalogModels(payload: ProviderDeepLinkPayload): Promise<ProviderDeepLinkCatalogModelsResolution> {
-  const ccr = window.ccr;
+  const ccr = window.llmr;
   if (!ccr?.getProviderCatalogModels) {
     return {
       models: []
@@ -1802,7 +1802,7 @@ export async function probeProviderCandidates(
   } = {}
 ): Promise<ProviderProbeCandidateResult | undefined> {
   const mode = options.mode ?? "protocols";
-  return await window.ccr?.probeProviderCandidates({
+  return await window.llmr?.probeProviderCandidates({
     apiKey: apiKey || undefined,
     candidates,
     forceRefresh: options.forceRefresh,

@@ -69,22 +69,22 @@ test("loads the Electron preload bridge and IPC contract", async () => {
   const page = current.mainPage;
 
   await page.waitForFunction(() => {
-    return Boolean(window.ccr?.getAppInfo && document.querySelector("#root")?.childElementCount);
+    return Boolean(window.llmr?.getAppInfo && document.querySelector("#root")?.childElementCount);
   });
 
-  const appInfo = await page.evaluate(async () => window.ccr?.getAppInfo());
+  const appInfo = await page.evaluate(async () => window.llmr?.getAppInfo());
   expect(appInfo?.desktop).toBe(true);
   expect(appInfo?.name).toBe("LLM Router");
   expect(appInfo?.configDir).toContain(current.testHome);
   expect(appInfo?.configDbFile).toContain("config.sqlite");
 
-  const config = await page.evaluate(async () => window.ccr?.getConfig());
+  const config = await page.evaluate(async () => window.llmr?.getConfig());
   expect(config?.gateway.enabled).toBe(false);
   expect(config?.gateway.port).toBe(current.gatewayPort);
   expect(config?.routerEndpoint).toBe(`http://${host}:${current.gatewayPort}`);
   expect(config?.APIKEYS.some((item) => item.key === "sk-electron-cdp-legacy")).toBe(true);
 
-  const gatewayStatus = await page.evaluate(async () => window.ccr?.getGatewayStatus());
+  const gatewayStatus = await page.evaluate(async () => window.llmr?.getGatewayStatus());
   expect(gatewayStatus?.state).toBe("stopped");
 
   const configDir = path.join(current.testHome, ".llm-router");
@@ -119,7 +119,7 @@ test("denies browser permissions outside the allowlist", async () => {
 test("starts the managed gateway from IPC without runtime config JSON", async () => {
   const current = requireRuntime();
   const status = await current.mainPage.evaluate(async () => {
-    const config = await window.ccr?.getConfig();
+    const config = await window.llmr?.getConfig();
     if (!config) {
       throw new Error("Config bridge is unavailable.");
     }
@@ -133,8 +133,8 @@ test("starts the managed gateway from IPC without runtime config JSON", async ()
     }];
     config.preferredProvider = "Electron CDP Provider";
     config.gateway.enabled = true;
-    await window.ccr?.saveConfig(config, { applyProfile: false });
-    return window.ccr?.getGatewayStatus();
+    await window.llmr?.saveConfig(config, { applyProfile: false });
+    return window.llmr?.getGatewayStatus();
   });
 
   expect(status?.state).toBe("running");
@@ -148,7 +148,7 @@ test("starts the managed gateway from IPC without runtime config JSON", async ()
     runtimeId: expect.any(String)
   });
 
-  await current.mainPage.evaluate(() => window.ccr?.stopGateway());
+  await current.mainPage.evaluate(() => window.llmr?.stopGateway());
 
   expect(readGatewayRuntimeMarker(path.join(configDir, "config.sqlite"))).toBeUndefined();
 });
@@ -157,7 +157,7 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
   const current = requireRuntime();
   const profileId = "workbuddy-e2e";
   const result = await current.mainPage.evaluate(async (input) => {
-    const config = await window.ccr?.getConfig();
+    const config = await window.llmr?.getConfig();
     if (!config) {
       throw new Error("Config bridge is unavailable.");
     }
@@ -196,8 +196,8 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
       }]
     };
 
-    const saved = await window.ccr?.saveConfig(config, { applyProfile: false });
-    const applyResult = await window.ccr?.applyProfile();
+    const saved = await window.llmr?.saveConfig(config, { applyProfile: false });
+    const applyResult = await window.llmr?.applyProfile();
     return { applyResult, saved };
   }, { profileId });
 
@@ -336,7 +336,7 @@ async function startElectronOverCdp(): Promise<ElectronCdpRuntime> {
 }
 
 async function stopElectronOverCdp(current: ElectronCdpRuntime): Promise<void> {
-  await current.mainPage.evaluate(() => window.ccr?.quitApp()).catch(() => undefined);
+  await current.mainPage.evaluate(() => window.llmr?.quitApp()).catch(() => undefined);
   await current.browser.close().catch(() => undefined);
   await stopElectronProcess(current.child);
 }

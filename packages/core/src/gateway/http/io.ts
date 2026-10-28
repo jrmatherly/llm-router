@@ -8,7 +8,7 @@ import { ccrRemoteControlPathPrefix } from "@llmr/core/gateway/remote-control-se
 import { coreGatewayAuthHeader, localObservabilityHeaderNames, proxyHeaderDenyList, responseHeaderDenyList, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
 
 
-const clientNameHeaders = ["x-ccr-client", "x-client-name", "x-forwarded-client-cert", "x-claude-gateway-user-email", "x-litellm-end-user-id"];
+const clientNameHeaders = ["x-llmr-client", "x-client-name", "x-forwarded-client-cert", "x-claude-gateway-user-email", "x-litellm-end-user-id"];
 
 export function inferGatewayClient(apiKey: ApiKeyConfig | undefined, headers: IncomingHttpHeaders): string | undefined {
   const explicit = clientNameHeaders.map((name) => readHeader(headers[name])).find(Boolean);
@@ -18,7 +18,7 @@ export function inferGatewayClient(apiKey: ApiKeyConfig | undefined, headers: In
 
   const apiKeyClient = apiKey?.name?.trim() || apiKey?.id?.trim();
   const userAgentClient = inferClientFromUserAgent(headers);
-  if (readHeader(headers["x-ccr-proxy-mode"]) === "gateway") {
+  if (readHeader(headers["x-llmr-proxy-mode"]) === "gateway") {
     return userAgentClient ?? apiKeyClient;
   }
   return apiKeyClient ?? userAgentClient;

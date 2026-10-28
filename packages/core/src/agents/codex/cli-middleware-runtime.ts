@@ -1179,14 +1179,14 @@ class OpenCodeBotWorker {
     if (commandReply && typeof commandReply === "object" && commandReply.forwardText) {
       text = commandReply.forwardText;
     } else if (commandReply !== null) {
-      await bridge.sendReplyToEvent(event, commandReply, "ccr:opencode:command:" + eventId);
+      await bridge.sendReplyToEvent(event, commandReply, "llmr:opencode:command:" + eventId);
       log("bot_gateway_command_replied", { eventId, agent: "opencode", textLen: commandReply.length });
       return;
     }
 
     const position = this.enqueueTurn(event, eventId, bridge, text);
     if (position > 0) {
-      await bridge.sendReplyToEvent(event, "Queued behind the active turn (position " + position + "). Use /session status or /session cancel.", "ccr:opencode:queued:" + eventId);
+      await bridge.sendReplyToEvent(event, "Queued behind the active turn (position " + position + "). Use /session status or /session cancel.", "llmr:opencode:queued:" + eventId);
     }
   }
 
@@ -1214,7 +1214,7 @@ class OpenCodeBotWorker {
           await this.runTurn(job.event, job.eventId, job.bridge, job.text, key, state.active);
         } catch (error) {
           try {
-            await job.bridge.sendReplyToEvent(job.event, "Agent turn failed: " + conciseError(error), "ccr:opencode:error:" + job.eventId);
+            await job.bridge.sendReplyToEvent(job.event, "Agent turn failed: " + conciseError(error), "llmr:opencode:error:" + job.eventId);
           } catch (replyError) {
             log("opencode_bot_turn_error_reply_failed", { eventId: job.eventId, error: formatError(error), replyError: formatError(replyError) });
           }
@@ -1268,7 +1268,7 @@ class OpenCodeBotWorker {
         streamedText = parsedEvent.text;
         if (Date.now() - lastStreamAt < 700) return;
         lastStreamAt = Date.now();
-        void bridge.sendStreamToEvent(event, streamId, streamedText, false, "ccr:opencode:stream:" + eventId).catch((error) => bridge.logError("stream_failed", error));
+        void bridge.sendStreamToEvent(event, streamId, streamedText, false, "llmr:opencode:stream:" + eventId).catch((error) => bridge.logError("stream_failed", error));
       }
     });
     const parsed = parseOpenCodeRunOutput(result.stdout);
@@ -1289,11 +1289,11 @@ class OpenCodeBotWorker {
       ? "Agent turn failed: " + errorText
       : parsed.text || parsed.fallbackText || "OpenCode completed the turn without a text response.";
     if (bridge.config.streamReplies && !errorText) {
-      await bridge.sendStreamToEvent(event, streamId, responseText, true, "ccr:opencode:stream:" + eventId).catch(() => undefined);
+      await bridge.sendStreamToEvent(event, streamId, responseText, true, "llmr:opencode:stream:" + eventId).catch(() => undefined);
     } else {
-      await bridge.sendReplyToEvent(event, responseText, "ccr:opencode:" + eventId + ":" + (sessionId || uuid()));
+      await bridge.sendReplyToEvent(event, responseText, "llmr:opencode:" + eventId + ":" + (sessionId || uuid()));
     }
-    await sendBotTextArtifacts(event, bridge, responseText, cwd, "ccr:opencode:artifact:" + eventId);
+    await sendBotTextArtifacts(event, bridge, responseText, cwd, "llmr:opencode:artifact:" + eventId);
     log("bot_gateway_inbound_replied", {
       eventId,
       agent: "opencode",
@@ -1720,7 +1720,7 @@ class CodexBotWorker extends OpenCodeBotWorker {
         const streamedText = Array.from(streamParts.values()).join("\n").trim();
         if (!streamedText || Date.now() - lastStreamAt < 700) return;
         lastStreamAt = Date.now();
-        void bridge.sendStreamToEvent(event, streamId, streamedText, false, "ccr:" + this.agent + ":stream:" + eventId).catch((error) => bridge.logError("stream_failed", error));
+        void bridge.sendStreamToEvent(event, streamId, streamedText, false, "llmr:" + this.agent + ":stream:" + eventId).catch((error) => bridge.logError("stream_failed", error));
       }
     });
     const parsed = parseCodexBotOutput(result.stdout);
@@ -1739,11 +1739,11 @@ class CodexBotWorker extends OpenCodeBotWorker {
       ? "Agent turn failed: " + errorText
       : parsed.text || parsed.fallbackText || this.agentLabel + " completed the turn without a text response.";
     if (bridge.config.streamReplies && !errorText) {
-      await bridge.sendStreamToEvent(event, streamId, responseText, true, "ccr:" + this.agent + ":stream:" + eventId).catch(() => undefined);
+      await bridge.sendStreamToEvent(event, streamId, responseText, true, "llmr:" + this.agent + ":stream:" + eventId).catch(() => undefined);
     } else {
-      await bridge.sendReplyToEvent(event, responseText, "ccr:" + this.agent + ":" + eventId + ":" + (sessionId || uuid()));
+      await bridge.sendReplyToEvent(event, responseText, "llmr:" + this.agent + ":" + eventId + ":" + (sessionId || uuid()));
     }
-    await sendBotTextArtifacts(event, bridge, responseText, cwd, "ccr:" + this.agent + ":artifact:" + eventId);
+    await sendBotTextArtifacts(event, bridge, responseText, cwd, "llmr:" + this.agent + ":artifact:" + eventId);
     log("bot_gateway_inbound_replied", { eventId, agent: this.agent, sessionId, exitCode: result.exitCode, textLen: responseText.length });
   }
 
@@ -2841,13 +2841,13 @@ class ClaudeCodeAppServer {
     if (commandReply && typeof commandReply === "object" && commandReply.forwardText) {
       text = commandReply.forwardText;
     } else if (commandReply !== null) {
-      await bridge.sendReplyToEvent(event, commandReply, "ccr:claude-code:command:" + eventId);
+      await bridge.sendReplyToEvent(event, commandReply, "llmr:claude-code:command:" + eventId);
       log("bot_gateway_command_replied", { eventId, textLen: commandReply.length });
       return;
     }
     const position = this.enqueueBotTurn(event, eventId, bridge, text);
     if (position > 0) {
-      await bridge.sendReplyToEvent(event, "Queued behind the active turn (position " + position + "). Use /session status or /session cancel.", "ccr:claude-code:queued:" + eventId);
+      await bridge.sendReplyToEvent(event, "Queued behind the active turn (position " + position + "). Use /session status or /session cancel.", "llmr:claude-code:queued:" + eventId);
     }
   }
 
@@ -2874,7 +2874,7 @@ class ClaudeCodeAppServer {
           await this.runBotTurn(job, state.active);
         } catch (error) {
           try {
-            await job.bridge.sendReplyToEvent(job.event, "Agent turn failed: " + conciseError(error), "ccr:claude-code:error:" + job.eventId);
+            await job.bridge.sendReplyToEvent(job.event, "Agent turn failed: " + conciseError(error), "llmr:claude-code:error:" + job.eventId);
           } catch (replyError) {
             log("claude_bot_turn_error_reply_failed", { eventId: job.eventId, error: formatError(error), replyError: formatError(replyError) });
           }
@@ -2921,11 +2921,11 @@ class ClaudeCodeAppServer {
       ? "Agent turn failed: " + completed.error
       : (completed.agentText || "").trim() || "Claude Code completed the turn without a text response.";
     if (bridge.config.streamReplies && !completed.error) {
-      await bridge.sendStreamToEvent(event, "claude-" + prepared.turn.id, responseText, true, "ccr:claude-code:stream:" + eventId).catch(() => undefined);
+      await bridge.sendStreamToEvent(event, "claude-" + prepared.turn.id, responseText, true, "llmr:claude-code:stream:" + eventId).catch(() => undefined);
     } else {
-      await bridge.sendReplyToEvent(event, responseText, "ccr:claude-code:" + eventId + ":" + prepared.turn.id);
+      await bridge.sendReplyToEvent(event, responseText, "llmr:claude-code:" + eventId + ":" + prepared.turn.id);
     }
-    await sendBotTurnArtifacts(event, bridge, completed, thread.cwd, "ccr:claude-code:artifact:" + eventId);
+    await sendBotTurnArtifacts(event, bridge, completed, thread.cwd, "llmr:claude-code:artifact:" + eventId);
     log("bot_gateway_inbound_replied", { eventId, threadId: thread.id, turnId: prepared.turn.id, textLen: responseText.length });
   }
 
@@ -3931,7 +3931,7 @@ class ClaudeCodeAppServer {
         { label: "Session", value: shortSessionId(work.threadId) }
       ],
       actions
-    }, fallbackText, "ccr:claude-code:control:" + requestId);
+    }, fallbackText, "llmr:claude-code:control:" + requestId);
     return promise;
   }
 }
@@ -4065,7 +4065,7 @@ function queueBotStreamUpdate(work, text) {
       work.botStream.id,
       value,
       false,
-      "ccr:claude-code:stream:" + work.botContext.eventId
+      "llmr:claude-code:stream:" + work.botContext.eventId
     ).catch((error) => work.botContext.bridge.logError("stream_failed", error));
   };
   const delay = Math.max(0, 700 - (Date.now() - work.botStream.lastSentAt));
@@ -5563,7 +5563,7 @@ class BotGatewayBridge {
         type: "text",
         text
       },
-      idempotencyKey: "ccr:handoff:" + this.config.profileId + ":" + stableBotKey(key)
+      idempotencyKey: "llmr:handoff:" + this.config.profileId + ":" + stableBotKey(key)
     };
     await this.sendDurable(outbound, { kind: "handoff", sourceKey: key });
     this.rememberForwarded(key);
@@ -6181,7 +6181,7 @@ function writeJsonAtomic(file, value) {
 }
 
 function stableBotKey(value) {
-  return "ccr:" + crypto.createHash("sha256").update(String(value || "")).digest("hex").slice(0, 32);
+  return "llmr:" + crypto.createHash("sha256").update(String(value || "")).digest("hex").slice(0, 32);
 }
 
 function splitBotMessage(value, maxChars) {

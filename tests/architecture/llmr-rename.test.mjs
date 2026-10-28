@@ -30,6 +30,14 @@ test("wire covers the gateway paths, the preload bridge and the IPC channel pref
   );
 });
 
+test("wire also covers escaped regex forms, header case, unquoted bridge keys, and leaves the old scheme alone", () => {
+  const source = "/\\/api\\/ccr\\/rpc/; /window\\.ccr/; \"X-CCR-Route\": 1; const w = { ccr: { a } }; \"ccr://provider\"";
+  assert.equal(
+    renameText(source, ["wire"]),
+    "/\\/api\\/llmr\\/rpc/; /window\\.llmr/; \"X-LLMR-Route\": 1; const w = { llmr: { a } }; \"ccr://provider\""
+  );
+});
+
 test("hosts we do not own and the pre-5.0 cleanup names survive", () => {
   assert.equal(renameText("\"https://claude-design.ccrdesk.top/design?aff=ccr\"", ["rest"]), "\"https://claude-design.ccrdesk.top/design?aff=ccr\"");
   const legacy = "[\"ccr\", \"ccr.cmd\", \"ccr-app\", \"ccr-app.cmd\", x]; source.includes(\"CCR_NODE_BIN\"); env.CCR_NODE_BIN";

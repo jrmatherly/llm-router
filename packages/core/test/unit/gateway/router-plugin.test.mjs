@@ -599,9 +599,9 @@ test("LLMR router core plugin applies OpenRouter discount provider routing", asy
   });
 
   assert.equal(transformed.requestBody.provider.order[0], "cheap");
-  assert.equal(transformed.responseHeaders["x-ccr-openrouter-discount-reason"], "switched-cheaper-after-cache-loss");
-  assert.equal(transformed.responseHeaders["x-ccr-openrouter-discount-selected-provider"], "cheap");
-  assert.equal(transformed.responseHeaders["x-ccr-openrouter-discount-model"], "author/router-plugin-discount-model");
+  assert.equal(transformed.responseHeaders["x-llmr-openrouter-discount-reason"], "switched-cheaper-after-cache-loss");
+  assert.equal(transformed.responseHeaders["x-llmr-openrouter-discount-selected-provider"], "cheap");
+  assert.equal(transformed.responseHeaders["x-llmr-openrouter-discount-model"], "author/router-plugin-discount-model");
 
   const beforeConfirm = await plugin.requestTransforms[0].transform({
     request: {
@@ -620,7 +620,7 @@ test("LLMR router core plugin applies OpenRouter discount provider routing", asy
       url: "/v1/chat/completions"
     }
   });
-  assert.equal(beforeConfirm.responseHeaders["x-ccr-openrouter-discount-reason"], "initial-cheapest");
+  assert.equal(beforeConfirm.responseHeaders["x-llmr-openrouter-discount-reason"], "initial-cheapest");
 
   const finalizer = plugin.responseHooks.find((item) => item.key === ccrOpenRouterDiscountFinalizeResponseHookKey);
   await finalizer.transformResponse({
@@ -656,7 +656,7 @@ test("LLMR router core plugin applies OpenRouter discount provider routing", asy
       url: "/v1/chat/completions"
     }
   });
-  assert.equal(afterConfirm.responseHeaders["x-ccr-openrouter-discount-reason"], "already-cheapest");
+  assert.equal(afterConfirm.responseHeaders["x-llmr-openrouter-discount-reason"], "already-cheapest");
 
   await finalizer.transformResponse({
     request: {

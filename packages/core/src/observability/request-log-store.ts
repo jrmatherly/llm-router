@@ -926,7 +926,7 @@ export class RequestLogStore {
       pushValue("request_headers", JSON.stringify(mergedRequestHeaders));
     }
     // The gateway already wrote the authoritative merged response headers
-    // (including x-ccr-fallback-attempts, which powers the R{n} retry badge)
+    // (including x-llmr-fallback-attempts, which powers the R{n} retry badge)
     // when it inserted this row. Raw-trace only refines rows that already exist
     // (guarded above), so writing response_headers here would clobber those
     // gateway headers — and an empty upstream header set would wipe them to "{}".
@@ -1934,8 +1934,8 @@ function agentAnalysisCacheKey(filter: AgentAnalysisFilter): string {
 function extractAgentLogDetails(entry: StoredRequestLogEntry): AgentLogDetails {
   const requestPayloads = parseLogBodyPayloads(entry.requestBody);
   const responsePayloads = parseLogBodyPayloads(entry.responseBody);
-  const routeReason = readHeaderValue(entry.requestHeaders, "x-ccr-route-reason");
-  const routedModel = readHeaderValue(entry.requestHeaders, "x-ccr-routed-model");
+  const routeReason = readHeaderValue(entry.requestHeaders, "x-llmr-route-reason");
+  const routedModel = readHeaderValue(entry.requestHeaders, "x-llmr-routed-model");
   const subagentModel = extractSubagentModel(entry, requestPayloads, routeReason, routedModel);
   const agent = inferAgentKind(entry, requestPayloads, responsePayloads);
   const toolCalls = extractToolCalls(responsePayloads);
@@ -2021,7 +2021,7 @@ function readAgentHeaderSignals(headers: Record<string, string | string[]>): str
       normalizedKey === "user-agent" ||
       normalizedKey === "x-user-agent" ||
       normalizedKey === "x-client-user-agent" ||
-      normalizedKey === "x-ccr-client" ||
+      normalizedKey === "x-llmr-client" ||
       normalizedKey === "x-client-name" ||
       normalizedKey.includes("user-agent") ||
       normalizedKey.endsWith("-ua")
@@ -4293,9 +4293,9 @@ function readHeaderValue(headers: HeaderRecord, name: string): string | undefine
 
 function hasCredentialLogHeaders(headers: HeaderRecord): boolean {
   return Boolean(
-    readHeaderValue(headers, "x-ccr-provider-credential-id") ||
-    readHeaderValue(headers, "x-ccr-provider-credential-chain") ||
-    readHeaderValue(headers, "x-ccr-provider-credential-saturated")
+    readHeaderValue(headers, "x-llmr-provider-credential-id") ||
+    readHeaderValue(headers, "x-llmr-provider-credential-chain") ||
+    readHeaderValue(headers, "x-llmr-provider-credential-saturated")
   );
 }
 
@@ -4303,11 +4303,11 @@ function readCredentialLogInfo(
   responseHeaders: HeaderRecord,
   requestHeaders: HeaderRecord
 ): { chain: string[]; id: string; saturated: boolean } {
-  const responseChain = parseCredentialChain(readHeaderValue(responseHeaders, "x-ccr-provider-credential-chain"));
-  const requestChain = parseCredentialChain(readHeaderValue(requestHeaders, "x-ccr-provider-credential-chain"));
+  const responseChain = parseCredentialChain(readHeaderValue(responseHeaders, "x-llmr-provider-credential-chain"));
+  const requestChain = parseCredentialChain(readHeaderValue(requestHeaders, "x-llmr-provider-credential-chain"));
   const id = normalizeLabel(
-    readHeaderValue(responseHeaders, "x-ccr-provider-credential-id") ??
-      readHeaderValue(requestHeaders, "x-ccr-provider-credential-id") ??
+    readHeaderValue(responseHeaders, "x-llmr-provider-credential-id") ??
+      readHeaderValue(requestHeaders, "x-llmr-provider-credential-id") ??
       responseChain[0] ??
       requestChain[0],
     ""
@@ -4320,8 +4320,8 @@ function readCredentialLogInfo(
         ? [id]
         : [];
   const saturated = readHeaderFlag(
-    readHeaderValue(responseHeaders, "x-ccr-provider-credential-saturated") ??
-      readHeaderValue(requestHeaders, "x-ccr-provider-credential-saturated")
+    readHeaderValue(responseHeaders, "x-llmr-provider-credential-saturated") ??
+      readHeaderValue(requestHeaders, "x-llmr-provider-credential-saturated")
   );
   return { chain, id, saturated };
 }
@@ -4330,13 +4330,13 @@ function parseRequestLogRetryAttempts(
   responseHeaders: Record<string, string | string[]>,
   finalStatusCode: number
 ): RequestLogRetryAttempt[] {
-  const attemptCount = asNumber(readHeaderValue(responseHeaders, "x-ccr-fallback-attempts")) ?? 0;
+  const attemptCount = asNumber(readHeaderValue(responseHeaders, "x-llmr-fallback-attempts")) ?? 0;
   if (attemptCount <= 1) {
     return [];
   }
 
-  const failures = splitHeaderCsv(readHeaderValue(responseHeaders, "x-ccr-fallback-failures"));
-  const delays = splitHeaderCsv(readHeaderValue(responseHeaders, "x-ccr-fallback-delays-ms"))
+  const failures = splitHeaderCsv(readHeaderValue(responseHeaders, "x-llmr-fallback-failures"));
+  const delays = splitHeaderCsv(readHeaderValue(responseHeaders, "x-llmr-fallback-delays-ms"))
     .map((value) => asNumber(value) ?? 0);
   const attempts: RequestLogRetryAttempt[] = [];
 
@@ -5909,7 +5909,7 @@ function finalAttemptFromHeaders(
   headers: Record<string, string | string[]>,
   routeAttemptCount?: number
 ): number {
-  const value = Number(headerValue(headers, "x-ccr-fallback-attempts"));
+  const value = Number(headerValue(headers, "x-llmr-fallback-attempts"));
   if (Number.isFinite(value) && value >= 1) return Math.floor(value);
   return Number.isFinite(routeAttemptCount) && Number(routeAttemptCount) >= 1
     ? Math.floor(Number(routeAttemptCount))

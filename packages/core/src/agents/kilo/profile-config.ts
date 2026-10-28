@@ -80,7 +80,7 @@ export function isManagedKiloConfigContent(content: string, providerId: string):
     return false;
   }
   const headers = isRecord(provider.options.headers) ? provider.options.headers : {};
-  return headers["x-ccr-client"] === "kilo" || headers["X-CCR-Client"] === "kilo";
+  return headers["x-llmr-client"] === "kilo" || headers["X-LLMR-Client"] === "kilo";
 }
 
 export function kiloProviderId(profile: Pick<ProfileConfig, "providerId">): string {
@@ -105,8 +105,8 @@ function kiloGatewayOverrides(config: AppConfig, profile: ProfileConfig, token: 
           apiKey: token,
           baseURL: `${gatewayEndpoint(config).replace(/\/+$/g, "")}/v1`,
           headers: {
-            "x-ccr-client": "kilo",
-            "x-ccr-profile": profile.id || profile.name || "kilo"
+            "x-llmr-client": "kilo",
+            "x-llmr-profile": profile.id || profile.name || "kilo"
           }
         }
       }

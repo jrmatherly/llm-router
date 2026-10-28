@@ -48,7 +48,7 @@ installBrowserGlobals();
 
 test("building the import draft for a deep link makes no network call", () => {
   const calls = { getProviderCatalogModels: 0, probeProvider: 0 };
-  const ccr = (globalThis.window as unknown as { ccr: Record<string, unknown> }).ccr;
+  const ccr = (globalThis.window as unknown as { llmr: Record<string, unknown> }).llmr;
   const original = { ...ccr };
   ccr.getProviderCatalogModels = async () => {
     calls.getProviderCatalogModels += 1;

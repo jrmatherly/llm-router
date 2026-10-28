@@ -3667,7 +3667,7 @@ function CodexResetCreditDialog({
     if (status !== "idle" || !activeDetail?.id || activeDetail.redeemable === false) {
       return;
     }
-    if (!window.ccr?.resetCodexRateLimitCredit) {
+    if (!window.llmr?.resetCodexRateLimitCredit) {
       setError("Reset is unavailable.");
       return;
     }
@@ -3676,7 +3676,7 @@ function CodexResetCreditDialog({
     setStatus("resetting");
     const cardTransition = delay(650);
     try {
-      await window.ccr.resetCodexRateLimitCredit({
+      await window.llmr.resetCodexRateLimitCredit({
         credentialId: account.credentialId,
         creditId: activeDetail.id,
         provider: account.provider
@@ -4754,7 +4754,7 @@ function AgentSessionRequestLogDialog({
     setError("");
     setLoading(true);
 
-    if (!window.ccr?.getRequestLogDetail) {
+    if (!window.llmr?.getRequestLogDetail) {
       setError("Request log detail is unavailable.");
       setLoading(false);
       return () => {
@@ -4762,7 +4762,7 @@ function AgentSessionRequestLogDialog({
       };
     }
 
-    void window.ccr.getRequestLogDetail({ id: requestLogId })
+    void window.llmr.getRequestLogDetail({ id: requestLogId })
       .then((detail) => {
         if (!active) {
           return;
@@ -5732,7 +5732,7 @@ function TracePayloadPane({
     setFull(undefined);
     setLoadFailed(false);
 
-    if (typeof requestLogId !== "number" || !requestPart || !window.ccr?.getAgentTracePayload) {
+    if (typeof requestLogId !== "number" || !requestPart || !window.llmr?.getAgentTracePayload) {
       setLoading(false);
       return () => {
         cancelled = true;
@@ -5745,7 +5745,7 @@ function TracePayloadPane({
       part: requestPart,
       requestLogId
     };
-    window.ccr.getAgentTracePayload(payloadRequest)
+    window.llmr.getAgentTracePayload(payloadRequest)
       .then((result) => {
         if (!cancelled) {
           setFull(result);

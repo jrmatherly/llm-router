@@ -89,7 +89,7 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
         { name: "native", type: "anthropic_messages", baseUrl: `${upstreamUrl}/anthropic`, apiKey: "test", models: ["native"] }
       ],
       virtualModelProfiles: [{ id: "fusion", key: "fusion", displayName: "Fusion", enabled: true, match: { exactAliases: [], prefixes: [], suffixes: [":fusion"] }, baseModel: { mode: "strip_suffix" }, tools: [], execution: { mode: "tool_loop", maxTurns: 4, maxToolCalls: 4, clientToolsPolicy: "passthrough", streamMode: "optimistic" }, materialization: { enabled: true, includeInGatewayModels: true } }],
-      rawTrace: { enabled: true, mode: "wire_raw", spoolDir: RAW_TRACE_SPOOL_DIR, sync: { enabled: true, endpoint: sinkUrl, apiKeyHeader: "x-ccr-raw-trace-token", apiKey: sync.token, baseDelayMs: 50, maxAttempts: 10 } }
+      rawTrace: { enabled: true, mode: "wire_raw", spoolDir: RAW_TRACE_SPOOL_DIR, sync: { enabled: true, endpoint: sinkUrl, apiKeyHeader: "x-llmr-raw-trace-token", apiKey: sync.token, baseDelayMs: 50, maxAttempts: 10 } }
     };
     let expectedRows = 0;
     for (const billing of [false, true]) {

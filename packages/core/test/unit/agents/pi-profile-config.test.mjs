@@ -51,8 +51,8 @@ test("Pi profile config writes an LLMR OpenAI Responses provider", () => {
     assert.equal(provider.apiKey, "ccr-profile-token");
     assert.equal(provider.authHeader, true);
     assert.deepEqual(provider.headers, {
-      "x-ccr-client": "pi",
-      "x-ccr-profile": "pi-main"
+      "x-llmr-client": "pi",
+      "x-llmr-profile": "pi-main"
     });
     assert.ok(provider.models.some((model) => model.id === "Example/alpha"));
     assert.ok(provider.models.some((model) => model.id === "Example/beta"));

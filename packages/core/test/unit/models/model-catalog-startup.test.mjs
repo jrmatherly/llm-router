@@ -49,9 +49,9 @@ test("web management server is ready before the catalog CDN answers", async () =
     while (downloadRequests === 0 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
     assert.equal(downloadRequests, 1, "startup still kicks off the catalog download");
     const appInfo = async () => {
-      const response = await fetch(new URL("/api/ccr/rpc", runtime.url), {
+      const response = await fetch(new URL("/api/llmr/rpc", runtime.url), {
         body: JSON.stringify({ args: [], method: "getAppInfo" }),
-        headers: { "content-type": "application/json", "x-ccr-web-auth": "catalog-startup-token" },
+        headers: { "content-type": "application/json", "x-llmr-web-auth": "catalog-startup-token" },
         method: "POST"
       });
       assert.equal(response.status, 200);

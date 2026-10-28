@@ -26,8 +26,8 @@ import type { RouteTraceObserver } from "@llmr/core/observability/route-trace";
 import { monotonicNowMs } from "@llmr/core/observability/stream-experience";
 
 const providerCredentialSpilloverThreshold = 0.8;
-const openRouterDiscountModelHeader = "x-ccr-openrouter-discount-model";
-const openRouterDiscountProviderHeader = "x-ccr-openrouter-discount-provider-id";
+const openRouterDiscountModelHeader = "x-llmr-openrouter-discount-model";
+const openRouterDiscountProviderHeader = "x-llmr-openrouter-discount-provider-id";
 
 
 export function applyProviderCapabilityRouting(input: {
@@ -259,9 +259,9 @@ export function rewriteCapabilityResponseHeaders(headers: Headers, config: AppCo
     const credential = findProviderCredentialBySlug(provider, credentialInternalName.credentialSlug);
     const rewritten = new Headers(headers);
     rewritten.set("x-gateway-target-provider-name", providerRuntimeId(provider));
-    rewritten.set("x-ccr-provider-protocol", credentialInternalName.protocol);
-    rewritten.set("x-ccr-provider-credential-provider", providerRuntimeId(provider));
-    rewritten.set("x-ccr-provider-credential-id", providerCredentialSlug(credential ? providerCredentialRuntimeId(provider, credential) : credentialInternalName.credentialSlug));
+    rewritten.set("x-llmr-provider-protocol", credentialInternalName.protocol);
+    rewritten.set("x-llmr-provider-credential-provider", providerRuntimeId(provider));
+    rewritten.set("x-llmr-provider-credential-id", providerCredentialSlug(credential ? providerCredentialRuntimeId(provider, credential) : credentialInternalName.credentialSlug));
     return rewritten;
   }
   const provider = findProviderByPublicOrInternalName(config, providerName);
@@ -274,7 +274,7 @@ export function rewriteCapabilityResponseHeaders(headers: Headers, config: AppCo
   const rewritten = new Headers(headers);
   rewritten.set("x-gateway-target-provider-name", providerRuntimeId(provider));
   if (capability) {
-    rewritten.set("x-ccr-provider-protocol", capability.type);
+    rewritten.set("x-llmr-provider-protocol", capability.type);
   }
   return rewritten;
 }
@@ -450,7 +450,7 @@ export async function fetchUpstreamWithFallback(input: {
       // Core raw traces use a unique request id for every fallback attempt,
       // while turnKey identifies the outer gateway request. Keep both and mark
       // the attempt so only the final response may refine the stored outcome.
-      "x-ccr-route-attempt": String(attemptNumber)
+      "x-llmr-route-attempt": String(attemptNumber)
     };
     const attemptProvider = attempt.logicalProvider ?? (
       attempt.target?.kind === "provider" ? attempt.target.provider.name : undefined
@@ -679,12 +679,12 @@ function prepareUpstreamCredentialAttempt(input: {
   const headers: Record<string, string> = {
     ...attemptHeaders,
     "x-target-providers": selection.credentials.map((candidate) => candidate.internalName).join(","),
-    "x-ccr-logical-provider": providerRuntimeId(target.provider),
-    "x-ccr-provider-credential-chain": selection.credentials.map((candidate) => candidate.credentialId).join(",")
+    "x-llmr-logical-provider": providerRuntimeId(target.provider),
+    "x-llmr-provider-credential-chain": selection.credentials.map((candidate) => candidate.credentialId).join(",")
   };
   delete headers["x-target-provider"];
   if (selection.saturated) {
-    headers["x-ccr-provider-credential-saturated"] = "true";
+    headers["x-llmr-provider-credential-saturated"] = "true";
   }
 
   return {
@@ -1227,27 +1227,27 @@ export function destroyResponseStreams(streams: Readable[]): void {
 
 export function mergeFallbackResponseHeaders(headers: Headers, result: UpstreamFetchResult): Headers {
   const credentialIds = result.attempt.credentialIds ?? [];
-  const credentialSaturated = result.attempt.headers?.["x-ccr-provider-credential-saturated"] === "true";
+  const credentialSaturated = result.attempt.headers?.["x-llmr-provider-credential-saturated"] === "true";
   if (result.failedAttempts.length === 0 && credentialIds.length === 0 && !credentialSaturated) {
     return headers;
   }
 
   const merged = new Headers(headers);
   if (result.failedAttempts.length > 0) {
-    merged.set("x-ccr-fallback-attempts", String(result.failedAttempts.length + 1));
-    merged.set("x-ccr-fallback-failures", formatFallbackFailures(result.failedAttempts));
+    merged.set("x-llmr-fallback-attempts", String(result.failedAttempts.length + 1));
+    merged.set("x-llmr-fallback-failures", formatFallbackFailures(result.failedAttempts));
     if (result.failedAttempts.some((attempt) => (attempt.delayMs ?? 0) > 0)) {
-      merged.set("x-ccr-fallback-delays-ms", formatFallbackDelays(result.failedAttempts));
+      merged.set("x-llmr-fallback-delays-ms", formatFallbackDelays(result.failedAttempts));
     }
     if (result.attempt.model) {
-      merged.set("x-ccr-fallback-model", sanitizeHeaderValue(result.attempt.model));
+      merged.set("x-llmr-fallback-model", sanitizeHeaderValue(result.attempt.model));
     }
   }
   if (credentialIds.length) {
-    merged.set("x-ccr-provider-credential-chain", credentialIds.join(","));
+    merged.set("x-llmr-provider-credential-chain", credentialIds.join(","));
   }
   if (credentialSaturated) {
-    merged.set("x-ccr-provider-credential-saturated", "true");
+    merged.set("x-llmr-provider-credential-saturated", "true");
   }
   return merged;
 }

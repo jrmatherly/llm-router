@@ -6,7 +6,7 @@ import { formatErrorMessage } from "@llmr/core/contracts/error-message";
 
 declare global {
   interface Window {
-    ccrBrowser?: {
+    llmrBrowser?: {
       back: (tabId?: string) => Promise<BuiltInBrowserState>;
       closeTab: (tabId: string) => Promise<BuiltInBrowserState>;
       forward: (tabId?: string) => Promise<BuiltInBrowserState>;
@@ -46,12 +46,12 @@ function BrowserChrome() {
 
   useEffect(() => {
     let cancelled = false;
-    void window.ccrBrowser?.getState().then((nextState) => {
+    void window.llmrBrowser?.getState().then((nextState) => {
       if (!cancelled) {
         setState(nextState);
       }
     });
-    const unsubscribe = window.ccrBrowser?.onStateChanged(setState);
+    const unsubscribe = window.llmrBrowser?.onStateChanged(setState);
     return () => {
       cancelled = true;
       unsubscribe?.();
@@ -67,7 +67,7 @@ function BrowserChrome() {
       return;
     }
     const interval = window.setInterval(() => {
-      const getChromeLoginImport = window.ccrBrowser?.getChromeLoginImport;
+      const getChromeLoginImport = window.llmrBrowser?.getChromeLoginImport;
       if (!getChromeLoginImport) {
         return;
       }
@@ -78,7 +78,7 @@ function BrowserChrome() {
         }
         setChromeImportJob(job);
         if (job.status === "completed" && activeTab?.id && activeTabMatchesImport(activeTab.url, job.domains)) {
-          void run(window.ccrBrowser?.reload(activeTab.id));
+          void run(window.llmrBrowser?.reload(activeTab.id));
         }
       }).catch((error) => {
         setChromeImportJob(undefined);
@@ -101,7 +101,7 @@ function BrowserChrome() {
 
   function submitNavigation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void run(window.ccrBrowser?.navigate(addressDraft, activeTab?.id));
+    void run(window.llmrBrowser?.navigate(addressDraft, activeTab?.id));
   }
 
   async function submitChromeLoginImport(event: FormEvent<HTMLFormElement>) {
@@ -115,7 +115,7 @@ function BrowserChrome() {
     setChromeImportMessage("");
     setChromeImportStarting(true);
     try {
-      const job = await window.ccrBrowser?.startChromeLoginImport({ domains, openConfirmationPage: true });
+      const job = await window.llmrBrowser?.startChromeLoginImport({ domains, openConfirmationPage: true });
       if (!job) {
         throw new Error("Chrome login import is unavailable.");
       }
@@ -182,7 +182,7 @@ function BrowserChrome() {
             <button
               className={`tab ${tab.id === state.activeTabId ? "active" : ""}`}
               key={tab.id}
-              onClick={() => void run(window.ccrBrowser?.selectTab(tab.id))}
+              onClick={() => void run(window.llmrBrowser?.selectTab(tab.id))}
               title={tab.title || tab.url}
               type="button"
             >
@@ -191,7 +191,7 @@ function BrowserChrome() {
                 className="tab-close"
                 onClick={(event) => {
                   event.stopPropagation();
-                  void run(window.ccrBrowser?.closeTab(tab.id));
+                  void run(window.llmrBrowser?.closeTab(tab.id));
                 }}
                 role="button"
                 tabIndex={-1}
@@ -201,7 +201,7 @@ function BrowserChrome() {
               </span>
             </button>
           ))}
-          <button className="new-tab-button" onClick={() => void run(window.ccrBrowser?.newTab())} title="New tab" type="button">
+          <button className="new-tab-button" onClick={() => void run(window.llmrBrowser?.newTab())} title="New tab" type="button">
             <Plus size={15} strokeWidth={2.2} />
           </button>
         </div>
@@ -211,7 +211,7 @@ function BrowserChrome() {
         <button
           className="icon-button"
           disabled={!activeTab?.canGoBack}
-          onClick={() => void run(window.ccrBrowser?.back(activeTab?.id))}
+          onClick={() => void run(window.llmrBrowser?.back(activeTab?.id))}
           title="Back"
           type="button"
         >
@@ -220,7 +220,7 @@ function BrowserChrome() {
         <button
           className="icon-button"
           disabled={!activeTab?.canGoForward}
-          onClick={() => void run(window.ccrBrowser?.forward(activeTab?.id))}
+          onClick={() => void run(window.llmrBrowser?.forward(activeTab?.id))}
           title="Forward"
           type="button"
         >
@@ -229,7 +229,7 @@ function BrowserChrome() {
         <button
           className="icon-button"
           disabled={!activeTab}
-          onClick={() => void run(window.ccrBrowser?.reload(activeTab?.id))}
+          onClick={() => void run(window.llmrBrowser?.reload(activeTab?.id))}
           title="Refresh"
           type="button"
         >
@@ -264,7 +264,7 @@ function BrowserChrome() {
           <div className="handoff-actions">
             <button
               className="handoff-button primary"
-              onClick={() => void run(window.ccrBrowser?.resolveAutomationHandoff("completed"))}
+              onClick={() => void run(window.llmrBrowser?.resolveAutomationHandoff("completed"))}
               type="button"
             >
               <Check size={15} strokeWidth={2.4} />
@@ -272,7 +272,7 @@ function BrowserChrome() {
             </button>
             <button
               className="handoff-button"
-              onClick={() => void run(window.ccrBrowser?.resolveAutomationHandoff("dismissed"))}
+              onClick={() => void run(window.llmrBrowser?.resolveAutomationHandoff("dismissed"))}
               type="button"
             >
               <X size={14} strokeWidth={2.3} />

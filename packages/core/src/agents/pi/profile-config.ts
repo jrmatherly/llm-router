@@ -125,8 +125,8 @@ function piModelsJson(
         authHeader: true,
         baseUrl: `${gatewayEndpoint(config).replace(/\/+$/g, "")}/v1`,
         headers: {
-          "x-ccr-client": "pi",
-          "x-ccr-profile": profile.id || profile.name || "pi"
+          "x-llmr-client": "pi",
+          "x-llmr-profile": profile.id || profile.name || "pi"
         },
         models: models.map((model) => piModelConfig(model, resolutionConfig))
       }

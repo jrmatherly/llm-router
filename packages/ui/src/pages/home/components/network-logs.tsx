@@ -393,12 +393,12 @@ export function LogsView({
   );
   const hasActiveFilters = logFilterHasActiveValues(filter);
   const loadLogDetail = useCallback((id: number) => {
-    if (detailById[id] || detailLoadingId === id || !window.ccr?.getRequestLogDetail) {
+    if (detailById[id] || detailLoadingId === id || !window.llmr?.getRequestLogDetail) {
       return;
     }
     setDetailLoadingId(id);
     setDetailErrorById((current) => ({ ...current, [id]: "" }));
-    void window.ccr.getRequestLogDetail({ id })
+    void window.llmr.getRequestLogDetail({ id })
       .then((detail) => {
         if (detail) {
           setDetailById((current) => ({ ...current, [id]: detail }));
@@ -1862,7 +1862,7 @@ function LogJsonPanel({
   }
 
   async function loadBodyChunk(offset: number) {
-    if (!effectiveBody?.bodyRef || !window.ccr?.getRequestLogBodyChunk) {
+    if (!effectiveBody?.bodyRef || !window.llmr?.getRequestLogBodyChunk) {
       setBodyMode("full");
       return;
     }
@@ -1877,7 +1877,7 @@ function LogJsonPanel({
       previousOffsets: nextChunkPreviousOffsets(current, sourceBodyKey, offset)
     }));
     try {
-      const chunk = await window.ccr.getRequestLogBodyChunk({
+      const chunk = await window.llmr.getRequestLogBodyChunk({
         id: requestLogId,
         length: 1024 * 1024,
         offset,
@@ -1910,7 +1910,7 @@ function LogJsonPanel({
   }
 
   async function loadInlineFullBody() {
-    if (!effectiveBody?.bodyRef || !window.ccr?.getRequestLogBodyChunk) {
+    if (!effectiveBody?.bodyRef || !window.llmr?.getRequestLogBodyChunk) {
       return;
     }
     const loadId = fullBodyLoadIdRef.current + 1;
@@ -1922,7 +1922,7 @@ function LogJsonPanel({
       let offset = 0;
       let lastChunk: RequestLogBodyChunk | undefined;
       while (true) {
-        const chunk = await window.ccr.getRequestLogBodyChunk({
+        const chunk = await window.llmr.getRequestLogBodyChunk({
           id: requestLogId,
           length: 1024 * 1024,
           offset,

@@ -54,7 +54,7 @@ test("gateway authorization accepts the configured API key on every supported ca
     { headers: { "x-goog-api-key": gatewayApiKey } },
     { headers: { "x-mcp-key": gatewayApiKey } },
     { headers: { "x-codex-access-token": gatewayApiKey } },
-    { url: `/__ccr/remote/status?api_key=${gatewayApiKey}` }
+    { url: `/__llmr/remote/status?api_key=${gatewayApiKey}` }
   ]) {
     const { response, result } = await authorizeRequest(config, request);
 

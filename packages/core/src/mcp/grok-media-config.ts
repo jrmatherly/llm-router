@@ -3,10 +3,10 @@ import type { AppConfig, GatewayMcpServerConfig } from "@llmr/core/contracts/app
 import { MEDIA_TOOLS_MCP_SERVER_NAME } from "@llmr/core/contracts/app";
 import { mediaMcpToolDefinition, mediaToolBindingsForConfig } from "@llmr/core/media/tools";
 
-export const MEDIA_TOOLS_MCP_PATH = "/__ccr/media/mcp";
-export const LEGACY_GROK_MEDIA_MCP_PATH = "/__ccr/grok-media/mcp";
-export const MEDIA_ARTIFACT_PATH_PREFIX = "/__ccr/media/artifacts/";
-export const LEGACY_GROK_MEDIA_ARTIFACT_PATH_PREFIX = "/__ccr/grok-media/artifacts/";
+export const MEDIA_TOOLS_MCP_PATH = "/__llmr/media/mcp";
+export const LEGACY_GROK_MEDIA_MCP_PATH = "/__llmr/grok-media/mcp";
+export const MEDIA_ARTIFACT_PATH_PREFIX = "/__llmr/media/artifacts/";
+export const LEGACY_GROK_MEDIA_ARTIFACT_PATH_PREFIX = "/__llmr/grok-media/artifacts/";
 
 export function mediaToolsMcpEnabled(config: AppConfig | undefined): boolean {
   return Boolean(config?.mediaTools?.enabled);

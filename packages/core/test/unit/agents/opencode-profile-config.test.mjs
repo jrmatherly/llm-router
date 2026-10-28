@@ -77,7 +77,7 @@ test("OpenCode profile config routes primary and small models through LLMR", () 
     assert.equal(config.provider["claude-code-router"].npm, "@ai-sdk/openai-compatible");
     assert.equal(config.provider["claude-code-router"].options.baseURL, "http://127.0.0.1:4567/v1");
     assert.equal(config.provider["claude-code-router"].options.apiKey, "ccr-profile-key");
-    assert.equal(config.provider["claude-code-router"].options.headers["x-ccr-client"], "opencode");
+    assert.equal(config.provider["claude-code-router"].options.headers["x-llmr-client"], "opencode");
     assert.ok(config.provider["claude-code-router"].models["Provider/model-a"]);
     assert.deepEqual(config.provider["claude-code-router"].models["Provider/model-a"].modalities, {
       input: ["text", "image"],

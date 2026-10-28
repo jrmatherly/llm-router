@@ -306,7 +306,7 @@ test("provider image jobs use the internal media gateway, persist artifacts, and
   let service;
   const server = createServer(async (request, response) => {
     requests.push({
-      coreAuth: request.headers["x-ccr-core-auth"],
+      coreAuth: request.headers["x-llmr-core-auth"],
       method: request.method,
       targetProvider: request.headers["x-target-provider"],
       url: request.url
@@ -349,7 +349,7 @@ test("provider image jobs use the internal media gateway, persist artifacts, and
   });
   const config = mediaConfig(baseUrl(server));
   service.start(config, baseUrl(server), {
-    authHeader: "x-ccr-core-auth",
+    authHeader: "x-llmr-core-auth",
     authToken: "core-test-token",
     baseUrl: baseUrl(server)
   });
