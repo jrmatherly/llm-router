@@ -27,7 +27,7 @@ Use this page to route Codex to a non-OpenAI provider, pin a model, or run separ
 1. On **Agent Config**, click **Add profile** and choose **Codex**.
 2. Enter a **Config name** (for example `Codex - Work`).
 3. Choose **Effect scope** and **Entry mode**.
-4. Confirm **Provider ID**, **Provider name**, and **Codex model**.
+4. Confirm the **Codex model**.
 5. Adjust advanced settings only if your local setup needs them.
 6. If the entry mode includes App and you use AgentClaw, bind a **Bot**.
 7. **Save**, then open Codex from LLMR (terminal button for CLI, play button for ChatGPT).
@@ -41,8 +41,7 @@ Use this page to route Codex to a non-OpenAI provider, pin a model, or run separ
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps changes limited to LLMR launches, or makes this the system-default Codex profile. Only one enabled system-default Codex profile is allowed. |
 | Entry mode | `CLI & APP` / `CLI only` / `App only` | Which launch entries (terminal command and/or ChatGPT app) are exposed. |
-| Provider ID | Alphanumerics, `.`, `_`, `-`; default `llm-router` (`claude-code-router` in profiles made before the rename) | Provider reference for this Codex profile. Keep it stable. |
-| Provider name | Free text; default `LLM Router` | Display name shown in Codex. |
+| Provider reference | Not editable | LLMR registers itself in Codex as `llm-router` (`claude-code-router` in profiles made before the rename) with the display name `LLM Router`. |
 | Codex model | Provider model or Fusion model | Default Codex model. If left empty, LLMR uses the first available default model. |
 | Show all sessions | Toggle | Writes `show_all_sessions` so Codex lists all sessions. |
 | Config file | Path | Used for the system-default Codex profile. |
@@ -84,7 +83,6 @@ With a Bot bound and ChatGPT opened from LLMR, ChatGPT can relay conversations t
 
 - **Requests bypass LLMR:** confirm the profile is **Enabled** and you opened Codex from LLMR; a directly-opened Codex is unaffected unless the scope is **System default**.
 - **ChatGPT keeps asking to sign in:** sign in to ChatGPT normally, then reopen it from LLMR.
-- **Provider ID rejected:** use only letters, numbers, dots, underscores, or hyphens, and keep it stable across saves.
 - **Wrong model in the app:** confirm the **Codex model** field; if left empty, LLMR falls back to the first available default model.
 - **The app says application network requirements are missing:** update LLMR and reopen the app. LLMR explicitly declares that this entry point needs no additional application network domains.
 - **A task stays read-only after you allow a write:** sandbox mode and approval routing are separate settings; typing “allow writing” in chat does not change the sandbox. Select **Workspace write** in the task permissions. LLMR preserves the approval reviewer selected in the Codex app; **Approve for me** changes who reviews eligible approval requests but does not widen the sandbox.

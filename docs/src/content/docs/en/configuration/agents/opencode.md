@@ -27,7 +27,7 @@ Use this page to route OpenCode to any LLMR provider or Fusion model, or to atta
 1. On **Agent Config**, click **Add profile** and choose **OpenCode**.
 2. Enter a **Config name** (for example `OpenCode - Work`).
 3. Choose **Effect scope** and **Entry mode**.
-4. Confirm **Provider ID**, **Provider name**, and **OpenCode model**.
+4. Confirm the **OpenCode model**.
 5. Adjust advanced settings only if your local setup needs them.
 6. If the entry mode includes App and you use AgentClaw, bind a **Bot**.
 7. **Save**, then open OpenCode from LLMR (terminal button for CLI, play button for App).
@@ -41,8 +41,7 @@ Use this page to route OpenCode to any LLMR provider or Fusion model, or to atta
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps changes limited to LLMR launches, or makes this the system-default OpenCode profile. Only one enabled system-default OpenCode profile is allowed. |
 | Entry mode | `CLI & APP` / `CLI only` / `App only` | Which launch entries (terminal command and/or App) are exposed. |
-| Provider ID | Default `llm-router` (`claude-code-router` in profiles made before the rename) | Provider reference for this OpenCode profile. |
-| Provider name | Free text; default `LLM Router` | Display name shown in OpenCode. |
+| Provider reference | Not editable | LLMR registers itself in OpenCode as `llm-router` (`claude-code-router` in profiles made before the rename) with the display name `LLM Router`. |
 | OpenCode model | A provider model or Fusion model | Default model OpenCode uses through LLMR. |
 | Config file | Path | Used for the system-default OpenCode profile. |
 | Environment variables | Key/value rows | Optional advanced overrides; leave empty for normal use. |

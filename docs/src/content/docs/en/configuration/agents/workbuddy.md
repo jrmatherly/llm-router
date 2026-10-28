@@ -15,7 +15,7 @@ lead: "Connect WorkBuddy to LLMR. WorkBuddy is App-only in LLMR."
 
 1. On **Agent Config**, click **Add profile** and choose **WorkBuddy**.
 2. Enter a **Config name** (for example `WorkBuddy - Work`).
-3. Confirm **Provider ID**, **Provider name**, and **WorkBuddy model**.
+3. Confirm the **WorkBuddy model**.
 4. Optionally restrict **Allowed model list**. Leaving it empty makes every LLMR model available in WorkBuddy.
 5. Set **APP_PATH** only if auto-detection does not find WorkBuddy.
 6. If you use AgentClaw, bind a **Bot**.
@@ -31,8 +31,7 @@ WorkBuddy is fixed to **App only**, so the entry mode is not editable. The field
 | Config name | Free text, e.g. `WorkBuddy - Work` | Identifies the profile. Commands use `llmr "<name>" app`. |
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps the profile limited to LLMR launches, or makes it the system-default WorkBuddy profile. Only one enabled system-default WorkBuddy profile is allowed. |
-| Provider ID | Default `llm-router` (`claude-code-router` in profiles made before the rename) | Provider reference for this WorkBuddy profile. |
-| Provider name | Free text; default `LLM Router` | Display name used by the generated profile. |
+| Provider reference | Not editable | LLMR registers itself in WorkBuddy as `llm-router` (`claude-code-router` in profiles made before the rename) with the display name `LLM Router`. |
 | WorkBuddy model | A provider model or Fusion model | Default model when WorkBuddy App opens. |
 | Allowed model list | Optional multi-select | Controls which LLMR models appear in WorkBuddy. Empty means all models. |
 | APP_PATH | Optional executable path | Overrides app auto-detection. Use it when WorkBuddy is installed in a custom location. |
