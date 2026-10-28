@@ -356,7 +356,7 @@ test("connectivity probe applies provider plugin auth for local agent imports", 
   });
 
   const report = await checkGatewayProviderConnectivity({
-    apiKey: "ccr-local-agent-login",
+    apiKey: "llmr-local-agent-login",
     candidates: [{
       baseUrl: "http://127.0.0.1:49123/v1",
       name: "Local Agent",
@@ -494,7 +494,7 @@ test("connectivity probe refreshes Codex OAuth plugin auth", async (t) => {
   });
 
   const report = await checkGatewayProviderConnectivity({
-    apiKey: "ccr-local-agent-login",
+    apiKey: "llmr-local-agent-login",
     candidates: [{
       baseUrl: "http://127.0.0.1:49122/codex",
       name: "Codex API",
@@ -564,7 +564,7 @@ test("connectivity probe applies Codex request defaults for OAuth plugins", asyn
   });
 
   const report = await checkGatewayProviderConnectivity({
-    apiKey: "ccr-local-agent-login",
+    apiKey: "llmr-local-agent-login",
     candidates: [{
       baseUrl: "https://chatgpt.com/backend-api/codex",
       name: "Codex API",
@@ -648,7 +648,7 @@ test("connectivity probe prefers live Codex auth over saved OAuth plugin tokens"
   });
 
   const report = await checkGatewayProviderConnectivity({
-    apiKey: "ccr-local-agent-login",
+    apiKey: "llmr-local-agent-login",
     candidates: [{
       baseUrl: "https://chatgpt.com/backend-api/codex",
       name: "Codex API",
@@ -725,7 +725,7 @@ test("connectivity probe shares concurrent Codex OAuth refreshes", async (t) => 
   });
 
   const report = await checkGatewayProviderConnectivity({
-    apiKey: "ccr-local-agent-login",
+    apiKey: "llmr-local-agent-login",
     candidates: [{
       baseUrl: "http://127.0.0.1:49125/codex",
       name: "Codex API",
@@ -810,7 +810,7 @@ test("connectivity probe recovers Codex OAuth auth when saved plugin is missing"
   });
 
   const report = await checkGatewayProviderConnectivity({
-    apiKey: "ccr-local-agent-login",
+    apiKey: "llmr-local-agent-login",
     candidates: [{
       baseUrl: "https://chatgpt.com/backend-api/codex",
       name: "Codex API",

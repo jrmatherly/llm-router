@@ -193,7 +193,7 @@ test("core gateway config installs the local agent dynamic auth runtime hook whe
   config.Providers = [
     {
       api_base_url: "https://cli-chat-proxy.grok.com/v1",
-      api_key: "ccr-local-agent-login",
+      api_key: "llmr-local-agent-login",
       id: "grok-cli-api",
       models: ["grok-4.5"],
       name: "Grok CLI API",
@@ -231,7 +231,7 @@ test("core gateway config removes Grok unsupported Responses options through dec
     config.Providers = [
       {
         api_base_url: "https://cli-chat-proxy.grok.com/v1",
-        api_key: "ccr-local-agent-login",
+        api_key: "llmr-local-agent-login",
         id: "grok-cli-api",
         models: ["grok-4.5"],
         name: "Grok CLI API",

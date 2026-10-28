@@ -40,7 +40,7 @@ test("Grok local provider imports bearer token and model override plugin", async
     assert.equal(result.provider.name, "Grok CLI API");
     assert.equal(result.provider.baseUrl, grokDefaultBaseUrl);
     assert.equal(result.provider.protocol, "openai_responses");
-    assert.equal(result.provider.apiKey, "ccr-local-agent-login");
+    assert.equal(result.provider.apiKey, "llmr-local-agent-login");
     assert.deepEqual(
       result.provider.capabilities.map((capability) => capability.type),
       ["openai_responses", "openai_image_generations", "xai_video_generations"]

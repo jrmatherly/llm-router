@@ -24,7 +24,7 @@ export type ApiTokenSet = {
 export const providerNamePlaceholder = "__CCR_PROVIDER_NAME__";
 export const providerNameSlugPlaceholder = "__CCR_PROVIDER_NAME_SLUG__";
 export const providerInternalNamePlaceholder = "__CCR_PROVIDER_INTERNAL_NAME__";
-export const localAgentProviderApiKey = "ccr-local-agent-login";
+export const localAgentProviderApiKey = "llmr-local-agent-login";
 
 export function missingCandidate(
   kind: LocalAgentProviderKind,

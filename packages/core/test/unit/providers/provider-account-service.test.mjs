@@ -17,7 +17,7 @@ import {
 } from "@ccr/core/agents/local-providers/grok.ts";
 import { findProviderPreset } from "@ccr/core/providers/presets/index.ts";
 
-const localAgentProviderApiKey = "ccr-local-agent-login";
+const localAgentProviderApiKey = "llmr-local-agent-login";
 const codexDefaultBaseUrl = "https://chatgpt.com/backend-api/codex";
 const zcodeDefaultBaseUrl = "https://zcode.z.ai/api/v1/zcode-plan/anthropic";
 

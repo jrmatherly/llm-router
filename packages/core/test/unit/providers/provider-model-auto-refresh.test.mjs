@@ -317,7 +317,7 @@ test("auto model refresh uses Codex local model catalog during hot apply", async
     Providers: [
       {
         api_base_url: codexDefaultBaseUrl,
-        api_key: "ccr-local-agent-login",
+        api_key: "llmr-local-agent-login",
         autoFetchModels: true,
         autoFetchKnownModels: ["gpt-5-codex"],
         id: "codex-api",
@@ -425,7 +425,7 @@ test("auto model refresh uses enabled local provider plugins including protocol-
     Providers: [
       {
         api_base_url: "https://api.provider.test/v1",
-        api_key: "ccr-local-agent-login",
+        api_key: "llmr-local-agent-login",
         autoFetchModels: true,
         autoFetchKnownModels: ["alpha"],
         id: "provider",

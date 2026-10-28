@@ -187,7 +187,7 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
       const { probeGatewayProvider } = await import("@ccr/core/providers/probe.ts");
       const oauthConfig = createDefaultAppConfig();
       oauthConfig.Providers = [
-        { id: "claude-code-api", name: "Claude Code API", type: "anthropic_messages", api_base_url: `${upstreamUrl}/anthropic`, api_key: "ccr-local-agent-login", models: ["native"] },
+        { id: "claude-code-api", name: "Claude Code API", type: "anthropic_messages", api_base_url: `${upstreamUrl}/anthropic`, api_key: "llmr-local-agent-login", models: ["native"] },
         { id: "static-api", name: "Static API", type: "anthropic_messages", api_base_url: `${upstreamUrl}/anthropic`, api_key: "static-secret", models: ["native"] }
       ];
       oauthConfig.providerPlugins = [{ key: "ccr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API", auth: { headers: { authorization: "Bearer import-time-expired", "anthropic-beta": "oauth-2025-04-20" }, removeHeaders: ["x-api-key"], strict: true } }];
@@ -203,7 +203,7 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
         assert.equal(captures.at(-1).headers.authorization, `Bearer ${token}`);
         assert.equal(captures.at(-1).headers["x-api-key"], undefined);
         const beforeProbe = captures.length;
-        await probeGatewayProvider({ apiKey: "ccr-local-agent-login", baseUrl: `${upstreamUrl}/anthropic`, mode: "models", protocols: ["anthropic_messages"], providerPlugins: oauthConfig.providerPlugins });
+        await probeGatewayProvider({ apiKey: "llmr-local-agent-login", baseUrl: `${upstreamUrl}/anthropic`, mode: "models", protocols: ["anthropic_messages"], providerPlugins: oauthConfig.providerPlugins });
         const probeCalls = captures.slice(beforeProbe);
         assert.ok(probeCalls.some(call => call.path.endsWith("/models")), "token rotation invalidates the model probe cache");
         assert.ok(probeCalls.every(call => call.headers.authorization === `Bearer ${token}`), "models and protocol probes must use the same live token");

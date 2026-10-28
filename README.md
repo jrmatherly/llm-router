@@ -187,7 +187,7 @@ The desktop app puts the `llmr` command on `PATH` on first launch. Open a new te
 llmr ui
 ```
 
-Open `http://127.0.0.1:3458`, then follow the same **Providers → Server → Agent Profiles** flow above. The model gateway remains at `http://127.0.0.1:3456`. See the [CLI reference](https://jrmatherly.github.io/llm-router/en/guides/cli/) for service modes, authentication, and profile commands.
+`llmr ui` opens the management UI at `http://127.0.0.1:3458`. If that port is taken, it uses the next free port and prints the URL it chose. Then follow the same **Providers → Server → Agent Profiles** flow above. The model gateway remains at `http://127.0.0.1:3456`. See the [CLI reference](https://jrmatherly.github.io/llm-router/en/guides/cli/) for service modes, authentication, and profile commands.
 
 ### Docker
 
