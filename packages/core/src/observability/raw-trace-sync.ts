@@ -1663,7 +1663,7 @@ export async function readRawTraceRequestLogBundle(
   const client = inferGatewayClient(undefined, clientRequestHeaders ?? {});
   const attempt = positiveAttemptNumber(readUnknownHeader(
     clientRequestHeaders,
-    "x-ccr-route-attempt"
+    "x-llmr-route-attempt"
   ));
 
   return {

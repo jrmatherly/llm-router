@@ -105,7 +105,7 @@ const maxUpstreamErrorCharacters = 4000;
 const maxLineageReplayDepth = 32;
 
 export const CONTEXT_ARCHIVE_MCP_SERVER_NAME = "ccr-context-archive";
-export const CONTEXT_ARCHIVE_MCP_PATH = "/__ccr/context-archive/mcp";
+export const CONTEXT_ARCHIVE_MCP_PATH = "/__llmr/context-archive/mcp";
 
 export class ContextArchiveService {
   private readonly stores = new Map<string, ContextArchiveStore>();
@@ -744,7 +744,7 @@ function replaySafeHeaders(
     "openai-organization",
     "openai-project",
     "user-agent",
-    "x-ccr-client",
+    "x-llmr-client",
     "x-client-name"
   ]);
   const output: Record<string, string> = {};

@@ -161,7 +161,7 @@ server {
     try_files /pages/home/index.html =404;
   }
 
-  location = /api/ccr/rpc {
+  location = /api/llmr/rpc {
     proxy_http_version 1.1;
     proxy_set_header Host ${CCR_WEB_HOST}:${CCR_WEB_PORT};
     proxy_set_header Origin http://${CCR_WEB_HOST}:${CCR_WEB_PORT};

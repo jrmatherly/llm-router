@@ -1255,18 +1255,18 @@ function createForwardHeaders(
   const pluginRoute = route?.pluginRoute;
   if (pluginRoute) {
     forwarded.host = pluginRoute.preserveHost ? (route.targetUrl?.host ?? readHeader(headers.host) ?? upstreamUrl.host) : upstreamUrl.host;
-    forwarded["x-ccr-proxy-mode"] = "plugin";
-    forwarded["x-ccr-plugin-id"] = pluginRoute.pluginId;
-    forwarded["x-ccr-plugin-route-id"] = pluginRoute.id;
-    forwarded["x-ccr-original-host"] = readHeader(headers.host) ?? "";
-    forwarded["x-ccr-original-url"] = pluginRoute.targetUrl.toString();
+    forwarded["x-llmr-proxy-mode"] = "plugin";
+    forwarded["x-llmr-plugin-id"] = pluginRoute.pluginId;
+    forwarded["x-llmr-plugin-route-id"] = pluginRoute.id;
+    forwarded["x-llmr-original-host"] = readHeader(headers.host) ?? "";
+    forwarded["x-llmr-original-url"] = pluginRoute.targetUrl.toString();
     for (const [key, value] of Object.entries(pluginRoute.headers ?? {})) {
       forwarded[key.toLowerCase()] = value;
     }
   } else if (routedToGateway) {
     forwarded.host = upstreamUrl.host;
-    forwarded["x-ccr-proxy-mode"] = "gateway";
-    forwarded["x-ccr-original-host"] = readHeader(headers.host) ?? "";
+    forwarded["x-llmr-proxy-mode"] = "gateway";
+    forwarded["x-llmr-original-host"] = readHeader(headers.host) ?? "";
     delete forwarded.authorization;
     delete forwarded["x-api-key"];
     const apiKey = primaryApiKey(config);
@@ -1276,7 +1276,7 @@ function createForwardHeaders(
     }
   } else {
     forwarded.host = upstreamUrl.host;
-    forwarded["x-ccr-proxy-mode"] = "transparent";
+    forwarded["x-llmr-proxy-mode"] = "transparent";
   }
   return forwarded;
 }
@@ -1711,7 +1711,7 @@ function toProxyNetworkExchange(record: ProxyNetworkCaptureRecord): ProxyNetwork
 
 function inferProxyClient(headers: IncomingHttpHeaders): string {
   const explicitClient =
-    readHeader(headers["x-ccr-client"]) ??
+    readHeader(headers["x-llmr-client"]) ??
     readHeader(headers["x-client-name"]) ??
     readHeader(headers["x-forwarded-client-cert"]);
   if (explicitClient) {

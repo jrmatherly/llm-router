@@ -168,7 +168,7 @@ test("raw trace bundle preserves manifest lifecycle metadata", async () => {
   const startedAt = "2026-08-26T01:02:03.004Z";
   const completedAt = "2026-08-26T01:02:04.238Z";
   mkdirSync(bundleDirectory, { recursive: true });
-  writeFileSync(clientMetadataFile, JSON.stringify({ headers: { "x-ccr-client": "opencode" } }));
+  writeFileSync(clientMetadataFile, JSON.stringify({ headers: { "x-llmr-client": "opencode" } }));
   writeFileSync(bodyFile, "{}");
   try {
     const bundle = await readRawTraceRequestLogBundle({
@@ -967,7 +967,7 @@ test("fallback raw bundles keep unique bundle ids while sharing the logical requ
       const clientMetadata = path.join(bundleDirectory, "client_request_metadata.json");
       const responseMetadata = path.join(bundleDirectory, "upstream_response_metadata.json");
       mkdirSync(bundleDirectory, { recursive: true });
-      writeFileSync(clientMetadata, JSON.stringify({ headers: { "x-ccr-route-attempt": String(attempt) } }));
+      writeFileSync(clientMetadata, JSON.stringify({ headers: { "x-llmr-route-attempt": String(attempt) } }));
       writeFileSync(responseMetadata, JSON.stringify({ statusCode: attempt === 1 ? 500 : 200 }));
       bundles.push(await readRawTraceRequestLogBundle({
         parts: [

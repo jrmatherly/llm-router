@@ -51,7 +51,7 @@ export function installBrowserGlobals() {
   const windowMock = {
     addEventListener: () => undefined,
     cancelAnimationFrame: () => undefined,
-    ccr: {
+    llmr: {
       closeTray: () => undefined,
       quitApp: () => undefined,
       setTrayDetailOpen: () => undefined,

@@ -80,6 +80,6 @@ EXPOSE 8080
 
 # A gateway with no models answers /health with 502, so health is nginx plus the management server.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --start-interval=2s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:' + (process.env.CCR_NGINX_PORT || '8080') + '/api/ccr/rpc', { body: '{}', headers: { 'content-type': 'application/json' }, method: 'POST' }).then((r) => process.exit([200, 401].includes(r.status) ? 0 : 1)).catch(() => process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:' + (process.env.CCR_NGINX_PORT || '8080') + '/api/llmr/rpc', { body: '{}', headers: { 'content-type': 'application/json' }, method: 'POST' }).then((r) => process.exit([200, 401].includes(r.status) ? 0 : 1)).catch(() => process.exit(1))"
 
 ENTRYPOINT ["ccr-docker-entrypoint"]

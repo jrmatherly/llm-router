@@ -5,7 +5,7 @@ import test from "node:test";
 test("the runtime image runs as llmr and checks the management server", () => {
   const dockerfile = readFileSync("Dockerfile", "utf8");
   assert.match(dockerfile, /^USER llmr$/m);
-  assert.match(dockerfile, /HEALTHCHECK[\s\S]*\/api\/ccr\/rpc/);
+  assert.match(dockerfile, /HEALTHCHECK[\s\S]*\/api\/llmr\/rpc/);
 });
 
 test("every base image is pinned by digest", () => {

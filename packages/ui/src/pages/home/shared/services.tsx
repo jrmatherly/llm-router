@@ -19,8 +19,8 @@ export function gatewayServiceMessage(status: GatewayStatus, stopped: boolean): 
 }
 
 export function openExternalUrl(url: string, onError: (message: string) => void) {
-  if (window.ccr?.openExternal) {
-    void window.ccr.openExternal(url).catch((error) => onError(formatAppError(error)));
+  if (window.llmr?.openExternal) {
+    void window.llmr.openExternal(url).catch((error) => onError(formatAppError(error)));
     return;
   }
   window.open(url, "_blank", "noopener,noreferrer");

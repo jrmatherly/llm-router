@@ -1490,7 +1490,7 @@ test("profile service injects Context Archive MCP for managed Claude Code profil
   const mcpConfig = JSON.parse(readFileSync(mcpConfigFile, "utf8"));
   assert.deepEqual(Object.keys(mcpConfig.mcpServers), ["ccr-context-archive"]);
   assert.equal(mcpConfig.mcpServers["ccr-context-archive"].type, "http");
-  assert.equal(mcpConfig.mcpServers["ccr-context-archive"].url, `http://127.0.0.1:${config.gateway.port}/__ccr/context-archive/mcp`);
+  assert.equal(mcpConfig.mcpServers["ccr-context-archive"].url, `http://127.0.0.1:${config.gateway.port}/__llmr/context-archive/mcp`);
   assert.equal(mcpConfig.mcpServers["ccr-context-archive"].headers.Authorization, "Bearer ccr-managed-claude-profile-test");
 });
 
@@ -1550,7 +1550,7 @@ test("profile service injects Context Archive MCP for managed Codex profile", { 
   assert.doesNotMatch(content, /# BEGIN CCR managed ToolHub MCP/);
   assert.match(content, /# BEGIN CCR managed Context Archive MCP/);
   assert.match(content, /\[mcp_servers\.ccr-context-archive\]/);
-  assert.match(content, new RegExp(`url = "http://127\\.0\\.0\\.1:${config.gateway.port}/__ccr/context-archive/mcp"`));
+  assert.match(content, new RegExp(`url = "http://127\\.0\\.0\\.1:${config.gateway.port}/__llmr/context-archive/mcp"`));
   assert.match(content, /http_headers = \{ Authorization = "Bearer ccr-managed-codex-profile-test" \}/);
   assert.match(content, /startup_timeout_sec = 10/);
   assert.match(content, /tool_timeout_sec = 60/);
@@ -1906,8 +1906,8 @@ test("profile service writes a Pi config and wrapper that points inference to LL
   assert.equal(provider.apiKey, "ccr-pi-profile-test");
   assert.equal(provider.authHeader, true);
   assert.deepEqual(provider.headers, {
-    "x-ccr-client": "pi",
-    "x-ccr-profile": profileId
+    "x-llmr-client": "pi",
+    "x-llmr-profile": profileId
   });
   assert.ok(provider.models.some((model) => model.id === "Provider/model"));
   assert.ok(provider.models.some((model) => model.id === "Provider/fast"));
@@ -2717,7 +2717,7 @@ test("profile service restores global agent configs on exit", () => {
       model: "claude-code-router/test",
       provider: {
         "claude-code-router": {
-          options: { headers: { "x-ccr-client": "opencode" } }
+          options: { headers: { "x-llmr-client": "opencode" } }
         }
       }
     })}\n`);
@@ -2753,7 +2753,7 @@ test("profile service restores global agent configs on exit", () => {
 
     writeFileSync(codexFile, "# BEGIN CCR managed profile\nmodel = \"test\"\n# END CCR managed profile\n");
     writeFileSync(openCodeFile, `${JSON.stringify({
-      provider: { "claude-code-router": { options: { headers: { "x-ccr-client": "opencode" } } } }
+      provider: { "claude-code-router": { options: { headers: { "x-llmr-client": "opencode" } } } }
     })}\n`);
     for (const file of [zcodeFile, zcodeV2File]) {
       writeFileSync(file, `${JSON.stringify({ provider: { "claude-code-router": {} } })}\n`);

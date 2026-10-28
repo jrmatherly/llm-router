@@ -223,8 +223,8 @@ test("issue 1480 Fusion vision config injects core auth token into MCP gateway r
     undefined,
     undefined,
     {
-      endpoint: "http://127.0.0.1:3456/__ccr/billing-usage-sync",
-      header: "x-ccr-billing-usage-token",
+      endpoint: "http://127.0.0.1:3456/__llmr/billing-usage-sync",
+      header: "x-llmr-billing-usage-token",
       token: "usage-token"
     }
   );
@@ -234,8 +234,8 @@ test("issue 1480 Fusion vision config injects core auth token into MCP gateway r
   assert.equal(server.env.VISION_GATEWAY_BASE_URL, "http://127.0.0.1:3457/v1");
   assert.equal(server.env.VISION_GATEWAY_API_KEY, "core-token");
   assert.equal(server.env.VISION_API_KEY, undefined);
-  assert.equal(server.env.CCR_FUSION_USAGE_SYNC_ENDPOINT, "http://127.0.0.1:3456/__ccr/billing-usage-sync");
-  assert.equal(server.env.CCR_FUSION_USAGE_SYNC_HEADER, "x-ccr-billing-usage-token");
+  assert.equal(server.env.CCR_FUSION_USAGE_SYNC_ENDPOINT, "http://127.0.0.1:3456/__llmr/billing-usage-sync");
+  assert.equal(server.env.CCR_FUSION_USAGE_SYNC_HEADER, "x-llmr-billing-usage-token");
   assert.equal(server.env.CCR_FUSION_USAGE_SYNC_TOKEN, "usage-token");
   assert.match(
     server.env.VISION_MODEL,
@@ -343,8 +343,8 @@ test("gateway config passes proxy preload to Fusion built-in MCP runtimes", asyn
     proxyPreloadFile,
     proxyEnv,
     {
-      endpoint: "http://127.0.0.1:3456/__ccr/billing-usage-sync",
-      header: "x-ccr-billing-usage-token",
+      endpoint: "http://127.0.0.1:3456/__llmr/billing-usage-sync",
+      header: "x-llmr-billing-usage-token",
       token: "usage-token"
     }
   );

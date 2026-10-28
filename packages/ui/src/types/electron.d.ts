@@ -90,7 +90,7 @@ import type { ProviderPreset } from "@llmr/core/providers/presets/types";
 
 declare global {
   interface Window {
-    ccr?: {
+    llmr?: {
       applyClaudeAppGateway: (config?: AppConfig) => Promise<ClaudeAppGatewayApplyResult>;
       applyProfile: () => Promise<ProfileApplyResult>;
       cancelBotGatewayQrLogin: (request: BotGatewayQrLoginCancelRequest) => Promise<BotGatewayQrLoginCancelResult>;

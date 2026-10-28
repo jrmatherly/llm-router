@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ApiKeyConfig } from "@llmr/core/contracts/app";
 
-export const ccrRemoteControlPathPrefix = "/__ccr/remote";
+export const ccrRemoteControlPathPrefix = "/__llmr/remote";
 
 export function remoteControlOwnerId(apiKey: Pick<ApiKeyConfig, "id"> | undefined): string {
   return apiKey ? `key:${apiKey.id}` : "anonymous";

@@ -77,7 +77,7 @@ function renderDomains(domains) {
 async function fetchImportJob(importUrl) {
   const response = await fetch(importUrl, {
     headers: {
-      "x-ccr-login-import": "chrome-extension"
+      "x-llmr-login-import": "chrome-extension"
     }
   });
   const body = await response.json().catch(() => ({}));
@@ -103,7 +103,7 @@ async function submitCookies(importUrl, cookies, localStorage, domains) {
     }),
     headers: {
       "content-type": "application/json",
-      "x-ccr-login-import": "chrome-extension"
+      "x-llmr-login-import": "chrome-extension"
     },
     method: "POST"
   });

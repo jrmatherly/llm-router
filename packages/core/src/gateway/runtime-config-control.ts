@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { AppConfig } from "@llmr/core/contracts/app";
 
-export const gatewayRuntimeConfigControlPath = "/__ccr/runtime/config";
+export const gatewayRuntimeConfigControlPath = "/__llmr/runtime/config";
 
 export function gatewayRuntimeConfigRevision(config: AppConfig | undefined): string | undefined {
   if (!config) {

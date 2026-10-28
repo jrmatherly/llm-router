@@ -272,7 +272,7 @@ A string, number, or array is not a valid routing result. Unknown object fields 
 | `array-remove` | `value` | Remove array elements that match `value`. |
 | `array-replace` | `match`, `value` | Replace array elements that match `match` with `value`. |
 
-Rewrite `value` and `match` properties must be JSON values. Unsafe path segments such as `__proto__`, `constructor`, and `prototype` are rejected. Scripts cannot rewrite authentication, cookie, host, content-length, connection-control, `x-auth-*`, `x-ccr-*`, and other protected headers.
+Rewrite `value` and `match` properties must be JSON values. Unsafe path segments such as `__proto__`, `constructor`, and `prototype` are rejected. Scripts cannot rewrite authentication, cookie, host, content-length, connection-control, `x-auth-*`, `x-llmr-*`, and other protected headers.
 
 ##### Fallback shape
 
@@ -523,7 +523,7 @@ After saving, send a request and inspect Logs:
 - `resolved model`: the final model.
 - status code and error details.
 
-When Fallback runs, response headers include `x-ccr-fallback-attempts`, `x-ccr-fallback-failures`, `x-ccr-fallback-delays-ms` for delayed attempts, and the final `x-ccr-fallback-model`. Request log details also show the related retry attempt list.
+When Fallback runs, response headers include `x-llmr-fallback-attempts`, `x-llmr-fallback-failures`, `x-llmr-fallback-delays-ms` for delayed attempts, and the final `x-llmr-fallback-model`. Request log details also show the related retry attempt list.
 
 ### Optional: semantic routing with Jev
 

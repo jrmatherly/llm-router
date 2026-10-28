@@ -10,11 +10,11 @@ export const ccrOpenRouterDiscountFinalizeResponseHookKey = "ccr-openrouter-disc
 export const ccrOpenRouterDiscountFinalizeStreamHookKey = "ccr-openrouter-discount-finalize-stream-hook";
 export const ccrRouterRouteResolverKey = "llm-router-route-resolver";
 export const ccrRouterHttpRouteKey = "llm-router-route";
-export const ccrRouterHttpRoutePath = "/__ccr/route";
+export const ccrRouterHttpRoutePath = "/__llmr/route";
 export const ccrRawTraceSyncAckRouteKey = "ccr-raw-trace-sync-ack";
-export const ccrRuntimeConfigReloadMessageType = "ccr:runtime-config-reload";
-export const ccrLiveTokenRateConfigMessageType = "ccr:live-token-rate-config";
-export const ccrLiveTokenRateSnapshotMessageType = "ccr:live-token-rate-snapshot";
+export const ccrRuntimeConfigReloadMessageType = "llmr:runtime-config-reload";
+export const ccrLiveTokenRateConfigMessageType = "llmr:live-token-rate-config";
+export const ccrLiveTokenRateSnapshotMessageType = "llmr:live-token-rate-snapshot";
 export const ccrLiveTokenRateStreamHookKey = "ccr-live-token-rate-stream-hook";
 
 export type CcrLiveTokenRateConfigMessage = {
@@ -30,17 +30,17 @@ export type CcrLiveTokenRateSnapshotMessage = {
   type: typeof ccrLiveTokenRateSnapshotMessageType;
 };
 
-export const ccrRouteStageHeader = "x-ccr-route-stage";
-export const ccrRouteReasonHeader = "x-ccr-route-reason";
-export const ccrRouteSourceHeader = "x-ccr-route-source";
-export const ccrRouteDiagnosticsHeader = "x-ccr-route-diagnostics";
-export const ccrRoutedModelHeader = "x-ccr-routed-model";
-export const ccrRouteFallbackHeader = "x-ccr-route-fallback";
-export const ccrRouteSessionIdHeader = "x-ccr-route-session-id";
-export const ccrRouteTokenCountHeader = "x-ccr-route-token-count";
-export const ccrCodexApplyPatchBridgeHeader = "x-ccr-codex-apply-patch-bridge";
-export const ccrCodexMultiAgentBridgeHeader = "x-ccr-codex-multi-agent-bridge";
-export const ccrOpenRouterDiscountRequestIdHeader = "x-ccr-openrouter-discount-request-id";
+export const ccrRouteStageHeader = "x-llmr-route-stage";
+export const ccrRouteReasonHeader = "x-llmr-route-reason";
+export const ccrRouteSourceHeader = "x-llmr-route-source";
+export const ccrRouteDiagnosticsHeader = "x-llmr-route-diagnostics";
+export const ccrRoutedModelHeader = "x-llmr-routed-model";
+export const ccrRouteFallbackHeader = "x-llmr-route-fallback";
+export const ccrRouteSessionIdHeader = "x-llmr-route-session-id";
+export const ccrRouteTokenCountHeader = "x-llmr-route-token-count";
+export const ccrCodexApplyPatchBridgeHeader = "x-llmr-codex-apply-patch-bridge";
+export const ccrCodexMultiAgentBridgeHeader = "x-llmr-codex-multi-agent-bridge";
+export const ccrOpenRouterDiscountRequestIdHeader = "x-llmr-openrouter-discount-request-id";
 export const ccrRouteHeaderNames = [
   ccrCodexApplyPatchBridgeHeader,
   ccrCodexMultiAgentBridgeHeader,

@@ -20,7 +20,7 @@ test("#1819 client-visible fallback error includes 429 and 404 before final mode
   const statuses = [429, 404, 400];
   let calls = 0;
   globalThis.fetch = async (url) => {
-    if (new URL(url).pathname.startsWith("/__ccr/")) return new Response(null, { status: 404 });
+    if (new URL(url).pathname.startsWith("/__llmr/")) return new Response(null, { status: 404 });
     const status = statuses[calls++];
     const body = JSON.stringify({ error: { message: "All target providers failed.", attempts: [{ stage: status === 400 ? "model_resolution" : "upstream_response", status, message: status === 400 ? "Unknown final model" : "upstream rejected" }] } });
     return new Response(body, { status, headers: { "content-type": "application/json", "content-length": String(Buffer.byteLength(body)), "retry-after": "0.001" } });

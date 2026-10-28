@@ -378,7 +378,7 @@ const OMELETTE_PREVIEW_LIVE_RELOAD_SCRIPT = `(function(){
           method: "HEAD"
         });
         if (!response.ok) return;
-        var nextVersion = response.headers.get("x-ccr-preview-version") || response.headers.get("etag") || "";
+        var nextVersion = response.headers.get("x-llmr-preview-version") || response.headers.get("etag") || "";
         if (nextVersion && currentVersion && nextVersion !== currentVersion) {
           stopped = true;
           window.location.reload();
@@ -10152,7 +10152,7 @@ function servePendingDesignPreviewResponse(runtime, projectId, filePath) {
     "cache-control": "no-store",
     "content-type": "text/html; charset=utf-8",
     etag: `"ccr-preview-${previewVersion}"`,
-    "x-ccr-preview-version": previewVersion
+    "x-llmr-preview-version": previewVersion
   });
 }
 
@@ -10228,7 +10228,7 @@ function serveProjectFileResponse(runtime, projectId, row, filePath) {
     const normalizedHtml = normalizeBabelJsxScriptTags(html);
     const inlinedHtml = inlineLocalBabelJsxScriptTags(runtime, projectId, filePath, normalizedHtml);
     const dependencySafeHtml = stripRemotePreviewDependencyIntegrity(inlinedHtml);
-    const previewHtml = injectOmelettePreviewScripts(dependencySafeHtml, headers["x-ccr-preview-version"], previewPollUrl(projectId, filePath));
+    const previewHtml = injectOmelettePreviewScripts(dependencySafeHtml, headers["x-llmr-preview-version"], previewPollUrl(projectId, filePath));
     return textResponse(200, previewHtml, headers);
   }
   return binaryResponse(200, patchClaudeDesignProjectFileBody(body, filePath, contentType), headers);
@@ -10273,8 +10273,8 @@ function previewProjectFileHeaders(runtime, projectId, row, filePath, contentTyp
     "cache-control": "no-store",
     "content-type": contentType || guessContentType(filePath),
     etag: `"ccr-preview-${previewVersion}"`,
-    "x-ccr-file-version": fileVersion,
-    "x-ccr-preview-version": previewVersion
+    "x-llmr-file-version": fileVersion,
+    "x-llmr-preview-version": previewVersion
   };
 }
 
@@ -11991,7 +11991,7 @@ function gatewayModelDiscoveryHeaders(runtime) {
     accept: "application/json",
     "cache-control": "no-cache",
     "user-agent": "Claude Design/LLMR",
-    "x-ccr-client": runtime.pluginId === "claude-ship" ? "Claude Ship" : "Claude Design"
+    "x-llmr-client": runtime.pluginId === "claude-ship" ? "Claude Ship" : "Claude Design"
   };
   if (runtime.gatewayApiKey) {
     headers.authorization = `Bearer ${runtime.gatewayApiKey}`;
@@ -12476,7 +12476,7 @@ function fetchGateway(runtime, path, body, routingDecision, sessionContext, opti
     "anthropic-version": "2023-06-01",
     ...(options.stream ? { accept: "text/event-stream" } : {}),
     "content-type": "application/json",
-    "x-ccr-client": runtime.pluginId === "claude-ship" ? "Claude Ship" : "Claude Design",
+    "x-llmr-client": runtime.pluginId === "claude-ship" ? "Claude Ship" : "Claude Design",
     "x-claude-design-proxy": "1"
   };
   if (runtime.gatewayApiKey) {
@@ -16194,7 +16194,7 @@ try {
 
 function designModelPreferenceResetScript(me) {
   const defaultModelId = stringValue(me?.defaultModelId) || DEFAULT_GATEWAY_MODEL;
-  return `<script id="ccr-claude-design-model-reset">(function(){try{var defaultModelId=${escapeJsonForScript(defaultModelId)};if(!defaultModelId||String(defaultModelId).toLowerCase().indexOf('deepseek')!==-1){return;}var marker='ccr:claude-design:model-default-reset:'+defaultModelId;if(localStorage.getItem(marker)==='1'){return;}function shouldClear(key,value){var keyText=String(key||'').toLowerCase();var valueText=String(value||'').toLowerCase();if(valueText.indexOf('deepseek')===-1){return false;}return keyText.indexOf('model')!==-1||keyText.indexOf('omelette')!==-1||keyText.indexOf('om:')===0||keyText.indexOf('claude')!==-1||valueText.indexOf('model')!==-1||valueText.indexOf('deepseek::')!==-1||valueText.indexOf('deepseek/')!==-1;}function clearStorage(storage){if(!storage){return;}var keys=[];for(var i=0;i<storage.length;i++){keys.push(storage.key(i));}for(var j=0;j<keys.length;j++){var key=keys[j];if(shouldClear(key,storage.getItem(key))){storage.removeItem(key);}}}clearStorage(localStorage);clearStorage(sessionStorage);localStorage.setItem(marker,'1');}catch(e){}})();</script>`;
+  return `<script id="ccr-claude-design-model-reset">(function(){try{var defaultModelId=${escapeJsonForScript(defaultModelId)};if(!defaultModelId||String(defaultModelId).toLowerCase().indexOf('deepseek')!==-1){return;}var marker='llmr:claude-design:model-default-reset:'+defaultModelId;if(localStorage.getItem(marker)==='1'){return;}function shouldClear(key,value){var keyText=String(key||'').toLowerCase();var valueText=String(value||'').toLowerCase();if(valueText.indexOf('deepseek')===-1){return false;}return keyText.indexOf('model')!==-1||keyText.indexOf('omelette')!==-1||keyText.indexOf('om:')===0||keyText.indexOf('claude')!==-1||valueText.indexOf('model')!==-1||valueText.indexOf('deepseek::')!==-1||valueText.indexOf('deepseek/')!==-1;}function clearStorage(storage){if(!storage){return;}var keys=[];for(var i=0;i<storage.length;i++){keys.push(storage.key(i));}for(var j=0;j<keys.length;j++){var key=keys[j];if(shouldClear(key,storage.getItem(key))){storage.removeItem(key);}}}clearStorage(localStorage);clearStorage(sessionStorage);localStorage.setItem(marker,'1');}catch(e){}})();</script>`;
 }
 
 function designMePayload(me) {

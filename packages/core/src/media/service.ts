@@ -553,7 +553,7 @@ export class MediaService {
 
   private publicArtifact(artifact: NonNullable<MediaJob["artifact"]>): PublicMediaArtifact {
     const { accessToken, ...rest } = artifact;
-    const url = `${this.endpoint}/__ccr/media/artifacts/${encodeURIComponent(artifact.id)}?token=${encodeURIComponent(accessToken)}`;
+    const url = `${this.endpoint}/__llmr/media/artifacts/${encodeURIComponent(artifact.id)}?token=${encodeURIComponent(accessToken)}`;
     return {
       ...rest,
       url

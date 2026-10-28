@@ -25,7 +25,7 @@ The gateway appends `/v1/messages` itself, so `base_url` carries no `/v1` suffix
 
 ## What LLMR records
 
-With `forward_user_identity: true` the gateway adds `x-claude-gateway-user-email`, `x-litellm-end-user-id` and `x-claude-gateway-user-id` to each forwarded request. LLMR takes the client label of the request from `x-claude-gateway-user-email`, or from `x-litellm-end-user-id` when the first is absent, so the request log shows the developer's e-mail as the client. A request that also carries `x-ccr-client` keeps that label; an LLMR-aware proxy in front of the gateway wins.
+With `forward_user_identity: true` the gateway adds `x-claude-gateway-user-email`, `x-litellm-end-user-id` and `x-claude-gateway-user-id` to each forwarded request. LLMR takes the client label of the request from `x-claude-gateway-user-email`, or from `x-litellm-end-user-id` when the first is absent, so the request log shows the developer's e-mail as the client. A request that also carries `x-llmr-client` keeps that label; an LLMR-aware proxy in front of the gateway wins.
 
 LLMR drops the three identity headers before the request leaves it, so the provider it routes the request to never sees the developer's e-mail or user id. There is no per-provider opt-in: a LiteLLM instance behind LLMR does not receive `x-litellm-end-user-id`, so its own spend attribution sees only the LLMR credential, and the request log in LLMR is where per-developer usage lives. Request logs are local and keep that e-mail for the current day. Enable **Request logs** under **Settings → Logs & Observability** to see the rows.
 

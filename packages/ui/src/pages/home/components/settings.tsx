@@ -1129,7 +1129,7 @@ function DataSettingsSection({
     if (exporting) {
       return;
     }
-    if (!window.ccr?.exportData) {
+    if (!window.llmr?.exportData) {
       setError("Data export is only available in the Electron app.");
       return;
     }
@@ -1137,7 +1137,7 @@ function DataSettingsSection({
     setError("");
     setExportedFile("");
     try {
-      const result = await window.ccr.exportData();
+      const result = await window.llmr.exportData();
       if (!result.canceled) {
         setExportedFile(result.file || "");
       }
@@ -1530,7 +1530,7 @@ function BotConfigDialog({
     }
     qrSessionRef.current = "";
     await closeQrWindow(normalized);
-    await window.ccr?.cancelBotGatewayQrLogin?.({ sessionId: normalized }).catch(() => undefined);
+    await window.llmr?.cancelBotGatewayQrLogin?.({ sessionId: normalized }).catch(() => undefined);
   }
 
   async function discardQrSession(sessionId: string) {
@@ -1538,8 +1538,8 @@ function BotConfigDialog({
     if (!normalized) {
       return;
     }
-    await window.ccr?.closeBotGatewayQrWindow?.({ sessionId: normalized }).catch(() => undefined);
-    await window.ccr?.cancelBotGatewayQrLogin?.({ sessionId: normalized }).catch(() => undefined);
+    await window.llmr?.closeBotGatewayQrWindow?.({ sessionId: normalized }).catch(() => undefined);
+    await window.llmr?.cancelBotGatewayQrLogin?.({ sessionId: normalized }).catch(() => undefined);
   }
 
   async function closeQrWindow(sessionId = qrSessionRef.current) {
@@ -1547,7 +1547,7 @@ function BotConfigDialog({
     if (!normalized) {
       return;
     }
-    await window.ccr?.closeBotGatewayQrWindow?.({ sessionId: normalized }).catch(() => undefined);
+    await window.llmr?.closeBotGatewayQrWindow?.({ sessionId: normalized }).catch(() => undefined);
   }
 
   async function openQrWindow(
@@ -1558,10 +1558,10 @@ function BotConfigDialog({
     if (display.kind !== "window") {
       return undefined;
     }
-    if (!window.ccr?.openBotGatewayQrWindow) {
+    if (!window.llmr?.openBotGatewayQrWindow) {
       throw new Error("QR window is available in the Electron app.");
     }
-    return window.ccr.openBotGatewayQrWindow({
+    return window.llmr.openBotGatewayQrWindow({
       scanTimeoutMs: 5 * 60 * 1000,
       sessionId: start.sessionId,
       title: `Weixin Login - ${draft.name.trim() || "Bot"}`,
@@ -1632,7 +1632,7 @@ function BotConfigDialog({
     force: boolean,
     generation: number
   ): Promise<BotGatewayQrLoginStartResult> {
-    if (!window.ccr?.startBotGatewayQrLogin) {
+    if (!window.llmr?.startBotGatewayQrLogin) {
       throw new Error("QR login is available in the Electron app.");
     }
 
@@ -1648,7 +1648,7 @@ function BotConfigDialog({
     if (!qrMountedRef.current || generation !== qrStartGenerationRef.current) {
       throw new Error("QR login canceled.");
     }
-    const start = await window.ccr.startBotGatewayQrLogin({ config: savedConfig, force });
+    const start = await window.llmr.startBotGatewayQrLogin({ config: savedConfig, force });
     if (!qrMountedRef.current || generation !== qrStartGenerationRef.current) {
       if (qrSessionRef.current !== start.sessionId) {
         await discardQrSession(start.sessionId);
@@ -1673,11 +1673,11 @@ function BotConfigDialog({
     sessionId: string,
     generation: number
   ): Promise<BotGatewayQrLoginWaitResult> {
-    if (!window.ccr?.waitBotGatewayQrLogin) {
+    if (!window.llmr?.waitBotGatewayQrLogin) {
       throw new Error("QR login is available in the Electron app.");
     }
     while (qrMountedRef.current && generation === qrStartGenerationRef.current) {
-      const wait = await window.ccr.waitBotGatewayQrLogin({ sessionId, timeoutMs: 5000 });
+      const wait = await window.llmr.waitBotGatewayQrLogin({ sessionId, timeoutMs: 5000 });
       if (!qrMountedRef.current || generation !== qrStartGenerationRef.current) {
         throw new Error("QR login canceled.");
       }
@@ -1708,8 +1708,8 @@ function BotConfigDialog({
       qrStartGenerationRef.current += 1;
       const sessionId = qrSessionRef.current;
       if (sessionId) {
-        void window.ccr?.closeBotGatewayQrWindow?.({ sessionId }).catch(() => undefined);
-        void window.ccr?.cancelBotGatewayQrLogin?.({ sessionId }).catch(() => undefined);
+        void window.llmr?.closeBotGatewayQrWindow?.({ sessionId }).catch(() => undefined);
+        void window.llmr?.cancelBotGatewayQrLogin?.({ sessionId }).catch(() => undefined);
       }
     };
   }, []);

@@ -428,7 +428,7 @@ export function AddRoutingRuleDialog({
 
   function selectScriptFile(file: File | undefined) {
     if (!file) return;
-    const filePath = window.ccr?.getFilePath?.(file);
+    const filePath = window.llmr?.getFilePath?.(file);
     if (!filePath) {
       setScriptMessage({ ok: false, text: "Selecting a local script file requires LLMR Desktop. Enter the server-local path manually when using the web UI." });
       return;
@@ -441,7 +441,7 @@ export function AddRoutingRuleDialog({
     setScriptBusy(action);
     setScriptMessage(undefined);
     try {
-      const ccr = window.ccr;
+      const ccr = window.llmr;
       if (!ccr) throw new Error("Gateway API is unavailable");
       const result = await ccr.validateRouteScript({ script: scriptFromDraft() });
       const message = result.ok
@@ -462,7 +462,7 @@ export function AddRoutingRuleDialog({
     setScriptBusy("test");
     setScriptMessage(undefined);
     try {
-      const ccr = window.ccr;
+      const ccr = window.llmr;
       if (!ccr) throw new Error("Gateway API is unavailable");
       const parsed = JSON.parse(scriptSample) as unknown;
       const request = normalizeRouteScriptSampleRequest(parsed);

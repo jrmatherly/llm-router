@@ -147,8 +147,8 @@ function ShareCardShell({
     setStatus("saving");
     let exportTarget: ShareCardPreparedExportTarget | undefined;
     try {
-      if (window.ccr?.prepareImageExportTarget) {
-        exportTarget = await window.ccr.prepareImageExportTarget({ fileName });
+      if (window.llmr?.prepareImageExportTarget) {
+        exportTarget = await window.llmr.prepareImageExportTarget({ fileName });
         if (exportTarget.canceled) {
           setStatus("idle");
           return;
@@ -629,11 +629,11 @@ function calendarColor(intensity: TokenActivityCell["intensity"], inRange: boole
 }
 
 async function saveElementAsPng(element: HTMLElement, fileName: string, options: ShareCardPngExportOptions = {}): Promise<void> {
-  if (window.ccr?.renderHtmlPng) {
+  if (window.llmr?.renderHtmlPng) {
     await nativeRenderElementAsPng(element, fileName, options);
     return;
   }
-  if (window.ccr?.captureElementPng) {
+  if (window.llmr?.captureElementPng) {
     await nativeCaptureElementAsPng(element, fileName, options);
     return;
   }
@@ -642,7 +642,7 @@ async function saveElementAsPng(element: HTMLElement, fileName: string, options:
 
 async function nativeRenderElementAsPng(element: HTMLElement, fileName: string, options: ShareCardPngExportOptions): Promise<void> {
   const size = exportElementSize(element);
-  const result = await window.ccr?.renderHtmlPng?.({
+  const result = await window.llmr?.renderHtmlPng?.({
     borderRadius: exportBorderRadius(element),
     exportId: options.exportId,
     fileName,
@@ -659,7 +659,7 @@ async function nativeCaptureElementAsPng(element: HTMLElement, fileName: string,
   element.scrollIntoView({ block: "nearest", inline: "nearest" });
   await nextFrame();
   const rect = element.getBoundingClientRect();
-  const result = await window.ccr?.captureElementPng?.({
+  const result = await window.llmr?.captureElementPng?.({
     borderRadius: exportBorderRadius(element),
     exportId: options.exportId,
     fileName,

@@ -32,7 +32,7 @@ Nginx exposes:
 | Path | Purpose |
 | --- | --- |
 | `/`, `/pages/home/index.html` | Management UI. The root path redirects to the page and keeps a `llmr_web_token` query parameter if the request has one. Nginx never adds the token. |
-| `/api/ccr/rpc` | Management RPC, protected by the management token. |
+| `/api/llmr/rpc` | Management RPC, protected by the management token. |
 | `/health` | Model gateway health; container or UI status is not reflected here. |
 | `/v1/*`, `/v1beta/*`, `/messages`, `/chat/completions`, `/responses`, `/interactions`, `/mcp/*` | Model and MCP gateway endpoints. |
 

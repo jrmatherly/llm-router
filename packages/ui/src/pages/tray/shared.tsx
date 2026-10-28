@@ -63,16 +63,16 @@ export function applyTrayThemePreference(theme: AppConfig["theme"] | undefined):
 export function useTrayThemePreference(): void {
   useEffect(() => {
     const syncTheme = () => {
-      if (!window.ccr) {
+      if (!window.llmr) {
         return;
       }
-      void window.ccr.getConfig()
+      void window.llmr.getConfig()
         .then((config) => applyTrayThemePreference(config.theme))
         .catch(() => undefined);
     };
 
     syncTheme();
-    const unsubscribeThemePreference = window.ccr?.onThemePreferenceChanged?.(applyTrayThemePreference);
+    const unsubscribeThemePreference = window.llmr?.onThemePreferenceChanged?.(applyTrayThemePreference);
     window.addEventListener("focus", syncTheme);
     return () => {
       unsubscribeThemePreference?.();

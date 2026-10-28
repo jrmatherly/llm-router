@@ -217,11 +217,11 @@ fs.writeFileSync(path.join(configDir, "config.json"), JSON.stringify(config, nul
 }
 
 async function rpc(baseUrl, method, authToken, args = []) {
-  return fetch(`${baseUrl}/api/ccr/rpc`, {
+  return fetch(`${baseUrl}/api/llmr/rpc`, {
     body: JSON.stringify({ args, method }),
     headers: {
       "content-type": "application/json",
-      ...(authToken ? { "x-ccr-web-auth": authToken } : {})
+      ...(authToken ? { "x-llmr-web-auth": authToken } : {})
     },
     method: "POST"
   });

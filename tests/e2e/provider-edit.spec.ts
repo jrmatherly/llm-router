@@ -42,10 +42,10 @@ test("keeps config-only provider fields when the provider is saved from the dial
   await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
   await waitForBridge(page);
   await page.evaluate(async (provider) => {
-    const config = await window.ccr!.getConfig();
+    const config = await window.llmr!.getConfig();
     config.Providers = [provider];
-    await window.ccr!.saveConfig(config);
-    await window.ccr!.setOnboardingFinished?.();
+    await window.llmr!.saveConfig(config);
+    await window.llmr!.setOnboardingFinished?.();
   }, configOnlyProvider);
 
   await page.reload();
@@ -61,7 +61,7 @@ test("keeps config-only provider fields when the provider is saved from the dial
   await expect(saveButton).toBeHidden();
 
   await expect.poll(async () => page.evaluate(async () => {
-    const config = await window.ccr!.getConfig();
+    const config = await window.llmr!.getConfig();
     const provider = config.Providers[0];
     return {
       extraBody: provider?.extraBody,
@@ -81,10 +81,10 @@ test("edits extraBody from the advanced settings section", async ({ page }) => {
   await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
   await waitForBridge(page);
   await page.evaluate(async (provider) => {
-    const config = await window.ccr!.getConfig();
+    const config = await window.llmr!.getConfig();
     config.Providers = [provider];
-    await window.ccr!.saveConfig(config);
-    await window.ccr!.setOnboardingFinished?.();
+    await window.llmr!.saveConfig(config);
+    await window.llmr!.setOnboardingFinished?.();
   }, configOnlyProvider);
 
   await page.reload();
@@ -104,7 +104,7 @@ test("edits extraBody from the advanced settings section", async ({ page }) => {
   await expect(saveButton).toBeHidden();
 
   await expect.poll(async () => page.evaluate(async () => {
-    const config = await window.ccr!.getConfig();
+    const config = await window.llmr!.getConfig();
     return config.Providers[0]?.extraBody;
   })).toEqual({ default: { reasoning_effort: "max" } });
 });
@@ -115,10 +115,10 @@ test("refuses to save a malformed advanced JSON box", async ({ page }) => {
   await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
   await waitForBridge(page);
   await page.evaluate(async (provider) => {
-    const config = await window.ccr!.getConfig();
+    const config = await window.llmr!.getConfig();
     config.Providers = [provider];
-    await window.ccr!.saveConfig(config);
-    await window.ccr!.setOnboardingFinished?.();
+    await window.llmr!.saveConfig(config);
+    await window.llmr!.setOnboardingFinished?.();
   }, configOnlyProvider);
 
   await page.reload();
@@ -132,7 +132,7 @@ test("refuses to save a malformed advanced JSON box", async ({ page }) => {
 
   await expect(page.getByText(/Extra request body JSON is invalid/)).toBeVisible();
   await expect.poll(async () => page.evaluate(async () => {
-    const config = await window.ccr!.getConfig();
+    const config = await window.llmr!.getConfig();
     return config.Providers[0]?.extraBody;
   })).toEqual(configOnlyProvider.extraBody);
 });
@@ -178,7 +178,7 @@ test("discarding a failed provider creation never saves the abandoned draft", as
   expect(saves.attempts).toBe(1);
   expect(await persistedProviderNames(page)).toEqual([configOnlyProvider.name]);
   const extraSave = await page.waitForRequest((request) => {
-    return request.url().endsWith("/api/ccr/rpc") && request.postDataJSON()?.method === "saveConfig";
+    return request.url().endsWith("/api/llmr/rpc") && request.postDataJSON()?.method === "saveConfig";
   }, { timeout: 1500 }).then(() => true, (error: Error) => {
     if (error.name === "TimeoutError") return false;
     throw error;
@@ -200,7 +200,7 @@ test("renaming a provider in the dialog keeps saved routing and model references
   await expect(dialog).toBeHidden();
 
   await expect.poll(async () => page.evaluate(async () => {
-    const config = await window.ccr!.getConfig();
+    const config = await window.llmr!.getConfig();
     return {
       providerId: config.Providers[0]?.id,
       providerName: config.Providers[0]?.name,
@@ -249,7 +249,7 @@ test("resumes an unrelated pending autosave after the provider form save fails",
 
   await expect(dialog.getByRole("alert")).toContainText("Simulated provider save failure");
   await expect.poll(async () => page.evaluate(async () => {
-    const config = await window.ccr!.getConfig();
+    const config = await window.llmr!.getConfig();
     return {
       names: config.Providers.map((provider) => provider.name),
       ruleEnabled: config.Router.rules[0]?.enabled
@@ -269,7 +269,7 @@ async function prepareProviderRegressionPage(page: Page, withReferences = false)
   await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
   await waitForBridge(page);
   await page.evaluate(async ({ provider, withReferences }) => {
-    const config = await window.ccr!.getConfig();
+    const config = await window.llmr!.getConfig();
     const selector = `${provider.name}/${provider.models[0]}`;
     config.Providers = [{ ...provider, id: "config-only-id", protocolDetectionMode: "manual" }];
     config.preferredProvider = provider.name;
@@ -289,8 +289,8 @@ async function prepareProviderRegressionPage(page: Page, withReferences = false)
     }] : [];
     config.toolHub.enabled = false;
     config.toolHub.llm.model = withReferences ? selector : "";
-    await window.ccr!.saveConfig(config, { applyProfile: false });
-    await window.ccr!.setOnboardingFinished?.();
+    await window.llmr!.saveConfig(config, { applyProfile: false });
+    await window.llmr!.setOnboardingFinished?.();
   }, { provider: configOnlyProvider, withReferences });
   await page.reload();
   await waitForBridge(page);
@@ -299,7 +299,7 @@ async function prepareProviderRegressionPage(page: Page, withReferences = false)
 
 async function interceptProviderRpc(page: Page, failFirstSave: boolean): Promise<{ attempts: number; providerNames: string[][] }> {
   const saves = { attempts: 0, providerNames: [] as string[][] };
-  await page.route("**/api/ccr/rpc", async (route) => {
+  await page.route("**/api/llmr/rpc", async (route) => {
     const request = route.request().postDataJSON() as {
       args?: Array<{ candidates?: Array<{ baseUrl: string }>; Providers?: Array<{ name: string }> }>;
       method?: string;
@@ -352,11 +352,11 @@ async function fillNewProvider(page: Page, name: string) {
 }
 
 async function persistedProviderNames(page: Page): Promise<string[]> {
-  return page.evaluate(async () => (await window.ccr!.getConfig()).Providers.map((provider) => provider.name));
+  return page.evaluate(async () => (await window.llmr!.getConfig()).Providers.map((provider) => provider.name));
 }
 
 async function waitForBridge(page: Page): Promise<void> {
-  await page.waitForFunction(() => Boolean(window.ccr?.getConfig), undefined, { timeout: 20_000 });
+  await page.waitForFunction(() => Boolean(window.llmr?.getConfig), undefined, { timeout: 20_000 });
 }
 
 function requireRuntime(): CliWebRuntime {

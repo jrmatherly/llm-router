@@ -70,7 +70,7 @@ const serviceStartTimeoutMs = 30_000;
 const serviceStopTimeoutMs = 10_000;
 const profileGatewayIdleGraceMs = 2_000;
 const profileGatewayLeasePollMs = 500;
-const webAuthHeader = "x-ccr-web-auth";
+const webAuthHeader = "x-llmr-web-auth";
 const webAuthQueryParam = "llmr_web_token";
 const defaultCliCommandName = "llmr";
 const prepareProfileOnlyEnv = "CCR_CLI_PREPARE_PROFILE_ONLY";
@@ -1012,7 +1012,7 @@ async function callServiceRpc<T>(state: ServiceState, method: string, args: unkn
 function serviceRpcEndpoint(url: string): string | undefined {
   try {
     const parsed = new URL(url);
-    return `${parsed.origin}/api/ccr/rpc`;
+    return `${parsed.origin}/api/llmr/rpc`;
   } catch {
     return undefined;
   }

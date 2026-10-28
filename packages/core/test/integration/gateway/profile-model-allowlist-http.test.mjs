@@ -62,18 +62,18 @@ test("gateway HTTP model discovery and request access honor profile model allowl
     const endpoint = `http://127.0.0.1:${serverPort(server)}`;
     status.endpoint = endpoint;
 
-    const runtimeConfigStatus = await fetchJson(`${endpoint}/__ccr/runtime/config`, {
+    const runtimeConfigStatus = await fetchJson(`${endpoint}/__llmr/runtime/config`, {
       headers: authHeaders("gateway-key")
     });
     assert.equal(runtimeConfigStatus.revision, runtimeConfigRevision);
     assert.equal(runtimeConfigStatus.state, "running");
 
-    const deniedRuntimeConfigStatus = await fetch(`${endpoint}/__ccr/runtime/config`, {
+    const deniedRuntimeConfigStatus = await fetch(`${endpoint}/__llmr/runtime/config`, {
       headers: authHeaders("profile-alpha-key")
     });
     assert.equal(deniedRuntimeConfigStatus.status, 403);
 
-    const runtimeConfigReload = await fetch(`${endpoint}/__ccr/runtime/config`, {
+    const runtimeConfigReload = await fetch(`${endpoint}/__llmr/runtime/config`, {
       body: JSON.stringify({ configRevision: runtimeConfigRevision, forceRestart: true }),
       headers: {
         ...authHeaders("gateway-key"),

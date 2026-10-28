@@ -188,8 +188,8 @@ test("OpenRouter discount provider constraints are removed from different fallba
         retryCount: 0
       },
       headers: {
-        "x-ccr-openrouter-discount-model": "z-ai/glm-primary",
-        "x-ccr-openrouter-discount-provider-id": "openrouter"
+        "x-llmr-openrouter-discount-model": "z-ai/glm-primary",
+        "x-llmr-openrouter-discount-provider-id": "openrouter"
       },
       method: "POST",
       path: "/v1/chat/completions",

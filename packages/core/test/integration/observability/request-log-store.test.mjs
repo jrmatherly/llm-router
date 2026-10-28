@@ -116,7 +116,7 @@ test("RequestLogStore resumes interrupted gateway migrations across bounded batc
           insert.run(
             createdAt,
             `legacy-event-${index}`,
-            JSON.stringify({ "x-ccr-fallback-attempts": String((index % 4) + 1) })
+            JSON.stringify({ "x-llmr-fallback-attempts": String((index % 4) + 1) })
           );
         }
       })();
@@ -648,8 +648,8 @@ test("RequestLogStore redacts secrets and records LLMR metadata", async () => {
         "ocp-apim-subscription-key": "bing-request-secret",
         "x-amz-security-token": "aws-request-secret",
         "x-auth-token": "custom-request-secret",
-        "x-ccr-provider-credential-chain": "cred-a, cred-b",
-        "x-ccr-provider-credential-id": "cred-a",
+        "x-llmr-provider-credential-chain": "cred-a, cred-b",
+        "x-llmr-provider-credential-id": "cred-a",
         "x-goog-api-key": "google-request-secret"
       },
       requestId: "request-log-metadata-test",
@@ -658,7 +658,7 @@ test("RequestLogStore redacts secrets and records LLMR metadata", async () => {
         "content-type": "text/event-stream",
         "x-api-key": "response-secret",
         "x-company-client-secret": "custom-response-secret",
-        "x-ccr-provider-credential-saturated": "true",
+        "x-llmr-provider-credential-saturated": "true",
         "x-gateway-billing-cache-read-tokens": "10",
         "x-gateway-billing-input-tokens": "100",
         "x-gateway-billing-output-tokens": "20",
@@ -882,7 +882,7 @@ test("RequestLogStore consumes fallback bundles by unique bundle id and only fin
         responseBodyText: "gateway-body",
         responseHeaders: {
           "content-type": "application/json",
-          "x-ccr-fallback-attempts": "2"
+          "x-llmr-fallback-attempts": "2"
         },
         startedAt,
         statusCode: 200,
@@ -975,13 +975,13 @@ test("RequestLogStore consumes fallback bundles by unique bundle id and only fin
   }
 });
 
-test("RequestLogStore preserves gateway x-ccr-fallback-attempts across raw-trace updates", async () => {
+test("RequestLogStore preserves gateway x-llmr-fallback-attempts across raw-trace updates", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "ccr-request-log-preserve-fallback-attempts-test-"));
   const store = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
   const startedAt = new Date().toISOString();
   try {
     // The gateway inserts the authoritative merged response headers, including
-    // x-ccr-fallback-attempts which powers the R{n} retry badge on the log page.
+    // x-llmr-fallback-attempts which powers the R{n} retry badge on the log page.
     await store.record({
       completedAt: startedAt,
       durationMs: 25,
@@ -994,7 +994,7 @@ test("RequestLogStore preserves gateway x-ccr-fallback-attempts across raw-trace
       responseBodyText: "gateway-body",
       responseHeaders: {
         "content-type": "application/json",
-        "x-ccr-fallback-attempts": "2"
+        "x-llmr-fallback-attempts": "2"
       },
       startedAt,
       statusCode: 200,
@@ -1027,7 +1027,7 @@ test("RequestLogStore preserves gateway x-ccr-fallback-attempts across raw-trace
       id: page.items.find((item) => item.requestId === "preserve-fallback-attempts").id
     });
     // The gateway fallback marker survives both raw-trace updates.
-    assert.equal(detail.responseHeaders["x-ccr-fallback-attempts"], "2");
+    assert.equal(detail.responseHeaders["x-llmr-fallback-attempts"], "2");
     // The raw-trace updates still applied (body refined), so this is not a no-op.
     assert.equal(detail.responseBody.text, "final-success-body-2");
   } finally {
@@ -1218,7 +1218,7 @@ test("RequestLogStore applies raw trace updates to existing request logs", async
       requestHeaders: {
         "api-key": "raw-azure-secret",
         "ocp-apim-subscription-key": "raw-bing-secret",
-        "x-ccr-provider-credential-id": "raw-credential-id",
+        "x-llmr-provider-credential-id": "raw-credential-id",
         "x-client-name": "codex-cli",
         "x-goog-api-key": "raw-google-secret"
       },
@@ -1244,7 +1244,7 @@ test("RequestLogStore applies raw trace updates to existing request logs", async
     assert.match(detail.responseBody?.text ?? "", /quota exceeded/);
     assert.equal(detail.requestHeaders["api-key"], "[redacted]");
     assert.equal(detail.requestHeaders["ocp-apim-subscription-key"], "[redacted]");
-    assert.equal(detail.requestHeaders["x-ccr-provider-credential-id"], "[redacted]");
+    assert.equal(detail.requestHeaders["x-llmr-provider-credential-id"], "[redacted]");
     assert.equal(detail.requestHeaders["x-client-name"], "codex-cli");
     assert.equal(detail.requestHeaders["x-goog-api-key"], "[redacted]");
   } finally {
@@ -1312,7 +1312,7 @@ test("RequestLogStore analyzes agent sessions and exposes trace payloads", async
       requestHeaders: {
         "content-type": "application/json",
         "user-agent": "openai-codex test",
-        "x-ccr-route-reason": "default",
+        "x-llmr-route-reason": "default",
         "x-codex-session-id": "session-1"
       },
       requestId: "agent-request-1",
@@ -1618,8 +1618,8 @@ test("RequestLogStore ignores subagent markers in tool definitions and placehold
         requestHeaders: {
           "content-type": "application/json",
           "user-agent": "claude-cli test",
-          "x-ccr-route-reason": "default",
-          "x-ccr-routed-model": "test-provider/claude-test",
+          "x-llmr-route-reason": "default",
+          "x-llmr-routed-model": "test-provider/claude-test",
           "x-claude-code-session-id": sessionId
         },
         requestId: `${sessionId}-request`,
@@ -1806,7 +1806,7 @@ test("RequestLogStore agent analysis cache ratio denominator includes cache toke
       requestHeaders: {
         "content-type": "application/json",
         "user-agent": "openai-codex test",
-        "x-ccr-route-reason": "default",
+        "x-llmr-route-reason": "default",
         "x-codex-session-id": "cache-session"
       },
       requestId: "request-log-cache-ratio",
@@ -2109,7 +2109,7 @@ test("RequestLogStore identifies OpenCode from its explicit client header", asyn
       requestHeaders: {
         "content-type": "application/json",
         "user-agent": "generic-openai-client/1.0",
-        "x-ccr-client": "opencode"
+        "x-llmr-client": "opencode"
       },
       requestId: "opencode-agent-request",
       responseBodyText: JSON.stringify({ choices: [], model: "Provider/model" }),
@@ -2146,7 +2146,7 @@ test("RequestLogStore identifies Kilo CLI from its explicit client header", asyn
       requestHeaders: {
         "content-type": "application/json",
         "user-agent": "generic-openai-client/1.0",
-        "x-ccr-client": "kilo"
+        "x-llmr-client": "kilo"
       },
       requestId: "kilo-agent-request",
       responseBodyText: JSON.stringify({ choices: [], model: "Provider/model" }),

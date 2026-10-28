@@ -308,7 +308,7 @@ function recordProviderConnectivityRequestLog(
     maxBodyBytes: options.maxBodyBytes,
     method: "POST",
     model: check.model,
-    path: "/__ccr/provider-connectivity",
+    path: "/__llmr/provider-connectivity",
     providerName: providerProbeCandidateName(candidate),
     providerProtocol: protocol?.protocol as GatewayProviderProtocol | undefined,
     requestedModel: check.model,

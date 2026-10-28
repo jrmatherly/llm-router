@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { IPC_CHANNELS } from "@llmr/core/contracts/ipc-channels";
 import type { BuiltInBrowserState, ChromeLoginImportJob, ChromeLoginImportRequest } from "@llmr/core/contracts/app";
 
-contextBridge.exposeInMainWorld("ccrBrowser", {
+contextBridge.exposeInMainWorld("llmrBrowser", {
   back: (tabId?: string) => ipcRenderer.invoke(IPC_CHANNELS.browserBack, tabId) as Promise<BuiltInBrowserState>,
   closeTab: (tabId: string) => ipcRenderer.invoke(IPC_CHANNELS.browserCloseTab, tabId) as Promise<BuiltInBrowserState>,
   forward: (tabId?: string) => ipcRenderer.invoke(IPC_CHANNELS.browserForward, tabId) as Promise<BuiltInBrowserState>,

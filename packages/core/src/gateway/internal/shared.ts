@@ -241,7 +241,7 @@ export const claudeCodeOauthBetaHeader = "anthropic-beta";
 
 export const claudeCodeOauthRequiredBeta = "oauth-2025-04-20";
 
-export const coreGatewayAuthHeader = "x-ccr-core-auth";
+export const coreGatewayAuthHeader = "x-llmr-core-auth";
 
 export const coreGatewayAuthTokenEnv = "CCR_CORE_GATEWAY_AUTH_TOKEN";
 
@@ -272,15 +272,15 @@ export function resolveStreamRequestLogOutcome(input: {
 }
 
 export const localObservabilityHeaderNames = new Set([
-  "x-ccr-claude-app-model-rewrite",
-  "x-ccr-codex-patch-bridge",
-  "x-ccr-claude-model-discovery",
-  "x-ccr-openrouter-discount-model",
-  "x-ccr-openrouter-discount-provider-id",
-  "x-ccr-cursor-openai-compat",
-  "x-ccr-logical-provider",
-  "x-ccr-provider-credential-chain",
-  "x-ccr-provider-credential-saturated"
+  "x-llmr-claude-app-model-rewrite",
+  "x-llmr-codex-patch-bridge",
+  "x-llmr-claude-model-discovery",
+  "x-llmr-openrouter-discount-model",
+  "x-llmr-openrouter-discount-provider-id",
+  "x-llmr-cursor-openai-compat",
+  "x-llmr-logical-provider",
+  "x-llmr-provider-credential-chain",
+  "x-llmr-provider-credential-saturated"
 ]);
 
 // Added by the Claude apps gateway with forward_user_identity. Stripped in the upstream header sanitizer, not the pipeline executor, because only the sanitizer runs in both gateway runtimes.
@@ -300,16 +300,16 @@ export const apiKeyLimitCounterRetentionWindows = 2;
 
 export const gatewayRuntimeMarkerFile = "gateway-runtime.json";
 
-export const rawTraceSyncHeader = "x-ccr-raw-trace-token";
+export const rawTraceSyncHeader = "x-llmr-raw-trace-token";
 
-export const billingUsageSyncHeader = "x-ccr-billing-usage-token";
+export const billingUsageSyncHeader = "x-llmr-billing-usage-token";
 
 export const virtualApplyPatchToolName = "virtual_apply_patch";
 
 
-export const rawTraceSyncPath = "/__ccr/raw-trace-sync";
+export const rawTraceSyncPath = "/__llmr/raw-trace-sync";
 
-export const billingUsageSyncPath = "/__ccr/billing-usage-sync";
+export const billingUsageSyncPath = "/__llmr/billing-usage-sync";
 
 export const gatewayEntryOverrideEnv = "CCR_GATEWAY_ENTRY";
 

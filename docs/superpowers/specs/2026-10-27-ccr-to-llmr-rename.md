@@ -59,7 +59,9 @@ Each phase is one PR, stacked on the one before. Inside a phase the tree may be 
 | 3 | `env`: every `CCR_*` name, including the Docker names, the test isolation `CCR_INTERNAL_*_DIR` variables and the `.claude` gate variables. | Test-home isolation is unsafe while `build/test-home.mjs` and the code disagree, so no suite runs until the whole class is renamed. | Same four suites, `npm run test:system` when Docker is available, `--check env` at 0. |
 | 4 | `rest`: plugin keys, MCP and wrapper names, persisted file, directory and localStorage names, backup suffixes, the profile scope value, code identifiers, CSS ids, prose, file names. Adds the guard test. Regenerates `package-lock.json` for the renamed `llmr-core-server` bin. | Any of the above until the commit lands. | All four suites, `npm run build:assets` (then `git checkout -- packages/core/models.json packages/ui/src/generated`), `npm run test:e2e`, `--check all` at 0 enforced by `tests/architecture/llmr-rename.test.mjs`. |
 
-Phase 4 has two hand subtractions before the codemod run, because the codemod would turn them into duplicates. `contextArchiveAccessFromText` in `packages/core/src/gateway/features/context-archive-continuation.ts` stops also accepting the `CCR ARCHIVED HISTORY ACCESS` footer, and `scripts/rebrand-ccr.mjs` with its test is deleted, since its job (rewrite prose, keep identifiers) is done and its preservation tests contradict this spec.
+Phase 2 deletes `scripts/rebrand-ccr.mjs` and `tests/architecture/rebrand-ccr.test.mjs`. Their job (rewrite prose, keep identifiers) is done, and the test pins `x-ccr-*` and `/__ccr/` surviving, which is the first thing phase 2 changes.
+
+Phase 4 has two hand subtractions before the codemod run, because the codemod would turn them into duplicates or contradictions. `contextArchiveAccessFromText` in `packages/core/src/gateway/features/context-archive-continuation.ts` stops also accepting the `CCR ARCHIVED HISTORY ACCESS` footer. The assertion in `packages/core/test/unit/contracts/deep-link.test.mjs` that `ccr://` is not an app deep link goes, since no code names that scheme any more.
 
 ## What stays
 

@@ -124,7 +124,7 @@ type WebManagementSecurityContext = {
 const defaultWebHost = "127.0.0.1";
 const defaultWebPort = 3458;
 const maxRpcBodyBytes = 8 * 1024 * 1024;
-const webAuthHeader = "x-ccr-web-auth";
+const webAuthHeader = "x-llmr-web-auth";
 const webAuthQueryParam = "llmr_web_token";
 const staticRoot = resolveRendererRoot();
 const homeHtmlFile = path.join(staticRoot, "pages", "home", "index.html");
@@ -185,8 +185,8 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse,
 
   // CORS: allow cross-origin browsers (e.g. the docs setup wizard) to call the
   // RPC endpoint. Origin-gated to loopback + CCR_WEB_ALLOWED_ORIGINS. This only
-  // relaxes the browser same-origin policy; the x-ccr-web-auth token still
-  // authorizes /api/ccr/rpc, so no credential is exposed.
+  // relaxes the browser same-origin policy; the x-llmr-web-auth token still
+  // authorizes /api/llmr/rpc, so no credential is exposed.
   const corsOrigin = allowedWebCorsOrigin(request);
   if (corsOrigin) {
     applyWebCorsHeaders(response, corsOrigin);
@@ -198,7 +198,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse,
   }
 
   const url = requestUrl(request);
-  if (url.pathname === "/api/ccr/rpc") {
+  if (url.pathname === "/api/llmr/rpc") {
     await handleRpcRequest(request, response, security);
     return;
   }
@@ -708,7 +708,7 @@ function allowedWebCorsOrigin(request: IncomingMessage): string | undefined {
 function applyWebCorsHeaders(response: ServerResponse, origin: string): void {
   response.setHeader("Access-Control-Allow-Origin", origin);
   response.setHeader("Vary", "Origin");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type, x-ccr-web-auth");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type, x-llmr-web-auth");
   response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
 }
 
