@@ -32,7 +32,7 @@ Slack is for teams that want agent messages in an existing channel, DM, or works
 1. Open `Socket Mode` on the left.
 2. Enable `Socket Mode`.
 3. When prompted for an App-Level Token, create one.
-4. Name it anything, e.g. `ccr-socket`.
+4. Name it anything, e.g. `llmr-socket`.
 5. Choose the `connections:write` scope.
 6. Copy the `xapp-...` App-Level Token for LLMR's App Token.
 

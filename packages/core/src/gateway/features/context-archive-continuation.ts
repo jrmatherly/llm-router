@@ -110,7 +110,7 @@ export function prepareContextArchiveToolContinuationRequest(input: {
   if (!archiveAccess) {
     return undefined;
   }
-  const rawToolName = config.contextArchive.toolName || "ccr_history_ask";
+  const rawToolName = config.contextArchive.toolName || "llmr_history_ask";
   const toolName = input.protocol === "anthropic_messages"
     ? contextArchiveClaudeCodeToolName(rawToolName)
     : rawToolName;
@@ -668,7 +668,7 @@ function anthropicMessagesContextArchiveTexts(body: Record<string, unknown>): st
 }
 
 function contextArchiveAccessFromText(text: string): { archiveId: string; sessionToken: string } | undefined {
-  if (!text.includes("LLMR ARCHIVED HISTORY ACCESS") && !text.includes("CCR ARCHIVED HISTORY ACCESS")) {
+  if (!text.includes("LLMR ARCHIVED HISTORY ACCESS")) {
     return undefined;
   }
   const archiveId = (/Archive id:\s*([A-Za-z0-9_-]+)/.exec(text) ?? [])[1];

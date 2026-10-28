@@ -69,8 +69,8 @@ export function resolvePiSessionDir(configDir: string, profile: ProfileConfig): 
 export function piWrapperFilename(profile: ProfileConfig): string {
   const slug = sanitizePathSegment(profile.id || profile.name || profile.agent) || "pi";
   return process.platform === "win32"
-    ? `ccr-pi-wrapper-${slug}.cmd`
-    : `ccr-pi-wrapper-${slug}`;
+    ? `llmr-pi-wrapper-${slug}.cmd`
+    : `llmr-pi-wrapper-${slug}`;
 }
 
 export function writePiGatewayConfig(
@@ -198,7 +198,7 @@ function gatewayEndpoint(config: AppConfig): string {
 }
 
 function isLlmrOwnedScope(profile: ProfileConfig): boolean {
-  return profile.scope === "ccr" || profile.scope === "custom";
+  return profile.scope === "llmr" || profile.scope === "custom";
 }
 
 // Only a user-owned models.json gets an original snapshot and a backup before LLMR writes it.

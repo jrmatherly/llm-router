@@ -16,7 +16,7 @@ type MutableFs = {
 };
 
 const requireFromHere = createRequire(__filename);
-const virtualConfigPath = path.resolve(process.cwd(), `.ccr-gateway-config-${process.pid}`);
+const virtualConfigPath = path.resolve(process.cwd(), `.llmr-gateway-config-${process.pid}`);
 let started = false;
 
 process.once("disconnect", () => {

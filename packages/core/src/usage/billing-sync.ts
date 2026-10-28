@@ -15,7 +15,7 @@ type GatewayBillingSynchronizerOptions = {
 };
 
 const maxSeenEventIds = 1_000;
-const fusionUsageEventSchema = "ccr.fusion-usage.v1";
+const fusionUsageEventSchema = "llmr.fusion-usage.v1";
 const modelGenerationAdapters = new Set([
   "agent_model_client",
   "agent_model_client_streaming",

@@ -26,8 +26,8 @@ import { isDesktopAppRuntime } from "@llmr/core/runtime/desktop-app";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@llmr/core/platform/windows-system";
 import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
 
-const ccrPathBlockStart = "# >>> LLM Router CLI >>>";
-const ccrPathBlockEnd = "# <<< LLM Router CLI <<<";
+const llmrPathBlockStart = "# >>> LLM Router CLI >>>";
+const llmrPathBlockEnd = "# <<< LLM Router CLI <<<";
 const legacyPathBlockStart = "# >>> Claude Code Router CLI >>>";
 const legacyPathBlockEnd = "# <<< Claude Code Router CLI <<<";
 export const desktopCliCommandName = "llmr";
@@ -69,12 +69,12 @@ export class ProfileGatewayUnavailableError extends Error {
   }
 }
 
-export type CcrCliLauncherPreparation = {
+export type LlmrCliLauncherPreparation = {
   binDir: string;
   persistentPathRequired: boolean;
 };
 
-type EnsureCcrCliLauncherOptions = {
+type EnsureLlmrCliLauncherOptions = {
   persistPath?: boolean;
 };
 
@@ -114,7 +114,7 @@ export async function getProfileOpenCommand(config: AppConfig, request: ProfileO
   }
   await applyProfileConfig(config);
   if (options.ensureLauncher) {
-    ensureCcrCliLauncher(config);
+    ensureLlmrCliLauncher(config);
   }
   return {
     command: profileOpenCommand(profile, surface, options.commandName ?? desktopCliCommandName, commandProfileRef(config, profile)),
@@ -124,7 +124,7 @@ export async function getProfileOpenCommand(config: AppConfig, request: ProfileO
   };
 }
 
-export async function openProfileFromCcr(config: AppConfig, request: ProfileOpenRequest): Promise<ProfileOpenResult> {
+export async function openProfileFromLlmr(config: AppConfig, request: ProfileOpenRequest): Promise<ProfileOpenResult> {
   assertAvailableGatewayModels(config);
   const profile = findProfileForOpen(config, request.profileId);
   const surface = resolveProfileOpenSurface(profile, request.surface);
@@ -450,7 +450,7 @@ async function ensureGatewayConfigRunning(
 type ExistingProfileGatewayProbe =
   | { endpoint: string; reason?: string; state: "unavailable" }
   | { endpoint: string; message: string; state: "incompatible" }
-  | { endpoint: string; status?: number; state: "not-ccr" }
+  | { endpoint: string; status?: number; state: "not-llmr" }
   | { endpoint: string; message?: string; status: number; state: "unauthorized" }
   | { endpoint: string; status: number; state: "unusable" }
   | { apiKey?: string; endpoint: string; state: "usable" };
@@ -473,17 +473,17 @@ async function probeExistingProfileGateway(
     return { endpoint, reason: nonLocalGatewayMessage, state: "unavailable" };
   }
   const health = await fetchExistingGateway(endpoint, "/health");
-  let ccrGateway = isCcrGatewayHealth(health.payload);
+  let llmrGateway = isLlmrGatewayHealth(health.payload);
   let root: ExistingGatewayHttpProbe | undefined;
-  if (!ccrGateway) {
+  if (!llmrGateway) {
     root = await fetchExistingGateway(endpoint, "/");
-    ccrGateway = isCcrGatewayRoot(root.payload);
+    llmrGateway = isLlmrGatewayRoot(root.payload);
   }
-  if (!ccrGateway) {
+  if (!llmrGateway) {
     if (health.status === undefined && root?.status === undefined) {
       return { endpoint, reason: health.reason || root?.reason, state: "unavailable" };
     }
-    return { endpoint, status: health.status ?? root?.status, state: "not-ccr" };
+    return { endpoint, status: health.status ?? root?.status, state: "not-llmr" };
   }
 
   let lastUnauthorized: ExistingGatewayHttpProbe | undefined;
@@ -565,14 +565,14 @@ async function readResponseJson(response: Response): Promise<unknown> {
   }
 }
 
-function isCcrGatewayRoot(value: unknown): boolean {
+function isLlmrGatewayRoot(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
   return value.name === "claude-code-router" || value.plugin === "claude-code-router";
 }
 
-function isCcrGatewayHealth(value: unknown): boolean {
+function isLlmrGatewayHealth(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
@@ -644,8 +644,8 @@ function readClaudeCodeWifTokenCandidates(profile: ReturnType<typeof findProfile
 function claudeCodeWifIdentityTokenFilename(profile: ReturnType<typeof findProfileForOpen>): string {
   const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent) || "claude-code";
   return process.platform === "win32"
-    ? `ccr-claude-code-wif-token-${slug}.txt`
-    : `ccr-claude-code-wif-token-${slug}`;
+    ? `llmr-claude-code-wif-token-${slug}.txt`
+    : `llmr-claude-code-wif-token-${slug}`;
 }
 
 function readClaudeCodeLegacyApiKeyHelperCandidates(profile: ReturnType<typeof findProfileForOpen>): string[] {
@@ -660,8 +660,8 @@ function readClaudeCodeLegacyApiKeyHelperCandidates(profile: ReturnType<typeof f
 function claudeCodeLegacyApiKeyHelperFilename(profile: ReturnType<typeof findProfileForOpen>): string {
   const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent) || "claude-code";
   return process.platform === "win32"
-    ? `ccr-claude-code-api-key-${slug}.cmd`
-    : `ccr-claude-code-api-key-${slug}`;
+    ? `llmr-claude-code-api-key-${slug}.cmd`
+    : `llmr-claude-code-api-key-${slug}`;
 }
 
 function readFirstLineToken(file: string): string {
@@ -726,7 +726,7 @@ function existingGatewayConflictMessage(probe: ExistingProfileGatewayProbe, appN
   if (probe.state === "incompatible") {
     return `LLMR gateway is already running at ${probe.endpoint}, but it is not compatible with ${appName}. ${probe.message}`;
   }
-  if (probe.state === "not-ccr") {
+  if (probe.state === "not-llmr") {
     return `Port ${probe.endpoint} is already in use by a non-LLMR service. Stop that process or change the LLMR gateway port.`;
   }
   if (probe.state === "unavailable") {
@@ -829,7 +829,7 @@ export function getProfileRuntimeStatus(): ProfileRuntimeStatus {
   };
 }
 
-export async function stopProfileFromCcr(config: AppConfig, request: ProfileOpenRequest): Promise<ProfileStopResult> {
+export async function stopProfileFromLlmr(config: AppConfig, request: ProfileOpenRequest): Promise<ProfileStopResult> {
   const profile = findProfileForOpen(config, request.profileId);
   const surface = resolveProfileOpenSurface(profile, request.surface);
   if (surface !== "app") {
@@ -1310,7 +1310,7 @@ function startClaudeAppBotWorker(config: AppConfig, profile: ReturnType<typeof f
     return;
   }
 
-  const runtimeFile = path.join(CONFIGDIR, "bin", "ccr-codex-cli-middleware.js");
+  const runtimeFile = path.join(CONFIGDIR, "bin", "llmr-codex-cli-middleware.js");
   ensureBotWorkerRuntime(runtimeFile);
 
   const settingsFile = resolveClaudeCodeSettingsFile(CONFIGDIR, profile);
@@ -1393,7 +1393,7 @@ function startOpenCodeAppBotWorker(
   }
 
   stopOpenCodeAppBotWorker();
-  const runtimeFile = path.join(CONFIGDIR, "bin", "ccr-codex-cli-middleware.js");
+  const runtimeFile = path.join(CONFIGDIR, "bin", "llmr-codex-cli-middleware.js");
   ensureBotWorkerRuntime(runtimeFile);
   const nodeLaunch = nodeRuntimeLaunch();
   const env: NodeJS.ProcessEnv = {
@@ -1651,26 +1651,26 @@ function commandProfileRef(config: AppConfig, profile: ReturnType<typeof findPro
   return duplicateName ? profile.id : name;
 }
 
-export function prepareCcrCliLauncherRuntime(): CcrCliLauncherPreparation {
+export function prepareLlmrCliLauncherRuntime(): LlmrCliLauncherPreparation {
   const binDir = path.join(CONFIGDIR, "bin");
   const persistentPathRequired = !processPathIncludes(binDir);
   mkdirSync(binDir, { recursive: true });
   cleanupGeneratedBinBackups();
-  cleanupLegacyCcrCliLaunchers(binDir);
+  cleanupLegacyLlmrCliLaunchers(binDir);
 
   const runtimeFile = path.join(binDir, desktopCliRuntimeFileName);
-  const runtimeSource = findBundledCcrCliSource();
+  const runtimeSource = findBundledLlmrCliSource();
   writeFileIfChanged(runtimeFile, readFileSync(runtimeSource, "utf8"));
   chmodSafe(runtimeFile);
-  syncCcrCliCompanionRuntimes(runtimeSource, binDir);
-  syncCcrCliModelCatalog(runtimeSource, binDir);
+  syncLlmrCliCompanionRuntimes(runtimeSource, binDir);
+  syncLlmrCliModelCatalog(runtimeSource, binDir);
   ensureBundledToolHubMcpRuntime(path.join(binDir, TOOL_HUB_MCP_RUNTIME_FILE_NAME));
   prependProcessPath(binDir);
 
   return { binDir, persistentPathRequired };
 }
 
-export function syncCcrCliCompanionRuntimes(runtimeSource: string, binDir: string): string[] {
+export function syncLlmrCliCompanionRuntimes(runtimeSource: string, binDir: string): string[] {
   const sourceDir = path.dirname(runtimeSource);
   const synced: string[] = [];
   for (const fileName of LLMR_CLI_COMPANION_RUNTIME_FILE_NAMES) {
@@ -1684,7 +1684,7 @@ export function syncCcrCliCompanionRuntimes(runtimeSource: string, binDir: strin
   return synced;
 }
 
-export function syncCcrCliModelCatalog(runtimeSource: string, binDir: string): string | undefined {
+export function syncLlmrCliModelCatalog(runtimeSource: string, binDir: string): string | undefined {
   const sourceDir = path.dirname(runtimeSource);
   const source = [
     path.join(sourceDir, "..", "models.json"),
@@ -1698,32 +1698,32 @@ export function syncCcrCliModelCatalog(runtimeSource: string, binDir: string): s
   return destination;
 }
 
-export function persistPreparedCcrCliPath(preparation: CcrCliLauncherPreparation): void {
+export function persistPreparedLlmrCliPath(preparation: LlmrCliLauncherPreparation): void {
   if (!preparation.persistentPathRequired) {
     return;
   }
-  persistCcrBinOnPath(preparation.binDir);
+  persistLlmrBinOnPath(preparation.binDir);
 }
 
-export function ensureCcrCliLauncher(config?: AppConfig, options: EnsureCcrCliLauncherOptions = {}): string {
-  const preparation = prepareCcrCliLauncherRuntime();
+export function ensureLlmrCliLauncher(config?: AppConfig, options: EnsureLlmrCliLauncherOptions = {}): string {
+  const preparation = prepareLlmrCliLauncherRuntime();
   const { binDir } = preparation;
   const runtimeFile = path.join(binDir, desktopCliRuntimeFileName);
 
   const launcherFile = path.join(binDir, process.platform === "win32" ? `${desktopCliCommandName}.cmd` : desktopCliCommandName);
   const launcherContent = process.platform === "win32"
-    ? windowsCcrLauncher(runtimeFile, config)
-    : posixCcrLauncher(runtimeFile);
+    ? windowsLlmrLauncher(runtimeFile, config)
+    : posixLlmrLauncher(runtimeFile);
   writeFileIfChanged(launcherFile, launcherContent);
   chmodSafe(launcherFile);
   if (options.persistPath !== false) {
-    persistPreparedCcrCliPath(preparation);
+    persistPreparedLlmrCliPath(preparation);
   }
 
   return launcherFile;
 }
 
-export function cleanupLegacyCcrCliLaunchers(binDir: string): void {
+export function cleanupLegacyLlmrCliLaunchers(binDir: string): void {
   for (const fileName of legacyCliLauncherFileNames) {
     const legacyFile = path.join(binDir, fileName);
     if (!existsSync(legacyFile)) {
@@ -1732,8 +1732,8 @@ export function cleanupLegacyCcrCliLaunchers(binDir: string): void {
     try {
       const source = readFileSync(legacyFile, "utf8");
       const owned = fileName === legacyCliRuntimeFileName
-        ? isLegacyManagedCcrCliRuntime(source)
-        : isLegacyManagedCcrCliLauncher(source);
+        ? isLegacyManagedLlmrCliRuntime(source)
+        : isLegacyManagedLlmrCliLauncher(source);
       if (owned) {
         rmSync(legacyFile, { force: true });
       }
@@ -1743,7 +1743,7 @@ export function cleanupLegacyCcrCliLaunchers(binDir: string): void {
   }
 }
 
-function isLegacyManagedCcrCliLauncher(source: string): boolean {
+function isLegacyManagedLlmrCliLauncher(source: string): boolean {
   return source.includes("CCR_CLI_NODE_PATH") &&
     source.includes(legacyCliRuntimeFileName) &&
     source.includes("ELECTRON_RUN_AS_NODE=1") &&
@@ -1751,11 +1751,11 @@ function isLegacyManagedCcrCliLauncher(source: string): boolean {
 }
 
 // The legacy runtime is the bundled CLI, which reads both of these env vars.
-function isLegacyManagedCcrCliRuntime(source: string): boolean {
+function isLegacyManagedLlmrCliRuntime(source: string): boolean {
   return source.includes("CCR_CLI_COMMAND_NAME") && source.includes("CCR_CLI_PREPARE_PROFILE_ONLY");
 }
 
-function findBundledCcrCliSource(): string {
+function findBundledLlmrCliSource(): string {
   const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
   const candidates = [
     path.join(__dirname, "cli.js"),
@@ -1783,7 +1783,7 @@ function ensureBundledToolHubMcpRuntime(file: string): void {
   chmodSafe(file);
 }
 
-function posixCcrLauncher(runtimeFile: string): string {
+function posixLlmrLauncher(runtimeFile: string): string {
   const nodePath = bundledNodePath();
   return [
     "#!/bin/sh",
@@ -1802,7 +1802,7 @@ function posixCcrLauncher(runtimeFile: string): string {
   ].join("\n") + "\n";
 }
 
-export function windowsCcrLauncher(runtimeFile: string, config?: AppConfig): string {
+export function windowsLlmrLauncher(runtimeFile: string, config?: AppConfig): string {
   const nodePath = bundledNodePath();
   const dispatches = config ? windowsProfileCliDispatches(config) : [];
   return [
@@ -1818,10 +1818,10 @@ export function windowsCcrLauncher(runtimeFile: string, config?: AppConfig): str
     ")",
     ...(dispatches.length > 0
       ? [
-          "if /I \"%~2\"==\"app\" goto ccr_run_cli",
-          "if /I \"%~2\"==\"--app\" goto ccr_run_cli",
-          ...dispatches.map((dispatch, index) => `if /I \"%~1\"==\"${cmdValue(dispatch.profileRef)}\" goto ccr_profile_${index}`),
-          ":ccr_run_cli"
+          "if /I \"%~2\"==\"app\" goto llmr_run_cli",
+          "if /I \"%~2\"==\"--app\" goto llmr_run_cli",
+          ...dispatches.map((dispatch, index) => `if /I \"%~1\"==\"${cmdValue(dispatch.profileRef)}\" goto llmr_profile_${index}`),
+          ":llmr_run_cli"
         ]
       : []),
     "if defined LLMR_NODE_BIN (",
@@ -1832,7 +1832,7 @@ export function windowsCcrLauncher(runtimeFile: string, config?: AppConfig): str
     `${cmdQuote(process.execPath)} "%LLMR_CLI_RUNTIME%" %*`,
     "exit /b %ERRORLEVEL%",
     ...dispatches.flatMap((dispatch, index) => [
-      `:ccr_profile_${index}`,
+      `:llmr_profile_${index}`,
       "set \"LLMR_CLI_PREPARE_PROFILE_ONLY=1\"",
       "set \"ELECTRON_RUN_AS_NODE=1\"",
       `${cmdQuote(process.execPath)} "%LLMR_CLI_RUNTIME%" %*`,
@@ -1902,7 +1902,7 @@ function writeFileIfChanged(file: string, content: string): void {
   writeFileSync(file, content, "utf8");
 }
 
-function persistCcrBinOnPath(binDir: string): void {
+function persistLlmrBinOnPath(binDir: string): void {
   try {
     if (process.platform === "win32") {
       ensureWindowsUserPath(binDir);
@@ -1977,7 +1977,7 @@ function ensureWindowsUserPath(binDir: string): boolean {
 function ensurePosixShellPath(binDir: string): void {
   const shellName = path.basename(process.env.SHELL || "").toLowerCase();
   if (shellName.includes("fish")) {
-    ensureFishPathBlock(path.join(resolveRuntimeAppPath("home"), ".config", "fish", "conf.d", "ccr.fish"), binDir);
+    ensureFishPathBlock(path.join(resolveRuntimeAppPath("home"), ".config", "fish", "conf.d", "llmr.fish"), binDir);
     return;
   }
   ensureShellRcPathBlock(preferredShellRcFile(shellName), binDir);
@@ -2021,11 +2021,11 @@ function ensurePathBlock(file: string, binDir: string, block: string): void {
   if (managedPattern.test(source)) {
     const withoutBlock = source.replace(managedPattern, "\n");
     // The rest of the file (often a dotfiles repo) already adds the bin dir, so the managed block is redundant.
-    const next = shellRcAlreadyAddsCcrBin(withoutBlock, binDir) ? withoutBlock : source.replace(managedPattern, `\n${block}\n`);
+    const next = shellRcAlreadyAddsLlmrBin(withoutBlock, binDir) ? withoutBlock : source.replace(managedPattern, `\n${block}\n`);
     writeFileIfChanged(file, ensureTrailingNewline(next).replace(/^\n+/, ""));
     return;
   }
-  if (shellRcAlreadyAddsCcrBin(source, binDir)) {
+  if (shellRcAlreadyAddsLlmrBin(source, binDir)) {
     return;
   }
 
@@ -2036,13 +2036,13 @@ function ensurePathBlock(file: string, binDir: string, block: string): void {
 function shellRcPathBlock(): string {
   const binDir = "$HOME/.llm-router/bin";
   return [
-    ccrPathBlockStart,
+    llmrPathBlockStart,
     "# Added by LLM Router. Enables the llmr command in new shells.",
     'case ":$PATH:" in',
     `  *":${binDir}:"*) ;;`,
     `  *) export PATH="${binDir}:$PATH" ;;`,
     "esac",
-    ccrPathBlockEnd
+    llmrPathBlockEnd
   ].join("\n");
 }
 
@@ -2052,24 +2052,24 @@ export function ensureFishPathBlock(file: string, binDir: string): void {
 
 function managedPathBlockPattern(): RegExp {
   return new RegExp(
-    `\\n?(?:${escapeRegExp(ccrPathBlockStart)}|${escapeRegExp(legacyPathBlockStart)})[\\s\\S]*?(?:${escapeRegExp(ccrPathBlockEnd)}|${escapeRegExp(legacyPathBlockEnd)})\\n?`,
+    `\\n?(?:${escapeRegExp(llmrPathBlockStart)}|${escapeRegExp(legacyPathBlockStart)})[\\s\\S]*?(?:${escapeRegExp(llmrPathBlockEnd)}|${escapeRegExp(legacyPathBlockEnd)})\\n?`,
     "m"
   );
 }
 
 function fishPathBlock(): string {
   return [
-    ccrPathBlockStart,
+    llmrPathBlockStart,
     "# Added by LLM Router. Enables the llmr command in new shells.",
-    'set -l ccr_bin "$HOME/.llm-router/bin"',
-    "if not contains $ccr_bin $PATH",
-    "    set -gx PATH $ccr_bin $PATH",
+    'set -l llmr_bin "$HOME/.llm-router/bin"',
+    "if not contains $llmr_bin $PATH",
+    "    set -gx PATH $llmr_bin $PATH",
     "end",
-    ccrPathBlockEnd
+    llmrPathBlockEnd
   ].join("\n");
 }
 
-function shellRcAlreadyAddsCcrBin(source: string, binDir: string): boolean {
+function shellRcAlreadyAddsLlmrBin(source: string, binDir: string): boolean {
   return source.includes("$HOME/.llm-router/bin") ||
     source.includes("~/.llm-router/bin") ||
     source.includes(binDir);

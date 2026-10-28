@@ -363,7 +363,7 @@ function pluginAppSessionPartition(id: string): string {
     .replace(/[^a-z0-9._-]+/gi, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 120) || "default";
-  return `persist:ccr-plugin-app-${safeId}`;
+  return `persist:llmr-plugin-app-${safeId}`;
 }
 
 function applyPluginAppMacWindowControls(window: BrowserWindow): void {
@@ -420,7 +420,7 @@ function handlePluginChildWindowControl(window: BrowserWindow, targetUrl: string
   } catch {
     return false;
   }
-  if (url.protocol !== "ccr-plugin-window:") {
+  if (url.protocol !== "llmr-plugin-window:") {
     return false;
   }
 

@@ -117,12 +117,12 @@ export function ShareCardWidget({
 }
 
 function shareCardDefinition(type: OverviewWidgetType): { fileName: string; title: string } | undefined {
-  if (type === "share-usage-wrapped") return { fileName: "ccr-ai-usage-wrapped.png", title: "AI Usage Wrapped" };
-  if (type === "share-route-map") return { fileName: "ccr-route-map.png", title: "LLMR Route Map" };
-  if (type === "share-model-leaderboard") return { fileName: "ccr-model-leaderboard.png", title: "Model Leaderboard" };
-  if (type === "share-fuel-cockpit") return { fileName: "ccr-ai-fuel-cockpit.png", title: "AI Fuel Cockpit" };
-  if (type === "share-token-calendar") return { fileName: "ccr-token-calendar-poster.png", title: "Token Calendar Poster" };
-  if (type === "share-spend-receipt") return { fileName: "ccr-spend-receipt.png", title: "Spend Receipt" };
+  if (type === "share-usage-wrapped") return { fileName: "llmr-ai-usage-wrapped.png", title: "AI Usage Wrapped" };
+  if (type === "share-route-map") return { fileName: "llmr-route-map.png", title: "LLMR Route Map" };
+  if (type === "share-model-leaderboard") return { fileName: "llmr-model-leaderboard.png", title: "Model Leaderboard" };
+  if (type === "share-fuel-cockpit") return { fileName: "llmr-ai-fuel-cockpit.png", title: "AI Fuel Cockpit" };
+  if (type === "share-token-calendar") return { fileName: "llmr-token-calendar-poster.png", title: "Token Calendar Poster" };
+  if (type === "share-spend-receipt") return { fileName: "llmr-spend-receipt.png", title: "Spend Receipt" };
   return undefined;
 }
 

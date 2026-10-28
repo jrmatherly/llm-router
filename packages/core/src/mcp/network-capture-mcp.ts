@@ -93,7 +93,7 @@ export async function handleNetworkCaptureMcpRequest(request: IncomingMessage, r
 
   if (request.method === "GET") {
     sendJson(response, 200, {
-      name: "ccr-network-capture",
+      name: "llmr-network-capture",
       protocol: "mcp",
       transport: "streamable-http",
       endpoint: "/mcp"
@@ -149,7 +149,7 @@ async function handleJsonRpcRequest(payload: unknown): Promise<JsonRpcResponse |
           },
           protocolVersion,
           serverInfo: {
-            name: "ccr-network-capture",
+            name: "llmr-network-capture",
             title: "LLMR Network Capture",
             version: appVersion()
           }

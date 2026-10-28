@@ -28,7 +28,7 @@ const DEFAULT_GATEWAY_MODEL_DISCOVERY_TTL_MS = 30 * 1000;
 const DEFAULT_GATEWAY_MODEL_DISCOVERY_TIMEOUT_MS = 1500;
 const GATEWAY_MODEL_DISCOVERY_PATHS = ["/models", "/v1/models"];
 const CLAUDE_APP_ONE_MILLION_CONTEXT_SUFFIX = "[1m]";
-const CLAUDE_APP_ENCODED_ROUTE_ID_REGEX = /^anthropic\/claude-ccr(?:\d+)?-h([0-9a-f]+)$/i;
+const CLAUDE_APP_ENCODED_ROUTE_ID_REGEX = /^anthropic\/claude-llmr(?:\d+)?-h([0-9a-f]+)$/i;
 const DESIGN_FRONTEND_ASSETS_ORIGIN_ENV_KEYS = ["LLMR_CLAUDE_DESIGN_FRONTEND_ORIGIN", "LLMR_CLAUDE_DESIGN_ASSETS_ORIGIN"];
 const DESIGN_FRONTEND_URL_ENV_KEYS = ["LLMR_CLAUDE_DESIGN_FRONTEND_URL", "LLMR_CLAUDE_DESIGN_WEB_URL"];
 const SHIP_FRONTEND_ASSETS_ORIGIN_ENV_KEYS = ["LLMR_CLAUDE_SHIP_FRONTEND_ORIGIN", "LLMR_CLAUDE_SHIP_ASSETS_ORIGIN", "LLMR_CLAUDE_DESIGN_ASSETS_ORIGIN"];
@@ -44,7 +44,7 @@ const DEFAULT_CLOUDFLARE_API_BASE_URL = "https://api.cloudflare.com/client/v4";
 const CLAUDE_APP_DESIGN_SHELL_PATH = "/desktop-design";
 const CLAUDE_APP_LEGACY_DESIGN_PATH = "/discover/design";
 const CLAUDE_SHIP_APP_PATH = "/claude-ship";
-const LLMR_RESOURCE_RUNTIME_PATH = "/ccr-resource-runtime.js";
+const LLMR_RESOURCE_RUNTIME_PATH = "/llmr-resource-runtime.js";
 const CLAUDE_SHIP_ENVIRONMENT_ID = "local-claude-ship-011111111111111111111112";
 const CLAUDE_APP_SPA_ROUTE_PATHS = [
   CLAUDE_APP_DESIGN_SHELL_PATH,
@@ -352,8 +352,8 @@ const OMELETTE_PREVIEW_EVAL_BRIDGE_SCRIPT = `(function(){
 })();`;
 const OMELETTE_PREVIEW_LIVE_RELOAD_SCRIPT = `(function(){
   try {
-    if (window.__ccrOmelettePreviewLiveReloadInstalled) return;
-    window.__ccrOmelettePreviewLiveReloadInstalled = true;
+    if (window.__llmrOmelettePreviewLiveReloadInstalled) return;
+    window.__llmrOmelettePreviewLiveReloadInstalled = true;
     var currentVersion = "__LLMR_PREVIEW_VERSION__";
     var pollUrl = "__LLMR_PREVIEW_POLL_URL__";
     var timer = 0;
@@ -362,7 +362,7 @@ const OMELETTE_PREVIEW_LIVE_RELOAD_SCRIPT = `(function(){
     function versionUrl() {
       try {
         var url = new URL(pollUrl || window.location.href, window.location.href);
-        url.searchParams.set("__ccr_preview_check", String(Date.now()));
+        url.searchParams.set("__llmr_preview_check", String(Date.now()));
         return url.toString();
       } catch (_) {
         return window.location.href;
@@ -401,8 +401,8 @@ const OMELETTE_PREVIEW_LIVE_RELOAD_SCRIPT = `(function(){
   } catch (_) {}
 })();`;
 const BAKU_PREVIEW_AGENT_BRIDGE_SCRIPT = `(function(){
-  if (window.__ccrBakuPreviewAgentInstalled) return;
-  window.__ccrBakuPreviewAgentInstalled = true;
+  if (window.__llmrBakuPreviewAgentInstalled) return;
+  window.__llmrBakuPreviewAgentInstalled = true;
   function send(message) {
     try { parent.postMessage(message, "*"); } catch (_) {}
   }
@@ -1388,7 +1388,7 @@ async function handleDesignMcpRequest(runtime, method, request, requestBody) {
           },
           protocolVersion: DESIGN_MCP_PROTOCOL_VERSION,
           serverInfo: {
-            name: "ccr-claude-design",
+            name: "llmr-claude-design",
             version: "1"
           }
         }), responseHeaders);
@@ -1955,7 +1955,7 @@ function createDesignMcpSupportJs(runtime, args) {
   const existing = getProjectFileRow(runtime, projectId, filePath);
   checkDesignMcpIfMatch(existing, args.if_match, filePath);
   const body = [
-    "export const ccrClaudeDesignSupport = true;",
+    "export const llmrClaudeDesignSupport = true;",
     "export function describeEnvironment() {",
     "  return 'LLMR Claude Design local preview';",
     "}",
@@ -2704,7 +2704,7 @@ function patchClaudeShipProjectListFallback(source) {
 }
 
 function claudeShipProjectListFallbackReplacement(functionName, queryHookName, trimHookName, projectFilterName) {
-  return `function ${functionName}(){const e=${queryHookName}();${trimHookName}(e,10);const{data:s,isLoading:n}=e,[a,r]=t.useState(null);t.useEffect(()=>{let e=!1;fetch("/v1/code/sessions?limit=50",{credentials:"include",headers:{"anthropic-version":"2023-06-01","anthropic-beta":"ccr-byoc-2025-07-29","anthropic-client-feature":"ccr"}}).then(e=>e.ok?e.json():null).then(t=>{e||r(Array.isArray(t?.data)?t.data:null)}).catch(()=>{});return()=>{e=!0}},[]);const o=s?.data&&s.data.length?s.data:a;return{sessions:t.useMemo(()=>o?o.map(e=>({type:e.type||"session",id:e.id,title:e.title,updated_at:e.updated_at||e.last_event_at||e.created_at,created_at:e.created_at,environment_id:e.environment_id,session_status:e.session_status||e.status||"active",tags:e.tags,metadata:e.metadata||e.client_metadata,baku_deployment:e.baku_deployment})).filter(e=>${projectFilterName}(e)&&"archived"!==e.session_status&&"__warming__"!==e.title).sort((e,t)=>new Date(t.updated_at).getTime()-new Date(e.updated_at).getTime()):[],[o]),isLoading:n&&!a}}`;
+  return `function ${functionName}(){const e=${queryHookName}();${trimHookName}(e,10);const{data:s,isLoading:n}=e,[a,r]=t.useState(null);t.useEffect(()=>{let e=!1;fetch("/v1/code/sessions?limit=50",{credentials:"include",headers:{"anthropic-version":"2023-06-01","anthropic-beta":"llmr-byoc-2025-07-29","anthropic-client-feature":"llmr"}}).then(e=>e.ok?e.json():null).then(t=>{e||r(Array.isArray(t?.data)?t.data:null)}).catch(()=>{});return()=>{e=!0}},[]);const o=s?.data&&s.data.length?s.data:a;return{sessions:t.useMemo(()=>o?o.map(e=>({type:e.type||"session",id:e.id,title:e.title,updated_at:e.updated_at||e.last_event_at||e.created_at,created_at:e.created_at,environment_id:e.environment_id,session_status:e.session_status||e.status||"active",tags:e.tags,metadata:e.metadata||e.client_metadata,baku_deployment:e.baku_deployment})).filter(e=>${projectFilterName}(e)&&"archived"!==e.session_status&&"__warming__"!==e.title).sort((e,t)=>new Date(t.updated_at).getTime()-new Date(e.updated_at).getTime()):[],[o]),isLoading:n&&!a}}`;
 }
 
 function patchClaudeShipPreviewUrl(source) {
@@ -6029,7 +6029,7 @@ function rewriteClaudeShipPreviewRootRelativeUrls(html, basePath) {
   const prefix = String(basePath || "/").replace(/\/?$/, "/");
   const shouldRewrite = (target) => {
     const value = String(target || "");
-    return value && !value.startsWith("/") && !value.startsWith("#") && !/^(?:v1\/code\/|api\/|edge-api\/|ccr-resource-runtime\.js\b)/i.test(value);
+    return value && !value.startsWith("/") && !value.startsWith("#") && !/^(?:v1\/code\/|api\/|edge-api\/|llmr-resource-runtime\.js\b)/i.test(value);
   };
   return String(html || "")
     .replace(/\b(src|href|action)\s*=\s*(["'])\/(?!\/)([^"']*)\2/gi, (match, attr, quote, target) =>
@@ -6042,7 +6042,7 @@ function rewriteClaudeShipPreviewRootRelativeUrls(html, basePath) {
 
 function injectBakuPreviewAgentBridge(html) {
   const source = String(html || "");
-  if (source.includes("__ccrBakuPreviewAgentInstalled") || source.includes("baku-agent-ready")) {
+  if (source.includes("__llmrBakuPreviewAgentInstalled") || source.includes("baku-agent-ready")) {
     return source;
   }
   const scriptTag = `<script>${BAKU_PREVIEW_AGENT_BRIDGE_SCRIPT}</script>`;
@@ -6092,7 +6092,7 @@ function createClaudeShipSession(runtime, body) {
     baku_deployment: null,
     client_metadata: {
       product: "claude-ship",
-      source: "ccr-local-runtime"
+      source: "llmr-local-runtime"
     },
     config,
     connection_status: "connected",
@@ -6537,9 +6537,9 @@ function claudeShipPluginsPayload() {
     commands,
     description: "LLMR local Claude Ship runtime bridge.",
     enabled: true,
-    id: "ccr-local-claude-ship",
+    id: "llmr-local-claude-ship",
     name: "LLMR Local Claude Ship",
-    source: "ccr"
+    source: "llmr"
   };
   return {
     commands,
@@ -7677,7 +7677,7 @@ function createDesignRestProject(runtime, body) {
     agent_id: agentId,
     ...(dashboardHtml ? { dashboard_html: dashboardHtml } : {}),
     ...(model ? { model } : {}),
-    source: "ccr-claude-design-api"
+    source: "llmr-claude-design-api"
   }));
   if (dashboardHtml) {
     upsertProjectFile(runtime, projectId, DEFAULT_PROJECT_FILE_PATH, Buffer.from(dashboardHtml, "utf8"), "text/html; charset=utf-8");
@@ -10151,7 +10151,7 @@ function servePendingDesignPreviewResponse(runtime, projectId, filePath) {
   return textResponse(200, html, {
     "cache-control": "no-store",
     "content-type": "text/html; charset=utf-8",
-    etag: `"ccr-preview-${previewVersion}"`,
+    etag: `"llmr-preview-${previewVersion}"`,
     "x-llmr-preview-version": previewVersion
   });
 }
@@ -10272,7 +10272,7 @@ function previewProjectFileHeaders(runtime, projectId, row, filePath, contentTyp
   return {
     "cache-control": "no-store",
     "content-type": contentType || guessContentType(filePath),
-    etag: `"ccr-preview-${previewVersion}"`,
+    etag: `"llmr-preview-${previewVersion}"`,
     "x-llmr-file-version": fileVersion,
     "x-llmr-preview-version": previewVersion
   };
@@ -10322,7 +10322,7 @@ function injectOmelettePreviewEvalBridge(html) {
 
 function injectOmelettePreviewLiveReloadBridge(html, previewVersion, pollUrl) {
   const source = String(html || "");
-  if (source.includes("__ccrOmelettePreviewLiveReloadInstalled")) {
+  if (source.includes("__llmrOmelettePreviewLiveReloadInstalled")) {
     return source;
   }
   const script = OMELETTE_PREVIEW_LIVE_RELOAD_SCRIPT
@@ -14790,7 +14790,7 @@ function serveClaudeResourceRuntime() {
 
 function claudeResourceRuntimeScript() {
   return [
-    "try { globalThis.__ccrClaudeDesignResourceRuntime = true; } catch (e) {}",
+    "try { globalThis.__llmrClaudeDesignResourceRuntime = true; } catch (e) {}",
     scriptTagBody(claudeAppDesktopFeaturesScript())
   ].join("\n");
 }
@@ -15007,16 +15007,16 @@ function injectDesignMeIntoHtml(html, me) {
 
   const earlySnippets = [];
   const snippets = [];
-  if (!nextHtml.includes("ccr-claude-app-desktop-features")) {
+  if (!nextHtml.includes("llmr-claude-app-desktop-features")) {
     earlySnippets.push(claudeAppDesktopFeaturesScript());
   }
-  if (!nextHtml.includes("ccr-claude-design-macos-traffic-lights")) {
+  if (!nextHtml.includes("llmr-claude-design-macos-traffic-lights")) {
     earlySnippets.push(claudeAppMacOSTrafficLightSafeAreaScript());
   }
   if (!meJsonPattern.test(nextHtml)) {
     snippets.push(meJsonScript);
   }
-  if (!nextHtml.includes("ccr-claude-design-model-reset")) {
+  if (!nextHtml.includes("llmr-claude-design-model-reset")) {
     snippets.push(designModelPreferenceResetScript(designMe));
   }
   if (!nextHtml.includes("__OMELETTE_ME__")) {
@@ -15094,7 +15094,7 @@ function decodeHtmlJsonText(value) {
 
 function injectClaudeShipEntrypointIntoHtml(html) {
   let nextHtml = String(html || "");
-  if (!nextHtml.includes("ccr-claude-ship-entrypoint")) {
+  if (!nextHtml.includes("llmr-claude-ship-entrypoint")) {
     nextHtml = injectHtmlAfterHeadOpen(nextHtml, claudeShipEntrypointScript());
   }
   return nextHtml;
@@ -15123,50 +15123,50 @@ function designMeGlobalScript(me) {
 }
 
 function claudeShipEntrypointScript() {
-  return `<script id="ccr-claude-ship-entrypoint">(function(){try{
+  return `<script id="llmr-claude-ship-entrypoint">(function(){try{
 var root=globalThis;
-root.__ccrClaudeShipMode=true;
+root.__llmrClaudeShipMode=true;
 function currentPath(){try{return location.pathname}catch(e){return""}}
 function isShipAlias(path){return path==="/ship"||path.indexOf("/ship/")===0}
 function isShipPath(path){return path==="/claude-ship"||path.indexOf("/claude-ship/")===0}
-function isStaticPath(path){return path==="/ccr-resource-runtime.js"||path.indexOf("/ship/assets/")===0||path.indexOf("/ship/images/")===0||path.indexOf("/ship/clawd-frames/")===0||path.indexOf("/ship/i18n/")===0||path.indexOf("/ship/monaco-workers/")===0||path.indexOf("/api/")===0||path.indexOf("/edge-api/")===0||path.indexOf("/v1/")===0}
+function isStaticPath(path){return path==="/llmr-resource-runtime.js"||path.indexOf("/ship/assets/")===0||path.indexOf("/ship/images/")===0||path.indexOf("/ship/clawd-frames/")===0||path.indexOf("/ship/i18n/")===0||path.indexOf("/ship/monaco-workers/")===0||path.indexOf("/api/")===0||path.indexOf("/edge-api/")===0||path.indexOf("/v1/")===0}
 function normalizeShipUrl(value){try{var url=new URL(value==null?location.href:value,location.href);if(url.origin!==location.origin)return value;if(isShipAlias(url.pathname)){url.pathname="/claude-ship"+url.pathname.slice(5);return url.href}if(!isShipPath(url.pathname)&&!isStaticPath(url.pathname)){url.pathname="/claude-ship";return url.href}}catch(e){}return value}
 try{history.replaceState(history.state,"",normalizeShipUrl(location.href))}catch(e){}
-try{var push=history.pushState,replace=history.replaceState;if(!history.__ccrClaudeShipNavigationPatched){history.__ccrClaudeShipNavigationPatched=true;history.pushState=function(state,title,url){return push.call(this,state,title,url==null?url:normalizeShipUrl(url))};history.replaceState=function(state,title,url){return replace.call(this,state,title,url==null?url:normalizeShipUrl(url))};addEventListener("popstate",function(){try{if(!isShipPath(currentPath()))history.replaceState(history.state,"",normalizeShipUrl(location.href))}catch(e){}})}}catch(e){}
+try{var push=history.pushState,replace=history.replaceState;if(!history.__llmrClaudeShipNavigationPatched){history.__llmrClaudeShipNavigationPatched=true;history.pushState=function(state,title,url){return push.call(this,state,title,url==null?url:normalizeShipUrl(url))};history.replaceState=function(state,title,url){return replace.call(this,state,title,url==null?url:normalizeShipUrl(url))};addEventListener("popstate",function(){try{if(!isShipPath(currentPath()))history.replaceState(history.state,"",normalizeShipUrl(location.href))}catch(e){}})}}catch(e){}
 var forced={claudeDesignWindow:{status:"supported"},claudeCodeWindow:{status:"supported"},claudeShipWindow:{status:"supported"}};
 function merge(value){return Object.assign({},value||{},forced)}
 var boot=merge(root.desktopBootFeatures);
 try{Object.defineProperty(root,"desktopBootFeatures",{configurable:true,get:function(){return boot},set:function(value){boot=merge(value)}})}catch(e){root.desktopBootFeatures=boot}
-function patch(container){if(!container)return;var existing=container.AppFeatures||{};if(existing.__ccrClaudeShipEntrypointPatched)return;var previous=existing.getSupportedFeatures;container.AppFeatures=Object.assign({},existing,{__ccrClaudeShipEntrypointPatched:true,getSupportedFeatures:function(){if(typeof previous==="function")return Promise.resolve(previous.call(existing)).then(merge,function(){return merge()});return Promise.resolve(merge())}})}
+function patch(container){if(!container)return;var existing=container.AppFeatures||{};if(existing.__llmrClaudeShipEntrypointPatched)return;var previous=existing.getSupportedFeatures;container.AppFeatures=Object.assign({},existing,{__llmrClaudeShipEntrypointPatched:true,getSupportedFeatures:function(){if(typeof previous==="function")return Promise.resolve(previous.call(existing)).then(merge,function(){return merge()});return Promise.resolve(merge())}})}
 root["claude.settings"]=root["claude.settings"]||{};patch(root["claude.settings"]);root.claude=root.claude||{};root.claude.settings=root.claude.settings||{};patch(root.claude.settings);
 }catch(e){}})();</script>`;
 }
 
 function claudeAppMacOSTrafficLightSafeAreaScript() {
-  return `<style id="ccr-claude-design-macos-traffic-lights">
-:root[data-ccr-macos-traffic-lights="true"] {
-  --ccr-macos-traffic-left: 128px;
-  --ccr-macos-traffic-height: 44px;
+  return `<style id="llmr-claude-design-macos-traffic-lights">
+:root[data-llmr-macos-traffic-lights="true"] {
+  --llmr-macos-traffic-left: 128px;
+  --llmr-macos-traffic-height: 44px;
   --df-traffic-light-spacer: 112px;
 }
-:root[data-ccr-macos-traffic-lights="true"] [data-ccr-macos-titlebar-safe-area="true"] {
+:root[data-llmr-macos-traffic-lights="true"] [data-llmr-macos-titlebar-safe-area="true"] {
   box-sizing: border-box !important;
-  min-height: max(var(--ccr-macos-traffic-height), var(--ccr-titlebar-existing-min-height, 0px)) !important;
-  padding-left: max(var(--ccr-titlebar-existing-padding-left, 0px), var(--ccr-macos-traffic-left)) !important;
+  min-height: max(var(--llmr-macos-traffic-height), var(--llmr-titlebar-existing-min-height, 0px)) !important;
+  padding-left: max(var(--llmr-titlebar-existing-padding-left, 0px), var(--llmr-macos-traffic-left)) !important;
 }
-:root[data-ccr-macos-traffic-lights="true"] [data-ccr-macos-titlebar-safe-area="true"] * {
+:root[data-llmr-macos-traffic-lights="true"] [data-llmr-macos-titlebar-safe-area="true"] * {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
-</style><script id="ccr-claude-design-macos-traffic-light-adapter">(function(){
+</style><script id="llmr-claude-design-macos-traffic-light-adapter">(function(){
 try {
   var root = globalThis;
   var platform = String((navigator && navigator.platform) || '');
   var userAgent = String((navigator && navigator.userAgent) || '');
   var isMac = /Macintosh|Mac OS|MacIntel/i.test(platform + ' ' + userAgent);
-  if (!isMac || root.__ccrClaudeDesignMacOSTrafficLightAdapterInstalled) return;
-  root.__ccrClaudeDesignMacOSTrafficLightAdapterInstalled = true;
-  document.documentElement.setAttribute('data-ccr-macos-traffic-lights', 'true');
+  if (!isMac || root.__llmrClaudeDesignMacOSTrafficLightAdapterInstalled) return;
+  root.__llmrClaudeDesignMacOSTrafficLightAdapterInstalled = true;
+  document.documentElement.setAttribute('data-llmr-macos-traffic-lights', 'true');
   document.documentElement.style.setProperty('--df-traffic-light-spacer', '112px');
 
   function number(value) {
@@ -15205,20 +15205,20 @@ try {
   }
   function markTitlebar(element) {
     var style = getComputedStyle(element);
-    element.style.setProperty('--ccr-titlebar-existing-padding-left', safeLength(style.paddingLeft));
-    element.style.setProperty('--ccr-titlebar-existing-min-height', safeLength(style.minHeight));
-    element.setAttribute('data-ccr-macos-titlebar-safe-area', 'true');
+    element.style.setProperty('--llmr-titlebar-existing-padding-left', safeLength(style.paddingLeft));
+    element.style.setProperty('--llmr-titlebar-existing-min-height', safeLength(style.minHeight));
+    element.setAttribute('data-llmr-macos-titlebar-safe-area', 'true');
   }
   function clearTitlebar(element) {
-    element.removeAttribute('data-ccr-macos-titlebar-safe-area');
-    element.style.removeProperty('--ccr-titlebar-existing-padding-left');
-    element.style.removeProperty('--ccr-titlebar-existing-min-height');
+    element.removeAttribute('data-llmr-macos-titlebar-safe-area');
+    element.style.removeProperty('--llmr-titlebar-existing-padding-left');
+    element.style.removeProperty('--llmr-titlebar-existing-min-height');
   }
   function applySafeArea() {
     document.documentElement.style.setProperty('--df-traffic-light-spacer', '112px');
     var candidates = titlebarCandidates();
     var selected = candidates.length ? candidates[0].element : null;
-    var marked = Array.prototype.slice.call(document.querySelectorAll('[data-ccr-macos-titlebar-safe-area="true"]'));
+    var marked = Array.prototype.slice.call(document.querySelectorAll('[data-llmr-macos-titlebar-safe-area="true"]'));
     for (var i = 0; i < marked.length; i++) {
       if (marked[i] !== selected) clearTitlebar(marked[i]);
     }
@@ -15244,7 +15244,7 @@ try {
 }
 
 function claudeAppDesktopFeaturesScript() {
-  return `<script id="ccr-claude-app-desktop-features">(function(){
+  return `<script id="llmr-claude-app-desktop-features">(function(){
 try {
   var root = globalThis;
   var forced = { claudeDesignWindow: { status: 'supported' } };
@@ -15264,10 +15264,10 @@ try {
   function patch(container) {
     if (!container) return;
     var existing = container.AppFeatures || {};
-    if (existing.__ccrClaudeDesignPatched) return;
+    if (existing.__llmrClaudeDesignPatched) return;
     var previous = existing.getSupportedFeatures;
     container.AppFeatures = Object.assign({}, existing, {
-      __ccrClaudeDesignPatched: true,
+      __llmrClaudeDesignPatched: true,
       getSupportedFeatures: function() {
         if (typeof previous === 'function') {
           return Promise.resolve(previous.call(existing)).then(merge, function() { return merge(); });
@@ -15289,9 +15289,9 @@ try {
   function patchDesktopBindings() {
     try {
       var bindings = root.claudeAppBindings || {};
-      if (!bindings.__ccrClaudeDesignPatched) {
+      if (!bindings.__llmrClaudeDesignPatched) {
         root.claudeAppBindings = Object.assign({}, bindings, {
-          __ccrClaudeDesignPatched: true,
+          __llmrClaudeDesignPatched: true,
           connectToMcpServer: bindings.connectToMcpServer || function() { return Promise.resolve(); },
           listMcpServers: bindings.listMcpServers || function() { return Promise.resolve([]); },
           registerBinding: bindings.registerBinding || function() {},
@@ -15305,8 +15305,8 @@ try {
   }
   function installDesignPresentBootstrapRewrite() {
     try {
-      if (root.__ccrDesignPresentBootstrapRewriteInstalled) return;
-      root.__ccrDesignPresentBootstrapRewriteInstalled = true;
+      if (root.__llmrDesignPresentBootstrapRewriteInstalled) return;
+      root.__llmrDesignPresentBootstrapRewriteInstalled = true;
       function isDesignFrame(node) {
         if (!node || node.nodeType !== 1) return false;
         var tag = String(node.tagName || '').toLowerCase();
@@ -15347,17 +15347,17 @@ try {
         return parsed.toString();
       }
       function rewriteFrame(frame) {
-        if (!isDesignFrame(frame) || frame.__ccrDesignPresentBootstrapRewritten) return;
+        if (!isDesignFrame(frame) || frame.__llmrDesignPresentBootstrapRewritten) return;
         var raw = '';
         try { raw = frame.getAttribute('src') || frame.src || ''; } catch (e) {}
         var next = rewriteUrl(raw);
         if (!next) return;
-        frame.__ccrDesignPresentBootstrapRewritten = true;
+        frame.__llmrDesignPresentBootstrapRewritten = true;
         try { frame.setAttribute('src', next); } catch (e) { try { frame.src = next; } catch (_) {} }
       }
       var proto = root.HTMLIFrameElement && root.HTMLIFrameElement.prototype;
-      if (proto && !proto.__ccrDesignPresentBootstrapSrcPatched) {
-        proto.__ccrDesignPresentBootstrapSrcPatched = true;
+      if (proto && !proto.__llmrDesignPresentBootstrapSrcPatched) {
+        proto.__llmrDesignPresentBootstrapSrcPatched = true;
         var nativeSetAttribute = proto.setAttribute;
         if (typeof nativeSetAttribute === 'function') {
           proto.setAttribute = function(name, value) {
@@ -15406,11 +15406,11 @@ try {
   }
   function installPreviewProtocolBridge() {
     try {
-      if (root.__ccrOmelettePreviewProtocolBridgeInstalled) return;
-      root.__ccrOmelettePreviewProtocolBridgeInstalled = true;
-      root.__ccrOmeletteConsoleMessageBridgeInstalled = true;
+      if (root.__llmrOmelettePreviewProtocolBridgeInstalled) return;
+      root.__llmrOmelettePreviewProtocolBridgeInstalled = true;
+      root.__llmrOmeletteConsoleMessageBridgeInstalled = true;
       root.__OMELETTE_DESKTOP__ = root.__OMELETTE_DESKTOP__ || {
-        version: 'ccr',
+        version: 'llmr',
         addEventListener: function() {},
         removeEventListener: function() {}
       };
@@ -15556,14 +15556,14 @@ try {
           }
         } catch (e) {}
         return text
-          .replace(/:host\\(([^)]*)\\)/g, '[data-ccr-shadow-host]$1')
-          .replace(/:host\\b/g, '[data-ccr-shadow-host]');
+          .replace(/:host\\(([^)]*)\\)/g, '[data-llmr-shadow-host]$1')
+          .replace(/:host\\b/g, '[data-llmr-shadow-host]');
       }
       function appendCapturedShadowStyle(shadowRoot, cloneHost, doc) {
         var text = capturedShadowStyleText(shadowRoot);
         if (!text) return;
         var style = doc.createElement('style');
-        style.setAttribute('data-ccr-captured-shadow-styles', 'true');
+        style.setAttribute('data-llmr-captured-shadow-styles', 'true');
         style.textContent = text;
         cloneHost.appendChild(style);
       }
@@ -15571,7 +15571,7 @@ try {
         if (!sourceNode || !cloneNode) return;
         if (sourceNode.nodeType === 1 && sourceNode.shadowRoot) {
           while (cloneNode.firstChild) cloneNode.removeChild(cloneNode.firstChild);
-          try { cloneNode.setAttribute('data-ccr-shadow-host', 'true'); } catch (e) {}
+          try { cloneNode.setAttribute('data-llmr-shadow-host', 'true'); } catch (e) {}
           appendCapturedShadowStyle(sourceNode.shadowRoot, cloneNode, doc);
           var shadowChildren = Array.prototype.slice.call(sourceNode.shadowRoot.childNodes || []);
           var shadowClones = [];
@@ -15691,14 +15691,14 @@ try {
                 }
               } catch (e) {}
               return text
-                .replace(/:host\\(([^)]*)\\)/g, '[data-ccr-shadow-host]$1')
-                .replace(/:host\\b/g, '[data-ccr-shadow-host]');
+                .replace(/:host\\(([^)]*)\\)/g, '[data-llmr-shadow-host]$1')
+                .replace(/:host\\b/g, '[data-llmr-shadow-host]');
             }
             function appendShadowStyle(shadowRoot, cloneHost) {
               var text = shadowStyleText(shadowRoot);
               if (!text) return;
               var style = doc.createElement('style');
-              style.setAttribute('data-ccr-captured-shadow-styles', 'true');
+              style.setAttribute('data-llmr-captured-shadow-styles', 'true');
               style.textContent = text;
               cloneHost.appendChild(style);
             }
@@ -15706,7 +15706,7 @@ try {
               if (!sourceNode || !cloneNode) return;
               if (sourceNode.nodeType === 1 && sourceNode.shadowRoot) {
                 while (cloneNode.firstChild) cloneNode.removeChild(cloneNode.firstChild);
-                try { cloneNode.setAttribute('data-ccr-shadow-host', 'true'); } catch (e) {}
+                try { cloneNode.setAttribute('data-llmr-shadow-host', 'true'); } catch (e) {}
                 appendShadowStyle(sourceNode.shadowRoot, cloneNode);
                 var shadowChildren = Array.prototype.slice.call(sourceNode.shadowRoot.childNodes || []);
                 var shadowClones = [];
@@ -15851,8 +15851,8 @@ try {
       }
       function frameId(frame) {
         if (!frameIds) {
-          if (!frame.__ccrWebContentsId) frame.__ccrWebContentsId = nextFrameId++;
-          return frame.__ccrWebContentsId;
+          if (!frame.__llmrWebContentsId) frame.__llmrWebContentsId = nextFrameId++;
+          return frame.__llmrWebContentsId;
         }
         var id = frameIds.get(frame);
         if (!id) {
@@ -15918,10 +15918,10 @@ try {
         return parsed.toString();
       }
       function rewriteDesignBootstrapFrame(frame) {
-        if (!isFrame(frame) || frame.__ccrDesignBootstrapRewritten) return;
+        if (!isFrame(frame) || frame.__llmrDesignBootstrapRewritten) return;
         var next = bootstrapPreviewUrl(frame);
         if (!next) return;
-        frame.__ccrDesignBootstrapRewritten = true;
+        frame.__llmrDesignBootstrapRewritten = true;
         try { frame.setAttribute('src', next); } catch (e) { try { frame.src = next; } catch (_) {} }
       }
       function isClaudeShipPage() {
@@ -15957,8 +15957,8 @@ try {
       function installSafePreviewSandbox() {
         if (!isClaudeShipPage()) return;
         var proto = root.HTMLIFrameElement && root.HTMLIFrameElement.prototype;
-        if (!proto || proto.__ccrClaudeShipPreviewSandboxPatched) return;
-        proto.__ccrClaudeShipPreviewSandboxPatched = true;
+        if (!proto || proto.__llmrClaudeShipPreviewSandboxPatched) return;
+        proto.__llmrClaudeShipPreviewSandboxPatched = true;
         var nativeSetAttribute = proto.setAttribute;
         if (typeof nativeSetAttribute === 'function') {
           proto.setAttribute = function(name, value) {
@@ -16001,7 +16001,7 @@ try {
             reject(new Error('preview frame is not available'));
             return;
           }
-          var id = 'ccr-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+          var id = 'llmr-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
           var done = false;
           var timer = setTimeout(function() {
             finish();
@@ -16034,8 +16034,8 @@ try {
       }
       function installIframeMethods() {
         var proto = root.HTMLIFrameElement && root.HTMLIFrameElement.prototype;
-        if (!proto || proto.__ccrOmeletteWebviewLikePatched) return;
-        proto.__ccrOmeletteWebviewLikePatched = true;
+        if (!proto || proto.__llmrOmeletteWebviewLikePatched) return;
+        proto.__llmrOmeletteWebviewLikePatched = true;
         var nativeAdd = proto.addEventListener;
         proto.addEventListener = function(type, listener, options) {
           var result = nativeAdd.call(this, type, listener, options);
@@ -16071,13 +16071,13 @@ try {
           proto.setZoomFactor = function(value) {
             var zoom = Number(value);
             if (!Number.isFinite(zoom) || zoom <= 0) zoom = 1;
-            this.__ccrZoomFactor = zoom;
+            this.__llmrZoomFactor = zoom;
             this.style.transformOrigin = '0 0';
             this.style.transform = zoom === 1 ? '' : 'scale(' + zoom + ')';
             dispatchFrameEvent(this, 'zoom-changed', { zoomFactor: zoom });
           };
         }
-        if (typeof proto.getZoomFactor !== 'function') proto.getZoomFactor = function() { return Promise.resolve(this.__ccrZoomFactor || 1); };
+        if (typeof proto.getZoomFactor !== 'function') proto.getZoomFactor = function() { return Promise.resolve(this.__llmrZoomFactor || 1); };
         if (typeof proto.openDevTools !== 'function') proto.openDevTools = function() {};
         if (typeof proto.closeDevTools !== 'function') proto.closeDevTools = function() {};
         if (typeof proto.isDevToolsOpened !== 'function') proto.isDevToolsOpened = function() { return false; };
@@ -16194,7 +16194,7 @@ try {
 
 function designModelPreferenceResetScript(me) {
   const defaultModelId = stringValue(me?.defaultModelId) || DEFAULT_GATEWAY_MODEL;
-  return `<script id="ccr-claude-design-model-reset">(function(){try{var defaultModelId=${escapeJsonForScript(defaultModelId)};if(!defaultModelId||String(defaultModelId).toLowerCase().indexOf('deepseek')!==-1){return;}var marker='llmr:claude-design:model-default-reset:'+defaultModelId;if(localStorage.getItem(marker)==='1'){return;}function shouldClear(key,value){var keyText=String(key||'').toLowerCase();var valueText=String(value||'').toLowerCase();if(valueText.indexOf('deepseek')===-1){return false;}return keyText.indexOf('model')!==-1||keyText.indexOf('omelette')!==-1||keyText.indexOf('om:')===0||keyText.indexOf('claude')!==-1||valueText.indexOf('model')!==-1||valueText.indexOf('deepseek::')!==-1||valueText.indexOf('deepseek/')!==-1;}function clearStorage(storage){if(!storage){return;}var keys=[];for(var i=0;i<storage.length;i++){keys.push(storage.key(i));}for(var j=0;j<keys.length;j++){var key=keys[j];if(shouldClear(key,storage.getItem(key))){storage.removeItem(key);}}}clearStorage(localStorage);clearStorage(sessionStorage);localStorage.setItem(marker,'1');}catch(e){}})();</script>`;
+  return `<script id="llmr-claude-design-model-reset">(function(){try{var defaultModelId=${escapeJsonForScript(defaultModelId)};if(!defaultModelId||String(defaultModelId).toLowerCase().indexOf('deepseek')!==-1){return;}var marker='llmr:claude-design:model-default-reset:'+defaultModelId;if(localStorage.getItem(marker)==='1'){return;}function shouldClear(key,value){var keyText=String(key||'').toLowerCase();var valueText=String(value||'').toLowerCase();if(valueText.indexOf('deepseek')===-1){return false;}return keyText.indexOf('model')!==-1||keyText.indexOf('omelette')!==-1||keyText.indexOf('om:')===0||keyText.indexOf('claude')!==-1||valueText.indexOf('model')!==-1||valueText.indexOf('deepseek::')!==-1||valueText.indexOf('deepseek/')!==-1;}function clearStorage(storage){if(!storage){return;}var keys=[];for(var i=0;i<storage.length;i++){keys.push(storage.key(i));}for(var j=0;j<keys.length;j++){var key=keys[j];if(shouldClear(key,storage.getItem(key))){storage.removeItem(key);}}}clearStorage(localStorage);clearStorage(sessionStorage);localStorage.setItem(marker,'1');}catch(e){}})();</script>`;
 }
 
 function designMePayload(me) {

@@ -21,7 +21,7 @@ function homeSeenBy(env) {
 }
 
 test("a compiled test run outside run-tests gets a temporary HOME", () => {
-  const realHome = mkdtempSync(path.join(os.tmpdir(), "ccr-real-home-"));
+  const realHome = mkdtempSync(path.join(os.tmpdir(), "llmr-real-home-"));
   try {
     const env = { ...process.env, HOME: realHome };
     delete env.LLMR_TEST_HOME;
@@ -37,7 +37,7 @@ test("a compiled test run outside run-tests gets a temporary HOME", () => {
 });
 
 test("the guard leaves the home run-tests already isolated", () => {
-  const testHome = mkdtempSync(path.join(os.tmpdir(), "ccr-runner-home-"));
+  const testHome = mkdtempSync(path.join(os.tmpdir(), "llmr-runner-home-"));
   try {
     const seen = homeSeenBy(isolateTestHome(testHome, { ...process.env }));
     assert.equal(seen.home, testHome);
@@ -49,5 +49,5 @@ test("the guard leaves the home run-tests already isolated", () => {
 
 test("build/test.mjs bundles the guard into tests that never import it", () => {
   const compiled = path.join(projectRoot, ".test-dist", "architecture", "test", "build-output-swap.test.js");
-  assert.match(readFileSync(compiled, "utf8"), /ccr-test-home-/, `${compiled} lacks the guard; rebuild with node build/test.mjs architecture`);
+  assert.match(readFileSync(compiled, "utf8"), /llmr-test-home-/, `${compiled} lacks the guard; rebuild with node build/test.mjs architecture`);
 });

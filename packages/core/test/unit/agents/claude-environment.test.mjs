@@ -60,7 +60,7 @@ test("builds Claude Code ToolHub MCP config when ToolHub has backend MCP servers
   });
 
   assert.equal(Object.keys(config.mcpServers).length, 1);
-  const server = config.mcpServers["ccr-toolhub"];
+  const server = config.mcpServers["llmr-toolhub"];
   assert.equal(server.command, "/Applications/LLMR.app/Contents/MacOS/LLMR");
   assert.deepEqual(server.args, ["/Applications/LLMR.app/Contents/Resources/app/dist/main/toolhub-mcp.js"]);
   assert.equal(server.env.ELECTRON_RUN_AS_NODE, "1");

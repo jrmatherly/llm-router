@@ -71,7 +71,7 @@ test("Codex OAuth plugins retain the default base URL after runtime identity nor
   config.providerPlugins = [
     {
       codexOauth: {},
-      key: "ccr-local-agent-codex-api-codex-oauth",
+      key: "llmr-local-agent-codex-api-codex-oauth",
       providerName: "Codex API"
     }
   ];
@@ -97,7 +97,7 @@ test("Codex OAuth plugins retain the default base URL after runtime identity nor
 });
 
 test("Codex OAuth plugins prefer live login credentials over imported snapshots", async (t) => {
-  const home = useTemporaryCodexHome(t, "ccr-codex-runtime-live-credentials-");
+  const home = useTemporaryCodexHome(t, "llmr-codex-runtime-live-credentials-");
   fs.mkdirSync(path.join(home, ".codex"), { recursive: true });
   fs.writeFileSync(path.join(home, ".codex", "auth.json"), JSON.stringify({
     tokens: {
@@ -114,7 +114,7 @@ test("Codex OAuth plugins prefer live login credentials over imported snapshots"
       accountId: "acct-imported",
       refreshToken: "refresh-imported"
     },
-    key: "ccr-local-agent-codex-api-codex-oauth",
+    key: "llmr-local-agent-codex-api-codex-oauth",
     providerName: "Codex API"
   }];
   config.Providers = [{
@@ -132,7 +132,7 @@ test("Codex OAuth plugins prefer live login credentials over imported snapshots"
     "billing-usage-token",
     "core-auth-token"
   );
-  const codexPlugin = compiled.providerPlugins.find((item) => item.key === "ccr-local-agent-codex-api-codex-oauth");
+  const codexPlugin = compiled.providerPlugins.find((item) => item.key === "llmr-local-agent-codex-api-codex-oauth");
 
   assert.equal(codexPlugin.codexOauth.accessToken, "access-live");
   assert.equal(codexPlugin.codexOauth.refreshToken, "refresh-live");
@@ -140,7 +140,7 @@ test("Codex OAuth plugins prefer live login credentials over imported snapshots"
 });
 
 test("Codex local providers synthesize OAuth plugins when persisted plugins are missing", async (t) => {
-  const home = useTemporaryCodexHome(t, "ccr-codex-runtime-missing-plugins-");
+  const home = useTemporaryCodexHome(t, "llmr-codex-runtime-missing-plugins-");
   fs.mkdirSync(path.join(home, ".codex"), { recursive: true });
   fs.writeFileSync(path.join(home, ".codex", "auth.json"), JSON.stringify({
     tokens: {
@@ -178,7 +178,7 @@ test("Codex local providers synthesize OAuth plugins when persisted plugins are 
 });
 
 test("Codex local provider fallback respects disabled OAuth plugins", async (t) => {
-  const home = useTemporaryCodexHome(t, "ccr-codex-runtime-disabled-plugin-");
+  const home = useTemporaryCodexHome(t, "llmr-codex-runtime-disabled-plugin-");
   fs.mkdirSync(path.join(home, ".codex"), { recursive: true });
   fs.writeFileSync(path.join(home, ".codex", "auth.json"), JSON.stringify({
     tokens: {
@@ -193,7 +193,7 @@ test("Codex local provider fallback respects disabled OAuth plugins", async (t) 
       refreshToken: "refresh-disabled"
     },
     enabled: false,
-    key: "ccr-local-agent-codex-api-codex-oauth",
+    key: "llmr-local-agent-codex-api-codex-oauth",
     providerName: "Codex API"
   }];
   config.Providers = [

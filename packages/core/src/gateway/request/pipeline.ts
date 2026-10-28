@@ -53,12 +53,12 @@ import { isModelAllowedForProfile, profileForApiKey } from "@llmr/core/profiles/
 import { pluginService } from "@llmr/core/plugins/service";
 import { finalizeOpenRouterDiscountProviderRouterSelection } from "@llmr/core/plugins/built-ins/openrouter-discount-provider-router";
 import {
-  ccrRouteHeaderNames,
-  ccrRouteDiagnosticsHeader,
-  ccrRouteReasonHeader,
-  ccrRouteSourceHeader,
-  ccrRoutedModelHeader,
-  ccrRouterHttpRoutePath
+  llmrRouteHeaderNames,
+  llmrRouteDiagnosticsHeader,
+  llmrRouteReasonHeader,
+  llmrRouteSourceHeader,
+  llmrRoutedModelHeader,
+  llmrRouterHttpRoutePath
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { isRecord } from "@llmr/core/gateway/internal/value";
 import { combineStreamExperienceMetrics, createStreamExperienceMeter, monotonicNowMs } from "@llmr/core/observability/stream-experience";
@@ -93,9 +93,9 @@ function isReportedRouteChange(change: RequestRouteTraceChange | undefined): cha
   return change !== undefined;
 }
 
-function stripUntrustedCcrRouteHeaders(headers: Record<string, string>): RequestRouteTraceChange[] {
+function stripUntrustedLlmrRouteHeaders(headers: Record<string, string>): RequestRouteTraceChange[] {
   const changes: RequestRouteTraceChange[] = [];
-  for (const headerName of ccrRouteHeaderNames) {
+  for (const headerName of llmrRouteHeaderNames) {
     const previous = headers[headerName];
     if (previous === undefined) {
       continue;
@@ -141,7 +141,7 @@ export class GatewayRequestPipeline {
       routeTrace?.captureIngress();
       const headerNormalizationStartedAt = Date.now();
       const headers = forwardHeaders(request.headers);
-      const strippedCcrRouteHeaderChanges = stripUntrustedCcrRouteHeaders(headers);
+      const strippedLlmrRouteHeaderChanges = stripUntrustedLlmrRouteHeaders(headers);
       const previousAuthorization = headers.authorization;
       const previousApiKey = headers["x-api-key"];
       const previousLegacyApiKey = headers["api-key"];
@@ -156,7 +156,7 @@ export class GatewayRequestPipeline {
       headers["x-client-request-id"] = requestId;
       routeTrace?.capture({
         changes: [
-          ...strippedCcrRouteHeaderChanges,
+          ...strippedLlmrRouteHeaderChanges,
           ...(apiKey ? [
             reportedRouteChange("headers", "/headers/authorization", previousAuthorization, undefined),
             reportedRouteChange("headers", "/headers/x-api-key", previousApiKey, undefined),
@@ -200,7 +200,7 @@ export class GatewayRequestPipeline {
       let codexMultiAgentBridgeActive = false;
       const pluginResponseHeaders = new Headers();
       let openRouterDiscountSelectionFinalized = false;
-      let openRouterDiscountUsedCcrFallback = false;
+      let openRouterDiscountUsedLlmrFallback = false;
       const finalizeOpenRouterDiscountSelection = (ok: boolean) => {
         if (openRouterDiscountSelectionFinalized) {
           return;
@@ -209,7 +209,7 @@ export class GatewayRequestPipeline {
         finalizeOpenRouterDiscountProviderRouterSelection(requestId, {
           ok,
           routedModel,
-          usedCcrFallback: openRouterDiscountUsedCcrFallback
+          usedLlmrFallback: openRouterDiscountUsedLlmrFallback
         });
       };
       const authenticatedProfile = profileForApiKey(activeConfig, apiKey);
@@ -392,10 +392,10 @@ export class GatewayRequestPipeline {
         });
         const serialized = serializeJsonBody(restoreRouteRequestBody(routed.body, adaptation));
         headers["content-type"] = "application/json";
-        headers[ccrRouteReasonHeader] = sanitizeHeaderValue(routed.decision.reason);
-        headers[ccrRouteSourceHeader] = routed.decision.source;
+        headers[llmrRouteReasonHeader] = sanitizeHeaderValue(routed.decision.reason);
+        headers[llmrRouteSourceHeader] = routed.decision.source;
         if (routed.decision.diagnostics.length > 0) {
-          headers[ccrRouteDiagnosticsHeader] = String(routed.decision.diagnostics.length);
+          headers[llmrRouteDiagnosticsHeader] = String(routed.decision.diagnostics.length);
         }
         routeFallback = routed.decision.fallback ?? routeFallback;
         routedSessionId = routed.decision.sessionId;
@@ -404,7 +404,7 @@ export class GatewayRequestPipeline {
           routedTokenCount = this.plugin.countTokens(routed.body).input_tokens;
         }
         if (routed.decision.model) {
-          headers[ccrRoutedModelHeader] = sanitizeHeaderValue(routed.decision.model);
+          headers[llmrRoutedModelHeader] = sanitizeHeaderValue(routed.decision.model);
           routedModel = routed.decision.model;
         }
         bodyToForward = serialized;
@@ -412,9 +412,9 @@ export class GatewayRequestPipeline {
           changes: [
             { operation: "replace", path: "/body", scope: "body" },
             { after: headers["content-type"], operation: "replace", path: "/headers/content-type", scope: "headers" },
-            { after: headers[ccrRouteReasonHeader], operation: "add", path: `/headers/${ccrRouteReasonHeader}`, scope: "headers" },
-            { after: headers[ccrRouteSourceHeader], operation: "add", path: `/headers/${ccrRouteSourceHeader}`, scope: "headers" },
-            ...(routedModel ? [{ after: routedModel, operation: "add" as const, path: `/headers/${ccrRoutedModelHeader}`, scope: "headers" as const }] : [])
+            { after: headers[llmrRouteReasonHeader], operation: "add", path: `/headers/${llmrRouteReasonHeader}`, scope: "headers" },
+            { after: headers[llmrRouteSourceHeader], operation: "add", path: `/headers/${llmrRouteSourceHeader}`, scope: "headers" },
+            ...(routedModel ? [{ after: routedModel, operation: "add" as const, path: `/headers/${llmrRoutedModelHeader}`, scope: "headers" as const }] : [])
           ],
           decision: {
             diagnostics: routed.decision.diagnostics,
@@ -843,7 +843,7 @@ export class GatewayRequestPipeline {
         bodyToForward = upstreamResult.attempt.body ?? bodyToForward;
         routedModel = upstreamResult.attempt.model ?? routedModel;
       }
-      openRouterDiscountUsedCcrFallback = upstreamResult.failedAttempts.length > 0;
+      openRouterDiscountUsedLlmrFallback = upstreamResult.failedAttempts.length > 0;
       const responseHeaders = rewriteCapabilityResponseHeaders(
         // Copy into a mutable Headers instance: upstream fetch Response.headers
         // can be immutable (TypeError: immutable on .delete/.set), and
@@ -1220,7 +1220,7 @@ async function routeRequestWithCoreGatewayPlugin(input: {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 500);
   try {
-    const response = await fetchWithSystemProxy(new URL(ccrRouterHttpRoutePath, input.coreEndpoint), {
+    const response = await fetchWithSystemProxy(new URL(llmrRouterHttpRoutePath, input.coreEndpoint), {
       body: JSON.stringify({
         body: input.body,
         headers: input.headers,

@@ -1,5 +1,5 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || message.type !== "ccr-login-import-confirm") {
+  if (!message || message.type !== "llmr-login-import-confirm") {
     return false;
   }
 
@@ -12,13 +12,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function runImport(importUrl, senderUrl) {
   const normalizedImportUrl = normalizeImportUrl(importUrl, senderUrl);
   if (!normalizedImportUrl) {
-    throw new Error("Invalid CCR import URL.");
+    throw new Error("Invalid LLMR import URL.");
   }
 
   const job = await fetchImportJob(normalizedImportUrl);
   const domains = Array.isArray(job.domains) ? job.domains.map(normalizeDomain).filter(Boolean) : [];
   if (domains.length === 0) {
-    throw new Error("CCR import job does not include any domains.");
+    throw new Error("LLMR import job does not include any domains.");
   }
 
   await ensureHostPermissions(domains);
@@ -40,10 +40,10 @@ async function fetchImportJob(importUrl) {
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(body?.error?.message || `CCR import job request failed (${response.status}).`);
+    throw new Error(body?.error?.message || `LLMR import job request failed (${response.status}).`);
   }
   if (!body.job || body.job.status !== "pending") {
-    throw new Error(`CCR import job is ${body.job?.status || "unavailable"}.`);
+    throw new Error(`LLMR import job is ${body.job?.status || "unavailable"}.`);
   }
   return body.job;
 }
@@ -67,7 +67,7 @@ async function submitLoginState(importUrl, cookies, localStorage, domains) {
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(body?.error?.message || `CCR login import failed (${response.status}).`);
+    throw new Error(body?.error?.message || `LLMR login import failed (${response.status}).`);
   }
   return body.result || {};
 }
@@ -211,7 +211,7 @@ async function ensureHostPermissions(domains) {
   }
   throw new Error(
     [
-      `CCR Login Import does not have Chrome site access for ${domains.join(", ")}.`,
+      `LLMR Login Import does not have Chrome site access for ${domains.join(", ")}.`,
       "Reload the unpacked extension after updating it, then grant the extension site access for the requested domains in Chrome extensions settings."
     ].join(" ")
   );

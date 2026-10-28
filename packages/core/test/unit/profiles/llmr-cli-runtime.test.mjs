@@ -5,12 +5,12 @@ import path from "node:path";
 import test from "node:test";
 import {
   LLMR_CLI_COMPANION_RUNTIME_FILE_NAMES,
-  syncCcrCliCompanionRuntimes,
-  syncCcrCliModelCatalog
+  syncLlmrCliCompanionRuntimes,
+  syncLlmrCliModelCatalog
 } from "@llmr/core/profiles/launch-service.ts";
 
-test("LLMR CLI launcher copies every bundled companion runtime next to ccr-cli.js", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-cli-runtime-"));
+test("LLMR CLI launcher copies every bundled companion runtime next to llmr-cli.js", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-cli-runtime-"));
   try {
     const sourceDir = path.join(root, "dist", "main");
     const binDir = path.join(root, "bin");
@@ -23,7 +23,7 @@ test("LLMR CLI launcher copies every bundled companion runtime next to ccr-cli.j
       writeFileSync(path.join(binDir, fileName), "stale\n");
     }
 
-    const synced = syncCcrCliCompanionRuntimes(runtimeSource, binDir);
+    const synced = syncLlmrCliCompanionRuntimes(runtimeSource, binDir);
 
     assert.deepEqual(synced.map((file) => path.basename(file)), [...LLMR_CLI_COMPANION_RUNTIME_FILE_NAMES]);
     for (const fileName of LLMR_CLI_COMPANION_RUNTIME_FILE_NAMES) {
@@ -35,7 +35,7 @@ test("LLMR CLI launcher copies every bundled companion runtime next to ccr-cli.j
 });
 
 test("LLMR CLI launcher copies the model catalog where the installed runtime can resolve it", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-cli-model-catalog-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-cli-model-catalog-"));
   try {
     const sourceDir = path.join(root, "dist", "main");
     const binDir = path.join(root, "config", "bin");
@@ -46,7 +46,7 @@ test("LLMR CLI launcher copies the model catalog where the installed runtime can
     writeFileSync(runtimeSource, "cli runtime\n");
     writeFileSync(catalogSource, '{"models":[{"id":"test-model"}]}\n');
 
-    const synced = syncCcrCliModelCatalog(runtimeSource, binDir);
+    const synced = syncLlmrCliModelCatalog(runtimeSource, binDir);
 
     const destination = path.join(root, "config", "models.json");
     assert.equal(synced, destination);

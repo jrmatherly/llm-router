@@ -20,7 +20,7 @@ runs:
       shell: bash
       working-directory: .tmp/release-gateway
       run: |
-        # Push the upstream fixes before creating a CCR release tag.
+        # Push the upstream fixes before creating an LLMR release tag.
         test -f src/adapters/builtins/anthropic-tool-id.test.ts
         test -f src/raw-trace.test.ts
         npm ci

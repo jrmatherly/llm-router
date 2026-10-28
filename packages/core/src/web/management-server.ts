@@ -36,7 +36,7 @@ import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
 import { applyProfileConfig } from "@llmr/core/profiles/service";
-import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromCcr, stopProfileFromCcr } from "@llmr/core/profiles/launch-service";
+import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
 import { proxyService } from "@llmr/core/proxy/service";
@@ -388,7 +388,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
     if (status.state !== "running") {
       throw new Error(status.lastError || "LLMR gateway did not start.");
     }
-    return openProfileFromCcr(config, request as ProfileOpenRequest);
+    return openProfileFromLlmr(config, request as ProfileOpenRequest);
   },
   probeLocalAgentProvider: (request) => probeLocalAgentProvider(request as LocalAgentProviderProbeRequest),
   probeProvider: (request) => probeGatewayProvider(request as GatewayProviderProbeRequest),
@@ -476,7 +476,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
     return status;
   },
   stopGateway: () => gatewayService.stop(),
-  stopProfile: async (request) => stopProfileFromCcr(await loadAppConfig(), request as ProfileOpenRequest),
+  stopProfile: async (request) => stopProfileFromLlmr(await loadAppConfig(), request as ProfileOpenRequest),
   testProviderAccountConnector: (request) => testProviderAccountConnector(request as ProviderAccountTestRequest),
   testRouteScript: async (request) => gatewayService.testRouteScript(await loadAppConfig(), request as RouteScriptTestRequest),
   validateRouteScript: (request) => gatewayService.validateRouteScript(request as RouteScriptValidationRequest),
@@ -905,8 +905,8 @@ function assertExportTargetIsNotInternalDataFile(file: string): void {
 function inspectPluginDirectory(directory: string): PluginDirectorySelection {
   const manifest = readFirstJson([
     path.join(directory, "plugin.json"),
-    path.join(directory, "ccr-plugin.json"),
-    path.join(directory, ".ccr-plugin", "plugin.json"),
+    path.join(directory, "llmr-plugin.json"),
+    path.join(directory, ".llmr-plugin", "plugin.json"),
     path.join(directory, ".codex-plugin", "plugin.json")
   ]);
   const packageJsonManifest = readFirstJson([path.join(directory, "package.json")]);
@@ -914,8 +914,8 @@ function inspectPluginDirectory(directory: string): PluginDirectorySelection {
     readString(manifest?.module) ||
     readString(manifest?.main) ||
     readString(manifest?.path) ||
-    readString(readRecord(packageJsonManifest?.ccr)?.module) ||
-    readString(readRecord(packageJsonManifest?.ccrPlugin)?.module) ||
+    readString(readRecord(packageJsonManifest?.llmr)?.module) ||
+    readString(readRecord(packageJsonManifest?.llmrPlugin)?.module) ||
     readString(packageJsonManifest?.main);
   const id =
     pluginIdValue(readString(manifest?.id) || readString(manifest?.key) || readString(packageJsonManifest?.name)) ||
@@ -943,10 +943,10 @@ function readPluginPermissions(
 ): GatewayPluginPermission[] | undefined {
   const values = [
     manifest?.permissions,
-    readRecord(manifest?.ccr)?.permissions,
-    readRecord(manifest?.ccrPlugin)?.permissions,
-    readRecord(packageJsonManifest?.ccr)?.permissions,
-    readRecord(packageJsonManifest?.ccrPlugin)?.permissions
+    readRecord(manifest?.llmr)?.permissions,
+    readRecord(manifest?.llmrPlugin)?.permissions,
+    readRecord(packageJsonManifest?.llmr)?.permissions,
+    readRecord(packageJsonManifest?.llmrPlugin)?.permissions
   ];
   const parsedValues = values.map(parsePluginPermissions).filter((value): value is GatewayPluginPermission[] => Boolean(value));
   return parsedValues.length > 0 ? [...new Set(parsedValues.flat())] : undefined;
@@ -999,14 +999,14 @@ function readPluginSurfaces(
   const values = [
     manifest?.surfaces,
     manifest?.surface,
-    readRecord(manifest?.ccr)?.surfaces,
-    readRecord(manifest?.ccr)?.surface,
-    readRecord(manifest?.ccrPlugin)?.surfaces,
-    readRecord(manifest?.ccrPlugin)?.surface,
-    readRecord(packageJsonManifest?.ccr)?.surfaces,
-    readRecord(packageJsonManifest?.ccr)?.surface,
-    readRecord(packageJsonManifest?.ccrPlugin)?.surfaces,
-    readRecord(packageJsonManifest?.ccrPlugin)?.surface
+    readRecord(manifest?.llmr)?.surfaces,
+    readRecord(manifest?.llmr)?.surface,
+    readRecord(manifest?.llmrPlugin)?.surfaces,
+    readRecord(manifest?.llmrPlugin)?.surface,
+    readRecord(packageJsonManifest?.llmr)?.surfaces,
+    readRecord(packageJsonManifest?.llmr)?.surface,
+    readRecord(packageJsonManifest?.llmrPlugin)?.surfaces,
+    readRecord(packageJsonManifest?.llmrPlugin)?.surface
   ];
   const parsedValues = values.map(parsePluginSurfaces).filter((value): value is PluginDirectorySelection["surfaces"] => Boolean(value));
   return parsedValues.length > 0 ? Object.assign({}, ...parsedValues) as PluginDirectorySelection["surfaces"] : undefined;
@@ -1207,10 +1207,10 @@ function readPluginApps(
 ): GatewayPluginAppConfig[] {
   const values = [
     manifest?.apps,
-    readRecord(manifest?.ccr)?.apps,
-    readRecord(manifest?.ccrPlugin)?.apps,
-    readRecord(packageJsonManifest?.ccr)?.apps,
-    readRecord(packageJsonManifest?.ccrPlugin)?.apps
+    readRecord(manifest?.llmr)?.apps,
+    readRecord(manifest?.llmrPlugin)?.apps,
+    readRecord(packageJsonManifest?.llmr)?.apps,
+    readRecord(packageJsonManifest?.llmrPlugin)?.apps
   ];
   const apps = values.flatMap(parsePluginApps);
   const byId = new Map<string, GatewayPluginAppConfig>();
@@ -1278,10 +1278,10 @@ function readPluginDependencies(
   const values = [
     manifest?.dependencies,
     manifest?.pluginDependencies,
-    readRecord(manifest?.ccr)?.dependencies,
-    readRecord(manifest?.ccrPlugin)?.dependencies,
-    readRecord(packageJsonManifest?.ccr)?.dependencies,
-    readRecord(packageJsonManifest?.ccrPlugin)?.dependencies
+    readRecord(manifest?.llmr)?.dependencies,
+    readRecord(manifest?.llmrPlugin)?.dependencies,
+    readRecord(packageJsonManifest?.llmr)?.dependencies,
+    readRecord(packageJsonManifest?.llmrPlugin)?.dependencies
   ];
   const dependencies = values.flatMap((value) => parsePluginDependencies(value, directory));
   const byId = new Map<string, PluginDependency>();

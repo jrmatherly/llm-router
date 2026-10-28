@@ -670,7 +670,7 @@ class BrowserAutomationMcpService implements BrowserAutomationMcpIntegration {
     if (request.method === "GET" && (path === BROWSER_AUTOMATION_MCP_PATH || path === `${BROWSER_AUTOMATION_MCP_PATH}/`)) {
       sendJson(response, 200, {
         endpoint: BROWSER_AUTOMATION_MCP_PATH,
-        name: "ccr-browser-automation",
+        name: "llmr-browser-automation",
         protocol: "mcp",
         transport: "streamable-http"
       });
@@ -735,7 +735,7 @@ class BrowserAutomationMcpService implements BrowserAutomationMcpIntegration {
             },
             protocolVersion,
             serverInfo: {
-              name: "ccr-browser-automation",
+              name: "llmr-browser-automation",
               title: "LLMR Browser Automation",
               version: "1.0.0"
             }
@@ -2687,7 +2687,7 @@ const snapshotScript = function(options: { limit?: number; maxElements: number; 
   const textLimitInput = options.limit ?? options.maxText ?? 3000;
   const textLimit = Math.max(0, Math.min(20000, Math.floor(textLimitInput)));
   const requestedTextOffset = Math.max(0, Math.floor(options.offset || 0));
-  const refAttribute = "data-ccr-browser-ref";
+  const refAttribute = "data-llmr-browser-ref";
   const elementSelector = [
     "a[href]",
     "button",
@@ -2728,14 +2728,14 @@ const snapshotScript = function(options: { limit?: number; maxElements: number; 
   }
 
   function refFor(el: Element) {
-    const win = window as Window & { __ccrBrowserRefSeq?: number };
+    const win = window as Window & { __llmrBrowserRefSeq?: number };
     const existing = el.getAttribute(refAttribute);
     if (existing) {
       return `[${refAttribute}="${cssEscape(existing)}"]`;
     }
     for (let attempt = 0; attempt < 1000; attempt += 1) {
-      win.__ccrBrowserRefSeq = (win.__ccrBrowserRefSeq || 0) + 1;
-      const nextRef = `ccr-${win.__ccrBrowserRefSeq}`;
+      win.__llmrBrowserRefSeq = (win.__llmrBrowserRefSeq || 0) + 1;
+      const nextRef = `llmr-${win.__llmrBrowserRefSeq}`;
       const selector = `[${refAttribute}="${cssEscape(nextRef)}"]`;
       if (!document.querySelector(selector)) {
         el.setAttribute(refAttribute, nextRef);

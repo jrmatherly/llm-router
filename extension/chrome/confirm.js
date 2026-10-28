@@ -1,12 +1,12 @@
-const root = document.getElementById("ccr-chrome-login-import");
-const button = document.getElementById("ccr-confirm-import");
-const statusElement = document.getElementById("ccr-import-status");
+const root = document.getElementById("llmr-chrome-login-import");
+const button = document.getElementById("llmr-confirm-import");
+const statusElement = document.getElementById("llmr-import-status");
 
 if (root && button && statusElement) {
   const importUrl = location.origin + location.pathname.replace(/\/confirm$/, "");
   button.disabled = false;
   button.textContent = "Confirm and Import";
-  setStatus("CCR Login Import extension is connected. Review the domains, then confirm.");
+  setStatus("LLMR Login Import extension is connected. Review the domains, then confirm.");
 
   button.addEventListener("click", () => {
     void confirmImport(importUrl);
@@ -15,11 +15,11 @@ if (root && button && statusElement) {
 
 async function confirmImport(importUrl) {
   button.disabled = true;
-  setStatus("Importing Chrome cookies and localStorage into CCR...");
+  setStatus("Importing Chrome cookies and localStorage into LLMR...");
   try {
     const response = await chrome.runtime.sendMessage({
       importUrl,
-      type: "ccr-login-import-confirm"
+      type: "llmr-login-import-confirm"
     });
     if (!response?.ok) {
       throw new Error(response?.error || "Chrome login import failed.");

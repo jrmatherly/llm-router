@@ -43,12 +43,12 @@ test("Media tools are a Fusion MCP backend independent from ToolHub", () => {
     tools: []
   }];
 
-  const media = mediaToolsMcpServer(config, { apiKey: "ccr-profile-test" });
+  const media = mediaToolsMcpServer(config, { apiKey: "llmr-profile-test" });
   assert.ok(media);
   assert.equal(media.transport, "stdio");
   assert.equal(media.command, process.execPath);
   assert.ok(media.args[0].endsWith("media-tools-proxy-mcp.js"));
-  assert.equal(media.env.LLMR_MEDIA_MCP_API_KEY, "ccr-profile-test");
+  assert.equal(media.env.LLMR_MEDIA_MCP_API_KEY, "llmr-profile-test");
   assert.equal(media.env.LLMR_MEDIA_MCP_URL, `http://127.0.0.1:${config.gateway.port}${MEDIA_TOOLS_MCP_PATH}`);
   assert.deepEqual(JSON.parse(media.env.LLMR_MEDIA_MCP_TOOLS_JSON).map((tool) => tool.name), [
     "image_generate_profile_one",
@@ -87,7 +87,7 @@ test("Core Gateway registers media tools directly for Fusion models", async () =
   assert.ok(media);
   assert.equal(media.transport, "stdio");
   assert.ok(media.args[0].endsWith("media-tools-proxy-mcp.js"));
-  assert.equal(servers.some((server) => server.name === "ccr-toolhub"), false);
+  assert.equal(servers.some((server) => server.name === "llmr-toolhub"), false);
 });
 
 test("Core Gateway compiles one profile for each configured Fusion media model", async () => {
@@ -136,7 +136,7 @@ test("ToolHub runtime includes the built-in browser automation backend", () => {
 
   const runtime = toolHubMcpRuntimeConfig(config, undefined, {
     resolver: {
-      apiKey: "ccr-profile-test",
+      apiKey: "llmr-profile-test",
       baseUrl: "http://127.0.0.1:3456/v1",
       model: "Provider/model"
     }
@@ -146,7 +146,7 @@ test("ToolHub runtime includes the built-in browser automation backend", () => {
   const servers = JSON.parse(runtime.env.TOOLHUB_MCP_SERVERS_JSON);
   const browserAutomation = servers.find((server) => server.name === BROWSER_AUTOMATION_MCP_SERVER_NAME);
   assert.ok(browserAutomation);
-  assert.equal(browserAutomation.apiKey, "ccr-profile-test");
+  assert.equal(browserAutomation.apiKey, "llmr-profile-test");
   assert.equal(browserAutomation.requestTimeoutMs, BROWSER_AUTOMATION_HANDOFF_TIMEOUT_MS);
   assert.equal(browserAutomation.transport, "streamable-http");
   assert.equal(browserAutomation.url, `http://127.0.0.1:${config.gateway.port}${BROWSER_AUTOMATION_MCP_PATH}`);
@@ -164,7 +164,7 @@ test("ToolHub browser automation backend uses a connectable loopback host", () =
 
   const runtime = toolHubMcpRuntimeConfig(config, undefined, {
     resolver: {
-      apiKey: "ccr-profile-test",
+      apiKey: "llmr-profile-test",
       baseUrl: "http://127.0.0.1:3456/v1",
       model: "Provider/model"
     }

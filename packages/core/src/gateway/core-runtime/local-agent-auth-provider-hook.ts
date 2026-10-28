@@ -7,9 +7,9 @@ import { claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta } from "@llmr/co
 import { isRecord, stringValue } from "@llmr/core/gateway/internal/value";
 import { mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
 
-const liveProviderPluginKeyPrefix = "module:ccr-live-auth:";
+const liveProviderPluginKeyPrefix = "module:llmr-live-auth:";
 const configProviderPluginKeyPrefix = "config:";
-const localAgentProviderPluginKeyPrefix = "ccr-local-agent-";
+const localAgentProviderPluginKeyPrefix = "llmr-local-agent-";
 
 type HeaderRecord = Record<string, string>;
 

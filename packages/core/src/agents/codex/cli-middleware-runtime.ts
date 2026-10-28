@@ -410,7 +410,7 @@ function isExecutableFile(file) {
 function createEphemeralCodexApiKeyBootstrap(runtimeAgent) {
   if (runtimeAgent !== "codex") return () => {};
   const scope = nonEmptyEnv("LLMR_PROFILE_SCOPE");
-  if (scope !== "ccr" && scope !== "custom") return () => {};
+  if (scope !== "llmr" && scope !== "custom") return () => {};
   const authFile = path.join(codexRuntimeHome(), "auth.json");
   if (fs.existsSync(authFile)) return () => {};
   const temporary = authFile + ".tmp-" + process.pid;
@@ -419,7 +419,7 @@ function createEphemeralCodexApiKeyBootstrap(runtimeAgent) {
     fs.mkdirSync(path.dirname(authFile), { recursive: true, mode: 0o700 });
     fs.writeFileSync(temporary, JSON.stringify({
       auth_mode: "apikey",
-      OPENAI_API_KEY: "ccr-local-profile"
+      OPENAI_API_KEY: "llmr-local-profile"
     }, null, 2) + "\n", { mode: 0o600 });
     fs.renameSync(temporary, authFile);
     active = true;
@@ -446,7 +446,7 @@ function createEphemeralCodexApiKeyBootstrap(runtimeAgent) {
         keys[0] === "OPENAI_API_KEY" &&
         keys[1] === "auth_mode" &&
         value.auth_mode === "apikey" &&
-        value.OPENAI_API_KEY === "ccr-local-profile"
+        value.OPENAI_API_KEY === "llmr-local-profile"
       ) {
         fs.unlinkSync(authFile);
         active = false;
@@ -722,7 +722,7 @@ function cliThreadStartParams(params) {
   copyPermissionFields(source, output);
   copyCollaborationModelFields(source, output);
   if (output.threadSource === undefined) output.threadSource = "user";
-  if (output.serviceName === undefined) output.serviceName = "ccr_codex_cli_middleware";
+  if (output.serviceName === undefined) output.serviceName = "llmr_codex_cli_middleware";
   if (output.ephemeral === undefined) output.ephemeral = false;
   if (output.personality === undefined) output.personality = "pragmatic";
   return output;
@@ -2637,8 +2637,8 @@ class ClaudeCodeAppServer {
         writeResponse(id, {
           protocolVersion: String(params.protocolVersion || PROTOCOL_VERSION),
           capabilities: { experimentalApi: true },
-          serverInfo: { name: "ccr-claude-code-app-server", version: VERSION },
-          userAgent: "ccr-claude-code-app-server/" + VERSION,
+          serverInfo: { name: "llmr-claude-code-app-server", version: VERSION },
+          userAgent: "llmr-claude-code-app-server/" + VERSION,
           codexHome: codexRuntimeHome(),
           platformFamily: process.platform === "win32" ? "windows" : "unix",
           platformOs: process.platform
@@ -2894,7 +2894,7 @@ class ClaudeCodeAppServer {
     this.expireIdleBotSession(key, bridge.config.sessionIdleMinutes);
     const thread = this.botThreadForEvent(event, text);
     const entry = this.loadBotSessionStore().conversations[key];
-    let input = await botInputForEvent(event, text, bridge.config, thread.claudeAppSessionFile ? path.join(path.dirname(thread.claudeAppSessionFile), thread.claudeAppSessionId || "", "uploads") : path.join(thread.cwd, ".ccr-bot-uploads"));
+    let input = await botInputForEvent(event, text, bridge.config, thread.claudeAppSessionFile ? path.join(path.dirname(thread.claudeAppSessionFile), thread.claudeAppSessionId || "", "uploads") : path.join(thread.cwd, ".llmr-bot-uploads"));
     if (entry && Array.isArray(entry.memory) && entry.memory.length) {
       input = [{ type: "text", text: "Persistent session context:\n" + entry.memory.map((item) => "- " + item).join("\n") }, ...input];
     }
@@ -4761,17 +4761,17 @@ function virtualChatGptAuth(workspaceName) {
   const claims = {
     exp: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60,
     "https://api.openai.com/auth": {
-      chatgpt_account_id: "ccr-virtual-account",
-      chatgpt_user_id: "ccr-virtual-user",
-      user_id: "ccr-virtual-user",
+      chatgpt_account_id: "llmr-virtual-account",
+      chatgpt_user_id: "llmr-virtual-user",
+      user_id: "llmr-virtual-user",
       chatgpt_plan_type: "plus"
     },
     "https://api.openai.com/profile": { email: workspaceName || "codex" }
   };
   return {
-    authToken: encode({ alg: "none", typ: "JWT" }) + "." + encode(claims) + ".ccr-virtual",
-    accountId: "ccr-virtual-account",
-    userId: "ccr-virtual-user",
+    authToken: encode({ alg: "none", typ: "JWT" }) + "." + encode(claims) + ".llmr-virtual",
+    accountId: "llmr-virtual-account",
+    userId: "llmr-virtual-user",
     email: "",
     planType: "plus",
     workspaceName
@@ -4910,7 +4910,7 @@ function mockAccountRead() {
 
 function mockAuthStatus(includeToken) {
   const result = { authMethod: "amazonBedrock", authToken: null, requiresOpenaiAuth: false };
-  if (includeToken) result.authToken = "ccr-local-profile";
+  if (includeToken) result.authToken = "llmr-local-profile";
   return result;
 }
 
@@ -5046,7 +5046,7 @@ class RemoteSyncClient {
     this.pollTimer = null;
     this.ready = null;
     this.seenInbound = new Set();
-    this.sessionId = nonEmptyEnv("LLMR_REMOTE_SYNC_SESSION_ID") || "ccr-" + safePathSegment(options.profileId || options.profileName || options.mode) + "-" + uuid();
+    this.sessionId = nonEmptyEnv("LLMR_REMOTE_SYNC_SESSION_ID") || "llmr-" + safePathSegment(options.profileId || options.profileName || options.mode) + "-" + uuid();
   }
 
   start(onInbound) {
@@ -5098,7 +5098,7 @@ class RemoteSyncClient {
         return this.request("POST", "/sessions/" + encodeURIComponent(this.sessionId) + "/events", {
           direction: eventOptions.direction || "local",
           payload: payload || {},
-          source: "ccr-claude-wrapper",
+          source: "llmr-claude-wrapper",
           text: eventOptions.text,
           type
         });
@@ -5267,7 +5267,7 @@ function readBotGatewayBridgeConfig() {
     platform,
     pollIntervalMs: numberEnv("LLMR_BOT_GATEWAY_POLL_INTERVAL_MS", 2000),
     profileId: nonEmptyEnv("LLMR_BOT_PROFILE_ID") || agentEnv(codexRuntimeAgent(), "PROFILE") || "default",
-    profileName: nonEmptyEnv("LLMR_BOT_PROFILE_NAME") || agentEnv(codexRuntimeAgent(), "WORKSPACE_NAME") || "CCR",
+    profileName: nonEmptyEnv("LLMR_BOT_PROFILE_NAME") || agentEnv(codexRuntimeAgent(), "WORKSPACE_NAME") || "LLMR",
     requestTimeoutMs: numberEnv("LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS", 600000),
     sessionIdleMinutes: numberEnv("LLMR_BOT_GATEWAY_SESSION_IDLE_MINUTES", 0),
     shellEnabled: boolEnv("LLMR_BOT_GATEWAY_SHELL_ENABLED"),
@@ -5275,7 +5275,7 @@ function readBotGatewayBridgeConfig() {
     startupTimeoutMs: numberEnv("LLMR_BOT_GATEWAY_STARTUP_TIMEOUT_MS", 10000),
     stateDir: nonEmptyEnv("LLMR_BOT_GATEWAY_STATE_DIR") || nonEmptyEnv("CODEXL_BOT_GATEWAY_STATE_DIR") || nonEmptyEnv("BOT_GATEWAY_STATE_DIR") || "",
     streamReplies: boolEnv("LLMR_BOT_GATEWAY_STREAM_REPLIES"),
-    tenantId: nonEmptyEnv("LLMR_BOT_GATEWAY_TENANT_ID") || nonEmptyEnv("CODEXL_BOT_GATEWAY_TENANT_ID") || "ccr"
+    tenantId: nonEmptyEnv("LLMR_BOT_GATEWAY_TENANT_ID") || nonEmptyEnv("CODEXL_BOT_GATEWAY_TENANT_ID") || "llmr"
   };
 }
 
@@ -5626,7 +5626,7 @@ class BotGatewayBridge {
 
   outboundForEvent(event, conversationRef, intent, key) {
     return {
-      tenantId: eventString(event, "tenantId") || this.config.tenantId || "ccr",
+      tenantId: eventString(event, "tenantId") || this.config.tenantId || "llmr",
       integrationId: eventString(event, "integrationId") || this.config.integrationId,
       conversationRef,
       intent,
@@ -5690,7 +5690,7 @@ class BotGatewayBridge {
   }
 
   resolveTenantId() {
-    return eventString(this.latestEvent, "tenantId") || this.config.tenantId || "ccr";
+    return eventString(this.latestEvent, "tenantId") || this.config.tenantId || "llmr";
   }
 
   resolveIntegrationId() {
@@ -6494,7 +6494,7 @@ function createClaudeAppLocalAgentSession(text, projectDirectory) {
   const metadata = {
     ...claudeAppSessionTemplateFields(template && template.metadata),
     sessionId,
-    processName: "ccr-bot-" + sessionId.slice(6, 14),
+    processName: "llmr-bot-" + sessionId.slice(6, 14),
     cliSessionId: "",
     cwd,
     userSelectedFolders: [cwd],
@@ -6503,7 +6503,7 @@ function createClaudeAppLocalAgentSession(text, projectDirectory) {
     model: nonEmptyEnv("LLMR_CLAUDE_CODE_MODEL") || nonEmptyEnv("CODEXL_CLAUDE_CODE_MODEL") || agentEnv(codexRuntimeAgent(), "MODEL") || DEFAULT_MODEL,
     isArchived: false,
     title,
-    vmProcessName: "ccr-bot-" + sessionId.slice(6, 14),
+    vmProcessName: "llmr-bot-" + sessionId.slice(6, 14),
     hostLoopMode: true,
     initialMessage: text
   };
@@ -6515,7 +6515,7 @@ function createClaudeAppLocalAgentSession(text, projectDirectory) {
 function defaultClaudeAppLocalAgentParentDir(root) {
   const config = readJsonFile(path.join(nonEmptyEnv("CLAUDE_CONFIG_DIR") || path.join(os.homedir(), ".claude"), ".claude.json")) || {};
   const account = config.oauthAccount && typeof config.oauthAccount === "object" ? config.oauthAccount : {};
-  const accountPrefix = uuidPrefix(stringValue(account.accountUuid)) || "ccr";
+  const accountPrefix = uuidPrefix(stringValue(account.accountUuid)) || "llmr";
   const orgPrefix = uuidPrefix(stringValue(account.organizationUuid)) || "00000000";
   return path.join(root, accountPrefix, orgPrefix);
 }
@@ -7258,7 +7258,7 @@ function codexRuntimeRealCli(agent) {
 
 function codexCliPathIsMiddleware(value) {
   const name = path.basename(String(value || "")).toLowerCase().replace(/\.cmd$/i, "");
-  return name === "ccr-codex-cli-middleware.js" || name.startsWith("ccr-codex-cli-stdio-");
+  return name === "llmr-codex-cli-middleware.js" || name.startsWith("llmr-codex-cli-stdio-");
 }
 
 function codexRuntimeHome() {

@@ -105,7 +105,7 @@ export function bearerAuthPlugin(
       removeHeaders: ["x-api-key"],
       strict: true
     },
-    key: `ccr-local-agent-${providerNameSlugPlaceholder}-${suffix}`,
+    key: `llmr-local-agent-${providerNameSlugPlaceholder}-${suffix}`,
     providerName
   };
 }
@@ -123,7 +123,7 @@ export function apiKeyAuthPlugin(
       removeHeaders: ["authorization"],
       strict: true
     },
-    key: `ccr-local-agent-${providerNameSlugPlaceholder}-${suffix}`,
+    key: `llmr-local-agent-${providerNameSlugPlaceholder}-${suffix}`,
     providerName
   };
 }

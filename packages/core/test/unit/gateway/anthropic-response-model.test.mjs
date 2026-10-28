@@ -83,7 +83,7 @@ test("gateway pipeline returns the Claude Code visible model when upstream respo
 });
 
 test("gateway pipeline preserves Claude Code hex model id in Anthropic SSE response", async () => {
-  const encodedModel = `anthropic/claude-ccr-h${Buffer.from("kimi-test/k3", "utf8").toString("hex")}`;
+  const encodedModel = `anthropic/claude-llmr-h${Buffer.from("kimi-test/k3", "utf8").toString("hex")}`;
   const result = await runAnthropicPipelineModelRewrite(encodedModel);
 
   assert.equal(result.upstreamBody?.model, "k3");

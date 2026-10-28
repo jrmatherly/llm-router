@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { kept, renameText, residue } from "../../scripts/llmr-rename.mjs";
+import { candidateFiles, classes, kept, renameText, residue } from "../../scripts/llmr-rename.mjs";
 
 test("each case form of ccr maps to the same case form of llmr", () => {
   assert.equal(renameText("ccrPlugin CcrApi CCR_HOME \"CCR app\"", ["rest"]), "llmrPlugin LlmrApi LLMR_HOME \"LLMR app\"");
@@ -68,4 +68,9 @@ test("every kept entry still matches text in the repo, so a reformat cannot sile
       : spawnSync("git", ["grep", "-qF", entry.text]).status === 0;
     assert.ok(found, `kept text not found: ${entry.text}`);
   }
+});
+
+test("no ccr identifier remains outside the kept list", () => {
+  const lines = candidateFiles().flatMap((file) => residue(readFileSync(file, "utf8"), Object.keys(classes), file));
+  assert.deepEqual(lines, []);
 });

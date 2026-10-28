@@ -63,7 +63,7 @@ test("browser account fetch handler uses built-in browser partition and sanitize
     WebContentsView: FakeWebContentsView,
     session: {
       fromPartition(partition: string) {
-        assert.equal(partition, "persist:ccr-built-in-browser");
+        assert.equal(partition, "persist:llmr-built-in-browser");
         return {};
       }
     }
@@ -92,7 +92,7 @@ test("browser account fetch handler uses built-in browser partition and sanitize
   assert.equal(loadedUrl, "https://vendor.example.com");
   assert.equal(closed, true);
   assert.equal(browserWindowOptions.show, false);
-  assert.equal(viewOptions.webPreferences.partition, "persist:ccr-built-in-browser");
+  assert.equal(viewOptions.webPreferences.partition, "persist:llmr-built-in-browser");
   assert.equal(scriptRequest.credentials, "omit");
   assert.equal(scriptRequest.endpoint, "https://vendor.example.com/api/account");
   assert.equal(scriptRequest.headerTemplates.authorization, "Bearer ${localStorage.accessToken}");

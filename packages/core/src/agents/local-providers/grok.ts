@@ -332,7 +332,7 @@ function readGrokAuthRecords(sourceFile: string): GrokTokenSet[] {
     record,
     ...Object.entries(record)
       .filter((entry): entry is [string, Record<string, unknown>] => isRecord(entry[1]))
-      .map(([key, value]) => ({ ...value, __ccr_auth_record_key: key }))
+      .map(([key, value]) => ({ ...value, __llmr_auth_record_key: key }))
   ]
     .map((item) => grokAuthFromRecord(item, sourceFile))
     .filter((item): item is GrokTokenSet => Boolean(item));
@@ -354,7 +354,7 @@ function grokAuthFromRecord(record: Record<string, unknown>, sourceFile: string)
   }
   return {
     accessToken,
-    authRecordKey: readString(record.__ccr_auth_record_key),
+    authRecordKey: readString(record.__llmr_auth_record_key),
     expiresAt: readString(record.expires_at) || readString(record.expiresAt),
     oidcClientId: readString(record.oidc_client_id) || readString(record.oidcClientId) || readString(process.env.GROK_OIDC_CLIENT_ID),
     oidcIssuer: readString(record.oidc_issuer) || readString(record.oidcIssuer) || readString(process.env.GROK_OIDC_ISSUER),
@@ -873,7 +873,7 @@ function persistRefreshedGrokAuth(auth: GrokTokenSet): void {
     }
     writeFileSync(auth.sourceFile, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
   } catch {
-    // Best effort. The refreshed token is still used for this CCR run.
+    // Best effort. The refreshed token is still used for this LLMR run.
   }
 }
 

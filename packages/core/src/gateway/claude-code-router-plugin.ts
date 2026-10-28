@@ -786,33 +786,33 @@ function builtInAgentUserAgentNeedle(agent: RouterBuiltInAgentRuleId): string {
   return agent === "claude-code" ? "claude" : "codex";
 }
 
-const ccrSubagentModelOpenTag = "<CCR-SUBAGENT-MODEL>";
-const ccrSubagentModelCloseTag = "</CCR-SUBAGENT-MODEL>";
-const ccrSubagentModelTagExample = `${ccrSubagentModelOpenTag}Provider/model${ccrSubagentModelCloseTag}`;
-const ccrSubagentModelPlaceholder = "provider/model";
+const llmrSubagentModelOpenTag = "<LLMR-SUBAGENT-MODEL>";
+const llmrSubagentModelCloseTag = "</LLMR-SUBAGENT-MODEL>";
+const llmrSubagentModelTagExample = `${llmrSubagentModelOpenTag}Provider/model${llmrSubagentModelCloseTag}`;
+const llmrSubagentModelPlaceholder = "provider/model";
 const claudeCodeBillingSystemHeaderPrefix = "x-anthropic-billing-header";
 const claudeCodeSubagentModelEnv = "CLAUDE_CODE_SUBAGENT_MODEL";
-const ccrSubagentToolModelInstruction =
+const llmrSubagentToolModelInstruction =
   `LLMR subagent routing is enabled. When calling this tool, the prompt parameter MUST start with ` +
-  `${ccrSubagentModelTagExample} on its own first line, replacing Provider/model with the best client model ID from the list below. ` +
+  `${llmrSubagentModelTagExample} on its own first line, replacing Provider/model with the best client model ID from the list below. ` +
   `When the tool model field accepts exact strings, set it to the same client model ID so the client initializes the child with the correct model limits. ` +
   `LLMR consumes the tag, removes it from the prompt, and routes the spawned agent request to that model. ` +
   `If the model field only permits built-in aliases, leave it unset and use the tag as the routing fallback. ` +
   `Do not omit the tag or put it in description or subagent_type.`;
-const ccrWorkflowSubagentModelInstruction =
+const llmrWorkflowSubagentModelInstruction =
   `LLMR workflow subagent routing is enabled. When this workflow creates Agent/Task subagents, each spawned agent prompt MUST start with ` +
-  `${ccrSubagentModelTagExample} on its own first line, replacing Provider/model with the best client model ID from the list below. ` +
+  `${llmrSubagentModelTagExample} on its own first line, replacing Provider/model with the best client model ID from the list below. ` +
   `Set each spawned agent's model option to that same client model ID when the agent API accepts exact strings. ` +
   `Put the tag inside the Agent/Task prompt created by the workflow, not in the workflow description or subagent_type. ` +
   `LLMR consumes the tag from the spawned agent request, removes it, and routes that request to the selected model.`;
-const ccrSubagentPromptFieldInstruction =
-  `LLMR subagent routing is enabled. This prompt string MUST start with ${ccrSubagentModelTagExample} on its own first line, ` +
+const llmrSubagentPromptFieldInstruction =
+  `LLMR subagent routing is enabled. This prompt string MUST start with ${llmrSubagentModelTagExample} on its own first line, ` +
   `with Provider/model replaced by one client model ID from the list below. When the adjacent model field accepts exact strings, use the same client model ID there. ` +
   `Put the subagent task after that line; LLMR removes the tag before the subagent runs.`;
 type ClaudeCodeSubagentToolKind = "subagent" | "workflow";
 const claudeCodeAgentToolNames = new Set(["agent", "task"]);
 const claudeCodeWorkflowToolNames = new Set(["workflow"]);
-const ccrToolHubSystemInstructionMarker = "LLMR ToolHub tool resolution is enabled.";
+const llmrToolHubSystemInstructionMarker = "LLMR ToolHub tool resolution is enabled.";
 
 function claudeCodeToolName(tool: Record<string, unknown>): string | undefined {
   const functionSpec = isRecord(tool.function) ? tool.function : undefined;
@@ -833,7 +833,7 @@ function injectClaudeCodeToolHubInstructions(body: Record<string, unknown>, conf
   }
   const invokeName = toolNames.invoke ?? "tool_hub.invoke";
   appendSystemInstruction(body, [
-    ccrToolHubSystemInstructionMarker,
+    llmrToolHubSystemInstructionMarker,
     `The ToolHub search/resolution tool is ${toolNames.resolve}; call this actual tool, do not merely mention its name in text.`,
     `You MUST call the ToolHub search/resolution tool ${toolNames.resolve} before answering any request that asks about external services, installed MCP capabilities, business APIs, orders, coupons, stores, accounts, available tools, or capabilities that are not already obvious from the eager tools.`,
     `Do this even if the user did not mention ToolHub or ${toolNames.resolve}. Only skip the ToolHub search/resolution tool when the request is clearly local code/file/shell work or simple conversation that does not need an external or MCP capability.`,
@@ -873,7 +873,7 @@ function shouldUseClaudeCodeToolHubName(current: string | undefined, candidate: 
 
 function claudeCodeToolHubNameScore(name: string): number {
   const normalized = name.toLowerCase();
-  if (normalized.startsWith("mcp__ccr-toolhub__") || normalized.startsWith("mcp__ccr_toolhub__")) {
+  if (normalized.startsWith("mcp__llmr-toolhub__") || normalized.startsWith("mcp__llmr_toolhub__")) {
     return 3;
   }
   if (normalized.startsWith("mcp__") && normalized.includes("toolhub")) {
@@ -886,7 +886,7 @@ function claudeCodeToolHubNameScore(name: string): number {
 }
 
 function appendSystemInstruction(body: Record<string, unknown>, instruction: string): void {
-  if (systemContainsInstruction(body.system, ccrToolHubSystemInstructionMarker)) {
+  if (systemContainsInstruction(body.system, llmrToolHubSystemInstructionMarker)) {
     return;
   }
   if (typeof body.system === "string") {
@@ -980,7 +980,7 @@ function appendPromptSchemaDescriptionInstruction(tool: Record<string, unknown>,
 
 function appendDescriptionInstruction(description: string | undefined, instruction: string): string {
   const existing = description?.trim() ?? "";
-  if (existing.includes(ccrSubagentModelOpenTag)) {
+  if (existing.includes(llmrSubagentModelOpenTag)) {
     return existing;
   }
   return existing ? `${existing}\n\n${instruction}` : instruction;
@@ -997,17 +997,17 @@ function claudeCodeAgentToolInstructions(config: AppConfig, profile?: ProfileCon
   ].join("\n");
   return {
     prompt: [
-      ccrSubagentPromptFieldInstruction,
+      llmrSubagentPromptFieldInstruction,
       "",
       modelList
     ].join("\n"),
     tool: [
-      ccrSubagentToolModelInstruction,
+      llmrSubagentToolModelInstruction,
       "",
       modelList
     ].join("\n"),
     workflow: [
-      ccrWorkflowSubagentModelInstruction,
+      llmrWorkflowSubagentModelInstruction,
       "",
       modelList
     ].join("\n")
@@ -1228,12 +1228,12 @@ function extractAndRemoveSubagentModelTagFromText(
   text: string,
   replace: (text: string) => void
 ): string | undefined {
-  const openIndex = text.indexOf(ccrSubagentModelOpenTag);
+  const openIndex = text.indexOf(llmrSubagentModelOpenTag);
   if (openIndex < 0) {
     return undefined;
   }
-  const modelStart = openIndex + ccrSubagentModelOpenTag.length;
-  const closeIndex = text.indexOf(ccrSubagentModelCloseTag, modelStart);
+  const modelStart = openIndex + llmrSubagentModelOpenTag.length;
+  const closeIndex = text.indexOf(llmrSubagentModelCloseTag, modelStart);
   if (closeIndex < 0) {
     return undefined;
   }
@@ -1241,7 +1241,7 @@ function extractAndRemoveSubagentModelTagFromText(
   if (!model) {
     return undefined;
   }
-  const nextText = `${text.slice(0, openIndex)}${text.slice(closeIndex + ccrSubagentModelCloseTag.length)}`;
+  const nextText = `${text.slice(0, openIndex)}${text.slice(closeIndex + llmrSubagentModelCloseTag.length)}`;
   replace(nextText);
   return model;
 }
@@ -1662,7 +1662,7 @@ function routerRuleReason(
 }
 
 function isSubagentModelPlaceholder(model: string): boolean {
-  return model.trim().toLowerCase() === ccrSubagentModelPlaceholder;
+  return model.trim().toLowerCase() === llmrSubagentModelPlaceholder;
 }
 
 function resolveSessionId(body: Record<string, unknown>, headers: Record<string, HeaderValue>): string | undefined {

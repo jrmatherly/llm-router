@@ -23,7 +23,7 @@ Telegram is for individuals or small teams who want agent messages fast. It has 
 2. Search `@BotFather` and confirm the username matches exactly (the official bot).
 3. In the chat, send `/newbot`.
 4. Enter a display name when prompted, e.g. `LLMR Assistant`.
-5. Enter a username — it must end in `bot`, e.g. `ccr_demo_bot`.
+5. Enter a username — it must end in `bot`, e.g. `llmr_demo_bot`.
 6. On success, `@BotFather` returns an HTTP API token.
 7. Copy it for LLMR's Bot Token.
 

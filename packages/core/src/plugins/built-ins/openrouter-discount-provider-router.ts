@@ -1068,12 +1068,12 @@ export function finalizeOpenRouterDiscountProviderRouterSelection(
   input: {
     ok: boolean;
     routedModel?: string;
-    usedCcrFallback?: boolean;
+    usedLlmrFallback?: boolean;
   }
 ): void {
   const pending = pendingSelections.get(requestId);
   pendingSelections.delete(requestId);
-  if (!pending || !input.ok || input.usedCcrFallback || pending.allowFallbacks) {
+  if (!pending || !input.ok || input.usedLlmrFallback || pending.allowFallbacks) {
     return;
   }
   if (input.routedModel && !selectorMatchesOpenRouterModel(input.routedModel, pending.model)) {

@@ -3,8 +3,8 @@ import test from "node:test";
 import { buildClaudeAppGatewayModelRoutes } from "@llmr/core/agents/claude-app/gateway-routes.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import {
-  ccrRoutedModelHeader,
-  ccrRouterRouteResolverKey
+  llmrRoutedModelHeader,
+  llmrRouterRouteResolverKey
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
 import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/router-plugin.ts";
 import { prepareClaudeAppDiscoveredModelRequest } from "@llmr/core/gateway/features/model-discovery.ts";
@@ -630,7 +630,7 @@ test("model-chain fallback refreshes the routed model before core gateway resolu
     retryCount: 0
   };
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config } } });
-  const resolver = plugin.routeResolvers.find((item) => item.key === ccrRouterRouteResolverKey);
+  const resolver = plugin.routeResolvers.find((item) => item.key === llmrRouterRouteResolverKey);
   assert.ok(resolver);
 
   const resolvedAttempts = [];
@@ -651,7 +651,7 @@ test("model-chain fallback refreshes the routed model before core gateway resolu
       }
     });
     resolvedAttempts.push({
-      headerModel: init.headers[ccrRoutedModelHeader],
+      headerModel: init.headers[llmrRoutedModelHeader],
       model: resolved?.model,
       provider: resolved?.targetProviderName
     });
@@ -674,7 +674,7 @@ test("model-chain fallback refreshes the routed model before core gateway resolu
       coreAuthToken: "core-token",
       fallback,
       headers: {
-        [ccrRoutedModelHeader]: "Primary/k3"
+        [llmrRoutedModelHeader]: "Primary/k3"
       },
       method: "POST",
       path: "/v1/chat/completions",

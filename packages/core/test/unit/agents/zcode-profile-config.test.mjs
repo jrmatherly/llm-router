@@ -54,12 +54,12 @@ function testProfile(root) {
 }
 
 test("ZCode profile config writes resolved model limits instead of fixed defaults", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-zcode-profile-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-zcode-profile-"));
   try {
     const result = writeZcodeGatewayConfig(
       testConfig(root),
       testProfile(root),
-      "ccr-profile-key",
+      "llmr-profile-key",
       { backup: false }
     );
     const cliConfig = JSON.parse(readFileSync(result.file, "utf8"));
@@ -90,7 +90,7 @@ test("ZCode profile config writes resolved model limits instead of fixed default
 });
 
 test("ZCode model catalog resolves physical models for materialized Fusion selectors", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-zcode-catalog-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-zcode-catalog-"));
   try {
     const config = testConfig(root);
     config.Providers.push({

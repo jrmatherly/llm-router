@@ -56,8 +56,8 @@ export type BrowserAutomationEventListener = (event: BrowserAutomationEvent) => 
 const browserChromeBaseHeight = 82;
 const browserHandoffToolbarHeight = 44;
 const browserHomeUrl = "about:blank";
-const browserPartition = "persist:ccr-built-in-browser";
-const browserAutomationWindowId = "ccr-built-in-browser";
+const browserPartition = "persist:llmr-built-in-browser";
+const browserAutomationWindowId = "llmr-built-in-browser";
 const maxAutomationEventHistory = 512;
 const maxAutomationEventAgeMs = 60_000;
 const titleBarHeight = 46;

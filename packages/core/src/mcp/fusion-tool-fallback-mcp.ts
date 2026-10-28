@@ -113,7 +113,7 @@ async function handleJsonRpcRequest(payload: unknown): Promise<JsonRpcResponse |
           },
           protocolVersion,
           serverInfo: {
-            name: "ccr-fusion-tool-fallback",
+            name: "llmr-fusion-tool-fallback",
             title: "LLMR Fusion Tool Fallback",
             version: "1.0.0"
           }

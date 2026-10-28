@@ -99,13 +99,13 @@ type BrowserSearchQueueEntry = {
   resolve: () => void;
 };
 
-const ownerId = "ccr-browser-web-search-mcp";
+const ownerId = "llmr-browser-web-search-mcp";
 const protocolVersion = "2024-11-05";
 const maxMcpRequestBytes = 2 * 1024 * 1024;
 const defaultResultCount = 5;
 const defaultTimeoutMs = 30_000;
 const maxSearchResultCount = 20;
-const searchPartition = "persist:ccr-browser-web-search-mcp";
+const searchPartition = "persist:llmr-browser-web-search-mcp";
 const defaultEngine: BrowserSearchEngine = "bing";
 const desktopUserAgent =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -290,7 +290,7 @@ class BrowserWebSearchToolServer {
             },
             protocolVersion,
             serverInfo: {
-              name: "ccr-browser-web-search",
+              name: "llmr-browser-web-search",
               title: "LLMR In-app Browser Web Search",
               version: "1.0.0"
             }

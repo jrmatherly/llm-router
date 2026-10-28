@@ -112,7 +112,7 @@ const featuredNavLabel = "Primary navigation";
     <link rel="sitemap" href={sitemapUrl} />
     <script is:inline>
       (() => {
-        const storageKey = "ccr-docs-theme";
+        const storageKey = "llmr-docs-theme";
 
         try {
           const storedTheme = localStorage.getItem(storageKey);
@@ -436,7 +436,7 @@ const featuredNavLabel = "Primary navigation";
     </script>
     <script define:vars={{ searchNoResults, searchIndexUrl, searchLoadingLabel: ui.searchLoading }}>
       const themeToggle = document.querySelector("[data-theme-toggle]");
-      const themeStorageKey = "ccr-docs-theme";
+      const themeStorageKey = "llmr-docs-theme";
       const themeMediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
       const getStoredTheme = () => {

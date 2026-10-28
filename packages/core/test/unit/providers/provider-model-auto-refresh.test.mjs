@@ -56,7 +56,7 @@ function testConfig(overrides = {}) {
           id: "work",
           model: "Provider/alpha",
           name: "Work",
-          scope: "ccr",
+          scope: "llmr",
           surface: "cli"
         },
         {
@@ -66,7 +66,7 @@ function testConfig(overrides = {}) {
           id: "other",
           model: "Other/omega",
           name: "Other Work",
-          scope: "ccr",
+          scope: "llmr",
           surface: "cli"
         },
         {
@@ -75,7 +75,7 @@ function testConfig(overrides = {}) {
           id: "all",
           model: "Provider/alpha",
           name: "All Models",
-          scope: "ccr",
+          scope: "llmr",
           surface: "cli"
         }
       ]
@@ -281,9 +281,9 @@ test("auto model refresh does not save stale results after the switch is disable
 });
 
 test("auto model refresh uses Codex local model catalog during hot apply", async (t) => {
-  const previousCcrHome = process.env.LLMR_INTERNAL_HOME_DIR;
+  const previousLlmrHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const previousHome = process.env.HOME;
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-codex-local-catalog-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-local-catalog-"));
   mkdirSync(path.join(home, ".codex"), { recursive: true });
   writeFileSync(path.join(home, ".codex", "models_cache.json"), JSON.stringify({
     models: [
@@ -300,10 +300,10 @@ test("auto model refresh uses Codex local model catalog during hot apply", async
   process.env.LLMR_INTERNAL_HOME_DIR = home;
   process.env.HOME = home;
   t.after(() => {
-    if (previousCcrHome === undefined) {
+    if (previousLlmrHome === undefined) {
       delete process.env.LLMR_INTERNAL_HOME_DIR;
     } else {
-      process.env.LLMR_INTERNAL_HOME_DIR = previousCcrHome;
+      process.env.LLMR_INTERNAL_HOME_DIR = previousLlmrHome;
     }
     if (previousHome === undefined) {
       delete process.env.HOME;
@@ -336,7 +336,7 @@ test("auto model refresh uses Codex local model catalog during hot apply", async
           id: "codex-work",
           model: "Codex API/gpt-5-codex",
           name: "Codex Work",
-          scope: "ccr",
+          scope: "llmr",
           surface: "cli"
         }
       ]
@@ -437,11 +437,11 @@ test("auto model refresh uses enabled local provider plugins including protocol-
     providerPlugins: [
       {
         enabled: false,
-        key: "ccr-local-agent-provider-disabled",
+        key: "llmr-local-agent-provider-disabled",
         providerName: "Provider"
       },
       {
-        key: "ccr-local-agent-provider-internal",
+        key: "llmr-local-agent-provider-internal",
         providerName: "provider::openai_chat_completions"
       },
       {
@@ -464,7 +464,7 @@ test("auto model refresh uses enabled local provider plugins including protocol-
     }
   });
 
-  assert.deepEqual(pluginKeys, ["ccr-local-agent-provider-internal"]);
+  assert.deepEqual(pluginKeys, ["llmr-local-agent-provider-internal"]);
 });
 
 test("auto model refresh enabled check ignores disabled providers", () => {

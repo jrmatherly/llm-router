@@ -4,7 +4,7 @@
 import type { IncomingHttpHeaders, IncomingMessage, Server, ServerResponse } from "node:http";
 import { homedir } from "node:os";
 import type { ApiKeyConfig } from "@llmr/core/contracts/app";
-import { ccrRemoteControlPathPrefix } from "@llmr/core/gateway/remote-control-service";
+import { llmrRemoteControlPathPrefix } from "@llmr/core/gateway/remote-control-service";
 import { coreGatewayAuthHeader, localObservabilityHeaderNames, proxyHeaderDenyList, responseHeaderDenyList, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
 
 
@@ -73,7 +73,7 @@ export function readAuthToken(headers: IncomingHttpHeaders): string | undefined 
 
 export function readRemoteControlQueryAuthToken(request: IncomingMessage): string | undefined {
   const url = new URL(request.url || "/", "http://127.0.0.1");
-  if (url.pathname !== ccrRemoteControlPathPrefix && !url.pathname.startsWith(`${ccrRemoteControlPathPrefix}/`)) {
+  if (url.pathname !== llmrRemoteControlPathPrefix && !url.pathname.startsWith(`${llmrRemoteControlPathPrefix}/`)) {
     return undefined;
   }
   return url.searchParams.get("api_key")?.trim() || url.searchParams.get("key")?.trim() || undefined;

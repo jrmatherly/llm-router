@@ -95,7 +95,7 @@ test("OpenCode local provider imports Zen models using each model's native proto
     assert.equal(result.provider.account, undefined);
     assert.equal(result.providerPlugins.length, 2);
     assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer opencode-zen-key");
-    assert.equal(result.providerPlugins[0].key, "ccr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-opencode-openai-responses-api-key");
+    assert.equal(result.providerPlugins[0].key, "llmr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-opencode-openai-responses-api-key");
     assert.equal(result.providerPlugins[1].providerName, "__LLMR_PROVIDER_INTERNAL_NAME__");
 
     const anthropicResult = importOpenCodeProvider(anthropic, []);
@@ -547,8 +547,8 @@ function assertPublicFreeTierPlugins(providerPlugins) {
   assert.deepEqual(
     providerPlugins.map((plugin) => plugin.key),
     [
-      "ccr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-opencode-public-freetier",
-      "ccr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-opencode-public-freetier-internal"
+      "llmr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-opencode-public-freetier",
+      "llmr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-opencode-public-freetier-internal"
     ]
   );
   assert.deepEqual(
@@ -569,7 +569,7 @@ async function withOpenCodeHome(run) {
     "OPENCODE_CONFIG_CONTENT"
   ];
   const previousEnvironment = Object.fromEntries(environmentNames.map((name) => [name, process.env[name]]));
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-test-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-test-"));
   process.env.LLMR_INTERNAL_HOME_DIR = home;
   for (const name of environmentNames.slice(1)) {
     delete process.env[name];

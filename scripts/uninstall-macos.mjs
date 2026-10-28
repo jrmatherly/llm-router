@@ -10,7 +10,7 @@ const legacy = { appBundles: ["Claude Code Router.app"], dataDirs: [".claude-cod
 // Where global profiles write. shortcut: OpenCode and Kilo honor XDG_CONFIG_HOME, which this ignores; read it if someone sets one on a Mac.
 const agentDirs = [".claude", ".codex", ".config/kilo", ".config/opencode", ".pi/agent", ".workbuddy", ".zcode", ".zcode/cli", ".zcode/v2"];
 // .llm-router inside an agent home holds the app user data LLMR launches Codex, Workbuddy and ZCode with.
-export const agentLeftover = /\.ccr-backup-|\.ccr-original(-missing)?$|^ccr-.*model-catalog\.json$|^(claude-code-router|llm-router)\.config\.toml$|^\.llm-router$/;
+export const agentLeftover = /\.(?:ccr|llmr)-backup-|\.(?:ccr|llmr)-original(-missing)?$|^(?:ccr|llmr)-.*model-catalog\.json$|^(claude-code-router|llm-router)\.config\.toml$|^\.llm-router$/;
 const managedConfigs = [
   ".claude/settings.json",
   ".codex/config.toml",

@@ -7,7 +7,7 @@ lead: Add live web retrieval to a model with LLMR's built-in web_search capabili
 
 ## Select the capability
 
-Use `ccr-fusion-builtins / web_search`.
+Use `llmr-fusion-builtins / web_search`.
 
 ## Search Providers
 

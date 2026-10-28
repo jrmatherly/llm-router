@@ -87,7 +87,7 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
       startupTimeoutMs: 10000,
       stateDir: "",
       streamReplies: false,
-      tenantId: "ccr"
+      tenantId: "llmr"
     },
     contextArchive: {
       enabled: false,
@@ -98,7 +98,7 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
       replayTimeoutMs: 60000,
       retentionDays: 30,
       storagePath: "",
-      toolName: "ccr_history_ask"
+      toolName: "llmr_history_ask"
     },
     gateway: {
       coreHost,

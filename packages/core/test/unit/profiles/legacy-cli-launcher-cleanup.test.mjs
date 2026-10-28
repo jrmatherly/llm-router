@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { cleanupLegacyCcrCliLaunchers, legacyCliLauncherFileNames } from "@llmr/core/profiles/launch-service.ts";
+import { cleanupLegacyLlmrCliLaunchers, legacyCliLauncherFileNames } from "@llmr/core/profiles/launch-service.ts";
 
 const ownedLauncher = [
   "#!/bin/sh",
@@ -21,7 +21,7 @@ test("desktop start removes the 4.x launcher files it owns", () => {
       writeFileSync(path.join(binDir, fileName), fileName === "ccr-cli.js" ? ownedRuntime : ownedLauncher);
     }
 
-    cleanupLegacyCcrCliLaunchers(binDir);
+    cleanupLegacyLlmrCliLaunchers(binDir);
 
     for (const fileName of legacyCliLauncherFileNames) {
       assert.equal(existsSync(path.join(binDir, fileName)), false, fileName);
@@ -38,7 +38,7 @@ test("desktop start keeps legacy-named files that LLM Router did not write", () 
       writeFileSync(path.join(binDir, fileName), "#!/bin/sh\necho user script\n");
     }
 
-    cleanupLegacyCcrCliLaunchers(binDir);
+    cleanupLegacyLlmrCliLaunchers(binDir);
 
     for (const fileName of legacyCliLauncherFileNames) {
       assert.equal(existsSync(path.join(binDir, fileName)), true, fileName);

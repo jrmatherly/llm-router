@@ -66,23 +66,23 @@ import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
 import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-paths";
 import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
 
-const managedRootStart = "# BEGIN CCR managed profile";
-const managedRootEnd = "# END CCR managed profile";
-const managedProviderStart = "# BEGIN CCR managed Codex provider";
-const managedProviderEnd = "# END CCR managed Codex provider";
-const managedToolHubMcpStart = "# BEGIN CCR managed ToolHub MCP";
-const managedToolHubMcpEnd = "# END CCR managed ToolHub MCP";
-const managedContextArchiveMcpStart = "# BEGIN CCR managed Context Archive MCP";
-const managedContextArchiveMcpEnd = "# END CCR managed Context Archive MCP";
-const managedConfiguredModelPrefix = "# CCR configured model = ";
+const managedRootStart = "# BEGIN LLMR managed profile";
+const managedRootEnd = "# END LLMR managed profile";
+const managedProviderStart = "# BEGIN LLMR managed Codex provider";
+const managedProviderEnd = "# END LLMR managed Codex provider";
+const managedToolHubMcpStart = "# BEGIN LLMR managed ToolHub MCP";
+const managedToolHubMcpEnd = "# END LLMR managed ToolHub MCP";
+const managedContextArchiveMcpStart = "# BEGIN LLMR managed Context Archive MCP";
+const managedContextArchiveMcpEnd = "# END LLMR managed Context Archive MCP";
+const managedConfiguredModelPrefix = "# LLMR configured model = ";
 const globalProfileTakeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
-const fallbackClientToken = "ccr-local";
+const fallbackClientToken = "llmr-local";
 const privateDirMode = 0o700;
 const privateExecutableMode = 0o700;
 const privateFileMode = 0o600;
 const publicExecutableMode = 0o755;
-const claudeCodeWifFederationRuleId = "ccr-local";
-const claudeCodeWifOrganizationId = "ccr-local";
+const claudeCodeWifFederationRuleId = "llmr-local";
+const claudeCodeWifOrganizationId = "llmr-local";
 const claudeModelDiscoveryFingerprintStateFile = path.join(CONFIGDIR, "claude-model-discovery-fingerprint.json");
 const claudeCodeGatewayEnvKeys = [
   "ANTHROPIC_BASE_URL",
@@ -962,17 +962,17 @@ function profilePath(profile: ProfileConfig): string {
 
 function resolveClaudeCodeSettingsFile(profile: ProfileConfig): string {
   if (isGeneratedProfileScope(profile.scope)) {
-    return path.join(ccrManagedProfileDir(profile), "claude", "settings.json");
+    return path.join(llmrManagedProfileDir(profile), "claude", "settings.json");
   }
   return resolveUserPath(profile.settingsFile || "~/.claude/settings.json");
 }
 
 function claudeCodeToolHubMcpConfigFile(profile: ProfileConfig): string {
-  return path.join(ccrManagedProfileDir(profile), "claude", "toolhub-mcp.json");
+  return path.join(llmrManagedProfileDir(profile), "claude", "toolhub-mcp.json");
 }
 
 function claudeCodeProfileSettingsStateFile(profile: ProfileConfig): string {
-  return path.join(ccrManagedProfileDir(profile), "claude", "settings-state.json");
+  return path.join(llmrManagedProfileDir(profile), "claude", "settings-state.json");
 }
 
 type ClaudeCodeProfileSettingsState = { displacedEnv: Record<string, string>; endpoints: string[]; envKeys: string[]; paths: string[]; settingsFile?: string };
@@ -1199,7 +1199,7 @@ function resolveCodexConfigFile(profile: ProfileConfig): string {
     return resolveZcodeConfigFile(profile);
   }
   if (isGeneratedProfileScope(profile.scope)) {
-    return path.join(ccrManagedProfileDir(profile), codexConfigSubdir(profile.agent), "config.toml");
+    return path.join(llmrManagedProfileDir(profile), codexConfigSubdir(profile.agent), "config.toml");
   }
   const codexHome = profile.codexHome?.trim();
   if (codexHome) {
@@ -1209,14 +1209,14 @@ function resolveCodexConfigFile(profile: ProfileConfig): string {
 }
 
 function codexModelCatalogFile(configFile: string): string {
-  return path.join(path.dirname(configFile), "ccr-model-catalog.json");
+  return path.join(path.dirname(configFile), "llmr-model-catalog.json");
 }
 
 function zcodeMiddlewareModelCatalogFile(configFile: string): string {
-  return path.join(path.dirname(configFile), "ccr-zcode-middleware-model-catalog.json");
+  return path.join(path.dirname(configFile), "llmr-zcode-middleware-model-catalog.json");
 }
 
-function ccrManagedProfileDir(profile: ProfileConfig): string {
+function llmrManagedProfileDir(profile: ProfileConfig): string {
   const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent);
   const baseDir = path.join(CONFIGDIR, "profiles", slug || "profile");
   return profile.scope === "custom" ? path.join(baseDir, "custom") : baseDir;
@@ -1604,8 +1604,8 @@ function writeClaudeCodeWifIdentityToken(profile: ProfileConfig, token: string):
 function claudeCodeWifIdentityTokenFilename(profile: ProfileConfig): string {
   const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent) || "claude-code";
   return process.platform === "win32"
-    ? `ccr-claude-code-wif-token-${slug}.txt`
-    : `ccr-claude-code-wif-token-${slug}`;
+    ? `llmr-claude-code-wif-token-${slug}.txt`
+    : `llmr-claude-code-wif-token-${slug}`;
 }
 
 function writeClaudeCodeApiKeyHelper(profile: ProfileConfig, token: string): { changed: boolean; file: string } {
@@ -1634,8 +1634,8 @@ function cleanupClaudeCodeLegacyApiKeyHelper(profile: ProfileConfig): { changed:
 function claudeCodeLegacyApiKeyHelperFilename(profile: ProfileConfig): string {
   const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent) || "claude-code";
   return process.platform === "win32"
-    ? `ccr-claude-code-api-key-${slug}.cmd`
-    : `ccr-claude-code-api-key-${slug}`;
+    ? `llmr-claude-code-api-key-${slug}.cmd`
+    : `llmr-claude-code-api-key-${slug}`;
 }
 
 function claudeCodeApiKeyHelperShellScript(token: string): string {
@@ -1700,8 +1700,8 @@ function writeClaudeCodeWrapper(
 function claudeCodeWrapperFilename(profile: ProfileConfig): string {
   const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent).toLowerCase() || "claude-code";
   return process.platform === "win32"
-    ? `ccr-claude-code-wrapper-${slug}.cmd`
-    : `ccr-claude-code-wrapper-${slug}`;
+    ? `llmr-claude-code-wrapper-${slug}.cmd`
+    : `llmr-claude-code-wrapper-${slug}`;
 }
 
 function claudeCodeWrapperShellScript(
@@ -1802,8 +1802,8 @@ function openCodeWrapperPath(profile: ProfileConfig): string {
 function openCodeWrapperFilename(profile: ProfileConfig): string {
   const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent).toLowerCase() || "opencode";
   return process.platform === "win32"
-    ? `ccr-opencode-wrapper-${slug}.cmd`
-    : `ccr-opencode-wrapper-${slug}`;
+    ? `llmr-opencode-wrapper-${slug}.cmd`
+    : `llmr-opencode-wrapper-${slug}`;
 }
 
 function openCodeWrapperShellScript(profile: ProfileConfig, configFile: string, inlineConfig: string): string {
@@ -1872,8 +1872,8 @@ function kiloWrapperPath(profile: ProfileConfig): string {
 function kiloWrapperFilename(profile: ProfileConfig): string {
   const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent).toLowerCase() || "kilo";
   return process.platform === "win32"
-    ? `ccr-kilo-wrapper-${slug}.cmd`
-    : `ccr-kilo-wrapper-${slug}`;
+    ? `llmr-kilo-wrapper-${slug}.cmd`
+    : `llmr-kilo-wrapper-${slug}`;
 }
 
 function kiloWrapperShellScript(profile: ProfileConfig, configFile: string, inlineConfig: string): string {
@@ -1945,8 +1945,8 @@ function kimiWrapperPath(profile: ProfileConfig): string {
 function kimiWrapperFilename(profile: ProfileConfig): string {
   const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent).toLowerCase() || "kimi";
   return process.platform === "win32"
-    ? `ccr-kimi-cli-wrapper-${slug}.cmd`
-    : `ccr-kimi-cli-wrapper-${slug}`;
+    ? `llmr-kimi-cli-wrapper-${slug}.cmd`
+    : `llmr-kimi-cli-wrapper-${slug}`;
 }
 
 function kimiWrapperShellScript(config: AppConfig, profile: ProfileConfig, profileHome: string): string {
@@ -2412,8 +2412,8 @@ function grokWrapperPath(profile: ProfileConfig): string {
 function grokWrapperFilename(profile: ProfileConfig): string {
   const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent).toLowerCase() || "grok";
   return process.platform === "win32"
-    ? `ccr-grok-cli-wrapper-${slug}.cmd`
-    : `ccr-grok-cli-wrapper-${slug}`;
+    ? `llmr-grok-cli-wrapper-${slug}.cmd`
+    : `llmr-grok-cli-wrapper-${slug}`;
 }
 
 function grokWrapperShellScript(config: AppConfig, profile: ProfileConfig, token: string, model: string, profileHome: string): string {
@@ -2787,14 +2787,14 @@ function readClaudeCodeGlobalConfigObject(file: string): Record<string, unknown>
 }
 
 function codexMiddlewareRuntimeFilename(): string {
-  return "ccr-codex-cli-middleware.js";
+  return "llmr-codex-cli-middleware.js";
 }
 
 function codexMiddlewareFilename(profile: ProfileConfig, providerId: string): string {
   const slug = sanitizeCodexProviderId(profile.id || profile.name || providerId) || "codex";
   return process.platform === "win32"
-    ? `ccr-codex-cli-stdio-${slug}.cmd`
-    : `ccr-codex-cli-stdio-${slug}`;
+    ? `llmr-codex-cli-stdio-${slug}.cmd`
+    : `llmr-codex-cli-stdio-${slug}`;
 }
 
 function shellProfileSurfaceExports(surface: "auto" | "cli" | "app"): string[] {
@@ -2952,7 +2952,7 @@ function cmdCodexlProfileSurfaceExports(): string[] {
 
 function codexNativeHelperBypassShellLines(): string[] {
   return [
-    "# Browser's native-pipe authorizer requires helper processes to bypass the CCR middleware.",
+    "# Browser's native-pipe authorizer requires helper processes to bypass the LLMR middleware.",
     "if [ \"${1:-}\" = 'sandbox' ] || { [ \"${1:-}\" = 'app-server' ] && [ \"${2:-}\" = '--listen' ] && [ \"${3:-}\" = 'stdio://' ]; }; then",
     "  unset CODEX_CLI_PATH",
     "  exec \"$LLMR_BUNDLED_CODEX_CLI_PATH\" \"$@\"",
@@ -2964,15 +2964,15 @@ function nodeRuntimeCmdExecLines(runtimeFile: string): string[] {
   const quotedRuntime = cmdQuote(runtimeFile);
   const quotedHost = cmdQuote(process.execPath);
   return [
-    "if not defined LLMR_NODE_BIN goto ccr_try_system_node",
+    "if not defined LLMR_NODE_BIN goto llmr_try_system_node",
     `"%LLMR_NODE_BIN%" ${quotedRuntime} %*`,
     "exit /b %ERRORLEVEL%",
-    ":ccr_try_system_node",
+    ":llmr_try_system_node",
     "where node >nul 2>nul",
-    "if errorlevel 1 goto ccr_use_electron_node",
+    "if errorlevel 1 goto llmr_use_electron_node",
     `node ${quotedRuntime} %*`,
     "exit /b %ERRORLEVEL%",
-    ":ccr_use_electron_node",
+    ":llmr_use_electron_node",
     "set \"ELECTRON_RUN_AS_NODE=1\"",
     `${quotedHost} ${quotedRuntime} %*`,
     "exit /b %ERRORLEVEL%"
@@ -3339,7 +3339,7 @@ function withoutManagedClaudeCodeApiKeyHelper(settings: Record<string, unknown>)
 }
 
 function isManagedClaudeCodeApiKeyHelper(value: unknown): boolean {
-  return typeof value === "string" && value.includes("ccr-claude-code-api-key-");
+  return typeof value === "string" && value.includes("llmr-claude-code-api-key-");
 }
 
 function claudeCodeManagedSettingsEnvKeys(
@@ -3456,7 +3456,7 @@ function cleanupInactiveOpenCodeWrappers(profiles: ProfileConfig[]): number {
 
   let removed = 0;
   for (const entry of entries) {
-    if (!entry.startsWith("ccr-opencode-wrapper-") || activeFiles.has(entry)) {
+    if (!entry.startsWith("llmr-opencode-wrapper-") || activeFiles.has(entry)) {
       continue;
     }
     rmSync(path.join(binDir, entry), { force: true });
@@ -3479,7 +3479,7 @@ function cleanupInactiveKiloWrappers(profiles: ProfileConfig[]): number {
 
   let removed = 0;
   for (const entry of entries) {
-    if (!entry.startsWith("ccr-kilo-wrapper-") || activeFiles.has(entry)) {
+    if (!entry.startsWith("llmr-kilo-wrapper-") || activeFiles.has(entry)) {
       continue;
     }
     rmSync(path.join(binDir, entry), { force: true });
@@ -3516,9 +3516,9 @@ function cleanupInactiveClaudeCodeGeneratedFiles(profiles: ProfileConfig[]): num
 }
 
 function isClaudeCodeGeneratedRuntimeFile(fileName: string): boolean {
-  return fileName.startsWith("ccr-claude-code-api-key-") ||
-    fileName.startsWith("ccr-claude-code-wif-token-") ||
-    fileName.startsWith("ccr-claude-code-wrapper-");
+  return fileName.startsWith("llmr-claude-code-api-key-") ||
+    fileName.startsWith("llmr-claude-code-wif-token-") ||
+    fileName.startsWith("llmr-claude-code-wrapper-");
 }
 
 function generatedBinBackupBaseName(entry: string): string | undefined {
@@ -3538,20 +3538,20 @@ function isManagedGeneratedBinFile(fileName: string): boolean {
   const normalized = fileName.replace(/\.cmd$/i, "");
   return normalized === "llmr" ||
     normalized === "llmr-cli.js" ||
-    normalized === "ccr" ||
-    normalized === "ccr-app" ||
-    normalized === "ccr-cli.js" ||
+    normalized === "llmr" ||
+    normalized === "llmr-app" ||
+    normalized === "llmr-cli.js" ||
     normalized === TOOL_HUB_MCP_RUNTIME_FILE_NAME ||
     normalized === codexMiddlewareRuntimeFilename() ||
-    normalized.startsWith("ccr-claude-code-api-key-") ||
-    normalized.startsWith("ccr-claude-code-wif-token-") ||
-    normalized.startsWith("ccr-claude-code-wrapper-") ||
-    normalized.startsWith("ccr-grok-cli-wrapper-") ||
-    normalized.startsWith("ccr-kimi-cli-wrapper-") ||
-    normalized.startsWith("ccr-pi-wrapper-") ||
-    normalized.startsWith("ccr-opencode-wrapper-") ||
-    normalized.startsWith("ccr-kilo-wrapper-") ||
-    normalized.startsWith("ccr-codex-cli-stdio-");
+    normalized.startsWith("llmr-claude-code-api-key-") ||
+    normalized.startsWith("llmr-claude-code-wif-token-") ||
+    normalized.startsWith("llmr-claude-code-wrapper-") ||
+    normalized.startsWith("llmr-grok-cli-wrapper-") ||
+    normalized.startsWith("llmr-kimi-cli-wrapper-") ||
+    normalized.startsWith("llmr-pi-wrapper-") ||
+    normalized.startsWith("llmr-opencode-wrapper-") ||
+    normalized.startsWith("llmr-kilo-wrapper-") ||
+    normalized.startsWith("llmr-codex-cli-stdio-");
 }
 
 type RestoreFileResult = {
@@ -4112,9 +4112,9 @@ function originalSnapshotCandidate(
   file: string,
   matchers: RestoreManagedContentMatchers
 ): { content: string; file: string } | undefined {
-  // Prefer the most recent non-CCR snapshot captured immediately before the
-  // latest takeover. The permanent .ccr-original file can be stale when the
-  // user changes the agent config between separate CCR sessions.
+  // Prefer the most recent non-LLMR snapshot captured immediately before the
+  // latest takeover. The permanent .llmr-original file can be stale when the
+  // user changes the agent config between separate LLMR sessions.
   for (const candidate of [...backupFiles(file).reverse(), originalBackupFilePath(file)]) {
     if (!existsSync(candidate)) {
       continue;
@@ -4367,12 +4367,12 @@ function normalizeCodexRemoteFrontendMode(value: ProfileConfig["remoteFrontendMo
   return value === "cli" || value === "claude-code" ? value : "app";
 }
 
-function normalizeProfileScope(value: ProfileConfig["scope"]): "ccr" | "global" | "custom" {
-  return value === "ccr" || value === "custom" ? value : "global";
+function normalizeProfileScope(value: ProfileConfig["scope"]): "llmr" | "global" | "custom" {
+  return value === "llmr" || value === "custom" ? value : "global";
 }
 
 function isGeneratedProfileScope(value: ProfileConfig["scope"]): boolean {
-  return value === "ccr" || value === "custom";
+  return value === "llmr" || value === "custom";
 }
 
 function normalizeProfileSurface(value: ProfileConfig["surface"]): "auto" | "cli" | "app" {

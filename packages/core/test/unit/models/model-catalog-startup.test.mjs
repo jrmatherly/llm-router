@@ -14,7 +14,7 @@ const envKeys = [
   "LLMR_MODELS_JSON_PATH"
 ];
 const previousEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
-const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-catalog-startup-test-"));
+const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "llmr-catalog-startup-test-"));
 process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(runtimeRoot, "app-data");
 process.env.LLMR_INTERNAL_HOME_DIR = path.join(runtimeRoot, "home");
 process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(runtimeRoot, "user-data");

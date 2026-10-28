@@ -542,8 +542,8 @@ export type ProviderDeepLinkCatalogModelsResolution = {
 };
 
 export async function resolveProviderDeepLinkCatalogModels(payload: ProviderDeepLinkPayload): Promise<ProviderDeepLinkCatalogModelsResolution> {
-  const ccr = window.llmr;
-  if (!ccr?.getProviderCatalogModels) {
+  const llmr = window.llmr;
+  if (!llmr?.getProviderCatalogModels) {
     return {
       models: []
     };
@@ -551,7 +551,7 @@ export async function resolveProviderDeepLinkCatalogModels(payload: ProviderDeep
 
   const preset = resolveProviderDeepLinkPreset(payload);
   try {
-    const result = await ccr.getProviderCatalogModels({
+    const result = await llmr.getProviderCatalogModels({
       baseUrl: payload.baseUrl,
       name: payload.name,
       providerPresetId: preset?.id
@@ -843,7 +843,7 @@ function localAgentProviderPluginMatchesNames(plugin: unknown, names: Set<string
     return false;
   }
   const key = typeof plugin.key === "string" ? plugin.key.trim().toLowerCase() : "";
-  if (!key.startsWith("ccr-local-agent-")) {
+  if (!key.startsWith("llmr-local-agent-")) {
     return false;
   }
   const pluginProviderName = typeof plugin.providerName === "string"

@@ -626,7 +626,7 @@ test("OpenRouter discount router commits session baselines only after confirmed 
     finalizeOpenRouterDiscountProviderRouterSelection("session-confirm-1", {
       ok: true,
       routedModel: "OpenRouter/z-ai/glm-session-confirm",
-      usedCcrFallback: false
+      usedLlmrFallback: false
     });
 
     const afterConfirm = await openRouterDiscountProviderRouterTransform(

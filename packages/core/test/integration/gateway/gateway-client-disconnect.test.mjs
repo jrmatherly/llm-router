@@ -9,7 +9,7 @@ import { gatewayService } from "@llmr/core/gateway/service.ts";
 import { waitForTcpListener } from "../../support/loopback-listener.mjs";
 
 test("gateway treats downstream client aborts as expected stream cleanup", async (t) => {
-  const dir = mkdtempSync(path.join(tmpdir(), "ccr-gateway-client-abort-test-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-gateway-client-abort-test-"));
   const uncaughtErrors = [];
   const unhandledRejections = [];
   const onUncaughtException = (error) => uncaughtErrors.push(error);

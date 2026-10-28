@@ -23,18 +23,18 @@ async function runImport() {
   const importUrl = normalizeImportUrl(importUrlInput.value);
   if (!importUrl) {
     renderDomains([]);
-    setStatus("Paste the import URL copied from CCR.", "error");
+    setStatus("Paste the import URL copied from LLMR.", "error");
     return;
   }
 
   importButton.disabled = true;
   try {
     await chrome.storage.local.set({ lastImportUrl: importUrl });
-    setStatus("Reading CCR import job...");
+    setStatus("Reading LLMR import job...");
     const job = await fetchImportJob(importUrl);
     const domains = Array.isArray(job.domains) ? job.domains.map(normalizeDomain).filter(Boolean) : [];
     if (domains.length === 0) {
-      throw new Error("CCR import job does not include any domains.");
+      throw new Error("LLMR import job does not include any domains.");
     }
     renderDomains(domains);
 
@@ -49,7 +49,7 @@ async function runImport() {
       throw new Error("No cookies or localStorage entries were found for the selected domains.");
     }
 
-    setStatus(`Sending ${cookies.length} cookies and ${localStorageItemCount(localStorageEntries)} localStorage items to CCR...`);
+    setStatus(`Sending ${cookies.length} cookies and ${localStorageItemCount(localStorageEntries)} localStorage items to LLMR...`);
     const result = await submitCookies(importUrl, cookies, localStorageEntries, domains);
     setStatus(
       `Imported ${result.cookieImported ?? 0} cookies and ${result.localStorageImported ?? 0} localStorage items. Skipped ${result.skipped ?? 0}.`,
@@ -82,10 +82,10 @@ async function fetchImportJob(importUrl) {
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(body?.error?.message || `CCR import job request failed (${response.status}).`);
+    throw new Error(body?.error?.message || `LLMR import job request failed (${response.status}).`);
   }
   if (!body.job || body.job.status !== "pending") {
-    throw new Error(`CCR import job is ${body.job?.status || "unavailable"}.`);
+    throw new Error(`LLMR import job is ${body.job?.status || "unavailable"}.`);
   }
   return body.job;
 }
@@ -109,7 +109,7 @@ async function submitCookies(importUrl, cookies, localStorage, domains) {
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(body?.error?.message || `CCR cookie import failed (${response.status}).`);
+    throw new Error(body?.error?.message || `LLMR cookie import failed (${response.status}).`);
   }
   return body.result || {};
 }
@@ -267,7 +267,7 @@ async function ensureHostPermissions(domains) {
   }
   throw new Error(
     [
-      `CCR Login Import does not have Chrome site access for ${domains.join(", ")}.`,
+      `LLMR Login Import does not have Chrome site access for ${domains.join(", ")}.`,
       "Reload the unpacked extension after updating it, then grant the extension site access for the requested domains in Chrome extensions settings."
     ].join(" ")
   );

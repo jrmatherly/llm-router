@@ -27,7 +27,8 @@ const skippedPaths = [
   "packages/core/models.json",
   "packages/ui/src/generated/",
   "scripts/llmr-rename.mjs",
-  "tests/architecture/llmr-rename.test.mjs"
+  "tests/architecture/llmr-rename.test.mjs",
+  "tests/architecture/uninstall-macos-script.test.mjs"
 ];
 
 // Every entry is a deliberate survivor; docs/superpowers/specs/2026-10-27-ccr-to-llmr-rename.md gives the reasons.
@@ -49,6 +50,9 @@ export const kept = [
   { path: "packages/core/src/profiles/launch-service.ts", text: "includes(\"CCR_CLI_COMMAND_NAME\")" },
   { path: "packages/core/src/profiles/launch-service.ts", text: "includes(\"CCR_CLI_PREPARE_PROFILE_ONLY\")" },
   { path: "scripts/uninstall-macos.mjs", text: "schemes: [\"ccr\"]" },
+  { path: "scripts/uninstall-macos.mjs", text: "export const agentLeftover = /\\.(?:ccr|llmr)-backup-|\\.(?:ccr|llmr)-original(-missing)?$|^(?:ccr|llmr)-.*model-catalog\\.json$|^(claude-code-router|llm-router)\\.config\\.toml$|^\\.llm-router$/;" },
+  { path: "scripts/uninstall-macos.mjs", text: "the ccr:// handler" },
+  { path: "packages/core/test/unit/profiles/legacy-cli-launcher-cleanup.test.mjs", text: "fileName === \"ccr-cli.js\"" },
   { path: "README.md", text: "The `ccr` and `ccr-app` commands are now `llmr`." }
 ];
 

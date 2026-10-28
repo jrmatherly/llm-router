@@ -15,7 +15,7 @@ import { codexAppNetResponderEnv, codexElectronArgsForTest } from "@llmr/core/ag
 test("virtual account routes match the gated Codex desktop endpoints", () => {
   const routes = codexVirtualAccountRoutes();
   assert.equal(matchCodexVirtualRoute("/wham/accounts/check", routes)?.prefix, "/wham/accounts/check");
-  assert.equal(matchCodexVirtualRoute("/accounts/ccr-virtual-account/settings", routes)?.pattern, "^/accounts/[^/]+/settings$");
+  assert.equal(matchCodexVirtualRoute("/accounts/llmr-virtual-account/settings", routes)?.pattern, "^/accounts/[^/]+/settings$");
   assert.equal(matchCodexVirtualRoute("/accounts/optimized/check", routes)?.prefix, "/accounts/optimized/check");
   assert.equal(matchCodexVirtualRoute("/accounts/check/v4-2023-04-27", routes)?.prefix, "/accounts/check/");
   assert.equal(matchCodexVirtualRoute("/backend-api/accounts/check/v4-2023-04-27", routes)?.prefix, "/backend-api/accounts/check/");
@@ -53,7 +53,7 @@ test("optimized account check returns the single account detail consumed by the 
 });
 
 test("concurrent profile opens share a ready responder and recover after a port conflict", async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-net-responder-lifecycle-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-net-responder-lifecycle-"));
   const logPath = path.join(dir, "responder.log");
   const occupied = await startCodexAppNetResponder({ listenPort: 0, logPath });
   const port = occupied.port;
@@ -92,7 +92,7 @@ test("virtual account responses keep the workspace policy machinery hidden", () 
 });
 
 test("responder serves virtual routes over loopback HTTP and records misses", async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-net-responder-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-net-responder-"));
   const logPath = path.join(dir, "responder.log");
   const responder = await startCodexAppNetResponder({ listenPort: 0, logPath });
   try {
@@ -103,7 +103,7 @@ test("responder serves virtual routes over loopback HTTP and records misses", as
     const accountsBody = await accounts.json();
     assert.equal(accountsBody.accounts[0].id, "acct-9");
 
-    const settings = await fetch(`${responder.baseUrl}/accounts/ccr-virtual-account/settings`);
+    const settings = await fetch(`${responder.baseUrl}/accounts/llmr-virtual-account/settings`);
     assert.equal(settings.status, 200);
     assert.deepEqual((await settings.json()).beta_settings, []);
 
@@ -112,7 +112,7 @@ test("responder serves virtual routes over loopback HTTP and records misses", as
 
     const devicecheck = await fetch(`${responder.baseUrl}/devicecheck`, { method: "POST", body: "{}" });
     assert.equal(devicecheck.status, 200);
-    assert.match(devicecheck.headers.get("set-cookie") || "", /_devicecheck=ccr-virtual-device/);
+    assert.match(devicecheck.headers.get("set-cookie") || "", /_devicecheck=llmr-virtual-device/);
   } finally {
     responder.close();
   }

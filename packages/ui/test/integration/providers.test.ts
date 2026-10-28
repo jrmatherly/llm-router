@@ -48,13 +48,13 @@ installBrowserGlobals();
 
 test("building the import draft for a deep link makes no network call", () => {
   const calls = { getProviderCatalogModels: 0, probeProvider: 0 };
-  const ccr = (globalThis.window as unknown as { llmr: Record<string, unknown> }).llmr;
-  const original = { ...ccr };
-  ccr.getProviderCatalogModels = async () => {
+  const llmr = (globalThis.window as unknown as { llmr: Record<string, unknown> }).llmr;
+  const original = { ...llmr };
+  llmr.getProviderCatalogModels = async () => {
     calls.getProviderCatalogModels += 1;
     return {};
   };
-  ccr.probeProvider = async () => {
+  llmr.probeProvider = async () => {
     calls.probeProvider += 1;
     return {};
   };
@@ -64,9 +64,9 @@ test("building the import draft for a deep link makes no network call", () => {
     assert.equal(calls.probeProvider, 0);
     assert.equal(calls.getProviderCatalogModels, 0);
   } finally {
-    delete ccr.getProviderCatalogModels;
-    delete ccr.probeProvider;
-    Object.assign(ccr, original);
+    delete llmr.getProviderCatalogModels;
+    delete llmr.probeProvider;
+    Object.assign(llmr, original);
   }
 });
 
@@ -1009,23 +1009,23 @@ test("provider connectivity includes saved Codex OAuth plugins while editing", (
   };
   const displayPlugin = {
     codexOauth: { refreshToken: "refresh-display" },
-    key: "ccr-local-agent-codex-api-codex-oauth",
+    key: "llmr-local-agent-codex-api-codex-oauth",
     providerName: "Codex API"
   };
   const runtimePlugin = {
     codexOauth: { refreshToken: "refresh-runtime" },
-    key: "ccr-local-agent-codex-api-codex-oauth-internal",
+    key: "llmr-local-agent-codex-api-codex-oauth-internal",
     providerName: "codex-api::openai_responses"
   };
   const disabledRuntimePlugin = {
     codexOauth: { refreshToken: "refresh-disabled" },
     enabled: false,
-    key: "ccr-local-agent-codex-api-codex-oauth-disabled",
+    key: "llmr-local-agent-codex-api-codex-oauth-disabled",
     providerName: "codex-api::openai_responses"
   };
   const otherPlugin = {
     codexOauth: { refreshToken: "refresh-other" },
-    key: "ccr-local-agent-other-codex-oauth",
+    key: "llmr-local-agent-other-codex-oauth",
     providerName: "Other Codex API"
   };
 
@@ -1663,7 +1663,7 @@ test("Zen and Go candidates use distinct local agent plugin suffixes", () => {
     name: "OpenCode Zen (Anthropic)"
   };
   const zenPlugin = {
-    key: "ccr-local-agent-opencode-zen-anthropic-opencode-anthropic-messages-api-key",
+    key: "llmr-local-agent-opencode-zen-anthropic-opencode-anthropic-messages-api-key",
     providerName: "OpenCode Zen (Anthropic)"
   };
   assert.equal(localAgentProviderAlreadyImported(zenCandidate, [zenProvider], [zenPlugin]), true);

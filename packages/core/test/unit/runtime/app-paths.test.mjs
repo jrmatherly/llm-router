@@ -11,13 +11,13 @@ test("the storage name and the JSON import dir carry the rebranded name", () => 
 
 test("runtime config and data dirs default to the shared LLMR storage", () => {
   withRuntimePathEnv({
-    appData: path.join(os.tmpdir(), "ccr-app-paths-app-data"),
-    home: path.join(os.tmpdir(), "ccr-app-paths-home")
+    appData: path.join(os.tmpdir(), "llmr-app-paths-app-data"),
+    home: path.join(os.tmpdir(), "llmr-app-paths-home")
   }, () => {
     const configDir = resolveRuntimeConfigDir();
     const expectedConfigDir = process.platform === "win32"
-      ? path.join(os.tmpdir(), "ccr-app-paths-app-data", APP_STORAGE_NAME)
-      : path.join(os.tmpdir(), "ccr-app-paths-home", `.${APP_STORAGE_NAME}`);
+      ? path.join(os.tmpdir(), "llmr-app-paths-app-data", APP_STORAGE_NAME)
+      : path.join(os.tmpdir(), "llmr-app-paths-home", `.${APP_STORAGE_NAME}`);
     const expectedDataDir = process.platform === "win32"
       ? expectedConfigDir
       : path.join(expectedConfigDir, "app-data");
@@ -29,16 +29,16 @@ test("runtime config and data dirs default to the shared LLMR storage", () => {
 
 test("runtime data dir still allows explicit test and deployment overrides", () => {
   withRuntimePathEnv({
-    appData: path.join(os.tmpdir(), "ccr-app-paths-override-app-data"),
-    home: path.join(os.tmpdir(), "ccr-app-paths-override-home"),
-    userData: path.join(os.tmpdir(), "ccr-app-paths-override-user-data")
+    appData: path.join(os.tmpdir(), "llmr-app-paths-override-app-data"),
+    home: path.join(os.tmpdir(), "llmr-app-paths-override-home"),
+    userData: path.join(os.tmpdir(), "llmr-app-paths-override-user-data")
   }, () => {
-    assert.equal(resolveRuntimeDataDir(), path.join(os.tmpdir(), "ccr-app-paths-override-user-data"));
+    assert.equal(resolveRuntimeDataDir(), path.join(os.tmpdir(), "llmr-app-paths-override-user-data"));
   });
 });
 
 test("a tilde path follows the runtime home override, so an isolated run never touches the user's dotfiles", () => {
-  const home = path.join(os.tmpdir(), "ccr-app-paths-tilde-home");
+  const home = path.join(os.tmpdir(), "llmr-app-paths-tilde-home");
   withRuntimePathEnv({ home }, () => {
     assert.equal(resolveUserPath("~"), home);
     assert.equal(resolveUserPath("~/.claude/settings.json"), path.join(home, ".claude", "settings.json"));

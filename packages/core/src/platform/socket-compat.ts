@@ -1,6 +1,6 @@
 import { Socket } from "node:net";
 
-const socketTypeOfServiceCompatState = Symbol.for("ccr.socketTypeOfServiceCompatState");
+const socketTypeOfServiceCompatState = Symbol.for("llmr.socketTypeOfServiceCompatState");
 
 type SocketSetTypeOfService = (this: Socket, typeOfService: number) => Socket;
 

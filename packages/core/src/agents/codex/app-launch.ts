@@ -77,8 +77,8 @@ export const workbuddyDesktopAppName = "WorkBuddy AI";
 
 const workbuddyModelApiKeyPlaceholder = "${LLMR_PROFILE_API_KEY}";
 const workbuddyVirtualAuthId = "workbuddy-desktop-ai";
-const workbuddyVirtualAuthUserId = "ccr-local-profile";
-const workbuddyVirtualAuthToken = "ccr-local-profile";
+const workbuddyVirtualAuthUserId = "llmr-local-profile";
+const workbuddyVirtualAuthToken = "llmr-local-profile";
 const workbuddyVirtualAuthExpiresAt = 1_999_999_999_999;
 
 const codexAppSpec: CodexCompatibleAppSpec = {
@@ -102,7 +102,7 @@ const codexAppSpec: CodexCompatibleAppSpec = {
     "/usr/bin/codex-app"
   ],
   macAppNames: ["ChatGPT.app", "OpenAI ChatGPT.app", "Codex.app", "OpenAI Codex.app"],
-  modelCatalogFilename: "ccr-codex-model-catalog.json",
+  modelCatalogFilename: "llmr-codex-model-catalog.json",
   userDataDirName: "codex-app-user-data",
   windowsAppDirs: ["ChatGPT", "OpenAI ChatGPT", "OpenAIChatGPT", "Codex", "OpenAI Codex", "OpenAICodex"],
   windowsExeNames: [
@@ -160,7 +160,7 @@ const zcodeAppSpec: CodexCompatibleAppSpec = {
     "/usr/bin/zai-code"
   ],
   macAppNames: ["ZCode.app", "Z Code.app", "Z.AI Code.app", "ZAI Code.app"],
-  modelCatalogFilename: "ccr-zcode-model-catalog.json",
+  modelCatalogFilename: "llmr-zcode-model-catalog.json",
   userDataDirName: "zcode-app-user-data",
   windowsAppDirs: ["ZCode", "Z Code", "ZAI Code", "Z.AI Code", "Zhipu ZCode"],
   windowsExeNames: [
@@ -210,7 +210,7 @@ const workbuddyAppSpec: CodexCompatibleAppSpec = {
     "/usr/bin/workbuddy"
   ],
   macAppNames: ["WorkBuddy AI.app", "WorkBuddy.app", "WorkBuddyAI.app", "Workbuddy.app"],
-  modelCatalogFilename: "ccr-workbuddy-model-catalog.json",
+  modelCatalogFilename: "llmr-workbuddy-model-catalog.json",
   userDataDirName: "workbuddy-app-user-data",
   windowsAppDirs: ["WorkBuddy AI", "WorkBuddyAI", "WorkBuddy", "Workbuddy", "CodeBuddy"],
   windowsExeNames: [
@@ -332,7 +332,7 @@ export function writeWorkbuddyModelsConfig(
     return { changed: false, file, model };
   }
   // Only the user's own Workbuddy home needs a restorable copy; an LLMR-owned one is regenerated.
-  const backupFile = profile.scope === "ccr" || profile.scope === "custom"
+  const backupFile = profile.scope === "llmr" || profile.scope === "custom"
     ? undefined
     : backupBeforeWrite(file, previous, { isManagedContent: isManagedWorkbuddyModelsContent });
   writeFileAtomic(file, content);
@@ -572,7 +572,7 @@ export function removeLegacyCodexVirtualAuthMarker(codexHome: string): boolean {
       keys[0] !== "OPENAI_API_KEY" ||
       keys[1] !== "auth_mode" ||
       value.auth_mode !== "apikey" ||
-      value.OPENAI_API_KEY !== "ccr-local-profile"
+      value.OPENAI_API_KEY !== "llmr-local-profile"
     ) {
       return false;
     }

@@ -50,7 +50,7 @@ test("stdio MCP discovery does not pass LLMR secrets to the server process", asy
     LLMR_WEB_AUTH_TOKEN: "web-token",
     TAVILY_API_KEY: "user-key"
   });
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-mcp-env-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-mcp-env-"));
   t.after(() => rmSync(dir, { force: true, recursive: true }));
   const script = path.join(dir, "server.cjs");
   writeFileSync(script, envProbeServer);

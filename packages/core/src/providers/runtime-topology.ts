@@ -455,9 +455,9 @@ export function inferProtocol(provider: GatewayProviderConfig): GatewayProviderP
 }
 
 export function resolveResponseProviderProtocol(headers: Headers, config: AppConfig | undefined): GatewayProviderProtocol | undefined {
-  const ccrProtocol = normalizeProviderProtocol(headers.get("x-llmr-provider-protocol"));
-  if (ccrProtocol) {
-    return ccrProtocol;
+  const llmrProtocol = normalizeProviderProtocol(headers.get("x-llmr-provider-protocol"));
+  if (llmrProtocol) {
+    return llmrProtocol;
   }
   const providerName =
     headers.get("x-gateway-target-provider-name")?.trim() ||

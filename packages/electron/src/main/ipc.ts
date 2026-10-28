@@ -41,7 +41,7 @@ import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
 import { applyProfileConfig } from "@llmr/core/profiles/service";
-import { desktopCliCommandName, getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromCcr, stopProfileFromCcr } from "@llmr/core/profiles/launch-service";
+import { desktopCliCommandName, getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { findProfileForOpen, resolveProfileOpenSurface } from "@llmr/core/profiles/launch-core";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
@@ -213,7 +213,7 @@ ipcMain.handle(IPC_CHANNELS.appOpenProfile, async (_event, request: ProfileOpenR
       surface
     } satisfies ProfileOpenResult;
   }
-  return openProfileFromCcr(config, request);
+  return openProfileFromLlmr(config, request);
 });
 ipcMain.handle(IPC_CHANNELS.appApplyClaudeAppGateway, async (_event, config?: AppConfig) => {
   const previousConfig = await loadAppConfig();
@@ -403,7 +403,7 @@ ipcMain.handle(IPC_CHANNELS.appStopGateway, async () => {
   return status;
 });
 ipcMain.handle(IPC_CHANNELS.appStopProfile, async (_event, request: ProfileOpenRequest) => {
-  return stopProfileFromCcr(await loadAppConfig(), request);
+  return stopProfileFromLlmr(await loadAppConfig(), request);
 });
 ipcMain.handle(IPC_CHANNELS.appSetTrayDetailOpen, (_event, open: boolean, provider?: string) => {
   trayController.setDetailOpen(Boolean(open), provider);
@@ -534,7 +534,7 @@ async function renderHtmlPng(window: BrowserWindow | null, request: AppRenderHtm
     width: size.width
   });
 
-  const tempDir = mkdtempSync(path.join(app.getPath("temp"), "ccr-export-"));
+  const tempDir = mkdtempSync(path.join(app.getPath("temp"), "llmr-export-"));
   const tempHtmlFile = path.join(tempDir, "export.html");
   writeFileSync(tempHtmlFile, html, { encoding: "utf8", mode: 0o600 });
 
@@ -654,7 +654,7 @@ function finiteNumber(value: unknown, label: string): number {
 
 function safePngFileName(value: string): string {
   const raw = typeof value === "string" ? value : "";
-  const safe = path.basename(raw).replace(/[<>:"/\\|?*\x00-\x1f]/g, "-").trim() || "ccr-share-card.png";
+  const safe = path.basename(raw).replace(/[<>:"/\\|?*\x00-\x1f]/g, "-").trim() || "llmr-share-card.png";
   return safe.toLowerCase().endsWith(".png") ? safe : `${safe}.png`;
 }
 
@@ -1031,8 +1031,8 @@ function uniqueStrings(values: string[]): string[] {
 function inspectPluginDirectory(directory: string): PluginDirectorySelection {
   const manifest = readFirstJson([
     path.join(directory, "plugin.json"),
-    path.join(directory, "ccr-plugin.json"),
-    path.join(directory, ".ccr-plugin", "plugin.json"),
+    path.join(directory, "llmr-plugin.json"),
+    path.join(directory, ".llmr-plugin", "plugin.json"),
     path.join(directory, ".codex-plugin", "plugin.json")
   ]);
   const packageJson = readFirstJson([path.join(directory, "package.json")]);
@@ -1040,8 +1040,8 @@ function inspectPluginDirectory(directory: string): PluginDirectorySelection {
     readString(manifest?.module) ||
     readString(manifest?.main) ||
     readString(manifest?.path) ||
-    readString(readRecord(packageJson?.ccr)?.module) ||
-    readString(readRecord(packageJson?.ccrPlugin)?.module) ||
+    readString(readRecord(packageJson?.llmr)?.module) ||
+    readString(readRecord(packageJson?.llmrPlugin)?.module) ||
     readString(packageJson?.main);
   const id =
     pluginIdValue(readString(manifest?.id) || readString(manifest?.key) || readString(packageJson?.name)) ||
@@ -1069,10 +1069,10 @@ function readPluginApps(
 ): GatewayPluginAppConfig[] {
   const values = [
     manifest?.apps,
-    readRecord(manifest?.ccr)?.apps,
-    readRecord(manifest?.ccrPlugin)?.apps,
-    readRecord(packageJson?.ccr)?.apps,
-    readRecord(packageJson?.ccrPlugin)?.apps
+    readRecord(manifest?.llmr)?.apps,
+    readRecord(manifest?.llmrPlugin)?.apps,
+    readRecord(packageJson?.llmr)?.apps,
+    readRecord(packageJson?.llmrPlugin)?.apps
   ];
   const apps = values.flatMap(parsePluginApps);
   const byId = new Map<string, GatewayPluginAppConfig>();
@@ -1139,10 +1139,10 @@ function readPluginPermissions(
 ): GatewayPluginPermission[] | undefined {
   const values = [
     manifest?.permissions,
-    readRecord(manifest?.ccr)?.permissions,
-    readRecord(manifest?.ccrPlugin)?.permissions,
-    readRecord(packageJson?.ccr)?.permissions,
-    readRecord(packageJson?.ccrPlugin)?.permissions
+    readRecord(manifest?.llmr)?.permissions,
+    readRecord(manifest?.llmrPlugin)?.permissions,
+    readRecord(packageJson?.llmr)?.permissions,
+    readRecord(packageJson?.llmrPlugin)?.permissions
   ];
   const parsedValues = values.map(parsePluginPermissions).filter((value): value is GatewayPluginPermission[] => Boolean(value));
   return parsedValues.length > 0 ? uniquePluginPermissions(parsedValues.flat()) : undefined;
@@ -1195,14 +1195,14 @@ function readPluginSurfaces(
   const values = [
     manifest?.surfaces,
     manifest?.surface,
-    readRecord(manifest?.ccr)?.surfaces,
-    readRecord(manifest?.ccr)?.surface,
-    readRecord(manifest?.ccrPlugin)?.surfaces,
-    readRecord(manifest?.ccrPlugin)?.surface,
-    readRecord(packageJson?.ccr)?.surfaces,
-    readRecord(packageJson?.ccr)?.surface,
-    readRecord(packageJson?.ccrPlugin)?.surfaces,
-    readRecord(packageJson?.ccrPlugin)?.surface
+    readRecord(manifest?.llmr)?.surfaces,
+    readRecord(manifest?.llmr)?.surface,
+    readRecord(manifest?.llmrPlugin)?.surfaces,
+    readRecord(manifest?.llmrPlugin)?.surface,
+    readRecord(packageJson?.llmr)?.surfaces,
+    readRecord(packageJson?.llmr)?.surface,
+    readRecord(packageJson?.llmrPlugin)?.surfaces,
+    readRecord(packageJson?.llmrPlugin)?.surface
   ];
   const parsedValues = values.map(parsePluginSurfaces).filter((value): value is PluginDirectorySelection["surfaces"] => Boolean(value));
   return parsedValues.length > 0 ? Object.assign({}, ...parsedValues) as PluginDirectorySelection["surfaces"] : undefined;
@@ -1410,10 +1410,10 @@ function readPluginDependencies(
   const values = [
     manifest?.dependencies,
     manifest?.pluginDependencies,
-    readRecord(manifest?.ccr)?.dependencies,
-    readRecord(manifest?.ccrPlugin)?.dependencies,
-    readRecord(packageJson?.ccr)?.dependencies,
-    readRecord(packageJson?.ccrPlugin)?.dependencies
+    readRecord(manifest?.llmr)?.dependencies,
+    readRecord(manifest?.llmrPlugin)?.dependencies,
+    readRecord(packageJson?.llmr)?.dependencies,
+    readRecord(packageJson?.llmrPlugin)?.dependencies
   ];
   const dependencies = values.flatMap((value) => parsePluginDependencies(value, directory));
   const byId = new Map<string, PluginDependency>();

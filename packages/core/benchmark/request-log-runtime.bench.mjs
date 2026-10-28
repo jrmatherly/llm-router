@@ -61,7 +61,7 @@ async function main() {
 }
 
 async function runScenario(scenario) {
-  const dir = mkdtempSync(path.join(tmpdir(), `ccr-log-bench-${scenario.name}-`));
+  const dir = mkdtempSync(path.join(tmpdir(), `llmr-log-bench-${scenario.name}-`));
   const target = createTarget(path.join(dir, "request-logs.sqlite"));
   const eventLoop = monitorEventLoopDelay({ resolution: 1 });
   const batchDurations = [];
@@ -133,7 +133,7 @@ async function runScenario(scenario) {
 }
 
 async function runWebScenario(mode, options) {
-  const dir = mkdtempSync(path.join(tmpdir(), `ccr-log-web-bench-${mode}-`));
+  const dir = mkdtempSync(path.join(tmpdir(), `llmr-log-web-bench-${mode}-`));
   const target = createWebTarget(mode, path.join(dir, "request-logs.sqlite"), options);
   const counters = { accepted: 0, rejected: 0 };
   const server = createServer((request, response) => {

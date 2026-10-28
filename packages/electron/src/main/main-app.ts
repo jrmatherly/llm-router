@@ -8,7 +8,7 @@ import { deepLinkService } from "./deep-link";
 import { gatewayService } from "@llmr/core/gateway/service";
 import "./ipc";
 import { applyProfileConfig, restoreGlobalProfileConfigsOnExit } from "@llmr/core/profiles/service";
-import { ensureCcrCliLauncher, persistPreparedCcrCliPath, prepareCcrCliLauncherRuntime, type CcrCliLauncherPreparation } from "@llmr/core/profiles/launch-service";
+import { ensureLlmrCliLauncher, persistPreparedLlmrCliPath, prepareLlmrCliLauncherRuntime, type LlmrCliLauncherPreparation } from "@llmr/core/profiles/launch-service";
 import { syncLaunchAtLogin } from "./launch-at-login";
 import { proxyService } from "@llmr/core/proxy/service";
 import trayController from "./tray-controller";
@@ -56,19 +56,19 @@ function startPrimaryInstance(): void {
     applyNativeThemePreference(config.theme);
     windowsManager.setOnboardingFinished(await loadOnboardingFinished());
     configureProxyDesktopIntegration();
-    let ccrLauncherPreparation: CcrCliLauncherPreparation | undefined;
+    let llmrLauncherPreparation: LlmrCliLauncherPreparation | undefined;
     try {
-      ccrLauncherPreparation = prepareCcrCliLauncherRuntime();
+      llmrLauncherPreparation = prepareLlmrCliLauncherRuntime();
     } catch (error) {
       console.error(`Failed to prepare llmr CLI runtime: ${formatError(error)}`);
     }
     setupApplicationMenu();
     const mainWindow = windowsManager.createMainWindow();
-    if (ccrLauncherPreparation?.persistentPathRequired) {
+    if (llmrLauncherPreparation?.persistentPathRequired) {
       mainWindow.once("ready-to-show", () => {
         setTimeout(() => {
           try {
-            persistPreparedCcrCliPath(ccrLauncherPreparation);
+            persistPreparedLlmrCliPath(llmrLauncherPreparation);
           } catch (error) {
             console.error(`Failed to persist llmr CLI PATH: ${formatError(error)}`);
           }
@@ -225,7 +225,7 @@ function startConfiguredServices(reason: string): Promise<void> {
           console.error(`Failed to sync Claude App gateway config during ${reason}: ${formatError(error)}`);
         }
         try {
-          ensureCcrCliLauncher(config, { persistPath: false });
+          ensureLlmrCliLauncher(config, { persistPath: false });
         } catch (error) {
           console.error(`Failed to install llmr CLI launcher during ${reason}: ${formatError(error)}`);
         }

@@ -13,7 +13,7 @@ import { pluginService } from "@llmr/core/plugins/service";
 import { proxyService } from "@llmr/core/proxy/service";
 import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler";
-import { isAddressInUseMessage, probeExistingCcrGateway, reloadExistingCcrGatewayConfig } from "@llmr/core/gateway/existing-gateway-probe";
+import { isAddressInUseMessage, probeExistingLlmrGateway, reloadExistingLlmrGatewayConfig } from "@llmr/core/gateway/existing-gateway-probe";
 import { closeServer, formatError, sendGatewayError } from "@llmr/core/gateway/http/io";
 import { RawTraceSynchronizer } from "@llmr/core/observability/raw-trace-sync";
 import { GatewayBillingSynchronizer } from "@llmr/core/usage/billing-sync";
@@ -21,9 +21,9 @@ import { assertLoopbackCoreHost, endpoint, formatCoreGatewayChildExit, gatewayNe
 import { coreGatewayAuthHeader } from "@llmr/core/gateway/internal/shared";
 import type { BrowserAutomationMcpIntegration, BrowserWebSearchMcpIntegration, GatewayStopOptions } from "@llmr/core/gateway/internal/shared";
 import {
-  ccrLiveTokenRateConfigMessageType,
-  ccrLiveTokenRateSnapshotMessageType,
-  ccrRuntimeConfigReloadMessageType
+  llmrLiveTokenRateConfigMessageType,
+  llmrLiveTokenRateSnapshotMessageType,
+  llmrRuntimeConfigReloadMessageType
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline";
 import { GatewayHttpRequestHandler } from "@llmr/core/gateway/http/request-handler";
@@ -309,7 +309,7 @@ class GatewayService {
     const currentStatus = this.getStatus();
     if (currentStatus.state === "running" && currentStatus.endpoint === desiredEndpoint) {
       if (currentStatus.gatewayManagedExternally) {
-        const existingGateway = await probeExistingCcrGateway(config);
+        const existingGateway = await probeExistingLlmrGateway(config);
         if (existingGateway.state === "usable") {
           this.markExternalGatewayRunning(config, existingGateway.endpoint, existingGateway.apiKey);
           try {
@@ -329,7 +329,7 @@ class GatewayService {
     // A separately managed single runtime can exit without exposing its bind
     // error to this process. Reuse an authenticated gateway before spawning a
     // competing runtime instead of depending on an EADDRINUSE log message.
-    let existingGateway = await probeExistingCcrGateway(config);
+    let existingGateway = await probeExistingLlmrGateway(config);
     if (existingGateway.state === "usable") {
       await this.stop({ nextConfig: config });
     } else {
@@ -337,7 +337,7 @@ class GatewayService {
       if (status.state !== "error" || !isAddressInUseMessage(status.lastError)) {
         return status;
       }
-      existingGateway = await probeExistingCcrGateway(config);
+      existingGateway = await probeExistingLlmrGateway(config);
       if (existingGateway.state !== "usable") {
         return status;
       }
@@ -621,7 +621,7 @@ class GatewayService {
       this.child.send({
         enabled,
         protocolVersion: 1,
-        type: ccrLiveTokenRateConfigMessageType
+        type: llmrLiveTokenRateConfigMessageType
       });
     } catch {
       // The runtime may exit between the connected check and send().
@@ -639,7 +639,7 @@ class GatewayService {
   private async reloadExternalGatewayConfig(config: AppConfig, forceRestart: boolean): Promise<void> {
     const currentEndpoint = this.status.endpoint || endpoint(config.gateway.host, config.gateway.port);
     try {
-      const externalGateway = await reloadExistingCcrGatewayConfig(
+      const externalGateway = await reloadExistingLlmrGatewayConfig(
         currentEndpoint,
         config,
         this.externalGatewayApiKey,
@@ -792,7 +792,7 @@ function isRuntimeConfigReloadMessage(message: unknown): message is { configRevi
     return false;
   }
   const record = message as Record<string, unknown>;
-  return record.type === ccrRuntimeConfigReloadMessageType &&
+  return record.type === llmrRuntimeConfigReloadMessageType &&
     record.protocolVersion === 1 &&
     typeof record.configRevision === "string" &&
     /^[a-f0-9]{64}$/i.test(record.configRevision) &&
@@ -806,7 +806,7 @@ function isLiveTokenRateSnapshotMessage(
     return false;
   }
   const record = message as Record<string, unknown>;
-  return record.type === ccrLiveTokenRateSnapshotMessageType &&
+  return record.type === llmrLiveTokenRateSnapshotMessageType &&
     record.protocolVersion === 1 &&
     typeof record.activeRequests === "number" && Number.isFinite(record.activeRequests) &&
     typeof record.tokensPerSecond === "number" && Number.isFinite(record.tokensPerSecond);

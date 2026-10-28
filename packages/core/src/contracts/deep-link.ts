@@ -191,8 +191,8 @@ export function parseProviderManifestPayload(value: unknown, sourceUrl?: string)
   }
   const providerValue = isRecord(value.provider)
     ? value.provider
-    : isRecord(value.ccrProvider)
-      ? value.ccrProvider
+    : isRecord(value.llmrProvider)
+      ? value.llmrProvider
       : value;
   return parseProviderPayloadFields(new URLSearchParams(), providerValue, sourceUrl);
 }

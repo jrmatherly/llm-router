@@ -13,7 +13,7 @@ const run = (script, payload, env = {}) => spawnSync(process.execPath, [path.joi
 });
 const projectName = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")).name;
 const tempRepo = (name = projectName) => {
-  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), "ccr-gate-")));
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), "llmr-gate-")));
   mkdirSync(path.join(dir, "node_modules"));
   writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name }));
   return dir;
@@ -72,7 +72,7 @@ test("gate skips a checkout of another project instead of running its scripts", 
   assert.equal(r.status, 0, r.stderr);
 });
 test("gate blocks a tree without node_modules", () => {
-  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), "ccr-gate-bare-")));
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), "llmr-gate-bare-")));
   writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: projectName }));
   const r = run("gate-commit.mjs", { cwd: dir, tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { LLMR_GATE_COMMANDS: pass });
   assert.equal(r.status, 2);

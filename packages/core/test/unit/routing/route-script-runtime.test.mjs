@@ -16,7 +16,7 @@ const workerFile = [
 ].find(existsSync);
 assert.ok(workerFile, "compiled route script worker is required");
 
-const routeScriptDirectory = mkdtempSync(path.join(os.tmpdir(), "ccr-route-script-files-"));
+const routeScriptDirectory = mkdtempSync(path.join(os.tmpdir(), "llmr-route-script-files-"));
 let routeScriptFileIndex = 0;
 test.after(() => rmSync(routeScriptDirectory, { force: true, recursive: true }));
 
@@ -698,7 +698,7 @@ test("the route-script test service exposes the configured profile id", async ()
     id: "Claude Work/Profile",
     model: "Provider/alpha",
     name: "Claude Work",
-    scope: "ccr"
+    scope: "llmr"
   };
   const script = routeScript(`
     return {
@@ -767,7 +767,7 @@ test("dynamic script model deletion overrides an earlier static model rewrite", 
 });
 
 test("route scripts expose the complete documented filesystem API", async () => {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "ccr-route-script-"));
+  const directory = mkdtempSync(path.join(os.tmpdir(), "llmr-route-script-"));
   const inputFile = path.join(directory, "input.json");
   const outputFile = path.join(directory, "output.txt");
   const outputJsonFile = path.join(directory, "output.json");

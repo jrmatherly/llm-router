@@ -1,4 +1,4 @@
-// CCR Node.js route script body. Configure the environment before enabling.
+// LLMR Node.js route script body. Configure the environment before enabling.
 // API contract: https://docs.typesafe.ai/api
 if (api.env("LLMR_JEV_ROUTING_ENABLED") !== "1" || input.model !== "auto") return null;
 if (input.summary.hasImage || !input.summary.lastUserText.trim()) return null;

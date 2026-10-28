@@ -552,7 +552,7 @@ export function createProfileDraft(agent: ProfileConfig["agent"] = "claude-code"
     providerId: "llm-router",
     providerName: "LLM Router",
     ...createProfileRoutingDraft(),
-    scope: "ccr",
+    scope: "llmr",
     settingsFile: "~/.claude/settings.json",
     showAllSessions: false,
     sonnetModel: "",
@@ -615,7 +615,7 @@ export function createProfileDraftFromProfile(profile: ProfileConfig, botConfigs
       availableModels: profileDraftAvailableModels(profile),
       envRows: keyValueRowsFromRecord(codexCompatibleProfileEnv(profile.env ?? {})),
       model: profile.model,
-      scope: "ccr",
+      scope: "llmr",
       surface: "cli"
     };
   }
@@ -625,7 +625,7 @@ export function createProfileDraftFromProfile(profile: ProfileConfig, botConfigs
       ...createProfileRoutingDraft(profile.routing),
       envRows: [],
       model: "",
-      scope: "ccr",
+      scope: "llmr",
       surface: "app"
     };
   }
@@ -935,7 +935,7 @@ function botGatewayConfigValue(key: string, value: string): unknown {
 }
 
 function createBotGatewayTenantId(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "") || "ccr";
+  return value.toLowerCase().replace(/[^a-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "") || "llmr";
 }
 
 function createBotGatewayIntegrationId(profileId: string): string {
@@ -1040,7 +1040,7 @@ export function normalizeProfileScope(value: unknown): ProfileScope {
 
 export function normalizeProfileFormScope(value: unknown): ProfileScope {
   const scope = normalizeProfileScope(value);
-  return scope === "custom" ? "ccr" : scope;
+  return scope === "custom" ? "llmr" : scope;
 }
 
 export function normalizeProfileSurface(value: unknown): ProfileSurface {
@@ -1430,7 +1430,7 @@ export function normalizeProfileItem(profile: ProfileConfig, index: number): Pro
       model,
       name,
       ...(routing ? { routing } : {}),
-      scope: "ccr",
+      scope: "llmr",
       surface: "cli"
     };
   }
@@ -1443,7 +1443,7 @@ export function normalizeProfileItem(profile: ProfileConfig, index: number): Pro
       model: "",
       name,
       ...(routing ? { routing } : {}),
-      scope: "ccr",
+      scope: "llmr",
       surface: "app"
     };
   }
@@ -1589,10 +1589,10 @@ export function normalizeUnknownProfileItem(value: Record<string, unknown>, inde
       ? value.managedCompact
       : typeof value.managed_compact === "boolean"
         ? value.managed_compact
-        : typeof value.ccrManagedCompact === "boolean"
-          ? value.ccrManagedCompact
-          : typeof value.ccr_managed_compact === "boolean"
-            ? value.ccr_managed_compact
+        : typeof value.llmrManagedCompact === "boolean"
+          ? value.llmrManagedCompact
+          : typeof value.llmr_managed_compact === "boolean"
+            ? value.llmr_managed_compact
             : typeof value.contextArchiveCompact === "boolean"
               ? value.contextArchiveCompact
               : typeof value.context_archive_compact === "boolean"

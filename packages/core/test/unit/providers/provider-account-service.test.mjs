@@ -294,7 +294,7 @@ test("webcontent-json connector refuses to send storage header templates to anot
 
 test("Codex local account credential refreshes when only a refresh token is available", async (t) => {
   const previousHome = process.env.LLMR_INTERNAL_HOME_DIR;
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-codex-account-refresh-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-account-refresh-"));
   mkdirSync(path.join(home, ".codex"), { recursive: true });
   process.env.LLMR_INTERNAL_HOME_DIR = home;
   t.after(() => {
@@ -336,7 +336,7 @@ test("Codex local account credential refreshes when only a refresh token is avai
       refreshToken: "refresh-only",
       tokenEndpoint: "http://127.0.0.1/oauth/token"
     },
-    key: "ccr-local-agent-codex-api-codex-oauth",
+    key: "llmr-local-agent-codex-api-codex-oauth",
     providerName: "Codex API"
   });
 
@@ -352,7 +352,7 @@ test("Codex local account credential refreshes when only a refresh token is avai
 });
 
 test("Codex local account credential matches internal provider plugin names", async (t) => {
-  useTemporaryCodexHome(t, "ccr-codex-account-internal-plugin-");
+  useTemporaryCodexHome(t, "llmr-codex-account-internal-plugin-");
   const accessToken = jwt({
     "https://api.openai.com/auth": {
       chatgpt_account_id: "acct-internal"
@@ -367,7 +367,7 @@ test("Codex local account credential matches internal provider plugin names", as
         codexOauth: {
           accessToken
         },
-        key: "ccr-local-agent-codex-api-codex-oauth-internal",
+        key: "llmr-local-agent-codex-api-codex-oauth-internal",
         providerName: "codex-api::openai_responses"
       }
     ]
@@ -385,7 +385,7 @@ test("Codex local account credential matches internal provider plugin names", as
 });
 
 test("Codex local account credential falls back to the live auth file when plugin is missing", async (t) => {
-  const home = useTemporaryCodexHome(t, "ccr-codex-account-live-auth-");
+  const home = useTemporaryCodexHome(t, "llmr-codex-account-live-auth-");
   const codexHome = path.join(home, ".codex");
   mkdirSync(codexHome, { recursive: true });
   const accessToken = jwt({
@@ -418,7 +418,7 @@ test("Codex local account credential falls back to the live auth file when plugi
 });
 
 test("Claude Code local account credential prefers live macOS Keychain token", { skip: process.platform === "win32" }, async (t) => {
-  const home = useTemporaryHome(t, "ccr-claude-code-account-live-keychain-");
+  const home = useTemporaryHome(t, "llmr-claude-code-account-live-keychain-");
   usePlatform(t, "darwin");
   useFakeSecurityOutput(t, {
     access_token: "keychain-account-token",
@@ -436,7 +436,7 @@ test("Claude Code local account credential prefers live macOS Keychain token", {
           },
           strict: true
         },
-        key: "ccr-local-agent-claude-code-api-claude-code-oauth-internal",
+        key: "llmr-local-agent-claude-code-api-claude-code-oauth-internal",
         providerName: "claude-code-api::anthropic_messages"
       }
     ]
@@ -455,7 +455,7 @@ test("Claude Code local account credential prefers live macOS Keychain token", {
 });
 
 test("Kimi local account credential carries its API key and CLI identity", async (t) => {
-  const home = useTemporaryCodexHome(t, "ccr-kimi-account-plugin-");
+  const home = useTemporaryCodexHome(t, "llmr-kimi-account-plugin-");
   const previousVersion = process.env.KIMI_CODE_VERSION;
   process.env.KIMI_CODE_VERSION = "0.27.0-test";
   t.after(() => {
@@ -470,7 +470,7 @@ test("Kimi local account credential carries its API key and CLI identity", async
           headers: { authorization: "Bearer kimi-plugin-key" },
           strict: true
         },
-        key: "ccr-local-agent-kimi-api-kimi-cli-api-key-internal",
+        key: "llmr-local-agent-kimi-api-kimi-cli-api-key-internal",
         providerName: "kimi-api::openai_chat_completions"
       }
     ]
@@ -501,7 +501,7 @@ test("ZCode local account credential matches internal provider plugin names", as
           removeHeaders: ["authorization"],
           strict: true
         },
-        key: "ccr-local-agent-zcode-api-zcode-api-key-internal",
+        key: "llmr-local-agent-zcode-api-zcode-api-key-internal",
         providerName: "zcode-api::anthropic_messages"
       }
     ]
@@ -518,7 +518,7 @@ test("ZCode local account credential matches internal provider plugin names", as
 });
 
 test("ZCode local account credential falls back to the live config when plugin is missing", async (t) => {
-  const home = useTemporaryCodexHome(t, "ccr-zcode-account-live-config-");
+  const home = useTemporaryCodexHome(t, "llmr-zcode-account-live-config-");
   const zcodeConfigDir = path.join(home, ".zcode", "cli");
   mkdirSync(zcodeConfigDir, { recursive: true });
   writeFileSync(path.join(zcodeConfigDir, "config.json"), JSON.stringify({
@@ -559,7 +559,7 @@ test("OpenCode local account credential reuses the imported plugin key", async (
           removeHeaders: ["x-api-key"],
           strict: true
         },
-        key: "ccr-local-agent-opencode-go-chat-completions-opencode-go-openai-chat-completions-api-key",
+        key: "llmr-local-agent-opencode-go-chat-completions-opencode-go-openai-chat-completions-api-key",
         providerName: "OpenCode Go (Chat Completions)"
       }
     ]
@@ -583,7 +583,7 @@ test("OpenCode local account credential reuses the imported plugin key", async (
           removeHeaders: ["authorization"],
           strict: true
         },
-        key: "ccr-local-agent-opencode-go-anthropic-messages-opencode-go-anthropic-messages-api-key",
+        key: "llmr-local-agent-opencode-go-anthropic-messages-opencode-go-anthropic-messages-api-key",
         providerName: "opencode-go-api-anthropic-messages::anthropic_messages"
       }
     ]
@@ -653,7 +653,7 @@ function usePlatform(t, platform) {
 }
 
 function useFakeSecurityOutput(t, output) {
-  const binDir = mkdtempSync(path.join(os.tmpdir(), "ccr-security-bin-"));
+  const binDir = mkdtempSync(path.join(os.tmpdir(), "llmr-security-bin-"));
   const securityPath = path.join(binDir, "security");
   const previousPath = process.env.PATH;
   writeFileSync(securityPath, `#!/bin/sh\ncat <<'LLMR_KEYCHAIN_JSON'\n${JSON.stringify(output)}\nLLMR_KEYCHAIN_JSON\n`);

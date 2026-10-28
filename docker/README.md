@@ -32,14 +32,14 @@ From the repository root:
 
 ```sh
 npm run docker:compose:up
-docker compose logs -f ccr
+docker compose logs -f llmr
 ```
 
 Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `LLMR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a new volume, the management UI is immediately available. Add a provider and model, create an LLMR client key under **API Keys**, and start the gateway from **Server**.
 
 The npm Compose script prepares a local `../../next-ai/gateway` checkout before building so the image uses that plugin-capable ai-gateway runtime. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
-The repository Compose file publishes `127.0.0.1:3458:8080`, stores data in the `ccr-data` named volume, and restarts the service unless explicitly stopped. Only this machine can reach it. Nginx forwards every request to the management server as a loopback request, so the published port is the only network boundary in front of management RPC besides `LLMR_WEB_AUTH_TOKEN`. To expose it on a LAN deliberately, set a stable strong `LLMR_WEB_AUTH_TOKEN` (32 characters or more) and `LLMR_PUBLIC_BASE_URL`, then publish on a specific host address, or on every interface:
+The repository Compose file publishes `127.0.0.1:3458:8080`, stores data in the `llmr-data` named volume, and restarts the service unless explicitly stopped. Only this machine can reach it. Nginx forwards every request to the management server as a loopback request, so the published port is the only network boundary in front of management RPC besides `LLMR_WEB_AUTH_TOKEN`. To expose it on a LAN deliberately, set a stable strong `LLMR_WEB_AUTH_TOKEN` (32 characters or more) and `LLMR_PUBLIC_BASE_URL`, then publish on a specific host address, or on every interface:
 
 ```yaml
 ports:
@@ -66,7 +66,7 @@ docker run -d \
   --restart unless-stopped \
   -p 127.0.0.1:3458:8080 \
   -e LLMR_PUBLIC_BASE_URL=http://127.0.0.1:3458 \
-  -v ccr-data:/data \
+  -v llmr-data:/data \
   llm-router:local
 ```
 
@@ -76,7 +76,7 @@ The temporary run script is also available:
 npm run docker:run
 ```
 
-`npm run docker:run` uses port `3458` and the `ccr-data` volume, but runs an ephemeral container without a fixed name or restart policy.
+`npm run docker:run` uses port `3458` and the `llmr-data` volume, but runs an ephemeral container without a fixed name or restart policy.
 
 ## Authentication And Network Security
 
@@ -110,7 +110,7 @@ The host-facing URL is separate from the container's internal ports. Whenever th
 
 ```yaml
 services:
-  ccr:
+  llmr:
     ports:
       - "127.0.0.1:8088:8080"
     environment:
@@ -124,11 +124,11 @@ For a reverse proxy or ingress that terminates HTTPS:
 
 ```yaml
 services:
-  ccr:
+  llmr:
     ports:
       - "127.0.0.1:3458:8080"
     environment:
-      LLMR_PUBLIC_BASE_URL: https://ccr.example.com
+      LLMR_PUBLIC_BASE_URL: https://llmr.example.com
       LLMR_WEB_AUTH_TOKEN: ${LLMR_WEB_AUTH_TOKEN:?set LLMR_WEB_AUTH_TOKEN}
 ```
 
@@ -160,9 +160,9 @@ The first-run bootstrap writes a minimal legacy `config.json` only when neither 
 The safest application-level backup is **Settings → Export data**. For a full volume backup, stop writes before copying the data directory:
 
 ```sh
-docker compose stop ccr
-docker compose cp ccr:/data/. ./ccr-data-backup/
-docker compose start ccr
+docker compose stop llmr
+docker compose cp llmr:/data/. ./llmr-data-backup/
+docker compose start llmr
 ```
 
 Keep the backup private. It contains secrets and may include request/response data.
@@ -178,7 +178,7 @@ git pull
 docker compose build --pull
 docker compose up -d
 docker compose ps
-docker compose logs --tail=200 ccr
+docker compose logs --tail=200 llmr
 ```
 
 Configuration migrations run against the persistent data. To roll back, use the previous image/source revision together with a backup created before the upgrade; do not assume a newer database can always be read by an older build.
@@ -230,8 +230,8 @@ Useful commands:
 
 ```sh
 docker compose ps
-docker compose logs -f ccr
-docker compose restart ccr
+docker compose logs -f llmr
+docker compose restart llmr
 docker compose config
 ```
 
@@ -245,7 +245,7 @@ This is expected. Nginx redirects the root URL to the management page and keeps 
 
 ### The UI returns `401` after a token change
 
-Open `/?llmr_web_token=<token>` again with the current token (for a generated token, read it from `docker compose logs ccr`). Close stale tabs and avoid bookmarks that contain an old `llmr_web_token`.
+Open `/?llmr_web_token=<token>` again with the current token (for a generated token, read it from `docker compose logs llmr`). Close stale tabs and avoid bookmarks that contain an old `llmr_web_token`.
 
 ### Clients still use the old port or hostname
 
@@ -261,4 +261,4 @@ Verify that the host directory exists, is writable by the container, and is not 
 
 ### The container is healthy but model requests fail
 
-Container health only verifies Nginx/UI reachability. Check **Server** status, provider connectivity, LLMR client-key authentication, routing, and request logs. Then inspect `docker compose logs --tail=200 ccr` for startup or runtime errors.
+Container health only verifies Nginx/UI reachability. Check **Server** status, provider connectivity, LLMR client-key authentication, routing, and request logs. Then inspect `docker compose logs --tail=200 llmr` for startup or runtime errors.

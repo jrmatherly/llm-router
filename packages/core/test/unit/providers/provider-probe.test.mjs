@@ -508,7 +508,7 @@ test("connectivity probe refreshes Codex OAuth plugin auth", async (t) => {
         refreshToken: "refresh-current",
         tokenEndpoint: "http://127.0.0.1:49122/oauth/token"
       },
-      key: "ccr-local-agent-codex-api-codex-oauth",
+      key: "llmr-local-agent-codex-api-codex-oauth",
       providerName: "Codex API"
     }],
     protocols: ["openai_responses"]
@@ -577,7 +577,7 @@ test("connectivity probe applies Codex request defaults for OAuth plugins", asyn
       codexOauth: {
         accessToken
       },
-      key: "ccr-local-agent-codex-api-codex-oauth",
+      key: "llmr-local-agent-codex-api-codex-oauth",
       providerName: "Codex API"
     }],
     protocols: ["openai_responses"]
@@ -590,7 +590,7 @@ test("connectivity probe applies Codex request defaults for OAuth plugins", asyn
 });
 
 test("connectivity probe prefers live Codex auth over saved OAuth plugin tokens", async (t) => {
-  useTemporaryCodexHome(t, "ccr-codex-probe-live-over-plugin-");
+  useTemporaryCodexHome(t, "llmr-codex-probe-live-over-plugin-");
   const previousFetch = globalThis.fetch;
   const savedToken = jwt({
     "https://api.openai.com/auth": {
@@ -662,7 +662,7 @@ test("connectivity probe prefers live Codex auth over saved OAuth plugin tokens"
         accessToken: savedToken,
         accountId: "acct-saved-plugin"
       },
-      key: "ccr-local-agent-codex-api-codex-oauth",
+      key: "llmr-local-agent-codex-api-codex-oauth",
       providerName: "Codex API"
     }],
     protocols: ["openai_responses"]
@@ -739,7 +739,7 @@ test("connectivity probe shares concurrent Codex OAuth refreshes", async (t) => 
         refreshToken: "refresh-shared-current",
         tokenEndpoint: "http://127.0.0.1:49125/oauth/token"
       },
-      key: "ccr-local-agent-codex-api-codex-oauth",
+      key: "llmr-local-agent-codex-api-codex-oauth",
       providerName: "Codex API"
     }],
     protocols: ["openai_responses"]
@@ -752,7 +752,7 @@ test("connectivity probe shares concurrent Codex OAuth refreshes", async (t) => 
 });
 
 test("connectivity probe recovers Codex OAuth auth when saved plugin is missing", async (t) => {
-  useTemporaryCodexHome(t, "ccr-codex-probe-live-auth-");
+  useTemporaryCodexHome(t, "llmr-codex-probe-live-auth-");
   const previousFetch = globalThis.fetch;
   const accessToken = jwt({
     "https://api.openai.com/auth": {
@@ -894,7 +894,7 @@ test("New API user self parser returns user balance", () => {
 });
 
 test("OpenCode Go model discovery only returns models for the requested protocol", async (t) => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ccr-probe-opencode-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "llmr-probe-opencode-"));
   const previousHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const previousFetch = globalThis.fetch;
   process.env.LLMR_INTERNAL_HOME_DIR = home;
@@ -947,7 +947,7 @@ test("OpenCode Go model discovery only returns models for the requested protocol
 });
 
 test("OpenCode Go model discovery keeps live models when the local catalog has no protocol models", async (t) => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ccr-probe-opencode-empty-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "llmr-probe-opencode-empty-"));
   const previousHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const previousFetch = globalThis.fetch;
   process.env.LLMR_INTERNAL_HOME_DIR = home;
@@ -982,7 +982,7 @@ test("OpenCode Go model discovery keeps live models when the local catalog has n
 });
 
 test("OpenCode Zen model discovery keeps paid models when the probe supplies an API key", async (t) => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "ccr-probe-opencode-paid-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "llmr-probe-opencode-paid-"));
   const previousHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const previousFetch = globalThis.fetch;
   process.env.LLMR_INTERNAL_HOME_DIR = home;

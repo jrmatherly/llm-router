@@ -65,7 +65,7 @@ test("default bot gateway config disables stream replies", () => {
 });
 
 test("botGatewayProfileEnv merges saved config and normalizes websocket integration", () => {
-  const runtimeHome = path.join(os.tmpdir(), "ccr-bot-gateway-runtime-home");
+  const runtimeHome = path.join(os.tmpdir(), "llmr-bot-gateway-runtime-home");
   const previousRuntimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
   process.env.LLMR_INTERNAL_HOME_DIR = runtimeHome;
   const env = botGatewayProfileEnv(
@@ -175,7 +175,7 @@ test("botGatewaySdkImportSpecifier converts Windows absolute paths before URL sc
 });
 
 test("materializeBotGatewayStdioRunnerPath copies bundled runner out of app.asar paths", () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-bot-runner-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-bot-runner-"));
   const source = path.join(dir, "resources", "app.asar", "dist", "main", "bot-gateway-sdk", "bin", "bot-gateway-stdio.mjs");
   const configDir = path.join(dir, "config");
   mkdirSync(path.dirname(source), { recursive: true });

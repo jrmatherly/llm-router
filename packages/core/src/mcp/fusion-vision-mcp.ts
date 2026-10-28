@@ -64,7 +64,7 @@ const defaultVisionModel = "gpt-4o-mini";
 const defaultTimeoutMs = 30000;
 const maxVisionRetryCount = 9999;
 const maxLocalImageBytes = 20 * 1024 * 1024;
-const fusionUsageEventSchema = "ccr.fusion-usage.v1";
+const fusionUsageEventSchema = "llmr.fusion-usage.v1";
 const fusionUsageSyncBaseDelayMs = 100;
 const fusionUsageSyncDrainTimeoutMs = 15_000;
 const fusionUsageSyncMaxAttempts = 3;
@@ -205,7 +205,7 @@ async function handleJsonRpcRequest(payload: unknown): Promise<JsonRpcResponse |
           },
           protocolVersion,
           serverInfo: {
-            name: "ccr-fusion-builtins",
+            name: "llmr-fusion-builtins",
             title: "LLMR Fusion Builtins",
             version: "1.0.0"
           }

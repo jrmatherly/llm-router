@@ -15,7 +15,7 @@ export type KiloProfileConfigWriteResult = {
 };
 
 export function resolveKiloConfigFile(configDir: string, profile: ProfileConfig): string {
-  if (profile.scope === "ccr" || profile.scope === "custom") {
+  if (profile.scope === "llmr" || profile.scope === "custom") {
     const slug = sanitizePathSegment(profile.id || profile.name || "kilo") || "kilo";
     const baseDir = path.join(configDir, "profiles", slug);
     return path.join(profile.scope === "custom" ? path.join(baseDir, "custom") : baseDir, "kilo", "kilo.jsonc");

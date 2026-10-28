@@ -640,7 +640,7 @@ function rendererAliasPlugin() {
 
 function packageAliasPlugin() {
   return {
-    name: "ccr-package-alias",
+    name: "llmr-package-alias",
     setup(build) {
       build.onResolve({ filter: /^@llmr\/cli\// }, (args) => {
         return { path: resolvePackageImport(cliSourceRoot, args.path.slice("@llmr/cli/".length)) };

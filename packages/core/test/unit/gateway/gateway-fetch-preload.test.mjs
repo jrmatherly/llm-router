@@ -7,7 +7,7 @@ import vm from "node:vm";
 import { gatewayFetchPreloadScriptForTest, writeGatewayFetchPreloadFile } from "@llmr/core/gateway/core-runtime/supervisor.ts";
 
 test("gateway fetch preload file is stored with private permissions", { skip: process.platform === "win32" }, () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-gateway-preload-permissions-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-gateway-preload-permissions-"));
   const configDir = path.join(root, ".llm-router");
   const preloadFile = path.join(configDir, "gateway-proxy-preload.cjs");
 

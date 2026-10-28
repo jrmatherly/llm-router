@@ -63,12 +63,12 @@ test("profile key generation uses the latest credentials without restoring revok
   stale.profile = {
     ...stale.profile,
     enabled: true,
-    profiles: [{ agent: "claude-design", enabled: true, id: "new-profile", model: "Provider/model", name: "New", scope: "ccr" }]
+    profiles: [{ agent: "claude-design", enabled: true, id: "new-profile", model: "Provider/model", name: "New", scope: "llmr" }]
   };
 
   await applyProfileConfig(stale);
 
   const current = await configApi.loadAppConfig();
   assert.deepEqual(current.APIKEYS.map((key) => key.id), ["retained", "profile:new-profile"]);
-  assert.ok(current.APIKEYS[1].key.startsWith("ccr-profile-"));
+  assert.ok(current.APIKEYS[1].key.startsWith("llmr-profile-"));
 });

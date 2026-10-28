@@ -120,7 +120,7 @@ export function openCodeAppLaunchSignature(
 
 export function openCodeAppLaunchArgs(): string[] {
   // OpenCode Desktop resets Electron's userData path before acquiring its
-  // single-instance lock, so --user-data-dir is ignored. CCR treats the app as
+  // single-instance lock, so --user-data-dir is ignored. LLMR treats the app as
   // single-instance and switches managed profiles in launch-service instead.
   return [
     "--remote-debugging-port=0",

@@ -51,12 +51,12 @@ type GatewayPluginStreamInput = {
   upstreamResponse: Response;
 };
 
-const ccrAuthHeaderNames = new Set([
+const llmrAuthHeaderNames = new Set([
   "x-auth-api-key-id",
   "x-auth-sub"
 ]);
 
-const ccrRoutingHeaderNames = new Set([
+const llmrRoutingHeaderNames = new Set([
   "x-gateway-target-provider",
   "x-gateway-target-provider-name",
   "x-target-model",
@@ -164,15 +164,15 @@ function isOfficialOpenCodeGoChatRequest(
 }
 
 /**
- * Removes CCR-owned routing, authentication and observability metadata at the
- * final provider boundary. Provider credentials and non-CCR custom X-Auth
+ * Removes LLMR-owned routing, authentication and observability metadata at the
+ * final provider boundary. Provider credentials and non-LLMR custom X-Auth
  * headers are deliberately preserved.
  */
 export function sanitizeUpstreamProviderHeaders(headers: Record<string, string>): Record<string, string> {
   const sanitized: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers)) {
     const normalized = name.trim().toLowerCase();
-    if (normalized.startsWith("x-llmr-") || ccrAuthHeaderNames.has(normalized) || claudeAppsGatewayIdentityHeaderNames.has(normalized)) continue;
+    if (normalized.startsWith("x-llmr-") || llmrAuthHeaderNames.has(normalized) || claudeAppsGatewayIdentityHeaderNames.has(normalized)) continue;
     sanitized[name] = value;
   }
   return sanitized;
@@ -181,7 +181,7 @@ export function sanitizeUpstreamProviderHeaders(headers: Record<string, string>)
 /**
  * Restores client headers after the core protocol adapter has rebuilt the
  * provider request. Provider-generated auth and content headers win on name
- * collisions, while transport, proxy metadata and CCR-owned headers never
+ * collisions, while transport, proxy metadata and LLMR-owned headers never
  * cross the boundary.
  */
 export function mergeUpstreamProviderHeaders(
@@ -203,8 +203,8 @@ export function mergeUpstreamProviderHeaders(
       !normalized ||
       value === undefined ||
       normalized.startsWith("x-llmr-") ||
-      ccrAuthHeaderNames.has(normalized) ||
-      ccrRoutingHeaderNames.has(normalized) ||
+      llmrAuthHeaderNames.has(normalized) ||
+      llmrRoutingHeaderNames.has(normalized) ||
       claudeAppsGatewayIdentityHeaderNames.has(normalized) ||
       clientAuthHeaderNames.has(normalized) ||
       proxyMetadataHeaderNames.has(normalized) ||
@@ -289,7 +289,7 @@ function joinUrlPath(base: string, remainder: string): string {
 export function createGatewayPlugin() {
   return {
     providerHooks: [{
-      key: "ccr-upstream-header-sanitizer",
+      key: "llmr-upstream-header-sanitizer",
       transformRequest(input: ProviderPluginRequestInput) {
         const upstreamRequest = {
           ...input.upstreamRequest,
@@ -309,7 +309,7 @@ export function createGatewayPlugin() {
                   inboundMetadataUserId(input.request?.body)
                 )
               );
-              upstreamRequest.headers["x-opencode-session"] = claudeSessionId || `ccr-${openCodeSessionFallbackId}`;
+              upstreamRequest.headers["x-opencode-session"] = claudeSessionId || `llmr-${openCodeSessionFallbackId}`;
             }
           } catch {
             // Invalid URLs are reported by the upstream transport.
@@ -346,7 +346,7 @@ export function createGatewayPlugin() {
         };
       }
     }, {
-      key: "ccr-responses-session-affinity",
+      key: "llmr-responses-session-affinity",
       transformRequest(input: ResponsesSessionAffinityInput) {
         return {
           ok: true as const,
@@ -354,7 +354,7 @@ export function createGatewayPlugin() {
         };
       }
     }, {
-      key: "ccr-responses-tool-strictness",
+      key: "llmr-responses-tool-strictness",
       transformRequest(input: ResponsesToolStrictnessInput) {
         return {
           ok: true as const,
@@ -363,7 +363,7 @@ export function createGatewayPlugin() {
       }
     }],
     streamHooks: [{
-      key: "ccr-opencode-go-cache-usage-stream",
+      key: "llmr-opencode-go-cache-usage-stream",
       transformResponse(input: GatewayPluginStreamInput) {
         if (!isOfficialOpenCodeGoChatRequest(
           input.upstreamRequest?.url,

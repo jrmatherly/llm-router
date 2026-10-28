@@ -3,7 +3,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   buildProfileLaunchPlan,
-  ccrManagedProfileDir,
+  llmrManagedProfileDir,
   defaultProfileOpenSurface,
   findProfileForOpen,
   profileOpenCommand,
@@ -25,7 +25,7 @@ const claudeProfile = {
   model: "provider,model",
   name: "Claude Main",
   opusModel: "provider,opus",
-  scope: "ccr",
+  scope: "llmr",
   sonnetModel: "provider,sonnet",
   smallFastModel: "provider,small",
   surface: "auto"
@@ -38,7 +38,7 @@ const codexProfile = {
   model: "provider,model",
   name: "Codex Main",
   providerId: "openai-codex",
-  scope: "ccr",
+  scope: "llmr",
   surface: "auto"
 };
 
@@ -48,7 +48,7 @@ const grokProfile = {
   id: "grok-main",
   model: "provider,model",
   name: "Grok Main",
-  scope: "ccr",
+  scope: "llmr",
   surface: "cli"
 };
 
@@ -58,7 +58,7 @@ const kimiProfile = {
   id: "kimi-main",
   model: "provider,model",
   name: "Kimi Main",
-  scope: "ccr",
+  scope: "llmr",
   surface: "cli"
 };
 
@@ -68,7 +68,7 @@ const piProfile = {
   id: "pi-main",
   model: "provider,model",
   name: "Pi Main",
-  scope: "ccr",
+  scope: "llmr",
   surface: "cli"
 };
 
@@ -79,7 +79,7 @@ const openCodeProfile = {
   model: "provider,model",
   name: "OpenCode Main",
   providerId: "claude-code-router",
-  scope: "ccr",
+  scope: "llmr",
   surface: "auto"
 };
 
@@ -90,7 +90,7 @@ const kiloProfile = {
   model: "provider,model",
   name: "Kilo Main",
   providerId: "claude-code-router",
-  scope: "ccr",
+  scope: "llmr",
   surface: "cli"
 };
 
@@ -101,7 +101,7 @@ const workbuddyProfile = {
   model: "provider,model",
   name: "Workbuddy Main",
   providerId: "claude-code-router",
-  scope: "ccr",
+  scope: "llmr",
   surface: "app"
 };
 
@@ -111,7 +111,7 @@ const claudeDesignProfile = {
   id: "claude-design-main",
   model: "",
   name: "Claude Design",
-  scope: "ccr",
+  scope: "llmr",
   surface: "app"
 };
 
@@ -175,7 +175,7 @@ test("Grok and Kimi CLI start a temporary LLMR gateway when none is already runn
 });
 
 test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
-  const configDir = path.join(path.sep, "tmp", "ccr-config");
+  const configDir = path.join(path.sep, "tmp", "llmr-config");
   const codexPlan = buildProfileLaunchPlan(configDir, codexProfile, "app");
   const claudePlan = buildProfileLaunchPlan(configDir, claudeProfile, "cli", ["--debug"]);
   const grokPlan = buildProfileLaunchPlan(configDir, grokProfile, "cli", ["--debug"]);
@@ -187,12 +187,12 @@ test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
 
   assert.equal(codexPlan.surface, "app");
   assert.deepEqual(codexPlan.args, ["app"]);
-  assert.equal(path.basename(codexPlan.command), process.platform === "win32" ? "ccr-codex-cli-stdio-codex-main.cmd" : "ccr-codex-cli-stdio-codex-main");
+  assert.equal(path.basename(codexPlan.command), process.platform === "win32" ? "llmr-codex-cli-stdio-codex-main.cmd" : "llmr-codex-cli-stdio-codex-main");
   assert.equal(codexPlan.env.LLMR_PROFILE_SURFACE, "app");
 
   assert.equal(claudePlan.surface, "cli");
   assert.deepEqual(claudePlan.args, ["--debug"]);
-  assert.equal(path.basename(claudePlan.command), process.platform === "win32" ? "ccr-claude-code-wrapper-claude-main.cmd" : "ccr-claude-code-wrapper-claude-main");
+  assert.equal(path.basename(claudePlan.command), process.platform === "win32" ? "llmr-claude-code-wrapper-claude-main.cmd" : "llmr-claude-code-wrapper-claude-main");
   assert.equal(claudePlan.env.LLMR_PROFILE_SURFACE, "cli");
   assert.match(claudePlan.env.CLAUDE_CONFIG_DIR, /claude$/);
   assert.equal(claudePlan.env.ANTHROPIC_MODEL, "provider/model");
@@ -206,37 +206,37 @@ test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
 
   assert.equal(grokPlan.surface, "cli");
   assert.deepEqual(grokPlan.args, ["--debug"]);
-  assert.equal(path.basename(grokPlan.command), process.platform === "win32" ? "ccr-grok-cli-wrapper-grok-main.cmd" : "ccr-grok-cli-wrapper-grok-main");
+  assert.equal(path.basename(grokPlan.command), process.platform === "win32" ? "llmr-grok-cli-wrapper-grok-main.cmd" : "llmr-grok-cli-wrapper-grok-main");
   assert.equal(grokPlan.env.LLMR_PROFILE_SURFACE, "cli");
 
   assert.equal(kimiPlan.surface, "cli");
   assert.deepEqual(kimiPlan.args, ["--debug"]);
-  assert.equal(path.basename(kimiPlan.command), process.platform === "win32" ? "ccr-kimi-cli-wrapper-kimi-main.cmd" : "ccr-kimi-cli-wrapper-kimi-main");
+  assert.equal(path.basename(kimiPlan.command), process.platform === "win32" ? "llmr-kimi-cli-wrapper-kimi-main.cmd" : "llmr-kimi-cli-wrapper-kimi-main");
   assert.equal(kimiPlan.env.LLMR_PROFILE_SURFACE, "cli");
 
   assert.equal(piPlan.surface, "cli");
   assert.deepEqual(piPlan.args, ["--debug"]);
-  assert.equal(path.basename(piPlan.command), process.platform === "win32" ? "ccr-pi-wrapper-pi-main.cmd" : "ccr-pi-wrapper-pi-main");
+  assert.equal(path.basename(piPlan.command), process.platform === "win32" ? "llmr-pi-wrapper-pi-main.cmd" : "llmr-pi-wrapper-pi-main");
   assert.equal(piPlan.env.LLMR_PROFILE_SURFACE, "cli");
   assert.match(piPlan.env.PI_CODING_AGENT_DIR, /pi-main[\\/]pi$/);
   assert.match(piPlan.env.PI_CODING_AGENT_SESSION_DIR, /pi-main[\\/]pi[\\/]sessions$/);
 
   assert.equal(openCodePlan.surface, "cli");
   assert.deepEqual(openCodePlan.args, ["--debug"]);
-  assert.equal(path.basename(openCodePlan.command), process.platform === "win32" ? "ccr-opencode-wrapper-opencode-main.cmd" : "ccr-opencode-wrapper-opencode-main");
+  assert.equal(path.basename(openCodePlan.command), process.platform === "win32" ? "llmr-opencode-wrapper-opencode-main.cmd" : "llmr-opencode-wrapper-opencode-main");
   assert.match(openCodePlan.env.OPENCODE_CONFIG, /opencode[\\/]opencode\.jsonc$/);
   assert.throws(() => buildProfileLaunchPlan(configDir, openCodeProfile, "app"), /OpenCode App profiles/);
 
   assert.equal(kiloPlan.surface, "cli");
   assert.deepEqual(kiloPlan.args, ["--debug"]);
-  assert.equal(path.basename(kiloPlan.command), process.platform === "win32" ? "ccr-kilo-wrapper-kilo-main.cmd" : "ccr-kilo-wrapper-kilo-main");
+  assert.equal(path.basename(kiloPlan.command), process.platform === "win32" ? "llmr-kilo-wrapper-kilo-main.cmd" : "llmr-kilo-wrapper-kilo-main");
   assert.equal(kiloPlan.env.LLMR_PROFILE_SURFACE, "cli");
   assert.match(kiloPlan.env.KILO_CONFIG, /kilo[\\/]kilo\.jsonc$/);
   assert.throws(() => buildProfileLaunchPlan(configDir, kiloProfile, "app"), /does not support APP/);
 
   assert.equal(workbuddyPlan.surface, "app");
   assert.deepEqual(workbuddyPlan.args, ["app"]);
-  assert.equal(path.basename(workbuddyPlan.command), process.platform === "win32" ? "ccr-codex-cli-stdio-workbuddy-main.cmd" : "ccr-codex-cli-stdio-workbuddy-main");
+  assert.equal(path.basename(workbuddyPlan.command), process.platform === "win32" ? "llmr-codex-cli-stdio-workbuddy-main.cmd" : "llmr-codex-cli-stdio-workbuddy-main");
   assert.equal(workbuddyPlan.env.LLMR_PROFILE_SURFACE, "app");
   assert.throws(() => buildProfileLaunchPlan(configDir, workbuddyProfile, "cli"), /does not support CLI/);
 
@@ -245,12 +245,12 @@ test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
 });
 
 test("profile config paths honor LLMR, custom, and global scopes", () => {
-  const configDir = path.join(path.sep, "tmp", "ccr-config");
+  const configDir = path.join(path.sep, "tmp", "llmr-config");
   const customProfile = { ...codexProfile, id: "Custom Profile", scope: "custom" };
   const globalCodex = { ...codexProfile, codexHome: "~/codex-home", scope: "global" };
 
   assert.equal(
-    ccrManagedProfileDir(configDir, customProfile),
+    llmrManagedProfileDir(configDir, customProfile),
     path.join(configDir, "profiles", "custom-profile", "custom")
   );
   assert.equal(
@@ -284,9 +284,9 @@ test("profile config paths honor LLMR, custom, and global scopes", () => {
 });
 
 test("profileOpenCommand quotes profile references for shell usage", () => {
-  const cliCommand = profileOpenCommand(claudeProfile, "cli", "ccr", "Claude Main");
-  const appCommand = profileOpenCommand(codexProfile, "app", "ccr", "Codex Main");
-  const workbuddyCommand = profileOpenCommand(workbuddyProfile, undefined, "ccr", "Workbuddy Main");
+  const cliCommand = profileOpenCommand(claudeProfile, "cli", "llmr", "Claude Main");
+  const appCommand = profileOpenCommand(codexProfile, "app", "llmr", "Codex Main");
+  const workbuddyCommand = profileOpenCommand(workbuddyProfile, undefined, "llmr", "Workbuddy Main");
 
   assert.match(cliCommand, /Claude/);
   assert.match(cliCommand, /Main/);

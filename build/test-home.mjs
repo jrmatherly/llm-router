@@ -7,7 +7,7 @@ import path from "node:path";
 // ~/.claude/settings.json on 2026-10-25. run-tests.mjs sets LLMR_TEST_HOME and
 // the same variables itself; here the guard only fills the gap.
 if (!process.env.LLMR_TEST_HOME) {
-  isolateTestHome(mkdtempSync(path.join(os.tmpdir(), "ccr-test-home-")));
+  isolateTestHome(mkdtempSync(path.join(os.tmpdir(), "llmr-test-home-")));
 }
 
 export function isolateTestHome(testHome, env = process.env) {

@@ -158,7 +158,7 @@ export function ProfileView({
                   <div className="mt-3 min-w-0 flex-1 space-y-1.5 border-t border-border/60 pt-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       <Badge variant="secondary">{profileAgentLabel(profile.agent)}</Badge>
-                      <Badge variant={scope === "ccr" ? "success" : scope === "global" ? "warning" : "outline"}>
+                      <Badge variant={scope === "llmr" ? "success" : scope === "global" ? "warning" : "outline"}>
                         {profileScopeLabel(scope)}
                       </Badge>
                       <Badge variant="outline">{profileSurfaceLabel(surface)}</Badge>
@@ -792,7 +792,7 @@ export function AddProfileForm({
                   botConfigured: true,
                   botEnabled: false,
                   model: "",
-                  scope: "ccr",
+                  scope: "llmr",
                   surface: "cli"
                 }
               : agent === "kilo"
@@ -812,7 +812,7 @@ export function AddProfileForm({
                     botEnabled: false,
                     envRows: [],
                     model: "",
-                    scope: "ccr",
+                    scope: "llmr",
                     surface: "app"
                   }
               : agent === "workbuddy" || agent === "zcode"
@@ -830,7 +830,7 @@ export function AddProfileForm({
             onChange={(scope) => onChange({ scope: normalizeProfileScope(scope) })}
             options={draft.agent === "grok" || draft.agent === "kimi" || draft.agent === "pi"
                 || draft.agent === "claude-design"
-                ? profileScopeOptions.filter((option) => option.value === "ccr")
+                ? profileScopeOptions.filter((option) => option.value === "llmr")
                 : profileScopeOptions}
             value={draft.scope}
           />
@@ -1901,7 +1901,7 @@ function appPathFromDroppedText(value: string): string {
 }
 
 const ADD_BOT_SELECT_VALUE = "__add_bot__";
-const HANDOFF_TARGET_NONE_VALUE = "__ccr_handoff_target_none__";
+const HANDOFF_TARGET_NONE_VALUE = "__llmr_handoff_target_none__";
 
 type BotHandoffScanState = {
   error: string;

@@ -183,7 +183,7 @@ type ResolveOutput = {
 };
 
 const protocolVersion = "2024-11-05";
-const toolHubServerName = "ccr-toolhub";
+const toolHubServerName = "llmr-toolhub";
 const resolveToolName = "tool_hub.resolve";
 const invokeToolName = "tool_hub.invoke";
 const defaultRequestTimeoutMs = 60_000;
@@ -381,7 +381,7 @@ class ToolHubRuntime {
       catalog = await this.registry.listTools();
     }
     if (taskWantsChromeLoginImport(task) && !catalogHasChromeLoginImportTool(catalog)) {
-      await this.registry.refreshServers(["ccr-browser-automation"], true);
+      await this.registry.refreshServers(["llmr-browser-automation"], true);
       catalog = await this.registry.listTools();
     }
     if (catalog.length === 0) {
@@ -2472,10 +2472,10 @@ function expandToolBundleWithCompanionTools(selectedTools: CatalogEntry[], catal
 }
 
 function isBrowserAutomationTool(tool: CatalogEntry): boolean {
-  return tool.serverName === "ccr-browser-automation" ||
-    tool.serverId === "ccr-browser-automation" ||
-    tool.serverNamespace === "ccr_browser_automation" ||
-    tool.toolName.startsWith("mcp.ccr_browser_automation.");
+  return tool.serverName === "llmr-browser-automation" ||
+    tool.serverId === "llmr-browser-automation" ||
+    tool.serverNamespace === "llmr_browser_automation" ||
+    tool.toolName.startsWith("mcp.llmr_browser_automation.");
 }
 
 function buildLocalFallbackWorkflowSketch(selectedTools: CatalogEntry[]): string | undefined {

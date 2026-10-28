@@ -349,35 +349,35 @@ function transformMultiAgentFunctionCall(item: Record<string, unknown>): { value
 }
 
 type CodexMultiAgentBridgeSseTransform = Transform & {
-  __ccrCodexMultiAgentBridgeSseDecoder?: StringDecoder;
-  __ccrCodexMultiAgentBridgeSsePending?: string;
+  __llmrCodexMultiAgentBridgeSseDecoder?: StringDecoder;
+  __llmrCodexMultiAgentBridgeSsePending?: string;
 };
 
 function transformSseChunk(stream: Transform, chunk: Buffer | string): void {
   const state = stream as CodexMultiAgentBridgeSseTransform;
-  const decoder = state.__ccrCodexMultiAgentBridgeSseDecoder ?? new StringDecoder("utf8");
-  state.__ccrCodexMultiAgentBridgeSseDecoder = decoder;
-  state.__ccrCodexMultiAgentBridgeSsePending = (state.__ccrCodexMultiAgentBridgeSsePending ?? "") +
+  const decoder = state.__llmrCodexMultiAgentBridgeSseDecoder ?? new StringDecoder("utf8");
+  state.__llmrCodexMultiAgentBridgeSseDecoder = decoder;
+  state.__llmrCodexMultiAgentBridgeSsePending = (state.__llmrCodexMultiAgentBridgeSsePending ?? "") +
     decoder.write(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  while (state.__ccrCodexMultiAgentBridgeSsePending) {
-    const match = /\r?\n\r?\n/.exec(state.__ccrCodexMultiAgentBridgeSsePending);
+  while (state.__llmrCodexMultiAgentBridgeSsePending) {
+    const match = /\r?\n\r?\n/.exec(state.__llmrCodexMultiAgentBridgeSsePending);
     if (!match || match.index === undefined) {
       break;
     }
-    const block = state.__ccrCodexMultiAgentBridgeSsePending.slice(0, match.index);
+    const block = state.__llmrCodexMultiAgentBridgeSsePending.slice(0, match.index);
     const delimiter = match[0];
-    state.__ccrCodexMultiAgentBridgeSsePending = state.__ccrCodexMultiAgentBridgeSsePending.slice(match.index + delimiter.length);
+    state.__llmrCodexMultiAgentBridgeSsePending = state.__llmrCodexMultiAgentBridgeSsePending.slice(match.index + delimiter.length);
     stream.push(transformCodexMultiAgentBridgeSseEvent(block) + delimiter);
   }
 }
 
 function flushSseTransform(stream: Transform): void {
   const state = stream as CodexMultiAgentBridgeSseTransform;
-  state.__ccrCodexMultiAgentBridgeSsePending = (state.__ccrCodexMultiAgentBridgeSsePending ?? "") +
-    (state.__ccrCodexMultiAgentBridgeSseDecoder?.end() ?? "");
-  if (state.__ccrCodexMultiAgentBridgeSsePending) {
-    stream.push(transformCodexMultiAgentBridgeSseEvent(state.__ccrCodexMultiAgentBridgeSsePending));
-    state.__ccrCodexMultiAgentBridgeSsePending = "";
+  state.__llmrCodexMultiAgentBridgeSsePending = (state.__llmrCodexMultiAgentBridgeSsePending ?? "") +
+    (state.__llmrCodexMultiAgentBridgeSseDecoder?.end() ?? "");
+  if (state.__llmrCodexMultiAgentBridgeSsePending) {
+    stream.push(transformCodexMultiAgentBridgeSseEvent(state.__llmrCodexMultiAgentBridgeSsePending));
+    state.__llmrCodexMultiAgentBridgeSsePending = "";
   }
 }
 

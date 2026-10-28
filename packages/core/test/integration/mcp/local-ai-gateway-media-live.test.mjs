@@ -36,8 +36,8 @@ test("Fusion generates image and video through the local ai-gateway", { skip: !l
   assert.ok(imported.provider.models.includes(imageModel));
   assert.ok(imported.provider.models.includes(videoModel));
 
-  const configRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-fusion-live-config-"));
-  const artifactRoot = path.join(os.tmpdir(), `ccr-fusion-live-artifacts-${Date.now()}`);
+  const configRoot = mkdtempSync(path.join(os.tmpdir(), "llmr-fusion-live-config-"));
+  const artifactRoot = path.join(os.tmpdir(), `llmr-fusion-live-artifacts-${Date.now()}`);
   const config = createDefaultAppConfig({});
   const corePort = await availablePort();
   const coreEndpoint = `http://127.0.0.1:${corePort}`;
@@ -161,7 +161,7 @@ test("Fusion generates image and video through the local ai-gateway", { skip: !l
     const imageJob = parseToolResult(await mcpRequest(mcpServer, "tools/call", {
       arguments: {
         aspect_ratio: "1:1",
-        idempotency_key: `ccr-live-image-${randomUUID()}`,
+        idempotency_key: `llmr-live-image-${randomUUID()}`,
         prompt: "A clean integration-test illustration: one glossy teal sphere floating over a soft white background, subtle studio shadow, no text, square composition."
       },
       name: toolNames.imageGenerate
@@ -173,7 +173,7 @@ test("Fusion generates image and video through the local ai-gateway", { skip: !l
     let videoJob = parseToolResult(await mcpRequest(mcpServer, "tools/call", {
       arguments: {
         duration: 6,
-        idempotency_key: `ccr-live-video-${randomUUID()}`,
+        idempotency_key: `llmr-live-video-${randomUUID()}`,
         prompt: "A glossy teal sphere slowly rotates while floating over a soft white studio background, fixed camera, gentle shadow movement, no text.",
         resolution: "480p"
       },
@@ -224,12 +224,12 @@ function enableGatewayDiagnostics(generated) {
   generated.logging = { accessLog: false, enabled: true, level: "info" };
   const runtimeRoot = path.join(process.cwd(), ".test-dist", "core", "runtime");
   for (const plugin of generated.plugins ?? []) {
-    if (plugin.key === "ccr-upstream-header-sanitizer") {
+    if (plugin.key === "llmr-upstream-header-sanitizer") {
       plugin.modulePath = path.join(runtimeRoot, "upstream-header-sanitizer.js");
     }
   }
   for (const server of generated.agent?.mcpServers ?? []) {
-    if (server.name === "ccr-media-tools") {
+    if (server.name === "llmr-media-tools") {
       server.args = [path.join(runtimeRoot, "media-tools-proxy-mcp.js")];
     }
   }

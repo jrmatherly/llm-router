@@ -13,7 +13,7 @@ import {
 } from "@llmr/core/profiles/backup-files.ts";
 
 function setup(t) {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-backup-files-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-backup-files-"));
   t.after(() => {
     chmodSync(dir, 0o700);
     rmSync(dir, { force: true, recursive: true });
@@ -82,7 +82,7 @@ test("pruneBackups keeps the newest unmanaged backup beyond the newest five", (t
   const { file } = setup(t);
   const backups = [];
   for (let index = 0; index < 7; index += 1) {
-    const backup = `${file}.ccr-backup-2026-10-2${index}T00-00-00-000Z`;
+    const backup = `${file}.llmr-backup-2026-10-2${index}T00-00-00-000Z`;
     writeFileSync(backup, index === 0 ? "user" : "managed", "utf8");
     backups.push(backup);
   }
@@ -94,7 +94,7 @@ test("pruneBackups drops old backups when a newer one is already unmanaged", (t)
   const { file } = setup(t);
   const backups = [];
   for (let index = 0; index < 7; index += 1) {
-    const backup = `${file}.ccr-backup-2026-10-2${index}T00-00-00-000Z`;
+    const backup = `${file}.llmr-backup-2026-10-2${index}T00-00-00-000Z`;
     writeFileSync(backup, index === 0 || index === 6 ? "user" : "managed", "utf8");
     backups.push(backup);
   }
@@ -106,22 +106,22 @@ test("pruneBackups keeps the five newest backups and never the originals", (t) =
   const { file } = setup(t);
   const backups = [];
   for (let index = 0; index < 7; index += 1) {
-    const backup = `${file}.ccr-backup-2026-10-2${index}T00-00-00-000Z`;
+    const backup = `${file}.llmr-backup-2026-10-2${index}T00-00-00-000Z`;
     writeFileSync(backup, String(index), "utf8");
     backups.push(backup);
   }
-  writeFileSync(`${file}.ccr-original`, "original", "utf8");
-  writeFileSync(`${file}.ccr-original-missing`, "", "utf8");
+  writeFileSync(`${file}.llmr-original`, "original", "utf8");
+  writeFileSync(`${file}.llmr-original-missing`, "", "utf8");
   pruneBackups(file);
   assert.deepEqual(backupFiles(file), backups.slice(2));
-  assert.ok(existsSync(`${file}.ccr-original`));
-  assert.ok(existsSync(`${file}.ccr-original-missing`));
+  assert.ok(existsSync(`${file}.llmr-original`));
+  assert.ok(existsSync(`${file}.llmr-original-missing`));
   assert.ok(existsSync(file));
 });
 
 test("backupFilePath names a timestamped backup beside the file", (t) => {
   const { file } = setup(t);
-  assert.match(backupFilePath(file), new RegExp(`^${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.ccr-backup-\\d{4}-\\d\\d-\\d\\dT[\\d-]+Z$`));
+  assert.match(backupFilePath(file), new RegExp(`^${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.llmr-backup-\\d{4}-\\d\\d-\\d\\dT[\\d-]+Z$`));
 });
 
 test("ensureOriginalSnapshot writes once and never refreshes", (t) => {
@@ -130,13 +130,13 @@ test("ensureOriginalSnapshot writes once and never refreshes", (t) => {
   ensureOriginalSnapshot(file, "first", undefined);
   writeFileSync(file, "second", "utf8");
   ensureOriginalSnapshot(file, "second", undefined);
-  assert.equal(readFileSync(`${file}.ccr-original`, "utf8"), "first");
+  assert.equal(readFileSync(`${file}.llmr-original`, "utf8"), "first");
 });
 
 test("ensureOriginalSnapshot records a missing file", (t) => {
   const { dir } = setup(t);
   const file = path.join(dir, "absent.json");
   ensureOriginalSnapshot(file, undefined, undefined);
-  assert.ok(existsSync(`${file}.ccr-original-missing`));
-  assert.ok(!existsSync(`${file}.ccr-original`));
+  assert.ok(existsSync(`${file}.llmr-original-missing`));
+  assert.ok(!existsSync(`${file}.llmr-original`));
 });

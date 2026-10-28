@@ -41,7 +41,7 @@ test("socket type-of-service error matcher is specific to setTypeOfService EINVA
 });
 
 function withSocketSetTypeOfService(fakeSetTypeOfService, run) {
-  const stateSymbol = Symbol.for("ccr.socketTypeOfServiceCompatState");
+  const stateSymbol = Symbol.for("llmr.socketTypeOfServiceCompatState");
   const prototype = Socket.prototype;
   const previousMethodDescriptor = Object.getOwnPropertyDescriptor(prototype, "setTypeOfService");
   const previousStateDescriptor = Object.getOwnPropertyDescriptor(prototype, stateSymbol);

@@ -22,7 +22,7 @@ test("filesystem path comparison normalizes relative segments and case", () => {
 });
 
 test("directory migration copies nested missing files without replacing target files", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-migration-test-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-migration-test-"));
   try {
     const source = path.join(root, "source");
     const target = path.join(root, "target");
@@ -42,7 +42,7 @@ test("directory migration copies nested missing files without replacing target f
 });
 
 test("directory migration ignores absent sources and identical paths", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-migration-skip-test-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-migration-skip-test-"));
   try {
     const target = path.join(root, "target");
     copyMissingDirectoryContents(path.join(root, "missing"), target, "missing data");

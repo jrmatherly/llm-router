@@ -20,7 +20,7 @@ test("Windows batch environment assignments use matching unquoted escaping", () 
 });
 
 test("Windows batch environment assignments preserve special characters in the child environment", { skip: process.platform !== "win32" }, () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-windows-batch-env-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-windows-batch-env-"));
   const script = path.join(root, "env-round-trip.cmd");
   try {
     writeFileSync(script, [

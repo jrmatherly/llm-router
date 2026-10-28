@@ -8,7 +8,7 @@ import { RequestLogStore } from "@llmr/core/observability/request-log-store.ts";
 import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
 
 test("RequestLogStore commits while a background pricing refresh is stalled", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "ccr-request-log-pricing-lock-test-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-pricing-lock-test-"));
   const dbFile = path.join(dir, "request-logs.sqlite");
   const first = new RequestLogStore(dbFile);
   const second = new RequestLogStore(dbFile);
@@ -124,7 +124,7 @@ test("RequestLogStore commits while a background pricing refresh is stalled", as
 });
 
 test("RequestLogStore applies persisted custom model pricing to raw trace usage updates", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "ccr-request-log-custom-pricing-test-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-custom-pricing-test-"));
   const dbFile = path.join(dir, "request-logs.sqlite");
   const store = new RequestLogStore(dbFile);
   try {
@@ -193,7 +193,7 @@ test("RequestLogStore applies persisted custom model pricing to raw trace usage 
 });
 
 test("RequestLogStore prices Anthropic 5m and 1h cache writes separately", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "ccr-request-log-cache-duration-pricing-test-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-cache-duration-pricing-test-"));
   const dbFile = path.join(dir, "request-logs.sqlite");
   const store = new RequestLogStore(dbFile);
   try {

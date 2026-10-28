@@ -8,7 +8,7 @@ import { gatewayService } from "@llmr/core/gateway/service.ts";
 import { pluginService } from "@llmr/core/plugins/service.ts";
 
 test("gateway restart reports disabled reason to removed plugin stop hooks", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-stop-reason-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-stop-reason-"));
   const previousReasonFile = process.env.LLMR_TEST_PLUGIN_STOP_REASON_FILE;
   try {
     const reasonFile = path.join(dir, "stop-reasons.log");

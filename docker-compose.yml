@@ -1,5 +1,5 @@
 services:
-  ccr:
+  llmr:
     build:
       context: .
       dockerfile: Dockerfile
@@ -8,8 +8,8 @@ services:
       # Publish only Nginx, on loopback. docker/README.md says how to expose it on a LAN.
       - "127.0.0.1:3458:8080"
     volumes:
-      - ccr-data:/data
+      - llmr-data:/data
     restart: unless-stopped
 
 volumes:
-  ccr-data:
+  llmr-data:

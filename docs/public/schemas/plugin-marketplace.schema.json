@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "CCR plugin marketplace canonical manifest",
-  "description": "Authoring schema for the canonical fields accepted by CCR 3.1.x. Runtime aliases are intentionally omitted.",
+  "title": "LLMR plugin marketplace canonical manifest",
+  "description": "Authoring schema for the canonical fields accepted by LLMR 3.1.x. Runtime aliases are intentionally omitted.",
   "type": "object",
   "required": [
     "plugins"

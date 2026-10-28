@@ -191,7 +191,7 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
         providerId: "claude-code-router",
         providerName: "LLM Router",
         showAllSessions: true,
-        scope: "ccr",
+        scope: "llmr",
         surface: "app"
       }]
     };
@@ -216,15 +216,15 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
     configDir,
     "bin",
     process.platform === "win32"
-      ? `ccr-codex-cli-stdio-${profileId}.cmd`
-      : `ccr-codex-cli-stdio-${profileId}`
+      ? `llmr-codex-cli-stdio-${profileId}.cmd`
+      : `llmr-codex-cli-stdio-${profileId}`
   );
   expect(workbuddyStatus?.path).toBe(configFile);
 
   const toml = readFileSync(configFile, "utf8");
   expect(toml).toContain('model_provider = "claude-code-router"');
   expect(toml).toContain('model = "Workbuddy E2E Provider/gpt-5-codex"');
-  expect(toml).toContain(`model_catalog_json = "${path.join(profileHome, "ccr-model-catalog.json")}"`);
+  expect(toml).toContain(`model_catalog_json = "${path.join(profileHome, "llmr-model-catalog.json")}"`);
   expect(toml).toContain(`base_url = "http://${host}:${current.gatewayPort}/v1"`);
   expect(toml).toContain('wire_api = "responses"');
   expect(toml).not.toContain("show_all_sessions = true");
@@ -254,9 +254,9 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
   const virtualAuthFile = workbuddyVirtualAuthFile(profileHome);
   expect(existsSync(virtualAuthFile)).toBe(true);
   const virtualSession = JSON.parse(readFileSync(virtualAuthFile, "utf8"));
-  expect(virtualSession.auth.accessToken).toBe("ccr-local-profile");
+  expect(virtualSession.auth.accessToken).toBe("llmr-local-profile");
   expect(virtualSession.auth.domain).toBe("www.workbuddy.ai");
-  expect(virtualSession.account.uid).toBe("ccr-local-profile");
+  expect(virtualSession.account.uid).toBe("llmr-local-profile");
   expect(virtualSession.accounts).toHaveLength(1);
   expect(virtualSession.allAccounts).toHaveLength(1);
 });
@@ -266,7 +266,7 @@ async function startElectronOverCdp(): Promise<ElectronCdpRuntime> {
   const gatewayPort = await findAvailablePort();
   const gatewayCorePort = await findAvailablePort();
   const proxyPort = await findAvailablePort();
-  const testHome = mkdtempSync(path.join(os.tmpdir(), "ccr-electron-cdp-home-"));
+  const testHome = mkdtempSync(path.join(os.tmpdir(), "llmr-electron-cdp-home-"));
   const output: ProcessOutput = { stderr: "", stdout: "" };
   let browser: Browser | undefined;
   let child: ElectronChild | undefined;

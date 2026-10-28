@@ -10,7 +10,7 @@ const modelsFile = path.join("packages", "core", "models.json");
 const nodeCommand = (source) => [process.execPath, ["-e", source]];
 
 function throwawayRepo() {
-  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), "ccr-verify-")));
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), "llmr-verify-")));
   const git = (...args) => spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], { cwd: dir, encoding: "utf8" });
   mkdirSync(path.join(dir, "packages", "core"), { recursive: true });
   mkdirSync(path.join(dir, "packages", "ui", "src", "generated"), { recursive: true });

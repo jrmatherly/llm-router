@@ -33,7 +33,7 @@ test("media tools stdio proxy exposes its compiled catalog and forwards calls wi
   const child = spawn(process.execPath, [runtime], {
     env: {
       ...process.env,
-      LLMR_MEDIA_MCP_API_KEY: "ccr-profile-test",
+      LLMR_MEDIA_MCP_API_KEY: "llmr-profile-test",
       LLMR_MEDIA_MCP_REQUEST_TIMEOUT_MS: "5000",
       LLMR_MEDIA_MCP_TOOLS_JSON: JSON.stringify([{
         description: "Generate an image.",
@@ -62,7 +62,7 @@ test("media tools stdio proxy exposes its compiled catalog and forwards calls wi
     }
   });
   assert.equal(called.result.content[0].text, "generated");
-  assert.equal(seen.authorization, "Bearer ccr-profile-test");
+  assert.equal(seen.authorization, "Bearer llmr-profile-test");
   assert.equal(seen.payload.method, "tools/call");
   assert.equal(seen.payload.params.name, "image_generate_glm_5_2v");
 });
