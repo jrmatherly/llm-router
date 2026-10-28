@@ -12,6 +12,7 @@ v5 moved the user-facing identity to LLM Router: the `llmr` CLI, the `llmr://` s
 
 v6.0.0 is a breaking release. The release notes must tell users each item below.
 
+- **Every environment variable.** Every `CCR_*` variable LLMR reads is now `LLMR_*`, for the desktop app and the CLI as well as Docker (for example `LLMR_EXTENSIONS_DIR`, `LLMR_PLUGIN_MARKETPLACE_URL`, `LLMR_CLAUDE_DESIGN_FRONTEND_URL`). Shell profiles, launch agents and scripts that set the old names stop having any effect.
 - **Docker operators.** Every `CCR_*` variable is now `LLMR_*` (`LLMR_WEB_AUTH_TOKEN`, `LLMR_PUBLIC_BASE_URL`, `LLMR_DATA_DIR` and the rest). The Compose service is `llmr` and the volume is `llmr-data`. Existing `.env` and compose files stop working until renamed. To keep data, copy the old volume before starting the new one: `docker run --rm -v ccr-data:/from -v llmr-data:/to alpine cp -a /from/. /to/`.
 - **Desktop and CLI users.** Restore or stop every applied profile in v5 before upgrading. v6 writes `.llmr-original` and `.llmr-backup-*` backups and `llmr-*` MCP server and wrapper names into agent configs. It does not read the `.ccr-*` backups or remove the `ccr-*` entries that v5 wrote. A profile left applied across the upgrade keeps its v5 entries until the user removes them by hand.
 - **Saved LLMR config.** Plugin keys (`llmr-local-agent-*`, `llmr-*-hook`), the profile scope value `llmr` (was `ccr`) and the bot tenant default `llmr` change. A v5 config that names the old values loses those plugins and falls back to the global scope. v5 already required a clean reinstall, so most configs were created by v5 and use generated values that v6 regenerates.
@@ -20,6 +21,11 @@ v6.0.0 is a breaking release. The release notes must tell users each item below.
 - **Plugin authors.** A plugin manifest declares LLMR fields under an `llmr` key (was `ccr`), in `llmr-plugin.json`, `.llmr-plugin/plugin.json` or the `llmr` field of `package.json`. v6 no longer reads the `ccr` fields (`inspectPluginDirectory` and its helpers in `packages/core/src/web/management-server.ts`). The `jrmatherly/llm-router-extensions` marketplace lists no plugins today, so no published plugin breaks. Its README moves to `LLMR_PLUGIN_MARKETPLACE_URL` in step with this release.
 - **Chrome login import extension.** Reload the unpacked extension from this release. It talks to the app through the renamed headers and paths.
 - **Everyone.** `x-ccr-*` response headers are `x-llmr-*`, the management RPC is `/api/llmr/rpc`, and gateway paths moved from `/__ccr/` to `/__llmr/`. Anything scripted against them must change.
+- **Provider operators.** Account discovery probes `/.well-known/llmr/account` instead of `/.well-known/ccr/account` (`standardAccountPaths` in `packages/core/src/providers/account-service.ts`). A provider that serves only the old path is no longer discovered.
+- **Sites that embed the provider buttons.** The docs-hosted `llmr-provider-buttons.js` exposes `window.LLMRProviderButtons` (was `window.CCRProviderButtons`), and its CSS classes and custom properties use the `llmrpb-` prefix (was `ccrpb-`). Third-party pages that load the script from the docs host and call the old global or style the old classes break.
+- **Extension developers.** The dev-checkout fallback for the extensions directory is a sibling `llmr-extensions` directory (was `ccr-extensions`, `llmrExtensionsRootCandidates` in `packages/core/src/config/config.ts`). Set `LLMR_EXTENSIONS_DIR` or rename the directory.
+- **Saved profiles with the old provider ID.** Profiles created before the rename may still carry the provider ID `claude-code-router`. LLMR writes that ID into the agent's config as before, but provider account discovery and the ZCode local-provider scan now recognize only `llm-router` as an LLMR-managed entry (`account-service.ts`, `agents/local-providers/zcode.ts`). With such a profile, the scan may offer LLMR's own entry as an importable provider, and account discovery treats it as a third-party provider. The clean reinstall avoids this; otherwise change the profile's provider ID to `llm-router`.
+- **Old persisted names are orphaned, not migrated.** Files and directories LLMR wrote under the old names (`ccr-plugin.json`, `.ccr-plugin/`, `ccr-*-model-catalog.json`, `.ccr-inbox`, `.ccr-staging`, `.ccr-dead-letter`, `.ccr-delivery.json`, `.ccr-ready.json`, `.ccr-bot-uploads`, `.ccr-virtual`) and the browser localStorage keys `ccr.webAuthToken` and `ccr.socketTypeOfServiceCompatState` stay where they are and are never read. The clean reinstall removes the ones under `~/.llm-router`.
 
 ## Clean reinstall
 
@@ -33,6 +39,8 @@ Because there is no migration code, start v6 from a clean machine. On each macOS
    npm run uninstall:mac -- --include-legacy
    npm run uninstall:mac -- --yes --include-legacy
    ```
+
+   Warning: `--include-legacy` also deletes upstream's own Claude Code Router builds (`Claude Code Router.app`), their data (`~/.claude-code-router`, `~/Library/Application Support/Claude Code Router`) and the `ccr://` handler. If you run upstream claude-code-router beside LLMR and want to keep it, drop `--include-legacy`. The plan the first command prints lists every path before anything is removed.
 
    The first command prints the plan only. The second backs up the data directory to a `.tgz` first, then removes the app, the `llmr://` and pre-5.0 `ccr://` handlers, the v5 `.ccr-*` and v6 `.llmr-*` leftovers in agent config dirs, and `~/.llm-router`. Add `--keep-data` to keep `~/.llm-router`.
 4. If the uninstaller reports a trusted proxy CA ("LLM Router CA" or "Claude Code Router CA"), run the `sudo security delete-certificate` command it prints.
@@ -53,7 +61,13 @@ The operator could choose instead a one-time v6 migration that renames `.ccr-*` 
 
 ## The lever
 
-`scripts/llmr-rename.mjs` does every edit. Nothing in the rename is a hand edit except the two subtractions named in phase 4. A reviewer reruns the script on the parent commit and diffs the result against the phase commit.
+`scripts/llmr-rename.mjs` does the rename. A reviewer reruns the script on the parent commit and diffs the result against the phase commit. The hand edits are few and each is declared where it happens:
+
+- Phase 0: `isLegacyManagedCcrCliRuntime` spells `CCR_CLI_COMMAND_NAME` literally, so the env phase can rename the current constant.
+- Phase 2: the wire patterns widen (header case, escaped regex forms, unquoted bridge keys, skipping `ccr://`), and `scripts/rebrand-ccr.mjs` with its test is deleted.
+- Phase 3: the two env names owned by the ai-gateway are named once, as `gatewayRuntimeIdEnv` and `gatewayUpstreamProxyUrlEnv` in `packages/core/src/gateway/internal/shared.ts`.
+- Phase 4: the subtractions and deleted brand-absence tests listed under Phases, the uninstaller's two-prefix `agentLeftover`, and restoring the upstream contracts the review found over-renamed (the Claude Design runtime path, the encoded Infistar code, the README guard's `ccrdesk\.top`).
+- Phase 5: the `longform` class, reading every tracked text file, dropping the `claude-code-router` branch from two compat readers, the two deleted brand-absence asserts, and restoring the old-versus-new contrasts listed under Phases.
 
 ```bash
 node scripts/llmr-rename.mjs <alias|wire|env|rest|all>...
@@ -78,7 +92,7 @@ Each phase is one PR, stacked on the one before. Inside a phase the tree may be 
 | 2 | `wire`: `x-ccr-*` headers, `/api/ccr`, `/__ccr/`, `window.ccr` and `window.ccrBrowser`, the preload `exposeInMainWorld` names, and the `ccr:` IPC and message-channel prefix. | UI, Electron and CLI disagree on the contract until all three are renamed in the same commit. | Same four suites, `--check wire` at 0. |
 | 3 | `env`: every `CCR_*` name, including the Docker names, the test isolation `CCR_INTERNAL_*_DIR` variables and the `.claude` gate variables. | Test-home isolation is unsafe while `build/test-home.mjs` and the code disagree, so no suite runs until the whole class is renamed. | Same four suites, `npm run test:system` when Docker is available, `--check env` at 0. |
 | 4 | `rest`: plugin keys, MCP and wrapper names, persisted file, directory and localStorage names, backup suffixes, the profile scope value, code identifiers, CSS ids, prose, file names. Adds the guard test. Regenerates `package-lock.json` for the renamed `llmr-core-server` bin. | Any of the above until the commit lands. | All four suites, `npm run build:assets` (then `git checkout -- packages/core/models.json packages/ui/src/generated`), `npm run test:e2e`, `--check all` at 0 enforced by `tests/architecture/llmr-rename.test.mjs`. |
-| 5 | `longform`: the spelled-out upstream name. `ClaudeCodeRouterPlugin` becomes `LLMRouterPlugin`, `claude-code-router-plugin.ts` becomes `llm-router-plugin.ts`, and the default provider ID written into agent configs, the gateway router plugin name and the data-export kind become `llm-router`. Two compat readers that also accepted `claude-code-router` as an LLMR-managed provider (`account-service.ts`, `local-providers/zcode.ts`) lose that branch by hand first. The two `doesNotMatch(/claude-code-router/)` brand-absence checks in `shell-rc-path-block.test.mjs` go for the same reason as the phase 4 ones. | Imports of the renamed file until the codemod finishes. | All four suites, `npm run test:system`, `npm run build:assets` (then restore the generated files), `npm run test:e2e`, `--check all` at 0. |
+| 5 | `longform`: the spelled-out upstream name. `ClaudeCodeRouterPlugin` becomes `LLMRouterPlugin`, `claude-code-router-plugin.ts` becomes `llm-router-plugin.ts`, and the default provider ID written into agent configs, the gateway router plugin name and the data-export kind become `llm-router`. Two compat readers that also accepted `claude-code-router` as an LLMR-managed provider (`account-service.ts`, `local-providers/zcode.ts`) lose that branch by hand first. The two `doesNotMatch(/claude-code-router/)` brand-absence checks in `shell-rc-path-block.test.mjs` go for the same reason as the phase 4 ones. The review found the long form collapsed two contrasts that need the old value, and both are kept: the eight provider-ID doc lines that say `claude-code-router` is the value in profiles made before the rename, and the profiles test that a saved `claude-code-router` ID is preserved. | Imports of the renamed file until the codemod finishes. | All four suites, `npm run test:system`, `npm run build:assets` (then restore the generated files), `npm run test:e2e`, `--check all` at 0. |
 
 Phase 2 deletes `scripts/rebrand-ccr.mjs` and `tests/architecture/rebrand-ccr.test.mjs`. Their job (rewrite prose, keep identifiers) is done, and the test pins `x-ccr-*` and `/__ccr/` surviving, which is the first thing phase 2 changes.
 
@@ -94,7 +108,9 @@ Phase 4 also deletes the tests that asserted the old name is absent, because the
 |---|---|---|
 | `docs/superpowers/**` | Specs and plans | The history of the fork. Rewriting it would falsify what each document recorded at the time. |
 | `ccrdesk.top` | `claude-design.ccrdesk.top`, `models.ccrdesk.top` | Hosts owned by upstream. A renamed `llmrdesk.top` would point at a domain nobody here owns. The Claude Design default still needs an operator-owned host, a separate decision. |
-| `aff=ccr`, `aff=CCRCCR` | Provider preset sign-up links | Partner affiliate codes issued by Kimi and Infistar, not identifiers of this repo. |
+| `aff=ccr`, `aff=CCRCCR`, `aff%3DCCRCCR` | Provider preset sign-up links, and the URL-encoded form in `provider-deeplink.md` | Partner affiliate codes issued by Kimi and Infistar, not identifiers of this repo. |
+| `/ccr-resource-runtime.js` (served path; the constant is `LLMR_RESOURCE_RUNTIME_PATH`) | `packages/electron/bundled-plugins/claude-design/index.cjs` | The upstream-hosted Claude Design page at `claude-design.ccrdesk.top` hard-codes `<script src="/ccr-resource-runtime.js">`. The plugin must claim and serve that path, or the host's frozen copy of the runtime loads instead of ours. `claude-design-plugin-assets.test.ts` pins it. |
+| `ccrdesk\.top` | `tests/architecture/readme-identity.test.mjs` | The README guard's pattern for the upstream host. Renaming it would make the guard match a host that cannot exist. |
 | `"ccr"`, `"ccr.cmd"`, `"ccr-app"`, `"ccr-app.cmd"`, `"ccr-cli.js"` and the four `includes("CCR_…")` markers | `packages/core/src/profiles/launch-service.ts` | The existing pre-5.0 launcher cleanup matches the old names and content. |
 | `CCR_GATEWAY_RUNTIME_ID`, `CCR_UPSTREAM_PROXY_URL` | `gatewayRuntimeIdEnv` and `gatewayUpstreamProxyUrlEnv` in `packages/core/src/gateway/internal/shared.ts`, and the gateway tests | Read by the bundled `@the-next-ai/ai-gateway` (1.0.21) itself. Renaming them here breaks the gateway health handshake. They move only when that package renames them. |
 | The 4.x launcher and runtime fixture texts | `packages/core/test/unit/profiles/legacy-cli-launcher-cleanup.test.mjs` | The test writes real 4.x file content so the cleanup above has something to recognize. |
@@ -111,6 +127,9 @@ Phase 4 also deletes the tests that asserted the old name is absent, because the
 | "Claude Code Router CA", "Claude Code Router CLI", "Claude Code Router PATH block" | `certificates.ts`, `launch-service.ts`, `uninstall-macos.mjs` and their tests | The existing cleanup removes the pre-5.0 CA and PATH block by these names. |
 | "Claude Code Router.app", `.claude-code-router`, "Library/Application Support/Claude Code Router", `(claude-code-router\|llm-router)\.config\.toml` | `scripts/uninstall-macos.mjs` | `--include-legacy` removes pre-5.0 builds and their data, and the uninstaller removes the v5 Codex leftover. |
 | `blog/en/**` | Skipped by the codemod | Upstream's own posts about the project's history. |
+| "`claude-code-router` in profiles made before the rename" | Five agent pages and `profiles.md` under `docs/src/content/docs/en/configuration` | The docs name the old provider ID that older profiles still carry, beside the new default. |
+| `providerId: "claude-code-router"` and the test title | `packages/ui/test/component/profiles.test.tsx` | The test proves a saved old ID survives a round trip, so it needs the old value. |
+| `musistudio\/claude-code-router` | `tests/architecture/readme-identity.test.mjs` | The README guard's pattern for upstream release links. |
 
 ## Out of scope
 
@@ -118,6 +137,6 @@ Phase 4 also deletes the tests that asserted the old name is absent, because the
 
 ## Verification at the end
 
-- `node scripts/llmr-rename.mjs --check all` prints `0 residual lines`.
+- `node scripts/llmr-rename.mjs --check all` prints `0 residual lines for alias, wire, env, rest, longform`.
 - `git grep -Ii ccr` lists only the kept entries above.
 - `npm run typecheck`, `npm run test:architecture`, all four package suites, `npm run build:assets` and `npm run test:e2e` pass on the phase 5 head.

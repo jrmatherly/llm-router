@@ -34,15 +34,112 @@ const skippedPaths = [
 ];
 
 // Every entry is a deliberate survivor; docs/superpowers/specs/2026-10-27-ccr-to-llmr-rename.md gives the reasons.
+// `path` keeps the text in one file. `at` keeps it everywhere and lists every file that holds it, so an over-rename in any of them fails the guard test.
 export const kept = [
-  { text: "ccrdesk.top" },
-  { text: "aff=ccr" },
-  { text: "aff=CCRCCR" },
-  { text: "musistudio/claude-code-router" },
-  { text: "claudecoderouter" },
-  { text: "Claude Code Router CA" },
-  { text: "Claude Code Router CLI" },
-  { text: "Claude Code Router PATH block" },
+  {
+    at: [
+      "packages/core/src/contracts/app.ts",
+      "packages/core/test/unit/config/plugin-config-migration.test.mjs",
+      "packages/core/test/unit/contracts/app.test.mjs",
+      "packages/electron/bundled-plugins/claude-design/README.md",
+      "packages/electron/bundled-plugins/claude-design/index.cjs",
+      "packages/electron/bundled-plugins/claude-design/plugin.json",
+      "packages/electron/src/main/plugin-app-url.ts",
+      "packages/electron/test/unit/claude-design-plugin-assets.test.ts",
+      "packages/electron/test/unit/plugin-app-url.test.ts"
+    ],
+    text: "ccrdesk.top"
+  },
+  {
+    at: [
+      "packages/core/src/providers/presets/kimi-coding/index.ts",
+      "packages/core/src/providers/presets/moonshot/index.ts"
+    ],
+    text: "aff=ccr"
+  },
+  {
+    at: [
+      "packages/core/src/providers/presets/infistar-ai/index.ts",
+      "packages/core/test/unit/providers/provider-preset-utils.test.mjs"
+    ],
+    text: "aff=CCRCCR"
+  },
+  {
+    at: [
+      "docs/src/content/docs/en/configuration/provider-deeplink.md"
+    ],
+    text: "aff%3DCCRCCR"
+  },
+  {
+    at: [
+      "packages/core/src/gateway/internal/shared.ts",
+      "packages/core/test/unit/gateway/gateway-status.test.mjs"
+    ],
+    text: "CCR_GATEWAY_RUNTIME_ID"
+  },
+  {
+    at: [
+      "packages/core/src/gateway/internal/shared.ts",
+      "packages/core/test/integration/gateway/gateway-virtual-models.test.mjs",
+      "packages/core/test/unit/gateway/gateway-fetch-preload.test.mjs"
+    ],
+    text: "CCR_UPSTREAM_PROXY_URL"
+  },
+  { path: "packages/electron/bundled-plugins/claude-design/index.cjs", text: "/ccr-resource-runtime.js" },
+  { path: "packages/electron/bundled-plugins/claude-design/index.cjs", text: "ccr-resource-runtime\\.js" },
+  { path: "packages/electron/test/unit/claude-design-plugin-assets.test.ts", text: "/ccr-resource-runtime.js" },
+  { path: "tests/architecture/readme-identity.test.mjs", text: "ccrdesk\\.top" },
+  {
+    at: [
+      "README.md",
+      "docs/src/content/docs/en/guides/cli.md",
+      "packages/core/test/unit/agents/local-agent-provider-claude-code.test.mjs",
+      "packages/core/test/unit/gateway/local-agent-auth-provider-hook.test.mjs",
+      "packages/ui/test/component/layout.test.tsx"
+    ],
+    text: "musistudio/claude-code-router"
+  },
+  {
+    at: [
+      "docs/src/content/docs/en/configuration/provider-deeplink.md",
+      "packages/core/src/providers/presets/claudeapi/index.ts",
+      "packages/core/src/providers/presets/code0/index.ts",
+      "packages/core/src/providers/presets/unity2/index.ts",
+      "packages/core/test/unit/providers/provider-preset-utils.test.mjs"
+    ],
+    text: "claudecoderouter"
+  },
+  {
+    at: [
+      "packages/core/src/proxy/certificates.ts",
+      "packages/core/test/unit/proxy/proxy-ca-name.test.mjs",
+      "scripts/uninstall-macos.mjs"
+    ],
+    text: "Claude Code Router CA"
+  },
+  {
+    at: [
+      "packages/core/src/profiles/launch-service.ts",
+      "packages/core/test/unit/profiles/shell-rc-path-block.test.mjs"
+    ],
+    text: "Claude Code Router CLI"
+  },
+  { path: "packages/core/test/unit/profiles/shell-rc-path-block.test.mjs", text: "Claude Code Router PATH block" },
+  {
+    at: [
+      "docs/src/content/docs/en/configuration/agents/codex.md",
+      "docs/src/content/docs/en/configuration/agents/kilo.md",
+      "docs/src/content/docs/en/configuration/agents/opencode.md",
+      "docs/src/content/docs/en/configuration/agents/workbuddy.md",
+      "docs/src/content/docs/en/configuration/agents/zcode.md",
+      "docs/src/content/docs/en/configuration/profiles.md"
+    ],
+    text: "`claude-code-router` in profiles made before the rename"
+  },
+  { path: "packages/ui/test/component/profiles.test.tsx", text: "saved claude-code-router profiles" },
+  { path: "packages/ui/test/component/profiles.test.tsx", text: "providerId: \"claude-code-router\" }" },
+  { path: "packages/ui/test/component/profiles.test.tsx", text: "providerId, \"claude-code-router\")" },
+  { path: "tests/architecture/readme-identity.test.mjs", text: "musistudio\\/claude-code-router" },
   { path: "AGENTS.md", text: "Fork of claude-code-router v3.1.3" },
   { path: "README.md", text: "[claude-code-router](" },
   { path: "scripts/uninstall-macos.mjs", text: "Claude Code Router names" },
@@ -50,8 +147,6 @@ export const kept = [
   { path: "scripts/uninstall-macos.mjs", text: "\".claude-code-router\"" },
   { path: "scripts/uninstall-macos.mjs", text: "\"Library/Application Support/Claude Code Router\"" },
   { path: "scripts/uninstall-macos.mjs", text: "removes Claude Code Router builds" },
-  { text: "CCR_GATEWAY_RUNTIME_ID" },
-  { text: "CCR_UPSTREAM_PROXY_URL" },
   { path: "packages/core/test/unit/profiles/legacy-cli-launcher-cleanup.test.mjs", text: "\"CCR_CLI_NODE_PATH='/app/node_modules'\"" },
   { path: "packages/core/test/unit/profiles/legacy-cli-launcher-cleanup.test.mjs", text: "'if [ -n \"$CCR_NODE_BIN\" ]; then exec \"$CCR_NODE_BIN\" \\'/bin/ccr-cli.js\\' \"$@\"; fi'" },
   { path: "packages/core/test/unit/profiles/legacy-cli-launcher-cleanup.test.mjs", text: "'/bin/ccr-cli.js' \\\"$@\\\"\"" },

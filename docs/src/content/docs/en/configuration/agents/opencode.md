@@ -41,7 +41,7 @@ Use this page to route OpenCode to any LLMR provider or Fusion model, or to atta
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps changes limited to LLMR launches, or makes this the system-default OpenCode profile. Only one enabled system-default OpenCode profile is allowed. |
 | Entry mode | `CLI & APP` / `CLI only` / `App only` | Which launch entries (terminal command and/or App) are exposed. |
-| Provider ID | Default `llm-router` (`llm-router` in profiles made before the rename) | Provider reference for this OpenCode profile. |
+| Provider ID | Default `llm-router` (`claude-code-router` in profiles made before the rename) | Provider reference for this OpenCode profile. |
 | Provider name | Free text; default `LLM Router` | Display name shown in OpenCode. |
 | OpenCode model | A provider model or Fusion model | Default model OpenCode uses through LLMR. |
 | Config file | Path | Used for the system-default OpenCode profile. |
