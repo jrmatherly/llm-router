@@ -41,7 +41,7 @@ test("Codex inline media bridge is enabled only for configured Fusion media and 
 });
 
 test("Codex App launch uses a random loopback DevTools port and removes stale discovery state", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-codex-cdp-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-cdp-"));
   try {
     const activePort = path.join(root, "DevToolsActivePort");
     writeFileSync(activePort, "49152\n/devtools/browser/stale\n");
@@ -75,7 +75,7 @@ test("Codex media artifact URLs are restricted to the configured LLMR origin, cu
 test("Codex page bootstrap uses Blob media, semantic response hooks, readiness gating, and no CSP bypass", () => {
   const script = codexMediaPreviewBridgeForTest.injectionScript("http://127.0.0.1:3457");
   assert.doesNotThrow(() => new Function(script));
-  assert.match(script, /__ccrMediaPreviewRequest/);
+  assert.match(script, /__llmrMediaPreviewRequest/);
   assert.match(script, /MutationObserver/);
   assert.match(script, /data-response-annotation-conversation/);
   assert.match(script, /Open Web preview/);

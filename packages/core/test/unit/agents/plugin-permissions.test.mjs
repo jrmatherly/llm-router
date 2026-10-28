@@ -9,7 +9,7 @@ import { LLMR_DESKTOP_APP_ENV } from "@llmr/core/runtime/desktop-app.ts";
 import { withDesktopRuntime } from "../../support/desktop-runtime.mjs";
 
 test("plugin permissions gate dynamic gateway route registration", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-permissions-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-permissions-"));
   try {
     const pluginFile = path.join(dir, "route-plugin.cjs");
     writeFileSync(pluginFile, [
@@ -46,7 +46,7 @@ test("plugin permissions gate dynamic gateway route registration", { skip: !proc
 });
 
 test("plugins without permissions declarations are rejected", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-missing-permissions-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-missing-permissions-"));
   try {
     const pluginFile = path.join(dir, "missing-permissions-plugin.cjs");
     writeFileSync(pluginFile, [
@@ -79,7 +79,7 @@ test("plugins without permissions declarations are rejected", { skip: !process.e
 });
 
 test("plugin permissions gate configured browser apps", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-static-permissions-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-static-permissions-"));
   try {
     const warnings = await startWithWarnings({
       ...baseConfig(dir),
@@ -102,7 +102,7 @@ test("plugin permissions gate configured browser apps", { skip: !process.env.LLM
 });
 
 test("known bundled plugins without persisted permissions receive scoped defaults", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-known-defaults-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-known-defaults-"));
   try {
     const pluginFile = path.join(dir, "claude-design-plugin.cjs");
     writeFileSync(pluginFile, [
@@ -143,7 +143,7 @@ test("known bundled plugins without persisted permissions receive scoped default
 });
 
 test("Claude browser plugins are skipped outside LLMR Desktop", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-desktop-only-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-desktop-only-"));
   const previousDesktopApp = process.env[LLMR_DESKTOP_APP_ENV];
   try {
     delete process.env[LLMR_DESKTOP_APP_ENV];
@@ -186,7 +186,7 @@ test("Claude browser plugins are skipped outside LLMR Desktop", { skip: !process
 });
 
 test("app-only plugin surface can execute trusted JavaScript and register apps", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-app-surface-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-app-surface-"));
   try {
     const pluginFile = path.join(dir, "app-only-plugin.cjs");
     writeFileSync(pluginFile, [
@@ -236,7 +236,7 @@ test("app-only plugin surface can execute trusted JavaScript and register apps",
 });
 
 test("plugin surfaces gate dynamic gateway registration", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-surface-gate-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-surface-gate-"));
   try {
     const pluginFile = path.join(dir, "gateway-surface-plugin.cjs");
     writeFileSync(pluginFile, [
@@ -269,7 +269,7 @@ test("plugin surfaces gate dynamic gateway registration", { skip: !process.env.L
 });
 
 test("plugin modules are reloaded from the same path after gateway restart", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-reload-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-reload-"));
   try {
     const pluginFile = path.join(dir, "reload-plugin.cjs");
     writeReloadPlugin(pluginFile, "Version 1", "/v1");

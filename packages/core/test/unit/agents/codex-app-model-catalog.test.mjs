@@ -15,11 +15,11 @@ import {
 } from "@llmr/core/agents/codex/app-launch.ts";
 
 test("ChatGPT app launch shares explicit or default Codex login when available", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-chatgpt-shared-auth-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-chatgpt-shared-auth-"));
   const defaultAuthDir = path.join(root, ".codex");
   const defaultAuthFile = path.join(defaultAuthDir, "auth.json");
   const authFile = path.join(root, "auth.json");
-  const previousCcr = process.env.LLMR_CODEX_CHATGPT_AUTH_FILE;
+  const previousLlmr = process.env.LLMR_CODEX_CHATGPT_AUTH_FILE;
   const previousCodexl = process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE;
   try {
     writeFileSync(authFile, JSON.stringify({ auth_mode: "chatgpt", tokens: { access_token: "token" } }));
@@ -38,8 +38,8 @@ test("ChatGPT app launch shares explicit or default Codex login when available",
       CODEXL_CODEX_CHATGPT_AUTH_FILE: authFile
     });
   } finally {
-    if (previousCcr === undefined) delete process.env.LLMR_CODEX_CHATGPT_AUTH_FILE;
-    else process.env.LLMR_CODEX_CHATGPT_AUTH_FILE = previousCcr;
+    if (previousLlmr === undefined) delete process.env.LLMR_CODEX_CHATGPT_AUTH_FILE;
+    else process.env.LLMR_CODEX_CHATGPT_AUTH_FILE = previousLlmr;
     if (previousCodexl === undefined) delete process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE;
     else process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE = previousCodexl;
     rmSync(root, { force: true, recursive: true });
@@ -47,7 +47,7 @@ test("ChatGPT app launch shares explicit or default Codex login when available",
 });
 
 test("ChatGPT model catalog write includes patch bridge capabilities", () => {
-  const configDir = mkdtempSync(path.join(os.tmpdir(), "ccr-codex-app-catalog-"));
+  const configDir = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-app-catalog-"));
   try {
     const config = {
       Providers: [
@@ -69,13 +69,13 @@ test("ChatGPT model catalog write includes patch bridge capabilities", () => {
       model: "DeepSeek/deepseek-v4-flash",
       name: "Codex Main",
       providerId: "openai-codex",
-      scope: "ccr",
+      scope: "llmr",
       surface: "app"
     };
 
     const result = writeCodexCompatibleAppModelCatalog(configDir, profile, config);
     assert.equal(result.changed, true);
-    assert.equal(path.basename(result.file), "ccr-codex-model-catalog.json");
+    assert.equal(path.basename(result.file), "llmr-codex-model-catalog.json");
     assert.equal(
       result.userDataDir,
       path.join(configDir, "profiles", "codex-main", "codex", ".llm-router", "codex-app-user-data", "codex-main")
@@ -106,7 +106,7 @@ test("ChatGPT model catalog write includes patch bridge capabilities", () => {
 });
 
 test("ChatGPT model catalog write includes latest reasoning effort aliases", () => {
-  const configDir = mkdtempSync(path.join(os.tmpdir(), "ccr-codex-app-catalog-"));
+  const configDir = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-app-catalog-"));
   try {
     const config = {
       Providers: [
@@ -134,7 +134,7 @@ test("ChatGPT model catalog write includes latest reasoning effort aliases", () 
       model: "Codex API/gpt-5-codex",
       name: "Codex Main",
       providerId: "openai-codex",
-      scope: "ccr",
+      scope: "llmr",
       surface: "app"
     };
 
@@ -154,7 +154,7 @@ test("ChatGPT model catalog write includes latest reasoning effort aliases", () 
 });
 
 test("ChatGPT model catalog write gives gateway GPT models reasoning effort fallbacks", () => {
-  const configDir = mkdtempSync(path.join(os.tmpdir(), "ccr-codex-app-catalog-"));
+  const configDir = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-app-catalog-"));
   try {
     const config = {
       Providers: [
@@ -172,7 +172,7 @@ test("ChatGPT model catalog write gives gateway GPT models reasoning effort fall
       model: "uuroute/gpt-5.6",
       name: "Codex Main",
       providerId: "openai-codex",
-      scope: "ccr",
+      scope: "llmr",
       surface: "app"
     };
 
@@ -195,7 +195,7 @@ test("ChatGPT model catalog write gives gateway GPT models reasoning effort fall
 });
 
 test("ZCode app model catalog uses the public model context window", () => {
-  const configDir = mkdtempSync(path.join(os.tmpdir(), "ccr-zcode-app-catalog-"));
+  const configDir = mkdtempSync(path.join(os.tmpdir(), "llmr-zcode-app-catalog-"));
   try {
     const config = {
       Providers: [{
@@ -234,7 +234,7 @@ test("ZCode app model catalog uses the public model context window", () => {
     const fusionModel = catalog.models.find((item) => item.slug === "Fusion/catalog-context");
     const model = catalog.models.find((item) => item.slug === "Codex API/gpt-5.6-sol");
 
-    assert.equal(path.basename(result.file), "ccr-zcode-model-catalog.json");
+    assert.equal(path.basename(result.file), "llmr-zcode-model-catalog.json");
     assert.equal(fusionModel.context_window, 1_050_000);
     assert.equal(fusionModel.max_context_window, 1_050_000);
     assert.equal(model.context_window, 1_050_000);
@@ -245,7 +245,7 @@ test("ZCode app model catalog uses the public model context window", () => {
 });
 
 test("ChatGPT desktop app path override discovers the renamed executable", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-chatgpt-app-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-chatgpt-app-"));
   const previous = process.env.CHATGPT_APP_PATH;
   try {
     let configuredPath;
@@ -282,7 +282,7 @@ test("ChatGPT desktop app path override discovers the renamed executable", () =>
 });
 
 test("ChatGPT profile appPath overrides process env discovery", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-chatgpt-profile-app-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-chatgpt-profile-app-"));
   const previous = process.env.CHATGPT_APP_PATH;
   try {
     const envExecutable = path.join(root, "env", "ChatGPT");
@@ -310,7 +310,7 @@ test("ChatGPT profile appPath overrides process env discovery", () => {
 });
 
 test("WorkBuddy AI app path override discovers the Electron executable", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-app-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-app-"));
   try {
     let configuredPath;
     let expectedExecutable;
@@ -339,7 +339,7 @@ test("WorkBuddy AI app path override discovers the Electron executable", () => {
 });
 
 test("WorkBuddy AI app profile writes the virtual desktop auth session", () => {
-  const configDir = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-app-auth-"));
+  const configDir = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-app-auth-"));
   try {
     const profile = {
       agent: "workbuddy",
@@ -348,7 +348,7 @@ test("WorkBuddy AI app profile writes the virtual desktop auth session", () => {
       model: "Codex API/gpt-5-codex",
       name: "WorkBuddy Main",
       providerId: "claude-code-router",
-      scope: "ccr",
+      scope: "llmr",
       surface: "app"
     };
 
@@ -378,7 +378,7 @@ test("WorkBuddy AI app profile writes the virtual desktop auth session", () => {
     };
     const result = writeCodexCompatibleAppModelCatalog(configDir, profile, workbuddyConfig);
 
-    assert.equal(path.basename(result.file), "ccr-workbuddy-model-catalog.json");
+    assert.equal(path.basename(result.file), "llmr-workbuddy-model-catalog.json");
     assert.ok(result.workbuddyModelsConfig);
     assert.equal(path.basename(result.workbuddyModelsConfig.file), "models.json");
     assert.equal(result.workbuddyModelsConfig.model, "Codex API/gpt-5-codex");
@@ -400,11 +400,11 @@ test("WorkBuddy AI app profile writes the virtual desktop auth session", () => {
     assert.equal(existsSync(result.workbuddyVirtualAuth.authFile), true);
 
     const session = JSON.parse(readFileSync(result.workbuddyVirtualAuth.authFile, "utf8"));
-    assert.equal(session.auth.accessToken, "ccr-local-profile");
+    assert.equal(session.auth.accessToken, "llmr-local-profile");
     assert.equal(session.auth.domain, "www.workbuddy.ai");
     assert.equal(session.auth.refreshToken, "");
     assert.ok(Date.now() - session.auth.lastRefreshTime < 5_000);
-    assert.equal(session.account.uid, "ccr-local-profile");
+    assert.equal(session.account.uid, "llmr-local-profile");
     assert.equal(session.account.nickname, "WorkBuddy Main");
     assert.equal(session.account.type, "personal");
     assert.deepEqual(session.accounts, [session.account]);
@@ -418,7 +418,7 @@ test("WorkBuddy AI app profile writes the virtual desktop auth session", () => {
 });
 
 test("WorkBuddy AI app profile writes every allowed model to models.json", () => {
-  const configDir = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-app-models-"));
+  const configDir = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-app-models-"));
   try {
     const profile = {
       agent: "workbuddy",
@@ -428,7 +428,7 @@ test("WorkBuddy AI app profile writes every allowed model to models.json", () =>
       model: "Codex API/gpt-5-codex",
       name: "WorkBuddy Main",
       providerId: "claude-code-router",
-      scope: "ccr",
+      scope: "llmr",
       surface: "app"
     };
 
@@ -451,7 +451,7 @@ test("WorkBuddy AI app profile writes every allowed model to models.json", () =>
 });
 
 test("WorkBuddy AI app profile writes every catalog model when the allowlist is unrestricted", () => {
-  const configDir = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-app-unrestricted-models-"));
+  const configDir = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-app-unrestricted-models-"));
   try {
     const profile = {
       agent: "workbuddy",
@@ -460,7 +460,7 @@ test("WorkBuddy AI app profile writes every catalog model when the allowlist is 
       model: "Codex API/gpt-5-codex",
       name: "WorkBuddy Main",
       providerId: "claude-code-router",
-      scope: "ccr",
+      scope: "llmr",
       surface: "app"
     };
 
@@ -494,12 +494,12 @@ function withPlatform(platform, callback) {
 }
 
 test("ChatGPT migration removes only the exact legacy LLMR auth marker", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-chatgpt-auth-migration-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-chatgpt-auth-migration-"));
   const authFile = path.join(root, "auth.json");
   try {
     writeFileSync(authFile, JSON.stringify({
       auth_mode: "apikey",
-      OPENAI_API_KEY: "ccr-local-profile"
+      OPENAI_API_KEY: "llmr-local-profile"
     }));
     assert.equal(removeLegacyCodexVirtualAuthMarker(root), true);
     assert.equal(existsSync(authFile), false);
@@ -523,9 +523,9 @@ function workbuddyModelsProfile(scope) {
 }
 
 test("isManagedWorkbuddyModelsContent recognizes only the models.json LLMR writes", () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-managed-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-managed-"));
   try {
-    const result = writeWorkbuddyModelsConfig(dir, workbuddyModelsProfile("ccr"));
+    const result = writeWorkbuddyModelsConfig(dir, workbuddyModelsProfile("llmr"));
     assert.equal(isManagedWorkbuddyModelsContent(readFileSync(result.file, "utf8")), true);
     assert.equal(isManagedWorkbuddyModelsContent(JSON.stringify({ models: [{ apiKey: "sk-user", id: "mine" }] })), false);
     assert.equal(isManagedWorkbuddyModelsContent(JSON.stringify({ models: [{ apiKey: "${LLMR_PROFILE_API_KEY}" }, { apiKey: "sk-user" }] })), false);
@@ -537,7 +537,7 @@ test("isManagedWorkbuddyModelsContent recognizes only the models.json LLMR write
 });
 
 test("a global WorkBuddy models.json is snapshotted and backed up before LLMR overwrites it", () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-backup-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-backup-"));
   try {
     const file = path.join(dir, "models.json");
     const userModels = `${JSON.stringify({ models: [{ apiKey: "sk-user", id: "mine" }] })}\n`;
@@ -546,8 +546,8 @@ test("a global WorkBuddy models.json is snapshotted and backed up before LLMR ov
     const result = writeWorkbuddyModelsConfig(dir, workbuddyModelsProfile("global"));
 
     assert.equal(result.changed, true);
-    assert.equal(readFileSync(`${file}.ccr-original`, "utf8"), userModels);
-    const backups = readdirSync(dir).filter((entry) => entry.startsWith("models.json.ccr-backup-"));
+    assert.equal(readFileSync(`${file}.llmr-original`, "utf8"), userModels);
+    const backups = readdirSync(dir).filter((entry) => entry.startsWith("models.json.llmr-backup-"));
     assert.equal(backups.length, 1);
     assert.equal(readFileSync(path.join(dir, backups[0]), "utf8"), userModels);
     assert.equal(isManagedWorkbuddyModelsContent(readFileSync(file, "utf8")), true);
@@ -557,10 +557,10 @@ test("a global WorkBuddy models.json is snapshotted and backed up before LLMR ov
 });
 
 test("an LLMR-owned WorkBuddy models.json gets no backup", () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-owned-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-owned-"));
   try {
     writeFileSync(path.join(dir, "models.json"), "{}\n");
-    writeWorkbuddyModelsConfig(dir, workbuddyModelsProfile("ccr"));
+    writeWorkbuddyModelsConfig(dir, workbuddyModelsProfile("llmr"));
     assert.deepEqual(readdirSync(dir), ["models.json"]);
   } finally {
     rmSync(dir, { force: true, recursive: true });

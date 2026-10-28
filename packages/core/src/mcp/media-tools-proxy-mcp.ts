@@ -68,7 +68,7 @@ async function handleJsonRpcRequest(payload: unknown): Promise<JsonRpcResponse |
       return jsonRpcResult(id, {
         capabilities: { tools: {} },
         protocolVersion,
-        serverInfo: { name: "ccr-media-tools", title: "LLMR Media Tools", version: "1.0.0" }
+        serverInfo: { name: "llmr-media-tools", title: "LLMR Media Tools", version: "1.0.0" }
       });
     case "ping":
       return jsonRpcResult(id, {});

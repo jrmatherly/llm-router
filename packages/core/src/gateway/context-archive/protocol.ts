@@ -201,7 +201,7 @@ export function hasExplicitCompactSignal(
   }
 
   const metadata = isRecord(body.metadata) ? body.metadata : undefined;
-  return metadata?.ccr_context_compact === true || metadata?.ccrContextCompact === true;
+  return metadata?.llmr_context_compact === true || metadata?.llmrContextCompact === true;
 }
 
 function hasClaudeCodeAutoCompactPrompt(body: JsonObject): boolean {
@@ -391,7 +391,7 @@ export function renderCodexCompactArchiveResponse(
   if (mode === "codex_responses_compaction_sse") {
     const completed = {
       response: {
-        id: "resp_ccr_context_archive",
+        id: "resp_llmr_context_archive",
         usage: usage ?? {
           input_tokens: 0,
           input_tokens_details: null,
@@ -504,8 +504,8 @@ function removeCompactSignals(body: JsonObject): void {
   if (!metadata) {
     return;
   }
-  delete metadata.ccr_context_compact;
-  delete metadata.ccrContextCompact;
+  delete metadata.llmr_context_compact;
+  delete metadata.llmrContextCompact;
   if (Object.keys(metadata).length > 0) {
     body.metadata = metadata;
   } else {

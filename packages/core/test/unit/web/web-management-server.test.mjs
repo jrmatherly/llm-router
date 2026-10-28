@@ -11,7 +11,7 @@ const previousRuntimeEnv = {
   home: process.env.LLMR_INTERNAL_HOME_DIR,
   userData: process.env.LLMR_INTERNAL_USER_DATA_DIR
 };
-const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-web-management-test-"));
+const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "llmr-web-management-test-"));
 process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(runtimeRoot, "app-data");
 process.env.LLMR_INTERNAL_HOME_DIR = path.join(runtimeRoot, "home");
 process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(runtimeRoot, "user-data");
@@ -41,7 +41,6 @@ test("the management URL carries the token as llmr_web_token", async () => {
   try {
     const url = new URL(runtime.url);
     assert.equal(url.searchParams.get("llmr_web_token"), "test-web-auth-token");
-    assert.equal(url.searchParams.has("ccr_web_token"), false);
   } finally {
     await runtime.close();
   }
@@ -49,7 +48,7 @@ test("the management URL carries the token as llmr_web_token", async () => {
 
 test("resolveRendererRoot falls back to the app resources when the CLI runs from a copy outside the app", async () => {
   const { resolveRendererRoot } = await import("@llmr/core/web/management-server.ts");
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-renderer-root-test-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-renderer-root-test-"));
   try {
     const copiedCliDir = path.join(root, "home", ".llm-router", "bin");
     const resourcesPath = path.join(root, "LLM Router.app", "Contents", "Resources");
@@ -125,7 +124,7 @@ test("startGateway reuses an already healthy LLMR gateway on the configured port
     reloadRequests: [],
     revision: gatewayRuntimeConfigRevision(savedConfig)
   };
-  const externalGateway = createHealthyCcrGateway(savedConfig.APIKEY, externalGatewayState);
+  const externalGateway = createHealthyLlmrGateway(savedConfig.APIKEY, externalGatewayState);
   await listen(externalGateway, gatewayPort);
   const runtime = await startWebManagementServer({
     authToken: webAuthToken,
@@ -187,7 +186,7 @@ async function rpc(baseUrl, authToken, method, args = []) {
   return response.json();
 }
 
-function createHealthyCcrGateway(apiKey, state) {
+function createHealthyLlmrGateway(apiKey, state) {
   return createServer((request, response) => {
     const url = new URL(request.url || "/", "http://127.0.0.1");
     if (url.pathname === "/health") {

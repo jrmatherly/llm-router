@@ -420,24 +420,24 @@ function patchInputFromVirtualApplyPatchArguments(value: unknown): string | unde
 
 
 type CodexPatchBridgeSseTransform = Transform & {
-  __ccrCodexPatchBridgeSseDecoder?: StringDecoder;
-  __ccrCodexPatchBridgeSsePending?: string;
+  __llmrCodexPatchBridgeSseDecoder?: StringDecoder;
+  __llmrCodexPatchBridgeSsePending?: string;
 };
 
 function transformSseChunk(stream: Transform, chunk: Buffer | string): void {
   const state = stream as CodexPatchBridgeSseTransform;
-  const decoder = state.__ccrCodexPatchBridgeSseDecoder ?? new StringDecoder("utf8");
-  state.__ccrCodexPatchBridgeSseDecoder = decoder;
-  state.__ccrCodexPatchBridgeSsePending = (state.__ccrCodexPatchBridgeSsePending ?? "") +
+  const decoder = state.__llmrCodexPatchBridgeSseDecoder ?? new StringDecoder("utf8");
+  state.__llmrCodexPatchBridgeSseDecoder = decoder;
+  state.__llmrCodexPatchBridgeSsePending = (state.__llmrCodexPatchBridgeSsePending ?? "") +
     decoder.write(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  while (state.__ccrCodexPatchBridgeSsePending) {
-    const match = /\r?\n\r?\n/.exec(state.__ccrCodexPatchBridgeSsePending);
+  while (state.__llmrCodexPatchBridgeSsePending) {
+    const match = /\r?\n\r?\n/.exec(state.__llmrCodexPatchBridgeSsePending);
     if (!match || match.index === undefined) {
       break;
     }
-    const block = state.__ccrCodexPatchBridgeSsePending.slice(0, match.index);
+    const block = state.__llmrCodexPatchBridgeSsePending.slice(0, match.index);
     const delimiter = match[0];
-    state.__ccrCodexPatchBridgeSsePending = state.__ccrCodexPatchBridgeSsePending.slice(match.index + delimiter.length);
+    state.__llmrCodexPatchBridgeSsePending = state.__llmrCodexPatchBridgeSsePending.slice(match.index + delimiter.length);
     stream.push(transformCodexApplyPatchBridgeSseEvent(block) + delimiter);
   }
 }
@@ -445,11 +445,11 @@ function transformSseChunk(stream: Transform, chunk: Buffer | string): void {
 
 function flushSseTransform(stream: Transform): void {
   const state = stream as CodexPatchBridgeSseTransform;
-  state.__ccrCodexPatchBridgeSsePending = (state.__ccrCodexPatchBridgeSsePending ?? "") +
-    (state.__ccrCodexPatchBridgeSseDecoder?.end() ?? "");
-  if (state.__ccrCodexPatchBridgeSsePending) {
-    stream.push(transformCodexApplyPatchBridgeSseEvent(state.__ccrCodexPatchBridgeSsePending));
-    state.__ccrCodexPatchBridgeSsePending = "";
+  state.__llmrCodexPatchBridgeSsePending = (state.__llmrCodexPatchBridgeSsePending ?? "") +
+    (state.__llmrCodexPatchBridgeSseDecoder?.end() ?? "");
+  if (state.__llmrCodexPatchBridgeSsePending) {
+    stream.push(transformCodexApplyPatchBridgeSseEvent(state.__llmrCodexPatchBridgeSsePending));
+    state.__llmrCodexPatchBridgeSsePending = "";
   }
 }
 

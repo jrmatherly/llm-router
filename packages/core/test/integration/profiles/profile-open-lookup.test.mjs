@@ -6,7 +6,7 @@ import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { CONFIGDIR } from "@llmr/core/config/constants.ts";
 import { replacePersistedApiKeys } from "@llmr/core/config/config-repository.ts";
-import { getProfileOpenCommand, openProfileFromCcr } from "@llmr/core/profiles/launch-service.ts";
+import { getProfileOpenCommand, openProfileFromLlmr } from "@llmr/core/profiles/launch-service.ts";
 import { restoreGlobalProfileConfigsOnExit } from "@llmr/core/profiles/service.ts";
 import { isolateTestHome } from "../../../../../build/test-home.mjs";
 
@@ -14,9 +14,9 @@ const homeEnvKeys = ["CODEX_HOME", ...Object.keys(isolateTestHome("", {}))];
 
 for (const [name, open, error] of [
   ["getProfileOpenCommand rejects an unknown profile", (config) => getProfileOpenCommand(config, { profileId: "no-such-profile" }), /not found/i],
-  ["openProfileFromCcr rejects an unknown profile", (config) => openProfileFromCcr(config, { profileId: "no-such-profile" }), /not found/i],
+  ["openProfileFromLlmr rejects an unknown profile", (config) => openProfileFromLlmr(config, { profileId: "no-such-profile" }), /not found/i],
   ["getProfileOpenCommand rejects an unsupported surface", (config) => getProfileOpenCommand(config, { profileId: "default-claude-code", surface: "app" }), /does not support APP opening/],
-  ["openProfileFromCcr rejects an unsupported surface", (config) => openProfileFromCcr(config, { profileId: "default-claude-code", surface: "app" }), /does not support APP opening/]
+  ["openProfileFromLlmr rejects an unsupported surface", (config) => openProfileFromLlmr(config, { profileId: "default-claude-code", surface: "app" }), /does not support APP opening/]
 ]) {
   test(`${name} before writing any agent config`, async () => {
     const home = mkdtempSync(path.join(os.tmpdir(), "llmr-profile-open-lookup-"));
@@ -49,11 +49,11 @@ for (const [name, open, error] of [
 
 function globalProfilesConfig() {
   const config = createDefaultAppConfig();
-  config.APIKEY = "ccr-profile-open-lookup-test";
+  config.APIKEY = "llmr-profile-open-lookup-test";
   config.APIKEYS = ["default-claude-code", "default-codex"].map((id) => ({
     createdAt: "2026-01-01T00:00:00.000Z",
     id: `profile:${id}`,
-    key: "ccr-profile-open-lookup-test",
+    key: "llmr-profile-open-lookup-test",
     name: `Profile: ${id}`
   }));
   config.Providers = [{

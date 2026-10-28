@@ -219,12 +219,12 @@ function claudeAppDesignFeatureScript(): string {
         return;
       }
       const existing = container.AppFeatures || {};
-      if (existing.__ccrClaudeDesignPatched) {
+      if (existing.__llmrClaudeDesignPatched) {
         return;
       }
       const previous = existing.getSupportedFeatures;
       container.AppFeatures = Object.assign({}, existing, {
-        __ccrClaudeDesignPatched: true,
+        __llmrClaudeDesignPatched: true,
         getSupportedFeatures() {
           if (typeof previous === "function") {
             return Promise.resolve(previous.call(existing)).then(merge, () => merge());
@@ -254,7 +254,7 @@ function claudeAppDesignFrameScript(designUrl: string): string {
       }
     }
     forceFrame();
-    globalThis.__ccrClaudeDesignFrameTimer = globalThis.__ccrClaudeDesignFrameTimer || setInterval(forceFrame, 500);
+    globalThis.__llmrClaudeDesignFrameTimer = globalThis.__llmrClaudeDesignFrameTimer || setInterval(forceFrame, 500);
   })();`;
 }
 
@@ -269,7 +269,7 @@ function normalizeClaudeAppDesignUrl(value: string | undefined): string {
       return "";
     }
     url.pathname = normalizeDesignPath(url.pathname);
-    url.searchParams.set("__ccr_design_iframe", "1");
+    url.searchParams.set("__llmr_design_iframe", "1");
     return url.toString();
   } catch {
     return "";

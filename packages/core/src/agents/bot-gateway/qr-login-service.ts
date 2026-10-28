@@ -356,7 +356,7 @@ async function resolveWeixinQrIntegrationId(
     if (id) return id;
   }
 
-  return requested || safePathSegment(`weixin-ilink-${tenant || "ccr"}`);
+  return requested || safePathSegment(`weixin-ilink-${tenant || "llmr"}`);
 }
 
 function normalizeBotGatewayForQr(bot: BotGatewayRuntimeConfig): BotGatewayRuntimeConfig {
@@ -368,7 +368,7 @@ function normalizeBotGatewayForQr(bot: BotGatewayRuntimeConfig): BotGatewayRunti
     credentials: sanitizeBotGatewayRecord(bot.credentials),
     integrationConfig: websocketBotGatewayIntegrationConfig(platform, bot.integrationConfig),
     platform,
-    tenantId: bot.tenantId.trim() || "ccr"
+    tenantId: bot.tenantId.trim() || "llmr"
   };
 }
 

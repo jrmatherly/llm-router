@@ -441,9 +441,9 @@ export function AddRoutingRuleDialog({
     setScriptBusy(action);
     setScriptMessage(undefined);
     try {
-      const ccr = window.llmr;
-      if (!ccr) throw new Error("Gateway API is unavailable");
-      const result = await ccr.validateRouteScript({ script: scriptFromDraft() });
+      const llmr = window.llmr;
+      if (!llmr) throw new Error("Gateway API is unavailable");
+      const result = await llmr.validateRouteScript({ script: scriptFromDraft() });
       const message = result.ok
         ? "Script validation passed"
         : result.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
@@ -462,11 +462,11 @@ export function AddRoutingRuleDialog({
     setScriptBusy("test");
     setScriptMessage(undefined);
     try {
-      const ccr = window.llmr;
-      if (!ccr) throw new Error("Gateway API is unavailable");
+      const llmr = window.llmr;
+      if (!llmr) throw new Error("Gateway API is unavailable");
       const parsed = JSON.parse(scriptSample) as unknown;
       const request = normalizeRouteScriptSampleRequest(parsed);
-      const result = await ccr.testRouteScript({ request, script: scriptFromDraft() });
+      const result = await llmr.testRouteScript({ request, script: scriptFromDraft() });
       const details = result.ok
         ? `${result.matched ? "Matched" : "Not matched"} · ${Math.round(result.durationMs ?? 0)}ms${result.output === undefined ? "" : `\n${JSON.stringify(result.output, null, 2)}`}`
         : result.diagnostics.map((diagnostic) => diagnostic.message).join("\n");

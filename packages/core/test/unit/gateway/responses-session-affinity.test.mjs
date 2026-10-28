@@ -235,7 +235,7 @@ test("non-codex openai_responses upstreams do not gain a session_id header", () 
 test("gateway boundary plugin forwards the session_id header to codex upstreams", async () => {
   const hooks = createGatewayPlugin().providerHooks;
   const hookNames = hooks.map(({ key }) => key);
-  assert.ok(hookNames.indexOf("ccr-upstream-header-sanitizer") < hookNames.indexOf("ccr-responses-session-affinity"));
+  assert.ok(hookNames.indexOf("llmr-upstream-header-sanitizer") < hookNames.indexOf("llmr-responses-session-affinity"));
 
   let input = codexInput();
   input.request.headers = { "x-claude-code-session-id": "S" };
@@ -310,7 +310,7 @@ test("outbound metadata supplied by the caller is preserved", () => {
 
 test("gateway boundary plugin registers the session affinity hook", async () => {
   const hooks = createGatewayPlugin().providerHooks;
-  const affinityHook = hooks.find((hook) => hook.key === "ccr-responses-session-affinity");
+  const affinityHook = hooks.find((hook) => hook.key === "llmr-responses-session-affinity");
   assert.ok(affinityHook);
 
   const input = responsesInput();

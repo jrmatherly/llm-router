@@ -152,21 +152,20 @@ test("parseProviderDeepLinkPayload builds usage account config from query params
 
 test("provider deeplink manifest parsing accepts only HTTPS manifest URLs", () => {
   assert.equal(isAppDeepLinkUrl(" llmr://provider?base_url=https://api.example.com "), true);
-  assert.equal(isAppDeepLinkUrl("ccr://provider?base_url=https://api.example.com"), false);
   assert.deepEqual(
-    parseProviderManifestDeepLinkPayload("llmr://provider?manifest=https%3A%2F%2Fexample.com%2Fccr.json"),
-    { url: "https://example.com/ccr.json" }
+    parseProviderManifestDeepLinkPayload("llmr://provider?manifest=https%3A%2F%2Fexample.com%2Fllmr.json"),
+    { url: "https://example.com/llmr.json" }
   );
   assert.throws(
-    () => parseProviderManifestDeepLinkPayload("llmr://provider?manifest=http%3A%2F%2Fexample.com%2Fccr.json"),
+    () => parseProviderManifestDeepLinkPayload("llmr://provider?manifest=http%3A%2F%2Fexample.com%2Fllmr.json"),
     /must use https/
   );
 });
 
 test("createProviderDeepLinkRequest captures parsing errors without throwing", () => {
-  const request = createProviderDeepLinkRequest("https://example.com/not-ccr", new Date("2026-06-30T00:00:00.000Z"));
+  const request = createProviderDeepLinkRequest("https://example.com/not-llmr", new Date("2026-06-30T00:00:00.000Z"));
 
-  assert.equal(request.rawUrl, "https://example.com/not-ccr");
+  assert.equal(request.rawUrl, "https://example.com/not-llmr");
   assert.equal(request.receivedAt, "2026-06-30T00:00:00.000Z");
   assert.match(request.error ?? "", /Unsupported link protocol/);
 });

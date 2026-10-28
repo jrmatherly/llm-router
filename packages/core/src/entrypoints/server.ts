@@ -98,7 +98,7 @@ function parseCoreServerArgs(args: string[]): CoreServerOptions {
 function printHelp(): void {
   process.stdout.write([
     "Usage:",
-    "  ccr-core-server [--host <host>] [--port <port>] [--no-gateway]",
+    "  llmr-core-server [--host <host>] [--port <port>] [--no-gateway]",
     "",
     "Options:",
     "  --host <host>    Management server host. Defaults to LLMR_WEB_HOST or 127.0.0.1.",

@@ -1,61 +1,61 @@
 import type { RouterFallbackConfig } from "@llmr/core/contracts/app";
 
-export const ccrRouterPluginKey = "llm-router";
-export const ccrRouterRequestTransformKey = "llm-router-request-transform";
-export const ccrAnthropicReasoningResponseHookKey = "ccr-anthropic-reasoning-response-hook";
-export const ccrCodexBridgeRequestTransformKey = "ccr-codex-bridge-request-transform";
-export const ccrCodexBridgeResponseHookKey = "ccr-codex-bridge-response-hook";
-export const ccrCodexBridgeStreamHookKey = "ccr-codex-bridge-stream-hook";
-export const ccrOpenRouterDiscountFinalizeResponseHookKey = "ccr-openrouter-discount-finalize-response-hook";
-export const ccrOpenRouterDiscountFinalizeStreamHookKey = "ccr-openrouter-discount-finalize-stream-hook";
-export const ccrRouterRouteResolverKey = "llm-router-route-resolver";
-export const ccrRouterHttpRouteKey = "llm-router-route";
-export const ccrRouterHttpRoutePath = "/__llmr/route";
-export const ccrRawTraceSyncAckRouteKey = "ccr-raw-trace-sync-ack";
-export const ccrRuntimeConfigReloadMessageType = "llmr:runtime-config-reload";
-export const ccrLiveTokenRateConfigMessageType = "llmr:live-token-rate-config";
-export const ccrLiveTokenRateSnapshotMessageType = "llmr:live-token-rate-snapshot";
-export const ccrLiveTokenRateStreamHookKey = "ccr-live-token-rate-stream-hook";
+export const llmrRouterPluginKey = "llm-router";
+export const llmrRouterRequestTransformKey = "llm-router-request-transform";
+export const llmrAnthropicReasoningResponseHookKey = "llmr-anthropic-reasoning-response-hook";
+export const llmrCodexBridgeRequestTransformKey = "llmr-codex-bridge-request-transform";
+export const llmrCodexBridgeResponseHookKey = "llmr-codex-bridge-response-hook";
+export const llmrCodexBridgeStreamHookKey = "llmr-codex-bridge-stream-hook";
+export const llmrOpenRouterDiscountFinalizeResponseHookKey = "llmr-openrouter-discount-finalize-response-hook";
+export const llmrOpenRouterDiscountFinalizeStreamHookKey = "llmr-openrouter-discount-finalize-stream-hook";
+export const llmrRouterRouteResolverKey = "llm-router-route-resolver";
+export const llmrRouterHttpRouteKey = "llm-router-route";
+export const llmrRouterHttpRoutePath = "/__llmr/route";
+export const llmrRawTraceSyncAckRouteKey = "llmr-raw-trace-sync-ack";
+export const llmrRuntimeConfigReloadMessageType = "llmr:runtime-config-reload";
+export const llmrLiveTokenRateConfigMessageType = "llmr:live-token-rate-config";
+export const llmrLiveTokenRateSnapshotMessageType = "llmr:live-token-rate-snapshot";
+export const llmrLiveTokenRateStreamHookKey = "llmr-live-token-rate-stream-hook";
 
-export type CcrLiveTokenRateConfigMessage = {
+export type LlmrLiveTokenRateConfigMessage = {
   enabled: boolean;
   protocolVersion: 1;
-  type: typeof ccrLiveTokenRateConfigMessageType;
+  type: typeof llmrLiveTokenRateConfigMessageType;
 };
 
-export type CcrLiveTokenRateSnapshotMessage = {
+export type LlmrLiveTokenRateSnapshotMessage = {
   activeRequests: number;
   protocolVersion: 1;
   tokensPerSecond: number;
-  type: typeof ccrLiveTokenRateSnapshotMessageType;
+  type: typeof llmrLiveTokenRateSnapshotMessageType;
 };
 
-export const ccrRouteStageHeader = "x-llmr-route-stage";
-export const ccrRouteReasonHeader = "x-llmr-route-reason";
-export const ccrRouteSourceHeader = "x-llmr-route-source";
-export const ccrRouteDiagnosticsHeader = "x-llmr-route-diagnostics";
-export const ccrRoutedModelHeader = "x-llmr-routed-model";
-export const ccrRouteFallbackHeader = "x-llmr-route-fallback";
-export const ccrRouteSessionIdHeader = "x-llmr-route-session-id";
-export const ccrRouteTokenCountHeader = "x-llmr-route-token-count";
-export const ccrCodexApplyPatchBridgeHeader = "x-llmr-codex-apply-patch-bridge";
-export const ccrCodexMultiAgentBridgeHeader = "x-llmr-codex-multi-agent-bridge";
-export const ccrOpenRouterDiscountRequestIdHeader = "x-llmr-openrouter-discount-request-id";
-export const ccrRouteHeaderNames = [
-  ccrCodexApplyPatchBridgeHeader,
-  ccrCodexMultiAgentBridgeHeader,
-  ccrOpenRouterDiscountRequestIdHeader,
-  ccrRouteDiagnosticsHeader,
-  ccrRouteFallbackHeader,
-  ccrRouteReasonHeader,
-  ccrRouteSessionIdHeader,
-  ccrRouteSourceHeader,
-  ccrRouteStageHeader,
-  ccrRouteTokenCountHeader,
-  ccrRoutedModelHeader
+export const llmrRouteStageHeader = "x-llmr-route-stage";
+export const llmrRouteReasonHeader = "x-llmr-route-reason";
+export const llmrRouteSourceHeader = "x-llmr-route-source";
+export const llmrRouteDiagnosticsHeader = "x-llmr-route-diagnostics";
+export const llmrRoutedModelHeader = "x-llmr-routed-model";
+export const llmrRouteFallbackHeader = "x-llmr-route-fallback";
+export const llmrRouteSessionIdHeader = "x-llmr-route-session-id";
+export const llmrRouteTokenCountHeader = "x-llmr-route-token-count";
+export const llmrCodexApplyPatchBridgeHeader = "x-llmr-codex-apply-patch-bridge";
+export const llmrCodexMultiAgentBridgeHeader = "x-llmr-codex-multi-agent-bridge";
+export const llmrOpenRouterDiscountRequestIdHeader = "x-llmr-openrouter-discount-request-id";
+export const llmrRouteHeaderNames = [
+  llmrCodexApplyPatchBridgeHeader,
+  llmrCodexMultiAgentBridgeHeader,
+  llmrOpenRouterDiscountRequestIdHeader,
+  llmrRouteDiagnosticsHeader,
+  llmrRouteFallbackHeader,
+  llmrRouteReasonHeader,
+  llmrRouteSessionIdHeader,
+  llmrRouteSourceHeader,
+  llmrRouteStageHeader,
+  llmrRouteTokenCountHeader,
+  llmrRoutedModelHeader
 ] as const;
 
-export type CcrRouterPluginRouteRequest = {
+export type LlmrRouterPluginRouteRequest = {
   body: Record<string, unknown>;
   headers?: Record<string, string | string[] | undefined>;
   method?: string;
@@ -63,7 +63,7 @@ export type CcrRouterPluginRouteRequest = {
   url?: string;
 };
 
-export type CcrRouterPluginRouteResponse = {
+export type LlmrRouterPluginRouteResponse = {
   body: Record<string, unknown>;
   decision: {
     diagnostics: unknown[];
@@ -76,11 +76,11 @@ export type CcrRouterPluginRouteResponse = {
   };
 };
 
-export function encodeCcrRouteFallbackHeader(fallback: RouterFallbackConfig): string {
+export function encodeLlmrRouteFallbackHeader(fallback: RouterFallbackConfig): string {
   return Buffer.from(JSON.stringify(fallback), "utf8").toString("base64url");
 }
 
-export function decodeCcrRouteFallbackHeader(value: string | undefined): RouterFallbackConfig | undefined {
+export function decodeLlmrRouteFallbackHeader(value: string | undefined): RouterFallbackConfig | undefined {
   if (!value) {
     return undefined;
   }

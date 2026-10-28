@@ -21,7 +21,7 @@ This also applies to Codex computer use. After combining GLM-5.2 with GLM-5V-Tur
 
 ## Select the capability
 
-Select `ccr-fusion-builtins / vision_understand`, and choose a Vision model that actually supports image understanding.
+Select `llmr-fusion-builtins / vision_understand`, and choose a Vision model that actually supports image understanding.
 
 You can also configure Vision retries and Vision fallback models. These retries apply to the built-in vision tool call itself: if the Vision model fails while preparing image context, LLMR retries that Vision model first, then tries the configured fallback Vision models. The base text model remains unchanged.
 

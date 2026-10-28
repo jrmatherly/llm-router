@@ -100,7 +100,7 @@ Gateway route handlers also receive helper functions:
 
 ## Create your first extension
 
-Create a directory such as `~/ccr-extensions/hello-extension`:
+Create a directory such as `~/llmr-extensions/hello-extension`:
 
 ```text
 hello-extension/
@@ -200,7 +200,7 @@ LLMR stores runtime configuration in SQLite. Add extensions through the UI; the 
     {
       "id": "hello-extension",
       "enabled": true,
-      "module": "/Users/you/ccr-extensions/hello-extension/index.cjs",
+      "module": "/Users/you/llmr-extensions/hello-extension/index.cjs",
       "surfaces": { "apps": true, "gateway": true, "provider": false },
       "permissions": ["trusted-code", "apps", "gateway-routes", "http-backends", "proxy-routes"],
       "config": {
@@ -216,10 +216,10 @@ Restart the gateway after saving the extension config. See [Config database loca
 The local directory picker recognizes entry metadata from:
 
 - `plugin.json`
-- `ccr-plugin.json`
-- `.ccr-plugin/plugin.json`
+- `llmr-plugin.json`
+- `.llmr-plugin/plugin.json`
 - `.codex-plugin/plugin.json`
-- `main`, `ccr.module`, or `ccrPlugin.module` in `package.json`
+- `main`, `llmr.module`, or `llmrPlugin.module` in `package.json`
 
 If no entrypoint is declared, LLMR tries `index.cjs`, `index.mjs`, `index.js`, `plugin.cjs`, `plugin.mjs`, or `plugin.js` in the selected directory.
 
@@ -230,7 +230,7 @@ If no entrypoint is declared, LLMR tries `index.cjs`, `index.mjs`, `index.js`, `
 For CommonJS extensions:
 
 ```bash
-node --check ~/ccr-extensions/hello-extension/index.cjs
+node --check ~/llmr-extensions/hello-extension/index.cjs
 ```
 
 If the extension depends on npm packages, install them in the extension directory and make sure Node can resolve the entrypoint.

@@ -442,9 +442,9 @@ test("codex catalog preserves pinned context windows", () => {
 });
 
 test("codex catalog falls back to local Codex model cache metadata", () => {
-  const previousCcrHome = process.env.LLMR_INTERNAL_HOME_DIR;
+  const previousLlmrHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const previousHome = process.env.HOME;
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-codex-model-catalog-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-model-catalog-"));
   try {
     process.env.LLMR_INTERNAL_HOME_DIR = home;
     process.env.HOME = home;
@@ -489,10 +489,10 @@ test("codex catalog falls back to local Codex model cache metadata", () => {
     assert.deepEqual(model.service_tiers, [{ id: "auto" }]);
     assert.deepEqual(model.supported_reasoning_levels.map((level) => level.effort), ["low", "high"]);
   } finally {
-    if (previousCcrHome === undefined) {
+    if (previousLlmrHome === undefined) {
       delete process.env.LLMR_INTERNAL_HOME_DIR;
     } else {
-      process.env.LLMR_INTERNAL_HOME_DIR = previousCcrHome;
+      process.env.LLMR_INTERNAL_HOME_DIR = previousLlmrHome;
     }
     if (previousHome === undefined) {
       delete process.env.HOME;

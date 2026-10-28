@@ -126,7 +126,7 @@ export class GatewayMediaExecutor {
       throw mediaError("artifact_too_large", "Generated artifact exceeds the 250 MB limit.", false);
     }
     if (!response.body) throw mediaError("artifact_download_failed", "Generated artifact response has no body.", true);
-    const temporary = path.join(os.tmpdir(), `ccr-media-${randomUUID()}.download`);
+    const temporary = path.join(os.tmpdir(), `llmr-media-${randomUUID()}.download`);
     const file = openSync(temporary, "wx", 0o600);
     const reader = response.body.getReader();
     let size = 0;
@@ -350,7 +350,7 @@ function parseImageResponse(payload: Record<string, unknown>): MediaExecutionRes
   if (url) return { fileName: "generated-image", remoteUrl: url, usage: readUsage(payload) };
   const base64 = readString(first, "b64_json");
   if (base64) {
-    const temporary = path.join(os.tmpdir(), `ccr-media-${randomUUID()}.image`);
+    const temporary = path.join(os.tmpdir(), `llmr-media-${randomUUID()}.image`);
     writeFileSync(temporary, Buffer.from(base64, "base64"), { mode: 0o600 });
     return { contentType: readString(first, "mime_type"), fileName: "generated-image", filePath: temporary, usage: readUsage(payload) };
   }

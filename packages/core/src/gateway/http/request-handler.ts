@@ -13,7 +13,7 @@ import {
   isContextArchiveMcpPath,
   type ContextArchiveReplayExecutor
 } from "@llmr/core/gateway/context-archive";
-import { ccrRemoteControlPathPrefix, ccrRemoteControlService, remoteControlOwnerId } from "@llmr/core/gateway/remote-control-service";
+import { llmrRemoteControlPathPrefix, llmrRemoteControlService, remoteControlOwnerId } from "@llmr/core/gateway/remote-control-service";
 import { gatewayRuntimeConfigControlPath } from "@llmr/core/gateway/runtime-config-control";
 import { authorize, claudeCodeWifTokenPath, handleClaudeCodeWifTokenRequest, reserveApiKeyLimits } from "@llmr/core/gateway/auth/api-key-authorizer";
 import { parseJsonObject, readRequestBody, sendJson } from "@llmr/core/gateway/http/io";
@@ -121,12 +121,12 @@ export class GatewayHttpRequestHandler {
         return;
       }
 
-      if (path === ccrRemoteControlPathPrefix || path.startsWith(`${ccrRemoteControlPathPrefix}/`)) {
+      if (path === llmrRemoteControlPathPrefix || path.startsWith(`${llmrRemoteControlPathPrefix}/`)) {
         const authorization = await authorize(request, response, this.config);
         if (!authorization.ok) {
           return;
         }
-        await ccrRemoteControlService.handleRequest({
+        await llmrRemoteControlService.handleRequest({
           endpoint: this.status.endpoint,
           ownerId: remoteControlOwnerId(authorization.apiKey),
           path,

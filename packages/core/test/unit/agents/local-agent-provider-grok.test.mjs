@@ -446,7 +446,7 @@ async function withGrokHome(run) {
   const previousGrokConfigFile = process.env.GROK_CONFIG_FILE;
   const previousGrokModelsCacheFile = process.env.GROK_MODELS_CACHE_FILE;
   const previousGrokTokenEndpoint = process.env.GROK_OIDC_TOKEN_ENDPOINT;
-  const grokHome = mkdtempSync(path.join(os.tmpdir(), "ccr-grok-test-"));
+  const grokHome = mkdtempSync(path.join(os.tmpdir(), "llmr-grok-test-"));
   process.env.GROK_HOME = grokHome;
   delete process.env.GROK_AUTH_FILE;
   delete process.env.GROK_CONFIG_FILE;

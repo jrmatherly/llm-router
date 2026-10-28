@@ -15,7 +15,7 @@ if (existsSync(sidecar)) {
   process.exit(0);
 }
 
-const tempDir = mkdtempSync(path.join(os.tmpdir(), "ccr-electron-sqlite-"));
+const tempDir = mkdtempSync(path.join(os.tmpdir(), "llmr-electron-sqlite-"));
 try {
   copyFileSync(path.join(nodeModules, "better-sqlite3", "package.json"), path.join(tempDir, "package.json"));
   const install = spawnSync(bin("prebuild-install"), ["--runtime", "electron", "--target", electronVersion], {

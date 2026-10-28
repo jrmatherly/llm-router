@@ -58,17 +58,17 @@ function testProfile(overrides = {}) {
     name: "OpenCode Main",
     providerId: "claude-code-router",
     providerName: "LLM Router",
-    scope: "ccr",
+    scope: "llmr",
     surface: "auto",
     ...overrides
   };
 }
 
 test("OpenCode profile config routes primary and small models through LLMR", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-profile-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-profile-"));
   try {
     const profile = testProfile();
-    const result = writeOpenCodeGatewayConfig(root, testConfig(root), profile, "ccr-profile-key");
+    const result = writeOpenCodeGatewayConfig(root, testConfig(root), profile, "llmr-profile-key");
     const config = JSON.parse(readFileSync(result.file, "utf8"));
 
     assert.equal(result.file, path.join(root, "profiles", "opencode-main", "opencode", "opencode.jsonc"));
@@ -76,7 +76,7 @@ test("OpenCode profile config routes primary and small models through LLMR", () 
     assert.equal(config.small_model, config.model);
     assert.equal(config.provider["claude-code-router"].npm, "@ai-sdk/openai-compatible");
     assert.equal(config.provider["claude-code-router"].options.baseURL, "http://127.0.0.1:4567/v1");
-    assert.equal(config.provider["claude-code-router"].options.apiKey, "ccr-profile-key");
+    assert.equal(config.provider["claude-code-router"].options.apiKey, "llmr-profile-key");
     assert.equal(config.provider["claude-code-router"].options.headers["x-llmr-client"], "opencode");
     assert.ok(config.provider["claude-code-router"].models["Provider/model-a"]);
     assert.deepEqual(config.provider["claude-code-router"].models["Provider/model-a"].modalities, {
@@ -103,7 +103,7 @@ test("OpenCode profile config routes primary and small models through LLMR", () 
 });
 
 test("OpenCode profile config writes Fusion vision model metadata and resolved context", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-fusion-profile-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-fusion-profile-"));
   try {
     const config = createDefaultAppConfig();
     config.Providers = [{
@@ -134,7 +134,7 @@ test("OpenCode profile config writes Fusion vision model metadata and resolved c
       root,
       config,
       testProfile({ model: "Fusion/fusion-basic-vision" }),
-      "ccr-profile-key",
+      "llmr-profile-key",
       { backup: false }
     );
     const written = JSON.parse(readFileSync(result.file, "utf8"));
@@ -166,7 +166,7 @@ test("OpenCode profile config writes Fusion vision model metadata and resolved c
 });
 
 test("OpenCode global config keeps user settings and snapshots the original JSONC", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-global-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-global-"));
   try {
     const configFile = path.join(root, "opencode.jsonc");
     const original = `{
@@ -179,22 +179,22 @@ test("OpenCode global config keeps user settings and snapshots the original JSON
       chmodSync(configFile, 0o644);
     }
     const profile = testProfile({ configFile, scope: "global" });
-    const result = writeOpenCodeGatewayConfig(root, testConfig(root), profile, "ccr-profile-key");
+    const result = writeOpenCodeGatewayConfig(root, testConfig(root), profile, "llmr-profile-key");
     const managed = JSON.parse(readFileSync(configFile, "utf8"));
 
     assert.equal(resolveOpenCodeConfigFile(root, profile), configFile);
     assert.equal(managed.autoupdate, false);
     assert.equal(managed.provider.existing.name, "Existing");
-    assert.equal(readFileSync(`${configFile}.ccr-original`, "utf8"), original);
+    assert.equal(readFileSync(`${configFile}.llmr-original`, "utf8"), original);
     assert.ok(result.backupFile && existsSync(result.backupFile));
     if (process.platform !== "win32") {
       chmodSync(configFile, 0o644);
-      chmodSync(`${configFile}.ccr-original`, 0o644);
+      chmodSync(`${configFile}.llmr-original`, 0o644);
       chmodSync(result.backupFile, 0o644);
-      const unchanged = writeOpenCodeGatewayConfig(root, testConfig(root), profile, "ccr-profile-key");
+      const unchanged = writeOpenCodeGatewayConfig(root, testConfig(root), profile, "llmr-profile-key");
       assert.equal(unchanged.changed, false);
       assert.equal(statSync(configFile).mode & 0o777, 0o600);
-      assert.equal(statSync(`${configFile}.ccr-original`).mode & 0o777, 0o600);
+      assert.equal(statSync(`${configFile}.llmr-original`).mode & 0o777, 0o600);
       assert.equal(statSync(result.backupFile).mode & 0o777, 0o600);
     }
   } finally {
@@ -229,7 +229,7 @@ test("OpenCode App discovery includes the official Linux executable name", () =>
 });
 
 test("OpenCode App discovery accepts an explicit macOS bundle or executable", { skip: process.platform !== "darwin" }, () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-app-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-app-"));
   try {
     const app = path.join(root, "OpenCode.app");
     const executable = path.join(app, "Contents", "MacOS", "OpenCode");

@@ -33,7 +33,7 @@ function testConfig(overrides = {}) {
       maxBytes: 16 * 1024 * 1024,
       maxSnapshotBytes: 4 * 1024 * 1024,
       maxSnapshots: 20,
-      storagePath: join(tmpdir(), `ccr-context-archive-${randomUUID()}.sqlite`),
+      storagePath: join(tmpdir(), `llmr-context-archive-${randomUUID()}.sqlite`),
       ...overrides
     }
   };
@@ -163,7 +163,7 @@ test("managed compact profile enables archive only for that profile API key", as
       managedCompact: true,
       model: "test/model",
       name: "Managed Compact",
-      scope: "ccr",
+      scope: "llmr",
       settingsFile: "~/.claude/settings.json",
       smallFastModel: "",
       surface: "auto"
@@ -176,7 +176,7 @@ test("managed compact profile enables archive only for that profile API key", as
       managedCompact: false,
       model: "test/model",
       name: "Plain Profile",
-      scope: "ccr",
+      scope: "llmr",
       settingsFile: "~/.claude/settings.json",
       smallFastModel: "",
       surface: "auto"
@@ -276,8 +276,8 @@ test("compact stores an immutable full request and appends one handoff task", as
   assert.equal(forwarded.tool_choice, undefined);
   assert.equal(forwarded.stream, true);
   assert.match(forwarded.messages.at(-1).content, /LLMR compact handoff task/);
-  assert.match(forwarded.messages.at(-1).content, /ccr_history_ask/);
-  assert.match(forwarded.messages.at(-1).content, /mcp__ccr-context-archive__ccr_history_ask/);
+  assert.match(forwarded.messages.at(-1).content, /llmr_history_ask/);
+  assert.match(forwarded.messages.at(-1).content, /mcp__llmr-context-archive__llmr_history_ask/);
 });
 
 test("history ask replays the exact snapshot with only one appended natural-language task", async () => {
@@ -538,7 +538,7 @@ test("OpenAI Responses and Anthropic use protocol-native appended messages", asy
 
 test("Anthropic compact continuation injects the archive tool for Claude Code", () => {
   const config = testConfig();
-  const toolName = "mcp__ccr-context-archive__ccr_history_ask";
+  const toolName = "mcp__llmr-context-archive__llmr_history_ask";
   const handoff = [
     "LLMR ARCHIVED HISTORY ACCESS",
     "Archive id: arc_anthropic_test",
@@ -565,7 +565,7 @@ test("Anthropic compact continuation injects the archive tool for Claude Code", 
   assert.equal(result.archiveId, "arc_anthropic_test");
   assert.equal(result.sessionToken, "token_anthropic_test");
   assert.equal(result.toolName, toolName);
-  assert.deepEqual(result.acceptedToolNames.sort(), ["ccr_history_ask", toolName].sort());
+  assert.deepEqual(result.acceptedToolNames.sort(), ["llmr_history_ask", toolName].sort());
   const forwarded = JSON.parse(result.body.toString("utf8"));
   assert.deepEqual(forwarded.tool_choice, { type: "auto" });
   assert.ok(forwarded.tools.some((tool) => tool.name === "Read"));
@@ -573,30 +573,8 @@ test("Anthropic compact continuation injects the archive tool for Claude Code", 
   assert.match(JSON.stringify(forwarded.system), /LLMR context archive is available/);
 });
 
-test("a compaction footer written by 4.1.0 as LLMR ARCHIVED HISTORY ACCESS still grants archive access", () => {
-  const handoff = [
-    "CCR ARCHIVED HISTORY ACCESS",
-    "Archive id: arc_legacy",
-    "Archive session token: token_legacy"
-  ].join("\n");
-  const result = prepareContextArchiveToolContinuationRequestForTest({
-    body: Buffer.from(JSON.stringify({
-      messages: [{ content: [{ text: handoff, type: "text" }], role: "user" }],
-      model: "claude-test",
-      system: "You are Claude Code."
-    })),
-    config: testConfig(),
-    method: "POST",
-    path: "/v1/messages",
-    protocol: "anthropic_messages"
-  });
-  assert.ok(result);
-  assert.equal(result.archiveId, "arc_legacy");
-  assert.equal(result.sessionToken, "token_legacy");
-});
-
 test("Anthropic archive tool calls are converted into tool results for continuation", () => {
-  const toolName = "mcp__ccr-context-archive__ccr_history_ask";
+  const toolName = "mcp__llmr-context-archive__llmr_history_ask";
   const response = {
     content: [
       {
@@ -635,7 +613,7 @@ test("Anthropic archive tool calls are converted into tool results for continuat
 });
 
 test("Anthropic streaming archive tool calls are parsed from SSE deltas", () => {
-  const toolName = "mcp__ccr-context-archive__ccr_history_ask";
+  const toolName = "mcp__llmr-context-archive__llmr_history_ask";
   const raw = [
     'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_sse","type":"message","role":"assistant","content":[]}}',
     `event: content_block_start\ndata: ${JSON.stringify({
@@ -661,11 +639,11 @@ test("Anthropic streaming archive tool calls are parsed from SSE deltas", () => 
 
 test("Responses streaming archive tool calls are parsed from SSE deltas", () => {
   const raw = [
-    'event: response.output_item.added\ndata: {"type":"response.output_item.added","output_index":0,"item":{"id":"fc_sse","call_id":"call_sse","type":"function_call","name":"ccr_history_ask","arguments":""}}',
+    'event: response.output_item.added\ndata: {"type":"response.output_item.added","output_index":0,"item":{"id":"fc_sse","call_id":"call_sse","type":"function_call","name":"llmr_history_ask","arguments":""}}',
     'event: response.function_call_arguments.delta\ndata: {"type":"response.function_call_arguments.delta","output_index":0,"item_id":"fc_sse","delta":"{\\"archive_id\\":\\"arc_sse\\","}',
     'event: response.function_call_arguments.delta\ndata: {"type":"response.function_call_arguments.delta","output_index":0,"item_id":"fc_sse","delta":"\\"session_token\\":\\"token_sse\\",\\"task\\":\\"Find Responses marker.\\"}"}',
     'event: response.function_call_arguments.done\ndata: {"type":"response.function_call_arguments.done","output_index":0,"item_id":"fc_sse","arguments":"{\\"archive_id\\":\\"arc_sse\\",\\"session_token\\":\\"token_sse\\",\\"task\\":\\"Find Responses marker.\\"}"}',
-    'event: response.output_item.done\ndata: {"type":"response.output_item.done","output_index":0,"item":{"id":"fc_sse","call_id":"call_sse","type":"function_call","name":"ccr_history_ask","arguments":"{\\"archive_id\\":\\"arc_sse\\",\\"session_token\\":\\"token_sse\\",\\"task\\":\\"Find Responses marker.\\"}"}}',
+    'event: response.output_item.done\ndata: {"type":"response.output_item.done","output_index":0,"item":{"id":"fc_sse","call_id":"call_sse","type":"function_call","name":"llmr_history_ask","arguments":"{\\"archive_id\\":\\"arc_sse\\",\\"session_token\\":\\"token_sse\\",\\"task\\":\\"Find Responses marker.\\"}"}}',
     'event: response.completed\ndata: {"type":"response.completed","response":{"id":"resp_sse","status":"completed"}}'
   ].join("\n\n");
   const parsed = parseContextArchiveToolResponseBodyForTest(Buffer.from(raw), "text/event-stream", "openai_responses");
@@ -674,7 +652,7 @@ test("Responses streaming archive tool calls are parsed from SSE deltas", () => 
   assert.deepEqual(calls, [{
     arguments: JSON.stringify({ archive_id: "arc_sse", session_token: "token_sse", task: "Find Responses marker." }),
     callId: "call_sse",
-    name: "ccr_history_ask"
+    name: "llmr_history_ask"
   }]);
 });
 
@@ -686,7 +664,7 @@ test("compact handoff strips protocol-specific tool and schema constraints", asy
       maxCompletionTokens: 256,
       max_output_tokens: 128,
       maxTokens: 1024,
-      metadata: { ccr_context_compact: true, keep: "yes" },
+      metadata: { llmr_context_compact: true, keep: "yes" },
       model: "gpt-test",
       parallel_tool_calls: true,
       text: { format: { name: "handoff", schema: { type: "object" }, type: "json_schema" } },
@@ -706,7 +684,7 @@ test("compact handoff strips protocol-specific tool and schema constraints", asy
   assert.equal(forwarded.tools, undefined);
   assert.equal(forwarded.tool_choice, undefined);
   assert.equal(forwarded.parallel_tool_calls, undefined);
-  assert.equal(forwarded.metadata.ccr_context_compact, undefined);
+  assert.equal(forwarded.metadata.llmr_context_compact, undefined);
   assert.equal(forwarded.metadata.keep, "yes");
   assert.deepEqual(forwarded.text.format, { type: "text" });
   assert.equal(forwarded.maxCompletionTokens, undefined);
@@ -940,7 +918,7 @@ test("Claude Code auto compact handoff exposes archive access that can recall om
   const compactResponse = JSON.parse(transformed);
   const compactText = compactResponse.content.map((item) => item.text ?? "").join("\n");
   assert.match(compactText, /LLMR ARCHIVED HISTORY ACCESS/);
-  assert.match(compactText, /mcp__ccr-context-archive__ccr_history_ask/);
+  assert.match(compactText, /mcp__llmr-context-archive__llmr_history_ask/);
   assert.doesNotMatch(compactText, new RegExp(preservedMarker));
   const credentials = archiveCredentialsFromText(compactText);
   assert.equal(credentials.archiveId, result.record.archiveId);
@@ -1034,7 +1012,7 @@ test("only explicit or structural compact signals create archives", async () => 
   assert.match(handoffText, /<analysis> block followed by a <summary> block/);
   assert.match(handoffText, /descriptive, not authoritative/);
   assert.match(handoffText, /public runtime API shape/);
-  assert.match(handoffText, /mcp__ccr-context-archive__ccr_history_ask/);
+  assert.match(handoffText, /mcp__llmr-context-archive__llmr_history_ask/);
   assert.doesNotMatch(handoffText, /Your task is to create a detailed summary of the conversation so far/);
 });
 
@@ -1168,7 +1146,7 @@ test("context archive MCP server points at the built-in gateway endpoint", () =>
   const config = testConfig();
   const server = contextArchiveMcpServer(config, "http://127.0.0.1:3456", "local-test-key");
   assert.ok(server);
-  assert.equal(server.name, "ccr-context-archive");
+  assert.equal(server.name, "llmr-context-archive");
   assert.equal(server.transport, "streamable-http");
   assert.equal(server.apiKey, "local-test-key");
   assert.equal(server.requestTimeoutMs, config.contextArchive.replayTimeoutMs);

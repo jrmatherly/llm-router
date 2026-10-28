@@ -62,11 +62,11 @@ COPY --from=production-deps /app/node_modules node_modules
 
 COPY --from=build /app/packages/core/dist packages/core/dist
 COPY --from=build /app/packages/ui/dist/renderer /usr/share/nginx/html
-COPY docker/entrypoint.sh /usr/local/bin/ccr-docker-entrypoint
+COPY docker/entrypoint.sh /usr/local/bin/llmr-docker-entrypoint
 COPY docker/pm2.config.cjs docker/pm2.config.cjs
 
 # nginx runs unprivileged, so the pid comes from pm2's -g flag and the user directive is dropped.
-RUN chmod +x /usr/local/bin/ccr-docker-entrypoint \
+RUN chmod +x /usr/local/bin/llmr-docker-entrypoint \
   && groupadd --gid 10001 llmr \
   && useradd --uid 10001 --gid 10001 --home-dir /data --no-create-home --shell /usr/sbin/nologin llmr \
   && sed -i -e '/^user /d' -e '/^pid /d' /etc/nginx/nginx.conf \
@@ -82,4 +82,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --start-interval=2s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.LLMR_NGINX_PORT || '8080') + '/api/llmr/rpc', { body: '{}', headers: { 'content-type': 'application/json' }, method: 'POST' }).then((r) => process.exit([200, 401].includes(r.status) ? 0 : 1)).catch(() => process.exit(1))"
 
-ENTRYPOINT ["ccr-docker-entrypoint"]
+ENTRYPOINT ["llmr-docker-entrypoint"]

@@ -19,14 +19,14 @@ import type { BrowserWebSearchMcpIntegration, CoreGatewayProvider } from "@llmr/
 import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
 import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
 import { isLocalAgentOauthProviderPlugin } from "@llmr/core/gateway/core-runtime/local-agent-auth-provider-hook";
-import { ccrRouterPluginKey } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
+import { llmrRouterPluginKey } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { isOpenCodePublicFreeTierPlugin } from "@llmr/core/agents/local-providers/opencode-freetier";
 import { resolveConfiguredProviderModelSelector, resolveUniqueConfiguredProviderModelSelector } from "@llmr/core/routing/model-resolution";
 
-const upstreamHeaderSanitizerPluginKey = "ccr-upstream-header-sanitizer";
-const localAgentAuthProviderHookPluginKey = "ccr-local-agent-auth-provider-hooks";
+const upstreamHeaderSanitizerPluginKey = "llmr-upstream-header-sanitizer";
+const localAgentAuthProviderHookPluginKey = "llmr-local-agent-auth-provider-hooks";
 const internalGatewayPluginKeys = [
-  ccrRouterPluginKey,
+  llmrRouterPluginKey,
   localAgentAuthProviderHookPluginKey,
   upstreamHeaderSanitizerPluginKey
 ];
@@ -199,7 +199,7 @@ function routerPluginConfig(
       publicGatewayMode: options.publicGatewayMode === true
     },
     enabled: true,
-    key: ccrRouterPluginKey,
+    key: llmrRouterPluginKey,
     modulePath: resolveRouterPluginEntry()
   };
 }
@@ -320,7 +320,7 @@ function withMissingCodexOauthProviderPlugins(
       continue;
     }
 
-    const keyPrefix = `ccr-local-agent-${providerNameSlug(runtimeName)}`;
+    const keyPrefix = `llmr-local-agent-${providerNameSlug(runtimeName)}`;
     additions.push({
       codexOauth: {
         accessToken: codexAuth.accessToken,
@@ -762,7 +762,7 @@ function isLocalCodexOauthProviderPlugin(value: unknown): value is Record<string
     return false;
   }
   const key = stringValue(value.key)?.toLowerCase() ?? "";
-  return key.startsWith("ccr-local-agent-") && key.includes("codex-oauth");
+  return key.startsWith("llmr-local-agent-") && key.includes("codex-oauth");
 }
 
 
@@ -868,7 +868,7 @@ function isLocalGrokOauthProviderPlugin(value: unknown): value is Record<string,
     return false;
   }
   const key = stringValue(value.key)?.toLowerCase() ?? "";
-  return key.startsWith("ccr-local-agent-") && key.includes("grok-cli-oauth");
+  return key.startsWith("llmr-local-agent-") && key.includes("grok-cli-oauth");
 }
 
 
@@ -877,7 +877,7 @@ function isLocalKimiOauthProviderPlugin(value: unknown): value is Record<string,
     return false;
   }
   const key = stringValue(value.key)?.toLowerCase() ?? "";
-  return key.startsWith("ccr-local-agent-") && key.includes("kimi-cli-oauth");
+  return key.startsWith("llmr-local-agent-") && key.includes("kimi-cli-oauth");
 }
 
 

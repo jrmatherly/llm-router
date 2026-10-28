@@ -42,7 +42,7 @@ From the repository root:
 
 ```sh
 npm run docker:compose:up
-docker compose logs -f ccr
+docker compose logs -f llmr
 ```
 
 Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `LLMR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a fresh volume the management UI is available immediately; the model gateway only starts working after a provider and a model have been added.
@@ -72,7 +72,7 @@ The repository default mapping `3458:8080` listens on every host interface. If y
 
 ```yaml
 services:
-  ccr:
+  llmr:
     ports:
       - "127.0.0.1:3458:8080"
 ```
@@ -90,11 +90,11 @@ docker run -d \
   --restart unless-stopped \
   -p 127.0.0.1:3458:8080 \
   -e LLMR_PUBLIC_BASE_URL=http://127.0.0.1:3458 \
-  -v ccr-data:/data \
+  -v llmr-data:/data \
   llm-router:local
 ```
 
-The repository also provides `npm run docker:run`. It uses `3458` and `ccr-data`, but the container runs with `--rm` and has no fixed name or restart policy, so it is better suited to temporary verification.
+The repository also provides `npm run docker:run`. It uses `3458` and `llmr-data`, but the container runs with `--rm` and has no fixed name or restart policy, so it is better suited to temporary verification.
 
 ## Do not mix up the three credentials
 
@@ -121,7 +121,7 @@ The host-facing address and the container-internal port are two layers of config
 
 ```yaml
 services:
-  ccr:
+  llmr:
     ports:
       - "127.0.0.1:8088:8080"
     environment:
@@ -137,11 +137,11 @@ When a reverse proxy or ingress terminates TLS:
 
 ```yaml
 services:
-  ccr:
+  llmr:
     ports:
       - "127.0.0.1:3458:8080"
     environment:
-      LLMR_PUBLIC_BASE_URL: https://ccr.example.com
+      LLMR_PUBLIC_BASE_URL: https://llmr.example.com
       LLMR_WEB_AUTH_TOKEN: ${LLMR_WEB_AUTH_TOKEN:?set LLMR_WEB_AUTH_TOKEN}
 ```
 
@@ -179,9 +179,9 @@ On a brand-new data directory with neither `config.json` nor `config.sqlite`, th
 For application-level backup, prefer **Settings → Export data**. For a complete file-level backup, stop writes first:
 
 ```sh
-docker compose stop ccr
-docker compose cp ccr:/data/. ./ccr-data-backup/
-docker compose start ccr
+docker compose stop llmr
+docker compose cp llmr:/data/. ./llmr-data-backup/
+docker compose start llmr
 ```
 
 The backup contains provider credentials and LLMR client keys, and may contain request / response data; store it as sensitive data.
@@ -197,7 +197,7 @@ git pull
 docker compose build --pull
 docker compose up -d
 docker compose ps
-docker compose logs --tail=200 ccr
+docker compose logs --tail=200 llmr
 ```
 
 Upgrades run the migrations the current version needs against the persisted data. When rolling back, use both the old image / old source and the pre-upgrade backup together; do not assume an older version can always read a newer database.
@@ -247,8 +247,8 @@ The test creates a temporary container and volume, verifies the single Nginx por
 
 ```sh
 docker compose ps
-docker compose logs -f ccr
-docker compose restart ccr
+docker compose logs -f llmr
+docker compose restart llmr
 docker compose config
 ```
 
@@ -266,7 +266,7 @@ It checks the model gateway, not Nginx or the UI. A fresh volume without a confi
 
 ### The UI returns `401` after a token change
 
-Reopen `/?llmr_web_token=<token>` with the current token (for a generated token, read it from `docker compose logs ccr`); close tabs and bookmarks that still use the old `llmr_web_token`.
+Reopen `/?llmr_web_token=<token>` with the current token (for a generated token, read it from `docker compose logs llmr`); close tabs and bookmarks that still use the old `llmr_web_token`.
 
 ### Clients still use the old port or domain
 
@@ -285,7 +285,7 @@ Confirm the host directory exists, is writable by the container, and is not moun
 Container health only means Nginx / UI are reachable. Continue checking **Server** status, provider connectivity, the LLMR client key, routing, and request logs, and inspect:
 
 ```sh
-docker compose logs --tail=200 ccr
+docker compose logs --tail=200 llmr
 ```
 
 ## Related pages

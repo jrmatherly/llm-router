@@ -43,7 +43,7 @@ test("Grok local agent auth hook refreshes live login state before authenticatin
         providerPlugins: [grokOauthProviderPlugin()]
       }
     }).providerHooks;
-    assert.equal(hook.key, "module:ccr-live-auth:ccr-local-agent-grok-cli-api-grok-cli-oauth");
+    assert.equal(hook.key, "module:llmr-live-auth:llmr-local-agent-grok-cli-api-grok-cli-oauth");
 
     const patch = "*** Begin Patch\n*** Add File: grok.txt\n+hi\n*** End Patch\n";
     const upstreamRequest = {
@@ -122,10 +122,10 @@ test("Claude Code local agent auth hook re-reads the on-disk access token on eve
         config.Providers = [{ name: "Claude Code API", id: "claude-code-api", api_base_url: "https://api.anthropic.com", models: ["claude-test"], type: "anthropic_messages" }];
         config.providerPlugins = [claudeCodeOauthProviderPlugin()];
         const compiled = await compileCoreGatewayConfig(config, "trace", "billing", "auth");
-        const modulePlugin = compiled.plugins.find((plugin) => plugin.key === "ccr-local-agent-auth-provider-hooks");
+        const modulePlugin = compiled.plugins.find((plugin) => plugin.key === "llmr-local-agent-auth-provider-hooks");
         assert.ok(compiled.providerPlugins.every((plugin) => !plugin.auth));
         const [hook] = createGatewayPlugin({ config: compiled, plugin: modulePlugin }).providerHooks;
-        assert.equal(hook.key, "module:ccr-live-auth:ccr-local-agent-claude-code-api-claude-code-oauth");
+        assert.equal(hook.key, "module:llmr-live-auth:llmr-local-agent-claude-code-api-claude-code-oauth");
 
         const upstreamRequest = {
           headers: {
@@ -208,7 +208,7 @@ test("core gateway config installs the local agent dynamic auth runtime hook whe
     "core-auth-token"
   );
   const plugins = Array.isArray(compiled.plugins) ? compiled.plugins : [];
-  const localAgentAuthPlugin = plugins.find((plugin) => plugin.key === "ccr-local-agent-auth-provider-hooks");
+  const localAgentAuthPlugin = plugins.find((plugin) => plugin.key === "llmr-local-agent-auth-provider-hooks");
 
   assert.ok(localAgentAuthPlugin);
   assert.match(localAgentAuthPlugin.modulePath, /local-agent-auth-provider-hook\.js$/);
@@ -246,7 +246,7 @@ test("core gateway config removes Grok unsupported Responses options through dec
       "core-auth-token"
     );
     const providerPlugins = Array.isArray(compiled.providerPlugins) ? compiled.providerPlugins : [];
-    const grokPlugin = providerPlugins.find((value) => value.key === "ccr-local-agent-grok-cli-api-grok-cli-oauth");
+    const grokPlugin = providerPlugins.find((value) => value.key === "llmr-local-agent-grok-cli-api-grok-cli-oauth");
 
     assert.ok(grokPlugin);
     assert.deepEqual(grokPlugin.request.bodyRemove, ["metadata", "external_web_access"]);
@@ -256,7 +256,7 @@ test("core gateway config removes Grok unsupported Responses options through dec
 test("local agent OAuth plugin detector only matches managed OAuth imports", () => {
   assert.equal(isLocalAgentOauthProviderPlugin(grokOauthProviderPlugin()), true);
   assert.equal(isLocalAgentOauthProviderPlugin({
-    key: "ccr-local-agent-grok-cli-api-grok-cli-api-key"
+    key: "llmr-local-agent-grok-cli-api-grok-cli-api-key"
   }), false);
   assert.equal(isLocalAgentOauthProviderPlugin({
     key: "external-grok-cli-oauth"
@@ -272,7 +272,7 @@ function grokOauthProviderPlugin() {
       removeHeaders: ["x-api-key"],
       strict: true
     },
-    key: "ccr-local-agent-grok-cli-api-grok-cli-oauth",
+    key: "llmr-local-agent-grok-cli-api-grok-cli-oauth",
     providerName: "Grok CLI API",
     request: {
       headers: {
@@ -295,13 +295,13 @@ function claudeCodeOauthProviderPlugin() {
       removeHeaders: ["x-api-key"],
       strict: true
     },
-    key: "ccr-local-agent-claude-code-api-claude-code-oauth",
+    key: "llmr-local-agent-claude-code-api-claude-code-oauth",
     providerName: "Claude Code API"
   };
 }
 
 async function withClaudeCodeHome(run) {
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-code-hook-test-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-code-hook-test-"));
   const previousHome = process.env.HOME;
   process.env.HOME = home;
   try {
@@ -332,14 +332,14 @@ async function withFakeSecurityFailure(run) {
 }
 
 async function withFakeSecurityScript(body, run) {
-  const binDir = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-code-security-bin-"));
+  const binDir = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-code-security-bin-"));
   const securityPath = path.join(binDir, "security");
   const previousPath = process.env.PATH;
   const previousUser = process.env.USER;
   writeFileSync(securityPath, `#!/bin/sh\n${body}`);
   chmodSync(securityPath, 0o755);
   process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ""}`;
-  process.env.USER = "ccr-test-user";
+  process.env.USER = "llmr-test-user";
   try {
     await run();
   } finally {
@@ -361,7 +361,7 @@ async function withGrokHome(t, run) {
   const previousGrokHome = process.env.GROK_HOME;
   const previousGrokAuthFile = process.env.GROK_AUTH_FILE;
   const previousGrokCliVersion = process.env.GROK_CLI_VERSION;
-  const grokHome = mkdtempSync(path.join(os.tmpdir(), "ccr-grok-hook-test-"));
+  const grokHome = mkdtempSync(path.join(os.tmpdir(), "llmr-grok-hook-test-"));
   process.env.GROK_HOME = grokHome;
   process.env.GROK_CLI_VERSION = "0.2.93";
   delete process.env.GROK_AUTH_FILE;

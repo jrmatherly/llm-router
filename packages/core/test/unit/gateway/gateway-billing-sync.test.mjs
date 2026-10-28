@@ -23,7 +23,7 @@ test("core gateway disables the full-trace billing webhook without disabling raw
   assert.deepEqual(compiled.billing, { enabled: true });
   const upstreamHeaderSanitizer = compiled.plugins?.at(-1);
   assert.equal(upstreamHeaderSanitizer?.enabled, true);
-  assert.equal(upstreamHeaderSanitizer?.key, "ccr-upstream-header-sanitizer");
+  assert.equal(upstreamHeaderSanitizer?.key, "llmr-upstream-header-sanitizer");
   assert.match(upstreamHeaderSanitizer?.modulePath, /upstream-header-sanitizer\.js$/);
   assert.equal(compiled.rawTrace?.enabled, true);
   assert.deepEqual(compiled.rawTrace?.sync, {
@@ -71,7 +71,7 @@ test("Codex OAuth providers remove unsupported Responses request fields", async 
   config.providerPlugins = [{
     codexOauth: {},
     enabled: true,
-    key: "ccr-local-agent-codex-oauth-test",
+    key: "llmr-local-agent-codex-oauth-test",
     providerName: "Codex API::openai_responses",
     request: {
       bodyRemove: ["custom-field"]
@@ -84,7 +84,7 @@ test("Codex OAuth providers remove unsupported Responses request fields", async 
     "billing-usage-token",
     "core-auth-token"
   );
-  const plugin = compiled.providerPlugins.find((item) => item.key === "ccr-local-agent-codex-oauth-test");
+  const plugin = compiled.providerPlugins.find((item) => item.key === "llmr-local-agent-codex-oauth-test");
 
   assert.deepEqual(plugin.request.bodyRemove, ["custom-field", "max_output_tokens", "stop"]);
 });

@@ -22,7 +22,7 @@ import {
  * The ID layout mirrors the open-source OpenCode ID generator
  * (`ses_` descending, `msg_` ascending: 12 hex chars of
  * `(timestampMs * 0x1000 + counter)` over 48 bits, plus 14 random base62
- * chars). There is no shared secret involved, so CCR can mint equally valid
+ * chars). There is no shared secret involved, so LLMR can mint equally valid
  * IDs per request. If Zen ever hardens this gate (it already did once),
  * public imports stop working and the supported fallback is a logged-in Zen
  * API key.
@@ -53,12 +53,12 @@ export function isOpenCodePublicFreeTierPlugin(value: unknown): boolean {
     return false;
   }
   const key = readString(value.key)?.toLowerCase();
-  return Boolean(key?.startsWith("ccr-local-agent-") && key.includes(OPENCODE_PUBLIC_FREETIER_PLUGIN_SUFFIX));
+  return Boolean(key?.startsWith("llmr-local-agent-") && key.includes(OPENCODE_PUBLIC_FREETIER_PLUGIN_SUFFIX));
 }
 
 export function openCodePublicFreeTierPlugin(providerName = providerNamePlaceholder, keySuffix = ""): Record<string, unknown> {
   return {
-    key: `ccr-local-agent-${providerNameSlugPlaceholder}-${OPENCODE_PUBLIC_FREETIER_PLUGIN_SUFFIX}${keySuffix}`,
+    key: `llmr-local-agent-${providerNameSlugPlaceholder}-${OPENCODE_PUBLIC_FREETIER_PLUGIN_SUFFIX}${keySuffix}`,
     providerName,
     // The gateway drops provider plugins without an auth/request/response
     // section before handing the config to runtime hooks, so a bare marker
@@ -231,7 +231,7 @@ function readInstalledOpenCodeUserAgent(): string | undefined {
     const version = output.match(/\d+\.\d+\.\d+/)?.[0];
     return version ? `opencode/${version}` : undefined;
   } catch {
-    // The CCR host may not have the OpenCode CLI installed; callers fall back
+    // The LLMR host may not have the OpenCode CLI installed; callers fall back
     // to a pinned recent client version instead of failing the request.
     return undefined;
   }

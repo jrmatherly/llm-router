@@ -84,7 +84,7 @@ test("OpenCode free-tier user agent prefers an explicit override", () => {
 });
 
 test("OpenCode free-tier user agent reads the installed CLI version", () => {
-  const binDir = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-freetier-bin-"));
+  const binDir = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-freetier-bin-"));
   writeFileSync(path.join(binDir, "opencode"), "#!/bin/sh\necho 'opencode version 7.8.9'\n");
   chmodSync(path.join(binDir, "opencode"), 0o755);
   const previousPath = process.env.PATH;
@@ -103,7 +103,7 @@ test("OpenCode free-tier user agent reads the installed CLI version", () => {
 });
 
 test("OpenCode free-tier user agent falls back without an installed CLI", () => {
-  const binDir = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-freetier-empty-bin-"));
+  const binDir = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-freetier-empty-bin-"));
   const previousPath = process.env.PATH;
   const previousOverride = process.env.LLMR_OPENCODE_USER_AGENT;
   process.env.PATH = binDir;
@@ -162,11 +162,11 @@ test("OpenCode free-tier header application overwrites the client user agent but
 test("OpenCode free-tier plugin detector only matches managed public imports", () => {
   assert.equal(isOpenCodePublicFreeTierPlugin(openCodePublicFreeTierPlugin()), true);
   assert.equal(isOpenCodePublicFreeTierPlugin({
-    key: "ccr-local-agent-opencode-public-Responses-OPENCODE-PUBLIC-FREETIER".toLowerCase(),
+    key: "llmr-local-agent-opencode-public-Responses-OPENCODE-PUBLIC-FREETIER".toLowerCase(),
     providerName: "OpenCode Public"
   }), true);
   assert.equal(isOpenCodePublicFreeTierPlugin({
-    key: "ccr-local-agent-grok-cli-api-grok-cli-oauth"
+    key: "llmr-local-agent-grok-cli-api-grok-cli-oauth"
   }), false);
   assert.equal(isOpenCodePublicFreeTierPlugin({ key: "external-opencode-public-freetier" }), false);
   assert.equal(isOpenCodePublicFreeTierPlugin({}), false);
@@ -177,7 +177,7 @@ test("OpenCode free-tier import plugin never overrides auth", () => {
   const plugin = openCodePublicFreeTierPlugin();
   assert.equal(
     plugin.key,
-    `ccr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-${OPENCODE_PUBLIC_FREETIER_PLUGIN_SUFFIX}`
+    `llmr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-${OPENCODE_PUBLIC_FREETIER_PLUGIN_SUFFIX}`
   );
   assert.equal(plugin.providerName, "__LLMR_PROVIDER_NAME__");
   assert.equal(plugin.auth, undefined);
@@ -203,7 +203,7 @@ test("OpenCode free-tier hook mints headers per request without touching auth", 
     const [hook] = createGatewayPlugin({
       config: {
         providerPlugins: [{
-          key: "ccr-local-agent-opencode-public-chat-completions-opencode-public-freetier",
+          key: "llmr-local-agent-opencode-public-chat-completions-opencode-public-freetier",
           providerName: "OpenCode Public (Chat Completions)"
         }]
       }
@@ -269,7 +269,7 @@ test("OpenCode free-tier hook adds the required tools to the upstream body", asy
   const [hook] = createGatewayPlugin({
     config: {
       providerPlugins: [{
-        key: "ccr-local-agent-opencode-public-chat-completions-opencode-public-freetier",
+        key: "llmr-local-agent-opencode-public-chat-completions-opencode-public-freetier",
         providerName: "OpenCode Public (Chat Completions)"
       }]
     }
@@ -292,7 +292,7 @@ test("OpenCode free-tier hook adds the required tools to the upstream body", asy
 test("core gateway config installs the runtime hook for public free-tier plugins", async () => {
   const config = createDefaultAppConfig();
   config.providerPlugins = [{
-    key: "ccr-local-agent-opencode-public-chat-completions-opencode-public-freetier",
+    key: "llmr-local-agent-opencode-public-chat-completions-opencode-public-freetier",
     providerName: "OpenCode Public (Chat Completions)"
   }];
   config.Providers = [
@@ -313,7 +313,7 @@ test("core gateway config installs the runtime hook for public free-tier plugins
     "core-auth-token"
   );
   const plugins = Array.isArray(compiled.plugins) ? compiled.plugins : [];
-  const freeTierHookPlugin = plugins.find((plugin) => plugin.key === "ccr-local-agent-auth-provider-hooks");
+  const freeTierHookPlugin = plugins.find((plugin) => plugin.key === "llmr-local-agent-auth-provider-hooks");
   assert.ok(freeTierHookPlugin);
 });
 

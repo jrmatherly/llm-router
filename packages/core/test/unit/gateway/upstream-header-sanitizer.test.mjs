@@ -76,7 +76,7 @@ test("gateway sanitizer hook forwards client headers without overriding provider
   const result = await hook.transformRequest({
     request: {
       headers: {
-        authorization: "Bearer ccr-client-token",
+        authorization: "Bearer llmr-client-token",
         "api-key": "legacy-client-token",
         connection: "keep-alive, x-hop-only",
         "content-length": "123",
@@ -205,11 +205,11 @@ test("gateway sanitizer hook does not forward reverse proxy metadata to provider
   const result = await hook.transformRequest({
     request: {
       headers: {
-        forwarded: "for=192.0.2.10;proto=http;host=ccr.example",
-        via: "1.1 ccr",
+        forwarded: "for=192.0.2.10;proto=http;host=llmr.example",
+        via: "1.1 llmr",
         "x-forwarded-client-cert": "proxy-certificate",
         "x-forwarded-for": "192.0.2.10",
-        "x-forwarded-host": "ccr.example",
+        "x-forwarded-host": "llmr.example",
         "x-forwarded-port": "80",
         "x-forwarded-proto": "http",
         "x-real-ip": "192.0.2.10",

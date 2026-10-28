@@ -107,7 +107,7 @@ const minRefreshIntervalMs = 30 * 1000;
 const maxErrorRefreshIntervalMs = 60 * 1000;
 const maxStaleAccountSnapshotMs = 2 * 60 * 1000;
 const maxCacheEntries = 500;
-const standardAccountPaths = ["/.well-known/ccr/account", "/v1/account/limits"];
+const standardAccountPaths = ["/.well-known/llmr/account", "/v1/account/limits"];
 const codexRateLimitResetCreditConsumeEndpoint = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume";
 const codexOauthTokenEndpoint = "https://auth.openai.com/oauth/token";
 const codexOauthClientId = "app_EMoamEEZ73f0CkXaXp7hrann";
@@ -1502,7 +1502,7 @@ async function localAgentProviderAccountCredential(
   if (isLocalCodexProvider(provider)) {
     return await localCodexAccountCredential({
       codexOauth: { refreshIfMissingAccessToken: true },
-      key: "ccr-local-agent-codex-fallback-codex-oauth",
+      key: "llmr-local-agent-codex-fallback-codex-oauth",
       providerName: provider.name
     });
   }
@@ -1520,7 +1520,7 @@ function localAgentProviderPluginMatches(plugin: unknown, provider: GatewayProvi
     return false;
   }
   const key = readString(plugin.key)?.toLowerCase() ?? "";
-  if (!key.startsWith("ccr-local-agent-")) {
+  if (!key.startsWith("llmr-local-agent-")) {
     return false;
   }
 

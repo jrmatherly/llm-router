@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import { chmodSync, copyFileSync, existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-export const originalBackupSuffix = ".ccr-original";
-export const originalMissingSuffix = ".ccr-original-missing";
-export const backupMarker = ".ccr-backup-";
+export const originalBackupSuffix = ".llmr-original";
+export const originalMissingSuffix = ".llmr-original-missing";
+export const backupMarker = ".llmr-backup-";
 
 export function backupFilePath(file: string): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");

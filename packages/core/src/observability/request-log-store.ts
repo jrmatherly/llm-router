@@ -633,7 +633,7 @@ export class RequestLogStore {
       inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
     const model = normalizeLabel(usageModelForStorage ?? route.model ?? requestModelForStorage ?? input.fallbackModel, "unknown");
     const providerName = normalizeLabel(provider, "unknown");
-    // CCR credential IDs are structured metadata, but their header names also
+    // LLMR credential IDs are structured metadata, but their header names also
     // match the fail-closed secret classifier. Extract them before sanitizing;
     // the persisted header JSON remains redacted.
     const credentialInfo = readCredentialLogInfo(rawResponseHeaders, rawRequestHeaders);
@@ -2416,7 +2416,7 @@ function extractSubagentModelFromContent(content: unknown): string | undefined {
 }
 
 function extractSubagentModelFromText(text: string): string | undefined {
-  const match = text.match(/<CCR-SUBAGENT-MODEL>(.*?)<\/CCR-SUBAGENT-MODEL>/s);
+  const match = text.match(/<LLMR-SUBAGENT-MODEL>(.*?)<\/LLMR-SUBAGENT-MODEL>/s);
   const model = match?.[1]?.trim();
   return model && model.toLowerCase() !== "provider/model" ? model : undefined;
 }

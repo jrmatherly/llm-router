@@ -193,7 +193,7 @@ test("built ToolHub MCP runtime expands browser automation bundles with handoff 
   }
 
   const backend = createMcpHttpServer({
-    serverName: "ccr-browser-automation",
+    serverName: "llmr-browser-automation",
     tools: [
       {
         description: "Open a URL or attach an existing LLMR built-in browser tab and create an automation session.",
@@ -227,7 +227,7 @@ test("built ToolHub MCP runtime expands browser automation bundles with handoff 
   const backendPort = backend.address().port;
   t.after(() => backend.close());
 
-  const resolver = createFixedResolverServer(["mcp.ccr_browser_automation.browser_session_open"]);
+  const resolver = createFixedResolverServer(["mcp.llmr_browser_automation.browser_session_open"]);
   try {
     await listen(resolver);
   } catch (error) {
@@ -243,7 +243,7 @@ test("built ToolHub MCP runtime expands browser automation bundles with handoff 
       ...process.env,
       TOOLHUB_MCP_SERVERS_JSON: JSON.stringify([
         {
-          name: "ccr-browser-automation",
+          name: "llmr-browser-automation",
           transport: "streamable-http",
           url: `http://127.0.0.1:${backendPort}/mcp`
         }
@@ -294,10 +294,10 @@ test("built ToolHub MCP runtime expands browser automation bundles with handoff 
   });
   assert.equal(response.error, undefined);
   assert.deepEqual(response.result.selectedToolNames, [
-    "mcp.ccr_browser_automation.browser_session_open",
-    "mcp.ccr_browser_automation.browser_handoff_request",
-    "mcp.ccr_browser_automation.browser_handoff_status",
-    "mcp.ccr_browser_automation.browser_handoff_wait"
+    "mcp.llmr_browser_automation.browser_session_open",
+    "mcp.llmr_browser_automation.browser_handoff_request",
+    "mcp.llmr_browser_automation.browser_handoff_status",
+    "mcp.llmr_browser_automation.browser_handoff_wait"
   ]);
   assert.match(response.result.tsDefinitions, /browser_handoff_wait/);
 });
@@ -310,7 +310,7 @@ test("built ToolHub MCP runtime deterministically resolves Chrome login import t
   }
 
   const backend = createMcpHttpServer({
-    serverName: "ccr-browser-automation",
+    serverName: "llmr-browser-automation",
     tools: [
       {
         description: "Ask the user to confirm importing Chrome cookies and localStorage into LLMR's in-app browser.",
@@ -350,7 +350,7 @@ test("built ToolHub MCP runtime deterministically resolves Chrome login import t
       ...process.env,
       TOOLHUB_MCP_SERVERS_JSON: JSON.stringify([
         {
-          name: "ccr-browser-automation",
+          name: "llmr-browser-automation",
           transport: "streamable-http",
           url: `http://127.0.0.1:${backendPort}/mcp`
         }
@@ -401,8 +401,8 @@ test("built ToolHub MCP runtime deterministically resolves Chrome login import t
   });
   assert.equal(response.error, undefined);
   assert.deepEqual(response.result.selectedToolNames, [
-    "mcp.ccr_browser_automation.browser_chrome_login_import",
-    "mcp.ccr_browser_automation.browser_chrome_login_import_status"
+    "mcp.llmr_browser_automation.browser_chrome_login_import",
+    "mcp.llmr_browser_automation.browser_chrome_login_import_status"
   ]);
   assert.match(response.result.tsDefinitions, /browser_chrome_login_import/);
 });
@@ -435,8 +435,8 @@ test("built ToolHub MCP runtime does not add LLMR handoff tools for non-LLMR bro
   const externalBrowserPort = externalBrowser.address().port;
   t.after(() => externalBrowser.close());
 
-  const ccrBrowser = createMcpHttpServer({
-    serverName: "ccr-browser-automation",
+  const llmrBrowser = createMcpHttpServer({
+    serverName: "llmr-browser-automation",
     tools: [
       {
         description: "Request human intervention for the current browser task.",
@@ -456,14 +456,14 @@ test("built ToolHub MCP runtime does not add LLMR handoff tools for non-LLMR bro
     ]
   });
   try {
-    await listen(ccrBrowser);
+    await listen(llmrBrowser);
   } catch (error) {
-    ccrBrowser.close();
+    llmrBrowser.close();
     t.skip(`Local HTTP listen is unavailable: ${error.message}`);
     return;
   }
-  const ccrBrowserPort = ccrBrowser.address().port;
-  t.after(() => ccrBrowser.close());
+  const llmrBrowserPort = llmrBrowser.address().port;
+  t.after(() => llmrBrowser.close());
 
   const resolver = createFixedResolverServer(["mcp.playwright.navigate"]);
   try {
@@ -486,9 +486,9 @@ test("built ToolHub MCP runtime does not add LLMR handoff tools for non-LLMR bro
           url: `http://127.0.0.1:${externalBrowserPort}/mcp`
         },
         {
-          name: "ccr-browser-automation",
+          name: "llmr-browser-automation",
           transport: "streamable-http",
-          url: `http://127.0.0.1:${ccrBrowserPort}/mcp`
+          url: `http://127.0.0.1:${llmrBrowserPort}/mcp`
         }
       ]),
       TOOLHUB_OPENAI_API_KEY: "test-key",

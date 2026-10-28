@@ -75,7 +75,7 @@ test("Core gateway config replaces imported Claude Code OAuth token with live ma
               removeHeaders: ["x-api-key"],
               strict: true
             },
-            key: "ccr-local-agent-claude-code-api-claude-code-oauth",
+            key: "llmr-local-agent-claude-code-api-claude-code-oauth",
             providerName: "Claude Code API"
           }
         ];
@@ -90,10 +90,10 @@ test("Core gateway config replaces imported Claude Code OAuth token with live ma
         ];
 
         const compiled = await compileCoreGatewayConfig(config, "raw-trace-token", "billing-usage-token", "core-auth-token");
-        const plugin = compiled.providerPlugins.find((item) => item.key === "ccr-local-agent-claude-code-api-claude-code-oauth");
+        const plugin = compiled.providerPlugins.find((item) => item.key === "llmr-local-agent-claude-code-api-claude-code-oauth");
 
         assert.equal(plugin.auth, undefined);
-        const livePlugin = compiled.plugins.find((item) => item.key === "ccr-local-agent-auth-provider-hooks");
+        const livePlugin = compiled.plugins.find((item) => item.key === "llmr-local-agent-auth-provider-hooks");
         const [hook] = createGatewayPlugin({ plugin: livePlugin }).providerHooks;
         const result = await hook.authenticate({
           upstreamRequest: { url: "https://api.anthropic.com/v1/messages", method: "POST", headers: { "x-api-key": "old" }, body: {} }
@@ -325,7 +325,7 @@ test("Claude Code local provider reports a missing candidate when no keychain it
 });
 
 async function withClaudeCodeHome(run) {
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-code-provider-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-code-provider-"));
   const previousHome = process.env.HOME;
   process.env.HOME = home;
   try {
@@ -360,7 +360,7 @@ async function withFakeSecurityFailure(run) {
 // Pins $USER as well as PATH: the provider looks the keychain item up under the
 // current account, so the expected item name has to be deterministic.
 async function withFakeSecurityScript(body, run) {
-  const binDir = mkdtempSync(path.join(os.tmpdir(), "ccr-security-bin-"));
+  const binDir = mkdtempSync(path.join(os.tmpdir(), "llmr-security-bin-"));
   const securityPath = path.join(binDir, "security");
   const previousPath = process.env.PATH;
   const previousUser = process.env.USER;
@@ -377,7 +377,7 @@ async function withFakeSecurityScript(body, run) {
   }
 }
 
-const keychainAccount = "ccr-test-user";
+const keychainAccount = "llmr-test-user";
 
 // Stands in for the macOS keychain: `find-generic-password` matches on
 // service+account, an omitted `-a` matches the first item registered for the

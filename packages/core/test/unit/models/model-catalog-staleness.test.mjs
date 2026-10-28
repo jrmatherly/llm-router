@@ -12,7 +12,7 @@ test("a process that never refreshes warns once about a week-old catalog", async
   const previous = keys.map((key) => process.env[key]);
   const originalWarn = console.warn;
   const warnings = [];
-  const dir = mkdtempSync(path.join(tmpdir(), "ccr-catalog-staleness-test-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-catalog-staleness-test-"));
   const day = 24 * 60 * 60 * 1000;
   const catalog = (ageDays) => JSON.stringify({
     generatedAt: new Date(Date.now() - ageDays * day).toISOString(),

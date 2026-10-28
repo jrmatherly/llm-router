@@ -2,27 +2,27 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import {
-  ccrAnthropicReasoningResponseHookKey,
-  ccrCodexApplyPatchBridgeHeader,
-  ccrCodexBridgeRequestTransformKey,
-  ccrCodexBridgeResponseHookKey,
-  ccrCodexBridgeStreamHookKey,
-  ccrCodexMultiAgentBridgeHeader,
-  ccrLiveTokenRateConfigMessageType,
-  ccrLiveTokenRateSnapshotMessageType,
-  ccrLiveTokenRateStreamHookKey,
-  ccrOpenRouterDiscountFinalizeResponseHookKey,
-  ccrRuntimeConfigReloadMessageType,
-  ccrRouteReasonHeader,
-  ccrRouteSourceHeader,
-  ccrRoutedModelHeader,
-  ccrRouterHttpRoutePath,
-  ccrRouterRouteResolverKey,
-  ccrRouterRequestTransformKey
+  llmrAnthropicReasoningResponseHookKey,
+  llmrCodexApplyPatchBridgeHeader,
+  llmrCodexBridgeRequestTransformKey,
+  llmrCodexBridgeResponseHookKey,
+  llmrCodexBridgeStreamHookKey,
+  llmrCodexMultiAgentBridgeHeader,
+  llmrLiveTokenRateConfigMessageType,
+  llmrLiveTokenRateSnapshotMessageType,
+  llmrLiveTokenRateStreamHookKey,
+  llmrOpenRouterDiscountFinalizeResponseHookKey,
+  llmrRuntimeConfigReloadMessageType,
+  llmrRouteReasonHeader,
+  llmrRouteSourceHeader,
+  llmrRoutedModelHeader,
+  llmrRouterHttpRoutePath,
+  llmrRouterRouteResolverKey,
+  llmrRouterRequestTransformKey
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
 import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response.ts";
 import { coreGatewayAuthHeader } from "@llmr/core/gateway/internal/shared.ts";
-import { ccrRemoteControlPathPrefix } from "@llmr/core/gateway/remote-control-service.ts";
+import { llmrRemoteControlPathPrefix } from "@llmr/core/gateway/remote-control-service.ts";
 import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control.ts";
 import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/router-plugin.ts";
 import { providerRuntimeId } from "@llmr/core/routing/model-registry.ts";
@@ -75,7 +75,7 @@ test("LLMR route resolver preserves the selected protocol for bare provider IDs"
       };
       config.Providers = [provider];
       const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config } } });
-      const resolver = plugin.routeResolvers.find((item) => item.key === ccrRouterRouteResolverKey);
+      const resolver = plugin.routeResolvers.find((item) => item.key === llmrRouterRouteResolverKey);
       const model = scenario.model ?? "kimi-k3";
       const target = scenario.target ?? "multi::anthropic_messages";
       const requestBody = { model: `${target}/${model}`, messages: [{ role: "user", content: "hello" }] };
@@ -83,7 +83,7 @@ test("LLMR route resolver preserves the selected protocol for bare provider IDs"
       // still contains the original selector after non-ASCII names are sanitized.
       const resolved = resolver.resolve({
         request: {
-          headers: { [ccrRoutedModelHeader]: sanitizeHeaderValue(`${scenario.selector ?? provider.name}/${model}`) },
+          headers: { [llmrRoutedModelHeader]: sanitizeHeaderValue(`${scenario.selector ?? provider.name}/${model}`) },
           method: "POST", url: scenario.path ?? "/v1/messages"
         },
         requestBody
@@ -112,7 +112,7 @@ test("LLMR router core plugin exposes route endpoint and beforeRouting transform
   }];
 
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config } } });
-  assert.equal(plugin.httpRoutes[0].path, ccrRouterHttpRoutePath);
+  assert.equal(plugin.httpRoutes[0].path, llmrRouterHttpRoutePath);
 
   const transformed = await plugin.requestTransforms[0].transform({
     request: {
@@ -133,11 +133,11 @@ test("LLMR router core plugin exposes route endpoint and beforeRouting transform
   assert.ok(transformed);
   assert.equal(transformed.requestBody.model, "Secondary/beta");
   assert.equal(transformed.model, "Secondary/beta");
-  assert.equal(transformed.headers[ccrRoutedModelHeader], "Secondary/beta");
-  assert.equal(transformed.headers[ccrRouteReasonHeader], "rule:route-to-secondary");
-  assert.equal(transformed.headers[ccrRouteSourceHeader], "rule");
+  assert.equal(transformed.headers[llmrRoutedModelHeader], "Secondary/beta");
+  assert.equal(transformed.headers[llmrRouteReasonHeader], "rule:route-to-secondary");
+  assert.equal(transformed.headers[llmrRouteSourceHeader], "rule");
 
-  const resolver = plugin.routeResolvers.find((item) => item.key === ccrRouterRouteResolverKey);
+  const resolver = plugin.routeResolvers.find((item) => item.key === llmrRouterRouteResolverKey);
   const resolved = resolver.resolve({
     model: transformed.model,
     request: {
@@ -167,7 +167,7 @@ test("LLMR router core plugin publishes live token rate snapshots from the singl
   try {
     const config = createDefaultAppConfig();
     const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config } } });
-    const streamHook = plugin.streamHooks.find((item) => item.key === ccrLiveTokenRateStreamHookKey);
+    const streamHook = plugin.streamHooks.find((item) => item.key === llmrLiveTokenRateStreamHookKey);
     assert.ok(streamHook);
     const disabledResult = await streamHook.transformResponse({
       request: { id: "single-runtime-rate-disabled" },
@@ -182,7 +182,7 @@ test("LLMR router core plugin publishes live token rate snapshots from the singl
     process.emit("message", {
       enabled: true,
       protocolVersion: 1,
-      type: ccrLiveTokenRateConfigMessageType
+      type: llmrLiveTokenRateConfigMessageType
     });
     const encoder = new TextEncoder();
     const upstreamResponse = new Response(new ReadableStream({
@@ -215,7 +215,7 @@ test("LLMR router core plugin publishes live token rate snapshots from the singl
     assert.ok(meteredResponse instanceof Response);
     await meteredResponse.text();
     assert.ok(messages.some((message) =>
-      message?.type === ccrLiveTokenRateSnapshotMessageType &&
+      message?.type === llmrLiveTokenRateSnapshotMessageType &&
       message.activeRequests === 1 &&
       message.tokensPerSecond > 0
     ));
@@ -223,7 +223,7 @@ test("LLMR router core plugin publishes live token rate snapshots from the singl
     process.emit("message", {
       enabled: false,
       protocolVersion: 1,
-      type: ccrLiveTokenRateConfigMessageType
+      type: llmrLiveTokenRateConfigMessageType
     });
     if (originalSend) {
       process.send = originalSend;
@@ -275,7 +275,7 @@ test("LLMR router core plugin resolves bare Codex companion models through the a
       enhancedRoute: false,
       rules: []
     },
-    scope: "ccr"
+    scope: "llmr"
   }];
 
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config } } });
@@ -308,12 +308,12 @@ test("LLMR router core plugin resolves bare Codex companion models through the a
   });
 
   assert.ok(transformed);
-  assert.equal(transformed.headers[ccrRouteReasonHeader], "default");
-  assert.equal(transformed.headers[ccrRoutedModelHeader], "gpt-5.6-luna");
+  assert.equal(transformed.headers[llmrRouteReasonHeader], "default");
+  assert.equal(transformed.headers[llmrRoutedModelHeader], "gpt-5.6-luna");
   assert.equal(transformed.model, "gpt-5.6-luna");
   assert.equal(transformed.requestBody.model, "gpt-5.6-luna");
 
-  const resolver = plugin.routeResolvers.find((item) => item.key === ccrRouterRouteResolverKey);
+  const resolver = plugin.routeResolvers.find((item) => item.key === llmrRouterRouteResolverKey);
   const resolved = resolver.resolve({
     model: transformed.model,
     request: {
@@ -345,7 +345,7 @@ test("LLMR router core plugin applies Codex bridge request and response hooks", 
   }];
 
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config } } });
-  const transform = plugin.requestTransforms.find((item) => item.key === ccrCodexBridgeRequestTransformKey);
+  const transform = plugin.requestTransforms.find((item) => item.key === llmrCodexBridgeRequestTransformKey);
   const patch = "*** Begin Patch\n*** Add File: foo.txt\n+hi\n*** End Patch\n";
   const transformed = await transform.transform({
     model: "Primary/claude-sonnet",
@@ -379,14 +379,14 @@ test("LLMR router core plugin applies Codex bridge request and response hooks", 
   });
 
   assert.ok(transformed);
-  assert.equal(transformed.headers[ccrCodexApplyPatchBridgeHeader]?.startsWith("Primary/claude-sonnet:"), true);
-  assert.equal(transformed.headers[ccrCodexMultiAgentBridgeHeader]?.startsWith("Primary/claude-sonnet:"), true);
+  assert.equal(transformed.headers[llmrCodexApplyPatchBridgeHeader]?.startsWith("Primary/claude-sonnet:"), true);
+  assert.equal(transformed.headers[llmrCodexMultiAgentBridgeHeader]?.startsWith("Primary/claude-sonnet:"), true);
   assert.equal(transformed.requestBody.tools[0].name, "virtual_apply_patch");
   assert.equal(transformed.requestBody.tools[1].name, "multi_agent_v1_spawn_agent");
   assert.equal(transformed.requestBody.input[0].name, "virtual_apply_patch");
   assert.equal(transformed.requestBody.input[1].name, "multi_agent_v1_spawn_agent");
 
-  const responseHook = plugin.responseHooks.find((item) => item.key === ccrCodexBridgeResponseHookKey);
+  const responseHook = plugin.responseHooks.find((item) => item.key === llmrCodexBridgeResponseHookKey);
   const response = await responseHook.transformResponse({
     request: {
       headers: transformed.headers,
@@ -417,7 +417,7 @@ test("LLMR router core plugin applies Codex bridge request and response hooks", 
   assert.equal(response.responsePayload.output[1].name, "wait_agent");
   assert.equal(response.responsePayload.output[1].namespace, "multi_agent_v1");
 
-  const streamHook = plugin.streamHooks.find((item) => item.key === ccrCodexBridgeStreamHookKey);
+  const streamHook = plugin.streamHooks.find((item) => item.key === llmrCodexBridgeStreamHookKey);
   const streamed = await streamHook.transformResponse({
     request: {
       headers: transformed.headers,
@@ -483,7 +483,7 @@ test("LLMR router core plugin coalesces adjacent unsigned Anthropic thinking fra
 
   const config = createDefaultAppConfig();
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config } } });
-  const responseHook = plugin.responseHooks.find((item) => item.key === ccrAnthropicReasoningResponseHookKey);
+  const responseHook = plugin.responseHooks.find((item) => item.key === llmrAnthropicReasoningResponseHookKey);
   assert.ok(responseHook);
   const hookResult = await responseHook.transformResponse({ responsePayload: payload, statusCode: 200 });
   assert.deepEqual(hookResult.responsePayload, transformed.value);
@@ -498,7 +498,7 @@ test("LLMR router core plugin skips Codex bridge for native Responses passthroug
   }];
 
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config } } });
-  const transform = plugin.requestTransforms.find((item) => item.key === ccrCodexBridgeRequestTransformKey);
+  const transform = plugin.requestTransforms.find((item) => item.key === llmrCodexBridgeRequestTransformKey);
   const transformed = await transform.transform({
     model: "gpt-5.5",
     request: {
@@ -622,7 +622,7 @@ test("LLMR router core plugin applies OpenRouter discount provider routing", asy
   });
   assert.equal(beforeConfirm.responseHeaders["x-llmr-openrouter-discount-reason"], "initial-cheapest");
 
-  const finalizer = plugin.responseHooks.find((item) => item.key === ccrOpenRouterDiscountFinalizeResponseHookKey);
+  const finalizer = plugin.responseHooks.find((item) => item.key === llmrOpenRouterDiscountFinalizeResponseHookKey);
   await finalizer.transformResponse({
     request: {
       headers: {
@@ -742,7 +742,7 @@ test("LLMR router core plugin protects internal route decisions with the core to
   config.Providers = [{ models: ["alpha"], name: "Primary", type: "openai_chat_completions" }];
 
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config, coreAuthToken: "core-token", publicGatewayMode: true } } });
-  const route = plugin.httpRoutes.find((item) => item.path === ccrRouterHttpRoutePath);
+  const route = plugin.httpRoutes.find((item) => item.path === llmrRouterHttpRoutePath);
 
   const clientReply = createReply();
   const denied = await route.handler({
@@ -750,7 +750,7 @@ test("LLMR router core plugin protects internal route decisions with the core to
       body: { body: { model: "Primary/alpha" }, method: "POST", path: "/v1/messages", url: "/v1/messages" },
       headers: { authorization: "Bearer client-key" },
       method: "POST",
-      url: ccrRouterHttpRoutePath
+      url: llmrRouterHttpRoutePath
     },
     reply: clientReply
   });
@@ -763,7 +763,7 @@ test("LLMR router core plugin protects internal route decisions with the core to
       body: { body: { model: "Primary/alpha" }, method: "POST", path: "/v1/messages", url: "/v1/messages" },
       headers: { [coreGatewayAuthHeader]: "core-token" },
       method: "POST",
-      url: ccrRouterHttpRoutePath
+      url: llmrRouterHttpRoutePath
     },
     reply: createReply()
   });
@@ -819,7 +819,7 @@ test("LLMR router core plugin exposes runtime config control through the managed
     configRevision: revision,
     forceRestart: true,
     protocolVersion: 1,
-    type: ccrRuntimeConfigReloadMessageType
+    type: llmrRuntimeConfigReloadMessageType
   });
 });
 
@@ -843,15 +843,15 @@ test("LLMR router core plugin serves remote control capabilities with query auth
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "client", key: "client-key" }];
 
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config, coreAuthToken: "core-token", publicGatewayMode: true } } });
-  const route = plugin.httpRoutes.find((item) => item.path === ccrRemoteControlPathPrefix);
+  const route = plugin.httpRoutes.find((item) => item.path === llmrRemoteControlPathPrefix);
   const response = createRawResponse();
   const reply = createReply({ raw: response });
   const payload = await route.handler({
     request: {
       headers: {},
       method: "GET",
-      raw: { headers: {}, method: "GET", url: `${ccrRemoteControlPathPrefix}?api_key=client-key` },
-      url: `${ccrRemoteControlPathPrefix}?api_key=client-key`
+      raw: { headers: {}, method: "GET", url: `${llmrRemoteControlPathPrefix}?api_key=client-key` },
+      url: `${llmrRemoteControlPathPrefix}?api_key=client-key`
     },
     reply
   });
@@ -860,7 +860,7 @@ test("LLMR router core plugin serves remote control capabilities with query auth
   assert.equal(reply.hijacked, true);
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers["content-type"], "application/json; charset=utf-8");
-  assert.equal(JSON.parse(response.body).name, "ccr-remote-control");
+  assert.equal(JSON.parse(response.body).name, "llmr-remote-control");
 });
 
 test("LLMR router core plugin serves public model discovery before built-in gateway routes", async () => {
@@ -912,7 +912,7 @@ test("LLMR router core plugin rejects profile-disallowed routed models", async (
   }];
 
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config } } });
-  const transform = plugin.requestTransforms.find((item) => item.key === ccrRouterRequestTransformKey);
+  const transform = plugin.requestTransforms.find((item) => item.key === llmrRouterRequestTransformKey);
   const transformed = await transform.transform({
     request: {
       headers: { authorization: "Bearer client-key" },

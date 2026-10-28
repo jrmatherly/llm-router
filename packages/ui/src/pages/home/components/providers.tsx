@@ -1574,7 +1574,7 @@ export function localAgentProviderAlreadyImported(
     const key = isPlainRecord(plugin) && typeof plugin.key === "string" ? plugin.key : "";
     const providerName = isPlainRecord(plugin) && typeof plugin.providerName === "string" ? plugin.providerName : "";
     return (
-      key.startsWith("ccr-local-agent-") &&
+      key.startsWith("llmr-local-agent-") &&
       suffixes.some((suffix) => key.endsWith(suffix)) &&
       localProviderNames.has(providerName.trim().toLowerCase())
     );
@@ -2104,14 +2104,14 @@ export function AddProviderForm({
     setIconDetecting(false);
 
     const baseUrl = draft.baseUrl.trim();
-    const ccr = window.llmr;
-    if (!customEndpoint || !baseUrl || draft.icon || importDetectPending || !ccr?.detectProviderIcon) {
+    const llmr = window.llmr;
+    if (!customEndpoint || !baseUrl || draft.icon || importDetectPending || !llmr?.detectProviderIcon) {
       return;
     }
 
     const timer = window.setTimeout(() => {
       setIconDetecting(true);
-      void ccr.detectProviderIcon({ baseUrl })
+      void llmr.detectProviderIcon({ baseUrl })
         .then((result) => {
           if (iconDetectionRequestRef.current === requestId && result.icon) {
             onChangeRef.current({ icon: result.icon });

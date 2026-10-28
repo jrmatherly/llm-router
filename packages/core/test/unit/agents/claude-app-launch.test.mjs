@@ -119,7 +119,7 @@ test("Claude App profile appPath overrides process env discovery", (t) => {
 });
 
 function mkdtempForTest() {
-  return mkdtempSync(path.join(os.tmpdir(), "ccr-claude-app-launch-"));
+  return mkdtempSync(path.join(os.tmpdir(), "llmr-claude-app-launch-"));
 }
 
 function withPlatform(platform, callback) {

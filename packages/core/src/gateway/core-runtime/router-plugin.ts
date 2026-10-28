@@ -7,41 +7,41 @@ import {
   exchangeClaudeCodeWifToken,
   resolveApiKeyFromHeaders
 } from "@llmr/core/gateway/auth/api-key-authorizer";
-import { ccrRemoteControlPathPrefix, ccrRemoteControlService, remoteControlOwnerId } from "@llmr/core/gateway/remote-control-service";
+import { llmrRemoteControlPathPrefix, llmrRemoteControlService, remoteControlOwnerId } from "@llmr/core/gateway/remote-control-service";
 import {
   ClaudeCodeRouterPlugin,
   type ClaudeCodeRouteDecision
 } from "@llmr/core/gateway/claude-code-router-plugin";
 import {
-  ccrAnthropicReasoningResponseHookKey,
-  ccrCodexApplyPatchBridgeHeader,
-  ccrCodexBridgeRequestTransformKey,
-  ccrCodexBridgeResponseHookKey,
-  ccrCodexBridgeStreamHookKey,
-  ccrCodexMultiAgentBridgeHeader,
-  ccrLiveTokenRateConfigMessageType,
-  ccrLiveTokenRateSnapshotMessageType,
-  ccrLiveTokenRateStreamHookKey,
-  ccrOpenRouterDiscountFinalizeResponseHookKey,
-  ccrOpenRouterDiscountFinalizeStreamHookKey,
-  ccrOpenRouterDiscountRequestIdHeader,
-  ccrRouteDiagnosticsHeader,
-  ccrRouteFallbackHeader,
-  ccrRouteHeaderNames,
-  ccrRouteReasonHeader,
-  ccrRouteSessionIdHeader,
-  ccrRouteSourceHeader,
-  ccrRouteStageHeader,
-  ccrRouteTokenCountHeader,
-  ccrRawTraceSyncAckRouteKey,
-  ccrRuntimeConfigReloadMessageType,
-  ccrRoutedModelHeader,
-  ccrRouterHttpRouteKey,
-  ccrRouterHttpRoutePath,
-  ccrRouterRouteResolverKey,
-  ccrRouterRequestTransformKey,
-  encodeCcrRouteFallbackHeader,
-  type CcrRouterPluginRouteRequest
+  llmrAnthropicReasoningResponseHookKey,
+  llmrCodexApplyPatchBridgeHeader,
+  llmrCodexBridgeRequestTransformKey,
+  llmrCodexBridgeResponseHookKey,
+  llmrCodexBridgeStreamHookKey,
+  llmrCodexMultiAgentBridgeHeader,
+  llmrLiveTokenRateConfigMessageType,
+  llmrLiveTokenRateSnapshotMessageType,
+  llmrLiveTokenRateStreamHookKey,
+  llmrOpenRouterDiscountFinalizeResponseHookKey,
+  llmrOpenRouterDiscountFinalizeStreamHookKey,
+  llmrOpenRouterDiscountRequestIdHeader,
+  llmrRouteDiagnosticsHeader,
+  llmrRouteFallbackHeader,
+  llmrRouteHeaderNames,
+  llmrRouteReasonHeader,
+  llmrRouteSessionIdHeader,
+  llmrRouteSourceHeader,
+  llmrRouteStageHeader,
+  llmrRouteTokenCountHeader,
+  llmrRawTraceSyncAckRouteKey,
+  llmrRuntimeConfigReloadMessageType,
+  llmrRoutedModelHeader,
+  llmrRouterHttpRouteKey,
+  llmrRouterHttpRoutePath,
+  llmrRouterRouteResolverKey,
+  llmrRouterRequestTransformKey,
+  encodeLlmrRouteFallbackHeader,
+  type LlmrRouterPluginRouteRequest
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response";
 import { coreGatewayAuthHeader, rawTraceSyncHeader, rawTraceSyncPath, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
@@ -69,7 +69,7 @@ import {
 } from "@llmr/core/plugins/built-ins/openrouter-discount-provider-router";
 import type {
   GatewayPluginRequestTransformContext,
-  GatewayPluginRequestTransformInput as CcrGatewayPluginRequestTransformInput
+  GatewayPluginRequestTransformInput as LlmrGatewayPluginRequestTransformInput
 } from "@llmr/core/plugins/service";
 import { isModelAllowedForProfile, profileForApiKey } from "@llmr/core/profiles/model-allowlist";
 import { profileApiKeyId } from "@llmr/core/profiles/api-key";
@@ -215,9 +215,9 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
   return {
     httpRoutes: [{
       auth: "none",
-      key: ccrRouterHttpRouteKey,
+      key: llmrRouterHttpRouteKey,
       method: "POST",
-      path: ccrRouterHttpRoutePath,
+      path: llmrRouterHttpRoutePath,
       handler: async ({ request, reply }: { request: GatewayPluginHttpRequest; reply: GatewayPluginHttpReply }) => {
         if (!isCoreGatewayRequest(request.headers, coreAuthToken)) {
           return reply.code(401).send({ error: { message: "Unauthorized LLMR router route." } });
@@ -235,7 +235,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
       }
     }, {
       auth: "none",
-      key: "ccr-runtime-config-control",
+      key: "llmr-runtime-config-control",
       method: "ALL",
       path: gatewayRuntimeConfigControlPath,
       priority: "pre",
@@ -243,7 +243,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
         handleRuntimeConfigControlRoute(config, request, reply, coreAuthToken, publicAuthKeys)
     }, {
       auth: "none",
-      key: ccrRawTraceSyncAckRouteKey,
+      key: llmrRawTraceSyncAckRouteKey,
       method: "POST",
       path: rawTraceSyncPath,
       priority: "pre",
@@ -269,7 +269,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
       }
     }, {
       auth: "none",
-      key: "ccr-public-root",
+      key: "llmr-public-root",
       method: "GET",
       path: "/",
       priority: "pre",
@@ -289,23 +289,23 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
       })
     }, {
       auth: "none",
-      key: "ccr-public-remote-control-root",
+      key: "llmr-public-remote-control-root",
       method: "ALL",
-      path: ccrRemoteControlPathPrefix,
+      path: llmrRemoteControlPathPrefix,
       priority: "pre",
       handler: async ({ request, reply }: { request: GatewayPluginHttpRequest; reply: GatewayPluginHttpReply }) =>
         handleRemoteControlRoute(config, request, reply, coreAuthToken, publicAuthKeys)
     }, {
       auth: "none",
-      key: "ccr-public-remote-control",
+      key: "llmr-public-remote-control",
       method: "ALL",
-      path: `${ccrRemoteControlPathPrefix}/*`,
+      path: `${llmrRemoteControlPathPrefix}/*`,
       priority: "pre",
       handler: async ({ request, reply }: { request: GatewayPluginHttpRequest; reply: GatewayPluginHttpReply }) =>
         handleRemoteControlRoute(config, request, reply, coreAuthToken, publicAuthKeys)
     }, {
       auth: "none",
-      key: "ccr-public-wif-token",
+      key: "llmr-public-wif-token",
       method: "POST",
       path: claudeCodeWifTokenPath,
       priority: "pre",
@@ -315,7 +315,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
       }
     }, {
       auth: "gateway",
-      key: "ccr-public-models-v1",
+      key: "llmr-public-models-v1",
       method: "GET",
       path: "/v1/models",
       priority: "pre",
@@ -323,7 +323,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
         createGatewayModelsResponse(config, request.headers ?? {}, await resolveApiKey(config, request.headers))
     }, {
       auth: "gateway",
-      key: "ccr-public-models",
+      key: "llmr-public-models",
       method: "GET",
       path: "/models",
       priority: "pre",
@@ -331,7 +331,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
         createGatewayModelsResponse(config, request.headers ?? {}, await resolveApiKey(config, request.headers))
     }, {
       auth: "gateway",
-      key: "ccr-public-claude-cli-bootstrap",
+      key: "llmr-public-claude-cli-bootstrap",
       method: "GET",
       path: "/api/claude_cli/bootstrap",
       priority: "pre",
@@ -339,7 +339,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
         createClaudeCliBootstrapResponse(config, await resolveApiKey(config, request.headers))
     }, {
       auth: "gateway",
-      key: "ccr-public-count-tokens",
+      key: "llmr-public-count-tokens",
       method: "POST",
       path: "/v1/messages/count_tokens",
       priority: "pre",
@@ -355,10 +355,10 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
       }
     }],
     requestHooks: [{
-      key: "ccr-public-auth-context",
+      key: "llmr-public-auth-context",
       beforeAuth: async (requestInput: GatewayRequestHookInput) => {
         if (publicGatewayMode) {
-          stripUntrustedCcrRouteHeaders(requestInput.request?.headers);
+          stripUntrustedLlmrRouteHeaders(requestInput.request?.headers);
           const authorization = await resolvePublicGatewayAuth(config, requestInput.request?.headers, {
             coreAuthToken,
             publicAuthKeys,
@@ -380,10 +380,10 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
       }
     }],
     requestTransforms: [{
-      key: ccrRouterRequestTransformKey,
+      key: llmrRouterRequestTransformKey,
       stage: "beforeRouting",
       transform: async (requestInput: GatewayRequestTransformInput) => {
-        if (readHeader(requestInput.request?.headers, ccrRoutedModelHeader)) {
+        if (readHeader(requestInput.request?.headers, llmrRoutedModelHeader)) {
           return undefined;
         }
 
@@ -440,47 +440,47 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
         };
       }
     }, {
-      key: ccrCodexBridgeRequestTransformKey,
+      key: llmrCodexBridgeRequestTransformKey,
       stage: "beforeUpstream",
       transform: (requestInput: GatewayRequestTransformInput) =>
         applyCodexBridgeRequestTransform(config, requestInput)
     }],
     responseHooks: [{
-      key: ccrAnthropicReasoningResponseHookKey,
+      key: llmrAnthropicReasoningResponseHookKey,
       transformResponse: (responseInput: GatewayResponseHookInput) => {
         const transformed = coalesceAnthropicReasoningResponse(responseInput.responsePayload);
         return transformed.changed ? { responsePayload: transformed.value } : undefined;
       }
     }, {
-      key: ccrCodexBridgeResponseHookKey,
+      key: llmrCodexBridgeResponseHookKey,
       transformResponse: (responseInput: GatewayResponseHookInput) =>
         applyCodexBridgeResponseTransform(responseInput)
     }, {
-      key: ccrOpenRouterDiscountFinalizeResponseHookKey,
+      key: llmrOpenRouterDiscountFinalizeResponseHookKey,
       transformResponse: (responseInput: GatewayResponseHookInput) => {
         finalizeOpenRouterDiscountSelection(responseInput);
         return undefined;
       }
     }],
     streamHooks: [{
-      key: ccrCodexBridgeStreamHookKey,
+      key: llmrCodexBridgeStreamHookKey,
       transformResponse: (streamInput: GatewayStreamHookInput) =>
         applyCodexBridgeStreamTransform(streamInput)
     }, {
-      key: ccrOpenRouterDiscountFinalizeStreamHookKey,
+      key: llmrOpenRouterDiscountFinalizeStreamHookKey,
       transformResponse: (streamInput: GatewayStreamHookInput) => {
         finalizeOpenRouterDiscountSelection(streamInput);
         return undefined;
       }
     }, {
-      key: ccrLiveTokenRateStreamHookKey,
+      key: llmrLiveTokenRateStreamHookKey,
       transformResponse: (streamInput: GatewayStreamHookInput) =>
         applyLiveTokenRateStreamTransform(streamInput, liveTokenRatePublisher)
     }],
     routeResolvers: [{
-      key: ccrRouterRouteResolverKey,
+      key: llmrRouterRouteResolverKey,
       resolve: (requestInput: GatewayRequestTransformInput): GatewayRouteResolution | undefined =>
-        resolveCcrGatewayRoute(config, requestInput)
+        resolveLlmrGatewayRoute(config, requestInput)
     }]
   };
 }
@@ -535,7 +535,7 @@ class CoreGatewayLiveTokenRatePublisher {
   }
 
   private readonly handleMessage = (message: unknown): void => {
-    if (!isRecord(message) || message.type !== ccrLiveTokenRateConfigMessageType || message.protocolVersion !== 1) {
+    if (!isRecord(message) || message.type !== llmrLiveTokenRateConfigMessageType || message.protocolVersion !== 1) {
       return;
     }
     this.configure(message.enabled === true);
@@ -554,7 +554,7 @@ class CoreGatewayLiveTokenRatePublisher {
       process.send?.({
         ...snapshot,
         protocolVersion: 1,
-        type: ccrLiveTokenRateSnapshotMessageType
+        type: llmrLiveTokenRateSnapshotMessageType
       });
     } catch {
       this.enabled = false;
@@ -678,10 +678,10 @@ async function handleRemoteControlRoute(
   }
 
   reply.hijack();
-  await ccrRemoteControlService.handleRequest({
+  await llmrRemoteControlService.handleRequest({
     endpoint: pluginPublicEndpoint(config),
     ownerId: remoteControlOwnerId(authorization.apiKey),
-    path: requestPath(request.url ?? ccrRemoteControlPathPrefix),
+    path: requestPath(request.url ?? llmrRemoteControlPathPrefix),
     readBody: async () => httpRequestBodyBuffer(request.body),
     request: request.raw,
     response: reply.raw,
@@ -709,7 +709,7 @@ function applyCodexBridgeRequestTransform(
     return undefined;
   }
   const routedModel = requestInput.model ??
-    readHeader(headers, ccrRoutedModelHeader) ??
+    readHeader(headers, llmrRoutedModelHeader) ??
     requestedModelFromBody(requestInput.requestBody, path, undefined);
   let bodyBuffer = httpRequestBodyBuffer(requestInput.requestBody);
   let requestBody = requestInput.requestBody;
@@ -726,7 +726,7 @@ function applyCodexBridgeRequestTransform(
   if (applyPatchBridge) {
     bodyBuffer = applyPatchBridge.body;
     requestBody = readJsonObjectBody(bodyBuffer);
-    nextHeaders[ccrCodexApplyPatchBridgeHeader] = sanitizeHeaderValue(applyPatchBridge.diagnostic) || "1";
+    nextHeaders[llmrCodexApplyPatchBridgeHeader] = sanitizeHeaderValue(applyPatchBridge.diagnostic) || "1";
   }
 
   const multiAgentBridge = prepareCodexMultiAgentBridgeRequest({
@@ -740,7 +740,7 @@ function applyCodexBridgeRequestTransform(
   if (multiAgentBridge) {
     bodyBuffer = multiAgentBridge.body;
     requestBody = readJsonObjectBody(bodyBuffer);
-    nextHeaders[ccrCodexMultiAgentBridgeHeader] = sanitizeHeaderValue(multiAgentBridge.diagnostic) || "1";
+    nextHeaders[llmrCodexMultiAgentBridgeHeader] = sanitizeHeaderValue(multiAgentBridge.diagnostic) || "1";
   }
 
   if (Object.keys(nextHeaders).length === 0) {
@@ -831,10 +831,10 @@ function codexBridgeState(input: {
   upstreamRequest?: { headers?: Record<string, string> };
 }): { applyPatch: boolean; multiAgent: boolean } {
   return {
-    applyPatch: hasTruthyHeader(input.request?.headers, ccrCodexApplyPatchBridgeHeader) ||
-      hasTruthyHeader(input.upstreamRequest?.headers, ccrCodexApplyPatchBridgeHeader),
-    multiAgent: hasTruthyHeader(input.request?.headers, ccrCodexMultiAgentBridgeHeader) ||
-      hasTruthyHeader(input.upstreamRequest?.headers, ccrCodexMultiAgentBridgeHeader)
+    applyPatch: hasTruthyHeader(input.request?.headers, llmrCodexApplyPatchBridgeHeader) ||
+      hasTruthyHeader(input.upstreamRequest?.headers, llmrCodexApplyPatchBridgeHeader),
+    multiAgent: hasTruthyHeader(input.request?.headers, llmrCodexMultiAgentBridgeHeader) ||
+      hasTruthyHeader(input.upstreamRequest?.headers, llmrCodexMultiAgentBridgeHeader)
   };
 }
 
@@ -845,8 +845,8 @@ function finalizeOpenRouterDiscountSelection(input: GatewayResponseHookInput | G
   }
   finalizeOpenRouterDiscountProviderRouterSelection(requestId, {
     ok: upstreamResponseSuccessful(input.upstreamResponse, "statusCode" in input ? input.statusCode : undefined),
-    routedModel: readHeader(input.request?.headers, ccrRoutedModelHeader) ?? input.model,
-    usedCcrFallback: false
+    routedModel: readHeader(input.request?.headers, llmrRoutedModelHeader) ?? input.model,
+    usedLlmrFallback: false
   });
 }
 
@@ -855,10 +855,10 @@ function readGatewayRequestId(input: {
   upstreamRequest?: { headers?: Record<string, string> };
 }): string | undefined {
   return stringValue(input.request?.id) ??
-    readHeader(input.request?.headers, ccrOpenRouterDiscountRequestIdHeader) ??
+    readHeader(input.request?.headers, llmrOpenRouterDiscountRequestIdHeader) ??
     readHeader(input.request?.headers, "x-request-id") ??
     readHeader(input.request?.headers, "x-client-request-id") ??
-    readHeader(input.upstreamRequest?.headers, ccrOpenRouterDiscountRequestIdHeader) ??
+    readHeader(input.upstreamRequest?.headers, llmrOpenRouterDiscountRequestIdHeader) ??
     readHeader(input.upstreamRequest?.headers, "x-request-id") ??
     readHeader(input.upstreamRequest?.headers, "x-client-request-id");
 }
@@ -892,14 +892,14 @@ async function applyOpenRouterDiscountTransform(
     ...(routeResponse.decision.sessionId ? { sessionId: routeResponse.decision.sessionId } : {}),
     tokenCount: routeResponse.decision.tokenCount,
     url
-  } satisfies CcrGatewayPluginRequestTransformInput, context);
+  } satisfies LlmrGatewayPluginRequestTransformInput, context);
   if (!result) {
     return undefined;
   }
   return {
     ...(result.body ? { body: result.body } : {}),
     headers: {
-      ...(requestId ? { [ccrOpenRouterDiscountRequestIdHeader]: requestId } : {}),
+      ...(requestId ? { [llmrOpenRouterDiscountRequestIdHeader]: requestId } : {}),
       ...(cleanStringHeaders(result.headers) ?? {})
     },
     responseHeaders: cleanStringHeaders(result.responseHeaders),
@@ -968,7 +968,7 @@ async function resolveApiKey(
 
 async function routeWithRouter(
   router: ClaudeCodeRouterPlugin,
-  payload: CcrRouterPluginRouteRequest
+  payload: LlmrRouterPluginRouteRequest
 ): Promise<{ body: Record<string, unknown>; decision: ClaudeCodeRouteDecision }> {
   const path = payload.path ?? requestPath(payload.url ?? "/");
   const adaptation = adaptRouteRequestBody(path, { ...payload.body });
@@ -987,18 +987,18 @@ async function routeWithRouter(
 
 function decisionHeaders(decision: ClaudeCodeRouteDecision): Record<string, string> {
   return {
-    [ccrRouteStageHeader]: "core-gateway-plugin",
-    [ccrRouteReasonHeader]: sanitizeHeaderValue(decision.reason),
-    [ccrRouteSourceHeader]: decision.source,
-    ...(decision.diagnostics.length > 0 ? { [ccrRouteDiagnosticsHeader]: String(decision.diagnostics.length) } : {}),
-    ...(decision.model ? { [ccrRoutedModelHeader]: sanitizeHeaderValue(decision.model) } : {}),
-    [ccrRouteFallbackHeader]: encodeCcrRouteFallbackHeader(decision.fallback),
-    ...(decision.sessionId ? { [ccrRouteSessionIdHeader]: sanitizeHeaderValue(decision.sessionId) } : {}),
-    [ccrRouteTokenCountHeader]: String(decision.tokenCount)
+    [llmrRouteStageHeader]: "core-gateway-plugin",
+    [llmrRouteReasonHeader]: sanitizeHeaderValue(decision.reason),
+    [llmrRouteSourceHeader]: decision.source,
+    ...(decision.diagnostics.length > 0 ? { [llmrRouteDiagnosticsHeader]: String(decision.diagnostics.length) } : {}),
+    ...(decision.model ? { [llmrRoutedModelHeader]: sanitizeHeaderValue(decision.model) } : {}),
+    [llmrRouteFallbackHeader]: encodeLlmrRouteFallbackHeader(decision.fallback),
+    ...(decision.sessionId ? { [llmrRouteSessionIdHeader]: sanitizeHeaderValue(decision.sessionId) } : {}),
+    [llmrRouteTokenCountHeader]: String(decision.tokenCount)
   };
 }
 
-function readRouteRequestPayload(value: unknown): CcrRouterPluginRouteRequest | undefined {
+function readRouteRequestPayload(value: unknown): LlmrRouterPluginRouteRequest | undefined {
   if (!isRecord(value) || !isRecord(value.body)) {
     return undefined;
   }
@@ -1040,7 +1040,7 @@ function profileModelNotAllowedError(model: string): Record<string, unknown> {
   };
 }
 
-function resolveCcrGatewayRoute(
+function resolveLlmrGatewayRoute(
   config: AppConfig,
   requestInput: GatewayRequestTransformInput
 ): GatewayRouteResolution | undefined {
@@ -1053,7 +1053,7 @@ function resolveCcrGatewayRoute(
   }
 
   const routedModel = normalizeRouteSelector(
-    readHeader(requestInput.request?.headers, ccrRoutedModelHeader) ??
+    readHeader(requestInput.request?.headers, llmrRoutedModelHeader) ??
       requestedModelFromBody(requestInput.requestBody, path, requestInput.model)
   );
   if (!routedModel) {
@@ -1084,7 +1084,7 @@ function resolveCcrGatewayRoute(
 
   return {
     model: resolved.model,
-    reason: readHeader(requestInput.request?.headers, ccrRouteReasonHeader),
+    reason: readHeader(requestInput.request?.headers, llmrRouteReasonHeader),
     requestBody,
     targetProviderName
   };
@@ -1177,11 +1177,11 @@ function isCoreGatewayRuntimeProviderName(
   return normalized === capabilityName || normalized.startsWith(`${capabilityName}::cred:`);
 }
 
-function stripUntrustedCcrRouteHeaders(headers: Record<string, HeaderValue> | undefined): void {
+function stripUntrustedLlmrRouteHeaders(headers: Record<string, HeaderValue> | undefined): void {
   if (!headers) {
     return;
   }
-  for (const header of ccrRouteHeaderNames) {
+  for (const header of llmrRouteHeaderNames) {
     delete headers[header];
   }
 }
@@ -1257,7 +1257,7 @@ function hasScriptRules(rules: readonly RouterRule[] | undefined): boolean {
 
 function requestPath(url: string): string {
   try {
-    return new URL(url, "http://ccr.local").pathname;
+    return new URL(url, "http://llmr.local").pathname;
   } catch {
     return url.split("?")[0] || "/";
   }
@@ -1289,8 +1289,8 @@ function readRemoteControlQueryAuthToken(url: string | undefined): string | unde
     return undefined;
   }
   try {
-    const parsed = new URL(url, "http://ccr.local");
-    if (parsed.pathname !== ccrRemoteControlPathPrefix && !parsed.pathname.startsWith(`${ccrRemoteControlPathPrefix}/`)) {
+    const parsed = new URL(url, "http://llmr.local");
+    if (parsed.pathname !== llmrRemoteControlPathPrefix && !parsed.pathname.startsWith(`${llmrRemoteControlPathPrefix}/`)) {
       return undefined;
     }
     return parsed.searchParams.get("api_key")?.trim() || parsed.searchParams.get("key")?.trim() || undefined;
@@ -1369,7 +1369,7 @@ async function requestParentRuntimeConfigReload(
       configRevision,
       forceRestart,
       protocolVersion: 1,
-      type: ccrRuntimeConfigReloadMessageType
+      type: llmrRuntimeConfigReloadMessageType
     }, (error: Error | null) => {
       if (error) {
         resolve({ ok: false, error: `Failed to notify the LLMR parent process: ${error.message}` });

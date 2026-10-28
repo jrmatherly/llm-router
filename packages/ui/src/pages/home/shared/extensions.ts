@@ -388,7 +388,7 @@ function localAgentInternalProviderPluginBaseKey(item: unknown): string | undefi
   }
 
   const key = stringValue(item.key);
-  if (!key?.startsWith("ccr-local-agent-") || !key.endsWith("-internal")) {
+  if (!key?.startsWith("llmr-local-agent-") || !key.endsWith("-internal")) {
     return undefined;
   }
 

@@ -2,7 +2,7 @@
   "use strict";
 
   var VERSION = "0.2.0";
-  var STYLE_ID = "ccr-provider-buttons-style";
+  var STYLE_ID = "llmr-provider-buttons-style";
   var OFFICIAL_LLMR_ICON_URL = "https://jrmatherly.github.io/llm-router/llmr-icon.png";
 
   var LINK_PARAMS = [
@@ -28,29 +28,29 @@
   var ELEMENT_ATTRIBUTES = LINK_PARAMS.concat(["manifest", "models", "fetch_usage", "description", "color", "color_2", "color_3"]);
 
   var CSS = [
-    ".ccr-provider-button{--ccrpb-brand:#17201c;--ccrpb-brand-2:#36624d;--ccrpb-brand-3:#dff8eb;position:relative;isolation:isolate;display:grid;grid-template-columns:132px minmax(0,1fr);align-items:center;min-height:86px;width:100%;max-width:420px;padding:13px 16px 13px 12px;overflow:hidden;border:1px solid color-mix(in srgb,var(--ccrpb-brand-2) 42%,transparent);border-radius:12px;background:radial-gradient(circle at 14% 22%,color-mix(in srgb,var(--ccrpb-brand-3) 34%,transparent) 0,transparent 30%),radial-gradient(circle at 96% 96%,color-mix(in srgb,var(--ccrpb-brand-2) 44%,transparent) 0,transparent 46%),linear-gradient(135deg,var(--ccrpb-brand),color-mix(in srgb,var(--ccrpb-brand-2) 88%,#111 12%));box-shadow:0 10px 26px color-mix(in srgb,var(--ccrpb-brand) 22%,transparent),inset 0 1px 0 rgba(255,255,255,.16);box-sizing:border-box;color:#fff;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;text-decoration:none;transform:translateY(0);transition:border-color 180ms ease,box-shadow 220ms ease,transform 220ms ease;}",
-    ".ccr-provider-button::before{content:\"\";position:absolute;inset:-40% auto -40% -70%;z-index:-1;width:58%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.26),transparent);transform:skewX(-18deg);transition:transform 620ms ease;}",
-    ".ccr-provider-button::after{content:\"\";position:absolute;right:-38px;bottom:-52px;z-index:-2;width:132px;height:132px;border-radius:999px;background:radial-gradient(circle,color-mix(in srgb,var(--ccrpb-brand-3) 38%,transparent),transparent 68%);opacity:.82;transform:scale(.96);transition:opacity 220ms ease,transform 220ms ease;}",
-    ".ccr-provider-button:hover,.ccr-provider-button:focus-visible{border-color:color-mix(in srgb,var(--ccrpb-brand-3) 68%,rgba(255,255,255,.34));box-shadow:0 16px 34px color-mix(in srgb,var(--ccrpb-brand) 30%,transparent),0 0 0 1px color-mix(in srgb,var(--ccrpb-brand-3) 26%,transparent),inset 0 1px 0 rgba(255,255,255,.22);color:#fff;text-decoration:none;transform:translateY(-3px);}",
-    ".ccr-provider-button:hover::before,.ccr-provider-button:focus-visible::before{transform:translateX(320%) skewX(-18deg);}",
-    ".ccr-provider-button:hover::after,.ccr-provider-button:focus-visible::after{opacity:1;transform:scale(1.08);}",
-    ".ccr-provider-button:active{transform:translateY(-1px) scale(.992);}",
-    ".ccrpb-provider-icon{position:relative;z-index:1;grid-column:1;grid-row:1;justify-self:start;display:grid;place-items:center;width:48px;height:48px;overflow:hidden;border:1px solid rgba(255,255,255,.46);border-radius:12px;background:linear-gradient(135deg,color-mix(in srgb,var(--ccrpb-brand-3) 34%,rgba(255,255,255,.9)),color-mix(in srgb,var(--ccrpb-brand-2) 64%,#111 36%));box-shadow:0 8px 18px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.42);color:#fff;font-size:15px;font-weight:820;letter-spacing:0;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.34);transform:rotate(0) scale(1);transition:border-color 180ms ease,box-shadow 220ms ease,transform 220ms ease;}",
-    ".ccrpb-provider-icon img{box-sizing:border-box;display:block;width:100%;height:100%;background:color-mix(in srgb,#fff 84%,var(--ccrpb-brand-3));object-fit:contain;filter:drop-shadow(0 1px 1px rgba(0,0,0,.12));}",
-    ".ccrpb-provider-mark{display:block;max-width:42px;overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap;}",
-    ".ccrpb-flow{display:inline-flex;grid-column:1;grid-row:1;align-items:center;justify-self:end;justify-content:flex-end;gap:8px;width:72px;height:48px;padding:0;border:0;background:transparent;color:rgba(255,255,255,.86);font-size:14px;font-weight:760;line-height:1;box-shadow:none;transform:translateX(0);transition:transform 220ms ease;}",
-    ".ccrpb-ccr-icon{box-sizing:border-box;display:grid;flex:0 0 auto;place-items:center;width:48px;height:48px;overflow:hidden;border:0;border-radius:12px;background:transparent;box-shadow:none;transition:transform 220ms ease;}",
-    ".ccrpb-ccr-icon img{box-sizing:border-box;display:block;width:48px;height:48px;border-radius:12px;}",
-    ".ccrpb-arrow{display:inline-block;order:-1;line-height:1;transform:translateX(0);transition:transform 220ms ease;}",
-    ".ccrpb-copy{display:grid;min-width:0;gap:2px;padding:0 0 0 6px;}",
-    ".ccrpb-name{display:block;overflow:hidden;color:#fff;font-size:15px;font-weight:780;line-height:1.25;text-overflow:ellipsis;white-space:nowrap;}",
-    ".ccrpb-description{display:block;overflow:hidden;color:rgba(255,255,255,.74);font-size:11px;font-weight:650;letter-spacing:0;line-height:1.35;text-overflow:ellipsis;white-space:nowrap;}",
-    ".ccr-provider-button:hover .ccrpb-provider-icon,.ccr-provider-button:focus-visible .ccrpb-provider-icon{border-color:color-mix(in srgb,var(--ccrpb-brand-3) 74%,rgba(255,255,255,.54));box-shadow:0 12px 24px rgba(0,0,0,.18),0 0 0 4px color-mix(in srgb,var(--ccrpb-brand-3) 16%,transparent),inset 0 1px 0 rgba(255,255,255,.52);transform:rotate(-3deg) scale(1.06);}",
-    ".ccr-provider-button:hover .ccrpb-flow,.ccr-provider-button:focus-visible .ccrpb-flow{transform:translateX(3px);}",
-    ".ccr-provider-button:hover .ccrpb-ccr-icon,.ccr-provider-button:focus-visible .ccrpb-ccr-icon{transform:scale(1.04);}",
-    ".ccr-provider-button:hover .ccrpb-arrow,.ccr-provider-button:focus-visible .ccrpb-arrow{transform:translateX(2px);}",
-    "@media (max-width:520px){.ccr-provider-button{grid-template-columns:118px minmax(0,1fr);min-height:92px;padding:12px}.ccrpb-provider-icon,.ccrpb-provider-icon img,.ccrpb-flow,.ccrpb-ccr-icon,.ccrpb-ccr-icon img{width:44px;height:44px}.ccrpb-provider-icon img,.ccrpb-ccr-icon,.ccrpb-ccr-icon img{border-radius:11px}.ccrpb-flow{width:66px;justify-self:end}}",
-    "@media (prefers-reduced-motion:reduce){.ccr-provider-button,.ccr-provider-button::before,.ccr-provider-button::after,.ccrpb-provider-icon,.ccrpb-flow,.ccrpb-ccr-icon,.ccrpb-arrow{transition:none}.ccr-provider-button:hover,.ccr-provider-button:focus-visible,.ccr-provider-button:hover .ccrpb-provider-icon,.ccr-provider-button:focus-visible .ccrpb-provider-icon,.ccr-provider-button:hover .ccrpb-flow,.ccr-provider-button:focus-visible .ccrpb-flow,.ccr-provider-button:hover .ccrpb-ccr-icon,.ccr-provider-button:focus-visible .ccrpb-ccr-icon,.ccr-provider-button:hover .ccrpb-arrow,.ccr-provider-button:focus-visible .ccrpb-arrow{transform:none}.ccr-provider-button::before{display:none}}"
+    ".llmr-provider-button{--llmrpb-brand:#17201c;--llmrpb-brand-2:#36624d;--llmrpb-brand-3:#dff8eb;position:relative;isolation:isolate;display:grid;grid-template-columns:132px minmax(0,1fr);align-items:center;min-height:86px;width:100%;max-width:420px;padding:13px 16px 13px 12px;overflow:hidden;border:1px solid color-mix(in srgb,var(--llmrpb-brand-2) 42%,transparent);border-radius:12px;background:radial-gradient(circle at 14% 22%,color-mix(in srgb,var(--llmrpb-brand-3) 34%,transparent) 0,transparent 30%),radial-gradient(circle at 96% 96%,color-mix(in srgb,var(--llmrpb-brand-2) 44%,transparent) 0,transparent 46%),linear-gradient(135deg,var(--llmrpb-brand),color-mix(in srgb,var(--llmrpb-brand-2) 88%,#111 12%));box-shadow:0 10px 26px color-mix(in srgb,var(--llmrpb-brand) 22%,transparent),inset 0 1px 0 rgba(255,255,255,.16);box-sizing:border-box;color:#fff;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;text-decoration:none;transform:translateY(0);transition:border-color 180ms ease,box-shadow 220ms ease,transform 220ms ease;}",
+    ".llmr-provider-button::before{content:\"\";position:absolute;inset:-40% auto -40% -70%;z-index:-1;width:58%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.26),transparent);transform:skewX(-18deg);transition:transform 620ms ease;}",
+    ".llmr-provider-button::after{content:\"\";position:absolute;right:-38px;bottom:-52px;z-index:-2;width:132px;height:132px;border-radius:999px;background:radial-gradient(circle,color-mix(in srgb,var(--llmrpb-brand-3) 38%,transparent),transparent 68%);opacity:.82;transform:scale(.96);transition:opacity 220ms ease,transform 220ms ease;}",
+    ".llmr-provider-button:hover,.llmr-provider-button:focus-visible{border-color:color-mix(in srgb,var(--llmrpb-brand-3) 68%,rgba(255,255,255,.34));box-shadow:0 16px 34px color-mix(in srgb,var(--llmrpb-brand) 30%,transparent),0 0 0 1px color-mix(in srgb,var(--llmrpb-brand-3) 26%,transparent),inset 0 1px 0 rgba(255,255,255,.22);color:#fff;text-decoration:none;transform:translateY(-3px);}",
+    ".llmr-provider-button:hover::before,.llmr-provider-button:focus-visible::before{transform:translateX(320%) skewX(-18deg);}",
+    ".llmr-provider-button:hover::after,.llmr-provider-button:focus-visible::after{opacity:1;transform:scale(1.08);}",
+    ".llmr-provider-button:active{transform:translateY(-1px) scale(.992);}",
+    ".llmrpb-provider-icon{position:relative;z-index:1;grid-column:1;grid-row:1;justify-self:start;display:grid;place-items:center;width:48px;height:48px;overflow:hidden;border:1px solid rgba(255,255,255,.46);border-radius:12px;background:linear-gradient(135deg,color-mix(in srgb,var(--llmrpb-brand-3) 34%,rgba(255,255,255,.9)),color-mix(in srgb,var(--llmrpb-brand-2) 64%,#111 36%));box-shadow:0 8px 18px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.42);color:#fff;font-size:15px;font-weight:820;letter-spacing:0;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.34);transform:rotate(0) scale(1);transition:border-color 180ms ease,box-shadow 220ms ease,transform 220ms ease;}",
+    ".llmrpb-provider-icon img{box-sizing:border-box;display:block;width:100%;height:100%;background:color-mix(in srgb,#fff 84%,var(--llmrpb-brand-3));object-fit:contain;filter:drop-shadow(0 1px 1px rgba(0,0,0,.12));}",
+    ".llmrpb-provider-mark{display:block;max-width:42px;overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap;}",
+    ".llmrpb-flow{display:inline-flex;grid-column:1;grid-row:1;align-items:center;justify-self:end;justify-content:flex-end;gap:8px;width:72px;height:48px;padding:0;border:0;background:transparent;color:rgba(255,255,255,.86);font-size:14px;font-weight:760;line-height:1;box-shadow:none;transform:translateX(0);transition:transform 220ms ease;}",
+    ".llmrpb-llmr-icon{box-sizing:border-box;display:grid;flex:0 0 auto;place-items:center;width:48px;height:48px;overflow:hidden;border:0;border-radius:12px;background:transparent;box-shadow:none;transition:transform 220ms ease;}",
+    ".llmrpb-llmr-icon img{box-sizing:border-box;display:block;width:48px;height:48px;border-radius:12px;}",
+    ".llmrpb-arrow{display:inline-block;order:-1;line-height:1;transform:translateX(0);transition:transform 220ms ease;}",
+    ".llmrpb-copy{display:grid;min-width:0;gap:2px;padding:0 0 0 6px;}",
+    ".llmrpb-name{display:block;overflow:hidden;color:#fff;font-size:15px;font-weight:780;line-height:1.25;text-overflow:ellipsis;white-space:nowrap;}",
+    ".llmrpb-description{display:block;overflow:hidden;color:rgba(255,255,255,.74);font-size:11px;font-weight:650;letter-spacing:0;line-height:1.35;text-overflow:ellipsis;white-space:nowrap;}",
+    ".llmr-provider-button:hover .llmrpb-provider-icon,.llmr-provider-button:focus-visible .llmrpb-provider-icon{border-color:color-mix(in srgb,var(--llmrpb-brand-3) 74%,rgba(255,255,255,.54));box-shadow:0 12px 24px rgba(0,0,0,.18),0 0 0 4px color-mix(in srgb,var(--llmrpb-brand-3) 16%,transparent),inset 0 1px 0 rgba(255,255,255,.52);transform:rotate(-3deg) scale(1.06);}",
+    ".llmr-provider-button:hover .llmrpb-flow,.llmr-provider-button:focus-visible .llmrpb-flow{transform:translateX(3px);}",
+    ".llmr-provider-button:hover .llmrpb-llmr-icon,.llmr-provider-button:focus-visible .llmrpb-llmr-icon{transform:scale(1.04);}",
+    ".llmr-provider-button:hover .llmrpb-arrow,.llmr-provider-button:focus-visible .llmrpb-arrow{transform:translateX(2px);}",
+    "@media (max-width:520px){.llmr-provider-button{grid-template-columns:118px minmax(0,1fr);min-height:92px;padding:12px}.llmrpb-provider-icon,.llmrpb-provider-icon img,.llmrpb-flow,.llmrpb-llmr-icon,.llmrpb-llmr-icon img{width:44px;height:44px}.llmrpb-provider-icon img,.llmrpb-llmr-icon,.llmrpb-llmr-icon img{border-radius:11px}.llmrpb-flow{width:66px;justify-self:end}}",
+    "@media (prefers-reduced-motion:reduce){.llmr-provider-button,.llmr-provider-button::before,.llmr-provider-button::after,.llmrpb-provider-icon,.llmrpb-flow,.llmrpb-llmr-icon,.llmrpb-arrow{transition:none}.llmr-provider-button:hover,.llmr-provider-button:focus-visible,.llmr-provider-button:hover .llmrpb-provider-icon,.llmr-provider-button:focus-visible .llmrpb-provider-icon,.llmr-provider-button:hover .llmrpb-flow,.llmr-provider-button:focus-visible .llmrpb-flow,.llmr-provider-button:hover .llmrpb-llmr-icon,.llmr-provider-button:focus-visible .llmrpb-llmr-icon,.llmr-provider-button:hover .llmrpb-arrow,.llmr-provider-button:focus-visible .llmrpb-arrow{transform:none}.llmr-provider-button::before{display:none}}"
   ].join("");
 
   function injectStyles() {
@@ -144,7 +144,7 @@
     if (options.protocol) {
       return options.protocol.replace(/_/g, " ");
     }
-    return "Import provider to CCR";
+    return "Import provider to LLMR";
   }
 
   function providerName(options) {
@@ -156,20 +156,20 @@
   }
 
   function applyColors(element, options) {
-    element.style.setProperty("--ccrpb-brand", options.color || "#17201c");
-    element.style.setProperty("--ccrpb-brand-2", options.color_2 || "#36624d");
-    element.style.setProperty("--ccrpb-brand-3", options.color_3 || "#dff8eb");
+    element.style.setProperty("--llmrpb-brand", options.color || "#17201c");
+    element.style.setProperty("--llmrpb-brand-2", options.color_2 || "#36624d");
+    element.style.setProperty("--llmrpb-brand-3", options.color_3 || "#dff8eb");
   }
 
   function createProviderIcon(options) {
     var shell = document.createElement("span");
-    shell.className = "ccrpb-provider-icon";
+    shell.className = "llmrpb-provider-icon";
     if (options.icon) {
       shell.appendChild(createImage(options.icon, providerName(options)));
       return shell;
     }
     var mark = document.createElement("span");
-    mark.className = "ccrpb-provider-mark";
+    mark.className = "llmrpb-provider-mark";
     mark.textContent = providerInitials(providerName(options));
     shell.appendChild(mark);
     return shell;
@@ -178,38 +178,38 @@
   function createButton(options) {
     options = options || {};
     var button = document.createElement("a");
-    button.className = "ccr-provider-button ccr-provider-" + providerId(options);
+    button.className = "llmr-provider-button llmr-provider-" + providerId(options);
     button.href = providerUrl(options);
-    button.dataset.ccrProviderName = providerName(options);
-    button.setAttribute("aria-label", "Import " + providerName(options) + " provider to CCR");
+    button.dataset.llmrProviderName = providerName(options);
+    button.setAttribute("aria-label", "Import " + providerName(options) + " provider to LLMR");
     applyColors(button, options);
 
     var providerIcon = createProviderIcon(options);
 
     var flow = document.createElement("span");
-    flow.className = "ccrpb-flow";
+    flow.className = "llmrpb-flow";
 
-    var ccrIconShell = document.createElement("span");
-    ccrIconShell.className = "ccrpb-ccr-icon";
-    ccrIconShell.appendChild(createImage(OFFICIAL_LLMR_ICON_URL, "CCR"));
+    var llmrIconShell = document.createElement("span");
+    llmrIconShell.className = "llmrpb-llmr-icon";
+    llmrIconShell.appendChild(createImage(OFFICIAL_LLMR_ICON_URL, "LLMR"));
 
     var arrow = document.createElement("span");
-    arrow.className = "ccrpb-arrow";
+    arrow.className = "llmrpb-arrow";
     arrow.setAttribute("aria-hidden", "true");
     arrow.textContent = "→";
 
-    flow.appendChild(ccrIconShell);
+    flow.appendChild(llmrIconShell);
     flow.appendChild(arrow);
 
     var copy = document.createElement("span");
-    copy.className = "ccrpb-copy";
+    copy.className = "llmrpb-copy";
 
     var name = document.createElement("span");
-    name.className = "ccrpb-name";
+    name.className = "llmrpb-name";
     name.textContent = providerName(options);
 
     var description = document.createElement("span");
-    description.className = "ccrpb-description";
+    description.className = "llmrpb-description";
     description.textContent = protocolDescription(options);
 
     copy.appendChild(name);
@@ -225,7 +225,7 @@
     options = options || {};
     var root = typeof target === "string" ? document.querySelector(target) : target;
     if (!root) {
-      throw new Error("CCRProviderButtons.render target not found");
+      throw new Error("LLMRProviderButtons.render target not found");
     }
     injectStyles();
     var button = createButton(options);
@@ -279,11 +279,11 @@
   }
 
   function defineElements() {
-    defineElement("ccr-provider-button");
-    defineElement("ccr-provider-buttons");
+    defineElement("llmr-provider-button");
+    defineElement("llmr-provider-buttons");
   }
 
-  window.CCRProviderButtons = {
+  window.LLMRProviderButtons = {
     version: VERSION,
     render: render,
     renderButton: render,

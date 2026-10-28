@@ -100,11 +100,11 @@ export type ContextArchiveAskOutput = {
 
 const protocolVersion = "2024-11-05";
 const maxMcpRequestBytes = 2 * 1024 * 1024;
-const defaultToolName = "ccr_history_ask";
+const defaultToolName = "llmr_history_ask";
 const maxUpstreamErrorCharacters = 4000;
 const maxLineageReplayDepth = 32;
 
-export const CONTEXT_ARCHIVE_MCP_SERVER_NAME = "ccr-context-archive";
+export const CONTEXT_ARCHIVE_MCP_SERVER_NAME = "llmr-context-archive";
 export const CONTEXT_ARCHIVE_MCP_PATH = "/__llmr/context-archive/mcp";
 
 export class ContextArchiveService {

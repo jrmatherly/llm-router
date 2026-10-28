@@ -119,7 +119,7 @@ test("Fusion vision MCP sends the core API key and retries a body-free lightweig
   assert.equal(seen.usageRequestCount, 2);
   assert.equal(seen.usageEventIds[0], seen.usageEventIds[1]);
   assert.equal(seen.usageAuthorization, "usage-token");
-  assert.equal(seen.usageBody?.schema, "ccr.fusion-usage.v1");
+  assert.equal(seen.usageBody?.schema, "llmr.fusion-usage.v1");
   assert.equal(seen.usageBody?.source?.adapterKey, "openai_chat");
   assert.equal(seen.usageBody?.target?.providerName, "provider-zhipu-ai-china---coding-plan-d63a2c4b21::openai_chat_completions::cred:test-1");
   assert.equal(seen.usageBody?.target?.model, "glm-5v-turbo");

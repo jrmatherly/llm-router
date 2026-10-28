@@ -18,7 +18,7 @@ test("OpenCode Go local import compiles to the Go endpoint and forwards the Clau
     "OPENCODE_CONFIG_CONTENT"
   ];
   const previousEnvironment = Object.fromEntries(environmentNames.map((name) => [name, process.env[name]]));
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-go-integration-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-go-integration-"));
   process.env.LLMR_INTERNAL_HOME_DIR = home;
   for (const name of environmentNames.slice(1)) {
     delete process.env[name];

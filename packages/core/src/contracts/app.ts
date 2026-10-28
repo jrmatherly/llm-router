@@ -107,7 +107,7 @@ export type AppUpdateStatus = {
   supported: boolean;
 };
 
-export const BUILTIN_FUSION_TOOL_SERVER_NAME = "ccr-fusion-builtins";
+export const BUILTIN_FUSION_TOOL_SERVER_NAME = "llmr-fusion-builtins";
 export const BUILTIN_FUSION_VISION_TOOL_NAME = "vision_understand";
 export const BUILTIN_FUSION_WEB_SEARCH_TOOL_NAME = "web_search";
 export const BUILTIN_FUSION_IMAGE_GENERATION_TOOL_NAME = "image_generation";
@@ -118,7 +118,7 @@ export const GROK_API_DEFAULT_VIDEO_MODEL = "grok-imagine-video";
 // Legacy sentinel retained only to migrate configs created before media execution
 // moved from the Grok CLI subprocess to the Grok API.
 export const GROK_CLI_MEDIA_MODEL_SELECTOR = "grok-cli";
-export const MEDIA_TOOLS_MCP_SERVER_NAME = "ccr-media-tools";
+export const MEDIA_TOOLS_MCP_SERVER_NAME = "llmr-media-tools";
 export const MEDIA_IMAGE_GENERATE_TOOL_PREFIX = "image_generate";
 export const MEDIA_IMAGE_EDIT_TOOL_PREFIX = "image_edit";
 export const MEDIA_VIDEO_START_TOOL_PREFIX = "video_generate";
@@ -1486,7 +1486,7 @@ export const DEFAULT_TRAY_WIDGETS: TrayWidgetConfig[] = [
 export type ProfileClientKind = "claude-code" | "codex" | "grok" | "kimi" | "kilo" | "opencode" | "pi" | "workbuddy" | "zcode" | "claude-design";
 export type CodexProfileConfigFormat = "legacy" | "separate_profile_files";
 export type CodexRemoteFrontendMode = "app" | "cli" | "claude-code";
-export type ProfileScope = "ccr" | "global" | "custom";
+export type ProfileScope = "llmr" | "global" | "custom";
 export type ProfileSurface = "auto" | "cli" | "app";
 export type ProfileOpenSurface = "cli" | "app";
 
@@ -1559,7 +1559,7 @@ export type ProfileRuntimeConfig = {
 };
 
 export function normalizeProfileScopeValue(value: unknown): ProfileScope {
-  return value === "ccr" || value === "custom" ? value : "global";
+  return value === "llmr" || value === "custom" ? value : "global";
 }
 
 export function isEnabledGlobalProfile(profile: Pick<ProfileConfig, "enabled" | "scope">): boolean {

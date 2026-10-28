@@ -194,9 +194,9 @@ test("Chat Completions conversions leave omitted strict unchanged", () => {
 
 test("gateway boundary plugin registers the tool strictness hook", async () => {
   const hooks = createGatewayPlugin().providerHooks;
-  assert.equal(hooks[0].key, "ccr-upstream-header-sanitizer");
-  assert.ok(hooks.some((hook) => hook.key === "ccr-responses-session-affinity"));
-  const strictnessHook = hooks.find((hook) => hook.key === "ccr-responses-tool-strictness");
+  assert.equal(hooks[0].key, "llmr-upstream-header-sanitizer");
+  assert.ok(hooks.some((hook) => hook.key === "llmr-responses-session-affinity"));
+  const strictnessHook = hooks.find((hook) => hook.key === "llmr-responses-tool-strictness");
   assert.ok(strictnessHook);
 
   const input = responsesInput();

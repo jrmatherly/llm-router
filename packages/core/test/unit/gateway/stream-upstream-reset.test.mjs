@@ -4,11 +4,11 @@ import { Readable, Writable } from "node:stream";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import {
-  ccrCodexApplyPatchBridgeHeader,
-  ccrCodexBridgeStreamHookKey,
-  ccrCodexMultiAgentBridgeHeader,
-  ccrLiveTokenRateConfigMessageType,
-  ccrLiveTokenRateStreamHookKey
+  llmrCodexApplyPatchBridgeHeader,
+  llmrCodexBridgeStreamHookKey,
+  llmrCodexMultiAgentBridgeHeader,
+  llmrLiveTokenRateConfigMessageType,
+  llmrLiveTokenRateStreamHookKey
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
 import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/router-plugin.ts";
 import { codexMultiAgentBridgeResponseStream } from "@llmr/core/gateway/features/codex-multi-agent-bridge.ts";
@@ -75,8 +75,8 @@ test("core plugin live token rate stream hook survives an upstream reset", optio
   process.send = () => true;
   try {
     const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: createDefaultAppConfig() } } });
-    const streamHook = plugin.streamHooks.find((item) => item.key === ccrLiveTokenRateStreamHookKey);
-    process.emit("message", { enabled: true, protocolVersion: 1, type: ccrLiveTokenRateConfigMessageType });
+    const streamHook = plugin.streamHooks.find((item) => item.key === llmrLiveTokenRateStreamHookKey);
+    process.emit("message", { enabled: true, protocolVersion: 1, type: llmrLiveTokenRateConfigMessageType });
     await assertNoUncaughtException(() => withResettingUpstream("text/event-stream", async (url) => {
       const metered = await streamHook.transformResponse({
         request: { headers: {}, id: "upstream-reset-rate", method: "POST", url: "/v1/chat/completions" },
@@ -88,18 +88,18 @@ test("core plugin live token rate stream hook survives an upstream reset", optio
       await assert.rejects(metered.text(), /terminated/);
     }));
   } finally {
-    process.emit("message", { enabled: false, protocolVersion: 1, type: ccrLiveTokenRateConfigMessageType });
+    process.emit("message", { enabled: false, protocolVersion: 1, type: llmrLiveTokenRateConfigMessageType });
     process.send = originalSend;
   }
 });
 
 test("core plugin Codex bridge stream hook survives an upstream reset", options, async () => {
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: createDefaultAppConfig() } } });
-  const streamHook = plugin.streamHooks.find((item) => item.key === ccrCodexBridgeStreamHookKey);
+  const streamHook = plugin.streamHooks.find((item) => item.key === llmrCodexBridgeStreamHookKey);
   await assertNoUncaughtException(() => withResettingUpstream("text/event-stream", async (url) => {
     const bridged = await streamHook.transformResponse({
       request: {
-        headers: { [ccrCodexApplyPatchBridgeHeader]: "1", [ccrCodexMultiAgentBridgeHeader]: "1" },
+        headers: { [llmrCodexApplyPatchBridgeHeader]: "1", [llmrCodexMultiAgentBridgeHeader]: "1" },
         id: "upstream-reset-codex-bridge",
         method: "POST",
         url: "/v1/responses"

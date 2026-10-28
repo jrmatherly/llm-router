@@ -55,7 +55,7 @@ test("gateway stop preserves a runtime marker that this service instance does no
 });
 
 test("gateway start observes an exit that occurs while the runtime marker is being written", async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-gateway-early-exit-test-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-gateway-early-exit-test-"));
   const gatewayEntry = path.join(dir, "gateway-entry.cjs");
   const gatewayEntryLoaded = path.join(dir, "gateway-entry-loaded");
   const previousGatewayEntry = process.env.LLMR_GATEWAY_ENTRY;
@@ -119,7 +119,7 @@ test("gateway start observes an exit that occurs while the runtime marker is bei
 });
 
 test("gateway start waits for matching runtime health before reporting running", async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-gateway-readiness-test-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-gateway-readiness-test-"));
   const gatewayEntry = path.join(dir, "gateway-entry.cjs");
   const readySentinel = path.join(dir, "gateway-ready");
   const previousGatewayEntry = process.env.LLMR_GATEWAY_ENTRY;
@@ -180,7 +180,7 @@ test("gateway start completes the IPC and health handshake with the bundled runt
 });
 
 test("gateway restart waits for the previous core runtime to stop", async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-gateway-restart-stop-test-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-gateway-restart-stop-test-"));
   const slowGatewayEntry = path.join(dir, "slow-gateway-entry.cjs");
   const replacementGatewayEntry = path.join(dir, "replacement-gateway-entry.cjs");
   const readySentinel = path.join(dir, "replacement-ready");
@@ -222,7 +222,7 @@ test("gateway restart waits for the previous core runtime to stop", async () => 
 });
 
 test("gateway start rejects healthy endpoints owned by a different runtime", async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-gateway-runtime-identity-test-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-gateway-runtime-identity-test-"));
   const gatewayEntry = path.join(dir, "gateway-entry.cjs");
   const previousGatewayEntry = process.env.LLMR_GATEWAY_ENTRY;
   writeFileSync(gatewayEntry, foreignRuntimeGatewayEntry(), "utf8");

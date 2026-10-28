@@ -14,7 +14,7 @@ if (noGateway) {
 module.exports = {
   apps: [
     {
-      name: "ccr-server",
+      name: "llmr-server",
       script: "/app/packages/core/dist/main/server.js",
       args: serverArgs,
       cwd: "/app",
@@ -25,7 +25,7 @@ module.exports = {
       }
     },
     {
-      name: "ccr-nginx",
+      name: "llmr-nginx",
       script: "/usr/sbin/nginx",
       args: ["-g", "daemon off; pid /run/nginx/nginx.pid;"],
       cwd: "/app",

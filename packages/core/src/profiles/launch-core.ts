@@ -255,7 +255,7 @@ export function profileLaunchSpawnCommand(plan: Pick<ProfileLaunchPlan, "args" |
   };
 }
 
-export function ccrManagedProfileDir(configDir: string, profile: ProfileConfig): string {
+export function llmrManagedProfileDir(configDir: string, profile: ProfileConfig): string {
   const slug = sanitizePathSegment(profile.id || profile.name || profile.agent);
   const baseDir = path.join(configDir, "profiles", slug || "profile");
   return profile.scope === "custom" ? path.join(baseDir, "custom") : baseDir;
@@ -263,7 +263,7 @@ export function ccrManagedProfileDir(configDir: string, profile: ProfileConfig):
 
 export function resolveClaudeCodeSettingsFile(configDir: string, profile: ProfileConfig): string {
   if (isGeneratedProfileScope(profile.scope)) {
-    return path.join(ccrManagedProfileDir(configDir, profile), "claude", "settings.json");
+    return path.join(llmrManagedProfileDir(configDir, profile), "claude", "settings.json");
   }
   return resolveUserPath(profile.settingsFile || "~/.claude/settings.json");
 }
@@ -273,7 +273,7 @@ export function resolveCodexConfigFile(configDir: string, profile: ProfileConfig
     return resolveZcodeConfigFile(profile);
   }
   if (isGeneratedProfileScope(profile.scope)) {
-    return path.join(ccrManagedProfileDir(configDir, profile), codexConfigSubdir(profile.agent), "config.toml");
+    return path.join(llmrManagedProfileDir(configDir, profile), codexConfigSubdir(profile.agent), "config.toml");
   }
   const codexHome = profile.codexHome?.trim();
   if (codexHome) {
@@ -357,43 +357,43 @@ function codexConfigSubdir(agent: ProfileConfig["agent"]): string {
 function claudeCodeWrapperFilename(profile: ProfileConfig): string {
   const slug = sanitizePathSegment(profile.id || profile.name || profile.agent) || "claude-code";
   return process.platform === "win32"
-    ? `ccr-claude-code-wrapper-${slug}.cmd`
-    : `ccr-claude-code-wrapper-${slug}`;
+    ? `llmr-claude-code-wrapper-${slug}.cmd`
+    : `llmr-claude-code-wrapper-${slug}`;
 }
 
 function grokWrapperFilename(profile: ProfileConfig): string {
   const slug = sanitizePathSegment(profile.id || profile.name || profile.agent) || "grok";
   return process.platform === "win32"
-    ? `ccr-grok-cli-wrapper-${slug}.cmd`
-    : `ccr-grok-cli-wrapper-${slug}`;
+    ? `llmr-grok-cli-wrapper-${slug}.cmd`
+    : `llmr-grok-cli-wrapper-${slug}`;
 }
 
 function kimiWrapperFilename(profile: ProfileConfig): string {
   const slug = sanitizePathSegment(profile.id || profile.name || profile.agent) || "kimi";
   return process.platform === "win32"
-    ? `ccr-kimi-cli-wrapper-${slug}.cmd`
-    : `ccr-kimi-cli-wrapper-${slug}`;
+    ? `llmr-kimi-cli-wrapper-${slug}.cmd`
+    : `llmr-kimi-cli-wrapper-${slug}`;
 }
 
 function openCodeWrapperFilename(profile: ProfileConfig): string {
   const slug = sanitizePathSegment(profile.id || profile.name || profile.agent) || "opencode";
   return process.platform === "win32"
-    ? `ccr-opencode-wrapper-${slug}.cmd`
-    : `ccr-opencode-wrapper-${slug}`;
+    ? `llmr-opencode-wrapper-${slug}.cmd`
+    : `llmr-opencode-wrapper-${slug}`;
 }
 
 function kiloWrapperFilename(profile: ProfileConfig): string {
   const slug = sanitizePathSegment(profile.id || profile.name || profile.agent) || "kilo";
   return process.platform === "win32"
-    ? `ccr-kilo-wrapper-${slug}.cmd`
-    : `ccr-kilo-wrapper-${slug}`;
+    ? `llmr-kilo-wrapper-${slug}.cmd`
+    : `llmr-kilo-wrapper-${slug}`;
 }
 
 function codexMiddlewareFilename(profile: ProfileConfig, providerId: string): string {
   const slug = sanitizeCodexProviderId(profile.id || profile.name || providerId) || "codex";
   return process.platform === "win32"
-    ? `ccr-codex-cli-stdio-${slug}.cmd`
-    : `ccr-codex-cli-stdio-${slug}`;
+    ? `llmr-codex-cli-stdio-${slug}.cmd`
+    : `llmr-codex-cli-stdio-${slug}`;
 }
 
 function normalizeProfileSurface(value: ProfileConfig["surface"]): "auto" | "cli" | "app" {
@@ -401,7 +401,7 @@ function normalizeProfileSurface(value: ProfileConfig["surface"]): "auto" | "cli
 }
 
 function isGeneratedProfileScope(value: ProfileConfig["scope"]): boolean {
-  return value === "ccr" || value === "custom";
+  return value === "llmr" || value === "custom";
 }
 
 function sanitizeCodexProviderId(value: string): string {

@@ -177,7 +177,7 @@ export function fusionToolFallbackMcpServer(
       ELECTRON_RUN_AS_NODE: "1",
       FUSION_FALLBACK_TOOLS_JSON: JSON.stringify(tools)
     },
-    name: uniqueMcpServerName("ccr-fusion-tool-fallback", existingServers),
+    name: uniqueMcpServerName("llmr-fusion-tool-fallback", existingServers),
     protocolVersion: "2024-11-05",
     requestTimeoutMs: 600000,
     startupTimeoutMs: 600000,

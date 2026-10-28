@@ -264,7 +264,7 @@ oauth = { storage = "file", key = "oauth/kimi-code", oauth_host = "http://127.0.
 });
 
 async function withKimiHome(run) {
-  const kimiHome = mkdtempSync(path.join(os.tmpdir(), "ccr-kimi-provider-"));
+  const kimiHome = mkdtempSync(path.join(os.tmpdir(), "llmr-kimi-provider-"));
   const previous = {
     KIMI_CODE_BASE_URL: process.env.KIMI_CODE_BASE_URL,
     KIMI_CODE_HOME: process.env.KIMI_CODE_HOME,

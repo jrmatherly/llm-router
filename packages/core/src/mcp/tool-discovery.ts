@@ -28,7 +28,7 @@ type SseEvent = {
 };
 
 const mcpClientInfo = {
-  name: "CCR",
+  name: "LLMR",
   version: "3.0.0"
 };
 

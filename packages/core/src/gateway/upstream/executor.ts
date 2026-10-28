@@ -16,7 +16,7 @@ import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "
 import { abortSignalMessage, formatError, omitLocalObservabilityHeaders, shouldSendBody, withCoreGatewayAuthHeader } from "@llmr/core/gateway/http/io";
 import { parseJsonObjectSafe, releaseJsonObject, serializeJsonBody, serializeJsonBodyWithModel } from "@llmr/core/gateway/http/body";
 import { resolveGatewayPublicModelId } from "@llmr/core/gateway/features/model-discovery";
-import { ccrRoutedModelHeader } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
+import { llmrRoutedModelHeader } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { activeProviderCredentials, findProviderByPublicOrInternalName, findProviderCredentialBySlug, normalizedProviderCapabilities, parseProviderCredentialInternalName, providerCapabilityForClientProtocol, providerCapabilityInternalName, providerCapabilityNameMatches, providerCredentialInternalName, providerCredentialPriority, providerCredentialRuntimeId, providerCredentialSlug, providerProtocolForClientProtocol, sanitizeHeaderValue } from "@llmr/core/providers/runtime-topology";
 import { delay } from "@llmr/core/gateway/internal/clock";
 import { retryDelayAfterNetworkError, retryDelayAfterStatus, shouldFallbackAfterStatus } from "@llmr/core/gateway/upstream/retry-policy";
@@ -434,9 +434,9 @@ export async function fetchUpstreamWithFallback(input: {
       const headers = { ...attempt.headers };
       const attemptRoutedModel = routedModelHeaderForAttempt(attempt);
       if (attemptRoutedModel) {
-        headers[ccrRoutedModelHeader] = sanitizeHeaderValue(attemptRoutedModel);
+        headers[llmrRoutedModelHeader] = sanitizeHeaderValue(attemptRoutedModel);
       } else {
-        delete headers[ccrRoutedModelHeader];
+        delete headers[llmrRoutedModelHeader];
       }
       attempt.headers = headers;
     }
@@ -473,7 +473,7 @@ export async function fetchUpstreamWithFallback(input: {
         ...(attemptUrl !== input.upstreamUrl
           ? [{ after: attemptUrl, before: input.upstreamUrl, operation: "replace" as const, path: "/url", scope: "url" as const }]
           : []),
-        routeTraceChange("headers", `/headers/${ccrRoutedModelHeader}`, input.headers[ccrRoutedModelHeader], attempt.headers?.[ccrRoutedModelHeader])
+        routeTraceChange("headers", `/headers/${llmrRoutedModelHeader}`, input.headers[llmrRoutedModelHeader], attempt.headers?.[llmrRoutedModelHeader])
       ].filter(isRouteTraceChange),
       durationMs: attemptStartedAt - attemptPreparationStartedAt,
       kind: "attempt",

@@ -53,21 +53,21 @@ test("Kimi profile source home follows profile and process environment overrides
 });
 
 test("profile service cleans stale generated bin backups only", () => {
-  const configDir = mkdtempSync(path.join(os.tmpdir(), "ccr-generated-bin-cleanup-"));
+  const configDir = mkdtempSync(path.join(os.tmpdir(), "llmr-generated-bin-cleanup-"));
   try {
     const binDir = path.join(configDir, "bin");
     mkdirSync(binDir, { recursive: true });
     const deletedFiles = [
-      "ccr-claude-code-api-key-default.ccr-backup-2026-01-01T00-00-00-000Z",
-      "ccr-claude-code-wif-token-default.ccr-backup-2026-01-01T00-00-00-000Z",
-      "ccr-claude-code-wrapper-default.ccr-original",
-      "ccr-codex-cli-stdio-default.ccr-original-missing",
-      "ccr-codex-cli-middleware.js.ccr-backup-2026-01-01T00-00-00-000Z",
-      "ccr-pi-wrapper-default.ccr-original",
-      "toolhub-mcp.js.ccr-backup-2026-01-01T00-00-00-000Z"
+      "llmr-claude-code-api-key-default.llmr-backup-2026-01-01T00-00-00-000Z",
+      "llmr-claude-code-wif-token-default.llmr-backup-2026-01-01T00-00-00-000Z",
+      "llmr-claude-code-wrapper-default.llmr-original",
+      "llmr-codex-cli-stdio-default.llmr-original-missing",
+      "llmr-codex-cli-middleware.js.llmr-backup-2026-01-01T00-00-00-000Z",
+      "llmr-pi-wrapper-default.llmr-original",
+      "toolhub-mcp.js.llmr-backup-2026-01-01T00-00-00-000Z"
     ];
     const keptFiles = [
-      "custom-tool.ccr-backup-2026-01-01T00-00-00-000Z",
+      "custom-tool.llmr-backup-2026-01-01T00-00-00-000Z",
       "notes.txt"
     ];
     for (const file of [...deletedFiles, ...keptFiles]) {
@@ -87,20 +87,20 @@ test("profile service cleans stale generated bin backups only", () => {
 });
 
 test("profile service preserves user statusLine when the active global Claude takeover marker is unchanged", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-statusline-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-statusline-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
     rmSync(takeoverFile, { force: true });
     const settingsFile = path.join(root, ".claude", "settings.json");
     mkdirSync(path.dirname(settingsFile), { recursive: true });
-    writeFileSync(`${settingsFile}.ccr-original`, `${JSON.stringify({
+    writeFileSync(`${settingsFile}.llmr-original`, `${JSON.stringify({
       env: {
         USER_VALUE: "kept"
       },
       theme: "dark"
     }, null, 2)}\n`);
     writeFileSync(settingsFile, `${JSON.stringify({
-      apiKeyHelper: "/tmp/ccr-claude-code-api-key-statusline-test",
+      apiKeyHelper: "/tmp/llmr-claude-code-api-key-statusline-test",
       currentOnly: "kept",
       env: {
         ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
@@ -140,11 +140,11 @@ test("profile service preserves user statusLine when the active global Claude ta
     }, null, 2)}\n`);
 
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-profile-statusline-test";
+    config.APIKEY = "llmr-profile-statusline-test";
     config.APIKEYS = [{
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profile.id}`,
-      key: "ccr-profile-statusline-test",
+      key: "llmr-profile-statusline-test",
       name: "Profile: Claude Code"
     }];
     config.Providers = [{
@@ -176,7 +176,7 @@ test("profile service preserves user statusLine when the active global Claude ta
 
 test("profile service writes global Claude settings under the runtime home, never the process HOME", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const runtimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
-  const processHome = mkdtempSync(path.join(os.tmpdir(), "ccr-process-home-"));
+  const processHome = mkdtempSync(path.join(os.tmpdir(), "llmr-process-home-"));
   const previousEnv = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   const processSettingsFile = path.join(processHome, ".claude", "settings.json");
@@ -204,11 +204,11 @@ test("profile service writes global Claude settings under the runtime home, neve
       surface: "auto"
     };
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-profile-runtime-home-test";
+    config.APIKEY = "llmr-profile-runtime-home-test";
     config.APIKEYS = [{
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profile.id}`,
-      key: "ccr-profile-runtime-home-test",
+      key: "llmr-profile-runtime-home-test",
       name: "Profile: Claude Code"
     }];
     config.Providers = [{
@@ -223,7 +223,7 @@ test("profile service writes global Claude settings under the runtime home, neve
     assert.equal(result.clients.some((client) => client.client === "claude-code" && client.ok), true);
     assert.equal(readFileSync(processSettingsFile, "utf8"), untouched);
     assert.deepEqual(readdirSync(path.dirname(processSettingsFile)), ["settings.json"]);
-    const helperFile = path.join(CONFIGDIR, "bin", "ccr-claude-code-api-key-default-claude-code");
+    const helperFile = path.join(CONFIGDIR, "bin", "llmr-claude-code-api-key-default-claude-code");
     const written = JSON.parse(readFileSync(runtimeSettingsFile, "utf8"));
     assert.equal(written.apiKeyHelper, process.platform === "win32" ? `"${helperFile}"` : helperFile);
   } finally {
@@ -237,7 +237,7 @@ test("profile service writes global Claude settings under the runtime home, neve
 });
 
 test("profile service does not overwrite invalid global Claude settings JSON", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-invalid-settings-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-invalid-settings-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
     rmSync(takeoverFile, { force: true });
@@ -259,11 +259,11 @@ test("profile service does not overwrite invalid global Claude settings JSON", {
       surface: "auto"
     };
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-profile-invalid-settings-test";
+    config.APIKEY = "llmr-profile-invalid-settings-test";
     config.APIKEYS = [{
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profile.id}`,
-      key: "ccr-profile-invalid-settings-test",
+      key: "llmr-profile-invalid-settings-test",
       name: "Profile: Invalid Claude Settings"
     }];
     config.Providers = [{
@@ -287,7 +287,7 @@ test("profile service does not overwrite invalid global Claude settings JSON", {
 });
 
 test("profile service refuses to apply a Claude Code profile when the settings file pins Claude Code to a cloud gateway", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-gateway-pinned-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-gateway-pinned-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
     rmSync(takeoverFile, { force: true });
@@ -309,11 +309,11 @@ test("profile service refuses to apply a Claude Code profile when the settings f
       surface: "auto"
     };
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-profile-gateway-pinned-test";
+    config.APIKEY = "llmr-profile-gateway-pinned-test";
     config.APIKEYS = [{
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profile.id}`,
-      key: "ccr-profile-gateway-pinned-test",
+      key: "llmr-profile-gateway-pinned-test",
       name: "Profile: Gateway Pinned Claude"
     }];
     config.Providers = [{
@@ -338,7 +338,7 @@ test("profile service refuses to apply a Claude Code profile when the settings f
 });
 
 test("profile service refuses to apply a Claude Code profile when a managed settings file pins Claude Code to a cloud gateway", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || !process.env.LLMR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-managed-pinned-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-managed-pinned-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   const managedDir = process.env.LLMR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR;
   const managedFile = path.join(managedDir, "managed-settings.json");
@@ -363,11 +363,11 @@ test("profile service refuses to apply a Claude Code profile when a managed sett
       surface: "auto"
     };
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-profile-managed-pinned-test";
+    config.APIKEY = "llmr-profile-managed-pinned-test";
     config.APIKEYS = [{
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profile.id}`,
-      key: "ccr-profile-managed-pinned-test",
+      key: "llmr-profile-managed-pinned-test",
       name: "Profile: Managed Pinned Claude"
     }];
     config.Providers = [{
@@ -393,7 +393,7 @@ test("profile service refuses to apply a Claude Code profile when a managed sett
 });
 
 test("profile service honors the top-level profile disabled flag", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-profile-disabled-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-profile-disabled-"));
   try {
     const settingsFile = path.join(root, ".claude", "settings.json");
     mkdirSync(path.dirname(settingsFile), { recursive: true });
@@ -419,11 +419,11 @@ test("profile service honors the top-level profile disabled flag", { skip: !proc
       surface: "auto"
     };
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-profile-disabled-test";
+    config.APIKEY = "llmr-profile-disabled-test";
     config.APIKEYS = [{
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profile.id}`,
-      key: "ccr-profile-disabled-test",
+      key: "llmr-profile-disabled-test",
       name: "Profile: Top Level Disabled Claude Settings"
     }];
     config.Providers = [{
@@ -455,7 +455,7 @@ test("profile service honors the top-level profile disabled flag", { skip: !proc
 });
 
 test("profile service does not rewrite user Claude settings for stale legacy profile flags without profiles", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-stale-legacy-profile-home-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-stale-legacy-profile-home-"));
   const previousHome = process.env.HOME;
   const previousRuntimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
@@ -478,7 +478,7 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
       outputStyle: "backup"
     }, null, 2)}\n`;
     const userSettings = `${JSON.stringify({
-      apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-claude-code",
+      apiKeyHelper: "/home/user/.llm-router/bin/llmr-claude-code-api-key-claude-code",
       env: {
         ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
         ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
@@ -491,8 +491,8 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
         allow: ["Bash(echo:*)"]
       }
     }, null, 2)}\n`;
-    writeFileSync(`${settingsFile}.ccr-original`, originalSettings);
-    writeFileSync(`${settingsFile}.ccr-backup-2026-07-28T16-26-39-119Z`, backupSettings);
+    writeFileSync(`${settingsFile}.llmr-original`, originalSettings);
+    writeFileSync(`${settingsFile}.llmr-backup-2026-07-28T16-26-39-119Z`, backupSettings);
     writeFileSync(settingsFile, userSettings);
     mkdirSync(path.dirname(takeoverFile), { recursive: true });
     writeFileSync(takeoverFile, `${JSON.stringify({
@@ -504,7 +504,7 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
       }],
       version: 1
     }, null, 2)}\n`);
-    const backupNames = readdirSync(path.dirname(settingsFile)).filter((name) => name.startsWith("settings.json.ccr-backup-")).sort();
+    const backupNames = readdirSync(path.dirname(settingsFile)).filter((name) => name.startsWith("settings.json.llmr-backup-")).sort();
 
     const staleLegacyConfig = createDefaultAppConfig();
     staleLegacyConfig.profile.enabled = true;
@@ -529,7 +529,7 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
       permissions: { allow: ["Bash(echo:*)"] }
     });
     assert.equal(
-      readdirSync(path.dirname(settingsFile)).filter((name) => name.startsWith("settings.json.ccr-backup-")).length,
+      readdirSync(path.dirname(settingsFile)).filter((name) => name.startsWith("settings.json.llmr-backup-")).length,
       backupNames.length + 1
     );
   } finally {
@@ -542,7 +542,7 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
 });
 
 test("profile service does not rewrite Claude settings when only user-managed fields change", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-user-fields-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-user-fields-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
     rmSync(takeoverFile, { force: true });
@@ -562,11 +562,11 @@ test("profile service does not rewrite Claude settings when only user-managed fi
       surface: "auto"
     };
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-profile-user-fields-test";
+    config.APIKEY = "llmr-profile-user-fields-test";
     config.APIKEYS = [{
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profile.id}`,
-      key: "ccr-profile-user-fields-test",
+      key: "llmr-profile-user-fields-test",
       name: "Profile: User Fields Claude Settings"
     }];
     config.Providers = [{
@@ -600,7 +600,7 @@ test("profile service does not rewrite Claude settings when only user-managed fi
 });
 
 test("profile service restores between-session user edits after many takeover rewrites prune old backups", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-prune-restore-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-prune-restore-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
     rmSync(takeoverFile, { force: true });
@@ -617,8 +617,8 @@ test("profile service restores between-session user edits after many takeover re
       scope: "global"
     };
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-prune-restore-test";
-    config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "ccr-prune-restore-test", name: "Profile: Prune Restore OpenCode" }];
+    config.APIKEY = "llmr-prune-restore-test";
+    config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-prune-restore-test", name: "Profile: Prune Restore OpenCode" }];
     config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models, name: "Provider" }];
 
     config.profile.profiles = [profile];
@@ -632,7 +632,7 @@ test("profile service restores between-session user edits after many takeover re
       config.profile.profiles = [{ ...profile, model: `Provider/${model}` }];
       await applyProfileFixture(config);
     }
-    const backups = readdirSync(root).filter((name) => name.startsWith("opencode.json.ccr-backup-"));
+    const backups = readdirSync(root).filter((name) => name.startsWith("opencode.json.llmr-backup-"));
     assert.equal(backups.length, 6);
 
     config.profile.profiles = [{ ...profile, enabled: false }];
@@ -646,7 +646,7 @@ test("profile service restores between-session user edits after many takeover re
 });
 
 test("profile service restores between-session ZCode edits after many takeover rewrites prune old backups", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-zcode-prune-restore-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-zcode-prune-restore-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
     rmSync(takeoverFile, { force: true });
@@ -667,8 +667,8 @@ test("profile service restores between-session ZCode edits after many takeover r
       surface: "cli"
     };
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-prune-restore-test";
-    config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "ccr-prune-restore-test", name: "Profile: Prune Restore ZCode" }];
+    config.APIKEY = "llmr-prune-restore-test";
+    config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-prune-restore-test", name: "Profile: Prune Restore ZCode" }];
     config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models, name: "Provider" }];
 
     config.profile.profiles = [profile];
@@ -682,7 +682,7 @@ test("profile service restores between-session ZCode edits after many takeover r
       config.profile.profiles = [{ ...profile, model: `Provider/${model}` }];
       await applyProfileFixture(config);
     }
-    const backups = readdirSync(path.dirname(configFile)).filter((name) => name.startsWith("config.json.ccr-backup-"));
+    const backups = readdirSync(path.dirname(configFile)).filter((name) => name.startsWith("config.json.llmr-backup-"));
     assert.equal(backups.length, 6);
 
     config.profile.profiles = [{ ...profile, enabled: false }];
@@ -696,7 +696,7 @@ test("profile service restores between-session ZCode edits after many takeover r
 });
 
 test("profile service applies and removes profile Claude settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-profile-settings-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-profile-settings-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   const profileId = "custom-claude-settings";
   try {
@@ -736,11 +736,11 @@ test("profile service applies and removes profile Claude settings", { skip: !pro
       surface: "auto"
     };
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-profile-claude-settings-test";
+    config.APIKEY = "llmr-profile-claude-settings-test";
     config.APIKEYS = [{
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profile.id}`,
-      key: "ccr-profile-claude-settings-test",
+      key: "llmr-profile-claude-settings-test",
       name: "Profile: Custom Claude Settings"
     }];
     config.Providers = [{
@@ -797,7 +797,7 @@ test("profile service applies and removes profile Claude settings", { skip: !pro
 });
 
 test("profile service can exclude ZCode from automatic synchronization", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-zcode-auto-sync-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-zcode-auto-sync-"));
   try {
     const configFile = path.join(root, ".zcode", "cli", "config.json");
     const original = `${JSON.stringify({
@@ -846,24 +846,24 @@ test("profile service overwrites generated bin files without creating backups", 
   const wifTokenExtension = process.platform === "win32" ? ".txt" : "";
   const binDir = path.join(CONFIGDIR, "bin");
   mkdirSync(binDir, { recursive: true });
-  const legacyApiKeyHelperFile = path.join(binDir, `ccr-claude-code-api-key-${profileId}${commandExtension}`);
+  const legacyApiKeyHelperFile = path.join(binDir, `llmr-claude-code-api-key-${profileId}${commandExtension}`);
   const generatedFiles = [
-    path.join(binDir, `ccr-claude-code-wif-token-${profileId}${wifTokenExtension}`),
-    path.join(binDir, `ccr-claude-code-wrapper-${profileId}${commandExtension}`),
-    path.join(binDir, "ccr-codex-cli-middleware.js"),
+    path.join(binDir, `llmr-claude-code-wif-token-${profileId}${wifTokenExtension}`),
+    path.join(binDir, `llmr-claude-code-wrapper-${profileId}${commandExtension}`),
+    path.join(binDir, "llmr-codex-cli-middleware.js"),
     path.join(binDir, "toolhub-mcp.js")
   ];
   const staleClaudeCodeGeneratedFiles = [
-    path.join(binDir, `ccr-claude-code-wif-token-stale-claude-code${wifTokenExtension}`),
-    path.join(binDir, `ccr-claude-code-wrapper-stale-claude-code${commandExtension}`)
+    path.join(binDir, `llmr-claude-code-wif-token-stale-claude-code${wifTokenExtension}`),
+    path.join(binDir, `llmr-claude-code-wrapper-stale-claude-code${commandExtension}`)
   ];
   writeFileSync(legacyApiKeyHelperFile, "old generated content\n");
-  writeFileSync(`${legacyApiKeyHelperFile}.ccr-backup-2026-01-01T00-00-00-000Z`, "old backup\n");
-  writeFileSync(`${legacyApiKeyHelperFile}.ccr-original`, "old original\n");
+  writeFileSync(`${legacyApiKeyHelperFile}.llmr-backup-2026-01-01T00-00-00-000Z`, "old backup\n");
+  writeFileSync(`${legacyApiKeyHelperFile}.llmr-original`, "old original\n");
   for (const file of generatedFiles) {
     writeFileSync(file, "old generated content\n");
-    writeFileSync(`${file}.ccr-backup-2026-01-01T00-00-00-000Z`, "old backup\n");
-    writeFileSync(`${file}.ccr-original`, "old original\n");
+    writeFileSync(`${file}.llmr-backup-2026-01-01T00-00-00-000Z`, "old backup\n");
+    writeFileSync(`${file}.llmr-original`, "old original\n");
   }
   for (const file of staleClaudeCodeGeneratedFiles) {
     writeFileSync(file, "stale generated content\n");
@@ -908,12 +908,12 @@ test("profile service overwrites generated bin files without creating backups", 
     ...config.contextArchive,
     enabled: true
   };
-  config.APIKEY = "ccr-profile-test";
+  config.APIKEY = "llmr-profile-test";
   config.APIKEYS = [
     {
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-profile-test",
+      key: "llmr-profile-test",
       name: "Profile: Generated Bin Test"
     }
   ];
@@ -933,7 +933,7 @@ test("profile service overwrites generated bin files without creating backups", 
       model: "Provider/long",
       name: "Generated Bin Test",
       opusModel: "Provider/opus",
-      scope: "ccr",
+      scope: "llmr",
       settingsFile: "~/.claude/settings.json",
       sonnetModel: "Provider/sonnet",
       smallFastModel: "",
@@ -954,9 +954,9 @@ test("profile service overwrites generated bin files without creating backups", 
   for (const file of staleClaudeCodeGeneratedFiles) {
     assert.equal(existsSync(file), false);
   }
-  const wifTokenFile = path.join(binDir, `ccr-claude-code-wif-token-${profileId}${wifTokenExtension}`);
-  assert.equal(readFileSync(wifTokenFile, "utf8"), "ccr-profile-test\n");
-  const wrapperContent = readFileSync(path.join(binDir, `ccr-claude-code-wrapper-${profileId}${commandExtension}`), "utf8");
+  const wifTokenFile = path.join(binDir, `llmr-claude-code-wif-token-${profileId}${wifTokenExtension}`);
+  assert.equal(readFileSync(wifTokenFile, "utf8"), "llmr-profile-test\n");
+  const wrapperContent = readFileSync(path.join(binDir, `llmr-claude-code-wrapper-${profileId}${commandExtension}`), "utf8");
   assert.equal(wrapperContent.includes("profile-api-key"), false);
   assert.equal(wrapperContent.includes("profile-auth-token"), false);
   assert.equal(wrapperContent.includes("LLMR_REMOTE_SYNC_API_KEY_HELPER"), false);
@@ -971,17 +971,17 @@ test("profile service overwrites generated bin files without creating backups", 
   }
   const toolHubMcpConfigFile = path.join(CONFIGDIR, "profiles", profileId, "claude", "toolhub-mcp.json");
   const toolHubMcpConfig = JSON.parse(readFileSync(toolHubMcpConfigFile, "utf8"));
-  const toolHubMcpServerEnv = toolHubMcpConfig.mcpServers["ccr-toolhub"].env;
-  const contextArchiveMcpServer = toolHubMcpConfig.mcpServers["ccr-context-archive"];
-  assert.equal(toolHubMcpServerEnv.TOOLHUB_OPENAI_API_KEY, "ccr-profile-test");
+  const toolHubMcpServerEnv = toolHubMcpConfig.mcpServers["llmr-toolhub"].env;
+  const contextArchiveMcpServer = toolHubMcpConfig.mcpServers["llmr-context-archive"];
+  assert.equal(toolHubMcpServerEnv.TOOLHUB_OPENAI_API_KEY, "llmr-profile-test");
   assert.equal(toolHubMcpServerEnv.TOOLHUB_OPENAI_BASE_URL, `http://127.0.0.1:${config.gateway.port}/v1`);
   assert.equal(toolHubMcpServerEnv.TOOLHUB_OPENAI_MODEL, "Provider/model");
   assert.equal(contextArchiveMcpServer, undefined);
   const settingsFile = path.join(claudeProfileDir, "settings.json");
   const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
   assert.equal(settings.apiKeyHelper, undefined);
-  assert.equal(settings.env.ANTHROPIC_FEDERATION_RULE_ID, "ccr-local");
-  assert.equal(settings.env.ANTHROPIC_ORGANIZATION_ID, "ccr-local");
+  assert.equal(settings.env.ANTHROPIC_FEDERATION_RULE_ID, "llmr-local");
+  assert.equal(settings.env.ANTHROPIC_ORGANIZATION_ID, "llmr-local");
   assert.equal(settings.env.ANTHROPIC_IDENTITY_TOKEN_FILE, wifTokenFile);
   assert.equal(settings.env.NO_PROXY, "127.0.0.1,localhost,::1");
   assert.equal(settings.env.no_proxy, "127.0.0.1,localhost,::1");
@@ -1009,18 +1009,18 @@ test("profile service overwrites generated bin files without creating backups", 
   assert.equal(claudeGlobalConfig.modelOverrides, undefined);
   const backupEntries = readdirSync(binDir).filter((entry) =>
     (
-      entry.startsWith(`ccr-claude-code-api-key-${profileId}`) ||
-      entry.startsWith(`ccr-claude-code-wif-token-${profileId}`) ||
-      entry.startsWith(`ccr-claude-code-wrapper-${profileId}`) ||
-      entry.startsWith("ccr-codex-cli-middleware.js") ||
+      entry.startsWith(`llmr-claude-code-api-key-${profileId}`) ||
+      entry.startsWith(`llmr-claude-code-wif-token-${profileId}`) ||
+      entry.startsWith(`llmr-claude-code-wrapper-${profileId}`) ||
+      entry.startsWith("llmr-codex-cli-middleware.js") ||
       entry.startsWith("toolhub-mcp.js")
-    ) && entry.includes(".ccr-")
+    ) && entry.includes(".llmr-")
   );
   assert.deepEqual(backupEntries, []);
 });
 
 test("profile service refreshes LLMR-managed global Claude gateway env for generated profiles", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-generated-claude-global-env-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-generated-claude-global-env-"));
   const previousHome = process.env.HOME;
   const previousRuntimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
@@ -1035,19 +1035,19 @@ test("profile service refreshes LLMR-managed global Claude gateway env for gener
       env: {
         ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
         ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
-        ANTHROPIC_FEDERATION_RULE_ID: "ccr-local",
-        ANTHROPIC_ORGANIZATION_ID: "ccr-local",
+        ANTHROPIC_FEDERATION_RULE_ID: "llmr-local",
+        ANTHROPIC_ORGANIZATION_ID: "llmr-local",
         CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456",
         USER_VALUE: "kept"
       }
     }, null, 2)}\n`);
 
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-generated-global-env-test";
+    config.APIKEY = "llmr-generated-global-env-test";
     config.APIKEYS = [{
       createdAt: "2026-01-01T00:00:00.000Z",
       id: "profile:generated-global-env-test",
-      key: "ccr-generated-global-env-test",
+      key: "llmr-generated-global-env-test",
       name: "Profile: Generated Global Env Test"
     }];
     config.Providers = [{
@@ -1065,7 +1065,7 @@ test("profile service refreshes LLMR-managed global Claude gateway env for gener
       id: "generated-global-env-test",
       model: "Provider/model",
       name: "Generated Global Env Test",
-      scope: "ccr",
+      scope: "llmr",
       settingsFile: "~/.claude/settings.json",
       smallFastModel: "",
       surface: "auto"
@@ -1092,7 +1092,7 @@ test("profile service refreshes LLMR-managed global Claude gateway env for gener
 });
 
 test("#1779 profile service defaults to apiKeyHelper even on Claude Code 2.1.235", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-auth-mode-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-auth-mode-"));
   const profileId = "old-claude-code";
   const commandExtension = process.platform === "win32" ? ".cmd" : "";
   const wifTokenExtension = process.platform === "win32" ? ".txt" : "";
@@ -1106,11 +1106,11 @@ test("#1779 profile service defaults to apiKeyHelper even on Claude Code 2.1.235
     chmodSync(fakeClaude, 0o700);
 
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-old-auto-token";
+    config.APIKEY = "llmr-old-auto-token";
     config.APIKEYS = [{
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-old-auto-token",
+      key: "llmr-old-auto-token",
       name: "Profile: Old Claude Code"
     }];
     config.Providers = [{
@@ -1128,7 +1128,7 @@ test("#1779 profile service defaults to apiKeyHelper even on Claude Code 2.1.235
       id: profileId,
       model: "Provider/model",
       name: "Old Claude Code",
-      scope: "ccr",
+      scope: "llmr",
       settingsFile: "~/.claude/settings.json",
       smallFastModel: "",
       surface: "auto"
@@ -1138,23 +1138,23 @@ test("#1779 profile service defaults to apiKeyHelper even on Claude Code 2.1.235
     assert.equal(result.clients.length, 1);
     assert.equal(result.clients[0].ok, true);
 
-    const helperFile = path.join(binDir, `ccr-claude-code-api-key-${profileId}${commandExtension}`);
-    const tokenFile = path.join(binDir, `ccr-claude-code-wif-token-${profileId}${wifTokenExtension}`);
+    const helperFile = path.join(binDir, `llmr-claude-code-api-key-${profileId}${commandExtension}`);
+    const tokenFile = path.join(binDir, `llmr-claude-code-wif-token-${profileId}${wifTokenExtension}`);
     const settingsFile = path.join(CONFIGDIR, "profiles", profileId, "claude", "settings.json");
     const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
     assert.equal(settings.apiKeyHelper, process.platform === "win32" ? `"${helperFile}"` : helperFile);
     assert.equal(settings.env.ANTHROPIC_IDENTITY_TOKEN_FILE, undefined);
     assert.equal(settings.env.ANTHROPIC_FEDERATION_RULE_ID, undefined);
     assert.equal(settings.env.LLMR_CLAUDE_CODE_AUTH_MODE, undefined);
-    assert.equal(readFileSync(tokenFile, "utf8"), "ccr-old-auto-token\n");
-    assert.match(readFileSync(helperFile, "utf8"), /ccr-old-auto-token/);
+    assert.equal(readFileSync(tokenFile, "utf8"), "llmr-old-auto-token\n");
+    assert.match(readFileSync(helperFile, "utf8"), /llmr-old-auto-token/);
     if (process.platform !== "win32") {
       const helper = spawnSync(helperFile, [], { encoding: "utf8" });
       assert.equal(helper.status, 0);
-      assert.equal(helper.stdout.trim(), "ccr-old-auto-token");
+      assert.equal(helper.stdout.trim(), "llmr-old-auto-token");
     }
 
-    const wrapperContent = readFileSync(path.join(binDir, `ccr-claude-code-wrapper-${profileId}${commandExtension}`), "utf8");
+    const wrapperContent = readFileSync(path.join(binDir, `llmr-claude-code-wrapper-${profileId}${commandExtension}`), "utf8");
     assert.equal(wrapperContent.includes("ANTHROPIC_IDENTITY_TOKEN_FILE"), false);
     assert.equal(wrapperContent.includes("LLMR_REMOTE_SYNC_API_KEY_FILE"), true);
   } finally {
@@ -1165,11 +1165,11 @@ test("#1779 profile service defaults to apiKeyHelper even on Claude Code 2.1.235
 test("#1798 profile service removes boolean autoMode when apiKeyHelper manages authentication", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const profileId = "claude-auto-mode-api-key-helper";
   const config = createDefaultAppConfig();
-  config.APIKEY = "ccr-auto-mode-api-key-helper-test";
+  config.APIKEY = "llmr-auto-mode-api-key-helper-test";
   config.APIKEYS = [{
     createdAt: "2026-01-01T00:00:00.000Z",
     id: `profile:${profileId}`,
-    key: "ccr-auto-mode-api-key-helper-test",
+    key: "llmr-auto-mode-api-key-helper-test",
     name: "Profile: Claude Auto Mode API Key Helper Test"
   }];
   config.Providers = [{
@@ -1190,7 +1190,7 @@ test("#1798 profile service removes boolean autoMode when apiKeyHelper manages a
     id: profileId,
     model: "Provider/model",
     name: "Claude Auto Mode API Key Helper",
-    scope: "ccr",
+    scope: "llmr",
     settingsFile: "~/.claude/settings.json",
     smallFastModel: "",
     surface: "auto"
@@ -1202,13 +1202,13 @@ test("#1798 profile service removes boolean autoMode when apiKeyHelper manages a
   assert.equal(firstSettings.autoMode, undefined, "persisted boolean autoMode must not override helper auth");
   assert.equal(firstSettings.autoMemoryEnabled, true);
   assert.equal(firstSettings.autoCompactEnabled, true);
-  assert.match(firstSettings.apiKeyHelper, /ccr-claude-code-api-key-/);
+  assert.match(firstSettings.apiKeyHelper, /llmr-claude-code-api-key-/);
 
   writeFileSync(settingsFile, `${JSON.stringify({ ...firstSettings, autoMode: true }, null, 2)}\n`);
   await applyProfileFixture(config);
   const secondSettings = JSON.parse(readFileSync(settingsFile, "utf8"));
   assert.equal(secondSettings.autoMode, undefined, "a session-written boolean autoMode must be removed on the next apply");
-  assert.match(secondSettings.apiKeyHelper, /ccr-claude-code-api-key-/);
+  assert.match(secondSettings.apiKeyHelper, /llmr-claude-code-api-key-/);
 
   config.profile.profiles[0].claudeSettings.autoMode = { classifyAllShell: true };
   await applyProfileFixture(config);
@@ -1217,7 +1217,7 @@ test("#1798 profile service removes boolean autoMode when apiKeyHelper manages a
 });
 
 test("Codex profile launcher bypasses middleware for Browser and Computer Use helpers", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-browser-helper-bypass-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-browser-helper-bypass-"));
   const profileId = "browser-helper-bypass-test";
   try {
     const fakeCodex = path.join(root, "real-codex");
@@ -1229,7 +1229,7 @@ test("Codex profile launcher bypasses middleware for Browser and Computer Use he
     chmodSync(fakeCodex, 0o700);
 
     const config = createDefaultAppConfig();
-    config.APIKEY = "ccr-browser-helper-test";
+    config.APIKEY = "llmr-browser-helper-test";
     config.APIKEYS = [{
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
@@ -1256,14 +1256,14 @@ test("Codex profile launcher bypasses middleware for Browser and Computer Use he
       name: "Browser Helper Bypass",
       providerId: "claude-code-router",
       providerName: "LLM Router",
-      scope: "ccr",
+      scope: "llmr",
       showAllSessions: false,
       surface: "app"
     }];
 
     const applied = await applyProfileFixture(config);
     assert.equal(applied.clients[0].ok, true);
-    const launcher = path.join(CONFIGDIR, "bin", `ccr-codex-cli-stdio-${profileId}`);
+    const launcher = path.join(CONFIGDIR, "bin", `llmr-codex-cli-stdio-${profileId}`);
     const content = readFileSync(launcher, "utf8");
     assert.ok(content.includes("LLMR_BUNDLED_CODEX_CLI_PATH"));
     assert.ok(content.includes("app-server' ] && [ \"${2:-}\" = '--listen'"));
@@ -1329,12 +1329,12 @@ test("profile service injects ToolHub MCP into Codex config", { skip: !process.e
       }
     ]
   };
-  config.APIKEY = "ccr-codex-profile-test";
+  config.APIKEY = "llmr-codex-profile-test";
   config.APIKEYS = [
     {
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-codex-profile-test",
+      key: "llmr-codex-profile-test",
       name: "Profile: Codex ToolHub Test"
     }
   ];
@@ -1353,7 +1353,7 @@ test("profile service injects ToolHub MCP into Codex config", { skip: !process.e
       name: "Codex ToolHub Test",
       providerId: "claude-code-router",
       providerName: "LLM Router",
-      scope: "ccr",
+      scope: "llmr",
       showAllSessions: false,
       surface: "auto"
     }
@@ -1365,13 +1365,13 @@ test("profile service injects ToolHub MCP into Codex config", { skip: !process.e
 
   const configFile = path.join(CONFIGDIR, "profiles", profileId, "codex", "config.toml");
   const content = readFileSync(configFile, "utf8");
-  assert.match(content, /# BEGIN CCR managed ToolHub MCP/);
-  assert.match(content, /# CCR configured model = "Provider\/model"/);
-  assert.match(content, /\[mcp_servers\.ccr-toolhub\]/);
+  assert.match(content, /# BEGIN LLMR managed ToolHub MCP/);
+  assert.match(content, /# LLMR configured model = "Provider\/model"/);
+  assert.match(content, /\[mcp_servers\.llmr-toolhub\]/);
   assert.equal(content.includes(`command = ${JSON.stringify(process.execPath)}`), true);
   assert.equal(content.includes(`args = [${JSON.stringify(path.join(CONFIGDIR, "bin", "toolhub-mcp.js"))}]`), true);
-  assert.match(content, /\[mcp_servers\.ccr-toolhub\.env\]/);
-  assert.match(content, /TOOLHUB_OPENAI_API_KEY = "ccr-codex-profile-test"/);
+  assert.match(content, /\[mcp_servers\.llmr-toolhub\.env\]/);
+  assert.match(content, /TOOLHUB_OPENAI_API_KEY = "llmr-codex-profile-test"/);
   assert.match(content, new RegExp(`TOOLHUB_OPENAI_BASE_URL = "http://127\\.0\\.0\\.1:${config.gateway.port}/v1"`));
   assert.match(content, /TOOLHUB_OPENAI_MODEL = "Provider\/model"/);
 
@@ -1385,7 +1385,7 @@ test("profile service injects ToolHub MCP into Codex config", { skip: !process.e
       'model = "User/selected-in-codex"\nmodel_reasoning_effort = "max"'
     )
     .replace(
-      "# END CCR managed ToolHub MCP",
+      "# END LLMR managed ToolHub MCP",
       [
         "[desktop]",
         'followUpQueueMode = "steer"',
@@ -1395,7 +1395,7 @@ test("profile service injects ToolHub MCP into Codex config", { skip: !process.e
         "",
         "[features]",
         "js_repl = true",
-        "# END CCR managed ToolHub MCP"
+        "# END LLMR managed ToolHub MCP"
       ].join("\n")
     );
   writeFileSync(configFile, codexEditedConfig);
@@ -1407,7 +1407,7 @@ test("profile service injects ToolHub MCP into Codex config", { skip: !process.e
         "",
         'model_reasoning_effort = "ultra"',
         "",
-        '[mcp_servers.ccr-toolhub.tools."tool_hub.resolve"]',
+        '[mcp_servers.llmr-toolhub.tools."tool_hub.resolve"]',
         'approval_mode = "approve"',
         ""
       ].join("\n"))
@@ -1421,13 +1421,13 @@ test("profile service injects ToolHub MCP into Codex config", { skip: !process.e
   assert.match(preservedConfig, /\[desktop\]\nfollowUpQueueMode = "steer"/);
   assert.match(preservedConfig, /\[plugins\."browser@openai-bundled"\]\nenabled = false/);
   assert.match(preservedConfig, /\[features\]\njs_repl = true/);
-  assert.equal((preservedConfig.match(/\[mcp_servers\.ccr-toolhub\]/g) ?? []).length, 1);
-  assert.equal((preservedConfig.match(/# BEGIN CCR managed ToolHub MCP/g) ?? []).length, 1);
+  assert.equal((preservedConfig.match(/\[mcp_servers\.llmr-toolhub\]/g) ?? []).length, 1);
+  assert.equal((preservedConfig.match(/# BEGIN LLMR managed ToolHub MCP/g) ?? []).length, 1);
 
   const preservedSeparateProfile = readFileSync(separateProfileFile, "utf8");
   assert.match(preservedSeparateProfile, /model = "User\/selected-in-cli"/);
   assert.match(preservedSeparateProfile, /model_reasoning_effort = "ultra"/);
-  assert.equal(preservedSeparateProfile.includes("[mcp_servers.ccr-toolhub"), false);
+  assert.equal(preservedSeparateProfile.includes("[mcp_servers.llmr-toolhub"), false);
 
   config.Providers[0].models.push("model-2");
   config.profile.profiles[0].model = "Provider/model-2";
@@ -1458,12 +1458,12 @@ test("profile service injects Context Archive MCP for managed Claude Code profil
     ...config.contextArchive,
     enabled: false
   };
-  config.APIKEY = "ccr-managed-claude-profile-test";
+  config.APIKEY = "llmr-managed-claude-profile-test";
   config.APIKEYS = [
     {
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-managed-claude-profile-test",
+      key: "llmr-managed-claude-profile-test",
       name: "Profile: Managed Compact Claude"
     }
   ];
@@ -1476,7 +1476,7 @@ test("profile service injects Context Archive MCP for managed Claude Code profil
       managedCompact: true,
       model: "Provider/model",
       name: "Managed Compact Claude",
-      scope: "ccr",
+      scope: "llmr",
       settingsFile: "~/.claude/settings.json",
       smallFastModel: "",
       surface: "auto"
@@ -1488,10 +1488,10 @@ test("profile service injects Context Archive MCP for managed Claude Code profil
   assert.equal(result.clients[0].ok, true);
   const mcpConfigFile = path.join(CONFIGDIR, "profiles", profileId, "claude", "toolhub-mcp.json");
   const mcpConfig = JSON.parse(readFileSync(mcpConfigFile, "utf8"));
-  assert.deepEqual(Object.keys(mcpConfig.mcpServers), ["ccr-context-archive"]);
-  assert.equal(mcpConfig.mcpServers["ccr-context-archive"].type, "http");
-  assert.equal(mcpConfig.mcpServers["ccr-context-archive"].url, `http://127.0.0.1:${config.gateway.port}/__llmr/context-archive/mcp`);
-  assert.equal(mcpConfig.mcpServers["ccr-context-archive"].headers.Authorization, "Bearer ccr-managed-claude-profile-test");
+  assert.deepEqual(Object.keys(mcpConfig.mcpServers), ["llmr-context-archive"]);
+  assert.equal(mcpConfig.mcpServers["llmr-context-archive"].type, "http");
+  assert.equal(mcpConfig.mcpServers["llmr-context-archive"].url, `http://127.0.0.1:${config.gateway.port}/__llmr/context-archive/mcp`);
+  assert.equal(mcpConfig.mcpServers["llmr-context-archive"].headers.Authorization, "Bearer llmr-managed-claude-profile-test");
 });
 
 test("profile service injects Context Archive MCP for managed Codex profile", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
@@ -1510,12 +1510,12 @@ test("profile service injects Context Archive MCP for managed Codex profile", { 
     ...config.contextArchive,
     enabled: false
   };
-  config.APIKEY = "ccr-managed-codex-profile-test";
+  config.APIKEY = "llmr-managed-codex-profile-test";
   config.APIKEYS = [
     {
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-managed-codex-profile-test",
+      key: "llmr-managed-codex-profile-test",
       name: "Profile: Managed Compact Codex"
     }
   ];
@@ -1535,7 +1535,7 @@ test("profile service injects Context Archive MCP for managed Codex profile", { 
       name: "Managed Compact Codex",
       providerId: "claude-code-router",
       providerName: "LLM Router",
-      scope: "ccr",
+      scope: "llmr",
       showAllSessions: false,
       surface: "auto"
     }
@@ -1547,11 +1547,11 @@ test("profile service injects Context Archive MCP for managed Codex profile", { 
 
   const configFile = path.join(CONFIGDIR, "profiles", profileId, "codex", "config.toml");
   const content = readFileSync(configFile, "utf8");
-  assert.doesNotMatch(content, /# BEGIN CCR managed ToolHub MCP/);
-  assert.match(content, /# BEGIN CCR managed Context Archive MCP/);
-  assert.match(content, /\[mcp_servers\.ccr-context-archive\]/);
+  assert.doesNotMatch(content, /# BEGIN LLMR managed ToolHub MCP/);
+  assert.match(content, /# BEGIN LLMR managed Context Archive MCP/);
+  assert.match(content, /\[mcp_servers\.llmr-context-archive\]/);
   assert.match(content, new RegExp(`url = "http://127\\.0\\.0\\.1:${config.gateway.port}/__llmr/context-archive/mcp"`));
-  assert.match(content, /http_headers = \{ Authorization = "Bearer ccr-managed-codex-profile-test" \}/);
+  assert.match(content, /http_headers = \{ Authorization = "Bearer llmr-managed-codex-profile-test" \}/);
   assert.match(content, /startup_timeout_sec = 10/);
   assert.match(content, /tool_timeout_sec = 60/);
 });
@@ -1572,12 +1572,12 @@ test("profile service injects Context Archive MCP for managed Claude Code withou
     ...config.contextArchive,
     enabled: true
   };
-  config.APIKEY = "ccr-context-archive-profile-test";
+  config.APIKEY = "llmr-context-archive-profile-test";
   config.APIKEYS = [
     {
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-context-archive-profile-test",
+      key: "llmr-context-archive-profile-test",
       name: "Profile: Context Archive MCP Test"
     }
   ];
@@ -1590,7 +1590,7 @@ test("profile service injects Context Archive MCP for managed Claude Code withou
       managedCompact: true,
       model: "Provider/model",
       name: "Context Archive MCP Test",
-      scope: "ccr",
+      scope: "llmr",
       settingsFile: "~/.claude/settings.json",
       smallFastModel: "",
       surface: "auto"
@@ -1602,9 +1602,9 @@ test("profile service injects Context Archive MCP for managed Claude Code withou
   assert.equal(result.clients[0].ok, true);
   const mcpConfigFile = path.join(CONFIGDIR, "profiles", profileId, "claude", "toolhub-mcp.json");
   const mcpConfig = JSON.parse(readFileSync(mcpConfigFile, "utf8"));
-  assert.deepEqual(Object.keys(mcpConfig.mcpServers), ["ccr-context-archive"]);
-  assert.equal(mcpConfig.mcpServers["ccr-context-archive"].type, "http");
-  assert.equal(mcpConfig.mcpServers["ccr-context-archive"].headers.Authorization, "Bearer ccr-context-archive-profile-test");
+  assert.deepEqual(Object.keys(mcpConfig.mcpServers), ["llmr-context-archive"]);
+  assert.equal(mcpConfig.mcpServers["llmr-context-archive"].type, "http");
+  assert.equal(mcpConfig.mcpServers["llmr-context-archive"].headers.Authorization, "Bearer llmr-context-archive-profile-test");
 });
 
 test("profile service writes a Grok CLI wrapper that points model discovery and inference to LLMR", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
@@ -1630,12 +1630,12 @@ test("profile service writes a Grok CLI wrapper that points model discovery and 
     }
   ];
   config.preferredProvider = "Provider";
-  config.APIKEY = "ccr-grok-profile-test";
+  config.APIKEY = "llmr-grok-profile-test";
   config.APIKEYS = [
     {
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-grok-profile-test",
+      key: "llmr-grok-profile-test",
       name: "Profile: Grok Gateway Test"
     }
   ];
@@ -1652,7 +1652,7 @@ test("profile service writes a Grok CLI wrapper that points model discovery and 
       id: profileId,
       model: "Provider/model",
       name: "Grok Gateway Test",
-      scope: "ccr",
+      scope: "llmr",
       surface: "cli"
     }
   ];
@@ -1663,11 +1663,11 @@ test("profile service writes a Grok CLI wrapper that points model discovery and 
   assert.equal(result.clients[0].ok, true);
 
   const commandExtension = process.platform === "win32" ? ".cmd" : "";
-  const wrapperFile = path.join(CONFIGDIR, "bin", `ccr-grok-cli-wrapper-${profileId}${commandExtension}`);
+  const wrapperFile = path.join(CONFIGDIR, "bin", `llmr-grok-cli-wrapper-${profileId}${commandExtension}`);
   const content = readFileSync(wrapperFile, "utf8");
   assert.match(content, new RegExp(`GROK_MODELS_BASE_URL.*http://127\\.0\\.0\\.1:${config.gateway.port}/v1`));
   assert.match(content, new RegExp(`GROK_MODELS_LIST_URL.*http://127\\.0\\.0\\.1:${config.gateway.port}/v1/models`));
-  assert.match(content, /XAI_API_KEY.*ccr-grok-profile-test/);
+  assert.match(content, /XAI_API_KEY.*llmr-grok-profile-test/);
   assert.match(content, /GROK_DEFAULT_MODEL.*Provider\/model/);
   assert.match(content, new RegExp(`GROK_HOME.*profiles.*${profileId}.*grok`));
   assert.match(content, /USER_VALUE.*kept/);
@@ -1759,12 +1759,12 @@ test("profile service writes a multi-model Kimi CLI home that points inference t
     match: { exactAliases: ["catalog-context"], prefixes: [], suffixes: [] },
     materialization: { enabled: true, includeInGatewayModels: true }
   }];
-  config.APIKEY = "ccr-kimi-profile-test";
+  config.APIKEY = "llmr-kimi-profile-test";
   config.APIKEYS = [
     {
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-kimi-profile-test",
+      key: "llmr-kimi-profile-test",
       name: "Profile: Kimi Gateway Test"
     }
   ];
@@ -1781,7 +1781,7 @@ test("profile service writes a multi-model Kimi CLI home that points inference t
       id: profileId,
       model: "Provider/model",
       name: "Kimi Gateway Test",
-      scope: "ccr",
+      scope: "llmr",
       surface: "cli"
     }
   ];
@@ -1792,7 +1792,7 @@ test("profile service writes a multi-model Kimi CLI home that points inference t
   assert.equal(result.clients[0].ok, true);
 
   const commandExtension = process.platform === "win32" ? ".cmd" : "";
-  const wrapperFile = path.join(CONFIGDIR, "bin", `ccr-kimi-cli-wrapper-${profileId}${commandExtension}`);
+  const wrapperFile = path.join(CONFIGDIR, "bin", `llmr-kimi-cli-wrapper-${profileId}${commandExtension}`);
   const content = readFileSync(wrapperFile, "utf8");
   const profileKimiHome = path.join(CONFIGDIR, "profiles", profileId, "kimi");
   const profileConfigContent = readFileSync(path.join(profileKimiHome, "config.toml"), "utf8");
@@ -1805,7 +1805,7 @@ test("profile service writes a multi-model Kimi CLI home that points inference t
   assert.match(profileConfigContent, /default_model = "Provider\/model"/);
   assert.match(profileConfigContent, /\[providers\."claude-code-router"\]/);
   assert.match(profileConfigContent, new RegExp(`base_url = "http://127\\.0\\.0\\.1:${config.gateway.port}/v1"`));
-  assert.match(profileConfigContent, /api_key = "ccr-kimi-profile-test"/);
+  assert.match(profileConfigContent, /api_key = "llmr-kimi-profile-test"/);
   assert.match(profileConfigContent, /\[models\."Provider\/model"\]/);
   assert.match(profileConfigContent, /\[models\."Provider\/fast"\]/);
   assert.equal(profileConfigContent.includes('[models."Provider/legacy-extra"]'), false);
@@ -1850,12 +1850,12 @@ test("profile service writes a Pi config and wrapper that points inference to LL
     }
   ];
   config.preferredProvider = "Provider";
-  config.APIKEY = "ccr-pi-profile-test";
+  config.APIKEY = "llmr-pi-profile-test";
   config.APIKEYS = [
     {
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-pi-profile-test",
+      key: "llmr-pi-profile-test",
       name: "Profile: Pi Gateway Test"
     }
   ];
@@ -1873,8 +1873,8 @@ test("profile service writes a Pi config and wrapper that points inference to LL
       id: profileId,
       model: "Provider/model",
       name: "Pi Gateway Test",
-      providerId: "ccr-pi",
-      scope: "ccr",
+      providerId: "llmr-pi",
+      scope: "llmr",
       surface: "cli"
     }
   ];
@@ -1885,12 +1885,12 @@ test("profile service writes a Pi config and wrapper that points inference to LL
   assert.equal(result.clients[0].ok, true);
 
   const commandExtension = process.platform === "win32" ? ".cmd" : "";
-  const wrapperFile = path.join(CONFIGDIR, "bin", `ccr-pi-wrapper-${profileId}${commandExtension}`);
+  const wrapperFile = path.join(CONFIGDIR, "bin", `llmr-pi-wrapper-${profileId}${commandExtension}`);
   const content = readFileSync(wrapperFile, "utf8");
   const profilePiHome = path.join(CONFIGDIR, "profiles", profileId, "pi");
   const profileConfigFile = path.join(profilePiHome, "models.json");
   const piConfig = JSON.parse(readFileSync(profileConfigFile, "utf8"));
-  const provider = piConfig.providers["ccr-pi"];
+  const provider = piConfig.providers["llmr-pi"];
 
   assert.match(content, new RegExp(`PI_CODING_AGENT_DIR.*profiles.*${profileId}.*pi`));
   assert.match(content, new RegExp(`PI_CODING_AGENT_SESSION_DIR.*profiles.*${profileId}.*pi.*sessions`));
@@ -1898,12 +1898,12 @@ test("profile service writes a Pi config and wrapper that points inference to LL
   assert.match(content, /USER_VALUE.*kept/);
   assert.match(content, /NO_PROXY.*127\.0\.0\.1,localhost,::1/);
   assert.match(content, /\/custom\/bin\/pi/);
-  assert.match(content, /--provider .*ccr-pi/);
+  assert.match(content, /--provider .*llmr-pi/);
   assert.match(content, /--model .*Provider\/model/);
   assert.equal(content.includes("/ignored/pi"), false);
   assert.equal(provider.api, "openai-responses");
   assert.equal(provider.baseUrl, `http://127.0.0.1:${config.gateway.port}/v1`);
-  assert.equal(provider.apiKey, "ccr-pi-profile-test");
+  assert.equal(provider.apiKey, "llmr-pi-profile-test");
   assert.equal(provider.authHeader, true);
   assert.deepEqual(provider.headers, {
     "x-llmr-client": "pi",
@@ -1919,14 +1919,14 @@ test("#1851 Windows Pi wrapper uses the argument-aware CLI runtime", { skip: !pr
   const config = createDefaultAppConfig();
   config.Providers = [{ name: "Provider", models: ["model"], type: "openai_chat_completions", api_base_url: "https://example.test/v1" }];
   config.APIKEYS = [{ id: "profile:pi-dispatch", key: "test", name: "Pi" }];
-  config.profile.profiles = [{ agent: "pi", enabled: true, env: {}, id: "pi-dispatch", model: "Provider/model", name: "Pi", scope: "ccr", surface: "cli" }];
+  config.profile.profiles = [{ agent: "pi", enabled: true, env: {}, id: "pi-dispatch", model: "Provider/model", name: "Pi", scope: "llmr", surface: "cli" }];
   try {
     Object.defineProperty(process, "platform", { value: "win32", configurable: true });
     const result = await applyProfileFixture(config);
     assert.equal(result.clients[0].ok, true);
-    const content = readFileSync(path.join(CONFIGDIR, "bin", "ccr-pi-wrapper-pi-dispatch.cmd"), "utf8");
+    const content = readFileSync(path.join(CONFIGDIR, "bin", "llmr-pi-wrapper-pi-dispatch.cmd"), "utf8");
     assert.match(content, /LLMR_PI_WRAPPER=1/);
-    assert.match(content, /ccr-codex-cli-middleware\.js/);
+    assert.match(content, /llmr-codex-cli-middleware\.js/);
     assert.doesNotMatch(content, /"pi" --provider .*%\*/);
   } finally { Object.defineProperty(process, "platform", originalPlatform); }
 });
@@ -1943,12 +1943,12 @@ test("profile service writes an OpenCode CLI wrapper and shared CLI/App config",
     }
   ];
   config.preferredProvider = "Provider";
-  config.APIKEY = "ccr-opencode-profile-test";
+  config.APIKEY = "llmr-opencode-profile-test";
   config.APIKEYS = [
     {
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-opencode-profile-test",
+      key: "llmr-opencode-profile-test",
       name: "Profile: OpenCode Gateway Test"
     }
   ];
@@ -1966,7 +1966,7 @@ test("profile service writes an OpenCode CLI wrapper and shared CLI/App config",
       name: "OpenCode Gateway Test",
       providerId: "claude-code-router",
       providerName: "LLM Router",
-      scope: "ccr",
+      scope: "llmr",
       surface: "auto"
     }
   ];
@@ -1980,11 +1980,11 @@ test("profile service writes an OpenCode CLI wrapper and shared CLI/App config",
   const openCodeConfig = JSON.parse(readFileSync(configFile, "utf8"));
   assert.equal(openCodeConfig.model, "claude-code-router/Provider/model");
   assert.equal(openCodeConfig.small_model, openCodeConfig.model);
-  assert.equal(openCodeConfig.provider["claude-code-router"].options.apiKey, "ccr-opencode-profile-test");
+  assert.equal(openCodeConfig.provider["claude-code-router"].options.apiKey, "llmr-opencode-profile-test");
   assert.equal(openCodeConfig.provider["claude-code-router"].options.baseURL, `http://127.0.0.1:${config.gateway.port}/v1`);
 
   const commandExtension = process.platform === "win32" ? ".cmd" : "";
-  const wrapperFile = path.join(CONFIGDIR, "bin", `ccr-opencode-wrapper-${profileId}${commandExtension}`);
+  const wrapperFile = path.join(CONFIGDIR, "bin", `llmr-opencode-wrapper-${profileId}${commandExtension}`);
   const wrapper = readFileSync(wrapperFile, "utf8");
   assert.match(wrapper, /OPENCODE_CONFIG/);
   assert.match(wrapper, /OPENCODE_CONFIG_CONTENT/);
@@ -2029,12 +2029,12 @@ test("profile service removes disabled and deleted OpenCode wrappers and API key
     name: "OpenCode Cleanup Test",
     providerId: "claude-code-router",
     providerName: "LLM Router",
-    scope: "ccr",
+    scope: "llmr",
     surface: "auto"
   };
   config.profile.profiles = [profile];
   const commandExtension = process.platform === "win32" ? ".cmd" : "";
-  const wrapperFile = path.join(CONFIGDIR, "bin", `ccr-opencode-wrapper-${profileId}${commandExtension}`);
+  const wrapperFile = path.join(CONFIGDIR, "bin", `llmr-opencode-wrapper-${profileId}${commandExtension}`);
 
   await applyProfileFixture(config);
   assert.equal(existsSync(wrapperFile), true);
@@ -2075,7 +2075,7 @@ test("profile service clears stale Claude Code ToolHub artifacts when no gateway
   }, null, 2)}\n`);
   writeFileSync(toolHubMcpConfigFile, `${JSON.stringify({
     mcpServers: {
-      "ccr-toolhub": {
+      "llmr-toolhub": {
         args: [path.join(CONFIGDIR, "bin", "toolhub-mcp.js")],
         command: "node",
         env: {
@@ -2105,7 +2105,7 @@ test("profile service clears stale Claude Code ToolHub artifacts when no gateway
       id: profileId,
       model: "",
       name: "Claude Code",
-      scope: "ccr",
+      scope: "llmr",
       settingsFile,
       smallFastModel: "",
       surface: "auto"
@@ -2132,7 +2132,7 @@ test("profile service clears stale Claude Code ToolHub artifacts when no gateway
 test("profile service restores managed global Claude settings when only LLMR-scoped Claude profiles are active", () => {
   const previousHome = process.env.HOME;
   const previousRuntimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-profile-home-"));
   process.env.HOME = home;
   process.env.LLMR_INTERNAL_HOME_DIR = home;
   try {
@@ -2144,9 +2144,9 @@ test("profile service restores managed global Claude settings when only LLMR-sco
       },
       theme: "dark"
     };
-    writeFileSync(`${settingsFile}.ccr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify(originalSettings, null, 2)}\n`);
+    writeFileSync(`${settingsFile}.llmr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify(originalSettings, null, 2)}\n`);
     writeFileSync(settingsFile, `${JSON.stringify({
-      apiKeyHelper: "/tmp/ccr-claude-code-api-key-claude-code",
+      apiKeyHelper: "/tmp/llmr-claude-code-api-key-claude-code",
       env: {
         ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
         ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
@@ -2163,7 +2163,7 @@ test("profile service restores managed global Claude settings when only LLMR-sco
         id: "claude-code-2",
         model: "Fusion/kimisearch",
         name: "Claude Code",
-        scope: "ccr",
+        scope: "llmr",
         settingsFile: "~/.claude/settings.json",
         smallFastModel: "",
         surface: "auto"
@@ -2187,7 +2187,7 @@ test("profile service restores managed global Claude settings when only LLMR-sco
 
 function userOwnedClaudeSettingsWithGatewayTakeover() {
   return {
-    apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-default-claude-code",
+    apiKeyHelper: "/home/user/.llm-router/bin/llmr-claude-code-api-key-default-claude-code",
     enabledPlugins: { "example@marketplace": true },
     env: {
       ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
@@ -2221,17 +2221,17 @@ function assertUserOwnedClaudeSettingsStripped(settingsFile) {
 function withScratchRuntimeHome(run, { originalSnapshot = false, takeoverBackup = true } = {}) {
   const previousHome = process.env.HOME;
   const previousRuntimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-profile-home-"));
   process.env.HOME = home;
   process.env.LLMR_INTERNAL_HOME_DIR = home;
   try {
     const settingsFile = path.join(home, ".claude", "settings.json");
     mkdirSync(path.dirname(settingsFile), { recursive: true });
     if (takeoverBackup) {
-      writeFileSync(`${settingsFile}.ccr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`);
+      writeFileSync(`${settingsFile}.llmr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`);
     }
     if (originalSnapshot) {
-      writeFileSync(`${settingsFile}.ccr-original`, `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`);
+      writeFileSync(`${settingsFile}.llmr-original`, `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`);
     }
     writeFileSync(settingsFile, `${JSON.stringify(userOwnedClaudeSettingsWithGatewayTakeover(), null, 2)}\n`);
     run(settingsFile);
@@ -2276,7 +2276,7 @@ test("profile service leaves a user-owned settings file alone when LLMR never to
   }, { takeoverBackup: false });
 });
 
-test("profile service treats a .ccr-original snapshot as takeover evidence", () => {
+test("profile service treats a .llmr-original snapshot as takeover evidence", () => {
   withScratchRuntimeHome((settingsFile) => {
     const statuses = restoreInactiveGlobalProfileConfigs([]);
     assert.equal(statuses.length, 1);
@@ -2295,7 +2295,7 @@ test("profile service does not strip the global settings file while a router-sco
         id: "claude-code-2",
         model: "Provider/model",
         name: "Claude Code",
-        scope: "ccr",
+        scope: "llmr",
         settingsFile: "~/.claude/settings.json",
         smallFastModel: "",
         surface: "auto"
@@ -2310,11 +2310,11 @@ test("profile service writes no backup when a user-owned settings file holds not
   withScratchRuntimeHome((settingsFile) => {
     const userOnly = `${JSON.stringify({ env: { USER_VALUE: "kept" }, permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`;
     writeFileSync(settingsFile, userOnly);
-    const backupsBefore = readdirSync(path.dirname(settingsFile)).filter((name) => name.includes(".ccr-backup-")).length;
+    const backupsBefore = readdirSync(path.dirname(settingsFile)).filter((name) => name.includes(".llmr-backup-")).length;
     const statuses = restoreInactiveGlobalProfileConfigs([]);
     assert.equal(statuses.length, 0);
     assert.equal(readFileSync(settingsFile, "utf8"), userOnly);
-    assert.equal(readdirSync(path.dirname(settingsFile)).filter((name) => name.includes(".ccr-backup-")).length, backupsBefore);
+    assert.equal(readdirSync(path.dirname(settingsFile)).filter((name) => name.includes(".llmr-backup-")).length, backupsBefore);
   });
 });
 
@@ -2371,11 +2371,11 @@ async function withGlobalClaudeProfileRelease(original, run) {
     surface: "auto"
   };
   const config = createDefaultAppConfig();
-  config.APIKEY = "ccr-profile-displaced-env-test";
+  config.APIKEY = "llmr-profile-displaced-env-test";
   config.APIKEYS = [{
     createdAt: "2026-01-01T00:00:00.000Z",
     id: `profile:${profile.id}`,
-    key: "ccr-profile-displaced-env-test",
+    key: "llmr-profile-displaced-env-test",
     name: "Profile: Claude Code"
   }];
   config.Providers = [{
@@ -2499,7 +2499,7 @@ test("release after a re-takeover never restores a backup that still points at L
     release();
     const after = readFileSync(settingsFile, "utf8");
     assert.doesNotMatch(after, /127\.0\.0\.1:3456/);
-    assert.doesNotMatch(after, /ccr-claude-code-api-key-/);
+    assert.doesNotMatch(after, /llmr-claude-code-api-key-/);
     assert.equal(readSettings().env.USER_VALUE, "kept");
     assert.deepEqual(readSettings(), original);
   });
@@ -2519,7 +2519,7 @@ test("the sweep restores the user's own provider env from a deleted profile's ta
   await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ config, readSettings, settingsFile }) => {
     const profile = config.profile.profiles[0];
     const stateFile = path.join(CONFIGDIR, "profiles", profile.id, "claude", "settings-state.json");
-    assert.equal(applyProfileRuntimeConfig(config, profile, "ccr-profile-displaced-env-test").ok, true);
+    assert.equal(applyProfileRuntimeConfig(config, profile, "llmr-profile-displaced-env-test").ok, true);
     config.profile.profiles = [];
     await applyProfileFixture(config);
     assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
@@ -2597,8 +2597,8 @@ test("release restores the user's own workload identity federation env", { skip:
 
 test("the sweep strips a mixed backup while a router-scoped Claude profile is enabled", () => {
   withScratchRuntimeHome((settingsFile) => {
-    writeFileSync(`${settingsFile}.ccr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({
-      apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-default-claude-code",
+    writeFileSync(`${settingsFile}.llmr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({
+      apiKeyHelper: "/home/user/.llm-router/bin/llmr-claude-code-api-key-default-claude-code",
       env: {
         ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
         ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
@@ -2608,7 +2608,7 @@ test("the sweep strips a mixed backup while a router-scoped Claude profile is en
       permissions: { allow: ["Bash(ls)"] }
     }, null, 2)}\n`);
     writeFileSync(settingsFile, `${JSON.stringify({
-      apiKeyHelper: "/home/user/.llm-router/bin/ccr-claude-code-api-key-default-claude-code",
+      apiKeyHelper: "/home/user/.llm-router/bin/llmr-claude-code-api-key-default-claude-code",
       env: {
         ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
         ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
@@ -2623,7 +2623,7 @@ test("the sweep strips a mixed backup while a router-scoped Claude profile is en
         id: "claude-code-2",
         model: "Provider/model",
         name: "Claude Code",
-        scope: "ccr",
+        scope: "llmr",
         settingsFile: "~/.claude/settings.json",
         smallFastModel: "",
         surface: "auto"
@@ -2638,13 +2638,13 @@ test("the sweep strips a mixed backup while a router-scoped Claude profile is en
 
 test("profile service keeps managed global Claude settings when a global Claude profile is active", () => {
   const previousHome = process.env.HOME;
-  const home = mkdtempSync(path.join(os.tmpdir(), "ccr-profile-home-"));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-profile-home-"));
   process.env.HOME = home;
   try {
     const settingsFile = path.join(home, ".claude", "settings.json");
     mkdirSync(path.dirname(settingsFile), { recursive: true });
     writeFileSync(settingsFile, `${JSON.stringify({
-      apiKeyHelper: "/tmp/ccr-claude-code-api-key-claude-code",
+      apiKeyHelper: "/tmp/llmr-claude-code-api-key-claude-code",
       env: {
         ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
         ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
@@ -2682,7 +2682,7 @@ test("profile service keeps managed global Claude settings when a global Claude 
 });
 
 test("profile service restores global agent configs on exit", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-global-profile-exit-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-global-profile-exit-"));
   try {
     const claudeFile = path.join(root, "claude", "settings.json");
     const codexFile = path.join(root, "codex", "config.toml");
@@ -2698,21 +2698,21 @@ test("profile service restores global agent configs on exit", () => {
     for (const [file, original] of originals) {
       mkdirSync(path.dirname(file), { recursive: true });
       if (file === zcodeCacheFile) {
-        writeFileSync(`${file}.ccr-original-missing`, "");
+        writeFileSync(`${file}.llmr-original-missing`, "");
       } else {
-        writeFileSync(`${file}.ccr-original`, original);
+        writeFileSync(`${file}.llmr-original`, original);
       }
-      writeFileSync(`${file}.ccr-backup-2026-07-11T00-00-00-000Z`, latestSnapshots.get(file));
+      writeFileSync(`${file}.llmr-backup-2026-07-11T00-00-00-000Z`, latestSnapshots.get(file));
     }
     writeFileSync(claudeFile, `${JSON.stringify({
-      apiKeyHelper: "ccr-claude-code-api-key-test",
+      apiKeyHelper: "llmr-claude-code-api-key-test",
       env: {
         ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
         ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
         CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456"
       }
     })}\n`);
-    writeFileSync(codexFile, "# BEGIN CCR managed profile\nmodel = \"test\"\n# END CCR managed profile\n");
+    writeFileSync(codexFile, "# BEGIN LLMR managed profile\nmodel = \"test\"\n# END LLMR managed profile\n");
     writeFileSync(openCodeFile, `${JSON.stringify({
       model: "claude-code-router/test",
       provider: {
@@ -2751,7 +2751,7 @@ test("profile service restores global agent configs on exit", () => {
       assert.equal(readFileSync(file, "utf8"), latest);
     }
 
-    writeFileSync(codexFile, "# BEGIN CCR managed profile\nmodel = \"test\"\n# END CCR managed profile\n");
+    writeFileSync(codexFile, "# BEGIN LLMR managed profile\nmodel = \"test\"\n# END LLMR managed profile\n");
     writeFileSync(openCodeFile, `${JSON.stringify({
       provider: { "claude-code-router": { options: { headers: { "x-llmr-client": "opencode" } } } }
     })}\n`);
@@ -2762,7 +2762,7 @@ test("profile service restores global agent configs on exit", () => {
     const inactiveStatuses = restoreInactiveGlobalProfileConfigs([
       {
         agent: "codex", configFile: codexFile, enabled: false, env: {}, id: "codex", model: "test", name: "Codex",
-        providerId: "claude-code-router", scope: "ccr", surface: "cli"
+        providerId: "claude-code-router", scope: "llmr", surface: "cli"
       },
       {
         agent: "opencode", configFile: openCodeFile, enabled: false, env: {}, id: "opencode", model: "test", name: "OpenCode",
@@ -2770,7 +2770,7 @@ test("profile service restores global agent configs on exit", () => {
       },
       {
         agent: "zcode", configFile: zcodeFile, enabled: false, env: {}, id: "zcode", model: "test", name: "ZCode",
-        providerId: "claude-code-router", scope: "ccr", surface: "app"
+        providerId: "claude-code-router", scope: "llmr", surface: "app"
       }
     ]);
     assert.equal(inactiveStatuses.filter((status) => status.client === "codex").length, 1);
@@ -2803,12 +2803,12 @@ test("profile service invalidates Claude gateway model discovery cache only when
     }
   ];
   config.preferredProvider = "Provider";
-  config.APIKEY = "ccr-claude-model-discovery-cache-test";
+  config.APIKEY = "llmr-claude-model-discovery-cache-test";
   config.APIKEYS = [
     {
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-claude-model-discovery-cache-test",
+      key: "llmr-claude-model-discovery-cache-test",
       name: "Profile: Claude Model Discovery Cache Test"
     }
   ];
@@ -2821,7 +2821,7 @@ test("profile service invalidates Claude gateway model discovery cache only when
       id: profileId,
       model: "Provider/alpha",
       name: "Claude Code",
-      scope: "ccr",
+      scope: "llmr",
       settingsFile,
       smallFastModel: "",
       surface: "cli"
@@ -2869,12 +2869,12 @@ test("profile service reports a failed model discovery cache invalidation withou
     }
   ];
   config.preferredProvider = "Provider";
-  config.APIKEY = "ccr-claude-model-discovery-cache-failure-test";
+  config.APIKEY = "llmr-claude-model-discovery-cache-failure-test";
   config.APIKEYS = [
     {
       createdAt: "2026-01-01T00:00:00.000Z",
       id: `profile:${profileId}`,
-      key: "ccr-claude-model-discovery-cache-failure-test",
+      key: "llmr-claude-model-discovery-cache-failure-test",
       name: "Profile: Claude Model Discovery Cache Failure Test"
     }
   ];
@@ -2887,7 +2887,7 @@ test("profile service reports a failed model discovery cache invalidation withou
       id: profileId,
       model: "Provider/alpha",
       name: "Claude Code",
-      scope: "ccr",
+      scope: "llmr",
       settingsFile,
       smallFastModel: "",
       surface: "cli"
@@ -2901,7 +2901,7 @@ test("profile service reports a failed model discovery cache invalidation withou
       id: followingProfileId,
       model: "Provider/alpha",
       name: "Codex",
-      scope: "ccr",
+      scope: "llmr",
       smallFastModel: "",
       surface: "cli"
     }
@@ -2937,7 +2937,7 @@ function globalPiProfile(agentDir) {
 }
 
 test("a global Pi profile restores the user's models.json on release", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-release-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-pi-release-"));
   try {
     const agentDir = path.join(root, "pi-agent");
     const piModels = path.join(agentDir, "models.json");
@@ -2960,7 +2960,7 @@ test("a global Pi profile restores the user's models.json on release", () => {
 });
 
 test("a global Pi profile deletes the models.json it created", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-release-missing-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-pi-release-missing-"));
   try {
     const agentDir = path.join(root, "pi-agent");
     const piModels = path.join(agentDir, "models.json");
@@ -2976,14 +2976,14 @@ test("a global Pi profile deletes the models.json it created", () => {
 });
 
 test("the Pi sweep leaves a models.json alone when LLMR never took it over", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-sweep-untouched-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-pi-sweep-untouched-"));
   try {
     const agentDir = path.join(root, "pi-agent");
     const piModels = path.join(agentDir, "models.json");
     mkdirSync(agentDir, { recursive: true });
     const userModels = `${JSON.stringify({ providers: { "claude-code-router": { baseUrl: "http://localhost:9999" } } })}\n`;
     writeFileSync(piModels, userModels);
-    const statuses = restoreInactiveGlobalProfileConfigs([{ ...globalPiProfile(agentDir), scope: "ccr" }]);
+    const statuses = restoreInactiveGlobalProfileConfigs([{ ...globalPiProfile(agentDir), scope: "llmr" }]);
     assert.deepEqual(statuses.filter((status) => status.client === "pi"), []);
     assert.equal(readFileSync(piModels, "utf8"), userModels);
   } finally {
@@ -2996,7 +2996,7 @@ function globalWorkbuddyProfile(workbuddyHome) {
 }
 
 test("a global Workbuddy profile restores the user's models.json on release", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-release-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-release-"));
   try {
     const workbuddyHome = path.join(root, ".workbuddy");
     const workbuddyModels = path.join(workbuddyHome, "models.json");
@@ -3020,7 +3020,7 @@ test("a global Workbuddy profile restores the user's models.json on release", ()
 });
 
 test("a global Workbuddy profile deletes the models.json it created", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-workbuddy-release-missing-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-release-missing-"));
   try {
     const workbuddyHome = path.join(root, ".workbuddy");
     const workbuddyModels = path.join(workbuddyHome, "models.json");
@@ -3040,7 +3040,7 @@ for (const [label, makeProfile, relativeFile, managedContent, sweepWarns] of [
   ["Workbuddy", (dir) => globalWorkbuddyProfile(dir), "models.json", `${JSON.stringify({ models: [{ apiKey: "${LLMR_PROFILE_API_KEY}", id: "gpt-5-codex" }] })}\n`, true]
 ]) {
   test(`a global ${label} release warns but succeeds when an upgraded models.json has no backup`, () => {
-    const root = mkdtempSync(path.join(os.tmpdir(), "ccr-models-no-backup-"));
+    const root = mkdtempSync(path.join(os.tmpdir(), "llmr-models-no-backup-"));
     try {
       const dir = path.join(root, "home");
       const file = path.join(dir, relativeFile);
@@ -3080,11 +3080,11 @@ function serializedApplyFixture(root, model) {
     surface: "auto"
   };
   const config = createDefaultAppConfig();
-  config.APIKEY = "ccr-profile-serialize-test";
+  config.APIKEY = "llmr-profile-serialize-test";
   config.APIKEYS = [{
     createdAt: "2026-01-01T00:00:00.000Z",
     id: `profile:${profile.id}`,
-    key: "ccr-profile-serialize-test",
+    key: "llmr-profile-serialize-test",
     name: "Profile: Claude Code"
   }];
   config.Providers = [{
@@ -3098,7 +3098,7 @@ function serializedApplyFixture(root, model) {
 }
 
 test("concurrent applies land in call order", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-apply-serialize-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-apply-serialize-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
     rmSync(takeoverFile, { force: true });
@@ -3116,7 +3116,7 @@ test("concurrent applies land in call order", { skip: !process.env.LLMR_INTERNAL
 });
 
 test("a rejected apply does not block the next one", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-apply-serialize-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-apply-serialize-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
     rmSync(takeoverFile, { force: true });

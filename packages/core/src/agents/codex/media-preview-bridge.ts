@@ -42,7 +42,7 @@ type LoadedMediaArtifact = {
 };
 
 const codexDevToolsActivePortFile = "DevToolsActivePort";
-const codexMediaPreviewBinding = "__ccrMediaPreviewRequest";
+const codexMediaPreviewBinding = "__llmrMediaPreviewRequest";
 const codexMediaPreviewConnectTimeoutMs = 20_000;
 const codexMediaPreviewFetchTimeoutMs = 60_000;
 const codexMediaPreviewPollIntervalMs = 250;
@@ -219,7 +219,7 @@ export class CodexAppMediaPreviewBridge {
     await client.send("Runtime.evaluate", {
       awaitPromise: false,
       ...(typeof executionContextId === "number" ? { contextId: executionContextId } : {}),
-      expression: `globalThis.__ccrMediaPreviewBridge?.receive(${JSON.stringify(message)})`
+      expression: `globalThis.__llmrMediaPreviewBridge?.receive(${JSON.stringify(message)})`
     });
   }
 }
@@ -386,10 +386,10 @@ function codexMediaPreviewPageBootstrap(config: {
   type PreviewTransfer = { chunks: Uint8Array[]; mimeType: string; received: number; size: number };
   type HiddenState = { count: number; display: string; hidden: HTMLElement["hidden"] };
   type PreviewScope = typeof globalThis & {
-    __ccrMediaPreviewBridge?: { dispose: () => void; receive: (message: Record<string, unknown>) => void; scan: () => void; version: string };
+    __llmrMediaPreviewBridge?: { dispose: () => void; receive: (message: Record<string, unknown>) => void; scan: () => void; version: string };
   };
   const scope = globalThis as PreviewScope;
-  const existing = scope.__ccrMediaPreviewBridge;
+  const existing = scope.__llmrMediaPreviewBridge;
   if (existing?.version === config.version) {
     existing.scan();
     return;
@@ -488,12 +488,12 @@ function codexMediaPreviewPageBootstrap(config: {
   }
 
   function wrapperFor(root: HTMLElement, key: string): HTMLElement | undefined {
-    return [...root.querySelectorAll<HTMLElement>("[data-ccr-inline-media-key]")].find((element) => element.dataset.ccrInlineMediaKey === key);
+    return [...root.querySelectorAll<HTMLElement>("[data-llmr-inline-media-key]")].find((element) => element.dataset.llmrInlineMediaKey === key);
   }
 
   function rawFallback(root: HTMLElement, key: string): HTMLElement | undefined {
     const candidates = [...root.querySelectorAll<HTMLElement>("pre, code, p")]
-      .filter((element) => !element.closest("[data-ccr-inline-media-key]") && (element.textContent || "").includes(key))
+      .filter((element) => !element.closest("[data-llmr-inline-media-key]") && (element.textContent || "").includes(key))
       .filter((element) => element.matches("pre, code") || /<(?:img|video)\b/i.test(element.textContent || ""))
       .sort((left, right) => (left.textContent || "").length - (right.textContent || "").length);
     const selected = candidates[0];
@@ -514,7 +514,7 @@ function codexMediaPreviewPageBootstrap(config: {
     let best = button;
     let current = button.parentElement;
     for (let depth = 0; current && current !== root && depth < 5; depth += 1, current = current.parentElement) {
-      if (current.querySelector("[data-selected-text-overlay-target], [data-ccr-inline-media-key]")) break;
+      if (current.querySelector("[data-selected-text-overlay-target], [data-llmr-inline-media-key]")) break;
       const controls = current.querySelectorAll("button, input, textarea, select").length;
       const textLength = (current.textContent || "").trim().length;
       if (controls <= 4 && textLength <= 1_000) best = current;
@@ -554,7 +554,7 @@ function codexMediaPreviewPageBootstrap(config: {
     if (!root.isConnected || wrapperFor(root, asset.key)) return;
     asset.lastUsed = Date.now();
     const wrapper = document.createElement("div");
-    wrapper.dataset.ccrInlineMediaKey = asset.key;
+    wrapper.dataset.llmrInlineMediaKey = asset.key;
     wrapper.style.marginTop = "12px";
     wrapper.style.maxWidth = "680px";
     wrapper.style.width = "100%";
@@ -609,8 +609,8 @@ function codexMediaPreviewPageBootstrap(config: {
   function evictAsset(key: string, suppress: boolean): void {
     const asset = assets.get(key);
     if (!asset) return;
-    for (const wrapper of document.querySelectorAll<HTMLElement>("[data-ccr-inline-media-key]")) {
-      if (wrapper.dataset.ccrInlineMediaKey === key) removeWrapper(wrapper);
+    for (const wrapper of document.querySelectorAll<HTMLElement>("[data-llmr-inline-media-key]")) {
+      if (wrapper.dataset.llmrInlineMediaKey === key) removeWrapper(wrapper);
     }
     URL.revokeObjectURL(asset.blobUrl);
     assets.delete(key);
@@ -685,7 +685,7 @@ function codexMediaPreviewPageBootstrap(config: {
   function dispose(): void {
     observer?.disconnect();
     if (scanTimer !== undefined) clearTimeout(scanTimer);
-    for (const wrapper of document.querySelectorAll<HTMLElement>("[data-ccr-inline-media-key]")) removeWrapper(wrapper);
+    for (const wrapper of document.querySelectorAll<HTMLElement>("[data-llmr-inline-media-key]")) removeWrapper(wrapper);
     for (const asset of assets.values()) URL.revokeObjectURL(asset.blobUrl);
     assets.clear();
     transfers.clear();
@@ -701,7 +701,7 @@ function codexMediaPreviewPageBootstrap(config: {
     scan();
   }
 
-  scope.__ccrMediaPreviewBridge = { dispose, receive, scan, version: config.version };
+  scope.__llmrMediaPreviewBridge = { dispose, receive, scan, version: config.version };
   start();
 }
 

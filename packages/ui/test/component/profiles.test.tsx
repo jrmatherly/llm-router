@@ -400,7 +400,7 @@ test("AddProfileForm treats Claude Design as an LLMR-only App profile", () => {
   );
 
   assert.equal(draft.name, "Claude Design");
-  assert.equal(draft.scope, "ccr");
+  assert.equal(draft.scope, "llmr");
   assert.equal(draft.surface, "app");
   assert.equal(isProfileDraftSubmittable(draft), true);
   assert.match(html, /Claude Design/);
@@ -418,7 +418,7 @@ test("ProfileView renders agent profiles as compact cards with inline actions", 
   config.profile.profiles = [
     {
       ...profile,
-      scope: "ccr",
+      scope: "llmr",
       surface: "auto"
     },
     {
@@ -475,7 +475,7 @@ test("profileSummaryItems uses Kimi-specific model labels", () => {
     id: "kimi-main",
     model: "kimi/k2",
     name: "Kimi Main",
-    scope: "ccr",
+    scope: "llmr",
     surface: "cli"
   }, config);
 
@@ -492,7 +492,7 @@ test("profileSummaryItems uses Pi-specific model labels", () => {
     id: "pi-main",
     model: "openai/gpt-5.2",
     name: "Pi Main",
-    scope: "ccr",
+    scope: "llmr",
     surface: "cli"
   }, config);
 
@@ -508,7 +508,7 @@ test("profileSummaryItems uses a generic App path label", () => {
     id: "workbuddy-main",
     model: "openai/gpt-5.2",
     name: "Workbuddy Main",
-    scope: "ccr",
+    scope: "llmr",
     surface: "app"
   }, config);
 
@@ -527,7 +527,7 @@ test("profileSummaryItems omits disabled profile properties from cards", () => {
     model: "openai/gpt-5.2",
     name: "Codex Main",
     providerId: "claude-code-router",
-    scope: "ccr",
+    scope: "llmr",
     showAllSessions: false,
     surface: "auto"
   }, config);
@@ -543,7 +543,7 @@ test("profileSummaryItems omits disabled profile properties from cards", () => {
     model: "openai/gpt-5.2",
     name: "Codex Main",
     providerId: "claude-code-router",
-    scope: "ccr",
+    scope: "llmr",
     showAllSessions: true,
     surface: "auto"
   }, config);
@@ -566,7 +566,7 @@ test("profileSummaryItems shows disabled profile enhanced route without private 
       enhancedRoute: false,
       rules: []
     },
-    scope: "ccr",
+    scope: "llmr",
     surface: "cli"
   }, config);
   const text = items.map((item) => `${item.label} ${item.value}`).join(" ");
@@ -603,7 +603,7 @@ test("Grok CLI profile defaults to an LLMR-scoped CLI entry", () => {
   const draft = createProfileDraft("grok");
 
   assert.equal(draft.name, "Grok CLI");
-  assert.equal(draft.scope, "ccr");
+  assert.equal(draft.scope, "llmr");
   assert.equal(draft.surface, "cli");
 });
 
@@ -619,7 +619,7 @@ test("persisted Grok profiles are normalized to the supported launch scope", () 
   }, 0);
 
   assert.equal(profile?.agent, "grok");
-  assert.equal(profile?.scope, "ccr");
+  assert.equal(profile?.scope, "llmr");
   assert.equal(profile?.surface, "cli");
 });
 
@@ -642,7 +642,7 @@ test("profile routing survives profile draft round trip", () => {
         type: "condition"
       }]
     },
-    scope: "ccr",
+    scope: "llmr",
     surface: "cli"
   }, 0);
 
@@ -704,7 +704,7 @@ test("OpenCode profiles support local CLI and App configuration", () => {
     id: "opencode-work",
     model: "Provider/model",
     name: "OpenCode Work",
-    scope: "ccr",
+    scope: "llmr",
     surface: "auto"
   }, 0);
   assert.equal(profile?.agent, "opencode");

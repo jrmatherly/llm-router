@@ -157,7 +157,7 @@ function findClaudeAppVmSeedBundle(configDir: string, userDataDir: string): stri
     ...configuredSeedBundleCandidates(),
     resolveSharedClaudeAppVmSeedBundleDir(configDir),
     ...resolveClaudeAppDefaultUserDataDirs().map(resolveClaudeAppVmBundleDir),
-    ...existingCcrProfileVmBundleCandidates(configDir)
+    ...existingLlmrProfileVmBundleCandidates(configDir)
   ]).find((candidate) =>
     !samePath(candidate, targetBundleDir) &&
     isUsableClaudeAppVmBundle(candidate)
@@ -181,7 +181,7 @@ function configuredSeedBundleCandidates(): string[] {
     });
 }
 
-function existingCcrProfileVmBundleCandidates(configDir: string): string[] {
+function existingLlmrProfileVmBundleCandidates(configDir: string): string[] {
   const profilesDir = path.join(configDir, "profiles");
   if (!isDirectory(profilesDir)) {
     return [];
@@ -270,7 +270,7 @@ function isReplaceableIncompleteBundle(bundleDir: string): boolean {
 
 function cloneDirectory(sourceDir: string, targetDir: string): void {
   const parentDir = path.dirname(targetDir);
-  const tempDir = path.join(parentDir, `.${path.basename(targetDir)}.ccr-clone-${process.pid}-${Date.now()}`);
+  const tempDir = path.join(parentDir, `.${path.basename(targetDir)}.llmr-clone-${process.pid}-${Date.now()}`);
   rmSync(tempDir, { force: true, recursive: true });
   try {
     copyDirectoryContents(sourceDir, tempDir);

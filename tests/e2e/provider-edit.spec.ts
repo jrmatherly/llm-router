@@ -277,7 +277,7 @@ async function prepareProviderRegressionPage(page: Page, withReferences = false)
     config.proxy.enabled = false;
     config.profile.enabled = false;
     config.profile.profiles = withReferences ? [{
-      agent: "codex", enabled: false, id: "rename-profile", name: "Rename profile", scope: "ccr",
+      agent: "codex", enabled: false, id: "rename-profile", name: "Rename profile", scope: "llmr",
       model: selector, availableModels: [selector]
     }] : [];
     config.Router.fallback = { mode: withReferences ? "model-chain" : "off", models: withReferences ? [selector] : [], retryCount: 1 };

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ApiKeyConfig } from "@llmr/core/contracts/app";
 
-export const ccrRemoteControlPathPrefix = "/__llmr/remote";
+export const llmrRemoteControlPathPrefix = "/__llmr/remote";
 
 export function remoteControlOwnerId(apiKey: Pick<ApiKeyConfig, "id"> | undefined): string {
   return apiKey ? `key:${apiKey.id}` : "anonymous";
@@ -10,7 +10,7 @@ export function remoteControlOwnerId(apiKey: Pick<ApiKeyConfig, "id"> | undefine
 
 type RemoteDirection = "inbound" | "local" | "remote" | "system";
 
-export type CcrRemoteControlRequestContext = {
+export type LlmrRemoteControlRequestContext = {
   endpoint: string;
   ownerId: string;
   path: string;
@@ -68,14 +68,14 @@ const maxEventsPerSession = 2_000;
 const maxInboundEventsPerSession = 500;
 const sseHeartbeatMs = 15_000;
 
-export class CcrRemoteControlService {
+export class LlmrRemoteControlService {
   private readonly sessionsByOwner = new Map<string, Map<string, RemoteSession>>();
 
-  async handleRequest(context: CcrRemoteControlRequestContext): Promise<void> {
+  async handleRequest(context: LlmrRemoteControlRequestContext): Promise<void> {
     const segments = remotePathSegments(context.path);
     const [root, sessionId, resource] = segments;
 
-    if (segments.length === 0 || context.path === ccrRemoteControlPathPrefix) {
+    if (segments.length === 0 || context.path === llmrRemoteControlPathPrefix) {
       this.sendCapabilities(context);
       return;
     }
@@ -124,15 +124,15 @@ export class CcrRemoteControlService {
     context.sendJson(context.response, 404, { error: { message: "Remote control session endpoint not found." } });
   }
 
-  private sendCapabilities(context: CcrRemoteControlRequestContext): void {
+  private sendCapabilities(context: LlmrRemoteControlRequestContext): void {
     context.sendJson(context.response, 200, {
       endpoints: {
-        createSession: `${context.endpoint}${ccrRemoteControlPathPrefix}/sessions`,
-        inbound: `${context.endpoint}${ccrRemoteControlPathPrefix}/sessions/{sessionId}/inbound`,
-        sessionEvents: `${context.endpoint}${ccrRemoteControlPathPrefix}/sessions/{sessionId}/events`
+        createSession: `${context.endpoint}${llmrRemoteControlPathPrefix}/sessions`,
+        inbound: `${context.endpoint}${llmrRemoteControlPathPrefix}/sessions/{sessionId}/inbound`,
+        sessionEvents: `${context.endpoint}${llmrRemoteControlPathPrefix}/sessions/{sessionId}/events`
       },
-      name: "ccr-remote-control",
-      protocol: "ccr.remote.v1",
+      name: "llmr-remote-control",
+      protocol: "llmr.remote.v1",
       transport: ["json", "sse"],
       capabilities: {
         catchupReplay: true,
@@ -143,7 +143,7 @@ export class CcrRemoteControlService {
     });
   }
 
-  private async handleSessionsRequest(context: CcrRemoteControlRequestContext): Promise<void> {
+  private async handleSessionsRequest(context: LlmrRemoteControlRequestContext): Promise<void> {
     if (context.request.method === "GET") {
       context.sendJson(context.response, 200, {
         sessions: [...(this.sessionsByOwner.get(context.ownerId)?.values() ?? [])].map((session) => this.sessionSummary(session, context.endpoint))
@@ -167,7 +167,7 @@ export class CcrRemoteControlService {
     this.appendEvent(session, {
       direction: "system",
       payload: { title },
-      source: "ccr-gateway",
+      source: "llmr-gateway",
       type: "session.created"
     });
 
@@ -176,7 +176,7 @@ export class CcrRemoteControlService {
     });
   }
 
-  private async handleSessionRequest(context: CcrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
+  private async handleSessionRequest(context: LlmrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
     if (context.request.method === "GET") {
       context.sendJson(context.response, 200, { session: this.sessionSnapshot(session, context.endpoint) });
       return;
@@ -199,7 +199,7 @@ export class CcrRemoteControlService {
       this.appendEvent(session, {
         direction: "system",
         payload: { metadata: metadata ?? {}, title: title ?? session.title },
-        source: "ccr-gateway",
+        source: "llmr-gateway",
         type: "session.updated"
       });
       context.sendJson(context.response, 200, { session: this.sessionSnapshot(session, context.endpoint) });
@@ -212,7 +212,7 @@ export class CcrRemoteControlService {
       this.appendEvent(session, {
         direction: "system",
         payload: { archivedAt: session.archivedAt },
-        source: "ccr-gateway",
+        source: "llmr-gateway",
         type: "session.archived"
       });
       context.sendJson(context.response, 200, { archived: true, session: this.sessionSummary(session, context.endpoint) });
@@ -222,7 +222,7 @@ export class CcrRemoteControlService {
     context.sendJson(context.response, 405, { error: { message: "Method not allowed." } });
   }
 
-  private async handleEventsRequest(context: CcrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
+  private async handleEventsRequest(context: LlmrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
     if (context.request.method === "GET") {
       const after = remoteAfterSeq(context.request);
       if (wantsSse(context.request)) {
@@ -259,7 +259,7 @@ export class CcrRemoteControlService {
     });
   }
 
-  private async handleInboundRequest(context: CcrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
+  private async handleInboundRequest(context: LlmrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
     if (context.request.method === "GET") {
       const after = remoteAfterSeq(context.request);
       if (wantsSse(context.request)) {
@@ -296,7 +296,7 @@ export class CcrRemoteControlService {
     });
   }
 
-  private async handlePresenceRequest(context: CcrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
+  private async handlePresenceRequest(context: LlmrRemoteControlRequestContext, session: RemoteSession): Promise<void> {
     if (context.request.method === "GET") {
       context.sendJson(context.response, 200, { presence: session.presence });
       return;
@@ -322,7 +322,7 @@ export class CcrRemoteControlService {
     const event = this.appendEvent(session, {
       direction: "system",
       payload: { clientId, presence },
-      source: "ccr-gateway",
+      source: "llmr-gateway",
       type: "presence.updated"
     });
     context.sendJson(context.response, 202, { event, presence: session.presence });
@@ -419,7 +419,7 @@ export class CcrRemoteControlService {
   }
 
   private openSse(
-    context: CcrRemoteControlRequestContext,
+    context: LlmrRemoteControlRequestContext,
     session: RemoteSession,
     kind: RemoteSubscriber["kind"],
     after: number
@@ -483,9 +483,9 @@ export class CcrRemoteControlService {
       ...(session.archivedAt ? { archivedAt: session.archivedAt } : {}),
       createdAt: session.createdAt,
       endpoints: {
-        events: `${endpoint}${ccrRemoteControlPathPrefix}/sessions/${encodeURIComponent(session.id)}/events`,
-        inbound: `${endpoint}${ccrRemoteControlPathPrefix}/sessions/${encodeURIComponent(session.id)}/inbound`,
-        presence: `${endpoint}${ccrRemoteControlPathPrefix}/sessions/${encodeURIComponent(session.id)}/presence`
+        events: `${endpoint}${llmrRemoteControlPathPrefix}/sessions/${encodeURIComponent(session.id)}/events`,
+        inbound: `${endpoint}${llmrRemoteControlPathPrefix}/sessions/${encodeURIComponent(session.id)}/inbound`,
+        presence: `${endpoint}${llmrRemoteControlPathPrefix}/sessions/${encodeURIComponent(session.id)}/presence`
       },
       eventCount: session.events.length,
       id: session.id,
@@ -497,7 +497,7 @@ export class CcrRemoteControlService {
     };
   }
 
-  private async readJsonBody(context: CcrRemoteControlRequestContext): Promise<Record<string, unknown> | undefined> {
+  private async readJsonBody(context: LlmrRemoteControlRequestContext): Promise<Record<string, unknown> | undefined> {
     const body = await context.readBody(context.request);
     if (body.length === 0) {
       return {};
@@ -527,7 +527,7 @@ type RemoteEventInput = {
   type?: string;
 };
 
-export const ccrRemoteControlService = new CcrRemoteControlService();
+export const llmrRemoteControlService = new LlmrRemoteControlService();
 
 function normalizeEventInputs(body: Record<string, unknown>): RemoteEventInput[] {
   const rawEvents = Array.isArray(body.events) ? body.events : [body];
@@ -587,7 +587,7 @@ function remoteAfterSeq(request: IncomingMessage): number {
 }
 
 function remotePathSegments(path: string): string[] {
-  const suffix = path.slice(ccrRemoteControlPathPrefix.length).replace(/^\/+|\/+$/g, "");
+  const suffix = path.slice(llmrRemoteControlPathPrefix.length).replace(/^\/+|\/+$/g, "");
   if (!suffix) {
     return [];
   }

@@ -100,7 +100,7 @@ test("OpenCode Go usage mode feeds the imported local agent key to the usage req
       ...(config.providerPlugins ?? []),
       {
         auth: { headers: { "x-api-key": "opencode-go-live-key" }, removeHeaders: ["authorization"], strict: true },
-        key: "ccr-local-agent-opencode-go-anthropic-messages-opencode-go-anthropic-messages-api-key",
+        key: "llmr-local-agent-opencode-go-anthropic-messages-opencode-go-anthropic-messages-api-key",
         providerName: `${providerName}::anthropic_messages`
       }
     ]

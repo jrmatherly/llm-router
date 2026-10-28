@@ -4,9 +4,9 @@ import { endpoint as gatewayEndpoint } from "@llmr/core/gateway/core-runtime/sup
 import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
 import { isLocalHostname } from "@llmr/core/net/loopback";
 
-export type ExistingCcrGatewayProbe =
+export type ExistingLlmrGatewayProbe =
   | { endpoint: string; reason?: string; state: "unavailable" }
-  | { endpoint: string; status?: number; state: "not-ccr" }
+  | { endpoint: string; status?: number; state: "not-llmr" }
   | { endpoint: string; message?: string; status: number; state: "unauthorized" }
   | { endpoint: string; status: number; state: "unusable" }
   | { apiKey?: string; endpoint: string; state: "usable" };
@@ -20,26 +20,26 @@ type ExistingGatewayHttpProbe = {
 const existingGatewayFetchAttempts = 3;
 const runtimeConfigReloadTimeoutMs = 20_000;
 
-export async function probeExistingCcrGateway(
+export async function probeExistingLlmrGateway(
   config: Pick<AppConfig, "APIKEY" | "APIKEYS" | "gateway">
-): Promise<ExistingCcrGatewayProbe> {
+): Promise<ExistingLlmrGatewayProbe> {
   const endpoint = publicGatewayEndpoint(config);
   if (!isLocalGatewayEndpoint(endpoint)) {
     return { endpoint, reason: nonLocalGatewayMessage, state: "unavailable" };
   }
   const health = await fetchExistingGateway(endpoint, "/health");
-  let ccrGateway = isCcrGatewayHealth(health.payload);
+  let llmrGateway = isLlmrGatewayHealth(health.payload);
   let root: ExistingGatewayHttpProbe | undefined;
 
-  if (!ccrGateway) {
+  if (!llmrGateway) {
     root = await fetchExistingGateway(endpoint, "/");
-    ccrGateway = isCcrGatewayRoot(root.payload);
+    llmrGateway = isLlmrGatewayRoot(root.payload);
   }
-  if (!ccrGateway) {
+  if (!llmrGateway) {
     if (health.status === undefined && root?.status === undefined) {
       return { endpoint, reason: health.reason || root?.reason, state: "unavailable" };
     }
-    return { endpoint, status: health.status ?? root?.status, state: "not-ccr" };
+    return { endpoint, status: health.status ?? root?.status, state: "not-llmr" };
   }
 
   // The responder is unverified until it accepts a key, so it gets one key, never the whole list.
@@ -79,7 +79,7 @@ export function publicGatewayEndpoint(config: Pick<AppConfig, "gateway">): strin
   return gatewayEndpoint(host, config.gateway.port);
 }
 
-export async function reloadExistingCcrGatewayConfig(
+export async function reloadExistingLlmrGatewayConfig(
   currentEndpoint: string,
   config: AppConfig,
   currentApiKey: string | undefined,
@@ -215,14 +215,14 @@ function existingGatewayApiKeyCandidates(config: Pick<AppConfig, "APIKEY" | "API
   return result;
 }
 
-function isCcrGatewayHealth(value: unknown): boolean {
+function isLlmrGatewayHealth(value: unknown): boolean {
   return isRecord(value) &&
     typeof value.status === "string" &&
     typeof value.core === "string" &&
     typeof value.timestamp === "string";
 }
 
-function isCcrGatewayRoot(value: unknown): boolean {
+function isLlmrGatewayRoot(value: unknown): boolean {
   return isRecord(value) &&
     (value.name === "claude-code-router" ||
       value.plugin === "claude-code-router" ||

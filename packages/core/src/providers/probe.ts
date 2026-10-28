@@ -895,7 +895,7 @@ function requestForProtocolSupport(protocol: GatewayProviderCapabilityProtocol, 
 function mediaProbeBody(protocol: GatewayProviderCapabilityProtocol): Record<string, unknown> {
   if (protocol === "openai_image_generations") {
     return {
-      model: "__ccr_media_protocol_probe__",
+      model: "__llmr_media_protocol_probe__",
       n: 0,
       prompt: ""
     };
@@ -903,7 +903,7 @@ function mediaProbeBody(protocol: GatewayProviderCapabilityProtocol): Record<str
   if (protocol === "openai_video_generations" || protocol === "xai_video_generations") {
     return {
       duration: 0,
-      model: "__ccr_media_protocol_probe__",
+      model: "__llmr_media_protocol_probe__",
       prompt: ""
     };
   }

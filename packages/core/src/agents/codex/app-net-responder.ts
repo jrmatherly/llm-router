@@ -14,7 +14,7 @@ export type CodexVirtualRoute = {
   body?: unknown;
 };
 
-const VIRTUAL_ACCOUNT_ID = "ccr-virtual-account";
+const VIRTUAL_ACCOUNT_ID = "llmr-virtual-account";
 
 /**
  * Responses served by the local net responder instead of the ChatGPT backend.
@@ -45,7 +45,7 @@ export function codexVirtualAccountRoutes(): CodexVirtualRoute[] {
             can_access_with_session: true,
             enable_account_switching: false,
             is_deactivated: false,
-            name: "CCR"
+            name: "LLMR"
           }
         ],
         default_account_id: accountId,
@@ -86,7 +86,7 @@ export function codexVirtualAccountRoutes(): CodexVirtualRoute[] {
       // poisons every request that carries a device token (including the
       // account inventory) with devicecheck_registration_http_failed.
       prefix: "/devicecheck",
-      headers: { "set-cookie": "_devicecheck=ccr-virtual-device; Path=/; SameSite=Lax" },
+      headers: { "set-cookie": "_devicecheck=llmr-virtual-device; Path=/; SameSite=Lax" },
       body: {}
     }
   ];
@@ -172,7 +172,7 @@ export type CodexAppNetResponder = {
 
 const responders = new Map<number, Promise<CodexAppNetResponder>>();
 
-/** Share the desktop API listener across profile launches in this CCR process. */
+/** Share the desktop API listener across profile launches in this LLMR process. */
 export function ensureCodexAppNetResponder(options: {
   listenPort: number;
   logPath: string;
@@ -194,7 +194,7 @@ export function ensureCodexAppNetResponder(options: {
 }
 
 /**
- * Loopback HTTP responder for the CCR-launched ChatGPT app. Pointed at via
+ * Loopback HTTP responder for the LLMR-launched ChatGPT app. Pointed at via
  * the CODEX_API_BASE_URL environment variable (honored by the app's desktop
  * API URL builder), it serves the virtual-account routes locally and records
  * every other request for further route discovery.
@@ -238,7 +238,7 @@ export async function startCodexAppNetResponder(options: {
         });
         response.end(body);
       } else {
-        const body = JSON.stringify({ error: "ccr-net-responder", path: url.pathname });
+        const body = JSON.stringify({ error: "llmr-net-responder", path: url.pathname });
         response.writeHead(404, { "content-type": "application/json" });
         response.end(body);
       }

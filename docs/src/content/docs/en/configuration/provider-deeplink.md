@@ -125,14 +125,14 @@ LLMR also ships a framework-free button script that providers can embed on their
 ```html
 <script src="https://jrmatherly.github.io/llm-router/llmr-provider-buttons.js" defer></script>
 
-<ccr-provider-button
+<llmr-provider-button
   name="Example AI"
   base_url="https://api.example.com/v1"
   protocol="openai_chat_completions"
   models="example-chat,example-coder"
   icon="https://example.com/icon.png"
   source="https://example.com"
-></ccr-provider-button>
+></llmr-provider-button>
 ```
 
 For larger configs, pass a manifest:
@@ -140,19 +140,19 @@ For larger configs, pass a manifest:
 ```html
 <script src="https://jrmatherly.github.io/llm-router/llmr-provider-buttons.js" defer></script>
 
-<ccr-provider-button
+<llmr-provider-button
   name="Example AI"
-  manifest="https://example.com/.well-known/ccr-provider.json"
-></ccr-provider-button>
+  manifest="https://example.com/.well-known/llmr-provider.json"
+></llmr-provider-button>
 ```
 
 ### JavaScript
 
 ```html
-<div id="ccr-buttons"></div>
+<div id="llmr-buttons"></div>
 <script src="https://jrmatherly.github.io/llm-router/llmr-provider-buttons.js"></script>
 <script>
-  CCRProviderButtons.render("#ccr-buttons", {
+  LLMRProviderButtons.render("#llmr-buttons", {
     name: "Example AI",
     base_url: "https://api.example.com/v1",
     api_key: "sk-user-key",
@@ -166,7 +166,7 @@ For larger configs, pass a manifest:
 
 ### Render parameters
 
-`CCRProviderButtons.render(target, options)` and `<ccr-provider-button>` support the same parameter set. Parameter names match the `llmr://provider` protocol:
+`LLMRProviderButtons.render(target, options)` and `<llmr-provider-button>` support the same parameter set. Parameter names match the `llmr://provider` protocol:
 
 | Parameter | Description |
 | --- | --- |
@@ -194,7 +194,7 @@ For larger configs, pass a manifest:
 
 ## URL Format
 
-LLM Router 5.0 registers the `llmr://` scheme. It no longer handles links of the old `ccr://` scheme, so pages that still emit `ccr://` links must switch to `llmr://`.
+LLM Router 5.0 registers the `llmr://` scheme. It no longer handles links of the old `llmr://` scheme, so pages that still emit `llmr://` links must switch to `llmr://`.
 
 LLMR supports two URL shapes. The host form is recommended:
 
@@ -219,7 +219,7 @@ llmr://provider?payload=%7B%22name%22%3A%22Example%20AI%22%2C%22base_url%22%3A%2
 Providers can also pass a manifest URL:
 
 ```text
-llmr://provider?manifest=https%3A%2F%2Fexample.com%2Fccr-provider.json
+llmr://provider?manifest=https%3A%2F%2Fexample.com%2Fllmr-provider.json
 ```
 
 The manifest must use HTTPS, return JSON, avoid local or private network hosts, and stay under 128 KB. LLMR fetches the manifest inside the app, shows a confirmation dialog, and writes config only after user approval.

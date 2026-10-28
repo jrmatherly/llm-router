@@ -5,7 +5,7 @@ import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
 import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
 
 export const CLAUDE_APP_ONE_MILLION_CONTEXT_SUFFIX = "[1m]";
-const CLAUDE_APP_ENCODED_ROUTE_PREFIX = "anthropic/claude-ccr-h";
+const CLAUDE_APP_ENCODED_ROUTE_PREFIX = "anthropic/claude-llmr-h";
 
 export type ClaudeAppGatewayModelRoute = {
   displayName: string;
@@ -307,7 +307,7 @@ function claudeAppGatewayNativeModelNameIsSafe(model: string): boolean {
 
 function claudeAppGatewayEncodedRouteId(model: string, variant?: number): string {
   const routePrefix = variant && variant > 1
-    ? `anthropic/claude-ccr${variant}-h`
+    ? `anthropic/claude-llmr${variant}-h`
     : CLAUDE_APP_ENCODED_ROUTE_PREFIX;
   return `${routePrefix}${encodeClaudeAppGatewayRouteModel(model)}`;
 }
@@ -318,7 +318,7 @@ function encodeClaudeAppGatewayRouteModel(model: string): string {
 
 export function decodeClaudeAppGatewayRouteId(routeId: string): string | undefined {
   const normalized = stripClaudeAppGatewayOneMillionContextSuffix(routeId).toLowerCase();
-  const match = /^anthropic\/claude-ccr(?:\d+)?-h([0-9a-f]+)$/.exec(normalized);
+  const match = /^anthropic\/claude-llmr(?:\d+)?-h([0-9a-f]+)$/.exec(normalized);
   const encoded = match?.[1];
   if (!encoded || encoded.length % 2 !== 0) {
     return undefined;

@@ -6,7 +6,7 @@ import test, { mock } from "node:test";
 import { claudeCodeManagedSettingsDir, claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@llmr/core/agents/claude-code/gateway-login-policy.ts";
 
 function withTempDir(run) {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-gateway-login-policy-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-gateway-login-policy-"));
   try {
     run(dir);
   } finally {
@@ -80,7 +80,7 @@ test("managed settings directory follows the platform", () => {
   assert.equal(claudeCodeManagedSettingsDir("darwin"), "/Library/Application Support/ClaudeCode");
   assert.equal(claudeCodeManagedSettingsDir("linux"), "/etc/claude-code");
   assert.equal(claudeCodeManagedSettingsDir("win32"), "C:\\Program Files\\ClaudeCode");
-  assert.deepEqual(claudeCodeManagedSettingsFiles(path.join(os.tmpdir(), "ccr-gateway-login-policy-absent")), []);
+  assert.deepEqual(claudeCodeManagedSettingsFiles(path.join(os.tmpdir(), "llmr-gateway-login-policy-absent")), []);
 });
 
 test("an unreadable managed-settings.d is no policy and warns", { skip: process.getuid?.() === 0 }, () => {

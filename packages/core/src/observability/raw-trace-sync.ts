@@ -119,11 +119,11 @@ type RawTraceStorageLimits = {
   inboxMaxBytes: number;
 };
 
-const rawTraceInboxDirectoryName = ".ccr-inbox";
-const rawTraceDeadLetterDirectoryName = ".ccr-dead-letter";
-const rawTraceStagingDirectoryName = ".ccr-staging";
-const rawTraceDeliveryFileName = ".ccr-delivery.json";
-const rawTraceReadyFileName = ".ccr-ready.json";
+const rawTraceInboxDirectoryName = ".llmr-inbox";
+const rawTraceDeadLetterDirectoryName = ".llmr-dead-letter";
+const rawTraceStagingDirectoryName = ".llmr-staging";
+const rawTraceDeliveryFileName = ".llmr-delivery.json";
+const rawTraceReadyFileName = ".llmr-ready.json";
 const defaultRawTraceReplayIntervalMs = 1_000;
 const defaultRawTraceRetryCooldownMs = 5_000;
 const defaultRawTracePendingRetryMaxMs = 5 * 60 * 1_000;

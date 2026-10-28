@@ -13,7 +13,7 @@ const cacheReadTokens = 800;
 const promptTokens = 1000;
 
 test("#1791 actual gateway reports OpenCode Go cache reads to Anthropic clients", { timeout: 30000 }, async () => {
-  const root = mkdtempSync(path.join(tmpdir(), "ccr-opencode-go-cache-"));
+  const root = mkdtempSync(path.join(tmpdir(), "llmr-opencode-go-cache-"));
   const captured = [];
   const upstream = createServer(async (request, response) => {
     const chunks = [];
@@ -128,7 +128,7 @@ test("#1791 actual gateway reports OpenCode Go cache reads to Anthropic clients"
         }
       ],
       plugins: [
-        { key: "ccr-test-boundary", modulePath: path.resolve(".test-dist/core/runtime/upstream-header-sanitizer.js") },
+        { key: "llmr-test-boundary", modulePath: path.resolve(".test-dist/core/runtime/upstream-header-sanitizer.js") },
         { key: "test-transport", modulePath: redirectFile }
       ]
     }));

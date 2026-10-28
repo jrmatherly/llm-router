@@ -76,17 +76,17 @@ export function appendAggregateErrorAttemptSummary(text: string, previousAttempt
   }
   let error = { ...parsedError, message: parsedError.message, attempts: parsedError.attempts as unknown[] };
 
-  // CCR's model-chain wraps multiple core-gateway requests. The final core
+  // LLMR's model-chain wraps multiple core-gateway requests. The final core
   // error knows only its own attempts; retain earlier HTTP/network failures so
   // a last model-resolution error cannot hide a real quota or endpoint error.
   if (previousAttempts.length && !error.attempts.some(attempt =>
-    typeof attempt === "object" && attempt !== null && "stage" in attempt && attempt.stage === "ccr_fallback"
+    typeof attempt === "object" && attempt !== null && "stage" in attempt && attempt.stage === "llmr_fallback"
   )) {
     error = {
       ...error,
       attempts: [
         ...previousAttempts.slice(-(attemptCountLimit - 1)).map(attempt => ({
-          stage: "ccr_fallback",
+          stage: "llmr_fallback",
           ...(attempt.statusCode ? { status: attempt.statusCode } : {}),
           ...(attempt.model ? { model: attempt.model } : {}),
           fallbackReason: attempt.statusCode ? `http:${attempt.statusCode}` : "network-error",

@@ -64,7 +64,7 @@ test("#1780 official opencode-go requests use a stable fallback without overridi
   assert.equal(second.headers["x-opencode-session"], first.headers["x-opencode-session"]);
 
   const anonymous = hook.transformRequest({ request: { headers: {}, id: "request-3" }, upstreamRequest }).value;
-  assert.ok(anonymous.headers["x-opencode-session"]?.startsWith("ccr-"));
+  assert.ok(anonymous.headers["x-opencode-session"]?.startsWith("llmr-"));
   assert.equal(
     hook.transformRequest({ request: { headers: {}, id: "request-4" }, upstreamRequest }).value.headers["x-opencode-session"],
     anonymous.headers["x-opencode-session"]
@@ -74,13 +74,13 @@ test("#1780 official opencode-go requests use a stable fallback without overridi
     request: { body: { metadata: { user_id: "bad\nvalue" } }, headers: {}, id: "request-5" },
     upstreamRequest
   }).value;
-  assert.ok(unsafeMetadata.headers["x-opencode-session"]?.startsWith("ccr-"));
+  assert.ok(unsafeMetadata.headers["x-opencode-session"]?.startsWith("llmr-"));
 
   const unicodeMetadata = hook.transformRequest({
     request: { body: { metadata: { user_id: "sessión-✓-1" } }, headers: {}, id: "request-8" },
     upstreamRequest
   }).value;
-  assert.ok(unicodeMetadata.headers["x-opencode-session"]?.startsWith("ccr-"));
+  assert.ok(unicodeMetadata.headers["x-opencode-session"]?.startsWith("llmr-"));
 
   const longMetadata = hook.transformRequest({
     request: { body: { metadata: { user_id: "a".repeat(400) } }, headers: {}, id: "request-9" },

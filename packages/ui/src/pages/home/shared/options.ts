@@ -151,7 +151,7 @@ export function profileAgentOptionsForRuntime(desktop: boolean): ProfileAgentOpt
 }
 
 export const profileScopeOptions: Array<{ label: string; value: ProfileScope }> = [
-  { label: "Only opened from LLMR", value: "ccr" },
+  { label: "Only opened from LLMR", value: "llmr" },
   { label: "System default", value: "global" }
 ];
 

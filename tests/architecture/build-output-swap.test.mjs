@@ -7,7 +7,7 @@ import test from "node:test";
 import { previousDirectoryFor, removeStaleSwapDirectories, stagingDirectoryFor, swapDirectory } from "../../build/swap-directory.mjs";
 
 function layout() {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-output-swap-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-output-swap-"));
   const target = path.join(root, "core");
   const staging = stagingDirectoryFor(target);
   const previous = previousDirectoryFor(target);
@@ -60,7 +60,7 @@ test("swapDirectory discards its staging copy when a concurrent build already pu
 });
 
 test("removeStaleSwapDirectories drops leftovers of dead builders and keeps live ones", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ccr-output-swap-stale-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-output-swap-stale-"));
   const target = path.join(root, "core");
   const deadPid = spawnSync(process.execPath, ["-e", "process.exit(0)"]).pid;
   const livePid = process.pid + 1;

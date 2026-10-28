@@ -15,7 +15,7 @@ const verifyPackagedApp = createRequire(path.join(process.cwd(), "package.json")
 const hostPlatform = process.platform;
 
 function packagedApp() {
-  const appOutDir = mkdtempSync(path.join(os.tmpdir(), "ccr-packaged-"));
+  const appOutDir = mkdtempSync(path.join(os.tmpdir(), "llmr-packaged-"));
   const resources = hostPlatform === "darwin"
     ? path.join(appOutDir, "Fake.app", "Contents", "Resources")
     : path.join(appOutDir, "resources");

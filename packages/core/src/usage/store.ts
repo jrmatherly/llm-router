@@ -799,7 +799,7 @@ function sqlString(value: string): string {
 }
 
 function copySqliteDatabaseToTemp(file: string): string {
-  const target = join(tmpdir(), `ccr-request-logs-${process.pid}-${Date.now()}-${randomBytes(4).toString("hex")}.sqlite`);
+  const target = join(tmpdir(), `llmr-request-logs-${process.pid}-${Date.now()}-${randomBytes(4).toString("hex")}.sqlite`);
   copyFileSync(file, target);
   for (const suffix of ["-wal", "-shm"]) {
     const source = `${file}${suffix}`;

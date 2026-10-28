@@ -22,7 +22,7 @@ export type CliWebRuntime = {
 
 export async function startCliWebServer(authToken: string): Promise<CliWebRuntime> {
   const port = await findAvailablePort();
-  const testHome = mkdtempSync(path.join(os.tmpdir(), "ccr-playwright-home-"));
+  const testHome = mkdtempSync(path.join(os.tmpdir(), "llmr-playwright-home-"));
   const child = spawn(process.execPath, [
     cliPath,
     "serve",

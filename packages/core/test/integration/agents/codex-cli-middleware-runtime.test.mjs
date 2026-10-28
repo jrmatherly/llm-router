@@ -9,14 +9,14 @@ import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-mid
 import { buildCodexModelCatalog } from "@llmr/core/agents/codex/model-catalog.ts";
 
 test("generated Codex CLI middleware runtime is valid JavaScript", () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-check-"));
-  const file = path.join(dir, "ccr-codex-cli-middleware.js");
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-check-"));
+  const file = path.join(dir, "llmr-codex-cli-middleware.js");
   writeFileSync(file, codexCliMiddlewareRuntimeScript());
   execFileSync(process.execPath, ["--check", file], { stdio: "pipe" });
 });
 
 test("#1851 Pi dispatch consumes only the profile selector and preserves the prompt", () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-pi-dispatch-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-pi-dispatch-"));
   try {
     const runtime = writeRuntimeScript(dir);
     const output = path.join(dir, "args.json");
@@ -38,12 +38,12 @@ test("#1851 Pi dispatch consumes only the profile selector and preserves the pro
       const result = spawnSync(process.execPath, [runtime, ...args], {
         encoding: "utf8", timeout: 10000,
         env: { ...process.env, LLMR_PI_WRAPPER: "1", LLMR_REAL_PI_BIN: fakePi,
-          LLMR_REAL_CODEX_CLI_PATH: fakePi, LLMR_PI_PROVIDER: "ccr", LLMR_PI_MODEL: "Provider/model",
+          LLMR_REAL_CODEX_CLI_PATH: fakePi, LLMR_PI_PROVIDER: "llmr", LLMR_PI_MODEL: "Provider/model",
           LLMR_PI_TEST_OUTPUT: output, LLMR_CLI_DIRECT_PROFILE_DISPATCH: direct ? "1" : "", LLMR_CODEX_DEFAULT_ARGS: "--version" },
       });
       assert.equal(result.status, 0, result.stderr);
       const captured = JSON.parse(readFileSync(output, "utf8"));
-      assert.deepEqual(captured.args, ["--provider", "ccr", "--model", "Provider/model", ...expected]);
+      assert.deepEqual(captured.args, ["--provider", "llmr", "--model", "Provider/model", ...expected]);
       assert.equal(captured.marker, undefined);
     }
   } finally { rmSync(dir, { force: true, recursive: true }); }
@@ -73,7 +73,7 @@ test("generated Codex CLI middleware converts Windows SDK paths before URL schem
 });
 
 test("generated Codex CLI middleware materializes bundled Bot Gateway stdio runner", () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-bot-runner-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-bot-runner-"));
   const source = path.join(dir, "resources", "app.asar", "dist", "main", "bot-gateway-sdk", "bin", "bot-gateway-stdio.mjs");
   const configDir = path.join(dir, "config");
   mkdirSync(path.dirname(source), { recursive: true });
@@ -95,7 +95,7 @@ test("generated Codex CLI middleware materializes bundled Bot Gateway stdio runn
 });
 
 test("Codex app-server uses ChatGPT's bundled Node as a signed supervisor", { skip: process.platform !== "darwin" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-signed-supervisor-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-signed-supervisor-"));
   const runtimeFile = writeRuntimeScript(dir);
   const resourcesDir = path.join(dir, "ChatGPT.app", "Contents", "Resources");
   const fakeCodex = path.join(resourcesDir, "codex");
@@ -139,7 +139,7 @@ test("Codex app-server uses ChatGPT's bundled Node as a signed supervisor", { sk
 });
 
 test("Codex runtime ignores middleware recursion and uses the bundled real CLI fallback", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-real-cli-fallback-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-real-cli-fallback-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "real-codex");
   writeFileSync(fakeCodex, "#!/bin/sh\nprintf 'real-codex\\n'\n");
@@ -153,7 +153,7 @@ test("Codex runtime ignores middleware recursion and uses the bundled real CLI f
       LLMR_CODEX_PROFILE: "claude-code-router",
       LLMR_REAL_CODEX_CLI_PATH: "",
       CODEXL_REAL_CODEX_CLI_PATH: "",
-      CODEX_CLI_PATH: path.join(dir, "ccr-codex-cli-stdio-profile")
+      CODEX_CLI_PATH: path.join(dir, "llmr-codex-cli-stdio-profile")
     }
   });
 
@@ -162,7 +162,7 @@ test("Codex runtime ignores middleware recursion and uses the bundled real CLI f
 });
 
 test("Codex CLI middleware launches Windows cmd shims", { skip: process.platform !== "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-windows-cmd-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-windows-cmd-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCliScript = path.join(dir, "fake-codex.js");
   const fakeCli = path.join(dir, "fake-codex.cmd");
@@ -191,7 +191,7 @@ test("Codex CLI middleware launches Windows cmd shims", { skip: process.platform
 });
 
 test("Windows direct profile dispatch strips the profile command arguments", { skip: process.platform !== "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-windows-dispatch-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-windows-dispatch-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCliScript = path.join(dir, "fake-claude.js");
   const fakeCli = path.join(dir, "fake-claude.cmd");
@@ -219,7 +219,7 @@ test("Windows direct profile dispatch strips the profile command arguments", { s
 });
 
 test("Codex app-server keeps a ChatGPT-shaped account for workspace routing without credentials", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-virtual-auth-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-virtual-auth-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
   const codexHome = path.join(dir, "codex-home");
@@ -252,7 +252,7 @@ test("Codex app-server keeps a ChatGPT-shaped account for workspace routing with
       ...process.env,
       LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
       LLMR_CODEX_CHATGPT_AUTH_FILE: "",
-      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_PROFILE_SCOPE: "llmr",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
       CODEXL_CODEX_CHATGPT_AUTH_FILE: "",
@@ -275,9 +275,9 @@ test("Codex app-server keeps a ChatGPT-shaped account for workspace routing with
   assert.equal(responses[1].result.authMethod, "chatgpt");
   assert.equal(responses[1].result.requiresOpenaiAuth, true);
   assert.deepEqual(virtualClaims(responses[1].result.authToken)["https://api.openai.com/auth"], {
-    chatgpt_account_id: "ccr-virtual-account",
-    chatgpt_user_id: "ccr-virtual-user",
-    user_id: "ccr-virtual-user",
+    chatgpt_account_id: "llmr-virtual-account",
+    chatgpt_user_id: "llmr-virtual-user",
+    user_id: "llmr-virtual-user",
     chatgpt_plan_type: "plus"
   });
   assert.deepEqual(responses[2].result, {
@@ -286,14 +286,14 @@ test("Codex app-server keeps a ChatGPT-shaped account for workspace routing with
     requiresOpenaiAuth: true
   });
   assert.deepEqual(responses[3].result, {
-    account: { type: "chatgpt", account_id: "ccr-virtual-account", id: "ccr-virtual-account", email: "LLMR Workspace", planType: "plus" },
+    account: { type: "chatgpt", account_id: "llmr-virtual-account", id: "llmr-virtual-account", email: "LLMR Workspace", planType: "plus" },
     requiresOpenaiAuth: true
   });
   assert.equal(existsSync(path.join(codexHome, "auth.json")), false);
 });
 
 test("Codex app-server reads but never overwrites an existing ChatGPT auth file", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-preserve-auth-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-preserve-auth-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
   const codexHome = path.join(dir, "codex-home");
@@ -325,7 +325,7 @@ test("Codex app-server reads but never overwrites an existing ChatGPT auth file"
     env: {
       ...process.env,
       LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_PROFILE_SCOPE: "llmr",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome
     },
@@ -351,7 +351,7 @@ test("Codex app-server reads but never overwrites an existing ChatGPT auth file"
 });
 
 test("Codex app-server bridges shared ChatGPT auth into an isolated profile without copying it", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-shared-auth-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-shared-auth-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
   const codexHome = path.join(dir, "codex-home");
@@ -381,7 +381,7 @@ test("Codex app-server bridges shared ChatGPT auth into an isolated profile with
       ...process.env,
       LLMR_CODEX_CHATGPT_AUTH_FILE: sharedAuthFile,
       LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_PROFILE_SCOPE: "llmr",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
       CODEXL_CODEX_CHATGPT_AUTH_FILE: ""
@@ -409,7 +409,7 @@ test("Codex app-server bridges shared ChatGPT auth into an isolated profile with
 });
 
 test("Codex app-server bridges the default codex ChatGPT login read-only", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-default-auth-bridge-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-default-auth-bridge-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
   const codexHome = path.join(dir, "codex-home");
@@ -442,7 +442,7 @@ test("Codex app-server bridges the default codex ChatGPT login read-only", { ski
     env: {
       ...process.env,
       LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_PROFILE_SCOPE: "llmr",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
       HOME: isolatedHome
@@ -470,7 +470,7 @@ test("Codex app-server bridges the default codex ChatGPT login read-only", { ski
 });
 
 test("Codex app-server preserves workspace routing surfaced by newer app-servers", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-workspace-routing-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-workspace-routing-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
   const codexHome = path.join(dir, "codex-home");
@@ -502,7 +502,7 @@ test("Codex app-server preserves workspace routing surfaced by newer app-servers
     env: {
       ...process.env,
       LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_PROFILE_SCOPE: "llmr",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
       CODEXL_CODEX_WORKSPACE_NAME: "LLMR Workspace",
@@ -517,14 +517,14 @@ test("Codex app-server preserves workspace routing surfaced by newer app-servers
   assert.equal(result.status, 0, result.stderr);
   const responses = result.stdout.trim().split(/\r?\n/).map((line) => JSON.parse(line));
   assert.deepEqual(responses[0].result, {
-    account: { type: "chatgpt", account_id: "ccr-virtual-account", id: "ccr-virtual-account", email: "LLMR Workspace", planType: "plus" },
+    account: { type: "chatgpt", account_id: "llmr-virtual-account", id: "llmr-virtual-account", email: "LLMR Workspace", planType: "plus" },
     workspaceRouting,
     requiresOpenaiAuth: true
   });
 });
 
 test("Codex app-server delegates public Git marketplaces and leaves account-private marketplaces empty", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-official-plugins-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-official-plugins-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
   const codexHome = path.join(dir, "codex-home");
@@ -547,7 +547,7 @@ test("Codex app-server delegates public Git marketplaces and leaves account-priv
     env: {
       ...process.env,
       LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_PROFILE_SCOPE: "llmr",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome
     },
@@ -570,7 +570,7 @@ test("Codex app-server delegates public Git marketplaces and leaves account-priv
 });
 
 test("Codex app-server preserves the requested approval reviewer without widening the sandbox", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-native-permissions-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-native-permissions-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
   const codexHome = path.join(dir, "codex-home");
@@ -598,7 +598,7 @@ test("Codex app-server preserves the requested approval reviewer without widenin
     env: {
       ...process.env,
       LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_PROFILE_SCOPE: "llmr",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome
     },
@@ -641,7 +641,7 @@ test("Codex app-server preserves the requested approval reviewer without widenin
 });
 
 test("#1795 null upstream requirements with Fast Mode stay legacy-routing compatible", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-null-requirements-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-null-requirements-"));
   try {
     const runtimeFile = writeRuntimeScript(dir);
     const fakeCodex = path.join(dir, "fake-codex");
@@ -666,7 +666,7 @@ test("#1795 null upstream requirements with Fast Mode stay legacy-routing compat
 });
 
 test("Codex app-server preserves auto-review without an opt-in environment variable", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-native-auto-review-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-native-auto-review-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
   const codexHome = path.join(dir, "codex-home");
@@ -688,7 +688,7 @@ test("Codex app-server preserves auto-review without an opt-in environment varia
     env: {
       ...process.env,
       LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_PROFILE_SCOPE: "llmr",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome
     },
@@ -715,7 +715,7 @@ test("Codex app-server preserves auto-review without an opt-in environment varia
 });
 
 test("Codex app-server merges LLMR Fast Mode catalog metadata without spoofing auth", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-native-models-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-native-models-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
   const codexHome = path.join(dir, "codex-home");
@@ -775,9 +775,9 @@ test("Codex app-server merges LLMR Fast Mode catalog metadata without spoofing a
   assert.deepEqual(plainModel.serviceTiers, []);
   assert.equal(responses.get(2).result.authMethod, "chatgpt");
   assert.equal(responses.get(2).result.requiresOpenaiAuth, true);
-  assert.match(String(responses.get(2).result.authToken), /^[\w-]+\.[\w-]+\.ccr-virtual$/);
+  assert.match(String(responses.get(2).result.authToken), /^[\w-]+\.[\w-]+\.llmr-virtual$/);
   assert.deepEqual(responses.get(3).result, {
-    account: { type: "chatgpt", account_id: "ccr-virtual-account", id: "ccr-virtual-account", email: "codex", planType: "plus" },
+    account: { type: "chatgpt", account_id: "llmr-virtual-account", id: "llmr-virtual-account", email: "codex", planType: "plus" },
     requiresOpenaiAuth: true
   });
   assert.deepEqual(responses.get(4).result.requirements, {
@@ -790,7 +790,7 @@ test("Codex app-server merges LLMR Fast Mode catalog metadata without spoofing a
 });
 
 test("Claude Code wrapper leaves the scoped profile model as an environment default", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-wrapper-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-wrapper-"));
   const runtimeFile = writeRuntimeScript(dir);
   const { fakeCli, outputFile } = writeFakeClaudeCli(dir);
 
@@ -814,7 +814,7 @@ test("Claude Code wrapper leaves the scoped profile model as an environment defa
 });
 
 test("Claude Code wrapper preserves an explicit model argument", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-wrapper-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-wrapper-"));
   const runtimeFile = writeRuntimeScript(dir);
   const { fakeCli, outputFile } = writeFakeClaudeCli(dir);
 
@@ -836,7 +836,7 @@ test("Claude Code wrapper preserves an explicit model argument", { skip: process
 });
 
 test("Claude Code wrapper injects the ToolHub MCP config into real CLI args", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-wrapper-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-wrapper-"));
   const runtimeFile = writeRuntimeScript(dir);
   const { fakeCli, outputFile } = writeFakeClaudeCli(dir);
   const mcpConfigFile = path.join(dir, "toolhub-mcp.json");
@@ -859,7 +859,7 @@ test("Claude Code wrapper injects the ToolHub MCP config into real CLI args", { 
 });
 
 test("Claude Code wrapper does not duplicate an explicit MCP config argument", { skip: process.platform === "win32" }, () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-wrapper-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-wrapper-"));
   const runtimeFile = writeRuntimeScript(dir);
   const { fakeCli, outputFile } = writeFakeClaudeCli(dir);
   const envMcpConfigFile = path.join(dir, "toolhub-mcp.json");
@@ -882,7 +882,7 @@ test("Claude Code wrapper does not duplicate an explicit MCP config argument", {
 });
 
 test("OpenCode bot worker keeps commands responsive while preserving per-conversation turn order", { skip: process.platform === "win32" }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-opencode-bot-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-opencode-bot-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeOpenCode = path.join(dir, "fake-opencode");
   const fakeSdk = path.join(dir, "fake-bot-gateway-sdk.mjs");
@@ -946,7 +946,7 @@ test("OpenCode bot worker keeps commands responsive while preserving per-convers
     "      const event = (id, text) => ({",
     "        id,",
     "        event: {",
-    "          id, tenantId: 'ccr', integrationId: 'bot-test', platform: 'slack',",
+    "          id, tenantId: 'llmr', integrationId: 'bot-test', platform: 'slack',",
     "          actor: { isBot: false },",
     "          conversation: { id: 'conversation-1', type: 'dm' },",
     "          message: { id: 'message-' + id, text }",
@@ -981,7 +981,7 @@ test("OpenCode bot worker keeps commands responsive while preserving per-convers
       LLMR_BOT_GATEWAY_ENABLED: "true",
       LLMR_BOT_GATEWAY_PLATFORM: "slack",
       LLMR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
-      LLMR_BOT_GATEWAY_TENANT_ID: "ccr",
+      LLMR_BOT_GATEWAY_TENANT_ID: "llmr",
       LLMR_BOT_GATEWAY_ACK_EVENTS: "true",
       LLMR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
       LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
@@ -1037,7 +1037,7 @@ test("OpenCode bot worker keeps commands responsive while preserving per-convers
 });
 
 test("OpenCode bot worker streams without duplicate final text replies or implicit auto approval", { skip: process.platform === "win32" }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-opencode-bot-stream-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-opencode-bot-stream-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeOpenCode = path.join(dir, "fake-opencode");
   const fakeSdk = path.join(dir, "fake-bot-gateway-sdk.mjs");
@@ -1064,7 +1064,7 @@ test("OpenCode bot worker streams without duplicate final text replies or implic
     "      if (delivered) return { events: [] };",
     "      delivered = true;",
     "      return { events: [{ id: 'event-stream', event: {",
-    "        id: 'event-stream', tenantId: 'ccr', integrationId: 'bot-test', platform: 'slack', actor: { isBot: false },",
+    "        id: 'event-stream', tenantId: 'llmr', integrationId: 'bot-test', platform: 'slack', actor: { isBot: false },",
     "        conversation: { id: 'conversation-1', type: 'dm' }, message: { id: 'message-stream', text: 'stream me' }",
     "      } }] };",
     "    },",
@@ -1086,7 +1086,7 @@ test("OpenCode bot worker streams without duplicate final text replies or implic
       LLMR_BOT_GATEWAY_ENABLED: "true",
       LLMR_BOT_GATEWAY_PLATFORM: "slack",
       LLMR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
-      LLMR_BOT_GATEWAY_TENANT_ID: "ccr",
+      LLMR_BOT_GATEWAY_TENANT_ID: "llmr",
       LLMR_BOT_GATEWAY_ACK_EVENTS: "true",
       LLMR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
       LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
@@ -1115,7 +1115,7 @@ test("OpenCode bot worker streams without duplicate final text replies or implic
 });
 
 test("Codex App bot worker uses native projects and sessions without enabling shell tools", { skip: process.platform === "win32" }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-codex-bot-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-codex-bot-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
   const fakeSdk = path.join(dir, "fake-bot-gateway-sdk.mjs");
@@ -1155,7 +1155,7 @@ test("Codex App bot worker uses native projects and sessions without enabling sh
     "      if (delivered) return { events: [] };",
     "      delivered = true;",
     "      const event = (id, text) => ({ id, event: {",
-    "        id, tenantId: 'ccr', integrationId: 'bot-test', platform: 'slack', actor: { isBot: false },",
+    "        id, tenantId: 'llmr', integrationId: 'bot-test', platform: 'slack', actor: { isBot: false },",
     "        conversation: { id: 'conversation-1', type: 'dm' }, message: { id: 'message-' + id, text }",
     "      } });",
     "      return { events: [",
@@ -1187,7 +1187,7 @@ test("Codex App bot worker uses native projects and sessions without enabling sh
       LLMR_BOT_GATEWAY_ENABLED: "true",
       LLMR_BOT_GATEWAY_PLATFORM: "slack",
       LLMR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
-      LLMR_BOT_GATEWAY_TENANT_ID: "ccr",
+      LLMR_BOT_GATEWAY_TENANT_ID: "llmr",
       LLMR_BOT_GATEWAY_ACK_EVENTS: "true",
       LLMR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
       LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
@@ -1227,7 +1227,7 @@ test("Codex App bot worker uses native projects and sessions without enabling sh
 });
 
 test("Codex App bot worker passes image attachments to exec and avoids duplicate stream replies", { skip: process.platform === "win32" }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-codex-bot-image-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-codex-bot-image-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeCodex = path.join(dir, "fake-codex");
   const fakeSdk = path.join(dir, "fake-bot-gateway-sdk.mjs");
@@ -1258,7 +1258,7 @@ test("Codex App bot worker passes image attachments to exec and avoids duplicate
     "      if (delivered) return { events: [] };",
     "      delivered = true;",
     "      return { events: [{ id: 'event-image', event: {",
-    "        id: 'event-image', tenantId: 'ccr', integrationId: 'bot-test', platform: 'slack', actor: { isBot: false },",
+    "        id: 'event-image', tenantId: 'llmr', integrationId: 'bot-test', platform: 'slack', actor: { isBot: false },",
     "        conversation: { id: 'conversation-1', type: 'dm' },",
     "        message: { id: 'message-image', text: 'describe image', attachments: [{ id: 'att-1', type: 'image', url: 'https://attachments.local/screenshot.png', name: 'screenshot.png', mimeType: 'image/png', sizeBytes: 3 }] }",
     "      } }] };",
@@ -1284,7 +1284,7 @@ test("Codex App bot worker passes image attachments to exec and avoids duplicate
       LLMR_BOT_GATEWAY_MEDIA_ENABLED: "true",
       LLMR_BOT_GATEWAY_PLATFORM: "slack",
       LLMR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
-      LLMR_BOT_GATEWAY_TENANT_ID: "ccr",
+      LLMR_BOT_GATEWAY_TENANT_ID: "llmr",
       LLMR_BOT_GATEWAY_ACK_EVENTS: "true",
       LLMR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
       LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
@@ -1314,7 +1314,7 @@ test("Codex App bot worker passes image attachments to exec and avoids duplicate
 });
 
 test("Claude App bot worker keeps project and session selection as separate levels", { skip: process.platform === "win32" }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-claude-bot-projects-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-claude-bot-projects-"));
   const runtimeFile = writeRuntimeScript(dir);
   const fakeSdk = path.join(dir, "fake-bot-gateway-sdk.mjs");
   const repliesFile = path.join(dir, "bot-replies.jsonl");
@@ -1352,7 +1352,7 @@ test("Claude App bot worker keeps project and session selection as separate leve
     "      const event = (id, text) => ({",
     "        id,",
     "        event: {",
-    "          id, tenantId: 'ccr', integrationId: 'bot-test', platform: 'slack',",
+    "          id, tenantId: 'llmr', integrationId: 'bot-test', platform: 'slack',",
     "          actor: { isBot: false },",
     "          conversation: { id: 'conversation-1', type: 'dm' },",
     "          message: { id: 'message-' + id, text }",
@@ -1387,7 +1387,7 @@ test("Claude App bot worker keeps project and session selection as separate leve
       LLMR_BOT_GATEWAY_ENABLED: "true",
       LLMR_BOT_GATEWAY_PLATFORM: "slack",
       LLMR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
-      LLMR_BOT_GATEWAY_TENANT_ID: "ccr",
+      LLMR_BOT_GATEWAY_TENANT_ID: "llmr",
       LLMR_BOT_GATEWAY_ACK_EVENTS: "true",
       LLMR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
       LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
@@ -1422,7 +1422,7 @@ test("Claude App bot worker keeps project and session selection as separate leve
 });
 
 function writeRuntimeScript(dir) {
-  const file = path.join(dir, "ccr-codex-cli-middleware.js");
+  const file = path.join(dir, "llmr-codex-cli-middleware.js");
   writeFileSync(file, codexCliMiddlewareRuntimeScript());
   chmodSync(file, 0o700);
   return file;

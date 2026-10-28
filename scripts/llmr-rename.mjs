@@ -27,16 +27,66 @@ const skippedPaths = [
   "packages/core/models.json",
   "packages/ui/src/generated/",
   "scripts/llmr-rename.mjs",
-  "tests/architecture/llmr-rename.test.mjs"
+  "tests/architecture/llmr-rename.test.mjs",
+  "tests/architecture/uninstall-macos-script.test.mjs"
 ];
 
 // Every entry is a deliberate survivor; docs/superpowers/specs/2026-10-27-ccr-to-llmr-rename.md gives the reasons.
+// `path` keeps the text in one file. `at` keeps it everywhere and lists every file that holds it, so an over-rename in any of them fails the guard test.
 export const kept = [
-  { text: "ccrdesk.top" },
-  { text: "aff=ccr" },
-  { text: "aff=CCRCCR" },
-  { text: "CCR_GATEWAY_RUNTIME_ID" },
-  { text: "CCR_UPSTREAM_PROXY_URL" },
+  {
+    at: [
+      "packages/core/src/contracts/app.ts",
+      "packages/core/test/unit/config/plugin-config-migration.test.mjs",
+      "packages/core/test/unit/contracts/app.test.mjs",
+      "packages/electron/bundled-plugins/claude-design/README.md",
+      "packages/electron/bundled-plugins/claude-design/index.cjs",
+      "packages/electron/bundled-plugins/claude-design/plugin.json",
+      "packages/electron/src/main/plugin-app-url.ts",
+      "packages/electron/test/unit/claude-design-plugin-assets.test.ts",
+      "packages/electron/test/unit/plugin-app-url.test.ts"
+    ],
+    text: "ccrdesk.top"
+  },
+  {
+    at: [
+      "packages/core/src/providers/presets/kimi-coding/index.ts",
+      "packages/core/src/providers/presets/moonshot/index.ts"
+    ],
+    text: "aff=ccr"
+  },
+  {
+    at: [
+      "packages/core/src/providers/presets/infistar-ai/index.ts",
+      "packages/core/test/unit/providers/provider-preset-utils.test.mjs"
+    ],
+    text: "aff=CCRCCR"
+  },
+  {
+    at: [
+      "docs/src/content/docs/en/configuration/provider-deeplink.md"
+    ],
+    text: "aff%3DCCRCCR"
+  },
+  {
+    at: [
+      "packages/core/src/gateway/internal/shared.ts",
+      "packages/core/test/unit/gateway/gateway-status.test.mjs"
+    ],
+    text: "CCR_GATEWAY_RUNTIME_ID"
+  },
+  {
+    at: [
+      "packages/core/src/gateway/internal/shared.ts",
+      "packages/core/test/integration/gateway/gateway-virtual-models.test.mjs",
+      "packages/core/test/unit/gateway/gateway-fetch-preload.test.mjs"
+    ],
+    text: "CCR_UPSTREAM_PROXY_URL"
+  },
+  { path: "packages/electron/bundled-plugins/claude-design/index.cjs", text: "/ccr-resource-runtime.js" },
+  { path: "packages/electron/bundled-plugins/claude-design/index.cjs", text: "ccr-resource-runtime\\.js" },
+  { path: "packages/electron/test/unit/claude-design-plugin-assets.test.ts", text: "/ccr-resource-runtime.js" },
+  { path: "tests/architecture/readme-identity.test.mjs", text: "ccrdesk\\.top" },
   { path: "packages/core/test/unit/profiles/legacy-cli-launcher-cleanup.test.mjs", text: "\"CCR_CLI_NODE_PATH='/app/node_modules'\"" },
   { path: "packages/core/test/unit/profiles/legacy-cli-launcher-cleanup.test.mjs", text: "'if [ -n \"$CCR_NODE_BIN\" ]; then exec \"$CCR_NODE_BIN\" \\'/bin/ccr-cli.js\\' \"$@\"; fi'" },
   { path: "packages/core/test/unit/profiles/legacy-cli-launcher-cleanup.test.mjs", text: "'/bin/ccr-cli.js' \\\"$@\\\"\"" },
@@ -49,6 +99,9 @@ export const kept = [
   { path: "packages/core/src/profiles/launch-service.ts", text: "includes(\"CCR_CLI_COMMAND_NAME\")" },
   { path: "packages/core/src/profiles/launch-service.ts", text: "includes(\"CCR_CLI_PREPARE_PROFILE_ONLY\")" },
   { path: "scripts/uninstall-macos.mjs", text: "schemes: [\"ccr\"]" },
+  { path: "scripts/uninstall-macos.mjs", text: "export const agentLeftover = /\\.(?:ccr|llmr)-backup-|\\.(?:ccr|llmr)-original(-missing)?$|^(?:ccr|llmr)-.*model-catalog\\.json$|^(claude-code-router|llm-router)\\.config\\.toml$|^\\.llm-router$/;" },
+  { path: "scripts/uninstall-macos.mjs", text: "the ccr:// handler" },
+  { path: "packages/core/test/unit/profiles/legacy-cli-launcher-cleanup.test.mjs", text: "fileName === \"ccr-cli.js\"" },
   { path: "README.md", text: "The `ccr` and `ccr-app` commands are now `llmr`." }
 ];
 

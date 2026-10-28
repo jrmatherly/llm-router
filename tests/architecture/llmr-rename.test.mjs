@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { kept, renameText, residue } from "../../scripts/llmr-rename.mjs";
+import { candidateFiles, classes, kept, renameText, residue } from "../../scripts/llmr-rename.mjs";
 
 test("each case form of ccr maps to the same case form of llmr", () => {
   assert.equal(renameText("ccrPlugin CcrApi CCR_HOME \"CCR app\"", ["rest"]), "llmrPlugin LlmrApi LLMR_HOME \"LLMR app\"");
@@ -61,11 +60,17 @@ test("residue names each line a class still matches and skips kept text", () => 
   assert.deepEqual(residue("ok\nx-ccr-route\nccrdesk.top", ["rest"], "f.ts"), ["f.ts:2: x-ccr-route"]);
 });
 
-test("every kept entry still matches text in the repo, so a reformat cannot silently rename it", () => {
+test("every kept entry is still at the file it names, so neither a reformat nor an over-rename can drop it", () => {
   for (const entry of kept) {
-    const found = entry.path
-      ? readFileSync(entry.path, "utf8").includes(entry.text)
-      : spawnSync("git", ["grep", "-qF", entry.text]).status === 0;
-    assert.ok(found, `kept text not found: ${entry.text}`);
+    const files = [entry.path ?? entry.at ?? []].flat();
+    assert.ok(files.length > 0, `kept entry names no file: ${entry.text}`);
+    for (const file of files) {
+      assert.ok(readFileSync(file, "utf8").includes(entry.text), `kept text not found in ${file}: ${entry.text}`);
+    }
   }
+});
+
+test("no ccr identifier remains outside the kept list", () => {
+  const lines = candidateFiles().flatMap((file) => residue(readFileSync(file, "utf8"), Object.keys(classes), file));
+  assert.deepEqual(lines, []);
 });

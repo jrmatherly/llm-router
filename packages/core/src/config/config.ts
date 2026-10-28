@@ -3085,7 +3085,7 @@ function resolveBundledOrExternalizedPluginModule(pluginId: string, previousModu
   if (bundledModule) {
     return bundledModule;
   }
-  for (const root of ccrExtensionsRootCandidates(previousModule)) {
+  for (const root of llmrExtensionsRootCandidates(previousModule)) {
     const candidate = path.join(root, "plugins", pluginId, "index.cjs");
     if (existsSync(candidate)) {
       return candidate;
@@ -3143,17 +3143,17 @@ function isLegacyExternalizedPluginModule(pluginId: string, modulePath: string |
     normalized.endsWith(`/examples/plugins/${pluginId}/index.cjs`);
 }
 
-function ccrExtensionsRootCandidates(previousModule: string | undefined): string[] {
+function llmrExtensionsRootCandidates(previousModule: string | undefined): string[] {
   const candidates = [
     process.env.LLMR_EXTENSIONS_DIR,
-    ccrExtensionsRootFromLegacyModule(previousModule),
-    path.resolve(process.cwd(), "..", "ccr-extensions"),
-    path.resolve(process.cwd(), "ccr-extensions")
+    llmrExtensionsRootFromLegacyModule(previousModule),
+    path.resolve(process.cwd(), "..", "llmr-extensions"),
+    path.resolve(process.cwd(), "llmr-extensions")
   ];
   return uniqueStrings(candidates.filter((candidate): candidate is string => Boolean(candidate?.trim())));
 }
 
-function ccrExtensionsRootFromLegacyModule(modulePath: string | undefined): string {
+function llmrExtensionsRootFromLegacyModule(modulePath: string | undefined): string {
   if (!modulePath) {
     return "";
   }
@@ -3163,7 +3163,7 @@ function ccrExtensionsRootFromLegacyModule(modulePath: string | undefined): stri
   if (index <= 0) {
     return "";
   }
-  return path.join(path.sep, ...segments.slice(1, index), "ccr-extensions");
+  return path.join(path.sep, ...segments.slice(1, index), "llmr-extensions");
 }
 
 export function migrateKnownGatewayPluginConfigsForTest(plugins: GatewayPluginConfig[] | undefined): GatewayPluginMigrationResult {
@@ -3693,7 +3693,7 @@ function parseProfiles(value: unknown): ProfileConfig[] | undefined {
           model,
           name,
           ...(routing ? { routing } : {}),
-          scope: "ccr",
+          scope: "llmr",
           surface: "cli"
         };
       }
@@ -3707,7 +3707,7 @@ function parseProfiles(value: unknown): ProfileConfig[] | undefined {
           model: "",
           name,
           ...(routing ? { routing } : {}),
-          scope: "ccr",
+          scope: "llmr",
           surface: "app"
         };
       }
@@ -3844,8 +3844,8 @@ function parseProfileAgent(value: unknown): ProfileConfig["agent"] | undefined {
 function readManagedCompact(value: Record<string, unknown>): boolean | undefined {
   const candidate = value.managedCompact ??
     value.managed_compact ??
-    value.ccrManagedCompact ??
-    value.ccr_managed_compact ??
+    value.llmrManagedCompact ??
+    value.llmr_managed_compact ??
     value.contextArchiveCompact ??
     value.context_archive_compact;
   return typeof candidate === "boolean" ? candidate : undefined;
@@ -3967,8 +3967,8 @@ function parseProfileScope(value: string | undefined): ProfileConfig["scope"] | 
     return undefined;
   }
   const normalized = value.trim().toLowerCase().replace(/_/g, "-").replace(/\s+/g, "-");
-  if (normalized === "ccr" || normalized === "managed" || normalized === "local" || normalized === "ccr-only" || normalized === "only-ccr") {
-    return "ccr";
+  if (normalized === "llmr" || normalized === "managed" || normalized === "local" || normalized === "llmr-only" || normalized === "only-llmr") {
+    return "llmr";
   }
   if (normalized === "global" || normalized === "system" || normalized === "system-default" || normalized === "default") {
     return "global";
@@ -4115,7 +4115,7 @@ function createGeneratedGatewayApiKey(): ApiKeyConfig {
   return {
     createdAt: new Date().toISOString(),
     id: GENERATED_GATEWAY_API_KEY_ID,
-    key: `sk-ccr-${randomBytes(32).toString("base64url")}`,
+    key: `sk-llmr-${randomBytes(32).toString("base64url")}`,
     name: "Local Gateway"
   };
 }

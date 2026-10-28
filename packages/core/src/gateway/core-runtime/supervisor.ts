@@ -391,7 +391,7 @@ function createGatewayProcessEnv(
   }
 
   // The managed gateway must use the generated raw-trace policy. Inheriting
-  // the upstream gateway's RAW_TRACE_* overrides could bypass CCR privacy,
+  // the upstream gateway's RAW_TRACE_* overrides could bypass LLMR privacy,
   // size, spool, or sync-endpoint controls.
   for (const key of Object.keys(env)) {
     if (key.startsWith("RAW_TRACE_")) delete env[key];
@@ -582,7 +582,7 @@ function gatewayFetchPreloadScript(): string {
     "  const realFetch = globalThis.fetch.bind(globalThis);",
     // The injected Agent/ProxyAgent come from the bundled undici module, so
     // they must be paired with that module's own fetch: Node's built-in fetch
-    // can use a different undici major (Node >= 25 ships undici 8 while CCR
+    // can use a different undici major (Node >= 25 ships undici 8 while LLMR
     // bundles undici 7), and a dispatcher from one major fails inside the
     // other's fetch with UND_ERR_INVALID_ARG ("invalid onError method").
     // Calls that already carry a caller-provided dispatcher stay on the

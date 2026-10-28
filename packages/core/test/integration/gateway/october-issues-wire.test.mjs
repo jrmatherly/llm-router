@@ -18,7 +18,7 @@ const entry = process.env.LLMR_TEST_GATEWAY_ENTRY;
 const skip = !entry && "set LLMR_TEST_GATEWAY_ENTRY to the gateway production entry";
 
 test("#1850/#1861 fallback attribution reaches OpenAI JSON/SSE clients and request logs", { skip, timeout: 30000 }, async () => {
-  const root = mkdtempSync(path.join(tmpdir(), "ccr-october-fallback-"));
+  const root = mkdtempSync(path.join(tmpdir(), "llmr-october-fallback-"));
   requestLogRuntime.options.workerFile = path.resolve(__dirname, "../../../runtime/request-log-worker.js");
   const calls = [];
   const tokenCounts = [];
@@ -93,7 +93,7 @@ test("#1850/#1861 fallback attribution reaches OpenAI JSON/SSE clients and reque
 });
 
 test("#1852 built gateway preserves native virtual-model content and usage with billing on/off", { skip, timeout: 30000 }, async () => {
-  const root = mkdtempSync(path.join(tmpdir(), "ccr-october-native-stream-"));
+  const root = mkdtempSync(path.join(tmpdir(), "llmr-october-native-stream-"));
   const upstream = createServer(async (req, res) => {
     const body = await readJson(req);
     assert.equal(body.model, "native");

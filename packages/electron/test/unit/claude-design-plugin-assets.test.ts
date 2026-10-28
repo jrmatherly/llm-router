@@ -21,7 +21,7 @@ if (previousTestExports === undefined) {
 }
 
 test("Claude Design local asset discovery supports public, design, and assets roots", () => {
-  const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-design-assets-"));
+  const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-design-assets-"));
   try {
     const publicRoot = path.join(fixtureRoot, "public");
     const designRoot = path.join(publicRoot, "design");
@@ -194,6 +194,36 @@ test("Claude Design mock covers local frontend project runtime routes", async ()
   assert.equal(events.status, 200);
   assert.match(events.headers["content-type"], /text\/event-stream/);
   assert.equal(typeof events.stream, "function");
+});
+
+test("the hosted Claude Design page's /ccr-resource-runtime.js is claimed and served by the plugin", async () => {
+  const routes: Array<{ host?: string; paths?: string[] }> = [];
+  const statement = { all: () => [], bind() {}, free() {}, get: () => undefined, getAsObject: () => ({}), run() {}, step: () => false };
+  const database = { all: () => [], exec: () => [], get: () => undefined, prepare: () => statement, run() {} };
+  const store = { all: () => [], database, get: () => undefined, persist() {}, run() {} };
+  const context = new Proxy({
+    config: {},
+    logger: { debug() {}, error() {}, info() {}, warn() {} },
+    openSqliteStore: async (options: { migrate?: (value: typeof store) => void }) => {
+      options?.migrate?.(store);
+      return store;
+    },
+    registerHttpBackend: async () => ({ url: "http://127.0.0.1:1" }),
+    registerProxyRoute: (route: { host?: string; paths?: string[] }) => routes.push(route)
+  }, { get: (target: Record<string, unknown>, key: string) => (key in target ? target[key] : () => ({ dispose() {} })) });
+  await claudeDesignPlugin.setup(context);
+  const frontendRoute = routes.find((route) => route.host === "claude-design.ccrdesk.top" && route.paths?.includes("/design"));
+  assert.ok(frontendRoute?.paths?.includes("/ccr-resource-runtime.js"));
+
+  const response = await claudeDesignPlugin.__test.routeMockRequest(
+    fakeClaudeDesignRuntime(),
+    "GET",
+    new URL("http://127.0.0.1/ccr-resource-runtime.js"),
+    { headers: {} },
+    Buffer.alloc(0)
+  );
+  assert.equal(response.status, 200);
+  assert.match(response.headers["content-type"], /javascript/);
 });
 
 test("Claude Design downloads return concrete files or a project zip", async () => {

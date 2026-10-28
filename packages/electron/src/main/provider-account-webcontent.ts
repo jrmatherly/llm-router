@@ -43,7 +43,7 @@ type WebContentFetchResult = {
   text?: string;
 };
 
-const browserPartition = "persist:ccr-built-in-browser";
+const browserPartition = "persist:llmr-built-in-browser";
 const defaultTimeoutMs = 15_000;
 const maxTimeoutMs = 60_000;
 const maxResponseBytes = 2 * 1024 * 1024;

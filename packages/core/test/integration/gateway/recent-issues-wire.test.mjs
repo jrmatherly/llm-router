@@ -15,7 +15,7 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
   skip: !gatewayEntry && "set LLMR_TEST_GATEWAY_ENTRY to the gateway production entry",
   timeout: 60000
 }, async (t) => {
-  const root = mkdtempSync(path.join(tmpdir(), "ccr-wire-issues-"));
+  const root = mkdtempSync(path.join(tmpdir(), "llmr-wire-issues-"));
   const previousEnv = Object.fromEntries(["LLMR_INTERNAL_HOME_DIR", "LLMR_INTERNAL_APP_DATA_DIR", "LLMR_INTERNAL_USER_DATA_DIR"].map(key => [key, process.env[key]]));
   process.env.LLMR_INTERNAL_HOME_DIR = path.join(root, "home");
   process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(root, "data");
@@ -135,7 +135,7 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
     }
     const { compileCoreGatewayConfig } = await import("@llmr/core/gateway/core-runtime/config-compiler.ts");
     const { fetchUpstreamWithFallback } = await import("@llmr/core/gateway/upstream/executor.ts");
-    const { ccrRoutedModelHeader } = await import("@llmr/core/gateway/core-runtime/router-plugin-contract.ts");
+    const { llmrRoutedModelHeader } = await import("@llmr/core/gateway/core-runtime/router-plugin-contract.ts");
     const routingConfig = createDefaultAppConfig();
     routingConfig.Providers = [
       { id: "anthropic-quota", name: "Anthropic", api_base_url: `${upstreamUrl}/anthropic-quota`, models: ["claude"], type: "anthropic_messages", api_key: "test" },
@@ -157,14 +157,14 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
       const result = await fetchUpstreamWithFallback({
         body: Buffer.from(JSON.stringify({ model: "k3", max_tokens: 4, stream, messages: [{ role: "user", content: "hi" }] })),
         config: routingConfig, coreAuthToken: "auth", fallback: { mode: "model-chain", models: ["Backup/glm-5.3"], retryCount: 0 },
-        headers: { "content-type": "application/json", [ccrRoutedModelHeader]: "Primary/k3" }, method: "POST", path: "/v1/chat/completions", routedModel: "Primary/k3", upstreamUrl: `${gateway.url}/v1/chat/completions`
+        headers: { "content-type": "application/json", [llmrRoutedModelHeader]: "Primary/k3" }, method: "POST", path: "/v1/chat/completions", routedModel: "Primary/k3", upstreamUrl: `${gateway.url}/v1/chat/completions`
       });
       assert.equal(result.response.status, 200, await result.response.text());
       assert.deepEqual(captures.slice(before).map(call => [call.path, call.body.model]), [["/primary/v1/chat/completions", "k3"], ["/backup/api/v3/chat/completions", "glm-5.3"]]);
     }
     t.diagnostic("#1804/#1819 verified real fallback wire URL and model; detected endpoint beats preset");
     const beforeVerification = captures.length;
-    const verification = await fetch(`${gateway.url}/v1/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ model: "anthropic/claude-ccr-h467573696f6e2f474c4d20352e3320566973696f6e", max_tokens: 4, messages: [{ role: "user", content: "hi" }] }) });
+    const verification = await fetch(`${gateway.url}/v1/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ model: "anthropic/claude-llmr-h467573696f6e2f474c4d20352e3320566973696f6e", max_tokens: 4, messages: [{ role: "user", content: "hi" }] }) });
     assert.equal(verification.status, 200, await verification.text());
     assert.deepEqual(captures.slice(beforeVerification).map(call => [call.path, call.body.model]), [["/anthropic/v1/messages", "glm-5.3"]], "#1803 the exact encoded probe ID must reach the selected Fusion base, despite exhausted Anthropic quota");
     t.diagnostic("#1803 verified original encoded Fusion probe uses selected provider, not quota-exhausted Anthropic");
@@ -190,9 +190,9 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
         { id: "claude-code-api", name: "Claude Code API", type: "anthropic_messages", api_base_url: `${upstreamUrl}/anthropic`, api_key: "llmr-local-agent-login", models: ["native"] },
         { id: "static-api", name: "Static API", type: "anthropic_messages", api_base_url: `${upstreamUrl}/anthropic`, api_key: "static-secret", models: ["native"] }
       ];
-      oauthConfig.providerPlugins = [{ key: "ccr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API", auth: { headers: { authorization: "Bearer import-time-expired", "anthropic-beta": "oauth-2025-04-20" }, removeHeaders: ["x-api-key"], strict: true } }];
+      oauthConfig.providerPlugins = [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API", auth: { headers: { authorization: "Bearer import-time-expired", "anthropic-beta": "oauth-2025-04-20" }, removeHeaders: ["x-api-key"], strict: true } }];
       const compiled = await compileCoreGatewayConfig(oauthConfig, "trace", "billing", "auth");
-      const authPlugin = compiled.plugins.find(plugin => plugin.key === "ccr-local-agent-auth-provider-hooks");
+      const authPlugin = compiled.plugins.find(plugin => plugin.key === "llmr-local-agent-auth-provider-hooks");
       authPlugin.modulePath = path.resolve(__dirname, "../../../runtime/local-agent-auth-provider-hook.js");
       gateway = await startGateway(root, { ...baseConfig, providers: compiled.providers, plugins: [authPlugin], providerPlugins: compiled.providerPlugins, virtualModelProfiles: [], rawTrace: { enabled: false }, billing: { enabled: false } });
       const pid = gateway.child.pid;

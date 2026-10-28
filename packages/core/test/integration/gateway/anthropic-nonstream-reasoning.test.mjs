@@ -12,7 +12,7 @@ import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 const model = "z-ai/glm-5.3";
 
 test("#1793 coalesces OpenAI reasoning for non-streaming Anthropic clients", { timeout: 30000 }, async () => {
-  const root = mkdtempSync(path.join(tmpdir(), "ccr-nonstream-reasoning-"));
+  const root = mkdtempSync(path.join(tmpdir(), "llmr-nonstream-reasoning-"));
   const upstreamBodies = [];
   const upstream = createServer(async (request, response) => {
     const chunks = [];

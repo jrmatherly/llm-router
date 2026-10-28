@@ -12,7 +12,7 @@ import ProvidersViewDemo from "../../components/interactive/ProvidersViewDemo.ts
     <script is:inline>
       (() => {
         try {
-          const storedTheme = localStorage.getItem("ccr-docs-theme");
+          const storedTheme = localStorage.getItem("llmr-docs-theme");
           const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
           document.documentElement.dataset.theme =
             storedTheme === "light" || storedTheme === "dark"

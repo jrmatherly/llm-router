@@ -10,7 +10,7 @@ import { pluginService } from "@llmr/core/plugins/service.ts";
 import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution.ts";
 
 test("plugin service skips failed plugins and rolls back their registrations", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "ccr-plugin-service-test-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-plugin-service-test-"));
   const warnings = [];
   const originalWarn = console.warn;
   console.warn = (...args) => warnings.push(args.map(String).join(" "));
@@ -201,7 +201,7 @@ module.exports = {
 });
 
 test("plugin service does not fail startup when every enabled plugin fails", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "ccr-plugin-service-all-failed-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-plugin-service-all-failed-"));
   const warnings = [];
   const originalWarn = console.warn;
   console.warn = (...args) => warnings.push(args.map(String).join(" "));
@@ -360,7 +360,7 @@ test("built-in OpenRouter discount routing only runs for enabled provider models
 });
 
 test("plugin gateway route failures are contained to the plugin response", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "ccr-plugin-route-failure-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-plugin-route-failure-"));
   const warnings = [];
   const originalWarn = console.warn;
   console.warn = (...args) => warnings.push(args.map(String).join(" "));

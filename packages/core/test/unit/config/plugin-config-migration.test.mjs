@@ -8,7 +8,7 @@ import { LLMR_DESKTOP_APP_ENV } from "@llmr/core/runtime/desktop-app.ts";
 import { withDesktopRuntime } from "../../support/desktop-runtime.mjs";
 
 test("legacy combined Claude Design plugin config migrates to split Design and Ship plugins", async () => {
-  const extensionsRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-extensions-migration-"));
+  const extensionsRoot = mkdtempSync(path.join(os.tmpdir(), "llmr-extensions-migration-"));
   const previousExtensionsDir = process.env.LLMR_EXTENSIONS_DIR;
   try {
     writePluginModule(extensionsRoot, "claude-design");
@@ -67,7 +67,7 @@ test("legacy combined Claude Design plugin config migrates to split Design and S
 });
 
 test("legacy Claude Design migration does not duplicate an existing Claude Ship plugin", () => {
-  const extensionsRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-extensions-migration-"));
+  const extensionsRoot = mkdtempSync(path.join(os.tmpdir(), "llmr-extensions-migration-"));
   const previousExtensionsDir = process.env.LLMR_EXTENSIONS_DIR;
   try {
     writePluginModule(extensionsRoot, "claude-design");
@@ -201,8 +201,8 @@ test("Claude Ship plugin config drops deprecated local frontend settings while p
   });
 });
 
-test("externalized plugin modules migrate from the old marketplace path to ccr-extensions", () => {
-  const extensionsRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-extensions-migration-"));
+test("externalized plugin modules migrate from the old marketplace path to llmr-extensions", () => {
+  const extensionsRoot = mkdtempSync(path.join(os.tmpdir(), "llmr-extensions-migration-"));
   const previousExtensionsDir = process.env.LLMR_EXTENSIONS_DIR;
   try {
     writePluginModule(extensionsRoot, "cursor-proxy");

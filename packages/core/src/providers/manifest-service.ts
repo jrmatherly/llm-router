@@ -57,7 +57,7 @@ async function fetchManifestText(url: URL, redirectCount = 0): Promise<string> {
 
     const request = https.request({
       headers: {
-        accept: "application/json, application/manifest+json, application/vnd.ccr.provider+json",
+        accept: "application/json, application/manifest+json, application/vnd.llmr.provider+json",
         "accept-encoding": "identity",
         "user-agent": manifestUserAgent
       },

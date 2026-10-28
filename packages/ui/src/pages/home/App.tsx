@@ -369,12 +369,12 @@ function App() {
     const unsubscribeOpenSettings = window.llmr.onOpenSettingsRequest(openSettingsDialog);
     const unsubscribeOpenUpdate = window.llmr.onOpenUpdateRequest(openUpdateDialog);
     const refreshRuntimeStatus = async () => {
-      const ccr = window.llmr;
-      if (!ccr) {
+      const llmr = window.llmr;
+      if (!llmr) {
         return;
       }
       await Promise.allSettled([
-        ccr.getGatewayStatus().then((next) => {
+        llmr.getGatewayStatus().then((next) => {
           setGatewayStatus((current) => preserveEqualPollingSnapshot(current, next));
           clearPollFailure(disconnectedPoll);
           setRuntimeDisconnected(false);
@@ -382,7 +382,7 @@ function App() {
           failingPolls.current.add(disconnectedPoll);
           setRuntimeDisconnected(true);
         }),
-        ccr.getProxyStatus().then((next) => {
+        llmr.getProxyStatus().then((next) => {
           setProxyStatus((current) => preserveEqualPollingSnapshot(current, next));
         }),
         refreshProfileRuntimeStatus()

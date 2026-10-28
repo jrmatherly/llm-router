@@ -14,7 +14,7 @@ const authorizerSourceFile = path.join(
   "auth",
   "api-key-authorizer.ts"
 );
-const gatewayApiKey = "ccr-3f8a1c7d9e2b4056a1c7d9e2b4056f8a";
+const gatewayApiKey = "llmr-3f8a1c7d9e2b4056a1c7d9e2b4056f8a";
 
 function configWithApiKeys(apiKeys) {
   const config = createDefaultAppConfig();
@@ -116,9 +116,9 @@ test("Claude Code WIF token exchange returns a bearer token for a configured pro
 
   const result = await exchangeClaudeCodeWifToken(config, Buffer.from(JSON.stringify({
     assertion: gatewayApiKey,
-    federation_rule_id: "ccr-local",
+    federation_rule_id: "llmr-local",
     grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-    organization_id: "ccr-local"
+    organization_id: "llmr-local"
   })));
 
   assert.equal(result.statusCode, 200);
