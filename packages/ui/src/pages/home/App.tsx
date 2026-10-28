@@ -15,7 +15,7 @@ import {
   GatewayProviderProbeResult, gatewayServiceMessage, GatewayStatus, getDefaultOnboardingStep, isClaudeDesignPluginConfig, isClaudeDesignRoutingDraftValid,
   isCursorProxyPluginConfig, isGatewayProviderEnabled, isMacPlatform, isPlainRecord, isProfileDraftSubmittable, isProviderNameDuplicate, isProviderProbeCandidateReady,
   isRoutingRuleDraftSubmittable,
-  isTraySupportedPlatform,
+  isLocalAgentLoginDraft, isTraySupportedPlatform,
   LayoutGroup, mergeProviderModelLists, modelDescriptionsForModels, modelDisplayNamesForModels, modelMetadataForModels,
   navigation, NavigationId, normalizeApiKeys, normalizeBotGatewaySavedConfigs, normalizeConfig, normalizeObservabilityConfig, normalizeOverviewWidgets, normalizeProxyConfig,
   normalizeProfileItem, normalizeProviderBaseUrl, normalizeRouterFallbackConfig, normalizeThemePreference, normalizeToolHubConfig, normalizeTrayBalanceProgressConfig, normalizeTrayIconPreference,
@@ -1509,7 +1509,8 @@ function App() {
         }
       };
     }
-    if (providerDraft.providerPlugins.length > 0) {
+    // Local agent imports authenticate through their plugins, so their models can be discovered.
+    if (providerDraft.providerPlugins.length > 0 && !isLocalAgentLoginDraft(providerDraft)) {
       providerProbeRequestId.current += 1;
       setProviderProbe(undefined);
       setProviderProbeError("");
@@ -1534,7 +1535,7 @@ function App() {
     setProviderProbeLoading(true);
 
     const timer = window.setTimeout(() => {
-      void probeProviderCandidates(candidates, probeApiKey, [], { mode: probeMode })
+      void probeProviderCandidates(candidates, probeApiKey, [], { mode: probeMode, providerPlugins: providerDraft.providerPlugins })
         .then((result) => {
           if (providerProbeRequestId.current !== requestId) {
             return;
@@ -3259,6 +3260,7 @@ function App() {
               gatewayStatus,
               onCheckProvider: checkProviderDraft,
               onComplete: completeOnboarding,
+              onRefreshProviderModels: refreshProviderModels,
               onChangeProfile: updateProfileDraft,
               onChangeProvider: updateProviderDraft,
               onSelectStep: setOnboardingStep,

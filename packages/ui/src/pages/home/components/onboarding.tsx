@@ -49,6 +49,7 @@ export function OnboardingView({
   onChangeProfile,
   onChangeProvider,
   onComplete,
+  onRefreshProviderModels,
   onSelectStep,
   onSubmitProfile,
   onSubmitProvider,
@@ -73,6 +74,7 @@ export function OnboardingView({
   onChangeProfile: (patch: Partial<AddProfileDraft>) => void;
   onChangeProvider: (patch: Partial<AddProviderDraft>, resetProbe?: boolean) => void;
   onComplete: () => void | Promise<void>;
+  onRefreshProviderModels?: () => Promise<unknown>;
   onSelectStep: (step: OnboardingStepId) => void;
   onSubmitProfile: () => Promise<boolean>;
   onSubmitProvider: () => Promise<boolean>;
@@ -265,6 +267,7 @@ export function OnboardingView({
                       onCheck={async () => setProviderCheckOpen(true)}
                       onChange={onChangeProvider}
                       onIconDetectingChange={setProviderIconDetecting}
+                      onRefreshModels={onRefreshProviderModels}
                       onSelectStep={(step) => {
                         if (isProviderSetupStepUnlocked(step)) {
                           setProviderSetupStep(step);
