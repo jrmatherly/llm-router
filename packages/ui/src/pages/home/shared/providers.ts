@@ -72,7 +72,7 @@ export const localAgentProviderIconUrls: Record<LocalAgentProviderKind, string> 
   zcode: zcodeLogoUrl
 };
 
-export const localAgentProviderApiKey = "ccr-local-agent-login";
+export const localAgentProviderApiKey = "llmr-local-agent-login";
 
 export function createModelCatalogItems(config: AppConfig): ModelCatalogItem[] {
   const rows: ModelCatalogItem[] = [];

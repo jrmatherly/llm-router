@@ -119,7 +119,7 @@ test("Codex OAuth plugins prefer live login credentials over imported snapshots"
   }];
   config.Providers = [{
     api_base_url: codexDefaultBaseUrl,
-    api_key: "ccr-local-agent-login",
+    api_key: "llmr-local-agent-login",
     id: "codex-api",
     models: ["gpt-5.5"],
     name: "Codex API",
@@ -155,7 +155,7 @@ test("Codex local providers synthesize OAuth plugins when persisted plugins are 
   config.Providers = [
     {
       api_base_url: codexDefaultBaseUrl,
-      api_key: "ccr-local-agent-login",
+      api_key: "llmr-local-agent-login",
       id: "codex-api",
       models: ["gpt-5.5"],
       name: "Codex API",
@@ -199,7 +199,7 @@ test("Codex local provider fallback respects disabled OAuth plugins", async (t) 
   config.Providers = [
     {
       api_base_url: codexDefaultBaseUrl,
-      api_key: "ccr-local-agent-login",
+      api_key: "llmr-local-agent-login",
       id: "codex-api",
       models: ["gpt-5.5"],
       name: "Codex API",

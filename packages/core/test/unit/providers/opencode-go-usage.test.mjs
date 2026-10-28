@@ -90,7 +90,7 @@ test("OpenCode Go usage mode feeds the imported local agent key to the usage req
       {
         account: { connectors: [{ auth: "provider-api-key", type: "standard" }], enabled: true },
         api_base_url: "https://opencode.ai/zen/go/v1",
-        api_key: "ccr-local-agent-login",
+        api_key: "llmr-local-agent-login",
         models: ["minimax-m3"],
         name: providerName,
         type: "anthropic_messages"

@@ -260,7 +260,7 @@ test("an imported Grok Agent supplies OAuth-backed Grok API media models without
   const config = createDefaultAppConfig();
   config.mediaTools.enabled = true;
   config.Providers = [normalizeGrokProviderMediaCapabilities({
-    apiKey: "ccr-local-agent-login",
+    apiKey: "llmr-local-agent-login",
     baseUrl: "https://cli-chat-proxy.grok.com/v1",
     models: ["grok-4.5"],
     name: "Imported Grok"

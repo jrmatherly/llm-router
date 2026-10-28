@@ -989,7 +989,7 @@ test("Grok explicit model selection routes chat requests through a Responses pro
     CUSTOM_ROUTER_PATH: "",
     Providers: [{
       api_base_url: "https://cli-chat-proxy.grok.com/v1",
-      api_key: "ccr-local-agent-login",
+      api_key: "llmr-local-agent-login",
       capabilities: [{
         baseUrl: "https://cli-chat-proxy.grok.com/v1",
         type: "openai_responses"

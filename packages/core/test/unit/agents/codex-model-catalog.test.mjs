@@ -373,7 +373,7 @@ test("codex catalog preserves persisted local Codex GPT-5 context metadata", () 
       Providers: [
         {
           api_base_url: "https://chatgpt.com/backend-api/codex",
-          api_key: "ccr-local-agent-login",
+          api_key: "llmr-local-agent-login",
           modelMetadata: {
             [modelName]: {
               contextWindow: 272000,
@@ -397,7 +397,7 @@ test("codex catalog reports pinned context windows in full", () => {
     Providers: [
       {
         api_base_url: "https://chatgpt.com/backend-api/codex",
-        api_key: "ccr-local-agent-login",
+        api_key: "llmr-local-agent-login",
         modelMetadata: {
           "gpt-5.6-sol": {
             contextWindow: 1000000,
@@ -422,7 +422,7 @@ test("codex catalog preserves pinned context windows", () => {
     Providers: [
       {
         api_base_url: "https://chatgpt.com/backend-api/codex",
-        api_key: "ccr-local-agent-login",
+        api_key: "llmr-local-agent-login",
         modelMetadata: {
           "gpt-5-codex": {
             contextWindow: 1000000,
@@ -473,7 +473,7 @@ test("codex catalog falls back to local Codex model cache metadata", () => {
       Providers: [
         {
           api_base_url: "https://chatgpt.com/backend-api/codex",
-          api_key: "ccr-local-agent-login",
+          api_key: "llmr-local-agent-login",
           models: ["gpt-5-codex"],
           name: "Codex API",
           type: "openai_responses"

@@ -26,7 +26,7 @@ test("Media tools are a Fusion MCP backend independent from ToolHub", () => {
   config.gateway.host = "0.0.0.0";
   config.mediaTools.enabled = true;
   config.mediaTools.jobTimeoutMs = 600000;
-  config.Providers = [{ apiKey: "ccr-local-agent-login", baseUrl: "https://cli-chat-proxy.grok.com/v1", models: ["grok-4.5"], name: "Grok Agent" }];
+  config.Providers = [{ apiKey: "llmr-local-agent-login", baseUrl: "https://cli-chat-proxy.grok.com/v1", models: ["grok-4.5"], name: "Grok Agent" }];
   config.virtualModelProfiles = [{
     enabled: true,
     metadata: {
@@ -95,7 +95,7 @@ test("Core Gateway compiles one profile for each configured Fusion media model",
   config.mediaTools.enabled = true;
   config.Providers = [
     { models: ["base-model"], name: "Provider" },
-    { apiKey: "ccr-local-agent-login", baseUrl: "https://cli-chat-proxy.grok.com/v1", models: ["grok-4.5"], name: "Grok Agent" }
+    { apiKey: "llmr-local-agent-login", baseUrl: "https://cli-chat-proxy.grok.com/v1", models: ["grok-4.5"], name: "Grok Agent" }
   ];
   config.virtualModelProfiles = [{
     baseModel: { fixedModel: "Provider/base-model", mode: "fixed" },

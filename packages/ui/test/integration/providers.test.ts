@@ -997,7 +997,7 @@ test("provider connectivity API key follows selected credential mode", () => {
 test("provider connectivity includes saved Codex OAuth plugins while editing", () => {
   const provider = {
     api_base_url: "https://chatgpt.com/backend-api/codex",
-    api_key: "ccr-local-agent-login",
+    api_key: "llmr-local-agent-login",
     id: "codex-api",
     models: ["gpt-5.5"],
     name: "Codex API",
@@ -1046,7 +1046,7 @@ test("provider connectivity includes saved Codex OAuth plugins while editing", (
     ...provider,
     api_key: "",
     credentials: [{
-      api_key: "ccr-local-agent-login",
+      api_key: "llmr-local-agent-login",
       enabled: true,
       id: "login",
       name: "Login"
@@ -1531,7 +1531,7 @@ test("provider display icon prefers custom icons and falls back to preset icons"
   assert.equal(
     providerDisplayIcon({
       api_base_url: "https://cli-chat-proxy.grok.com/v1",
-      api_key: "ccr-local-agent-login",
+      api_key: "llmr-local-agent-login",
       icon: "/assets/grok-old.svg",
       models: [],
       name: "Grok CLI API",
@@ -1658,7 +1658,7 @@ test("Zen and Go candidates use distinct local agent plugin suffixes", () => {
   ]);
 
   const zenProvider = {
-    api_key: "ccr-local-agent-login",
+    api_key: "llmr-local-agent-login",
     models: ["shared-model"],
     name: "OpenCode Zen (Anthropic)"
   };
