@@ -8,7 +8,6 @@
 import { useState } from "react";
 import { AgentAnalysisView } from "@/pages/home/components/dashboard";
 import { BaseUiProvider } from "@/lib/baseui-provider";
-import { AppI18nContext, appCopy } from "@/pages/home/shared/i18n";
 import { getAgentAnalysisData } from "./mockData";
 import { DemoShell } from "./demoRuntime";
 import type { AgentFilterValue } from "@/pages/home/shared/options";
@@ -30,28 +29,26 @@ export default function ObservabilityViewDemo() {
     : BASE_SNAPSHOT;
 
   return (
-    <AppI18nContext.Provider value={appCopy}>
-      <DemoShell
-        title="Agent observability — inspect execution traces, tool calls, and results"
-        contentClassName="docs-demo-content--data"
-      >
-        <BaseUiProvider>
-          <div className="docs-demo-app-surface docs-demo-app-surface--observability">
-            <AgentAnalysisView
-              agentFilter={"all" as AgentFilterValue}
-              error=""
-              loading={false}
-              range="today"
-              refreshAnalysis={noop}
-              setAgentFilter={noop}
-              setRange={noop}
-              selectedSession={selectedSession}
-              setSelectedSession={setSelectedSession}
-              snapshot={snapshot}
-            />
-          </div>
-        </BaseUiProvider>
-      </DemoShell>
-    </AppI18nContext.Provider>
+    <DemoShell
+      title="Agent observability — inspect execution traces, tool calls, and results"
+      contentClassName="docs-demo-content--data"
+    >
+      <BaseUiProvider>
+        <div className="docs-demo-app-surface docs-demo-app-surface--observability">
+          <AgentAnalysisView
+            agentFilter={"all" as AgentFilterValue}
+            error=""
+            loading={false}
+            range="today"
+            refreshAnalysis={noop}
+            setAgentFilter={noop}
+            setRange={noop}
+            selectedSession={selectedSession}
+            setSelectedSession={setSelectedSession}
+            snapshot={snapshot}
+          />
+        </div>
+      </BaseUiProvider>
+    </DemoShell>
   );
 }

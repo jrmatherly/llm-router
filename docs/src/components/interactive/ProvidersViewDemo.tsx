@@ -9,7 +9,6 @@
 import { useMemo, useState } from "react";
 import { ProvidersView, AddProviderDialog, DeleteProviderDialog } from "@/pages/home/components/providers";
 import { BaseUiProvider } from "@/lib/baseui-provider";
-import { AppI18nContext, appCopy } from "@/pages/home/shared/i18n";
 import {
   createProviderDraft,
   createProviderDraftFromProvider,
@@ -214,50 +213,48 @@ export default function ProvidersViewDemo() {
   const deleteItem = deleteIndex === undefined ? undefined : providers[deleteIndex];
 
   return (
-    <AppI18nContext.Provider value={appCopy}>
-      <DemoShell
-        title="Provider management — add, edit, and remove upstream model providers"
-        onPlay={play}
-        playing={playing}
-      >
-        <VirtualCursor state={cursor} />
-        <BaseUiProvider>
-          <div className="docs-demo-app-surface docs-demo-app-surface--manager">
-            <ProvidersView
-              accountSnapshots={[] as ProviderAccountSnapshot[]}
-              providers={providers.map((provider, index) => ({ provider, index }))}
-              addProvider={openAdd}
-              editProvider={openEdit}
-              removeProvider={setDeleteIndex}
-              setProviderEnabled={setEnabled}
-              notify={notify}
-            />
-          </div>
+    <DemoShell
+      title="Provider management — add, edit, and remove upstream model providers"
+      onPlay={play}
+      playing={playing}
+    >
+      <VirtualCursor state={cursor} />
+      <BaseUiProvider>
+        <div className="docs-demo-app-surface docs-demo-app-surface--manager">
+          <ProvidersView
+            accountSnapshots={[] as ProviderAccountSnapshot[]}
+            providers={providers.map((provider, index) => ({ provider, index }))}
+            addProvider={openAdd}
+            editProvider={openEdit}
+            removeProvider={setDeleteIndex}
+            setProviderEnabled={setEnabled}
+            notify={notify}
+          />
+        </div>
 
-          {dialogOpen && (
-            <AddProviderDialog
-              mode={dialogMode}
-              title={dialogTitle}
-              draft={draft}
-              providers={providers}
-              canSubmit={canSubmit}
-              onChange={changeDraft}
-              onClose={() => {
-                setDialogOpen(false);
-                setEditIndex(undefined);
-              }}
-              onSubmit={submit}
-              error=""
-              probeLoading={false}
-              providerPlugins={[]}
-            />
-          )}
+        {dialogOpen && (
+          <AddProviderDialog
+            mode={dialogMode}
+            title={dialogTitle}
+            draft={draft}
+            providers={providers}
+            canSubmit={canSubmit}
+            onChange={changeDraft}
+            onClose={() => {
+              setDialogOpen(false);
+              setEditIndex(undefined);
+            }}
+            onSubmit={submit}
+            error=""
+            probeLoading={false}
+            providerPlugins={[]}
+          />
+        )}
 
-          {deleteItem && (
-            <DeleteProviderDialog provider={deleteItem} onClose={() => setDeleteIndex(undefined)} onConfirm={confirmDelete} />
-          )}
-        </BaseUiProvider>
-      </DemoShell>
-    </AppI18nContext.Provider>
+        {deleteItem && (
+          <DeleteProviderDialog provider={deleteItem} onClose={() => setDeleteIndex(undefined)} onConfirm={confirmDelete} />
+        )}
+      </BaseUiProvider>
+    </DemoShell>
   );
 }
