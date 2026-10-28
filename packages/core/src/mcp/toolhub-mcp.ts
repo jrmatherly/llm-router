@@ -5,8 +5,8 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import os from "node:os";
 import path from "node:path";
 import OpenAI from "openai";
-import { withoutLlmrSecretEnv } from "@ccr/core/mcp/child-env";
-import { isLoopbackHostname } from "@ccr/core/net/loopback";
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { isLoopbackHostname } from "@llmr/core/net/loopback";
 
 type JsonPrimitive = boolean | null | number | string;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };

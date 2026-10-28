@@ -12,7 +12,7 @@ import {
   removeLegacyCodexVirtualAuthMarker,
   writeCodexCompatibleAppModelCatalog,
   writeWorkbuddyModelsConfig
-} from "@ccr/core/agents/codex/app-launch.ts";
+} from "@llmr/core/agents/codex/app-launch.ts";
 
 test("ChatGPT app launch shares explicit or default Codex login when available", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-chatgpt-shared-auth-"));

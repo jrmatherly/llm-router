@@ -34,7 +34,7 @@ import type {
   VirtualModelExecutionMode,
   VirtualModelFusionWebSearchProvider,
   VirtualModelToolVisibility
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import {
   createEmptyAgentAnalysis,
   createEmptyRequestLogPage,

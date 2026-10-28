@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { replacePersistedAppConfig } from "@ccr/core/config/config-repository.ts";
-import { loadAppConfig } from "@ccr/core/config/config.ts";
+import { replacePersistedAppConfig } from "@llmr/core/config/config-repository.ts";
+import { loadAppConfig } from "@llmr/core/config/config.ts";
 
 test("a stored config with the removed bot gateway language still loads", async () => {
   const current = await loadAppConfig();

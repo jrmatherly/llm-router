@@ -1,5 +1,5 @@
-import type { AppConfig, GatewayProviderConfig } from "@ccr/core/contracts/app";
-import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
+import type { AppConfig, GatewayProviderConfig } from "@llmr/core/contracts/app";
+import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
 
 export function resolveConfiguredProviderModelSelector(
   value: string | undefined,

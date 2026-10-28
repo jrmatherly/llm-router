@@ -1,29 +1,29 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { ApiKeyConfig, AppConfig } from "@ccr/core/contracts/app";
-import { handleNetworkCaptureMcpRequest, isNetworkCaptureMcpPath } from "@ccr/core/mcp/network-capture-mcp";
-import { LEGACY_GROK_MEDIA_ARTIFACT_PATH_PREFIX, MEDIA_ARTIFACT_PATH_PREFIX, handleMediaArtifactRequest, handleMediaToolsMcpRequest } from "@ccr/core/mcp/grok-media-mcp";
-import { LEGACY_GROK_MEDIA_MCP_PATH, MEDIA_TOOLS_MCP_PATH } from "@ccr/core/mcp/grok-media-config";
-import { BROWSER_AUTOMATION_MCP_PATH, browserAutomationMcpEnabled } from "@ccr/core/mcp/toolhub-config";
-import { pluginService } from "@ccr/core/plugins/service";
-import { ClaudeCodeRouterPlugin } from "@ccr/core/gateway/claude-code-router-plugin";
-import { createClaudeCliBootstrapResponse, shouldServeClaudeCliBootstrapResponse } from "@ccr/core/gateway/features/model-discovery";
+import type { ApiKeyConfig, AppConfig } from "@llmr/core/contracts/app";
+import { handleNetworkCaptureMcpRequest, isNetworkCaptureMcpPath } from "@llmr/core/mcp/network-capture-mcp";
+import { LEGACY_GROK_MEDIA_ARTIFACT_PATH_PREFIX, MEDIA_ARTIFACT_PATH_PREFIX, handleMediaArtifactRequest, handleMediaToolsMcpRequest } from "@llmr/core/mcp/grok-media-mcp";
+import { LEGACY_GROK_MEDIA_MCP_PATH, MEDIA_TOOLS_MCP_PATH } from "@llmr/core/mcp/grok-media-config";
+import { BROWSER_AUTOMATION_MCP_PATH, browserAutomationMcpEnabled } from "@llmr/core/mcp/toolhub-config";
+import { pluginService } from "@llmr/core/plugins/service";
+import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin";
+import { createClaudeCliBootstrapResponse, shouldServeClaudeCliBootstrapResponse } from "@llmr/core/gateway/features/model-discovery";
 import {
   contextArchiveConfigForApiKey,
   handleContextArchiveMcpRequest,
   isContextArchiveMcpPath,
   type ContextArchiveReplayExecutor
-} from "@ccr/core/gateway/context-archive";
-import { ccrRemoteControlPathPrefix, ccrRemoteControlService, remoteControlOwnerId } from "@ccr/core/gateway/remote-control-service";
-import { gatewayRuntimeConfigControlPath } from "@ccr/core/gateway/runtime-config-control";
-import { authorize, claudeCodeWifTokenPath, handleClaudeCodeWifTokenRequest, reserveApiKeyLimits } from "@ccr/core/gateway/auth/api-key-authorizer";
-import { parseJsonObject, readRequestBody, sendJson } from "@ccr/core/gateway/http/io";
-import { shouldRecordRequestLogs } from "@ccr/core/observability/raw-trace-sync";
-import { requestLogRequestedModel } from "@ccr/core/observability/request-log-model";
-import { isModelAllowedForProfile, profileForApiKey } from "@ccr/core/profiles/model-allowlist";
-import { coreGatewayBodyLimitBytes } from "@ccr/core/gateway/core-runtime/config-compiler";
-import { applyCors, shouldServeGatewayRequest } from "@ccr/core/gateway/core-runtime/supervisor";
-import { billingUsageSyncPath, rawTraceSyncPath } from "@ccr/core/gateway/internal/shared";
-import type { BrowserAutomationMcpIntegration } from "@ccr/core/gateway/internal/shared";
+} from "@llmr/core/gateway/context-archive";
+import { ccrRemoteControlPathPrefix, ccrRemoteControlService, remoteControlOwnerId } from "@llmr/core/gateway/remote-control-service";
+import { gatewayRuntimeConfigControlPath } from "@llmr/core/gateway/runtime-config-control";
+import { authorize, claudeCodeWifTokenPath, handleClaudeCodeWifTokenRequest, reserveApiKeyLimits } from "@llmr/core/gateway/auth/api-key-authorizer";
+import { parseJsonObject, readRequestBody, sendJson } from "@llmr/core/gateway/http/io";
+import { shouldRecordRequestLogs } from "@llmr/core/observability/raw-trace-sync";
+import { requestLogRequestedModel } from "@llmr/core/observability/request-log-model";
+import { isModelAllowedForProfile, profileForApiKey } from "@llmr/core/profiles/model-allowlist";
+import { coreGatewayBodyLimitBytes } from "@llmr/core/gateway/core-runtime/config-compiler";
+import { applyCors, shouldServeGatewayRequest } from "@llmr/core/gateway/core-runtime/supervisor";
+import { billingUsageSyncPath, rawTraceSyncPath } from "@llmr/core/gateway/internal/shared";
+import type { BrowserAutomationMcpIntegration } from "@llmr/core/gateway/internal/shared";
 
 export type GatewayHttpRequestHandlerDependencies = {
   getBrowserAutomationMcpIntegration: () => BrowserAutomationMcpIntegration | undefined;

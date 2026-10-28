@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { cleanupLegacyCcrCliLaunchers, legacyCliLauncherFileNames } from "@ccr/core/profiles/launch-service.ts";
+import { cleanupLegacyCcrCliLaunchers, legacyCliLauncherFileNames } from "@llmr/core/profiles/launch-service.ts";
 
 const ownedLauncher = [
   "#!/bin/sh",

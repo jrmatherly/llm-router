@@ -7,10 +7,10 @@ import {
   GROK_MEDIA_VIDEO_START_TOOL_NAME,
   ROUTER_FALLBACK_MAX_RETRY_COUNT,
   isGatewayProviderEnabled
-} from "@ccr/core/contracts/app";
-import type { AppConfig, GatewayMediaProtocol } from "@ccr/core/contracts/app";
-import type { MediaOperation } from "@ccr/core/media/contracts";
-import { defaultGrokMediaModelSelector, migrateLegacyGrokMediaModelSelector, videoGenerationConstraints } from "@ccr/core/media/models";
+} from "@llmr/core/contracts/app";
+import type { AppConfig, GatewayMediaProtocol } from "@llmr/core/contracts/app";
+import type { MediaOperation } from "@llmr/core/media/contracts";
+import { defaultGrokMediaModelSelector, migrateLegacyGrokMediaModelSelector, videoGenerationConstraints } from "@llmr/core/media/models";
 
 export type MediaToolBinding = {
   fallbackModelSelectors?: string[];

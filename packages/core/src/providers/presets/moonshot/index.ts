@@ -1,5 +1,5 @@
-import type { ProviderAccountConfig } from "@ccr/core/contracts/app";
-import type { ProviderPreset } from "@ccr/core/providers/presets/types";
+import type { ProviderAccountConfig } from "@llmr/core/contracts/app";
+import type { ProviderPreset } from "@llmr/core/providers/presets/types";
 
 const moonshotGlobalProviderAccountConfig: ProviderAccountConfig = {
   connectors: [

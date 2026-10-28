@@ -85,8 +85,8 @@ import type {
   UsageStatsRange,
   UsageStatsResetResult,
   UsageStatsSnapshot
-} from "@ccr/core/contracts/app";
-import type { ProviderPreset } from "@ccr/core/providers/presets/types";
+} from "@llmr/core/contracts/app";
+import type { ProviderPreset } from "@llmr/core/providers/presets/types";
 
 declare global {
   interface Window {

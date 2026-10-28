@@ -1,4 +1,4 @@
-import type { GatewayProviderProtocol } from "@ccr/core/contracts/app";
+import type { GatewayProviderProtocol } from "@llmr/core/contracts/app";
 
 export function requestProtocolForPath(path: string): GatewayProviderProtocol | undefined {
   const normalized = path.toLowerCase();

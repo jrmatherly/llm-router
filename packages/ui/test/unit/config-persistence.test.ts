@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config";
-import { configsEqual, createConfigSaveQueue, mergeSavedApiKeys, reconcileSavedConfig } from "@ccr/ui/pages/home/shared/config-persistence";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config";
+import { configsEqual, createConfigSaveQueue, mergeSavedApiKeys, reconcileSavedConfig } from "@llmr/ui/pages/home/shared/config-persistence";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

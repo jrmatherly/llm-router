@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { Readable, Writable } from "node:stream";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { handleClaudeCodeWifTokenRequest } from "@ccr/core/gateway/auth/api-key-authorizer.ts";
-import { readRequestBody, RequestBodyTooLargeError } from "@ccr/core/gateway/http/io.ts";
-import { GatewayRequestPipeline } from "@ccr/core/gateway/request/pipeline.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { handleClaudeCodeWifTokenRequest } from "@llmr/core/gateway/auth/api-key-authorizer.ts";
+import { readRequestBody, RequestBodyTooLargeError } from "@llmr/core/gateway/http/io.ts";
+import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
 
 const seventeenMiB = 17 * 1024 * 1024;
 const sharedBody = Buffer.alloc(seventeenMiB);

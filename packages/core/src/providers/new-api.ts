@@ -1,5 +1,5 @@
-import type { ProviderAccountConfig, ProviderAccountHttpJsonConnectorConfig } from "@ccr/core/contracts/app";
-import { compactProviderUrl, providerUrlWithDefaultScheme } from "@ccr/core/providers/url";
+import type { ProviderAccountConfig, ProviderAccountHttpJsonConnectorConfig } from "@llmr/core/contracts/app";
+import { compactProviderUrl, providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
 
 export type DetectedProviderKind = "new-api";
 

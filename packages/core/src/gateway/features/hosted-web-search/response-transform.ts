@@ -1,13 +1,13 @@
 import { Readable, Transform } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
-import type { GatewayProviderProtocol } from "@ccr/core/contracts/app";
-import { isRecord, numberValue, stringValue } from "@ccr/core/gateway/internal/value";
-import { formatError } from "@ccr/core/gateway/http/io";
-import type { BrowserWebSearchMcpIntegration, BrowserWebSearchProtocolRecord, HostedWebSearchProtocolContext } from "@ccr/core/gateway/internal/shared";
-import { selectHostedWebSearchProtocolRecords } from "@ccr/core/gateway/features/hosted-web-search/discovery";
-import { parseSseEventBlock, parseSseEvents, serializeSseEvent, shiftSseContentBlockIndex, sseEventFromValue } from "@ccr/core/gateway/features/hosted-web-search/sse";
-import type { ParsedSseEvent } from "@ccr/core/gateway/features/hosted-web-search/sse";
-import { anthropicSseTextBlockStartIndex, anthropicWebSearchProtocolBlocks, anthropicWebSearchSseEventsForBlock, mergeAnthropicWebSearchUsage, responseValueContainsAnthropicClientToolUse, responseValueContainsAnthropicWebSearchBlocks, responseValueContainsVisibleText, sanitizeAnthropicToolUseId, shouldEndAnthropicHostedWebSearchTurn, sseEventContainsAnthropicClientToolUse, sseEventContainsAnthropicWebSearchBlock, sseEventContainsVisibleText, sseEventIsAnthropicMessageEnd, sseEventsContainAnthropicClientToolUse, sseEventsContainAnthropicWebSearchBlocks, sseEventsContainVisibleText, synthesizeWebSearchAnswer, updateAnthropicWebSearchSseUsage, webSearchProtocolInsertIndex } from "@ccr/core/gateway/features/hosted-web-search/evidence";
+import type { GatewayProviderProtocol } from "@llmr/core/contracts/app";
+import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
+import { formatError } from "@llmr/core/gateway/http/io";
+import type { BrowserWebSearchMcpIntegration, BrowserWebSearchProtocolRecord, HostedWebSearchProtocolContext } from "@llmr/core/gateway/internal/shared";
+import { selectHostedWebSearchProtocolRecords } from "@llmr/core/gateway/features/hosted-web-search/discovery";
+import { parseSseEventBlock, parseSseEvents, serializeSseEvent, shiftSseContentBlockIndex, sseEventFromValue } from "@llmr/core/gateway/features/hosted-web-search/sse";
+import type { ParsedSseEvent } from "@llmr/core/gateway/features/hosted-web-search/sse";
+import { anthropicSseTextBlockStartIndex, anthropicWebSearchProtocolBlocks, anthropicWebSearchSseEventsForBlock, mergeAnthropicWebSearchUsage, responseValueContainsAnthropicClientToolUse, responseValueContainsAnthropicWebSearchBlocks, responseValueContainsVisibleText, sanitizeAnthropicToolUseId, shouldEndAnthropicHostedWebSearchTurn, sseEventContainsAnthropicClientToolUse, sseEventContainsAnthropicWebSearchBlock, sseEventContainsVisibleText, sseEventIsAnthropicMessageEnd, sseEventsContainAnthropicClientToolUse, sseEventsContainAnthropicWebSearchBlocks, sseEventsContainVisibleText, synthesizeWebSearchAnswer, updateAnthropicWebSearchSseUsage, webSearchProtocolInsertIndex } from "@llmr/core/gateway/features/hosted-web-search/evidence";
 
 export function hostedWebSearchProtocolResponseStream(
   input: Readable,

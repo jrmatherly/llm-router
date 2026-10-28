@@ -4,7 +4,7 @@ import type {
   BotGatewayQrWindowCloseResult,
   BotGatewayQrWindowOpenRequest,
   BotGatewayQrWindowOpenResult
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import { isHttpUrl, openHttpExternal } from "./external-url";
 
 const qrWindows = new Map<string, BrowserWindow>();

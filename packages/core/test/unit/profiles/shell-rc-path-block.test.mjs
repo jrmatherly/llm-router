@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 test("an rc file with the Claude Code Router PATH block ends up with one LLM Router block", async () => {
-  const { ensureShellRcPathBlock } = await import("@ccr/core/profiles/launch-service.ts");
+  const { ensureShellRcPathBlock } = await import("@llmr/core/profiles/launch-service.ts");
   const rc = path.join(mkdtempSync(path.join(os.tmpdir(), "ccr-rc-")), ".zshrc");
   writeFileSync(rc, "export A=1\n# >>> Claude Code Router CLI >>>\nexport PATH=\"old:$PATH\"\n# <<< Claude Code Router CLI <<<\n");
   ensureShellRcPathBlock(rc, "/opt/llm-router/bin");
@@ -19,7 +19,7 @@ test("an rc file with the Claude Code Router PATH block ends up with one LLM Rou
 });
 
 test("a fish config with the Claude Code Router PATH block ends up with one LLM Router block", async () => {
-  const { ensureFishPathBlock } = await import("@ccr/core/profiles/launch-service.ts");
+  const { ensureFishPathBlock } = await import("@llmr/core/profiles/launch-service.ts");
   const file = path.join(mkdtempSync(path.join(os.tmpdir(), "ccr-fish-")), "ccr.fish");
   writeFileSync(file, "set -g A 1\n# >>> Claude Code Router CLI >>>\nset -l ccr_bin old\n# <<< Claude Code Router CLI <<<\n");
   ensureFishPathBlock(file, "/opt/llm-router/bin");
@@ -31,7 +31,7 @@ test("a fish config with the Claude Code Router PATH block ends up with one LLM 
 });
 
 test("an rc file that already adds the LLM Router bin dir loses the Claude Code Router PATH block instead of gaining a new one", async () => {
-  const { ensureShellRcPathBlock } = await import("@ccr/core/profiles/launch-service.ts");
+  const { ensureShellRcPathBlock } = await import("@llmr/core/profiles/launch-service.ts");
   const rc = path.join(mkdtempSync(path.join(os.tmpdir(), "ccr-rc-")), ".zshrc");
   writeFileSync(rc, "# zsh/path.zsh adds $HOME/.llm-router/bin\nexport A=1\n# >>> Claude Code Router CLI >>>\nexport PATH=\"old:$PATH\"\n# <<< Claude Code Router CLI <<<\n");
   ensureShellRcPathBlock(rc, "/opt/llm-router/bin");

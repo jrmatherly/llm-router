@@ -14,7 +14,7 @@ import {
   shouldSendBody,
   stripLocalGatewayAuthHeaders,
   withCoreGatewayAuthHeader
-} from "@ccr/core/gateway/http/io.ts";
+} from "@llmr/core/gateway/http/io.ts";
 import {
   parseJsonObjectCached,
   parseJsonObjectSafe,
@@ -22,7 +22,7 @@ import {
   serializeJsonBody,
   serializeJsonBodyWithModel,
   takeJsonObject
-} from "@ccr/core/gateway/http/body.ts";
+} from "@llmr/core/gateway/http/body.ts";
 
 test("gateway client inference honors explicit, proxy, API-key, and user-agent identity", () => {
   assert.equal(inferGatewayClient(undefined, { "x-ccr-client": "  Desktop App  " }), "Desktop App");

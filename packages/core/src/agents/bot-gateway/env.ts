@@ -1,9 +1,9 @@
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import type { AppConfig, BotGatewayRuntimeConfig, ProfileConfig, ProfileOpenSurface } from "@ccr/core/contracts/app";
-import { CONFIGDIR } from "@ccr/core/config/constants";
-import { resolveUserPath } from "@ccr/core/runtime/app-paths";
+import type { AppConfig, BotGatewayRuntimeConfig, ProfileConfig, ProfileOpenSurface } from "@llmr/core/contracts/app";
+import { CONFIGDIR } from "@llmr/core/config/constants";
+import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 
 const requireFromHere = createRequire(__filename);
 

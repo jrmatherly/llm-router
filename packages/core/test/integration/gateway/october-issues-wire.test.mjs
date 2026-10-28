@@ -5,14 +5,14 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { compileCoreGatewayConfig } from "@ccr/core/gateway/core-runtime/config-compiler.ts";
-import { ClaudeCodeRouterPlugin } from "@ccr/core/gateway/claude-code-router-plugin.ts";
-import { GatewayRequestPipeline } from "@ccr/core/gateway/request/pipeline.ts";
-import { closeRequestLogRuntime, flushRequestLogRuntime, requestLogRuntime } from "@ccr/core/observability/request-log-store.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
+import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
+import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
+import { closeRequestLogRuntime, flushRequestLogRuntime, requestLogRuntime } from "@llmr/core/observability/request-log-store.ts";
 
-import { gatewayService } from "@ccr/core/gateway/application/gateway-service.ts";
-import { pluginService } from "@ccr/core/plugins/service.ts";
+import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
+import { pluginService } from "@llmr/core/plugins/service.ts";
 
 const entry = process.env.CCR_TEST_GATEWAY_ENTRY;
 const skip = !entry && "set CCR_TEST_GATEWAY_ENTRY to the gateway production entry";

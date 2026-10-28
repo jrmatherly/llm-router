@@ -8,7 +8,7 @@ import type {
   LocalAgentProviderImportResult,
   ProviderAccountConfig,
   ProviderAccountConnectorConfig
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import {
   apiKeyAuthPlugin,
   bearerAuthPlugin,
@@ -25,10 +25,10 @@ import {
   readString,
   uniqueProviderName,
   uniqueStrings
-} from "@ccr/core/agents/local-providers/shared";
-import { findProviderPresetByBaseUrl } from "@ccr/core/providers/presets/index";
-import { openCodePublicFreeTierPlugin } from "@ccr/core/agents/local-providers/opencode-freetier";
-import { resolveRuntimeAppPath } from "@ccr/core/runtime/app-paths";
+} from "@llmr/core/agents/local-providers/shared";
+import { findProviderPresetByBaseUrl } from "@llmr/core/providers/presets/index";
+import { openCodePublicFreeTierPlugin } from "@llmr/core/agents/local-providers/opencode-freetier";
+import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
 
 type OpenCodeCredential = {
   apiKey?: string;

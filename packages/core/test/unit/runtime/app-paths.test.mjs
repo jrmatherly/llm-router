@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { APP_STORAGE_NAME, LEGACY_CONFIGDIR, resolveRuntimeConfigDir, resolveRuntimeDataDir, resolveUserPath } from "@ccr/core/runtime/app-paths.ts";
+import { APP_STORAGE_NAME, LEGACY_CONFIGDIR, resolveRuntimeConfigDir, resolveRuntimeDataDir, resolveUserPath } from "@llmr/core/runtime/app-paths.ts";
 
 test("the storage name and the JSON import dir carry the rebranded name", () => {
   assert.equal(APP_STORAGE_NAME, "llm-router");

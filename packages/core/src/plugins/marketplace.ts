@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { DATADIR } from "@ccr/core/config/constants";
-import { GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, type GatewayPluginAppConfig, type GatewayPluginPermission, type GatewayPluginSurface, type PluginDependency, type PluginMarketplaceEntry } from "@ccr/core/contracts/app";
-import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
+import { DATADIR } from "@llmr/core/config/constants";
+import { GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, type GatewayPluginAppConfig, type GatewayPluginPermission, type GatewayPluginSurface, type PluginDependency, type PluginMarketplaceEntry } from "@llmr/core/contracts/app";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 
 type MarketplaceCache = {
   entries: PluginMarketplaceEntry[];

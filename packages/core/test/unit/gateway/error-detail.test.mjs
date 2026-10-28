@@ -4,7 +4,7 @@ import {
   appendAggregateErrorAttemptSummary,
   maxAggregateErrorDetailBodyBytes,
   shouldBufferAggregateErrorBody
-} from "@ccr/core/gateway/http/error-detail.ts";
+} from "@llmr/core/gateway/http/error-detail.ts";
 
 function aggregateErrorPayload() {
   return {

@@ -4,12 +4,12 @@ import {
   buildRoutingRuleRows,
   normalizeRouteScriptSampleRequest,
   normalizeRouterRules
-} from "@ccr/ui/pages/home/shared/routing.ts";
+} from "@llmr/ui/pages/home/shared/routing.ts";
 import {
   createRoutingRuleDraft,
   createRoutingRuleDraftFromRule,
   isRoutingRuleDraftSubmittable
-} from "@ccr/ui/pages/home/shared/providers.ts";
+} from "@llmr/ui/pages/home/shared/providers.ts";
 import { appConfigFixture } from "../fixtures/index.ts";
 
 test("global routing rows omit Claude Code and Codex built-in profile routes", () => {

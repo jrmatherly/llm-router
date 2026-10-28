@@ -1,13 +1,13 @@
-import type { AppConfig, GatewayProviderProtocol, VirtualModelFusionWebSearchProvider } from "@ccr/core/contracts/app";
-import { isRecord, numberValue, stringListValue, stringValue } from "@ccr/core/gateway/internal/value";
-import { normalizeCoreGatewayVirtualModelProfiles } from "@ccr/core/gateway/core-runtime/config-compiler";
-import { browserWebSearchUnavailableMessage, fusionModelNameFromSelector, readFusionWebSearchConfig, withCodexCompatibleVirtualModelProfiles, withFusionVirtualModelAliases } from "@ccr/core/mcp/fusion-config";
-import type { BrowserWebSearchMcpIntegration, BrowserWebSearchProtocolRecord, ClaudeCodeWebSearchContinuationContext, HostedWebSearchProtocolContext } from "@ccr/core/gateway/internal/shared";
-import { clampNumber, uniqueStrings } from "@ccr/core/gateway/internal/collections";
-import { defaultFusionWebSearchProvider } from "@ccr/core/gateway/internal/shared";
-import { queryMatchScore } from "@ccr/core/gateway/features/hosted-web-search/evidence";
-import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
-import { formatError } from "@ccr/core/gateway/http/io";
+import type { AppConfig, GatewayProviderProtocol, VirtualModelFusionWebSearchProvider } from "@llmr/core/contracts/app";
+import { isRecord, numberValue, stringListValue, stringValue } from "@llmr/core/gateway/internal/value";
+import { normalizeCoreGatewayVirtualModelProfiles } from "@llmr/core/gateway/core-runtime/config-compiler";
+import { browserWebSearchUnavailableMessage, fusionModelNameFromSelector, readFusionWebSearchConfig, withCodexCompatibleVirtualModelProfiles, withFusionVirtualModelAliases } from "@llmr/core/mcp/fusion-config";
+import type { BrowserWebSearchMcpIntegration, BrowserWebSearchProtocolRecord, ClaudeCodeWebSearchContinuationContext, HostedWebSearchProtocolContext } from "@llmr/core/gateway/internal/shared";
+import { clampNumber, uniqueStrings } from "@llmr/core/gateway/internal/collections";
+import { defaultFusionWebSearchProvider } from "@llmr/core/gateway/internal/shared";
+import { queryMatchScore } from "@llmr/core/gateway/features/hosted-web-search/evidence";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
+import { formatError } from "@llmr/core/gateway/http/io";
 
 type FusionWebSearchToolCandidate = {
   aliases: string[];

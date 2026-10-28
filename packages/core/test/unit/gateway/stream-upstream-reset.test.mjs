@@ -2,18 +2,18 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { Readable, Writable } from "node:stream";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import {
   ccrCodexApplyPatchBridgeHeader,
   ccrCodexBridgeStreamHookKey,
   ccrCodexMultiAgentBridgeHeader,
   ccrLiveTokenRateConfigMessageType,
   ccrLiveTokenRateStreamHookKey
-} from "@ccr/core/gateway/core-runtime/router-plugin-contract.ts";
-import { createGatewayPlugin } from "@ccr/core/gateway/core-runtime/router-plugin.ts";
-import { codexMultiAgentBridgeResponseStream } from "@ccr/core/gateway/features/codex-multi-agent-bridge.ts";
-import { codexApplyPatchBridgeResponseStream } from "@ccr/core/gateway/features/codex-patch-bridge.ts";
-import { GatewayRequestPipeline } from "@ccr/core/gateway/request/pipeline.ts";
+} from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
+import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/router-plugin.ts";
+import { codexMultiAgentBridgeResponseStream } from "@llmr/core/gateway/features/codex-multi-agent-bridge.ts";
+import { codexApplyPatchBridgeResponseStream } from "@llmr/core/gateway/features/codex-patch-bridge.ts";
+import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
 
 // An upstream that sends response headers and one chunk, then resets the
 // socket (RST) mid-body, the way a provider drop or a laptop sleep does.

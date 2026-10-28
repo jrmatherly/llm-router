@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { performance } from "node:perf_hooks";
 import { StringDecoder } from "node:string_decoder";
 import { Transform } from "node:stream";
-import type { GatewayProviderProtocol, RequestStreamMetrics, StreamSpeedSampleStatus } from "@ccr/core/contracts/app";
+import type { GatewayProviderProtocol, RequestStreamMetrics, StreamSpeedSampleStatus } from "@llmr/core/contracts/app";
 
 const liveRateWindowMs = 2_000;
 const maxRecordedGaps = 1_024;

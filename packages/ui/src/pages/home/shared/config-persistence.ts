@@ -1,4 +1,4 @@
-import type { AppConfig } from "@ccr/core/contracts/app";
+import type { AppConfig } from "@llmr/core/contracts/app";
 
 /** The commit belongs to the write, so the next request sees its saved state. */
 export function createConfigSaveQueue() {

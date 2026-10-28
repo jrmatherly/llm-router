@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { singleGatewayRuntimeBlockersForTest } from "@ccr/core/gateway/application/gateway-service.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { singleGatewayRuntimeBlockersForTest } from "@llmr/core/gateway/application/gateway-service.ts";
 
 test("single gateway runtime falls back when Media Tools need LLMR HTTP routes", () => {
   const config = createDefaultAppConfig();

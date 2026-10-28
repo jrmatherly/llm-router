@@ -1,9 +1,9 @@
 import {
   ROUTER_FALLBACK_MAX_RETRY_COUNT,
   type RouterFallbackConfig
-} from "@ccr/core/contracts/app";
-import type { RouteExecutionPlan } from "@ccr/core/routing/contracts";
-import { type ModelRegistry, normalizeRouteSelector } from "@ccr/core/routing/model-registry";
+} from "@llmr/core/contracts/app";
+import type { RouteExecutionPlan } from "@llmr/core/routing/contracts";
+import { type ModelRegistry, normalizeRouteSelector } from "@llmr/core/routing/model-registry";
 
 export function createRouteExecutionPlan(input: {
   bodyModel?: string;

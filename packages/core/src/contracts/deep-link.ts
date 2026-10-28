@@ -9,8 +9,8 @@ import type {
   ProviderModelCapabilities,
   ProviderModelMetadata,
   ProviderModelPricing
-} from "@ccr/core/contracts/app";
-import { assertWebContentStorageTarget, providerUrlWithDefaultScheme } from "@ccr/core/providers/url";
+} from "@llmr/core/contracts/app";
+import { assertWebContentStorageTarget, providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
 
 export const appDeepLinkProtocol = "llmr";
 export const providerDeepLinkHost = "provider";

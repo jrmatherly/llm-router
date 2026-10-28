@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   isProfileAppMainProcessCommandForTest,
   isProfileAppRunningWithProbeForTest
-} from "@ccr/core/profiles/launch-service.ts";
+} from "@llmr/core/profiles/launch-service.ts";
 
 const userDataDir = "/Users/example/.llm-router/profiles/codex/codex/.llm-router/codex-app-user-data/codex";
 

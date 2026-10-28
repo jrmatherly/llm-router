@@ -11,8 +11,8 @@ process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(root, "user-data");
 let configApi;
 let accountApi;
 before(async () => {
-  configApi = await import("@ccr/core/config/config.ts");
-  accountApi = await import("@ccr/core/providers/account-service.ts");
+  configApi = await import("@llmr/core/config/config.ts");
+  accountApi = await import("@llmr/core/providers/account-service.ts");
 });
 
 test("OpenCode Go standard usage mode resolves the official usage endpoint", async (t) => {

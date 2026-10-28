@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { ApiKeyConfig, ProfileConfig } from "@ccr/core/contracts/app";
+import type { ApiKeyConfig, ProfileConfig } from "@llmr/core/contracts/app";
 
 type ProfileApiKeySource = Pick<ProfileConfig, "agent" | "id" | "name">;
 

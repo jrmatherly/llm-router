@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatLogTokenSummary, logRequestModel, logResponseModel } from "@ccr/ui/pages/home/shared/logs.ts";
-import { formatCompactNumber, formatPercentFixed, formatUsdCost as formatHomeUsdCost } from "@ccr/ui/pages/home/shared/usage.ts";
-import { formatUsdCost as formatTrayUsdCost } from "@ccr/ui/pages/tray/shared.tsx";
-import type { RequestLogEntry } from "@ccr/core/contracts/app.ts";
+import { formatLogTokenSummary, logRequestModel, logResponseModel } from "@llmr/ui/pages/home/shared/logs.ts";
+import { formatCompactNumber, formatPercentFixed, formatUsdCost as formatHomeUsdCost } from "@llmr/ui/pages/home/shared/usage.ts";
+import { formatUsdCost as formatTrayUsdCost } from "@llmr/ui/pages/tray/shared.tsx";
+import type { RequestLogEntry } from "@llmr/core/contracts/app.ts";
 
 test("formatCompactNumber formats large counts in compact notation", () => {
   assert.equal(formatCompactNumber(123456, "en-US"), "123.5K");

@@ -5,11 +5,11 @@ import { isIP } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import type { GatewayMediaProtocol } from "@ccr/core/contracts/app";
-import type { ImageEditRequest, ImageGenerateRequest, MediaExecutionContext, MediaExecutionResult, VideoGenerateRequest } from "@ccr/core/media/contracts";
-import { detectMediaType } from "@ccr/core/media/storage";
-import { sanitizeHeaderValue } from "@ccr/core/providers/runtime-topology";
-import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
+import type { GatewayMediaProtocol } from "@llmr/core/contracts/app";
+import type { ImageEditRequest, ImageGenerateRequest, MediaExecutionContext, MediaExecutionResult, VideoGenerateRequest } from "@llmr/core/media/contracts";
+import { detectMediaType } from "@llmr/core/media/storage";
+import { sanitizeHeaderValue } from "@llmr/core/providers/runtime-topology";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 
 const maxApiArtifactBytes = 250 * 1024 * 1024;
 const maxArtifactRedirects = 5;

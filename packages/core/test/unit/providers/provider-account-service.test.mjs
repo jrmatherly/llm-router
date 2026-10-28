@@ -8,14 +8,14 @@ import {
   localCodexAccountCredentialForTest,
   setProviderAccountWebContentFetchHandler,
   testProviderAccountConnector
-} from "@ccr/core/providers/account-service.ts";
+} from "@llmr/core/providers/account-service.ts";
 import {
   grokDefaultBillingEndpoint,
   grokDefaultBaseUrl,
   grokDefaultSubscriptionEndpoint,
   grokProviderAccountConfig
-} from "@ccr/core/agents/local-providers/grok.ts";
-import { findProviderPreset } from "@ccr/core/providers/presets/index.ts";
+} from "@llmr/core/agents/local-providers/grok.ts";
+import { findProviderPreset } from "@llmr/core/providers/presets/index.ts";
 
 const localAgentProviderApiKey = "llmr-local-agent-login";
 const codexDefaultBaseUrl = "https://chatgpt.com/backend-api/codex";

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { openHttpExternal } from "@ccr/electron/main/external-url.ts";
+import { openHttpExternal } from "@llmr/electron/main/external-url.ts";
 
 test("openHttpExternal forwards only http and https", () => {
   const opened: string[] = [];

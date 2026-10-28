@@ -1,7 +1,7 @@
 import { Readable, Transform } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
-import type { GatewayProviderProtocol } from "@ccr/core/contracts/app";
-import { isRecord, stringValue } from "@ccr/core/gateway/internal/value";
+import type { GatewayProviderProtocol } from "@llmr/core/contracts/app";
+import { isRecord, stringValue } from "@llmr/core/gateway/internal/value";
 
 export function shouldRewriteAnthropicMessageStartModel(input: {
   contentType: string | undefined;

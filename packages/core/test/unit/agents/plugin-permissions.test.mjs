@@ -3,9 +3,9 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { pluginService } from "@ccr/core/plugins/service.ts";
-import { CCR_DESKTOP_APP_ENV } from "@ccr/core/runtime/desktop-app.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { pluginService } from "@llmr/core/plugins/service.ts";
+import { CCR_DESKTOP_APP_ENV } from "@llmr/core/runtime/desktop-app.ts";
 import { withDesktopRuntime } from "../../support/desktop-runtime.mjs";
 
 test("plugin permissions gate dynamic gateway route registration", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {

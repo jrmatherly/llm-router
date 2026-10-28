@@ -3,10 +3,10 @@ import type {
   ProviderCatalogModelsResult,
   ProviderModelMetadata,
   ProviderModelPricing
-} from "@ccr/core/contracts/app";
-import { providerUrlWithDefaultScheme } from "@ccr/core/providers/url";
-import { loadModelCatalogPayload, modelCatalogRevision, scheduleModelCatalogRefresh } from "@ccr/core/models/catalog-file";
-import { findProviderPreset, findProviderPresetByBaseUrl } from "@ccr/core/providers/presets/index";
+} from "@llmr/core/contracts/app";
+import { providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
+import { loadModelCatalogPayload, modelCatalogRevision, scheduleModelCatalogRefresh } from "@llmr/core/models/catalog-file";
+import { findProviderPreset, findProviderPresetByBaseUrl } from "@llmr/core/providers/presets/index";
 
 type CatalogProviderEntry = {
   apiUrls: string[];

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import path from "node:path";
-import { buildClaudeAppGatewayModelRoutes } from "@ccr/core/agents/claude-app/gateway-routes.ts";
-import { createClaudeCliBootstrapResponse } from "@ccr/core/gateway/features/model-discovery.ts";
-import { buildCodexModelCatalog } from "@ccr/core/agents/codex/model-catalog.ts";
-import { getProviderCatalogModels } from "@ccr/core/providers/model-catalog.ts";
+import { buildClaudeAppGatewayModelRoutes } from "@llmr/core/agents/claude-app/gateway-routes.ts";
+import { createClaudeCliBootstrapResponse } from "@llmr/core/gateway/features/model-discovery.ts";
+import { buildCodexModelCatalog } from "@llmr/core/agents/codex/model-catalog.ts";
+import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog.ts";
 
 // Catalog mapping assertions use stable input while the bundled catalog follows live sources.
 process.env.CCR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");

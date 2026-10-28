@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { isGatewayProviderEnabled, type AppConfig, type ProfileConfig } from "@ccr/core/contracts/app";
-import { normalizeRouteSelector } from "@ccr/core/gateway/claude-code-router-plugin";
-import { buildZcodeModelCatalog } from "@ccr/core/agents/zcode/model-catalog";
-import { backupBeforeWrite, writeFileAtomic } from "@ccr/core/profiles/backup-files";
-import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
-import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
+import { isGatewayProviderEnabled, type AppConfig, type ProfileConfig } from "@llmr/core/contracts/app";
+import { normalizeRouteSelector } from "@llmr/core/gateway/claude-code-router-plugin";
+import { buildZcodeModelCatalog } from "@llmr/core/agents/zcode/model-catalog";
+import { backupBeforeWrite, writeFileAtomic } from "@llmr/core/profiles/backup-files";
+import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
+import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-paths";
 
 export type ZcodeProfileConfigWriteResult = {
   backupFile?: string;

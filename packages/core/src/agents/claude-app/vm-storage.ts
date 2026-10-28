@@ -1,7 +1,7 @@
 import { constants, copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, rmSync, statSync, symlinkSync, chmodSync, renameSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
+import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-paths";
 
 const claudeAppVmBundlesDir = "vm_bundles";
 const claudeAppVmBundleName = "claudevm.bundle";

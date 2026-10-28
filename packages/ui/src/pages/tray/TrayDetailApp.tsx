@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@ccr/core/contracts/error-message";
+import { formatErrorMessage } from "@llmr/core/contracts/error-message";
 import {
   applyTrayThemePreference, DEFAULT_TRAY_WIDGETS, emptySnapshots,
   normalizeTrayWidgets, ProviderAccountSnapshot, SnapshotMap, TrayWidgetConfig, UsageStatsFilter,

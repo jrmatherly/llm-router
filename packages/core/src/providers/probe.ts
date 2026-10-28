@@ -11,28 +11,28 @@ import type {
   GatewayProviderProbeResult,
   GatewayProviderCapabilityProtocol,
   GatewayProviderProtocol
-} from "@ccr/core/contracts/app";
-import { codexDefaultBaseUrl, readCodexAuth } from "@ccr/core/agents/local-providers/codex";
-import { opencodeCatalogProtocolModelMap } from "@ccr/core/agents/local-providers/opencode";
-import { localAgentProviderApiKey } from "@ccr/core/agents/local-providers/shared";
-import { readClaudeCodeOauth } from "@ccr/core/agents/local-providers/service";
-import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@ccr/core/providers/oauth-plugin";
-import { findProviderPresetByBaseUrl, providerApiKeySafetyIssue } from "@ccr/core/providers/presets/index";
-import { getProviderCatalogModels } from "@ccr/core/providers/model-catalog";
-import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
+} from "@llmr/core/contracts/app";
+import { codexDefaultBaseUrl, readCodexAuth } from "@llmr/core/agents/local-providers/codex";
+import { opencodeCatalogProtocolModelMap } from "@llmr/core/agents/local-providers/opencode";
+import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared";
+import { readClaudeCodeOauth } from "@llmr/core/agents/local-providers/service";
+import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
+import { findProviderPresetByBaseUrl, providerApiKeySafetyIssue } from "@llmr/core/providers/presets/index";
+import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import {
   compactProviderUrl,
   parseProviderBaseUrl,
   providerBaseUrlForProtocol,
   type ParsedProviderBaseUrl
-} from "@ccr/core/providers/url";
+} from "@llmr/core/providers/url";
 import {
   detectedProviderFromHeaders,
   newApiKeyUsageAccountConfig,
   type DetectedProviderKind
-} from "@ccr/core/providers/new-api";
-import { recordGatewayRequestLog } from "@ccr/core/observability/request-log-store";
-import { requestLogSampled } from "@ccr/core/observability/raw-trace-sync";
+} from "@llmr/core/providers/new-api";
+import { recordGatewayRequestLog } from "@llmr/core/observability/request-log-store";
+import { requestLogSampled } from "@llmr/core/observability/raw-trace-sync";
 
 type ModelSource = NonNullable<GatewayProviderProbeResult["modelSource"]>;
 

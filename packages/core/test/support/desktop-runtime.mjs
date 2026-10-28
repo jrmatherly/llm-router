@@ -1,4 +1,4 @@
-import { CCR_DESKTOP_APP_ENV } from "@ccr/core/runtime/desktop-app.ts";
+import { CCR_DESKTOP_APP_ENV } from "@llmr/core/runtime/desktop-app.ts";
 
 export async function withDesktopRuntime(run) {
   const previousDesktopApp = process.env[CCR_DESKTOP_APP_ENV];

@@ -7,7 +7,7 @@ import {
   CCR_CLI_COMPANION_RUNTIME_FILE_NAMES,
   syncCcrCliCompanionRuntimes,
   syncCcrCliModelCatalog
-} from "@ccr/core/profiles/launch-service.ts";
+} from "@llmr/core/profiles/launch-service.ts";
 
 test("LLMR CLI launcher copies every bundled companion runtime next to ccr-cli.js", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "ccr-cli-runtime-"));

@@ -1,14 +1,14 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { buildCodexModelCatalog, type CodexModelCatalogItem } from "@ccr/core/agents/codex/model-catalog";
-import { parseJsoncRecord } from "@ccr/core/agents/local-providers/shared";
-import { isGatewayProviderEnabled, type AppConfig, type GatewayProviderConfig, type ProfileConfig, type ProviderModelMetadata } from "@ccr/core/contracts/app";
-import { findModelCatalogEntry, findProviderModelCatalogEntry, type ModelCatalogEntry, modelCatalogMaxInputTokens, modelCatalogMaxOutputTokens } from "@ccr/core/gateway/model-catalog";
-import { backupBeforeWrite, backupMarker, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@ccr/core/profiles/backup-files";
-import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
-import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
-import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
-import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
+import { buildCodexModelCatalog, type CodexModelCatalogItem } from "@llmr/core/agents/codex/model-catalog";
+import { parseJsoncRecord } from "@llmr/core/agents/local-providers/shared";
+import { isGatewayProviderEnabled, type AppConfig, type GatewayProviderConfig, type ProfileConfig, type ProviderModelMetadata } from "@llmr/core/contracts/app";
+import { findModelCatalogEntry, findProviderModelCatalogEntry, type ModelCatalogEntry, modelCatalogMaxInputTokens, modelCatalogMaxOutputTokens } from "@llmr/core/gateway/model-catalog";
+import { backupBeforeWrite, backupMarker, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@llmr/core/profiles/backup-files";
+import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
+import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
+import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
+import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-paths";
 
 export type OpenCodeProfileConfigWriteResult = {
   backupFile?: string;

@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { AppConfig } from "@ccr/core/contracts/app";
-import { readHeader, readRequestBody, sendJson } from "@ccr/core/gateway/http/io";
-import { billingUsageSyncHeader } from "@ccr/core/gateway/internal/shared";
-import { isRecord, numberValue, stringValue } from "@ccr/core/gateway/internal/value";
-import { findProviderByPublicOrInternalName, resolveResponseProviderProtocol } from "@ccr/core/providers/runtime-topology";
-import { normalizeUsageInputTokens } from "@ccr/core/usage/normalization";
-import { UsageStore, usageStore, type UsageEventInput } from "@ccr/core/usage/store";
+import type { AppConfig } from "@llmr/core/contracts/app";
+import { readHeader, readRequestBody, sendJson } from "@llmr/core/gateway/http/io";
+import { billingUsageSyncHeader } from "@llmr/core/gateway/internal/shared";
+import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
+import { findProviderByPublicOrInternalName, resolveResponseProviderProtocol } from "@llmr/core/providers/runtime-topology";
+import { normalizeUsageInputTokens } from "@llmr/core/usage/normalization";
+import { UsageStore, usageStore, type UsageEventInput } from "@llmr/core/usage/store";
 
 type GatewayBillingSynchronizerOptions = {
   getConfig?: () => AppConfig | undefined;

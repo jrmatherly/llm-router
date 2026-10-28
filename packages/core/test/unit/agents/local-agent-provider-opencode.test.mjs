@@ -8,9 +8,9 @@ import {
   opencodeCandidates,
   opencodeCatalogProtocolModels,
   removeOpenCodeProviderAccountConfig
-} from "@ccr/core/agents/local-providers/opencode.ts";
-import { localAgentProviderApiKey } from "@ccr/core/agents/local-providers/shared.ts";
-import { OPENCODE_PUBLIC_FREETIER_PLUGIN_SUFFIX } from "@ccr/core/agents/local-providers/opencode-freetier.ts";
+} from "@llmr/core/agents/local-providers/opencode.ts";
+import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared.ts";
+import { OPENCODE_PUBLIC_FREETIER_PLUGIN_SUFFIX } from "@llmr/core/agents/local-providers/opencode-freetier.ts";
 
 test("OpenCode local provider imports Zen models using each model's native protocol", async () => {
   await withOpenCodeHome(async (home) => {

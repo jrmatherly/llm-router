@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import {
   BROWSER_AUTOMATION_HANDOFF_TIMEOUT_MS,
   BROWSER_AUTOMATION_MCP_PATH,
@@ -9,11 +9,11 @@ import {
   browserAutomationMcpEnabled,
   bundledToolHubMcpEntryPathCandidates,
   toolHubMcpRuntimeConfig
-} from "@ccr/core/mcp/toolhub-config.ts";
-import { MEDIA_TOOLS_MCP_PATH, mediaToolsMcpServer } from "@ccr/core/mcp/grok-media-config.ts";
-import { GROK_MEDIA_FUSION_TOOL_NAMES, MEDIA_TOOLS_MCP_SERVER_NAME } from "@ccr/core/contracts/app.ts";
-import { fusionFallbackToolDefinitions, fusionToolNamesBackedByMcpServers } from "@ccr/core/mcp/fusion-config.ts";
-import { compileCoreGatewayConfig } from "@ccr/core/gateway/core-runtime/config-compiler.ts";
+} from "@llmr/core/mcp/toolhub-config.ts";
+import { MEDIA_TOOLS_MCP_PATH, mediaToolsMcpServer } from "@llmr/core/mcp/grok-media-config.ts";
+import { GROK_MEDIA_FUSION_TOOL_NAMES, MEDIA_TOOLS_MCP_SERVER_NAME } from "@llmr/core/contracts/app.ts";
+import { fusionFallbackToolDefinitions, fusionToolNamesBackedByMcpServers } from "@llmr/core/mcp/fusion-config.ts";
+import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
 
 test("ToolHub runtime candidates include the clean Core test build", () => {
   assert.ok(bundledToolHubMcpEntryPathCandidates().includes(

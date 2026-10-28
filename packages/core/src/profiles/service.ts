@@ -1,12 +1,12 @@
 import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readlinkSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, availableGatewayModelIds, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@ccr/core/contracts/app";
-import { CLAUDE_CODE_AUTH_MODE_ENV, resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@ccr/core/agents/claude-code/auth-mode";
-import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@ccr/core/agents/claude-code/gateway-login-policy";
-import { appConfigLoadError } from "@ccr/core/config/config";
-import { updatePersistedApiKeys } from "@ccr/core/config/config-repository";
-import { botGatewayProfileEnv } from "@ccr/core/agents/bot-gateway/env";
+import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, availableGatewayModelIds, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
+import { CLAUDE_CODE_AUTH_MODE_ENV, resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
+import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@llmr/core/agents/claude-code/gateway-login-policy";
+import { appConfigLoadError } from "@llmr/core/config/config";
+import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
+import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import {
   CLAUDE_CODE_MCP_CONFIG_ENV,
   CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV,
@@ -17,42 +17,42 @@ import {
   clearClaudeCodeManagedModelEnv,
   isClaudeCodeManagedModelEnvKey,
   normalizeClaudeCodeClientModel
-} from "@ccr/core/agents/claude-code/environment";
-import { isManagedWorkbuddyModelsContent, writeCodexCompatibleAppModelCatalog } from "@ccr/core/agents/codex/app-launch";
-import { codexCliMiddlewareRuntimeScript } from "@ccr/core/agents/codex/cli-middleware-runtime";
-import { codexModelCatalogJson } from "@ccr/core/agents/codex/model-catalog";
+} from "@llmr/core/agents/claude-code/environment";
+import { isManagedWorkbuddyModelsContent, writeCodexCompatibleAppModelCatalog } from "@llmr/core/agents/codex/app-launch";
+import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime";
+import { codexModelCatalogJson } from "@llmr/core/agents/codex/model-catalog";
 import {
   isManagedKiloConfigContent,
   kiloProviderId,
   resolveKiloConfigFile,
   writeKiloGatewayConfig
-} from "@ccr/core/agents/kilo/profile-config";
+} from "@llmr/core/agents/kilo/profile-config";
 import {
   isManagedOpenCodeConfigContent,
   openCodeProviderId,
   resolveOpenCodeConfigFile,
   writeOpenCodeGatewayConfig
-} from "@ccr/core/agents/opencode/profile-config";
+} from "@llmr/core/agents/opencode/profile-config";
 import {
   isManagedPiModelsContent,
   piProviderId,
   piWrapperFilename,
   resolvePiAgentDir,
   writePiGatewayConfig
-} from "@ccr/core/agents/pi/profile-config";
-import { CONFIGDIR } from "@ccr/core/config/constants";
-import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@ccr/core/profiles/api-key";
-import { backupBeforeWrite, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@ccr/core/profiles/backup-files";
-import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
-import { refreshClaudeAppModelDiscoveryCache } from "@ccr/core/agents/claude-app/gateway-service";
-import { resolveClaudeAppProfileUserDataDir } from "@ccr/core/agents/claude-app/launch";
-import { resolveZcodeConfigFile, writeZcodeGatewayConfig, zcodeHomeFromConfigFile } from "@ccr/core/agents/zcode/profile-config";
-import { CONTEXT_ARCHIVE_MCP_SERVER_NAME, contextArchiveConfigForProfile, contextArchiveMcpEnabled, contextArchiveMcpServer } from "@ccr/core/gateway/context-archive";
-import { claudeClientDiscoveryPayloads, createClaudeCliAutoCompactWindows } from "@ccr/core/gateway/features/model-discovery";
-import { claudeCodeOneMillionContextSuffix } from "@ccr/core/gateway/internal/shared";
-import { normalizeRouteSelector } from "@ccr/core/gateway/claude-code-router-plugin";
-import { findModelCatalogEntry, modelCatalogMaxInputTokens, readCatalogCapability, type ModelCatalogEntry } from "@ccr/core/gateway/model-catalog";
-import { windowsBatchEscapeValue as cmdValue, windowsBatchSetLine as cmdSetLine } from "@ccr/core/platform/windows-batch";
+} from "@llmr/core/agents/pi/profile-config";
+import { CONFIGDIR } from "@llmr/core/config/constants";
+import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
+import { backupBeforeWrite, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@llmr/core/profiles/backup-files";
+import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
+import { refreshClaudeAppModelDiscoveryCache } from "@llmr/core/agents/claude-app/gateway-service";
+import { resolveClaudeAppProfileUserDataDir } from "@llmr/core/agents/claude-app/launch";
+import { resolveZcodeConfigFile, writeZcodeGatewayConfig, zcodeHomeFromConfigFile } from "@llmr/core/agents/zcode/profile-config";
+import { CONTEXT_ARCHIVE_MCP_SERVER_NAME, contextArchiveConfigForProfile, contextArchiveMcpEnabled, contextArchiveMcpServer } from "@llmr/core/gateway/context-archive";
+import { claudeClientDiscoveryPayloads, createClaudeCliAutoCompactWindows } from "@llmr/core/gateway/features/model-discovery";
+import { claudeCodeOneMillionContextSuffix } from "@llmr/core/gateway/internal/shared";
+import { normalizeRouteSelector } from "@llmr/core/gateway/claude-code-router-plugin";
+import { findModelCatalogEntry, modelCatalogMaxInputTokens, readCatalogCapability, type ModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
+import { windowsBatchEscapeValue as cmdValue, windowsBatchSetLine as cmdSetLine } from "@llmr/core/platform/windows-batch";
 import {
   TOOL_HUB_MCP_RUNTIME_FILE_NAME,
   TOOL_HUB_MCP_SERVER_NAME,
@@ -61,10 +61,10 @@ import {
   toolHubMcpRuntimeConfig,
   type ClaudeCodeMcpServerConfig,
   type ToolHubMcpRuntimeConfig
-} from "@ccr/core/mcp/toolhub-config";
-import { getProviderCatalogModels } from "@ccr/core/providers/model-catalog";
-import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
-import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
+} from "@llmr/core/mcp/toolhub-config";
+import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
+import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-paths";
+import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
 
 const managedRootStart = "# BEGIN CCR managed profile";
 const managedRootEnd = "# END CCR managed profile";

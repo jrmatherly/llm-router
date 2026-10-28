@@ -1,5 +1,5 @@
-import { withClaudeDesignRuntimePluginConfig, withClaudeShipRuntimePluginConfig } from "@ccr/core/config/config";
-import { CLAUDE_DESIGN_PLUGIN_ID, CLAUDE_SHIP_PLUGIN_ID, knownGatewayPluginDefaultApps, type AppConfig, type GatewayPluginAppConfig, type GatewayPluginConfig } from "@ccr/core/contracts/app";
+import { withClaudeDesignRuntimePluginConfig, withClaudeShipRuntimePluginConfig } from "@llmr/core/config/config";
+import { CLAUDE_DESIGN_PLUGIN_ID, CLAUDE_SHIP_PLUGIN_ID, knownGatewayPluginDefaultApps, type AppConfig, type GatewayPluginAppConfig, type GatewayPluginConfig } from "@llmr/core/contracts/app";
 
 const DEFAULT_CLAUDE_DESIGN_FRONTEND_URL = "https://claude-design.ccrdesk.top/design";
 const DESIGN_FRONTEND_URL_ENV_KEYS = ["CCR_CLAUDE_DESIGN_FRONTEND_URL", "CCR_CLAUDE_DESIGN_WEB_URL"];

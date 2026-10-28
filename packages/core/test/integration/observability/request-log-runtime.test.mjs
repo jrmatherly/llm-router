@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { Worker } from "node:worker_threads";
-import { RequestLogAdmissionStore } from "@ccr/core/observability/request-log-admission-store.ts";
-import { createRequestLogRuntime, RequestLogStore } from "@ccr/core/observability/request-log-store.ts";
-import { RequestRouteTraceRecorder } from "@ccr/core/observability/route-trace.ts";
-import { createBetterSqliteDatabase } from "@ccr/core/storage/sqlite-native.ts";
+import { RequestLogAdmissionStore } from "@llmr/core/observability/request-log-admission-store.ts";
+import { createRequestLogRuntime, RequestLogStore } from "@llmr/core/observability/request-log-store.ts";
+import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace.ts";
+import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
 
 const workerFile = [
   path.resolve(__dirname, "../../../runtime/request-log-worker.js"),

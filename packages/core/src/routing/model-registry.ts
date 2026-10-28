@@ -5,8 +5,8 @@ import {
   type AppConfig,
   type GatewayProviderConfig,
   type GatewayProviderProtocol
-} from "@ccr/core/contracts/app";
-import type { RouteModelRef } from "@ccr/core/routing/contracts";
+} from "@llmr/core/contracts/app";
+import type { RouteModelRef } from "@llmr/core/routing/contracts";
 
 export type ResolveRouteModelOptions = {
   providerName?: string;

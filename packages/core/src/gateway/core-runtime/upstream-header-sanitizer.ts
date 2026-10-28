@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { applyMetaTokenFloor } from "@ccr/core/gateway/core-runtime/meta-token-floor";
-import { applyResponsesSessionAffinity, inboundMetadataUserId, resolveResponsesSessionKey } from "@ccr/core/gateway/core-runtime/responses-session-affinity";
-import type { ResponsesSessionAffinityInput } from "@ccr/core/gateway/core-runtime/responses-session-affinity";
-import { applyResponsesToolStrictness } from "@ccr/core/gateway/core-runtime/responses-tool-strictness";
-import type { ResponsesToolStrictnessInput } from "@ccr/core/gateway/core-runtime/responses-tool-strictness";
+import { applyMetaTokenFloor } from "@llmr/core/gateway/core-runtime/meta-token-floor";
+import { applyResponsesSessionAffinity, inboundMetadataUserId, resolveResponsesSessionKey } from "@llmr/core/gateway/core-runtime/responses-session-affinity";
+import type { ResponsesSessionAffinityInput } from "@llmr/core/gateway/core-runtime/responses-session-affinity";
+import { applyResponsesToolStrictness } from "@llmr/core/gateway/core-runtime/responses-tool-strictness";
+import type { ResponsesToolStrictnessInput } from "@llmr/core/gateway/core-runtime/responses-tool-strictness";
 import {
   normalizeDeepSeekCacheUsage,
   normalizeDeepSeekCacheUsageStream
-} from "@ccr/core/gateway/features/opencode-cache-usage";
-import { claudeAppsGatewayIdentityHeaderNames, sdkCompatibleTokenHeaderNames } from "@ccr/core/gateway/internal/shared";
+} from "@llmr/core/gateway/features/opencode-cache-usage";
+import { claudeAppsGatewayIdentityHeaderNames, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
 
 type UpstreamRequest = {
   body: unknown;

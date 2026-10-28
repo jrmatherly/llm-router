@@ -3,9 +3,9 @@ import { once } from "node:events";
 import http from "node:http";
 import net from "node:net";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { isLoopbackAddress } from "@ccr/core/net/loopback.ts";
-import { proxyService } from "@ccr/core/proxy/service.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { isLoopbackAddress } from "@llmr/core/net/loopback.ts";
+import { proxyService } from "@llmr/core/proxy/service.ts";
 
 test("isLoopbackAddress accepts only loopback peers", () => {
   for (const address of ["127.0.0.1", "::1", "::ffff:127.0.0.1"]) assert.equal(isLoopbackAddress(address), true, address);

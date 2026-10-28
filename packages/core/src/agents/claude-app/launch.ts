@@ -2,14 +2,14 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { AppConfig, ProfileConfig } from "@ccr/core/contracts/app";
-import { botGatewayProfileEnv } from "@ccr/core/agents/bot-gateway/env";
-import { prepareClaudeAppCdpUserDataDir, reserveClaudeAppCdpPort, scheduleClaudeAppDesignCdp } from "@ccr/core/agents/claude-app/cdp";
-import { prepareClaudeAppVmStorage } from "@ccr/core/agents/claude-app/vm-storage";
-import { claudeCodeModelEnv as claudeCodeProfileModelEnv, claudeCodeUtcTimezoneEnvOverride, isClaudeCodeManagedModelEnvKey } from "@ccr/core/agents/claude-code/environment";
-import { resolveClaudeCodeSettingsFile } from "@ccr/core/profiles/launch-core";
-import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@ccr/core/platform/windows-app-discovery";
-import { resolveUserPath } from "@ccr/core/runtime/app-paths";
+import type { AppConfig, ProfileConfig } from "@llmr/core/contracts/app";
+import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
+import { prepareClaudeAppCdpUserDataDir, reserveClaudeAppCdpPort, scheduleClaudeAppDesignCdp } from "@llmr/core/agents/claude-app/cdp";
+import { prepareClaudeAppVmStorage } from "@llmr/core/agents/claude-app/vm-storage";
+import { claudeCodeModelEnv as claudeCodeProfileModelEnv, claudeCodeUtcTimezoneEnvOverride, isClaudeCodeManagedModelEnvKey } from "@llmr/core/agents/claude-code/environment";
+import { resolveClaudeCodeSettingsFile } from "@llmr/core/profiles/launch-core";
+import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@llmr/core/platform/windows-app-discovery";
+import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 
 type ClaudeAppLookupResult = {
   checked: string[];

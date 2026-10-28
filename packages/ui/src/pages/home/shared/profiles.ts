@@ -12,7 +12,7 @@ import {
   CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV,
   enforceSingleEnabledGlobalProfilePerAgent,
   normalizeProfileScopeValue
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import type {
   AppConfig,
   BotGatewayRuntimeConfig,
@@ -25,7 +25,7 @@ import type {
   ProfileScope,
   ProfileSurface,
   VirtualModelProfileConfig
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import {
   fallbackConfig
 } from "./fallbacks";
@@ -34,7 +34,7 @@ import { isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrin
 import { virtualModelProfileModelNames } from "./providers";
 import { normalizeRouterRules } from "./routing";
 import { keyValueRowsFromRecord, recordFromKeyValueRows, stringRecordValue, validateProfileEnvRows } from "./virtual-models";
-import { isGatewayProviderEnabled } from "@ccr/core/contracts/app";
+import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 import type { AddProfileDraft, BotGatewayConfigDraft } from "./types";
 
 export function defaultProfileClientModel(config: AppConfig): string {

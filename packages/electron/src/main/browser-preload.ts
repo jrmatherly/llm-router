@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import { IPC_CHANNELS } from "@ccr/core/contracts/ipc-channels";
-import type { BuiltInBrowserState, ChromeLoginImportJob, ChromeLoginImportRequest } from "@ccr/core/contracts/app";
+import { IPC_CHANNELS } from "@llmr/core/contracts/ipc-channels";
+import type { BuiltInBrowserState, ChromeLoginImportJob, ChromeLoginImportRequest } from "@llmr/core/contracts/app";
 
 contextBridge.exposeInMainWorld("ccrBrowser", {
   back: (tabId?: string) => ipcRenderer.invoke(IPC_CHANNELS.browserBack, tabId) as Promise<BuiltInBrowserState>,

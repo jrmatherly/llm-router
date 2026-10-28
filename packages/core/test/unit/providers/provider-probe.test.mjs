@@ -7,14 +7,14 @@ import {
   newApiKeyUsageFallbackMessageForTest,
   newApiKeyUsageMetersForTest,
   newApiUserSelfMetersForTest
-} from "@ccr/core/providers/account-service.ts";
-import { detectedProviderFromHeaders, newApiKeyUsageAccountConfig, newApiUserSelfConnectorConfig } from "@ccr/core/providers/new-api.ts";
+} from "@llmr/core/providers/account-service.ts";
+import { detectedProviderFromHeaders, newApiKeyUsageAccountConfig, newApiUserSelfConnectorConfig } from "@llmr/core/providers/new-api.ts";
 import {
   checkGatewayProviderConnectivity,
   isProviderProtocolEndpointSupportedForProbe,
   probeGatewayProvider,
   probeGatewayProviderCandidates
-} from "@ccr/core/providers/probe.ts";
+} from "@llmr/core/providers/probe.ts";
 
 // Catalog assertions use the fixture catalog; the bundled models.json follows live sources.
 process.env.CCR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");

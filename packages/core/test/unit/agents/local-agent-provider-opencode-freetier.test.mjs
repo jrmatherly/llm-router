@@ -3,9 +3,9 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { compileCoreGatewayConfig } from "@ccr/core/gateway/core-runtime/config-compiler.ts";
-import { createGatewayPlugin } from "@ccr/core/gateway/core-runtime/local-agent-auth-provider-hook.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
+import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/local-agent-auth-provider-hook.ts";
 import {
   OPENCODE_PUBLIC_FREETIER_PLUGIN_SUFFIX,
   OPENCODE_PUBLIC_FREETIER_USER_AGENT_FALLBACK,
@@ -20,7 +20,7 @@ import {
   openCodePublicFreeTierUserAgent,
   resetOpenCodePublicFreeTierState,
   withOpenCodePublicFreeTierTools
-} from "@ccr/core/agents/local-providers/opencode-freetier.ts";
+} from "@llmr/core/agents/local-providers/opencode-freetier.ts";
 
 test("OpenCode free-tier session IDs embed a fresh descending timestamp", () => {
   resetOpenCodePublicFreeTierState();

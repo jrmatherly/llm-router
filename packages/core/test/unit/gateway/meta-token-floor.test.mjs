@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createGatewayPlugin } from "@ccr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
+import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
 
 function transform(upstreamRequest) {
   return createGatewayPlugin().providerHooks.reduce((request, hook) =>

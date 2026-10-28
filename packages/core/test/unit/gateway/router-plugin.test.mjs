@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import {
   ccrAnthropicReasoningResponseHookKey,
   ccrCodexApplyPatchBridgeHeader,
@@ -19,14 +19,14 @@ import {
   ccrRouterHttpRoutePath,
   ccrRouterRouteResolverKey,
   ccrRouterRequestTransformKey
-} from "@ccr/core/gateway/core-runtime/router-plugin-contract.ts";
-import { coalesceAnthropicReasoningResponse } from "@ccr/core/gateway/features/anthropic-reasoning-response.ts";
-import { coreGatewayAuthHeader } from "@ccr/core/gateway/internal/shared.ts";
-import { ccrRemoteControlPathPrefix } from "@ccr/core/gateway/remote-control-service.ts";
-import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@ccr/core/gateway/runtime-config-control.ts";
-import { createGatewayPlugin } from "@ccr/core/gateway/core-runtime/router-plugin.ts";
-import { providerRuntimeId } from "@ccr/core/routing/model-registry.ts";
-import { sanitizeHeaderValue, toCoreGatewayProviders } from "@ccr/core/providers/runtime-topology.ts";
+} from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
+import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response.ts";
+import { coreGatewayAuthHeader } from "@llmr/core/gateway/internal/shared.ts";
+import { ccrRemoteControlPathPrefix } from "@llmr/core/gateway/remote-control-service.ts";
+import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control.ts";
+import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/router-plugin.ts";
+import { providerRuntimeId } from "@llmr/core/routing/model-registry.ts";
+import { sanitizeHeaderValue, toCoreGatewayProviders } from "@llmr/core/providers/runtime-topology.ts";
 
 test("LLMR route resolver preserves the selected protocol for bare provider IDs", async (t) => {
   const chat = { type: "openai_chat_completions", baseUrl: "https://example.test/v1" };

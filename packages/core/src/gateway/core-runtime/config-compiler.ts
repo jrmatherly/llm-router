@@ -1,27 +1,27 @@
 /**
  * Extracted from gateway/service.ts. Keep this module focused on its named gateway boundary.
  */
-import { isGatewayProviderEnabled } from "@ccr/core/contracts/app";
-import type { AppConfig, GatewayProviderConfig, GatewayProviderProtocol, VirtualModelProfileConfig } from "@ccr/core/contracts/app";
-import { codexDefaultBaseUrl, kimiAccessTokenExpired, kimiIdentityHeaders, localAgentProviderApiKey, readClaudeCodeOauth, readCodexAuth, readGrokAuth, readKimiAuth, resolveGrokAuth, resolveKimiAuth } from "@ccr/core/agents/local-providers/service";
-import { grokAccessTokenExpired, grokClientVersion } from "@ccr/core/agents/local-providers/grok";
-import { pluginService } from "@ccr/core/plugins/service";
-import { normalizeRouteSelector, providerRuntimeId } from "@ccr/core/routing/model-registry";
-import { isRecord, stringListValue, stringValue } from "@ccr/core/gateway/internal/value";
-import { fusionBuiltinToolArtifacts, fusionToolFallbackMcpServer, normalizeFusionWebSearchProfileToolName, toolHubMcpServer, withCodexCompatibleVirtualModelProfiles, withFusionVirtualModelAliases, withFusionVisionToolInstructions, withFusionWebSearchToolInstructions } from "@ccr/core/mcp/fusion-config";
-import { mediaToolsMcpServer } from "@ccr/core/mcp/grok-media-config";
-import { resolveGatewayPublicModelId } from "@ccr/core/gateway/features/model-discovery";
-import { activeProviderCredentials, inferProtocol, normalizedProviderCapabilities, normalizeProviderProtocol, providerCapabilityForClientProtocol, providerCapabilityInternalName, providerCapabilityNameMatches, providerCredentialInternalName, providerProtocolForClientProtocol, sortProviderCredentialsForConfig, toCoreGatewayProviders } from "@ccr/core/providers/runtime-topology";
-import { buildRawTraceConfig } from "@ccr/core/observability/raw-trace-sync";
-import { endpoint, gatewayRuntimeSupportsRouterPlugin, resolveLocalAgentAuthProviderHookEntry, resolveRouterPluginEntry, resolveUndiciProxyAgentModule, resolveUpstreamHeaderSanitizerEntry, writeGatewayProxyPreloadFile } from "@ccr/core/gateway/core-runtime/supervisor";
-import { billingUsageSyncHeader, billingUsageSyncPath, claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta, coreGatewayAuthHeader, coreGatewayAuthTokenEnv } from "@ccr/core/gateway/internal/shared";
-import type { BrowserWebSearchMcpIntegration, CoreGatewayProvider } from "@ccr/core/gateway/internal/shared";
-import { uniqueStrings } from "@ccr/core/gateway/internal/collections";
-import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@ccr/core/providers/oauth-plugin";
-import { isLocalAgentOauthProviderPlugin } from "@ccr/core/gateway/core-runtime/local-agent-auth-provider-hook";
-import { ccrRouterPluginKey } from "@ccr/core/gateway/core-runtime/router-plugin-contract";
-import { isOpenCodePublicFreeTierPlugin } from "@ccr/core/agents/local-providers/opencode-freetier";
-import { resolveConfiguredProviderModelSelector, resolveUniqueConfiguredProviderModelSelector } from "@ccr/core/routing/model-resolution";
+import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
+import type { AppConfig, GatewayProviderConfig, GatewayProviderProtocol, VirtualModelProfileConfig } from "@llmr/core/contracts/app";
+import { codexDefaultBaseUrl, kimiAccessTokenExpired, kimiIdentityHeaders, localAgentProviderApiKey, readClaudeCodeOauth, readCodexAuth, readGrokAuth, readKimiAuth, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
+import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
+import { pluginService } from "@llmr/core/plugins/service";
+import { normalizeRouteSelector, providerRuntimeId } from "@llmr/core/routing/model-registry";
+import { isRecord, stringListValue, stringValue } from "@llmr/core/gateway/internal/value";
+import { fusionBuiltinToolArtifacts, fusionToolFallbackMcpServer, normalizeFusionWebSearchProfileToolName, toolHubMcpServer, withCodexCompatibleVirtualModelProfiles, withFusionVirtualModelAliases, withFusionVisionToolInstructions, withFusionWebSearchToolInstructions } from "@llmr/core/mcp/fusion-config";
+import { mediaToolsMcpServer } from "@llmr/core/mcp/grok-media-config";
+import { resolveGatewayPublicModelId } from "@llmr/core/gateway/features/model-discovery";
+import { activeProviderCredentials, inferProtocol, normalizedProviderCapabilities, normalizeProviderProtocol, providerCapabilityForClientProtocol, providerCapabilityInternalName, providerCapabilityNameMatches, providerCredentialInternalName, providerProtocolForClientProtocol, sortProviderCredentialsForConfig, toCoreGatewayProviders } from "@llmr/core/providers/runtime-topology";
+import { buildRawTraceConfig } from "@llmr/core/observability/raw-trace-sync";
+import { endpoint, gatewayRuntimeSupportsRouterPlugin, resolveLocalAgentAuthProviderHookEntry, resolveRouterPluginEntry, resolveUndiciProxyAgentModule, resolveUpstreamHeaderSanitizerEntry, writeGatewayProxyPreloadFile } from "@llmr/core/gateway/core-runtime/supervisor";
+import { billingUsageSyncHeader, billingUsageSyncPath, claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta, coreGatewayAuthHeader, coreGatewayAuthTokenEnv } from "@llmr/core/gateway/internal/shared";
+import type { BrowserWebSearchMcpIntegration, CoreGatewayProvider } from "@llmr/core/gateway/internal/shared";
+import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
+import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
+import { isLocalAgentOauthProviderPlugin } from "@llmr/core/gateway/core-runtime/local-agent-auth-provider-hook";
+import { ccrRouterPluginKey } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
+import { isOpenCodePublicFreeTierPlugin } from "@llmr/core/agents/local-providers/opencode-freetier";
+import { resolveConfiguredProviderModelSelector, resolveUniqueConfiguredProviderModelSelector } from "@llmr/core/routing/model-resolution";
 
 const upstreamHeaderSanitizerPluginKey = "ccr-upstream-header-sanitizer";
 const localAgentAuthProviderHookPluginKey = "ccr-local-agent-auth-provider-hooks";

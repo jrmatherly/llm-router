@@ -2,13 +2,13 @@
  * Extracted from gateway/service.ts. Keep this module focused on its named gateway boundary.
  */
 import { join as pathJoin } from "node:path";
-import type { AppConfig, GatewayMcpServerConfig, VirtualModelFusionVisionConfig, VirtualModelFusionWebSearchConfig, VirtualModelFusionWebSearchProvider } from "@ccr/core/contracts/app";
-import { BUILTIN_FUSION_VISION_TOOL_NAME, BUILTIN_FUSION_WEB_SEARCH_TOOL_NAME, GROK_MEDIA_FUSION_TOOL_NAMES, MEDIA_TOOLS_MCP_SERVER_NAME, MEDIA_IMAGE_EDIT_TOOL_PREFIX, MEDIA_IMAGE_GENERATE_TOOL_PREFIX, MEDIA_JOB_CANCEL_TOOL_PREFIX, MEDIA_JOB_GET_TOOL_PREFIX, MEDIA_VIDEO_START_TOOL_PREFIX, ROUTER_FALLBACK_MAX_RETRY_COUNT } from "@ccr/core/contracts/app";
-import { TOOL_HUB_MCP_SERVER_NAME, toolHubBuiltInBackendServers, toolHubMcpRuntimeConfig, toolHubRequestTimeoutMs } from "@ccr/core/mcp/toolhub-config";
-import { isRecord, numberValue, stringListValue, stringValue } from "@ccr/core/gateway/internal/value";
-import { defaultFusionWebSearchProvider, fusionModelProviderName } from "@ccr/core/gateway/internal/shared";
-import type { BrowserWebSearchMcpIntegration, CoreGatewayProvider } from "@ccr/core/gateway/internal/shared";
-import { uniqueStrings } from "@ccr/core/gateway/internal/collections";
+import type { AppConfig, GatewayMcpServerConfig, VirtualModelFusionVisionConfig, VirtualModelFusionWebSearchConfig, VirtualModelFusionWebSearchProvider } from "@llmr/core/contracts/app";
+import { BUILTIN_FUSION_VISION_TOOL_NAME, BUILTIN_FUSION_WEB_SEARCH_TOOL_NAME, GROK_MEDIA_FUSION_TOOL_NAMES, MEDIA_TOOLS_MCP_SERVER_NAME, MEDIA_IMAGE_EDIT_TOOL_PREFIX, MEDIA_IMAGE_GENERATE_TOOL_PREFIX, MEDIA_JOB_CANCEL_TOOL_PREFIX, MEDIA_JOB_GET_TOOL_PREFIX, MEDIA_VIDEO_START_TOOL_PREFIX, ROUTER_FALLBACK_MAX_RETRY_COUNT } from "@llmr/core/contracts/app";
+import { TOOL_HUB_MCP_SERVER_NAME, toolHubBuiltInBackendServers, toolHubMcpRuntimeConfig, toolHubRequestTimeoutMs } from "@llmr/core/mcp/toolhub-config";
+import { isRecord, numberValue, stringListValue, stringValue } from "@llmr/core/gateway/internal/value";
+import { defaultFusionWebSearchProvider, fusionModelProviderName } from "@llmr/core/gateway/internal/shared";
+import type { BrowserWebSearchMcpIntegration, CoreGatewayProvider } from "@llmr/core/gateway/internal/shared";
+import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
 
 type FusionUsageSyncConfig = {
   endpoint: string;

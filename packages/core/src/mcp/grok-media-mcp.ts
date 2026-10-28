@@ -4,18 +4,18 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import {
   MEDIA_TOOLS_MCP_SERVER_NAME
-} from "@ccr/core/contracts/app";
-import { readRequestBody, sendJson } from "@ccr/core/gateway/http/io";
-import { mediaService } from "@ccr/core/media/service";
-import type { MediaService } from "@ccr/core/media/service";
-import { mediaMcpToolDefinition } from "@ccr/core/media/tools";
+} from "@llmr/core/contracts/app";
+import { readRequestBody, sendJson } from "@llmr/core/gateway/http/io";
+import { mediaService } from "@llmr/core/media/service";
+import type { MediaService } from "@llmr/core/media/service";
+import { mediaMcpToolDefinition } from "@llmr/core/media/tools";
 import {
   LEGACY_GROK_MEDIA_ARTIFACT_PATH_PREFIX,
   MEDIA_ARTIFACT_PATH_PREFIX,
   MEDIA_TOOLS_MCP_PATH
-} from "@ccr/core/mcp/grok-media-config";
+} from "@llmr/core/mcp/grok-media-config";
 
-export { LEGACY_GROK_MEDIA_ARTIFACT_PATH_PREFIX, MEDIA_ARTIFACT_PATH_PREFIX } from "@ccr/core/mcp/grok-media-config";
+export { LEGACY_GROK_MEDIA_ARTIFACT_PATH_PREFIX, MEDIA_ARTIFACT_PATH_PREFIX } from "@llmr/core/mcp/grok-media-config";
 
 type JsonPrimitive = boolean | null | number | string;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };

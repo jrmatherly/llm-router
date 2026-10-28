@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { probeExistingCcrGateway } from "@ccr/core/gateway/existing-gateway-probe.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { probeExistingCcrGateway } from "@llmr/core/gateway/existing-gateway-probe.ts";
 
 function probeConfig(host) {
   const config = createDefaultAppConfig();

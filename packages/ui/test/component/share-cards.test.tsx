@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { RouteMapCard, SharePosterHeader } from "@ccr/ui/pages/home/components/share-cards.tsx";
-import type { UsageStatsSnapshot } from "@ccr/ui/pages/home/shared/index";
+import { RouteMapCard, SharePosterHeader } from "@llmr/ui/pages/home/components/share-cards.tsx";
+import type { UsageStatsSnapshot } from "@llmr/ui/pages/home/shared/index";
 
 const emptyTotals = {
   avgDurationMs: 0,

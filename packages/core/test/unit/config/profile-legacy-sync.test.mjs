@@ -11,9 +11,9 @@ test("saving profiles synchronizes legacy profile enabled flags", async () => {
   process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(testRoot, "app-data");
   process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(testRoot, "user-data");
 
-  const { createDefaultAppConfig } = await import("@ccr/core/config/default-config.ts");
-  const { loadPersistedAppConfig, replacePersistedAppConfig } = await import("@ccr/core/config/config-repository.ts");
-  const { loadAppConfig, saveAppConfig } = await import("@ccr/core/config/config.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { loadPersistedAppConfig, replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
 
   const config = createDefaultAppConfig();
   config.profile.profiles = config.profile.profiles.filter((profile) => profile.agent !== "claude-code");

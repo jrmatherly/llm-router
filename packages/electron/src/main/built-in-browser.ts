@@ -25,10 +25,10 @@ import type {
   ChromeLoginImportRequest,
   GatewayPluginAppConfig,
   InstalledBrowserApp
-} from "@ccr/core/contracts/app";
-import { IPC_CHANNELS } from "@ccr/core/contracts/ipc-channels";
-import { APP_NAME } from "@ccr/core/config/constants";
-import { pluginService } from "@ccr/core/plugins/service";
+} from "@llmr/core/contracts/app";
+import { IPC_CHANNELS } from "@llmr/core/contracts/ipc-channels";
+import { APP_NAME } from "@llmr/core/config/constants";
+import { pluginService } from "@llmr/core/plugins/service";
 import { chromeLoginImportService } from "./chrome-login-import";
 import { isHttpUrl } from "./external-url";
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { backendService } from "@ccr/core/plugins/backend-service.ts";
+import { backendService } from "@llmr/core/plugins/backend-service.ts";
 
 test("plugin backend returns 500 for synchronous throws and continues serving requests", async () => {
   const ownerId = "sync-handler-error-test";

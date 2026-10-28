@@ -20,12 +20,12 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
   process.env.CCR_INTERNAL_HOME_DIR = path.join(root, "home");
   process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(root, "data");
   process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(root, "user");
-  const { createDefaultAppConfig } = await import("@ccr/core/config/default-config.ts");
-  const { REQUEST_LOGS_DB_FILE, RAW_TRACE_SPOOL_DIR } = await import("@ccr/core/config/constants.ts");
-  const { createRequestLogRuntime } = await import("@ccr/core/observability/request-log-store.ts");
-  const { RawTraceSynchronizer } = await import("@ccr/core/observability/raw-trace-sync.ts");
-  const { UsageStore } = await import("@ccr/core/usage/store.ts");
-  const { providerRuntimeId } = await import("@ccr/core/routing/model-registry.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { REQUEST_LOGS_DB_FILE, RAW_TRACE_SPOOL_DIR } = await import("@llmr/core/config/constants.ts");
+  const { createRequestLogRuntime } = await import("@llmr/core/observability/request-log-store.ts");
+  const { RawTraceSynchronizer } = await import("@llmr/core/observability/raw-trace-sync.ts");
+  const { UsageStore } = await import("@llmr/core/usage/store.ts");
+  const { providerRuntimeId } = await import("@llmr/core/routing/model-registry.ts");
   const config = createDefaultAppConfig();
   const model = "Qwen3.8-27B-Q4_K_M";
   const provider = { id: "llama-cpp", name: "Llama CPP", models: [model], type: "openai_chat_completions", modelMetadata: { [model]: { pricing: { inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 6 } } } };
@@ -133,9 +133,9 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
       await stopGateway(gateway);
       gateway = undefined;
     }
-    const { compileCoreGatewayConfig } = await import("@ccr/core/gateway/core-runtime/config-compiler.ts");
-    const { fetchUpstreamWithFallback } = await import("@ccr/core/gateway/upstream/executor.ts");
-    const { ccrRoutedModelHeader } = await import("@ccr/core/gateway/core-runtime/router-plugin-contract.ts");
+    const { compileCoreGatewayConfig } = await import("@llmr/core/gateway/core-runtime/config-compiler.ts");
+    const { fetchUpstreamWithFallback } = await import("@llmr/core/gateway/upstream/executor.ts");
+    const { ccrRoutedModelHeader } = await import("@llmr/core/gateway/core-runtime/router-plugin-contract.ts");
     const routingConfig = createDefaultAppConfig();
     routingConfig.Providers = [
       { id: "anthropic-quota", name: "Anthropic", api_base_url: `${upstreamUrl}/anthropic-quota`, models: ["claude"], type: "anthropic_messages", api_key: "test" },
@@ -184,7 +184,7 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
     try {
       const credentials = path.join(storage, ".credentials.json");
       writeFileSync(credentials, JSON.stringify({ accessToken: "oauth-before", refreshToken: "test-refresh" }));
-      const { probeGatewayProvider } = await import("@ccr/core/providers/probe.ts");
+      const { probeGatewayProvider } = await import("@llmr/core/providers/probe.ts");
       const oauthConfig = createDefaultAppConfig();
       oauthConfig.Providers = [
         { id: "claude-code-api", name: "Claude Code API", type: "anthropic_messages", api_base_url: `${upstreamUrl}/anthropic`, api_key: "llmr-local-agent-login", models: ["native"] },

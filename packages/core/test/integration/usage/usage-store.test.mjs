@@ -3,12 +3,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { RequestLogStore } from "@ccr/core/observability/request-log-store.ts";
-import { providerRuntimeId } from "@ccr/core/routing/model-registry.ts";
-import { createBetterSqliteDatabase } from "@ccr/core/storage/sqlite-native.ts";
-import { GatewayBillingSynchronizer } from "@ccr/core/usage/billing-sync.ts";
-import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution.ts";
-import { UsageStore } from "@ccr/core/usage/store.ts";
+import { RequestLogStore } from "@llmr/core/observability/request-log-store.ts";
+import { providerRuntimeId } from "@llmr/core/routing/model-registry.ts";
+import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
+import { GatewayBillingSynchronizer } from "@llmr/core/usage/billing-sync.ts";
+import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution.ts";
+import { UsageStore } from "@llmr/core/usage/store.ts";
 
 // Stores built without an injected loader warm the real price catalog.
 globalThis.fetch = async () => {

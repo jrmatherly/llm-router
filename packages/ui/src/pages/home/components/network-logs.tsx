@@ -1,7 +1,7 @@
 import { memo } from "react";
-import { requestLogOutcome } from "@ccr/core/contracts/app";
+import { requestLogOutcome } from "@llmr/core/contracts/app";
 import { Maximize2, Route, X } from "lucide-react";
-import type { RequestRouteTrace, RequestRouteTraceChange, RequestRouteTraceHop } from "@ccr/core/contracts/app";
+import type { RequestRouteTrace, RequestRouteTraceChange, RequestRouteTraceHop } from "@llmr/core/contracts/app";
 import {
   AnimatedIconSwap, Check, ChevronDown, ChevronLeft,
   ChevronRight, clampNumber, clientInitial, cn, Copy, copyTextToClipboard,

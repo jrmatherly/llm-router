@@ -7,7 +7,7 @@ import {
   TRAY_SINGLETON_WIDGET_TYPES,
   TRAY_TOP_WIDGET_TYPES,
   TRAY_WINDOW_MODULE_IDS
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import type {
   AppConfig,
   GatewayProviderConfig,
@@ -23,7 +23,7 @@ import type {
   TrayWidgetType,
   TrayWidgetVariant,
   TrayWindowModuleId
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import type { AppCopy } from "./i18n";
 
 import { positiveInteger } from "./api-keys";

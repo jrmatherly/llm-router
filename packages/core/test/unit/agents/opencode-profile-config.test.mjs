@@ -3,23 +3,23 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, st
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import {
   isManagedOpenCodeConfigContent,
   resolveOpenCodeConfigFile,
   writeOpenCodeGatewayConfig
-} from "@ccr/core/agents/opencode/profile-config.ts";
+} from "@llmr/core/agents/opencode/profile-config.ts";
 import {
   findInstalledOpenCodeAppExecutable,
   openCodeAppLaunchSignature,
   openCodeAppLaunchArgs,
   openCodeDesktopCommandNames
-} from "@ccr/core/agents/opencode/app-launch.ts";
+} from "@llmr/core/agents/opencode/app-launch.ts";
 import {
   findProviderModelCatalogEntry,
   modelCatalogMaxInputTokens,
   modelCatalogMaxOutputTokens
-} from "@ccr/core/gateway/model-catalog.ts";
+} from "@llmr/core/gateway/model-catalog.ts";
 
 function testConfig(root) {
   const config = createDefaultAppConfig();

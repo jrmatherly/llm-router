@@ -5,8 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
-import { codexCliMiddlewareRuntimeScript } from "@ccr/core/agents/codex/cli-middleware-runtime.ts";
-import { buildCodexModelCatalog } from "@ccr/core/agents/codex/model-catalog.ts";
+import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime.ts";
+import { buildCodexModelCatalog } from "@llmr/core/agents/codex/model-catalog.ts";
 
 test("generated Codex CLI middleware runtime is valid JavaScript", () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-runtime-check-"));

@@ -6,8 +6,8 @@ import codexLogoUrl from "@/assets/agent-logos/codex.png";
 import trayCyanIconUrl from "@/assets/tray-cyan.png";
 import trayOrangeIconUrl from "@/assets/tray-orange.png";
 import trayVioletIconUrl from "@/assets/tray-violet.png";
-import { DEFAULT_TRAY_COMPONENT_VARIANTS, DEFAULT_TRAY_WIDGETS, DEFAULT_TRAY_WINDOW_MODULES, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS } from "@ccr/core/contracts/app";
-import { findProviderPreset, findProviderPresetByBaseUrl, providerPresets } from "@ccr/core/providers/presets";
+import { DEFAULT_TRAY_COMPONENT_VARIANTS, DEFAULT_TRAY_WIDGETS, DEFAULT_TRAY_WINDOW_MODULES, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS } from "@llmr/core/contracts/app";
+import { findProviderPreset, findProviderPresetByBaseUrl, providerPresets } from "@llmr/core/providers/presets";
 import { providerPresetIconUrls } from "../home/shared/options";
 import { clampNumber, providerBaseUrl } from "../home/shared/common";
 import { formatCompactNumber } from "../home/shared/usage";
@@ -27,7 +27,7 @@ import type {
   UsageStatsRange,
   UsageStatsSnapshot,
   UsageTotals
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 
 export { defaultTrayWidgetVariant, normalizeTrayComponentVariants, normalizeTrayIconPreference, normalizeTrayWidgets, normalizeTrayWindowModules } from "../home/shared/common";
 export { formatDuration } from "../home/shared/network";

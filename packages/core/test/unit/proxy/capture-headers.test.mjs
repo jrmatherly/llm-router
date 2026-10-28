@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cloneCapturedHeaders } from "@ccr/core/proxy/service.ts";
+import { cloneCapturedHeaders } from "@llmr/core/proxy/service.ts";
 
 test("captured headers hide credentials and keep the rest", () => {
   const headers = cloneCapturedHeaders({ authorization: "Bearer x", cookie: "a=b", "set-cookie": ["s=1"], "content-type": "application/json" });

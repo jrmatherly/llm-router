@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { marketplaceUrl, normalizeMarketplaceManifest } from "@ccr/core/plugins/marketplace.ts";
+import { marketplaceUrl, normalizeMarketplaceManifest } from "@llmr/core/plugins/marketplace.ts";
 
 const manifestUrl = "https://raw.githubusercontent.com/jrmatherly/llm-router-extensions/main/marketplace/plugins.json";
 

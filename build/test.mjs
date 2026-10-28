@@ -202,8 +202,8 @@ function packageAliasPlugin() {
   return {
     name: "test-package-alias",
     setup(build) {
-      build.onResolve({ filter: /^@ccr\/(cli|core|electron|ui)\// }, (args) => {
-        const match = args.path.match(/^@ccr\/(cli|core|electron|ui)\/(.+)$/);
+      build.onResolve({ filter: /^@llmr\/(cli|core|electron|ui)\// }, (args) => {
+        const match = args.path.match(/^@llmr\/(cli|core|electron|ui)\/(.+)$/);
         if (!match) {
           return undefined;
         }

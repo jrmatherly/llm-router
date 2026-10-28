@@ -3,13 +3,13 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { compileCoreGatewayConfig } from "@ccr/core/gateway/core-runtime/config-compiler.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
 import {
   createGatewayPlugin,
   isLocalAgentOauthProviderPlugin
-} from "@ccr/core/gateway/core-runtime/local-agent-auth-provider-hook.ts";
-import { virtualApplyPatchToolName } from "@ccr/core/gateway/internal/shared.ts";
+} from "@llmr/core/gateway/core-runtime/local-agent-auth-provider-hook.ts";
+import { virtualApplyPatchToolName } from "@llmr/core/gateway/internal/shared.ts";
 
 test("Grok local agent auth hook refreshes live login state before authenticating upstream requests", async (t) => {
   await withGrokHome(t, async (grokHome) => {

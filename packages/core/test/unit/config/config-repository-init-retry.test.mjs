@@ -9,7 +9,7 @@ test("the same repository retries initialization after the filesystem recovers",
   process.env.CCR_INTERNAL_HOME_DIR = path.join(root, "home");
   process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(root, "app-data");
   process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(root, "user-data");
-  const { ConfigRepository } = await import("@ccr/core/config/config-repository.ts");
+  const { ConfigRepository } = await import("@llmr/core/config/config-repository.ts");
   mkdirSync(root, { recursive: true });
   const blockedDirectory = path.join(root, "blocked");
   writeFileSync(blockedDirectory, "temporary filesystem obstruction");

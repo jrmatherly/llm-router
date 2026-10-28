@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inferGatewayClient } from "@ccr/core/gateway/http/io.ts";
+import { inferGatewayClient } from "@llmr/core/gateway/http/io.ts";
 import {
   createGatewayPlugin,
   rewriteUpstreamProviderUrl,
   sanitizeUpstreamProviderHeaders
-} from "@ccr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
+} from "@llmr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
 
 test("#1778 native Gemini sends AI Studio keys as API keys while OpenAI compatibility keeps bearer auth", () => {
   const [hook] = createGatewayPlugin().providerHooks;

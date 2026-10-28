@@ -11,7 +11,7 @@ import {
   claudePluginAdminPath,
   configureClaudeDesignWindowCdp,
   gatewayAuthHeadersForTest
-} from "@ccr/electron/main/claude-design-window.ts";
+} from "@llmr/electron/main/claude-design-window.ts";
 
 test("Claude browser plugin status paths are selected per plugin", () => {
   assert.equal(claudePluginAdminPath("claude-design"), "/plugins/claude-design");

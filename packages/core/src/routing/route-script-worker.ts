@@ -1,4 +1,4 @@
-import { calculateTokenCount } from "@ccr/core/routing/token-estimator";
+import { calculateTokenCount } from "@llmr/core/routing/token-estimator";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,7 +7,7 @@ import { parentPort } from "node:worker_threads";
 import type {
   RouteScriptWorkerRequest,
   RouteScriptWorkerResponse
-} from "@ccr/core/routing/route-script-worker-protocol";
+} from "@llmr/core/routing/route-script-worker-protocol";
 
 const maxFileBytes = 1024 * 1024;
 const maxFetchBodyBytes = 256 * 1024;

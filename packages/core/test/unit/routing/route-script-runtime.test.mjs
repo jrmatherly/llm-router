@@ -4,11 +4,11 @@ import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { ROUTER_SCRIPT_MAX_SOURCE_BYTES } from "@ccr/core/contracts/app.ts";
-import { gatewayService } from "@ccr/core/gateway/application/gateway-service.ts";
-import { ClaudeCodeRouterPlugin } from "@ccr/core/gateway/claude-code-router-plugin.ts";
-import { buildRouteScriptInput } from "@ccr/core/routing/route-script-context.ts";
-import { RouteScriptRuntime } from "@ccr/core/routing/route-script-runtime.ts";
+import { ROUTER_SCRIPT_MAX_SOURCE_BYTES } from "@llmr/core/contracts/app.ts";
+import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
+import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
+import { buildRouteScriptInput } from "@llmr/core/routing/route-script-context.ts";
+import { RouteScriptRuntime } from "@llmr/core/routing/route-script-runtime.ts";
 
 const workerFile = [
   path.resolve(__dirname, "../../runtime/route-script-worker.js"),

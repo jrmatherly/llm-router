@@ -1,4 +1,4 @@
-import type { AppConfig, RouterRule } from "@ccr/core/contracts/app";
+import type { AppConfig, RouterRule } from "@llmr/core/contracts/app";
 
 /** Rename stored selectors without touching credentials, URLs, prompts or scripts. */
 export function renameProviderReferences(config: AppConfig, previousName: string, nextName: string): AppConfig {

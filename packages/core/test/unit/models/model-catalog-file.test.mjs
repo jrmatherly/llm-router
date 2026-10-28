@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { loadModelCatalogPayload, modelCatalogPathCandidates, resolveModelCatalogPath } from "@ccr/core/models/catalog-file.ts";
+import { loadModelCatalogPayload, modelCatalogPathCandidates, resolveModelCatalogPath } from "@llmr/core/models/catalog-file.ts";
 
 test("modelCatalogPathCandidates prefers env paths and removes duplicates", () => {
   const previousCatalogPath = process.env.CCR_MODEL_CATALOG_PATH;
@@ -82,9 +82,9 @@ test("a fresh offline install resolves the bundled catalog without a CDN cache",
 
 test("CDN catalog refresh deduplicates requests, updates indexes and preserves cache on failure", async () => {
   const { readFileSync, readdirSync } = await import("node:fs");
-  const { refreshModelCatalog, modelCatalogCachePath, modelCatalogRefreshError, modelCatalogRevision } = await import("@ccr/core/models/catalog-file.ts");
-  const { findModelCatalogEntry } = await import("@ccr/core/gateway/model-catalog.ts");
-  const { getProviderCatalogModels } = await import("@ccr/core/providers/model-catalog.ts");
+  const { refreshModelCatalog, modelCatalogCachePath, modelCatalogRefreshError, modelCatalogRevision } = await import("@llmr/core/models/catalog-file.ts");
+  const { findModelCatalogEntry } = await import("@llmr/core/gateway/model-catalog.ts");
+  const { getProviderCatalogModels } = await import("@llmr/core/providers/model-catalog.ts");
   const dir = mkdtempSync(path.join(tmpdir(), "ccr-cdn-catalog-test-"));
   const keys = ["CCR_MODEL_CATALOG_PATH", "CCR_MODELS_JSON_PATH", "CCR_MODEL_CATALOG_URL", "CCR_INTERNAL_USER_DATA_DIR"];
   const previous = keys.map((key) => process.env[key]);

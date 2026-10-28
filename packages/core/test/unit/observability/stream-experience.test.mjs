@@ -6,7 +6,7 @@ import {
   getLiveTokenRateSnapshot,
   LiveTokenRateTracker,
   setExternalLiveTokenRateSnapshot
-} from "@ccr/core/observability/stream-experience.ts";
+} from "@llmr/core/observability/stream-experience.ts";
 
 test("stream experience meter parses fragmented Anthropic semantic events", async () => {
   const timestamps = [100, 350, 500];

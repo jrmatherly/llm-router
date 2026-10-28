@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseProvidersForTest } from "@ccr/core/config/config.ts";
-import { toCoreGatewayProviders } from "@ccr/core/providers/runtime-topology.ts";
-import { createGatewayPlugin } from "@ccr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
+import { parseProvidersForTest } from "@llmr/core/config/config.ts";
+import { toCoreGatewayProviders } from "@llmr/core/providers/runtime-topology.ts";
+import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
 
 test("#1780 provider headers aliases reach the compiled upstream configuration", () => {
   for (const field of ["headers", "extra_headers", "extraHeaders"]) {

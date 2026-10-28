@@ -1,6 +1,6 @@
 import { Readable, Transform } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
-import { isRecord } from "@ccr/core/gateway/internal/value";
+import { isRecord } from "@llmr/core/gateway/internal/value";
 
 export type CacheUsageNormalization = {
   changed: boolean;

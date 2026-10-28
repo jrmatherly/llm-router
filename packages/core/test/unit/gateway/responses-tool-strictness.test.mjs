@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyResponsesToolStrictness } from "@ccr/core/gateway/core-runtime/responses-tool-strictness.ts";
-import { createGatewayPlugin } from "@ccr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
+import { applyResponsesToolStrictness } from "@llmr/core/gateway/core-runtime/responses-tool-strictness.ts";
+import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
 
 function monitorTool(overrides = {}) {
   return {

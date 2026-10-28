@@ -642,17 +642,17 @@ function packageAliasPlugin() {
   return {
     name: "ccr-package-alias",
     setup(build) {
-      build.onResolve({ filter: /^@ccr\/cli\// }, (args) => {
-        return { path: resolvePackageImport(cliSourceRoot, args.path.slice("@ccr/cli/".length)) };
+      build.onResolve({ filter: /^@llmr\/cli\// }, (args) => {
+        return { path: resolvePackageImport(cliSourceRoot, args.path.slice("@llmr/cli/".length)) };
       });
-      build.onResolve({ filter: /^@ccr\/core\// }, (args) => {
-        return { path: resolvePackageImport(coreSourceRoot, args.path.slice("@ccr/core/".length)) };
+      build.onResolve({ filter: /^@llmr\/core\// }, (args) => {
+        return { path: resolvePackageImport(coreSourceRoot, args.path.slice("@llmr/core/".length)) };
       });
-      build.onResolve({ filter: /^@ccr\/electron\// }, (args) => {
-        return { path: resolvePackageImport(electronSourceRoot, args.path.slice("@ccr/electron/".length)) };
+      build.onResolve({ filter: /^@llmr\/electron\// }, (args) => {
+        return { path: resolvePackageImport(electronSourceRoot, args.path.slice("@llmr/electron/".length)) };
       });
-      build.onResolve({ filter: /^@ccr\/ui\// }, (args) => {
-        return { path: resolvePackageImport(uiSourceRoot, args.path.slice("@ccr/ui/".length)) };
+      build.onResolve({ filter: /^@llmr\/ui\// }, (args) => {
+        return { path: resolvePackageImport(uiSourceRoot, args.path.slice("@llmr/ui/".length)) };
       });
     }
   };

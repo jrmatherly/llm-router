@@ -3,8 +3,8 @@ import { EventEmitter } from "node:events";
 import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { decodeClaudeAppGatewayRouteId } from "@ccr/core/agents/claude-app/gateway-routes";
-import { REQUEST_LOGS_DB_FILE, USAGE_DB_FILE } from "@ccr/core/config/constants";
+import { decodeClaudeAppGatewayRouteId } from "@llmr/core/agents/claude-app/gateway-routes";
+import { REQUEST_LOGS_DB_FILE, USAGE_DB_FILE } from "@llmr/core/config/constants";
 import {
   estimateUsageCostUsdFromLoadedCatalog,
   preloadUsagePriceCatalog,
@@ -12,11 +12,11 @@ import {
   usagePriceCatalogNeedsRefresh,
   type UsageCostEstimate,
   type UsageCostInput
-} from "@ccr/core/models/pricing-service";
-import { createBetterSqliteDatabase, type BetterSqliteDatabase } from "@ccr/core/storage/sqlite-native";
-import { normalizeUsageInputTokens } from "@ccr/core/usage/normalization";
-import { isKnownProviderSelector, resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
-import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
+} from "@llmr/core/models/pricing-service";
+import { createBetterSqliteDatabase, type BetterSqliteDatabase } from "@llmr/core/storage/sqlite-native";
+import { normalizeUsageInputTokens } from "@llmr/core/usage/normalization";
+import { isKnownProviderSelector, resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
+import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
 import type {
   AppConfig,
   GatewayProviderProtocol,
@@ -28,7 +28,7 @@ import type {
   UsageStatsResetResult,
   UsageStatsSnapshot,
   UsageTotals
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 
 type SqlDatabase = BetterSqliteDatabase;
 type SqlValue = bigint | Buffer | number | string | null;

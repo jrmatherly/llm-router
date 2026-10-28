@@ -1,5 +1,5 @@
-import type { AppConfig, VirtualModelProfileConfig } from "@ccr/core/contracts/app";
-import { modelRegistryForConfig, normalizeRouteSelector, parseProviderModelSelector } from "@ccr/core/routing/model-registry";
+import type { AppConfig, VirtualModelProfileConfig } from "@llmr/core/contracts/app";
+import { modelRegistryForConfig, normalizeRouteSelector, parseProviderModelSelector } from "@llmr/core/routing/model-registry";
 
 export type UsageModelAttribution = {
   logicalModel?: string;

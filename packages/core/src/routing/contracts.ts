@@ -1,5 +1,5 @@
-import type { GatewayProviderConfig, RouterFallbackConfig } from "@ccr/core/contracts/app";
-import type { CompiledRouteRewrite } from "@ccr/core/routing/rewrite";
+import type { GatewayProviderConfig, RouterFallbackConfig } from "@llmr/core/contracts/app";
+import type { CompiledRouteRewrite } from "@llmr/core/routing/rewrite";
 
 export type RouteSource = "builtin" | "custom" | "default" | "profile" | "rule" | "subagent";
 

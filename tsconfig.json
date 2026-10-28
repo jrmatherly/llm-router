@@ -17,10 +17,10 @@
     "noUnusedParameters": true,
     "paths": {
       "@/*": ["./packages/ui/src/*"],
-      "@ccr/cli/*": ["./packages/cli/src/*"],
-      "@ccr/core/*": ["./packages/core/src/*"],
-      "@ccr/electron/*": ["./packages/electron/src/*"],
-      "@ccr/ui/*": ["./packages/ui/src/*"]
+      "@llmr/cli/*": ["./packages/cli/src/*"],
+      "@llmr/core/*": ["./packages/core/src/*"],
+      "@llmr/electron/*": ["./packages/electron/src/*"],
+      "@llmr/ui/*": ["./packages/ui/src/*"]
     }
   },
   "include": [

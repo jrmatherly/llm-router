@@ -12,12 +12,12 @@ test("a config that failed to load does not release the agent takeovers", async 
   process.env.CCR_INTERNAL_HOME_DIR = home;
   process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(home, "app-data");
   process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(home, "user-data");
-  const { loadAppConfig } = await import("@ccr/core/config/config.ts");
-  const { replacePersistedAppConfig } = await import("@ccr/core/config/config-repository.ts");
-  const { APP_CONFIG_DB_FILE } = await import("@ccr/core/config/constants.ts");
-  const { createDefaultAppConfig } = await import("@ccr/core/config/default-config.ts");
-  const { applyProfileConfig } = await import("@ccr/core/profiles/service.ts");
-  const { createBetterSqliteDatabase } = await import("@ccr/core/storage/sqlite-native.ts");
+  const { loadAppConfig } = await import("@llmr/core/config/config.ts");
+  const { replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  const { APP_CONFIG_DB_FILE } = await import("@llmr/core/config/constants.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { applyProfileConfig } = await import("@llmr/core/profiles/service.ts");
+  const { createBetterSqliteDatabase } = await import("@llmr/core/storage/sqlite-native.ts");
   assert.ok(path.resolve(APP_CONFIG_DB_FILE).startsWith(home), "config DB lives in this test's home");
 
   const settingsFile = path.join(home, ".claude", "settings.json");
