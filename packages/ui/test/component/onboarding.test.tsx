@@ -6,7 +6,8 @@ import { OnboardingView } from "@llmr/ui/pages/home/components/onboarding.tsx";
 import {
   createProfileDraft,
   createProviderDraft,
-  fallbackGatewayStatus
+  fallbackGatewayStatus,
+  localAgentProviderApiKey
 } from "@llmr/ui/pages/home/shared/index.tsx";
 import { appConfigFixture } from "../fixtures/index.ts";
 
@@ -100,4 +101,42 @@ test("Onboarding profile step does not prompt to save before continuing", () => 
   assert.doesNotMatch(html, /Choose an agent, model, and required profile settings/);
   assert.doesNotMatch(html, /provider identity/);
   assert.match(html, /Models, paths, routing, bot, compact, Claude settings, and env/);
+});
+
+test("Onboarding skips credentials for a local agent import", () => {
+  const config = appConfigFixture();
+  const providerDraft = {
+    ...createProviderDraft([]),
+    apiKey: localAgentProviderApiKey,
+    baseUrl: "https://api.anthropic.com",
+    modelsText: "claude-sonnet-5",
+    name: "Claude Code API"
+  };
+  const html = renderToStaticMarkup(
+    <OnboardingView
+      activeStep="provider"
+      canSubmitProfile={false}
+      canSubmitProvider={false}
+      config={config}
+      endpoint="http://127.0.0.1:3456"
+      gatewayStatus={fallbackGatewayStatus}
+      onCheckProvider={async () => ({ failed: [], passed: [], results: [] })}
+      onChangeProfile={() => undefined}
+      onChangeProvider={() => undefined}
+      onComplete={() => undefined}
+      onSelectStep={() => undefined}
+      onSubmitProfile={async () => false}
+      onSubmitProvider={async () => false}
+      profileDraft={createProfileDraft()}
+      profileError=""
+      providerConnectivityLoading={false}
+      providerDraft={providerDraft}
+      providerError=""
+      providerProbeLoading={false}
+    />
+  );
+
+  assert.doesNotMatch(html, /Add credentials/);
+  assert.match(html, /Pick models/);
+  assert.match(html, /aria-label="Step 1 \/ 5"/);
 });

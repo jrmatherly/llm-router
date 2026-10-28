@@ -74,6 +74,20 @@ export const localAgentProviderIconUrls: Record<LocalAgentProviderKind, string> 
 
 export const localAgentProviderApiKey = "llmr-local-agent-login";
 
+export type ProviderSetupStepId = "provider" | "credentials" | "models" | "verify";
+
+export const providerSetupStepIds: ProviderSetupStepId[] = ["provider", "credentials", "models", "verify"];
+
+const localAgentLoginSetupStepIds: ProviderSetupStepId[] = ["provider", "models", "verify"];
+
+export function isLocalAgentLoginDraft(draft: Pick<AddProviderDraft, "apiKey" | "credentialMode" | "credentials">): boolean {
+  return providerConnectivityApiKeyFromDraft(draft) === localAgentProviderApiKey;
+}
+
+export function providerSetupStepsForDraft(draft: Pick<AddProviderDraft, "apiKey" | "credentialMode" | "credentials">): ProviderSetupStepId[] {
+  return isLocalAgentLoginDraft(draft) ? localAgentLoginSetupStepIds : providerSetupStepIds;
+}
+
 export function createModelCatalogItems(config: AppConfig): ModelCatalogItem[] {
   const rows: ModelCatalogItem[] = [];
   config.Providers.forEach((provider, providerIndex) => {
@@ -773,7 +787,7 @@ export function providerConnectivityProviderPlugins(
   if (draft.providerPlugins.length > 0) {
     return draft.providerPlugins.filter(providerPluginEnabled);
   }
-  if (providerConnectivityApiKeyFromDraft(draft) !== localAgentProviderApiKey) {
+  if (!isLocalAgentLoginDraft(draft)) {
     return [];
   }
 

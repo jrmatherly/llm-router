@@ -2,11 +2,11 @@ import {
   AddProfileDraft, AddProviderDraft, AppConfig, Button, Check, ChevronLeft,
   ChevronRight, cn, findProviderPreset, GatewayProviderProbeResult, GatewayStatus, Gauge, getNextOnboardingStep,
   isOnboardingProfileReady, isOnboardingProviderReady, Layers3, LucideIcon, mergeProviderModelLists, motion, motionEase,
-  LoaderCircle, onboardingMascotSpriteUrl, OnboardingReadinessOptions, OnboardingStepId, onboardingStepOrder, type ProfileAgentOption, providerDraftHasReadyCredentialPool, ProviderConnectivityCheckReport, reducedMotionTransition, splitLines, useEffect, useReducedMotion,
+  isLocalAgentLoginDraft, LoaderCircle, onboardingMascotSpriteUrl, OnboardingReadinessOptions, OnboardingStepId, onboardingStepOrder, type ProfileAgentOption, providerDraftHasReadyCredentialPool, ProviderConnectivityCheckReport, type ProviderSetupStepId, providerSetupStepsForDraft, reducedMotionTransition, splitLines, useEffect, useReducedMotion,
   useState,
   UserRound, X
 } from "../shared/index";
-import { AddProviderForm, ProviderConnectivityCheckDialog, providerSetupStepIds, type ProviderSetupStepId } from "./providers";
+import { AddProviderForm, ProviderConnectivityCheckDialog } from "./providers";
 import { AddProfileForm } from "./profiles";
 
 type OnboardingMascotTone = "cyan" | "orange" | "violet";
@@ -98,7 +98,8 @@ export function OnboardingView({
   const activeDetails = onboardingStepDetails[activeStep];
   const previousStep = onboardingStepOrder[activeIndex - 1];
   const nextStep = getNextOnboardingStep(activeStep, config, readiness);
-  const localAgentProviderImport = providerDraft.providerPlugins.length > 0;
+  const localAgentProviderImport = providerDraft.providerPlugins.length > 0 || isLocalAgentLoginDraft(providerDraft);
+  const providerSetupSteps = providerSetupStepsForDraft(providerDraft);
   const providerIdentityReady = Boolean(findProviderPreset(providerDraft.presetId) || providerDraft.baseUrl.trim());
   const providerCredentialReady = localAgentProviderImport || Boolean(
     providerDraft.credentialMode === "pool"
@@ -107,9 +108,9 @@ export function OnboardingView({
   );
   const providerCheckModels = mergeProviderModelLists(providerDraft.selectedModels, splitLines(providerDraft.modelsText));
   const providerModelsReady = providerCheckModels.length > 0;
-  const providerSetupIndex = Math.max(0, providerSetupStepIds.indexOf(providerSetupStep));
-  const previousProviderSetupStep = activeStep === "provider" ? providerSetupStepIds[providerSetupIndex - 1] : undefined;
-  const nextProviderSetupStep = activeStep === "provider" ? providerSetupStepIds[providerSetupIndex + 1] : undefined;
+  const providerSetupIndex = Math.max(0, providerSetupSteps.indexOf(providerSetupStep));
+  const previousProviderSetupStep = activeStep === "provider" ? providerSetupSteps[providerSetupIndex - 1] : undefined;
+  const nextProviderSetupStep = activeStep === "provider" ? providerSetupSteps[providerSetupIndex + 1] : undefined;
   const providerSubmitLoading = activeStep === "provider" && (providerProbeLoading || providerConnectivityLoading || providerIconDetecting);
   const nextDisabled = activeStep === "provider"
     ? providerSubmitLoading || (nextProviderSetupStep
@@ -120,11 +121,11 @@ export function OnboardingView({
       : !routeReady;
 
   useEffect(() => {
-    if (activeStep !== "provider" || isProviderSetupStepUnlocked(providerSetupStep)) {
+    if (activeStep !== "provider" || (providerSetupSteps.includes(providerSetupStep) && isProviderSetupStepUnlocked(providerSetupStep))) {
       return;
     }
     setProviderSetupStep(getLatestUnlockedProviderSetupStep());
-  }, [activeStep, providerCredentialReady, providerIdentityReady, providerModelsReady, providerSetupStep]);
+  }, [activeStep, providerCredentialReady, providerIdentityReady, providerModelsReady, providerSetupStep, providerSetupSteps]);
 
   function isProviderSetupStepReady(step: ProviderSetupStepId): boolean {
     switch (step) {
@@ -153,7 +154,7 @@ export function OnboardingView({
   }
 
   function getLatestUnlockedProviderSetupStep(): ProviderSetupStepId {
-    return [...providerSetupStepIds].reverse().find(isProviderSetupStepUnlocked) ?? "provider";
+    return [...providerSetupSteps].reverse().find(isProviderSetupStepUnlocked) ?? "provider";
   }
 
   function goToPreviousStep() {
@@ -224,7 +225,7 @@ export function OnboardingView({
             style={{ transformPerspective: 900 }}
             transition={shouldReduceMotion ? reducedMotionTransition : { duration: 0.28, ease: motionEase }}
           >
-            <OnboardingProgress activeStep={activeStep} providerSetupStep={providerSetupStep} />
+            <OnboardingProgress activeStep={activeStep} providerSetupStep={providerSetupStep} providerSetupSteps={providerSetupSteps} />
             <div className="flex min-h-0 min-w-0 flex-1 flex-col p-4 sm:p-5">
               <div className="flex h-8 shrink-0 items-center">
                 {previousStep || previousProviderSetupStep ? (
@@ -355,20 +356,25 @@ const onboardingProgressItems: Array<{ key: ProviderSetupStepId | "profile" | "e
 
 function OnboardingProgress({
   activeStep,
-  providerSetupStep
+  providerSetupStep,
+  providerSetupSteps
 }: {
   activeStep: OnboardingStepId;
   providerSetupStep: ProviderSetupStepId;
+  providerSetupSteps: ProviderSetupStepId[];
 }) {
+  const items = onboardingProgressItems.filter((item) =>
+    item.key === "profile" || item.key === "enter" || providerSetupSteps.includes(item.key)
+  );
   const activeKey = activeStep === "provider" ? providerSetupStep : activeStep;
-  const activeIndex = Math.max(0, onboardingProgressItems.findIndex((item) => item.key === activeKey));
-  const stepCount = onboardingProgressItems.length;
+  const activeIndex = Math.max(0, items.findIndex((item) => item.key === activeKey));
+  const stepCount = items.length;
   const progressWidth = `${((activeIndex + 1) / stepCount) * 100}%`;
 
   return (
     <div className="relative shrink-0 border-b border-border/60 bg-card/95" aria-label={`Step ${activeIndex + 1} / ${stepCount}`}>
       <div className="mx-auto flex h-11 max-w-[920px] items-center justify-start overflow-x-auto px-3 text-[12px] font-medium sm:justify-center">
-        {onboardingProgressItems.map((item, index) => (
+        {items.map((item, index) => (
           <div className="flex shrink-0 items-center" key={item.key}>
             <span
               className={cn(
