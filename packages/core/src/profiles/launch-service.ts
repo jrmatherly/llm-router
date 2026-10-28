@@ -1752,7 +1752,7 @@ function isLegacyManagedCcrCliLauncher(source: string): boolean {
 
 // The legacy runtime is the bundled CLI, which reads both of these env vars.
 function isLegacyManagedCcrCliRuntime(source: string): boolean {
-  return source.includes(desktopCliCommandNameEnv) && source.includes("CCR_CLI_PREPARE_PROFILE_ONLY");
+  return source.includes("CCR_CLI_COMMAND_NAME") && source.includes("CCR_CLI_PREPARE_PROFILE_ONLY");
 }
 
 function findBundledCcrCliSource(): string {
