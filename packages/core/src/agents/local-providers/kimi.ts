@@ -684,7 +684,7 @@ function kimiCliVersion(): string {
 }
 
 function kimiCliCandidates(): string[] {
-  const explicit = process.env.CCR_KIMI_BIN?.trim() || process.env.KIMI_BIN?.trim();
+  const explicit = process.env.LLMR_KIMI_BIN?.trim() || process.env.KIMI_BIN?.trim();
   return uniqueStrings([
     explicit,
     path.join(kimiStorageRoot(), "bin", process.platform === "win32" ? "kimi.exe" : "kimi"),

@@ -14,7 +14,7 @@ function homeSeenBy(env) {
   const result = spawnSync(process.execPath, ["--input-type=module", "-e", `
     await import(${JSON.stringify(guard)});
     const os = await import("node:os");
-    console.log(JSON.stringify({ home: process.env.HOME, homedir: os.homedir(), internal: process.env.CCR_INTERNAL_HOME_DIR }));
+    console.log(JSON.stringify({ home: process.env.HOME, homedir: os.homedir(), internal: process.env.LLMR_INTERNAL_HOME_DIR }));
   `], { encoding: "utf8", env });
   assert.equal(result.status, 0, result.stderr);
   return JSON.parse(result.stdout.trim());
@@ -24,8 +24,8 @@ test("a compiled test run outside run-tests gets a temporary HOME", () => {
   const realHome = mkdtempSync(path.join(os.tmpdir(), "ccr-real-home-"));
   try {
     const env = { ...process.env, HOME: realHome };
-    delete env.CCR_TEST_HOME;
-    delete env.CCR_INTERNAL_HOME_DIR;
+    delete env.LLMR_TEST_HOME;
+    delete env.LLMR_INTERNAL_HOME_DIR;
     const seen = homeSeenBy(env);
     assert.notEqual(seen.home, realHome);
     assert.equal(seen.homedir, seen.home, "os.homedir follows the isolated HOME");

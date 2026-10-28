@@ -48,9 +48,9 @@ test("Media tools are a Fusion MCP backend independent from ToolHub", () => {
   assert.equal(media.transport, "stdio");
   assert.equal(media.command, process.execPath);
   assert.ok(media.args[0].endsWith("media-tools-proxy-mcp.js"));
-  assert.equal(media.env.CCR_MEDIA_MCP_API_KEY, "ccr-profile-test");
-  assert.equal(media.env.CCR_MEDIA_MCP_URL, `http://127.0.0.1:${config.gateway.port}${MEDIA_TOOLS_MCP_PATH}`);
-  assert.deepEqual(JSON.parse(media.env.CCR_MEDIA_MCP_TOOLS_JSON).map((tool) => tool.name), [
+  assert.equal(media.env.LLMR_MEDIA_MCP_API_KEY, "ccr-profile-test");
+  assert.equal(media.env.LLMR_MEDIA_MCP_URL, `http://127.0.0.1:${config.gateway.port}${MEDIA_TOOLS_MCP_PATH}`);
+  assert.deepEqual(JSON.parse(media.env.LLMR_MEDIA_MCP_TOOLS_JSON).map((tool) => tool.name), [
     "image_generate_profile_one",
     "image_edit_profile_one",
     "video_generate_profile_one",

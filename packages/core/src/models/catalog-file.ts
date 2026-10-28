@@ -31,7 +31,7 @@ export function modelCatalogCachePath(): string {
 }
 
 function hasLocalOverride(): boolean {
-  return Boolean(process.env.CCR_MODEL_CATALOG_PATH?.trim() || process.env.CCR_MODELS_JSON_PATH?.trim());
+  return Boolean(process.env.LLMR_MODEL_CATALOG_PATH?.trim() || process.env.LLMR_MODELS_JSON_PATH?.trim());
 }
 
 /** Download once at startup and at most hourly thereafter. Local overrides stay offline. */
@@ -46,7 +46,7 @@ export function refreshModelCatalog(): Promise<void> {
 }
 
 async function downloadModelCatalog(): Promise<void> {
-  const url = process.env.CCR_MODEL_CATALOG_URL?.trim() || DEFAULT_MODEL_CATALOG_URL;
+  const url = process.env.LLMR_MODEL_CATALOG_URL?.trim() || DEFAULT_MODEL_CATALOG_URL;
   try {
     const response = await fetch(url, {
       headers: { accept: "application/json", "cache-control": "no-cache" },
@@ -131,8 +131,8 @@ export function resolveModelCatalogPath(): string | undefined {
 
 export function modelCatalogPathCandidates(): string[] {
   return uniqueStrings([
-    process.env.CCR_MODEL_CATALOG_PATH?.trim() || "",
-    process.env.CCR_MODELS_JSON_PATH?.trim() || "",
+    process.env.LLMR_MODEL_CATALOG_PATH?.trim() || "",
+    process.env.LLMR_MODELS_JSON_PATH?.trim() || "",
     modelCatalogCachePath(),
     pathResolve(process.cwd(), "models.json"),
     pathResolve(process.cwd(), "packages", "core", "models.json"),

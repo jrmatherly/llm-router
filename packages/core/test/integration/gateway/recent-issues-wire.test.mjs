@@ -7,19 +7,19 @@ import path from "node:path";
 import test from "node:test";
 
 // This suite deliberately crosses the real gateway / HTTP / spool / SQLite
-// boundaries. Point CCR_TEST_GATEWAY_ENTRY at an unpatched build to reproduce
+// boundaries. Point LLMR_TEST_GATEWAY_ENTRY at an unpatched build to reproduce
 // #1806 and #1808, and at the patched build to verify the fixes.
-const gatewayEntry = process.env.CCR_TEST_GATEWAY_ENTRY;
+const gatewayEntry = process.env.LLMR_TEST_GATEWAY_ENTRY;
 
 test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usage SQLite", {
-  skip: !gatewayEntry && "set CCR_TEST_GATEWAY_ENTRY to the gateway production entry",
+  skip: !gatewayEntry && "set LLMR_TEST_GATEWAY_ENTRY to the gateway production entry",
   timeout: 60000
 }, async (t) => {
   const root = mkdtempSync(path.join(tmpdir(), "ccr-wire-issues-"));
-  const previousEnv = Object.fromEntries(["CCR_INTERNAL_HOME_DIR", "CCR_INTERNAL_APP_DATA_DIR", "CCR_INTERNAL_USER_DATA_DIR"].map(key => [key, process.env[key]]));
-  process.env.CCR_INTERNAL_HOME_DIR = path.join(root, "home");
-  process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(root, "data");
-  process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(root, "user");
+  const previousEnv = Object.fromEntries(["LLMR_INTERNAL_HOME_DIR", "LLMR_INTERNAL_APP_DATA_DIR", "LLMR_INTERNAL_USER_DATA_DIR"].map(key => [key, process.env[key]]));
+  process.env.LLMR_INTERNAL_HOME_DIR = path.join(root, "home");
+  process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(root, "data");
+  process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(root, "user");
   const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
   const { REQUEST_LOGS_DB_FILE, RAW_TRACE_SPOOL_DIR } = await import("@llmr/core/config/constants.ts");
   const { createRequestLogRuntime } = await import("@llmr/core/observability/request-log-store.ts");

@@ -6,12 +6,12 @@ import test from "node:test";
 
 test("repeated legacy JSON cleanup failures keep one content-addressed backup", async () => {
   const testRoot = path.join(
-    process.env.CCR_INTERNAL_HOME_DIR,
+    process.env.LLMR_INTERNAL_HOME_DIR,
     `config-repository-backup-deduplication-${process.pid}`
   );
-  process.env.CCR_INTERNAL_HOME_DIR = path.join(testRoot, "home");
-  process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(testRoot, "app-data");
-  process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(testRoot, "user-data");
+  process.env.LLMR_INTERNAL_HOME_DIR = path.join(testRoot, "home");
+  process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(testRoot, "app-data");
+  process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(testRoot, "user-data");
 
   const {
     APP_CONFIG_DB_FILE,

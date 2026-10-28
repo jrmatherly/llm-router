@@ -1,62 +1,62 @@
 #!/bin/sh
 set -eu
 
-CCR_DATA_DIR="${CCR_DATA_DIR:-/data}"
-CCR_WEB_HOST="${CCR_WEB_HOST:-127.0.0.1}"
-CCR_WEB_PORT="${CCR_WEB_PORT:-3459}"
-CCR_NGINX_PORT="${CCR_NGINX_PORT:-8080}"
-CCR_GATEWAY_HOST="${CCR_GATEWAY_HOST:-127.0.0.1}"
-CCR_GATEWAY_PORT="${CCR_GATEWAY_PORT:-3456}"
-CCR_PUBLIC_HOST="${CCR_PUBLIC_HOST:-127.0.0.1}"
-CCR_PUBLIC_PORT="${CCR_PUBLIC_PORT:-3458}"
-CCR_PUBLIC_BASE_URL="${CCR_PUBLIC_BASE_URL:-http://${CCR_PUBLIC_HOST}:${CCR_PUBLIC_PORT}}"
-CCR_NO_GATEWAY="${CCR_NO_GATEWAY:-0}"
+LLMR_DATA_DIR="${LLMR_DATA_DIR:-/data}"
+LLMR_WEB_HOST="${LLMR_WEB_HOST:-127.0.0.1}"
+LLMR_WEB_PORT="${LLMR_WEB_PORT:-3459}"
+LLMR_NGINX_PORT="${LLMR_NGINX_PORT:-8080}"
+LLMR_GATEWAY_HOST="${LLMR_GATEWAY_HOST:-127.0.0.1}"
+LLMR_GATEWAY_PORT="${LLMR_GATEWAY_PORT:-3456}"
+LLMR_PUBLIC_HOST="${LLMR_PUBLIC_HOST:-127.0.0.1}"
+LLMR_PUBLIC_PORT="${LLMR_PUBLIC_PORT:-3458}"
+LLMR_PUBLIC_BASE_URL="${LLMR_PUBLIC_BASE_URL:-http://${LLMR_PUBLIC_HOST}:${LLMR_PUBLIC_PORT}}"
+LLMR_NO_GATEWAY="${LLMR_NO_GATEWAY:-0}"
 
-CCR_WEB_AUTH_TOKEN_GENERATED=0
-if [ -z "${CCR_WEB_AUTH_TOKEN:-}" ]; then
-  CCR_WEB_AUTH_TOKEN="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
-  CCR_WEB_AUTH_TOKEN_GENERATED=1
-elif [ "${#CCR_WEB_AUTH_TOKEN}" -lt 32 ]; then
-  echo "Warning: CCR_WEB_AUTH_TOKEN is shorter than 32 characters; use a long random value before exposing the port beyond loopback." >&2
+LLMR_WEB_AUTH_TOKEN_GENERATED=0
+if [ -z "${LLMR_WEB_AUTH_TOKEN:-}" ]; then
+  LLMR_WEB_AUTH_TOKEN="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+  LLMR_WEB_AUTH_TOKEN_GENERATED=1
+elif [ "${#LLMR_WEB_AUTH_TOKEN}" -lt 32 ]; then
+  echo "Warning: LLMR_WEB_AUTH_TOKEN is shorter than 32 characters; use a long random value before exposing the port beyond loopback." >&2
 fi
-CCR_WEB_AUTH_TOKEN_QUERY="$(node -e "process.stdout.write(encodeURIComponent(process.argv[1] || ''))" "${CCR_WEB_AUTH_TOKEN}")"
+LLMR_WEB_AUTH_TOKEN_QUERY="$(node -e "process.stdout.write(encodeURIComponent(process.argv[1] || ''))" "${LLMR_WEB_AUTH_TOKEN}")"
 
-export HOME="${CCR_DATA_DIR}"
-export CCR_DATA_DIR
-export CCR_GATEWAY_HOST
-export CCR_GATEWAY_PORT
-export CCR_NGINX_PORT
-export CCR_NO_GATEWAY
-export CCR_PUBLIC_BASE_URL
-export CCR_PUBLIC_HOST
-export CCR_PUBLIC_PORT
-export CCR_WEB_AUTH_TOKEN
-export CCR_WEB_AUTH_TOKEN_QUERY
-export CCR_WEB_HOST
-export CCR_WEB_PORT
+export HOME="${LLMR_DATA_DIR}"
+export LLMR_DATA_DIR
+export LLMR_GATEWAY_HOST
+export LLMR_GATEWAY_PORT
+export LLMR_NGINX_PORT
+export LLMR_NO_GATEWAY
+export LLMR_PUBLIC_BASE_URL
+export LLMR_PUBLIC_HOST
+export LLMR_PUBLIC_PORT
+export LLMR_WEB_AUTH_TOKEN
+export LLMR_WEB_AUTH_TOKEN_QUERY
+export LLMR_WEB_HOST
+export LLMR_WEB_PORT
 
 CONFIG_DIR="${HOME}/.llm-router"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 APP_CONFIG_DB_FILE="${CONFIG_DIR}/config.sqlite"
 
 # A volume first used by a root-run image (4.x and earlier) is owned by root.
-if [ ! -w "${CCR_DATA_DIR}" ] || { [ -e "${CONFIG_DIR}" ] && [ -n "$(find "${CONFIG_DIR}" ! -writable -print -quit)" ]; }; then
+if [ ! -w "${LLMR_DATA_DIR}" ] || { [ -e "${CONFIG_DIR}" ] && [ -n "$(find "${CONFIG_DIR}" ! -writable -print -quit)" ]; }; then
   echo "/data is not writable by uid 10001; run: docker run --rm -v <volume>:/data --user 0 <image> chown -R 10001:10001 /data" >&2
   exit 1
 fi
 
 mkdir -p "${CONFIG_DIR}" "${CONFIG_DIR}/app-data"
 
-if [ "${CCR_DOCKER_INIT_CONFIG:-1}" != "0" ] && [ ! -f "${CONFIG_FILE}" ] && [ ! -f "${APP_CONFIG_DB_FILE}" ]; then
+if [ "${LLMR_DOCKER_INIT_CONFIG:-1}" != "0" ] && [ ! -f "${CONFIG_FILE}" ] && [ ! -f "${APP_CONFIG_DB_FILE}" ]; then
   node - <<'NODE'
 const fs = require("node:fs");
 const path = require("node:path");
 
 const configDir = path.join(process.env.HOME, ".llm-router");
 const configFile = path.join(configDir, "config.json");
-const gatewayHost = process.env.CCR_GATEWAY_HOST || "0.0.0.0";
-const gatewayPort = Number(process.env.CCR_GATEWAY_PORT || "3456");
-const publicBaseUrl = (process.env.CCR_PUBLIC_BASE_URL || `http://127.0.0.1:${process.env.CCR_PUBLIC_PORT || "3458"}`).replace(/\/+$/, "");
+const gatewayHost = process.env.LLMR_GATEWAY_HOST || "0.0.0.0";
+const gatewayPort = Number(process.env.LLMR_GATEWAY_PORT || "3456");
+const publicBaseUrl = (process.env.LLMR_PUBLIC_BASE_URL || `http://127.0.0.1:${process.env.LLMR_PUBLIC_PORT || "3458"}`).replace(/\/+$/, "");
 
 fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
 fs.writeFileSync(configFile, `${JSON.stringify({
@@ -72,7 +72,7 @@ fs.writeFileSync(configFile, `${JSON.stringify({
 NODE
 fi
 
-if [ "${CCR_DOCKER_SYNC_PUBLIC_ENDPOINT:-1}" != "0" ]; then
+if [ "${LLMR_DOCKER_SYNC_PUBLIC_ENDPOINT:-1}" != "0" ]; then
   node - <<'NODE'
 const fs = require("node:fs");
 const path = require("node:path");
@@ -80,9 +80,9 @@ const path = require("node:path");
 const configDir = path.join(process.env.HOME, ".llm-router");
 const configFile = path.join(configDir, "config.json");
 const appConfigDbFile = path.join(configDir, "config.sqlite");
-const gatewayHost = process.env.CCR_GATEWAY_HOST || "127.0.0.1";
-const gatewayPort = Number(process.env.CCR_GATEWAY_PORT || "3456");
-const publicBaseUrl = (process.env.CCR_PUBLIC_BASE_URL || `http://127.0.0.1:${process.env.CCR_PUBLIC_PORT || "3458"}`).replace(/\/+$/, "");
+const gatewayHost = process.env.LLMR_GATEWAY_HOST || "127.0.0.1";
+const gatewayPort = Number(process.env.LLMR_GATEWAY_PORT || "3456");
+const publicBaseUrl = (process.env.LLMR_PUBLIC_BASE_URL || `http://127.0.0.1:${process.env.LLMR_PUBLIC_PORT || "3458"}`).replace(/\/+$/, "");
 
 function syncConfig(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -143,7 +143,7 @@ fi
 
 cat > /etc/nginx/conf.d/default.conf <<EOF
 server {
-  listen ${CCR_NGINX_PORT};
+  listen ${LLMR_NGINX_PORT};
   server_name _;
   root /usr/share/nginx/html;
   index pages/home/index.html;
@@ -163,22 +163,22 @@ server {
 
   location = /api/llmr/rpc {
     proxy_http_version 1.1;
-    proxy_set_header Host ${CCR_WEB_HOST}:${CCR_WEB_PORT};
-    proxy_set_header Origin http://${CCR_WEB_HOST}:${CCR_WEB_PORT};
-    proxy_set_header Referer http://${CCR_WEB_HOST}:${CCR_WEB_PORT}/;
+    proxy_set_header Host ${LLMR_WEB_HOST}:${LLMR_WEB_PORT};
+    proxy_set_header Origin http://${LLMR_WEB_HOST}:${LLMR_WEB_PORT};
+    proxy_set_header Referer http://${LLMR_WEB_HOST}:${LLMR_WEB_PORT}/;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Host \$host;
     proxy_set_header X-Forwarded-Proto \$scheme;
-    proxy_pass http://${CCR_WEB_HOST}:${CCR_WEB_PORT};
+    proxy_pass http://${LLMR_WEB_HOST}:${LLMR_WEB_PORT};
   }
 
   location = /health {
     proxy_http_version 1.1;
-    proxy_set_header Host ${CCR_GATEWAY_HOST}:${CCR_GATEWAY_PORT};
+    proxy_set_header Host ${LLMR_GATEWAY_HOST}:${LLMR_GATEWAY_PORT};
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Host \$host;
     proxy_set_header X-Forwarded-Proto \$scheme;
-    proxy_pass http://${CCR_GATEWAY_HOST}:${CCR_GATEWAY_PORT};
+    proxy_pass http://${LLMR_GATEWAY_HOST}:${LLMR_GATEWAY_PORT};
   }
 
   location ~ ^/(v1|v1beta|mcp|messages|chat/completions|responses|interactions)(/|$) {
@@ -188,11 +188,11 @@ server {
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;
     proxy_set_header Connection "";
-    proxy_set_header Host ${CCR_GATEWAY_HOST}:${CCR_GATEWAY_PORT};
+    proxy_set_header Host ${LLMR_GATEWAY_HOST}:${LLMR_GATEWAY_PORT};
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Host \$host;
     proxy_set_header X-Forwarded-Proto \$scheme;
-    proxy_pass http://${CCR_GATEWAY_HOST}:${CCR_GATEWAY_PORT};
+    proxy_pass http://${LLMR_GATEWAY_HOST}:${LLMR_GATEWAY_PORT};
   }
 
   location / {
@@ -202,8 +202,8 @@ server {
 EOF
 
 # A generated token is only reachable through the container logs.
-if [ "${CCR_WEB_AUTH_TOKEN_GENERATED}" = "1" ]; then
-  echo "LLMR management UI: ${CCR_PUBLIC_BASE_URL%/}/?llmr_web_token=${CCR_WEB_AUTH_TOKEN_QUERY}"
+if [ "${LLMR_WEB_AUTH_TOKEN_GENERATED}" = "1" ]; then
+  echo "LLMR management UI: ${LLMR_PUBLIC_BASE_URL%/}/?llmr_web_token=${LLMR_WEB_AUTH_TOKEN_QUERY}"
 fi
 
 if [ "$#" -gt 0 ]; then

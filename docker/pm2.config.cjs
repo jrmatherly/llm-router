@@ -1,9 +1,9 @@
-const noGateway = /^(1|true|yes)$/i.test(process.env.CCR_NO_GATEWAY || "");
+const noGateway = /^(1|true|yes)$/i.test(process.env.LLMR_NO_GATEWAY || "");
 const serverArgs = [
   "--host",
-  process.env.CCR_WEB_HOST || "127.0.0.1",
+  process.env.LLMR_WEB_HOST || "127.0.0.1",
   "--port",
-  process.env.CCR_WEB_PORT || "3459",
+  process.env.LLMR_WEB_PORT || "3459",
   "--no-open"
 ];
 

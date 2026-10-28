@@ -73,7 +73,9 @@ Phase 4 has two hand subtractions before the codemod run, because the codemod wo
 | `ccrdesk.top` | `claude-design.ccrdesk.top`, `models.ccrdesk.top` | Hosts owned by upstream. A renamed `llmrdesk.top` would point at a domain nobody here owns. The Claude Design default still needs an operator-owned host, a separate decision. |
 | `aff=ccr`, `aff=CCRCCR` | Provider preset sign-up links | Partner affiliate codes issued by Kimi and Infistar, not identifiers of this repo. |
 | `"ccr"`, `"ccr.cmd"`, `"ccr-app"`, `"ccr-app.cmd"`, `"ccr-cli.js"` and the four `includes("CCR_…")` markers | `packages/core/src/profiles/launch-service.ts` | The existing pre-5.0 launcher cleanup matches the old names and content. |
-| `schemes: ["ccr"]` | `scripts/uninstall-macos.mjs` | `--include-legacy` removes the pre-5.0 `ccr://` handler. |
+| `CCR_GATEWAY_RUNTIME_ID`, `CCR_UPSTREAM_PROXY_URL` | `gatewayRuntimeIdEnv` and `gatewayUpstreamProxyUrlEnv` in `packages/core/src/gateway/internal/shared.ts`, and the gateway tests | Read by the bundled `@the-next-ai/ai-gateway` (1.0.21) itself. Renaming them here breaks the gateway health handshake. They move only when that package renames them. |
+| The 4.x launcher and runtime fixture texts | `packages/core/test/unit/profiles/legacy-cli-launcher-cleanup.test.mjs` | The test writes real 4.x file content so the cleanup above has something to recognize. |
+| `schemes: [\"ccr\"]` | `scripts/uninstall-macos.mjs` | `--include-legacy` removes the pre-5.0 `ccr://` handler. |
 | "The `ccr` and `ccr-app` commands are now `llmr`." | `README.md` | The 5.0 upgrade note names the old commands. |
 | `CCR_FORCE_BUNDLE` | `packages/ui/src/generated/claude-code-config-options.json` | A Claude Code setting ("CCR" there means Claude Code Remote). The file is generated from Claude Code. |
 | Hash text | `package-lock.json`, `docs/package-lock.json` | Base64 integrity strings that happen to contain the letters. npm owns the files. |

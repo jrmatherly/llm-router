@@ -7,7 +7,7 @@ import { buildCodexModelCatalog } from "@llmr/core/agents/codex/model-catalog.ts
 import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog.ts";
 
 // Catalog mapping assertions use stable input while the bundled catalog follows live sources.
-process.env.CCR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");
+process.env.LLMR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");
 
 test("provider model catalog exposes models.json settings as editable defaults", () => {
   const catalog = getProviderCatalogModels({

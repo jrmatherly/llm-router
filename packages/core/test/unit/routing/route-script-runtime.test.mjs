@@ -440,7 +440,7 @@ test("route script validation rejects invalid metadata, paths, content, and limi
 });
 
 test("route scripts validate and execute async Node.js source", async () => {
-  process.env.CCR_ROUTE_SCRIPT_ENV_TEST = "available";
+  process.env.LLMR_ROUTE_SCRIPT_ENV_TEST = "available";
   const runtime = new RouteScriptRuntime({ workerCount: 1, workerFile });
   const script = routeScript(`
     await Promise.resolve();
@@ -459,8 +459,8 @@ test("route scripts validate and execute async Node.js source", async () => {
       requireType: typeof require,
       visibleHeader: input.headers["x-visible"],
       authorization: input.headers.authorization,
-      envValue: api.env("CCR_ROUTE_SCRIPT_ENV_TEST"),
-      envUnset: typeof api.env("CCR_ROUTE_SCRIPT_UNSET_TEST")
+      envValue: api.env("LLMR_ROUTE_SCRIPT_ENV_TEST"),
+      envUnset: typeof api.env("LLMR_ROUTE_SCRIPT_UNSET_TEST")
     };
   `);
   try {
@@ -480,7 +480,7 @@ test("route scripts validate and execute async Node.js source", async () => {
     });
   } finally {
     await runtime.close();
-    delete process.env.CCR_ROUTE_SCRIPT_ENV_TEST;
+    delete process.env.LLMR_ROUTE_SCRIPT_ENV_TEST;
   }
 });
 

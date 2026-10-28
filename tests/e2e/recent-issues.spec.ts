@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./cli-web-runtime";
 
-test.use({ locale: "en-US", ...(process.env.CCR_TEST_BROWSER_CHANNEL ? { channel: process.env.CCR_TEST_BROWSER_CHANNEL } : {}) });
+test.use({ locale: "en-US", ...(process.env.LLMR_TEST_BROWSER_CHANNEL ? { channel: process.env.LLMR_TEST_BROWSER_CHANNEL } : {}) });
 let runtime: CliWebRuntime;
 test.beforeAll(async () => { runtime = await startCliWebServer("issue-audit-test-token"); });
 test.afterAll(async () => { if (runtime) await disposeCliWebRuntime(runtime); });

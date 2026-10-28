@@ -14,8 +14,8 @@ import { closeRequestLogRuntime, flushRequestLogRuntime, requestLogRuntime } fro
 import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
 import { pluginService } from "@llmr/core/plugins/service.ts";
 
-const entry = process.env.CCR_TEST_GATEWAY_ENTRY;
-const skip = !entry && "set CCR_TEST_GATEWAY_ENTRY to the gateway production entry";
+const entry = process.env.LLMR_TEST_GATEWAY_ENTRY;
+const skip = !entry && "set LLMR_TEST_GATEWAY_ENTRY to the gateway production entry";
 
 test("#1850/#1861 fallback attribution reaches OpenAI JSON/SSE clients and request logs", { skip, timeout: 30000 }, async () => {
   const root = mkdtempSync(path.join(tmpdir(), "ccr-october-fallback-"));
@@ -141,8 +141,8 @@ test("#1852 built gateway preserves native virtual-model content and usage with 
 });
 
 test("#1867 a killed managed core restarts and restores the real service health", { skip, timeout: 30000 }, async () => {
-  const originalEntry = process.env.CCR_GATEWAY_ENTRY;
-  process.env.CCR_GATEWAY_ENTRY = entry;
+  const originalEntry = process.env.LLMR_GATEWAY_ENTRY;
+  process.env.LLMR_GATEWAY_ENTRY = entry;
   const service = new gatewayService.constructor();
   const upstream = createServer((req, res) => { req.resume(); res.end("{}"); });
   try {
@@ -178,8 +178,8 @@ test("#1867 a killed managed core restarts and restores the real service health"
   } finally {
     await service.stop();
     await close(upstream);
-    if (originalEntry === undefined) delete process.env.CCR_GATEWAY_ENTRY;
-    else process.env.CCR_GATEWAY_ENTRY = originalEntry;
+    if (originalEntry === undefined) delete process.env.LLMR_GATEWAY_ENTRY;
+    else process.env.LLMR_GATEWAY_ENTRY = originalEntry;
   }
 });
 

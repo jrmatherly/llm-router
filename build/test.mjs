@@ -11,7 +11,7 @@ if (Number(process.versions.node.split(".")[0]) < requiredNodeMajor) {
   console.error(`Tests need Node ${requiredNodeMajor} or newer (.node-version), but this is Node ${process.versions.node}. Run them as \`mise exec -- npm run test:...\`, or put Node ${requiredNodeMajor} first on PATH.`);
   process.exit(1);
 }
-const ccrExtensionsRoot = path.resolve(process.env.CCR_EXTENSIONS_DIR || path.join(projectRoot, "..", "ccr-extensions"));
+const ccrExtensionsRoot = path.resolve(process.env.LLMR_EXTENSIONS_DIR || path.join(projectRoot, "..", "ccr-extensions"));
 const testsOutDir = path.join(projectRoot, ".test-dist");
 const rootPackageVersion = JSON.parse(readFileSync(path.join(projectRoot, "package.json"), "utf8")).version;
 const packageRoots = {

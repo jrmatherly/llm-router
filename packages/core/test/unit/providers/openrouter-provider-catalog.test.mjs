@@ -111,8 +111,8 @@ test("OpenRouter provider catalog issues the providers request with an abort sig
 
 test("OpenRouter provider catalog aborts instead of hanging on a stalled endpoint", async () => {
   const originalFetch = globalThis.fetch;
-  const originalTimeout = process.env.CCR_OPENROUTER_CATALOG_TIMEOUT_MS;
-  process.env.CCR_OPENROUTER_CATALOG_TIMEOUT_MS = "50";
+  const originalTimeout = process.env.LLMR_OPENROUTER_CATALOG_TIMEOUT_MS;
+  process.env.LLMR_OPENROUTER_CATALOG_TIMEOUT_MS = "50";
   try {
     globalThis.fetch = (_url, init) => new Promise((_resolve, reject) => {
       const signal = init?.signal;
@@ -142,9 +142,9 @@ test("OpenRouter provider catalog aborts instead of hanging on a stalled endpoin
   } finally {
     globalThis.fetch = originalFetch;
     if (originalTimeout === undefined) {
-      delete process.env.CCR_OPENROUTER_CATALOG_TIMEOUT_MS;
+      delete process.env.LLMR_OPENROUTER_CATALOG_TIMEOUT_MS;
     } else {
-      process.env.CCR_OPENROUTER_CATALOG_TIMEOUT_MS = originalTimeout;
+      process.env.LLMR_OPENROUTER_CATALOG_TIMEOUT_MS = originalTimeout;
     }
   }
 });

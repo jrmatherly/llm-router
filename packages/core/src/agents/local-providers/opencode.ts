@@ -671,7 +671,7 @@ function openCodeModelsCacheFile(): string {
 }
 
 function openCodeXdgRoot(environmentName: "XDG_CACHE_HOME" | "XDG_CONFIG_HOME" | "XDG_DATA_HOME", fallback: string): string {
-  const internalHome = process.env.CCR_INTERNAL_HOME_DIR?.trim();
+  const internalHome = process.env.LLMR_INTERNAL_HOME_DIR?.trim();
   if (internalHome) {
     return path.join(internalHome, fallback);
   }

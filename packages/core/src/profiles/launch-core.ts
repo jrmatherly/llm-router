@@ -146,7 +146,7 @@ function buildOpenCodeLaunchPlan(
     args: extraArgs,
     command: path.join(configDir, "bin", openCodeWrapperFilename(profile)),
     env: {
-      CCR_PROFILE_SURFACE: "cli",
+      LLMR_PROFILE_SURFACE: "cli",
       OPENCODE_CONFIG: resolveOpenCodeProfileConfigFile(configDir, profile)
     },
     profile,
@@ -167,7 +167,7 @@ function buildKiloLaunchPlan(
     args: extraArgs,
     command: path.join(configDir, "bin", kiloWrapperFilename(profile)),
     env: {
-      CCR_PROFILE_SURFACE: "cli",
+      LLMR_PROFILE_SURFACE: "cli",
       KILO_CONFIG: resolveKiloProfileConfigFile(configDir, profile)
     },
     profile,
@@ -188,7 +188,7 @@ function buildGrokLaunchPlan(
     args: extraArgs,
     command: path.join(configDir, "bin", grokWrapperFilename(profile)),
     env: {
-      CCR_PROFILE_SURFACE: "cli"
+      LLMR_PROFILE_SURFACE: "cli"
     },
     profile,
     surface
@@ -208,7 +208,7 @@ function buildKimiLaunchPlan(
     args: extraArgs,
     command: path.join(configDir, "bin", kimiWrapperFilename(profile)),
     env: {
-      CCR_PROFILE_SURFACE: "cli"
+      LLMR_PROFILE_SURFACE: "cli"
     },
     profile,
     surface
@@ -228,7 +228,7 @@ function buildPiLaunchPlan(
     args: extraArgs,
     command: path.join(configDir, "bin", piWrapperFilename(profile)),
     env: {
-      CCR_PROFILE_SURFACE: "cli",
+      LLMR_PROFILE_SURFACE: "cli",
       PI_CODING_AGENT_DIR: resolvePiAgentDir(configDir, profile),
       PI_CODING_AGENT_SESSION_DIR: resolvePiSessionDir(configDir, profile)
     },
@@ -302,7 +302,7 @@ function buildCodexLaunchPlan(
     args: surface === "app" && extraArgs.length === 0 ? ["app"] : extraArgs,
     command: launcher,
     env: {
-      CCR_PROFILE_SURFACE: surface
+      LLMR_PROFILE_SURFACE: surface
     },
     profile,
     surface
@@ -325,7 +325,7 @@ function buildClaudeCodeLaunchPlan(
     command: launcher,
     env: {
       CLAUDE_CONFIG_DIR: path.dirname(settingsFile),
-      CCR_PROFILE_SURFACE: surface,
+      LLMR_PROFILE_SURFACE: surface,
       ...claudeCodeProfileModelEnv(profile),
       ...claudeCodeUtcTimezoneEnvOverride()
     },

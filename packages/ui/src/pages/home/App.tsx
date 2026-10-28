@@ -56,9 +56,9 @@ type ProfileActionBusy = {
 
 type ConfigSaveFeedbackTarget = "global" | "form" | "silent";
 
-const providerNamePlaceholder = "__CCR_PROVIDER_NAME__";
-const providerNameSlugPlaceholder = "__CCR_PROVIDER_NAME_SLUG__";
-const providerInternalNamePlaceholder = "__CCR_PROVIDER_INTERNAL_NAME__";
+const providerNamePlaceholder = "__LLMR_PROVIDER_NAME__";
+const providerNameSlugPlaceholder = "__LLMR_PROVIDER_NAME_SLUG__";
+const providerInternalNamePlaceholder = "__LLMR_PROVIDER_INTERNAL_NAME__";
 const localCodexDefaultBaseUrl = "https://chatgpt.com/backend-api/codex";
 const localCodexProviderId = "codex-api";
 

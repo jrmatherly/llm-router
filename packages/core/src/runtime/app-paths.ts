@@ -4,9 +4,9 @@ import path from "node:path";
 export const APP_NAME = "LLM Router";
 export const APP_STORAGE_NAME = "llm-router";
 
-const homeDirEnv = "CCR_INTERNAL_HOME_DIR";
-const appDataDirEnv = "CCR_INTERNAL_APP_DATA_DIR";
-const userDataDirEnv = "CCR_INTERNAL_USER_DATA_DIR";
+const homeDirEnv = "LLMR_INTERNAL_HOME_DIR";
+const appDataDirEnv = "LLMR_INTERNAL_APP_DATA_DIR";
+const userDataDirEnv = "LLMR_INTERNAL_USER_DATA_DIR";
 
 type RuntimePathName = "appData" | "home" | "userData";
 

@@ -243,7 +243,7 @@ export const claudeCodeOauthRequiredBeta = "oauth-2025-04-20";
 
 export const coreGatewayAuthHeader = "x-llmr-core-auth";
 
-export const coreGatewayAuthTokenEnv = "CCR_CORE_GATEWAY_AUTH_TOKEN";
+export const coreGatewayAuthTokenEnv = "LLMR_CORE_GATEWAY_AUTH_TOKEN";
 
 export const clientClosedRequestStatusCode = 499;
 
@@ -311,7 +311,11 @@ export const rawTraceSyncPath = "/__llmr/raw-trace-sync";
 
 export const billingUsageSyncPath = "/__llmr/billing-usage-sync";
 
-export const gatewayEntryOverrideEnv = "CCR_GATEWAY_ENTRY";
+export const gatewayEntryOverrideEnv = "LLMR_GATEWAY_ENTRY";
+
+// @the-next-ai/ai-gateway reads these two names itself, so they keep its spelling.
+export const gatewayRuntimeIdEnv = "CCR_GATEWAY_RUNTIME_ID";
+export const gatewayUpstreamProxyUrlEnv = "CCR_UPSTREAM_PROXY_URL";
 
 export const gatewayPackageCandidates = ["@the-next-ai/ai-gateway", "gateway"];
 

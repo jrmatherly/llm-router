@@ -55,7 +55,7 @@ test("botGatewayProfileEnv disables bot gateway outside app surface", () => {
   const env = botGatewayProfileEnv({ botConfigs: [], botGateway: botGateway() }, profile, "cli");
 
   assert.deepEqual(env, {
-    CCR_BOT_GATEWAY_ENABLED: "false",
+    LLMR_BOT_GATEWAY_ENABLED: "false",
     CODEXL_BOT_GATEWAY_ENABLED: "false"
   });
 });
@@ -66,8 +66,8 @@ test("default bot gateway config disables stream replies", () => {
 
 test("botGatewayProfileEnv merges saved config and normalizes websocket integration", () => {
   const runtimeHome = path.join(os.tmpdir(), "ccr-bot-gateway-runtime-home");
-  const previousRuntimeHome = process.env.CCR_INTERNAL_HOME_DIR;
-  process.env.CCR_INTERNAL_HOME_DIR = runtimeHome;
+  const previousRuntimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
+  process.env.LLMR_INTERNAL_HOME_DIR = runtimeHome;
   const env = botGatewayProfileEnv(
     {
       botConfigs: [
@@ -88,20 +88,20 @@ test("botGatewayProfileEnv merges saved config and normalizes websocket integrat
     profile,
     "app"
   );
-  process.env.CCR_INTERNAL_HOME_DIR = previousRuntimeHome;
+  process.env.LLMR_INTERNAL_HOME_DIR = previousRuntimeHome;
 
-  assert.equal(env.CCR_BOT_GATEWAY_ENABLED, "true");
-  assert.equal(env.CCR_BOT_GATEWAY_PLATFORM, "feishu");
-  assert.equal(env.CCR_BOT_GATEWAY_AUTH_TYPE, "app_secret");
-  assert.equal(env.CCR_BOT_GATEWAY_CREATE_INTEGRATION, "true");
-  assert.equal(env.CCR_BOT_GATEWAY_STATE_DIR, path.join(runtimeHome, "bot-state"));
-  assert.equal(env.CCR_BOT_PROFILE_ID, "codex-main");
-  assert.equal(env.CCR_BOT_PROFILE_NAME, "Codex Main");
+  assert.equal(env.LLMR_BOT_GATEWAY_ENABLED, "true");
+  assert.equal(env.LLMR_BOT_GATEWAY_PLATFORM, "feishu");
+  assert.equal(env.LLMR_BOT_GATEWAY_AUTH_TYPE, "app_secret");
+  assert.equal(env.LLMR_BOT_GATEWAY_CREATE_INTEGRATION, "true");
+  assert.equal(env.LLMR_BOT_GATEWAY_STATE_DIR, path.join(runtimeHome, "bot-state"));
+  assert.equal(env.LLMR_BOT_PROFILE_ID, "codex-main");
+  assert.equal(env.LLMR_BOT_PROFILE_NAME, "Codex Main");
 
-  const credentials = JSON.parse(env.CCR_BOT_GATEWAY_CREDENTIALS_JSON);
+  const credentials = JSON.parse(env.LLMR_BOT_GATEWAY_CREDENTIALS_JSON);
   assert.deepEqual(credentials, { appId: "app-1", token: "secret" });
 
-  const integrationConfig = JSON.parse(env.CCR_BOT_GATEWAY_CONFIG_JSON);
+  const integrationConfig = JSON.parse(env.LLMR_BOT_GATEWAY_CONFIG_JSON);
   assert.deepEqual(integrationConfig, { appId: "app-1", team: "T1", transport: "websocket" });
 });
 
@@ -119,11 +119,11 @@ test("botGatewayProfileEnv disables create integration for QR login platforms", 
     "app"
   );
 
-  assert.equal(env.CCR_BOT_GATEWAY_PLATFORM, "weixin-ilink");
-  assert.equal(env.CCR_BOT_GATEWAY_AUTH_TYPE, "qr_login");
-  assert.equal(env.CCR_BOT_GATEWAY_CREATE_INTEGRATION, "false");
-  assert.equal(env.CCR_BOT_GATEWAY_STREAM_REPLIES, "false");
-  assert.equal(JSON.parse(env.CCR_BOT_GATEWAY_CONFIG_JSON).transport, "websocket");
+  assert.equal(env.LLMR_BOT_GATEWAY_PLATFORM, "weixin-ilink");
+  assert.equal(env.LLMR_BOT_GATEWAY_AUTH_TYPE, "qr_login");
+  assert.equal(env.LLMR_BOT_GATEWAY_CREATE_INTEGRATION, "false");
+  assert.equal(env.LLMR_BOT_GATEWAY_STREAM_REPLIES, "false");
+  assert.equal(JSON.parse(env.LLMR_BOT_GATEWAY_CONFIG_JSON).transport, "websocket");
 });
 
 test("botGatewayProfileEnv preserves stream replies for non-Weixin platforms", () => {
@@ -139,8 +139,8 @@ test("botGatewayProfileEnv preserves stream replies for non-Weixin platforms", (
     "app"
   );
 
-  assert.equal(env.CCR_BOT_GATEWAY_PLATFORM, "slack");
-  assert.equal(env.CCR_BOT_GATEWAY_STREAM_REPLIES, "true");
+  assert.equal(env.LLMR_BOT_GATEWAY_PLATFORM, "slack");
+  assert.equal(env.LLMR_BOT_GATEWAY_STREAM_REPLIES, "true");
 });
 
 test("botGatewayProfileEnv defaults iMessage to local auth", () => {
@@ -158,9 +158,9 @@ test("botGatewayProfileEnv defaults iMessage to local auth", () => {
     "app"
   );
 
-  assert.equal(env.CCR_BOT_GATEWAY_PLATFORM, "imessage");
-  assert.equal(env.CCR_BOT_GATEWAY_AUTH_TYPE, "local");
-  assert.equal(JSON.parse(env.CCR_BOT_GATEWAY_CONFIG_JSON).transport, "websocket");
+  assert.equal(env.LLMR_BOT_GATEWAY_PLATFORM, "imessage");
+  assert.equal(env.LLMR_BOT_GATEWAY_AUTH_TYPE, "local");
+  assert.equal(JSON.parse(env.LLMR_BOT_GATEWAY_CONFIG_JSON).transport, "websocket");
 });
 
 test("botGatewaySdkImportSpecifier converts Windows absolute paths before URL scheme detection", () => {

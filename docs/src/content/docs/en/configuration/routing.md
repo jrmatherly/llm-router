@@ -306,7 +306,7 @@ if (!tenant) {
 }
 
 // Local file example: { "enterprise": { "model": "Provider/primary" } }
-const policyFile = api.env("CCR_ROUTING_POLICY_FILE")
+const policyFile = api.env("LLMR_ROUTING_POLICY_FILE")
   ?? "~/.config/ccr/routing-policy.json";
 let policy = {};
 if (await api.fs.exists(policyFile)) {
@@ -315,13 +315,13 @@ if (await api.fs.exists(policyFile)) {
 }
 
 // If a policy service is configured, its result overrides local policy.
-const policyUrl = api.env("CCR_ROUTING_POLICY_URL");
+const policyUrl = api.env("LLMR_ROUTING_POLICY_URL");
 if (policyUrl) {
   const response = await api.fetch(policyUrl, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${api.env("CCR_ROUTING_POLICY_TOKEN") ?? ""}`
+      authorization: `Bearer ${api.env("LLMR_ROUTING_POLICY_TOKEN") ?? ""}`
     },
     body: JSON.stringify({
       tenant,
@@ -529,6 +529,6 @@ When Fallback runs, response headers include `x-llmr-fallback-attempts`, `x-llmr
 
 Load [`examples/routing/jev.js`](https://github.com/jrmatherly/llm-router/blob/main/examples/routing/jev.js) as a Node.js script rule. It uses the [TypeSafe HTTP API](https://docs.typesafe.ai/api) and [Choice](https://docs.typesafe.ai/primitives/choice) to select between two configured models.
 
-Set `CCR_JEV_ROUTING_ENABLED=1`, `CCR_JEV_FAST_MODEL=provider/fast-model`, `CCR_JEV_REASONING_MODEL=provider/reasoning-model`, and `TYPESAFE_API_KEY` in the environment that starts LLMR. Launch the desktop app from an environment that passes these variables through. Select the script file in a rule, initially use a 1500 ms timeout, and put a static fallback rule for `auto` after it. Only requests whose model is `auto` are classified. Explicit models, images, missing configuration, uncertain answers, errors, and timeouts continue to later rules.
+Set `LLMR_JEV_ROUTING_ENABLED=1`, `LLMR_JEV_FAST_MODEL=provider/fast-model`, `LLMR_JEV_REASONING_MODEL=provider/reasoning-model`, and `TYPESAFE_API_KEY` in the environment that starts LLMR. Launch the desktop app from an environment that passes these variables through. Select the script file in a rule, initially use a 1500 ms timeout, and put a static fallback rule for `auto` after it. Only requests whose model is `auto` are classified. Explicit models, images, missing configuration, uncertain answers, errors, and timeouts continue to later rules.
 
-`CCR_JEV_ENDPOINT` accepts a full endpoint URL for a compatible service; a local service need not require a key. `CCR_JEV_MODEL` selects the classifier model. Enabling the script sends up to 8192 characters of the latest user text, the input token count, and tool count to that service, and cloud calls incur its charges. Headers and system content are excluded. `CCR_JEV_MIN_CONFIDENCE` defaults to `0.75`; evaluate that example threshold on your tasks. Tests cover the contract and fallback behavior, without measuring live classification accuracy or latency.
+`LLMR_JEV_ENDPOINT` accepts a full endpoint URL for a compatible service; a local service need not require a key. `LLMR_JEV_MODEL` selects the classifier model. Enabling the script sends up to 8192 characters of the latest user text, the input token count, and tool count to that service, and cloud calls incur its charges. Headers and system content are excluded. `LLMR_JEV_MIN_CONFIDENCE` defaults to `0.75`; evaluate that example threshold on your tasks. Tests cover the contract and fallback behavior, without measuring live classification accuracy or latency.

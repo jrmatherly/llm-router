@@ -6,20 +6,20 @@ import path from "node:path";
 import test, { after } from "node:test";
 
 const envKeys = [
-  "CCR_INTERNAL_APP_DATA_DIR",
-  "CCR_INTERNAL_HOME_DIR",
-  "CCR_INTERNAL_USER_DATA_DIR",
-  "CCR_MODEL_CATALOG_PATH",
-  "CCR_MODEL_CATALOG_URL",
-  "CCR_MODELS_JSON_PATH"
+  "LLMR_INTERNAL_APP_DATA_DIR",
+  "LLMR_INTERNAL_HOME_DIR",
+  "LLMR_INTERNAL_USER_DATA_DIR",
+  "LLMR_MODEL_CATALOG_PATH",
+  "LLMR_MODEL_CATALOG_URL",
+  "LLMR_MODELS_JSON_PATH"
 ];
 const previousEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
 const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-catalog-startup-test-"));
-process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(runtimeRoot, "app-data");
-process.env.CCR_INTERNAL_HOME_DIR = path.join(runtimeRoot, "home");
-process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(runtimeRoot, "user-data");
-delete process.env.CCR_MODEL_CATALOG_PATH;
-delete process.env.CCR_MODELS_JSON_PATH;
+process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(runtimeRoot, "app-data");
+process.env.LLMR_INTERNAL_HOME_DIR = path.join(runtimeRoot, "home");
+process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(runtimeRoot, "user-data");
+delete process.env.LLMR_MODEL_CATALOG_PATH;
+delete process.env.LLMR_MODELS_JSON_PATH;
 
 after(() => {
   for (const key of envKeys) {
@@ -33,7 +33,7 @@ test("web management server is ready before the catalog CDN answers", async () =
   let downloadRequests = 0;
   const cdn = createServer(() => { downloadRequests += 1; });
   await new Promise((resolve) => cdn.listen(0, "127.0.0.1", resolve));
-  process.env.CCR_MODEL_CATALOG_URL = `http://127.0.0.1:${cdn.address().port}/models.json`;
+  process.env.LLMR_MODEL_CATALOG_URL = `http://127.0.0.1:${cdn.address().port}/models.json`;
   const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
   const startedAt = Date.now();
   const runtime = await startWebManagementServer({

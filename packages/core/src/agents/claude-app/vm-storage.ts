@@ -5,8 +5,8 @@ import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-p
 
 const claudeAppVmBundlesDir = "vm_bundles";
 const claudeAppVmBundleName = "claudevm.bundle";
-const claudeAppVmSeedEnv = "CCR_CLAUDE_APP_VM_SEED_DIR";
-const claudeAppVmSeedDisabledEnv = "CCR_CLAUDE_APP_VM_SEED_DISABLED";
+const claudeAppVmSeedEnv = "LLMR_CLAUDE_APP_VM_SEED_DIR";
+const claudeAppVmSeedDisabledEnv = "LLMR_CLAUDE_APP_VM_SEED_DISABLED";
 const maxSmallFileCopyBytes = 64 * 1024 * 1024;
 const lockRetryIntervalMs = 100;
 const lockTimeoutMs = 15_000;

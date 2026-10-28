@@ -72,13 +72,13 @@ test("OpenCode free-tier timestamp decoder rejects malformed IDs", () => {
 });
 
 test("OpenCode free-tier user agent prefers an explicit override", () => {
-  const previousOverride = process.env.CCR_OPENCODE_USER_AGENT;
-  process.env.CCR_OPENCODE_USER_AGENT = "opencode/9.9.9-test";
+  const previousOverride = process.env.LLMR_OPENCODE_USER_AGENT;
+  process.env.LLMR_OPENCODE_USER_AGENT = "opencode/9.9.9-test";
   resetOpenCodePublicFreeTierState();
   try {
     assert.equal(openCodePublicFreeTierUserAgent(), "opencode/9.9.9-test");
   } finally {
-    restoreEnv("CCR_OPENCODE_USER_AGENT", previousOverride);
+    restoreEnv("LLMR_OPENCODE_USER_AGENT", previousOverride);
     resetOpenCodePublicFreeTierState();
   }
 });
@@ -88,15 +88,15 @@ test("OpenCode free-tier user agent reads the installed CLI version", () => {
   writeFileSync(path.join(binDir, "opencode"), "#!/bin/sh\necho 'opencode version 7.8.9'\n");
   chmodSync(path.join(binDir, "opencode"), 0o755);
   const previousPath = process.env.PATH;
-  const previousOverride = process.env.CCR_OPENCODE_USER_AGENT;
+  const previousOverride = process.env.LLMR_OPENCODE_USER_AGENT;
   process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ""}`;
-  delete process.env.CCR_OPENCODE_USER_AGENT;
+  delete process.env.LLMR_OPENCODE_USER_AGENT;
   resetOpenCodePublicFreeTierState();
   try {
     assert.equal(openCodePublicFreeTierUserAgent(), "opencode/7.8.9");
   } finally {
     restoreEnv("PATH", previousPath);
-    restoreEnv("CCR_OPENCODE_USER_AGENT", previousOverride);
+    restoreEnv("LLMR_OPENCODE_USER_AGENT", previousOverride);
     resetOpenCodePublicFreeTierState();
     rmSync(binDir, { force: true, recursive: true });
   }
@@ -105,23 +105,23 @@ test("OpenCode free-tier user agent reads the installed CLI version", () => {
 test("OpenCode free-tier user agent falls back without an installed CLI", () => {
   const binDir = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-freetier-empty-bin-"));
   const previousPath = process.env.PATH;
-  const previousOverride = process.env.CCR_OPENCODE_USER_AGENT;
+  const previousOverride = process.env.LLMR_OPENCODE_USER_AGENT;
   process.env.PATH = binDir;
-  delete process.env.CCR_OPENCODE_USER_AGENT;
+  delete process.env.LLMR_OPENCODE_USER_AGENT;
   resetOpenCodePublicFreeTierState();
   try {
     assert.equal(openCodePublicFreeTierUserAgent(), OPENCODE_PUBLIC_FREETIER_USER_AGENT_FALLBACK);
   } finally {
     restoreEnv("PATH", previousPath);
-    restoreEnv("CCR_OPENCODE_USER_AGENT", previousOverride);
+    restoreEnv("LLMR_OPENCODE_USER_AGENT", previousOverride);
     resetOpenCodePublicFreeTierState();
     rmSync(binDir, { force: true, recursive: true });
   }
 });
 
 test("OpenCode free-tier headers carry a fresh client fingerprint", () => {
-  const previousOverride = process.env.CCR_OPENCODE_USER_AGENT;
-  process.env.CCR_OPENCODE_USER_AGENT = "opencode/1.18.31";
+  const previousOverride = process.env.LLMR_OPENCODE_USER_AGENT;
+  process.env.LLMR_OPENCODE_USER_AGENT = "opencode/1.18.31";
   resetOpenCodePublicFreeTierState();
   try {
     const headers = openCodePublicFreeTierHeaders();
@@ -130,14 +130,14 @@ test("OpenCode free-tier headers carry a fresh client fingerprint", () => {
     assert.match(headers["x-opencode-session"], /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
     assert.match(headers["x-opencode-request"], /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
   } finally {
-    restoreEnv("CCR_OPENCODE_USER_AGENT", previousOverride);
+    restoreEnv("LLMR_OPENCODE_USER_AGENT", previousOverride);
     resetOpenCodePublicFreeTierState();
   }
 });
 
 test("OpenCode free-tier header application overwrites the client user agent but keeps auth", () => {
-  const previousOverride = process.env.CCR_OPENCODE_USER_AGENT;
-  process.env.CCR_OPENCODE_USER_AGENT = "opencode/1.18.31";
+  const previousOverride = process.env.LLMR_OPENCODE_USER_AGENT;
+  process.env.LLMR_OPENCODE_USER_AGENT = "opencode/1.18.31";
   resetOpenCodePublicFreeTierState();
   try {
     const input = {
@@ -154,7 +154,7 @@ test("OpenCode free-tier header application overwrites the client user agent but
     assert.match(headers["x-opencode-request"], /^msg_/);
     assert.equal(input["User-Agent"], "claude-code/1.0");
   } finally {
-    restoreEnv("CCR_OPENCODE_USER_AGENT", previousOverride);
+    restoreEnv("LLMR_OPENCODE_USER_AGENT", previousOverride);
     resetOpenCodePublicFreeTierState();
   }
 });
@@ -177,9 +177,9 @@ test("OpenCode free-tier import plugin never overrides auth", () => {
   const plugin = openCodePublicFreeTierPlugin();
   assert.equal(
     plugin.key,
-    `ccr-local-agent-__CCR_PROVIDER_NAME_SLUG__-${OPENCODE_PUBLIC_FREETIER_PLUGIN_SUFFIX}`
+    `ccr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-${OPENCODE_PUBLIC_FREETIER_PLUGIN_SUFFIX}`
   );
-  assert.equal(plugin.providerName, "__CCR_PROVIDER_NAME__");
+  assert.equal(plugin.providerName, "__LLMR_PROVIDER_NAME__");
   assert.equal(plugin.auth, undefined);
 });
 
@@ -188,16 +188,16 @@ test("OpenCode free-tier import plugin carries a request section so the gateway 
 });
 
 test("OpenCode free-tier internal import plugin gets a key distinct from the display one", () => {
-  const internal = openCodePublicFreeTierPlugin("__CCR_PROVIDER_INTERNAL_NAME__", "-internal");
+  const internal = openCodePublicFreeTierPlugin("__LLMR_PROVIDER_INTERNAL_NAME__", "-internal");
 
-  assert.equal(internal.providerName, "__CCR_PROVIDER_INTERNAL_NAME__");
+  assert.equal(internal.providerName, "__LLMR_PROVIDER_INTERNAL_NAME__");
   assert.notEqual(internal.key, openCodePublicFreeTierPlugin().key);
   assert.equal(isOpenCodePublicFreeTierPlugin(internal), true);
 });
 
 test("OpenCode free-tier hook mints headers per request without touching auth", async () => {
-  const previousOverride = process.env.CCR_OPENCODE_USER_AGENT;
-  process.env.CCR_OPENCODE_USER_AGENT = "opencode/1.18.31";
+  const previousOverride = process.env.LLMR_OPENCODE_USER_AGENT;
+  process.env.LLMR_OPENCODE_USER_AGENT = "opencode/1.18.31";
   resetOpenCodePublicFreeTierState();
   try {
     const [hook] = createGatewayPlugin({
@@ -232,7 +232,7 @@ test("OpenCode free-tier hook mints headers per request without touching auth", 
     assert.notEqual(second.value.headers["x-opencode-session"], first.value.headers["x-opencode-session"]);
     assert.notEqual(second.value.headers["x-opencode-request"], first.value.headers["x-opencode-request"]);
   } finally {
-    restoreEnv("CCR_OPENCODE_USER_AGENT", previousOverride);
+    restoreEnv("LLMR_OPENCODE_USER_AGENT", previousOverride);
     resetOpenCodePublicFreeTierState();
   }
 });

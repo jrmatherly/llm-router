@@ -248,13 +248,13 @@ test("credential-free fallback headers use the provider runtime identity", () =>
 
 function useTemporaryCodexHome(t, prefix) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  const previousHome = process.env.CCR_INTERNAL_HOME_DIR;
-  process.env.CCR_INTERNAL_HOME_DIR = home;
+  const previousHome = process.env.LLMR_INTERNAL_HOME_DIR;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
   t.after(() => {
     if (previousHome === undefined) {
-      delete process.env.CCR_INTERNAL_HOME_DIR;
+      delete process.env.LLMR_INTERNAL_HOME_DIR;
     } else {
-      process.env.CCR_INTERNAL_HOME_DIR = previousHome;
+      process.env.LLMR_INTERNAL_HOME_DIR = previousHome;
     }
   });
   return home;

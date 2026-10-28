@@ -8,7 +8,7 @@ import test from "node:test";
 // process, and the other catalog tests call it.
 test("a process that never refreshes warns once about a week-old catalog", async () => {
   const { loadModelCatalogPayload, modelCatalogCachePath } = await import("@llmr/core/models/catalog-file.ts");
-  const keys = ["CCR_MODEL_CATALOG_PATH", "CCR_MODELS_JSON_PATH", "CCR_INTERNAL_USER_DATA_DIR"];
+  const keys = ["LLMR_MODEL_CATALOG_PATH", "LLMR_MODELS_JSON_PATH", "LLMR_INTERNAL_USER_DATA_DIR"];
   const previous = keys.map((key) => process.env[key]);
   const originalWarn = console.warn;
   const warnings = [];
@@ -20,9 +20,9 @@ test("a process that never refreshes warns once about a week-old catalog", async
     schemaVersion: 2
   });
   try {
-    delete process.env.CCR_MODEL_CATALOG_PATH;
-    delete process.env.CCR_MODELS_JSON_PATH;
-    process.env.CCR_INTERNAL_USER_DATA_DIR = dir;
+    delete process.env.LLMR_MODEL_CATALOG_PATH;
+    delete process.env.LLMR_MODELS_JSON_PATH;
+    process.env.LLMR_INTERNAL_USER_DATA_DIR = dir;
     console.warn = (message) => warnings.push(String(message));
     mkdirSync(path.dirname(modelCatalogCachePath()), { recursive: true });
 
@@ -31,10 +31,10 @@ test("a process that never refreshes warns once about a week-old catalog", async
     assert.deepEqual(warnings, []);
 
     writeFileSync(modelCatalogCachePath(), catalog(30));
-    process.env.CCR_MODEL_CATALOG_PATH = modelCatalogCachePath();
+    process.env.LLMR_MODEL_CATALOG_PATH = modelCatalogCachePath();
     loadModelCatalogPayload();
     assert.deepEqual(warnings, [], "a local override is the user's choice and is never called stale");
-    delete process.env.CCR_MODEL_CATALOG_PATH;
+    delete process.env.LLMR_MODEL_CATALOG_PATH;
 
     assert.equal(loadModelCatalogPayload()?.loadedFrom, modelCatalogCachePath());
     loadModelCatalogPayload();

@@ -8,7 +8,7 @@ import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env.ts";
 import { listMcpServerTools } from "@llmr/core/mcp/tool-discovery.ts";
 
-const secretNames = ["CCR_WEB_AUTH_TOKEN", "CCR_CORE_GATEWAY_AUTH_TOKEN", "CCR_REMOTE_SYNC_API_KEY"];
+const secretNames = ["LLMR_WEB_AUTH_TOKEN", "LLMR_CORE_GATEWAY_AUTH_TOKEN", "LLMR_REMOTE_SYNC_API_KEY"];
 
 function withEnv(t, values) {
   const previous = Object.fromEntries(Object.keys(values).map((name) => [name, process.env[name]]));
@@ -45,9 +45,9 @@ process.stdin.on("data", (chunk) => {
 
 test("stdio MCP discovery does not pass LLMR secrets to the server process", async (t) => {
   withEnv(t, {
-    CCR_CORE_GATEWAY_AUTH_TOKEN: "client-keys",
-    CCR_REMOTE_SYNC_API_KEY: "sync-key",
-    CCR_WEB_AUTH_TOKEN: "web-token",
+    LLMR_CORE_GATEWAY_AUTH_TOKEN: "client-keys",
+    LLMR_REMOTE_SYNC_API_KEY: "sync-key",
+    LLMR_WEB_AUTH_TOKEN: "web-token",
     TAVILY_API_KEY: "user-key"
   });
   const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-mcp-env-"));
@@ -81,20 +81,20 @@ test("compiled stdio MCP servers hide the core runtime's client API keys", async
   const compiled = await compileCoreGatewayConfig(config, "raw-trace-token", "billing-token", "core-token");
   const servers = Object.fromEntries(compiled.agent.mcpServers.map((server) => [server.name, server]));
 
-  assert.deepEqual(servers.user.env, { CCR_CORE_GATEWAY_AUTH_TOKEN: "", TAVILY_API_KEY: "user-key" });
+  assert.deepEqual(servers.user.env, { LLMR_CORE_GATEWAY_AUTH_TOKEN: "", TAVILY_API_KEY: "user-key" });
   assert.equal(servers.remote.env, undefined);
 });
 
 test("child process env drops LLMR secrets and keeps everything else", () => {
   assert.deepEqual(
     withoutLlmrSecretEnv({
-      CCR_CORE_GATEWAY_AUTH_TOKEN: "client-keys",
-      CCR_INTERNAL_HOME_DIR: "/home/llmr",
-      CCR_SERVICE_INSTANCE_TOKEN: "service",
-      CCR_WEB_AUTH_TOKEN: "web-token",
+      LLMR_CORE_GATEWAY_AUTH_TOKEN: "client-keys",
+      LLMR_INTERNAL_HOME_DIR: "/home/llmr",
+      LLMR_SERVICE_INSTANCE_TOKEN: "service",
+      LLMR_WEB_AUTH_TOKEN: "web-token",
       PATH: "/usr/bin",
       TAVILY_API_KEY: "user-key"
     }),
-    { CCR_INTERNAL_HOME_DIR: "/home/llmr", PATH: "/usr/bin", TAVILY_API_KEY: "user-key" }
+    { LLMR_INTERNAL_HOME_DIR: "/home/llmr", PATH: "/usr/bin", TAVILY_API_KEY: "user-key" }
   );
 });

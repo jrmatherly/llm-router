@@ -19,7 +19,7 @@ import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
 import { formatError, readHeader } from "@llmr/core/gateway/http/io";
-import { coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayEntryOverrideEnv, gatewayPackageCandidates, gatewayRuntimeMarkerFile, requireFromHere } from "@llmr/core/gateway/internal/shared";
+import { coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayEntryOverrideEnv, gatewayPackageCandidates, gatewayRuntimeIdEnv, gatewayRuntimeMarkerFile, gatewayUpstreamProxyUrlEnv, requireFromHere } from "@llmr/core/gateway/internal/shared";
 import type { CoreGatewayHealth, ManagedGatewayRuntimeMarker } from "@llmr/core/gateway/internal/shared";
 import { delay } from "@llmr/core/gateway/internal/clock";
 
@@ -102,10 +102,10 @@ export function spawnGatewayProcess(
   };
 }
 
-// CCR_GATEWAY_CONFIG_TIMEOUT_MS tunes the startup budget above for hosts
+// LLMR_GATEWAY_CONFIG_TIMEOUT_MS tunes the startup budget above for hosts
 // whose process spawn / module load times exceed the default under load.
 export function gatewayConfigAcceptanceTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
-  const raw = env.CCR_GATEWAY_CONFIG_TIMEOUT_MS?.trim();
+  const raw = env.LLMR_GATEWAY_CONFIG_TIMEOUT_MS?.trim();
   if (raw) {
     const parsed = Number(raw);
     if (Number.isFinite(parsed) && parsed >= 1_000) {
@@ -153,7 +153,7 @@ function monitorGatewayConfigAcceptance(child: ChildProcess): {
     };
     const acceptanceTimeoutMs = gatewayConfigAcceptanceTimeoutMs();
     const timer = setTimeout(() => {
-      finish(new Error(`Core gateway did not accept runtime config within ${acceptanceTimeoutMs}ms. Set CCR_GATEWAY_CONFIG_TIMEOUT_MS to raise this limit.`));
+      finish(new Error(`Core gateway did not accept runtime config within ${acceptanceTimeoutMs}ms. Set LLMR_GATEWAY_CONFIG_TIMEOUT_MS to raise this limit.`));
     }, acceptanceTimeoutMs);
     rejectAcceptance = (error) => finish(error);
     child.on("message", onMessage);
@@ -379,7 +379,7 @@ function createGatewayProcessEnv(
     AUTH_STATIC_API_KEY_BEARER_ONLY: "false",
     AUTH_STATIC_API_KEY_ENV: coreGatewayAuthTokenEnv,
     AUTH_STATIC_API_KEY_HEADER: publicGatewayMode ? "authorization" : coreGatewayAuthHeader,
-    CCR_GATEWAY_RUNTIME_ID: runtimeId,
+    [gatewayRuntimeIdEnv]: runtimeId,
     [coreGatewayAuthTokenEnv]: authTokens.join(","),
     HOST: config.gateway.coreHost,
     PORT: String(config.gateway.corePort)
@@ -417,7 +417,7 @@ function createGatewayProcessEnv(
   env.http_proxy = upstreamProxyUrl;
   env.https_proxy = upstreamProxyUrl;
   env.all_proxy = upstreamProxyUrl;
-  env.CCR_UPSTREAM_PROXY_URL = upstreamProxyUrl;
+  env[gatewayUpstreamProxyUrlEnv] = upstreamProxyUrl;
   return env;
 }
 
@@ -444,7 +444,7 @@ function resolveGatewayNodeRuntime(): GatewayNodeRuntime {
 }
 
 function configuredGatewayNodeRuntimeCandidates(): GatewayNodeRuntime[] {
-  const configured = process.env.CCR_NODE_BIN?.trim();
+  const configured = process.env.LLMR_NODE_BIN?.trim();
   return configured ? [{ command: configured, electronRunAsNode: false }] : [];
 }
 
@@ -569,9 +569,9 @@ function securePathPermissions(file: string, mode: number): void {
 function gatewayFetchPreloadScript(): string {
   return [
     "\"use strict\";",
-    "const up = process.env.CCR_UPSTREAM_PROXY_URL;",
-    "const um = process.env.CCR_UNDICI_MODULE;",
-    "const rawTimeout = process.env.CCR_UPSTREAM_TIMEOUT_MS;",
+    `const up = process.env.${gatewayUpstreamProxyUrlEnv};`,
+    "const um = process.env.LLMR_UNDICI_MODULE;",
+    "const rawTimeout = process.env.LLMR_UPSTREAM_TIMEOUT_MS;",
     "const parsedTimeout = rawTimeout === undefined || rawTimeout === '' ? NaN : Number(rawTimeout);",
     "const hasTimeout = Number.isFinite(parsedTimeout) && parsedTimeout >= 0;",
     "if ((up || hasTimeout) && um) {",

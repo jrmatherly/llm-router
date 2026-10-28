@@ -74,7 +74,7 @@ test("Grok local provider imports bearer token and model override plugin", async
     assert.equal(result.providerPlugins[0].request.headers["x-grok-client-identifier"], "xai-grok-cli");
     assert.equal(result.providerPlugins[0].request.headers["x-grok-client-version"], "0.2.93");
     assert.equal(result.providerPlugins[0].request.headers["x-grok-model-override"], "{{ model }}");
-    assert.equal(result.providerPlugins[1].providerName, "__CCR_PROVIDER_INTERNAL_NAME__");
+    assert.equal(result.providerPlugins[1].providerName, "__LLMR_PROVIDER_INTERNAL_NAME__");
   });
 });
 

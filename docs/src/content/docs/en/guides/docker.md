@@ -45,7 +45,7 @@ npm run docker:compose:up
 docker compose logs -f ccr
 ```
 
-Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `CCR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a fresh volume the management UI is available immediately; the model gateway only starts working after a provider and a model have been added.
+Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `LLMR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a fresh volume the management UI is available immediately; the model gateway only starts working after a provider and a model have been added.
 
 The npm Compose script prepares a local `../../next-ai/gateway` checkout before building so the image uses that plugin-capable ai-gateway runtime. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
@@ -89,7 +89,7 @@ docker run -d \
   --name llm-router \
   --restart unless-stopped \
   -p 127.0.0.1:3458:8080 \
-  -e CCR_PUBLIC_BASE_URL=http://127.0.0.1:3458 \
+  -e LLMR_PUBLIC_BASE_URL=http://127.0.0.1:3458 \
   -v ccr-data:/data \
   llm-router:local
 ```
@@ -100,24 +100,24 @@ The repository also provides `npm run docker:run`. It uses `3458` and `ccr-data`
 
 | Credential | Purpose | Where configured |
 | --- | --- | --- |
-| `CCR_WEB_AUTH_TOKEN` | Management UI / RPC authentication | Container environment variable |
+| `LLMR_WEB_AUTH_TOKEN` | Management UI / RPC authentication | Container environment variable |
 | LLMR client API key | Model gateway request authentication | **API Keys** page in the UI |
 | Upstream provider credential | LLMR calling model providers | **Providers** page in the UI |
 
-Without `CCR_WEB_AUTH_TOKEN`, the entrypoint generates a new random token on every container start and prints the management URL once to the container log. Nginx never sends the token to a client: opening the root address without a token loads the page, but every management call fails with `401` until the token is supplied in the URL. The page keeps it for the browser tab session. Persistent and remote deployments should pin a sufficiently long, strong token.
+Without `LLMR_WEB_AUTH_TOKEN`, the entrypoint generates a new random token on every container start and prints the management URL once to the container log. Nginx never sends the token to a client: opening the root address without a token loads the page, but every management call fails with `401` until the token is supplied in the URL. The page keeps it for the browser tab session. Persistent and remote deployments should pin a sufficiently long, strong token.
 
 Do not write the token directly into shell history. Create an environment file that stays out of version control:
 
 ```dotenv
-CCR_WEB_AUTH_TOKEN=replace-with-a-long-random-value
-CCR_PUBLIC_BASE_URL=http://127.0.0.1:3458
+LLMR_WEB_AUTH_TOKEN=replace-with-a-long-random-value
+LLMR_PUBLIC_BASE_URL=http://127.0.0.1:3458
 ```
 
 Use it via `docker run --env-file`, or map the same variables into the Compose service `environment`. The complete management URL containing `llmr_web_token` should also be protected like a password, because it can appear in browser history, reverse proxy logs, screenshots, and tickets.
 
 ## Change the external port or address
 
-The host-facing address and the container-internal port are two layers of configuration. When changing the host port, also set `CCR_PUBLIC_BASE_URL` to the full address clients actually use:
+The host-facing address and the container-internal port are two layers of configuration. When changing the host port, also set `LLMR_PUBLIC_BASE_URL` to the full address clients actually use:
 
 ```yaml
 services:
@@ -125,11 +125,11 @@ services:
     ports:
       - "127.0.0.1:8088:8080"
     environment:
-      CCR_PUBLIC_BASE_URL: http://127.0.0.1:8088
-      CCR_WEB_AUTH_TOKEN: ${CCR_WEB_AUTH_TOKEN:?set CCR_WEB_AUTH_TOKEN}
+      LLMR_PUBLIC_BASE_URL: http://127.0.0.1:8088
+      LLMR_WEB_AUTH_TOKEN: ${LLMR_WEB_AUTH_TOKEN:?set LLMR_WEB_AUTH_TOKEN}
 ```
 
-`CCR_PUBLIC_BASE_URL` is synchronized into LLMR's public router endpoint. It does not publish a Docker port by itself, nor does it change the Nginx listen address.
+`LLMR_PUBLIC_BASE_URL` is synchronized into LLMR's public router endpoint. It does not publish a Docker port by itself, nor does it change the Nginx listen address.
 
 ## Domain, HTTPS, and reverse proxy
 
@@ -141,8 +141,8 @@ services:
     ports:
       - "127.0.0.1:3458:8080"
     environment:
-      CCR_PUBLIC_BASE_URL: https://ccr.example.com
-      CCR_WEB_AUTH_TOKEN: ${CCR_WEB_AUTH_TOKEN:?set CCR_WEB_AUTH_TOKEN}
+      LLMR_PUBLIC_BASE_URL: https://ccr.example.com
+      LLMR_WEB_AUTH_TOKEN: ${LLMR_WEB_AUTH_TOKEN:?set LLMR_WEB_AUTH_TOKEN}
 ```
 
 The reverse proxy should forward all paths to the LLMR Nginx and must:
@@ -204,25 +204,25 @@ Upgrades run the migrations the current version needs against the persisted data
 
 ## Environment variable reference
 
-A typical deployment only needs `CCR_WEB_AUTH_TOKEN`, `CCR_PUBLIC_BASE_URL`, and the Docker port mapping. The internal listener variables normally do not need changing.
+A typical deployment only needs `LLMR_WEB_AUTH_TOKEN`, `LLMR_PUBLIC_BASE_URL`, and the Docker port mapping. The internal listener variables normally do not need changing.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `CCR_WEB_AUTH_TOKEN` | Randomly generated per start | Management UI / RPC token. Persistent or remote deployments should set a fixed strong value. |
-| `CCR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Full public address written into LLMR configuration; takes precedence over Public Host / Port once set. |
-| `CCR_PUBLIC_HOST` | `127.0.0.1` | Only used to compose the public address when no full public URL is set; does not change the Docker port binding. |
-| `CCR_PUBLIC_PORT` | `3458` | Only used to compose the public address when no full public URL is set. |
-| `CCR_DATA_DIR` | `/data` | Data root, also used as the process `HOME`. |
-| `CCR_NGINX_PORT` | `8080` | Nginx listen port inside the container; should match the right side of the port mapping. |
-| `CCR_WEB_HOST` | `127.0.0.1` | Management service listen address inside the container. |
-| `CCR_WEB_PORT` | `3459` | Management service port inside the container. |
-| `CCR_GATEWAY_HOST` | `127.0.0.1` | Model gateway listen address inside the container. |
-| `CCR_GATEWAY_PORT` | `3456` | Model gateway port inside the container that Nginx proxies to. |
-| `CCR_NO_GATEWAY` | `0` | When set to `1`, `true`, or `yes`, only the management UI runs during startup. |
-| `CCR_DOCKER_INIT_CONFIG` | `1` | Set to `0` to disable the first-boot minimal `config.json` bootstrap. |
-| `CCR_DOCKER_SYNC_PUBLIC_ENDPOINT` | `1` | Set to `0` to stop synchronizing existing JSON / SQLite listener and public address fields at startup. |
+| `LLMR_WEB_AUTH_TOKEN` | Randomly generated per start | Management UI / RPC token. Persistent or remote deployments should set a fixed strong value. |
+| `LLMR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Full public address written into LLMR configuration; takes precedence over Public Host / Port once set. |
+| `LLMR_PUBLIC_HOST` | `127.0.0.1` | Only used to compose the public address when no full public URL is set; does not change the Docker port binding. |
+| `LLMR_PUBLIC_PORT` | `3458` | Only used to compose the public address when no full public URL is set. |
+| `LLMR_DATA_DIR` | `/data` | Data root, also used as the process `HOME`. |
+| `LLMR_NGINX_PORT` | `8080` | Nginx listen port inside the container; should match the right side of the port mapping. |
+| `LLMR_WEB_HOST` | `127.0.0.1` | Management service listen address inside the container. |
+| `LLMR_WEB_PORT` | `3459` | Management service port inside the container. |
+| `LLMR_GATEWAY_HOST` | `127.0.0.1` | Model gateway listen address inside the container. |
+| `LLMR_GATEWAY_PORT` | `3456` | Model gateway port inside the container that Nginx proxies to. |
+| `LLMR_NO_GATEWAY` | `0` | When set to `1`, `true`, or `yes`, only the management UI runs during startup. |
+| `LLMR_DOCKER_INIT_CONFIG` | `1` | Set to `0` to disable the first-boot minimal `config.json` bootstrap. |
+| `LLMR_DOCKER_SYNC_PUBLIC_ENDPOINT` | `1` | Set to `0` to stop synchronizing existing JSON / SQLite listener and public address fields at startup. |
 
-Changing internal ports requires keeping the PM2 and Nginx variables consistent, with no benefit for normal deployments. Only `CCR_NGINX_PORT` should ever be published externally.
+Changing internal ports requires keeping the PM2 and Nginx variables consistent, with no benefit for normal deployments. Only `LLMR_NGINX_PORT` should ever be published externally.
 
 ## Build and smoke test
 
@@ -241,7 +241,7 @@ Run the Docker smoke test:
 npm run test:docker
 ```
 
-The test creates a temporary container and volume, verifies the single Nginx port, UI / RPC authentication, public address migration, gateway startup, and `/health`, then cleans up automatically. Use `CCR_DOCKER_TEST_SKIP_BUILD=1` to reuse an existing image, or `CCR_DOCKER_TEST_IMAGE` to select a local tag.
+The test creates a temporary container and volume, verifies the single Nginx port, UI / RPC authentication, public address migration, gateway startup, and `/health`, then cleans up automatically. Use `LLMR_DOCKER_TEST_SKIP_BUILD=1` to reuse an existing image, or `LLMR_DOCKER_TEST_IMAGE` to select a local tag.
 
 ## Daily operations commands
 
@@ -270,7 +270,7 @@ Reopen `/?llmr_web_token=<token>` with the current token (for a generated token,
 
 ### Clients still use the old port or domain
 
-Update `CCR_PUBLIC_BASE_URL` and recreate the container. Keep `CCR_DOCKER_SYNC_PUBLIC_ENDPOINT=1` so existing SQLite configuration is synchronized at startup.
+Update `LLMR_PUBLIC_BASE_URL` and recreate the container. Keep `LLMR_DOCKER_SYNC_PUBLIC_ENDPOINT=1` so existing SQLite configuration is synchronized at startup.
 
 ### Configuration disappears after a rebuild
 

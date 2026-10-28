@@ -17,7 +17,7 @@ import {
 } from "@llmr/core/providers/probe.ts";
 
 // Catalog assertions use the fixture catalog; the bundled models.json follows live sources.
-process.env.CCR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");
+process.env.LLMR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");
 
 test("#1778 Gemini probe does not present an AI Studio API key as an OAuth bearer token", async (t) => {
   const previousFetch = globalThis.fetch;
@@ -608,8 +608,8 @@ test("connectivity probe prefers live Codex auth over saved OAuth plugin tokens"
   });
   const calls = [];
 
-  fs.mkdirSync(path.join(process.env.CCR_INTERNAL_HOME_DIR, ".codex"), { recursive: true });
-  fs.writeFileSync(path.join(process.env.CCR_INTERNAL_HOME_DIR, ".codex", "auth.json"), JSON.stringify({
+  fs.mkdirSync(path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".codex"), { recursive: true });
+  fs.writeFileSync(path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".codex", "auth.json"), JSON.stringify({
     tokens: {
       access_token: liveToken,
       account_id: "acct-live-file",
@@ -763,8 +763,8 @@ test("connectivity probe recovers Codex OAuth auth when saved plugin is missing"
   });
   const calls = [];
 
-  fs.mkdirSync(path.join(process.env.CCR_INTERNAL_HOME_DIR, ".codex"), { recursive: true });
-  fs.writeFileSync(path.join(process.env.CCR_INTERNAL_HOME_DIR, ".codex", "auth.json"), JSON.stringify({
+  fs.mkdirSync(path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".codex"), { recursive: true });
+  fs.writeFileSync(path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".codex", "auth.json"), JSON.stringify({
     tokens: {
       refresh_token: "refresh-live"
     }
@@ -895,9 +895,9 @@ test("New API user self parser returns user balance", () => {
 
 test("OpenCode Go model discovery only returns models for the requested protocol", async (t) => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "ccr-probe-opencode-"));
-  const previousHome = process.env.CCR_INTERNAL_HOME_DIR;
+  const previousHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const previousFetch = globalThis.fetch;
-  process.env.CCR_INTERNAL_HOME_DIR = home;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
   fs.mkdirSync(path.join(home, ".cache", "opencode"), { recursive: true });
   fs.writeFileSync(path.join(home, ".cache", "opencode", "models.json"), JSON.stringify({
     "opencode-go": {
@@ -918,9 +918,9 @@ test("OpenCode Go model discovery only returns models for the requested protocol
   t.after(() => {
     globalThis.fetch = previousFetch;
     if (previousHome === undefined) {
-      delete process.env.CCR_INTERNAL_HOME_DIR;
+      delete process.env.LLMR_INTERNAL_HOME_DIR;
     } else {
-      process.env.CCR_INTERNAL_HOME_DIR = previousHome;
+      process.env.LLMR_INTERNAL_HOME_DIR = previousHome;
     }
     fs.rmSync(home, { force: true, recursive: true });
   });
@@ -948,9 +948,9 @@ test("OpenCode Go model discovery only returns models for the requested protocol
 
 test("OpenCode Go model discovery keeps live models when the local catalog has no protocol models", async (t) => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "ccr-probe-opencode-empty-"));
-  const previousHome = process.env.CCR_INTERNAL_HOME_DIR;
+  const previousHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const previousFetch = globalThis.fetch;
-  process.env.CCR_INTERNAL_HOME_DIR = home;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
   fs.mkdirSync(path.join(home, ".cache", "opencode"), { recursive: true });
   fs.writeFileSync(path.join(home, ".cache", "opencode", "models.json"), JSON.stringify({
     "opencode-go": {
@@ -964,9 +964,9 @@ test("OpenCode Go model discovery keeps live models when the local catalog has n
   t.after(() => {
     globalThis.fetch = previousFetch;
     if (previousHome === undefined) {
-      delete process.env.CCR_INTERNAL_HOME_DIR;
+      delete process.env.LLMR_INTERNAL_HOME_DIR;
     } else {
-      process.env.CCR_INTERNAL_HOME_DIR = previousHome;
+      process.env.LLMR_INTERNAL_HOME_DIR = previousHome;
     }
     fs.rmSync(home, { force: true, recursive: true });
   });
@@ -983,9 +983,9 @@ test("OpenCode Go model discovery keeps live models when the local catalog has n
 
 test("OpenCode Zen model discovery keeps paid models when the probe supplies an API key", async (t) => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "ccr-probe-opencode-paid-"));
-  const previousHome = process.env.CCR_INTERNAL_HOME_DIR;
+  const previousHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const previousFetch = globalThis.fetch;
-  process.env.CCR_INTERNAL_HOME_DIR = home;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
   fs.mkdirSync(path.join(home, ".cache", "opencode"), { recursive: true });
   fs.writeFileSync(path.join(home, ".cache", "opencode", "models.json"), JSON.stringify({
     opencode: {
@@ -1004,9 +1004,9 @@ test("OpenCode Zen model discovery keeps paid models when the probe supplies an 
   t.after(() => {
     globalThis.fetch = previousFetch;
     if (previousHome === undefined) {
-      delete process.env.CCR_INTERNAL_HOME_DIR;
+      delete process.env.LLMR_INTERNAL_HOME_DIR;
     } else {
-      process.env.CCR_INTERNAL_HOME_DIR = previousHome;
+      process.env.LLMR_INTERNAL_HOME_DIR = previousHome;
     }
     fs.rmSync(home, { force: true, recursive: true });
   });
@@ -1038,13 +1038,13 @@ function base64url(value) {
 
 function useTemporaryCodexHome(t, prefix) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  const previousHome = process.env.CCR_INTERNAL_HOME_DIR;
-  process.env.CCR_INTERNAL_HOME_DIR = home;
+  const previousHome = process.env.LLMR_INTERNAL_HOME_DIR;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
   t.after(() => {
     if (previousHome === undefined) {
-      delete process.env.CCR_INTERNAL_HOME_DIR;
+      delete process.env.LLMR_INTERNAL_HOME_DIR;
     } else {
-      process.env.CCR_INTERNAL_HOME_DIR = previousHome;
+      process.env.LLMR_INTERNAL_HOME_DIR = previousHome;
     }
   });
   return home;

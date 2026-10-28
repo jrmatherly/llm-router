@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { CLAUDE_DESIGN_PLUGIN_ID, CLAUDE_SHIP_PLUGIN_ID } from "@llmr/core/contracts/app.ts";
-import { CCR_DESKTOP_APP_ENV } from "@llmr/core/runtime/desktop-app.ts";
+import { LLMR_DESKTOP_APP_ENV } from "@llmr/core/runtime/desktop-app.ts";
 import { builtInPluginAppForOpen, configForPluginAppOpen, isLegacyClaudeDesignUrl, pluginAppUrlForOpen } from "@llmr/electron/main/plugin-app-url.ts";
 
 const configWithIgnoredSavedDesignHtml = {
@@ -99,7 +99,7 @@ test("Claude Design app opening derives local frontend URL from configured asset
 });
 
 test("Claude Design app opening uses local frontend URL from environment", () => {
-  withEnv("CCR_CLAUDE_DESIGN_FRONTEND_URL", "http://127.0.0.1:6173/design", () => {
+  withEnv("LLMR_CLAUDE_DESIGN_FRONTEND_URL", "http://127.0.0.1:6173/design", () => {
     assert.equal(
       pluginAppUrlForOpen(
         configWithIgnoredSavedDesignHtml,
@@ -112,7 +112,7 @@ test("Claude Design app opening uses local frontend URL from environment", () =>
 });
 
 test("Claude Ship app opening derives local frontend URL from environment", () => {
-  withEnv("CCR_CLAUDE_SHIP_FRONTEND_ORIGIN", "http://127.0.0.1:6173", () => {
+  withEnv("LLMR_CLAUDE_SHIP_FRONTEND_ORIGIN", "http://127.0.0.1:6173", () => {
     assert.equal(
       pluginAppUrlForOpen(
         { plugins: [] } as any,
@@ -178,15 +178,15 @@ function bundledPluginModule(pluginId: string): string {
 }
 
 function withDesktopRuntime(run: () => void): void {
-  const previousDesktopApp = process.env[CCR_DESKTOP_APP_ENV];
+  const previousDesktopApp = process.env[LLMR_DESKTOP_APP_ENV];
   try {
-    process.env[CCR_DESKTOP_APP_ENV] = "1";
+    process.env[LLMR_DESKTOP_APP_ENV] = "1";
     run();
   } finally {
     if (previousDesktopApp === undefined) {
-      delete process.env[CCR_DESKTOP_APP_ENV];
+      delete process.env[LLMR_DESKTOP_APP_ENV];
     } else {
-      process.env[CCR_DESKTOP_APP_ENV] = previousDesktopApp;
+      process.env[LLMR_DESKTOP_APP_ENV] = previousDesktopApp;
     }
   }
 }

@@ -281,7 +281,7 @@ test("auto model refresh does not save stale results after the switch is disable
 });
 
 test("auto model refresh uses Codex local model catalog during hot apply", async (t) => {
-  const previousCcrHome = process.env.CCR_INTERNAL_HOME_DIR;
+  const previousCcrHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const previousHome = process.env.HOME;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-codex-local-catalog-"));
   mkdirSync(path.join(home, ".codex"), { recursive: true });
@@ -297,13 +297,13 @@ test("auto model refresh uses Codex local model catalog during hot apply", async
       }
     ]
   }), "utf8");
-  process.env.CCR_INTERNAL_HOME_DIR = home;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
   process.env.HOME = home;
   t.after(() => {
     if (previousCcrHome === undefined) {
-      delete process.env.CCR_INTERNAL_HOME_DIR;
+      delete process.env.LLMR_INTERNAL_HOME_DIR;
     } else {
-      process.env.CCR_INTERNAL_HOME_DIR = previousCcrHome;
+      process.env.LLMR_INTERNAL_HOME_DIR = previousCcrHome;
     }
     if (previousHome === undefined) {
       delete process.env.HOME;

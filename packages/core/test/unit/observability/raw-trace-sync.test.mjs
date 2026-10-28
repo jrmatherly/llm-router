@@ -149,13 +149,13 @@ test("raw trace capture is metadata-only for standalone usage when body logging 
   assert.equal(standalone.enabled, true);
   assert.equal(standalone.mode, "body_redacted");
 
-  const previous = process.env.CCR_RAW_TRACE;
-  process.env.CCR_RAW_TRACE = "false";
+  const previous = process.env.LLMR_RAW_TRACE;
+  process.env.LLMR_RAW_TRACE = "false";
   try {
     assert.equal(buildRawTraceConfig(config, "sync-token", { standaloneUsageCapture: true }).enabled, false);
   } finally {
-    if (previous === undefined) delete process.env.CCR_RAW_TRACE;
-    else process.env.CCR_RAW_TRACE = previous;
+    if (previous === undefined) delete process.env.LLMR_RAW_TRACE;
+    else process.env.LLMR_RAW_TRACE = previous;
   }
 });
 

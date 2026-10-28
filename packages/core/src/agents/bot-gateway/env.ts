@@ -25,41 +25,41 @@ export function botGatewayProfileEnv(config: AppConfig, profile: ProfileConfig, 
   const streamReplies = effectiveBotGatewayStreamReplies(bot);
   const env: Record<string, string> = {
     BOT_GATEWAY_STATE_DIR: stateDir,
-    CCR_BOT_GATEWAY_ACK_EVENTS: boolEnv(bot.acknowledgeEvents),
-    CCR_BOT_GATEWAY_ARGS_JSON: JSON.stringify(bot.args ?? []),
-    CCR_BOT_GATEWAY_AUTH_TYPE: bot.authType ?? "",
-    CCR_BOT_GATEWAY_AUTO_START_INTEGRATION: boolEnv(bot.autoStartIntegration),
-    CCR_BOT_GATEWAY_COMMAND: bot.command ?? "",
-    CCR_BOT_GATEWAY_CONFIG_JSON: JSON.stringify(bot.integrationConfig ?? {}),
-    CCR_BOT_GATEWAY_CREATE_INTEGRATION: boolEnv(shouldCreateBotGatewayIntegration(bot)),
-    CCR_BOT_GATEWAY_CREDENTIALS_JSON: JSON.stringify(bot.credentials ?? {}),
-    CCR_BOT_GATEWAY_CWD: bot.cwd ?? "",
-    CCR_BOT_GATEWAY_ENABLED: "true",
-    CCR_BOT_GATEWAY_FORWARD_ALL_AGENT_MESSAGES: boolEnv(bot.forwardAllAgentMessages),
-    CCR_BOT_GATEWAY_INTEGRATION_ID: bot.integrationId ?? "",
-    CCR_BOT_GATEWAY_MAX_ATTACHMENT_BYTES: String(bot.maxAttachmentBytes ?? 20 * 1024 * 1024),
-    CCR_BOT_GATEWAY_MAX_TURN_TIME_MS: String(bot.maxTurnTimeMs ?? 10 * 60 * 1000),
-    CCR_BOT_GATEWAY_MEDIA_ENABLED: boolEnv(bot.mediaEnabled),
-    CCR_BOT_GATEWAY_MESSAGE_CHUNK_CHARS: String(bot.messageChunkChars ?? 3500),
-    CCR_BOT_GATEWAY_PLATFORM: bot.platform,
-    CCR_BOT_GATEWAY_POLL_INTERVAL_MS: String(bot.pollIntervalMs ?? 2000),
-    CCR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: String(bot.requestTimeoutMs ?? 600000),
-    CCR_BOT_GATEWAY_SESSION_IDLE_MINUTES: String(bot.sessionIdleMinutes ?? 0),
-    CCR_BOT_GATEWAY_SHELL_ENABLED: boolEnv(bot.shellEnabled),
-    CCR_BOT_GATEWAY_SOURCE_DIR: "",
+    LLMR_BOT_GATEWAY_ACK_EVENTS: boolEnv(bot.acknowledgeEvents),
+    LLMR_BOT_GATEWAY_ARGS_JSON: JSON.stringify(bot.args ?? []),
+    LLMR_BOT_GATEWAY_AUTH_TYPE: bot.authType ?? "",
+    LLMR_BOT_GATEWAY_AUTO_START_INTEGRATION: boolEnv(bot.autoStartIntegration),
+    LLMR_BOT_GATEWAY_COMMAND: bot.command ?? "",
+    LLMR_BOT_GATEWAY_CONFIG_JSON: JSON.stringify(bot.integrationConfig ?? {}),
+    LLMR_BOT_GATEWAY_CREATE_INTEGRATION: boolEnv(shouldCreateBotGatewayIntegration(bot)),
+    LLMR_BOT_GATEWAY_CREDENTIALS_JSON: JSON.stringify(bot.credentials ?? {}),
+    LLMR_BOT_GATEWAY_CWD: bot.cwd ?? "",
+    LLMR_BOT_GATEWAY_ENABLED: "true",
+    LLMR_BOT_GATEWAY_FORWARD_ALL_AGENT_MESSAGES: boolEnv(bot.forwardAllAgentMessages),
+    LLMR_BOT_GATEWAY_INTEGRATION_ID: bot.integrationId ?? "",
+    LLMR_BOT_GATEWAY_MAX_ATTACHMENT_BYTES: String(bot.maxAttachmentBytes ?? 20 * 1024 * 1024),
+    LLMR_BOT_GATEWAY_MAX_TURN_TIME_MS: String(bot.maxTurnTimeMs ?? 10 * 60 * 1000),
+    LLMR_BOT_GATEWAY_MEDIA_ENABLED: boolEnv(bot.mediaEnabled),
+    LLMR_BOT_GATEWAY_MESSAGE_CHUNK_CHARS: String(bot.messageChunkChars ?? 3500),
+    LLMR_BOT_GATEWAY_PLATFORM: bot.platform,
+    LLMR_BOT_GATEWAY_POLL_INTERVAL_MS: String(bot.pollIntervalMs ?? 2000),
+    LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: String(bot.requestTimeoutMs ?? 600000),
+    LLMR_BOT_GATEWAY_SESSION_IDLE_MINUTES: String(bot.sessionIdleMinutes ?? 0),
+    LLMR_BOT_GATEWAY_SHELL_ENABLED: boolEnv(bot.shellEnabled),
+    LLMR_BOT_GATEWAY_SOURCE_DIR: "",
     ...botGatewaySdkEnv(),
-    CCR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: String(bot.startupTimeoutMs ?? 10000),
-    CCR_BOT_GATEWAY_STATE_DIR: stateDir,
-    CCR_BOT_GATEWAY_STREAM_REPLIES: boolEnv(streamReplies),
-    CCR_BOT_GATEWAY_TENANT_ID: bot.tenantId ?? "ccr",
-    CCR_BOT_HANDOFF_ENABLED: boolEnv(handoff.enabled),
-    CCR_BOT_HANDOFF_IDLE_SECONDS: String(handoff.idleSeconds ?? 30),
-    CCR_BOT_HANDOFF_PHONE_BLUETOOTH_TARGETS: (handoff.phoneBluetoothTargets ?? []).join("\n"),
-    CCR_BOT_HANDOFF_PHONE_WIFI_TARGETS: (handoff.phoneWifiTargets ?? []).join("\n"),
-    CCR_BOT_HANDOFF_SCREEN_LOCK: boolEnv(handoff.screenLock),
-    CCR_BOT_HANDOFF_USER_IDLE: boolEnv(handoff.userIdle),
-    CCR_BOT_PROFILE_ID: profile.id,
-    CCR_BOT_PROFILE_NAME: profile.name,
+    LLMR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: String(bot.startupTimeoutMs ?? 10000),
+    LLMR_BOT_GATEWAY_STATE_DIR: stateDir,
+    LLMR_BOT_GATEWAY_STREAM_REPLIES: boolEnv(streamReplies),
+    LLMR_BOT_GATEWAY_TENANT_ID: bot.tenantId ?? "ccr",
+    LLMR_BOT_HANDOFF_ENABLED: boolEnv(handoff.enabled),
+    LLMR_BOT_HANDOFF_IDLE_SECONDS: String(handoff.idleSeconds ?? 30),
+    LLMR_BOT_HANDOFF_PHONE_BLUETOOTH_TARGETS: (handoff.phoneBluetoothTargets ?? []).join("\n"),
+    LLMR_BOT_HANDOFF_PHONE_WIFI_TARGETS: (handoff.phoneWifiTargets ?? []).join("\n"),
+    LLMR_BOT_HANDOFF_SCREEN_LOCK: boolEnv(handoff.screenLock),
+    LLMR_BOT_HANDOFF_USER_IDLE: boolEnv(handoff.userIdle),
+    LLMR_BOT_PROFILE_ID: profile.id,
+    LLMR_BOT_PROFILE_NAME: profile.name,
 
     CODEXL_BOT_GATEWAY_ENABLED: "true",
     CODEXL_BOT_GATEWAY_FORWARD_ALL_CODEX_MESSAGES: boolEnv(bot.forwardAllAgentMessages),
@@ -76,7 +76,7 @@ export function botGatewayProfileEnv(config: AppConfig, profile: ProfileConfig, 
   };
 
   if (bot.conversationRef) {
-    env.CCR_BOT_GATEWAY_CONVERSATION_REF_JSON = JSON.stringify(bot.conversationRef);
+    env.LLMR_BOT_GATEWAY_CONVERSATION_REF_JSON = JSON.stringify(bot.conversationRef);
   }
 
   return env;
@@ -138,7 +138,7 @@ function normalizeProfileSurface(value: ProfileConfig["surface"]): "auto" | "cli
 
 function botGatewaySdkEnv(): Record<string, string> {
   const sdkModule = resolveBotGatewaySdkModule();
-  return sdkModule ? { CCR_BOT_GATEWAY_SDK_MODULE: sdkModule } : {};
+  return sdkModule ? { LLMR_BOT_GATEWAY_SDK_MODULE: sdkModule } : {};
 }
 
 function resolveBotGatewaySdkModule(): string {
@@ -274,7 +274,7 @@ function isWebhookRelatedBotGatewayKey(key: string): boolean {
 
 function disabledBotGatewayEnv(): Record<string, string> {
   return {
-    CCR_BOT_GATEWAY_ENABLED: "false",
+    LLMR_BOT_GATEWAY_ENABLED: "false",
     CODEXL_BOT_GATEWAY_ENABLED: "false"
   };
 }

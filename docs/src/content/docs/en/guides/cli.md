@@ -162,9 +162,9 @@ The public management authentication variables are:
 
 | Variable | Description |
 | --- | --- |
-| `CCR_WEB_HOST` | Management service listen address used when `--host` is omitted. |
-| `CCR_WEB_PORT` | Management service port used when `--port` is omitted. |
-| `CCR_WEB_AUTH_TOKEN` | Fixed management UI / RPC token; without it the process generates a random token. |
+| `LLMR_WEB_HOST` | Management service listen address used when `--host` is omitted. |
+| `LLMR_WEB_PORT` | Management service port used when `--port` is omitted. |
+| `LLMR_WEB_AUTH_TOKEN` | Fixed management UI / RPC token; without it the process generates a random token. |
 
 Listening on `0.0.0.0` exposes the management UI to the LAN or external networks. Only configure this when genuinely needed, and combine it with a fixed strong token, a host firewall or private network, and TLS provided by a trusted reverse proxy.
 
@@ -172,7 +172,7 @@ The model gateway additionally requires separately created LLMR client keys. Ups
 
 ## Process manager example
 
-In production, use `llmr serve --no-open` and let an external manager handle restarts and logs. The start command should at least pin the working user, `HOME`, the listen address, and `CCR_WEB_AUTH_TOKEN`. Do not also run a background service created by `llmr start`, otherwise you may end up with two management ports or two processes competing for the same configuration.
+In production, use `llmr serve --no-open` and let an external manager handle restarts and logs. The start command should at least pin the working user, `HOME`, the listen address, and `LLMR_WEB_AUTH_TOKEN`. Do not also run a background service created by `llmr start`, otherwise you may end up with two management ports or two processes competing for the same configuration.
 
 ## Troubleshooting
 

@@ -14,7 +14,7 @@ import { resolveGatewayPublicModelId } from "@llmr/core/gateway/features/model-d
 import { activeProviderCredentials, inferProtocol, normalizedProviderCapabilities, normalizeProviderProtocol, providerCapabilityForClientProtocol, providerCapabilityInternalName, providerCapabilityNameMatches, providerCredentialInternalName, providerProtocolForClientProtocol, sortProviderCredentialsForConfig, toCoreGatewayProviders } from "@llmr/core/providers/runtime-topology";
 import { buildRawTraceConfig } from "@llmr/core/observability/raw-trace-sync";
 import { endpoint, gatewayRuntimeSupportsRouterPlugin, resolveLocalAgentAuthProviderHookEntry, resolveRouterPluginEntry, resolveUndiciProxyAgentModule, resolveUpstreamHeaderSanitizerEntry, writeGatewayProxyPreloadFile } from "@llmr/core/gateway/core-runtime/supervisor";
-import { billingUsageSyncHeader, billingUsageSyncPath, claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta, coreGatewayAuthHeader, coreGatewayAuthTokenEnv } from "@llmr/core/gateway/internal/shared";
+import { billingUsageSyncHeader, billingUsageSyncPath, claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta, coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayUpstreamProxyUrlEnv } from "@llmr/core/gateway/internal/shared";
 import type { BrowserWebSearchMcpIntegration, CoreGatewayProvider } from "@llmr/core/gateway/internal/shared";
 import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
 import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
@@ -85,7 +85,7 @@ export async function compileCoreGatewayConfig(
   const coreEndpoint = endpoint(runtimeHost, runtimePort);
   const proxyPreloadFile = upstreamProxyUrl ? writeGatewayProxyPreloadFile() : undefined;
   const proxyEnv = upstreamProxyUrl
-    ? { CCR_UPSTREAM_PROXY_URL: upstreamProxyUrl, CCR_UNDICI_MODULE: resolveUndiciProxyAgentModule() }
+    ? { [gatewayUpstreamProxyUrlEnv]: upstreamProxyUrl, LLMR_UNDICI_MODULE: resolveUndiciProxyAgentModule() }
     : undefined;
   const builtinToolArtifacts = await fusionBuiltinToolArtifacts(
     virtualModelProfiles,

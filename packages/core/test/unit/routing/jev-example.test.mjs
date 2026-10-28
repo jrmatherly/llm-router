@@ -6,7 +6,7 @@ import test from "node:test";
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const route = new AsyncFunction("input", "api", readFileSync(path.resolve("examples/routing/jev.js"), "utf8"));
 const input = { model: "auto", tokenCount: 20, summary: { lastUserText: "Debug an intermittent deadlock", hasImage: false, toolNames: [] } };
-const env = { CCR_JEV_ROUTING_ENABLED: "1", CCR_JEV_FAST_MODEL: "local/small", CCR_JEV_REASONING_MODEL: "local/large", TYPESAFE_API_KEY: "test-only" };
+const env = { LLMR_JEV_ROUTING_ENABLED: "1", LLMR_JEV_FAST_MODEL: "local/small", LLMR_JEV_REASONING_MODEL: "local/large", TYPESAFE_API_KEY: "test-only" };
 const api = (answer, extra = {}) => ({ env: name => env[name], fetch: async (_url, request) => {
   const body = JSON.parse(request.body);
   assert.equal(body.questions.route.type, "choice");

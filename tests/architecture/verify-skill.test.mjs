@@ -39,7 +39,7 @@ test("verify stops at the first failing suite and reports one PASS and one FAIL"
     nodeCommand("process.exit(1)"),
     nodeCommand(`require('fs').writeFileSync(${JSON.stringify(marker)}, '')`)
   ]);
-  const result = runVerify(repo, [], { CCR_VERIFY_COMMANDS: commands });
+  const result = runVerify(repo, [], { LLMR_VERIFY_COMMANDS: commands });
   assert.equal(result.status, 1, result.stderr);
   assert.equal(result.stdout.split("\n").filter((line) => line.startsWith("PASS ")).length, 1);
   assert.equal(result.stdout.split("\n").filter((line) => line.startsWith("FAIL ")).length, 1);
@@ -49,7 +49,7 @@ test("verify stops at the first failing suite and reports one PASS and one FAIL"
 test("verify --e2e restores generated files that were clean before the run", () => {
   const repo = throwawayRepo();
   const e2e = JSON.stringify(nodeCommand(`require('fs').writeFileSync(${JSON.stringify(modelsFile)}, 'rewritten')`));
-  const result = runVerify(repo, ["--e2e"], { CCR_VERIFY_COMMANDS: "[]", CCR_VERIFY_E2E_COMMAND: e2e });
+  const result = runVerify(repo, ["--e2e"], { LLMR_VERIFY_COMMANDS: "[]", LLMR_VERIFY_E2E_COMMAND: e2e });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /RESTORED generated files/);
   assert.equal(repo.git("status", "--short").stdout, "");
@@ -59,7 +59,7 @@ test("verify --e2e keeps prior edits to generated files when it skips the restor
   const repo = throwawayRepo();
   writeFileSync(path.join(repo.dir, modelsFile), "intended edit\n");
   const e2e = JSON.stringify(nodeCommand("process.exit(1)"));
-  const result = runVerify(repo, ["--e2e"], { CCR_VERIFY_COMMANDS: "[]", CCR_VERIFY_E2E_COMMAND: e2e });
+  const result = runVerify(repo, ["--e2e"], { LLMR_VERIFY_COMMANDS: "[]", LLMR_VERIFY_E2E_COMMAND: e2e });
   assert.equal(result.status, 1, result.stderr);
   assert.match(result.stdout, /SKIPPED restore/);
   assert.equal(readFileSync(path.join(repo.dir, modelsFile), "utf8"), "intended edit\n");

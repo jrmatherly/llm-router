@@ -13,7 +13,7 @@ import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace.
 import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
 
 const execFileAsync = promisify(execFile);
-const isBoundedHeapWorker = process.env.CCR_REQUEST_LOG_BOUNDED_HEAP_WORKER === "1";
+const isBoundedHeapWorker = process.env.LLMR_REQUEST_LOG_BOUNDED_HEAP_WORKER === "1";
 
 test("request log model summaries support routed paths and streamed responses", () => {
   assert.equal(
@@ -1961,7 +1961,7 @@ test("RequestLogStore bounded heap regression", {
 }, async () => {
   const workerEnv = {
     ...process.env,
-    CCR_REQUEST_LOG_BOUNDED_HEAP_WORKER: "1",
+    LLMR_REQUEST_LOG_BOUNDED_HEAP_WORKER: "1",
     ELECTRON_RUN_AS_NODE: "1"
   };
   delete workerEnv.NODE_TEST_CONTEXT;

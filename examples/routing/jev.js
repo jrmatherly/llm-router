@@ -1,21 +1,21 @@
 // CCR Node.js route script body. Configure the environment before enabling.
 // API contract: https://docs.typesafe.ai/api
-if (api.env("CCR_JEV_ROUTING_ENABLED") !== "1" || input.model !== "auto") return null;
+if (api.env("LLMR_JEV_ROUTING_ENABLED") !== "1" || input.model !== "auto") return null;
 if (input.summary.hasImage || !input.summary.lastUserText.trim()) return null;
-const fast = api.env("CCR_JEV_FAST_MODEL");
-const reasoning = api.env("CCR_JEV_REASONING_MODEL");
+const fast = api.env("LLMR_JEV_FAST_MODEL");
+const reasoning = api.env("LLMR_JEV_REASONING_MODEL");
 const key = api.env("TYPESAFE_API_KEY");
-const configuredEndpoint = api.env("CCR_JEV_ENDPOINT");
+const configuredEndpoint = api.env("LLMR_JEV_ENDPOINT");
 if (!fast || !reasoning || (!key && !configuredEndpoint)) return null;
 const targets = { fast, reasoning };
-const threshold = Number(api.env("CCR_JEV_MIN_CONFIDENCE") || "0.75");
+const threshold = Number(api.env("LLMR_JEV_MIN_CONFIDENCE") || "0.75");
 if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) return null;
 try {
   const response = await api.fetch(configuredEndpoint || "https://api.typesafe.ai/v1/systemone", {
     method: "POST",
     headers: { "content-type": "application/json", ...(key ? { authorization: `Bearer ${key}` } : {}) },
     body: JSON.stringify({
-      model: api.env("CCR_JEV_MODEL") || "jev-latest",
+      model: api.env("LLMR_JEV_MODEL") || "jev-latest",
       state: { task: input.summary.lastUserText.slice(0, 8192), inputTokens: input.tokenCount, toolCount: input.summary.toolNames.length },
       questions: {
         route: {
