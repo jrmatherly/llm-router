@@ -70,6 +70,7 @@
     "rebuild:sqlite3": "electron-rebuild -f -w better-sqlite3",
     "sqlite:electron": "node scripts/prepare-electron-sqlite.mjs",
     "models:build": "node scripts/generate-models-json.mjs",
+    "icons:build": "node scripts/generate-icons.mjs",
     "release": "node scripts/release.mjs",
     "uninstall:mac": "node scripts/uninstall-macos.mjs",
     "version": "npm run models:build"
