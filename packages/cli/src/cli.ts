@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
-import { applyClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
+import { applyClaudeAppGatewayConfig, claudeAppTakesOverDirectLaunches } from "@llmr/core/agents/claude-app/gateway-service";
 import { launchClaudeAppProfile, resolveClaudeAppProfileUserDataDir } from "@llmr/core/agents/claude-app/launch";
 import { codexDesktopAppName, launchZcodeAppProfile } from "@llmr/core/agents/codex/app-launch";
 import { loadAppConfig } from "@llmr/core/config/config";
@@ -207,7 +207,9 @@ async function main(): Promise<void> {
     return;
   }
   if (profile.agent === "claude-code" && resolvedSurface === "app") {
-      applyClaudeAppGatewayConfig(launchConfig);
+      if (claudeAppTakesOverDirectLaunches(profile)) {
+        applyClaudeAppGatewayConfig(launchConfig);
+      }
       applyClaudeAppGatewayConfig(launchConfig, {
         backup: false,
         dataDir: resolveClaudeAppProfileUserDataDir(configDir, profile),

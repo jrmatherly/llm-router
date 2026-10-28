@@ -95,4 +95,5 @@ If you bind a Bot and open Claude App from LLMR, Claude App can relay conversati
 - **Requests do not reach LLMR:** confirm the profile is **Enabled** and you opened Claude Code from LLMR (not from the system). A directly-opened Claude Code is not affected unless the scope is **System default**.
 - **`/model` shows no LLMR models:** confirm a provider + model is configured.
 - **Claude App did not pick up the config:** Claude App is already running — reopen it from LLMR, or restart it when prompted.
+- **Claude App opens signed out of claude.ai, with LLM Router as its gateway:** a **System default** profile with an App entry routes every Claude App launch, including one from the Dock or an account switcher, through LLMR in third-party mode, where claude.ai accounts do not apply. Set the profile's Effect scope to **Only opened from LLMR** to limit that to the play button.
 - **Model aliases have no effect:** aliases only change which provider model a Claude Code tier uses; the value must be a valid `Provider/model` or Fusion model that LLMR can serve.

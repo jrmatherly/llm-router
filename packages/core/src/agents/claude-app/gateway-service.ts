@@ -11,7 +11,7 @@ import {
   type ClaudeAppGatewayInferenceModel,
   type ClaudeAppGatewayModelRouteOptions
 } from "@llmr/core/agents/claude-app/gateway-routes";
-import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, hasAvailableGatewayModels, type ApiKeyConfig, type AppConfig, type ClaudeAppGatewayApplyResult } from "@llmr/core/contracts/app";
+import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, hasAvailableGatewayModels, isEnabledGlobalProfile, type ApiKeyConfig, type AppConfig, type ClaudeAppGatewayApplyResult, type ProfileConfig } from "@llmr/core/contracts/app";
 import { findModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
 
 const CLAUDE_APP_CONFIG_ID = "8f69f2f1-3275-4ad8-9317-4aa7e972f311";
@@ -26,7 +26,7 @@ const claudeAppGatewayModelRouteOptions: ClaudeAppGatewayModelRouteOptions = {
 };
 
 export const NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE =
-  "No enabled claude-code profile can open the Claude App. Set a profile's Entry mode to App or Auto to configure the Claude App for LLMR.";
+  "No enabled System default claude-code profile opens the Claude App. Set a profile's Entry mode to App or Auto and its Effect scope to System default to route a directly opened Claude App through LLMR.";
 
 type ClaudeAppGatewayConfig = {
   bootstrapEnabled: false;
@@ -79,8 +79,16 @@ export type ClaudeAppGatewaySyncResult = {
   result: ClaudeAppGatewayApplyResult;
 };
 
+// Claude App reads the shared Claude-3p data dir at every launch, including
+// one from the Dock, so writing there takes over launches LLMR did not make.
+// Only a System default profile asks for that; the others get their config in
+// the per-profile data dir LLMR launches with.
+export function claudeAppTakesOverDirectLaunches(profile: Pick<ProfileConfig, "agent" | "enabled" | "scope" | "surface">): boolean {
+  return isEnabledGlobalProfile(profile) && profile.agent === "claude-code" && profile.surface !== "cli";
+}
+
 export function hasClaudeAppEntryProfile(config: Pick<AppConfig, "profile">): boolean {
-  return config.profile.profiles.some((profile) => profile.enabled && profile.agent === "claude-code" && profile.surface !== "cli");
+  return config.profile.profiles.some(claudeAppTakesOverDirectLaunches);
 }
 
 export async function syncClaudeAppGatewayConfig(config: AppConfig): Promise<ClaudeAppGatewaySyncResult> {

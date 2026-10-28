@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync }
 import path from "node:path";
 import { assertAvailableGatewayModels, type AppConfig, type ProfileConfig, type ProfileOpenCommandResult, type ProfileOpenRequest, type ProfileOpenResult, type ProfileRuntimeEntry, type ProfileRuntimeStatus, type ProfileStopResult } from "@llmr/core/contracts/app";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
-import { applyClaudeAppGatewayConfig, readClaudeAppGatewayApiKeyCandidates } from "@llmr/core/agents/claude-app/gateway-service";
+import { applyClaudeAppGatewayConfig, claudeAppTakesOverDirectLaunches, readClaudeAppGatewayApiKeyCandidates } from "@llmr/core/agents/claude-app/gateway-service";
 import { launchClaudeAppProfile, resolveClaudeAppProfileUserDataDir } from "@llmr/core/agents/claude-app/launch";
 import { resolveClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
 import { claudeCodeUtcTimezoneEnvOverride } from "@llmr/core/agents/claude-code/environment";
@@ -354,9 +354,11 @@ async function openClaudeAppProfile(config: AppConfig, profile: ReturnType<typeo
     };
   }
 
-  applyClaudeAppGatewayConfig(profileGatewayConfig, {
-    defaultModel: profile.model
-  });
+  if (claudeAppTakesOverDirectLaunches(profile)) {
+    applyClaudeAppGatewayConfig(profileGatewayConfig, {
+      defaultModel: profile.model
+    });
+  }
   applyClaudeAppGatewayConfig(profileGatewayConfig, {
     backup: false,
     dataDir: resolveClaudeAppProfileUserDataDir(CONFIGDIR, profile),
