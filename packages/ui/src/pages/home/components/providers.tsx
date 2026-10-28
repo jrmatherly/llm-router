@@ -1,6 +1,6 @@
 import { useDraftClose } from "./unsaved-changes";
 import {
-  AddProviderDraft, localAgentProviderApiKey, openExternalUrl, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
+  AddProviderDraft, isLocalAgentLoginDraft, localAgentProviderApiKey, openExternalUrl, type ProviderSetupStepId, providerSetupStepsForDraft, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
   Box, Braces, Button, Card, CardContent, CardHeader, CardTitle,
   Check, Checkbox, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, cn,
   compareProviderAccountSnapshots, copyTextToClipboard, createDefaultProviderAccountDraft, createModelCatalogItems, createProviderAccountDraftFromConfig, createProviderCredentialDraft,
@@ -1581,10 +1581,6 @@ export function localAgentProviderAlreadyImported(
   });
 }
 
-export type ProviderSetupStepId = "provider" | "credentials" | "models" | "verify";
-
-export const providerSetupStepIds: ProviderSetupStepId[] = ["provider", "credentials", "models", "verify"];
-
 function ProviderSetupProgress({
   activeStep,
   className,
@@ -1592,6 +1588,7 @@ function ProviderSetupProgress({
   modelsReady,
   onSelectStep,
   providerReady,
+  stepIds,
   variant = "block",
   verified
 }: {
@@ -1601,6 +1598,7 @@ function ProviderSetupProgress({
   modelsReady: boolean;
   onSelectStep?: (step: ProviderSetupStepId) => void;
   providerReady: boolean;
+  stepIds: ProviderSetupStepId[];
   variant?: "block" | "divider";
   verified: boolean;
 }) {
@@ -1609,7 +1607,7 @@ function ProviderSetupProgress({
     { complete: credentialReady, description: "Secret used for requests", id: "credentials" as const, label: "Add credentials" },
     { complete: modelsReady, description: "Available model IDs", id: "models" as const, label: "Pick models" },
     { complete: verified, description: "Optional health check", id: "verify" as const, label: "Verify connection" }
-  ];
+  ].filter((step) => stepIds.includes(step.id));
   const firstIncompleteIndex = steps.findIndex((step) => !step.complete);
   const activeIndex = activeStep
     ? Math.max(0, steps.findIndex((step) => step.id === activeStep))
@@ -1643,7 +1641,8 @@ function ProviderSetupProgress({
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-2 rounded-md border border-border/70 bg-muted/15 p-2 sm:grid-cols-4",
+        "grid grid-cols-1 gap-2 rounded-md border border-border/70 bg-muted/15 p-2",
+        steps.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-4",
         className
       )}
     >
@@ -1995,7 +1994,8 @@ export function AddProviderForm({
     : probe?.detectedProtocol ?? draft.protocol;
   const detectedBaseUrl = providerCapabilityBaseUrlForProtocol(draft.baseUrl, detectedProtocol, probe);
   const safetyIssue = providerDraftSafetyIssue(draft, detectedBaseUrl);
-  const localAgentImport = draft.providerPlugins.length > 0;
+  const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft);
+  const setupStepIds = providerSetupStepsForDraft(draft);
   const localAgentProviderPlugins = useMemo(
     () => [...providerPlugins, ...draft.providerPlugins],
     [draft.providerPlugins, providerPlugins]
@@ -2225,6 +2225,7 @@ export function AddProviderForm({
             modelsReady={modelsReady}
             onSelectStep={onSelectStep}
             providerReady={providerIdentityReady}
+            stepIds={setupStepIds}
             verified={connectionVerified}
           />
         ) : null}
@@ -2292,7 +2293,12 @@ export function AddProviderForm({
             ) : null}
           </>
         ) : null}
-        {showStep("credentials") ? (
+        {showStep("credentials") ? localAgentImport ? (
+          <div className="sm:col-span-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px] leading-5">
+            <div className="font-semibold text-foreground">Signed in with your local agent</div>
+            <div className="text-muted-foreground">This provider uses the login from {draft.name}. No API key is needed.</div>
+          </div>
+        ) : (
           <>
             <ProviderFormStepHeader
               description="Choose how this provider authenticates model requests."
@@ -3495,7 +3501,8 @@ export function AddProviderDialog({
   const submitDisabled = !canSubmit || submitLoading;
   const wizardMode = mode === "add";
   const selectedPreset = findProviderPreset(draft.presetId);
-  const localAgentImport = draft.providerPlugins.length > 0;
+  const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft);
+  const setupStepIds = providerSetupStepsForDraft(draft);
   const providerIdentityReady = Boolean(importProvider) || Boolean(selectedPreset || draft.baseUrl.trim());
   const credentialPoolReady = providerDraftHasReadyCredentialPool(draft);
   const credentialReady = localAgentImport || Boolean(
@@ -3504,19 +3511,19 @@ export function AddProviderDialog({
       : draft.apiKey.trim()
   );
   const modelsReady = checkModels.length > 0;
-  const activeStepIndex = Math.max(0, providerSetupStepIds.indexOf(activeStep));
-  const previousStep = wizardMode ? providerSetupStepIds[activeStepIndex - 1] : undefined;
-  const nextStep = wizardMode ? providerSetupStepIds[activeStepIndex + 1] : undefined;
+  const activeStepIndex = Math.max(0, setupStepIds.indexOf(activeStep));
+  const previousStep = wizardMode ? setupStepIds[activeStepIndex - 1] : undefined;
+  const nextStep = wizardMode ? setupStepIds[activeStepIndex + 1] : undefined;
   const nextDisabled = submitting || !providerDialogStepReady(activeStep);
   const finalWizardSubmit = wizardMode && !nextStep && mode === "add";
 
   useEffect(() => {
-    if (!wizardMode || providerDialogStepUnlocked(activeStep)) {
+    if (!wizardMode || (setupStepIds.includes(activeStep) && providerDialogStepUnlocked(activeStep))) {
       return;
     }
-    const latestUnlockedStep = [...providerSetupStepIds].reverse().find(providerDialogStepUnlocked) ?? "provider";
+    const latestUnlockedStep = [...setupStepIds].reverse().find(providerDialogStepUnlocked) ?? "provider";
     setActiveStep(latestUnlockedStep);
-  }, [activeStep, credentialReady, modelsReady, providerIdentityReady, wizardMode]);
+  }, [activeStep, credentialReady, modelsReady, providerIdentityReady, setupStepIds, wizardMode]);
 
   function providerDialogStepReady(step: ProviderSetupStepId): boolean {
     switch (step) {
@@ -3597,6 +3604,7 @@ export function AddProviderDialog({
               credentialReady={credentialReady}
               modelsReady={modelsReady}
               providerReady={providerIdentityReady}
+              stepIds={setupStepIds}
               variant="divider"
               verified={localAgentImport || providerProbeHasSupportedProtocol(connectivityProbe)}
             />
