@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isDesktopAppRuntime } from "@ccr/core/runtime/desktop-app.ts";
+import { isDesktopAppRuntime } from "@llmr/core/runtime/desktop-app.ts";
 import { withDesktopRuntime } from "../../support/desktop-runtime.mjs";
 
 test("withDesktopRuntime makes isDesktopAppRuntime true under plain node", async () => {

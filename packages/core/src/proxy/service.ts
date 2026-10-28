@@ -20,12 +20,12 @@ import type {
   ProxyNetworkSnapshot,
   ProxyRouteTarget,
   ProxyStatus
-} from "@ccr/core/contracts/app";
-import { PROXY_CA_CERT_FILE } from "@ccr/core/config/constants";
-import { isLoopbackAddress } from "@ccr/core/net/loopback";
-import { isSensitiveRequestLogHeaderName } from "@ccr/core/observability/sensitive-headers";
-import { windowsSystemCommand } from "@ccr/core/platform/windows-system";
-import { pluginService, type GatewayPluginProxyRouteMatch } from "@ccr/core/plugins/service";
+} from "@llmr/core/contracts/app";
+import { PROXY_CA_CERT_FILE } from "@llmr/core/config/constants";
+import { isLoopbackAddress } from "@llmr/core/net/loopback";
+import { isSensitiveRequestLogHeaderName } from "@llmr/core/observability/sensitive-headers";
+import { windowsSystemCommand } from "@llmr/core/platform/windows-system";
+import { pluginService, type GatewayPluginProxyRouteMatch } from "@llmr/core/plugins/service";
 import {
   createCertificateForHost,
   PROXY_CA_NAMES,
@@ -38,7 +38,7 @@ import {
   readProxyCertificateFingerprintSha256,
   readProxyCertificateAuthority,
   type CertificateAuthority
-} from "@ccr/core/proxy/certificates";
+} from "@llmr/core/proxy/certificates";
 import {
   customUpstreamProxyFromConfig,
   formatUpstreamProxy,
@@ -48,7 +48,7 @@ import {
   upstreamProxyUrl,
   type UpstreamProxyConfig,
   type UpstreamProxyServer
-} from "@ccr/core/proxy/system-proxy";
+} from "@llmr/core/proxy/system-proxy";
 
 type MitmServer = {
   host: string;

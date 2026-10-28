@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { staleDesktopRuntimeWarning } from "@ccr/cli/stale-runtime.ts";
+import { staleDesktopRuntimeWarning } from "@llmr/cli/stale-runtime.ts";
 
 const warning = "llmr: LLM Router was updated; open it once to refresh this command.\n";
 

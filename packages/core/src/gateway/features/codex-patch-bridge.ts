@@ -4,15 +4,15 @@
 import type { IncomingHttpHeaders } from "node:http";
 import { pipeline, Readable, Transform } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
-import type { AppConfig } from "@ccr/core/contracts/app";
-import { normalizeRouteSelector } from "@ccr/core/routing/model-registry";
-import { isRecord, rawStringValue, stringValue } from "@ccr/core/gateway/internal/value";
-import { readHeader } from "@ccr/core/gateway/http/io";
-import { codexPatchBridgeInstructionText, codexPatchBridgeShellToolGuidance, virtualApplyPatchLarkGrammar, virtualApplyPatchToolName } from "@ccr/core/gateway/internal/shared";
-import { parseJsonObjectSafe, serializeJsonBody } from "@ccr/core/gateway/http/body";
-import { requestProtocolForPath } from "@ccr/core/routing/protocol-endpoints";
-import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
-import { hasCodexResponsesCompactionTrigger, isCodexResponsesCompactPath } from "@ccr/core/gateway/context-archive/protocol";
+import type { AppConfig } from "@llmr/core/contracts/app";
+import { normalizeRouteSelector } from "@llmr/core/routing/model-registry";
+import { isRecord, rawStringValue, stringValue } from "@llmr/core/gateway/internal/value";
+import { readHeader } from "@llmr/core/gateway/http/io";
+import { codexPatchBridgeInstructionText, codexPatchBridgeShellToolGuidance, virtualApplyPatchLarkGrammar, virtualApplyPatchToolName } from "@llmr/core/gateway/internal/shared";
+import { parseJsonObjectSafe, serializeJsonBody } from "@llmr/core/gateway/http/body";
+import { requestProtocolForPath } from "@llmr/core/routing/protocol-endpoints";
+import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
+import { hasCodexResponsesCompactionTrigger, isCodexResponsesCompactPath } from "@llmr/core/gateway/context-archive/protocol";
 
 
 export function prepareCodexApplyPatchBridgeRequest(input: {

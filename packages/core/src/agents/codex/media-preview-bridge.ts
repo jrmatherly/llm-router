@@ -1,7 +1,7 @@
 import { readFileSync, rmSync } from "node:fs";
 import path from "node:path";
-import { CdpClient } from "@ccr/core/agents/cdp-client";
-import { MEDIA_ARTIFACT_PATH_PREFIX } from "@ccr/core/mcp/grok-media-config";
+import { CdpClient } from "@llmr/core/agents/cdp-client";
+import { MEDIA_ARTIFACT_PATH_PREFIX } from "@llmr/core/mcp/grok-media-config";
 
 type CodexMediaPreviewLogger = Pick<Console, "info" | "warn">;
 

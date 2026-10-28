@@ -4,12 +4,12 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { codexElectronArgsForTest } from "@ccr/core/agents/codex/app-launch.ts";
+import { codexElectronArgsForTest } from "@llmr/core/agents/codex/app-launch.ts";
 import {
   codexMediaPreviewBridgeForTest,
   prepareCodexAppCdpUserDataDir,
   shouldEnableCodexMediaPreviewBridge
-} from "@ccr/core/agents/codex/media-preview-bridge.ts";
+} from "@llmr/core/agents/codex/media-preview-bridge.ts";
 import { waitForTcpListener } from "../../support/loopback-listener.mjs";
 
 const token = "A".repeat(32);

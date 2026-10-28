@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import { loadAppConfig } from "@ccr/core/config/config";
-import { attachCodexRateLimitResetCreditDetails } from "@ccr/core/agents/local-providers/codex";
+import { loadAppConfig } from "@llmr/core/config/config";
+import { attachCodexRateLimitResetCreditDetails } from "@llmr/core/agents/local-providers/codex";
 import {
   codexDefaultBaseUrl,
   localAgentProviderApiKey,
@@ -14,15 +14,15 @@ import {
   resolveKimiAuth,
   readZcodeLocalProviderCredential,
   zcodeDefaultBaseUrl
-} from "@ccr/core/agents/local-providers/service";
-import { grokAccessTokenExpired } from "@ccr/core/agents/local-providers/grok";
-import { pluginService } from "@ccr/core/plugins/service";
-import { getUsageTotalsSince } from "@ccr/core/usage/store";
-import { findProviderPresetByBaseUrl, providerEndpointCanReceiveProviderApiKey } from "@ccr/core/providers/presets/index";
-import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
-import { normalizeProviderBaseUrl, providerUrlWithDefaultScheme } from "@ccr/core/providers/url";
-import { fetchProviderAccountWebContentJson } from "@ccr/core/providers/account-webcontent";
-import { isGatewayProviderEnabled } from "@ccr/core/contracts/app";
+} from "@llmr/core/agents/local-providers/service";
+import { grokAccessTokenExpired } from "@llmr/core/agents/local-providers/grok";
+import { pluginService } from "@llmr/core/plugins/service";
+import { getUsageTotalsSince } from "@llmr/core/usage/store";
+import { findProviderPresetByBaseUrl, providerEndpointCanReceiveProviderApiKey } from "@llmr/core/providers/presets/index";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
+import { normalizeProviderBaseUrl, providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
+import { fetchProviderAccountWebContentJson } from "@llmr/core/providers/account-webcontent";
+import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 import type {
   AppConfig,
   GatewayProviderConfig,
@@ -54,13 +54,13 @@ import type {
   ProviderAccountWebContentJsonConnectorConfig,
   ProviderCredentialConfig,
   ProviderAccountStatus
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 
 export {
   setProviderAccountWebContentFetchHandler,
   type ProviderAccountWebContentFetchHandler,
   type ProviderAccountWebContentFetchRequest
-} from "@ccr/core/providers/account-webcontent";
+} from "@llmr/core/providers/account-webcontent";
 
 type CacheEntry = {
   expiresAt: number;

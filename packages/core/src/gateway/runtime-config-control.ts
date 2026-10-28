@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { AppConfig } from "@ccr/core/contracts/app";
+import type { AppConfig } from "@llmr/core/contracts/app";
 
 export const gatewayRuntimeConfigControlPath = "/__ccr/runtime/config";
 

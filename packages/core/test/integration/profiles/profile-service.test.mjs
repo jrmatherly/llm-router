@@ -4,13 +4,13 @@ import { chmodSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, 
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { writeWorkbuddyModelsConfig } from "@ccr/core/agents/codex/app-launch.ts";
-import { writePiGatewayConfig } from "@ccr/core/agents/pi/profile-config.ts";
-import { loadAppConfig } from "@ccr/core/config/config.ts";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { replacePersistedApiKeys, replacePersistedAppConfig } from "@ccr/core/config/config-repository.ts";
-import { CONFIGDIR } from "@ccr/core/config/constants.ts";
-import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, resolveGrokSourceHome, resolveKimiSourceHome, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit } from "@ccr/core/profiles/service.ts";
+import { writeWorkbuddyModelsConfig } from "@llmr/core/agents/codex/app-launch.ts";
+import { writePiGatewayConfig } from "@llmr/core/agents/pi/profile-config.ts";
+import { loadAppConfig } from "@llmr/core/config/config.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { replacePersistedApiKeys, replacePersistedAppConfig } from "@llmr/core/config/config-repository.ts";
+import { CONFIGDIR } from "@llmr/core/config/constants.ts";
+import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, resolveGrokSourceHome, resolveKimiSourceHome, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit } from "@llmr/core/profiles/service.ts";
 
 test("Grok profile source home follows profile and process environment overrides", () => {
   const previous = {

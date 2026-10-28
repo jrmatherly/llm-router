@@ -1,10 +1,10 @@
 /**
  * Extracted from gateway/service.ts. Keep this module focused on its named gateway boundary.
  */
-import type { AppConfig } from "@ccr/core/contracts/app";
-import { isRecord, stringValue } from "@ccr/core/gateway/internal/value";
-import { serializeJsonBody, takeJsonObject } from "@ccr/core/gateway/http/body";
-import type { CursorOpenAICompatContext, CursorOpenAICompatPreparation } from "@ccr/core/gateway/internal/shared";
+import type { AppConfig } from "@llmr/core/contracts/app";
+import { isRecord, stringValue } from "@llmr/core/gateway/internal/value";
+import { serializeJsonBody, takeJsonObject } from "@llmr/core/gateway/http/body";
+import type { CursorOpenAICompatContext, CursorOpenAICompatPreparation } from "@llmr/core/gateway/internal/shared";
 
 let warnedMissingCursorOpenAICompatContext = false;
 

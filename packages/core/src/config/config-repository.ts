@@ -9,9 +9,9 @@ import {
   LEGACY_CONFIG_FILE,
   ONBOARDING_FINISHED_AT_SETTING_KEY,
   ONBOARDING_FINISHED_FILE
-} from "@ccr/core/config/constants";
-import type { ApiKeyConfig, ApiKeyLimitConfig } from "@ccr/core/contracts/app";
-import { createBetterSqliteDatabase, type BetterSqliteDatabase } from "@ccr/core/storage/sqlite-native";
+} from "@llmr/core/config/constants";
+import type { ApiKeyConfig, ApiKeyLimitConfig } from "@llmr/core/contracts/app";
+import { createBetterSqliteDatabase, type BetterSqliteDatabase } from "@llmr/core/storage/sqlite-native";
 
 type SqlDatabase = BetterSqliteDatabase;
 type SqlValue = bigint | Buffer | number | string | null;

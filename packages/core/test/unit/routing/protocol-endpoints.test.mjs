@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   requestProtocolForPath,
   shouldApplyGatewayRouting
-} from "@ccr/core/routing/protocol-endpoints.ts";
+} from "@llmr/core/routing/protocol-endpoints.ts";
 
 test("request protocol detection covers every supported public endpoint shape", () => {
   const cases = [

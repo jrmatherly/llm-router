@@ -1,35 +1,35 @@
-import { anthropicProviderPreset } from "@ccr/core/providers/presets/anthropic/index";
-import { bailianProviderPreset } from "@ccr/core/providers/presets/bailian/index";
-import { claudeApiProviderPreset } from "@ccr/core/providers/presets/claudeapi/index";
-import { code0ProviderPreset } from "@ccr/core/providers/presets/code0/index";
-import { deepSeekProviderPreset } from "@ccr/core/providers/presets/deepseek/index";
-import { fennoProviderPreset } from "@ccr/core/providers/presets/fenno/index";
-import { geminiProviderPreset } from "@ccr/core/providers/presets/gemini/index";
-import { infistarAiProviderPreset } from "@ccr/core/providers/presets/infistar-ai/index";
-import { kimiCodingProviderPreset } from "@ccr/core/providers/presets/kimi-coding/index";
-import { minimaxChinaProviderPreset, minimaxGlobalProviderPreset } from "@ccr/core/providers/presets/minimax/index";
-import { mistralProviderPreset } from "@ccr/core/providers/presets/mistral/index";
-import { moonshotChinaProviderPreset, moonshotGlobalProviderPreset } from "@ccr/core/providers/presets/moonshot/index";
-import { nvidiaProviderPreset } from "@ccr/core/providers/presets/nvidia/index";
-import { openCodeGoProviderPreset } from "@ccr/core/providers/presets/opencode-go/index";
-import { openaiProviderPreset } from "@ccr/core/providers/presets/openai/index";
-import { openRouterProviderPreset } from "@ccr/core/providers/presets/openrouter/index";
-import { qiniuAiProviderPreset } from "@ccr/core/providers/presets/qiniu-ai/index";
-import { runApiProviderPreset } from "@ccr/core/providers/presets/runapi/index";
-import { siliconFlowProviderPreset } from "@ccr/core/providers/presets/siliconflow/index";
-import { teamoRouterProviderPreset } from "@ccr/core/providers/presets/teamorouter/index";
-import { unity2ProviderPreset } from "@ccr/core/providers/presets/unity2/index";
+import { anthropicProviderPreset } from "@llmr/core/providers/presets/anthropic/index";
+import { bailianProviderPreset } from "@llmr/core/providers/presets/bailian/index";
+import { claudeApiProviderPreset } from "@llmr/core/providers/presets/claudeapi/index";
+import { code0ProviderPreset } from "@llmr/core/providers/presets/code0/index";
+import { deepSeekProviderPreset } from "@llmr/core/providers/presets/deepseek/index";
+import { fennoProviderPreset } from "@llmr/core/providers/presets/fenno/index";
+import { geminiProviderPreset } from "@llmr/core/providers/presets/gemini/index";
+import { infistarAiProviderPreset } from "@llmr/core/providers/presets/infistar-ai/index";
+import { kimiCodingProviderPreset } from "@llmr/core/providers/presets/kimi-coding/index";
+import { minimaxChinaProviderPreset, minimaxGlobalProviderPreset } from "@llmr/core/providers/presets/minimax/index";
+import { mistralProviderPreset } from "@llmr/core/providers/presets/mistral/index";
+import { moonshotChinaProviderPreset, moonshotGlobalProviderPreset } from "@llmr/core/providers/presets/moonshot/index";
+import { nvidiaProviderPreset } from "@llmr/core/providers/presets/nvidia/index";
+import { openCodeGoProviderPreset } from "@llmr/core/providers/presets/opencode-go/index";
+import { openaiProviderPreset } from "@llmr/core/providers/presets/openai/index";
+import { openRouterProviderPreset } from "@llmr/core/providers/presets/openrouter/index";
+import { qiniuAiProviderPreset } from "@llmr/core/providers/presets/qiniu-ai/index";
+import { runApiProviderPreset } from "@llmr/core/providers/presets/runapi/index";
+import { siliconFlowProviderPreset } from "@llmr/core/providers/presets/siliconflow/index";
+import { teamoRouterProviderPreset } from "@llmr/core/providers/presets/teamorouter/index";
+import { unity2ProviderPreset } from "@llmr/core/providers/presets/unity2/index";
 import {
   xiaomiMimoProviderPreset,
   xiaomiMimoTokenPlanChinaProviderPreset,
   xiaomiMimoTokenPlanEuropeProviderPreset,
   xiaomiMimoTokenPlanSingaporeProviderPreset
-} from "@ccr/core/providers/presets/xiaomi/index";
-import { yApiProviderPreset } from "@ccr/core/providers/presets/y-api/index";
-import { zaiGlobalCodingProviderPreset } from "@ccr/core/providers/presets/zai-global-coding/index";
-import { zaiGlobalGeneralProviderPreset } from "@ccr/core/providers/presets/zai-global-general/index";
-import { zhipuCnCodingProviderPreset } from "@ccr/core/providers/presets/zhipu-cn-coding/index";
-import { zhipuCnGeneralProviderPreset } from "@ccr/core/providers/presets/zhipu-cn-general/index";
+} from "@llmr/core/providers/presets/xiaomi/index";
+import { yApiProviderPreset } from "@llmr/core/providers/presets/y-api/index";
+import { zaiGlobalCodingProviderPreset } from "@llmr/core/providers/presets/zai-global-coding/index";
+import { zaiGlobalGeneralProviderPreset } from "@llmr/core/providers/presets/zai-global-general/index";
+import { zhipuCnCodingProviderPreset } from "@llmr/core/providers/presets/zhipu-cn-coding/index";
+import { zhipuCnGeneralProviderPreset } from "@llmr/core/providers/presets/zhipu-cn-general/index";
 import {
   findProviderPresetByBaseUrlInList,
   findProviderPresetInList,
@@ -38,8 +38,8 @@ import {
   providerEndpointCanReceiveProviderApiKeyInList,
   providerIdentitySafetyIssueInList,
   providerPresetMatchesBaseUrl
-} from "@ccr/core/providers/presets/utils";
-import type { ProviderIdentitySafetyIssue, ProviderPreset } from "@ccr/core/providers/presets/types";
+} from "@llmr/core/providers/presets/utils";
+import type { ProviderIdentitySafetyIssue, ProviderPreset } from "@llmr/core/providers/presets/types";
 
 export const providerPresets: ProviderPreset[] = [
   openaiProviderPreset,

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { ApiKeyConfig } from "@ccr/core/contracts/app";
+import type { ApiKeyConfig } from "@llmr/core/contracts/app";
 
 export const ccrRemoteControlPathPrefix = "/__ccr/remote";
 

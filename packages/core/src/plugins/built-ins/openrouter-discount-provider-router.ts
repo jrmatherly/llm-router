@@ -1,9 +1,9 @@
-import type { AppConfig, GatewayProviderConfig, ProviderModelOpenRouterDiscountRoutingConfig } from "@ccr/core/contracts/app";
+import type { AppConfig, GatewayProviderConfig, ProviderModelOpenRouterDiscountRoutingConfig } from "@llmr/core/contracts/app";
 import type {
   GatewayPluginRequestTransformHandler,
   GatewayPluginRequestTransformInput,
   GatewayPluginRequestTransformResult
-} from "@ccr/core/plugins/service";
+} from "@llmr/core/plugins/service";
 
 const DEFAULT_SETTINGS = {
   allowFallbacks: true,

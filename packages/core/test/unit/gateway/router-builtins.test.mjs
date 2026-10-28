@@ -3,16 +3,16 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { ClaudeCodeRouterPlugin } from "@ccr/core/gateway/claude-code-router-plugin.ts";
-import { fetchUpstreamWithFallback } from "@ccr/core/gateway/upstream/executor.ts";
-import { RequestRouteTraceRecorder } from "@ccr/core/observability/route-trace.ts";
-import { profileApiKeyId } from "@ccr/core/profiles/api-key.ts";
+import { ClaudeCodeRouterPlugin } from "@llmr/core/gateway/claude-code-router-plugin.ts";
+import { fetchUpstreamWithFallback } from "@llmr/core/gateway/upstream/executor.ts";
+import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace.ts";
+import { profileApiKeyId } from "@llmr/core/profiles/api-key.ts";
 import {
   createClaudeCodeModelsResponseForTest,
   fallbackRetryDelayAfterNetworkErrorForTest,
   fallbackRetryDelayAfterStatusForTest,
   prepareGatewayUpstreamAttemptForTest
-} from "@ccr/core/gateway/service.ts";
+} from "@llmr/core/gateway/service.ts";
 
 function createRouterPlugin(options = {}) {
   const agent = options.agent ?? "claude-code";

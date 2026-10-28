@@ -2,22 +2,22 @@
  * Extracted from gateway/service.ts. Keep this module focused on its named gateway boundary.
  */
 import type { IncomingHttpHeaders } from "node:http";
-import { BUILTIN_FUSION_VISION_TOOL_NAME, effectiveContextWindowPercentFor, isGatewayProviderEnabled } from "@ccr/core/contracts/app";
-import type { ApiKeyConfig, AppConfig, ProfileConfig, ProviderModelMetadata, VirtualModelProfileConfig } from "@ccr/core/contracts/app";
-import { buildClaudeAppGatewayModelRoutes, resolveClaudeAppGatewayRouteModel } from "@ccr/core/agents/claude-app/gateway-routes";
-import { modelRegistryForConfig, normalizeRouteSelector, parseProviderModelSelector } from "@ccr/core/routing/model-registry";
-import { findModelCatalogEntry, findProviderModelCatalogEntry, modelCatalogMaxInputTokens, modelCatalogMaxOutputTokens, readCatalogCapability, type ModelCatalogEntry } from "@ccr/core/gateway/model-catalog";
-import { isRecord, stringValue } from "@ccr/core/gateway/internal/value";
-import { fusionModelSelector } from "@ccr/core/mcp/fusion-config";
-import { readHeader } from "@ccr/core/gateway/http/io";
-import { claudeAppGatewayModelRouteOptions, claudeCodeOneMillionContextSuffix } from "@ccr/core/gateway/internal/shared";
-import type { ClaudeCodeDiscoverableModel } from "@ccr/core/gateway/internal/shared";
-import { parseJsonObjectSafe, serializeJsonBodyWithModel } from "@ccr/core/gateway/http/body";
-import { uniqueStrings } from "@ccr/core/gateway/internal/collections";
-import { contextArchiveConfigForApiKey, contextArchiveMcpEnabled } from "@ccr/core/gateway/context-archive";
-import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
-import { filterModelIdsForProfile, isModelAllowedForProfile, profileForApiKey } from "@ccr/core/profiles/model-allowlist";
-import { getProviderCatalogModels } from "@ccr/core/providers/model-catalog";
+import { BUILTIN_FUSION_VISION_TOOL_NAME, effectiveContextWindowPercentFor, isGatewayProviderEnabled } from "@llmr/core/contracts/app";
+import type { ApiKeyConfig, AppConfig, ProfileConfig, ProviderModelMetadata, VirtualModelProfileConfig } from "@llmr/core/contracts/app";
+import { buildClaudeAppGatewayModelRoutes, resolveClaudeAppGatewayRouteModel } from "@llmr/core/agents/claude-app/gateway-routes";
+import { modelRegistryForConfig, normalizeRouteSelector, parseProviderModelSelector } from "@llmr/core/routing/model-registry";
+import { findModelCatalogEntry, findProviderModelCatalogEntry, modelCatalogMaxInputTokens, modelCatalogMaxOutputTokens, readCatalogCapability, type ModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
+import { isRecord, stringValue } from "@llmr/core/gateway/internal/value";
+import { fusionModelSelector } from "@llmr/core/mcp/fusion-config";
+import { readHeader } from "@llmr/core/gateway/http/io";
+import { claudeAppGatewayModelRouteOptions, claudeCodeOneMillionContextSuffix } from "@llmr/core/gateway/internal/shared";
+import type { ClaudeCodeDiscoverableModel } from "@llmr/core/gateway/internal/shared";
+import { parseJsonObjectSafe, serializeJsonBodyWithModel } from "@llmr/core/gateway/http/body";
+import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
+import { contextArchiveConfigForApiKey, contextArchiveMcpEnabled } from "@llmr/core/gateway/context-archive";
+import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
+import { filterModelIdsForProfile, isModelAllowedForProfile, profileForApiKey } from "@llmr/core/profiles/model-allowlist";
+import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
 
 
 export function shouldServeGatewayModelsResponse(method: string, path: string): boolean {

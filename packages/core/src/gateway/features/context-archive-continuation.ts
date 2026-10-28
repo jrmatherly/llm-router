@@ -1,11 +1,11 @@
-import type { ApiKeyConfig, AppConfig, GatewayProviderProtocol, RouterFallbackConfig } from "@ccr/core/contracts/app";
+import type { ApiKeyConfig, AppConfig, GatewayProviderProtocol, RouterFallbackConfig } from "@llmr/core/contracts/app";
 import {
   CONTEXT_ARCHIVE_MCP_SERVER_NAME,
   contextArchiveConfigForApiKey,
   contextArchiveMcpEnabled,
   contextArchiveService,
   type ContextArchiveReplayExecutor
-} from "@ccr/core/gateway/context-archive";
+} from "@llmr/core/gateway/context-archive";
 import {
   appendCompactHandoffTask,
   codexCompactArchiveResponseContentType,
@@ -13,13 +13,13 @@ import {
   hasCodexResponsesCompactionTrigger,
   isCodexResponsesCompactPath,
   type ContextArchiveResponseMode
-} from "@ccr/core/gateway/context-archive/protocol";
-import { parseJsonObjectSafe, serializeJsonBody } from "@ccr/core/gateway/http/body";
-import { uniqueStrings } from "@ccr/core/gateway/internal/collections";
-import type { UpstreamFetchResult } from "@ccr/core/gateway/internal/shared";
-import { isRecord, numberValue, rawStringValue, stringValue } from "@ccr/core/gateway/internal/value";
-import { parseSseEvents, type ParsedSseEvent } from "@ccr/core/gateway/features/hosted-web-search/sse";
-import { fetchUpstreamWithFallback, upstreamResponseHeaders } from "@ccr/core/gateway/upstream/executor";
+} from "@llmr/core/gateway/context-archive/protocol";
+import { parseJsonObjectSafe, serializeJsonBody } from "@llmr/core/gateway/http/body";
+import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
+import type { UpstreamFetchResult } from "@llmr/core/gateway/internal/shared";
+import { isRecord, numberValue, rawStringValue, stringValue } from "@llmr/core/gateway/internal/value";
+import { parseSseEvents, type ParsedSseEvent } from "@llmr/core/gateway/features/hosted-web-search/sse";
+import { fetchUpstreamWithFallback, upstreamResponseHeaders } from "@llmr/core/gateway/upstream/executor";
 
 type ContextArchiveToolContinuationProtocol = "anthropic_messages" | "openai_responses";
 

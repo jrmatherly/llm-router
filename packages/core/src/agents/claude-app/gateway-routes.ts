@@ -1,8 +1,8 @@
-import type { AppConfig } from "@ccr/core/contracts/app";
-import { availableGatewayModelIds, effectiveContextWindowPercentFor, normalizeProfileScopeValue } from "@ccr/core/contracts/app";
-import { findModelCatalogEntry, findProviderModelCatalogEntry, type ModelCatalogEntry } from "@ccr/core/gateway/model-catalog";
-import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
-import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
+import type { AppConfig } from "@llmr/core/contracts/app";
+import { availableGatewayModelIds, effectiveContextWindowPercentFor, normalizeProfileScopeValue } from "@llmr/core/contracts/app";
+import { findModelCatalogEntry, findProviderModelCatalogEntry, type ModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
+import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
+import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
 
 export const CLAUDE_APP_ONE_MILLION_CONTEXT_SUFFIX = "[1m]";
 const CLAUDE_APP_ENCODED_ROUTE_PREFIX = "anthropic/claude-ccr-h";

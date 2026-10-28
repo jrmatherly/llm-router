@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { buildCodexModelCatalog, buildCodexModelCatalogIds, codexModelCatalogBase64, codexModelCatalogJson } from "@ccr/core/agents/codex/model-catalog.ts";
+import { buildCodexModelCatalog, buildCodexModelCatalogIds, codexModelCatalogBase64, codexModelCatalogJson } from "@llmr/core/agents/codex/model-catalog.ts";
 
 // Catalog assertions use the fixture catalog; the bundled models.json follows live sources.
 process.env.CCR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");

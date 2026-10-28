@@ -5,28 +5,28 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, open, opendir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, dirname, join, resolve as pathResolve, sep as pathSep } from "node:path";
-import type { AppConfig } from "@ccr/core/contracts/app";
-import { RAW_TRACE_SPOOL_DIR } from "@ccr/core/config/constants";
+import type { AppConfig } from "@llmr/core/contracts/app";
+import { RAW_TRACE_SPOOL_DIR } from "@llmr/core/config/constants";
 import {
   enqueueGatewayRequestLogFromRawTrace,
   type RequestLogRawTraceFile,
   type RequestLogRawTraceFiles,
   type RequestLogRawTraceUpdateInput
-} from "@ccr/core/observability/request-log-store";
+} from "@llmr/core/observability/request-log-store";
 import {
   suppressRequestLogRawTraceBodies,
   type RequestLogEnqueueResult
-} from "@ccr/core/observability/request-log-runtime";
-import { rawTraceMaxPartBytes, resolveRawTraceBodyLimit } from "@ccr/core/observability/request-log-limits";
-import { isRecord, numberValue, stringValue } from "@ccr/core/gateway/internal/value";
-import { formatError, inferGatewayClient, parseJsonObject, readHeader, readRequestBody, sendJson, shouldCaptureGatewayUsage } from "@ccr/core/gateway/http/io";
-import { endpoint } from "@ccr/core/gateway/core-runtime/supervisor";
-import { maxUsageCaptureBytes, rawTraceSyncHeader, rawTraceSyncPath } from "@ccr/core/gateway/internal/shared";
-import type { RawTracePartText } from "@ccr/core/gateway/internal/shared";
-import { resolveResponseProviderProtocol } from "@ccr/core/providers/runtime-topology";
-import { recordGatewayUsageCaptureIfMissing } from "@ccr/core/usage/store";
-import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
-import { providerModelPricingForUsage } from "@ccr/core/models/pricing-service";
+} from "@llmr/core/observability/request-log-runtime";
+import { rawTraceMaxPartBytes, resolveRawTraceBodyLimit } from "@llmr/core/observability/request-log-limits";
+import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
+import { formatError, inferGatewayClient, parseJsonObject, readHeader, readRequestBody, sendJson, shouldCaptureGatewayUsage } from "@llmr/core/gateway/http/io";
+import { endpoint } from "@llmr/core/gateway/core-runtime/supervisor";
+import { maxUsageCaptureBytes, rawTraceSyncHeader, rawTraceSyncPath } from "@llmr/core/gateway/internal/shared";
+import type { RawTracePartText } from "@llmr/core/gateway/internal/shared";
+import { resolveResponseProviderProtocol } from "@llmr/core/providers/runtime-topology";
+import { recordGatewayUsageCaptureIfMissing } from "@llmr/core/usage/store";
+import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
+import { providerModelPricingForUsage } from "@llmr/core/models/pricing-service";
 
 type RawTraceSynchronizerDependencies = {
   enqueueUpdate?: (

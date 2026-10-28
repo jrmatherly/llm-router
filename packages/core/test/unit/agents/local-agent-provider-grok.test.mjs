@@ -13,8 +13,8 @@ import {
   normalizeGrokProviderAccountConfig,
   normalizeGrokProviderMediaCapabilities,
   resolveGrokAuth
-} from "@ccr/core/agents/local-providers/grok.ts";
-import { localAgentProviderApiKey } from "@ccr/core/agents/local-providers/shared.ts";
+} from "@llmr/core/agents/local-providers/grok.ts";
+import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared.ts";
 
 test("Grok local provider imports bearer token and model override plugin", async () => {
   await withGrokHome(async (grokHome) => {

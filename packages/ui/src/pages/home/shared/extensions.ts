@@ -1,7 +1,7 @@
 import {
   GATEWAY_PLUGIN_PERMISSION_IDS,
   GATEWAY_PLUGIN_SURFACE_IDS
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import type {
   AppConfig,
   GatewayPluginAppConfig,
@@ -10,7 +10,7 @@ import type {
   GatewayPluginSurfacesConfig,
   PluginDependency,
   PluginMarketplaceEntry
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 
 import { isPlainRecord, stringValue } from "./common";
 import { isClaudeDesignPluginConfig, isCursorProxyPluginConfig, readClaudeDesignRoutingConfig } from "./routing";

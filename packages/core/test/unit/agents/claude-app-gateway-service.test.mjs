@@ -3,8 +3,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { applyClaudeAppGatewayConfig } from "@ccr/core/agents/claude-app/gateway-service.ts";
-import { resolveClaudeAppGatewayRouteModel } from "@ccr/core/agents/claude-app/gateway-routes.ts";
+import { applyClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service.ts";
+import { resolveClaudeAppGatewayRouteModel } from "@llmr/core/agents/claude-app/gateway-routes.ts";
 
 test("Claude App gateway config uses static gateway credentials with current schema", () => {
   const dataDir = mkdtempSync(path.join(os.tmpdir(), "ccr-claude-app-gateway-config-"));

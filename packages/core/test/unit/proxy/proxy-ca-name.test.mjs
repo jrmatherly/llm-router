@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ensureProxyCertificateAuthority, readProxyCertificateAuthority } from "@ccr/core/proxy/certificates.ts";
-import { macosManualCertificateInstallCommand } from "@ccr/core/proxy/service.ts";
+import { ensureProxyCertificateAuthority, readProxyCertificateAuthority } from "@llmr/core/proxy/certificates.ts";
+import { macosManualCertificateInstallCommand } from "@llmr/core/proxy/service.ts";
 
 test("a new proxy CA is named LLM Router CA", () => {
   ensureProxyCertificateAuthority();

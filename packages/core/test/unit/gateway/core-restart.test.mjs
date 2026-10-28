@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { gatewayService } from "@ccr/core/gateway/application/gateway-service.ts";
+import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
 
 // A fresh service without starting HTTP, plugins, or child processes.
 function createService() {

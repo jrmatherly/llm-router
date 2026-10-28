@@ -3,10 +3,10 @@ import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { compileCoreGatewayConfig } from "@ccr/core/gateway/core-runtime/config-compiler.ts";
-import { withoutLlmrSecretEnv } from "@ccr/core/mcp/child-env.ts";
-import { listMcpServerTools } from "@ccr/core/mcp/tool-discovery.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env.ts";
+import { listMcpServerTools } from "@llmr/core/mcp/tool-discovery.ts";
 
 const secretNames = ["CCR_WEB_AUTH_TOKEN", "CCR_CORE_GATEWAY_AUTH_TOKEN", "CCR_REMOTE_SYNC_API_KEY"];
 

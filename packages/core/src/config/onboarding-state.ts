@@ -2,11 +2,11 @@ import { existsSync } from "node:fs";
 import {
   loadPersistedAppSetting,
   replacePersistedAppSetting
-} from "@ccr/core/config/config-repository";
+} from "@llmr/core/config/config-repository";
 import {
   ONBOARDING_FINISHED_AT_SETTING_KEY,
   ONBOARDING_FINISHED_FILE
-} from "@ccr/core/config/constants";
+} from "@llmr/core/config/constants";
 
 export async function loadOnboardingFinished(): Promise<boolean> {
   try {

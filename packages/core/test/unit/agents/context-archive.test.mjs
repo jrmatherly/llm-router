@@ -4,13 +4,13 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Readable } from "node:stream";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import {
   appendContextArchiveToolOutputsForTest,
   contextArchiveFunctionCallsForTest,
   parseContextArchiveToolResponseBodyForTest,
   prepareContextArchiveToolContinuationRequestForTest
-} from "@ccr/core/gateway/service.ts";
+} from "@llmr/core/gateway/service.ts";
 import {
   CONTEXT_ARCHIVE_MCP_PATH,
   ContextArchiveService,
@@ -19,7 +19,7 @@ import {
   contextArchiveService,
   finalizeContextArchiveRequest,
   prepareContextArchiveRequest
-} from "@ccr/core/gateway/context-archive.ts";
+} from "@llmr/core/gateway/context-archive.ts";
 
 function testConfig(overrides = {}) {
   const config = createDefaultAppConfig();

@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@ccr/core/contracts/error-message";
+import { formatErrorMessage } from "@llmr/core/contracts/error-message";
 import {
   AppConfig, applyTrayThemePreference, createSourceTabs, DEFAULT_TRAY_WIDGETS, defaultTrayWidgetVariant, emptySnapshots, formatCompactNumber, formatProviderName,
   formatPercent, formatUpdated, formatUsdCost, normalizeTrayWidgets, ProviderAccountSnapshot, rangeLabel,
@@ -9,7 +9,7 @@ import {
   AccountSummaryPanel, AnimatedUsageChart, ChartShell, ModelShareChart, RingMetrics,
   SourceGrid, StatsGrid, TokenActivityPanel, TokenMixPanel, TrayStatusStrip
 } from "./components/index";
-import { isGatewayProviderEnabled } from "@ccr/core/contracts/app";
+import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 
 type TrayHeaderRange = Exclude<UsageStatsRange, "today">;
 

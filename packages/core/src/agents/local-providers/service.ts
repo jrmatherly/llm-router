@@ -4,20 +4,20 @@ import type {
   LocalAgentProviderImportResult,
   LocalAgentProviderProbeRequest,
   LocalAgentProviderProbeResult
-} from "@ccr/core/contracts/app";
-import { claudeCodeCandidate, importClaudeCodeProvider } from "@ccr/core/agents/local-providers/claude-code";
-import { codexCandidate, importCodexProvider, probeCodexProvider } from "@ccr/core/agents/local-providers/codex";
-import { grokCandidate, importGrokProvider } from "@ccr/core/agents/local-providers/grok";
-import { importKimiProvider, kimiCandidates } from "@ccr/core/agents/local-providers/kimi";
-import { importOpenCodeProvider, opencodeCandidates } from "@ccr/core/agents/local-providers/opencode";
-import { importZcodeProvider, zcodeCandidate } from "@ccr/core/agents/local-providers/zcode";
+} from "@llmr/core/contracts/app";
+import { claudeCodeCandidate, importClaudeCodeProvider } from "@llmr/core/agents/local-providers/claude-code";
+import { codexCandidate, importCodexProvider, probeCodexProvider } from "@llmr/core/agents/local-providers/codex";
+import { grokCandidate, importGrokProvider } from "@llmr/core/agents/local-providers/grok";
+import { importKimiProvider, kimiCandidates } from "@llmr/core/agents/local-providers/kimi";
+import { importOpenCodeProvider, opencodeCandidates } from "@llmr/core/agents/local-providers/opencode";
+import { importZcodeProvider, zcodeCandidate } from "@llmr/core/agents/local-providers/zcode";
 
-export { codexDefaultBaseUrl, readCodexAuth } from "@ccr/core/agents/local-providers/codex";
-export { readClaudeCodeOauth } from "@ccr/core/agents/local-providers/claude-code";
-export { grokDefaultBaseUrl, readGrokAuth, resolveGrokAuth } from "@ccr/core/agents/local-providers/grok";
-export { kimiAccessTokenExpired, kimiIdentityHeaders, readKimiAuth, resolveKimiAuth } from "@ccr/core/agents/local-providers/kimi";
-export { readZcodeLocalProviderCredential, zcodeDefaultBaseUrl } from "@ccr/core/agents/local-providers/zcode";
-export { localAgentProviderApiKey, type OAuthTokenSet } from "@ccr/core/agents/local-providers/shared";
+export { codexDefaultBaseUrl, readCodexAuth } from "@llmr/core/agents/local-providers/codex";
+export { readClaudeCodeOauth } from "@llmr/core/agents/local-providers/claude-code";
+export { grokDefaultBaseUrl, readGrokAuth, resolveGrokAuth } from "@llmr/core/agents/local-providers/grok";
+export { kimiAccessTokenExpired, kimiIdentityHeaders, readKimiAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/kimi";
+export { readZcodeLocalProviderCredential, zcodeDefaultBaseUrl } from "@llmr/core/agents/local-providers/zcode";
+export { localAgentProviderApiKey, type OAuthTokenSet } from "@llmr/core/agents/local-providers/shared";
 
 export function getLocalAgentProviderCandidates(): LocalAgentProviderCandidate[] {
   return [

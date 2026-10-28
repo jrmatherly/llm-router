@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   normalizeDeepSeekCacheUsage,
   normalizeDeepSeekCacheUsageStream
-} from "@ccr/core/gateway/features/opencode-cache-usage.ts";
+} from "@llmr/core/gateway/features/opencode-cache-usage.ts";
 
 test("#1791 normalizes DeepSeek-native cache hits without overriding standard usage", () => {
   const native = {

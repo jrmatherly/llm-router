@@ -14,8 +14,8 @@ import {
   VirtualModelProfileConfig, virtualModelToolSummary, X
 } from "../shared/index";
 import { PopoverPortal } from "@/components/ui/popover";
-import { createGrokMediaModelOptions } from "@ccr/core/media/models";
-import { ROUTER_FALLBACK_MAX_RETRY_COUNT } from "@ccr/core/contracts/app";
+import { createGrokMediaModelOptions } from "@llmr/core/media/models";
+import { ROUTER_FALLBACK_MAX_RETRY_COUNT } from "@llmr/core/contracts/app";
 
 const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 

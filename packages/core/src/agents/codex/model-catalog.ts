@@ -1,17 +1,17 @@
-import { BUILTIN_FUSION_VISION_TOOL_NAME, BUILTIN_FUSION_WEB_SEARCH_TOOL_NAME, effectiveContextWindowPercentFor, isGatewayProviderEnabled } from "@ccr/core/contracts/app";
-import type { AppConfig, GatewayProviderConfig, GatewayProviderProtocol, ProviderModelMetadata, ProviderReasoningLevel, VirtualModelProfileConfig } from "@ccr/core/contracts/app";
+import { BUILTIN_FUSION_VISION_TOOL_NAME, BUILTIN_FUSION_WEB_SEARCH_TOOL_NAME, effectiveContextWindowPercentFor, isGatewayProviderEnabled } from "@llmr/core/contracts/app";
+import type { AppConfig, GatewayProviderConfig, GatewayProviderProtocol, ProviderModelMetadata, ProviderReasoningLevel, VirtualModelProfileConfig } from "@llmr/core/contracts/app";
 import {
   findModelCatalogEntry,
   modelCatalogMaxInputTokens,
   readCatalogCapability,
   type ModelCatalogEntry
-} from "@ccr/core/gateway/model-catalog";
-import { codexDefaultBaseUrl, readCodexLocalModelCatalog } from "@ccr/core/agents/local-providers/codex";
-import { localAgentProviderApiKey } from "@ccr/core/agents/local-providers/shared";
-import { normalizeProviderBaseUrl } from "@ccr/core/providers/url";
-import { resolveUsageModelAttribution } from "@ccr/core/usage/model-attribution";
-import { filterModelIdsByAllowedModels } from "@ccr/core/profiles/model-allowlist";
-import { codexBaseInstructions } from "@ccr/core/agents/codex/base-instructions";
+} from "@llmr/core/gateway/model-catalog";
+import { codexDefaultBaseUrl, readCodexLocalModelCatalog } from "@llmr/core/agents/local-providers/codex";
+import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared";
+import { normalizeProviderBaseUrl } from "@llmr/core/providers/url";
+import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
+import { filterModelIdsByAllowedModels } from "@llmr/core/profiles/model-allowlist";
+import { codexBaseInstructions } from "@llmr/core/agents/codex/base-instructions";
 
 const fusionModelProviderName = "Fusion";
 const codexDefaultContextWindow = 128_000;

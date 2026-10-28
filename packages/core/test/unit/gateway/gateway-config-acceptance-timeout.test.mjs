@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { gatewayConfigAcceptanceTimeoutMs } from "@ccr/core/gateway/core-runtime/supervisor.ts";
+import { gatewayConfigAcceptanceTimeoutMs } from "@llmr/core/gateway/core-runtime/supervisor.ts";
 
 test("gateway config acceptance timeout defaults to 30s when env is unset", () => {
   assert.equal(gatewayConfigAcceptanceTimeoutMs({}), 30_000);

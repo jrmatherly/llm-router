@@ -3,12 +3,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { codexDefaultBaseUrl } from "@ccr/core/agents/local-providers/codex.ts";
+import { codexDefaultBaseUrl } from "@llmr/core/agents/local-providers/codex.ts";
 import {
   hasAutoFetchModelProviders,
   refreshAutoFetchProviderModels,
   runProviderModelAutoRefreshNow
-} from "@ccr/core/providers/model-auto-refresh.ts";
+} from "@llmr/core/providers/model-auto-refresh.ts";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));

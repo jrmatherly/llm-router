@@ -1,4 +1,4 @@
-import type { GatewayStatus } from "@ccr/core/contracts/app";
+import type { GatewayStatus } from "@llmr/core/contracts/app";
 import { formatAppError } from "./i18n";
 
 export function endpointFromHostPort(host: string, port: number): string {

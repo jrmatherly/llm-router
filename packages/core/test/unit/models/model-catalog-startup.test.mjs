@@ -34,7 +34,7 @@ test("web management server is ready before the catalog CDN answers", async () =
   const cdn = createServer(() => { downloadRequests += 1; });
   await new Promise((resolve) => cdn.listen(0, "127.0.0.1", resolve));
   process.env.CCR_MODEL_CATALOG_URL = `http://127.0.0.1:${cdn.address().port}/models.json`;
-  const { startWebManagementServer } = await import("@ccr/core/web/management-server.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
   const startedAt = Date.now();
   const runtime = await startWebManagementServer({
     authToken: "catalog-startup-token",
@@ -59,7 +59,7 @@ test("web management server is ready before the catalog CDN answers", async () =
     };
     assert.equal((await appInfo()).modelCatalogRefreshError, undefined);
     cdn.closeAllConnections();
-    const { modelCatalogRefreshError } = await import("@ccr/core/models/catalog-file.ts");
+    const { modelCatalogRefreshError } = await import("@llmr/core/models/catalog-file.ts");
     const failureDeadline = Date.now() + 2_000;
     while (modelCatalogRefreshError() === undefined && Date.now() < failureDeadline) await new Promise((resolve) => setTimeout(resolve, 10));
     assert.match(modelCatalogRefreshError() ?? "", /^fetch failed: .+/, "the failed download is recorded with its cause");

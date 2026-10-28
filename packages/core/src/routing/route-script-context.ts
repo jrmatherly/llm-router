@@ -1,4 +1,4 @@
-import type { RouteRequest } from "@ccr/core/routing/contracts";
+import type { RouteRequest } from "@llmr/core/routing/contracts";
 
 const maxLastUserTextChars = 16 * 1024;
 const maxSystemTextChars = 8 * 1024;

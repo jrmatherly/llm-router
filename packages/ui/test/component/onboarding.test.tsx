@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { OnboardingView } from "@ccr/ui/pages/home/components/onboarding.tsx";
+import { OnboardingView } from "@llmr/ui/pages/home/components/onboarding.tsx";
 import {
   createProfileDraft,
   createProviderDraft,
   fallbackGatewayStatus
-} from "@ccr/ui/pages/home/shared/index.tsx";
+} from "@llmr/ui/pages/home/shared/index.tsx";
 import { appConfigFixture } from "../fixtures/index.ts";
 
 test("Onboarding provider step renders only the active provider setup section", () => {

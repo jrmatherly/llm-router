@@ -4,7 +4,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import forge from "node-forge";
-import { CERTDIR, PROXY_CA_CERT_DER_FILE, PROXY_CA_CERT_FILE, PROXY_CA_KEY_FILE } from "@ccr/core/config/constants";
+import { CERTDIR, PROXY_CA_CERT_DER_FILE, PROXY_CA_CERT_FILE, PROXY_CA_KEY_FILE } from "@llmr/core/config/constants";
 
 const pki = forge.pki;
 const certificateDirectoryMode = 0o700;

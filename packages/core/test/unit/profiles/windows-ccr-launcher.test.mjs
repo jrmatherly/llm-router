@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
-import { windowsCcrLauncher } from "@ccr/core/profiles/launch-service.ts";
+import { windowsCcrLauncher } from "@llmr/core/profiles/launch-service.ts";
 
 test("Windows LLMR launcher prepares CLI profiles before direct TTY dispatch", { skip: process.platform !== "win32" }, () => {
   const config = {

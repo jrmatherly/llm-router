@@ -1,4 +1,4 @@
-import { defaultProviderAccountConfig, type ProviderPreset } from "@ccr/core/providers/presets/types";
+import { defaultProviderAccountConfig, type ProviderPreset } from "@llmr/core/providers/presets/types";
 
 export const anthropicProviderPreset: ProviderPreset = {
   account: defaultProviderAccountConfig,

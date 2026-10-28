@@ -1,4 +1,4 @@
-import type { ProxyNetworkExchange, RequestRouteTraceChange } from "@ccr/core/contracts/app";
+import type { ProxyNetworkExchange, RequestRouteTraceChange } from "@llmr/core/contracts/app";
 
 export function formatRouteTracePath(change: Pick<RequestRouteTraceChange, "path" | "scope">): string {
   const segments = change.path

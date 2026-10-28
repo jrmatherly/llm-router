@@ -3,9 +3,9 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
-import { gatewayService } from "@ccr/core/gateway/service.ts";
-import { pluginService } from "@ccr/core/plugins/service.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { gatewayService } from "@llmr/core/gateway/service.ts";
+import { pluginService } from "@llmr/core/plugins/service.ts";
 
 test("gateway restart reports disabled reason to removed plugin stop hooks", { skip: !process.env.CCR_INTERNAL_HOME_DIR }, async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-plugin-stop-reason-"));

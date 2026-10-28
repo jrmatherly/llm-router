@@ -7,7 +7,7 @@ import moonshotProviderIconUrl from "@/assets/provider-icons/moonshot.ico";
 import {
   ROUTER_SCRIPT_API_VERSION,
   ROUTER_SCRIPT_MAX_TIMEOUT_MS
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import type {
   AppConfig,
   ApiKeyLimitConfig,
@@ -32,20 +32,20 @@ import type {
   RouterRuleRewrite,
   RouterRuleType,
   VirtualModelProfileConfig
-} from "@ccr/core/contracts/app";
-import { appDeepLinkProtocol } from "@ccr/core/contracts/deep-link";
+} from "@llmr/core/contracts/app";
+import { appDeepLinkProtocol } from "@llmr/core/contracts/deep-link";
 import {
   customProviderPresetId,
   defaultProviderAccountConfig,
   standardProviderAccountConfig,
   type ProviderIdentitySafetyIssue,
   type ProviderPreset
-} from "@ccr/core/providers/presets/types";
+} from "@llmr/core/providers/presets/types";
 import {
   primaryProviderPresetEndpoint as primaryProviderPresetEndpointFromPreset
-} from "@ccr/core/providers/presets/utils";
-import { newApiUserSelfConnectorConfig } from "@ccr/core/providers/new-api";
-import { normalizeProviderBaseUrl, providerUrlWithDefaultScheme } from "@ccr/core/providers/url";
+} from "@llmr/core/providers/presets/utils";
+import { newApiUserSelfConnectorConfig } from "@llmr/core/providers/new-api";
+import { normalizeProviderBaseUrl, providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
 import {
   providerPresetIconUrls,
   providerProtocolOptions,
@@ -60,7 +60,7 @@ import { findProviderPreset, findProviderPresetByBaseUrl, findProviderPresetById
 import { fusionModelProviderName } from "./profiles";
 import { normalizeRouterFallbackConfig } from "./routing";
 import { keyValueRowsFromRecord, recordFromKeyValueRows, validateKeyValueRows, virtualModelMatchSummary } from "./virtual-models";
-import { isGatewayProviderEnabled } from "@ccr/core/contracts/app";
+import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 import type { AddProviderDraft, AddRoutingRuleDraft, ModelCatalogItem, ProviderCredentialDraft, ProviderProbeCandidate, ProviderProbeCandidateResult, ProviderUsageFieldTarget, RoutingRewriteDraftRow, RoutingRuleRow, ViewId } from "./types";
 
 export const localAgentProviderIconUrls: Record<LocalAgentProviderKind, string> = {

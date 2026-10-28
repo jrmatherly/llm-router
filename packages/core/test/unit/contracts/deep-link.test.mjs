@@ -6,7 +6,7 @@ import {
   parseProviderDeepLinkPayload,
   parseProviderManifestDeepLinkPayload,
   parseProviderManifestPayload
-} from "@ccr/core/contracts/deep-link.ts";
+} from "@llmr/core/contracts/deep-link.ts";
 
 function base64UrlJson(value) {
   return Buffer.from(JSON.stringify(value), "utf8")

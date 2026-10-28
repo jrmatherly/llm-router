@@ -137,7 +137,7 @@ import {
   TRAY_SINGLETON_WIDGET_TYPES,
   TRAY_TOP_WIDGET_TYPES,
   TRAY_WINDOW_MODULE_IDS
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import type {
   AgentAnalysisFilter,
   AgentAnalysisSessionSelection,
@@ -239,7 +239,7 @@ import type {
   VirtualModelFusionWebSearchProvider,
   VirtualModelProfileConfig,
   VirtualModelToolVisibility
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import {
   customProviderPresetId,
   defaultProviderAccountConfig,
@@ -247,7 +247,7 @@ import {
   type ProviderIdentitySafetyIssue,
   type ProviderPreset,
   type ProviderPresetEndpoint
-} from "@ccr/core/providers/presets/types";
+} from "@llmr/core/providers/presets/types";
 import {
   findProviderPresetByBaseUrlInList,
   findProviderPresetByIdentityInList,
@@ -256,8 +256,8 @@ import {
   providerApiKeySafetyIssueInList,
   providerEndpointCanReceiveProviderApiKeyInList,
   providerIdentitySafetyIssueInList
-} from "@ccr/core/providers/presets/utils";
-import { normalizeProviderBaseUrl, providerUrlWithDefaultScheme } from "@ccr/core/providers/url";
+} from "@llmr/core/providers/presets/utils";
+import { normalizeProviderBaseUrl, providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
 import {
   fallbackConfig,
   fallbackGatewayStatus,

@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DEFAULT_OVERVIEW_WIDGETS, LEGACY_DEFAULT_OVERVIEW_WIDGETS } from "@ccr/core/contracts/app.ts";
-import { Dialog, DialogContent, DialogTitle } from "@ccr/ui/components/ui/dialog.tsx";
-import { OverviewView } from "@ccr/ui/pages/home/components/dashboard.tsx";
-import { FeedbackStack, LightToast, PersistenceFeedback } from "@ccr/ui/pages/home/components/feedback.tsx";
-import { normalizeOverviewWidget, normalizeOverviewWidgets } from "@ccr/ui/pages/home/shared/common.ts";
-import { createEmptyUsageStats } from "@ccr/ui/pages/home/shared/usage.ts";
+import { DEFAULT_OVERVIEW_WIDGETS, LEGACY_DEFAULT_OVERVIEW_WIDGETS } from "@llmr/core/contracts/app.ts";
+import { Dialog, DialogContent, DialogTitle } from "@llmr/ui/components/ui/dialog.tsx";
+import { OverviewView } from "@llmr/ui/pages/home/components/dashboard.tsx";
+import { FeedbackStack, LightToast, PersistenceFeedback } from "@llmr/ui/pages/home/components/feedback.tsx";
+import { normalizeOverviewWidget, normalizeOverviewWidgets } from "@llmr/ui/pages/home/shared/common.ts";
+import { createEmptyUsageStats } from "@llmr/ui/pages/home/shared/usage.ts";
 
 test("dialog accessible name refers to its rendered title", () => {
   const html = renderToStaticMarkup(<Dialog><DialogContent><DialogTitle>Edit provider</DialogTitle></DialogContent></Dialog>);

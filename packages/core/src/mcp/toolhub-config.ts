@@ -1,6 +1,6 @@
 import { join as pathJoin } from "node:path";
-import { CONFIGDIR } from "@ccr/core/config/constants";
-import type { AppConfig, GatewayMcpServerConfig } from "@ccr/core/contracts/app";
+import { CONFIGDIR } from "@llmr/core/config/constants";
+import type { AppConfig, GatewayMcpServerConfig } from "@llmr/core/contracts/app";
 
 export const TOOL_HUB_MCP_SERVER_NAME = "ccr-toolhub";
 export const TOOL_HUB_MCP_RUNTIME_FILE_NAME = "toolhub-mcp.js";

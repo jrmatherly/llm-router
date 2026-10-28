@@ -3,7 +3,7 @@
  * management RPC. NOT mocked — these are actual request logs and agent
  * analysis snapshots captured from the app.
  */
-import type { AgentAnalysisSnapshot, RequestLogPage } from "@ccr/core/contracts/app";
+import type { AgentAnalysisSnapshot, RequestLogPage } from "@llmr/core/contracts/app";
 
 import requestLogsFixture from "./fixtures-request-logs.json";
 import agentAnalysisFixture from "./fixtures-agent-analysis.json";

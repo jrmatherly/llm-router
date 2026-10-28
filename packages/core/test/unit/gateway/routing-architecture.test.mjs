@@ -1,18 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyAgentRequestEnrichers } from "@ccr/core/agents/request-enricher.ts";
-import { shouldApplyGatewayRouting } from "@ccr/core/gateway/service.ts";
-import { compileRouterConfig } from "@ccr/core/routing/config-compiler.ts";
-import { createRouteExecutionPlan } from "@ccr/core/routing/execution-plan.ts";
-import { classifyRouteFailure } from "@ccr/core/routing/failure-classifier.ts";
-import { ModelRegistry } from "@ccr/core/routing/model-registry.ts";
-import { RoutePolicyEngine } from "@ccr/core/routing/policy-engine.ts";
-import { compileConfiguredRouteRewrite, compileScriptRouteRewrite } from "@ccr/core/routing/rewrite.ts";
+import { applyAgentRequestEnrichers } from "@llmr/core/agents/request-enricher.ts";
+import { shouldApplyGatewayRouting } from "@llmr/core/gateway/service.ts";
+import { compileRouterConfig } from "@llmr/core/routing/config-compiler.ts";
+import { createRouteExecutionPlan } from "@llmr/core/routing/execution-plan.ts";
+import { classifyRouteFailure } from "@llmr/core/routing/failure-classifier.ts";
+import { ModelRegistry } from "@llmr/core/routing/model-registry.ts";
+import { RoutePolicyEngine } from "@llmr/core/routing/policy-engine.ts";
+import { compileConfiguredRouteRewrite, compileScriptRouteRewrite } from "@llmr/core/routing/rewrite.ts";
 import {
   adaptRouteRequestBody,
   restoreRouteRequestBody,
   rewriteRouteModelInUrl
-} from "@ccr/core/routing/protocol-adapter.ts";
+} from "@llmr/core/routing/protocol-adapter.ts";
 
 function routingConfig(overrides = {}) {
   return {

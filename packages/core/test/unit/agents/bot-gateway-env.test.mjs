@@ -3,10 +3,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { botGatewayProfileEnv } from "@ccr/core/agents/bot-gateway/env.ts";
-import { materializeBotGatewayStdioRunnerPath } from "@ccr/core/agents/bot-gateway/qr-login-service.ts";
-import { botGatewaySdkImportSpecifier } from "@ccr/core/agents/bot-gateway/sdk-import.ts";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config.ts";
+import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env.ts";
+import { materializeBotGatewayStdioRunnerPath } from "@llmr/core/agents/bot-gateway/qr-login-service.ts";
+import { botGatewaySdkImportSpecifier } from "@llmr/core/agents/bot-gateway/sdk-import.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 
 function botGateway(overrides = {}) {
   return {

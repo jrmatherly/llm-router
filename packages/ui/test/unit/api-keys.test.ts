@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { maskApiKey } from "@ccr/ui/pages/home/shared/api-keys.ts";
+import { maskApiKey } from "@llmr/ui/pages/home/shared/api-keys.ts";
 
 test("maskApiKey never shows most of a short key", () => {
   assert.equal(maskApiKey("abcdefghi"), "****");

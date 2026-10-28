@@ -3,10 +3,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { importOpenCodeProvider, opencodeCandidates } from "@ccr/core/agents/local-providers/opencode.ts";
-import { parseProvidersForTest } from "@ccr/core/config/config.ts";
-import { createGatewayPlugin } from "@ccr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
-import { toCoreGatewayProviders } from "@ccr/core/providers/runtime-topology.ts";
+import { importOpenCodeProvider, opencodeCandidates } from "@llmr/core/agents/local-providers/opencode.ts";
+import { parseProvidersForTest } from "@llmr/core/config/config.ts";
+import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/upstream-header-sanitizer.ts";
+import { toCoreGatewayProviders } from "@llmr/core/providers/runtime-topology.ts";
 
 test("OpenCode Go local import compiles to the Go endpoint and forwards the Claude session", () => {
   const environmentNames = [

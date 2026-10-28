@@ -1,8 +1,8 @@
-import type { ApiKeyConfig, AppConfig } from "@ccr/core/contracts/app";
-import { isApiKeyExpired } from "@ccr/core/gateway/auth/api-key-authorizer";
-import { endpoint as gatewayEndpoint } from "@ccr/core/gateway/core-runtime/supervisor";
-import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@ccr/core/gateway/runtime-config-control";
-import { isLocalHostname } from "@ccr/core/net/loopback";
+import type { ApiKeyConfig, AppConfig } from "@llmr/core/contracts/app";
+import { isApiKeyExpired } from "@llmr/core/gateway/auth/api-key-authorizer";
+import { endpoint as gatewayEndpoint } from "@llmr/core/gateway/core-runtime/supervisor";
+import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
+import { isLocalHostname } from "@llmr/core/net/loopback";
 
 export type ExistingCcrGatewayProbe =
   | { endpoint: string; reason?: string; state: "unavailable" }

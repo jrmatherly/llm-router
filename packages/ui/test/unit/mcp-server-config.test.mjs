@@ -4,7 +4,7 @@ import {
   createMcpServerDraftFromUnknown,
   mcpServerConfigFromDraft,
   validateMcpServerDraft
-} from "@ccr/ui/pages/home/shared/virtual-models.ts";
+} from "@llmr/ui/pages/home/shared/virtual-models.ts";
 
 test("MCP server drafts accept streamablehttp type alias", () => {
   const draft = createMcpServerDraftFromUnknown({

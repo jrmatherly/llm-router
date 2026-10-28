@@ -15,12 +15,12 @@ test("malformed legacy JSON is preserved when default config is persisted", asyn
   const {
     APP_CONFIG_DB_FILE,
     LEGACY_ACTIVE_CONFIG_FILE
-  } = await import("@ccr/core/config/constants.ts");
+  } = await import("@llmr/core/config/constants.ts");
   mkdirSync(path.dirname(LEGACY_ACTIVE_CONFIG_FILE), { recursive: true });
   const malformedConfig = "{\n  \"PORT\": 9999,\n";
   writeFileSync(LEGACY_ACTIVE_CONFIG_FILE, malformedConfig, "utf8");
 
-  const { loadAppConfig } = await import("@ccr/core/config/config.ts");
+  const { loadAppConfig } = await import("@llmr/core/config/config.ts");
   const config = await loadAppConfig();
 
   assert.equal(config.PORT, 3456);

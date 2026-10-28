@@ -3,10 +3,10 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createRequire } from "node:module";
-import type { ApiKeyConfig, AppConfig, GatewayMcpServerConfig, GatewayProviderCapabilityProtocol, GatewayProviderConfig, GatewayProviderProtocol, VirtualModelFusionWebSearchProvider } from "@ccr/core/contracts/app";
-import type { ClaudeAppGatewayModelRouteOptions } from "@ccr/core/agents/claude-app/gateway-routes";
-import type { RouteModelRef } from "@ccr/core/routing/contracts";
-import { findModelCatalogEntry } from "@ccr/core/gateway/model-catalog";
+import type { ApiKeyConfig, AppConfig, GatewayMcpServerConfig, GatewayProviderCapabilityProtocol, GatewayProviderConfig, GatewayProviderProtocol, VirtualModelFusionWebSearchProvider } from "@llmr/core/contracts/app";
+import type { ClaudeAppGatewayModelRouteOptions } from "@llmr/core/agents/claude-app/gateway-routes";
+import type { RouteModelRef } from "@llmr/core/routing/contracts";
+import { findModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
 
 
 export type CoreGatewayProvider = {

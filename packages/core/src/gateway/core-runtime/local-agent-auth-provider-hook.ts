@@ -1,11 +1,11 @@
-import { readClaudeCodeOauth, readGrokAuth, readKimiAuth, resolveGrokAuth, resolveKimiAuth } from "@ccr/core/agents/local-providers/service";
-import { applyOpenCodePublicFreeTierHeaders, isOpenCodePublicFreeTierPlugin, withOpenCodePublicFreeTierTools } from "@ccr/core/agents/local-providers/opencode-freetier";
-import { grokAccessTokenExpired, grokClientVersion } from "@ccr/core/agents/local-providers/grok";
-import { kimiAccessTokenExpired, kimiIdentityHeaders } from "@ccr/core/agents/local-providers/kimi";
-import { transformCodexApplyPatchBridgeRequestBody } from "@ccr/core/gateway/features/codex-patch-bridge";
-import { claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta } from "@ccr/core/gateway/internal/shared";
-import { isRecord, stringValue } from "@ccr/core/gateway/internal/value";
-import { mergeAnthropicBetaValues } from "@ccr/core/providers/oauth-plugin";
+import { readClaudeCodeOauth, readGrokAuth, readKimiAuth, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
+import { applyOpenCodePublicFreeTierHeaders, isOpenCodePublicFreeTierPlugin, withOpenCodePublicFreeTierTools } from "@llmr/core/agents/local-providers/opencode-freetier";
+import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
+import { kimiAccessTokenExpired, kimiIdentityHeaders } from "@llmr/core/agents/local-providers/kimi";
+import { transformCodexApplyPatchBridgeRequestBody } from "@llmr/core/gateway/features/codex-patch-bridge";
+import { claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta } from "@llmr/core/gateway/internal/shared";
+import { isRecord, stringValue } from "@llmr/core/gateway/internal/value";
+import { mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
 
 const liveProviderPluginKeyPrefix = "module:ccr-live-auth:";
 const configProviderPluginKeyPrefix = "config:";

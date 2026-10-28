@@ -1,11 +1,11 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { buildCodexModelCatalogIds } from "@ccr/core/agents/codex/model-catalog";
-import { parseJsoncRecord } from "@ccr/core/agents/local-providers/shared";
-import { isGatewayProviderEnabled, type AppConfig, type ProfileConfig } from "@ccr/core/contracts/app";
-import { backupBeforeWrite, backupMarker, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@ccr/core/profiles/backup-files";
-import { profileAllowedModels } from "@ccr/core/profiles/model-allowlist";
-import { resolveRuntimeAppPath, resolveUserPath } from "@ccr/core/runtime/app-paths";
+import { buildCodexModelCatalogIds } from "@llmr/core/agents/codex/model-catalog";
+import { parseJsoncRecord } from "@llmr/core/agents/local-providers/shared";
+import { isGatewayProviderEnabled, type AppConfig, type ProfileConfig } from "@llmr/core/contracts/app";
+import { backupBeforeWrite, backupMarker, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@llmr/core/profiles/backup-files";
+import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
+import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-paths";
 
 export type KiloProfileConfigWriteResult = {
   backupFile?: string;

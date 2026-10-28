@@ -9,12 +9,12 @@ import type {
   ProviderAccountConnectorConfig,
   ProviderAccountMappingConfig,
   ProviderModelMetadata
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import {
   GROK_API_DEFAULT_IMAGE_MODEL,
   GROK_API_DEFAULT_VIDEO_MODEL,
   GROK_API_MEDIA_BASE_URL
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import {
   bearerAuthPlugin,
   firstString,
@@ -31,10 +31,10 @@ import {
   uniqueProviderName,
   uniqueStrings,
   type OAuthTokenSet
-} from "@ccr/core/agents/local-providers/shared";
-import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
-import { normalizeProviderBaseUrl } from "@ccr/core/providers/url";
-import { resolveUserPath } from "@ccr/core/runtime/app-paths";
+} from "@llmr/core/agents/local-providers/shared";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
+import { normalizeProviderBaseUrl } from "@llmr/core/providers/url";
+import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 
 export const grokDefaultBaseUrl = "https://cli-chat-proxy.grok.com/v1";
 export const grokDefaultBillingEndpoint = "https://cli-chat-proxy.grok.com/v1/billing?format=credits";

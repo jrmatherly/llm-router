@@ -5,7 +5,7 @@ import {
   ccrRemoteControlPathPrefix,
   CcrRemoteControlService,
   remoteControlOwnerId
-} from "@ccr/core/gateway/remote-control-service.ts";
+} from "@llmr/core/gateway/remote-control-service.ts";
 
 const maxSessions = 100;
 

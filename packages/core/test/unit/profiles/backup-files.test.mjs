@@ -10,7 +10,7 @@ import {
   ensureOriginalSnapshot,
   pruneBackups,
   writeFileAtomic
-} from "@ccr/core/profiles/backup-files.ts";
+} from "@llmr/core/profiles/backup-files.ts";
 
 function setup(t) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "ccr-backup-files-"));

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { reserveApiKeyLimits } from "@ccr/core/gateway/auth/api-key-authorizer.ts";
-import { estimateLimitUsage } from "@ccr/core/gateway/limits/window-limiter.ts";
+import { reserveApiKeyLimits } from "@llmr/core/gateway/auth/api-key-authorizer.ts";
+import { estimateLimitUsage } from "@llmr/core/gateway/limits/window-limiter.ts";
 
 function reserve(body, id) {
   const response = {

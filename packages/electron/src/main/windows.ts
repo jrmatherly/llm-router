@@ -2,7 +2,7 @@ import { app, BrowserWindow, screen, shell } from "electron";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { APP_NAME, IPC_CHANNELS } from "@ccr/core/config/constants";
+import { APP_NAME, IPC_CHANNELS } from "@llmr/core/config/constants";
 import { configureClaudeDesignWindowCdp, type ClaudeDesignWindowCdpOptions } from "./claude-design-window";
 import { openHttpExternal } from "./external-url";
 

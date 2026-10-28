@@ -1,6 +1,6 @@
-import { fetchWithSystemProxy } from "@ccr/core/proxy/system-proxy-fetch";
-import type { AppConfig, ProviderModelPricing } from "@ccr/core/contracts/app";
-import { modelRegistryForConfig } from "@ccr/core/routing/model-registry";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
+import type { AppConfig, ProviderModelPricing } from "@llmr/core/contracts/app";
+import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
 
 type ModelPricingSource = "litellm" | "models.dev" | "openrouter";
 type UsagePricingSource = ModelPricingSource | "custom";

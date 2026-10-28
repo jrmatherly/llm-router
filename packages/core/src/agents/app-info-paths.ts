@@ -1,6 +1,6 @@
-import type { AppInfo } from "@ccr/core/contracts/app";
-import { findInstalledCodexAppExecutable, findInstalledWorkbuddyAppExecutable } from "@ccr/core/agents/codex/app-launch";
-import { findInstalledOpenCodeAppExecutable } from "@ccr/core/agents/opencode/app-launch";
+import type { AppInfo } from "@llmr/core/contracts/app";
+import { findInstalledCodexAppExecutable, findInstalledWorkbuddyAppExecutable } from "@llmr/core/agents/codex/app-launch";
+import { findInstalledOpenCodeAppExecutable } from "@llmr/core/agents/opencode/app-launch";
 
 type AppPaths = Pick<AppInfo, "chatgptAppPath" | "opencodeAppPath" | "workbuddyAppPath">;
 

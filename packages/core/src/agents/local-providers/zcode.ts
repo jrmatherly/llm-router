@@ -3,9 +3,9 @@ import type {
   LocalAgentProviderCandidate,
   LocalAgentProviderImportResult,
   ProviderAccountConfig
-} from "@ccr/core/contracts/app";
-import { findProviderPresetByBaseUrl } from "@ccr/core/providers/presets/index";
-import { resolveUserPath } from "@ccr/core/runtime/app-paths";
+} from "@llmr/core/contracts/app";
+import { findProviderPresetByBaseUrl } from "@llmr/core/providers/presets/index";
+import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 import {
   apiKeyAuthPlugin,
   cloneProviderAccountConfig,
@@ -21,7 +21,7 @@ import {
   uniqueProviderName,
   uniqueStrings,
   type ApiTokenSet
-} from "@ccr/core/agents/local-providers/shared";
+} from "@llmr/core/agents/local-providers/shared";
 
 type ZcodeConfiguredProvider = {
   apiKey: string;

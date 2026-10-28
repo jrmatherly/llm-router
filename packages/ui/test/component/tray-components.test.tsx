@@ -17,10 +17,10 @@ import {
   TrayStatusStrip,
   UsageDetailPanel,
   UsageOverviewPanel
-} from "@ccr/ui/pages/tray/components/index.ts";
-import { TrayApp } from "@ccr/ui/pages/tray/TrayApp.tsx";
-import { TrayDetailApp } from "@ccr/ui/pages/tray/TrayDetailApp.tsx";
-import { applyTrayThemePreference, createSourceTabs } from "@ccr/ui/pages/tray/shared.tsx";
+} from "@llmr/ui/pages/tray/components/index.ts";
+import { TrayApp } from "@llmr/ui/pages/tray/TrayApp.tsx";
+import { TrayDetailApp } from "@llmr/ui/pages/tray/TrayDetailApp.tsx";
+import { applyTrayThemePreference, createSourceTabs } from "@llmr/ui/pages/tray/shared.tsx";
 import { accountSnapshots, installBrowserGlobals, usageStats, usageTotals } from "../fixtures/index.ts";
 
 installBrowserGlobals();

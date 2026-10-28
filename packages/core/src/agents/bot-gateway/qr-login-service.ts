@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { CONFIGDIR } from "@ccr/core/config/constants";
-import { resolveUserPath } from "@ccr/core/runtime/app-paths";
+import { CONFIGDIR } from "@llmr/core/config/constants";
+import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 import type {
   BotGatewayQrLoginCancelRequest,
   BotGatewayQrLoginCancelResult,
@@ -10,7 +10,7 @@ import type {
   BotGatewayQrLoginWaitRequest,
   BotGatewayQrLoginWaitResult,
   BotGatewayRuntimeConfig
-} from "@ccr/core/contracts/app";
+} from "@llmr/core/contracts/app";
 import { botGatewaySdkImportSpecifier } from "./sdk-import";
 
 type BotGatewayClientWithRequest = {

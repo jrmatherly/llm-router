@@ -1,8 +1,8 @@
 import { app } from "electron";
 import { autoUpdater, type ProgressInfo, type UpdateDownloadedEvent, type UpdateInfo } from "electron-updater";
-import { IPC_CHANNELS } from "@ccr/core/config/constants";
+import { IPC_CHANNELS } from "@llmr/core/config/constants";
 import windowsManager from "./windows";
-import type { AppUpdateStatus } from "@ccr/core/contracts/app";
+import type { AppUpdateStatus } from "@llmr/core/contracts/app";
 
 type InstallPreparation = () => Promise<void>;
 type UpdateCheckOptions = {

@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { isRecord, numberValue, stringValue } from "@ccr/core/gateway/internal/value";
-import type { BrowserWebSearchProtocolRecord, BrowserWebSearchProtocolResult } from "@ccr/core/gateway/internal/shared";
-import { uniqueStrings } from "@ccr/core/gateway/internal/collections";
-import { sseEventFromValue } from "@ccr/core/gateway/features/hosted-web-search/sse";
-import type { ParsedSseEvent } from "@ccr/core/gateway/features/hosted-web-search/sse";
+import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
+import type { BrowserWebSearchProtocolRecord, BrowserWebSearchProtocolResult } from "@llmr/core/gateway/internal/shared";
+import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
+import { sseEventFromValue } from "@llmr/core/gateway/features/hosted-web-search/sse";
+import type { ParsedSseEvent } from "@llmr/core/gateway/features/hosted-web-search/sse";
 
 
 

@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@ccr/core/contracts/error-message";
+import { formatErrorMessage } from "@llmr/core/contracts/error-message";
 
 type NavigationId = "onboarding" | "overview" | "observability" | "api-keys" | "server" | "profile" | "networking" | "logs" | "providers" | "models" | "routing" | "virtual-models" | "extensions";
 

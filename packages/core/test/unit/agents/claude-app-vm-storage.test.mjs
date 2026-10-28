@@ -8,7 +8,7 @@ import {
   resolveClaudeAppDefaultUserDataDirs,
   resolveClaudeAppVmBundleDir,
   resolveSharedClaudeAppVmSeedBundleDir
-} from "@ccr/core/agents/claude-app/vm-storage.ts";
+} from "@llmr/core/agents/claude-app/vm-storage.ts";
 
 test("Claude App VM storage prepares profile bundle from the default Claude App data dir", () => {
   withRuntimeEnv((root) => {

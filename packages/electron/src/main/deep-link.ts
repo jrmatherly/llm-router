@@ -1,11 +1,11 @@
 import { app, dialog } from "electron";
-import { appDeepLinkProtocol, createProviderDeepLinkRequest as createSharedProviderDeepLinkRequest, isAppDeepLinkUrl } from "@ccr/core/contracts/deep-link";
-import { CLAUDE_DESIGN_PLUGIN_ID, CLAUDE_SHIP_PLUGIN_ID, knownGatewayPluginDefaultApps, type AppConfig, type GatewayPluginAppConfig, type ProviderDeepLinkRequest } from "@ccr/core/contracts/app";
-import { IPC_CHANNELS } from "@ccr/core/config/constants";
-import { loadAppConfig } from "@ccr/core/config/config";
-import { syncClaudeAppGatewayConfig } from "@ccr/core/agents/claude-app/gateway-service";
-import { gatewayService } from "@ccr/core/gateway/service";
-import { providerIdentitySafetyIssue } from "@ccr/core/providers/presets/index";
+import { appDeepLinkProtocol, createProviderDeepLinkRequest as createSharedProviderDeepLinkRequest, isAppDeepLinkUrl } from "@llmr/core/contracts/deep-link";
+import { CLAUDE_DESIGN_PLUGIN_ID, CLAUDE_SHIP_PLUGIN_ID, knownGatewayPluginDefaultApps, type AppConfig, type GatewayPluginAppConfig, type ProviderDeepLinkRequest } from "@llmr/core/contracts/app";
+import { IPC_CHANNELS } from "@llmr/core/config/constants";
+import { loadAppConfig } from "@llmr/core/config/config";
+import { syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
+import { gatewayService } from "@llmr/core/gateway/service";
+import { providerIdentitySafetyIssue } from "@llmr/core/providers/presets/index";
 import { loadClaudeDesignWindowCdpOptions } from "./claude-design-window";
 import { builtInPluginAppForOpen, configForPluginAppOpen, pluginAppUrlForOpen } from "./plugin-app-url";
 import windowsManager from "./windows";

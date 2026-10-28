@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDefaultAppConfig } from "@ccr/core/config/default-config";
-import { ModelRegistry } from "@ccr/core/routing/model-registry";
-import { renameProviderReferences } from "@ccr/ui/pages/home/shared/provider-references";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config";
+import { ModelRegistry } from "@llmr/core/routing/model-registry";
+import { renameProviderReferences } from "@llmr/ui/pages/home/shared/provider-references";
 
 test("provider rename migrates profile and router model selectors to resolvable names", () => {
   const config = createDefaultAppConfig();
