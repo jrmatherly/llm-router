@@ -6,7 +6,7 @@ import test from "node:test";
 import { buildCodexModelCatalog, buildCodexModelCatalogIds, codexModelCatalogBase64, codexModelCatalogJson } from "@llmr/core/agents/codex/model-catalog.ts";
 
 // Catalog assertions use the fixture catalog; the bundled models.json follows live sources.
-process.env.CCR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");
+process.env.LLMR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");
 
 function catalogModelFor(config, slug) {
   const catalog = buildCodexModelCatalog(config, slug);
@@ -442,11 +442,11 @@ test("codex catalog preserves pinned context windows", () => {
 });
 
 test("codex catalog falls back to local Codex model cache metadata", () => {
-  const previousCcrHome = process.env.CCR_INTERNAL_HOME_DIR;
+  const previousCcrHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const previousHome = process.env.HOME;
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-codex-model-catalog-"));
   try {
-    process.env.CCR_INTERNAL_HOME_DIR = home;
+    process.env.LLMR_INTERNAL_HOME_DIR = home;
     process.env.HOME = home;
     const codexHome = path.join(home, ".codex");
     mkdirSync(codexHome, { recursive: true });
@@ -490,9 +490,9 @@ test("codex catalog falls back to local Codex model cache metadata", () => {
     assert.deepEqual(model.supported_reasoning_levels.map((level) => level.effort), ["low", "high"]);
   } finally {
     if (previousCcrHome === undefined) {
-      delete process.env.CCR_INTERNAL_HOME_DIR;
+      delete process.env.LLMR_INTERNAL_HOME_DIR;
     } else {
-      process.env.CCR_INTERNAL_HOME_DIR = previousCcrHome;
+      process.env.LLMR_INTERNAL_HOME_DIR = previousCcrHome;
     }
     if (previousHome === undefined) {
       delete process.env.HOME;

@@ -7,7 +7,7 @@ import { providerCapabilityForClientProtocol } from "@llmr/core/providers/runtim
 import { createClaudeCliAutoCompactWindows } from "@llmr/core/gateway/features/model-discovery.ts";
 
 // Catalog assertions use the fixture catalog; the bundled models.json follows live sources.
-process.env.CCR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");
+process.env.LLMR_MODEL_CATALOG_PATH = path.resolve("packages/core/test/fixtures/model-catalog.json");
 
 const baseUrl = "https://openrouter.ai/api/v1";
 const provider = {

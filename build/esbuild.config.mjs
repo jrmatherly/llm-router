@@ -93,7 +93,7 @@ const nodeExternals = [
 ];
 
 function resolveGatewayPackageRoot() {
-  for (const envName of ["CCR_GATEWAY_SOURCE_DIR", "CCR_GATEWAY_PACKAGE_DIR", "CCR_LOCAL_AI_GATEWAY_DIR"]) {
+  for (const envName of ["LLMR_GATEWAY_SOURCE_DIR", "LLMR_GATEWAY_PACKAGE_DIR", "LLMR_LOCAL_AI_GATEWAY_DIR"]) {
     const value = process.env[envName]?.trim();
     if (!value) continue;
     const root = path.resolve(projectRoot, value);
@@ -103,12 +103,12 @@ function resolveGatewayPackageRoot() {
     return root;
   }
 
-  const gatewayEntry = process.env.CCR_GATEWAY_ENTRY?.trim();
+  const gatewayEntry = process.env.LLMR_GATEWAY_ENTRY?.trim();
   if (gatewayEntry) {
     const entry = path.resolve(projectRoot, gatewayEntry);
     const root = nearestPackageRoot(entry);
     if (!root || !isGatewayPackageRoot(root)) {
-      throw new Error(`CCR_GATEWAY_ENTRY must point inside an ai-gateway package: ${entry}`);
+      throw new Error(`LLMR_GATEWAY_ENTRY must point inside an ai-gateway package: ${entry}`);
     }
     return root;
   }

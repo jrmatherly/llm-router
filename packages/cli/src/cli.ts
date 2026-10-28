@@ -64,7 +64,7 @@ type ServiceState = {
 const serviceStateFileName = "service.json";
 const serviceStartLockFileName = "service-start.lock";
 const profileGatewayLeaseDirName = "profile-gateway-leases";
-const serviceInstanceTokenEnv = "CCR_SERVICE_INSTANCE_TOKEN";
+const serviceInstanceTokenEnv = "LLMR_SERVICE_INSTANCE_TOKEN";
 const serviceRpcTimeoutMs = 2_000;
 const serviceStartTimeoutMs = 30_000;
 const serviceStopTimeoutMs = 10_000;
@@ -73,7 +73,7 @@ const profileGatewayLeasePollMs = 500;
 const webAuthHeader = "x-llmr-web-auth";
 const webAuthQueryParam = "llmr_web_token";
 const defaultCliCommandName = "llmr";
-const prepareProfileOnlyEnv = "CCR_CLI_PREPARE_PROFILE_ONLY";
+const prepareProfileOnlyEnv = "LLMR_CLI_PREPARE_PROFILE_ONLY";
 
 async function main(): Promise<void> {
   const staleWarning = staleDesktopRuntimeWarning({
@@ -633,17 +633,17 @@ function printStartHelp(exitCode: number): void {
     "",
     "Options:",
     "  --daemon         Run the management server in the background (default for start).",
-    "  --host <host>    Management server host. Defaults to CCR_WEB_HOST or 127.0.0.1.",
-    "  --port <port>    Management server port. Defaults to CCR_WEB_PORT or 3458.",
+    "  --host <host>    Management server host. Defaults to LLMR_WEB_HOST or 127.0.0.1.",
+    "  --port <port>    Management server port. Defaults to LLMR_WEB_PORT or 3458.",
     "  --open           Open the management page in the default browser.",
     "  --no-open        Do not open the management page.",
     "  --gateway        Start the configured model gateway (default).",
     "  --no-gateway     Start only the web management server.",
     "",
     "Environment:",
-    "  CCR_WEB_HOST        Default management server host.",
-    "  CCR_WEB_PORT        Default management server port.",
-    "  CCR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication."
+    "  LLMR_WEB_HOST        Default management server host.",
+    "  LLMR_WEB_PORT        Default management server port.",
+    "  LLMR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication."
   ].join("\n");
   const stream = exitCode === 0 ? process.stdout : process.stderr;
   stream.write(`${output}\n`);
@@ -660,17 +660,17 @@ function printUiHelp(exitCode: number): void {
     "",
     "Options:",
     "  --daemon         Run the management server in the background (default for ui).",
-    "  --host <host>    Management server host. Defaults to CCR_WEB_HOST or 127.0.0.1.",
-    "  --port <port>    Management server port. Defaults to CCR_WEB_PORT or 3458.",
+    "  --host <host>    Management server host. Defaults to LLMR_WEB_HOST or 127.0.0.1.",
+    "  --port <port>    Management server port. Defaults to LLMR_WEB_PORT or 3458.",
     "  --open           Open the management page (default).",
     "  --no-open        Start or find the service and print the management URL without opening a browser.",
     "  --gateway        Start the configured model gateway (default).",
     "  --no-gateway     Start only the web management server when the service is not already running.",
     "",
     "Environment:",
-    "  CCR_WEB_HOST        Default management server host.",
-    "  CCR_WEB_PORT        Default management server port.",
-    "  CCR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication."
+    "  LLMR_WEB_HOST        Default management server host.",
+    "  LLMR_WEB_PORT        Default management server port.",
+    "  LLMR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication."
   ].join("\n");
   const stream = exitCode === 0 ? process.stdout : process.stderr;
   stream.write(`${output}\n`);
@@ -700,17 +700,17 @@ function printWebHelp(exitCode: number): void {
     "",
     "Options:",
     "  --daemon         Start the management server in the background instead of the foreground.",
-    "  --host <host>    Management server host. Defaults to CCR_WEB_HOST or 127.0.0.1.",
-    "  --port <port>    Management server port. Defaults to CCR_WEB_PORT or 3458.",
+    "  --host <host>    Management server host. Defaults to LLMR_WEB_HOST or 127.0.0.1.",
+    "  --port <port>    Management server port. Defaults to LLMR_WEB_PORT or 3458.",
     "  --open           Open the management page in the default browser.",
     "  --no-open        Do not open the management page (default).",
     "  --gateway        Start the configured model gateway (default).",
     "  --no-gateway     Start only the web management server.",
     "",
     "Environment:",
-    "  CCR_WEB_HOST        Default management server host.",
-    "  CCR_WEB_PORT        Default management server port.",
-    "  CCR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication."
+    "  LLMR_WEB_HOST        Default management server host.",
+    "  LLMR_WEB_PORT        Default management server port.",
+    "  LLMR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication."
   ].join("\n");
   const stream = exitCode === 0 ? process.stdout : process.stderr;
   stream.write(`${output}\n`);
@@ -718,7 +718,7 @@ function printWebHelp(exitCode: number): void {
 }
 
 function cliCommandName(): string {
-  const configured = process.env.CCR_CLI_COMMAND_NAME?.trim();
+  const configured = process.env.LLMR_CLI_COMMAND_NAME?.trim();
   return configured && /^[A-Za-z0-9._-]+$/.test(configured)
     ? configured
     : defaultCliCommandName;

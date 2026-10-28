@@ -6,11 +6,11 @@ import test from "node:test";
 import { loadModelCatalogPayload, modelCatalogPathCandidates, resolveModelCatalogPath } from "@llmr/core/models/catalog-file.ts";
 
 test("modelCatalogPathCandidates prefers env paths and removes duplicates", () => {
-  const previousCatalogPath = process.env.CCR_MODEL_CATALOG_PATH;
-  const previousModelsPath = process.env.CCR_MODELS_JSON_PATH;
+  const previousCatalogPath = process.env.LLMR_MODEL_CATALOG_PATH;
+  const previousModelsPath = process.env.LLMR_MODELS_JSON_PATH;
   try {
-    process.env.CCR_MODEL_CATALOG_PATH = "/tmp/ccr-models.json";
-    process.env.CCR_MODELS_JSON_PATH = "/tmp/ccr-models.json";
+    process.env.LLMR_MODEL_CATALOG_PATH = "/tmp/ccr-models.json";
+    process.env.LLMR_MODELS_JSON_PATH = "/tmp/ccr-models.json";
 
     const candidates = modelCatalogPathCandidates();
 
@@ -19,27 +19,27 @@ test("modelCatalogPathCandidates prefers env paths and removes duplicates", () =
     assert.ok(candidates.some((candidate) => candidate.endsWith("models.json")));
   } finally {
     if (previousCatalogPath === undefined) {
-      delete process.env.CCR_MODEL_CATALOG_PATH;
+      delete process.env.LLMR_MODEL_CATALOG_PATH;
     } else {
-      process.env.CCR_MODEL_CATALOG_PATH = previousCatalogPath;
+      process.env.LLMR_MODEL_CATALOG_PATH = previousCatalogPath;
     }
     if (previousModelsPath === undefined) {
-      delete process.env.CCR_MODELS_JSON_PATH;
+      delete process.env.LLMR_MODELS_JSON_PATH;
     } else {
-      process.env.CCR_MODELS_JSON_PATH = previousModelsPath;
+      process.env.LLMR_MODELS_JSON_PATH = previousModelsPath;
     }
   }
 });
 
 test("loadModelCatalogPayload reads the first configured existing catalog", () => {
-  const previousCatalogPath = process.env.CCR_MODEL_CATALOG_PATH;
-  const previousModelsPath = process.env.CCR_MODELS_JSON_PATH;
+  const previousCatalogPath = process.env.LLMR_MODEL_CATALOG_PATH;
+  const previousModelsPath = process.env.LLMR_MODELS_JSON_PATH;
   const dir = mkdtempSync(path.join(tmpdir(), "ccr-model-catalog-test-"));
   try {
     const catalogFile = path.join(dir, "models.json");
     writeFileSync(catalogFile, JSON.stringify({ models: [{ id: "test-model" }] }), "utf8");
-    process.env.CCR_MODEL_CATALOG_PATH = path.join(dir, "missing.json");
-    process.env.CCR_MODELS_JSON_PATH = catalogFile;
+    process.env.LLMR_MODEL_CATALOG_PATH = path.join(dir, "missing.json");
+    process.env.LLMR_MODELS_JSON_PATH = catalogFile;
 
     const loaded = loadModelCatalogPayload();
 
@@ -49,26 +49,26 @@ test("loadModelCatalogPayload reads the first configured existing catalog", () =
   } finally {
     rmSync(dir, { force: true, recursive: true });
     if (previousCatalogPath === undefined) {
-      delete process.env.CCR_MODEL_CATALOG_PATH;
+      delete process.env.LLMR_MODEL_CATALOG_PATH;
     } else {
-      process.env.CCR_MODEL_CATALOG_PATH = previousCatalogPath;
+      process.env.LLMR_MODEL_CATALOG_PATH = previousCatalogPath;
     }
     if (previousModelsPath === undefined) {
-      delete process.env.CCR_MODELS_JSON_PATH;
+      delete process.env.LLMR_MODELS_JSON_PATH;
     } else {
-      process.env.CCR_MODELS_JSON_PATH = previousModelsPath;
+      process.env.LLMR_MODELS_JSON_PATH = previousModelsPath;
     }
   }
 });
 
 test("a fresh offline install resolves the bundled catalog without a CDN cache", () => {
-  const keys = ["CCR_MODEL_CATALOG_PATH", "CCR_MODELS_JSON_PATH", "CCR_INTERNAL_USER_DATA_DIR"];
+  const keys = ["LLMR_MODEL_CATALOG_PATH", "LLMR_MODELS_JSON_PATH", "LLMR_INTERNAL_USER_DATA_DIR"];
   const previous = keys.map((key) => process.env[key]);
   const dir = mkdtempSync(path.join(tmpdir(), "ccr-catalog-offline-test-"));
   try {
-    delete process.env.CCR_MODEL_CATALOG_PATH;
-    delete process.env.CCR_MODELS_JSON_PATH;
-    process.env.CCR_INTERNAL_USER_DATA_DIR = dir;
+    delete process.env.LLMR_MODEL_CATALOG_PATH;
+    delete process.env.LLMR_MODELS_JSON_PATH;
+    process.env.LLMR_INTERNAL_USER_DATA_DIR = dir;
     const loaded = loadModelCatalogPayload();
     assert.ok(loaded);
     assert.notEqual(loaded.loadedFrom, path.join(dir, "cache", "models.json"));
@@ -86,7 +86,7 @@ test("CDN catalog refresh deduplicates requests, updates indexes and preserves c
   const { findModelCatalogEntry } = await import("@llmr/core/gateway/model-catalog.ts");
   const { getProviderCatalogModels } = await import("@llmr/core/providers/model-catalog.ts");
   const dir = mkdtempSync(path.join(tmpdir(), "ccr-cdn-catalog-test-"));
-  const keys = ["CCR_MODEL_CATALOG_PATH", "CCR_MODELS_JSON_PATH", "CCR_MODEL_CATALOG_URL", "CCR_INTERNAL_USER_DATA_DIR"];
+  const keys = ["LLMR_MODEL_CATALOG_PATH", "LLMR_MODELS_JSON_PATH", "LLMR_MODEL_CATALOG_URL", "LLMR_INTERNAL_USER_DATA_DIR"];
   const previous = keys.map((key) => process.env[key]);
   const originalFetch = globalThis.fetch;
   const originalNow = Date.now;
@@ -98,15 +98,15 @@ test("CDN catalog refresh deduplicates requests, updates indexes and preserves c
     sourceRecords: [{ provider: "cdn-test", model: id, modalities: { input: ["text"], output: ["text"] } }] });
   const payload = { schemaVersion: 2, models: [model("cdn-first")] };
   try {
-    delete process.env.CCR_MODEL_CATALOG_PATH;
-    delete process.env.CCR_MODELS_JSON_PATH;
-    process.env.CCR_INTERNAL_USER_DATA_DIR = dir;
-    process.env.CCR_MODEL_CATALOG_URL = "https://test.invalid/models.json";
+    delete process.env.LLMR_MODEL_CATALOG_PATH;
+    delete process.env.LLMR_MODELS_JSON_PATH;
+    process.env.LLMR_INTERNAL_USER_DATA_DIR = dir;
+    process.env.LLMR_MODEL_CATALOG_URL = "https://test.invalid/models.json";
     Date.now = () => time;
     console.warn = () => {};
     globalThis.fetch = async (url, options) => {
       calls += 1;
-      assert.equal(url, process.env.CCR_MODEL_CATALOG_URL);
+      assert.equal(url, process.env.LLMR_MODEL_CATALOG_URL);
       assert.ok(options.signal);
       return new Response(JSON.stringify(payload));
     };
@@ -147,8 +147,8 @@ test("CDN catalog refresh deduplicates requests, updates indexes and preserves c
     assert.equal(modelCatalogRefreshError(), undefined);
     assert.equal(modelCatalogRevision(), goodRevision + 1);
     assert.deepEqual(readdirSync(path.dirname(modelCatalogCachePath())), ["models.json"]);
-    process.env.CCR_MODEL_CATALOG_PATH = path.join(dir, "override.json");
-    writeFileSync(process.env.CCR_MODEL_CATALOG_PATH, JSON.stringify({ models: [{ id: "override" }] }));
+    process.env.LLMR_MODEL_CATALOG_PATH = path.join(dir, "override.json");
+    writeFileSync(process.env.LLMR_MODEL_CATALOG_PATH, JSON.stringify({ models: [{ id: "override" }] }));
     time += 60 * 60 * 1000 + 1;
     globalThis.fetch = async () => { assert.fail("Local overrides must not fetch CDN"); };
     await refreshModelCatalog();

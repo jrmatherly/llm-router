@@ -51,19 +51,19 @@ test("a tilde path follows the runtime home override, so an isolated run never t
 
 function withRuntimePathEnv(paths, run) {
   const previous = {
-    appData: process.env.CCR_INTERNAL_APP_DATA_DIR,
-    home: process.env.CCR_INTERNAL_HOME_DIR,
-    userData: process.env.CCR_INTERNAL_USER_DATA_DIR
+    appData: process.env.LLMR_INTERNAL_APP_DATA_DIR,
+    home: process.env.LLMR_INTERNAL_HOME_DIR,
+    userData: process.env.LLMR_INTERNAL_USER_DATA_DIR
   };
   try {
-    setOptionalEnv("CCR_INTERNAL_APP_DATA_DIR", paths.appData);
-    setOptionalEnv("CCR_INTERNAL_HOME_DIR", paths.home);
-    setOptionalEnv("CCR_INTERNAL_USER_DATA_DIR", paths.userData);
+    setOptionalEnv("LLMR_INTERNAL_APP_DATA_DIR", paths.appData);
+    setOptionalEnv("LLMR_INTERNAL_HOME_DIR", paths.home);
+    setOptionalEnv("LLMR_INTERNAL_USER_DATA_DIR", paths.userData);
     run();
   } finally {
-    setOptionalEnv("CCR_INTERNAL_APP_DATA_DIR", previous.appData);
-    setOptionalEnv("CCR_INTERNAL_HOME_DIR", previous.home);
-    setOptionalEnv("CCR_INTERNAL_USER_DATA_DIR", previous.userData);
+    setOptionalEnv("LLMR_INTERNAL_APP_DATA_DIR", previous.appData);
+    setOptionalEnv("LLMR_INTERNAL_HOME_DIR", previous.home);
+    setOptionalEnv("LLMR_INTERNAL_USER_DATA_DIR", previous.userData);
   }
 }
 

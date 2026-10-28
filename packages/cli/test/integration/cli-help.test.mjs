@@ -135,7 +135,7 @@ function runCli(args, { env = {} } = {}) {
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CLI_COMMAND_NAME: "",
+      LLMR_CLI_COMMAND_NAME: "",
       ...env
     }
   });

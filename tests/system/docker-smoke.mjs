@@ -8,8 +8,8 @@ import { prepareLocalGatewayPackage } from "../../build/docker-local-gateway.mjs
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..", "..");
-const imageName = process.env.CCR_DOCKER_TEST_IMAGE || "llm-router:local";
-const token = process.env.CCR_DOCKER_TEST_WEB_AUTH_TOKEN || "token+/&=#?";
+const imageName = process.env.LLMR_DOCKER_TEST_IMAGE || "llm-router:local";
+const token = process.env.LLMR_DOCKER_TEST_WEB_AUTH_TOKEN || "token+/&=#?";
 const testId = randomUUID().slice(0, 8);
 const containerName = `ccr-docker-smoke-${testId}`;
 const volumeName = `ccr-docker-smoke-${testId}`;
@@ -19,7 +19,7 @@ let containerStarted = false;
 let volumeCreated = false;
 
 try {
-  if (process.env.CCR_DOCKER_TEST_SKIP_BUILD !== "1") {
+  if (process.env.LLMR_DOCKER_TEST_SKIP_BUILD !== "1") {
     prepareLocalGatewayPackage();
     run("docker", ["build", "-t", imageName, "."], { cwd: projectRoot });
   }
@@ -37,11 +37,11 @@ try {
     "-p",
     `${hostPort}:8080`,
     "-e",
-    `CCR_WEB_AUTH_TOKEN=${token}`,
+    `LLMR_WEB_AUTH_TOKEN=${token}`,
     "-e",
-    "CCR_PUBLIC_HOST=127.0.0.1",
+    "LLMR_PUBLIC_HOST=127.0.0.1",
     "-e",
-    `CCR_PUBLIC_PORT=${hostPort}`,
+    `LLMR_PUBLIC_PORT=${hostPort}`,
     "-v",
     `${volumeName}:/data`,
     imageName

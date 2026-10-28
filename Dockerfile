@@ -28,14 +28,14 @@ RUN npm ci --omit=dev --workspace=@llm-router/core --include-workspace-root=fals
 
 FROM ${RUNTIME_NODE_IMAGE} AS runtime
 ENV NODE_ENV=production \
-    CCR_DATA_DIR=/data \
-    CCR_WEB_HOST=127.0.0.1 \
-    CCR_WEB_PORT=3459 \
-    CCR_NGINX_PORT=8080 \
-    CCR_GATEWAY_HOST=127.0.0.1 \
-    CCR_GATEWAY_PORT=3456 \
-    CCR_PUBLIC_HOST=127.0.0.1 \
-    CCR_PUBLIC_PORT=3458
+    LLMR_DATA_DIR=/data \
+    LLMR_WEB_HOST=127.0.0.1 \
+    LLMR_WEB_PORT=3459 \
+    LLMR_NGINX_PORT=8080 \
+    LLMR_GATEWAY_HOST=127.0.0.1 \
+    LLMR_GATEWAY_PORT=3456 \
+    LLMR_PUBLIC_HOST=127.0.0.1 \
+    LLMR_PUBLIC_PORT=3458
 
 WORKDIR /app
 
@@ -80,6 +80,6 @@ EXPOSE 8080
 
 # A gateway with no models answers /health with 502, so health is nginx plus the management server.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --start-interval=2s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:' + (process.env.CCR_NGINX_PORT || '8080') + '/api/llmr/rpc', { body: '{}', headers: { 'content-type': 'application/json' }, method: 'POST' }).then((r) => process.exit([200, 401].includes(r.status) ? 0 : 1)).catch(() => process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:' + (process.env.LLMR_NGINX_PORT || '8080') + '/api/llmr/rpc', { body: '{}', headers: { 'content-type': 'application/json' }, method: 'POST' }).then((r) => process.exit([200, 401].includes(r.status) ? 0 : 1)).catch(() => process.exit(1))"
 
 ENTRYPOINT ["ccr-docker-entrypoint"]

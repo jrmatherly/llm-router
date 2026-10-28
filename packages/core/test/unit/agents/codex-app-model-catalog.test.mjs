@@ -19,27 +19,27 @@ test("ChatGPT app launch shares explicit or default Codex login when available",
   const defaultAuthDir = path.join(root, ".codex");
   const defaultAuthFile = path.join(defaultAuthDir, "auth.json");
   const authFile = path.join(root, "auth.json");
-  const previousCcr = process.env.CCR_CODEX_CHATGPT_AUTH_FILE;
+  const previousCcr = process.env.LLMR_CODEX_CHATGPT_AUTH_FILE;
   const previousCodexl = process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE;
   try {
     writeFileSync(authFile, JSON.stringify({ auth_mode: "chatgpt", tokens: { access_token: "token" } }));
     mkdirSync(defaultAuthDir, { recursive: true });
     writeFileSync(defaultAuthFile, JSON.stringify({ auth_mode: "chatgpt", tokens: { access_token: "default-token" } }));
-    delete process.env.CCR_CODEX_CHATGPT_AUTH_FILE;
+    delete process.env.LLMR_CODEX_CHATGPT_AUTH_FILE;
     delete process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE;
     assert.deepEqual(codexSharedChatGptAuthEnvForTest(root), {
-      CCR_CODEX_CHATGPT_AUTH_FILE: defaultAuthFile,
+      LLMR_CODEX_CHATGPT_AUTH_FILE: defaultAuthFile,
       CODEXL_CODEX_CHATGPT_AUTH_FILE: defaultAuthFile
     });
 
-    process.env.CCR_CODEX_CHATGPT_AUTH_FILE = authFile;
+    process.env.LLMR_CODEX_CHATGPT_AUTH_FILE = authFile;
     assert.deepEqual(codexSharedChatGptAuthEnvForTest(root), {
-      CCR_CODEX_CHATGPT_AUTH_FILE: authFile,
+      LLMR_CODEX_CHATGPT_AUTH_FILE: authFile,
       CODEXL_CODEX_CHATGPT_AUTH_FILE: authFile
     });
   } finally {
-    if (previousCcr === undefined) delete process.env.CCR_CODEX_CHATGPT_AUTH_FILE;
-    else process.env.CCR_CODEX_CHATGPT_AUTH_FILE = previousCcr;
+    if (previousCcr === undefined) delete process.env.LLMR_CODEX_CHATGPT_AUTH_FILE;
+    else process.env.LLMR_CODEX_CHATGPT_AUTH_FILE = previousCcr;
     if (previousCodexl === undefined) delete process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE;
     else process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE = previousCodexl;
     rmSync(root, { force: true, recursive: true });
@@ -388,7 +388,7 @@ test("WorkBuddy AI app profile writes the virtual desktop auth session", () => {
     assert.equal(modelsConfig.models[0].id, "Codex API/gpt-5-codex");
     assert.equal(modelsConfig.models[0].vendor, "Codex API");
     assert.equal(modelsConfig.models[0].url, "http://127.0.0.1:48765/v1");
-    assert.equal(modelsConfig.models[0].apiKey, "${CCR_PROFILE_API_KEY}");
+    assert.equal(modelsConfig.models[0].apiKey, "${LLMR_PROFILE_API_KEY}");
     assert.equal(modelsConfig.models[0].supportsToolCall, true);
     assert.equal(modelsConfig.models[0].supportsReasoning, true);
     assert.equal(modelsConfig.models[0].maxInputTokens, 272_000);
@@ -528,7 +528,7 @@ test("isManagedWorkbuddyModelsContent recognizes only the models.json LLMR write
     const result = writeWorkbuddyModelsConfig(dir, workbuddyModelsProfile("ccr"));
     assert.equal(isManagedWorkbuddyModelsContent(readFileSync(result.file, "utf8")), true);
     assert.equal(isManagedWorkbuddyModelsContent(JSON.stringify({ models: [{ apiKey: "sk-user", id: "mine" }] })), false);
-    assert.equal(isManagedWorkbuddyModelsContent(JSON.stringify({ models: [{ apiKey: "${CCR_PROFILE_API_KEY}" }, { apiKey: "sk-user" }] })), false);
+    assert.equal(isManagedWorkbuddyModelsContent(JSON.stringify({ models: [{ apiKey: "${LLMR_PROFILE_API_KEY}" }, { apiKey: "sk-user" }] })), false);
     assert.equal(isManagedWorkbuddyModelsContent(JSON.stringify({ models: [] })), false);
     assert.equal(isManagedWorkbuddyModelsContent("{not json"), false);
   } finally {

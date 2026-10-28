@@ -151,7 +151,7 @@ export function withOpenCodePublicFreeTierTools(body: unknown, upstreamUrl: stri
 }
 
 export function openCodePublicFreeTierUserAgent(): string {
-  const override = process.env.CCR_OPENCODE_USER_AGENT?.trim();
+  const override = process.env.LLMR_OPENCODE_USER_AGENT?.trim();
   if (override) {
     return override;
   }

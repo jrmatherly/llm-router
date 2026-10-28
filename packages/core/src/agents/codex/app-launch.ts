@@ -75,7 +75,7 @@ export type WorkbuddyVirtualAuthResult = {
 export const codexDesktopAppName = "ChatGPT";
 export const workbuddyDesktopAppName = "WorkBuddy AI";
 
-const workbuddyModelApiKeyPlaceholder = "${CCR_PROFILE_API_KEY}";
+const workbuddyModelApiKeyPlaceholder = "${LLMR_PROFILE_API_KEY}";
 const workbuddyVirtualAuthId = "workbuddy-desktop-ai";
 const workbuddyVirtualAuthUserId = "ccr-local-profile";
 const workbuddyVirtualAuthToken = "ccr-local-profile";
@@ -85,7 +85,7 @@ const codexAppSpec: CodexCompatibleAppSpec = {
   bundledCliNames: ["codex", "Codex", "OpenAI Codex"],
   defaultCliCommand: "codex",
   displayName: codexDesktopAppName,
-  envPathKeys: ["CCR_CHATGPT_APP_PATH", "CHATGPT_APP_PATH", "CODEXL_CHATGPT_PATH", "CCR_CODEX_APP_PATH", "CODEX_APP_PATH", "CODEXL_CODEX_PATH"],
+  envPathKeys: ["LLMR_CHATGPT_APP_PATH", "CHATGPT_APP_PATH", "CODEXL_CHATGPT_PATH", "LLMR_CODEX_APP_PATH", "CODEX_APP_PATH", "CODEXL_CODEX_PATH"],
   kind: "codex",
   linuxCandidates: [
     "/opt/ChatGPT/chatgpt",
@@ -145,7 +145,7 @@ const zcodeAppSpec: CodexCompatibleAppSpec = {
   bundledCliNames: ["glm/zcode.cjs", "zcode", "ZCode", "Z Code", "z-code", "zai-code", "codex", "Codex"],
   defaultCliCommand: "zcode",
   displayName: "ZCode App",
-  envPathKeys: ["CCR_ZCODE_APP_PATH", "ZCODE_APP_PATH", "CODEXL_ZCODE_PATH"],
+  envPathKeys: ["LLMR_ZCODE_APP_PATH", "ZCODE_APP_PATH", "CODEXL_ZCODE_PATH"],
   kind: "zcode",
   linuxCandidates: [
     "/opt/ZCode/zcode",
@@ -197,7 +197,7 @@ const workbuddyAppSpec: CodexCompatibleAppSpec = {
   ],
   defaultCliCommand: "codebuddy",
   displayName: workbuddyDesktopAppName,
-  envPathKeys: ["CCR_WORKBUDDY_APP_PATH", "WORKBUDDY_APP_PATH", "CODEXL_WORKBUDDY_PATH"],
+  envPathKeys: ["LLMR_WORKBUDDY_APP_PATH", "WORKBUDDY_APP_PATH", "CODEXL_WORKBUDDY_PATH"],
   kind: "workbuddy",
   linuxCandidates: [
     "/opt/WorkBuddy AI/workbuddy-ai",
@@ -429,7 +429,7 @@ function workbuddyModelVendor(model: string, providerName?: string): string {
 
 function workbuddyGatewayBaseUrl(config?: Pick<AppConfig, "gateway">): string {
   if (!config?.gateway) {
-    return "${CCR_WORKBUDDY_GATEWAY_BASE_URL}";
+    return "${LLMR_WORKBUDDY_GATEWAY_BASE_URL}";
   }
   const host = config.gateway.host === "0.0.0.0" || config.gateway.host === "::"
     ? "127.0.0.1"
@@ -613,7 +613,7 @@ async function launchCodexCompatibleAppProfile(
     ...(config ? botGatewayProfileEnv(config, profile, "app") : {}),
     ...codexProfileEnv(profile, lookup.executable, spec),
     CODEXL_PROFILE_SURFACE: "app",
-    CCR_PROFILE_SURFACE: "app",
+    LLMR_PROFILE_SURFACE: "app",
     ...codexAppAgentEnv(spec, plan.command, codexHome, userDataDir, modelCatalogFile, workbuddyVirtualAuth),
     ...codexCompatibleAppGatewayEnv(spec, config),
     ...codexAppNetResponderEnv(spec.kind, netResponderPort),
@@ -624,9 +624,9 @@ async function launchCodexCompatibleAppProfile(
     ...appEnv
   };
   delete env.ELECTRON_RUN_AS_NODE;
-  delete env.CCR_CODEX_MODEL_CATALOG_B64;
+  delete env.LLMR_CODEX_MODEL_CATALOG_B64;
   delete env.CODEXL_CODEX_MODEL_CATALOG_B64;
-  delete env.CCR_ZCODE_MODEL_CATALOG_B64;
+  delete env.LLMR_ZCODE_MODEL_CATALOG_B64;
   delete env.CODEXL_ZCODE_MODEL_CATALOG_B64;
   sanitizeCodexCompatibleAppEnv(env, spec.kind);
 
@@ -655,8 +655,8 @@ function codexCompatibleAppGatewayEnv(spec: CodexCompatibleAppSpec, config?: App
   const baseUrl = workbuddyGatewayBaseUrl(config);
   const apiKey = config.APIKEY?.trim() || "";
   return {
-    ...(apiKey ? { CCR_PROFILE_API_KEY: apiKey, CODEXL_PROFILE_API_KEY: apiKey } : {}),
-    CCR_WORKBUDDY_GATEWAY_BASE_URL: baseUrl,
+    ...(apiKey ? { LLMR_PROFILE_API_KEY: apiKey, CODEXL_PROFILE_API_KEY: apiKey } : {}),
+    LLMR_WORKBUDDY_GATEWAY_BASE_URL: baseUrl,
     CODEXL_WORKBUDDY_GATEWAY_BASE_URL: baseUrl
   };
 }
@@ -667,11 +667,11 @@ function codexProfileEnv(profile: ProfileConfig, appExecutable: string, spec: Co
   const remoteFrontendMode = normalizeCodexRemoteFrontendMode(profile.remoteFrontendMode);
   if (spec.kind === "zcode") {
     return {
-      ...(profile.model.trim() ? { CCR_ZCODE_MODEL: profile.model.trim() } : {}),
-      CCR_ZCODE_MODEL_PROVIDER: providerId,
-      CCR_ZCODE_PROFILE: providerId,
-      CCR_ZCODE_REMOTE_FRONTEND_MODE: remoteFrontendMode,
-      CCR_REAL_ZCODE_CLI_PATH: realCliPath,
+      ...(profile.model.trim() ? { LLMR_ZCODE_MODEL: profile.model.trim() } : {}),
+      LLMR_ZCODE_MODEL_PROVIDER: providerId,
+      LLMR_ZCODE_PROFILE: providerId,
+      LLMR_ZCODE_REMOTE_FRONTEND_MODE: remoteFrontendMode,
+      LLMR_REAL_ZCODE_CLI_PATH: realCliPath,
       CODEXL_REAL_ZCODE_CLI_PATH: realCliPath,
       CODEXL_ZCODE_CORE_MODE: remoteFrontendMode,
       CODEXL_ZCODE_MODEL_PROVIDER: providerId,
@@ -680,16 +680,16 @@ function codexProfileEnv(profile: ProfileConfig, appExecutable: string, spec: Co
     };
   }
   const codexEnv = {
-    ...(profile.model.trim() ? { CCR_CODEX_MODEL: profile.model.trim() } : {}),
-    ...(process.env.CCR_CODEX_CLI_MIDDLEWARE_LOG?.trim()
-      ? { CCR_CODEX_CLI_MIDDLEWARE_LOG: process.env.CCR_CODEX_CLI_MIDDLEWARE_LOG.trim() }
+    ...(profile.model.trim() ? { LLMR_CODEX_MODEL: profile.model.trim() } : {}),
+    ...(process.env.LLMR_CODEX_CLI_MIDDLEWARE_LOG?.trim()
+      ? { LLMR_CODEX_CLI_MIDDLEWARE_LOG: process.env.LLMR_CODEX_CLI_MIDDLEWARE_LOG.trim() }
       : {}),
     ...codexSharedChatGptAuthEnv(),
-    CCR_CODEX_MODEL_PROVIDER: providerId,
-    CCR_CODEX_PROFILE: providerId,
-    CCR_CODEX_REMOTE_FRONTEND_MODE: remoteFrontendMode,
-    CCR_BUNDLED_CODEX_CLI_PATH: realCliPath,
-    CCR_REAL_CODEX_CLI_PATH: realCliPath,
+    LLMR_CODEX_MODEL_PROVIDER: providerId,
+    LLMR_CODEX_PROFILE: providerId,
+    LLMR_CODEX_REMOTE_FRONTEND_MODE: remoteFrontendMode,
+    LLMR_BUNDLED_CODEX_CLI_PATH: realCliPath,
+    LLMR_REAL_CODEX_CLI_PATH: realCliPath,
     CODEXL_BUNDLED_CODEX_CLI_PATH: realCliPath,
     CODEXL_CODEX_CORE_MODE: remoteFrontendMode,
     CODEXL_CODEX_MODEL_PROVIDER: providerId,
@@ -702,11 +702,11 @@ function codexProfileEnv(profile: ProfileConfig, appExecutable: string, spec: Co
   }
   return {
     ...codexEnv,
-    ...(profile.model.trim() ? { CCR_WORKBUDDY_MODEL: profile.model.trim() } : {}),
-    CCR_REAL_WORKBUDDY_CLI_PATH: realCliPath,
-    CCR_WORKBUDDY_MODEL_PROVIDER: providerId,
-    CCR_WORKBUDDY_PROFILE: providerId,
-    CCR_WORKBUDDY_REMOTE_FRONTEND_MODE: remoteFrontendMode,
+    ...(profile.model.trim() ? { LLMR_WORKBUDDY_MODEL: profile.model.trim() } : {}),
+    LLMR_REAL_WORKBUDDY_CLI_PATH: realCliPath,
+    LLMR_WORKBUDDY_MODEL_PROVIDER: providerId,
+    LLMR_WORKBUDDY_PROFILE: providerId,
+    LLMR_WORKBUDDY_REMOTE_FRONTEND_MODE: remoteFrontendMode,
     CODEXL_REAL_WORKBUDDY_CLI_PATH: realCliPath,
     CODEXL_WORKBUDDY_CORE_MODE: remoteFrontendMode,
     CODEXL_WORKBUDDY_MODEL_PROVIDER: providerId,
@@ -721,14 +721,14 @@ function codexSharedChatGptAuthEnv(homeDir = os.homedir()): Record<string, strin
     return {};
   }
   return {
-    CCR_CODEX_CHATGPT_AUTH_FILE: authFile,
+    LLMR_CODEX_CHATGPT_AUTH_FILE: authFile,
     CODEXL_CODEX_CHATGPT_AUTH_FILE: authFile
   };
 }
 
 function codexSharedChatGptAuthFile(homeDir: string): string | undefined {
   for (const configured of [
-    process.env.CCR_CODEX_CHATGPT_AUTH_FILE,
+    process.env.LLMR_CODEX_CHATGPT_AUTH_FILE,
     process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE
   ]) {
     const resolved = configured?.trim() ? resolveUserPath(configured) : "";
@@ -796,7 +796,7 @@ function codexAppAgentEnv(
 ): Record<string, string> {
   if (spec.kind === "zcode") {
     return {
-        CCR_ZCODE_MODEL_CATALOG_FILE: modelCatalogFile,
+        LLMR_ZCODE_MODEL_CATALOG_FILE: modelCatalogFile,
         CODEXL_ZCODE_MODEL_CATALOG_FILE: modelCatalogFile,
         ZCODE_CLI_PATH: launcher,
         ZCODE_ELECTRON_USER_DATA_PATH: userDataDir,
@@ -805,7 +805,7 @@ function codexAppAgentEnv(
       };
   }
   const codexEnv = {
-    CCR_CODEX_MODEL_CATALOG_FILE: modelCatalogFile,
+    LLMR_CODEX_MODEL_CATALOG_FILE: modelCatalogFile,
     CODEX_CLI_PATH: launcher,
     CODEX_ELECTRON_USER_DATA_PATH: userDataDir,
     CODEX_HOME: home,
@@ -816,7 +816,7 @@ function codexAppAgentEnv(
   }
   return {
     ...codexEnv,
-    CCR_WORKBUDDY_MODEL_CATALOG_FILE: modelCatalogFile,
+    LLMR_WORKBUDDY_MODEL_CATALOG_FILE: modelCatalogFile,
     ...(workbuddyVirtualAuth ? workbuddyVirtualAuthEnv(workbuddyVirtualAuth) : {}),
     CODEBUDDY_CLI_PATH: launcher,
     CODEBUDDY_CONFIG_DIR: home,
@@ -888,7 +888,7 @@ function workbuddyVirtualAuthAccount(profile: Pick<ProfileConfig, "id" | "name">
 function workbuddyVirtualAuthEnv(result: WorkbuddyVirtualAuthResult): Record<string, string> {
   return {
     APPDATA: path.join(result.homeDir, "AppData", "Roaming"),
-    CCR_WORKBUDDY_VIRTUAL_AUTH_FILE: result.authFile,
+    LLMR_WORKBUDDY_VIRTUAL_AUTH_FILE: result.authFile,
     CODEXL_WORKBUDDY_VIRTUAL_AUTH_FILE: result.authFile,
     HOME: result.homeDir,
     LOCALAPPDATA: path.join(result.homeDir, "AppData", "Local"),
@@ -917,10 +917,10 @@ function workbuddySharedAuthDir(homeDir: string): string {
 
 function sanitizeCodexCompatibleAppEnv(env: NodeJS.ProcessEnv, kind: CodexCompatibleAppKind): void {
   const blockedPrefixes = kind === "zcode"
-    ? ["CCR_CODEX_", "CODEXL_CODEX_", "CCR_WORKBUDDY_", "CODEXL_WORKBUDDY_"]
+    ? ["LLMR_CODEX_", "CODEXL_CODEX_", "LLMR_WORKBUDDY_", "CODEXL_WORKBUDDY_"]
     : kind === "workbuddy"
-      ? ["CCR_ZCODE_", "CODEXL_ZCODE_"]
-      : ["CCR_ZCODE_", "CODEXL_ZCODE_", "CCR_WORKBUDDY_", "CODEXL_WORKBUDDY_"];
+      ? ["LLMR_ZCODE_", "CODEXL_ZCODE_"]
+      : ["LLMR_ZCODE_", "CODEXL_ZCODE_", "LLMR_WORKBUDDY_", "CODEXL_WORKBUDDY_"];
   for (const key of Object.keys(env)) {
     if (blockedPrefixes.some((prefix) => key.startsWith(prefix))) {
       delete env[key];
@@ -1007,9 +1007,9 @@ function codexAppLaunchCommand(executable: string, userDataDir: string): { args:
 
 function codexAppNetResponderDisabled(): boolean {
   const disabled = (value: string | undefined) => value !== undefined && value !== "" && value !== "0" && value !== "false";
-  return disabled(process.env.CCR_CODEX_APP_NET_RESPONDER_DISABLE) ||
+  return disabled(process.env.LLMR_CODEX_APP_NET_RESPONDER_DISABLE) ||
     disabled(process.env.CODEXL_CODEX_APP_NET_RESPONDER_DISABLE) ||
-    disabled(process.env.CCR_CODEX_APP_INSPECTOR_DISABLE) ||
+    disabled(process.env.LLMR_CODEX_APP_INSPECTOR_DISABLE) ||
     disabled(process.env.CODEXL_CODEX_APP_INSPECTOR_DISABLE);
 }
 

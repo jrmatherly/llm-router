@@ -95,8 +95,8 @@ test("OpenCode local provider imports Zen models using each model's native proto
     assert.equal(result.provider.account, undefined);
     assert.equal(result.providerPlugins.length, 2);
     assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer opencode-zen-key");
-    assert.equal(result.providerPlugins[0].key, "ccr-local-agent-__CCR_PROVIDER_NAME_SLUG__-opencode-openai-responses-api-key");
-    assert.equal(result.providerPlugins[1].providerName, "__CCR_PROVIDER_INTERNAL_NAME__");
+    assert.equal(result.providerPlugins[0].key, "ccr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-opencode-openai-responses-api-key");
+    assert.equal(result.providerPlugins[1].providerName, "__LLMR_PROVIDER_INTERNAL_NAME__");
 
     const anthropicResult = importOpenCodeProvider(anthropic, []);
     assert.equal(anthropicResult.providerPlugins[0].auth.headers["x-api-key"], "opencode-zen-key");
@@ -250,14 +250,14 @@ test("OpenCode Go credentials without usable models are reported as locked and a
 
 test("OpenCode Go can be discovered from configured provider metadata", async () => {
   await withOpenCodeHome(async (home) => {
-    process.env.CCR_OPENCODE_GO_TEST_KEY = "configured-go-key";
+    process.env.LLMR_OPENCODE_GO_TEST_KEY = "configured-go-key";
     writeOpenCodeConfig(home, `{
       "model": "opencode-go/go-configured",
       "provider": {
         "opencode-go": {
           "name": "Configured OpenCode Go",
           "options": {
-            "apiKey": "{env:CCR_OPENCODE_GO_TEST_KEY}"
+            "apiKey": "{env:LLMR_OPENCODE_GO_TEST_KEY}"
           },
           "models": {
             "go-configured": {
@@ -318,11 +318,11 @@ test("OpenCode Go accepts the shared catalog API key with a Go-specific override
 
 test("OpenCode local provider resolves API keys from OpenCode JSONC config", async () => {
   await withOpenCodeHome(async (home) => {
-    process.env.CCR_OPENCODE_TEST_KEY = "configured-opencode-key";
+    process.env.LLMR_OPENCODE_TEST_KEY = "configured-opencode-key";
     writeOpenCodeConfig(home, `{
       "provider": {
         "opencode": {
-          "options": { "apiKey": "{env:CCR_OPENCODE_TEST_KEY}" },
+          "options": { "apiKey": "{env:LLMR_OPENCODE_TEST_KEY}" },
         },
       },
     }`);
@@ -547,21 +547,21 @@ function assertPublicFreeTierPlugins(providerPlugins) {
   assert.deepEqual(
     providerPlugins.map((plugin) => plugin.key),
     [
-      "ccr-local-agent-__CCR_PROVIDER_NAME_SLUG__-opencode-public-freetier",
-      "ccr-local-agent-__CCR_PROVIDER_NAME_SLUG__-opencode-public-freetier-internal"
+      "ccr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-opencode-public-freetier",
+      "ccr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-opencode-public-freetier-internal"
     ]
   );
   assert.deepEqual(
     providerPlugins.map((plugin) => plugin.providerName),
-    ["__CCR_PROVIDER_NAME__", "__CCR_PROVIDER_INTERNAL_NAME__"]
+    ["__LLMR_PROVIDER_NAME__", "__LLMR_PROVIDER_INTERNAL_NAME__"]
   );
 }
 
 async function withOpenCodeHome(run) {
   const environmentNames = [
-    "CCR_INTERNAL_HOME_DIR",
-    "CCR_OPENCODE_GO_TEST_KEY",
-    "CCR_OPENCODE_TEST_KEY",
+    "LLMR_INTERNAL_HOME_DIR",
+    "LLMR_OPENCODE_GO_TEST_KEY",
+    "LLMR_OPENCODE_TEST_KEY",
     "OPENCODE_API_KEY",
     "OPENCODE_GO_API_KEY",
     "OPENCODE_AUTH_CONTENT",
@@ -570,7 +570,7 @@ async function withOpenCodeHome(run) {
   ];
   const previousEnvironment = Object.fromEntries(environmentNames.map((name) => [name, process.env[name]]));
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-test-"));
-  process.env.CCR_INTERNAL_HOME_DIR = home;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
   for (const name of environmentNames.slice(1)) {
     delete process.env[name];
   }

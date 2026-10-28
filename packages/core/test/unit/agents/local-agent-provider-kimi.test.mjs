@@ -62,7 +62,7 @@ default_effort = "max"
     assert.equal(result.providerPlugins[0].request.headers["User-Agent"], "kimi-code-cli/0.27.0-test");
     assert.equal(result.providerPlugins[0].request.headers["X-Msh-Platform"], "kimi_code_cli");
     assert.ok(result.providerPlugins[0].request.headers["X-Msh-Device-Id"]);
-    assert.equal(result.providerPlugins[1].providerName, "__CCR_PROVIDER_INTERNAL_NAME__");
+    assert.equal(result.providerPlugins[1].providerName, "__LLMR_PROVIDER_INTERNAL_NAME__");
   });
 });
 

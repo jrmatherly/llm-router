@@ -3,10 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import test, { before } from "node:test";
 
-const root = path.join(process.env.CCR_INTERNAL_HOME_DIR || os.tmpdir(), `credential-writes-${process.pid}`);
-process.env.CCR_INTERNAL_HOME_DIR = path.join(root, "home");
-process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(root, "app-data");
-process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(root, "user-data");
+const root = path.join(process.env.LLMR_INTERNAL_HOME_DIR || os.tmpdir(), `credential-writes-${process.pid}`);
+process.env.LLMR_INTERNAL_HOME_DIR = path.join(root, "home");
+process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(root, "app-data");
+process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(root, "user-data");
 
 let configApi;
 before(async () => {

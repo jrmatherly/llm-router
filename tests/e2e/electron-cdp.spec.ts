@@ -235,7 +235,7 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
   expect(workbuddyModels.availableModels).toEqual(["Workbuddy E2E Provider/gpt-5-codex"]);
   expect(workbuddyModels.models).toHaveLength(1);
   expect(workbuddyModels.models[0]).toMatchObject({
-    apiKey: "${CCR_PROFILE_API_KEY}",
+    apiKey: "${LLMR_PROFILE_API_KEY}",
     id: "Workbuddy E2E Provider/gpt-5-codex",
     supportsToolCall: true,
     tags: ["chat", "custom"],
@@ -248,7 +248,7 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
   expect(launcher).toContain("WORKBUDDY_HOME");
   expect(launcher).toContain("WORKBUDDY_CONFIG_DIR");
   expect(launcher).toContain("CODEBUDDY_CONFIG_DIR");
-  expect(launcher).toContain("CCR_REAL_CODEX_CLI_PATH");
+  expect(launcher).toContain("LLMR_REAL_CODEX_CLI_PATH");
   expect(launcher).toContain("codebuddy");
 
   const virtualAuthFile = workbuddyVirtualAuthFile(profileHome);
@@ -289,10 +289,10 @@ async function startElectronOverCdp(): Promise<ElectronCdpRuntime> {
       cwd: projectRoot,
       env: {
         ...process.env,
-        CCR_INTERNAL_APP_DATA_DIR: path.join(testHome, "app-data"),
-        CCR_INTERNAL_HOME_DIR: testHome,
-        CCR_INTERNAL_USER_DATA_DIR: path.join(testHome, "user-data"),
-        CCR_MODEL_CATALOG_PATH: path.join(projectRoot, "packages", "core", "models.json"),
+        LLMR_INTERNAL_APP_DATA_DIR: path.join(testHome, "app-data"),
+        LLMR_INTERNAL_HOME_DIR: testHome,
+        LLMR_INTERNAL_USER_DATA_DIR: path.join(testHome, "user-data"),
+        LLMR_MODEL_CATALOG_PATH: path.join(projectRoot, "packages", "core", "models.json"),
         ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
         HOME: testHome,
         NODE_ENV: "test"
@@ -378,7 +378,7 @@ function writeElectronE2eConfig(
 function createLegacyApiKeyDatabase(file: string): void {
   runSqliteHelper(`
     const Database = require("better-sqlite3");
-    const database = new Database(process.env.CCR_E2E_SQLITE_FILE);
+    const database = new Database(process.env.LLMR_E2E_SQLITE_FILE);
     database.exec(\`
       CREATE TABLE api_keys (
         id TEXT PRIMARY KEY,
@@ -418,8 +418,8 @@ function readGatewayRuntimeMarker(file: string): Record<string, unknown> | undef
 function readSqliteRows<Row>(file: string, query: string): Row[] {
   const output = runSqliteHelper(`
     const Database = require("better-sqlite3");
-    const database = new Database(process.env.CCR_E2E_SQLITE_FILE, { readonly: true });
-    const rows = database.prepare(process.env.CCR_E2E_SQLITE_QUERY).all();
+    const database = new Database(process.env.LLMR_E2E_SQLITE_FILE, { readonly: true });
+    const rows = database.prepare(process.env.LLMR_E2E_SQLITE_QUERY).all();
     database.close();
     process.stdout.write(JSON.stringify(rows));
   `, file, query);
@@ -442,8 +442,8 @@ function runSqliteHelper(script: string, file: string, query = ""): string {
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_E2E_SQLITE_FILE: file,
-      CCR_E2E_SQLITE_QUERY: query
+      LLMR_E2E_SQLITE_FILE: file,
+      LLMR_E2E_SQLITE_QUERY: query
     }
   });
   if (result.status !== 0) {

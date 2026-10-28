@@ -257,13 +257,13 @@ curl http://127.0.0.1:3456/plugins/hello
 If the route uses the default `auth: "gateway"` and LLMR has API keys configured:
 
 ```bash
-curl -H "Authorization: Bearer <CCR_API_KEY>" http://127.0.0.1:3456/plugins/hello
+curl -H "Authorization: Bearer <LLMR_API_KEY>" http://127.0.0.1:3456/plugins/hello
 ```
 
 You can also use:
 
 ```bash
-curl -H "x-api-key: <CCR_API_KEY>" http://127.0.0.1:3456/plugins/hello
+curl -H "x-api-key: <LLMR_API_KEY>" http://127.0.0.1:3456/plugins/hello
 ```
 
 ### 4. Verify the HTTP backend and proxy route
@@ -327,7 +327,7 @@ For `marketplace/plugins.json`, a provider usage connector entry can be:
 
 Catalogs and modules require HTTPS. Relative module paths resolve against the catalog URL. Modules must be `.cjs`, `.mjs`, or `.js` files with dependencies bundled: the downloader fetches one file without installing npm packages or neighboring files. Distribute multi-file extensions as a local directory instead. Prefer an `integrity` field containing the module's actual 64-character hexadecimal SHA-256 or `sha256-<base64>` digest; update it whenever the module changes. Compute it with `shasum -a 256 index.cjs`.
 
-`dependencies` lists plugin IDs or objects with `id`, `module`, `integrity`, `permissions`, and `surfaces`; these are plugin dependencies, not npm packages. `apps` contains entries such as `{ "id": "status", "name": "Status", "url": "/plugins/status" }`; app-only entries can omit `module`. `capabilities` is a string array. Set `CCR_PLUGIN_MARKETPLACE_URL` before starting LLMR to use your own HTTPS catalog.
+`dependencies` lists plugin IDs or objects with `id`, `module`, `integrity`, `permissions`, and `surfaces`; these are plugin dependencies, not npm packages. `apps` contains entries such as `{ "id": "status", "name": "Status", "url": "/plugins/status" }`; app-only entries can omit `module`. `capabilities` is a string array. Set `LLMR_PLUGIN_MARKETPLACE_URL` before starting LLMR to use your own HTTPS catalog.
 
 ### External CLIs in desktop plugins
 

@@ -35,11 +35,11 @@ npm run docker:compose:up
 docker compose logs -f ccr
 ```
 
-Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `CCR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a new volume, the management UI is immediately available. Add a provider and model, create an LLMR client key under **API Keys**, and start the gateway from **Server**.
+Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `LLMR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a new volume, the management UI is immediately available. Add a provider and model, create an LLMR client key under **API Keys**, and start the gateway from **Server**.
 
 The npm Compose script prepares a local `../../next-ai/gateway` checkout before building so the image uses that plugin-capable ai-gateway runtime. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
-The repository Compose file publishes `127.0.0.1:3458:8080`, stores data in the `ccr-data` named volume, and restarts the service unless explicitly stopped. Only this machine can reach it. Nginx forwards every request to the management server as a loopback request, so the published port is the only network boundary in front of management RPC besides `CCR_WEB_AUTH_TOKEN`. To expose it on a LAN deliberately, set a stable strong `CCR_WEB_AUTH_TOKEN` (32 characters or more) and `CCR_PUBLIC_BASE_URL`, then publish on a specific host address, or on every interface:
+The repository Compose file publishes `127.0.0.1:3458:8080`, stores data in the `ccr-data` named volume, and restarts the service unless explicitly stopped. Only this machine can reach it. Nginx forwards every request to the management server as a loopback request, so the published port is the only network boundary in front of management RPC besides `LLMR_WEB_AUTH_TOKEN`. To expose it on a LAN deliberately, set a stable strong `LLMR_WEB_AUTH_TOKEN` (32 characters or more) and `LLMR_PUBLIC_BASE_URL`, then publish on a specific host address, or on every interface:
 
 ```yaml
 ports:
@@ -65,7 +65,7 @@ docker run -d \
   --name llm-router \
   --restart unless-stopped \
   -p 127.0.0.1:3458:8080 \
-  -e CCR_PUBLIC_BASE_URL=http://127.0.0.1:3458 \
+  -e LLMR_PUBLIC_BASE_URL=http://127.0.0.1:3458 \
   -v ccr-data:/data \
   llm-router:local
 ```
@@ -82,16 +82,16 @@ npm run docker:run
 
 There are two independent authentication layers:
 
-1. `CCR_WEB_AUTH_TOKEN` protects management RPC. You open the management page with it in the URL (`/?llmr_web_token=<token>`), and the browser sends it to RPC as `x-llmr-web-auth`. Nginx never sends it to a client.
+1. `LLMR_WEB_AUTH_TOKEN` protects management RPC. You open the management page with it in the URL (`/?llmr_web_token=<token>`), and the browser sends it to RPC as `x-llmr-web-auth`. Nginx never sends it to a client.
 2. LLMR client API keys created in the **API Keys** page protect model gateway requests. These are separate from upstream provider credentials.
 
-If `CCR_WEB_AUTH_TOKEN` is unset, the entrypoint generates a new random token on each container start and prints the management URL once to the container log. Opening `/` without a token loads the page, but every management call fails with `401` until the token is supplied. The page keeps the token for the browser tab session. A stable token is recommended for persistent or remote deployments.
+If `LLMR_WEB_AUTH_TOKEN` is unset, the entrypoint generates a new random token on each container start and prints the management URL once to the container log. Opening `/` without a token loads the page, but every management call fails with `401` until the token is supplied. The page keeps the token for the browser tab session. A stable token is recommended for persistent or remote deployments.
 
 Avoid putting the token directly in shell history. Create a protected environment file instead:
 
 ```dotenv
-CCR_WEB_AUTH_TOKEN=replace-with-a-long-random-value
-CCR_PUBLIC_BASE_URL=http://127.0.0.1:3458
+LLMR_WEB_AUTH_TOKEN=replace-with-a-long-random-value
+LLMR_PUBLIC_BASE_URL=http://127.0.0.1:3458
 ```
 
 Then use it with `docker run --env-file` or map the same variables under the Compose service's `environment` section. Keep this file out of version control.
@@ -106,7 +106,7 @@ Security guidance:
 
 ## Changing The Public Address
 
-The host-facing URL is separate from the container's internal ports. Whenever the host port, hostname, or scheme changes, set `CCR_PUBLIC_BASE_URL` to the exact URL clients should use:
+The host-facing URL is separate from the container's internal ports. Whenever the host port, hostname, or scheme changes, set `LLMR_PUBLIC_BASE_URL` to the exact URL clients should use:
 
 ```yaml
 services:
@@ -114,11 +114,11 @@ services:
     ports:
       - "127.0.0.1:8088:8080"
     environment:
-      CCR_PUBLIC_BASE_URL: http://127.0.0.1:8088
-      CCR_WEB_AUTH_TOKEN: ${CCR_WEB_AUTH_TOKEN:?set CCR_WEB_AUTH_TOKEN}
+      LLMR_PUBLIC_BASE_URL: http://127.0.0.1:8088
+      LLMR_WEB_AUTH_TOKEN: ${LLMR_WEB_AUTH_TOKEN:?set LLMR_WEB_AUTH_TOKEN}
 ```
 
-`CCR_PUBLIC_BASE_URL` is written to LLMR's public router endpoint. It does not publish a Docker port by itself.
+`LLMR_PUBLIC_BASE_URL` is written to LLMR's public router endpoint. It does not publish a Docker port by itself.
 
 For a reverse proxy or ingress that terminates HTTPS:
 
@@ -128,8 +128,8 @@ services:
     ports:
       - "127.0.0.1:3458:8080"
     environment:
-      CCR_PUBLIC_BASE_URL: https://ccr.example.com
-      CCR_WEB_AUTH_TOKEN: ${CCR_WEB_AUTH_TOKEN:?set CCR_WEB_AUTH_TOKEN}
+      LLMR_PUBLIC_BASE_URL: https://ccr.example.com
+      LLMR_WEB_AUTH_TOKEN: ${LLMR_WEB_AUTH_TOKEN:?set LLMR_WEB_AUTH_TOKEN}
 ```
 
 Proxy all paths to Nginx and preserve streaming. The external proxy should allow long-lived responses and should not buffer SSE/model streams. Keep the host port private when the reverse proxy is the public entrypoint.
@@ -185,25 +185,25 @@ Configuration migrations run against the persistent data. To roll back, use the 
 
 ## Environment Variables
 
-Most deployments should set only `CCR_WEB_AUTH_TOKEN`, `CCR_PUBLIC_BASE_URL`, and the Docker port mapping. Internal listener values normally should remain unchanged.
+Most deployments should set only `LLMR_WEB_AUTH_TOKEN`, `LLMR_PUBLIC_BASE_URL`, and the Docker port mapping. Internal listener values normally should remain unchanged.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `CCR_WEB_AUTH_TOKEN` | Random per container start | Management UI/RPC token. Set a stable strong value for persistent or remote use. |
-| `CCR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Exact public gateway/UI base URL written into LLMR configuration. Overrides `CCR_PUBLIC_HOST` and `CCR_PUBLIC_PORT`. |
-| `CCR_PUBLIC_HOST` | `127.0.0.1` | Used only to derive `CCR_PUBLIC_BASE_URL` when the full URL is unset; it does not change Docker port publishing. |
-| `CCR_PUBLIC_PORT` | `3458` | Used only to derive `CCR_PUBLIC_BASE_URL` when the full URL is unset. |
-| `CCR_DATA_DIR` | `/data` | Container data root and process `HOME`. Mount persistent storage here. |
-| `CCR_NGINX_PORT` | `8080` | Container-private Nginx listen port. Match the container side of the published mapping if changed. |
-| `CCR_WEB_HOST` | `127.0.0.1` | Container-private management server host. |
-| `CCR_WEB_PORT` | `3459` | Container-private management server port. |
-| `CCR_GATEWAY_HOST` | `127.0.0.1` | Container-private gateway listener host. |
-| `CCR_GATEWAY_PORT` | `3456` | Container-private gateway listener port used by Nginx. |
-| `CCR_NO_GATEWAY` | `0` | Set to `1`, `true`, or `yes` to run the management UI without starting the gateway at boot. |
-| `CCR_DOCKER_INIT_CONFIG` | `1` | Set to `0` to disable minimal first-run `config.json` bootstrap. |
-| `CCR_DOCKER_SYNC_PUBLIC_ENDPOINT` | `1` | Set to `0` to stop startup from syncing existing JSON/SQLite listener and public endpoint fields to Docker values. |
+| `LLMR_WEB_AUTH_TOKEN` | Random per container start | Management UI/RPC token. Set a stable strong value for persistent or remote use. |
+| `LLMR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Exact public gateway/UI base URL written into LLMR configuration. Overrides `LLMR_PUBLIC_HOST` and `LLMR_PUBLIC_PORT`. |
+| `LLMR_PUBLIC_HOST` | `127.0.0.1` | Used only to derive `LLMR_PUBLIC_BASE_URL` when the full URL is unset; it does not change Docker port publishing. |
+| `LLMR_PUBLIC_PORT` | `3458` | Used only to derive `LLMR_PUBLIC_BASE_URL` when the full URL is unset. |
+| `LLMR_DATA_DIR` | `/data` | Container data root and process `HOME`. Mount persistent storage here. |
+| `LLMR_NGINX_PORT` | `8080` | Container-private Nginx listen port. Match the container side of the published mapping if changed. |
+| `LLMR_WEB_HOST` | `127.0.0.1` | Container-private management server host. |
+| `LLMR_WEB_PORT` | `3459` | Container-private management server port. |
+| `LLMR_GATEWAY_HOST` | `127.0.0.1` | Container-private gateway listener host. |
+| `LLMR_GATEWAY_PORT` | `3456` | Container-private gateway listener port used by Nginx. |
+| `LLMR_NO_GATEWAY` | `0` | Set to `1`, `true`, or `yes` to run the management UI without starting the gateway at boot. |
+| `LLMR_DOCKER_INIT_CONFIG` | `1` | Set to `0` to disable minimal first-run `config.json` bootstrap. |
+| `LLMR_DOCKER_SYNC_PUBLIC_ENDPOINT` | `1` | Set to `0` to stop startup from syncing existing JSON/SQLite listener and public endpoint fields to Docker values. |
 
-Changing internal ports requires corresponding Nginx/PM2 variables and offers no benefit in normal deployments. Publish only `CCR_NGINX_PORT`.
+Changing internal ports requires corresponding Nginx/PM2 variables and offers no benefit in normal deployments. Publish only `LLMR_NGINX_PORT`.
 
 ## Build Options And Smoke Test
 
@@ -222,7 +222,7 @@ Run the isolated Docker smoke test:
 npm run test:docker
 ```
 
-The test builds the image, starts a temporary container and volume, verifies that only Nginx is published, checks UI/RPC authentication, tests public-endpoint migration, starts a configured gateway, checks `/health`, and removes its resources. Set `CCR_DOCKER_TEST_SKIP_BUILD=1` to reuse an existing image or `CCR_DOCKER_TEST_IMAGE` to test a different local tag.
+The test builds the image, starts a temporary container and volume, verifies that only Nginx is published, checks UI/RPC authentication, tests public-endpoint migration, starts a configured gateway, checks `/health`, and removes its resources. Set `LLMR_DOCKER_TEST_SKIP_BUILD=1` to reuse an existing image or `LLMR_DOCKER_TEST_IMAGE` to test a different local tag.
 
 ## Operations And Troubleshooting
 
@@ -249,7 +249,7 @@ Open `/?llmr_web_token=<token>` again with the current token (for a generated to
 
 ### Clients still use the old port or hostname
 
-Update `CCR_PUBLIC_BASE_URL` and recreate the container. Leave `CCR_DOCKER_SYNC_PUBLIC_ENDPOINT=1` so existing SQLite configuration is synchronized at startup.
+Update `LLMR_PUBLIC_BASE_URL` and recreate the container. Leave `LLMR_DOCKER_SYNC_PUBLIC_ENDPOINT=1` so existing SQLite configuration is synchronized at startup.
 
 ### Configuration disappears after recreation
 

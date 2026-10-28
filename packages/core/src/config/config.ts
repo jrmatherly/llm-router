@@ -2699,7 +2699,7 @@ type GatewayPluginMigrationResult = {
   plugins: GatewayPluginConfig[];
 };
 
-const CCR_EXTENSIONS_PLUGIN_IDS = new Set([CLAUDE_DESIGN_PLUGIN_ID, CLAUDE_SHIP_PLUGIN_ID, "cursor-proxy"]);
+const LLMR_EXTENSIONS_PLUGIN_IDS = new Set([CLAUDE_DESIGN_PLUGIN_ID, CLAUDE_SHIP_PLUGIN_ID, "cursor-proxy"]);
 
 function migrateKnownGatewayPluginConfigs(plugins: GatewayPluginConfig[] | undefined): GatewayPluginMigrationResult {
   const sourcePlugins = plugins ?? [];
@@ -3133,7 +3133,7 @@ function isLegacyClaudeDesignModule(modulePath: string | undefined): boolean {
 }
 
 function isLegacyExternalizedPluginModule(pluginId: string, modulePath: string | undefined): boolean {
-  if (!CCR_EXTENSIONS_PLUGIN_IDS.has(pluginId)) {
+  if (!LLMR_EXTENSIONS_PLUGIN_IDS.has(pluginId)) {
     return false;
   }
   const normalized = modulePath?.replace(/\\/g, "/").toLowerCase() || "";
@@ -3145,7 +3145,7 @@ function isLegacyExternalizedPluginModule(pluginId: string, modulePath: string |
 
 function ccrExtensionsRootCandidates(previousModule: string | undefined): string[] {
   const candidates = [
-    process.env.CCR_EXTENSIONS_DIR,
+    process.env.LLMR_EXTENSIONS_DIR,
     ccrExtensionsRootFromLegacyModule(previousModule),
     path.resolve(process.cwd(), "..", "ccr-extensions"),
     path.resolve(process.cwd(), "ccr-extensions")

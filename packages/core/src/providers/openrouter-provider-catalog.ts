@@ -10,7 +10,7 @@ const activityCache = new Map<string, { fetchedAt: number; totals: Map<string, n
 const defaultProviderCatalogTimeoutMs = 8_000;
 
 function providerCatalogTimeoutMs(): number {
-  const raw = process.env.CCR_OPENROUTER_CATALOG_TIMEOUT_MS;
+  const raw = process.env.LLMR_OPENROUTER_CATALOG_TIMEOUT_MS;
   if (raw) {
     const parsed = Number(raw);
     if (Number.isFinite(parsed) && parsed > 0) {

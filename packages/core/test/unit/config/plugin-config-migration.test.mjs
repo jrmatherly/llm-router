@@ -4,16 +4,16 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { claudeDesignRuntimePluginConfig, claudeShipRuntimePluginConfig, migrateKnownGatewayPluginConfigsForTest, withClaudeDesignRuntimePluginConfig } from "@llmr/core/config/config.ts";
-import { CCR_DESKTOP_APP_ENV } from "@llmr/core/runtime/desktop-app.ts";
+import { LLMR_DESKTOP_APP_ENV } from "@llmr/core/runtime/desktop-app.ts";
 import { withDesktopRuntime } from "../../support/desktop-runtime.mjs";
 
 test("legacy combined Claude Design plugin config migrates to split Design and Ship plugins", async () => {
   const extensionsRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-extensions-migration-"));
-  const previousExtensionsDir = process.env.CCR_EXTENSIONS_DIR;
+  const previousExtensionsDir = process.env.LLMR_EXTENSIONS_DIR;
   try {
     writePluginModule(extensionsRoot, "claude-design");
     writePluginModule(extensionsRoot, "claude-ship");
-    process.env.CCR_EXTENSIONS_DIR = extensionsRoot;
+    process.env.LLMR_EXTENSIONS_DIR = extensionsRoot;
     await withDesktopRuntime(async () => {
       const result = migrateKnownGatewayPluginConfigsForTest([{
         apps: [
@@ -61,18 +61,18 @@ test("legacy combined Claude Design plugin config migrates to split Design and S
       });
     });
   } finally {
-    restoreEnv("CCR_EXTENSIONS_DIR", previousExtensionsDir);
+    restoreEnv("LLMR_EXTENSIONS_DIR", previousExtensionsDir);
     rmSync(extensionsRoot, { force: true, recursive: true });
   }
 });
 
 test("legacy Claude Design migration does not duplicate an existing Claude Ship plugin", () => {
   const extensionsRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-extensions-migration-"));
-  const previousExtensionsDir = process.env.CCR_EXTENSIONS_DIR;
+  const previousExtensionsDir = process.env.LLMR_EXTENSIONS_DIR;
   try {
     writePluginModule(extensionsRoot, "claude-design");
     writePluginModule(extensionsRoot, "claude-ship");
-    process.env.CCR_EXTENSIONS_DIR = extensionsRoot;
+    process.env.LLMR_EXTENSIONS_DIR = extensionsRoot;
 
     const result = migrateKnownGatewayPluginConfigsForTest([
       {
@@ -91,7 +91,7 @@ test("legacy Claude Design migration does not duplicate an existing Claude Ship 
     assert.equal(result.changed, true);
     assert.deepEqual(result.plugins.map((plugin) => plugin.id), ["claude-design", "claude-ship"]);
   } finally {
-    restoreEnv("CCR_EXTENSIONS_DIR", previousExtensionsDir);
+    restoreEnv("LLMR_EXTENSIONS_DIR", previousExtensionsDir);
     rmSync(extensionsRoot, { force: true, recursive: true });
   }
 });
@@ -125,9 +125,9 @@ test("Claude Design runtime plugin config resolves from the bundled plugin in LL
 });
 
 test("Claude Design runtime plugin config is unavailable outside LLMR Desktop", () => {
-  const previousDesktopApp = process.env[CCR_DESKTOP_APP_ENV];
+  const previousDesktopApp = process.env[LLMR_DESKTOP_APP_ENV];
   try {
-    delete process.env[CCR_DESKTOP_APP_ENV];
+    delete process.env[LLMR_DESKTOP_APP_ENV];
 
     assert.equal(claudeDesignRuntimePluginConfig(), undefined);
     assert.throws(
@@ -135,7 +135,7 @@ test("Claude Design runtime plugin config is unavailable outside LLMR Desktop", 
       /Claude Design is only available in LLMR Desktop/
     );
   } finally {
-    restoreEnv(CCR_DESKTOP_APP_ENV, previousDesktopApp);
+    restoreEnv(LLMR_DESKTOP_APP_ENV, previousDesktopApp);
   }
 });
 
@@ -203,10 +203,10 @@ test("Claude Ship plugin config drops deprecated local frontend settings while p
 
 test("externalized plugin modules migrate from the old marketplace path to ccr-extensions", () => {
   const extensionsRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-extensions-migration-"));
-  const previousExtensionsDir = process.env.CCR_EXTENSIONS_DIR;
+  const previousExtensionsDir = process.env.LLMR_EXTENSIONS_DIR;
   try {
     writePluginModule(extensionsRoot, "cursor-proxy");
-    process.env.CCR_EXTENSIONS_DIR = extensionsRoot;
+    process.env.LLMR_EXTENSIONS_DIR = extensionsRoot;
 
     const result = migrateKnownGatewayPluginConfigsForTest([{
       enabled: true,
@@ -217,7 +217,7 @@ test("externalized plugin modules migrate from the old marketplace path to ccr-e
     assert.equal(result.changed, true);
     assert.equal(result.plugins[0].module, path.join(extensionsRoot, "plugins", "cursor-proxy", "index.cjs"));
   } finally {
-    restoreEnv("CCR_EXTENSIONS_DIR", previousExtensionsDir);
+    restoreEnv("LLMR_EXTENSIONS_DIR", previousExtensionsDir);
     rmSync(extensionsRoot, { force: true, recursive: true });
   }
 });

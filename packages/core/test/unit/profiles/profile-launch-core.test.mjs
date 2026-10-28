@@ -188,15 +188,15 @@ test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
   assert.equal(codexPlan.surface, "app");
   assert.deepEqual(codexPlan.args, ["app"]);
   assert.equal(path.basename(codexPlan.command), process.platform === "win32" ? "ccr-codex-cli-stdio-codex-main.cmd" : "ccr-codex-cli-stdio-codex-main");
-  assert.equal(codexPlan.env.CCR_PROFILE_SURFACE, "app");
+  assert.equal(codexPlan.env.LLMR_PROFILE_SURFACE, "app");
 
   assert.equal(claudePlan.surface, "cli");
   assert.deepEqual(claudePlan.args, ["--debug"]);
   assert.equal(path.basename(claudePlan.command), process.platform === "win32" ? "ccr-claude-code-wrapper-claude-main.cmd" : "ccr-claude-code-wrapper-claude-main");
-  assert.equal(claudePlan.env.CCR_PROFILE_SURFACE, "cli");
+  assert.equal(claudePlan.env.LLMR_PROFILE_SURFACE, "cli");
   assert.match(claudePlan.env.CLAUDE_CONFIG_DIR, /claude$/);
   assert.equal(claudePlan.env.ANTHROPIC_MODEL, "provider/model");
-  assert.equal(claudePlan.env.CCR_CLAUDE_CODE_MODEL, "provider/model");
+  assert.equal(claudePlan.env.LLMR_CLAUDE_CODE_MODEL, "provider/model");
   assert.equal(claudePlan.env.CODEXL_CLAUDE_CODE_MODEL, "provider/model");
   assert.equal(claudePlan.env.ANTHROPIC_DEFAULT_FABLE_MODEL, "provider/fable");
   assert.equal(claudePlan.env.ANTHROPIC_DEFAULT_OPUS_MODEL, "provider/opus");
@@ -207,17 +207,17 @@ test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
   assert.equal(grokPlan.surface, "cli");
   assert.deepEqual(grokPlan.args, ["--debug"]);
   assert.equal(path.basename(grokPlan.command), process.platform === "win32" ? "ccr-grok-cli-wrapper-grok-main.cmd" : "ccr-grok-cli-wrapper-grok-main");
-  assert.equal(grokPlan.env.CCR_PROFILE_SURFACE, "cli");
+  assert.equal(grokPlan.env.LLMR_PROFILE_SURFACE, "cli");
 
   assert.equal(kimiPlan.surface, "cli");
   assert.deepEqual(kimiPlan.args, ["--debug"]);
   assert.equal(path.basename(kimiPlan.command), process.platform === "win32" ? "ccr-kimi-cli-wrapper-kimi-main.cmd" : "ccr-kimi-cli-wrapper-kimi-main");
-  assert.equal(kimiPlan.env.CCR_PROFILE_SURFACE, "cli");
+  assert.equal(kimiPlan.env.LLMR_PROFILE_SURFACE, "cli");
 
   assert.equal(piPlan.surface, "cli");
   assert.deepEqual(piPlan.args, ["--debug"]);
   assert.equal(path.basename(piPlan.command), process.platform === "win32" ? "ccr-pi-wrapper-pi-main.cmd" : "ccr-pi-wrapper-pi-main");
-  assert.equal(piPlan.env.CCR_PROFILE_SURFACE, "cli");
+  assert.equal(piPlan.env.LLMR_PROFILE_SURFACE, "cli");
   assert.match(piPlan.env.PI_CODING_AGENT_DIR, /pi-main[\\/]pi$/);
   assert.match(piPlan.env.PI_CODING_AGENT_SESSION_DIR, /pi-main[\\/]pi[\\/]sessions$/);
 
@@ -230,14 +230,14 @@ test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
   assert.equal(kiloPlan.surface, "cli");
   assert.deepEqual(kiloPlan.args, ["--debug"]);
   assert.equal(path.basename(kiloPlan.command), process.platform === "win32" ? "ccr-kilo-wrapper-kilo-main.cmd" : "ccr-kilo-wrapper-kilo-main");
-  assert.equal(kiloPlan.env.CCR_PROFILE_SURFACE, "cli");
+  assert.equal(kiloPlan.env.LLMR_PROFILE_SURFACE, "cli");
   assert.match(kiloPlan.env.KILO_CONFIG, /kilo[\\/]kilo\.jsonc$/);
   assert.throws(() => buildProfileLaunchPlan(configDir, kiloProfile, "app"), /does not support APP/);
 
   assert.equal(workbuddyPlan.surface, "app");
   assert.deepEqual(workbuddyPlan.args, ["app"]);
   assert.equal(path.basename(workbuddyPlan.command), process.platform === "win32" ? "ccr-codex-cli-stdio-workbuddy-main.cmd" : "ccr-codex-cli-stdio-workbuddy-main");
-  assert.equal(workbuddyPlan.env.CCR_PROFILE_SURFACE, "app");
+  assert.equal(workbuddyPlan.env.LLMR_PROFILE_SURFACE, "app");
   assert.throws(() => buildProfileLaunchPlan(configDir, workbuddyProfile, "cli"), /does not support CLI/);
 
   assert.throws(() => buildProfileLaunchPlan(configDir, claudeProfile, "app"), /Claude App opening/);
@@ -266,12 +266,12 @@ test("profile config paths honor LLMR, custom, and global scopes", () => {
     path.join(configDir, "profiles", "workbuddy-main", "workbuddy", "config.toml")
   );
   const runtimeHome = path.join(configDir, "runtime-home");
-  const previousRuntimeHome = process.env.CCR_INTERNAL_HOME_DIR;
-  process.env.CCR_INTERNAL_HOME_DIR = runtimeHome;
+  const previousRuntimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
+  process.env.LLMR_INTERNAL_HOME_DIR = runtimeHome;
   try {
     assert.equal(resolveCodexConfigFile(configDir, globalCodex), path.join(runtimeHome, "codex-home", "config.toml"));
   } finally {
-    process.env.CCR_INTERNAL_HOME_DIR = previousRuntimeHome;
+    process.env.LLMR_INTERNAL_HOME_DIR = previousRuntimeHome;
   }
   assert.equal(
     resolveOpenCodeConfigFile(configDir, openCodeProfile),

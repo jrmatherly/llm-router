@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { prepareLocalGatewayPackage, projectRoot } from "./docker-local-gateway.mjs";
 
-const imageName = process.env.CCR_DOCKER_IMAGE || "llm-router:local";
+const imageName = process.env.LLMR_DOCKER_IMAGE || "llm-router:local";
 const args = process.argv.slice(2);
 
 prepareLocalGatewayPackage();

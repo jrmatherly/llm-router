@@ -4,10 +4,10 @@ import path from "node:path";
 import test from "node:test";
 
 test("stale settings and unversioned RPC snapshots cannot overwrite another writer", async () => {
-  const root = path.join(process.env.CCR_INTERNAL_HOME_DIR, `config-concurrency-${process.pid}`);
-  process.env.CCR_INTERNAL_HOME_DIR = path.join(root, "home");
-  process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(root, "data");
-  process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(root, "user");
+  const root = path.join(process.env.LLMR_INTERNAL_HOME_DIR, `config-concurrency-${process.pid}`);
+  process.env.LLMR_INTERNAL_HOME_DIR = path.join(root, "home");
+  process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(root, "data");
+  process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(root, "user");
   const { loadAppConfig, saveAppConfig, saveAppThemePreference } = await import("@llmr/core/config/config.ts");
   const { ConfigRepository, loadPersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
   const { APP_CONFIG_DB_FILE } = await import("@llmr/core/config/constants.ts");

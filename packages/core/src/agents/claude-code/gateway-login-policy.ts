@@ -4,7 +4,7 @@ import { isRecord } from "@llmr/core/agents/local-providers/shared";
 
 export type ClaudeCodeGatewayLoginPolicy = { file: string; key: "allowedProviders" | "forceLoginMethod" };
 
-const managedSettingsDirEnv = "CCR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR";
+const managedSettingsDirEnv = "LLMR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR";
 
 // shortcut: plist and HKLM managed sources are not read; they need platform APIs. Upgrade when a user reports a pinned machine the file check misses.
 export function claudeCodeManagedSettingsDir(platform?: NodeJS.Platform): string {

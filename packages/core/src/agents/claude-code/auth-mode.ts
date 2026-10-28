@@ -1,4 +1,4 @@
-export const CLAUDE_CODE_AUTH_MODE_ENV = "CCR_CLAUDE_CODE_AUTH_MODE";
+export const CLAUDE_CODE_AUTH_MODE_ENV = "LLMR_CLAUDE_CODE_AUTH_MODE";
 
 export type ClaudeCodeGatewayAuthMode = "api-key-helper" | "wif";
 export type ClaudeCodeGatewayAuthModePreference = ClaudeCodeGatewayAuthMode | "auto";

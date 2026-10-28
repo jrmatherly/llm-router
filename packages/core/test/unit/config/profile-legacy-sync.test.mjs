@@ -4,12 +4,12 @@ import test from "node:test";
 
 test("saving profiles synchronizes legacy profile enabled flags", async () => {
   const testRoot = path.join(
-    process.env.CCR_INTERNAL_HOME_DIR,
+    process.env.LLMR_INTERNAL_HOME_DIR,
     `profile-legacy-sync-${process.pid}`
   );
-  process.env.CCR_INTERNAL_HOME_DIR = path.join(testRoot, "home");
-  process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(testRoot, "app-data");
-  process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(testRoot, "user-data");
+  process.env.LLMR_INTERNAL_HOME_DIR = path.join(testRoot, "home");
+  process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(testRoot, "app-data");
+  process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(testRoot, "user-data");
 
   const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
   const { loadPersistedAppConfig, replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");

@@ -7,19 +7,19 @@ import path from "node:path";
 import test, { after } from "node:test";
 
 const previousRuntimeEnv = {
-  appData: process.env.CCR_INTERNAL_APP_DATA_DIR,
-  home: process.env.CCR_INTERNAL_HOME_DIR,
-  userData: process.env.CCR_INTERNAL_USER_DATA_DIR
+  appData: process.env.LLMR_INTERNAL_APP_DATA_DIR,
+  home: process.env.LLMR_INTERNAL_HOME_DIR,
+  userData: process.env.LLMR_INTERNAL_USER_DATA_DIR
 };
 const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "ccr-web-management-test-"));
-process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(runtimeRoot, "app-data");
-process.env.CCR_INTERNAL_HOME_DIR = path.join(runtimeRoot, "home");
-process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(runtimeRoot, "user-data");
+process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(runtimeRoot, "app-data");
+process.env.LLMR_INTERNAL_HOME_DIR = path.join(runtimeRoot, "home");
+process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(runtimeRoot, "user-data");
 
 after(() => {
-  setOptionalEnv("CCR_INTERNAL_APP_DATA_DIR", previousRuntimeEnv.appData);
-  setOptionalEnv("CCR_INTERNAL_HOME_DIR", previousRuntimeEnv.home);
-  setOptionalEnv("CCR_INTERNAL_USER_DATA_DIR", previousRuntimeEnv.userData);
+  setOptionalEnv("LLMR_INTERNAL_APP_DATA_DIR", previousRuntimeEnv.appData);
+  setOptionalEnv("LLMR_INTERNAL_HOME_DIR", previousRuntimeEnv.home);
+  setOptionalEnv("LLMR_INTERNAL_USER_DATA_DIR", previousRuntimeEnv.userData);
   rmSync(runtimeRoot, { force: true, recursive: true });
 });
 

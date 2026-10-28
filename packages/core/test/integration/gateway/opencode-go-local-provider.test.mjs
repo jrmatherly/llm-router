@@ -10,7 +10,7 @@ import { toCoreGatewayProviders } from "@llmr/core/providers/runtime-topology.ts
 
 test("OpenCode Go local import compiles to the Go endpoint and forwards the Claude session", () => {
   const environmentNames = [
-    "CCR_INTERNAL_HOME_DIR",
+    "LLMR_INTERNAL_HOME_DIR",
     "OPENCODE_API_KEY",
     "OPENCODE_GO_API_KEY",
     "OPENCODE_AUTH_CONTENT",
@@ -19,7 +19,7 @@ test("OpenCode Go local import compiles to the Go endpoint and forwards the Clau
   ];
   const previousEnvironment = Object.fromEntries(environmentNames.map((name) => [name, process.env[name]]));
   const home = mkdtempSync(path.join(os.tmpdir(), "ccr-opencode-go-integration-"));
-  process.env.CCR_INTERNAL_HOME_DIR = home;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
   for (const name of environmentNames.slice(1)) {
     delete process.env[name];
   }

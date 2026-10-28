@@ -6,12 +6,12 @@ import test from "node:test";
 
 // This test corrupts the config DB, so it runs in a home no other test file shares.
 test("a config that failed to load does not release the agent takeovers", async (t) => {
-  const home = mkdtempSync(path.join(process.env.CCR_TEST_HOME || os.tmpdir(), "config-load-failure-"));
+  const home = mkdtempSync(path.join(process.env.LLMR_TEST_HOME || os.tmpdir(), "config-load-failure-"));
   process.env.HOME = home;
   process.env.USERPROFILE = home;
-  process.env.CCR_INTERNAL_HOME_DIR = home;
-  process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(home, "app-data");
-  process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(home, "user-data");
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
+  process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(home, "app-data");
+  process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(home, "user-data");
   const { loadAppConfig } = await import("@llmr/core/config/config.ts");
   const { replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
   const { APP_CONFIG_DB_FILE } = await import("@llmr/core/config/constants.ts");

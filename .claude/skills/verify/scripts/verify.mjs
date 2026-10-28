@@ -6,7 +6,7 @@ const DEFAULT_E2E = ["npm", ["run", "test:e2e"]];
 
 const root = resolveRoot();
 const withE2e = process.argv.includes("--e2e");
-const suites = process.env.CCR_VERIFY_COMMANDS ? JSON.parse(process.env.CCR_VERIFY_COMMANDS) : DEFAULT_SUITES;
+const suites = process.env.LLMR_VERIFY_COMMANDS ? JSON.parse(process.env.LLMR_VERIFY_COMMANDS) : DEFAULT_SUITES;
 
 for (const [command, args] of suites) {
   if (!runSuite(command, args)) {
@@ -16,7 +16,7 @@ for (const [command, args] of suites) {
 
 if (withE2e) {
   const clean = spawnSync("git", ["diff", "--quiet", "--", ...GENERATED_FILES], { cwd: root, stdio: "ignore" }).status === 0;
-  const [command, args] = process.env.CCR_VERIFY_E2E_COMMAND ? JSON.parse(process.env.CCR_VERIFY_E2E_COMMAND) : DEFAULT_E2E;
+  const [command, args] = process.env.LLMR_VERIFY_E2E_COMMAND ? JSON.parse(process.env.LLMR_VERIFY_E2E_COMMAND) : DEFAULT_E2E;
   const passed = runSuite(command, args);
   if (clean) {
     spawnSync("git", ["checkout", "--", ...GENERATED_FILES], { cwd: root, stdio: "inherit" });

@@ -208,18 +208,18 @@ test("OpenCode App launch avoids the ignored Electron user-data switch", () => {
 
 test("OpenCode App launch signature changes with effective profile settings", () => {
   const profile = testProfile({ appPath: "/Applications/OpenCode.app", env: { USER_VALUE: "one" } });
-  const signature = openCodeAppLaunchSignature(profile, "/tmp/opencode.jsonc", '{"model":"one"}', { CCR_BOT_GATEWAY_ENABLED: "false" });
+  const signature = openCodeAppLaunchSignature(profile, "/tmp/opencode.jsonc", '{"model":"one"}', { LLMR_BOT_GATEWAY_ENABLED: "false" });
 
   assert.equal(
-    openCodeAppLaunchSignature(profile, "/tmp/opencode.jsonc", '{"model":"one"}', { CCR_BOT_GATEWAY_ENABLED: "false" }),
+    openCodeAppLaunchSignature(profile, "/tmp/opencode.jsonc", '{"model":"one"}', { LLMR_BOT_GATEWAY_ENABLED: "false" }),
     signature
   );
   assert.notEqual(
-    openCodeAppLaunchSignature(profile, "/tmp/opencode.jsonc", '{"model":"two"}', { CCR_BOT_GATEWAY_ENABLED: "false" }),
+    openCodeAppLaunchSignature(profile, "/tmp/opencode.jsonc", '{"model":"two"}', { LLMR_BOT_GATEWAY_ENABLED: "false" }),
     signature
   );
   assert.notEqual(
-    openCodeAppLaunchSignature({ ...profile, env: { USER_VALUE: "two" } }, "/tmp/opencode.jsonc", '{"model":"one"}', { CCR_BOT_GATEWAY_ENABLED: "false" }),
+    openCodeAppLaunchSignature({ ...profile, env: { USER_VALUE: "two" } }, "/tmp/opencode.jsonc", '{"model":"one"}', { LLMR_BOT_GATEWAY_ENABLED: "false" }),
     signature
   );
 });

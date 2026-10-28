@@ -26,7 +26,7 @@ if (!existsSync(path.join(root, "node_modules"))) {
   block(`run npm ci in ${root} before committing`);
 }
 
-const checks = process.env.CCR_GATE_COMMANDS ? JSON.parse(process.env.CCR_GATE_COMMANDS) : DEFAULT_CHECKS;
+const checks = process.env.LLMR_GATE_COMMANDS ? JSON.parse(process.env.LLMR_GATE_COMMANDS) : DEFAULT_CHECKS;
 for (const [command, args] of checks) {
   const result = spawnSync(command, args, { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: "pipe" });
   if (result.status !== 0) {

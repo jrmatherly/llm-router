@@ -7,13 +7,13 @@ import { marketplaceUrl, normalizeMarketplaceManifest } from "@llmr/core/plugins
 const manifestUrl = "https://raw.githubusercontent.com/jrmatherly/llm-router-extensions/main/marketplace/plugins.json";
 
 test("default marketplace URL points at the fork's manifest", () => {
-  const previous = process.env.CCR_PLUGIN_MARKETPLACE_URL;
-  delete process.env.CCR_PLUGIN_MARKETPLACE_URL;
+  const previous = process.env.LLMR_PLUGIN_MARKETPLACE_URL;
+  delete process.env.LLMR_PLUGIN_MARKETPLACE_URL;
   try {
     assert.equal(marketplaceUrl(), manifestUrl);
   } finally {
     if (previous !== undefined) {
-      process.env.CCR_PLUGIN_MARKETPLACE_URL = previous;
+      process.env.LLMR_PLUGIN_MARKETPLACE_URL = previous;
     }
   }
 });

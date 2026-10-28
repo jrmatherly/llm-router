@@ -123,9 +123,9 @@ Do not edit or copy live SQLite files while LLMR is writing to them. Use the UI 
 
 | Variable | Description |
 | --- | --- |
-| `CCR_WEB_HOST` | Default management listener when `--host` is omitted. |
-| `CCR_WEB_PORT` | Default management port when `--port` is omitted. |
-| `CCR_WEB_AUTH_TOKEN` | Fixes the management UI/RPC token instead of generating a random token for the process. |
+| `LLMR_WEB_HOST` | Default management listener when `--host` is omitted. |
+| `LLMR_WEB_PORT` | Default management port when `--port` is omitted. |
+| `LLMR_WEB_AUTH_TOKEN` | Fixes the management UI/RPC token instead of generating a random token for the process. |
 
 The authenticated management URL contains `llmr_web_token` in its query string. Treat that URL like a password and avoid copying it into logs, tickets, or shell history. Bind to `127.0.0.1` unless remote access is intentional. For remote access, use a firewall or private network plus TLS at a trusted reverse proxy.
 

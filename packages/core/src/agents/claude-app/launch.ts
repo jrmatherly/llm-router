@@ -68,8 +68,8 @@ export async function launchClaudeAppProfile(configDir: string, profile: Profile
     ...(config ? botGatewayProfileEnv(config, profile, "app") : {}),
     CLAUDE_CONFIG_DIR: settingsDir,
     CLAUDE_USER_DATA_DIR: userDataDir,
-    CCR_CLAUDE_APP_USER_DATA_PATH: userDataDir,
-    CCR_PROFILE_SURFACE: "app",
+    LLMR_CLAUDE_APP_USER_DATA_PATH: userDataDir,
+    LLMR_PROFILE_SURFACE: "app",
     ELECTRON_ENABLE_LOGGING: "1",
     ...claudeCodeUtcTimezoneEnvOverride()
   };
@@ -232,7 +232,7 @@ function findFirstExecutable(candidates: Iterable<string>, checked: string[], op
 }
 
 function envClaudeAppPathCandidates(): string[] {
-  return ["CCR_CLAUDE_APP_PATH", "CLAUDE_APP_PATH"]
+  return ["LLMR_CLAUDE_APP_PATH", "CLAUDE_APP_PATH"]
     .map((key) => process.env[key]?.trim() || "")
     .filter(Boolean)
     .map(resolveUserPath);

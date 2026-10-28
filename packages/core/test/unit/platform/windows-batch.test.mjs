@@ -14,8 +14,8 @@ test("Windows batch environment assignments use matching unquoted escaping", () 
     'set ANTHROPIC_MODEL=Habilynx/glm-5.3 ^(self hosted^) 100%% ^^ ^& ^| ^< ^> ^"preview^"'
   );
   assert.equal(
-    windowsBatchSetLine("CCR_CODEX_MODEL", "line one\r\nline two", "  "),
-    "  set CCR_CODEX_MODEL=line one line two"
+    windowsBatchSetLine("LLMR_CODEX_MODEL", "line one\r\nline two", "  "),
+    "  set LLMR_CODEX_MODEL=line one line two"
   );
 });
 
@@ -25,8 +25,8 @@ test("Windows batch environment assignments preserve special characters in the c
   try {
     writeFileSync(script, [
       "@echo off",
-      windowsBatchSetLine("CCR_TEST_MODEL", specialValue),
-      "set CCR_TEST_MODEL",
+      windowsBatchSetLine("LLMR_TEST_MODEL", specialValue),
+      "set LLMR_TEST_MODEL",
       ""
     ].join("\r\n"));
 
@@ -34,7 +34,7 @@ test("Windows batch environment assignments preserve special characters in the c
       encoding: "utf8"
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), `CCR_TEST_MODEL=${specialValue}`);
+    assert.equal(result.stdout.trim(), `LLMR_TEST_MODEL=${specialValue}`);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

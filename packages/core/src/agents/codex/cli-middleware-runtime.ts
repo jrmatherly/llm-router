@@ -18,11 +18,11 @@ const PROTOCOL_VERSION = "2025-06-18";
 const BOT_SESSION_ENTRY_VERSION = 3;
 const OPENCODE_BOT_SESSION_STORE_VERSION = 3;
 const BOT_RUNTIME_STATE_VERSION = 1;
-const REQUEST_TIMEOUT_MS = numberEnv("CCR_CODEX_APP_REQUEST_TIMEOUT_MS", 10 * 60 * 1000);
-const TURN_IDLE_TIMEOUT_MS = numberEnv("CCR_CODEX_CLAUDE_TURN_IDLE_TIMEOUT_MS", 10 * 60 * 1000);
+const REQUEST_TIMEOUT_MS = numberEnv("LLMR_CODEX_APP_REQUEST_TIMEOUT_MS", 10 * 60 * 1000);
+const TURN_IDLE_TIMEOUT_MS = numberEnv("LLMR_CODEX_CLAUDE_TURN_IDLE_TIMEOUT_MS", 10 * 60 * 1000);
 const CONFIG_DIR = resolveConfigDir();
-const LOG_PATH = process.env.CCR_CODEX_CLI_MIDDLEWARE_LOG || "";
-const CLAUDE_CODE_MCP_CONFIG_ENV = "CCR_CLAUDE_CODE_MCP_CONFIG";
+const LOG_PATH = process.env.LLMR_CODEX_CLI_MIDDLEWARE_LOG || "";
+const CLAUDE_CODE_MCP_CONFIG_ENV = "LLMR_CLAUDE_CODE_MCP_CONFIG";
 const CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV = "CODEXL_CLAUDE_CODE_MCP_CONFIG";
 const CLAUDE_CODE_CHINA_TIME_ZONES = new Set([
   "asia/chongqing",
@@ -73,7 +73,7 @@ function isClaudeCodeChinaTimeZone(timeZone) {
 }
 
 function resolveConfigDir() {
-  const configured = nonEmptyEnv("CODEXL_HOME") || nonEmptyEnv("CCR_CONFIG_DIR");
+  const configured = nonEmptyEnv("CODEXL_HOME") || nonEmptyEnv("LLMR_CONFIG_DIR");
   if (configured) {
     return expandHome(configured);
   }
@@ -93,23 +93,23 @@ function botBridge() {
 
 async function main() {
   const args = directProfileDispatchArgs(process.argv.slice(2));
-  if (process.env.CCR_PI_WRAPPER === "1") {
+  if (process.env.LLMR_PI_WRAPPER === "1") {
     await runPiCliWrapper(args);
     return;
   }
-  if (process.env.CCR_OPENCODE_BOT_WORKER === "1" || args[0] === "opencode-bot-worker") {
+  if (process.env.LLMR_OPENCODE_BOT_WORKER === "1" || args[0] === "opencode-bot-worker") {
     await runOpenCodeBotWorker(args);
     return;
   }
-  if (process.env.CCR_CLAUDE_CODE_BOT_WORKER === "1" || args[0] === "claude-bot-worker") {
+  if (process.env.LLMR_CLAUDE_CODE_BOT_WORKER === "1" || args[0] === "claude-bot-worker") {
     await runClaudeCodeBotWorker(args);
     return;
   }
-  if (process.env.CCR_CODEX_BOT_WORKER === "1" || args[0] === "codex-bot-worker") {
+  if (process.env.LLMR_CODEX_BOT_WORKER === "1" || args[0] === "codex-bot-worker") {
     await runCodexBotWorker(args);
     return;
   }
-  if (process.env.CCR_CLAUDE_CODE_WRAPPER === "1") {
+  if (process.env.LLMR_CLAUDE_CODE_WRAPPER === "1") {
     await runClaudeCodeCliWrapper(args);
     return;
   }
@@ -121,7 +121,7 @@ async function main() {
 }
 
 function directProfileDispatchArgs(args) {
-  if (process.env.CCR_CLI_DIRECT_PROFILE_DISPATCH !== "1") {
+  if (process.env.LLMR_CLI_DIRECT_PROFILE_DISPATCH !== "1") {
     return args;
   }
   const forwarded = args.slice(1);
@@ -135,12 +135,12 @@ function directProfileDispatchArgs(args) {
 }
 
 async function runPiCliWrapper(args) {
-  const realCli = expandHome(nonEmptyEnv("CCR_REAL_PI_BIN") || "pi");
+  const realCli = expandHome(nonEmptyEnv("LLMR_REAL_PI_BIN") || "pi");
   const child = spawnAgentCli(realCli, [
-    "--provider", nonEmptyEnv("CCR_PI_PROVIDER") || "claude-code-router",
-    "--model", nonEmptyEnv("CCR_PI_MODEL"), ...args
+    "--provider", nonEmptyEnv("LLMR_PI_PROVIDER") || "claude-code-router",
+    "--model", nonEmptyEnv("LLMR_PI_MODEL"), ...args
   ], {
-    env: withoutKeys(process.env, ["CCR_PI_WRAPPER", "CCR_REAL_PI_BIN", "CCR_PI_PROVIDER", "CCR_PI_MODEL", "CCR_CLI_DIRECT_PROFILE_DISPATCH"]),
+    env: withoutKeys(process.env, ["LLMR_PI_WRAPPER", "LLMR_REAL_PI_BIN", "LLMR_PI_PROVIDER", "LLMR_PI_MODEL", "LLMR_CLI_DIRECT_PROFILE_DISPATCH"]),
     stdio: "inherit"
   });
   child.on("error", (error) => {
@@ -151,7 +151,7 @@ async function runPiCliWrapper(args) {
 }
 
 async function runClaudeCodeCliWrapper(args) {
-  const realCli = expandHome(nonEmptyEnv("CCR_REAL_CLAUDE_CODE_BIN") || nonEmptyEnv("CCR_CLAUDE_CODE_BIN") || nonEmptyEnv("CODEXL_CLAUDE_CODE_BIN") || "claude");
+  const realCli = expandHome(nonEmptyEnv("LLMR_REAL_CLAUDE_CODE_BIN") || nonEmptyEnv("LLMR_CLAUDE_CODE_BIN") || nonEmptyEnv("CODEXL_CLAUDE_CODE_BIN") || "claude");
   const realArgs = claudeCodeCliWrapperArgs(args);
   log("claude_code_wrapper_start", { realCli, args, realArgs });
   const captureStdout = shouldCaptureClaudeCodeCliStdout(args);
@@ -159,12 +159,12 @@ async function runClaudeCodeCliWrapper(args) {
     args,
     cwd: process.cwd(),
     mode: "claude-cli",
-    title: nonEmptyEnv("CCR_REMOTE_SYNC_PROFILE_NAME") || "Claude Code"
+    title: nonEmptyEnv("LLMR_REMOTE_SYNC_PROFILE_NAME") || "Claude Code"
   });
-  const injectRemoteStdin = boolEnv("CCR_REMOTE_SYNC_INJECT_STDIN");
+  const injectRemoteStdin = boolEnv("LLMR_REMOTE_SYNC_INJECT_STDIN");
   const child = spawnAgentCli(realCli, realArgs, {
     env: {
-      ...withoutKeys(process.env, ["CCR_CLAUDE_CODE_WRAPPER", "CCR_REAL_CLAUDE_CODE_BIN"]),
+      ...withoutKeys(process.env, ["LLMR_CLAUDE_CODE_WRAPPER", "LLMR_REAL_CLAUDE_CODE_BIN"]),
       ...claudeCodeUtcTimezoneEnvOverride()
     },
     stdio: [injectRemoteStdin ? "pipe" : "inherit", captureStdout ? "pipe" : "inherit", "inherit"]
@@ -179,7 +179,7 @@ async function runClaudeCodeCliWrapper(args) {
       child.stdin.write(text + "\n");
       return;
     }
-    if (boolEnv("CCR_REMOTE_SYNC_NOTIFY_INBOUND") || !process.env.CCR_REMOTE_SYNC_NOTIFY_INBOUND) {
+    if (boolEnv("LLMR_REMOTE_SYNC_NOTIFY_INBOUND") || !process.env.LLMR_REMOTE_SYNC_NOTIFY_INBOUND) {
       process.stdout.write("\n[LLMR remote] " + text + "\n");
     }
   });
@@ -293,7 +293,7 @@ function claudeCodeOptionTakesValue(arg) {
 }
 
 function shouldCaptureClaudeCodeCliStdout(args) {
-  if (boolEnv("CCR_CLAUDE_CODE_CAPTURE_STDOUT") || boolEnv("CODEXL_CLAUDE_CODE_CAPTURE_STDOUT")) {
+  if (boolEnv("LLMR_CLAUDE_CODE_CAPTURE_STDOUT") || boolEnv("CODEXL_CLAUDE_CODE_CAPTURE_STDOUT")) {
     return true;
   }
   if (botGatewayCliCaptureEnabled()) {
@@ -303,8 +303,8 @@ function shouldCaptureClaudeCodeCliStdout(args) {
 }
 
 function botGatewayCliCaptureEnabled() {
-  const enabled = boolEnv("CCR_BOT_GATEWAY_ENABLED") || boolEnv("CODEXL_BOT_GATEWAY_ENABLED");
-  const platform = normalizeBotGatewayPlatform(nonEmptyEnv("CCR_BOT_GATEWAY_PLATFORM") || nonEmptyEnv("CODEXL_BOT_GATEWAY_PLATFORM") || "none");
+  const enabled = boolEnv("LLMR_BOT_GATEWAY_ENABLED") || boolEnv("CODEXL_BOT_GATEWAY_ENABLED");
+  const platform = normalizeBotGatewayPlatform(nonEmptyEnv("LLMR_BOT_GATEWAY_PLATFORM") || nonEmptyEnv("CODEXL_BOT_GATEWAY_PLATFORM") || "none");
   return enabled && platform !== "none";
 }
 
@@ -313,7 +313,7 @@ function claudeCodeArgsUsePrintMode(args) {
 }
 
 function defaultCodexArgs() {
-  return normalizeProfileSurface(nonEmptyEnv("CCR_PROFILE_SURFACE") || nonEmptyEnv("CODEXL_PROFILE_SURFACE")) === "cli"
+  return normalizeProfileSurface(nonEmptyEnv("LLMR_PROFILE_SURFACE") || nonEmptyEnv("CODEXL_PROFILE_SURFACE")) === "cli"
     ? []
     : ["app-server", "--analytics-default-enabled"];
 }
@@ -382,7 +382,7 @@ function supervisedCodexAppServerLaunch(runtimeAgent, realCli, realArgs) {
   if (runtimeAgent !== "codex" || process.platform !== "darwin") {
     return { command: realCli, args: realArgs };
   }
-  const configured = nonEmptyEnv("CCR_SIGNED_CODEX_SUPERVISOR_NODE_PATH") ||
+  const configured = nonEmptyEnv("LLMR_SIGNED_CODEX_SUPERVISOR_NODE_PATH") ||
     nonEmptyEnv("CODEXL_SIGNED_CODEX_SUPERVISOR_NODE_PATH");
   const bundled = path.join(path.dirname(realCli), "cua_node", "bin", "node");
   const node = [configured, bundled].find(isExecutableFile);
@@ -409,7 +409,7 @@ function isExecutableFile(file) {
 
 function createEphemeralCodexApiKeyBootstrap(runtimeAgent) {
   if (runtimeAgent !== "codex") return () => {};
-  const scope = nonEmptyEnv("CCR_PROFILE_SCOPE");
+  const scope = nonEmptyEnv("LLMR_PROFILE_SCOPE");
   if (scope !== "ccr" && scope !== "custom") return () => {};
   const authFile = path.join(codexRuntimeHome(), "auth.json");
   if (fs.existsSync(authFile)) return () => {};
@@ -1095,7 +1095,7 @@ async function runClaudeCodeBotWorker(args) {
       lockPath: lock.path,
       claudeConfigDir: nonEmptyEnv("CLAUDE_CONFIG_DIR"),
       claudeUserDataDir: currentClaudeAppUserDataDir(),
-      model: nonEmptyEnv("CCR_CLAUDE_CODE_MODEL") || nonEmptyEnv("CODEXL_CLAUDE_CODE_MODEL") || agentEnv(codexRuntimeAgent(), "MODEL") || ""
+      model: nonEmptyEnv("LLMR_CLAUDE_CODE_MODEL") || nonEmptyEnv("CODEXL_CLAUDE_CODE_MODEL") || agentEnv(codexRuntimeAgent(), "MODEL") || ""
     });
     await waitForTerminationSignal();
     await botBridge().stop();
@@ -1153,10 +1153,10 @@ async function runCodexBotWorker(args) {
 class OpenCodeBotWorker {
   constructor(options) {
     this.workspaceName = options.workspaceName || "OpenCode";
-    this.command = expandHome(nonEmptyEnv("CCR_OPENCODE_BIN") || nonEmptyEnv("OPENCODE_BIN") || "opencode");
+    this.command = expandHome(nonEmptyEnv("LLMR_OPENCODE_BIN") || nonEmptyEnv("OPENCODE_BIN") || "opencode");
     this.defaultCwd = resolveOpenCodeBotCwd(
-      nonEmptyEnv("CCR_OPENCODE_BOT_CWD"),
-      nonEmptyEnv("CCR_BOT_GATEWAY_CWD")
+      nonEmptyEnv("LLMR_OPENCODE_BOT_CWD"),
+      nonEmptyEnv("LLMR_BOT_GATEWAY_CWD")
     );
     this.store = null;
     this.turnStates = new Map();
@@ -1253,7 +1253,7 @@ class OpenCodeBotWorker {
     } else {
       args.push("--title", stringValue(entry && entry.title) || "Bot: " + this.workspaceName);
     }
-    if (boolEnv("CCR_OPENCODE_BOT_AUTO_APPROVE")) args.push("--auto");
+    if (boolEnv("LLMR_OPENCODE_BOT_AUTO_APPROVE")) args.push("--auto");
     args.push("--", prompt);
 
     const streamId = "opencode-" + stableBotKey(eventId).slice(-16);
@@ -1666,7 +1666,7 @@ class CodexBotWorker extends OpenCodeBotWorker {
     this.agentLabel = this.agent === "zcode" ? "ZCode" : "Codex";
     this.workspaceName = options.workspaceName || this.agentLabel;
     this.command = expandHome(codexRuntimeRealCli(this.agent));
-    this.defaultCwd = resolveOpenCodeBotCwd(nonEmptyEnv("CCR_BOT_GATEWAY_CWD"), os.homedir());
+    this.defaultCwd = resolveOpenCodeBotCwd(nonEmptyEnv("LLMR_BOT_GATEWAY_CWD"), os.homedir());
     this.store = null;
   }
 
@@ -1823,8 +1823,8 @@ class CodexBotWorker extends OpenCodeBotWorker {
 
   async renderModels(query) {
     const file = this.agent === "zcode"
-      ? nonEmptyEnv("CCR_ZCODE_MODEL_CATALOG_FILE") || nonEmptyEnv("CODEXL_ZCODE_MODEL_CATALOG_FILE")
-      : nonEmptyEnv("CCR_CODEX_MODEL_CATALOG_FILE") || nonEmptyEnv("CODEXL_CODEX_MODEL_CATALOG_FILE");
+      ? nonEmptyEnv("LLMR_ZCODE_MODEL_CATALOG_FILE") || nonEmptyEnv("CODEXL_ZCODE_MODEL_CATALOG_FILE")
+      : nonEmptyEnv("LLMR_CODEX_MODEL_CATALOG_FILE") || nonEmptyEnv("CODEXL_CODEX_MODEL_CATALOG_FILE");
     const ids = Array.from(collectCodexModelIds(readJsonFile(file), new Set())).sort();
     const search = String(query || "").trim().toLowerCase();
     const filtered = search ? ids.filter((id) => id.toLowerCase().includes(search)) : ids;
@@ -1833,7 +1833,7 @@ class CodexBotWorker extends OpenCodeBotWorker {
 }
 
 function parseCodexBotWorkerOptions(args) {
-  let workspaceName = nonEmptyEnv("CCR_CODEX_WORKSPACE_NAME") || nonEmptyEnv("CODEXL_CODEX_WORKSPACE_NAME") || nonEmptyEnv("CODEXL_ZCODE_WORKSPACE_NAME") || "Codex";
+  let workspaceName = nonEmptyEnv("LLMR_CODEX_WORKSPACE_NAME") || nonEmptyEnv("CODEXL_CODEX_WORKSPACE_NAME") || nonEmptyEnv("CODEXL_ZCODE_WORKSPACE_NAME") || "Codex";
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === "--workspace-name" && args[i + 1]) {
       workspaceName = args[i + 1];
@@ -1844,14 +1844,14 @@ function parseCodexBotWorkerOptions(args) {
 }
 
 function codexBotSessionStorePath(agent) {
-  const stateDir = nonEmptyEnv("CCR_BOT_GATEWAY_STATE_DIR") || nonEmptyEnv("CODEXL_BOT_GATEWAY_STATE_DIR") || nonEmptyEnv("BOT_GATEWAY_STATE_DIR") || path.join(CONFIG_DIR, "bot-gateway", safePathSegment(nonEmptyEnv("CCR_BOT_PROFILE_ID") || "default"));
+  const stateDir = nonEmptyEnv("LLMR_BOT_GATEWAY_STATE_DIR") || nonEmptyEnv("CODEXL_BOT_GATEWAY_STATE_DIR") || nonEmptyEnv("BOT_GATEWAY_STATE_DIR") || path.join(CONFIG_DIR, "bot-gateway", safePathSegment(nonEmptyEnv("LLMR_BOT_PROFILE_ID") || "default"));
   return path.join(expandHome(stateDir), safePathSegment(agent) + "-bot-sessions.json");
 }
 
 async function runCodexBotCli(command, args, cwd, agent, options = {}) {
   const env = childEnvForAgent(agent);
-  delete env.CCR_CODEX_BOT_WORKER;
-  delete env.CCR_CLI_DIRECT_PROFILE_DISPATCH;
+  delete env.LLMR_CODEX_BOT_WORKER;
+  delete env.LLMR_CLI_DIRECT_PROFILE_DISPATCH;
   delete env.ELECTRON_RUN_AS_NODE;
   let child;
   try {
@@ -1998,7 +1998,7 @@ function collectCodexModelIds(value, output, depth = 0) {
 }
 
 function parseOpenCodeBotWorkerOptions(args) {
-  let workspaceName = nonEmptyEnv("CCR_OPENCODE_WORKSPACE_NAME") || "OpenCode";
+  let workspaceName = nonEmptyEnv("LLMR_OPENCODE_WORKSPACE_NAME") || "OpenCode";
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === "--workspace-name" && args[i + 1]) {
       workspaceName = args[i + 1];
@@ -2009,10 +2009,10 @@ function parseOpenCodeBotWorkerOptions(args) {
 }
 
 function openCodeBotSessionStorePath() {
-  const stateDir = nonEmptyEnv("CCR_BOT_GATEWAY_STATE_DIR") ||
+  const stateDir = nonEmptyEnv("LLMR_BOT_GATEWAY_STATE_DIR") ||
     nonEmptyEnv("CODEXL_BOT_GATEWAY_STATE_DIR") ||
     nonEmptyEnv("BOT_GATEWAY_STATE_DIR") ||
-    path.join(CONFIG_DIR, "bot-gateway", safePathSegment(nonEmptyEnv("CCR_BOT_PROFILE_ID") || "default"));
+    path.join(CONFIG_DIR, "bot-gateway", safePathSegment(nonEmptyEnv("LLMR_BOT_PROFILE_ID") || "default"));
   return path.join(expandHome(stateDir), "opencode-bot-sessions.json");
 }
 
@@ -2036,8 +2036,8 @@ function openCodeDesktopDefaultCwd() {
 
 async function runOpenCodeBotCli(command, args, cwd, options = {}) {
   const env = withoutKeys(process.env, [
-    "CCR_OPENCODE_BOT_WORKER",
-    "CCR_CLI_DIRECT_PROFILE_DISPATCH",
+    "LLMR_OPENCODE_BOT_WORKER",
+    "LLMR_CLI_DIRECT_PROFILE_DISPATCH",
     "ELECTRON_RUN_AS_NODE"
   ]);
   env.OPENCODE_CLIENT = "cli";
@@ -2078,7 +2078,7 @@ async function runOpenCodeBotCli(command, args, cwd, options = {}) {
 
   let timedOut = false;
   let forceKillTimer = null;
-  const timeoutMs = Number(options.timeoutMs) || numberEnv("CCR_OPENCODE_BOT_TURN_TIMEOUT_MS", 10 * 60 * 1000);
+  const timeoutMs = Number(options.timeoutMs) || numberEnv("LLMR_OPENCODE_BOT_TURN_TIMEOUT_MS", 10 * 60 * 1000);
   const timer = setTimeout(() => {
     timedOut = true;
     try {
@@ -2509,10 +2509,10 @@ function releaseBotWorkerLock(lock) {
 }
 
 function botWorkerLockPath(agent) {
-  const stateDir = nonEmptyEnv("CCR_BOT_GATEWAY_STATE_DIR") ||
+  const stateDir = nonEmptyEnv("LLMR_BOT_GATEWAY_STATE_DIR") ||
     nonEmptyEnv("CODEXL_BOT_GATEWAY_STATE_DIR") ||
     nonEmptyEnv("BOT_GATEWAY_STATE_DIR") ||
-    path.join(CONFIG_DIR, "bot-gateway", safePathSegment(nonEmptyEnv("CCR_BOT_PROFILE_ID") || "default"));
+    path.join(CONFIG_DIR, "bot-gateway", safePathSegment(nonEmptyEnv("LLMR_BOT_PROFILE_ID") || "default"));
   return path.join(expandHome(stateDir), safePathSegment(agent) + "-bot-worker.lock");
 }
 
@@ -3067,7 +3067,7 @@ class ClaudeCodeAppServer {
   }
 
   defaultBotProjectDirectory() {
-    const configured = nonEmptyEnv("CCR_BOT_GATEWAY_CWD");
+    const configured = nonEmptyEnv("LLMR_BOT_GATEWAY_CWD");
     if (configured) return resolveExistingProjectDirectory(configured, process.cwd());
     const latest = latestClaudeAppLocalAgentSession();
     return latest ? claudeAppSessionProjectDirectory(latest) : process.cwd();
@@ -4091,7 +4091,7 @@ function emitReasoningDelta(work, stream, text) {
 }
 
 function claudeCommand(work) {
-  const command = nonEmptyEnv("CCR_CLAUDE_CODE_BIN") || nonEmptyEnv("CODEXL_CLAUDE_CODE_BIN") || "claude";
+  const command = nonEmptyEnv("LLMR_CLAUDE_CODE_BIN") || nonEmptyEnv("CODEXL_CLAUDE_CODE_BIN") || "claude";
   if (work.claudeConfigDir) {
     ensureClaudeSessionConfig(work.claudeConfigDir);
   }
@@ -4102,12 +4102,12 @@ function claudeCommand(work) {
     "--verbose",
     "--include-partial-messages"
   ];
-  const model = nonEmptyEnv("CCR_CLAUDE_CODE_MODEL") || nonEmptyEnv("CODEXL_CLAUDE_CODE_MODEL") || work.model;
+  const model = nonEmptyEnv("LLMR_CLAUDE_CODE_MODEL") || nonEmptyEnv("CODEXL_CLAUDE_CODE_MODEL") || work.model;
   if (model) args.push("--model", model);
   if (work.reasoningEffort) args.push("--effort", work.reasoningEffort);
   if (work.permissionMode) args.push("--permission-mode", work.permissionMode);
   if (work.resumeExisting && work.claudeSessionId) args.push("--resume", work.claudeSessionId);
-  const extra = splitShellLike(nonEmptyEnv("CCR_CLAUDE_CODE_EXTRA_ARGS") || nonEmptyEnv("CODEXL_CLAUDE_CODE_EXTRA_ARGS") || "");
+  const extra = splitShellLike(nonEmptyEnv("LLMR_CLAUDE_CODE_EXTRA_ARGS") || nonEmptyEnv("CODEXL_CLAUDE_CODE_EXTRA_ARGS") || "");
   args.push(...extra);
   const settingsEnv = work.claudeConfigDir ? claudeSettingsEnv(work.claudeConfigDir) : {};
   const env = withoutKeys({
@@ -4117,7 +4117,7 @@ function claudeCommand(work) {
     CODEX_SESSION_ID: work.threadId,
     CODEX_THREAD_ID: work.threadId,
     CODEX_TURN_ID: work.turnId
-  }, ["CCR_CLAUDE_CODE_BOT_WORKER", "ELECTRON_RUN_AS_NODE"]);
+  }, ["LLMR_CLAUDE_CODE_BOT_WORKER", "ELECTRON_RUN_AS_NODE"]);
   if (work.claudeConfigDir) {
     env.CLAUDE_CONFIG_DIR = work.claudeConfigDir;
   }
@@ -4721,14 +4721,14 @@ function configWriteResponse(params) {
 }
 
 function loadChatGptAuth() {
-  const workspaceName = nonEmptyEnv("CCR_CODEX_WORKSPACE_NAME") ||
+  const workspaceName = nonEmptyEnv("LLMR_CODEX_WORKSPACE_NAME") ||
     nonEmptyEnv("CODEXL_CODEX_WORKSPACE_NAME") ||
     nonEmptyEnv("CODEXL_CODEX_INSTANCE_NAME") ||
     agentEnv("codex", "PROFILE");
   const seen = new Set();
   for (const authFile of [
     path.join(codexRuntimeHome(), "auth.json"),
-    nonEmptyEnv("CCR_CODEX_CHATGPT_AUTH_FILE"),
+    nonEmptyEnv("LLMR_CODEX_CHATGPT_AUTH_FILE"),
     nonEmptyEnv("CODEXL_CODEX_CHATGPT_AUTH_FILE"),
     defaultCodexChatGptAuthFallback()
   ]) {
@@ -4745,9 +4745,9 @@ function defaultCodexChatGptAuthFallback() {
   // endpoints that cannot be redirected (statsig, webview session linking), so
   // a synthetic token is rejected there. Bridge the user's real default codex
   // login by default; credits enforcement stays virtual because the desktop
-  // API base points at the local net responder. Set CCR_CODEX_ISOLATED_IDENTITY
+  // API base points at the local net responder. Set LLMR_CODEX_ISOLATED_IDENTITY
   // to keep the fully synthetic token.
-  if (boolEnv("CCR_CODEX_ISOLATED_IDENTITY") || boolEnv("CODEXL_CODEX_ISOLATED_IDENTITY")) return "";
+  if (boolEnv("LLMR_CODEX_ISOLATED_IDENTITY") || boolEnv("CODEXL_CODEX_ISOLATED_IDENTITY")) return "";
   if (codexRuntimeAgent() === "zcode") return "";
   const fallback = path.join(os.homedir(), ".codex", "auth.json");
   return fallback === path.join(codexRuntimeHome(), "auth.json") ? "" : fallback;
@@ -5017,8 +5017,8 @@ function writeLine(stream, value) {
 }
 
 function createRemoteSyncClient(options) {
-  const endpoint = normalizeRemoteSyncEndpoint(nonEmptyEnv("CCR_REMOTE_SYNC_ENDPOINT"));
-  const enabled = endpoint && !["0", "false", "no", "off"].includes(String(process.env.CCR_REMOTE_SYNC_ENABLED || "1").trim().toLowerCase());
+  const endpoint = normalizeRemoteSyncEndpoint(nonEmptyEnv("LLMR_REMOTE_SYNC_ENDPOINT"));
+  const enabled = endpoint && !["0", "false", "no", "off"].includes(String(process.env.LLMR_REMOTE_SYNC_ENABLED || "1").trim().toLowerCase());
   if (!enabled || typeof fetch !== "function") {
     return {
       postEvent: async () => {},
@@ -5032,8 +5032,8 @@ function createRemoteSyncClient(options) {
     endpoint,
     mode: options.mode || "agent",
     title: options.title || "LLMR Remote",
-    profileId: nonEmptyEnv("CCR_REMOTE_SYNC_PROFILE_ID"),
-    profileName: nonEmptyEnv("CCR_REMOTE_SYNC_PROFILE_NAME")
+    profileId: nonEmptyEnv("LLMR_REMOTE_SYNC_PROFILE_ID"),
+    profileName: nonEmptyEnv("LLMR_REMOTE_SYNC_PROFILE_NAME")
   });
 }
 
@@ -5046,7 +5046,7 @@ class RemoteSyncClient {
     this.pollTimer = null;
     this.ready = null;
     this.seenInbound = new Set();
-    this.sessionId = nonEmptyEnv("CCR_REMOTE_SYNC_SESSION_ID") || "ccr-" + safePathSegment(options.profileId || options.profileName || options.mode) + "-" + uuid();
+    this.sessionId = nonEmptyEnv("LLMR_REMOTE_SYNC_SESSION_ID") || "ccr-" + safePathSegment(options.profileId || options.profileName || options.mode) + "-" + uuid();
   }
 
   start(onInbound) {
@@ -5136,13 +5136,13 @@ class RemoteSyncClient {
       })
       .finally(() => {
         if (!this.active) return;
-        this.pollTimer = setTimeout(() => this.pollInbound(onInbound), numberEnv("CCR_REMOTE_SYNC_POLL_INTERVAL_MS", 2000));
+        this.pollTimer = setTimeout(() => this.pollInbound(onInbound), numberEnv("LLMR_REMOTE_SYNC_POLL_INTERVAL_MS", 2000));
       });
   }
 
   async request(method, suffix, body) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), numberEnv("CCR_REMOTE_SYNC_REQUEST_TIMEOUT_MS", 5000));
+    const timeout = setTimeout(() => controller.abort(), numberEnv("LLMR_REMOTE_SYNC_REQUEST_TIMEOUT_MS", 5000));
     const headers = { "accept": "application/json" };
     if (body !== undefined) headers["content-type"] = "application/json";
     if (this.apiKey) headers.authorization = "Bearer " + this.apiKey;
@@ -5164,9 +5164,9 @@ class RemoteSyncClient {
 }
 
 async function readRemoteSyncApiKey() {
-  const direct = nonEmptyEnv("CCR_REMOTE_SYNC_API_KEY");
+  const direct = nonEmptyEnv("LLMR_REMOTE_SYNC_API_KEY");
   if (direct) return direct;
-  const file = nonEmptyEnv("CCR_REMOTE_SYNC_API_KEY_FILE");
+  const file = nonEmptyEnv("LLMR_REMOTE_SYNC_API_KEY_FILE");
   if (file) {
     try {
       const content = fs.readFileSync(expandHome(file), "utf8");
@@ -5175,7 +5175,7 @@ async function readRemoteSyncApiKey() {
       log("remote_sync_api_key_file_failed", { error: formatError(error), file });
     }
   }
-  const helper = nonEmptyEnv("CCR_REMOTE_SYNC_API_KEY_HELPER");
+  const helper = nonEmptyEnv("LLMR_REMOTE_SYNC_API_KEY_HELPER");
   if (!helper) return "";
   return new Promise((resolve) => {
     childProcess.execFile(expandHome(helper), {
@@ -5235,47 +5235,47 @@ function createBotGatewayBridge() {
 }
 
 function readBotGatewayBridgeConfig() {
-  const enabled = boolEnv("CCR_BOT_GATEWAY_ENABLED") || boolEnv("CODEXL_BOT_GATEWAY_ENABLED");
-  const platform = normalizeBotGatewayPlatform(nonEmptyEnv("CCR_BOT_GATEWAY_PLATFORM") || nonEmptyEnv("CODEXL_BOT_GATEWAY_PLATFORM") || "none");
-  const handoffEnabled = boolEnv("CCR_BOT_HANDOFF_ENABLED") || boolEnv("CODEXL_BOT_HANDOFF_ENABLED");
+  const enabled = boolEnv("LLMR_BOT_GATEWAY_ENABLED") || boolEnv("CODEXL_BOT_GATEWAY_ENABLED");
+  const platform = normalizeBotGatewayPlatform(nonEmptyEnv("LLMR_BOT_GATEWAY_PLATFORM") || nonEmptyEnv("CODEXL_BOT_GATEWAY_PLATFORM") || "none");
+  const handoffEnabled = boolEnv("LLMR_BOT_HANDOFF_ENABLED") || boolEnv("CODEXL_BOT_HANDOFF_ENABLED");
   return {
-    acknowledgeEvents: boolEnv("CCR_BOT_GATEWAY_ACK_EVENTS"),
-    args: jsonArrayEnv("CCR_BOT_GATEWAY_ARGS_JSON"),
-    authType: normalizeBotGatewayAuthType(platform, nonEmptyEnv("CCR_BOT_GATEWAY_AUTH_TYPE") || ""),
-    autoStartIntegration: boolEnv("CCR_BOT_GATEWAY_AUTO_START_INTEGRATION"),
-    command: nonEmptyEnv("CCR_BOT_GATEWAY_COMMAND") || "",
-    conversationRef: jsonObjectEnv("CCR_BOT_GATEWAY_CONVERSATION_REF_JSON"),
-    createIntegration: boolEnv("CCR_BOT_GATEWAY_CREATE_INTEGRATION"),
-    credentials: sanitizeBotGatewayRecord(jsonObjectEnv("CCR_BOT_GATEWAY_CREDENTIALS_JSON") || {}),
-    cwd: nonEmptyEnv("CCR_BOT_GATEWAY_CWD") || "",
+    acknowledgeEvents: boolEnv("LLMR_BOT_GATEWAY_ACK_EVENTS"),
+    args: jsonArrayEnv("LLMR_BOT_GATEWAY_ARGS_JSON"),
+    authType: normalizeBotGatewayAuthType(platform, nonEmptyEnv("LLMR_BOT_GATEWAY_AUTH_TYPE") || ""),
+    autoStartIntegration: boolEnv("LLMR_BOT_GATEWAY_AUTO_START_INTEGRATION"),
+    command: nonEmptyEnv("LLMR_BOT_GATEWAY_COMMAND") || "",
+    conversationRef: jsonObjectEnv("LLMR_BOT_GATEWAY_CONVERSATION_REF_JSON"),
+    createIntegration: boolEnv("LLMR_BOT_GATEWAY_CREATE_INTEGRATION"),
+    credentials: sanitizeBotGatewayRecord(jsonObjectEnv("LLMR_BOT_GATEWAY_CREDENTIALS_JSON") || {}),
+    cwd: nonEmptyEnv("LLMR_BOT_GATEWAY_CWD") || "",
     enabled: enabled && platform !== "none",
-    forwardAllAgentMessages: boolEnv("CCR_BOT_GATEWAY_FORWARD_ALL_AGENT_MESSAGES") || boolEnv("CODEXL_BOT_GATEWAY_FORWARD_ALL_CODEX_MESSAGES"),
+    forwardAllAgentMessages: boolEnv("LLMR_BOT_GATEWAY_FORWARD_ALL_AGENT_MESSAGES") || boolEnv("CODEXL_BOT_GATEWAY_FORWARD_ALL_CODEX_MESSAGES"),
     handoff: {
       enabled: handoffEnabled,
-      idleSeconds: numberEnv("CCR_BOT_HANDOFF_IDLE_SECONDS", numberEnv("CODEXL_BOT_HANDOFF_IDLE_SECONDS", 30)),
-      phoneBluetoothTargets: listEnv("CCR_BOT_HANDOFF_PHONE_BLUETOOTH_TARGETS") || listEnv("CODEXL_BOT_HANDOFF_PHONE_BLUETOOTH_TARGETS"),
-      phoneWifiTargets: listEnv("CCR_BOT_HANDOFF_PHONE_WIFI_TARGETS") || listEnv("CODEXL_BOT_HANDOFF_PHONE_WIFI_TARGETS"),
-      screenLock: boolEnv("CCR_BOT_HANDOFF_SCREEN_LOCK") || boolEnv("CODEXL_BOT_HANDOFF_SCREEN_LOCK"),
-      userIdle: boolEnv("CCR_BOT_HANDOFF_USER_IDLE") || boolEnv("CODEXL_BOT_HANDOFF_USER_IDLE")
+      idleSeconds: numberEnv("LLMR_BOT_HANDOFF_IDLE_SECONDS", numberEnv("CODEXL_BOT_HANDOFF_IDLE_SECONDS", 30)),
+      phoneBluetoothTargets: listEnv("LLMR_BOT_HANDOFF_PHONE_BLUETOOTH_TARGETS") || listEnv("CODEXL_BOT_HANDOFF_PHONE_BLUETOOTH_TARGETS"),
+      phoneWifiTargets: listEnv("LLMR_BOT_HANDOFF_PHONE_WIFI_TARGETS") || listEnv("CODEXL_BOT_HANDOFF_PHONE_WIFI_TARGETS"),
+      screenLock: boolEnv("LLMR_BOT_HANDOFF_SCREEN_LOCK") || boolEnv("CODEXL_BOT_HANDOFF_SCREEN_LOCK"),
+      userIdle: boolEnv("LLMR_BOT_HANDOFF_USER_IDLE") || boolEnv("CODEXL_BOT_HANDOFF_USER_IDLE")
     },
-    integrationConfig: websocketBotGatewayIntegrationConfig(platform, jsonObjectEnv("CCR_BOT_GATEWAY_CONFIG_JSON") || {}),
-    integrationId: nonEmptyEnv("CCR_BOT_GATEWAY_INTEGRATION_ID") || nonEmptyEnv("CODEXL_BOT_GATEWAY_INTEGRATION_ID") || "",
-    maxAttachmentBytes: numberEnv("CCR_BOT_GATEWAY_MAX_ATTACHMENT_BYTES", 20 * 1024 * 1024),
-    maxTurnTimeMs: numberEnv("CCR_BOT_GATEWAY_MAX_TURN_TIME_MS", 10 * 60 * 1000),
-    mediaEnabled: boolEnv("CCR_BOT_GATEWAY_MEDIA_ENABLED"),
-    messageChunkChars: numberEnv("CCR_BOT_GATEWAY_MESSAGE_CHUNK_CHARS", 3500),
+    integrationConfig: websocketBotGatewayIntegrationConfig(platform, jsonObjectEnv("LLMR_BOT_GATEWAY_CONFIG_JSON") || {}),
+    integrationId: nonEmptyEnv("LLMR_BOT_GATEWAY_INTEGRATION_ID") || nonEmptyEnv("CODEXL_BOT_GATEWAY_INTEGRATION_ID") || "",
+    maxAttachmentBytes: numberEnv("LLMR_BOT_GATEWAY_MAX_ATTACHMENT_BYTES", 20 * 1024 * 1024),
+    maxTurnTimeMs: numberEnv("LLMR_BOT_GATEWAY_MAX_TURN_TIME_MS", 10 * 60 * 1000),
+    mediaEnabled: boolEnv("LLMR_BOT_GATEWAY_MEDIA_ENABLED"),
+    messageChunkChars: numberEnv("LLMR_BOT_GATEWAY_MESSAGE_CHUNK_CHARS", 3500),
     platform,
-    pollIntervalMs: numberEnv("CCR_BOT_GATEWAY_POLL_INTERVAL_MS", 2000),
-    profileId: nonEmptyEnv("CCR_BOT_PROFILE_ID") || agentEnv(codexRuntimeAgent(), "PROFILE") || "default",
-    profileName: nonEmptyEnv("CCR_BOT_PROFILE_NAME") || agentEnv(codexRuntimeAgent(), "WORKSPACE_NAME") || "CCR",
-    requestTimeoutMs: numberEnv("CCR_BOT_GATEWAY_REQUEST_TIMEOUT_MS", 600000),
-    sessionIdleMinutes: numberEnv("CCR_BOT_GATEWAY_SESSION_IDLE_MINUTES", 0),
-    shellEnabled: boolEnv("CCR_BOT_GATEWAY_SHELL_ENABLED"),
-    sourceDir: nonEmptyEnv("CCR_BOT_GATEWAY_SOURCE_DIR") || "",
-    startupTimeoutMs: numberEnv("CCR_BOT_GATEWAY_STARTUP_TIMEOUT_MS", 10000),
-    stateDir: nonEmptyEnv("CCR_BOT_GATEWAY_STATE_DIR") || nonEmptyEnv("CODEXL_BOT_GATEWAY_STATE_DIR") || nonEmptyEnv("BOT_GATEWAY_STATE_DIR") || "",
-    streamReplies: boolEnv("CCR_BOT_GATEWAY_STREAM_REPLIES"),
-    tenantId: nonEmptyEnv("CCR_BOT_GATEWAY_TENANT_ID") || nonEmptyEnv("CODEXL_BOT_GATEWAY_TENANT_ID") || "ccr"
+    pollIntervalMs: numberEnv("LLMR_BOT_GATEWAY_POLL_INTERVAL_MS", 2000),
+    profileId: nonEmptyEnv("LLMR_BOT_PROFILE_ID") || agentEnv(codexRuntimeAgent(), "PROFILE") || "default",
+    profileName: nonEmptyEnv("LLMR_BOT_PROFILE_NAME") || agentEnv(codexRuntimeAgent(), "WORKSPACE_NAME") || "CCR",
+    requestTimeoutMs: numberEnv("LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS", 600000),
+    sessionIdleMinutes: numberEnv("LLMR_BOT_GATEWAY_SESSION_IDLE_MINUTES", 0),
+    shellEnabled: boolEnv("LLMR_BOT_GATEWAY_SHELL_ENABLED"),
+    sourceDir: nonEmptyEnv("LLMR_BOT_GATEWAY_SOURCE_DIR") || "",
+    startupTimeoutMs: numberEnv("LLMR_BOT_GATEWAY_STARTUP_TIMEOUT_MS", 10000),
+    stateDir: nonEmptyEnv("LLMR_BOT_GATEWAY_STATE_DIR") || nonEmptyEnv("CODEXL_BOT_GATEWAY_STATE_DIR") || nonEmptyEnv("BOT_GATEWAY_STATE_DIR") || "",
+    streamReplies: boolEnv("LLMR_BOT_GATEWAY_STREAM_REPLIES"),
+    tenantId: nonEmptyEnv("LLMR_BOT_GATEWAY_TENANT_ID") || nonEmptyEnv("CODEXL_BOT_GATEWAY_TENANT_ID") || "ccr"
   };
 }
 
@@ -5860,7 +5860,7 @@ async function loadBotGatewaySdk() {
 
 async function importBotGatewaySdk() {
   const candidates = [];
-  const configured = nonEmptyEnv("CCR_BOT_GATEWAY_SDK_MODULE");
+  const configured = nonEmptyEnv("LLMR_BOT_GATEWAY_SDK_MODULE");
   if (configured) {
     candidates.push(configured);
   }
@@ -6131,16 +6131,16 @@ function turnErrorText(turn) {
 }
 
 function botSessionStorePath() {
-  const stateDir = nonEmptyEnv("CCR_BOT_GATEWAY_STATE_DIR") ||
+  const stateDir = nonEmptyEnv("LLMR_BOT_GATEWAY_STATE_DIR") ||
     nonEmptyEnv("CODEXL_BOT_GATEWAY_STATE_DIR") ||
     nonEmptyEnv("BOT_GATEWAY_STATE_DIR") ||
-    path.join(CONFIG_DIR, "bot-gateway", safePathSegment(nonEmptyEnv("CCR_BOT_PROFILE_ID") || "default"));
+    path.join(CONFIG_DIR, "bot-gateway", safePathSegment(nonEmptyEnv("LLMR_BOT_PROFILE_ID") || "default"));
   return path.join(expandHome(stateDir), "claude-bot-sessions.json");
 }
 
 function botRuntimeStatePath(config) {
   const stateDir = stringValue(config && config.stateDir) ||
-    nonEmptyEnv("CCR_BOT_GATEWAY_STATE_DIR") ||
+    nonEmptyEnv("LLMR_BOT_GATEWAY_STATE_DIR") ||
     nonEmptyEnv("BOT_GATEWAY_STATE_DIR") ||
     path.join(CONFIG_DIR, "bot-gateway", safePathSegment(config && config.profileId || "default"));
   return path.join(expandHome(stateDir), "bot-runtime-state.json");
@@ -6396,7 +6396,7 @@ function updateClaudeSessionFile(file, patch) {
 }
 
 function currentClaudeAppUserDataDir() {
-  return expandHome(nonEmptyEnv("CCR_CLAUDE_APP_USER_DATA_PATH") || nonEmptyEnv("CLAUDE_USER_DATA_DIR") || "");
+  return expandHome(nonEmptyEnv("LLMR_CLAUDE_APP_USER_DATA_PATH") || nonEmptyEnv("CLAUDE_USER_DATA_DIR") || "");
 }
 
 function botSessionEntryMatchesCurrentProfile(entry, appSession) {
@@ -6474,7 +6474,7 @@ function shortSessionId(value) {
 }
 
 function createClaudeAppLocalAgentSession(text, projectDirectory) {
-  const baseDir = nonEmptyEnv("CCR_CLAUDE_APP_USER_DATA_PATH") || nonEmptyEnv("CLAUDE_USER_DATA_DIR");
+  const baseDir = nonEmptyEnv("LLMR_CLAUDE_APP_USER_DATA_PATH") || nonEmptyEnv("CLAUDE_USER_DATA_DIR");
   if (!baseDir) return null;
   const root = path.join(expandHome(baseDir), "local-agent-mode-sessions");
   const template = latestClaudeAppLocalAgentSession();
@@ -6500,7 +6500,7 @@ function createClaudeAppLocalAgentSession(text, projectDirectory) {
     userSelectedFolders: [cwd],
     createdAt: now,
     lastActivityAt: now,
-    model: nonEmptyEnv("CCR_CLAUDE_CODE_MODEL") || nonEmptyEnv("CODEXL_CLAUDE_CODE_MODEL") || agentEnv(codexRuntimeAgent(), "MODEL") || DEFAULT_MODEL,
+    model: nonEmptyEnv("LLMR_CLAUDE_CODE_MODEL") || nonEmptyEnv("CODEXL_CLAUDE_CODE_MODEL") || agentEnv(codexRuntimeAgent(), "MODEL") || DEFAULT_MODEL,
     isArchived: false,
     title,
     vmProcessName: "ccr-bot-" + sessionId.slice(6, 14),
@@ -6586,7 +6586,7 @@ function copyClaudeConfigFile(targetDir, filename, sourceDirs) {
 
 function claudeConfigSourceDirs(template, order) {
   const base = [
-    nonEmptyEnv("CCR_CLAUDE_BASE_CONFIG_DIR"),
+    nonEmptyEnv("LLMR_CLAUDE_BASE_CONFIG_DIR"),
     nonEmptyEnv("CLAUDE_CONFIG_DIR"),
     path.join(os.homedir(), ".claude")
   ];
@@ -7197,8 +7197,8 @@ function withoutKeys(env, keys) {
 }
 
 function childEnvForAgent(agent) {
-  const next = withoutKeys(process.env, ["CODEX_CLI_PATH", "ZCODE_CLI_PATH", "CCR_REAL_CODEX_CLI_PATH", "CODEXL_REAL_CODEX_CLI_PATH", "CCR_REAL_ZCODE_CLI_PATH", "CODEXL_REAL_ZCODE_CLI_PATH"]);
-  const blockedPrefixes = agent === "zcode" ? ["CCR_CODEX_", "CODEXL_CODEX_"] : ["CCR_ZCODE_", "CODEXL_ZCODE_"];
+  const next = withoutKeys(process.env, ["CODEX_CLI_PATH", "ZCODE_CLI_PATH", "LLMR_REAL_CODEX_CLI_PATH", "CODEXL_REAL_CODEX_CLI_PATH", "LLMR_REAL_ZCODE_CLI_PATH", "CODEXL_REAL_ZCODE_CLI_PATH"]);
+  const blockedPrefixes = agent === "zcode" ? ["LLMR_CODEX_", "CODEXL_CODEX_"] : ["LLMR_ZCODE_", "CODEXL_ZCODE_"];
   for (const key of Object.keys(next)) {
     if (blockedPrefixes.some((prefix) => key.startsWith(prefix))) {
       delete next[key];
@@ -7226,9 +7226,9 @@ function nonEmptyEnvFrom(env, name) {
 }
 
 function codexRuntimeAgent() {
-  return nonEmptyEnv("CCR_ZCODE_PROFILE") ||
+  return nonEmptyEnv("LLMR_ZCODE_PROFILE") ||
     nonEmptyEnv("CODEXL_ZCODE_PROFILE") ||
-    nonEmptyEnv("CCR_REAL_ZCODE_CLI_PATH") ||
+    nonEmptyEnv("LLMR_REAL_ZCODE_CLI_PATH") ||
     nonEmptyEnv("CODEXL_REAL_ZCODE_CLI_PATH") ||
     nonEmptyEnv("ZCODE_CLI_PATH") ||
     nonEmptyEnv("ZCODE_STORAGE_DIR") ||
@@ -7239,15 +7239,15 @@ function codexRuntimeAgent() {
 
 function codexRuntimeRealCli(agent) {
   if (agent === "zcode") {
-    return nonEmptyEnv("CCR_REAL_ZCODE_CLI_PATH") ||
+    return nonEmptyEnv("LLMR_REAL_ZCODE_CLI_PATH") ||
       nonEmptyEnv("CODEXL_REAL_ZCODE_CLI_PATH") ||
       nonEmptyEnv("ZCODE_CLI_PATH") ||
       "zcode";
   }
   for (const candidate of [
-    nonEmptyEnv("CCR_REAL_CODEX_CLI_PATH"),
+    nonEmptyEnv("LLMR_REAL_CODEX_CLI_PATH"),
     nonEmptyEnv("CODEXL_REAL_CODEX_CLI_PATH"),
-    nonEmptyEnv("CCR_BUNDLED_CODEX_CLI_PATH"),
+    nonEmptyEnv("LLMR_BUNDLED_CODEX_CLI_PATH"),
     nonEmptyEnv("CODEXL_BUNDLED_CODEX_CLI_PATH"),
     nonEmptyEnv("CODEX_CLI_PATH")
   ]) {
@@ -7272,8 +7272,8 @@ function codexRuntimeHome() {
 function agentEnv(agent, primarySuffix, secondarySuffix) {
   const suffixes = [primarySuffix, secondarySuffix].filter(Boolean);
   const prefixes = agent === "zcode"
-    ? ["CCR_ZCODE_", "CODEXL_ZCODE_"]
-    : ["CCR_CODEX_", "CODEXL_CODEX_"];
+    ? ["LLMR_ZCODE_", "CODEXL_ZCODE_"]
+    : ["LLMR_CODEX_", "CODEXL_CODEX_"];
   for (const suffix of suffixes) {
     for (const prefix of prefixes) {
       const value = nonEmptyEnv(prefix + suffix);
@@ -7310,7 +7310,7 @@ function expandHome(value) {
 }
 
 function runtimeHomeDir() {
-  return nonEmptyEnv("CCR_INTERNAL_HOME_DIR") || os.homedir();
+  return nonEmptyEnv("LLMR_INTERNAL_HOME_DIR") || os.homedir();
 }
 
 function tomlEscape(value) {

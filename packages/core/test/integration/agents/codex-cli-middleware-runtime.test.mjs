@@ -22,7 +22,7 @@ test("#1851 Pi dispatch consumes only the profile selector and preserves the pro
     const output = path.join(dir, "args.json");
     const capture = path.join(dir, "capture.js");
     const fakePi = path.join(dir, process.platform === "win32" ? "pi.cmd" : "pi");
-    writeFileSync(capture, 'require("node:fs").writeFileSync(process.env.CCR_PI_TEST_OUTPUT, JSON.stringify({ args: process.argv.slice(2), marker: process.env.CCR_CLI_DIRECT_PROFILE_DISPATCH }));');
+    writeFileSync(capture, 'require("node:fs").writeFileSync(process.env.LLMR_PI_TEST_OUTPUT, JSON.stringify({ args: process.argv.slice(2), marker: process.env.LLMR_CLI_DIRECT_PROFILE_DISPATCH }));');
     if (process.platform === "win32") writeFileSync(fakePi, `@echo off\r\n"${process.execPath}" "${capture}" %*\r\n`);
     else {
       writeFileSync(fakePi, `#!/bin/sh\nexec "${process.execPath}" "${capture}" "$@"\n`);
@@ -37,9 +37,9 @@ test("#1851 Pi dispatch consumes only the profile selector and preserves the pro
     ]) {
       const result = spawnSync(process.execPath, [runtime, ...args], {
         encoding: "utf8", timeout: 10000,
-        env: { ...process.env, CCR_PI_WRAPPER: "1", CCR_REAL_PI_BIN: fakePi,
-          CCR_REAL_CODEX_CLI_PATH: fakePi, CCR_PI_PROVIDER: "ccr", CCR_PI_MODEL: "Provider/model",
-          CCR_PI_TEST_OUTPUT: output, CCR_CLI_DIRECT_PROFILE_DISPATCH: direct ? "1" : "", CCR_CODEX_DEFAULT_ARGS: "--version" },
+        env: { ...process.env, LLMR_PI_WRAPPER: "1", LLMR_REAL_PI_BIN: fakePi,
+          LLMR_REAL_CODEX_CLI_PATH: fakePi, LLMR_PI_PROVIDER: "ccr", LLMR_PI_MODEL: "Provider/model",
+          LLMR_PI_TEST_OUTPUT: output, LLMR_CLI_DIRECT_PROFILE_DISPATCH: direct ? "1" : "", LLMR_CODEX_DEFAULT_ARGS: "--version" },
       });
       assert.equal(result.status, 0, result.stderr);
       const captured = JSON.parse(readFileSync(output, "utf8"));
@@ -110,8 +110,8 @@ test("Codex app-server uses ChatGPT's bundled Node as a signed supervisor", { sk
   ].join("\n"));
   writeFileSync(bundledNode, [
     "#!/bin/sh",
-    "printf '%s\\n' \"$@\" > \"$CCR_FAKE_SUPERVISOR_ARGS\"",
-    "exec \"$CCR_TEST_NODE\" \"$@\"",
+    "printf '%s\\n' \"$@\" > \"$LLMR_FAKE_SUPERVISOR_ARGS\"",
+    "exec \"$LLMR_TEST_NODE\" \"$@\"",
     ""
   ].join("\n"));
   chmodSync(fakeCodex, 0o700);
@@ -121,11 +121,11 @@ test("Codex app-server uses ChatGPT's bundled Node as a signed supervisor", { sk
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      CCR_FAKE_SUPERVISOR_ARGS: observedFile,
-      CCR_PROFILE_SCOPE: "global",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
-      CCR_TEST_NODE: process.execPath
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_FAKE_SUPERVISOR_ARGS: observedFile,
+      LLMR_PROFILE_SCOPE: "global",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_TEST_NODE: process.execPath
     },
     input: JSON.stringify({ id: 1, method: "probe/supervisor", params: {} }) + "\n"
   });
@@ -149,9 +149,9 @@ test("Codex runtime ignores middleware recursion and uses the bundled real CLI f
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_BUNDLED_CODEX_CLI_PATH: fakeCodex,
-      CCR_CODEX_PROFILE: "claude-code-router",
-      CCR_REAL_CODEX_CLI_PATH: "",
+      LLMR_BUNDLED_CODEX_CLI_PATH: fakeCodex,
+      LLMR_CODEX_PROFILE: "claude-code-router",
+      LLMR_REAL_CODEX_CLI_PATH: "",
       CODEXL_REAL_CODEX_CLI_PATH: "",
       CODEX_CLI_PATH: path.join(dir, "ccr-codex-cli-stdio-profile")
     }
@@ -178,9 +178,9 @@ test("Codex CLI middleware launches Windows cmd shims", { skip: process.platform
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CODEX_MODEL_PROVIDER: "claude-code-router",
-      CCR_CODEX_PROFILE: "claude-code-router",
-      CCR_REAL_CODEX_CLI_PATH: fakeCli
+      LLMR_CODEX_MODEL_PROVIDER: "claude-code-router",
+      LLMR_CODEX_PROFILE: "claude-code-router",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCli
     }
   });
 
@@ -207,10 +207,10 @@ test("Windows direct profile dispatch strips the profile command arguments", { s
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CLAUDE_CODE_WRAPPER: "1",
-      CCR_CLI_DIRECT_PROFILE_DISPATCH: "1",
-      CCR_REAL_CLAUDE_CODE_BIN: fakeCli,
-      CCR_REMOTE_SYNC_ENABLED: "0"
+      LLMR_CLAUDE_CODE_WRAPPER: "1",
+      LLMR_CLI_DIRECT_PROFILE_DISPATCH: "1",
+      LLMR_REAL_CLAUDE_CODE_BIN: fakeCli,
+      LLMR_REMOTE_SYNC_ENABLED: "0"
     }
   });
 
@@ -250,10 +250,10 @@ test("Codex app-server keeps a ChatGPT-shaped account for workspace routing with
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      CCR_CODEX_CHATGPT_AUTH_FILE: "",
-      CCR_PROFILE_SCOPE: "ccr",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_CODEX_CHATGPT_AUTH_FILE: "",
+      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
       CODEXL_CODEX_CHATGPT_AUTH_FILE: "",
       CODEXL_CODEX_WORKSPACE_NAME: "LLMR Workspace",
@@ -324,9 +324,9 @@ test("Codex app-server reads but never overwrites an existing ChatGPT auth file"
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      CCR_PROFILE_SCOPE: "ccr",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome
     },
     input: [
@@ -379,10 +379,10 @@ test("Codex app-server bridges shared ChatGPT auth into an isolated profile with
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CODEX_CHATGPT_AUTH_FILE: sharedAuthFile,
-      CCR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      CCR_PROFILE_SCOPE: "ccr",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_CODEX_CHATGPT_AUTH_FILE: sharedAuthFile,
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
       CODEXL_CODEX_CHATGPT_AUTH_FILE: ""
     },
@@ -441,9 +441,9 @@ test("Codex app-server bridges the default codex ChatGPT login read-only", { ski
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      CCR_PROFILE_SCOPE: "ccr",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
       HOME: isolatedHome
     },
@@ -501,9 +501,9 @@ test("Codex app-server preserves workspace routing surfaced by newer app-servers
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      CCR_PROFILE_SCOPE: "ccr",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
       CODEXL_CODEX_WORKSPACE_NAME: "LLMR Workspace",
       HOME: isolatedHome
@@ -546,9 +546,9 @@ test("Codex app-server delegates public Git marketplaces and leaves account-priv
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      CCR_PROFILE_SCOPE: "ccr",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome
     },
     input: [
@@ -597,9 +597,9 @@ test("Codex app-server preserves the requested approval reviewer without widenin
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      CCR_PROFILE_SCOPE: "ccr",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome
     },
     input: [
@@ -652,7 +652,7 @@ test("#1795 null upstream requirements with Fast Mode stay legacy-routing compat
     chmodSync(fakeCodex, 0o700);
     const result = spawnSync(process.execPath, [runtimeFile, "app-server"], {
       encoding: "utf8", timeout: 10000,
-      env: { ...process.env, CODEX_HOME: dir, CCR_REAL_CODEX_CLI_PATH: fakeCodex, CCR_CODEX_REMOTE_FRONTEND_MODE: "app", CCR_CODEX_MODEL_CATALOG: JSON.stringify({ models: [{ slug: "fast-test", supports_fast_mode: true }] }) },
+      env: { ...process.env, CODEX_HOME: dir, LLMR_REAL_CODEX_CLI_PATH: fakeCodex, LLMR_CODEX_REMOTE_FRONTEND_MODE: "app", LLMR_CODEX_MODEL_CATALOG: JSON.stringify({ models: [{ slug: "fast-test", supports_fast_mode: true }] }) },
       input: JSON.stringify({ id: 1, method: "configRequirements/read", params: {} }) + "\n"
     });
     assert.equal(result.status, 0, result.stderr);
@@ -687,9 +687,9 @@ test("Codex app-server preserves auto-review without an opt-in environment varia
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      CCR_PROFILE_SCOPE: "ccr",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_PROFILE_SCOPE: "ccr",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome
     },
     input: [
@@ -741,15 +741,15 @@ test("Codex app-server merges LLMR Fast Mode catalog metadata without spoofing a
     encoding: "utf8",
     env: {
       ...process.env,
-      CCR_CODEX_CHATGPT_AUTH_FILE: "",
-      CCR_CODEX_MODEL_CATALOG: JSON.stringify({
+      LLMR_CODEX_CHATGPT_AUTH_FILE: "",
+      LLMR_CODEX_MODEL_CATALOG: JSON.stringify({
         models: [
           { display_name: "Native Fast", slug: "native-model", supports_fast_mode: true },
           { display_name: "Plain Model", slug: "plain-model" }
         ]
       }),
-      CCR_CODEX_REMOTE_FRONTEND_MODE: "app",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
       CODEXL_CODEX_CHATGPT_AUTH_FILE: "",
       HOME: isolatedHome
@@ -798,11 +798,11 @@ test("Claude Code wrapper leaves the scoped profile model as an environment defa
     env: {
       ...process.env,
       ANTHROPIC_MODEL: "Fusion/kimisearch",
-      CCR_CLAUDE_CODE_MODEL: "Fusion/kimisearch",
-      CCR_CLAUDE_CODE_WRAPPER: "1",
-      CCR_FAKE_CLAUDE_OUT: outputFile,
-      CCR_REAL_CLAUDE_CODE_BIN: fakeCli,
-      CCR_REMOTE_SYNC_ENABLED: "0"
+      LLMR_CLAUDE_CODE_MODEL: "Fusion/kimisearch",
+      LLMR_CLAUDE_CODE_WRAPPER: "1",
+      LLMR_FAKE_CLAUDE_OUT: outputFile,
+      LLMR_REAL_CLAUDE_CODE_BIN: fakeCli,
+      LLMR_REMOTE_SYNC_ENABLED: "0"
     },
     stdio: "pipe"
   });
@@ -810,7 +810,7 @@ test("Claude Code wrapper leaves the scoped profile model as an environment defa
   const observed = JSON.parse(readFileSync(outputFile, "utf8"));
   assert.deepEqual(observed.argv, ["-p", "hi"]);
   assert.equal(observed.env.ANTHROPIC_MODEL, "Fusion/kimisearch");
-  assert.equal(observed.env.CCR_CLAUDE_CODE_MODEL, "Fusion/kimisearch");
+  assert.equal(observed.env.LLMR_CLAUDE_CODE_MODEL, "Fusion/kimisearch");
 });
 
 test("Claude Code wrapper preserves an explicit model argument", { skip: process.platform === "win32" }, () => {
@@ -822,11 +822,11 @@ test("Claude Code wrapper preserves an explicit model argument", { skip: process
     env: {
       ...process.env,
       ANTHROPIC_MODEL: "Fusion/kimisearch",
-      CCR_CLAUDE_CODE_MODEL: "Fusion/kimisearch",
-      CCR_CLAUDE_CODE_WRAPPER: "1",
-      CCR_FAKE_CLAUDE_OUT: outputFile,
-      CCR_REAL_CLAUDE_CODE_BIN: fakeCli,
-      CCR_REMOTE_SYNC_ENABLED: "0"
+      LLMR_CLAUDE_CODE_MODEL: "Fusion/kimisearch",
+      LLMR_CLAUDE_CODE_WRAPPER: "1",
+      LLMR_FAKE_CLAUDE_OUT: outputFile,
+      LLMR_REAL_CLAUDE_CODE_BIN: fakeCli,
+      LLMR_REMOTE_SYNC_ENABLED: "0"
     },
     stdio: "pipe"
   });
@@ -844,18 +844,18 @@ test("Claude Code wrapper injects the ToolHub MCP config into real CLI args", { 
   execFileSync(process.execPath, [runtimeFile, "-p", "hi"], {
     env: {
       ...process.env,
-      CCR_CLAUDE_CODE_MCP_CONFIG: mcpConfigFile,
-      CCR_CLAUDE_CODE_WRAPPER: "1",
-      CCR_FAKE_CLAUDE_OUT: outputFile,
-      CCR_REAL_CLAUDE_CODE_BIN: fakeCli,
-      CCR_REMOTE_SYNC_ENABLED: "0"
+      LLMR_CLAUDE_CODE_MCP_CONFIG: mcpConfigFile,
+      LLMR_CLAUDE_CODE_WRAPPER: "1",
+      LLMR_FAKE_CLAUDE_OUT: outputFile,
+      LLMR_REAL_CLAUDE_CODE_BIN: fakeCli,
+      LLMR_REMOTE_SYNC_ENABLED: "0"
     },
     stdio: "pipe"
   });
 
   const observed = JSON.parse(readFileSync(outputFile, "utf8"));
   assert.deepEqual(observed.argv, ["--mcp-config", mcpConfigFile, "-p", "hi"]);
-  assert.equal(observed.env.CCR_CLAUDE_CODE_MCP_CONFIG, mcpConfigFile);
+  assert.equal(observed.env.LLMR_CLAUDE_CODE_MCP_CONFIG, mcpConfigFile);
 });
 
 test("Claude Code wrapper does not duplicate an explicit MCP config argument", { skip: process.platform === "win32" }, () => {
@@ -868,11 +868,11 @@ test("Claude Code wrapper does not duplicate an explicit MCP config argument", {
   execFileSync(process.execPath, [runtimeFile, "--mcp-config", explicitMcpConfigFile, "-p", "hi"], {
     env: {
       ...process.env,
-      CCR_CLAUDE_CODE_MCP_CONFIG: envMcpConfigFile,
-      CCR_CLAUDE_CODE_WRAPPER: "1",
-      CCR_FAKE_CLAUDE_OUT: outputFile,
-      CCR_REAL_CLAUDE_CODE_BIN: fakeCli,
-      CCR_REMOTE_SYNC_ENABLED: "0"
+      LLMR_CLAUDE_CODE_MCP_CONFIG: envMcpConfigFile,
+      LLMR_CLAUDE_CODE_WRAPPER: "1",
+      LLMR_FAKE_CLAUDE_OUT: outputFile,
+      LLMR_REAL_CLAUDE_CODE_BIN: fakeCli,
+      LLMR_REMOTE_SYNC_ENABLED: "0"
     },
     stdio: "pipe"
   });
@@ -908,19 +908,19 @@ test("OpenCode bot worker keeps commands responsive while preserving per-convers
     "#!/usr/bin/env node",
     "const fs = require('node:fs');",
     "const argv = process.argv.slice(2);",
-    "fs.appendFileSync(process.env.CCR_FAKE_OPENCODE_CALLS, JSON.stringify({",
+    "fs.appendFileSync(process.env.LLMR_FAKE_OPENCODE_CALLS, JSON.stringify({",
     "  argv,",
     "  cwd: process.cwd(),",
     "  pwd: process.env.PWD || '',",
     "  config: process.env.OPENCODE_CONFIG || '',",
     "  configContent: process.env.OPENCODE_CONFIG_CONTENT || '',",
     "  client: process.env.OPENCODE_CLIENT || '',",
-    "  workerMarker: process.env.CCR_OPENCODE_BOT_WORKER || ''",
+    "  workerMarker: process.env.LLMR_OPENCODE_BOT_WORKER || ''",
     "}) + '\\n');",
     "if (argv[0] === 'session') {",
     "  process.stdout.write(JSON.stringify([",
     "    { id: 'ses_existing', title: 'Existing session', directory: process.cwd(), time: { updated: Date.now() } },",
-    "    { id: 'ses_other', title: 'Other session', directory: process.env.CCR_FAKE_OTHER_PROJECT, time: { updated: Date.now() - 1 } }",
+    "    { id: 'ses_other', title: 'Other session', directory: process.env.LLMR_FAKE_OTHER_PROJECT, time: { updated: Date.now() - 1 } }",
     "  ]) + '\\n');",
     "} else {",
     "  const prompt = argv[argv.length - 1];",
@@ -963,7 +963,7 @@ test("OpenCode bot worker keeps commands responsive while preserving per-convers
     "        event('event-2', 'second')",
     "      ] };",
     "    },",
-    "    send: async (payload) => fs.appendFileSync(process.env.CCR_FAKE_BOT_REPLIES, JSON.stringify(payload) + '\\n'),",
+    "    send: async (payload) => fs.appendFileSync(process.env.LLMR_FAKE_BOT_REPLIES, JSON.stringify(payload) + '\\n'),",
     "    ackEvent: async () => ({}),",
     "    close: async () => ({})",
     "  };",
@@ -975,23 +975,23 @@ test("OpenCode bot worker keeps commands responsive while preserving per-convers
   const child = spawn(process.execPath, [runtimeFile, "opencode-bot-worker", "--workspace-name", "OpenCode Test"], {
     env: {
       ...process.env,
-      CCR_OPENCODE_BOT_WORKER: "1",
-      CCR_OPENCODE_BOT_CWD: dir,
-      CCR_OPENCODE_BIN: fakeOpenCode,
-      CCR_BOT_GATEWAY_ENABLED: "true",
-      CCR_BOT_GATEWAY_PLATFORM: "slack",
-      CCR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
-      CCR_BOT_GATEWAY_TENANT_ID: "ccr",
-      CCR_BOT_GATEWAY_ACK_EVENTS: "true",
-      CCR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
-      CCR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
-      CCR_BOT_GATEWAY_SHELL_ENABLED: "true",
-      CCR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: "2000",
-      CCR_BOT_GATEWAY_SDK_MODULE: fakeSdk,
-      CCR_BOT_GATEWAY_STATE_DIR: stateDir,
-      CCR_FAKE_OPENCODE_CALLS: callsFile,
-      CCR_FAKE_OTHER_PROJECT: otherProject,
-      CCR_FAKE_BOT_REPLIES: repliesFile,
+      LLMR_OPENCODE_BOT_WORKER: "1",
+      LLMR_OPENCODE_BOT_CWD: dir,
+      LLMR_OPENCODE_BIN: fakeOpenCode,
+      LLMR_BOT_GATEWAY_ENABLED: "true",
+      LLMR_BOT_GATEWAY_PLATFORM: "slack",
+      LLMR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
+      LLMR_BOT_GATEWAY_TENANT_ID: "ccr",
+      LLMR_BOT_GATEWAY_ACK_EVENTS: "true",
+      LLMR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
+      LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
+      LLMR_BOT_GATEWAY_SHELL_ENABLED: "true",
+      LLMR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: "2000",
+      LLMR_BOT_GATEWAY_SDK_MODULE: fakeSdk,
+      LLMR_BOT_GATEWAY_STATE_DIR: stateDir,
+      LLMR_FAKE_OPENCODE_CALLS: callsFile,
+      LLMR_FAKE_OTHER_PROJECT: otherProject,
+      LLMR_FAKE_BOT_REPLIES: repliesFile,
       OPENCODE_CONFIG: configFile,
       OPENCODE_CONFIG_CONTENT: "{\"provider\":{}}"
     },
@@ -1049,7 +1049,7 @@ test("OpenCode bot worker streams without duplicate final text replies or implic
     "#!/usr/bin/env node",
     "const fs = require('node:fs');",
     "const argv = process.argv.slice(2);",
-    "fs.appendFileSync(process.env.CCR_FAKE_OPENCODE_CALLS, JSON.stringify({ argv, cwd: process.cwd() }) + '\\n');",
+    "fs.appendFileSync(process.env.LLMR_FAKE_OPENCODE_CALLS, JSON.stringify({ argv, cwd: process.cwd() }) + '\\n');",
     "process.stdout.write(JSON.stringify({ type: 'text', sessionID: 'ses_stream', part: { id: 'part-1', type: 'text', text: 'reply:stream me' } }) + '\\n');",
     ""
   ].join("\n"));
@@ -1068,7 +1068,7 @@ test("OpenCode bot worker streams without duplicate final text replies or implic
     "        conversation: { id: 'conversation-1', type: 'dm' }, message: { id: 'message-stream', text: 'stream me' }",
     "      } }] };",
     "    },",
-    "    send: async (payload) => fs.appendFileSync(process.env.CCR_FAKE_BOT_REPLIES, JSON.stringify(payload) + '\\n'),",
+    "    send: async (payload) => fs.appendFileSync(process.env.LLMR_FAKE_BOT_REPLIES, JSON.stringify(payload) + '\\n'),",
     "    ackEvent: async () => ({}),",
     "    close: async () => ({})",
     "  };",
@@ -1080,23 +1080,23 @@ test("OpenCode bot worker streams without duplicate final text replies or implic
   const child = spawn(process.execPath, [runtimeFile, "opencode-bot-worker", "--workspace-name", "OpenCode Test"], {
     env: {
       ...process.env,
-      CCR_OPENCODE_BOT_WORKER: "1",
-      CCR_OPENCODE_BOT_CWD: dir,
-      CCR_OPENCODE_BIN: fakeOpenCode,
-      CCR_BOT_GATEWAY_ENABLED: "true",
-      CCR_BOT_GATEWAY_PLATFORM: "slack",
-      CCR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
-      CCR_BOT_GATEWAY_TENANT_ID: "ccr",
-      CCR_BOT_GATEWAY_ACK_EVENTS: "true",
-      CCR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
-      CCR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
-      CCR_BOT_GATEWAY_SHELL_ENABLED: "true",
-      CCR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: "2000",
-      CCR_BOT_GATEWAY_STREAM_REPLIES: "true",
-      CCR_BOT_GATEWAY_SDK_MODULE: fakeSdk,
-      CCR_BOT_GATEWAY_STATE_DIR: stateDir,
-      CCR_FAKE_OPENCODE_CALLS: callsFile,
-      CCR_FAKE_BOT_REPLIES: repliesFile
+      LLMR_OPENCODE_BOT_WORKER: "1",
+      LLMR_OPENCODE_BOT_CWD: dir,
+      LLMR_OPENCODE_BIN: fakeOpenCode,
+      LLMR_BOT_GATEWAY_ENABLED: "true",
+      LLMR_BOT_GATEWAY_PLATFORM: "slack",
+      LLMR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
+      LLMR_BOT_GATEWAY_TENANT_ID: "ccr",
+      LLMR_BOT_GATEWAY_ACK_EVENTS: "true",
+      LLMR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
+      LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
+      LLMR_BOT_GATEWAY_SHELL_ENABLED: "true",
+      LLMR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: "2000",
+      LLMR_BOT_GATEWAY_STREAM_REPLIES: "true",
+      LLMR_BOT_GATEWAY_SDK_MODULE: fakeSdk,
+      LLMR_BOT_GATEWAY_STATE_DIR: stateDir,
+      LLMR_FAKE_OPENCODE_CALLS: callsFile,
+      LLMR_FAKE_BOT_REPLIES: repliesFile
     },
     stdio: ["ignore", "ignore", "pipe"]
   });
@@ -1135,7 +1135,7 @@ test("Codex App bot worker uses native projects and sessions without enabling sh
     "#!/usr/bin/env node",
     "const fs = require('node:fs');",
     "const argv = process.argv.slice(2);",
-    "fs.appendFileSync(process.env.CCR_FAKE_CODEX_CALLS, JSON.stringify({ argv, cwd: process.cwd() }) + '\\n');",
+    "fs.appendFileSync(process.env.LLMR_FAKE_CODEX_CALLS, JSON.stringify({ argv, cwd: process.cwd() }) + '\\n');",
     "const prompt = argv[argv.length - 1];",
     "const reply = () => {",
     "  process.stdout.write(JSON.stringify({ type: 'thread.started', thread_id: 'ses_codex' }) + '\\n');",
@@ -1167,7 +1167,7 @@ test("Codex App bot worker uses native projects and sessions without enabling sh
     "        event('second', 'second')",
     "      ] };",
     "    },",
-    "    send: async (payload) => fs.appendFileSync(process.env.CCR_FAKE_BOT_REPLIES, JSON.stringify(payload) + '\\n'),",
+    "    send: async (payload) => fs.appendFileSync(process.env.LLMR_FAKE_BOT_REPLIES, JSON.stringify(payload) + '\\n'),",
     "    ackEvent: async () => ({}),",
     "    close: async () => ({})",
     "  };",
@@ -1180,22 +1180,22 @@ test("Codex App bot worker uses native projects and sessions without enabling sh
     env: {
       ...process.env,
       CODEX_HOME: codexHome,
-      CCR_CODEX_BOT_WORKER: "1",
-      CCR_CODEX_PROFILE: "claude-code-router",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
-      CCR_BOT_GATEWAY_CWD: dir,
-      CCR_BOT_GATEWAY_ENABLED: "true",
-      CCR_BOT_GATEWAY_PLATFORM: "slack",
-      CCR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
-      CCR_BOT_GATEWAY_TENANT_ID: "ccr",
-      CCR_BOT_GATEWAY_ACK_EVENTS: "true",
-      CCR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
-      CCR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
-      CCR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: "2000",
-      CCR_BOT_GATEWAY_SDK_MODULE: fakeSdk,
-      CCR_BOT_GATEWAY_STATE_DIR: stateDir,
-      CCR_FAKE_CODEX_CALLS: callsFile,
-      CCR_FAKE_BOT_REPLIES: repliesFile
+      LLMR_CODEX_BOT_WORKER: "1",
+      LLMR_CODEX_PROFILE: "claude-code-router",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_BOT_GATEWAY_CWD: dir,
+      LLMR_BOT_GATEWAY_ENABLED: "true",
+      LLMR_BOT_GATEWAY_PLATFORM: "slack",
+      LLMR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
+      LLMR_BOT_GATEWAY_TENANT_ID: "ccr",
+      LLMR_BOT_GATEWAY_ACK_EVENTS: "true",
+      LLMR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
+      LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
+      LLMR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: "2000",
+      LLMR_BOT_GATEWAY_SDK_MODULE: fakeSdk,
+      LLMR_BOT_GATEWAY_STATE_DIR: stateDir,
+      LLMR_FAKE_CODEX_CALLS: callsFile,
+      LLMR_FAKE_BOT_REPLIES: repliesFile
     },
     stdio: ["ignore", "ignore", "pipe"]
   });
@@ -1241,7 +1241,7 @@ test("Codex App bot worker passes image attachments to exec and avoids duplicate
     "#!/usr/bin/env node",
     "const fs = require('node:fs');",
     "const argv = process.argv.slice(2);",
-    "fs.appendFileSync(process.env.CCR_FAKE_CODEX_CALLS, JSON.stringify({ argv, cwd: process.cwd() }) + '\\n');",
+    "fs.appendFileSync(process.env.LLMR_FAKE_CODEX_CALLS, JSON.stringify({ argv, cwd: process.cwd() }) + '\\n');",
     "process.stdout.write(JSON.stringify({ type: 'thread.started', thread_id: 'ses_image' }) + '\\n');",
     "process.stdout.write(JSON.stringify({ type: 'item.completed', item: { id: 'answer-image', type: 'agent_message', text: 'reply:describe image' } }) + '\\n');",
     ""
@@ -1263,7 +1263,7 @@ test("Codex App bot worker passes image attachments to exec and avoids duplicate
     "        message: { id: 'message-image', text: 'describe image', attachments: [{ id: 'att-1', type: 'image', url: 'https://attachments.local/screenshot.png', name: 'screenshot.png', mimeType: 'image/png', sizeBytes: 3 }] }",
     "      } }] };",
     "    },",
-    "    send: async (payload) => fs.appendFileSync(process.env.CCR_FAKE_BOT_REPLIES, JSON.stringify(payload) + '\\n'),",
+    "    send: async (payload) => fs.appendFileSync(process.env.LLMR_FAKE_BOT_REPLIES, JSON.stringify(payload) + '\\n'),",
     "    ackEvent: async () => ({}),",
     "    close: async () => ({})",
     "  };",
@@ -1276,24 +1276,24 @@ test("Codex App bot worker passes image attachments to exec and avoids duplicate
     env: {
       ...process.env,
       CODEX_HOME: codexHome,
-      CCR_CODEX_BOT_WORKER: "1",
-      CCR_CODEX_PROFILE: "claude-code-router",
-      CCR_REAL_CODEX_CLI_PATH: fakeCodex,
-      CCR_BOT_GATEWAY_CWD: dir,
-      CCR_BOT_GATEWAY_ENABLED: "true",
-      CCR_BOT_GATEWAY_MEDIA_ENABLED: "true",
-      CCR_BOT_GATEWAY_PLATFORM: "slack",
-      CCR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
-      CCR_BOT_GATEWAY_TENANT_ID: "ccr",
-      CCR_BOT_GATEWAY_ACK_EVENTS: "true",
-      CCR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
-      CCR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
-      CCR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: "2000",
-      CCR_BOT_GATEWAY_STREAM_REPLIES: "true",
-      CCR_BOT_GATEWAY_SDK_MODULE: fakeSdk,
-      CCR_BOT_GATEWAY_STATE_DIR: stateDir,
-      CCR_FAKE_CODEX_CALLS: callsFile,
-      CCR_FAKE_BOT_REPLIES: repliesFile
+      LLMR_CODEX_BOT_WORKER: "1",
+      LLMR_CODEX_PROFILE: "claude-code-router",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
+      LLMR_BOT_GATEWAY_CWD: dir,
+      LLMR_BOT_GATEWAY_ENABLED: "true",
+      LLMR_BOT_GATEWAY_MEDIA_ENABLED: "true",
+      LLMR_BOT_GATEWAY_PLATFORM: "slack",
+      LLMR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
+      LLMR_BOT_GATEWAY_TENANT_ID: "ccr",
+      LLMR_BOT_GATEWAY_ACK_EVENTS: "true",
+      LLMR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
+      LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
+      LLMR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: "2000",
+      LLMR_BOT_GATEWAY_STREAM_REPLIES: "true",
+      LLMR_BOT_GATEWAY_SDK_MODULE: fakeSdk,
+      LLMR_BOT_GATEWAY_STATE_DIR: stateDir,
+      LLMR_FAKE_CODEX_CALLS: callsFile,
+      LLMR_FAKE_BOT_REPLIES: repliesFile
     },
     stdio: ["ignore", "ignore", "pipe"]
   });
@@ -1369,7 +1369,7 @@ test("Claude App bot worker keeps project and session selection as separate leve
     "        event('old-task', '/task')",
     "      ] };",
     "    },",
-    "    send: async (payload) => fs.appendFileSync(process.env.CCR_FAKE_BOT_REPLIES, JSON.stringify(payload) + '\\n'),",
+    "    send: async (payload) => fs.appendFileSync(process.env.LLMR_FAKE_BOT_REPLIES, JSON.stringify(payload) + '\\n'),",
     "    ackEvent: async () => ({}),",
     "    close: async () => ({})",
     "  };",
@@ -1381,20 +1381,20 @@ test("Claude App bot worker keeps project and session selection as separate leve
   const child = spawn(process.execPath, [runtimeFile, "claude-bot-worker", "--workspace-name", "Claude Test"], {
     env: {
       ...process.env,
-      CCR_CLAUDE_CODE_BOT_WORKER: "1",
-      CCR_CLAUDE_APP_USER_DATA_PATH: userDataDir,
+      LLMR_CLAUDE_CODE_BOT_WORKER: "1",
+      LLMR_CLAUDE_APP_USER_DATA_PATH: userDataDir,
       CLAUDE_USER_DATA_DIR: userDataDir,
-      CCR_BOT_GATEWAY_ENABLED: "true",
-      CCR_BOT_GATEWAY_PLATFORM: "slack",
-      CCR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
-      CCR_BOT_GATEWAY_TENANT_ID: "ccr",
-      CCR_BOT_GATEWAY_ACK_EVENTS: "true",
-      CCR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
-      CCR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
-      CCR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: "2000",
-      CCR_BOT_GATEWAY_SDK_MODULE: fakeSdk,
-      CCR_BOT_GATEWAY_STATE_DIR: stateDir,
-      CCR_FAKE_BOT_REPLIES: repliesFile
+      LLMR_BOT_GATEWAY_ENABLED: "true",
+      LLMR_BOT_GATEWAY_PLATFORM: "slack",
+      LLMR_BOT_GATEWAY_INTEGRATION_ID: "bot-test",
+      LLMR_BOT_GATEWAY_TENANT_ID: "ccr",
+      LLMR_BOT_GATEWAY_ACK_EVENTS: "true",
+      LLMR_BOT_GATEWAY_POLL_INTERVAL_MS: "50",
+      LLMR_BOT_GATEWAY_REQUEST_TIMEOUT_MS: "2000",
+      LLMR_BOT_GATEWAY_STARTUP_TIMEOUT_MS: "2000",
+      LLMR_BOT_GATEWAY_SDK_MODULE: fakeSdk,
+      LLMR_BOT_GATEWAY_STATE_DIR: stateDir,
+      LLMR_FAKE_BOT_REPLIES: repliesFile
     },
     stdio: ["ignore", "ignore", "pipe"]
   });
@@ -1471,12 +1471,12 @@ function writeFakeClaudeCli(dir) {
   writeFileSync(fakeCli, [
     "#!/usr/bin/env node",
     "const fs = require('node:fs');",
-    "fs.writeFileSync(process.env.CCR_FAKE_CLAUDE_OUT, JSON.stringify({",
+    "fs.writeFileSync(process.env.LLMR_FAKE_CLAUDE_OUT, JSON.stringify({",
     "  argv: process.argv.slice(2),",
     "  env: {",
     "    ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL || '',",
-    "    CCR_CLAUDE_CODE_MODEL: process.env.CCR_CLAUDE_CODE_MODEL || '',",
-    "    CCR_CLAUDE_CODE_MCP_CONFIG: process.env.CCR_CLAUDE_CODE_MCP_CONFIG || ''",
+    "    LLMR_CLAUDE_CODE_MODEL: process.env.LLMR_CLAUDE_CODE_MODEL || '',",
+    "    LLMR_CLAUDE_CODE_MCP_CONFIG: process.env.LLMR_CLAUDE_CODE_MCP_CONFIG || ''",
     "  }",
     "}));",
     ""

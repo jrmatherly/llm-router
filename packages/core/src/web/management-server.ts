@@ -136,9 +136,9 @@ export async function startWebManagementServer(options: WebManagementServerOptio
   // Serve from the bundled or cached catalog at once; the catalog indexes
   // rebuild on the next lookup when the download lands.
   void refreshModelCatalog();
-  const host = options.host?.trim() || readEnvString("CCR_WEB_HOST") || defaultWebHost;
-  const requestedPort = options.port ?? readEnvPort("CCR_WEB_PORT") ?? defaultWebPort;
-  const authToken = options.authToken?.trim() || readEnvString("CCR_WEB_AUTH_TOKEN") || randomBytes(32).toString("base64url");
+  const host = options.host?.trim() || readEnvString("LLMR_WEB_HOST") || defaultWebHost;
+  const requestedPort = options.port ?? readEnvPort("LLMR_WEB_PORT") ?? defaultWebPort;
+  const authToken = options.authToken?.trim() || readEnvString("LLMR_WEB_AUTH_TOKEN") || randomBytes(32).toString("base64url");
   let security: WebManagementSecurityContext | undefined;
   const server = createServer((request, response) => {
     if (!security) {
@@ -184,7 +184,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse,
   }
 
   // CORS: allow cross-origin browsers (e.g. the docs setup wizard) to call the
-  // RPC endpoint. Origin-gated to loopback + CCR_WEB_ALLOWED_ORIGINS. This only
+  // RPC endpoint. Origin-gated to loopback + LLMR_WEB_ALLOWED_ORIGINS. This only
   // relaxes the browser same-origin policy; the x-llmr-web-auth token still
   // authorizes /api/llmr/rpc, so no credential is exposed.
   const corsOrigin = allowedWebCorsOrigin(request);
@@ -323,10 +323,10 @@ const rpcHandlers: Record<string, RpcHandler> = {
   getGatewayStatus: () => gatewayService.getStatus(),
   getServiceIdentity: (serviceToken) => ({
     pid: process.pid,
-    serviceTokenConfigured: Boolean(process.env.CCR_SERVICE_INSTANCE_TOKEN?.trim()),
+    serviceTokenConfigured: Boolean(process.env.LLMR_SERVICE_INSTANCE_TOKEN?.trim()),
     serviceTokenMatches: typeof serviceToken === "string" &&
       Boolean(serviceToken.trim()) &&
-      serviceToken === process.env.CCR_SERVICE_INSTANCE_TOKEN
+      serviceToken === process.env.LLMR_SERVICE_INSTANCE_TOKEN
   }),
   getLocalAgentProviderCandidates: () => getLocalAgentProviderCandidates(),
   getOnboardingFinished: () => loadOnboardingFinished(),
@@ -681,13 +681,13 @@ const loopbackWebCorsHosts = new Set(["localhost", "127.0.0.1", "::1", "0:0:0:0:
  * Returns the request `Origin` if cross-origin callers are permitted, else
  * undefined. Permits loopback origins (any port) unconditionally so local tools
  * like the docs setup wizard work, plus any exact origin listed in the
- * `CCR_WEB_ALLOWED_ORIGINS` env var (comma-separated) for remote deployments.
+ * `LLMR_WEB_ALLOWED_ORIGINS` env var (comma-separated) for remote deployments.
  */
 function allowedWebCorsOrigin(request: IncomingMessage): string | undefined {
   const origin = readHeaderValue(request.headers.origin);
   if (!origin) return undefined;
   const normalizedOrigin = origin.replace(/\/$/, "");
-  const configured = readEnvString("CCR_WEB_ALLOWED_ORIGINS");
+  const configured = readEnvString("LLMR_WEB_ALLOWED_ORIGINS");
   if (configured) {
     const allow = new Set(
       configured

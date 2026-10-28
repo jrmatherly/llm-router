@@ -8,12 +8,12 @@ import { copyMissingDirectoryContents, sameFilesystemPath } from "@llmr/core/sto
 installSocketTypeOfServiceCompat();
 markDesktopAppRuntime();
 
-const appDataPath = readConfiguredRuntimePath("CCR_INTERNAL_APP_DATA_DIR") ?? app.getPath("appData");
-const homePath = readConfiguredRuntimePath("CCR_INTERNAL_HOME_DIR") ?? app.getPath("home");
+const appDataPath = readConfiguredRuntimePath("LLMR_INTERNAL_APP_DATA_DIR") ?? app.getPath("appData");
+const homePath = readConfiguredRuntimePath("LLMR_INTERNAL_HOME_DIR") ?? app.getPath("home");
 setRuntimeAppPaths({
   appData: appDataPath,
   home: homePath,
-  userData: readConfiguredRuntimePath("CCR_INTERNAL_USER_DATA_DIR")
+  userData: readConfiguredRuntimePath("LLMR_INTERNAL_USER_DATA_DIR")
 });
 const userDataPath = configureRuntimeUserDataPath(app.getPath("userData"));
 setRuntimeAppPaths({

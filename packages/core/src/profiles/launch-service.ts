@@ -34,8 +34,8 @@ export const desktopCliCommandName = "llmr";
 const desktopCliRuntimeFileName = "llmr-cli.js";
 const legacyCliRuntimeFileName = "ccr-cli.js";
 export const legacyCliLauncherFileNames = ["ccr", "ccr.cmd", "ccr-app", "ccr-app.cmd", legacyCliRuntimeFileName];
-const desktopCliCommandNameEnv = "CCR_CLI_COMMAND_NAME";
-export const CCR_CLI_COMPANION_RUNTIME_FILE_NAMES = [
+const desktopCliCommandNameEnv = "LLMR_CLI_COMMAND_NAME";
+export const LLMR_CLI_COMPANION_RUNTIME_FILE_NAMES = [
   "browser-web-search-proxy-mcp.js",
   "fusion-tool-fallback-mcp.js",
   "fusion-vision-mcp.js",
@@ -1306,7 +1306,7 @@ function nodeErrorCode(error: unknown): string | undefined {
 function startClaudeAppBotWorker(config: AppConfig, profile: ReturnType<typeof findProfileForOpen>): void {
   const botEnv = botGatewayProfileEnv(config, profile, "app");
   stopClaudeAppBotWorker();
-  if (botEnv.CCR_BOT_GATEWAY_ENABLED !== "true") {
+  if (botEnv.LLMR_BOT_GATEWAY_ENABLED !== "true") {
     return;
   }
 
@@ -1323,15 +1323,15 @@ function startClaudeAppBotWorker(config: AppConfig, profile: ReturnType<typeof f
     ...settingsEnv,
     ...botEnv,
     ...(nodeLaunch.electronRunAsNode ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
-    CCR_CLAUDE_BASE_CONFIG_DIR: path.dirname(settingsFile),
+    LLMR_CLAUDE_BASE_CONFIG_DIR: path.dirname(settingsFile),
     CLAUDE_CONFIG_DIR: path.dirname(settingsFile),
     CLAUDE_USER_DATA_DIR: claudeAppUserDataDir,
-    CCR_CLAUDE_APP_USER_DATA_PATH: claudeAppUserDataDir,
-    CCR_CLAUDE_CODE_BOT_WORKER: "1",
-    CCR_CLAUDE_CODE_MODEL: profile.model.trim(),
-    CCR_CODEX_MODEL: profile.model.trim(),
-    CCR_CODEX_WORKSPACE_NAME: profile.name || profile.id,
-    CCR_PROFILE_SURFACE: "app",
+    LLMR_CLAUDE_APP_USER_DATA_PATH: claudeAppUserDataDir,
+    LLMR_CLAUDE_CODE_BOT_WORKER: "1",
+    LLMR_CLAUDE_CODE_MODEL: profile.model.trim(),
+    LLMR_CODEX_MODEL: profile.model.trim(),
+    LLMR_CODEX_WORKSPACE_NAME: profile.name || profile.id,
+    LLMR_PROFILE_SURFACE: "app",
     CODEXL_CODEX_WORKSPACE_NAME: profile.name || profile.id,
     CODEXL_PROFILE_SURFACE: "app",
     ...claudeCodeUtcTimezoneEnvOverride()
@@ -1346,7 +1346,7 @@ function startClaudeAppBotWorker(config: AppConfig, profile: ReturnType<typeof f
   });
   claudeAppBotWorker = child;
   claudeAppBotWorkerProfileId = profile.id;
-  claudeAppBotWorkerStateDir = botEnv.CCR_BOT_GATEWAY_STATE_DIR;
+  claudeAppBotWorkerStateDir = botEnv.LLMR_BOT_GATEWAY_STATE_DIR;
   child.stderr?.on("data", (chunk) => {
     console.warn(`[profile] Claude App bot worker stderr: ${chunk.toString("utf8").trim()}`);
   });
@@ -1378,7 +1378,7 @@ function startOpenCodeAppBotWorker(
   launchSignature: string
 ): void {
   const botEnv = botGatewayProfileEnv(config, profile, "app");
-  if (botEnv.CCR_BOT_GATEWAY_ENABLED !== "true") {
+  if (botEnv.LLMR_BOT_GATEWAY_ENABLED !== "true") {
     stopOpenCodeAppBotWorker(profile.id);
     return;
   }
@@ -1401,9 +1401,9 @@ function startOpenCodeAppBotWorker(
     ...stringRecord(profile.env),
     ...botEnv,
     ...(nodeLaunch.electronRunAsNode ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
-    CCR_OPENCODE_BOT_WORKER: "1",
-    CCR_OPENCODE_WORKSPACE_NAME: profile.name || profile.id,
-    CCR_PROFILE_SURFACE: "app",
+    LLMR_OPENCODE_BOT_WORKER: "1",
+    LLMR_OPENCODE_WORKSPACE_NAME: profile.name || profile.id,
+    LLMR_PROFILE_SURFACE: "app",
     OPENCODE_CLIENT: "cli",
     OPENCODE_CONFIG: configFile,
     OPENCODE_CONFIG_CONTENT: inlineConfig
@@ -1419,7 +1419,7 @@ function startOpenCodeAppBotWorker(
   openCodeAppBotWorker = child;
   openCodeAppBotWorkerProfileId = profile.id;
   openCodeAppBotWorkerSignature = launchSignature;
-  openCodeAppBotWorkerStateDir = botEnv.CCR_BOT_GATEWAY_STATE_DIR;
+  openCodeAppBotWorkerStateDir = botEnv.LLMR_BOT_GATEWAY_STATE_DIR;
   child.stderr?.on("data", (chunk) => {
     console.warn(`[profile] OpenCode App bot worker stderr: ${chunk.toString("utf8").trim()}`);
   });
@@ -1447,7 +1447,7 @@ function startOpenCodeAppBotWorker(
 
 function startCodexAppBotWorker(config: AppConfig, profile: ReturnType<typeof findProfileForOpen>): void {
   const botEnv = botGatewayProfileEnv(config, profile, "app");
-  if (botEnv.CCR_BOT_GATEWAY_ENABLED !== "true") {
+  if (botEnv.LLMR_BOT_GATEWAY_ENABLED !== "true") {
     stopCodexAppBotWorker(profile.id);
     return;
   }
@@ -1462,8 +1462,8 @@ function startCodexAppBotWorker(config: AppConfig, profile: ReturnType<typeof fi
     ...process.env,
     ...plan.env,
     ...botEnv,
-    CCR_CODEX_BOT_WORKER: "1",
-    CCR_PROFILE_SURFACE: "app",
+    LLMR_CODEX_BOT_WORKER: "1",
+    LLMR_PROFILE_SURFACE: "app",
     CODEXL_PROFILE_SURFACE: "app"
   };
   delete env.ELECTRON_NO_ATTACH_CONSOLE;
@@ -1474,7 +1474,7 @@ function startCodexAppBotWorker(config: AppConfig, profile: ReturnType<typeof fi
     windowsHide: true,
     windowsVerbatimArguments: launch.windowsVerbatimArguments
   });
-  codexAppBotWorkers.set(profile.id, { agent: profile.agent, child, stateDir: botEnv.CCR_BOT_GATEWAY_STATE_DIR });
+  codexAppBotWorkers.set(profile.id, { agent: profile.agent, child, stateDir: botEnv.LLMR_BOT_GATEWAY_STATE_DIR });
   child.stderr?.on("data", (chunk) => {
     console.warn(`[profile] ${profile.agent === "zcode" ? "ZCode" : "Codex"} App bot worker stderr: ${chunk.toString("utf8").trim()}`);
   });
@@ -1551,11 +1551,11 @@ function ensureBotWorkerRuntime(runtimeFile: string): void {
     }
   }
   if (
-    !content.includes("CCR_CLAUDE_CODE_BOT_WORKER") ||
+    !content.includes("LLMR_CLAUDE_CODE_BOT_WORKER") ||
     !content.includes("claude-bot-worker") ||
-    !content.includes("CCR_OPENCODE_BOT_WORKER") ||
+    !content.includes("LLMR_OPENCODE_BOT_WORKER") ||
     !content.includes("opencode-bot-worker") ||
-    !content.includes("CCR_CODEX_BOT_WORKER") ||
+    !content.includes("LLMR_CODEX_BOT_WORKER") ||
     !content.includes("codex-bot-worker")
   ) {
     throw new Error("Bot worker runtime does not contain all required entrypoints.");
@@ -1627,7 +1627,7 @@ function stopCodexAppMediaPreviewBridge(profileId?: string): void {
 }
 
 function nodeRuntimeLaunch(): { command: string; electronRunAsNode: boolean } {
-  const configured = process.env.CCR_NODE_BIN?.trim();
+  const configured = process.env.LLMR_NODE_BIN?.trim();
   if (configured) {
     return { command: configured, electronRunAsNode: false };
   }
@@ -1673,7 +1673,7 @@ export function prepareCcrCliLauncherRuntime(): CcrCliLauncherPreparation {
 export function syncCcrCliCompanionRuntimes(runtimeSource: string, binDir: string): string[] {
   const sourceDir = path.dirname(runtimeSource);
   const synced: string[] = [];
-  for (const fileName of CCR_CLI_COMPANION_RUNTIME_FILE_NAMES) {
+  for (const fileName of LLMR_CLI_COMPANION_RUNTIME_FILE_NAMES) {
     const source = path.join(sourceDir, fileName);
     if (!existsSync(source)) continue;
     const destination = path.join(binDir, fileName);
@@ -1789,14 +1789,14 @@ function posixCcrLauncher(runtimeFile: string): string {
     "#!/bin/sh",
     `${desktopCliCommandNameEnv}=${shQuote(desktopCliCommandName)}`,
     `export ${desktopCliCommandNameEnv}`,
-    `CCR_CLI_NODE_PATH=${shQuote(nodePath)}`,
+    `LLMR_CLI_NODE_PATH=${shQuote(nodePath)}`,
     'if [ -n "$NODE_PATH" ]; then',
-    '  export NODE_PATH="$CCR_CLI_NODE_PATH:$NODE_PATH"',
+    '  export NODE_PATH="$LLMR_CLI_NODE_PATH:$NODE_PATH"',
     "else",
-    '  export NODE_PATH="$CCR_CLI_NODE_PATH"',
+    '  export NODE_PATH="$LLMR_CLI_NODE_PATH"',
     "fi",
-    'if [ -n "$CCR_NODE_BIN" ]; then',
-    `  exec "$CCR_NODE_BIN" ${shQuote(runtimeFile)} "$@"`,
+    'if [ -n "$LLMR_NODE_BIN" ]; then',
+    `  exec "$LLMR_NODE_BIN" ${shQuote(runtimeFile)} "$@"`,
     "fi",
     `ELECTRON_RUN_AS_NODE=1 exec ${shQuote(process.execPath)} ${shQuote(runtimeFile)} "$@"`
   ].join("\n") + "\n";
@@ -1809,12 +1809,12 @@ export function windowsCcrLauncher(runtimeFile: string, config?: AppConfig): str
     "@echo off",
     "setlocal",
     `set "${desktopCliCommandNameEnv}=${desktopCliCommandName}"`,
-    `set "CCR_CLI_RUNTIME=${cmdEnvValue(runtimeFile)}"`,
-    `set "CCR_CLI_NODE_PATH=${cmdEnvValue(nodePath)}"`,
+    `set "LLMR_CLI_RUNTIME=${cmdEnvValue(runtimeFile)}"`,
+    `set "LLMR_CLI_NODE_PATH=${cmdEnvValue(nodePath)}"`,
     "if defined NODE_PATH (",
-    "  set \"NODE_PATH=%CCR_CLI_NODE_PATH%;%NODE_PATH%\"",
+    "  set \"NODE_PATH=%LLMR_CLI_NODE_PATH%;%NODE_PATH%\"",
     ") else (",
-    "  set \"NODE_PATH=%CCR_CLI_NODE_PATH%\"",
+    "  set \"NODE_PATH=%LLMR_CLI_NODE_PATH%\"",
     ")",
     ...(dispatches.length > 0
       ? [
@@ -1824,22 +1824,22 @@ export function windowsCcrLauncher(runtimeFile: string, config?: AppConfig): str
           ":ccr_run_cli"
         ]
       : []),
-    "if defined CCR_NODE_BIN (",
-    '  "%CCR_NODE_BIN%" "%CCR_CLI_RUNTIME%" %*',
+    "if defined LLMR_NODE_BIN (",
+    '  "%LLMR_NODE_BIN%" "%LLMR_CLI_RUNTIME%" %*',
     "  exit /b %ERRORLEVEL%",
     ")",
     "set \"ELECTRON_RUN_AS_NODE=1\"",
-    `${cmdQuote(process.execPath)} "%CCR_CLI_RUNTIME%" %*`,
+    `${cmdQuote(process.execPath)} "%LLMR_CLI_RUNTIME%" %*`,
     "exit /b %ERRORLEVEL%",
     ...dispatches.flatMap((dispatch, index) => [
       `:ccr_profile_${index}`,
-      "set \"CCR_CLI_PREPARE_PROFILE_ONLY=1\"",
+      "set \"LLMR_CLI_PREPARE_PROFILE_ONLY=1\"",
       "set \"ELECTRON_RUN_AS_NODE=1\"",
-      `${cmdQuote(process.execPath)} "%CCR_CLI_RUNTIME%" %*`,
+      `${cmdQuote(process.execPath)} "%LLMR_CLI_RUNTIME%" %*`,
       "if errorlevel 1 exit /b %ERRORLEVEL%",
-      "set \"CCR_CLI_PREPARE_PROFILE_ONLY=\"",
+      "set \"LLMR_CLI_PREPARE_PROFILE_ONLY=\"",
       "set \"ELECTRON_RUN_AS_NODE=\"",
-      "set \"CCR_CLI_DIRECT_PROFILE_DISPATCH=1\"",
+      "set \"LLMR_CLI_DIRECT_PROFILE_DISPATCH=1\"",
       `call ${cmdQuote(dispatch.launcher)} %*`,
       "exit /b %ERRORLEVEL%"
     ])

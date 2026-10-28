@@ -60,17 +60,17 @@ test("missing, invalid JSON, non-object and non-gateway settings are no policy, 
 
 test("the managed settings directory can be overridden for tests", () => {
   withTempDir((dir) => {
-    const previous = process.env.CCR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR;
-    process.env.CCR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR = dir;
+    const previous = process.env.LLMR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR;
+    process.env.LLMR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR = dir;
     try {
       writeFileSync(path.join(dir, "managed-settings.json"), JSON.stringify({ forceLoginMethod: "gateway" }));
       assert.equal(claudeCodeManagedSettingsDir(), dir);
       assert.deepEqual(claudeCodeManagedSettingsFiles(), [path.join(dir, "managed-settings.json")]);
     } finally {
       if (previous === undefined) {
-        delete process.env.CCR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR;
+        delete process.env.LLMR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR;
       } else {
-        process.env.CCR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR = previous;
+        process.env.LLMR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR = previous;
       }
     }
   });

@@ -5,12 +5,12 @@ import path from "node:path";
 import test from "node:test";
 
 const testRoot = path.join(
-  process.env.CCR_INTERNAL_HOME_DIR || os.tmpdir(),
+  process.env.LLMR_INTERNAL_HOME_DIR || os.tmpdir(),
   `claude-app-gateway-sync-${process.pid}`
 );
-process.env.CCR_INTERNAL_HOME_DIR = path.join(testRoot, "home");
-process.env.CCR_INTERNAL_APP_DATA_DIR = path.join(testRoot, "app-data");
-process.env.CCR_INTERNAL_USER_DATA_DIR = path.join(testRoot, "user-data");
+process.env.LLMR_INTERNAL_HOME_DIR = path.join(testRoot, "home");
+process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(testRoot, "app-data");
+process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(testRoot, "user-data");
 if (process.platform === "win32") {
   process.env.LOCALAPPDATA = path.join(testRoot, "local-app-data");
 }

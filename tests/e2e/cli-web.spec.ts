@@ -17,7 +17,7 @@ test.afterAll(async () => {
   runtime = undefined;
 });
 
-test("uses CCR_WEB_AUTH_TOKEN for CLI web authentication", async () => {
+test("uses LLMR_WEB_AUTH_TOKEN for CLI web authentication", async () => {
   const current = requireRuntime();
   expect(current.token).toBe(cliWebAuthToken);
 });

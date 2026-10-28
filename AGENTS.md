@@ -43,8 +43,8 @@ Never hand-edit these; regenerate them.
 
 - npm only, never pnpm or yarn. `allowScripts` in the root `package.json` lists the native dependencies whose install scripts may run; approve a new one with `npm install-scripts approve <pkg>`.
 - Nothing AI-written goes under `docs/` except `docs/superpowers/`. No review notes or plan files elsewhere.
-- Tests that need `CCR_EXTENSIONS_DIR` create their own temp dirs. Nothing depends on sibling checkouts.
+- Tests that need `LLMR_EXTENSIONS_DIR` create their own temp dirs. Nothing depends on sibling checkouts.
 
 ## Local checks
 
-In Claude Code sessions, `.claude/settings.json` blocks hand-edits to generated files and runs typecheck plus `npm run test:architecture` before a `git commit` run through Bash and before the Jean commit tool (about 11 s). A fresh worktree without `node_modules` blocks commits until `npm ci` runs there. `CCR_GATE_COMMANDS`, `CCR_VERIFY_COMMANDS` and `CCR_VERIFY_E2E_COMMAND` exist for tests only; never set them in a session. Edits made through Bash (`sed`, redirects) and commits from other tools are not hooked; the tests above are the check.
+In Claude Code sessions, `.claude/settings.json` blocks hand-edits to generated files and runs typecheck plus `npm run test:architecture` before a `git commit` run through Bash and before the Jean commit tool (about 11 s). A fresh worktree without `node_modules` blocks commits until `npm ci` runs there. `LLMR_GATE_COMMANDS`, `LLMR_VERIFY_COMMANDS` and `LLMR_VERIFY_E2E_COMMAND` exist for tests only; never set them in a session. Edits made through Bash (`sed`, redirects) and commits from other tools are not hooked; the tests above are the check.

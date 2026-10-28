@@ -3,7 +3,7 @@
 
   var VERSION = "0.2.0";
   var STYLE_ID = "ccr-provider-buttons-style";
-  var OFFICIAL_CCR_ICON_URL = "https://jrmatherly.github.io/llm-router/llmr-icon.png";
+  var OFFICIAL_LLMR_ICON_URL = "https://jrmatherly.github.io/llm-router/llmr-icon.png";
 
   var LINK_PARAMS = [
     "name",
@@ -191,7 +191,7 @@
 
     var ccrIconShell = document.createElement("span");
     ccrIconShell.className = "ccrpb-ccr-icon";
-    ccrIconShell.appendChild(createImage(OFFICIAL_CCR_ICON_URL, "CCR"));
+    ccrIconShell.appendChild(createImage(OFFICIAL_LLMR_ICON_URL, "CCR"));
 
     var arrow = document.createElement("span");
     arrow.className = "ccrpb-arrow";

@@ -56,32 +56,32 @@ test("gate passes through non-commit git commands without running checks", () =>
 });
 test("gate recognizes every commit spelling", () => {
   for (const command of ["git commit -m x", "git -C sub commit", "git -c a=b commit -m x", "git --no-pager commit -m x", "git --git-dir=.git --work-tree=. commit", "rtk git commit -m x", "npm test && git commit -m x", "/usr/bin/git commit -m x", "cd sub && /usr/bin/git commit -m x", "command git commit -m x"]) {
-    const r = run("gate-commit.mjs", { cwd: tempRepo(), tool_name: "Bash", tool_input: { command } }, { CCR_GATE_COMMANDS: fail });
+    const r = run("gate-commit.mjs", { cwd: tempRepo(), tool_name: "Bash", tool_input: { command } }, { LLMR_GATE_COMMANDS: fail });
     assert.equal(r.status, 2, command);
   }
 });
 test("gate blocks a Bash commit and the Jean commit tool when a check fails, reporting its output", () => {
   for (const tool of [{ tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { tool_name: "mcp__jean__create_commit", tool_input: { message: "x" } }]) {
-    const r = run("gate-commit.mjs", { cwd: tempRepo(), ...tool }, { CCR_GATE_COMMANDS: fail });
+    const r = run("gate-commit.mjs", { cwd: tempRepo(), ...tool }, { LLMR_GATE_COMMANDS: fail });
     assert.equal(r.status, 2, tool.tool_name);
     assert.match(r.stderr, /tsc says no/);
   }
 });
 test("gate skips a checkout of another project instead of running its scripts", () => {
-  const r = run("gate-commit.mjs", { cwd: tempRepo("someone-elses-package"), tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { CCR_GATE_COMMANDS: fail });
+  const r = run("gate-commit.mjs", { cwd: tempRepo("someone-elses-package"), tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { LLMR_GATE_COMMANDS: fail });
   assert.equal(r.status, 0, r.stderr);
 });
 test("gate blocks a tree without node_modules", () => {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), "ccr-gate-bare-")));
   writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: projectName }));
-  const r = run("gate-commit.mjs", { cwd: dir, tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { CCR_GATE_COMMANDS: pass });
+  const r = run("gate-commit.mjs", { cwd: dir, tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { LLMR_GATE_COMMANDS: pass });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /npm ci/);
 });
 test("gate runs in the hook input cwd, not CLAUDE_PROJECT_DIR", () => {
   const dir = tempRepo();
   const record = JSON.stringify([[process.execPath, ["-e", "require('fs').writeFileSync('ran-here', process.cwd())"]]]);
-  const r = run("gate-commit.mjs", { cwd: dir, tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { CCR_GATE_COMMANDS: record, CLAUDE_PROJECT_DIR: "/nonexistent" });
+  const r = run("gate-commit.mjs", { cwd: dir, tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { LLMR_GATE_COMMANDS: record, CLAUDE_PROJECT_DIR: "/nonexistent" });
   assert.equal(r.status, 0);
   assert.equal(readFileSync(path.join(dir, "ran-here"), "utf8"), dir);
 });

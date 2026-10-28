@@ -14,7 +14,7 @@ const routerPluginSupportMarkers = [
 ];
 
 export function resolveLocalGatewayRoot() {
-  for (const envName of ["CCR_DOCKER_GATEWAY_SOURCE_DIR", "CCR_GATEWAY_SOURCE_DIR", "CCR_LOCAL_AI_GATEWAY_DIR"]) {
+  for (const envName of ["LLMR_DOCKER_GATEWAY_SOURCE_DIR", "LLMR_GATEWAY_SOURCE_DIR", "LLMR_LOCAL_AI_GATEWAY_DIR"]) {
     const value = process.env[envName]?.trim();
     if (!value) continue;
     return path.resolve(projectRoot, value);

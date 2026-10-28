@@ -177,7 +177,7 @@ class AppUpdateService {
   }
 
   private configureUpdater(): void {
-    const feedUrl = readEnvString("CCR_UPDATE_FEED_URL");
+    const feedUrl = readEnvString("LLMR_UPDATE_FEED_URL");
     if (feedUrl) {
       this.configuredUpdateSource = feedUrl;
       autoUpdater.setFeedURL({
@@ -189,7 +189,7 @@ class AppUpdateService {
 
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
-    autoUpdater.allowPrerelease = readEnvBoolean("CCR_UPDATE_ALLOW_PRERELEASE");
+    autoUpdater.allowPrerelease = readEnvBoolean("LLMR_UPDATE_ALLOW_PRERELEASE");
     autoUpdater.fullChangelog = true;
     autoUpdater.logger = {
       debug: (message) => console.debug(`[update] ${message}`),
@@ -267,7 +267,7 @@ class AppUpdateService {
     this.startupCheckTimer = setTimeout(() => {
       this.startupCheckTimer = undefined;
       void this.checkForUpdates({ silentFailure: true });
-    }, readEnvNumber("CCR_UPDATE_STARTUP_DELAY_MS") ?? startupCheckDelayMs);
+    }, readEnvNumber("LLMR_UPDATE_STARTUP_DELAY_MS") ?? startupCheckDelayMs);
     this.startupCheckTimer.unref?.();
   }
 
@@ -325,7 +325,7 @@ class AppUpdateService {
   }
 
   private isUpdaterSupported(): boolean {
-    return app.isPackaged || Boolean(readEnvString("CCR_UPDATE_FEED_URL"));
+    return app.isPackaged || Boolean(readEnvString("LLMR_UPDATE_FEED_URL"));
   }
 }
 
