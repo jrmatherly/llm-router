@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const upstreamLinks = /musistudio\/claude-code-router\/releases|npm install -g @musistudio|llmrdesk\.top/;
+const upstreamLinks = /musistudio\/claude-code-router\/releases|npm install -g @musistudio|ccrdesk\.top/;
 
 for (const file of ["README.md"]) {
   test(`${file} points at this fork`, () => {

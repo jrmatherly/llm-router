@@ -102,7 +102,7 @@ Choose a provider below to get started. LLMR shows what will be added before sav
     <span class="provider-import-icon-shell"><img src="../../../provider-icons/fenno.jpg" alt="" loading="lazy" /></span>
     <span class="provider-import-copy"><span class="provider-import-name">Fenno.ai</span><span class="provider-import-meta">Chat / Responses / Anthropic</span></span>
   </a>
-  <a class="provider-import-button provider-infistar-ai" href="llmr://provider?name=Infistar+AI&amp;base_url=https%3A%2F%2Finfistar.ai%2Fv1&amp;protocol=openai_chat_completions&amp;models=gpt-4o&amp;source=https%3A%2F%2Finfistar.ai%2Fregister%3Faff%3DLLMRLLMR%26ref_source%3Dlink" aria-label="Import Infistar AI provider">
+  <a class="provider-import-button provider-infistar-ai" href="llmr://provider?name=Infistar+AI&amp;base_url=https%3A%2F%2Finfistar.ai%2Fv1&amp;protocol=openai_chat_completions&amp;models=gpt-4o&amp;source=https%3A%2F%2Finfistar.ai%2Fregister%3Faff%3DCCRCCR%26ref_source%3Dlink" aria-label="Import Infistar AI provider">
     <span class="provider-import-icon-shell"><img src="../../../provider-icons/infistar-ai.jpg" alt="" loading="lazy" /></span>
     <span class="provider-import-copy"><span class="provider-import-name">Infistar AI</span><span class="provider-import-meta">OpenAI compatible gateway</span></span>
   </a>

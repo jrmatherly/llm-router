@@ -44,7 +44,7 @@ const DEFAULT_CLOUDFLARE_API_BASE_URL = "https://api.cloudflare.com/client/v4";
 const CLAUDE_APP_DESIGN_SHELL_PATH = "/desktop-design";
 const CLAUDE_APP_LEGACY_DESIGN_PATH = "/discover/design";
 const CLAUDE_SHIP_APP_PATH = "/claude-ship";
-const LLMR_RESOURCE_RUNTIME_PATH = "/llmr-resource-runtime.js";
+const LLMR_RESOURCE_RUNTIME_PATH = "/ccr-resource-runtime.js";
 const CLAUDE_SHIP_ENVIRONMENT_ID = "local-claude-ship-011111111111111111111112";
 const CLAUDE_APP_SPA_ROUTE_PATHS = [
   CLAUDE_APP_DESIGN_SHELL_PATH,
@@ -6029,7 +6029,7 @@ function rewriteClaudeShipPreviewRootRelativeUrls(html, basePath) {
   const prefix = String(basePath || "/").replace(/\/?$/, "/");
   const shouldRewrite = (target) => {
     const value = String(target || "");
-    return value && !value.startsWith("/") && !value.startsWith("#") && !/^(?:v1\/code\/|api\/|edge-api\/|llmr-resource-runtime\.js\b)/i.test(value);
+    return value && !value.startsWith("/") && !value.startsWith("#") && !/^(?:v1\/code\/|api\/|edge-api\/|ccr-resource-runtime\.js\b)/i.test(value);
   };
   return String(html || "")
     .replace(/\b(src|href|action)\s*=\s*(["'])\/(?!\/)([^"']*)\2/gi, (match, attr, quote, target) =>
@@ -15129,7 +15129,7 @@ root.__llmrClaudeShipMode=true;
 function currentPath(){try{return location.pathname}catch(e){return""}}
 function isShipAlias(path){return path==="/ship"||path.indexOf("/ship/")===0}
 function isShipPath(path){return path==="/claude-ship"||path.indexOf("/claude-ship/")===0}
-function isStaticPath(path){return path==="/llmr-resource-runtime.js"||path.indexOf("/ship/assets/")===0||path.indexOf("/ship/images/")===0||path.indexOf("/ship/clawd-frames/")===0||path.indexOf("/ship/i18n/")===0||path.indexOf("/ship/monaco-workers/")===0||path.indexOf("/api/")===0||path.indexOf("/edge-api/")===0||path.indexOf("/v1/")===0}
+function isStaticPath(path){return path==="/ccr-resource-runtime.js"||path.indexOf("/ship/assets/")===0||path.indexOf("/ship/images/")===0||path.indexOf("/ship/clawd-frames/")===0||path.indexOf("/ship/i18n/")===0||path.indexOf("/ship/monaco-workers/")===0||path.indexOf("/api/")===0||path.indexOf("/edge-api/")===0||path.indexOf("/v1/")===0}
 function normalizeShipUrl(value){try{var url=new URL(value==null?location.href:value,location.href);if(url.origin!==location.origin)return value;if(isShipAlias(url.pathname)){url.pathname="/claude-ship"+url.pathname.slice(5);return url.href}if(!isShipPath(url.pathname)&&!isStaticPath(url.pathname)){url.pathname="/claude-ship";return url.href}}catch(e){}return value}
 try{history.replaceState(history.state,"",normalizeShipUrl(location.href))}catch(e){}
 try{var push=history.pushState,replace=history.replaceState;if(!history.__llmrClaudeShipNavigationPatched){history.__llmrClaudeShipNavigationPatched=true;history.pushState=function(state,title,url){return push.call(this,state,title,url==null?url:normalizeShipUrl(url))};history.replaceState=function(state,title,url){return replace.call(this,state,title,url==null?url:normalizeShipUrl(url))};addEventListener("popstate",function(){try{if(!isShipPath(currentPath()))history.replaceState(history.state,"",normalizeShipUrl(location.href))}catch(e){}})}}catch(e){}
