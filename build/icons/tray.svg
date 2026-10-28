@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <path d="M512 210 V130" stroke="#000" stroke-width="64" stroke-linecap="round"/>
+  <circle cx="512" cy="104" r="76"/>
+  <path fill-rule="evenodd" d="M330 220 H694 Q904 220 904 430 V714 Q904 924 694 924 H330 Q120 924 120 714 V430 Q120 220 330 220 Z M340 390 Q210 390 210 520 V600 Q210 730 340 730 H684 Q814 730 814 600 V520 Q814 390 684 390 Z"/>
+  <circle cx="390" cy="560" r="84"/>
+  <circle cx="634" cy="560" r="84"/>
+</svg>
