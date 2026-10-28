@@ -203,7 +203,7 @@ EOF
 
 # A generated token is only reachable through the container logs.
 if [ "${CCR_WEB_AUTH_TOKEN_GENERATED}" = "1" ]; then
-  echo "LLMR management UI: ${CCR_PUBLIC_BASE_URL%/}/?ccr_web_token=${CCR_WEB_AUTH_TOKEN_QUERY}"
+  echo "LLMR management UI: ${CCR_PUBLIC_BASE_URL%/}/?llmr_web_token=${CCR_WEB_AUTH_TOKEN_QUERY}"
 fi
 
 if [ "$#" -gt 0 ]; then

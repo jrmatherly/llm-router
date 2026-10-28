@@ -71,8 +71,8 @@ try {
   assert.match(pageHtml, /LLM Router/);
   assert.match(pageHtml, /web-client-bridge\.js/);
 
-  const suppliedToken = `/pages/home/index.html?ccr_web_token=${encodeURIComponent(token)}`;
-  const tokenRedirect = await fetch(`${baseUrl}/?ccr_web_token=${encodeURIComponent(token)}`, { redirect: "manual" });
+  const suppliedToken = `/pages/home/index.html?llmr_web_token=${encodeURIComponent(token)}`;
+  const tokenRedirect = await fetch(`${baseUrl}/?llmr_web_token=${encodeURIComponent(token)}`, { redirect: "manual" });
   assert.equal(tokenRedirect.status, 302);
   assert.equal(tokenRedirect.headers.get("location"), suppliedToken, "A token supplied by the user must survive the root redirect");
   assert.equal((await fetch(`${baseUrl}${suppliedToken}`, { redirect: "manual" })).status, 200);

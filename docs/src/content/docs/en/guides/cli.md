@@ -79,7 +79,7 @@ If the preferred port is occupied, LLMR keeps trying following ports and prints 
 llmr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
-`ui` uses the same background service as `start`, but opens a browser by default. The management URL contains the `ccr_web_token` query parameter; treat the full URL as a password and do not paste it into logs, tickets, or public screenshots.
+`ui` uses the same background service as `start`, but opens a browser by default. The management URL contains the `llmr_web_token` query parameter; treat the full URL as a password and do not paste it into logs, tickets, or public screenshots.
 
 ## `llmr serve`
 
