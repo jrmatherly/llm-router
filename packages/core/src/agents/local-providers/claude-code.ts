@@ -13,6 +13,7 @@ import {
   isLoopbackUrl,
   isRecord,
   missingCandidate,
+  parseJsonRecord,
   providerInternalNamePlaceholder,
   providerPayload,
   readFiniteNumber,
@@ -243,29 +244,27 @@ export async function resolveClaudeCodeAuth(): Promise<ClaudeCodeTokenSet | unde
   if (!auth?.refreshToken) {
     return auth;
   }
+  const storedRefreshToken = auth.refreshToken;
   const key = storeKey(auth.store);
   const refreshed = claudeCodeRefreshed.get(key);
-  if (refreshed?.postedRefreshToken === auth.refreshToken) {
-    return refreshed.auth;
+  // While the store still holds the token we consumed, the cached pair is the live one.
+  const current = refreshed?.postedRefreshToken === storedRefreshToken ? refreshed.auth : auth;
+  const refreshToken = current.refreshToken ?? storedRefreshToken;
+  if (!claudeCodeAccessTokenExpired(current) || !auth.store.refreshable) {
+    return current;
   }
-  if (!claudeCodeAccessTokenExpired(auth) || !auth.store.refreshable) {
-    return auth;
-  }
-  const rejected = claudeCodeRejectedRefreshTokens.get(auth.refreshToken);
+  const rejected = claudeCodeRejectedRefreshTokens.get(refreshToken);
   if (rejected) {
     throw new ClaudeCodeRefreshAuthError(rejected.status, rejected.code);
   }
-  // Coalesce concurrent refreshes of the same credential: the refresh token
-  // rotates on every refresh, so every in-process caller must share a single
-  // refresh attempt (and its peer-rotation adoption outcome) instead of
-  // submitting the same stale token in parallel.
+  // One refresh per credential at a time: the refresh token rotates on every use.
   let refresh = claudeCodeRefreshInFlight.get(key);
   if (!refresh) {
     refresh = (async () => {
       try {
-        return await refreshClaudeCodeAuth(auth);
+        return await refreshClaudeCodeAuth(current, refreshToken, storedRefreshToken);
       } catch (error) {
-        return adoptPeerRotatedClaudeCodeAuth(auth, error);
+        return adoptPeerRotatedClaudeCodeAuth(auth, refreshToken, error);
       }
     })().finally(() => {
       claudeCodeRefreshInFlight.delete(key);
@@ -277,23 +276,23 @@ export async function resolveClaudeCodeAuth(): Promise<ClaudeCodeTokenSet | unde
 
 // A peer (Claude Code itself) that refreshed first leaves our refresh token
 // stale and rejected, while the store already holds the rotated pair.
-function adoptPeerRotatedClaudeCodeAuth(auth: ClaudeCodeTokenSet, error: unknown): ClaudeCodeTokenSet {
+function adoptPeerRotatedClaudeCodeAuth(stored: ClaudeCodeTokenSet, postedRefreshToken: string, error: unknown): ClaudeCodeTokenSet {
   if (!(error instanceof ClaudeCodeRefreshAuthError)) {
     throw error;
   }
   const latest = readClaudeCodeOauth();
-  if (latest?.accessToken && latest.refreshToken !== auth.refreshToken && storeKey(latest.store) === storeKey(auth.store)) {
+  if (latest?.accessToken && latest.refreshToken !== stored.refreshToken && storeKey(latest.store) === storeKey(stored.store)) {
     return latest;
   }
-  if (auth.refreshToken) {
-    claudeCodeRejectedRefreshTokens.set(auth.refreshToken, { code: error.code, status: error.status });
-  }
+  claudeCodeRejectedRefreshTokens.set(postedRefreshToken, { code: error.code, status: error.status });
   throw error;
 }
 
-async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet): Promise<ClaudeCodeTokenSet> {
-  const refreshToken = auth.refreshToken as string;
-  const timeoutMs = Number(process.env.LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS) || 15_000;
+// `storedRefreshToken` is the token the store holds; the cached pair stays
+// tied to it until the store changes, however many times the cache refreshes.
+async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet, refreshToken: string, storedRefreshToken: string): Promise<ClaudeCodeTokenSet> {
+  const configuredTimeout = Number(process.env.LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS);
+  const timeoutMs = configuredTimeout > 0 ? configuredTimeout : 15_000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -331,7 +330,7 @@ async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet): Promise<ClaudeCo
       refreshTokenExpiresAt: refreshExpiresIn === undefined ? auth.refreshTokenExpiresAt : Date.now() + refreshExpiresIn * 1000,
       scopes: scope ? scope.split(" ").filter(Boolean) : auth.scopes
     };
-    claudeCodeRefreshed.set(storeKey(auth.store), { auth: next, persisted: false, postedRefreshToken: refreshToken });
+    claudeCodeRefreshed.set(storeKey(auth.store), { auth: next, persisted: false, postedRefreshToken: storedRefreshToken });
     return next;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
@@ -345,15 +344,6 @@ async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet): Promise<ClaudeCo
 
 function storeKey(store: ClaudeCodeTokenStore): string {
   return store.kind === "keychain" ? `keychain:${store.service}\u0000${store.account ?? ""}` : `file:${store.path}`;
-}
-
-function parseJsonRecord(text: string): Record<string, unknown> | undefined {
-  try {
-    const parsed = JSON.parse(text) as unknown;
-    return isRecord(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 // Not refreshable: a custom OAuth URL or a `-<env>-oauth-` service has a token

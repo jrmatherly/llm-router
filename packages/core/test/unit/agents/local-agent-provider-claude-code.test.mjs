@@ -68,7 +68,7 @@ test("Claude Code local provider falls back to file credentials when Keychain is
 });
 
 test("Core gateway config replaces imported Claude Code OAuth token with live macOS Keychain token", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async (home) => {
+  await withClaudeCodeHome(async () => {
     await withPlatform("darwin", async () => {
       await withFakeSecurityOutput({
         access_token: "keychain-runtime-token",
@@ -474,6 +474,26 @@ test("Claude Code local provider serves the cached fresh pair instead of posting
     assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
     assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
     assert.equal(endpoint.calls, 1);
+  });
+});
+
+test("Claude Code local provider refreshes an expired cached pair with the cached refresh token", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    const posted = [];
+    const endpoint = stubTokenEndpoint(t, (input, init) => {
+      posted.push(JSON.parse(init.body).refresh_token);
+      return posted.length === 1
+        ? jsonResponse(200, { access_token: "fresh", expires_in: 0, refresh_token: "r2" })
+        : jsonResponse(200, { access_token: "fresher", expires_in: 3600, refresh_token: "r3" });
+    });
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+    const second = await resolveClaudeCodeAuth();
+    assert.equal(second.accessToken, "fresher");
+    assert.equal(second.refreshToken, "r3");
+    assert.equal(endpoint.calls, 2);
+    assert.deepEqual(posted, ["r1", "r2"]);
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresher");
+    assert.equal(endpoint.calls, 2);
   });
 });
 
