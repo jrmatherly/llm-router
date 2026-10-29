@@ -812,6 +812,42 @@ test("a chained refresh after a retried write keeps the compare-and-swap baselin
   });
 });
 
+test("a retry-persist by one caller during another caller's chained refresh converges on the newest pair", { skip: process.platform === "win32" }, async (t) => {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      await withFakeKeychain({ claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" } }, async (keychain) => {
+        t.mock.method(console, "warn", () => {});
+        const posted = [];
+        let releaseSecondRefresh;
+        const secondRefresh = new Promise((resolve) => {
+          releaseSecondRefresh = resolve;
+        });
+        stubTokenEndpoint(t, async (_input, init) => {
+          posted.push(JSON.parse(init.body).refresh_token);
+          if (posted.length === 1) {
+            return jsonResponse(200, { access_token: "fresh", expires_in: 0, refresh_token: "r2" });
+          }
+          await secondRefresh;
+          return jsonResponse(200, { access_token: "fresher", expires_in: 3600, refresh_token: "r3" });
+        });
+        assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+        assert.equal(keychain.read().claudeAiOauth.refreshToken, "r1");
+        const a = resolveClaudeCodeAuth();
+        const now = Date.now() + 60_001;
+        t.mock.method(Date, "now", () => now);
+        const b = resolveClaudeCodeAuth();
+        assert.equal(keychain.read().claudeAiOauth.refreshToken, "r2");
+        releaseSecondRefresh();
+        const [first, second] = await Promise.all([a, b]);
+        assert.equal(first.accessToken, "fresher");
+        assert.equal(second.accessToken, "fresher");
+        assert.deepEqual(posted, ["r1", "r2"]);
+        assert.equal(keychain.read().claudeAiOauth.refreshToken, "r3");
+      }, { failWrites: 1, writeExitCode: 51 });
+    });
+  });
+});
+
 test("importing Claude Code refreshes an expired access token first", { skip: process.platform === "win32" }, async (t) => {
   await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
     stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
