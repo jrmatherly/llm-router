@@ -41,6 +41,7 @@ const claudeCodeRefreshed = new Map<string, ClaudeCodeRefreshedEntry>();
 // Keyed by refresh token, so a token the server rejected is never posted again.
 const claudeCodeRejectedRefreshTokens = new Map<string, { code?: string; status: number }>();
 const claudeCodeWriteBackWarned = new Set<string>();
+const claudeCodeArgvWarned = new Set<string>();
 
 type ClaudeCodeRefreshedEntry = { auth: ClaudeCodeTokenSet; persisted: boolean; postedRefreshToken: string; retryWriteAfter?: number };
 
@@ -252,6 +253,7 @@ export function resetClaudeCodeAuthStateForTest(): void {
   claudeCodeRefreshed.clear();
   claudeCodeRejectedRefreshTokens.clear();
   claudeCodeWriteBackWarned.clear();
+  claudeCodeArgvWarned.clear();
 }
 
 export function claudeCodeTokenEndpoint(): string {
@@ -402,7 +404,8 @@ function persistRefreshedClaudeCodeAuth(entry: ClaudeCodeRefreshedEntry): "adopt
       ...(auth.refreshTokenExpiresAt === undefined ? {} : { refreshTokenExpiresAt: auth.refreshTokenExpiresAt }),
       ...(auth.scopes === undefined ? {} : { scopes: auth.scopes })
     };
-    writeClaudeCodeStoreRecord(store, store.container === "root" ? tokens : { ...record, claudeAiOauth: tokens });
+    writeClaudeCodeStoreRecord(store, store.container === "root" ? tokens : { ...record, claudeAiOauth: tokens }, auth.sourceFile);
+    claudeCodeWriteBackWarned.delete(key);
     entry.persisted = true;
     entry.postedRefreshToken = auth.refreshToken ?? entry.postedRefreshToken;
     return "written";
@@ -411,7 +414,8 @@ function persistRefreshedClaudeCodeAuth(entry: ClaudeCodeRefreshedEntry): "adopt
     if (!claudeCodeWriteBackWarned.has(key)) {
       claudeCodeWriteBackWarned.add(key);
       const failure = error as { code?: string; status?: number };
-      const reason = store.kind === "keychain" ? `security exited ${failure.status ?? "unknown"}` : failure.code ?? "write failed";
+      const securityReason = failure.code === "ETIMEDOUT" ? "security timed out" : `security exited ${failure.status ?? "unknown"}`;
+      const reason = store.kind === "keychain" ? securityReason : failure.code ?? "write failed";
       console.warn(`Claude Code login could not be written back to ${store.kind === "keychain" ? auth.sourceFile : store.path} (${reason})`);
     }
     return "failed";
@@ -425,7 +429,7 @@ function readClaudeCodeStoreRecord(store: ClaudeCodeTokenStore): Record<string, 
   return readClaudeCodeKeychainRecord(store, { errors: [], inspected: [], tokenless: [] }, store.service);
 }
 
-function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: Record<string, unknown>): void {
+export function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: Record<string, unknown>, label: string): void {
   const json = JSON.stringify(record);
   if (store.kind === "file") {
     const target = realpathSync(store.path);
@@ -444,14 +448,24 @@ function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: Record<
   if (store.account === undefined) {
     throw new Error("Claude Code keychain item has no account.");
   }
+  if (!claudeCodeKeychainAccountPattern.test(store.account) || !claudeCodeKeychainServicePattern.test(store.service)) {
+    throw new Error("Claude Code keychain item name is not safe to write.");
+  }
+  const configuredTimeout = Number(process.env.LLMR_CLAUDE_CODE_KEYCHAIN_WRITE_TIMEOUT_MS);
+  const timeout = configuredTimeout > 0 ? configuredTimeout : 10_000;
   const hex = Buffer.from(json, "utf8").toString("hex");
-  // `security -i` takes the command on stdin, so the record never shows in argv (`ps`); `-w` would put it there in plaintext.
+  // `security -i` keeps the record off argv until the 4032-byte stdin cutoff, past which Claude Code itself falls back to argv.
   const line = `add-generic-password -U -a "${store.account}" -s "${store.service}" -X ${hex}\n`;
   if (Buffer.byteLength(line) > 4032) {
-    execFileSync("security", ["add-generic-password", "-U", "-a", store.account, "-s", store.service, "-X", hex], { stdio: ["ignore", "ignore", "ignore"] });
+    const key = storeKey(store);
+    if (!claudeCodeArgvWarned.has(key)) {
+      claudeCodeArgvWarned.add(key);
+      console.warn(`Claude Code login record exceeds the security -i stdin limit; written through argv, where ps can read it until the write returns (${label})`);
+    }
+    execFileSync("security", ["add-generic-password", "-U", "-a", store.account, "-s", store.service, "-X", hex], { stdio: ["ignore", "ignore", "ignore"], timeout });
     return;
   }
-  execFileSync("security", ["-i"], { input: line, stdio: ["pipe", "ignore", "ignore"] });
+  execFileSync("security", ["-i"], { input: line, stdio: ["pipe", "ignore", "ignore"], timeout });
 }
 
 function storeKey(store: ClaudeCodeTokenStore): string {

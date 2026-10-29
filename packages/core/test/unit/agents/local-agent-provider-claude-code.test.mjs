@@ -13,7 +13,8 @@ import {
   readClaudeCodeOauth,
   resetClaudeCodeAuthStateForTest,
   resolveClaudeCodeAuth,
-  resolveClaudeCodeAuthOrStored
+  resolveClaudeCodeAuthOrStored,
+  writeClaudeCodeStoreRecord
 } from "@llmr/core/agents/local-providers/claude-code.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
@@ -625,6 +626,7 @@ test("a keychain record over the stdin limit is written on argv", { skip: proces
   await withClaudeCodeHome(async () => {
     await withPlatform("darwin", async () => {
       await withFakeKeychain({ claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" }, mcpOAuth: { padding: "x".repeat(2100) } }, async (keychain) => {
+        t.mock.method(console, "warn", () => {});
         stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
         await resolveClaudeCodeAuth();
         const [call] = keychain.calls;
@@ -634,6 +636,86 @@ test("a keychain record over the stdin limit is written on argv", { skip: proces
         assert.equal(keychain.read().mcpOAuth.padding.length, 2100);
       });
     });
+  });
+});
+
+test("a keychain record over the stdin limit warns once that it went through argv", { skip: process.platform === "win32" }, async (t) => {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      await withFakeKeychain({ claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" }, mcpOAuth: { padding: "x".repeat(2100) } }, async (keychain) => {
+        const warnings = [];
+        t.mock.method(console, "warn", (message) => warnings.push(String(message)));
+        stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+        keychain.setWriteFailure(51);
+        await resolveClaudeCodeAuth();
+        keychain.setWriteFailure(undefined);
+        const now = Date.now() + 60_001;
+        t.mock.method(Date, "now", () => now);
+        await resolveClaudeCodeAuth();
+        assert.equal(keychain.calls.length, 2);
+        assert.equal(keychain.read().claudeAiOauth.refreshToken, "r2");
+        const argvWarnings = warnings.filter((line) => /security -i stdin limit/.test(line));
+        assert.deepEqual(argvWarnings, [`Claude Code login record exceeds the security -i stdin limit; written through argv, where ps can read it until the write returns (keychain:Claude Code-credentials (${keychainAccount}))`]);
+        assert.doesNotMatch(warnings.join("\n"), /fresh|r2|[0-9a-f]{40}/);
+      });
+    });
+  });
+});
+
+test("a keychain write that hangs is a failed write after the timeout", { skip: process.platform === "win32" }, async (t) => {
+  await withEnv("LLMR_CLAUDE_CODE_KEYCHAIN_WRITE_TIMEOUT_MS", "500", async () => {
+    await withClaudeCodeHome(async () => {
+      await withPlatform("darwin", async () => {
+        await withFakeKeychain({ claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" } }, async (keychain) => {
+          const warnings = [];
+          t.mock.method(console, "warn", (message) => warnings.push(String(message)));
+          stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+          const started = Date.now();
+          assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+          const elapsed = Date.now() - started;
+          assert.ok(elapsed >= 500 && elapsed < 2_000, `write returned after ${elapsed} ms`);
+          assert.equal(warnings.length, 1);
+          assert.match(warnings[0], /\(security timed out\)$/);
+          assert.equal(keychain.read().claudeAiOauth.refreshToken, "r1");
+          assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+          assert.equal(keychain.calls.length, 1);
+        }, { writeDelaySeconds: 2 });
+      });
+    });
+  });
+});
+
+test("the write-failure warning re-arms after a successful write", { skip: process.platform === "win32" }, async (t) => {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      await withFakeKeychain({ claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" } }, async (keychain) => {
+        const warnings = [];
+        t.mock.method(console, "warn", (message) => warnings.push(String(message)));
+        stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+        keychain.setWriteFailure(51);
+        await resolveClaudeCodeAuth();
+        assert.equal(warnings.length, 1);
+        keychain.setWriteFailure(undefined);
+        const now = Date.now() + 60_001;
+        t.mock.method(Date, "now", () => now);
+        await resolveClaudeCodeAuth();
+        assert.equal(keychain.read().claudeAiOauth.refreshToken, "r2");
+        keychain.write({ claudeAiOauth: { accessToken: "expired", expiresAt: now - 1, refreshToken: "r5" } });
+        keychain.setWriteFailure(51);
+        await resolveClaudeCodeAuth();
+        assert.equal(warnings.length, 2);
+        assert.equal(warnings[1], `Claude Code login could not be written back to keychain:Claude Code-credentials (${keychainAccount}) (security exited 51)`);
+      });
+    });
+  });
+});
+
+test("the keychain writer refuses an unsafe account or service name", { skip: process.platform === "win32" }, async () => {
+  await withFakeKeychain({ claudeAiOauth: {} }, async (keychain) => {
+    const store = { account: keychainAccount, container: "claudeAiOauth", kind: "keychain", refreshable: true, service: "Claude Code-credentials\"" };
+    assert.throws(() => writeClaudeCodeStoreRecord(store, { claudeAiOauth: {} }), /not safe to write/);
+    assert.throws(() => writeClaudeCodeStoreRecord({ ...store, account: "other user", service: "Claude Code-credentials" }, { claudeAiOauth: {} }), /not safe to write/);
+    assert.equal(keychain.calls.length, 0);
   });
 });
 
@@ -894,6 +976,7 @@ async function withFakeKeychain(initialRecord, run, options = {}) {
   const failWrite = options.writeExitCode === undefined
     ? ""
     : options.failWrites === undefined ? `exit ${options.writeExitCode}\n` : `if [ "$(basename "$call")" -lt ${options.failWrites} ]; then exit ${options.writeExitCode}; fi\n`;
+  const delay = options.writeDelaySeconds === undefined ? "" : `sleep ${options.writeDelaySeconds}\n`;
   const body = [
     `dir=$(dirname "$0")`,
     `case "$1" in`,
@@ -916,6 +999,7 @@ async function withFakeKeychain(initialRecord, run, options = {}) {
     "        shift",
     "      done",
     "    fi",
+    `    ${delay}if [ -f "$dir/write-failure" ]; then exit "$(cat "$dir/write-failure")"; fi`,
     `    ${failWrite}[ -n "$hex" ] || exit 1`,
     `    printf '%s' "$hex" | xxd -r -p > "$dir/next.json" && mv "$dir/next.json" "$dir/record.json" || exit 1`,
     "    exit 0 ;;",
@@ -937,6 +1021,7 @@ async function withFakeKeychain(initialRecord, run, options = {}) {
           }));
       },
       read: () => JSON.parse(readFileSync(recordFile, "utf8")),
+      setWriteFailure: (exitCode) => exitCode === undefined ? rmSync(path.join(binDir, "write-failure"), { force: true }) : writeFileSync(path.join(binDir, "write-failure"), String(exitCode)),
       write: (record) => writeFileSync(recordFile, JSON.stringify(record))
     };
     keychain.write(initialRecord);
