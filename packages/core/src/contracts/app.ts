@@ -1577,8 +1577,23 @@ export function enforceSingleEnabledGlobalProfilePerAgent(
   if (preferredProfileIndex !== undefined && preferredProfile && isEnabledGlobalProfile(preferredProfile)) {
     activeGlobalProfileByAgent.set(preferredProfile.agent, preferredProfileIndex);
   }
+  const ownsClaudeAppTakeover = (profile: ProfileConfig) =>
+    profile.agent === "claude-code" && profile.enabled && profile.claudeAppTakeover === true;
+  let claudeAppTakeoverIndex =
+    preferredProfileIndex !== undefined && preferredProfile && ownsClaudeAppTakeover(preferredProfile)
+      ? preferredProfileIndex
+      : undefined;
 
-  return profiles.map((profile, index) => {
+  return profiles.map((input, index) => {
+    let profile = input;
+    if (input.enabled && "claudeAppTakeover" in input) {
+      if (ownsClaudeAppTakeover(input) && (claudeAppTakeoverIndex ?? index) === index) {
+        claudeAppTakeoverIndex = index;
+      } else {
+        const { claudeAppTakeover: _claudeAppTakeover, ...rest } = input;
+        profile = rest;
+      }
+    }
     if (!isEnabledGlobalProfile(profile)) {
       return profile;
     }
