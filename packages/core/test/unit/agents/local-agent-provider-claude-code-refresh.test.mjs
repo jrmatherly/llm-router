@@ -130,11 +130,37 @@ test("Claude Code local provider refreshes an expired cached pair with the cache
 
 test("Claude Code local provider adopts a peer-rotated token on 400 invalid_grant", { skip: process.platform === "win32" }, async (t) => {
   await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async (keychain) => {
-    stubTokenEndpoint(t, () => {
+    const warn = t.mock.method(console, "warn", () => {});
+    const endpoint = stubTokenEndpoint(t, () => {
       keychain.write({ claudeAiOauth: { accessToken: "peer", expiresAt: Date.now() + 3_600_000, refreshToken: "r3" } });
       return jsonResponse(400, { error: "invalid_grant" });
     });
     assert.equal((await resolveClaudeCodeAuth()).accessToken, "peer");
+    assert.equal(endpoint.calls, 1);
+    assert.equal(warn.mock.callCount(), 0);
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "peer");
+    assert.equal(endpoint.calls, 1);
+  });
+});
+
+test("Claude Code local provider recovers from a rejected refresh once the user logs in again", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async (keychain) => {
+    t.mock.method(console, "warn", () => {});
+    const posted = [];
+    const endpoint = stubTokenEndpoint(t, (_input, init) => {
+      posted.push(JSON.parse(init.body).refresh_token);
+      return posted.length === 1
+        ? jsonResponse(401, { error: "invalid_grant" })
+        : jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r6" });
+    });
+    await assert.rejects(resolveClaudeCodeAuth(), (error) => error.name === "ClaudeCodeRefreshAuthError");
+    assert.equal(endpoint.calls, 1);
+    keychain.write({ claudeAiOauth: { accessToken: "relogin", expiresAt: Date.now() + 3_600_000, refreshToken: "r5" } });
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "relogin");
+    assert.equal(endpoint.calls, 1);
+    keychain.write({ claudeAiOauth: { accessToken: "relogin", expiresAt: Date.now() - 1, refreshToken: "r5" } });
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+    assert.deepEqual(posted, ["r1", "r5"]);
   });
 });
 
@@ -152,10 +178,43 @@ test("Claude Code local provider surfaces a rejected refresh and does not post t
 
 test("Claude Code local provider retries after a refresh failure that is not a rejection", { skip: process.platform === "win32" }, async (t) => {
   await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    t.mock.method(console, "warn", () => {});
     const endpoint = stubTokenEndpoint(t, () => jsonResponse(503, {}));
-    await assert.rejects(resolveClaudeCodeAuth(), (error) => error.name === "Error");
-    await assert.rejects(resolveClaudeCodeAuth(), (error) => error.name === "Error");
+    await assert.rejects(resolveClaudeCodeAuth(), /HTTP 503/);
+    await assert.rejects(resolveClaudeCodeAuth(), /HTTP 503/);
     assert.equal(endpoint.calls, 2);
+  });
+});
+
+test("Claude Code local provider warns once per run of transient refresh failures", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    const warnings = [];
+    t.mock.method(console, "warn", (message) => warnings.push(String(message)));
+    const endpoint = stubTokenEndpoint(t, () => endpoint.calls === 3
+      ? jsonResponse(200, { access_token: "fresh", expires_in: 0, refresh_token: "r2" })
+      : jsonResponse(503, {}));
+    await assert.rejects(resolveClaudeCodeAuth(), /HTTP 503/);
+    await assert.rejects(resolveClaudeCodeAuth(), /HTTP 503/);
+    assert.deepEqual(warnings, [`Claude Code token refresh failed; the stored token is used until it succeeds (keychain:Claude Code-credentials (${keychainAccount}))`]);
+    assert.doesNotMatch(warnings[0], /r1|expired/);
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+    await assert.rejects(resolveClaudeCodeAuth(), /HTTP 503/);
+    assert.equal(endpoint.calls, 4);
+    assert.equal(warnings.length, 2);
+  });
+});
+
+test("Claude Code local provider gives up a refresh POST after LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS and retries on the next resolve", { skip: process.platform === "win32" }, async (t) => {
+  await withEnv("LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS", "50", async () => {
+    await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+      t.mock.method(console, "warn", () => {});
+      const endpoint = stubTokenEndpoint(t, (_input, init) => new Promise((_resolve, reject) => {
+        init.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+      }));
+      await assert.rejects(resolveClaudeCodeAuth(), (error) => error.name !== "ClaudeCodeRefreshAuthError" && /timed out after 50ms/.test(error.message));
+      await assert.rejects(resolveClaudeCodeAuth(), /timed out after 50ms/);
+      assert.equal(endpoint.calls, 2);
+    });
   });
 });
 
@@ -320,10 +379,25 @@ test("the write-failure warning re-arms after a successful write", { skip: proce
 test("the keychain writer refuses an unsafe account or service name", { skip: process.platform === "win32" }, async () => {
   await withFakeKeychain({ claudeAiOauth: {} }, async (keychain) => {
     const store = { account: keychainAccount, container: "claudeAiOauth", kind: "keychain", refreshable: true, service: "Claude Code-credentials\"" };
-    assert.throws(() => writeClaudeCodeStoreRecord(store, { claudeAiOauth: {} }), /not safe to write/);
-    assert.throws(() => writeClaudeCodeStoreRecord({ ...store, account: "other user", service: "Claude Code-credentials" }, { claudeAiOauth: {} }), /not safe to write/);
+    assert.throws(() => writeClaudeCodeStoreRecord(store, { claudeAiOauth: {} }, "keychain:test"), /not safe to write/);
+    assert.throws(() => writeClaudeCodeStoreRecord({ ...store, account: "other user", service: "Claude Code-credentials" }, { claudeAiOauth: {} }, "keychain:test"), /not safe to write/);
     assert.equal(keychain.calls.length, 0);
   });
+});
+
+test("LLMR_CLAUDE_CODE_KEYCHAIN_WRITE_TIMEOUT_MS accepts a fractional value and falls back on a malformed one", { skip: process.platform === "win32" }, async (t) => {
+  const warnings = [];
+  t.mock.method(console, "warn", (message) => warnings.push(String(message)));
+  for (const value of ["1500.5", "abc", "-1"]) {
+    await withEnv("LLMR_CLAUDE_CODE_KEYCHAIN_WRITE_TIMEOUT_MS", value, async () => {
+      await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async (keychain) => {
+        stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+        assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+        assert.equal(keychain.read().claudeAiOauth.refreshToken, "r2", `timeout ${value}`);
+      });
+    });
+  }
+  assert.deepEqual(warnings, []);
 });
 
 test("refreshed Claude Code tokens are written to .credentials.json atomically with mode 0600", { skip: process.platform === "win32" }, async (t) => {

@@ -450,6 +450,14 @@ test("importing Claude Code fails when the refresh token was rejected", { skip: 
   });
 });
 
+test("importing Claude Code fails on a transient refresh failure instead of importing the stale token", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    t.mock.method(console, "warn", () => {});
+    stubTokenEndpoint(t, () => jsonResponse(503, {}));
+    await assert.rejects(importClaudeCodeProvider(claudeCodeCandidate(), []), (error) => error.name !== "ClaudeCodeRefreshAuthError" && /HTTP 503/.test(error.message));
+  });
+});
+
 test("Claude Code candidate is locked when the access token expired and no refresh token can renew it", { skip: process.platform === "win32" }, async () => {
   await withKeychainLogin({ accessToken: "expired", expiresAt: Date.now() - 1 }, async () => {
     const candidate = claudeCodeCandidate();

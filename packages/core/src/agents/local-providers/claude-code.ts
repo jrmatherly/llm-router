@@ -39,13 +39,16 @@ const claudeCodeOauthClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 
 const claudeCodeCredentials = new Map<string, ClaudeCodeCredentialState>();
 
-type ClaudeCodeCachedPair = { auth: ClaudeCodeTokenSet; persisted: boolean; retryWriteAfter?: number; storeBaseline: string };
+type ClaudeCodeCachedPair =
+  | { auth: ClaudeCodeTokenSet; kind: "pending"; retryWriteAfter: number; storeBaseline: string }
+  | { auth: ClaudeCodeTokenSet; kind: "persisted" };
 
 type ClaudeCodeCredentialState = {
   cached?: ClaudeCodeCachedPair;
   inFlight?: Promise<ClaudeCodeTokenSet>;
   rejected?: { code?: string; status: number; token: string };
   warnedArgv: boolean;
+  warnedRefreshFailure: boolean;
   warnedWriteFailure: boolean;
 };
 
@@ -260,7 +263,7 @@ function credentialState(store: ClaudeCodeTokenStore): ClaudeCodeCredentialState
   const key = storeKey(store);
   let state = claudeCodeCredentials.get(key);
   if (!state) {
-    state = { warnedArgv: false, warnedWriteFailure: false };
+    state = { warnedArgv: false, warnedRefreshFailure: false, warnedWriteFailure: false };
     claudeCodeCredentials.set(key, state);
   }
   return state;
@@ -278,10 +281,11 @@ export async function resolveClaudeCodeAuth(): Promise<ClaudeCodeTokenSet | unde
   }
   const storedRefreshToken = auth.refreshToken;
   const state = credentialState(auth.store);
+  const cached = state.cached;
   // While the store still holds the token we consumed, the cached pair is the live one.
-  let current = state.cached?.storeBaseline === storedRefreshToken ? state.cached.auth : auth;
-  if (state.cached && current === state.cached.auth && !state.cached.persisted && (state.cached.retryWriteAfter ?? 0) <= Date.now()) {
-    state.cached = persistClaudeCodePair(state, state.cached);
+  let current = cached && storeBaselineOf(cached) === storedRefreshToken ? cached.auth : auth;
+  if (cached?.kind === "pending" && cached.retryWriteAfter <= Date.now()) {
+    state.cached = persistClaudeCodePair(state, cached);
     current = state.cached.auth;
   }
   const refreshToken = current.refreshToken ?? storedRefreshToken;
@@ -299,9 +303,10 @@ export async function resolveClaudeCodeAuth(): Promise<ClaudeCodeTokenSet | unde
     } catch (error) {
       return adoptPeerRotatedClaudeCodeAuth(state, auth, refreshToken, error);
     }
-    // The compare-and-swap baseline is read after the POST, so a write that landed meanwhile moves it.
-    const baseline = state.cached?.auth === current ? state.cached.storeBaseline : storedRefreshToken;
-    state.cached = persistClaudeCodePair(state, { auth: pair, persisted: false, storeBaseline: baseline });
+    state.warnedRefreshFailure = false;
+    // state.cached can change during the POST (a retried write-back), so the baseline is read after it.
+    const baseline = state.cached?.auth === current ? storeBaselineOf(state.cached) ?? storedRefreshToken : storedRefreshToken;
+    state.cached = persistClaudeCodePair(state, { auth: pair, storeBaseline: baseline });
     return state.cached.auth;
   })().finally(() => {
     state.inFlight = undefined;
@@ -317,6 +322,10 @@ export async function resolveClaudeCodeAuthOrStored(): Promise<ClaudeCodeTokenSe
 // stale and rejected, while the store already holds the rotated pair.
 function adoptPeerRotatedClaudeCodeAuth(state: ClaudeCodeCredentialState, stored: ClaudeCodeTokenSet, postedRefreshToken: string, error: unknown): ClaudeCodeTokenSet {
   if (!(error instanceof ClaudeCodeRefreshAuthError)) {
+    if (!state.warnedRefreshFailure) {
+      state.warnedRefreshFailure = true;
+      console.warn(`Claude Code token refresh failed; the stored token is used until it succeeds (${stored.sourceFile})`);
+    }
     throw error;
   }
   const latest = readClaudeCodeOauth();
@@ -377,19 +386,27 @@ async function postClaudeCodeRefresh(auth: ClaudeCodeTokenSet, refreshToken: str
   }
 }
 
-// Compare-and-swap: the store is re-read just before the write, so a pair a peer rotated since our refresh is adopted, not overwritten.
-function persistClaudeCodePair(state: ClaudeCodeCredentialState, pair: ClaudeCodeCachedPair): ClaudeCodeCachedPair {
-  const { auth } = pair;
+function storeBaselineOf(cached: ClaudeCodeCachedPair): string | undefined {
+  return cached.kind === "pending" ? cached.storeBaseline : cached.auth.refreshToken;
+}
+
+function writeBackError(message: string, reason: string): Error {
+  return Object.assign(new Error(message), { reason });
+}
+
+// Check-then-write: the store is re-read just before the write, so a pair a peer rotated since our refresh is adopted, not overwritten.
+function persistClaudeCodePair(state: ClaudeCodeCredentialState, input: { auth: ClaudeCodeTokenSet; storeBaseline: string }): ClaudeCodeCachedPair {
+  const { auth } = input;
   const { store } = auth;
   try {
     const record = readClaudeCodeStoreRecord(store);
     if (!record) {
-      throw new Error("Claude Code login record is gone.");
+      throw writeBackError("Claude Code login record is gone.", "record unreadable");
     }
     const container = store.container === "root" ? record : isRecord(record.claudeAiOauth) ? record.claudeAiOauth : {};
     const onDisk = readOauthTokenSetFields(container);
-    if (onDisk?.refreshToken && onDisk.refreshToken !== pair.storeBaseline) {
-      return { auth: { ...onDisk, sourceFile: auth.sourceFile, store }, persisted: true, storeBaseline: onDisk.refreshToken };
+    if (onDisk?.refreshToken && onDisk.refreshToken !== input.storeBaseline) {
+      return { auth: { ...onDisk, sourceFile: auth.sourceFile, store }, kind: "persisted" };
     }
     const tokens = {
       ...container,
@@ -401,17 +418,28 @@ function persistClaudeCodePair(state: ClaudeCodeCredentialState, pair: ClaudeCod
     };
     writeClaudeCodeStoreRecord(store, store.container === "root" ? tokens : { ...record, claudeAiOauth: tokens }, auth.sourceFile);
     state.warnedWriteFailure = false;
-    return { auth, persisted: true, storeBaseline: auth.refreshToken ?? pair.storeBaseline };
+    return { auth, kind: "persisted" };
   } catch (error) {
     if (!state.warnedWriteFailure) {
       state.warnedWriteFailure = true;
-      const failure = error as { code?: string; status?: number };
-      const securityReason = failure.code === "ETIMEDOUT" ? "security timed out" : `security exited ${failure.status ?? "unknown"}`;
-      const reason = store.kind === "keychain" ? securityReason : failure.code ?? "write failed";
-      console.warn(`Claude Code login could not be written back to ${store.kind === "keychain" ? auth.sourceFile : store.path} (${reason})`);
+      console.warn(`Claude Code login could not be written back to ${store.kind === "keychain" ? auth.sourceFile : store.path} (${writeBackFailureReason(error, store)})`);
     }
-    return { ...pair, retryWriteAfter: Date.now() + 60_000 };
+    return { ...input, kind: "pending", retryWriteAfter: Date.now() + 60_000 };
   }
+}
+
+function writeBackFailureReason(error: unknown, store: ClaudeCodeTokenStore): string {
+  const failure = error as { code?: unknown; reason?: unknown; status?: unknown };
+  if (typeof failure.reason === "string") {
+    return failure.reason;
+  }
+  if (failure.code === "ETIMEDOUT") {
+    return "security timed out";
+  }
+  if (store.kind === "keychain" && typeof failure.status === "number") {
+    return `security exited ${failure.status}`;
+  }
+  return typeof failure.code === "string" ? failure.code : "write failed";
 }
 
 function readClaudeCodeStoreRecord(store: ClaudeCodeTokenStore): Record<string, unknown> | undefined {
@@ -438,10 +466,10 @@ export function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: 
     return;
   }
   if (store.account === undefined) {
-    throw new Error("Claude Code keychain item has no account.");
+    throw writeBackError("Claude Code keychain item has no account.", "item name rejected");
   }
   if (!claudeCodeKeychainAccountPattern.test(store.account) || !claudeCodeKeychainServicePattern.test(store.service)) {
-    throw new Error("Claude Code keychain item name is not safe to write.");
+    throw writeBackError("Claude Code keychain item name is not safe to write.", "item name rejected");
   }
   const timeout = timeoutMsFromEnv("LLMR_CLAUDE_CODE_KEYCHAIN_WRITE_TIMEOUT_MS", 10_000);
   const hex = Buffer.from(json, "utf8").toString("hex");
@@ -601,7 +629,7 @@ function scanClaudeCodeKeychain(scan: ClaudeCodeLoginScan): ClaudeCodeTokenSet |
       }
       servicesRead.add(candidate.service);
       scan.inspected.push(`keychain:${label}`);
-      // Root-level reads only: `mcpOAuth` holds per-plugin records that also
+      // Named top-level reads only, never a recursive search: `mcpOAuth` holds per-plugin records that also
       // carry `accessToken`, and importing one yields a provider that 401s.
       const claudeAiOauth = readOauthTokenSetFields(record.claudeAiOauth);
       if (claudeAiOauth) {
