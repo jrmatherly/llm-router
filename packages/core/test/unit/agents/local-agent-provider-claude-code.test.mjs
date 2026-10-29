@@ -719,6 +719,17 @@ test("Claude Code candidate stays available for an expired access token with a r
   });
 });
 
+test("Claude Code candidate is locked when the access token expired on a login LLMR cannot refresh", { skip: process.platform === "win32" }, async () => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    await withEnv("CLAUDE_CODE_CUSTOM_OAUTH_URL", "https://auth.example.test", async () => {
+      const candidate = claudeCodeCandidate();
+      assert.equal(candidate.status, "locked");
+      assert.equal(candidate.importable, false);
+      assert.equal(candidate.detail, "Claude Code access token is expired and LLMR cannot refresh this login. Run `claude /login`, then retry.");
+    });
+  });
+});
+
 test("Claude Code candidate without an access token stays locked, but the resolver refreshes it", { skip: process.platform === "win32" }, async (t) => {
   await withKeychainLogin({ refreshToken: "r1" }, async () => {
     const candidate = claudeCodeCandidate();

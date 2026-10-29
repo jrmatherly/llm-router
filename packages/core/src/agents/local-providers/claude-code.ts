@@ -113,9 +113,11 @@ const claudeCodeAccountMapping: ProviderAccountMappingConfig = {
 export function claudeCodeCandidate(): LocalAgentProviderCandidate {
   const scan = scanClaudeCodeLogin();
   const oauth = scan.oauth;
-  if (oauth?.accessToken && !oauth.refreshToken && claudeCodeAccessTokenExpired(oauth)) {
+  if (oauth?.accessToken && claudeCodeAccessTokenExpired(oauth) && (!oauth.refreshToken || !oauth.store.refreshable)) {
     return {
-      detail: "Claude Code access token is expired and the login has no refresh token. Run `claude /login`, then retry.",
+      detail: oauth.refreshToken
+        ? "Claude Code access token is expired and LLMR cannot refresh this login. Run `claude /login`, then retry."
+        : "Claude Code access token is expired and the login has no refresh token. Run `claude /login`, then retry.",
       id: "claude-code-api",
       importable: false,
       kind: "claude-code",
