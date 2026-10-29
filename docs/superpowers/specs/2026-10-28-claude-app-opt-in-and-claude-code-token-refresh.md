@@ -31,6 +31,19 @@ Separately, LLMR's imported Claude Code provider reads the Keychain item `Claude
 - Every reader of the raw token uses the resolver: the hook (`authenticateClaudeCode`), the usage connector (`localClaudeCodeAccountCredential`), the compiled plugin defaults (`withClaudeCodeOauthRuntimeDefaults` in `config-compiler.ts`), the probe (`localClaudeProbeToken` in `probe.ts`) and the import (`importClaudeCodeProvider`). The candidate scan stays synchronous and reports a `locked` candidate when the access token is expired and the record has no refresh token.
 - Not persisting is not an option: a refresh rotates the refresh token server side, so an in-memory-only refresh would strand the CLI's copy, which is the "OAuth token revoked" failure seen on 2026-10-28 at 18:44.
 
+## Change 2 revisions, 2026-10-29
+
+Decided after a three-model adversarial review (fable, opus, sonnet) of PR 50 and the live check on a throwaway login. Each line amends the Change 2 bullet it names; everything else in Change 2 stands.
+
+- Readers: the auth hook and the import no longer fall back to the stored token when the refresh token was **rejected** (`ClaudeCodeRefreshAuthError`): the hook answers the request with `ok: false` and the error's message (which names `claude /login`), and the import throws it. The fallback to the stored token stays for transient failures (network, timeout, 5xx) and for the usage connector, the compiled plugin defaults and the probe, where a stale token is still the best answer. One exported helper carries that policy; the five hand-written `.catch(() => readClaudeCodeOauth())` copies go.
+- Persistence, Keychain: the argv form above 4032 bytes stays (Claude Code itself uses it there), but it is no longer silent. The write logs once per store, fixed text, that the record exceeded the `security -i` stdin limit and went through argv, where `ps` can read it for the write's duration; the providers docs say the same in one sentence. The `security` write runs with a 10 s timeout so a Keychain prompt cannot block the gateway; a timeout is a failed write. The writer itself asserts the account against `claudeCodeKeychainAccountPattern` and the service against `claudeCodeKeychainServicePattern` before building the `-i` line. The once-per-store write-failure warning re-arms after a successful write.
+- Refresh response without `expires_in`: `expiresAt` becomes `undefined` (unknown, so not expired, Claude Code's own reading of a missing field), not the previous value.
+- Record reader: only `expiresAt` and `refreshTokenExpiresAt` (camelCase, epoch ms, what Claude Code 2.1.312 writes) are read; the snake-case `expires_at` and `refresh_token_expires_at` aliases are dropped as unverified. `findOauthTokenSet`, dead since the mcpOAuth fix, is deleted. `claudeCodeAccessTokenExpired` is no longer re-exported from `service.ts` (no importer).
+- Internal shape, no behaviour change: the per-credential state (in-flight refresh, cached pair with its compare-and-swap baseline and write-retry hold, rejected token, warned flag) lives in one record per store key instead of four module maps; persistence returns the resulting entry instead of a status string, and the refresh call is a pure POST that owns no state. The baseline field is named for what it is (`storeBaseline`: the refresh token the store is believed to hold), not `postedRefreshToken`.
+- Tests for the refresh, persistence and the fake Keychain move to their own file; the provider test file had passed 1000 lines.
+
+Open decisions, not in the plan: refusing the Keychain write above the cutoff instead of using argv (strands large records in memory, which this spec rejects); narrowing the rejection table to `invalid_grant` plus 401 so a proxy 403 is not remembered; letting the synchronous candidate scan report a refresh-token-only login as `available`.
+
 ## Out of scope
 
 - Any change to claude-multipass.
