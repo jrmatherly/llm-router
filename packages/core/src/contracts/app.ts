@@ -1524,6 +1524,7 @@ export type ProfileConfig = {
   availableModels?: string[];
   botConfigId?: string;
   botGateway?: BotGatewayRuntimeConfig;
+  claudeAppTakeover?: boolean;
   configFile?: string;
   cliMiddleware?: boolean;
   claudeSettings?: Record<string, unknown>;

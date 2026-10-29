@@ -18,6 +18,7 @@ if (process.platform === "win32") {
 async function loadModules() {
   const {
     NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE,
+    claudeAppTakesOverDirectLaunches,
     hasClaudeAppEntryProfile,
     syncClaudeAppGatewayConfig
   } = await import("@llmr/core/agents/claude-app/gateway-service.ts");
@@ -25,6 +26,7 @@ async function loadModules() {
   return {
     BACKUP_FILE: path.join(CONFIGDIR, "claude-app-gateway-backup.json"),
     NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE,
+    claudeAppTakesOverDirectLaunches,
     hasClaudeAppEntryProfile,
     syncClaudeAppGatewayConfig
   };
@@ -107,7 +109,7 @@ test("sync applies the gateway config for auto, app, and unset surfaces", async 
   for (const surface of ["auto", "app", undefined]) {
     const synced = await syncClaudeAppGatewayConfig(createConfig({
       profile: {
-        profiles: [claudeCodeProfile({ surface })]
+        profiles: [claudeCodeProfile({ claudeAppTakeover: true, surface })]
       }
     }));
 
@@ -120,36 +122,44 @@ test("sync applies the gateway config for auto, app, and unset surfaces", async 
   }
 });
 
-test("sync applies the shared gateway config only for a System default profile", async () => {
+test("sync writes the shared gateway config only when the profile opts in", async () => {
   const { BACKUP_FILE, hasClaudeAppEntryProfile, syncClaudeAppGatewayConfig } = await loadModules();
-  const synced = await syncClaudeAppGatewayConfig(createConfig({
-    profile: {
-      profiles: [claudeCodeProfile({ scope: "global", surface: "auto" })]
-    }
-  }));
-
-  assert.equal(hasClaudeAppEntryProfile(synced.config), true);
-  const libraryConfig = JSON.parse(readFileSync(claudeAppPaths().configLibraryFile, "utf8"));
-  assert.equal(libraryConfig.inferenceProvider, "gateway");
-  cleanup(BACKUP_FILE);
-});
-
-test("sync leaves a directly opened Claude App alone for Only opened from LLMR and custom scopes", async () => {
-  const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppEntryProfile, syncClaudeAppGatewayConfig } = await loadModules();
-  for (const scope of ["llmr", "custom"]) {
-    seedGatewayBackup(BACKUP_FILE);
+  for (const scope of ["llmr", "global", "custom"]) {
     const synced = await syncClaudeAppGatewayConfig(createConfig({
-      profile: {
-        profiles: [claudeCodeProfile({ scope, surface: "auto" })]
-      }
+      profile: { profiles: [claudeCodeProfile({ claudeAppTakeover: true, scope, surface: "auto" })] }
     }));
-
-    assert.equal(hasClaudeAppEntryProfile(synced.config), false, scope);
-    assert.equal(synced.result.message, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, scope);
-    assert.equal(existsSync(BACKUP_FILE), false, scope);
-    assert.equal(JSON.parse(readFileSync(claudeAppPaths().rootConfigFile, "utf8")).deploymentMode, "native", scope);
+    assert.equal(hasClaudeAppEntryProfile(synced.config), true, scope);
+    const libraryConfig = JSON.parse(readFileSync(claudeAppPaths().configLibraryFile, "utf8"));
+    assert.equal(libraryConfig.inferenceProvider, "gateway", scope);
     cleanup(BACKUP_FILE);
   }
+});
+
+test("sync leaves a directly opened Claude App alone unless the profile opts in", async () => {
+  const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppEntryProfile, syncClaudeAppGatewayConfig } = await loadModules();
+  const cases = [
+    claudeCodeProfile({ scope: "global", surface: "auto" }),
+    claudeCodeProfile({ claudeAppTakeover: false, scope: "global", surface: "app" }),
+    claudeCodeProfile({ claudeAppTakeover: true, enabled: false, surface: "auto" }),
+    claudeCodeProfile({ claudeAppTakeover: true, surface: "cli" })
+  ];
+  for (const profile of cases) {
+    seedGatewayBackup(BACKUP_FILE);
+    const synced = await syncClaudeAppGatewayConfig(createConfig({ profile: { profiles: [profile] } }));
+    assert.equal(hasClaudeAppEntryProfile(synced.config), false, JSON.stringify(profile));
+    assert.equal(synced.result.message, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE);
+    assert.equal(existsSync(BACKUP_FILE), false);
+    assert.equal(JSON.parse(readFileSync(claudeAppPaths().rootConfigFile, "utf8")).deploymentMode, "native");
+    cleanup(BACKUP_FILE);
+  }
+});
+
+test("the direct launch gate opens only for an enabled App-capable claude-code profile that opts in", async () => {
+  const { claudeAppTakesOverDirectLaunches } = await loadModules();
+  assert.equal(claudeAppTakesOverDirectLaunches(claudeCodeProfile({ surface: "app" })), false);
+  assert.equal(claudeAppTakesOverDirectLaunches(claudeCodeProfile({ claudeAppTakeover: true, surface: "app" })), true);
+  assert.equal(claudeAppTakesOverDirectLaunches(claudeCodeProfile({ claudeAppTakeover: true, surface: "cli" })), false);
+  assert.equal(claudeAppTakesOverDirectLaunches(claudeCodeProfile({ claudeAppTakeover: true, enabled: false, surface: "app" })), false);
 });
 
 test("sync persists a generated Claude App credential through the credential store", async () => {
@@ -158,7 +168,7 @@ test("sync persists a generated Claude App credential through the credential sto
   const { loadPersistedApiKeys } = await import("@llmr/core/config/config-repository.ts");
   const config = createDefaultAppConfig();
   config.Providers = [{ name: "test-provider", models: ["test-model"], api_base_url: "https://example.test/v1" }];
-  config.profile.profiles = [claudeCodeProfile({ surface: "app" })];
+  config.profile.profiles = [claudeCodeProfile({ claudeAppTakeover: true, surface: "app" })];
   try {
     const synced = await syncClaudeAppGatewayConfig(config);
     assert.equal(synced.result.apiKeyGenerated, true);
@@ -210,7 +220,7 @@ function seedGatewayBackup(backupFile) {
 test("#1768 restore preserves live library, root preferences and metadata across restarts", async () => {
   const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
   const paths = claudeAppPaths();
-  const enabled = createConfig({ profile: { profiles: [claudeCodeProfile({ surface: "app" })] } });
+  const enabled = createConfig({ profile: { profiles: [claudeCodeProfile({ claudeAppTakeover: true, surface: "app" })] } });
   try {
     writeJsonFile(paths.rootConfigFile, { deploymentMode: "native", preference: false });
     writeJsonFile(paths.metaFile, { appliedId: "original", entries: [{ id: "original", name: "Original" }] });
@@ -240,7 +250,7 @@ test("#1768 restore removes absent takeover keys while preserving newly created 
   const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
   const paths = claudeAppPaths();
   try {
-    await syncClaudeAppGatewayConfig(createConfig({ profile: { profiles: [claudeCodeProfile()] } }));
+    await syncClaudeAppGatewayConfig(createConfig({ profile: { profiles: [claudeCodeProfile({ claudeAppTakeover: true })] } }));
     writeJsonFile(paths.rootConfigFile, { deploymentMode: "3p", userPreference: true });
     await syncClaudeAppGatewayConfig(createConfig());
     assert.deepEqual(JSON.parse(readFileSync(paths.rootConfigFile, "utf8")), { userPreference: true });
