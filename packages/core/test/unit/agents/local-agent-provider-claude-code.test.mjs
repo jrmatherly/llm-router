@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -324,6 +325,32 @@ test("Claude Code local provider reports a missing candidate when no keychain it
   });
 });
 
+test("fake keychain records security -i writes and exposes the record", { skip: process.platform === "win32" }, async () => {
+  await withFakeKeychain({ claudeAiOauth: { accessToken: "a" } }, async (keychain) => {
+    execFileSync("security", ["-i"], { input: `add-generic-password -U -a "u" -s "Claude Code-credentials" -X ${Buffer.from("{\"x\":1}").toString("hex")}\n` });
+    assert.deepEqual(keychain.read(), { x: 1 });
+    assert.equal(keychain.calls.length, 1);
+  });
+});
+
+test("fake keychain keeps the record and records the call when writes fail", { skip: process.platform === "win32" }, async () => {
+  await withFakeKeychain({ x: 1 }, async (keychain) => {
+    const hex = Buffer.from("{\"x\":2}").toString("hex");
+    assert.throws(() => execFileSync("security", ["add-generic-password", "-U", "-a", "u", "-s", "s", "-X", hex]), { status: 7 });
+    assert.deepEqual(keychain.read(), { x: 1 });
+    assert.deepEqual(keychain.calls, [{ argv: ["add-generic-password", "-U", "-a", "u", "-s", "s", "-X", hex], stdin: "" }]);
+  }, { writeExitCode: 7 });
+});
+
+test("fake keychain serves a record set by write() without recording a call", { skip: process.platform === "win32" }, async () => {
+  await withFakeKeychain({ x: 1 }, async (keychain) => {
+    keychain.write({ x: 3 });
+    assert.deepEqual(keychain.read(), { x: 3 });
+    assert.deepEqual(JSON.parse(execFileSync("security", ["find-generic-password", "-s", "s", "-w"], { encoding: "utf8" })), { x: 3 });
+    assert.equal(keychain.calls.length, 0);
+  });
+});
+
 async function withClaudeCodeHome(run) {
   const home = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-code-provider-"));
   const previousHome = process.env.HOME;
@@ -369,7 +396,7 @@ async function withFakeSecurityScript(body, run) {
   process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ""}`;
   process.env.USER = keychainAccount;
   try {
-    await run();
+    await run(binDir);
   } finally {
     restoreEnv("PATH", previousPath);
     restoreEnv("USER", previousUser);
@@ -378,6 +405,61 @@ async function withFakeSecurityScript(body, run) {
 }
 
 const keychainAccount = "llmr-test-user";
+const keychainNotFound = "echo 'security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.' >&2\nexit 44";
+
+// One mutable item, whatever -a/-s say: refresh tests assert the write-back
+// target through `calls`, not through separate records.
+async function withFakeKeychain(initialRecord, run, options = {}) {
+  const failWrite = options.writeExitCode === undefined ? "" : `exit ${options.writeExitCode}\n`;
+  const body = [
+    `dir=$(dirname "$0")`,
+    `case "$1" in`,
+    "  find-generic-password)",
+    `    for arg in "$@"; do`,
+    `      if [ "$arg" = "-w" ]; then cat "$dir/record.json"; exit 0; fi`,
+    "    done ;;",
+    "  add-generic-password|-i)",
+    `    call="$dir/calls/$(ls "$dir/calls" | wc -l | tr -d ' ')"`,
+    `    mkdir "$call"`,
+    `    printf '%s\\0' "$@" > "$call/argv"`,
+    `    if [ "$1" = "-i" ]; then`,
+    `      cat > "$call/stdin"`,
+    `      hex=$(sed -n 's/^add-generic-password .*-X \"\\{0,1\\}\\([0-9a-fA-F]*\\).*$/\\1/p' "$call/stdin" | tail -n 1)`,
+    "    else",
+    `      : > "$call/stdin"`,
+    "      hex=''",
+    `      while [ $# -gt 0 ]; do`,
+    `        if [ "$1" = "-X" ]; then hex="$2"; fi`,
+    "        shift",
+    "      done",
+    "    fi",
+    `    ${failWrite}[ -n "$hex" ] || exit 1`,
+    `    printf '%s' "$hex" | xxd -r -p > "$dir/next.json" && mv "$dir/next.json" "$dir/record.json" || exit 1`,
+    "    exit 0 ;;",
+    "esac",
+    keychainNotFound,
+    ""
+  ].join("\n");
+  await withFakeSecurityScript(body, async (binDir) => {
+    const recordFile = path.join(binDir, "record.json");
+    const callsDir = path.join(binDir, "calls");
+    mkdirSync(callsDir);
+    const keychain = {
+      get calls() {
+        return readdirSync(callsDir)
+          .sort((a, b) => Number(a) - Number(b))
+          .map(name => ({
+            argv: readFileSync(path.join(callsDir, name, "argv"), "utf8").split("\0").slice(0, -1),
+            stdin: readFileSync(path.join(callsDir, name, "stdin"), "utf8")
+          }));
+      },
+      read: () => JSON.parse(readFileSync(recordFile, "utf8")),
+      write: (record) => writeFileSync(recordFile, JSON.stringify(record))
+    };
+    keychain.write(initialRecord);
+    await run(keychain);
+  });
+}
 
 // Stands in for the macOS keychain: `find-generic-password` matches on
 // service+account, an omitted `-a` matches the first item registered for the
@@ -445,8 +527,7 @@ function fakeSecurityBody(items) {
       "exit 0 ;;"
     ].join("\n")),
     "esac",
-    `echo 'security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.' >&2`,
-    "exit 44"
+    keychainNotFound
   ].join("\n");
 }
 
