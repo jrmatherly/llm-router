@@ -132,10 +132,18 @@ export function cloneProviderAccountConfig(account: ProviderAccountConfig | unde
   return account ? JSON.parse(JSON.stringify(account)) as ProviderAccountConfig : undefined;
 }
 
+export type OauthTokenSetFields = {
+  accessToken?: string;
+  expiresAt?: number;
+  refreshToken?: string;
+  refreshTokenExpiresAt?: number;
+  scopes?: string[];
+};
+
 // Reads the token fields on `value` itself, never descending into children.
 // Callers that know their record shape use this to avoid matching an unrelated
 // nested credential -- see the mcpOAuth note in claude-code.ts.
-export function readOauthTokenSetFields(value: unknown): { accessToken?: string; refreshToken?: string } | undefined {
+export function readOauthTokenSetFields(value: unknown): OauthTokenSetFields | undefined {
   if (!isRecord(value)) {
     return undefined;
   }
@@ -147,10 +155,24 @@ export function readOauthTokenSetFields(value: unknown): { accessToken?: string;
     readString(value.refreshToken) ||
     readString(value.refresh_token) ||
     readString(value.anthropicRefreshToken);
-  return accessToken || refreshToken ? { accessToken, refreshToken } : undefined;
+  if (!accessToken && !refreshToken) {
+    return undefined;
+  }
+  const scopes = Array.isArray(value.scopes) && value.scopes.length > 0 && value.scopes.every(scope => typeof scope === "string") ? value.scopes as string[] : undefined;
+  return {
+    accessToken,
+    expiresAt: readFiniteNumber(value.expiresAt) ?? readFiniteNumber(value.expires_at),
+    refreshToken,
+    refreshTokenExpiresAt: readFiniteNumber(value.refreshTokenExpiresAt) ?? readFiniteNumber(value.refresh_token_expires_at),
+    scopes
+  };
 }
 
-export function findOauthTokenSet(value: unknown, depth = 0): { accessToken?: string; refreshToken?: string } | undefined {
+export function readFiniteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export function findOauthTokenSet(value: unknown, depth = 0): OauthTokenSetFields | undefined {
   if (!isRecord(value) || depth > 5) {
     return undefined;
   }
@@ -332,6 +354,15 @@ export function isLoopbackUrl(value: string): boolean {
     return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
   } catch {
     return false;
+  }
+}
+
+export function parseJsonRecord(text: string): Record<string, unknown> | undefined {
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    return isRecord(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
   }
 }
 

@@ -3,6 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { resetClaudeCodeAuthStateForTest } from "@llmr/core/agents/local-providers/claude-code.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
 import {
@@ -153,6 +154,26 @@ test("Claude Code local agent auth hook re-reads the on-disk access token on eve
         assert.equal(rotatedAuth.ok, true);
         assert.equal(rotatedAuth.value.headers.authorization, "Bearer rotated-access-token");
         assert.equal(rotatedAuth.value.headers["anthropic-beta"], "oauth-2025-04-20");
+      });
+    });
+  });
+});
+
+test("Claude Code local agent auth hook refreshes an expired token before authenticating", { skip: process.platform === "win32" }, async (t) => {
+  await withClaudeCodeHome(async (home) => {
+    await withPlatform("darwin", async () => {
+      await withFakeSecurityFailure(async () => {
+        const credentialsFile = writeClaudeCredentials(home, {
+          claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" }
+        });
+        stubClaudeCodeTokenEndpoint(t, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" });
+
+        const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeCodeOauthProviderPlugin()] } }).providerHooks;
+        const auth = await hook.authenticate({
+          upstreamRequest: { headers: {}, method: "POST", url: "https://api.anthropic.com/v1/messages" }
+        });
+        assert.equal(auth.value.headers.authorization, "Bearer fresh");
+        assert.equal(JSON.parse(readFileSync(credentialsFile, "utf8")).claudeAiOauth.refreshToken, "r2");
       });
     });
   });
@@ -347,6 +368,19 @@ async function withFakeSecurityScript(body, run) {
     restoreEnv("USER", previousUser);
     rmSync(binDir, { force: true, recursive: true });
   }
+}
+
+function stubClaudeCodeTokenEndpoint(t, body) {
+  resetClaudeCodeAuthStateForTest();
+  const previousFetch = globalThis.fetch;
+  const previousEndpoint = process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT;
+  process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT = "http://127.0.0.1/claude/oauth/token";
+  globalThis.fetch = async () => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" }, status: 200 });
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    restoreEnv("LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT", previousEndpoint);
+    resetClaudeCodeAuthStateForTest();
+  });
 }
 
 function writeClaudeCredentials(home, credentials) {
