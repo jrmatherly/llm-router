@@ -461,7 +461,7 @@ export function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: 
 
 function timeoutMsFromEnv(name: string, fallback: number): number {
   const configured = Number(process.env[name]);
-  return Number.isInteger(configured) && configured > 0 ? configured : fallback;
+  return Number.isFinite(configured) && configured > 0 ? Math.ceil(configured) : fallback;
 }
 
 function storeKey(store: ClaudeCodeTokenStore): string {

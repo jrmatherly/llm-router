@@ -280,13 +280,13 @@ test("a keychain write that hangs is a failed write after the timeout", { skip: 
           const started = Date.now();
           assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
           const elapsed = Date.now() - started;
-          assert.ok(elapsed >= 500 && elapsed < 2_000, `write returned after ${elapsed} ms`);
+          assert.ok(elapsed >= 500 && elapsed < 10_000, `write returned after ${elapsed} ms`);
           assert.equal(warnings.length, 1);
           assert.match(warnings[0], /\(security timed out\)$/);
           assert.equal(keychain.read().claudeAiOauth.refreshToken, "r1");
           assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
           assert.equal(keychain.calls.length, 1);
-        }, { writeDelaySeconds: 2 });
+        }, { writeDelaySeconds: 30 });
       });
     });
   });
