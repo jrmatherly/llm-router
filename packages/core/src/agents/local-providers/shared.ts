@@ -168,7 +168,7 @@ export function readOauthTokenSetFields(value: unknown): OauthTokenSetFields | u
   };
 }
 
-function readFiniteNumber(value: unknown): number | undefined {
+export function readFiniteNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 

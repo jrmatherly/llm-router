@@ -10,16 +10,20 @@ import type {
 } from "@llmr/core/contracts/app";
 import {
   bearerAuthPlugin,
+  isLoopbackUrl,
   isRecord,
   missingCandidate,
   providerInternalNamePlaceholder,
   providerPayload,
+  readFiniteNumber,
   readJsonRecord,
   readOauthTokenSetFields,
+  readString,
   uniqueProviderName,
   uniqueStrings,
   type OAuthTokenSet
 } from "@llmr/core/agents/local-providers/shared";
+import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 
 const claudeDefaultModels = ["claude-sonnet-5"];
 const claudeCodeKeychainServiceBase = "Claude Code-credentials";
@@ -27,6 +31,13 @@ const claudeCodeKeychainAccountPattern = /^[a-zA-Z0-9._-]+$/;
 const claudeCodeKeychainServicePattern = /^Claude Code(?:-[a-z]+-oauth)?-credentials(?:-[0-9a-f]{8})?$/;
 // `security` exit code for errSecItemNotFound.
 const keychainItemNotFoundStatus = 44;
+const claudeCodeDefaultTokenEndpoint = "https://platform.claude.com/v1/oauth/token";
+const claudeCodeOauthClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
+
+const claudeCodeRefreshInFlight = new Map<string, Promise<ClaudeCodeTokenSet>>();
+const claudeCodeRefreshed = new Map<string, { auth: ClaudeCodeTokenSet; persisted: boolean; postedRefreshToken: string }>();
+// Keyed by refresh token, so a token the server rejected is never posted again.
+const claudeCodeRejectedRefreshTokens = new Map<string, { code?: string; status: number }>();
 
 type ClaudeCodeKeychainCandidate = { account?: string; service: string };
 
@@ -202,6 +213,147 @@ export function readClaudeCodeOauth(): ClaudeCodeTokenSet | undefined {
 
 export function claudeCodeAccessTokenExpired(auth: Pick<ClaudeCodeTokenSet, "accessToken" | "expiresAt">): boolean {
   return !auth.accessToken || (auth.expiresAt !== undefined && auth.expiresAt <= Date.now() + 60_000);
+}
+
+export class ClaudeCodeRefreshAuthError extends Error {
+  readonly code?: string;
+  readonly status: number;
+
+  constructor(status: number, code?: string) {
+    super(`Claude Code OAuth token refresh was rejected (HTTP ${status}${code ? `, ${code}` : ""}). Run \`claude /login\`, then retry.`);
+    this.name = "ClaudeCodeRefreshAuthError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+export function resetClaudeCodeAuthStateForTest(): void {
+  claudeCodeRefreshInFlight.clear();
+  claudeCodeRefreshed.clear();
+  claudeCodeRejectedRefreshTokens.clear();
+}
+
+export function claudeCodeTokenEndpoint(): string {
+  const override = process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT;
+  return override && isLoopbackUrl(override) ? override : claudeCodeDefaultTokenEndpoint;
+}
+
+export async function resolveClaudeCodeAuth(): Promise<ClaudeCodeTokenSet | undefined> {
+  const auth = readClaudeCodeOauth();
+  if (!auth?.refreshToken) {
+    return auth;
+  }
+  const key = storeKey(auth.store);
+  const refreshed = claudeCodeRefreshed.get(key);
+  if (refreshed?.postedRefreshToken === auth.refreshToken) {
+    return refreshed.auth;
+  }
+  if (!claudeCodeAccessTokenExpired(auth) || !auth.store.refreshable) {
+    return auth;
+  }
+  const rejected = claudeCodeRejectedRefreshTokens.get(auth.refreshToken);
+  if (rejected) {
+    throw new ClaudeCodeRefreshAuthError(rejected.status, rejected.code);
+  }
+  // Coalesce concurrent refreshes of the same credential: the refresh token
+  // rotates on every refresh, so every in-process caller must share a single
+  // refresh attempt (and its peer-rotation adoption outcome) instead of
+  // submitting the same stale token in parallel.
+  let refresh = claudeCodeRefreshInFlight.get(key);
+  if (!refresh) {
+    refresh = (async () => {
+      try {
+        return await refreshClaudeCodeAuth(auth);
+      } catch (error) {
+        return adoptPeerRotatedClaudeCodeAuth(auth, error);
+      }
+    })().finally(() => {
+      claudeCodeRefreshInFlight.delete(key);
+    });
+    claudeCodeRefreshInFlight.set(key, refresh);
+  }
+  return refresh;
+}
+
+// A peer (Claude Code itself) that refreshed first leaves our refresh token
+// stale and rejected, while the store already holds the rotated pair.
+function adoptPeerRotatedClaudeCodeAuth(auth: ClaudeCodeTokenSet, error: unknown): ClaudeCodeTokenSet {
+  if (!(error instanceof ClaudeCodeRefreshAuthError)) {
+    throw error;
+  }
+  const latest = readClaudeCodeOauth();
+  if (latest?.accessToken && latest.refreshToken !== auth.refreshToken && storeKey(latest.store) === storeKey(auth.store)) {
+    return latest;
+  }
+  if (auth.refreshToken) {
+    claudeCodeRejectedRefreshTokens.set(auth.refreshToken, { code: error.code, status: error.status });
+  }
+  throw error;
+}
+
+async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet): Promise<ClaudeCodeTokenSet> {
+  const refreshToken = auth.refreshToken as string;
+  const timeoutMs = Number(process.env.LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS) || 15_000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchWithSystemProxy(claudeCodeTokenEndpoint(), {
+      body: JSON.stringify({
+        client_id: claudeCodeOauthClientId,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        ...(auth.scopes?.length ? { scope: auth.scopes.join(" ") } : {})
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+      signal: controller.signal
+    });
+    const payload = parseJsonRecord(await response.text());
+    if (!response.ok) {
+      const code = readString(payload?.error);
+      if (response.status === 401 || response.status === 403 || (response.status === 400 && code === "invalid_grant")) {
+        throw new ClaudeCodeRefreshAuthError(response.status, code);
+      }
+      throw new Error(`Claude Code OAuth token refresh returned HTTP ${response.status}.`);
+    }
+    const accessToken = readString(payload?.access_token);
+    if (!accessToken) {
+      throw new Error("Claude Code OAuth token refresh did not return an access token.");
+    }
+    const expiresIn = readFiniteNumber(payload?.expires_in);
+    const refreshExpiresIn = readFiniteNumber(payload?.refresh_token_expires_in);
+    const scope = readString(payload?.scope);
+    const next: ClaudeCodeTokenSet = {
+      ...auth,
+      accessToken,
+      expiresAt: expiresIn === undefined ? undefined : Date.now() + expiresIn * 1000,
+      refreshToken: readString(payload?.refresh_token) ?? refreshToken,
+      refreshTokenExpiresAt: refreshExpiresIn === undefined ? auth.refreshTokenExpiresAt : Date.now() + refreshExpiresIn * 1000,
+      scopes: scope ? scope.split(" ").filter(Boolean) : auth.scopes
+    };
+    claudeCodeRefreshed.set(storeKey(auth.store), { auth: next, persisted: false, postedRefreshToken: refreshToken });
+    return next;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Claude Code OAuth token refresh timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function storeKey(store: ClaudeCodeTokenStore): string {
+  return store.kind === "keychain" ? `keychain:${store.service}\u0000${store.account ?? ""}` : `file:${store.path}`;
+}
+
+function parseJsonRecord(text: string): Record<string, unknown> | undefined {
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    return isRecord(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // Not refreshable: a custom OAuth URL or a `-<env>-oauth-` service has a token

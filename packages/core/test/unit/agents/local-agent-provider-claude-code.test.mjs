@@ -5,7 +5,15 @@ import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, w
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { claudeCodeAccessTokenExpired, claudeCodeCandidate, importClaudeCodeProvider, readClaudeCodeOauth } from "@llmr/core/agents/local-providers/claude-code.ts";
+import {
+  claudeCodeAccessTokenExpired,
+  claudeCodeCandidate,
+  claudeCodeTokenEndpoint,
+  importClaudeCodeProvider,
+  readClaudeCodeOauth,
+  resetClaudeCodeAuthStateForTest,
+  resolveClaudeCodeAuth
+} from "@llmr/core/agents/local-providers/claude-code.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
 import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/local-agent-auth-provider-hook.ts";
@@ -425,6 +433,163 @@ test("fake keychain serves a record set by write() without recording a call", { 
     assert.equal(keychain.calls.length, 0);
   });
 });
+
+test("Claude Code local provider refreshes an expired access token with a JSON body", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1, scopes: ["user:inference", "user:profile"] }, async () => {
+    stubTokenEndpoint(t, (input, init) => {
+      assert.equal(String(input), testTokenEndpoint);
+      assert.equal(init.headers["content-type"], "application/json");
+      assert.deepEqual(JSON.parse(init.body), {
+        client_id: "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+        grant_type: "refresh_token",
+        refresh_token: "r1",
+        scope: "user:inference user:profile"
+      });
+      return jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2", refresh_token_expires_in: 86400, scope: "user:inference" });
+    });
+    const auth = await resolveClaudeCodeAuth();
+    assert.equal(auth.accessToken, "fresh");
+    assert.equal(auth.refreshToken, "r2");
+    assert.ok(auth.expiresAt > Date.now() + 3_500_000);
+    assert.ok(auth.refreshTokenExpiresAt > Date.now() + 86_000_000);
+    assert.deepEqual(auth.scopes, ["user:inference"]);
+  });
+});
+
+test("Claude Code local provider keeps the refresh token, refresh expiry and scopes when the response omits them", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1, refreshTokenExpiresAt: 1800000000000, scopes: ["user:inference"] }, async () => {
+    stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600 }));
+    const auth = await resolveClaudeCodeAuth();
+    assert.equal(auth.accessToken, "fresh");
+    assert.equal(auth.refreshToken, "r1");
+    assert.equal(auth.refreshTokenExpiresAt, 1800000000000);
+    assert.deepEqual(auth.scopes, ["user:inference"]);
+    assert.equal(auth.store.service, "Claude Code-credentials");
+  });
+});
+
+test("Claude Code local provider serves the cached fresh pair instead of posting the consumed refresh token again", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    const endpoint = stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+    assert.equal(endpoint.calls, 1);
+  });
+});
+
+test("Claude Code local provider adopts a peer-rotated token on 400 invalid_grant", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async (keychain) => {
+    stubTokenEndpoint(t, () => {
+      keychain.write({ claudeAiOauth: { accessToken: "peer", expiresAt: Date.now() + 3_600_000, refreshToken: "r3" } });
+      return jsonResponse(400, { error: "invalid_grant" });
+    });
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "peer");
+  });
+});
+
+test("Claude Code local provider surfaces a rejected refresh and does not post that token again", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    const endpoint = stubTokenEndpoint(t, () => jsonResponse(401, { error: "invalid_grant", error_description: "secret detail" }));
+    await assert.rejects(resolveClaudeCodeAuth(), (error) => error.name === "ClaudeCodeRefreshAuthError" && error.status === 401 && error.code === "invalid_grant");
+    await assert.rejects(resolveClaudeCodeAuth(), (error) => error.name === "ClaudeCodeRefreshAuthError" && !error.message.includes("secret detail"));
+    assert.equal(endpoint.calls, 1);
+  });
+});
+
+test("Claude Code local provider retries after a refresh failure that is not a rejection", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    const endpoint = stubTokenEndpoint(t, () => jsonResponse(503, {}));
+    await assert.rejects(resolveClaudeCodeAuth(), (error) => error.name === "Error");
+    await assert.rejects(resolveClaudeCodeAuth(), (error) => error.name === "Error");
+    assert.equal(endpoint.calls, 2);
+  });
+});
+
+test("Claude Code local provider coalesces concurrent refreshes", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    const endpoint = stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+    const [first, second] = await Promise.all([resolveClaudeCodeAuth(), resolveClaudeCodeAuth()]);
+    assert.equal(first.accessToken, "fresh");
+    assert.equal(second.accessToken, "fresh");
+    assert.equal(endpoint.calls, 1);
+  });
+});
+
+test("Claude Code local provider does not refresh a token that is still valid", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "valid", refreshToken: "r1", expiresAt: Date.now() + 3_600_000 }, async () => {
+    stubTokenEndpoint(t, () => {
+      throw new Error("refresh must not be called");
+    });
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "valid");
+  });
+});
+
+test("Claude Code local provider never refreshes an unrefreshable store", { skip: process.platform === "win32" }, async (t) => {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      const expiresAt = Date.now() - 1;
+      const record = JSON.stringify({ claudeAiOauth: { accessToken: "a", expiresAt, refreshToken: "r" } });
+      const body = [
+        `if [ "$1" = "dump-keychain" ]; then exit 44; fi`,
+        `for arg in "$@"; do if [ "$arg" = "-a" ]; then ${keychainNotFound}; fi; done`,
+        `cat <<'LLMR_ACCOUNTLESS'`,
+        record,
+        "LLMR_ACCOUNTLESS",
+        ""
+      ].join("\n");
+      await withFakeSecurityScript(body, async () => {
+        stubTokenEndpoint(t, () => {
+          throw new Error("refresh must not be called");
+        });
+        const auth = await resolveClaudeCodeAuth();
+        assert.equal(auth.accessToken, "a");
+        assert.equal(auth.expiresAt, expiresAt);
+        assert.equal(auth.store.refreshable, false);
+      });
+    });
+  });
+});
+
+test("the token endpoint override is honoured only for loopback hosts", (t) => {
+  const previous = process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT;
+  t.after(() => restoreEnv("LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT", previous));
+  process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT = "https://evil.example/token";
+  assert.equal(claudeCodeTokenEndpoint(), "https://platform.claude.com/v1/oauth/token");
+  process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT = "http://[::1]:8080/token";
+  assert.equal(claudeCodeTokenEndpoint(), "http://[::1]:8080/token");
+});
+
+const testTokenEndpoint = "http://127.0.0.1/claude/oauth/token";
+
+async function withKeychainLogin(claudeAiOauth, run) {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      await withFakeKeychain({ claudeAiOauth }, run);
+    });
+  });
+}
+
+function stubTokenEndpoint(t, respond) {
+  resetClaudeCodeAuthStateForTest();
+  const previousFetch = globalThis.fetch;
+  const previousEndpoint = process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT;
+  process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT = testTokenEndpoint;
+  const endpoint = { calls: 0 };
+  globalThis.fetch = async (input, init) => {
+    endpoint.calls += 1;
+    return respond(input, init);
+  };
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    restoreEnv("LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT", previousEndpoint);
+    resetClaudeCodeAuthStateForTest();
+  });
+  return endpoint;
+}
+
+function jsonResponse(status, body) {
+  return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" }, status });
+}
 
 async function withClaudeCodeHome(run) {
   const home = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-code-provider-"));
