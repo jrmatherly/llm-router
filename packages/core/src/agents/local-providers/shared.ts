@@ -161,32 +161,15 @@ export function readOauthTokenSetFields(value: unknown): OauthTokenSetFields | u
   const scopes = Array.isArray(value.scopes) && value.scopes.length > 0 && value.scopes.every(scope => typeof scope === "string") ? value.scopes as string[] : undefined;
   return {
     accessToken,
-    expiresAt: readFiniteNumber(value.expiresAt) ?? readFiniteNumber(value.expires_at),
+    expiresAt: readFiniteNumber(value.expiresAt),
     refreshToken,
-    refreshTokenExpiresAt: readFiniteNumber(value.refreshTokenExpiresAt) ?? readFiniteNumber(value.refresh_token_expires_at),
+    refreshTokenExpiresAt: readFiniteNumber(value.refreshTokenExpiresAt),
     scopes
   };
 }
 
 export function readFiniteNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-export function findOauthTokenSet(value: unknown, depth = 0): OauthTokenSetFields | undefined {
-  if (!isRecord(value) || depth > 5) {
-    return undefined;
-  }
-  const direct = readOauthTokenSetFields(value);
-  if (direct) {
-    return direct;
-  }
-  for (const child of Object.values(value)) {
-    const found = findOauthTokenSet(child, depth + 1);
-    if (found) {
-      return found;
-    }
-  }
-  return undefined;
 }
 
 export function readJsonRecord(file: string): Record<string, unknown> | undefined {

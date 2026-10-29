@@ -15,7 +15,7 @@ import type {
 import { codexDefaultBaseUrl, readCodexAuth } from "@llmr/core/agents/local-providers/codex";
 import { opencodeCatalogProtocolModelMap } from "@llmr/core/agents/local-providers/opencode";
 import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared";
-import { readClaudeCodeOauth, resolveClaudeCodeAuth } from "@llmr/core/agents/local-providers/service";
+import { readClaudeCodeOauth, resolveClaudeCodeAuthOrStored } from "@llmr/core/agents/local-providers/service";
 import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
 import { findProviderPresetByBaseUrl, providerApiKeySafetyIssue } from "@llmr/core/providers/presets/index";
 import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
@@ -967,7 +967,7 @@ async function providerProbeAuthRequest(
 
   {
     const token = isLocalClaudeProbe(apiKey, providerPlugins)
-      ? (await resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth()))?.accessToken
+      ? (await resolveClaudeCodeAuthOrStored())?.accessToken
       : undefined;
     if (token) {
       const headers = new Headers(request.init.headers);

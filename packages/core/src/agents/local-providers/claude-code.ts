@@ -33,16 +33,24 @@ const claudeCodeKeychainAccountPattern = /^[a-zA-Z0-9._-]+$/;
 const claudeCodeKeychainServicePattern = /^Claude Code(?:-[a-z]+-oauth)?-credentials(?:-[0-9a-f]{8})?$/;
 // `security` exit code for errSecItemNotFound.
 const keychainItemNotFoundStatus = 44;
+const securityStdinLineLimit = 4032;
 const claudeCodeDefaultTokenEndpoint = "https://platform.claude.com/v1/oauth/token";
 const claudeCodeOauthClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 
-const claudeCodeRefreshInFlight = new Map<string, Promise<ClaudeCodeTokenSet>>();
-const claudeCodeRefreshed = new Map<string, ClaudeCodeRefreshedEntry>();
-// Keyed by refresh token, so a token the server rejected is never posted again.
-const claudeCodeRejectedRefreshTokens = new Map<string, { code?: string; status: number }>();
-const claudeCodeWriteBackWarned = new Set<string>();
+const claudeCodeCredentials = new Map<string, ClaudeCodeCredentialState>();
 
-type ClaudeCodeRefreshedEntry = { auth: ClaudeCodeTokenSet; persisted: boolean; postedRefreshToken: string; retryWriteAfter?: number };
+type ClaudeCodeCachedPair =
+  | { auth: ClaudeCodeTokenSet; kind: "pending"; retryWriteAfter: number; storeBaseline: string }
+  | { auth: ClaudeCodeTokenSet; kind: "persisted" };
+
+type ClaudeCodeCredentialState = {
+  cached?: ClaudeCodeCachedPair;
+  inFlight?: Promise<ClaudeCodeTokenSet>;
+  rejected?: { code?: string; status: number; token: string };
+  warnedArgv: boolean;
+  warnedRefreshFailure: boolean;
+  warnedWriteFailure: boolean;
+};
 
 type ClaudeCodeKeychainCandidate = { account?: string; service: string };
 
@@ -185,7 +193,7 @@ function claudeCodeScanDiagnostic(scan: ClaudeCodeLoginScan): string | undefined
 }
 
 export async function importClaudeCodeProvider(candidate: LocalAgentProviderCandidate, providerNames: string[]): Promise<LocalAgentProviderImportResult> {
-  const oauth = await resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth());
+  const oauth = await resolveClaudeCodeAuth();
   const token = oauth?.accessToken;
   if (!token) {
     throw new Error("Claude Code access token was not found.");
@@ -248,10 +256,17 @@ export class ClaudeCodeRefreshAuthError extends Error {
 }
 
 export function resetClaudeCodeAuthStateForTest(): void {
-  claudeCodeRefreshInFlight.clear();
-  claudeCodeRefreshed.clear();
-  claudeCodeRejectedRefreshTokens.clear();
-  claudeCodeWriteBackWarned.clear();
+  claudeCodeCredentials.clear();
+}
+
+function credentialState(store: ClaudeCodeTokenStore): ClaudeCodeCredentialState {
+  const key = storeKey(store);
+  let state = claudeCodeCredentials.get(key);
+  if (!state) {
+    state = { warnedArgv: false, warnedRefreshFailure: false, warnedWriteFailure: false };
+    claudeCodeCredentials.set(key, state);
+  }
+  return state;
 }
 
 export function claudeCodeTokenEndpoint(): string {
@@ -264,51 +279,53 @@ export async function resolveClaudeCodeAuth(): Promise<ClaudeCodeTokenSet | unde
   if (!auth?.refreshToken) {
     return auth;
   }
-  let storedRefreshToken = auth.refreshToken;
-  const key = storeKey(auth.store);
-  const refreshed = claudeCodeRefreshed.get(key);
+  const storedRefreshToken = auth.refreshToken;
+  const state = credentialState(auth.store);
+  const cached = state.cached;
   // While the store still holds the token we consumed, the cached pair is the live one.
-  let current = refreshed?.postedRefreshToken === storedRefreshToken ? refreshed.auth : auth;
-  if (refreshed && current === refreshed.auth && !refreshed.persisted && (refreshed.retryWriteAfter ?? 0) <= Date.now()) {
-    if (persistRefreshedClaudeCodeAuth(refreshed) === "adopted") {
-      current = claudeCodeRefreshed.get(key)?.auth ?? current;
-      storedRefreshToken = current.refreshToken ?? storedRefreshToken;
-    }
+  let current = cached && storeBaselineOf(cached) === storedRefreshToken ? cached.auth : auth;
+  if (cached?.kind === "pending" && cached.retryWriteAfter <= Date.now()) {
+    state.cached = persistClaudeCodePair(state, cached);
+    current = state.cached.auth;
   }
   const refreshToken = current.refreshToken ?? storedRefreshToken;
   if (!claudeCodeAccessTokenExpired(current) || !auth.store.refreshable) {
     return current;
   }
-  const rejected = claudeCodeRejectedRefreshTokens.get(refreshToken);
-  if (rejected) {
-    throw new ClaudeCodeRefreshAuthError(rejected.status, rejected.code);
+  if (state.rejected?.token === refreshToken) {
+    throw new ClaudeCodeRefreshAuthError(state.rejected.status, state.rejected.code);
   }
   // One refresh per credential at a time: the refresh token rotates on every use.
-  let refresh = claudeCodeRefreshInFlight.get(key);
-  if (!refresh) {
-    refresh = (async () => {
-      let entry: ClaudeCodeRefreshedEntry;
-      try {
-        entry = await refreshClaudeCodeAuth(current, refreshToken, storedRefreshToken);
-        if (refreshed && current === refreshed.auth) {
-          entry.postedRefreshToken = refreshed.postedRefreshToken;
-        }
-      } catch (error) {
-        return adoptPeerRotatedClaudeCodeAuth(auth, refreshToken, error);
-      }
-      return persistRefreshedClaudeCodeAuth(entry) === "adopted" ? claudeCodeRefreshed.get(key)?.auth ?? entry.auth : entry.auth;
-    })().finally(() => {
-      claudeCodeRefreshInFlight.delete(key);
-    });
-    claudeCodeRefreshInFlight.set(key, refresh);
-  }
-  return refresh;
+  state.inFlight ??= (async () => {
+    let pair: ClaudeCodeTokenSet;
+    try {
+      pair = await postClaudeCodeRefresh(current, refreshToken);
+    } catch (error) {
+      return adoptPeerRotatedClaudeCodeAuth(state, auth, refreshToken, error);
+    }
+    state.warnedRefreshFailure = false;
+    // state.cached can change during the POST (a retried write-back), so the baseline is read after it.
+    const baseline = state.cached?.auth === current ? storeBaselineOf(state.cached) ?? storedRefreshToken : storedRefreshToken;
+    state.cached = persistClaudeCodePair(state, { auth: pair, storeBaseline: baseline });
+    return state.cached.auth;
+  })().finally(() => {
+    state.inFlight = undefined;
+  });
+  return state.inFlight;
+}
+
+export async function resolveClaudeCodeAuthOrStored(): Promise<ClaudeCodeTokenSet | undefined> {
+  return resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth());
 }
 
 // A peer (Claude Code itself) that refreshed first leaves our refresh token
 // stale and rejected, while the store already holds the rotated pair.
-function adoptPeerRotatedClaudeCodeAuth(stored: ClaudeCodeTokenSet, postedRefreshToken: string, error: unknown): ClaudeCodeTokenSet {
+function adoptPeerRotatedClaudeCodeAuth(state: ClaudeCodeCredentialState, stored: ClaudeCodeTokenSet, postedRefreshToken: string, error: unknown): ClaudeCodeTokenSet {
   if (!(error instanceof ClaudeCodeRefreshAuthError)) {
+    if (!state.warnedRefreshFailure) {
+      state.warnedRefreshFailure = true;
+      console.warn(`Claude Code token refresh failed; the stored token is used until it succeeds (${stored.sourceFile})`);
+    }
     throw error;
   }
   const latest = readClaudeCodeOauth();
@@ -316,14 +333,12 @@ function adoptPeerRotatedClaudeCodeAuth(stored: ClaudeCodeTokenSet, postedRefres
     return latest;
   }
   console.warn(error.message);
-  claudeCodeRejectedRefreshTokens.set(postedRefreshToken, { code: error.code, status: error.status });
+  state.rejected = { code: error.code, status: error.status, token: postedRefreshToken };
   throw error;
 }
 
-// The compare-and-swap baseline rides on the shared cache entry and is re-read after the POST, so a write that landed meanwhile moves it.
-async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet, refreshToken: string, storedRefreshToken: string): Promise<ClaudeCodeRefreshedEntry> {
-  const configuredTimeout = Number(process.env.LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS);
-  const timeoutMs = configuredTimeout > 0 ? configuredTimeout : 15_000;
+async function postClaudeCodeRefresh(auth: ClaudeCodeTokenSet, refreshToken: string): Promise<ClaudeCodeTokenSet> {
+  const timeoutMs = timeoutMsFromEnv("LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS", 15_000);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -353,17 +368,14 @@ async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet, refreshToken: str
     const expiresIn = readFiniteNumber(payload?.expires_in);
     const refreshExpiresIn = readFiniteNumber(payload?.refresh_token_expires_in);
     const scope = readString(payload?.scope);
-    const next: ClaudeCodeTokenSet = {
+    return {
       ...auth,
       accessToken,
-      expiresAt: expiresIn === undefined ? auth.expiresAt : Date.now() + expiresIn * 1000,
+      expiresAt: expiresIn === undefined ? undefined : Date.now() + expiresIn * 1000,
       refreshToken: readString(payload?.refresh_token) ?? refreshToken,
       refreshTokenExpiresAt: refreshExpiresIn === undefined ? auth.refreshTokenExpiresAt : Date.now() + refreshExpiresIn * 1000,
       scopes: scope ? scope.split(" ").filter(Boolean) : auth.scopes
     };
-    const entry = { auth: next, persisted: false, postedRefreshToken: storedRefreshToken };
-    claudeCodeRefreshed.set(storeKey(auth.store), entry);
-    return entry;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error(`Claude Code OAuth token refresh timed out after ${timeoutMs}ms.`);
@@ -374,21 +386,27 @@ async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet, refreshToken: str
   }
 }
 
-// Compare-and-swap: the store is re-read just before the write, so a pair a peer rotated since our refresh is adopted, not overwritten.
-function persistRefreshedClaudeCodeAuth(entry: ClaudeCodeRefreshedEntry): "adopted" | "failed" | "written" {
-  const { auth } = entry;
+function storeBaselineOf(cached: ClaudeCodeCachedPair): string | undefined {
+  return cached.kind === "pending" ? cached.storeBaseline : cached.auth.refreshToken;
+}
+
+function writeBackError(message: string, reason: string): Error {
+  return Object.assign(new Error(message), { reason });
+}
+
+// Check-then-write: the store is re-read just before the write, so a pair a peer rotated since our refresh is adopted, not overwritten.
+function persistClaudeCodePair(state: ClaudeCodeCredentialState, input: { auth: ClaudeCodeTokenSet; storeBaseline: string }): ClaudeCodeCachedPair {
+  const { auth } = input;
   const { store } = auth;
-  const key = storeKey(store);
   try {
     const record = readClaudeCodeStoreRecord(store);
     if (!record) {
-      throw new Error("Claude Code login record is gone.");
+      throw writeBackError("Claude Code login record is gone.", "record unreadable");
     }
     const container = store.container === "root" ? record : isRecord(record.claudeAiOauth) ? record.claudeAiOauth : {};
     const onDisk = readOauthTokenSetFields(container);
-    if (onDisk?.refreshToken && onDisk.refreshToken !== entry.postedRefreshToken) {
-      claudeCodeRefreshed.set(key, { auth: { ...onDisk, sourceFile: auth.sourceFile, store }, persisted: true, postedRefreshToken: onDisk.refreshToken });
-      return "adopted";
+    if (onDisk?.refreshToken && onDisk.refreshToken !== input.storeBaseline) {
+      return { auth: { ...onDisk, sourceFile: auth.sourceFile, store }, kind: "persisted" };
     }
     const tokens = {
       ...container,
@@ -398,20 +416,30 @@ function persistRefreshedClaudeCodeAuth(entry: ClaudeCodeRefreshedEntry): "adopt
       ...(auth.refreshTokenExpiresAt === undefined ? {} : { refreshTokenExpiresAt: auth.refreshTokenExpiresAt }),
       ...(auth.scopes === undefined ? {} : { scopes: auth.scopes })
     };
-    writeClaudeCodeStoreRecord(store, store.container === "root" ? tokens : { ...record, claudeAiOauth: tokens });
-    entry.persisted = true;
-    entry.postedRefreshToken = auth.refreshToken ?? entry.postedRefreshToken;
-    return "written";
+    writeClaudeCodeStoreRecord(store, store.container === "root" ? tokens : { ...record, claudeAiOauth: tokens }, auth.sourceFile);
+    state.warnedWriteFailure = false;
+    return { auth, kind: "persisted" };
   } catch (error) {
-    entry.retryWriteAfter = Date.now() + 60_000;
-    if (!claudeCodeWriteBackWarned.has(key)) {
-      claudeCodeWriteBackWarned.add(key);
-      const failure = error as { code?: string; status?: number };
-      const reason = store.kind === "keychain" ? `security exited ${failure.status ?? "unknown"}` : failure.code ?? "write failed";
-      console.warn(`Claude Code login could not be written back to ${store.kind === "keychain" ? auth.sourceFile : store.path} (${reason})`);
+    if (!state.warnedWriteFailure) {
+      state.warnedWriteFailure = true;
+      console.warn(`Claude Code login could not be written back to ${store.kind === "keychain" ? auth.sourceFile : store.path} (${writeBackFailureReason(error, store)})`);
     }
-    return "failed";
+    return { ...input, kind: "pending", retryWriteAfter: Date.now() + 60_000 };
   }
+}
+
+function writeBackFailureReason(error: unknown, store: ClaudeCodeTokenStore): string {
+  const failure = error as { code?: unknown; reason?: unknown; status?: unknown };
+  if (typeof failure.reason === "string") {
+    return failure.reason;
+  }
+  if (failure.code === "ETIMEDOUT") {
+    return "security timed out";
+  }
+  if (store.kind === "keychain" && typeof failure.status === "number") {
+    return `security exited ${failure.status}`;
+  }
+  return typeof failure.code === "string" ? failure.code : "write failed";
 }
 
 function readClaudeCodeStoreRecord(store: ClaudeCodeTokenStore): Record<string, unknown> | undefined {
@@ -421,7 +449,7 @@ function readClaudeCodeStoreRecord(store: ClaudeCodeTokenStore): Record<string, 
   return readClaudeCodeKeychainRecord(store, { errors: [], inspected: [], tokenless: [] }, store.service);
 }
 
-function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: Record<string, unknown>): void {
+export function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: Record<string, unknown>, label: string): void {
   const json = JSON.stringify(record);
   if (store.kind === "file") {
     const target = realpathSync(store.path);
@@ -438,16 +466,30 @@ function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: Record<
     return;
   }
   if (store.account === undefined) {
-    throw new Error("Claude Code keychain item has no account.");
+    throw writeBackError("Claude Code keychain item has no account.", "item name rejected");
   }
+  if (!claudeCodeKeychainAccountPattern.test(store.account) || !claudeCodeKeychainServicePattern.test(store.service)) {
+    throw writeBackError("Claude Code keychain item name is not safe to write.", "item name rejected");
+  }
+  const timeout = timeoutMsFromEnv("LLMR_CLAUDE_CODE_KEYCHAIN_WRITE_TIMEOUT_MS", 10_000);
   const hex = Buffer.from(json, "utf8").toString("hex");
-  // `security -i` takes the command on stdin, so the record never shows in argv (`ps`); `-w` would put it there in plaintext.
+  // `security -i` keeps the record off argv until the stdin cutoff, past which Claude Code itself falls back to argv.
   const line = `add-generic-password -U -a "${store.account}" -s "${store.service}" -X ${hex}\n`;
-  if (Buffer.byteLength(line) > 4032) {
-    execFileSync("security", ["add-generic-password", "-U", "-a", store.account, "-s", store.service, "-X", hex], { stdio: ["ignore", "ignore", "ignore"] });
+  if (Buffer.byteLength(line) > securityStdinLineLimit) {
+    const state = credentialState(store);
+    if (!state.warnedArgv) {
+      state.warnedArgv = true;
+      console.warn(`Claude Code login record exceeds the security -i stdin limit; written through argv, where ps can read it until the write returns (${label})`);
+    }
+    execFileSync("security", ["add-generic-password", "-U", "-a", store.account, "-s", store.service, "-X", hex], { stdio: ["ignore", "ignore", "ignore"], timeout });
     return;
   }
-  execFileSync("security", ["-i"], { input: line, stdio: ["pipe", "ignore", "ignore"] });
+  execFileSync("security", ["-i"], { input: line, stdio: ["pipe", "ignore", "ignore"], timeout });
+}
+
+function timeoutMsFromEnv(name: string, fallback: number): number {
+  const configured = Number(process.env[name]);
+  return Number.isFinite(configured) && configured > 0 ? Math.ceil(configured) : fallback;
 }
 
 function storeKey(store: ClaudeCodeTokenStore): string {
@@ -548,10 +590,8 @@ function claudeCodeKeychainAccount(): string {
   return user && claudeCodeKeychainAccountPattern.test(user) ? user : "claude-code-user";
 }
 
-// Newer macOS builds of the Claude Code CLI store credentials in the Keychain
-// instead of ~/.claude/.credentials.json. Reading one triggers the standard
-// macOS keychain access prompt (Allow / Always Allow); the user declining or
-// the item not existing both surface as a non-zero exit here.
+// Reading an item triggers the macOS Keychain access prompt; a declined prompt
+// and a missing item both surface as a non-zero `security` exit.
 function scanClaudeCodeKeychain(scan: ClaudeCodeLoginScan): ClaudeCodeTokenSet | undefined {
   if (process.platform !== "darwin") {
     return undefined;
@@ -589,12 +629,8 @@ function scanClaudeCodeKeychain(scan: ClaudeCodeLoginScan): ClaudeCodeTokenSet |
       }
       servicesRead.add(candidate.service);
       scan.inspected.push(`keychain:${label}`);
-      // Only `claudeAiOauth` is an Anthropic API credential. Both reads are
-      // root-level: a recursive search would descend into `mcpOAuth`, whose
-      // per-plugin records also carry `accessToken`, and that token imports
-      // cleanly as a provider and then 401s on every request. Restricting to
-      // root-level fields excludes *any* nested container, so a future sibling
-      // key cannot reintroduce the hole.
+      // Named top-level reads only, never a recursive search: `mcpOAuth` holds per-plugin records that also
+      // carry `accessToken`, and importing one yields a provider that 401s.
       const claudeAiOauth = readOauthTokenSetFields(record.claudeAiOauth);
       if (claudeAiOauth) {
         return { ...claudeAiOauth, sourceFile: `keychain:${label}`, store: claudeCodeKeychainStore(candidate, "claudeAiOauth") };

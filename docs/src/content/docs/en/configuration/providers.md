@@ -20,7 +20,7 @@ After import:
 3. LLMR creates OAuth provider plugins that convert requests to use the Claude Code login state.
 4. Account usage uses the Anthropic OAuth usage endpoint, so quota state can appear in the provider list, tray, and account panels.
 
-LLMR refreshes the imported login's access token with its refresh token when it expires and writes the new tokens back to the Keychain or credentials file, so the login stays usable while Claude Code itself is routed through LLMR.
+LLMR refreshes the imported login's access token with its refresh token when it expires and writes the new tokens back to the Keychain or credentials file, so the login stays usable while Claude Code itself is routed through LLMR. A login whose hex-encoded `security` command line exceeds 4032 bytes is written through the command line, as Claude Code does; the record is visible to local processes for the duration of that write.
 
 If LLMR only detects login traces but no usable access token, the import entry shows why it cannot be imported. Re-authenticate in Claude Code, then return to LLMR and add the provider again.
 
