@@ -362,7 +362,7 @@ async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet, refreshToken: str
     const next: ClaudeCodeTokenSet = {
       ...auth,
       accessToken,
-      expiresAt: expiresIn === undefined ? auth.expiresAt : Date.now() + expiresIn * 1000,
+      expiresAt: expiresIn === undefined ? undefined : Date.now() + expiresIn * 1000,
       refreshToken: readString(payload?.refresh_token) ?? refreshToken,
       refreshTokenExpiresAt: refreshExpiresIn === undefined ? auth.refreshTokenExpiresAt : Date.now() + refreshExpiresIn * 1000,
       scopes: scope ? scope.split(" ").filter(Boolean) : auth.scopes

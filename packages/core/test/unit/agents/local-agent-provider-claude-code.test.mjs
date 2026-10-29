@@ -53,6 +53,7 @@ test("Claude Code local provider falls back to file credentials when Keychain is
       await withFakeSecurityFailure(async () => {
         const credentialFile = writeClaudeCredentials(home, {
           accessToken: "file-access-token",
+          expires_at: 1793249706961,
           refreshToken: "file-refresh-token"
         });
 
@@ -60,7 +61,9 @@ test("Claude Code local provider falls back to file credentials when Keychain is
         assert.equal(candidate.status, "available");
         assert.equal(candidate.importable, true);
         assert.equal(candidate.sourceFile, credentialFile);
-        assert.deepEqual(readClaudeCodeOauth().store, { container: "root", kind: "file", path: credentialFile, refreshable: true });
+        const oauth = readClaudeCodeOauth();
+        assert.deepEqual(oauth.store, { container: "root", kind: "file", path: credentialFile, refreshable: true });
+        assert.equal(oauth.expiresAt, undefined);
 
         const result = await importClaudeCodeProvider(candidate, []);
         assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer file-access-token");
@@ -478,17 +481,18 @@ test("Claude Code local provider refreshes an expired access token with a JSON b
   });
 });
 
-test("Claude Code local provider keeps the expiry, refresh token, refresh expiry and scopes when the response omits them", { skip: process.platform === "win32" }, async (t) => {
-  const expiresAt = Date.now() - 1;
-  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt, refreshTokenExpiresAt: 1800000000000, scopes: ["user:inference"] }, async () => {
-    stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh" }));
+test("Claude Code local provider keeps the refresh token, refresh expiry and scopes and drops the expiry when the response omits them", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1, refreshTokenExpiresAt: 1800000000000, scopes: ["user:inference"] }, async () => {
+    const endpoint = stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh" }));
     const auth = await resolveClaudeCodeAuth();
     assert.equal(auth.accessToken, "fresh");
-    assert.equal(auth.expiresAt, expiresAt);
+    assert.equal(auth.expiresAt, undefined);
     assert.equal(auth.refreshToken, "r1");
     assert.equal(auth.refreshTokenExpiresAt, 1800000000000);
     assert.deepEqual(auth.scopes, ["user:inference"]);
     assert.equal(auth.store.service, "Claude Code-credentials");
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+    assert.equal(endpoint.calls, 1);
   });
 });
 

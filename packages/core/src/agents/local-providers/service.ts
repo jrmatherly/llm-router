@@ -13,7 +13,7 @@ import { importOpenCodeProvider, opencodeCandidates } from "@llmr/core/agents/lo
 import { importZcodeProvider, zcodeCandidate } from "@llmr/core/agents/local-providers/zcode";
 
 export { codexDefaultBaseUrl, readCodexAuth } from "@llmr/core/agents/local-providers/codex";
-export { ClaudeCodeRefreshAuthError, claudeCodeAccessTokenExpired, readClaudeCodeOauth, resolveClaudeCodeAuth, resolveClaudeCodeAuthOrStored } from "@llmr/core/agents/local-providers/claude-code";
+export { ClaudeCodeRefreshAuthError, readClaudeCodeOauth, resolveClaudeCodeAuth, resolveClaudeCodeAuthOrStored } from "@llmr/core/agents/local-providers/claude-code";
 export { grokDefaultBaseUrl, readGrokAuth, resolveGrokAuth } from "@llmr/core/agents/local-providers/grok";
 export { kimiAccessTokenExpired, kimiIdentityHeaders, readKimiAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/kimi";
 export { readZcodeLocalProviderCredential, zcodeDefaultBaseUrl } from "@llmr/core/agents/local-providers/zcode";
