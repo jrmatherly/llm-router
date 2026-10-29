@@ -29,7 +29,7 @@ For tier models and advanced settings, see [Claude Code setup and configuration]
 Supports both Codex CLI and the ChatGPT desktop app.
 
 1. **Add Profile** → choose **Codex**, enter a **Profile name**, and pick a **Scope** and **Entry mode**.
-2. Confirm the **Provider ID**, **Provider Name**, and **Codex model**.
+2. Confirm the **Codex model**.
 3. **Save**, then open the CLI with the terminal button or ChatGPT with the play button.
 4. Send a message to confirm it replies, and check **Request logs** to verify the request went through the gateway.
 
@@ -62,7 +62,7 @@ For all fields, see [Kimi CLI setup and configuration](../../configuration/agent
 App-only (entry fixed to **App only**).
 
 1. **Add Profile** → choose **ZCode**, enter a **Profile name**.
-2. Confirm the **ZCode model**, **Provider ID**, and **Provider Name**.
+2. Confirm the **ZCode model**.
 3. **Save**, then open ZCode with the play button (opening again activates the existing window).
 4. Send a message to confirm it replies, and check **Request logs** to verify the request went through the gateway.
 
@@ -73,7 +73,7 @@ For a field-by-field reference and advanced topics like multiple instances and b
 App-only (entry fixed to **App only**).
 
 1. **Add Profile** → choose **WorkBuddy**, enter a **Profile name**.
-2. Confirm the **WorkBuddy model**, **Provider ID**, and **Provider Name**.
+2. Confirm the **WorkBuddy model**.
 3. Optionally restrict **Allowed model list**. Leave it empty to make every LLMR model available in WorkBuddy.
 4. **Save**, then open WorkBuddy with the play button.
 5. Send a message to confirm it replies, and check **Request logs** to verify the request went through the gateway.
@@ -85,7 +85,7 @@ For APP_PATH, multiple profiles, and bot binding, see [WorkBuddy setup and confi
 Supports both OpenCode CLI and the desktop app.
 
 1. **Add Profile** → choose **OpenCode**, enter a **Profile name**, and pick a **Scope** and **Entry mode**.
-2. Confirm the **Provider ID**, **Provider Name**, and **OpenCode model**.
+2. Confirm the **OpenCode model**.
 3. **Save**, then open the CLI with the terminal button, or open the OpenCode desktop app via LLMR Desktop with the play button.
 4. Send a message to confirm it replies, and check **Request logs** to verify the request went through the gateway.
 

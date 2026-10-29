@@ -24,7 +24,7 @@ Use this page to route Kilo Code to any LLMR provider or Fusion model.
 1. On **Agent Config**, click **Add profile** and choose **Kilo Code**.
 2. Enter a **Config name** (for example `Kilo - Work`).
 3. Choose **Effect scope**.
-4. Confirm **Provider ID**, **Provider name**, and **Kilo model**.
+4. Confirm the **Kilo model**.
 5. Adjust advanced settings only if your local setup needs them.
 6. **Save**, then copy and run the command from the profile card.
 
@@ -38,8 +38,7 @@ Kilo Code is fixed to **CLI only**, so the entry mode is not editable. The field
 | Config name | Free text, e.g. `Kilo - Work` | Identifies the profile. Commands use `llmr "<name>"`. |
 | Enabled | Toggle on/off | Disabled profiles are not applied and not offered as launch entries. |
 | Effect scope | `Only opened from LLMR` / `System default` | Keeps changes limited to LLMR launches, or makes this the system-default Kilo profile. Only one enabled system-default Kilo profile is allowed. |
-| Provider ID | Default `llm-router` (`claude-code-router` in profiles made before the rename) | Provider reference for this Kilo profile. |
-| Provider name | Free text; default `LLM Router` | Display name shown in Kilo. |
+| Provider reference | Not editable | LLMR registers itself in Kilo as `llm-router` (`claude-code-router` in profiles made before the rename) with the display name `LLM Router`. |
 | Kilo model | A provider model or Fusion model | Default model Kilo uses through LLMR. |
 | Config file | Path | Used for the system-default Kilo profile. |
 | Environment variables | Key/value rows | Optional advanced overrides; leave empty for normal use. |

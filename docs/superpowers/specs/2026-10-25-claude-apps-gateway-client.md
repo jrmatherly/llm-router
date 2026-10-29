@@ -51,7 +51,7 @@ Behavior:
 - **Runtime.** `localAgentOauthKind` recognizes the `claude-apps-gateway-oauth` suffix; the hook resolves a live token from the session file for `plugin.claudeAppsGateway.url`, refreshing and persisting when expired, and falls back to the token baked into the plugin.
 - **Sign-in.** `startClaudeAppsGatewayLogin({ gatewayUrl })` validates the URL, reads the discovery document, requests a device code, and returns the user code and verification links with a `sessionId`. `waitClaudeAppsGatewayLogin({ sessionId, timeoutMs })` polls the token endpoint until confirmed, the device code expires, or `timeoutMs` (default 20 000, so the RPC returns and the UI calls again). On success it fetches `/v1/models`, persists the session, and returns `confirmed: true`. `cancelClaudeAppsGatewayLogin` drops the pending entry. Pending logins live in an in-process map keyed by `sessionId`, as the QR login does.
 - **Sign-out.** `removeClaudeAppsGatewaySession(gatewayUrl)` deletes the file. The gateway's own server advertises no revocation endpoint, so sign-out is local only, as it is for Claude Code.
-- **UI.** The local-agent import panel gains a one-line form above the candidate list: a gateway URL field and a Sign in button. Starting shows the user code and opens `verification_uri_complete` through `window.ccr.openExternal`; the panel polls `wait` until confirmed, then rescans candidates so the new one appears with its Import button. Errors render in the panel's existing error slot.
+- **UI.** The local-agent import panel gains a one-line form above the candidate list: a gateway URL field and a Sign in button. Starting shows the user code and opens `verification_uri_complete` through `window.llmr.openExternal`; the panel polls `wait` until confirmed, then rescans candidates so the new one appears with its Import button. Errors render in the panel's existing error slot.
 - **Spend headers.** Not surfaced in this phase. The `anthropic-ratelimit-unified-*` response headers are logged with the request like every other header; a meter is a later addition if wanted.
 
 ## Not in this phase
@@ -63,7 +63,7 @@ Behavior:
 
 ## Constraints carried into the plan
 
-- Same `AGENTS.md` style and test rules as phase 1. New UI copy needs an entry in both the `en` and `zh` maps of `packages/ui/src/pages/home/shared/i18n.tsx`.
+- Same `AGENTS.md` style and test rules as phase 1. UI copy is literal English in the component; the repo is English-only.
 - The URL must be `http:` or `https:`; `http:` only for loopback hosts, since a gateway token over plain HTTP to a remote host would leak the developer's session. The harness from phase 1 runs on `http://127.0.0.1:18080`, so loopback HTTP has to work.
-- Network calls go through `fetchWithSystemProxy` from `@ccr/core/proxy/system-proxy-fetch`, like Kimi's refresh.
+- Network calls go through `fetchWithSystemProxy` from `@llmr/core/proxy/system-proxy-fetch`, like Kimi's refresh.
 - Tests use a fake gateway on `node:http` bound to `127.0.0.1:0`; nothing in the suite reaches the network.

@@ -18,9 +18,9 @@
 - Gateway URL: `https:` anywhere, `http:` only when the host is `127.0.0.1`, `localhost` or `::1`; normalized to its origin with no trailing slash.
 - Plugin key suffix, verbatim: `claude-apps-gateway-oauth` (public) and `claude-apps-gateway-oauth-internal`; the plugin carries `claudeAppsGateway: { url }`.
 - Wait RPC default `timeoutMs` 20000; the UI loops until `confirmed` or a terminal status.
-- Style per `AGENTS.md`; every new `t("...")` key gets an `en` and a `zh` entry in `packages/ui/src/pages/home/shared/i18n.tsx`.
+- Style per `AGENTS.md`. UI copy is literal English in the component; the repo is English-only (`tests/architecture/english-only.test.mjs`), so there is no translation map to update.
 - One test file: `node build/test.mjs <pkg> && node --test .test-dist/<pkg>/test/<unit-or-integration>/<path>.test.js`. UI component tests: `npm run test:ui`. Commit gate runs typecheck plus `npm run test:architecture`.
-- All HTTP through `fetchWithSystemProxy` from `@ccr/core/proxy/system-proxy-fetch`; tests override `globalThis.fetch` the way `local-agent-auth-provider-hook.test.mjs` does, or point the URL at the fake server.
+- All HTTP through `fetchWithSystemProxy` from `@llmr/core/proxy/system-proxy-fetch`; tests override `globalThis.fetch` the way `local-agent-auth-provider-hook.test.mjs` does, or point the URL at the fake server.
 
 ## Review Focus
 
@@ -53,7 +53,7 @@
   - `export async function refreshClaudeAppsGatewaySession(session: ClaudeAppsGatewaySession): Promise<ClaudeAppsGatewaySession>` (POST `/oauth/token`, throws `ClaudeAppsGatewayAuthError` on 401/403, `Error` otherwise; keeps the old `refreshToken` when the response omits one)
   - `export async function resolveClaudeAppsGatewaySession(gatewayUrl: string, configDir?: string): Promise<ClaudeAppsGatewaySession | undefined>` (read, refresh if expired and a refresh token exists, persist, return)
   - `export async function fetchClaudeAppsGatewayModels(session: ClaudeAppsGatewaySession): Promise<{ models: string[]; modelDisplayNames: Record<string, string> }>` (GET `/v1/models` with the bearer; `data[].id`, `data[].display_name`)
-- `configDir` defaults to `CONFIGDIR` from `@ccr/core/config/constants`.
+- `configDir` defaults to `CONFIGDIR` from `@llmr/core/config/constants`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -196,10 +196,10 @@ test("a stored session becomes an importable candidate and a bearer provider", a
   assert.equal(candidate.importable, true);
   const result = await importClaudeAppsGatewayProvider(candidate, [], configDir);
   assert.equal(result.provider.baseUrl, gatewayUrl);
-  assert.equal(result.provider.apiKey, "ccr-local-agent-login");
+  assert.equal(result.provider.apiKey, "llmr-local-agent-login");
   assert.deepEqual(result.provider.models, ["claude-sonnet-4-6"]);
   assert.equal(result.providerPlugins.length, 2);
-  assert.equal(result.providerPlugins[0].key, "ccr-local-agent-__CCR_PROVIDER_NAME_SLUG__-claude-apps-gateway-oauth");
+  assert.equal(result.providerPlugins[0].key, "llmr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-claude-apps-gateway-oauth");
   assert.deepEqual(result.providerPlugins[0].claudeAppsGateway, { url: gatewayUrl });
   assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer tok");
 });
@@ -213,8 +213,8 @@ In `local-agent-auth-provider-hook.test.mjs`, following the Grok test's shape (f
 
 ```js
 test("Claude apps gateway hook swaps in a refreshed bearer token", async (t) => {
-  // persist an expired session with refreshToken "old" under a temp configDir exposed via process.env.CCR_INTERNAL_HOME_DIR per the suite's HOME isolation; fake fetch answers /oauth/token with access_token "fresh"
-  const [hook] = createGatewayPlugin({ config: { providerPlugins: [{ auth: { headers: { authorization: "Bearer stale" }, removeHeaders: ["x-api-key"], strict: true }, claudeAppsGateway: { url: gatewayUrl }, key: "ccr-local-agent-gw-claude-apps-gateway-oauth", providerName: "gw" }] } }).providerHooks;
+  // persist an expired session with refreshToken "old" under a temp configDir exposed via process.env.LLMR_INTERNAL_HOME_DIR per the suite's HOME isolation; fake fetch answers /oauth/token with access_token "fresh"
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [{ auth: { headers: { authorization: "Bearer stale" }, removeHeaders: ["x-api-key"], strict: true }, claudeAppsGateway: { url: gatewayUrl }, key: "llmr-local-agent-gw-claude-apps-gateway-oauth", providerName: "gw" }] } }).providerHooks;
   const result = await hook.authenticate({ model: "claude-sonnet-4-6", upstreamRequest: { headers: { "x-api-key": "client" }, method: "POST", url: `${gatewayUrl}/v1/messages` } });
   assert.equal(result.ok, true);
   assert.equal(result.value.headers.authorization, "Bearer fresh");
@@ -223,7 +223,7 @@ test("Claude apps gateway hook swaps in a refreshed bearer token", async (t) => 
 test("Claude apps gateway hook falls back to the baked token when refresh is refused", async (t) => { /* fake fetch 401; authorization stays "Bearer stale"; result.ok true */ });
 ```
 
-`build/test-home.mjs` sets `CCR_INTERNAL_HOME_DIR` to a temp home for every test run, and `CONFIGDIR` derives from it (`packages/core/src/runtime/app-paths.ts:7,37`), so write the session file at `claudeAppsGatewaySessionFile(gatewayUrl)` with the default `configDir` and remove it in `t.after`; the hook cannot take a `configDir` argument.
+`build/test-home.mjs` sets `LLMR_INTERNAL_HOME_DIR` to a temp home for every test run, and `CONFIGDIR` derives from it (`packages/core/src/runtime/app-paths.ts:7,37`), so write the session file at `claudeAppsGatewaySessionFile(gatewayUrl)` with the default `configDir` and remove it in `t.after`; the hook cannot take a `configDir` argument.
 
 - [ ] **Step 3: Run both tests to verify they fail**
 
@@ -255,17 +255,17 @@ git commit -m "feat(providers): Claude apps gateway as a local-agent provider wi
 ### Task 4: RPC and IPC wiring for the login triplet
 
 **Files:**
-- Modify: `packages/core/src/contracts/ipc-channels.ts:42-44` (add `appClaudeAppsGatewayLoginCancel: "ccr:app:claude-apps-gateway-login-cancel"`, `...LoginStart: "ccr:app:claude-apps-gateway-login-start"`, `...LoginWait: "ccr:app:claude-apps-gateway-login-wait"`)
+- Modify: `packages/core/src/contracts/ipc-channels.ts:42-44` (add `appClaudeAppsGatewayLoginCancel: "llmr:app:claude-apps-gateway-login-cancel"`, `...LoginStart: "llmr:app:claude-apps-gateway-login-start"`, `...LoginWait: "llmr:app:claude-apps-gateway-login-wait"`)
 - Modify: `packages/core/src/web/management-server.ts:266` (`rpcHandlers` gains `cancelClaudeAppsGatewayLogin`, `startClaudeAppsGatewayLogin`, `waitClaudeAppsGatewayLogin`, alphabetized)
 - Modify: `packages/electron/src/main/ipc.ts:257` (three `ipcMain.handle` blocks)
 - Modify: `packages/electron/src/main/preload.ts:172` (three entries)
-- Modify: `packages/ui/src/types/electron.d.ts:160` (three `CcrApi` members and the type imports)
+- Modify: `packages/ui/src/types/electron.d.ts:160` (three members on `Window["llmr"]` and the type imports)
 - Modify: `packages/ui/src/web-client-bridge.ts:110` (three `rpc(...)` entries)
 - Test: `packages/core/test/unit/web/web-management-server.test.mjs`
 
 **Interfaces:**
 - Consumes Task 2's three functions and six types.
-- Produces on `window.ccr`: `startClaudeAppsGatewayLogin(request): Promise<ClaudeAppsGatewayLoginStartResult>`, `waitClaudeAppsGatewayLogin(request): Promise<ClaudeAppsGatewayLoginWaitResult>`, `cancelClaudeAppsGatewayLogin(request): Promise<ClaudeAppsGatewayLoginCancelResult>`.
+- Produces on `window.llmr`: `startClaudeAppsGatewayLogin(request): Promise<ClaudeAppsGatewayLoginStartResult>`, `waitClaudeAppsGatewayLogin(request): Promise<ClaudeAppsGatewayLoginWaitResult>`, `cancelClaudeAppsGatewayLogin(request): Promise<ClaudeAppsGatewayLoginCancelResult>`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -300,16 +300,15 @@ git commit -m "feat(ipc): expose Claude apps gateway login start, wait and cance
 - Create: `packages/ui/src/pages/home/shared/claude-apps-gateway-login.ts`
 - Create: `packages/ui/src/pages/home/components/claude-apps-gateway-sign-in.tsx` (`ClaudeAppsGatewaySignInForm`)
 - Modify: `packages/ui/src/pages/home/components/providers.tsx:1372-1480` (`LocalAgentProviderImportPanel` renders the form above the candidate list)
-- Modify: `packages/ui/src/pages/home/shared/i18n.tsx` (`en` map near line 354, `zh` map near line 1186)
 - Test: `packages/ui/test/component/claude-apps-gateway-login.test.tsx`
 
 **Interfaces:**
-- Consumes `window.ccr.startClaudeAppsGatewayLogin`, `waitClaudeAppsGatewayLogin`, `cancelClaudeAppsGatewayLogin`, `openExternal`, `getLocalAgentProviderCandidates`.
+- Consumes `window.llmr.startClaudeAppsGatewayLogin`, `waitClaudeAppsGatewayLogin`, `cancelClaudeAppsGatewayLogin`, `openExternal`, `getLocalAgentProviderCandidates`.
 - Produces in `shared/claude-apps-gateway-login.ts` a DOM-free driver, so the loop is testable with `node:test` like the other UI unit files:
-  - `export type ClaudeAppsGatewayLoginApi = Pick<CcrApi, "cancelClaudeAppsGatewayLogin" | "openExternal" | "startClaudeAppsGatewayLogin" | "waitClaudeAppsGatewayLogin">`
+  - `export type ClaudeAppsGatewayLoginApi = Pick<NonNullable<Window["llmr"]>, "cancelClaudeAppsGatewayLogin" | "openExternal" | "startClaudeAppsGatewayLogin" | "waitClaudeAppsGatewayLogin">`
   - `export type ClaudeAppsGatewayLoginEvents = { onConfirmed: (result: ClaudeAppsGatewayLoginWaitResult) => void; onError: (message: string) => void; onPrompt: (start: ClaudeAppsGatewayLoginStartResult) => void }`
   - `export function runClaudeAppsGatewayLogin(api: ClaudeAppsGatewayLoginApi, gatewayUrl: string, events: ClaudeAppsGatewayLoginEvents): { cancel: () => void; done: Promise<void> }`
-- Produces in `components/claude-apps-gateway-sign-in.tsx`: `export function ClaudeAppsGatewaySignInForm({ onConfirmed }: { onConfirmed: () => void })`, which owns the URL field, the Sign in button, the user-code prompt and the error line, calls `runClaudeAppsGatewayLogin(window.ccr, url, events)` from its click handler and the returned `cancel` from its effect cleanup. The panel renders `<ClaudeAppsGatewaySignInForm onConfirmed={() => setScanAttempt((value) => value + 1)} />` so a confirmed login re-scans candidates. No test imports `providers.tsx` today, so the form lives in its own file and is rendered directly by the test.
+- Produces in `components/claude-apps-gateway-sign-in.tsx`: `export function ClaudeAppsGatewaySignInForm({ onConfirmed }: { onConfirmed: () => void })`, which owns the URL field, the Sign in button, the user-code prompt and the error line, calls `runClaudeAppsGatewayLogin(window.llmr, url, events)` from its click handler and the returned `cancel` from its effect cleanup. The panel renders `<ClaudeAppsGatewaySignInForm onConfirmed={() => setScanAttempt((value) => value + 1)} />` so a confirmed login re-scans candidates. No test imports `providers.tsx` today, so the form lives in its own file and is rendered directly by the test.
 
 - [ ] **Step 1: Write the failing component test**
 
@@ -329,20 +328,14 @@ test("cancel during a pending wait stops polling and cancels the session", async
   // fake wait resolves pending forever; call run.cancel() after the first wait resolves; assert calls end with "cancel:s1" and contain exactly one "wait:s1"
 });
 test("denied and expired end with an error message", async () => { /* status denied → onError called once with the result's message; no cancel call */ });
-test("sign-in form renders in English and Chinese", () => {
+test("sign-in form renders the URL field and the Sign in button", () => {
   const en = renderToStaticMarkup(<ClaudeAppsGatewaySignInForm onConfirmed={() => undefined} />);
   assert.match(en, /aria-label="Claude apps gateway URL"/);
   assert.match(en, />Sign in<\/button>/);
-  const zh = renderToStaticMarkup(
-    <AppI18nContext.Provider value={appCopy.zh}>
-      <ClaudeAppsGatewaySignInForm onConfirmed={() => undefined} />
-    </AppI18nContext.Provider>
-  );
-  assert.match(zh, new RegExp(`>${appCopy.zh["Sign in"]}<\\/button>`));
 });
 ```
 
-`fakeApi` records `start:<url>`, `open:<url>`, `wait:<sessionId>`, `cancel:<sessionId>` and returns `sessionId: "s1"` from `start`. `AppI18nContext` and `appCopy` come from `packages/ui/src/pages/home/shared/i18n.tsx`, the way `profiles.test.tsx:33` uses them.
+`fakeApi` records `start:<url>`, `open:<url>`, `wait:<sessionId>`, `cancel:<sessionId>` and returns `sessionId: "s1"` from `start`.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -353,17 +346,17 @@ Expected: FAIL, no Sign in button.
 
 Driver: `start`, `onPrompt`, `openExternal(verificationUriComplete)`, then loop `wait({ sessionId })` while not canceled and `status === "pending"`; `confirmed` → `onConfirmed`; `denied`, `expired`, `canceled` or a thrown error → `onError(message)`; `cancel()` sets a flag and calls `api.cancelClaudeAppsGatewayLogin({ sessionId })` once when a session was started and not finished.
 
-Form state: `gatewayUrl`, `loginPrompt: ClaudeAppsGatewayLoginStartResult | undefined`, `error`, a `useRef` holding the running driver. The panel places the form between its header and the candidate list: an `Input` with placeholder `https://claude-gateway.internal.example.com`, aria-label `t("Claude apps gateway URL")`, and a `Button` labelled `t("Sign in")`. While a prompt is set, show `t("Enter this code in the browser: {code}").replace("{code}", prompt.userCode)`, the interpolation style `settings.tsx:1363` uses. `onConfirmed` clears the prompt and calls the `onConfirmed` prop; `onError` writes the form's `error` line. The effect cleanup calls the ref's `cancel`. New copy, with `zh` values: "Sign in to a Claude apps gateway", "Claude apps gateway URL", "Sign in", "Enter this code in the browser:", "Gateway sign-in confirmed.", "Gateway sign-in was denied.", "Gateway sign-in expired. Try again.".
+Form state: `gatewayUrl`, `loginPrompt: ClaudeAppsGatewayLoginStartResult | undefined`, `error`, a `useRef` holding the running driver. The panel places the form between its header and the candidate list: an `Input` with placeholder `https://claude-gateway.internal.example.com`, aria-label `Claude apps gateway URL`, and a `Button` labelled `Sign in`. While a prompt is set, show `Enter this code in the browser: ${prompt.userCode}`. `onConfirmed` clears the prompt and calls the `onConfirmed` prop; `onError` writes the form's `error` line. The effect cleanup calls the ref's `cancel`. New copy: "Sign in to a Claude apps gateway", "Claude apps gateway URL", "Sign in", "Enter this code in the browser:", "Gateway sign-in confirmed.", "Gateway sign-in was denied.", "Gateway sign-in expired. Try again.".
 
-- [ ] **Step 4: Run the UI tests and the i18n pairing test**
+- [ ] **Step 4: Run the UI tests**
 
 Run: `npm run test:ui`
-Expected: PASS, including `i18n-pairing.test.ts`.
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/ui/src/pages/home/shared/claude-apps-gateway-login.ts packages/ui/src/pages/home/components/claude-apps-gateway-sign-in.tsx packages/ui/src/pages/home/components/providers.tsx packages/ui/src/pages/home/shared/i18n.tsx packages/ui/test/component/claude-apps-gateway-login.test.tsx
+git add packages/ui/src/pages/home/shared/claude-apps-gateway-login.ts packages/ui/src/pages/home/components/claude-apps-gateway-sign-in.tsx packages/ui/src/pages/home/components/providers.tsx packages/ui/test/component/claude-apps-gateway-login.test.tsx
 git commit -m "feat(ui): sign in to a Claude apps gateway from the provider import panel"
 ```
 
@@ -372,11 +365,11 @@ git commit -m "feat(ui): sign in to a Claude apps gateway from the provider impo
 ### Task 6: Docs and the harness proof
 
 **Files:**
-- Modify: `docs/src/content/docs/en/guides/claude-apps-gateway.md` and `docs/src/content/docs/zh/guides/claude-apps-gateway.md` (phase 1 pages; add a section)
+- Modify: `docs/src/content/docs/en/guides/claude-apps-gateway.md` (phase 1 page; add a section)
 
 - [ ] **Step 1: Add the section "Use a gateway as an LLMR provider"**
 
-After the "Try it locally" section in both pages: Providers → Add → Import local agent provider → enter the gateway URL → Sign in → approve in the browser → Import. State that the token names the signing developer, so the gateway's spend limits and model allowlist apply to every agent LLMR routes to that provider, that the session refreshes itself and asks for a new sign-in after IdP deprovisioning or a JWT secret rotation, and that sign-out is deleting the file under `~/.llm-router/claude-apps-gateway/`.
+After the "Try it locally" section: Providers → Add → Import local agent provider → enter the gateway URL → Sign in → approve in the browser → Import. State that the token names the signing developer, so the gateway's spend limits and model allowlist apply to every agent LLMR routes to that provider, that the session refreshes itself and asks for a new sign-in after IdP deprovisioning or a JWT secret rotation, and that sign-out is deleting the file under `~/.llm-router/claude-apps-gateway/`.
 
 - [ ] **Step 2: Prove it against the phase 1 harness**
 
@@ -384,10 +377,10 @@ Run `node scripts/claude-apps-gateway-dev.mjs --load-test`, then in LLMR Desktop
 
 - [ ] **Step 3: Build the docs and commit**
 
-Run: `cd docs && npm run build`. Expected: both locale pages build.
+Run: `cd docs && npm run build`. Expected: the page builds.
 
 ```bash
-git add docs/src/content/docs/en/guides/claude-apps-gateway.md docs/src/content/docs/zh/guides/claude-apps-gateway.md
+git add docs/src/content/docs/en/guides/claude-apps-gateway.md
 git commit -m "docs: sign LLMR in to a Claude apps gateway"
 ```
 
