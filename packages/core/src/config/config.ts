@@ -3664,6 +3664,7 @@ function parseProfiles(value: unknown): ProfileConfig[] | undefined {
           ...(botConfigId ? { botConfigId } : {}),
           ...(botGateway ? { botGateway } : {}),
           ...(claudeSettings ? { claudeSettings } : {}),
+          ...(item.claudeAppTakeover === true ? { claudeAppTakeover: true } : {}),
           enabled,
           env: claudeCodeProfileEnv(env),
           fableModel: readString(item.fableModel) || readString(item.defaultFableModel) || "",
