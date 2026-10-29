@@ -400,6 +400,26 @@ test("Claude Code local provider marks an accountless keychain read as not refre
   });
 });
 
+test("Claude Code local provider marks a keychain item whose account the safe pattern rejects as not refreshable", { skip: process.platform === "win32" }, async () => {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      await withFakeSecurityKeychain([
+        {
+          account: "other user",
+          modified: "20260729042837",
+          record: { claudeAiOauth: { accessToken: "a", refreshToken: "r" } },
+          service: "Claude Code-credentials",
+          accountlessLookup: false
+        }
+      ], async () => {
+        const oauth = readClaudeCodeOauth();
+        assert.equal(oauth.store.account, "other user");
+        assert.equal(oauth.store.refreshable, false);
+      });
+    });
+  });
+});
+
 test("claudeCodeAccessTokenExpired honors the 60 s margin, a missing expiresAt and a missing access token", () => {
   const now = Date.now();
   assert.equal(claudeCodeAccessTokenExpired({ accessToken: "a", expiresAt: now + 30_000 }), true);
@@ -456,11 +476,13 @@ test("Claude Code local provider refreshes an expired access token with a JSON b
   });
 });
 
-test("Claude Code local provider keeps the refresh token, refresh expiry and scopes when the response omits them", { skip: process.platform === "win32" }, async (t) => {
-  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1, refreshTokenExpiresAt: 1800000000000, scopes: ["user:inference"] }, async () => {
-    stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600 }));
+test("Claude Code local provider keeps the expiry, refresh token, refresh expiry and scopes when the response omits them", { skip: process.platform === "win32" }, async (t) => {
+  const expiresAt = Date.now() - 1;
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt, refreshTokenExpiresAt: 1800000000000, scopes: ["user:inference"] }, async () => {
+    stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh" }));
     const auth = await resolveClaudeCodeAuth();
     assert.equal(auth.accessToken, "fresh");
+    assert.equal(auth.expiresAt, expiresAt);
     assert.equal(auth.refreshToken, "r1");
     assert.equal(auth.refreshTokenExpiresAt, 1800000000000);
     assert.deepEqual(auth.scopes, ["user:inference"]);
@@ -509,10 +531,13 @@ test("Claude Code local provider adopts a peer-rotated token on 400 invalid_gran
 
 test("Claude Code local provider surfaces a rejected refresh and does not post that token again", { skip: process.platform === "win32" }, async (t) => {
   await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    const warn = t.mock.method(console, "warn", () => {});
     const endpoint = stubTokenEndpoint(t, () => jsonResponse(401, { error: "invalid_grant", error_description: "secret detail" }));
     await assert.rejects(resolveClaudeCodeAuth(), (error) => error.name === "ClaudeCodeRefreshAuthError" && error.status === 401 && error.code === "invalid_grant");
     await assert.rejects(resolveClaudeCodeAuth(), (error) => error.name === "ClaudeCodeRefreshAuthError" && !error.message.includes("secret detail"));
     assert.equal(endpoint.calls, 1);
+    assert.equal(warn.mock.callCount(), 1);
+    assert.doesNotMatch(String(warn.mock.calls[0].arguments[0]), /r1|secret detail/);
   });
 });
 
@@ -643,7 +668,7 @@ test("a refreshed Claude Code token is not written over a pair a peer rotated me
   });
 });
 
-test("a failed keychain write keeps the fresh pair, retries only the write and warns once", { skip: process.platform === "win32" }, async (t) => {
+test("a failed keychain write keeps the fresh pair, holds the write retry for 60 s and warns once", { skip: process.platform === "win32" }, async (t) => {
   await withClaudeCodeHome(async () => {
     await withPlatform("darwin", async () => {
       await withFakeKeychain({ claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" } }, async (keychain) => {
@@ -653,7 +678,12 @@ test("a failed keychain write keeps the fresh pair, retries only the write and w
         assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
         assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
         assert.equal(endpoint.calls, 1);
+        assert.equal(keychain.calls.length, 1);
+        const now = Date.now() + 60_001;
+        t.mock.method(Date, "now", () => now);
+        assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
         assert.equal(keychain.calls.length, 2);
+        assert.equal(endpoint.calls, 1);
         assert.equal(warnings.length, 1);
         assert.equal(warnings[0], `Claude Code login could not be written back to keychain:Claude Code-credentials (${keychainAccount}) (security exited 51)`);
         assert.doesNotMatch(warnings[0], /fresh|r2|[0-9a-f]{40}/);

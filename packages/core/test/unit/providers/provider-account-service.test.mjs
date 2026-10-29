@@ -462,6 +462,7 @@ test("Claude Code local account credential refreshes an expired Keychain token",
     claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" }
   });
   process.env.HOME = home;
+  t.mock.method(console, "warn", () => {});
   resetClaudeCodeAuthStateForTest();
   const previousFetch = globalThis.fetch;
   const previousEndpoint = process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT;

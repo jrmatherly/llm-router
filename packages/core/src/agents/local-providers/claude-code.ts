@@ -42,7 +42,7 @@ const claudeCodeRefreshed = new Map<string, ClaudeCodeRefreshedEntry>();
 const claudeCodeRejectedRefreshTokens = new Map<string, { code?: string; status: number }>();
 const claudeCodeWriteBackWarned = new Set<string>();
 
-type ClaudeCodeRefreshedEntry = { auth: ClaudeCodeTokenSet; persisted: boolean; postedRefreshToken: string };
+type ClaudeCodeRefreshedEntry = { auth: ClaudeCodeTokenSet; persisted: boolean; postedRefreshToken: string; retryWriteAfter?: number };
 
 type ClaudeCodeKeychainCandidate = { account?: string; service: string };
 
@@ -269,7 +269,7 @@ export async function resolveClaudeCodeAuth(): Promise<ClaudeCodeTokenSet | unde
   const refreshed = claudeCodeRefreshed.get(key);
   // While the store still holds the token we consumed, the cached pair is the live one.
   let current = refreshed?.postedRefreshToken === storedRefreshToken ? refreshed.auth : auth;
-  if (refreshed && current === refreshed.auth && !refreshed.persisted) {
+  if (refreshed && current === refreshed.auth && !refreshed.persisted && (refreshed.retryWriteAfter ?? 0) <= Date.now()) {
     if (persistRefreshedClaudeCodeAuth(refreshed) === "adopted") {
       current = claudeCodeRefreshed.get(key)?.auth ?? current;
       storedRefreshToken = current.refreshToken ?? storedRefreshToken;
@@ -315,12 +315,12 @@ function adoptPeerRotatedClaudeCodeAuth(stored: ClaudeCodeTokenSet, postedRefres
   if (latest?.accessToken && latest.refreshToken !== stored.refreshToken && storeKey(latest.store) === storeKey(stored.store)) {
     return latest;
   }
+  console.warn(error.message);
   claudeCodeRejectedRefreshTokens.set(postedRefreshToken, { code: error.code, status: error.status });
   throw error;
 }
 
-// `storedRefreshToken` is the token the store holds; the cached pair stays
-// tied to it until the store changes, however many times the cache refreshes.
+// The compare-and-swap baseline rides on the shared cache entry and is re-read after the POST, so a write that landed meanwhile moves it.
 async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet, refreshToken: string, storedRefreshToken: string): Promise<ClaudeCodeRefreshedEntry> {
   const configuredTimeout = Number(process.env.LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS);
   const timeoutMs = configuredTimeout > 0 ? configuredTimeout : 15_000;
@@ -356,7 +356,7 @@ async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet, refreshToken: str
     const next: ClaudeCodeTokenSet = {
       ...auth,
       accessToken,
-      expiresAt: expiresIn === undefined ? undefined : Date.now() + expiresIn * 1000,
+      expiresAt: expiresIn === undefined ? auth.expiresAt : Date.now() + expiresIn * 1000,
       refreshToken: readString(payload?.refresh_token) ?? refreshToken,
       refreshTokenExpiresAt: refreshExpiresIn === undefined ? auth.refreshTokenExpiresAt : Date.now() + refreshExpiresIn * 1000,
       scopes: scope ? scope.split(" ").filter(Boolean) : auth.scopes
@@ -403,6 +403,7 @@ function persistRefreshedClaudeCodeAuth(entry: ClaudeCodeRefreshedEntry): "adopt
     entry.postedRefreshToken = auth.refreshToken ?? entry.postedRefreshToken;
     return "written";
   } catch (error) {
+    entry.retryWriteAfter = Date.now() + 60_000;
     if (!claudeCodeWriteBackWarned.has(key)) {
       claudeCodeWriteBackWarned.add(key);
       const failure = error as { code?: string; status?: number };
@@ -442,7 +443,7 @@ function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: Record<
   const hex = Buffer.from(json, "utf8").toString("hex");
   // `security -i` takes the command on stdin, so the record never shows in argv (`ps`); `-w` would put it there in plaintext.
   const line = `add-generic-password -U -a "${store.account}" -s "${store.service}" -X ${hex}\n`;
-  if (Buffer.byteLength(line) > 4032 || /["\\]/.test(store.account)) {
+  if (Buffer.byteLength(line) > 4032) {
     execFileSync("security", ["add-generic-password", "-U", "-a", store.account, "-s", store.service, "-X", hex], { stdio: ["ignore", "ignore", "ignore"] });
     return;
   }
@@ -454,14 +455,15 @@ function storeKey(store: ClaudeCodeTokenStore): string {
 }
 
 // Not refreshable: a custom OAuth URL or a `-<env>-oauth-` service has a token
-// endpoint unknown here, and an accountless read cannot be written back to the
-// same item.
+// endpoint unknown here, an accountless read cannot be written back to the
+// same item, and an account outside the safe pattern cannot be quoted on the
+// `security -i` line.
 function claudeCodeKeychainStore(candidate: ClaudeCodeKeychainCandidate, container: ClaudeCodeTokenContainer): ClaudeCodeTokenStore {
   return {
     account: candidate.account,
     container,
     kind: "keychain",
-    refreshable: !process.env.CLAUDE_CODE_CUSTOM_OAUTH_URL && candidate.account !== undefined && !/-[a-z]+-oauth-credentials/.test(candidate.service),
+    refreshable: !process.env.CLAUDE_CODE_CUSTOM_OAUTH_URL && claudeCodeKeychainAccountPattern.test(candidate.account ?? "") && !/-[a-z]+-oauth-credentials/.test(candidate.service),
     service: candidate.service
   };
 }
