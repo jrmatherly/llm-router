@@ -175,6 +175,10 @@ LLMR supports OpenAI Chat / Responses, Anthropic Messages, Gemini Generate Conte
 
 Your agent is now connected to LLMR. To add conditions, retries, request rewrites, or fallback models, open **Routing**.
 
+### Upgrading to 6.1
+
+Profiles no longer route a Claude App opened from the Dock through LLMR unless you turn on "Route Claude App launched outside LLMR through LLMR".
+
 ### Upgrading from 4.x
 
 5.0 is a clean reinstall: quit LLM Router, uninstall 4.x, install 5.0, then re-register any `llmr://` provider links. The `ccr` and `ccr-app` commands are now `llmr`.
