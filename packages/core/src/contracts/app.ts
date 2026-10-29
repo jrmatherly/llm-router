@@ -1578,7 +1578,7 @@ export function enforceSingleEnabledGlobalProfilePerAgent(
     activeGlobalProfileByAgent.set(preferredProfile.agent, preferredProfileIndex);
   }
   const ownsClaudeAppTakeover = (profile: ProfileConfig) =>
-    profile.agent === "claude-code" && profile.enabled && profile.claudeAppTakeover === true;
+    profile.agent === "claude-code" && profile.enabled && profile.surface !== "cli" && profile.claudeAppTakeover === true;
   let claudeAppTakeoverIndex =
     preferredProfileIndex !== undefined && preferredProfile && ownsClaudeAppTakeover(preferredProfile)
       ? preferredProfileIndex
@@ -1586,7 +1586,7 @@ export function enforceSingleEnabledGlobalProfilePerAgent(
 
   return profiles.map((input, index) => {
     let profile = input;
-    if (input.enabled && "claudeAppTakeover" in input) {
+    if (input.enabled && input.surface !== "cli" && "claudeAppTakeover" in input) {
       if (ownsClaudeAppTakeover(input) && (claudeAppTakeoverIndex ?? index) === index) {
         claudeAppTakeoverIndex = index;
       } else {

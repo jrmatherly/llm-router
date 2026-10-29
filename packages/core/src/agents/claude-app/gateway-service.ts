@@ -87,12 +87,12 @@ export function claudeAppTakesOverDirectLaunches(profile: Pick<ProfileConfig, "a
   return profile.enabled && profile.agent === "claude-code" && profile.surface !== "cli" && profile.claudeAppTakeover === true;
 }
 
-export function hasClaudeAppEntryProfile(config: Pick<AppConfig, "profile">): boolean {
+export function hasClaudeAppTakeoverProfile(config: Pick<AppConfig, "profile">): boolean {
   return config.profile.profiles.some(claudeAppTakesOverDirectLaunches);
 }
 
 export async function syncClaudeAppGatewayConfig(config: AppConfig): Promise<ClaudeAppGatewaySyncResult> {
-  if (!hasClaudeAppEntryProfile(config)) {
+  if (!hasClaudeAppTakeoverProfile(config)) {
     restoreClaudeAppGatewayConfig();
     return {
       config,

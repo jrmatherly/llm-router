@@ -19,7 +19,7 @@ async function loadModules() {
   const {
     NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE,
     claudeAppTakesOverDirectLaunches,
-    hasClaudeAppEntryProfile,
+    hasClaudeAppTakeoverProfile,
     syncClaudeAppGatewayConfig
   } = await import("@llmr/core/agents/claude-app/gateway-service.ts");
   const { CONFIGDIR } = await import("@llmr/core/config/constants.ts");
@@ -27,13 +27,13 @@ async function loadModules() {
     BACKUP_FILE: path.join(CONFIGDIR, "claude-app-gateway-backup.json"),
     NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE,
     claudeAppTakesOverDirectLaunches,
-    hasClaudeAppEntryProfile,
+    hasClaudeAppTakeoverProfile,
     syncClaudeAppGatewayConfig
   };
 }
 
 test("sync skips and restores the backup when no enabled claude-code profile opens the app", async () => {
-  const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppEntryProfile, syncClaudeAppGatewayConfig } = await loadModules();
+  const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppTakeoverProfile, syncClaudeAppGatewayConfig } = await loadModules();
   seedGatewayBackup(BACKUP_FILE);
   const synced = await syncClaudeAppGatewayConfig(createConfig({
     profile: {
@@ -41,7 +41,7 @@ test("sync skips and restores the backup when no enabled claude-code profile ope
     }
   }));
 
-  assert.equal(hasClaudeAppEntryProfile(synced.config), false);
+  assert.equal(hasClaudeAppTakeoverProfile(synced.config), false);
   assert.equal(synced.configChanged, false);
   assert.equal(synced.result.message, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE);
   assert.equal(existsSync(BACKUP_FILE), false);
@@ -52,7 +52,7 @@ test("sync skips and restores the backup when no enabled claude-code profile ope
 });
 
 test("sync skips and restores the backup when the only claude-code profile is disabled", async () => {
-  const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppEntryProfile, syncClaudeAppGatewayConfig } = await loadModules();
+  const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppTakeoverProfile, syncClaudeAppGatewayConfig } = await loadModules();
   seedGatewayBackup(BACKUP_FILE);
   const synced = await syncClaudeAppGatewayConfig(createConfig({
     profile: {
@@ -60,7 +60,7 @@ test("sync skips and restores the backup when the only claude-code profile is di
     }
   }));
 
-  assert.equal(hasClaudeAppEntryProfile(synced.config), false);
+  assert.equal(hasClaudeAppTakeoverProfile(synced.config), false);
   assert.equal(synced.result.message, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE);
   assert.equal(existsSync(BACKUP_FILE), false);
   assert.equal(existsSync(claudeAppPaths().configLibraryFile), true);
@@ -68,7 +68,7 @@ test("sync skips and restores the backup when the only claude-code profile is di
 });
 
 test("sync skips when only a claude-design profile is enabled", async () => {
-  const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppEntryProfile, syncClaudeAppGatewayConfig } = await loadModules();
+  const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppTakeoverProfile, syncClaudeAppGatewayConfig } = await loadModules();
   seedGatewayBackup(BACKUP_FILE);
   const synced = await syncClaudeAppGatewayConfig(createConfig({
     profile: {
@@ -82,7 +82,7 @@ test("sync skips when only a claude-design profile is enabled", async () => {
     }
   }));
 
-  assert.equal(hasClaudeAppEntryProfile(synced.config), false);
+  assert.equal(hasClaudeAppTakeoverProfile(synced.config), false);
   assert.equal(synced.result.message, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE);
   assert.equal(existsSync(BACKUP_FILE), false);
   cleanup(BACKUP_FILE);
@@ -105,7 +105,7 @@ test("sync with a cli-only profile restores missing files as absent", async () =
 });
 
 test("sync applies the gateway config for auto, app, and unset surfaces", async () => {
-  const { BACKUP_FILE, hasClaudeAppEntryProfile, syncClaudeAppGatewayConfig } = await loadModules();
+  const { BACKUP_FILE, hasClaudeAppTakeoverProfile, syncClaudeAppGatewayConfig } = await loadModules();
   for (const surface of ["auto", "app", undefined]) {
     const synced = await syncClaudeAppGatewayConfig(createConfig({
       profile: {
@@ -113,7 +113,7 @@ test("sync applies the gateway config for auto, app, and unset surfaces", async 
       }
     }));
 
-    assert.equal(hasClaudeAppEntryProfile(synced.config), true);
+    assert.equal(hasClaudeAppTakeoverProfile(synced.config), true);
     assert.equal(synced.configChanged, false);
     const libraryConfig = JSON.parse(readFileSync(claudeAppPaths().configLibraryFile, "utf8"));
     assert.equal(libraryConfig.inferenceProvider, "gateway");
@@ -123,12 +123,12 @@ test("sync applies the gateway config for auto, app, and unset surfaces", async 
 });
 
 test("sync writes the shared gateway config only when the profile opts in", async () => {
-  const { BACKUP_FILE, hasClaudeAppEntryProfile, syncClaudeAppGatewayConfig } = await loadModules();
+  const { BACKUP_FILE, hasClaudeAppTakeoverProfile, syncClaudeAppGatewayConfig } = await loadModules();
   for (const scope of ["llmr", "global", "custom"]) {
     const synced = await syncClaudeAppGatewayConfig(createConfig({
       profile: { profiles: [claudeCodeProfile({ claudeAppTakeover: true, scope, surface: "auto" })] }
     }));
-    assert.equal(hasClaudeAppEntryProfile(synced.config), true, scope);
+    assert.equal(hasClaudeAppTakeoverProfile(synced.config), true, scope);
     const libraryConfig = JSON.parse(readFileSync(claudeAppPaths().configLibraryFile, "utf8"));
     assert.equal(libraryConfig.inferenceProvider, "gateway", scope);
     cleanup(BACKUP_FILE);
@@ -136,7 +136,7 @@ test("sync writes the shared gateway config only when the profile opts in", asyn
 });
 
 test("sync leaves a directly opened Claude App alone unless the profile opts in", async () => {
-  const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppEntryProfile, syncClaudeAppGatewayConfig } = await loadModules();
+  const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppTakeoverProfile, syncClaudeAppGatewayConfig } = await loadModules();
   const cases = [
     claudeCodeProfile({ scope: "global", surface: "auto" }),
     claudeCodeProfile({ claudeAppTakeover: false, scope: "global", surface: "app" }),
@@ -146,7 +146,7 @@ test("sync leaves a directly opened Claude App alone unless the profile opts in"
   for (const profile of cases) {
     seedGatewayBackup(BACKUP_FILE);
     const synced = await syncClaudeAppGatewayConfig(createConfig({ profile: { profiles: [profile] } }));
-    assert.equal(hasClaudeAppEntryProfile(synced.config), false, JSON.stringify(profile));
+    assert.equal(hasClaudeAppTakeoverProfile(synced.config), false, JSON.stringify(profile));
     assert.equal(synced.result.message, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE);
     assert.equal(existsSync(BACKUP_FILE), false);
     assert.equal(JSON.parse(readFileSync(claudeAppPaths().rootConfigFile, "utf8")).deploymentMode, "native");
