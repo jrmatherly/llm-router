@@ -13,7 +13,7 @@ import { importOpenCodeProvider, opencodeCandidates } from "@llmr/core/agents/lo
 import { importZcodeProvider, zcodeCandidate } from "@llmr/core/agents/local-providers/zcode";
 
 export { codexDefaultBaseUrl, readCodexAuth } from "@llmr/core/agents/local-providers/codex";
-export { readClaudeCodeOauth } from "@llmr/core/agents/local-providers/claude-code";
+export { claudeCodeAccessTokenExpired, readClaudeCodeOauth, resolveClaudeCodeAuth } from "@llmr/core/agents/local-providers/claude-code";
 export { grokDefaultBaseUrl, readGrokAuth, resolveGrokAuth } from "@llmr/core/agents/local-providers/grok";
 export { kimiAccessTokenExpired, kimiIdentityHeaders, readKimiAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/kimi";
 export { readZcodeLocalProviderCredential, zcodeDefaultBaseUrl } from "@llmr/core/agents/local-providers/zcode";
@@ -43,7 +43,7 @@ export async function importLocalAgentProvider(request: LocalAgentProviderImport
     return importCodexProvider(candidate, request.providerNames ?? []);
   }
   if (candidate.kind === "claude-code") {
-    return importClaudeCodeProvider(candidate, request.providerNames ?? []);
+    return await importClaudeCodeProvider(candidate, request.providerNames ?? []);
   }
   if (candidate.kind === "grok") {
     return importGrokProvider(candidate, request.providerNames ?? []);

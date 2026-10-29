@@ -15,7 +15,7 @@ import type {
 import { codexDefaultBaseUrl, readCodexAuth } from "@llmr/core/agents/local-providers/codex";
 import { opencodeCatalogProtocolModelMap } from "@llmr/core/agents/local-providers/opencode";
 import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared";
-import { readClaudeCodeOauth } from "@llmr/core/agents/local-providers/service";
+import { readClaudeCodeOauth, resolveClaudeCodeAuth } from "@llmr/core/agents/local-providers/service";
 import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
 import { findProviderPresetByBaseUrl, providerApiKeySafetyIssue } from "@llmr/core/providers/presets/index";
 import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
@@ -408,7 +408,7 @@ function intersectProtocolModels(
 function providerProbeCacheKey(request: GatewayProviderProbeRequest): string {
   return JSON.stringify({
     apiKeyHash: hashSensitiveValue(request.apiKey ?? ""),
-    localClaudeTokenHash: hashSensitiveValue(localClaudeProbeToken(request.apiKey, request.providerPlugins ?? []) ?? ""),
+    localClaudeTokenHash: hashSensitiveValue((isLocalClaudeProbe(request.apiKey, request.providerPlugins ?? []) ? readClaudeCodeOauth()?.accessToken : undefined) ?? ""),
     baseUrl: request.baseUrl.trim(),
     mode: request.mode ?? "protocols",
     models: uniqueStrings(request.models ?? []),
@@ -966,7 +966,9 @@ async function providerProbeAuthRequest(
   }
 
   {
-    const token = localClaudeProbeToken(apiKey, providerPlugins);
+    const token = isLocalClaudeProbe(apiKey, providerPlugins)
+      ? (await resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth()))?.accessToken
+      : undefined;
     if (token) {
       const headers = new Headers(request.init.headers);
       headers.set("authorization", `Bearer ${token}`);
@@ -979,10 +981,8 @@ async function providerProbeAuthRequest(
   return request;
 }
 
-function localClaudeProbeToken(apiKey: string | undefined, providerPlugins: unknown[]): string | undefined {
-  return apiKey === localAgentProviderApiKey && providerPlugins.some(isLocalClaudeCodeOauthProviderPlugin)
-    ? readClaudeCodeOauth()?.accessToken
-    : undefined;
+function isLocalClaudeProbe(apiKey: string | undefined, providerPlugins: unknown[]): boolean {
+  return apiKey === localAgentProviderApiKey && providerPlugins.some(isLocalClaudeCodeOauthProviderPlugin);
 }
 
 function providerProbeLiveCodexOauth(

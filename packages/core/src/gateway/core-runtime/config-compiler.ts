@@ -3,7 +3,7 @@
  */
 import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 import type { AppConfig, GatewayProviderConfig, GatewayProviderProtocol, VirtualModelProfileConfig } from "@llmr/core/contracts/app";
-import { codexDefaultBaseUrl, kimiAccessTokenExpired, kimiIdentityHeaders, localAgentProviderApiKey, readClaudeCodeOauth, readCodexAuth, readGrokAuth, readKimiAuth, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
+import { codexDefaultBaseUrl, kimiAccessTokenExpired, kimiIdentityHeaders, localAgentProviderApiKey, readClaudeCodeOauth, readCodexAuth, readGrokAuth, readKimiAuth, resolveClaudeCodeAuth, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
 import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
 import { pluginService } from "@llmr/core/plugins/service";
 import { normalizeRouteSelector, providerRuntimeId } from "@llmr/core/routing/model-registry";
@@ -73,7 +73,7 @@ export async function compileCoreGatewayConfig(
     config.Providers.filter(isGatewayProviderEnabled)
   );
   const providerPluginsWithRuntimeDefaults = await withKimiOauthRuntimeDefaults(
-    await withGrokOauthRuntimeDefaults(withClaudeCodeOauthRuntimeDefaults(withCodexOauthRuntimeDefaults(configuredProviderPluginsWithLocalCodexFallbacks)))
+    await withGrokOauthRuntimeDefaults(await withClaudeCodeOauthRuntimeDefaults(withCodexOauthRuntimeDefaults(configuredProviderPluginsWithLocalCodexFallbacks)))
   );
   const codexOauthProviderNames = codexOauthLocalProviderNames(providerPluginsWithRuntimeDefaults);
   const enabledProviders = config.Providers.filter(isGatewayProviderEnabled);
@@ -584,11 +584,11 @@ function withCodexOauthRuntimeDefaults(providerPlugins: unknown[]): unknown[] {
 }
 
 
-function withClaudeCodeOauthRuntimeDefaults(providerPlugins: unknown[]): unknown[] {
+async function withClaudeCodeOauthRuntimeDefaults(providerPlugins: unknown[]): Promise<unknown[]> {
   if (!providerPlugins.some(isLocalClaudeCodeOauthProviderPlugin)) {
     return providerPlugins;
   }
-  const oauth = readClaudeCodeOauth();
+  const oauth = await resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth());
   if (!oauth?.accessToken) {
     return providerPlugins;
   }

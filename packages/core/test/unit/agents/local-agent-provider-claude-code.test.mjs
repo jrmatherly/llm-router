@@ -37,7 +37,7 @@ test("Claude Code local provider prefers macOS Keychain credentials over stale f
         assert.equal(candidate.importable, true);
         assert.equal(candidate.sourceFile, `keychain:Claude Code-credentials (${keychainAccount})`);
 
-        const result = importClaudeCodeProvider(candidate, []);
+        const result = await importClaudeCodeProvider(candidate, []);
         assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer keychain-access-token");
         assert.equal(result.providerPlugins[1].auth.headers.authorization, "Bearer keychain-access-token");
       });
@@ -60,7 +60,7 @@ test("Claude Code local provider falls back to file credentials when Keychain is
         assert.equal(candidate.sourceFile, credentialFile);
         assert.deepEqual(readClaudeCodeOauth().store, { container: "root", kind: "file", path: credentialFile, refreshable: true });
 
-        const result = importClaudeCodeProvider(candidate, []);
+        const result = await importClaudeCodeProvider(candidate, []);
         assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer file-access-token");
       });
     });
@@ -144,7 +144,7 @@ test("Claude Code local provider reads the credential item stored under the curr
         assert.equal(candidate.importable, true);
         assert.equal(candidate.sourceFile, `keychain:Claude Code-credentials (${keychainAccount})`);
 
-        const result = importClaudeCodeProvider(candidate, []);
+        const result = await importClaudeCodeProvider(candidate, []);
         assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer live-access-token");
       });
     });
@@ -171,7 +171,7 @@ test("Claude Code local provider enumerates the keychain to find an item under a
         assert.equal(candidate.importable, true);
         assert.equal(candidate.sourceFile, "keychain:Claude Code-credentials (other-user)");
 
-        const result = importClaudeCodeProvider(candidate, []);
+        const result = await importClaudeCodeProvider(candidate, []);
         assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer enumerated-access-token");
       });
     });
@@ -194,7 +194,7 @@ test("Claude Code local provider ignores mcpOAuth plugin tokens in favour of cla
           service: "Claude Code-credentials"
         }
       ], async () => {
-        const result = importClaudeCodeProvider(claudeCodeCandidate(), []);
+        const result = await importClaudeCodeProvider(claudeCodeCandidate(), []);
         assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer live-access-token");
       });
     });
@@ -227,7 +227,7 @@ test("Claude Code local provider does not import an mcpOAuth-only keychain token
         assert.equal(candidate.importable, false);
         assert.match(candidate.detail, /no OAuth token/);
         assert.match(candidate.detail, /mcpOAuth/);
-        assert.throws(
+        await assert.rejects(
           () => importClaudeCodeProvider(candidate, []),
           /Claude Code access token was not found/
         );
@@ -266,7 +266,7 @@ test("Claude Code local provider prefers file credentials over an mcpOAuth-only 
         assert.equal(candidate.importable, true);
         assert.equal(candidate.sourceFile, credentialFile);
 
-        const result = importClaudeCodeProvider(candidate, []);
+        const result = await importClaudeCodeProvider(candidate, []);
         assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer file-access-token");
       });
     });
@@ -692,6 +692,40 @@ test("a chained refresh after a retried write keeps the compare-and-swap baselin
         assert.equal(keychain.read().claudeAiOauth.refreshToken, "r3");
       }, { failWrites: 1, writeExitCode: 51 });
     });
+  });
+});
+
+test("importing Claude Code refreshes an expired access token first", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+    const result = await importClaudeCodeProvider(claudeCodeCandidate(), []);
+    assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer fresh");
+    assert.equal(result.providerPlugins[1].auth.headers.authorization, "Bearer fresh");
+  });
+});
+
+test("Claude Code candidate is locked when the access token expired and no refresh token can renew it", { skip: process.platform === "win32" }, async () => {
+  await withKeychainLogin({ accessToken: "expired", expiresAt: Date.now() - 1 }, async () => {
+    const candidate = claudeCodeCandidate();
+    assert.equal(candidate.status, "locked");
+    assert.equal(candidate.importable, false);
+    assert.equal(candidate.detail, "Claude Code access token is expired and the login has no refresh token. Run `claude /login`, then retry.");
+  });
+});
+
+test("Claude Code candidate stays available for an expired access token with a refresh token", { skip: process.platform === "win32" }, async () => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    assert.equal(claudeCodeCandidate().status, "available");
+  });
+});
+
+test("Claude Code candidate without an access token stays locked, but the resolver refreshes it", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ refreshToken: "r1" }, async () => {
+    const candidate = claudeCodeCandidate();
+    assert.equal(candidate.status, "locked");
+    assert.equal(candidate.detail, "Claude Code login was detected, but no usable access token was found.");
+    stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
   });
 });
 

@@ -9,6 +9,7 @@ import {
   setProviderAccountWebContentFetchHandler,
   testProviderAccountConnector
 } from "@llmr/core/providers/account-service.ts";
+import { resetClaudeCodeAuthStateForTest } from "@llmr/core/agents/local-providers/claude-code.ts";
 import {
   grokDefaultBillingEndpoint,
   grokDefaultBaseUrl,
@@ -452,6 +453,48 @@ test("Claude Code local account credential prefers live macOS Keychain token", {
   assert.equal(credential?.apiKey, "keychain-account-token");
   assert.equal(credential?.headers?.authorization, undefined);
   assert.equal(credential?.headers?.["anthropic-beta"], "oauth-2025-04-20");
+});
+
+test("Claude Code local account credential refreshes an expired Keychain token", { skip: process.platform === "win32" }, async (t) => {
+  const home = useTemporaryHome(t, "llmr-claude-code-account-refresh-");
+  usePlatform(t, "darwin");
+  useFakeSecurityOutput(t, {
+    claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" }
+  });
+  process.env.HOME = home;
+  resetClaudeCodeAuthStateForTest();
+  const previousFetch = globalThis.fetch;
+  const previousEndpoint = process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT;
+  process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT = "http://127.0.0.1/claude/oauth/token";
+  globalThis.fetch = async () => new Response(JSON.stringify({ access_token: "fresh", expires_in: 3600, refresh_token: "r2" }), {
+    headers: { "content-type": "application/json" },
+    status: 200
+  });
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    if (previousEndpoint === undefined) delete process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT;
+    else process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT = previousEndpoint;
+    resetClaudeCodeAuthStateForTest();
+  });
+
+  const credential = await localAgentProviderAccountCredentialForTest({
+    providerPlugins: [
+      {
+        auth: { headers: { authorization: "Bearer imported-stale-token" }, strict: true },
+        key: "llmr-local-agent-claude-code-api-claude-code-oauth-internal",
+        providerName: "claude-code-api::anthropic_messages"
+      }
+    ]
+  }, {
+    api_base_url: "https://api.anthropic.com",
+    api_key: localAgentProviderApiKey,
+    id: "claude-code-api",
+    models: ["claude-sonnet-5"],
+    name: "Claude Code API",
+    type: "anthropic_messages"
+  });
+
+  assert.equal(credential?.apiKey, "fresh");
 });
 
 test("Kimi local account credential carries its API key and CLI identity", async (t) => {

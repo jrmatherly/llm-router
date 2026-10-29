@@ -10,6 +10,7 @@ import {
   readCodexAuth,
   readGrokAuth,
   readKimiAuth,
+  resolveClaudeCodeAuth,
   resolveGrokAuth,
   resolveKimiAuth,
   readZcodeLocalProviderCredential,
@@ -1481,7 +1482,7 @@ async function localAgentProviderAccountCredential(
       return await localCodexAccountCredential(plugin);
     }
     if (key.includes("claude-code-oauth")) {
-      return localClaudeCodeAccountCredential(plugin);
+      return await localClaudeCodeAccountCredential(plugin);
     }
     if (key.includes("grok-cli-oauth")) {
       return await localGrokAccountCredential(plugin);
@@ -1825,9 +1826,9 @@ function localBearerAccountCredential(plugin: Record<string, unknown>): { apiKey
   };
 }
 
-function localClaudeCodeAccountCredential(plugin: Record<string, unknown>): { apiKey?: string; headers?: Record<string, string> } {
+async function localClaudeCodeAccountCredential(plugin: Record<string, unknown>): Promise<{ apiKey?: string; headers?: Record<string, string> }> {
   const headers = localProviderPluginAuthHeaders(plugin);
-  const oauth = readClaudeCodeOauth();
+  const oauth = await resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth());
   const apiKey = oauth?.accessToken || readBearerToken(headers.authorization || headers.Authorization);
   return {
     apiKey,

@@ -113,6 +113,19 @@ const claudeCodeAccountMapping: ProviderAccountMappingConfig = {
 export function claudeCodeCandidate(): LocalAgentProviderCandidate {
   const scan = scanClaudeCodeLogin();
   const oauth = scan.oauth;
+  if (oauth?.accessToken && !oauth.refreshToken && claudeCodeAccessTokenExpired(oauth)) {
+    return {
+      detail: "Claude Code access token is expired and the login has no refresh token. Run `claude /login`, then retry.",
+      id: "claude-code-api",
+      importable: false,
+      kind: "claude-code",
+      models: claudeDefaultModels,
+      name: "Claude Code API",
+      protocol: "anthropic_messages",
+      sourceFile: oauth.sourceFile,
+      status: "locked"
+    };
+  }
   if (oauth?.accessToken) {
     return {
       detail: "Claude Code login detected. Click Import to add it as a gateway provider.",
@@ -169,8 +182,8 @@ function claudeCodeScanDiagnostic(scan: ClaudeCodeLoginScan): string | undefined
   return undefined;
 }
 
-export function importClaudeCodeProvider(candidate: LocalAgentProviderCandidate, providerNames: string[]): LocalAgentProviderImportResult {
-  const oauth = readClaudeCodeOauth();
+export async function importClaudeCodeProvider(candidate: LocalAgentProviderCandidate, providerNames: string[]): Promise<LocalAgentProviderImportResult> {
+  const oauth = await resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth());
   const token = oauth?.accessToken;
   if (!token) {
     throw new Error("Claude Code access token was not found.");
