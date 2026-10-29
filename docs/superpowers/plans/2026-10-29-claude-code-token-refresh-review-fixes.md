@@ -14,7 +14,7 @@
 
 - Branch from `claude/claude-code-token-refresh-0e5883` (PR 50, head 50f31b73) or from `main` once PR 50 merges; do not merge PR 50 as part of this plan.
 - Fixed log text, verbatim: argv path `Claude Code login record exceeds the security -i stdin limit; written through argv, where ps can read it until the write returns (<store label>)`; write failure stays `Claude Code login could not be written back to <store label> (security exited <code>)`. Never the caught error text or any token in a log.
-- Keychain write timeout: `10_000` ms via `execFileSync`'s `timeout` option; a timeout is a failed write and takes the existing 60 s retry hold.
+- Keychain write timeout: `execFileSync`'s `timeout` option, `LLMR_CLAUDE_CODE_KEYCHAIN_WRITE_TIMEOUT_MS` when it is a positive number, else `10_000` (the same shape as `LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS`). A timeout is a failed write and takes the existing 60 s retry hold; its warning reason is `security timed out` (Node reports `error.code === "ETIMEDOUT"` with a null `status`, so the generic `security exited unknown` would be wrong).
 - Sink validation: `claudeCodeKeychainAccountPattern` (already defined) for the account and `claudeCodeKeychainServicePattern` (already defined) for the service, asserted inside `writeClaudeCodeStoreRecord`; a miss throws a plain `Error` whose message carries neither value.
 - Rejection surfaces as `ClaudeCodeRefreshAuthError` only; a transient failure (network, abort, 5xx, malformed body) is a plain `Error`. The hook's user-facing error is the `ClaudeCodeRefreshAuthError` message unchanged.
 - `expires_in` absent in the refresh response: `expiresAt: undefined`.
@@ -26,7 +26,7 @@
 
 - A refresh rejected with `invalid_grant` while the Keychain holds nothing newer: the gateway answers that request with an error naming `claude /login`, not with an upstream 401 (Task 1 hook test).
 - Import of a login whose refresh is rejected: the import fails with that message instead of installing an expired bearer (Task 1 import test).
-- A `security` write that never returns (Keychain prompt): the request completes with the cached pair after 10 s, the write counts as failed, and the next request within 60 s does not spawn `security` again (Task 2 timeout test, using a fake that sleeps).
+- A `security` write that never returns (Keychain prompt): the request completes with the cached pair once the timeout fires, the write counts as failed with the `timed out` reason, and the next request within 60 s does not spawn `security` again (Task 2 timeout test, fake sleeps past a 500 ms test timeout).
 - A record over the stdin cutoff: exactly one argv warning per store, no token in it (Task 2 argv test).
 - Two callers where one retry-persists the cached pair while the other's chained refresh is in flight: one POST, the store ends on the newest pair, no consumed token is posted twice (Task 4 interleaving test).
 
@@ -42,9 +42,9 @@
 - Test: `packages/core/test/unit/gateway/local-agent-auth-provider-hook.test.mjs`, `packages/core/test/unit/agents/local-agent-provider-claude-code.test.mjs`
 
 **Interfaces:**
-- Produces: `export async function resolveClaudeCodeAuthOrStored(): Promise<ClaudeCodeTokenSet | undefined>` in `claude-code.ts`: returns `resolveClaudeCodeAuth()`; on a plain `Error` returns `readClaudeCodeOauth()`; a `ClaudeCodeRefreshAuthError` propagates. Re-exported from `service.ts`.
+- Produces: `export async function resolveClaudeCodeAuthOrStored(): Promise<ClaudeCodeTokenSet | undefined>` in `claude-code.ts`: `resolveClaudeCodeAuth()` with every error (rejection included) replaced by `readClaudeCodeOauth()`. This is the one home of the stale-token policy; re-exported from `service.ts`.
 - Consumes: `ClaudeCodeRefreshAuthError` (has `message`, `status`, `code`), `resolveClaudeCodeAuth`, `readClaudeCodeOauth`.
-- The hook: `authenticateClaudeCode` calls `resolveClaudeCodeAuthOrStored()` inside `try`; a caught `ClaudeCodeRefreshAuthError` returns `{ error: error.message, ok: false }`. The three stale-tolerant readers (usage connector, compiled defaults, probe) call `resolveClaudeCodeAuthOrStored().catch(() => readClaudeCodeOauth())` so a rejection still yields the stored token there. The import calls `resolveClaudeCodeAuth()` and lets the rejection propagate.
+- The three stale-tolerant readers (usage connector at `account-service.ts:1831`, compiled defaults at `config-compiler.ts:591`, probe at `probe.ts:970`) call `resolveClaudeCodeAuthOrStored()` with no `.catch` of their own. The hook calls `resolveClaudeCodeAuth()` in a `try`: a caught `ClaudeCodeRefreshAuthError` returns `{ error: error.message, ok: false }`; any other error falls back to `readClaudeCodeOauth()` (transient failure, stale token still best). The import calls `resolveClaudeCodeAuth()` and lets every error propagate, as `importGrokProvider` does. After this task no `.catch(() => readClaudeCodeOauth())` remains outside the helper.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -68,9 +68,14 @@ test("importing Claude Code fails when the refresh token was rejected", { skip: 
   await assert.rejects(importClaudeCodeProvider(claudeCodeCandidate(), []), (error) => error.name === "ClaudeCodeRefreshAuthError");
 });
 
-test("resolveClaudeCodeAuthOrStored returns the stored pair after a transient failure and rethrows a rejection", { skip: process.platform === "win32" }, async (t) => {
+test("resolveClaudeCodeAuthOrStored returns the stored pair after any refresh failure", { skip: process.platform === "win32" }, async (t) => {
   // first: fetch stub returns 503 -> resolves to the stored set (accessToken "expired")
-  // then: resetClaudeCodeAuthStateForTest(); fetch stub returns 401 invalid_grant -> rejects with ClaudeCodeRefreshAuthError
+  // then: resetClaudeCodeAuthStateForTest(); fetch stub returns 401 invalid_grant -> ALSO resolves to the stored set (catch-all), and
+  // resolveClaudeCodeAuth() itself rejects with ClaudeCodeRefreshAuthError
+});
+
+test("Claude Code local agent auth hook keeps the stored token after a transient refresh failure", { skip: process.platform === "win32" }, async (t) => {
+  // fetch stub returns 503 -> result.ok === true and authorization is "Bearer expired"
 });
 ```
 
@@ -81,7 +86,7 @@ Expected: `not ok` for the three (hook returns `ok: true` with the expired token
 
 - [ ] **Step 3: Implement**
 
-`resolveClaudeCodeAuthOrStored` as in Interfaces. Replace the five `.catch(() => readClaudeCodeOauth())` sites as the Interfaces block assigns them. In `authenticateClaudeCode`, wrap the resolve in `try`/`catch`; `instanceof ClaudeCodeRefreshAuthError` returns the error result, anything else rethrows (it cannot occur after the helper, so no second fallback).
+`resolveClaudeCodeAuthOrStored` as in Interfaces. Replace the five `.catch(() => readClaudeCodeOauth())` sites as the Interfaces block assigns them. In `authenticateClaudeCode`, `try { auth = await resolveClaudeCodeAuth(); } catch (error) { if (error instanceof ClaudeCodeRefreshAuthError) return { error: error.message, ok: false }; auth = readClaudeCodeOauth(); }`.
 
 - [ ] **Step 4: Run the two files, `npm run typecheck`, `npm run test:core`; commit**
 
@@ -98,8 +103,8 @@ git commit -m "fix(claude-code): surface a rejected OAuth refresh instead of sen
 - Test: `packages/core/test/unit/agents/local-agent-provider-claude-code.test.mjs` (fake keychain gains `options.writeDelayMs`)
 
 **Interfaces:**
-- Consumes: `withFakeKeychain(record, run, options)`; add `options.writeDelayMs` so the fake's `add-generic-password` handling `sleep`s that many seconds (integer, `sleep $((ms/1000))` is fine at 2 s) before writing.
-- Produces: `writeClaudeCodeStoreRecord` throws `new Error("Claude Code keychain item name is not safe to write.")` when the account or the service fails its pattern; passes `timeout: 10_000` to both `execFileSync` calls; emits the argv warning once per store key through a module `Set` (`claudeCodeArgvWarned`), cleared by `resetClaudeCodeAuthStateForTest()`; `persistRefreshedClaudeCodeAuth` deletes the store key from `claudeCodeWriteBackWarned` on `"written"`.
+- Consumes: `withFakeKeychain(record, run, options)`. Extend the fake: the script reads an optional `write-failure` state file in its bin dir before every `add-generic-password` (contents: an exit code; present means fail with it, still recording the call), and `run` gains `setWriteFailure(exitCode | undefined)` that writes or removes that file, so a test can fail, succeed and fail again in one run (`options.writeExitCode`/`options.failWrites` keep working for the existing tests). Add `options.writeDelaySeconds` so the script runs `sleep <n>` before writing.
+- Produces: `writeClaudeCodeStoreRecord` throws `new Error("Claude Code keychain item name is not safe to write.")` when the account or the service fails its pattern; passes `timeout` (per Global Constraints) to both `execFileSync` calls; `persistRefreshedClaudeCodeAuth`'s warning reason is `security timed out` when `error.code === "ETIMEDOUT"`; emits the argv warning once per store key through a module `Set` (`claudeCodeArgvWarned`), cleared by `resetClaudeCodeAuthStateForTest()`; `persistRefreshedClaudeCodeAuth` deletes the store key from `claudeCodeWriteBackWarned` on `"written"`.
 - The comment above the `-i` line changes to one line: `security -i` keeps the record off argv until the 4032-byte stdin cutoff, past which Claude Code itself falls back to argv.
 
 - [ ] **Step 1: Write the failing tests**
@@ -111,19 +116,21 @@ test("a keychain record over the stdin limit warns once that it went through arg
   assert.doesNotMatch(warnings.join("\n"), /fresh|r2|[0-9a-f]{40}/);
 });
 
-test("a keychain write that hangs is a failed write after the timeout", { skip: process.platform === "win32", timeout: 20_000 }, async (t) => {
-  // options.writeDelayMs 12_000 (the fake runs `sleep 12` before writing); the real 10 s timeout fires
+test("a keychain write that hangs is a failed write after the timeout", { skip: process.platform === "win32" }, async (t) => {
+  // withEnv("LLMR_CLAUDE_CODE_KEYCHAIN_WRITE_TIMEOUT_MS", "500"); options.writeDelaySeconds 2 (the fake runs `sleep 2` before writing)
   const started = Date.now();
   assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
-  assert.ok(Date.now() - started >= 10_000);
+  assert.ok(Date.now() - started >= 500 && Date.now() - started < 2_000);
   assert.equal(warnings.length, 1);
-  assert.match(warnings[0], /could not be written back/);
+  assert.match(warnings[0], /\(security timed out\)$/);
   assert.equal(keychain.read().claudeAiOauth.refreshToken, "r1");
+  assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");   // within the 60 s hold: no second security write
+  assert.equal(keychain.calls.length, 1);
 });
 
 test("the write-failure warning re-arms after a successful write", { skip: process.platform === "win32" }, async (t) => {
-  // failWrites 1 -> one warning; mock Date.now past the hold -> written; then keychain.write() a rotated pair with an expired access token,
-  // failWrites 1 again, resolve -> second warning
+  // keychain.setWriteFailure(51) -> resolve -> one warning; setWriteFailure(undefined), mock Date.now past the hold -> resolve -> written;
+  // keychain.write() a rotated pair (refreshToken "r5", expired access token), setWriteFailure(51) -> resolve -> second warning
   assert.equal(warnings.length, 2);
 });
 
@@ -136,7 +143,7 @@ test("the keychain writer refuses an unsafe account or service name", { skip: pr
 });
 ```
 
-The hang test takes about 12 s by design; its `timeout: 20_000` is part of the test. `sleep` is on PATH on macOS and Linux, where the fake runs.
+`sleep` is on PATH on macOS and Linux, where the fake runs; the hang test costs about 2 s.
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -199,7 +206,7 @@ function persistClaudeCodePair(state: ClaudeCodeCredentialState, pair: ClaudeCod
 function adoptPeerRotatedClaudeCodeAuth(state: ClaudeCodeCredentialState, stored: ClaudeCodeTokenSet, postedRefreshToken: string, error: unknown): ClaudeCodeTokenSet;   // records state.rejected
 ```
 
-Resolver order (same as today, with the baseline read at creation time instead of patched after): read store → `state = credentialState(auth.store)` → `current` is `state.cached.auth` when `state.cached.storeBaseline === auth.refreshToken`, else `auth` → if `current` is the cached pair, not persisted and past its hold, `state.cached = persistClaudeCodePair(state, state.cached)` and recompute `current` → return `current` unless expired and refreshable → rejected check on the token about to be posted → coalesce on `state.inFlight` → inside: `const pair = await postClaudeCodeRefresh(current, refreshToken)`, then `const baseline = state.cached?.auth === current ? state.cached.storeBaseline : auth.refreshToken` (read after the await, so a write that landed meanwhile moves it), then `state.cached = persistClaudeCodePair(state, { auth: pair, persisted: false, storeBaseline: baseline })`, return `state.cached.auth`.
+Resolver order (same as today, with the baseline read at creation time instead of patched after): read store → `state = credentialState(auth.store)` → `current` is `state.cached.auth` when `state.cached.storeBaseline === auth.refreshToken`, else `auth` → if `current` is the cached pair, not persisted and past its hold, `state.cached = persistClaudeCodePair(state, state.cached)` and recompute `current` → return `current` unless expired and refreshable → rejected check: `state.rejected?.token === refreshToken` throws the remembered `ClaudeCodeRefreshAuthError` → coalesce on `state.inFlight` → inside: `const pair = await postClaudeCodeRefresh(current, refreshToken)`, then `const baseline = state.cached?.auth === current ? state.cached.storeBaseline : auth.refreshToken` (read after the await, so a write that landed meanwhile moves it), then `state.cached = persistClaudeCodePair(state, { auth: pair, persisted: false, storeBaseline: baseline })`, return `state.cached.auth`.
 
 `resetClaudeCodeAuthStateForTest()` clears `claudeCodeCredentials`. `claudeCodeRefreshInFlight`, `claudeCodeRefreshed`, `claudeCodeRejectedRefreshTokens`, `claudeCodeWriteBackWarned`, `claudeCodeArgvWarned` are deleted.
 
@@ -233,7 +240,7 @@ git commit -m "refactor(claude-code): one state record per credential"
 - Modify: `packages/core/test/unit/agents/local-agent-provider-claude-code.test.mjs` (keeps the scan, store, candidate and import tests; imports helpers from the support module)
 
 **Interfaces:**
-- Consumes: `packages/core/test/support/desktop-runtime.mjs` as the precedent for a support module; `build/test.mjs` bundles `test/support` (verify with one run; if it does not, say so and keep the helpers in the refresh test file instead).
+- Consumes: `packages/core/test/support/desktop-runtime.mjs` as the precedent (imported by relative path, e.g. `../../support/desktop-runtime.mjs` in `test/unit/config/plugin-config-migration.test.mjs`, and bundled into each test by esbuild); import the new module the same way.
 
 - [ ] **Step 1: Move; no test body changes.** **Step 2: Run both files and `npm run test:core`; the total test count equals the count before the move.** **Step 3: Commit**
 
