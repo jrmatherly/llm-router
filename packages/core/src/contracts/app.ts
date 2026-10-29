@@ -1567,6 +1567,14 @@ export function isEnabledGlobalProfile(profile: Pick<ProfileConfig, "enabled" | 
   return profile.enabled && normalizeProfileScopeValue(profile.scope) === "global";
 }
 
+// Claude App reads the shared Claude-3p data dir at every launch, including
+// one from the Dock or the account switcher, so writing there takes over
+// launches LLMR did not make. Only an explicit per-profile opt-in may write it;
+// other profiles get their config in the per-profile data dir LLMR launches with.
+export function claudeAppTakesOverDirectLaunches(profile: Pick<ProfileConfig, "agent" | "claudeAppTakeover" | "enabled" | "surface">): boolean {
+  return profile.enabled && profile.agent === "claude-code" && profile.surface !== "cli" && profile.claudeAppTakeover === true;
+}
+
 export function enforceSingleEnabledGlobalProfilePerAgent(
   profiles: ProfileConfig[],
   preferredIndex?: number
@@ -1577,23 +1585,12 @@ export function enforceSingleEnabledGlobalProfilePerAgent(
   if (preferredProfileIndex !== undefined && preferredProfile && isEnabledGlobalProfile(preferredProfile)) {
     activeGlobalProfileByAgent.set(preferredProfile.agent, preferredProfileIndex);
   }
-  const ownsClaudeAppTakeover = (profile: ProfileConfig) =>
-    profile.agent === "claude-code" && profile.enabled && profile.surface !== "cli" && profile.claudeAppTakeover === true;
-  let claudeAppTakeoverIndex =
-    preferredProfileIndex !== undefined && preferredProfile && ownsClaudeAppTakeover(preferredProfile)
-      ? preferredProfileIndex
-      : undefined;
+  const preferredOwnsTakeover = preferredProfile !== undefined && claudeAppTakesOverDirectLaunches(preferredProfile);
+  const claudeAppTakeoverIndex = preferredOwnsTakeover ? preferredProfileIndex : profiles.findIndex(claudeAppTakesOverDirectLaunches);
 
   return profiles.map((input, index) => {
-    let profile = input;
-    if (input.enabled && input.surface !== "cli" && "claudeAppTakeover" in input) {
-      if (ownsClaudeAppTakeover(input) && (claudeAppTakeoverIndex ?? index) === index) {
-        claudeAppTakeoverIndex = index;
-      } else {
-        const { claudeAppTakeover: _claudeAppTakeover, ...rest } = input;
-        profile = rest;
-      }
-    }
+    const { claudeAppTakeover: _claudeAppTakeover, ...withoutTakeover } = input;
+    const profile = index !== claudeAppTakeoverIndex && input.enabled && input.surface !== "cli" && "claudeAppTakeover" in input ? withoutTakeover : input;
     if (!isEnabledGlobalProfile(profile)) {
       return profile;
     }

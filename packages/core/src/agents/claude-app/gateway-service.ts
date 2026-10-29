@@ -11,8 +11,10 @@ import {
   type ClaudeAppGatewayInferenceModel,
   type ClaudeAppGatewayModelRouteOptions
 } from "@llmr/core/agents/claude-app/gateway-routes";
-import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, hasAvailableGatewayModels, type ApiKeyConfig, type AppConfig, type ClaudeAppGatewayApplyResult, type ProfileConfig } from "@llmr/core/contracts/app";
+import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, claudeAppTakesOverDirectLaunches, hasAvailableGatewayModels, type ApiKeyConfig, type AppConfig, type ClaudeAppGatewayApplyResult } from "@llmr/core/contracts/app";
 import { findModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
+
+export { claudeAppTakesOverDirectLaunches } from "@llmr/core/contracts/app";
 
 const CLAUDE_APP_CONFIG_ID = "8f69f2f1-3275-4ad8-9317-4aa7e972f311";
 const CLAUDE_APP_CONFIG_NAME = "LLM Router";
@@ -78,14 +80,6 @@ export type ClaudeAppGatewaySyncResult = {
   configChanged: boolean;
   result: ClaudeAppGatewayApplyResult;
 };
-
-// Claude App reads the shared Claude-3p data dir at every launch, including
-// one from the Dock or the account switcher, so writing there takes over
-// launches LLMR did not make. Only an explicit per-profile opt-in may write it;
-// other profiles get their config in the per-profile data dir LLMR launches with.
-export function claudeAppTakesOverDirectLaunches(profile: Pick<ProfileConfig, "agent" | "claudeAppTakeover" | "enabled" | "surface">): boolean {
-  return profile.enabled && profile.agent === "claude-code" && profile.surface !== "cli" && profile.claudeAppTakeover === true;
-}
 
 export function hasClaudeAppTakeoverProfile(config: Pick<AppConfig, "profile">): boolean {
   return config.profile.profiles.some(claudeAppTakesOverDirectLaunches);
