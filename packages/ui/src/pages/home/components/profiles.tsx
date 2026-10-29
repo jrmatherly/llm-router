@@ -834,6 +834,9 @@ export function AddProfileForm({
                 : profileScopeOptions}
             value={draft.scope}
           />
+          {draft.agent === "claude-code" && draft.surface !== "cli" ? (
+            <p className="text-[12px] text-muted-foreground">Applies to the CLI entry. The App entry uses the toggle below.</p>
+          ) : null}
         </Field>
         <Field label="Entry mode" requirement="required" requirementLabel={requiredFieldLabel}>
           <SelectControl
@@ -856,6 +859,15 @@ export function AddProfileForm({
             value={draft.surface}
           />
         </Field>
+        {draft.agent === "claude-code" && draft.surface !== "cli" ? (
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
+              <span className="text-[12px] font-medium">Route Claude App launched outside LLMR through LLMR</span>
+              <Toggle ariaLabel="Route Claude App launched outside LLMR through LLMR" checked={draft.claudeAppTakeover} onChange={(claudeAppTakeover) => onChange({ claudeAppTakeover })} />
+            </div>
+            <p className="text-[12px] text-muted-foreground">Also applies to launches from the Dock or an account switcher. Claude App then opens in third-party mode, signed out of claude.ai. Only one profile can have this on.</p>
+          </div>
+        ) : null}
         {draft.agent === "claude-code" ? (
           <>
             <Field label="Default model" requirement="required" requirementLabel={requiredFieldLabel}>

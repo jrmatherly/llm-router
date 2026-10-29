@@ -29,7 +29,7 @@ Each Agent Config is a separate launch profile. Create multiple profiles when yo
 | Agent | All | Claude Code, Codex, OpenCode, Grok CLI, Kimi CLI, ZCode, or WorkBuddy. Grok CLI and Kimi CLI support CLI only; ZCode and WorkBuddy support App only. |
 | Config name | All | Identifies the config in LLMR. Commands use `llmr <config-name>`. Names can contain spaces; copied commands are quoted automatically. |
 | Enabled | All | Disabled configs are not exposed as active launch entries and are not applied as effective startup configs. |
-| Effect scope | All | **Only opened from LLMR** limits changes to LLMR launches; **System default** also affects the agent when opened directly. Only one enabled system-default config is allowed per agent. |
+| Effect scope | All | **Only opened from LLMR** limits changes to LLMR launches; **System default** also affects the agent when opened directly. Only one enabled system-default config is allowed per agent. For a Claude Code App entry, use the profile's takeover toggle instead. |
 | Entry mode | Claude Code, Codex, OpenCode, Grok CLI, Kimi CLI | `CLI & APP` exposes both CLI and App entry points; `CLI only` only generates a CLI command; `App only` only exposes the App entry point. Grok CLI and Kimi CLI are fixed to `CLI only`; ZCode and WorkBuddy are fixed to `App only`. |
 | Model | All | Default model for the opened agent, either a provider model or Fusion model. For Claude Code, leaving it empty keeps the Claude Code default. |
 | Available models | Kimi CLI | Models exposed by Kimi's `/model` command. The default model is always included. |
@@ -47,6 +47,7 @@ Each Agent Config is a separate launch profile. Create multiple profiles when yo
 | Settings file | Used for the system-default Claude Code profile. |
 | Environment variables | Optional advanced overrides; leave empty for normal use. |
 | Bot | Applies only to the Claude App entry. Select a saved Bot, then choose AgentClaw message forwarding or handoff. |
+| Route Claude App launched outside LLMR through LLMR | Off by default. On, Claude App opened from the Dock or an account switcher also runs through LLMR in third-party mode, signed out of claude.ai. One profile at a time. |
 
 After Claude Code CLI is opened from LLMR, it uses LLMR gateway model discovery. In Claude Code CLI, enter `/model` to view and switch the models exposed by LLMR, including normal provider models and visible Fusion models.
 

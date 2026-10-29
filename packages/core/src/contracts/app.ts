@@ -1524,6 +1524,7 @@ export type ProfileConfig = {
   availableModels?: string[];
   botConfigId?: string;
   botGateway?: BotGatewayRuntimeConfig;
+  claudeAppTakeover?: boolean;
   configFile?: string;
   cliMiddleware?: boolean;
   claudeSettings?: Record<string, unknown>;
@@ -1566,6 +1567,14 @@ export function isEnabledGlobalProfile(profile: Pick<ProfileConfig, "enabled" | 
   return profile.enabled && normalizeProfileScopeValue(profile.scope) === "global";
 }
 
+// Claude App reads the shared Claude-3p data dir at every launch, including
+// one from the Dock or the account switcher, so writing there takes over
+// launches LLMR did not make. Only an explicit per-profile opt-in may write it;
+// other profiles get their config in the per-profile data dir LLMR launches with.
+export function claudeAppTakesOverDirectLaunches(profile: Pick<ProfileConfig, "agent" | "claudeAppTakeover" | "enabled" | "surface">): boolean {
+  return profile.enabled && profile.agent === "claude-code" && profile.surface !== "cli" && profile.claudeAppTakeover === true;
+}
+
 export function enforceSingleEnabledGlobalProfilePerAgent(
   profiles: ProfileConfig[],
   preferredIndex?: number
@@ -1576,8 +1585,12 @@ export function enforceSingleEnabledGlobalProfilePerAgent(
   if (preferredProfileIndex !== undefined && preferredProfile && isEnabledGlobalProfile(preferredProfile)) {
     activeGlobalProfileByAgent.set(preferredProfile.agent, preferredProfileIndex);
   }
+  const preferredOwnsTakeover = preferredProfile !== undefined && claudeAppTakesOverDirectLaunches(preferredProfile);
+  const claudeAppTakeoverIndex = preferredOwnsTakeover ? preferredProfileIndex : profiles.findIndex(claudeAppTakesOverDirectLaunches);
 
-  return profiles.map((profile, index) => {
+  return profiles.map((input, index) => {
+    const { claudeAppTakeover: _claudeAppTakeover, ...withoutTakeover } = input;
+    const profile = index !== claudeAppTakeoverIndex && input.enabled && input.surface !== "cli" && "claudeAppTakeover" in input ? withoutTakeover : input;
     if (!isEnabledGlobalProfile(profile)) {
       return profile;
     }

@@ -11,8 +11,10 @@ import {
   type ClaudeAppGatewayInferenceModel,
   type ClaudeAppGatewayModelRouteOptions
 } from "@llmr/core/agents/claude-app/gateway-routes";
-import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, hasAvailableGatewayModels, type ApiKeyConfig, type AppConfig, type ClaudeAppGatewayApplyResult } from "@llmr/core/contracts/app";
+import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, claudeAppTakesOverDirectLaunches, hasAvailableGatewayModels, type ApiKeyConfig, type AppConfig, type ClaudeAppGatewayApplyResult } from "@llmr/core/contracts/app";
 import { findModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
+
+export { claudeAppTakesOverDirectLaunches } from "@llmr/core/contracts/app";
 
 const CLAUDE_APP_CONFIG_ID = "8f69f2f1-3275-4ad8-9317-4aa7e972f311";
 const CLAUDE_APP_CONFIG_NAME = "LLM Router";
@@ -26,7 +28,7 @@ const claudeAppGatewayModelRouteOptions: ClaudeAppGatewayModelRouteOptions = {
 };
 
 export const NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE =
-  "No enabled claude-code profile can open the Claude App. Set a profile's Entry mode to App or Auto to configure the Claude App for LLMR.";
+  "No enabled claude-code profile routes a directly opened Claude App through LLMR. Turn on \"Route Claude App launched outside LLMR through LLMR\" on a profile whose Entry mode is App or Auto.";
 
 type ClaudeAppGatewayConfig = {
   bootstrapEnabled: false;
@@ -79,12 +81,12 @@ export type ClaudeAppGatewaySyncResult = {
   result: ClaudeAppGatewayApplyResult;
 };
 
-export function hasClaudeAppEntryProfile(config: Pick<AppConfig, "profile">): boolean {
-  return config.profile.profiles.some((profile) => profile.enabled && profile.agent === "claude-code" && profile.surface !== "cli");
+export function hasClaudeAppTakeoverProfile(config: Pick<AppConfig, "profile">): boolean {
+  return config.profile.profiles.some(claudeAppTakesOverDirectLaunches);
 }
 
 export async function syncClaudeAppGatewayConfig(config: AppConfig): Promise<ClaudeAppGatewaySyncResult> {
-  if (!hasClaudeAppEntryProfile(config)) {
+  if (!hasClaudeAppTakeoverProfile(config)) {
     restoreClaudeAppGatewayConfig();
     return {
       config,

@@ -39,7 +39,7 @@ Use this page when you want to route Claude Code to a non-Anthropic provider, pi
 | Agent | Choose **Claude Code** | Creates Claude Code launch entries in LLMR. |
 | Config name | Free text, e.g. `Claude Code - Work` | Identifies the profile in LLMR. Commands use `llmr "<name>"`. |
 | Enabled | Toggle on/off | Disabled profiles are not applied and are not offered as launch entries. |
-| Effect scope | `Only opened from LLMR` / `System default` | Keeps changes limited to LLMR launches, or makes this the system-default Claude Code profile. Only one enabled system-default Claude Code profile is allowed. |
+| Effect scope | `Only opened from LLMR` / `System default` | Keeps changes limited to LLMR launches, or makes this the system-default Claude Code profile. Only one enabled system-default Claude Code profile is allowed. Applies to the CLI entry; the App entry uses the toggle below. |
 | Entry mode | `CLI & APP` / `CLI only` / `App only` | `CLI & APP` exposes both the terminal command and the App button; `CLI only` only generates a CLI command; `App only` only exposes the App. |
 | Model | A provider model or Fusion model, e.g. `Moonshot/kimi-k3` | Default model for this profile. Leave it empty to keep Claude Code's own default model. |
 | Fable model | Optional model selector | Overrides the model Claude Code uses for the Fable tier. |
@@ -50,6 +50,7 @@ Use this page when you want to route Claude Code to a non-Anthropic provider, pi
 | LLMR managed compact | Toggle | Lets LLMR manage context compaction for this profile. |
 | Environment variables | Key/value rows | Optional advanced overrides; leave empty for normal use. |
 | Bot | Select a saved Bot (App entry only) | Binds an AgentClaw IM bot to the Claude App entry. CLI does not forward bot messages. |
+| Route Claude App launched outside LLMR through LLMR | Toggle (App entry only), default off | Writes LLMR's third-party configuration where Claude App reads it at every launch, so a launch from the Dock or an account switcher also opens in third-party mode, signed out of claude.ai. Only one profile can have it on. Leave it off to keep those launches on the normal app; the play button works either way. |
 
 ### Model aliases
 
@@ -92,7 +93,8 @@ If you bind a Bot and open Claude App from LLMR, Claude App can relay conversati
 
 ## Common issues
 
-- **Requests do not reach LLMR:** confirm the profile is **Enabled** and you opened Claude Code from LLMR (not from the system). A directly-opened Claude Code is not affected unless the scope is **System default**.
+- **Requests do not reach LLMR:** confirm the profile is **Enabled** and you opened Claude Code from LLMR (not from the system). A directly-opened Claude Code CLI is not affected unless the scope is **System default**; a directly-opened Claude App is not affected unless **Route Claude App launched outside LLMR through LLMR** is on.
 - **`/model` shows no LLMR models:** confirm a provider + model is configured.
 - **Claude App did not pick up the config:** Claude App is already running — reopen it from LLMR, or restart it when prompted.
+- **Claude App opens signed out of claude.ai, with LLM Router as its gateway:** a profile's **Route Claude App launched outside LLMR through LLMR** toggle is on, or LLM Router did not quit cleanly and has not started since. Turn the toggle off, or start LLM Router once, to put Dock and account-switcher launches back on the normal app.
 - **Model aliases have no effect:** aliases only change which provider model a Claude Code tier uses; the value must be a valid `Provider/model` or Fusion model that LLMR can serve.

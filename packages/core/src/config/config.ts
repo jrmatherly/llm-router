@@ -3663,6 +3663,7 @@ function parseProfiles(value: unknown): ProfileConfig[] | undefined {
           ...(appPath ? { appPath } : {}),
           ...(botConfigId ? { botConfigId } : {}),
           ...(botGateway ? { botGateway } : {}),
+          ...(item.claudeAppTakeover === true ? { claudeAppTakeover: true } : {}),
           ...(claudeSettings ? { claudeSettings } : {}),
           enabled,
           env: claudeCodeProfileEnv(env),
