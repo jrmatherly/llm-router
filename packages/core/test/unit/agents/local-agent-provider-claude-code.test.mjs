@@ -662,6 +662,39 @@ test("a failed keychain write keeps the fresh pair, retries only the write and w
   });
 });
 
+test("a written Claude Code pair is not written again on the next resolve", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async (keychain) => {
+    const endpoint = stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+    assert.equal(keychain.calls.length, 1);
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+    assert.equal(keychain.calls.length, 1);
+    assert.equal(endpoint.calls, 1);
+  });
+});
+
+test("a chained refresh after a retried write keeps the compare-and-swap baseline on the store's token", { skip: process.platform === "win32" }, async (t) => {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      await withFakeKeychain({ claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" } }, async (keychain) => {
+        t.mock.method(console, "warn", () => {});
+        const posted = [];
+        stubTokenEndpoint(t, (_input, init) => {
+          posted.push(JSON.parse(init.body).refresh_token);
+          return posted.length === 1
+            ? jsonResponse(200, { access_token: "fresh", expires_in: 0, refresh_token: "r2" })
+            : jsonResponse(200, { access_token: "fresher", expires_in: 3600, refresh_token: "r3" });
+        });
+        assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+        assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresher");
+        assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresher");
+        assert.deepEqual(posted, ["r1", "r2"]);
+        assert.equal(keychain.read().claudeAiOauth.refreshToken, "r3");
+      }, { failWrites: 1, writeExitCode: 51 });
+    });
+  });
+});
+
 test("the token endpoint override is honoured only for loopback hosts", (t) => {
   const previous = process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT;
   t.after(() => restoreEnv("LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT", previous));
@@ -762,7 +795,9 @@ const keychainNotFound = "echo 'security: SecKeychainSearchCopyNext: The specifi
 // One mutable item, whatever -a/-s say: refresh tests assert the write-back
 // target through `calls`, not through separate records.
 async function withFakeKeychain(initialRecord, run, options = {}) {
-  const failWrite = options.writeExitCode === undefined ? "" : `exit ${options.writeExitCode}\n`;
+  const failWrite = options.writeExitCode === undefined
+    ? ""
+    : options.failWrites === undefined ? `exit ${options.writeExitCode}\n` : `if [ "$(basename "$call")" -lt ${options.failWrites} ]; then exit ${options.writeExitCode}; fi\n`;
   const body = [
     `dir=$(dirname "$0")`,
     `case "$1" in`,

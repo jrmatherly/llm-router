@@ -275,6 +275,9 @@ export async function resolveClaudeCodeAuth(): Promise<ClaudeCodeTokenSet | unde
       let entry: ClaudeCodeRefreshedEntry;
       try {
         entry = await refreshClaudeCodeAuth(current, refreshToken, storedRefreshToken);
+        if (refreshed && current === refreshed.auth) {
+          entry.postedRefreshToken = refreshed.postedRefreshToken;
+        }
       } catch (error) {
         return adoptPeerRotatedClaudeCodeAuth(auth, refreshToken, error);
       }
