@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { ProfileConfig } from "@llmr/core/contracts/app.ts";
 import { AddProfileForm, DeleteProfileDialog, ProfileView } from "@llmr/ui/pages/home/components/profiles.tsx";
 import { createProfileDraft, createProfileDraftFromProfile, isProfileDraftSubmittable, normalizeUnknownProfileItem, profileAgentLogoUrl, profileConfigFromDraft, profileDraftWithDetectedAppPath, profileSummaryItems } from "@llmr/ui/pages/home/shared/profiles.ts";
+import type { AddProfileDraft } from "@llmr/ui/pages/home/shared/types.ts";
 import { appConfigFixture } from "../fixtures/index.ts";
 
 const profile: ProfileConfig = {
@@ -777,4 +778,40 @@ test("Workbuddy profiles support local App configuration", () => {
   assert.equal(profile?.surface, "app");
   assert.match(profileAgentLogoUrl("workbuddy"), /workbuddy/i);
   assert.notEqual(profileAgentLogoUrl("workbuddy"), profileAgentLogoUrl("codex"));
+});
+
+function renderAddProfileForm(draft: AddProfileDraft): string {
+  const config = appConfigFixture();
+  return renderToStaticMarkup(
+    <AddProfileForm
+      botConfigs={config.botConfigs ?? []}
+      draft={draft}
+      error=""
+      mode="edit"
+      onChange={() => undefined}
+      onCreateBot={() => undefined}
+      providers={config.Providers}
+      virtualModelProfiles={config.virtualModelProfiles}
+    />
+  );
+}
+
+test("Claude Code App profiles expose the direct-launch takeover toggle next to Entry mode", () => {
+  const html = renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "app" });
+  assert.match(html, /Route Claude App launched outside LLMR through LLMR/);
+  assert.match(html, /Only one profile can have this on/);
+  assert.match(html, /Applies to the CLI entry/);
+  assert.ok(html.indexOf("Route Claude App launched outside LLMR") < html.indexOf("Advanced settings"));
+  assert.doesNotMatch(renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "cli" }), /Route Claude App launched outside LLMR/);
+  assert.doesNotMatch(renderAddProfileForm({ ...createProfileDraft("codex"), surface: "app" }), /Route Claude App launched outside LLMR/);
+});
+
+test("the takeover toggle round-trips through the stored profile and survives a surface change", () => {
+  const draft: AddProfileDraft = { ...createProfileDraft("claude-code"), claudeAppTakeover: true, surface: "auto" };
+  const stored = profileConfigFromDraft(draft, []);
+  assert.equal(stored.claudeAppTakeover, true);
+  assert.equal("claudeAppTakeover" in profileConfigFromDraft({ ...draft, claudeAppTakeover: false }, []), false);
+  assert.equal("claudeAppTakeover" in profileConfigFromDraft({ ...draft, surface: "cli" }, []), false);
+  assert.equal(createProfileDraftFromProfile(stored).claudeAppTakeover, true);
+  assert.equal(normalizeUnknownProfileItem({ ...stored, claudeAppTakeover: "yes" }, 0)?.claudeAppTakeover, undefined);
 });
