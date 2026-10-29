@@ -3,7 +3,7 @@
  */
 import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 import type { AppConfig, GatewayProviderConfig, GatewayProviderProtocol, VirtualModelProfileConfig } from "@llmr/core/contracts/app";
-import { codexDefaultBaseUrl, kimiAccessTokenExpired, kimiIdentityHeaders, localAgentProviderApiKey, readClaudeCodeOauth, readCodexAuth, readGrokAuth, readKimiAuth, resolveClaudeCodeAuth, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
+import { codexDefaultBaseUrl, kimiAccessTokenExpired, kimiIdentityHeaders, localAgentProviderApiKey, readCodexAuth, readGrokAuth, readKimiAuth, resolveClaudeCodeAuthOrStored, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
 import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
 import { pluginService } from "@llmr/core/plugins/service";
 import { normalizeRouteSelector, providerRuntimeId } from "@llmr/core/routing/model-registry";
@@ -588,7 +588,7 @@ async function withClaudeCodeOauthRuntimeDefaults(providerPlugins: unknown[]): P
   if (!providerPlugins.some(isLocalClaudeCodeOauthProviderPlugin)) {
     return providerPlugins;
   }
-  const oauth = await resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth());
+  const oauth = await resolveClaudeCodeAuthOrStored();
   if (!oauth?.accessToken) {
     return providerPlugins;
   }

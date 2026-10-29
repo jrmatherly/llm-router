@@ -1,4 +1,4 @@
-import { readClaudeCodeOauth, readGrokAuth, readKimiAuth, resolveClaudeCodeAuth, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
+import { ClaudeCodeRefreshAuthError, readClaudeCodeOauth, readGrokAuth, readKimiAuth, resolveClaudeCodeAuth, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
 import { applyOpenCodePublicFreeTierHeaders, isOpenCodePublicFreeTierPlugin, withOpenCodePublicFreeTierTools } from "@llmr/core/agents/local-providers/opencode-freetier";
 import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
 import { kimiAccessTokenExpired, kimiIdentityHeaders } from "@llmr/core/agents/local-providers/kimi";
@@ -152,7 +152,15 @@ async function authenticateClaudeCode(
   input: ProviderPluginInput,
   plugin: Record<string, unknown>
 ): Promise<ProviderHookResult> {
-  const auth = await resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth());
+  let auth;
+  try {
+    auth = await resolveClaudeCodeAuth();
+  } catch (error) {
+    if (error instanceof ClaudeCodeRefreshAuthError) {
+      return { error: error.message, ok: false };
+    }
+    auth = readClaudeCodeOauth();
+  }
   const token = auth?.accessToken || originalBearerToken(plugin);
   if (!token) {
     return { error: "Claude Code access token was not found.", ok: false };

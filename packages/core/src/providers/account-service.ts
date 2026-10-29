@@ -6,11 +6,10 @@ import {
   localAgentProviderApiKey,
   kimiAccessTokenExpired,
   kimiIdentityHeaders,
-  readClaudeCodeOauth,
   readCodexAuth,
   readGrokAuth,
   readKimiAuth,
-  resolveClaudeCodeAuth,
+  resolveClaudeCodeAuthOrStored,
   resolveGrokAuth,
   resolveKimiAuth,
   readZcodeLocalProviderCredential,
@@ -1828,7 +1827,7 @@ function localBearerAccountCredential(plugin: Record<string, unknown>): { apiKey
 
 async function localClaudeCodeAccountCredential(plugin: Record<string, unknown>): Promise<{ apiKey?: string; headers?: Record<string, string> }> {
   const headers = localProviderPluginAuthHeaders(plugin);
-  const oauth = await resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth());
+  const oauth = await resolveClaudeCodeAuthOrStored();
   const apiKey = oauth?.accessToken || readBearerToken(headers.authorization || headers.Authorization);
   return {
     apiKey,

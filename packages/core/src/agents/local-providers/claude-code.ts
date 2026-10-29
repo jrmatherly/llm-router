@@ -185,7 +185,7 @@ function claudeCodeScanDiagnostic(scan: ClaudeCodeLoginScan): string | undefined
 }
 
 export async function importClaudeCodeProvider(candidate: LocalAgentProviderCandidate, providerNames: string[]): Promise<LocalAgentProviderImportResult> {
-  const oauth = await resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth());
+  const oauth = await resolveClaudeCodeAuth();
   const token = oauth?.accessToken;
   if (!token) {
     throw new Error("Claude Code access token was not found.");
@@ -303,6 +303,10 @@ export async function resolveClaudeCodeAuth(): Promise<ClaudeCodeTokenSet | unde
     claudeCodeRefreshInFlight.set(key, refresh);
   }
   return refresh;
+}
+
+export async function resolveClaudeCodeAuthOrStored(): Promise<ClaudeCodeTokenSet | undefined> {
+  return resolveClaudeCodeAuth().catch(() => readClaudeCodeOauth());
 }
 
 // A peer (Claude Code itself) that refreshed first leaves our refresh token

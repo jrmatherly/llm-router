@@ -179,6 +179,48 @@ test("Claude Code local agent auth hook refreshes an expired token before authen
   });
 });
 
+test("Claude Code local agent auth hook fails the request when the refresh token was rejected", { skip: process.platform === "win32" }, async (t) => {
+  await withClaudeCodeHome(async (home) => {
+    await withPlatform("darwin", async () => {
+      await withFakeSecurityFailure(async () => {
+        writeClaudeCredentials(home, {
+          claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" }
+        });
+        t.mock.method(console, "warn", () => {});
+        stubClaudeCodeTokenEndpoint(t, { error: "invalid_grant" }, 401);
+
+        const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeCodeOauthProviderPlugin()] } }).providerHooks;
+        const result = await hook.authenticate({
+          upstreamRequest: { headers: {}, method: "POST", url: "https://api.anthropic.com/v1/messages" }
+        });
+        assert.equal(result.ok, false);
+        assert.match(result.error, /claude \/login/);
+        assert.doesNotMatch(result.error, /r1|expired/);
+      });
+    });
+  });
+});
+
+test("Claude Code local agent auth hook keeps the stored token after a transient refresh failure", { skip: process.platform === "win32" }, async (t) => {
+  await withClaudeCodeHome(async (home) => {
+    await withPlatform("darwin", async () => {
+      await withFakeSecurityFailure(async () => {
+        writeClaudeCredentials(home, {
+          claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" }
+        });
+        stubClaudeCodeTokenEndpoint(t, {}, 503);
+
+        const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeCodeOauthProviderPlugin()] } }).providerHooks;
+        const result = await hook.authenticate({
+          upstreamRequest: { headers: {}, method: "POST", url: "https://api.anthropic.com/v1/messages" }
+        });
+        assert.equal(result.ok, true);
+        assert.equal(result.value.headers.authorization, "Bearer expired");
+      });
+    });
+  });
+});
+
 test("Grok local agent request hook removes unsupported Responses tools and stale tool choice", () => {
   const [hook] = createGatewayPlugin({
     config: {
@@ -370,12 +412,12 @@ async function withFakeSecurityScript(body, run) {
   }
 }
 
-function stubClaudeCodeTokenEndpoint(t, body) {
+function stubClaudeCodeTokenEndpoint(t, body, status = 200) {
   resetClaudeCodeAuthStateForTest();
   const previousFetch = globalThis.fetch;
   const previousEndpoint = process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT;
   process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT = "http://127.0.0.1/claude/oauth/token";
-  globalThis.fetch = async () => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" }, status: 200 });
+  globalThis.fetch = async () => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" }, status });
   t.after(() => {
     globalThis.fetch = previousFetch;
     restoreEnv("LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT", previousEndpoint);

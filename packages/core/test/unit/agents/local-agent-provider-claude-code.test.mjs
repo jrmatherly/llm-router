@@ -12,7 +12,8 @@ import {
   importClaudeCodeProvider,
   readClaudeCodeOauth,
   resetClaudeCodeAuthStateForTest,
-  resolveClaudeCodeAuth
+  resolveClaudeCodeAuth,
+  resolveClaudeCodeAuthOrStored
 } from "@llmr/core/agents/local-providers/claude-code.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
@@ -731,6 +732,26 @@ test("importing Claude Code refreshes an expired access token first", { skip: pr
     const result = await importClaudeCodeProvider(claudeCodeCandidate(), []);
     assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer fresh");
     assert.equal(result.providerPlugins[1].auth.headers.authorization, "Bearer fresh");
+  });
+});
+
+test("importing Claude Code fails when the refresh token was rejected", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    t.mock.method(console, "warn", () => {});
+    stubTokenEndpoint(t, () => jsonResponse(400, { error: "invalid_grant" }));
+    await assert.rejects(importClaudeCodeProvider(claudeCodeCandidate(), []), (error) => error.name === "ClaudeCodeRefreshAuthError");
+  });
+});
+
+test("resolveClaudeCodeAuthOrStored returns the stored pair after any refresh failure", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
+    t.mock.method(console, "warn", () => {});
+    stubTokenEndpoint(t, () => jsonResponse(503, {}));
+    assert.equal((await resolveClaudeCodeAuthOrStored()).accessToken, "expired");
+    resetClaudeCodeAuthStateForTest();
+    stubTokenEndpoint(t, () => jsonResponse(401, { error: "invalid_grant" }));
+    assert.equal((await resolveClaudeCodeAuthOrStored()).accessToken, "expired");
+    await assert.rejects(resolveClaudeCodeAuth(), (error) => error.name === "ClaudeCodeRefreshAuthError");
   });
 });
 
