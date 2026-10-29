@@ -355,6 +355,43 @@ test("Claude Code local provider marks a custom-oauth keychain item as not refre
   });
 });
 
+test("Claude Code local provider never marks a file login refreshable while CLAUDE_CODE_CUSTOM_OAUTH_URL is set", { skip: process.platform === "win32" }, async () => {
+  await withClaudeCodeHome(async (home) => {
+    await withPlatform("darwin", async () => {
+      await withEnv("CLAUDE_CODE_CUSTOM_OAUTH_URL", "https://auth.example.test", async () => {
+        await withFakeSecurityFailure(async () => {
+          const credentialFile = writeClaudeCredentials(home, { claudeAiOauth: { accessToken: "a", refreshToken: "r", scopes: [] } });
+          const oauth = readClaudeCodeOauth();
+          assert.equal(oauth.scopes, undefined);
+          assert.deepEqual(oauth.store, { container: "claudeAiOauth", kind: "file", path: credentialFile, refreshable: false });
+        });
+      });
+    });
+  });
+});
+
+test("Claude Code local provider marks an accountless keychain read as not refreshable", { skip: process.platform === "win32" }, async () => {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      const record = JSON.stringify({ claudeAiOauth: { accessToken: "a", refreshToken: "r" } });
+      const body = [
+        `if [ "$1" = "dump-keychain" ]; then exit 44; fi`,
+        `for arg in "$@"; do if [ "$arg" = "-a" ]; then ${keychainNotFound}; fi; done`,
+        `cat <<'LLMR_ACCOUNTLESS'`,
+        record,
+        "LLMR_ACCOUNTLESS",
+        ""
+      ].join("\n");
+      await withFakeSecurityScript(body, async () => {
+        const oauth = readClaudeCodeOauth();
+        assert.equal(oauth.store.account, undefined);
+        assert.equal(oauth.store.refreshable, false);
+        assert.equal(oauth.store.service, "Claude Code-credentials");
+      });
+    });
+  });
+});
+
 test("claudeCodeAccessTokenExpired honors the 60 s margin, a missing expiresAt and a missing access token", () => {
   const now = Date.now();
   assert.equal(claudeCodeAccessTokenExpired({ accessToken: "a", expiresAt: now + 30_000 }), true);

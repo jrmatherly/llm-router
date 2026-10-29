@@ -204,15 +204,15 @@ export function claudeCodeAccessTokenExpired(auth: Pick<ClaudeCodeTokenSet, "acc
   return !auth.accessToken || (auth.expiresAt !== undefined && auth.expiresAt <= Date.now() + 60_000);
 }
 
-// A non-default OAuth environment's token endpoint (`-custom-oauth-` and any
-// other `-<env>-oauth-` the service pattern admits) is unknown here, and an
-// accountless read cannot be written back to the same item.
+// Not refreshable: a custom OAuth URL or a `-<env>-oauth-` service has a token
+// endpoint unknown here, and an accountless read cannot be written back to the
+// same item.
 function claudeCodeKeychainStore(candidate: ClaudeCodeKeychainCandidate, container: ClaudeCodeTokenContainer): ClaudeCodeTokenStore {
   return {
     account: candidate.account,
     container,
     kind: "keychain",
-    refreshable: candidate.account !== undefined && !/-[a-z]+-oauth-credentials/.test(candidate.service),
+    refreshable: !process.env.CLAUDE_CODE_CUSTOM_OAUTH_URL && candidate.account !== undefined && !/-[a-z]+-oauth-credentials/.test(candidate.service),
     service: candidate.service
   };
 }
@@ -242,7 +242,7 @@ export function scanClaudeCodeLogin(): ClaudeCodeLoginScan {
     scan.oauth = {
       ...credential,
       sourceFile,
-      store: { container: claudeAiOauth ? "claudeAiOauth" : "root", kind: "file", path: sourceFile, refreshable: true }
+      store: { container: claudeAiOauth ? "claudeAiOauth" : "root", kind: "file", path: sourceFile, refreshable: !process.env.CLAUDE_CODE_CUSTOM_OAUTH_URL }
     };
     return scan;
   }

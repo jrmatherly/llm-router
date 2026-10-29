@@ -158,7 +158,7 @@ export function readOauthTokenSetFields(value: unknown): OauthTokenSetFields | u
   if (!accessToken && !refreshToken) {
     return undefined;
   }
-  const scopes = Array.isArray(value.scopes) && value.scopes.every(scope => typeof scope === "string") ? value.scopes as string[] : undefined;
+  const scopes = Array.isArray(value.scopes) && value.scopes.length > 0 && value.scopes.every(scope => typeof scope === "string") ? value.scopes as string[] : undefined;
   return {
     accessToken,
     expiresAt: readFiniteNumber(value.expiresAt) ?? readFiniteNumber(value.expires_at),
