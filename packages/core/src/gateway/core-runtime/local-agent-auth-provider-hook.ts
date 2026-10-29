@@ -152,7 +152,7 @@ async function authenticateClaudeCode(
   input: ProviderPluginInput,
   plugin: Record<string, unknown>
 ): Promise<ProviderHookResult> {
-  let auth;
+  let auth: Awaited<ReturnType<typeof resolveClaudeCodeAuth>>;
   try {
     auth = await resolveClaudeCodeAuth();
   } catch (error) {

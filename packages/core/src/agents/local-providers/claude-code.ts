@@ -33,6 +33,7 @@ const claudeCodeKeychainAccountPattern = /^[a-zA-Z0-9._-]+$/;
 const claudeCodeKeychainServicePattern = /^Claude Code(?:-[a-z]+-oauth)?-credentials(?:-[0-9a-f]{8})?$/;
 // `security` exit code for errSecItemNotFound.
 const keychainItemNotFoundStatus = 44;
+const securityStdinLineLimit = 4032;
 const claudeCodeDefaultTokenEndpoint = "https://platform.claude.com/v1/oauth/token";
 const claudeCodeOauthClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 
@@ -328,8 +329,7 @@ function adoptPeerRotatedClaudeCodeAuth(state: ClaudeCodeCredentialState, stored
 }
 
 async function postClaudeCodeRefresh(auth: ClaudeCodeTokenSet, refreshToken: string): Promise<ClaudeCodeTokenSet> {
-  const configuredTimeout = Number(process.env.LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS);
-  const timeoutMs = configuredTimeout > 0 ? configuredTimeout : 15_000;
+  const timeoutMs = timeoutMsFromEnv("LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS", 15_000);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -443,12 +443,11 @@ export function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: 
   if (!claudeCodeKeychainAccountPattern.test(store.account) || !claudeCodeKeychainServicePattern.test(store.service)) {
     throw new Error("Claude Code keychain item name is not safe to write.");
   }
-  const configuredTimeout = Number(process.env.LLMR_CLAUDE_CODE_KEYCHAIN_WRITE_TIMEOUT_MS);
-  const timeout = configuredTimeout > 0 ? configuredTimeout : 10_000;
+  const timeout = timeoutMsFromEnv("LLMR_CLAUDE_CODE_KEYCHAIN_WRITE_TIMEOUT_MS", 10_000);
   const hex = Buffer.from(json, "utf8").toString("hex");
-  // `security -i` keeps the record off argv until the 4032-byte stdin cutoff, past which Claude Code itself falls back to argv.
+  // `security -i` keeps the record off argv until the stdin cutoff, past which Claude Code itself falls back to argv.
   const line = `add-generic-password -U -a "${store.account}" -s "${store.service}" -X ${hex}\n`;
-  if (Buffer.byteLength(line) > 4032) {
+  if (Buffer.byteLength(line) > securityStdinLineLimit) {
     const state = credentialState(store);
     if (!state.warnedArgv) {
       state.warnedArgv = true;
@@ -458,6 +457,11 @@ export function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: 
     return;
   }
   execFileSync("security", ["-i"], { input: line, stdio: ["pipe", "ignore", "ignore"], timeout });
+}
+
+function timeoutMsFromEnv(name: string, fallback: number): number {
+  const configured = Number(process.env[name]);
+  return Number.isInteger(configured) && configured > 0 ? configured : fallback;
 }
 
 function storeKey(store: ClaudeCodeTokenStore): string {
@@ -558,10 +562,8 @@ function claudeCodeKeychainAccount(): string {
   return user && claudeCodeKeychainAccountPattern.test(user) ? user : "claude-code-user";
 }
 
-// Newer macOS builds of the Claude Code CLI store credentials in the Keychain
-// instead of ~/.claude/.credentials.json. Reading one triggers the standard
-// macOS keychain access prompt (Allow / Always Allow); the user declining or
-// the item not existing both surface as a non-zero exit here.
+// Reading an item triggers the macOS Keychain access prompt; a declined prompt
+// and a missing item both surface as a non-zero `security` exit.
 function scanClaudeCodeKeychain(scan: ClaudeCodeLoginScan): ClaudeCodeTokenSet | undefined {
   if (process.platform !== "darwin") {
     return undefined;
@@ -599,12 +601,8 @@ function scanClaudeCodeKeychain(scan: ClaudeCodeLoginScan): ClaudeCodeTokenSet |
       }
       servicesRead.add(candidate.service);
       scan.inspected.push(`keychain:${label}`);
-      // Only `claudeAiOauth` is an Anthropic API credential. Both reads are
-      // root-level: a recursive search would descend into `mcpOAuth`, whose
-      // per-plugin records also carry `accessToken`, and that token imports
-      // cleanly as a provider and then 401s on every request. Restricting to
-      // root-level fields excludes *any* nested container, so a future sibling
-      // key cannot reintroduce the hole.
+      // Root-level reads only: `mcpOAuth` holds per-plugin records that also
+      // carry `accessToken`, and importing one yields a provider that 401s.
       const claudeAiOauth = readOauthTokenSetFields(record.claudeAiOauth);
       if (claudeAiOauth) {
         return { ...claudeAiOauth, sourceFile: `keychain:${label}`, store: claudeCodeKeychainStore(candidate, "claudeAiOauth") };
