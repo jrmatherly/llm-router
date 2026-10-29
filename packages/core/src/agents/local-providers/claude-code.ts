@@ -30,12 +30,25 @@ const keychainItemNotFoundStatus = 44;
 
 type ClaudeCodeKeychainCandidate = { account?: string; service: string };
 
+type ClaudeCodeTokenContainer = "claudeAiOauth" | "root";
+
+export type ClaudeCodeTokenStore =
+  | { account?: string; container: ClaudeCodeTokenContainer; kind: "keychain"; refreshable: boolean; service: string }
+  | { container: ClaudeCodeTokenContainer; kind: "file"; path: string; refreshable: boolean };
+
+export type ClaudeCodeTokenSet = OAuthTokenSet & {
+  expiresAt?: number;
+  refreshTokenExpiresAt?: number;
+  scopes?: string[];
+  store: ClaudeCodeTokenStore;
+};
+
 export type ClaudeCodeLoginScan = {
   /** Reads that failed, with the `security` stderr that explains why. */
   errors: string[];
   /** Locations that parsed successfully. */
   inspected: string[];
-  oauth?: OAuthTokenSet;
+  oauth?: ClaudeCodeTokenSet;
   /** Locations that parsed but carry no OAuth token. */
   tokenless: string[];
 };
@@ -183,8 +196,25 @@ function claudeCodeProviderAccountConfig(): ProviderAccountConfig {
   };
 }
 
-export function readClaudeCodeOauth(): OAuthTokenSet | undefined {
+export function readClaudeCodeOauth(): ClaudeCodeTokenSet | undefined {
   return scanClaudeCodeLogin().oauth;
+}
+
+export function claudeCodeAccessTokenExpired(auth: Pick<ClaudeCodeTokenSet, "accessToken" | "expiresAt">): boolean {
+  return !auth.accessToken || (auth.expiresAt !== undefined && auth.expiresAt <= Date.now() + 60_000);
+}
+
+// A non-default OAuth environment's token endpoint (`-custom-oauth-` and any
+// other `-<env>-oauth-` the service pattern admits) is unknown here, and an
+// accountless read cannot be written back to the same item.
+function claudeCodeKeychainStore(candidate: ClaudeCodeKeychainCandidate, container: ClaudeCodeTokenContainer): ClaudeCodeTokenStore {
+  return {
+    account: candidate.account,
+    container,
+    kind: "keychain",
+    refreshable: candidate.account !== undefined && !/-[a-z]+-oauth-credentials/.test(candidate.service),
+    service: candidate.service
+  };
 }
 
 export function scanClaudeCodeLogin(): ClaudeCodeLoginScan {
@@ -203,15 +233,16 @@ export function scanClaudeCodeLogin(): ClaudeCodeLoginScan {
     scan.inspected.push(sourceFile);
     // Root-level fields only, same reasoning as the keychain path below: Claude
     // Code writes this file with the identical record shape, mcpOAuth included.
-    const credential = readOauthTokenSetFields(record.claudeAiOauth) ?? readOauthTokenSetFields(record);
-    if (!credential?.accessToken && !credential?.refreshToken) {
+    const claudeAiOauth = readOauthTokenSetFields(record.claudeAiOauth);
+    const credential = claudeAiOauth ?? readOauthTokenSetFields(record);
+    if (!credential) {
       scan.tokenless.push(`${sourceFile} (keys: ${Object.keys(record).join(", ")})`);
       continue;
     }
     scan.oauth = {
-      accessToken: credential.accessToken,
-      refreshToken: credential.refreshToken,
-      sourceFile
+      ...credential,
+      sourceFile,
+      store: { container: claudeAiOauth ? "claudeAiOauth" : "root", kind: "file", path: sourceFile, refreshable: true }
     };
     return scan;
   }
@@ -270,7 +301,7 @@ function claudeCodeKeychainAccount(): string {
 // instead of ~/.claude/.credentials.json. Reading one triggers the standard
 // macOS keychain access prompt (Allow / Always Allow); the user declining or
 // the item not existing both surface as a non-zero exit here.
-function scanClaudeCodeKeychain(scan: ClaudeCodeLoginScan): OAuthTokenSet | undefined {
+function scanClaudeCodeKeychain(scan: ClaudeCodeLoginScan): ClaudeCodeTokenSet | undefined {
   if (process.platform !== "darwin") {
     return undefined;
   }
@@ -290,7 +321,7 @@ function scanClaudeCodeKeychain(scan: ClaudeCodeLoginScan): OAuthTokenSet | unde
 
   const attempted = new Set<string>();
   const servicesRead = new Set<string>();
-  let legacyRootMatch: OAuthTokenSet | undefined;
+  let legacyRootMatch: ClaudeCodeTokenSet | undefined;
   for (const buildTier of tiers) {
     for (const candidate of buildTier()) {
       const key = `${candidate.service}\u0000${candidate.account ?? ""}`;
@@ -315,20 +346,12 @@ function scanClaudeCodeKeychain(scan: ClaudeCodeLoginScan): OAuthTokenSet | unde
       // key cannot reintroduce the hole.
       const claudeAiOauth = readOauthTokenSetFields(record.claudeAiOauth);
       if (claudeAiOauth) {
-        return {
-          accessToken: claudeAiOauth.accessToken,
-          refreshToken: claudeAiOauth.refreshToken,
-          sourceFile: `keychain:${label}`
-        };
+        return { ...claudeAiOauth, sourceFile: `keychain:${label}`, store: claudeCodeKeychainStore(candidate, "claudeAiOauth") };
       }
       // Pre-`claudeAiOauth` layout, where the tokens sat at the record root.
       const legacyRoot = readOauthTokenSetFields(record);
       if (legacyRoot) {
-        legacyRootMatch ??= {
-          accessToken: legacyRoot.accessToken,
-          refreshToken: legacyRoot.refreshToken,
-          sourceFile: `keychain:${label}`
-        };
+        legacyRootMatch ??= { ...legacyRoot, sourceFile: `keychain:${label}`, store: claudeCodeKeychainStore(candidate, "root") };
         continue;
       }
       scan.tokenless.push(`keychain:${label} (keys: ${Object.keys(record).join(", ")})`);

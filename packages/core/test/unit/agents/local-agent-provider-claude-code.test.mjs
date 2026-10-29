@@ -5,7 +5,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, w
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { claudeCodeCandidate, importClaudeCodeProvider } from "@llmr/core/agents/local-providers/claude-code.ts";
+import { claudeCodeAccessTokenExpired, claudeCodeCandidate, importClaudeCodeProvider, readClaudeCodeOauth } from "@llmr/core/agents/local-providers/claude-code.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
 import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/local-agent-auth-provider-hook.ts";
@@ -50,6 +50,7 @@ test("Claude Code local provider falls back to file credentials when Keychain is
         assert.equal(candidate.status, "available");
         assert.equal(candidate.importable, true);
         assert.equal(candidate.sourceFile, credentialFile);
+        assert.deepEqual(readClaudeCodeOauth().store, { container: "root", kind: "file", path: credentialFile, refreshable: true });
 
         const result = importClaudeCodeProvider(candidate, []);
         assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer file-access-token");
@@ -65,6 +66,7 @@ test("Core gateway config replaces imported Claude Code OAuth token with live ma
         access_token: "keychain-runtime-token",
         refresh_token: "keychain-refresh-token"
       }, async () => {
+        assert.equal(readClaudeCodeOauth().store.container, "root");
         const config = createDefaultAppConfig();
         config.providerPlugins = [
           {
@@ -323,6 +325,42 @@ test("Claude Code local provider reports a missing candidate when no keychain it
       });
     });
   });
+});
+
+test("Claude Code local provider carries expiry, scopes and store from the keychain record", { skip: process.platform === "win32" }, async () => {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      await withFakeKeychain({ claudeAiOauth: { accessToken: "a", refreshToken: "r", expiresAt: 1793249706961, refreshTokenExpiresAt: 1800000000000, scopes: ["user:inference"] }, mcpOAuth: {} }, async () => {
+        const oauth = readClaudeCodeOauth();
+        assert.equal(oauth.expiresAt, 1793249706961);
+        assert.equal(oauth.refreshTokenExpiresAt, 1800000000000);
+        assert.deepEqual(oauth.scopes, ["user:inference"]);
+        assert.deepEqual(oauth.store, { account: keychainAccount, container: "claudeAiOauth", kind: "keychain", refreshable: true, service: "Claude Code-credentials" });
+      });
+    });
+  });
+});
+
+test("Claude Code local provider marks a custom-oauth keychain item as not refreshable", { skip: process.platform === "win32" }, async () => {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      await withEnv("CLAUDE_CODE_CUSTOM_OAUTH_URL", "https://auth.example.test", async () => {
+        await withFakeKeychain({ claudeAiOauth: { accessToken: "a", expiresAt: "2026-10-28T00:00:00Z" } }, async () => {
+          const oauth = readClaudeCodeOauth();
+          assert.equal(oauth.expiresAt, undefined);
+          assert.deepEqual(oauth.store, { account: keychainAccount, container: "claudeAiOauth", kind: "keychain", refreshable: false, service: "Claude Code-custom-oauth-credentials" });
+        });
+      });
+    });
+  });
+});
+
+test("claudeCodeAccessTokenExpired honors the 60 s margin, a missing expiresAt and a missing access token", () => {
+  const now = Date.now();
+  assert.equal(claudeCodeAccessTokenExpired({ accessToken: "a", expiresAt: now + 30_000 }), true);
+  assert.equal(claudeCodeAccessTokenExpired({ accessToken: "a", expiresAt: now + 120_000 }), false);
+  assert.equal(claudeCodeAccessTokenExpired({ accessToken: "a" }), false);
+  assert.equal(claudeCodeAccessTokenExpired({ expiresAt: now + 120_000 }), true);
 });
 
 test("fake keychain records security -i writes and exposes the record", { skip: process.platform === "win32" }, async () => {
