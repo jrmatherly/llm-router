@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type {
@@ -36,9 +37,12 @@ const claudeCodeDefaultTokenEndpoint = "https://platform.claude.com/v1/oauth/tok
 const claudeCodeOauthClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 
 const claudeCodeRefreshInFlight = new Map<string, Promise<ClaudeCodeTokenSet>>();
-const claudeCodeRefreshed = new Map<string, { auth: ClaudeCodeTokenSet; persisted: boolean; postedRefreshToken: string }>();
+const claudeCodeRefreshed = new Map<string, ClaudeCodeRefreshedEntry>();
 // Keyed by refresh token, so a token the server rejected is never posted again.
 const claudeCodeRejectedRefreshTokens = new Map<string, { code?: string; status: number }>();
+const claudeCodeWriteBackWarned = new Set<string>();
+
+type ClaudeCodeRefreshedEntry = { auth: ClaudeCodeTokenSet; persisted: boolean; postedRefreshToken: string };
 
 type ClaudeCodeKeychainCandidate = { account?: string; service: string };
 
@@ -232,6 +236,7 @@ export function resetClaudeCodeAuthStateForTest(): void {
   claudeCodeRefreshInFlight.clear();
   claudeCodeRefreshed.clear();
   claudeCodeRejectedRefreshTokens.clear();
+  claudeCodeWriteBackWarned.clear();
 }
 
 export function claudeCodeTokenEndpoint(): string {
@@ -244,11 +249,17 @@ export async function resolveClaudeCodeAuth(): Promise<ClaudeCodeTokenSet | unde
   if (!auth?.refreshToken) {
     return auth;
   }
-  const storedRefreshToken = auth.refreshToken;
+  let storedRefreshToken = auth.refreshToken;
   const key = storeKey(auth.store);
   const refreshed = claudeCodeRefreshed.get(key);
   // While the store still holds the token we consumed, the cached pair is the live one.
-  const current = refreshed?.postedRefreshToken === storedRefreshToken ? refreshed.auth : auth;
+  let current = refreshed?.postedRefreshToken === storedRefreshToken ? refreshed.auth : auth;
+  if (refreshed && current === refreshed.auth && !refreshed.persisted) {
+    if (persistRefreshedClaudeCodeAuth(refreshed) === "adopted") {
+      current = claudeCodeRefreshed.get(key)?.auth ?? current;
+      storedRefreshToken = current.refreshToken ?? storedRefreshToken;
+    }
+  }
   const refreshToken = current.refreshToken ?? storedRefreshToken;
   if (!claudeCodeAccessTokenExpired(current) || !auth.store.refreshable) {
     return current;
@@ -261,11 +272,13 @@ export async function resolveClaudeCodeAuth(): Promise<ClaudeCodeTokenSet | unde
   let refresh = claudeCodeRefreshInFlight.get(key);
   if (!refresh) {
     refresh = (async () => {
+      let entry: ClaudeCodeRefreshedEntry;
       try {
-        return await refreshClaudeCodeAuth(current, refreshToken, storedRefreshToken);
+        entry = await refreshClaudeCodeAuth(current, refreshToken, storedRefreshToken);
       } catch (error) {
         return adoptPeerRotatedClaudeCodeAuth(auth, refreshToken, error);
       }
+      return persistRefreshedClaudeCodeAuth(entry) === "adopted" ? claudeCodeRefreshed.get(key)?.auth ?? entry.auth : entry.auth;
     })().finally(() => {
       claudeCodeRefreshInFlight.delete(key);
     });
@@ -290,7 +303,7 @@ function adoptPeerRotatedClaudeCodeAuth(stored: ClaudeCodeTokenSet, postedRefres
 
 // `storedRefreshToken` is the token the store holds; the cached pair stays
 // tied to it until the store changes, however many times the cache refreshes.
-async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet, refreshToken: string, storedRefreshToken: string): Promise<ClaudeCodeTokenSet> {
+async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet, refreshToken: string, storedRefreshToken: string): Promise<ClaudeCodeRefreshedEntry> {
   const configuredTimeout = Number(process.env.LLMR_CLAUDE_CODE_OAUTH_REFRESH_TIMEOUT_MS);
   const timeoutMs = configuredTimeout > 0 ? configuredTimeout : 15_000;
   const controller = new AbortController();
@@ -330,8 +343,9 @@ async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet, refreshToken: str
       refreshTokenExpiresAt: refreshExpiresIn === undefined ? auth.refreshTokenExpiresAt : Date.now() + refreshExpiresIn * 1000,
       scopes: scope ? scope.split(" ").filter(Boolean) : auth.scopes
     };
-    claudeCodeRefreshed.set(storeKey(auth.store), { auth: next, persisted: false, postedRefreshToken: storedRefreshToken });
-    return next;
+    const entry = { auth: next, persisted: false, postedRefreshToken: storedRefreshToken };
+    claudeCodeRefreshed.set(storeKey(auth.store), entry);
+    return entry;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error(`Claude Code OAuth token refresh timed out after ${timeoutMs}ms.`);
@@ -340,6 +354,81 @@ async function refreshClaudeCodeAuth(auth: ClaudeCodeTokenSet, refreshToken: str
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Compare-and-swap: the store is re-read just before the write, so a pair a peer rotated since our refresh is adopted, not overwritten.
+function persistRefreshedClaudeCodeAuth(entry: ClaudeCodeRefreshedEntry): "adopted" | "failed" | "written" {
+  const { auth } = entry;
+  const { store } = auth;
+  const key = storeKey(store);
+  try {
+    const record = readClaudeCodeStoreRecord(store);
+    if (!record) {
+      throw new Error("Claude Code login record is gone.");
+    }
+    const container = store.container === "root" ? record : isRecord(record.claudeAiOauth) ? record.claudeAiOauth : {};
+    const onDisk = readOauthTokenSetFields(container);
+    if (onDisk?.refreshToken && onDisk.refreshToken !== entry.postedRefreshToken) {
+      claudeCodeRefreshed.set(key, { auth: { ...onDisk, sourceFile: auth.sourceFile, store }, persisted: true, postedRefreshToken: onDisk.refreshToken });
+      return "adopted";
+    }
+    const tokens = {
+      ...container,
+      accessToken: auth.accessToken,
+      expiresAt: auth.expiresAt,
+      refreshToken: auth.refreshToken,
+      ...(auth.refreshTokenExpiresAt === undefined ? {} : { refreshTokenExpiresAt: auth.refreshTokenExpiresAt }),
+      ...(auth.scopes === undefined ? {} : { scopes: auth.scopes })
+    };
+    writeClaudeCodeStoreRecord(store, store.container === "root" ? tokens : { ...record, claudeAiOauth: tokens });
+    entry.persisted = true;
+    entry.postedRefreshToken = auth.refreshToken ?? entry.postedRefreshToken;
+    return "written";
+  } catch (error) {
+    if (!claudeCodeWriteBackWarned.has(key)) {
+      claudeCodeWriteBackWarned.add(key);
+      const failure = error as { code?: string; status?: number };
+      const reason = store.kind === "keychain" ? `security exited ${failure.status ?? "unknown"}` : failure.code ?? "write failed";
+      console.warn(`Claude Code login could not be written back to ${store.kind === "keychain" ? auth.sourceFile : store.path} (${reason})`);
+    }
+    return "failed";
+  }
+}
+
+function readClaudeCodeStoreRecord(store: ClaudeCodeTokenStore): Record<string, unknown> | undefined {
+  if (store.kind === "file") {
+    return readJsonRecord(store.path);
+  }
+  return readClaudeCodeKeychainRecord(store, { errors: [], inspected: [], tokenless: [] }, store.service);
+}
+
+function writeClaudeCodeStoreRecord(store: ClaudeCodeTokenStore, record: Record<string, unknown>): void {
+  const json = JSON.stringify(record);
+  if (store.kind === "file") {
+    const target = realpathSync(store.path);
+    const tmp = `${target}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+    try {
+      writeFileSync(tmp, json, { mode: 0o600 });
+      renameSync(tmp, target);
+    } catch (error) {
+      try {
+        rmSync(tmp, { force: true });
+      } catch {}
+      throw error;
+    }
+    return;
+  }
+  if (store.account === undefined) {
+    throw new Error("Claude Code keychain item has no account.");
+  }
+  const hex = Buffer.from(json, "utf8").toString("hex");
+  // `security -i` takes the command on stdin, so the record never shows in argv (`ps`); `-w` would put it there in plaintext.
+  const line = `add-generic-password -U -a "${store.account}" -s "${store.service}" -X ${hex}\n`;
+  if (Buffer.byteLength(line) > 4032 || /["\\]/.test(store.account)) {
+    execFileSync("security", ["add-generic-password", "-U", "-a", store.account, "-s", store.service, "-X", hex], { stdio: ["ignore", "ignore", "ignore"] });
+    return;
+  }
+  execFileSync("security", ["-i"], { input: line, stdio: ["pipe", "ignore", "ignore"] });
 }
 
 function storeKey(store: ClaudeCodeTokenStore): string {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -480,7 +480,7 @@ test("Claude Code local provider serves the cached fresh pair instead of posting
 test("Claude Code local provider refreshes an expired cached pair with the cached refresh token", { skip: process.platform === "win32" }, async (t) => {
   await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
     const posted = [];
-    const endpoint = stubTokenEndpoint(t, (input, init) => {
+    const endpoint = stubTokenEndpoint(t, (_input, init) => {
       posted.push(JSON.parse(init.body).refresh_token);
       return posted.length === 1
         ? jsonResponse(200, { access_token: "fresh", expires_in: 0, refresh_token: "r2" })
@@ -566,6 +566,98 @@ test("Claude Code local provider never refreshes an unrefreshable store", { skip
         assert.equal(auth.expiresAt, expiresAt);
         assert.equal(auth.store.refreshable, false);
       });
+    });
+  });
+});
+
+test("refreshed Claude Code tokens are written to the keychain through security -i in Claude Code's own shape", { skip: process.platform === "win32" }, async (t) => {
+  const originalRecord = {
+    claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1", scopes: ["user:inference", "user:profile"], subscriptionType: "max" },
+    mcpOAuth: { "plugin:github|1": { accessToken: "mcp-plugin-token", refreshToken: "mcp-plugin-refresh" } }
+  };
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      await withFakeKeychain(originalRecord, async (keychain) => {
+        stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2", refresh_token_expires_in: 86400, scope: "user:inference" }));
+        await resolveClaudeCodeAuth();
+        const [call] = keychain.calls;
+        assert.deepEqual(call.argv, ["-i"]);
+        assert.match(call.stdin, /^add-generic-password -U -a "[^"]+" -s "Claude Code-credentials" -X [0-9a-f]+\n$/);
+        const written = keychain.read();
+        assert.equal(written.claudeAiOauth.accessToken, "fresh");
+        assert.equal(written.claudeAiOauth.refreshToken, "r2");
+        assert.equal(written.claudeAiOauth.subscriptionType, "max");
+        assert.ok(written.claudeAiOauth.refreshTokenExpiresAt > Date.now());
+        assert.deepEqual(written.claudeAiOauth.scopes, ["user:inference"]);
+        assert.deepEqual(written.mcpOAuth, originalRecord.mcpOAuth);
+      });
+    });
+  });
+});
+
+test("a keychain record over the stdin limit is written on argv", { skip: process.platform === "win32" }, async (t) => {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      await withFakeKeychain({ claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" }, mcpOAuth: { padding: "x".repeat(2100) } }, async (keychain) => {
+        stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+        await resolveClaudeCodeAuth();
+        const [call] = keychain.calls;
+        assert.equal(call.argv[0], "add-generic-password");
+        assert.equal(call.stdin, "");
+        assert.equal(keychain.read().claudeAiOauth.refreshToken, "r2");
+        assert.equal(keychain.read().mcpOAuth.padding.length, 2100);
+      });
+    });
+  });
+});
+
+test("refreshed Claude Code tokens are written to .credentials.json atomically with mode 0600", { skip: process.platform === "win32" }, async (t) => {
+  await withClaudeCodeHome(async (home) => {
+    await withPlatform("darwin", async () => {
+      await withFakeSecurityFailure(async () => {
+        const credentialFile = writeClaudeCredentials(home, { claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1", subscriptionType: "pro" }, mcpOAuth: { keep: true } });
+        stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+        await resolveClaudeCodeAuth();
+        const written = JSON.parse(readFileSync(credentialFile, "utf8"));
+        assert.equal(written.claudeAiOauth.accessToken, "fresh");
+        assert.equal(written.claudeAiOauth.refreshToken, "r2");
+        assert.equal(written.claudeAiOauth.subscriptionType, "pro");
+        assert.deepEqual(written.mcpOAuth, { keep: true });
+        assert.equal(statSync(credentialFile).mode & 0o777, 0o600);
+        assert.deepEqual(readdirSync(path.dirname(credentialFile)), [".credentials.json"]);
+      });
+    });
+  });
+});
+
+test("a refreshed Claude Code token is not written over a pair a peer rotated meanwhile", { skip: process.platform === "win32" }, async (t) => {
+  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async (keychain) => {
+    stubTokenEndpoint(t, () => {
+      keychain.write({ claudeAiOauth: { accessToken: "peer", expiresAt: Date.now() + 3_600_000, refreshToken: "r9" } });
+      return jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" });
+    });
+    const auth = await resolveClaudeCodeAuth();
+    assert.equal(auth.accessToken, "peer");
+    assert.equal(keychain.calls.length, 0);
+    assert.equal((await resolveClaudeCodeAuth()).accessToken, "peer");
+  });
+});
+
+test("a failed keychain write keeps the fresh pair, retries only the write and warns once", { skip: process.platform === "win32" }, async (t) => {
+  await withClaudeCodeHome(async () => {
+    await withPlatform("darwin", async () => {
+      await withFakeKeychain({ claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" } }, async (keychain) => {
+        const warnings = [];
+        t.mock.method(console, "warn", (message) => warnings.push(String(message)));
+        const endpoint = stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
+        assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+        assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
+        assert.equal(endpoint.calls, 1);
+        assert.equal(keychain.calls.length, 2);
+        assert.equal(warnings.length, 1);
+        assert.equal(warnings[0], `Claude Code login could not be written back to keychain:Claude Code-credentials (${keychainAccount}) (security exited 51)`);
+        assert.doesNotMatch(warnings[0], /fresh|r2|[0-9a-f]{40}/);
+      }, { writeExitCode: 51 });
     });
   });
 });
