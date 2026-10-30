@@ -958,9 +958,6 @@ function resolveInstalledBrowserApps(config: AppConfig, runtimeApps: InstalledBr
     if (plugin.enabled === false) {
       continue;
     }
-    if (plugin.id === "claude-design") {
-      continue;
-    }
     for (const app of configuredBrowserAppsForPlugin(plugin.id, plugin.apps)) {
       const normalized = normalizeConfiguredBrowserApp(config, plugin.id, app, apps.size + 1);
       if (normalized) {
@@ -969,9 +966,6 @@ function resolveInstalledBrowserApps(config: AppConfig, runtimeApps: InstalledBr
     }
   }
   for (const app of runtimeApps) {
-    if (app.pluginId === "claude-design") {
-      continue;
-    }
     apps.set(`${app.pluginId}:${app.id}`, { ...app });
   }
   return [...apps.values()];

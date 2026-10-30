@@ -200,13 +200,6 @@ export const docPages: DocPageDef[] = [
     source: "configuration/agents/workbuddy.md",
   },
   {
-    key: "configuration/agents/claude-design",
-    section: "configuration",
-    label: "Claude Design",
-    path: "/en/configuration/agents/claude-design/",
-    source: "configuration/agents/claude-design.md",
-  },
-  {
     key: "configuration/api-keys",
     section: "configuration",
     label: "API keys",
@@ -483,7 +476,6 @@ export const docSections: DocSectionDef[] = [
           pageItem("configuration/agents/pi"),
           pageItem("configuration/agents/zcode"),
           pageItem("configuration/agents/workbuddy"),
-          pageItem("configuration/agents/claude-design"),
         ],
       },
       {

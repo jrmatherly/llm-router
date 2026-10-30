@@ -113,7 +113,7 @@ export function ProfileView({
             ) : null}
             {visibleProfiles.map(({ profile, index }) => {
               const scope = normalizeProfileScope(profile.scope);
-              const surface = profile.agent === "zcode" || profile.agent === "claude-design" ? "app" : normalizeProfileSurface(profile.surface);
+              const surface = profile.agent === "zcode" ? "app" : normalizeProfileSurface(profile.surface);
               const openSurfaces = profileOpenSurfaces(profile);
               const summaryItems = profileSummaryItems(profile, config);
               const cliBusy = profileActionBusy?.profileId === profile.id && profileActionBusy.surface === "cli";
@@ -735,8 +735,6 @@ export function AddProfileForm({
     : allAllowedModelValues;
   const modelPlaceholder = firstProfileModelPlaceholder(modelProviderOptions);
   const validation = profileDraftValidation(draft, botConfigs, availableModelCount);
-  const isClaudeDesignProfile = draft.agent === "claude-design";
-  const showAdvancedSettings = !isClaudeDesignProfile;
   const optionalFieldLabel = "Optional";
   const requiredFieldLabel = "Required";
   const advancedIssueCount = [
@@ -803,18 +801,6 @@ export function AddProfileForm({
                     botEnabled: false,
                     surface: "cli"
                   }
-              : agent === "claude-design"
-                ? {
-                    agent,
-                    availableModels: [],
-                    botConfigId: "",
-                    botConfigured: true,
-                    botEnabled: false,
-                    envRows: [],
-                    model: "",
-                    scope: "llmr",
-                    surface: "app"
-                  }
               : agent === "workbuddy" || agent === "zcode"
                   ? { agent, surface: "app" }
                   : { agent })}
@@ -829,7 +815,6 @@ export function AddProfileForm({
           <SelectControl
             onChange={(scope) => onChange({ scope: normalizeProfileScope(scope) })}
             options={draft.agent === "grok" || draft.agent === "kimi" || draft.agent === "pi"
-                || draft.agent === "claude-design"
                 ? profileScopeOptions.filter((option) => option.value === "llmr")
                 : profileScopeOptions}
             value={draft.scope}
@@ -851,7 +836,7 @@ export function AddProfileForm({
                     surface: nextSurface
                   });
             }}
-            options={draft.agent === "workbuddy" || draft.agent === "zcode" || draft.agent === "claude-design"
+            options={draft.agent === "workbuddy" || draft.agent === "zcode"
                 ? profileSurfaceOptions.filter((option) => option.value === "app")
                 : draft.agent === "grok" || draft.agent === "kimi" || draft.agent === "pi" || draft.agent === "kilo"
                     ? profileSurfaceOptions.filter((option) => option.value === "cli")
@@ -950,7 +935,7 @@ export function AddProfileForm({
               {validation.kimiModel ? <ProfileFieldHint>{validation.kimiModel}</ProfileFieldHint> : null}
             </Field>
           </>
-        ) : draft.agent === "claude-design" ? null : (
+        ) : (
           <>
             <Field className="sm:col-span-2" label={draft.agent === "zcode" ? "ZCode model" : draft.agent === "opencode" ? "OpenCode model" : draft.agent === "kilo" ? "Kilo model" : draft.agent === "workbuddy" ? "Workbuddy model" : "Codex model"} requirement="optional" requirementLabel={optionalFieldLabel}>
               <ModelSelector
@@ -963,115 +948,113 @@ export function AddProfileForm({
             </Field>
           </>
         )}
-        {showAdvancedSettings ? (
-          <div className="sm:col-span-2">
-            <button
-              className={cn(
-                "flex min-h-9 w-full min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-muted/20 px-3 py-2 text-left outline-none transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring/25",
-                advancedOpen && "rounded-b-none"
-              )}
-              onClick={() => setAdvancedOpen((current) => !current)}
-              type="button"
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-[12px] font-semibold text-foreground">Advanced settings</span>
-                <span className={cn("mt-0.5 block truncate text-[11px]", advancedIssueCount > 0 ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground")}>
-                  {advancedSummary}
-                </span>
+        <div className="sm:col-span-2">
+          <button
+            className={cn(
+              "flex min-h-9 w-full min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-muted/20 px-3 py-2 text-left outline-none transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring/25",
+              advancedOpen && "rounded-b-none"
+            )}
+            onClick={() => setAdvancedOpen((current) => !current)}
+            type="button"
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-[12px] font-semibold text-foreground">Advanced settings</span>
+              <span className={cn("mt-0.5 block truncate text-[11px]", advancedIssueCount > 0 ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground")}>
+                {advancedSummary}
               </span>
-              <span className="flex shrink-0 items-center gap-2">
-                {advancedIssueCount > 0 ? <Badge variant="warning">{advancedIssueCount}</Badge> : null}
-                <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", advancedOpen && "rotate-180")} />
-              </span>
-            </button>
-            <AnimatePresence initial={false}>
-              {advancedOpen ? (
-                <motion.div
-                  animate={{ height: "auto", opacity: 1 }}
-                  className="overflow-hidden"
-                  exit={{ height: 0, opacity: 0 }}
-                  initial={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.16 }}
-                >
-                  <div className="grid grid-cols-1 gap-3 rounded-b-md border border-t-0 border-border bg-background/60 p-3 sm:grid-cols-2">
-                    {draft.agent === "claude-code" || draft.agent === "codex" ? (
-                      <ProfileEnhancedRouteSetting draft={draft} onChange={onChange} />
-                    ) : null}
-                    <ProfileRoutingSettings
-                      draft={draft}
-                      onChange={onChange}
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              {advancedIssueCount > 0 ? <Badge variant="warning">{advancedIssueCount}</Badge> : null}
+              <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", advancedOpen && "rotate-180")} />
+            </span>
+          </button>
+          <AnimatePresence initial={false}>
+            {advancedOpen ? (
+              <motion.div
+                animate={{ height: "auto", opacity: 1 }}
+                className="overflow-hidden"
+                exit={{ height: 0, opacity: 0 }}
+                initial={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.16 }}
+              >
+                <div className="grid grid-cols-1 gap-3 rounded-b-md border border-t-0 border-border bg-background/60 p-3 sm:grid-cols-2">
+                  {draft.agent === "claude-code" || draft.agent === "codex" ? (
+                    <ProfileEnhancedRouteSetting draft={draft} onChange={onChange} />
+                  ) : null}
+                  <ProfileRoutingSettings
+                    draft={draft}
+                    onChange={onChange}
+                    providers={providers}
+                  />
+                  <Field className="sm:col-span-2" label="Allowed model list" requirement="optional" requirementLabel={optionalFieldLabel}>
+                    <ModelMultiSelector
                       providers={providers}
+                      hasExplicitSelection={hasExplicitAllowedModelSelection}
+                      requiredValues={draft.model.trim() ? [draft.model] : []}
+                      value={allowedModelSelectorValue}
+                      virtualModelProfiles={virtualModelProfiles}
+                      onChange={(availableModels) => {
+                        const nextAvailableModels = normalizeAllowedModelSelection(availableModels, allAllowedModelValues);
+                        onChange({
+                          availableModels: nextAvailableModels,
+                          model: nextAvailableModels.length === 0 || nextAvailableModels.includes(draft.model) ? draft.model : nextAvailableModels[0] ?? ""
+                        });
+                      }}
                     />
-                    <Field className="sm:col-span-2" label="Allowed model list" requirement="optional" requirementLabel={optionalFieldLabel}>
-                      <ModelMultiSelector
-                        providers={providers}
-                        hasExplicitSelection={hasExplicitAllowedModelSelection}
-                        requiredValues={draft.model.trim() ? [draft.model] : []}
-                        value={allowedModelSelectorValue}
-                        virtualModelProfiles={virtualModelProfiles}
-                        onChange={(availableModels) => {
-                          const nextAvailableModels = normalizeAllowedModelSelection(availableModels, allAllowedModelValues);
-                          onChange({
-                            availableModels: nextAvailableModels,
-                            model: nextAvailableModels.length === 0 || nextAvailableModels.includes(draft.model) ? draft.model : nextAvailableModels[0] ?? ""
-                          });
-                        }}
+                    {validation.allowedModels ? <ProfileFieldHint>{validation.allowedModels}</ProfileFieldHint> : null}
+                  </Field>
+                  {draft.agent === "codex" ? (
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
+                      <span className="text-[12px] font-medium">Show all sessions</span>
+                      <Toggle checked={draft.showAllSessions} onChange={(showAllSessions) => onChange({ showAllSessions })} />
+                    </div>
+                  ) : null}
+                  {draft.agent === "claude-code" || draft.agent === "codex" ? (
+                    <div className="sm:col-span-2">
+                      <ManagedCompactSetting
+                        agent={draft.agent}
+                        checked={draft.managedCompact}
+                        onChange={(managedCompact) => onChange({ managedCompact })}
                       />
-                      {validation.allowedModels ? <ProfileFieldHint>{validation.allowedModels}</ProfileFieldHint> : null}
+                    </div>
+                  ) : null}
+                  {draft.surface !== "cli" ? (
+                    <div className="sm:col-span-2">
+                      <BotGatewaySelectForm botConfigs={botConfigs} draft={draft} onChange={onChange} onCreateBot={onCreateBot} />
+                      {validation.bot ? <ProfileFieldHint>{validation.bot}</ProfileFieldHint> : null}
+                      {validation.handoff ? <ProfileFieldHint>{validation.handoff}</ProfileFieldHint> : null}
+                    </div>
+                  ) : null}
+                  {showAppPathField && appPathLabel ? (
+                    <Field className="sm:col-span-2" label={appPathLabel} requirement="optional" requirementLabel={optionalFieldLabel}>
+                      <Input
+                        className={appPathDragActive ? "border-primary bg-primary/5" : undefined}
+                        placeholder="Drop the app here or paste the executable path"
+                        value={draft.appPath}
+                        onChange={(event) => onChange({ appPath: event.target.value })}
+                      />
                     </Field>
-                    {draft.agent === "codex" ? (
-                      <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
-                        <span className="text-[12px] font-medium">Show all sessions</span>
-                        <Toggle checked={draft.showAllSessions} onChange={(showAllSessions) => onChange({ showAllSessions })} />
-                      </div>
-                    ) : null}
-                    {draft.agent === "claude-code" || draft.agent === "codex" ? (
-                      <div className="sm:col-span-2">
-                        <ManagedCompactSetting
-                          agent={draft.agent}
-                          checked={draft.managedCompact}
-                          onChange={(managedCompact) => onChange({ managedCompact })}
-                        />
-                      </div>
-                    ) : null}
-                    {draft.surface !== "cli" ? (
-                      <div className="sm:col-span-2">
-                        <BotGatewaySelectForm botConfigs={botConfigs} draft={draft} onChange={onChange} onCreateBot={onCreateBot} />
-                        {validation.bot ? <ProfileFieldHint>{validation.bot}</ProfileFieldHint> : null}
-                        {validation.handoff ? <ProfileFieldHint>{validation.handoff}</ProfileFieldHint> : null}
-                      </div>
-                    ) : null}
-                    {showAppPathField && appPathLabel ? (
-                      <Field className="sm:col-span-2" label={appPathLabel} requirement="optional" requirementLabel={optionalFieldLabel}>
-                        <Input
-                          className={appPathDragActive ? "border-primary bg-primary/5" : undefined}
-                          placeholder="Drop the app here or paste the executable path"
-                          value={draft.appPath}
-                          onChange={(event) => onChange({ appPath: event.target.value })}
-                        />
-                      </Field>
-                    ) : null}
-                    {draft.agent === "claude-code" ? (
-                      <ClaudeConfigEditor
-                        draft={draft}
-                        error={validation.claudeSettings ? validation.claudeSettings : ""}
-                        onChange={onChange}
-                      />
-                    ) : null}
-                    <Field className="sm:col-span-2" label="Environment variables" requirement="optional" requirementLabel={optionalFieldLabel}>
-                      <KeyValueRowsControl
-                        addLabel="Add env variable"
-                        rows={draft.envRows}
-                        onChange={(envRows) => onChange({ envRows })}
-                      />
-                      {validation.env ? <ProfileFieldHint>{validation.env}</ProfileFieldHint> : null}
-                    </Field>
-                  </div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
-        ) : null}
+                  ) : null}
+                  {draft.agent === "claude-code" ? (
+                    <ClaudeConfigEditor
+                      draft={draft}
+                      error={validation.claudeSettings ? validation.claudeSettings : ""}
+                      onChange={onChange}
+                    />
+                  ) : null}
+                  <Field className="sm:col-span-2" label="Environment variables" requirement="optional" requirementLabel={optionalFieldLabel}>
+                    <KeyValueRowsControl
+                      addLabel="Add env variable"
+                      rows={draft.envRows}
+                      onChange={(envRows) => onChange({ envRows })}
+                    />
+                    {validation.env ? <ProfileFieldHint>{validation.env}</ProfileFieldHint> : null}
+                  </Field>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
       </div>
       {validation.models ? (
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
@@ -1824,7 +1807,7 @@ function profileDraftValidation(
   if (!draft.name.trim()) {
     issues.name = "Profile name is required.";
   }
-  if (draft.agent !== "claude-design" && availableModelCount === 0) {
+  if (availableModelCount === 0) {
     issues.models = "Configure at least one enabled provider model before saving an agent profile.";
   }
   if (draft.agent === "claude-code" && !draft.model.trim()) {

@@ -1,15 +1,12 @@
 import { app, BrowserWindow, screen, shell } from "electron";
-import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { APP_NAME, IPC_CHANNELS } from "@llmr/core/config/constants";
-import { configureClaudeDesignWindowCdp, type ClaudeDesignWindowCdpOptions } from "./claude-design-window";
 import { openHttpExternal } from "./external-url";
 
 type WindowName = "main" | string;
 type WindowBounds = { height: number; width: number; x?: number; y?: number };
 type PluginAppWindowOptions = {
-  claudeDesignCdp?: ClaudeDesignWindowCdpOptions;
   id: string;
   title: string;
   url: string;
@@ -38,9 +35,6 @@ const pluginSmallWindowDefaultHeight = 640;
 const pluginSmallWindowDefaultWidth = 420;
 const pluginSmallWindowMinHeight = 460;
 const pluginSmallWindowMinWidth = 360;
-const pluginAppDiagnostics = new WeakSet<object>();
-const pluginAppScreenshotCaptures = new WeakSet<object>();
-const pluginAppScriptRuns = new WeakSet<object>();
 
 class WindowsManager {
   private onboardingFinished = false;
@@ -146,8 +140,7 @@ class WindowsManager {
       }
       existing.show();
       existing.focus();
-      configurePluginAppDiagnostics(existing, options);
-      if (options.claudeDesignCdp || existing.webContents.getURL() !== options.url) {
+      if (existing.webContents.getURL() !== options.url) {
         void loadPluginAppWindowUrl(existing, options);
       }
       return existing;
@@ -234,7 +227,7 @@ class WindowsManager {
       if (loadingFailurePage && url.startsWith("data:text/html")) {
         return;
       }
-      if (isAllowedPluginAppNavigation(options, url)) {
+      if (isSameOrigin(options.url, url)) {
         return;
       }
       event.preventDefault();
@@ -261,7 +254,6 @@ class WindowsManager {
       });
     });
 
-    configurePluginAppDiagnostics(window, options);
     void loadPluginAppWindowUrl(window, options);
     return window;
   }
@@ -450,13 +442,6 @@ function isSamePluginRoute(parentUrl: string, targetUrl: string): boolean {
   }
 }
 
-function isAllowedPluginAppNavigation(options: PluginAppWindowOptions, targetUrl: string): boolean {
-  if (isSameOrigin(options.url, targetUrl)) {
-    return true;
-  }
-  return Boolean(options.claudeDesignCdp?.backendUrl && isSameOrigin(options.claudeDesignCdp.backendUrl, targetUrl));
-}
-
 function isPluginNavigationAbort(errorCode: number): boolean {
   return errorCode === -3;
 }
@@ -487,156 +472,8 @@ function clampNumber(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max));
 }
 
-function configurePluginAppDiagnostics(window: BrowserWindow, options: PluginAppWindowOptions): void {
-  if (!options.claudeDesignCdp || process.env.NODE_ENV !== "development") {
-    return;
-  }
-  if (pluginAppDiagnostics.has(window.webContents)) {
-    return;
-  }
-  pluginAppDiagnostics.add(window.webContents);
-
-  const prefix = `[plugin-app:${options.id}]`;
-  if (!window.webContents.isDevToolsOpened()) {
-    window.webContents.openDevTools({ mode: "detach" });
-  }
-  window.webContents.on("console-message", (_event, level, message, line, sourceId) => {
-    if (level < 1) {
-      return;
-    }
-    console.warn(`${prefix} console[${level}] ${message} (${sourceId || "unknown"}:${line || 0})`);
-  });
-  window.webContents.on("did-start-loading", () => {
-    console.info(`${prefix} did-start-loading ${window.webContents.getURL()}`);
-  });
-  window.webContents.on("did-start-navigation", (_event, url, isInPlace, isMainFrame) => {
-    console.info(`${prefix} did-start-navigation main=${isMainFrame !== false} inPlace=${isInPlace} ${url}`);
-  });
-  window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
-    console.warn(`${prefix} did-fail-load main=${isMainFrame !== false} code=${errorCode} url=${validatedURL} ${errorDescription}`);
-  });
-  window.webContents.on("dom-ready", () => {
-    console.info(`${prefix} dom-ready ${window.webContents.getURL()}`);
-    logPluginAppPageSummary(window, prefix, "dom-ready");
-  });
-  window.webContents.on("did-navigate", (_event, url) => {
-    console.info(`${prefix} did-navigate ${url}`);
-  });
-  window.webContents.on("did-redirect-navigation", (_event, url, isInPlace, isMainFrame) => {
-    console.info(`${prefix} did-redirect-navigation main=${isMainFrame !== false} inPlace=${isInPlace} ${url}`);
-  });
-  window.webContents.on("did-finish-load", () => {
-    console.info(`${prefix} did-finish-load ${window.webContents.getURL()}`);
-    logPluginAppPageSummary(window, prefix, "did-finish-load");
-  });
-  window.webContents.on("did-stop-loading", () => {
-    console.info(`${prefix} did-stop-loading ${window.webContents.getURL()}`);
-    logPluginAppPageSummary(window, prefix, "did-stop-loading");
-    schedulePluginAppPageSummaries(window, prefix, "did-stop-loading");
-    schedulePluginAppScript(window, prefix);
-    schedulePluginAppScreenshot(window, prefix);
-  });
-  window.webContents.on("render-process-gone", (_event, details) => {
-    console.warn(`${prefix} render-process-gone ${details.reason} exitCode=${details.exitCode}`);
-  });
-}
-
-function schedulePluginAppScreenshot(window: BrowserWindow, prefix: string): void {
-  const targetPath = process.env.LLMR_PLUGIN_APP_SCREENSHOT_PATH;
-  if (!targetPath || process.env.NODE_ENV !== "development") {
-    return;
-  }
-  const targetId = process.env.LLMR_PLUGIN_APP_SCREENSHOT_ID;
-  if (targetId && !prefix.includes(targetId)) {
-    return;
-  }
-  if (pluginAppScreenshotCaptures.has(window.webContents)) {
-    return;
-  }
-  pluginAppScreenshotCaptures.add(window.webContents);
-
-  const delayMs = clampNumber(Number(process.env.LLMR_PLUGIN_APP_SCREENSHOT_DELAY_MS) || 3_000, 250, 30_000);
-  setTimeout(() => {
-    if (window.isDestroyed() || window.webContents.isDestroyed()) {
-      return;
-    }
-    void window.webContents.capturePage().then((image) => {
-      writeFileSync(targetPath, image.toPNG(), { mode: 0o600 });
-      console.info(`${prefix} screenshot ${targetPath}`);
-    }).catch((error: unknown) => {
-      console.warn(`${prefix} screenshot failed: ${formatError(error)}`);
-    });
-  }, delayMs);
-}
-
-function schedulePluginAppScript(window: BrowserWindow, prefix: string): void {
-  const scriptPath = process.env.LLMR_PLUGIN_APP_SCRIPT_PATH;
-  if (!scriptPath || process.env.NODE_ENV !== "development") {
-    return;
-  }
-  const targetId = process.env.LLMR_PLUGIN_APP_SCRIPT_ID;
-  if (targetId && !prefix.includes(targetId)) {
-    return;
-  }
-  if (process.env.LLMR_PLUGIN_APP_SCRIPT_ON_EACH_LOAD !== "1" && pluginAppScriptRuns.has(window.webContents)) {
-    return;
-  }
-  pluginAppScriptRuns.add(window.webContents);
-
-  const delayMs = clampNumber(Number(process.env.LLMR_PLUGIN_APP_SCRIPT_DELAY_MS) || 1_000, 250, 30_000);
-  setTimeout(() => {
-    if (window.isDestroyed() || window.webContents.isDestroyed()) {
-      return;
-    }
-    let script: string;
-    try {
-      script = readFileSync(scriptPath, "utf8");
-    } catch (error) {
-      console.warn(`${prefix} script read failed: ${formatError(error)}`);
-      return;
-    }
-    void window.webContents.executeJavaScript(script, true).then((result: unknown) => {
-      console.info(`${prefix} script ${scriptPath} result ${stringifyPluginAppScriptResult(result)}`);
-    }).catch((error: unknown) => {
-      console.warn(`${prefix} script ${scriptPath} failed: ${formatError(error)}`);
-    });
-  }, delayMs);
-}
-
-function stringifyPluginAppScriptResult(result: unknown): string {
-  try {
-    return JSON.stringify(result);
-  } catch {
-    return String(result);
-  }
-}
-
-function schedulePluginAppPageSummaries(window: BrowserWindow, prefix: string, eventName: string): void {
-  for (const delayMs of [1000, 3000, 8000]) {
-    setTimeout(() => {
-      if (window.isDestroyed() || window.webContents.isDestroyed()) {
-        return;
-      }
-      logPluginAppPageSummary(window, prefix, `${eventName}+${delayMs}ms`);
-    }, delayMs);
-  }
-}
-
-function logPluginAppPageSummary(window: BrowserWindow, prefix: string, eventName: string): void {
-  void window.webContents.executeJavaScript(
-    "(() => { const iframeSummaries = Array.from(document.querySelectorAll('iframe')).slice(0, 5).map((iframe) => { const summary = { src: iframe.src || iframe.getAttribute('src') || '', title: iframe.title || '', bodyText: '', htmlLength: 0, readyState: '', accessError: '' }; try { const doc = iframe.contentDocument; summary.readyState = doc ? doc.readyState : ''; summary.bodyText = doc && doc.body ? doc.body.innerText.slice(0, 800) : ''; summary.htmlLength = doc && doc.documentElement ? doc.documentElement.outerHTML.length : 0; } catch (error) { summary.accessError = error instanceof Error ? error.message : String(error); } return summary; }); return { url: location.href, title: document.title, bodyText: document.body ? document.body.innerText.slice(0, 800) : '', htmlLength: document.documentElement ? document.documentElement.outerHTML.length : 0, iframeSummaries, readyState: document.readyState }; })()"
-  ).then((summary: unknown) => {
-    console.info(`${prefix} page-summary[${eventName}] ${JSON.stringify(summary)}`);
-  }).catch((error: unknown) => {
-    console.warn(`${prefix} page-summary[${eventName}] failed: ${formatError(error)}`);
-  });
-}
-
 async function loadPluginAppWindowUrl(window: BrowserWindow, options: PluginAppWindowOptions): Promise<void> {
   try {
-    if (options.claudeDesignCdp) {
-      await configureClaudeDesignWindowCdp(window.webContents, options.claudeDesignCdp);
-    }
     if (!window.isDestroyed()) {
       await window.loadURL(options.url);
     }

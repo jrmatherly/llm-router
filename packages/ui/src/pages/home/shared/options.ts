@@ -125,7 +125,6 @@ export const agentFilterOptions: Array<{ label: string; value: AgentFilterValue 
   { label: "Pi", value: "pi" },
   { label: "Workbuddy", value: "workbuddy" },
   { label: "ZCode", value: "zcode" },
-  { label: "Claude Design", value: "claude-design" },
   { label: "Unknown", value: "unknown" }
 ];
 
@@ -140,15 +139,8 @@ export const profileAgentOptions: ProfileAgentOption[] = [
   { label: "OpenCode", value: "opencode" },
   { label: "Pi", value: "pi" },
   { label: "Workbuddy", value: "workbuddy" },
-  { label: "ZCode", value: "zcode" },
-  { label: "Claude Design", value: "claude-design" }
+  { label: "ZCode", value: "zcode" }
 ];
-
-export function profileAgentOptionsForRuntime(desktop: boolean): ProfileAgentOption[] {
-  return desktop
-    ? profileAgentOptions
-    : profileAgentOptions.filter((option) => option.value !== "claude-design");
-}
 
 export const profileScopeOptions: Array<{ label: string; value: ProfileScope }> = [
   { label: "Only opened from LLMR", value: "llmr" },

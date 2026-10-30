@@ -340,29 +340,12 @@ export function isRouterRuleType(value: string): value is RouterRuleType {
 
 export type KnownWrapperPluginConfig<TId extends string> = AppConfig["plugins"][number] & { id: TId };
 
-export function isClaudeDesignPluginConfig(item: unknown): item is KnownWrapperPluginConfig<"claude-design"> {
-  if (!isPlainRecord(item)) {
-    return false;
-  }
-  const id = stringValue(item.id) || stringValue(item.key);
-  return id === "claude-design";
-}
-
 export function isCursorProxyPluginConfig(item: unknown): item is KnownWrapperPluginConfig<"cursor-proxy"> {
   if (!isPlainRecord(item)) {
     return false;
   }
   const id = stringValue(item.id) || stringValue(item.key);
   return id === "cursor-proxy";
-}
-
-export function createClaudeDesignRoutingDraft(pluginConfig?: unknown): ClaudeDesignRoutingDraft {
-  const config = readClaudeDesignRoutingConfig(pluginConfig);
-  return {
-    defaultTarget: config.defaultTarget,
-    enabled: config.enabled,
-    rules: config.rules.map((rule) => ({ ...rule }))
-  };
 }
 
 export function createCursorProxyRoutingDraft(pluginConfig?: unknown): ClaudeDesignRoutingDraft {
@@ -443,20 +426,6 @@ export function normalizeClaudeDesignRoutingRuleDraft(value: unknown, index: num
     target,
     threshold: String(positiveInteger(value.threshold) || positiveInteger(value.tokenThreshold) || 200000),
     type
-  };
-}
-
-export function createClaudeDesignRoutingRuleDraft(existingRules: ClaudeDesignRoutingRuleDraft[] = []): ClaudeDesignRoutingRuleDraft {
-  const id = uniqueClaudeDesignRoutingRuleId(existingRules);
-  return {
-    enabled: true,
-    id,
-    model: "claude-opus-4-8",
-    name: "Claude Design route",
-    pattern: "",
-    target: "",
-    threshold: "200000",
-    type: "model"
   };
 }
 
@@ -589,10 +558,10 @@ export function composeRouteTargetValue(providerValue: unknown, modelValue: unkn
 
 export function uniqueClaudeDesignRoutingRuleId(rules: ClaudeDesignRoutingRuleDraft[]): string {
   let index = rules.length + 1;
-  let id = `claude-design-route-${index}`;
+  let id = `plugin-route-${index}`;
   while (rules.some((rule) => rule.id === id)) {
     index += 1;
-    id = `claude-design-route-${index}`;
+    id = `plugin-route-${index}`;
   }
   return id;
 }

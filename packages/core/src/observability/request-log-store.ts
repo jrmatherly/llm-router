@@ -2047,9 +2047,6 @@ function inferAgentFromText(value: string, options: AgentTextSignalOptions = {})
   const allowStandaloneKilo = options.allowStandaloneKilo ?? true;
   const allowStandaloneKimi = options.allowStandaloneKimi ?? true;
   const allowStandaloneOpenCode = options.allowStandaloneOpenCode ?? true;
-  if (normalized.includes("claude design") || normalized.includes("claude-design") || normalized.includes("claude.ai/design")) {
-    return "claude-design";
-  }
   if (
     normalized.includes("zcode") ||
     normalized.includes("z-code") ||
@@ -4217,19 +4214,16 @@ function normalizeAgentAnalysisRange(value: UsageStatsRange | undefined): UsageS
 }
 
 function normalizeAgentFilter(value: AgentAnalysisFilter["agent"] | undefined): AgentKind | "all" {
-  return value === "claude-code" || value === "codex" || value === "grok" || value === "kimi" || value === "kilo" || value === "opencode" || value === "pi" || value === "workbuddy" || value === "zcode" || value === "claude-design" || value === "unknown" ? value : "all";
+  return value === "claude-code" || value === "codex" || value === "grok" || value === "kimi" || value === "kilo" || value === "opencode" || value === "pi" || value === "workbuddy" || value === "zcode" || value === "unknown" ? value : "all";
 }
 
 function normalizeSessionAgentFilter(value: AgentAnalysisFilter["sessionAgent"] | undefined): AgentKind | undefined {
-  return value === "claude-code" || value === "codex" || value === "grok" || value === "kimi" || value === "kilo" || value === "opencode" || value === "pi" || value === "workbuddy" || value === "zcode" || value === "claude-design" || value === "unknown" ? value : undefined;
+  return value === "claude-code" || value === "codex" || value === "grok" || value === "kimi" || value === "kilo" || value === "opencode" || value === "pi" || value === "workbuddy" || value === "zcode" || value === "unknown" ? value : undefined;
 }
 
 function agentDisplayName(agent: AgentKind): string {
   if (agent === "claude-code") {
     return "Claude Code";
-  }
-  if (agent === "claude-design") {
-    return "Claude Design";
   }
   if (agent === "codex") {
     return "Codex";

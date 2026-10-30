@@ -5,8 +5,6 @@ import path from "node:path";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { pluginService } from "@llmr/core/plugins/service.ts";
-import { LLMR_DESKTOP_APP_ENV } from "@llmr/core/runtime/desktop-app.ts";
-import { withDesktopRuntime } from "../../support/desktop-runtime.mjs";
 
 test("plugin permissions gate dynamic gateway route registration", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-permissions-"));
@@ -104,59 +102,15 @@ test("plugin permissions gate configured browser apps", { skip: !process.env.LLM
 test("known bundled plugins without persisted permissions receive scoped defaults", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-known-defaults-"));
   try {
-    const pluginFile = path.join(dir, "claude-design-plugin.cjs");
+    const pluginFile = path.join(dir, "cursor-proxy-plugin.cjs");
     writeFileSync(pluginFile, [
       "\"use strict\";",
       "module.exports = {",
       "  setup(ctx) {",
       "    ctx.registerGatewayRoute({",
       "      auth: \"none\",",
-      "      id: \"claude-design-status\",",
-      "      path: \"/plugins/claude-design/__status\",",
-      "      handler(_request, response, helpers) {",
-      "        helpers.sendJson(response, 200, { ok: true });",
-      "      }",
-      "    });",
-      "  }",
-      "};",
-      ""
-    ].join("\n"), "utf8");
-
-    await withDesktopRuntime(async () => {
-      await pluginService.start({
-        ...baseConfig(dir),
-        plugins: [{
-          apps: [{ id: "claude-design", name: "Claude Design", url: "/plugins/claude-design/pages/home/" }],
-          enabled: true,
-          id: "claude-design",
-          module: pluginFile
-        }]
-      });
-    });
-
-    assert.deepEqual(pluginService.getApps().map((app) => app.id), ["claude-design"]);
-    assert.equal(pluginService.hasGatewayRoutes(), true);
-  } finally {
-    await pluginService.stop();
-    rmSync(dir, { force: true, recursive: true });
-  }
-});
-
-test("Claude browser plugins are skipped outside LLMR Desktop", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-desktop-only-"));
-  const previousDesktopApp = process.env[LLMR_DESKTOP_APP_ENV];
-  try {
-    delete process.env[LLMR_DESKTOP_APP_ENV];
-    const pluginFile = path.join(dir, "claude-design-plugin.cjs");
-    writeFileSync(pluginFile, [
-      "\"use strict\";",
-      "module.exports = {",
-      "  setup(ctx) {",
-      "    ctx.registerApp({ id: \"claude-design\", name: \"Claude Design\", url: \"/plugins/claude-design\" });",
-      "    ctx.registerGatewayRoute({",
-      "      auth: \"none\",",
-      "      id: \"claude-design-status\",",
-      "      path: \"/plugins/claude-design/__status\",",
+      "      id: \"cursor-proxy-status\",",
+      "      path: \"/plugins/cursor-proxy/__status\",",
       "      handler(_request, response, helpers) {",
       "        helpers.sendJson(response, 200, { ok: true });",
       "      }",
@@ -170,16 +124,35 @@ test("Claude browser plugins are skipped outside LLMR Desktop", { skip: !process
       ...baseConfig(dir),
       plugins: [{
         enabled: true,
-        id: "claude-design",
-        module: pluginFile,
-        permissions: ["trusted-code", "apps", "gateway-routes"]
+        id: "cursor-proxy",
+        module: pluginFile
       }]
     });
 
+    assert.equal(pluginService.hasGatewayRoutes(), true);
+    await pluginService.stop();
+
+    const appPluginFile = path.join(dir, "cursor-proxy-app-plugin.cjs");
+    writeFileSync(appPluginFile, [
+      "\"use strict\";",
+      "module.exports = {",
+      "  setup(ctx) {",
+      "    ctx.registerApp({ id: \"cursor-proxy-app\", name: \"Cursor Proxy\", url: \"/plugins/cursor-proxy\" });",
+      "  }",
+      "};",
+      ""
+    ].join("\n"), "utf8");
+    const warnings = await startWithWarnings({
+      ...baseConfig(dir),
+      plugins: [{
+        enabled: true,
+        id: "cursor-proxy",
+        module: appPluginFile
+      }]
+    });
+    assert.match(warnings.join("\n"), /Plugin cursor-proxy has apps surface disabled and cannot register browser apps\./);
     assert.deepEqual(pluginService.getApps(), []);
-    assert.equal(pluginService.hasGatewayRoutes(), false);
   } finally {
-    restoreEnv(LLMR_DESKTOP_APP_ENV, previousDesktopApp);
     await pluginService.stop();
     rmSync(dir, { force: true, recursive: true });
   }
@@ -319,14 +292,6 @@ function baseConfig(dir) {
   config.gateway.enabled = false;
   config.plugins = [];
   return config;
-}
-
-function restoreEnv(key, value) {
-  if (value === undefined) {
-    delete process.env[key];
-  } else {
-    process.env[key] = value;
-  }
 }
 
 function writeReloadPlugin(pluginFile, name, url) {

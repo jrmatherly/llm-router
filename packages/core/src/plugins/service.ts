@@ -16,8 +16,6 @@ import {
   type ProviderAccountPluginConnectorConfig,
   type ProviderAccountSnapshot,
   type RequestRouteTraceChange,
-  CLAUDE_DESIGN_PLUGIN_ID,
-  CLAUDE_SHIP_PLUGIN_ID,
   GATEWAY_PLUGIN_PERMISSION_IDS,
   knownGatewayPluginDefaultPermissions,
   knownGatewayPluginDefaultSurfaces
@@ -25,7 +23,6 @@ import {
 import { backendService, type RegisteredHttpBackend, type SqliteStore, type SqliteStoreOptions } from "@llmr/core/plugins/backend-service";
 import { openRouterDiscountProviderRouterTransform } from "@llmr/core/plugins/built-ins/openrouter-discount-provider-router";
 import { CONFIGDIR, DATADIR } from "@llmr/core/config/constants";
-import { isDesktopAppRuntime } from "@llmr/core/runtime/desktop-app";
 import type { ProviderAccountWebContentFetchRequest } from "@llmr/core/providers/account-webcontent";
 import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
 
@@ -274,9 +271,6 @@ class GatewayPluginService {
 
     for (const pluginConfig of config.plugins ?? []) {
       if (pluginConfig.enabled === false) {
-        continue;
-      }
-      if (!pluginAvailableInCurrentRuntime(pluginConfig)) {
         continue;
       }
       const snapshot = this.createStateSnapshot();
@@ -1307,17 +1301,9 @@ function pluginRuntimeSurfacesEnabled(pluginConfig: Pick<GatewayPluginConfig, "i
     pluginSurfaceEnabled(pluginConfig, "provider");
 }
 
-function pluginAvailableInCurrentRuntime(pluginConfig: Pick<GatewayPluginConfig, "id">): boolean {
-  return !isDesktopOnlyClaudeBrowserPlugin(pluginConfig.id) || isDesktopAppRuntime();
-}
-
-function isDesktopOnlyClaudeBrowserPlugin(pluginId: string): boolean {
-  return pluginId === CLAUDE_DESIGN_PLUGIN_ID || pluginId === CLAUDE_SHIP_PLUGIN_ID;
-}
-
 function enabledPluginIds(config: AppConfig): Set<string> {
   return new Set((config.plugins ?? [])
-    .filter((plugin) => plugin.enabled !== false && pluginAvailableInCurrentRuntime(plugin) && pluginRuntimeSurfacesEnabled(plugin))
+    .filter((plugin) => plugin.enabled !== false && pluginRuntimeSurfacesEnabled(plugin))
     .map((plugin) => plugin.id));
 }
 
