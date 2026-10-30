@@ -11,7 +11,7 @@ import { closeBotGatewayQrWindow, openBotGatewayQrWindow } from "./bot-gateway-q
 import { syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
 import { getAppInfoPaths } from "@llmr/core/agents/app-info-paths";
 import { modelCatalogRefreshError } from "@llmr/core/models/catalog-file";
-import { loadAppConfig, saveApiKeysConfig, saveAppConfig, saveAppThemePreference, withClaudeDesignRuntimePluginConfig } from "@llmr/core/config/config";
+import { loadAppConfig, saveApiKeysConfig, saveAppConfig, saveAppThemePreference } from "@llmr/core/config/config";
 import {
   APP_CONFIG_DB_FILE,
   APP_NAME,
@@ -42,7 +42,6 @@ import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayPro
 import { syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
 import { applyProfileConfig } from "@llmr/core/profiles/service";
 import { desktopCliCommandName, getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
-import { findProfileForOpen, resolveProfileOpenSurface } from "@llmr/core/profiles/launch-core";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
 import { proxyService } from "@llmr/core/proxy/service";
@@ -54,7 +53,7 @@ import { getUsageStats, resetOverviewStatistics } from "@llmr/core/usage/store";
 import { applyNativeThemePreference } from "./native-theme";
 import { registerProviderAccountWebContentFetchHandler } from "./provider-account-webcontent";
 import windowsManager from "./windows";
-import { CLAUDE_DESIGN_PLUGIN_ID, GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, type AgentAnalysisFilter, type AgentAnalysisTracePayloadRequest, type ApiKeyConfig, type AppCaptureElementPngRequest, type AppCaptureElementPngResult, type AppConfig, type AppDataExportResult, type AppImageExportTargetRequest, type AppImageExportTargetResult, type AppInfo, type AppRenderHtmlPngRequest, type AppRenderHtmlPngResult, type AppSaveConfigOptions, type BotGatewayQrLoginCancelRequest, type BotGatewayQrLoginStartRequest, type BotGatewayQrLoginWaitRequest, type BotGatewayQrWindowCloseRequest, type BotGatewayQrWindowOpenRequest, type ChromeLoginImportRequest, type GatewayPluginAppConfig, type GatewayPluginPermission, type GatewayPluginSurface, type GatewayProviderConnectivityCheckRequest, type GatewayProviderProbeCandidatesRequest, type GatewayProviderProbeRequest, type GatewayStatus, type LocalAgentProviderImportRequest, type OpenRouterProviderCatalogRequest, type PluginDependency, type PluginDirectorySelection, type ProfileApplyResult, type ProfileOpenRequest, type ProfileOpenResult, type ProviderAccountResetRequest, type ProviderAccountSnapshotRequestOptions, type ProviderAccountTestRequest, type ProviderCatalogModelsRequest, type ProviderIconDetectionRequest, type ProviderManifestFetchRequest, type RequestLogListFilter, type RouteScriptTestRequest, type RouteScriptValidationRequest, type UsageStatsFilter, type UsageStatsRange } from "@llmr/core/contracts/app";
+import { GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, type AgentAnalysisFilter, type AgentAnalysisTracePayloadRequest, type ApiKeyConfig, type AppCaptureElementPngRequest, type AppCaptureElementPngResult, type AppConfig, type AppDataExportResult, type AppImageExportTargetRequest, type AppImageExportTargetResult, type AppInfo, type AppRenderHtmlPngRequest, type AppRenderHtmlPngResult, type AppSaveConfigOptions, type BotGatewayQrLoginCancelRequest, type BotGatewayQrLoginStartRequest, type BotGatewayQrLoginWaitRequest, type BotGatewayQrWindowCloseRequest, type BotGatewayQrWindowOpenRequest, type ChromeLoginImportRequest, type GatewayPluginAppConfig, type GatewayPluginPermission, type GatewayPluginSurface, type GatewayProviderConnectivityCheckRequest, type GatewayProviderProbeCandidatesRequest, type GatewayProviderProbeRequest, type GatewayStatus, type LocalAgentProviderImportRequest, type OpenRouterProviderCatalogRequest, type PluginDependency, type PluginDirectorySelection, type ProfileApplyResult, type ProfileOpenRequest, type ProviderAccountResetRequest, type ProviderAccountSnapshotRequestOptions, type ProviderAccountTestRequest, type ProviderCatalogModelsRequest, type ProviderIconDetectionRequest, type ProviderManifestFetchRequest, type RequestLogListFilter, type RouteScriptTestRequest, type RouteScriptValidationRequest, type UsageStatsFilter, type UsageStatsRange } from "@llmr/core/contracts/app";
 const imageExportTargets = new Map<string, string>();
 const gatewayPluginPermissionIdSet = new Set<string>(GATEWAY_PLUGIN_PERMISSION_IDS);
 const gatewayPluginSurfaceIdSet = new Set<string>(GATEWAY_PLUGIN_SURFACE_IDS);
@@ -194,26 +193,7 @@ ipcMain.handle(IPC_CHANNELS.appOpenExternal, async (_event, url: string) => {
 });
 ipcMain.handle(IPC_CHANNELS.appOpenProfile, async (_event, request: ProfileOpenRequest) => {
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
-  const profile = findProfileForOpen(syncedClaudeAppConfig.config, request.profileId);
-  const surface = resolveProfileOpenSurface(profile, request.surface);
-  const config = profile.agent === CLAUDE_DESIGN_PLUGIN_ID
-    ? withClaudeDesignRuntimePluginConfig(syncedClaudeAppConfig.config)
-    : syncedClaudeAppConfig.config;
-  if (profile.agent === CLAUDE_DESIGN_PLUGIN_ID) {
-    const status = await gatewayService.ensureStarted(config);
-    if (status.state !== "running") {
-      throw new Error(status.lastError || "LLMR gateway did not start.");
-    }
-    logProfileApplyResult(await applyProfileConfig(config));
-    await deepLinkService.openPluginApp(CLAUDE_DESIGN_PLUGIN_ID);
-    return {
-      message: `Opened Claude Design with ${profile.name || profile.id}.`,
-      profileId: profile.id,
-      profileName: profile.name,
-      surface
-    } satisfies ProfileOpenResult;
-  }
-  return openProfileFromLlmr(config, request);
+  return openProfileFromLlmr(syncedClaudeAppConfig.config, request);
 });
 ipcMain.handle(IPC_CHANNELS.appApplyClaudeAppGateway, async (_event, config?: AppConfig) => {
   const previousConfig = await loadAppConfig();

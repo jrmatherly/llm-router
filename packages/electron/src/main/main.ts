@@ -1,12 +1,10 @@
 import { app, dialog } from "electron";
 import { mkdirSync } from "node:fs";
 import { installSocketTypeOfServiceCompat } from "@llmr/core/platform/socket-compat";
-import { markDesktopAppRuntime } from "@llmr/core/runtime/desktop-app";
 import { resolveRuntimeDataDir, setRuntimeAppPaths } from "@llmr/core/runtime/app-paths";
 import { copyMissingDirectoryContents, sameFilesystemPath } from "@llmr/core/storage/migration";
 
 installSocketTypeOfServiceCompat();
-markDesktopAppRuntime();
 
 const appDataPath = readConfiguredRuntimePath("LLMR_INTERNAL_APP_DATA_DIR") ?? app.getPath("appData");
 const homePath = readConfiguredRuntimePath("LLMR_INTERNAL_HOME_DIR") ?? app.getPath("home");
