@@ -38,20 +38,6 @@ const skippedPaths = [
 export const kept = [
   {
     at: [
-      "packages/core/src/contracts/app.ts",
-      "packages/core/test/unit/config/plugin-config-migration.test.mjs",
-      "packages/core/test/unit/contracts/app.test.mjs",
-      "packages/electron/bundled-plugins/claude-design/README.md",
-      "packages/electron/bundled-plugins/claude-design/index.cjs",
-      "packages/electron/bundled-plugins/claude-design/plugin.json",
-      "packages/electron/src/main/plugin-app-url.ts",
-      "packages/electron/test/unit/claude-design-plugin-assets.test.ts",
-      "packages/electron/test/unit/plugin-app-url.test.ts"
-    ],
-    text: "ccrdesk.top"
-  },
-  {
-    at: [
       "packages/core/src/providers/presets/kimi-coding/index.ts",
       "packages/core/src/providers/presets/moonshot/index.ts"
     ],
@@ -85,9 +71,6 @@ export const kept = [
     ],
     text: "CCR_UPSTREAM_PROXY_URL"
   },
-  { path: "packages/electron/bundled-plugins/claude-design/index.cjs", text: "/ccr-resource-runtime.js" },
-  { path: "packages/electron/bundled-plugins/claude-design/index.cjs", text: "ccr-resource-runtime\\.js" },
-  { path: "packages/electron/test/unit/claude-design-plugin-assets.test.ts", text: "/ccr-resource-runtime.js" },
   { path: "tests/architecture/readme-identity.test.mjs", text: "ccrdesk\\.top" },
   {
     at: [
