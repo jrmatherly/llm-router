@@ -256,25 +256,6 @@ export type RoutingRewriteDraftRow = {
   value: string;
 };
 
-export type ClaudeDesignRouteRuleType = "always" | "model" | "model-prefix";
-
-export type ClaudeDesignRoutingRuleDraft = {
-  enabled: boolean;
-  id: string;
-  model: string;
-  name: string;
-  pattern: string;
-  target: string;
-  threshold: string;
-  type: ClaudeDesignRouteRuleType;
-};
-
-export type ClaudeDesignRoutingDraft = {
-  defaultTarget: string;
-  enabled: boolean;
-  rules: ClaudeDesignRoutingRuleDraft[];
-};
-
 export type VirtualModelClientToolsPolicy = "allow" | "deny";
 export type VirtualModelMatchMode = "alias" | "prefix" | "suffix";
 export const fusionCustomToolMetadataKey = "fusionTool";
@@ -367,10 +348,6 @@ export type ExtensionInstallDraft = {
 
 export type ExtensionSource = "plugins" | "providerPlugins";
 
-export type PluginRoutingConfigTarget = {
-  index: number;
-};
-
 export type ExtensionConfigTarget = {
   index: number;
 };
@@ -442,11 +419,6 @@ export type RoutingRuleRow = {
   toggleDisabled?: boolean;
   toggleDisabledReason?: string;
   typeLabel: string;
-};
-
-export type PluginRoutingConfigItem = {
-  index: number;
-  name: string;
 };
 
 export type AppToast = {

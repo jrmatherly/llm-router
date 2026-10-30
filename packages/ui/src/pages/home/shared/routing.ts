@@ -22,7 +22,6 @@ import {
   fallbackConfig
 } from "./fallbacks";
 import {
-  claudeDesignRouteRuleTypeOptions,
   legacyRouterRuleTypes,
   removedLegacyRouterRuleIds,
   routerFallbackModeOptions,
@@ -31,11 +30,9 @@ import {
   routerRuleTypeOptions
 } from "./options";
 
-import { positiveInteger } from "./api-keys";
 import { clampNumber, isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
-import { sanitizeConfigId } from "./extensions";
 import { formatRouterRuleCondition, formatRouterRuleTarget, routerRuleTypeLabel } from "./providers";
-import type { ClaudeDesignRouteRuleType, ClaudeDesignRoutingDraft, ClaudeDesignRoutingRuleDraft, RoutingRuleRow } from "./types";
+import type { RoutingRuleRow } from "./types";
 
 export function normalizeRouterConfig(value: Partial<RouterConfig> | undefined): RouterConfig {
   const router = {
@@ -348,162 +345,6 @@ export function isCursorProxyPluginConfig(item: unknown): item is KnownWrapperPl
   return id === "cursor-proxy";
 }
 
-export function createCursorProxyRoutingDraft(pluginConfig?: unknown): ClaudeDesignRoutingDraft {
-  const config = readClaudeDesignRoutingConfig(pluginConfig);
-  return {
-    defaultTarget: config.defaultTarget,
-    enabled: config.enabled,
-    rules: config.rules.map((rule) => ({ ...rule }))
-  };
-}
-
-export function readClaudeDesignRoutingConfig(pluginConfig?: unknown): ClaudeDesignRoutingDraft {
-  const configRecord = isPlainRecord(pluginConfig) ? pluginConfig : {};
-  const routing = isPlainRecord(configRecord.routing) ? configRecord.routing : {};
-  const fallbackTarget = composeRouteTargetValue(configRecord.targetProvider, configRecord.targetModel) || stringValue(configRecord.targetModel) || "";
-  const rules: ClaudeDesignRoutingRuleDraft[] = [];
-
-  if (isPlainRecord(routing.modelMap)) {
-    for (const [model, target] of Object.entries(routing.modelMap)) {
-      const modelValue = stringValue(model);
-      const targetValue = stringValue(target);
-      if (!modelValue || !targetValue) {
-        continue;
-      }
-      rules.push({
-        enabled: true,
-        id: `model-${sanitizeConfigId(modelValue)}`,
-        model: modelValue,
-        name: modelValue,
-        pattern: "",
-        target: targetValue,
-        threshold: "200000",
-        type: "model"
-      });
-    }
-  }
-
-  if (Array.isArray(routing.rules)) {
-    routing.rules.forEach((rule, index) => {
-      const normalized = normalizeClaudeDesignRoutingRuleDraft(rule, index);
-      if (normalized) {
-        rules.push(normalized);
-      }
-    });
-  }
-
-  return {
-    defaultTarget: stringValue(routing.default) || stringValue(routing.defaultTarget) || fallbackTarget,
-    enabled: configRecord.routing === false ? false : routing.enabled !== false,
-    rules
-  };
-}
-
-export function normalizeClaudeDesignRoutingRuleDraft(value: unknown, index: number): ClaudeDesignRoutingRuleDraft | undefined {
-  if (!isPlainRecord(value)) {
-    return undefined;
-  }
-  const rawType = stringValue(value.type);
-  const parsedType = parseClaudeDesignRouteRuleType(value.type);
-  if (rawType && !parsedType) {
-    return undefined;
-  }
-  const type = parsedType ?? "model";
-  const target =
-    stringValue(value.target) ||
-    composeRouteTargetValue(value.targetProvider, value.targetModel) ||
-    stringValue(value.targetModel) ||
-    "";
-  const id = stringValue(value.id) || `${type}-${index + 1}`;
-  const model = stringValue(value.model) || stringValue(value.sourceModel) || "";
-  const pattern = stringValue(value.pattern) || (type === "model-prefix" ? model : "") || "";
-  return {
-    enabled: value.enabled !== false,
-    id,
-    model,
-    name: stringValue(value.name) || id,
-    pattern,
-    target,
-    threshold: String(positiveInteger(value.threshold) || positiveInteger(value.tokenThreshold) || 200000),
-    type
-  };
-}
-
-export function createCursorProxyRoutingRuleDraft(existingRules: ClaudeDesignRoutingRuleDraft[] = []): ClaudeDesignRoutingRuleDraft {
-  const id = uniqueClaudeDesignRoutingRuleId(existingRules);
-  return {
-    enabled: true,
-    id,
-    model: "default",
-    name: "Cursor route",
-    pattern: "",
-    target: "",
-    threshold: "200000",
-    type: "model"
-  };
-}
-
-export function normalizeClaudeDesignRuleTypeChange(
-  rule: ClaudeDesignRoutingRuleDraft,
-  type: ClaudeDesignRouteRuleType,
-  defaults: { model: string; pattern: string } = { model: "claude-opus-4-8", pattern: "claude-" }
-): Partial<ClaudeDesignRoutingRuleDraft> {
-  const patch: Partial<ClaudeDesignRoutingRuleDraft> = { type };
-  if (!rule.name.trim() || rule.name.trim() === claudeDesignRouteRuleTypeLabel(rule.type)) {
-    patch.name = claudeDesignRouteRuleTypeLabel(type);
-  }
-  if (type === "model" && !rule.model.trim()) {
-    patch.model = defaults.model;
-  }
-  if (type === "model-prefix" && !rule.pattern.trim()) {
-    patch.pattern = defaults.pattern;
-  }
-  return patch;
-}
-
-export function isClaudeDesignRoutingDraftValid(draft: ClaudeDesignRoutingDraft): boolean {
-  if (!draft.enabled) {
-    return true;
-  }
-  return draft.rules.every((rule) => {
-    if (!rule.enabled) {
-      return true;
-    }
-    if (!rule.target.trim()) {
-      return false;
-    }
-    if (rule.type === "model") {
-      return Boolean(rule.model.trim());
-    }
-    if (rule.type === "model-prefix") {
-      return Boolean(rule.pattern.trim());
-    }
-    return true;
-  });
-}
-
-export function claudeDesignRoutingConfigFromDraft(draft: ClaudeDesignRoutingDraft): Record<string, unknown> {
-  return {
-    enabled: draft.enabled,
-    rules: draft.rules.map((rule) => {
-      const output: Record<string, unknown> = {
-        enabled: rule.enabled,
-        id: rule.id.trim() || sanitizeConfigId(rule.name) || "route",
-        name: rule.name.trim() || claudeDesignRouteRuleTypeLabel(rule.type),
-        target: rule.target.trim(),
-        type: rule.type
-      };
-      if (rule.type === "model") {
-        output.model = rule.model.trim();
-      }
-      if (rule.type === "model-prefix") {
-        output.pattern = rule.pattern.trim();
-      }
-      return output;
-    })
-  };
-}
-
 export function buildRoutingRuleRows(config: AppConfig): RoutingRuleRow[] {
   return config.Router.rules.map((rule, index): RoutingRuleRow => ({
     condition: formatRouterRuleCondition(rule),
@@ -520,33 +361,6 @@ export function buildRoutingRuleRows(config: AppConfig): RoutingRuleRow[] {
   }));
 }
 
-export function formatClaudeDesignRoutingRuleCondition(rule: ClaudeDesignRoutingRuleDraft): string {
-  if (rule.type === "model") {
-    return rule.model ? `is ${rule.model}` : "model unset";
-  }
-  if (rule.type === "model-prefix") {
-    return rule.pattern ? `starts with ${rule.pattern}` : "prefix unset";
-  }
-  return "always";
-}
-
-export function parseClaudeDesignRouteRuleType(value: unknown): ClaudeDesignRouteRuleType | undefined {
-  const normalized = stringValue(value);
-  return normalized && isClaudeDesignRouteRuleType(normalized) ? normalized : undefined;
-}
-
-export function isClaudeDesignRouteRuleType(value: string): value is ClaudeDesignRouteRuleType {
-  return claudeDesignRouteRuleTypeOptions.some((option) => option.value === value);
-}
-
-export function isClaudeDesignStaticRuleType(type: ClaudeDesignRouteRuleType): boolean {
-  return type === "always";
-}
-
-export function claudeDesignRouteRuleTypeLabel(type: ClaudeDesignRouteRuleType): string {
-  return claudeDesignRouteRuleTypeOptions.find((option) => option.value === type)?.label ?? type;
-}
-
 export function composeRouteTargetValue(providerValue: unknown, modelValue: unknown): string | undefined {
   const provider = stringValue(providerValue);
   const model = stringValue(modelValue);
@@ -554,14 +368,4 @@ export function composeRouteTargetValue(providerValue: unknown, modelValue: unkn
     return `${provider}/${model}`;
   }
   return model || provider;
-}
-
-export function uniqueClaudeDesignRoutingRuleId(rules: ClaudeDesignRoutingRuleDraft[]): string {
-  let index = rules.length + 1;
-  let id = `plugin-route-${index}`;
-  while (rules.some((rule) => rule.id === id)) {
-    index += 1;
-    id = `plugin-route-${index}`;
-  }
-  return id;
 }
