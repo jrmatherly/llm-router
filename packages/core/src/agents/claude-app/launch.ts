@@ -4,7 +4,6 @@ import os from "node:os";
 import path from "node:path";
 import type { AppConfig, ProfileConfig } from "@llmr/core/contracts/app";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
-import { prepareClaudeAppCdpUserDataDir, reserveClaudeAppCdpPort, scheduleClaudeAppDesignCdp } from "@llmr/core/agents/claude-app/cdp";
 import { prepareClaudeAppVmStorage } from "@llmr/core/agents/claude-app/vm-storage";
 import { claudeCodeModelEnv as claudeCodeProfileModelEnv, claudeCodeUtcTimezoneEnvOverride, isClaudeCodeManagedModelEnvKey } from "@llmr/core/agents/claude-code/environment";
 import { resolveClaudeCodeSettingsFile } from "@llmr/core/profiles/launch-core";
@@ -19,7 +18,6 @@ type ClaudeAppLookupResult = {
 export type ClaudeAppLaunchResult = {
   child: ChildProcess;
   command: string;
-  cdpPort?: number;
   pidIsLauncher?: boolean;
   pid?: number;
   userDataDir: string;
@@ -58,9 +56,6 @@ export async function launchClaudeAppProfile(configDir: string, profile: Profile
   if (vmStorage.action === "skipped" && vmStorage.reason === "clone-failed") {
     console.warn(`[profile] Failed to clone Claude App VM seed for ${profile.name || profile.id}. Claude App may rebuild its VM in ${vmStorage.targetBundleDir}.`);
   }
-  prepareClaudeAppCdpUserDataDir(userDataDir);
-  const shouldOpenDesign = shouldOpenClaudeAppDesign(config);
-  const cdpPort = await reserveClaudeAppCdpPort(console, shouldOpenDesign);
 
   const appEnv: Record<string, string> = {
     ...profileEnv(profile),
@@ -79,25 +74,17 @@ export async function launchClaudeAppProfile(configDir: string, profile: Profile
   };
   delete env.ELECTRON_RUN_AS_NODE;
 
-  const designUrl = claudeAppDesignUrl(config);
-  const launch = claudeAppLaunchCommand(lookup.executable, userDataDir, cdpPort, appEnv);
+  const launch = claudeAppLaunchCommand(lookup.executable, userDataDir, appEnv);
   const child = spawn(launch.command, launch.args, {
     detached: true,
     env,
     stdio: "ignore"
   });
   child.unref();
-  scheduleClaudeAppDesignCdp({
-    cdpPort,
-    designUrl,
-    enabled: shouldOpenDesign,
-    logger: console
-  });
 
   return {
     child,
     command: launch.command,
-    ...(cdpPort ? { cdpPort } : {}),
     ...(launch.pidIsLauncher ? { pidIsLauncher: launch.pidIsLauncher } : {}),
     pid: child.pid,
     userDataDir
@@ -109,32 +96,8 @@ export function resolveClaudeAppProfileUserDataDir(configDir: string, profile: P
   return claudeElectronUserDataDir(path.dirname(settingsFile), profile);
 }
 
-function shouldOpenClaudeAppDesign(config: AppConfig | undefined): boolean {
-  return Boolean(claudeDesignPluginConfig(config));
-}
-
-function claudeAppDesignUrl(config: AppConfig | undefined): string | undefined {
-  const plugin = claudeDesignPluginConfig(config);
-  if (!plugin) {
-    return undefined;
-  }
-  const options = isRecord(plugin.config) ? plugin.config : {};
-  const host = typeof options.host === "string" && options.host.trim() ? options.host.trim() : "claude.ai";
-  return `https://${host}/design`;
-}
-
-function claudeDesignPluginConfig(config: AppConfig | undefined): AppConfig["plugins"][number] | undefined {
-  return config?.plugins.find((plugin) => plugin.enabled !== false && plugin.id === "claude-design");
-}
-
-function claudeElectronArgs(userDataDir: string, cdpPort?: number): string[] {
+function claudeElectronArgs(userDataDir: string): string[] {
   return [
-    ...(cdpPort
-      ? [
-          `--remote-debugging-port=${cdpPort}`,
-          "--remote-debugging-address=127.0.0.1"
-        ]
-      : []),
     `--user-data-dir=${userDataDir}`,
     "--disable-renderer-backgrounding",
     "--disable-background-timer-throttling",
@@ -145,10 +108,9 @@ function claudeElectronArgs(userDataDir: string, cdpPort?: number): string[] {
 export function claudeAppLaunchCommand(
   executable: string,
   userDataDir: string,
-  cdpPort: number | undefined,
   env: Record<string, string>
 ): { args: string[]; command: string; pidIsLauncher?: boolean } {
-  const args = claudeElectronArgs(userDataDir, cdpPort);
+  const args = claudeElectronArgs(userDataDir);
   const appBundle = process.platform === "darwin" ? macAppBundleFromExecutable(executable) : undefined;
   if (appBundle) {
     return {
@@ -382,10 +344,6 @@ function claudeCodeModelEnv(profile: ProfileConfig): Record<string, string> {
 
 function isEnvName(value: string): boolean {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function sanitizeProfilePathSegment(value: string): string {

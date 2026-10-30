@@ -15,11 +15,10 @@ import { LEGACY_ACTIVE_CONFIG_FILE, LEGACY_CONFIG_FILE } from "@llmr/core/config
 import { normalizeCodexProviderAccountConfig } from "@llmr/core/agents/local-providers/codex";
 import { normalizeGrokProviderAccountConfig, normalizeGrokProviderMediaCapabilities } from "@llmr/core/agents/local-providers/grok";
 import { removeOpenCodeProviderAccountConfig } from "@llmr/core/agents/local-providers/opencode";
-import { CLAUDE_CODE_DEFAULT_ENV, CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, CLAUDE_DESIGN_PLUGIN_ID, CLAUDE_SHIP_PLUGIN_ID, DEFAULT_TRAY_COMPONENT_VARIANTS, GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, OVERVIEW_WIDGET_SIZE_VALUES, ROUTER_FALLBACK_MAX_RETRY_COUNT, ROUTER_SCRIPT_API_VERSION, ROUTER_SCRIPT_DEFAULT_TIMEOUT_MS, ROUTER_SCRIPT_MAX_TIMEOUT_MS, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS, enforceSingleEnabledGlobalProfilePerAgent, isEnabledGlobalProfile, knownGatewayPluginDefaultApps, knownGatewayPluginDefaultPermissions, knownGatewayPluginDefaultSurfaces } from "@llmr/core/contracts/app";
+import { CLAUDE_CODE_DEFAULT_ENV, CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, DEFAULT_TRAY_COMPONENT_VARIANTS, GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, OVERVIEW_WIDGET_SIZE_VALUES, ROUTER_FALLBACK_MAX_RETRY_COUNT, ROUTER_SCRIPT_API_VERSION, ROUTER_SCRIPT_DEFAULT_TIMEOUT_MS, ROUTER_SCRIPT_MAX_TIMEOUT_MS, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS, enforceSingleEnabledGlobalProfilePerAgent, isEnabledGlobalProfile, knownGatewayPluginDefaultPermissions, knownGatewayPluginDefaultSurfaces } from "@llmr/core/contracts/app";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config";
 import { maxRequestLogBodyBytes } from "@llmr/core/observability/request-log-limits";
 import { findProviderPresetByBaseUrl, primaryProviderPresetEndpoint, providerApiKeySafetyIssue, providerEndpointCanReceiveProviderApiKey } from "@llmr/core/providers/presets/index";
-import { isDesktopAppRuntime } from "@llmr/core/runtime/desktop-app";
 import type {
   AppConfig,
   ApiKeyConfig,
@@ -2699,44 +2698,18 @@ type GatewayPluginMigrationResult = {
   plugins: GatewayPluginConfig[];
 };
 
-const LLMR_EXTENSIONS_PLUGIN_IDS = new Set([CLAUDE_DESIGN_PLUGIN_ID, CLAUDE_SHIP_PLUGIN_ID, "cursor-proxy"]);
+const LLMR_EXTENSIONS_PLUGIN_IDS = new Set(["cursor-proxy"]);
+const REMOVED_GATEWAY_PLUGIN_IDS = new Set(["claude-design", "claude-ship"]);
 
 function migrateKnownGatewayPluginConfigs(plugins: GatewayPluginConfig[] | undefined): GatewayPluginMigrationResult {
   const sourcePlugins = plugins ?? [];
-  let changed = false;
-  let hasClaudeShip = sourcePlugins.some((plugin) => plugin.id === CLAUDE_SHIP_PLUGIN_ID);
-  const migrated: GatewayPluginConfig[] = [];
-
-  for (const sourcePlugin of sourcePlugins) {
+  const keptPlugins = sourcePlugins.filter((plugin) => !REMOVED_GATEWAY_PLUGIN_IDS.has(plugin.id));
+  let changed = keptPlugins.length !== sourcePlugins.length;
+  const migrated = keptPlugins.map((sourcePlugin) => {
     const moduleMigration = migrateExternalizedPluginModuleConfig(sourcePlugin);
-    const plugin = moduleMigration.plugin;
     changed = changed || moduleMigration.changed;
-
-    if (plugin.id === CLAUDE_SHIP_PLUGIN_ID) {
-      const shipMigration = migrateClaudeShipPluginConfig(plugin);
-      changed = changed || shipMigration.changed;
-      migrated.push(shipMigration.plugin);
-      continue;
-    }
-
-    if (plugin.id !== CLAUDE_DESIGN_PLUGIN_ID) {
-      migrated.push(plugin);
-      continue;
-    }
-
-    const designMigration = migrateClaudeDesignPluginConfig(plugin);
-    changed = changed || designMigration.changed;
-    migrated.push(designMigration.plugin);
-
-    if (!hasClaudeShip && shouldSplitClaudeShipPlugin(plugin)) {
-      const shipPlugin = migratedClaudeShipPluginConfig(plugin);
-      if (shipPlugin) {
-        migrated.push(shipPlugin);
-        hasClaudeShip = true;
-        changed = true;
-      }
-    }
-  }
+    return moduleMigration.plugin;
+  });
 
   return {
     changed,
@@ -2761,318 +2734,6 @@ function migrateExternalizedPluginModuleConfig(plugin: GatewayPluginConfig): { c
   };
 }
 
-function migrateClaudeDesignPluginConfig(plugin: GatewayPluginConfig): GatewayPluginMigrationResult & { plugin: GatewayPluginConfig } {
-  let changed = false;
-  const nextPlugin: GatewayPluginConfig = { ...plugin };
-  const config = removeDeprecatedClaudePluginConfig(plugin.config);
-  if (config.changed) {
-    changed = true;
-    if (config.config === undefined) {
-      delete nextPlugin.config;
-    } else {
-      nextPlugin.config = config.config;
-    }
-  }
-  const isLegacyModule = isLegacyClaudeDesignModule(plugin.module);
-  const modulePath = migratedClaudePluginModulePath(CLAUDE_DESIGN_PLUGIN_ID, plugin.module);
-  if (modulePath && modulePath !== plugin.module) {
-    nextPlugin.module = modulePath;
-    changed = true;
-  }
-
-  const hasMigratableApps = Boolean(plugin.apps?.some((app) => isClaudeShipApp(app) || isLegacyClaudeDesignAppUrl(app.url)));
-  if (isLegacyModule || hasMigratableApps) {
-    const apps = migrateClaudeDesignPluginApps(plugin.apps);
-    if (apps.changed) {
-      nextPlugin.apps = apps.apps;
-      changed = true;
-    }
-  }
-
-  return {
-    changed,
-    plugin: nextPlugin,
-    plugins: [nextPlugin]
-  };
-}
-
-const deprecatedClaudePluginConfigKeys = new Set([
-  "appMode",
-  "autoAnswerQuestions",
-  "claudeAppAssetDir",
-  "claudeAppAssets",
-  "claudeAppIonDistDir",
-  "claudeAppPath",
-  "claudeShipAssetDir",
-  "claudeShipAssets",
-  "claudeShipIonDistDir",
-  "claudeShipLocalApp",
-  "designHtmlPath",
-  "htmlPath",
-  "localApp",
-  "localShell",
-  "onlineApp",
-  "savedHtmlPath",
-  "shipAssetDir",
-  "shipAssets",
-  "shipIonDistDir",
-  "shipLocalApp",
-  "useSavedHtml"
-]);
-
-const deprecatedClaudePluginFalseOnlyConfigKeys = new Set([
-  "assetsOrigin",
-  "designAssetsOrigin",
-  "designFrontendAssetsOrigin",
-  "designFrontendOrigin",
-  "designFrontendUrl",
-  "designWebUrl",
-  "frontendAssetsOrigin",
-  "frontendOrigin",
-  "frontendUrl",
-  "shipAssetsOrigin",
-  "shipFrontendAssetsOrigin",
-  "shipFrontendOrigin",
-  "shipFrontendUrl",
-  "shipWebUrl",
-  "staticAssetsOrigin",
-  "webUrl"
-]);
-
-function removeDeprecatedClaudePluginConfig(config: unknown): { changed: boolean; config?: unknown } {
-  if (!isObject(config)) {
-    return {
-      changed: false,
-      ...(config !== undefined ? { config } : {})
-    };
-  }
-  const nextConfig: Record<string, unknown> = {};
-  let changed = false;
-  for (const [key, value] of Object.entries(config)) {
-    if (deprecatedClaudePluginConfigKeys.has(key) || (value === false && deprecatedClaudePluginFalseOnlyConfigKeys.has(key))) {
-      changed = true;
-      continue;
-    }
-    nextConfig[key] = value;
-  }
-  if (!changed) {
-    return {
-      changed: false,
-      config
-    };
-  }
-  return {
-    changed: true,
-    ...(Object.keys(nextConfig).length > 0 ? { config: nextConfig } : {})
-  };
-}
-
-function migrateClaudeDesignPluginApps(apps: GatewayPluginAppConfig[] | undefined): { apps: GatewayPluginAppConfig[]; changed: boolean } {
-  const designDefaults = knownGatewayPluginDefaultApps(CLAUDE_DESIGN_PLUGIN_ID) ?? [];
-  if (!apps?.length) {
-    return {
-      apps: designDefaults,
-      changed: designDefaults.length > 0
-    };
-  }
-
-  let changed = false;
-  const designApps = apps
-    .filter((app) => {
-      const isShip = isClaudeShipApp(app);
-      changed = changed || isShip;
-      return !isShip;
-    })
-    .map((app) => {
-      if (!isLegacyClaudeDesignAppUrl(app.url)) {
-        return app;
-      }
-      const defaultApp = designDefaults.find((item) => item.id === (app.id || "claude-design")) ?? designDefaults[0];
-      if (!defaultApp) {
-        return app;
-      }
-      changed = true;
-      return {
-        ...app,
-        url: defaultApp.url
-      };
-    });
-
-  if (!designApps.length && designDefaults.length) {
-    return {
-      apps: designDefaults,
-      changed: true
-    };
-  }
-
-  return {
-    apps: designApps,
-    changed
-  };
-}
-
-function migrateClaudeShipPluginConfig(plugin: GatewayPluginConfig): GatewayPluginMigrationResult & { plugin: GatewayPluginConfig } {
-  let changed = false;
-  const nextPlugin: GatewayPluginConfig = { ...plugin };
-  const config = removeDeprecatedClaudePluginConfig(plugin.config);
-  if (config.changed) {
-    changed = true;
-    if (config.config === undefined) {
-      delete nextPlugin.config;
-    } else {
-      nextPlugin.config = config.config;
-    }
-  }
-  const apps = migrateClaudeShipPluginApps(plugin.apps);
-  if (apps.changed) {
-    changed = true;
-    nextPlugin.apps = apps.apps;
-  }
-  if (!changed) {
-    return {
-      changed: false,
-      plugin,
-      plugins: [plugin]
-    };
-  }
-  return {
-    changed: true,
-    plugin: nextPlugin,
-    plugins: [nextPlugin]
-  };
-}
-
-function migrateClaudeShipPluginApps(apps: GatewayPluginAppConfig[] | undefined): { apps: GatewayPluginAppConfig[]; changed: boolean } {
-  const shipDefaults = knownGatewayPluginDefaultApps(CLAUDE_SHIP_PLUGIN_ID) ?? [];
-  if (!apps?.length) {
-    return {
-      apps: shipDefaults,
-      changed: shipDefaults.length > 0
-    };
-  }
-
-  return {
-    apps,
-    changed: false
-  };
-}
-
-function migratedClaudeShipPluginConfig(source: GatewayPluginConfig): GatewayPluginConfig | undefined {
-  const modulePath = isLegacyClaudeDesignModule(source.module)
-    ? migratedClaudePluginModulePath(CLAUDE_SHIP_PLUGIN_ID, source.module)
-    : resolveBundledOrExternalizedPluginModule(CLAUDE_SHIP_PLUGIN_ID, source.module);
-  if (!modulePath) {
-    return undefined;
-  }
-  const config = removeDeprecatedClaudePluginConfig(source.config);
-  return {
-    ...(config.config !== undefined ? { config: config.config } : {}),
-    apps: knownGatewayPluginDefaultApps(CLAUDE_SHIP_PLUGIN_ID),
-    enabled: source.enabled,
-    id: CLAUDE_SHIP_PLUGIN_ID,
-    module: modulePath,
-    permissions: knownGatewayPluginDefaultPermissions(CLAUDE_SHIP_PLUGIN_ID),
-    surfaces: knownGatewayPluginDefaultSurfaces(CLAUDE_SHIP_PLUGIN_ID)
-  };
-}
-
-export function claudeDesignRuntimePluginConfig(): GatewayPluginConfig | undefined {
-  return claudeProductRuntimePluginConfig(CLAUDE_DESIGN_PLUGIN_ID);
-}
-
-export function claudeShipRuntimePluginConfig(): GatewayPluginConfig | undefined {
-  return claudeProductRuntimePluginConfig(CLAUDE_SHIP_PLUGIN_ID);
-}
-
-function claudeProductRuntimePluginConfig(pluginId: string): GatewayPluginConfig | undefined {
-  if (!isDesktopAppRuntime()) {
-    return undefined;
-  }
-  const modulePath = resolveBundledOrExternalizedPluginModule(pluginId, undefined);
-  if (!modulePath) {
-    return undefined;
-  }
-  return {
-    apps: knownGatewayPluginDefaultApps(pluginId),
-    enabled: true,
-    id: pluginId,
-    module: modulePath,
-    permissions: knownGatewayPluginDefaultPermissions(pluginId),
-    surfaces: knownGatewayPluginDefaultSurfaces(pluginId)
-  };
-}
-
-export function withClaudeDesignRuntimePluginConfig(config: AppConfig): AppConfig {
-  return withClaudeProductRuntimePluginConfig(config, CLAUDE_DESIGN_PLUGIN_ID, "Claude Design");
-}
-
-export function withClaudeShipRuntimePluginConfig(config: AppConfig): AppConfig {
-  return withClaudeProductRuntimePluginConfig(config, CLAUDE_SHIP_PLUGIN_ID, "Claude Ship");
-}
-
-function withClaudeProductRuntimePluginConfig(config: AppConfig, pluginId: string, productName: string): AppConfig {
-  const existingIndex = config.plugins.findIndex((plugin) => plugin.enabled !== false && plugin.id === pluginId);
-  if (existingIndex >= 0 && config.plugins[existingIndex]?.module?.trim()) {
-    return config;
-  }
-  if (!isDesktopAppRuntime()) {
-    throw new Error(`${productName} is only available in LLMR Desktop.`);
-  }
-  const plugin = claudeProductRuntimePluginConfig(pluginId);
-  if (!plugin) {
-    throw new Error(`${productName} runtime module was not found. Rebuild app assets so the bundled ${productName} plugin is copied into the Electron dist.`);
-  }
-  if (existingIndex >= 0) {
-    const existing = config.plugins[existingIndex];
-    const plugins = [...config.plugins];
-    plugins[existingIndex] = {
-      ...plugin,
-      ...existing,
-      apps: existing.apps ?? plugin.apps,
-      module: plugin.module,
-      permissions: existing.permissions ?? plugin.permissions,
-      surfaces: existing.surfaces ?? plugin.surfaces
-    };
-    return {
-      ...config,
-      plugins
-    };
-  }
-  return {
-    ...config,
-    plugins: [...config.plugins, plugin]
-  };
-}
-
-function shouldSplitClaudeShipPlugin(plugin: GatewayPluginConfig): boolean {
-  return isLegacyClaudeDesignModule(plugin.module) || Boolean(plugin.apps?.some(isClaudeShipApp));
-}
-
-function isClaudeShipApp(app: GatewayPluginAppConfig): boolean {
-  return [app.id, app.name, app.url].some((value) => typeof value === "string" && value.toLowerCase().includes("claude-ship"));
-}
-
-function isLegacyClaudeDesignAppUrl(value: string): boolean {
-  try {
-    const url = new URL(value, "https://claude.ai");
-    const host = url.hostname.toLowerCase();
-    const pathname = url.pathname.replace(/\/$/, "");
-    if (host === "claude.ai") {
-      return pathname === "/design" || pathname === "/discover/design";
-    }
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-function migratedClaudePluginModulePath(pluginId: string, previousModule: string | undefined): string {
-  if (!isLegacyClaudeDesignModule(previousModule)) {
-    return previousModule || "";
-  }
-  return resolveBundledOrExternalizedPluginModule(pluginId, previousModule) || previousModule || "";
-}
-
 function migratedExternalizedPluginModulePath(pluginId: string, previousModule: string | undefined): string {
   if (!isLegacyExternalizedPluginModule(pluginId, previousModule)) {
     return previousModule || "";
@@ -3081,10 +2742,6 @@ function migratedExternalizedPluginModulePath(pluginId: string, previousModule: 
 }
 
 function resolveBundledOrExternalizedPluginModule(pluginId: string, previousModule: string | undefined): string {
-  const bundledModule = resolveBundledRuntimePluginModule(pluginId);
-  if (bundledModule) {
-    return bundledModule;
-  }
   for (const root of llmrExtensionsRootCandidates(previousModule)) {
     const candidate = path.join(root, "plugins", pluginId, "index.cjs");
     if (existsSync(candidate)) {
@@ -3092,44 +2749,6 @@ function resolveBundledOrExternalizedPluginModule(pluginId: string, previousModu
     }
   }
   return "";
-}
-
-function resolveBundledRuntimePluginModule(pluginId: string): string {
-  if (!isDesktopBundledClaudeRuntimePlugin(pluginId)) {
-    return "";
-  }
-  for (const candidate of bundledRuntimePluginModuleCandidates(pluginId)) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  return "";
-}
-
-function isDesktopBundledClaudeRuntimePlugin(pluginId: string): boolean {
-  return isDesktopAppRuntime() && (pluginId === CLAUDE_DESIGN_PLUGIN_ID || pluginId === CLAUDE_SHIP_PLUGIN_ID);
-}
-
-function bundledRuntimePluginModuleCandidates(pluginId: string): string[] {
-  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
-  const resourceCandidates = resourcesPath
-    ? [
-      path.join(resourcesPath, "app.asar.unpacked", "dist", "bundled-plugins", pluginId, "index.cjs"),
-      path.join(resourcesPath, "app.asar", "dist", "bundled-plugins", pluginId, "index.cjs"),
-      path.join(resourcesPath, "app", "dist", "bundled-plugins", pluginId, "index.cjs")
-    ]
-    : [];
-  return uniqueStrings([
-    ...resourceCandidates,
-    path.join(__dirname, "..", "bundled-plugins", pluginId, "index.cjs"),
-    path.resolve(__dirname, "..", "..", "..", "electron", "bundled-plugins", pluginId, "index.cjs"),
-    path.resolve(process.cwd(), "packages", "electron", "dist", "bundled-plugins", pluginId, "index.cjs"),
-    path.resolve(process.cwd(), "packages", "electron", "bundled-plugins", pluginId, "index.cjs")
-  ]);
-}
-
-function isLegacyClaudeDesignModule(modulePath: string | undefined): boolean {
-  return isLegacyExternalizedPluginModule(CLAUDE_DESIGN_PLUGIN_ID, modulePath);
 }
 
 function isLegacyExternalizedPluginModule(pluginId: string, modulePath: string | undefined): boolean {
@@ -3642,7 +3261,7 @@ function parseProfiles(value: unknown): ProfileConfig[] | undefined {
         : undefined;
       const env = parseStringRecord(item.env) ?? {};
       const parsedSurface = parseProfileSurface(readString(item.surface) || readString(item.entry) || readString(item.frontend)) || "auto";
-      const surface = agent === "workbuddy" || agent === "zcode" || agent === CLAUDE_DESIGN_PLUGIN_ID
+      const surface = agent === "workbuddy" || agent === "zcode"
         ? "app"
         : agent === "pi" || agent === "kilo"
           ? "cli"
@@ -3696,20 +3315,6 @@ function parseProfiles(value: unknown): ProfileConfig[] | undefined {
           ...(routing ? { routing } : {}),
           scope: "llmr",
           surface: "cli"
-        };
-      }
-
-      if (agent === CLAUDE_DESIGN_PLUGIN_ID) {
-        return {
-          agent,
-          enabled,
-          env: {},
-          id,
-          model: "",
-          name,
-          ...(routing ? { routing } : {}),
-          scope: "llmr",
-          surface: "app"
         };
       }
 
@@ -3836,9 +3441,6 @@ function parseProfileAgent(value: unknown): ProfileConfig["agent"] | undefined {
   if (normalized === "zcode" || normalized === "z-code" || normalized === "z code") {
     return "zcode";
   }
-  if (normalized === "claude-design" || normalized === "claude design" || normalized === "design") {
-    return CLAUDE_DESIGN_PLUGIN_ID;
-  }
   return undefined;
 }
 
@@ -3877,9 +3479,6 @@ function defaultProfileAgentName(agent: ProfileConfig["agent"]): string {
   if (agent === "workbuddy") {
     return "Workbuddy";
   }
-  if (agent === CLAUDE_DESIGN_PLUGIN_ID) {
-    return "Claude Design";
-  }
   return "Codex";
 }
 
@@ -3894,9 +3493,7 @@ function defaultCodexConfigFile(agent: ProfileConfig["agent"]): string {
           ? "~/.workbuddy/config.toml"
         : agent === "pi"
           ? "~/.pi/agent"
-          : agent === CLAUDE_DESIGN_PLUGIN_ID
-            ? "~/.llm-router/claude-design"
-            : "~/.codex/config.toml";
+          : "~/.codex/config.toml";
 }
 
 function normalizeCodexConfigFileForAgent(agent: ProfileConfig["agent"], value: string | undefined): string {

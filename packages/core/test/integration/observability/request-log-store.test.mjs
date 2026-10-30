@@ -2049,6 +2049,41 @@ test("RequestLogStore does not identify an unknown client as Grok CLI from its m
   }
 });
 
+test("a request that only mentions Claude Design infers no agent", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-claude-design-test-"));
+  let store;
+  try {
+    store = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
+    const startedAt = new Date().toISOString();
+    await store.record({
+      completedAt: startedAt,
+      durationMs: 25,
+      method: "POST",
+      path: "/v1/responses",
+      providerName: "test-provider",
+      providerProtocol: "openai_responses",
+      requestBody: Buffer.from(JSON.stringify({ input: "claude.ai/design", model: "Provider/model" }), "utf8"),
+      requestHeaders: {
+        "content-type": "application/json",
+        "user-agent": "generic-openai-client/1.0"
+      },
+      requestId: "claude-design-mention-request",
+      responseBodyText: JSON.stringify({ model: "Provider/model", output: [] }),
+      responseHeaders: { "content-type": "application/json" },
+      startedAt,
+      statusCode: 200,
+      url: "http://127.0.0.1:3456/v1/responses"
+    });
+
+    const analysis = await store.analyze({ agent: "all", range: "30d" });
+    assert.equal(analysis.scannedRequestCount, 1);
+    assert.equal(analysis.agents[0]?.agent, "unknown");
+  } finally {
+    await store?.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("RequestLogStore identifies Kimi CLI without inferring it from a Kimi model name", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-kimi-agent-test-"));
   let store;

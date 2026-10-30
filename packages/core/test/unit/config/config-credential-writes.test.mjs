@@ -55,6 +55,16 @@ test("profile maintenance cannot restore general keys from a stale config", asyn
   assert.deepEqual((await configApi.loadAppConfig()).APIKEYS, [retained]);
 });
 
+test("a saved claude-design profile is dropped without an error", async () => {
+  const stale = await configApi.loadAppConfig();
+  await configApi.saveAppConfig({ ...stale, profile: { ...stale.profile, enabled: true, profiles: [
+    { agent: "claude-design", enabled: true, id: "old-design", model: "Provider/model", name: "Old", scope: "llmr" },
+    { agent: "zcode", enabled: true, id: "keep", model: "Provider/model", name: "Keep", scope: "llmr" }
+  ] } });
+  const current = await configApi.loadAppConfig();
+  assert.deepEqual(current.profile.profiles.map((profile) => profile.id), ["keep"]);
+});
+
 test("profile key generation uses the latest credentials without restoring revoked keys", async () => {
   const { applyProfileConfig } = await import("@llmr/core/profiles/service.ts");
   const stale = await configApi.saveApiKeysConfig([retained, revoked]);
@@ -63,7 +73,7 @@ test("profile key generation uses the latest credentials without restoring revok
   stale.profile = {
     ...stale.profile,
     enabled: true,
-    profiles: [{ agent: "claude-design", enabled: true, id: "new-profile", model: "Provider/model", name: "New", scope: "llmr" }]
+    profiles: [{ agent: "zcode", enabled: true, id: "new-profile", model: "Provider/model", name: "New", scope: "llmr" }]
   };
 
   await applyProfileConfig(stale);

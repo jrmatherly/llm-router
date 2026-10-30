@@ -22,7 +22,6 @@ import { buildProfileLaunchPlan, findProfileForOpen, profileLaunchSpawnCommand, 
 import { profileApiKeyId } from "@llmr/core/profiles/api-key";
 import { backupFiles } from "@llmr/core/profiles/backup-files";
 import { applyProfileConfig, cleanupGeneratedBinBackups } from "@llmr/core/profiles/service";
-import { isDesktopAppRuntime } from "@llmr/core/runtime/desktop-app";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@llmr/core/platform/windows-system";
 import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
 
@@ -109,9 +108,6 @@ export async function getProfileOpenCommand(config: AppConfig, request: ProfileO
   assertAvailableGatewayModels(config);
   const profile = findProfileForOpen(config, request.profileId);
   const surface = resolveProfileOpenSurface(profile, request.surface);
-  if (profile.agent === "claude-design" && !isDesktopAppRuntime()) {
-    throw new Error("Claude Design profiles can only be opened from LLMR Desktop.");
-  }
   await applyProfileConfig(config);
   if (options.ensureLauncher) {
     ensureLlmrCliLauncher(config);
@@ -128,9 +124,6 @@ export async function openProfileFromLlmr(config: AppConfig, request: ProfileOpe
   assertAvailableGatewayModels(config);
   const profile = findProfileForOpen(config, request.profileId);
   const surface = resolveProfileOpenSurface(profile, request.surface);
-  if (profile.agent === "claude-design") {
-    throw new Error("Claude Design profiles can only be opened from LLMR Desktop.");
-  }
   for (const client of (await applyProfileConfig(config)).clients) {
     if (!client.ok) {
       console.warn(`[profile:${client.client}] ${client.message}`);

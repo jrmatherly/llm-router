@@ -851,23 +851,6 @@ export type GatewayPluginAppConfig = {
   url: string;
 };
 
-export const CLAUDE_DESIGN_PLUGIN_ID = "claude-design";
-export const CLAUDE_SHIP_PLUGIN_ID = "claude-ship";
-export const DEFAULT_CLAUDE_DESIGN_APP: GatewayPluginAppConfig = {
-  description: "Open Claude Design in a dedicated LLMR Electron window.",
-  icon: "palette",
-  id: "claude-design",
-  name: "Claude Design",
-  url: "https://claude-design.ccrdesk.top/design"
-};
-export const DEFAULT_CLAUDE_SHIP_APP: GatewayPluginAppConfig = {
-  description: "Open Claude Ship in a dedicated LLMR Electron window.",
-  icon: "rocket",
-  id: "claude-ship",
-  name: "Claude Ship",
-  url: "https://claude.ai/claude-ship"
-};
-
 export const GATEWAY_PLUGIN_SURFACE_IDS = [
   "apps",
   "gateway",
@@ -902,14 +885,6 @@ export type KnownGatewayPluginDefaults = {
 };
 
 export const KNOWN_GATEWAY_PLUGIN_DEFAULTS: Record<string, KnownGatewayPluginDefaults> = {
-  "claude-design": {
-    permissions: ["trusted-code", "apps", "gateway-routes", "proxy-routes", "http-backends", "sqlite-store"],
-    surfaces: { apps: true, gateway: true, provider: false }
-  },
-  "claude-ship": {
-    permissions: ["trusted-code", "apps", "gateway-routes", "proxy-routes", "http-backends", "sqlite-store"],
-    surfaces: { apps: true, gateway: true, provider: false }
-  },
   "cursor-proxy": {
     permissions: ["trusted-code", "gateway-routes", "proxy-routes", "http-backends"],
     surfaces: { apps: false, gateway: true, provider: false }
@@ -924,17 +899,6 @@ export function knownGatewayPluginDefaultPermissions(id: string): GatewayPluginP
 export function knownGatewayPluginDefaultSurfaces(id: string): GatewayPluginSurfacesConfig | undefined {
   const surfaces = KNOWN_GATEWAY_PLUGIN_DEFAULTS[id.trim().toLowerCase()]?.surfaces;
   return surfaces ? { ...surfaces } : undefined;
-}
-
-export function knownGatewayPluginDefaultApps(id: string): GatewayPluginAppConfig[] | undefined {
-  const pluginId = id.trim().toLowerCase();
-  if (pluginId === CLAUDE_DESIGN_PLUGIN_ID) {
-    return [{ ...DEFAULT_CLAUDE_DESIGN_APP }];
-  }
-  if (pluginId === CLAUDE_SHIP_PLUGIN_ID) {
-    return [{ ...DEFAULT_CLAUDE_SHIP_APP }];
-  }
-  return undefined;
 }
 
 export type GatewayMcpServerTransport = "stdio" | "streamable-http" | "sse";
@@ -1483,7 +1447,7 @@ export const DEFAULT_TRAY_WIDGETS: TrayWidgetConfig[] = [
   { id: "model-share", type: "model-share", variant: DEFAULT_TRAY_COMPONENT_VARIANTS.modelShare }
 ];
 
-export type ProfileClientKind = "claude-code" | "codex" | "grok" | "kimi" | "kilo" | "opencode" | "pi" | "workbuddy" | "zcode" | "claude-design";
+export type ProfileClientKind = "claude-code" | "codex" | "grok" | "kimi" | "kilo" | "opencode" | "pi" | "workbuddy" | "zcode";
 export type CodexProfileConfigFormat = "legacy" | "separate_profile_files";
 export type CodexRemoteFrontendMode = "app" | "cli" | "claude-code";
 export type ProfileScope = "llmr" | "global" | "custom";
@@ -2360,7 +2324,7 @@ export type UsageStatsResetResult = {
   resetAt: string;
 };
 
-export type AgentKind = "claude-code" | "codex" | "grok" | "kimi" | "kilo" | "opencode" | "pi" | "workbuddy" | "zcode" | "claude-design" | "unknown";
+export type AgentKind = "claude-code" | "codex" | "grok" | "kimi" | "kilo" | "opencode" | "pi" | "workbuddy" | "zcode" | "unknown";
 
 export type AgentAnalysisFilter = {
   agent?: AgentKind | "all";

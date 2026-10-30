@@ -105,16 +105,6 @@ const workbuddyProfile = {
   surface: "app"
 };
 
-const claudeDesignProfile = {
-  agent: "claude-design",
-  enabled: true,
-  id: "claude-design-main",
-  model: "",
-  name: "Claude Design",
-  scope: "llmr",
-  surface: "app"
-};
-
 test("findProfileForOpen resolves enabled profiles and reports ambiguous names", () => {
   const config = {
     profile: {
@@ -143,7 +133,6 @@ test("profile open surfaces enforce agent capabilities", () => {
   assert.deepEqual(profileOpenSurfaces(kiloProfile), ["cli"]);
   assert.deepEqual(profileOpenSurfaces(workbuddyProfile), ["app"]);
   assert.deepEqual(profileOpenSurfaces(openCodeProfile), ["cli", "app"]);
-  assert.deepEqual(profileOpenSurfaces(claudeDesignProfile), ["app"]);
   assert.equal(resolveProfileOpenSurface(codexProfile, "app"), "app");
   assert.throws(() => resolveProfileOpenSurface({ ...claudeProfile, surface: "cli" }, "app"), /does not support APP/);
   assert.throws(() => resolveProfileOpenSurface(grokProfile, "app"), /does not support APP/);
@@ -151,7 +140,6 @@ test("profile open surfaces enforce agent capabilities", () => {
   assert.throws(() => resolveProfileOpenSurface(piProfile, "app"), /does not support APP/);
   assert.throws(() => resolveProfileOpenSurface(kiloProfile, "app"), /does not support APP/);
   assert.throws(() => resolveProfileOpenSurface(workbuddyProfile, "cli"), /does not support CLI/);
-  assert.throws(() => resolveProfileOpenSurface(claudeDesignProfile, "cli"), /does not support CLI/);
 });
 
 test("default profile command surface is CLI unless the agent is app-only", () => {
@@ -160,7 +148,6 @@ test("default profile command surface is CLI unless the agent is app-only", () =
   assert.equal(defaultProfileOpenSurface({ ...codexProfile, surface: "app" }), "cli");
   assert.equal(defaultProfileOpenSurface(workbuddyProfile), "app");
   assert.equal(defaultProfileOpenSurface({ ...codexProfile, agent: "zcode" }), "app");
-  assert.equal(defaultProfileOpenSurface(claudeDesignProfile), "app");
 });
 
 test("Grok and Kimi CLI start a temporary LLMR gateway when none is already running", () => {
@@ -171,7 +158,6 @@ test("Grok and Kimi CLI start a temporary LLMR gateway when none is already runn
   assert.equal(shouldAutoStartProfileGateway(kiloProfile, "cli"), false);
   assert.equal(shouldAutoStartProfileGateway(codexProfile, "cli"), false);
   assert.equal(shouldAutoStartProfileGateway(claudeProfile, "app"), false);
-  assert.equal(shouldAutoStartProfileGateway(claudeDesignProfile, "app"), false);
 });
 
 test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
@@ -241,7 +227,6 @@ test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
   assert.throws(() => buildProfileLaunchPlan(configDir, workbuddyProfile, "cli"), /does not support CLI/);
 
   assert.throws(() => buildProfileLaunchPlan(configDir, claudeProfile, "app"), /Claude App opening/);
-  assert.throws(() => buildProfileLaunchPlan(configDir, claudeDesignProfile, "app"), /Claude Design profiles can only be opened from LLMR Desktop/);
 });
 
 test("profile config paths honor LLMR, custom, and global scopes", () => {
