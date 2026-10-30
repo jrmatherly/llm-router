@@ -62,7 +62,7 @@ export function renameProviderReferences(config: AppConfig, previousName: string
   }
   fields(next.toolHub.llm, ["model"]);
   for (const plugin of next.plugins) {
-    if (plugin.id !== "claude-design" && plugin.id !== "cursor-proxy") continue;
+    if (plugin.id !== "cursor-proxy") continue;
     if (!isRecord(plugin.config)) continue;
     if (plugin.config.targetProvider === previousName) plugin.config.targetProvider = nextName;
     fields(plugin.config, ["targetModel"]);

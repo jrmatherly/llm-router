@@ -3,7 +3,7 @@ import {
   ApiKeyConfig, AppConfig, appCopy, AppInfo, AppSaveConfigOptions, AppUpdateStatus, localAgentProviderApiKey,
   applyProviderProbeResult, AppToast, BotGatewaySavedConfig, buildExtensionList, buildProviderImportDraft, claudeDesignRoutingConfigFromDraft,
   ClaudeDesignRoutingDraft, ClaudeDesignRoutingRuleDraft, cloneConfig, createApiKeyDraft, createApiKeyEditDraft,
-  createApiKeyList, createClaudeDesignRoutingDraft, createClaudeDesignRoutingRuleDraft, createCursorProxyRoutingDraft, createCursorProxyRoutingRuleDraft, createEmptyAgentAnalysis,
+  createApiKeyList, createCursorProxyRoutingDraft, createCursorProxyRoutingRuleDraft, createEmptyAgentAnalysis,
   copyTextToClipboard, createEmptyRequestLogPage, createEmptyUsageStats, createExtensionInstallDraft, createGeneratedApiKey, createPluginSettingsDraft, createProfileDraft,
   createProfileDraftFromProfile, createProviderDraft, createProviderDraftFromProvider, createRoutingRuleDraft, createRoutingRuleDraftFromRule,
   createVirtualModelDraft, createVirtualModelDraftFromProfile, DEFAULT_TRAY_WIDGETS, detectSystemTheme,
@@ -12,7 +12,7 @@ import {
   fallbackGatewayStatus, fallbackInfo, fallbackProxyNetworkSnapshot, fallbackProxyStatus, fallbackRequestLogPage,
   fallbackUpdateStatus, fallbackUsageStats, formatAppError, GatewayProviderConfig, GatewayProviderProtocol,
   fusionCustomMcpServerFromDraft, fusionCustomToolConfigFromProfile,
-  GatewayProviderProbeResult, gatewayServiceMessage, GatewayStatus, getDefaultOnboardingStep, isClaudeDesignPluginConfig, isClaudeDesignRoutingDraftValid,
+  GatewayProviderProbeResult, gatewayServiceMessage, GatewayStatus, getDefaultOnboardingStep, isClaudeDesignRoutingDraftValid,
   isCursorProxyPluginConfig, isGatewayProviderEnabled, isMacPlatform, isPlainRecord, isProfileDraftSubmittable, isProviderNameDuplicate, isProviderProbeCandidateReady,
   isRoutingRuleDraftSubmittable,
   isLocalAgentLoginDraft, isTraySupportedPlatform,
@@ -23,7 +23,7 @@ import {
   OverviewWidgetConfig, parseProviderAccountDraft, parseProviderExtraJsonDraft, pluginConfigPatchFromSettingsDraft,
   providerCredentialsFromDraft,
   PluginInstallCandidate, PluginMarketplaceEntry, PluginRoutingConfigTarget, PluginSettingsDraft, presetCapabilitiesFromDraft,
-  probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptionsForRuntime, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
+  probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptions, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
   profileOpenCommandFallback, profileOpenSurfaces, ProviderAccountSnapshot, providerApiKeySafetyIssue, ProviderConnectivityCheckReport, ProviderDeepLinkPayload, ProviderDeepLinkRequest, providerIdentitySafetyIssue, providerProbeCandidates,
   providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, ProxyNetworkSnapshot,
   ProxyStatus, RequestLogListFilter, RequestLogPage,
@@ -216,12 +216,6 @@ function App() {
   const [profileActionBusy, setProfileActionBusy] = useState<ProfileActionBusy>();
   const [profileRuntimeStatus, setProfileRuntimeStatus] = useState<ProfileRuntimeStatus>({ profiles: [] });
   const [profileSubmitBusy, setProfileSubmitBusy] = useState<"" | "add" | "edit">("");
-  const availableProfileAgentOptions = useMemo(() => profileAgentOptionsForRuntime(appInfo.desktop), [appInfo.desktop]);
-  const defaultAvailableProfileAgent = availableProfileAgentOptions[0]?.value ?? "claude-code";
-  const isProfileAgentAvailable = useMemo(() => {
-    const availableAgents = new Set(availableProfileAgentOptions.map((option) => option.value));
-    return (agent: ProfileConfig["agent"]) => availableAgents.has(agent);
-  }, [availableProfileAgentOptions]);
   const [apiKeyAddOpen, setApiKeyAddOpen] = useState(false);
   const [apiKeyDraft, setApiKeyDraft] = useState<AddApiKeyDraft>(() => createApiKeyDraft());
   const [apiKeyEditDraft, setApiKeyEditDraft] = useState<AddApiKeyDraft>(() => createApiKeyDraft());
@@ -251,7 +245,6 @@ function App() {
   const [pluginSettingsError, setPluginSettingsError] = useState("");
   const [pluginRoutingConfigTarget, setPluginRoutingConfigTarget] = useState<PluginRoutingConfigTarget>();
   const [extensionDeleteTarget, setExtensionDeleteTarget] = useState<ExtensionDeleteTarget>();
-  const [claudeDesignRoutingDraft, setClaudeDesignRoutingDraft] = useState<ClaudeDesignRoutingDraft>(() => createClaudeDesignRoutingDraft());
   const [cursorProxyRoutingDraft, setCursorProxyRoutingDraft] = useState<ClaudeDesignRoutingDraft>(() => createCursorProxyRoutingDraft());
   const [virtualModelDialogOpen, setVirtualModelDialogOpen] = useState(false);
   const [virtualModelDraft, setVirtualModelDraft] = useState<VirtualModelDraft>(() => createVirtualModelDraft(fallbackConfig));
@@ -403,18 +396,6 @@ function App() {
     setProfileDraft((current) => profileDraftWithDetectedAppPath(current, appInfo.chatgptAppPath, appInfo.opencodeAppPath, appInfo.workbuddyAppPath));
     setProfileEditDraft((current) => profileDraftWithDetectedAppPath(current, appInfo.chatgptAppPath, appInfo.opencodeAppPath, appInfo.workbuddyAppPath));
   }, [appInfo.chatgptAppPath, appInfo.opencodeAppPath, appInfo.workbuddyAppPath]);
-
-  useEffect(() => {
-    if (!isProfileAgentAvailable(profileAgentTab)) {
-      setProfileAgentTab(defaultAvailableProfileAgent);
-    }
-    setProfileDraft((current) => isProfileAgentAvailable(current.agent)
-      ? current
-      : createProfileDraft(defaultAvailableProfileAgent));
-    setProfileEditDraft((current) => isProfileAgentAvailable(current.agent)
-      ? current
-      : createProfileDraft(defaultAvailableProfileAgent));
-  }, [defaultAvailableProfileAgent, isProfileAgentAvailable, profileAgentTab]);
 
   useEffect(() => {
     if (!window.llmr) {
@@ -793,7 +774,6 @@ function App() {
   const canSubmitApiKey = Boolean(apiKeyDraft.name.trim()) && (apiKeyDraft.expirationPreset !== "custom" || Boolean(apiKeyDraft.expiresAt.trim()));
   const canSubmitApiKeyEdit = apiKeyEditDraft.expirationPreset !== "custom" || Boolean(apiKeyEditDraft.expiresAt.trim());
   const canSubmitRoutingRule = isRoutingRuleDraftSubmittable(routingRuleDraft);
-  const canSubmitClaudeDesignRouting = isClaudeDesignRoutingDraftValid(claudeDesignRoutingDraft);
   const canSubmitCursorProxyRouting = isClaudeDesignRoutingDraftValid(cursorProxyRoutingDraft);
   const virtualModelValidationError = useMemo(() => validateVirtualModelDraft(virtualModelDraft), [virtualModelDraft]);
   const virtualModelValidationMessage = useMemo(
@@ -2393,57 +2373,6 @@ function App() {
     setPluginSettingsError("");
   }
 
-  function updateClaudeDesignRoutingDraft(patch: Partial<ClaudeDesignRoutingDraft>) {
-    setClaudeDesignRoutingDraft((current) => ({ ...current, ...patch }));
-  }
-
-  function addClaudeDesignRoutingRule() {
-    setClaudeDesignRoutingDraft((current) => ({
-      ...current,
-      rules: [...current.rules, createClaudeDesignRoutingRuleDraft(current.rules)]
-    }));
-  }
-
-  function updateClaudeDesignRoutingRule(index: number, patch: Partial<ClaudeDesignRoutingRuleDraft>) {
-    setClaudeDesignRoutingDraft((current) => ({
-      ...current,
-      rules: current.rules.map((rule, ruleIndex) => ruleIndex === index ? { ...rule, ...patch } : rule)
-    }));
-  }
-
-  function removeClaudeDesignRoutingRule(index: number) {
-    setClaudeDesignRoutingDraft((current) => ({
-      ...current,
-      rules: current.rules.filter((_, ruleIndex) => ruleIndex !== index)
-    }));
-  }
-
-  function submitClaudeDesignRoutingDraft() {
-    if (!pluginRoutingConfigTarget || !canSubmitClaudeDesignRouting) {
-      return;
-    }
-
-    updateConfig((config) => {
-      const values = [...(config.plugins ?? [])];
-      const item = values[pluginRoutingConfigTarget.index];
-      if (!item || !isClaudeDesignPluginConfig(item)) {
-        return config;
-      }
-
-      const configRecord = isPlainRecord(item.config) ? { ...item.config } : {};
-      values[pluginRoutingConfigTarget.index] = {
-        ...item,
-        config: {
-          ...configRecord,
-          routing: claudeDesignRoutingConfigFromDraft(claudeDesignRoutingDraft)
-        }
-      };
-      config.plugins = values;
-      return config;
-    });
-    setPluginRoutingConfigTarget(undefined);
-  }
-
   function updateCursorProxyRoutingDraft(patch: Partial<ClaudeDesignRoutingDraft>) {
     setCursorProxyRoutingDraft((current) => ({ ...current, ...patch }));
   }
@@ -2830,9 +2759,8 @@ function App() {
   }
 
   function openAddProfileDialog(agent: ProfileConfig["agent"] = profileAgentTab) {
-    const resolvedAgent = isProfileAgentAvailable(agent) ? agent : defaultAvailableProfileAgent;
-    setProfileAgentTab(resolvedAgent);
-    setProfileDraft(profileDraftWithDetectedAppPath(createProfileDraft(resolvedAgent), appInfo.chatgptAppPath, appInfo.opencodeAppPath, appInfo.workbuddyAppPath));
+    setProfileAgentTab(agent);
+    setProfileDraft(profileDraftWithDetectedAppPath(createProfileDraft(agent), appInfo.chatgptAppPath, appInfo.opencodeAppPath, appInfo.workbuddyAppPath));
     setProfileActionError("");
     setProfileAddOpen(true);
   }
@@ -3252,7 +3180,7 @@ function App() {
             loaded={configLoaded && onboardingStatusLoaded && providerPresetsLoaded}
             onboarding={{
               activeStep: onboardingStep,
-              agentOptions: availableProfileAgentOptions,
+              agentOptions: profileAgentOptions,
               canSubmitProfile,
               canSubmitProvider,
               config: draftConfig,
@@ -3377,7 +3305,7 @@ function App() {
               },
               profile: {
                 addProfile: openAddProfileDialog,
-                agentOptions: availableProfileAgentOptions,
+                agentOptions: profileAgentOptions,
                 applyError: profileActionError,
                 copyProfileCliCommand: (index) => void copyProfileCliCommand(index),
                 config: draftConfig,
@@ -3444,20 +3372,6 @@ function App() {
             onClose: () => setApiKeyEditIndex(undefined),
             onSubmit: submitApiKeyEditDraft
           } : undefined}
-          claudeDesignConfig={pluginRoutingConfigItem && isClaudeDesignPluginConfig(pluginRoutingConfigItem) ? {
-            canSubmit: canSubmitClaudeDesignRouting,
-            draft: claudeDesignRoutingDraft,
-            routesLabel: "Claude Design routes",
-            sourceModelLabel: "Claude Design model",
-            sourceModelDefaults: { model: "claude-opus-4-8", pattern: "claude-" },
-            onAddRule: addClaudeDesignRoutingRule,
-            onChange: updateClaudeDesignRoutingDraft,
-            onChangeRule: updateClaudeDesignRoutingRule,
-            onClose: () => setPluginRoutingConfigTarget(undefined),
-            onRemoveRule: removeClaudeDesignRoutingRule,
-            onSubmit: submitClaudeDesignRoutingDraft,
-            providers: draftConfig.Providers
-          } : undefined}
           cursorProxyConfig={pluginRoutingConfigItem && isCursorProxyPluginConfig(pluginRoutingConfigItem) ? {
             canSubmit: canSubmitCursorProxyRouting,
             draft: cursorProxyRoutingDraft,
@@ -3496,7 +3410,7 @@ function App() {
             onSubmit: submitPluginSettingsDraft
           } : undefined}
           profileAdd={profileAddOpen ? {
-            agentOptions: availableProfileAgentOptions,
+            agentOptions: profileAgentOptions,
             botConfigs: draftConfig.botConfigs,
             canSubmit: canSubmitProfile,
             draft: profileDraft,
@@ -3516,7 +3430,7 @@ function App() {
             profile: profileDeleteItem
           } : undefined}
           profileEdit={profileEditIndex !== undefined ? {
-            agentOptions: availableProfileAgentOptions,
+            agentOptions: profileAgentOptions,
             botConfigs: draftConfig.botConfigs,
             canSubmit: canSubmitProfileEdit,
             draft: profileEditDraft,

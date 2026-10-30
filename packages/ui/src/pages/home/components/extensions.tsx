@@ -150,12 +150,6 @@ function openablePluginAppId(config: AppConfig, index: number): string | undefin
   if (configuredApp) {
     return configuredApp.id?.trim() || configuredApp.name.trim();
   }
-  if (plugin.id === "claude-design") {
-    return "claude-design";
-  }
-  if (plugin.id === "claude-ship") {
-    return "claude-ship";
-  }
   return undefined;
 }
 
@@ -334,8 +328,8 @@ export function PluginSettingsDialog({
 export function ConfigureClaudeDesignDialog({
   canSubmit,
   draft,
-  routesLabel = "Claude Design routes",
-  sourceModelLabel = "Claude Design model",
+  routesLabel = "Routes",
+  sourceModelLabel = "Source model",
   sourceModelDefaults = { model: "claude-opus-4-8", pattern: "claude-" },
   onAddRule,
   onChange,

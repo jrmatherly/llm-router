@@ -13,7 +13,6 @@ export function AppDialogStack({
   apiKeyAdd,
   apiKeyCreated,
   apiKeyEdit,
-  claudeDesignConfig,
   cursorProxyConfig,
   extensionDelete,
   extensionInstall,
@@ -34,7 +33,6 @@ export function AppDialogStack({
   apiKeyAdd?: ComponentProps<typeof AddApiKeyDialog>;
   apiKeyCreated?: ComponentProps<typeof ApiKeyCreatedDialog>;
   apiKeyEdit?: ComponentProps<typeof EditApiKeyDialog>;
-  claudeDesignConfig?: ComponentProps<typeof ConfigureClaudeDesignDialog>;
   cursorProxyConfig?: ComponentProps<typeof ConfigureClaudeDesignDialog>;
   extensionDelete?: ComponentProps<typeof DeleteExtensionDialog>;
   extensionInstall?: ComponentProps<typeof InstallExtensionDialog>;
@@ -69,7 +67,6 @@ export function AppDialogStack({
     extensionInstall ? { key: "extension-install", node: <InstallExtensionDialog {...extensionInstall} /> } : null,
     extensionDelete ? { key: "extension-delete", node: <DeleteExtensionDialog {...extensionDelete} /> } : null,
     extensionSettings ? { key: "extension-settings", node: <PluginSettingsDialog {...extensionSettings} /> } : null,
-    claudeDesignConfig ? { key: "extension-config", node: <ConfigureClaudeDesignDialog {...claudeDesignConfig} /> } : null,
     cursorProxyConfig ? { key: "cursor-proxy-config", node: <ConfigureClaudeDesignDialog {...cursorProxyConfig} /> } : null,
     settings ? { key: "settings", node: <AppSettingsDialog {...settings} /> } : null,
     update ? { key: "update", node: <UpdateDialog {...update} /> } : null

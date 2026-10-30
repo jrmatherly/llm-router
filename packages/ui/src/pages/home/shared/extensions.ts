@@ -13,7 +13,7 @@ import type {
 } from "@llmr/core/contracts/app";
 
 import { isPlainRecord, stringValue } from "./common";
-import { isClaudeDesignPluginConfig, isCursorProxyPluginConfig, readClaudeDesignRoutingConfig } from "./routing";
+import { isCursorProxyPluginConfig, readClaudeDesignRoutingConfig } from "./routing";
 import type { ExtensionInstallDraft, ExtensionListItem, ExtensionSource, PluginInstallCandidate, PluginSettingsDraft } from "./types";
 
 export type PluginSettingsConfigPatch = Pick<
@@ -581,11 +581,6 @@ export function wrapperPluginCapability(item: Record<string, unknown>): string {
   const virtualModels = isPlainRecord(coreGateway) && Array.isArray(coreGateway.virtualModelProfiles) ? coreGateway.virtualModelProfiles.length : 0;
   if (virtualModels > 0) capabilities.push(`${virtualModels} Fusion ${virtualModels === 1 ? "profile" : "profiles"}`);
 
-  if (isClaudeDesignPluginConfig(item)) {
-    const routing = readClaudeDesignRoutingConfig(item.config);
-    const routeCount = routing.rules.length;
-    capabilities.push(routeCount > 0 ? `${routeCount} model ${routeCount === 1 ? "route" : "routes"}` : "Configurable routing");
-  }
   if (isCursorProxyPluginConfig(item)) {
     const routing = readClaudeDesignRoutingConfig(item.config);
     const routeCount = routing.rules.length;
