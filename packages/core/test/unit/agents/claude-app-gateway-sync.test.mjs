@@ -67,17 +67,17 @@ test("sync skips and restores the backup when the only claude-code profile is di
   cleanup(BACKUP_FILE);
 });
 
-test("sync skips when only a claude-design profile is enabled", async () => {
+test("sync skips when only a non-Claude-Code profile is enabled", async () => {
   const { BACKUP_FILE, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE, hasClaudeAppTakeoverProfile, syncClaudeAppGatewayConfig } = await loadModules();
   seedGatewayBackup(BACKUP_FILE);
   const synced = await syncClaudeAppGatewayConfig(createConfig({
     profile: {
       profiles: [{
-        agent: "claude-design",
+        agent: "zcode",
         enabled: true,
-        id: "design",
+        id: "zcode",
         model: "test-model",
-        name: "design"
+        name: "zcode"
       }]
     }
   }));
