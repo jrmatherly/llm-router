@@ -168,6 +168,10 @@ LLMR supports OpenAI Chat / Responses, Anthropic Messages, Gemini Generate Conte
 
 Your agent is now connected to LLMR. To add conditions, retries, request rewrites, or fallback models, open **Routing**.
 
+### Upgrading to 7.0
+
+The Claude Design and Claude Ship plugins and the Claude Design profile agent are gone. Saved profile and plugin entries for them are dropped the first time 7.0 loads the config. `~/.llm-router/claude-design.sqlite` and `~/.llm-router/claude-ship.sqlite` are left in place for you to delete.
+
 ### Upgrading to 6.1
 
 Profiles no longer route a Claude App opened from the Dock through LLMR unless you turn on "Route Claude App launched outside LLMR through LLMR".

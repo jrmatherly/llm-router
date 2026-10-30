@@ -1,6 +1,6 @@
 import { app, dialog } from "electron";
 import { appDeepLinkProtocol, createProviderDeepLinkRequest as createSharedProviderDeepLinkRequest, isAppDeepLinkUrl } from "@llmr/core/contracts/deep-link";
-import { type AppConfig, type GatewayPluginAppConfig, type ProviderDeepLinkRequest } from "@llmr/core/contracts/app";
+import type { AppConfig, GatewayPluginAppConfig, ProviderDeepLinkRequest } from "@llmr/core/contracts/app";
 import { IPC_CHANNELS } from "@llmr/core/config/constants";
 import { loadAppConfig } from "@llmr/core/config/config";
 import { syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
