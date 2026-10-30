@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AppConfig, PluginMarketplaceEntry } from "@llmr/core/contracts/app.ts";
-import { pluginConfigPatchFromSettingsDraft, resolvePluginInstallPlan } from "@llmr/ui/pages/home/shared/extensions.ts";
+import { pluginConfigPatchFromSettingsDraft, resolvePluginInstallPlan, wrapperPluginCapability } from "@llmr/ui/pages/home/shared/extensions.ts";
 import type { PluginInstallCandidate, PluginSettingsDraft } from "@llmr/ui/pages/home/shared/types.ts";
 
 test("extension install dependencies require enabled installed plugins with required surfaces", () => {
@@ -139,4 +139,11 @@ test("plugin settings draft omits empty advanced objects", () => {
     proxy: undefined,
     surfaces: undefined
   });
+});
+
+test("wrapperPluginCapability counts cursor-proxy routing rules and omits the label without them", () => {
+  const routed = wrapperPluginCapability({ config: { routing: { rules: [{ target: "a" }, { target: "b" }] } }, id: "cursor-proxy" });
+  assert.match(routed, /2 model routes/);
+  const unrouted = wrapperPluginCapability({ config: {}, id: "cursor-proxy" });
+  assert.doesNotMatch(unrouted, /route|Configurable routing/);
 });

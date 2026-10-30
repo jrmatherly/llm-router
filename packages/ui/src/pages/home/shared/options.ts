@@ -79,7 +79,6 @@ type ProviderAccountDraftMode = "standard" | "http-json" | "browser" | "raw";
 type ApiKeyLimitMetric = "images" | "requests" | "tokens";
 type ApiKeyExpirationPreset = "7d" | "30d" | "90d" | "custom" | "never";
 type LimitWindowPreset = "day" | "hour" | "minute";
-type ClaudeDesignRouteRuleType = "always" | "model" | "model-prefix";
 type VirtualModelClientToolsPolicy = "allow" | "deny";
 type VirtualModelMatchMode = "alias" | "prefix" | "suffix";
 export type AgentFilterValue = AgentKind | "all";
@@ -264,12 +263,6 @@ export const removedLegacyRouterRuleIds = new Set([
   "legacy-web-search",
   "legacy-image"
 ]);
-
-export const claudeDesignRouteRuleTypeOptions: Array<{ label: string; value: ClaudeDesignRouteRuleType }> = [
-  { label: "Exact model", value: "model" },
-  { label: "Model prefix", value: "model-prefix" },
-  { label: "Always", value: "always" }
-];
 
 export const virtualModelMatchModeOptions: Array<{ label: string; value: VirtualModelMatchMode }> = [
   { label: "Alias", value: "alias" },

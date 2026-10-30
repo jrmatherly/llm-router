@@ -13,7 +13,7 @@ import type {
 } from "@llmr/core/contracts/app";
 
 import { isPlainRecord, stringValue } from "./common";
-import { isCursorProxyPluginConfig, readClaudeDesignRoutingConfig } from "./routing";
+import { isCursorProxyPluginConfig } from "./routing";
 import type { ExtensionInstallDraft, ExtensionListItem, ExtensionSource, PluginInstallCandidate, PluginSettingsDraft } from "./types";
 
 export type PluginSettingsConfigPatch = Pick<
@@ -581,11 +581,9 @@ export function wrapperPluginCapability(item: Record<string, unknown>): string {
   const virtualModels = isPlainRecord(coreGateway) && Array.isArray(coreGateway.virtualModelProfiles) ? coreGateway.virtualModelProfiles.length : 0;
   if (virtualModels > 0) capabilities.push(`${virtualModels} Fusion ${virtualModels === 1 ? "profile" : "profiles"}`);
 
-  if (isCursorProxyPluginConfig(item)) {
-    const routing = readClaudeDesignRoutingConfig(item.config);
-    const routeCount = routing.rules.length;
-    capabilities.push(routeCount > 0 ? `${routeCount} model ${routeCount === 1 ? "route" : "routes"}` : "Configurable routing");
-  }
+  const routing = isPlainRecord(item.config) && isPlainRecord(item.config.routing) ? item.config.routing : undefined;
+  const pluginRoutes = isCursorProxyPluginConfig(item) && isPlainRecord(routing) && Array.isArray(routing.rules) ? routing.rules.length : 0;
+  if (pluginRoutes > 0) capabilities.push(`${pluginRoutes} model ${pluginRoutes === 1 ? "route" : "routes"}`);
 
   if (isPlainRecord(coreGateway) && isPlainRecord(coreGateway.config)) capabilities.push("Core gateway config");
   return capabilities.join(", ");

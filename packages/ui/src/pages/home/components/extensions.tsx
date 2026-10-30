@@ -1,11 +1,10 @@
 import {
   AnimatedDisclosure, AnimatedListItem, AnimatePresence, AppConfig, Braces, buildExtensionList, Button,
-  Card, CardContent, CardHeader, Check, ChevronDown, CircleAlert, ClaudeDesignRouteRuleType,
-  claudeDesignRouteRuleTypeLabel, claudeDesignRouteRuleTypeOptions, ClaudeDesignRoutingDraft, ClaudeDesignRoutingRuleDraft, createRouteModelOptions, Dialog,
+  Card, CardContent, CardHeader, Check, ChevronDown, CircleAlert, Dialog,
   DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, ExtensionListItem,
-  cn, extensionMatchesQuery, ExtensionSource, Field, GatewayProviderConfig, Input, isClaudeDesignStaticRuleType,
-  Label, motion, normalizeClaudeDesignRuleTypeChange, Play, PluginSettingsDraft, Plus, RouteTargetControl,
-  Search, SelectControl, Settings, TextAreaControl, Toggle,
+  cn, extensionMatchesQuery, ExtensionSource, Field, Input,
+  motion, Play, PluginSettingsDraft, Plus,
+  Search, Settings, TextAreaControl, Toggle,
   Trash2, useMemo, useState, X
 } from "../shared/index";
 export function ExtensionsView({
@@ -316,136 +315,6 @@ export function PluginSettingsDialog({
             Cancel
           </Button>
           <Button onClick={onSubmit} type="button">
-            <Check className="h-4 w-4" />
-            Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export function ConfigureClaudeDesignDialog({
-  canSubmit,
-  draft,
-  routesLabel = "Routes",
-  sourceModelLabel = "Source model",
-  sourceModelDefaults = { model: "claude-opus-4-8", pattern: "claude-" },
-  onAddRule,
-  onChange,
-  onChangeRule,
-  onClose,
-  onRemoveRule,
-  onSubmit,
-  providers
-}: {
-  canSubmit: boolean;
-  draft: ClaudeDesignRoutingDraft;
-  routesLabel?: string;
-  sourceModelLabel?: string;
-  sourceModelDefaults?: { model: string; pattern: string };
-  onAddRule: () => void;
-  onChange: (patch: Partial<ClaudeDesignRoutingDraft>) => void;
-  onChangeRule: (index: number, patch: Partial<ClaudeDesignRoutingRuleDraft>) => void;
-  onClose: () => void;
-  onRemoveRule: (index: number) => void;
-  onSubmit: () => void;
-  providers: GatewayProviderConfig[];
-}) {
-  const modelOptions = useMemo(() => createRouteModelOptions(providers), [providers]);
-  const ruleTypeOptions = claudeDesignRouteRuleTypeOptions;
-
-  return (
-    <Dialog onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[760px]">
-        <DialogHeader>
-          <div className="min-w-0">
-            <DialogTitle>Configure Routing</DialogTitle>
-          </div>
-          <Button aria-label="Close dialog" onClick={onClose} size="iconSm" title="Close" type="button" variant="ghost">
-            <X className="h-4 w-4" />
-          </Button>
-        </DialogHeader>
-
-        <DialogBody>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[160px_1fr]">
-              <Field label="Model routing">
-                <Toggle checked={draft.enabled} onChange={(enabled) => onChange({ enabled })} />
-              </Field>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{routesLabel}</div>
-                <Button onClick={onAddRule} size="sm" type="button" variant="outline">
-                  <Plus className="h-3.5 w-3.5" />
-                  Add
-                </Button>
-              </div>
-
-              {draft.rules.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-8 text-center text-[12px] text-muted-foreground">No plugin routes configured</div>
-              ) : null}
-
-              <div className="space-y-2">
-                <AnimatePresence initial={false}>
-                {draft.rules.map((rule, index) => (
-                  <AnimatedListItem className="rounded-md border border-border bg-card p-3" key={rule.id || index}>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label="Name">
-                        <Input value={rule.name} onChange={(event) => onChangeRule(index, { name: event.target.value })} />
-                      </Field>
-                      <Field label="Condition">
-                        <SelectControl
-                          value={rule.type}
-                          onChange={(type) => onChangeRule(index, normalizeClaudeDesignRuleTypeChange(rule, type as ClaudeDesignRouteRuleType, sourceModelDefaults))}
-                          options={ruleTypeOptions}
-                        />
-                      </Field>
-                      {rule.type === "model" ? (
-                        <Field label={sourceModelLabel}>
-                          <Input value={rule.model} onChange={(event) => onChangeRule(index, { model: event.target.value })} />
-                        </Field>
-                      ) : null}
-                      {rule.type === "model-prefix" ? (
-                        <Field label="Model prefix">
-                          <Input value={rule.pattern} onChange={(event) => onChangeRule(index, { pattern: event.target.value })} />
-                        </Field>
-                      ) : null}
-                      {isClaudeDesignStaticRuleType(rule.type) ? (
-                        <div className="flex min-h-[58px] items-end rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-[12px] text-muted-foreground">{claudeDesignRouteRuleTypeLabel(rule.type)}</div>
-                      ) : null}
-                      <Field label="Target model">
-                        <RouteTargetControl
-                          modelOptions={modelOptions}
-                          onChange={(target) => onChangeRule(index, { target })}
-                          value={rule.target}
-                        />
-                      </Field>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/60 pt-3">
-                      <Label className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
-                        <Toggle checked={rule.enabled} onChange={(enabled) => onChangeRule(index, { enabled })} />
-                        <span>Enabled</span>
-                      </Label>
-                      <Button aria-label={`Remove ${rule.name || "Plugin route"}`} onClick={() => onRemoveRule(index)} size="iconSm" title="Remove rule" type="button" variant="ghost">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </AnimatedListItem>
-                ))}
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
-        </DialogBody>
-
-        <DialogFooter>
-          <Button onClick={onClose} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button disabled={!canSubmit} onClick={onSubmit} type="button">
             <Check className="h-4 w-4" />
             Save
           </Button>

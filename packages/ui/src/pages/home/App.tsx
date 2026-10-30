@@ -1,9 +1,9 @@
 import {
   AddApiKeyDraft, AddProfileDraft, AddProviderDraft, AddRoutingRuleDraft, AgentAnalysisSessionSelection, AgentAnalysisSnapshot, AgentFilterValue,
   ApiKeyConfig, AppConfig, appCopy, AppInfo, AppSaveConfigOptions, AppUpdateStatus, localAgentProviderApiKey,
-  applyProviderProbeResult, AppToast, BotGatewaySavedConfig, buildExtensionList, buildProviderImportDraft, claudeDesignRoutingConfigFromDraft,
-  ClaudeDesignRoutingDraft, ClaudeDesignRoutingRuleDraft, cloneConfig, createApiKeyDraft, createApiKeyEditDraft,
-  createApiKeyList, createCursorProxyRoutingDraft, createCursorProxyRoutingRuleDraft, createEmptyAgentAnalysis,
+  applyProviderProbeResult, AppToast, BotGatewaySavedConfig, buildExtensionList, buildProviderImportDraft,
+  cloneConfig, createApiKeyDraft, createApiKeyEditDraft,
+  createApiKeyList, createEmptyAgentAnalysis,
   copyTextToClipboard, createEmptyRequestLogPage, createEmptyUsageStats, createExtensionInstallDraft, createGeneratedApiKey, createPluginSettingsDraft, createProfileDraft,
   createProfileDraftFromProfile, createProviderDraft, createProviderDraftFromProvider, createRoutingRuleDraft, createRoutingRuleDraftFromRule,
   createVirtualModelDraft, createVirtualModelDraftFromProfile, DEFAULT_TRAY_WIDGETS, detectSystemTheme,
@@ -12,8 +12,8 @@ import {
   fallbackGatewayStatus, fallbackInfo, fallbackProxyNetworkSnapshot, fallbackProxyStatus, fallbackRequestLogPage,
   fallbackUpdateStatus, fallbackUsageStats, formatAppError, GatewayProviderConfig, GatewayProviderProtocol,
   fusionCustomMcpServerFromDraft, fusionCustomToolConfigFromProfile,
-  GatewayProviderProbeResult, gatewayServiceMessage, GatewayStatus, getDefaultOnboardingStep, isClaudeDesignRoutingDraftValid,
-  isCursorProxyPluginConfig, isGatewayProviderEnabled, isMacPlatform, isPlainRecord, isProfileDraftSubmittable, isProviderNameDuplicate, isProviderProbeCandidateReady,
+  GatewayProviderProbeResult, gatewayServiceMessage, GatewayStatus, getDefaultOnboardingStep,
+  isGatewayProviderEnabled, isMacPlatform, isPlainRecord, isProfileDraftSubmittable, isProviderNameDuplicate, isProviderProbeCandidateReady,
   isRoutingRuleDraftSubmittable,
   isLocalAgentLoginDraft, isTraySupportedPlatform,
   LayoutGroup, mergeProviderModelLists, modelDescriptionsForModels, modelDisplayNamesForModels, modelMetadataForModels,
@@ -22,7 +22,7 @@ import {
   normalizeTrayWidgets, normalizeTrayWindowModules, normalizeVirtualModelDraftPatch, OnboardingReadinessOptions, OnboardingStepId, onboardingStepOrder,
   OverviewWidgetConfig, parseProviderAccountDraft, parseProviderExtraJsonDraft, pluginConfigPatchFromSettingsDraft,
   providerCredentialsFromDraft,
-  PluginInstallCandidate, PluginMarketplaceEntry, PluginRoutingConfigTarget, PluginSettingsDraft, presetCapabilitiesFromDraft,
+  PluginInstallCandidate, PluginMarketplaceEntry, PluginSettingsDraft, presetCapabilitiesFromDraft,
   probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptions, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
   profileOpenCommandFallback, profileOpenSurfaces, ProviderAccountSnapshot, providerApiKeySafetyIssue, ProviderConnectivityCheckReport, ProviderDeepLinkPayload, ProviderDeepLinkRequest, providerIdentitySafetyIssue, providerProbeCandidates,
   providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, ProxyNetworkSnapshot,
@@ -243,9 +243,7 @@ function App() {
   const [extensionConfigTarget, setExtensionConfigTarget] = useState<ExtensionConfigTarget>();
   const [pluginSettingsDraft, setPluginSettingsDraft] = useState<PluginSettingsDraft>(() => createPluginSettingsDraft());
   const [pluginSettingsError, setPluginSettingsError] = useState("");
-  const [pluginRoutingConfigTarget, setPluginRoutingConfigTarget] = useState<PluginRoutingConfigTarget>();
   const [extensionDeleteTarget, setExtensionDeleteTarget] = useState<ExtensionDeleteTarget>();
-  const [cursorProxyRoutingDraft, setCursorProxyRoutingDraft] = useState<ClaudeDesignRoutingDraft>(() => createCursorProxyRoutingDraft());
   const [virtualModelDialogOpen, setVirtualModelDialogOpen] = useState(false);
   const [virtualModelDraft, setVirtualModelDraft] = useState<VirtualModelDraft>(() => createVirtualModelDraft(fallbackConfig));
   const [virtualModelEditIndex, setVirtualModelEditIndex] = useState<number>();
@@ -723,12 +721,6 @@ function App() {
       extension.source === "plugins" && extension.index === extensionConfigTarget.index
     );
   }, [draftConfig.plugins, extensionConfigTarget]);
-  const pluginRoutingConfigItem = useMemo(() => {
-    if (!pluginRoutingConfigTarget) {
-      return undefined;
-    }
-    return draftConfig.plugins[pluginRoutingConfigTarget.index];
-  }, [draftConfig.plugins, pluginRoutingConfigTarget]);
   const providers = useMemo(() => draftConfig.Providers.map((provider, index) => ({ provider, index })), [draftConfig.Providers]);
   const gatewayEndpoint = gatewayStatus.endpoint || draftConfig.routerEndpoint;
   const gatewayStartupError = gatewayStatus.state === "error"
@@ -774,7 +766,6 @@ function App() {
   const canSubmitApiKey = Boolean(apiKeyDraft.name.trim()) && (apiKeyDraft.expirationPreset !== "custom" || Boolean(apiKeyDraft.expiresAt.trim()));
   const canSubmitApiKeyEdit = apiKeyEditDraft.expirationPreset !== "custom" || Boolean(apiKeyEditDraft.expiresAt.trim());
   const canSubmitRoutingRule = isRoutingRuleDraftSubmittable(routingRuleDraft);
-  const canSubmitCursorProxyRouting = isClaudeDesignRoutingDraftValid(cursorProxyRoutingDraft);
   const virtualModelValidationError = useMemo(() => validateVirtualModelDraft(virtualModelDraft), [virtualModelDraft]);
   const virtualModelValidationMessage = useMemo(
     () => virtualModelValidationError ? appErrorMessage(virtualModelValidationError) : "",
@@ -2373,57 +2364,6 @@ function App() {
     setPluginSettingsError("");
   }
 
-  function updateCursorProxyRoutingDraft(patch: Partial<ClaudeDesignRoutingDraft>) {
-    setCursorProxyRoutingDraft((current) => ({ ...current, ...patch }));
-  }
-
-  function addCursorProxyRoutingRule() {
-    setCursorProxyRoutingDraft((current) => ({
-      ...current,
-      rules: [...current.rules, createCursorProxyRoutingRuleDraft(current.rules)]
-    }));
-  }
-
-  function updateCursorProxyRoutingRule(index: number, patch: Partial<ClaudeDesignRoutingRuleDraft>) {
-    setCursorProxyRoutingDraft((current) => ({
-      ...current,
-      rules: current.rules.map((rule, ruleIndex) => ruleIndex === index ? { ...rule, ...patch } : rule)
-    }));
-  }
-
-  function removeCursorProxyRoutingRule(index: number) {
-    setCursorProxyRoutingDraft((current) => ({
-      ...current,
-      rules: current.rules.filter((_, ruleIndex) => ruleIndex !== index)
-    }));
-  }
-
-  function submitCursorProxyRoutingDraft() {
-    if (!pluginRoutingConfigTarget || !canSubmitCursorProxyRouting) {
-      return;
-    }
-
-    updateConfig((config) => {
-      const values = [...(config.plugins ?? [])];
-      const item = values[pluginRoutingConfigTarget.index];
-      if (!item || !isCursorProxyPluginConfig(item)) {
-        return config;
-      }
-
-      const configRecord = isPlainRecord(item.config) ? { ...item.config } : {};
-      values[pluginRoutingConfigTarget.index] = {
-        ...item,
-        config: {
-          ...configRecord,
-          routing: claudeDesignRoutingConfigFromDraft(cursorProxyRoutingDraft)
-        }
-      };
-      config.plugins = values;
-      return config;
-    });
-    setPluginRoutingConfigTarget(undefined);
-  }
-
   function setExtensionEnabled(source: ExtensionSource, index: number, enabled: boolean, groupIndexes?: number[]) {
     const indexes = new Set(extensionActionIndexes(index, groupIndexes));
     updateConfig((config) => {
@@ -3371,20 +3311,6 @@ function App() {
             onChange: updateApiKeyEditDraft,
             onClose: () => setApiKeyEditIndex(undefined),
             onSubmit: submitApiKeyEditDraft
-          } : undefined}
-          cursorProxyConfig={pluginRoutingConfigItem && isCursorProxyPluginConfig(pluginRoutingConfigItem) ? {
-            canSubmit: canSubmitCursorProxyRouting,
-            draft: cursorProxyRoutingDraft,
-            routesLabel: "Cursor Proxy routes",
-            sourceModelLabel: "Cursor model",
-            sourceModelDefaults: { model: "default", pattern: "cursor-" },
-            onAddRule: addCursorProxyRoutingRule,
-            onChange: updateCursorProxyRoutingDraft,
-            onChangeRule: updateCursorProxyRoutingRule,
-            onClose: () => setPluginRoutingConfigTarget(undefined),
-            onRemoveRule: removeCursorProxyRoutingRule,
-            onSubmit: submitCursorProxyRoutingDraft,
-            providers: draftConfig.Providers
           } : undefined}
           extensionDelete={extensionDeleteItem ? {
             extension: extensionDeleteItem,

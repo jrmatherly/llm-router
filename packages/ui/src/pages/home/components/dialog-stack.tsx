@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactElement } from "react";
 import { AnimatePresence, DialogStackLayer } from "../shared/index";
 import { AddApiKeyDialog, ApiKeyCreatedDialog, EditApiKeyDialog } from "./api-keys";
-import { ConfigureClaudeDesignDialog, DeleteExtensionDialog, PluginSettingsDialog } from "./extensions";
+import { DeleteExtensionDialog, PluginSettingsDialog } from "./extensions";
 import { AddProfileDialog, DeleteProfileDialog, ProfileOpenDialog } from "./profiles";
 import { AddProviderDialog, DeleteProviderDialog, ProviderDeepLinkDialog } from "./providers";
 import { AddRoutingRuleDialog, DeleteRoutingRuleDialog } from "./routing";
@@ -13,7 +13,6 @@ export function AppDialogStack({
   apiKeyAdd,
   apiKeyCreated,
   apiKeyEdit,
-  cursorProxyConfig,
   extensionDelete,
   extensionInstall,
   extensionSettings,
@@ -33,7 +32,6 @@ export function AppDialogStack({
   apiKeyAdd?: ComponentProps<typeof AddApiKeyDialog>;
   apiKeyCreated?: ComponentProps<typeof ApiKeyCreatedDialog>;
   apiKeyEdit?: ComponentProps<typeof EditApiKeyDialog>;
-  cursorProxyConfig?: ComponentProps<typeof ConfigureClaudeDesignDialog>;
   extensionDelete?: ComponentProps<typeof DeleteExtensionDialog>;
   extensionInstall?: ComponentProps<typeof InstallExtensionDialog>;
   extensionSettings?: ComponentProps<typeof PluginSettingsDialog>;
@@ -67,7 +65,6 @@ export function AppDialogStack({
     extensionInstall ? { key: "extension-install", node: <InstallExtensionDialog {...extensionInstall} /> } : null,
     extensionDelete ? { key: "extension-delete", node: <DeleteExtensionDialog {...extensionDelete} /> } : null,
     extensionSettings ? { key: "extension-settings", node: <PluginSettingsDialog {...extensionSettings} /> } : null,
-    cursorProxyConfig ? { key: "cursor-proxy-config", node: <ConfigureClaudeDesignDialog {...cursorProxyConfig} /> } : null,
     settings ? { key: "settings", node: <AppSettingsDialog {...settings} /> } : null,
     update ? { key: "update", node: <UpdateDialog {...update} /> } : null
   ].filter((dialog): dialog is { key: string; node: ReactElement } => Boolean(dialog));
