@@ -55,14 +55,29 @@ test("profile maintenance cannot restore general keys from a stale config", asyn
   assert.deepEqual((await configApi.loadAppConfig()).APIKEYS, [retained]);
 });
 
-test("a saved claude-design profile is dropped without an error", async () => {
-  const stale = await configApi.loadAppConfig();
-  await configApi.saveAppConfig({ ...stale, profile: { ...stale.profile, enabled: true, profiles: [
-    { agent: "claude-design", enabled: true, id: "old-design", model: "Provider/model", name: "Old", scope: "llmr" },
-    { agent: "zcode", enabled: true, id: "keep", model: "Provider/model", name: "Keep", scope: "llmr" }
-  ] } });
-  const current = await configApi.loadAppConfig();
-  assert.deepEqual(current.profile.profiles.map((profile) => profile.id), ["keep"]);
+test("stale claude-design and claude-ship entries are dropped on load and leave the stored config on save", async () => {
+  const { loadPersistedAppConfig, replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  const base = await configApi.loadAppConfig();
+  await replacePersistedAppConfig({
+    ...base,
+    plugins: [
+      { enabled: true, id: "claude-design", module: "/gone/index.cjs" },
+      { enabled: true, id: "claude-ship", module: "/gone/index.cjs" },
+      { enabled: true, id: "cursor-proxy" }
+    ],
+    profile: { ...base.profile, enabled: true, profiles: [
+      { agent: "claude-design", enabled: true, id: "old-design", model: "Provider/model", name: "Old", scope: "llmr" },
+      { agent: "zcode", enabled: true, id: "keep", model: "Provider/model", name: "Keep", scope: "llmr" }
+    ] }
+  });
+
+  const loaded = await configApi.loadAppConfig();
+  assert.deepEqual(loaded.plugins.map((plugin) => plugin.id), ["cursor-proxy"]);
+  assert.deepEqual(loaded.profile.profiles.map((profile) => profile.id), ["keep"]);
+  assert.doesNotMatch(JSON.stringify(await loadPersistedAppConfig()), /claude-ship/);
+
+  await configApi.saveAppConfig(loaded);
+  assert.doesNotMatch(JSON.stringify(await loadPersistedAppConfig()), /claude-design|claude-ship/);
 });
 
 test("profile key generation uses the latest credentials without restoring revoked keys", async () => {

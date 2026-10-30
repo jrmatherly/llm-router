@@ -129,8 +129,29 @@ test("known bundled plugins without persisted permissions receive scoped default
       }]
     });
 
-    assert.deepEqual(pluginService.getApps(), []);
     assert.equal(pluginService.hasGatewayRoutes(), true);
+    await pluginService.stop();
+
+    const appPluginFile = path.join(dir, "cursor-proxy-app-plugin.cjs");
+    writeFileSync(appPluginFile, [
+      "\"use strict\";",
+      "module.exports = {",
+      "  setup(ctx) {",
+      "    ctx.registerApp({ id: \"cursor-proxy-app\", name: \"Cursor Proxy\", url: \"/plugins/cursor-proxy\" });",
+      "  }",
+      "};",
+      ""
+    ].join("\n"), "utf8");
+    const warnings = await startWithWarnings({
+      ...baseConfig(dir),
+      plugins: [{
+        enabled: true,
+        id: "cursor-proxy",
+        module: appPluginFile
+      }]
+    });
+    assert.match(warnings.join("\n"), /Plugin cursor-proxy has apps surface disabled and cannot register browser apps\./);
+    assert.deepEqual(pluginService.getApps(), []);
   } finally {
     await pluginService.stop();
     rmSync(dir, { force: true, recursive: true });
