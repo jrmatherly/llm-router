@@ -30,7 +30,6 @@ Totals: 15 gaps ported across 9 English files. No gap was left unported.
 | `configuration/configuration-file.md` | `configuration/configuration-file.md` | none | none |
 | `configuration/tray.md` | `configuration/tray.md` | none | none |
 | `configuration/agents/claude-code.md` | same | none | none |
-| `configuration/agents/claude-design.md` | same | none | none |
 | `configuration/agents/codex.md` | same | none (en is ahead: it names `show_all_sessions`) | none |
 | `configuration/agents/grok.md` | same | none | none |
 | `configuration/agents/kilo.md` | same | none | none |

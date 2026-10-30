@@ -129,7 +129,7 @@ The rules:
 - `--cli` and `--app` can replace the positional `cli` / `app` form.
 - Put the agent's own arguments after `--` to avoid conflicts with LLMR options or the surface name.
 - When the surface is omitted, Claude Code, Codex, and Grok CLI default to CLI; ZCode defaults to App.
-- Grok CLI, Kimi CLI, Pi, and Kilo support CLI only; ZCode and Claude Design support App only.
+- Grok CLI, Kimi CLI, Pi, and Kilo support CLI only; ZCode supports App only.
 - Claude App and ZCode App do not support extra agent arguments.
 - Launching an App requires the corresponding desktop application installed locally and a graphical session in the current environment.
 - Only enabled profiles can be launched. Use the profile ID when the name is ambiguous.
