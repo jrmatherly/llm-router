@@ -114,6 +114,14 @@ const codexOauthClientId = "app_EMoamEEZ73f0CkXaXp7hrann";
 const codexOauthDefaultScope = "openid profile email offline_access api.connectors.read api.connectors.invoke";
 const codexOauthRequiredScopes = ["api.connectors.read", "api.connectors.invoke"];
 const codexOauthDefaultTimeoutMs = 8_000;
+const claudeOauthUsageEndpointPattern = /^https:\/\/api\.anthropic\.com\/api\/oauth\/usage(?:$|[?#])/i;
+const claudeOauthUsageWindows = [
+  { id: "claude_five_hour_quota", key: "five_hour", label: "5h quota", window: "5h" },
+  { id: "claude_seven_day_quota", key: "seven_day", label: "7d quota", window: "weekly" },
+  { id: "claude_oauth_apps_quota", key: "seven_day_oauth_apps", label: "OAuth apps quota", window: "weekly" },
+  { id: "claude_opus_quota", key: "seven_day_opus", label: "Opus quota", window: "weekly" },
+  { id: "claude_sonnet_quota", key: "seven_day_sonnet", label: "Sonnet quota", window: "weekly" }
+] as const;
 const cache = new Map<string, CacheEntry>();
 const codexOauthCache = new Map<string, CodexOauthRefreshResult>();
 const inFlightRefreshes = new Map<string, Promise<ProviderAccountSnapshot | undefined>>();
@@ -182,6 +190,16 @@ export async function testProviderAccountConnector(request: ProviderAccountTestR
     ? await fetchWebContentJson(provider, connector)
     : await fetchJson(connector.endpoint, provider, connector.auth, connector.headers, connector.method, connector.body);
   const source = connector.type;
+  if (connector.type === "http-json" && isClaudeOauthUsageConnector(connector)) {
+    const meters = claudeOauthUsageMeters(payload, { omitFiveHour: false }, source);
+    return {
+      meters,
+      message: meters.length === 0 ? "No usage data available." : undefined,
+      paths: flattenJsonPaths(payload),
+      payload,
+      status: statusFromMeters(meters, [], 1)
+    };
+  }
   if (connector.parser === "grok-subscription") {
     const meters = grokSubscriptionMeters(payload, source);
     return {
@@ -250,6 +268,10 @@ function normalizeProviderAccountTestConnector(
     method: connector.method ?? "GET",
     type: "http-json"
   };
+}
+
+export function claudeOauthUsageMetersForTest(payload: unknown, options = { omitFiveHour: false }): ProviderAccountMeter[] {
+  return claudeOauthUsageMeters(payload, options);
 }
 
 export function newApiKeyUsageMetersForTest(payload: unknown): ProviderAccountMeter[] {
@@ -700,6 +722,16 @@ async function resolveHttpJsonConnector(
     ...(connector.headers ?? {}),
     ...(request.headers ?? {})
   }, connector.method, connector.body);
+  if (isClaudeOauthUsageConnector(connector)) {
+    const meters = claudeOauthUsageMeters(payload, { omitFiveHour: false });
+    return {
+      errors: [],
+      message: meters.length === 0 ? "No usage data available." : undefined,
+      meters,
+      source: "http-json",
+      status: statusFromMeters(meters, [], 1)
+    };
+  }
   if (connector.parser === "grok-subscription") {
     return {
       errors: [],
@@ -1150,6 +1182,86 @@ function newApiUserSelfData(payload: unknown): Record<string, unknown> | undefin
   }
   const data = readJsonRecordValue(payload, "data");
   return isRecord(data) ? data : payload;
+}
+
+function isClaudeOauthUsageConnector(connector: ProviderAccountHttpJsonConnectorConfig): boolean {
+  return connector.parser === "claude-oauth-usage" || claudeOauthUsageEndpointPattern.test(connector.endpoint);
+}
+
+function claudeOauthUsageMeters(
+  payload: unknown,
+  options: { omitFiveHour: boolean },
+  source: ProviderAccountConnectorSource = "http-json"
+): ProviderAccountMeter[] {
+  if (!isRecord(payload)) {
+    return [];
+  }
+
+  const windows = claudeOauthUsageWindows
+    .filter((window) => !(options.omitFiveHour && window.key === "five_hour"))
+    .map((window) => {
+      const data = payload[window.key];
+      return isRecord(data) ? claudePercentMeter(window.id, window.label, window.window, data.utilization, data.resets_at, source) : undefined;
+    });
+  const scoped = (Array.isArray(payload.limits) ? payload.limits : []).map((item, index) => {
+    if (!isRecord(item) || item.kind !== "weekly_scoped") {
+      return undefined;
+    }
+    const scope = isRecord(item.scope) ? item.scope : {};
+    const displayName = readString(isRecord(scope.model) ? scope.model.display_name : undefined);
+    const slug = displayName?.toLowerCase().replace(/[^a-z0-9]+/g, "_") ?? String(index);
+    const label = displayName ? `${displayName} weekly quota` : "Scoped weekly quota";
+    return claudePercentMeter(`claude_weekly_scoped_${slug}`, label, "weekly", item.percent, item.resets_at, source);
+  });
+  const extraUsage = isRecord(payload.extra_usage) && payload.extra_usage.is_enabled === true ? payload.extra_usage : undefined;
+  const creditLimit = normalizeNumber(extraUsage?.monthly_limit);
+  const usedCredits = normalizeNumber(extraUsage?.used_credits);
+  const extra = extraUsage
+    ? [
+      claudePercentMeter("claude_extra_usage", "Extra usage", "monthly", extraUsage.utilization, undefined, source),
+      creditLimit !== undefined && usedCredits !== undefined
+        ? {
+          id: "claude_extra_usage_credits",
+          kind: "balance" as const,
+          label: "Extra usage credits",
+          limit: creditLimit,
+          remaining: creditLimit - usedCredits,
+          source,
+          unit: "credits",
+          used: usedCredits,
+          window: "monthly"
+        }
+        : undefined
+    ]
+    : [];
+
+  return [...windows, ...scoped, ...extra].filter((meter): meter is ProviderAccountMeter => Boolean(meter));
+}
+
+function claudePercentMeter(
+  id: string,
+  label: string,
+  window: string,
+  utilization: unknown,
+  resetsAt: unknown,
+  source: ProviderAccountConnectorSource
+): ProviderAccountMeter | undefined {
+  const used = normalizeNumber(utilization);
+  if (used === undefined) {
+    return undefined;
+  }
+  return {
+    id,
+    kind: "quota",
+    label,
+    limit: 100,
+    remaining: 100 - used,
+    resetAt: readString(resetsAt),
+    source,
+    unit: "%",
+    used,
+    window
+  };
 }
 
 function kimiCodeUsageMeters(payload: unknown, source: ProviderAccountConnectorSource = "http-json"): ProviderAccountMeter[] {

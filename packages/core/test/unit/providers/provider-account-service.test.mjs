@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  claudeOauthUsageMetersForTest,
   localAgentProviderAccountCredentialForTest,
   localCodexAccountCredentialForTest,
   setProviderAccountWebContentFetchHandler,
@@ -21,6 +22,37 @@ import { findProviderPreset } from "@llmr/core/providers/presets/index.ts";
 const localAgentProviderApiKey = "llmr-local-agent-login";
 const codexDefaultBaseUrl = "https://chatgpt.com/backend-api/codex";
 const zcodeDefaultBaseUrl = "https://zcode.z.ai/api/v1/zcode-plan/anthropic";
+const claudeUsageEndpoint = "https://api.anthropic.com/api/oauth/usage";
+const claudeUsageBodies = {
+  matherly: {
+    extra_usage: { is_enabled: true, monthly_limit: 1900, used_credits: 351.0, utilization: 18.47368421052632 },
+    five_hour: { locked_reason: null, resets_at: null, utilization: 0.0 },
+    limits: [
+      { group: "session", is_active: false, kind: "session", percent: 0, resets_at: null, scope: null, severity: "normal" },
+      { group: "weekly", is_active: false, kind: "weekly_all", percent: 69, resets_at: "2026-10-31T12:00:00.468172+00:00", scope: null, severity: "normal" },
+      { group: "weekly", is_active: true, kind: "weekly_scoped", percent: 96, resets_at: "2026-10-31T12:00:00.468301+00:00", scope: { model: { display_name: "Fable", id: null }, surface: null }, severity: "critical" }
+    ],
+    seven_day: { locked_reason: null, resets_at: "2026-10-31T12:00:00.468172+00:00", utilization: 69.0 },
+    seven_day_oauth_apps: null,
+    seven_day_opus: null,
+    seven_day_sonnet: null
+  },
+  spoons: {
+    extra_usage: { is_enabled: false, monthly_limit: null, used_credits: null, utilization: null },
+    five_hour: { locked_reason: null, resets_at: "2026-10-31T06:19:59.776155+00:00", utilization: 17.0 },
+    limits: [
+      { group: "session", is_active: false, kind: "session", percent: 17, resets_at: "2026-10-31T06:19:59.776155+00:00", scope: null, severity: "normal" },
+      { group: "weekly", is_active: false, kind: "weekly_all", percent: 59, resets_at: "2026-11-04T12:59:59.776177+00:00", scope: null, severity: "normal" },
+      { group: "weekly", is_active: true, kind: "weekly_scoped", percent: 100, resets_at: "2026-11-04T12:59:59.776339+00:00", scope: { model: { display_name: "Fable", id: null }, surface: null }, severity: "critical" }
+    ],
+    seven_day: { locked_reason: null, resets_at: "2026-11-04T12:59:59.776177+00:00", utilization: 59.0 },
+    seven_day_oauth_apps: null,
+    seven_day_opus: null,
+    seven_day_sonnet: null
+  }
+};
+claudeUsageBodies.max = structuredClone(claudeUsageBodies.spoons);
+delete claudeUsageBodies.max.limits;
 
 test("Grok billing connector maps credit usage payload", async (t) => {
   const previousFetch = globalThis.fetch;
@@ -643,6 +675,107 @@ test("OpenCode local account credential reuses the imported plugin key", async (
   assert.equal(anthropic?.apiKey, "opencode-go-anthropic-key");
   assert.equal(anthropic?.headers?.["x-api-key"], undefined);
 });
+
+test("Claude OAuth usage parser surfaces the Fable weekly limit", () => {
+  const spoons = claudeOauthUsageMetersForTest(claudeUsageBodies.spoons).find((meter) => meter.id === "claude_weekly_scoped_fable");
+  assert.equal(spoons?.used, 100);
+  assert.equal(spoons?.remaining, 0);
+  assert.equal(spoons?.label, "Fable weekly quota");
+  assert.equal(spoons?.resetAt, "2026-11-04T12:59:59.776339+00:00");
+  const matherly = claudeOauthUsageMetersForTest(claudeUsageBodies.matherly).find((meter) => meter.id === "claude_weekly_scoped_fable");
+  assert.equal(matherly?.used, 96);
+});
+
+test("Claude OAuth usage parser skips null windows", () => {
+  assert.deepEqual(
+    claudeOauthUsageMetersForTest(claudeUsageBodies.spoons).map((meter) => meter.id),
+    ["claude_five_hour_quota", "claude_seven_day_quota", "claude_weekly_scoped_fable"]
+  );
+  assert.deepEqual(
+    claudeOauthUsageMetersForTest(claudeUsageBodies.matherly).map((meter) => meter.id),
+    ["claude_five_hour_quota", "claude_seven_day_quota", "claude_weekly_scoped_fable", "claude_extra_usage", "claude_extra_usage_credits"]
+  );
+});
+
+test("Claude OAuth usage parser keeps per-model ids when present", () => {
+  const body = { ...claudeUsageBodies.spoons, seven_day_opus: { resets_at: null, utilization: 40 } };
+  assert.equal(claudeOauthUsageMetersForTest(body).find((meter) => meter.id === "claude_opus_quota")?.used, 40);
+});
+
+test("Claude OAuth usage parser tolerates Max-shaped and malformed bodies", () => {
+  const max = claudeOauthUsageMetersForTest(claudeUsageBodies.max).map((meter) => meter.id);
+  assert.deepEqual(max, ["claude_five_hour_quota", "claude_seven_day_quota"]);
+
+  const malformed = {
+    ...claudeUsageBodies.spoons,
+    limits: [
+      { kind: "weekly_scoped", percent: "x", scope: { model: { display_name: "Opus" } } },
+      claudeUsageBodies.spoons.limits[2],
+      { kind: "weekly_scoped", percent: 30, resets_at: null, scope: null }
+    ]
+  };
+  const meters = claudeOauthUsageMetersForTest(malformed);
+  assert.equal(meters.some((meter) => meter.id === "claude_weekly_scoped_opus"), false);
+  assert.equal(meters.find((meter) => meter.id === "claude_weekly_scoped_fable")?.used, 100);
+  assert.equal(meters.find((meter) => meter.id === "claude_weekly_scoped_2")?.label, "Scoped weekly quota");
+
+  for (const payload of [null, [], "text"]) {
+    assert.deepEqual(claudeOauthUsageMetersForTest(payload), []);
+  }
+});
+
+test("Claude OAuth usage parser omits five-hour only when asked", () => {
+  const omitted = claudeOauthUsageMetersForTest(claudeUsageBodies.matherly, { omitFiveHour: true });
+  assert.equal(omitted.some((meter) => meter.id === "claude_five_hour_quota"), false);
+  const kept = claudeOauthUsageMetersForTest(claudeUsageBodies.matherly, { omitFiveHour: false });
+  assert.equal(kept.find((meter) => meter.id === "claude_five_hour_quota")?.used, 0);
+});
+
+test("Claude OAuth usage connector is chosen by endpoint for stored configs", async (t) => {
+  useClaudeOauthFetch(t, { profileStatus: 500, usage: claudeUsageBodies.spoons });
+
+  const result = await testProviderAccountConnector({
+    apiKey: "claude-access-token",
+    baseUrl: "https://api.anthropic.com",
+    connector: {
+      auth: "provider-api-key",
+      endpoint: claudeUsageEndpoint,
+      mapping: {
+        meters: [{
+          id: "claude_five_hour_quota",
+          kind: "quota",
+          label: "5h quota",
+          limit: 100,
+          remaining: "100 - $.five_hour.utilization",
+          unit: "%",
+          used: "$.five_hour.utilization",
+          window: "5h"
+        }]
+      },
+      type: "http-json"
+    },
+    providerName: "Claude Code API"
+  });
+
+  assert.equal(result.meters.filter((meter) => meter.id === "claude_five_hour_quota").length, 1);
+  assert.ok(result.meters.some((meter) => meter.id === "claude_weekly_scoped_fable"));
+  assert.equal(result.status, "critical");
+});
+
+function useClaudeOauthFetch(t, { profile = {}, profileStatus = 200, usage }) {
+  const previousFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    requests.push({ authorization: init?.headers?.authorization, url });
+    const [body, status] = url.includes("/api/oauth/profile") ? [profile, profileStatus] : [usage, 200];
+    return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" }, status });
+  };
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+  });
+  return requests;
+}
 
 function useTemporaryCodexHome(t, prefix) {
   const home = useTemporaryHome(t, prefix);
