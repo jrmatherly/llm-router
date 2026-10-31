@@ -7,8 +7,9 @@ import { APP_NAME, IPC_CHANNELS } from "@llmr/core/config/constants";
 import { getProviderAccountSnapshots } from "@llmr/core/providers/account-service";
 import { getTodayUsageTotals, onUsageRecorded } from "@llmr/core/usage/store";
 import { getLiveTokenRateSnapshot, onLiveTokenRateChanged } from "@llmr/core/observability/stream-experience";
+import { trayBalanceProgress } from "./tray-balance-progress";
 import windowsManager from "./windows";
-import type { AppConfig, ProviderAccountMeter, TrayBalanceProgressConfig, TrayIconPreference } from "@llmr/core/contracts/app";
+import type { AppConfig, TrayBalanceProgressConfig, TrayIconPreference } from "@llmr/core/contracts/app";
 
 const popoverMenuWidth = 420;
 const popoverPreferredHeight = 740;
@@ -401,8 +402,7 @@ class TrayController {
     try {
       const snapshots = await getProviderAccountSnapshots(this.trayBalanceProgress.provider);
       const snapshot = snapshots.find((account) => account.provider === this.trayBalanceProgress?.provider) ?? snapshots[0];
-      const meter = snapshot?.meters.find((candidate) => candidate.id === this.trayBalanceProgress?.meterId);
-      this.applyProgressTrayIcon(meter ? calculateTrayBalanceProgress(meter) : 0);
+      this.applyProgressTrayIcon(trayBalanceProgress(snapshot, this.trayBalanceProgress.meterId));
     } catch {
       this.applyProgressTrayIcon(0);
     }
@@ -668,27 +668,6 @@ function normalizeTrayBalanceProgressConfig(value: unknown): TrayBalanceProgress
   const provider = readRecordString(value, "provider");
   const meterId = readRecordString(value, "meterId");
   return provider && meterId ? { meterId, provider } : undefined;
-}
-
-function calculateTrayBalanceProgress(meter: ProviderAccountMeter): number {
-  if (meter.limit && meter.limit > 0) {
-    if (meter.remaining !== undefined) {
-      return Math.max(0, Math.min(1, meter.remaining / meter.limit));
-    }
-    if (meter.used !== undefined) {
-      return Math.max(0, Math.min(1, 1 - meter.used / meter.limit));
-    }
-  }
-  if (meter.unit === "%") {
-    if (meter.remaining !== undefined) {
-      return Math.max(0, Math.min(1, meter.remaining / 100));
-    }
-    if (meter.used !== undefined) {
-      return Math.max(0, Math.min(1, 1 - meter.used / 100));
-    }
-  }
-  const rawValue = meter.remaining ?? meter.limit ?? meter.used ?? 0;
-  return rawValue > 0 ? 1 : 0;
 }
 
 function createBalanceProgressBarPng(progress: number): Buffer {

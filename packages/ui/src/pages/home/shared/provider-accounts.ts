@@ -20,7 +20,8 @@ export function providerAccountSnapshotKey(account: ProviderAccountSnapshot): st
 
 export function providerAccountSnapshotLabel(account: ProviderAccountSnapshot): string {
   const credential = providerAccountSnapshotCredentialLabel(account);
-  return credential ? `${account.provider} / ${credential}` : account.provider;
+  const label = credential ? `${account.provider} / ${credential}` : account.provider;
+  return account.plan ? `${label} · ${account.plan}` : label;
 }
 
 export function providerAccountSnapshotCredentialLabel(account: ProviderAccountSnapshot): string {

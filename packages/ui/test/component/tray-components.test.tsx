@@ -20,8 +20,8 @@ import {
 } from "@llmr/ui/pages/tray/components/index.ts";
 import { TrayApp } from "@llmr/ui/pages/tray/TrayApp.tsx";
 import { TrayDetailApp } from "@llmr/ui/pages/tray/TrayDetailApp.tsx";
-import { applyTrayThemePreference, createSourceTabs } from "@llmr/ui/pages/tray/shared.tsx";
-import { accountSnapshots, installBrowserGlobals, usageStats, usageTotals } from "../fixtures/index.ts";
+import { accountSnapshotLabel, applyTrayThemePreference, createSourceTabs } from "@llmr/ui/pages/tray/shared.tsx";
+import { accountSnapshots, installBrowserGlobals, ultraClaudeSnapshot, usageStats, usageTotals } from "../fixtures/index.ts";
 
 installBrowserGlobals();
 
@@ -33,6 +33,11 @@ const componentVariants = {
   tokenFlow: "line",
   tokenMix: "bars"
 } as const;
+
+test("Tray account label shows the plan", () => {
+  assert.equal(accountSnapshotLabel(ultraClaudeSnapshot()), "Claude Code API · Ultra");
+  assert.equal(accountSnapshotLabel(accountSnapshots()[0]), "openai / Primary Key");
+});
 
 test("Tray theme follows the explicit app preference and resets to system", () => {
   applyTrayThemePreference("dark");

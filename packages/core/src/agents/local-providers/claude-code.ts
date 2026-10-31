@@ -6,8 +6,7 @@ import path from "node:path";
 import type {
   LocalAgentProviderCandidate,
   LocalAgentProviderImportResult,
-  ProviderAccountConfig,
-  ProviderAccountMappingConfig
+  ProviderAccountConfig
 } from "@llmr/core/contracts/app";
 import {
   bearerAuthPlugin,
@@ -75,47 +74,6 @@ export type ClaudeCodeLoginScan = {
   oauth?: ClaudeCodeTokenSet;
   /** Locations that parsed but carry no OAuth token. */
   tokenless: string[];
-};
-
-const percentLimitMapping = (id: string, label: string, path: string, window: string) => ({
-  id,
-  kind: "quota" as const,
-  label,
-  limit: 100,
-  remaining: `100 - ${path}.utilization`,
-  resetAt: `${path}.resets_at`,
-  unit: "%",
-  used: `${path}.utilization`,
-  window
-});
-
-const claudeCodeAccountMapping: ProviderAccountMappingConfig = {
-  meters: [
-    percentLimitMapping("claude_five_hour_quota", "5h quota", "$.five_hour", "5h"),
-    percentLimitMapping("claude_seven_day_quota", "7d quota", "$.seven_day", "weekly"),
-    percentLimitMapping("claude_oauth_apps_quota", "OAuth apps quota", "$.seven_day_oauth_apps", "weekly"),
-    percentLimitMapping("claude_opus_quota", "Opus quota", "$.seven_day_opus", "weekly"),
-    percentLimitMapping("claude_sonnet_quota", "Sonnet quota", "$.seven_day_sonnet", "weekly"),
-    {
-      id: "claude_extra_usage",
-      kind: "quota",
-      label: "Extra usage",
-      limit: 100,
-      remaining: "100 - $.extra_usage.utilization",
-      unit: "%",
-      used: "$.extra_usage.utilization",
-      window: "monthly"
-    },
-    {
-      id: "claude_extra_usage_credits",
-      kind: "balance",
-      label: "Extra usage credits",
-      limit: "$.extra_usage.monthly_limit",
-      unit: "credits",
-      used: "$.extra_usage.used_credits",
-      window: "monthly"
-    }
-  ]
 };
 
 export function claudeCodeCandidate(): LocalAgentProviderCandidate {
@@ -227,7 +185,8 @@ function claudeCodeProviderAccountConfig(): ProviderAccountConfig {
           "Content-Type": "application/json",
           "anthropic-beta": "oauth-2025-04-20"
         },
-        mapping: claudeCodeAccountMapping,
+        mapping: { meters: [] },
+        parser: "claude-oauth-usage",
         type: "http-json"
       }
     ],

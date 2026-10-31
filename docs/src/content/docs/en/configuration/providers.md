@@ -18,7 +18,7 @@ After import:
 1. The protocol is `anthropic_messages`.
 2. The default model list includes `claude-sonnet-5`; you can later add or remove models in the provider model list.
 3. LLMR creates OAuth provider plugins that convert requests to use the Claude Code login state.
-4. Account usage uses the Anthropic OAuth usage endpoint, so quota state can appear in the provider list, tray, and account panels.
+4. Account usage reads the Anthropic OAuth usage endpoint and shows the 5-hour, weekly and per-model weekly windows (Fable today) as remaining percent in the provider list, the tray and the account panels. LLMR also reads the plan name from the OAuth profile endpoint at most once a day per login. A verified Ultra account has no 5-hour limit, so it shows its plan name instead of the 5-hour meter.
 
 LLMR refreshes the imported login's access token with its refresh token when it expires and writes the new tokens back to the Keychain or credentials file, so the login stays usable while Claude Code itself is routed through LLMR. A login whose hex-encoded `security` command line exceeds 4032 bytes is written through the command line, as Claude Code does; the record is visible to local processes for the duration of that write.
 
