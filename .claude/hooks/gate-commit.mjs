@@ -3,8 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Fails closed: a regex cannot parse shell quoting, so any git command with a separate word "commit" in the same segment runs the gate.
-const COMMIT_COMMAND = /(^|[\s;&|("'`\\/])git["']?(?=\s)(?:\\\n|[^;&|\n])*?[\s"']commit(?=[\s"'`);&|]|$)/;
+// Fails closed: a regex cannot parse shell, so the word "git" followed anywhere by the separate word "commit" runs the gate.
+const COMMIT_COMMAND = /(^|[\s;&|("'`\\/])git["']?\s[\s\S]*?(?<![\w.-])commit(?![\w.-])/;
 const DEFAULT_CHECKS = [["npm", ["run", "typecheck"]], ["npm", ["run", "test:architecture"]]];
 
 let input;
