@@ -55,7 +55,7 @@ test("gate passes through non-commit git commands without running checks", () =>
   assert.equal(run("gate-commit.mjs", { cwd: "/nonexistent", tool_name: "Bash", tool_input: { command: "git log --oneline" } }).status, 0);
 });
 test("gate recognizes every commit spelling", () => {
-  for (const command of ["git commit -m x", "git -C sub commit", "git -c a=b commit -m x", "git --no-pager commit -m x", "git --git-dir=.git --work-tree=. commit", "rtk git commit -m x", "npm test && git commit -m x", "/usr/bin/git commit -m x", "cd sub && /usr/bin/git commit -m x", "command git commit -m x"]) {
+  for (const command of ["git commit -m x", "git -C sub commit", "git -c a=b commit -m x", "git --no-pager commit -m x", "git --git-dir=.git --work-tree=. commit", "rtk git commit -m x", "npm test && git commit -m x", "/usr/bin/git commit -m x", "cd sub && /usr/bin/git commit -m x", "command git commit -m x", "bash -c \"git commit -m x\"", "sh -c 'git commit -m x'", "(git commit -m x)", "echo $(git commit -m x)", "echo `git commit -m x`"]) {
     const r = run("gate-commit.mjs", { cwd: tempRepo(), tool_name: "Bash", tool_input: { command } }, { LLMR_GATE_COMMANDS: fail });
     assert.equal(r.status, 2, command);
   }
