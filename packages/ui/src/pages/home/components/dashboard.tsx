@@ -4191,8 +4191,9 @@ function providerAccountQuotaMetersForVisual(meters: ProviderAccountMeter[], var
   }
   const fiveHour = sorted.find((meter) => providerAccountMeterWindowRank(meter) === 0);
   const weekly = sorted.find((meter) => providerAccountMeterWindowRank(meter) === 1);
-  const result = [fiveHour ?? sorted[0], weekly ?? sorted.find((meter) => meter !== (fiveHour ?? sorted[0]))].filter((meter): meter is ProviderAccountMeter => Boolean(meter));
-  return result.slice(0, 2);
+  const primary = fiveHour ?? sorted[0];
+  const secondary = weekly && weekly !== primary ? weekly : sorted.find((meter) => meter !== primary);
+  return [primary, secondary].filter((meter): meter is ProviderAccountMeter => Boolean(meter));
 }
 
 function providerAccountMeterRatio(meter: ProviderAccountMeter): number | undefined {

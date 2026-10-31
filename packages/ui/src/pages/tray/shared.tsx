@@ -339,7 +339,8 @@ export function compareAccountSnapshots(a: ProviderAccountSnapshot, b: ProviderA
 
 export function accountSnapshotLabel(snapshot: ProviderAccountSnapshot): string {
   const credential = accountSnapshotCredentialLabel(snapshot);
-  return credential ? `${snapshot.provider} / ${credential}` : snapshot.provider;
+  const label = credential ? `${snapshot.provider} / ${credential}` : snapshot.provider;
+  return snapshot.plan ? `${label} · ${snapshot.plan}` : label;
 }
 
 export function accountSnapshotKey(snapshot: ProviderAccountSnapshot): string {
