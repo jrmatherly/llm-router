@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
-    "deny": ["Bash(npm run rebuild:sqlite3 *)"]
+    "deny": ["Bash(npm run rebuild:sqlite3 *)", "Bash(mise exec -- npm run rebuild:sqlite3 *)"]
   },
   "hooks": {
     "PreToolUse": [

@@ -51,11 +51,18 @@ test("protect blocks when its hook input is not JSON", () => {
   assert.equal(r.status, 2);
 });
 test("gate passes through non-commit git commands without running checks", () => {
-  assert.equal(run("gate-commit.mjs", { cwd: "/nonexistent", tool_name: "Bash", tool_input: { command: "git status" } }).status, 0);
-  assert.equal(run("gate-commit.mjs", { cwd: "/nonexistent", tool_name: "Bash", tool_input: { command: "git log --oneline" } }).status, 0);
+  for (const command of ["git status", "git log --oneline", "legit commit", "git committed"]) {
+    assert.equal(run("gate-commit.mjs", { cwd: tempRepo(), tool_name: "Bash", tool_input: { command } }, { LLMR_GATE_COMMANDS: fail }).status, 0, command);
+  }
 });
-test("gate recognizes every commit spelling", () => {
-  for (const command of ["git commit -m x", "git -C sub commit", "git -c a=b commit -m x", "git --no-pager commit -m x", "git --git-dir=.git --work-tree=. commit", "rtk git commit -m x", "npm test && git commit -m x", "/usr/bin/git commit -m x", "cd sub && /usr/bin/git commit -m x", "command git commit -m x", "bash -c \"git commit -m x\"", "sh -c 'git commit -m x'", "(git commit -m x)", "echo $(git commit -m x)", "echo `git commit -m x`"]) {
+test("settings wire the commit gate to Bash and the Jean commit tool", () => {
+  const { hooks } = JSON.parse(readFileSync(path.join(process.cwd(), ".claude", "settings.json"), "utf8"));
+  const gated = (tool) => hooks.PreToolUse.some(({ matcher, hooks: handlers }) => matcher.split("|").includes(tool) && handlers.some(({ args }) => args?.some((arg) => arg.endsWith("gate-commit.mjs"))));
+  assert.ok(gated("Bash"));
+  assert.ok(gated("mcp__jean__create_commit"));
+});
+test("gate recognizes the common commit spellings", () => {
+  for (const command of ["git commit -m x", "git -C sub commit", "git -c a=b commit -m x", "git --no-pager commit -m x", "git --git-dir=.git --work-tree=. commit", "rtk git commit -m x", "npm test && git commit -m x", "/usr/bin/git commit -m x", "cd sub && /usr/bin/git commit -m x", "command git commit -m x", "bash -c \"git commit -m x\"", "sh -c 'git commit -m x'", "(git commit -m x)", "echo $(git commit -m x)", "echo `git commit -m x`", "git -C \"my dir\" commit -m x", "git -c user.name=\"A B\" commit -m x", "git --git-dir='a b/.git' commit -m x"]) {
     const r = run("gate-commit.mjs", { cwd: tempRepo(), tool_name: "Bash", tool_input: { command } }, { LLMR_GATE_COMMANDS: fail });
     assert.equal(r.status, 2, command);
   }
