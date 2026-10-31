@@ -715,10 +715,14 @@ test("Claude OAuth usage parser tolerates Max-shaped and malformed bodies", () =
     limits: [
       { kind: "weekly_scoped", percent: "x", scope: { model: { display_name: "Opus" } } },
       claudeUsageBodies.spoons.limits[2],
-      { kind: "weekly_scoped", percent: 30, resets_at: null, scope: null }
+      { kind: "weekly_scoped", percent: 30, resets_at: null, scope: null },
+      { kind: "weekly_scoped", percent: 10, scope: { model: { display_name: " Sonnet 5.5!" } } },
+      { kind: "weekly_scoped", percent: 20, scope: { model: { display_name: "!!!" } } }
     ]
   };
   const meters = claudeOauthUsageMetersForTest(malformed);
+  assert.equal(meters.find((meter) => meter.id === "claude_weekly_scoped_sonnet_5_5")?.used, 10);
+  assert.equal(meters.find((meter) => meter.id === "claude_weekly_scoped_4")?.label, "!!! weekly quota");
   assert.equal(meters.some((meter) => meter.id === "claude_weekly_scoped_opus"), false);
   assert.equal(meters.find((meter) => meter.id === "claude_weekly_scoped_fable")?.used, 100);
   assert.equal(meters.find((meter) => meter.id === "claude_weekly_scoped_2")?.label, "Scoped weekly quota");

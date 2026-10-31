@@ -196,14 +196,10 @@ export async function testProviderAccountConnector(request: ProviderAccountTestR
     : await fetchJson(connector.endpoint, provider, connector.auth, connector.headers, connector.method, connector.body);
   const source = connector.type;
   if (connector.type === "http-json" && isClaudeOauthUsageConnector(connector)) {
-    const { meters, plan } = await claudeOauthUsageResult(payload, provider, connector, connector.headers ?? {}, source);
     return {
-      meters,
-      message: meters.length === 0 ? "No usage data available." : undefined,
+      ...await claudeOauthUsageResult(payload, provider, connector, connector.headers ?? {}, source),
       paths: flattenJsonPaths(payload),
-      payload,
-      plan,
-      status: statusFromMeters(meters, [], 1)
+      payload
     };
   }
   if (connector.parser === "grok-subscription") {
@@ -730,14 +726,10 @@ async function resolveHttpJsonConnector(
   };
   const payload = await fetchJson(connector.endpoint, request.provider, connector.auth, headers, connector.method, connector.body);
   if (isClaudeOauthUsageConnector(connector)) {
-    const { meters, plan } = await claudeOauthUsageResult(payload, request.provider, connector, headers);
     return {
+      ...await claudeOauthUsageResult(payload, request.provider, connector, headers),
       errors: [],
-      message: meters.length === 0 ? "No usage data available." : undefined,
-      meters,
-      plan,
-      source: "http-json",
-      status: statusFromMeters(meters, [], 1)
+      source: "http-json"
     };
   }
   if (connector.parser === "grok-subscription") {
@@ -1203,12 +1195,18 @@ async function claudeOauthUsageResult(
   connector: ProviderAccountHttpJsonConnectorConfig,
   headers: Record<string, string>,
   source: ProviderAccountConnectorSource = "http-json"
-): Promise<{ meters: ProviderAccountMeter[]; plan?: string }> {
+): Promise<{ message?: string; meters: ProviderAccountMeter[]; plan?: string; status: ProviderAccountStatus }> {
   const plan = claudeOauthUsageEndpointPattern.test(connector.endpoint) && connector.auth !== "none"
     ? await readClaudeAccountPlan(provider, connector.auth, headers)
     : undefined;
   const omitFiveHour = plan?.toLowerCase() === "ultra" && claudeFiveHourWindowAbsent(payload);
-  return { meters: claudeOauthUsageMeters(payload, { omitFiveHour }, source), plan };
+  const meters = claudeOauthUsageMeters(payload, { omitFiveHour }, source);
+  return {
+    message: meters.length === 0 ? "No usage data available." : undefined,
+    meters,
+    plan,
+    status: statusFromMeters(meters, [], 1)
+  };
 }
 
 async function readClaudeAccountPlan(
@@ -1220,6 +1218,11 @@ async function readClaudeAccountPlan(
   const cached = claudeProfileCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.plan;
+  }
+  for (const [staleKey, stale] of claudeProfileCache) {
+    if (stale.expiresAt <= Date.now()) {
+      claudeProfileCache.delete(staleKey);
+    }
   }
   let entry: { expiresAt: number; plan?: string };
   try {
@@ -1266,7 +1269,7 @@ function claudeOauthUsageMeters(
     }
     const scope = isRecord(item.scope) ? item.scope : {};
     const displayName = readString(isRecord(scope.model) ? scope.model.display_name : undefined);
-    const slug = displayName?.toLowerCase().replace(/[^a-z0-9]+/g, "_") ?? String(index);
+    const slug = displayName?.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || String(index);
     const label = displayName ? `${displayName} weekly quota` : "Scoped weekly quota";
     return claudePercentMeter(`claude_weekly_scoped_${slug}`, label, "weekly", item.percent, item.resets_at, source);
   });
