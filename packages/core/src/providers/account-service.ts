@@ -72,6 +72,7 @@ type ConnectorResult = {
   errors: ProviderAccountConnectorError[];
   meters: ProviderAccountMeter[];
   message?: string;
+  plan?: string;
   source: ProviderAccountConnectorSource;
   status?: ProviderAccountStatus;
 };
@@ -122,6 +123,10 @@ const claudeOauthUsageWindows = [
   { id: "claude_opus_quota", key: "seven_day_opus", label: "Opus quota", window: "weekly" },
   { id: "claude_sonnet_quota", key: "seven_day_sonnet", label: "Sonnet quota", window: "weekly" }
 ] as const;
+const claudeProfileEndpoint = "https://api.anthropic.com/api/oauth/profile";
+const claudeProfileCacheTtlMs = 86_400_000;
+const claudeProfileFailureTtlMs = 900_000;
+const claudeProfileCache = new Map<string, { expiresAt: number; plan?: string }>();
 const cache = new Map<string, CacheEntry>();
 const codexOauthCache = new Map<string, CodexOauthRefreshResult>();
 const inFlightRefreshes = new Map<string, Promise<ProviderAccountSnapshot | undefined>>();
@@ -191,12 +196,13 @@ export async function testProviderAccountConnector(request: ProviderAccountTestR
     : await fetchJson(connector.endpoint, provider, connector.auth, connector.headers, connector.method, connector.body);
   const source = connector.type;
   if (connector.type === "http-json" && isClaudeOauthUsageConnector(connector)) {
-    const meters = claudeOauthUsageMeters(payload, { omitFiveHour: false }, source);
+    const { meters, plan } = await claudeOauthUsageResult(payload, provider, connector, connector.headers ?? {}, source);
     return {
       meters,
       message: meters.length === 0 ? "No usage data available." : undefined,
       paths: flattenJsonPaths(payload),
       payload,
+      plan,
       status: statusFromMeters(meters, [], 1)
     };
   }
@@ -718,16 +724,18 @@ async function resolveHttpJsonConnector(
   const request = providerAccountConnectorUsesProviderApiKey(connector)
     ? await materializeProviderAccountRequest(config, provider)
     : { provider };
-  const payload = await fetchJson(connector.endpoint, request.provider, connector.auth, {
+  const headers = {
     ...(connector.headers ?? {}),
     ...(request.headers ?? {})
-  }, connector.method, connector.body);
+  };
+  const payload = await fetchJson(connector.endpoint, request.provider, connector.auth, headers, connector.method, connector.body);
   if (isClaudeOauthUsageConnector(connector)) {
-    const meters = claudeOauthUsageMeters(payload, { omitFiveHour: false });
+    const { meters, plan } = await claudeOauthUsageResult(payload, request.provider, connector, headers);
     return {
       errors: [],
       message: meters.length === 0 ? "No usage data available." : undefined,
       meters,
+      plan,
       source: "http-json",
       status: statusFromMeters(meters, [], 1)
     };
@@ -966,6 +974,7 @@ function mergeConnectorResults(
     message,
     meters,
     nextRefreshAt: new Date(now.getTime() + refreshIntervalMs).toISOString(),
+    plan: results.find((result) => result.plan)?.plan,
     provider,
     source,
     status,
@@ -1186,6 +1195,54 @@ function newApiUserSelfData(payload: unknown): Record<string, unknown> | undefin
 
 function isClaudeOauthUsageConnector(connector: ProviderAccountHttpJsonConnectorConfig): boolean {
   return connector.parser === "claude-oauth-usage" || claudeOauthUsageEndpointPattern.test(connector.endpoint);
+}
+
+async function claudeOauthUsageResult(
+  payload: unknown,
+  provider: GatewayProviderConfig,
+  connector: ProviderAccountHttpJsonConnectorConfig,
+  headers: Record<string, string>,
+  source: ProviderAccountConnectorSource = "http-json"
+): Promise<{ meters: ProviderAccountMeter[]; plan?: string }> {
+  const plan = claudeOauthUsageEndpointPattern.test(connector.endpoint) && connector.auth !== "none"
+    ? await readClaudeAccountPlan(provider, connector.auth, headers)
+    : undefined;
+  const omitFiveHour = plan?.toLowerCase() === "ultra" && claudeFiveHourWindowAbsent(payload);
+  return { meters: claudeOauthUsageMeters(payload, { omitFiveHour }, source), plan };
+}
+
+async function readClaudeAccountPlan(
+  provider: GatewayProviderConfig,
+  auth: ProviderAccountAuthMode | undefined,
+  headers: Record<string, string>
+): Promise<string | undefined> {
+  const key = hashSensitiveValue(providerApiKey(provider));
+  const cached = claudeProfileCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.plan;
+  }
+  let entry: { expiresAt: number; plan?: string };
+  try {
+    const profile = await fetchJson(claudeProfileEndpoint, provider, auth, headers);
+    const organization = isRecord(profile) ? profile.organization : undefined;
+    entry = {
+      expiresAt: Date.now() + claudeProfileCacheTtlMs,
+      plan: readString(isRecord(organization) ? organization.plan_display_name : undefined)
+    };
+  } catch {
+    entry = { expiresAt: Date.now() + claudeProfileFailureTtlMs };
+  }
+  claudeProfileCache.set(key, entry);
+  return entry.plan;
+}
+
+export function resetClaudeAccountPlanCacheForTest(): void {
+  claudeProfileCache.clear();
+}
+
+function claudeFiveHourWindowAbsent(payload: unknown): boolean {
+  const fiveHour = isRecord(payload) ? payload.five_hour : undefined;
+  return isRecord(fiveHour) && normalizeNumber(fiveHour.utilization) === 0 && (fiveHour.resets_at ?? null) === null;
 }
 
 function claudeOauthUsageMeters(

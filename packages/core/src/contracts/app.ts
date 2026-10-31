@@ -410,6 +410,7 @@ export type ProviderAccountSnapshot = {
   message?: string;
   meters: ProviderAccountMeter[];
   nextRefreshAt?: string;
+  plan?: string;
   provider: string;
   source: ProviderAccountConnectorSource;
   status: ProviderAccountStatus;
@@ -542,6 +543,7 @@ export type ProviderAccountTestResult = {
   meters: ProviderAccountMeter[];
   paths: ProviderAccountTestPath[];
   payload: unknown;
+  plan?: string;
   status?: ProviderAccountStatus;
 };
 

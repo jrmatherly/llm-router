@@ -7,6 +7,7 @@ import {
   claudeOauthUsageMetersForTest,
   localAgentProviderAccountCredentialForTest,
   localCodexAccountCredentialForTest,
+  resetClaudeAccountPlanCacheForTest,
   setProviderAccountWebContentFetchHandler,
   testProviderAccountConnector
 } from "@llmr/core/providers/account-service.ts";
@@ -50,6 +51,9 @@ const claudeUsageBodies = {
     seven_day_opus: null,
     seven_day_sonnet: null
   }
+};
+const claudeProfileBody = {
+  organization: { organization_type: "claude_max", plan_display_label: "Ultra plan", plan_display_name: "Ultra", rate_limit_tier: "default_claude_max_20x" }
 };
 claudeUsageBodies.max = structuredClone(claudeUsageBodies.spoons);
 delete claudeUsageBodies.max.limits;
@@ -732,6 +736,7 @@ test("Claude OAuth usage parser omits five-hour only when asked", () => {
 });
 
 test("Claude OAuth usage connector is chosen by endpoint for stored configs", async (t) => {
+  resetClaudeAccountPlanCacheForTest();
   useClaudeOauthFetch(t, { profileStatus: 500, usage: claudeUsageBodies.spoons });
 
   const result = await testProviderAccountConnector({
@@ -761,6 +766,92 @@ test("Claude OAuth usage connector is chosen by endpoint for stored configs", as
   assert.ok(result.meters.some((meter) => meter.id === "claude_weekly_scoped_fable"));
   assert.equal(result.status, "critical");
 });
+
+test("Verified Ultra drops the five-hour meter and reports the plan", async (t) => {
+  resetClaudeAccountPlanCacheForTest();
+  useClaudeOauthFetch(t, { profile: claudeProfileBody, usage: claudeUsageBodies.matherly });
+
+  const result = await testClaudeUsageConnector("claude-access-token");
+
+  assert.equal(result.plan, "Ultra");
+  assert.equal(result.meters.some((meter) => meter.id === "claude_five_hour_quota"), false);
+});
+
+test("Unverified Ultra keeps its five-hour window", async (t) => {
+  resetClaudeAccountPlanCacheForTest();
+  useClaudeOauthFetch(t, { profile: claudeProfileBody, usage: claudeUsageBodies.spoons });
+
+  const result = await testClaudeUsageConnector("claude-access-token");
+
+  assert.equal(result.plan, "Ultra");
+  assert.equal(result.meters.find((meter) => meter.id === "claude_five_hour_quota")?.used, 17);
+});
+
+test("Profile failure keeps five-hour and omits plan", async (t) => {
+  resetClaudeAccountPlanCacheForTest();
+  useClaudeOauthFetch(t, { profileStatus: 429, usage: claudeUsageBodies.matherly });
+  const failed = await testClaudeUsageConnector("claude-access-token");
+
+  resetClaudeAccountPlanCacheForTest();
+  useClaudeOauthFetch(t, { profile: {}, usage: claudeUsageBodies.matherly });
+  const empty = await testClaudeUsageConnector("claude-access-token");
+
+  assert.equal(failed.plan, undefined);
+  assert.equal(failed.meters.find((meter) => meter.id === "claude_five_hour_quota")?.used, 0);
+  assert.equal(failed.status, empty.status);
+});
+
+test("Profile lookup is cached per token", async (t) => {
+  resetClaudeAccountPlanCacheForTest();
+  const requests = useClaudeOauthFetch(t, { profile: claudeProfileBody, usage: claudeUsageBodies.spoons });
+  const profileRequests = () => requests.filter((request) => request.url.includes("/api/oauth/profile"));
+
+  await testClaudeUsageConnector("claude-access-token");
+  await testClaudeUsageConnector("claude-access-token");
+  assert.equal(profileRequests().length, 1);
+  assert.equal(profileRequests()[0]?.authorization, "Bearer claude-access-token");
+
+  await testClaudeUsageConnector("other-access-token");
+  assert.equal(profileRequests().length, 2);
+});
+
+test("Profile lookup never runs for a non-Anthropic usage endpoint", async (t) => {
+  resetClaudeAccountPlanCacheForTest();
+  const requests = useClaudeOauthFetch(t, { profile: claudeProfileBody, usage: claudeUsageBodies.matherly });
+
+  const result = await testProviderAccountConnector({
+    apiKey: "claude-access-token",
+    baseUrl: "https://example.test",
+    connector: {
+      auth: "provider-api-key",
+      endpoint: "https://example.test/usage",
+      mapping: { meters: [] },
+      parser: "claude-oauth-usage",
+      type: "http-json"
+    },
+    providerName: "Claude Code API"
+  });
+
+  assert.equal(requests.filter((request) => request.url.includes("api.anthropic.com")).length, 0);
+  assert.equal(result.plan, undefined);
+  assert.ok(result.meters.some((meter) => meter.id === "claude_five_hour_quota"));
+});
+
+function testClaudeUsageConnector(apiKey) {
+  return testProviderAccountConnector({
+    apiKey,
+    baseUrl: "https://api.anthropic.com",
+    connector: {
+      auth: "provider-api-key",
+      endpoint: claudeUsageEndpoint,
+      headers: { "anthropic-beta": "oauth-2025-04-20" },
+      mapping: { meters: [] },
+      parser: "claude-oauth-usage",
+      type: "http-json"
+    },
+    providerName: "Claude Code API"
+  });
+}
 
 function useClaudeOauthFetch(t, { profile = {}, profileStatus = 200, usage }) {
   const previousFetch = globalThis.fetch;
