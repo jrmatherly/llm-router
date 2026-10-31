@@ -3,9 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const COMMIT_COMMAND = /(^|[\s;&|("'`])(rtk\s+)?(\S*\/)?git(\s+--?[A-Za-z]\S*(\s+\S+)?)*\s+commit\b/;
-// Joining a quoted option value into one word lets the regex step over it; the raw command stays tested because quotes can be unbalanced.
-const commandForms = (command) => [command, ...[/"[^"]*"/g, /'[^']*'/g].map((quoted) => command.replace(quoted, (value) => value.replace(/\s/g, "_")))];
+// Fails closed: a regex cannot parse shell quoting, so any git command with a separate word "commit" in the same segment runs the gate.
+const COMMIT_COMMAND = /(^|[\s;&|("'`\\/])git["']?(?=\s)(?:\\\n|[^;&|\n])*?[\s"']commit(?=[\s"'`);&|]|$)/;
 const DEFAULT_CHECKS = [["npm", ["run", "typecheck"]], ["npm", ["run", "test:architecture"]]];
 
 let input;
@@ -15,7 +14,7 @@ try {
   block("commit gate could not parse its hook input");
 }
 
-const isCommit = input.tool_name !== "Bash" || commandForms(String(input.tool_input?.command ?? "")).some((form) => COMMIT_COMMAND.test(form));
+const isCommit = input.tool_name !== "Bash" || COMMIT_COMMAND.test(String(input.tool_input?.command ?? ""));
 if (!isCommit) {
   process.exit(0);
 }
