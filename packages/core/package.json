@@ -1,6 +1,6 @@
 {
   "name": "@llm-router/core",
-  "version": "7.1.0",
+  "version": "7.1.1",
   "private": true,
   "description": "LLM Router core gateway, routing, provider, and storage services.",
   "main": "dist/main/server.js",

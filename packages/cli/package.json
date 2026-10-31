@@ -1,6 +1,6 @@
 {
   "name": "@llm-router/cli",
-  "version": "7.1.0",
+  "version": "7.1.1",
   "private": true,
   "license": "MIT",
   "description": "Local LLM Router gateway with CLI and web management UI.",
