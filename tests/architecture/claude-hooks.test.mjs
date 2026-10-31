@@ -62,7 +62,7 @@ test("settings wire the commit gate to Bash and the Jean commit tool", () => {
   assert.ok(gated("mcp__jean__create_commit"));
 });
 test("gate recognizes the common commit spellings", () => {
-  for (const command of ["git commit -m x", "git -C sub commit", "git -c a=b commit -m x", "git --no-pager commit -m x", "git --git-dir=.git --work-tree=. commit", "rtk git commit -m x", "npm test && git commit -m x", "/usr/bin/git commit -m x", "cd sub && /usr/bin/git commit -m x", "command git commit -m x", "bash -c \"git commit -m x\"", "sh -c 'git commit -m x'", "(git commit -m x)", "echo $(git commit -m x)", "echo `git commit -m x`", "git -C \"my dir\" commit -m x", "git -c user.name=\"A B\" commit -m x", "git --git-dir='a b/.git' commit -m x"]) {
+  for (const command of ["git commit -m x", "git -C sub commit", "git -c a=b commit -m x", "git --no-pager commit -m x", "git --git-dir=.git --work-tree=. commit", "rtk git commit -m x", "npm test && git commit -m x", "/usr/bin/git commit -m x", "cd sub && /usr/bin/git commit -m x", "command git commit -m x", "bash -c \"git commit -m x\"", "sh -c 'git commit -m x'", "(git commit -m x)", "echo $(git commit -m x)", "echo `git commit -m x`", "git -C \"my dir\" commit -m x", "git -c user.name=\"A B\" commit -m x", "git --git-dir='a b/.git' commit -m x", "sh -c 'git -C \"my dir\" commit'", "git -c user.name=O\\'Brien commit -m x", "git -c a=b\\\" commit -m x", "git -c user.name=O\\'Brien commit -m 'x y'"]) {
     const r = run("gate-commit.mjs", { cwd: tempRepo(), tool_name: "Bash", tool_input: { command } }, { LLMR_GATE_COMMANDS: fail });
     assert.equal(r.status, 2, command);
   }
