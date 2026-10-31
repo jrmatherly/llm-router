@@ -819,6 +819,63 @@ test("Profile lookup is cached per token", async (t) => {
   assert.equal(profileRequests().length, 2);
 });
 
+test("Profile failure is reported in the test result and retried after fifteen minutes", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+  resetClaudeAccountPlanCacheForTest();
+  const failing = useClaudeOauthFetch(t, { profileStatus: 429, usage: claudeUsageBodies.matherly });
+  const failed = await testClaudeUsageConnector("claude-access-token");
+  assert.match(failed.message ?? "", /Plan lookup failed: .*429/);
+
+  t.mock.timers.tick(899_999);
+  await testClaudeUsageConnector("claude-access-token");
+  assert.equal(failing.filter((request) => request.url.includes("/api/oauth/profile")).length, 1);
+
+  t.mock.timers.tick(2);
+  useClaudeOauthFetch(t, { profile: claudeProfileBody, usage: claudeUsageBodies.matherly });
+  const recovered = await testClaudeUsageConnector("claude-access-token");
+  assert.equal(recovered.plan, "Ultra");
+  assert.equal(recovered.message, undefined);
+});
+
+test("Profile success is cached for a day", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+  resetClaudeAccountPlanCacheForTest();
+  const requests = useClaudeOauthFetch(t, { profile: claudeProfileBody, usage: claudeUsageBodies.spoons });
+  const profileRequests = () => requests.filter((request) => request.url.includes("/api/oauth/profile"));
+
+  await testClaudeUsageConnector("claude-access-token");
+  t.mock.timers.tick(86_399_999);
+  await testClaudeUsageConnector("claude-access-token");
+  assert.equal(profileRequests().length, 1);
+
+  t.mock.timers.tick(2);
+  await testClaudeUsageConnector("claude-access-token");
+  assert.equal(profileRequests().length, 2);
+});
+
+test("Window-wins needs both the Ultra plan and an unstarted five-hour window", async (t) => {
+  resetClaudeAccountPlanCacheForTest();
+  useClaudeOauthFetch(t, { profile: { organization: { plan_display_name: "Max" } }, usage: claudeUsageBodies.matherly });
+  const max = await testClaudeUsageConnector("max-access-token");
+  assert.equal(max.meters.find((meter) => meter.id === "claude_five_hour_quota")?.used, 0);
+
+  const started = {
+    ...claudeUsageBodies.matherly,
+    five_hour: { resets_at: "2026-10-31T06:00:00+00:00", utilization: 0 }
+  };
+  useClaudeOauthFetch(t, { profile: claudeProfileBody, usage: started });
+  const ultra = await testClaudeUsageConnector("ultra-access-token");
+  assert.equal(ultra.plan, "Ultra");
+  assert.equal(ultra.meters.find((meter) => meter.id === "claude_five_hour_quota")?.used, 0);
+});
+
+test("Claude OAuth usage parser keeps two scoped limits for the same model apart", () => {
+  const fable = claudeUsageBodies.spoons.limits[2];
+  const body = { ...claudeUsageBodies.spoons, limits: [fable, { ...fable, percent: 40 }] };
+  const ids = claudeOauthUsageMetersForTest(body).filter((meter) => meter.id.startsWith("claude_weekly_scoped_")).map((meter) => [meter.id, meter.used]);
+  assert.deepEqual(ids, [["claude_weekly_scoped_fable", 100], ["claude_weekly_scoped_fable_1", 40]]);
+});
+
 test("Profile lookup never runs for a non-Anthropic usage endpoint", async (t) => {
   resetClaudeAccountPlanCacheForTest();
   const requests = useClaudeOauthFetch(t, { profile: claudeProfileBody, usage: claudeUsageBodies.matherly });
@@ -857,8 +914,10 @@ function testClaudeUsageConnector(apiKey) {
   });
 }
 
+let fetchBeforeClaudeMocks;
 function useClaudeOauthFetch(t, { profile = {}, profileStatus = 200, usage }) {
-  const previousFetch = globalThis.fetch;
+  fetchBeforeClaudeMocks ??= globalThis.fetch;
+  const previousFetch = fetchBeforeClaudeMocks;
   const requests = [];
   globalThis.fetch = async (input, init) => {
     const url = String(input);

@@ -20,3 +20,14 @@ test("tray progress falls back to the fullest quota meter when the pinned one is
   assert.equal(trayBalanceProgress(ultraClaudeSnapshot, "claude_seven_day_quota"), 0.31);
   assert.equal(trayBalanceProgress(undefined, "claude_five_hour_quota"), 0);
 });
+
+test("tray progress fallback ignores balance meters", () => {
+  const withCredits: ProviderAccountSnapshot = {
+    ...ultraClaudeSnapshot,
+    meters: [
+      ...ultraClaudeSnapshot.meters,
+      { id: "claude_extra_usage_credits", kind: "balance", label: "Extra usage credits", limit: 1900, remaining: 19, unit: "credits", used: 1881, window: "monthly" }
+    ]
+  };
+  assert.equal(trayBalanceProgress(withCredits, "claude_five_hour_quota"), 0.04);
+});

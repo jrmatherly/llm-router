@@ -328,7 +328,7 @@ export type ProviderAccountWebContentJsonConnectorConfig = ProviderAccountConnec
   headers?: Record<string, string>;
   mapping: ProviderAccountMappingConfig;
   method?: "GET" | "POST";
-  parser?: ProviderAccountHttpJsonParser;
+  parser?: Exclude<ProviderAccountHttpJsonParser, "claude-oauth-usage">;
   type: "webcontent-json";
 };
 

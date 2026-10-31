@@ -68,6 +68,12 @@ type CacheEntry = {
   staleUntil: number;
 };
 
+type ClaudeProfileCacheEntry = {
+  error?: string;
+  expiresAt: number;
+  plan?: string;
+};
+
 type ConnectorResult = {
   errors: ProviderAccountConnectorError[];
   meters: ProviderAccountMeter[];
@@ -126,7 +132,7 @@ const claudeOauthUsageWindows = [
 const claudeProfileEndpoint = "https://api.anthropic.com/api/oauth/profile";
 const claudeProfileCacheTtlMs = 86_400_000;
 const claudeProfileFailureTtlMs = 900_000;
-const claudeProfileCache = new Map<string, { expiresAt: number; plan?: string }>();
+const claudeProfileCache = new Map<string, ClaudeProfileCacheEntry>();
 const cache = new Map<string, CacheEntry>();
 const codexOauthCache = new Map<string, CodexOauthRefreshResult>();
 const inFlightRefreshes = new Map<string, Promise<ProviderAccountSnapshot | undefined>>();
@@ -196,8 +202,10 @@ export async function testProviderAccountConnector(request: ProviderAccountTestR
     : await fetchJson(connector.endpoint, provider, connector.auth, connector.headers, connector.method, connector.body);
   const source = connector.type;
   if (connector.type === "http-json" && isClaudeOauthUsageConnector(connector)) {
+    const { planError, ...result } = await claudeOauthUsageResult(payload, provider, connector, connector.headers ?? {}, source);
     return {
-      ...await claudeOauthUsageResult(payload, provider, connector, connector.headers ?? {}, source),
+      ...result,
+      message: [result.message, planError ? `Plan lookup failed: ${planError}` : undefined].filter(Boolean).join(" ") || undefined,
       paths: flattenJsonPaths(payload),
       payload
     };
@@ -726,8 +734,9 @@ async function resolveHttpJsonConnector(
   };
   const payload = await fetchJson(connector.endpoint, request.provider, connector.auth, headers, connector.method, connector.body);
   if (isClaudeOauthUsageConnector(connector)) {
+    const { planError: _planError, ...result } = await claudeOauthUsageResult(payload, request.provider, connector, headers);
     return {
-      ...await claudeOauthUsageResult(payload, request.provider, connector, headers),
+      ...result,
       errors: [],
       source: "http-json"
     };
@@ -1195,16 +1204,18 @@ async function claudeOauthUsageResult(
   connector: ProviderAccountHttpJsonConnectorConfig,
   headers: Record<string, string>,
   source: ProviderAccountConnectorSource = "http-json"
-): Promise<{ message?: string; meters: ProviderAccountMeter[]; plan?: string; status: ProviderAccountStatus }> {
-  const plan = claudeOauthUsageEndpointPattern.test(connector.endpoint) && connector.auth !== "none"
+): Promise<{ message?: string; meters: ProviderAccountMeter[]; plan?: string; planError?: string; status: ProviderAccountStatus }> {
+  // The bearer token only goes to the host the usage call already uses, so a custom endpoint gets no plan.
+  const { error: planError, plan } = claudeOauthUsageEndpointPattern.test(connector.endpoint) && connector.auth !== "none"
     ? await readClaudeAccountPlan(provider, connector.auth, headers)
-    : undefined;
+    : {};
   const omitFiveHour = plan?.toLowerCase() === "ultra" && claudeFiveHourWindowAbsent(payload);
   const meters = claudeOauthUsageMeters(payload, { omitFiveHour }, source);
   return {
     message: meters.length === 0 ? "No usage data available." : undefined,
     meters,
     plan,
+    planError,
     status: statusFromMeters(meters, [], 1)
   };
 }
@@ -1213,18 +1224,18 @@ async function readClaudeAccountPlan(
   provider: GatewayProviderConfig,
   auth: ProviderAccountAuthMode | undefined,
   headers: Record<string, string>
-): Promise<string | undefined> {
+): Promise<ClaudeProfileCacheEntry> {
   const key = hashSensitiveValue(providerApiKey(provider));
   const cached = claudeProfileCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
-    return cached.plan;
+    return cached;
   }
   for (const [staleKey, stale] of claudeProfileCache) {
     if (stale.expiresAt <= Date.now()) {
       claudeProfileCache.delete(staleKey);
     }
   }
-  let entry: { expiresAt: number; plan?: string };
+  let entry: ClaudeProfileCacheEntry;
   try {
     const profile = await fetchJson(claudeProfileEndpoint, provider, auth, headers);
     const organization = isRecord(profile) ? profile.organization : undefined;
@@ -1232,11 +1243,11 @@ async function readClaudeAccountPlan(
       expiresAt: Date.now() + claudeProfileCacheTtlMs,
       plan: readString(isRecord(organization) ? organization.plan_display_name : undefined)
     };
-  } catch {
-    entry = { expiresAt: Date.now() + claudeProfileFailureTtlMs };
+  } catch (error) {
+    entry = { error: formatError(error), expiresAt: Date.now() + claudeProfileFailureTtlMs };
   }
   claudeProfileCache.set(key, entry);
-  return entry.plan;
+  return entry;
 }
 
 export function resetClaudeAccountPlanCacheForTest(): void {
@@ -1263,6 +1274,7 @@ function claudeOauthUsageMeters(
       const data = payload[window.key];
       return isRecord(data) ? claudePercentMeter(window.id, window.label, window.window, data.utilization, data.resets_at, source) : undefined;
     });
+  const scopedIds = new Set<string>();
   const scoped = (Array.isArray(payload.limits) ? payload.limits : []).map((item, index) => {
     if (!isRecord(item) || item.kind !== "weekly_scoped") {
       return undefined;
@@ -1270,8 +1282,10 @@ function claudeOauthUsageMeters(
     const scope = isRecord(item.scope) ? item.scope : {};
     const displayName = readString(isRecord(scope.model) ? scope.model.display_name : undefined);
     const slug = displayName?.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || String(index);
+    const id = scopedIds.has(`claude_weekly_scoped_${slug}`) ? `claude_weekly_scoped_${slug}_${index}` : `claude_weekly_scoped_${slug}`;
+    scopedIds.add(id);
     const label = displayName ? `${displayName} weekly quota` : "Scoped weekly quota";
-    return claudePercentMeter(`claude_weekly_scoped_${slug}`, label, "weekly", item.percent, item.resets_at, source);
+    return claudePercentMeter(id, label, "weekly", item.percent, item.resets_at, source);
   });
   const extraUsage = isRecord(payload.extra_usage) && payload.extra_usage.is_enabled === true ? payload.extra_usage : undefined;
   const creditLimit = normalizeNumber(extraUsage?.monthly_limit);
