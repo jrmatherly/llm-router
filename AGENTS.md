@@ -9,6 +9,7 @@ Fork of claude-code-router v3.1.3. Divergence from upstream is intended; never w
 - `npm run test:architecture` runs `tests/architecture/*.test.mjs`.
 - `npm run test:core`, `npm run test:ui`, `npm run test:electron`, `npm run test:cli` run one package.
 - `npm run test:e2e` runs Playwright after building the Electron sidecar of better-sqlite3 (`npm run sqlite:electron`, idempotent). Once per install, run `npm run test:e2e:install` first. Never run `rebuild:sqlite3` locally: it rebuilds the main binary for Electron and breaks every node suite; it is for packaging on the target platform.
+- `npm run test:system` runs the Docker smoke test, as CI's `docker-smoke` job does. It needs Docker.
 - `npm run build:assets` builds each package's `dist/`. `npm run dev:electron` runs the desktop app.
 - `npm run release -- <major|minor|patch|x.y.z>` cuts a release from a clean, up-to-date `main`: bumps every workspace manifest and the lockfile, runs typecheck and the architecture tests, commits `chore: release vX.Y.Z`, tags, and pushes. The tag push runs the Release workflow (GitHub release with desktop assets), and the Docker Release workflow follows a successful Release run on its own. `--dry-run` prints the plan.
 - One test file: `node build/test.mjs <pkg> && node --test .test-dist/<pkg>/test/<unit|integration|component|architecture>/<path>.test.js`. For `tests/architecture/`: `node build/test.mjs architecture && node --test .test-dist/architecture/test/<name>.test.js`. Do not pass `--scope`; it drops the subfolder from the output path.
@@ -18,7 +19,7 @@ Fork of claude-code-router v3.1.3. Divergence from upstream is intended; never w
 Read the check before changing the structure it guards. Change a rule only together with its check.
 
 - `tests/architecture/*.test.mjs`: package boundaries, UI build contract, packaging, hooks. `npm run test:architecture`; the commit gate also runs it.
-- `packages/core/test/architecture/gateway-service-architecture.test.mjs`: gateway module layout and size limits. `npm run test:core`; the gate does not run it.
+- `packages/core/test/architecture/gateway-service-architecture.test.mjs`: the `gateway/service.ts` facade (20-line cap, no imports from gateway modules) and no filesystem persistence in `config-compiler.ts`. `npm run test:core`; the gate does not run it.
 - `validateLightweightMcpBundles` and `forbiddenLightweightMcpInputs` in `build/esbuild.config.mjs`: size cap and forbidden imports for the bundles in `lightweightMcpBundleNames`. Only `npm run build:assets` runs it.
 - Path-scoped rules under `.claude/rules/` load on Read, Edit and Write of matching files and name their check. MCP reads such as `codegraph_explore` load no rule (measured 2026-10-25), so read a file with Read before changing it.
 
@@ -43,6 +44,8 @@ When their upstream sources are reachable, `npm run build:assets` and `npm run t
 
 - npm only, never pnpm or yarn. `allowScripts` in the root `package.json` lists the native dependencies whose install scripts may run; approve a new one with `npm install-scripts approve <pkg>`.
 - Committed review notes, findings and plan files go only under `docs/superpowers/`, never elsewhere in `docs/`. User-facing docs changes are fine.
+- Docs-only changes (specs, plans, docs pages) commit straight to `main`. Code goes through a branch and a squash-merged PR.
+- When a plan or spec has shipped, move it to the `completed/` folder beside it and repoint references to its old path.
 - Tests that need `LLMR_EXTENSIONS_DIR` create their own temp dirs. Nothing depends on sibling checkouts.
 
 ## Local checks
