@@ -15,13 +15,27 @@
 Upstream is `QuantumNous/new-api`, read at `main` on 2026-11-01. No live server was tested. Re-check these if execution starts much later.
 
 - `GET /api/subscription/self` returns `{ success, message, data: { billing_preference, subscriptions, all_subscriptions } }` (`controller/subscription.go`, `GetSubscriptionSelf`). It returned the same keys on 2026-08-18, when the plugin was written.
-- `subscriptions` holds active subscriptions only. Each item is `{ subscription: UserSubscription }` (`model/subscription.go:295`).
+- `subscriptions` holds active subscriptions only (`status = active AND end_time > now`, `GetAllActiveUserSubscriptions`). Each item is `{ subscription: UserSubscription }` (`model/subscription.go:295`).
 - `UserSubscription` has `amount_total` and `amount_used` (int64 quota units), and `end_time` and `next_reset_time` (Unix seconds, `0` when unset).
 - `amount_total` is copied from the plan's `TotalAmount`, where `0 = unlimited` (`model/subscription.go:181`, `:539`).
 - A user can hold several active subscriptions.
-- Access tokens reach this route with scope `wallet:read` (`middleware/access_token_routes.go:127`). `New-Api-User` plays no part in access token auth on current upstream (`docs/authentication.md:146`). Older instances may still need it, so the template sends it only when the user supplies an ID.
+- Access tokens reach this route with scope `wallet:read` (`middleware/access_token_routes.go:127`). `New-Api-User` plays no part in access token auth on current upstream (`docs/authentication.md:146`), and legacy access tokens are rejected with `ACCESS_TOKEN_LEGACY_RETIRED` (`middleware/auth.go`). Older instances may still need the header, so the template sends it only when the user supplies an ID.
+- Auth failures return non-2xx, which `readJsonResponse` already turns into a connector error.
 - The plugin throws `New API subscription response did not include quota fields.` on upstream's shape, reproduced with mocked responses. Its test passes because the fixture uses a flat `quota` field upstream does not return.
 - The plugin was never auto-loaded. The loader removed in `b411aca6` accepted only Claude Design and Claude Ship.
+
+These LLMR behaviors shape the design, read at `efdd27c5`:
+
+- All connectors run, and `mergeConnectorResults` merges their meters by id. An explicit `status` on any result overrides `statusFromMeters` for the whole snapshot, so the new parser must not return one, or it could hide a critical meter from another connector.
+- With no meters and no errors, a snapshot's status is `unsupported`. That is what a user with no subscription and no other connector sees, beside the message.
+- `formatProviderAccountMeterValue` displays `remaining ?? used ?? limit` with the meter's label and no hint about which one it is. A used-only meter therefore needs a label that says so.
+- The connector template button renders only in `Raw connector JSON` mode, and only when New API was detected or the JSON already names a New API parser. A proxy that strips the `x-new-api-version` header hides it, so the docs need the JSON too.
+- `Test first JSON connector` tests only the first one. The template appends, so with the auto-added key usage connector first, the button does not test the subscription connector.
+
+## Known Limits
+
+- With a credential pool, connectors run once per credential, so the same subscription meter repeats per credential. The user balance connector behaves the same way. Left as is.
+- `results.find((result) => result.message)` keeps the first message, so a key usage message can appear beside a working subscription meter. Also existing behavior.
 
 ## Global Constraints
 
@@ -36,8 +50,8 @@ Upstream is `QuantumNous/new-api`, read at `main` on 2026-11-01. No live server 
 
 Each line below has its test in the owning task.
 
-1. A capped subscription beside an unlimited one must not report a misleading limit. The meter shows usage with no limit or remaining (Task 1).
-2. A user with no active subscription sees a plain message and no meter, not an error (Task 1).
+1. A capped subscription beside an unlimited one must not report a misleading limit, and its used amount must not read as quota left. The meter has no limit or remaining, and its label says it shows usage (Task 1).
+2. A user with no active subscription sees a plain message and no meter, with no connector error (Task 1).
 3. `amount_used` above `amount_total` never shows negative remaining (Task 1).
 4. Malformed items (`subscription: null`, missing fields, numeric strings) are skipped or normalized, and never throw (Task 1).
 5. Someone who installed the old plugin by module path upgrades to an app without that file. The app still starts and other plugins still load (Task 3).
@@ -51,6 +65,7 @@ Each line below has its test in the owning task.
 - Modify: `packages/core/src/providers/new-api.ts`
 - Modify: `packages/core/src/providers/account-service.ts` (test helpers near `:287`, parser dispatch near `:243`, `:771`, `:824`, meter functions near `:1113`)
 - Test: `packages/core/test/unit/providers/provider-probe.test.mjs`
+- Create: `packages/core/test/unit/providers/new-api-subscription-snapshot.test.mjs`
 
 **Interfaces:**
 - Produces: `newApiSubscriptionSelfConnectorConfig(baseUrl: string): ProviderAccountHttpJsonConnectorConfig` and `newApiSubscriptionSelfEndpoint(baseUrl: string): string`, both exported from `@llmr/core/providers/new-api`.
@@ -65,7 +80,7 @@ git switch -c feat/new-api-subscription-connector
 
 - [ ] **Step 2: Write the failing tests**
 
-Add to `provider-probe.test.mjs`. `sub` is a local helper that wraps its argument as `{ subscription: ... }`, and `payloadOf(list)` builds `{ success: true, message: "", data: { billing_preference: "subscription_first", subscriptions: list, all_subscriptions: list } }`.
+Add to `provider-probe.test.mjs`, extending its existing imports from `account-service.ts` and `new-api.ts`. `sub` is a local helper that wraps its argument as `{ subscription: ... }`, and `payloadOf(list)` builds `{ success: true, message: "", data: { billing_preference: "subscription_first", subscriptions: list, all_subscriptions: list } }`.
 
 ```js
 test("New API subscription config targets the root subscription route with a token placeholder", () => {
@@ -104,11 +119,12 @@ test("New API subscription meter uses the earliest end time when nothing resets"
   assert.equal(meter.resetAt, new Date(1950000000 * 1000).toISOString());
 });
 
-test("New API subscription meter omits limit and remaining when any subscription is unlimited", () => {
+test("New API subscription meter labels usage and omits the limit when any subscription is unlimited", () => {
   const [meter] = newApiSubscriptionSelfMetersForTest(payloadOf([
     sub({ amount_total: 0, amount_used: 50 }),
     sub({ amount_total: 1000, amount_used: 100 })
   ]));
+  assert.equal(meter.label, "Subscription used (unlimited)");
   assert.equal(meter.used, 150);
   assert.equal(meter.limit, undefined);
   assert.equal(meter.remaining, undefined);
@@ -139,9 +155,50 @@ test("New API subscription reports a plain message when there is no active subsc
 });
 ```
 
+Create `new-api-subscription-snapshot.test.mjs`, copying the temp home, dynamic import and `globalThis.fetch` mock setup from `claude-oauth-usage-snapshot.test.mjs`. These tests fail if a dispatch branch is missing, which the helper tests above cannot detect. Each saves a provider with `api_key: "provider-key"`, `account: { enabled: true, connectors }`, then reads `getProviderAccountSnapshots(name, { forceRefresh: true })`.
+
+```js
+test("subscription connector merges with key usage and sends only the access token", async () => {
+  // connectors: [newApiKeyUsageAccountConfig(base).connectors[0], { ...newApiSubscriptionSelfConnectorConfig(base), headers: { Authorization: "Bearer nap_test" } }]
+  // the mock returns key usage JSON for /api/usage/token and an active subscription for /api/subscription/self
+  assert.deepEqual(snapshot.meters.map((meter) => meter.id).sort(), ["new_api_key_quota", "new_api_subscription_quota"]);
+  assert.equal(subscriptionRequestHeaders.Authorization, "Bearer nap_test");
+  assert.equal(subscriptionRequestHeaders.authorization, undefined);
+});
+
+test("no active subscription reports a message without an error", async () => {
+  // connectors: only the subscription connector; the mock returns payloadOf([])
+  assert.deepEqual(snapshot.meters, []);
+  assert.equal(snapshot.message, "No active New API subscription.");
+  assert.equal(snapshot.errors, undefined);
+  assert.equal(snapshot.status, "unsupported");
+});
+
+test("a denied subscription request keeps the other connector's meter", async () => {
+  // the mock returns HTTP 403 with { success: false, message: "scope denied" } for the subscription route
+  assert.deepEqual(snapshot.meters.map((meter) => meter.id), ["new_api_key_quota"]);
+  assert.match(snapshot.errors[0].message, /HTTP 403/);
+  assert.equal(snapshot.status, "warning");
+});
+
+test("a critical subscription is not hidden by the merge", async () => {
+  // amount_total: 100, amount_used: 99, with the key usage connector first reporting plenty of quota
+  assert.equal(snapshot.status, "critical");
+});
+
+test("the connector test action and browser connectors dispatch the parser too", async () => {
+  const tested = await testProviderAccountConnector({ baseUrl: base, connector: newApiSubscriptionSelfConnectorConfig(base) });
+  assert.equal(tested.meters[0].id, "new_api_subscription_quota");
+  // also a { type: "webcontent-json", parser: "new-api-subscription-self", ... } connector through
+  // getProviderAccountSnapshots, with setProviderAccountWebContentFetchHandler returning { payload }
+});
+```
+
+Confirm the key usage route the mock answers by reading `newApiKeyUsageEndpoint`.
+
 - [ ] **Step 3: Run the tests to verify they fail**
 
-Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/providers/provider-probe.test.js`
+Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/providers/provider-probe.test.js .test-dist/core/test/unit/providers/new-api-subscription-snapshot.test.js`
 Expected: FAIL, because the new exports do not exist.
 
 - [ ] **Step 4: Add the parser id and connector config**
@@ -157,23 +214,23 @@ Add `newApiSubscriptionSelfMeters(payload: unknown, source: ProviderAccountConne
 The rules the tests pin:
 - Read `data.subscriptions` when it is an array, and keep items whose `subscription` is a record. Return `[]` if none remain.
 - `used` is the sum of `amount_used`, treating missing values as 0.
-- If any kept item has `amount_total` that is not above 0, leave `limit` and `remaining` undefined. Otherwise `limit` is the sum and `remaining` is `Math.max(limit - used, 0)`.
+- If any kept item has `amount_total` that is not above 0, leave `limit` and `remaining` undefined and use the label `Subscription used (unlimited)`. Otherwise `limit` is the sum, `remaining` is `Math.max(limit - used, 0)`, and the label is `Subscription quota`.
 - `resetAt` is the earliest positive `next_reset_time`. If there is none, it is the earliest positive `end_time`. If there is neither, it is undefined. Multiply seconds by 1000 and format with `toISOString()`.
 - The fallback message is `readMappedString("$.message", payload) || "No active New API subscription."`. Use `||` because upstream sends `message: ""` on success.
 
 - [ ] **Step 6: Dispatch the parser at all three sites**
 
-Add a `connector.parser === "new-api-subscription-self"` branch after the `new-api-user-self` branch at each of the three dispatch sites (near `:243`, `:771`, `:824`). Match each site's existing return shape and `source` argument. The message is `meters.length === 0 ? newApiSubscriptionSelfFallbackMessage(payload) : readMappedString(connector.mapping.message, payload)`.
+Add a `connector.parser === "new-api-subscription-self"` branch after the `new-api-user-self` branch at each of the three dispatch sites (near `:243`, `:771`, `:824`). Match each site's existing return shape and `source` argument. The message is `meters.length === 0 ? newApiSubscriptionSelfFallbackMessage(payload) : readMappedString(connector.mapping.message, payload)`. The two runtime sites return no `status` key, for the reason under Evidence. The test action site at `:243` uses `statusFromMeters(meters, [], 1)` as its neighbors do.
 
 - [ ] **Step 7: Run the tests to verify they pass**
 
-Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/providers/provider-probe.test.js`
+Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/providers/provider-probe.test.js .test-dist/core/test/unit/providers/new-api-subscription-snapshot.test.js`
 Expected: PASS, with `fail 0`.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add packages/core/src/contracts/app.ts packages/core/src/providers/new-api.ts packages/core/src/providers/account-service.ts packages/core/test/unit/providers/provider-probe.test.mjs
+git add packages/core/src/contracts/app.ts packages/core/src/providers/new-api.ts packages/core/src/providers/account-service.ts packages/core/test/unit/providers/provider-probe.test.mjs packages/core/test/unit/providers/new-api-subscription-snapshot.test.mjs
 git commit -m "feat(core): read New API subscription quota with an access token"
 ```
 
@@ -243,7 +300,7 @@ Expected: PASS, with `fail 0` and no type errors.
 
 - [ ] **Step 6: Look at it in the real UI**
 
-Run `npm run dev:electron`, open **Providers**, edit a provider whose connector JSON contains `new-api-key-usage`, and click the new button. Expected: both buttons fit at the dialog's narrowest width, and the JSON gains the connector with the placeholder token.
+Run `LLMR_INTERNAL_HOME_DIR="$(mktemp -d)" npm run dev:electron`, so nothing touches the real `~/.llm-router`, `~/.claude` or `~/.codex`. In **Providers**, add any provider, turn on **Fetch usage**, choose **Raw connector JSON**, and enter `[{ "parser": "new-api-key-usage" }]` to reveal the template row. Click the new button. Expected: both buttons fit at the dialog's narrowest width, and the JSON gains the connector with the placeholder token.
 
 - [ ] **Step 7: Commit**
 
@@ -262,7 +319,7 @@ git commit -m "feat(ui): add a New API subscription quota connector template"
 - Modify: `build/dev.mjs:15,28,293,406,425`
 - Modify: `electron-builder.json:7`
 - Modify: `README.md` (Quick Start upgrade notes)
-- Modify: `docs/src/content/docs/en/guides/provider.md`
+- Modify: `docs/src/content/docs/en/configuration/providers.md`
 - Test: `packages/core/test/integration/plugins/plugin-service.test.mjs`
 
 **Interfaces:**
@@ -270,15 +327,23 @@ git commit -m "feat(ui): add a New API subscription quota connector template"
 
 - [ ] **Step 1: Write the upgrade test**
 
-Add to `plugin-service.test.mjs`, following that file's setup and teardown. Pass an existing `new-api-account` style entry with a module path that does not exist, followed by a valid inline plugin that registers a provider account connector.
+Add to `plugin-service.test.mjs`, using that file's temp dir and `console.warn` capture pattern. This exact test was run against `efdd27c5` and passed.
 
 ```js
 test("a plugin whose module file is gone is disabled without blocking later plugins", async () => {
-  // plugins: [{ enabled: true, id: "new-api-account", module: <path under a temp dir that does not exist>,
-  //             permissions: ["trusted-code", "provider-account-connectors"], surfaces: { provider: true } }, <valid plugin>]
+  const validPlugin = path.join(root, "valid.cjs");
+  writeFileSync(validPlugin, 'module.exports = { setup() { return { providerAccountConnectors: [{ id: "c", resolve() { return []; } }] }; } };');
+  const permissions = ["trusted-code", "provider-account-connectors"];
+  const surfaces = { provider: true };
+  const config = createDefaultAppConfig();
+  config.plugins = [
+    { id: "new-api-account", module: path.join(root, "gone", "index.cjs"), permissions, surfaces },
+    { id: "valid", module: validPlugin, permissions, surfaces }
+  ];
   await pluginService.start(config);
+  assert.match(warnings.join("\n"), /plugin:new-api-account.*Disabled after startup failure/);
   assert.equal(pluginService.getProviderAccountConnector("new-api-account", "subscription-self"), undefined);
-  assert.ok(pluginService.getProviderAccountConnector("<valid plugin id>", "<its connector id>"));
+  assert.ok(pluginService.getProviderAccountConnector("valid", "c"));
 });
 ```
 
@@ -321,10 +386,14 @@ In `docs/src/content/docs/en/guides/provider.md`, add a `## New API subscription
 - [ ] **Step 6: Commit**
 
 ```bash
-git add -A packages/electron/bundled-plugins packages/electron/test/unit/new-api-account-plugin.test.mjs build/esbuild.config.mjs build/build.mjs build/dev.mjs electron-builder.json README.md docs/src/content/docs/en/guides/provider.md packages/core/test/integration/plugins/plugin-service.test.mjs
+git add -A packages/electron/bundled-plugins packages/electron/test/unit/new-api-account-plugin.test.mjs build/esbuild.config.mjs build/build.mjs build/dev.mjs electron-builder.json README.md docs/src/content/docs/en/configuration/providers.md packages/core/test/integration/plugins/plugin-service.test.mjs
 git commit -m "chore: retire the new-api-account plugin and its bundling"
 ```
 
 - [ ] **Step 7: Open the PR**
 
-Run the `/verify` skill, push the branch, and open a PR with `gh pr create`. The body states what users notice (a working subscription meter in every mode, and the plugin removed), that no live New API server was tested, and the Evidence section's upstream commit date.
+Run the `/verify` skill with `--e2e`, because this touches the renderer and the build, and restore generated files afterward if the e2e run rewrote them. Push the branch and open a PR with `gh pr create`. The body states what users notice (a working subscription meter in every mode, and the plugin removed), that no live New API server was tested, and the Evidence section's upstream read date.
+
+- [ ] **Step 8: After the squash merge, retire this plan**
+
+Move this file to `docs/superpowers/plans/completed/` and repoint any references to its old path. Commit that straight to `main`, since it is docs-only.
