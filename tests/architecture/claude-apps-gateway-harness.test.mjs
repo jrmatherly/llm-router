@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { parseArgs, renderDexConfig, renderGatewayConfig } from "../../scripts/claude-apps-gateway-dev.mjs";
 
@@ -37,6 +38,12 @@ test("gateway and Dex configs move ports together", () => {
   assert.match(dex, /issuer: http:\/\/127\.0\.0\.1:15557/);
   assert.match(dex, /redirectURIs:\n\s+- http:\/\/127\.0\.0\.1:18090\/oauth\/callback/);
   assert.match(dex, /type: mockCallback/);
+});
+
+test("harness containers publish only on loopback", () => {
+  const compose = readFileSync("docker/claude-apps-gateway/compose.yaml", "utf8");
+  const published = [...compose.matchAll(/^\s+- "(.+:\d+)"$/gm)].map((match) => match[1]);
+  assert.deepEqual(published, ["127.0.0.1:15432:5432", "127.0.0.1:${DEX_PORT:-15556}:5556"]);
 });
 
 test("parseArgs defaults and flags", () => {
