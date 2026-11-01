@@ -160,7 +160,7 @@ Create `new-api-subscription-snapshot.test.mjs`, copying the temp home, dynamic 
 ```js
 test("subscription connector merges with key usage and sends only the access token", async () => {
   // connectors: [newApiKeyUsageAccountConfig(base).connectors[0], { ...newApiSubscriptionSelfConnectorConfig(base), headers: { Authorization: "Bearer nap_test" } }]
-  // the mock returns key usage JSON for /api/usage/token and an active subscription for /api/subscription/self
+  // the mock returns key usage JSON for /api/usage/token/ and an active subscription for /api/subscription/self
   assert.deepEqual(snapshot.meters.map((meter) => meter.id).sort(), ["new_api_key_quota", "new_api_subscription_quota"]);
   assert.equal(subscriptionRequestHeaders.Authorization, "Bearer nap_test");
   assert.equal(subscriptionRequestHeaders.authorization, undefined);
@@ -193,8 +193,6 @@ test("the connector test action and browser connectors dispatch the parser too",
   // getProviderAccountSnapshots, with setProviderAccountWebContentFetchHandler returning { payload }
 });
 ```
-
-Confirm the key usage route the mock answers by reading `newApiKeyUsageEndpoint`.
 
 - [ ] **Step 3: Run the tests to verify they fail**
 
@@ -374,14 +372,18 @@ In the root `README.md`, add this above `### Upgrading to 7.0`:
 ```markdown
 ### Upgrading to 7.2
 
-The New API Account plugin is gone. It could not read New API's subscription response. Remove it under **Extensions**, delete its connector from the provider's account connector JSON, then use **Insert New API subscription quota** instead. The connector needs a New API access token with the `wallet:read` scope.
+The New API Account plugin is gone. It could not read New API's subscription response. Delete it under **Extensions**, and remove its `plugin` entry from the provider's **Raw connector JSON**, or the provider keeps showing a "not registered" error. Then use **Insert New API subscription quota**, which needs a New API access token with the `wallet:read` scope.
 ```
 
-In `docs/src/content/docs/en/guides/provider.md`, add a `## New API subscription quota` section above `## Related pages` with these points:
+In `docs/src/content/docs/en/configuration/providers.md`, add a `### New API subscription quota` section after `### Raw connector JSON` with these points:
 - Create an access token in New API with the `wallet:read` scope.
-- In the provider's account connectors, click **Insert New API subscription quota** and replace `<new-api-access-token>`.
-- The meter totals all active subscriptions, and shows usage with no limit when any subscription is unlimited.
+- Turn on **Fetch usage**, choose **Raw connector JSON**, click **Insert New API subscription quota**, and replace `<new-api-access-token>`.
+- If the button is missing because LLMR did not detect New API, for example behind a proxy that strips its headers, paste the connector JSON yourself. Include a copy of what `newApiSubscriptionSelfConnectorConfig` returns for `https://new-api.example/v1`.
+- **Test first JSON connector** only checks the first connector, so check the result on the provider card after saving, or move this connector first to test it.
+- The meter totals all active subscriptions. When any subscription is unlimited, it is labeled `Subscription used (unlimited)` and shows usage with no limit.
 - Enter a user ID only if your New API version requires the `New-Api-User` header.
+
+Then run `npm --prefix docs run build`. Expected: the build succeeds.
 
 - [ ] **Step 6: Commit**
 
