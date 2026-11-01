@@ -248,6 +248,47 @@ Field paths use LLMR's lightweight JSONPath syntax:
 
 `Insert example` fills an example connector array containing `standard`, `http-json`, `webcontent-json`, `plugin`, and `local-estimate` connectors.
 
+### New API subscription quota
+
+LLMR reads the subscriptions of a New API account through New API's `/api/subscription/self` route.
+
+1. In New API, create an access token with the `wallet:read` scope.
+2. In LLMR, turn on **Fetch usage**, choose **Raw connector JSON**, and click **Insert New API subscription quota**.
+3. Replace `<new-api-access-token>` with the token.
+
+The button appears only when LLMR detects New API or the JSON already names a New API parser. A proxy that strips New API's response headers hides it. In that case, paste the connector yourself, with your gateway's root URL in `endpoint`:
+
+```json
+{
+  "auth": "none",
+  "endpoint": "https://new-api.example/api/subscription/self",
+  "headers": {
+    "Authorization": "Bearer <new-api-access-token>"
+  },
+  "mapping": {
+    "meters": [
+      {
+        "id": "new_api_subscription_quota",
+        "kind": "quota",
+        "label": "Subscription quota",
+        "limit": "$.data.subscriptions[0].subscription.amount_total",
+        "unit": "quota",
+        "used": "$.data.subscriptions[0].subscription.amount_used"
+      }
+    ]
+  },
+  "method": "GET",
+  "parser": "new-api-subscription-self",
+  "type": "http-json"
+}
+```
+
+**Test first JSON connector** checks only the first connector in the array. Check the result on the provider card after saving, or move this connector first to test it.
+
+The meter totals all active subscriptions. When any of them is unlimited, the meter is labeled `Subscription used (unlimited)` and shows usage with no limit. With no active subscription, the provider shows `No active New API subscription.`
+
+Fill **New API user ID** before clicking the button only if your New API version requires the `New-Api-User` header. The button then adds that header.
+
 ### Local model usage and pricing
 
 Local compatible services such as llama.cpp also group token usage under the configured provider name. Runtime protocol and credential aliases are normalized to that name. A GGUF filename alias usually has no cloud catalog price. To calculate custom costs, set `inputUsdPerMillionTokens` and `outputUsdPerMillionTokens` in the model metadata's `pricing` object; both are USD per million tokens. Set both to `0` to explicitly record no API charge. Without a configured price, LLMR does not infer hardware, electricity, or hosting costs. Existing historical records are not automatically rewritten.

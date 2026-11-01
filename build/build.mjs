@@ -1,12 +1,11 @@
 import "../scripts/generate-models-json.mjs";
 import "./../scripts/generate-claude-code-config-options.mjs";
-import { buildBrowserRenderer, buildMain, buildRenderer, buildRequestLogBodyWorker, buildStyles, buildTrayRenderer, buildWebClientBridge, cleanDist, copyAppAssets, copyBrowserRendererHtml, copyBundledClaudeRuntimePlugins, copyModelCatalog, copyRendererHtml, copyTrayRendererHtml, syncUiRendererToRuntimeDists } from "./esbuild.config.mjs";
+import { buildBrowserRenderer, buildMain, buildRenderer, buildRequestLogBodyWorker, buildStyles, buildTrayRenderer, buildWebClientBridge, cleanDist, copyAppAssets, copyBrowserRendererHtml, copyModelCatalog, copyRendererHtml, copyTrayRendererHtml, syncUiRendererToRuntimeDists } from "./esbuild.config.mjs";
 
 const mode = process.argv.includes("--dev") ? "development" : "production";
 
 cleanDist();
 copyAppAssets();
-copyBundledClaudeRuntimePlugins();
 copyModelCatalog();
 copyBrowserRendererHtml();
 copyRendererHtml();
