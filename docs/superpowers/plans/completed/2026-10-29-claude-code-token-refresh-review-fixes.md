@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript under `packages/core`, `node:test` with `node:assert/strict`, the stateful fake `security` script from `local-agent-provider-claude-code.test.mjs`.
 
-**Spec:** `docs/superpowers/specs/2026-10-28-claude-app-opt-in-and-claude-code-token-refresh.md`, Change 2 plus "Change 2 revisions, 2026-10-29".
+**Spec:** `docs/superpowers/specs/completed/2026-10-28-claude-app-opt-in-and-claude-code-token-refresh.md`, Change 2 plus "Change 2 revisions, 2026-10-29".
 
 ## Global Constraints
 

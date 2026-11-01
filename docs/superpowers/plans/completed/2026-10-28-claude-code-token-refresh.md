@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript under `packages/core`, `node:test` with `node:assert/strict`, `fetchWithSystemProxy` from `@llmr/core/proxy/system-proxy-fetch`.
 
-**Spec:** `docs/superpowers/specs/2026-10-28-claude-app-opt-in-and-claude-code-token-refresh.md`, Change 2.
+**Spec:** `docs/superpowers/specs/completed/2026-10-28-claude-app-opt-in-and-claude-code-token-refresh.md`, Change 2.
 
 ## Global Constraints
 

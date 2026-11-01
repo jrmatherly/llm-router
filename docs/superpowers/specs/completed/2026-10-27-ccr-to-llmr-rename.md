@@ -2,7 +2,7 @@
 
 Date: 2026-10-27. Status: approved by the operator's no-compatibility decision of 2026-10-27. Ships as v6.0.0.
 
-This spec supersedes the keep-list in `completed/2026-10-27-audit-remediation.md` (the "Out of scope, kept as they are" bullet on internal identifiers) and the one before it in `completed/2026-10-25-rebrand-phase-2.md`.
+This spec supersedes the keep-list in `2026-10-27-audit-remediation.md` (the "Out of scope, kept as they are" bullet on internal identifiers) and the one before it in `2026-10-25-rebrand-phase-2.md`.
 
 ## Why
 

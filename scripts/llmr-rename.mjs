@@ -33,7 +33,7 @@ const skippedPaths = [
   "tests/architecture/uninstall-macos-script.test.mjs"
 ];
 
-// Every entry is a deliberate survivor; docs/superpowers/specs/2026-10-27-ccr-to-llmr-rename.md gives the reasons.
+// Every entry is a deliberate survivor; docs/superpowers/specs/completed/2026-10-27-ccr-to-llmr-rename.md gives the reasons.
 // `path` keeps the text in one file. `at` keeps it everywhere and lists every file that holds it, so an over-rename in any of them fails the guard test.
 export const kept = [
   {

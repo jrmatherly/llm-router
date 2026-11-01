@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript under `packages/core`, React under `packages/ui`, `node:test` with `node:assert/strict`.
 
-**Spec:** `docs/superpowers/specs/2026-10-28-claude-app-opt-in-and-claude-code-token-refresh.md`, Change 1.
+**Spec:** `docs/superpowers/specs/completed/2026-10-28-claude-app-opt-in-and-claude-code-token-refresh.md`, Change 1.
 
 ## Global Constraints
 
