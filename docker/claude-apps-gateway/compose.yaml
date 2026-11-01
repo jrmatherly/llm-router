@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: pw
       POSTGRES_USER: gw
     ports:
-      - "15432:5432"
+      - "127.0.0.1:15432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +18,7 @@ services:
     image: ghcr.io/dexidp/dex:v2.44.0
     command: ["dex", "serve", "/etc/dex/config.yaml"]
     ports:
-      - "${DEX_PORT:-15556}:5556"
+      - "127.0.0.1:${DEX_PORT:-15556}:5556"
     volumes:
       - ./dex.rendered.yaml:/etc/dex/config.yaml:ro
 volumes:
