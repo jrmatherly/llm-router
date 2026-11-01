@@ -48,6 +48,35 @@ export function newApiKeyUsageEndpoint(baseUrl: string): string {
   return `${root}/api/usage/token/`;
 }
 
+export function newApiSubscriptionSelfConnectorConfig(baseUrl: string): ProviderAccountHttpJsonConnectorConfig {
+  return {
+    auth: "none",
+    endpoint: newApiSubscriptionSelfEndpoint(baseUrl),
+    headers: {
+      Authorization: "Bearer <new-api-access-token>"
+    },
+    mapping: {
+      meters: [
+        {
+          id: "new_api_subscription_quota",
+          kind: "quota",
+          label: "Subscription quota",
+          limit: "$.data.subscriptions[0].subscription.amount_total",
+          unit: "quota",
+          used: "$.data.subscriptions[0].subscription.amount_used"
+        }
+      ]
+    },
+    method: "GET",
+    parser: "new-api-subscription-self",
+    type: "http-json"
+  };
+}
+
+export function newApiSubscriptionSelfEndpoint(baseUrl: string): string {
+  return `${newApiRootBaseUrl(baseUrl)}/api/subscription/self`;
+}
+
 export function newApiUserSelfConnectorConfig(baseUrl: string): ProviderAccountHttpJsonConnectorConfig {
   return {
     auth: "none",

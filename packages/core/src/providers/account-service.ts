@@ -250,6 +250,16 @@ export async function testProviderAccountConnector(request: ProviderAccountTestR
       status: statusFromMeters(meters, [], 1)
     };
   }
+  if (connector.parser === "new-api-subscription-self") {
+    const meters = newApiSubscriptionSelfMeters(payload, source);
+    return {
+      meters,
+      message: meters.length === 0 ? newApiSubscriptionSelfFallbackMessage(payload) : readMappedString(connector.mapping.message, payload),
+      paths: flattenJsonPaths(payload),
+      payload,
+      status: statusFromMeters(meters, [], 1)
+    };
+  }
 
   const meters = mappedMetersFromPayload(connector, payload, source);
 
@@ -290,6 +300,14 @@ export function newApiKeyUsageMetersForTest(payload: unknown): ProviderAccountMe
 
 export function newApiKeyUsageFallbackMessageForTest(payload: unknown): string {
   return newApiKeyUsageFallbackMessage(payload);
+}
+
+export function newApiSubscriptionSelfMetersForTest(payload: unknown): ProviderAccountMeter[] {
+  return newApiSubscriptionSelfMeters(payload);
+}
+
+export function newApiSubscriptionSelfFallbackMessageForTest(payload: unknown): string {
+  return newApiSubscriptionSelfFallbackMessage(payload);
 }
 
 export function newApiUserSelfMetersForTest(payload: unknown): ProviderAccountMeter[] {
@@ -777,6 +795,15 @@ async function resolveHttpJsonConnector(
       source: "http-json"
     };
   }
+  if (connector.parser === "new-api-subscription-self") {
+    const meters = newApiSubscriptionSelfMeters(payload);
+    return {
+      errors: [],
+      message: meters.length === 0 ? newApiSubscriptionSelfFallbackMessage(payload) : readMappedString(connector.mapping.message, payload),
+      meters,
+      source: "http-json"
+    };
+  }
 
   const meters = mappedMetersFromPayload(connector, payload);
   return {
@@ -826,6 +853,15 @@ async function resolveWebContentJsonConnector(
     return {
       errors: [],
       message: meters.length === 0 ? readMappedString(connector.mapping.message, payload) ?? "No user balance data available." : readMappedString(connector.mapping.message, payload),
+      meters,
+      source
+    };
+  }
+  if (connector.parser === "new-api-subscription-self") {
+    const meters = newApiSubscriptionSelfMeters(payload, source);
+    return {
+      errors: [],
+      message: meters.length === 0 ? newApiSubscriptionSelfFallbackMessage(payload) : readMappedString(connector.mapping.message, payload),
       meters,
       source
     };
@@ -1176,6 +1212,43 @@ function newApiUserSelfMeter(payload: unknown, source: ProviderAccountConnectorS
     unit: "quota",
     used
   };
+}
+
+function newApiSubscriptionSelfMeters(payload: unknown, source: ProviderAccountConnectorSource = "http-json"): ProviderAccountMeter[] {
+  const items = readJsonPath(payload, "$.data.subscriptions");
+  const subscriptions = Array.isArray(items)
+    ? items.map((item) => isRecord(item) ? readJsonRecordValue(item, "subscription") : undefined).filter(isRecord)
+    : [];
+  if (subscriptions.length === 0) {
+    return [];
+  }
+
+  const numbers = (key: string) => subscriptions.map((subscription) => normalizeNumber(readJsonRecordValue(subscription, key)) ?? 0);
+  const earliest = (key: string) => {
+    const times = numbers(key).filter((time) => time > 0);
+    return times.length > 0 ? Math.min(...times) : undefined;
+  };
+  const used = numbers("amount_used").reduce((sum, value) => sum + value, 0);
+  const totals = numbers("amount_total");
+  const unlimited = totals.some((total) => total <= 0);
+  const limit = unlimited ? undefined : totals.reduce((sum, value) => sum + value, 0);
+  const resetSeconds = earliest("next_reset_time") ?? earliest("end_time");
+
+  return [{
+    id: "new_api_subscription_quota",
+    kind: "quota",
+    label: unlimited ? "Subscription used (unlimited)" : "Subscription quota",
+    limit,
+    remaining: limit === undefined ? undefined : Math.max(limit - used, 0),
+    resetAt: resetSeconds === undefined ? undefined : new Date(resetSeconds * 1000).toISOString(),
+    source,
+    unit: "quota",
+    used
+  }];
+}
+
+function newApiSubscriptionSelfFallbackMessage(payload: unknown): string {
+  return readMappedString("$.message", payload) || "No active New API subscription.";
 }
 
 function newApiKeyUsageData(payload: unknown): Record<string, unknown> | undefined {
