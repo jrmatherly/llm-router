@@ -1,3 +1,5 @@
+# Local ai-gateway package
+
 This directory is used by `npm run docker:prepare-gateway`,
 `npm run docker:build`, `npm run docker:compose:build`, and
 `npm run docker:compose:up`.

@@ -8,7 +8,7 @@ Use the CLI on developer machines and headless hosts. If you want the tray, desk
 
 ## Requirements And Installation
 
-- Node.js 22 or newer
+- Node.js 24 or newer
 - A supported upstream model provider, or a locally logged-in agent account that LLMR can import
 - A locally installed agent executable when using profile launch commands
 
@@ -95,8 +95,8 @@ llmr <profile-name-or-id> [cli|app] [-- <agent arguments>]
 
 - `--cli` and `--app` are accepted alternatives to the positional surface.
 - Put agent-specific arguments after `--` so they cannot be confused with LLMR options.
-- If the surface is omitted, LLMR uses the first surface allowed by the profile: CLI for Claude Code, Codex, Grok CLI, Kimi CLI, and Pi; App for ZCode.
-- Grok CLI, Kimi CLI, and Pi support CLI only. ZCode supports App only. Claude App and ZCode App do not accept trailing agent arguments.
+- If the surface is omitted, LLMR opens the CLI, or the App for ZCode and WorkBuddy. A profile limited to App must be opened with `app` or `--app`.
+- Grok CLI, Kimi CLI, Kilo Code, and Pi support CLI only. ZCode and WorkBuddy support App only. Claude App and ZCode App do not accept trailing agent arguments.
 - Desktop App launches require that app to be installed and a graphical session to be available.
 - Start the LLMR service before opening most profiles. Grok CLI, Kimi CLI, and Pi profiles can start a temporary shared service automatically and stop it after the last managed session exits.
 
@@ -112,9 +112,8 @@ Commands copied from desktop Agent Profiles cards use the same `llmr` command.
 Important files include:
 
 - `config.sqlite`: current application configuration.
-- `app-data/`: API key, usage, request-log, certificate, and other runtime databases/files.
+- `app-data/`: usage, request-log, certificate, and other runtime databases/files.
 - `service.json`: state and private token for a detached CLI service.
-- `gateway.config.json`: generated gateway runtime configuration.
 - `profiles/` and `bin/`: isolated profile configuration and launch wrappers.
 
 Do not edit or copy live SQLite files while LLMR is writing to them. Use the UI export feature, or stop LLMR before taking a filesystem backup.

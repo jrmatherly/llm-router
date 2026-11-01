@@ -10,7 +10,7 @@ It uses the built-in browser session so the refresh request can include the user
 
 ## Install
 
-Open **Extensions**, install a local extension, and choose this `plugins/new-api-account` directory.
+Open **Extensions**, install a local extension, and choose `packages/electron/bundled-plugins/new-api-account` from a source checkout. LLMR Desktop does not load this plugin on its own.
 
 ## Provider Connector
 

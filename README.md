@@ -1,8 +1,10 @@
+<!-- markdownlint-disable MD033 MD041 -- the centered hero and logo tables need inline HTML -->
+
 <div align="center">
 
 # LLM Router
 
-### Manage every agent and provider from one place.
+**Manage every agent and provider from one place.**
 
 Connect Claude Code, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCode, Pi, ZCode, WorkBuddy, and compatible API clients to the providers you choose—then route, fail over, extend, and observe every request from one app.
 
@@ -163,7 +165,7 @@ LLMR supports OpenAI Chat / Responses, Anthropic Messages, Gemini Generate Conte
 
 2. Open **Providers → Add Provider**. Choose a built-in preset or a custom endpoint, enter the API key, select the protocol and models, then save.
 3. Open **Server** and click **Start**. The local model gateway listens on `http://127.0.0.1:3456` by default.
-4. Open **Agent Config**, choose Claude Code, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCode, Pi, ZCode, or WorkBuddy, select a model, and apply the profile.
+4. Open **Agent Profiles**, choose Claude Code, Codex, Grok CLI, Kimi CLI, Kilo Code, OpenCode, Pi, ZCode, or WorkBuddy, select a model, and apply the profile.
 5. Start using your agent. Open **Logs** to confirm the resolved provider, model, status, tokens, latency, and errors.
 
 Your agent is now connected to LLMR. To add conditions, retries, request rewrites, or fallback models, open **Routing**.
@@ -207,7 +209,7 @@ Install Node.js 24+, then run `npm ci`.
 | macOS local DMG/ZIP | `npm run build:app:mac` | `release-local/` |
 | Windows local NSIS installer | `npm run build:app:win` | `release-local/` |
 
-Windows app packaging must run on Windows x64 because `better-sqlite3` ships a native Electron module. The release workflow builds macOS on macOS runners and Windows on `windows-latest` when a `v*` tag is pushed.
+Windows app packaging must run on Windows x64 because `better-sqlite3` ships a native Electron module. The release workflow builds macOS on macOS runners, Windows on `windows-latest`, and the Linux AppImage on Ubuntu when a `v*` tag is pushed.
 
 ## How it works
 

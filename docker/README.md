@@ -37,7 +37,7 @@ docker compose logs -f llmr
 
 Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `LLMR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a new volume, the management UI is immediately available. Add a provider and model, create an LLMR client key under **API Keys**, and start the gateway from **Server**.
 
-The npm Compose script prepares a local `../../next-ai/gateway` checkout before building so the image uses that plugin-capable ai-gateway runtime. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
+When a local `../../next-ai/gateway` checkout exists, the npm Compose script packs it before building so the image uses that plugin-capable ai-gateway runtime. Without one, the image uses the package-lock dependency. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
 The repository Compose file publishes `127.0.0.1:3458:8080`, stores data in the `llmr-data` named volume, and restarts the service unless explicitly stopped. Only this machine can reach it. Nginx forwards every request to the management server as a loopback request, so the published port is the only network boundary in front of management RPC besides `LLMR_WEB_AUTH_TOKEN`. To expose it on a LAN deliberately, set a stable strong `LLMR_WEB_AUTH_TOKEN` (32 characters or more) and `LLMR_PUBLIC_BASE_URL`, then publish on a specific host address, or on every interface:
 
@@ -77,6 +77,10 @@ npm run docker:run
 ```
 
 `npm run docker:run` uses port `3458` and the `llmr-data` volume, but runs an ephemeral container without a fixed name or restart policy.
+
+## Published Image
+
+Each release publishes a public `linux/amd64` and `linux/arm64` image to GHCR, tagged with the version, the major.minor, and `latest`. To run it without building, replace `llm-router:local` in the command above with `ghcr.io/jrmatherly/llm-router:latest`, or with a version tag such as `:7.1.1` to pin a release.
 
 ## Authentication And Network Security
 
@@ -141,9 +145,7 @@ The entrypoint sets `HOME=/data`, so LLMR stores files under:
 ```text
 /data/.llm-router/
 ├── config.sqlite
-├── gateway.config.json
 ├── app-data/
-│   ├── api-keys.sqlite
 │   ├── request-logs.sqlite
 │   ├── usage.sqlite
 │   └── certs/
