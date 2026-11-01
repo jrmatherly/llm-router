@@ -10,7 +10,7 @@ import {
   Layers3, LoaderCircle, localAgentProviderIconUrls, mergeProviderModelLists, modelCatalogItemMatchesQuery, motion,
   Pencil, Plus, PopoverContent, primaryProviderAccountMeter, primaryProviderPresetEndpoint,
   providerAccountConnectorApiKeySafetyIssue, providerAccountConnectorExample, ProviderAccountDraftMode, providerAccountModeOptions, ProviderAccountSnapshot,
-  providerAccountConnectorsTextWithNewApiUserBalanceTemplate, providerAccountSnapshotCredentialLabel, providerAccountSnapshotLabel, ProviderAccountTestPath,
+  providerAccountConnectorsTextWithNewApiSubscriptionTemplate, providerAccountConnectorsTextWithNewApiUserBalanceTemplate, providerAccountSnapshotCredentialLabel, providerAccountSnapshotLabel, ProviderAccountTestPath,
   ProviderAccountTestResult, providerBaseUrl, providerCapabilitiesSummary, ProviderCredentialDraft, ProviderDeepLinkPayload, ProviderDeepLinkRequest, providerDraftSafetyIssue, providerCredentialDraftPatchFromJson, providerHttpJsonConnectorFromDraft,
   providerBrowserConnectorFromDraft, providerBrowserCredentialsOptions,
   ProviderConnectivityCheckReport, providerCapabilityBaseUrlForProtocol, providerConnectivityApiKeyFromDraft, providerDeepLinkDisplayIcon, providerDraftHasReadyCredentialPool, providerListItemKey, providerMatchesQuery, ProviderPreset, providerPresetIconUrls, providerProbeHasSupportedProtocol,
@@ -2895,9 +2895,10 @@ function ProviderUsageSettings({
   const globalBaseUrl = providerGlobalBaseUrlForProbe(draft.baseUrl, probe, draft.selectedProtocols);
   const usageApiKey = providerConnectivityApiKeyFromDraft(draft);
   const isJsonUsageMode = draft.accountMode === "http-json" || draft.accountMode === "browser";
-  const showNewApiUserBalanceTemplate = probe?.detectedProvider === "new-api" ||
+  const showNewApiTemplates = probe?.detectedProvider === "new-api" ||
     draft.accountConnectorsText.includes("new-api-key-usage") ||
-    draft.accountConnectorsText.includes("new-api-user-self");
+    draft.accountConnectorsText.includes("new-api-user-self") ||
+    draft.accountConnectorsText.includes("new-api-subscription-self");
 
   useEffect(() => {
     setTestResult(undefined);
@@ -3032,6 +3033,16 @@ function ProviderUsageSettings({
   function insertNewApiUserBalanceTemplate() {
     onChange({
       accountConnectorsText: providerAccountConnectorsTextWithNewApiUserBalanceTemplate(
+        draft.accountConnectorsText,
+        globalBaseUrl,
+        newApiUserId
+      )
+    });
+  }
+
+  function insertNewApiSubscriptionTemplate() {
+    onChange({
+      accountConnectorsText: providerAccountConnectorsTextWithNewApiSubscriptionTemplate(
         draft.accountConnectorsText,
         globalBaseUrl,
         newApiUserId
@@ -3261,7 +3272,7 @@ function ProviderUsageSettings({
                   </button>
                 </div>
               </Field>
-              {showNewApiUserBalanceTemplate ? (
+              {showNewApiTemplates ? (
                 <div className="grid grid-cols-1 items-end gap-2 rounded-md border border-border/60 bg-muted/20 p-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                   <div className="min-w-0 space-y-1">
                     <Label className="text-[11px] font-medium text-muted-foreground">New API user ID</Label>
@@ -3271,9 +3282,14 @@ function ProviderUsageSettings({
                       onChange={(event) => setNewApiUserId(event.target.value)}
                     />
                   </div>
-                  <Button size="sm" type="button" variant="outline" onClick={insertNewApiUserBalanceTemplate}>
-                    Insert New API user balance
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" type="button" variant="outline" onClick={insertNewApiUserBalanceTemplate}>
+                      Insert New API user balance
+                    </Button>
+                    <Button size="sm" type="button" variant="outline" onClick={insertNewApiSubscriptionTemplate}>
+                      Insert New API subscription quota
+                    </Button>
+                  </div>
                 </div>
               ) : null}
               <div className="flex flex-wrap items-center gap-2">

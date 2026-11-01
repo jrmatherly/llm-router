@@ -44,7 +44,7 @@ import {
 import {
   primaryProviderPresetEndpoint as primaryProviderPresetEndpointFromPreset
 } from "@llmr/core/providers/presets/utils";
-import { newApiUserSelfConnectorConfig } from "@llmr/core/providers/new-api";
+import { newApiSubscriptionSelfConnectorConfig, newApiUserSelfConnectorConfig } from "@llmr/core/providers/new-api";
 import { normalizeProviderBaseUrl, providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
 import {
   providerPresetIconUrls,
@@ -1676,7 +1676,18 @@ export function providerAccountConnectorsTextWithNewApiUserBalanceTemplate(conne
     ...(connector.headers ?? {}),
     "New-Api-User": userId.trim() || "<user-id>"
   };
+  return providerAccountConnectorsTextWithHttpJsonConnector(connectorsText, connector);
+}
 
+export function providerAccountConnectorsTextWithNewApiSubscriptionTemplate(connectorsText: string, baseUrl: string, userId: string): string {
+  const connector = newApiSubscriptionSelfConnectorConfig(baseUrl.trim() || "https://new-api.example/v1");
+  if (userId.trim()) {
+    connector.headers = { ...(connector.headers ?? {}), "New-Api-User": userId.trim() };
+  }
+  return providerAccountConnectorsTextWithHttpJsonConnector(connectorsText, connector);
+}
+
+function providerAccountConnectorsTextWithHttpJsonConnector(connectorsText: string, connector: ProviderAccountHttpJsonConnectorConfig): string {
   let connectors: unknown[] = [];
   try {
     const parsed = JSON.parse(connectorsText.trim() || "[]") as unknown;
@@ -1686,13 +1697,9 @@ export function providerAccountConnectorsTextWithNewApiUserBalanceTemplate(conne
   }
 
   return JSON.stringify([
-    ...connectors.filter((item) => !isNewApiUserSelfConnector(item)),
+    ...connectors.filter((item) => !(isPlainRecord(item) && item.type === "http-json" && item.parser === connector.parser)),
     connector
   ], null, 2);
-}
-
-function isNewApiUserSelfConnector(value: unknown): boolean {
-  return isPlainRecord(value) && value.type === "http-json" && value.parser === "new-api-user-self";
 }
 
 export function toProviderProtocol(value: string | undefined): GatewayProviderProtocol | undefined {

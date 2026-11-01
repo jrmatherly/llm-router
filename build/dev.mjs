@@ -12,7 +12,6 @@ import {
   coreSourceRoot,
   copyAppAssets,
   copyBrowserRendererHtml,
-  copyBundledClaudeRuntimePlugins,
   copyCliRuntimeToElectronDist,
   copyModelCatalog,
   copyRendererHtml,
@@ -25,7 +24,6 @@ import {
   createTrayRendererBuildOptions,
   createWebClientBridgeBuildOptions,
   appAssetsInput,
-  bundledClaudeRuntimePluginsInputDir,
   modelCatalogInput,
   projectRoot,
   rendererRoot,
@@ -290,7 +288,6 @@ function pollSourceWatchTargets() {
   });
   if (enabled.electron) {
     pollWatchedInput("app assets", appAssetsInput, copyAppAssets);
-    pollWatchedInput("bundled Claude runtime plugins", bundledClaudeRuntimePluginsInputDir, copyBundledClaudeRuntimePlugins);
   }
   if ((enabled.cli || enabled.electron) && existsSync(modelCatalogInput)) {
     pollWatchedInput("model catalog", modelCatalogInput, copyModelCatalog, { metadataOnly: true });
@@ -403,7 +400,6 @@ logDev(`starting dev build target=${devTarget} ui=${enabled.ui ? "on" : "off"} c
 cleanDist();
 if (enabled.electron) {
   copyAppAssets();
-  copyBundledClaudeRuntimePlugins();
 }
 if (enabled.cli || enabled.electron) {
   copyModelCatalog();
@@ -422,7 +418,6 @@ for (const styleWatchRoot of styleWatchRoots) {
 }
 if (enabled.electron) {
   rememberWatchSignature("app assets", appAssetsInput);
-  rememberWatchSignature("bundled Claude runtime plugins", bundledClaudeRuntimePluginsInputDir);
 }
 if ((enabled.cli || enabled.electron) && existsSync(modelCatalogInput)) {
   rememberWatchSignature("model catalog", modelCatalogInput, { metadataOnly: true });

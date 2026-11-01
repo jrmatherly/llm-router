@@ -239,6 +239,36 @@ module.exports = {
   }
 });
 
+test("a plugin whose module file is gone is disabled without blocking later plugins", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-plugin-service-gone-"));
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args.map(String).join(" "));
+
+  try {
+    const validPlugin = path.join(dir, "valid.cjs");
+    writeFileSync(validPlugin, 'module.exports = { setup() { return { providerAccountConnectors: [{ id: "c", resolve() { return []; } }] }; } };');
+    const permissions = ["trusted-code", "provider-account-connectors"];
+    const surfaces = { provider: true };
+    const config = createDefaultAppConfig();
+    config.gateway.enabled = false;
+    config.plugins = [
+      { id: "new-api-account", module: path.join(dir, "gone", "index.cjs"), permissions, surfaces },
+      { id: "valid", module: validPlugin, permissions, surfaces }
+    ];
+
+    await pluginService.start(config);
+
+    assert.match(warnings.join("\n"), /plugin:new-api-account.*Disabled after startup failure/);
+    assert.equal(pluginService.getProviderAccountConnector("new-api-account", "subscription-self"), undefined);
+    assert.ok(pluginService.getProviderAccountConnector("valid", "c"));
+  } finally {
+    console.warn = originalWarn;
+    await pluginService.stop();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("built-in OpenRouter discount routing only runs for enabled provider models", async () => {
   const originalFetch = globalThis.fetch;
   try {

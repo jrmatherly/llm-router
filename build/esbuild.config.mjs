@@ -48,9 +48,6 @@ export const electronRendererOutDir = path.join(electronDistDir, "renderer");
 export const runtimeRendererOutDirs = [cliRendererOutDir, coreRendererOutDir, electronRendererOutDir];
 export const appAssetsDir = path.join(electronDistDir, "assets");
 export const rendererAssetsDir = path.join(rendererOutDir, "assets");
-export const bundledClaudeRuntimePluginIds = ["new-api-account"];
-export const bundledClaudeRuntimePluginsInputDir = path.join(electronRoot, "bundled-plugins");
-export const electronBundledRuntimePluginsDir = path.join(electronDistDir, "bundled-plugins");
 export const appAssetsInput = path.join(electronRoot, "assets");
 export const modelCatalogInput = path.join(coreRoot, "models.json");
 export const cliModelCatalogOutput = path.join(cliDistDir, "models.json");
@@ -193,7 +190,6 @@ export function ensureDist() {
   mkdirSync(electronBotGatewaySdkDistDir, { recursive: true });
   mkdirSync(electronBotGatewaySdkBinDir, { recursive: true });
   mkdirSync(appAssetsDir, { recursive: true });
-  mkdirSync(electronBundledRuntimePluginsDir, { recursive: true });
   mkdirSync(rendererAssetsDir, { recursive: true });
   for (const outputDir of runtimeRendererOutDirs) {
     mkdirSync(path.join(outputDir, "assets"), { recursive: true });
@@ -233,13 +229,6 @@ export function copyBrowserRendererHtml() {
   copyRendererPageHtml(browserRendererHtmlInput, browserRendererHtmlOutput, "browser.js");
 }
 
-export function copyBundledClaudeRuntimePlugins() {
-  ensureDist();
-  for (const pluginId of bundledClaudeRuntimePluginIds) {
-    copyBundledClaudeRuntimePlugin(pluginId);
-  }
-}
-
 export function syncUiRendererToRuntimeDists() {
   ensureDist();
   for (const outputDir of runtimeRendererOutDirs) {
@@ -270,24 +259,6 @@ function copyRendererPageHtml(input, output, scriptName, options = {}) {
   }
 
   writeFileSync(output, html, "utf8");
-}
-
-function copyBundledClaudeRuntimePlugin(pluginId) {
-  const inputDir = path.join(bundledClaudeRuntimePluginsInputDir, pluginId);
-  const outputDir = path.join(electronBundledRuntimePluginsDir, pluginId);
-  const moduleInput = path.join(inputDir, "index.cjs");
-  if (!existsSync(moduleInput)) {
-    throw new Error(`Bundled Claude runtime plugin ${pluginId} is missing: ${moduleInput}`);
-  }
-
-  rmSync(outputDir, { force: true, recursive: true });
-  mkdirSync(outputDir, { recursive: true });
-  for (const fileName of ["index.cjs", "plugin.json", "README.md"]) {
-    const input = path.join(inputDir, fileName);
-    if (existsSync(input)) {
-      cpSync(input, path.join(outputDir, fileName));
-    }
-  }
 }
 
 function hasScriptTag(html, scriptTag) {

@@ -170,6 +170,10 @@ LLMR supports OpenAI Chat / Responses, Anthropic Messages, Gemini Generate Conte
 
 Your agent is now connected to LLMR. To add conditions, retries, request rewrites, or fallback models, open **Routing**.
 
+### Upgrading to 7.2
+
+The New API Account plugin is gone. It could not read New API's subscription response. Delete it under **Extensions**, and remove its `plugin` entry from the provider's **Raw connector JSON**, or the provider keeps showing a "not registered" error. Then use **Insert New API subscription quota**, which needs a New API access token with the `wallet:read` scope.
+
 ### Upgrading to 7.0
 
 The Claude Design and Claude Ship plugins and the Claude Design profile agent are gone. Saved profile and plugin entries for them are dropped the first time 7.0 loads the config. `~/.llm-router/claude-design.sqlite` and `~/.llm-router/claude-ship.sqlite` are left in place for you to delete.

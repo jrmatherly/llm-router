@@ -3,8 +3,7 @@
   "productName": "LLM Router",
   "asar": true,
   "asarUnpack": [
-    "**/*.node",
-    "dist/bundled-plugins/**"
+    "**/*.node"
   ],
   "electronLanguages": ["en-US"],
   "npmRebuild": true,

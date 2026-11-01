@@ -6,9 +6,16 @@ import test from "node:test";
 import {
   newApiKeyUsageFallbackMessageForTest,
   newApiKeyUsageMetersForTest,
+  newApiSubscriptionSelfFallbackMessageForTest,
+  newApiSubscriptionSelfMetersForTest,
   newApiUserSelfMetersForTest
 } from "@llmr/core/providers/account-service.ts";
-import { detectedProviderFromHeaders, newApiKeyUsageAccountConfig, newApiUserSelfConnectorConfig } from "@llmr/core/providers/new-api.ts";
+import {
+  detectedProviderFromHeaders,
+  newApiKeyUsageAccountConfig,
+  newApiSubscriptionSelfConnectorConfig,
+  newApiUserSelfConnectorConfig
+} from "@llmr/core/providers/new-api.ts";
 import {
   checkGatewayProviderConnectivity,
   isProviderProtocolEndpointSupportedForProbe,
@@ -891,6 +898,84 @@ test("New API user self parser returns user balance", () => {
     unit: "quota",
     used: 250
   }]);
+});
+
+const sub = (subscription) => ({ subscription });
+const payloadOf = (list) => ({
+  data: { all_subscriptions: list, billing_preference: "subscription_first", subscriptions: list },
+  message: "",
+  success: true
+});
+
+test("New API subscription config targets the root subscription route with a token placeholder", () => {
+  const connector = newApiSubscriptionSelfConnectorConfig("https://gateway.example/v1");
+  assert.equal(connector.endpoint, "https://gateway.example/api/subscription/self");
+  assert.equal(connector.parser, "new-api-subscription-self");
+  assert.equal(connector.auth, "none");
+  assert.equal(connector.method, "GET");
+  assert.equal(connector.headers?.Authorization, "Bearer <new-api-access-token>");
+  assert.equal(connector.headers?.["New-Api-User"], undefined);
+  assert.equal(connector.mapping.meters[0].id, "new_api_subscription_quota");
+});
+
+test("New API subscription meter sums active subscriptions", () => {
+  assert.deepEqual(newApiSubscriptionSelfMetersForTest(payloadOf([
+    sub({ amount_total: 1000, amount_used: 100, end_time: 2000000000, next_reset_time: 1900000000 }),
+    sub({ amount_total: 500, amount_used: 200, end_time: 1950000000, next_reset_time: 1800000000 })
+  ])), [{
+    id: "new_api_subscription_quota",
+    kind: "quota",
+    label: "Subscription quota",
+    limit: 1500,
+    remaining: 1200,
+    resetAt: new Date(1800000000 * 1000).toISOString(),
+    source: "http-json",
+    unit: "quota",
+    used: 300
+  }]);
+});
+
+test("New API subscription meter uses the earliest end time when nothing resets", () => {
+  const [meter] = newApiSubscriptionSelfMetersForTest(payloadOf([
+    sub({ amount_total: 10, amount_used: 0, end_time: 2000000000, next_reset_time: 0 }),
+    sub({ amount_total: 10, amount_used: 0, end_time: 1950000000, next_reset_time: 0 })
+  ]));
+  assert.equal(meter.resetAt, new Date(1950000000 * 1000).toISOString());
+});
+
+test("New API subscription meter labels usage and omits the limit when any subscription is unlimited", () => {
+  const [meter] = newApiSubscriptionSelfMetersForTest(payloadOf([
+    sub({ amount_total: 0, amount_used: 50 }),
+    sub({ amount_total: 1000, amount_used: 100 })
+  ]));
+  assert.equal(meter.label, "Subscription used (unlimited)");
+  assert.equal(meter.used, 150);
+  assert.equal(meter.limit, undefined);
+  assert.equal(meter.remaining, undefined);
+});
+
+test("New API subscription meter never reports negative remaining", () => {
+  const [meter] = newApiSubscriptionSelfMetersForTest(payloadOf([sub({ amount_total: 100, amount_used: 150 })]));
+  assert.equal(meter.limit, 100);
+  assert.equal(meter.remaining, 0);
+});
+
+test("New API subscription meter tolerates malformed items", () => {
+  const [meter] = newApiSubscriptionSelfMetersForTest(payloadOf([
+    null,
+    { subscription: null },
+    sub({ amount_total: "1000", amount_used: "100" })
+  ]));
+  assert.equal(meter.limit, 1000);
+  assert.equal(meter.used, 100);
+  assert.deepEqual(newApiSubscriptionSelfMetersForTest({ success: true, data: { subscriptions: "nope" } }), []);
+  assert.deepEqual(newApiSubscriptionSelfMetersForTest("nope"), []);
+});
+
+test("New API subscription reports a plain message when there is no active subscription", () => {
+  assert.deepEqual(newApiSubscriptionSelfMetersForTest(payloadOf([])), []);
+  assert.equal(newApiSubscriptionSelfFallbackMessageForTest(payloadOf([])), "No active New API subscription.");
+  assert.equal(newApiSubscriptionSelfFallbackMessageForTest({ success: false, message: "denied" }), "denied");
 });
 
 test("OpenCode Go model discovery only returns models for the requested protocol", async (t) => {
