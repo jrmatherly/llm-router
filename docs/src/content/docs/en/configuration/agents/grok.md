@@ -11,17 +11,17 @@ Grok CLI is xAI's coding agent. In LLMR it is **CLI only** and always uses **Onl
 
 Use this page to route Grok CLI to any LLMR provider or Fusion model, or to run several separate Grok CLI sessions.
 
-> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Config overview](/en/configuration/profiles/).
+> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Profiles overview](/en/configuration/profiles/).
 
 ## Prerequisites
 
 1. LLMR Desktop is running with at least one provider + model configured.
 2. Grok CLI is installed (available as `grok` on `PATH`).
-3. You are on **Agent Config** and click **Add profile**.
+3. You are on **Agent Profiles** and click **Add profile**.
 
 ## Create the profile
 
-1. On **Agent Config**, click **Add profile** and choose **Grok CLI**.
+1. On **Agent Profiles**, click **Add profile** and choose **Grok CLI**.
 2. Enter a **Config name** (for example `Grok - Work`).
 3. Select a **Model**.
 4. Leave advanced environment settings empty unless you have a specific local setup need.

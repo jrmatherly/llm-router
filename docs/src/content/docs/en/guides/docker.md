@@ -47,7 +47,7 @@ docker compose logs -f llmr
 
 Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `LLMR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a fresh volume the management UI is available immediately; the model gateway only starts working after a provider and a model have been added.
 
-The npm Compose script prepares a local `../../next-ai/gateway` checkout before building so the image uses that plugin-capable ai-gateway runtime. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
+When a local `../../next-ai/gateway` checkout exists, the npm Compose script packs it before building so the image uses that plugin-capable ai-gateway runtime. Without one, the image uses the package-lock dependency. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
 Complete the first-time configuration in this order:
 
@@ -95,6 +95,10 @@ docker run -d \
 ```
 
 The repository also provides `npm run docker:run`. It uses `3458` and `llmr-data`, but the container runs with `--rm` and has no fixed name or restart policy, so it is better suited to temporary verification.
+
+## Published image
+
+Each release publishes a public `linux/amd64` and `linux/arm64` image to GHCR, tagged with the version, the major.minor, and `latest`. To run it without building, replace `llm-router:local` in the `docker run` command above with `ghcr.io/jrmatherly/llm-router:latest`, or with a version tag such as `:7.1.1` to pin a release.
 
 ## Do not mix up the three credentials
 
@@ -160,9 +164,7 @@ The entrypoint sets `HOME=/data`; the actual data lives at:
 ```text
 /data/.llm-router/
 ├── config.sqlite
-├── gateway.config.json
 ├── app-data/
-│   ├── api-keys.sqlite
 │   ├── request-logs.sqlite
 │   ├── usage.sqlite
 │   └── certs/

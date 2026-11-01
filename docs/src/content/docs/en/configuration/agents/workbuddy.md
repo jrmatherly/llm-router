@@ -9,11 +9,11 @@ lead: "Connect WorkBuddy to LLMR. WorkBuddy is App-only in LLMR."
 
 1. LLMR Desktop is running with at least one provider + model configured.
 2. WorkBuddy is installed on this machine. If LLMR cannot detect it, set **APP_PATH** to the WorkBuddy executable.
-3. You are on **Agent Config** and click **Add profile**.
+3. You are on **Agent Profiles** and click **Add profile**.
 
 ## Create the profile
 
-1. On **Agent Config**, click **Add profile** and choose **WorkBuddy**.
+1. On **Agent Profiles**, click **Add profile** and choose **WorkBuddy**.
 2. Enter a **Config name** (for example `WorkBuddy - Work`).
 3. Confirm the **WorkBuddy model**.
 4. Optionally restrict **Allowed model list**. Leaving it empty makes every LLMR model available in WorkBuddy.

@@ -45,6 +45,6 @@ For full details on credential limits and usage field mapping, see [Provider con
 ## Related pages
 
 - [Install and start LLMR](../install/)
-- [Connect Agent Config](../agent-profile/)
+- [Connect Agent Profiles](../agent-profile/)
 - [Provider config](../../configuration/providers/)
 - [Routing](../../configuration/routing/)

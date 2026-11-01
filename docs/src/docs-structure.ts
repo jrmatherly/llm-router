@@ -97,7 +97,7 @@ export const docPages: DocPageDef[] = [
   {
     key: "guides/agent-profile",
     section: "guides",
-    label: "Connect Agent Config",
+    label: "Connect Agent Profiles",
     path: "/en/guides/agent-profile/",
     source: "guides/agent-profile.md",
   },
@@ -132,7 +132,7 @@ export const docPages: DocPageDef[] = [
   {
     key: "configuration/profile",
     section: "configuration",
-    label: "Agent Config",
+    label: "Agent Profiles",
     path: "/en/configuration/profiles/",
     source: "configuration/profiles.md",
   },

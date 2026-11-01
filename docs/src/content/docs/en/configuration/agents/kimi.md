@@ -11,17 +11,17 @@ Kimi CLI is Moonshot's coding agent. In LLMR it is **CLI only** and always uses 
 
 Use this page to route Kimi CLI to any LLMR provider or Fusion model, expose several switchable models, or run separate Kimi CLI sessions.
 
-> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Config overview](/en/configuration/profiles/).
+> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Profiles overview](/en/configuration/profiles/).
 
 ## Prerequisites
 
 1. LLMR Desktop is running with at least one provider + model configured.
 2. Kimi CLI is installed (available as `kimi` on `PATH`).
-3. You are on **Agent Config** and click **Add profile**.
+3. You are on **Agent Profiles** and click **Add profile**.
 
 ## Create the profile
 
-1. On **Agent Config**, click **Add profile** and choose **Kimi CLI**.
+1. On **Agent Profiles**, click **Add profile** and choose **Kimi CLI**.
 2. Enter a **Config name** (for example `Kimi - Work`).
 3. Choose a **Kimi model** (the default) and one or more **Available models**.
 4. Leave advanced environment settings empty unless you have a specific local setup need.

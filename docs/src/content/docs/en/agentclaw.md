@@ -23,7 +23,7 @@ Handoff means that after your screen locks and the idle threshold passes, furthe
 | Concept | Meaning |
 | --- | --- |
 | AgentClaw | The IM access layer LLMR provides for local agents, with an interface styled after [OpenClaw](https://openclaw.ai) (an open-source personal AI assistant that runs on your own machine and interacts through IM platforms) |
-| Local agent | A Claude Code, Codex, OpenCode, ZCode, or similar agent opened through an LLMR Agent Config |
+| Local agent | A Claude Code, Codex, OpenCode, ZCode, or similar agent opened through an LLMR Agent Profile |
 | Bot | The IM message entry; the LLMR UI still calls this **Bot Management** |
 | Project | An agent-native project or working directory |
 | Session | An agent-native conversation inside a Project |
@@ -85,6 +85,6 @@ AgentClaw exposes only `/project` and `/session` as public command domains. Othe
 
 ## Next steps
 
-1. Read [usage and configuration](/en/agentclaw/setup/) to set up the Bot, the Agent Config binding, modes, attachments, timeout, and shell permission.
+1. Read [usage and configuration](/en/agentclaw/setup/) to set up the Bot, the Agent Profile binding, modes, attachments, timeout, and shell permission.
 2. Open the platform page for [Slack](/en/agentclaw/slack/), [Discord](/en/agentclaw/discord/), [Telegram](/en/agentclaw/telegram/), [LINE](/en/agentclaw/line/), [Weixin](/en/agentclaw/weixin-ilink/), [WeCom](/en/agentclaw/wecom/), [Feishu](/en/agentclaw/feishu/), or [DingTalk](/en/agentclaw/dingtalk/) and fill in the platform credentials.
 3. Reopen the target Agent App from LLMR, then validate with `/project current`, `/session list`, and one plain message.

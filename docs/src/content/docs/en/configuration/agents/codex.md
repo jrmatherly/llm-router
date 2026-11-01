@@ -14,17 +14,17 @@ Codex is OpenAI's coding agent. LLMR supports both surfaces:
 
 Use this page to route Codex to a non-OpenAI provider, pin a model, or run separate Codex/ChatGPT instances.
 
-> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Config overview](/en/configuration/profiles/).
+> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Profiles overview](/en/configuration/profiles/).
 
 ## Prerequisites
 
 1. LLMR Desktop is running with at least one provider + model configured.
 2. Codex CLI is installed (available as `codex` on `PATH`), or the ChatGPT desktop app is installed.
-3. You are on **Agent Config** and click **Add profile**.
+3. You are on **Agent Profiles** and click **Add profile**.
 
 ## Create the profile
 
-1. On **Agent Config**, click **Add profile** and choose **Codex**.
+1. On **Agent Profiles**, click **Add profile** and choose **Codex**.
 2. Enter a **Config name** (for example `Codex - Work`).
 3. Choose **Effect scope** and **Entry mode**.
 4. Confirm the **Codex model**.

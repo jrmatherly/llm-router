@@ -11,17 +11,17 @@ ZCode is a coding agent that runs as a desktop app. In LLMR it is **App only**.
 
 Use this page to route ZCode to any LLMR provider or Fusion model, or to attach an IM bot.
 
-> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Config overview](/en/configuration/profiles/).
+> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Profiles overview](/en/configuration/profiles/).
 
 ## Prerequisites
 
 1. LLMR Desktop is running with at least one provider + model configured.
 2. The ZCode desktop app is installed and logged in on this machine.
-3. You are on **Agent Config** and click **Add profile**.
+3. You are on **Agent Profiles** and click **Add profile**.
 
 ## Create the profile
 
-1. On **Agent Config**, click **Add profile** and choose **ZCode**.
+1. On **Agent Profiles**, click **Add profile** and choose **ZCode**.
 2. Enter a **Config name** (for example `ZCode - Work`).
 3. Confirm the **ZCode model**.
 4. Adjust advanced settings only if your local setup needs them.

@@ -87,7 +87,7 @@ If OpenCode Go is unavailable or does not appear as an import option, connect `O
 | Name | Internal LLMR display name. It is also used by routing, model selectors, logs, and config references. Names must be unique; keep them short and stable. |
 | API endpoint | Upstream API base URL. It controls where requests are sent, and is also used for protocol probing, model discovery, icon detection, and safety checks. Preset providers hide it by default while adding, but it can be overridden in Advanced settings. Custom providers must provide it. |
 | API key | Default provider credential. When the credential pool is empty, model requests use this key. Protocol probing, model discovery, connection checks, and default usage fetching also use it. Only use a key issued for the selected endpoint. |
-| Models | Model IDs exposed by LLMR. Routing rules, Agent Config model selectors, the model catalog, and client `/models` responses all use this list. |
+| Models | Model IDs exposed by LLMR. Routing rules, Agent Profile model selectors, the model catalog, and client `/models` responses all use this list. |
 | Search models / All / Clear | When LLMR can discover models from the upstream or catalog, you can search, select all, clear, and choose models. Selected models are saved to the provider. |
 | Custom models | Manually adds model IDs that discovery did not return. Use this when the provider lacks a `/models` endpoint or a new model is not in the catalog yet. |
 | Check Connection | Sends real test requests with the current endpoint, API key, protocol, and selected models. It verifies key, model name, and protocol usability. |

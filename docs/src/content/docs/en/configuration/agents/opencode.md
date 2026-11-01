@@ -14,17 +14,17 @@ OpenCode is a coding agent with an OpenAI-compatible provider model. LLMR suppor
 
 Use this page to route OpenCode to any LLMR provider or Fusion model, or to attach an IM bot to the App.
 
-> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Config overview](/en/configuration/profiles/).
+> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Profiles overview](/en/configuration/profiles/).
 
 ## Prerequisites
 
 1. LLMR Desktop is running with at least one provider + model configured.
 2. OpenCode CLI is installed (available as `opencode` on `PATH`); for App mode, the OpenCode Desktop app is installed.
-3. You are on **Agent Config** and click **Add profile**.
+3. You are on **Agent Profiles** and click **Add profile**.
 
 ## Create the profile
 
-1. On **Agent Config**, click **Add profile** and choose **OpenCode**.
+1. On **Agent Profiles**, click **Add profile** and choose **OpenCode**.
 2. Enter a **Config name** (for example `OpenCode - Work`).
 3. Choose **Effect scope** and **Entry mode**.
 4. Confirm the **OpenCode model**.

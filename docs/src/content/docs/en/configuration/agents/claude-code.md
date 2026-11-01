@@ -14,17 +14,17 @@ Claude Code is Anthropic's coding agent. LLMR supports both of its surfaces:
 
 Use this page when you want to route Claude Code to a non-Anthropic provider, pin a specific model, run several separate Claude Code instances, or attach an IM bot.
 
-> New to LLMR? Add a provider and model first, then come back here. See [Add a provider](/en/guides/provider/) and the [Agent Config overview](/en/configuration/profiles/).
+> New to LLMR? Add a provider and model first, then come back here. See [Add a provider](/en/guides/provider/) and the [Agent Profiles overview](/en/configuration/profiles/).
 
 ## Prerequisites
 
 1. LLMR Desktop is running and at least one provider + model is configured.
 2. Claude Code is installed and logged in on this machine, or you will open it from LLMR.
-3. You are on the **Agent Config** page and click **Add profile**.
+3. You are on the **Agent Profiles** page and click **Add profile**.
 
 ## Create the profile
 
-1. On **Agent Config**, click **Add profile** and choose **Claude Code**.
+1. On **Agent Profiles**, click **Add profile** and choose **Claude Code**.
 2. Enter a **Config name** (for example `Claude Code - Work`).
 3. Choose **Effect scope** and **Entry mode**.
 4. Select a **Model** (or leave it empty to keep the Claude Code default).

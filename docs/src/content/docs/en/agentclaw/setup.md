@@ -2,14 +2,14 @@
 title: AgentClaw usage and configuration
 pageTitle: AgentClaw usage and configuration
 eyebrow: AgentClaw
-lead: "The full setup flow: create an IM bot, bind it to an Agent Config, and choose forwarding or handoff. Follow this page when setting up AgentClaw for the first time or changing bot options."
+lead: "The full setup flow: create an IM bot, bind it to an Agent Profile, and choose forwarding or handoff. Follow this page when setting up AgentClaw for the first time or changing bot options."
 ---
 
 ## Prerequisites
 
 1. LLMR Desktop is running and the gateway service is available.
 2. A usable model is configured in **Provider Config**, or the Fusion model you want is ready.
-3. An **Agent Config** exists whose **entry mode** includes App. Full AgentClaw relay currently supports Claude App, Codex/ChatGPT App, OpenCode App, ZCode App, and WorkBuddy App; CLI-only agents do not forward Bot messages.
+3. An **Agent Profile** exists whose **entry mode** includes App. Full AgentClaw relay currently supports Claude App, Codex/ChatGPT App, OpenCode App, ZCode App, and WorkBuddy App; CLI-only agents do not forward Bot messages.
 4. The target IM platform has Bot credentials, app permissions, or QR login ready.
 
 ## Configuration flow
@@ -17,11 +17,11 @@ lead: "The full setup flow: create an IM bot, bind it to an Agent Config, and ch
 1. Open **Bot Management** and click **Add Bot**.
 2. Choose a platform and fill in the token, secret, signing secret, robot code, OAuth fields, or QR login.
 3. Save the Bot.
-4. Open the target **Agent Config**.
+4. Open the target **Agent Profile**.
 5. Confirm **Entry mode** includes `App`, such as `App only` or `CLI & APP`.
 6. Turn on **Bot** and select the Bot you saved.
 7. Configure forwarding, handoff, language, timeout, attachments, streaming, and **Allow Agent shell tools** as needed.
-8. Save the Agent Config.
+8. Save the Agent Profile.
 9. Reopen Claude App, Codex/ChatGPT App, OpenCode App, ZCode App, or WorkBuddy App from LLMR. AgentClaw is online only while the managed App is alive.
 
 ## Choose a mode
@@ -95,4 +95,4 @@ The Profile card shows connection state, the last event and delivery, pending ou
 
 AgentClaw keeps bounded deduplication records, pending turns, a durable outbox, and recent delivery results on the local machine. Event idempotency gives each agent turn one execution, and pending delivery resumes while the App is online again.
 
-Only `/project` and `/session` are Bot command domains. Plain messages become agent prompts, and attachments enter the agent only when enabled and under the size limit. Shell permission is still controlled by the Agent Config; enable it only for trusted agents, trusted workspaces, and trusted IM conversations.
+Only `/project` and `/session` are Bot command domains. Plain messages become agent prompts, and attachments enter the agent only when enabled and under the size limit. Shell permission is still controlled by the Agent Profile; enable it only for trusted agents, trusted workspaces, and trusted IM conversations.

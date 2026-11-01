@@ -11,11 +11,11 @@ lead: Start here when an agent bypasses LLMR, a provider returns an error, routi
 
 #### Q: The agent does not go through LLMR. Where do I check?
 
-A: Four things decide whether requests pass through LLMR: service status, how the agent was launched, whether the Agent Config is applied, and its scope. If any of them is wrong, requests bypass LLMR. Check in order:
+A: Four things decide whether requests pass through LLMR: service status, how the agent was launched, whether the Agent Profile is applied, and its scope. If any of them is wrong, requests bypass LLMR. Check in order:
 
 1. Confirm the LLMR service is running.
 2. Confirm the agent was launched from LLMR, not opened directly.
-3. On the Agent Config page, confirm the config is applied and its scope covers the current project.
+3. On the Agent Profiles page, confirm the config is applied and its scope covers the current project.
 
 #### Q: The Observability page shows no agent execution trace.
 
@@ -35,7 +35,7 @@ Then verify with the model connectivity check on the provider page.
 
 #### Q: Requests fail with `model not found`.
 
-A: The model name routing resolved is not in the provider's model list. A model name appears in three places: the provider model list, the model selected in the routing config, and the model in the Agent Config. Compare all three and fix the one that does not match.
+A: The model name routing resolved is not in the provider's model list. A model name appears in three places: the provider model list, the model selected in the routing config, and the model in the Agent Profile. Compare all three and fix the one that does not match.
 
 #### Q: One key keeps failing.
 

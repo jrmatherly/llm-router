@@ -23,7 +23,7 @@ The top-level nav holds Quick start and the featured capabilities (Fusion, ToolH
 | Page | Contents |
 | --- | --- |
 | [Documentation](./) | What LLMR does, the doc structure, and the reading path |
-| [Quick start](guides/) | Desktop, CLI, and Docker installation, plus provider and Agent Config setup; the sidebar's "Detailed configuration" group covers every settings page |
+| [Quick start](guides/) | Desktop, CLI, and Docker installation, plus provider and Agent Profiles setup; the sidebar's "Detailed configuration" group covers every settings page |
 | [Fusion](fusion/) | Combine a base model with vision, web search, MCP tools, image generation, or video generation into a new model |
 | [ToolHub](toolhub/) | Collapse many MCP servers into one dynamic tool-resolution entry point |
 | [Routing](routing/) | Control every request with built-in routes, conditional rules, rewrites, retries, and fallback |
@@ -39,6 +39,6 @@ New to LLMR? Read in this order:
 
 1. [Install and start LLMR](guides/install/): choose between the desktop app, npm CLI, and Docker; see the [CLI reference](guides/cli/) for commands and [Docker deployment](guides/docker/) for containers.
 2. [Add a provider](guides/provider/): add at least one provider and verify it with protocol detection and connectivity checks.
-3. [Connect Agent Config](guides/agent-profile/): point agents like Claude Code at LLMR.
+3. [Connect Agent Profiles](guides/agent-profile/): point agents like Claude Code at LLMR.
 4. [Enable logging and observability](guides/observability/): confirm in the request log that traffic actually goes through LLMR.
 5. Then go deeper as needed: [Detailed configuration](configuration/overview/) covers every settings page; [Routing](routing/), [Fusion](fusion/), and [AgentClaw](agentclaw/) cover the featured capabilities; [Q&A](troubleshooting/) collects common issues like 401, 404, timeouts, and unexpected routing.

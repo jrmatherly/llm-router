@@ -57,9 +57,9 @@ If Claude Code, Codex, OpenCode, Grok CLI, Kimi CLI, or ZCode is already logged 
 
 For the full walkthrough and field reference, see [Add a provider](provider/).
 
-## Connect Agent Config
+## Connect Agent Profiles
 
-Agent Config lets Claude Code, Codex, OpenCode, Grok CLI, Kimi CLI, ZCode, and other agents use LLMR's providers, routing, and model selection.
+Agent Profiles let Claude Code, Codex, OpenCode, Grok CLI, Kimi CLI, ZCode, and other agents use LLMR's providers, routing, and model selection.
 
 General guidance:
 
@@ -69,11 +69,11 @@ General guidance:
 
 ### Claude Code
 
-In **Agent Config**, choose Claude Code, set the model, small fast model, and settings file, then click Apply. Open Claude Code from LLMR and send one request to verify it in request logs.
+In **Agent Profiles**, choose Claude Code, set the model, small fast model, and settings file, then click Apply. Open Claude Code from LLMR and send one request to verify it in request logs.
 
 ### Codex
 
-In **Agent Config**, choose Codex and confirm the model and config file. Only fill Codex CLI path and Codex home when you need a specific CLI or home directory.
+In **Agent Profiles**, choose Codex and confirm the model and config file. Only fill Codex CLI path and Codex home when you need a specific CLI or home directory.
 
 ### Grok CLI
 

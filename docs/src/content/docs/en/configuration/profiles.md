@@ -1,6 +1,6 @@
 ---
-title: Agent Config
-pageTitle: Agent Config
+title: Agent Profiles
+pageTitle: Agent Profiles
 eyebrow: Detailed configuration
 lead: Create reusable launch configs for Claude Code, Codex, OpenCode, Grok CLI, Kimi CLI, ZCode, and WorkBuddy, and open independent agent instances from different configs. Use this page to run multiple agents side by side or pin different models to different purposes.
 ---
@@ -10,17 +10,17 @@ lead: Create reusable launch configs for Claude Code, Codex, OpenCode, Grok CLI,
 ## Configuration flow
 
 1. Add at least one usable provider and model in **Provider Config**, or create the Fusion model you want to use.
-2. Open **Agent Config** and click **Add profile**.
+2. Open **Agent Profiles** and click **Add profile**.
 3. Choose the agent type, name the config, then choose the effect scope and entry mode.
 4. Select a model. The value is usually `Provider name/model name`, and Fusion models can be selected too.
 5. If the entry mode includes App, optionally bind the Bot used by AgentClaw and choose whether to forward agent messages or enable handoff.
-6. Save the config, then open it from the Agent Config card: the terminal button copies the CLI command, and the play button starts the App instance.
+6. Save the config, then open it from the Agent Profile card: the terminal button copies the CLI command, and the play button starts the App instance.
 
 During trial, prefer **Only opened from LLMR** and always open the agent from LLMR. That keeps the config limited to LLMR-launched instances and avoids changing the Claude Code, Codex, Grok CLI, Kimi CLI, ZCode, or WorkBuddy setup you open directly from the system.
 
 ## Multi-instance
 
-Each Agent Config is a separate launch profile. Create multiple profiles when you want different models, scopes, Bots, or App windows for the same agent. Reopening an already-running profile activates its existing window when that agent supports only one active App window.
+Each Agent Profile is a separate launch configuration. Create multiple profiles when you want different models, scopes, Bots, or App windows for the same agent. Reopening an already-running profile activates its existing window when that agent supports only one active App window.
 
 ## Common options
 
@@ -169,7 +169,7 @@ With a Bot bound, WorkBuddy can relay conversations through the selected IM chan
 
 ## Multi-instance suggestions
 
-1. Create one Agent Config for each agent instance that should run independently.
+1. Create one Agent Profile for each agent instance that should run independently.
 2. While testing, prefer **Only opened from LLMR** to avoid changing the system default agent.
 3. To keep desktop windows side by side, use `App only` or `CLI & APP`, then open the App from LLMR.
-4. If the same config is already running, opening it again activates the existing window. Create another Agent Config when you need a second instance.
+4. If the same config is already running, opening it again activates the existing window. Create another Agent Profile when you need a second instance.

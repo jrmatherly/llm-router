@@ -1,13 +1,13 @@
 ---
-title: Connect Agent Config
-pageTitle: Connect Agent Config
+title: Connect Agent Profiles
+pageTitle: Connect Agent Profiles
 eyebrow: Quick start
-lead: "The interactive panel at the top of this page connects to your running LLMR to set a default model for Claude Code / Codex. The steps below cover adding a profile in Agent Config, picking a model, opening the agent from LLMR, and verifying it in request logs."
+lead: "The interactive panel at the top of this page connects to your running LLMR to set a default model for Claude Code / Codex. The steps below cover adding a profile in Agent Profiles, picking a model, opening the agent from LLMR, and verifying it in request logs."
 ---
 
 ## General guidance
 
-- In **Agent Config**, click **Add Profile**, choose your agent, and enter a **Profile name**.
+- In **Agent Profiles**, click **Add Profile**, choose your agent, and enter a **Profile name**.
 - During trial, prefer **Only opened from LLMR** (the default) so only agents launched from LLMR are affected; switch to **System default** once it is stable.
 - Claude Code and Codex let you choose an **Entry mode** (CLI & APP / CLI only / App only); Grok CLI and Kimi CLI are CLI-only, and ZCode and WorkBuddy are App-only.
 - After saving, launch the agent from the buttons on its profile card (the terminal button opens the CLI, the play button opens the app), then verify with one request in **Request logs**.

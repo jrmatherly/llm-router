@@ -11,17 +11,17 @@ Pi is a coding agent that selects its provider and model from the command line. 
 
 Use this page to route Pi to any LLMR provider or Fusion model, or to run separate Pi sessions.
 
-> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Config overview](/en/configuration/profiles/).
+> New to LLMR? Add a provider and model first. See [Add a provider](/en/guides/provider/) and the [Agent Profiles overview](/en/configuration/profiles/).
 
 ## Prerequisites
 
 1. LLMR Desktop is running with at least one provider + model configured.
 2. Pi is installed (available as `pi` on `PATH`).
-3. You are on **Agent Config** and click **Add profile**.
+3. You are on **Agent Profiles** and click **Add profile**.
 
 ## Create the profile
 
-1. On **Agent Config**, click **Add profile** and choose **Pi**.
+1. On **Agent Profiles**, click **Add profile** and choose **Pi**.
 2. Enter a **Config name** (for example `Pi - Work`).
 3. Select a **Model**.
 4. Leave advanced environment settings empty unless you have a specific local setup need.
