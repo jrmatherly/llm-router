@@ -27,6 +27,7 @@ import {
   providerConnectivityApiKeyFromDraft,
   providerConnectivityProviderPlugins,
   providerDisplayIcon,
+  providerAccountConnectorsTextWithNewApiSubscriptionTemplate,
   providerAccountConnectorsTextWithNewApiUserBalanceTemplate,
   providerAutoFetchKnownModelsForSave,
   parseProviderAccountDraft,
@@ -1630,6 +1631,34 @@ test("New API user balance template adds configurable user self connector", () =
   assert.equal(connectors[1].headers.Authorization, "Bearer <new-api-access-token>");
   assert.equal(connectors[1].headers["New-Api-User"], "42");
   assert.equal(connectors[1].mapping.meters[0].id, "new_api_user_balance");
+});
+
+test("New API subscription template adds a connector beside existing ones", () => {
+  const account = newApiKeyUsageAccountConfig("https://gateway.example/v1");
+  const connectors = JSON.parse(providerAccountConnectorsTextWithNewApiSubscriptionTemplate(
+    JSON.stringify(account.connectors ?? [], null, 2),
+    "https://gateway.example/v1",
+    ""
+  ));
+
+  assert.equal(connectors.length, 2);
+  assert.equal(connectors[0].parser, "new-api-key-usage");
+  assert.equal(connectors[1].endpoint, "https://gateway.example/api/subscription/self");
+  assert.equal(connectors[1].parser, "new-api-subscription-self");
+  assert.equal(connectors[1].headers.Authorization, "Bearer <new-api-access-token>");
+  assert.equal(connectors[1].headers["New-Api-User"], undefined);
+});
+
+test("New API subscription template sends the user ID only when one is given", () => {
+  const [connector] = JSON.parse(providerAccountConnectorsTextWithNewApiSubscriptionTemplate("[]", "https://gateway.example/v1", " 42 "));
+  assert.equal(connector.headers["New-Api-User"], "42");
+});
+
+test("New API subscription template replaces its earlier copy", () => {
+  const first = providerAccountConnectorsTextWithNewApiSubscriptionTemplate("[]", "https://gateway.example/v1", "");
+  const connectors = JSON.parse(providerAccountConnectorsTextWithNewApiSubscriptionTemplate(first, "https://other.example/v1", ""));
+  assert.equal(connectors.length, 1);
+  assert.equal(connectors[0].endpoint, "https://other.example/api/subscription/self");
 });
 
 test("Zen and Go candidates use distinct local agent plugin suffixes", () => {
