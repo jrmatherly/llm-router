@@ -1,3 +1,4 @@
+import { ClaudeAppsGatewaySignInForm } from "./claude-apps-gateway-sign-in";
 import { useDraftClose } from "./unsaved-changes";
 import {
   AddProviderDraft, isLocalAgentLoginDraft, localAgentProviderApiKey, openExternalUrl, type ProviderSetupStepId, providerSetupStepsForDraft, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
@@ -1405,7 +1406,7 @@ function LocalAgentProviderImportPanel({
     };
   }, [mode, providerPlugins, providers, scanAttempt]);
 
-  if (mode !== "add" || (candidates.length === 0 && !error)) {
+  if (mode !== "add") {
     return null;
   }
 
@@ -1454,13 +1455,15 @@ function LocalAgentProviderImportPanel({
       <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate text-[12px] font-semibold text-foreground">Import local agent provider</div>
-          <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">LLMR scanned this computer for local Claude Code, Codex, Grok CLI, Kimi CLI, OpenCode CLI, and ZCode providers. Click Import to add one as a gateway provider.</div>
+          <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">LLMR scanned this computer for local Claude Code, Codex, Grok CLI, Kimi CLI, OpenCode CLI, and ZCode providers. Click Import to add one as a gateway provider. Or sign in to your organization's Claude apps gateway.</div>
         </div>
         <Button aria-label="Scan local providers again" disabled={loading || Boolean(importingId)} onClick={() => setScanAttempt((value) => value + 1)} size="sm" variant="outline">
           {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           Scan again
         </Button>
       </div>
+
+      <ClaudeAppsGatewaySignInForm onConfirmed={() => setScanAttempt((value) => value + 1)} />
 
       {candidates.length > 0 ? (
         <div className="grid grid-cols-1 gap-2">
