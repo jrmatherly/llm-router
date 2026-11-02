@@ -1,6 +1,6 @@
 # Plan: Claude Code shared-home launch and Open in Terminal
 
-Spec: `docs/superpowers/specs/2026-11-01-claude-code-shared-home-launch.md`. One branch, one PR.
+Spec: `docs/superpowers/specs/completed/2026-11-01-claude-code-shared-home-launch.md`. One branch, one PR.
 
 ## Task 1: the flag
 
