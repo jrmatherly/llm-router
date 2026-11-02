@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -64,6 +64,29 @@ test("expired sessions refresh and persist the new tokens", async (t) => {
   assert.equal(resolved?.refreshToken, "old");
   assert.ok((resolved?.expiresAt ?? 0) > Date.now() / 1000 + 3000);
   assert.equal(readClaudeAppsGatewaySession(gateway.url, configDir)?.accessToken, "new");
+});
+
+test("a refresh that cannot be saved is kept in memory, so a rotated refresh token is not lost", async (t) => {
+  const configDir = tempConfigDir(t);
+  let tokenCalls = 0;
+  const gateway = await fakeGateway(t, async (_request, response) => {
+    tokenCalls += 1;
+    json(response, 200, { access_token: "new", expires_in: 3600, refresh_token: "rotated", token_type: "Bearer" });
+  });
+  const stored = session(configDir, gateway.url, { accessToken: "stale", expiresAt: 1, refreshToken: "old" });
+  persistClaudeAppsGatewaySession(stored);
+  const directory = path.dirname(stored.sourceFile);
+  t.mock.method(console, "warn", () => undefined);
+  chmodSync(directory, 0o500);
+  try {
+    assert.equal((await resolveClaudeAppsGatewaySession(gateway.url, configDir))?.refreshToken, "rotated");
+    const again = await resolveClaudeAppsGatewaySession(gateway.url, configDir);
+    assert.equal(again?.accessToken, "new");
+    assert.equal(again?.refreshToken, "rotated");
+    assert.equal(tokenCalls, 1);
+  } finally {
+    chmodSync(directory, 0o700);
+  }
 });
 
 test("a valid session resolves without a refresh", async (t) => {

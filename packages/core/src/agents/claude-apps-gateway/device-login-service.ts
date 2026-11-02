@@ -29,6 +29,8 @@ type PendingLogin = {
   expiresAtMs: number;
   gatewayUrl: string;
   intervalMs: number;
+  lastTransientError?: string;
+  nextPollAtMs: number;
 };
 
 const pendingLogins = new Map<string, PendingLogin>();
@@ -79,7 +81,8 @@ export async function startClaudeAppsGatewayLogin(
     deviceCode,
     expiresAtMs: now + expiresIn * 1000,
     gatewayUrl,
-    intervalMs: intervalSeconds * 1000
+    intervalMs: intervalSeconds * 1000,
+    nextPollAtMs: now
   });
   return {
     expiresAt: new Date(now + expiresIn * 1000).toISOString(),
@@ -101,9 +104,24 @@ export async function waitClaudeAppsGatewayLogin(request: ClaudeAppsGatewayLogin
     }
     if (Date.now() >= login.expiresAtMs) {
       pendingLogins.delete(request.sessionId);
-      return waitResult(request.sessionId, "expired", login.gatewayUrl);
+      const expired = waitResult(request.sessionId, "expired", login.gatewayUrl);
+      return login.lastTransientError ? { ...expired, message: `${expired.message} Last gateway error: ${login.lastTransientError}` } : expired;
     }
-    const outcome = await pollToken(login);
+    // A wait call that arrives before the interval is up must not poll early, or the gateway answers slow_down.
+    const untilNextPoll = login.nextPollAtMs - Date.now();
+    if (untilNextPoll > 0) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        return waitResult(request.sessionId, "pending", login.gatewayUrl);
+      }
+      await new Promise((resolve) => setTimeout(resolve, Math.min(untilNextPoll, remaining)));
+      continue;
+    }
+    // pollToken only throws on terminal errors (an unknown 4xx, a bad token reply, a failed save); the device code is unusable after them.
+    const outcome = await pollToken(login).catch((error: unknown) => {
+      pendingLogins.delete(request.sessionId);
+      throw error;
+    });
     if (pendingLogins.get(request.sessionId) !== login) {
       return waitResult(request.sessionId, "canceled", login.gatewayUrl);
     }
@@ -118,11 +136,7 @@ export async function waitClaudeAppsGatewayLogin(request: ClaudeAppsGatewayLogin
     if (outcome.slowDown) {
       login.intervalMs += slowDownStepMs;
     }
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) {
-      return waitResult(request.sessionId, "pending", login.gatewayUrl);
-    }
-    await new Promise((resolve) => setTimeout(resolve, Math.min(login.intervalMs, remaining)));
+    login.nextPollAtMs = Date.now() + login.intervalMs;
     if (Date.now() >= deadline) {
       return waitResult(request.sessionId, "pending", login.gatewayUrl);
     }
@@ -143,9 +157,16 @@ async function pollToken(login: PendingLogin): Promise<PollOutcome> {
     body: new URLSearchParams({ grant_type: deviceCodeGrant, device_code: login.deviceCode }).toString(),
     headers: { accept: "application/json", "content-type": "application/x-www-form-urlencoded" },
     method: "POST"
-  }, "token request").catch(() => undefined);
+  }, "token request").catch((error: unknown) => {
+    login.lastTransientError = error instanceof Error ? error.message : String(error);
+    return undefined;
+  });
   // A network blip or a 5xx mid-login is retried on the next poll; the device code's own expiry still ends the loop.
-  if (!reply || reply.response.status >= 500) return { slowDown: false, status: "pending" };
+  if (!reply) return { slowDown: false, status: "pending" };
+  if (reply.response.status >= 500) {
+    login.lastTransientError = `HTTP ${reply.response.status}`;
+    return { slowDown: false, status: "pending" };
+  }
   const { payload, response, text } = reply;
   if (response.ok) {
     const tokens = claudeAppsGatewayTokenResponse(payload);

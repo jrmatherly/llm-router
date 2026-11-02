@@ -218,14 +218,18 @@ async function authenticateClaudeAppsGateway(
       return { error: signInAgain, ok: false };
     }
     session = readClaudeAppsGatewaySession(url);
+    if (session && claudeAppsGatewaySessionExpired(session, undefined, 0)) {
+      return { error: `Claude apps gateway token could not be refreshed: ${error instanceof Error ? error.message : String(error)}`, ok: false };
+    }
   }
-  if (session && !session.refreshToken && claudeAppsGatewaySessionExpired(session, undefined, 0)) {
-    return { error: signInAgain, ok: false };
-  }
-  const token = session?.accessToken || originalBearerToken(plugin);
-  if (!token) {
+  // No session file means the developer signed out; the token baked in at import must not outlive that.
+  if (!session) {
     return { error: "Claude apps gateway session was not found. Sign in again.", ok: false };
   }
+  if (!session.refreshToken && claudeAppsGatewaySessionExpired(session, undefined, 0)) {
+    return { error: signInAgain, ok: false };
+  }
+  const token = session.accessToken;
   return {
     ok: true,
     value: {

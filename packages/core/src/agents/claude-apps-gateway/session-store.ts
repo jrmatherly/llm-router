@@ -7,6 +7,7 @@ import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 
 const gatewayRequestTimeoutMs = 30_000;
 const refreshInFlight = new Map<string, Promise<ClaudeAppsGatewaySession>>();
+const unsavedRefreshes = new Map<string, ClaudeAppsGatewaySession>();
 
 export type ClaudeAppsGatewaySession = {
   accessToken: string;
@@ -112,7 +113,8 @@ export async function refreshClaudeAppsGatewaySession(session: ClaudeAppsGateway
   }, "token refresh");
   if (!response.ok) {
     const message = `Claude apps gateway token refresh returned HTTP ${response.status}${errorDetail(payload, text)}`;
-    if (response.status === 401 || response.status === 403) {
+    // RFC 6749 answers a dead refresh token with 400 invalid_grant; the gateway docs say 401. Both mean sign in again.
+    if (response.status === 401 || response.status === 403 || (response.status === 400 && payload?.error === "invalid_grant")) {
       throw new ClaudeAppsGatewayAuthError(response.status, message);
     }
     throw new Error(message);
@@ -131,7 +133,9 @@ export async function refreshClaudeAppsGatewaySession(session: ClaudeAppsGateway
 }
 
 export async function resolveClaudeAppsGatewaySession(gatewayUrl: string, configDir?: string): Promise<ClaudeAppsGatewaySession | undefined> {
-  const session = readClaudeAppsGatewaySession(gatewayUrl, configDir);
+  const stored = readClaudeAppsGatewaySession(gatewayUrl, configDir);
+  const unsaved = unsavedRefreshes.get(claudeAppsGatewaySessionFile(gatewayUrl, configDir));
+  const session = unsaved && (!stored || unsaved.expiresAt > stored.expiresAt) ? unsaved : stored;
   if (!session?.refreshToken || !claudeAppsGatewaySessionExpired(session)) {
     return session;
   }
@@ -142,8 +146,11 @@ export async function resolveClaudeAppsGatewaySession(gatewayUrl: string, config
       .then((refreshed) => {
         try {
           persistClaudeAppsGatewaySession(refreshed);
-        } catch {
-          // The refreshed token still serves this process; the next refresh retries the write.
+          unsavedRefreshes.delete(key);
+        } catch (error) {
+          // A gateway that rotates refresh tokens has spent the one on disk, so keep the new pair in memory until a save works.
+          unsavedRefreshes.set(key, refreshed);
+          console.warn(`[claude-apps-gateway] Could not save the refreshed session to ${key}: ${error instanceof Error ? error.message : String(error)}`);
         }
         return refreshed;
       })
@@ -219,6 +226,13 @@ function adoptPeerRotatedSession(session: ClaudeAppsGatewaySession, error: unkno
   const latest = readSessionFile(session.sourceFile);
   if (latest?.refreshToken && latest.refreshToken !== session.refreshToken) {
     return latest;
+  }
+  unsavedRefreshes.delete(session.sourceFile);
+  // The gateway refused this refresh token for good; dropping it locks the candidate and keeps later requests from retrying it.
+  try {
+    persistClaudeAppsGatewaySession({ ...(latest ?? session), refreshToken: undefined });
+  } catch {
+    // The auth error below still reaches the caller.
   }
   throw error;
 }

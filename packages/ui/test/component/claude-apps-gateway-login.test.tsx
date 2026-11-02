@@ -106,6 +106,29 @@ test("a failed start reports the error without polling", async () => {
   assert.deepEqual(calls, []);
 });
 
+test("cancel while start is in flight releases the session without opening the browser", async () => {
+  const calls: string[] = [];
+  const api = fakeApi({ calls, waitResults: [] });
+  const realStart = api.startClaudeAppsGatewayLogin;
+  let releaseStart = () => undefined as void;
+  api.startClaudeAppsGatewayLogin = (request) => new Promise((resolve) => {
+    releaseStart = () => resolve(realStart(request));
+  });
+  let prompted = false;
+  const run = runClaudeAppsGatewayLogin(api, "http://127.0.0.1:18080", {
+    onConfirmed: () => calls.push("confirmed"),
+    onError: (message: string) => calls.push(`error:${message}`),
+    onPrompt: () => {
+      prompted = true;
+    }
+  });
+  run.cancel();
+  releaseStart();
+  await run.done;
+  assert.equal(prompted, false);
+  assert.deepEqual(calls, ["start:http://127.0.0.1:18080", "cancel:s1"]);
+});
+
 test("sign-in form renders the URL field and the Sign in button", () => {
   const html = renderToStaticMarkup(<ClaudeAppsGatewaySignInForm onConfirmed={() => undefined} />);
   assert.match(html, /Sign in to a Claude apps gateway/);

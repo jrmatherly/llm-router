@@ -104,6 +104,7 @@ test("wait returns pending at timeoutMs and keeps the login alive", async (t) =>
   assert.equal(first.confirmed, false);
   assert.ok(Date.now() - startedAt < 900);
   assert.equal((await waitClaudeAppsGatewayLogin({ sessionId: start.sessionId, timeoutMs: 100 })).status, "pending");
+  assert.equal(gateway.requests.filter((request) => request.url === "/oauth/token").length, 1, "a back-to-back wait must not poll before the interval");
 });
 
 test("expired_token and access_denied end the login", async (t) => {

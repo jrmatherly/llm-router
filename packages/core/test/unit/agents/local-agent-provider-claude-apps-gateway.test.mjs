@@ -73,6 +73,27 @@ test("an expired session with a refresh token stays importable", (t) => {
   assert.equal(claudeAppsGatewayCandidates(configDir)[0].importable, true);
 });
 
+test("a refresh token the gateway rejects locks the candidate and import asks for a new sign-in", async (t) => {
+  const configDir = tempConfigDir(t);
+  const gateway = await fakeGateway(t, { tokenStatus: 400 });
+  persistClaudeAppsGatewaySession(session(configDir, gateway.url, { expiresAt: 1, refreshToken: "revoked" }));
+  const [candidate] = claudeAppsGatewayCandidates(configDir);
+  assert.equal(candidate.importable, true);
+
+  await assert.rejects(importClaudeAppsGatewayProvider(candidate, [], configDir), /Sign in again/);
+  const [after] = claudeAppsGatewayCandidates(configDir);
+  assert.equal(after.status, "locked");
+  assert.equal(after.importable, false);
+});
+
+test("import fails with the model-list error when no models are known", async (t) => {
+  const configDir = tempConfigDir(t);
+  const gateway = await fakeGateway(t, { modelsStatus: 403 });
+  persistClaudeAppsGatewaySession(session(configDir, gateway.url, { models: [] }));
+  const [candidate] = claudeAppsGatewayCandidates(configDir);
+  await assert.rejects(importClaudeAppsGatewayProvider(candidate, [], configDir), /HTTP 403/);
+});
+
 test("two gateways give two candidates", (t) => {
   const configDir = tempConfigDir(t);
   persistClaudeAppsGatewaySession(session(configDir, "https://a.example.com"));
@@ -103,6 +124,11 @@ function session(configDir, gatewayUrl, fields = {}) {
 
 async function fakeGateway(t, options = {}) {
   const server = createServer((request, response) => {
+    if (request.url === "/oauth/token" && options.tokenStatus) {
+      response.writeHead(options.tokenStatus, { "content-type": "application/json" });
+      response.end(JSON.stringify({ error: "invalid_grant" }));
+      return;
+    }
     if (request.url === "/v1/models" && request.headers.authorization === "Bearer tok" && !options.modelsStatus) {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ data: [{ id: "claude-sonnet-4-6" }, { display_name: "Claude Opus 4.6", id: "claude-opus-4-6" }] }));

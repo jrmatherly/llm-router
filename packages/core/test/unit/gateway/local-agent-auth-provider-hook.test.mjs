@@ -252,13 +252,32 @@ test("Claude apps gateway hook fails the request when refresh is refused", async
 
 test("Claude apps gateway hook keeps the stored token after a transient refresh failure", async (t) => {
   const gatewayUrl = "http://127.0.0.1:18093";
-  writeClaudeAppsGatewaySession(t, gatewayUrl, { accessToken: "stored", expiresAt: 1, refreshToken: "old" });
+  writeClaudeAppsGatewaySession(t, gatewayUrl, { accessToken: "stored", expiresAt: Math.floor(Date.now() / 1000) + 30, refreshToken: "old" });
   stubFetch(t, () => jsonResponse(503, { error: "unavailable" }));
 
   const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin(gatewayUrl)] } }).providerHooks;
   const result = await hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: `${gatewayUrl}/v1/messages` } });
   assert.equal(result.ok, true);
   assert.equal(result.value.headers.authorization, "Bearer stored");
+});
+
+test("Claude apps gateway hook reports the refresh error instead of sending an expired token", async (t) => {
+  const gatewayUrl = "http://127.0.0.1:18097";
+  writeClaudeAppsGatewaySession(t, gatewayUrl, { accessToken: "expired", expiresAt: 1, refreshToken: "old" });
+  stubFetch(t, () => jsonResponse(503, { error: "unavailable" }));
+
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin(gatewayUrl)] } }).providerHooks;
+  const result = await hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: `${gatewayUrl}/v1/messages` } });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /could not be refreshed: .*HTTP 503/);
+});
+
+test("Claude apps gateway hook treats a deleted session file as signed out", async (t) => {
+  stubFetch(t, () => assert.fail("no session, no request"));
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin("http://127.0.0.1:18098")] } }).providerHooks;
+  const result = await hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: "http://127.0.0.1:18098/v1/messages" } });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /not found\. Sign in again/);
 });
 
 test("Claude apps gateway hook asks for a new sign-in when an expired session has no refresh token", async (t) => {
