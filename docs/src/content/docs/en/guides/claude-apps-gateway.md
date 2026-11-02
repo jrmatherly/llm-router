@@ -68,7 +68,7 @@ The session refreshes itself in the background. When the gateway refuses a refre
 
 To sign out, delete the session file for that gateway host under `~/.llm-router/claude-apps-gateway/` (`%APPDATA%\llm-router\claude-apps-gateway\` on Windows). The gateway offers no revocation endpoint, so sign-out is local.
 
-Verified: PENDING
+Verified 2026-11-01 against the local harness in load-test mode (`claude gateway` from Claude Code 2.1.316, LLMR commit `215c6d19`, `llmr serve` web UI): device sign-in, import, Check Connection on all 14 models, and a `/v1/messages` request through LLMR that returned the gateway's canned reply with `authorization` logged as `[redacted]`.
 
 ## Reference deployments
 
