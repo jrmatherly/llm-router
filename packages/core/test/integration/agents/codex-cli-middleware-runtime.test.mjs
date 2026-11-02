@@ -858,6 +858,29 @@ test("Claude Code wrapper injects the ToolHub MCP config into real CLI args", { 
   assert.equal(observed.env.LLMR_CLAUDE_CODE_MCP_CONFIG, mcpConfigFile);
 });
 
+test("Claude Code wrapper passes the shared-home settings file unless the user passed --settings", { skip: process.platform === "win32" }, () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-wrapper-"));
+  const runtimeFile = writeRuntimeScript(dir);
+  const { fakeCli, outputFile } = writeFakeClaudeCli(dir);
+  const settingsFile = path.join(dir, "settings.json");
+  const env = {
+    ...process.env,
+    LLMR_CLAUDE_CODE_SETTINGS_FILE: settingsFile,
+    LLMR_CLAUDE_CODE_WRAPPER: "1",
+    LLMR_FAKE_CLAUDE_OUT: outputFile,
+    LLMR_REAL_CLAUDE_CODE_BIN: fakeCli,
+    LLMR_REMOTE_SYNC_ENABLED: "0"
+  };
+  const run = (args) => {
+    execFileSync(process.execPath, [runtimeFile, ...args], { env, stdio: "pipe" });
+    return JSON.parse(readFileSync(outputFile, "utf8")).argv;
+  };
+
+  assert.deepEqual(run(["-p", "hi"]), ["--settings", settingsFile, "-p", "hi"]);
+  assert.deepEqual(run(["--settings=/mine.json", "-p", "hi"]), ["--settings=/mine.json", "-p", "hi"]);
+  assert.deepEqual(run(["--version"]), ["--version"]);
+});
+
 test("Claude Code wrapper does not duplicate an explicit MCP config argument", { skip: process.platform === "win32" }, () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-wrapper-"));
   const runtimeFile = writeRuntimeScript(dir);

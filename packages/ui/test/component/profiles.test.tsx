@@ -3,7 +3,7 @@ import test from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ProfileConfig } from "@llmr/core/contracts/app.ts";
-import { AddProfileForm, DeleteProfileDialog, ProfileView } from "@llmr/ui/pages/home/components/profiles.tsx";
+import { AddProfileForm, DeleteProfileDialog, ProfileOpenDialog, ProfileView } from "@llmr/ui/pages/home/components/profiles.tsx";
 import { createProfileDraft, createProfileDraftFromProfile, isProfileDraftSubmittable, normalizeUnknownProfileItem, profileAgentLogoUrl, profileConfigFromDraft, profileDraftWithDetectedAppPath, profileSummaryItems } from "@llmr/ui/pages/home/shared/profiles.ts";
 import type { AddProfileDraft } from "@llmr/ui/pages/home/shared/types.ts";
 import { appConfigFixture } from "../fixtures/index.ts";
@@ -15,6 +15,14 @@ const profile: ProfileConfig = {
   model: "openai/gpt-5.2",
   name: "Claude Code Main"
 };
+
+test("ProfileOpenDialog offers Open in Terminal only when the host can open one", () => {
+  const render = (onOpenTerminal?: () => void) => renderToStaticMarkup(
+    <ProfileOpenDialog command="llmr 'Claude Code Main'" mode="cli" onChooseApp={() => undefined} onClose={() => undefined} onOpenTerminal={onOpenTerminal} onStopApp={() => undefined} profile={profile} />
+  );
+  assert.match(render(() => undefined), /Open in Terminal/);
+  assert.doesNotMatch(render(), /Open in Terminal/);
+});
 
 test("DeleteProfileDialog identifies the profile and requires an explicit confirmation", () => {
   const html = renderToStaticMarkup(
@@ -785,4 +793,14 @@ test("the takeover toggle round-trips through the stored profile and survives a 
   assert.equal("claudeAppTakeover" in profileConfigFromDraft({ ...draft, surface: "cli" }, []), false);
   assert.equal(createProfileDraftFromProfile(stored).claudeAppTakeover, true);
   assert.equal(normalizeUnknownProfileItem({ ...stored, claudeAppTakeover: "yes" }, 0)?.claudeAppTakeover, undefined);
+});
+
+test("the shared-home toggle shows for generated scopes, round-trips, and is dropped for global scope", () => {
+  const draft: AddProfileDraft = { ...createProfileDraft("claude-code"), claudeCodeSharedHome: true, scope: "llmr", surface: "cli" };
+  assert.match(renderAddProfileForm(draft), /Use my ~\/\.claude in the terminal/);
+  assert.doesNotMatch(renderAddProfileForm({ ...draft, scope: "global" }), /Use my ~\/\.claude in the terminal/);
+  const stored = profileConfigFromDraft(draft, []);
+  assert.equal(stored.claudeCodeSharedHome, true);
+  assert.equal(createProfileDraftFromProfile(stored).claudeCodeSharedHome, true);
+  assert.equal("claudeCodeSharedHome" in profileConfigFromDraft({ ...draft, scope: "global" }, []), false);
 });

@@ -37,7 +37,7 @@ import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
 import { applyProfileConfig, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
-import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
+import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, openProfileInTerminal, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
 import { proxyService } from "@llmr/core/proxy/service";
@@ -395,6 +395,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
     }
     return openProfileFromLlmr(config, request as ProfileOpenRequest);
   },
+  openProfileInTerminal: async (request) => openProfileInTerminal(await loadAppConfig(), request as ProfileOpenRequest),
   probeLocalAgentProvider: (request) => probeLocalAgentProvider(request as LocalAgentProviderProbeRequest),
   probeProvider: (request) => probeGatewayProvider(request as GatewayProviderProbeRequest),
   probeProviderCandidates: (request) => probeGatewayProviderCandidates(request as GatewayProviderProbeCandidatesRequest),

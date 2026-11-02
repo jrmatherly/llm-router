@@ -153,6 +153,7 @@ const webClientBridge: LlmrApi = {
     window.open(normalizeExternalHttpUrl(url), "_blank", "noopener,noreferrer");
   },
   openProfile: (request) => rpc("openProfile", [request]) as ReturnType<LlmrApi["openProfile"]>,
+  openProfileInTerminal: (request) => rpc("openProfileInTerminal", [request]) as ReturnType<LlmrApi["openProfileInTerminal"]>,
   probeLocalAgentProvider: (request) => rpc("probeLocalAgentProvider", [request]) as ReturnType<NonNullable<LlmrApi["probeLocalAgentProvider"]>>,
   probeProvider: (request) => rpc("probeProvider", [request]) as ReturnType<LlmrApi["probeProvider"]>,
   probeProviderCandidates: (request) => rpc("probeProviderCandidates", [request]) as ReturnType<LlmrApi["probeProviderCandidates"]>,

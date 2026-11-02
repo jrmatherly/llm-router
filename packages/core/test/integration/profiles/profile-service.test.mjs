@@ -10,7 +10,7 @@ import { loadAppConfig } from "@llmr/core/config/config.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { replacePersistedApiKeys, replacePersistedAppConfig } from "@llmr/core/config/config-repository.ts";
 import { CONFIGDIR } from "@llmr/core/config/constants.ts";
-import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, resolveGrokSourceHome, resolveKimiSourceHome, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit } from "@llmr/core/profiles/service.ts";
+import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, resolveGrokSourceHome, resolveKimiSourceHome, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service.ts";
 
 test("Grok profile source home follows profile and process environment overrides", () => {
   const previous = {
@@ -389,6 +389,59 @@ test("profile service refuses to apply a Claude Code profile when a managed sett
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
     rmSync(takeoverFile, { force: true });
     rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a shared-home Claude Code profile never writes ~/.claude and blanks the user's credential and provider env", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const userSettingsFile = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".claude", "settings.json");
+  const userSettings = `${JSON.stringify({ env: { ANTHROPIC_API_KEY: "user-key", CLAUDE_CODE_USE_BEDROCK: "1" } })}\n`;
+  const profile = {
+    agent: "claude-code",
+    claudeCodeSharedHome: true,
+    enabled: true,
+    env: {},
+    id: "shared-home-claude",
+    model: "Provider/model",
+    name: "Shared Home Claude",
+    scope: "llmr",
+    smallFastModel: "",
+    surface: "cli"
+  };
+  const config = createDefaultAppConfig();
+  config.APIKEY = "llmr-profile-shared-home-test";
+  config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-profile-shared-home-test", name: "Profile: Shared Home Claude" }];
+  config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  config.profile.profiles = [profile];
+  try {
+    mkdirSync(path.dirname(userSettingsFile), { recursive: true });
+    writeFileSync(userSettingsFile, userSettings);
+
+    const result = await applyProfileFixture(config);
+    assert.equal(result.clients.find((client) => client.client === "claude-code")?.ok, true);
+    assert.equal(readFileSync(userSettingsFile, "utf8"), userSettings);
+    const settings = JSON.parse(readFileSync(path.join(CONFIGDIR, "profiles", profile.id, "claude", "settings.json"), "utf8"));
+    assert.equal(settings.env.ANTHROPIC_API_KEY, "");
+    assert.equal(settings.env.ANTHROPIC_AUTH_TOKEN, "");
+    assert.equal(settings.env.CLAUDE_CODE_USE_BEDROCK, "");
+    assert.equal(settings.env.ANTHROPIC_BASE_URL, `http://127.0.0.1:${config.gateway.port}`);
+    assert.ok(settings.apiKeyHelper);
+    if (process.platform !== "win32") {
+      const wrapper = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}`), "utf8");
+      assert.equal(wrapper.includes("CLAUDE_CONFIG_DIR"), false);
+      assert.match(wrapper, /LLMR_CLAUDE_CODE_SETTINGS_FILE=/);
+    }
+    assert.equal(existsSync(path.join(CONFIGDIR, "global-profile-takeover.json")), false);
+    assert.deepEqual(restoreGlobalProfileConfigsOnExit(config.profile.profiles), []);
+    await restoreTakeoversWhenNoGatewayServes();
+    assert.equal(readFileSync(userSettingsFile, "utf8"), userSettings);
+
+    writeFileSync(userSettingsFile, JSON.stringify({ forceLoginMethod: "gateway" }));
+    const refused = (await applyProfileFixture(config)).clients.find((client) => client.client === "claude-code");
+    assert.equal(refused?.ok, false);
+    assert.ok((refused?.message ?? "").includes(userSettingsFile));
+  } finally {
+    rmSync(path.dirname(userSettingsFile), { force: true, recursive: true });
+    rmSync(path.join(CONFIGDIR, "profiles", profile.id), { force: true, recursive: true });
   }
 });
 

@@ -17,7 +17,8 @@ test("claudeAppTakeover survives a save and reload of the config", async () => {
   const config = createDefaultAppConfig();
   config.profile.profiles = [
     { agent: "claude-code", claudeAppTakeover: true, enabled: true, id: "takeover", model: "claude-sonnet-4-5", name: "Takeover", surface: "app" },
-    { agent: "claude-code", enabled: true, id: "plain", model: "claude-sonnet-4-5", name: "Plain", scope: "llmr", surface: "app" }
+    { agent: "claude-code", enabled: true, id: "plain", model: "claude-sonnet-4-5", name: "Plain", scope: "llmr", surface: "app" },
+    { agent: "claude-code", claudeCodeSharedHome: true, enabled: true, id: "shared", model: "claude-sonnet-4-5", name: "Shared", scope: "llmr", surface: "cli" }
   ];
   await saveAppConfig(config);
 
@@ -26,4 +27,6 @@ test("claudeAppTakeover survives a save and reload of the config", async () => {
   const plain = loaded.profile.profiles.find((profile) => profile.id === "plain");
   assert.equal(takeover.claudeAppTakeover, true);
   assert.equal("claudeAppTakeover" in plain, false);
+  assert.equal(loaded.profile.profiles.find((profile) => profile.id === "shared").claudeCodeSharedHome, true);
+  assert.equal("claudeCodeSharedHome" in plain, false);
 });

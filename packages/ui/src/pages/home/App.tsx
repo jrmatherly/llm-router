@@ -2887,6 +2887,29 @@ function App() {
     }
   }
 
+  async function openProfileInTerminal(profile: ProfileConfig) {
+    setProfileOpenDialog((current) => current?.profile.id === profile.id ? { ...current, busy: "cli", error: "" } : current);
+    let saveError = "";
+    if (!(await persistConfig(draftConfig, (message) => { saveError = message; }, undefined, "silent"))) {
+      setProfileOpenDialog((current) => current?.profile.id === profile.id
+        ? { ...current, busy: "", error: saveError || "Failed to save profile before opening." }
+        : current);
+      return;
+    }
+    try {
+      if (!window.llmr?.openProfileInTerminal) {
+        throw new Error("Opening a terminal is only available in the LLMR app.");
+      }
+      const result = await window.llmr.openProfileInTerminal({ profileId: profile.id, surface: "cli" });
+      setProfileOpenDialog(undefined);
+      showToast(appErrorMessage(result.message));
+    } catch (error) {
+      setProfileOpenDialog((current) => current?.profile.id === profile.id
+        ? { ...current, busy: "", error: formatAppError(error) }
+        : current);
+    }
+  }
+
   async function stopProfileApp(profile: ProfileConfig) {
     setProfileOpenDialog((current) => current?.profile.id === profile.id
       ? { ...current, busy: "app", error: "" }
@@ -3383,6 +3406,7 @@ function App() {
             mode: profileOpenDialog.mode,
             onChooseApp: () => void openProfileApp(profileOpenDialog.profile),
             onClose: () => setProfileOpenDialog(undefined),
+            onOpenTerminal: isMac ? () => void openProfileInTerminal(profileOpenDialog.profile) : undefined,
             onStopApp: () => void stopProfileApp(profileOpenDialog.profile),
             profile: profileOpenDialog.profile
           } : undefined}

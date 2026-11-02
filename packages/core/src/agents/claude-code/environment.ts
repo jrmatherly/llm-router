@@ -1,5 +1,9 @@
+import path from "node:path";
+import { claudeCodeUsesSharedHome, type ProfileConfig } from "@llmr/core/contracts/app";
+
 export const CLAUDE_CODE_MCP_CONFIG_ENV = "LLMR_CLAUDE_CODE_MCP_CONFIG";
 export const CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV = "CODEXL_CLAUDE_CODE_MCP_CONFIG";
+export const CLAUDE_CODE_SETTINGS_FILE_ENV = "LLMR_CLAUDE_CODE_SETTINGS_FILE";
 export const CLAUDE_CODE_MODEL_ENV = "ANTHROPIC_MODEL";
 export const LLMR_CLAUDE_CODE_MODEL_ENV = "LLMR_CLAUDE_CODE_MODEL";
 export const CODEXL_CLAUDE_CODE_MODEL_ENV = "CODEXL_CLAUDE_CODE_MODEL";
@@ -46,6 +50,13 @@ export function claudeCodeMcpConfigEnv(configFile: string | undefined): Record<s
         [CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV]: configFile
       }
     : {};
+}
+
+// A shared home leaves CLAUDE_CONFIG_DIR to the user and passes the generated settings with --settings.
+export function claudeCodeHomeEnv(profile: Pick<ProfileConfig, "agent" | "claudeCodeSharedHome" | "scope">, settingsFile: string): Record<string, string> {
+  return claudeCodeUsesSharedHome(profile)
+    ? { [CLAUDE_CODE_SETTINGS_FILE_ENV]: settingsFile }
+    : { CLAUDE_CONFIG_DIR: path.dirname(settingsFile) };
 }
 
 export function claudeCodeModelEnv(selection: ClaudeCodeModelSelection): Record<string, string> {

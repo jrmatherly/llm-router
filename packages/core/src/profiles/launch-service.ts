@@ -1,6 +1,7 @@
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { execFile, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { promisify } from "node:util";
 import { assertAvailableGatewayModels, type AppConfig, type ProfileConfig, type ProfileOpenCommandResult, type ProfileOpenRequest, type ProfileOpenResult, type ProfileRuntimeEntry, type ProfileRuntimeStatus, type ProfileStopResult } from "@llmr/core/contracts/app";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import { applyClaudeAppGatewayConfig, claudeAppTakesOverDirectLaunches, readClaudeAppGatewayApiKeyCandidates } from "@llmr/core/agents/claude-app/gateway-service";
@@ -118,6 +119,39 @@ export async function getProfileOpenCommand(config: AppConfig, request: ProfileO
     profileName: profile.name,
     surface
   };
+}
+
+// A detached spawn has no TTY, so an interactive CLI gets its own terminal window.
+// Opening a .command file goes through Launch Services, which needs no Apple Events consent.
+export async function openProfileInTerminal(config: AppConfig, request: ProfileOpenRequest): Promise<ProfileOpenResult> {
+  const launcher = ensureLlmrCliLauncher(config);
+  const opened = await getProfileOpenCommand(config, { ...request, surface: "cli" }, { commandName: launcher });
+  if (process.platform !== "darwin") {
+    throw new Error(`Opening a terminal from LLMR is available on macOS. Run this in a terminal: ${opened.command}`);
+  }
+  const slug = sanitizeProfilePathSegment(opened.profileId) || "profile";
+  const scriptFile = path.join(path.dirname(launcher), `llmr-open-${slug}.command`);
+  writeFileIfChanged(scriptFile, profileTerminalScript(opened.command, process.env));
+  chmodSafe(scriptFile);
+  try {
+    await promisify(execFile)("/usr/bin/open", [scriptFile], { timeout: 15_000 });
+  } catch (error) {
+    throw new Error(`Failed to open a terminal: ${formatError(error)}`);
+  }
+  return {
+    message: `Opened ${opened.profileName || opened.profileId} in a terminal.`,
+    profileId: opened.profileId,
+    profileName: opened.profileName,
+    surface: "cli"
+  };
+}
+
+// The terminal starts from the user's login environment, so carry the home LLMR itself runs with.
+export function profileTerminalScript(command: string, env: NodeJS.ProcessEnv): string {
+  const exports = Object.entries(env)
+    .filter(([key, value]) => value && (key === "HOME" || key.startsWith("LLMR_INTERNAL_")))
+    .map(([key, value]) => `export ${key}=${shQuote(value as string)}`);
+  return ["#!/bin/sh", ...exports, "clear", command, ""].join("\n");
 }
 
 export async function openProfileFromLlmr(config: AppConfig, request: ProfileOpenRequest): Promise<ProfileOpenResult> {

@@ -142,6 +142,7 @@ declare global {
       openExternal: (url: string) => Promise<void>;
       openPluginApp?: (pluginId: string, appId?: string) => Promise<void>;
       openProfile: (request: ProfileOpenRequest) => Promise<ProfileOpenResult>;
+      openProfileInTerminal: (request: ProfileOpenRequest) => Promise<ProfileOpenResult>;
       prepareImageExportTarget?: (request: AppImageExportTargetRequest) => Promise<AppImageExportTargetResult>;
       probeLocalAgentProvider?: (request: LocalAgentProviderProbeRequest) => Promise<LocalAgentProviderProbeResult>;
       probeProviderCandidates: (request: GatewayProviderProbeCandidatesRequest) => Promise<GatewayProviderProbeCandidateResult | undefined>;
