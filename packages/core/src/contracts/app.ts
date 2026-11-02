@@ -450,7 +450,7 @@ export type ProviderManifestFetchResult = {
   url: string;
 };
 
-export type LocalAgentProviderKind = "claude-code" | "codex" | "grok" | "kimi" | "opencode" | "zcode";
+export type LocalAgentProviderKind = "claude-apps-gateway" | "claude-code" | "codex" | "grok" | "kimi" | "opencode" | "zcode";
 
 export type LocalAgentProviderStatus = "available" | "locked" | "missing";
 

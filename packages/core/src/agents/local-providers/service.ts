@@ -5,6 +5,7 @@ import type {
   LocalAgentProviderProbeRequest,
   LocalAgentProviderProbeResult
 } from "@llmr/core/contracts/app";
+import { claudeAppsGatewayCandidates, importClaudeAppsGatewayProvider } from "@llmr/core/agents/local-providers/claude-apps-gateway";
 import { claudeCodeCandidate, importClaudeCodeProvider } from "@llmr/core/agents/local-providers/claude-code";
 import { codexCandidate, importCodexProvider, probeCodexProvider } from "@llmr/core/agents/local-providers/codex";
 import { grokCandidate, importGrokProvider } from "@llmr/core/agents/local-providers/grok";
@@ -12,6 +13,7 @@ import { importKimiProvider, kimiCandidates } from "@llmr/core/agents/local-prov
 import { importOpenCodeProvider, opencodeCandidates } from "@llmr/core/agents/local-providers/opencode";
 import { importZcodeProvider, zcodeCandidate } from "@llmr/core/agents/local-providers/zcode";
 
+export { ClaudeAppsGatewayAuthError, readClaudeAppsGatewaySession, resolveClaudeAppsGatewaySession, type ClaudeAppsGatewaySession } from "@llmr/core/agents/claude-apps-gateway/session-store";
 export { codexDefaultBaseUrl, readCodexAuth } from "@llmr/core/agents/local-providers/codex";
 export { ClaudeCodeRefreshAuthError, readClaudeCodeOauth, resolveClaudeCodeAuth, resolveClaudeCodeAuthOrStored } from "@llmr/core/agents/local-providers/claude-code";
 export { grokDefaultBaseUrl, readGrokAuth, resolveGrokAuth } from "@llmr/core/agents/local-providers/grok";
@@ -23,6 +25,7 @@ export function getLocalAgentProviderCandidates(): LocalAgentProviderCandidate[]
   return [
     codexCandidate(),
     claudeCodeCandidate(),
+    ...claudeAppsGatewayCandidates(),
     grokCandidate(),
     ...kimiCandidates(),
     ...opencodeCandidates(),
@@ -41,6 +44,9 @@ export async function importLocalAgentProvider(request: LocalAgentProviderImport
 
   if (candidate.kind === "codex") {
     return importCodexProvider(candidate, request.providerNames ?? []);
+  }
+  if (candidate.kind === "claude-apps-gateway") {
+    return await importClaudeAppsGatewayProvider(candidate, request.providerNames ?? []);
   }
   if (candidate.kind === "claude-code") {
     return await importClaudeCodeProvider(candidate, request.providerNames ?? []);

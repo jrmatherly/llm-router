@@ -1528,6 +1528,7 @@ function LocalAgentProviderImportPanel({
 }
 
 const localAgentProviderPluginSuffixes: Record<Exclude<LocalAgentProviderCandidate["kind"], "opencode">, string[]> = {
+  "claude-apps-gateway": ["-claude-apps-gateway-oauth", "-claude-apps-gateway-oauth-internal"],
   "claude-code": ["-claude-code-oauth", "-claude-code-oauth-internal"],
   codex: ["-codex-oauth", "-codex-oauth-internal"],
   grok: ["-grok-cli-oauth", "-grok-cli-oauth-internal"],
@@ -1576,9 +1577,20 @@ export function localAgentProviderAlreadyImported(
     return (
       key.startsWith("llmr-local-agent-") &&
       suffixes.some((suffix) => key.endsWith(suffix)) &&
-      localProviderNames.has(providerName.trim().toLowerCase())
+      localProviderNames.has(providerName.trim().toLowerCase()) &&
+      (candidate.kind !== "claude-apps-gateway" || claudeAppsGatewayPluginCandidateId(plugin) === candidate.id)
     );
   });
+}
+
+function claudeAppsGatewayPluginCandidateId(plugin: unknown): string | undefined {
+  const url = isPlainRecord(plugin) && isPlainRecord(plugin.claudeAppsGateway) ? plugin.claudeAppsGateway.url : undefined;
+  try {
+    // Mirrors claudeAppsGatewaySlug in core, which the renderer bundle cannot import.
+    return typeof url === "string" ? `claude-apps-gateway:${new URL(url).host.toLowerCase().replace(/[^a-z0-9.-]/g, "-")}` : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function ProviderSetupProgress({
