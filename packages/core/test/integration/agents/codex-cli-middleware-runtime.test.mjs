@@ -877,6 +877,7 @@ test("Claude Code wrapper passes the shared-home settings file unless the user p
   };
 
   assert.deepEqual(run(["-p", "hi"]), ["--settings", settingsFile, "-p", "hi"]);
+  assert.equal(JSON.parse(readFileSync(outputFile, "utf8")).env.LLMR_CLAUDE_CODE_SETTINGS_FILE, undefined);
   assert.deepEqual(run(["--settings=/mine.json", "-p", "hi"]), ["--settings=/mine.json", "-p", "hi"]);
   assert.deepEqual(run(["--version"]), ["--version"]);
 });

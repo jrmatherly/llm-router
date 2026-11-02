@@ -52,7 +52,6 @@ export function claudeCodeMcpConfigEnv(configFile: string | undefined): Record<s
     : {};
 }
 
-// A shared home leaves CLAUDE_CONFIG_DIR to the user and passes the generated settings with --settings.
 export function claudeCodeHomeEnv(profile: Pick<ProfileConfig, "agent" | "claudeCodeSharedHome" | "scope">, settingsFile: string): Record<string, string> {
   return claudeCodeUsesSharedHome(profile)
     ? { [CLAUDE_CODE_SETTINGS_FILE_ENV]: settingsFile }

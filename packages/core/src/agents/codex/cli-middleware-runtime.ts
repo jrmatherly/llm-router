@@ -165,7 +165,8 @@ async function runClaudeCodeCliWrapper(args) {
   const injectRemoteStdin = boolEnv("LLMR_REMOTE_SYNC_INJECT_STDIN");
   const child = spawnAgentCli(realCli, realArgs, {
     env: {
-      ...withoutKeys(process.env, ["LLMR_CLAUDE_CODE_WRAPPER", "LLMR_REAL_CLAUDE_CODE_BIN"]),
+      // The settings file belongs to this launch only; a nested llmr launch must not inherit it.
+      ...withoutKeys(process.env, ["LLMR_CLAUDE_CODE_WRAPPER", "LLMR_REAL_CLAUDE_CODE_BIN", CLAUDE_CODE_SETTINGS_FILE_ENV]),
       ...claudeCodeUtcTimezoneEnvOverride()
     },
     stdio: [injectRemoteStdin ? "pipe" : "inherit", captureStdout ? "pipe" : "inherit", "inherit"]
@@ -221,7 +222,11 @@ function claudeCodeCliWrapperArgs(args) {
 
 function claudeCodeArgsWithSettingsFile(args, env) {
   const settingsFile = nonEmptyEnvFrom(env, CLAUDE_CODE_SETTINGS_FILE_ENV);
-  if (!settingsFile || claudeCodeArgsHaveFlag(args, "--settings") || claudeCodeArgsShouldSkipModelInjection(args)) {
+  if (!settingsFile || claudeCodeArgsShouldSkipModelInjection(args)) {
+    return args;
+  }
+  if (claudeCodeArgsHaveFlag(args, "--settings")) {
+    process.stderr.write("LLMR: your --settings replaces LLMR's gateway settings for this launch.\n");
     return args;
   }
   return ["--settings", settingsFile, ...args];

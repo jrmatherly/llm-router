@@ -8,6 +8,7 @@ import { appConfigLoadError, loadAppConfig } from "@llmr/core/config/config";
 import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import {
+  CLAUDE_CODE_MANAGED_MODEL_ENV_KEYS,
   CLAUDE_CODE_MCP_CONFIG_ENV,
   CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV,
   type ClaudeCodeModelSelection,
@@ -470,12 +471,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     applyGatewayNoProxyEnv(env, config);
     applyClaudeCodeGatewayCompatibilityEnv(env);
     for (const key of claudeCodeFirstPartyProviderEnvKeys) {
-      // A shared home layers the user's settings under --settings, so a blank value must cancel theirs.
-      if (sharedHome) {
-        env[key] = "";
-      } else {
-        delete env[key];
-      }
+      delete env[key];
     }
     for (const key of claudeCodeWifEnvKeys) {
       delete env[key];
@@ -488,6 +484,12 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     const wifResult = writeClaudeCodeWifIdentityToken(profile, token);
     const wifEnv = authMode === "wif" ? claudeCodeWifEnv(wifResult.file) : {};
     Object.assign(env, mcpConfigEnv, timezoneEnv, wifEnv);
+    if (sharedHome) {
+      // The user's settings sit under --settings, so a key LLMR leaves unset needs a blank value to cancel theirs.
+      for (const key of [...claudeCodeFirstPartyProviderEnvKeys, ...claudeCodeWifEnvKeys, ...CLAUDE_CODE_MANAGED_MODEL_ENV_KEYS]) {
+        env[key] ??= "";
+      }
+    }
 
     const helperResult = authMode === "api-key-helper" ? writeClaudeCodeApiKeyHelper(profile, token) : undefined;
     const legacyApiKeyHelperCleanupResult = authMode === "wif"

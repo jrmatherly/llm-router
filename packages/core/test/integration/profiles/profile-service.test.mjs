@@ -394,7 +394,7 @@ test("profile service refuses to apply a Claude Code profile when a managed sett
 
 test("a shared-home Claude Code profile never writes ~/.claude and blanks the user's credential and provider env", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const userSettingsFile = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".claude", "settings.json");
-  const userSettings = `${JSON.stringify({ env: { ANTHROPIC_API_KEY: "user-key", CLAUDE_CODE_USE_BEDROCK: "1" } })}\n`;
+  const userSettings = `${JSON.stringify({ env: { ANTHROPIC_API_KEY: "user-key", ANTHROPIC_DEFAULT_OPUS_MODEL: "user-opus", ANTHROPIC_PROFILE: "work", CLAUDE_CODE_USE_BEDROCK: "1" } })}\n`;
   const profile = {
     agent: "claude-code",
     claudeCodeSharedHome: true,
@@ -423,6 +423,9 @@ test("a shared-home Claude Code profile never writes ~/.claude and blanks the us
     assert.equal(settings.env.ANTHROPIC_API_KEY, "");
     assert.equal(settings.env.ANTHROPIC_AUTH_TOKEN, "");
     assert.equal(settings.env.CLAUDE_CODE_USE_BEDROCK, "");
+    assert.equal(settings.env.ANTHROPIC_PROFILE, "");
+    assert.equal(settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL, "");
+    assert.equal(settings.env.ANTHROPIC_MODEL, "Provider/model");
     assert.equal(settings.env.ANTHROPIC_BASE_URL, `http://127.0.0.1:${config.gateway.port}`);
     assert.ok(settings.apiKeyHelper);
     if (process.platform !== "win32") {
@@ -439,6 +442,19 @@ test("a shared-home Claude Code profile never writes ~/.claude and blanks the us
     const refused = (await applyProfileFixture(config)).clients.find((client) => client.client === "claude-code");
     assert.equal(refused?.ok, false);
     assert.ok((refused?.message ?? "").includes(userSettingsFile));
+
+    writeFileSync(userSettingsFile, userSettings);
+    const relocatedDir = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-config-dir-"));
+    writeFileSync(path.join(relocatedDir, "settings.json"), JSON.stringify({ forceLoginMethod: "gateway" }));
+    process.env.CLAUDE_CONFIG_DIR = relocatedDir;
+    try {
+      const relocated = (await applyProfileFixture(config)).clients.find((client) => client.client === "claude-code");
+      assert.equal(relocated?.ok, false);
+      assert.ok((relocated?.message ?? "").includes(path.join(relocatedDir, "settings.json")));
+    } finally {
+      delete process.env.CLAUDE_CONFIG_DIR;
+      rmSync(relocatedDir, { force: true, recursive: true });
+    }
   } finally {
     rmSync(path.dirname(userSettingsFile), { force: true, recursive: true });
     rmSync(path.join(CONFIGDIR, "profiles", profile.id), { force: true, recursive: true });

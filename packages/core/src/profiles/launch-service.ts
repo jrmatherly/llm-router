@@ -146,7 +146,7 @@ export async function openProfileInTerminal(config: AppConfig, request: ProfileO
   };
 }
 
-// The terminal starts from the user's login environment, so carry the home LLMR itself runs with.
+// The terminal starts from the user's login environment, so carry LLMR's own HOME and LLMR_INTERNAL_* to keep an isolated LLMR on its own config.
 export function profileTerminalScript(command: string, env: NodeJS.ProcessEnv): string {
   const exports = Object.entries(env)
     .filter(([key, value]) => value && (key === "HOME" || key.startsWith("LLMR_INTERNAL_")))
