@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript under `packages/core`, React under `packages/ui`, Electron IPC, `node:test` with `node:assert/strict`, a fake gateway on `node:http` in tests.
 
-**Spec:** `docs/superpowers/specs/2026-10-25-claude-apps-gateway-client.md`
+**Spec:** `docs/superpowers/specs/completed/2026-10-25-claude-apps-gateway-client.md`
 
 **Checked against `main` at `0c6128ee` on 2026-11-01.** Line numbers below are from that commit. The refresh-failure rule, single-flight refresh, fixed endpoint paths, the probe step and the always-visible panel came from that review.
 
