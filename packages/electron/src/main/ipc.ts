@@ -389,8 +389,8 @@ ipcMain.handle(IPC_CHANNELS.appStartGateway, async () => {
 });
 ipcMain.handle(IPC_CHANNELS.appStopGateway, async () => {
   const status = await gatewayService.stop();
-  await builtInBrowserService.clearProxy();
   await restoreTakeoversWhenNoGatewayServes();
+  await builtInBrowserService.clearProxy();
   return status;
 });
 ipcMain.handle(IPC_CHANNELS.appStopProfile, async (_event, request: ProfileOpenRequest) => {

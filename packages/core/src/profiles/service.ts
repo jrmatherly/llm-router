@@ -3811,19 +3811,22 @@ export function restoreGlobalProfileConfigsOnExit(
   return statuses;
 }
 
-// Call after stopping this process's gateway. Another LLMR process may still serve the
-// same endpoint, and its takeovers must stay. Never throws, since stop and quit paths call it.
+// Call after this process's gateway has stopped. A usable LLMR gateway still on the endpoint
+// belongs to another process, so its takeovers stay. Never throws; stop and quit paths call it.
 export async function restoreTakeoversWhenNoGatewayServes(): Promise<void> {
   let profiles: ProfileConfig[] = [];
   try {
     const config = await loadAppConfig();
     const loadError = appConfigLoadError(config);
     if (loadError) {
-      // The fallback holds default profiles and endpoint, so only the marker's records are the user's.
-      console.error(`LLMR config failed to load; restoring the recorded takeovers only: ${loadError}`);
-    } else if ((await probeExistingLlmrGateway(config, { attempts: 1 })).state === "usable") {
-      return;
+      // The fallback config has default profiles and endpoint, so skip the probe and restore only the marker's records.
+      console.error(`LLMR config failed to load; skipped the gateway probe and restored the recorded takeovers only: ${loadError}`);
     } else {
+      const probe = await probeExistingLlmrGateway(config, { attempts: 1 });
+      if (probe.state === "usable") {
+        console.warn(`Kept agent takeovers: an LLMR gateway still serves ${probe.endpoint}.`);
+        return;
+      }
       profiles = config.profile.profiles;
     }
   } catch (error) {

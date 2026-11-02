@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import net from "node:net";
@@ -190,22 +190,28 @@ test("startGateway reuses an already healthy LLMR gateway on the configured port
 
 test("closing the web service releases the Claude Code takeover when no gateway still serves", async (t) => {
   const { runtime, settingsFile } = await startWithStubbedGateway(t, await findAvailablePort());
+  const claudeAppBackup = await seedClaudeAppTakeover();
   await runtime.close();
   assertReleased(settingsFile);
+  assert.equal(existsSync(claudeAppBackup), false, "the Claude App takeover is restored");
 });
 
 test("closing the web service keeps the takeover while another LLMR gateway serves", async (t) => {
+  const { restoreClaudeAppGatewayConfig } = await import("@llmr/core/agents/claude-app/gateway-service.ts");
   const { restoreGlobalProfileConfigsOnExit } = await import("@llmr/core/profiles/service.ts");
   const gatewayPort = await findAvailablePort();
   const otherGateway = createHealthyLlmrGateway(undefined, { reloadRequests: [], revision: "" });
   await listen(otherGateway, gatewayPort);
   try {
     const { runtime, settingsFile } = await startWithStubbedGateway(t, gatewayPort);
+    const claudeAppBackup = await seedClaudeAppTakeover();
     await runtime.close();
     assertTakenOver(settingsFile);
+    assert.equal(existsSync(claudeAppBackup), true, "the Claude App takeover stays");
   } finally {
     await closeServer(otherGateway);
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    restoreClaudeAppGatewayConfig();
   }
 });
 
@@ -235,6 +241,15 @@ test("closing the web service releases the recorded takeovers when the config fa
   }
   assertReleased(settingsFile);
 });
+
+// Seeded after start: the start-up sync restores any Claude App takeover no profile asks for.
+async function seedClaudeAppTakeover() {
+  const { CONFIGDIR } = await import("@llmr/core/config/constants.ts");
+  const backupFile = path.join(CONFIGDIR, "claude-app-gateway-backup.json");
+  const absent = { exists: false };
+  writeFileSync(backupFile, `${JSON.stringify({ configLibraryFile: absent, createdAt: new Date().toISOString(), metaFile: absent, rootConfigFile: absent, version: 1 })}\n`);
+  return backupFile;
+}
 
 function assertReleased(settingsFile) {
   const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
