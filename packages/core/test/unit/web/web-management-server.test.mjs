@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import net from "node:net";
 import os from "node:os";
@@ -187,6 +187,75 @@ test("startGateway reuses an already healthy LLMR gateway on the configured port
     await closeServer(externalGateway);
   }
 });
+
+test("closing the web service releases the global Claude Code takeover its gateway applied", async () => {
+  const settingsFile = await startWithStubbedGatewayAndClose(undefined);
+  const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
+  assert.equal(settings.env?.ANTHROPIC_BASE_URL, undefined);
+  assert.equal(settings.apiKeyHelper, undefined);
+  assert.equal(settings.theme, "dark");
+});
+
+test("closing the web service keeps the takeover when another process owns the gateway", async () => {
+  const { restoreGlobalProfileConfigsOnExit } = await import("@llmr/core/profiles/service.ts");
+  try {
+    const settingsFile = await startWithStubbedGatewayAndClose(true);
+    const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
+    assert.match(settings.env?.ANTHROPIC_BASE_URL ?? "", /^http:\/\/127\.0\.0\.1:/);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+  }
+});
+
+async function startWithStubbedGatewayAndClose(gatewayManagedExternally) {
+  const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
+  const { gatewayService } = await import("@llmr/core/gateway/service.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const settingsFile = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".claude", "settings.json");
+  mkdirSync(path.dirname(settingsFile), { recursive: true });
+  writeFileSync(settingsFile, `${JSON.stringify({ theme: "dark" }, null, 2)}\n`);
+  const config = await loadAppConfig();
+  config.Providers = [{
+    api_base_url: "http://127.0.0.1:9/v1",
+    api_key: "test-provider-key",
+    id: "test-provider",
+    models: ["test-model"],
+    name: "Test Provider",
+    type: "openai_chat_completions"
+  }];
+  config.profile.profiles = [{
+    agent: "claude-code",
+    enabled: true,
+    env: {},
+    id: "default-claude-code",
+    model: "Test Provider/test-model",
+    name: "Claude Code",
+    scope: "global",
+    settingsFile: "~/.claude/settings.json",
+    smallFastModel: "",
+    surface: "auto"
+  }];
+  await saveAppConfig(config);
+
+  const original = { ensureStarted: gatewayService.ensureStarted, getStatus: gatewayService.getStatus, stop: gatewayService.stop };
+  const running = { endpoint: `http://127.0.0.1:${config.gateway.port}`, gatewayManagedExternally, state: "running" };
+  let status = running;
+  gatewayService.ensureStarted = async () => running;
+  gatewayService.getStatus = () => status;
+  gatewayService.stop = async () => {
+    status = { state: "stopped" };
+    return status;
+  };
+  try {
+    const runtime = await startWebManagementServer({ authToken: "test-web-auth-token", host: "127.0.0.1", port: 0 });
+    const applied = JSON.parse(readFileSync(settingsFile, "utf8"));
+    assert.match(applied.env?.ANTHROPIC_BASE_URL ?? "", /^http:\/\/127\.0\.0\.1:/, "the takeover should apply while the gateway runs");
+    await runtime.close();
+  } finally {
+    Object.assign(gatewayService, original);
+  }
+  return settingsFile;
+}
 
 async function rpc(baseUrl, authToken, method, args = []) {
   const response = await fetch(new URL("/api/llmr/rpc", baseUrl), {
