@@ -11,7 +11,7 @@ import { loadOnboardingFinished, markOnboardingFinished } from "@llmr/core/confi
 import { scanBotHandoffBluetoothTargets, scanBotHandoffWifiTargets } from "@llmr/core/agents/bot-gateway/handoff-scan-service";
 import { cancelBotGatewayQrLogin, startBotGatewayQrLogin, waitBotGatewayQrLogin } from "@llmr/core/agents/bot-gateway/qr-login-service";
 import { cancelClaudeAppsGatewayLogin, startClaudeAppsGatewayLogin, waitClaudeAppsGatewayLogin } from "@llmr/core/agents/claude-apps-gateway/device-login-service";
-import { syncClaudeAppGatewayConfig, restoreClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
+import { syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
 import { getAppInfoPaths } from "@llmr/core/agents/app-info-paths";
 import { loadAppConfig, saveApiKeysConfig, saveAppConfig } from "@llmr/core/config/config";
 import {
@@ -36,7 +36,7 @@ import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-pr
 import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
-import { applyProfileConfig } from "@llmr/core/profiles/service";
+import { applyProfileConfig, restoreTakeoversOnShutdown } from "@llmr/core/profiles/service";
 import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
@@ -526,14 +526,12 @@ async function startConfiguredServices(reason: string): Promise<void> {
 
 async function stopConfiguredServices(): Promise<void> {
   stopProviderModelAutoRefreshService();
+  const { gatewayManagedExternally, state } = gatewayService.getStatus();
   await gatewayService.stop({ proxyRestoreTimeoutMs: 30_000 }).catch((error) => {
     console.error(`Failed to stop gateway: ${formatError(error)}`);
   });
-  try {
-    restoreClaudeAppGatewayConfig();
-  } catch (error) {
-    console.error(`Failed to restore Claude App gateway config: ${formatError(error)}`);
-  }
+  // A gateway another process owns keeps serving, so its takeover stays.
+  await restoreTakeoversOnShutdown({ globalProfiles: state !== "stopped" && !gatewayManagedExternally });
 }
 
 async function applyProfileIfServiceRunning(config: AppConfig, status: GatewayStatus): Promise<void> {

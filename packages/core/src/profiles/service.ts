@@ -4,7 +4,7 @@ import path from "node:path";
 import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, availableGatewayModelIds, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
 import { CLAUDE_CODE_AUTH_MODE_ENV, resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
 import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@llmr/core/agents/claude-code/gateway-login-policy";
-import { appConfigLoadError } from "@llmr/core/config/config";
+import { appConfigLoadError, loadAppConfig } from "@llmr/core/config/config";
 import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import {
@@ -44,7 +44,7 @@ import { CONFIGDIR } from "@llmr/core/config/constants";
 import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
 import { backupBeforeWrite, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
-import { refreshClaudeAppModelDiscoveryCache } from "@llmr/core/agents/claude-app/gateway-service";
+import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
 import { resolveClaudeAppProfileUserDataDir } from "@llmr/core/agents/claude-app/launch";
 import { resolveZcodeConfigFile, writeZcodeGatewayConfig, zcodeHomeFromConfigFile } from "@llmr/core/agents/zcode/profile-config";
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME, contextArchiveConfigForProfile, contextArchiveMcpEnabled, contextArchiveMcpServer } from "@llmr/core/gateway/context-archive";
@@ -3808,6 +3808,32 @@ export function restoreGlobalProfileConfigsOnExit(
     ownedGlobalProfileTakeovers = [];
   }
   return statuses;
+}
+
+// Shutdown must never throw, and an unreadable config still leaves the marker's records to restore.
+export async function restoreTakeoversOnShutdown(options: { globalProfiles: boolean }): Promise<void> {
+  if (options.globalProfiles) {
+    let profiles: ProfileConfig[] = [];
+    try {
+      profiles = (await loadAppConfig()).profile.profiles;
+    } catch (error) {
+      console.error(`Failed to load config on shutdown; restoring recorded global profile takeovers only: ${formatError(error)}`);
+    }
+    try {
+      for (const status of restoreGlobalProfileConfigsOnExit(profiles)) {
+        if (!status.ok) {
+          console.error(`Failed to restore ${status.client} global profile config on shutdown: ${status.message}`);
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to restore global profile configs on shutdown: ${formatError(error)}`);
+    }
+  }
+  try {
+    restoreClaudeAppGatewayConfig();
+  } catch (error) {
+    console.error(`Failed to restore Claude App gateway config on shutdown: ${formatError(error)}`);
+  }
 }
 
 function synchronizeGlobalProfileTakeovers(
