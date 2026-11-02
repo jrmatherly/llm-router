@@ -21,18 +21,19 @@ const existingGatewayFetchAttempts = 3;
 const runtimeConfigReloadTimeoutMs = 20_000;
 
 export async function probeExistingLlmrGateway(
-  config: Pick<AppConfig, "APIKEY" | "APIKEYS" | "gateway">
+  config: Pick<AppConfig, "APIKEY" | "APIKEYS" | "gateway">,
+  { attempts = existingGatewayFetchAttempts }: { attempts?: number } = {}
 ): Promise<ExistingLlmrGatewayProbe> {
   const endpoint = publicGatewayEndpoint(config);
   if (!isLocalGatewayEndpoint(endpoint)) {
     return { endpoint, reason: nonLocalGatewayMessage, state: "unavailable" };
   }
-  const health = await fetchExistingGateway(endpoint, "/health");
+  const health = await fetchExistingGateway(endpoint, "/health", {}, attempts);
   let llmrGateway = isLlmrGatewayHealth(health.payload);
   let root: ExistingGatewayHttpProbe | undefined;
 
   if (!llmrGateway) {
-    root = await fetchExistingGateway(endpoint, "/");
+    root = await fetchExistingGateway(endpoint, "/", {}, attempts);
     llmrGateway = isLlmrGatewayRoot(root.payload);
   }
   if (!llmrGateway) {
@@ -53,7 +54,7 @@ export async function probeExistingLlmrGateway(
       authorization: `Bearer ${apiKey}`,
       "user-agent": "Claude Code"
     }
-  });
+  }, attempts);
   if (models.status === 200) {
     return { apiKey, endpoint, state: "usable" };
   }

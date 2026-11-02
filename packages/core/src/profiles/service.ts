@@ -4,7 +4,7 @@ import path from "node:path";
 import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, availableGatewayModelIds, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
 import { CLAUDE_CODE_AUTH_MODE_ENV, resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
 import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@llmr/core/agents/claude-code/gateway-login-policy";
-import { appConfigLoadError } from "@llmr/core/config/config";
+import { appConfigLoadError, loadAppConfig } from "@llmr/core/config/config";
 import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import {
@@ -44,7 +44,8 @@ import { CONFIGDIR } from "@llmr/core/config/constants";
 import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
 import { backupBeforeWrite, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
-import { refreshClaudeAppModelDiscoveryCache } from "@llmr/core/agents/claude-app/gateway-service";
+import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
+import { probeExistingLlmrGateway } from "@llmr/core/gateway/existing-gateway-probe";
 import { resolveClaudeAppProfileUserDataDir } from "@llmr/core/agents/claude-app/launch";
 import { resolveZcodeConfigFile, writeZcodeGatewayConfig, zcodeHomeFromConfigFile } from "@llmr/core/agents/zcode/profile-config";
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME, contextArchiveConfigForProfile, contextArchiveMcpEnabled, contextArchiveMcpServer } from "@llmr/core/gateway/context-archive";
@@ -3808,6 +3809,43 @@ export function restoreGlobalProfileConfigsOnExit(
     ownedGlobalProfileTakeovers = [];
   }
   return statuses;
+}
+
+// Call after this process's gateway has stopped. A usable LLMR gateway still on the endpoint
+// belongs to another process, so its takeovers stay. Never throws; stop and quit paths call it.
+export async function restoreTakeoversWhenNoGatewayServes(): Promise<void> {
+  let profiles: ProfileConfig[] = [];
+  try {
+    const config = await loadAppConfig();
+    const loadError = appConfigLoadError(config);
+    if (loadError) {
+      // The fallback config has default profiles and endpoint, so skip the probe and restore only the marker's records.
+      console.error(`LLMR config failed to load; skipped the gateway probe and restored the recorded takeovers only: ${loadError}`);
+    } else {
+      const probe = await probeExistingLlmrGateway(config, { attempts: 1 });
+      if (probe.state === "usable") {
+        console.warn(`Kept agent takeovers: an LLMR gateway still serves ${probe.endpoint}.`);
+        return;
+      }
+      profiles = config.profile.profiles;
+    }
+  } catch (error) {
+    console.error(`Failed to check for a serving LLMR gateway; restoring the recorded takeovers only: ${formatError(error)}`);
+  }
+  try {
+    for (const status of restoreGlobalProfileConfigsOnExit(profiles)) {
+      if (!status.ok) {
+        console.error(`Failed to restore ${status.client} global profile config: ${status.message}`);
+      }
+    }
+  } catch (error) {
+    console.error(`Failed to restore global profile configs: ${formatError(error)}`);
+  }
+  try {
+    restoreClaudeAppGatewayConfig();
+  } catch (error) {
+    console.error(`Failed to restore Claude App gateway config: ${formatError(error)}`);
+  }
 }
 
 function synchronizeGlobalProfileTakeovers(

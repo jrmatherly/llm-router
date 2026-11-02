@@ -3,11 +3,11 @@ import { app, BrowserWindow, dialog, shell } from "electron";
 import { setupApplicationMenu } from "./app-menu";
 import { loadAppConfig } from "@llmr/core/config/config";
 import { loadOnboardingFinished } from "@llmr/core/config/onboarding-state";
-import { restoreClaudeAppGatewayConfig, syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
+import { syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
 import { deepLinkService } from "./deep-link";
 import { gatewayService } from "@llmr/core/gateway/service";
 import "./ipc";
-import { applyProfileConfig, restoreGlobalProfileConfigsOnExit } from "@llmr/core/profiles/service";
+import { applyProfileConfig, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { ensureLlmrCliLauncher, persistPreparedLlmrCliPath, prepareLlmrCliLauncherRuntime, type LlmrCliLauncherPreparation } from "@llmr/core/profiles/launch-service";
 import { syncLaunchAtLogin } from "./launch-at-login";
 import { proxyService } from "@llmr/core/proxy/service";
@@ -194,21 +194,7 @@ function stopServicesForQuit(): Promise<void> {
         await closeRequestLogRuntime().catch((error) => {
           console.error(`Failed to flush request logs before quit: ${formatError(error)}`);
         });
-        try {
-          const config = await loadAppConfig();
-          for (const status of restoreGlobalProfileConfigsOnExit(config.profile.profiles)) {
-            if (!status.ok) {
-              console.error(`Failed to restore ${status.client} global profile config before quit: ${status.message}`);
-            }
-          }
-        } catch (error) {
-          console.error(`Failed to restore global profile configs before quit: ${formatError(error)}`);
-        }
-        try {
-          restoreClaudeAppGatewayConfig();
-        } catch (error) {
-          console.error(`Failed to restore Claude App gateway config before quit: ${formatError(error)}`);
-        }
+        await restoreTakeoversWhenNoGatewayServes();
         trayController.destroy();
       });
   }
