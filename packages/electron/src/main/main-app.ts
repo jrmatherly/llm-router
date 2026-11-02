@@ -7,7 +7,7 @@ import { syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway
 import { deepLinkService } from "./deep-link";
 import { gatewayService } from "@llmr/core/gateway/service";
 import "./ipc";
-import { applyProfileConfig, restoreTakeoversOnShutdown } from "@llmr/core/profiles/service";
+import { applyProfileConfig, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { ensureLlmrCliLauncher, persistPreparedLlmrCliPath, prepareLlmrCliLauncherRuntime, type LlmrCliLauncherPreparation } from "@llmr/core/profiles/launch-service";
 import { syncLaunchAtLogin } from "./launch-at-login";
 import { proxyService } from "@llmr/core/proxy/service";
@@ -194,7 +194,7 @@ function stopServicesForQuit(): Promise<void> {
         await closeRequestLogRuntime().catch((error) => {
           console.error(`Failed to flush request logs before quit: ${formatError(error)}`);
         });
-        await restoreTakeoversOnShutdown({ globalProfiles: true });
+        await restoreTakeoversWhenNoGatewayServes();
         trayController.destroy();
       });
   }

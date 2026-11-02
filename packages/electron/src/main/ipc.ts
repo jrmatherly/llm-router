@@ -41,7 +41,7 @@ import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-pr
 import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
-import { applyProfileConfig } from "@llmr/core/profiles/service";
+import { applyProfileConfig, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { desktopCliCommandName, getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
@@ -390,6 +390,7 @@ ipcMain.handle(IPC_CHANNELS.appStartGateway, async () => {
 ipcMain.handle(IPC_CHANNELS.appStopGateway, async () => {
   const status = await gatewayService.stop();
   await builtInBrowserService.clearProxy();
+  await restoreTakeoversWhenNoGatewayServes();
   return status;
 });
 ipcMain.handle(IPC_CHANNELS.appStopProfile, async (_event, request: ProfileOpenRequest) => {

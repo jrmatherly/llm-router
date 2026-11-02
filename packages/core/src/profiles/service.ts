@@ -45,6 +45,7 @@ import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/c
 import { backupBeforeWrite, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
 import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
+import { probeExistingLlmrGateway } from "@llmr/core/gateway/existing-gateway-probe";
 import { resolveClaudeAppProfileUserDataDir } from "@llmr/core/agents/claude-app/launch";
 import { resolveZcodeConfigFile, writeZcodeGatewayConfig, zcodeHomeFromConfigFile } from "@llmr/core/agents/zcode/profile-config";
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME, contextArchiveConfigForProfile, contextArchiveMcpEnabled, contextArchiveMcpServer } from "@llmr/core/gateway/context-archive";
@@ -3810,29 +3811,37 @@ export function restoreGlobalProfileConfigsOnExit(
   return statuses;
 }
 
-// Shutdown must never throw, and an unreadable config still leaves the marker's records to restore.
-export async function restoreTakeoversOnShutdown(options: { globalProfiles: boolean }): Promise<void> {
-  if (options.globalProfiles) {
-    let profiles: ProfileConfig[] = [];
-    try {
-      profiles = (await loadAppConfig()).profile.profiles;
-    } catch (error) {
-      console.error(`Failed to load config on shutdown; restoring recorded global profile takeovers only: ${formatError(error)}`);
+// Call after stopping this process's gateway. Another LLMR process may still serve the
+// same endpoint, and its takeovers must stay. Never throws, since stop and quit paths call it.
+export async function restoreTakeoversWhenNoGatewayServes(): Promise<void> {
+  let profiles: ProfileConfig[] = [];
+  try {
+    const config = await loadAppConfig();
+    const loadError = appConfigLoadError(config);
+    if (loadError) {
+      // The fallback holds default profiles and endpoint, so only the marker's records are the user's.
+      console.error(`LLMR config failed to load; restoring the recorded takeovers only: ${loadError}`);
+    } else if ((await probeExistingLlmrGateway(config, { attempts: 1 })).state === "usable") {
+      return;
+    } else {
+      profiles = config.profile.profiles;
     }
-    try {
-      for (const status of restoreGlobalProfileConfigsOnExit(profiles)) {
-        if (!status.ok) {
-          console.error(`Failed to restore ${status.client} global profile config on shutdown: ${status.message}`);
-        }
+  } catch (error) {
+    console.error(`Failed to check for a serving LLMR gateway; restoring the recorded takeovers only: ${formatError(error)}`);
+  }
+  try {
+    for (const status of restoreGlobalProfileConfigsOnExit(profiles)) {
+      if (!status.ok) {
+        console.error(`Failed to restore ${status.client} global profile config: ${status.message}`);
       }
-    } catch (error) {
-      console.error(`Failed to restore global profile configs on shutdown: ${formatError(error)}`);
     }
+  } catch (error) {
+    console.error(`Failed to restore global profile configs: ${formatError(error)}`);
   }
   try {
     restoreClaudeAppGatewayConfig();
   } catch (error) {
-    console.error(`Failed to restore Claude App gateway config on shutdown: ${formatError(error)}`);
+    console.error(`Failed to restore Claude App gateway config: ${formatError(error)}`);
   }
 }
 

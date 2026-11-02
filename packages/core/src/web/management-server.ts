@@ -36,7 +36,7 @@ import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-pr
 import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
-import { applyProfileConfig, restoreTakeoversOnShutdown } from "@llmr/core/profiles/service";
+import { applyProfileConfig, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
@@ -481,7 +481,11 @@ const rpcHandlers: Record<string, RpcHandler> = {
     await applyProfileIfServiceRunning(config, status);
     return status;
   },
-  stopGateway: () => gatewayService.stop(),
+  stopGateway: async () => {
+    const status = await gatewayService.stop();
+    await restoreTakeoversWhenNoGatewayServes();
+    return status;
+  },
   stopProfile: async (request) => stopProfileFromLlmr(await loadAppConfig(), request as ProfileOpenRequest),
   testProviderAccountConnector: (request) => testProviderAccountConnector(request as ProviderAccountTestRequest),
   testRouteScript: async (request) => gatewayService.testRouteScript(await loadAppConfig(), request as RouteScriptTestRequest),
@@ -526,12 +530,10 @@ async function startConfiguredServices(reason: string): Promise<void> {
 
 async function stopConfiguredServices(): Promise<void> {
   stopProviderModelAutoRefreshService();
-  const { gatewayManagedExternally, state } = gatewayService.getStatus();
   await gatewayService.stop({ proxyRestoreTimeoutMs: 30_000 }).catch((error) => {
     console.error(`Failed to stop gateway: ${formatError(error)}`);
   });
-  // A gateway another process owns keeps serving, so its takeover stays.
-  await restoreTakeoversOnShutdown({ globalProfiles: state !== "stopped" && !gatewayManagedExternally });
+  await restoreTakeoversWhenNoGatewayServes();
 }
 
 async function applyProfileIfServiceRunning(config: AppConfig, status: GatewayStatus): Promise<void> {
