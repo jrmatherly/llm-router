@@ -53,6 +53,23 @@ node scripts/claude-apps-gateway-dev.mjs --api-key <llmr-client-key>
 docker compose -f docker/claude-apps-gateway/compose.yaml down -v
 ```
 
+## Use a gateway as an LLMR provider
+
+The other direction also works. LLMR signs in to your organization's gateway and adds it as a provider, so every agent LLMR fronts (Codex, Kilo, OpenCode, Pi, Claude Code through a profile) reaches the organization's Claude models through the gateway.
+
+1. Open **Providers**, click **Add**, and find **Import local agent provider** at the top of the dialog.
+2. Enter the gateway URL (`https://` for a remote gateway; plain `http://` is accepted only for `localhost`, `127.0.0.1` or `[::1]`) and click **Sign in**.
+3. LLMR opens the gateway's sign-in page in your browser and shows a code. Approve the sign-in there with your identity provider.
+4. When the panel says the sign-in is confirmed, a **Claude apps gateway (host)** row appears. Click **Import**, pick models, and save.
+
+The token names the developer who approved the sign-in, not LLMR. The gateway's spend limits and model allowlist for that developer therefore apply to every agent LLMR routes to this provider, and the model list LLMR imports is that developer's allowlist.
+
+The session refreshes itself in the background. When the gateway refuses a refresh, for example after the developer is removed from the identity provider or the gateway's JWT secret rotates, requests to the provider fail with a message to sign in again. Signing in again from the same panel repairs a provider you already imported; there is no need to import it a second time.
+
+To sign out, delete the session file for that gateway host under `~/.llm-router/claude-apps-gateway/` (`%APPDATA%\llm-router\claude-apps-gateway\` on Windows). The gateway offers no revocation endpoint, so sign-out is local.
+
+Verified: PENDING
+
 ## Reference deployments
 
 - [sample-claude-apps-gateway-on-aws](https://github.com/aws-samples/sample-claude-apps-gateway-on-aws): an AWS reference deployment of the gateway.
