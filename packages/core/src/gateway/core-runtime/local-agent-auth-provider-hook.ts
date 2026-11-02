@@ -1,5 +1,6 @@
 import {
   ClaudeAppsGatewayAuthError,
+  claudeAppsGatewaySessionExpired,
   ClaudeCodeRefreshAuthError,
   readClaudeAppsGatewaySession,
   readClaudeCodeOauth,
@@ -205,17 +206,21 @@ async function authenticateClaudeAppsGateway(
   plugin: Record<string, unknown>
 ): Promise<ProviderHookResult> {
   const url = isRecord(plugin.claudeAppsGateway) ? stringValue(plugin.claudeAppsGateway.url) : undefined;
-  if (!url) {
+  if (!url || !URL.canParse(url)) {
     return { error: "Claude apps gateway URL is missing from the provider plugin.", ok: false };
   }
+  const signInAgain = "Claude apps gateway session ended. Sign in again from Providers, Add, Import local agent provider.";
   let session: ClaudeAppsGatewaySession | undefined;
   try {
     session = await resolveClaudeAppsGatewaySession(url);
   } catch (error) {
     if (error instanceof ClaudeAppsGatewayAuthError) {
-      return { error: "Claude apps gateway session ended. Sign in again from Providers, Add, Import local agent provider.", ok: false };
+      return { error: signInAgain, ok: false };
     }
     session = readClaudeAppsGatewaySession(url);
+  }
+  if (session && !session.refreshToken && claudeAppsGatewaySessionExpired(session, undefined, 0)) {
+    return { error: signInAgain, ok: false };
   }
   const token = session?.accessToken || originalBearerToken(plugin);
   if (!token) {

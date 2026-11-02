@@ -139,11 +139,14 @@ type PollOutcome =
   | { slowDown: boolean; status: "pending" };
 
 async function pollToken(login: PendingLogin): Promise<PollOutcome> {
-  const { payload, response, text } = await gatewayRequest(`${login.gatewayUrl}/oauth/token`, {
+  const reply = await gatewayRequest(`${login.gatewayUrl}/oauth/token`, {
     body: new URLSearchParams({ grant_type: deviceCodeGrant, device_code: login.deviceCode }).toString(),
     headers: { accept: "application/json", "content-type": "application/x-www-form-urlencoded" },
     method: "POST"
-  }, "token request");
+  }, "token request").catch(() => undefined);
+  // A network blip or a 5xx mid-login is retried on the next poll; the device code's own expiry still ends the loop.
+  if (!reply || reply.response.status >= 500) return { slowDown: false, status: "pending" };
+  const { payload, response, text } = reply;
   if (response.ok) {
     const tokens = claudeAppsGatewayTokenResponse(payload);
     if (!tokens) {
@@ -158,7 +161,8 @@ async function pollToken(login: PendingLogin): Promise<PollOutcome> {
       ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}),
       sourceFile: claudeAppsGatewaySessionFile(login.gatewayUrl, login.configDir)
     };
-    const catalog = await fetchClaudeAppsGatewayModels(session);
+    // The device code is spent by now; losing the tokens over a model-list hiccup would force a new sign-in, and import refetches the list.
+    const catalog = await fetchClaudeAppsGatewayModels(session).catch(() => ({ modelDisplayNames: {}, models: [] }));
     session.models = catalog.models;
     if (Object.keys(catalog.modelDisplayNames).length > 0) {
       session.modelDisplayNames = catalog.modelDisplayNames;

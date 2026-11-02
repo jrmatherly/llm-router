@@ -261,6 +261,23 @@ test("Claude apps gateway hook keeps the stored token after a transient refresh 
   assert.equal(result.value.headers.authorization, "Bearer stored");
 });
 
+test("Claude apps gateway hook asks for a new sign-in when an expired session has no refresh token", async (t) => {
+  const gatewayUrl = "http://127.0.0.1:18096";
+  writeClaudeAppsGatewaySession(t, gatewayUrl, { accessToken: "expired", expiresAt: 1 });
+  stubFetch(t, () => assert.fail("nothing to refresh"));
+
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin(gatewayUrl)] } }).providerHooks;
+  const result = await hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: `${gatewayUrl}/v1/messages` } });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /sign in again/i);
+});
+
+test("Claude apps gateway hook rejects a malformed gateway URL without throwing", async () => {
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin("gw.example.com")] } }).providerHooks;
+  const result = await hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: "https://gw.example.com/v1/messages" } });
+  assert.equal(result.ok, false);
+});
+
 test("two Claude apps gateway plugins resolve their own sessions", async (t) => {
   const first = "http://127.0.0.1:18094";
   const second = "http://127.0.0.1:18095";

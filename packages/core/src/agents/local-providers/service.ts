@@ -13,7 +13,7 @@ import { importKimiProvider, kimiCandidates } from "@llmr/core/agents/local-prov
 import { importOpenCodeProvider, opencodeCandidates } from "@llmr/core/agents/local-providers/opencode";
 import { importZcodeProvider, zcodeCandidate } from "@llmr/core/agents/local-providers/zcode";
 
-export { ClaudeAppsGatewayAuthError, readClaudeAppsGatewaySession, resolveClaudeAppsGatewaySession, type ClaudeAppsGatewaySession } from "@llmr/core/agents/claude-apps-gateway/session-store";
+export { ClaudeAppsGatewayAuthError, claudeAppsGatewaySessionExpired, readClaudeAppsGatewaySession, resolveClaudeAppsGatewaySession, type ClaudeAppsGatewaySession } from "@llmr/core/agents/claude-apps-gateway/session-store";
 export { codexDefaultBaseUrl, readCodexAuth } from "@llmr/core/agents/local-providers/codex";
 export { ClaudeCodeRefreshAuthError, readClaudeCodeOauth, resolveClaudeCodeAuth, resolveClaudeCodeAuthOrStored } from "@llmr/core/agents/local-providers/claude-code";
 export { grokDefaultBaseUrl, readGrokAuth, resolveGrokAuth } from "@llmr/core/agents/local-providers/grok";

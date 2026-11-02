@@ -124,6 +124,21 @@ test("expired_token and access_denied end the login", async (t) => {
   assert.equal(existsSync(claudeAppsGatewaySessionFile(gateway.url, configDir)), false);
 });
 
+test("a 5xx poll keeps the login alive and a model-list failure still saves the session", async (t) => {
+  const configDir = tempConfigDir(t);
+  const replies = [
+    [503, { error: "unavailable" }],
+    [200, { access_token: "no-models", expires_in: 3600, refresh_token: "ref", token_type: "Bearer" }]
+  ];
+  const gateway = await fakeGateway(t, { token: () => replies.shift() });
+  const start = await startClaudeAppsGatewayLogin({ gatewayUrl: gateway.url }, { configDir });
+
+  const result = await waitClaudeAppsGatewayLogin({ sessionId: start.sessionId, timeoutMs: 5000 });
+  assert.equal(result.status, "confirmed");
+  assert.deepEqual(result.models, []);
+  assert.equal(readClaudeAppsGatewaySession(gateway.url, configDir)?.accessToken, "no-models");
+});
+
 test("cancel drops a pending login", async (t) => {
   const gateway = await fakeGateway(t, { token: () => [400, { error: "authorization_pending" }] });
   const start = await startClaudeAppsGatewayLogin({ gatewayUrl: gateway.url }, { configDir: tempConfigDir(t) });
