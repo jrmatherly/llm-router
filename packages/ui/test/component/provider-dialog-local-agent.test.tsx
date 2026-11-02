@@ -33,6 +33,12 @@ test("edit dialog shows the local login notice and drops the credentials step", 
   assert.doesNotMatch(html, /Add credentials/);
 });
 
+test("add dialog shows the gateway sign-in form when no local agents were found", () => {
+  const html = render(createProviderDraft([]), { mode: "add" });
+  assert.match(html, /Sign in to a Claude apps gateway/);
+  assert.match(html, /Or sign in to your organization&#x27;s Claude apps gateway/);
+});
+
 test("credentials step returns after the import is replaced", () => {
   const draft = { ...createProviderDraft([]), apiKey: "", baseUrl: "https://gateway.example/v1" };
   const html = render(draft, { activeStep: "credentials", mode: "add" });

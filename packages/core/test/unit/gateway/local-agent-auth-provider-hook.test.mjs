@@ -3,6 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { claudeAppsGatewaySessionFile, persistClaudeAppsGatewaySession } from "@llmr/core/agents/claude-apps-gateway/session-store.ts";
 import { resetClaudeCodeAuthStateForTest } from "@llmr/core/agents/local-providers/claude-code.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
@@ -221,6 +222,97 @@ test("Claude Code local agent auth hook keeps the stored token after a transient
   });
 });
 
+test("Claude apps gateway hook swaps in a refreshed bearer token", async (t) => {
+  const gatewayUrl = "http://127.0.0.1:18091";
+  writeClaudeAppsGatewaySession(t, gatewayUrl, { accessToken: "expired", expiresAt: 1, refreshToken: "old" });
+  stubFetch(t, (url, init) => {
+    assert.equal(url, `${gatewayUrl}/oauth/token`);
+    assert.equal(String(init?.body), "grant_type=refresh_token&refresh_token=old");
+    return jsonResponse(200, { access_token: "fresh", expires_in: 3600 });
+  });
+
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin(gatewayUrl)] } }).providerHooks;
+  const result = await hook.authenticate({ model: "claude-sonnet-4-6", upstreamRequest: { headers: { "x-api-key": "client" }, method: "POST", url: `${gatewayUrl}/v1/messages` } });
+  assert.equal(result.ok, true);
+  assert.equal(result.value.headers.authorization, "Bearer fresh");
+  assert.equal(result.value.headers["x-api-key"], undefined);
+});
+
+test("Claude apps gateway hook fails the request when refresh is refused", async (t) => {
+  const gatewayUrl = "http://127.0.0.1:18092";
+  writeClaudeAppsGatewaySession(t, gatewayUrl, { accessToken: "expired", expiresAt: 1, refreshToken: "old" });
+  stubFetch(t, () => jsonResponse(401, { error: "invalid_grant" }));
+
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin(gatewayUrl)] } }).providerHooks;
+  const result = await hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: `${gatewayUrl}/v1/messages` } });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /sign in again/i);
+  assert.doesNotMatch(result.error, /stale|old|expired/);
+});
+
+test("Claude apps gateway hook keeps the stored token after a transient refresh failure", async (t) => {
+  const gatewayUrl = "http://127.0.0.1:18093";
+  writeClaudeAppsGatewaySession(t, gatewayUrl, { accessToken: "stored", expiresAt: Math.floor(Date.now() / 1000) + 30, refreshToken: "old" });
+  stubFetch(t, () => jsonResponse(503, { error: "unavailable" }));
+
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin(gatewayUrl)] } }).providerHooks;
+  const result = await hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: `${gatewayUrl}/v1/messages` } });
+  assert.equal(result.ok, true);
+  assert.equal(result.value.headers.authorization, "Bearer stored");
+});
+
+test("Claude apps gateway hook reports the refresh error instead of sending an expired token", async (t) => {
+  const gatewayUrl = "http://127.0.0.1:18097";
+  writeClaudeAppsGatewaySession(t, gatewayUrl, { accessToken: "expired", expiresAt: 1, refreshToken: "old" });
+  stubFetch(t, () => jsonResponse(503, { error: "unavailable" }));
+
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin(gatewayUrl)] } }).providerHooks;
+  const result = await hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: `${gatewayUrl}/v1/messages` } });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /could not be refreshed: .*HTTP 503/);
+});
+
+test("Claude apps gateway hook treats a deleted session file as signed out", async (t) => {
+  stubFetch(t, () => assert.fail("no session, no request"));
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin("http://127.0.0.1:18098")] } }).providerHooks;
+  const result = await hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: "http://127.0.0.1:18098/v1/messages" } });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /not found\. Sign in again/);
+});
+
+test("Claude apps gateway hook asks for a new sign-in when an expired session has no refresh token", async (t) => {
+  const gatewayUrl = "http://127.0.0.1:18096";
+  writeClaudeAppsGatewaySession(t, gatewayUrl, { accessToken: "expired", expiresAt: 1 });
+  stubFetch(t, () => assert.fail("nothing to refresh"));
+
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin(gatewayUrl)] } }).providerHooks;
+  const result = await hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: `${gatewayUrl}/v1/messages` } });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /sign in again/i);
+});
+
+test("Claude apps gateway hook rejects a malformed gateway URL without throwing", async () => {
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin("gw.example.com")] } }).providerHooks;
+  const result = await hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: "https://gw.example.com/v1/messages" } });
+  assert.equal(result.ok, false);
+});
+
+test("two Claude apps gateway plugins resolve their own sessions", async (t) => {
+  const first = "http://127.0.0.1:18094";
+  const second = "http://127.0.0.1:18095";
+  writeClaudeAppsGatewaySession(t, first, { accessToken: "first-token" });
+  writeClaudeAppsGatewaySession(t, second, { accessToken: "second-token" });
+  stubFetch(t, () => assert.fail("valid sessions need no refresh"));
+
+  const hooks = createGatewayPlugin({ config: { providerPlugins: [claudeAppsGatewayProviderPlugin(first, "a"), claudeAppsGatewayProviderPlugin(second, "b")] } }).providerHooks;
+  const [firstResult, secondResult] = await Promise.all(hooks.map((hook, index) =>
+    hook.authenticate({ upstreamRequest: { headers: {}, method: "POST", url: `${[first, second][index]}/v1/messages` } })
+  ));
+  assert.equal(firstResult.value.headers.authorization, "Bearer first-token");
+  assert.equal(secondResult.value.headers.authorization, "Bearer second-token");
+  assert.equal(isLocalAgentOauthProviderPlugin(claudeAppsGatewayProviderPlugin(first)), true);
+});
+
 test("Grok local agent request hook removes unsupported Responses tools and stale tool choice", () => {
   const [hook] = createGatewayPlugin({
     config: {
@@ -325,6 +417,39 @@ test("local agent OAuth plugin detector only matches managed OAuth imports", () 
     key: "external-grok-cli-oauth"
   }), false);
 });
+
+function claudeAppsGatewayProviderPlugin(gatewayUrl, providerName = "gw") {
+  return {
+    auth: { headers: { authorization: "Bearer stale" }, removeHeaders: ["x-api-key"], strict: true },
+    claudeAppsGateway: { url: gatewayUrl },
+    key: `llmr-local-agent-${providerName}-claude-apps-gateway-oauth`,
+    providerName
+  };
+}
+
+function writeClaudeAppsGatewaySession(t, gatewayUrl, fields) {
+  const sourceFile = claudeAppsGatewaySessionFile(gatewayUrl);
+  persistClaudeAppsGatewaySession({
+    expiresAt: Math.floor(Date.now() / 1000) + 3600,
+    gatewayUrl,
+    models: ["claude-sonnet-4-6"],
+    sourceFile,
+    ...fields
+  });
+  t.after(() => rmSync(sourceFile, { force: true }));
+}
+
+function stubFetch(t, handler) {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => handler(String(input), init);
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+  });
+}
+
+function jsonResponse(status, body) {
+  return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" }, status });
+}
 
 function grokOauthProviderPlugin() {
   return {

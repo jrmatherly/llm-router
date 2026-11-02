@@ -1,4 +1,17 @@
-import { ClaudeCodeRefreshAuthError, readClaudeCodeOauth, readGrokAuth, readKimiAuth, resolveClaudeCodeAuth, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
+import {
+  ClaudeAppsGatewayAuthError,
+  claudeAppsGatewaySessionExpired,
+  ClaudeCodeRefreshAuthError,
+  readClaudeAppsGatewaySession,
+  readClaudeCodeOauth,
+  readGrokAuth,
+  readKimiAuth,
+  resolveClaudeAppsGatewaySession,
+  resolveClaudeCodeAuth,
+  resolveGrokAuth,
+  resolveKimiAuth,
+  type ClaudeAppsGatewaySession
+} from "@llmr/core/agents/local-providers/service";
 import { applyOpenCodePublicFreeTierHeaders, isOpenCodePublicFreeTierPlugin, withOpenCodePublicFreeTierTools } from "@llmr/core/agents/local-providers/opencode-freetier";
 import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
 import { kimiAccessTokenExpired, kimiIdentityHeaders } from "@llmr/core/agents/local-providers/kimi";
@@ -45,7 +58,7 @@ type ProviderHook = {
   transformRequest?: (input: ProviderPluginInput) => Promise<ProviderHookResult> | ProviderHookResult;
 };
 
-type LocalAgentOauthKind = "claude-code" | "grok" | "kimi";
+type LocalAgentOauthKind = "claude-apps-gateway" | "claude-code" | "grok" | "kimi";
 
 export function createGatewayPlugin(input: { config?: Record<string, unknown>; plugin?: { config?: Record<string, unknown> } } = {}) {
   return {
@@ -108,6 +121,11 @@ function localAgentOauthProviderHook(plugin: unknown): ProviderHook | undefined 
     return hook;
   }
 
+  if (kind === "claude-apps-gateway") {
+    hook.authenticate = (input) => authenticateClaudeAppsGateway(input, plugin);
+    return hook;
+  }
+
   hook.authenticate = (input) => authenticateClaudeCode(input, plugin);
   return hook;
 }
@@ -116,6 +134,9 @@ function localAgentOauthKind(plugin: Record<string, unknown>): LocalAgentOauthKi
   const key = stringValue(plugin.key)?.toLowerCase();
   if (!key?.startsWith(localAgentProviderPluginKeyPrefix)) {
     return undefined;
+  }
+  if (key.includes("claude-apps-gateway-oauth")) {
+    return "claude-apps-gateway";
   }
   if (key.includes("grok-cli-oauth")) {
     return "grok";
@@ -176,6 +197,44 @@ async function authenticateClaudeCode(
     value: {
       ...input.upstreamRequest,
       headers
+    }
+  };
+}
+
+async function authenticateClaudeAppsGateway(
+  input: ProviderPluginInput,
+  plugin: Record<string, unknown>
+): Promise<ProviderHookResult> {
+  const url = isRecord(plugin.claudeAppsGateway) ? stringValue(plugin.claudeAppsGateway.url) : undefined;
+  if (!url || !URL.canParse(url)) {
+    return { error: "Claude apps gateway URL is missing from the provider plugin.", ok: false };
+  }
+  const signInAgain = "Claude apps gateway session ended. Sign in again from Providers, Add, Import local agent provider.";
+  let session: ClaudeAppsGatewaySession | undefined;
+  try {
+    session = await resolveClaudeAppsGatewaySession(url);
+  } catch (error) {
+    if (error instanceof ClaudeAppsGatewayAuthError) {
+      return { error: signInAgain, ok: false };
+    }
+    session = readClaudeAppsGatewaySession(url);
+    if (session && claudeAppsGatewaySessionExpired(session, undefined, 0)) {
+      return { error: `Claude apps gateway token could not be refreshed: ${error instanceof Error ? error.message : String(error)}`, ok: false };
+    }
+  }
+  // No session file means the developer signed out; the token baked in at import must not outlive that.
+  if (!session) {
+    return { error: "Claude apps gateway session was not found. Sign in again.", ok: false };
+  }
+  if (!session.refreshToken && claudeAppsGatewaySessionExpired(session, undefined, 0)) {
+    return { error: signInAgain, ok: false };
+  }
+  const token = session.accessToken;
+  return {
+    ok: true,
+    value: {
+      ...input.upstreamRequest,
+      headers: withBearerAuth(input.upstreamRequest.headers, token, originalRemoveHeaders(plugin))
     }
   };
 }

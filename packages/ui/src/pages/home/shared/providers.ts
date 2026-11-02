@@ -64,6 +64,7 @@ import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 import type { AddProviderDraft, AddRoutingRuleDraft, ModelCatalogItem, ProviderCredentialDraft, ProviderProbeCandidate, ProviderProbeCandidateResult, ProviderUsageFieldTarget, RoutingRewriteDraftRow, RoutingRuleRow, ViewId } from "./types";
 
 export const localAgentProviderIconUrls: Record<LocalAgentProviderKind, string> = {
+  "claude-apps-gateway": claudeCodeLogoUrl,
   "claude-code": claudeCodeLogoUrl,
   codex: codexLogoUrl,
   grok: grokLogoUrl,

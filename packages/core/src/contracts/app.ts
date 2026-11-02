@@ -450,7 +450,7 @@ export type ProviderManifestFetchResult = {
   url: string;
 };
 
-export type LocalAgentProviderKind = "claude-code" | "codex" | "grok" | "kimi" | "opencode" | "zcode";
+export type LocalAgentProviderKind = "claude-apps-gateway" | "claude-code" | "codex" | "grok" | "kimi" | "opencode" | "zcode";
 
 export type LocalAgentProviderStatus = "available" | "locked" | "missing";
 
@@ -1782,6 +1782,45 @@ export type BotGatewayQrLoginCancelRequest = {
 };
 
 export type BotGatewayQrLoginCancelResult = {
+  canceled: boolean;
+};
+
+export type ClaudeAppsGatewayLoginStartRequest = {
+  gatewayUrl: string;
+};
+
+export type ClaudeAppsGatewayLoginStartResult = {
+  expiresAt: string;
+  gatewayUrl: string;
+  intervalSeconds: number;
+  sessionId: string;
+  userCode: string;
+  verificationUri: string;
+  verificationUriComplete: string;
+};
+
+export type ClaudeAppsGatewayLoginWaitRequest = {
+  sessionId: string;
+  timeoutMs?: number;
+};
+
+export type ClaudeAppsGatewayLoginStatus = "canceled" | "confirmed" | "denied" | "expired" | "pending";
+
+export type ClaudeAppsGatewayLoginWaitResult = {
+  confirmed: boolean;
+  email?: string;
+  gatewayUrl: string;
+  message: string;
+  models: string[];
+  sessionId: string;
+  status: ClaudeAppsGatewayLoginStatus;
+};
+
+export type ClaudeAppsGatewayLoginCancelRequest = {
+  sessionId: string;
+};
+
+export type ClaudeAppsGatewayLoginCancelResult = {
   canceled: boolean;
 };
 

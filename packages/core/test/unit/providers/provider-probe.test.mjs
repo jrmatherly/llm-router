@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { claudeAppsGatewaySessionFile, persistClaudeAppsGatewaySession } from "@llmr/core/agents/claude-apps-gateway/session-store.ts";
 import {
   newApiKeyUsageFallbackMessageForTest,
   newApiKeyUsageMetersForTest,
@@ -446,6 +447,47 @@ test("connectivity probe applies provider plugin request transforms", async (t) 
   assert.equal(called, true);
   assert.equal(report.passed.length, 1);
   assert.equal(report.failed.length, 0);
+});
+
+test("connectivity probe uses the live Claude apps gateway session token", async (t) => {
+  const gatewayUrl = "http://127.0.0.1:49131";
+  const sourceFile = claudeAppsGatewaySessionFile(gatewayUrl);
+  persistClaudeAppsGatewaySession({
+    accessToken: "live-token",
+    expiresAt: Math.floor(Date.now() / 1000) + 3600,
+    gatewayUrl,
+    models: ["claude-sonnet-4-6"],
+    sourceFile
+  });
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (input, init) => {
+    const headers = new Headers(init?.headers);
+    calls.push({ authorization: headers.get("authorization"), pathname: new URL(String(input)).pathname, xApiKey: headers.get("x-api-key") });
+    return new Response(JSON.stringify({ id: "ok" }), { headers: { "content-type": "application/json" }, status: 200 });
+  };
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    fs.rmSync(sourceFile, { force: true });
+  });
+
+  const report = await checkGatewayProviderConnectivity({
+    apiKey: "llmr-local-agent-login",
+    candidates: [{ baseUrl: gatewayUrl, name: "Claude apps gateway", protocols: ["anthropic_messages"], source: "custom" }],
+    forceRefresh: true,
+    models: ["claude-sonnet-4-6"],
+    providerPlugins: [{
+      auth: { headers: { authorization: "Bearer baked-expired" }, removeHeaders: ["x-api-key"], strict: true },
+      claudeAppsGateway: { url: gatewayUrl },
+      key: "llmr-local-agent-gw-claude-apps-gateway-oauth",
+      providerName: "gw"
+    }],
+    protocols: ["anthropic_messages"]
+  });
+
+  assert.equal(report.passed.length, 1);
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every((call) => call.authorization === "Bearer live-token" && call.xApiKey === null), JSON.stringify(calls));
 });
 
 test("connectivity probe refreshes Codex OAuth plugin auth", async (t) => {

@@ -1,3 +1,4 @@
+import { ClaudeAppsGatewaySignInForm } from "./claude-apps-gateway-sign-in";
 import { useDraftClose } from "./unsaved-changes";
 import {
   AddProviderDraft, isLocalAgentLoginDraft, localAgentProviderApiKey, openExternalUrl, type ProviderSetupStepId, providerSetupStepsForDraft, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
@@ -1405,7 +1406,7 @@ function LocalAgentProviderImportPanel({
     };
   }, [mode, providerPlugins, providers, scanAttempt]);
 
-  if (mode !== "add" || (candidates.length === 0 && !error)) {
+  if (mode !== "add") {
     return null;
   }
 
@@ -1454,13 +1455,15 @@ function LocalAgentProviderImportPanel({
       <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate text-[12px] font-semibold text-foreground">Import local agent provider</div>
-          <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">LLMR scanned this computer for local Claude Code, Codex, Grok CLI, Kimi CLI, OpenCode CLI, and ZCode providers. Click Import to add one as a gateway provider.</div>
+          <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">LLMR scanned this computer for local Claude Code, Codex, Grok CLI, Kimi CLI, OpenCode CLI, and ZCode providers. Click Import to add one as a gateway provider. Or sign in to your organization's Claude apps gateway.</div>
         </div>
         <Button aria-label="Scan local providers again" disabled={loading || Boolean(importingId)} onClick={() => setScanAttempt((value) => value + 1)} size="sm" variant="outline">
           {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           Scan again
         </Button>
       </div>
+
+      <ClaudeAppsGatewaySignInForm onConfirmed={() => setScanAttempt((value) => value + 1)} />
 
       {candidates.length > 0 ? (
         <div className="grid grid-cols-1 gap-2">
@@ -1528,6 +1531,7 @@ function LocalAgentProviderImportPanel({
 }
 
 const localAgentProviderPluginSuffixes: Record<Exclude<LocalAgentProviderCandidate["kind"], "opencode">, string[]> = {
+  "claude-apps-gateway": ["-claude-apps-gateway-oauth", "-claude-apps-gateway-oauth-internal"],
   "claude-code": ["-claude-code-oauth", "-claude-code-oauth-internal"],
   codex: ["-codex-oauth", "-codex-oauth-internal"],
   grok: ["-grok-cli-oauth", "-grok-cli-oauth-internal"],
@@ -1576,9 +1580,20 @@ export function localAgentProviderAlreadyImported(
     return (
       key.startsWith("llmr-local-agent-") &&
       suffixes.some((suffix) => key.endsWith(suffix)) &&
-      localProviderNames.has(providerName.trim().toLowerCase())
+      localProviderNames.has(providerName.trim().toLowerCase()) &&
+      (candidate.kind !== "claude-apps-gateway" || claudeAppsGatewayPluginCandidateId(plugin) === candidate.id)
     );
   });
+}
+
+function claudeAppsGatewayPluginCandidateId(plugin: unknown): string | undefined {
+  const url = isPlainRecord(plugin) && isPlainRecord(plugin.claudeAppsGateway) ? plugin.claudeAppsGateway.url : undefined;
+  try {
+    // Mirrors claudeAppsGatewaySlug in core, which the renderer bundle cannot import.
+    return typeof url === "string" ? `claude-apps-gateway:${new URL(url).host.toLowerCase().replace(/[^a-z0-9.-]/g, "-")}` : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function ProviderSetupProgress({

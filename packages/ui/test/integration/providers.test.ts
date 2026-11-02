@@ -1699,6 +1699,26 @@ test("Zen and Go candidates use distinct local agent plugin suffixes", () => {
   assert.equal(localAgentProviderAlreadyImported(goCandidate, [zenProvider], [zenPlugin]), false);
 });
 
+test("an imported Claude apps gateway hides only its own host's candidate", () => {
+  const candidate = (host: string, slug: string) => ({
+    id: `claude-apps-gateway:${slug}`,
+    importable: true,
+    kind: "claude-apps-gateway" as const,
+    models: ["claude-sonnet-4-6"],
+    name: `Claude apps gateway (${host})`,
+    protocol: "anthropic_messages" as const,
+    status: "available" as const
+  });
+  const provider = { api_key: "llmr-local-agent-login", models: [], name: "Work gateway" };
+  const plugin = {
+    claudeAppsGateway: { url: "https://a.example.com" },
+    key: "llmr-local-agent-work-gateway-claude-apps-gateway-oauth",
+    providerName: "Work gateway"
+  };
+  assert.equal(localAgentProviderAlreadyImported(candidate("a.example.com", "a.example.com"), [provider], [plugin]), true);
+  assert.equal(localAgentProviderAlreadyImported(candidate("b.example.com:8443", "b.example.com-8443"), [provider], [plugin]), false);
+});
+
 test("provider probe models prefer the protocol-scoped list", () => {
   const probe = {
     models: ["chat-model", "responses-model"],

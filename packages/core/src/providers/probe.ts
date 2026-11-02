@@ -15,7 +15,7 @@ import type {
 import { codexDefaultBaseUrl, readCodexAuth } from "@llmr/core/agents/local-providers/codex";
 import { opencodeCatalogProtocolModelMap } from "@llmr/core/agents/local-providers/opencode";
 import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared";
-import { readClaudeCodeOauth, resolveClaudeCodeAuthOrStored } from "@llmr/core/agents/local-providers/service";
+import { readClaudeAppsGatewaySession, readClaudeCodeOauth, resolveClaudeAppsGatewaySession, resolveClaudeCodeAuthOrStored } from "@llmr/core/agents/local-providers/service";
 import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
 import { findProviderPresetByBaseUrl, providerApiKeySafetyIssue } from "@llmr/core/providers/presets/index";
 import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
@@ -978,11 +978,31 @@ async function providerProbeAuthRequest(
     }
   }
 
+  const gatewayUrl = localClaudeAppsGatewayProbeUrl(apiKey, providerPlugins);
+  if (gatewayUrl) {
+    const session = await resolveClaudeAppsGatewaySession(gatewayUrl).catch(() => readClaudeAppsGatewaySession(gatewayUrl));
+    if (session?.accessToken) {
+      const headers = new Headers(request.init.headers);
+      headers.set("authorization", `Bearer ${session.accessToken}`);
+      headers.delete("x-api-key");
+      request = { ...request, init: { ...request.init, headers } };
+    }
+  }
+
   return request;
 }
 
 function isLocalClaudeProbe(apiKey: string | undefined, providerPlugins: unknown[]): boolean {
   return apiKey === localAgentProviderApiKey && providerPlugins.some(isLocalClaudeCodeOauthProviderPlugin);
+}
+
+function localClaudeAppsGatewayProbeUrl(apiKey: string | undefined, providerPlugins: unknown[]): string | undefined {
+  if (apiKey !== localAgentProviderApiKey) return undefined;
+  for (const plugin of providerPlugins) {
+    const gateway = isRecord(plugin) && isRecord(plugin.claudeAppsGateway) ? plugin.claudeAppsGateway : undefined;
+    if (typeof gateway?.url === "string" && gateway.url) return gateway.url;
+  }
+  return undefined;
 }
 
 function providerProbeLiveCodexOauth(

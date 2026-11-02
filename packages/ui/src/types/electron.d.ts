@@ -31,6 +31,12 @@ import type {
   ChromeLoginImportJob,
   ChromeLoginImportRequest,
   ClaudeAppGatewayApplyResult,
+  ClaudeAppsGatewayLoginCancelRequest,
+  ClaudeAppsGatewayLoginCancelResult,
+  ClaudeAppsGatewayLoginStartRequest,
+  ClaudeAppsGatewayLoginStartResult,
+  ClaudeAppsGatewayLoginWaitRequest,
+  ClaudeAppsGatewayLoginWaitResult,
   GatewayMcpToolInfo,
   GatewayProviderConnectivityCheckReport,
   GatewayProviderConnectivityCheckRequest,
@@ -94,6 +100,7 @@ declare global {
       applyClaudeAppGateway: (config?: AppConfig) => Promise<ClaudeAppGatewayApplyResult>;
       applyProfile: () => Promise<ProfileApplyResult>;
       cancelBotGatewayQrLogin: (request: BotGatewayQrLoginCancelRequest) => Promise<BotGatewayQrLoginCancelResult>;
+      cancelClaudeAppsGatewayLogin: (request: ClaudeAppsGatewayLoginCancelRequest) => Promise<ClaudeAppsGatewayLoginCancelResult>;
       captureElementPng?: (request: AppCaptureElementPngRequest) => Promise<AppCaptureElementPngResult>;
       checkProviderConnectivity: (request: GatewayProviderConnectivityCheckRequest) => Promise<GatewayProviderConnectivityCheckReport>;
       closeBotGatewayQrWindow: (request: BotGatewayQrWindowCloseRequest) => Promise<BotGatewayQrWindowCloseResult>;
@@ -158,6 +165,7 @@ declare global {
       startChromeLoginImport?: (request: ChromeLoginImportRequest) => Promise<ChromeLoginImportJob>;
       startGateway: () => Promise<GatewayStatus>;
       startBotGatewayQrLogin: (request: BotGatewayQrLoginStartRequest) => Promise<BotGatewayQrLoginStartResult>;
+      startClaudeAppsGatewayLogin: (request: ClaudeAppsGatewayLoginStartRequest) => Promise<ClaudeAppsGatewayLoginStartResult>;
       stopGateway: () => Promise<GatewayStatus>;
       stopProfile: (request: ProfileOpenRequest) => Promise<ProfileStopResult>;
       scanBotHandoffBluetoothTargets: () => Promise<BotHandoffScanTarget[]>;
@@ -169,6 +177,7 @@ declare global {
       updateInstall: () => Promise<void>;
       validateRouteScript: (request: RouteScriptValidationRequest) => Promise<RouteScriptValidationResult>;
       waitBotGatewayQrLogin: (request: BotGatewayQrLoginWaitRequest) => Promise<BotGatewayQrLoginWaitResult>;
+      waitClaudeAppsGatewayLogin: (request: ClaudeAppsGatewayLoginWaitRequest) => Promise<ClaudeAppsGatewayLoginWaitResult>;
       onBeforeQuit: (callback: () => void) => () => void;
       onOpenSettingsRequest: (callback: () => void) => () => void;
       onOpenUpdateRequest: (callback: () => void) => () => void;
