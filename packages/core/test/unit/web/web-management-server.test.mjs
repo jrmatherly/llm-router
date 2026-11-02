@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { createRequire } from "node:module";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -188,26 +189,77 @@ test("startGateway reuses an already healthy LLMR gateway on the configured port
   }
 });
 
-test("closing the web service releases the global Claude Code takeover its gateway applied", async () => {
-  const settingsFile = await startWithStubbedGatewayAndClose(undefined);
-  const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
-  assert.equal(settings.env?.ANTHROPIC_BASE_URL, undefined);
-  assert.equal(settings.apiKeyHelper, undefined);
-  assert.equal(settings.theme, "dark");
+test("closing the web service releases the Claude Code takeover when no gateway still serves", async () => {
+  const { runtime, settingsFile, unstub } = await startWithStubbedGateway(await findAvailablePort());
+  try {
+    await runtime.close();
+  } finally {
+    unstub();
+  }
+  assertReleased(settingsFile);
 });
 
-test("closing the web service keeps the takeover when another process owns the gateway", async () => {
+test("closing the web service keeps the takeover while another LLMR gateway serves", async () => {
   const { restoreGlobalProfileConfigsOnExit } = await import("@llmr/core/profiles/service.ts");
+  const gatewayPort = await findAvailablePort();
+  const { runtime, settingsFile, unstub } = await startWithStubbedGateway(gatewayPort);
+  const otherGateway = createAnyKeyLlmrGateway();
   try {
-    const settingsFile = await startWithStubbedGatewayAndClose(true);
-    const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
-    assert.match(settings.env?.ANTHROPIC_BASE_URL ?? "", /^http:\/\/127\.0\.0\.1:/);
+    try {
+      await listen(otherGateway, gatewayPort);
+    } finally {
+      await runtime.close();
+      unstub();
+    }
+    assertTakenOver(settingsFile);
   } finally {
+    await closeServer(otherGateway);
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
   }
 });
 
-async function startWithStubbedGatewayAndClose(gatewayManagedExternally) {
+test("stopping the gateway over RPC releases the takeover when no gateway still serves", async () => {
+  const { runtime, settingsFile, unstub } = await startWithStubbedGateway(await findAvailablePort());
+  try {
+    const payload = await rpc(runtime.url, "test-web-auth-token", "stopGateway");
+    assert.equal(payload.ok, true);
+    assertReleased(settingsFile);
+  } finally {
+    unstub();
+    await runtime.close();
+  }
+});
+
+test("closing the web service releases the recorded takeovers when the config fails to load", async () => {
+  const { APP_CONFIG_DB_FILE } = await import("@llmr/core/config/constants.ts");
+  const { runtime, settingsFile, unstub } = await startWithStubbedGateway(await findAvailablePort());
+  const Database = createRequire(path.join(process.cwd(), "package.json"))("better-sqlite3");
+  const database = new Database(APP_CONFIG_DB_FILE);
+  const { value_json: savedConfig } = database.prepare("SELECT value_json FROM app_config WHERE key = 'default'").get();
+  try {
+    database.prepare("UPDATE app_config SET value_json = '{' WHERE key = 'default'").run();
+    await runtime.close();
+  } finally {
+    database.prepare("UPDATE app_config SET value_json = ? WHERE key = 'default'").run(savedConfig);
+    database.close();
+    unstub();
+  }
+  assertReleased(settingsFile);
+});
+
+function assertReleased(settingsFile) {
+  const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
+  assert.equal(settings.env?.ANTHROPIC_BASE_URL, undefined);
+  assert.equal(settings.apiKeyHelper, undefined);
+  assert.equal(settings.theme, "dark");
+}
+
+function assertTakenOver(settingsFile) {
+  const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
+  assert.match(settings.env?.ANTHROPIC_BASE_URL ?? "", /^http:\/\/127\.0\.0\.1:/);
+}
+
+async function startWithStubbedGateway(gatewayPort) {
   const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
   const { gatewayService } = await import("@llmr/core/gateway/service.ts");
   const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
@@ -215,6 +267,7 @@ async function startWithStubbedGatewayAndClose(gatewayManagedExternally) {
   mkdirSync(path.dirname(settingsFile), { recursive: true });
   writeFileSync(settingsFile, `${JSON.stringify({ theme: "dark" }, null, 2)}\n`);
   const config = await loadAppConfig();
+  config.gateway.port = gatewayPort;
   config.Providers = [{
     api_base_url: "http://127.0.0.1:9/v1",
     api_key: "test-provider-key",
@@ -238,7 +291,7 @@ async function startWithStubbedGatewayAndClose(gatewayManagedExternally) {
   await saveAppConfig(config);
 
   const original = { ensureStarted: gatewayService.ensureStarted, getStatus: gatewayService.getStatus, stop: gatewayService.stop };
-  const running = { endpoint: `http://127.0.0.1:${config.gateway.port}`, gatewayManagedExternally, state: "running" };
+  const running = { endpoint: `http://127.0.0.1:${gatewayPort}`, state: "running" };
   let status = running;
   gatewayService.ensureStarted = async () => running;
   gatewayService.getStatus = () => status;
@@ -246,15 +299,30 @@ async function startWithStubbedGatewayAndClose(gatewayManagedExternally) {
     status = { state: "stopped" };
     return status;
   };
+  const unstub = () => Object.assign(gatewayService, original);
   try {
     const runtime = await startWebManagementServer({ authToken: "test-web-auth-token", host: "127.0.0.1", port: 0 });
-    const applied = JSON.parse(readFileSync(settingsFile, "utf8"));
-    assert.match(applied.env?.ANTHROPIC_BASE_URL ?? "", /^http:\/\/127\.0\.0\.1:/, "the takeover should apply while the gateway runs");
-    await runtime.close();
-  } finally {
-    Object.assign(gatewayService, original);
+    assertTakenOver(settingsFile);
+    return { runtime, settingsFile, unstub };
+  } catch (error) {
+    unstub();
+    throw error;
   }
-  return settingsFile;
+}
+
+function createAnyKeyLlmrGateway() {
+  return createServer((request, response) => {
+    const url = new URL(request.url || "/", "http://127.0.0.1");
+    if (url.pathname === "/health") {
+      sendJson(response, 200, { core: "http://127.0.0.1:3457", status: "running", timestamp: new Date().toISOString() });
+      return;
+    }
+    if (url.pathname === "/v1/models" && request.headers.authorization) {
+      sendJson(response, 200, { data: [], object: "list" });
+      return;
+    }
+    sendJson(response, 404, { error: { message: "Not found." } });
+  });
 }
 
 async function rpc(baseUrl, authToken, method, args = []) {
