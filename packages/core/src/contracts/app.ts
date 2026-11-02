@@ -1491,6 +1491,7 @@ export type ProfileConfig = {
   botConfigId?: string;
   botGateway?: BotGatewayRuntimeConfig;
   claudeAppTakeover?: boolean;
+  claudeCodeSharedHome?: boolean;
   configFile?: string;
   cliMiddleware?: boolean;
   claudeSettings?: Record<string, unknown>;
@@ -1539,6 +1540,12 @@ export function isEnabledGlobalProfile(profile: Pick<ProfileConfig, "enabled" | 
 // other profiles get their config in the per-profile data dir LLMR launches with.
 export function claudeAppTakesOverDirectLaunches(profile: Pick<ProfileConfig, "agent" | "claudeAppTakeover" | "enabled" | "surface">): boolean {
   return profile.enabled && profile.agent === "claude-code" && profile.surface !== "cli" && profile.claudeAppTakeover === true;
+}
+
+// A shared-home launch keeps the user's own ~/.claude and passes LLMR's settings with --settings.
+// Global scope already writes that home, so the flag only applies to generated scopes.
+export function claudeCodeUsesSharedHome(profile: Pick<ProfileConfig, "agent" | "claudeCodeSharedHome" | "scope">): boolean {
+  return profile.agent === "claude-code" && profile.claudeCodeSharedHome === true && normalizeProfileScopeValue(profile.scope) !== "global";
 }
 
 export function enforceSingleEnabledGlobalProfilePerAgent(

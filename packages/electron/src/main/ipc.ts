@@ -42,7 +42,7 @@ import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
 import { applyProfileConfig, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
-import { desktopCliCommandName, getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
+import { desktopCliCommandName, getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, openProfileInTerminal, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
 import { proxyService } from "@llmr/core/proxy/service";
@@ -195,6 +195,9 @@ ipcMain.handle(IPC_CHANNELS.appOpenExternal, async (_event, url: string) => {
 ipcMain.handle(IPC_CHANNELS.appOpenProfile, async (_event, request: ProfileOpenRequest) => {
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
   return openProfileFromLlmr(syncedClaudeAppConfig.config, request);
+});
+ipcMain.handle(IPC_CHANNELS.appOpenProfileInTerminal, async (_event, request: ProfileOpenRequest) => {
+  return openProfileInTerminal(await loadAppConfig(), request);
 });
 ipcMain.handle(IPC_CHANNELS.appApplyClaudeAppGateway, async (_event, config?: AppConfig) => {
   const previousConfig = await loadAppConfig();

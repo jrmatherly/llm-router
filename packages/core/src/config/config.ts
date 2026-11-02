@@ -3283,6 +3283,7 @@ function parseProfiles(value: unknown): ProfileConfig[] | undefined {
           ...(botConfigId ? { botConfigId } : {}),
           ...(botGateway ? { botGateway } : {}),
           ...(item.claudeAppTakeover === true ? { claudeAppTakeover: true } : {}),
+          ...(item.claudeCodeSharedHome === true ? { claudeCodeSharedHome: true } : {}),
           ...(claudeSettings ? { claudeSettings } : {}),
           enabled,
           env: claudeCodeProfileEnv(env),

@@ -160,6 +160,17 @@ test("Grok and Kimi CLI start a temporary LLMR gateway when none is already runn
   assert.equal(shouldAutoStartProfileGateway(claudeProfile, "app"), false);
 });
 
+test("a shared-home Claude Code launch keeps the user's config dir and passes the generated settings file", () => {
+  const configDir = path.join(path.sep, "tmp", "llmr-config");
+  const shared = buildProfileLaunchPlan(configDir, { ...claudeProfile, claudeCodeSharedHome: true }, "cli");
+  assert.equal(shared.env.CLAUDE_CONFIG_DIR, undefined);
+  assert.equal(shared.env.LLMR_CLAUDE_CODE_SETTINGS_FILE, path.join(configDir, "profiles", "claude-main", "claude", "settings.json"));
+
+  const global = buildProfileLaunchPlan(configDir, { ...claudeProfile, claudeCodeSharedHome: true, scope: "global" }, "cli");
+  assert.equal(global.env.LLMR_CLAUDE_CODE_SETTINGS_FILE, undefined);
+  assert.ok(global.env.CLAUDE_CONFIG_DIR);
+});
+
 test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
   const configDir = path.join(path.sep, "tmp", "llmr-config");
   const codexPlan = buildProfileLaunchPlan(configDir, codexProfile, "app");

@@ -393,6 +393,7 @@ export function ProfileOpenDialog({
   mode,
   onChooseApp,
   onClose,
+  onOpenTerminal,
   onStopApp,
   profile
 }: {
@@ -403,6 +404,7 @@ export function ProfileOpenDialog({
   mode: "choose" | "cli";
   onChooseApp: () => void;
   onClose: () => void;
+  onOpenTerminal?: () => void;
   onStopApp: () => void;
   profile: ProfileConfig;
 }) {
@@ -459,17 +461,21 @@ export function ProfileOpenDialog({
               <div className="space-y-3">
                 {surfaces.includes("cli") ? (
                   <ProfileCliCommandBlock
+                    busy={busy === "cli"}
                     command={command}
                     copied={copied}
                     onCopy={() => void copyCommand()}
+                    onOpenTerminal={onOpenTerminal}
                   />
                 ) : null}
               </div>
             ) : (
               <ProfileCliCommandBlock
+                busy={busy === "cli"}
                 command={command}
                 copied={copied}
                 onCopy={() => void copyCommand()}
+                onOpenTerminal={onOpenTerminal}
               />
             )}
             {error ? (
@@ -508,13 +514,17 @@ function ProfileActionTooltip({
 }
 
 function ProfileCliCommandBlock({
+  busy,
   command,
   copied,
-  onCopy
+  onCopy,
+  onOpenTerminal
 }: {
+  busy: boolean;
   command?: string;
   copied: boolean;
   onCopy: () => void;
+  onOpenTerminal?: () => void;
 }) {
   return (
     <div className="space-y-2">
@@ -528,6 +538,12 @@ function ProfileCliCommandBlock({
 	            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
 	          </AnimatedIconSwap>
         </Button>
+        {onOpenTerminal ? (
+          <Button className="shrink-0" disabled={!command || busy} onClick={onOpenTerminal} size="sm" type="button" variant="outline">
+            {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Terminal className="h-4 w-4" />}
+            Open in Terminal
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -851,6 +867,15 @@ export function AddProfileForm({
               <Toggle ariaLabel="Route Claude App launched outside LLMR through LLMR" checked={draft.claudeAppTakeover} onChange={(claudeAppTakeover) => onChange({ claudeAppTakeover })} />
             </div>
             <p className="text-[12px] text-muted-foreground">Also applies to launches from the Dock or an account switcher. Claude App then opens in third-party mode, signed out of claude.ai. Only one profile can have this on.</p>
+          </div>
+        ) : null}
+        {draft.agent === "claude-code" && draft.surface !== "app" && draft.scope !== "global" ? (
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
+              <span className="text-[12px] font-medium">Use my ~/.claude in the terminal</span>
+              <Toggle ariaLabel="Use my ~/.claude in the terminal" checked={draft.claudeCodeSharedHome} onChange={(claudeCodeSharedHome) => onChange({ claudeCodeSharedHome })} />
+            </div>
+            <p className="text-[12px] text-muted-foreground">Claude Code keeps your login, history, plugins and settings, and LLMR passes its gateway settings for each launch. LLMR does not write your settings.json.</p>
           </div>
         ) : null}
         {draft.agent === "claude-code" ? (

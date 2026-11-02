@@ -24,6 +24,7 @@ const CONFIG_DIR = resolveConfigDir();
 const LOG_PATH = process.env.LLMR_CODEX_CLI_MIDDLEWARE_LOG || "";
 const CLAUDE_CODE_MCP_CONFIG_ENV = "LLMR_CLAUDE_CODE_MCP_CONFIG";
 const CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV = "CODEXL_CLAUDE_CODE_MCP_CONFIG";
+const CLAUDE_CODE_SETTINGS_FILE_ENV = "LLMR_CLAUDE_CODE_SETTINGS_FILE";
 const CLAUDE_CODE_CHINA_TIME_ZONES = new Set([
   "asia/chongqing",
   "asia/chungking",
@@ -164,7 +165,8 @@ async function runClaudeCodeCliWrapper(args) {
   const injectRemoteStdin = boolEnv("LLMR_REMOTE_SYNC_INJECT_STDIN");
   const child = spawnAgentCli(realCli, realArgs, {
     env: {
-      ...withoutKeys(process.env, ["LLMR_CLAUDE_CODE_WRAPPER", "LLMR_REAL_CLAUDE_CODE_BIN"]),
+      // The settings file belongs to this launch only; a nested llmr launch must not inherit it.
+      ...withoutKeys(process.env, ["LLMR_CLAUDE_CODE_WRAPPER", "LLMR_REAL_CLAUDE_CODE_BIN", CLAUDE_CODE_SETTINGS_FILE_ENV]),
       ...claudeCodeUtcTimezoneEnvOverride()
     },
     stdio: [injectRemoteStdin ? "pipe" : "inherit", captureStdout ? "pipe" : "inherit", "inherit"]
@@ -215,24 +217,31 @@ async function runClaudeCodeCliWrapper(args) {
 function claudeCodeCliWrapperArgs(args) {
   // Keep the profile model as an environment default. Promoting it to an
   // explicit startup argument can prevent /model from controlling the session.
-  return claudeCodeArgsWithMcpConfig(args, process.env);
+  return claudeCodeArgsWithSettingsFile(claudeCodeArgsWithMcpConfig(args, process.env), process.env);
+}
+
+function claudeCodeArgsWithSettingsFile(args, env) {
+  const settingsFile = nonEmptyEnvFrom(env, CLAUDE_CODE_SETTINGS_FILE_ENV);
+  if (!settingsFile || claudeCodeArgsShouldSkipModelInjection(args)) {
+    return args;
+  }
+  if (claudeCodeArgsHaveFlag(args, "--settings")) {
+    process.stderr.write("LLMR: your --settings replaces LLMR's gateway settings for this launch.\n");
+    return args;
+  }
+  return ["--settings", settingsFile, ...args];
+}
+
+function claudeCodeArgsHaveFlag(args, flag) {
+  return args.some((arg) => arg === flag || arg.startsWith(flag + "="));
 }
 
 function claudeCodeArgsWithMcpConfig(args, env) {
   const mcpConfig = nonEmptyEnvFrom(env, CLAUDE_CODE_MCP_CONFIG_ENV) || nonEmptyEnvFrom(env, CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV);
-  if (!mcpConfig || claudeCodeArgsHaveMcpConfig(args) || claudeCodeArgsShouldSkipModelInjection(args)) {
+  if (!mcpConfig || claudeCodeArgsHaveFlag(args, "--mcp-config") || claudeCodeArgsShouldSkipModelInjection(args)) {
     return args;
   }
   return ["--mcp-config", mcpConfig, ...args];
-}
-
-function claudeCodeArgsHaveMcpConfig(args) {
-  for (const arg of args) {
-    if (arg === "--mcp-config" || arg.startsWith("--mcp-config=")) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function claudeCodeArgsShouldSkipModelInjection(args) {

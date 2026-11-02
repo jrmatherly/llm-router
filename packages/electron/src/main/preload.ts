@@ -155,6 +155,7 @@ contextBridge.exposeInMainWorld("llmr", {
   openExternal: (url: string) => invoke(IPC_CHANNELS.appOpenExternal, url) as Promise<void>,
   openPluginApp: (pluginId: string, appId?: string) => invoke(IPC_CHANNELS.appOpenPluginApp, pluginId, appId) as Promise<void>,
   openProfile: (request: ProfileOpenRequest) => invoke(IPC_CHANNELS.appOpenProfile, request) as Promise<ProfileOpenResult>,
+  openProfileInTerminal: (request: ProfileOpenRequest) => invoke(IPC_CHANNELS.appOpenProfileInTerminal, request) as Promise<ProfileOpenResult>,
   prepareImageExportTarget: (request: AppImageExportTargetRequest) => invoke(IPC_CHANNELS.appPrepareImageExportTarget, request) as Promise<AppImageExportTargetResult>,
   probeLocalAgentProvider: (request: LocalAgentProviderProbeRequest) => invoke(IPC_CHANNELS.appProbeLocalAgentProvider, request) as Promise<LocalAgentProviderProbeResult>,
   probeProviderCandidates: (request: GatewayProviderProbeCandidatesRequest) => invoke(IPC_CHANNELS.appProbeProviderCandidates, request) as Promise<GatewayProviderProbeCandidateResult | undefined>,

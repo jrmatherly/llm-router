@@ -1,16 +1,18 @@
 import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readlinkSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, availableGatewayModelIds, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
+import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, availableGatewayModelIds, claudeCodeUsesSharedHome, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
 import { CLAUDE_CODE_AUTH_MODE_ENV, resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
 import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@llmr/core/agents/claude-code/gateway-login-policy";
 import { appConfigLoadError, loadAppConfig } from "@llmr/core/config/config";
 import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import {
+  CLAUDE_CODE_MANAGED_MODEL_ENV_KEYS,
   CLAUDE_CODE_MCP_CONFIG_ENV,
   CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV,
   type ClaudeCodeModelSelection,
+  claudeCodeHomeEnv,
   claudeCodeModelEnv,
   claudeCodeMcpConfigEnv,
   claudeCodeUtcTimezoneEnvOverride,
@@ -412,7 +414,12 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     return restoreDisabledGlobalProfile(profile, settingsFile, "Claude Code profile is disabled.", claudeCodeManagedContent(profile));
   }
 
-  const gatewayPolicy = readClaudeCodeGatewayLoginPolicy([...claudeCodeManagedSettingsFiles(), settingsFile]);
+  const sharedHome = claudeCodeUsesSharedHome(profile);
+  const gatewayPolicy = readClaudeCodeGatewayLoginPolicy([
+    ...claudeCodeManagedSettingsFiles(),
+    settingsFile,
+    ...(sharedHome ? [path.join(process.env.CLAUDE_CONFIG_DIR?.trim() || resolveUserPath("~/.claude"), "settings.json")] : [])
+  ]);
   if (gatewayPolicy) {
     return refusedProfileStatus(profile, settingsFile, `Claude Code on this machine is pinned to a Claude apps gateway by ${gatewayPolicy.key} in ${gatewayPolicy.file}. LLMR did not change ${settingsFile}; sign Claude Code in to the gateway, or point the gateway's upstream at LLMR instead.`);
   }
@@ -477,6 +484,12 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     const wifResult = writeClaudeCodeWifIdentityToken(profile, token);
     const wifEnv = authMode === "wif" ? claudeCodeWifEnv(wifResult.file) : {};
     Object.assign(env, mcpConfigEnv, timezoneEnv, wifEnv);
+    if (sharedHome) {
+      // The user's settings sit under --settings, so a key LLMR leaves unset needs a blank value to cancel theirs.
+      for (const key of [...claudeCodeFirstPartyProviderEnvKeys, ...claudeCodeWifEnvKeys, ...CLAUDE_CODE_MANAGED_MODEL_ENV_KEYS]) {
+        env[key] ??= "";
+      }
+    }
 
     const helperResult = authMode === "api-key-helper" ? writeClaudeCodeApiKeyHelper(profile, token) : undefined;
     const legacyApiKeyHelperCleanupResult = authMode === "wif"
@@ -1698,7 +1711,6 @@ function claudeCodeWrapperShellScript(
   const realClaude = profile.env?.LLMR_CLAUDE_CODE_BIN?.trim() || "claude";
   const surface = normalizeProfileSurface(profile.surface);
   const remoteEndpoint = `${gatewayEndpoint(config)}/__llmr/remote`;
-  const settingsDir = path.dirname(resolveClaudeCodeSettingsFile(profile));
   const envExports = Object.entries(profileEnv(profile))
     .filter(([key]) => key !== "LLMR_CLAUDE_CODE_BIN" && !isClaudeCodeManagedModelEnvKey(key) && !isClaudeCodeFirstPartyProviderEnvKey(key) && !isClaudeCodeWifEnvKey(key))
     .map(([key, value]) => `export ${key}=${shellQuote(value)}`);
@@ -1707,7 +1719,7 @@ function claudeCodeWrapperShellScript(
     "#!/bin/sh",
     ...envExports,
     ...claudeCodeFirstPartyProviderEnvKeys.map((key) => `unset ${key}`),
-    ...shellEnvExports(claudeCodeRuntimeEnv(config, profile, settingsDir, auth.wifIdentityTokenFile)),
+    ...shellEnvExports(claudeCodeRuntimeEnv(config, profile, auth.wifIdentityTokenFile)),
     ...shellEnvExports(claudeCodeMcpConfigEnv(mcpConfigFile)),
     ...shellEnvExports(claudeCodeUtcTimezoneEnvOverride()),
     `: "\${LLMR_PROFILE_SURFACE:=${surface}}"`,
@@ -1737,7 +1749,6 @@ function claudeCodeWrapperCmdScript(
   const realClaude = profile.env?.LLMR_CLAUDE_CODE_BIN?.trim() || "claude";
   const surface = normalizeProfileSurface(profile.surface);
   const remoteEndpoint = `${gatewayEndpoint(config)}/__llmr/remote`;
-  const settingsDir = path.dirname(resolveClaudeCodeSettingsFile(profile));
   const envExports = Object.entries(profileEnv(profile))
     .filter(([key]) => key !== "LLMR_CLAUDE_CODE_BIN" && !isClaudeCodeManagedModelEnvKey(key) && !isClaudeCodeFirstPartyProviderEnvKey(key) && !isClaudeCodeWifEnvKey(key))
     .map(([key, value]) => cmdSetLine(key, value));
@@ -1746,7 +1757,7 @@ function claudeCodeWrapperCmdScript(
     "@echo off",
     ...envExports,
     ...claudeCodeFirstPartyProviderEnvKeys.map((key) => cmdSetLine(key, "")),
-    ...cmdEnvExports(claudeCodeRuntimeEnv(config, profile, settingsDir, auth.wifIdentityTokenFile)),
+    ...cmdEnvExports(claudeCodeRuntimeEnv(config, profile, auth.wifIdentityTokenFile)),
     ...cmdEnvExports(claudeCodeMcpConfigEnv(mcpConfigFile)),
     ...cmdEnvExports(claudeCodeUtcTimezoneEnvOverride()),
     `if not defined LLMR_PROFILE_SURFACE ${cmdSetLine("LLMR_PROFILE_SURFACE", surface)}`,
@@ -2690,13 +2701,13 @@ function writeCodexCliMiddleware(
   };
 }
 
-function claudeCodeRuntimeEnv(config: AppConfig, profile: ProfileConfig, settingsDir: string, wifIdentityTokenFile?: string): Record<string, string> {
+function claudeCodeRuntimeEnv(config: AppConfig, profile: ProfileConfig, wifIdentityTokenFile?: string): Record<string, string> {
   const endpoint = gatewayEndpoint(config);
   const env: Record<string, string> = {
     ANTHROPIC_API_BASE_URL: endpoint,
     ANTHROPIC_BASE_URL: endpoint,
     CLAUDE_AGENT_API_BASE_URL: endpoint,
-    CLAUDE_CONFIG_DIR: settingsDir
+    ...claudeCodeHomeEnv(profile, resolveClaudeCodeSettingsFile(profile))
   };
   if (wifIdentityTokenFile) {
     Object.assign(env, claudeCodeWifEnv(wifIdentityTokenFile));
