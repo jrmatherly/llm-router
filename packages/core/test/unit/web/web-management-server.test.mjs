@@ -99,6 +99,21 @@ test("web RPC ignores Origin and Referer when the auth token is valid", async ()
   }
 });
 
+test("web RPC routes the Claude apps gateway login triplet", async () => {
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const authToken = "test-web-auth-token";
+  const runtime = await startWebManagementServer({ authToken, host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    const payload = await rpc(runtime.url, authToken, "cancelClaudeAppsGatewayLogin", [{ sessionId: "nope" }]);
+    assert.equal(payload.ok, true);
+    assert.deepEqual(payload.value, { canceled: false });
+    const wait = await rpc(runtime.url, authToken, "waitClaudeAppsGatewayLogin", [{ sessionId: "nope", timeoutMs: 10 }]);
+    assert.equal(wait.value.status, "canceled");
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("startGateway reuses an already healthy LLMR gateway on the configured port", async () => {
   const { saveAppConfig } = await import("@llmr/core/config/config.ts");
   const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");

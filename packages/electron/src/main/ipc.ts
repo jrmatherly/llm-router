@@ -7,6 +7,7 @@ import { loadOnboardingFinished, markOnboardingFinished } from "@llmr/core/confi
 import { builtInBrowserService } from "./built-in-browser";
 import { scanBotHandoffBluetoothTargets, scanBotHandoffWifiTargets } from "@llmr/core/agents/bot-gateway/handoff-scan-service";
 import { cancelBotGatewayQrLogin, startBotGatewayQrLogin, waitBotGatewayQrLogin } from "@llmr/core/agents/bot-gateway/qr-login-service";
+import { cancelClaudeAppsGatewayLogin, startClaudeAppsGatewayLogin, waitClaudeAppsGatewayLogin } from "@llmr/core/agents/claude-apps-gateway/device-login-service";
 import { closeBotGatewayQrWindow, openBotGatewayQrWindow } from "./bot-gateway-qr-window-service";
 import { syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
 import { getAppInfoPaths } from "@llmr/core/agents/app-info-paths";
@@ -53,7 +54,7 @@ import { getUsageStats, resetOverviewStatistics } from "@llmr/core/usage/store";
 import { applyNativeThemePreference } from "./native-theme";
 import { registerProviderAccountWebContentFetchHandler } from "./provider-account-webcontent";
 import windowsManager from "./windows";
-import { GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, type AgentAnalysisFilter, type AgentAnalysisTracePayloadRequest, type ApiKeyConfig, type AppCaptureElementPngRequest, type AppCaptureElementPngResult, type AppConfig, type AppDataExportResult, type AppImageExportTargetRequest, type AppImageExportTargetResult, type AppInfo, type AppRenderHtmlPngRequest, type AppRenderHtmlPngResult, type AppSaveConfigOptions, type BotGatewayQrLoginCancelRequest, type BotGatewayQrLoginStartRequest, type BotGatewayQrLoginWaitRequest, type BotGatewayQrWindowCloseRequest, type BotGatewayQrWindowOpenRequest, type ChromeLoginImportRequest, type GatewayPluginAppConfig, type GatewayPluginPermission, type GatewayPluginSurface, type GatewayProviderConnectivityCheckRequest, type GatewayProviderProbeCandidatesRequest, type GatewayProviderProbeRequest, type GatewayStatus, type LocalAgentProviderImportRequest, type OpenRouterProviderCatalogRequest, type PluginDependency, type PluginDirectorySelection, type ProfileApplyResult, type ProfileOpenRequest, type ProviderAccountResetRequest, type ProviderAccountSnapshotRequestOptions, type ProviderAccountTestRequest, type ProviderCatalogModelsRequest, type ProviderIconDetectionRequest, type ProviderManifestFetchRequest, type RequestLogListFilter, type RouteScriptTestRequest, type RouteScriptValidationRequest, type UsageStatsFilter, type UsageStatsRange } from "@llmr/core/contracts/app";
+import { GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, type AgentAnalysisFilter, type AgentAnalysisTracePayloadRequest, type ApiKeyConfig, type AppCaptureElementPngRequest, type AppCaptureElementPngResult, type AppConfig, type AppDataExportResult, type AppImageExportTargetRequest, type AppImageExportTargetResult, type AppInfo, type AppRenderHtmlPngRequest, type AppRenderHtmlPngResult, type AppSaveConfigOptions, type BotGatewayQrLoginCancelRequest, type BotGatewayQrLoginStartRequest, type BotGatewayQrLoginWaitRequest, type BotGatewayQrWindowCloseRequest, type BotGatewayQrWindowOpenRequest, type ChromeLoginImportRequest, type ClaudeAppsGatewayLoginCancelRequest, type ClaudeAppsGatewayLoginStartRequest, type ClaudeAppsGatewayLoginWaitRequest, type GatewayPluginAppConfig, type GatewayPluginPermission, type GatewayPluginSurface, type GatewayProviderConnectivityCheckRequest, type GatewayProviderProbeCandidatesRequest, type GatewayProviderProbeRequest, type GatewayStatus, type LocalAgentProviderImportRequest, type OpenRouterProviderCatalogRequest, type PluginDependency, type PluginDirectorySelection, type ProfileApplyResult, type ProfileOpenRequest, type ProviderAccountResetRequest, type ProviderAccountSnapshotRequestOptions, type ProviderAccountTestRequest, type ProviderCatalogModelsRequest, type ProviderIconDetectionRequest, type ProviderManifestFetchRequest, type RequestLogListFilter, type RouteScriptTestRequest, type RouteScriptValidationRequest, type UsageStatsFilter, type UsageStatsRange } from "@llmr/core/contracts/app";
 const imageExportTargets = new Map<string, string>();
 const gatewayPluginPermissionIdSet = new Set<string>(GATEWAY_PLUGIN_PERMISSION_IDS);
 const gatewayPluginSurfaceIdSet = new Set<string>(GATEWAY_PLUGIN_SURFACE_IDS);
@@ -242,6 +243,15 @@ ipcMain.handle(IPC_CHANNELS.appBotGatewayQrLoginWait, (_event, request: BotGatew
 });
 ipcMain.handle(IPC_CHANNELS.appBotGatewayQrLoginCancel, (_event, request: BotGatewayQrLoginCancelRequest) => {
   return cancelBotGatewayQrLogin(request);
+});
+ipcMain.handle(IPC_CHANNELS.appClaudeAppsGatewayLoginStart, (_event, request: ClaudeAppsGatewayLoginStartRequest) => {
+  return startClaudeAppsGatewayLogin(request);
+});
+ipcMain.handle(IPC_CHANNELS.appClaudeAppsGatewayLoginWait, (_event, request: ClaudeAppsGatewayLoginWaitRequest) => {
+  return waitClaudeAppsGatewayLogin(request);
+});
+ipcMain.handle(IPC_CHANNELS.appClaudeAppsGatewayLoginCancel, (_event, request: ClaudeAppsGatewayLoginCancelRequest) => {
+  return cancelClaudeAppsGatewayLogin(request);
 });
 ipcMain.handle(IPC_CHANNELS.appBotGatewayQrWindowOpen, (_event, request: BotGatewayQrWindowOpenRequest) => {
   return openBotGatewayQrWindow(request);

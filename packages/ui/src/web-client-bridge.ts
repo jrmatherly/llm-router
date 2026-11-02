@@ -108,6 +108,7 @@ const webClientBridge: LlmrApi = {
   applyClaudeAppGateway: (config) => rpc("applyClaudeAppGateway", [config]) as ReturnType<LlmrApi["applyClaudeAppGateway"]>,
   applyProfile: () => rpc("applyProfile") as ReturnType<LlmrApi["applyProfile"]>,
   cancelBotGatewayQrLogin: (request) => rpc("cancelBotGatewayQrLogin", [request]) as ReturnType<LlmrApi["cancelBotGatewayQrLogin"]>,
+  cancelClaudeAppsGatewayLogin: (request) => rpc("cancelClaudeAppsGatewayLogin", [request]) as ReturnType<LlmrApi["cancelClaudeAppsGatewayLogin"]>,
   checkProviderConnectivity: (request) => rpc("checkProviderConnectivity", [request]) as ReturnType<LlmrApi["checkProviderConnectivity"]>,
   clearProxyNetworkCaptures: () => rpc("clearProxyNetworkCaptures") as ReturnType<LlmrApi["clearProxyNetworkCaptures"]>,
   closeBotGatewayQrWindow: (request) => rpc("closeBotGatewayQrWindow", [request]) as ReturnType<LlmrApi["closeBotGatewayQrWindow"]>,
@@ -171,6 +172,7 @@ const webClientBridge: LlmrApi = {
   setTrayDetailOpen: () => Promise.resolve(),
   showMainWindow: () => Promise.resolve(),
   startBotGatewayQrLogin: (request) => rpc("startBotGatewayQrLogin", [request]) as ReturnType<LlmrApi["startBotGatewayQrLogin"]>,
+  startClaudeAppsGatewayLogin: (request) => rpc("startClaudeAppsGatewayLogin", [request]) as ReturnType<LlmrApi["startClaudeAppsGatewayLogin"]>,
   startGateway: () => rpc("startGateway") as ReturnType<LlmrApi["startGateway"]>,
   stopGateway: () => rpc("stopGateway") as ReturnType<LlmrApi["stopGateway"]>,
   stopProfile: (request) => rpc("stopProfile", [request]) as ReturnType<LlmrApi["stopProfile"]>,
@@ -180,7 +182,8 @@ const webClientBridge: LlmrApi = {
   updateDownload: () => rpc("updateDownload") as ReturnType<LlmrApi["updateDownload"]>,
   updateInstall: () => rpc("updateInstall") as ReturnType<LlmrApi["updateInstall"]>,
   validateRouteScript: (request) => rpc("validateRouteScript", [request]) as ReturnType<LlmrApi["validateRouteScript"]>,
-  waitBotGatewayQrLogin: (request) => rpc("waitBotGatewayQrLogin", [request]) as ReturnType<LlmrApi["waitBotGatewayQrLogin"]>
+  waitBotGatewayQrLogin: (request) => rpc("waitBotGatewayQrLogin", [request]) as ReturnType<LlmrApi["waitBotGatewayQrLogin"]>,
+  waitClaudeAppsGatewayLogin: (request) => rpc("waitClaudeAppsGatewayLogin", [request]) as ReturnType<LlmrApi["waitClaudeAppsGatewayLogin"]>
 };
 
 if (!window.llmr) {

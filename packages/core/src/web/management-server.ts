@@ -10,6 +10,7 @@ import packageJson from "../../package.json";
 import { loadOnboardingFinished, markOnboardingFinished } from "@llmr/core/config/onboarding-state";
 import { scanBotHandoffBluetoothTargets, scanBotHandoffWifiTargets } from "@llmr/core/agents/bot-gateway/handoff-scan-service";
 import { cancelBotGatewayQrLogin, startBotGatewayQrLogin, waitBotGatewayQrLogin } from "@llmr/core/agents/bot-gateway/qr-login-service";
+import { cancelClaudeAppsGatewayLogin, startClaudeAppsGatewayLogin, waitClaudeAppsGatewayLogin } from "@llmr/core/agents/claude-apps-gateway/device-login-service";
 import { syncClaudeAppGatewayConfig, restoreClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
 import { getAppInfoPaths } from "@llmr/core/agents/app-info-paths";
 import { loadAppConfig, saveApiKeysConfig, saveAppConfig } from "@llmr/core/config/config";
@@ -60,6 +61,9 @@ import type {
   BotGatewayQrLoginStartRequest,
   BotGatewayQrLoginWaitRequest,
   BotGatewayQrWindowOpenRequest,
+  ClaudeAppsGatewayLoginCancelRequest,
+  ClaudeAppsGatewayLoginStartRequest,
+  ClaudeAppsGatewayLoginWaitRequest,
   GatewayPluginAppConfig,
   GatewayPluginPermission,
   GatewayPluginSurface,
@@ -300,6 +304,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
   },
   applyProfile: async () => applyProfileConfig(await loadAppConfig()),
   cancelBotGatewayQrLogin: (request) => cancelBotGatewayQrLogin(request as BotGatewayQrLoginCancelRequest),
+  cancelClaudeAppsGatewayLogin: (request) => cancelClaudeAppsGatewayLogin(request as ClaudeAppsGatewayLoginCancelRequest),
   checkProviderConnectivity: async (request) => {
     const config = await loadAppConfig();
     return checkGatewayProviderConnectivity(request as GatewayProviderConnectivityCheckRequest, {
@@ -468,6 +473,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
   },
   setProxyNetworkCaptureEnabled: (enabled) => proxyService.setNetworkCaptureEnabled(Boolean(enabled)),
   startBotGatewayQrLogin: (request) => startBotGatewayQrLogin(request as BotGatewayQrLoginStartRequest),
+  startClaudeAppsGatewayLogin: (request) => startClaudeAppsGatewayLogin(request as ClaudeAppsGatewayLoginStartRequest),
   startGateway: async () => {
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
     const config = syncedClaudeAppConfig.config;
@@ -485,7 +491,8 @@ const rpcHandlers: Record<string, RpcHandler> = {
   updateInstall: () => {
     throw new Error("Updates are only available in the desktop app.");
   },
-  waitBotGatewayQrLogin: (request) => waitBotGatewayQrLogin(request as BotGatewayQrLoginWaitRequest)
+  waitBotGatewayQrLogin: (request) => waitBotGatewayQrLogin(request as BotGatewayQrLoginWaitRequest),
+  waitClaudeAppsGatewayLogin: (request) => waitClaudeAppsGatewayLogin(request as ClaudeAppsGatewayLoginWaitRequest)
 };
 
 async function startConfiguredServices(reason: string): Promise<void> {

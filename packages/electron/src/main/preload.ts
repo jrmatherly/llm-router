@@ -32,6 +32,12 @@ import type {
   ChromeLoginImportJob,
   ChromeLoginImportRequest,
   ClaudeAppGatewayApplyResult,
+  ClaudeAppsGatewayLoginCancelRequest,
+  ClaudeAppsGatewayLoginCancelResult,
+  ClaudeAppsGatewayLoginStartRequest,
+  ClaudeAppsGatewayLoginStartResult,
+  ClaudeAppsGatewayLoginWaitRequest,
+  ClaudeAppsGatewayLoginWaitResult,
   GatewayMcpToolInfo,
   GatewayProviderConnectivityCheckReport,
   GatewayProviderConnectivityCheckRequest,
@@ -107,6 +113,7 @@ contextBridge.exposeInMainWorld("llmr", {
   applyClaudeAppGateway: (config?: AppConfig) => invoke(IPC_CHANNELS.appApplyClaudeAppGateway, config) as Promise<ClaudeAppGatewayApplyResult>,
   applyProfile: () => invoke(IPC_CHANNELS.appApplyProfile) as Promise<ProfileApplyResult>,
   cancelBotGatewayQrLogin: (request: BotGatewayQrLoginCancelRequest) => invoke(IPC_CHANNELS.appBotGatewayQrLoginCancel, request) as Promise<BotGatewayQrLoginCancelResult>,
+  cancelClaudeAppsGatewayLogin: (request: ClaudeAppsGatewayLoginCancelRequest) => invoke(IPC_CHANNELS.appClaudeAppsGatewayLoginCancel, request) as Promise<ClaudeAppsGatewayLoginCancelResult>,
   captureElementPng: (request: AppCaptureElementPngRequest) => invoke(IPC_CHANNELS.appCaptureElementPng, request) as Promise<AppCaptureElementPngResult>,
   checkProviderConnectivity: (request: GatewayProviderConnectivityCheckRequest) => invoke(IPC_CHANNELS.appCheckProviderConnectivity, request) as Promise<GatewayProviderConnectivityCheckReport>,
   closeBotGatewayQrWindow: (request: BotGatewayQrWindowCloseRequest) => invoke(IPC_CHANNELS.appBotGatewayQrWindowClose, request) as Promise<BotGatewayQrWindowCloseResult>,
@@ -170,6 +177,7 @@ contextBridge.exposeInMainWorld("llmr", {
   startChromeLoginImport: (request: ChromeLoginImportRequest) => invoke(IPC_CHANNELS.appStartChromeLoginImport, request) as Promise<ChromeLoginImportJob>,
   startGateway: () => invoke(IPC_CHANNELS.appStartGateway) as Promise<GatewayStatus>,
   startBotGatewayQrLogin: (request: BotGatewayQrLoginStartRequest) => invoke(IPC_CHANNELS.appBotGatewayQrLoginStart, request) as Promise<BotGatewayQrLoginStartResult>,
+  startClaudeAppsGatewayLogin: (request: ClaudeAppsGatewayLoginStartRequest) => invoke(IPC_CHANNELS.appClaudeAppsGatewayLoginStart, request) as Promise<ClaudeAppsGatewayLoginStartResult>,
   stopGateway: () => invoke(IPC_CHANNELS.appStopGateway) as Promise<GatewayStatus>,
   stopProfile: (request: ProfileOpenRequest) => invoke(IPC_CHANNELS.appStopProfile, request) as Promise<ProfileStopResult>,
   scanBotHandoffBluetoothTargets: () => invoke(IPC_CHANNELS.appBotHandoffBluetoothTargetsScan) as Promise<BotHandoffScanTarget[]>,
@@ -181,6 +189,7 @@ contextBridge.exposeInMainWorld("llmr", {
   updateInstall: () => invoke(IPC_CHANNELS.appUpdateInstall) as Promise<void>,
   validateRouteScript: (request: RouteScriptValidationRequest) => invoke(IPC_CHANNELS.appValidateRouteScript, request) as Promise<RouteScriptValidationResult>,
   waitBotGatewayQrLogin: (request: BotGatewayQrLoginWaitRequest) => invoke(IPC_CHANNELS.appBotGatewayQrLoginWait, request) as Promise<BotGatewayQrLoginWaitResult>,
+  waitClaudeAppsGatewayLogin: (request: ClaudeAppsGatewayLoginWaitRequest) => invoke(IPC_CHANNELS.appClaudeAppsGatewayLoginWait, request) as Promise<ClaudeAppsGatewayLoginWaitResult>,
   onBeforeQuit: (callback: () => void) => {
     const handler = () => callback();
     ipcRenderer.on(IPC_CHANNELS.appBeforeQuit, handler);
