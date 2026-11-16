@@ -4,6 +4,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { newApiKeyUsageAccountConfig } from "@llmr/core/providers/new-api.ts";
 import { geminiProviderPreset } from "@llmr/core/providers/presets/gemini/index.ts";
+import { providerPresets } from "@llmr/core/providers/presets/index.ts";
 import { minimaxChinaProviderPreset } from "@llmr/core/providers/presets/minimax/index.ts";
 import { moonshotGlobalProviderPreset } from "@llmr/core/providers/presets/moonshot/index.ts";
 import { qiniuAiProviderPreset } from "@llmr/core/providers/presets/qiniu-ai/index.ts";
@@ -1743,3 +1744,20 @@ function providerInstallLinkPayload(link) {
   const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
   return JSON.parse(new TextDecoder().decode(bytes));
 }
+
+test("a saved provider whose preset was dropped opens as custom with no preset icon", () => {
+  setProviderPresets(providerPresets);
+  const provider = {
+    api_base_url: "https://runapi.co/v1",
+    api_key: "sk-test",
+    models: ["gpt-5.5"],
+    name: "RunAPI",
+    type: "openai_responses"
+  };
+  const draft = createProviderDraftFromProvider(provider);
+  assert.equal(draft.presetId, customProviderPresetId);
+  assert.equal(draft.baseUrl, "https://runapi.co/v1");
+  assert.equal(draft.apiKey, "sk-test");
+  assert.equal(draft.modelsText, "gpt-5.5");
+  assert.equal(providerDisplayIcon(provider), "");
+});

@@ -45,12 +45,8 @@ import type {
 } from "@llmr/core/contracts/app";
 import anthropicProviderIconUrl from "@/assets/provider-icons/anthropic.png";
 import bailianProviderIconUrl from "@/assets/provider-icons/bailian.ico";
-import claudeapiProviderIconUrl from "@/assets/provider-icons/claudeapi.png";
-import code0ProviderIconUrl from "@/assets/provider-icons/code0.png";
 import deepseekProviderIconUrl from "@/assets/provider-icons/deepseek.ico";
-import fennoProviderIconUrl from "@/assets/provider-icons/fenno.jpg";
 import geminiProviderIconUrl from "@/assets/provider-icons/gemini.svg";
-import infistarAiProviderIconUrl from "@/assets/provider-icons/infistar-ai.jpg";
 import minimaxProviderIconUrl from "@/assets/provider-icons/minimax.ico";
 import mistralProviderIconUrl from "@/assets/provider-icons/mistral.webp";
 import moonshotProviderIconUrl from "@/assets/provider-icons/moonshot.ico";
@@ -58,10 +54,8 @@ import nvidiaProviderIconUrl from "@/assets/provider-icons/nvidia.svg";
 import openaiProviderIconUrl from "@/assets/provider-icons/openai.png";
 import openrouterProviderIconUrl from "@/assets/provider-icons/openrouter.ico";
 import qiniuAiProviderIconUrl from "@/assets/provider-icons/qiniu-ai.png";
-import runapiProviderIconUrl from "@/assets/provider-icons/runapi.jpg";
 import siliconflowProviderIconUrl from "@/assets/provider-icons/siliconflow.png";
 import teamorouterProviderIconUrl from "@/assets/provider-icons/teamorouter.png";
-import unity2ProviderIconUrl from "@/assets/provider-icons/unity2.jpg";
 import xiaomiMimoProviderIconUrl from "@/assets/provider-icons/xiaomi-mimo.png";
 import zaiGlobalCodingProviderIconUrl from "@/assets/provider-icons/zai-global-coding.svg";
 import zaiGlobalGeneralProviderIconUrl from "@/assets/provider-icons/zai-global-general.svg";
@@ -358,12 +352,8 @@ export const mcpStdioMessageModeOptions: Array<{ label: string; value: GatewayMc
 export const providerPresetIconUrls: Record<string, string> = {
   anthropic: anthropicProviderIconUrl,
   bailian: bailianProviderIconUrl,
-  claudeapi: claudeapiProviderIconUrl,
-  code0: code0ProviderIconUrl,
   deepseek: deepseekProviderIconUrl,
-  fenno: fennoProviderIconUrl,
   gemini: geminiProviderIconUrl,
-  "infistar-ai": infistarAiProviderIconUrl,
   "kimi-coding": moonshotProviderIconUrl,
   "minimax-cn": minimaxProviderIconUrl,
   "minimax-global": minimaxProviderIconUrl,
@@ -375,10 +365,8 @@ export const providerPresetIconUrls: Record<string, string> = {
   "opencode-go": openCodeProviderIconUrl,
   openrouter: openrouterProviderIconUrl,
   "qiniu-ai": qiniuAiProviderIconUrl,
-  runapi: runapiProviderIconUrl,
   siliconflow: siliconflowProviderIconUrl,
   teamorouter: teamorouterProviderIconUrl,
-  unity2: unity2ProviderIconUrl,
   xiaomi: xiaomiMimoProviderIconUrl,
   "xiaomi-token-plan-ams": xiaomiMimoProviderIconUrl,
   "xiaomi-token-plan-cn": xiaomiMimoProviderIconUrl,

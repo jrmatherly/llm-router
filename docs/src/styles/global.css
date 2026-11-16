@@ -1491,34 +1491,10 @@ h1 {
   --provider-brand-3: #dfff9f;
 }
 
-.doc-markdown a.provider-import-button.provider-runapi {
-  --provider-brand: #070707;
-  --provider-brand-2: #747474;
-  --provider-brand-3: #f3f3f3;
-}
-
 .doc-markdown a.provider-import-button.provider-teamorouter {
   --provider-brand: #0c0c0f;
   --provider-brand-2: #555b64;
   --provider-brand-3: #f4f4f5;
-}
-
-.doc-markdown a.provider-import-button.provider-unity2 {
-  --provider-brand: #050505;
-  --provider-brand-2: #7a7f85;
-  --provider-brand-3: #f4f5f6;
-}
-
-.doc-markdown a.provider-import-button.provider-code0 {
-  --provider-brand: #101214;
-  --provider-brand-2: #267dff;
-  --provider-brand-3: #d8e8ff;
-}
-
-.doc-markdown a.provider-import-button.provider-claudeapi {
-  --provider-brand: #0d1b2a;
-  --provider-brand-2: #2f8f83;
-  --provider-brand-3: #d7fff8;
 }
 
 .doc-markdown a.provider-import-button.provider-deepseek {
@@ -1585,12 +1561,6 @@ h1 {
   --provider-brand: #041f1b;
   --provider-brand-2: #00c2a8;
   --provider-brand-3: #b4fff4;
-}
-
-.doc-markdown a.provider-import-button.provider-infistar-ai {
-  --provider-brand: #111f8d;
-  --provider-brand-2: #1fb7ee;
-  --provider-brand-3: #9b18ff;
 }
 
 .doc-markdown > pre,
