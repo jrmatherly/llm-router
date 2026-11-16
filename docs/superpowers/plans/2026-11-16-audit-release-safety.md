@@ -633,6 +633,11 @@ The description states the Task 2.3 results and that RS-5 step 5 must run before
 **Branch:** `fix/release-preflight-tests-run`
 **Size:** S
 **Owner steps:** None.
+**Status:** Merged 2026-11-16 as [PR 65](https://github.com/jrmatherly/llm-router/pull/65), squash commit `fcb4f83a`. A review changed three things from the steps below:
+
+- The `gh` call passes `--repo` with the origin URL, against Step 3's "Do not pass `-R`". In a clone with an `upstream` remote and no `gh` default, `gh` did not stop. It queried upstream and failed with an unrelated 404 (measured in a scratch clone).
+- A `gh` failure is caught and reported beside the other preflight failures.
+- A sixth test runs the real script in a temp repo with a stub `gh`, so the file has 6 tests, not 5.
 
 ### Task 3.1: Add `testsRunFailure` and call it from `preflight`
 
