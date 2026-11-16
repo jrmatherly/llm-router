@@ -353,7 +353,7 @@ export class RawTraceSynchronizer {
     }
   }
 
-  // The cooldown below only reserves time. An attempt that outlasts it would
+  // The cooldown in attemptStoredBundle only reserves time. An attempt that outlasts it would
   // overlap the next one, and their delivery-state writes can land out of order.
   private async processStoredBundle(stored: StoredRawTraceBundle): Promise<boolean> {
     if (this.inFlightBundleIds.has(stored.bundleId)) return false;
@@ -373,8 +373,7 @@ export class RawTraceSynchronizer {
       pendingAttempts: stored.delivery.lastError === "record_pending" ? 1 : 0
     };
     if (now < retryState.nextAttemptAt) return false;
-    // Reserve the base cooldown before entering user/runtime code so an
-    // overlapping replay cannot deliver this bundle concurrently.
+    // Keeps a cooldown when dead-lettering below throws; every other exit resets it.
     this.retryStates.set(stored.bundleId, {
       ...retryState,
       nextAttemptAt: now + retryCooldownMs
