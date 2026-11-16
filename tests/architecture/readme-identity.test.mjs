@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const upstreamLinks = /musistudio\/claude-code-router\/releases|npm install -g @musistudio|ccrdesk\.top/;
@@ -21,3 +21,13 @@ for (const file of [
     assert.doesNotMatch(readFileSync(file, "utf8"), upstreamLinks);
   });
 }
+
+test("README.md local images exist", () => {
+  const sources = [...readFileSync("README.md", "utf8").matchAll(/<img[^>]*\ssrc="([^"]+)"/g)]
+    .map((match) => match[1])
+    .filter((source) => !/^https?:/.test(source));
+  assert.ok(sources.length > 0);
+  for (const source of sources) {
+    assert.ok(existsSync(source.replace(/^\//, "")), `missing README image: ${source}`);
+  }
+});
