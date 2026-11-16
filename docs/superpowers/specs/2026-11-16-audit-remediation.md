@@ -158,6 +158,7 @@ Earlier decisions that still bind: divergence from upstream is intended; English
 - **A review of the plugin system's trust model** (F-C13).
 - **Narrowing who can read captured network bodies.** With Capture network on, every host is still decrypted, and any holder of a gateway key can read captured bodies through the `network_capture_get` MCP tool (F-C2). CG-2 stops decrypting non-target hosts only while capture is off.
 - **Automatic base-image digest updates.** Dependabot's Docker updater reads only literal `FROM image` lines. The `Dockerfile` uses `FROM ${NODE_IMAGE}` with the digest on `ARG` lines, so it finds nothing. RS-4 bumps the digest by hand. Moving the digest into the `FROM` lines would let Dependabot see it.
+- **A smoke test of the arm64 Docker image.** Docker Release smoke-tests the amd64 image before the push (RS-1). The arm64 image is built in the same multi-arch step and ships untested. An arm64 run under QEMU would work, at the cost of a slow emulated smoke test on every release.
 - **A required-reviewer gate on the release `publish` job.** RS-2 publishes automatically once every platform uploaded. A manual approval before publish would allow a platform check first, at the cost of a manual step on every release.
 - **`ModelCatalogEntry.sourceRecords`**, which becomes write-only once F-C11 lands.
 

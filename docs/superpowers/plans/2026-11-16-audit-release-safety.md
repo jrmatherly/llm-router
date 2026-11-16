@@ -60,6 +60,12 @@ Land RS-1 first. RS-2 and RS-3 then land in either order, because they share no 
 **Branch:** `fix/ci-release-gateway`
 **Size:** M
 **Owner steps:** None. If Task 1.1 ends in outcome C, the owner triages the new finding.
+**Status:** Merged 2026-11-16 as [PR 64](https://github.com/jrmatherly/llm-router/pull/64), squash commit `25464e79`. Task 1.1 ended in outcome A: 4 pass on the release tarball, and 2 of 4 fail on the lockfile build, so the wire tests tell the builds apart. A review changed four things from the steps below:
+
+- The install command is `npm install --no-save .tmp/gateway-package/*.tgz`, in every job of `test.yml` and `release.yml`. With `--package-lock=false` npm re-resolved the tree (92 packages changed on the runner).
+- The Tests concurrency group is per commit on `main`, because a shared group still cancels a queued run.
+- Both Docker builds run `ls docker/local-ai-gateway/the-next-ai-ai-gateway-*.tgz` first, and the Release `gateway` job already has `timeout-minutes: 15`.
+- `"release builds wait for the test job"` already asserts the `macos` `needs` line, and the install check names its jobs. RS-2 Task 2.2 Step 1 replaces that test, so keep those assertions when it does.
 
 Background, checked at `136ad730`. `.github/actions/prepare-release-gateway/action.yml` builds upstream commit `0a2c0abd48d2144ed0ac2ce4d954a661c51ffcb1` and packs it into `docker/local-ai-gateway/`. Only `release.yml` and `docker-release.yml` use it. The tarball and the lockfile entry both report version `1.0.21`, so only the wire tests can tell the two builds apart.
 
