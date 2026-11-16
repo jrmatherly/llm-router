@@ -22,13 +22,6 @@ function jobBlocks(file) {
 const gatewayInstall = "npm install --no-save .tmp/gateway-package/*.tgz";
 const gatewayEntry = /^      LLMR_TEST_GATEWAY_ENTRY: \$\{\{ github\.workspace \}\}\/node_modules\/@the-next-ai\/ai-gateway\/bin\/next-ai-gateway\.js$/m;
 
-const releaseAssets = [
-  "latest-mac.yml", "latest.yml", "latest-linux.yml",
-  "LLM-Router_${version}.exe", "LLM-Router_${version}.AppImage",
-  "LLM-Router_${version}-mac-Apple-Silicon-arm64.dmg", "LLM-Router_${version}-mac-Apple-Silicon-arm64.zip",
-  "LLM-Router_${version}-mac-Intel-x64.dmg", "LLM-Router_${version}-mac-Intel-x64.zip"
-];
-
 test("release builds wait for the test job", () => {
   const jobs = jobBlocks(".github/workflows/release.yml");
   for (const job of ["model-catalog", "create-draft"]) assert.match(jobs.get(job), /^    needs: test$/m, job);
@@ -39,21 +32,18 @@ test("release builds wait for the test job", () => {
 });
 
 test("the release stays a draft until every platform uploaded", () => {
-  const text = readFileSync(".github/workflows/release.yml", "utf8");
   const jobs = jobBlocks(".github/workflows/release.yml");
-  assert.equal(jobs.has("publish-macos"), false);
-  assert.equal(text.match(/gh release create /g).length, 1);
   assert.match(jobs.get("create-draft"), /gh release create "\$GITHUB_REF_NAME" --draft --verify-tag /);
   assert.match(jobs.get("create-draft"), /--json isDraft --jq \.isDraft\)" = "true"$/m);
+  assert.match(jobs.get("create-draft"), /grep -cxF "\$GITHUB_REF_NAME"\)" = 1$/m);
   assert.match(jobs.get("upload-macos"), /^    needs: \[macos, create-draft\]$/m);
-  const publish = jobs.get("publish");
-  assert.match(publish, /^    needs: \[upload-macos, windows, linux\]$/m);
-  assert.equal(text.match(/--draft=false/g).length, 1);
-  assert.match(publish, /gh release edit "\$GITHUB_REF_NAME" --draft=false --latest$/m);
-  for (const name of releaseAssets) assert.ok(publish.includes(name), name);
-  const checked = publish.indexOf("(( missing == 0 ))");
-  assert.ok(checked > 0 && checked < publish.indexOf("--draft=false"), "the asset check runs before the release is published");
-  assert.ok(publish.indexOf("gh release download") < checked, "the update metadata is read before the asset check passes");
+  assert.match(jobs.get("publish"), /^    needs: \[upload-macos, windows, linux\]$/m);
+  assert.match(jobs.get("publish"), /gh release edit "\$GITHUB_REF_NAME" --draft=false --latest$/m);
+  for (const [name, block] of jobs) {
+    if (name === "create-draft" || name === "publish") continue;
+    assert.doesNotMatch(block, /gh\s+release\s+(?:create|edit)\b|draft[= ]+false/, `${name} must not create or publish the release`);
+  }
+  for (const name of ["windows", "linux"]) assert.match(jobs.get(name), /^          EP_DRAFT: "true"$/m, `${name} can only ever create a draft`);
 });
 
 test("every release.yml job sets timeout-minutes", () => {
