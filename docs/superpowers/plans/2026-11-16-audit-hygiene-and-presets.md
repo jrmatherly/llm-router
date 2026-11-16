@@ -53,6 +53,15 @@ Specific to this plan:
 **Size:** S.
 **Owner steps:** None.
 
+**Status:** Merged 2026-11-16 as [PR 69](https://github.com/jrmatherly/llm-router/pull/69), squash commit `78d61393`. A review changed four things from the steps below:
+
+- The preset test has no `s.qiniu.com` hostname assertion. That literal trips the repo-wide guard, which still bans the short link. The test is named `no provider preset link carries a referral code, a fragment or a sign-up path`.
+- The preset test also rejects a fragment and the paths `/signup` and `/invite`. A link such as `https://fenno.ai/#aff=x` passed both guards before (measured).
+- `tests/architecture/no-referral-links.test.mjs` has a third test, `every source link on the provider deeplink page is a plain https page`. It decodes each `source=` link and applies the preset test's checks. Before it, an encoded `/register` path or an unlisted parameter in a `source=` value passed (measured).
+- The grep uses `:(top)` pathspecs, so its exclusions hold from any working directory.
+
+HP-2 Step 11's manual check and release note are still open. Nobody re-fetched the six reseller home pages.
+
 All of HP-1 is one commit. Removing a code from a preset fails `every kept entry is still at the file it names` until the kept entry goes. Removing the kept entry first fails `no ccr identifier remains outside the kept list`. The commit gate runs both tests.
 
 ### Task 1: Clean the links, update the rename guard, add the two referral guards
