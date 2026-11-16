@@ -101,10 +101,30 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  create-draft:
+    name: 📝 Create draft release
+    needs: test
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: 📝 Create the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null || \
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
+          test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)" = "true"
+          test "$(gh api "repos/$GH_REPO/releases" --paginate --jq '.[].tag_name' | grep -cxF "$GITHUB_REF_NAME")" = 1
+
   macos:
     name: 🍎 macOS (${{ matrix.display_name }})
     needs: [model-catalog, gateway]
+    environment: release
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -199,12 +219,13 @@ jobs:
             release-ci/latest-mac.yml
           if-no-files-found: error
 
-  publish-macos:
-    name: 🚀 Publish macOS
-    needs: macos
+  upload-macos:
+    name: 📤 Upload macOS
+    needs: [macos, create-draft]
     permissions:
       contents: write
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -228,13 +249,6 @@ jobs:
 
       - name: 🗂️ Merge macOS update metadata
         run: node build/merge-macos-update-metadata.mjs latest-mac.yml macos-release-artifacts/*/latest-mac.yml
-
-      - name: 🚀 Create GitHub release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
-            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
 
       - name: 📤 Upload macOS release assets
         shell: bash
@@ -270,10 +284,11 @@ jobs:
 
   windows:
     name: 🪟 Windows
-    needs: publish-macos
+    needs: [create-draft, model-catalog, gateway]
     permissions:
       contents: write
     runs-on: windows-2025
+    timeout-minutes: 30
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -318,14 +333,16 @@ jobs:
       - name: 🚀 Build and publish Windows artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_DRAFT: "true"
         run: npm run build:app:win:release -- --publish always
 
   linux:
     name: 🐧 Linux
-    needs: publish-macos
+    needs: [create-draft, model-catalog, gateway]
     permissions:
       contents: write
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -370,6 +387,40 @@ jobs:
       - name: 🚀 Build and publish Linux artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_DRAFT: "true"
         run: |
           npm run build:assets
           npx electron-builder --linux AppImage --publish always
+
+  publish:
+    name: 🚀 Publish release
+    needs: [upload-macos, windows, linux]
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: 🚀 Check the assets, then publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[] | select(.state == "uploaded" and .size > 0) | .name' > assets.txt
+          gh release download "$GITHUB_REF_NAME" --pattern 'latest*.yml' --dir metadata
+          referenced="$(sed -nE 's/^ *(- )?(url|path): //p' metadata/latest*.yml)"
+          test -n "$referenced"
+          missing=0
+          for name in latest-mac.yml latest.yml latest-linux.yml \
+            "LLM-Router_${version}.exe" "LLM-Router_${version}.AppImage" \
+            "LLM-Router_${version}-mac-Apple-Silicon-arm64.dmg" "LLM-Router_${version}-mac-Apple-Silicon-arm64.zip" \
+            "LLM-Router_${version}-mac-Intel-x64.dmg" "LLM-Router_${version}-mac-Intel-x64.zip" \
+            $referenced; do
+            grep -qxF "$name" assets.txt || { echo "Missing release asset: $name"; missing=1; }
+          done
+          for zip in "LLM-Router_${version}-mac-Apple-Silicon-arm64.zip" "LLM-Router_${version}-mac-Intel-x64.zip"; do
+            grep -qF "url: $zip" metadata/latest-mac.yml || { echo "latest-mac.yml does not list $zip"; missing=1; }
+          done
+          (( missing == 0 ))
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest

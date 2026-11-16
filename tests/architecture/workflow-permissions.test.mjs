@@ -24,10 +24,39 @@ const gatewayEntry = /^      LLMR_TEST_GATEWAY_ENTRY: \$\{\{ github\.workspace \
 
 test("release builds wait for the test job", () => {
   const jobs = jobBlocks(".github/workflows/release.yml");
-  assert.match(jobs.get("model-catalog"), /^    needs: test$/m);
+  for (const job of ["model-catalog", "create-draft"]) assert.match(jobs.get(job), /^    needs: test$/m, job);
   assert.match(jobs.get("test"), /^    needs: gateway$/m);
   assert.match(jobs.get("macos"), /^    needs: \[model-catalog, gateway\]$/m);
+  for (const job of ["windows", "linux"]) assert.match(jobs.get(job), /^    needs: \[create-draft, model-catalog, gateway\]$/m, job);
   assert.match(readFileSync(".github/workflows/test.yml", "utf8"), /npm run test:system/);
+});
+
+test("the release stays a draft until every platform uploaded", () => {
+  const jobs = jobBlocks(".github/workflows/release.yml");
+  assert.match(jobs.get("create-draft"), /gh release create "\$GITHUB_REF_NAME" --draft --verify-tag /);
+  assert.match(jobs.get("create-draft"), /--json isDraft --jq \.isDraft\)" = "true"$/m);
+  assert.match(jobs.get("create-draft"), /grep -cxF "\$GITHUB_REF_NAME"\)" = 1$/m);
+  assert.match(jobs.get("upload-macos"), /^    needs: \[macos, create-draft\]$/m);
+  assert.match(jobs.get("publish"), /^    needs: \[upload-macos, windows, linux\]$/m);
+  assert.match(jobs.get("publish"), /gh release edit "\$GITHUB_REF_NAME" --draft=false --latest$/m);
+  for (const [name, block] of jobs) {
+    if (name === "create-draft" || name === "publish") continue;
+    assert.doesNotMatch(block, /gh\s+release\s+(?:create|edit)\b|draft[= ]+false/, `${name} must not create or publish the release`);
+  }
+  for (const name of ["windows", "linux"]) assert.match(jobs.get(name), /^          EP_DRAFT: "true"$/m, `${name} can only ever create a draft`);
+});
+
+test("every release.yml job sets timeout-minutes", () => {
+  for (const [name, block] of jobBlocks(".github/workflows/release.yml")) {
+    assert.match(block, /^    timeout-minutes: \d+$/m, name);
+  }
+});
+
+test("macOS signing runs in the release environment", () => {
+  for (const [name, block] of jobBlocks(".github/workflows/release.yml")) {
+    if (name === "macos") assert.match(block, /^    environment: release$/m);
+    else assert.doesNotMatch(block, /secrets\.(?:APPLE|MACOS)_/, name);
+  }
 });
 
 test("tests and releases install the gateway tarball the release builds", () => {
