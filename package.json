@@ -26,9 +26,6 @@
   "engines": {
     "node": ">=24"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
     "dev": "npm run dev:cli",
     "dev:ui": "node build/dev.mjs ui",
@@ -43,8 +40,6 @@
     "build:app:win": "npm run build:app:win:local",
     "build:app:win:local": "node build/windows-package-preflight.mjs && npm run build:assets && electron-builder --config build/electron-builder.local.cjs --win --publish never",
     "build:app:win:release": "node build/windows-package-preflight.mjs && npm run build:assets && electron-builder --win",
-    "prepack": "npm run build:assets",
-    "prepublishOnly": "npm run typecheck",
     "preview": "npm run build:assets && electron .",
     "docker:prepare-gateway": "node build/docker-local-gateway.mjs prepare",
     "docker:clean-gateway": "node build/docker-local-gateway.mjs clean",

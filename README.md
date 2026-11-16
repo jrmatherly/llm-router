@@ -213,7 +213,7 @@ Install Node.js 24+, then run `npm ci`.
 | macOS local DMG/ZIP | `npm run build:app:mac` | `release-local/` |
 | Windows local NSIS installer | `npm run build:app:win` | `release-local/` |
 
-Windows app packaging must run on Windows x64 because `better-sqlite3` ships a native Electron module. The release workflow builds macOS on macOS runners, Windows on `windows-latest`, and the Linux AppImage on Ubuntu when a `v*` tag is pushed.
+Windows app packaging must run on Windows x64 because `better-sqlite3` ships a native Electron module. The release workflow builds macOS on macOS runners, Windows on `windows-2025`, and the Linux AppImage on Ubuntu when a `v*` tag is pushed.
 
 ## How it works
 
