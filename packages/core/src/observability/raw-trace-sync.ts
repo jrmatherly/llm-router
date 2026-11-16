@@ -144,6 +144,7 @@ export class RawTraceSynchronizer {
   readonly token = randomUUID();
   private deadLetterPruneDirty = false;
   private deadLetterPrunePromise?: Promise<void>;
+  private readonly inFlightBundleIds = new Set<string>();
   private inboxIndex?: RawTraceInboxIndex;
   private lastDeadLetterPrunedAt = 0;
   private lastSourceScanAt = 0;
@@ -352,7 +353,19 @@ export class RawTraceSynchronizer {
     }
   }
 
+  // The cooldown below only reserves time. An attempt that outlasts it would
+  // overlap the next one, and their delivery-state writes can land out of order.
   private async processStoredBundle(stored: StoredRawTraceBundle): Promise<boolean> {
+    if (this.inFlightBundleIds.has(stored.bundleId)) return false;
+    this.inFlightBundleIds.add(stored.bundleId);
+    try {
+      return await this.attemptStoredBundle(stored);
+    } finally {
+      this.inFlightBundleIds.delete(stored.bundleId);
+    }
+  }
+
+  private async attemptStoredBundle(stored: StoredRawTraceBundle): Promise<boolean> {
     const now = Date.now();
     const retryCooldownMs = positiveInterval(this.dependencies.retryCooldownMs, defaultRawTraceRetryCooldownMs);
     const retryState = this.retryStates.get(stored.bundleId) ?? {
