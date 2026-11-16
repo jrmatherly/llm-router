@@ -715,6 +715,12 @@ Expected: exit code 1 and one line that contains `not on main`, `main is not at 
 **Branch:** `chore/workflow-manifest-housekeeping`
 **Size:** S
 **Owner steps:** None in the PR. RS-5 step 1 turns Dependabot version updates on after RS-4 and EU-2 have merged.
+**Status:** Merged 2026-11-16 as [PR 66](https://github.com/jrmatherly/llm-router/pull/66), squash commit `f7eee402`. The docs build ran on the PR and passed, with deploy skipped, which is the proof for F-A9. The base image digest moved to `sha256:dc26ae92…`. A review changed two things from the steps below:
+
+- The docs concurrency group is `docs-${{ github.ref == 'refs/heads/main' && 'deploy' || github.ref }}` with `cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}`. Keyed on the event, a manual run from another branch shared the deploy group.
+- The docs test uses `jobBlocks`, checks the deploy condition and the timeout per job, and pins the concurrency lines.
+
+Open: the `compose` Dependabot entry has no rule against major bumps. Whether Dependabot proposes a new Postgres major for `postgres:16-alpine` is unverified. RS-5 step 1 shows it on the first run.
 
 ### Task 4.1: Build docs on pull requests and widen Dependabot
 
