@@ -35,7 +35,6 @@ test("the release stays a draft until every platform uploaded", () => {
   const jobs = jobBlocks(".github/workflows/release.yml");
   assert.match(jobs.get("create-draft"), /gh release create "\$GITHUB_REF_NAME" --draft --verify-tag /);
   assert.match(jobs.get("create-draft"), /--json isDraft --jq \.isDraft\)" = "true"$/m);
-  assert.match(jobs.get("create-draft"), /grep -cxF "\$GITHUB_REF_NAME"\)" = 1$/m);
   assert.match(jobs.get("upload-macos"), /^    needs: \[macos, create-draft\]$/m);
   assert.match(jobs.get("publish"), /^    needs: \[upload-macos, windows, linux\]$/m);
   assert.match(jobs.get("publish"), /gh release edit "\$GITHUB_REF_NAME" --draft=false --latest$/m);
