@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tests-${{ github.workflow }}-${{ github.ref }}
+  group: tests-${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
@@ -65,7 +65,7 @@ jobs:
           path: .tmp/gateway-package
 
       - name: 📦 Install gateway
-        run: npm install --no-save --package-lock=false .tmp/gateway-package/*.tgz
+        run: npm install --no-save .tmp/gateway-package/*.tgz
 
       - name: 🔎 Typecheck
         run: npm run typecheck
@@ -100,7 +100,7 @@ jobs:
           path: .tmp/gateway-package
 
       - name: 📦 Install gateway
-        run: npm install --no-save --package-lock=false .tmp/gateway-package/*.tgz
+        run: npm install --no-save .tmp/gateway-package/*.tgz
 
       - name: 🎭 Install Playwright Chromium
         run: npx playwright install --with-deps chromium
@@ -142,7 +142,7 @@ jobs:
           path: docker/local-ai-gateway
 
       - name: 🐳 Build the image
-        run: docker build -t llm-router:local .
+        run: ls docker/local-ai-gateway/the-next-ai-ai-gateway-*.tgz && docker build -t llm-router:local .
 
       - name: 🐳 Smoke-test the image
         env:
