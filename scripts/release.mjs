@@ -55,6 +55,20 @@ export function run(command, args, options = {}) {
   return (execFileSync(command, args, { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], ...options }) ?? "").trim();
 }
 
+export function testsRunFailure(runs) {
+  const [latest] = runs;
+  if (!latest) {
+    return "no Tests run for HEAD";
+  }
+  if (latest.status !== "completed") {
+    return `Tests run for HEAD is ${latest.status}: ${latest.url}`;
+  }
+  if (latest.conclusion !== "success") {
+    return `Tests run for HEAD concluded ${latest.conclusion}: ${latest.url}`;
+  }
+  return undefined;
+}
+
 function preflight(version) {
   const failures = [];
   if (run("git", ["branch", "--show-current"]) !== "main") {
@@ -64,8 +78,13 @@ function preflight(version) {
     failures.push("working tree is not clean");
   }
   run("git", ["fetch", "--quiet", "origin", "main", "--tags"]);
-  if (run("git", ["rev-parse", "HEAD"]) !== run("git", ["rev-parse", "origin/main"])) {
+  const head = run("git", ["rev-parse", "HEAD"]);
+  if (head !== run("git", ["rev-parse", "origin/main"])) {
     failures.push("main is not at origin/main");
+  }
+  const testsFailure = testsRunFailure(JSON.parse(run("gh", ["run", "list", "--workflow", "test.yml", "--commit", head, "--limit", "1", "--json", "status,conclusion,url"])));
+  if (testsFailure) {
+    failures.push(testsFailure);
   }
   if (run("git", ["tag", "--list", `v${version}`])) {
     failures.push(`tag v${version} already exists`);
