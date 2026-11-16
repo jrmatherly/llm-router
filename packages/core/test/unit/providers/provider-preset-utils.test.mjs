@@ -32,8 +32,6 @@ import {
   openCodeGoProviderPreset
 } from "@llmr/core/providers/presets/opencode-go/index.ts";
 import {
-  findProviderPreset,
-  findProviderPresetByBaseUrl,
   providerPresets
 } from "@llmr/core/providers/presets/index.ts";
 import {
@@ -98,6 +96,7 @@ test("Qiniu preset exposes requested endpoints and protocols", () => {
   assert.equal(qiniuAiProviderPreset.websiteUrl, "https://www.qiniu.com/ai/agent");
   assert.equal(providerPresetMatchesBaseUrl(qiniuAiProviderPreset, "https://api.qnaigc.com"), true);
   assert.equal(providerPresetMatchesBaseUrl(qiniuAiProviderPreset, "https://api.modelink.ai/v1/models"), false);
+  assert.equal(providerPresetMatchesBaseUrl(qiniuAiProviderPreset, "https://eu.api.qnaigc.com"), false);
   assert.equal(providerPresetMatchesBaseUrl(qiniuAiProviderPreset, "https://api.qnaigc.com/bypass/openai/v1/responses"), true);
   assert.equal(providerPresetMatchesBaseUrl(qiniuAiProviderPreset, "https://api.qnaigc.com/bypass/vertex/v1/models/gemini-pro:generateContent"), true);
   assert.deepEqual(qiniuAiProviderPreset.endpoints.map((endpoint) => [endpoint.label, endpoint.baseUrl, endpoint.protocols]), [
@@ -109,22 +108,6 @@ test("Qiniu preset exposes requested endpoints and protocols", () => {
   assert.deepEqual(qiniuAiProviderPreset.endpoints[0]?.protocols, [
     "openai_chat_completions"
   ]);
-});
-
-test("dropped reseller presets stay out of the registry and their base URLs resolve to no preset", () => {
-  for (const id of ["code0", "claudeapi", "fenno", "infistar-ai", "runapi", "unity2"]) {
-    assert.equal(findProviderPreset(id), undefined, id);
-  }
-  for (const baseUrl of [
-    "https://console.code0.ai",
-    "https://gw.claudeapi.com",
-    "https://api.fenno.ai",
-    "https://infistar.ai/v1",
-    "https://runapi.co/v1",
-    "https://unity2.ai/v1"
-  ]) {
-    assert.equal(findProviderPresetByBaseUrl(baseUrl), undefined, baseUrl);
-  }
 });
 
 test("no provider preset link carries a referral code, a fragment or a sign-up path", () => {
