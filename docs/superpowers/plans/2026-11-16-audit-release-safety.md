@@ -945,7 +945,9 @@ Optional, for security updates: `gh api -X PUT repos/jrmatherly/llm-router/autom
 
 Read-back for version updates, within a week: `gh pr list -R jrmatherly/llm-router --author "app/dependabot" --state all --limit 10`. Then open **Insights**, **Dependency graph**, **Dependabot** and read the last-checked log for each of the four entries. A log line for `docker/claude-apps-gateway/compose.yaml` confirms the filename match. If the compose updater finds nothing, record it as a new finding. No Docker PR for `Dockerfile:1-2` is expected, because RS-4 has no `docker` entry for `/` (Task 4.1 Step 4). Do not restructure the `Dockerfile` to suit the updater without a decision.
 
-- [ ] **Step 2: Require the Docker smoke and gateway jobs**
+- [x] **Step 2: Require the Docker smoke and gateway jobs**
+
+**Status:** Done 2026-11-16. Run by Claude at the owner's go-ahead. The read-back printed the four check names, the unchanged Admin bypass, and `active`.
 
 Keep the Admin bypass (`bypass_actors` with `actor_id: 5`, `bypass_mode: always`). `npm run release` pushes `main` and the tag directly (`scripts/release.mjs:103`), and docs-only commits also push to `main`. A bypass mode of `pull_request` would block both.
 
