@@ -6,7 +6,8 @@ import path from "node:path";
 import test from "node:test";
 import yaml from "js-yaml";
 
-const script = yaml.load(readFileSync(".github/workflows/release.yml", "utf8")).jobs.publish.steps.at(-1).run;
+const jobs = yaml.load(readFileSync(".github/workflows/release.yml", "utf8")).jobs;
+const script = jobs.publish.steps.at(-1).run;
 const mac = (name) => `LLM-Router_7.2.1-mac-${name}`;
 const armZip = mac("Apple-Silicon-arm64.zip");
 const x64Zip = mac("Intel-x64.zip");
@@ -69,4 +70,43 @@ test("the publish step keeps the draft when the macOS update metadata lists one 
   assert.notEqual(result.status, 0);
   assert.equal(result.published, false);
   assert.match(result.stdout, /latest-mac\.yml does not list LLM-Router_7\.2\.1-mac-Intel-x64\.zip/);
+});
+
+function createDraft(t, listings) {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-draft-"));
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  const bin = path.join(dir, "bin");
+  mkdirSync(bin);
+  listings.forEach((tags, index) => writeFileSync(path.join(dir, `list-${index + 1}`), tags.map((tag) => `${tag}\n`).join("")));
+  writeFileSync(path.join(dir, "calls"), "");
+  writeFileSync(path.join(bin, "gh"), `#!/bin/sh
+echo "$*" >> "${dir}/calls"
+case "$*" in
+  "release view "*isDraft*) echo true ;;
+  "release view "*) exit 1 ;;
+  "api "*) n=$(grep -c '^api ' "${dir}/calls"); cat "${dir}/list-$n" 2>/dev/null || cat "${dir}/list-${listings.length}" ;;
+esac
+`);
+  writeFileSync(path.join(bin, "sleep"), "#!/bin/sh\n");
+  for (const name of ["gh", "sleep"]) chmodSync(path.join(bin, name), 0o755);
+  const result = spawnSync("bash", ["--noprofile", "--norc", "-e", "-c", jobs["create-draft"].steps.at(-1).run], {
+    encoding: "utf8",
+    env: { ...process.env, GH_REPO: "o/r", GITHUB_REF_NAME: "v7.2.2", PATH: `${bin}${path.delimiter}${process.env.PATH}` }
+  });
+  return { ...result, calls: readFileSync(path.join(dir, "calls"), "utf8") };
+}
+
+test("create-draft waits for the release list to show the new draft", (t) => {
+  const result = createDraft(t, [["v7.2.1"], ["v7.2.1"], ["v7.2.2", "v7.2.1"]]);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.calls, /^release create v7\.2\.2 --draft --verify-tag /m);
+});
+
+test("create-draft fails when the draft never shows, or the tag has two releases", (t) => {
+  const absent = createDraft(t, [["v7.2.1"]]);
+  assert.notEqual(absent.status, 0);
+  assert.match(absent.stdout, /Expected one release for v7\.2\.2, found 0/);
+  const doubled = createDraft(t, [["v7.2.2", "v7.2.2", "v7.2.1"]]);
+  assert.notEqual(doubled.status, 0);
+  assert.match(doubled.stdout, /Expected one release for v7\.2\.2, found 2/);
 });
