@@ -19,11 +19,12 @@ export function resolveLocalGatewayRoot() {
     if (!value) continue;
     return path.resolve(projectRoot, value);
   }
-  return path.resolve(projectRoot, "..", "..", "next-ai", "gateway");
+  return undefined;
 }
 
 export function hasLocalGatewaySource(gatewayRoot = resolveLocalGatewayRoot()) {
-  return existsSync(path.join(gatewayRoot, "package.json")) &&
+  return Boolean(gatewayRoot) &&
+    existsSync(path.join(gatewayRoot, "package.json")) &&
     existsSync(path.join(gatewayRoot, "bin", "next-ai-gateway.js"));
 }
 
@@ -34,7 +35,7 @@ export function prepareLocalGatewayPackage(options = {}) {
     if (options.required) {
       throw new Error(`Local ai-gateway source was not found: ${gatewayRoot}`);
     }
-    console.log(`[docker] Local ai-gateway source not found at ${gatewayRoot}; using package-lock dependency.`);
+    console.log(`[docker] ${gatewayRoot ? `Local ai-gateway source not found at ${gatewayRoot}` : "No local ai-gateway source set"}; using package-lock dependency.`);
     return undefined;
   }
 

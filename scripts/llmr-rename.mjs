@@ -22,7 +22,6 @@ export const classes = {
 };
 
 const skippedPaths = [
-  "blog/en/",
   "docs/superpowers/",
   "docs/package-lock.json",
   "package-lock.json",

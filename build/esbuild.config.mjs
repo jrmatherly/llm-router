@@ -110,11 +110,6 @@ function resolveGatewayPackageRoot() {
     return root;
   }
 
-  const siblingGatewayRoot = path.resolve(projectRoot, "..", "..", "next-ai", "gateway");
-  if (isGatewayPackageRoot(siblingGatewayRoot)) {
-    return siblingGatewayRoot;
-  }
-
   for (const packageName of ["@the-next-ai/ai-gateway", "gateway"]) {
     try {
       const root = nearestPackageRoot(requireFromHere.resolve(packageName));

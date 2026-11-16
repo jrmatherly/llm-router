@@ -28,4 +28,5 @@ docker/local-ai-gateway/*.tgz
 .codegraph/
 .remember/
 private/
-
+CLAUDE.local.md
+.superpowers/
