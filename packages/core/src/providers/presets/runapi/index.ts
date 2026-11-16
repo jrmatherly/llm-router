@@ -11,5 +11,5 @@ export const runApiProviderPreset: ProviderPreset = {
   ],
   id: "runapi",
   name: "RunAPI",
-  websiteUrl: "https://runapi.co/register?aff=IX1t"
+  websiteUrl: "https://runapi.co/"
 };

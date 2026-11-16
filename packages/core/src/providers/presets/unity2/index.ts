@@ -11,5 +11,5 @@ export const unity2ProviderPreset: ProviderPreset = {
   ],
   id: "unity2",
   name: "Unity2.Ai",
-  websiteUrl: "https://unity2.ai/register?source=claudecoderouter"
+  websiteUrl: "https://unity2.ai/"
 };

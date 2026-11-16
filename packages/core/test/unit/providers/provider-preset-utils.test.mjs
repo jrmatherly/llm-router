@@ -101,15 +101,15 @@ test("provider identity lookup prefers exact Kimi regional names over shared ali
   assert.equal(findProviderPresetByIdentityInList(moonshotPresets, "Kimi API (China)")?.id, "moonshot");
 });
 
-test("sponsor provider presets expose requested endpoints and protocols", () => {
-  assert.equal(fennoProviderPreset.websiteUrl, "https://api.fenno.ai/register?redirect=/purchase?tab=subscription%26group=16&aff=9HHHAB5QLAES");
+test("reseller and Qiniu presets expose requested endpoints and protocols", () => {
+  assert.equal(fennoProviderPreset.websiteUrl, "https://fenno.ai/");
   assert.deepEqual(fennoProviderPreset.endpoints[0]?.protocols, [
     "openai_chat_completions",
     "openai_responses",
     "anthropic_messages"
   ]);
 
-  assert.equal(qiniuAiProviderPreset.websiteUrl, "https://s.qiniu.com/AVjMVf");
+  assert.equal(qiniuAiProviderPreset.websiteUrl, "https://www.qiniu.com/ai/agent");
   assert.equal(providerPresetMatchesBaseUrl(qiniuAiProviderPreset, "https://api.qnaigc.com"), true);
   assert.equal(providerPresetMatchesBaseUrl(qiniuAiProviderPreset, "https://api.modelink.ai/v1/models"), false);
   assert.equal(providerPresetMatchesBaseUrl(qiniuAiProviderPreset, "https://api.qnaigc.com/bypass/openai/v1/responses"), true);
@@ -124,7 +124,7 @@ test("sponsor provider presets expose requested endpoints and protocols", () => 
     "openai_chat_completions"
   ]);
 
-  assert.equal(unity2ProviderPreset.websiteUrl, "https://unity2.ai/register?source=claudecoderouter");
+  assert.equal(unity2ProviderPreset.websiteUrl, "https://unity2.ai/");
   assert.equal(providerPresetMatchesBaseUrl(unity2ProviderPreset, "https://unity2.ai/v1/chat/completions"), true);
   assert.equal(providerPresetMatchesBaseUrl(unity2ProviderPreset, "https://api.unity2.ai/v1"), false);
   assert.deepEqual(unity2ProviderPreset.endpoints[0]?.protocols, [
@@ -133,13 +133,28 @@ test("sponsor provider presets expose requested endpoints and protocols", () => 
 
   assert.equal(providerPresets.find((preset) => preset.id === "infistar-ai"), infistarAiProviderPreset);
   assert.equal(infistarAiProviderPreset.name, "Infistar AI");
-  assert.equal(infistarAiProviderPreset.websiteUrl, "https://www.infistar.cc/register?aff=CCRCCR&ref_source=link");
+  assert.equal(infistarAiProviderPreset.websiteUrl, "https://infistar.ai/");
   assert.deepEqual(infistarAiProviderPreset.defaultModels, ["gpt-4o"]);
   assert.equal(providerPresetMatchesBaseUrl(infistarAiProviderPreset, "https://infistar.ai/v1/models"), true);
   assert.equal(providerPresetMatchesBaseUrl(infistarAiProviderPreset, "https://api.infistar.ai/v1"), false);
   assert.deepEqual(infistarAiProviderPreset.endpoints[0]?.protocols, [
     "openai_chat_completions"
   ]);
+});
+
+test("no provider preset link carries a referral code, a fragment or a sign-up path", () => {
+  const links = providerPresets.flatMap((preset) => [
+    preset.websiteUrl,
+    ...preset.endpoints.map((endpoint) => endpoint.websiteUrl)
+  ]).filter(Boolean);
+  assert.ok(links.length > 0);
+  for (const link of links) {
+    const url = new URL(link);
+    assert.equal(url.protocol, "https:", link);
+    assert.equal(url.search, "", link);
+    assert.equal(url.hash, "", link);
+    assert.doesNotMatch(url.pathname, /\/register|\/signup|\/invite|\/agent\//, link);
+  }
 });
 
 test("OpenCode Go preset resolves the official usage endpoint without matching Zen", () => {
