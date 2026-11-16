@@ -37,8 +37,7 @@ test("wire also covers escaped regex forms, header case, unquoted bridge keys, a
   );
 });
 
-test("hosts we do not own and the pre-5.0 cleanup names survive", () => {
-  assert.equal(renameText("\"https://example.test/?aff=ccr\"", ["rest"]), "\"https://example.test/?aff=ccr\"");
+test("the pre-5.0 cleanup names survive", () => {
   const legacy = "[\"ccr\", \"ccr.cmd\", \"ccr-app\", \"ccr-app.cmd\", x]; source.includes(\"CCR_NODE_BIN\"); env.CCR_NODE_BIN";
   assert.equal(
     renameText(legacy, ["env", "rest"], "packages/core/src/profiles/launch-service.ts"),
@@ -52,8 +51,8 @@ test("longform keeps each spelling of the upstream name in the matching LLM Rout
   assert.equal(renameText(source, ["longform"]), "LLMRouterPlugin llmRouter llm-router \"LLM Router\" LLM_ROUTER llm_router");
 });
 
-test("longform keeps upstream attribution, partner codes and the names legacy cleanup matches", () => {
-  const source = "github.com/musistudio/claude-code-router utm_source=claudecoderouter \"Claude Code Router CA\" # >>> Claude Code Router CLI >>>";
+test("longform keeps upstream attribution and the names legacy cleanup matches", () => {
+  const source = "github.com/musistudio/claude-code-router \"Claude Code Router CA\" # >>> Claude Code Router CLI >>>";
   assert.equal(renameText(source, ["longform"]), source);
 });
 
@@ -67,7 +66,7 @@ test("a second run changes nothing", () => {
 });
 
 test("residue names each line a class still matches and skips kept text", () => {
-  assert.deepEqual(residue("ok\nx-ccr-route\naff=ccr", ["rest"], "f.ts"), ["f.ts:2: x-ccr-route"]);
+  assert.deepEqual(residue("ok\nx-ccr-route\nCCR_GATEWAY_RUNTIME_ID", ["rest"], "f.ts"), ["f.ts:2: x-ccr-route"]);
 });
 
 test("every kept entry is still at the file it names, so neither a reformat nor an over-rename can drop it", () => {

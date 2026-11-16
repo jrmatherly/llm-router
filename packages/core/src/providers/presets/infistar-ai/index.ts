@@ -12,5 +12,5 @@ export const infistarAiProviderPreset: ProviderPreset = {
   ],
   id: "infistar-ai",
   name: "Infistar AI",
-  websiteUrl: "https://www.infistar.cc/register?aff=CCRCCR&ref_source=link"
+  websiteUrl: "https://infistar.ai/"
 };

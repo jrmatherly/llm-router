@@ -38,26 +38,6 @@ const skippedPaths = [
 export const kept = [
   {
     at: [
-      "packages/core/src/providers/presets/kimi-coding/index.ts",
-      "packages/core/src/providers/presets/moonshot/index.ts"
-    ],
-    text: "aff=ccr"
-  },
-  {
-    at: [
-      "packages/core/src/providers/presets/infistar-ai/index.ts",
-      "packages/core/test/unit/providers/provider-preset-utils.test.mjs"
-    ],
-    text: "aff=CCRCCR"
-  },
-  {
-    at: [
-      "docs/src/content/docs/en/configuration/provider-deeplink.md"
-    ],
-    text: "aff%3DCCRCCR"
-  },
-  {
-    at: [
       "packages/core/src/gateway/internal/shared.ts",
       "packages/core/test/unit/gateway/gateway-status.test.mjs"
     ],
@@ -81,16 +61,6 @@ export const kept = [
       "packages/ui/test/component/layout.test.tsx"
     ],
     text: "musistudio/claude-code-router"
-  },
-  {
-    at: [
-      "docs/src/content/docs/en/configuration/provider-deeplink.md",
-      "packages/core/src/providers/presets/claudeapi/index.ts",
-      "packages/core/src/providers/presets/code0/index.ts",
-      "packages/core/src/providers/presets/unity2/index.ts",
-      "packages/core/test/unit/providers/provider-preset-utils.test.mjs"
-    ],
-    text: "claudecoderouter"
   },
   {
     at: [
