@@ -82,9 +82,15 @@ function preflight(version) {
   if (head !== run("git", ["rev-parse", "origin/main"])) {
     failures.push("main is not at origin/main");
   }
-  const testsFailure = testsRunFailure(JSON.parse(run("gh", ["run", "list", "--workflow", "test.yml", "--commit", head, "--limit", "1", "--json", "status,conclusion,url"])));
-  if (testsFailure) {
-    failures.push(testsFailure);
+  try {
+    // Without --repo, gh picks the upstream remote in a clone that has one and no default set.
+    const origin = run("git", ["remote", "get-url", "origin"]);
+    const testsFailure = testsRunFailure(JSON.parse(run("gh", ["run", "list", "--repo", origin, "--workflow", "test.yml", "--commit", head, "--limit", "1", "--json", "status,conclusion,url"])));
+    if (testsFailure) {
+      failures.push(testsFailure);
+    }
+  } catch (error) {
+    failures.push(`could not read the Tests run for HEAD: ${error instanceof Error ? error.message : String(error)}`);
   }
   if (run("git", ["tag", "--list", `v${version}`])) {
     failures.push(`tag v${version} already exists`);
