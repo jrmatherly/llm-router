@@ -22,6 +22,8 @@ In desktop/CLI deployments, management and the model gateway use different ports
 3. Install and open **LLM Router**.
 4. Add a provider/model, create a client key under **API Keys**, then click **Start** under **Server**.
 
+The Windows installer is not code-signed. Windows SmartScreen shows a warning the first time you run it. Select **More info**, then **Run anyway**.
+
 When Server shows Running, the model gateway defaults to `http://127.0.0.1:3456`. Enable automatic startup under Server if the gateway should start whenever the app opens.
 
 ## Use the CLI

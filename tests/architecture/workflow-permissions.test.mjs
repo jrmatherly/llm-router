@@ -66,3 +66,18 @@ test("the Docker image is smoke-tested with the release gateway before any push"
   assert.match(release, /LLMR_DOCKER_TEST_IMAGE: llm-router:smoke/);
   assert.match(release, /LLMR_DOCKER_TEST_SKIP_BUILD: "1"/);
 });
+
+test("docs build on pull requests, deploy only from main, and every job has a timeout", () => {
+  const docs = readFileSync(".github/workflows/docs.yml", "utf8");
+  assert.match(docs, /^  pull_request:\n    paths:\n      - "docs\/\*\*"\n      - "\.github\/workflows\/docs\.yml"$/m);
+  assert.match(docs, /^    if: github\.ref == 'refs\/heads\/main'$/m);
+  const jobs = docs.slice(docs.indexOf("\njobs:\n"));
+  assert.equal(jobs.match(/^    timeout-minutes: \d+$/gm)?.length, jobs.match(/^  [a-z0-9_-]+:$/gm).length);
+});
+
+test("Dependabot covers both lockfiles, the workflows and the compose images", () => {
+  const config = readFileSync(".github/dependabot.yml", "utf8");
+  for (const [ecosystem, directory] of [["github-actions", "/"], ["npm", "/"], ["npm", "/docs"], ["docker-compose", "/docker/claude-apps-gateway"]]) {
+    assert.match(config, new RegExp(`- package-ecosystem: ${ecosystem}\\n    directory: "${directory}"\\n`), `${ecosystem} ${directory}`);
+  }
+});
