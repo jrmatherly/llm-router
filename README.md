@@ -202,7 +202,7 @@ llmr ui
 npm run docker:compose:up
 ```
 
-Docker exposes the management UI and gateway routes through `http://127.0.0.1:3458` by default. The npm script prepares the local plugin-capable ai-gateway runtime before building the image when `../../next-ai/gateway` exists. Read the [Docker deployment guide](https://jrmatherly.github.io/llm-router/en/guides/docker/) before exposing LLMR remotely.
+Docker exposes the management UI and gateway routes through `http://127.0.0.1:3458` by default. The image uses the ai-gateway package from `package-lock.json`. To build it from a local ai-gateway checkout instead, set `LLMR_DOCKER_GATEWAY_SOURCE_DIR` to that checkout. Each release also publishes `ghcr.io/jrmatherly/llm-router:latest`, described in [`docker/README.md`](docker/README.md). Read the [Docker deployment guide](https://jrmatherly.github.io/llm-router/en/guides/docker/) before exposing LLMR remotely.
 
 ## Build desktop apps
 

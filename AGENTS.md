@@ -19,7 +19,7 @@ Fork of claude-code-router v3.1.3. Divergence from upstream is intended; never w
 Read the check before changing the structure it guards. Change a rule only together with its check.
 
 - `tests/architecture/*.test.mjs`: package boundaries, UI build contract, packaging, hooks. `npm run test:architecture`; the commit gate also runs it.
-- `packages/core/test/architecture/gateway-service-architecture.test.mjs`: the `gateway/service.ts` facade (20-line cap, no imports from gateway modules) and no filesystem persistence in `config-compiler.ts`. `npm run test:core`; the gate does not run it.
+- `packages/core/test/architecture/gateway-service-architecture.test.mjs`: the `gateway/service.ts` facade (20-line cap, no `GatewayService` class or `node:http`; it re-exports `gateway/application/gateway-service` and `routing/protocol-endpoints`, and no other gateway module imports it) and no filesystem persistence in `config-compiler.ts`. `npm run test:core`; the gate does not run it.
 - `validateLightweightMcpBundles` and `forbiddenLightweightMcpInputs` in `build/esbuild.config.mjs`: size cap and forbidden imports for the bundles in `lightweightMcpBundleNames`. Only `npm run build:assets` runs it.
 - Path-scoped rules under `.claude/rules/` load on Read, Edit and Write of matching files and name their check. MCP reads such as `codegraph_explore` load no rule (measured 2026-10-25), so read a file with Read before changing it.
 
