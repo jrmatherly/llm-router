@@ -47,7 +47,7 @@ docker compose logs -f llmr
 
 Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `LLMR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a fresh volume the management UI is available immediately; the model gateway only starts working after a provider and a model have been added.
 
-When a local `../../next-ai/gateway` checkout exists, the npm Compose script packs it before building so the image uses that plugin-capable ai-gateway runtime. Without one, the image uses the package-lock dependency. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
+When `LLMR_DOCKER_GATEWAY_SOURCE_DIR` points at a local ai-gateway checkout, the npm Compose script packs it before building so the image uses that plugin-capable ai-gateway runtime. Without one, the image uses the package-lock dependency. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
 Complete the first-time configuration in this order:
 
