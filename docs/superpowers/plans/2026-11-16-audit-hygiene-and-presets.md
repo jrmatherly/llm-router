@@ -281,6 +281,17 @@ Open the PR from `chore/strip-referral-links` and squash-merge it.
 **Size:** M.
 **Owner steps:** Step 9 is a manual check in the desktop app. It adds one provider to the owner's real LLMR config and removes it again.
 
+**Status:** Merged 2026-11-16 as [PR 70](https://github.com/jrmatherly/llm-router/pull/70), squash commit `8723f8d4`. It was the first PR to merge under the four required checks. A review changed two things from the steps below:
+
+- The core test `dropped reseller presets stay out of the registry and their base URLs resolve to no preset` is not in the tree. It pinned nothing a regression could plausibly break. The UI test `a saved provider whose preset was dropped opens as custom with no preset icon` covers the behaviour.
+- The Qiniu preset test rejects a subdomain of the preset host (`https://eu.api.qnaigc.com`). The removed Unity2 and Infistar assertions were the only ones that did.
+
+Still open:
+
+- Step 9, the manual check in the running app, has not been done.
+- The release note in Step 11 is in the PR description and still has to go in the release that ships it.
+- New finding from the review, not triaged. A provider deep link whose base URL matches no preset falls back to a name match in `resolveProviderDeepLinkPreset` (`packages/ui/src/pages/home/shared/providers.ts`). A name only has to contain a preset alias of four or more characters (`providerPresetIdentityMatchScore`, `packages/core/src/providers/presets/utils.ts`), and `providerIdentitySafetyIssueInList` always returns `undefined`. So a link named `claudeapi` gets the Anthropic preset and icon with its own base URL kept (measured by the reviewer against the real registry). Before this PR the `claudeapi` preset claimed that link by base URL. The match rule itself is pinned as intended by the test `provider identity lookup normalizes aliases and punctuation`, and it applies to any link that names itself after a known provider.
+
 A saved provider (`GatewayProviderConfig`, `packages/core/src/contracts/app.ts:161-188`) stores no preset id. The UI finds the preset again by base URL each time (`findProviderPresetByBaseUrl` in `providerDisplayIcon` and `createProviderDraftFromProvider`, `packages/ui/src/pages/home/shared/providers.ts:531-541,746-774`). So a provider saved from a deleted preset keeps working and loses only its brand icon, its preset name in the edit dialog, and the website button. That effect is inferred from the code. Steps 2 and 9 check it.
 
 ### Task 1: Remove the presets and everything that names them
