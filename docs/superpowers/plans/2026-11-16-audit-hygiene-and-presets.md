@@ -458,6 +458,12 @@ Open the PR from `chore/remove-reseller-presets` and squash-merge it. Put the re
 **Size:** S.
 **Owner steps:** Confirm the copyright line in Task 2 Step 2 (`Copyright (c) 2026 Jason Matherly`) before merge. It is a legal notice in the owner's name.
 
+**Status:** Merged 2026-11-16 as [PR 71](https://github.com/jrmatherly/llm-router/pull/71), squash commit `e18f0b4b`. The owner confirmed the copyright line as written. A review changed one thing from the steps below:
+
+- Task 2 Step 5's first README sentence was true only when no `../../next-ai/gateway` folder existed, because `build/docker-local-gateway.mjs` fell back to that sibling path when no variable was set. The fallback is removed there and in `build/esbuild.config.mjs`, so a local ai-gateway checkout is used only when a variable names one. `docker/README.md` and `docs/src/content/docs/en/guides/docker.md` name `LLMR_DOCKER_GATEWAY_SOURCE_DIR` in place of the sibling path.
+
+This plan stays out of `completed/` until HP-2's two owner steps are closed.
+
 This is a PR and not a direct push to `main`, because Task 1 edits `scripts/llmr-rename.mjs` and a test. If the work were split, Task 2 would be docs-only (`AGENTS.md`, `SECURITY.md`, the two `LICENSE` files, the `README.md:205` text) plus a two-line `.gitignore` change that no check reads. Task 1 could not be split that way. The `README.md:23` change must land with the `blog/` deletion, and the script change makes it code.
 
 The audit named a `sponsors/glm-en.jpg` file. No top-level `sponsors/` directory exists. The file is `blog/images/sponsors/glm-en.jpg`, and Task 1 deletes it with the rest of `blog/`.
