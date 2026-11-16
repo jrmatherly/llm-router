@@ -144,6 +144,7 @@ export class RawTraceSynchronizer {
   readonly token = randomUUID();
   private deadLetterPruneDirty = false;
   private deadLetterPrunePromise?: Promise<void>;
+  private readonly inFlightBundleIds = new Set<string>();
   private inboxIndex?: RawTraceInboxIndex;
   private lastDeadLetterPrunedAt = 0;
   private lastSourceScanAt = 0;
@@ -352,7 +353,19 @@ export class RawTraceSynchronizer {
     }
   }
 
+  // The cooldown in attemptStoredBundle only reserves time. An attempt that outlasts it would
+  // overlap the next one, and their delivery-state writes can land out of order.
   private async processStoredBundle(stored: StoredRawTraceBundle): Promise<boolean> {
+    if (this.inFlightBundleIds.has(stored.bundleId)) return false;
+    this.inFlightBundleIds.add(stored.bundleId);
+    try {
+      return await this.attemptStoredBundle(stored);
+    } finally {
+      this.inFlightBundleIds.delete(stored.bundleId);
+    }
+  }
+
+  private async attemptStoredBundle(stored: StoredRawTraceBundle): Promise<boolean> {
     const now = Date.now();
     const retryCooldownMs = positiveInterval(this.dependencies.retryCooldownMs, defaultRawTraceRetryCooldownMs);
     const retryState = this.retryStates.get(stored.bundleId) ?? {
@@ -360,8 +373,7 @@ export class RawTraceSynchronizer {
       pendingAttempts: stored.delivery.lastError === "record_pending" ? 1 : 0
     };
     if (now < retryState.nextAttemptAt) return false;
-    // Reserve the base cooldown before entering user/runtime code so an
-    // overlapping replay cannot deliver this bundle concurrently.
+    // Keeps a cooldown when dead-lettering below throws; every other exit resets it.
     this.retryStates.set(stored.bundleId, {
       ...retryState,
       nextAttemptAt: now + retryCooldownMs

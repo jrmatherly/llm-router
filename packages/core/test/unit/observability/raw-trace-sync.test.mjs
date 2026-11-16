@@ -832,6 +832,56 @@ test("raw trace persists the delivery budget across record-pending retries", asy
   }
 });
 
+test("raw trace does not start a second attempt on a bundle while one is still running", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-overlap-test-"));
+  const spoolDirectory = path.join(dir, "spool");
+  const bundleDirectory = path.join(spoolDirectory, "overlap-bundle");
+  const bodyFile = path.join(bundleDirectory, "upstream_request.json");
+  mkdirSync(bundleDirectory, { recursive: true });
+  writeFileSync(bodyFile, '{"message":"overlap"}');
+  let attempts = 0;
+  let releaseFirstAttempt;
+  const firstAttemptHeld = new Promise((resolve) => {
+    releaseFirstAttempt = resolve;
+  });
+  const synchronizer = new RawTraceSynchronizer({
+    bundleMaxAttempts: 100,
+    enqueueUpdate: async () => {
+      attempts += 1;
+      if (attempts === 1) await firstAttemptHeld;
+      return { accepted: false, degraded: false, reason: "record_pending" };
+    },
+    getConfig: createConfig,
+    pendingRetryMaxMs: 10,
+    replayIntervalMs: 2,
+    retryCooldownMs: 5,
+    spoolDirectory
+  });
+  try {
+    const result = await sendRawTrace(synchronizer, {
+      parts: [{ filePath: bodyFile, partType: "upstream_request" }],
+      requestId: "overlap-bundle-id",
+      turnKey: "overlap-request"
+    });
+    assert.equal(result.statusCode, 202);
+    await synchronizer.start();
+    await waitFor(() => attempts === 1);
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    assert.equal(attempts, 1);
+
+    releaseFirstAttempt();
+    await waitFor(() => attempts >= 2);
+    await synchronizer.stop();
+    const inboxDirectory = path.join(spoolDirectory, ".llmr-inbox");
+    const deliveryFile = path.join(inboxDirectory, readdirSync(inboxDirectory)[0], ".llmr-delivery.json");
+    assert.equal(JSON.parse(readFileSync(deliveryFile, "utf8")).attempts, attempts);
+  } finally {
+    releaseFirstAttempt();
+    await synchronizer.stop();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("raw trace replay rotates through a bounded number of bundles per pass", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-replay-budget-test-"));
   const spoolDirectory = path.join(dir, "spool");
