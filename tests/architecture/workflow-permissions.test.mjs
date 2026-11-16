@@ -70,9 +70,11 @@ test("the Docker image is smoke-tested with the release gateway before any push"
 test("docs build on pull requests, deploy only from main, and every job has a timeout", () => {
   const docs = readFileSync(".github/workflows/docs.yml", "utf8");
   assert.match(docs, /^  pull_request:\n    paths:\n      - "docs\/\*\*"\n      - "\.github\/workflows\/docs\.yml"$/m);
-  assert.match(docs, /^    if: github\.ref == 'refs\/heads\/main'$/m);
-  const jobs = docs.slice(docs.indexOf("\njobs:\n"));
-  assert.equal(jobs.match(/^    timeout-minutes: \d+$/gm)?.length, jobs.match(/^  [a-z0-9_-]+:$/gm).length);
+  assert.match(docs, /^  group: docs-\$\{\{ github\.ref == 'refs\/heads\/main' && 'deploy' \|\| github\.ref \}\}\n  cancel-in-progress: \$\{\{ github\.ref != 'refs\/heads\/main' \}\}$/m);
+  const jobs = jobBlocks(".github/workflows/docs.yml");
+  assert.match(jobs.get("deploy"), /^    if: github\.ref == 'refs\/heads\/main'$/m);
+  assert.doesNotMatch(jobs.get("build"), /^    if:/m);
+  for (const [name, block] of jobs) assert.match(block, /^    timeout-minutes: \d+$/m, name);
 });
 
 test("Dependabot covers both lockfiles, the workflows and the compose images", () => {
