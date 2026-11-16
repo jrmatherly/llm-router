@@ -365,6 +365,14 @@ Expected: `📦 Build gateway`, `🧪 Unit and architecture`, `🎭 End to end` 
 **Branch:** `fix/release-draft-until-complete`
 **Size:** M
 **Owner steps:** Task 2.3 pushes a throwaway tag and deletes a draft release. RS-5 step 5 creates the `release` environment. Do it before the first real release after this PR.
+**Status:** Merged 2026-11-16 as [PR 67](https://github.com/jrmatherly/llm-router/pull/67), squash commit `279409ac`. The `release` environment exists, limited to `v*` tags, and holds the five signing secrets. The repository-level copies stay until one release succeeds. Task 2.3 passed twice on the runner, on the first commit and on the final one: `create-draft` works, a draft is found by tag, takes uploads, can be listed and downloaded from, and the public `releases/latest` stayed at `v7.2.1`. Both test tags and drafts are deleted. A review and the owner's "no manual approval" requirement changed these things from the steps below:
+
+- `EP_DRAFT: "true"` on the Windows and Linux upload steps. electron-builder reads one page of releases, and with `releaseType: release` a missed draft would have become a public release.
+- `create-draft` requires exactly one release for the tag and no longer hides the first lookup's error.
+- `publish` also requires every file that `latest.yml`, `latest-mac.yml` and `latest-linux.yml` name, counts only assets in state `uploaded` with a size above zero, and requires `latest-mac.yml` to list both architectures.
+- `tests/architecture/release-publish-step.test.mjs` runs the publish step's script with a stub `gh`. The text assertions on the asset names are gone.
+
+Not yet run anywhere: `gh release edit --draft=false`, and electron-builder uploading into an existing draft. The first real release is the test. If `publish` fails after every asset uploaded, "Re-run failed jobs" is the simplest recovery. The manual commands in Task 2.3 Step 4 still work.
 
 Background, checked at `136ad730`. `publish-macos` creates a public release (`release.yml:224-225`), and `windows` and `linux` start only after it (`:261`, `:313`). electron-builder reuses an existing draft, and skips a published release that is more than two hours old with a warning and exit code 0 (`node_modules/electron-publish/out/gitHubPublisher.js:69-97`). `electron-builder.json` sets `"releaseType": "release"`, and the publisher has no code that flips a draft to published, so the draft stays a draft until the new `publish` job edits it.
 
