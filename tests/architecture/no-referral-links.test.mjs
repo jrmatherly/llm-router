@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const referral = "(\\?|&|&amp;|%3F|%26)(aff|ref_source|cps_key|utm_[a-z]+)(=|%3D)|s\\.qiniu\\.com";
@@ -17,7 +18,7 @@ function referralLines() {
   try {
     return execFileSync(
       "git",
-      ["grep", "-nIiE", referral, "--", ".", ...excluded.map((entry) => `:(exclude)${entry}`)],
+      ["grep", "-nIiE", referral, "--", ":(top)", ...excluded.map((entry) => `:(top,exclude)${entry}`)],
       { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }
     ).split("\n").filter(Boolean).map((line) => line.slice(0, 200));
   } catch (error) {
@@ -28,6 +29,19 @@ function referralLines() {
 
 test("no tracked file carries a referral parameter or the Qiniu short link", () => {
   assert.deepEqual(referralLines(), []);
+});
+
+test("every source link on the provider deeplink page is a plain https page", () => {
+  const page = readFileSync("docs/src/content/docs/en/configuration/provider-deeplink.md", "utf8");
+  const links = [...page.matchAll(/source=(https%3A[^"&]*)/g)].map((match) => decodeURIComponent(match[1]));
+  assert.ok(links.length > 0);
+  for (const link of links) {
+    const url = new URL(link);
+    assert.equal(url.protocol, "https:", link);
+    assert.equal(url.search, "", link);
+    assert.equal(url.hash, "", link);
+    assert.doesNotMatch(url.pathname, /\/register|\/signup|\/invite|\/agent\//, link);
+  }
 });
 
 test("the referral pattern matches plain, HTML-escaped and URL-encoded parameters", () => {

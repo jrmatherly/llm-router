@@ -142,7 +142,7 @@ test("reseller and Qiniu presets expose requested endpoints and protocols", () =
   ]);
 });
 
-test("no provider preset link carries a referral code or a sign-up path", () => {
+test("no provider preset link carries a referral code, a fragment or a sign-up path", () => {
   const links = providerPresets.flatMap((preset) => [
     preset.websiteUrl,
     ...preset.endpoints.map((endpoint) => endpoint.websiteUrl)
@@ -152,7 +152,8 @@ test("no provider preset link carries a referral code or a sign-up path", () => 
     const url = new URL(link);
     assert.equal(url.protocol, "https:", link);
     assert.equal(url.search, "", link);
-    assert.doesNotMatch(url.pathname, /\/register|\/agent\//, link);
+    assert.equal(url.hash, "", link);
+    assert.doesNotMatch(url.pathname, /\/register|\/signup|\/invite|\/agent\//, link);
   }
 });
 
