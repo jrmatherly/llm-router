@@ -113,7 +113,7 @@
   },
   "overrides": {
     "@the-next-ai/ai-gateway": {
-      "glob": "^14.0.4"
+      "glob": "14.0.4"
     },
     "@types/react": "$@types/react",
     "fast-uri@3": "3.1.9",
