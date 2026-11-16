@@ -74,37 +74,13 @@ Choose a provider below to get started. LLMR shows what will be added before sav
     <span class="provider-import-icon-shell"><img src="../../../provider-icons/siliconflow.png" alt="" loading="lazy" /></span>
     <span class="provider-import-copy"><span class="provider-import-name">SiliconFlow</span><span class="provider-import-meta">Chat Completions</span></span>
   </a>
-  <a class="provider-import-button provider-runapi" href="llmr://provider?name=RunAPI&amp;base_url=https%3A%2F%2Frunapi.co%2Fv1&amp;protocol=openai_responses" aria-label="Import RunAPI provider">
-    <span class="provider-import-icon-shell"><img src="../../../provider-icons/runapi.jpg" alt="" loading="lazy" /></span>
-    <span class="provider-import-copy"><span class="provider-import-name">RunAPI</span><span class="provider-import-meta">Responses / Chat Completions</span></span>
-  </a>
   <a class="provider-import-button provider-teamorouter" href="llmr://provider?name=TeamoRouter&amp;base_url=https%3A%2F%2Fapi.teamorouter.com&amp;protocol=anthropic_messages&amp;source=https%3A%2F%2Fteamorouter.com%2F" aria-label="Import TeamoRouter provider">
     <span class="provider-import-icon-shell"><img src="../../../provider-icons/teamorouter.png" alt="" loading="lazy" /></span>
     <span class="provider-import-copy"><span class="provider-import-name">TeamoRouter</span><span class="provider-import-meta">Anthropic / Chat / Responses</span></span>
   </a>
-  <a class="provider-import-button provider-unity2" href="llmr://provider?name=Unity2.Ai&amp;base_url=https%3A%2F%2Funity2.ai%2Fv1&amp;protocol=openai_chat_completions&amp;source=https%3A%2F%2Funity2.ai%2F" aria-label="Import Unity2.Ai provider">
-    <span class="provider-import-icon-shell"><img src="../../../provider-icons/unity2.jpg" alt="" loading="lazy" /></span>
-    <span class="provider-import-copy"><span class="provider-import-name">Unity2.Ai</span><span class="provider-import-meta">OpenAI compatible gateway</span></span>
-  </a>
-  <a class="provider-import-button provider-code0" href="llmr://provider?name=code0.ai&amp;base_url=https%3A%2F%2Fconsole.code0.ai&amp;protocol=anthropic_messages&amp;source=https%3A%2F%2Fcode0.ai%2F" aria-label="Import code0.ai provider">
-    <span class="provider-import-icon-shell"><img src="../../../provider-icons/code0.png" alt="" loading="lazy" /></span>
-    <span class="provider-import-copy"><span class="provider-import-name">code0.ai</span><span class="provider-import-meta">Anthropic / Chat / Responses</span></span>
-  </a>
-  <a class="provider-import-button provider-claudeapi" href="llmr://provider?name=claudeapi&amp;base_url=https%3A%2F%2Fgw.claudeapi.com&amp;protocol=anthropic_messages&amp;source=https%3A%2F%2Fclaudeapi.com%2F" aria-label="Import claudeapi provider">
-    <span class="provider-import-icon-shell"><img src="../../../provider-icons/claudeapi.png" alt="" loading="lazy" /></span>
-    <span class="provider-import-copy"><span class="provider-import-name">claudeapi</span><span class="provider-import-meta">Anthropic Messages</span></span>
-  </a>
   <a class="provider-import-button provider-qiniu-ai" href="llmr://provider?name=Qiniu+Cloud+AI&amp;base_url=https%3A%2F%2Fapi.qnaigc.com&amp;protocol=openai_chat_completions&amp;source=https%3A%2F%2Fwww.qiniu.com%2Fai%2Fagent" aria-label="Import Qiniu Cloud AI provider">
     <span class="provider-import-icon-shell"><img src="../../../provider-icons/qiniu-ai.png" alt="" loading="lazy" /></span>
     <span class="provider-import-copy"><span class="provider-import-name">Qiniu Cloud AI</span><span class="provider-import-meta">Chat / Responses / Anthropic / Gemini Generate</span></span>
-  </a>
-  <a class="provider-import-button provider-fenno" href="llmr://provider?name=Fenno.ai&amp;base_url=https%3A%2F%2Fapi.fenno.ai&amp;protocol=openai_chat_completions&amp;source=https%3A%2F%2Ffenno.ai%2F" aria-label="Import Fenno.ai provider">
-    <span class="provider-import-icon-shell"><img src="../../../provider-icons/fenno.jpg" alt="" loading="lazy" /></span>
-    <span class="provider-import-copy"><span class="provider-import-name">Fenno.ai</span><span class="provider-import-meta">Chat / Responses / Anthropic</span></span>
-  </a>
-  <a class="provider-import-button provider-infistar-ai" href="llmr://provider?name=Infistar+AI&amp;base_url=https%3A%2F%2Finfistar.ai%2Fv1&amp;protocol=openai_chat_completions&amp;models=gpt-4o&amp;source=https%3A%2F%2Finfistar.ai%2F" aria-label="Import Infistar AI provider">
-    <span class="provider-import-icon-shell"><img src="../../../provider-icons/infistar-ai.jpg" alt="" loading="lazy" /></span>
-    <span class="provider-import-copy"><span class="provider-import-name">Infistar AI</span><span class="provider-import-meta">OpenAI compatible gateway</span></span>
   </a>
   <a class="provider-import-button provider-minimax" href="llmr://provider?name=MiniMax+%28Global%29&amp;base_url=https%3A%2F%2Fapi.minimax.io%2Fv1&amp;protocol=openai_chat_completions&amp;models=MiniMax-M3&amp;source=https%3A%2F%2Fplatform.minimax.io%2Fdocs" aria-label="Import MiniMax global provider">
     <span class="provider-import-icon-shell"><img src="../../../provider-icons/minimax.ico" alt="" loading="lazy" /></span>

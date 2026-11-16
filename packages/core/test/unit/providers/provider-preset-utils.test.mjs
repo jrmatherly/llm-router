@@ -22,12 +22,6 @@ import {
   providerPresetMatchesBaseUrl
 } from "@llmr/core/providers/presets/utils.ts";
 import {
-  fennoProviderPreset
-} from "@llmr/core/providers/presets/fenno/index.ts";
-import {
-  infistarAiProviderPreset
-} from "@llmr/core/providers/presets/infistar-ai/index.ts";
-import {
   moonshotChinaProviderPreset,
   moonshotGlobalProviderPreset
 } from "@llmr/core/providers/presets/moonshot/index.ts";
@@ -38,6 +32,8 @@ import {
   openCodeGoProviderPreset
 } from "@llmr/core/providers/presets/opencode-go/index.ts";
 import {
+  findProviderPreset,
+  findProviderPresetByBaseUrl,
   providerPresets
 } from "@llmr/core/providers/presets/index.ts";
 import {
@@ -47,9 +43,6 @@ import {
 import {
   qiniuAiProviderPreset
 } from "@llmr/core/providers/presets/qiniu-ai/index.ts";
-import {
-  unity2ProviderPreset
-} from "@llmr/core/providers/presets/unity2/index.ts";
 import {
   xiaomiMimoProviderPreset,
   xiaomiMimoTokenPlanChinaProviderPreset,
@@ -101,14 +94,7 @@ test("provider identity lookup prefers exact Kimi regional names over shared ali
   assert.equal(findProviderPresetByIdentityInList(moonshotPresets, "Kimi API (China)")?.id, "moonshot");
 });
 
-test("reseller and Qiniu presets expose requested endpoints and protocols", () => {
-  assert.equal(fennoProviderPreset.websiteUrl, "https://fenno.ai/");
-  assert.deepEqual(fennoProviderPreset.endpoints[0]?.protocols, [
-    "openai_chat_completions",
-    "openai_responses",
-    "anthropic_messages"
-  ]);
-
+test("Qiniu preset exposes requested endpoints and protocols", () => {
   assert.equal(qiniuAiProviderPreset.websiteUrl, "https://www.qiniu.com/ai/agent");
   assert.equal(providerPresetMatchesBaseUrl(qiniuAiProviderPreset, "https://api.qnaigc.com"), true);
   assert.equal(providerPresetMatchesBaseUrl(qiniuAiProviderPreset, "https://api.modelink.ai/v1/models"), false);
@@ -123,23 +109,22 @@ test("reseller and Qiniu presets expose requested endpoints and protocols", () =
   assert.deepEqual(qiniuAiProviderPreset.endpoints[0]?.protocols, [
     "openai_chat_completions"
   ]);
+});
 
-  assert.equal(unity2ProviderPreset.websiteUrl, "https://unity2.ai/");
-  assert.equal(providerPresetMatchesBaseUrl(unity2ProviderPreset, "https://unity2.ai/v1/chat/completions"), true);
-  assert.equal(providerPresetMatchesBaseUrl(unity2ProviderPreset, "https://api.unity2.ai/v1"), false);
-  assert.deepEqual(unity2ProviderPreset.endpoints[0]?.protocols, [
-    "openai_chat_completions"
-  ]);
-
-  assert.equal(providerPresets.find((preset) => preset.id === "infistar-ai"), infistarAiProviderPreset);
-  assert.equal(infistarAiProviderPreset.name, "Infistar AI");
-  assert.equal(infistarAiProviderPreset.websiteUrl, "https://infistar.ai/");
-  assert.deepEqual(infistarAiProviderPreset.defaultModels, ["gpt-4o"]);
-  assert.equal(providerPresetMatchesBaseUrl(infistarAiProviderPreset, "https://infistar.ai/v1/models"), true);
-  assert.equal(providerPresetMatchesBaseUrl(infistarAiProviderPreset, "https://api.infistar.ai/v1"), false);
-  assert.deepEqual(infistarAiProviderPreset.endpoints[0]?.protocols, [
-    "openai_chat_completions"
-  ]);
+test("dropped reseller presets stay out of the registry and their base URLs resolve to no preset", () => {
+  for (const id of ["code0", "claudeapi", "fenno", "infistar-ai", "runapi", "unity2"]) {
+    assert.equal(findProviderPreset(id), undefined, id);
+  }
+  for (const baseUrl of [
+    "https://console.code0.ai",
+    "https://gw.claudeapi.com",
+    "https://api.fenno.ai",
+    "https://infistar.ai/v1",
+    "https://runapi.co/v1",
+    "https://unity2.ai/v1"
+  ]) {
+    assert.equal(findProviderPresetByBaseUrl(baseUrl), undefined, baseUrl);
+  }
 });
 
 test("no provider preset link carries a referral code, a fragment or a sign-up path", () => {

@@ -1,11 +1,7 @@
 import { anthropicProviderPreset } from "@llmr/core/providers/presets/anthropic/index";
 import { bailianProviderPreset } from "@llmr/core/providers/presets/bailian/index";
-import { claudeApiProviderPreset } from "@llmr/core/providers/presets/claudeapi/index";
-import { code0ProviderPreset } from "@llmr/core/providers/presets/code0/index";
 import { deepSeekProviderPreset } from "@llmr/core/providers/presets/deepseek/index";
-import { fennoProviderPreset } from "@llmr/core/providers/presets/fenno/index";
 import { geminiProviderPreset } from "@llmr/core/providers/presets/gemini/index";
-import { infistarAiProviderPreset } from "@llmr/core/providers/presets/infistar-ai/index";
 import { kimiCodingProviderPreset } from "@llmr/core/providers/presets/kimi-coding/index";
 import { minimaxChinaProviderPreset, minimaxGlobalProviderPreset } from "@llmr/core/providers/presets/minimax/index";
 import { mistralProviderPreset } from "@llmr/core/providers/presets/mistral/index";
@@ -15,10 +11,8 @@ import { openCodeGoProviderPreset } from "@llmr/core/providers/presets/opencode-
 import { openaiProviderPreset } from "@llmr/core/providers/presets/openai/index";
 import { openRouterProviderPreset } from "@llmr/core/providers/presets/openrouter/index";
 import { qiniuAiProviderPreset } from "@llmr/core/providers/presets/qiniu-ai/index";
-import { runApiProviderPreset } from "@llmr/core/providers/presets/runapi/index";
 import { siliconFlowProviderPreset } from "@llmr/core/providers/presets/siliconflow/index";
 import { teamoRouterProviderPreset } from "@llmr/core/providers/presets/teamorouter/index";
-import { unity2ProviderPreset } from "@llmr/core/providers/presets/unity2/index";
 import {
   xiaomiMimoProviderPreset,
   xiaomiMimoTokenPlanChinaProviderPreset,
@@ -66,13 +60,7 @@ export const providerPresets: ProviderPreset[] = [
   bailianProviderPreset,
   siliconFlowProviderPreset,
   qiniuAiProviderPreset,
-  fennoProviderPreset,
-  infistarAiProviderPreset,
-  runApiProviderPreset,
   teamoRouterProviderPreset,
-  unity2ProviderPreset,
-  code0ProviderPreset,
-  claudeApiProviderPreset,
   yApiProviderPreset
 ];
 
