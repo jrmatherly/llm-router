@@ -22,12 +22,51 @@ function jobBlocks(file) {
 const gatewayInstall = "npm install --no-save .tmp/gateway-package/*.tgz";
 const gatewayEntry = /^      LLMR_TEST_GATEWAY_ENTRY: \$\{\{ github\.workspace \}\}\/node_modules\/@the-next-ai\/ai-gateway\/bin\/next-ai-gateway\.js$/m;
 
+const releaseAssets = [
+  "latest-mac.yml", "latest.yml", "latest-linux.yml",
+  "LLM-Router_${version}.exe", "LLM-Router_${version}.AppImage",
+  "LLM-Router_${version}-mac-Apple-Silicon-arm64.dmg", "LLM-Router_${version}-mac-Apple-Silicon-arm64.zip",
+  "LLM-Router_${version}-mac-Intel-x64.dmg", "LLM-Router_${version}-mac-Intel-x64.zip"
+];
+
 test("release builds wait for the test job", () => {
   const jobs = jobBlocks(".github/workflows/release.yml");
-  assert.match(jobs.get("model-catalog"), /^    needs: test$/m);
+  for (const job of ["model-catalog", "create-draft"]) assert.match(jobs.get(job), /^    needs: test$/m, job);
   assert.match(jobs.get("test"), /^    needs: gateway$/m);
   assert.match(jobs.get("macos"), /^    needs: \[model-catalog, gateway\]$/m);
+  for (const job of ["windows", "linux"]) assert.match(jobs.get(job), /^    needs: \[create-draft, model-catalog, gateway\]$/m, job);
   assert.match(readFileSync(".github/workflows/test.yml", "utf8"), /npm run test:system/);
+});
+
+test("the release stays a draft until every platform uploaded", () => {
+  const text = readFileSync(".github/workflows/release.yml", "utf8");
+  const jobs = jobBlocks(".github/workflows/release.yml");
+  assert.equal(jobs.has("publish-macos"), false);
+  assert.equal(text.match(/gh release create /g).length, 1);
+  assert.match(jobs.get("create-draft"), /gh release create "\$GITHUB_REF_NAME" --draft --verify-tag /);
+  assert.match(jobs.get("create-draft"), /--json isDraft --jq \.isDraft\)" = "true"$/m);
+  assert.match(jobs.get("upload-macos"), /^    needs: \[macos, create-draft\]$/m);
+  const publish = jobs.get("publish");
+  assert.match(publish, /^    needs: \[upload-macos, windows, linux\]$/m);
+  assert.equal(text.match(/--draft=false/g).length, 1);
+  assert.match(publish, /gh release edit "\$GITHUB_REF_NAME" --draft=false --latest$/m);
+  for (const name of releaseAssets) assert.ok(publish.includes(name), name);
+  const checked = publish.indexOf("(( missing == 0 ))");
+  assert.ok(checked > 0 && checked < publish.indexOf("--draft=false"), "the asset check runs before the release is published");
+  assert.ok(publish.indexOf("gh release download") < checked, "the update metadata is read before the asset check passes");
+});
+
+test("every release.yml job sets timeout-minutes", () => {
+  for (const [name, block] of jobBlocks(".github/workflows/release.yml")) {
+    assert.match(block, /^    timeout-minutes: \d+$/m, name);
+  }
+});
+
+test("macOS signing runs in the release environment", () => {
+  for (const [name, block] of jobBlocks(".github/workflows/release.yml")) {
+    if (name === "macos") assert.match(block, /^    environment: release$/m);
+    else assert.doesNotMatch(block, /secrets\.(?:APPLE|MACOS)_/, name);
+  }
 });
 
 test("tests and releases install the gateway tarball the release builds", () => {
