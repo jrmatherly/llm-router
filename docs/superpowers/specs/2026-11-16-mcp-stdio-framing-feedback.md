@@ -1,6 +1,6 @@
 # Stdio MCP framing feedback spec
 
-This spec records what happens when a stdio MCP server is set to the wrong message framing, the options for fixing it, and which of them the owner has decided. The plan is [`plans/2026-11-16-mcp-stdio-framing-feedback.md`](../plans/2026-11-16-mcp-stdio-framing-feedback.md).
+This spec records what happens when a stdio MCP server is set to the wrong message framing, the options for fixing it, and what the owner decided. The plan is [`plans/2026-11-16-mcp-stdio-framing-feedback.md`](../plans/2026-11-16-mcp-stdio-framing-feedback.md).
 
 ## Goal
 
@@ -38,9 +38,9 @@ Three reviewers on different models tried to break this spec and its plan on 202
 | Option | What it does | Verdict |
 |---|---|---|
 | A | Add a framing hint to the errors of both stdio clients, show a failed backend's stored error when ToolHub has no tools, and stop reusing a child process that failed to start (F-7). It does not cover agent traffic with ToolHub turned off (F-8). | Recommended. Planned as MF-1. |
-| B | Ignore `content-length` for every server LLMR's own stdio clients talk to, keep it for LLMR's bundled servers, and remove the dropdown. Old saved servers then work with no migration, with ToolHub on or off (F-8). Those clients also receive servers a plugin contributes (`coreGateway.config.agent.mcpServers`), so a plugin could no longer ask for `content-length`. No plugin in this repo does. | Owner decision OD-1. Planned as MF-2, not to start without it. |
+| B | Ignore `content-length` for every server LLMR's own stdio clients talk to, keep it for LLMR's bundled servers, and remove the dropdown. Old saved servers then work with no migration, with ToolHub on or off (F-8). Those clients also receive servers a plugin contributes (`coreGateway.config.agent.mcpServers`), so a plugin could no longer ask for `content-length`. No plugin in this repo does. | Chosen by OD-1. Planned as MF-2. |
 | C | Retry in the other framing after a short silence. | Rejected. A slow first start, such as `npx` downloading a package, looks like silence and would trigger a wrong retry and a second `initialize`. |
-| D | Give interactive discovery a shorter timeout than server startup. | Owner decision OD-2. Planned as MF-3, not to start without it. |
+| D | Give interactive discovery a shorter timeout than server startup. | Chosen by OD-2. Planned as MF-3. |
 | E | Add a "test" action to the settings page. | Not planned. It needs a UI design first. |
 
 ## Decisions
@@ -49,8 +49,8 @@ Three reviewers on different models tried to break this spec and its plan on 202
 |---|---|---|
 | D-1 | No migration rewrites a saved server's mode. The project has no consumers (decision D-9 of `2026-11-16-audit-remediation.md`). | Standing. |
 | D-2 | Option C is rejected. | Decided by the reasoning above; the owner has not objected. |
-| OD-1 | Should every stdio server that LLMR's own clients talk to, user-configured or plugin-supplied, always use newline JSON (option B)? | Open. The owner decides. |
-| OD-2 | Should discovery time out sooner than server startup, and after how long (option D)? | Open. The owner decides. |
+| OD-1 | Should every stdio server that LLMR's own clients talk to, user-configured or plugin-supplied, always use newline JSON (option B)? | Yes. Decided by the owner on 2026-11-16. |
+| OD-2 | Should discovery time out sooner than server startup, and after how long (option D)? | Yes, after 60000 ms. Decided by the owner on 2026-11-16. |
 
 ## Constraints
 

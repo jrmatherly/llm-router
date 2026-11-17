@@ -15,10 +15,10 @@
 | PR | Title | Starts when | Size |
 |---|---|---|---|
 | MF-1 | Name framing in stdio handshake errors | The owner approves this plan | S |
-| MF-2 | Always speak newline JSON from LLMR's own stdio clients | The owner decides OD-1 as yes | M |
-| MF-3 | Cap interactive discovery below the startup timeout | The owner decides OD-2 and gives a number | S |
+| MF-2 | Always speak newline JSON from LLMR's own stdio clients | MF-1 has merged (OD-1 was decided yes on 2026-11-16) | M |
+| MF-3 | Cap interactive discovery below the startup timeout | MF-1 has merged (OD-2 was decided yes at 60000 ms on 2026-11-16) | S |
 
-MF-2 and MF-3 are independent of each other. Each needs MF-1 merged first, because all three edit `packages/core/src/mcp/tool-discovery.ts`. If MF-2 lands, its Task 1 deletes the hint MF-1 added, since no server those clients talk to can then be in `content-length` mode. Do not start MF-2 or MF-3 on an agent's judgment: the spec lists OD-1 and OD-2 as open.
+MF-2 and MF-3 are independent of each other. Each needs MF-1 merged first, because all three edit `packages/core/src/mcp/tool-discovery.ts`. If MF-2 lands, its Task 1 deletes the hint MF-1 added, since no server those clients talk to can then be in `content-length` mode. The owner decided OD-1 and OD-2 on 2026-11-16, so both may start once MF-1 has merged.
 
 ## Global Constraints
 
@@ -260,11 +260,9 @@ Write the PR body to a scratch file and pass `--body-file`. Open `## Why` with t
 ## MF-2 Always speak newline JSON from LLMR's own stdio clients
 
 **Fixes:** spec F-6, by option B
-**Depends on:** MF-1 merged, and owner decision OD-1 answered yes
+**Depends on:** MF-1 merged. Owner decision OD-1 was answered yes on 2026-11-16.
 **Branch:** `refactor/mcp-stdio-newline-only`
-**Owner steps:** Decide OD-1. Paste the release note from Task 1 Step 7 into the release that ships it.
-
-Do not start this PR on an agent's judgment. If OD-1 is answered no, mark this section "Not doing" and stop.
+**Owner steps:** Paste the release note from Task 1 Step 7 into the release that ships it.
 
 LLMR's two stdio clients talk to three kinds of server: the ones in `config.agent.mcpServers`, the ones in `config.toolHub.mcpServers`, and the ones a plugin contributes through `coreGateway.config.agent.mcpServers`. `compileCoreGatewayConfig` joins the three into `externalMcpServers` (`packages/core/src/gateway/core-runtime/config-compiler.ts`). The gateway child, not LLMR, spawns the bundled servers that read `Content-Length`. With ToolHub turned off it also spawns the `externalMcpServers` themselves (`toolHubServer ? [toolHubServer] : externalMcpServers`), using the mode the compiler wrote, so this PR changes what the gateway child speaks to them as well (spec F-8). So once none of those three can be `content-length`, the `Content-Length` code in both clients has no caller, and neither has the hint from MF-1.
 
@@ -350,11 +348,9 @@ Release note for the PR body: "The stdio message mode setting is gone. LLMR alwa
 ## MF-3 Cap interactive discovery below the startup timeout
 
 **Fixes:** spec F-3, by option D
-**Depends on:** MF-1 merged, and owner decision OD-2 answered with a number of milliseconds
+**Depends on:** MF-1 merged. Owner decision OD-2 was answered yes on 2026-11-16, with a ceiling of 60000 ms.
 **Branch:** `fix/mcp-discovery-timeout`
-**Owner steps:** Decide OD-2. A first `npx` start downloads a package and can take longer than a minute, so the number trades a fast failure against a false timeout on first use.
-
-Do not start this PR on an agent's judgment, and do not pick the number.
+**Owner steps:** None. A first `npx` start downloads a package and can take longer than a minute, so 60000 ms trades a fast failure against a false timeout on first use. A retry then finds the package in the npm cache. Do not change the number without the owner.
 
 ### Task 1: A separate ceiling for discovery
 
@@ -363,7 +359,7 @@ Do not start this PR on an agent's judgment, and do not pick the number.
 - Test: `packages/core/test/unit/mcp/stdio-framing.test.mjs` if MF-2 has not deleted it, else `packages/core/test/unit/mcp/mcp-child-env.test.mjs`
 
 **Interfaces:**
-- Produces: `mcpDiscoveryMaxTimeoutMs: number`, exported from `tool-discovery.ts`, holding the owner's number. `listMcpServerTools(server, options?: { maxTimeoutMs?: number })`: discovery waits `Math.min(mcpTimeoutMs(server), options?.maxTimeoutMs ?? mcpDiscoveryMaxTimeoutMs)`. The option exists so a test does not wait for the real ceiling. The ceiling applies to the stdio path only. The streamable HTTP and SSE paths keep `mcpTimeoutMs(server)`: a wrong framing cannot stall them, and spec F-3 was measured on stdio.
+- Produces: `mcpDiscoveryMaxTimeoutMs: number`, exported from `tool-discovery.ts`, set to `60000`, the owner's number. `listMcpServerTools(server, options?: { maxTimeoutMs?: number })`: discovery waits `Math.min(mcpTimeoutMs(server), options?.maxTimeoutMs ?? mcpDiscoveryMaxTimeoutMs)`. The option exists so a test does not wait for the real ceiling. The ceiling applies to the stdio path only. The streamable HTTP and SSE paths keep `mcpTimeoutMs(server)`: a wrong framing cannot stall them, and spec F-3 was measured on stdio.
 
 - [ ] **Step 1: Write the failing test**
 
