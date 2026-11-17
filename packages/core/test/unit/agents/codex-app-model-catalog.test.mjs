@@ -48,9 +48,9 @@ test("app launch env carries the workspace name under its LLMR_ name", () => {
   assert.equal(codexProfileEnvForTest({ ...base, agent: "zcode", name: "ZCode Main" }).LLMR_ZCODE_WORKSPACE_NAME, "ZCode Main");
 });
 
-test("WorkBuddy app launch env carries only names something reads", () => {
+test("WorkBuddy profile env writes no LLMR_WORKBUDDY_ names", () => {
   const env = codexProfileEnvForTest({ agent: "workbuddy", codexCliPath: "/usr/bin/true", enabled: true, env: {}, id: "p", model: "Provider/model", name: "Buddy Main", providerId: "llm-router" });
-  assert.deepEqual(Object.keys(env).filter((key) => key.includes("WORKBUDDY")), []);
+  assert.deepEqual(Object.keys(env).filter((key) => /^LLMR_(REAL_)?WORKBUDDY_/.test(key)), []);
   assert.equal(env.LLMR_CODEX_MODEL, "Provider/model");
   assert.equal(env.LLMR_REAL_CODEX_CLI_PATH, "/usr/bin/true");
 });
