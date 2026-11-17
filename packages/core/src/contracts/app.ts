@@ -170,6 +170,9 @@ export type GatewayProviderConfig = {
   credentials?: ProviderCredentialConfig[];
   extraBody?: unknown;
   extraHeaders?: unknown;
+  // Some upstreams (Ark) toggle reasoning with a top-level `thinking`, while strict
+  // OpenAI-compatible ones reject it, so forwarding is opt-in per provider.
+  forwardThinkingParameters?: boolean;
   icon?: string;
   id?: string;
   enabled?: boolean;
