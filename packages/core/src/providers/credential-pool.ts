@@ -54,12 +54,22 @@ export function recordProviderCredentialOutcome(
   const credential = responseCredential ?? providerCredentialFromInternalName(provider, attempt.credentialChain[0]);
   if (!credential) return;
 
+  const credentialFailed = statusCode === 401 || statusCode === 403 || statusCode === 429 || statusCode >= 500;
+  if (credentialFailed || statusCode < 400) {
+    // The core tries the chain in order and reports only the credential that
+    // answered, so the ones before it failed without the host seeing them.
+    const chain = attempt.credentialChain.map((internalName) => providerCredentialFromInternalName(provider, internalName));
+    for (const skipped of chain.slice(0, Math.max(chain.indexOf(credential), 0))) {
+      if (skipped) setProviderCredentialCooldown(provider, skipped, providerCredentialCooldownMs, "skipped by credential fallback");
+    }
+  }
+
   if (statusCode >= 200 && statusCode < 500 && statusCode !== 401 && statusCode !== 403 && statusCode !== 429) {
     incrementProviderCredentialCounters(provider, credential, estimateLimitUsage(method, attempt.body ?? Buffer.alloc(0)));
     clearProviderCredentialCooldown(provider, credential);
     return;
   }
-  if (statusCode === 401 || statusCode === 403 || statusCode === 429 || statusCode >= 500) {
+  if (credentialFailed) {
     setProviderCredentialCooldown(provider, credential, providerCredentialCooldownMs, `HTTP ${statusCode}`);
   }
 }

@@ -1001,7 +1001,6 @@ function multiAgentNamespaceTool() {
   };
 }
 
-
 test("#1923 the core route preserves the host's eligible credential order and exclusion", async () => {
   const config = createDefaultAppConfig();
   config.Providers = [{ id: "pool-order", name: "Pool", type: "openai_chat_completions", models: ["model"],
@@ -1015,4 +1014,47 @@ test("#1923 the core route preserves the host's eligible credential order and ex
       request: { method: "POST", url: "/v1/chat/completions", headers: { "x-target-providers": eligible.join(",") } } });
     assert.deepEqual(result.targetProviders.map(target => target.providerName), eligible);
   }
+});
+
+function resolvePoolRoute(provider, model, headers = {}) {
+  const config = createDefaultAppConfig();
+  config.Providers = [{ type: "openai_chat_completions", models: ["model", "vendor/model"],
+    credentials: [{ id: "first", apiKey: "bad", priority: 1 }, { id: "second", apiKey: "good", priority: 2 }], ...provider }];
+  return createGatewayPlugin({ plugin: { config: { appConfig: config } } }).then((plugin) =>
+    plugin.routeResolvers.find((item) => item.key === llmrRouterRouteResolverKey).resolve({
+      requestBody: { model, messages: [] },
+      request: { method: "POST", url: "/v1/chat/completions", headers }
+    }));
+}
+
+test("#1923 the core route ignores chain names outside the pool and defaults to the whole pool", async () => {
+  const provider = { id: "pool-filter", name: "Pool" };
+  const first = "pool-filter::openai_chat_completions::cred:first";
+  const second = "pool-filter::openai_chat_completions::cred:second";
+  const names = (result) => result.targetProviders.map((target) => target.providerName);
+
+  assert.deepEqual(names(await resolvePoolRoute(provider, "Pool/model", { "x-target-providers": `other::openai_chat_completions::cred:x,${second}` })), [second]);
+  assert.deepEqual(names(await resolvePoolRoute(provider, "Pool/model")), [first, second]);
+});
+
+test("#1923 a credential pinned in the selector is the only target", async () => {
+  const pinned = "pool-pin::openai_chat_completions::cred:second";
+  const result = await resolvePoolRoute({ id: "pool-pin", name: "Pool" }, `${pinned}/model`);
+
+  assert.equal(result.targetProviderName, pinned);
+  assert.equal(result.targetProviders, undefined);
+});
+
+test("#1920 a credential pinned with a reserved provider id keeps its credential", async () => {
+  const result = await resolvePoolRoute({ id: "openai", name: "Pool" }, "openai::openai_chat_completions::cred:second/model");
+
+  assert.equal(result.targetProviderName, "provider-openai::openai_chat_completions::cred:second");
+  assert.equal(result.targetProviders, undefined);
+});
+
+test("#1920 a pool qualifies a slashed model with its protocol family", async () => {
+  const result = await resolvePoolRoute({ id: "pool-vendor", name: "Pool" }, "Pool/vendor/model");
+
+  assert.equal(result.model, "openai/vendor/model");
+  assert.equal(result.requestBody.model, "openai/vendor/model");
 });

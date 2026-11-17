@@ -9,6 +9,7 @@ import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
+import { readProviderCredentialCooldown } from "@llmr/core/providers/credential-pool.ts";
 
 const gatewayEntry = path.resolve("node_modules/@the-next-ai/ai-gateway/dist/index.js");
 async function listen(server) {
@@ -26,8 +27,9 @@ function successResponse(body) {
     usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } };
 }
 
-// Exercise both the public LLMR proxy and its core plugin, not just gateway headers.
-async function run(providerFactory, probes) {
+// Header assertions cannot show which key and model the core sends upstream,
+// so run the host pipeline against a spawned core with the router plugin.
+async function run(providerFactory, probes, { configure, upstreamTimeoutMs = 5000 } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-credential-routing-"));
   const calls = [];
   let gateway, host, failure;
@@ -35,11 +37,12 @@ async function run(providerFactory, probes) {
     let text = "";
     for await (const chunk of req) text += chunk;
     const body = JSON.parse(text || "{}");
-    const key = req.headers.authorization === "Bearer bad" ? "bad" : "good";
+    const token = req.headers.authorization?.replace(/^Bearer /, "") ?? req.headers["x-api-key"];
+    const key = token === "good" || token === "bad" ? token : "other";
     calls.push({ path: req.url, body, key });
     if (key === "bad" || failure === "all-fail") {
       if (failure === "network") { req.socket.destroy(); return; }
-      if (failure === "timeout") return; // The core must abort this attempt.
+      if (failure === "timeout") return; // Never respond; the core's upstreamTimeoutMs must end this attempt.
       if (failure === "partial") {
         res.writeHead(200, { "content-type": "text/event-stream" });
         res.write('data: {"id":"partial","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"partial"},"finish_reason":null}]}\n\n');
@@ -73,6 +76,7 @@ async function run(providerFactory, probes) {
     config.observability = { ...config.observability, requestLogs: false, agentAnalysis: false };
     config.profile.enabled = false;
     config.profile.profiles = [];
+    configure?.(config);
     const compiled = await compileCoreGatewayConfig(config, "trace", "billing", "auth");
     const router = compiled.plugins.find(plugin => plugin.key === "llm-router");
     router.modulePath = path.resolve(".test-dist/core/runtime/router-plugin.js");
@@ -81,7 +85,7 @@ async function run(providerFactory, probes) {
     const port = reserve.address().port;
     await close(reserve);
     const file = path.join(root, "gateway.json");
-    writeFileSync(file, JSON.stringify({ host: "127.0.0.1", port, upstreamTimeoutMs: 200,
+    writeFileSync(file, JSON.stringify({ host: "127.0.0.1", port, upstreamTimeoutMs,
       auth: { enabled: false }, rawTrace: { enabled: false }, billing: { enabled: false },
       logging: { level: "error", accessLog: false }, providers: compiled.providers, plugins: [router] }));
     gateway = spawn(process.execPath, [gatewayEntry], { cwd: root,
@@ -119,6 +123,7 @@ async function run(providerFactory, probes) {
       if (failure === "all-fail") {
         assert.ok(response.status >= 400, responseText);
         assert.match(responseText, /401|synthetic/);
+        assert.equal(attempts[0].key, "bad", probe.name);
         assert.ok(attempts.some(attempt => attempt.key === "good"));
       } else if (failure === "partial") {
         assert.equal(response.status, 200);
@@ -126,11 +131,15 @@ async function run(providerFactory, probes) {
       } else {
         assert.equal(response.status, 200, `${probe.name}: ${responseText}`);
         assert.equal(attempts.at(-1).key, "good", probe.name);
-        if (failure) assert.ok(attempts.slice(0, -1).every(attempt => attempt.key === "bad"), probe.name);
+        if (failure) {
+          assert.equal(attempts[0].key, "bad", `${probe.name}: the failing key goes first`);
+          assert.ok(attempts.slice(0, -1).every(attempt => attempt.key === "bad"), probe.name);
+        }
         if (probe.body.stream) assert.match(responseText, /\[DONE\]/);
       }
       assert.ok(attempts.length <= 8, "credential retries must terminate");
     }
+    return config;
   } finally {
     await close(host);
     if (gateway && gateway.exitCode === null) {
@@ -152,11 +161,11 @@ function probe(model, failure, path = "/v1/chat/completions", stream = false) {
 }
 
 test("#1920 vendor-prefixed model IDs survive Chat, Responses-compatible conversion and Anthropic ingress", { timeout: 30000 }, async () => {
-  await run(url => [{ id: "agg", name: "agg", type: "openai_chat_completions", api_base_url: `${url}/v1`, api_key: "test",
+  await run(url => [{ id: "agg", name: "agg", type: "openai_chat_completions", api_base_url: `${url}/v1`, api_key: "good",
     models: ["openai/gpt-test", "anthropic/claude-test", "poolside/laguna-test"] }],
   ["openai/gpt-test", "anthropic/claude-test", "poolside/laguna-test"].flatMap(model =>
     [probe(`agg/${model}`), probe(`agg/${model}`, undefined, "/v1/messages"), probe(`agg/${model}`, undefined, "/v1/responses")]));
-  await run(url => [{ id: "native", name: "native", type: "anthropic_messages", api_base_url: `${url}/native`, api_key: "test", models: ["anthropic/claude-test"] }],
+  await run(url => [{ id: "native", name: "native", type: "anthropic_messages", api_base_url: `${url}/native`, api_key: "good", models: ["anthropic/claude-test"] }],
     [probe("native/anthropic/claude-test", undefined, "/v1/messages")]);
 });
 
@@ -167,8 +176,18 @@ test("#1923 credential fallback handles HTTP, network, timeout, all-failed and s
     const id = `pool-${failure}`;
     const stream = failure === "stream-429" || failure === "partial";
     await run(url => [{ id, name: id, type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["pool-model"], credentials }],
-      [probe(`${id}/pool-model`, failure === "stream-429" ? 429 : failure, "/v1/chat/completions", stream)]);
+      [probe(`${id}/pool-model`, failure === "stream-429" ? 429 : failure, "/v1/chat/completions", stream)],
+      failure === "timeout" ? { upstreamTimeoutMs: 500 } : undefined);
   }
+});
+
+test("#1923 a pool reached as a fallback model still falls back across its credentials", { timeout: 30000 }, async () => {
+  await run(url => [
+    { id: "primary", name: "primary", type: "openai_chat_completions", api_base_url: `${url}/v1`, api_key: "bad", models: ["pool-model"] },
+    { id: "fallback-pool", name: "fallback-pool", type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["pool-model"], credentials }
+  ], [probe("primary/pool-model", 401)], {
+    configure: config => { config.Router.fallback = { mode: "model-chain", models: ["fallback-pool/pool-model"], retryCount: 0 }; }
+  });
 });
 
 test("#1920 and #1923 vendor model IDs also support credential fallback and reserved provider IDs", { timeout: 30000 }, async () => {
@@ -176,4 +195,14 @@ test("#1920 and #1923 vendor model IDs also support credential fallback and rese
     await run(url => [{ id, name: `Pool ${id}`, type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["openai/gpt-test"], credentials }],
       [probe(`${id}/openai/gpt-test`, 401)]);
   }
+});
+
+test("#1923 the host cools down a key the core skipped", { timeout: 30000 }, async () => {
+  const id = "pool-cooldown";
+  const config = await run(url => [{ id, name: id, type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["pool-model"], credentials }],
+    [probe(`${id}/pool-model`, 401)]);
+  const [provider] = config.Providers;
+
+  assert.equal(readProviderCredentialCooldown(provider, provider.credentials[0])?.reason, "skipped by credential fallback");
+  assert.equal(readProviderCredentialCooldown(provider, provider.credentials[1]), undefined);
 });

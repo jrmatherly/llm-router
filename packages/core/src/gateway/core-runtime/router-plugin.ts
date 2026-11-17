@@ -79,8 +79,10 @@ import { RouteScriptRuntime } from "@llmr/core/routing/route-script-runtime";
 import { modelRegistryForConfig, normalizeRouteSelector, parseProviderModelSelector, providerRuntimeId } from "@llmr/core/routing/model-registry";
 import {
   activeProviderCredentials,
+  findProviderCredentialBySlug,
   normalizedProviderCapabilities,
   normalizeProviderProtocol,
+  parseProviderCredentialInternalName,
   providerCapabilityForClientProtocol,
   providerCapabilityInternalName,
   providerCredentialInternalName,
@@ -1092,17 +1094,18 @@ function resolveLlmrGatewayRoute(
   const credentialNames = credentials.map((credential) =>
     providerCredentialInternalName(resolved.provider, targetProtocol, credential));
   const explicitCredential = parsedSelector?.provider.toLowerCase().includes("::cred:");
-  // Qualify vendor model IDs once so the core parses the outer selector only.
-  // A pool uses its protocol rather than one concrete key, allowing every
-  // credential in the selected chain to resolve the same upstream model.
+  // The core splits a model at its first slash and reads openai, anthropic and
+  // gemini as protocol selectors, so a slashed model gets a selector of our own.
+  // A pool uses its protocol family (openai_chat_completions -> openai): a key's
+  // name would pin the core to that key and skip the rest of the chain.
   const modelProvider = credentials.length > 1 && !explicitCredential
     ? targetProtocol.split("_")[0]
     : targetProviderName;
   const gatewayModel = resolved.model.includes("/")
     ? `${modelProvider}/${resolved.model}`
     : resolved.model;
-  // The host has already applied cooldowns, limits and priority. Retain that
-  // ordered chain instead of narrowing the route back down to its first key.
+  // A resolver target replaces the core's own reading of x-target-providers,
+  // the chain the host ordered by cooldown, limits and priority.
   const selectedNames = (readHeader(requestInput.request?.headers, "x-target-providers") ?? "")
     .split(",").map((name) => name.trim()).filter((name) => credentialNames.includes(name));
   const targetProviders = !explicitCredential && credentialNames.length > 0
@@ -1194,7 +1197,10 @@ function coreGatewayProviderSelectorName(
 
   const credentials = sortProviderCredentialsForConfig(activeProviderCredentials(provider));
   if (credentials.length > 0) {
-    return providerCredentialInternalName(provider, protocol, credentials[0]);
+    // A pin written with the configured provider id or another protocol still names its credential.
+    const pinnedSlug = parseProviderCredentialInternalName(requestedProviderName)?.credentialSlug;
+    const pinned = pinnedSlug ? findProviderCredentialBySlug(provider, pinnedSlug) : undefined;
+    return providerCredentialInternalName(provider, protocol, pinned && credentials.includes(pinned) ? pinned : credentials[0]);
   }
 
   return capability ? providerCapabilityInternalName(provider, capability.type) : providerRuntimeId(provider);

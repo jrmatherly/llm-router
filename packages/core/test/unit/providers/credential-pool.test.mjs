@@ -61,3 +61,39 @@ test("upstream credential response identity takes precedence over the planned ch
   recordProviderCredentialOutcome(config, "POST", attempt, 200, headers);
   assert.equal(readProviderCredentialCooldown(provider, second), undefined);
 });
+
+function chainFixture() {
+  const { attempt, config, first, provider, second } = fixture();
+  const chain = [first, second].map((credential) => providerCredentialInternalName(provider, attempt.credentialProtocol, credential));
+  const answeredBySecond = new Headers({
+    "x-llmr-provider-credential-id": providerCredentialRuntimeId(provider, second)
+  });
+  return { answeredBySecond, attempt: { ...attempt, credentialChain: chain }, config, first, provider, second };
+}
+
+test("#1923 a credential the core skipped before a later one answered is cooled down", () => {
+  const { answeredBySecond, attempt, config, first, provider, second } = chainFixture();
+
+  recordProviderCredentialOutcome(config, "POST", attempt, 200, answeredBySecond);
+
+  assert.equal(readProviderCredentialCooldown(provider, first)?.reason, "skipped by credential fallback");
+  assert.equal(readProviderCredentialCooldown(provider, second), undefined);
+});
+
+test("#1923 every credential in the chain is cooled down when the last one also fails", () => {
+  const { answeredBySecond, attempt, config, first, provider, second } = chainFixture();
+
+  recordProviderCredentialOutcome(config, "POST", attempt, 401, answeredBySecond);
+
+  assert.equal(readProviderCredentialCooldown(provider, first)?.reason, "skipped by credential fallback");
+  assert.equal(readProviderCredentialCooldown(provider, second)?.reason, "HTTP 401");
+});
+
+test("#1923 a request error on every credential cools none of them down", () => {
+  const { answeredBySecond, attempt, config, first, provider, second } = chainFixture();
+
+  recordProviderCredentialOutcome(config, "POST", attempt, 400, answeredBySecond);
+
+  assert.equal(readProviderCredentialCooldown(provider, first), undefined);
+  assert.equal(readProviderCredentialCooldown(provider, second), undefined);
+});
