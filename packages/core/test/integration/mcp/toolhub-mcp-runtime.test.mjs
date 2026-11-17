@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { createServer } from "node:http";
 import path from "node:path";
 import test from "node:test";
+import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 test("ToolHub MCP runtime source keeps a shebang for direct MCP Inspector execution", () => {
   const source = readFileSync(path.join(process.cwd(), "packages", "core", "src", "mcp", "toolhub-mcp.ts"), "utf8");
@@ -102,15 +103,7 @@ test("built ToolHub MCP runtime waits for local LLMR resolver readiness", async 
   const backendPort = backend.address().port;
   t.after(() => backend.close());
 
-  const reserved = createServer();
-  try {
-    await listen(reserved);
-  } catch (error) {
-    t.skip(`Local HTTP listen is unavailable: ${error.message}`);
-    return;
-  }
-  const resolverPort = reserved.address().port;
-  await closeServer(reserved);
+  const resolverPort = await reserveLoopbackPort();
 
   const resolver = createDelayedResolverServer();
   const startResolverTimer = setTimeout(() => {

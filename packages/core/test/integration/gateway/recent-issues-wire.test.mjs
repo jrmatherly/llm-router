@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 // This suite deliberately crosses the real gateway / HTTP / spool / SQLite
 // boundaries. Point LLMR_TEST_GATEWAY_ENTRY at an unpatched build to reproduce
@@ -241,10 +242,8 @@ async function until(predicate, message, timeout = 10000) {
   assert.fail(message);
 }
 async function startGateway(root, config) {
-  const reserve = createServer();
-  const url = await listen(reserve);
-  const port = reserve.address().port;
-  await close(reserve);
+  const port = await reserveLoopbackPort();
+  const url = `http://127.0.0.1:${port}`;
   const file = path.join(root, "gateway.json");
   writeFileSync(file, JSON.stringify({ ...config, port }));
   const child = spawn(process.execPath, [gatewayEntry], { env: { ...process.env, GATEWAY_CONFIG_PATH: file, ELECTRON_RUN_AS_NODE: "1" }, stdio: ["ignore", "pipe", "pipe"] });
