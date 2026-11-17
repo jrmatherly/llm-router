@@ -426,6 +426,7 @@ test("a shared-home Claude Code profile never writes ~/.claude and blanks the us
     assert.equal(settings.env.ANTHROPIC_PROFILE, "");
     assert.equal(settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL, "");
     assert.equal(settings.env.ANTHROPIC_MODEL, "Provider/model");
+    assert.deepEqual(Object.keys(settings.env).filter((key) => key.startsWith("CODEXL_")), []);
     assert.equal(settings.env.ANTHROPIC_BASE_URL, `http://127.0.0.1:${config.gateway.port}`);
     assert.ok(settings.apiKeyHelper);
     if (process.platform !== "win32") {
@@ -764,6 +765,43 @@ test("profile service restores between-session ZCode edits after many takeover r
   }
 });
 
+test("ZCode wrapper exports the workspace name under its LLMR_ name", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-zcode-workspace-name-"));
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  try {
+    rmSync(takeoverFile, { force: true });
+    const configFile = path.join(root, ".zcode", "cli", "config.json");
+    mkdirSync(path.dirname(configFile), { recursive: true });
+    writeFileSync(configFile, `${JSON.stringify({ model: { main: "builtin:zai/glm-5" } }, null, 2)}\n`);
+    const profile = {
+      agent: "zcode",
+      cliMiddleware: true,
+      configFile,
+      enabled: true,
+      env: {},
+      id: "workspace-name-zcode",
+      model: "Provider/m1",
+      name: "Workspace Name ZCode",
+      providerId: "llm-router",
+      scope: "global",
+      surface: "cli"
+    };
+    const config = createDefaultAppConfig();
+    config.APIKEY = "llmr-workspace-name-test";
+    config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-workspace-name-test", name: "Profile: Workspace Name ZCode" }];
+    config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["m1"], name: "Provider" }];
+    config.profile.profiles = [profile];
+    await applyProfileFixture(config);
+    const content = readFileSync(path.join(CONFIGDIR, "bin", "llmr-codex-cli-stdio-workspace-name-zcode"), "utf8");
+    assert.match(content, /^export LLMR_ZCODE_WORKSPACE_NAME='Workspace Name ZCode'$/m);
+    assert.doesNotMatch(content, /CODEXL_/);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test("profile service applies and removes profile Claude settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-profile-settings-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
@@ -1057,7 +1095,7 @@ test("profile service overwrites generated bin files without creating backups", 
   assert.equal(settings.env.CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT, "1");
   assert.equal(settings.env.ANTHROPIC_MODEL, "Provider/long[1m]");
   assert.equal(settings.env.LLMR_CLAUDE_CODE_MODEL, "Provider/long[1m]");
-  assert.equal(settings.env.CODEXL_CLAUDE_CODE_MODEL, "Provider/long[1m]");
+  assert.equal(settings.env.CODEXL_CLAUDE_CODE_MODEL, undefined);
   assert.equal(settings.env.ANTHROPIC_DEFAULT_FABLE_MODEL, "Provider/fable");
   assert.equal(settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL, "Provider/opus");
   assert.equal(settings.env.ANTHROPIC_DEFAULT_SONNET_MODEL, "Provider/sonnet");
@@ -1334,6 +1372,7 @@ test("Codex profile launcher bypasses middleware for Browser and Computer Use he
     assert.equal(applied.clients[0].ok, true);
     const launcher = path.join(CONFIGDIR, "bin", `llmr-codex-cli-stdio-${profileId}`);
     const content = readFileSync(launcher, "utf8");
+    assert.match(content, /^export LLMR_CODEX_WORKSPACE_NAME='Browser Helper Bypass'$/m);
     assert.ok(content.includes("LLMR_BUNDLED_CODEX_CLI_PATH"));
     assert.ok(content.includes("app-server' ] && [ \"${2:-}\" = '--listen'"));
 
@@ -1343,8 +1382,6 @@ test("Codex profile launcher bypasses middleware for Browser and Computer Use he
         ...process.env,
         LLMR_BUNDLED_CODEX_CLI_PATH: "",
         LLMR_REAL_CODEX_CLI_PATH: "",
-        CODEXL_BUNDLED_CODEX_CLI_PATH: "",
-        CODEXL_REAL_CODEX_CLI_PATH: "",
         CODEX_CLI_PATH: launcher
       }
     });
@@ -1357,8 +1394,6 @@ test("Codex profile launcher bypasses middleware for Browser and Computer Use he
         ...process.env,
         LLMR_BUNDLED_CODEX_CLI_PATH: "",
         LLMR_REAL_CODEX_CLI_PATH: "",
-        CODEXL_BUNDLED_CODEX_CLI_PATH: "",
-        CODEXL_REAL_CODEX_CLI_PATH: "",
         CODEX_CLI_PATH: launcher
       }
     });
@@ -2504,6 +2539,24 @@ test("apply in a China time zone leaves TZ in Claude settings to the user", { sk
   } finally {
     restoreEnv("TZ", previousTz);
   }
+});
+
+test("stale CODEXL keys are stripped from settings env", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = {
+    env: {
+      CODEXL_BOT_GATEWAY_ENABLED: "true",
+      CODEXL_CLAUDE_CODE_MCP_CONFIG: "/tmp/stale-toolhub-mcp.json",
+      CODEXL_CLAUDE_CODE_MODEL: "Provider/stale",
+      USER_VALUE: "kept"
+    }
+  };
+  const staleKeys = (settings) => Object.keys(settings.env ?? {}).filter((key) => key.startsWith("CODEXL_"));
+  await withGlobalClaudeProfileRelease(original, async ({ apply, readSettings }) => {
+    await apply();
+    assert.deepEqual(staleKeys(readSettings()), []);
+    assert.equal(readSettings().env.USER_VALUE, "kept");
+    assert.equal(readSettings().env.LLMR_CLAUDE_CODE_MODEL, "Provider/model");
+  });
 });
 
 test("a second apply does not record LLMR values as displaced", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {

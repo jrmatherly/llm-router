@@ -206,7 +206,7 @@ test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
   assert.match(claudePlan.env.CLAUDE_CONFIG_DIR, /claude$/);
   assert.equal(claudePlan.env.ANTHROPIC_MODEL, "provider/model");
   assert.equal(claudePlan.env.LLMR_CLAUDE_CODE_MODEL, "provider/model");
-  assert.equal(claudePlan.env.CODEXL_CLAUDE_CODE_MODEL, "provider/model");
+  assert.equal(claudePlan.env.CODEXL_CLAUDE_CODE_MODEL, undefined);
   assert.equal(claudePlan.env.ANTHROPIC_DEFAULT_FABLE_MODEL, "provider/fable");
   assert.equal(claudePlan.env.ANTHROPIC_DEFAULT_OPUS_MODEL, "provider/opus");
   assert.equal(claudePlan.env.ANTHROPIC_DEFAULT_SONNET_MODEL, "provider/sonnet");

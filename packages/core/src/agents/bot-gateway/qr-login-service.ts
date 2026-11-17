@@ -185,8 +185,7 @@ async function createQrClient(bot: BotGatewayRuntimeConfig, stateDir: string): P
     env: {
       ...process.env,
       ...(electronRunAsNode ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
-      BOT_GATEWAY_STATE_DIR: stateDir,
-      CODEXL_HOME: CONFIGDIR
+      BOT_GATEWAY_STATE_DIR: stateDir
     },
     ...commandOptions
   }) as BotGatewayClientWithRequest;

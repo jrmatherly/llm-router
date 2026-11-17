@@ -55,8 +55,7 @@ test("botGatewayProfileEnv disables bot gateway outside app surface", () => {
   const env = botGatewayProfileEnv({ botConfigs: [], botGateway: botGateway() }, profile, "cli");
 
   assert.deepEqual(env, {
-    LLMR_BOT_GATEWAY_ENABLED: "false",
-    CODEXL_BOT_GATEWAY_ENABLED: "false"
+    LLMR_BOT_GATEWAY_ENABLED: "false"
   });
 });
 

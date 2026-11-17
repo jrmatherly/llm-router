@@ -59,20 +59,7 @@ export function botGatewayProfileEnv(config: AppConfig, profile: ProfileConfig, 
     LLMR_BOT_HANDOFF_SCREEN_LOCK: boolEnv(handoff.screenLock),
     LLMR_BOT_HANDOFF_USER_IDLE: boolEnv(handoff.userIdle),
     LLMR_BOT_PROFILE_ID: profile.id,
-    LLMR_BOT_PROFILE_NAME: profile.name,
-
-    CODEXL_BOT_GATEWAY_ENABLED: "true",
-    CODEXL_BOT_GATEWAY_FORWARD_ALL_CODEX_MESSAGES: boolEnv(bot.forwardAllAgentMessages),
-    CODEXL_BOT_GATEWAY_INTEGRATION_ID: bot.integrationId ?? "",
-    CODEXL_BOT_GATEWAY_PLATFORM: bot.platform,
-    CODEXL_BOT_GATEWAY_STATE_DIR: stateDir,
-    CODEXL_BOT_GATEWAY_TENANT_ID: bot.tenantId ?? "llmr",
-    CODEXL_BOT_HANDOFF_ENABLED: boolEnv(handoff.enabled),
-    CODEXL_BOT_HANDOFF_IDLE_SECONDS: String(handoff.idleSeconds ?? 30),
-    CODEXL_BOT_HANDOFF_PHONE_BLUETOOTH_TARGETS: (handoff.phoneBluetoothTargets ?? []).join("\n"),
-    CODEXL_BOT_HANDOFF_PHONE_WIFI_TARGETS: (handoff.phoneWifiTargets ?? []).join("\n"),
-    CODEXL_BOT_HANDOFF_SCREEN_LOCK: boolEnv(handoff.screenLock),
-    CODEXL_BOT_HANDOFF_USER_IDLE: boolEnv(handoff.userIdle)
+    LLMR_BOT_PROFILE_NAME: profile.name
   };
 
   if (bot.conversationRef) {
@@ -274,8 +261,7 @@ function isWebhookRelatedBotGatewayKey(key: string): boolean {
 
 function disabledBotGatewayEnv(): Record<string, string> {
   return {
-    LLMR_BOT_GATEWAY_ENABLED: "false",
-    CODEXL_BOT_GATEWAY_ENABLED: "false"
+    LLMR_BOT_GATEWAY_ENABLED: "false"
   };
 }
 

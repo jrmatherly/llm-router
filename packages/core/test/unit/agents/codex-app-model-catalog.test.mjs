@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   codexDesktopAppName,
+  codexProfileEnvForTest,
   codexSharedChatGptAuthEnvForTest,
   findInstalledCodexAppExecutable,
   findInstalledWorkbuddyAppExecutable,
@@ -20,30 +21,31 @@ test("ChatGPT app launch shares explicit or default Codex login when available",
   const defaultAuthFile = path.join(defaultAuthDir, "auth.json");
   const authFile = path.join(root, "auth.json");
   const previousLlmr = process.env.LLMR_CODEX_CHATGPT_AUTH_FILE;
-  const previousCodexl = process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE;
   try {
     writeFileSync(authFile, JSON.stringify({ auth_mode: "chatgpt", tokens: { access_token: "token" } }));
     mkdirSync(defaultAuthDir, { recursive: true });
     writeFileSync(defaultAuthFile, JSON.stringify({ auth_mode: "chatgpt", tokens: { access_token: "default-token" } }));
     delete process.env.LLMR_CODEX_CHATGPT_AUTH_FILE;
-    delete process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE;
     assert.deepEqual(codexSharedChatGptAuthEnvForTest(root), {
-      LLMR_CODEX_CHATGPT_AUTH_FILE: defaultAuthFile,
-      CODEXL_CODEX_CHATGPT_AUTH_FILE: defaultAuthFile
+      LLMR_CODEX_CHATGPT_AUTH_FILE: defaultAuthFile
     });
 
     process.env.LLMR_CODEX_CHATGPT_AUTH_FILE = authFile;
     assert.deepEqual(codexSharedChatGptAuthEnvForTest(root), {
-      LLMR_CODEX_CHATGPT_AUTH_FILE: authFile,
-      CODEXL_CODEX_CHATGPT_AUTH_FILE: authFile
+      LLMR_CODEX_CHATGPT_AUTH_FILE: authFile
     });
   } finally {
     if (previousLlmr === undefined) delete process.env.LLMR_CODEX_CHATGPT_AUTH_FILE;
     else process.env.LLMR_CODEX_CHATGPT_AUTH_FILE = previousLlmr;
-    if (previousCodexl === undefined) delete process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE;
-    else process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE = previousCodexl;
     rmSync(root, { force: true, recursive: true });
   }
+});
+
+test("app launch env carries the workspace name under its LLMR_ name", () => {
+  const base = { codexCliPath: "/usr/bin/true", enabled: true, env: {}, id: "p", model: "", providerId: "llm-router" };
+  assert.equal(codexProfileEnvForTest({ ...base, agent: "codex", name: "Codex Main" }).LLMR_CODEX_WORKSPACE_NAME, "Codex Main");
+  assert.equal(codexProfileEnvForTest({ ...base, agent: "workbuddy", name: "Buddy Main" }).LLMR_CODEX_WORKSPACE_NAME, "Buddy Main");
+  assert.equal(codexProfileEnvForTest({ ...base, agent: "zcode", name: "ZCode Main" }).LLMR_ZCODE_WORKSPACE_NAME, "ZCode Main");
 });
 
 test("ChatGPT model catalog write includes patch bridge capabilities", () => {
