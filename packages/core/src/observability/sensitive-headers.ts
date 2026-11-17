@@ -21,3 +21,20 @@ export function isSensitiveRequestLogHeaderName(value: string): boolean {
   const normalized = value.trim().toLowerCase();
   return sensitiveRequestLogHeaderNames.has(normalized) || sensitiveRequestLogHeaderPattern.test(normalized);
 }
+
+const sensitiveUrlQueryNames: ReadonlySet<string> = new Set(["access_token", "api_key", "apikey", "key"]);
+
+export function redactSensitiveUrlQuery(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url, "http://127.0.0.1");
+  } catch {
+    return url;
+  }
+  for (const name of [...parsed.searchParams.keys()]) {
+    if (sensitiveUrlQueryNames.has(name.trim().toLowerCase())) {
+      parsed.searchParams.set(name, "[redacted]");
+    }
+  }
+  return /^[a-z][a-z0-9+.-]*:/i.test(url) ? parsed.toString() : `${parsed.pathname}${parsed.search}${parsed.hash}`;
+}

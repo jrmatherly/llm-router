@@ -23,7 +23,7 @@ import type {
 } from "@llmr/core/contracts/app";
 import { PROXY_CA_CERT_FILE } from "@llmr/core/config/constants";
 import { isLoopbackAddress } from "@llmr/core/net/loopback";
-import { isSensitiveRequestLogHeaderName } from "@llmr/core/observability/sensitive-headers";
+import { isSensitiveRequestLogHeaderName, redactSensitiveUrlQuery } from "@llmr/core/observability/sensitive-headers";
 import { windowsSystemCommand } from "@llmr/core/platform/windows-system";
 import { pluginService, type GatewayPluginProxyRouteMatch } from "@llmr/core/plugins/service";
 import {
@@ -127,6 +127,7 @@ const responseHopByHopHeaders = new Set([
 
 const maxNetworkCaptureBodyBytes = 256 * 1024;
 const maxNetworkCaptureEntries = 200;
+const maxMitmServers = 128;
 const defaultSystemProxyRestoreTimeoutMs = 10_000;
 const upstreamProxyConnectTimeoutMs = 30_000;
 const upstreamRequestIdleTimeoutMs = 120_000;
@@ -136,6 +137,7 @@ class ProxyService {
   private attachedServer?: AttachedServer;
   private config?: AppConfig;
   private desktopIntegration: ProxyDesktopIntegration = {};
+  private evictedServers = new Set<https.Server>();
   private networkCaptureEnabled = false;
   private networkCaptures: ProxyNetworkCaptureRecord[] = [];
   private secureServers = new Map<string, Promise<MitmServer>>();
@@ -270,14 +272,17 @@ class ProxyService {
 
     const localServers = await Promise.allSettled(this.secureServers.values());
     this.secureServers.clear();
-    await Promise.all(
-      localServers.map((result) => {
+    const evictedServers = [...this.evictedServers];
+    this.evictedServers.clear();
+    await Promise.all([
+      ...localServers.map((result) => {
         if (result.status === "fulfilled") {
           return closeServer(result.value.server);
         }
         return Promise.resolve();
-      })
-    );
+      }),
+      ...evictedServers.map(closeServer)
+    ]);
 
     this.authority = undefined;
     this.status = {
@@ -637,6 +642,10 @@ class ProxyService {
       return;
     }
     const target = parseConnectTarget(request.url);
+    if (!this.networkCaptureEnabled && !this.shouldIntercept(target.hostname)) {
+      this.tunnelConnect(request, target, clientSocket, head);
+      return;
+    }
     const mitmServer = await this.getMitmServer(target.hostname);
     const localSocket = net.connect(mitmServer.port, "127.0.0.1");
     localSocket.once("connect", () => {
@@ -665,15 +674,100 @@ class ProxyService {
     const key = hostname.toLowerCase();
     const cached = this.secureServers.get(key);
     if (cached) {
+      this.secureServers.delete(key);
+      this.secureServers.set(key, cached);
       return cached;
     }
 
-    const promise = this.createMitmServer(key).catch((error) => {
-      this.secureServers.delete(key);
+    const promise: Promise<MitmServer> = this.createMitmServer(key).catch((error) => {
+      if (this.secureServers.get(key) === promise) {
+        this.secureServers.delete(key);
+      }
       throw error;
     });
     this.secureServers.set(key, promise);
+    while (this.secureServers.size > maxMitmServers) {
+      const [oldestKey, oldest] = this.secureServers.entries().next().value!;
+      this.secureServers.delete(oldestKey);
+      void oldest.then(
+        ({ server }) => {
+          // Not closeServer: its timer calls closeAllConnections, which would cut a client still streaming through this server.
+          this.evictedServers.add(server);
+          server.close(() => this.evictedServers.delete(server));
+          server.closeIdleConnections();
+        },
+        () => undefined
+      );
+    }
     return promise;
+  }
+
+  private shouldIntercept(hostname: string): boolean {
+    const targetHosts = this.config?.proxy.mode === "gateway" ? this.config.proxy.targets.map((target) => target.host) : [];
+    return [...targetHosts, ...pluginService.getProxyRouteHosts()].some((host) => matchesHost(host, hostname));
+  }
+
+  private tunnelConnect(request: IncomingMessage, target: { hostname: string; port: number }, clientSocket: Socket, head: Buffer): void {
+    const authority = `${target.hostname}:${target.port}`;
+    const proxyServer = selectUpstreamProxyForUrl(this.upstreamProxy, new URL(`https://${authority}`));
+    const fail = (error: unknown) => handleConnectError(request, clientSocket, error);
+    let upstream: { destroy(): unknown } | undefined;
+    clientSocket.on("error", () => upstream?.destroy());
+    const open = (remote: Socket, remoteHead: Buffer) => {
+      upstream = remote;
+      remote.on("error", () => clientSocket.destroy());
+      clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+      if (remoteHead.length > 0) {
+        clientSocket.write(remoteHead);
+      }
+      if (head.length > 0) {
+        remote.write(head);
+      }
+      remote.pipe(clientSocket);
+      clientSocket.pipe(remote);
+    };
+
+    if (!proxyServer) {
+      const remote = net.connect(target.port, target.hostname.replace(/^\[|\]$/g, ""));
+      upstream = remote;
+      remote.once("error", fail);
+      remote.once("connect", () => {
+        remote.off("error", fail);
+        open(remote, Buffer.alloc(0));
+      });
+      return;
+    }
+
+    const proxyAuthorization = upstreamProxyAuthorizationHeader(proxyServer);
+    const connectRequest = http.request({
+      agent: false,
+      headers: {
+        host: authority,
+        ...(proxyAuthorization ? { "proxy-authorization": proxyAuthorization } : {}),
+        "proxy-connection": "keep-alive"
+      },
+      hostname: proxyServer.host,
+      method: "CONNECT",
+      path: authority,
+      port: proxyServer.port,
+      protocol: "http:"
+    });
+    upstream = connectRequest;
+    const upstreamName = `Upstream proxy ${formatUpstreamProxyServer(proxyServer)} CONNECT ${authority}`;
+    setClientRequestTimeout(connectRequest, upstreamProxyConnectTimeoutMs, `${upstreamName} timed out.`);
+    connectRequest.once("error", fail);
+    connectRequest.once("connect", (connectResponse, remote, remoteHead) => {
+      const statusCode = connectResponse.statusCode ?? 502;
+      if (statusCode < 200 || statusCode >= 300) {
+        remote.destroy();
+        closeConnectSocket(clientSocket, 502, `${upstreamName} failed with status ${statusCode}.`);
+        return;
+      }
+      // The connect timeout is set on this socket; left on, it would destroy an idle tunnel.
+      remote.setTimeout(0);
+      open(remote, remoteHead);
+    });
+    connectRequest.end();
   }
 
   private async createMitmServer(hostname: string): Promise<MitmServer> {
@@ -777,7 +871,7 @@ class ProxyService {
       id: requestId,
       method: request.method ?? "GET",
       mode,
-      path: `${targetUrl.pathname}${targetUrl.search}`,
+      path: redactSensitiveUrlQuery(`${targetUrl.pathname}${targetUrl.search}`),
       protocol: targetUrl.protocol === "https:" ? "https" : "http",
       requestHeaders: cloneCapturedHeaders(request.headers),
       requestSampler: new NetworkBodySampler(maxNetworkCaptureBodyBytes),
@@ -786,8 +880,8 @@ class ProxyService {
       startedAt: new Date(startedAtMs).toISOString(),
       startedAtMs,
       state: "pending",
-      upstreamUrl: upstreamUrl.toString(),
-      url: targetUrl.toString()
+      upstreamUrl: redactSensitiveUrlQuery(upstreamUrl.toString()),
+      url: redactSensitiveUrlQuery(targetUrl.toString())
     };
 
     this.networkCaptures.unshift(record);
@@ -1439,7 +1533,7 @@ function selectUpstreamProxyForUrl(upstreamProxy: UpstreamProxyConfig | undefine
 
 function shouldBypassUpstreamProxy(url: URL): boolean {
   const hostname = url.hostname.toLowerCase();
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname.endsWith(".local");
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]" || hostname.endsWith(".local");
 }
 
 function formatProxyHost(host: string): string {
