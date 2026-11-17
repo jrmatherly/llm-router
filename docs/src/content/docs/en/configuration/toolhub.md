@@ -189,4 +189,5 @@ The import dialog also accepts common MCP JSON:
 - Chrome login import confirmation keeps waiting for the extension: make sure the unpacked `extension/chrome` extension is loaded in Chrome and has site access for the target domains. Open the confirmation URL in Chrome manually.
 - No tools are resolved: confirm the MCP server can list tools, improve tool names and descriptions, or increase **Max tools**.
 - Calls time out: check ToolHub **Timeout ms** and the backend server request/startup timeouts.
+- A stdio server never connects and its error mentions Content-Length framing: open the server in **Settings → ToolHub** and set **Stdio message mode** to `newline-json`. A server saved before the stdio default changed kept `content-length`, which standard MCP servers do not read.
 - Import fails: validate JSON, avoid duplicate server names, make sure `stdio` entries have a command and remote entries have a URL.

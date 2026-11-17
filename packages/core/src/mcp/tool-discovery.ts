@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { withStdioFramingHint } from "@llmr/core/mcp/stdio-framing";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import type {
   GatewayMcpRemoteServerConfig,
@@ -55,8 +56,9 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
       stdio: ["pipe", "pipe", "pipe"]
     }) as ChildProcessWithoutNullStreams;
     const pending = new Map<string, PendingRequest>();
-    const timeout = setTimeout(() => finish(new Error(`MCP tools discovery timed out after ${mcpTimeoutMs(server)} ms.`)), mcpTimeoutMs(server));
+    const timeout = setTimeout(() => finish(new Error(withStdioFramingHint(`MCP tools discovery timed out after ${mcpTimeoutMs(server)} ms.`, server, handshakeDone))), mcpTimeoutMs(server));
     const readMessage = createStdioMessageReader(server.stdioMessageMode, routeMessage);
+    let handshakeDone = false;
     let nextId = 1;
     let settled = false;
     let stderr = "";
@@ -66,10 +68,12 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
       stderr = `${stderr}${chunk.toString("utf8")}`.slice(-4000);
     });
     child.on("error", (error) => finish(error));
+    // A write to a server that closed its stdin emits error on the stream, and an unhandled one ends the process.
+    child.stdin.on("error", (error) => finish(error));
     child.on("exit", (code, signal) => {
       if (!settled) {
         const detail = stderr.trim() ? ` ${stderr.trim()}` : "";
-        finish(new Error(`MCP server exited before tools/list completed (${signal ?? code ?? "unknown"}).${detail}`));
+        finish(new Error(withStdioFramingHint(`MCP server exited before tools/list completed (${signal ?? code ?? "unknown"}).${detail}`, server, handshakeDone)));
       }
     });
 
@@ -81,6 +85,7 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
         clientInfo: mcpClientInfo,
         protocolVersion: server.protocolVersion || "2024-11-05"
       });
+      handshakeDone = true;
       notify("notifications/initialized", {});
       const response = await request("tools/list", {});
       finish(undefined, normalizeToolList(response.result));
