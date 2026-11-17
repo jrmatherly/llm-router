@@ -18,6 +18,7 @@ import {
   type RequestLogEnqueueResult
 } from "@llmr/core/observability/request-log-runtime";
 import { rawTraceMaxPartBytes, resolveRawTraceBodyLimit } from "@llmr/core/observability/request-log-limits";
+import { redactSensitiveUrlQuery } from "@llmr/core/observability/sensitive-headers";
 import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
 import { formatError, inferGatewayClient, parseJsonObject, readHeader, readRequestBody, sendJson, shouldCaptureGatewayUsage } from "@llmr/core/gateway/http/io";
 import { endpoint } from "@llmr/core/gateway/core-runtime/supervisor";
@@ -1669,7 +1670,7 @@ export async function readRawTraceRequestLogBundle(
   const upstreamResponseBody = upstreamResponseStream ?? fallbackResponseBody;
   const target = isRecord(manifest.target) ? manifest.target : {};
   const rawUrl = stringValue(upstreamRequestMetadata?.url);
-  const url = sanitizeUrlForLog(rawUrl);
+  const url = rawUrl ? redactSensitiveUrlQuery(rawUrl) : undefined;
   const clientRequestHeaders = headerRecordFromUnknown(clientRequestMetadata?.headers);
   const upstreamRequestHeaders = headerRecordFromUnknown(upstreamRequestMetadata?.headers);
   const client = inferGatewayClient(undefined, clientRequestHeaders ?? {});
@@ -1817,30 +1818,6 @@ function headerRecordFromUnknown(value: unknown): Record<string, string> | undef
       : String(headerValue);
   }
   return headers;
-}
-
-
-function sanitizeUrlForLog(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  try {
-    const url = new URL(value);
-    for (const key of [...url.searchParams.keys()]) {
-      if (isSensitiveQueryParam(key)) {
-        url.searchParams.set(key, "[redacted]");
-      }
-    }
-    return url.toString();
-  } catch {
-    return value;
-  }
-}
-
-
-function isSensitiveQueryParam(value: string): boolean {
-  const normalized = value.trim().toLowerCase();
-  return normalized === "key" || normalized === "api_key" || normalized === "apikey" || normalized === "access_token";
 }
 
 
