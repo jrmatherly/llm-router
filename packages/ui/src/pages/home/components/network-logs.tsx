@@ -9,10 +9,10 @@ import {
   formatLogDateTime, formatLogTokenSummary, formatNetworkRequestRaw, formatNetworkResponseRaw, formatRouteTracePath, formatUsdCost,
   FormattedLogBody,
   isJsonContainer, isLargeLogBody, jsonChildPath, logRequestModel,
-  LogBodyFormatMode, logBodyLargeTextThreshold, logBodyPreviewTextLimit, LogBodyWorkerResponse,
+  LogBodyFormatMode, logBodyFullTextLimit, logBodyLargeTextThreshold, logBodyPreviewTextLimit, LogBodyWorkerResponse,
   logResolvedRouteModel, logSelectOptions, motion, MoveRight, Network, networkCodeLabel,
   networkExchangeMatchesQuery, networkHeaderRows, networkLifecycleLabel, networkQueryRows, networkRowId, networkSummaryRows,
-  Pause, Play, ProxyNetworkBody, ProxyNetworkExchange, ProxyNetworkSnapshot, ProxyStatus,
+  Pause, Play, prepareLogBodyForWorker, ProxyNetworkBody, ProxyNetworkExchange, ProxyNetworkSnapshot, ProxyStatus,
   ReactNode, ReactPointerEvent, RefreshCw, RequestLogBody, RequestLogBodyChunk, RequestLogEntry, RequestLogListFilter,
   RequestLogPage, requestLogPageSizeOptions, RequestLogStatusFilter, requestLogStatusOptions, Search, Select, Trash2, useCallback, useEffect, useMemo, useRef,
   useState
@@ -1620,7 +1620,7 @@ function useLogBodyWorkerView(
     };
 
     worker.postMessage({
-      body,
+      body: prepareLogBodyForWorker(body, mode),
       bodyKey,
       id: formatRequestId,
       kind: "format",
@@ -1934,6 +1934,10 @@ function LogJsonPanel({
         if (!chunk) {
           throw new Error("Request log body is not available.");
         }
+        if (offset + chunk.length > logBodyFullTextLimit || chunk.sizeBytes > logBodyFullTextLimit) {
+          await loadBodyChunk(0);
+          return;
+        }
         chunks.push(chunk.text);
         lastChunk = chunk;
         if (chunk.eof) {
@@ -1965,7 +1969,7 @@ function LogJsonPanel({
   useEffect(() => {
     if (
       !effectiveBody?.bodyRef ||
-      !effectiveBody.preview ||
+      (!effectiveBody.preview && effectiveBody.text.length <= logBodyFullTextLimit) ||
       loadedBody ||
       fullBodyLoading ||
       fullBodyError ||
