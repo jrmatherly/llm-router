@@ -10,13 +10,15 @@ import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import {
   CLAUDE_CODE_MANAGED_MODEL_ENV_KEYS,
   CLAUDE_CODE_MCP_CONFIG_ENV,
-  CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV,
+  STALE_BOT_GATEWAY_ENV_PREFIX,
+  STALE_CLAUDE_CODE_SETTINGS_ENV_KEYS,
   type ClaudeCodeModelSelection,
   claudeCodeHomeEnv,
   claudeCodeModelEnv,
   claudeCodeMcpConfigEnv,
   clearClaudeCodeManagedModelEnv,
   isClaudeCodeManagedModelEnvKey,
+  isStaleClaudeCodeSettingsEnvKey,
   normalizeClaudeCodeClientModel
 } from "@llmr/core/agents/claude-code/environment";
 import { isManagedWorkbuddyModelsContent, writeCodexCompatibleAppModelCatalog } from "@llmr/core/agents/codex/app-launch";
@@ -349,7 +351,7 @@ function cleanupClaudeCodeToolHubSettingsFile(
 
 function deleteClaudeCodeToolHubEnv(env: Record<string, unknown>): boolean {
   let changed = false;
-  for (const key of [CLAUDE_CODE_MCP_CONFIG_ENV, CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV]) {
+  for (const key of [CLAUDE_CODE_MCP_CONFIG_ENV, ...STALE_CLAUDE_CODE_SETTINGS_ENV_KEYS]) {
     if (key in env) {
       delete env[key];
       changed = true;
@@ -458,7 +460,9 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
       managedProfileEnvKeys
     );
     delete settingsEnv[CLAUDE_CODE_MCP_CONFIG_ENV];
-    delete settingsEnv[CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV];
+    for (const key of STALE_CLAUDE_CODE_SETTINGS_ENV_KEYS) {
+      delete settingsEnv[key];
+    }
     const env = {
       ...settingsEnv,
       ...profileSettingsEnv,
@@ -1724,7 +1728,6 @@ function claudeCodeWrapperShellScript(
     ...botEnvExports,
     `export LLMR_CLAUDE_CODE_WRAPPER=1`,
     `export LLMR_REAL_CLAUDE_CODE_BIN=${shellQuote(realClaude)}`,
-    `export CODEXL_CLAUDE_CODE_BIN=${shellQuote(realClaude)}`,
     `if [ -z "\${LLMR_REMOTE_SYNC_ENABLED:-}" ]; then LLMR_REMOTE_SYNC_ENABLED=1; fi`,
     `if [ -z "\${LLMR_REMOTE_SYNC_ENDPOINT:-}" ]; then LLMR_REMOTE_SYNC_ENDPOINT=${shellQuote(remoteEndpoint)}; fi`,
     `if [ -z "\${LLMR_REMOTE_SYNC_API_KEY_FILE:-}" ]; then LLMR_REMOTE_SYNC_API_KEY_FILE=${shellQuote(auth.remoteSyncApiKeyFile)}; fi`,
@@ -1760,7 +1763,6 @@ function claudeCodeWrapperCmdScript(
     ...botEnvExports,
     cmdSetLine("LLMR_CLAUDE_CODE_WRAPPER", "1"),
     cmdSetLine("LLMR_REAL_CLAUDE_CODE_BIN", realClaude),
-    cmdSetLine("CODEXL_CLAUDE_CODE_BIN", realClaude),
     `if not defined LLMR_REMOTE_SYNC_ENABLED ${cmdSetLine("LLMR_REMOTE_SYNC_ENABLED", "1")}`,
     `if not defined LLMR_REMOTE_SYNC_ENDPOINT ${cmdSetLine("LLMR_REMOTE_SYNC_ENDPOINT", remoteEndpoint)}`,
     `if not defined LLMR_REMOTE_SYNC_API_KEY_FILE ${cmdSetLine("LLMR_REMOTE_SYNC_API_KEY_FILE", auth.remoteSyncApiKeyFile)}`,
@@ -2800,15 +2802,6 @@ function shellProfileSurfaceExports(surface: "auto" | "cli" | "app"): string[] {
   ];
 }
 
-function shellCodexlProfileSurfaceExports(): string[] {
-  return [
-    "if [ -z \"${CODEXL_PROFILE_SURFACE:-}\" ]; then",
-    "  CODEXL_PROFILE_SURFACE=$LLMR_PROFILE_SURFACE",
-    "fi",
-    "export CODEXL_PROFILE_SURFACE"
-  ];
-}
-
 function nodeRuntimeShellExecLines(runtimeFile: string): string[] {
   return [
     "if [ -n \"${LLMR_NODE_BIN:-}\" ]; then",
@@ -2855,16 +2848,7 @@ function codexMiddlewareShellScript(
         `export LLMR_ZCODE_PROFILE_CONFIG_FORMAT=${shellQuote(values.configFormat)}`,
         `export LLMR_PROFILE_SCOPE=${shellQuote(normalizeProfileScope(profile.scope))}`,
         `export LLMR_ZCODE_REMOTE_FRONTEND_MODE=${shellQuote(remoteFrontendMode)}`,
-        "if [ -z \"${CODEXL_REAL_ZCODE_CLI_PATH:-}\" ]; then",
-        "  CODEXL_REAL_ZCODE_CLI_PATH=$LLMR_REAL_ZCODE_CLI_PATH",
-        "fi",
-        "export CODEXL_REAL_ZCODE_CLI_PATH",
-        `export CODEXL_ZCODE_PROFILE=${shellQuote(values.providerId)}`,
-        `export CODEXL_ZCODE_MODEL_CATALOG_FILE=${shellQuote(values.modelCatalogFile)}`,
-        `export CODEXL_ZCODE_MODEL_PROVIDER=${shellQuote(values.providerId)}`,
-        `export CODEXL_ZCODE_WORKSPACE_NAME=${shellQuote(profile.name || values.providerId)}`,
-        `export CODEXL_ZCODE_PROFILE_CONFIG_FORMAT=${shellQuote(values.configFormat)}`,
-        `export CODEXL_ZCODE_CORE_MODE=${shellQuote(remoteFrontendMode)}`
+        `export LLMR_ZCODE_WORKSPACE_NAME=${shellQuote(profile.name || values.providerId)}`
       ]
     : [
         `export CODEX_HOME=${shellQuote(resolvedCodexHome)}`,
@@ -2893,20 +2877,7 @@ function codexMiddlewareShellScript(
         `export LLMR_CODEX_PROFILE_CONFIG_FORMAT=${shellQuote(values.configFormat)}`,
         `export LLMR_PROFILE_SCOPE=${shellQuote(normalizeProfileScope(profile.scope))}`,
         `export LLMR_CODEX_REMOTE_FRONTEND_MODE=${shellQuote(remoteFrontendMode)}`,
-        "if [ -z \"${CODEXL_REAL_CODEX_CLI_PATH:-}\" ]; then",
-        "  CODEXL_REAL_CODEX_CLI_PATH=$LLMR_REAL_CODEX_CLI_PATH",
-        "fi",
-        "export CODEXL_REAL_CODEX_CLI_PATH",
-        "if [ -z \"${CODEXL_BUNDLED_CODEX_CLI_PATH:-}\" ]; then",
-        "  CODEXL_BUNDLED_CODEX_CLI_PATH=$LLMR_BUNDLED_CODEX_CLI_PATH",
-        "fi",
-        "export CODEXL_BUNDLED_CODEX_CLI_PATH",
-        `export CODEXL_CODEX_PROFILE=${shellQuote(values.providerId)}`,
-        `export CODEXL_CODEX_MODEL_CATALOG_FILE=${shellQuote(values.modelCatalogFile)}`,
-        `export CODEXL_CODEX_MODEL_PROVIDER=${shellQuote(values.providerId)}`,
-        `export CODEXL_CODEX_WORKSPACE_NAME=${shellQuote(profile.name || values.providerId)}`,
-        `export CODEXL_CODEX_PROFILE_CONFIG_FORMAT=${shellQuote(values.configFormat)}`,
-        `export CODEXL_CODEX_CORE_MODE=${shellQuote(remoteFrontendMode)}`
+        `export LLMR_CODEX_WORKSPACE_NAME=${shellQuote(profile.name || values.providerId)}`
       ];
   return [
     "#!/bin/sh",
@@ -2914,7 +2885,6 @@ function codexMiddlewareShellScript(
     ...agentEnvExports,
     ...shellProfileSurfaceExports(surface),
     ...botEnvExports,
-    ...shellCodexlProfileSurfaceExports(),
     ...(profile.agent === "codex" ? codexNativeHelperBypassShellLines() : []),
     ...nodeRuntimeShellExecLines(runtimeFile),
     ""
@@ -2932,12 +2902,6 @@ function cmdProfileSurfaceExports(surface: "auto" | "cli" | "app"): string[] {
     cmdSetLine("LLMR_PROFILE_SURFACE", surface, "    "),
     "  )",
     ")"
-  ];
-}
-
-function cmdCodexlProfileSurfaceExports(): string[] {
-  return [
-    "if not defined CODEXL_PROFILE_SURFACE set \"CODEXL_PROFILE_SURFACE=%LLMR_PROFILE_SURFACE%\""
   ];
 }
 
@@ -3002,13 +2966,7 @@ function codexMiddlewareCmdScript(
         cmdSetLine("LLMR_ZCODE_PROFILE_CONFIG_FORMAT", values.configFormat),
         cmdSetLine("LLMR_PROFILE_SCOPE", normalizeProfileScope(profile.scope)),
         cmdSetLine("LLMR_ZCODE_REMOTE_FRONTEND_MODE", remoteFrontendMode),
-        "if not defined CODEXL_REAL_ZCODE_CLI_PATH set \"CODEXL_REAL_ZCODE_CLI_PATH=%LLMR_REAL_ZCODE_CLI_PATH%\"",
-        cmdSetLine("CODEXL_ZCODE_PROFILE", values.providerId),
-        cmdSetLine("CODEXL_ZCODE_MODEL_CATALOG_FILE", values.modelCatalogFile),
-        cmdSetLine("CODEXL_ZCODE_MODEL_PROVIDER", values.providerId),
-        cmdSetLine("CODEXL_ZCODE_WORKSPACE_NAME", workspaceName),
-        cmdSetLine("CODEXL_ZCODE_PROFILE_CONFIG_FORMAT", values.configFormat),
-        cmdSetLine("CODEXL_ZCODE_CORE_MODE", remoteFrontendMode)
+        cmdSetLine("LLMR_ZCODE_WORKSPACE_NAME", workspaceName)
       ]
     : [
         cmdSetLine("CODEX_HOME", resolvedCodexHome),
@@ -3031,14 +2989,7 @@ function codexMiddlewareCmdScript(
         cmdSetLine("LLMR_CODEX_PROFILE_CONFIG_FORMAT", values.configFormat),
         cmdSetLine("LLMR_PROFILE_SCOPE", normalizeProfileScope(profile.scope)),
         cmdSetLine("LLMR_CODEX_REMOTE_FRONTEND_MODE", remoteFrontendMode),
-        "if not defined CODEXL_REAL_CODEX_CLI_PATH set \"CODEXL_REAL_CODEX_CLI_PATH=%LLMR_REAL_CODEX_CLI_PATH%\"",
-        "if not defined CODEXL_BUNDLED_CODEX_CLI_PATH set \"CODEXL_BUNDLED_CODEX_CLI_PATH=%LLMR_BUNDLED_CODEX_CLI_PATH%\"",
-        cmdSetLine("CODEXL_CODEX_PROFILE", values.providerId),
-        cmdSetLine("CODEXL_CODEX_MODEL_CATALOG_FILE", values.modelCatalogFile),
-        cmdSetLine("CODEXL_CODEX_MODEL_PROVIDER", values.providerId),
-        cmdSetLine("CODEXL_CODEX_WORKSPACE_NAME", workspaceName),
-        cmdSetLine("CODEXL_CODEX_PROFILE_CONFIG_FORMAT", values.configFormat),
-        cmdSetLine("CODEXL_CODEX_CORE_MODE", remoteFrontendMode)
+        cmdSetLine("LLMR_CODEX_WORKSPACE_NAME", workspaceName)
       ];
   return [
     "@echo off",
@@ -3046,7 +2997,6 @@ function codexMiddlewareCmdScript(
     ...agentEnvExports,
     ...cmdProfileSurfaceExports(surface),
     ...botEnvExports,
-    ...cmdCodexlProfileSurfaceExports(),
     ...nodeRuntimeCmdExecLines(runtimeFile),
     ""
   ].join("\r\n");
@@ -3087,7 +3037,7 @@ function withoutBotGatewayEnv(values: Record<string, string>): Record<string, st
 function isBotGatewayEnvKey(key: string): boolean {
   return key === "BOT_GATEWAY_STATE_DIR" ||
     key.startsWith("LLMR_BOT_") ||
-    key.startsWith("CODEXL_BOT_") ||
+    key.startsWith(STALE_BOT_GATEWAY_ENV_PREFIX) ||
     key === "LLMR_BOT_GATEWAY_SDK_MODULE";
 }
 
@@ -3350,7 +3300,7 @@ function claudeCodeManagedSettingsEnvKeys(
     ...Object.keys(mcpConfigEnv),
     ...Object.keys(wifEnv),
     CLAUDE_CODE_MCP_CONFIG_ENV,
-    CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV
+    ...STALE_CLAUDE_CODE_SETTINGS_ENV_KEYS
   ]);
 }
 
@@ -3362,7 +3312,7 @@ function isManagedClaudeCodeSettingsEnvKey(key: string): boolean {
     isClaudeCodeWifEnvKey(key) ||
     key === CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV ||
     key === CLAUDE_CODE_MCP_CONFIG_ENV ||
-    key === CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV ||
+    isStaleClaudeCodeSettingsEnvKey(key) ||
     isClaudeCodeManagedModelEnvKey(key) ||
     isBotGatewayEnvKey(key);
 }
@@ -4243,7 +4193,7 @@ function withoutManagedClaudeCodeEnv(
     !(routerWif && isClaudeCodeWifEnvKey(key)) &&
     key !== CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV &&
     key !== CLAUDE_CODE_MCP_CONFIG_ENV &&
-    key !== CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV &&
+    !isStaleClaudeCodeSettingsEnvKey(key) &&
     !(takeoverActive && isClaudeCodeManagedModelEnvKey(key)) &&
     !isBotGatewayEnvKey(key)
   ));

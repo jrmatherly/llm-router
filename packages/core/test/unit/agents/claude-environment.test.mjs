@@ -2,15 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   CLAUDE_CODE_MCP_CONFIG_ENV,
-  CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV,
   claudeCodeMcpConfigEnv
 } from "@llmr/core/agents/claude-code/environment.ts";
 import { toolHubClaudeCodeMcpConfig } from "@llmr/core/mcp/toolhub-config.ts";
 
 test("exports Claude Code MCP config path env for wrapper injection", () => {
   assert.deepEqual(claudeCodeMcpConfigEnv("/tmp/toolhub-mcp.json"), {
-    [CLAUDE_CODE_MCP_CONFIG_ENV]: "/tmp/toolhub-mcp.json",
-    [CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV]: "/tmp/toolhub-mcp.json"
+    [CLAUDE_CODE_MCP_CONFIG_ENV]: "/tmp/toolhub-mcp.json"
   });
   assert.deepEqual(claudeCodeMcpConfigEnv(undefined), {});
 });

@@ -85,7 +85,7 @@ const codexAppSpec: CodexCompatibleAppSpec = {
   bundledCliNames: ["codex", "Codex", "OpenAI Codex"],
   defaultCliCommand: "codex",
   displayName: codexDesktopAppName,
-  envPathKeys: ["LLMR_CHATGPT_APP_PATH", "CHATGPT_APP_PATH", "CODEXL_CHATGPT_PATH", "LLMR_CODEX_APP_PATH", "CODEX_APP_PATH", "CODEXL_CODEX_PATH"],
+  envPathKeys: ["LLMR_CHATGPT_APP_PATH", "CHATGPT_APP_PATH", "LLMR_CODEX_APP_PATH", "CODEX_APP_PATH"],
   kind: "codex",
   linuxCandidates: [
     "/opt/ChatGPT/chatgpt",
@@ -145,7 +145,7 @@ const zcodeAppSpec: CodexCompatibleAppSpec = {
   bundledCliNames: ["glm/zcode.cjs", "zcode", "ZCode", "Z Code", "z-code", "zai-code", "codex", "Codex"],
   defaultCliCommand: "zcode",
   displayName: "ZCode App",
-  envPathKeys: ["LLMR_ZCODE_APP_PATH", "ZCODE_APP_PATH", "CODEXL_ZCODE_PATH"],
+  envPathKeys: ["LLMR_ZCODE_APP_PATH", "ZCODE_APP_PATH"],
   kind: "zcode",
   linuxCandidates: [
     "/opt/ZCode/zcode",
@@ -197,7 +197,7 @@ const workbuddyAppSpec: CodexCompatibleAppSpec = {
   ],
   defaultCliCommand: "codebuddy",
   displayName: workbuddyDesktopAppName,
-  envPathKeys: ["LLMR_WORKBUDDY_APP_PATH", "WORKBUDDY_APP_PATH", "CODEXL_WORKBUDDY_PATH"],
+  envPathKeys: ["LLMR_WORKBUDDY_APP_PATH", "WORKBUDDY_APP_PATH"],
   kind: "workbuddy",
   linuxCandidates: [
     "/opt/WorkBuddy AI/workbuddy-ai",
@@ -608,7 +608,6 @@ async function launchCodexCompatibleAppProfile(
     ...plan.env,
     ...(config ? botGatewayProfileEnv(config, profile, "app") : {}),
     ...codexProfileEnv(profile, lookup.executable, spec),
-    CODEXL_PROFILE_SURFACE: "app",
     LLMR_PROFILE_SURFACE: "app",
     ...codexAppAgentEnv(spec, plan.command, codexHome, userDataDir, modelCatalogFile, workbuddyVirtualAuth),
     ...codexCompatibleAppGatewayEnv(spec, config),
@@ -621,9 +620,7 @@ async function launchCodexCompatibleAppProfile(
   };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.LLMR_CODEX_MODEL_CATALOG_B64;
-  delete env.CODEXL_CODEX_MODEL_CATALOG_B64;
   delete env.LLMR_ZCODE_MODEL_CATALOG_B64;
-  delete env.CODEXL_ZCODE_MODEL_CATALOG_B64;
   sanitizeCodexCompatibleAppEnv(env, spec.kind);
 
   const launch = codexAppLaunchCommand(lookup.executable, userDataDir);
@@ -651,9 +648,8 @@ function codexCompatibleAppGatewayEnv(spec: CodexCompatibleAppSpec, config?: App
   const baseUrl = workbuddyGatewayBaseUrl(config);
   const apiKey = config.APIKEY?.trim() || "";
   return {
-    ...(apiKey ? { LLMR_PROFILE_API_KEY: apiKey, CODEXL_PROFILE_API_KEY: apiKey } : {}),
-    LLMR_WORKBUDDY_GATEWAY_BASE_URL: baseUrl,
-    CODEXL_WORKBUDDY_GATEWAY_BASE_URL: baseUrl
+    ...(apiKey ? { LLMR_PROFILE_API_KEY: apiKey } : {}),
+    LLMR_WORKBUDDY_GATEWAY_BASE_URL: baseUrl
   };
 }
 
@@ -667,12 +663,8 @@ function codexProfileEnv(profile: ProfileConfig, appExecutable: string, spec: Co
       LLMR_ZCODE_MODEL_PROVIDER: providerId,
       LLMR_ZCODE_PROFILE: providerId,
       LLMR_ZCODE_REMOTE_FRONTEND_MODE: remoteFrontendMode,
-      LLMR_REAL_ZCODE_CLI_PATH: realCliPath,
-      CODEXL_REAL_ZCODE_CLI_PATH: realCliPath,
-      CODEXL_ZCODE_CORE_MODE: remoteFrontendMode,
-      CODEXL_ZCODE_MODEL_PROVIDER: providerId,
-      CODEXL_ZCODE_PROFILE: providerId,
-      CODEXL_ZCODE_WORKSPACE_NAME: profile.name || providerId
+      LLMR_ZCODE_WORKSPACE_NAME: profile.name || providerId,
+      LLMR_REAL_ZCODE_CLI_PATH: realCliPath
     };
   }
   const codexEnv = {
@@ -684,14 +676,9 @@ function codexProfileEnv(profile: ProfileConfig, appExecutable: string, spec: Co
     LLMR_CODEX_MODEL_PROVIDER: providerId,
     LLMR_CODEX_PROFILE: providerId,
     LLMR_CODEX_REMOTE_FRONTEND_MODE: remoteFrontendMode,
+    LLMR_CODEX_WORKSPACE_NAME: profile.name || providerId,
     LLMR_BUNDLED_CODEX_CLI_PATH: realCliPath,
-    LLMR_REAL_CODEX_CLI_PATH: realCliPath,
-    CODEXL_BUNDLED_CODEX_CLI_PATH: realCliPath,
-    CODEXL_CODEX_CORE_MODE: remoteFrontendMode,
-    CODEXL_CODEX_MODEL_PROVIDER: providerId,
-    CODEXL_CODEX_PROFILE: providerId,
-    CODEXL_CODEX_WORKSPACE_NAME: profile.name || providerId,
-    CODEXL_REAL_CODEX_CLI_PATH: realCliPath
+    LLMR_REAL_CODEX_CLI_PATH: realCliPath
   };
   if (spec.kind !== "workbuddy") {
     return codexEnv;
@@ -702,12 +689,7 @@ function codexProfileEnv(profile: ProfileConfig, appExecutable: string, spec: Co
     LLMR_REAL_WORKBUDDY_CLI_PATH: realCliPath,
     LLMR_WORKBUDDY_MODEL_PROVIDER: providerId,
     LLMR_WORKBUDDY_PROFILE: providerId,
-    LLMR_WORKBUDDY_REMOTE_FRONTEND_MODE: remoteFrontendMode,
-    CODEXL_REAL_WORKBUDDY_CLI_PATH: realCliPath,
-    CODEXL_WORKBUDDY_CORE_MODE: remoteFrontendMode,
-    CODEXL_WORKBUDDY_MODEL_PROVIDER: providerId,
-    CODEXL_WORKBUDDY_PROFILE: providerId,
-    CODEXL_WORKBUDDY_WORKSPACE_NAME: profile.name || providerId
+    LLMR_WORKBUDDY_REMOTE_FRONTEND_MODE: remoteFrontendMode
   };
 }
 
@@ -717,20 +699,15 @@ function codexSharedChatGptAuthEnv(homeDir = os.homedir()): Record<string, strin
     return {};
   }
   return {
-    LLMR_CODEX_CHATGPT_AUTH_FILE: authFile,
-    CODEXL_CODEX_CHATGPT_AUTH_FILE: authFile
+    LLMR_CODEX_CHATGPT_AUTH_FILE: authFile
   };
 }
 
 function codexSharedChatGptAuthFile(homeDir: string): string | undefined {
-  for (const configured of [
-    process.env.LLMR_CODEX_CHATGPT_AUTH_FILE,
-    process.env.CODEXL_CODEX_CHATGPT_AUTH_FILE
-  ]) {
-    const resolved = configured?.trim() ? resolveUserPath(configured) : "";
-    if (resolved && isUsableChatGptAuthFile(resolved)) {
-      return resolved;
-    }
+  const configured = process.env.LLMR_CODEX_CHATGPT_AUTH_FILE;
+  const resolved = configured?.trim() ? resolveUserPath(configured) : "";
+  if (resolved && isUsableChatGptAuthFile(resolved)) {
+    return resolved;
   }
 
   const defaultAuthFile = path.join(homeDir, ".codex", "auth.json");
@@ -782,6 +759,10 @@ export function codexSharedChatGptAuthEnvForTest(homeDir?: string): Record<strin
   return codexSharedChatGptAuthEnv(homeDir);
 }
 
+export function codexProfileEnvForTest(profile: ProfileConfig): Record<string, string> {
+  return codexProfileEnv(profile, "", codexCompatibleAppSpecForProfile(profile));
+}
+
 function codexAppAgentEnv(
   spec: CodexCompatibleAppSpec,
   launcher: string,
@@ -793,7 +774,6 @@ function codexAppAgentEnv(
   if (spec.kind === "zcode") {
     return {
         LLMR_ZCODE_MODEL_CATALOG_FILE: modelCatalogFile,
-        CODEXL_ZCODE_MODEL_CATALOG_FILE: modelCatalogFile,
         ZCODE_CLI_PATH: launcher,
         ZCODE_ELECTRON_USER_DATA_PATH: userDataDir,
         ZCODE_HOME: home,
@@ -804,8 +784,7 @@ function codexAppAgentEnv(
     LLMR_CODEX_MODEL_CATALOG_FILE: modelCatalogFile,
     CODEX_CLI_PATH: launcher,
     CODEX_ELECTRON_USER_DATA_PATH: userDataDir,
-    CODEX_HOME: home,
-    CODEXL_CODEX_MODEL_CATALOG_FILE: modelCatalogFile
+    CODEX_HOME: home
   };
   if (spec.kind !== "workbuddy") {
     return codexEnv;
@@ -818,7 +797,6 @@ function codexAppAgentEnv(
     CODEBUDDY_CONFIG_DIR: home,
     CODEBUDDY_ELECTRON_USER_DATA_PATH: userDataDir,
     CODEBUDDY_HOME: home,
-    CODEXL_WORKBUDDY_MODEL_CATALOG_FILE: modelCatalogFile,
     WORKBUDDY_CLI_PATH: launcher,
     WORKBUDDY_CONFIG_DIR: home,
     WORKBUDDY_ELECTRON_USER_DATA_PATH: userDataDir,
@@ -885,7 +863,6 @@ function workbuddyVirtualAuthEnv(result: WorkbuddyVirtualAuthResult): Record<str
   return {
     APPDATA: path.join(result.homeDir, "AppData", "Roaming"),
     LLMR_WORKBUDDY_VIRTUAL_AUTH_FILE: result.authFile,
-    CODEXL_WORKBUDDY_VIRTUAL_AUTH_FILE: result.authFile,
     HOME: result.homeDir,
     LOCALAPPDATA: path.join(result.homeDir, "AppData", "Local"),
     USERPROFILE: result.homeDir,
@@ -913,10 +890,10 @@ function workbuddySharedAuthDir(homeDir: string): string {
 
 function sanitizeCodexCompatibleAppEnv(env: NodeJS.ProcessEnv, kind: CodexCompatibleAppKind): void {
   const blockedPrefixes = kind === "zcode"
-    ? ["LLMR_CODEX_", "CODEXL_CODEX_", "LLMR_WORKBUDDY_", "CODEXL_WORKBUDDY_"]
+    ? ["LLMR_CODEX_", "LLMR_WORKBUDDY_"]
     : kind === "workbuddy"
-      ? ["LLMR_ZCODE_", "CODEXL_ZCODE_"]
-      : ["LLMR_ZCODE_", "CODEXL_ZCODE_", "LLMR_WORKBUDDY_", "CODEXL_WORKBUDDY_"];
+      ? ["LLMR_ZCODE_"]
+      : ["LLMR_ZCODE_", "LLMR_WORKBUDDY_"];
   for (const key of Object.keys(env)) {
     if (blockedPrefixes.some((prefix) => key.startsWith(prefix))) {
       delete env[key];
@@ -1004,9 +981,7 @@ function codexAppLaunchCommand(executable: string, userDataDir: string): { args:
 function codexAppNetResponderDisabled(): boolean {
   const disabled = (value: string | undefined) => value !== undefined && value !== "" && value !== "0" && value !== "false";
   return disabled(process.env.LLMR_CODEX_APP_NET_RESPONDER_DISABLE) ||
-    disabled(process.env.CODEXL_CODEX_APP_NET_RESPONDER_DISABLE) ||
-    disabled(process.env.LLMR_CODEX_APP_INSPECTOR_DISABLE) ||
-    disabled(process.env.CODEXL_CODEX_APP_INSPECTOR_DISABLE);
+    disabled(process.env.LLMR_CODEX_APP_INSPECTOR_DISABLE);
 }
 
 function codexAppNetResponderPort(kind: CodexCompatibleAppKind): number | undefined {

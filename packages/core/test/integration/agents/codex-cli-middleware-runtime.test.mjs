@@ -152,7 +152,6 @@ test("Codex runtime ignores middleware recursion and uses the bundled real CLI f
       LLMR_BUNDLED_CODEX_CLI_PATH: fakeCodex,
       LLMR_CODEX_PROFILE: "llm-router",
       LLMR_REAL_CODEX_CLI_PATH: "",
-      CODEXL_REAL_CODEX_CLI_PATH: "",
       CODEX_CLI_PATH: path.join(dir, "llmr-codex-cli-stdio-profile")
     }
   });
@@ -255,8 +254,7 @@ test("Codex app-server keeps a ChatGPT-shaped account for workspace routing with
       LLMR_PROFILE_SCOPE: "llmr",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
-      CODEXL_CODEX_CHATGPT_AUTH_FILE: "",
-      CODEXL_CODEX_WORKSPACE_NAME: "LLMR Workspace",
+      LLMR_CODEX_WORKSPACE_NAME: "LLMR Workspace",
       HOME: isolatedHome
     },
     input: [
@@ -383,8 +381,7 @@ test("Codex app-server bridges shared ChatGPT auth into an isolated profile with
       LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
       LLMR_PROFILE_SCOPE: "llmr",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
-      CODEX_HOME: codexHome,
-      CODEXL_CODEX_CHATGPT_AUTH_FILE: ""
+      CODEX_HOME: codexHome
     },
     input: [
       JSON.stringify({ id: 1, method: "getAuthStatus", params: { includeToken: true, refreshToken: false } }),
@@ -505,7 +502,7 @@ test("Codex app-server preserves workspace routing surfaced by newer app-servers
       LLMR_PROFILE_SCOPE: "llmr",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
-      CODEXL_CODEX_WORKSPACE_NAME: "LLMR Workspace",
+      LLMR_CODEX_WORKSPACE_NAME: "LLMR Workspace",
       HOME: isolatedHome
     },
     input: [
@@ -521,6 +518,97 @@ test("Codex app-server preserves workspace routing surfaced by newer app-servers
     workspaceRouting,
     requiresOpenaiAuth: true
   });
+});
+
+test("a wrapper from before the CODEXL migration still starts the app-server and loses only the workspace label", { skip: process.platform === "win32" }, () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-stale-wrapper-"));
+  const runtimeFile = writeRuntimeScript(dir);
+  const fakeCodex = path.join(dir, "fake-codex");
+  const codexHome = path.join(dir, "codex-home");
+  const isolatedHome = path.join(dir, "home");
+  mkdirSync(codexHome, { recursive: true });
+  mkdirSync(isolatedHome, { recursive: true });
+  writeFileSync(fakeCodex, [
+    "#!/usr/bin/env node",
+    "const readline = require('node:readline');",
+    "const input = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });",
+    "input.on('line', (line) => {",
+    "  const request = JSON.parse(line);",
+    "  const result = { account: { type: 'chatgpt', email: 'native@example.com', planType: 'pro' }, requiresOpenaiAuth: true };",
+    "  process.stdout.write(JSON.stringify({ id: request.id, result }) + '\\n');",
+    "});",
+    ""
+  ].join("\n"));
+  chmodSync(fakeCodex, 0o700);
+
+  const result = spawnSync(process.execPath, [runtimeFile, "app-server"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      CODEX_HOME: codexHome,
+      CODEXL_CODEX_PROFILE: "old-wrapper-profile",
+      CODEXL_CODEX_WORKSPACE_NAME: "Old Wrapper Label",
+      HOME: isolatedHome,
+      LLMR_CODEX_PROFILE: "llm-router",
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_CODEX_WORKSPACE_NAME: "",
+      LLMR_PROFILE_SCOPE: "llmr",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex
+    },
+    input: `${JSON.stringify({ id: 1, method: "account/read", params: {} })}\n`
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const responses = result.stdout.trim().split(/\r?\n/).map((line) => JSON.parse(line));
+  assert.equal(responses[0].result.account.email, "llm-router");
+});
+
+test("Codex bot worker reads the ZCode workspace name from its LLMR_ name", () => {
+  const names = ["LLMR_CODEX_WORKSPACE_NAME", "LLMR_ZCODE_WORKSPACE_NAME", "CODEXL_CODEX_WORKSPACE_NAME", "CODEXL_ZCODE_WORKSPACE_NAME"];
+  const previous = names.map((name) => process.env[name]);
+  try {
+    for (const name of names) delete process.env[name];
+    process.env.LLMR_ZCODE_WORKSPACE_NAME = "ZCode Main";
+    const parse = evaluateRuntimeFunction("parseCodexBotWorkerOptions", ["nonEmptyEnv"]);
+    assert.deepEqual(parse([]), { workspaceName: "ZCode Main" });
+  } finally {
+    names.forEach((name, index) => restoreProcessEnv(name, previous[index]));
+  }
+});
+
+test("Claude Code app-server lists the model from LLMR_CLAUDE_CODE_MODEL", { skip: process.platform === "win32" }, () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-model-list-"));
+  const runtimeFile = writeRuntimeScript(dir);
+  const result = spawnSync(process.execPath, [runtimeFile, "app-server"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      CODEXL_CLAUDE_CODE_MODEL: "",
+      HOME: dir,
+      LLMR_CLAUDE_CODE_MODEL: "Provider/only-llmr",
+      LLMR_CODEX_MODEL: "",
+      LLMR_CODEX_MODEL_CATALOG_FILE: "",
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "claude-code"
+    },
+    input: `${JSON.stringify({ id: 1, method: "model/list", params: {} })}\n`
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const response = result.stdout.trim().split(/\r?\n/).map((line) => JSON.parse(line)).find((line) => line.id === 1);
+  assert.deepEqual(response.result.data.map((item) => item.id), ["Provider/only-llmr"]);
+});
+
+test("CODEXL_HOME does not move the LLMR config directory", () => {
+  const previous = [process.env.CODEXL_HOME, process.env.LLMR_CONFIG_DIR];
+  try {
+    process.env.CODEXL_HOME = "/tmp/codexl-home";
+    process.env.LLMR_CONFIG_DIR = "/tmp/llmr-config";
+    const resolveConfigDir = evaluateRuntimeFunction("resolveConfigDir", ["nonEmptyEnv", "expandHome", "runtimeHomeDir"]);
+    assert.equal(resolveConfigDir(), "/tmp/llmr-config");
+  } finally {
+    restoreProcessEnv("CODEXL_HOME", previous[0]);
+    restoreProcessEnv("LLMR_CONFIG_DIR", previous[1]);
+  }
 });
 
 test("Codex app-server delegates public Git marketplaces and leaves account-private marketplaces empty", { skip: process.platform === "win32" }, () => {
@@ -751,7 +839,6 @@ test("Codex app-server merges LLMR Fast Mode catalog metadata without spoofing a
       LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
       LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
       CODEX_HOME: codexHome,
-      CODEXL_CODEX_CHATGPT_AUTH_FILE: "",
       HOME: isolatedHome
     },
     input: [
@@ -1554,4 +1641,9 @@ function waitForChildExit(child, timeoutMs) {
       resolve();
     });
   });
+}
+
+function restoreProcessEnv(name, value) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
 }

@@ -1358,9 +1358,7 @@ function startClaudeAppBotWorker(config: AppConfig, profile: ReturnType<typeof f
     LLMR_CLAUDE_CODE_MODEL: profile.model.trim(),
     LLMR_CODEX_MODEL: profile.model.trim(),
     LLMR_CODEX_WORKSPACE_NAME: profile.name || profile.id,
-    LLMR_PROFILE_SURFACE: "app",
-    CODEXL_CODEX_WORKSPACE_NAME: profile.name || profile.id,
-    CODEXL_PROFILE_SURFACE: "app"
+    LLMR_PROFILE_SURFACE: "app"
   };
   delete env.ELECTRON_NO_ATTACH_CONSOLE;
 
@@ -1489,8 +1487,7 @@ function startCodexAppBotWorker(config: AppConfig, profile: ReturnType<typeof fi
     ...plan.env,
     ...botEnv,
     LLMR_CODEX_BOT_WORKER: "1",
-    LLMR_PROFILE_SURFACE: "app",
-    CODEXL_PROFILE_SURFACE: "app"
+    LLMR_PROFILE_SURFACE: "app"
   };
   delete env.ELECTRON_NO_ATTACH_CONSOLE;
   const child = spawn(launch.command, launch.args, {
