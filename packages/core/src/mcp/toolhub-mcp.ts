@@ -1283,7 +1283,8 @@ class StdioMcpClient implements McpClient {
     const child = spawn(this.server.command, this.server.args ?? [], {
       cwd: this.server.cwd || undefined,
       env: { ...withoutLlmrSecretEnv(), ...this.server.env },
-      stdio: ["pipe", "pipe", "pipe"]
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true
     }) as ChildProcessWithoutNullStreams;
     child.stdout.on("data", (chunk: Buffer) => this.readStdout(chunk));
     child.stderr.on("data", (chunk: Buffer) => {
