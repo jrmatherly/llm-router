@@ -48,6 +48,13 @@ test("app launch env carries the workspace name under its LLMR_ name", () => {
   assert.equal(codexProfileEnvForTest({ ...base, agent: "zcode", name: "ZCode Main" }).LLMR_ZCODE_WORKSPACE_NAME, "ZCode Main");
 });
 
+test("WorkBuddy profile env writes no LLMR_WORKBUDDY_ names", () => {
+  const env = codexProfileEnvForTest({ agent: "workbuddy", codexCliPath: "/usr/bin/true", enabled: true, env: {}, id: "p", model: "Provider/model", name: "Buddy Main", providerId: "llm-router" });
+  assert.deepEqual(Object.keys(env).filter((key) => /^LLMR_(REAL_)?WORKBUDDY_/.test(key)), []);
+  assert.equal(env.LLMR_CODEX_MODEL, "Provider/model");
+  assert.equal(env.LLMR_REAL_CODEX_CLI_PATH, "/usr/bin/true");
+});
+
 test("ChatGPT model catalog write includes patch bridge capabilities", () => {
   const configDir = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-app-catalog-"));
   try {
