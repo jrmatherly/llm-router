@@ -1058,3 +1058,12 @@ test("#1920 a pool qualifies a slashed model with its protocol family", async ()
   assert.equal(result.model, "openai/vendor/model");
   assert.equal(result.requestBody.model, "openai/vendor/model");
 });
+
+test("#1920 a pin that names no credential of the pool is passed on for the core to reject", async () => {
+  for (const selector of ["openai::openai_chat_completions::cred:missing", "provider-openai::openai_responses::cred:missing"]) {
+    const result = await resolvePoolRoute({ id: "openai", name: "Pool" }, `${selector}/model`);
+
+    assert.equal(result.targetProviderName, "provider-openai::openai_chat_completions::cred:missing");
+    assert.equal(result.targetProviders, undefined);
+  }
+});

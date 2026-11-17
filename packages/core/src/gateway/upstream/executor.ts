@@ -280,6 +280,23 @@ export function rewriteCapabilityResponseHeaders(headers: Headers, config: AppCo
 }
 
 
+// The core routes a selector that names a credential to that credential alone,
+// so the chain the host records outcomes against must hold only that one.
+function pinnedProviderCredential(
+  provider: GatewayProviderConfig,
+  credentials: ProviderCredentialConfig[],
+  selectors: Array<string | undefined>
+): ProviderCredentialConfig | undefined {
+  for (const selector of selectors) {
+    const slug = parseProviderCredentialInternalName(parseProviderModelSelector(normalizeRouteSelector(selector))?.provider)?.credentialSlug;
+    const credential = slug ? findProviderCredentialBySlug(provider, slug) : undefined;
+    if (credential && credentials.includes(credential)) {
+      return credential;
+    }
+  }
+  return undefined;
+}
+
 function routedModelHeaderForAttempt(attempt: UpstreamAttempt): string | undefined {
   if (attempt.target?.kind === "provider") {
     // A pool's first target is one credential, which the core would read as a pin.
@@ -666,7 +683,11 @@ function prepareUpstreamCredentialAttempt(input: {
   }
 
   const usage = estimateLimitUsage(input.method, input.attempt.body ?? Buffer.alloc(0));
-  const selection = selectProviderCredentials(target.provider, target.protocol, credentials, usage);
+  const pinned = pinnedProviderCredential(target.provider, credentials, [
+    input.headers[llmrRoutedModelHeader],
+    stringValue(parseJsonObjectSafe(input.attempt.body)?.model)
+  ]);
+  const selection = selectProviderCredentials(target.provider, target.protocol, pinned ? [pinned] : credentials, usage);
   if (selection.credentials.length === 0) {
     const preserveModelSelector = shouldPreserveCapabilityModelSelector(input.attempt.body, target);
     return {

@@ -1197,10 +1197,16 @@ function coreGatewayProviderSelectorName(
 
   const credentials = sortProviderCredentialsForConfig(activeProviderCredentials(provider));
   if (credentials.length > 0) {
-    // A pin written with the configured provider id or another protocol still names its credential.
+    // A pin written with the configured provider id or another protocol still
+    // names its credential. One that names none is passed on for the core to reject.
     const pinnedSlug = parseProviderCredentialInternalName(requestedProviderName)?.credentialSlug;
-    const pinned = pinnedSlug ? findProviderCredentialBySlug(provider, pinnedSlug) : undefined;
-    return providerCredentialInternalName(provider, protocol, pinned && credentials.includes(pinned) ? pinned : credentials[0]);
+    if (!pinnedSlug) {
+      return providerCredentialInternalName(provider, protocol, credentials[0]);
+    }
+    const pinned = findProviderCredentialBySlug(provider, pinnedSlug);
+    return pinned && credentials.includes(pinned)
+      ? providerCredentialInternalName(provider, protocol, pinned)
+      : `${providerCapabilityInternalName(provider, protocol)}::cred:${pinnedSlug}`;
   }
 
   return capability ? providerCapabilityInternalName(provider, capability.type) : providerRuntimeId(provider);

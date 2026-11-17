@@ -14,6 +14,8 @@ import {
 } from "@llmr/core/providers/runtime-topology";
 
 const providerCredentialCooldownMs = 60_000;
+// A request error (400, 422) is the same on every key, so only these move on to the next one.
+export const providerCredentialFallbackStatusCodes = [401, 403, 404, 408, 429, ...Array.from({ length: 100 }, (_, index) => 500 + index)];
 const providerCredentialCooldowns = new Map<string, { reason: string; until: number }>();
 
 export function providerCredentialLimitState(
@@ -54,14 +56,13 @@ export function recordProviderCredentialOutcome(
   const credential = responseCredential ?? providerCredentialFromInternalName(provider, attempt.credentialChain[0]);
   if (!credential) return;
 
-  const credentialFailed = statusCode === 401 || statusCode === 403 || statusCode === 429 || statusCode >= 500;
-  if (credentialFailed || statusCode < 400) {
-    // The core tries the chain in order and reports only the credential that
-    // answered, so the ones before it failed without the host seeing them.
-    const chain = attempt.credentialChain.map((internalName) => providerCredentialFromInternalName(provider, internalName));
-    for (const skipped of chain.slice(0, Math.max(chain.indexOf(credential), 0))) {
-      if (skipped) setProviderCredentialCooldown(provider, skipped, providerCredentialCooldownMs, "skipped by credential fallback");
-    }
+  // The core reports only the credential that answered and how many targets
+  // failed before it, so those failures never reach the host any other way.
+  const fallbackCount = Number(responseHeaders.get("x-gateway-fallback-count")) || 0;
+  const chain = attempt.credentialChain.map((internalName) => providerCredentialFromInternalName(provider, internalName));
+  const answered = chain.indexOf(credential);
+  for (const skipped of chain.slice(Math.max(answered - fallbackCount, 0), Math.max(answered, 0))) {
+    if (skipped) setProviderCredentialCooldown(provider, skipped, providerCredentialCooldownMs, "skipped by credential fallback");
   }
 
   if (statusCode >= 200 && statusCode < 500 && statusCode !== 401 && statusCode !== 403 && statusCode !== 429) {
@@ -69,7 +70,7 @@ export function recordProviderCredentialOutcome(
     clearProviderCredentialCooldown(provider, credential);
     return;
   }
-  if (credentialFailed) {
+  if (statusCode === 401 || statusCode === 403 || statusCode === 429 || statusCode >= 500) {
     setProviderCredentialCooldown(provider, credential, providerCredentialCooldownMs, `HTTP ${statusCode}`);
   }
 }
