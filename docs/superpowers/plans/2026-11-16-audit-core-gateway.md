@@ -184,6 +184,16 @@ git commit -m "refactor(core): delete eleven dead exports and the unused proxy.b
 **Size:** M
 **Owner steps:** None
 
+**Status:** Merged 2026-11-17 as [PR 93](https://github.com/jrmatherly/llm-router/pull/93), squash commit `5128f283`. The review changed these points:
+
+- `beginNetworkCapture` builds `path` from the redacted URL object, not from a second `redactSensitiveUrlQuery` call. A request target that starts with `//` does not parse as a path, so the helper returned it with its key.
+- An upstream proxy that refuses the tunnel goes through `handleConnectError`, so it is logged. The direct tunnel has the same 30 s connect timeout as the upstream path.
+- The eviction test uses mocked timers. The Task 3 test as written passes when eviction calls `closeServer`, because its `closeAllConnections` timer fires after the assertion.
+- One more test: a CONNECT to a plugin proxy route host is intercepted.
+- The docs say proxy targets are decrypted in gateway mode only, and that a tunnel stays a tunnel after its host becomes a routed host. That second point is a known limit this plan did not list.
+
+Found and left alone: `buildGatewayUrl` throws `Invalid URL` for a routed host when the request path starts with `//`, and the client gets 502. It predates CG-2.
+
 All tests in this PR run with:
 
 ```bash
