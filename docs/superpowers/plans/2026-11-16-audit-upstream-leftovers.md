@@ -215,7 +215,9 @@ Open the PR with `## Why` stating that the override ran the whole Claude Code pr
 - A new test, "release strips stale CODEXL keys written after apply", pins the strip on release. Before it, removing the check in `withoutManagedClaudeCodeEnv` left the suite green.
 - The stale-wrapper test gives `CODEXL_CODEX_PROFILE` its own value, so a `CODEXL_` read returning to `agentEnv` fails it.
 
-Task 2, Step 1 found wrappers and the runtime are still not rewritten together, so the release note keeps its last sentence. Left as is: `agentEnv`'s second suffix `CORE_MODE` now resolves to an `LLMR_*_CORE_MODE` name nothing writes; a `CODEXL_CLAUDE_CODE_MODEL` in a profile's own `env` is no longer filtered from wrappers or blanked in a shared home, and nothing reads it. The `.cmd` wrappers were not executed. The release note is in the PR body and is not yet in a release.
+Task 2, Step 1 found wrappers and the runtime are still not rewritten together, so the release note keeps its last sentence. Left as is: a `CODEXL_` key in a profile's own `env` passes through to the Claude settings file and the wrapper, and release removes it (measured with a probe test on 2026-11-17). Nothing reads it, and only the model key is new with this PR.
+
+Follow-up, merged 2026-11-17 as [PR 92](https://github.com/jrmatherly/llm-router/pull/92), squash commit `eb65d18c`: `agentEnv`'s second suffix `CORE_MODE` resolved to an `LLMR_*_CORE_MODE` name nothing writes, so it is deleted. The same PR stops writing seven WorkBuddy names that had no reader in the repo (`LLMR_WORKBUDDY_MODEL`, `_MODEL_PROVIDER`, `_PROFILE`, `_REMOTE_FRONTEND_MODE`, `_MODEL_CATALOG_FILE`, `_VIRTUAL_AUTH_FILE`, `LLMR_REAL_WORKBUDDY_CLI_PATH`). That the WorkBuddy app ignores them is inferred, not observed. The `.cmd` wrappers were not executed. The release note is in the PR body and is not yet in a release.
 
 The appendix lists every name, its write and read sites, and its class. The tasks cite it. Task 1 keeps every `CODEXL_` name in place, so behaviour is unchanged after it. Task 2 deletes them. Task 3 adds the guard.
 
