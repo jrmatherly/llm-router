@@ -95,6 +95,13 @@ No task fixes these. Each one is stated so a reviewer does not rediscover it.
 **Size:** S
 **Owner steps:** None
 
+**Status:** Merged 2026-11-16 as [PR 73](https://github.com/jrmatherly/llm-router/pull/73), squash commit `012964e7`. Two reviews changed no code and corrected two statements:
+
+- Step 4 says a stored config with `browserMode` loads unchanged. That holds for loading. The next save writes the parsed config and merges back only `theme`, so the key leaves the stored config then, or during load when the load path rewrites the snapshot.
+- `ModelCatalogEntry.metadata` lost its only reader with `modelCatalogReasoningEffortConfig`, the same way `sourceRecords` did. The spec's deferred list now names both.
+
+`x-llmr-route-fallback` is still written (`decisionHeaders` in `gateway/core-runtime/router-plugin.ts`) and has no reader in this repo, in `@the-next-ai/ai-gateway` 1.0.21, or in upstream at v3.1.5. Its removal is an open owner decision.
+
 ### Task 1: Delete eleven exports, what they orphan, and `proxy.browserMode`
 
 **Files:**
