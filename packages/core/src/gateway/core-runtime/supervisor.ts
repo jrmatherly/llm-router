@@ -66,7 +66,9 @@ export function spawnGatewayProcess(
     cwd: CONFIGDIR,
     env,
     serialization: "advanced",
-    stdio: ["ignore", "pipe", "pipe", "ipc"]
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
+    // On Windows a console child of a console-less parent opens a console window.
+    windowsHide: true
   });
   captureGatewayChildOutput(child);
   if (!child.send) {
