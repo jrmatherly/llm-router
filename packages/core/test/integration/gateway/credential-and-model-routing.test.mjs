@@ -87,7 +87,7 @@ async function run(providerFactory, probes, { configure, upstreamTimeoutMs = 500
     const file = path.join(root, "gateway.json");
     writeFileSync(file, JSON.stringify({ host: "127.0.0.1", port, upstreamTimeoutMs,
       auth: { enabled: false }, rawTrace: { enabled: false }, billing: { enabled: false },
-      logging: { level: "error", accessLog: false }, providers: compiled.providers, plugins: [router] }));
+      logging: { level: "error", accessLog: false }, scheduling: compiled.scheduling, providers: compiled.providers, plugins: [router] }));
     gateway = spawn(process.execPath, [gatewayEntry], { cwd: root,
       env: { ...process.env, GATEWAY_CONFIG_PATH: file }, stdio: ["ignore", "pipe", "pipe"] });
     let log = "";
@@ -114,13 +114,16 @@ async function run(providerFactory, probes, { configure, upstreamTimeoutMs = 500
       let responseText;
       try { responseText = await response.text(); } catch (error) { if (failure !== "partial") throw error; responseText = String(error); }
       const attempts = calls.slice(start);
-      assert.ok(attempts.length > 0, probe.name);
+      if (!probe.status) assert.ok(attempts.length > 0, probe.name);
       for (const attempt of attempts) {
         assert.equal(attempt.body.model, probe.body.model.slice(probe.body.model.indexOf("/") + 1), probe.name);
         assert.equal(attempt.body.temperature, probe.body.temperature, probe.name);
         assert.equal(attempt.path, attempts[0].path, "credential fallback preserves the endpoint");
       }
-      if (failure === "all-fail") {
+      if (probe.status) {
+        assert.equal(response.status, probe.status, `${probe.name}: ${responseText}`);
+        assert.deepEqual(attempts.map(attempt => attempt.key), probe.keys, probe.name);
+      } else if (failure === "all-fail") {
         assert.ok(response.status >= 400, responseText);
         assert.match(responseText, /401|synthetic/);
         assert.equal(attempts[0].key, "bad", probe.name);
@@ -205,4 +208,46 @@ test("#1923 the host cools down a key the core skipped", { timeout: 30000 }, asy
 
   assert.equal(readProviderCredentialCooldown(provider, provider.credentials[0])?.reason, "skipped by credential fallback");
   assert.equal(readProviderCredentialCooldown(provider, provider.credentials[1]), undefined);
+});
+
+test("#1923 a key that rejects a request for its own reasons is skipped and cooled down", { timeout: 30000 }, async () => {
+  for (const status of [400, 402]) {
+    const id = `pool-key-${status}`;
+    const config = await run(url => [{ id, name: id, type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["pool-model"], credentials }],
+      [probe(`${id}/pool-model`, status)]);
+    const [provider] = config.Providers;
+
+    assert.equal(readProviderCredentialCooldown(provider, provider.credentials[0])?.reason, "skipped by credential fallback");
+    assert.equal(readProviderCredentialCooldown(provider, provider.credentials[1]), undefined);
+  }
+});
+
+test("#1923 a pinned credential is the only one tried and the only one cooled down", { timeout: 30000 }, async () => {
+  const id = "pool-pinned";
+  const pin = (credential, protocol = "openai_chat_completions") => `${id}::${protocol}::cred:${credential}/pool-model`;
+  const pool = url => [{ id, name: id, type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["pool-model"],
+    credentials: [{ id: "working", apiKey: "good", priority: 1 }, { id: "spare", apiKey: "good", priority: 2 }, { id: "broken", apiKey: "bad", priority: 3 }] }];
+  const cooldowns = async probes => {
+    const [provider] = (await run(pool, probes)).Providers;
+    return provider.credentials.map(credential => readProviderCredentialCooldown(provider, credential)?.reason);
+  };
+
+  assert.deepEqual(await cooldowns([{ ...probe(pin("spare")), status: 200, keys: ["good"] }]), [undefined, undefined, undefined]);
+  assert.deepEqual(await cooldowns([
+    { ...probe(pin("broken")), status: 401, keys: ["bad", "bad"] },
+    { ...probe(pin("broken")), status: 401, keys: ["bad", "bad"] }
+  ]), [undefined, undefined, "HTTP 401"]);
+  assert.deepEqual(await cooldowns([
+    { ...probe(pin("missing")), status: 400, keys: [] },
+    { ...probe(pin("missing", "openai_responses")), status: 400, keys: [] }
+  ]), [undefined, undefined, "HTTP 401"]);
+});
+
+test("#1923 a pin on the first provider does not follow the request to a fallback pool", { timeout: 30000 }, async () => {
+  const pool = (id, keys, url) => ({ id, name: id, type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["pool-model"],
+    credentials: keys.map((apiKey, index) => ({ id: `key-${index + 1}`, apiKey, priority: index + 1 })) });
+  await run(url => [pool("pinned-primary", ["bad", "bad"], url), pool("unpinned-fallback", ["good", "bad"], url)],
+    [probe("pinned-primary::openai_chat_completions::cred:key-2/pool-model", 401)], {
+      configure: config => { config.Router.fallback = { mode: "model-chain", models: ["unpinned-fallback/pool-model"], retryCount: 0 }; }
+    });
 });

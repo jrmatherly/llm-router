@@ -280,9 +280,30 @@ export function rewriteCapabilityResponseHeaders(headers: Headers, config: AppCo
 }
 
 
+// A selector that names a credential of this provider reaches the core as that
+// credential alone (the router plugin sends no chain), so outcomes are recorded
+// against it only. A pin the pool cannot serve gets no chain: the core rejects
+// the request before any key is used. A fallback attempt still carries the
+// first attempt's selector, so a pin counts only for the provider it names.
+function pinnedProviderCredential(
+  config: AppConfig,
+  provider: GatewayProviderConfig,
+  selectors: Array<string | undefined>
+): { credential?: ProviderCredentialConfig } | undefined {
+  for (const selector of selectors) {
+    const normalized = normalizeRouteSelector(selector);
+    const slug = parseProviderCredentialInternalName(parseProviderModelSelector(normalized)?.provider)?.credentialSlug;
+    if (slug && resolveConfiguredProviderModelSelector(normalized, config)?.provider === provider) {
+      return { credential: findProviderCredentialBySlug(provider, slug) };
+    }
+  }
+  return undefined;
+}
+
 function routedModelHeaderForAttempt(attempt: UpstreamAttempt): string | undefined {
   if (attempt.target?.kind === "provider") {
-    // A pool's first target is one credential, which the core would read as a pin.
+    // Name the provider, not the first credential: the core reads a credential
+    // name as a pin and would skip the rest of the chain.
     const provider = (attempt.credentialChain?.length ? undefined : firstTargetProviderHeader(attempt.headers ?? {})) ??
       providerRuntimeId(attempt.target.provider);
     return `${provider}/${attempt.target.model}`;
@@ -666,7 +687,14 @@ function prepareUpstreamCredentialAttempt(input: {
   }
 
   const usage = estimateLimitUsage(input.method, input.attempt.body ?? Buffer.alloc(0));
-  const selection = selectProviderCredentials(target.provider, target.protocol, credentials, usage);
+  const pin = pinnedProviderCredential(input.config, target.provider, [
+    input.headers[llmrRoutedModelHeader],
+    stringValue(parseJsonObjectSafe(input.attempt.body)?.model)
+  ]);
+  const pinned = pin?.credential && credentials.includes(pin.credential) ? [pin.credential] : undefined;
+  const selection = pin && !pinned
+    ? { credentials: [], saturated: false }
+    : selectProviderCredentials(target.provider, target.protocol, pinned ?? credentials, usage);
   if (selection.credentials.length === 0) {
     const preserveModelSelector = shouldPreserveCapabilityModelSelector(input.attempt.body, target);
     return {
