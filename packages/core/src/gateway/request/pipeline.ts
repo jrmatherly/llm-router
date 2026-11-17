@@ -46,6 +46,7 @@ import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import { clientClosedRequestStatusCode, clientDisconnectMessage, coreGatewayAuthHeader, resolveStreamRequestLogOutcome, UpstreamRequestError } from "@llmr/core/gateway/internal/shared";
 import type { BrowserWebSearchMcpIntegration, BrowserWebSearchProtocolRecord, UpstreamFetchResult } from "@llmr/core/gateway/internal/shared";
 import { cancelResponseBody, destroyResponseStreams, fetchUpstreamWithFallback, mergeFallbackResponseHeaders, rewriteCapabilityResponseHeaders, uniqueStreams, upstreamResponseHeaders } from "@llmr/core/gateway/upstream/executor";
+import { terminalErrorFrame } from "@llmr/core/gateway/request/sse-terminal";
 import { requestProtocolForPath, shouldApplyGatewayRouting } from "@llmr/core/routing/protocol-endpoints";
 import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
 import { createClaudeCodeWebSearchContinuationContext, createHostedWebSearchProtocolContext, hostedWebSearchProtocolResponseStream, hostedWebSearchUnavailableMessage, prepareClaudeCodeWebSearchContinuationRequestBody, prepareHostedWebSearchProtocolRequestBody, selectClaudeCodeWebSearchContinuationRecords, selectHostedWebSearchProtocolRecords } from "@llmr/core/gateway/features/hosted-web-search/index";
@@ -91,6 +92,17 @@ function reportedRouteChange(
 
 function isReportedRouteChange(change: RequestRouteTraceChange | undefined): change is RequestRouteTraceChange {
   return change !== undefined;
+}
+
+/**
+ * The transport phase already classified by `formatUpstreamErrorForLog`, read
+ * back from its own structured field rather than re-inferring it here. The
+ * result is a diagnostics token, never source text: an unreadable field yields
+ * `undefined` and the client falls back to the generic sentence. The upstream
+ * message comes before the fields, so the last match is the classified one.
+ */
+function upstreamTransportCode(detail: string): string | undefined {
+  return [...detail.matchAll(/(?:^|[;\s])phase=([a-z_]+)(?:[;\]]|$)/g)].at(-1)?.[1];
 }
 
 function stripUntrustedLlmrRouteHeaders(headers: Record<string, string>): RequestRouteTraceChange[] {
@@ -1031,6 +1043,11 @@ export class GatewayRequestPipeline {
         : responseBody;
       const sampler = createBodySampler();
       const sseErrorDetector = createSseErrorDetector(responseHeaders.get("content-type") ?? undefined);
+      // The Codex compact transform rewrites an SSE upstream into a JSON body,
+      // so a terminal SSE frame would not belong to the client's protocol.
+      const terminalFrameContentType = transformCodexCompactResponse && codexCompactCompatResponseMode
+        ? undefined
+        : responseHeaders.get("content-type") ?? undefined;
       let streamDetectedError: string | undefined;
       const clientExperienceMeter = createStreamExperienceMeter({
         contentType: responseHeaders.get("content-type") ?? undefined,
@@ -1055,6 +1072,7 @@ export class GatewayRequestPipeline {
         meteredClientResponseBody
       ]);
       let upstreamStreamEnded = false;
+      let streamErrorHandled = false;
       let logRecorded = false;
       const writeStreamLog = (error?: string) => {
         if (logRecorded) {
@@ -1104,11 +1122,15 @@ export class GatewayRequestPipeline {
         }
       };
       const onResponseStreamError = (error: Error) => {
+        if (streamErrorHandled) {
+          return;
+        }
+        streamErrorHandled = true;
         failContextArchiveRequest(contextArchiveRecord, contextArchiveRequestConfig);
         upstreamExperienceMeter.finish();
         clientExperienceMeter.finish();
         streamDetectedError ??= sseErrorDetector.finish();
-        writeStreamLog(clientDisconnected ? clientDisconnectMessage : formatUpstreamErrorForLog(error, {
+        const streamErrorDetail = formatUpstreamErrorForLog(error, {
           attempts: upstreamResult.failedAttempts.length + 1,
           elapsedMs: Date.now() - startedAt,
           fallbackFailures: upstreamResult.failedAttempts.length,
@@ -1118,10 +1140,54 @@ export class GatewayRequestPipeline {
             (total, attempt) => total + Math.max(0, attempt.delayMs ?? 0),
             0
           )
-        }));
-        // .pipe() does not end the client response when a stage errors, so an
-        // upstream reset would leave the client waiting forever. Headers are
-        // already sent; closing the socket is how a truncated stream fails.
+        });
+        writeStreamLog(clientDisconnected ? clientDisconnectMessage : streamErrorDetail);
+        // .pipe() does not end the client response when a stage errors, and a
+        // bare socket kill leaves the client guessing whether the turn
+        // completed. When no terminal event reached the client yet, report the
+        // truncation in the client's own protocol, then end normally.
+        //
+        // The frame only reaches the client when it starts a new SSE event: an
+        // upstream that died mid-line or mid-event leaves an unterminated tail
+        // that would otherwise absorb the frame as more of its own data. The
+        // client sees the fixed generic sentence plus, at most, the transport
+        // phase's allowlisted token — never the upstream message or a URL.
+        const sseContentType = (terminalFrameContentType ?? "").toLowerCase().includes("event-stream");
+        const boundaryRepair = sseErrorDetector.boundaryRepair();
+        const terminalFrameBytes =
+          clientDisconnected ||
+          terminalFrameContentType === undefined ||
+          !sseContentType ||
+          sseErrorDetector.hasTerminalEvent()
+            ? undefined
+            : terminalErrorFrame(
+                {
+                  pendingTerminator: boundaryRepair.pendingTerminator,
+                  transportCode: upstreamTransportCode(streamErrorDetail)
+                },
+                responseProtocol
+              );
+        const terminalFrame =
+          terminalFrameBytes === undefined || terminalFrameBytes.byteLength === 0
+            ? undefined
+            : Buffer.concat([Buffer.from(boundaryRepair.bytes, "utf8"), terminalFrameBytes]);
+        if (terminalFrame !== undefined && !response.destroyed && !response.writableEnded) {
+          meteredClientResponseBody.unpipe(response);
+          // The detector has counted every chunk the meter passed on, but a slow
+          // client leaves some of them in the meter's buffer. Send those first:
+          // the repair was computed for the position after them.
+          for (let chunk = meteredClientResponseBody.read(); chunk !== null; chunk = meteredClientResponseBody.read()) {
+            response.write(chunk);
+          }
+          response.write(terminalFrame);
+          destroyResponseStreams(responseStreams);
+          response.end();
+          return;
+        }
+        // No frame applies (non-SSE body, a protocol without an in-band error
+        // event, a terminal the client already received, or a client that
+        // already left). Headers are already sent; closing the socket is how a
+        // truncated stream fails.
         if (!response.destroyed) {
           response.destroy();
         }
