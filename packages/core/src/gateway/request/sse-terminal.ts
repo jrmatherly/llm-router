@@ -51,8 +51,8 @@ export type SseBoundaryRepair = {
   /** True when a parsed event is buffered but not yet dispatched. */
   openEvent: boolean;
   /**
-   * True when the undelivered tail is the protocol's own stream terminator. The
-   * repair dispatches it, so a caller must not add a second one.
+   * True when the undelivered tail is a `data: [DONE]` line. The repair
+   * dispatches it, so a caller must not add a second one.
    */
   pendingTerminator: boolean;
   /** The exact bytes to write first; empty at a true boundary. */

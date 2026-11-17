@@ -98,10 +98,11 @@ function isReportedRouteChange(change: RequestRouteTraceChange | undefined): cha
  * The transport phase already classified by `formatUpstreamErrorForLog`, read
  * back from its own structured field rather than re-inferring it here. The
  * result is a diagnostics token, never source text: an unreadable field yields
- * `undefined` and the client falls back to the generic sentence.
+ * `undefined` and the client falls back to the generic sentence. The upstream
+ * message comes before the fields, so the last match is the classified one.
  */
 function upstreamTransportCode(detail: string): string | undefined {
-  return /(?:^|[;\s])phase=([a-z_]+)(?:[;\]]|$)/.exec(detail)?.[1];
+  return [...detail.matchAll(/(?:^|[;\s])phase=([a-z_]+)(?:[;\]]|$)/g)].at(-1)?.[1];
 }
 
 function stripUntrustedLlmrRouteHeaders(headers: Record<string, string>): RequestRouteTraceChange[] {
@@ -1171,23 +1172,22 @@ export class GatewayRequestPipeline {
             ? undefined
             : Buffer.concat([Buffer.from(boundaryRepair.bytes, "utf8"), terminalFrameBytes]);
         if (terminalFrame !== undefined && !response.destroyed && !response.writableEnded) {
-          // The log body keeps the frame so a recorded truncation reads like the
-          // client saw it.
-          sampler.append(terminalFrame);
           meteredClientResponseBody.unpipe(response);
-          try {
-            response.write(terminalFrame);
-            destroyResponseStreams(responseStreams);
-            response.end();
-            return;
-          } catch {
-            // The client vanished mid-write; the socket kill below is the only
-            // remaining option.
+          // The detector has counted every chunk the meter passed on, but a slow
+          // client leaves some of them in the meter's buffer. Send those first:
+          // the repair was computed for the position after them.
+          for (let chunk = meteredClientResponseBody.read(); chunk !== null; chunk = meteredClientResponseBody.read()) {
+            response.write(chunk);
           }
+          response.write(terminalFrame);
+          destroyResponseStreams(responseStreams);
+          response.end();
+          return;
         }
-        // No protocol-native terminal applies (non-SSE body, a protocol without
-        // an in-band error event, or a client that already left). Headers are
-        // already sent; closing the socket is how a truncated stream fails.
+        // No frame applies (non-SSE body, a protocol without an in-band error
+        // event, a terminal the client already received, or a client that
+        // already left). Headers are already sent; closing the socket is how a
+        // truncated stream fails.
         if (!response.destroyed) {
           response.destroy();
         }

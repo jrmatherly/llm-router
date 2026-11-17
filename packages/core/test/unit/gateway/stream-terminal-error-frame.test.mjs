@@ -67,11 +67,14 @@ function eventPayloads(events) {
   });
 }
 
-async function withTruncatedUpstream(events, run) {
+// `events` is one string, or several the upstream writes 15 ms apart so they
+// reach the gateway as separate chunks.
+async function withTruncatedUpstream(events, contentType, run) {
+  const chunks = Array.isArray(events) ? events : [events];
   const server = http.createServer((request, response) => {
-    response.writeHead(200, { "content-type": "text/event-stream" });
-    response.write(events);
-    setTimeout(() => request.socket.resetAndDestroy(), 50);
+    response.writeHead(200, { "content-type": contentType });
+    chunks.forEach((chunk, index) => setTimeout(() => response.write(chunk), index * 15));
+    setTimeout(() => request.socket.resetAndDestroy(), chunks.length * 15 + 50);
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const url = `http://127.0.0.1:${server.address().port}/`;
@@ -83,12 +86,19 @@ async function withTruncatedUpstream(events, run) {
   }
 }
 
-function createCapturingResponse() {
+// A slow client takes each write late and reports a full buffer at once, so the
+// gateway's pipe pauses with later chunks still held upstream of the response.
+function createCapturingResponse(slow = false) {
   const chunks = [];
   const response = new Writable({
+    ...(slow ? { highWaterMark: 1 } : {}),
     write(chunk, _encoding, done) {
       chunks.push(Buffer.from(chunk));
-      done();
+      if (slow) {
+        setTimeout(done, 150);
+      } else {
+        done();
+      }
     }
   });
   response.writeHead = () => response;
@@ -139,7 +149,7 @@ async function proxyTruncatedStream(input) {
   });
   const originalFetch = globalThis.fetch;
   try {
-    return await withTruncatedUpstream(input.events, async (url) => {
+    return await withTruncatedUpstream(input.events, input.contentType ?? "text/event-stream", async (url) => {
       globalThis.fetch = (target, init) => {
         if (String(target).includes("/__llmr/route")) {
           return Promise.reject(new Error("core gateway route endpoint is not running"));
@@ -153,7 +163,7 @@ async function proxyTruncatedStream(input) {
         "content-type": "application/json",
         "user-agent": "claude-code/1.0"
       };
-      const capture = createCapturingResponse();
+      const capture = createCapturingResponse(input.slowClient);
       const settled = new Promise((resolve) => capture.response.once("close", resolve));
       await pipeline.proxyRequest(request, capture.response, input.path);
       await Promise.race([settled, new Promise((resolve) => setTimeout(resolve, 2_000))]);
@@ -243,10 +253,15 @@ function assertTerminalDelivered(events, protocol) {
     shape.terminators,
     `${protocol}: the protocol's own terminator count`
   );
-  // The generic sentence is the only message text; nothing from the source error.
+  // The generic sentence and one allowlisted phase are the only message text;
+  // nothing from the source error.
   const message =
     terminal[0].payload.error?.message ?? terminal[0].payload.response?.error?.message ?? terminal[0].payload.message;
-  assert.match(message, /^Upstream stream failed before the response completed/);
+  assert.match(
+    message,
+    /^Upstream stream failed before the response completed(?: \((?:aborted|connect|dns|response_body|response_headers|tls)\))?$/
+  );
+  return message;
 }
 
 // Truncation positions, per protocol: after a dispatched event, at the blank
@@ -275,7 +290,10 @@ for (const protocol of Object.keys(truncationFixtures)) {
   for (const [index, events] of truncationFixtures[protocol].entries()) {
     test(`${protocol}: truncation ${positionNames[index]} still dispatches a separate terminal`, options, async () => {
       const truncated = await proxyTruncatedStream({ ...requestBodies[protocol], events });
-      assertTerminalDelivered(truncated.events, protocol);
+      const message = assertTerminalDelivered(truncated.events, protocol);
+      assert.match(message, /\(response_body\)$/, "the phase comes from the gateway's own classification");
+      // The log detail carries the upstream address and these fields; none may reach the client.
+      assert.doesNotMatch(truncated.body(), /127\.0\.0\.1|cause=|attempts=|phase=/);
       // The truncated fragment may be dispatched once so the tail can be closed,
       // but the terminal must stay its own event: at most one unparseable entry,
       // never one carrying the terminal text.
@@ -320,6 +338,44 @@ test("a terminal field without its blank line was never delivered, so a frame is
     events: 'data: {"choices":[{"delta":{"content":"live"},"index":0}]}\n\ndata: [DONE]\n'
   });
   assertTerminalDelivered(truncated.events, "openai_chat_completions");
+  // Every content event had arrived and only the blank line after [DONE] was
+  // lost, so the repair delivers [DONE] first and the error event follows it.
+  const payloads = eventPayloads(truncated.events);
+  assert.ok(
+    payloads.findIndex((entry) => entry.done === true) < payloads.findIndex((entry) => entry.payload?.error),
+    "[DONE] is dispatched before the error event"
+  );
+});
+
+test("a slow client still receives the frame as its own event", options, async () => {
+  // The first chunk ends mid-line and the second closes that event. A slow
+  // client has only the first when the upstream dies, so the gateway must send
+  // the chunk it still holds before the frame.
+  const truncated = await proxyTruncatedStream({
+    ...requestBodies.openai_chat_completions,
+    events: [
+      'data: {"choices":[{"delta":{"content":"one"},"index":0}]}\n\ndata: {"choices":[{"delta":{"cont',
+      'ent":"two"},"index":0}]}\n\n'
+    ],
+    slowClient: true
+  });
+  assertTerminalDelivered(truncated.events, "openai_chat_completions");
+  const payloads = eventPayloads(truncated.events);
+  assert.deepEqual(payloads.filter((entry) => entry.raw !== undefined), [], "no event is left half-written");
+  assert.deepEqual(
+    payloads.flatMap((entry) => entry.payload?.choices?.[0]?.delta?.content ?? []),
+    ["one", "two"]
+  );
+});
+
+test("a truncated non-SSE body gets no frame", options, async () => {
+  const truncated = await proxyTruncatedStream({
+    ...requestBodies.openai_chat_completions,
+    contentType: "application/json",
+    events: '{"choices":[{"message":{"content":"li'
+  });
+  assert.doesNotMatch(truncated.body(), /Upstream stream failed|\[DONE\]/);
+  assert.equal(truncated.finished, false, "without a frame to send the socket stays the failure signal");
 });
 
 test("an anthropic message_stop without its blank line does not suppress the frame", options, async () => {
@@ -444,7 +500,7 @@ test("boundary: an unterminated [DONE] tail is still the pending terminator", ()
   assert.equal(repair.bytes, "\n\n");
 });
 
-test("boundary: an undelivered [DONE] after a dispatch resets to no pending terminator", () => {
+test("boundary: a dispatched [DONE] leaves no pending terminator", () => {
   const tracker = createSseBoundaryTracker();
   tracker.append("data: [DONE]\n\n");
   assert.equal(tracker.repair().pendingTerminator, false);
