@@ -288,8 +288,8 @@ function providerCapabilityLegacyInternalName(providerName: string, protocol: Ga
 
 export function providerCapabilityNameMatches(provider: GatewayProviderConfig, protocol: GatewayProviderCapabilityProtocol, value: string): boolean {
   const normalized = value.trim().toLowerCase();
-  return providerCapabilityInternalName(provider, protocol).toLowerCase() === normalized ||
-    providerCapabilityLegacyInternalName(provider.name, protocol).toLowerCase() === normalized;
+  return [providerRuntimeId(provider), provider.name, provider.id ?? ""]
+    .some((name) => providerCapabilityLegacyInternalName(name, protocol).toLowerCase() === normalized);
 }
 
 export function sanitizeHeaderValue(value: unknown): string {

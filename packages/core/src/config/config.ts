@@ -18,6 +18,7 @@ import { removeOpenCodeProviderAccountConfig } from "@llmr/core/agents/local-pro
 import { CLAUDE_CODE_DEFAULT_ENV, CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, DEFAULT_TRAY_COMPONENT_VARIANTS, GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, OVERVIEW_WIDGET_SIZE_VALUES, ROUTER_FALLBACK_MAX_RETRY_COUNT, ROUTER_SCRIPT_API_VERSION, ROUTER_SCRIPT_DEFAULT_TIMEOUT_MS, ROUTER_SCRIPT_MAX_TIMEOUT_MS, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS, enforceSingleEnabledGlobalProfilePerAgent, isEnabledGlobalProfile, knownGatewayPluginDefaultPermissions, knownGatewayPluginDefaultSurfaces } from "@llmr/core/contracts/app";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config";
 import { maxRequestLogBodyBytes } from "@llmr/core/observability/request-log-limits";
+import { providerRuntimeId } from "@llmr/core/routing/model-registry";
 import { findProviderPresetByBaseUrl, primaryProviderPresetEndpoint, providerApiKeySafetyIssue, providerEndpointCanReceiveProviderApiKey } from "@llmr/core/providers/presets/index";
 import type {
   AppConfig,
@@ -1676,8 +1677,9 @@ function withProviderIds(providers: GatewayProviderConfig[]): GatewayProviderCon
   const counts = new Map<string, number>();
   return providers.map((provider) => {
     const baseId = providerRuntimeIdCandidate(provider);
-    const nextCount = (counts.get(baseId) ?? 0) + 1;
-    counts.set(baseId, nextCount);
+    const runtimeId = providerRuntimeId({ ...provider, id: baseId });
+    const nextCount = (counts.get(runtimeId) ?? 0) + 1;
+    counts.set(runtimeId, nextCount);
     return {
       ...provider,
       id: nextCount === 1 ? baseId : `${baseId}-${nextCount}`

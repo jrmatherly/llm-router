@@ -282,7 +282,9 @@ export function rewriteCapabilityResponseHeaders(headers: Headers, config: AppCo
 
 function routedModelHeaderForAttempt(attempt: UpstreamAttempt): string | undefined {
   if (attempt.target?.kind === "provider") {
-    const provider = firstTargetProviderHeader(attempt.headers ?? {}) ?? providerRuntimeId(attempt.target.provider);
+    // A pool's first target is one credential, which the core would read as a pin.
+    const provider = (attempt.credentialChain?.length ? undefined : firstTargetProviderHeader(attempt.headers ?? {})) ??
+      providerRuntimeId(attempt.target.provider);
     return `${provider}/${attempt.target.model}`;
   }
   return attempt.target?.canonicalSelector ?? normalizeRouteSelector(attempt.model);
@@ -731,17 +733,13 @@ function claudeCodeOauthPluginMatchesTarget(
   provider: GatewayProviderConfig,
   protocol: GatewayProviderProtocol
 ): boolean {
-  const targetNames = new Set([
-    provider.name,
-    providerRuntimeId(provider),
-    providerCapabilityInternalName(provider, protocol)
-  ].map((name) => name.trim().toLowerCase()));
+  const targetNames = new Set([provider.name, providerRuntimeId(provider)].map((name) => name.trim().toLowerCase()));
   return (config.providerPlugins ?? []).some((plugin) => {
     if (!isLocalClaudeCodeOauthProviderPlugin(plugin)) {
       return false;
     }
     const providerName = stringValue(plugin.providerName)?.toLowerCase();
-    return Boolean(providerName && targetNames.has(providerName));
+    return Boolean(providerName && (targetNames.has(providerName) || providerCapabilityNameMatches(provider, protocol, providerName)));
   });
 }
 
