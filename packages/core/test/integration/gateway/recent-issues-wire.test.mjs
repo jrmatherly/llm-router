@@ -105,8 +105,8 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
         assert.ok(page.items.every(row => row.statusCode === 200 && !row.error), `${label}: ${JSON.stringify(page.items)}`);
         assert.ok(page.items.every(row => row.provider === "Llama CPP"), `provider attribution: ${label}`);
         assert.ok(page.items.every(row => row.totalTokens === 120), `usage after finish_reason: ${label}`);
-        const all = await usageView.getStats("today", { includeProxy: true });
-        const filtered = await usageView.getStats("today", { includeProxy: true, provider: "Llama CPP" });
+        const all = await usageView.getStats("24h", { includeProxy: true });
+        const filtered = await usageView.getStats("24h", { includeProxy: true, provider: "Llama CPP" });
         assert.equal(filtered.totals.requestCount, expectedRows, `provider filter: ${label}`);
         assert.equal(filtered.totals.totalTokens, 120 * expectedRows, label);
         assert.equal(all.totals.requestCount, filtered.totals.requestCount, label);

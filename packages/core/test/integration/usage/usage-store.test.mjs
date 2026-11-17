@@ -181,7 +181,7 @@ test("UsageStore records usage while the price catalog loads and prices it after
     const stalled = new UsageStore(file, { ...pricing, loadPriceCatalog: () => new Promise(() => {}) });
     await stalled.record(event("req-before-restart"));
     assert.equal(await stalled.hasRequestId("req-before-restart"), true);
-    assert.equal((await stalled.getStats("today", { includeProxy: true })).totals.costUsd, 0);
+    assert.equal((await stalled.getStats("24h", { includeProxy: true })).totals.costUsd, 0);
 
     let finishCatalogLoad;
     const store = new UsageStore(file, {
@@ -194,14 +194,14 @@ test("UsageStore records usage while the price catalog loads and prices it after
       })
     });
     await store.record(event("req-after-restart"));
-    assert.equal((await store.getStats("today", { includeProxy: true })).totals.costUsd, 0);
+    assert.equal((await store.getStats("24h", { includeProxy: true })).totals.costUsd, 0);
 
     finishCatalogLoad();
     const deadline = Date.now() + 2_000;
-    let stats = await store.getStats("today", { includeProxy: true });
+    let stats = await store.getStats("24h", { includeProxy: true });
     while (stats.totals.costUsd < 0.5 && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 5));
-      stats = await store.getStats("today", { includeProxy: true });
+      stats = await store.getStats("24h", { includeProxy: true });
     }
     assert.equal(stats.totals.costUsd, 0.5, "both rows are priced once the catalog loads");
   } finally {
@@ -1007,10 +1007,14 @@ test("UsageStore backs off request-log backfill after it fails", async (t) => {
     const requestLogDbFile = path.join(dir, "request-logs.sqlite");
     writeFileSync(requestLogDbFile, "not a sqlite database");
     t.mock.method(console, "warn", () => {});
-    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+    // The tick below crosses local midnight. With the "today" range the request then counted as yesterday's, so this
+    // test failed for the last minute of each day.
+    const justBeforeMidnight = new Date();
+    justBeforeMidnight.setHours(23, 59, 30, 0);
+    t.mock.timers.enable({ apis: ["Date"], now: justBeforeMidnight.getTime() });
     const usageStore = new UsageStore(path.join(dir, "usage.sqlite"), { requestLogDbFile });
 
-    assert.equal((await usageStore.getStats("today", { includeProxy: true })).totals.requestCount, 0);
+    assert.equal((await usageStore.getStats("24h", { includeProxy: true })).totals.requestCount, 0);
 
     rmSync(requestLogDbFile, { force: true });
     const createdAt = new Date().toISOString();
@@ -1031,8 +1035,8 @@ test("UsageStore backs off request-log backfill after it fails", async (t) => {
       url: "http://127.0.0.1:3456/v1/messages"
     });
 
-    assert.equal((await usageStore.getStats("today", { includeProxy: true })).totals.requestCount, 0, "still backing off");
+    assert.equal((await usageStore.getStats("24h", { includeProxy: true })).totals.requestCount, 0, "still backing off");
     t.mock.timers.tick(60_001);
-    assert.equal((await usageStore.getStats("today", { includeProxy: true })).totals.requestCount, 1, "retried after the backoff");
+    assert.equal((await usageStore.getStats("24h", { includeProxy: true })).totals.requestCount, 1, "retried after the backoff");
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
