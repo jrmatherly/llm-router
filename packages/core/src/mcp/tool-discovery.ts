@@ -32,9 +32,15 @@ const mcpClientInfo = {
   version: "3.0.0"
 };
 
-export async function listMcpServerTools(server: GatewayMcpServerConfig): Promise<GatewayMcpToolInfo[]> {
+// A stdio server that never answers would otherwise hold the caller for its whole startup timeout.
+export const mcpDiscoveryMaxTimeoutMs = 60000;
+
+export async function listMcpServerTools(
+  server: GatewayMcpServerConfig,
+  options: { maxTimeoutMs?: number } = {}
+): Promise<GatewayMcpToolInfo[]> {
   if (server.transport === "stdio") {
-    return listStdioMcpServerTools(server);
+    return listStdioMcpServerTools(server, Math.min(mcpTimeoutMs(server), options.maxTimeoutMs ?? mcpDiscoveryMaxTimeoutMs));
   }
 
   try {
@@ -47,7 +53,7 @@ export async function listMcpServerTools(server: GatewayMcpServerConfig): Promis
   }
 }
 
-async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Promise<GatewayMcpToolInfo[]> {
+async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig, timeoutMs: number): Promise<GatewayMcpToolInfo[]> {
   return new Promise((resolve, reject) => {
     const child = spawn(server.command, server.args, {
       cwd: server.cwd || undefined,
@@ -55,7 +61,7 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
       stdio: ["pipe", "pipe", "pipe"]
     }) as ChildProcessWithoutNullStreams;
     const pending = new Map<string, PendingRequest>();
-    const timeout = setTimeout(() => finish(new Error(`MCP tools discovery timed out after ${mcpTimeoutMs(server)} ms.${stderrDetail()}`)), mcpTimeoutMs(server));
+    const timeout = setTimeout(() => finish(new Error(`MCP tools discovery timed out after ${timeoutMs} ms.${stderrDetail()}`)), timeoutMs);
     const readMessage = createStdioMessageReader(routeMessage);
     let nextId = 1;
     let settled = false;
