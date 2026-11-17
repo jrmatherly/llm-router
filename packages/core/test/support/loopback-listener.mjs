@@ -1,4 +1,30 @@
-import { connect } from "node:net";
+import { randomInt } from "node:crypto";
+import { connect, createServer } from "node:net";
+
+const reservedPorts = new Set();
+
+// A port-0 bind or an outbound connection takes its port from the OS ephemeral
+// range (32768 and up on Linux, 49152 and up on macOS). A port probed there and
+// released can be taken before the caller binds it, so reserve below the range.
+export async function reserveLoopbackPort() {
+  let lastError;
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const port = 20000 + randomInt(12000);
+    if (reservedPorts.has(port)) {
+      continue;
+    }
+    lastError = await new Promise((resolve) => {
+      const server = createServer();
+      server.once("error", resolve);
+      server.listen(port, "127.0.0.1", () => server.close(() => resolve(undefined)));
+    });
+    if (!lastError) {
+      reservedPorts.add(port);
+      return port;
+    }
+  }
+  throw new Error("No free loopback port below the ephemeral range", { cause: lastError });
+}
 
 export async function waitForTcpListener(server, timeoutMs = 1000) {
   const address = server.address();

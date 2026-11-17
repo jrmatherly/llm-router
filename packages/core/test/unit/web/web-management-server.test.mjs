@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
+import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 const previousRuntimeEnv = {
   appData: process.env.LLMR_INTERNAL_APP_DATA_DIR,
@@ -121,11 +121,11 @@ test("startGateway reuses an already healthy LLMR gateway on the configured port
   const { gatewayService } = await import("@llmr/core/gateway/service.ts");
   const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
   await gatewayService.stop();
-  const gatewayPort = await findAvailablePort();
+  const gatewayPort = await reserveLoopbackPort();
   const webAuthToken = "test-web-auth-token";
   const config = await loadAppConfig();
   config.gateway.port = gatewayPort;
-  config.gateway.corePort = await findAvailablePort();
+  config.gateway.corePort = await reserveLoopbackPort();
   config.Providers = [{
     api_base_url: "http://127.0.0.1:9/v1",
     api_key: "test-provider-key",
@@ -189,7 +189,7 @@ test("startGateway reuses an already healthy LLMR gateway on the configured port
 });
 
 test("closing the web service releases the Claude Code takeover when no gateway still serves", async (t) => {
-  const { runtime, settingsFile } = await startWithStubbedGateway(t, await findAvailablePort());
+  const { runtime, settingsFile } = await startWithStubbedGateway(t, await reserveLoopbackPort());
   const claudeAppBackup = await seedClaudeAppTakeover();
   await runtime.close();
   assertReleased(settingsFile);
@@ -199,9 +199,9 @@ test("closing the web service releases the Claude Code takeover when no gateway 
 test("closing the web service keeps the takeover while another LLMR gateway serves", async (t) => {
   const { restoreClaudeAppGatewayConfig } = await import("@llmr/core/agents/claude-app/gateway-service.ts");
   const { restoreGlobalProfileConfigsOnExit } = await import("@llmr/core/profiles/service.ts");
-  const gatewayPort = await findAvailablePort();
   const otherGateway = createHealthyLlmrGateway(undefined, { reloadRequests: [], revision: "" });
-  await listen(otherGateway, gatewayPort);
+  await listen(otherGateway, 0);
+  const gatewayPort = otherGateway.address().port;
   try {
     const { runtime, settingsFile } = await startWithStubbedGateway(t, gatewayPort);
     const claudeAppBackup = await seedClaudeAppTakeover();
@@ -216,7 +216,7 @@ test("closing the web service keeps the takeover while another LLMR gateway serv
 });
 
 test("stopping the gateway over RPC releases the takeover when no gateway still serves", async (t) => {
-  const { runtime, settingsFile } = await startWithStubbedGateway(t, await findAvailablePort());
+  const { runtime, settingsFile } = await startWithStubbedGateway(t, await reserveLoopbackPort());
   try {
     const payload = await rpc(runtime.url, "test-web-auth-token", "stopGateway");
     assert.equal(payload.ok, true);
@@ -228,7 +228,7 @@ test("stopping the gateway over RPC releases the takeover when no gateway still 
 
 test("closing the web service releases the recorded takeovers when the config fails to load", async (t) => {
   const { APP_CONFIG_DB_FILE } = await import("@llmr/core/config/constants.ts");
-  const { runtime, settingsFile } = await startWithStubbedGateway(t, await findAvailablePort());
+  const { runtime, settingsFile } = await startWithStubbedGateway(t, await reserveLoopbackPort());
   const Database = createRequire(path.join(process.cwd(), "package.json"))("better-sqlite3");
   const database = new Database(APP_CONFIG_DB_FILE);
   const { value_json: savedConfig } = database.prepare("SELECT value_json FROM app_config WHERE key = 'default'").get();
@@ -390,24 +390,6 @@ async function readJsonRequest(request) {
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, { "content-type": "application/json" });
   response.end(JSON.stringify(payload));
-}
-
-async function findAvailablePort() {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      const port = typeof address === "object" && address ? address.port : undefined;
-      server.close(() => {
-        if (port) {
-          resolve(port);
-        } else {
-          reject(new Error("Failed to allocate a web management test port."));
-        }
-      });
-    });
-  });
 }
 
 function setOptionalEnv(key, value) {

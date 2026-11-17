@@ -13,6 +13,7 @@ import { closeRequestLogRuntime, flushRequestLogRuntime, requestLogRuntime } fro
 
 import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
 import { pluginService } from "@llmr/core/plugins/service.ts";
+import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 const entry = process.env.LLMR_TEST_GATEWAY_ENTRY;
 const skip = !entry && "set LLMR_TEST_GATEWAY_ENTRY to the gateway production entry";
@@ -147,13 +148,8 @@ test("#1867 a killed managed core restarts and restores the real service health"
   const upstream = createServer((req, res) => { req.resume(); res.end("{}"); });
   try {
     const upstreamUrl = await listen(upstream);
-    const publicReserve = createServer();
-    await listen(publicReserve);
-    const publicPort = publicReserve.address().port;
-    const coreReserve = createServer();
-    await listen(coreReserve);
-    const corePort = coreReserve.address().port;
-    await close(publicReserve); await close(coreReserve);
+    const publicPort = await reserveLoopbackPort();
+    const corePort = await reserveLoopbackPort();
     const config = createDefaultAppConfig();
     config.Providers = [{ name: "Provider", id: "provider", models: ["native"], type: "anthropic_messages", api_base_url: upstreamUrl, api_key: "test" }];
     config.gateway = { ...config.gateway, enabled: true, host: "127.0.0.1", port: publicPort, coreHost: "127.0.0.1", corePort };
@@ -188,7 +184,7 @@ async function listen(server) { await new Promise((resolve, reject) => { server.
 async function close(server) { if (server?.listening) await new Promise(resolve => server.close(resolve)); }
 async function until(predicate, timeout = 10000) { const deadline = Date.now() + timeout; do { if (await predicate()) return; await new Promise(resolve => setTimeout(resolve, 25)); } while (Date.now() < deadline); assert.fail("Timed out waiting for gateway/logs."); }
 async function startGateway(root, config) {
-  const reserve = createServer(); const url = await listen(reserve); const port = reserve.address().port; await close(reserve);
+  const port = await reserveLoopbackPort(); const url = `http://127.0.0.1:${port}`;
   const file = path.join(root, "gateway.json");
   writeFileSync(file, JSON.stringify({ host: "127.0.0.1", port, auth: { enabled: false }, rawTrace: { enabled: false }, billing: { enabled: false }, logging: { level: "error", accessLog: false }, ...config }));
   const child = spawn(process.execPath, [entry], { env: { ...process.env, GATEWAY_CONFIG_PATH: file }, stdio: ["ignore", "pipe", "pipe"] });

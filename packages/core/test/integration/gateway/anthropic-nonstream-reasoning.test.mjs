@@ -8,6 +8,7 @@ import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 const model = "z-ai/glm-5.3";
 
@@ -80,10 +81,7 @@ test("#1793 coalesces OpenAI reasoning for non-streaming Anthropic clients", { t
   try {
     await listen(upstream);
     const upstreamOrigin = `http://127.0.0.1:${upstream.address().port}`;
-    const reservation = createServer();
-    await listen(reservation);
-    const port = reservation.address().port;
-    await new Promise((resolve) => reservation.close(resolve));
+    const port = await reserveLoopbackPort();
 
     const appConfig = createDefaultAppConfig();
     appConfig.Providers = [{

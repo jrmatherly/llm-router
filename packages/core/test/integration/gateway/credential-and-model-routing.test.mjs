@@ -11,6 +11,7 @@ import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config
 import { coreGatewayAuthHeader } from "@llmr/core/gateway/internal/shared.ts";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
 import { readProviderCredentialCooldown } from "@llmr/core/providers/credential-pool.ts";
+import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 const gatewayEntry = path.resolve("node_modules/@the-next-ai/ai-gateway/dist/index.js");
 async function listen(server) {
@@ -101,10 +102,8 @@ async function run(providerFactory, probes, { configure, publicGatewayMode = fal
     const compiled = await compileCoreGatewayConfig(config, "trace", "billing", "auth", undefined, undefined, { publicGatewayMode });
     const router = compiled.plugins.find(plugin => plugin.key === "llm-router");
     router.modulePath = path.resolve(".test-dist/core/runtime/router-plugin.js");
-    const reserve = createServer();
-    const gatewayUrl = await listen(reserve);
-    const port = reserve.address().port;
-    await close(reserve);
+    const port = await reserveLoopbackPort();
+    const gatewayUrl = `http://127.0.0.1:${port}`;
     const file = path.join(root, "gateway.json");
     writeFileSync(file, JSON.stringify({ host: "127.0.0.1", port, upstreamTimeoutMs,
       auth: { enabled: false }, rawTrace: { enabled: false }, billing: { enabled: false },

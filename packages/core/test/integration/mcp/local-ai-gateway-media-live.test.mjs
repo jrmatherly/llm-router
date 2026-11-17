@@ -17,6 +17,7 @@ import {
   handleMediaToolsMcpRequest
 } from "@llmr/core/mcp/grok-media-mcp.ts";
 import { getSystemProxyUrlForProtocol } from "@llmr/core/proxy/system-proxy-fetch.ts";
+import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 const localGatewayEntry = process.env.LLMR_LIVE_AI_GATEWAY_ENTRY;
 const liveEnabled = process.env.LLMR_LIVE_GROK_MEDIA === "1";
@@ -39,7 +40,7 @@ test("Fusion generates image and video through the local ai-gateway", { skip: !l
   const configRoot = mkdtempSync(path.join(os.tmpdir(), "llmr-fusion-live-config-"));
   const artifactRoot = path.join(os.tmpdir(), `llmr-fusion-live-artifacts-${Date.now()}`);
   const config = createDefaultAppConfig({});
-  const corePort = await availablePort();
+  const corePort = await reserveLoopbackPort();
   const coreEndpoint = `http://127.0.0.1:${corePort}`;
   const coreAuthToken = randomBytes(32).toString("base64url");
   const upstreamProxyUrl = await getSystemProxyUrlForProtocol("https", config);
@@ -244,14 +245,6 @@ function replacePlaceholders(value, replacements) {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replacePlaceholders(item, replacements)]));
   }
   return value;
-}
-
-async function availablePort() {
-  const server = createServer();
-  await listen(server);
-  const port = server.address().port;
-  await close(server);
-  return port;
 }
 
 function listen(server) {

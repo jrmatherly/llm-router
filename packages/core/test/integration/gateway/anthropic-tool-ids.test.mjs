@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 const model = "meta/muse-spark-1.3-contributor";
 
@@ -35,10 +36,7 @@ test("#1781 actual gateway preserves parallel Anthropic tool IDs in Chat and Res
   try {
     await listen(upstream);
     const upstreamOrigin = `http://127.0.0.1:${upstream.address().port}`;
-    const reservation = createServer();
-    await listen(reservation);
-    const port = reservation.address().port;
-    await new Promise((resolve) => reservation.close(resolve));
+    const port = await reserveLoopbackPort();
     const configFile = path.join(root, "gateway.json");
     const redirectFile = path.join(root, "loopback-transport.cjs");
     writeFileSync(redirectFile, `exports.createGatewayPlugin = () => ({ providerHooks: [{

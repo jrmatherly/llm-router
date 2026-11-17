@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -13,6 +12,7 @@ import {
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { endpoint } from "@llmr/core/gateway/core-runtime/supervisor.ts";
 import { gatewayService } from "@llmr/core/gateway/service.ts";
+import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 test("gateway endpoints normalize wildcard and IPv6 hosts", () => {
   assert.equal(endpoint("0.0.0.0", 3456), "http://127.0.0.1:3456");
@@ -133,7 +133,7 @@ test("gateway start waits for matching runtime health before reporting running",
     process.env.LLMR_GATEWAY_READY_DELAY_MS = "250";
     process.env.LLMR_GATEWAY_READY_SENTINEL = readySentinel;
 
-    const config = gatewayTestConfig(await findAvailablePort());
+    const config = gatewayTestConfig(await reserveLoopbackPort());
     const startedAt = Date.now();
     const status = await gatewayService.start(config);
     const elapsedMs = Date.now() - startedAt;
@@ -157,9 +157,9 @@ test("gateway start completes the IPC and health handshake with the bundled runt
   try {
     await gatewayService.stop();
     delete process.env.LLMR_GATEWAY_ENTRY;
-    const config = gatewayTestConfig(await findAvailablePort());
+    const config = gatewayTestConfig(await reserveLoopbackPort());
     // The bundled gateway uses the public port in single-runtime mode.
-    config.gateway.port = await findAvailablePort();
+    config.gateway.port = await reserveLoopbackPort();
     const status = await gatewayService.start(config);
     assert.equal(status.state, "running", status.lastError);
     assert.equal(status.endpoint, `http://127.0.0.1:${config.gateway.port}`);
@@ -196,7 +196,7 @@ test("gateway restart waits for the previous core runtime to stop", async () => 
     process.env.LLMR_GATEWAY_ENTRY = slowGatewayEntry;
     process.env.LLMR_GATEWAY_TERM_DELAY_MS = "300";
 
-    const config = gatewayTestConfig(await findAvailablePort());
+    const config = gatewayTestConfig(await reserveLoopbackPort());
     const firstStatus = await gatewayService.start(config);
     assert.equal(firstStatus.state, "running", firstStatus.lastError);
 
@@ -231,7 +231,7 @@ test("gateway start rejects healthy endpoints owned by a different runtime", asy
     await gatewayService.stop();
     process.env.LLMR_GATEWAY_ENTRY = gatewayEntry;
 
-    const status = await gatewayService.start(gatewayTestConfig(await findAvailablePort()));
+    const status = await gatewayService.start(gatewayTestConfig(await reserveLoopbackPort()));
 
     assert.equal(status.state, "error");
     assert.match(status.lastError ?? "", /owned by a different runtime/);
@@ -329,24 +329,6 @@ function foreignRuntimeGatewayEntry() {
     "}).listen(Number(process.env.PORT), process.env.HOST);",
     ""
   ].join("\n");
-}
-
-async function findAvailablePort() {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      const port = typeof address === "object" && address ? address.port : undefined;
-      server.close(() => {
-        if (port) {
-          resolve(port);
-        } else {
-          reject(new Error("Failed to allocate a gateway test port."));
-        }
-      });
-    });
-  });
 }
 
 function restoreEnv(key, value) {
