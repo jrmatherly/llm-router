@@ -267,6 +267,16 @@ Write the PR body to a scratch file and pass `--body-file`. Open `## Why` with t
 
 ## MF-2 Always speak newline JSON from LLMR's own stdio clients
 
+**Status:** Merged 2026-11-17 as [PR 79](https://github.com/jrmatherly/llm-router/pull/79), squash commit `7454c773`. It differs from the steps below in five ways:
+
+- `stdio-framing.test.mjs` was renamed `stdio-discovery.test.mjs`, not deleted. It keeps the discovery cases that do not depend on framing: a silent server, an early exit, a missing command and a closed stdin.
+- The ToolHub runtime's own server type lost its `stdioMessageMode` field. `normalizeServerConfig` no longer writes one.
+- A discovery timeout now carries what the server wrote to stderr, as the early-exit error already did. A server that reads only `Content-Length` gets no framing hint any more, so its own complaint is the only clue.
+- Review added tests the steps did not list: a plugin's stdio server compiles as `newline-json` (`plugin-service.test.mjs`), the bundled media server keeps `content-length` (`toolhub-browser-automation-config.test.mjs`), and the ToolHub backend client's `initialize` and `tools/list` timeouts, with newline backends.
+- `toolhub.md` gained one troubleshooting line: a stdio server that accepts only `Content-Length` headers is not supported.
+
+Not done: the two dialogs were not opened in a running app after the dropdown was removed. The release note in Task 1 Step 7 still has to go into the release that ships this.
+
 **Fixes:** spec F-6, by option B
 **Depends on:** MF-1 merged. Owner decision OD-1 was answered yes on 2026-11-16.
 **Branch:** `refactor/mcp-stdio-newline-only`
@@ -364,7 +374,7 @@ Release note for the PR body: "The stdio message mode setting is gone. LLMR alwa
 
 **Files:**
 - Modify: `packages/core/src/mcp/tool-discovery.ts` (`mcpTimeoutMs`, `listMcpServerTools`)
-- Test: `packages/core/test/unit/mcp/stdio-framing.test.mjs` if MF-2 has not deleted it, else `packages/core/test/unit/mcp/mcp-child-env.test.mjs`
+- Test: `packages/core/test/unit/mcp/stdio-discovery.test.mjs` (MF-2 renamed `stdio-framing.test.mjs` to this)
 
 **Interfaces:**
 - Produces: `mcpDiscoveryMaxTimeoutMs: number`, exported from `tool-discovery.ts`, set to `60000`, the owner's number. `listMcpServerTools(server, options?: { maxTimeoutMs?: number })`: discovery waits `Math.min(mcpTimeoutMs(server), options?.maxTimeoutMs ?? mcpDiscoveryMaxTimeoutMs)`. The option exists so a test does not wait for the real ceiling. The ceiling applies to the stdio path only. The streamable HTTP and SSE paths keep `mcpTimeoutMs(server)`: a wrong framing cannot stall them, and spec F-3 was measured on stdio.
