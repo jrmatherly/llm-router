@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { RequestLogBody } from "@llmr/core/contracts/app";
-import { formatLogBodyForWorker, logBodyFullTextLimit, logBodyPreviewTextLimit, prepareLogBodyForWorker } from "@llmr/ui/pages/home/shared/log-body-worker-protocol.ts";
+import { createLogBodyPreviewText, formatLogBodyForWorker, logBodyFullTextLimit, logBodyPreviewTextLimit, prepareLogBodyForWorker } from "@llmr/ui/pages/home/shared/log-body-worker-protocol.ts";
 import { clientInitial, formatRouteTracePath } from "@llmr/ui/pages/home/shared/network.ts";
 
 test("route trace paths use request and response dotted notation", () => {
@@ -100,4 +100,26 @@ test("#1945 full mode bounds formatting and the worker transport for huge JSON",
     assert.equal(formatLogBodyForWorker(transported, mode).preview, true);
   }
   assert.ok(!body.preview, "transport preparation must not mutate the stored body");
+});
+
+test("#1945 a body cut for the worker keeps the original omitted count", () => {
+  for (const [mode, length] of [["preview", 300 * 1024], ["full", 3 * 1024 * 1024]] as const) {
+    const body: RequestLogBody = { contentType: "text/plain", encoding: "utf8", sizeBytes: length, truncated: false, text: "a".repeat(length) };
+    const omitted = length - logBodyPreviewTextLimit;
+    assert.match(createLogBodyPreviewText(body), new RegExp(`\\.\\.\\. ${omitted} characters omitted`));
+    const view = formatLogBodyForWorker(prepareLogBodyForWorker(body, mode)!, mode);
+    assert.match(view.text, /\.\.\. (\d+) characters omitted/);
+    assert.ok(Number(/\.\.\. (\d+) characters omitted/.exec(view.text)![1]) >= omitted, view.text.slice(104_000 - 40, 104_000 + 80));
+  }
+});
+
+test("#1945 a body the worker formats in full reaches it uncut", () => {
+  const text = JSON.stringify({ messages: Array.from({ length: 5000 }, () => ({ role: "user", content: "medium body" })) });
+  assert.ok(text.length > logBodyPreviewTextLimit && text.length < 256 * 1024);
+  const body: RequestLogBody = { contentType: "application/json", encoding: "utf8", sizeBytes: text.length, truncated: false, text };
+  assert.equal(prepareLogBodyForWorker(body, "preview"), body);
+  assert.notEqual(formatLogBodyForWorker(prepareLogBodyForWorker(body, "preview"), "preview").json, undefined);
+  assert.equal(prepareLogBodyForWorker(undefined, "full"), undefined);
+  const atLimit: RequestLogBody = { ...body, text: "a".repeat(logBodyFullTextLimit) };
+  assert.equal(prepareLogBodyForWorker(atLimit, "full"), atLimit);
 });

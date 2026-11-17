@@ -4632,6 +4632,7 @@ function modelDisplayName(model) {
 function isClaudeCodeOnlyModel(model) {
   const normalized = String(model || "").trim().toLowerCase();
   return normalized === DEFAULT_MODEL ||
+    normalized === "claude-sonnet-4-5" ||
     normalized === "claude-opus-4-5" ||
     normalized === "claude-haiku-4-5";
 }

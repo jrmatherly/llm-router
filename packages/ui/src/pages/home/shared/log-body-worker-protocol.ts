@@ -5,11 +5,18 @@ export const logBodyLargeTextThreshold = 256 * 1024;
 export const logBodyPreviewTextLimit = 160 * 1024;
 export const logBodyFullTextLimit = 2 * 1024 * 1024;
 
-// Bound the structured clone before the body reaches the worker.
+const logBodyPreviewMarkerRoom = 256;
+
+// Bounds the structured clone before the body reaches the worker. It cuts only a body the
+// worker would preview anyway, and to a text that fits the preview limit with its marker,
+// so the worker does not cut it again and replace the omitted count.
 export function prepareLogBodyForWorker(body: RequestLogBody | undefined, mode: LogBodyFormatMode): RequestLogBody | undefined {
-  const limit = mode === "full" ? logBodyFullTextLimit : logBodyPreviewTextLimit;
-  return body && body.text.length > limit
-    ? { ...body, preview: true, sizeBytes: Math.max(body.sizeBytes, body.text.length), text: createLogBodyPreviewText(body, logBodyPreviewTextLimit) }
+  if (!body) return body;
+  const workerPreviews = mode === "full"
+    ? body.text.length > logBodyFullTextLimit
+    : isLargeLogBody(body) && body.text.length > logBodyPreviewTextLimit;
+  return workerPreviews
+    ? { ...body, preview: true, sizeBytes: Math.max(body.sizeBytes, body.text.length), text: createLogBodyPreviewText(body, logBodyPreviewTextLimit - logBodyPreviewMarkerRoom) }
     : body;
 }
 

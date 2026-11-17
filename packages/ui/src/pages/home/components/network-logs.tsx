@@ -1935,6 +1935,7 @@ function LogJsonPanel({
           throw new Error("Request log body is not available.");
         }
         if (offset + chunk.length > logBodyFullTextLimit || chunk.sizeBytes > logBodyFullTextLimit) {
+          setFullBodyLoading(false);
           await loadBodyChunk(0);
           return;
         }
