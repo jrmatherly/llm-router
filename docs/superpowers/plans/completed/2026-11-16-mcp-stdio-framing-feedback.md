@@ -371,7 +371,7 @@ Release note for the PR body: "The stdio message mode setting is gone. LLMR alwa
 - `toolhub.md` gained a troubleshooting line. It says to run the `npx` command once in a terminal first, because the timeout stops the `npx` process and its download. The "Owner steps" sentence below, that a retry finds the package in the npm cache, holds only for packages npm had finished downloading. Nobody stopped a real `npx` download to measure this.
 - The test does not assert the elapsed time. The message names the timer that fired.
 
-Not done: no test proves the two production callers get the 60000 ms default, only that the constant is 60000. Discovery was not run from the app's virtual-model page. The second commit merged before CI ran on it: `gh pr merge --auto` was armed seconds after the push and merged at once. The Tests run on `main` for `18da4aba` is the check.
+Not done: no test proves the two production callers get the 60000 ms default, only that the constant is 60000. Discovery was not run from the app's virtual-model page. The second commit merged before CI ran on it: `gh pr merge --auto` was armed seconds after the push and merged at once. The Tests run on `main` for `18da4aba` passed afterward.
 
 **Fixes:** spec F-3, by option D
 **Depends on:** MF-1 merged. Owner decision OD-2 was answered yes on 2026-11-16, with a ceiling of 60000 ms.
