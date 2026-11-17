@@ -59,6 +59,8 @@ Each line names the test that pins it, or says why no test can.
 - **Size:** S
 - **Owner steps:** Paste the release-note sentence from Task 1, Step 8 into the notes of the release that ships this PR.
 
+**Status:** Merged 2026-11-17 as [PR 90](https://github.com/jrmatherly/llm-router/pull/90), squash commit `82de7d8c`. Two reviews found nothing to fix and added two test pins to the steps below: the profile test also checks that a user's `TZ` survives release, and a launch-core test checks that a Claude Code launch plan in a China time zone sets no `TZ`. The Windows `.cmd` wrapper edit was not executed. The release note is in the PR body and is not yet in a release.
+
 ### Task 1: Delete the override and its call sites
 
 **Files:**
@@ -207,6 +209,13 @@ Open the PR with `## Why` stating that the override ran the whole Claude Code pr
 - **Branch:** `refactor/codexl-env-to-llmr`
 - **Size:** M
 - **Owner steps:** None required. A check on Windows that a Codex profile still launches from its `.cmd` wrapper would cover Review Focus 2.
+
+**Status:** Merged 2026-11-17 as [PR 91](https://github.com/jrmatherly/llm-router/pull/91), squash commit `aee43b67`. The three tasks landed as one commit. Three reviews found no code defect and changed two things from the steps below:
+
+- A new test, "release strips stale CODEXL keys written after apply", pins the strip on release. Before it, removing the check in `withoutManagedClaudeCodeEnv` left the suite green.
+- The stale-wrapper test gives `CODEXL_CODEX_PROFILE` its own value, so a `CODEXL_` read returning to `agentEnv` fails it.
+
+Task 2, Step 1 found wrappers and the runtime are still not rewritten together, so the release note keeps its last sentence. Left as is: `agentEnv`'s second suffix `CORE_MODE` now resolves to an `LLMR_*_CORE_MODE` name nothing writes; a `CODEXL_CLAUDE_CODE_MODEL` in a profile's own `env` is no longer filtered from wrappers or blanked in a shared home, and nothing reads it. The `.cmd` wrappers were not executed. The release note is in the PR body and is not yet in a release.
 
 The appendix lists every name, its write and read sites, and its class. The tasks cite it. Task 1 keeps every `CODEXL_` name in place, so behaviour is unchanged after it. Task 2 deletes them. Task 3 adds the guard.
 
