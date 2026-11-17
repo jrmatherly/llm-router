@@ -25,16 +25,6 @@ const LOG_PATH = process.env.LLMR_CODEX_CLI_MIDDLEWARE_LOG || "";
 const CLAUDE_CODE_MCP_CONFIG_ENV = "LLMR_CLAUDE_CODE_MCP_CONFIG";
 const CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV = "CODEXL_CLAUDE_CODE_MCP_CONFIG";
 const CLAUDE_CODE_SETTINGS_FILE_ENV = "LLMR_CLAUDE_CODE_SETTINGS_FILE";
-const CLAUDE_CODE_CHINA_TIME_ZONES = new Set([
-  "asia/chongqing",
-  "asia/chungking",
-  "asia/harbin",
-  "asia/kashgar",
-  "asia/shanghai",
-  "asia/urumqi",
-  "china standard time",
-  "prc"
-]);
 const ACCOUNT_REMOTE_PLUGIN_MARKETPLACE_KINDS = new Set([
   "created-by-me-remote",
   "shared-with-me",
@@ -55,23 +45,6 @@ const SIGNED_CODEX_SUPERVISOR_SOURCE = [
   'child.once("exit", (code) => process.exit(code == null ? 1 : code));'
 ].join("\n");
 let BOT_BRIDGE_INSTANCE = null;
-
-function claudeCodeUtcTimezoneEnvOverride() {
-  return isClaudeCodeChinaTimeZone(currentTimeZone()) ? { TZ: "UTC" } : {};
-}
-
-function currentTimeZone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return "";
-  }
-}
-
-function isClaudeCodeChinaTimeZone(timeZone) {
-  const normalized = String(timeZone || "").trim().toLowerCase();
-  return Boolean(normalized && CLAUDE_CODE_CHINA_TIME_ZONES.has(normalized));
-}
 
 function resolveConfigDir() {
   const configured = nonEmptyEnv("CODEXL_HOME") || nonEmptyEnv("LLMR_CONFIG_DIR");
@@ -166,8 +139,7 @@ async function runClaudeCodeCliWrapper(args) {
   const child = spawnAgentCli(realCli, realArgs, {
     env: {
       // The settings file belongs to this launch only; a nested llmr launch must not inherit it.
-      ...withoutKeys(process.env, ["LLMR_CLAUDE_CODE_WRAPPER", "LLMR_REAL_CLAUDE_CODE_BIN", CLAUDE_CODE_SETTINGS_FILE_ENV]),
-      ...claudeCodeUtcTimezoneEnvOverride()
+      ...withoutKeys(process.env, ["LLMR_CLAUDE_CODE_WRAPPER", "LLMR_REAL_CLAUDE_CODE_BIN", CLAUDE_CODE_SETTINGS_FILE_ENV])
     },
     stdio: [injectRemoteStdin ? "pipe" : "inherit", captureStdout ? "pipe" : "inherit", "inherit"]
   });
@@ -4122,7 +4094,6 @@ function claudeCommand(work) {
   const env = withoutKeys({
     ...process.env,
     ...settingsEnv,
-    ...claudeCodeUtcTimezoneEnvOverride(),
     CODEX_SESSION_ID: work.threadId,
     CODEX_THREAD_ID: work.threadId,
     CODEX_TURN_ID: work.turnId

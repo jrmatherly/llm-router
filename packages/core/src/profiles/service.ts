@@ -15,7 +15,6 @@ import {
   claudeCodeHomeEnv,
   claudeCodeModelEnv,
   claudeCodeMcpConfigEnv,
-  claudeCodeUtcTimezoneEnvOverride,
   clearClaudeCodeManagedModelEnv,
   isClaudeCodeManagedModelEnvKey,
   normalizeClaudeCodeClientModel
@@ -480,10 +479,9 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     Object.assign(env, claudeCodeProfileModelEnv(config, profile));
     const toolHubMcpConfigResult = writeClaudeCodeToolHubMcpConfig(config, profile, token);
     const mcpConfigEnv = claudeCodeMcpConfigEnv(toolHubMcpConfigResult.file);
-    const timezoneEnv = claudeCodeUtcTimezoneEnvOverride();
     const wifResult = writeClaudeCodeWifIdentityToken(profile, token);
     const wifEnv = authMode === "wif" ? claudeCodeWifEnv(wifResult.file) : {};
-    Object.assign(env, mcpConfigEnv, timezoneEnv, wifEnv);
+    Object.assign(env, mcpConfigEnv, wifEnv);
     if (sharedHome) {
       // The user's settings sit under --settings, so a key LLMR leaves unset needs a blank value to cancel theirs.
       for (const key of [...claudeCodeFirstPartyProviderEnvKeys, ...claudeCodeWifEnvKeys, ...CLAUDE_CODE_MANAGED_MODEL_ENV_KEYS]) {
@@ -501,7 +499,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     }, toolHubMcpConfigResult.file);
     const autoCompactResult = writeClaudeCodeAutoCompactWindowsCache(config, settingsFile);
     const nextSettings = claudeCodeNextSettings(settings, profileSettings, env, authMode, helperResult?.file);
-    const managedEnvKeys = claudeCodeManagedSettingsEnvKeys(profileEnvValues, profileSettingsEnv, mcpConfigEnv, timezoneEnv, wifEnv);
+    const managedEnvKeys = claudeCodeManagedSettingsEnvKeys(profileEnvValues, profileSettingsEnv, mcpConfigEnv, wifEnv);
     for (const key of profileSettingsState.envKeys) {
       managedEnvKeys.add(key);
     }
@@ -1721,7 +1719,6 @@ function claudeCodeWrapperShellScript(
     ...claudeCodeFirstPartyProviderEnvKeys.map((key) => `unset ${key}`),
     ...shellEnvExports(claudeCodeRuntimeEnv(config, profile, auth.wifIdentityTokenFile)),
     ...shellEnvExports(claudeCodeMcpConfigEnv(mcpConfigFile)),
-    ...shellEnvExports(claudeCodeUtcTimezoneEnvOverride()),
     `: "\${LLMR_PROFILE_SURFACE:=${surface}}"`,
     "export LLMR_PROFILE_SURFACE",
     ...botEnvExports,
@@ -1759,7 +1756,6 @@ function claudeCodeWrapperCmdScript(
     ...claudeCodeFirstPartyProviderEnvKeys.map((key) => cmdSetLine(key, "")),
     ...cmdEnvExports(claudeCodeRuntimeEnv(config, profile, auth.wifIdentityTokenFile)),
     ...cmdEnvExports(claudeCodeMcpConfigEnv(mcpConfigFile)),
-    ...cmdEnvExports(claudeCodeUtcTimezoneEnvOverride()),
     `if not defined LLMR_PROFILE_SURFACE ${cmdSetLine("LLMR_PROFILE_SURFACE", surface)}`,
     ...botEnvExports,
     cmdSetLine("LLMR_CLAUDE_CODE_WRAPPER", "1"),
@@ -3341,7 +3337,6 @@ function claudeCodeManagedSettingsEnvKeys(
   profileEnvValues: Record<string, string>,
   profileSettingsEnv: Record<string, string>,
   mcpConfigEnv: Record<string, string>,
-  timezoneEnv: Record<string, string>,
   wifEnv: Record<string, string>
 ): Set<string> {
   return new Set([
@@ -3354,7 +3349,6 @@ function claudeCodeManagedSettingsEnvKeys(
     ...Object.keys(profileSettingsEnv),
     ...Object.keys(mcpConfigEnv),
     ...Object.keys(wifEnv),
-    ...Object.keys(timezoneEnv),
     CLAUDE_CODE_MCP_CONFIG_ENV,
     CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV
   ]);

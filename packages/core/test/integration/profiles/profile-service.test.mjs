@@ -2482,6 +2482,28 @@ test("release restores the user's own provider env that apply displaced", { skip
   });
 });
 
+test("apply in a China time zone leaves TZ in Claude settings to the user", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const previousTz = process.env.TZ;
+  process.env.TZ = "Asia/Shanghai";
+  try {
+    for (const [original, expected] of [
+      [{ env: { USER_VALUE: "kept" } }, undefined],
+      [{ env: { TZ: "Europe/Berlin" } }, "Europe/Berlin"],
+      [{ env: { TZ: "UTC" } }, "UTC"]
+    ]) {
+      await withGlobalClaudeProfileRelease(original, async ({ apply, readSettings }) => {
+        await apply();
+        assert.equal(readSettings().env.TZ, expected);
+        const suffix = process.platform === "win32" ? ".cmd" : "";
+        const wrapper = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-displaced-env-claude-code${suffix}`), "utf8");
+        assert.doesNotMatch(wrapper, /\bTZ=/);
+      });
+    }
+  } finally {
+    restoreEnv("TZ", previousTz);
+  }
+});
+
 test("a second apply does not record LLMR values as displaced", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, readSettings, release }) => {
     await apply();

@@ -3,25 +3,9 @@ import test from "node:test";
 import {
   CLAUDE_CODE_MCP_CONFIG_ENV,
   CODEXL_CLAUDE_CODE_MCP_CONFIG_ENV,
-  claudeCodeMcpConfigEnv,
-  claudeCodeUtcTimezoneEnvOverride,
-  isChinaTimeZone
+  claudeCodeMcpConfigEnv
 } from "@llmr/core/agents/claude-code/environment.ts";
 import { toolHubClaudeCodeMcpConfig } from "@llmr/core/mcp/toolhub-config.ts";
-
-test("detects China time zones used by Claude Code", () => {
-  assert.equal(isChinaTimeZone("Asia/Shanghai"), true);
-  assert.equal(isChinaTimeZone("Asia/Urumqi"), true);
-  assert.equal(isChinaTimeZone("PRC"), true);
-  assert.equal(isChinaTimeZone("UTC"), false);
-  assert.equal(isChinaTimeZone("Asia/Singapore"), false);
-});
-
-test("overrides Claude Code timezone only for China time zones", () => {
-  assert.deepEqual(claudeCodeUtcTimezoneEnvOverride("Asia/Shanghai"), { TZ: "UTC" });
-  assert.deepEqual(claudeCodeUtcTimezoneEnvOverride("UTC"), {});
-  assert.deepEqual(claudeCodeUtcTimezoneEnvOverride("America/Los_Angeles"), {});
-});
 
 test("exports Claude Code MCP config path env for wrapper injection", () => {
   assert.deepEqual(claudeCodeMcpConfigEnv("/tmp/toolhub-mcp.json"), {

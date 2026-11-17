@@ -32,17 +32,6 @@ export type ClaudeCodeModelSelection = {
   sonnetModel?: string;
 };
 
-const chinaTimeZones = new Set([
-  "asia/chongqing",
-  "asia/chungking",
-  "asia/harbin",
-  "asia/kashgar",
-  "asia/shanghai",
-  "asia/urumqi",
-  "china standard time",
-  "prc"
-]);
-
 export function claudeCodeMcpConfigEnv(configFile: string | undefined): Record<string, string> {
   return configFile
     ? {
@@ -96,23 +85,6 @@ export function normalizeClaudeCodeClientModel(value: string | undefined): strin
     return provider && model ? `${provider}/${model}` : "";
   }
   return trimmed;
-}
-
-export function claudeCodeUtcTimezoneEnvOverride(timeZone = currentTimeZone()): Record<string, string> {
-  return isChinaTimeZone(timeZone) ? { TZ: "UTC" } : {};
-}
-
-export function currentTimeZone(): string | undefined {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return undefined;
-  }
-}
-
-export function isChinaTimeZone(timeZone: string | undefined): boolean {
-  const normalized = timeZone?.trim().toLowerCase();
-  return Boolean(normalized && chinaTimeZones.has(normalized));
 }
 
 function assignModelAliasEnv(env: Record<string, string>, key: string, value: string | undefined): void {
