@@ -60,6 +60,14 @@ Each line has its pinning test in the owning task.
 
 ## MF-1 Name framing in stdio handshake errors
 
+**Status:** Merged 2026-11-17 as [PR 77](https://github.com/jrmatherly/llm-router/pull/77), squash commit `75a92fa1`. A review changed three things from the steps below:
+
+- Both stdio clients now listen for `error` on the child's stdin. A write to a server that had closed its stdin ended the process with an uncaught `EPIPE`. Tool discovery rejects with that error. `StdioMcpClient` kills and forgets the child.
+- `StdioMcpClient`'s `exit` handler ignores a child it has already replaced, so a late `exit` from a killed child cannot reject the new child's requests.
+- Two more ToolHub cases: the hint when a `content-length` backend exits before its handshake, and the closed-stdin case. The file has 15 tests and `stdio-framing.test.mjs` has 7.
+
+MF-2 keeps the stdin handlers and the guarded `exit` handler. They do not depend on the framing.
+
 **Fixes:** spec F-2 and F-4
 **Branch:** `fix/mcp-stdio-framing-hint`
 **Owner steps:** Approve the plan before the branch is cut.
