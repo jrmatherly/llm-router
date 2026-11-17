@@ -542,7 +542,7 @@ test("built ToolHub MCP runtime does not add LLMR handoff tools for non-LLMR bro
 
 for (const framing of [
   { backend: () => NEWLINE_JSON_STDBACKEND_SCRIPT, label: "newline JSON to a stdio backend with no message mode", server: {} },
-  { backend: () => CONTENT_LENGTH_STDBACKEND_SCRIPT, label: "Content-Length to a stdio backend that asks for it", server: { stdioMessageMode: "content-length" } }
+  { backend: () => NEWLINE_JSON_STDBACKEND_SCRIPT, label: "newline JSON to a stdio backend saved as content-length", server: { stdioMessageMode: "content-length" } }
 ]) {
   test(`built ToolHub MCP runtime speaks ${framing.label}`, async (t) => {
     const resolved = await resolveWithBackends(t, [
@@ -556,43 +556,15 @@ for (const framing of [
   });
 }
 
-const framingHint = "This server is set to Content-Length framing. MCP servers use newline JSON unless they document otherwise. Set its stdio message mode to newline-json.";
 const shortTimeouts = { requestTimeoutMs: 1000, startupTimeoutMs: 1000 };
 
-test("built ToolHub MCP runtime names framing when a content-length backend never answers initialize", async (t) => {
-  const resolved = await resolveWithBackends(t, [
-    { ...stdioBackend(t, NEWLINE_ONLY_STDBACKEND_SCRIPT), ...shortTimeouts, stdioMessageMode: "content-length" }
-  ]);
-  if (!resolved) {
-    return;
-  }
-  const message = resolved.response.error?.message ?? "";
-  assert.ok(message.startsWith("No MCP tools are available to resolve. Backend errors: stdio-test: MCP stdio request timed out (stdio-test): initialize"), message);
-  assert.ok(message.endsWith(framingHint), message);
-});
-
-test("built ToolHub MCP runtime gives no framing hint once a content-length backend has answered initialize", async (t) => {
-  const resolved = await resolveWithBackends(t, [
-    { ...stdioBackend(t, CONTENT_LENGTH_STALLS_STDBACKEND_SCRIPT), ...shortTimeouts, stdioMessageMode: "content-length" }
-  ]);
-  if (!resolved) {
-    return;
-  }
-  const message = resolved.response.error?.message ?? "";
-  assert.ok(message.includes("stdio-test: MCP stdio request timed out (stdio-test): tools/list"), message);
-  assert.ok(!message.includes("Content-Length framing"), message);
-});
-
-test("built ToolHub MCP runtime names framing when a content-length backend exits before its handshake", async (t) => {
-  const resolved = await resolveWithBackends(t, [
-    { ...stdioBackend(t, "process.exit(3);"), ...shortTimeouts, stdioMessageMode: "content-length" }
-  ]);
+test("built ToolHub MCP runtime reports a backend that exits before its handshake", async (t) => {
+  const resolved = await resolveWithBackends(t, [{ ...stdioBackend(t, "process.exit(3);"), ...shortTimeouts }]);
   if (!resolved) {
     return;
   }
   const message = resolved.response.error?.message ?? "";
   assert.ok(message.includes("stdio-test: MCP server exited (stdio-test): 3"), message);
-  assert.ok(message.endsWith(framingHint), message);
 });
 
 test("built ToolHub MCP runtime survives a backend that closes its stdin after the handshake", async (t) => {
@@ -611,7 +583,6 @@ test("built ToolHub MCP runtime reports a missing backend command at once and li
     command: "llmr-no-such-command",
     name,
     ...shortTimeouts,
-    stdioMessageMode: "content-length",
     transport: "stdio"
   })));
   if (!resolved) {
@@ -622,7 +593,6 @@ test("built ToolHub MCP runtime reports a missing backend command at once and li
   assert.ok(message.includes("one: spawn llmr-no-such-command ENOENT"), message);
   assert.ok(message.includes("two: ") && message.includes("three: "), message);
   assert.ok(!message.includes("four: "), message);
-  assert.ok(!message.includes("Content-Length framing"), message);
   assert.ok(elapsedMs < 3000, `settled after ${elapsedMs} ms`);
 });
 
@@ -874,7 +844,7 @@ function reply(message) {
 }
 `;
 
-// Each backend accepts one framing only and exits loudly on the other.
+// Exits loudly when it is sent Content-Length framing.
 const NEWLINE_JSON_STDBACKEND_SCRIPT = `${STDBACKEND_REPLIES}
 let buffer = "";
 process.stdin.setEncoding("utf8");
@@ -897,91 +867,6 @@ process.stdin.on("data", (chunk) => {
     const response = reply(JSON.parse(line));
     if (response) {
       process.stdout.write(JSON.stringify(response) + "\\n");
-    }
-  }
-});
-`;
-
-const CONTENT_LENGTH_STDBACKEND_SCRIPT = `${STDBACKEND_REPLIES}
-let buffer = Buffer.alloc(0);
-process.stdin.on("data", (chunk) => {
-  buffer = Buffer.concat([buffer, chunk]);
-  if (buffer[0] === 0x7b) {
-    process.stderr.write("received newline framing");
-    process.exit(1);
-  }
-  for (;;) {
-    const headerEnd = buffer.indexOf("\\r\\n\\r\\n");
-    if (headerEnd < 0) {
-      return;
-    }
-    const length = Number(/content-length:\\s*(\\d+)/i.exec(buffer.subarray(0, headerEnd).toString("utf8"))?.[1]);
-    if (buffer.length < headerEnd + 4 + length) {
-      return;
-    }
-    const response = reply(JSON.parse(buffer.subarray(headerEnd + 4, headerEnd + 4 + length).toString("utf8")));
-    buffer = buffer.subarray(headerEnd + 4 + length);
-    if (response) {
-      const text = JSON.stringify(response);
-      process.stdout.write("Content-Length: " + Buffer.byteLength(text, "utf8") + "\\r\\n\\r\\n" + text);
-    }
-  }
-});
-`;
-
-// Reads newline JSON and skips a line that is not JSON, as the MCP SDKs do.
-const NEWLINE_ONLY_STDBACKEND_SCRIPT = `${STDBACKEND_REPLIES}
-let buffer = "";
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", (chunk) => {
-  buffer += chunk;
-  for (;;) {
-    const newlineIndex = buffer.indexOf("\\n");
-    if (newlineIndex < 0) {
-      return;
-    }
-    const line = buffer.slice(0, newlineIndex).trim();
-    buffer = buffer.slice(newlineIndex + 1);
-    if (!line) {
-      continue;
-    }
-    let message;
-    try {
-      message = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    const response = reply(message);
-    if (response) {
-      process.stdout.write(JSON.stringify(response) + "\\n");
-    }
-  }
-});
-`;
-
-const CONTENT_LENGTH_STALLS_STDBACKEND_SCRIPT = `${STDBACKEND_REPLIES}
-let buffer = Buffer.alloc(0);
-process.stdin.on("data", (chunk) => {
-  buffer = Buffer.concat([buffer, chunk]);
-  if (buffer[0] === 0x7b) {
-    process.stderr.write("received newline framing");
-    process.exit(1);
-  }
-  for (;;) {
-    const headerEnd = buffer.indexOf("\\r\\n\\r\\n");
-    if (headerEnd < 0) {
-      return;
-    }
-    const length = Number(/content-length:\\s*(\\d+)/i.exec(buffer.subarray(0, headerEnd).toString("utf8"))?.[1]);
-    if (buffer.length < headerEnd + 4 + length) {
-      return;
-    }
-    const message = JSON.parse(buffer.subarray(headerEnd + 4, headerEnd + 4 + length).toString("utf8"));
-    const response = message.method === "initialize" ? reply(message) : undefined;
-    buffer = buffer.subarray(headerEnd + 4 + length);
-    if (response) {
-      const text = JSON.stringify(response);
-      process.stdout.write("Content-Length: " + Buffer.byteLength(text, "utf8") + "\\r\\n\\r\\n" + text);
     }
   }
 });

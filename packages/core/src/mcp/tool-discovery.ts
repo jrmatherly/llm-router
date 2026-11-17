@@ -1,6 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
-import { withStdioFramingHint } from "@llmr/core/mcp/stdio-framing";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import type {
   GatewayMcpRemoteServerConfig,
@@ -56,9 +55,8 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
       stdio: ["pipe", "pipe", "pipe"]
     }) as ChildProcessWithoutNullStreams;
     const pending = new Map<string, PendingRequest>();
-    const timeout = setTimeout(() => finish(new Error(withStdioFramingHint(`MCP tools discovery timed out after ${mcpTimeoutMs(server)} ms.`, server, handshakeDone))), mcpTimeoutMs(server));
-    const readMessage = createStdioMessageReader(server.stdioMessageMode, routeMessage);
-    let handshakeDone = false;
+    const timeout = setTimeout(() => finish(new Error(`MCP tools discovery timed out after ${mcpTimeoutMs(server)} ms.`)), mcpTimeoutMs(server));
+    const readMessage = createStdioMessageReader(routeMessage);
     let nextId = 1;
     let settled = false;
     let stderr = "";
@@ -73,7 +71,7 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
     child.on("exit", (code, signal) => {
       if (!settled) {
         const detail = stderr.trim() ? ` ${stderr.trim()}` : "";
-        finish(new Error(withStdioFramingHint(`MCP server exited before tools/list completed (${signal ?? code ?? "unknown"}).${detail}`, server, handshakeDone)));
+        finish(new Error(`MCP server exited before tools/list completed (${signal ?? code ?? "unknown"}).${detail}`));
       }
     });
 
@@ -85,7 +83,6 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
         clientInfo: mcpClientInfo,
         protocolVersion: server.protocolVersion || "2024-11-05"
       });
-      handshakeDone = true;
       notify("notifications/initialized", {});
       const response = await request("tools/list", {});
       finish(undefined, normalizeToolList(response.result));
@@ -104,12 +101,12 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
           reject: rejectRequest,
           resolve: resolveRequest
         });
-        writeStdioMessage(child, server.stdioMessageMode, message);
+        writeStdioMessage(child, message);
       });
     }
 
     function notify(method: string, params: unknown) {
-      writeStdioMessage(child, server.stdioMessageMode, {
+      writeStdioMessage(child, {
         jsonrpc: "2.0",
         method,
         params
@@ -334,78 +331,27 @@ async function postJsonRpc(
   }
 }
 
-function writeStdioMessage(
-  child: ChildProcessWithoutNullStreams,
-  mode: GatewayMcpStdioServerConfig["stdioMessageMode"],
-  message: JsonRpcMessage
-) {
-  const body = JSON.stringify(message);
-  if (mode !== "content-length") {
-    child.stdin.write(`${body}\n`);
-    return;
-  }
-  child.stdin.write(`Content-Length: ${Buffer.byteLength(body, "utf8")}\r\n\r\n${body}`);
+function writeStdioMessage(child: ChildProcessWithoutNullStreams, message: JsonRpcMessage) {
+  child.stdin.write(`${JSON.stringify(message)}\n`);
 }
 
-function createStdioMessageReader(
-  mode: GatewayMcpStdioServerConfig["stdioMessageMode"],
-  onMessage: (message: JsonRpcMessage) => void
-): (chunk: Buffer) => void {
-  if (mode !== "content-length") {
-    let textBuffer = "";
-    return (chunk: Buffer) => {
-      textBuffer += chunk.toString("utf8");
-      for (;;) {
-        const newlineIndex = textBuffer.indexOf("\n");
-        if (newlineIndex < 0) {
-          return;
-        }
-        const line = textBuffer.slice(0, newlineIndex).trim();
-        textBuffer = textBuffer.slice(newlineIndex + 1);
-        const message = parseJsonRpcMessage(line);
-        if (message) {
-          onMessage(message);
-        }
-      }
-    };
-  }
-
-  let buffer = Buffer.alloc(0);
+function createStdioMessageReader(onMessage: (message: JsonRpcMessage) => void): (chunk: Buffer) => void {
+  let textBuffer = "";
   return (chunk: Buffer) => {
-    buffer = Buffer.concat([buffer, chunk]);
+    textBuffer += chunk.toString("utf8");
     for (;;) {
-      const delimiter = contentLengthHeaderDelimiter(buffer);
-      if (!delimiter) {
+      const newlineIndex = textBuffer.indexOf("\n");
+      if (newlineIndex < 0) {
         return;
       }
-      const header = buffer.subarray(0, delimiter.index).toString("utf8");
-      const match = /content-length:\s*(\d+)/i.exec(header);
-      if (!match) {
-        buffer = buffer.subarray(delimiter.index + delimiter.length);
-        continue;
-      }
-      const length = Number(match[1]);
-      const bodyStart = delimiter.index + delimiter.length;
-      const bodyEnd = bodyStart + length;
-      if (buffer.length < bodyEnd) {
-        return;
-      }
-      const message = parseJsonRpcMessage(buffer.subarray(bodyStart, bodyEnd).toString("utf8"));
-      buffer = buffer.subarray(bodyEnd);
+      const line = textBuffer.slice(0, newlineIndex).trim();
+      textBuffer = textBuffer.slice(newlineIndex + 1);
+      const message = parseJsonRpcMessage(line);
       if (message) {
         onMessage(message);
       }
     }
   };
-}
-
-function contentLengthHeaderDelimiter(buffer: Buffer): { index: number; length: number } | undefined {
-  const crlfIndex = buffer.indexOf("\r\n\r\n");
-  if (crlfIndex >= 0) {
-    return { index: crlfIndex, length: 4 };
-  }
-  const lfIndex = buffer.indexOf("\n\n");
-  return lfIndex >= 0 ? { index: lfIndex, length: 2 } : undefined;
 }
 
 function parseJsonRpcMessageFromResponse(text: string, expectedId: JsonRpcMessage["id"]): JsonRpcMessage | undefined {

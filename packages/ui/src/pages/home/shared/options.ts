@@ -24,7 +24,6 @@ import type {
   AgentKind,
   AppConfig,
   GatewayMcpServerTransport,
-  GatewayMcpStdioMessageMode,
   GatewayProviderProtocol,
   OverviewMetricKind,
   OverviewWidgetSize,
@@ -342,11 +341,6 @@ export const mcpServerTransportOptions: Array<{ label: string; value: GatewayMcp
   { label: "stdio", value: "stdio" },
   { label: "streamable-http", value: "streamable-http" },
   { label: "sse", value: "sse" }
-];
-
-export const mcpStdioMessageModeOptions: Array<{ label: string; value: GatewayMcpStdioMessageMode }> = [
-  { label: "newline-json (MCP standard)", value: "newline-json" },
-  { label: "content-length", value: "content-length" }
 ];
 
 export const providerPresetIconUrls: Record<string, string> = {

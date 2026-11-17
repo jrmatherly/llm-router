@@ -2486,7 +2486,6 @@ function parseMcpServers(value: unknown): GatewayMcpServerConfig[] | undefined {
       if (!command) {
         return undefined;
       }
-      const stdioMessageMode = readString(item.stdioMessageMode) === "content-length" ? "content-length" : "newline-json";
       return {
         args: parseStringList(item.args),
         command,
@@ -2496,7 +2495,7 @@ function parseMcpServers(value: unknown): GatewayMcpServerConfig[] | undefined {
         protocolVersion,
         requestTimeoutMs,
         startupTimeoutMs,
-        stdioMessageMode,
+        stdioMessageMode: "newline-json",
         transport
       };
     })
