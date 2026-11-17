@@ -30,7 +30,7 @@ function successResponse(body) {
 
 // Header assertions cannot show which key and model the core sends upstream,
 // so run the host pipeline against a spawned core with the router plugin.
-async function run(providerFactory, probes, { configure, upstreamTimeoutMs = 5000 } = {}) {
+async function run(providerFactory, probes, { configure, publicGatewayMode = false, upstreamTimeoutMs = 5000 } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-credential-routing-"));
   const calls = [];
   let gateway, host, failure;
@@ -61,12 +61,14 @@ async function run(providerFactory, probes, { configure, upstreamTimeoutMs = 500
       res.end(JSON.stringify({ error: { message: `synthetic ${status}` } }));
       return;
     }
-    const verdict = body.safeguards ? { safeguard_results: { synthetic_verdict: "allow", tool_use_id: "toolu_guard_test_123" } } : {};
+    const guarded = Boolean(body.safeguards) || req.headers["anthropic-beta"] !== undefined;
+    const verdict = guarded ? { safeguard_results: { synthetic_verdict: "allow", tool_use_id: "toolu_guard_test_123" } } : {};
     if (req.url.startsWith("/native") && body.stream) {
       const message = { id: "msg_test", type: "message", role: "assistant", model: body.model, content: [], usage: { input_tokens: 1, output_tokens: 1 } };
       const events = [
         { type: "message_start", message, ...verdict },
         { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "toolu_guard_test_123", name: "t", input: {} } },
+        { type: "content_block_stop", index: 0 },
         { type: "message_delta", delta: { stop_reason: "tool_use", ...verdict }, usage: { output_tokens: 1 }, ...verdict },
         { type: "message_stop" }
       ];
@@ -75,8 +77,8 @@ async function run(providerFactory, probes, { configure, upstreamTimeoutMs = 500
     } else if (req.url.startsWith("/native")) {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ id: "msg_test", type: "message", role: "assistant", model: body.model,
-        content: body.safeguards ? [{ type: "tool_use", id: "toolu_guard_test_123", name: "t", input: {} }] : [{ type: "text", text: "ok" }],
-        ...verdict, stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 } }));
+        content: guarded ? [{ type: "tool_use", id: "toolu_guard_test_123", name: "t", input: {} }] : [{ type: "text", text: "ok" }],
+        ...verdict, stop_reason: guarded ? "tool_use" : "end_turn", usage: { input_tokens: 1, output_tokens: 1 } }));
     } else if (body.stream) {
       res.writeHead(200, { "content-type": "text/event-stream" });
       res.end(`data: ${JSON.stringify({ ...successResponse(body), object: "chat.completion.chunk",
@@ -96,7 +98,7 @@ async function run(providerFactory, probes, { configure, upstreamTimeoutMs = 500
     config.profile.enabled = false;
     config.profile.profiles = [];
     configure?.(config);
-    const compiled = await compileCoreGatewayConfig(config, "trace", "billing", "auth");
+    const compiled = await compileCoreGatewayConfig(config, "trace", "billing", "auth", undefined, undefined, { publicGatewayMode });
     const router = compiled.plugins.find(plugin => plugin.key === "llm-router");
     router.modulePath = path.resolve(".test-dist/core/runtime/router-plugin.js");
     const reserve = createServer();
@@ -131,9 +133,15 @@ async function run(providerFactory, probes, { configure, upstreamTimeoutMs = 500
       const start = calls.length;
       const response = await fetch((probe.coreOnly ? gatewayUrl : publicUrl) + probe.path, { method: "POST",
         headers: { "content-type": "application/json", "user-agent": "routing-regression",
-          ...(probe.coreOnly ? { [coreGatewayAuthHeader]: "auth" } : {}), ...probe.headers }, body: JSON.stringify(probe.body) });
-      let responseText;
-      try { responseText = await response.text(); } catch (error) { if (failure !== "partial") throw error; responseText = String(error); }
+          ...(probe.coreOnly ? { [publicGatewayMode ? "authorization" : coreGatewayAuthHeader]: publicGatewayMode ? "Bearer auth" : "auth" } : {}),
+          ...probe.headers }, body: JSON.stringify(probe.body) });
+      let responseText = "";
+      try {
+        for await (const chunk of response.body.pipeThrough(new TextDecoderStream())) responseText += chunk;
+      } catch (error) {
+        if (failure !== "partial") throw error;
+        responseText += `[socket closed: ${error.message}]`;
+      }
       const attempts = calls.slice(start);
       if (!probe.status) assert.ok(attempts.length > 0, `${probe.name}: ${response.status} ${responseText}`);
       for (const attempt of attempts) {
@@ -274,56 +282,68 @@ test("#1923 a pin on the first provider does not follow the request to a fallbac
     });
 });
 
-const where = coreOnly => coreOnly ? "gateway child" : "host pipeline";
+const paths = [
+  { via: "host pipeline" },
+  { via: "gateway child in public mode", coreOnly: true, publicGatewayMode: true }
+];
 
-test("#1917 core-only and wrapper relays send terminal errors for native and converted protocols", { timeout: 30000 }, async () => {
+test("#1917 a stream cut after its first chunk ends with a terminal error frame", { timeout: 60000 }, async t => {
   for (const scenario of [
     { type: "anthropic_messages", base: "/native", path: "/v1/messages", marker: /event: error/ },
     { type: "openai_chat_completions", base: "/v1", path: "/v1/chat/completions", marker: /"upstream_stream_error"/ },
-    { type: "openai_responses", base: "/responses-native", path: "/v1/responses", marker: /response.failed/ },
+    { type: "openai_responses", base: "/responses-native", path: "/v1/responses", marker: /response\.failed/ },
     { type: "openai_chat_completions", base: "/v1", path: "/v1/messages", marker: /event: error/ },
-    { type: "openai_chat_completions", base: "/v1", path: "/v1/responses", marker: /response.failed/ }
+    { type: "openai_chat_completions", base: "/v1", path: "/v1/responses", marker: /response\.failed/ }
   ]) {
-    const id = `cut-${scenario.type}`;
-    const probes = [false, true].map(coreOnly => ({ ...probe(`${id}/pool-model`, "partial", scenario.path, true), coreOnly,
-      assertResponse: text => assert.match(text, scenario.marker, `${scenario.type} -> ${scenario.path} via ${where(coreOnly)}: ${text}`) }));
-    await run(url => [{ id, name: id, type: scenario.type, api_base_url: url + scenario.base, models: ["pool-model"], credentials }], probes);
+    for (const { via, coreOnly, publicGatewayMode } of paths) {
+      await t.test(`${scenario.type} -> ${scenario.path} via ${via}`, async () => {
+        const id = `cut-${scenario.type}`;
+        await run(url => [{ id, name: id, type: scenario.type, api_base_url: url + scenario.base, models: ["pool-model"], credentials }],
+          [{ ...probe(`${id}/pool-model`, "partial", scenario.path, true), coreOnly,
+            assertResponse: text => assert.match(text, scenario.marker, text) }], { publicGatewayMode });
+      });
+    }
   }
 });
 
-test("#1932 native virtual models retain safeguards and their verdicts", { timeout: 30000 }, async () => {
+test("#1932 native models keep safeguards, unknown request fields and verdicts", { timeout: 60000 }, async t => {
   const verdict = { synthetic_verdict: "allow", tool_use_id: "toolu_guard_test_123" };
-  for (const streamMode of ["buffered", "optimistic"]) {
-    const probes = [false, true].flatMap(coreOnly => [false, true].map(stream => {
-      const p = { ...probe("Fusion/guarded", undefined, "/v1/messages", stream), coreOnly, expectedUpstreamModel: "guard-model" };
-      const label = `${streamMode}, ${where(coreOnly)}, ${stream ? "stream" : "json"}`;
-      p.body.safeguards = { synthetic_check: { tool_use_id: verdict.tool_use_id, opaque_config: { unknown_future: [1, "keep"] } } };
-      p.body.future_native_request = { keep: ["opaque", 123] };
-      p.body.tools = [{ name: "t", input_schema: { type: "object" } }];
-      p.headers = { "anthropic-beta": "synthetic-safeguards-2026-11-16" };
-      p.assertResponse = (text, calls) => {
-        assert.deepEqual(calls[0].body.safeguards, p.body.safeguards, `request safeguards: ${label}`);
-        assert.deepEqual(calls[0].body.future_native_request, p.body.future_native_request, `unknown request field: ${label}`);
-        assert.equal(calls[0].beta, p.headers["anthropic-beta"], `beta header: ${label}`);
-        assert.match(text, /"safeguard_results":\s*\{/, `verdict: ${label}: ${text}`);
-        assert.match(text, /"synthetic_verdict":\s*"allow"/, label);
-        assert.match(text, /"tool_use_id":\s*"toolu_guard_test_123"/, label);
-        assert.match(text, /"id":\s*"toolu_guard_test_123"/, label);
-        if (stream) {
-          const events = text.split(/\r?\n/).filter(line => line.startsWith("data: {")).map(line => JSON.parse(line.slice(6)));
-          assert.deepEqual(events.find(event => event.type === "message_delta").delta.safeguard_results, verdict, `final-delta verdict: ${label}`);
-        }
-      };
-      return p;
-    }));
-    await run(url => [{ id: "safe", name: "Safe", type: "anthropic_messages", api_base_url: `${url}/native`, api_key: "good", models: ["guard-model"] }], probes, {
-      configure: config => {
-        config.virtualModelProfiles = [{ id: "guarded", key: "guarded", displayName: "Guarded", enabled: true,
-          match: { exactAliases: ["guarded", "Fusion/guarded"], prefixes: [], suffixes: [] },
-          baseModel: { mode: "fixed", fixedModel: "safe/guard-model" }, tools: [],
-          execution: { mode: "tool_loop", maxTurns: 2, maxToolCalls: 2, clientToolsPolicy: "passthrough", streamMode },
-          materialization: { enabled: true, includeInGatewayModels: true } }];
+  const guardedProfile = streamMode => ({ id: "guarded", key: "guarded", displayName: "Guarded", enabled: true,
+    match: { exactAliases: ["guarded", "Fusion/guarded"], prefixes: [], suffixes: [] },
+    baseModel: { mode: "fixed", fixedModel: "safe/guard-model" }, tools: [],
+    execution: { mode: "tool_loop", maxTurns: 2, maxToolCalls: 2, clientToolsPolicy: "passthrough", streamMode },
+    materialization: { enabled: true, includeInGatewayModels: true } });
+  for (const { model, streamMode } of [
+    { model: "safe/guard-model" },
+    { model: "Fusion/guarded", streamMode: "buffered" },
+    { model: "Fusion/guarded", streamMode: "optimistic" }
+  ]) {
+    for (const { via, coreOnly, publicGatewayMode } of paths) {
+      for (const stream of [false, true]) {
+        const name = [streamMode ? `virtual model (${streamMode})` : "direct model", via, stream ? "stream" : "json"].join(", ");
+        await t.test(name, async () => {
+          const p = { ...probe(model, undefined, "/v1/messages", stream), coreOnly, expectedUpstreamModel: "guard-model" };
+          p.body.safeguards = { synthetic_check: { tool_use_id: verdict.tool_use_id, opaque_config: { unknown_future: [1, "keep"] } } };
+          p.body.future_native_request = { keep: ["opaque", 123] };
+          p.body.tools = [{ name: "t", input_schema: { type: "object" } }];
+          p.headers = { "anthropic-beta": "synthetic-safeguards-2026-11-16" };
+          p.assertResponse = (text, [call]) => {
+            const events = stream ? text.split(/\r?\n/).filter(line => line.startsWith("data: {")).map(line => JSON.parse(line.slice(6))) : [];
+            const lost = Object.entries({
+              "request safeguards": () => assert.deepEqual(call.body.safeguards, p.body.safeguards),
+              "unknown request field": () => assert.deepEqual(call.body.future_native_request, p.body.future_native_request),
+              "beta header": () => assert.equal(call.beta, p.headers["anthropic-beta"]),
+              "tool_use block": () => assert.match(text, /"id":\s*"toolu_guard_test_123"/),
+              "verdict": () => stream
+                ? assert.deepEqual(events.find(event => event.type === "message_delta")?.delta.safeguard_results, verdict)
+                : assert.deepEqual(JSON.parse(text).safeguard_results, verdict)
+            }).filter(([, check]) => { try { check(); return false; } catch { return true; } }).map(([what]) => what);
+            assert.deepEqual(lost, [], text);
+          };
+          await run(url => [{ id: "safe", name: "Safe", type: "anthropic_messages", api_base_url: `${url}/native`, api_key: "good", models: ["guard-model"] }], [p], {
+            configure: config => { if (streamMode) config.virtualModelProfiles = [guardedProfile(streamMode)]; }, publicGatewayMode });
+        });
       }
-    });
+    }
   }
 });
