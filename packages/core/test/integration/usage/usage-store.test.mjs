@@ -181,7 +181,7 @@ test("UsageStore records usage while the price catalog loads and prices it after
     const stalled = new UsageStore(file, { ...pricing, loadPriceCatalog: () => new Promise(() => {}) });
     await stalled.record(event("req-before-restart"));
     assert.equal(await stalled.hasRequestId("req-before-restart"), true);
-    assert.equal((await stalled.getStats("today", { includeProxy: true })).totals.costUsd, 0);
+    assert.equal((await stalled.getStats("24h", { includeProxy: true })).totals.costUsd, 0);
 
     let finishCatalogLoad;
     const store = new UsageStore(file, {
@@ -194,14 +194,14 @@ test("UsageStore records usage while the price catalog loads and prices it after
       })
     });
     await store.record(event("req-after-restart"));
-    assert.equal((await store.getStats("today", { includeProxy: true })).totals.costUsd, 0);
+    assert.equal((await store.getStats("24h", { includeProxy: true })).totals.costUsd, 0);
 
     finishCatalogLoad();
     const deadline = Date.now() + 2_000;
-    let stats = await store.getStats("today", { includeProxy: true });
+    let stats = await store.getStats("24h", { includeProxy: true });
     while (stats.totals.costUsd < 0.5 && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 5));
-      stats = await store.getStats("today", { includeProxy: true });
+      stats = await store.getStats("24h", { includeProxy: true });
     }
     assert.equal(stats.totals.costUsd, 0.5, "both rows are priced once the catalog loads");
   } finally {
