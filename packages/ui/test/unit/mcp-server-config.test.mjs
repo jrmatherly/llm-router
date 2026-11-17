@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createMcpServerDraft,
+  createMcpServerDraftFromConfig,
   createMcpServerDraftFromUnknown,
   mcpServerConfigFromDraft,
   validateMcpServerDraft
@@ -24,4 +26,16 @@ test("MCP server drafts accept streamablehttp type alias", () => {
   assert.equal(config.name, "mcd-mcp");
   assert.equal(config.url, "https://mcp.mcd.cn");
   assert.equal(config.headers.Authorization, "Bearer YOUR_MCP_TOKEN");
+});
+
+test("a stdio MCP server draft speaks newline JSON unless content-length is asked for", () => {
+  assert.equal(createMcpServerDraft().stdioMessageMode, "newline-json");
+  assert.equal(createMcpServerDraftFromUnknown({ command: "npx", name: "files" }).stdioMessageMode, "newline-json");
+  assert.equal(
+    createMcpServerDraftFromUnknown({ command: "npx", name: "files", stdioMessageMode: "content-length" }).stdioMessageMode,
+    "content-length"
+  );
+  // A remote server edited into a stdio one starts from the same default.
+  const remote = createMcpServerDraftFromConfig({ headers: {}, name: "remote", requestTimeoutMs: 30000, startupTimeoutMs: 600000, transport: "streamable-http", url: "https://mcp.example.test" });
+  assert.equal(remote.stdioMessageMode, "newline-json");
 });
