@@ -90,7 +90,6 @@ Use `stdio` for local command-line MCP servers. Configure:
 - **Command**: launch command, such as `npx`, `node`, or `python`.
 - **Arguments**: command arguments.
 - **Working directory**: optional working directory.
-- **Stdio message mode**: keep `newline-json` by default (the MCP stdio transport framing); use `content-length` only for LSP-style servers that expect header-prefixed messages.
 - **Environment variables**: variables needed only by this MCP server.
 
 ### streamable-http / sse
@@ -150,7 +149,6 @@ The desktop app's SQLite config is the effective source, so prefer editing throu
         "command": "npx",
         "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
         "env": {},
-        "stdioMessageMode": "newline-json",
         "requestTimeoutMs": 30000,
         "startupTimeoutMs": 600000
       }
@@ -189,5 +187,5 @@ The import dialog also accepts common MCP JSON:
 - Chrome login import confirmation keeps waiting for the extension: make sure the unpacked `extension/chrome` extension is loaded in Chrome and has site access for the target domains. Open the confirmation URL in Chrome manually.
 - No tools are resolved: confirm the MCP server can list tools, improve tool names and descriptions, or increase **Max tools**.
 - Calls time out: check ToolHub **Timeout ms** and the backend server request/startup timeouts.
-- A stdio server never connects and its error mentions Content-Length framing: open the server in **Settings → ToolHub** and set **Stdio message mode** to `newline-json`. A server saved before the stdio default changed kept `content-length`, which standard MCP servers do not read.
+- A stdio server times out on connect: LLMR speaks newline-delimited JSON, the MCP standard, to every stdio server you configure. A server that accepts only `Content-Length` headers (the LSP convention) is not supported.
 - Import fails: validate JSON, avoid duplicate server names, make sure `stdio` entries have a command and remote entries have a URL.

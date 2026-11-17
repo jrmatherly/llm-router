@@ -16,7 +16,6 @@ import type {
   GatewayProviderProbeCandidateResult,
   GatewayProviderProtocol,
   GatewayMcpServerTransport,
-  GatewayMcpStdioMessageMode,
   PluginDependency,
   PluginMarketplaceEntry,
   ProviderAccountBrowserCredentialsMode,
@@ -325,7 +324,6 @@ export type McpServerDraft = {
   protocolVersion: string;
   requestTimeoutMs: string;
   startupTimeoutMs: string;
-  stdioMessageMode: GatewayMcpStdioMessageMode;
   transport: GatewayMcpServerTransport;
   url: string;
 };

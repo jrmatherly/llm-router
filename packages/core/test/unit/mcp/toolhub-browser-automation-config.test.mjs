@@ -87,6 +87,8 @@ test("Core Gateway registers media tools directly for Fusion models", async () =
   assert.ok(media);
   assert.equal(media.transport, "stdio");
   assert.ok(media.args[0].endsWith("media-tools-proxy-mcp.js"));
+  // Bundled servers read Content-Length only, so the newline override must not reach them.
+  assert.equal(media.stdioMessageMode, "content-length");
   assert.equal(servers.some((server) => server.name === "llmr-toolhub"), false);
 });
 

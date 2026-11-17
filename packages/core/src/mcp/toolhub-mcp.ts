@@ -6,7 +6,6 @@ import os from "node:os";
 import path from "node:path";
 import OpenAI from "openai";
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
-import { withStdioFramingHint } from "@llmr/core/mcp/stdio-framing";
 import { isLoopbackHostname } from "@llmr/core/net/loopback";
 
 type JsonPrimitive = boolean | null | number | string;
@@ -54,7 +53,6 @@ type GatewayMcpStdioServerConfig = GatewayMcpServerBaseConfig & {
   command: string;
   cwd?: string;
   env?: Record<string, string>;
-  stdioMessageMode?: "content-length" | "newline-json";
   transport: "stdio";
 };
 
@@ -1313,10 +1311,9 @@ class StdioMcpClient implements McpClient {
       if (this.child !== child) {
         return;
       }
-      const handshakeDone = this.initialized;
       this.initialized = false;
       this.child = undefined;
-      this.rejectAll(new Error(withStdioFramingHint(`MCP server exited (${this.server.name}): ${signal ?? code ?? "unknown"}`, this.server, handshakeDone)));
+      this.rejectAll(new Error(`MCP server exited (${this.server.name}): ${signal ?? code ?? "unknown"}`));
     });
     this.child = child;
     return child;
@@ -1333,7 +1330,7 @@ class StdioMcpClient implements McpClient {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(String(id));
-        reject(new Error(withStdioFramingHint(`MCP stdio request timed out (${this.server.name}): ${method}`, this.server, this.initialized)));
+        reject(new Error(`MCP stdio request timed out (${this.server.name}): ${method}`));
       }, timeoutMs);
       this.pending.set(String(id), {
         reject,
@@ -1356,41 +1353,12 @@ class StdioMcpClient implements McpClient {
 
   private write(message: Record<string, unknown>): void {
     const child = this.ensureChild();
-    const text = JSON.stringify(message);
-    if (this.server.stdioMessageMode === "content-length") {
-      child.stdin.write(`Content-Length: ${Buffer.byteLength(text, "utf8")}\r\n\r\n${text}`);
-      return;
-    }
-    child.stdin.write(`${text}\n`);
+    child.stdin.write(`${JSON.stringify(message)}\n`);
   }
 
   private readStdout(chunk: Buffer): void {
     this.stdoutBuffer = Buffer.concat([this.stdoutBuffer, chunk]);
-    if (this.server.stdioMessageMode === "content-length") {
-      this.drainContentLengthStdout();
-    } else {
-      this.drainNewlineJsonStdout();
-    }
-  }
-
-  private drainContentLengthStdout(): void {
-    while (true) {
-      const headerEnd = this.stdoutBuffer.indexOf("\r\n\r\n");
-      if (headerEnd < 0) return;
-      const headerText = this.stdoutBuffer.subarray(0, headerEnd).toString("utf8");
-      const lengthMatch = headerText.match(/content-length:\s*(\d+)/i);
-      if (!lengthMatch) {
-        this.stdoutBuffer = this.stdoutBuffer.subarray(headerEnd + 4);
-        continue;
-      }
-      const contentLength = Number(lengthMatch[1]);
-      const messageStart = headerEnd + 4;
-      const messageEnd = messageStart + contentLength;
-      if (this.stdoutBuffer.length < messageEnd) return;
-      const text = this.stdoutBuffer.subarray(messageStart, messageEnd).toString("utf8");
-      this.stdoutBuffer = this.stdoutBuffer.subarray(messageEnd);
-      this.routeMessage(text);
-    }
+    this.drainNewlineJsonStdout();
   }
 
   private drainNewlineJsonStdout(): void {
@@ -1914,7 +1882,6 @@ function normalizeServerConfig(value: unknown): GatewayMcpServerConfig | undefin
     command,
     cwd: typeof value.cwd === "string" && value.cwd.trim() ? value.cwd.trim() : undefined,
     env: isStringRecord(value.env) ? value.env : {},
-    stdioMessageMode: value.stdioMessageMode === "content-length" ? "content-length" : "newline-json",
     transport
   };
 }

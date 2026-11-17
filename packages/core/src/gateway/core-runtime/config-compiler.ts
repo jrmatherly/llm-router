@@ -114,7 +114,7 @@ export async function compileCoreGatewayConfig(
     ...pluginMcpServers,
     ...(config.agent?.mcpServers ?? []),
     ...(config.toolHub?.mcpServers ?? [])
-  ].map(withStdioMessageModeDefault);
+  ].map(withNewlineStdioFraming);
   const toolHubServer = toolHubMcpServer(config, externalMcpServers);
   const mediaMcpServer = mediaToolsMcpServer(config);
   const mcpServers = [
@@ -904,10 +904,11 @@ function addProviderNameVariants(names: Set<string>, providerName: string | unde
   }
 }
 
-// The core runtime frames a stdio server with no mode as Content-Length. MCP's stdio
-// framing is newline JSON, and a plugin's servers arrive here without passing the config parser.
-function withStdioMessageModeDefault<T>(server: T): T {
-  if (!isRecord(server) || typeof server.command !== "string" || server.stdioMessageMode === "content-length") {
+// LLMR speaks only newline JSON to user and plugin stdio servers, so this overrides any mode they
+// carry. A plugin's servers skip the config parser, and the core runtime frames a stdio server
+// with no mode as Content-Length.
+function withNewlineStdioFraming<T>(server: T): T {
+  if (!isRecord(server) || typeof server.command !== "string") {
     return server;
   }
   return { ...server, stdioMessageMode: "newline-json" };

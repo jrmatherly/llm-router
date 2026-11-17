@@ -6,7 +6,7 @@ import {
   DialogFooter, DialogHeader, DialogTitle, endpointFromHostPort, Field, formatAppError, formatProviderAccountMeterValue, formatSystemOption, Gauge,
   Globe,
   createBotGatewayConfigDraft, createMcpServerDraft, createMcpServerDraftFromConfig, createMcpServerDraftFromUnknown, DndContext, DragEndEvent, GatewayMcpServerConfig, GatewayProviderConfig, Input, isBotGatewayConfigDraftSubmittable, isTrayMascotIconPreference, KeyboardSensor, KeyRound, KeyValueRowsControl, Layers3, LoaderCircle,
-  mcpServerConfigFromDraft, mcpServerEndpointSummary, mcpServerTransportOptions, mcpStdioMessageModeOptions, McpServerDraft, normalizeBotGatewayAuthType, normalizeBotGatewayPlatform, normalizeProviderModelSelector, normalizeProxyUpstreamConfig, normalizeToolHubConfig, numberValue, Palette, Pencil, Plus, ProfileConfig, profileAgentLabel,
+  mcpServerConfigFromDraft, mcpServerEndpointSummary, mcpServerTransportOptions, McpServerDraft, normalizeBotGatewayAuthType, normalizeBotGatewayPlatform, normalizeProviderModelSelector, normalizeProxyUpstreamConfig, normalizeToolHubConfig, numberValue, Palette, Pencil, Plus, ProfileConfig, profileAgentLabel,
   PanelLeftOpen, Power, ProviderAccountMeter, ProviderAccountSnapshot, ReactNode, ResolvedTheme, Select, SelectControl,
   PointerSensor, rectSortingStrategy, Settings, SettingsPageId, SortableContext, sortableKeyboardCoordinates, themeDisplayName, TrayBalanceProgressConfig, TrayComponentVariants, TrayWidgetConfig, TrayWidgetType, TrayWidgetVariant,
   appLogoUrl, trayMascotIconUrls, arrayMove, defaultTrayWidgetVariant, isTraySingletonWidgetType, normalizeTrayWidget, normalizeTrayWidgets, Switch, Textarea, Trash2, trayWidgetVariantOptions, useEffect, useMemo, useRef, useSensor, useSensors, useSortable, useState, validateMcpServerDraft,
@@ -812,7 +812,6 @@ function ToolHubMcpServerDialog({
   open: boolean;
 }) {
   const transportOptions = mcpServerTransportOptions;
-  const stdioMessageModeOptions = mcpStdioMessageModeOptions;
 
   return (
     <Dialog className="z-[110]" onOpenChange={(nextOpen) => !nextOpen && onClose()} open={open}>
@@ -847,18 +846,9 @@ function ToolHubMcpServerDialog({
                 <Field label="Arguments">
                   <Input onChange={(event) => onChange({ argsText: event.target.value })} value={draft.argsText} />
                 </Field>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label="Working directory">
-                    <Input onChange={(event) => onChange({ cwd: event.target.value })} value={draft.cwd} />
-                  </Field>
-                  <Field label="Stdio message mode">
-                    <SelectControl
-                      onChange={(stdioMessageMode) => onChange({ stdioMessageMode: stdioMessageMode as McpServerDraft["stdioMessageMode"] })}
-                      options={stdioMessageModeOptions}
-                      value={draft.stdioMessageMode}
-                    />
-                  </Field>
-                </div>
+                <Field label="Working directory">
+                  <Input onChange={(event) => onChange({ cwd: event.target.value })} value={draft.cwd} />
+                </Field>
                 <Field label="Environment variables">
                   <KeyValueRowsControl
                     addLabel="Add variable"

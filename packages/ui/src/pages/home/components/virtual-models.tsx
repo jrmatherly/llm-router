@@ -6,7 +6,7 @@ import {
   createFusionWebSearchEnvRows, createKeyValueDraftRow, customFusionToolName, fusionToolExecutionFlagsFromTools, fusionToolOptions,
   fusionWebSearchProviderOptions, GatewayMcpServerConfig, GatewayMcpToolInfo, GatewayProviderConfig, Input, isBuiltInFusionToolName, isFusionImageGenerationToolName, isFusionVideoGenerationToolName, isFusionVisionToolName, isFusionWebSearchToolName, KeyValueRowsControl, LoaderCircle,
   mcpServerConfigFromDraft, mcpServerEndpointSummary, mcpServerTransportOptions,
-  mcpStdioMessageModeOptions, motion, normalizeFusionToolName, Pencil,
+  motion, normalizeFusionToolName, Pencil,
   PluginMarketplaceEntry, pluginSurfaceSummary, Plus, PopoverContent, RouteTargetControl, Search, selectedFusionToolNames,
   SelectControl, Toggle, Trash2, uniqueStrings, formatAppError, useEffect, useLayoutEffect, useMemo,
   useRef, useState, validateMcpServerDraft, virtualModelBaseModelSummary, VirtualModelDraft, virtualModelMatchesQuery, virtualModelMatchSummary,
@@ -693,7 +693,6 @@ function CustomMcpToolDialog({
 }) {
   const mcp = draft;
   const transportOptions = mcpServerTransportOptions;
-  const stdioMessageModeOptions = mcpStdioMessageModeOptions;
 
   function updateMcpServer(patch: Partial<VirtualModelDraft["customMcpServer"]>) {
     onChange(patch);
@@ -733,18 +732,9 @@ function CustomMcpToolDialog({
                 <Field label="Arguments">
                   <Input onChange={(event) => updateMcpServer({ argsText: event.target.value })} value={mcp.argsText} />
                 </Field>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label="Working directory">
-                    <Input onChange={(event) => updateMcpServer({ cwd: event.target.value })} value={mcp.cwd} />
-                  </Field>
-                  <Field label="Stdio message mode">
-                    <SelectControl
-                      onChange={(stdioMessageMode) => updateMcpServer({ stdioMessageMode: stdioMessageMode as VirtualModelDraft["customMcpServer"]["stdioMessageMode"] })}
-                      options={stdioMessageModeOptions}
-                      value={mcp.stdioMessageMode}
-                    />
-                  </Field>
-                </div>
+                <Field label="Working directory">
+                  <Input onChange={(event) => updateMcpServer({ cwd: event.target.value })} value={mcp.cwd} />
+                </Field>
                 <Field label="Environment variables">
                   <KeyValueRowsControl
                     addLabel="Add variable"
