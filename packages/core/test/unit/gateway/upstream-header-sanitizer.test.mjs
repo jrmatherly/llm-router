@@ -116,7 +116,7 @@ test("gateway sanitizer hook forwards client headers without overriding provider
   });
 });
 
-test("gateway sanitizer hook does not inherit Cloudflare headers, cookies or CDN metadata", () => {
+test("gateway sanitizer hook does not inherit cookies or the headers a proxy adds in front of LLMR", () => {
   const [hook] = createGatewayPlugin().providerHooks;
   const requestHeaders = {
     "CF-Connecting-IP": "192.0.2.10",
@@ -134,6 +134,22 @@ test("gateway sanitizer hook does not inherit Cloudflare headers, cookies or CDN
     "CoOkIe": "synthetic-session=value",
     "CDN-Loop": "cloudflare",
     "True-Client-IP": "192.0.2.10",
+    "X-Amzn-Oidc-Accesstoken": "synthetic-alb-token",
+    "X-Amzn-Oidc-Data": "synthetic-alb-claims",
+    "X-Goog-IAP-JWT-Assertion": "synthetic-iap-jwt",
+    "X-Goog-Authenticated-User-Email": "accounts.google.com:user@example.test",
+    "X-MS-Client-Principal-Name": "user@example.test",
+    "X-MS-Token-AAD-Access-Token": "synthetic-easyauth-token",
+    "X-Pomerium-Jwt-Assertion": "synthetic-pomerium-jwt",
+    "X-Auth-Request-Access-Token": "synthetic-oauth2-proxy-token",
+    "X-Auth-Request-Email": "user@example.test",
+    "Tailscale-User-Login": "user@example.test",
+    "X-Remote-User": "user",
+    "X-Original-Forwarded-For": "192.0.2.10",
+    "X-Client-IP": "192.0.2.10",
+    "Fastly-Client-IP": "192.0.2.10",
+    "cfx-client-tag": "keep",
+    "x-amzn-trace-id": "Root=1-synthetic",
     "anthropic-version": "2023-06-01",
     "anthropic-beta": "synthetic-beta",
     "user-agent": "synthetic-cli",
@@ -156,6 +172,8 @@ test("gateway sanitizer hook does not inherit Cloudflare headers, cookies or CDN
     headers: {
       authorization: "Bearer provider-token",
       "content-type": "application/json",
+      "cfx-client-tag": "keep",
+      "x-amzn-trace-id": "Root=1-synthetic",
       "anthropic-version": "2023-06-01",
       "anthropic-beta": "synthetic-beta",
       "user-agent": "synthetic-cli",
@@ -184,6 +202,7 @@ test("gateway sanitizer hook preserves explicitly supplied provider cookies and 
   const result = hook.transformRequest({
     request: {
       headers: {
+        connection: "close, cf-access-client-secret, authorization",
         cookie: "inbound-session=value",
         "cf-access-client-id": "inbound-access-client",
         "cf-access-client-secret": "inbound-access-secret",

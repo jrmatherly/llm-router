@@ -372,6 +372,10 @@ test("dynamic script rewrites cannot mutate protected headers without breaking t
 
   assert.ok(compileConfiguredRouteRewrite(rewrite).rewrite);
   assert.match(compileScriptRouteRewrite(rewrite).error, /protected header/i);
+  // The provider boundary drops these, so a script that sets one fails here, not silently later.
+  for (const key of ["request.header.cf-access-client-id", "request.header.x-forwarded-for", "request.header.x-goog-iap-jwt-assertion"]) {
+    assert.match(compileScriptRouteRewrite({ key, operation: "set", value: "x" }).error, /protected header/i);
+  }
   assert.equal(compileConfiguredRouteRewrite({
     key: "request.header.x-boolean-text",
     operation: "set",

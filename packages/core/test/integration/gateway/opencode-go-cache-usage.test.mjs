@@ -165,7 +165,10 @@ test("#1791 actual gateway reports OpenCode Go cache reads to Anthropic clients"
     };
     const headers = {
       "content-type": "application/json",
+      "cf-access-jwt-assertion": "client-access-jwt",
+      cookie: "client-session=value",
       "user-agent": "claude-cli/2.1.220",
+      "x-goog-iap-jwt-assertion": "client-iap-jwt",
       "x-claude-code-session-id": sessionId,
       "x-target-provider": "opencode-go-chat"
     };
@@ -211,6 +214,9 @@ test("#1791 actual gateway reports OpenCode Go cache reads to Anthropic clients"
     for (const request of captured) {
       assert.equal(request.headers["x-opencode-session"], sessionId);
       assert.equal(request.headers["user-agent"], "claude-cli/2.1.220");
+      assert.equal(request.headers.cookie, undefined);
+      assert.equal(request.headers["cf-access-jwt-assertion"], undefined);
+      assert.equal(request.headers["x-goog-iap-jwt-assertion"], undefined);
     }
     assert.equal(captured[0].path, "/zen/go/v1/chat/completions");
     assert.equal(captured[1].path, "/zen/go/v1/chat/completions");

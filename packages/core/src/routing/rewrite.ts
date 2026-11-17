@@ -3,6 +3,7 @@ import type {
   RouterRuleRewrite,
   RouterRuleRewriteOperation
 } from "@llmr/core/contracts/app";
+import { isFrontDoorHeader } from "@llmr/core/gateway/internal/front-door-headers";
 import { normalizeRouteSelector } from "@llmr/core/routing/model-registry";
 
 type HeaderValue = string | string[] | undefined;
@@ -134,7 +135,7 @@ function parseRewritePath(key: string, protectHeaders: boolean): { error?: strin
   }
   if (section === "header" || section === "headers") {
     const name = rest.join(".").toLowerCase();
-    if (protectHeaders && (protectedHeaderNames.has(name) || name.startsWith("x-auth-") || name.startsWith("x-llmr-"))) {
+    if (protectHeaders && (protectedHeaderNames.has(name) || name.startsWith("x-auth-") || name.startsWith("x-llmr-") || isFrontDoorHeader(name))) {
       return { error: `Route rewrite cannot modify protected header "${name}".` };
     }
     return { path: [name], scope: "headers" };

@@ -8,6 +8,7 @@ import {
   normalizeDeepSeekCacheUsage,
   normalizeDeepSeekCacheUsageStream
 } from "@llmr/core/gateway/features/opencode-cache-usage";
+import { isFrontDoorHeader } from "@llmr/core/gateway/internal/front-door-headers";
 import { claudeAppsGatewayIdentityHeaderNames, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
 
 type UpstreamRequest = {
@@ -67,14 +68,6 @@ const llmrRoutingHeaderNames = new Set([
 const clientAuthHeaderNames = new Set<string>([
   ...sdkCompatibleTokenHeaderNames,
   "cookie"
-]);
-
-const proxyMetadataHeaderNames = new Set([
-  "cdn-loop",
-  "forwarded",
-  "true-client-ip",
-  "via",
-  "x-real-ip"
 ]);
 
 const transportHeaderNames = new Set([
@@ -185,10 +178,10 @@ export function sanitizeUpstreamProviderHeaders(headers: Record<string, string>)
 
 /**
  * Restores client headers after the core protocol adapter has rebuilt the
- * provider request, excluding client auth, cookies and proxy metadata (including
- * Cloudflare headers). Explicit provider headers win on name collisions and may
- * supply their own cookies or Cloudflare credentials. Transport and LLMR-owned
- * headers remain excluded.
+ * provider request. A client's credentials, cookies and the headers a proxy
+ * added in front of LLMR are for LLMR's own front door, never for the provider.
+ * The provider request's own headers win, so a provider can still be given a
+ * cookie or proxy credential of its own.
  */
 export function mergeUpstreamProviderHeaders(
   requestHeaders: Record<string, string | string[] | undefined> | undefined,
@@ -213,9 +206,7 @@ export function mergeUpstreamProviderHeaders(
       llmrRoutingHeaderNames.has(normalized) ||
       claudeAppsGatewayIdentityHeaderNames.has(normalized) ||
       clientAuthHeaderNames.has(normalized) ||
-      proxyMetadataHeaderNames.has(normalized) ||
-      normalized.startsWith("cf-") ||
-      normalized.startsWith("x-forwarded-") ||
+      isFrontDoorHeader(normalized) ||
       connectionHeaders.has(normalized)
     ) {
       continue;
@@ -225,7 +216,8 @@ export function mergeUpstreamProviderHeaders(
 
   for (const [name, value] of Object.entries(sanitizeUpstreamProviderHeaders(upstreamHeaders))) {
     const normalized = name.trim().toLowerCase();
-    if (!normalized || connectionHeaders.has(normalized)) continue;
+    // Only the fixed transport names: a client's Connection list must not remove a provider's own header.
+    if (!normalized || transportHeaderNames.has(normalized)) continue;
     merged[normalized] = value;
   }
   return merged;
