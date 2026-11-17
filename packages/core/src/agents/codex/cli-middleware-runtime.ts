@@ -2533,7 +2533,7 @@ function parseAppServerOptions(args) {
 }
 
 function shouldRunClaudeCodeAppServer(args) {
-  const mode = normalizeRemoteFrontendMode(agentEnv(codexRuntimeAgent(), "REMOTE_FRONTEND_MODE", "CORE_MODE"));
+  const mode = normalizeRemoteFrontendMode(agentEnv(codexRuntimeAgent(), "REMOTE_FRONTEND_MODE"));
   const nextArgs = args.length === 0 ? ["app-server"] : args;
   return mode === "claude-code" && nextArgs[0] === "app-server";
 }
@@ -4309,7 +4309,7 @@ function collaborationModes() {
 
 function modelList(params, existingResult) {
   const runtimeAgent = codexRuntimeAgent();
-  const isClaudeCodeRuntime = normalizeRemoteFrontendMode(agentEnv(runtimeAgent, "REMOTE_FRONTEND_MODE", "CORE_MODE")) === "claude-code";
+  const isClaudeCodeRuntime = normalizeRemoteFrontendMode(agentEnv(runtimeAgent, "REMOTE_FRONTEND_MODE")) === "claude-code";
   const configured = normalizeModelSelector(agentEnv(runtimeAgent, "MODEL") || nonEmptyEnv("LLMR_CLAUDE_CODE_MODEL"));
   const selected = configured || (isClaudeCodeRuntime ? DEFAULT_MODEL : "");
   const fallbackIds = isClaudeCodeRuntime
@@ -7235,14 +7235,8 @@ function codexRuntimeHome() {
   return process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
 }
 
-function agentEnv(agent, primarySuffix, secondarySuffix) {
-  const suffixes = [primarySuffix, secondarySuffix].filter(Boolean);
-  const prefix = agent === "zcode" ? "LLMR_ZCODE_" : "LLMR_CODEX_";
-  for (const suffix of suffixes) {
-    const value = nonEmptyEnv(prefix + suffix);
-    if (value) return value;
-  }
-  return "";
+function agentEnv(agent, suffix) {
+  return nonEmptyEnv((agent === "zcode" ? "LLMR_ZCODE_" : "LLMR_CODEX_") + suffix);
 }
 
 function numberEnv(name, fallback) {

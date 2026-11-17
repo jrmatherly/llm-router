@@ -598,6 +598,21 @@ test("Claude Code app-server lists the model from LLMR_CLAUDE_CODE_MODEL", { ski
   assert.deepEqual(response.result.data.map((item) => item.id), ["Provider/only-llmr"]);
 });
 
+test("the runtime reads the frontend mode from REMOTE_FRONTEND_MODE only", () => {
+  const names = ["LLMR_CODEX_CORE_MODE", "LLMR_CODEX_REMOTE_FRONTEND_MODE", "LLMR_ZCODE_PROFILE", "LLMR_REAL_ZCODE_CLI_PATH", "ZCODE_CLI_PATH", "ZCODE_STORAGE_DIR", "ZCODE_HOME"];
+  const previous = names.map((name) => process.env[name]);
+  try {
+    for (const name of names) delete process.env[name];
+    const shouldRun = evaluateRuntimeFunction("shouldRunClaudeCodeAppServer", ["nonEmptyEnv", "agentEnv", "codexRuntimeAgent", "normalizeRemoteFrontendMode"]);
+    process.env.LLMR_CODEX_CORE_MODE = "claude-code";
+    assert.equal(shouldRun(["app-server"]), false);
+    process.env.LLMR_CODEX_REMOTE_FRONTEND_MODE = "claude-code";
+    assert.equal(shouldRun(["app-server"]), true);
+  } finally {
+    names.forEach((name, index) => restoreProcessEnv(name, previous[index]));
+  }
+});
+
 test("CODEXL_HOME does not move the LLMR config directory", () => {
   const previous = [process.env.CODEXL_HOME, process.env.LLMR_CONFIG_DIR];
   try {

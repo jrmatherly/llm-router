@@ -667,7 +667,7 @@ function codexProfileEnv(profile: ProfileConfig, appExecutable: string, spec: Co
       LLMR_REAL_ZCODE_CLI_PATH: realCliPath
     };
   }
-  const codexEnv = {
+  return {
     ...(profile.model.trim() ? { LLMR_CODEX_MODEL: profile.model.trim() } : {}),
     ...(process.env.LLMR_CODEX_CLI_MIDDLEWARE_LOG?.trim()
       ? { LLMR_CODEX_CLI_MIDDLEWARE_LOG: process.env.LLMR_CODEX_CLI_MIDDLEWARE_LOG.trim() }
@@ -679,17 +679,6 @@ function codexProfileEnv(profile: ProfileConfig, appExecutable: string, spec: Co
     LLMR_CODEX_WORKSPACE_NAME: profile.name || providerId,
     LLMR_BUNDLED_CODEX_CLI_PATH: realCliPath,
     LLMR_REAL_CODEX_CLI_PATH: realCliPath
-  };
-  if (spec.kind !== "workbuddy") {
-    return codexEnv;
-  }
-  return {
-    ...codexEnv,
-    ...(profile.model.trim() ? { LLMR_WORKBUDDY_MODEL: profile.model.trim() } : {}),
-    LLMR_REAL_WORKBUDDY_CLI_PATH: realCliPath,
-    LLMR_WORKBUDDY_MODEL_PROVIDER: providerId,
-    LLMR_WORKBUDDY_PROFILE: providerId,
-    LLMR_WORKBUDDY_REMOTE_FRONTEND_MODE: remoteFrontendMode
   };
 }
 
@@ -791,7 +780,6 @@ function codexAppAgentEnv(
   }
   return {
     ...codexEnv,
-    LLMR_WORKBUDDY_MODEL_CATALOG_FILE: modelCatalogFile,
     ...(workbuddyVirtualAuth ? workbuddyVirtualAuthEnv(workbuddyVirtualAuth) : {}),
     CODEBUDDY_CLI_PATH: launcher,
     CODEBUDDY_CONFIG_DIR: home,
@@ -862,7 +850,6 @@ function workbuddyVirtualAuthAccount(profile: Pick<ProfileConfig, "id" | "name">
 function workbuddyVirtualAuthEnv(result: WorkbuddyVirtualAuthResult): Record<string, string> {
   return {
     APPDATA: path.join(result.homeDir, "AppData", "Roaming"),
-    LLMR_WORKBUDDY_VIRTUAL_AUTH_FILE: result.authFile,
     HOME: result.homeDir,
     LOCALAPPDATA: path.join(result.homeDir, "AppData", "Local"),
     USERPROFILE: result.homeDir,
