@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createServer } from "node:http";
 import path from "node:path";
 import test from "node:test";
@@ -539,6 +540,96 @@ test("built ToolHub MCP runtime does not add LLMR handoff tools for non-LLMR bro
   assert.deepEqual(response.result.selectedToolNames, ["mcp.playwright.navigate"]);
 });
 
+for (const framing of [
+  { backend: () => NEWLINE_JSON_STDBACKEND_SCRIPT, label: "newline JSON to a stdio backend with no message mode", server: {} },
+  { backend: () => CONTENT_LENGTH_STDBACKEND_SCRIPT, label: "Content-Length to a stdio backend that asks for it", server: { stdioMessageMode: "content-length" } }
+]) {
+  test(`built ToolHub MCP runtime speaks ${framing.label}`, async (t) => {
+    const runtime = toolHubRuntimePath();
+    if (!existsSync(runtime)) {
+      t.skip("ToolHub MCP runtime has not been built.");
+      return;
+    }
+
+    const scriptDir = mkdtempSync(path.join(tmpdir(), "toolhub-stdio-backend-"));
+    t.after(() => rmSync(scriptDir, { force: true, recursive: true }));
+    const scriptPath = path.join(scriptDir, "backend.mjs");
+    writeFileSync(scriptPath, framing.backend());
+
+    const resolver = createFixedResolverServer(["mcp.stdio_test.campaign-calendar"]);
+    try {
+      await listen(resolver);
+    } catch (error) {
+      resolver.close();
+      t.skip(`Local HTTP listen is unavailable: ${error.message}`);
+      return;
+    }
+    const resolverPort = resolver.address().port;
+    t.after(() => resolver.close());
+
+    const child = spawn(process.execPath, [runtime], {
+      env: {
+        ...process.env,
+        TOOLHUB_MCP_SERVERS_JSON: JSON.stringify([
+          {
+            args: [scriptPath],
+            command: process.execPath,
+            name: "stdio-test",
+            requestTimeoutMs: 8000,
+            startupTimeoutMs: 8000,
+            transport: "stdio",
+            ...framing.server
+          }
+        ]),
+        TOOLHUB_OPENAI_API_KEY: "test-key",
+        TOOLHUB_OPENAI_BASE_URL: `http://127.0.0.1:${resolverPort}/v1`,
+        TOOLHUB_OPENAI_MODEL: "resolver-model",
+        TOOLHUB_REQUEST_TIMEOUT_MS: "10000"
+      },
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    t.after(() => child.kill());
+
+    const stderr = [];
+    child.stderr.on("data", (chunk) => stderr.push(chunk.toString("utf8")));
+    const reader = jsonLineReader(child);
+    writeJsonLine(child, {
+      id: 1,
+      jsonrpc: "2.0",
+      method: "initialize",
+      params: {
+        capabilities: {},
+        clientInfo: { name: "stdio-framing-test", version: "1.0.0" },
+        protocolVersion: "2024-11-05"
+      }
+    });
+    await reader.nextMessage(1);
+    writeJsonLine(child, {
+      jsonrpc: "2.0",
+      method: "notifications/initialized",
+      params: {}
+    });
+    writeJsonLine(child, {
+      id: 2,
+      jsonrpc: "2.0",
+      method: "tools/call",
+      params: {
+        name: "tool_hub.resolve",
+        arguments: {
+          constraints: { maxTools: 10 },
+          task: "Find this month's promotions"
+        }
+      }
+    });
+    const response = await reader.nextMessage(2, 12_000).catch((error) => {
+      error.message += ` stderr: ${stderr.join("")}`;
+      throw error;
+    });
+    assert.equal(response.error, undefined, `stderr: ${stderr.join("")}`);
+    assert.deepEqual(response.result.selectedToolNames, ["mcp.stdio_test.campaign-calendar"]);
+  });
+}
+
 test("built ToolHub MCP runtime keeps resolve cache scoped by task", async (t) => {
   const runtime = toolHubRuntimePath();
   if (!existsSync(runtime)) {
@@ -666,6 +757,93 @@ function toolHubRuntimePath() {
 function writeJsonLine(child, message) {
   child.stdin.write(`${JSON.stringify(message)}\n`);
 }
+
+const STDBACKEND_REPLIES = `
+function reply(message) {
+  if (message.method === "initialize") {
+    return {
+      id: message.id,
+      jsonrpc: "2.0",
+      result: {
+        capabilities: { tools: {} },
+        protocolVersion: message.params?.protocolVersion ?? "2024-11-05",
+        serverInfo: { name: "stdio-test", version: "1.0.0" }
+      }
+    };
+  }
+  if (message.method === "tools/list") {
+    return {
+      id: message.id,
+      jsonrpc: "2.0",
+      result: {
+        tools: [
+          {
+            description: "Returns the campaign calendar for the current month.",
+            inputSchema: { type: "object" },
+            name: "campaign-calendar"
+          }
+        ]
+      }
+    };
+  }
+  return undefined;
+}
+`;
+
+// Each backend accepts one framing only and exits loudly on the other.
+const NEWLINE_JSON_STDBACKEND_SCRIPT = `${STDBACKEND_REPLIES}
+let buffer = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (chunk) => {
+  if (chunk.includes("Content-Length:")) {
+    process.stderr.write("received content-length framing");
+    process.exit(1);
+  }
+  buffer += chunk;
+  for (;;) {
+    const newlineIndex = buffer.indexOf("\\n");
+    if (newlineIndex < 0) {
+      return;
+    }
+    const line = buffer.slice(0, newlineIndex).trim();
+    buffer = buffer.slice(newlineIndex + 1);
+    if (!line) {
+      continue;
+    }
+    const response = reply(JSON.parse(line));
+    if (response) {
+      process.stdout.write(JSON.stringify(response) + "\\n");
+    }
+  }
+});
+`;
+
+const CONTENT_LENGTH_STDBACKEND_SCRIPT = `${STDBACKEND_REPLIES}
+let buffer = Buffer.alloc(0);
+process.stdin.on("data", (chunk) => {
+  buffer = Buffer.concat([buffer, chunk]);
+  if (buffer[0] === 0x7b) {
+    process.stderr.write("received newline framing");
+    process.exit(1);
+  }
+  for (;;) {
+    const headerEnd = buffer.indexOf("\\r\\n\\r\\n");
+    if (headerEnd < 0) {
+      return;
+    }
+    const length = Number(/content-length:\\s*(\\d+)/i.exec(buffer.subarray(0, headerEnd).toString("utf8"))?.[1]);
+    if (buffer.length < headerEnd + 4 + length) {
+      return;
+    }
+    const response = reply(JSON.parse(buffer.subarray(headerEnd + 4, headerEnd + 4 + length).toString("utf8")));
+    buffer = buffer.subarray(headerEnd + 4 + length);
+    if (response) {
+      const text = JSON.stringify(response);
+      process.stdout.write("Content-Length: " + Buffer.byteLength(text, "utf8") + "\\r\\n\\r\\n" + text);
+    }
+  }
+});
+`;
 
 function jsonLineReader(child) {
   let stdout = "";

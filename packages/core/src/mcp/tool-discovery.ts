@@ -335,7 +335,7 @@ function writeStdioMessage(
   message: JsonRpcMessage
 ) {
   const body = JSON.stringify(message);
-  if (mode === "newline-json") {
+  if (mode !== "content-length") {
     child.stdin.write(`${body}\n`);
     return;
   }
@@ -346,7 +346,7 @@ function createStdioMessageReader(
   mode: GatewayMcpStdioServerConfig["stdioMessageMode"],
   onMessage: (message: JsonRpcMessage) => void
 ): (chunk: Buffer) => void {
-  if (mode === "newline-json") {
+  if (mode !== "content-length") {
     let textBuffer = "";
     return (chunk: Buffer) => {
       textBuffer += chunk.toString("utf8");

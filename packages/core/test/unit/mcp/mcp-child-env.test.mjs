@@ -3,6 +3,8 @@ import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { replacePersistedAppConfig } from "@llmr/core/config/config-repository.ts";
+import { loadAppConfig } from "@llmr/core/config/config.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env.ts";
@@ -74,6 +76,7 @@ test("compiled stdio MCP servers hide the core runtime's client API keys", async
     ...config.agent,
     mcpServers: [
       { args: [], command: "user-mcp", env: { TAVILY_API_KEY: "user-key" }, name: "user", transport: "stdio" },
+      { args: [], command: "lsp-style", name: "framed", stdioMessageMode: "content-length", transport: "stdio" },
       { headers: {}, name: "remote", transport: "streamable-http", url: "https://mcp.example.com" }
     ]
   };
@@ -83,6 +86,35 @@ test("compiled stdio MCP servers hide the core runtime's client API keys", async
 
   assert.deepEqual(servers.user.env, { LLMR_CORE_GATEWAY_AUTH_TOKEN: "", TAVILY_API_KEY: "user-key" });
   assert.equal(servers.remote.env, undefined);
+  // The core runtime would frame a stdio server with no mode as Content-Length.
+  assert.equal(servers.user.stdioMessageMode, "newline-json");
+  assert.equal(servers.framed.stdioMessageMode, "content-length");
+  assert.equal(servers.remote.stdioMessageMode, undefined);
+});
+
+test("a saved stdio MCP server with no message mode loads as newline JSON and is discoverable", async (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-mcp-mode-"));
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  const script = path.join(dir, "server.cjs");
+  writeFileSync(script, envProbeServer);
+
+  const current = await loadAppConfig();
+  await replacePersistedAppConfig({
+    ...current,
+    agent: {
+      ...current.agent,
+      mcpServers: [
+        { args: [script], command: process.execPath, env: { SERVER_ONLY: "1" }, name: "plain", transport: "stdio" },
+        { args: [script], command: process.execPath, name: "framed", stdioMessageMode: "content-length", transport: "stdio" }
+      ]
+    }
+  });
+  const servers = Object.fromEntries((await loadAppConfig()).agent.mcpServers.map((server) => [server.name, server]));
+
+  assert.equal(servers.plain.stdioMessageMode, "newline-json");
+  assert.equal(servers.framed.stdioMessageMode, "content-length");
+  // The probe reads newline JSON only, so discovery succeeds only under the right framing.
+  assert.deepEqual((await listMcpServerTools(servers.plain)).map((tool) => tool.name), ["SERVER_ONLY"]);
 });
 
 test("child process env drops LLMR secrets and keeps everything else", () => {

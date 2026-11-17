@@ -926,7 +926,7 @@ export function createMcpServerDraft(servers: GatewayMcpServerConfig[] = []): Mc
     protocolVersion: "2024-11-05",
     requestTimeoutMs: "30000",
     startupTimeoutMs: String(mcpServerStartupTimeoutMs),
-    stdioMessageMode: "content-length",
+    stdioMessageMode: "newline-json",
     transport: "stdio",
     url: ""
   };
@@ -946,7 +946,7 @@ export function createMcpServerDraftFromConfig(server: GatewayMcpServerConfig): 
     protocolVersion: server.protocolVersion,
     requestTimeoutMs: String(server.requestTimeoutMs),
     startupTimeoutMs: String(server.startupTimeoutMs || mcpServerStartupTimeoutMs),
-    stdioMessageMode: server.transport === "stdio" ? server.stdioMessageMode : "content-length",
+    stdioMessageMode: server.transport === "stdio" ? server.stdioMessageMode : "newline-json",
     transport: server.transport,
     url: remote ? server.url : ""
   };
@@ -1041,7 +1041,7 @@ export function createMcpServerDraftFromUnknown(value: Record<string, unknown>):
     protocolVersion: stringValue(value.protocolVersion) ?? "2024-11-05",
     requestTimeoutMs: String(numberValue(String(value.requestTimeoutMs ?? "")) || 30000),
     startupTimeoutMs: String(numberValue(String(value.startupTimeoutMs ?? "")) || mcpServerStartupTimeoutMs),
-    stdioMessageMode: stringValue(value.stdioMessageMode) === "newline-json" ? "newline-json" : "content-length",
+    stdioMessageMode: stringValue(value.stdioMessageMode) === "content-length" ? "content-length" : "newline-json",
     transport,
     url: stringValue(value.url) ?? ""
   };
