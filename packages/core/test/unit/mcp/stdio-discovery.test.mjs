@@ -7,6 +7,7 @@ import { listMcpServerTools } from "@llmr/core/mcp/tool-discovery.ts";
 
 for (const probe of [
   { label: "a silent server times out", pattern: /timed out after 1000 ms\./, script: "process.stdin.resume();" },
+  { label: "a timeout reports what the server wrote to stderr", pattern: /timed out after 1000 ms\. cannot parse header/, script: 'process.stderr.write("cannot parse header\\n"); process.stdin.resume();' },
   { label: "a server that exits before its handshake reports the exit code", pattern: /exited before tools\/list completed \(3\)/, script: "process.exit(3);" },
   { label: "a missing command reports the spawn error", pattern: /ENOENT/ }
 ]) {

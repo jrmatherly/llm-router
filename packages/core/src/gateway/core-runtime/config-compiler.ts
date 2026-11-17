@@ -904,8 +904,9 @@ function addProviderNameVariants(names: Set<string>, providerName: string | unde
   }
 }
 
-// The core runtime frames a stdio server with no mode as Content-Length. MCP's stdio
-// framing is newline JSON, and a plugin's servers arrive here without passing the config parser.
+// LLMR speaks only newline JSON to user and plugin stdio servers, so this overrides any mode they
+// carry. A plugin's servers skip the config parser, and the core runtime frames a stdio server
+// with no mode as Content-Length.
 function withNewlineStdioFraming<T>(server: T): T {
   if (!isRecord(server) || typeof server.command !== "string") {
     return server;

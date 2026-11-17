@@ -558,6 +558,24 @@ for (const framing of [
 
 const shortTimeouts = { requestTimeoutMs: 1000, startupTimeoutMs: 1000 };
 
+test("built ToolHub MCP runtime reports a backend that never answers initialize", async (t) => {
+  const resolved = await resolveWithBackends(t, [{ ...stdioBackend(t, "process.stdin.resume();"), ...shortTimeouts }]);
+  if (!resolved) {
+    return;
+  }
+  const message = resolved.response.error?.message ?? "";
+  assert.ok(message.startsWith("No MCP tools are available to resolve. Backend errors: stdio-test: MCP stdio request timed out (stdio-test): initialize"), message);
+});
+
+test("built ToolHub MCP runtime reports a backend that stalls after its handshake", async (t) => {
+  const resolved = await resolveWithBackends(t, [{ ...stdioBackend(t, STALLS_AFTER_HANDSHAKE_STDBACKEND_SCRIPT), ...shortTimeouts }]);
+  if (!resolved) {
+    return;
+  }
+  const message = resolved.response.error?.message ?? "";
+  assert.ok(message.includes("stdio-test: MCP stdio request timed out (stdio-test): tools/list"), message);
+});
+
 test("built ToolHub MCP runtime reports a backend that exits before its handshake", async (t) => {
   const resolved = await resolveWithBackends(t, [{ ...stdioBackend(t, "process.exit(3);"), ...shortTimeouts }]);
   if (!resolved) {
@@ -844,7 +862,7 @@ function reply(message) {
 }
 `;
 
-// Exits loudly when it is sent Content-Length framing.
+// Exits on Content-Length framing so a framing regression fails at once instead of timing out.
 const NEWLINE_JSON_STDBACKEND_SCRIPT = `${STDBACKEND_REPLIES}
 let buffer = "";
 process.stdin.setEncoding("utf8");
@@ -869,6 +887,13 @@ process.stdin.on("data", (chunk) => {
       process.stdout.write(JSON.stringify(response) + "\\n");
     }
   }
+});
+`;
+
+const STALLS_AFTER_HANDSHAKE_STDBACKEND_SCRIPT = `${STDBACKEND_REPLIES}
+process.stdin.setEncoding("utf8");
+process.stdin.once("data", (chunk) => {
+  process.stdout.write(JSON.stringify(reply(JSON.parse(chunk.split("\\n")[0]))) + "\\n");
 });
 `;
 

@@ -55,7 +55,7 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
       stdio: ["pipe", "pipe", "pipe"]
     }) as ChildProcessWithoutNullStreams;
     const pending = new Map<string, PendingRequest>();
-    const timeout = setTimeout(() => finish(new Error(`MCP tools discovery timed out after ${mcpTimeoutMs(server)} ms.`)), mcpTimeoutMs(server));
+    const timeout = setTimeout(() => finish(new Error(`MCP tools discovery timed out after ${mcpTimeoutMs(server)} ms.${stderrDetail()}`)), mcpTimeoutMs(server));
     const readMessage = createStdioMessageReader(routeMessage);
     let nextId = 1;
     let settled = false;
@@ -70,10 +70,13 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
     child.stdin.on("error", (error) => finish(error));
     child.on("exit", (code, signal) => {
       if (!settled) {
-        const detail = stderr.trim() ? ` ${stderr.trim()}` : "";
-        finish(new Error(`MCP server exited before tools/list completed (${signal ?? code ?? "unknown"}).${detail}`));
+        finish(new Error(`MCP server exited before tools/list completed (${signal ?? code ?? "unknown"}).${stderrDetail()}`));
       }
     });
+
+    function stderrDetail() {
+      return stderr.trim() ? ` ${stderr.trim()}` : "";
+    }
 
     run().catch((error: unknown) => finish(error));
 

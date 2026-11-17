@@ -187,4 +187,5 @@ The import dialog also accepts common MCP JSON:
 - Chrome login import confirmation keeps waiting for the extension: make sure the unpacked `extension/chrome` extension is loaded in Chrome and has site access for the target domains. Open the confirmation URL in Chrome manually.
 - No tools are resolved: confirm the MCP server can list tools, improve tool names and descriptions, or increase **Max tools**.
 - Calls time out: check ToolHub **Timeout ms** and the backend server request/startup timeouts.
+- A stdio server times out on connect: LLMR speaks newline-delimited JSON, the MCP standard, to every stdio server you configure. A server that accepts only `Content-Length` headers (the LSP convention) is not supported.
 - Import fails: validate JSON, avoid duplicate server names, make sure `stdio` entries have a command and remote entries have a URL.

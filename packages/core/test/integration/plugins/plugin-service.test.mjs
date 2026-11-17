@@ -183,6 +183,7 @@ module.exports = {
     );
     assert.ok(compiled.plugins.some((plugin) => plugin.key === "good-context-core-plugin"));
     assert.ok(compiled.plugins.some((plugin) => plugin.key === "good-core-plugin"));
+    assert.equal(compiled.agent.mcpServers.find((server) => server.name === "good-mcp")?.stdioMessageMode, "newline-json");
     assert.deepEqual(
       resolveUsageModelAttribution(coreGatewayUsageAttributionConfig(config), "Fusion/plugin-usage"),
       {
