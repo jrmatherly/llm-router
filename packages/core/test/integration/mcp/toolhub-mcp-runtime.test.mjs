@@ -545,90 +545,75 @@ for (const framing of [
   { backend: () => CONTENT_LENGTH_STDBACKEND_SCRIPT, label: "Content-Length to a stdio backend that asks for it", server: { stdioMessageMode: "content-length" } }
 ]) {
   test(`built ToolHub MCP runtime speaks ${framing.label}`, async (t) => {
-    const runtime = toolHubRuntimePath();
-    if (!existsSync(runtime)) {
-      t.skip("ToolHub MCP runtime has not been built.");
+    const resolved = await resolveWithBackends(t, [
+      { ...stdioBackend(t, framing.backend()), requestTimeoutMs: 8000, startupTimeoutMs: 8000, ...framing.server }
+    ]);
+    if (!resolved) {
       return;
     }
-
-    const scriptDir = mkdtempSync(path.join(tmpdir(), "toolhub-stdio-backend-"));
-    t.after(() => rmSync(scriptDir, { force: true, recursive: true }));
-    const scriptPath = path.join(scriptDir, "backend.mjs");
-    writeFileSync(scriptPath, framing.backend());
-
-    const resolver = createFixedResolverServer(["mcp.stdio_test.campaign-calendar"]);
-    try {
-      await listen(resolver);
-    } catch (error) {
-      resolver.close();
-      t.skip(`Local HTTP listen is unavailable: ${error.message}`);
-      return;
-    }
-    const resolverPort = resolver.address().port;
-    t.after(() => resolver.close());
-
-    const child = spawn(process.execPath, [runtime], {
-      env: {
-        ...process.env,
-        TOOLHUB_MCP_SERVERS_JSON: JSON.stringify([
-          {
-            args: [scriptPath],
-            command: process.execPath,
-            name: "stdio-test",
-            requestTimeoutMs: 8000,
-            startupTimeoutMs: 8000,
-            transport: "stdio",
-            ...framing.server
-          }
-        ]),
-        TOOLHUB_OPENAI_API_KEY: "test-key",
-        TOOLHUB_OPENAI_BASE_URL: `http://127.0.0.1:${resolverPort}/v1`,
-        TOOLHUB_OPENAI_MODEL: "resolver-model",
-        TOOLHUB_REQUEST_TIMEOUT_MS: "10000"
-      },
-      stdio: ["pipe", "pipe", "pipe"]
-    });
-    t.after(() => child.kill());
-
-    const stderr = [];
-    child.stderr.on("data", (chunk) => stderr.push(chunk.toString("utf8")));
-    const reader = jsonLineReader(child);
-    writeJsonLine(child, {
-      id: 1,
-      jsonrpc: "2.0",
-      method: "initialize",
-      params: {
-        capabilities: {},
-        clientInfo: { name: "stdio-framing-test", version: "1.0.0" },
-        protocolVersion: "2024-11-05"
-      }
-    });
-    await reader.nextMessage(1);
-    writeJsonLine(child, {
-      jsonrpc: "2.0",
-      method: "notifications/initialized",
-      params: {}
-    });
-    writeJsonLine(child, {
-      id: 2,
-      jsonrpc: "2.0",
-      method: "tools/call",
-      params: {
-        name: "tool_hub.resolve",
-        arguments: {
-          constraints: { maxTools: 10 },
-          task: "Find this month's promotions"
-        }
-      }
-    });
-    const response = await reader.nextMessage(2, 12_000).catch((error) => {
-      error.message += ` stderr: ${stderr.join("")}`;
-      throw error;
-    });
-    assert.equal(response.error, undefined, `stderr: ${stderr.join("")}`);
-    assert.deepEqual(response.result.selectedToolNames, ["mcp.stdio_test.campaign-calendar"]);
+    assert.equal(resolved.response.error, undefined, `stderr: ${resolved.stderr.join("")}`);
+    assert.deepEqual(resolved.response.result.selectedToolNames, ["mcp.stdio_test.campaign-calendar"]);
   });
 }
+
+const framingHint = "This server is set to Content-Length framing. MCP servers use newline JSON unless they document otherwise. Set its stdio message mode to newline-json.";
+const shortTimeouts = { requestTimeoutMs: 1000, startupTimeoutMs: 1000 };
+
+test("built ToolHub MCP runtime names framing when a content-length backend never answers initialize", async (t) => {
+  const resolved = await resolveWithBackends(t, [
+    { ...stdioBackend(t, NEWLINE_ONLY_STDBACKEND_SCRIPT), ...shortTimeouts, stdioMessageMode: "content-length" }
+  ]);
+  if (!resolved) {
+    return;
+  }
+  const message = resolved.response.error?.message ?? "";
+  assert.ok(message.startsWith("No MCP tools are available to resolve. Backend errors: stdio-test: MCP stdio request timed out (stdio-test): initialize"), message);
+  assert.ok(message.endsWith(framingHint), message);
+});
+
+test("built ToolHub MCP runtime gives no framing hint once a content-length backend has answered initialize", async (t) => {
+  const resolved = await resolveWithBackends(t, [
+    { ...stdioBackend(t, CONTENT_LENGTH_STALLS_STDBACKEND_SCRIPT), ...shortTimeouts, stdioMessageMode: "content-length" }
+  ]);
+  if (!resolved) {
+    return;
+  }
+  const message = resolved.response.error?.message ?? "";
+  assert.ok(message.includes("stdio-test: MCP stdio request timed out (stdio-test): tools/list"), message);
+  assert.ok(!message.includes("Content-Length framing"), message);
+});
+
+test("built ToolHub MCP runtime reports a missing backend command at once and lists at most three backends", async (t) => {
+  const started = Date.now();
+  const resolved = await resolveWithBackends(t, ["one", "two", "three", "four"].map((name) => ({
+    args: [],
+    command: "llmr-no-such-command",
+    name,
+    ...shortTimeouts,
+    stdioMessageMode: "content-length",
+    transport: "stdio"
+  })));
+  if (!resolved) {
+    return;
+  }
+  const elapsedMs = Date.now() - started;
+  const message = resolved.response.error?.message ?? "";
+  assert.ok(message.includes("one: spawn llmr-no-such-command ENOENT"), message);
+  assert.ok(message.includes("two: ") && message.includes("three: "), message);
+  assert.ok(!message.includes("four: "), message);
+  assert.ok(!message.includes("Content-Length framing"), message);
+  assert.ok(elapsedMs < 3000, `settled after ${elapsedMs} ms`);
+});
+
+test("built ToolHub MCP runtime cuts a long backend error", async (t) => {
+  const resolved = await resolveWithBackends(t, [{ ...stdioBackend(t, LONG_ERROR_STDBACKEND_SCRIPT), ...shortTimeouts }]);
+  if (!resolved) {
+    return;
+  }
+  const message = resolved.response.error?.message ?? "";
+  assert.ok(message.includes("stdio-test: xxx"), message);
+  assert.ok(message.length < 400, `${message.length} characters`);
+});
 
 test("built ToolHub MCP runtime keeps resolve cache scoped by task", async (t) => {
   const runtime = toolHubRuntimePath();
@@ -758,6 +743,84 @@ function writeJsonLine(child, message) {
   child.stdin.write(`${JSON.stringify(message)}\n`);
 }
 
+function stdioBackend(t, script) {
+  const scriptDir = mkdtempSync(path.join(tmpdir(), "toolhub-stdio-backend-"));
+  t.after(() => rmSync(scriptDir, { force: true, recursive: true }));
+  const scriptPath = path.join(scriptDir, "backend.mjs");
+  writeFileSync(scriptPath, script);
+  return { args: [scriptPath], command: process.execPath, name: "stdio-test", transport: "stdio" };
+}
+
+// Spawns the built runtime with these backends and returns the JSON-RPC response to one tool_hub.resolve call.
+async function resolveWithBackends(t, servers) {
+  const runtime = toolHubRuntimePath();
+  if (!existsSync(runtime)) {
+    t.skip("ToolHub MCP runtime has not been built.");
+    return undefined;
+  }
+
+  const resolver = createFixedResolverServer(["mcp.stdio_test.campaign-calendar"]);
+  try {
+    await listen(resolver);
+  } catch (error) {
+    resolver.close();
+    t.skip(`Local HTTP listen is unavailable: ${error.message}`);
+    return undefined;
+  }
+  const resolverPort = resolver.address().port;
+  t.after(() => resolver.close());
+
+  const child = spawn(process.execPath, [runtime], {
+    env: {
+      ...process.env,
+      TOOLHUB_MCP_SERVERS_JSON: JSON.stringify(servers),
+      TOOLHUB_OPENAI_API_KEY: "test-key",
+      TOOLHUB_OPENAI_BASE_URL: `http://127.0.0.1:${resolverPort}/v1`,
+      TOOLHUB_OPENAI_MODEL: "resolver-model",
+      TOOLHUB_REQUEST_TIMEOUT_MS: "10000"
+    },
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  t.after(() => child.kill());
+
+  const stderr = [];
+  child.stderr.on("data", (chunk) => stderr.push(chunk.toString("utf8")));
+  const reader = jsonLineReader(child);
+  writeJsonLine(child, {
+    id: 1,
+    jsonrpc: "2.0",
+    method: "initialize",
+    params: {
+      capabilities: {},
+      clientInfo: { name: "stdio-framing-test", version: "1.0.0" },
+      protocolVersion: "2024-11-05"
+    }
+  });
+  await reader.nextMessage(1);
+  writeJsonLine(child, {
+    jsonrpc: "2.0",
+    method: "notifications/initialized",
+    params: {}
+  });
+  writeJsonLine(child, {
+    id: 2,
+    jsonrpc: "2.0",
+    method: "tools/call",
+    params: {
+      name: "tool_hub.resolve",
+      arguments: {
+        constraints: { maxTools: 10 },
+        task: "Find this month's promotions"
+      }
+    }
+  });
+  const response = await reader.nextMessage(2, 12_000).catch((error) => {
+    error.message += ` stderr: ${stderr.join("")}`;
+    throw error;
+  });
+  return { response, stderr };
+}
+
 const STDBACKEND_REPLIES = `
 function reply(message) {
   if (message.method === "initialize") {
@@ -840,6 +903,83 @@ process.stdin.on("data", (chunk) => {
     if (response) {
       const text = JSON.stringify(response);
       process.stdout.write("Content-Length: " + Buffer.byteLength(text, "utf8") + "\\r\\n\\r\\n" + text);
+    }
+  }
+});
+`;
+
+// Reads newline JSON and skips a line that is not JSON, as the MCP SDKs do.
+const NEWLINE_ONLY_STDBACKEND_SCRIPT = `${STDBACKEND_REPLIES}
+let buffer = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (chunk) => {
+  buffer += chunk;
+  for (;;) {
+    const newlineIndex = buffer.indexOf("\\n");
+    if (newlineIndex < 0) {
+      return;
+    }
+    const line = buffer.slice(0, newlineIndex).trim();
+    buffer = buffer.slice(newlineIndex + 1);
+    if (!line) {
+      continue;
+    }
+    let message;
+    try {
+      message = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const response = reply(message);
+    if (response) {
+      process.stdout.write(JSON.stringify(response) + "\\n");
+    }
+  }
+});
+`;
+
+const CONTENT_LENGTH_STALLS_STDBACKEND_SCRIPT = `${STDBACKEND_REPLIES}
+let buffer = Buffer.alloc(0);
+process.stdin.on("data", (chunk) => {
+  buffer = Buffer.concat([buffer, chunk]);
+  if (buffer[0] === 0x7b) {
+    process.stderr.write("received newline framing");
+    process.exit(1);
+  }
+  for (;;) {
+    const headerEnd = buffer.indexOf("\\r\\n\\r\\n");
+    if (headerEnd < 0) {
+      return;
+    }
+    const length = Number(/content-length:\\s*(\\d+)/i.exec(buffer.subarray(0, headerEnd).toString("utf8"))?.[1]);
+    if (buffer.length < headerEnd + 4 + length) {
+      return;
+    }
+    const message = JSON.parse(buffer.subarray(headerEnd + 4, headerEnd + 4 + length).toString("utf8"));
+    const response = message.method === "initialize" ? reply(message) : undefined;
+    buffer = buffer.subarray(headerEnd + 4 + length);
+    if (response) {
+      const text = JSON.stringify(response);
+      process.stdout.write("Content-Length: " + Buffer.byteLength(text, "utf8") + "\\r\\n\\r\\n" + text);
+    }
+  }
+});
+`;
+
+const LONG_ERROR_STDBACKEND_SCRIPT = `
+let buffer = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (chunk) => {
+  buffer += chunk;
+  for (;;) {
+    const newlineIndex = buffer.indexOf("\\n");
+    if (newlineIndex < 0) {
+      return;
+    }
+    const message = JSON.parse(buffer.slice(0, newlineIndex));
+    buffer = buffer.slice(newlineIndex + 1);
+    if (message.method === "initialize") {
+      process.stdout.write(JSON.stringify({ error: { code: -32000, message: "x".repeat(1000) }, id: message.id, jsonrpc: "2.0" }) + "\\n");
     }
   }
 });

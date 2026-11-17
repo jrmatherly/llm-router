@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import OpenAI from "openai";
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { withStdioFramingHint } from "@llmr/core/mcp/stdio-framing";
 import { isLoopbackHostname } from "@llmr/core/net/loopback";
 
 type JsonPrimitive = boolean | null | number | string;
@@ -385,7 +386,8 @@ class ToolHubRuntime {
       catalog = await this.registry.listTools();
     }
     if (catalog.length === 0) {
-      throw new Error("No MCP tools are available to resolve.");
+      const errors = this.registry.serverErrors();
+      throw new Error(`No MCP tools are available to resolve.${errors.length > 0 ? ` Backend errors: ${errors.join("; ")}` : ""}`);
     }
 
     const cached = this.findRecentlyResolvedTask(scopeKey, taskHash);
@@ -840,6 +842,13 @@ class ToolHubRegistry {
     }
   }
 
+  serverErrors(): string[] {
+    return [...this.entries.values()]
+      .filter((entry) => entry.status === "offline" && entry.error)
+      .slice(0, 3)
+      .map((entry) => `${entry.config.name}: ${entry.error?.slice(0, 300)}`);
+  }
+
   private async ensureDiscoveryFresh(maxAgeMs = discoveryCacheMaxAgeMs): Promise<void> {
     const staleServerNames = [...this.entries.values()]
       .filter((entry) => !entry.lastCheckedAt || Date.now() - entry.lastCheckedAt > maxAgeMs)
@@ -1285,11 +1294,19 @@ class StdioMcpClient implements McpClient {
         console.error(`[ToolHub backend ${this.server.name}] ${text}`);
       }
     });
-    child.on("error", (error) => this.rejectAll(error));
+    child.on("error", (error) => {
+      // A failed spawn emits error and never exit, so the dead child would be reused.
+      if (this.child === child) {
+        this.initialized = false;
+        this.child = undefined;
+      }
+      this.rejectAll(error);
+    });
     child.on("exit", (code, signal) => {
+      const handshakeDone = this.initialized;
       this.initialized = false;
       this.child = undefined;
-      this.rejectAll(new Error(`MCP server exited (${this.server.name}): ${signal ?? code ?? "unknown"}`));
+      this.rejectAll(new Error(withStdioFramingHint(`MCP server exited (${this.server.name}): ${signal ?? code ?? "unknown"}`, this.server, handshakeDone)));
     });
     this.child = child;
     return child;
@@ -1306,7 +1323,7 @@ class StdioMcpClient implements McpClient {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(String(id));
-        reject(new Error(`MCP stdio request timed out (${this.server.name}): ${method}`));
+        reject(new Error(withStdioFramingHint(`MCP stdio request timed out (${this.server.name}): ${method}`, this.server, this.initialized)));
       }, timeoutMs);
       this.pending.set(String(id), {
         reject,
