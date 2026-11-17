@@ -2,7 +2,6 @@ import { loadModelCatalogPayload, modelCatalogRevision, scheduleModelCatalogRefr
 import type { GatewayProviderConfig } from "@llmr/core/contracts/app";
 import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
 
-const claudeCodeDefaultContextTokens = 200_000;
 let catalogRevision = -1;
 let modelCatalogIndex: ModelCatalogIndex | undefined;
 
@@ -19,12 +18,6 @@ type ModelCatalogLimits = {
 type ModelCatalogModalities = {
   input?: string[];
   output?: string[];
-};
-
-export type ModelCatalogReasoningEffortConfig = {
-  defaultEffort: string;
-  efforts: string[];
-  supportsReasoning: boolean;
 };
 
 type ModelCatalogSourceRecord = {
@@ -161,14 +154,6 @@ export function modelCatalogMaxInputTokens(entry: ModelCatalogEntry | undefined)
   );
 }
 
-export function claudeCodeEffectiveMaxInputTokens(entry: ModelCatalogEntry | undefined, oneMillionContext: boolean): number {
-  const maxInputTokens = modelCatalogMaxInputTokens(entry);
-  if (oneMillionContext) {
-    return maxInputTokens || 1_000_000;
-  }
-  return maxInputTokens > 0 ? Math.min(maxInputTokens, claudeCodeDefaultContextTokens) : 0;
-}
-
 export function modelCatalogMaxOutputTokens(entry: ModelCatalogEntry | undefined): number {
   return Math.max(
     0,
@@ -179,38 +164,6 @@ export function modelCatalogMaxOutputTokens(entry: ModelCatalogEntry | undefined
 
 export function readCatalogCapability(capabilities: ModelCatalogCapabilities, key: string): boolean {
   return capabilities[key] === true;
-}
-
-export function modelCatalogReasoningEffortConfig(entry: ModelCatalogEntry | undefined, providerName = ""): ModelCatalogReasoningEffortConfig {
-  if (!entry) {
-    return { defaultEffort: "", efforts: [], supportsReasoning: false };
-  }
-
-  const records = sourceRecordsForProvider(entry.sourceRecords ?? [], providerName);
-  const metadataValues = [
-    entry.metadata,
-    ...records.map((record) => record.metadata)
-  ].filter(isRecord);
-
-  let defaultEffort = "";
-  let supportsReasoning = false;
-  const efforts: string[] = [];
-  for (const metadata of metadataValues) {
-    const config = reasoningConfigFromMetadata(metadata);
-    if (config.supportsReasoning) {
-      supportsReasoning = true;
-    }
-    if (!defaultEffort && config.defaultEffort) {
-      defaultEffort = config.defaultEffort;
-    }
-    for (const effort of config.efforts) {
-      if (!efforts.includes(effort)) {
-        efforts.push(effort);
-      }
-    }
-  }
-
-  return { defaultEffort, efforts, supportsReasoning };
 }
 
 function loadModelCatalogIndex(): ModelCatalogIndex {
@@ -380,90 +333,6 @@ function normalizeModelCatalogToken(value: string): string {
 
 function modelCatalogLastSegmentKey(value: string): string {
   return value.split("/").filter(Boolean).at(-1) ?? "";
-}
-
-function sourceRecordsForProvider(records: ModelCatalogSourceRecord[], providerName: string): ModelCatalogSourceRecord[] {
-  const normalizedProviderName = normalizeModelCatalogToken(providerName);
-  if (!normalizedProviderName) {
-    return [];
-  }
-  return records.filter((record) => {
-    const provider = normalizeModelCatalogToken(record.provider ?? "");
-    const displayName = normalizeModelCatalogToken(record.providerName ?? "");
-    return [provider, displayName].some((value) =>
-      value &&
-      (
-        value === normalizedProviderName ||
-        value.includes(normalizedProviderName) ||
-        normalizedProviderName.includes(value)
-      )
-    );
-  });
-}
-
-function reasoningConfigFromMetadata(metadata: Record<string, unknown>): ModelCatalogReasoningEffortConfig {
-  const efforts: string[] = [];
-  let defaultEffort = "";
-  let supportsReasoning = false;
-
-  const reasoning = isRecord(metadata.reasoning) ? metadata.reasoning : undefined;
-  if (reasoning) {
-    supportsReasoning = true;
-    for (const effort of normalizeReasoningEfforts(reasoning.supported_efforts)) {
-      if (!efforts.includes(effort)) {
-        efforts.push(effort);
-      }
-    }
-    defaultEffort = normalizeReasoningEffort(reasoning.default_effort);
-  }
-
-  const options = Array.isArray(metadata.reasoningOptions) ? metadata.reasoningOptions : [];
-  for (const option of options) {
-    if (!isRecord(option)) {
-      continue;
-    }
-    const type = stringValue(option.type)?.toLowerCase();
-    if (type === "toggle" || type === "budget_tokens") {
-      supportsReasoning = true;
-    }
-    if (type !== "effort") {
-      continue;
-    }
-    supportsReasoning = true;
-    for (const effort of normalizeReasoningEfforts(option.values)) {
-      if (!efforts.includes(effort)) {
-        efforts.push(effort);
-      }
-    }
-  }
-
-  return { defaultEffort, efforts, supportsReasoning };
-}
-
-function normalizeReasoningEfforts(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  const efforts: string[] = [];
-  for (const item of value) {
-    const effort = normalizeReasoningEffort(item);
-    if (effort && !efforts.includes(effort)) {
-      efforts.push(effort);
-    }
-  }
-  return efforts;
-}
-
-function normalizeReasoningEffort(value: unknown): string {
-  const normalized = stringValue(value)?.toLowerCase().replace(/[_\s-]+/g, "") ?? "";
-  if (!normalized || normalized === "default") return "";
-  if (normalized === "none" || normalized === "off" || normalized === "disabled") return "none";
-  if (normalized === "minimal") return "minimal";
-  if (normalized === "low") return "low";
-  if (normalized === "medium") return "medium";
-  if (normalized === "high") return "high";
-  if (normalized === "xhigh" || normalized === "extrahigh" || normalized === "max") return "xhigh";
-  return "";
 }
 
 function readCatalogPositiveInteger(value: unknown): number | undefined {

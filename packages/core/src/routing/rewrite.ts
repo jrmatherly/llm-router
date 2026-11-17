@@ -207,12 +207,6 @@ export function readPathValue(value: unknown, path: readonly string[]): unknown 
   }, value);
 }
 
-export function isSafeRouteReadPath(path: string): boolean {
-  const parts = path.split(".").map((part) => part.trim()).filter(Boolean);
-  return parts.length > 2 && parts[0] === "request" && parts[1] === "body" &&
-    parts.slice(2).every((part) => !unsafePathSegments.has(part.toLowerCase()));
-}
-
 function applyBodyRewrite(body: Record<string, unknown>, rewrite: CompiledRouteRewrite): void {
   if (rewrite.operation === "delete") {
     deletePathValue(body, rewrite.path);

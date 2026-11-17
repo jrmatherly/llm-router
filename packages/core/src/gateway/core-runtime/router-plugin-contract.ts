@@ -79,29 +79,3 @@ export type LlmrRouterPluginRouteResponse = {
 export function encodeLlmrRouteFallbackHeader(fallback: RouterFallbackConfig): string {
   return Buffer.from(JSON.stringify(fallback), "utf8").toString("base64url");
 }
-
-export function decodeLlmrRouteFallbackHeader(value: string | undefined): RouterFallbackConfig | undefined {
-  if (!value) {
-    return undefined;
-  }
-  try {
-    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as unknown;
-    return isRouterFallbackConfig(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function isRouterFallbackConfig(value: unknown): value is RouterFallbackConfig {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const candidate = value as RouterFallbackConfig;
-  return (
-    (candidate.mode === "off" || candidate.mode === "retry" || candidate.mode === "model-chain") &&
-    Array.isArray(candidate.models) &&
-    candidate.models.every((model) => typeof model === "string") &&
-    typeof candidate.retryCount === "number" &&
-    Number.isFinite(candidate.retryCount)
-  );
-}

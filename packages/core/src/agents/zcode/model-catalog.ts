@@ -73,11 +73,3 @@ function zcodeModelCatalogEntry(
 
   return findModelCatalogEntry(physicalModel || model);
 }
-
-export function zcodeModelCatalogJson(
-  config?: ZcodeModelCatalogConfig,
-  selectedModel?: string,
-  options: CodexModelCatalogOptions = {}
-): string {
-  return `${JSON.stringify(buildZcodeModelCatalog(config, selectedModel, options), null, 2)}\n`;
-}

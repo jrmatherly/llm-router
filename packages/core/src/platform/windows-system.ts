@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
@@ -25,26 +24,6 @@ export function windowsSystemCommand(command: string): string {
   });
 
   return candidates.find((candidate) => existsSync(candidate)) ?? command;
-}
-
-export function broadcastWindowsEnvironmentChanged(): void {
-  if (process.platform !== "win32") {
-    return;
-  }
-
-  const script = windowsEnvironmentChangedPowerShellLines().join(" ");
-
-  spawnSync(windowsSystemCommand("powershell.exe"), [
-    "-NoProfile",
-    "-NonInteractive",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-Command",
-    script
-  ], {
-    stdio: "ignore",
-    windowsHide: true
-  });
 }
 
 export function windowsEnvironmentChangedPowerShellLines(): string[] {

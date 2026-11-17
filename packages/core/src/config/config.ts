@@ -2533,16 +2533,6 @@ function parseProxy(value: unknown): Partial<ProxyRuntimeConfig> | undefined {
   if (captureNetwork !== undefined) {
     proxy.captureNetwork = captureNetwork;
   }
-  const browserMode = typeof value.browserMode === "boolean"
-    ? value.browserMode
-    : typeof value.builtInBrowser === "boolean"
-      ? value.builtInBrowser
-      : typeof value.builtInBrowserMode === "boolean"
-        ? value.builtInBrowserMode
-        : undefined;
-  if (browserMode !== undefined) {
-    proxy.browserMode = browserMode;
-  }
   if (typeof value.enabled === "boolean") {
     proxy.enabled = value.enabled;
   }
