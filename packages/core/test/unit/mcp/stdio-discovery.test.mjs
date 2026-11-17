@@ -3,10 +3,10 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { listMcpServerTools } from "@llmr/core/mcp/tool-discovery.ts";
+import { listMcpServerTools, mcpDiscoveryMaxTimeoutMs } from "@llmr/core/mcp/tool-discovery.ts";
 
 for (const probe of [
-  { label: "a silent server times out", pattern: /timed out after 1000 ms\./, script: "process.stdin.resume();" },
+  { label: "a silent server times out at its own startup timeout", pattern: /timed out after 1000 ms\.$/, script: "process.stdin.resume();" },
   { label: "a timeout reports what the server wrote to stderr", pattern: /timed out after 1000 ms\. cannot parse header/, script: 'process.stderr.write("cannot parse header\\n"); process.stdin.resume();' },
   { label: "a server that exits before its handshake reports the exit code", pattern: /exited before tools\/list completed \(3\)/, script: "process.exit(3);" },
   { label: "a missing command reports the spawn error", pattern: /ENOENT/ }
@@ -34,6 +34,25 @@ for (const probe of [
     );
   });
 }
+
+test("stdio discovery: gives up at its own ceiling, before the server's startup timeout", async (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-stdio-discovery-"));
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  const script = path.join(dir, "server.cjs");
+  writeFileSync(script, "process.stdin.resume();");
+
+  await assert.rejects(
+    listMcpServerTools(
+      { args: [script], command: process.execPath, env: {}, name: "probe", startupTimeoutMs: 3000, stdioMessageMode: "newline-json", transport: "stdio" },
+      { maxTimeoutMs: 1000 }
+    ),
+    /timed out after 1000 ms\. Tool discovery waits no longer than this for a stdio server, whatever its startup timeout\.$/
+  );
+});
+
+test("stdio discovery: the default ceiling is one minute", () => {
+  assert.equal(mcpDiscoveryMaxTimeoutMs, 60000);
+});
 
 // Answers initialize after closing its own stdin, so the client's next write hits a closed pipe.
 const closesStdinAfterHandshake = `

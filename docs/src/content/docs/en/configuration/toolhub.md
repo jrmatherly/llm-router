@@ -188,4 +188,5 @@ The import dialog also accepts common MCP JSON:
 - No tools are resolved: confirm the MCP server can list tools, improve tool names and descriptions, or increase **Max tools**.
 - Calls time out: check ToolHub **Timeout ms** and the backend server request/startup timeouts.
 - A stdio server times out on connect: LLMR speaks newline-delimited JSON, the MCP standard, to every stdio server you configure. A server that accepts only `Content-Length` headers (the LSP convention) is not supported.
+- Listing a stdio server's tools times out after 60000 ms: tool discovery waits at most one minute for a stdio server, whatever its startup timeout. A first `npx` start that downloads a package can take longer, and the timeout stops the download. Run the same `npx` command once in a terminal so the package is in the npm cache, then try again.
 - Import fails: validate JSON, avoid duplicate server names, make sure `stdio` entries have a command and remote entries have a URL.
