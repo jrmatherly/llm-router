@@ -61,7 +61,8 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig, time
       stdio: ["pipe", "pipe", "pipe"]
     }) as ChildProcessWithoutNullStreams;
     const pending = new Map<string, PendingRequest>();
-    const timeout = setTimeout(() => finish(new Error(`MCP tools discovery timed out after ${timeoutMs} ms.${stderrDetail()}`)), timeoutMs);
+    const timeout = setTimeout(() => finish(new Error(`MCP tools discovery timed out after ${timeoutMs} ms.${cappedDetail}${stderrDetail()}`)), timeoutMs);
+    const cappedDetail = timeoutMs < mcpTimeoutMs(server) ? " Tool discovery waits no longer than this for a stdio server, whatever its startup timeout." : "";
     const readMessage = createStdioMessageReader(routeMessage);
     let nextId = 1;
     let settled = false;
