@@ -128,7 +128,6 @@ export const MEDIA_JOB_CANCEL_TOOL_PREFIX = "media_job_cancel";
 // Legacy names are retained only so configs created by the first Grok-specific
 // implementation can be opened and migrated into the generic media tools.
 export const BUILTIN_FUSION_GROK_MEDIA_TOOL_NAME = "grok_media";
-export const GROK_MEDIA_MCP_SERVER_NAME = MEDIA_TOOLS_MCP_SERVER_NAME;
 export const GROK_MEDIA_IMAGE_GENERATE_TOOL_NAME = "grok_media_image_generate";
 export const GROK_MEDIA_IMAGE_EDIT_TOOL_NAME = "grok_media_image_edit";
 export const GROK_MEDIA_VIDEO_START_TOOL_NAME = "grok_media_video_start";
@@ -1234,7 +1233,6 @@ export type PluginMarketplaceEntry = {
 };
 
 export type ProxyRuntimeConfig = {
-  browserMode: boolean;
   captureNetwork: boolean;
   enabled: boolean;
   host: string;

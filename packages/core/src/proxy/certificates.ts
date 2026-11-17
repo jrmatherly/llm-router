@@ -133,19 +133,6 @@ export function readProxyCertificateFingerprintSha1(): string | undefined {
   }
 }
 
-export function readProxyCertificateSerialNumber(): string | undefined {
-  if (!existsSync(PROXY_CA_CERT_FILE)) {
-    return undefined;
-  }
-
-  try {
-    const cert = pki.certificateFromPem(readFileSync(PROXY_CA_CERT_FILE, "utf8"));
-    return cert.serialNumber;
-  } catch {
-    return undefined;
-  }
-}
-
 export function createCertificateForHost(hostname: string, authority: CertificateAuthority): PemPair {
   const keys = pki.rsa.generateKeyPair(2048);
   const cert = pki.createCertificate();

@@ -1815,13 +1815,6 @@ export function enqueueGatewayRequestLogFromRawTrace(
   return requestLogRuntime.enqueueRawTrace(input, rawTraceFiles);
 }
 
-export async function updateGatewayRequestLogFromRawTrace(
-  input: RequestLogRawTraceUpdateInput,
-  rawTraceFiles?: RequestLogRawTraceFiles
-): Promise<boolean> {
-  return enqueueGatewayRequestLogFromRawTrace(input, rawTraceFiles).accepted;
-}
-
 export async function getRequestLogs(filter?: RequestLogListFilter): Promise<RequestLogPage> {
   try {
     return await requestLogRuntime.list(filter);

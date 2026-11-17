@@ -1,5 +1,3 @@
-export const DEFAULT_RETRY_AFTER_MS = 1000;
-
 export function delay(ms: number, signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) {
     return Promise.resolve();

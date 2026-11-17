@@ -191,7 +191,6 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
       ]
     },
     proxy: {
-      browserMode: true,
       captureNetwork: false,
       enabled: false,
       host: "127.0.0.1",
