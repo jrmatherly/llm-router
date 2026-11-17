@@ -25,8 +25,11 @@ Each finding says how it was established.
 | F-7 | In ToolHub, a server whose command does not exist loses its spawn error and waits for the timeout. | Measured 2026-11-16 by three reviewers. A missing command emits `error` and `close` on the child, never `exit`. `StdioMcpClient`'s `error` handler rejects the pending request and keeps `this.child`. The second probe (F-4) writes to the dead child and waits `startupTimeoutMs`, then overwrites the stored `spawn ... ENOENT` with a timeout. Four such servers at the 60 s default took 480 s to answer. |
 | F-5 | The settings page cannot test a server. | Read. `packages/ui/src/pages/home/components/settings.tsx` has no call to `listMcpServerTools`. Only the virtual-model page runs discovery. |
 | F-6 | The affected servers are the ones saved from the settings page before PR 76. | Read. `mcpServerConfigFromDraft` in `packages/ui/src/pages/home/shared/virtual-models.ts` always writes `draft.stdioMessageMode`, and the old draft default was `content-length`. |
+| F-8 | With ToolHub turned off, neither of LLMR's stdio clients runs the user's servers for agent traffic. | Read 2026-11-16. `compileCoreGatewayConfig` in `packages/core/src/gateway/core-runtime/config-compiler.ts` puts `externalMcpServers` straight into the gateway child's `agent.mcpServers` when `toolHubMcpServer` returns nothing. The gateway child's stdio client is in the `ai-gateway` package, so option A cannot change its errors. Option B reaches it, because the compiler writes the mode the gateway child uses. |
 
 Not verified: a real SDK-built server was not run, because the SDK is not installed in this repo. F-2 used a script that mirrors the parsing in F-1. The spawn behavior in F-7 was measured on macOS with Node 24 only.
+
+A second pass on 2026-11-16 ran the plan's five discovery cases against `main` at `c3655c19`: every message matched the plan, and a missing command failed in 3 ms with `spawn ... ENOENT`. F-8 came from that pass.
 
 Three reviewers on different models tried to break this spec and its plan on 2026-11-16, each by running probes and prototypes against the code. F-7, the doubling in F-4 and the plugin path in option B came from them.
 
@@ -34,8 +37,8 @@ Three reviewers on different models tried to break this spec and its plan on 202
 
 | Option | What it does | Verdict |
 |---|---|---|
-| A | Add a framing hint to the errors of both stdio clients, show a failed backend's stored error when ToolHub has no tools, and stop reusing a child process that failed to start (F-7). | Recommended. Planned as MF-1. |
-| B | Ignore `content-length` for every server LLMR's own stdio clients talk to, keep it for LLMR's bundled servers, and remove the dropdown. Old saved servers then work with no migration. Those clients also receive servers a plugin contributes (`coreGateway.config.agent.mcpServers`), so a plugin could no longer ask for `content-length`. No plugin in this repo does. | Owner decision OD-1. Planned as MF-2, not to start without it. |
+| A | Add a framing hint to the errors of both stdio clients, show a failed backend's stored error when ToolHub has no tools, and stop reusing a child process that failed to start (F-7). It does not cover agent traffic with ToolHub turned off (F-8). | Recommended. Planned as MF-1. |
+| B | Ignore `content-length` for every server LLMR's own stdio clients talk to, keep it for LLMR's bundled servers, and remove the dropdown. Old saved servers then work with no migration, with ToolHub on or off (F-8). Those clients also receive servers a plugin contributes (`coreGateway.config.agent.mcpServers`), so a plugin could no longer ask for `content-length`. No plugin in this repo does. | Owner decision OD-1. Planned as MF-2, not to start without it. |
 | C | Retry in the other framing after a short silence. | Rejected. A slow first start, such as `npx` downloading a package, looks like silence and would trigger a wrong retry and a second `initialize`. |
 | D | Give interactive discovery a shorter timeout than server startup. | Owner decision OD-2. Planned as MF-3, not to start without it. |
 | E | Add a "test" action to the settings page. | Not planned. It needs a UI design first. |

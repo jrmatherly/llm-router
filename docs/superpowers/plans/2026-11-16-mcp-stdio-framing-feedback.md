@@ -49,6 +49,8 @@ Each line has its pinning test in the owning task.
 
 - **A failing backend beside a working one stays silent.** `ToolHubRuntime` reports backend errors only when the catalog is empty (Review Focus 5).
 - **ToolHub waits twice the startup timeout before it reports an empty catalog** (spec F-4). `ToolHubRuntime` probes every server a second time when the first pass finds no tools. No task changes that. MF-1's tests set 1000 ms timeouts, so each takes about 2 seconds.
+- **With ToolHub turned off, MF-1 adds no hint for agent traffic** (spec F-8). `compileCoreGatewayConfig` then hands the user's and plugins' stdio servers to the gateway child, which spawns them with its own stdio client. That client lives in the `ai-gateway` package, not in this repo, so MF-1 cannot reach its errors. The hint still appears in tool discovery on the virtual-model page. MF-2 fixes this case, because the compiler would then send `newline-json` to the gateway child too.
+- **`StdioMcpClient` forgets a child on any `error` event, not only a failed spawn** (MF-1 Task 2 Step 4). Node also emits `error` when a `kill()` fails, and the child is then still running with no reference to it. Nothing in this client calls `kill()` except `close()`, which drops the reference anyway, so the change adds no new orphan.
 - **The spawn behavior behind MF-1 Task 2 Step 3 was measured on macOS only.** Node documents the `error` event for a failed spawn on every platform, and CI runs the test on Linux.
 - **The settings page still cannot test a server** (spec F-5, option E). A user who only uses the settings page meets the hint at run time, in the agent's tool error.
 - **The hint can appear for a server that fails for another reason while set to `content-length`.** The text states the setting and what to try. It does not claim framing is the cause.
@@ -100,7 +102,7 @@ test("the hint applies only to a content-length server before its handshake", ()
 });
 ```
 
-Discovery cases, one test each, asserting on the rejection's `message`:
+Discovery cases, one test each, asserting on the rejection's `message`. The five "must match" patterns were run against `main` at `c3655c19` on 2026-11-16 and all matched: cases a to c settled in about 1 second, case d in 28 ms and case e in 3 ms. Only the hint column is new behavior.
 
 | Case | Script | Mode | Message must match | Hint |
 |---|---|---|---|---|
@@ -119,7 +121,7 @@ Expected: the build fails, because `@llmr/core/mcp/stdio-framing.ts` does not ex
 
 - [ ] **Step 4: Implement `stdio-framing.ts`**
 
-Export `stdioFramingHint` and `withStdioFramingHint` as the Interfaces block states. No other export.
+Export `stdioFramingHint` and `withStdioFramingHint` as the Interfaces block states. No other export. Import `GatewayMcpStdioMessageMode` with `import type`: `toolhub-mcp.ts` is bundled as a standalone runtime and imports nothing from `contracts/app` today, and a type-only import keeps it that way.
 
 - [ ] **Step 5: Use it in `listStdioMcpServerTools`**
 
@@ -264,7 +266,7 @@ Write the PR body to a scratch file and pass `--body-file`. Open `## Why` with t
 
 Do not start this PR on an agent's judgment. If OD-1 is answered no, mark this section "Not doing" and stop.
 
-LLMR's two stdio clients talk to three kinds of server: the ones in `config.agent.mcpServers`, the ones in `config.toolHub.mcpServers`, and the ones a plugin contributes through `coreGateway.config.agent.mcpServers`. `compileCoreGatewayConfig` joins the three into `externalMcpServers` (`packages/core/src/gateway/core-runtime/config-compiler.ts`). The gateway child, not LLMR, spawns the bundled servers that read `Content-Length`. So once none of those three can be `content-length`, the `Content-Length` code in both clients has no caller, and neither has the hint from MF-1.
+LLMR's two stdio clients talk to three kinds of server: the ones in `config.agent.mcpServers`, the ones in `config.toolHub.mcpServers`, and the ones a plugin contributes through `coreGateway.config.agent.mcpServers`. `compileCoreGatewayConfig` joins the three into `externalMcpServers` (`packages/core/src/gateway/core-runtime/config-compiler.ts`). The gateway child, not LLMR, spawns the bundled servers that read `Content-Length`. With ToolHub turned off it also spawns the `externalMcpServers` themselves (`toolHubServer ? [toolHubServer] : externalMcpServers`), using the mode the compiler wrote, so this PR changes what the gateway child speaks to them as well (spec F-8). So once none of those three can be `content-length`, the `Content-Length` code in both clients has no caller, and neither has the hint from MF-1.
 
 This PR takes the `content-length` choice away from plugins too. OD-1 covers that. No plugin in this repo sets it.
 
@@ -293,6 +295,8 @@ rg -n "stdioMessageMode: \"content-length\"" packages -g '!**/test/**'
 Expected: hits only in `packages/core/src/mcp/fusion-config.ts`, `packages/core/src/mcp/grok-media-config.ts` and `packages/electron/src/main/electron-web-search-mcp.ts`. A hit in any other source file means a new producer of a `Content-Length` server exists. Stop and tell the lead.
 
 Then confirm no bundled server reaches LLMR's own clients. Read where `externalMcpServers` is built in `config-compiler.ts`: its three sources must be the plugin list, `config.agent.mcpServers` and `config.toolHub.mcpServers`, and nothing from `builtinToolArtifacts.mcpServers`. Read the two callers of `listMcpServerTools` (`packages/electron/src/main/ipc.ts`, `packages/core/src/web/management-server.ts`): each must take its server from `config.agent.mcpServers`. If either check fails, stop and tell the lead.
+
+Last, confirm no bundled stdio server reaches the ToolHub runtime as a backend. `toolHubBuiltInBackendServers` in `packages/core/src/mcp/toolhub-config.ts` must return only `streamable-http` servers, and the callers of `toolHubMcpRuntimeConfig` (`fusion-config.ts`, `toolhub-config.ts`, `packages/core/src/profiles/service.ts`) must pass only `externalMcpServers`, the result of `toolHubBackendServers`, or nothing. On 2026-11-16 the one built-in backend was the browser automation server, over `streamable-http`. A bundled stdio backend here would stop working once `normalizeServerConfig` forces `newline-json`. Stop and tell the lead if there is one.
 
 - [ ] **Step 2: Change the tests first**
 
@@ -359,7 +363,7 @@ Do not start this PR on an agent's judgment, and do not pick the number.
 - Test: `packages/core/test/unit/mcp/stdio-framing.test.mjs` if MF-2 has not deleted it, else `packages/core/test/unit/mcp/mcp-child-env.test.mjs`
 
 **Interfaces:**
-- Produces: `mcpDiscoveryMaxTimeoutMs: number`, exported from `tool-discovery.ts`, holding the owner's number. `listMcpServerTools(server, options?: { maxTimeoutMs?: number })`: discovery waits `Math.min(mcpTimeoutMs(server), options?.maxTimeoutMs ?? mcpDiscoveryMaxTimeoutMs)`. The option exists so a test does not wait for the real ceiling.
+- Produces: `mcpDiscoveryMaxTimeoutMs: number`, exported from `tool-discovery.ts`, holding the owner's number. `listMcpServerTools(server, options?: { maxTimeoutMs?: number })`: discovery waits `Math.min(mcpTimeoutMs(server), options?.maxTimeoutMs ?? mcpDiscoveryMaxTimeoutMs)`. The option exists so a test does not wait for the real ceiling. The ceiling applies to the stdio path only. The streamable HTTP and SSE paths keep `mcpTimeoutMs(server)`: a wrong framing cannot stall them, and spec F-3 was measured on stdio.
 
 - [ ] **Step 1: Write the failing test**
 
