@@ -42,7 +42,7 @@ export function buildRouteScriptInput(
   const apiKeyId = readHeader(request.headers, "x-auth-api-key-id");
   const snapshot: BodySnapshot = { json: JSON.stringify(request.body) };
   const oversized = Buffer.byteLength(snapshot.json) > maxRouteScriptBodyBytes;
-  if (oversized) snapshot.json = JSON.stringify({ __llmrBodyTruncated: true, model: request.body.model });
+  if (oversized) snapshot.json = JSON.stringify(truncatedBody(request.body.model));
   const input: RouteScriptInput = {
     ...(apiKeyId ? { apiKeyId } : {}),
     ...(request.builtInSubagentModel ? { builtInSubagentModel: request.builtInSubagentModel } : {}),
@@ -60,7 +60,7 @@ export function buildRouteScriptInput(
       toolNames: toolNames(request.body.tools).slice(0, maxToolNames)
     },
     tokenCount: options.deferTokenCount
-      ? options.tokenCount ?? (oversized ? calculateTokenCount(request.body.messages, request.body.system, request.body.tools) : undefined)
+      ? options.tokenCount ?? (oversized ? request.tokenCount ?? calculateTokenCount(request.body.messages, request.body.system, request.body.tools) : undefined)
       : request.tokenCount ?? 0,
     url: request.url
   };
@@ -76,13 +76,20 @@ export function buildRouteScriptInput(
   return input;
 }
 
+// The empty messages array keeps a script that reads input.body.messages from throwing,
+// which would count toward the rule's circuit breaker.
+function truncatedBody(model: unknown): Record<string, unknown> {
+  return { __llmrBodyTruncated: true, messages: [], model };
+}
+
 export function serializeRouteScriptInput(input: RouteScriptInput): string {
   const snapshot = bodySnapshots.get(input);
   if (!snapshot) {
     const json = JSON.stringify(input.body);
     if (Buffer.byteLength(json) <= maxRouteScriptBodyBytes) return JSON.stringify(input);
-    return JSON.stringify({ ...input,
-      body: { __llmrBodyTruncated: true, model: input.model },
+    return JSON.stringify({
+      ...input,
+      body: truncatedBody(input.model),
       tokenCount: input.tokenCount ?? calculateTokenCount(input.body.messages, input.body.system, input.body.tools)
     });
   }
@@ -93,7 +100,7 @@ export function serializeRouteScriptInput(input: RouteScriptInput): string {
   let bodyJson = snapshot.body ? JSON.stringify(snapshot.body) : snapshot.json;
   if (Buffer.byteLength(bodyJson) > maxRouteScriptBodyBytes) {
     metadata.tokenCount ??= calculateTokenCount(snapshot.body?.messages, snapshot.body?.system, snapshot.body?.tools);
-    bodyJson = JSON.stringify({ __llmrBodyTruncated: true, model: input.model });
+    bodyJson = JSON.stringify(truncatedBody(input.model));
   }
   return `${JSON.stringify(metadata).slice(0, -1)},"body":${bodyJson}}`;
 }

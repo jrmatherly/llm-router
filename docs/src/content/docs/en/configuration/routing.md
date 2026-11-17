@@ -118,7 +118,7 @@ Each execution receives its own read-only `input` object:
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `input.body` | `Record<string, unknown>` | Complete JSON request body. |
+| `input.body` | `Record<string, unknown>` | JSON request body. A body over 2 MiB is replaced by `{ __llmrBodyTruncated: true, messages: [], model }`; use `input.summary` and `input.tokenCount`, which still describe the full request. |
 | `input.headers` | `Record<string, string \| string[]>` | Complete request headers, potentially including authentication, cookies, API keys, and LLMR-internal headers. |
 | `input.method` | `string` | HTTP method, such as `POST`. |
 | `input.url` | `string` | Gateway-relative request URL, such as `/v1/messages`. |

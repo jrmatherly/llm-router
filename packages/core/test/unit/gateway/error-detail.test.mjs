@@ -70,6 +70,16 @@ test("#1951 a client rendering only error.message sees the failed provider, root
   assert.equal(appendAggregateErrorAttemptSummary(result, [], context), undefined);
 });
 
+test("an attempt summary leads with provider and model, and the requested model is sanitized and capped", () => {
+  const input = JSON.stringify({ error: { message: "All target providers failed.", attempts: [
+    { provider: "p", model: "m", stage: "s", status: 500, message: "x" }
+  ] } });
+  const result = appendAggregateErrorAttemptSummary(input, [], { requestedModel: `a\r\nb${"x".repeat(300)}` });
+  const message = JSON.parse(result).error.message;
+  assert.match(message, /\[p\/m\|s\|500\] x/);
+  assert.ok(message.endsWith(` Requested model: a  b${"x".repeat(156)}.`));
+});
+
 test("appendAggregateErrorAttemptSummary is idempotent", () => {
   const once = appendAggregateErrorAttemptSummary(JSON.stringify(aggregateErrorPayload()));
   assert.ok(once);

@@ -117,7 +117,7 @@ test("a fallback leg to a provider without the flag still strips", async () => {
     globalThis.fetch = async (_url, init) => {
       sentBodies.push(JSON.parse(String(init?.body ?? "{}")));
       return sentBodies.length === 1
-        ? new Response("{}", { status: 503, headers: { "content-type": "application/json" } })
+        ? new Response("{}", { status: 503, headers: { "content-type": "application/json", "retry-after": "0.001" } })
         : new Response('{"id":"ok"}', { status: 200, headers: { "content-type": "application/json" } });
     };
 

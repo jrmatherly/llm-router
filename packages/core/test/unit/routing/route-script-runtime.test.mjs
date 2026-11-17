@@ -7,7 +7,7 @@ import test from "node:test";
 import { ROUTER_SCRIPT_MAX_SOURCE_BYTES } from "@llmr/core/contracts/app.ts";
 import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
-import { buildRouteScriptInput } from "@llmr/core/routing/route-script-context.ts";
+import { buildRouteScriptInput, maxRouteScriptBodyBytes, serializeRouteScriptInput } from "@llmr/core/routing/route-script-context.ts";
 import { RouteScriptRuntime } from "@llmr/core/routing/route-script-runtime.ts";
 
 const workerFile = [
@@ -992,7 +992,6 @@ test("route script circuit breakers are versioned and can be bypassed for test r
   }
 });
 
-
 test("#1928 a 60 MiB request stays within the route worker heap and retains lazy token semantics", { timeout: 30000 }, async () => {
   const runtime = new RouteScriptRuntime({ workerCount: 1, workerFile });
   const body = { model: "Provider/alpha", messages: [{ role: "user", content: "x ".repeat(30 * 1024 * 1024) }] };
@@ -1013,19 +1012,56 @@ test("#1928 a 60 MiB request stays within the route worker heap and retains lazy
   } finally { await runtime.close(); }
 });
 
-
 test("#1928 a large conversation still selects its script fallback chain", { timeout: 15000 }, async () => {
   const runtime = new RouteScriptRuntime({ workerCount: 1, workerFile });
   const script = routeScript(`return input.tokenCount > 0 ? {
     model: "Provider/beta", fallback: { mode: "model-chain", models: ["Provider/fallback"], retryCount: 0 }
   } : null;`, { timeoutMs: 5000 });
   const plugin = new LLMRouterPlugin(routingConfig([scriptRule("large-chain", script)]), { scriptRuntime: runtime });
-  const body = { model: "Provider/alpha", messages: [{ role: "user", content: "x".repeat(20 * 1024 * 1024) }] };
+  const body = { model: "Provider/alpha", messages: [{ role: "user", content: "x".repeat(3 * 1024 * 1024) }] };
   try {
     const result = await plugin.routeRequest(routingInput(body));
     assert.equal(result.decision.model, "Provider/beta");
     assert.equal(result.decision.fallback.mode, "model-chain");
     assert.deepEqual(result.decision.fallback.models, ["Provider/fallback"]);
-    assert.equal(body.messages[0].content.length, 20 * 1024 * 1024, "the forwarded request remains complete");
+    assert.equal(body.messages[0].content.length, 3 * 1024 * 1024, "the forwarded request remains complete");
   } finally { await runtime.close(); }
+});
+
+function serializedScriptInput(content, options = { deferTokenCount: true }) {
+  const body = { model: "Provider/alpha", messages: [{ role: "user", content }] };
+  const request = { body, headers: {}, method: "POST", url: "/v1/messages" };
+  return JSON.parse(serializeRouteScriptInput(buildRouteScriptInput(request, options)));
+}
+
+test("the route script body cap is measured in bytes and applies only above 2 MiB", () => {
+  const overhead = Buffer.byteLength(JSON.stringify({ model: "Provider/alpha", messages: [{ role: "user", content: "" }] }));
+  const atCap = serializedScriptInput("x".repeat(maxRouteScriptBodyBytes - overhead));
+  assert.equal(atCap.body.messages[0].content.length, maxRouteScriptBodyBytes - overhead);
+  assert.equal(atCap.body.__llmrBodyTruncated, undefined);
+  assert.equal(atCap.tokenCount, undefined);
+
+  const marker = { __llmrBodyTruncated: true, messages: [], model: "Provider/alpha" };
+  const overCap = serializedScriptInput("x".repeat(maxRouteScriptBodyBytes - overhead + 1));
+  assert.deepEqual(overCap.body, marker);
+  assert.ok(overCap.tokenCount > 0);
+
+  const multibyte = serializedScriptInput("\u00e9".repeat(1_200_000));
+  assert.deepEqual(multibyte.body, marker);
+});
+
+test("an oversized body reuses the request's token count", () => {
+  const body = { model: "Provider/alpha", messages: [{ role: "user", content: "x".repeat(3 * 1024 * 1024) }] };
+  const request = { body, headers: {}, method: "POST", tokenCount: 42, url: "/v1/messages" };
+  assert.equal(buildRouteScriptInput(request, { deferTokenCount: true }).tokenCount, 42);
+});
+
+test("the token estimate is the same on both sides of its 1 MiB branch", async () => {
+  const { calculateTokenCount } = await import("@llmr/core/routing/token-estimator.ts");
+  const cjk = String.fromCodePoint(0x4e2d);
+  const unit = `ab ${cjk}${cjk}! `;
+  const small = calculateTokenCount(undefined, unit.repeat(1000), undefined);
+  const repeats = Math.ceil((1024 * 1024 + 1) / unit.length);
+  const large = calculateTokenCount(undefined, unit.repeat(repeats), undefined);
+  assert.equal(large - small, Math.ceil(repeats * 6 * 1.15) - Math.ceil(1000 * 6 * 1.15));
 });

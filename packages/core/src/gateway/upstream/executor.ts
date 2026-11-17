@@ -876,7 +876,7 @@ function usageAwareOpenAiChatAttemptBody(input: {
     // OpenAI-protocol client's `thinking` is a vendor extension the provider must opt into.
     dropThinkingParameters:
       clientProtocol === "anthropic_messages" ||
-      input.target?.provider?.forwardThinkingParameters !== true
+      (input.target?.provider ?? modelSelector?.provider)?.forwardThinkingParameters !== true
   });
   return providerProtocol === "openai_chat_completions"
     ? usageAwareOpenAiChatBody(sanitizedBody)
