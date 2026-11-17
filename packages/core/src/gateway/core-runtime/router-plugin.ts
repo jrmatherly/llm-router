@@ -188,6 +188,7 @@ type GatewayRouteResolution = {
   reason?: string;
   requestBody?: Record<string, unknown>;
   targetProviderName?: string;
+  targetProviders?: { providerName: string }[];
 };
 
 export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {}) {
@@ -1068,25 +1069,52 @@ function resolveLlmrGatewayRoute(
     return undefined;
   }
 
-  const requestBody = requestBodyWithModel(requestInput.requestBody, resolved.model);
   if (resolved.kind === "gateway") {
     return {
       model: resolved.model,
-      requestBody
+      requestBody: requestBodyWithModel(requestInput.requestBody, resolved.model)
     };
   }
 
   const parsedSelector = parseProviderModelSelector(publicModel);
-  const targetProviderName = coreGatewayProviderSelectorName(resolved.provider, protocol, parsedSelector?.provider);
-  if (!targetProviderName) {
+  const targetProtocol = coreGatewayProviderProtocol(resolved.provider, protocol);
+  const targetProviderName = coreGatewayProviderSelectorName(
+    resolved.provider,
+    protocol,
+    parsedSelector?.provider,
+    targetProtocol
+  );
+  if (!targetProviderName || !targetProtocol) {
     return undefined;
   }
 
+  const credentials = sortProviderCredentialsForConfig(activeProviderCredentials(resolved.provider));
+  const credentialNames = credentials.map((credential) =>
+    providerCredentialInternalName(resolved.provider, targetProtocol, credential));
+  const explicitCredential = parsedSelector?.provider.toLowerCase().includes("::cred:");
+  // Qualify vendor model IDs once so the core parses the outer selector only.
+  // A pool uses its protocol rather than one concrete key, allowing every
+  // credential in the selected chain to resolve the same upstream model.
+  const modelProvider = credentials.length > 1 && !explicitCredential
+    ? targetProtocol.split("_")[0]
+    : targetProviderName;
+  const gatewayModel = resolved.model.includes("/")
+    ? `${modelProvider}/${resolved.model}`
+    : resolved.model;
+  // The host has already applied cooldowns, limits and priority. Retain that
+  // ordered chain instead of narrowing the route back down to its first key.
+  const selectedNames = (readHeader(requestInput.request?.headers, "x-target-providers") ?? "")
+    .split(",").map((name) => name.trim()).filter((name) => credentialNames.includes(name));
+  const targetProviders = !explicitCredential && credentialNames.length > 0
+    ? (selectedNames.length > 0 ? selectedNames : credentialNames).map((providerName) => ({ providerName }))
+    : undefined;
+
   return {
-    model: resolved.model,
+    model: gatewayModel,
     reason: readHeader(requestInput.request?.headers, llmrRouteReasonHeader),
-    requestBody,
-    targetProviderName
+    requestBody: requestBodyWithModel(requestInput.requestBody, gatewayModel),
+    targetProviderName,
+    ...(targetProviders ? { targetProviders } : {})
   };
 }
 
@@ -1135,18 +1163,27 @@ function requestBodyWithModel(body: Record<string, unknown>, model: string): Rec
   return body.model === model ? body : { ...body, model };
 }
 
-function coreGatewayProviderSelectorName(
+function coreGatewayProviderProtocol(
   provider: GatewayProviderConfig,
-  clientProtocol: GatewayProviderProtocol,
-  requestedProviderName?: string
-): string | undefined {
+  clientProtocol: GatewayProviderProtocol
+): GatewayProviderProtocol | undefined {
   const capability = providerCapabilityForClientProtocol(provider, clientProtocol);
   const explicitCapabilities = normalizedProviderCapabilities(provider);
-  const protocol = capability?.type ?? (
+  return capability?.type ?? (
     explicitCapabilities.length === 0
       ? providerProtocolForClientProtocol(provider, clientProtocol)
       : undefined
   );
+}
+
+function coreGatewayProviderSelectorName(
+  provider: GatewayProviderConfig,
+  clientProtocol: GatewayProviderProtocol,
+  requestedProviderName?: string,
+  resolvedProtocol?: GatewayProviderProtocol
+): string | undefined {
+  const capability = providerCapabilityForClientProtocol(provider, clientProtocol);
+  const protocol = resolvedProtocol ?? coreGatewayProviderProtocol(provider, clientProtocol);
   if (!protocol) {
     return undefined;
   }
