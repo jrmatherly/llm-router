@@ -228,11 +228,13 @@ function formatCompactTokenCount(tokens: number): string {
 function createOpenAICompatibleGatewayModelsResponse(config: AppConfig, profile?: ProfileConfig): Record<string, unknown> {
   const data = buildGatewayDiscoverableModelIds(config, profile).map((id) => {
     const catalogEntry = findModelCatalogEntry(id);
+    const maxInputTokens = claudeGatewayModelContextWindow(catalogEntry, false, providerModelDiscoveryForSelector(config, id).metadata);
     return {
       id,
       object: "model",
       created: 0,
       owned_by: gatewayModelOwner(id),
+      ...(maxInputTokens > 0 ? { context_window: maxInputTokens, max_context_window: maxInputTokens, max_input_tokens: maxInputTokens } : {}),
       type: "model",
       ...(catalogEntry?.displayName ? { display_name: catalogEntry.displayName } : {})
     };
@@ -329,6 +331,8 @@ function createClaudeAppGatewayModelsResponse(
       display_name: exposeOneMillionContextVariant
         ? `${route.displayName} (1M context)`
         : route.displayName,
+      context_window: maxInputTokens,
+      max_context_window: maxInputTokens,
       max_input_tokens: maxInputTokens,
       max_tokens: maxOutputTokens,
       type: "model"
@@ -368,6 +372,8 @@ function createClaudeCodeModelsResponse(
       }),
       created_at: "1970-01-01T00:00:00Z",
       display_name: formatClaudeCodeModelDisplayName(claudeId, catalogEntry, model.oneMillionContext),
+      context_window: maxInputTokens,
+      max_context_window: maxInputTokens,
       max_input_tokens: maxInputTokens,
       max_tokens: maxOutputTokens,
       type: "model"
