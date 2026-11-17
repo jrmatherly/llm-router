@@ -89,3 +89,36 @@ test("#1923 a credential ahead of the one that answered is left alone when the c
   assert.equal(readProviderCredentialCooldown(provider, first), undefined);
   assert.equal(readProviderCredentialCooldown(provider, second), undefined);
 });
+
+test("#1923 a request error does not cool down the credential that returned it", () => {
+  const { attempt, config, first, provider } = fixture();
+
+  recordProviderCredentialOutcome(config, "POST", attempt, 400, new Headers());
+
+  assert.equal(readProviderCredentialCooldown(provider, first), undefined);
+});
+
+test("#1923 a credential out of credit is cooled down", () => {
+  const { attempt, config, first, provider } = fixture();
+
+  recordProviderCredentialOutcome(config, "POST", attempt, 402, new Headers());
+
+  assert.equal(readProviderCredentialCooldown(provider, first)?.reason, "HTTP 402");
+});
+
+test("#1923 the fallback count bounds how many credentials ahead of the answer are cooled down", () => {
+  for (const [fallbackCount, expected] of [[1, [undefined, "skipped by credential fallback"]], [2, ["skipped by credential fallback", "skipped by credential fallback"]], [5, ["skipped by credential fallback", "skipped by credential fallback"]]]) {
+    const { attempt, config, first, provider, second } = fixture();
+    const third = { apiKey: "third-key", id: "third" };
+    provider.credentials.push(third);
+    const chain = [first, second, third].map((credential) => providerCredentialInternalName(provider, attempt.credentialProtocol, credential));
+
+    recordProviderCredentialOutcome(config, "POST", { ...attempt, credentialChain: chain }, 200, new Headers({
+      "x-gateway-fallback-count": String(fallbackCount),
+      "x-llmr-provider-credential-id": providerCredentialRuntimeId(provider, third)
+    }));
+
+    assert.deepEqual([first, second].map((credential) => readProviderCredentialCooldown(provider, credential)?.reason), expected);
+    assert.equal(readProviderCredentialCooldown(provider, third), undefined);
+  }
+});

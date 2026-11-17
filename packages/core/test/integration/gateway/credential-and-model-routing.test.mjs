@@ -210,29 +210,44 @@ test("#1923 the host cools down a key the core skipped", { timeout: 30000 }, asy
   assert.equal(readProviderCredentialCooldown(provider, provider.credentials[1]), undefined);
 });
 
-test("#1923 a request error is not retried on the other keys", { timeout: 30000 }, async () => {
-  const id = "pool-request-error";
-  for (const status of [400, 422]) {
-    await run(url => [{ id, name: id, type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["pool-model"],
-      credentials: ["a", "b", "c"].map(key => ({ id: key, apiKey: "bad" })) }],
-    [{ ...probe(`${id}/pool-model`, status), status, keys: ["bad"] }]);
+test("#1923 a key that rejects a request for its own reasons is skipped and cooled down", { timeout: 30000 }, async () => {
+  for (const status of [400, 402]) {
+    const id = `pool-key-${status}`;
+    const config = await run(url => [{ id, name: id, type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["pool-model"], credentials }],
+      [probe(`${id}/pool-model`, status)]);
+    const [provider] = config.Providers;
+
+    assert.equal(readProviderCredentialCooldown(provider, provider.credentials[0])?.reason, "skipped by credential fallback");
+    assert.equal(readProviderCredentialCooldown(provider, provider.credentials[1]), undefined);
   }
 });
 
 test("#1923 a pinned credential is the only one tried and the only one cooled down", { timeout: 30000 }, async () => {
   const id = "pool-pinned";
-  const pin = credential => `${id}::openai_chat_completions::cred:${credential}/pool-model`;
-  const config = await run(url => [{ id, name: id, type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["pool-model"],
-    credentials: [{ id: "working", apiKey: "good", priority: 1 }, { id: "spare", apiKey: "good", priority: 2 }, { id: "broken", apiKey: "bad", priority: 3 }] }],
-  [
-    { ...probe(pin("spare")), status: 200, keys: ["good"] },
-    { ...probe(pin("broken")), status: 401, keys: ["bad", "bad"] },
-    { ...probe(pin("missing")), status: 400, keys: [] }
-  ]);
-  const [provider] = config.Providers;
-  const cooldown = credential => readProviderCredentialCooldown(provider, provider.credentials.find(item => item.id === credential))?.reason;
+  const pin = (credential, protocol = "openai_chat_completions") => `${id}::${protocol}::cred:${credential}/pool-model`;
+  const pool = url => [{ id, name: id, type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["pool-model"],
+    credentials: [{ id: "working", apiKey: "good", priority: 1 }, { id: "spare", apiKey: "good", priority: 2 }, { id: "broken", apiKey: "bad", priority: 3 }] }];
+  const cooldowns = async probes => {
+    const [provider] = (await run(pool, probes)).Providers;
+    return provider.credentials.map(credential => readProviderCredentialCooldown(provider, credential)?.reason);
+  };
 
-  assert.equal(cooldown("working"), undefined);
-  assert.equal(cooldown("spare"), undefined);
-  assert.equal(cooldown("broken"), "HTTP 401");
+  assert.deepEqual(await cooldowns([{ ...probe(pin("spare")), status: 200, keys: ["good"] }]), [undefined, undefined, undefined]);
+  assert.deepEqual(await cooldowns([
+    { ...probe(pin("broken")), status: 401, keys: ["bad", "bad"] },
+    { ...probe(pin("broken")), status: 401, keys: ["bad", "bad"] }
+  ]), [undefined, undefined, "HTTP 401"]);
+  assert.deepEqual(await cooldowns([
+    { ...probe(pin("missing")), status: 400, keys: [] },
+    { ...probe(pin("missing", "openai_responses")), status: 400, keys: [] }
+  ]), [undefined, undefined, "HTTP 401"]);
+});
+
+test("#1923 a pin on the first provider does not follow the request to a fallback pool", { timeout: 30000 }, async () => {
+  const pool = (id, keys, url) => ({ id, name: id, type: "openai_chat_completions", api_base_url: `${url}/v1`, models: ["pool-model"],
+    credentials: keys.map((apiKey, index) => ({ id: `key-${index + 1}`, apiKey, priority: index + 1 })) });
+  await run(url => [pool("pinned-primary", ["bad", "bad"], url), pool("unpinned-fallback", ["good", "bad"], url)],
+    [probe("pinned-primary::openai_chat_completions::cred:key-2/pool-model", 401)], {
+      configure: config => { config.Router.fallback = { mode: "model-chain", models: ["unpinned-fallback/pool-model"], retryCount: 0 }; }
+    });
 });

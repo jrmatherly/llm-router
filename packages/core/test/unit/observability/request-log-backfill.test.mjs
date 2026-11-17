@@ -34,7 +34,7 @@ async function seedRequestLogs(dbFile, { bodyPaddingBytes, requestCount }) {
 
   const database = createBetterSqliteDatabase(dbFile);
   try {
-    // Reproduce databases created before model-summary columns were introduced.
+    // Drop the model-summary columns so initialize() runs the migration.
     database.exec("ALTER TABLE request_logs DROP COLUMN requested_model; ALTER TABLE request_logs DROP COLUMN resolved_model; ALTER TABLE request_logs DROP COLUMN response_model;");
     const padding = "x".repeat(bodyPaddingBytes);
     const nonStreamingBody = JSON.stringify({ model: "gpt-test", padding, stream: false });

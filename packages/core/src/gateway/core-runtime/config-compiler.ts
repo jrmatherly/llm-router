@@ -14,7 +14,6 @@ import { resolveGatewayPublicModelId } from "@llmr/core/gateway/features/model-d
 import { activeProviderCredentials, inferProtocol, normalizedProviderCapabilities, normalizeProviderProtocol, providerCapabilityForClientProtocol, providerCapabilityInternalName, providerCapabilityNameMatches, providerCredentialInternalName, providerProtocolForClientProtocol, sortProviderCredentialsForConfig, toCoreGatewayProviders } from "@llmr/core/providers/runtime-topology";
 import { buildRawTraceConfig } from "@llmr/core/observability/raw-trace-sync";
 import { endpoint, gatewayRuntimeSupportsRouterPlugin, resolveLocalAgentAuthProviderHookEntry, resolveRouterPluginEntry, resolveUndiciProxyAgentModule, resolveUpstreamHeaderSanitizerEntry, writeGatewayProxyPreloadFile } from "@llmr/core/gateway/core-runtime/supervisor";
-import { providerCredentialFallbackStatusCodes } from "@llmr/core/providers/credential-pool";
 import { billingUsageSyncHeader, billingUsageSyncPath, claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta, coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayUpstreamProxyUrlEnv } from "@llmr/core/gateway/internal/shared";
 import type { BrowserWebSearchMcpIntegration, CoreGatewayProvider } from "@llmr/core/gateway/internal/shared";
 import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
@@ -150,19 +149,6 @@ export async function compileCoreGatewayConfig(
     },
     billingQueue: {
       enabled: false
-    },
-    // Without this the core moves to the next target on any failure. Its own
-    // credential scheduler and cache affinity stay off: the host orders the chain.
-    scheduling: {
-      cacheAffinity: { enabled: false },
-      credentialScheduler: { enabled: false },
-      enabled: true,
-      fallback: {
-        crossProviderStatusCodes: providerCredentialFallbackStatusCodes,
-        maxAttempts: 32,
-        mode: "provider_chain",
-        retryStatusCodes: providerCredentialFallbackStatusCodes
-      }
     },
     billingWebhook: {
       enabled: false

@@ -835,8 +835,7 @@ export class RequestLogStore {
           );
         }
       };
-      if (database.inTransaction) insert();
-      else database.transaction(insert)();
+      insert();
       if (inserted) this.revision += 1;
       if (ownsBodyTransaction) {
         database.exec("COMMIT");
@@ -1095,8 +1094,7 @@ export class RequestLogStore {
           database.prepare(`UPDATE request_logs SET ${sets.join(", ")} WHERE request_id = ?`).run(...params, requestId);
         }
       };
-      if (database.inTransaction) update();
-      else database.transaction(update)();
+      update();
       if (sets.length > 0) {
         this.revision += 1;
       }
@@ -1571,7 +1569,15 @@ export class RequestLogStore {
     // Cleanup must never unlink a reference whose row could be restored by an
     // enclosing write batch rollback. Run retention before opening that batch.
     if (database.inTransaction) return;
-    database.transaction(() => this.sweepOrphanBodies(database)).immediate();
+    // Reads call this too, so take the write lock only when a sweep has work to do.
+    if (this.bodySweep || Date.now() - this.bodySweepCompletedAt >= orphanBodySweepIntervalMs) {
+      try {
+        database.transaction(() => this.sweepOrphanBodies(database)).immediate();
+      } catch (error) {
+        this.endBodySweep(Date.now());
+        console.warn(`[request-log] Orphan body sweep failed and will retry later: ${formatError(error)}`);
+      }
+    }
     const now = new Date();
     const dayKey = formatLocalDayKey(now);
     if (this.lastRetentionCleanupDay === dayKey) {
@@ -1612,31 +1618,41 @@ export class RequestLogStore {
 
   private sweepOrphanBodies(database: SqlDatabase): void {
     const now = Date.now();
-    if (!this.bodySweep) {
-      if (now - this.bodySweepCompletedAt < 60 * 60 * 1000) return;
-      this.bodySweep = requestLogBodyFiles(this.bodyDir);
-    }
+    this.bodySweep ??= requestLogBodyFiles(this.bodyDir);
     const refs: string[] = [];
-    for (let index = 0; index < 256; index += 1) {
+    for (let index = 0; index < orphanBodySweepBatchSize; index += 1) {
       let next: IteratorResult<string>;
-      try { next = this.bodySweep.next(); } catch {
-        this.bodySweep = undefined;
-        this.bodySweepCompletedAt = now;
+      try {
+        next = this.bodySweep.next();
+      } catch (error) {
+        this.endBodySweep(now);
+        console.warn(`[request-log] Orphan body sweep could not read ${this.bodyDir}: ${formatError(error)}`);
         break;
       }
       if (next.done) {
-        this.bodySweep = undefined;
-        this.bodySweepCompletedAt = now;
+        this.endBodySweep(now);
         break;
       }
       const filePath = next.value;
       try {
-        if (statSync(filePath).mtimeMs > now - 60 * 60 * 1000) continue;
-        const ref = basename(filePath);
-        refs.push(ref);
-      } catch { /* Entries can disappear while a previous cleanup completes. */ }
+        // A body file exists before the row or pending update that references
+        // it commits, so a young file is not yet known to be an orphan.
+        if (statSync(filePath).mtimeMs > now - orphanBodyMinAgeMs) continue;
+        refs.push(basename(filePath));
+      } catch (error) {
+        // A file listed by an earlier sweep call can be deleted before it is stat'ed.
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+          console.warn(`[request-log] Orphan body sweep could not stat ${filePath}: ${formatError(error)}`);
+        }
+      }
     }
     deleteUnreferencedBodyRefs(database, this.bodyDir, refs);
+  }
+
+  private endBodySweep(now: number): void {
+    this.bodySweep?.return(undefined);
+    this.bodySweep = undefined;
+    this.bodySweepCompletedAt = now;
   }
 
   private storePendingRawTraceUpdate(database: SqlDatabase, input: RequestLogRawTraceUpdateInput): void {
@@ -4460,7 +4476,8 @@ function migrateRequestLogModelSummaries(database: SqlDatabase): void {
   `);
   let afterId = 0;
   while (true) {
-    // Fetch only a bounded page of IDs. Retain at most one pair of bodies.
+    // Read bodies one row at a time: rows can carry large bodies and this may
+    // run in a heap-limited worker.
     const ids = queryRows(database, "SELECT rowid AS id FROM request_logs WHERE rowid > ? ORDER BY rowid LIMIT 128", [afterId]);
     if (ids.length === 0) break;
     database.transaction(() => {
@@ -5733,6 +5750,9 @@ function requestLogBodyIsReferenced(database: SqlDatabase, ref: string, pendingR
   return pendingRefs.has(ref);
 }
 
+const orphanBodySweepBatchSize = 256;
+const orphanBodySweepIntervalMs = 60 * 60 * 1000;
+const orphanBodyMinAgeMs = 60 * 60 * 1000;
 const pendingBodyDeletes = new WeakMap<SqlDatabase, Set<string>>();
 
 function deleteRequestLogBodyRefs(database: SqlDatabase, bodyDir: string, refs: string[]): void {
@@ -5754,19 +5774,25 @@ function flushRequestLogBodyDeletes(database: SqlDatabase, bodyDir: string): voi
     // Both a successful commit and a rollback are safe: recheck the surviving
     // references under the same lock that writers use to publish body files.
     database.transaction(() => deleteUnreferencedBodyRefs(database, bodyDir, [...refs])).immediate();
-  } catch { /* The periodic sweep retries orphan files if cleanup cannot lock. */ }
+  } catch (error) {
+    console.warn(`[request-log] Left ${refs.size} body files for the orphan sweep, which removes them once they are an hour old: ${formatError(error)}`);
+  }
 }
 
 function deleteUnreferencedBodyRefs(database: SqlDatabase, bodyDir: string, refs: string[]): void {
   if (refs.length === 0) return;
-  // The pending table is capped at 200 entries / 8 MiB. Read it once per batch,
-  // rather than re-parsing all pending bodies for each filesystem entry.
+  // maxPendingRawTraceEntries and maxPendingRawTraceTotalBytes bound the pending
+  // table, so read it once per call instead of once per ref.
   const pendingRefs = new Set(bodyRefsFromPendingRawTraceRows(
     queryRows(database, "SELECT update_json FROM request_log_pending_updates")));
   for (const ref of refs) {
     const filePath = requestLogBodyPath(bodyDir, ref);
     if (!filePath || requestLogBodyIsReferenced(database, ref, pendingRefs)) continue;
-    try { rmSync(filePath, { force: true }); } catch { /* The orphan sweep retries failed unlinks. */ }
+    try {
+      rmSync(filePath, { force: true });
+    } catch (error) {
+      console.warn(`[request-log] Could not delete body file ${filePath}; the next orphan sweep retries it: ${formatError(error)}`);
+    }
   }
 }
 

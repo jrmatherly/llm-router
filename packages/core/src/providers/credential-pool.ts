@@ -14,8 +14,6 @@ import {
 } from "@llmr/core/providers/runtime-topology";
 
 const providerCredentialCooldownMs = 60_000;
-// A request error (400, 422) is the same on every key, so only these move on to the next one.
-export const providerCredentialFallbackStatusCodes = [401, 403, 404, 408, 429, ...Array.from({ length: 100 }, (_, index) => 500 + index)];
 const providerCredentialCooldowns = new Map<string, { reason: string; until: number }>();
 
 export function providerCredentialLimitState(
@@ -56,8 +54,10 @@ export function recordProviderCredentialOutcome(
   const credential = responseCredential ?? providerCredentialFromInternalName(provider, attempt.credentialChain[0]);
   if (!credential) return;
 
-  // The core reports only the credential that answered and how many targets
-  // failed before it, so those failures never reach the host any other way.
+  // The core names only the credential that answered and counts the failed
+  // attempts before it, so the keys it fell back from are inferred here. The
+  // count can exceed the keys tried; the slice clamps it, and is empty when the
+  // answering key is not in the chain.
   const fallbackCount = Number(responseHeaders.get("x-gateway-fallback-count")) || 0;
   const chain = attempt.credentialChain.map((internalName) => providerCredentialFromInternalName(provider, internalName));
   const answered = chain.indexOf(credential);
@@ -65,12 +65,13 @@ export function recordProviderCredentialOutcome(
     if (skipped) setProviderCredentialCooldown(provider, skipped, providerCredentialCooldownMs, "skipped by credential fallback");
   }
 
-  if (statusCode >= 200 && statusCode < 500 && statusCode !== 401 && statusCode !== 403 && statusCode !== 429) {
+  const credentialFailed = statusCode === 401 || statusCode === 402 || statusCode === 403 || statusCode === 429 || statusCode >= 500;
+  if (statusCode >= 200 && !credentialFailed) {
     incrementProviderCredentialCounters(provider, credential, estimateLimitUsage(method, attempt.body ?? Buffer.alloc(0)));
     clearProviderCredentialCooldown(provider, credential);
     return;
   }
-  if (statusCode === 401 || statusCode === 403 || statusCode === 429 || statusCode >= 500) {
+  if (credentialFailed) {
     setProviderCredentialCooldown(provider, credential, providerCredentialCooldownMs, `HTTP ${statusCode}`);
   }
 }

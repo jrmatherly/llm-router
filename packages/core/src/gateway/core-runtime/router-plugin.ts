@@ -1198,7 +1198,8 @@ function coreGatewayProviderSelectorName(
   const credentials = sortProviderCredentialsForConfig(activeProviderCredentials(provider));
   if (credentials.length > 0) {
     // A pin written with the configured provider id or another protocol still
-    // names its credential. One that names none is passed on for the core to reject.
+    // names its credential. A pin to a slug the pool lacks keeps that slug, so
+    // the core rejects it instead of serving the first key.
     const pinnedSlug = parseProviderCredentialInternalName(requestedProviderName)?.credentialSlug;
     if (!pinnedSlug) {
       return providerCredentialInternalName(provider, protocol, credentials[0]);
