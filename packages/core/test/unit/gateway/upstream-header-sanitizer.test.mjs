@@ -107,7 +107,6 @@ test("gateway sanitizer hook forwards client headers without overriding provider
   assert.deepEqual(result.value.headers, {
     authorization: "Bearer provider-token",
     "content-type": "application/json",
-    cookie: "client-cookie=value",
     "http-referer": "https://cherry-ai.com",
     "user-agent": "Codex Desktop",
     "x-auth-provider-extension": "provider-extension",
@@ -115,6 +114,115 @@ test("gateway sanitizer hook forwards client headers without overriding provider
     "x-custom-list": "one,two",
     "x-title": "LLM Router"
   });
+});
+
+test("gateway sanitizer hook does not inherit cookies or the headers a proxy adds in front of LLMR", () => {
+  const [hook] = createGatewayPlugin().providerHooks;
+  const requestHeaders = {
+    "CF-Connecting-IP": "192.0.2.10",
+    "Cf-Connecting-IPv6": "2001:db8::10",
+    "cf-pseudo-ipv4": "240.0.0.10",
+    "CF-IPCountry": "XX",
+    "CF-Access-Jwt-Assertion": "synthetic-inbound-jwt",
+    "CF-Access-Client-Id": "synthetic-inbound-client",
+    "CF-Access-Client-Secret": "synthetic-inbound-secret",
+    "CF-Access-Authenticated-User-Email": "user@example.test",
+    "CF-Warp-Tag-Id": "synthetic-warp-tag",
+    "CF-Ray": "synthetic-ray",
+    "CF-Visitor": '{"scheme":"https"}',
+    "Cf-Future-Metadata": ["one", "two"],
+    "CoOkIe": "synthetic-session=value",
+    "CDN-Loop": "cloudflare",
+    "True-Client-IP": "192.0.2.10",
+    "X-Amzn-Oidc-Accesstoken": "synthetic-alb-token",
+    "X-Amzn-Oidc-Data": "synthetic-alb-claims",
+    "X-Goog-IAP-JWT-Assertion": "synthetic-iap-jwt",
+    "X-Goog-Authenticated-User-Email": "accounts.google.com:user@example.test",
+    "X-MS-Client-Principal-Name": "user@example.test",
+    "X-MS-Token-AAD-Access-Token": "synthetic-easyauth-token",
+    "X-Pomerium-Jwt-Assertion": "synthetic-pomerium-jwt",
+    "X-Auth-Request-Access-Token": "synthetic-oauth2-proxy-token",
+    "X-Auth-Request-Email": "user@example.test",
+    "Tailscale-User-Login": "user@example.test",
+    "X-Remote-User": "user",
+    "X-Original-Forwarded-For": "192.0.2.10",
+    "X-Client-IP": "192.0.2.10",
+    "Fastly-Client-IP": "192.0.2.10",
+    "cfx-client-tag": "keep",
+    "x-amzn-trace-id": "Root=1-synthetic",
+    "anthropic-version": "2023-06-01",
+    "anthropic-beta": "synthetic-beta",
+    "user-agent": "synthetic-cli",
+    "x-claude-code-session-id": "synthetic-session",
+    "x-custom-provider-header": "custom-value"
+  };
+  const originalHeaders = structuredClone(requestHeaders);
+  const upstreamRequest = {
+    body: { model: "provider-model", messages: [], stream: true },
+    headers: { authorization: "Bearer provider-token", "content-type": "application/json" },
+    method: "POST",
+    url: "https://provider.example/v1/messages"
+  };
+
+  const result = hook.transformRequest({ request: { headers: requestHeaders }, upstreamRequest });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.value, {
+    ...upstreamRequest,
+    headers: {
+      authorization: "Bearer provider-token",
+      "content-type": "application/json",
+      "cfx-client-tag": "keep",
+      "x-amzn-trace-id": "Root=1-synthetic",
+      "anthropic-version": "2023-06-01",
+      "anthropic-beta": "synthetic-beta",
+      "user-agent": "synthetic-cli",
+      "x-claude-code-session-id": "synthetic-session",
+      "x-custom-provider-header": "custom-value"
+    }
+  });
+  assert.deepEqual(requestHeaders, originalHeaders);
+});
+
+test("gateway sanitizer hook preserves explicitly supplied provider cookies and Cloudflare headers", () => {
+  const [hook] = createGatewayPlugin().providerHooks;
+  const upstreamRequest = {
+    body: { model: "provider-model" },
+    headers: {
+      authorization: "Bearer provider-token",
+      "Cookie": "provider-session=value",
+      "CF-Access-Client-Id": "provider-access-client",
+      "CF-Access-Client-Secret": "provider-access-secret",
+      "CF-Access-Jwt-Assertion": "provider-access-jwt",
+      "CF-Custom-Header": "provider-custom-value"
+    },
+    url: "https://provider.example/v1/messages"
+  };
+
+  const result = hook.transformRequest({
+    request: {
+      headers: {
+        connection: "close, cf-access-client-secret, authorization",
+        cookie: "inbound-session=value",
+        "cf-access-client-id": "inbound-access-client",
+        "cf-access-client-secret": "inbound-access-secret",
+        "cf-access-jwt-assertion": "inbound-access-jwt",
+        "cf-custom-header": "inbound-custom-value"
+      }
+    },
+    upstreamRequest
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.value.headers, {
+    authorization: "Bearer provider-token",
+    cookie: "provider-session=value",
+    "cf-access-client-id": "provider-access-client",
+    "cf-access-client-secret": "provider-access-secret",
+    "cf-access-jwt-assertion": "provider-access-jwt",
+    "cf-custom-header": "provider-custom-value"
+  });
+  assert.equal(upstreamRequest.headers.Cookie, "provider-session=value");
 });
 
 test("upstream sanitizer rewrites Anthropic requests to the selected provider base URL", () => {

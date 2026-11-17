@@ -272,7 +272,7 @@ A string, number, or array is not a valid routing result. Unknown object fields 
 | `array-remove` | `value` | Remove array elements that match `value`. |
 | `array-replace` | `match`, `value` | Replace array elements that match `match` with `value`. |
 
-Rewrite `value` and `match` properties must be JSON values. Unsafe path segments such as `__proto__`, `constructor`, and `prototype` are rejected. Scripts cannot rewrite authentication, cookie, host, content-length, connection-control, `x-auth-*`, `x-llmr-*`, and other protected headers.
+Rewrite `value` and `match` properties must be JSON values. Unsafe path segments such as `__proto__`, `constructor`, and `prototype` are rejected. Scripts cannot rewrite authentication, cookie, host, content-length, connection-control, `x-auth-*`, `x-llmr-*`, and other protected headers. That includes the headers a reverse proxy or identity-aware proxy adds in front of LLMR, such as `cf-*`, `x-forwarded-*` and `x-goog-iap-*`: LLMR never sends those to a provider, whether a client or a rewrite set them. To give a provider such a header, set it in the provider's own headers.
 
 ##### Fallback shape
 
