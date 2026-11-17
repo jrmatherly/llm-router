@@ -546,7 +546,7 @@ test("a wrapper from before the CODEXL migration still starts the app-server and
     env: {
       ...process.env,
       CODEX_HOME: codexHome,
-      CODEXL_CODEX_PROFILE: "llm-router",
+      CODEXL_CODEX_PROFILE: "old-wrapper-profile",
       CODEXL_CODEX_WORKSPACE_NAME: "Old Wrapper Label",
       HOME: isolatedHome,
       LLMR_CODEX_PROFILE: "llm-router",

@@ -2559,6 +2559,19 @@ test("stale CODEXL keys are stripped from settings env", { skip: !process.env.LL
   });
 });
 
+test("release strips stale CODEXL keys written after apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withGlobalClaudeProfileRelease({ env: { USER_VALUE: "kept" } }, async ({ apply, readSettings, release, settingsFile }) => {
+    await apply();
+    const applied = readSettings();
+    applied.env.CODEXL_CLAUDE_CODE_MCP_CONFIG = "/tmp/stale-toolhub-mcp.json";
+    applied.env.CODEXL_CLAUDE_CODE_MODEL = "Provider/stale";
+    writeFileSync(settingsFile, `${JSON.stringify(applied, null, 2)}\n`);
+    release();
+    assert.deepEqual(Object.keys(readSettings().env).filter((key) => key.startsWith("CODEXL_")), []);
+    assert.equal(readSettings().env.USER_VALUE, "kept");
+  });
+});
+
 test("a second apply does not record LLMR values as displaced", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, readSettings, release }) => {
     await apply();
