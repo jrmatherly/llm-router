@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { AppConfig, ProfileConfig, ProfileOpenSurface } from "@llmr/core/contracts/app";
-import { claudeCodeHomeEnv, claudeCodeModelEnv as claudeCodeProfileModelEnv, claudeCodeUtcTimezoneEnvOverride } from "@llmr/core/agents/claude-code/environment";
+import { claudeCodeHomeEnv, claudeCodeModelEnv as claudeCodeProfileModelEnv } from "@llmr/core/agents/claude-code/environment";
 import { resolveKiloConfigFile as resolveKiloProfileConfigFile } from "@llmr/core/agents/kilo/profile-config";
 import { resolveOpenCodeConfigFile as resolveOpenCodeProfileConfigFile } from "@llmr/core/agents/opencode/profile-config";
 import { piWrapperFilename, resolvePiAgentDir, resolvePiSessionDir } from "@llmr/core/agents/pi/profile-config";
@@ -323,8 +323,7 @@ function buildClaudeCodeLaunchPlan(
     env: {
       ...claudeCodeHomeEnv(profile, settingsFile),
       LLMR_PROFILE_SURFACE: surface,
-      ...claudeCodeProfileModelEnv(profile),
-      ...claudeCodeUtcTimezoneEnvOverride()
+      ...claudeCodeProfileModelEnv(profile)
     },
     profile,
     surface

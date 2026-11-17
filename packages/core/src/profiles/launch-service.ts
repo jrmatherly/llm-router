@@ -7,7 +7,6 @@ import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import { applyClaudeAppGatewayConfig, claudeAppTakesOverDirectLaunches, readClaudeAppGatewayApiKeyCandidates } from "@llmr/core/agents/claude-app/gateway-service";
 import { launchClaudeAppProfile, resolveClaudeAppProfileUserDataDir } from "@llmr/core/agents/claude-app/launch";
 import { resolveClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
-import { claudeCodeUtcTimezoneEnvOverride } from "@llmr/core/agents/claude-code/environment";
 import { codexDesktopAppName, launchCodexAppProfile, launchWorkbuddyAppProfile, launchZcodeAppProfile, prepareCodexAppNetResponder, refreshCodexCompatibleAppProfileFiles, workbuddyDesktopAppName } from "@llmr/core/agents/codex/app-launch";
 import { CodexAppMediaPreviewBridge, shouldEnableCodexMediaPreviewBridge } from "@llmr/core/agents/codex/media-preview-bridge";
 import { findRunningOpenCodeAppPid, launchOpenCodeAppProfile, openCodeAppLaunchSignature } from "@llmr/core/agents/opencode/app-launch";
@@ -183,8 +182,7 @@ export async function openProfileFromLlmr(config: AppConfig, request: ProfileOpe
     env: {
       ...process.env,
       ...plan.env,
-      ...botGatewayProfileEnv(config, profile, surface),
-      ...(profile.agent === "claude-code" ? claudeCodeUtcTimezoneEnvOverride() : {})
+      ...botGatewayProfileEnv(config, profile, surface)
     },
     stdio: "ignore"
   });
@@ -1362,8 +1360,7 @@ function startClaudeAppBotWorker(config: AppConfig, profile: ReturnType<typeof f
     LLMR_CODEX_WORKSPACE_NAME: profile.name || profile.id,
     LLMR_PROFILE_SURFACE: "app",
     CODEXL_CODEX_WORKSPACE_NAME: profile.name || profile.id,
-    CODEXL_PROFILE_SURFACE: "app",
-    ...claudeCodeUtcTimezoneEnvOverride()
+    CODEXL_PROFILE_SURFACE: "app"
   };
   delete env.ELECTRON_NO_ATTACH_CONSOLE;
 

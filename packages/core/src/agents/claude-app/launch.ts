@@ -5,7 +5,7 @@ import path from "node:path";
 import type { AppConfig, ProfileConfig } from "@llmr/core/contracts/app";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import { prepareClaudeAppVmStorage } from "@llmr/core/agents/claude-app/vm-storage";
-import { claudeCodeModelEnv as claudeCodeProfileModelEnv, claudeCodeUtcTimezoneEnvOverride, isClaudeCodeManagedModelEnvKey } from "@llmr/core/agents/claude-code/environment";
+import { claudeCodeModelEnv as claudeCodeProfileModelEnv, isClaudeCodeManagedModelEnvKey } from "@llmr/core/agents/claude-code/environment";
 import { resolveClaudeCodeSettingsFile } from "@llmr/core/profiles/launch-core";
 import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@llmr/core/platform/windows-app-discovery";
 import { resolveUserPath } from "@llmr/core/runtime/app-paths";
@@ -65,8 +65,7 @@ export async function launchClaudeAppProfile(configDir: string, profile: Profile
     CLAUDE_USER_DATA_DIR: userDataDir,
     LLMR_CLAUDE_APP_USER_DATA_PATH: userDataDir,
     LLMR_PROFILE_SURFACE: "app",
-    ELECTRON_ENABLE_LOGGING: "1",
-    ...claudeCodeUtcTimezoneEnvOverride()
+    ELECTRON_ENABLE_LOGGING: "1"
   };
   const env: NodeJS.ProcessEnv = {
     ...process.env,

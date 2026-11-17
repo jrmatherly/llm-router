@@ -835,6 +835,26 @@ test("Claude Code wrapper preserves an explicit model argument", { skip: process
   assert.deepEqual(observed.argv, ["--model", "Provider/manual", "-p", "hi"]);
 });
 
+test("Claude Code wrapper passes the caller's time zone to the real CLI", { skip: process.platform === "win32" }, () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-wrapper-"));
+  const runtimeFile = writeRuntimeScript(dir);
+  const { fakeCli, outputFile } = writeFakeClaudeCli(dir);
+
+  execFileSync(process.execPath, [runtimeFile, "-p", "hi"], {
+    env: {
+      ...process.env,
+      LLMR_CLAUDE_CODE_WRAPPER: "1",
+      LLMR_FAKE_CLAUDE_OUT: outputFile,
+      LLMR_REAL_CLAUDE_CODE_BIN: fakeCli,
+      LLMR_REMOTE_SYNC_ENABLED: "0",
+      TZ: "Asia/Shanghai"
+    },
+    stdio: "pipe"
+  });
+
+  assert.equal(JSON.parse(readFileSync(outputFile, "utf8")).env.TZ, "Asia/Shanghai");
+});
+
 test("Claude Code wrapper injects the ToolHub MCP config into real CLI args", { skip: process.platform === "win32" }, () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-wrapper-"));
   const runtimeFile = writeRuntimeScript(dir);
@@ -1498,6 +1518,7 @@ function writeFakeClaudeCli(dir) {
     "fs.writeFileSync(process.env.LLMR_FAKE_CLAUDE_OUT, JSON.stringify({",
     "  argv: process.argv.slice(2),",
     "  env: {",
+    "    TZ: process.env.TZ || '',",
     "    ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL || '',",
     "    LLMR_CLAUDE_CODE_MODEL: process.env.LLMR_CLAUDE_CODE_MODEL || '',",
     "    LLMR_CLAUDE_CODE_MCP_CONFIG: process.env.LLMR_CLAUDE_CODE_MCP_CONFIG || ''",

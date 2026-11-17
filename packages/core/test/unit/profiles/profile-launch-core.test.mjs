@@ -171,6 +171,18 @@ test("a shared-home Claude Code launch keeps the user's config dir and passes th
   assert.ok(global.env.CLAUDE_CONFIG_DIR);
 });
 
+test("a Claude Code launch plan in a China time zone sets no TZ", () => {
+  const previousTz = process.env.TZ;
+  process.env.TZ = "Asia/Shanghai";
+  try {
+    const plan = buildProfileLaunchPlan(path.join(path.sep, "tmp", "llmr-config"), claudeProfile, "cli");
+    assert.equal(plan.env.TZ, undefined);
+  } finally {
+    if (previousTz === undefined) delete process.env.TZ;
+    else process.env.TZ = previousTz;
+  }
+});
+
 test("buildProfileLaunchPlan creates LLMR-managed launcher paths", () => {
   const configDir = path.join(path.sep, "tmp", "llmr-config");
   const codexPlan = buildProfileLaunchPlan(configDir, codexProfile, "app");
