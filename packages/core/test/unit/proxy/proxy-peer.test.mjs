@@ -5,6 +5,7 @@ import net from "node:net";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { isLoopbackAddress } from "@llmr/core/net/loopback.ts";
+import { pluginService } from "@llmr/core/plugins/service.ts";
 import { proxyService } from "@llmr/core/proxy/service.ts";
 import { systemProxyManager } from "@llmr/core/proxy/system-proxy.ts";
 
@@ -118,6 +119,11 @@ test("network capture stores query-string credentials redacted", async () => {
       assert.equal(item.url, "http://api.example.test/v1/messages?key=%5Bredacted%5D&x=1");
       assert.equal(item.path, "/v1/messages?key=%5Bredacted%5D&x=1");
       assert.doesNotMatch(JSON.stringify(item), /sk-secret/);
+
+      await proxyGet(frontPort, `http://127.0.0.1:${proxyService.config.gateway.port}//bad%20host/x?key=sk-secret`);
+      const slashes = proxyService.getNetworkCaptures().items[0];
+      assert.equal(slashes.path, "//bad%20host/x?key=%5Bredacted%5D");
+      assert.doesNotMatch(JSON.stringify(slashes), /sk-secret/);
     } finally {
       proxyService.setNetworkCaptureEnabled(false);
       proxyService.clearNetworkCaptures();
@@ -213,6 +219,16 @@ test("CONNECT to a proxy target host is intercepted", async (t) => {
   });
 });
 
+test("CONNECT to a plugin proxy route host is intercepted", async (t) => {
+  const mitmCalls = await mockMitm(t);
+  t.mock.method(pluginService, "getProxyRouteHosts", () => ["plugin.example.test"]);
+  await withProxy(undefined, async ({ frontPort }) => {
+    const { socket } = await connectThrough(frontPort, "plugin.example.test:443");
+    socket.destroy();
+    assert.deepEqual(mitmCalls, ["plugin.example.test"]);
+  });
+});
+
 test("with capture on, CONNECT to any host is intercepted", async (t) => {
   const mitmCalls = await mockMitm(t);
   const echoPort = await echoServer(t);
@@ -246,11 +262,12 @@ test("a tunnelled CONNECT goes through the upstream proxy", async (t) => {
 
 test("an upstream proxy that refuses the CONNECT yields 502", async (t) => {
   await mockMitm(t);
-  await fakeUpstreamProxy(t, "HTTP/1.1 403 Forbidden\r\n\r\n");
+  const seen = await fakeUpstreamProxy(t, "HTTP/1.1 403 Forbidden\r\n\r\n");
   await withProxy(undefined, async ({ frontPort }) => {
     const { socket, statusLine } = await connectThrough(frontPort, "tunnel.example.test:443");
     socket.destroy();
     assert.equal(statusLine, "HTTP/1.1 502 Bad Gateway");
+    assert.equal(seen.length, 1);
   });
 });
 
@@ -281,6 +298,8 @@ test("the MITM cache evicts the least recently used server past its cap", async 
   const closed = [];
   const closedAll = [];
   let created = 0;
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
   t.mock.method(systemProxyManager, "restore", async () => ({ state: "inactive" }));
   t.mock.method(proxyService, "createMitmServer", async (hostname) => {
     created += 1;
@@ -295,11 +314,20 @@ test("the MITM cache evicts the least recently used server past its cap", async 
   for (let i = 0; i < 128; i++) await proxyService.getMitmServer(`h${i}.test`);
   await proxyService.getMitmServer("h0.test");
   await proxyService.getMitmServer("h128.test");
-  await new Promise((resolve) => setImmediate(resolve));
+  await settle();
+  t.mock.timers.tick(60_000);
   assert.deepEqual(closed, ["h1.test"]);
   assert.deepEqual(closedAll, []);
   assert.equal(created, 129);
 
-  await proxyService.stop();
+  let stopped = false;
+  const stopping = proxyService.stop().then(() => {
+    stopped = true;
+  });
+  while (!stopped) {
+    await settle();
+    t.mock.timers.tick(1_000);
+  }
+  await stopping;
   assert.equal(closedAll.includes("h1.test"), true);
 });

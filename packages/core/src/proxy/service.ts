@@ -730,8 +730,10 @@ class ProxyService {
     if (!proxyServer) {
       const remote = net.connect(target.port, target.hostname.replace(/^\[|\]$/g, ""));
       upstream = remote;
+      remote.setTimeout(upstreamProxyConnectTimeoutMs, () => remote.destroy(new Error(`CONNECT ${authority} timed out.`)));
       remote.once("error", fail);
       remote.once("connect", () => {
+        remote.setTimeout(0);
         remote.off("error", fail);
         open(remote, Buffer.alloc(0));
       });
@@ -760,11 +762,9 @@ class ProxyService {
       const statusCode = connectResponse.statusCode ?? 502;
       if (statusCode < 200 || statusCode >= 300) {
         remote.destroy();
-        closeConnectSocket(clientSocket, 502, `${upstreamName} failed with status ${statusCode}.`);
+        fail(new Error(`${upstreamName} failed with status ${statusCode}.`));
         return;
       }
-      // The connect timeout is set on this socket; left on, it would destroy an idle tunnel.
-      remote.setTimeout(0);
       open(remote, remoteHead);
     });
     connectRequest.end();
@@ -865,13 +865,14 @@ class ProxyService {
     upstreamUrl: URL;
   }): ActiveProxyNetworkCapture {
     const startedAtMs = Date.now();
+    const redactedUrl = new URL(redactSensitiveUrlQuery(targetUrl.toString()));
     const record: ProxyNetworkCaptureRecord = {
       client: inferProxyClient(request.headers),
       host: targetUrl.host,
       id: requestId,
       method: request.method ?? "GET",
       mode,
-      path: redactSensitiveUrlQuery(`${targetUrl.pathname}${targetUrl.search}`),
+      path: `${redactedUrl.pathname}${redactedUrl.search}`,
       protocol: targetUrl.protocol === "https:" ? "https" : "http",
       requestHeaders: cloneCapturedHeaders(request.headers),
       requestSampler: new NetworkBodySampler(maxNetworkCaptureBodyBytes),
@@ -881,7 +882,7 @@ class ProxyService {
       startedAtMs,
       state: "pending",
       upstreamUrl: redactSensitiveUrlQuery(upstreamUrl.toString()),
-      url: redactSensitiveUrlQuery(targetUrl.toString())
+      url: redactedUrl.toString()
     };
 
     this.networkCaptures.unshift(record);

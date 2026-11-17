@@ -40,19 +40,19 @@ A reachable management UI does not prove the gateway is running. Docker returns 
 
 ## Proxy mode
 
-Proxy mode is the local proxy capability. When enabled, clients can send HTTP/HTTPS traffic to LLMR. LLMR decrypts HTTPS only for the hosts it routes, which are the proxy targets and the hosts of plugin proxy routes. It passes every other host through as an opaque tunnel and cannot read that traffic.
+Proxy mode is the local proxy capability. When enabled, clients can send HTTP/HTTPS traffic to LLMR. LLMR decrypts HTTPS only for the hosts it routes, which are the proxy targets in gateway mode and the hosts of plugin proxy routes. It passes every other host through as an opaque tunnel and cannot read that traffic.
 
 | Field | Capability |
 | --- | --- |
 | Proxy mode | Enables Proxy mode. LLMR can receive client traffic as an HTTP/HTTPS proxy and use MITM interception to proxy model requests into LLMR. |
 | System proxy | Points the system proxy at LLMR so apps that honor system proxy settings can go through LLMR automatically. |
-| Capture network | Stores network requests that pass through proxy mode so the Networking page can show request and response details. While it is on, LLMR decrypts every host, not only the hosts it routes. Credential query parameters such as `key` and `api_key` are stored as `[redacted]`. |
+| Capture network | Stores network requests that pass through proxy mode so the Networking page can show request and response details. While it is on, LLMR decrypts every host, not only the hosts it routes. The values of credential query parameters such as `key` and `api_key` are stored redacted. |
 | CA certificate | Trust status of the current proxy CA certificate. |
 | Install CA | Installs the LLMR proxy CA into the system or user trust store. Installation differs by OS. |
 | Check Trust | Checks again whether the proxy CA is trusted by the system. |
 | Proxy status | Shows whether the proxy service is running. |
 | Restart Proxy | Restarts the proxy service when proxy mode is enabled. |
 
-A connection that was opened as a tunnel stays a tunnel. Turn on Capture network before you start the client you want to inspect.
+A connection that was opened as a tunnel stays a tunnel, also after Capture network is turned on or its host becomes a routed host. Turn on Capture network, or add the target, before you start the client.
 
 Proxy mode changes local networking and certificate trust and is primarily a desktop feature. Container deployments should normally point clients directly at the public LLMR Nginx gateway; changing the host system proxy or installing a host CA from inside the container is not supported.
