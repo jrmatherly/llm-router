@@ -148,13 +148,8 @@ test("#1867 a killed managed core restarts and restores the real service health"
   const upstream = createServer((req, res) => { req.resume(); res.end("{}"); });
   try {
     const upstreamUrl = await listen(upstream);
-    const publicReserve = createServer();
-    await listen(publicReserve);
-    const publicPort = publicReserve.address().port;
-    const coreReserve = createServer();
-    await listen(coreReserve);
-    const corePort = coreReserve.address().port;
-    await close(publicReserve); await close(coreReserve);
+    const publicPort = await reserveLoopbackPort();
+    const corePort = await reserveLoopbackPort();
     const config = createDefaultAppConfig();
     config.Providers = [{ name: "Provider", id: "provider", models: ["native"], type: "anthropic_messages", api_base_url: upstreamUrl, api_key: "test" }];
     config.gateway = { ...config.gateway, enabled: true, host: "127.0.0.1", port: publicPort, coreHost: "127.0.0.1", corePort };

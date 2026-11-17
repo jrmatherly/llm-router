@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 const model = "deepseek-v4.1-flash";
 const cacheReadTokens = 800;
@@ -93,10 +94,7 @@ test("#1791 actual gateway reports OpenCode Go cache reads to Anthropic clients"
   try {
     await listen(upstream);
     const upstreamOrigin = `http://127.0.0.1:${upstream.address().port}`;
-    const reservation = createServer();
-    await listen(reservation);
-    const port = reservation.address().port;
-    await new Promise((resolve) => reservation.close(resolve));
+    const port = await reserveLoopbackPort();
 
     const configFile = path.join(root, "gateway.json");
     const redirectFile = path.join(root, "loopback-transport.cjs");

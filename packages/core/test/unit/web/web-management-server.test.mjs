@@ -199,9 +199,9 @@ test("closing the web service releases the Claude Code takeover when no gateway 
 test("closing the web service keeps the takeover while another LLMR gateway serves", async (t) => {
   const { restoreClaudeAppGatewayConfig } = await import("@llmr/core/agents/claude-app/gateway-service.ts");
   const { restoreGlobalProfileConfigsOnExit } = await import("@llmr/core/profiles/service.ts");
-  const gatewayPort = await reserveLoopbackPort();
   const otherGateway = createHealthyLlmrGateway(undefined, { reloadRequests: [], revision: "" });
-  await listen(otherGateway, gatewayPort);
+  await listen(otherGateway, 0);
+  const gatewayPort = otherGateway.address().port;
   try {
     const { runtime, settingsFile } = await startWithStubbedGateway(t, gatewayPort);
     const claudeAppBackup = await seedClaudeAppTakeover();

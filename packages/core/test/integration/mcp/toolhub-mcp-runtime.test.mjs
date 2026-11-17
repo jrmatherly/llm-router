@@ -1143,11 +1143,3 @@ async function listen(server) {
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
 }
-
-async function closeServer(server) {
-  if (!server.listening) {
-    return;
-  }
-  server.close();
-  await once(server, "close");
-}
