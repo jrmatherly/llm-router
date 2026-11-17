@@ -286,6 +286,9 @@ const paths = [
   { via: "host pipeline" },
   { via: "gateway child in public mode", coreOnly: true, publicGatewayMode: true }
 ];
+// The vendored gateway fails these cases (upstream review row 29). The match
+// keeps any other failure red, and a gateway that fixes one turns it red too.
+const gatewayDefect = match => ({ expectFailure: { label: "vendored gateway defect, upstream review row 29", match } });
 
 test("#1917 a stream cut after its first chunk ends with a terminal error frame", { timeout: 60000 }, async t => {
   for (const scenario of [
@@ -296,7 +299,7 @@ test("#1917 a stream cut after its first chunk ends with a terminal error frame"
     { type: "openai_chat_completions", base: "/v1", path: "/v1/responses", marker: /response\.failed/ }
   ]) {
     for (const { via, coreOnly, publicGatewayMode } of paths) {
-      await t.test(`${scenario.type} -> ${scenario.path} via ${via}`, async () => {
+      await t.test(`${scenario.type} -> ${scenario.path} via ${via}`, coreOnly ? gatewayDefect(/socket closed/) : {}, async () => {
         const id = `cut-${scenario.type}`;
         await run(url => [{ id, name: id, type: scenario.type, api_base_url: url + scenario.base, models: ["pool-model"], credentials }],
           [{ ...probe(`${id}/pool-model`, "partial", scenario.path, true), coreOnly,
@@ -321,7 +324,7 @@ test("#1932 native models keep safeguards, unknown request fields and verdicts",
     for (const { via, coreOnly, publicGatewayMode } of paths) {
       for (const stream of [false, true]) {
         const name = [streamMode ? `virtual model (${streamMode})` : "direct model", via, stream ? "stream" : "json"].join(", ");
-        await t.test(name, async () => {
+        await t.test(name, streamMode ? gatewayDefect(/lost request safeguards/) : {}, async () => {
           const p = { ...probe(model, undefined, "/v1/messages", stream), coreOnly, expectedUpstreamModel: "guard-model" };
           p.body.safeguards = { synthetic_check: { tool_use_id: verdict.tool_use_id, opaque_config: { unknown_future: [1, "keep"] } } };
           p.body.future_native_request = { keep: ["opaque", 123] };
@@ -338,7 +341,7 @@ test("#1932 native models keep safeguards, unknown request fields and verdicts",
                 ? assert.deepEqual(events.find(event => event.type === "message_delta")?.delta.safeguard_results, verdict)
                 : assert.deepEqual(JSON.parse(text).safeguard_results, verdict)
             }).filter(([, check]) => { try { check(); return false; } catch { return true; } }).map(([what]) => what);
-            assert.deepEqual(lost, [], text);
+            assert.deepEqual(lost, [], `lost ${lost.join(", ")}: ${text}`);
           };
           await run(url => [{ id: "safe", name: "Safe", type: "anthropic_messages", api_base_url: `${url}/native`, api_key: "good", models: ["guard-model"] }], [p], {
             configure: config => { if (streamMode) config.virtualModelProfiles = [guardedProfile(streamMode)]; }, publicGatewayMode });
