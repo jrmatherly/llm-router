@@ -71,3 +71,51 @@ test("#1791 leaves non-SSE responses untouched", () => {
   const response = new Response("{}", { headers: { "content-type": "application/json" } });
   assert.equal(normalizeDeepSeekCacheUsageStream(response), undefined);
 });
+
+test("an upstream error reaches the client body instead of crashing the process or hanging", { timeout: 5000 }, async () => {
+  const encoder = new TextEncoder();
+  const uncaught = [];
+  const onUncaught = (error) => uncaught.push(error);
+  process.on("uncaughtException", onUncaught);
+  try {
+    let upstream;
+    const body = new ReadableStream({
+      start(controller) {
+        upstream = controller;
+        controller.enqueue(encoder.encode("data: {\"choices\":[]}\n\n"));
+      }
+    });
+    const response = normalizeDeepSeekCacheUsageStream(new Response(body, {
+      headers: { "content-type": "text/event-stream" }
+    }));
+    const reader = response.body.getReader();
+    await reader.read();
+    upstream.error(new Error("ECONNRESET upstream"));
+    await assert.rejects(reader.read(), /ECONNRESET upstream/);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(uncaught.map((error) => error.message), []);
+  } finally {
+    process.off("uncaughtException", onUncaught);
+  }
+});
+
+test("a client that cancels the normalized body cancels the upstream response", { timeout: 5000 }, async () => {
+  const encoder = new TextEncoder();
+  let upstreamCancelled;
+  const cancelled = new Promise((resolve) => { upstreamCancelled = resolve; });
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode("data: {\"choices\":[]}\n\n"));
+    },
+    cancel() {
+      upstreamCancelled();
+    }
+  });
+  const response = normalizeDeepSeekCacheUsageStream(new Response(body, {
+    headers: { "content-type": "text/event-stream" }
+  }));
+  const reader = response.body.getReader();
+  await reader.read();
+  await reader.cancel();
+  await cancelled;
+});

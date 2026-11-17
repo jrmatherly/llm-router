@@ -42,6 +42,7 @@ test("#1819 client-visible fallback error includes 429 and 404 before final mode
     assert.match(payload.error.message, /HTTP 429/);
     assert.match(payload.error.message, /HTTP 404/);
     assert.match(payload.error.message, /Unknown final model/);
+    assert.match(payload.error.message, /Requested model: Primary\/model\.$/);
   } finally { globalThis.fetch = previousFetch; }
 });
 

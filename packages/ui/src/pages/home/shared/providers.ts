@@ -1978,7 +1978,7 @@ export function providerCapabilitiesForSave(
 
 export type ProviderManualFields = Pick<
   GatewayProviderConfig,
-  "billing" | "provider" | "transformer"
+  "billing" | "forwardThinkingParameters" | "provider" | "transformer"
 >;
 
 /**
@@ -2005,6 +2005,7 @@ export function providerManualFieldsForSave(
   }
   const preserved: ProviderManualFields = {
     billing: existingProvider.billing,
+    forwardThinkingParameters: existingProvider.forwardThinkingParameters,
     provider: existingProvider.provider,
     transformer: existingProvider.transformer
   };

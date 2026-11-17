@@ -1,4 +1,7 @@
 import type { RouteRequest } from "@llmr/core/routing/contracts";
+import { calculateTokenCount } from "@llmr/core/routing/token-estimator";
+
+export const maxRouteScriptBodyBytes = 2 * 1024 * 1024;
 
 const maxLastUserTextChars = 16 * 1024;
 const maxSystemTextChars = 8 * 1024;
@@ -38,6 +41,8 @@ export function buildRouteScriptInput(
 ): RouteScriptInput {
   const apiKeyId = readHeader(request.headers, "x-auth-api-key-id");
   const snapshot: BodySnapshot = { json: JSON.stringify(request.body) };
+  const oversized = Buffer.byteLength(snapshot.json) > maxRouteScriptBodyBytes;
+  if (oversized) snapshot.json = JSON.stringify(truncatedBody(request.body.model));
   const input: RouteScriptInput = {
     ...(apiKeyId ? { apiKeyId } : {}),
     ...(request.builtInSubagentModel ? { builtInSubagentModel: request.builtInSubagentModel } : {}),
@@ -54,7 +59,9 @@ export function buildRouteScriptInput(
       systemText: truncateText(textFromUnknown(request.body.system), maxSystemTextChars),
       toolNames: toolNames(request.body.tools).slice(0, maxToolNames)
     },
-    tokenCount: options.deferTokenCount ? options.tokenCount : request.tokenCount ?? 0,
+    tokenCount: options.deferTokenCount
+      ? options.tokenCount ?? (oversized ? request.tokenCount ?? calculateTokenCount(request.body.messages, request.body.system, request.body.tools) : undefined)
+      : request.tokenCount ?? 0,
     url: request.url
   };
   // Retain an immutable JSON snapshot for transport, without parsing and then
@@ -69,14 +76,32 @@ export function buildRouteScriptInput(
   return input;
 }
 
+// The empty messages array keeps a script that reads input.body.messages from throwing,
+// which would count toward the rule's circuit breaker.
+function truncatedBody(model: unknown): Record<string, unknown> {
+  return { __llmrBodyTruncated: true, messages: [], model };
+}
+
 export function serializeRouteScriptInput(input: RouteScriptInput): string {
   const snapshot = bodySnapshots.get(input);
-  if (!snapshot) return JSON.stringify(input);
+  if (!snapshot) {
+    const json = JSON.stringify(input.body);
+    if (Buffer.byteLength(json) <= maxRouteScriptBodyBytes) return JSON.stringify(input);
+    return JSON.stringify({
+      ...input,
+      body: truncatedBody(input.model),
+      tokenCount: input.tokenCount ?? calculateTokenCount(input.body.messages, input.body.system, input.body.tools)
+    });
+  }
   const metadata: Record<string, unknown> = {};
   for (const key of Object.keys(input)) {
     if (key !== "body") metadata[key] = input[key as keyof RouteScriptInput];
   }
-  const bodyJson = snapshot.body ? JSON.stringify(snapshot.body) : snapshot.json;
+  let bodyJson = snapshot.body ? JSON.stringify(snapshot.body) : snapshot.json;
+  if (Buffer.byteLength(bodyJson) > maxRouteScriptBodyBytes) {
+    metadata.tokenCount ??= calculateTokenCount(snapshot.body?.messages, snapshot.body?.system, snapshot.body?.tools);
+    bodyJson = JSON.stringify(truncatedBody(input.model));
+  }
   return `${JSON.stringify(metadata).slice(0, -1)},"body":${bodyJson}}`;
 }
 

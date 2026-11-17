@@ -13,6 +13,7 @@ This repo is a GitHub fork and shares history with its upstream. The upstream UR
 A merge of upstream conflicted in 61 files on 2026-11-16 (`--dry-run-merge` gives today's count), because the fork renamed every identifier, went English only and removed whole features. So:
 
 - **Each wanted upstream commit is ported on its own.** One upstream change is one branch and one squash-merged PR here, through the normal code flow. The PR's `## Why` links the upstream commit, and the commit message ends with `Ported from upstream <full sha>`.
+- **Small rows may share a PR when the owner asks.** Batch only rows sized S whose files do not overlap (compare the `--port-check` paths). Each row is its own commit with its own failing test first and its own `Ported from upstream` line, the PR body has one section per row, and reviewers are briefed per row. A row whose defect is unconfirmed here is measured first and dropped from the batch if it does not reproduce. Rows sized M or L, and rows that need a decision, stay alone.
 - **The rename is done by a tool.** `--port <sha>` prints the upstream diff with upstream's names and paths rewritten by `scripts/llmr-rename.mjs`. `--port-check <sha>` tries that diff against `HEAD` file by file and prints this fork's path for each, with the reason when a file fails. Apply the files that pass with `--port <sha> | git apply -v --include=<path>`, using the path `--port-check` printed, and port the failing files by hand. `git apply --include` exits 0 when the path matches nothing, so read the `-v` output or `git status` to confirm a file changed.
 - **GitHub will always read "behind".** It counts commits, and the fork never records upstream ancestry. The watermark and the decision logs are the record of what was reviewed.
 - **A skipped commit needs no code.** It gets a verdict row, and a row in the deviations table when the skip is a standing rule.
@@ -74,7 +75,7 @@ Tags on a listed commit: `[merge]` (classify its parents, not the merge) and `[r
 6. Run `--port-check <sha>` for every ADOPT and ADAPT and put the result in the log. It sizes the port.
 7. Write every verdict with file-level evidence and the commit URL to the dated decision log (template below). Rank the ADOPT and ADAPT rows by value to this fork.
 8. `$S --advance <end>` and commit `docs/superpowers/upstream-review/` to `main` (docs-only). `--advance` needs the log's `Window:` line to end with the full END SHA, as the template has it.
-9. The owner picks which rows to port. Each port is its own PR. Record the PR in the log's "Landed" section when it merges.
+9. The owner picks which rows to port. Each port is its own PR, or one commit in a batch PR under the rule above. Record the PR in the log's "Landed" section when it merges.
 
 ### Validating a port
 
