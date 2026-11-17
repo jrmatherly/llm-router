@@ -345,8 +345,8 @@ export const mcpServerTransportOptions: Array<{ label: string; value: GatewayMcp
 ];
 
 export const mcpStdioMessageModeOptions: Array<{ label: string; value: GatewayMcpStdioMessageMode }> = [
-  { label: "content-length", value: "content-length" },
-  { label: "newline-json", value: "newline-json" }
+  { label: "newline-json (MCP standard)", value: "newline-json" },
+  { label: "content-length", value: "content-length" }
 ];
 
 export const providerPresetIconUrls: Record<string, string> = {

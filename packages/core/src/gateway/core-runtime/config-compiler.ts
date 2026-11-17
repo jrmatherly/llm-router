@@ -114,7 +114,7 @@ export async function compileCoreGatewayConfig(
     ...pluginMcpServers,
     ...(config.agent?.mcpServers ?? []),
     ...(config.toolHub?.mcpServers ?? [])
-  ];
+  ].map(withStdioMessageModeDefault);
   const toolHubServer = toolHubMcpServer(config, externalMcpServers);
   const mediaMcpServer = mediaToolsMcpServer(config);
   const mcpServers = [
@@ -902,6 +902,15 @@ function addProviderNameVariants(names: Set<string>, providerName: string | unde
   if (capabilitySeparatorIndex > 0) {
     names.add(providerName.slice(0, capabilitySeparatorIndex));
   }
+}
+
+// The core runtime frames a stdio server with no mode as Content-Length. MCP's stdio
+// framing is newline JSON, and a plugin's servers arrive here without passing the config parser.
+function withStdioMessageModeDefault<T>(server: T): T {
+  if (!isRecord(server) || typeof server.command !== "string" || server.stdioMessageMode === "content-length") {
+    return server;
+  }
+  return { ...server, stdioMessageMode: "newline-json" };
 }
 
 // The core runtime spawns stdio MCP servers with {...process.env, ...server.env}, and its

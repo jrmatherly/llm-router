@@ -35,7 +35,8 @@ test("a stdio MCP server draft speaks newline JSON unless content-length is aske
     createMcpServerDraftFromUnknown({ command: "npx", name: "files", stdioMessageMode: "content-length" }).stdioMessageMode,
     "content-length"
   );
-  // A remote server edited into a stdio one starts from the same default.
-  const remote = createMcpServerDraftFromConfig({ headers: {}, name: "remote", requestTimeoutMs: 30000, startupTimeoutMs: 600000, transport: "streamable-http", url: "https://mcp.example.test" });
-  assert.equal(remote.stdioMessageMode, "newline-json");
+  // The settings dialog changes only the transport when a remote server becomes a stdio one.
+  const remote = createMcpServerDraftFromConfig({ headers: {}, name: "remote", protocolVersion: "2024-11-05", requestTimeoutMs: 30000, startupTimeoutMs: 600000, transport: "streamable-http", url: "https://mcp.example.test" });
+  const saved = mcpServerConfigFromDraft({ ...remote, command: "npx", transport: "stdio" }, [], undefined);
+  assert.equal(saved.stdioMessageMode, "newline-json");
 });

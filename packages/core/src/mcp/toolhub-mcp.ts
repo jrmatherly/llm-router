@@ -1330,19 +1330,19 @@ class StdioMcpClient implements McpClient {
   private write(message: Record<string, unknown>): void {
     const child = this.ensureChild();
     const text = JSON.stringify(message);
-    if (this.server.stdioMessageMode === "newline-json") {
-      child.stdin.write(`${text}\n`);
+    if (this.server.stdioMessageMode === "content-length") {
+      child.stdin.write(`Content-Length: ${Buffer.byteLength(text, "utf8")}\r\n\r\n${text}`);
       return;
     }
-    child.stdin.write(`Content-Length: ${Buffer.byteLength(text, "utf8")}\r\n\r\n${text}`);
+    child.stdin.write(`${text}\n`);
   }
 
   private readStdout(chunk: Buffer): void {
     this.stdoutBuffer = Buffer.concat([this.stdoutBuffer, chunk]);
-    if (this.server.stdioMessageMode === "newline-json") {
-      this.drainNewlineJsonStdout();
-    } else {
+    if (this.server.stdioMessageMode === "content-length") {
       this.drainContentLengthStdout();
+    } else {
+      this.drainNewlineJsonStdout();
     }
   }
 
