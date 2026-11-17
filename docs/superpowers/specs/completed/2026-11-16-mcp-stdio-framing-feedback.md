@@ -1,6 +1,6 @@
 # Stdio MCP framing feedback spec
 
-This spec records what happens when a stdio MCP server is set to the wrong message framing, the options for fixing it, and what the owner decided. The plan is [`plans/2026-11-16-mcp-stdio-framing-feedback.md`](../plans/2026-11-16-mcp-stdio-framing-feedback.md).
+This spec records what happens when a stdio MCP server is set to the wrong message framing, the options for fixing it, and what the owner decided. The plan is [`plans/completed/2026-11-16-mcp-stdio-framing-feedback.md`](../../plans/completed/2026-11-16-mcp-stdio-framing-feedback.md). All three of its PRs merged by 2026-11-17 (PRs 77, 79 and 80).
 
 ## Goal
 
@@ -47,7 +47,7 @@ Three reviewers on different models tried to break this spec and its plan on 202
 
 | ID | Decision | Status |
 |---|---|---|
-| D-1 | No migration rewrites a saved server's mode. The project has no consumers (decision D-9 of `2026-11-16-audit-remediation.md`). | Standing. |
+| D-1 | No migration rewrites a saved server's mode. The project has no consumers (decision D-9 of `specs/2026-11-16-audit-remediation.md`). | Standing. |
 | D-2 | Option C is rejected. | Decided by the reasoning above; the owner has not objected. |
 | OD-1 | Should every stdio server that LLMR's own clients talk to, user-configured or plugin-supplied, always use newline JSON (option B)? | Yes. Decided by the owner on 2026-11-16. |
 | OD-2 | Should discovery time out sooner than server startup, and after how long (option D)? | Yes, after 60000 ms. Decided by the owner on 2026-11-16. |

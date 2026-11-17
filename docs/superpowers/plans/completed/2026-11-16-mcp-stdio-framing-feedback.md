@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript on Node 24, `node:test` with `node:assert/strict`, esbuild.
 
-**Spec:** `docs/superpowers/specs/2026-11-16-mcp-stdio-framing-feedback.md`
+**Spec:** `docs/superpowers/specs/completed/2026-11-16-mcp-stdio-framing-feedback.md`
 
 ## PR order
 
@@ -365,6 +365,14 @@ Release note for the PR body: "The stdio message mode setting is gone. LLMR alwa
 
 ## MF-3 Cap interactive discovery below the startup timeout
 
+**Status:** Merged 2026-11-17 as [PR 80](https://github.com/jrmatherly/llm-router/pull/80), squash commit `18da4aba`. It differs from the steps below in three ways:
+
+- When the ceiling is shorter than the server's own timeout, the error adds: `Tool discovery waits no longer than this for a stdio server, whatever its startup timeout.` Without it a user with a long startup timeout saw 60000 ms, a number they never set.
+- `toolhub.md` gained a troubleshooting line. It says to run the `npx` command once in a terminal first, because the timeout stops the `npx` process and its download. The "Owner steps" sentence below, that a retry finds the package in the npm cache, holds only for packages npm had finished downloading. Nobody stopped a real `npx` download to measure this.
+- The test does not assert the elapsed time. The message names the timer that fired.
+
+Not done: no test proves the two production callers get the 60000 ms default, only that the constant is 60000. Discovery was not run from the app's virtual-model page. The second commit merged before CI ran on it: `gh pr merge --auto` was armed seconds after the push and merged at once. The Tests run on `main` for `18da4aba` is the check.
+
 **Fixes:** spec F-3, by option D
 **Depends on:** MF-1 merged. Owner decision OD-2 was answered yes on 2026-11-16, with a ceiling of 60000 ms.
 **Branch:** `fix/mcp-discovery-timeout`
@@ -413,4 +421,4 @@ Commit message: `fix(toolhub): stop tool discovery waiting for the full server s
 
 ## When this plan has shipped
 
-Add a `**Status:**` line under each PR heading when it merges, as the audit plans do. When MF-1 has merged and OD-1 and OD-2 are each either shipped or declined, move this plan and its spec to the `completed/` folders and repoint the links between them.
+All three PRs merged by 2026-11-17 (PRs 77, 79 and 80), and this plan and its spec moved to the `completed/` folders that day. The release note in MF-2 Task 1 Step 7 still has to go into the release that ships them.
