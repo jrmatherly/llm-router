@@ -4682,9 +4682,9 @@ function ensurePendingRawTraceUpdateSchema(database: SqlDatabase): void {
 // rows for this repair include every request logged since the last retention
 // prune, bodies and all. Reading them as one result set can exceed the worker
 // heap before that prune gets a chance to run, which is why the two workers
-// respawn forever (upstream issue #1898). Collect the row ids first and read one row at
-// a time instead: better-sqlite3 rejects writes while a statement is still
-// iterating this connection, so the ids loop must close before the updates.
+// respawn forever (upstream issue #1898). Collect the row ids first and read
+// one row at a time instead: better-sqlite3 rejects writes while a statement is
+// still iterating this connection, so the ids loop must close before the updates.
 function backfillRequestLogStreamFlags(database: SqlDatabase): void {
   const ids: number[] = [];
   for (const row of iterateRows(

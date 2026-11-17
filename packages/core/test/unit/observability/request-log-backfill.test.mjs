@@ -86,7 +86,17 @@ function readStreamFlagCounts(dbFile) {
   }
 }
 
-test("RequestLogStore backfill flags streaming rows and leaves the rest alone", async () => {
+// Counts alone pass when the wrong two rows are flagged, so name the rows too.
+function readStreamingPaths(dbFile) {
+  const database = createBetterSqliteDatabase(dbFile);
+  try {
+    return database.prepare("SELECT path FROM request_logs WHERE is_stream = 1 ORDER BY rowid").all().map((row) => row.path);
+  } finally {
+    database.close();
+  }
+}
+
+test("#1898 RequestLogStore backfill flags streaming rows and leaves the rest alone", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-stream-flag-test-"));
   const dbFile = path.join(dir, "request-logs.sqlite");
   let store;
@@ -98,13 +108,14 @@ test("RequestLogStore backfill flags streaming rows and leaves the rest alone", 
     await store.initialize();
 
     assert.deepEqual(readStreamFlagCounts(dbFile), { non_streaming: 8, streaming: 2 });
+    assert.deepEqual(readStreamingPaths(dbFile), ["/v1/messages", "/v1/messages"]);
   } finally {
     await store?.close();
     rmSync(dir, { force: true, recursive: true });
   }
 });
 
-test("RequestLogStore backfill stays inside the bounded worker heap", {
+test("#1898 RequestLogStore backfill stays inside the bounded worker heap", {
   skip: isBackfillHeapWorker,
   timeout: 45000
 }, async () => {
@@ -133,14 +144,13 @@ test("RequestLogStore backfill stays inside the bounded worker heap", {
       }
     );
     const output = `${stdout}\n${stderr}`;
-    assert.match(output, /backfill worker opens the seeded database in 64 MB/);
-    assert.doesNotMatch(output, /not ok/);
+    assert.match(output, /✔ #1898 RequestLogStore backfill worker opens the seeded database in 64 MB/);
   } finally {
     rmSync(dir, { force: true, recursive: true });
   }
 });
 
-test("RequestLogStore backfill worker opens the seeded database in 64 MB", {
+test("#1898 RequestLogStore backfill worker opens the seeded database in 64 MB", {
   skip: !isBackfillHeapWorker,
   timeout: 45000
 }, async () => {
@@ -151,6 +161,7 @@ test("RequestLogStore backfill worker opens the seeded database in 64 MB", {
   try {
     await store.initialize();
     assert.deepEqual(readStreamFlagCounts(dbFile), { non_streaming: 512, streaming: 2 });
+    assert.deepEqual(readStreamingPaths(dbFile), ["/v1/messages", "/v1/messages"]);
   } finally {
     await store.close();
   }
