@@ -110,10 +110,10 @@ export function mergeLimits(records, ownerProvider) {
   return compactObject(output);
 }
 
-// The router forwards Math.max(maxTokens, outputTokens) to clients, and resellers often
+// modelCatalogMaxOutputTokens advertises max(maxTokens, outputTokens), and resellers often
 // republish the context window as a completion limit. So when the model author publishes
-// either key, both come from the author's records only and a key the author omits stays
-// omitted. Without an author value, both keys keep the maximum over every record.
+// either key above zero, both come from the author's positive values only and a key the
+// author omits stays omitted. Otherwise both keep the maximum over every record.
 function authoritativeLimitValues(records, ownerProvider, key) {
   const owner = canonicalProviderToken(ownerProvider);
   const authorRecords = owner
