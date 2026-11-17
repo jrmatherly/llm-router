@@ -583,6 +583,27 @@ test("built ToolHub MCP runtime gives no framing hint once a content-length back
   assert.ok(!message.includes("Content-Length framing"), message);
 });
 
+test("built ToolHub MCP runtime names framing when a content-length backend exits before its handshake", async (t) => {
+  const resolved = await resolveWithBackends(t, [
+    { ...stdioBackend(t, "process.exit(3);"), ...shortTimeouts, stdioMessageMode: "content-length" }
+  ]);
+  if (!resolved) {
+    return;
+  }
+  const message = resolved.response.error?.message ?? "";
+  assert.ok(message.includes("stdio-test: MCP server exited (stdio-test): 3"), message);
+  assert.ok(message.endsWith(framingHint), message);
+});
+
+test("built ToolHub MCP runtime survives a backend that closes its stdin after the handshake", async (t) => {
+  const resolved = await resolveWithBackends(t, [{ ...stdioBackend(t, CLOSES_STDIN_STDBACKEND_SCRIPT), ...shortTimeouts }]);
+  if (!resolved) {
+    return;
+  }
+  const message = resolved.response.error?.message ?? "";
+  assert.ok(message.includes("stdio-test: write EPIPE"), message);
+});
+
 test("built ToolHub MCP runtime reports a missing backend command at once and lists at most three backends", async (t) => {
   const started = Date.now();
   const resolved = await resolveWithBackends(t, ["one", "two", "three", "four"].map((name) => ({
@@ -983,6 +1004,17 @@ process.stdin.on("data", (chunk) => {
     }
   }
 });
+`;
+
+// Answers initialize after closing its own stdin, so the client's next write hits a closed pipe.
+const CLOSES_STDIN_STDBACKEND_SCRIPT = `
+import fs from "node:fs";
+const chunk = Buffer.alloc(65536);
+const length = fs.readSync(0, chunk);
+const message = JSON.parse(chunk.subarray(0, length).toString("utf8").split("\\n")[0]);
+fs.closeSync(0);
+process.stdout.write(JSON.stringify({ id: message.id, jsonrpc: "2.0", result: {} }) + "\\n");
+setInterval(() => {}, 1000);
 `;
 
 function jsonLineReader(child) {

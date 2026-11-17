@@ -1294,15 +1294,25 @@ class StdioMcpClient implements McpClient {
         console.error(`[ToolHub backend ${this.server.name}] ${text}`);
       }
     });
-    child.on("error", (error) => {
-      // A failed spawn emits error and never exit, so the dead child would be reused.
+    const forget = (error: Error) => {
       if (this.child === child) {
         this.initialized = false;
         this.child = undefined;
       }
       this.rejectAll(error);
+    };
+    // A failed spawn emits error and never exit, so the dead child would be reused.
+    child.on("error", forget);
+    // A write to a backend that closed its stdin emits error on the stream once. Unhandled it ends
+    // the runtime, and later writes to that stream fail without an event.
+    child.stdin.on("error", (error) => {
+      child.kill();
+      forget(error);
     });
     child.on("exit", (code, signal) => {
+      if (this.child !== child) {
+        return;
+      }
       const handshakeDone = this.initialized;
       this.initialized = false;
       this.child = undefined;

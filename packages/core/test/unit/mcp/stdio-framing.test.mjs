@@ -86,3 +86,26 @@ for (const probe of [
     );
   });
 }
+
+// Answers initialize after closing its own stdin, so the client's next write hits a closed pipe.
+const closesStdinAfterHandshake = `
+const fs = require("node:fs");
+const chunk = Buffer.alloc(65536);
+const length = fs.readSync(0, chunk);
+const message = JSON.parse(chunk.subarray(0, length).toString("utf8").split("\\n")[0]);
+fs.closeSync(0);
+process.stdout.write(JSON.stringify({ id: message.id, jsonrpc: "2.0", result: {} }) + "\\n");
+setInterval(() => {}, 1000);
+`;
+
+test("stdio discovery: a write to a server that closed its stdin rejects and does not crash the process", async (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-stdio-framing-"));
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  const script = path.join(dir, "server.cjs");
+  writeFileSync(script, closesStdinAfterHandshake);
+
+  await assert.rejects(
+    listMcpServerTools({ args: [script], command: process.execPath, env: {}, name: "probe", startupTimeoutMs: 3000, transport: "stdio" }),
+    /EPIPE/
+  );
+});

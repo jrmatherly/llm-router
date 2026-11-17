@@ -68,6 +68,8 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig): Pro
       stderr = `${stderr}${chunk.toString("utf8")}`.slice(-4000);
     });
     child.on("error", (error) => finish(error));
+    // A write to a server that closed its stdin emits error on the stream, and an unhandled one ends the process.
+    child.stdin.on("error", (error) => finish(error));
     child.on("exit", (code, signal) => {
       if (!settled) {
         const detail = stderr.trim() ? ` ${stderr.trim()}` : "";
