@@ -2491,12 +2491,14 @@ test("apply in a China time zone leaves TZ in Claude settings to the user", { sk
       [{ env: { TZ: "Europe/Berlin" } }, "Europe/Berlin"],
       [{ env: { TZ: "UTC" } }, "UTC"]
     ]) {
-      await withGlobalClaudeProfileRelease(original, async ({ apply, readSettings }) => {
+      await withGlobalClaudeProfileRelease(original, async ({ apply, readSettings, release }) => {
         await apply();
         assert.equal(readSettings().env.TZ, expected);
         const suffix = process.platform === "win32" ? ".cmd" : "";
         const wrapper = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-displaced-env-claude-code${suffix}`), "utf8");
         assert.doesNotMatch(wrapper, /\bTZ=/);
+        release();
+        assert.equal(readSettings().env.TZ, expected);
       });
     }
   } finally {
