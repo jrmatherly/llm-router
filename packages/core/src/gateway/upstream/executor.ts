@@ -283,8 +283,7 @@ export function rewriteCapabilityResponseHeaders(headers: Headers, config: AppCo
 function routedModelHeaderForAttempt(attempt: UpstreamAttempt): string | undefined {
   if (attempt.target?.kind === "provider") {
     // A pool's first target is one credential, which the core would read as a pin.
-    const provider = attempt.headers?.["x-llmr-logical-provider"] ??
-      firstTargetProviderHeader(attempt.headers ?? {}) ??
+    const provider = (attempt.credentialChain?.length ? undefined : firstTargetProviderHeader(attempt.headers ?? {})) ??
       providerRuntimeId(attempt.target.provider);
     return `${provider}/${attempt.target.model}`;
   }
