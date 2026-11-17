@@ -21,7 +21,7 @@ export const classes = {
   longform: [/claude([ _-]?)code\1router/gi]
 };
 
-const skippedPaths = [
+export const skippedPaths = [
   "docs/superpowers/",
   "docs/package-lock.json",
   "package-lock.json",

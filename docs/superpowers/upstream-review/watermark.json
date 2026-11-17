@@ -1,0 +1,13 @@
+{
+  "upstreamUrl": "https://github.com/musistudio/claude-code-router.git",
+  "upstreamRemote": "upstream",
+  "upstreamBranch": "main",
+  "forkPointSha": "057abaa1f95519ab8faf999e1ccef2b80ccdeb9e",
+  "forkPointDate": "2026-10-10",
+  "forkPointDescribe": "v3.1.3-2-g057abaa1",
+  "lastReviewedSha": "da96d5dfb4d3d7f91818043a1500c4a447f3cdcf",
+  "lastReviewedShaShort": "da96d5df",
+  "lastReviewedDate": "2026-11-16",
+  "note": "forkPointSha is the merge-base of this fork and upstream when tracking started on 2026-11-16; it never moves, because the fork ports upstream changes and does not merge them. lastReviewedSha is the last upstream commit a decision log classified; only .claude/skills/upstream-review/scripts/upstream-review.sh --advance <sha> moves it, and only forward. The review window runs from lastReviewedSha to the newest upstream v* tag past it, or to the upstream branch tip when no tag is newer (--tip forces the tip).",
+  "lastAdvancedAt": "2026-11-17T03:01:12Z"
+}
