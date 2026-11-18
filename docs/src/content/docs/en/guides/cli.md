@@ -169,7 +169,7 @@ The public management authentication variables are:
 
 Listening on `0.0.0.0` exposes the management UI to the LAN or external networks. Only configure this when genuinely needed, and combine it with a fixed strong token, a host firewall or private network, and TLS provided by a trusted reverse proxy.
 
-Management RPC rejects a browser request whose `Origin` or `Referer` is not trusted, with `403`. Loopback addresses are trusted, and so is `http://<listen address>:<port>`. Behind a reverse proxy the browser's origin is the proxy's address, so set `LLMR_PUBLIC_BASE_URL` to it. A client that sends neither header, such as `curl`, needs only the token.
+Management RPC rejects a browser request whose `Origin` or `Referer` is not trusted, with `403`. Loopback addresses are trusted, and so is `http://<listen address>:<port>`. When the listen address is `0.0.0.0` or `::`, any IP address on that port is trusted. Behind a reverse proxy the browser's origin is the proxy's address, so set `LLMR_PUBLIC_BASE_URL` to it. A client that sends neither header, such as `curl`, needs only the token.
 
 The model gateway additionally requires separately created LLMR client keys. Upstream provider credentials are stored in the local data directory, so both the directory and its backups should be protected as sensitive data.
 

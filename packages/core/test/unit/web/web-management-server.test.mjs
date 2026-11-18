@@ -73,12 +73,13 @@ test("#1835 web RPC rejects hostile browser sources even with a valid token", as
   const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
   const runtime = await startWebManagementServer({ authToken: "source-test", host: "127.0.0.1", port: 0, startGateway: false });
   try {
-    for (const headers of [
-      { origin: "https://evil.example" },
-      { referer: "https://evil.example/page" },
-      { origin: "null" },
-      { origin: "file://localhost" },
-      { origin: "http://127.0.0.1:8000", referer: "https://evil.example/page" }
+    for (const [headers, rejected] of [
+      [{ origin: "https://evil.example" }, "https://evil.example"],
+      [{ referer: "https://evil.example/page" }, "https://evil.example/page"],
+      [{ origin: "null" }, "null"],
+      [{ origin: "file://localhost" }, "file://localhost"],
+      [{ origin: "http://127.0.0.1:8000", referer: "https://evil.example/page" }, "https://evil.example/page"],
+      [{ referer: "not a url" }, "not a url"]
     ]) {
       const response = await fetch(new URL("/api/llmr/rpc", runtime.url), {
         body: JSON.stringify({ args: [], method: "getAppInfo" }),
@@ -86,8 +87,17 @@ test("#1835 web RPC rejects hostile browser sources even with a valid token", as
         method: "POST"
       });
       assert.equal(response.status, 403, JSON.stringify(headers));
-      assert.equal((await response.json()).ok, false);
+      const payload = await response.json();
+      assert.equal(payload.ok, false);
+      assert.ok(payload.error.message.includes(rejected), payload.error.message);
+      assert.match(payload.error.message, /LLMR_PUBLIC_BASE_URL/);
     }
+    const trustedReferer = await fetch(new URL("/api/llmr/rpc", runtime.url), {
+      body: JSON.stringify({ args: [], method: "getAppInfo" }),
+      headers: { "content-type": "application/json", "x-llmr-web-auth": "source-test", referer: "http://127.0.0.1:8000/page" },
+      method: "POST"
+    });
+    assert.equal(trustedReferer.status, 200);
   } finally {
     await runtime.close();
   }
@@ -113,6 +123,11 @@ test("#1835 browser origins support explicit public URLs and allowlists", async 
       });
       assert.equal(response.status, 200, origin);
       assert.equal(response.headers.get("access-control-allow-origin"), origin);
+    }
+    for (const origin of ["https://tools.example.com", "http://127.0.0.1:8000"]) {
+      const preflight = await fetch(new URL("/api/llmr/rpc", runtime.url), { headers: { origin }, method: "OPTIONS" });
+      assert.equal(preflight.status, 204, origin);
+      assert.equal(preflight.headers.get("access-control-allow-origin"), origin);
     }
     const denied = await fetch(new URL("/api/llmr/rpc", runtime.url), { headers: { origin: "https://evil.example" }, method: "OPTIONS" });
     assert.equal(denied.status, 403);

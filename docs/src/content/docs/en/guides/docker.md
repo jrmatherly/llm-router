@@ -124,7 +124,7 @@ services:
       LLMR_WEB_AUTH_TOKEN: ${LLMR_WEB_AUTH_TOKEN:?set LLMR_WEB_AUTH_TOKEN}
 ```
 
-`LLMR_PUBLIC_BASE_URL` is synchronized into LLMR's public router endpoint. It does not publish a Docker port by itself, nor does it change the Nginx listen address.
+`LLMR_PUBLIC_BASE_URL` is synchronized into LLMR's public router endpoint. Its origin is also the browser origin that management RPC accepts. It does not publish a Docker port by itself, nor does it change the Nginx listen address.
 
 ## Domain, HTTPS, and reverse proxy
 
@@ -145,6 +145,7 @@ The reverse proxy should forward all paths to the LLMR Nginx and must:
 - Support long-running model requests;
 - Not buffer SSE and streaming model responses;
 - Allow an adequate request body size;
+- Pass the browser's `Origin` and `Referer` headers through unchanged;
 - Expose only the reverse proxy entrypoint publicly, while host port `3458` stays bound to localhost;
 - Be combined with a firewall, VPN / private network, or additional access control so the management UI is not directly exposed to untrusted networks.
 

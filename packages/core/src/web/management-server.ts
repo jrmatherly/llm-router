@@ -160,6 +160,7 @@ export async function startWebManagementServer(options: WebManagementServerOptio
   const baseUrl = `http://${formatListenHost(host)}:${port}/`;
   const url = urlWithWebAuthToken(baseUrl, authToken);
   security = createWebManagementSecurityContext(host, port, authToken);
+  warnAboutUnusableWebOrigins();
 
   if (options.startGateway !== false) {
     await startConfiguredServices("web startup");
@@ -187,14 +188,12 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse,
     return;
   }
 
-  // CORS only relaxes the browser same-origin policy for a trusted origin; the
-  // x-llmr-web-auth token still authorizes /api/llmr/rpc.
   const corsOrigin = allowedWebCorsOrigin(request);
   if (corsOrigin) {
     applyWebCorsHeaders(response, corsOrigin);
   }
   if (request.method === "OPTIONS") {
-    if (!isAllowedWebBrowserSource(request, security)) {
+    if (untrustedWebBrowserSource(request, security)) {
       sendText(response, 403, "Forbidden origin");
       return;
     }
@@ -236,8 +235,9 @@ async function handleRpcRequest(request: IncomingMessage, response: ServerRespon
     sendJson(response, 401, { error: { message: "LLMR web authentication token is missing or invalid." }, ok: false });
     return;
   }
-  if (!isAllowedWebBrowserSource(request, security)) {
-    sendJson(response, 403, { error: { message: "LLMR web request origin is not allowed." }, ok: false });
+  const untrustedSource = untrustedWebBrowserSource(request, security);
+  if (untrustedSource) {
+    sendJson(response, 403, { error: { message: `LLMR web request origin is not allowed: ${untrustedSource}. Set LLMR_PUBLIC_BASE_URL or LLMR_WEB_ALLOWED_ORIGINS to the address in the browser.` }, ok: false });
     return;
   }
 
@@ -691,9 +691,6 @@ function isAllowedWebRequestHost(request: IncomingMessage, security: WebManageme
 
 const loopbackWebCorsHosts = new Set(["localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1"]);
 
-// Loopback origins on any port are trusted so local tools work. A remote
-// deployment names its browser-facing origins in
-// LLMR_PUBLIC_BASE_URL and LLMR_WEB_ALLOWED_ORIGINS (comma-separated).
 function allowedWebCorsOrigin(request: IncomingMessage): string | undefined {
   const origin = readHeaderValue(request.headers.origin);
   return origin && isTrustedWebOrigin(origin) ? origin : undefined;
@@ -708,6 +705,10 @@ function parseWebOrigin(value: string): string | undefined {
   }
 }
 
+// Loopback origins on any port are trusted so local tools work. A remote
+// deployment names its browser-facing origins in LLMR_PUBLIC_BASE_URL and
+// LLMR_WEB_ALLOWED_ORIGINS. The server's own address and port count only for
+// the request check, which passes `security`; a same-origin page needs no CORS.
 function isTrustedWebOrigin(value: string, security?: WebManagementSecurityContext): boolean {
   const origin = parseWebOrigin(value);
   if (!origin || value.replace(/\/$/, "") !== origin) {
@@ -732,17 +733,29 @@ function isTrustedWebOrigin(value: string, security?: WebManagementSecurityConte
 // The token already stops a page that does not hold it. This also stops a page
 // that does, when a browser sent the request from an origin nobody trusted.
 // A client that sends neither header (curl, the CLI) is not a browser page.
-function isAllowedWebBrowserSource(request: IncomingMessage, security: WebManagementSecurityContext): boolean {
+function untrustedWebBrowserSource(request: IncomingMessage, security: WebManagementSecurityContext): string | undefined {
   const origin = readHeaderValue(request.headers.origin);
-  if (origin && !isTrustedWebOrigin(origin, security)) {
-    return false;
-  }
   const referer = readHeaderValue(request.headers.referer);
-  if (referer) {
-    const refererOrigin = parseWebOrigin(referer);
-    return Boolean(refererOrigin && isTrustedWebOrigin(refererOrigin, security));
+  const refererOrigin = referer ? parseWebOrigin(referer) : undefined;
+  const untrusted = origin && !isTrustedWebOrigin(origin, security)
+    ? origin
+    : referer && !(refererOrigin && isTrustedWebOrigin(refererOrigin, security))
+      ? referer
+      : undefined;
+  if (untrusted) {
+    console.warn(`[web] Rejected a request from the untrusted browser source ${JSON.stringify(untrusted)}. Set LLMR_PUBLIC_BASE_URL or LLMR_WEB_ALLOWED_ORIGINS to trust it.`);
   }
-  return true;
+  return untrusted;
+}
+
+function warnAboutUnusableWebOrigins(): void {
+  for (const key of ["LLMR_PUBLIC_BASE_URL", "LLMR_WEB_ALLOWED_ORIGINS"]) {
+    for (const item of (readEnvString(key) ?? "").split(",").map((value) => value.trim()).filter(Boolean)) {
+      if (!parseWebOrigin(item)) {
+        console.warn(`[web] Ignored ${key} entry ${JSON.stringify(item)}: it is not an http or https URL.`);
+      }
+    }
+  }
 }
 
 function applyWebCorsHeaders(response: ServerResponse, origin: string): void {

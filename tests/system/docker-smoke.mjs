@@ -25,6 +25,7 @@ try {
   }
 
   const hostPort = await findAvailablePort();
+  const publicHost = "192.0.2.10";
   run("docker", ["volume", "create", volumeName]);
   volumeCreated = true;
   seedLegacyDockerConfig(volumeName);
@@ -39,9 +40,7 @@ try {
     "-e",
     `LLMR_WEB_AUTH_TOKEN=${token}`,
     "-e",
-    "LLMR_PUBLIC_HOST=127.0.0.1",
-    "-e",
-    `LLMR_PUBLIC_PORT=${hostPort}`,
+    `LLMR_PUBLIC_BASE_URL=http://${publicHost}:${hostPort}`,
     "-e",
     "LLMR_WEB_ALLOWED_ORIGINS=https://trusted.example",
     "-v",
@@ -99,8 +98,9 @@ try {
   const trustedOrigin = await rpc(baseUrl, "getAppInfo", token, [], { origin: "https://trusted.example", referer: "https://trusted.example/page" });
   assert.equal(trustedOrigin.status, 200);
   assert.equal(trustedOrigin.headers.get("access-control-allow-origin"), "https://trusted.example");
-  const publicOrigin = await rpc(baseUrl, "getAppInfo", token, [], { origin: baseUrl, referer: `${baseUrl}/pages/home/index.html` });
-  assert.equal(publicOrigin.status, 200, "a loopback page must be able to call RPC through Nginx");
+  const publicOrigin = `http://${publicHost}:${hostPort}`;
+  const publicPage = await rpc(baseUrl, "getAppInfo", token, [], { origin: publicOrigin, referer: `${publicOrigin}/pages/home/index.html` });
+  assert.equal(publicPage.status, 200, "a page at LLMR_PUBLIC_BASE_URL must be able to call RPC through Nginx");
 
   const appInfo = await rpc(baseUrl, "getAppInfo", token);
   assert.equal(appInfo.status, 200);
@@ -125,7 +125,7 @@ try {
   assert.equal(config.status, 200);
   const configPayload = await config.json();
   assert.equal(configPayload.ok, true);
-  assert.equal(configPayload.value.routerEndpoint, baseUrl);
+  assert.equal(configPayload.value.routerEndpoint, publicOrigin);
   assert.equal(configPayload.value.HOST, "127.0.0.1");
   assert.equal(configPayload.value.PORT, 3456);
   assert.equal(configPayload.value.gateway.host, "127.0.0.1");
