@@ -23,6 +23,20 @@ test("isAppRendererFrame accepts frames under an encoded install path", () => {
   assert.equal(isAppRendererFrame("file:///C:/Users/JASONM~1/app/renderer/pages/home/index.html", "file:///C:/Users/JASONM%7E1/app/renderer/"), true);
 });
 
+test("isAppRendererFrame ignores the case of a Windows drive letter", () => {
+  assert.equal(isAppRendererFrame("file:///C:/Users/me/app/renderer/pages/home/index.html", "file:///c:/Users/me/app/renderer/"), true);
+  assert.equal(isAppRendererFrame("file:///c:/Users/me/app/renderer/pages/home/index.html", "file:///C:/Users/me/app/renderer/"), true);
+  assert.equal(isAppRendererFrame("file:///D:/Users/me/app/renderer/pages/home/index.html", "file:///c:/Users/me/app/renderer/"), false);
+});
+
+test("isAppRendererFrame treats the root as a directory and rejects traversal", () => {
+  assert.equal(isAppRendererFrame("file:///app/dist/renderer-evil/x", "file:///app/dist/renderer"), false);
+  assert.equal(isAppRendererFrame("file:///app/dist/renderer/pages/home/index.html", "file:///app/dist/renderer"), true);
+  for (const url of ["file:///app/dist/renderer/..%2F..%2Fevil.html", "file:///app/dist/renderer/pages/..%5C..%5Cevil.html"]) {
+    assert.equal(isAppRendererFrame(url, root), false, url);
+  }
+});
+
 test("assertAppRendererSender throws for a missing or foreign frame", () => {
   assert.throws(() => assertAppRendererSender({ senderFrame: null }, root), /only available to LLM Router windows/);
   assert.throws(() => assertAppRendererSender({ senderFrame: { url: "https://evil.example/" } } as any, root), /only available to LLM Router windows/);

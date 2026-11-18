@@ -25,6 +25,7 @@ test("formatReleaseNotes handles strings, lists and null", () => {
 
 test("formatUpdateError replaces code-signature errors with advice", () => {
   assert.equal(formatUpdateError(new Error("Code signature at URL file:///x did not pass validation")), "Downloaded update failed code-signature validation. Download the latest installer manually, or try again after the package is re-signed.");
+  assert.match(formatUpdateError(new Error("code failed to satisfy specified code requirement(s)")), /code-signature validation/);
   assert.equal(formatUpdateError(new Error("boom")), "boom");
   assert.equal(formatUpdateError("plain"), "plain");
 });

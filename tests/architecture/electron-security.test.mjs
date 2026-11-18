@@ -30,8 +30,18 @@ test("ipc.ts registers handlers only through the sender check", () => {
   const ipc = readFileSync(`${mainDir}/ipc.ts`, "utf8");
   assert.equal(ipc.split("ipcMain.handle(").length - 1, 1);
   assert.match(ipc, /assertAppRendererSender\(event, rendererRootUrl\)/);
+  assert.doesNotMatch(ipc, /ipcMain\.(on|once|handleOnce)\(/);
+  const browser = readFileSync(`${mainDir}/built-in-browser.ts`, "utf8");
+  assert.equal(browser.split("ipcMain.handle(").length - 1, browser.split("this.assertBrowserSender(event)").length - 1);
   const registrars = mainSources().filter(([, source]) => /ipcMain\.(handle|on)\(/.test(source)).map(([file]) => file);
   assert.deepEqual(registrars, ["built-in-browser.ts", "ipc.ts"]);
+});
+
+test("only the in-app button skips the gateway-start confirmation", () => {
+  const deepLink = readFileSync(`${mainDir}/deep-link.ts`, "utf8");
+  assert.equal(deepLink.split("confirmGatewayStart: false").length - 1, 1);
+  assert.match(deepLink, /openPluginApp\(pluginId: string, appId\?: string\)[^]*?confirmGatewayStart: false/);
+  assert.equal(deepLink.split("confirmGatewayStart: true").length - 1, 2);
 });
 
 test("the main window and the tray popover guard navigation", () => {

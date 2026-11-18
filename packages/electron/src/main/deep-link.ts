@@ -123,14 +123,12 @@ class DeepLinkService {
         throw new Error(`Plugin app is not configured or enabled: ${request.pluginId}`);
       }
 
-      const currentStatus = gatewayService.getStatus();
-      const startedGateway = currentStatus.state !== "running";
-      if (startedGateway && options.confirmGatewayStart) {
+      if (gatewayService.getStatus().state !== "running" && options.confirmGatewayStart) {
         const { response } = await dialog.showMessageBox({
           buttons: ["Start gateway", "Cancel"],
           cancelId: 1,
           defaultId: 1,
-          detail: "A link asked LLM Router to open this plugin app. The gateway is stopped and has to start first.",
+          detail: "A link asked LLM Router to open this plugin app. The gateway is not running and has to start first.",
           message: `Open the plugin app "${pluginApp.name}"?`,
           type: "question"
         });
@@ -138,6 +136,9 @@ class DeepLinkService {
           return;
         }
       }
+      // Read the status after the dialog: the gateway may have been started while it was open.
+      const currentStatus = gatewayService.getStatus();
+      const startedGateway = currentStatus.state !== "running";
       const status = startedGateway ? await gatewayService.start(config) : currentStatus;
       if (status.state !== "running") {
         throw new Error(status.lastError || "LLMR gateway did not start.");

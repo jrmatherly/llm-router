@@ -15,6 +15,7 @@ test("parsePluginDeepLinkRequest rejects bad actions and ids", () => {
   assert.throws(() => parsePluginDeepLinkRequest(`llmr://plugin/${"a".repeat(121)}/open`), /Invalid plugin id/);
   assert.throws(() => parsePluginDeepLinkRequest("llmr://plugin/..%2F/open"), /Invalid plugin id/);
   assert.throws(() => parsePluginDeepLinkRequest("llmr://plugin"), /Plugin id is required/);
+  assert.throws(() => parsePluginDeepLinkRequest("llmr://plugin/foo?app=..%2Fx"), /Invalid plugin id/);
 });
 
 test("parsePluginDeepLinkRequest ignores links that are not plugin links", () => {

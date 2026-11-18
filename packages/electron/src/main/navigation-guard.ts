@@ -15,6 +15,8 @@ export function guardRendererNavigation(
       return;
     }
     event.preventDefault();
-    openHttpExternal(url, open);
+    if (!openHttpExternal(url, open)) {
+      console.warn(`[navigation-guard] Blocked navigation to ${url}`);
+    }
   });
 }

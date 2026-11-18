@@ -8,7 +8,7 @@ export function normalizeBrowserInput(value: string | undefined, homeUrl: string
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
     return isHttpUrl(trimmed) ? trimmed : `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
   }
-  if (/^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(trimmed)) {
+  if (/^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:[/?#]|$)/i.test(trimmed)) {
     return `http://${trimmed}`;
   }
   if (trimmed.includes(".")) {
