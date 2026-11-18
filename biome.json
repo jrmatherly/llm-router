@@ -13,6 +13,7 @@
       "!**/*.json",
       "!**/*.css",
       "!examples/routing",
+      "!packages/core/src/agents/codex/*.runtime.cjs",
       "!packages/ui/src/generated"
     ]
   },

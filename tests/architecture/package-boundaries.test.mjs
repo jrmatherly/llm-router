@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { isBuiltin } from "node:module";
 import path from "node:path";
@@ -70,6 +71,23 @@ test("npm and Docker builds carry the plugin-capable gateway runtime", () => {
   assert.equal(manifest.scripts["docker:build"], "node build/docker-image.mjs");
   assert.equal(manifest.scripts["docker:compose:build"], "node build/docker-compose.mjs build");
   assert.equal(manifest.scripts["docker:compose:up"], "node build/docker-compose.mjs up -d --build");
+});
+
+const runtimeSourceFile = "packages/core/src/agents/codex/cli-middleware-runtime-source.runtime.cjs";
+
+test("every bundle that can include core loads .runtime.cjs sources as text", () => {
+  const buildConfig = readFileSync(path.join(projectRoot, "build", "esbuild.config.mjs"), "utf8");
+  for (const name of ["createMainBuildOptions", "createCliBuildOptions", "createCoreServerBuildOptions"]) {
+    const section = buildConfig.split(`export function ${name}(`)[1].split("\nexport function ")[0];
+    assert.match(section, /loader:\s*\{\s*"\.runtime\.cjs":\s*"text"\s*\}/, `${name} must load .runtime.cjs as text`);
+  }
+  assert.match(readFileSync(path.join(projectRoot, "build", "test.mjs"), "utf8"), /"\.runtime\.cjs":\s*"text"/);
+});
+
+test("the Codex runtime source is checked out with LF line endings on every platform", () => {
+  const attribute = execFileSync("git", ["check-attr", "eol", "--", runtimeSourceFile], { cwd: projectRoot, encoding: "utf8" });
+  assert.equal(attribute.trim(), `${runtimeSourceFile}: eol: lf`);
+  assert.equal(readFileSync(path.join(projectRoot, runtimeSourceFile), "utf8").includes("\r"), false);
 });
 
 function sourceFiles(directory) {

@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
+import { codexBaseInstructions } from "@llmr/core/agents/codex/base-instructions.ts";
 import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime.ts";
 import { buildCodexModelCatalog } from "@llmr/core/agents/codex/model-catalog.ts";
 
@@ -13,6 +14,14 @@ test("generated Codex CLI middleware runtime is valid JavaScript", () => {
   const file = path.join(dir, "llmr-codex-cli-middleware.js");
   writeFileSync(file, codexCliMiddlewareRuntimeScript());
   execFileSync(process.execPath, ["--check", file], { stdio: "pipe" });
+});
+
+test("generated Codex CLI middleware runtime has no unreplaced placeholder", () => {
+  const runtime = codexCliMiddlewareRuntimeScript();
+  assert.equal(runtime.includes("__LLMR_CODEX_BASE_INSTRUCTIONS_JSON__"), false);
+  assert.equal(runtime.includes(`base_instructions: ${JSON.stringify(codexBaseInstructions)},`), true);
+  assert.equal(runtime.startsWith("#!/usr/bin/env node\n\"use strict\";\n"), true);
+  assert.equal(runtime.includes("\r"), false);
 });
 
 test("#1851 Pi dispatch consumes only the profile selector and preserves the prompt", () => {
