@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import http, { type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { BrowserWindow, session, shell } from "electron";
+import { getPublicSuffix } from "tldts";
 import type {
   ChromeLoginImportCookie,
   ChromeLoginImportJob,
@@ -27,6 +28,7 @@ const maxStoredErrors = 20;
 const localStorageWriteTimeoutMs = 15_000;
 
 class ChromeLoginImportService {
+  private readonly importingJobIds = new Set<string>();
   private readonly jobs = new Map<string, StoredChromeLoginImportJob>();
   private serverInfo?: ServerInfo;
   private serverStartPromise?: Promise<ServerInfo>;
@@ -99,6 +101,7 @@ class ChromeLoginImportService {
       server.once("error", reject);
       server.listen(0, "127.0.0.1", () => {
         server.off("error", reject);
+        server.unref();
         const address = server.address();
         if (!address || typeof address === "string") {
           server.close();
@@ -119,10 +122,9 @@ class ChromeLoginImportService {
   }
 
   private async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    setCorsHeaders(response);
-    if (request.method === "OPTIONS") {
-      response.writeHead(204);
-      response.end();
+    const origin = request.headers.origin;
+    if (origin !== undefined && !origin.startsWith("chrome-extension://")) {
+      sendJson(response, 403, { error: { message: "Chrome login import accepts requests only from the LLMR extension." } });
       return;
     }
 
@@ -166,9 +168,18 @@ class ChromeLoginImportService {
         });
         return;
       }
-      const payload = await readJsonRequest(request);
-      const result = await this.importLoginState(job, payload);
-      sendJson(response, 200, { job: cloneJob(job), result });
+      if (this.importingJobIds.has(id)) {
+        sendJson(response, 409, { error: { message: "Chrome login import job is importing." }, job: cloneJob(job) });
+        return;
+      }
+      this.importingJobIds.add(id);
+      try {
+        const payload = await readJsonRequest(request);
+        const result = await this.importLoginState(job, payload);
+        sendJson(response, 200, { job: cloneJob(job), result });
+      } finally {
+        this.importingJobIds.delete(id);
+      }
       return;
     }
 
@@ -397,12 +408,16 @@ function normalizeImportDomain(value: unknown): string | undefined {
   if (!raw) {
     return undefined;
   }
+  let host: string | undefined;
   try {
-    const parsed = new URL(raw.includes("://") ? raw : `https://${raw}`);
-    return normalizeCookieHost(parsed.hostname);
+    host = normalizeCookieHost(new URL(raw.includes("://") ? raw : `https://${raw}`).hostname);
   } catch {
-    return normalizeCookieHost(raw.replace(/^\*\./, "").split("/")[0] || "");
+    host = normalizeCookieHost(raw.replace(/^\*\./, "").split("/")[0] || "");
   }
+  if (host && host !== "localhost" && getPublicSuffix(host, { allowPrivateDomains: true }) === host) {
+    return undefined;
+  }
+  return host;
 }
 
 function normalizeCookieHost(value: string): string | undefined {
@@ -541,12 +556,6 @@ function confirmationPageHtml(job: StoredChromeLoginImportJob): string {
 </html>`;
 }
 
-function setCorsHeaders(response: ServerResponse): void {
-  response.setHeader("access-control-allow-headers", "content-type, x-llmr-login-import");
-  response.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
-  response.setHeader("access-control-allow-origin", "*");
-}
-
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)];
 }
@@ -591,3 +600,12 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+export const chromeLoginImportInternalsForTest = {
+  confirmationPageHtml,
+  createService: () => new ChromeLoginImportService(),
+  normalizeChromeCookie,
+  normalizeImportDomain,
+  normalizeLocalStorageEntry,
+  readImportPayload
+};
