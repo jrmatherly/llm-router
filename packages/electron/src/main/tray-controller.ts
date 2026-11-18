@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, Tray, app, nativeImage, nativeTheme, screen, type BrowserWindowConstructorOptions } from "electron";
+import { BrowserWindow, Menu, Tray, app, nativeImage, nativeTheme, screen, shell, type BrowserWindowConstructorOptions } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { deflateSync } from "node:zlib";
@@ -7,6 +7,7 @@ import { APP_NAME, IPC_CHANNELS } from "@llmr/core/config/constants";
 import { getProviderAccountSnapshots } from "@llmr/core/providers/account-service";
 import { getTodayUsageTotals, onUsageRecorded } from "@llmr/core/usage/store";
 import { getLiveTokenRateSnapshot, onLiveTokenRateChanged } from "@llmr/core/observability/stream-experience";
+import { guardRendererNavigation } from "./navigation-guard";
 import { trayBalanceProgress } from "./tray-balance-progress";
 import windowsManager from "./windows";
 import type { AppConfig, TrayBalanceProgressConfig, TrayIconPreference } from "@llmr/core/contracts/app";
@@ -258,6 +259,7 @@ class TrayController {
       this.popover = undefined;
     });
 
+    guardRendererNavigation(this.popover.webContents, trayPageUrl(), shell.openExternal);
     void this.popover.loadURL(createTrayPageUrl("menu"));
     return this.popover;
   }
@@ -524,8 +526,12 @@ function resolvePopoverY(
   );
 }
 
+function trayPageUrl(): string {
+  return pathToFileURL(path.join(__dirname, "../renderer/pages/tray/index.html")).toString();
+}
+
 function createTrayPageUrl(mode: "detail" | "menu", provider?: string): string {
-  const url = new URL(pathToFileURL(path.join(__dirname, "../renderer/pages/tray/index.html")).toString());
+  const url = new URL(trayPageUrl());
   url.searchParams.set("mode", mode);
   if (provider) {
     url.searchParams.set("provider", provider);

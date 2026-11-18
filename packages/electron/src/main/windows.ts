@@ -3,6 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { APP_NAME, IPC_CHANNELS } from "@llmr/core/config/constants";
 import { openHttpExternal } from "./external-url";
+import { guardRendererNavigation } from "./navigation-guard";
 
 type WindowName = "main" | string;
 type WindowBounds = { height: number; width: number; x?: number; y?: number };
@@ -94,17 +95,7 @@ class WindowsManager {
     });
 
     const rendererUrl = this.resolveRendererUrl("pages/home/index.html");
-    window.webContents.setWindowOpenHandler(({ url }) => {
-      openHttpExternal(url, shell.openExternal);
-      return { action: "deny" };
-    });
-    window.webContents.on("will-navigate", (event, url) => {
-      if (url.startsWith(rendererUrl)) {
-        return;
-      }
-      event.preventDefault();
-      openHttpExternal(url, shell.openExternal);
-    });
+    guardRendererNavigation(window.webContents, rendererUrl, shell.openExternal);
 
     void window.loadURL(rendererUrl);
 
