@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AppConfig, PluginMarketplaceEntry } from "@llmr/core/contracts/app.ts";
-import { pluginConfigPatchFromSettingsDraft, resolvePluginInstallPlan, wrapperPluginCapability } from "@llmr/ui/pages/home/shared/extensions.ts";
+import { missingPluginDependenciesMessage, pluginConfigPatchFromSettingsDraft, resolvePluginInstallPlan, wrapperPluginCapability } from "@llmr/ui/pages/home/shared/extensions.ts";
 import type { PluginInstallCandidate, PluginSettingsDraft } from "@llmr/ui/pages/home/shared/types.ts";
 
 test("extension install dependencies require enabled installed plugins with required surfaces", () => {
@@ -153,4 +153,9 @@ test("a marketplace dependency that failed its integrity check blocks the instal
   const root: PluginInstallCandidate = { dependencies: [{ id: "dependency" }], id: "root", modulePath: "/tmp/root.cjs", name: "Root" };
   const plan = resolvePluginInstallPlan(root, marketplace, []);
   assert.deepEqual(plan.missing, ["dependency"]);
+});
+
+test("the missing-dependency message says which dependency failed its integrity check", () => {
+  const marketplace: PluginMarketplaceEntry[] = [{ capabilities: [], dependencies: [], description: "", error: "Integrity check failed", id: "failed", modulePath: "", name: "Failed" }];
+  assert.equal(missingPluginDependenciesMessage(["absent", "failed"], marketplace), "Missing plugin dependencies: absent, failed (integrity check failed)");
 });

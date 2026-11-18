@@ -97,7 +97,8 @@ export async function normalizeMarketplaceManifest(
     try {
       entry = await normalizeMarketplaceEntry(item, manifestUrl, options);
     } catch (error) {
-      console.warn(`[plugin-marketplace] Failed to load marketplace entry: ${formatError(error)}`);
+      const label = isRecord(item) ? readString(item.id) || readString(item.key) || "unknown" : "unknown";
+      console.warn(`[plugin-marketplace] Failed to load marketplace entry ${label}: ${formatError(error)}`);
       continue;
     }
     if (!entry || seen.has(entry.id)) {
@@ -162,7 +163,7 @@ async function normalizeMarketplaceEntry(
     if (!(caught instanceof MarketplaceIntegrityError)) {
       throw caught;
     }
-    console.warn(`[plugin-marketplace] ${caught.message}`);
+    console.warn(`[plugin-marketplace] Integrity check failed for marketplace entry ${id}: ${caught.message}`);
     modulePath = "";
     dependencies = [];
     error = "Integrity check failed";
@@ -270,6 +271,7 @@ async function cachedMarketplaceModulePath(
     if (options.offline) {
       throw new MarketplaceIntegrityError(`Cached marketplace module hash mismatch for ${moduleUrl}.`);
     }
+    console.warn(`[plugin-marketplace] Cached module failed its hash and is downloaded again: ${moduleUrl}`);
   } else if (options.offline) {
     console.warn(`[plugin-marketplace] Cached module is missing while offline: ${moduleUrl}`);
     return undefined;
@@ -612,10 +614,9 @@ function normalizeSha256Integrity(value: string | undefined): string | undefined
     return undefined;
   }
   const prefixed = raw.match(/^sha256-([A-Za-z0-9+/=]+)$/);
-  if (prefixed) {
-    return Buffer.from(prefixed[1], "base64").toString("hex");
-  }
-  const hex = raw.replace(/^sha256:/i, "").replace(/^sha256=/i, "");
+  const hex = prefixed
+    ? Buffer.from(prefixed[1], "base64").toString("hex")
+    : raw.replace(/^sha256:/i, "").replace(/^sha256=/i, "");
   if (/^[a-f0-9]{64}$/i.test(hex)) {
     return hex.toLowerCase();
   }
@@ -627,8 +628,9 @@ function sha256Hex(source: Buffer): string {
 }
 
 function verifySha256(source: Buffer, expectedHex: string, label: string): void {
-  if (sha256Hex(source) !== expectedHex) {
-    throw new MarketplaceIntegrityError(`Marketplace module hash mismatch for ${label}.`);
+  const actual = sha256Hex(source);
+  if (actual !== expectedHex) {
+    throw new MarketplaceIntegrityError(`Marketplace module hash mismatch for ${label}: got ${actual} over ${source.length} bytes.`);
   }
 }
 

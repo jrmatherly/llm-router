@@ -11,9 +11,9 @@ const bom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("module.
 function stubFetch(t, body) {
   const original = globalThis.fetch;
   const calls = { count: 0 };
-  globalThis.fetch = async () => {
+  globalThis.fetch = async (input) => {
     calls.count += 1;
-    return new Response(body);
+    return new Response(typeof body === "function" ? body(String(input)) : body);
   };
   t.after(() => {
     globalThis.fetch = original;
@@ -103,4 +103,59 @@ test("a dependency module that fails its hash marks the entry as failed", async 
   const entries = await normalizeMarketplaceManifest({ plugins: [{ apps: [{ name: "Status", url: "/plugins/status" }], dependencies: [{ id: "dep", integrity: sha256(bom), module: "https://e.test/dep.js" }], id: "bad-dependency" }] }, manifestUrl);
   assert.equal(entries[0].error, "Integrity check failed");
   assert.deepEqual(entries[0].dependencies, []);
+});
+
+test("integrity accepts hex, prefixed hex and sha256-base64", async (t) => {
+  stubFetch(t, bom);
+  const forms = [sha256(bom), `sha256:${sha256(bom).toUpperCase()}`, `sha256=${sha256(bom)}`, `sha256-${createHash("sha256").update(bom).digest("base64")}`];
+  const entries = await normalizeMarketplaceManifest({ plugins: forms.map((integrity, index) => ({ id: `form-${index}`, integrity, module: "https://e.test/form.js" })) }, manifestUrl);
+  assert.equal(entries.length, forms.length);
+  for (const entry of entries) {
+    assert.equal(entry.error, undefined, entry.id);
+    assert.deepEqual(readFileSync(entry.modulePath), bom);
+  }
+});
+
+test("an entry with an invalid integrity is skipped and never downloaded", async (t) => {
+  const calls = stubFetch(t, bom);
+  for (const integrity of ["sha256:nothex", "sha256-abc", "sha256-AAAA"]) {
+    const entries = await normalizeMarketplaceManifest({ plugins: [{ id: "invalid-integrity", integrity, module: "https://e.test/invalid.js" }] }, manifestUrl);
+    assert.deepEqual(entries, [], integrity);
+  }
+  assert.equal(calls.count, 0);
+});
+
+test("an intact cached module is reused online and offline", async (t) => {
+  const calls = stubFetch(t, bom);
+  const manifest = { plugins: [{ id: "cache-hit", integrity: sha256(bom), module: "https://e.test/hit.js" }] };
+  const [first] = await normalizeMarketplaceManifest(manifest, manifestUrl);
+  const [online] = await normalizeMarketplaceManifest(manifest, manifestUrl);
+  const [offline] = await normalizeMarketplaceManifest(manifest, manifestUrl, { offline: true });
+  assert.equal(calls.count, 1);
+  assert.equal(online.modulePath, first.modulePath);
+  assert.equal(offline.modulePath, first.modulePath);
+  assert.equal(offline.error, undefined);
+});
+
+test("a dependency module without integrity skips the entry and is never downloaded", async (t) => {
+  const calls = stubFetch(t, bom);
+  const entries = await normalizeMarketplaceManifest({ plugins: [{ apps: [{ name: "Status", url: "/plugins/status" }], dependencies: [{ id: "dep", module: "https://e.test/dep-no-integrity.js" }], id: "dependency-no-integrity" }] }, manifestUrl);
+  assert.deepEqual(entries, []);
+  assert.equal(calls.count, 0);
+});
+
+test("a failed dependency clears the module path of an entry whose own module verified", async (t) => {
+  stubFetch(t, (url) => url.endsWith("/parent.js") ? bom : "something else");
+  const entries = await normalizeMarketplaceManifest({ plugins: [{ dependencies: [{ id: "dep", integrity: sha256(bom), module: "https://e.test/parent-dep.js" }], id: "verified-parent", integrity: sha256(bom), module: "https://e.test/parent.js" }] }, manifestUrl);
+  assert.equal(entries[0].error, "Integrity check failed");
+  assert.equal(entries[0].modulePath, "");
+  assert.deepEqual(entries[0].dependencies, []);
+});
+
+test("a module over the size cap is skipped, not reported as an integrity failure", async (t) => {
+  const large = Buffer.alloc(8 * 1024 * 1024 + 1, 0x20);
+  stubFetch(t, large);
+  const manifest = { plugins: [{ id: "too-large", integrity: sha256(large), module: "https://e.test/large.js" }] };
+  assert.deepEqual(await normalizeMarketplaceManifest(manifest, manifestUrl), []);
+  assert.deepEqual(await normalizeMarketplaceManifest(manifest, manifestUrl, { offline: true }), []);
 });
