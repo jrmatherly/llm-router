@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -408,7 +409,109 @@ test("core gateway config removes Grok unsupported Responses options through dec
   });
 });
 
+test("Codex local agent auth hook sets the bearer token and account id from the live login", async (t) => {
+  const codex = await codexHookFixture(t);
+  codex.seed({ expiresIn: 3600 });
+
+  const upstreamRequest = codexUpstreamRequest();
+  const result = await codexHook().authenticate({ upstreamRequest });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.value.headers.authorization, `Bearer ${codex.readAuth().tokens.access_token}`);
+  assert.equal(result.value.headers["ChatGPT-Account-Id"], "acct-1");
+  assert.equal(result.value.headers["x-api-key"], undefined);
+  assert.equal(result.value.headers["X-OpenAI-Fedramp"], undefined);
+  assert.equal(result.value.url, upstreamRequest.url);
+  assert.equal(result.value.body, upstreamRequest.body);
+  assert.deepEqual(codex.requests, []);
+});
+
+test("Codex local agent auth hook fails a token without the connector scopes", async (t) => {
+  const codex = await codexHookFixture(t);
+  codex.seed({ expiresIn: 3600, tokens: { access_token: codexJwt({ exp: Math.floor(Date.now() / 1000) + 3600, scp: ["openid"] }) } });
+
+  const result = await codexHook().authenticate({ upstreamRequest: codexUpstreamRequest() });
+
+  assert.equal(result.ok, false);
+  assert.match(result.error, /missing required scopes: api\.connectors\.read, api\.connectors\.invoke\. Run codex login/);
+  assert.deepEqual(codex.requests, []);
+});
+
+test("Codex local agent auth hook refreshes an expired login once and saves it", async (t) => {
+  const codex = await codexHookFixture(t);
+  codex.seed();
+
+  const first = await codexHook().authenticate({ upstreamRequest: codexUpstreamRequest() });
+  const saved = codex.readAuth();
+  assert.equal(first.ok, true);
+  assert.equal(first.value.headers.authorization, `Bearer ${saved.tokens.access_token}`);
+  assert.equal(saved.tokens.refresh_token, "r1");
+
+  const retry = await codexHook().authenticate({ forceCodexOauthRefreshOnce: true, upstreamRequest: codexUpstreamRequest() });
+  assert.equal(retry.value.headers.authorization, `Bearer ${saved.tokens.access_token}`);
+  assert.deepEqual(codex.requests.map((request) => request.refresh_token), ["r0"]);
+});
+
+test("Codex local agent auth hook marks a FedRAMP login", async (t) => {
+  const codex = await codexHookFixture(t);
+  codex.seed({ expiresIn: 3600, tokens: { id_token: codexJwt({ "https://api.openai.com/auth": { chatgpt_account_id: "acct-1", chatgpt_account_is_fedramp: true } }) } });
+
+  const result = await codexHook().authenticate({ upstreamRequest: codexUpstreamRequest() });
+
+  assert.equal(result.value.headers["X-OpenAI-Fedramp"], "true");
+});
+
+test("Codex local agent auth hook asks for codex login when there is no login", async (t) => {
+  const codex = await codexHookFixture(t);
+
+  const result = await codexHook().authenticate({ upstreamRequest: codexUpstreamRequest() });
+
+  assert.deepEqual(result, { error: "Codex login was not found. Run codex login.", ok: false });
+  assert.deepEqual(codex.requests, []);
+});
+
+test("Codex local agent auth hook keeps a still valid token when the refresh fails", async (t) => {
+  const codex = await codexHookFixture(t, { onRequest: () => ({ body: { error: "unavailable" }, status: 503 }) });
+  codex.seed({ expiresIn: 30 });
+  const stored = codex.readAuth().tokens.access_token;
+
+  const result = await codexHook().authenticate({ upstreamRequest: codexUpstreamRequest() });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.value.headers.authorization, `Bearer ${stored}`);
+  assert.equal(codex.requests.length, 1);
+});
+
+test("Codex local agent auth hook fails the request when an expired login cannot be refreshed", async (t) => {
+  const codex = await codexHookFixture(t, { onRequest: () => ({ body: { error: "refresh_token_reused" }, status: 400 }) });
+  codex.seed();
+
+  const result = await codexHook().authenticate({ upstreamRequest: codexUpstreamRequest() });
+
+  assert.equal(result.ok, false);
+  assert.match(result.error, /refresh_token_reused\. Run codex login/);
+  assert.doesNotMatch(result.error, /r0|eyJ/);
+});
+
+test("Codex local agent auth hook fails an expired login that LLMR declines to refresh", async (t) => {
+  if (process.platform === "win32") {
+    t.skip("symbolic links need extra rights on Windows");
+    return;
+  }
+  const codex = await codexHookFixture(t);
+  codex.seed();
+  const target = path.join(codex.home, "real-auth.json");
+  renameSync(codex.authFile, target);
+  symlinkSync(target, codex.authFile);
+
+  const result = await codexHook().authenticate({ upstreamRequest: codexUpstreamRequest() });
+
+  assert.deepEqual(result, { error: "Codex login has expired and LLMR cannot refresh it. Run codex login.", ok: false });
+  assert.deepEqual(codex.requests, []);
+});
+
 test("local agent OAuth plugin detector only matches managed OAuth imports", () => {
+  assert.equal(isLocalAgentOauthProviderPlugin(codexOauthProviderPlugin()), true);
   assert.equal(isLocalAgentOauthProviderPlugin(grokOauthProviderPlugin()), true);
   assert.equal(isLocalAgentOauthProviderPlugin({
     key: "llmr-local-agent-grok-cli-api-grok-cli-api-key"
@@ -417,6 +520,87 @@ test("local agent OAuth plugin detector only matches managed OAuth imports", () 
     key: "external-grok-cli-oauth"
   }), false);
 });
+
+function codexOauthProviderPlugin() {
+  return {
+    codexOauth: { accessToken: { from: "llmr.codexLoginIsSetByTheLiveHook" }, refreshIfMissingAccessToken: false, required: false },
+    key: "llmr-local-agent-codex-api-codex-oauth",
+    providerName: "Codex API"
+  };
+}
+
+function codexHook() {
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [codexOauthProviderPlugin()] } }).providerHooks;
+  assert.equal(hook.key, "module:llmr-live-auth:llmr-local-agent-codex-api-codex-oauth");
+  return hook;
+}
+
+function codexUpstreamRequest() {
+  return {
+    body: { input: "hi", model: "gpt-5.5" },
+    headers: { "content-type": "application/json", "x-api-key": "client-key" },
+    method: "POST",
+    url: "https://chatgpt.com/backend-api/codex/responses"
+  };
+}
+
+function codexJwt(payload) {
+  const part = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${part({ alg: "none", typ: "JWT" })}.${part(payload)}.`;
+}
+
+function codexAccessToken(lifetimeSeconds) {
+  return codexJwt({ exp: Math.floor(Date.now() / 1000) + lifetimeSeconds, scp: ["openid", "api.connectors.read", "api.connectors.invoke"] });
+}
+
+async function codexHookFixture(t, { onRequest } = {}) {
+  const keys = ["CODEX_HOME", "CODEX_REFRESH_TOKEN_URL_OVERRIDE", "HOME", "LLMR_INTERNAL_HOME_DIR", "USERPROFILE"];
+  const saved = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-hook-test-"));
+  const authFile = path.join(home, ".codex", "auth.json");
+  mkdirSync(path.dirname(authFile));
+  const requests = [];
+  const seen = new Set();
+  const server = http.createServer(async (request, response) => {
+    let text = "";
+    for await (const chunk of request) text += chunk;
+    const payload = JSON.parse(text);
+    requests.push(payload);
+    const reply = onRequest?.(payload) ?? (seen.has(payload.refresh_token)
+      ? { body: { error: "refresh_token_reused" }, status: 400 }
+      : { body: { access_token: codexAccessToken(3600), refresh_token: `r${Number(payload.refresh_token.slice(1)) + 1}` }, status: 200 });
+    seen.add(payload.refresh_token);
+    response.writeHead(reply.status, { "content-type": "application/json" });
+    response.end(JSON.stringify(reply.body));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
+  process.env.CODEX_REFRESH_TOKEN_URL_OVERRIDE = `http://127.0.0.1:${server.address().port}/oauth/token`;
+  delete process.env.CODEX_HOME;
+  t.after(async () => {
+    for (const [key, value] of Object.entries(saved)) restoreEnv(key, value);
+    await new Promise((resolve) => server.close(resolve));
+    rmSync(home, { force: true, recursive: true });
+  });
+  return {
+    authFile,
+    home,
+    readAuth: () => JSON.parse(readFileSync(authFile, "utf8")),
+    requests,
+    seed: ({ expiresIn = -10, tokens = {} } = {}) => writeFileSync(authFile, JSON.stringify({
+      auth_mode: "chatgpt",
+      tokens: {
+        access_token: codexAccessToken(expiresIn),
+        account_id: "acct-1",
+        id_token: codexJwt({ "https://api.openai.com/auth": { chatgpt_account_id: "acct-1" } }),
+        refresh_token: "r0",
+        ...tokens
+      }
+    }))
+  };
+}
 
 function claudeAppsGatewayProviderPlugin(gatewayUrl, providerName = "gw") {
   return {

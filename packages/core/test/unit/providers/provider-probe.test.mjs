@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -490,105 +491,116 @@ test("connectivity probe uses the live Claude apps gateway session token", async
   assert.ok(calls.every((call) => call.authorization === "Bearer live-token" && call.xApiKey === null), JSON.stringify(calls));
 });
 
-test("connectivity probe refreshes Codex OAuth plugin auth", async (t) => {
-  const previousFetch = globalThis.fetch;
-  const accessToken = jwt({
-    "https://api.openai.com/auth": {
-      chatgpt_account_id: "acct-refreshed"
-    },
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    scope: "api.connectors.read api.connectors.invoke"
-  });
-  const calls = [];
-
-  globalThis.fetch = async (input, init) => {
-    const url = new URL(String(input));
+function codexUpstream(t, codex, calls) {
+  useFetch(t, codex, async (url, init) => {
     const headers = new Headers(init?.headers);
     calls.push({
       authorization: headers.get("authorization"),
       body: init?.body ? JSON.parse(String(init.body)) : undefined,
       chatgptAccountId: headers.get("chatgpt-account-id"),
-      method: init?.method,
-      pathname: url.pathname,
-      url: url.toString()
+      pathname: url.pathname
     });
-
-    if (url.toString() === "http://127.0.0.1:49122/oauth/token") {
-      return new Response(JSON.stringify({
-        access_token: accessToken,
-        refresh_token: "refresh-next"
-      }), {
-        headers: { "content-type": "application/json" },
-        status: 200
-      });
-    }
-
-    if (url.origin === "http://127.0.0.1:49122" && url.pathname === "/codex/responses") {
-      const ok =
-        headers.get("authorization") === `Bearer ${accessToken}` &&
-        headers.get("chatgpt-account-id") === "acct-refreshed";
+    if (url.pathname.endsWith("/codex/responses")) {
+      const ok = headers.get("authorization") === `Bearer ${codex.issued.at(-1) ?? codex.readAuth().tokens.access_token}`;
       return new Response(JSON.stringify(ok ? { id: "ok" } : { error: { message: "Unauthorized" } }), {
         headers: { "content-type": "application/json" },
         status: ok ? 200 : 401
       });
     }
-
     return new Response(JSON.stringify({ error: { message: "Unexpected request" } }), {
       headers: { "content-type": "application/json" },
       status: 404
     });
-  };
-  t.after(() => {
-    globalThis.fetch = previousFetch;
   });
+}
 
-  const report = await checkGatewayProviderConnectivity({
+function codexProbe(baseUrl, providerPlugins, models = ["gpt-5-codex"]) {
+  return checkGatewayProviderConnectivity({
     apiKey: "llmr-local-agent-login",
     candidates: [{
-      baseUrl: "http://127.0.0.1:49122/codex",
+      baseUrl,
       name: "Codex API",
       protocols: ["openai_responses"],
       source: "custom"
     }],
     forceRefresh: true,
-    models: ["gpt-5-codex"],
-    providerPlugins: [{
-      codexOauth: {
-        refreshToken: "refresh-current",
-        tokenEndpoint: "http://127.0.0.1:49122/oauth/token"
-      },
-      key: "llmr-local-agent-codex-api-codex-oauth",
-      providerName: "Codex API"
-    }],
+    models,
+    providerPlugins,
     protocols: ["openai_responses"]
   });
+}
 
-  assert.equal(report.passed.length, 1);
+const localCodexPlugin = {
+  codexOauth: {
+    accessToken: "stored-plugin-token",
+    refreshToken: "stored-plugin-refresh",
+    tokenEndpoint: "http://127.0.0.1:9/oauth/token"
+  },
+  key: "llmr-local-agent-codex-api-codex-oauth",
+  providerName: "Codex API"
+};
+
+test("connectivity probe refreshes Codex OAuth plugin auth", async (t) => {
+  const codex = await useCodexLogin(t, { accountId: "acct-refreshed" });
+  codex.seed();
+  const calls = [];
+  codexUpstream(t, codex, calls);
+
+  const report = await codexProbe("http://127.0.0.1:49122/codex", [localCodexPlugin]);
+
+  assert.equal(report.passed.length, 1, JSON.stringify(report.failed));
   assert.equal(report.failed.length, 0);
-  assert.deepEqual(calls.map((call) => call.pathname), ["/oauth/token", "/codex/responses"]);
-  assert.deepEqual(calls[0]?.body, {
+  assert.deepEqual(codex.requests, [{
     client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
     grant_type: "refresh_token",
-    refresh_token: "refresh-current",
+    refresh_token: "r0",
     scope: "openid profile email offline_access api.connectors.read api.connectors.invoke"
-  });
-  assert.equal(calls[1]?.authorization, `Bearer ${accessToken}`);
-  assert.equal(calls[1]?.chatgptAccountId, "acct-refreshed");
+  }]);
+  assert.deepEqual(calls.map((call) => call.pathname), ["/codex/responses"]);
+  assert.equal(calls[0]?.authorization, `Bearer ${codex.issued[0]}`);
+  assert.equal(calls[0]?.chatgptAccountId, "acct-refreshed");
+});
+
+test("connectivity probe refreshes with the rotated Codex refresh token", async (t) => {
+  const codex = await useCodexLogin(t, { lifetimeSeconds: 30 });
+  codex.seed();
+  const calls = [];
+  codexUpstream(t, codex, calls);
+
+  const first = await codexProbe("https://chatgpt.com/backend-api/codex", [localCodexPlugin]);
+  const second = await codexProbe("https://chatgpt.com/backend-api/codex", [localCodexPlugin]);
+
+  assert.equal(first.passed.length, 1, JSON.stringify(first.failed));
+  assert.equal(second.passed.length, 1, JSON.stringify(second.failed));
+  assert.deepEqual(codex.requests.map((request) => request.refresh_token), ["r0", "r1"]);
+  assert.equal(codex.readAuth().tokens.refresh_token, "r2");
+  assert.equal(codex.readAuth().tokens.access_token, codex.issued[1]);
+});
+
+test("connectivity probe never refreshes a Codex OAuth section on a plugin that is not a local agent", async (t) => {
+  const codex = await useCodexLogin(t);
+  codex.seed();
+  const calls = [];
+  codexUpstream(t, codex, calls);
+  const staticToken = codexAccessToken(-10, "acct-static");
+
+  await codexProbe("http://127.0.0.1:49126/codex", [{
+    codexOauth: { accessToken: staticToken, refreshToken: "static-refresh" },
+    key: "custom-codex-oauth",
+    providerName: "Codex API"
+  }]);
+
+  assert.deepEqual(codex.requests, []);
+  assert.equal(calls[0]?.authorization, `Bearer ${staticToken}`);
 });
 
 test("connectivity probe applies Codex request defaults for OAuth plugins", async (t) => {
-  const previousFetch = globalThis.fetch;
-  const accessToken = jwt({
-    "https://api.openai.com/auth": {
-      chatgpt_account_id: "acct-codex-defaults"
-    },
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    scope: "api.connectors.read api.connectors.invoke"
-  });
+  const codex = await useCodexLogin(t, { accountId: "acct-codex-defaults" });
+  const accessToken = codexAccessToken(3600, "acct-codex-defaults");
+  codex.seed({ accessToken });
   let requestBody;
 
-  globalThis.fetch = async (input, init) => {
-    const url = new URL(String(input));
+  useFetch(t, codex, async (url, init) => {
     const headers = new Headers(init?.headers);
     requestBody = init?.body ? JSON.parse(String(init.body)) : undefined;
 
@@ -607,30 +619,9 @@ test("connectivity probe applies Codex request defaults for OAuth plugins", asyn
       headers: { "content-type": "application/json" },
       status: 404
     });
-  };
-  t.after(() => {
-    globalThis.fetch = previousFetch;
   });
 
-  const report = await checkGatewayProviderConnectivity({
-    apiKey: "llmr-local-agent-login",
-    candidates: [{
-      baseUrl: "https://chatgpt.com/backend-api/codex",
-      name: "Codex API",
-      protocols: ["openai_responses"],
-      source: "custom"
-    }],
-    forceRefresh: true,
-    models: ["gpt-5-codex"],
-    providerPlugins: [{
-      codexOauth: {
-        accessToken
-      },
-      key: "llmr-local-agent-codex-api-codex-oauth",
-      providerName: "Codex API"
-    }],
-    protocols: ["openai_responses"]
-  });
+  const report = await codexProbe("https://chatgpt.com/backend-api/codex", [localCodexPlugin]);
 
   assert.equal(report.passed.length, 1);
   assert.equal(report.failed.length, 0);
@@ -726,159 +717,35 @@ test("connectivity probe prefers live Codex auth over saved OAuth plugin tokens"
 });
 
 test("connectivity probe shares concurrent Codex OAuth refreshes", async (t) => {
-  const previousFetch = globalThis.fetch;
-  const accessToken = jwt({
-    "https://api.openai.com/auth": {
-      chatgpt_account_id: "acct-shared-refresh"
-    },
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    scope: "api.connectors.read api.connectors.invoke"
-  });
-  let refreshCalls = 0;
-  let responseCalls = 0;
+  const codex = await useCodexLogin(t, { accountId: "acct-shared-refresh", delayMs: 25 });
+  codex.seed();
+  const calls = [];
+  codexUpstream(t, codex, calls);
 
-  globalThis.fetch = async (input, init) => {
-    const url = new URL(String(input));
-    const headers = new Headers(init?.headers);
+  const report = await codexProbe("http://127.0.0.1:49125/codex", [localCodexPlugin], ["gpt-5-a", "gpt-5-b"]);
 
-    if (url.toString() === "http://127.0.0.1:49125/oauth/token") {
-      refreshCalls += 1;
-      await new Promise((resolve) => setTimeout(resolve, 25));
-      return new Response(JSON.stringify({
-        access_token: accessToken,
-        refresh_token: "refresh-shared-next"
-      }), {
-        headers: { "content-type": "application/json" },
-        status: 200
-      });
-    }
-
-    if (url.origin === "http://127.0.0.1:49125" && url.pathname === "/codex/responses") {
-      responseCalls += 1;
-      const ok =
-        headers.get("authorization") === `Bearer ${accessToken}` &&
-        headers.get("chatgpt-account-id") === "acct-shared-refresh";
-      return new Response(JSON.stringify(ok ? { id: "ok" } : { error: { message: "Unauthorized" } }), {
-        headers: { "content-type": "application/json" },
-        status: ok ? 200 : 401
-      });
-    }
-
-    return new Response(JSON.stringify({ error: { message: "Unexpected request" } }), {
-      headers: { "content-type": "application/json" },
-      status: 404
-    });
-  };
-  t.after(() => {
-    globalThis.fetch = previousFetch;
-  });
-
-  const report = await checkGatewayProviderConnectivity({
-    apiKey: "llmr-local-agent-login",
-    candidates: [{
-      baseUrl: "http://127.0.0.1:49125/codex",
-      name: "Codex API",
-      protocols: ["openai_responses"],
-      source: "custom"
-    }],
-    forceRefresh: true,
-    models: ["gpt-5-a", "gpt-5-b"],
-    providerPlugins: [{
-      codexOauth: {
-        refreshToken: "refresh-shared-current",
-        tokenEndpoint: "http://127.0.0.1:49125/oauth/token"
-      },
-      key: "llmr-local-agent-codex-api-codex-oauth",
-      providerName: "Codex API"
-    }],
-    protocols: ["openai_responses"]
-  });
-
-  assert.equal(refreshCalls, 1);
-  assert.equal(responseCalls, 2);
+  assert.equal(codex.requests.length, 1);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every((call) => call.chatgptAccountId === "acct-shared-refresh"), JSON.stringify(calls));
   assert.equal(report.passed.length, 2);
   assert.equal(report.failed.length, 0);
 });
 
 test("connectivity probe recovers Codex OAuth auth when saved plugin is missing", async (t) => {
-  useTemporaryCodexHome(t, "llmr-codex-probe-live-auth-");
-  const previousFetch = globalThis.fetch;
-  const accessToken = jwt({
-    "https://api.openai.com/auth": {
-      chatgpt_account_id: "acct-live-probe"
-    },
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    scope: "api.connectors.read api.connectors.invoke"
-  });
+  const codex = await useCodexLogin(t, { accountId: "acct-live-probe" });
+  codex.seed();
   const calls = [];
+  codexUpstream(t, codex, calls);
 
-  fs.mkdirSync(path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".codex"), { recursive: true });
-  fs.writeFileSync(path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".codex", "auth.json"), JSON.stringify({
-    tokens: {
-      refresh_token: "refresh-live"
-    }
-  }));
-
-  globalThis.fetch = async (input, init) => {
-    const url = new URL(String(input));
-    const headers = new Headers(init?.headers);
-    calls.push({
-      authorization: headers.get("authorization"),
-      body: init?.body ? JSON.parse(String(init.body)) : undefined,
-      chatgptAccountId: headers.get("chatgpt-account-id"),
-      pathname: url.pathname,
-      url: url.toString()
-    });
-
-    if (url.toString() === "https://auth.openai.com/oauth/token") {
-      return new Response(JSON.stringify({
-        access_token: accessToken
-      }), {
-        headers: { "content-type": "application/json" },
-        status: 200
-      });
-    }
-
-    if (url.toString() === "https://chatgpt.com/backend-api/codex/responses") {
-      const ok =
-        headers.get("authorization") === `Bearer ${accessToken}` &&
-        headers.get("chatgpt-account-id") === "acct-live-probe";
-      return new Response(JSON.stringify(ok ? { id: "ok" } : { error: { message: "Unauthorized" } }), {
-        headers: { "content-type": "application/json" },
-        status: ok ? 200 : 401
-      });
-    }
-
-    return new Response(JSON.stringify({ error: { message: "Unexpected request" } }), {
-      headers: { "content-type": "application/json" },
-      status: 404
-    });
-  };
-  t.after(() => {
-    globalThis.fetch = previousFetch;
-  });
-
-  const report = await checkGatewayProviderConnectivity({
-    apiKey: "llmr-local-agent-login",
-    candidates: [{
-      baseUrl: "https://chatgpt.com/backend-api/codex",
-      name: "Codex API",
-      protocols: ["openai_responses"],
-      source: "custom"
-    }],
-    forceRefresh: true,
-    models: ["gpt-5.5"],
-    providerPlugins: [],
-    protocols: ["openai_responses"]
-  });
+  const report = await codexProbe("https://chatgpt.com/backend-api/codex", [], ["gpt-5.5"]);
 
   assert.equal(report.passed.length, 1);
   assert.equal(report.failed.length, 0);
-  assert.deepEqual(calls.map((call) => call.pathname), ["/oauth/token", "/backend-api/codex/responses"]);
-  assert.equal(calls[0]?.body?.refresh_token, "refresh-live");
-  assert.equal(calls[1]?.authorization, `Bearer ${accessToken}`);
-  assert.equal(calls[1]?.chatgptAccountId, "acct-live-probe");
-  assert.equal(calls[1]?.body?.max_output_tokens, undefined);
+  assert.deepEqual(codex.requests.map((request) => request.refresh_token), ["r0"]);
+  assert.deepEqual(calls.map((call) => call.pathname), ["/backend-api/codex/responses"]);
+  assert.equal(calls[0]?.authorization, `Bearer ${codex.issued[0]}`);
+  assert.equal(calls[0]?.chatgptAccountId, "acct-live-probe");
+  assert.equal(calls[0]?.body?.max_output_tokens, undefined);
 });
 
 test("New API response headers enable key quota account connector", () => {
@@ -1161,6 +1028,91 @@ function jwt(payload) {
 
 function base64url(value) {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+const codexEnvKeys = ["CODEX_HOME", "CODEX_REFRESH_TOKEN_URL_OVERRIDE", "HOME", "LLMR_INTERNAL_HOME_DIR", "USERPROFILE"];
+
+function codexAccessToken(lifetimeSeconds, accountId = "acct-codex") {
+  return jwt({
+    "https://api.openai.com/auth": { chatgpt_account_id: accountId },
+    exp: Math.floor(Date.now() / 1000) + lifetimeSeconds,
+    scope: "api.connectors.read api.connectors.invoke"
+  });
+}
+
+async function useCodexLogin(t, { accountId = "acct-codex", delayMs = 0, lifetimeSeconds = 3600 } = {}) {
+  const saved = Object.fromEntries(codexEnvKeys.map((key) => [key, process.env[key]]));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "llmr-codex-probe-login-"));
+  const codexDir = path.join(home, ".codex");
+  fs.mkdirSync(codexDir, { recursive: true });
+  const requests = [];
+  const issued = [];
+  const seen = new Set();
+  const server = http.createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => {
+      body += chunk;
+    });
+    request.on("end", async () => {
+      const payload = JSON.parse(body);
+      requests.push(payload);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      response.writeHead(seen.has(payload.refresh_token) ? 400 : 200, { "content-type": "application/json" });
+      if (seen.has(payload.refresh_token)) {
+        response.end(JSON.stringify({ error: "refresh_token_reused" }));
+        return;
+      }
+      seen.add(payload.refresh_token);
+      const token = codexAccessToken(lifetimeSeconds, accountId);
+      issued.push(token);
+      response.end(JSON.stringify({
+        access_token: token,
+        refresh_token: `r${Number(payload.refresh_token.slice(1)) + 1}`
+      }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
+  process.env.CODEX_REFRESH_TOKEN_URL_OVERRIDE = `${origin}/oauth/token`;
+  delete process.env.CODEX_HOME;
+  t.after(async () => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    await new Promise((resolve) => server.close(resolve));
+    fs.rmSync(home, { force: true, recursive: true });
+  });
+  const authFile = path.join(codexDir, "auth.json");
+  return {
+    issued,
+    origin,
+    readAuth: () => JSON.parse(fs.readFileSync(authFile, "utf8")),
+    requests,
+    seed: ({ accessToken = codexAccessToken(-10, accountId), refreshToken = "r0" } = {}) => fs.writeFileSync(authFile, JSON.stringify({
+      auth_mode: "chatgpt",
+      tokens: { access_token: accessToken, account_id: accountId, refresh_token: refreshToken }
+    }))
+  };
+}
+
+function useFetch(t, codex, handler) {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    if (codex && String(input).startsWith(codex.origin)) {
+      return previousFetch(input, init);
+    }
+    return handler(new URL(String(input)), init);
+  };
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+  });
 }
 
 function useTemporaryCodexHome(t, prefix) {

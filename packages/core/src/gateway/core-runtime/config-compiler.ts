@@ -3,7 +3,8 @@
  */
 import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 import type { AppConfig, GatewayProviderConfig, GatewayProviderProtocol, VirtualModelProfileConfig } from "@llmr/core/contracts/app";
-import { codexDefaultBaseUrl, kimiAccessTokenExpired, kimiIdentityHeaders, localAgentProviderApiKey, readCodexAuth, readGrokAuth, readKimiAuth, resolveClaudeCodeAuthOrStored, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
+import { codexDefaultBaseUrl, kimiAccessTokenExpired, kimiIdentityHeaders, localAgentProviderApiKey, readGrokAuth, readKimiAuth, resolveClaudeCodeAuthOrStored, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
+import { codexOauthWithoutCredentials } from "@llmr/core/agents/local-providers/codex";
 import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
 import { pluginService } from "@llmr/core/plugins/service";
 import { normalizeRouteSelector, providerRuntimeId } from "@llmr/core/routing/model-registry";
@@ -193,7 +194,13 @@ function routerPluginConfig(
   }
   return {
     config: {
-      appConfig: config,
+      // Stored Codex plugins may carry tokens; the router plugin's copy of the app config must not.
+      appConfig: {
+        ...config,
+        providerPlugins: config.providerPlugins?.map((plugin) => isLocalCodexOauthProviderPlugin(plugin)
+          ? { ...plugin, codexOauth: codexOauthWithoutCredentials }
+          : plugin)
+      },
       coreAuthToken,
       publicAuthKeys: options.publicAuthKeys,
       publicGatewayMode: options.publicGatewayMode === true
@@ -234,8 +241,7 @@ function localAgentAuthProviderHookPluginConfig(providerPlugins: unknown[]): Rec
 
 function withoutStaticLocalOauthAuth(plugin: unknown): unknown {
   if (!isRecord(plugin) || !isLocalAgentOauthProviderPlugin(plugin)) return plugin;
-  // Static plugins run after module hooks. Only the live hook may set OAuth
-  // authentication; its private config retains the import-time fallback.
+  // Static plugins run after module hooks, so only the live hook may set OAuth authentication.
   const { auth: _auth, ...rest } = plugin;
   if (!isRecord(rest.request) || !isRecord(rest.request.headers)) return rest;
   return {
@@ -299,11 +305,6 @@ function withMissingCodexOauthProviderPlugins(
   explicitProviderPlugins: unknown[],
   providers: GatewayProviderConfig[]
 ): unknown[] {
-  const codexAuth = readCodexAuth();
-  if (!codexAuth?.accessToken && !codexAuth?.refreshToken) {
-    return providerPlugins;
-  }
-
   const codexOauthProviderNames = codexOauthLocalProviderNames(explicitProviderPlugins);
   const additions: unknown[] = [];
   for (const provider of providers) {
@@ -322,13 +323,7 @@ function withMissingCodexOauthProviderPlugins(
 
     const keyPrefix = `llmr-local-agent-${providerNameSlug(runtimeName)}`;
     additions.push({
-      codexOauth: {
-        accessToken: codexAuth.accessToken,
-        ...(codexAuth.accountId ? { accountId: codexAuth.accountId } : {}),
-        refreshIfMissingAccessToken: true,
-        refreshToken: codexAuth.refreshToken,
-        required: true
-      },
+      codexOauth: codexOauthWithoutCredentials,
       key: `${keyPrefix}-codex-oauth-recovered`,
       providerName: provider.name
     });
@@ -547,40 +542,11 @@ function stringArraysEqual(left: string[], right: string[]): boolean {
 }
 
 
+// Neither the static plugin nor the hook's config may hold a Codex token.
 function withCodexOauthRuntimeDefaults(providerPlugins: unknown[]): unknown[] {
-  const codexAuth = readCodexAuth();
-  return providerPlugins.map((plugin) => {
-    if (!isLocalCodexOauthProviderPlugin(plugin)) {
-      return plugin;
-    }
-
-    const codexOauth = plugin.codexOauth;
-    const nextCodexOauth = {
-      ...codexOauth,
-      ...(codexAuth?.accessToken ? { accessToken: codexAuth.accessToken } : {}),
-      ...(codexAuth?.refreshToken ? { refreshToken: codexAuth.refreshToken } : {}),
-      ...(codexAuth?.accountId ? { accountId: codexAuth.accountId } : {})
-    };
-    const nextPlugin: Record<string, unknown> = {
-      ...plugin,
-      codexOauth: nextCodexOauth,
-      request: withCodexBackendRequestTransform(plugin.request)
-    };
-
-    if (codexAuth?.isFedrampAccount) {
-      const currentAuth = isRecord(plugin.auth) ? plugin.auth : {};
-      const currentHeaders = isRecord(currentAuth.headers) ? currentAuth.headers : {};
-      nextPlugin.auth = {
-        ...currentAuth,
-        headers: {
-          ...currentHeaders,
-          "X-OpenAI-Fedramp": "true"
-        }
-      };
-    }
-
-    return nextPlugin;
-  });
+  return providerPlugins.map((plugin) => isLocalCodexOauthProviderPlugin(plugin)
+    ? { ...plugin, codexOauth: codexOauthWithoutCredentials, request: withCodexBackendRequestTransform(plugin.request) }
+    : plugin);
 }
 
 

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { loadAppConfig } from "@llmr/core/config/config";
 import { attachCodexRateLimitResetCreditDetails } from "@llmr/core/agents/local-providers/codex";
 import {
+  codexAccessTokenExpired,
   codexDefaultBaseUrl,
   localAgentProviderApiKey,
   kimiAccessTokenExpired,
@@ -10,6 +11,7 @@ import {
   readGrokAuth,
   readKimiAuth,
   resolveClaudeCodeAuthOrStored,
+  resolveCodexAuth,
   resolveGrokAuth,
   resolveKimiAuth,
   readZcodeLocalProviderCredential,
@@ -99,16 +101,6 @@ type LocalAgentAccountCredential = {
   headers?: Record<string, string>;
 };
 
-type CodexOauthRefreshResult = {
-  accessToken?: string;
-  accountId?: string;
-  expiresAtMs: number;
-  idToken?: string;
-  isFedrampAccount?: boolean;
-  refreshToken?: string;
-  scope?: string;
-};
-
 const defaultRefreshIntervalMs = 5 * 60 * 1000;
 const minRefreshIntervalMs = 30 * 1000;
 const maxErrorRefreshIntervalMs = 60 * 1000;
@@ -116,11 +108,6 @@ const maxStaleAccountSnapshotMs = 2 * 60 * 1000;
 const maxCacheEntries = 500;
 const standardAccountPaths = ["/.well-known/llmr/account", "/v1/account/limits"];
 const codexRateLimitResetCreditConsumeEndpoint = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume";
-const codexOauthTokenEndpoint = "https://auth.openai.com/oauth/token";
-const codexOauthClientId = "app_EMoamEEZ73f0CkXaXp7hrann";
-const codexOauthDefaultScope = "openid profile email offline_access api.connectors.read api.connectors.invoke";
-const codexOauthRequiredScopes = ["api.connectors.read", "api.connectors.invoke"];
-const codexOauthDefaultTimeoutMs = 8_000;
 const claudeOauthUsageEndpointPattern = /^https:\/\/api\.anthropic\.com\/api\/oauth\/usage(?:$|[?#])/i;
 const claudeOauthUsageWindows = [
   { id: "claude_five_hour_quota", key: "five_hour", label: "5h quota", window: "5h" },
@@ -134,7 +121,6 @@ const claudeProfileCacheTtlMs = 86_400_000;
 const claudeProfileFailureTtlMs = 900_000;
 const claudeProfileCache = new Map<string, ClaudeProfileCacheEntry>();
 const cache = new Map<string, CacheEntry>();
-const codexOauthCache = new Map<string, CodexOauthRefreshResult>();
 const inFlightRefreshes = new Map<string, Promise<ProviderAccountSnapshot | undefined>>();
 let cacheGeneration = 0;
 
@@ -1759,11 +1745,7 @@ async function localAgentProviderAccountCredential(
     }
   }
   if (isLocalCodexProvider(provider)) {
-    return await localCodexAccountCredential({
-      codexOauth: { refreshIfMissingAccessToken: true },
-      key: "llmr-local-agent-codex-fallback-codex-oauth",
-      providerName: provider.name
-    });
+    return await localCodexAccountCredential({});
   }
   if (isLocalZcodeProvider(provider)) {
     const credential = readZcodeLocalProviderCredential();
@@ -1847,42 +1829,17 @@ function zcodeProviderTextMatches(values: Array<string | undefined>): boolean {
 }
 
 async function localCodexAccountCredential(plugin: Record<string, unknown>): Promise<LocalAgentAccountCredential> {
-  const codexOauth = isRecord(plugin.codexOauth) ? plugin.codexOauth : {};
-  const codexAuth = readCodexAuth();
-  // Imported plugins contain a point-in-time access token. Prefer the live Codex
-  // auth file so account checks follow tokens refreshed by Codex CLI/App.
-  let apiKey =
-    codexAuth?.accessToken ||
-    readString(codexOauth.accessToken) ||
-    readString(codexOauth.access_token);
-  const refreshToken =
-    codexAuth?.refreshToken ||
-    readString(codexOauth.refreshToken) ||
-    readString(codexOauth.refresh_token);
-  let accountId =
-    codexAuth?.accountId ||
-    readString(codexOauth.accountId) ||
-    readString(codexOauth.account_id);
-  let isFedrampAccount = codexAuth?.isFedrampAccount;
-  const currentClaims = codexTokenClaims(apiKey);
-  accountId = accountId || currentClaims?.accountId;
-  isFedrampAccount = isFedrampAccount ?? currentClaims?.isFedrampAccount;
-
-  if (refreshToken && shouldRefreshCodexAccountToken(apiKey, codexOauth)) {
-    const refreshed = await refreshCodexAccountToken(codexOauth, refreshToken).catch((error) => {
-      if (!apiKey || codexAccessTokenExpired(apiKey)) {
-        throw error;
-      }
-      return undefined;
-    });
-    if (refreshed) {
-      const claims = codexTokenClaims(refreshed.accessToken) ?? codexTokenClaims(refreshed.idToken);
-      apiKey = refreshed.accessToken || apiKey;
-      accountId = refreshed.accountId || claims?.accountId || accountId;
-      isFedrampAccount = refreshed.isFedrampAccount ?? claims?.isFedrampAccount ?? isFedrampAccount;
+  const codexAuth = await resolveCodexAuth().catch((error: unknown) => {
+    const stored = readCodexAuth();
+    if (stored?.accessToken && !codexAccessTokenExpired(stored.accessToken, 0)) {
+      return stored;
     }
-  }
-
+    throw error;
+  });
+  const apiKey = codexAuth?.accessToken;
+  const claims = codexTokenClaims(apiKey);
+  const accountId = codexAuth?.accountId || claims?.accountId;
+  const isFedrampAccount = codexAuth?.isFedrampAccount ?? claims?.isFedrampAccount;
   const headers = {
     ...localProviderPluginAuthHeaders(plugin),
     ...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
@@ -1892,160 +1849,6 @@ async function localCodexAccountCredential(plugin: Record<string, unknown>): Pro
     apiKey,
     headers
   };
-}
-
-function shouldRefreshCodexAccountToken(accessToken: string | undefined, codexOauth: Record<string, unknown>): boolean {
-  if (readBoolean(codexOauth.forceRefresh)) {
-    return true;
-  }
-  if (!accessToken) {
-    return readBoolean(codexOauth.refreshIfMissingAccessToken) !== false;
-  }
-  if (codexAccessTokenExpired(accessToken)) {
-    return true;
-  }
-  const missingScopes = codexMissingRequiredScopes(accessToken);
-  return Boolean(missingScopes?.length);
-}
-
-async function refreshCodexAccountToken(
-  codexOauth: Record<string, unknown>,
-  refreshToken: string
-): Promise<CodexOauthRefreshResult> {
-  const tokenEndpoint =
-    readString(codexOauth.tokenEndpoint) ||
-    readString(process.env.CODEX_REFRESH_TOKEN_URL_OVERRIDE) ||
-    codexOauthTokenEndpoint;
-  const clientId = readString(codexOauth.clientId) || codexOauthClientId;
-  const scope = codexOauthScope(readString(codexOauth.scope));
-  const cacheKey = [
-    tokenEndpoint,
-    clientId,
-    scope,
-    hashSensitiveValue(refreshToken)
-  ].join("\n");
-  const cached = codexOauthCache.get(cacheKey);
-  const now = Date.now();
-  if (cached?.accessToken && cached.expiresAtMs > now + 60_000) {
-    return cached;
-  }
-
-  const timeoutMs = normalizeCodexOauthTimeout(codexOauth.timeoutMs);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetchWithSystemProxy(tokenEndpoint, {
-      body: JSON.stringify({
-        client_id: clientId,
-        grant_type: "refresh_token",
-        refresh_token: refreshToken,
-        scope
-      }),
-      headers: {
-        "content-type": "application/json"
-      },
-      method: "POST",
-      signal: controller.signal
-    });
-    const text = await response.text();
-    const payload = parseJsonRecord(text);
-    if (!response.ok) {
-      throw new Error(`Codex OAuth token refresh returned HTTP ${response.status}${tokenRefreshErrorMessage(payload, text)}`);
-    }
-    const accessToken = readString(payload?.access_token) || readString(payload?.accessToken);
-    if (!accessToken) {
-      throw new Error("Codex OAuth token refresh did not return an access token.");
-    }
-    const idToken = readString(payload?.id_token) || readString(payload?.idToken);
-    const claims = codexTokenClaims(accessToken) ?? codexTokenClaims(idToken);
-    const result: CodexOauthRefreshResult = {
-      accessToken,
-      accountId: readString(payload?.account_id) || readString(payload?.accountId) || claims?.accountId,
-      expiresAtMs: codexTokenExpiresAtMs(accessToken) ?? now + 30 * 60 * 1000,
-      idToken,
-      isFedrampAccount: claims?.isFedrampAccount,
-      refreshToken: readString(payload?.refresh_token) || readString(payload?.refreshToken) || refreshToken,
-      scope: readString(payload?.scope) || readString(payload?.scopes)
-    };
-    codexOauthCache.set(cacheKey, result);
-    return result;
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(`Codex OAuth token refresh timed out after ${timeoutMs}ms.`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function codexOauthScope(configuredScope: string | undefined): string {
-  const scopes = new Set<string>();
-  for (const scope of (configuredScope || codexOauthDefaultScope).split(/\s+/)) {
-    if (scope.trim()) {
-      scopes.add(scope.trim());
-    }
-  }
-  for (const scope of codexOauthRequiredScopes) {
-    scopes.add(scope);
-  }
-  return [...scopes].join(" ");
-}
-
-function normalizeCodexOauthTimeout(value: unknown): number {
-  return Math.max(1, Number.isFinite(value) ? Number(value) : codexOauthDefaultTimeoutMs);
-}
-
-function parseJsonRecord(text: string): Record<string, unknown> | undefined {
-  try {
-    const payload = JSON.parse(text) as unknown;
-    return isRecord(payload) ? payload : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function tokenRefreshErrorMessage(payload: Record<string, unknown> | undefined, text: string): string {
-  const message =
-    readString(payload?.error_description) ||
-    readString(payload?.error) ||
-    readString(payload?.message) ||
-    readableResponseSnippet(text);
-  return message ? `: ${message}` : "";
-}
-
-function codexAccessTokenExpired(token: string | undefined): boolean {
-  const expiresAtMs = codexTokenExpiresAtMs(token);
-  return expiresAtMs !== undefined && expiresAtMs <= Date.now() + 60_000;
-}
-
-function codexTokenExpiresAtMs(token: string | undefined): number | undefined {
-  const payload = codexJwtPayload(token);
-  const exp = typeof payload?.exp === "number" ? payload.exp : undefined;
-  return exp ? exp * 1000 : undefined;
-}
-
-function codexMissingRequiredScopes(token: string): string[] | undefined {
-  const payload = codexJwtPayload(token);
-  if (!payload) {
-    return undefined;
-  }
-  const scopes = codexTokenScopes(payload);
-  if (scopes.length === 0) {
-    return undefined;
-  }
-  return codexOauthRequiredScopes.filter((scope) => !scopes.includes(scope));
-}
-
-function codexTokenScopes(payload: Record<string, unknown>): string[] {
-  const values: string[] = [];
-  const scope = readString(payload.scope);
-  if (scope) {
-    values.push(...scope.split(/\s+/));
-  }
-  const scp = Array.isArray(payload.scp) ? payload.scp : Array.isArray(payload.scopes) ? payload.scopes : [];
-  values.push(...scp.map(readString).filter((value): value is string => Boolean(value)));
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
 function codexTokenClaims(token: string | undefined): { accountId?: string; isFedrampAccount?: boolean } | undefined {

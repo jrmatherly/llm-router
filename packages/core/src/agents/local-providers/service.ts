@@ -14,7 +14,7 @@ import { importOpenCodeProvider, opencodeCandidates } from "@llmr/core/agents/lo
 import { importZcodeProvider, zcodeCandidate } from "@llmr/core/agents/local-providers/zcode";
 
 export { ClaudeAppsGatewayAuthError, claudeAppsGatewaySessionExpired, readClaudeAppsGatewaySession, resolveClaudeAppsGatewaySession, type ClaudeAppsGatewaySession } from "@llmr/core/agents/claude-apps-gateway/session-store";
-export { codexDefaultBaseUrl, readCodexAuth } from "@llmr/core/agents/local-providers/codex";
+export { CodexRefreshAuthError, codexAccessTokenExpired, codexDefaultBaseUrl, readCodexAuth, resolveCodexAuth, type CodexTokenSet } from "@llmr/core/agents/local-providers/codex";
 export { ClaudeCodeRefreshAuthError, readClaudeCodeOauth, resolveClaudeCodeAuth, resolveClaudeCodeAuthOrStored } from "@llmr/core/agents/local-providers/claude-code";
 export { grokDefaultBaseUrl, readGrokAuth, resolveGrokAuth } from "@llmr/core/agents/local-providers/grok";
 export { kimiAccessTokenExpired, kimiIdentityHeaders, readKimiAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/kimi";

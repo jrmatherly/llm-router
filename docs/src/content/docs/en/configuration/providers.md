@@ -32,8 +32,9 @@ After import:
 
 1. The protocol is `openai_responses`.
 2. The API endpoint points to the Codex backend. The model list always includes at least `gpt-5-codex` and also merges models and display names from the local model cache.
-3. LLMR creates Codex OAuth provider plugins and refreshes access credentials when needed.
-4. Account usage reads Codex quota, balance, and token-stat endpoints.
+3. LLMR creates Codex OAuth provider plugins. They hold no token. LLMR reads the login from `auth.json` in the Codex directory (`CODEX_HOME`, or `~/.codex`) on every use.
+4. LLMR refreshes a ChatGPT login when it has expired or is within a minute of expiring, and saves the new login back to that file so the Codex CLI stays signed in. It never creates the file. It uses only a login stored in `auth.json`: if `cli_auth_credentials_store` in Codex's `config.toml` is set to anything other than `file`, LLMR does not refresh the login, and a login kept only in the system keyring is not visible to LLMR. It also does not refresh a login whose `auth.json` is a symbolic link, or whose file or folder it cannot write. In those cases a request fails once the login expires, with the advice to run `codex login`.
+5. Account usage reads Codex quota, balance, and token-stat endpoints.
 
 After import, select `Codex API/model-name` in routing or Agent Profiles. If the model cache is stale, open Codex first so it refreshes the model list, then return to LLMR to import again or edit the models.
 

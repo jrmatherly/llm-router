@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -329,80 +330,55 @@ test("webcontent-json connector refuses to send storage header templates to anot
   assert.equal(called, false);
 });
 
-test("Codex local account credential refreshes when only a refresh token is available", async (t) => {
-  const previousHome = process.env.LLMR_INTERNAL_HOME_DIR;
-  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-account-refresh-"));
-  mkdirSync(path.join(home, ".codex"), { recursive: true });
-  process.env.LLMR_INTERNAL_HOME_DIR = home;
-  t.after(() => {
-    if (previousHome === undefined) {
-      delete process.env.LLMR_INTERNAL_HOME_DIR;
-    } else {
-      process.env.LLMR_INTERNAL_HOME_DIR = previousHome;
-    }
-  });
+test("Codex local account credential refreshes an expired login", async (t) => {
+  const codex = await useCodexLogin(t, { accountId: "acct-refreshed" });
+  codex.seed();
 
-  let requestBody = "";
-  let requestUrl = "";
-  const accessToken = jwt({
-    "https://api.openai.com/auth": {
-      chatgpt_account_id: "acct-refreshed"
-    },
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    scope: "api.connectors.read api.connectors.invoke"
-  });
-  const previousFetch = globalThis.fetch;
-  globalThis.fetch = async (input, init) => {
-    requestUrl = String(input);
-    requestBody = String(init?.body ?? "");
-    return new Response(
-      JSON.stringify({
-        access_token: accessToken,
-        refresh_token: "refresh-next",
-        scope: "api.connectors.read api.connectors.invoke"
-      }),
-      { headers: { "content-type": "application/json" }, status: 200 }
-    );
-  };
-  t.after(() => {
-    globalThis.fetch = previousFetch;
-  });
+  const credential = await localCodexAccountCredentialForTest(localCodexPlugin);
 
-  const credential = await localCodexAccountCredentialForTest({
-    codexOauth: {
-      refreshToken: "refresh-only",
-      tokenEndpoint: "http://127.0.0.1/oauth/token"
-    },
-    key: "llmr-local-agent-codex-api-codex-oauth",
-    providerName: "Codex API"
-  });
-
-  assert.equal(credential.apiKey, accessToken);
+  assert.equal(credential.apiKey, codex.issued[0]);
   assert.equal(credential.headers?.["ChatGPT-Account-Id"], "acct-refreshed");
-  assert.equal(requestUrl, "http://127.0.0.1/oauth/token");
-  assert.deepEqual(JSON.parse(requestBody), {
+  assert.deepEqual(codex.requests, [{
     client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
     grant_type: "refresh_token",
-    refresh_token: "refresh-only",
+    refresh_token: "r0",
     scope: "openid profile email offline_access api.connectors.read api.connectors.invoke"
-  });
+  }]);
+});
+
+test("Codex local account credential refreshes with the rotated Codex refresh token", async (t) => {
+  const codex = await useCodexLogin(t, { lifetimeSeconds: 30 });
+  codex.seed();
+
+  await localCodexAccountCredentialForTest(localCodexPlugin);
+  const credential = await localCodexAccountCredentialForTest(localCodexPlugin);
+
+  assert.deepEqual(codex.requests.map((request) => request.refresh_token), ["r0", "r1"]);
+  assert.equal(codex.readAuth().tokens.refresh_token, "r2");
+  assert.equal(credential.apiKey, codex.issued[1]);
+});
+
+test("Codex local account credential keeps a still valid token when the refresh fails", async (t) => {
+  const codex = await useCodexLogin(t, { failStatus: 500 });
+  const accessToken = codexAccessToken(30, "acct-codex");
+  codex.seed({ accessToken });
+
+  const credential = await localCodexAccountCredentialForTest(localCodexPlugin);
+
+  assert.equal(codex.requests.length, 1);
+  assert.equal(credential.apiKey, accessToken);
 });
 
 test("Codex local account credential matches internal provider plugin names", async (t) => {
-  useTemporaryCodexHome(t, "llmr-codex-account-internal-plugin-");
-  const accessToken = jwt({
-    "https://api.openai.com/auth": {
-      chatgpt_account_id: "acct-internal"
-    },
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    scope: "api.connectors.read api.connectors.invoke"
-  });
+  const codex = await useCodexLogin(t, { accountId: "acct-internal" });
+  const accessToken = codexAccessToken(3600, "acct-internal");
+  codex.seed({ accessToken });
 
   const credential = await localAgentProviderAccountCredentialForTest({
     providerPlugins: [
       {
         codexOauth: {
-          accessToken
+          accessToken: "stored-plugin-token"
         },
         key: "llmr-local-agent-codex-api-codex-oauth-internal",
         providerName: "codex-api::openai_responses"
@@ -419,6 +395,7 @@ test("Codex local account credential matches internal provider plugin names", as
 
   assert.equal(credential?.apiKey, accessToken);
   assert.equal(credential?.headers?.["ChatGPT-Account-Id"], "acct-internal");
+  assert.deepEqual(codex.requests, []);
 });
 
 test("Codex local account credential falls back to the live auth file when plugin is missing", async (t) => {
@@ -929,6 +906,90 @@ function useClaudeOauthFetch(t, { profile = {}, profileStatus = 200, usage }) {
     globalThis.fetch = previousFetch;
   });
   return requests;
+}
+
+const codexEnvKeys = ["CODEX_HOME", "CODEX_REFRESH_TOKEN_URL_OVERRIDE", "HOME", "LLMR_INTERNAL_HOME_DIR", "USERPROFILE"];
+
+const localCodexPlugin = {
+  codexOauth: {
+    accessToken: "stored-plugin-token",
+    refreshToken: "stored-plugin-refresh",
+    tokenEndpoint: "http://127.0.0.1:9/oauth/token"
+  },
+  key: "llmr-local-agent-codex-api-codex-oauth",
+  providerName: "Codex API"
+};
+
+function codexAccessToken(lifetimeSeconds, accountId = "acct-codex") {
+  return jwt({
+    "https://api.openai.com/auth": { chatgpt_account_id: accountId },
+    exp: Math.floor(Date.now() / 1000) + lifetimeSeconds,
+    scope: "api.connectors.read api.connectors.invoke"
+  });
+}
+
+async function useCodexLogin(t, { accountId = "acct-codex", failStatus, lifetimeSeconds = 3600 } = {}) {
+  const saved = Object.fromEntries(codexEnvKeys.map((key) => [key, process.env[key]]));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-account-login-"));
+  const codexDir = path.join(home, ".codex");
+  mkdirSync(codexDir, { recursive: true });
+  const requests = [];
+  const issued = [];
+  const seen = new Set();
+  const server = http.createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => {
+      body += chunk;
+    });
+    request.on("end", () => {
+      const payload = JSON.parse(body);
+      requests.push(payload);
+      if (failStatus) {
+        response.writeHead(failStatus, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: "unavailable" }));
+        return;
+      }
+      response.writeHead(seen.has(payload.refresh_token) ? 400 : 200, { "content-type": "application/json" });
+      if (seen.has(payload.refresh_token)) {
+        response.end(JSON.stringify({ error: "refresh_token_reused" }));
+        return;
+      }
+      seen.add(payload.refresh_token);
+      const token = codexAccessToken(lifetimeSeconds, accountId);
+      issued.push(token);
+      response.end(JSON.stringify({
+        access_token: token,
+        refresh_token: `r${Number(payload.refresh_token.slice(1)) + 1}`
+      }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
+  process.env.CODEX_REFRESH_TOKEN_URL_OVERRIDE = `http://127.0.0.1:${server.address().port}/oauth/token`;
+  delete process.env.CODEX_HOME;
+  t.after(async () => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    await new Promise((resolve) => server.close(resolve));
+    rmSync(home, { force: true, recursive: true });
+  });
+  const authFile = path.join(codexDir, "auth.json");
+  return {
+    issued,
+    readAuth: () => JSON.parse(readFileSync(authFile, "utf8")),
+    requests,
+    seed: ({ accessToken = codexAccessToken(-10, accountId), refreshToken = "r0" } = {}) => writeFileSync(authFile, JSON.stringify({
+      auth_mode: "chatgpt",
+      tokens: { access_token: accessToken, account_id: accountId, refresh_token: refreshToken }
+    }))
+  };
 }
 
 function useTemporaryCodexHome(t, prefix) {

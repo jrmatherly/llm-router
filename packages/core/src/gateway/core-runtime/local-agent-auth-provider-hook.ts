@@ -4,14 +4,18 @@ import {
   ClaudeCodeRefreshAuthError,
   readClaudeAppsGatewaySession,
   readClaudeCodeOauth,
+  readCodexAuth,
   readGrokAuth,
   readKimiAuth,
   resolveClaudeAppsGatewaySession,
   resolveClaudeCodeAuth,
+  resolveCodexAuth,
   resolveGrokAuth,
   resolveKimiAuth,
-  type ClaudeAppsGatewaySession
+  type ClaudeAppsGatewaySession,
+  type CodexTokenSet
 } from "@llmr/core/agents/local-providers/service";
+import { codexAccessTokenExpired, codexOauthRequiredScopes } from "@llmr/core/agents/local-providers/codex";
 import { applyOpenCodePublicFreeTierHeaders, isOpenCodePublicFreeTierPlugin, withOpenCodePublicFreeTierTools } from "@llmr/core/agents/local-providers/opencode-freetier";
 import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
 import { kimiAccessTokenExpired, kimiIdentityHeaders } from "@llmr/core/agents/local-providers/kimi";
@@ -58,7 +62,7 @@ type ProviderHook = {
   transformRequest?: (input: ProviderPluginInput) => Promise<ProviderHookResult> | ProviderHookResult;
 };
 
-type LocalAgentOauthKind = "claude-apps-gateway" | "claude-code" | "grok" | "kimi";
+type LocalAgentOauthKind = "claude-apps-gateway" | "claude-code" | "codex" | "grok" | "kimi";
 
 export function createGatewayPlugin(input: { config?: Record<string, unknown>; plugin?: { config?: Record<string, unknown> } } = {}) {
   return {
@@ -126,6 +130,11 @@ function localAgentOauthProviderHook(plugin: unknown): ProviderHook | undefined 
     return hook;
   }
 
+  if (kind === "codex") {
+    hook.authenticate = (input) => authenticateCodex(input, plugin);
+    return hook;
+  }
+
   hook.authenticate = (input) => authenticateClaudeCode(input, plugin);
   return hook;
 }
@@ -146,6 +155,9 @@ function localAgentOauthKind(plugin: Record<string, unknown>): LocalAgentOauthKi
   }
   if (key.includes("claude-code-oauth")) {
     return "claude-code";
+  }
+  if (key.includes("codex-oauth")) {
+    return "codex";
   }
   return undefined;
 }
@@ -237,6 +249,58 @@ async function authenticateClaudeAppsGateway(
       headers: withBearerAuth(input.upstreamRequest.headers, token, originalRemoveHeaders(plugin))
     }
   };
+}
+
+// The gateway keeps the Codex URL and body rewriting; this sets only the headers. The gateway's retry after
+// an upstream 401 lands here again, and resolveCodexAuth refreshes only an expired login.
+async function authenticateCodex(
+  input: ProviderPluginInput,
+  plugin: Record<string, unknown>
+): Promise<ProviderHookResult> {
+  let auth: CodexTokenSet | undefined;
+  try {
+    auth = await resolveCodexAuth();
+  } catch (error) {
+    auth = readCodexAuth();
+    if (!auth?.accessToken || codexAccessTokenExpired(auth.accessToken, 0)) {
+      return { error: `Codex login could not be refreshed: ${error instanceof Error ? error.message : String(error)}. Run codex login.`, ok: false };
+    }
+  }
+  const token = auth?.accessToken;
+  if (!token) {
+    return { error: "Codex login was not found. Run codex login.", ok: false };
+  }
+  if (codexAccessTokenExpired(token, 0)) {
+    return { error: "Codex login has expired and LLMR cannot refresh it. Run codex login.", ok: false };
+  }
+  const claims = jwtClaims(token);
+  const grantedScopes = ["scope", "scopes", "scp"].flatMap((name) => {
+    const value = claims[name];
+    return typeof value === "string" ? value.split(/\s+/) : Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+  });
+  const missingScopes = grantedScopes.length > 0 ? codexOauthRequiredScopes.filter((scope) => !grantedScopes.includes(scope)) : [];
+  if (missingScopes.length > 0) {
+    return { error: `Codex OAuth access token is missing required scopes: ${missingScopes.join(", ")}. Run codex login again.`, ok: false };
+  }
+  const headers = withBearerAuth(input.upstreamRequest.headers, token, originalRemoveHeaders(plugin));
+  const tokenAuthClaims = isRecord(claims["https://api.openai.com/auth"]) ? claims["https://api.openai.com/auth"] : {};
+  const accountId = auth?.accountId || stringValue(tokenAuthClaims.chatgpt_account_id) || stringValue(tokenAuthClaims.account_id);
+  if (accountId) {
+    setHeader(headers, "ChatGPT-Account-Id", accountId);
+  }
+  if (auth?.isFedrampAccount) {
+    setHeader(headers, "X-OpenAI-Fedramp", "true");
+  }
+  return { ok: true, value: { ...input.upstreamRequest, headers } };
+}
+
+function jwtClaims(token: string): Record<string, unknown> {
+  try {
+    const claims: unknown = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"));
+    return isRecord(claims) ? claims : {};
+  } catch {
+    return {};
+  }
 }
 
 async function resolveLiveGrokAccessToken(plugin: Record<string, unknown>): Promise<string | undefined> {
