@@ -937,7 +937,7 @@ The values in the "Now" column were read with `gh api` on 2026-11-16. Run each c
 
 - [ ] **Step 1: Turn on Dependabot version updates**
 
-Run this step only after RS-4 and EU-2 in the [Electron upgrade plan](2026-11-16-audit-electron-upgrade.md) have merged. `.github/dependabot.yml` groups `"*"` with no `ignore`, so an earlier first run would put Electron, better-sqlite3 and the majors the spec defers into one grouped npm PR.
+Run this step only after RS-4 and EU-2 in the [Electron upgrade plan](completed/2026-11-16-audit-electron-upgrade.md) have merged. `.github/dependabot.yml` groups `"*"` with no `ignore`, so an earlier first run would put Electron, better-sqlite3 and the majors the spec defers into one grouped npm PR.
 
 In the browser, open **Settings**, then **Advanced Security**, then **Dependabot**, and select **Enable** beside **Dependabot version updates**. GitHub documents no API for this toggle on a fork.
 

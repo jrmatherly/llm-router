@@ -64,7 +64,7 @@ Each line names the task that pins it.
 ## EU-1: Move to better-sqlite3 13 and delete the Electron sqlite sidecar
 
 - **Fixes:** F-D2.
-- **Depends on:** RS-1 and RS-2 in the [release safety plan](2026-11-16-audit-release-safety.md), as the [program index](2026-11-16-audit-remediation-index.md) orders it. Nothing in the code depends on them. EU-1 changes packaging, and Windows and Linux packaging first run in a release, so that release should go through the draft flow.
+- **Depends on:** RS-1 and RS-2 in the [release safety plan](../2026-11-16-audit-release-safety.md), as the [program index](../2026-11-16-audit-remediation-index.md) orders it. Nothing in the code depends on them. EU-1 changes packaging, and Windows and Linux packaging first run in a release, so that release should go through the draft flow.
 - **Branch:** `chore/better-sqlite3-13`.
 - **Size:** M.
 - **Owner steps:** Approve `--min-release-age=0` for the one install in Task 1 if work starts before 2026-11-21. Approve the edit to `permissions.deny` in `.claude/settings.json` (Task 4). Run the Windows and Linux packaging checks in Task 5 if a machine is available.
@@ -326,7 +326,7 @@ Delete the whole `permissions` block (lines 3-5). Its two `deny` entries block a
 
 - [ ] **Step 3: `README.md:216`**
 
-Replace only the first sentence with: "Windows app packaging runs on Windows x64 only. The preflight check rejects other hosts." Leave the second sentence alone. Its `windows-latest` wording belongs to RS-4 in the [release safety plan](2026-11-16-audit-release-safety.md).
+Replace only the first sentence with: "Windows app packaging runs on Windows x64 only. The preflight check rejects other hosts." Leave the second sentence alone. Its `windows-latest` wording belongs to RS-4 in the [release safety plan](../2026-11-16-audit-release-safety.md).
 
 - [ ] **Step 4: `main.ts:78`**
 
@@ -398,10 +398,29 @@ On Windows x64: `npm ci && npm run build:app:win`. On Linux x64: `npm ci && npm 
 ## EU-2: Upgrade to Electron 45
 
 - **Fixes:** F-D1, F-D3.
-- **Depends on:** EU-1 (merged). Ship it after RS-1 and RS-2 from the [release safety plan](2026-11-16-audit-release-safety.md) (see the [program index](2026-11-16-audit-remediation-index.md)), so the upgrade goes out through a release path that tests what it ships. Nothing in the code depends on them. They are an ordering rule for the release.
+- **Depends on:** EU-1 (merged). Ship it after RS-1 and RS-2 from the [release safety plan](../2026-11-16-audit-release-safety.md) (see the [program index](../2026-11-16-audit-remediation-index.md)), so the upgrade goes out through a release path that tests what it ships. Nothing in the code depends on them. They are an ordering rule for the release.
 - **Branch:** `chore/electron-45`.
 - **Size:** S.
 - **Owner steps:** Approve `--min-release-age=0` if the chosen Electron patch is younger than 7 days and waiting is not acceptable. Run the Windows and Linux checklists in Task 8.
+
+**Status:** Merged 2026-11-18 as [PR 103](https://github.com/jrmatherly/llm-router/pull/103), squash commit `e6079c19`. It installs `electron@45.3.3` and `electron-builder@26.18.1`. No release-age override was needed. 45.3.4 (published 2026-11-17) was still inside the two-day cooldown. `LSMinimumSystemVersion` in the packaged app is `13.0`.
+
+This plan missed one break. The gateway did not start under Electron 45:
+
+- The desktop app prefers a system `node` for the gateway child and spawned it with `serialization: "advanced"`. Electron 45 (V8 15.6) writes structured-clone format version 16. Node 24 (V8 13.6) reads up to 15, so the child exited on its first message with "Unable to deserialize cloned data due to invalid or unsupported version".
+- `tests/e2e/electron-cdp.spec.ts` ("starts the managed gateway from IPC") caught it. No core test did, because under plain Node both sides share one V8.
+- The fix removes the option in `packages/core/src/gateway/core-runtime/supervisor.ts`, so the channel uses JSON. Every message on it is plain data, and the bootstrap already passed the config to `JSON.stringify`.
+- `packages/core/test/unit/gateway/gateway-status.test.mjs` now pins the JSON channel. Its fake entry sends a BigInt, which only the JSON channel refuses.
+
+The review of PR 103 found one more thing and did not fix it, because it predates the upgrade and nobody verified it: `syncLaunchAtLogin` reads only `openAtLogin` and never the `status` field that macOS 13 returns, so a login item that macOS holds at `requires-approval` would still show as on. Settling it needs a signed build.
+
+Checked on macOS arm64: the five suites in Task 8 Step 1, a clean `npm ci --userconfig /dev/null` in a scratch copy, the packaged build, and a packaged launch in a temporary home that started the gateway (`/health` returned 200), stopped it and quit with exit code 0.
+
+Still open for the owner:
+
+- macOS, in the packaged app (Task 8 Step 3): the launch-at-login toggle, **Copy Link** followed by `pbpaste`, the share-card PNG export, and the tray popover.
+- The Windows and Linux checklists (Task 8 Steps 5 and 6).
+- The release note (Task 8 Step 7).
 
 ### Task 6: Bump Electron and electron-builder, and fix the two call sites
 

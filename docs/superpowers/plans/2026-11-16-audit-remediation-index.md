@@ -13,7 +13,7 @@
 | [Release safety](2026-11-16-audit-release-safety.md) | RS-1 to RS-5 | F-A1 to F-A13 |
 | [Provider presets and repo hygiene](2026-11-16-audit-hygiene-and-presets.md) | HP-1 to HP-3 | F-B1 to F-B9 |
 | [Core gateway](2026-11-16-audit-core-gateway.md) | CG-1 to CG-9 | F-C1 to F-C12 (F-C13 is deferred) |
-| [Electron 45 upgrade](2026-11-16-audit-electron-upgrade.md) | EU-1, EU-2 | F-D1 to F-D3 |
+| [Electron 45 upgrade](completed/2026-11-16-audit-electron-upgrade.md) | EU-1, EU-2 | F-D1 to F-D3 |
 | [Desktop hardening and UI dependency cleanup](2026-11-16-audit-desktop-hardening.md) | DH-1 to DH-3 | F-D4 to F-D11 |
 | [Upstream leftovers](2026-11-16-audit-upstream-leftovers.md) | UL-1, UL-2 | F-E1, F-E2 |
 | [Lint and test type-checking](2026-11-16-audit-tooling.md) | TL-1, TL-2 | F-F1 to F-F3 |
@@ -138,7 +138,7 @@ Three cross-plan notes:
 - **Before EU-1, EU-2 and DH-2.** No longer an owner step. `npm config get min-release-age` returned `2` on 2026-11-17, not the `7` this program was written against. `tldts@7.5.0` (published 2026-11-12) and `better-sqlite3@13.2.0` (2026-11-14) install now. `electron@45.3.3` (2026-11-16T05:55Z) installs from 2026-11-18T05:56Z. Re-run the command before an install, because the setting has changed once already.
 - **EU-1.** Approve the edit to `.claude/settings.json` that removes the `rebuild:sqlite3` deny rule together with the script it guards.
 - **EU-1.** Run the Windows and Linux packaging checks if a machine is available. Otherwise the first release after it is the first packaging run on those platforms.
-- **EU-2.** Run the Windows and Linux packaging checks. Confirm auto-update from 7.2.1 on Windows. RS-2 publishes the release automatically, so without those machines check the published release on Windows and Linux as soon as it is out. If a check fails, pull it back with `gh release edit vX.Y.Z --draft` and fix forward. Paste the release note that the desktop app now needs macOS 13 or later (EU-2 Task 8 Step 7).
+- **EU-2.** Merged as PR 103. Run the four manual macOS checks listed in the plan's status note, and the Windows and Linux packaging checks. Confirm auto-update from 7.2.1 on Windows. RS-2 publishes the release automatically, so without those machines check the published release on Windows and Linux as soon as it is out. If a check fails, pull it back with `gh release edit vX.Y.Z --draft` and fix forward. Paste the release note that the desktop app now needs macOS 13 or later (EU-2 Task 8 Step 7).
 - **RS-5.** Enable Dependabot version updates in Settings (a fork needs the toggle) only after RS-4 and EU-2 have merged. Add the required checks, enforce SHA pinning, allow squash merges only, move the Apple secrets to a `release` environment, add the tag ruleset.
 - **HP-2.** Confirm in the running app that a provider saved from a deleted preset still works. Paste the release note about the six removed presets (HP-2 Step 11).
 - **HP-3.** Confirm the copyright line for the fork.

@@ -34,7 +34,7 @@ Specific to this plan:
 - Electron tests are `*.test.ts` under `packages/electron/test/unit` or `packages/electron/test/integration`. They import sources as `@llmr/electron/main/<file>.ts`.
 - `tsconfig.json` sets `noUnusedLocals`. When a move or a delete leaves a helper or an import unused, delete it. Do not silence the error.
 - DH-1 and DH-2 are independent of each other and can be open at the same time.
-- DH-2 adds one dependency, so it edits `packages/electron/package.json` and `package-lock.json`. DH-3 and EU-1 and EU-2 in the [Electron upgrade plan](2026-11-16-audit-electron-upgrade.md) edit `package.json` and the lockfile too. Do not have DH-3 and an EU PR open at the same time. The [program index](2026-11-16-audit-remediation-index.md) puts DH-3 after EU-2. When DH-2 meets either of them, merge one, rebase the other, and regenerate the lockfile with `npm install`. Never resolve a lockfile conflict by hand.
+- DH-2 adds one dependency, so it edits `packages/electron/package.json` and `package-lock.json`. DH-3 and EU-1 and EU-2 in the [Electron upgrade plan](completed/2026-11-16-audit-electron-upgrade.md) edit `package.json` and the lockfile too. Do not have DH-3 and an EU PR open at the same time. The [program index](2026-11-16-audit-remediation-index.md) puts DH-3 after EU-2. When DH-2 meets either of them, merge one, rebase the other, and regenerate the lockfile with `npm install`. Never resolve a lockfile conflict by hand.
 
 ## Review Focus
 
@@ -590,7 +590,7 @@ git commit -m "refactor(electron): extract pure update-status helpers and test t
 
 No test covers these four. Record each result in the PR description.
 
-Start every app in this task in an isolated home, as Task 5 Step 3 of the [Electron upgrade plan](2026-11-16-audit-electron-upgrade.md) does. A build started with the real home can rewrite the owner's `~/.claude` and `~/.codex` files. Run `T="$(mktemp -d)"` once in the terminal that starts the app, and use that terminal for each launch below.
+Start every app in this task in an isolated home, as Task 5 Step 3 of the [Electron upgrade plan](completed/2026-11-16-audit-electron-upgrade.md) does. A build started with the real home can rewrite the owner's `~/.claude` and `~/.codex` files. Run `T="$(mktemp -d)"` once in the terminal that starts the app, and use that terminal for each launch below.
 
 - [ ] **Step 1: Loopback address.** In a second terminal run `python3 -m http.server 3000`. Run `HOME="$T" LLMR_INTERNAL_HOME_DIR="$T" npm run dev:electron`, open the built-in browser, and type `localhost:3000`. Expected: the directory listing loads and the address bar shows `http://localhost:3000/`.
 
@@ -856,7 +856,7 @@ git commit -m "fix(extension): request site access per import and require a trus
 
 ### Task 3: Check the two guesses in Chrome, update the docs, open the PR
 
-The research report guessed two Chrome behaviours and tested neither. Run `T="$(mktemp -d)"` and then `HOME="$T" LLMR_INTERNAL_HOME_DIR="$T" npm run dev:electron` on the branch, an isolated home as in Task 5 Step 3 of the [Electron upgrade plan](2026-11-16-audit-electron-upgrade.md). In Chrome, open `chrome://extensions`, load `extension/chrome` unpacked, and click **service worker** on its card to open DevTools for the worker.
+The research report guessed two Chrome behaviours and tested neither. Run `T="$(mktemp -d)"` and then `HOME="$T" LLMR_INTERNAL_HOME_DIR="$T" npm run dev:electron` on the branch, an isolated home as in Task 5 Step 3 of the [Electron upgrade plan](completed/2026-11-16-audit-electron-upgrade.md). In Chrome, open `chrome://extensions`, load `extension/chrome` unpacked, and click **service worker** on its card to open DevTools for the worker.
 
 - [ ] **Step 1: What `Origin` the worker's fetch sends.** In LLMR's built-in browser, start an import for a site you are signed in to, and confirm it in Chrome. In the worker's Network tab, read the request headers of the `POST .../cookies` request.
   - `Origin: chrome-extension://<id>`, or no `Origin` header, and the import completes. The rule in Task 1 stands.
@@ -1047,7 +1047,7 @@ git commit -m "refactor(ui): delete four unused exports"
 
 - [ ] **Step 3: "After" screenshots.** Repeat Task 1 step 1 on the branch and compare each of the 10 pairs. Expected: the app fills its container at both sizes, with no new scrollbar, no collapsed height and no shifted content. A difference means the wrapper div does not reproduce BaseUI's app container. Compare the two DOM trees at that element before changing anything else.
 
-- [ ] **Step 4: Escape key.** Run `T="$(mktemp -d)"`, then `HOME="$T" LLMR_INTERNAL_HOME_DIR="$T" npm run dev:electron`, an isolated home as in Task 5 Step 3 of the [Electron upgrade plan](2026-11-16-audit-electron-upgrade.md). Create one provider and one profile so the dialogs have something to edit. Open three dialogs on the home page (add provider, edit profile, and one settings dialog) and press Escape in each. Expected: each closes as it does on `main`. This is Review Focus 5.
+- [ ] **Step 4: Escape key.** Run `T="$(mktemp -d)"`, then `HOME="$T" LLMR_INTERNAL_HOME_DIR="$T" npm run dev:electron`, an isolated home as in Task 5 Step 3 of the [Electron upgrade plan](completed/2026-11-16-audit-electron-upgrade.md). Create one provider and one profile so the dialogs have something to edit. Open three dialogs on the home page (add provider, edit profile, and one settings dialog) and press Escape in each. Expected: each closes as it does on `main`. This is Review Focus 5.
 
 - [ ] **Step 5: Verify before opening the PR**
 
