@@ -127,12 +127,48 @@ test("#1868 UI edits preserve a script prefilter and empty pass-through rewrites
   assert.deepEqual(routingRuleFromDraft(passDraft, [], pass).rewrites, []);
 });
 
-test("a script prefilter on a path the editor cannot show survives a save until its value is cleared", () => {
+test("a condition on a path the editor cannot show keeps its path and takes the editor's operator and value", () => {
   const condition = { left: "request.tokenCount", operator: ">" as const, right: "100000" };
   const script = { enabled: true, id: "big", name: "Big", type: "script" as const, condition,
     script: { apiVersion: 1 as const, language: "javascript" as const, file: "/tmp/route.js", timeoutMs: 2000 } };
   const draft = { ...createRoutingRuleDraftFromRule(script), name: "Renamed" };
   assert.equal(draft.conditionField, "");
+  assert.equal(isRoutingRuleDraftSubmittable(draft), true);
   assert.deepEqual(routingRuleFromDraft(draft, [], script).condition, condition);
-  assert.equal(routingRuleFromDraft({ ...draft, conditionRight: "" }, [], script).condition, undefined);
+  assert.deepEqual(
+    routingRuleFromDraft({ ...draft, conditionOperator: "<", conditionRight: " 200000 " }, [], script).condition,
+    { left: "request.tokenCount", operator: "<", right: "200000" }
+  );
+  const cleared = { ...draft, conditionRight: "" };
+  assert.equal(isRoutingRuleDraftSubmittable(cleared), true);
+  assert.equal(routingRuleFromDraft(cleared, [], script).condition, undefined);
+
+  const pass = { enabled: true, id: "pass", name: "Pass", type: "condition" as const, condition };
+  const passDraft = createRoutingRuleDraftFromRule(pass);
+  assert.equal(isRoutingRuleDraftSubmittable(passDraft), true);
+  assert.deepEqual(routingRuleFromDraft(passDraft, [], pass).condition, condition);
+  assert.equal(isRoutingRuleDraftSubmittable({ ...passDraft, conditionRight: "" }), false);
+});
+
+test("a half-filled script prefilter blocks the save, and clearing the field removes the prefilter", () => {
+  const condition = { left: "request.body.model", operator: "starts-with" as const, right: "lane/" };
+  const script = { enabled: true, id: "filtered", name: "Filtered", type: "script" as const, condition,
+    script: { apiVersion: 1 as const, language: "javascript" as const, file: "/tmp/route.js", timeoutMs: 2000 } };
+  const draft = createRoutingRuleDraftFromRule(script);
+  assert.equal(isRoutingRuleDraftSubmittable({ ...draft, conditionRight: "" }), false);
+  assert.equal(isRoutingRuleDraftSubmittable({ ...draft, conditionField: "" }), false);
+  const cleared = { ...draft, conditionField: "", conditionRight: "" };
+  assert.equal(isRoutingRuleDraftSubmittable(cleared), true);
+  assert.equal(routingRuleFromDraft(cleared, [], script).condition, undefined);
+});
+
+test("a script rule's unreadable prefilter stays flagged through the editor's config round trip", () => {
+  const raw = { enabled: true, id: "typo", name: "Typo", type: "script",
+    condition: { left: "request.body.model", operator: "startsWith", right: "lane/" },
+    script: { apiVersion: 1, language: "javascript", file: "/tmp/route.js", timeoutMs: 2000 } };
+  const [rule] = normalizeRouterRules([raw]) ?? [];
+  assert.equal(rule.condition, undefined);
+  assert.equal(rule.conditionInvalid, true);
+  assert.equal(normalizeRouterRules([rule])?.[0].conditionInvalid, true);
+  assert.equal(routingRuleFromDraft(createRoutingRuleDraftFromRule(rule), [], rule).conditionInvalid, undefined);
 });

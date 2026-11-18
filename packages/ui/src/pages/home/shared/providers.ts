@@ -209,7 +209,7 @@ export function routerRuleTypeLabel(type: RouterRuleType): string {
 
 export function formatRouterRuleCondition(rule: RouterRule): string {
   if (rule.type === "script") {
-    return `${rule.condition ? `${rule.condition.left} ${rule.condition.operator} ${rule.condition.right} · ` : ""}Node.js · ${rule.script?.timeoutMs ?? 2000}ms`;
+    return `${rule.condition ? `${rule.condition.left} ${rule.condition.operator} ${rule.condition.right} · ` : rule.conditionInvalid ? "unreadable prefilter, rule is off · " : ""}Node.js · ${rule.script?.timeoutMs ?? 2000}ms`;
   }
   const condition = routerRuleConditionFromRule(rule);
   if (condition) {
@@ -396,16 +396,16 @@ export function isRoutingRewriteDraftRowValid(row: RoutingRewriteDraftRow): bool
 
 export function isRoutingRuleDraftSubmittable(draft: AddRoutingRuleDraft): boolean {
   if (!draft.name.trim()) return false;
+  const conditionComplete = Boolean(draftConditionLeft(draft) && draft.conditionOperator && draft.conditionRight.trim());
   if (draft.type === "script") {
     const timeoutMs = Number(draft.scriptTimeoutMs);
     return Boolean(draft.scriptFile.trim()) &&
       Number.isInteger(timeoutMs) &&
       timeoutMs >= 10 &&
       timeoutMs <= ROUTER_SCRIPT_MAX_TIMEOUT_MS &&
-      (!draft.conditionField.trim() || Boolean(draft.conditionOperator && draft.conditionRight.trim()));
+      (conditionComplete || (!draft.conditionField.trim() && !draft.conditionRight.trim()));
   }
-  return draft.rewrites.every(isRoutingRewriteDraftRowValid) &&
-    Boolean(draft.conditionField.trim() && draft.conditionOperator && draft.conditionRight.trim());
+  return draft.rewrites.every(isRoutingRewriteDraftRowValid) && conditionComplete;
 }
 
 export function routingRewriteFromDraftRow(row: RoutingRewriteDraftRow): RouterRuleRewrite {
@@ -430,14 +430,12 @@ export function routingRuleFromDraft(
     id: existingRule?.id ?? uniqueRoutingRuleId(existingRules),
     name: draft.name.trim()
   };
+  const left = draftConditionLeft(draft);
+  const right = draft.conditionRight.trim();
   return draft.type === "script"
     ? {
         ...commonRule,
-        ...(draft.conditionField.trim() ? { condition: {
-          left: buildRouterConditionPath(draft.conditionSource, draft.conditionField),
-          operator: draft.conditionOperator,
-          right: draft.conditionRight.trim()
-        } } : unshownScriptPrefilter(draft, existingRule)),
+        ...(left && right ? { condition: { left, operator: draft.conditionOperator, right } } : {}),
         script: {
           apiVersion: ROUTER_SCRIPT_API_VERSION,
           file: draft.scriptFile.trim(),
@@ -449,22 +447,29 @@ export function routingRuleFromDraft(
     : {
         ...commonRule,
         condition: {
-          left: buildRouterConditionPath(draft.conditionSource, draft.conditionField),
+          left: left ?? buildRouterConditionPath(draft.conditionSource, draft.conditionField),
           operator: draft.conditionOperator,
-          right: draft.conditionRight.trim()
+          right
         },
         rewrites: draft.rewrites.map(routingRewriteFromDraftRow),
         type: "condition"
       };
 }
 
-// The editor shows only header, body and auth paths. A prefilter on any other
-// path (request.tokenCount) survives a save unless its value was cleared.
-function unshownScriptPrefilter(draft: AddRoutingRuleDraft, existingRule?: RouterRule): { condition?: RouterRuleCondition } {
-  const condition = existingRule?.type === "script" ? existingRule.condition : undefined;
-  return condition && !splitRouterConditionPath(condition.left).field && draft.conditionRight.trim() === condition.right
-    ? { condition }
-    : {};
+// The editor shows only header, body and auth paths. A condition on any other
+// path (request.tokenCount) keeps that path on save, with the operator and
+// value from the editor.
+function unshownConditionPath(draft: AddRoutingRuleDraft): string | undefined {
+  const left = draft.conditionLeft.trim();
+  return left && !routerConditionSourceOptions.some((option) => left === option.value || left.startsWith(`${option.value}.`))
+    ? left
+    : undefined;
+}
+
+function draftConditionLeft(draft: AddRoutingRuleDraft): string | undefined {
+  return draft.conditionField.trim()
+    ? buildRouterConditionPath(draft.conditionSource, draft.conditionField)
+    : unshownConditionPath(draft);
 }
 
 function normalizeRouterModelRewrite(rewrite: RouterRuleRewrite): RouterRuleRewrite {

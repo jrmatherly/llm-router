@@ -24,6 +24,7 @@ export type RouteDiagnosticCode =
   | "custom-model-not-configured"
   | "fallback-model-not-configured"
   | "profile-model-not-configured"
+  | "rule-condition-invalid"
   | "rule-model-not-configured"
   | "rule-provider-model-conflict"
   | "rule-rewrite-invalid"

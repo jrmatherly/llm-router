@@ -1983,6 +1983,10 @@ function parseStringArray(value: unknown): string[] | undefined {
   return list.length ? list : undefined;
 }
 
+export function parseRouterRulesForTest(value: unknown): RouterRule[] | undefined {
+  return parseRouterRules(value);
+}
+
 function parseRouterRules(value: unknown): RouterRule[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
@@ -2012,8 +2016,11 @@ function parseRouterRules(value: unknown): RouterRule[] | undefined {
       const script = type === "script" ? parseRouterRuleScript(item.script ?? item) : undefined;
       const fallback = parseRouterFallback(item.fallback ?? item.failureFallback ?? item.fallbackStrategy);
 
+      const conditionInvalid = type === "script" && !condition && (item.condition !== undefined || item.conditionInvalid === true);
+
       return {
         ...(condition ? { condition } : {}),
+        ...(conditionInvalid ? { conditionInvalid: true as const } : {}),
         enabled: typeof item.enabled === "boolean" ? item.enabled : true,
         ...(fallback ? { fallback } : {}),
         id,

@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { parseRouterRulesForTest } from "@llmr/core/config/config.ts";
 import { ROUTER_SCRIPT_MAX_SOURCE_BYTES } from "@llmr/core/contracts/app.ts";
 import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
@@ -110,6 +111,37 @@ test("#1868 a condition with no rewrites passes through and bypasses later scrip
     const unmatched = await plugin.routeRequest(routingInput({ model: "lane/slot" }));
     assert.equal(unmatched.decision.model, "Provider/beta");
   } finally { await runtime.close(); }
+});
+
+test("a script prefilter on request.tokenCount decides before the worker runs", async () => {
+  let executions = 0;
+  const runtime = { execute: async () => { executions += 1; return { status: "ok", value: { model: "Provider/beta" } }; } };
+  const plugin = new LLMRouterPlugin(routingConfig([scriptRule("big", routeScript('return { model: "Provider/beta" };'), {
+    condition: { left: "request.tokenCount", operator: ">", right: "100000" }
+  })]), { scriptRuntime: runtime });
+  const small = await plugin.routeRequest(routingInput({ model: "Provider/alpha", messages: [{ role: "user", content: "hi" }] }));
+  assert.equal(small.decision.model, "Provider/alpha");
+  assert.equal(executions, 0);
+  const big = await plugin.routeRequest(routingInput());
+  assert.equal(big.decision.model, "Provider/beta");
+  assert.equal(executions, 1);
+});
+
+test("a script rule whose prefilter cannot be read stays off and says why", async () => {
+  let executions = 0;
+  const runtime = { execute: async () => { executions += 1; return { status: "ok", value: { model: "Provider/beta" } }; } };
+  const [rule] = parseRouterRulesForTest([{
+    ...scriptRule("typo", routeScript('return { model: "Provider/beta" };')),
+    condition: { left: "request.body.model", operator: "startsWith", right: "lane/" }
+  }]);
+  assert.equal(rule.condition, undefined);
+  assert.equal(rule.conditionInvalid, true);
+  assert.equal(parseRouterRulesForTest([rule])[0].conditionInvalid, true);
+  const plugin = new LLMRouterPlugin(routingConfig([rule]), { scriptRuntime: runtime });
+  const result = await plugin.routeRequest(routingInput({ model: "Provider/alpha" }));
+  assert.equal(result.decision.model, "Provider/alpha");
+  assert.equal(executions, 0);
+  assert.deepEqual(result.decision.diagnostics.map((diagnostic) => diagnostic.code), ["rule-condition-invalid"]);
 });
 
 function tokenProbeBody() {

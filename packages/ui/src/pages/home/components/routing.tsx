@@ -623,7 +623,7 @@ export function AddRoutingRuleDialog({
             ) : null}
             {draft.type === "condition" ? <Field className="sm:col-span-2" label="Rewrite request parameters">
               <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2">
-                {draft.rewrites.length === 0 ? <p className="text-xs text-muted-foreground">Matching requests pass through unchanged and skip later rules.</p> : null}
+                {draft.rewrites.length === 0 ? <p className="text-xs text-muted-foreground">Matching requests skip later rules and keep their built-in route.</p> : null}
                 {draft.rewrites.map((rewrite, index) => (
                   <div
                     className="grid grid-cols-1 gap-2 sm:grid-cols-[150px_minmax(0,1fr)_minmax(0,1fr)_32px]"

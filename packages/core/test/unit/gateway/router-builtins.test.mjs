@@ -888,6 +888,35 @@ test("built-in Codex route uses the authenticated profile instead of the first C
   assert.equal(result.decision.reason, "builtin:codex");
 });
 
+test("a pass-through rule keeps the built-in route's model and skips later rules", async () => {
+  const plugin = createRouterPlugin({
+    agent: "codex",
+    profileModel: "Provider/gpt-5-codex",
+    routerRules: [
+      { condition: { left: "request.header.x-lane", operator: "==", right: "keep" }, enabled: true, id: "pass", name: "Pass", type: "condition" },
+      {
+        condition: { left: "request.body.model", operator: "==", right: "gpt-5" },
+        enabled: true,
+        id: "later",
+        name: "Later",
+        rewrites: [{ key: "request.body.model", operation: "set", value: "Provider/claude-opus" }],
+        type: "condition"
+      }
+    ]
+  });
+  const request = (headers) => plugin.routeRequest({
+    body: { model: "gpt-5" },
+    headers: { "user-agent": "Codex Desktop/0.144.0", ...headers },
+    method: "POST",
+    url: "/v1/responses"
+  });
+
+  const kept = await request({ "x-lane": "keep" });
+  assert.equal(kept.decision.model, "Provider/gpt-5-codex");
+  assert.equal(kept.decision.reason, "rule:pass");
+  assert.equal((await request({})).decision.model, "Provider/claude-opus");
+});
+
 test("profile enhanced route switch disables the built-in Codex route", async () => {
   const plugin = createRouterPlugin({
     agent: "codex",

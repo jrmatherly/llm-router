@@ -727,6 +727,7 @@ export type RouterRuleScript = {
 
 export type RouterRule = {
   condition?: RouterRuleCondition;
+  conditionInvalid?: true;
   enabled: boolean;
   fallback?: RouterFallbackConfig;
   id: string;
