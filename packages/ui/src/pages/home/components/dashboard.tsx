@@ -3633,7 +3633,7 @@ function CodexResetCreditDialog({
   useEffect(() => {
     if (open) {
       const initialIndex = cards.findIndex((item) => item.id === detail?.id);
-      setActiveIndex(initialIndex >= 0 ? initialIndex : 0);
+      setActiveIndex(Math.max(initialIndex, 0));
       setDirection(0);
     }
     setStatus("idle");

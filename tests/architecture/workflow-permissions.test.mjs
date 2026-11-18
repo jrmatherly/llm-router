@@ -8,26 +8,26 @@ for (const file of readdirSync(".github/workflows").map((name) => `.github/workf
     const checkouts = text.match(/^\s+(?:- )?uses: actions\/checkout@/gm)?.length ?? 0;
     const persisted = text.match(/^\s+persist-credentials: false$/gm)?.length ?? 0;
     assert.equal(persisted, checkouts, "every checkout sets persist-credentials: false");
-    if (file.includes("/workflows/")) assert.match(text, /^permissions:\n  contents: read$/m);
+    if (file.includes("/workflows/")) assert.match(text, /^permissions:\n {2}contents: read$/m);
   });
 }
 
 function jobBlocks(file) {
   const text = readFileSync(file, "utf8");
   const body = text.slice(text.indexOf("\njobs:\n") + 7);
-  const starts = [...body.matchAll(/^  ([A-Za-z0-9_-]+):$/gm)];
+  const starts = [...body.matchAll(/^ {2}([A-Za-z0-9_-]+):$/gm)];
   return new Map(starts.map((m, i) => [m[1], body.slice(m.index, starts[i + 1]?.index)]));
 }
 
 const gatewayInstall = "npm install --no-save .tmp/gateway-package/*.tgz";
-const gatewayEntry = /^      LLMR_TEST_GATEWAY_ENTRY: \$\{\{ github\.workspace \}\}\/node_modules\/@the-next-ai\/ai-gateway\/bin\/next-ai-gateway\.js$/m;
+const gatewayEntry = /^ {6}LLMR_TEST_GATEWAY_ENTRY: \$\{\{ github\.workspace \}\}\/node_modules\/@the-next-ai\/ai-gateway\/bin\/next-ai-gateway\.js$/m;
 
 test("release builds wait for the test job", () => {
   const jobs = jobBlocks(".github/workflows/release.yml");
-  for (const job of ["model-catalog", "create-draft"]) assert.match(jobs.get(job), /^    needs: test$/m, job);
-  assert.match(jobs.get("test"), /^    needs: gateway$/m);
-  assert.match(jobs.get("macos"), /^    needs: \[model-catalog, gateway\]$/m);
-  for (const job of ["windows", "linux"]) assert.match(jobs.get(job), /^    needs: \[create-draft, model-catalog, gateway\]$/m, job);
+  for (const job of ["model-catalog", "create-draft"]) assert.match(jobs.get(job), /^ {4}needs: test$/m, job);
+  assert.match(jobs.get("test"), /^ {4}needs: gateway$/m);
+  assert.match(jobs.get("macos"), /^ {4}needs: \[model-catalog, gateway\]$/m);
+  for (const job of ["windows", "linux"]) assert.match(jobs.get(job), /^ {4}needs: \[create-draft, model-catalog, gateway\]$/m, job);
   assert.match(readFileSync(".github/workflows/test.yml", "utf8"), /npm run test:system/);
 });
 
@@ -35,25 +35,25 @@ test("the release stays a draft until every platform uploaded", () => {
   const jobs = jobBlocks(".github/workflows/release.yml");
   assert.match(jobs.get("create-draft"), /gh release create "\$GITHUB_REF_NAME" --draft --verify-tag /);
   assert.match(jobs.get("create-draft"), /--json isDraft --jq \.isDraft\)" = "true"$/m);
-  assert.match(jobs.get("upload-macos"), /^    needs: \[macos, create-draft\]$/m);
-  assert.match(jobs.get("publish"), /^    needs: \[upload-macos, windows, linux\]$/m);
+  assert.match(jobs.get("upload-macos"), /^ {4}needs: \[macos, create-draft\]$/m);
+  assert.match(jobs.get("publish"), /^ {4}needs: \[upload-macos, windows, linux\]$/m);
   assert.match(jobs.get("publish"), /gh release edit "\$GITHUB_REF_NAME" --draft=false --latest$/m);
   for (const [name, block] of jobs) {
     if (name === "create-draft" || name === "publish") continue;
     assert.doesNotMatch(block, /gh\s+release\s+(?:create|edit)\b|draft[= ]+false/, `${name} must not create or publish the release`);
   }
-  for (const name of ["windows", "linux"]) assert.match(jobs.get(name), /^          EP_DRAFT: "true"$/m, `${name} can only ever create a draft`);
+  for (const name of ["windows", "linux"]) assert.match(jobs.get(name), /^ {10}EP_DRAFT: "true"$/m, `${name} can only ever create a draft`);
 });
 
 test("every release.yml job sets timeout-minutes", () => {
   for (const [name, block] of jobBlocks(".github/workflows/release.yml")) {
-    assert.match(block, /^    timeout-minutes: \d+$/m, name);
+    assert.match(block, /^ {4}timeout-minutes: \d+$/m, name);
   }
 });
 
 test("macOS signing runs in the release environment", () => {
   for (const [name, block] of jobBlocks(".github/workflows/release.yml")) {
-    if (name === "macos") assert.match(block, /^    environment: release$/m);
+    if (name === "macos") assert.match(block, /^ {4}environment: release$/m);
     else assert.doesNotMatch(block, /secrets\.(?:APPLE|MACOS)_/, name);
   }
 });
@@ -68,21 +68,21 @@ test("tests and releases install the gateway tarball the release builds", () => 
       const block = jobs.get(name);
       const ci = block.indexOf("run: npm ci\n");
       assert.ok(ci > 0 && ci < block.indexOf(gatewayInstall), `${file} ${name} installs the gateway tarball after npm ci`);
-      assert.match(block, /^    needs: \[?(?:test, )?gateway\b/m, `${file} ${name} waits for the gateway job`);
+      assert.match(block, /^ {4}needs: \[?(?:test, )?gateway\b/m, `${file} ${name} waits for the gateway job`);
     }
   }
 });
 
 test("pushes to main never cancel a Tests run", () => {
   const tests = readFileSync(".github/workflows/test.yml", "utf8");
-  assert.match(tests, /^  group: tests-\$\{\{ github\.workflow \}\}-\$\{\{ github\.ref == 'refs\/heads\/main' && github\.sha \|\| github\.ref \}\}$/m);
-  assert.match(tests, /^  cancel-in-progress: \$\{\{ github\.ref != 'refs\/heads\/main' \}\}$/m);
+  assert.match(tests, /^ {2}group: tests-\$\{\{ github\.workflow \}\}-\$\{\{ github\.ref == 'refs\/heads\/main' && github\.sha \|\| github\.ref \}\}$/m);
+  assert.match(tests, /^ {2}cancel-in-progress: \$\{\{ github\.ref != 'refs\/heads\/main' \}\}$/m);
 });
 
 test("the Docker image is smoke-tested with the release gateway before any push", () => {
   const smoke = jobBlocks(".github/workflows/test.yml").get("docker-smoke");
-  assert.match(smoke, /^    needs: gateway$/m);
-  assert.match(smoke, /^          path: docker\/local-ai-gateway$/m);
+  assert.match(smoke, /^ {4}needs: gateway$/m);
+  assert.match(smoke, /^ {10}path: docker\/local-ai-gateway$/m);
   assert.match(smoke, /LLMR_DOCKER_TEST_SKIP_BUILD: "1"/);
   const release = readFileSync(".github/workflows/docker-release.yml", "utf8");
   const prepared = release.indexOf("uses: ./.github/actions/prepare-release-gateway");
@@ -90,19 +90,19 @@ test("the Docker image is smoke-tested with the release gateway before any push"
   for (const text of [smoke, release]) assert.match(text, /run: ls docker\/local-ai-gateway\/the-next-ai-ai-gateway-\*\.tgz/);
   const smokeRun = release.indexOf("node tests/system/docker-smoke.mjs");
   assert.ok(smokeRun > 0 && smokeRun < release.indexOf("push: true"), "the smoke test runs before the push");
-  assert.match(release, /^          load: true$/m);
+  assert.match(release, /^ {10}load: true$/m);
   assert.match(release, /LLMR_DOCKER_TEST_IMAGE: llm-router:smoke/);
   assert.match(release, /LLMR_DOCKER_TEST_SKIP_BUILD: "1"/);
 });
 
 test("docs build on pull requests, deploy only from main, and every job has a timeout", () => {
   const docs = readFileSync(".github/workflows/docs.yml", "utf8");
-  assert.match(docs, /^  pull_request:\n    paths:\n      - "docs\/\*\*"\n      - "\.github\/workflows\/docs\.yml"$/m);
-  assert.match(docs, /^  group: docs-\$\{\{ github\.ref == 'refs\/heads\/main' && 'deploy' \|\| github\.ref \}\}\n  cancel-in-progress: \$\{\{ github\.ref != 'refs\/heads\/main' \}\}$/m);
+  assert.match(docs, /^ {2}pull_request:\n {4}paths:\n {6}- "docs\/\*\*"\n {6}- "\.github\/workflows\/docs\.yml"$/m);
+  assert.match(docs, /^ {2}group: docs-\$\{\{ github\.ref == 'refs\/heads\/main' && 'deploy' \|\| github\.ref \}\}\n {2}cancel-in-progress: \$\{\{ github\.ref != 'refs\/heads\/main' \}\}$/m);
   const jobs = jobBlocks(".github/workflows/docs.yml");
-  assert.match(jobs.get("deploy"), /^    if: github\.ref == 'refs\/heads\/main'$/m);
-  assert.doesNotMatch(jobs.get("build"), /^    if:/m);
-  for (const [name, block] of jobs) assert.match(block, /^    timeout-minutes: \d+$/m, name);
+  assert.match(jobs.get("deploy"), /^ {4}if: github\.ref == 'refs\/heads\/main'$/m);
+  assert.doesNotMatch(jobs.get("build"), /^ {4}if:/m);
+  for (const [name, block] of jobs) assert.match(block, /^ {4}timeout-minutes: \d+$/m, name);
 });
 
 test("Dependabot covers both lockfiles, the workflows and the compose images", () => {

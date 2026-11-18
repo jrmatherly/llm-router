@@ -948,30 +948,26 @@ export function AddProfileForm({
             />
           </Field>
         ) : draft.agent === "kimi" ? (
-          <>
-            <Field className="sm:col-span-2" label="Kimi model" requirement="required" requirementLabel={requiredFieldLabel}>
-              <ModelSelector
-                placeholder={modelPlaceholder}
-                providers={providers}
-                value={draft.model}
-                virtualModelProfiles={virtualModelProfiles}
-                onChange={(model) => onChange({ model })}
-              />
-              {validation.kimiModel ? <ProfileFieldHint>{validation.kimiModel}</ProfileFieldHint> : null}
-            </Field>
-          </>
+          <Field className="sm:col-span-2" label="Kimi model" requirement="required" requirementLabel={requiredFieldLabel}>
+            <ModelSelector
+              placeholder={modelPlaceholder}
+              providers={providers}
+              value={draft.model}
+              virtualModelProfiles={virtualModelProfiles}
+              onChange={(model) => onChange({ model })}
+            />
+            {validation.kimiModel ? <ProfileFieldHint>{validation.kimiModel}</ProfileFieldHint> : null}
+          </Field>
         ) : (
-          <>
-            <Field className="sm:col-span-2" label={draft.agent === "zcode" ? "ZCode model" : draft.agent === "opencode" ? "OpenCode model" : draft.agent === "kilo" ? "Kilo model" : draft.agent === "workbuddy" ? "Workbuddy model" : "Codex model"} requirement="optional" requirementLabel={optionalFieldLabel}>
-              <ModelSelector
-                placeholder={modelPlaceholder}
-                providers={providers}
-                value={draft.model}
-                virtualModelProfiles={virtualModelProfiles}
-                onChange={(model) => onChange({ model })}
-              />
-            </Field>
-          </>
+          <Field className="sm:col-span-2" label={draft.agent === "zcode" ? "ZCode model" : draft.agent === "opencode" ? "OpenCode model" : draft.agent === "kilo" ? "Kilo model" : draft.agent === "workbuddy" ? "Workbuddy model" : "Codex model"} requirement="optional" requirementLabel={optionalFieldLabel}>
+            <ModelSelector
+              placeholder={modelPlaceholder}
+              providers={providers}
+              value={draft.model}
+              virtualModelProfiles={virtualModelProfiles}
+              onChange={(model) => onChange({ model })}
+            />
+          </Field>
         )}
         <div className="sm:col-span-2">
           <button

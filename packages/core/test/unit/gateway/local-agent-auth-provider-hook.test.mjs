@@ -14,7 +14,7 @@ import {
 import { virtualApplyPatchToolName } from "@llmr/core/gateway/internal/shared.ts";
 
 test("Grok local agent auth hook refreshes live login state before authenticating upstream requests", async (t) => {
-  await withGrokHome(t, async (grokHome) => {
+  await withGrokHome(async (grokHome) => {
     writeGrokAuth(grokHome, {
       expires_at: "2000-01-01T00:00:00Z",
       key: "expired-grok-access-token",
@@ -369,8 +369,8 @@ test("core gateway config installs the local agent dynamic auth runtime hook whe
   assert.match(localAgentAuthPlugin.modulePath, /local-agent-auth-provider-hook\.js$/);
 });
 
-test("core gateway config removes Grok unsupported Responses options through declarative request transforms", async (t) => {
-  await withGrokHome(t, async (grokHome) => {
+test("core gateway config removes Grok unsupported Responses options through declarative request transforms", async () => {
+  await withGrokHome(async (grokHome) => {
     writeGrokAuth(grokHome, {
       expires_at: "2099-01-01T00:00:00Z",
       key: "live-grok-access-token",
@@ -558,7 +558,7 @@ function writeClaudeCredentials(home, credentials) {
   return credentialFile;
 }
 
-async function withGrokHome(t, run) {
+async function withGrokHome(run) {
   const previousGrokHome = process.env.GROK_HOME;
   const previousGrokAuthFile = process.env.GROK_AUTH_FILE;
   const previousGrokCliVersion = process.env.GROK_CLI_VERSION;

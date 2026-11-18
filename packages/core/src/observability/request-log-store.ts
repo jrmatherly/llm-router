@@ -2084,7 +2084,7 @@ function inferAgentKind(
     return bodyAgent;
   }
   if (
-    Boolean(readHeaderValue(entry.requestHeaders, "x-claude-code-session-id")) ||
+    readHeaderValue(entry.requestHeaders, "x-claude-code-session-id") ||
     requestPayloads.some(hasClaudeCodeSessionMetadata)
   ) {
     return "claude-code";
@@ -3458,7 +3458,7 @@ function parseJsonLikeValue(value: unknown): unknown {
   }
 
   const trimmed = value.trim();
-  if (!trimmed || !/^[{\[]/.test(trimmed)) {
+  if (!trimmed || !/^[{[]/.test(trimmed)) {
     return value;
   }
 

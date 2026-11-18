@@ -40,7 +40,7 @@ test("ipc.ts registers handlers only through the sender check", () => {
 test("only the in-app button skips the gateway-start confirmation", () => {
   const deepLink = readFileSync(`${mainDir}/deep-link.ts`, "utf8");
   assert.equal(deepLink.split("confirmGatewayStart: false").length - 1, 1);
-  assert.match(deepLink, /openPluginApp\(pluginId: string, appId\?: string\)[^]*?confirmGatewayStart: false/);
+  assert.match(deepLink, /openPluginApp\(pluginId: string, appId\?: string\)[\s\S]*?confirmGatewayStart: false/);
   assert.equal(deepLink.split("confirmGatewayStart: true").length - 1, 2);
 });
 

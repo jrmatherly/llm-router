@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import test from "node:test";
 
 test("every root script that runs a repo file points at a file that exists", () => {
@@ -24,5 +25,35 @@ test("typecheck covers the TypeScript test files", () => {
     "./packages/ui/test/unit/usage-format.test.ts"
   ]) {
     assert.ok(files.includes(file), file);
+  }
+});
+
+test("lint is Biome with the formatter and assists off, pinned, and run by CI", () => {
+  const { devDependencies, scripts } = JSON.parse(readFileSync("package.json", "utf8"));
+  const biome = JSON.parse(readFileSync("biome.json", "utf8"));
+  const version = devDependencies["@biomejs/biome"];
+  assert.equal(scripts.lint, "biome lint --error-on-warnings .");
+  assert.match(version, /^\d+\.\d+\.\d+$/);
+  assert.equal(biome.$schema, `https://biomejs.dev/schemas/${version}/schema.json`);
+  assert.equal(biome.formatter.enabled, false);
+  assert.equal(biome.assist.enabled, false);
+  const jobs = readFileSync(".github/workflows/test.yml", "utf8").split(/^(?= {2}[\w-]+:$)/m);
+  const testJob = jobs.find((job) => job.startsWith("  test:\n"));
+  assert.ok(testJob.includes("\n      - name: 🧹 Lint\n        run: npm run lint\n\n"), "the test job must run lint as a plain step");
+});
+
+test("lint reports a planted defect in workspace source", () => {
+  // Pinning biome.json key by key would miss the next way to hollow it out; this fails when lint stops seeing packages/ or stops applying the rules.
+  const probe = `packages/core/src/zz-lint-probe-${process.pid}.ts`;
+  writeFileSync(probe, "debugger;\nlet x = 1;\nif (x == 2) {}\n");
+  try {
+    const result = spawnSync(path.resolve("node_modules/.bin/biome"), ["lint", "--error-on-warnings", probe], { encoding: "utf8", shell: process.platform === "win32" });
+    const output = `${result.stdout}${result.stderr}`;
+    assert.equal(result.status, 1, output);
+    for (const rule of ["lint/suspicious/noDebugger", "lint/suspicious/noDoubleEquals", "lint/style/useConst"]) {
+      assert.ok(output.includes(rule), `${rule} missing from:\n${output}`);
+    }
+  } finally {
+    rmSync(probe, { force: true });
   }
 });

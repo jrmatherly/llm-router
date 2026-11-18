@@ -2799,7 +2799,7 @@ const snapshotScript = function(options: { limit?: number; maxElements: number; 
     return /\b(password|secret|token|api[-_ ]?key|bearer|credential)\b/.test(haystack);
   }
 
-  function valueOf(el: Element) {
+  function fieldValue(el: Element) {
     if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
       return "";
     }
@@ -2865,7 +2865,7 @@ const snapshotScript = function(options: { limit?: number; maxElements: number; 
         role: roleOf(el),
         tag: el.tagName.toLowerCase(),
         text: text(el).slice(0, 180),
-        value: valueOf(el) || undefined
+        value: fieldValue(el) || undefined
       };
     });
 

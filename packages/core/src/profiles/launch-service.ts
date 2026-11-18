@@ -1843,7 +1843,7 @@ export function windowsLlmrLauncher(runtimeFile: string, config?: AppConfig): st
       ? [
           "if /I \"%~2\"==\"app\" goto llmr_run_cli",
           "if /I \"%~2\"==\"--app\" goto llmr_run_cli",
-          ...dispatches.map((dispatch, index) => `if /I \"%~1\"==\"${cmdValue(dispatch.profileRef)}\" goto llmr_profile_${index}`),
+          ...dispatches.map((dispatch, index) => `if /I "%~1"=="${cmdValue(dispatch.profileRef)}" goto llmr_profile_${index}`),
           ":llmr_run_cli"
         ]
       : []),

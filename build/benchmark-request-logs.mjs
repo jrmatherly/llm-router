@@ -1,7 +1,6 @@
 import esbuild from "esbuild";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 

@@ -348,7 +348,7 @@ function firstEnvExample(markdown, key) {
   for (const match of markdown.matchAll(codePattern)) {
     examples.push(match[1]);
   }
-  const assignmentPattern = new RegExp(`${escapeRegExp(key)}\\s*[:=]\\s*[\"']?([^\"'\\n,}]+)`, "i");
+  const assignmentPattern = new RegExp(`${escapeRegExp(key)}\\s*[:=]\\s*["']?([^"'\\n,}]+)`, "i");
   for (const example of examples) {
     const value = example.match(assignmentPattern)?.[1]?.trim();
     if (value) {

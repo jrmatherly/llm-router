@@ -92,3 +92,26 @@ test("gate runs in the hook input cwd, not CLAUDE_PROJECT_DIR", () => {
   assert.equal(r.status, 0);
   assert.equal(readFileSync(path.join(dir, "ran-here"), "utf8"), dir);
 });
+
+test("gate default checks are typecheck, lint and the architecture tests", () => {
+  const repo = (lintExit) => {
+    const dir = tempRepo();
+    const step = (name, exit = 0) => `node -e "require('fs').appendFileSync('order', '${name} '); process.exit(${exit})"`;
+    writeFileSync(path.join(dir, "package.json"), JSON.stringify({
+      name: projectName,
+      scripts: { lint: step("lint", lintExit), "test:architecture": step("test:architecture"), typecheck: step("typecheck") }
+    }));
+    return dir;
+  };
+  const gate = (dir) => run("gate-commit.mjs", { cwd: dir, tool_name: "Bash", tool_input: { command: "git commit -m x" } }, { LLMR_GATE_COMMANDS: "" });
+
+  const passing = repo(0);
+  assert.equal(gate(passing).status, 0);
+  assert.equal(readFileSync(path.join(passing, "order"), "utf8"), "typecheck lint test:architecture ");
+
+  const failing = repo(1);
+  const blocked = gate(failing);
+  assert.equal(blocked.status, 2);
+  assert.match(blocked.stderr, /npm run lint failed/);
+  assert.equal(readFileSync(path.join(failing, "order"), "utf8"), "typecheck lint ");
+});

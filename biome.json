@@ -1,0 +1,115 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/.test-dist",
+      "!**/*.json",
+      "!**/*.css",
+      "!examples/routing",
+      "!packages/ui/src/generated"
+    ]
+  },
+  "formatter": {
+    "enabled": false
+  },
+  "assist": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "a11y": {
+        "preset": "none"
+      },
+      "complexity": {
+        "noUselessContinue": "off",
+        "useArrowFunction": "off",
+        "useOptionalChain": "off"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "off",
+        "useHookAtTopLevel": "off"
+      },
+      "performance": {
+        "noAccumulatingSpread": "off",
+        "useDomNodeTextContent": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "useImportType": "off",
+        "useTemplate": "off"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "off",
+        "noAssignInExpressions": "off",
+        "noConfusingVoidType": "off",
+        "noControlCharactersInRegex": "off",
+        "noExplicitAny": "off",
+        "noImplicitAnyLet": "off",
+        "noPrototypeBuiltins": "off",
+        "noTemplateCurlyInString": "off",
+        "useIterableCallbackReturn": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "**/*.astro"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off",
+            "noUnusedVariables": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "**/*.svg"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnknownProperty": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "docs/public/**",
+        "extension/chrome/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noRedundantUseStrict": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "packages/ui/test/integration/providers.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noChildrenProp": "off"
+          }
+        }
+      }
+    }
+  ]
+}

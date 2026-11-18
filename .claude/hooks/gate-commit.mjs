@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 // Fails closed: a regex cannot parse shell, so the word "git" followed anywhere by the separate word "commit" runs the gate.
 const COMMIT_COMMAND = /(^|[\s;&|("'`\\/])git["']?\s[\s\S]*?(?<![\w.-])commit(?![\w.-])/;
-const DEFAULT_CHECKS = [["npm", ["run", "typecheck"]], ["npm", ["run", "test:architecture"]]];
+const DEFAULT_CHECKS = [["npm", ["run", "typecheck"]], ["npm", ["run", "lint"]], ["npm", ["run", "test:architecture"]]];
 
 let input;
 try {

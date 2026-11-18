@@ -70,6 +70,9 @@ jobs:
       - name: 🔎 Typecheck
         run: npm run typecheck
 
+      - name: 🧹 Lint
+        run: npm run lint
+
       - name: 🧪 Run unit and architecture tests
         run: npm run test
 

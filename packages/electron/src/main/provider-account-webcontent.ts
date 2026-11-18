@@ -253,7 +253,7 @@ function responseLooksJson(contentType: string, text: string): boolean {
   if (normalizedContentType.includes("json")) {
     return true;
   }
-  return /^[\s]*[\[{]/.test(text);
+  return /^[\s]*[[{]/.test(text);
 }
 
 function jsonErrorMessage(text: string): string | undefined {

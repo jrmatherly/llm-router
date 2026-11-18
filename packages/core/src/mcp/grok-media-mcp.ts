@@ -175,7 +175,7 @@ function parseRange(value: string | undefined, size: number): { end: number; sta
   const match = /^bytes=(\d*)-(\d*)$/.exec(value ?? "");
   if (!match) return undefined;
   let start = match[1] ? Number(match[1]) : 0;
-  let end = match[2] ? Number(match[2]) : size - 1;
+  const end = match[2] ? Number(match[2]) : size - 1;
   if (!match[1] && match[2]) start = Math.max(0, size - Number(match[2]));
   if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || start >= size) return undefined;
   return { end: Math.min(end, size - 1), start };

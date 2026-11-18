@@ -7,7 +7,7 @@
 import { LogsView } from "@/pages/home/components/network-logs";
 import { getRequestLogData } from "./mockData";
 import { DemoShell } from "./demoRuntime";
-import type { RequestLogListFilter, RequestLogPage } from "@llmr/core/contracts/app";
+import type { RequestLogListFilter } from "@llmr/core/contracts/app";
 
 const noop = () => {};
 

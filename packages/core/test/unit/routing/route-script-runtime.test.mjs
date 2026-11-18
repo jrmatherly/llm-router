@@ -57,7 +57,7 @@ function routingConfig(rules = []) {
   };
 }
 
-function scriptInput(script, body = {}) {
+function scriptInput(body = {}) {
   return buildRouteScriptInput({
     body,
     headers: { authorization: "secret", "x-visible": "yes" },
@@ -218,7 +218,7 @@ test("#1868 preparing a script input does not parse a copy of the full request o
     return originalParse(text, ...args);
   });
   const body = { model: "Provider/alpha", messages: [{ role: "user", content: "large-copy-probe " + "x".repeat(2_000_000) }] };
-  const input = scriptInput({}, body);
+  const input = scriptInput(body);
   assert.equal(input.model, "Provider/alpha");
   assert.equal(bodyCopies, 0);
 });
@@ -227,7 +227,7 @@ test("#1868 worker receives an isolated snapshot even if the original body chang
   const runtime = new RouteScriptRuntime({ workerCount: 1, workerFile });
   const script = routeScript('return { model: input.body.model, text: input.body.messages[0].content, frozen: Object.isFrozen(input.body.messages[0]) };');
   const body = { model: "Provider/alpha", messages: [{ role: "user", content: "original" }] };
-  const input = scriptInput(script, body);
+  const input = scriptInput(body);
   body.model = "Provider/beta";
   body.messages[0].content = "mutated";
   try {
@@ -238,8 +238,7 @@ test("#1868 worker receives an isolated snapshot even if the original body chang
 });
 
 test("route script input exposes the complete request body and headers", () => {
-  const script = routeScript("return null;");
-  const input = scriptInput(script, {
+  const input = scriptInput({
     hidden: "visible",
     messages: [{ content: "hello", role: "user" }],
     metadata: { secret: "visible", tenant: "acme" },
@@ -367,7 +366,7 @@ test("route scripts load local files and pick up file changes", async () => {
   const script = routeScript("return 'first';");
   try {
     assert.deepEqual(await runtime.validate(script), { diagnostics: [], ok: true });
-    const first = await runtime.execute("file-reload", script, scriptInput(script));
+    const first = await runtime.execute("file-reload", script, scriptInput());
     assert.equal(first.status, "ok");
     assert.equal(first.value, "first");
 
@@ -377,7 +376,7 @@ test("route scripts load local files and pick up file changes", async () => {
 
     writeFileSync(script.file, "return 'second';", "utf8");
     assert.deepEqual(await runtime.validate(script), { diagnostics: [], ok: true });
-    const second = await runtime.execute("file-reload", script, scriptInput(script));
+    const second = await runtime.execute("file-reload", script, scriptInput());
     assert.equal(second.status, "ok");
     assert.equal(second.value, "second");
   } finally {
@@ -391,7 +390,7 @@ test("route scripts support every documented file extension and legacy inline so
     for (const extension of ["js", "mjs", "cjs"]) {
       const script = routeScript(`return "${extension}";`, {}, extension);
       assert.deepEqual(await runtime.validate(script), { diagnostics: [], ok: true });
-      const result = await runtime.execute(`extension-${extension}`, script, scriptInput(script));
+      const result = await runtime.execute(`extension-${extension}`, script, scriptInput());
       assert.equal(result.status, "ok");
       assert.equal(result.value, extension);
     }
@@ -403,7 +402,7 @@ test("route scripts support every documented file extension and legacy inline so
       timeoutMs: 500
     };
     assert.deepEqual(await runtime.validate(inline), { diagnostics: [], ok: true });
-    const result = await runtime.execute("legacy-inline", inline, scriptInput(inline));
+    const result = await runtime.execute("legacy-inline", inline, scriptInput());
     assert.equal(result.status, "ok");
     assert.equal(result.value, "inline");
   } finally {
@@ -465,7 +464,7 @@ test("route scripts validate and execute async Node.js source", async () => {
   `);
   try {
     assert.deepEqual(await runtime.validate(script), { diagnostics: [], ok: true });
-    const result = await runtime.execute("async", script, scriptInput(script, { model: "Provider/alpha" }));
+    const result = await runtime.execute("async", script, scriptInput({ model: "Provider/alpha" }));
     assert.equal(result.status, "ok");
     assert.deepEqual(result.value, {
       apiEscape: "blocked",
@@ -790,7 +789,7 @@ test("route scripts expose the complete documented filesystem API", async () => 
     };
   `);
   try {
-    const result = await runtime.execute("filesystem", script, scriptInput(script, {
+    const result = await runtime.execute("filesystem", script, scriptInput({
       directory,
       inputFile,
       missingFile,
@@ -848,7 +847,7 @@ test("route scripts expose HTTP request options and response metadata", async ()
     return { ...response, body: JSON.parse(response.body) };
   `);
   try {
-    const result = await runtime.execute("network", script, scriptInput(script, { endpoint }));
+    const result = await runtime.execute("network", script, scriptInput({ endpoint }));
     assert.equal(result.status, "ok");
     assert.equal(result.value.ok, true);
     assert.equal(result.value.status, 201);
@@ -865,7 +864,7 @@ test("route scripts expose HTTP request options and response metadata", async ()
     });
 
     const invalidUrl = routeScript('await api.fetch("file:///tmp/policy.json");');
-    const invalidResult = await runtime.execute("network-invalid-url", invalidUrl, scriptInput(invalidUrl));
+    const invalidResult = await runtime.execute("network-invalid-url", invalidUrl, scriptInput());
     assert.equal(invalidResult.status, "error");
     assert.match(invalidResult.error, /only http\(s\) urls/i);
   } finally {
@@ -883,7 +882,7 @@ test("route scripts report syntax failures and stop synchronous infinite loops",
     assert.match(validation.diagnostics[0].message, /syntax|unexpected/i);
 
     const looping = routeScript("while (true) {}", { timeoutMs: 30 });
-    const result = await runtime.execute("loop", looping, scriptInput(looping));
+    const result = await runtime.execute("loop", looping, scriptInput());
     assert.equal(result.status, "timeout");
   } finally {
     await runtime.close();
@@ -895,11 +894,11 @@ test("route scripts stop unresolved async work and keep the worker reusable", as
   const stalled = routeScript("await new Promise(() => {});", { timeoutMs: 30 });
   const healthy = routeScript("return 'recovered';");
   try {
-    const timeout = await runtime.execute("async-timeout", stalled, scriptInput(stalled));
+    const timeout = await runtime.execute("async-timeout", stalled, scriptInput());
     assert.equal(timeout.status, "timeout");
     assert.match(timeout.error, /timed out/i);
 
-    const recovered = await runtime.execute("after-async-timeout", healthy, scriptInput(healthy));
+    const recovered = await runtime.execute("after-async-timeout", healthy, scriptInput());
     assert.equal(recovered.status, "ok");
     assert.equal(recovered.value, "recovered");
   } finally {
@@ -916,13 +915,13 @@ test("route scripts reject non-JSON and oversized results without poisoning late
   ];
   try {
     for (const [ruleId, script, expectedMessage] of cases) {
-      const result = await runtime.execute(ruleId, script, scriptInput(script));
+      const result = await runtime.execute(ruleId, script, scriptInput());
       assert.equal(result.status, "error");
       assert.match(result.error, expectedMessage);
     }
 
     const healthy = routeScript("return { match: true };");
-    const recovered = await runtime.execute("after-invalid-results", healthy, scriptInput(healthy));
+    const recovered = await runtime.execute("after-invalid-results", healthy, scriptInput());
     assert.equal(recovered.status, "ok");
     assert.deepEqual(recovered.value, { match: true });
   } finally {
@@ -937,7 +936,7 @@ test("route script workers distribute concurrent executions across available slo
     while (Date.now() < deadline) {}
     return true;
   `, { timeoutMs: 400 });
-  const input = scriptInput(script);
+  const input = scriptInput();
   try {
     const results = await Promise.all([
       runtime.execute("parallel-a", script, input),
@@ -958,7 +957,7 @@ test("route script synchronous execution honors configured timeouts above one se
     return true;
   `, { timeoutMs: 1600 });
   try {
-    const result = await runtime.execute("long-sync", script, scriptInput(script));
+    const result = await runtime.execute("long-sync", script, scriptInput());
     assert.equal(result.status, "ok");
     assert.equal(result.value, true);
   } finally {
@@ -972,19 +971,19 @@ test("route script circuit breakers are versioned and can be bypassed for test r
   const corrected = routeScript("return true;");
   try {
     for (let index = 0; index < 3; index += 1) {
-      const failure = await runtime.execute("versioned-rule", failing, scriptInput(failing));
+      const failure = await runtime.execute("versioned-rule", failing, scriptInput());
       assert.equal(failure.status, "error");
     }
 
-    const open = await runtime.execute("versioned-rule", failing, scriptInput(failing));
+    const open = await runtime.execute("versioned-rule", failing, scriptInput());
     assert.equal(open.status, "circuit-open");
 
-    const bypassed = await runtime.execute("versioned-rule", failing, scriptInput(failing), {
+    const bypassed = await runtime.execute("versioned-rule", failing, scriptInput(), {
       circuitBreaker: false
     });
     assert.equal(bypassed.status, "error");
 
-    const recovered = await runtime.execute("versioned-rule", corrected, scriptInput(corrected));
+    const recovered = await runtime.execute("versioned-rule", corrected, scriptInput());
     assert.equal(recovered.status, "ok");
     assert.equal(recovered.value, true);
   } finally {

@@ -111,7 +111,7 @@ export async function withFakeKeychain(initialRecord, run, options = {}) {
     `    printf '%s\\0' "$@" > "$call/argv"`,
     `    if [ "$1" = "-i" ]; then`,
     `      cat > "$call/stdin"`,
-    `      hex=$(sed -n 's/^add-generic-password .*-X \"\\{0,1\\}\\([0-9a-fA-F]*\\).*$/\\1/p' "$call/stdin" | tail -n 1)`,
+    `      hex=$(sed -n 's/^add-generic-password .*-X "\\{0,1\\}\\([0-9a-fA-F]*\\).*$/\\1/p' "$call/stdin" | tail -n 1)`,
     "    else",
     `      : > "$call/stdin"`,
     "      hex=''",
