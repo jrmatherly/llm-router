@@ -6,17 +6,19 @@ const { confirmationPageHtml, createService, normalizeChromeCookie, normalizeImp
 const soon = Date.now() / 1000 + 3600;
 
 test("normalizeImportDomain rejects public suffixes and single labels", () => {
-  for (const value of ["com", "co.uk", "github.io", "intranet", "*.com", ""]) {
+  for (const value of ["com", "co.uk", "github.io", "intranet", "*.com", "", "com.", "co.uk.", "https://github.io./x"]) {
     assert.equal(normalizeImportDomain(value), undefined, value);
   }
   assert.equal(normalizeImportDomain("Sub.Example.com/x"), "sub.example.com");
   assert.equal(normalizeImportDomain("https://user.github.io/page"), "user.github.io");
+  assert.equal(normalizeImportDomain("Example.com."), "example.com");
   assert.equal(normalizeImportDomain("localhost"), "localhost");
   assert.equal(normalizeImportDomain("192.168.1.10"), "192.168.1.10");
 });
 
 test("createJob refuses a request that names only public suffixes", async () => {
-  await assert.rejects(createService().createJob({ domains: ["com", "co.uk"] }), /At least one Chrome import domain is required/);
+  await assert.rejects(createService().createJob({ domains: ["com", "co.uk"] }), /At least one Chrome import domain is required.*: com, co\.uk\./);
+  await assert.rejects(createService().createJob({ domains: [] }), /At least one Chrome import domain is required\.$/);
 });
 
 test("normalizeChromeCookie keeps only allowed, unexpired, unpartitioned cookies", () => {

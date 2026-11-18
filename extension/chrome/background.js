@@ -38,8 +38,9 @@ async function confirmImport({ importUrl }, sender) {
     await chrome.storage.session.set({ pendingImportUrl: job.importUrl });
     try {
       await chrome.action.openPopup();
-    } catch {
+    } catch (error) {
       // The reply below tells the user to open the popup by hand.
+      console.warn("LLMR Login Import could not open its popup.", error);
     }
     throw Object.assign(
       new Error("Chrome needs your approval for these sites. Open the LLMR Login Import popup and click Import."),
@@ -73,7 +74,18 @@ function requirePopupSender(sender) {
   }
 }
 
+// Chrome keeps a granted host permission when an update makes it optional, so an install that had
+// version 0.1.0's all-site access would never see the per-import prompt. onInstalled does not fire
+// when Chrome restarts onto changed unpacked files, so this runs before every job.
+async function dropStandingSiteAccess() {
+  const origins = ["http://*/*", "https://*/*"];
+  if (await chrome.permissions.contains({ origins: ["https://*/*"] }) || await chrome.permissions.contains({ origins: ["http://*/*"] })) {
+    await chrome.permissions.remove({ origins });
+  }
+}
+
 async function loadJob(importUrl, senderUrl) {
+  await dropStandingSiteAccess();
   const normalizedImportUrl = normalizeImportUrl(importUrl, senderUrl);
   if (!normalizedImportUrl) {
     throw new Error("Invalid LLMR import URL.");
@@ -308,7 +320,7 @@ function normalizeImportUrl(value, senderUrl) {
 
 function normalizeDomain(value) {
   const host = typeof value === "string"
-    ? value.trim().replace(/^\*\./, "").replace(/^\./, "").toLowerCase()
+    ? value.trim().replace(/^\*\./, "").replace(/^\./, "").replace(/\.+$/, "").toLowerCase()
     : "";
   return host === "localhost" || isIpAddress(host) || host.includes(".") ? host : "";
 }

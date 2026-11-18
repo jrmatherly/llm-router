@@ -37,6 +37,10 @@ test("job JSON has no CORS header and rejects web origins", async () => {
   assert.equal((await send(job.importUrl, { headers: { origin: "https://evil.example" } })).status, 403);
   assert.equal((await send(job.importUrl, { headers: { origin: "chrome-extension://abcdefghijklmnopabcdefghijklmnop" } })).status, 200);
   assert.equal((await send(job.importUrl, { method: "OPTIONS" })).status, 405);
+  for (const origin of ["https://evil.example", "null"]) {
+    const reply = await send(`${job.importUrl}/cookies`, { body: '{"cookies":[{"name":"a","value":"b"}]}', headers: { "content-type": "text/plain", origin }, method: "POST" });
+    assert.equal(reply.status, 403, origin);
+  }
 });
 
 test("the confirm page sends its CSP", async () => {

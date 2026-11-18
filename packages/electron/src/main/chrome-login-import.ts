@@ -36,7 +36,10 @@ class ChromeLoginImportService {
   async createJob(request: ChromeLoginImportRequest): Promise<ChromeLoginImportJob> {
     const domains = uniqueStrings(request.domains.map(normalizeImportDomain).filter((item): item is string => Boolean(item)));
     if (domains.length === 0) {
-      throw new Error("At least one Chrome import domain is required.");
+      const rejected = request.domains.map(readString).filter(Boolean);
+      throw new Error(rejected.length > 0
+        ? `At least one Chrome import domain is required. LLMR does not import a public suffix or a single-label host: ${rejected.join(", ")}.`
+        : "At least one Chrome import domain is required.");
     }
 
     const target = normalizeImportTarget(request.target);
@@ -382,7 +385,7 @@ async function writeLocalStorage(partition: string, origin: string, items: Recor
       throw new Error(`Origin redirected to ${loadedOrigin}.`);
     }
     const entries = Object.entries(items);
-    await window.webContents.executeJavaScript(
+    await withTimeout(window.webContents.executeJavaScript(
       `(() => {
         const entries = ${JSON.stringify(entries)};
         for (const [key, value] of entries) {
@@ -391,7 +394,7 @@ async function writeLocalStorage(partition: string, origin: string, items: Recor
         return entries.length;
       })()`,
       true
-    );
+    ), localStorageWriteTimeoutMs, "Timed out writing localStorage.");
   } finally {
     if (!window.isDestroyed()) {
       window.destroy();
@@ -414,7 +417,9 @@ function normalizeImportDomain(value: unknown): string | undefined {
   } catch {
     host = normalizeCookieHost(raw.replace(/^\*\./, "").split("/")[0] || "");
   }
-  if (host && host !== "localhost" && getPublicSuffix(host, { allowPrivateDomains: true }) === host) {
+  // A trailing dot names the same host, and "com." would otherwise not equal its suffix "com".
+  host = host?.replace(/\.+$/, "");
+  if (!host || (host !== "localhost" && getPublicSuffix(host, { allowPrivateDomains: true }) === host)) {
     return undefined;
   }
   return host;
