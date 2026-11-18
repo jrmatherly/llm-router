@@ -12,7 +12,7 @@
 |---|---|---|
 | [Release safety](2026-11-16-audit-release-safety.md) | RS-1 to RS-5 | F-A1 to F-A13 |
 | [Provider presets and repo hygiene](2026-11-16-audit-hygiene-and-presets.md) | HP-1 to HP-3 | F-B1 to F-B9 |
-| [Core gateway](2026-11-16-audit-core-gateway.md) | CG-1 to CG-9 | F-C1 to F-C12 (F-C13 is deferred) |
+| [Core gateway](completed/2026-11-16-audit-core-gateway.md) | CG-1 to CG-9 | F-C1 to F-C12 (F-C13 is deferred) |
 | [Electron 45 upgrade](completed/2026-11-16-audit-electron-upgrade.md) | EU-1, EU-2 | F-D1 to F-D3 |
 | [Desktop hardening and UI dependency cleanup](completed/2026-11-16-audit-desktop-hardening.md) | DH-1 to DH-3 | F-D4 to F-D11 |
 | [Upstream leftovers](2026-11-16-audit-upstream-leftovers.md) | UL-1, UL-2 | F-E1, F-E2 |
@@ -141,6 +141,7 @@ Three cross-plan notes:
 - **EU-1.** Run the Windows and Linux packaging checks if a machine is available. Otherwise the first release after it is the first packaging run on those platforms.
 - **EU-2.** Merged as PR 103. Run the four manual macOS checks listed in the plan's status note, and the Windows and Linux packaging checks. Confirm auto-update from 7.2.1 on Windows. RS-2 publishes the release automatically, so without those machines check the published release on Windows and Linux as soon as it is out. If a check fails, pull it back with `gh release edit vX.Y.Z --draft` and fix forward. Paste the release note that the desktop app now needs macOS 13 or later (EU-2 Task 8 Step 7).
 - **RS-5.** Enable Dependabot version updates in Settings (a fork needs the toggle) only after RS-4 and EU-2 have merged. Add the required checks, enforce SHA pinning, allow squash merges only, move the Apple secrets to a `release` environment, add the tag ruleset.
+- **CG-7.** Merged as PR 108. Sign in with `codex login` and run the four-step live check in the plan's Task 4 ("Owner step, after merge"). Nothing ran against a real Codex login.
 - **HP-2.** Confirm in the running app that a provider saved from a deleted preset still works. Paste the release note about the six removed presets (HP-2 Step 11).
 - **HP-3.** Confirm the copyright line for the fork.
 - **DH-2.** Merged as PR 100. Run the Chrome checks with the unpacked extension (Task 3 Steps 1 to 3), the reload check for an install that had extension 0.1.0, and one import that takes over 30 s. The plan's status note has the steps.

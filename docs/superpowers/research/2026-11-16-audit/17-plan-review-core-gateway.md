@@ -4,7 +4,7 @@ Unedited report from one read-only pass on 2026-11-16, at commit `136ad730`. It 
 
 ---
 
-Goal: the owner asked for an independent review of `docs/superpowers/plans/2026-11-16-audit-core-gateway.md` (CG-1 to CG-9), checked against the code at `136ad730` and the spec, before they read it. I read the code each task changes. I ran no builds, tests or app. I ran two scratch experiments outside the repo: esbuild bundling a missing named import, and `tsc` on an unused destructured parameter.
+Goal: the owner asked for an independent review of `docs/superpowers/plans/completed/2026-11-16-audit-core-gateway.md` (CG-1 to CG-9), checked against the code at `136ad730` and the spec, before they read it. I read the code each task changes. I ran no builds, tests or app. I ran two scratch experiments outside the repo: esbuild bundling a missing named import, and `tsc` on an unused destructured parameter.
 
 ## Verdict per PR
 - **CG-1:** ready. All 11 symbols, their lines and their orphans match. Only their own definitions reference them.
@@ -61,5 +61,5 @@ Not verified:
 - anything at runtime
 
 Files:
-- `docs/superpowers/plans/2026-11-16-audit-core-gateway.md`
+- `docs/superpowers/plans/completed/2026-11-16-audit-core-gateway.md`
 - `docs/superpowers/plans/2026-11-16-audit-remediation-index.md`

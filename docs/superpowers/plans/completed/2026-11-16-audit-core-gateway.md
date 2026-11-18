@@ -1245,6 +1245,20 @@ Put this sentence in the PR description and the release notes of the release tha
 **Owner steps:** After merge, sign in with `codex login` and run the live check in Task 4.
 **Decision:** D-13 (Jason, 2026-11-18). This section replaces the 2026-11-16 version, which kept the rotated token in memory only. It was reviewed against the code on 2026-11-18 and corrected; "Review corrections" at the end lists what changed.
 
+**Status:** Merged 2026-11-18 as [PR 108](https://github.com/jrmatherly/llm-router/pull/108), squash commit `a83c29c8`. Neither stop condition was hit. The work and the review changed these points:
+
+- Task 3 Step 1 passed with the fallback this section names. The gateway sends upstream calls through its own `undici` and the global dispatcher, not the global `fetch`. The wire test's preload sets a dispatcher in the child that redirects `chatgpt.com` and refuses any host other than `127.0.0.1`. The preload is written to the test's temporary directory, because the test build does not copy a `fixtures/` folder.
+- Rule 10's lock carries a nonce. A stale lock is taken over by rename, a fresh lock moved by mistake is put back, and release removes only its own lock. As written, two waiters that both judged a lock stale could both take it.
+- The compiler also replaces stored tokens in the router plugin's copy of the app config. That was a third copy this section did not list.
+- The hook fails a request whose login has expired and cannot be refreshed, with "Codex login has expired and LLMR cannot refresh it. Run codex login." It does not send the expired token upstream.
+- After a failed refresh, the hook and the account service use the file's token until its own expiry, with no 60 s margin. With the margin the fallback could never apply.
+- A login with a refresh token and no access token is not refreshed (rule 3).
+- A local Codex provider with no login fails with "Codex login was not found. Run codex login."
+- Task 2 Step 1 says the file holds `r1` after two refreshes. It holds `r2`.
+- CI's "Unit and architecture" job ran the four Codex wire tests against the release gateway and passed them, none skipped. Locally, `#1852` in `october-issues-wire` and `recent issues` in `recent-issues-wire` fail against the npm gateway build on `main` too. Both pass in CI.
+- Not covered: nothing ran against a real Codex login, the owner step in Task 4 is still open, no test drives two takeovers of one stale lock at once, and the Windows paths have no CI.
+- Declined in review: remembering a dead login so it is not retried on every request, saving a refresh token from a 200 response that has no access token, and narrowing which 400 responses count as auth errors. The provider probe's empty `catch {}` hides the resolver's error message and predates this work.
+
 The three code tasks ship in one PR. Tasks 1 and 2 without Task 3 are worse than today: the host would rotate and save the token while the gateway child still held the old one from its compiled config.
 
 ### Why the first version was wrong
