@@ -307,7 +307,9 @@ Expected: the 13 marked subtests now FAIL with "expected failure" semantics, mea
 In the same scratch worktree, add one subtest to the `#1932` test beside the others: the `guardedProfile` with `tools` set to one internal gateway tool, a request carrying `safeguards` and the beta header, through "gateway child in public mode". Record the HTTP status and body. Then send the same request without `safeguards` and record that it succeeds.
 Before this step, read "The safeguards rejection" in the spec. If the owner has chosen option B there, first add a third commit that replaces the rejection in `src/gateway/handler.ts` with dropping `safeguards` from the request (the body and the preserved native fields) when the virtual model has internal tools, and rewrite the patch's `rejects server safeguards` test to assert HTTP 200 and an upstream body without `safeguards`. The subtest here then asserts the same through LLMR. If the owner has chosen C, skip Step 2 and this step, and keep the eight safeguards markers in Task 4.
 
-Expected with the patch as written (option A): the first is rejected with HTTP 400 before any upstream call. Report both results to the owner and wait. This is a product call: a client that always sends `safeguards` would stop working through such a model. Keep the subtest for Task 4 with the outcome the owner accepts.
+If the owner has chosen option A, first add a third commit that makes the rejection answer in the form Claude Code specifies: HTTP 400 with the Anthropic error envelope, `error.type` set to `invalid_request_error`, and a message that names `safeguards`. Update the patch's test to assert that body. The subtest here asserts the same through LLMR, and that no upstream call was made.
+
+If the owner has not chosen, measure the patch as written, report the status and body, and wait. This is a product call: a client that always sends `safeguards` would stop working through such a model. Keep the subtest for Task 4 with the outcome the owner accepts.
 
 - [ ] **Step 6: Commit, owner gate, push, tag, verify**
 
