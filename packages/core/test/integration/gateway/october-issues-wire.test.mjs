@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -227,6 +227,7 @@ test("Codex requests refresh an expired login once inside the gateway and save i
   assert.equal(codex.upstreamCalls[0].headers.authorization, `Bearer ${codex.issued[0]}`);
   // The child takes the lock in the same LLMR config directory as the host.
   assert.ok(existsSync(codex.lockDir));
+  assert.deepEqual(readdirSync(codex.lockDir), []);
 
   const second = await codex.send(gateway, false);
   assert.equal(second.status, 200);

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -493,6 +493,23 @@ test("Codex local agent auth hook fails the request when an expired login cannot
   assert.doesNotMatch(result.error, /r0|eyJ/);
 });
 
+test("Codex local agent auth hook fails an expired login that LLMR declines to refresh", async (t) => {
+  if (process.platform === "win32") {
+    t.skip("symbolic links need extra rights on Windows");
+    return;
+  }
+  const codex = await codexHookFixture(t);
+  codex.seed();
+  const target = path.join(codex.home, "real-auth.json");
+  renameSync(codex.authFile, target);
+  symlinkSync(target, codex.authFile);
+
+  const result = await codexHook().authenticate({ upstreamRequest: codexUpstreamRequest() });
+
+  assert.deepEqual(result, { error: "Codex login has expired and LLMR cannot refresh it. Run codex login.", ok: false });
+  assert.deepEqual(codex.requests, []);
+});
+
 test("local agent OAuth plugin detector only matches managed OAuth imports", () => {
   assert.equal(isLocalAgentOauthProviderPlugin(codexOauthProviderPlugin()), true);
   assert.equal(isLocalAgentOauthProviderPlugin(grokOauthProviderPlugin()), true);
@@ -568,6 +585,8 @@ async function codexHookFixture(t, { onRequest } = {}) {
     rmSync(home, { force: true, recursive: true });
   });
   return {
+    authFile,
+    home,
     readAuth: () => JSON.parse(readFileSync(authFile, "utf8")),
     requests,
     seed: ({ expiresIn = -10, tokens = {} } = {}) => writeFileSync(authFile, JSON.stringify({

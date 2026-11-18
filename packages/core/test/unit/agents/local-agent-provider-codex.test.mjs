@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -203,6 +203,23 @@ test("a stale lock is taken over", async (t) => {
   assert.equal(auth.refreshToken, "r1");
   assert.equal(codex.requests.length, 1);
   assert.equal(existsSync(lockFile), false);
+  assert.deepEqual(readdirSync(path.dirname(lockFile)).filter((name) => name.startsWith(path.basename(lockFile))), []);
+});
+
+test("releasing the lock leaves another holder's lock in place", async (t) => {
+  let codex;
+  const foreignLock = JSON.stringify({ nonce: "another-holder", pid: 999999, timestamp: Date.now() });
+  codex = await codexFixture(t, {
+    onRequest: () => {
+      writeFileSync(codex.lockFile(), foreignLock);
+    }
+  });
+  codex.seed();
+  t.after(() => rmSync(codex.lockFile(), { force: true }));
+
+  await resolveCodexAuth();
+
+  assert.equal(readFileSync(codex.lockFile(), "utf8"), foreignLock);
 });
 
 test("a login saved by a peer during the request wins", async (t) => {
@@ -349,6 +366,15 @@ test("a keyring store disables refresh", async (t) => {
   assert.equal(codex.requests.length, 1);
 });
 
+test("a file store still refreshes", async (t) => {
+  const codex = await codexFixture(t);
+  codex.seed();
+  writeFileSync(path.join(codex.codexDir, "config.toml"), 'cli_auth_credentials_store = "file"\n');
+
+  assert.equal((await resolveCodexAuth()).refreshToken, "r1");
+  assert.equal(codex.requests.length, 1);
+});
+
 test("the refresh goes to the login's own issuer", async (t) => {
   const codex = await codexFixture(t);
   delete process.env.CODEX_REFRESH_TOKEN_URL_OVERRIDE;
@@ -377,6 +403,137 @@ test("a token missing the connector scopes makes no request", async (t) => {
 
   assert.equal((await resolveCodexAuth()).refreshToken, "r0");
   assert.equal(codex.requests.length, 0);
+});
+
+test("a refresh response without an id_token keeps the file's id_token", async (t) => {
+  const codex = await codexFixture(t, {
+    onRequest: () => ({ body: { access_token: accessToken(3600), refresh_token: "r1" }, status: 200 })
+  });
+  codex.seed();
+  const idToken = codex.readAuth().tokens.id_token;
+
+  const auth = await resolveCodexAuth();
+
+  assert.equal(codex.readAuth().tokens.refresh_token, "r1");
+  assert.equal(codex.readAuth().tokens.id_token, idToken);
+  assert.equal(auth.idToken, idToken);
+});
+
+test("a 401 from the token endpoint throws CodexRefreshAuthError", async (t) => {
+  const codex = await codexFixture(t, {
+    onRequest: () => ({ body: { error: "invalid_grant" }, status: 401 })
+  });
+  codex.seed();
+
+  await assert.rejects(resolveCodexAuth(), CodexRefreshAuthError);
+});
+
+test("a 401 from the token endpoint adopts a peer's login", async (t) => {
+  let codex;
+  codex = await codexFixture(t, {
+    onRequest: () => {
+      codex.seed({ expiresIn: 3600, refreshToken: "rp" });
+      return { body: { error: "invalid_grant" }, status: 401 };
+    }
+  });
+  codex.seed();
+
+  const auth = await resolveCodexAuth();
+
+  assert.equal(auth.refreshToken, "rp");
+  assert.equal(codex.requests.length, 1);
+});
+
+test("a failed save keeps the rotated login in memory and warns once without a token", async (t) => {
+  if (process.platform === "win32" || process.getuid?.() === 0) {
+    t.skip("directory modes do not stop this user from writing");
+    return;
+  }
+  let codex;
+  codex = await codexFixture(t, {
+    lifetimeSeconds: 30,
+    onRequest: () => {
+      chmodSync(codex.codexDir, 0o500);
+    }
+  });
+  codex.seed();
+  const original = codex.readAuth().tokens.access_token;
+  const warn = t.mock.method(console, "warn", () => {});
+
+  const first = await resolveCodexAuth();
+  chmodSync(codex.codexDir, 0o700);
+  await resolveCodexAuth();
+
+  assert.equal(first.refreshToken, "r1");
+  assert.deepEqual(codex.requests.map((request) => request.refresh_token), ["r0", "r1"]);
+  assert.equal(warn.mock.callCount(), 1);
+  const message = String(warn.mock.calls[0].arguments[0]);
+  assert.ok(!message.includes(first.accessToken) && !message.includes(original));
+});
+
+test("a login deleted during the refresh is not recreated", async (t) => {
+  let codex;
+  codex = await codexFixture(t, {
+    onRequest: () => {
+      unlinkSync(codex.authFile);
+    }
+  });
+  codex.seed();
+  const warn = t.mock.method(console, "warn", () => {});
+
+  assert.equal(await resolveCodexAuth(), undefined);
+  assert.equal(existsSync(codex.authFile), false);
+  assert.equal(warn.mock.callCount(), 0);
+});
+
+test("CODEX_REFRESH_TOKEN_URL_OVERRIDE wins over the login's issuer", async (t) => {
+  const codex = await codexFixture(t);
+  const closed = http.createServer();
+  await new Promise((resolve) => closed.listen(0, "127.0.0.1", resolve));
+  const closedOrigin = `http://127.0.0.1:${closed.address().port}`;
+  await new Promise((resolve) => closed.close(resolve));
+  codex.seed({ tokens: { oauth_provenance: { issuer: closedOrigin } } });
+
+  assert.equal((await resolveCodexAuth()).refreshToken, "r1");
+  assert.equal(codex.requests.length, 1);
+});
+
+test("a read-only auth.json is never refreshed", async (t) => {
+  if (process.platform === "win32" || process.getuid?.() === 0) {
+    t.skip("file modes do not stop this user from writing");
+    return;
+  }
+  const codex = await codexFixture(t);
+  codex.seed();
+  chmodSync(codex.authFile, 0o400);
+
+  assert.equal((await resolveCodexAuth()).refreshToken, "r0");
+  assert.equal(codex.requests.length, 0);
+});
+
+test("a login with another credential and no auth_mode is never refreshed", async (t) => {
+  const codex = await codexFixture(t);
+  for (const credential of [
+    { personal_access_token: "pat-test" },
+    { bedrock_api_key: "bedrock-test" },
+    { bedrock_access_keys: { access_key_id: "id", secret_access_key: "secret" } }
+  ]) {
+    writeFileSync(codex.authFile, JSON.stringify({ ...chatgptLogin(), auth_mode: undefined, ...credential }));
+
+    assert.equal((await resolveCodexAuth()).refreshToken, "r0");
+  }
+  assert.equal(codex.requests.length, 0);
+});
+
+test("an empty CODEX_HOME falls back to ~/.codex", async (t) => {
+  const codex = await codexFixture(t);
+  process.env.CODEX_HOME = "";
+  codex.seed();
+
+  const auth = await resolveCodexAuth();
+
+  assert.equal(auth.sourceFile, codex.authFile);
+  assert.equal(codex.readAuth().tokens.refresh_token, "r1");
 });
 
 test("Codex provider account config includes manual reset meter", () => {

@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
-import { accessSync, closeSync, constants as fsConstants, lstatSync, mkdirSync, openSync, readFileSync, rmSync, statSync, writeSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { accessSync, closeSync, constants as fsConstants, linkSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeSync } from "node:fs";
 import path from "node:path";
 import type {
   LocalAgentProviderCandidate,
@@ -333,9 +333,9 @@ export function readCodexAuth(): CodexTokenSet | undefined {
   return readCodexLogin(codexAuthFile())?.auth;
 }
 
-export function codexAccessTokenExpired(token: string | undefined): boolean {
+export function codexAccessTokenExpired(token: string | undefined, marginMs = 60_000): boolean {
   const exp = readJwtPayload(token)?.exp;
-  return typeof exp === "number" && Date.now() >= exp * 1000 - 60_000;
+  return typeof exp === "number" && Date.now() >= exp * 1000 - marginMs;
 }
 
 export async function resolveCodexAuth(): Promise<CodexTokenSet | undefined> {
@@ -470,23 +470,24 @@ async function acquireCodexAuthLock(sourceFile: string): Promise<() => void> {
     `codex-auth-${createHash("sha256").update(sourceFile).digest("hex").slice(0, 16)}.lock`
   );
   mkdirSync(path.dirname(lockFile), { recursive: true });
+  const nonce = randomUUID();
   const deadline = Date.now() + codexLockWaitMs;
   for (;;) {
     try {
       const fd = openSync(lockFile, "wx");
       try {
-        writeSync(fd, JSON.stringify({ pid: process.pid, timestamp: Date.now() }));
+        writeSync(fd, JSON.stringify({ nonce, pid: process.pid, timestamp: Date.now() }));
       } finally {
         closeSync(fd);
       }
-      return () => rmSync(lockFile, { force: true });
+      return () => releaseCodexAuthLock(lockFile, nonce);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
         throw error;
       }
     }
-    if (codexLockAgeMs(lockFile) > codexLockStaleMs) {
-      rmSync(lockFile, { force: true });
+    const held = readCodexAuthLock(lockFile);
+    if (held && held.ageMs > codexLockStaleMs && takeOverStaleCodexAuthLock(lockFile, held.text)) {
       continue;
     }
     if (Date.now() >= deadline) {
@@ -496,15 +497,56 @@ async function acquireCodexAuthLock(sourceFile: string): Promise<() => void> {
   }
 }
 
-function codexLockAgeMs(lockFile: string): number {
+function readCodexAuthLock(lockFile: string): { ageMs: number; text: string } | undefined {
   try {
-    const content = parseJson(readFileSync(lockFile, "utf8"));
+    const text = readFileSync(lockFile, "utf8");
+    const content = parseJson(text);
     const timestamp = isRecord(content) && typeof content.timestamp === "number"
       ? content.timestamp
       : statSync(lockFile).mtimeMs;
-    return Date.now() - timestamp;
+    return { ageMs: Date.now() - timestamp, text };
   } catch {
-    return 0;
+    return undefined;
+  }
+}
+
+// A rename moves exactly one file, so two waiters that both judged the lock stale cannot both remove it,
+// and a fresh lock that replaced the stale one in the meantime is put back.
+function takeOverStaleCodexAuthLock(lockFile: string, staleText: string): boolean {
+  const moved = `${lockFile}.${randomUUID()}.stale`;
+  try {
+    renameSync(lockFile, moved);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return true;
+    }
+    throw error;
+  }
+  try {
+    if (readFileSync(moved, "utf8") === staleText) {
+      return true;
+    }
+    try {
+      linkSync(moved, lockFile);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw error;
+      }
+    }
+    return false;
+  } finally {
+    rmSync(moved, { force: true });
+  }
+}
+
+function releaseCodexAuthLock(lockFile: string, nonce: string): void {
+  try {
+    const content = parseJson(readFileSync(lockFile, "utf8"));
+    if (isRecord(content) && content.nonce === nonce) {
+      rmSync(lockFile, { force: true });
+    }
+  } catch {
+    // The lock is already gone.
   }
 }
 
@@ -583,12 +625,13 @@ async function requestCodexTokenRefresh(record: Record<string, unknown>, refresh
 
 function saveRefreshedCodexLogin(refreshed: CodexTokenSet, fileRefreshToken: string | undefined, idToken: string | undefined): CodexTokenSet | undefined {
   const sourceFile = refreshed.sourceFile;
+  const current = readCodexLogin(sourceFile);
+  const tokens = current?.record.tokens;
+  if (!current || !isRecord(tokens)) {
+    codexUnsavedRefreshes.delete(sourceFile);
+    return undefined;
+  }
   try {
-    const current = readCodexLogin(sourceFile);
-    const tokens = current?.record.tokens;
-    if (!current || !isRecord(tokens)) {
-      throw new Error("the file no longer holds a Codex login");
-    }
     if (current.auth.refreshToken !== fileRefreshToken) {
       codexUnsavedRefreshes.delete(sourceFile);
       return current.auth;

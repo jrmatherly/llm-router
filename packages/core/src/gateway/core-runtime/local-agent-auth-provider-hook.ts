@@ -15,7 +15,7 @@ import {
   type ClaudeAppsGatewaySession,
   type CodexTokenSet
 } from "@llmr/core/agents/local-providers/service";
-import { codexOauthRequiredScopes } from "@llmr/core/agents/local-providers/codex";
+import { codexAccessTokenExpired, codexOauthRequiredScopes } from "@llmr/core/agents/local-providers/codex";
 import { applyOpenCodePublicFreeTierHeaders, isOpenCodePublicFreeTierPlugin, withOpenCodePublicFreeTierTools } from "@llmr/core/agents/local-providers/opencode-freetier";
 import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
 import { kimiAccessTokenExpired, kimiIdentityHeaders } from "@llmr/core/agents/local-providers/kimi";
@@ -251,7 +251,7 @@ async function authenticateClaudeAppsGateway(
   };
 }
 
-// The gateway keeps the Codex URL and body rewriting; this sets only the headers. Its retry after
+// The gateway keeps the Codex URL and body rewriting; this sets only the headers. The gateway's retry after
 // an upstream 401 lands here again, and resolveCodexAuth refreshes only an expired login.
 async function authenticateCodex(
   input: ProviderPluginInput,
@@ -262,13 +262,16 @@ async function authenticateCodex(
     auth = await resolveCodexAuth();
   } catch (error) {
     auth = readCodexAuth();
-    if (!auth?.accessToken || codexTokenExpired(auth.accessToken)) {
+    if (!auth?.accessToken || codexAccessTokenExpired(auth.accessToken, 0)) {
       return { error: `Codex login could not be refreshed: ${error instanceof Error ? error.message : String(error)}. Run codex login.`, ok: false };
     }
   }
   const token = auth?.accessToken;
   if (!token) {
     return { error: "Codex login was not found. Run codex login.", ok: false };
+  }
+  if (codexAccessTokenExpired(token, 0)) {
+    return { error: "Codex login has expired and LLMR cannot refresh it. Run codex login.", ok: false };
   }
   const claims = jwtClaims(token);
   const grantedScopes = ["scope", "scopes", "scp"].flatMap((name) => {
@@ -289,12 +292,6 @@ async function authenticateCodex(
     setHeader(headers, "X-OpenAI-Fedramp", "true");
   }
   return { ok: true, value: { ...input.upstreamRequest, headers } };
-}
-
-// No margin: after a failed refresh a token is usable until its own expiry.
-function codexTokenExpired(token: string): boolean {
-  const exp = jwtClaims(token).exp;
-  return typeof exp === "number" && Date.now() >= exp * 1000;
 }
 
 function jwtClaims(token: string): Record<string, unknown> {

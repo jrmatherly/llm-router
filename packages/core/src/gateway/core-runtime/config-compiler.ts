@@ -194,7 +194,7 @@ function routerPluginConfig(
   }
   return {
     config: {
-      // A provider imported before the live hook saved the Codex tokens in its plugin.
+      // Stored Codex plugins may carry tokens; the router plugin's copy of the app config must not.
       appConfig: {
         ...config,
         providerPlugins: config.providerPlugins?.map((plugin) => isLocalCodexOauthProviderPlugin(plugin)
@@ -241,8 +241,7 @@ function localAgentAuthProviderHookPluginConfig(providerPlugins: unknown[]): Rec
 
 function withoutStaticLocalOauthAuth(plugin: unknown): unknown {
   if (!isRecord(plugin) || !isLocalAgentOauthProviderPlugin(plugin)) return plugin;
-  // Static plugins run after module hooks. Only the live hook may set OAuth
-  // authentication; its private config retains the import-time fallback.
+  // Static plugins run after module hooks, so only the live hook may set OAuth authentication.
   const { auth: _auth, ...rest } = plugin;
   if (!isRecord(rest.request) || !isRecord(rest.request.headers)) return rest;
   return {
@@ -543,8 +542,7 @@ function stringArraysEqual(left: string[], right: string[]): boolean {
 }
 
 
-// Replaces the tokens a provider imported before the live hook carried, so neither the static
-// plugin nor the hook's config holds one.
+// Neither the static plugin nor the hook's config may hold a Codex token.
 function withCodexOauthRuntimeDefaults(providerPlugins: unknown[]): unknown[] {
   return providerPlugins.map((plugin) => isLocalCodexOauthProviderPlugin(plugin)
     ? { ...plugin, codexOauth: codexOauthWithoutCredentials, request: withCodexBackendRequestTransform(plugin.request) }

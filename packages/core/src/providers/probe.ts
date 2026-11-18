@@ -983,7 +983,7 @@ function localClaudeAppsGatewayProbeUrl(apiKey: string | undefined, providerPlug
   return undefined;
 }
 
-// A local Codex plugin's stored tokens are a stale snapshot; the Codex login file is the only source.
+// The Codex login file is the only source of the token; a local plugin's codexOauth is never sent.
 async function providerProbeLiveCodexOauth(
   url: string,
   apiKey: string | undefined,

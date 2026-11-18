@@ -1829,10 +1829,9 @@ function zcodeProviderTextMatches(values: Array<string | undefined>): boolean {
 }
 
 async function localCodexAccountCredential(plugin: Record<string, unknown>): Promise<LocalAgentAccountCredential> {
-  // A plugin's codexOauth holds an import-time snapshot; only the Codex login file is current.
   const codexAuth = await resolveCodexAuth().catch((error: unknown) => {
     const stored = readCodexAuth();
-    if (stored?.accessToken && !codexAccessTokenExpired(stored.accessToken)) {
+    if (stored?.accessToken && !codexAccessTokenExpired(stored.accessToken, 0)) {
       return stored;
     }
     throw error;

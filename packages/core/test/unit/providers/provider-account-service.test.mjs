@@ -358,6 +358,17 @@ test("Codex local account credential refreshes with the rotated Codex refresh to
   assert.equal(credential.apiKey, codex.issued[1]);
 });
 
+test("Codex local account credential keeps a still valid token when the refresh fails", async (t) => {
+  const codex = await useCodexLogin(t, { failStatus: 500 });
+  const accessToken = codexAccessToken(30, "acct-codex");
+  codex.seed({ accessToken });
+
+  const credential = await localCodexAccountCredentialForTest(localCodexPlugin);
+
+  assert.equal(codex.requests.length, 1);
+  assert.equal(credential.apiKey, accessToken);
+});
+
 test("Codex local account credential matches internal provider plugin names", async (t) => {
   const codex = await useCodexLogin(t, { accountId: "acct-internal" });
   const accessToken = codexAccessToken(3600, "acct-internal");
@@ -917,7 +928,7 @@ function codexAccessToken(lifetimeSeconds, accountId = "acct-codex") {
   });
 }
 
-async function useCodexLogin(t, { accountId = "acct-codex", lifetimeSeconds = 3600 } = {}) {
+async function useCodexLogin(t, { accountId = "acct-codex", failStatus, lifetimeSeconds = 3600 } = {}) {
   const saved = Object.fromEntries(codexEnvKeys.map((key) => [key, process.env[key]]));
   const home = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-account-login-"));
   const codexDir = path.join(home, ".codex");
@@ -933,6 +944,11 @@ async function useCodexLogin(t, { accountId = "acct-codex", lifetimeSeconds = 36
     request.on("end", () => {
       const payload = JSON.parse(body);
       requests.push(payload);
+      if (failStatus) {
+        response.writeHead(failStatus, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: "unavailable" }));
+        return;
+      }
       response.writeHead(seen.has(payload.refresh_token) ? 400 : 200, { "content-type": "application/json" });
       if (seen.has(payload.refresh_token)) {
         response.end(JSON.stringify({ error: "refresh_token_reused" }));
