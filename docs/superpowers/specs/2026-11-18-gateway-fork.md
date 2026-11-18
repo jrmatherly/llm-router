@@ -29,6 +29,7 @@ Each line is marked **measured** (run or read on 2026-11-18) or **recorded** (ta
 | G-1 | LLMR owns its gateway build. Fork `The-NeXT-AI/ai-gateway` under a new repository name, publish a tarball from a release workflow there, and point LLMR's dependency at that tarball. Gateway fixes are commits in the fork, never `.patch` files. This settles row 29 of the upstream review. | Jason, 2026-11-17 |
 | G-2 | The audit program runs first, then this fork, then the upstream row ports. | Jason, 2026-11-17 |
 | G-3 | The fork is `jrmatherly/llmr-gateway`, public, with Actions enabled. `jrmatherly/ai-gateway` is taken by an unrelated fork of an Azure sample (measured). | Jason, 2026-11-18 |
+| G-13 | The fork takes the safeguards patch as written (option A in "The safeguards rejection"). A request that carries `safeguards` on a virtual model with internal tools is answered with HTTP 400. | Jason, 2026-11-18 |
 
 The design choices below are the session's, made on 2026-11-18 from the research. Each can be overruled before the plan runs.
 
@@ -66,7 +67,7 @@ The design choices below are the session's, made on 2026-11-18 from the research
 
 - Done 2026-11-18: the fork's name and the go-ahead to create it as a public repository (G-3).
 - Enable Actions on the fork. GitHub disables workflows on a new fork until the owner turns them on.
-- Decide how the fork treats a `safeguards` request on a virtual model with internal tools. The research and the options are in "The safeguards rejection" below.
+- Done 2026-11-18: the safeguards choice (G-13).
 - Optional, after the first release: a tag ruleset on the fork that restricts who can create `v*` tags.
 
 ## The safeguards rejection
@@ -112,7 +113,7 @@ Three things follow.
 - After a fallback, Claude Code itself sends the beta value without the field. So a provider seeing the lone beta value is the client's own normal behaviour, not something option B introduces.
 - In all three runs Claude Code printed: "An upcoming release removes this fallback. In sessions like this one, each checked action will then be asked about or denied." The binary carries the matching text for `CLAUDE_CODE_AUTO_MODE_SERVER=0`: "Claude Code no longer has a check of its own to use instead."
 
-**Recommendation: A, the patch as written.** A and B end in the same place for the user, so the smaller change wins. A adds no commit of our own on top of upstream's patch, its one 400 per session is the rejection Claude Code is built to receive, and it keeps the provider from seeing the pair half-sent. B would need a custom commit to reach the same result.
+**Decided: A, the patch as written (G-13).** A and B end in the same place for the user, so the smaller change wins. A adds no commit of our own on top of upstream's patch, its one 400 per session is the rejection Claude Code is built to receive, and it keeps the provider from seeing the pair half-sent. B would need a custom commit to reach the same result.
 
 **What this means beyond the fork.** Once Claude Code removes the local fallback, auto mode will work through LLMR only where a real verdict comes back: a direct Anthropic model, or a virtual model without internal tools on an Anthropic provider, which is the path this patch opens. On every other route each checked action will be asked about or denied, whatever the gateway does with the field. The only gateway-side answer for those routes is to produce verdicts itself, as one gateway already does (incoai/splash issue 589). That is a product decision for a later spec, not part of this one.
 

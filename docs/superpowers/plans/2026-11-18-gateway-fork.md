@@ -35,6 +35,8 @@
 
 ### Task 1: Create the fork and publish `1.0.22-llmr.1`
 
+**Status, 2026-11-18.** Steps 1 to 6 are done. The fork is `https://github.com/jrmatherly/llmr-gateway` (public), cloned at `~/dev/llmr-gateway`. Branch `llmr` holds one local commit, `2dfd2ec`, on top of `0a2c0abd`: the version, the two workflows and a README note. Measured at the base: both typechecks pass and the full suite passes (65 files, 931 tests, 7 skipped), so the workflow runs `npx vitest run` with no fallback. The build has the three router-plugin markers, the tag guard returns 1 for a wrong tag and 0 for the right one, and `npm pack` names the file `the-next-ai-ai-gateway-1.0.22-llmr.1.tgz`. Not done: Step 7 (push, default branch, tag) waits for the owner's word, and Actions must be enabled on the fork before the tag is pushed. Step 8 follows the release run.
+
 Repository: the fork. No LLMR file changes.
 
 **Files (in the fork):**
@@ -305,11 +307,7 @@ Expected: the 13 marked subtests now FAIL with "expected failure" semantics, mea
 - [ ] **Step 5: Measure the behaviour change for virtual models with tools**
 
 In the same scratch worktree, add one subtest to the `#1932` test beside the others: the `guardedProfile` with `tools` set to one internal gateway tool, a request carrying `safeguards` and the beta header, through "gateway child in public mode". Record the HTTP status and body. Then send the same request without `safeguards` and record that it succeeds.
-Before this step, read "The safeguards rejection" in the spec. If the owner has chosen option B there, first add a third commit that replaces the rejection in `src/gateway/handler.ts` with dropping `safeguards` from the request (the body and the preserved native fields) when the virtual model has internal tools, and rewrite the patch's `rejects server safeguards` test to assert HTTP 200 and an upstream body without `safeguards`. The subtest here then asserts the same through LLMR. If the owner has chosen C, skip Step 2 and this step, and keep the eight safeguards markers in Task 4.
-
-If the owner has chosen option A, change nothing in the fork. The subtest here asserts HTTP 400, a body whose message names `safeguards`, and no upstream call. Claude Code 2.1.327 accepts that body and stops sending the pair for the session (measured, spec section "The safeguards rejection").
-
-If the owner has not chosen, measure the patch as written, report the status and body, and wait. This is a product call: a client that always sends `safeguards` would stop working through such a model. Keep the subtest for Task 4 with the outcome the owner accepts.
+The owner chose option A on 2026-11-18 (spec G-13): change nothing in the fork. The subtest here asserts HTTP 400, a body whose message names `safeguards`, and no upstream call. Claude Code 2.1.327 accepts that body and stops sending the pair for the session (measured, spec section "The safeguards rejection").
 
 - [ ] **Step 6: Commit, owner gate, push, tag, verify**
 
