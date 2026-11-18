@@ -8,7 +8,6 @@
  */
 import { useMemo, useState } from "react";
 import { ProvidersView, AddProviderDialog, DeleteProviderDialog } from "@/pages/home/components/providers";
-import { BaseUiProvider } from "@/lib/baseui-provider";
 import {
   createProviderDraft,
   createProviderDraftFromProvider,
@@ -219,7 +218,7 @@ export default function ProvidersViewDemo() {
       playing={playing}
     >
       <VirtualCursor state={cursor} />
-      <BaseUiProvider>
+      <div style={{ height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
         <div className="docs-demo-app-surface docs-demo-app-surface--manager">
           <ProvidersView
             accountSnapshots={[] as ProviderAccountSnapshot[]}
@@ -254,7 +253,7 @@ export default function ProvidersViewDemo() {
         {deleteItem && (
           <DeleteProviderDialog provider={deleteItem} onClose={() => setDeleteIndex(undefined)} onConfirm={confirmDelete} />
         )}
-      </BaseUiProvider>
+      </div>
     </DemoShell>
   );
 }

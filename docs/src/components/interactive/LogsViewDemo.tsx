@@ -5,7 +5,6 @@
  * SEPARATE component — ObservabilityViewDemo.)
  */
 import { LogsView } from "@/pages/home/components/network-logs";
-import { BaseUiProvider } from "@/lib/baseui-provider";
 import { getRequestLogData } from "./mockData";
 import { DemoShell } from "./demoRuntime";
 import type { RequestLogListFilter, RequestLogPage } from "@llmr/core/contracts/app";
@@ -18,7 +17,7 @@ export default function LogsViewDemo() {
       title="Request logs — inspect each request's details, status, and latency"
       contentClassName="docs-demo-content--data"
     >
-      <BaseUiProvider>
+      <div style={{ height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
         <div className="docs-demo-app-surface docs-demo-app-surface--logs">
           <LogsView
             enabled
@@ -32,7 +31,7 @@ export default function LogsViewDemo() {
             onFocusedRequestHandled={noop}
           />
         </div>
-      </BaseUiProvider>
+      </div>
     </DemoShell>
   );
 }

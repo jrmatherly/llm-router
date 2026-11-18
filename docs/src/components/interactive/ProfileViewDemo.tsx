@@ -6,7 +6,6 @@
  */
 import { useMemo, useState } from "react";
 import { AddProfileDialog, ProfileView } from "@/pages/home/components/profiles";
-import { BaseUiProvider } from "@/lib/baseui-provider";
 import { fallbackConfig } from "@/pages/home/shared/fallbacks";
 import { createProfileDraft } from "@/pages/home/shared/profiles";
 import { profileAgentOptions } from "@/pages/home/shared/options";
@@ -117,7 +116,7 @@ export default function ProfileViewDemo() {
       playing={playing}
     >
       <VirtualCursor state={cursor} />
-      <BaseUiProvider>
+      <div style={{ height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
         <div className="docs-demo-app-surface docs-demo-app-surface--manager">
           <ProfileView
             addProfile={openAddProfile}
@@ -147,7 +146,7 @@ export default function ProfileViewDemo() {
             onSubmit={submitProfile}
           />
         )}
-      </BaseUiProvider>
+      </div>
     </DemoShell>
   );
 }

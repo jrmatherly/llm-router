@@ -7,7 +7,6 @@
  */
 import { useState } from "react";
 import { AgentAnalysisView } from "@/pages/home/components/dashboard";
-import { BaseUiProvider } from "@/lib/baseui-provider";
 import { getAgentAnalysisData } from "./mockData";
 import { DemoShell } from "./demoRuntime";
 import type { AgentFilterValue } from "@/pages/home/shared/options";
@@ -33,7 +32,7 @@ export default function ObservabilityViewDemo() {
       title="Agent observability — inspect execution traces, tool calls, and results"
       contentClassName="docs-demo-content--data"
     >
-      <BaseUiProvider>
+      <div style={{ height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
         <div className="docs-demo-app-surface docs-demo-app-surface--observability">
           <AgentAnalysisView
             agentFilter={"all" as AgentFilterValue}
@@ -48,7 +47,7 @@ export default function ObservabilityViewDemo() {
             snapshot={snapshot}
           />
         </div>
-      </BaseUiProvider>
+      </div>
     </DemoShell>
   );
 }

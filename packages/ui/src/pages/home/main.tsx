@@ -1,6 +1,5 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { BaseUiProvider } from "@/lib/baseui-provider";
 import App from "./App";
 
 const container = document.getElementById("root");
@@ -11,8 +10,8 @@ if (!container) {
 
 createRoot(container).render(
   <React.StrictMode>
-    <BaseUiProvider>
+    <div style={{ height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
       <App />
-    </BaseUiProvider>
+    </div>
   </React.StrictMode>
 );
