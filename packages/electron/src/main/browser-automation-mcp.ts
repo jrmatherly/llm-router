@@ -10,6 +10,7 @@ import type {
 } from "@llmr/core/contracts/app";
 import type { BrowserAutomationMcpIntegration } from "@llmr/core/gateway/service";
 import { BROWSER_AUTOMATION_MCP_PATH } from "@llmr/core/mcp/toolhub-config";
+import { normalizeBrowserInput } from "./browser-url";
 import { builtInBrowserService, type BrowserAutomationEvent } from "./built-in-browser";
 import { chromeLoginImportService } from "./chrome-login-import";
 
@@ -2031,13 +2032,7 @@ function normalizeNavigationUrlForMatch(value: string | undefined): string | und
   if (isBlankPageUrl(trimmed) || isChromiumErrorPage(trimmed)) {
     return trimmed;
   }
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
-    return normalizeUrlForComparison(trimmed);
-  }
-  if (/^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(trimmed) || trimmed.includes(".")) {
-    return normalizeUrlForComparison(`https://${trimmed}`);
-  }
-  return normalizeUrlForComparison(`https://www.google.com/search?q=${encodeURIComponent(trimmed)}`);
+  return normalizeUrlForComparison(normalizeBrowserInput(trimmed, ""));
 }
 
 function normalizeUrlForComparison(value: string | undefined): string | undefined {
