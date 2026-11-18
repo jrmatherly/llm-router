@@ -15,7 +15,7 @@ concurrency:
 jobs:
   test:
     name: 🧪 Test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     env:
       LLMR_TEST_GATEWAY_ENTRY: ${{ github.workspace }}/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js
@@ -43,7 +43,7 @@ jobs:
   model-catalog:
     name: 🗂️ Prepare model catalog
     needs: test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: 📥 Check out repository
@@ -75,7 +75,7 @@ jobs:
     needs: test
     permissions:
       contents: write
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: 📝 Create the draft release
@@ -189,7 +189,7 @@ jobs:
     needs: [macos, create-draft]
     permissions:
       contents: write
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: 📥 Check out repository
@@ -296,7 +296,7 @@ jobs:
     needs: [create-draft, model-catalog]
     permissions:
       contents: write
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: 📥 Check out repository
@@ -342,7 +342,7 @@ jobs:
     needs: [upload-macos, windows, linux]
     permissions:
       contents: write
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: 🚀 Check the assets, then publish

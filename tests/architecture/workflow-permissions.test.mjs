@@ -10,6 +10,16 @@ for (const file of readdirSync(".github/workflows").map((name) => `.github/workf
     assert.equal(persisted, checkouts, "every checkout sets persist-credentials: false");
     if (file.includes("/workflows/")) assert.match(text, /^permissions:\n {2}contents: read$/m);
   });
+
+  test(`${file} names its runner images and pins every action to a commit`, () => {
+    const text = readFileSync(file, "utf8");
+    for (const [, runner] of text.matchAll(/^\s+(?:runs-on|runner): (.+)$/gm)) {
+      if (!runner.startsWith("${{")) assert.match(runner, /^(?:ubuntu|macos|windows)-\d[\w.-]*$/, runner);
+    }
+    for (const [, action] of text.matchAll(/^\s+(?:- )?uses: (.+)$/gm)) {
+      assert.match(action, /^[\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/, action);
+    }
+  });
 }
 
 function jobBlocks(file) {
