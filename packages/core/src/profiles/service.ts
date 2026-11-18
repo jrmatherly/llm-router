@@ -1,8 +1,8 @@
-import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readlinkSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, availableGatewayModelIds, claudeCodeUsesSharedHome, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
-import { CLAUDE_CODE_AUTH_MODE_ENV, resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
+import { resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
 import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@llmr/core/agents/claude-code/gateway-login-policy";
 import { appConfigLoadError, loadAppConfig } from "@llmr/core/config/config";
 import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
@@ -45,6 +45,7 @@ import {
 } from "@llmr/core/agents/pi/profile-config";
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
+import { cmdQuote, defaultClientModel, disabledStatus, firstTomlTableIndex, formatError, gatewayEndpoint, gatewayNoProxyHosts, isRecord, linkProfileHomeEntry, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, stringRecord, tomlQuotedKey, tomlString, trimLeadingBlankLines, uniqueOrderedStrings, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
 import { backupBeforeWrite, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
 import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
@@ -54,7 +55,6 @@ import { resolveZcodeConfigFile, writeZcodeGatewayConfig, zcodeHomeFromConfigFil
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME, contextArchiveConfigForProfile, contextArchiveMcpEnabled, contextArchiveMcpServer } from "@llmr/core/gateway/context-archive";
 import { claudeClientDiscoveryPayloads, createClaudeCliAutoCompactWindows } from "@llmr/core/gateway/features/model-discovery";
 import { claudeCodeOneMillionContextSuffix } from "@llmr/core/gateway/internal/shared";
-import { normalizeRouteSelector } from "@llmr/core/gateway/llm-router-plugin";
 import { findModelCatalogEntry, modelCatalogMaxInputTokens, readCatalogCapability, type ModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
 import { windowsBatchEscapeValue as cmdValue, windowsBatchSetLine as cmdSetLine } from "@llmr/core/platform/windows-batch";
 import {
@@ -81,9 +81,6 @@ const managedContextArchiveMcpEnd = "# END LLMR managed Context Archive MCP";
 const managedConfiguredModelPrefix = "# LLMR configured model = ";
 const globalProfileTakeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
 const fallbackClientToken = "llmr-local";
-const privateDirMode = 0o700;
-const privateExecutableMode = 0o700;
-const privateFileMode = 0o600;
 const publicExecutableMode = 0o755;
 const claudeCodeWifFederationRuleId = "llmr-local";
 const claudeCodeWifOrganizationId = "llmr-local";
@@ -2457,13 +2454,6 @@ function grokWrapperCmdScript(config: AppConfig, profile: ProfileConfig, token: 
   ].join("\r\n");
 }
 
-function gatewayNoProxyHosts(config: AppConfig): string {
-  const configuredHost = config.gateway.host === "0.0.0.0" || config.gateway.host === "::"
-    ? "127.0.0.1"
-    : config.gateway.host?.trim().replace(/^\[|\]$/g, "") || "127.0.0.1";
-  return [...new Set([configuredHost, "127.0.0.1", "localhost", "::1"])].join(",");
-}
-
 function applyGatewayNoProxyEnv(env: Record<string, string>, config: AppConfig): void {
   const hosts = gatewayNoProxyHosts(config).split(",");
   env.NO_PROXY = mergeNoProxyHosts(env.NO_PROXY, hosts);
@@ -2643,34 +2633,6 @@ function ensureGrokProfileConfigCopy(source: string, target: string): void {
   }
   copyFileSync(source, target);
   chmodSync(target, privateFileMode);
-}
-
-function linkProfileHomeEntry(source: string, target: string): void {
-  if (!existsSync(source) || pathEntryExists(target)) {
-    return;
-  }
-  const sourceStat = statSync(source);
-  try {
-    symlinkSync(source, target, sourceStat.isDirectory() && process.platform === "win32" ? "junction" : undefined);
-  } catch {
-    if (sourceStat.isFile()) {
-      copyFileSync(source, target);
-      chmodSync(target, privateFileMode);
-    }
-  }
-}
-
-function pathEntryExists(file: string): boolean {
-  try {
-    const stat = lstatSync(file);
-    if (!stat.isSymbolicLink()) {
-      return true;
-    }
-    const target = readlinkSync(file);
-    return Boolean(target);
-  } catch {
-    return false;
-  }
 }
 
 function writeCodexCliMiddleware(
@@ -3175,11 +3137,6 @@ function removeManagedMarkerLines(source: string, markers: string[]): string {
   return source.replace(pattern, "");
 }
 
-function firstTomlTableIndex(source: string): number {
-  const match = source.match(/^\s*\[/m);
-  return match?.index ?? -1;
-}
-
 function readJsonObject(file: string): Record<string, unknown> {
   if (!existsSync(file)) {
     return {};
@@ -3339,21 +3296,6 @@ function writeFileWithBackup(
   const backupFile = backupBeforeWrite(file, previous, options);
   writeFileAtomic(file, content, { mode: options.mode });
   return { backupFile, changed: true };
-}
-
-function writeGeneratedFileIfChanged(
-  file: string,
-  content: string,
-  options: { mode?: number } = {}
-): { changed: boolean } {
-  mkdirSync(path.dirname(file), { recursive: true });
-  const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
-  if (previous === content) {
-    chmodFileIfRequested(file, options.mode);
-    return { changed: false };
-  }
-  writeFileAtomic(file, content, { mode: options.mode });
-  return { changed: true };
 }
 
 export function cleanupGeneratedBinBackups(configDir = CONFIGDIR): number {
@@ -3954,20 +3896,6 @@ function uniqueResolvedPaths(paths: string[]): string[] {
   return result;
 }
 
-function uniqueOrderedStrings(values: string[]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const value of values) {
-    const normalized = value.trim();
-    if (!normalized || seen.has(normalized)) {
-      continue;
-    }
-    seen.add(normalized);
-    result.push(normalized);
-  }
-  return result;
-}
-
 function restoreDisabledZcodeProfile(profile: ProfileConfig, configFile: string): ProfileClientApplyStatus {
   const disabledMessage = "ZCode profile is disabled.";
   if (!isGlobalProfile(profile)) {
@@ -4111,16 +4039,6 @@ function originalBackupFilePath(file: string): string {
 
 function originalMissingFilePath(file: string): string {
   return `${file}${originalMissingSuffix}`;
-}
-
-function disabledStatus(client: ProfileClientKind, file: string, message: string): ProfileClientApplyStatus {
-  return {
-    client,
-    enabled: false,
-    message,
-    ok: true,
-    path: resolveUserPath(file)
-  };
 }
 
 function unavailableModelStatus(profile: ProfileConfig, file: string): ProfileClientApplyStatus {
@@ -4280,21 +4198,6 @@ function parseJsonContent(content: string): Record<string, unknown> | undefined 
   }
 }
 
-function gatewayEndpoint(config: AppConfig): string {
-  const host = config.gateway.host === "0.0.0.0" ? "127.0.0.1" : config.gateway.host || "127.0.0.1";
-  const formattedHost = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
-  return `http://${formattedHost}:${config.gateway.port}`;
-}
-
-function defaultClientModel(config: AppConfig): string {
-  const enabledProviders = config.Providers.filter(isGatewayProviderEnabled);
-  const preferred = enabledProviders.find((provider) => provider.name === config.preferredProvider) ?? enabledProviders[0];
-  if (preferred?.name && preferred.models[0]) {
-    return `${preferred.name}/${preferred.models[0]}`;
-  }
-  return "gpt-5-codex";
-}
-
 function toolHubResolverModel(config: AppConfig): string {
   const model = config.toolHub.llm.model.trim();
   if (!model) {
@@ -4312,23 +4215,11 @@ function toolHubResolverModel(config: AppConfig): string {
   return provider?.name ? `${provider.name}/${model}` : model;
 }
 
-function providerBaseUrl(provider: AppConfig["Providers"][number]): string {
-  return provider.api_base_url || provider.baseUrl || provider.baseurl || "";
-}
-
 function normalizeUrlForMatch(value: string | undefined): string {
   return (value || "").trim().replace(/\/+$/g, "");
 }
 
-function normalizeClientModel(value: string | undefined): string {
-  return normalizeRouteSelector(value)?.trim() || "";
-}
-
 function sanitizeCodexProviderId(value: string): string {
-  return value.trim().replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-function sanitizeProfilePathSegment(value: string): string {
   return value.trim().replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
@@ -4401,42 +4292,8 @@ function defaultCodexCompatibleHome(agent: ProfileConfig["agent"], configFile: s
   return agent === "zcode" ? zcodeHomeFromConfigFile(configFile) : path.dirname(configFile);
 }
 
-function profileEnv(profile: ProfileConfig): Record<string, string> {
-  return stringRecord(profile.env).filter(([key]) => isEnvName(key)).reduce<Record<string, string>>((result, [key, value]) => {
-    if (key === CLAUDE_CODE_AUTH_MODE_ENV) {
-      return result;
-    }
-    if (profile.agent !== "claude-code" && key === CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV) {
-      return result;
-    }
-    result[key] = value;
-    return result;
-  }, {});
-}
-
-function stringRecord(value: unknown): Array<[string, string]> {
-  if (!isRecord(value)) {
-    return [];
-  }
-  return Object.entries(value)
-    .map(([key, itemValue]) => [key.trim(), itemValue] as const)
-    .filter((entry): entry is [string, string] => Boolean(entry[0]) && typeof entry[1] === "string");
-}
-
-function isEnvName(value: string): boolean {
-  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
-}
-
 function tomlKey(value: string): string {
   return /^[A-Za-z0-9_-]+$/.test(value) ? value : tomlQuotedKey(value);
-}
-
-function tomlQuotedKey(value: string): string {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-}
-
-function tomlString(value: string): string {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r")}"`;
 }
 
 function tomlStringArray(values: string[]): string {
@@ -4450,24 +4307,8 @@ function tomlInlineStringTable(values: Record<string, string>): string {
     .join(", ")} }`;
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`;
-}
-
-function cmdQuote(value: string): string {
-  return `"${cmdValue(value)}"`;
-}
-
-function trimLeadingBlankLines(value: string): string {
-  return value.replace(/^\s*\n/g, "");
-}
-
 function ensureTrailingNewline(value: string): string {
   return value.endsWith("\n") ? value : `${value}\n`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function hasOwn(value: Record<string, unknown>, key: string): boolean {
@@ -4476,8 +4317,4 @@ function hasOwn(value: Record<string, unknown>, key: string): boolean {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function formatError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
