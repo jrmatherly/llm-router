@@ -57,6 +57,16 @@ Run on 2026-11-16 at `136ad730` with the repo's own esbuild and TypeScript, agai
 **Size:** M (7,343 moved lines, about 60 new)
 **Owner steps:** Optional. After the next Windows release build, open `bin\llmr-codex-cli-middleware.js` under the LLMR config directory (`CONFIGDIR`) and confirm it has no carriage returns. Nobody has checked whether the Windows runner checks files out with CRLF.
 
+**Status:** Merged 2026-11-18 with ST-2 as [PR 106](https://github.com/jrmatherly/llm-router/pull/106), squash commit `1f8cb7c8`, branch `refactor/codex-runtime-source-file`. The move is byte-identical. The emitted script hashed to `94dcdc02669d55a8ffd58ff9fc70007729b46d10a5e1fb639fd0700ffa0a3354` (298,663 bytes) on the base and on the ST-1 commit. A reviewer got the same hash by another route, through `node build/test.mjs core`. The new file has 7,290 lines, because UL-1 and UL-2 had already edited the text.
+
+The review of PR 106 changed these points:
+
+- **The loader test in Step 2 could be fooled, so it was replaced.** It matched source text in three named functions. A fourth config with no loader passed it, a later `loader` key that overrode the first passed it, and a loader spread from a shared object failed it. `tests/architecture/package-boundaries.test.mjs` now builds every `create*BuildOptions` config in memory. For each bundle whose inputs include a `.runtime.cjs` file, it requires a hashbang past offset 0. It takes under a second.
+- **The marker in Step 11 is not proof on its own.** esbuild drops comments only when it minifies. An unminified bundle keeps a comment from the script even when it compiled the script as a module. The production bundles are minified, so the Step 11 counts were right, but the reliable marker is the hashbang. esbuild keeps one only at the top of an entry, so one further in is string data.
+- **A lost loader shipped green.** With the loader removed from `createCliBuildOptions`, `npm run build:assets` exits 0, and `cli.js --help` then runs the Codex middleware in the host and launches `codex` when it is installed. The e2e job, the unit job and the Docker smoke all passed that build. `tests/e2e/cli-web.spec.ts` now runs the built CLI's `--help` in a temporary home and requires exit 0 and an empty stderr.
+
+TL-1 had merged, so `biome.json` excludes `*.runtime.cjs` as the constraints say. The optional Windows check under Owner steps is still open.
+
 **Ordering against the [upstream leftovers plan](2026-11-16-audit-upstream-leftovers.md).** UL-1 and UL-2 edit this script (the `TZ` override and the `CODEXL_*` names). Either order works, and neither needs a fixed hash.
 
 - If the leftovers PRs merged first, this PR moves the edited text. The emitted hash is then not `e35ead7b…`. That is expected.
@@ -295,6 +305,15 @@ git commit -m "refactor(core): move the Codex runtime script into a .cjs source 
 **Branch:** `chore/typecheck-codex-runtime`
 **Size:** S
 **Owner steps:** None
+
+**Status:** Merged 2026-11-18 with ST-1 as [PR 106](https://github.com/jrmatherly/llm-router/pull/106), squash commit `1f8cb7c8`. The check reported the 11 errors in Step 4, with the same codes in the same order, at shifted line numbers. None was a bug. The emitted script is now 299,011 bytes, sha256 `0821e7998f0617ce39cdc6c45270c0e54886242ab13d9647f6470dae616e4570`.
+
+Where the run differed from this plan:
+
+- Anchor A, `textLen: commandReply.length`, occurs twice in the script now. The type checker flags only the `agent: "opencode"` call, so only that one has the cast.
+- TL-2 had added a test that pinned `scripts.typecheck` to `tsc --noEmit`. Both tests in `tests/architecture/package-scripts.test.mjs` now share one expected string.
+- The review found that one `// @ts-nocheck` line in the script turned the whole check off with nothing failing. The test now rejects `@ts-nocheck`, `@ts-ignore` and `@ts-expect-error` in the file.
+- `AGENTS.md` describes the second type-check project.
 
 This PR changes the emitted script on purpose. It adds six comments and one pair of parentheses, so the ST-1 hash gate does not apply here.
 
