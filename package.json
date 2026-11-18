@@ -61,7 +61,7 @@
     "test:main": "npm run test:core && npm run test:electron",
     "test:renderer": "npm run test:ui",
     "benchmark:request-logs": "node build/benchmark-request-logs.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.codex-runtime.json",
     "lint": "biome lint --error-on-warnings .",
     "models:build": "node scripts/generate-models-json.mjs",
     "icons:build": "node scripts/generate-icons.mjs",

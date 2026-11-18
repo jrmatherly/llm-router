@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { isBuiltin } from "node:module";
 import path from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 
 const projectRoot = process.cwd();
 const packageNames = ["cli", "core", "electron", "ui"];
@@ -70,6 +72,38 @@ test("npm and Docker builds carry the plugin-capable gateway runtime", () => {
   assert.equal(manifest.scripts["docker:build"], "node build/docker-image.mjs");
   assert.equal(manifest.scripts["docker:compose:build"], "node build/docker-compose.mjs build");
   assert.equal(manifest.scripts["docker:compose:up"], "node build/docker-compose.mjs up -d --build");
+});
+
+const runtimeSourceFile = "packages/core/src/agents/codex/cli-middleware-runtime-source.runtime.cjs";
+
+test("every bundle that includes a .runtime.cjs source carries it as text", async () => {
+  // Computed specifiers, so the test build does not bundle esbuild or the build config.
+  const load = (...segments) => import(pathToFileURL(path.join(projectRoot, ...segments)).href);
+  const esbuild = (await load("node_modules", "esbuild", "lib", "main.js")).default;
+  const factories = Object.entries(await load("build", "esbuild.config.mjs")).filter(([name]) => /^create\w+BuildOptions$/.test(name));
+  const isRuntimeSource = (input) => input.endsWith(".runtime.cjs");
+  const carriers = [];
+  for (const [name, create] of factories) {
+    const { metafile, outputFiles } = await esbuild.build({ ...create(), logLevel: "silent", metafile: true, write: false });
+    const outputs = outputFiles.filter((file) => Object.keys(metafile.outputs[path.relative(projectRoot, file.path)]?.inputs ?? {}).some(isRuntimeSource));
+    if (!Object.keys(metafile.inputs).some(isRuntimeSource)) {
+      continue;
+    }
+    carriers.push(name);
+    assert.ok(outputs.length > 0, `${name} reaches a .runtime.cjs source but no output lists it`);
+    for (const file of outputs) {
+      // esbuild keeps a hashbang only at the top of an entry, so one further in is string data. Compiled as a module, the script would run in the host at startup.
+      assert.notEqual(file.text.indexOf("#!/usr/bin/env node", 1), -1, `${name} must load .runtime.cjs as text: add loader { ".runtime.cjs": "text" }`);
+    }
+  }
+  assert.deepEqual(carriers.sort(), ["createCliBuildOptions", "createCoreServerBuildOptions", "createMainBuildOptions"]);
+  assert.match(readFileSync(path.join(projectRoot, "build", "test.mjs"), "utf8"), /"\.runtime\.cjs":\s*"text"/);
+});
+
+test("the Codex runtime source is checked out with LF line endings on every platform", () => {
+  const attribute = execFileSync("git", ["check-attr", "eol", "--", runtimeSourceFile], { cwd: projectRoot, encoding: "utf8" });
+  assert.equal(attribute.trim(), `${runtimeSourceFile}: eol: lf`);
+  assert.equal(readFileSync(path.join(projectRoot, runtimeSourceFile), "utf8").includes("\r"), false);
 });
 
 function sourceFiles(directory) {

@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "lib": ["ESNext"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "target": "ESNext",
+    "types": ["node"]
+  },
+  "files": ["packages/core/src/agents/codex/cli-middleware-runtime-source.runtime.cjs"]
+}

@@ -14,9 +14,11 @@ test("every root script that runs a repo file points at a file that exists", () 
   assert.deepEqual(missing, []);
 });
 
+const typecheckScript = "tsc --noEmit && tsc --noEmit -p tsconfig.codex-runtime.json";
+
 test("typecheck covers the TypeScript test files", () => {
   const { scripts } = JSON.parse(readFileSync("package.json", "utf8"));
-  assert.equal(scripts.typecheck, "tsc --noEmit");
+  assert.equal(scripts.typecheck, typecheckScript);
   // The resolved file list, so an `exclude` entry or a narrowed glob fails here too.
   const { files } = JSON.parse(execFileSync(process.execPath, ["node_modules/typescript/bin/tsc", "--showConfig"], { encoding: "utf8" }));
   for (const file of [
@@ -56,4 +58,14 @@ test("lint reports a planted defect in workspace source", () => {
   } finally {
     rmSync(probe, { force: true });
   }
+});
+
+test("typecheck covers the Codex runtime script without strict mode", () => {
+  const { scripts } = JSON.parse(readFileSync("package.json", "utf8"));
+  assert.equal(scripts.typecheck, typecheckScript);
+  const runtimeProject = JSON.parse(readFileSync("tsconfig.codex-runtime.json", "utf8"));
+  assert.equal(runtimeProject.compilerOptions.checkJs, true);
+  assert.equal(runtimeProject.compilerOptions.strict, false);
+  assert.deepEqual(runtimeProject.files, ["packages/core/src/agents/codex/cli-middleware-runtime-source.runtime.cjs"]);
+  assert.doesNotMatch(readFileSync(runtimeProject.files[0], "utf8"), /@ts-(?:nocheck|ignore|expect-error)/);
 });

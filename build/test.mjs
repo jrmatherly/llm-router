@@ -116,6 +116,7 @@ for (const [name, project] of selectedProjects) {
       ".jpg": "file",
       ".jpeg": "file",
       ".png": "file",
+      ".runtime.cjs": "text",
       ".svg": "file",
       ".webp": "file"
     },
