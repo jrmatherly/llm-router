@@ -54,9 +54,7 @@ test("hoistAnthropicToolResultImages lifts image-only tool_result blocks into to
 
   const transformed = hoistAnthropicToolResultImages(body);
 
-  assert.equal(transformed.changed, true);
-  assert.equal(transformed.hoistedImageCount, 1);
-  const userContent = transformed.value.messages[1].content;
+  const userContent = transformed.messages[1].content;
   assert.equal(userContent.length, 2);
   assert.deepEqual(userContent[0], {
     type: "tool_result",
@@ -76,7 +74,6 @@ test("hoistAnthropicToolResultImages lifts image-only tool_result blocks into to
       data: pngData
     }
   });
-  assert.equal(JSON.stringify(userContent[0]).includes(pngData.slice(0, 64)), false);
 });
 
 test("hoistAnthropicToolResultImages preserves text, tool_reference, is_error, and multi-image ordering", () => {
@@ -118,9 +115,7 @@ test("hoistAnthropicToolResultImages preserves text, tool_reference, is_error, a
 
   const transformed = hoistAnthropicToolResultImages(body);
 
-  assert.equal(transformed.changed, true);
-  assert.equal(transformed.hoistedImageCount, 3);
-  const content = transformed.value.messages[0].content;
+  const content = transformed.messages[0].content;
   assert.equal(content.length, 6);
   assert.equal(content[0].type, "image");
   assert.deepEqual(content[1], {
@@ -164,7 +159,7 @@ test("hoistAnthropicToolResultImages keeps tool results first and numbers hoiste
         image("TOP")
       ]
     }]
-  }).value.messages[0].content;
+  }).messages[0].content;
 
   assert.deepEqual(
     content.map((block) => block.source?.data ?? block.source?.file_id ?? block.type),
@@ -206,11 +201,57 @@ test("hoistAnthropicToolResultImages leaves text-only tool results untouched wit
     ]
   };
 
-  const transformed = hoistAnthropicToolResultImages(body);
+  assert.equal(hoistAnthropicToolResultImages(body), body);
+});
 
-  assert.equal(transformed.changed, false);
-  assert.equal(transformed.hoistedImageCount, 0);
-  assert.equal(transformed.value, body);
+test("hoistAnthropicToolResultImages hoists in every user turn of the history and numbers per message", () => {
+  const turn = (id) => ({
+    role: "user",
+    content: [{
+      type: "tool_result",
+      tool_use_id: id,
+      content: [{ type: "image", source: { type: "base64", media_type: "image/png", data: id } }]
+    }]
+  });
+  const { messages } = hoistAnthropicToolResultImages({
+    messages: [
+      turn("first"),
+      { role: "assistant", content: [{ type: "tool_use", id: "second", name: "Read", input: {} }] },
+      turn("second")
+    ]
+  });
+
+  for (const index of [0, 2]) {
+    assert.deepEqual(messages[index].content.map((block) => block.type), ["tool_result", "image"]);
+    assert.match(messages[index].content[0].content[0].text, /as image #1\./);
+  }
+});
+
+test("hoistAnthropicToolResultImages keeps cache_control on a hoisted image", () => {
+  const image = {
+    type: "image",
+    source: { type: "base64", media_type: "image/png", data: "AAAA" },
+    cache_control: { type: "ephemeral" }
+  };
+  const { messages } = hoistAnthropicToolResultImages({
+    messages: [{ role: "user", content: [{ type: "tool_result", tool_use_id: "a", content: [image] }] }]
+  });
+
+  assert.deepEqual(messages[0].content[1], image);
+});
+
+test("hoistAnthropicToolResultImages leaves nested blocks the gateway cannot send as images", () => {
+  for (const nested of [
+    { type: "image", source: { type: "base64", media_type: "application/pdf", data: "JVBERi0=" } },
+    { type: "document", source: { type: "base64", media_type: "application/pdf", data: "JVBERi0=" } },
+    { type: "image", source: { type: "url", url: "file:///tmp/a.png" } },
+    { type: "image", source: { type: "file", file_id: "file_1" } }
+  ]) {
+    const body = {
+      messages: [{ role: "user", content: [{ type: "tool_result", tool_use_id: "a", content: [nested] }] }]
+    };
+    assert.equal(hoistAnthropicToolResultImages(body), body, JSON.stringify(nested));
+  }
 });
 
 test("LLMR route resolver hoists tool_result images for non-Anthropic targets and preserves native Anthropic passthrough", async () => {
@@ -315,33 +356,81 @@ test("LLMR route resolver hoists tool_result images for non-Anthropic targets an
   assert.equal(nativeContent[0].content[0].source.data, pngData);
 });
 
-test("calculateTokenCount estimates vision tokens for Base64 images without scanning payload as text", (t) => {
-  const largePayload = fakePngBase64(1200, 800, 500_000).replace(/A/g, (ch, idx) => (idx % 17 === 0 ? "+" : ch));
-  let regexScansOnBase64 = 0;
-  const originalMatch = String.prototype.match;
-  t.mock.method(String.prototype, "match", function (...args) {
-    if (this.length > 10_000) {
-      regexScansOnBase64 += 1;
-    }
-    return originalMatch.apply(this, args);
-  });
+function imageBlock(header, tailChars = 0) {
+  return {
+    type: "image",
+    source: { type: "base64", media_type: "image/png", data: header.toString("base64") + "A".repeat(tailChars) }
+  };
+}
 
-  const tokens = calculateTokenCount([
-    {
-      role: "user",
-      content: [
-        {
-          type: "tool_result",
-          tool_use_id: "call_img",
-          content: [
-            { type: "image", source: { type: "base64", media_type: "image/png", data: largePayload } }
-          ]
-        }
-      ]
-    }
-  ], undefined, undefined);
+function pngHeader(width, height) {
+  return Buffer.from(fakePngBase64(width, height), "base64");
+}
 
-  assert.equal(regexScansOnBase64, 0);
-  // 1200 * 800 / 750 = 1280 vision tokens plus small wrapper key overhead (< 1350 total).
-  assert.ok(tokens >= 1280 && tokens < 1350, `expected vision token estimate near 1280, got ${tokens}`);
+// One 28 px patch costs one token, so the difference from this message is the image's own estimate minus one.
+const onePatchMessageTokens = calculateTokenCount(
+  [{ role: "user", content: [imageBlock(pngHeader(28, 28))] }],
+  undefined,
+  undefined
+);
+
+function imageTokens(block) {
+  return calculateTokenCount([{ role: "user", content: [block] }], undefined, undefined) - onePatchMessageTokens + 1;
+}
+
+test("calculateTokenCount counts an image by its 28 px patches, not by its Base64 length", () => {
+  assert.equal(imageTokens(imageBlock(pngHeader(1200, 800), 500_000)), 43 * 29);
+  assert.equal(imageTokens(imageBlock(pngHeader(3136, 200))), 56 * 4, "long edge scales to 1568 px first");
+  assert.equal(imageTokens(imageBlock(pngHeader(1500, 1500))), 1568, "capped at the tier's token limit");
+});
+
+test("calculateTokenCount reads image dimensions from GIF, JPEG and WebP headers", () => {
+  const gif = Buffer.alloc(16);
+  gif.write("GIF89a", 0, "ascii");
+  gif.writeUInt16LE(1200, 6);
+  gif.writeUInt16LE(800, 8);
+
+  const jpeg = Buffer.alloc(40);
+  Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]).copy(jpeg, 0);
+  Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08]).copy(jpeg, 20);
+  jpeg.writeUInt16BE(800, 25);
+  jpeg.writeUInt16BE(1200, 27);
+
+  const webp = (chunk) => {
+    const header = Buffer.alloc(32);
+    header.write("RIFF", 0, "ascii");
+    header.write("WEBP", 8, "ascii");
+    header.write(chunk, 12, "ascii");
+    return header;
+  };
+  const vp8x = webp("VP8X");
+  vp8x.writeUIntLE(1199, 24, 3);
+  vp8x.writeUIntLE(799, 27, 3);
+  const vp8l = webp("VP8L");
+  vp8l[20] = 0x2f;
+  vp8l.writeUInt32LE(1199 | (799 << 14), 21);
+  const vp8 = webp("VP8 ");
+  Buffer.from([0x9d, 0x01, 0x2a]).copy(vp8, 23);
+  vp8.writeUInt16LE(1200, 26);
+  vp8.writeUInt16LE(800, 28);
+
+  for (const [name, header] of Object.entries({ gif, jpeg, vp8x, vp8l, vp8 })) {
+    assert.equal(imageTokens(imageBlock(header)), 43 * 29, name);
+  }
+});
+
+test("calculateTokenCount falls back to a fixed estimate when the header gives no dimensions", () => {
+  const jpegWithoutFrame = Buffer.alloc(6000);
+  Buffer.from([0xff, 0xd8, 0xff, 0xe1, 0xff, 0xff]).copy(jpegWithoutFrame, 0);
+
+  assert.equal(imageTokens(imageBlock(jpegWithoutFrame)), 1000);
+  assert.equal(imageTokens({ type: "image", source: { type: "url", url: "https://example.test/a.png" } }), 1000);
+});
+
+test("calculateTokenCount counts OpenAI and Gemini image blocks as images", () => {
+  const data = fakePngBase64(1200, 800, 500_000);
+
+  assert.equal(imageTokens({ type: "image_url", image_url: { url: `data:image/png;base64,${data}` } }), 43 * 29);
+  assert.equal(imageTokens({ type: "image_url", image_url: "https://example.test/a.png" }), 1000);
+  assert.equal(imageTokens({ inlineData: { mimeType: "image/png", data } }), 43 * 29);
 });

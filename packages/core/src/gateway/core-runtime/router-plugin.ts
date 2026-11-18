@@ -1076,7 +1076,7 @@ function resolveLlmrGatewayRoute(
     const modelBody = requestBodyWithModel(requestInput.requestBody, resolved.model);
     return {
       model: resolved.model,
-      requestBody: protocol === "anthropic_messages" ? hoistAnthropicToolResultImages(modelBody).value : modelBody
+      requestBody: protocol === "anthropic_messages" ? hoistAnthropicToolResultImages(modelBody) : modelBody
     };
   }
 
@@ -1119,7 +1119,7 @@ function resolveLlmrGatewayRoute(
     model: gatewayModel,
     reason: readHeader(requestInput.request?.headers, llmrRouteReasonHeader),
     requestBody: protocol === "anthropic_messages" && targetProtocol !== "anthropic_messages"
-      ? hoistAnthropicToolResultImages(modelBody).value
+      ? hoistAnthropicToolResultImages(modelBody)
       : modelBody,
     targetProviderName,
     ...(targetProviders ? { targetProviders } : {})

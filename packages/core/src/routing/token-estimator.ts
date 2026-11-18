@@ -1,9 +1,12 @@
 import { isRecord, stringValue } from "@llmr/core/gateway/internal/value";
 
-const defaultVisionImageTokens = 1000;
-const minVisionImageTokens = 85;
-const maxVisionImageTokens = 1600;
+// Anthropic's standard tier: one token per 28 px patch, long edge at most 1568 px, at most 1568 tokens.
+// The model is not known here, and the high-resolution tier of newer models costs up to three times more.
+const visionPatchPx = 28;
 const maxVisionDimensionPx = 1568;
+const maxVisionImageTokens = 1568;
+const defaultVisionImageTokens = 1000;
+// About 4 KiB decoded: enough for the dimension fields without decoding the payload.
 const maxHeaderBase64Chars = 5464;
 
 export function calculateTokenCount(messages: unknown, system: unknown, tools: unknown): number {
@@ -127,8 +130,10 @@ function estimateBase64ImageTokens(base64Data: string): number {
   const scale = longestEdge > maxVisionDimensionPx ? maxVisionDimensionPx / longestEdge : 1;
   const scaledWidth = Math.max(1, Math.round(dimensions.width * scale));
   const scaledHeight = Math.max(1, Math.round(dimensions.height * scale));
-  const estimated = Math.ceil((scaledWidth * scaledHeight) / 750);
-  return Math.max(minVisionImageTokens, Math.min(maxVisionImageTokens, estimated));
+  return Math.min(
+    maxVisionImageTokens,
+    Math.ceil(scaledWidth / visionPatchPx) * Math.ceil(scaledHeight / visionPatchPx)
+  );
 }
 
 function readImageDimensions(header: Buffer): { width: number; height: number } | undefined {
@@ -223,7 +228,6 @@ function readImageDimensions(header: Buffer): { width: number; height: number } 
 
   return undefined;
 }
-
 
 function estimateTextTokens(text: string): number {
   if (text.length <= 1024 * 1024) {

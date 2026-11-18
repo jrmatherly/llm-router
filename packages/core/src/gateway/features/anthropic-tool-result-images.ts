@@ -1,62 +1,30 @@
 import { isRecord, stringValue } from "@llmr/core/gateway/internal/value";
 
-export type AnthropicToolResultImageTransform = {
-  changed: boolean;
-  hoistedImageCount: number;
-  value: Record<string, unknown>;
-};
-
 // Cross-protocol conversion flattens tool_result.content to a string, so nested images are stringified or dropped.
-export function hoistAnthropicToolResultImages(
-  body: Record<string, unknown>
-): AnthropicToolResultImageTransform {
-  if (!Array.isArray(body.messages) || body.messages.length === 0) {
-    return { changed: false, hoistedImageCount: 0, value: body };
+export function hoistAnthropicToolResultImages(body: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(body.messages)) {
+    return body;
   }
-
-  let changed = false;
-  let totalHoistedImages = 0;
-  const nextMessages = body.messages.map((message) => {
-    const transformed = transformUserMessageToolResultImages(message);
-    if (!transformed.changed) {
-      return message;
-    }
-    changed = true;
-    totalHoistedImages += transformed.hoistedImageCount;
-    return transformed.message;
-  });
-
-  if (!changed) {
-    return { changed: false, hoistedImageCount: 0, value: body };
-  }
-
-  return {
-    changed: true,
-    hoistedImageCount: totalHoistedImages,
-    value: {
-      ...body,
-      messages: nextMessages
-    }
-  };
+  const messages = body.messages.map(hoistMessageToolResultImages);
+  return messages.some((message, index) => message !== (body.messages as unknown[])[index])
+    ? { ...body, messages }
+    : body;
 }
 
-function transformUserMessageToolResultImages(
-  message: unknown
-): { changed: boolean; hoistedImageCount: number; message: unknown } {
+function hoistMessageToolResultImages(message: unknown): unknown {
   if (
     !isRecord(message) ||
     stringValue(message.role)?.toLowerCase() !== "user" ||
     !Array.isArray(message.content)
   ) {
-    return { changed: false, hoistedImageCount: 0, message };
+    return message;
   }
 
   if (!message.content.some(hasHoistableToolResultImage)) {
-    return { changed: false, hoistedImageCount: 0, message };
+    return message;
   }
 
   const nextContent: unknown[] = [];
-  // Hoisted images go after every other block: Anthropic rejects a user message whose tool_result blocks do not come first.
   const hoisted: Array<Record<string, unknown>> = [];
   let messageImageIndex = message.content.filter((block) => isRecord(block) && block.type === "image").length;
 
@@ -66,20 +34,13 @@ function transformUserMessageToolResultImages(
       continue;
     }
 
-    const toolUseId =
-      stringValue(block.tool_use_id) ??
-      stringValue(block.tool_call_id) ??
-      stringValue(block.id) ??
-      "unknown";
+    const toolUseId = stringValue(block.tool_use_id) ?? "unknown";
     const remainingBlocks: unknown[] = [];
     const hoistedBlocks: Array<Record<string, unknown>> = [];
 
     for (const item of block.content) {
       if (isAnthropicImageBlock(item)) {
-        hoistedBlocks.push({
-          type: "image",
-          source: item.source
-        });
+        hoistedBlocks.push(item);
       } else {
         remainingBlocks.push(item);
       }
@@ -106,14 +67,8 @@ function transformUserMessageToolResultImages(
     hoisted.push(...hoistedBlocks);
   }
 
-  return {
-    changed: true,
-    hoistedImageCount: hoisted.length,
-    message: {
-      ...message,
-      content: [...nextContent, ...hoisted]
-    }
-  };
+  // Images go last: a virtual model can still resolve to Anthropic, which rejects a user message whose tool_result blocks do not come first.
+  return { ...message, content: [...nextContent, ...hoisted] };
 }
 
 function hasHoistableToolResultImage(

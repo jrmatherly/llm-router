@@ -185,7 +185,6 @@ test("wire: tool_result images convert to multimodal inlineData / image_url inst
       ]
     });
 
-    // 1. Google Gemini: must receive functionResponse (without Base64) + inlineData
     const geminiResp = await fetch(`${origin}/v1/messages`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -194,6 +193,7 @@ test("wire: tool_result images convert to multimodal inlineData / image_url inst
     });
     assert.equal(geminiResp.status, 200, await geminiResp.clone().text());
 
+    assert.equal(captured.length, 1);
     const geminiUpstream = captured[0].body;
     const geminiLastTurnParts = geminiUpstream.contents.at(-1).parts;
     const geminiFnResp = geminiLastTurnParts.find((part) => part.functionResponse);
@@ -204,7 +204,6 @@ test("wire: tool_result images convert to multimodal inlineData / image_url inst
     assert.equal(geminiInlineData.inlineData.mimeType, "image/png");
     assert.equal(geminiInlineData.inlineData.data, pngData);
 
-    // 2. OpenAI Chat Completions (Qwen): must receive role=tool (without Base64) + role=user with image_url
     const qwenResp = await fetch(`${origin}/v1/messages`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -213,17 +212,18 @@ test("wire: tool_result images convert to multimodal inlineData / image_url inst
     });
     assert.equal(qwenResp.status, 200, await qwenResp.clone().text());
 
+    assert.equal(captured.length, 2);
     const qwenUpstream = captured[1].body;
     const toolMessage = qwenUpstream.messages.find((msg) => msg.role === "tool");
     const trailingUserMessage = qwenUpstream.messages.at(-1);
     assert.ok(toolMessage, "OpenAI chat payload must include role=tool");
-    assert.equal(String(toolMessage.content).includes(pngData.slice(0, 48)), false, "role=tool must not contain raw Base64");
+    assert.equal(JSON.stringify(toolMessage).includes(pngData.slice(0, 48)), false, "role=tool must not contain raw Base64");
+    assert.match(JSON.stringify(toolMessage), /attached in this user message as image #1/);
     assert.equal(trailingUserMessage.role, "user");
     assert.ok(Array.isArray(trailingUserMessage.content));
     assert.equal(trailingUserMessage.content[0].type, "image_url");
     assert.equal(trailingUserMessage.content[0].image_url.url, `data:image/png;base64,${pngData}`);
 
-    // 3. Native Anthropic passthrough: must preserve original nested tool_result image untouched
     const claudeResp = await fetch(`${origin}/v1/messages`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -232,6 +232,7 @@ test("wire: tool_result images convert to multimodal inlineData / image_url inst
     });
     assert.equal(claudeResp.status, 200, await claudeResp.clone().text());
 
+    assert.equal(captured.length, 3);
     const claudeUpstream = captured[2].body;
     const claudeToolResult = claudeUpstream.messages.at(-1).content;
     assert.equal(claudeToolResult.length, 1);
@@ -256,6 +257,7 @@ test("wire: tool_result images convert to multimodal inlineData / image_url inst
       "both tool messages must directly follow the assistant tool calls"
     );
     assert.equal(captured.at(-1).body.messages.at(-1).content.length, 2);
+    assert.equal(JSON.stringify(captured.at(-1).body.messages.slice(2, 4)).includes(pngData.slice(0, 48)), false);
 
     assert.equal((await post("Google Gemini/gemini-4-argon")).status, 200);
     assert.deepEqual(
