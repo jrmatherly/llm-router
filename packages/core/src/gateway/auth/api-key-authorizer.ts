@@ -14,7 +14,6 @@ let persistedApiKeyCache: { loadedAt: number; values: ApiKeyConfig[] } | undefin
 
 type ConfiguredApiKeyOptions = {
   includePersisted?: boolean;
-  refresh?: boolean;
 };
 
 export async function authorize(
@@ -22,7 +21,7 @@ export async function authorize(
   response: ServerResponse,
   config: AppConfig
 ): Promise<ApiKeyAuthorizationResult> {
-  let apiKeys = await configuredApiKeys(config);
+  const apiKeys = await configuredApiKeys(config);
   if (apiKeys.length === 0) {
     sendJson(response, 403, {
       error: {
@@ -33,11 +32,7 @@ export async function authorize(
   }
 
   const token = readAuthToken(request.headers) || readRemoteControlQueryAuthToken(request);
-  let apiKey = token ? findApiKeyByToken(apiKeys, token) : undefined;
-  if (!apiKey && token) {
-    apiKeys = await configuredApiKeys(config, { refresh: true });
-    apiKey = findApiKeyByToken(apiKeys, token);
-  }
+  const apiKey = token ? findApiKeyByToken(apiKeys, token) : undefined;
   if (apiKey) {
     if (isApiKeyExpired(apiKey)) {
       sendJson(response, 401, { error: { message: "API key is expired." } });
@@ -60,12 +55,7 @@ export async function resolveApiKeyFromHeaders(
     return undefined;
   }
 
-  let apiKeys = await configuredApiKeys(config, options);
-  let apiKey = findApiKeyByToken(apiKeys, token);
-  if (!apiKey && !options.refresh) {
-    apiKeys = await configuredApiKeys(config, { ...options, refresh: true });
-    apiKey = findApiKeyByToken(apiKeys, token);
-  }
+  const apiKey = findApiKeyByToken(await configuredApiKeys(config, options), token);
   return apiKey && !isApiKeyExpired(apiKey) ? apiKey : undefined;
 }
 
@@ -94,12 +84,7 @@ export async function exchangeClaudeCodeWifToken(
     return oauthTokenError(400, "invalid_request", "Claude Code WIF assertion is missing.");
   }
 
-  let apiKeys = await configuredApiKeys(config, options);
-  let apiKey = findApiKeyByToken(apiKeys, assertion);
-  if (!apiKey) {
-    apiKeys = await configuredApiKeys(config, { ...options, refresh: true });
-    apiKey = findApiKeyByToken(apiKeys, assertion);
-  }
+  const apiKey = findApiKeyByToken(await configuredApiKeys(config, options), assertion);
   if (!apiKey || isApiKeyExpired(apiKey)) {
     return oauthTokenError(401, "invalid_grant", "Claude Code WIF assertion is invalid or expired.");
   }
@@ -164,7 +149,7 @@ export function reserveApiKeyLimits(
 export async function configuredApiKeys(config: AppConfig, options: ConfiguredApiKeyOptions = {}): Promise<ApiKeyConfig[]> {
   const persistedApiKeys = options.includePersisted === false
     ? []
-    : await loadPersistedApiKeysCached(options);
+    : await loadPersistedApiKeysCached();
   const values = [
     ...persistedApiKeys,
     ...(Array.isArray(config.APIKEYS) ? config.APIKEYS : []),
@@ -223,9 +208,9 @@ function oauthTokenError(
   };
 }
 
-async function loadPersistedApiKeysCached(options: { refresh?: boolean } = {}): Promise<ApiKeyConfig[]> {
+async function loadPersistedApiKeysCached(): Promise<ApiKeyConfig[]> {
   const now = Date.now();
-  if (!options.refresh && persistedApiKeyCache && now - persistedApiKeyCache.loadedAt < persistedApiKeyCacheTtlMs) {
+  if (persistedApiKeyCache && now - persistedApiKeyCache.loadedAt < persistedApiKeyCacheTtlMs) {
     return persistedApiKeyCache.values;
   }
   try {
