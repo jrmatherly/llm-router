@@ -121,6 +121,8 @@ LLMR supports OpenAI Chat / Responses, Anthropic Messages, Gemini Generate Conte
 
 ### Desktop app (recommended)
 
+The desktop app needs macOS 13 (Ventura) or later on a Mac.
+
 1. <details open>
    <summary><strong>Download LLM Router for macOS, Windows, or Linux, then launch the app.</strong></summary>
 
