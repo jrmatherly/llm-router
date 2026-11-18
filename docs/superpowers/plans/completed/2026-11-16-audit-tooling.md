@@ -33,12 +33,12 @@ Specific to this plan:
 - No `biome-ignore` comment lands in this plan. Each diagnostic is fixed, or its rule is off in `biome.json` with the reason in this plan.
 - The machine's npm has `min-release-age=7` (`npm config get min-release-age`). Pin Biome to the newest version published at least 7 days before the install.
 - Read a file with Read before editing it. The path-scoped rules in `.claude/rules/` load only on Read, Edit and Write.
-- The Codex OAuth probe defect (spec F-C12) belongs to CG-7 in the [core gateway plan](2026-11-16-audit-core-gateway.md). Do not touch `packages/core/src/providers/probe.ts` here.
+- The Codex OAuth probe defect (spec F-C12) belongs to CG-7 in the [core gateway plan](../2026-11-16-audit-core-gateway.md). Do not touch `packages/core/src/providers/probe.ts` here.
 
 ## Order
 
-- TL-1 lands after the PRs that delete or move much code: CG-1 in the [core gateway plan](2026-11-16-audit-core-gateway.md), UL-1 and UL-2 in the [upstream leftovers plan](2026-11-16-audit-upstream-leftovers.md), and HP-2 in the [presets and hygiene plan](2026-11-16-audit-hygiene-and-presets.md). The [program index](2026-11-16-audit-remediation-index.md) lists CG-1 and UL-2 as its dependencies. Lint fixes on lines about to be removed are wasted, and each of those PRs shifts the diagnostic list. If TL-1 has to land earlier, nothing breaks. Later PRs then run `npm run lint` like any other check.
-- ST-1 in the [structure plan](2026-11-16-audit-structure.md), which moves the Codex runtime into a real `.cjs` file (D-7), puts 7,348 lines in front of Biome for the first time. Biome does not lint that file. If ST-1 merged first, TL-1's `biome.json` carries `"!packages/core/src/agents/codex/*.runtime.cjs"` in `files.includes` from the start. If TL-1 merged first, ST-1 adds that entry in its own PR. Nobody edits the script to satisfy lint, because the emitted script must stay byte-identical across ST-1.
+- TL-1 lands after the PRs that delete or move much code: CG-1 in the [core gateway plan](../2026-11-16-audit-core-gateway.md), UL-1 and UL-2 in the [upstream leftovers plan](../2026-11-16-audit-upstream-leftovers.md), and HP-2 in the [presets and hygiene plan](../2026-11-16-audit-hygiene-and-presets.md). The [program index](../2026-11-16-audit-remediation-index.md) lists CG-1 and UL-2 as its dependencies. Lint fixes on lines about to be removed are wasted, and each of those PRs shifts the diagnostic list. If TL-1 has to land earlier, nothing breaks. Later PRs then run `npm run lint` like any other check.
+- ST-1 in the [structure plan](../2026-11-16-audit-structure.md), which moves the Codex runtime into a real `.cjs` file (D-7), puts 7,348 lines in front of Biome for the first time. Biome does not lint that file. If ST-1 merged first, TL-1's `biome.json` carries `"!packages/core/src/agents/codex/*.runtime.cjs"` in `files.includes` from the start. If TL-1 merged first, ST-1 adds that entry in its own PR. Nobody edits the script to satisfy lint, because the emitted script must stay byte-identical across ST-1.
 - TL-2 is independent of every other plan and of TL-1.
 - TL-1 and TL-2 share 11 fixes: the unused `React` import in 10 UI component tests and the missing assertion in `share-cards.test.tsx`. Whichever lands second finds them done. The counts below assume neither has landed.
 
@@ -59,6 +59,36 @@ Specific to this plan:
 **Branch:** `chore/biome-lint`
 **Size:** M
 **Owner steps:** None.
+
+**Status:** Merged 2026-11-18 as [PR 105](https://github.com/jrmatherly/llm-router/pull/105), squash commit `e0ae98b7`. It installs Biome 2.6.8, which was past the machine's two-day release cooldown. `npm run lint` checks 825 files and exits 0, with no `biome-ignore` comment. The three gate checks take 14 s together.
+
+The real repo did not match the trial under Evidence. It gave 163 diagnostics, not 48, because Biome 2.6.8 reads file types the trial's copy did not hold:
+
+- About 100 were `noUnusedImports` and `noUnusedVariables` in `*.astro`. Biome reads the frontmatter and does not see the template.
+- 4 were `noUnknownProperty` on an Adobe export attribute in vendor `*.svg` icons.
+- 22 came from code written after the trial: 21 more `noAdjacentSpacesInRegex` hits and one `[^]` regex.
+- TL-2 had already made the 11 shared fixes, so Task 2 Step 3 had nothing to do.
+
+`biome.json` differs from Task 1 Step 3. It keeps the `files.includes` list as written and adds an `overrides` block, each entry turning off one rule where it misfires:
+
+| Files | Rule off | Reason |
+|---|---|---|
+| `**/*.astro` | `noUnusedImports`, `noUnusedVariables` | Biome does not see the template. |
+| `**/*.svg` | `noUnknownProperty` | Vendor exports. |
+| `docs/public/**`, `extension/chrome/**` | `noRedundantUseStrict` | Classic scripts that Biome parses as modules. |
+| `packages/ui/test/integration/providers.test.ts` | `noChildrenProp` | A `React.createElement` call in a `.ts` test whose component type requires `children`. |
+
+One "safe" fix was wrong. `biome lint --write` deleted `"use strict"` from `docs/public/llmr-provider-buttons.js`. Other sites load that file with a plain `<script>` tag, so the directive does work there. The fix was reverted, and `AGENTS.md` now says to read the diff of a `--write` run.
+
+The review of PR 105 found no behaviour change in any fix and no weakened test. It changed these points:
+
+- The first version excluded `*.astro`, `*.svg` and `docs/public` outright and turned `noChildrenProp` off everywhere. The overrides above replaced that, which raised the checked files from 772 to 825.
+- Nothing failed when `biome.json` was hollowed out. `tests/architecture/package-scripts.test.mjs` now plants a defect in `packages/core/src` and expects lint to name three rules. It fails with `"!packages"` in the includes, with `preset: "none"` and with the `suspicious` group off.
+- The CI check in Task 3 Step 1 matched a commented-out step. It now requires the whole step inside the `test` job.
+- The gate test in Task 3 Step 1 pinned `DEFAULT_CHECKS` as source text. It now runs the gate in a temporary repo and checks the order and that a failing lint blocks the commit.
+- `fusion-vision-mcp.test.mjs` counts upstream requests after each of its three calls.
+
+ST-1 still has to add `"!packages/core/src/agents/codex/*.runtime.cjs"` to `files.includes` in its own PR, as Order says.
 
 ### Evidence
 

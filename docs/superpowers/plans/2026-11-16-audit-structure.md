@@ -33,7 +33,7 @@ Specific to this plan:
 - `codexCliMiddlewareRuntimeScript(): string` keeps its name, signature and module path.
 - ST-3, ST-4 and ST-5 are move-only. A moved declaration changes only by gaining `export`. No rename, no reformat, no merge with a same-named helper in another file.
 - Land ST-3 to ST-5 when no open branch touches `packages/core/src/profiles/service.ts`. The file had 29 commits in the 90 days before the audit, and a move-only PR conflicts with every one of them.
-- Biome does not lint the `.runtime.cjs` file. If TL-1 in the [tooling plan](2026-11-16-audit-tooling.md) has merged, ST-1 adds `"!packages/core/src/agents/codex/*.runtime.cjs"` to `files.includes` in `biome.json` in the same PR. Nobody edits the script to satisfy lint, because that breaks the byte-identical gate.
+- Biome does not lint the `.runtime.cjs` file. If TL-1 in the [tooling plan](completed/2026-11-16-audit-tooling.md) has merged, ST-1 adds `"!packages/core/src/agents/codex/*.runtime.cjs"` to `files.includes` in `biome.json` in the same PR. Nobody edits the script to satisfy lint, because that breaks the byte-identical gate.
 - JSDoc type annotations in the `.runtime.cjs` file are allowed. They are how D-7's check is satisfied, and they count as a non-obvious why.
 
 ## Measurements behind this plan
