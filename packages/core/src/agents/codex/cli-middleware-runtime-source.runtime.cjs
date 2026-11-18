@@ -1156,7 +1156,7 @@ class OpenCodeBotWorker {
       text = commandReply.forwardText;
     } else if (commandReply !== null) {
       await bridge.sendReplyToEvent(event, commandReply, "llmr:opencode:command:" + eventId);
-      log("bot_gateway_command_replied", { eventId, agent: "opencode", textLen: commandReply.length });
+      log("bot_gateway_command_replied", { eventId, agent: "opencode", textLen: /** @type {string} */ (commandReply).length });
       return;
     }
 
@@ -4221,6 +4221,7 @@ function turnJson(turn, includeItems) {
 }
 
 function turnItems(turn) {
+  /** @type {object[]} */
   const items = [userItemJson(turn)];
   items.push(...turn.toolItems);
   if (turn.agentText) items.push(agentItemJson(turn));
@@ -5110,6 +5111,7 @@ class RemoteSyncClient {
       });
   }
 
+  /** @returns {Promise<any>} */
   async request(method, suffix, body) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), numberEnv("LLMR_REMOTE_SYNC_REQUEST_TIMEOUT_MS", 5000));
@@ -5878,6 +5880,7 @@ function botGatewaySdkImportSpecifier(value) {
 
 function botGatewaySdkClientOptions(config, env, sdk) {
   const command = resolveBotGatewayCommand(config) || resolveBundledBotGatewayCommand(sdk);
+  /** @type {{ args?: string[], command?: string, cwd?: string, electronRunAsNode?: boolean }} */
   const commandOptions = Object.assign({}, command || {});
   const electronRunAsNode = Boolean(commandOptions.electronRunAsNode);
   delete commandOptions.electronRunAsNode;
@@ -6750,6 +6753,7 @@ function botEventAttachments(event) {
 }
 
 async function botInputForEvent(event, text, config, destinationDir) {
+  /** @type {object[]} */
   const input = [{ type: "text", text }];
   if (!config.mediaEnabled) return input;
   const attachments = botEventAttachments(event);
@@ -6872,6 +6876,7 @@ function conversationRefFromEvent(event) {
   if (!platformConversationId && !gatewayConversationId) return null;
   const rawType = eventString(conversation, "type");
   const type = ["dm", "group", "channel", "thread"].includes(rawType) ? rawType : "dm";
+  /** @type {{ contextToken?: string, gatewayConversationId?: string, platformConversationId?: string, threadId?: string, type: string }} */
   const ref = {
     ...(gatewayConversationId ? { gatewayConversationId } : {}),
     ...(platformConversationId ? { platformConversationId } : {}),
