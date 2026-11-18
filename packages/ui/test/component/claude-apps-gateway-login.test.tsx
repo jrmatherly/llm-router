@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ClaudeAppsGatewayLoginStartResult, ClaudeAppsGatewayLoginWaitResult } from "@llmr/core/contracts/app.ts";
 import { ClaudeAppsGatewaySignInForm } from "@llmr/ui/pages/home/components/claude-apps-gateway-sign-in.tsx";

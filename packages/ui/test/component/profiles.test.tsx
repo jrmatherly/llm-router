@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ProfileConfig } from "@llmr/core/contracts/app.ts";
 import { AddProfileForm, DeleteProfileDialog, ProfileOpenDialog, ProfileView } from "@llmr/ui/pages/home/components/profiles.tsx";
@@ -652,7 +651,7 @@ test("disabled private profile routing persists the profile enhanced route switc
 });
 
 test("disabled profile routing preserves existing private rules without enabling them", () => {
-  const draft = {
+  const draft: AddProfileDraft = {
     ...createProfileDraft("claude-code"),
     model: "Provider/sonnet",
     routingEnabled: false,

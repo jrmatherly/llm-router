@@ -11,3 +11,10 @@ test("every root script that runs a repo file points at a file that exists", () 
       .map((file) => `${name} -> ${file}`));
   assert.deepEqual(missing, []);
 });
+
+test("typecheck covers the TypeScript test files", () => {
+  const { compilerOptions, include } = JSON.parse(readFileSync("tsconfig.json", "utf8"));
+  assert.ok(include.includes("packages/*/test/**/*.ts"));
+  assert.ok(include.includes("packages/*/test/**/*.tsx"));
+  assert.equal(compilerOptions.allowImportingTsExtensions, true);
+});

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DEFAULT_OVERVIEW_WIDGETS, LEGACY_DEFAULT_OVERVIEW_WIDGETS } from "@llmr/core/contracts/app.ts";
 import { Dialog, DialogContent, DialogTitle } from "@llmr/ui/components/ui/dialog.tsx";

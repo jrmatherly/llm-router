@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { RouteMapCard, SharePosterHeader } from "@llmr/ui/pages/home/components/share-cards.tsx";
 import type { UsageStatsSnapshot } from "@llmr/ui/pages/home/shared/index";
@@ -31,8 +30,10 @@ const emptyUsageStats: UsageStatsSnapshot = {
 
 const minimalPosterHeaderProps = { title: "Route Map", tone: "indigo" as const };
 
-test("share card route map and poster header name the product, not LLMR", () => {
+test("share card route map and poster header name the product", () => {
   const map = renderToStaticMarkup(<RouteMapCard usageStats={emptyUsageStats} />);
   assert.match(map, /LLMR/);
   const header = renderToStaticMarkup(<SharePosterHeader {...minimalPosterHeaderProps} />);
+  assert.match(header, />Route Map</);
+  assert.match(header, />LLMR</);
 });

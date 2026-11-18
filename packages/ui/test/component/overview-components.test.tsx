@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { formatCodexResetCardExpiry, formatCodexResetCardNumber, OverviewStatisticsResetDialog, OverviewView } from "@llmr/ui/pages/home/components/dashboard.tsx";
 import { parseStatusBucketDate } from "@llmr/ui/pages/home/shared/controls.tsx";

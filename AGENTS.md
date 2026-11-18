@@ -5,7 +5,7 @@ Fork of claude-code-router v3.1.3. Divergence from upstream is intended; never w
 ## Commands
 
 - `npm ci` installs. npm only; see Repository etiquette.
-- `npm run typecheck` runs `tsc --noEmit` across the workspace.
+- `npm run typecheck` runs `tsc --noEmit` across the workspace, including the `.ts` and `.tsx` test files. The `.mjs` tests are not type-checked.
 - `npm run test:architecture` runs `tests/architecture/*.test.mjs`.
 - `npm run test:core`, `npm run test:ui`, `npm run test:electron`, `npm run test:cli` run one package.
 - `npm run test:e2e` builds the assets, then runs Playwright. Once per install, run `npm run test:e2e:install` first.

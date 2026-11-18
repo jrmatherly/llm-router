@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { OnboardingView } from "@llmr/ui/pages/home/components/onboarding.tsx";
 import {
@@ -9,6 +8,7 @@ import {
   fallbackGatewayStatus,
   localAgentProviderApiKey
 } from "@llmr/ui/pages/home/shared/index.tsx";
+import { profileAgentOptions } from "@llmr/ui/pages/home/shared/options.ts";
 import { appConfigFixture } from "../fixtures/index.ts";
 
 test("Onboarding provider step renders only the active provider setup section", () => {
@@ -22,6 +22,7 @@ test("Onboarding provider step renders only the active provider setup section", 
   const html = renderToStaticMarkup(
     <OnboardingView
       activeStep="provider"
+      agentOptions={profileAgentOptions}
       canSubmitProfile={false}
       canSubmitProvider={false}
       config={config}
@@ -76,6 +77,7 @@ test("Onboarding profile step does not prompt to save before continuing", () => 
   const html = renderToStaticMarkup(
     <OnboardingView
       activeStep="profile"
+      agentOptions={profileAgentOptions}
       canSubmitProfile
       canSubmitProvider={false}
       config={config}
@@ -115,6 +117,7 @@ test("Onboarding skips credentials for a local agent import", () => {
   const html = renderToStaticMarkup(
     <OnboardingView
       activeStep="provider"
+      agentOptions={profileAgentOptions}
       canSubmitProfile={false}
       canSubmitProvider={false}
       config={config}
