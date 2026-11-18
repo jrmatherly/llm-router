@@ -1,4 +1,8 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./cli-web-runtime";
 
 const cliWebAuthToken = "playwright-cli-web-auth-token";
@@ -72,6 +76,22 @@ test("rejects RPC requests without the web auth token", async ({ request }) => {
 
   expect(response.status()).toBe(401);
   expect(payload.ok).toBe(false);
+});
+
+// A CLI bundle that compiles the Codex runtime script as a module still builds, and then runs the middleware on every start.
+test("the built CLI prints its help and starts nothing else", () => {
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-cli-help-home-"));
+  try {
+    const result = spawnSync(process.execPath, [path.resolve(__dirname, "..", "..", "packages", "cli", "dist", "main", "cli.js"), "--help"], {
+      encoding: "utf8",
+      env: { ...process.env, HOME: home, LLMR_INTERNAL_HOME_DIR: home }
+    });
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/^Usage:\n {2}llmr start /);
+  } finally {
+    rmSync(home, { force: true, recursive: true });
+  }
 });
 
 async function expectStaticAsset(

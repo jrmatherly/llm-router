@@ -67,4 +67,5 @@ test("typecheck covers the Codex runtime script without strict mode", () => {
   assert.equal(runtimeProject.compilerOptions.checkJs, true);
   assert.equal(runtimeProject.compilerOptions.strict, false);
   assert.deepEqual(runtimeProject.files, ["packages/core/src/agents/codex/cli-middleware-runtime-source.runtime.cjs"]);
+  assert.doesNotMatch(readFileSync(runtimeProject.files[0], "utf8"), /@ts-(?:nocheck|ignore|expect-error)/);
 });
