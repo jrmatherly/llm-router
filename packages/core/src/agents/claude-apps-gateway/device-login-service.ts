@@ -21,6 +21,7 @@ import {
 
 const deviceCodeGrant = "urn:ietf:params:oauth:grant-type:device_code";
 const defaultWaitTimeoutMs = 20_000;
+const maxWaitTimeoutMs = 120_000;
 const slowDownStepMs = 5_000;
 
 type PendingLogin = {
@@ -70,7 +71,7 @@ export async function startClaudeAppsGatewayLogin(
   normalizeClaudeAppsGatewayUrl(verificationUri);
   normalizeClaudeAppsGatewayUrl(verificationUriComplete);
   const expiresIn = nonNegativeNumber(device.payload?.expires_in) ?? 600;
-  const intervalSeconds = nonNegativeNumber(device.payload?.interval) ?? 5;
+  const intervalSeconds = Math.max(1, nonNegativeNumber(device.payload?.interval) ?? 5);
   const now = Date.now();
   for (const [id, login] of pendingLogins) {
     if (login.expiresAtMs <= now) pendingLogins.delete(id);
@@ -96,7 +97,7 @@ export async function startClaudeAppsGatewayLogin(
 }
 
 export async function waitClaudeAppsGatewayLogin(request: ClaudeAppsGatewayLoginWaitRequest): Promise<ClaudeAppsGatewayLoginWaitResult> {
-  const deadline = Date.now() + (request.timeoutMs ?? defaultWaitTimeoutMs);
+  const deadline = Date.now() + normalizeLoginWaitTimeoutMs(request.timeoutMs);
   for (;;) {
     const login = pendingLogins.get(request.sessionId);
     if (!login) {
@@ -208,6 +209,12 @@ function waitResult(sessionId: string, status: ClaudeAppsGatewayLoginStatus, gat
     sessionId,
     status
   };
+}
+
+export function normalizeLoginWaitTimeoutMs(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(Math.max(value, 0), maxWaitTimeoutMs)
+    : defaultWaitTimeoutMs;
 }
 
 function nonNegativeNumber(value: unknown): number | undefined {
