@@ -75,7 +75,7 @@ function startupErrorMessage(detail: string): string {
     return [
       "The bundled SQLite native module could not be loaded.",
       "",
-      "This usually means the Windows package was built with a missing or incompatible better-sqlite3 binary. Rebuild the app with npm run rebuild:sqlite3 before packaging, or build the Windows artifact on a Windows x64 runner.",
+      "This usually means the installed app is missing the better-sqlite3 binary for this platform, or the file is damaged. Reinstall LLM Router. If the error returns, report it with the detail below.",
       "",
       detail
     ].join("\n");
