@@ -61,11 +61,12 @@ Import flow:
 
 1. When a task needs existing Chrome login state, the agent can request an import; the user can also click the key button in LLMR's in-app browser toolbar.
 2. LLMR creates a one-time import job and opens a confirmation page. Open the confirmation URL in Chrome with the extension installed.
-3. If the confirmation page does not open in Chrome, copy the **Extension import URL** from the LLMR dialog, open the LLMR Login Import extension popup in Chrome, paste that URL, and click **Import Selected Domains**.
+3. If the confirmation page does not open in Chrome, copy the **Extension import URL** from the LLMR dialog, open the LLMR Login Import extension popup in Chrome, paste that URL, click **Load Job**, and click **Import**.
 4. Review the requested domains on the confirmation page and click **Confirm and Import**, or confirm the import from the extension popup.
-5. The Chrome extension reads cookies and localStorage for those domains and submits them to LLMR. After it completes, the agent can continue the task in the built-in browser.
+5. The first time you import a domain, the extension popup opens. Click **Import**, and allow the site access Chrome asks for.
+6. The Chrome extension reads cookies and localStorage for those domains and submits them to LLMR. After it completes, the agent can continue the task in the built-in browser.
 
-The extension reads only the domains listed in the LLMR import job. It does not enumerate every Chrome cookie. For localStorage, the extension temporarily opens non-active tabs for the selected origins, reads `localStorage`, and closes those tabs. If the confirmation page says the extension does not have site access, allow the extension to access the target domains in Chrome extension settings, reload the unpacked extension, and try again.
+The extension reads only the domains listed in the LLMR import job. It does not enumerate every Chrome cookie. For localStorage, the extension temporarily opens non-active tabs for the selected origins, reads `localStorage`, and closes those tabs. The extension has no standing access to your sites. Chrome asks you the first time each domain is imported.
 
 > Note: Built-in browser automation depends on LLMR Desktop's built-in browser and is only available in the desktop app. CLI, server deployments, and pure web environments do not include this built-in capability; use an external browser automation MCP server instead.
 
@@ -184,7 +185,7 @@ The import dialog also accepts common MCP JSON:
 - Agent cannot see ToolHub: make sure ToolHub is enabled and at least one backend MCP server is configured or **Built-in browser automation** is turned on, then reopen Claude Code or Codex from LLMR.
 - Missing resolver model or API key: select a configured resolver model and confirm the provider credential works.
 - The agent cannot use built-in browser automation: make sure you are using LLMR Desktop, turned on **Built-in browser automation** in **Settings → ToolHub**, and reopened Claude Code or Codex from LLMR. CLI, server deployments, and pure web environments do not include this built-in capability.
-- Chrome login import confirmation keeps waiting for the extension: make sure the unpacked `extension/chrome` extension is loaded in Chrome and has site access for the target domains. Open the confirmation URL in Chrome manually.
+- Chrome login import confirmation keeps waiting for the extension: make sure the unpacked `extension/chrome` extension is loaded in Chrome and that you allowed the site access Chrome asked for. Open the confirmation URL in Chrome manually.
 - No tools are resolved: confirm the MCP server can list tools, improve tool names and descriptions, or increase **Max tools**.
 - Calls time out: check ToolHub **Timeout ms** and the backend server request/startup timeouts.
 - A stdio server times out on connect: LLMR speaks newline-delimited JSON, the MCP standard, to every stdio server you configure. A server that accepts only `Content-Length` headers (the LSP convention) is not supported.
