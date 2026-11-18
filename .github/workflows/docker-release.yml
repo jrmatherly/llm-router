@@ -66,6 +66,13 @@ jobs:
             exit 1
           fi
 
+          # A tag from before the gateway fork locks npm's build, which is not what that release shipped.
+          gateway="$(node -p "require('./package-lock.json').packages['node_modules/@the-next-ai/ai-gateway'].resolved")"
+          if [[ "$gateway" != https://github.com/jrmatherly/llmr-gateway/releases/download/* ]]; then
+            echo "This ref locks the gateway to $gateway, so its image cannot be rebuilt as released"
+            exit 1
+          fi
+
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "major_minor=${version%.*}" >> "$GITHUB_OUTPUT"
 
