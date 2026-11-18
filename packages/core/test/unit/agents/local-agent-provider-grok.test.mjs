@@ -478,6 +478,67 @@ test("a newer Grok credential on disk wins over the unsaved one", { skip: fileMo
   });
 });
 
+test("Grok keeps an unsaved refresh that carries no expiry", { skip: fileModesDoNotBlockWrites }, async (t) => {
+  await withGrokHome(async (grokHome) => {
+    stubLockedGrokRefresh(t, grokHome);
+    t.mock.method(console, "warn", () => {});
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      return Response.json({ access_token: "refreshed-grok-access-token", refresh_token: "rotated-1" });
+    };
+    try {
+      await resolveGrokAuth();
+      const second = await resolveGrokAuth();
+      assert.equal(second.refreshToken, "rotated-1");
+      assert.equal(fetchCalls, 1);
+    } finally {
+      unlockGrokHome(grokHome);
+    }
+  });
+});
+
+test("Grok drops an unsaved refresh the server rejects", { skip: fileModesDoNotBlockWrites }, async (t) => {
+  await withGrokHome(async (grokHome) => {
+    stubLockedGrokRefresh(t, grokHome);
+    t.mock.method(console, "warn", () => {});
+    const presented = [];
+    globalThis.fetch = async (_input, init) => {
+      presented.push(new URLSearchParams(String(init?.body ?? "")).get("refresh_token"));
+      return presented.length === 1
+        ? Response.json({ access_token: "short-lived", expires_in: 1, refresh_token: "rotated-1" })
+        : Response.json({ error: "invalid_grant" }, { status: 401 });
+    };
+    try {
+      await resolveGrokAuth();
+      await assert.rejects(() => resolveGrokAuth(), /HTTP 401/);
+      await assert.rejects(() => resolveGrokAuth(), /HTTP 401/);
+      assert.deepEqual(presented, ["grok-refresh-token", "rotated-1", "grok-refresh-token"]);
+    } finally {
+      unlockGrokHome(grokHome);
+    }
+  });
+});
+
+test("the Grok save warning does not quote a broken auth.json", async (t) => {
+  await withGrokHome(async (grokHome) => {
+    writeGrokAuth(grokHome, { key: "expired-token", refresh_token: "grok-refresh-token", expires_at: "2000-01-01T00:00:00Z", oidc_client_id: "grok-client-id", oidc_issuer: "https://auth.x.ai" });
+    const warn = t.mock.method(console, "warn", () => {});
+    const previousFetch = globalThis.fetch;
+    process.env.GROK_OIDC_TOKEN_ENDPOINT = "http://127.0.0.1/grok/oauth/token";
+    globalThis.fetch = async () => {
+      writeFileSync(path.join(grokHome, "auth.json"), '{"refresh_token":rt-SECRET-abcdef}');
+      return Response.json({ access_token: "refreshed-grok-access-token", expires_in: 3600, refresh_token: "rotated-1" });
+    };
+    t.after(() => {
+      globalThis.fetch = previousFetch;
+    });
+    await resolveGrokAuth();
+    assert.equal(warn.mock.callCount(), 1);
+    assert.doesNotMatch(String(warn.mock.calls[0].arguments[0]), /SECRET/);
+  });
+});
+
 function stubLockedGrokRefresh(t, grokHome) {
   writeGrokAuth(grokHome, {
     key: "expired-token",

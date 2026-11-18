@@ -2042,9 +2042,9 @@ function ensurePathBlock(file: string, binDir: string, block: string): void {
   const source = existsSync(file) ? readFileSync(file, "utf8") : "";
   const managedPattern = managedPathBlockPattern();
   if (managedPattern.test(source)) {
-    // The pattern takes the newline before the block, so only a block at the top of the file would gain one.
+    // The pattern takes the newline before the block, so only a block on the file's first line would gain one.
     const replaceBlock = (replacement: string) =>
-      source.replace(managedPattern, (_match, offset: number) => offset === 0 ? replacement.replace(/^\n/, "") : replacement);
+      source.replace(managedPattern, (match, offset: number) => offset === 0 && !match.startsWith("\n") ? replacement.replace(/^\n/, "") : replacement);
     const withoutBlock = replaceBlock("\n");
     // The rest of the file (often a dotfiles repo) already adds the bin dir, so the managed block is redundant.
     const next = shellRcAlreadyAddsLlmrBin(withoutBlock, binDir) ? withoutBlock : replaceBlock(`\n${block}\n`);

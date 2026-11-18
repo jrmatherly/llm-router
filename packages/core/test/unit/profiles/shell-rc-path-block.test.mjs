@@ -68,3 +68,11 @@ test("a symlinked rc file stays a symlink", { skip: process.platform === "win32"
   assert.match(readFileSync(real, "utf8"), /# >>> LLM Router CLI >>>/);
   assert.deepEqual(readdirSync(dir).sort(), [".zshrc", "dotfiles-zshrc"]);
 });
+
+test("one blank line above a managed block at the top of an rc file survives", async () => {
+  const { ensureShellRcPathBlock } = await import("@llmr/core/profiles/launch-service.ts");
+  const rc = path.join(mkdtempSync(path.join(os.tmpdir(), "llmr-rc-")), ".zshrc");
+  writeFileSync(rc, `\n${legacyBlock}export A=1\n`);
+  ensureShellRcPathBlock(rc, "/opt/llm-router/bin");
+  assert.ok(readFileSync(rc, "utf8").startsWith("\n# >>> LLM Router CLI >>>\n"));
+});

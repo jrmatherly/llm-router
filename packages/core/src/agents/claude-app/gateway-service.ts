@@ -240,21 +240,27 @@ export function restoreClaudeAppGatewayConfig(): void {
 
   const paths = getClaudeAppGatewayPaths();
   if (backup === "corrupt") {
-    console.warn(`[claude-app] ${CLAUDE_APP_GATEWAY_BACKUP_FILE} could not be read; removing LLMR's takeover keys without it.`);
     const meta = readJsonRecord(paths.metaFile);
-    if (meta?.appliedId === CLAUDE_APP_CONFIG_ID) {
-      delete meta.appliedId;
-      writeJsonFile(paths.metaFile, meta);
+    const ownsTakeover = meta?.appliedId === CLAUDE_APP_CONFIG_ID;
+    if (meta && ownsTakeover) {
       const root = readJsonRecord(paths.rootConfigFile);
       if (root?.deploymentMode === "3p") {
         delete root.deploymentMode;
         writeJsonFile(paths.rootConfigFile, root);
       }
+      // appliedId goes last: it marks the keys as LLMR's, so a failed write above is retried on the next sync.
+      delete meta.appliedId;
+      writeJsonFile(paths.metaFile, meta);
     }
-    renameSync(
-      CLAUDE_APP_GATEWAY_BACKUP_FILE,
-      `${CLAUDE_APP_GATEWAY_BACKUP_FILE}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`
-    );
+    const keptFile = `${CLAUDE_APP_GATEWAY_BACKUP_FILE}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+    let kept = `The unreadable backup is kept at ${keptFile}.`;
+    try {
+      renameSync(CLAUDE_APP_GATEWAY_BACKUP_FILE, keptFile);
+    } catch (error) {
+      kept = `It could not be moved aside: ${error instanceof Error ? error.message : String(error)}`;
+    }
+    const outcome = ownsTakeover ? "removed LLMR's takeover keys without it" : "left Claude App's config files unchanged";
+    console.warn(`[claude-app] ${CLAUDE_APP_GATEWAY_BACKUP_FILE} could not be read; ${outcome}. ${kept}`);
     return;
   }
   restoreClaudeAppOwnedKey(paths.rootConfigFile, backup.rootConfigFile, "deploymentMode", "3p");
@@ -409,11 +415,15 @@ function backupClaudeAppGatewayConfig(paths: ClaudeAppGatewayPaths): void {
 }
 
 function readClaudeAppGatewayBackup(): ClaudeAppGatewayBackup | "corrupt" | undefined {
-  if (!existsSync(CLAUDE_APP_GATEWAY_BACKUP_FILE)) {
+  let text: string;
+  try {
+    text = readFileSync(CLAUDE_APP_GATEWAY_BACKUP_FILE, "utf8");
+  } catch {
+    // Missing, or unreadable right now. Only content that fails to parse counts as corrupt.
     return undefined;
   }
   try {
-    const parsed: unknown = JSON.parse(readFileSync(CLAUDE_APP_GATEWAY_BACKUP_FILE, "utf8"));
+    const parsed: unknown = JSON.parse(text);
     if (!isPlainRecord(parsed) || parsed.version !== 1) {
       return "corrupt";
     }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -365,6 +365,77 @@ test("restore with a corrupt backup leaves a user's own 3p mode alone", async (t
     await syncClaudeAppGatewayConfig(createConfig());
     assert.deepEqual(readJson(paths.rootConfigFile), { deploymentMode: "3p" });
     assert.deepEqual(readJson(paths.metaFile), { appliedId: "someone-else" });
+    assert.equal(existsSync(BACKUP_FILE), false);
+    assert.equal(corruptBackups(BACKUP_FILE).length, 1);
+  } finally {
+    cleanupCorrupt(BACKUP_FILE);
+  }
+});
+
+test("sync skips and writes nothing when the library or meta file is unparseable", async (t) => {
+  const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
+  const paths = claudeAppPaths();
+  const warn = t.mock.method(console, "warn", () => {});
+  for (const broken of [paths.configLibraryFile, paths.metaFile]) {
+    try {
+      writeRaw(broken, "{ not json");
+      writeJsonFile(paths.rootConfigFile, { preference: true });
+      const synced = await syncClaudeAppGatewayConfig(takeoverConfig());
+      assert.match(synced.result.message, /could not be parsed; LLMR left it unchanged\.$/);
+      assert.equal(readFileSync(broken, "utf8"), "{ not json");
+      assert.deepEqual(readJson(paths.rootConfigFile), { preference: true });
+      assert.equal(existsSync(BACKUP_FILE), false);
+    } finally {
+      cleanup(BACKUP_FILE);
+    }
+  }
+  assert.equal(warn.mock.callCount(), 2);
+});
+
+test("restore treats a backup of another version or shape as corrupt", async (t) => {
+  const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
+  const paths = claudeAppPaths();
+  t.mock.method(console, "warn", () => {});
+  for (const backup of [
+    { version: 2 },
+    { configLibraryFile: { exists: false }, metaFile: { exists: false }, rootConfigFile: {}, version: 1 }
+  ]) {
+    try {
+      writeJsonFile(paths.rootConfigFile, { deploymentMode: "3p", preference: true });
+      writeJsonFile(paths.metaFile, { appliedId: "8f69f2f1-3275-4ad8-9317-4aa7e972f311", entries: [] });
+      writeJsonFile(BACKUP_FILE, backup);
+      await syncClaudeAppGatewayConfig(createConfig());
+      assert.deepEqual(readJson(paths.rootConfigFile), { preference: true });
+      assert.deepEqual(readJson(paths.metaFile), { entries: [] });
+      assert.equal(existsSync(BACKUP_FILE), false);
+      assert.deepEqual(corruptBackups(BACKUP_FILE).map(readJson), [backup]);
+    } finally {
+      cleanupCorrupt(BACKUP_FILE);
+    }
+  }
+});
+
+test("restore with a corrupt backup names the kept copy in its warning", async (t) => {
+  const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
+  const warn = t.mock.method(console, "warn", () => {});
+  try {
+    writeRaw(BACKUP_FILE, "{ truncated");
+    await syncClaudeAppGatewayConfig(createConfig());
+    const [kept] = corruptBackups(BACKUP_FILE);
+    assert.ok(String(warn.mock.calls[0].arguments[0]).includes(kept));
+  } finally {
+    cleanupCorrupt(BACKUP_FILE);
+  }
+});
+
+test("restore leaves a backup it cannot read in place", { skip: process.platform === "win32" || process.getuid?.() === 0 }, async () => {
+  const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
+  try {
+    writeJsonFile(BACKUP_FILE, { version: 1 });
+    chmodSync(BACKUP_FILE, 0o000);
+    await syncClaudeAppGatewayConfig(createConfig());
+    assert.equal(existsSync(BACKUP_FILE), true);
+    assert.equal(corruptBackups(BACKUP_FILE).length, 0);
   } finally {
     cleanupCorrupt(BACKUP_FILE);
   }

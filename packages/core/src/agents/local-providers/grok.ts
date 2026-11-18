@@ -49,7 +49,7 @@ const grokOauthDefaultTimeoutMs = 8_000;
 const grokFallbackClientVersion = "0.2.93";
 
 const grokRefreshInFlight = new Map<string, Promise<GrokTokenSet>>();
-const grokUnsavedRefreshes = new Map<string, GrokTokenSet>();
+const grokUnsavedRefreshes = new Map<string, { refreshed: GrokTokenSet; replacedRefreshToken: string }>();
 
 const grokBillingResetPaths = [
   "$.billingPeriodEnd",
@@ -281,6 +281,11 @@ export async function resolveGrokAuth(): Promise<GrokTokenSet | undefined> {
       try {
         return await refreshGrokAuth(auth);
       } catch (error) {
+        if (error instanceof GrokRefreshAuthError && grokUnsavedRefreshes.get(key)?.refreshed === auth) {
+          // The file still holds the token this one replaced, so there is no peer rotation to adopt.
+          grokUnsavedRefreshes.delete(key);
+          throw error;
+        }
         return adoptPeerRotatedGrokAuth(auth, error);
       }
     })().finally(() => {
@@ -301,9 +306,9 @@ function preferUnsavedGrokRefresh(disk: GrokTokenSet): GrokTokenSet {
   if (!unsaved) {
     return disk;
   }
-  const diskExpiresAt = dateMs(disk.expiresAt) ?? jwtExpiresAtMs(disk.accessToken) ?? 0;
-  if ((dateMs(unsaved.expiresAt) ?? 0) > diskExpiresAt) {
-    return unsaved;
+  // A changed refresh token on disk means a peer saved a newer credential.
+  if (disk.refreshToken === unsaved.replacedRefreshToken) {
+    return unsaved.refreshed;
   }
   grokUnsavedRefreshes.delete(key);
   return disk;
@@ -737,11 +742,15 @@ async function refreshGrokAuth(auth: GrokTokenSet): Promise<GrokTokenSet> {
       expiresAt: refreshedGrokExpiresAt(accessToken, payload),
       refreshToken: readString(payload?.refresh_token) || readString(payload?.refreshToken) || refreshToken
     };
+    const key = grokAuthKey(refreshed);
     try {
       persistRefreshedGrokAuth(refreshed);
-      grokUnsavedRefreshes.delete(grokAuthKey(refreshed));
+      grokUnsavedRefreshes.delete(key);
     } catch (error) {
-      grokUnsavedRefreshes.set(grokAuthKey(refreshed), refreshed);
+      grokUnsavedRefreshes.set(key, {
+        refreshed,
+        replacedRefreshToken: grokUnsavedRefreshes.get(key)?.replacedRefreshToken ?? refreshToken
+      });
       console.warn(`[grok] Could not save the refreshed credential to ${auth.sourceFile}: ${error instanceof Error ? error.message : String(error)}`);
     }
     return refreshed;
@@ -879,8 +888,9 @@ function persistRefreshedGrokAuth(auth: GrokTokenSet): void {
   if (!auth.sourceFile || !auth.accessToken) {
     return;
   }
-  const parsed = JSON.parse(readFileSync(auth.sourceFile, "utf8")) as unknown;
-  if (!isRecord(parsed)) {
+  // A JSON.parse message quotes the text around the error, which here is a credential.
+  const parsed = parseJsonRecord(readFileSync(auth.sourceFile, "utf8"));
+  if (!parsed) {
     throw new Error("the file does not hold a JSON object");
   }
   let target: Record<string, unknown> = parsed;
