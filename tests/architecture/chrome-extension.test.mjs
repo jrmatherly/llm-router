@@ -36,7 +36,7 @@ test("the popup delegates the import to the worker", () => {
   assert.match(popup, /llmr-login-import-run/);
 });
 
-function loadWorker({ granted = false, standing = false } = {}) {
+function loadWorker({ granted = false, imported = 1, standing = false } = {}) {
   const calls = { contains: [], posts: 0, removed: [] };
   const listeners = {};
   const session = {};
@@ -65,7 +65,7 @@ function loadWorker({ granted = false, standing = false } = {}) {
     fetch: async (_url, init) => {
       const post = init?.method === "POST";
       calls.posts += post ? 1 : 0;
-      return { json: async () => (post ? { result: { cookieImported: 1 } } : { job: { domains: ["example.com"], status: "pending" } }), ok: true };
+      return { json: async () => (post ? { result: { cookieImported: imported, imported, skipped: 1 - imported } } : { job: { domains: ["example.com"], status: "pending" } }), ok: true };
     },
     URL
   };
@@ -185,4 +185,12 @@ test("the popup asks Chrome for the previewed origins inside the click", async (
   assert.equal(elements.status.textContent, "Chrome site access was not granted.");
   handlers["import-url:input"]();
   assert.equal(elements["import-button"].disabled, true);
+});
+
+test("the worker reports an import that LLMR skipped entirely as an error", async () => {
+  const { calls, send } = loadWorker({ granted: true, imported: 0 });
+  const run = await send({ domains: ["example.com"], importUrl, type: "llmr-login-import-run" }, popup);
+  assert.equal(calls.posts, 1);
+  assert.equal(run.ok, false);
+  assert.match(run.error, /imported nothing and skipped 1/);
 });

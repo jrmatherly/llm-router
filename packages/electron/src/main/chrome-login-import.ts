@@ -223,7 +223,9 @@ class ChromeLoginImportService {
       }
     }
 
-    await Promise.all(partitions.map((partition) => session.fromPartition(partition).cookies.flushStore()));
+    if (result.cookieImported > 0) {
+      await Promise.all(partitions.map((partition) => session.fromPartition(partition).cookies.flushStore()));
+    }
 
     for (const localStorageEntry of importPayload.localStorage) {
       const normalized = normalizeLocalStorageEntry(localStorageEntry, job.domains);
@@ -255,7 +257,7 @@ class ChromeLoginImportService {
       result.errors = errors;
     }
     job.result = result;
-    job.status = result.imported > 0 || result.skipped > 0 ? "completed" : "failed";
+    job.status = result.imported > 0 ? "completed" : "failed";
     return result;
   }
 

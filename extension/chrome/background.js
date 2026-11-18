@@ -146,7 +146,11 @@ async function submitLoginState(importUrl, cookies, localStorage, domains) {
   if (!response.ok) {
     throw new Error(body?.error?.message || `LLMR login import failed (${response.status}).`);
   }
-  return body.result || {};
+  const result = body.result || {};
+  if (!result.imported) {
+    throw new Error(`LLMR imported nothing and skipped ${result.skipped ?? 0} entries. Start a new import in LLMR.`);
+  }
+  return result;
 }
 
 async function readCookiesForDomains(domains) {

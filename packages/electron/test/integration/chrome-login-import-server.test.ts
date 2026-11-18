@@ -75,3 +75,17 @@ test("a second POST during an import gets 409 and a failed POST leaves the job p
   assert.equal(JSON.parse((await send(job.importUrl)).body).job.status, "pending");
   assert.equal((await postJson(cookiesUrl, "{}")).status, 500);
 });
+
+test("an import that skips every entry fails the job", async () => {
+  const job = await createJob();
+  const reply = await postJson(`${job.importUrl}/cookies`, JSON.stringify({
+    cookies: [{ domain: "evil.example", name: "sid", value: "1" }],
+    localStorage: [{ items: { a: "1" }, origin: "https://evil.example" }]
+  }));
+  assert.equal(reply.status, 200);
+  const body = JSON.parse(reply.body);
+  assert.equal(body.result.imported, 0);
+  assert.equal(body.result.skipped, 2);
+  assert.equal(body.job.status, "failed");
+  assert.equal(JSON.parse((await send(job.importUrl)).body).job.status, "failed");
+});
