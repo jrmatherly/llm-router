@@ -1,8 +1,8 @@
-import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readlinkSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, availableGatewayModelIds, claudeCodeUsesSharedHome, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
-import { CLAUDE_CODE_AUTH_MODE_ENV, resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
+import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, claudeCodeUsesSharedHome, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
+import { resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
 import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@llmr/core/agents/claude-code/gateway-login-policy";
 import { appConfigLoadError, loadAppConfig } from "@llmr/core/config/config";
 import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
@@ -24,6 +24,8 @@ import {
 import { isManagedWorkbuddyModelsContent, writeCodexCompatibleAppModelCatalog } from "@llmr/core/agents/codex/app-launch";
 import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime";
 import { codexModelCatalogJson } from "@llmr/core/agents/codex/model-catalog";
+import { applyGrokProfile, grokWrapperPath } from "@llmr/core/agents/grok/profile-config";
+import { applyKimiProfile, kimiWrapperPath } from "@llmr/core/agents/kimi/profile-config";
 import {
   isManagedKiloConfigContent,
   kiloProviderId,
@@ -45,6 +47,7 @@ import {
 } from "@llmr/core/agents/pi/profile-config";
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
+import { cmdQuote, defaultClientModel, disabledStatus, firstTomlTableIndex, formatError, gatewayEndpoint, gatewayNoProxyHosts, isRecord, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, stringRecord, tomlQuotedKey, tomlString, trimLeadingBlankLines, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
 import { backupBeforeWrite, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
 import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
@@ -54,8 +57,6 @@ import { resolveZcodeConfigFile, writeZcodeGatewayConfig, zcodeHomeFromConfigFil
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME, contextArchiveConfigForProfile, contextArchiveMcpEnabled, contextArchiveMcpServer } from "@llmr/core/gateway/context-archive";
 import { claudeClientDiscoveryPayloads, createClaudeCliAutoCompactWindows } from "@llmr/core/gateway/features/model-discovery";
 import { claudeCodeOneMillionContextSuffix } from "@llmr/core/gateway/internal/shared";
-import { normalizeRouteSelector } from "@llmr/core/gateway/llm-router-plugin";
-import { findModelCatalogEntry, modelCatalogMaxInputTokens, readCatalogCapability, type ModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
 import { windowsBatchEscapeValue as cmdValue, windowsBatchSetLine as cmdSetLine } from "@llmr/core/platform/windows-batch";
 import {
   TOOL_HUB_MCP_RUNTIME_FILE_NAME,
@@ -66,9 +67,7 @@ import {
   type ClaudeCodeMcpServerConfig,
   type ToolHubMcpRuntimeConfig
 } from "@llmr/core/mcp/toolhub-config";
-import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
 import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-paths";
-import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
 
 const managedRootStart = "# BEGIN LLMR managed profile";
 const managedRootEnd = "# END LLMR managed profile";
@@ -81,9 +80,6 @@ const managedContextArchiveMcpEnd = "# END LLMR managed Context Archive MCP";
 const managedConfiguredModelPrefix = "# LLMR configured model = ";
 const globalProfileTakeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
 const fallbackClientToken = "llmr-local";
-const privateDirMode = 0o700;
-const privateExecutableMode = 0o700;
-const privateFileMode = 0o600;
 const publicExecutableMode = 0o755;
 const claudeCodeWifFederationRuleId = "llmr-local";
 const claudeCodeWifOrganizationId = "llmr-local";
@@ -699,67 +695,6 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
       message: formatError(error),
       ok: false,
       path: configFile
-    };
-  }
-}
-
-function applyGrokProfile(config: AppConfig, profile: ProfileConfig, token: string, appliedAt: string): ProfileClientApplyStatus {
-  const wrapperFile = grokWrapperPath(profile);
-  if (!profile.enabled) {
-    return disabledStatus("grok", wrapperFile, "Grok CLI profile is disabled.");
-  }
-
-  try {
-    const model = normalizeClientModel(profile.model) || defaultClientModel(config);
-    const wrapperResult = writeGrokWrapper(config, profile, token, model);
-    return {
-      appliedAt,
-      client: "grok",
-      enabled: true,
-      message: wrapperResult.changed
-        ? `Grok CLI is configured to use LLMR (wrapper ${wrapperResult.file}).`
-        : "Grok CLI already points to LLMR.",
-      ok: true,
-      path: wrapperResult.file
-    };
-  } catch (error) {
-    return {
-      client: "grok",
-      enabled: true,
-      message: formatError(error),
-      ok: false,
-      path: wrapperFile
-    };
-  }
-}
-
-function applyKimiProfile(config: AppConfig, profile: ProfileConfig, token: string, appliedAt: string): ProfileClientApplyStatus {
-  const wrapperFile = kimiWrapperPath(profile);
-  if (!profile.enabled) {
-    return disabledStatus("kimi", wrapperFile, "Kimi CLI profile is disabled.");
-  }
-
-  try {
-    const models = kimiProfileModels(config, profile);
-    const model = models[0];
-    const wrapperResult = writeKimiWrapper(config, profile, token, model, models);
-    return {
-      appliedAt,
-      client: "kimi",
-      enabled: true,
-      message: wrapperResult.changed
-        ? `Kimi CLI is configured to use LLMR (wrapper ${wrapperResult.file}).`
-        : "Kimi CLI already points to LLMR.",
-      ok: true,
-      path: wrapperResult.file
-    };
-  } catch (error) {
-    return {
-      client: "kimi",
-      enabled: true,
-      message: formatError(error),
-      ok: false,
-      path: wrapperFile
     };
   }
 }
@@ -1912,101 +1847,6 @@ function isKiloManagedEnvKey(key: string): boolean {
     key === "LLMR_PROFILE_SURFACE";
 }
 
-function writeKimiWrapper(
-  config: AppConfig,
-  profile: ProfileConfig,
-  token: string,
-  model: string,
-  models: string[]
-): { changed: boolean; file: string } {
-  const binDir = path.join(CONFIGDIR, "bin");
-  mkdirSync(binDir, { mode: privateDirMode, recursive: true });
-  const profileHome = ensureKimiProfileHome(profile);
-  const configResult = writeKimiProfileConfig(config, profile, token, model, models, profileHome);
-  const file = kimiWrapperPath(profile);
-  const content = process.platform === "win32"
-    ? kimiWrapperCmdScript(config, profile, profileHome)
-    : kimiWrapperShellScript(config, profile, profileHome);
-  const writeResult = writeGeneratedFileIfChanged(file, content, { mode: privateExecutableMode });
-  return { changed: configResult.changed || writeResult.changed, file };
-}
-
-function kimiWrapperPath(profile: ProfileConfig): string {
-  return path.join(CONFIGDIR, "bin", kimiWrapperFilename(profile));
-}
-
-function kimiWrapperFilename(profile: ProfileConfig): string {
-  const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent).toLowerCase() || "kimi";
-  return process.platform === "win32"
-    ? `llmr-kimi-cli-wrapper-${slug}.cmd`
-    : `llmr-kimi-cli-wrapper-${slug}`;
-}
-
-function kimiWrapperShellScript(config: AppConfig, profile: ProfileConfig, profileHome: string): string {
-  const realKimi = profile.env?.LLMR_KIMI_BIN?.trim() || profile.env?.KIMI_BIN?.trim() || "kimi";
-  const envExports = Object.entries(profileEnv(profile))
-    .filter(([key]) => !isKimiManagedEnvKey(key))
-    .map(([key, value]) => `export ${key}=${shellQuote(value)}`);
-  const noProxyHosts = gatewayNoProxyHosts(config);
-  return [
-    "#!/bin/sh",
-    ...envExports,
-    `if [ -n "\${NO_PROXY:-}" ]; then NO_PROXY="$NO_PROXY,${noProxyHosts}"; else NO_PROXY=${shellQuote(noProxyHosts)}; fi`,
-    `if [ -n "\${no_proxy:-}" ]; then no_proxy="$no_proxy,${noProxyHosts}"; else no_proxy=${shellQuote(noProxyHosts)}; fi`,
-    "export NO_PROXY no_proxy",
-    `unset ${kimiSingleModelEnvNames.join(" ")}`,
-    `export KIMI_CODE_HOME=${shellQuote(profileHome)}`,
-    "export LLMR_PROFILE_SURFACE=cli",
-    `exec ${shellQuote(realKimi)} "$@"`,
-    ""
-  ].join("\n");
-}
-
-function kimiWrapperCmdScript(config: AppConfig, profile: ProfileConfig, profileHome: string): string {
-  const realKimi = profile.env?.LLMR_KIMI_BIN?.trim() || profile.env?.KIMI_BIN?.trim() || "kimi";
-  const envExports = Object.entries(profileEnv(profile))
-    .filter(([key]) => !isKimiManagedEnvKey(key))
-    .map(([key, value]) => cmdSetLine(key, value));
-  const noProxyHosts = gatewayNoProxyHosts(config);
-  return [
-    "@echo off",
-    ...envExports,
-    `set "NO_PROXY=%NO_PROXY%,${cmdValue(noProxyHosts)}"`,
-    `set "no_proxy=%no_proxy%,${cmdValue(noProxyHosts)}"`,
-    ...kimiSingleModelEnvNames.map((key) => cmdSetLine(key, "")),
-    cmdSetLine("KIMI_CODE_HOME", profileHome),
-    cmdSetLine("LLMR_PROFILE_SURFACE", "cli"),
-    `${cmdQuote(realKimi)} %*`,
-    "exit /b %ERRORLEVEL%",
-    ""
-  ].join("\r\n");
-}
-
-const kimiSingleModelEnvNames = [
-  "KIMI_MODEL_NAME",
-  "KIMI_MODEL_API_KEY",
-  "KIMI_MODEL_PROVIDER_TYPE",
-  "KIMI_MODEL_BASE_URL",
-  "KIMI_MODEL_MAX_CONTEXT_SIZE",
-  "KIMI_MODEL_CAPABILITIES",
-  "KIMI_MODEL_DISPLAY_NAME",
-  "KIMI_MODEL_MAX_OUTPUT_SIZE",
-  "KIMI_MODEL_REASONING_KEY",
-  "KIMI_MODEL_THINKING_EFFORT",
-  "KIMI_MODEL_ADAPTIVE_THINKING",
-  "KIMI_MODEL_THINKING_KEEP",
-  "KIMI_CODE_CUSTOM_HEADERS"
-] as const;
-
-function isKimiManagedEnvKey(key: string): boolean {
-  return key === "LLMR_KIMI_BIN" ||
-    key === "KIMI_BIN" ||
-    key === "LLMR_KIMI_SOURCE_HOME" ||
-    key === "KIMI_CODE_HOME" ||
-    kimiSingleModelEnvNames.some((name) => key === name) ||
-    key === "LLMR_PROFILE_SURFACE";
-}
-
 function writePiWrapper(
   config: AppConfig,
   profile: ProfileConfig,
@@ -2126,344 +1966,6 @@ function isPiManagedEnvKey(key: string): boolean {
     key === "LLMR_PROFILE_SURFACE";
 }
 
-function kimiProfileModels(config: AppConfig, profile: ProfileConfig): string[] {
-  const configured = (profile.availableModels ?? [])
-    .map((candidate) => normalizeClientModel(candidate))
-    .filter(Boolean);
-  const available = configured.length > 0 ? configured : availableGatewayModelIds(config);
-  const defaultModel = normalizeClientModel(profile.model) || available[0] || defaultClientModel(config);
-  return uniqueOrderedStrings([defaultModel, ...available]);
-}
-
-function writeKimiProfileConfig(
-  config: AppConfig,
-  profile: ProfileConfig,
-  token: string,
-  defaultModel: string,
-  models: string[],
-  profileHome: string
-): { changed: boolean; file: string } {
-  const sourceConfig = path.join(resolveKimiSourceHome(profile), "config.toml");
-  const source = existsSync(sourceConfig) ? readFileSync(sourceConfig, "utf8") : "";
-  const content = buildKimiProfileConfigToml(source, config, profile, token, defaultModel, models);
-  const file = path.join(profileHome, "config.toml");
-  const result = writeGeneratedFileIfChanged(file, content, { mode: privateFileMode });
-  return { changed: result.changed, file };
-}
-
-function buildKimiProfileConfigToml(
-  source: string,
-  config: AppConfig,
-  profile: ProfileConfig,
-  token: string,
-  defaultModel: string,
-  models: string[]
-): string {
-  const preserved = stripKimiProviderAndModelConfig(source);
-  const firstTableIndex = firstTomlTableIndex(preserved);
-  const rootSource = firstTableIndex === -1 ? preserved : preserved.slice(0, firstTableIndex);
-  const restSource = firstTableIndex === -1 ? "" : preserved.slice(firstTableIndex);
-  const providerId = "llm-router";
-  const baseUrl = `${gatewayEndpoint(config).replace(/\/+$/g, "")}/v1`;
-  const headers = kimiProfileCustomHeaderEntries(profile);
-  const providerBlock = [
-    `[providers.${tomlQuotedKey(providerId)}]`,
-    'type = "openai"',
-    `base_url = ${tomlString(baseUrl)}`,
-    `api_key = ${tomlString(token)}`,
-    "",
-    `[providers.${tomlQuotedKey(providerId)}.custom_headers]`,
-    ...Object.entries(headers).map(([key, value]) => `${tomlQuotedKey(key)} = ${tomlString(value)}`),
-    ""
-  ];
-  const modelBlocks = models.flatMap((model) => {
-    const metadata = kimiProfileModelMetadata(config, model);
-    return [
-      `[models.${tomlQuotedKey(model)}]`,
-      `provider = ${tomlString(providerId)}`,
-      `model = ${tomlString(model)}`,
-      `max_context_size = ${metadata.contextWindow}`,
-      `capabilities = [${metadata.capabilities.map((capability) => tomlString(capability)).join(", ")}]`,
-      ...(metadata.supportEfforts.length > 0
-        ? [`support_efforts = [${metadata.supportEfforts.map((effort) => tomlString(effort)).join(", ")}]`]
-        : []),
-      ...(metadata.defaultEffort ? [`default_effort = ${tomlString(metadata.defaultEffort)}`] : []),
-      `display_name = ${tomlString(metadata.displayName)}`,
-      ""
-    ];
-  });
-  return [
-    "# Generated by LLM Router for this Kimi CLI profile.",
-    `default_model = ${tomlString(defaultModel)}`,
-    trimLeadingBlankLines(rootSource).trimEnd(),
-    "",
-    ...providerBlock,
-    ...modelBlocks,
-    trimLeadingBlankLines(restSource).trimEnd(),
-    ""
-  ].filter((line, index, values) => line !== "" || index === values.length - 1 || values[index - 1] !== "").join("\n");
-}
-
-function stripKimiProviderAndModelConfig(source: string): string {
-  const kept: string[] = [];
-  let inRoot = true;
-  let skipTable = false;
-  for (const line of source.split(/(?<=\n)/)) {
-    const trimmed = line.trim();
-    const table = trimmed.match(/^\[\[?\s*([^\]]+?)\s*\]\]?\s*(?:#.*)?$/);
-    if (table) {
-      inRoot = false;
-      skipTable = /^(?:providers|models)(?:\.|$)/.test(table[1]);
-      if (!skipTable) {
-        kept.push(line);
-      }
-      continue;
-    }
-    if (skipTable || (inRoot && /^default_model\s*=/.test(trimmed))) {
-      continue;
-    }
-    kept.push(line);
-  }
-  return kept.join("");
-}
-
-function kimiProfileCustomHeaderEntries(profile: ProfileConfig): Record<string, string> {
-  const headers: Record<string, string> = {};
-  for (const line of profile.env?.KIMI_CODE_CUSTOM_HEADERS?.split(/\r?\n/) ?? []) {
-    const separator = line.indexOf(":");
-    const key = separator > 0 ? line.slice(0, separator).trim() : "";
-    const value = separator > 0 ? line.slice(separator + 1).trim() : "";
-    if (key && value) {
-      headers[key] = value;
-    }
-  }
-  headers["x-llmr-client"] = "kimi";
-  headers["x-llmr-profile"] = profile.id || profile.name || "kimi";
-  return headers;
-}
-
-function kimiProfileModelMetadata(config: AppConfig, selector: string): {
-  capabilities: string[];
-  contextWindow: number;
-  defaultEffort?: string;
-  displayName: string;
-  supportEfforts: string[];
-} {
-  const attribution = resolveUsageModelAttribution(config, selector);
-  const provider = config.Providers.find((candidate) =>
-    isGatewayProviderEnabled(candidate) &&
-    candidate.name.toLowerCase() === attribution.provider?.toLowerCase()
-  );
-  const model = attribution.model?.trim() || selector;
-  const metadata = providerModelMetadataForKimi(provider, model);
-  const configuredContextWindow = kimiPositiveInteger(metadata?.maxContextWindow ?? metadata?.contextWindow);
-  const physicalSelector = provider ? `${provider.name}/${model}` : selector;
-  const catalogProvider = provider
-    ? getProviderCatalogModels({ baseUrl: providerBaseUrl(provider), name: provider.name }).provider
-    : undefined;
-  const catalogSelectors = uniqueOrderedStrings([
-    catalogProvider ? `${catalogProvider}/${model}` : "",
-    physicalSelector,
-    selector
-  ]);
-  const catalogEntries = catalogSelectors
-    .map((candidate) => findModelCatalogEntry(candidate))
-    .filter((entry): entry is ModelCatalogEntry => entry !== undefined);
-  const catalogContextWindow = catalogEntries.reduce((resolved, entry) =>
-    resolved || modelCatalogMaxInputTokens(entry), 0
-  );
-  const contextWindow = configuredContextWindow ?? (catalogContextWindow > 0 ? catalogContextWindow : 262_144);
-  const reasoning = kimiProfileReasoningMetadata(metadata, catalogEntries[0]);
-
-  const logicalProvider = config.Providers.find((candidate) =>
-    isGatewayProviderEnabled(candidate) &&
-    selector.toLowerCase().startsWith(`${candidate.name}/`.toLowerCase())
-  );
-  if (!logicalProvider) {
-    return { contextWindow, displayName: selector, ...reasoning };
-  }
-  const logicalModel = selector.slice(logicalProvider.name.length + 1);
-  const modelName = providerModelDisplayNameForKimi(logicalProvider, logicalModel) || logicalModel;
-  return { contextWindow, displayName: `${logicalProvider.name} / ${modelName}`, ...reasoning };
-}
-
-function kimiProfileReasoningMetadata(
-  metadata: ReturnType<typeof providerModelMetadataForKimi>,
-  catalogEntry: ModelCatalogEntry | undefined
-): { capabilities: string[]; defaultEffort?: string; supportEfforts: string[] } {
-  const configuredEfforts = metadata?.supportedReasoningLevels === undefined
-    ? []
-    : uniqueOrderedStrings(metadata.supportedReasoningLevels
-        .map((level) => level.effort.trim().toLowerCase())
-        .filter((effort) => effort !== "off" && effort !== "none"));
-  const catalogCapabilities = catalogEntry?.capabilities ?? {};
-  const catalogInputModalities = new Set(
-    (catalogEntry?.modalities?.input ?? []).map((modality) => modality.trim().toLowerCase())
-  );
-  const supportsImageInput = metadata?.capabilities?.imageInput ??
-    (
-      readCatalogCapability(catalogCapabilities, "imageInput") ||
-      readCatalogCapability(catalogCapabilities, "vision") ||
-      catalogInputModalities.has("image")
-    );
-  const capabilities = [
-    "tool_use",
-    ...(supportsImageInput ? ["image_in"] : [])
-  ];
-  const supportsReasoning = metadata?.supportsReasoningSummaries ??
-    (configuredEfforts.length > 0 || readCatalogCapability(catalogCapabilities, "reasoning"));
-  if (!supportsReasoning) {
-    return { capabilities, supportEfforts: [] };
-  }
-
-  capabilities.push(catalogCapabilities.noneReasoningEffort === false ? "always_thinking" : "thinking");
-  const configuredDefault = metadata?.defaultReasoningLevel?.trim().toLowerCase();
-  const defaultEffort = configuredDefault && configuredEfforts.includes(configuredDefault)
-    ? configuredDefault
-    : undefined;
-  return {
-    capabilities,
-    ...(defaultEffort ? { defaultEffort } : {}),
-    supportEfforts: configuredEfforts
-  };
-}
-
-function providerModelMetadataForKimi(provider: AppConfig["Providers"][number] | undefined, model: string) {
-  const entries = Object.entries(provider?.modelMetadata ?? {});
-  return entries.find(([candidate]) => candidate.trim().toLowerCase() === model.toLowerCase())?.[1];
-}
-
-function providerModelDisplayNameForKimi(provider: AppConfig["Providers"][number], model: string): string | undefined {
-  return Object.entries(provider.modelDisplayNames ?? {})
-    .find(([candidate]) => candidate.trim().toLowerCase() === model.toLowerCase())?.[1]
-    ?.trim();
-}
-
-function kimiPositiveInteger(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? Math.trunc(value)
-    : undefined;
-}
-
-function ensureKimiProfileHome(profile: ProfileConfig): string {
-  const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent).toLowerCase() || "kimi";
-  const profileHome = path.join(CONFIGDIR, "profiles", slug, "kimi");
-  const sourceHome = resolveKimiSourceHome(profile);
-  mkdirSync(profileHome, { mode: privateDirMode, recursive: true });
-  if (path.resolve(sourceHome) === path.resolve(profileHome)) {
-    return profileHome;
-  }
-  for (const entry of [
-    "AGENTS.md",
-    "tui.toml",
-    "mcp.json",
-    "skills",
-    "plugins",
-    "session_index.jsonl",
-    "credentials",
-    "sessions",
-    "bin",
-    "logs",
-    "updates",
-    "user-history",
-    "device_id"
-  ]) {
-    linkProfileHomeEntry(path.join(sourceHome, entry), path.join(profileHome, entry));
-  }
-  return profileHome;
-}
-
-export function resolveKimiSourceHome(profile: Pick<ProfileConfig, "env">): string {
-  const explicitRoot = profile.env?.LLMR_KIMI_SOURCE_HOME?.trim() ||
-    profile.env?.KIMI_CODE_HOME?.trim() ||
-    process.env.KIMI_CODE_HOME?.trim();
-  if (explicitRoot) {
-    return resolveUserPath(explicitRoot);
-  }
-  return resolveUserPath("~/.kimi-code");
-}
-
-function writeGrokWrapper(config: AppConfig, profile: ProfileConfig, token: string, model: string): { changed: boolean; file: string } {
-  const binDir = path.join(CONFIGDIR, "bin");
-  mkdirSync(binDir, { mode: privateDirMode, recursive: true });
-  const profileHome = ensureGrokProfileHome(profile);
-  const file = grokWrapperPath(profile);
-  const content = process.platform === "win32"
-    ? grokWrapperCmdScript(config, profile, token, model, profileHome)
-    : grokWrapperShellScript(config, profile, token, model, profileHome);
-  const writeResult = writeGeneratedFileIfChanged(file, content, { mode: privateExecutableMode });
-  return {
-    changed: writeResult.changed,
-    file
-  };
-}
-
-function grokWrapperPath(profile: ProfileConfig): string {
-  return path.join(CONFIGDIR, "bin", grokWrapperFilename(profile));
-}
-
-function grokWrapperFilename(profile: ProfileConfig): string {
-  const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent).toLowerCase() || "grok";
-  return process.platform === "win32"
-    ? `llmr-grok-cli-wrapper-${slug}.cmd`
-    : `llmr-grok-cli-wrapper-${slug}`;
-}
-
-function grokWrapperShellScript(config: AppConfig, profile: ProfileConfig, token: string, model: string, profileHome: string): string {
-  const realGrok = profile.env?.LLMR_GROK_BIN?.trim() || "grok";
-  const envExports = Object.entries(profileEnv(profile))
-    .filter(([key]) => key !== "LLMR_GROK_BIN" && !isGrokManagedEnvKey(key))
-    .map(([key, value]) => `export ${key}=${shellQuote(value)}`);
-  const gatewayBaseUrl = `${gatewayEndpoint(config).replace(/\/+$/g, "")}/v1`;
-  const noProxyHosts = gatewayNoProxyHosts(config);
-  return [
-    "#!/bin/sh",
-    ...envExports,
-    `if [ -n "\${NO_PROXY:-}" ]; then NO_PROXY="$NO_PROXY,${noProxyHosts}"; else NO_PROXY=${shellQuote(noProxyHosts)}; fi`,
-    `if [ -n "\${no_proxy:-}" ]; then no_proxy="$no_proxy,${noProxyHosts}"; else no_proxy=${shellQuote(noProxyHosts)}; fi`,
-    "export NO_PROXY no_proxy",
-    `export GROK_MODELS_BASE_URL=${shellQuote(gatewayBaseUrl)}`,
-    `export GROK_MODELS_LIST_URL=${shellQuote(`${gatewayBaseUrl}/models`)}`,
-    `export XAI_API_KEY=${shellQuote(token)}`,
-    `export GROK_DEFAULT_MODEL=${shellQuote(model)}`,
-    `export GROK_HOME=${shellQuote(profileHome)}`,
-    `export LLMR_PROFILE_SURFACE=cli`,
-    `exec ${shellQuote(realGrok)} "$@"`,
-    ""
-  ].join("\n");
-}
-
-function grokWrapperCmdScript(config: AppConfig, profile: ProfileConfig, token: string, model: string, profileHome: string): string {
-  const realGrok = profile.env?.LLMR_GROK_BIN?.trim() || "grok";
-  const envExports = Object.entries(profileEnv(profile))
-    .filter(([key]) => key !== "LLMR_GROK_BIN" && !isGrokManagedEnvKey(key))
-    .map(([key, value]) => cmdSetLine(key, value));
-  const gatewayBaseUrl = `${gatewayEndpoint(config).replace(/\/+$/g, "")}/v1`;
-  const noProxyHosts = gatewayNoProxyHosts(config);
-  return [
-    "@echo off",
-    ...envExports,
-    `set "NO_PROXY=%NO_PROXY%,${cmdValue(noProxyHosts)}"`,
-    `set "no_proxy=%no_proxy%,${cmdValue(noProxyHosts)}"`,
-    cmdSetLine("GROK_MODELS_BASE_URL", gatewayBaseUrl),
-    cmdSetLine("GROK_MODELS_LIST_URL", `${gatewayBaseUrl}/models`),
-    cmdSetLine("XAI_API_KEY", token),
-    cmdSetLine("GROK_DEFAULT_MODEL", model),
-    cmdSetLine("GROK_HOME", profileHome),
-    cmdSetLine("LLMR_PROFILE_SURFACE", "cli"),
-    `${cmdQuote(realGrok)} %*`,
-    "exit /b %ERRORLEVEL%",
-    ""
-  ].join("\r\n");
-}
-
-function gatewayNoProxyHosts(config: AppConfig): string {
-  const configuredHost = config.gateway.host === "0.0.0.0" || config.gateway.host === "::"
-    ? "127.0.0.1"
-    : config.gateway.host?.trim().replace(/^\[|\]$/g, "") || "127.0.0.1";
-  return [...new Set([configuredHost, "127.0.0.1", "localhost", "::1"])].join(",");
-}
-
 function applyGatewayNoProxyEnv(env: Record<string, string>, config: AppConfig): void {
   const hosts = gatewayNoProxyHosts(config).split(",");
   env.NO_PROXY = mergeNoProxyHosts(env.NO_PROXY, hosts);
@@ -2556,121 +2058,6 @@ function mergeNoProxyHosts(current: string | undefined, hosts: string[]): string
     ...hosts
   ].map((value) => value.trim()).filter(Boolean);
   return [...new Set(values)].join(",");
-}
-
-function isGrokManagedEnvKey(key: string): boolean {
-  return key === "GROK_MODELS_BASE_URL" ||
-    key === "GROK_MODELS_LIST_URL" ||
-    key === "GROK_DEFAULT_MODEL" ||
-    key === "GROK_HOME" ||
-    key === "GROK_STORAGE_DIR" ||
-    key === "GROK_CONFIG_DIR" ||
-    key === "XAI_API_KEY" ||
-    key === "LLMR_PROFILE_SURFACE";
-}
-
-function ensureGrokProfileHome(profile: ProfileConfig): string {
-  const slug = sanitizeProfilePathSegment(profile.id || profile.name || profile.agent).toLowerCase() || "grok";
-  const profileHome = path.join(CONFIGDIR, "profiles", slug, "grok");
-  const sourceHome = resolveGrokSourceHome(profile);
-  mkdirSync(profileHome, { mode: privateDirMode, recursive: true });
-
-  if (path.resolve(sourceHome) === path.resolve(profileHome)) {
-    return profileHome;
-  }
-
-  ensureGrokProfileConfigCopy(
-    path.join(sourceHome, "config.toml"),
-    path.join(profileHome, "config.toml")
-  );
-  for (const entry of [
-    "agents",
-    "commands",
-    "downloads",
-    "hooks",
-    "marketplace-cache",
-    "plugins",
-    "sessions",
-    "skills",
-    "upload_queue",
-    "worktrees.db"
-  ]) {
-    linkProfileHomeEntry(path.join(sourceHome, entry), path.join(profileHome, entry));
-  }
-  return profileHome;
-}
-
-export function resolveGrokSourceHome(profile: Pick<ProfileConfig, "env">): string {
-  const explicitRoot = profile.env?.GROK_HOME?.trim() ||
-    profile.env?.GROK_STORAGE_DIR?.trim() ||
-    profile.env?.GROK_CONFIG_DIR?.trim() ||
-    process.env.GROK_HOME?.trim() ||
-    process.env.GROK_STORAGE_DIR?.trim() ||
-    process.env.GROK_CONFIG_DIR?.trim();
-  if (explicitRoot) {
-    return resolveUserPath(explicitRoot);
-  }
-  return resolveUserPath("~/.grok");
-}
-
-function ensureGrokProfileConfigCopy(source: string, target: string): void {
-  let targetStat: ReturnType<typeof lstatSync> | undefined;
-  try {
-    targetStat = lstatSync(target);
-  } catch {
-    targetStat = undefined;
-  }
-
-  if (targetStat?.isSymbolicLink()) {
-    let content: Buffer | undefined;
-    try {
-      content = readFileSync(target);
-    } catch {
-      if (existsSync(source)) {
-        content = readFileSync(source);
-      }
-    }
-    rmSync(target, { force: true });
-    if (content) {
-      writeFileSync(target, content, { mode: privateFileMode });
-      chmodSync(target, privateFileMode);
-    }
-    return;
-  }
-
-  if (targetStat || !existsSync(source)) {
-    return;
-  }
-  copyFileSync(source, target);
-  chmodSync(target, privateFileMode);
-}
-
-function linkProfileHomeEntry(source: string, target: string): void {
-  if (!existsSync(source) || pathEntryExists(target)) {
-    return;
-  }
-  const sourceStat = statSync(source);
-  try {
-    symlinkSync(source, target, sourceStat.isDirectory() && process.platform === "win32" ? "junction" : undefined);
-  } catch {
-    if (sourceStat.isFile()) {
-      copyFileSync(source, target);
-      chmodSync(target, privateFileMode);
-    }
-  }
-}
-
-function pathEntryExists(file: string): boolean {
-  try {
-    const stat = lstatSync(file);
-    if (!stat.isSymbolicLink()) {
-      return true;
-    }
-    const target = readlinkSync(file);
-    return Boolean(target);
-  } catch {
-    return false;
-  }
 }
 
 function writeCodexCliMiddleware(
@@ -3175,11 +2562,6 @@ function removeManagedMarkerLines(source: string, markers: string[]): string {
   return source.replace(pattern, "");
 }
 
-function firstTomlTableIndex(source: string): number {
-  const match = source.match(/^\s*\[/m);
-  return match?.index ?? -1;
-}
-
 function readJsonObject(file: string): Record<string, unknown> {
   if (!existsSync(file)) {
     return {};
@@ -3339,21 +2721,6 @@ function writeFileWithBackup(
   const backupFile = backupBeforeWrite(file, previous, options);
   writeFileAtomic(file, content, { mode: options.mode });
   return { backupFile, changed: true };
-}
-
-function writeGeneratedFileIfChanged(
-  file: string,
-  content: string,
-  options: { mode?: number } = {}
-): { changed: boolean } {
-  mkdirSync(path.dirname(file), { recursive: true });
-  const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
-  if (previous === content) {
-    chmodFileIfRequested(file, options.mode);
-    return { changed: false };
-  }
-  writeFileAtomic(file, content, { mode: options.mode });
-  return { changed: true };
 }
 
 export function cleanupGeneratedBinBackups(configDir = CONFIGDIR): number {
@@ -3954,20 +3321,6 @@ function uniqueResolvedPaths(paths: string[]): string[] {
   return result;
 }
 
-function uniqueOrderedStrings(values: string[]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const value of values) {
-    const normalized = value.trim();
-    if (!normalized || seen.has(normalized)) {
-      continue;
-    }
-    seen.add(normalized);
-    result.push(normalized);
-  }
-  return result;
-}
-
 function restoreDisabledZcodeProfile(profile: ProfileConfig, configFile: string): ProfileClientApplyStatus {
   const disabledMessage = "ZCode profile is disabled.";
   if (!isGlobalProfile(profile)) {
@@ -4111,16 +3464,6 @@ function originalBackupFilePath(file: string): string {
 
 function originalMissingFilePath(file: string): string {
   return `${file}${originalMissingSuffix}`;
-}
-
-function disabledStatus(client: ProfileClientKind, file: string, message: string): ProfileClientApplyStatus {
-  return {
-    client,
-    enabled: false,
-    message,
-    ok: true,
-    path: resolveUserPath(file)
-  };
 }
 
 function unavailableModelStatus(profile: ProfileConfig, file: string): ProfileClientApplyStatus {
@@ -4280,21 +3623,6 @@ function parseJsonContent(content: string): Record<string, unknown> | undefined 
   }
 }
 
-function gatewayEndpoint(config: AppConfig): string {
-  const host = config.gateway.host === "0.0.0.0" ? "127.0.0.1" : config.gateway.host || "127.0.0.1";
-  const formattedHost = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
-  return `http://${formattedHost}:${config.gateway.port}`;
-}
-
-function defaultClientModel(config: AppConfig): string {
-  const enabledProviders = config.Providers.filter(isGatewayProviderEnabled);
-  const preferred = enabledProviders.find((provider) => provider.name === config.preferredProvider) ?? enabledProviders[0];
-  if (preferred?.name && preferred.models[0]) {
-    return `${preferred.name}/${preferred.models[0]}`;
-  }
-  return "gpt-5-codex";
-}
-
 function toolHubResolverModel(config: AppConfig): string {
   const model = config.toolHub.llm.model.trim();
   if (!model) {
@@ -4312,23 +3640,11 @@ function toolHubResolverModel(config: AppConfig): string {
   return provider?.name ? `${provider.name}/${model}` : model;
 }
 
-function providerBaseUrl(provider: AppConfig["Providers"][number]): string {
-  return provider.api_base_url || provider.baseUrl || provider.baseurl || "";
-}
-
 function normalizeUrlForMatch(value: string | undefined): string {
   return (value || "").trim().replace(/\/+$/g, "");
 }
 
-function normalizeClientModel(value: string | undefined): string {
-  return normalizeRouteSelector(value)?.trim() || "";
-}
-
 function sanitizeCodexProviderId(value: string): string {
-  return value.trim().replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-function sanitizeProfilePathSegment(value: string): string {
   return value.trim().replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
@@ -4401,42 +3717,8 @@ function defaultCodexCompatibleHome(agent: ProfileConfig["agent"], configFile: s
   return agent === "zcode" ? zcodeHomeFromConfigFile(configFile) : path.dirname(configFile);
 }
 
-function profileEnv(profile: ProfileConfig): Record<string, string> {
-  return stringRecord(profile.env).filter(([key]) => isEnvName(key)).reduce<Record<string, string>>((result, [key, value]) => {
-    if (key === CLAUDE_CODE_AUTH_MODE_ENV) {
-      return result;
-    }
-    if (profile.agent !== "claude-code" && key === CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV) {
-      return result;
-    }
-    result[key] = value;
-    return result;
-  }, {});
-}
-
-function stringRecord(value: unknown): Array<[string, string]> {
-  if (!isRecord(value)) {
-    return [];
-  }
-  return Object.entries(value)
-    .map(([key, itemValue]) => [key.trim(), itemValue] as const)
-    .filter((entry): entry is [string, string] => Boolean(entry[0]) && typeof entry[1] === "string");
-}
-
-function isEnvName(value: string): boolean {
-  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
-}
-
 function tomlKey(value: string): string {
   return /^[A-Za-z0-9_-]+$/.test(value) ? value : tomlQuotedKey(value);
-}
-
-function tomlQuotedKey(value: string): string {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-}
-
-function tomlString(value: string): string {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r")}"`;
 }
 
 function tomlStringArray(values: string[]): string {
@@ -4450,24 +3732,8 @@ function tomlInlineStringTable(values: Record<string, string>): string {
     .join(", ")} }`;
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`;
-}
-
-function cmdQuote(value: string): string {
-  return `"${cmdValue(value)}"`;
-}
-
-function trimLeadingBlankLines(value: string): string {
-  return value.replace(/^\s*\n/g, "");
-}
-
 function ensureTrailingNewline(value: string): string {
   return value.endsWith("\n") ? value : `${value}\n`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function hasOwn(value: Record<string, unknown>, key: string): boolean {
@@ -4476,8 +3742,4 @@ function hasOwn(value: Record<string, unknown>, key: string): boolean {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function formatError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
