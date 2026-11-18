@@ -971,13 +971,15 @@ class SseMcpClient implements McpClient {
       return;
     }
     await this.ensureStream();
+    const stream = this.streamAbort;
     await this.request("initialize", {
       capabilities: {},
       clientInfo: { name: toolHubServerName, version: "1.0.0" },
       protocolVersion: this.server.protocolVersion || protocolVersion
     }, this.server.startupTimeoutMs);
     await this.notification("notifications/initialized", {}).catch(() => undefined);
-    this.initialized = true;
+    // A stream that dropped during the handshake was replaced by one that never saw initialize.
+    this.initialized = this.streamAbort === stream;
   }
 
   private async ensureStream(): Promise<void> {
@@ -1047,7 +1049,7 @@ class SseMcpClient implements McpClient {
             this.routeSseMessage(event.data);
           });
         }
-        resetStream(new Error(`MCP SSE stream closed (${this.server.name}).`));
+        resetStream(new Error(`MCP SSE stream closed (${this.server.name}); the next call reconnects.`));
       } catch (error) {
         resetStream(toError(error));
       }
@@ -1082,6 +1084,8 @@ class SseMcpClient implements McpClient {
           timer
         });
       });
+      // The stream can reject this before the POST below settles, and an unhandled rejection ends the process.
+      pending.catch(() => undefined);
       return this.post(message).then(() => pending);
     });
   }

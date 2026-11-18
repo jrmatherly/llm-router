@@ -12,3 +12,8 @@ test("redactSensitiveUrlQuery keeps a path a path and passes through what it can
   assert.equal(redactSensitiveUrlQuery("/v1/models?api_key=abc"), "/v1/models?api_key=%5Bredacted%5D");
   assert.equal(redactSensitiveUrlQuery("http://["), "http://[");
 });
+
+test("redactSensitiveUrlQuery redacts credential parameters in a target it cannot parse", () => {
+  assert.equal(redactSensitiveUrlQuery("//?key=abc&x=1"), "//?key=[redacted]&x=1");
+  assert.equal(redactSensitiveUrlQuery("//a b?x=1&API_KEY=abc#frag"), "//a b?x=1&API_KEY=[redacted]#frag");
+});
