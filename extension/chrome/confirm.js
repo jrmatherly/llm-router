@@ -8,7 +8,10 @@ if (root && button && statusElement) {
   button.textContent = "Confirm and Import";
   setStatus("LLMR Login Import extension is connected. Review the domains, then confirm.");
 
-  button.addEventListener("click", () => {
+  button.addEventListener("click", (event) => {
+    if (!event.isTrusted) {
+      return;
+    }
     void confirmImport(importUrl);
   });
 }
@@ -21,6 +24,11 @@ async function confirmImport(importUrl) {
       importUrl,
       type: "llmr-login-import-confirm"
     });
+    if (response?.needsPermission) {
+      button.disabled = false;
+      setStatus(response.error);
+      return;
+    }
     if (!response?.ok) {
       throw new Error(response?.error || "Chrome login import failed.");
     }
