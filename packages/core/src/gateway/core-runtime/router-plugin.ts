@@ -44,6 +44,7 @@ import {
   type LlmrRouterPluginRouteRequest
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response";
+import { hoistAnthropicToolResultImages } from "@llmr/core/gateway/features/anthropic-tool-result-images";
 import { coreGatewayAuthHeader, rawTraceSyncHeader, rawTraceSyncPath, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
 import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
 import {
@@ -1072,9 +1073,10 @@ function resolveLlmrGatewayRoute(
   }
 
   if (resolved.kind === "gateway") {
+    const modelBody = requestBodyWithModel(requestInput.requestBody, resolved.model);
     return {
       model: resolved.model,
-      requestBody: requestBodyWithModel(requestInput.requestBody, resolved.model)
+      requestBody: protocol === "anthropic_messages" ? hoistAnthropicToolResultImages(modelBody) : modelBody
     };
   }
 
@@ -1112,10 +1114,13 @@ function resolveLlmrGatewayRoute(
     ? (selectedNames.length > 0 ? selectedNames : credentialNames).map((providerName) => ({ providerName }))
     : undefined;
 
+  const modelBody = requestBodyWithModel(requestInput.requestBody, gatewayModel);
   return {
     model: gatewayModel,
     reason: readHeader(requestInput.request?.headers, llmrRouteReasonHeader),
-    requestBody: requestBodyWithModel(requestInput.requestBody, gatewayModel),
+    requestBody: protocol === "anthropic_messages" && targetProtocol !== "anthropic_messages"
+      ? hoistAnthropicToolResultImages(modelBody)
+      : modelBody,
     targetProviderName,
     ...(targetProviders ? { targetProviders } : {})
   };
