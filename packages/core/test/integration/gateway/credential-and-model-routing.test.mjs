@@ -31,7 +31,7 @@ function successResponse(body) {
 
 // Header assertions cannot show which key and model the core sends upstream,
 // so run the host pipeline against a spawned core with the router plugin.
-async function run(providerFactory, probes, { configure, publicGatewayMode = false, upstreamTimeoutMs = 5000 } = {}) {
+async function run(providerFactory, probes, { configure, mcpServers, publicGatewayMode = false, upstreamTimeoutMs = 5000 } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-credential-routing-"));
   const calls = [];
   let gateway, host, failure;
@@ -108,7 +108,7 @@ async function run(providerFactory, probes, { configure, publicGatewayMode = fal
     writeFileSync(file, JSON.stringify({ host: "127.0.0.1", port, upstreamTimeoutMs,
       auth: { enabled: false }, rawTrace: { enabled: false }, billing: { enabled: false },
       logging: { level: "error", accessLog: false }, scheduling: compiled.scheduling, providers: compiled.providers, plugins: [router],
-      virtualModelProfiles: compiled.virtualModelProfiles }));
+      virtualModelProfiles: compiled.virtualModelProfiles, ...(mcpServers ? { agent: { mcpServers } } : {}) }));
     gateway = spawn(process.execPath, [gatewayEntry], { cwd: root,
       env: { ...process.env, GATEWAY_CONFIG_PATH: file }, stdio: ["ignore", "pipe", "pipe"] });
     let log = "";
@@ -285,9 +285,6 @@ const paths = [
   { via: "host pipeline" },
   { via: "gateway child in public mode", coreOnly: true, publicGatewayMode: true }
 ];
-// The vendored gateway fails these cases (upstream review row 29). The match
-// keeps any other failure red, and a gateway that fixes one turns it red too.
-const gatewayDefect = match => ({ expectFailure: { label: "vendored gateway defect, upstream review row 29", match } });
 
 test("#1917 a stream cut after its first chunk ends with a terminal error frame", { timeout: 60000 }, async t => {
   for (const scenario of [
@@ -298,7 +295,7 @@ test("#1917 a stream cut after its first chunk ends with a terminal error frame"
     { type: "openai_chat_completions", base: "/v1", path: "/v1/responses", marker: /response\.failed/ }
   ]) {
     for (const { via, coreOnly, publicGatewayMode } of paths) {
-      await t.test(`${scenario.type} -> ${scenario.path} via ${via}`, coreOnly ? gatewayDefect(/socket closed/) : {}, async () => {
+      await t.test(`${scenario.type} -> ${scenario.path} via ${via}`, async () => {
         const id = `cut-${scenario.type}`;
         await run(url => [{ id, name: id, type: scenario.type, api_base_url: url + scenario.base, models: ["pool-model"], credentials }],
           [{ ...probe(`${id}/pool-model`, "partial", scenario.path, true), coreOnly,
@@ -310,9 +307,9 @@ test("#1917 a stream cut after its first chunk ends with a terminal error frame"
 
 test("#1932 native models keep safeguards, unknown request fields and verdicts", { timeout: 60000 }, async t => {
   const verdict = { synthetic_verdict: "allow", tool_use_id: "toolu_guard_test_123" };
-  const guardedProfile = streamMode => ({ id: "guarded", key: "guarded", displayName: "Guarded", enabled: true,
+  const guardedProfile = (streamMode, tools = []) => ({ id: "guarded", key: "guarded", displayName: "Guarded", enabled: true,
     match: { exactAliases: ["guarded", "Fusion/guarded"], prefixes: [], suffixes: [] },
-    baseModel: { mode: "fixed", fixedModel: "safe/guard-model" }, tools: [],
+    baseModel: { mode: "fixed", fixedModel: "safe/guard-model" }, tools,
     execution: { mode: "tool_loop", maxTurns: 2, maxToolCalls: 2, clientToolsPolicy: "passthrough", streamMode },
     materialization: { enabled: true, includeInGatewayModels: true } });
   for (const { model, streamMode } of [
@@ -323,7 +320,7 @@ test("#1932 native models keep safeguards, unknown request fields and verdicts",
     for (const { via, coreOnly, publicGatewayMode } of paths) {
       for (const stream of [false, true]) {
         const name = [streamMode ? `virtual model (${streamMode})` : "direct model", via, stream ? "stream" : "json"].join(", ");
-        await t.test(name, streamMode ? gatewayDefect(/lost request safeguards/) : {}, async () => {
+        await t.test(name, async () => {
           const p = { ...probe(model, undefined, "/v1/messages", stream), coreOnly, expectedUpstreamModel: "guard-model" };
           p.body.safeguards = { synthetic_check: { tool_use_id: verdict.tool_use_id, opaque_config: { unknown_future: [1, "keep"] } } };
           p.body.future_native_request = { keep: ["opaque", 123] };
@@ -348,4 +345,16 @@ test("#1932 native models keep safeguards, unknown request fields and verdicts",
       }
     }
   }
+  // The gateway runs internal tools in a loop of several upstream calls, and a verdict is tied to one response.
+  await t.test("virtual model with an internal tool rejects safeguards before any upstream call", async () => {
+    const plain = { ...probe("Fusion/guarded", undefined, "/v1/messages"), coreOnly: true, expectedUpstreamModel: "guard-model" };
+    const guarded = { ...plain, status: 400, keys: [], headers: { "anthropic-beta": "synthetic-safeguards-2026-11-16" },
+      body: { ...plain.body, safeguards: { synthetic_check: {} } },
+      assertResponse: text => assert.match(JSON.parse(text).error.message, /safeguards/) };
+    await run(url => [{ id: "safe", name: "Safe", type: "anthropic_messages", api_base_url: `${url}/native`, api_key: "good", models: ["guard-model"] }], [guarded, plain], {
+      configure: config => { config.virtualModelProfiles = [guardedProfile("buffered", [{ name: "stub_tool", visibility: "internal" }])]; },
+      mcpServers: [{ name: "stub", transport: "stdio", stdioMessageMode: "newline-json", command: process.execPath,
+        args: [path.resolve("packages/core/test/support/stub-mcp-server.mjs")] }],
+      publicGatewayMode: true });
+  });
 });
