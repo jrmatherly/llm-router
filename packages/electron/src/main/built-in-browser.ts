@@ -29,6 +29,7 @@ import type {
 import { IPC_CHANNELS } from "@llmr/core/contracts/ipc-channels";
 import { APP_NAME } from "@llmr/core/config/constants";
 import { pluginService } from "@llmr/core/plugins/service";
+import { normalizeBrowserInput } from "./browser-url";
 import { chromeLoginImportService } from "./chrome-login-import";
 import { isHttpUrl } from "./external-url";
 
@@ -258,7 +259,7 @@ class BuiltInBrowserService {
       throw new Error("Browser tab was not found.");
     }
 
-    const nextUrl = normalizeBrowserUrl(url);
+    const nextUrl = normalizeBrowserInput(url, browserHomeUrl);
     tab.url = nextUrl;
     if (tab.id === this.activeTabId) {
       this.layoutActiveView();
@@ -479,7 +480,7 @@ class BuiltInBrowserService {
       id: randomUUID(),
       isLoading: false,
       title: "New Tab",
-      url: normalizeBrowserUrl(url),
+      url: normalizeBrowserInput(url, browserHomeUrl),
       view
     };
 
@@ -806,7 +807,7 @@ class BuiltInBrowserService {
       return;
     }
 
-    const nextUrl = normalizeBrowserUrl(url);
+    const nextUrl = normalizeBrowserInput(url, browserHomeUrl);
     tab.url = nextUrl;
     if (tab.id === this.activeTabId) {
       this.layoutActiveView();
@@ -933,23 +934,6 @@ export const builtInBrowserService = new BuiltInBrowserService();
 
 function fitWindowSize(preferred: number, minimum: number, available: number): number {
   return Math.max(minimum, Math.min(preferred, available > 0 ? available : preferred));
-}
-
-function normalizeBrowserUrl(value: string | undefined): string {
-  const trimmed = (value || "").trim();
-  if (!trimmed) {
-    return browserHomeUrl;
-  }
-  if (isBrowserHomeUrl(trimmed)) {
-    return browserHomeUrl;
-  }
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
-    return isHttpUrl(trimmed) ? trimmed : `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
-  }
-  if (/^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(trimmed) || trimmed.includes(".")) {
-    return `https://${trimmed}`;
-  }
-  return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
 }
 
 function resolveInstalledBrowserApps(config: AppConfig, runtimeApps: InstalledBrowserApp[]): InstalledBrowserApp[] {

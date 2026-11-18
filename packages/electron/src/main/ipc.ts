@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, nativeImage, session, shell, WebCo
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { deflateSync, inflateSync } from "node:zlib";
 import { loadOnboardingFinished, markOnboardingFinished } from "@llmr/core/config/onboarding-state";
 import { builtInBrowserService } from "./built-in-browser";
@@ -28,6 +29,7 @@ import {
   USAGE_DB_FILE
 } from "@llmr/core/config/constants";
 import { deepLinkService } from "./deep-link";
+import { assertAppRendererSender } from "./ipc-sender";
 import { chromeLoginImportService } from "./chrome-login-import";
 import { gatewayService } from "@llmr/core/gateway/service";
 import { shouldRestartGatewayForRuntimeConfigChange } from "@llmr/core/gateway/runtime-change";
@@ -66,7 +68,16 @@ function applyAppThemePreference(theme: AppConfig["theme"]): void {
   trayController.refreshTheme(theme);
 }
 
-ipcMain.handle(IPC_CHANNELS.appGetInfo, () => {
+const rendererRootUrl = pathToFileURL(path.join(__dirname, "../renderer/")).toString();
+
+function handle(channel: string, listener: Parameters<typeof ipcMain.handle>[1]): void {
+  ipcMain.handle(channel, (event, ...args) => {
+    assertAppRendererSender(event, rendererRootUrl);
+    return listener(event, ...args);
+  });
+}
+
+handle(IPC_CHANNELS.appGetInfo, () => {
   const { chatgptAppPath, opencodeAppPath, workbuddyAppPath } = getAppInfoPaths();
   const catalogRefreshError = modelCatalogRefreshError();
   return {
@@ -87,53 +98,53 @@ ipcMain.handle(IPC_CHANNELS.appGetInfo, () => {
   } satisfies AppInfo;
 });
 
-ipcMain.handle(IPC_CHANNELS.appExportData, async (event): Promise<AppDataExportResult> => {
+handle(IPC_CHANNELS.appExportData, async (event): Promise<AppDataExportResult> => {
   return exportAppData(BrowserWindow.fromWebContents(event.sender));
 });
-ipcMain.handle(IPC_CHANNELS.appCaptureElementPng, async (event, request: AppCaptureElementPngRequest): Promise<AppCaptureElementPngResult> => {
+handle(IPC_CHANNELS.appCaptureElementPng, async (event, request: AppCaptureElementPngRequest): Promise<AppCaptureElementPngResult> => {
   return captureElementPng(BrowserWindow.fromWebContents(event.sender), request);
 });
-ipcMain.handle(IPC_CHANNELS.appPrepareImageExportTarget, async (event, request: AppImageExportTargetRequest): Promise<AppImageExportTargetResult> => {
+handle(IPC_CHANNELS.appPrepareImageExportTarget, async (event, request: AppImageExportTargetRequest): Promise<AppImageExportTargetResult> => {
   return prepareImageExportTarget(BrowserWindow.fromWebContents(event.sender), request);
 });
-ipcMain.handle(IPC_CHANNELS.appRenderHtmlPng, async (event, request: AppRenderHtmlPngRequest): Promise<AppRenderHtmlPngResult> => {
+handle(IPC_CHANNELS.appRenderHtmlPng, async (event, request: AppRenderHtmlPngRequest): Promise<AppRenderHtmlPngResult> => {
   return renderHtmlPng(BrowserWindow.fromWebContents(event.sender), request);
 });
 
-ipcMain.handle(IPC_CHANNELS.appGetConfig, () => loadAppConfig());
-ipcMain.handle(IPC_CHANNELS.appGetOnboardingFinished, () => loadOnboardingFinished());
-ipcMain.handle(IPC_CHANNELS.appGetPendingProviderDeepLinks, () => deepLinkService.consumePendingProviderRequests());
-ipcMain.handle(IPC_CHANNELS.appGetLocalAgentProviderCandidates, () => getLocalAgentProviderCandidates());
-ipcMain.handle(IPC_CHANNELS.appGetProfileOpenCommand, async (_event, request: ProfileOpenRequest) => {
+handle(IPC_CHANNELS.appGetConfig, () => loadAppConfig());
+handle(IPC_CHANNELS.appGetOnboardingFinished, () => loadOnboardingFinished());
+handle(IPC_CHANNELS.appGetPendingProviderDeepLinks, () => deepLinkService.consumePendingProviderRequests());
+handle(IPC_CHANNELS.appGetLocalAgentProviderCandidates, () => getLocalAgentProviderCandidates());
+handle(IPC_CHANNELS.appGetProfileOpenCommand, async (_event, request: ProfileOpenRequest) => {
   return getProfileOpenCommand(await loadAppConfig(), request, {
     commandName: desktopCliCommandName,
     ensureLauncher: true
   });
 });
-ipcMain.handle(IPC_CHANNELS.appGetProfileRuntimeStatus, () => {
+handle(IPC_CHANNELS.appGetProfileRuntimeStatus, () => {
   return getProfileRuntimeStatus();
 });
-ipcMain.handle(IPC_CHANNELS.appGetProviderAccountSnapshots, (_event, provider?: string, options?: ProviderAccountSnapshotRequestOptions) => getProviderAccountSnapshots(provider, options));
-ipcMain.handle(IPC_CHANNELS.appGetProviderCatalogModels, (_event, request: ProviderCatalogModelsRequest) => getProviderCatalogModels(request));
-ipcMain.handle(IPC_CHANNELS.appGetOpenRouterProviderCatalog, (_event, request: OpenRouterProviderCatalogRequest) => getOpenRouterProviderCatalog(request));
-ipcMain.handle(IPC_CHANNELS.appGetProviderPresets, () => getProviderPresets());
-ipcMain.handle(IPC_CHANNELS.appGetAgentAnalysis, (_event, filter?: AgentAnalysisFilter) => getAgentAnalysis(filter));
-ipcMain.handle(IPC_CHANNELS.appGetAgentTracePayload, (_event, request: AgentAnalysisTracePayloadRequest) => getAgentTracePayload(request));
-ipcMain.handle(IPC_CHANNELS.appGetGatewayStatus, () => gatewayService.getStatus());
-ipcMain.handle(IPC_CHANNELS.appGetProxyCertificateStatus, () => proxyService.getCertificateStatus());
-ipcMain.handle(IPC_CHANNELS.appGetProxyNetworkCaptures, () => proxyService.getNetworkCaptures());
-ipcMain.handle(IPC_CHANNELS.appGetProxyStatus, () => proxyService.getStatus());
-ipcMain.handle(IPC_CHANNELS.appGetPluginMarketplace, () => getPluginMarketplace());
-ipcMain.handle(IPC_CHANNELS.appGetRequestLogDetail, (_event, request) => getRequestLogDetail(request));
-ipcMain.handle(IPC_CHANNELS.appGetRequestLogBodyChunk, (_event, request) => getRequestLogBodyChunk(request));
-ipcMain.handle(IPC_CHANNELS.appGetRequestLogs, (_event, filter?: RequestLogListFilter) => getRequestLogs(filter));
-ipcMain.handle(IPC_CHANNELS.appGetUpdateStatus, () => appUpdateService.getStatus());
-ipcMain.handle(IPC_CHANNELS.appGetUsageStats, (_event, range?: UsageStatsRange, filter?: UsageStatsFilter) => getUsageStats(range, filter));
-ipcMain.handle(IPC_CHANNELS.appFetchProviderManifest, (_event, request: ProviderManifestFetchRequest) => fetchProviderManifest(request));
-ipcMain.handle(IPC_CHANNELS.appImportLocalAgentProvider, (_event, request: LocalAgentProviderImportRequest) => importLocalAgentProvider(request));
-ipcMain.handle(IPC_CHANNELS.appProbeLocalAgentProvider, (_event, request) => probeLocalAgentProvider(request));
-ipcMain.handle(IPC_CHANNELS.appInstallProxyCertificate, () => proxyService.installCertificate());
-ipcMain.handle(IPC_CHANNELS.appListMcpServerTools, async (_event, serverName: string) => {
+handle(IPC_CHANNELS.appGetProviderAccountSnapshots, (_event, provider?: string, options?: ProviderAccountSnapshotRequestOptions) => getProviderAccountSnapshots(provider, options));
+handle(IPC_CHANNELS.appGetProviderCatalogModels, (_event, request: ProviderCatalogModelsRequest) => getProviderCatalogModels(request));
+handle(IPC_CHANNELS.appGetOpenRouterProviderCatalog, (_event, request: OpenRouterProviderCatalogRequest) => getOpenRouterProviderCatalog(request));
+handle(IPC_CHANNELS.appGetProviderPresets, () => getProviderPresets());
+handle(IPC_CHANNELS.appGetAgentAnalysis, (_event, filter?: AgentAnalysisFilter) => getAgentAnalysis(filter));
+handle(IPC_CHANNELS.appGetAgentTracePayload, (_event, request: AgentAnalysisTracePayloadRequest) => getAgentTracePayload(request));
+handle(IPC_CHANNELS.appGetGatewayStatus, () => gatewayService.getStatus());
+handle(IPC_CHANNELS.appGetProxyCertificateStatus, () => proxyService.getCertificateStatus());
+handle(IPC_CHANNELS.appGetProxyNetworkCaptures, () => proxyService.getNetworkCaptures());
+handle(IPC_CHANNELS.appGetProxyStatus, () => proxyService.getStatus());
+handle(IPC_CHANNELS.appGetPluginMarketplace, () => getPluginMarketplace());
+handle(IPC_CHANNELS.appGetRequestLogDetail, (_event, request) => getRequestLogDetail(request));
+handle(IPC_CHANNELS.appGetRequestLogBodyChunk, (_event, request) => getRequestLogBodyChunk(request));
+handle(IPC_CHANNELS.appGetRequestLogs, (_event, filter?: RequestLogListFilter) => getRequestLogs(filter));
+handle(IPC_CHANNELS.appGetUpdateStatus, () => appUpdateService.getStatus());
+handle(IPC_CHANNELS.appGetUsageStats, (_event, range?: UsageStatsRange, filter?: UsageStatsFilter) => getUsageStats(range, filter));
+handle(IPC_CHANNELS.appFetchProviderManifest, (_event, request: ProviderManifestFetchRequest) => fetchProviderManifest(request));
+handle(IPC_CHANNELS.appImportLocalAgentProvider, (_event, request: LocalAgentProviderImportRequest) => importLocalAgentProvider(request));
+handle(IPC_CHANNELS.appProbeLocalAgentProvider, (_event, request) => probeLocalAgentProvider(request));
+handle(IPC_CHANNELS.appInstallProxyCertificate, () => proxyService.installCertificate());
+handle(IPC_CHANNELS.appListMcpServerTools, async (_event, serverName: string) => {
   const name = typeof serverName === "string" ? serverName.trim() : "";
   if (!name) {
     throw new Error("MCP server name is required.");
@@ -145,34 +156,34 @@ ipcMain.handle(IPC_CHANNELS.appListMcpServerTools, async (_event, serverName: st
   }
   return listMcpServerTools(server);
 });
-ipcMain.handle(IPC_CHANNELS.appStartChromeLoginImport, async (_event, request: ChromeLoginImportRequest) => {
+handle(IPC_CHANNELS.appStartChromeLoginImport, async (_event, request: ChromeLoginImportRequest) => {
   return await chromeLoginImportService.createJob(request);
 });
-ipcMain.handle(IPC_CHANNELS.appGetChromeLoginImport, (_event, id: string) => {
+handle(IPC_CHANNELS.appGetChromeLoginImport, (_event, id: string) => {
   return chromeLoginImportService.getJob(typeof id === "string" ? id : "");
 });
-ipcMain.handle(IPC_CHANNELS.appOpenBuiltInBrowser, async (_event, url?: string) => {
+handle(IPC_CHANNELS.appOpenBuiltInBrowser, async (_event, url?: string) => {
   const config = await loadAppConfig();
   await builtInBrowserService.open(config, url);
 });
-ipcMain.handle(IPC_CHANNELS.appOpenPluginApp, async (_event, pluginId: string, appId?: string) => {
+handle(IPC_CHANNELS.appOpenPluginApp, async (_event, pluginId: string, appId?: string) => {
   const normalizedPluginId = readString(pluginId);
   if (!normalizedPluginId) {
     throw new Error("Plugin id is required.");
   }
   await deepLinkService.openPluginApp(normalizedPluginId, readString(appId));
 });
-ipcMain.handle(IPC_CHANNELS.appCloseTray, () => {
+handle(IPC_CHANNELS.appCloseTray, () => {
   trayController.hidePopover();
 });
-ipcMain.handle(IPC_CHANNELS.appDetectProviderIcon, (_event, request: ProviderIconDetectionRequest) => {
+handle(IPC_CHANNELS.appDetectProviderIcon, (_event, request: ProviderIconDetectionRequest) => {
   return detectProviderIcon(request);
 });
-ipcMain.handle(IPC_CHANNELS.appClearProxyNetworkCaptures, () => proxyService.clearNetworkCaptures());
-ipcMain.handle(IPC_CHANNELS.appSetProxyNetworkCaptureEnabled, (_event, enabled: boolean) => {
+handle(IPC_CHANNELS.appClearProxyNetworkCaptures, () => proxyService.clearNetworkCaptures());
+handle(IPC_CHANNELS.appSetProxyNetworkCaptureEnabled, (_event, enabled: boolean) => {
   return proxyService.setNetworkCaptureEnabled(Boolean(enabled));
 });
-ipcMain.handle(IPC_CHANNELS.appSelectPluginDirectory, async (event) => {
+handle(IPC_CHANNELS.appSelectPluginDirectory, async (event) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   const options: OpenDialogOptions = {
     buttonLabel: "Select plugin",
@@ -185,21 +196,21 @@ ipcMain.handle(IPC_CHANNELS.appSelectPluginDirectory, async (event) => {
   }
   return inspectPluginDirectory(result.filePaths[0]);
 });
-ipcMain.handle(IPC_CHANNELS.appOpenExternal, async (_event, url: string) => {
+handle(IPC_CHANNELS.appOpenExternal, async (_event, url: string) => {
   const parsed = new URL(url);
   if (!["http:", "https:"].includes(parsed.protocol)) {
     throw new Error("Only http and https URLs can be opened.");
   }
   await shell.openExternal(parsed.toString());
 });
-ipcMain.handle(IPC_CHANNELS.appOpenProfile, async (_event, request: ProfileOpenRequest) => {
+handle(IPC_CHANNELS.appOpenProfile, async (_event, request: ProfileOpenRequest) => {
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
   return openProfileFromLlmr(syncedClaudeAppConfig.config, request);
 });
-ipcMain.handle(IPC_CHANNELS.appOpenProfileInTerminal, async (_event, request: ProfileOpenRequest) => {
+handle(IPC_CHANNELS.appOpenProfileInTerminal, async (_event, request: ProfileOpenRequest) => {
   return openProfileInTerminal(await loadAppConfig(), request);
 });
-ipcMain.handle(IPC_CHANNELS.appApplyClaudeAppGateway, async (_event, config?: AppConfig) => {
+handle(IPC_CHANNELS.appApplyClaudeAppGateway, async (_event, config?: AppConfig) => {
   const previousConfig = await loadAppConfig();
   const baseConfig = config ? await saveAppConfig(config) : previousConfig;
   applyNativeThemePreference(baseConfig.theme);
@@ -238,75 +249,75 @@ ipcMain.handle(IPC_CHANNELS.appApplyClaudeAppGateway, async (_event, config?: Ap
     message: `${synced.result.message}\n${gatewayDetail}\n${apiKeyDetail}`
   };
 });
-ipcMain.handle(IPC_CHANNELS.appBotGatewayQrLoginStart, (_event, request: BotGatewayQrLoginStartRequest) => {
+handle(IPC_CHANNELS.appBotGatewayQrLoginStart, (_event, request: BotGatewayQrLoginStartRequest) => {
   return startBotGatewayQrLogin(request);
 });
-ipcMain.handle(IPC_CHANNELS.appBotGatewayQrLoginWait, (_event, request: BotGatewayQrLoginWaitRequest) => {
+handle(IPC_CHANNELS.appBotGatewayQrLoginWait, (_event, request: BotGatewayQrLoginWaitRequest) => {
   return waitBotGatewayQrLogin(request);
 });
-ipcMain.handle(IPC_CHANNELS.appBotGatewayQrLoginCancel, (_event, request: BotGatewayQrLoginCancelRequest) => {
+handle(IPC_CHANNELS.appBotGatewayQrLoginCancel, (_event, request: BotGatewayQrLoginCancelRequest) => {
   return cancelBotGatewayQrLogin(request);
 });
-ipcMain.handle(IPC_CHANNELS.appClaudeAppsGatewayLoginStart, (_event, request: ClaudeAppsGatewayLoginStartRequest) => {
+handle(IPC_CHANNELS.appClaudeAppsGatewayLoginStart, (_event, request: ClaudeAppsGatewayLoginStartRequest) => {
   return startClaudeAppsGatewayLogin(request);
 });
-ipcMain.handle(IPC_CHANNELS.appClaudeAppsGatewayLoginWait, (_event, request: ClaudeAppsGatewayLoginWaitRequest) => {
+handle(IPC_CHANNELS.appClaudeAppsGatewayLoginWait, (_event, request: ClaudeAppsGatewayLoginWaitRequest) => {
   return waitClaudeAppsGatewayLogin(request);
 });
-ipcMain.handle(IPC_CHANNELS.appClaudeAppsGatewayLoginCancel, (_event, request: ClaudeAppsGatewayLoginCancelRequest) => {
+handle(IPC_CHANNELS.appClaudeAppsGatewayLoginCancel, (_event, request: ClaudeAppsGatewayLoginCancelRequest) => {
   return cancelClaudeAppsGatewayLogin(request);
 });
-ipcMain.handle(IPC_CHANNELS.appBotGatewayQrWindowOpen, (_event, request: BotGatewayQrWindowOpenRequest) => {
+handle(IPC_CHANNELS.appBotGatewayQrWindowOpen, (_event, request: BotGatewayQrWindowOpenRequest) => {
   return openBotGatewayQrWindow(request);
 });
-ipcMain.handle(IPC_CHANNELS.appBotGatewayQrWindowClose, (_event, request: BotGatewayQrWindowCloseRequest) => {
+handle(IPC_CHANNELS.appBotGatewayQrWindowClose, (_event, request: BotGatewayQrWindowCloseRequest) => {
   return closeBotGatewayQrWindow(request);
 });
-ipcMain.handle(IPC_CHANNELS.appBotHandoffWifiTargetsScan, () => {
+handle(IPC_CHANNELS.appBotHandoffWifiTargetsScan, () => {
   return scanBotHandoffWifiTargets();
 });
-ipcMain.handle(IPC_CHANNELS.appBotHandoffBluetoothTargetsScan, () => {
+handle(IPC_CHANNELS.appBotHandoffBluetoothTargetsScan, () => {
   return scanBotHandoffBluetoothTargets();
 });
-ipcMain.handle(IPC_CHANNELS.appApplyProfile, async () => {
+handle(IPC_CHANNELS.appApplyProfile, async () => {
   const config = await loadAppConfig();
   return applyProfileConfig(config);
 });
-ipcMain.handle(IPC_CHANNELS.appCheckProviderConnectivity, (_event, request: GatewayProviderConnectivityCheckRequest) => {
+handle(IPC_CHANNELS.appCheckProviderConnectivity, (_event, request: GatewayProviderConnectivityCheckRequest) => {
   return checkGatewayProviderConnectivity(request);
 });
-ipcMain.handle(IPC_CHANNELS.appProbeProvider, (_event, request: GatewayProviderProbeRequest) => {
+handle(IPC_CHANNELS.appProbeProvider, (_event, request: GatewayProviderProbeRequest) => {
   return probeGatewayProvider(request);
 });
-ipcMain.handle(IPC_CHANNELS.appProbeProviderCandidates, (_event, request: GatewayProviderProbeCandidatesRequest) => {
+handle(IPC_CHANNELS.appProbeProviderCandidates, (_event, request: GatewayProviderProbeCandidatesRequest) => {
   return probeGatewayProviderCandidates(request);
 });
-ipcMain.handle(IPC_CHANNELS.appResetCodexRateLimitCredit, (_event, request: ProviderAccountResetRequest) => {
+handle(IPC_CHANNELS.appResetCodexRateLimitCredit, (_event, request: ProviderAccountResetRequest) => {
   return resetCodexRateLimitCredit(request);
 });
-ipcMain.handle(IPC_CHANNELS.appResetOverviewStatistics, () => {
+handle(IPC_CHANNELS.appResetOverviewStatistics, () => {
   return resetOverviewStatistics();
 });
-ipcMain.handle(IPC_CHANNELS.appTestProviderAccountConnector, (_event, request: ProviderAccountTestRequest) => {
+handle(IPC_CHANNELS.appTestProviderAccountConnector, (_event, request: ProviderAccountTestRequest) => {
   return testProviderAccountConnector(request);
 });
-ipcMain.handle(IPC_CHANNELS.appValidateRouteScript, (_event, request: RouteScriptValidationRequest) => {
+handle(IPC_CHANNELS.appValidateRouteScript, (_event, request: RouteScriptValidationRequest) => {
   return gatewayService.validateRouteScript(request);
 });
-ipcMain.handle(IPC_CHANNELS.appTestRouteScript, async (_event, request: RouteScriptTestRequest) => {
+handle(IPC_CHANNELS.appTestRouteScript, async (_event, request: RouteScriptTestRequest) => {
   return gatewayService.testRouteScript(await loadAppConfig(), request);
 });
-ipcMain.handle(IPC_CHANNELS.appUpdateCheck, () => appUpdateService.checkForUpdates());
-ipcMain.handle(IPC_CHANNELS.appUpdateDownload, () => appUpdateService.downloadUpdate());
-ipcMain.handle(IPC_CHANNELS.appUpdateInstall, () => appUpdateService.installUpdate());
-ipcMain.handle(IPC_CHANNELS.appQuit, () => {
+handle(IPC_CHANNELS.appUpdateCheck, () => appUpdateService.checkForUpdates());
+handle(IPC_CHANNELS.appUpdateDownload, () => appUpdateService.downloadUpdate());
+handle(IPC_CHANNELS.appUpdateInstall, () => appUpdateService.installUpdate());
+handle(IPC_CHANNELS.appQuit, () => {
   app.quit();
 });
-ipcMain.handle(IPC_CHANNELS.appRevealProxyCertificate, () => {
+handle(IPC_CHANNELS.appRevealProxyCertificate, () => {
   ensureProxyCertificateAuthority();
   shell.showItemInFolder(PROXY_CA_CERT_FILE);
 });
-ipcMain.handle(IPC_CHANNELS.appSaveConfig, async (_event, config: AppConfig, options?: AppSaveConfigOptions) => {
+handle(IPC_CHANNELS.appSaveConfig, async (_event, config: AppConfig, options?: AppSaveConfigOptions) => {
   const previousConfig = await loadAppConfig();
   if (config.proxy.enabled) {
     const certificateStatus = await proxyService.getCertificateStatus();
@@ -354,12 +365,12 @@ ipcMain.handle(IPC_CHANNELS.appSaveConfig, async (_event, config: AppConfig, opt
   syncProviderModelAutoRefresh(savedConfig);
   return savedConfig;
 });
-ipcMain.handle(IPC_CHANNELS.appSetThemePreference, async (_event, theme: unknown) => {
+handle(IPC_CHANNELS.appSetThemePreference, async (_event, theme: unknown) => {
   const savedTheme = await saveAppThemePreference(theme);
   applyAppThemePreference(savedTheme);
   return savedTheme;
 });
-ipcMain.handle(IPC_CHANNELS.appSaveApiKeys, async (_event, apiKeys: ApiKeyConfig[]) => {
+handle(IPC_CHANNELS.appSaveApiKeys, async (_event, apiKeys: ApiKeyConfig[]) => {
   const savedConfig = await saveApiKeysConfig(apiKeys);
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
   const nextConfig = syncedClaudeAppConfig.config;
@@ -368,13 +379,13 @@ ipcMain.handle(IPC_CHANNELS.appSaveApiKeys, async (_event, apiKeys: ApiKeyConfig
   invalidateProviderAccountSnapshotCache();
   return nextConfig;
 });
-ipcMain.handle(IPC_CHANNELS.appSetOnboardingFinished, async () => {
+handle(IPC_CHANNELS.appSetOnboardingFinished, async () => {
   await markOnboardingFinished();
   windowsManager.setOnboardingFinished(true);
   windowsManager.resizeMainWindowToScreenSize();
   return true;
 });
-ipcMain.handle(IPC_CHANNELS.appRestartGateway, async () => {
+handle(IPC_CHANNELS.appRestartGateway, async () => {
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
   const config = syncedClaudeAppConfig.config;
   const status = await gatewayService.restart(config);
@@ -382,7 +393,7 @@ ipcMain.handle(IPC_CHANNELS.appRestartGateway, async () => {
   await builtInBrowserService.syncProxy(config);
   return status;
 });
-ipcMain.handle(IPC_CHANNELS.appStartGateway, async () => {
+handle(IPC_CHANNELS.appStartGateway, async () => {
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
   const config = syncedClaudeAppConfig.config;
   const status = await gatewayService.ensureStarted(config);
@@ -390,23 +401,23 @@ ipcMain.handle(IPC_CHANNELS.appStartGateway, async () => {
   await builtInBrowserService.syncProxy(config);
   return status;
 });
-ipcMain.handle(IPC_CHANNELS.appStopGateway, async () => {
+handle(IPC_CHANNELS.appStopGateway, async () => {
   const status = await gatewayService.stop();
   await restoreTakeoversWhenNoGatewayServes();
   await builtInBrowserService.clearProxy();
   return status;
 });
-ipcMain.handle(IPC_CHANNELS.appStopProfile, async (_event, request: ProfileOpenRequest) => {
+handle(IPC_CHANNELS.appStopProfile, async (_event, request: ProfileOpenRequest) => {
   return stopProfileFromLlmr(await loadAppConfig(), request);
 });
-ipcMain.handle(IPC_CHANNELS.appSetTrayDetailOpen, (_event, open: boolean, provider?: string) => {
+handle(IPC_CHANNELS.appSetTrayDetailOpen, (_event, open: boolean, provider?: string) => {
   trayController.setDetailOpen(Boolean(open), provider);
 });
-ipcMain.handle(IPC_CHANNELS.appShowMainWindow, () => {
+handle(IPC_CHANNELS.appShowMainWindow, () => {
   trayController.hidePopover();
   windowsManager.showMainWindow();
 });
-ipcMain.handle(IPC_CHANNELS.appRestartProxy, async () => {
+handle(IPC_CHANNELS.appRestartProxy, async () => {
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
   const config = syncedClaudeAppConfig.config;
   const status = await gatewayService.restart(config);

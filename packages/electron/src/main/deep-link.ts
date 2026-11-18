@@ -6,13 +6,8 @@ import { loadAppConfig } from "@llmr/core/config/config";
 import { syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
 import { gatewayService } from "@llmr/core/gateway/service";
 import { providerIdentitySafetyIssue } from "@llmr/core/providers/presets/index";
+import { parsePluginDeepLinkRequest, resolveGatewayPluginAppUrl, type PluginDeepLinkRequest } from "./deep-link-url";
 import windowsManager from "./windows";
-
-type PluginDeepLinkRequest = {
-  appId?: string;
-  pluginId: string;
-  rawUrl: string;
-};
 
 const pluginAppExistingGatewayProbeTimeoutMs = 2_000;
 const pluginAppStartupProbeTimeoutMs = 12_000;
@@ -93,7 +88,7 @@ class DeepLinkService {
       ...(appId ? { appId } : {}),
       pluginId,
       rawUrl: `${appDeepLinkProtocol}://plugin/${encodeURIComponent(pluginId)}/open`
-    });
+    }, { confirmGatewayStart: false });
   }
 
   private handlePluginRequest(request: PluginDeepLinkRequest): void {
@@ -103,18 +98,18 @@ class DeepLinkService {
       return;
     }
 
-    void this.openPluginRequest(request);
+    void this.openPluginRequest(request, { confirmGatewayStart: true });
   }
 
   private flushPendingPluginRequests(): void {
     const requests = [...this.pendingPluginRequests];
     this.pendingPluginRequests = [];
     for (const request of requests) {
-      void this.openPluginRequest(request);
+      void this.openPluginRequest(request, { confirmGatewayStart: true });
     }
   }
 
-  private async openPluginRequest(request: PluginDeepLinkRequest): Promise<void> {
+  private async openPluginRequest(request: PluginDeepLinkRequest, options: { confirmGatewayStart: boolean }): Promise<void> {
     const requestKey = `${request.pluginId}:${request.appId || ""}`;
     if (this.openingPluginRequests.has(requestKey)) {
       return;
@@ -128,6 +123,20 @@ class DeepLinkService {
         throw new Error(`Plugin app is not configured or enabled: ${request.pluginId}`);
       }
 
+      if (gatewayService.getStatus().state !== "running" && options.confirmGatewayStart) {
+        const { response } = await dialog.showMessageBox({
+          buttons: ["Start gateway", "Cancel"],
+          cancelId: 1,
+          defaultId: 1,
+          detail: "A link asked LLM Router to open this plugin app. The gateway is not running and has to start first.",
+          message: `Open the plugin app "${pluginApp.name}"?`,
+          type: "question"
+        });
+        if (response !== 0) {
+          return;
+        }
+      }
+      // Read the status after the dialog: the gateway may have been started while it was open.
       const currentStatus = gatewayService.getStatus();
       const startedGateway = currentStatus.state !== "running";
       const status = startedGateway ? await gatewayService.start(config) : currentStatus;
@@ -263,97 +272,12 @@ function safeUrlForLog(rawUrl: string): string {
   }
 }
 
-function parsePluginDeepLinkRequest(rawUrl: string): PluginDeepLinkRequest | undefined {
-  const url = new URL(rawUrl.trim());
-  if (url.protocol !== `${appDeepLinkProtocol}:`) {
-    return undefined;
-  }
-
-  const host = url.hostname.toLowerCase();
-  const pathSegments = url.pathname.split("/").filter(Boolean).map((segment) => decodeURIComponent(segment));
-  const isPluginHost = host === "plugin";
-  const isPluginPath = pathSegments[0]?.toLowerCase() === "plugin";
-  if (!isPluginHost && !isPluginPath) {
-    return undefined;
-  }
-
-  const pluginId = boundedPluginId(
-    url.searchParams.get("plugin") ||
-      url.searchParams.get("pluginId") ||
-      (isPluginHost ? pathSegments[0] : pathSegments[1])
-  );
-  const action = (isPluginHost ? pathSegments[1] : pathSegments[2])?.toLowerCase();
-  if (action && action !== "open") {
-    throw new Error(`Unsupported plugin link action: ${action}`);
-  }
-
-  const appId = boundedPluginId(url.searchParams.get("app") || url.searchParams.get("appId"), true);
-  return {
-    ...(appId ? { appId } : {}),
-    pluginId,
-    rawUrl
-  };
-}
-
-function boundedPluginId(value: string | null | undefined, optional = false): string {
-  const normalized = value?.trim();
-  if (!normalized) {
-    if (optional) {
-      return "";
-    }
-    throw new Error("Plugin id is required.");
-  }
-  if (normalized.length > 120 || !/^[a-z0-9][a-z0-9._-]*$/i.test(normalized)) {
-    throw new Error(`Invalid plugin id: ${normalized}`);
-  }
-  return normalized;
-}
-
 function resolvePluginApp(config: Pick<AppConfig, "plugins">, request: PluginDeepLinkRequest): GatewayPluginAppConfig | undefined {
   const apps = config.plugins.find((candidate) => candidate.enabled !== false && candidate.id === request.pluginId)?.apps ?? [];
   if (request.appId) {
     return apps.find((app) => (app.id || app.name) === request.appId);
   }
   return apps[0];
-}
-
-function resolveGatewayPluginAppUrl(config: AppConfig, url: string): string {
-  const trimmed = normalizePluginAppUrl(url);
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-  const urlPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  const host = normalizeGatewayPluginAppHost(config.gateway?.host || config.HOST || "127.0.0.1");
-  const port = config.gateway?.port || config.PORT || 3456;
-  return `http://${host}:${port}${urlPath}`;
-}
-
-function normalizePluginAppUrl(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    throw new Error("Plugin app URL is required.");
-  }
-  if (/^https?:\/\//i.test(trimmed)) {
-    return new URL(trimmed).toString();
-  }
-  if (trimmed.startsWith("//")) {
-    throw new Error("Plugin app URL cannot be protocol-relative.");
-  }
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
-    throw new Error("Plugin app URL must be an http(s) URL or an LLMR gateway path.");
-  }
-  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-}
-
-function normalizeGatewayPluginAppHost(host: string): string {
-  const trimmed = host.trim();
-  if (!trimmed || trimmed === "0.0.0.0" || trimmed === "::") {
-    return "127.0.0.1";
-  }
-  if (trimmed.includes(":") && !trimmed.startsWith("[")) {
-    return `[${trimmed}]`;
-  }
-  return trimmed;
 }
 
 function createProviderDeepLinkRequest(rawUrl: string): ProviderDeepLinkRequest {
