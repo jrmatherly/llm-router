@@ -973,6 +973,15 @@ git commit -m "fix(mcp): reconnect an SSE backend after its stream drops"
 **Size:** M
 **Owner steps:** None
 
+**Status:** Merged 2026-11-17 as [PR 96](https://github.com/jrmatherly/llm-router/pull/96), squash commit `c9be0cc4`. The review changed these points:
+
+- A `sha256-<base64>` integrity that does not decode to 32 bytes is invalid, so the entry is skipped before any download. It used to be accepted and shown as a failed check.
+- The warnings name the entry. The mismatch message carries the computed hash and the byte count. A cached file that fails its hash is logged before it is downloaded again.
+- `missingPluginDependenciesMessage` in `packages/ui/src/pages/home/shared/extensions.ts` marks a missing dependency that failed its integrity check.
+- The docs say an entry is also skipped when a dependency has a `module` without an integrity. The parent's own verified module is still downloaded before that skip.
+
+The live catalog was `{"plugins": []}` on 2026-11-17, so no entry disappeared. The dialog was not opened in the running app. Left as planned: the entry button uses native `disabled`, and the error string stays "Integrity check failed" when the failure is in a dependency. Not in scope: a plugin's cached module is not hashed again when it is loaded, only when the marketplace is listed.
+
 ### Task 1: Core
 
 **Files:**
