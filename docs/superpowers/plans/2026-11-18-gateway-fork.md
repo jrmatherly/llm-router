@@ -35,7 +35,7 @@
 
 ### Task 1: Create the fork and publish `1.0.22-llmr.1`
 
-**Status, 2026-11-18.** Steps 1 to 6 are done. The fork is `https://github.com/jrmatherly/llmr-gateway` (public), cloned at `~/dev/llmr-gateway`. Branch `llmr` holds one local commit, `2dfd2ec`, on top of `0a2c0abd`: the version, the two workflows and a README note. Measured at the base: both typechecks pass and the full suite passes (65 files, 931 tests, 7 skipped), so the workflow runs `npx vitest run` with no fallback. The build has the three router-plugin markers, the tag guard returns 1 for a wrong tag and 0 for the right one, and `npm pack` names the file `the-next-ai-ai-gateway-1.0.22-llmr.1.tgz`. Not done: Step 7 (push, default branch, tag) waits for the owner's word, and Actions must be enabled on the fork before the tag is pushed. Step 8 follows the release run.
+**Status, 2026-11-18: done.** The fork is `https://github.com/jrmatherly/llmr-gateway` (public, default branch `llmr`), cloned at `~/dev/llmr-gateway`. Release `v1.0.22-llmr.1` is published from commit `fb0b76c` with `the-next-ai-ai-gateway-1.0.22-llmr.1.tgz` (1,055,163 bytes) and `SHA256SUMS`. Verified: the checksum matches, the packed `package.json` says `1.0.22-llmr.1`, and the asset downloads without credentials (HTTP 200). Measured at the base: both typechecks pass and the full suite passes (65 files, 931 tests, 7 skipped), so the workflow runs `npx vitest run`. The build has the three router-plugin markers. What the work changed: the first version of `release.yml` in this plan was invalid YAML, because the release notes held a colon followed by a space inside a plain-scalar `run:` line, and GitHub rejected the file before any job started. The fix (`fb0b76c`) puts the command in a block scalar; the code block below is corrected. The tag had been pushed on the broken commit with no release, so it was deleted and pushed again on the fix. This machine's git needs `git tag -m` (a bare `git tag` fails with "no tag message"). Two commits sit on `0a2c0abd`: `2dfd2ec` and `fb0b76c`.
 
 Repository: the fork. No LLMR file changes.
 
@@ -125,7 +125,8 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" the-next-ai-ai-gateway-*.tgz SHA256SUMS --verify-tag --title "$GITHUB_REF_NAME" --notes "Gateway build for LLM Router. Source: this tag."
+        run: |
+          gh release create "$GITHUB_REF_NAME" the-next-ai-ai-gateway-*.tgz SHA256SUMS --verify-tag --title "$GITHUB_REF_NAME" --notes "Gateway build for LLM Router, built from this tag."
 ```
 
 The two action SHAs are the ones LLMR's own workflows pin. Add two sentences at the top of the fork's `README.md`: that this is LLM Router's build of `The-NeXT-AI/ai-gateway`, on the `llmr` branch, and that releases are tarballs attached to `v*` tags. In `ci.yml`, change the push branches to `llmr`, pin both actions to the same SHAs, add `persist-credentials: false`, set `node-version: 24`, and replace `npm test` with the Step 3 test command.
@@ -149,7 +150,7 @@ Expected: only `package.json`, `package-lock.json`, `README.md` and the two work
 ```bash
 git push -u origin llmr
 gh repo edit jrmatherly/llmr-gateway --default-branch llmr
-git tag v1.0.22-llmr.1 && git push origin v1.0.22-llmr.1
+git tag -m v1.0.22-llmr.1 v1.0.22-llmr.1 && git push origin v1.0.22-llmr.1
 gh run list --repo jrmatherly/llmr-gateway --workflow Release --limit 1
 ```
 
@@ -315,7 +316,7 @@ The owner chose option A on 2026-11-18 (spec G-13): change nothing in the fork. 
 git add package.json package-lock.json
 git commit -m "chore: release 1.0.22-llmr.2"
 git push origin llmr
-git tag v1.0.22-llmr.2 && git push origin v1.0.22-llmr.2
+git tag -m v1.0.22-llmr.2 v1.0.22-llmr.2 && git push origin v1.0.22-llmr.2
 ```
 
 Then repeat Task 1 Step 8 for `1.0.22-llmr.2`.
