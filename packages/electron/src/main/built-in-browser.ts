@@ -687,7 +687,7 @@ class BuiltInBrowserService {
           label: "Open Link in System Browser"
         },
         {
-          click: () => clipboard.writeText(params.linkURL),
+          click: () => void clipboard.writeText(params.linkURL),
           label: "Copy Link"
         },
         { type: "separator" }
