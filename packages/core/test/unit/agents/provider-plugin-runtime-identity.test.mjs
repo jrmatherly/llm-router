@@ -96,7 +96,9 @@ test("Codex OAuth plugins retain the default base URL after runtime identity nor
   assert.equal(compiled.providers[0].baseurl, codexDefaultBaseUrl);
 });
 
-test("Codex OAuth plugins prefer live login credentials over imported snapshots", async (t) => {
+const codexOauthWithoutCredentials = { accessToken: { from: "llmr.codexLoginIsSetByTheLiveHook" }, refreshIfMissingAccessToken: false, required: false };
+
+test("Codex OAuth plugins imported with tokens reach the gateway without them", async (t) => {
   const home = useTemporaryCodexHome(t, "llmr-codex-runtime-live-credentials-");
   fs.mkdirSync(path.join(home, ".codex"), { recursive: true });
   fs.writeFileSync(path.join(home, ".codex", "auth.json"), JSON.stringify({
@@ -109,10 +111,13 @@ test("Codex OAuth plugins prefer live login credentials over imported snapshots"
 
   const config = createDefaultAppConfig();
   config.providerPlugins = [{
+    auth: { headers: { "X-OpenAI-Fedramp": "true" } },
     codexOauth: {
       accessToken: "access-imported",
       accountId: "acct-imported",
-      refreshToken: "refresh-imported"
+      refreshIfMissingAccessToken: true,
+      refreshToken: "refresh-imported",
+      required: true
     },
     key: "llmr-local-agent-codex-api-codex-oauth",
     providerName: "Codex API"
@@ -133,10 +138,12 @@ test("Codex OAuth plugins prefer live login credentials over imported snapshots"
     "core-auth-token"
   );
   const codexPlugin = compiled.providerPlugins.find((item) => item.key === "llmr-local-agent-codex-api-codex-oauth");
+  const hookPlugin = compiled.plugins.find((item) => item.key === "llmr-local-agent-auth-provider-hooks");
 
-  assert.equal(codexPlugin.codexOauth.accessToken, "access-live");
-  assert.equal(codexPlugin.codexOauth.refreshToken, "refresh-live");
-  assert.equal(codexPlugin.codexOauth.accountId, "acct-live");
+  assert.deepEqual(codexPlugin.codexOauth, codexOauthWithoutCredentials);
+  assert.equal(codexPlugin.auth, undefined);
+  assert.deepEqual(hookPlugin.config.providerPlugins.map((plugin) => plugin.codexOauth), [codexOauthWithoutCredentials]);
+  assert.doesNotMatch(JSON.stringify(compiled), /access-imported|refresh-imported|access-live|refresh-live/);
 });
 
 test("Codex local providers synthesize OAuth plugins when persisted plugins are missing", async (t) => {
@@ -170,11 +177,14 @@ test("Codex local providers synthesize OAuth plugins when persisted plugins are 
     "core-auth-token"
   );
   const codexPlugins = compiled.providerPlugins.filter((item) => String(item.key).includes("codex-oauth"));
+  const hookPlugin = compiled.plugins.find((item) => item.key === "llmr-local-agent-auth-provider-hooks");
 
   assert.equal(compiled.providers[0].baseurl, codexDefaultBaseUrl);
   assert.equal(codexPlugins.length, 1);
   assert.equal(codexPlugins[0].providerName, "codex-api");
-  assert.equal(codexPlugins[0].codexOauth.refreshToken, "refresh-live");
+  assert.deepEqual(codexPlugins[0].codexOauth, codexOauthWithoutCredentials);
+  assert.deepEqual(hookPlugin.config.providerPlugins.map((plugin) => plugin.key), [codexPlugins[0].key]);
+  assert.doesNotMatch(JSON.stringify(compiled), /access-live|refresh-live/);
 });
 
 test("Codex local provider fallback respects disabled OAuth plugins", async (t) => {
@@ -248,14 +258,21 @@ test("credential-free fallback headers use the provider runtime identity", () =>
 
 function useTemporaryCodexHome(t, prefix) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  const previousHome = process.env.LLMR_INTERNAL_HOME_DIR;
+  const keys = ["CODEX_HOME", "HOME", "LLMR_INTERNAL_HOME_DIR", "USERPROFILE"];
+  const saved = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
   process.env.LLMR_INTERNAL_HOME_DIR = home;
+  delete process.env.CODEX_HOME;
   t.after(() => {
-    if (previousHome === undefined) {
-      delete process.env.LLMR_INTERNAL_HOME_DIR;
-    } else {
-      process.env.LLMR_INTERNAL_HOME_DIR = previousHome;
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
     }
+    fs.rmSync(home, { force: true, recursive: true });
   });
   return home;
 }

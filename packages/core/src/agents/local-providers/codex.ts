@@ -309,19 +309,17 @@ export async function importCodexProvider(candidate: LocalAgentProviderCandidate
     providerPlugins: [
       codexOauthPlugin("codex-oauth"),
       codexOauthPlugin("codex-oauth-internal", providerInternalNamePlaceholder)
-    ].map((plugin) => ({
-      ...plugin,
-      ...(auth.isFedrampAccount ? { auth: { headers: { "X-OpenAI-Fedramp": "true" } } } : {}),
-      codexOauth: {
-        accessToken: auth.accessToken,
-        ...(auth.accountId ? { accountId: auth.accountId } : {}),
-        refreshIfMissingAccessToken: true,
-        refreshToken: auth.refreshToken,
-        required: true
-      }
-    }))
+    ].map((plugin) => ({ ...plugin, codexOauth: codexOauthWithoutCredentials }))
   };
 }
+
+// The live hook authenticates. This section only turns on the gateway's URL and body rewriting:
+// its reference resolves to nothing, so the gateway has no token to send or refresh.
+export const codexOauthWithoutCredentials = {
+  accessToken: { from: "llmr.codexLoginIsSetByTheLiveHook" },
+  refreshIfMissingAccessToken: false,
+  required: false
+};
 
 export async function probeCodexProvider(candidate: LocalAgentProviderCandidate): Promise<LocalAgentProviderProbeResult> {
   const probedCandidate = await codexCandidateWithProbedModels(candidate).catch(() => candidate);
