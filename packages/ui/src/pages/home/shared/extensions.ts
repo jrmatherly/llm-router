@@ -632,10 +632,6 @@ export function createExtensionInstallDraft(): ExtensionInstallDraft {
   };
 }
 
-export function pluginRuntimeSurfacesEnabled(surfaces: GatewayPluginSurfacesConfig | undefined): boolean {
-  return surfaces?.apps !== false || surfaces?.gateway !== false || surfaces?.provider !== false;
-}
-
 export function pluginSurfacesFromDraft(draft: Pick<PluginSettingsDraft, "appsSurfaceEnabled" | "gatewaySurfaceEnabled" | "providerSurfaceEnabled">): GatewayPluginSurfacesConfig | undefined {
   const surfaces: GatewayPluginSurfacesConfig = {
     apps: draft.appsSurfaceEnabled,
@@ -688,16 +684,4 @@ function pluginSurfacesSatisfy(installedSurfaces: GatewayPluginSurfacesConfig | 
 
 export function extensionKeyValue(item: unknown): string | undefined {
   return isPlainRecord(item) ? stringValue(item.key) || stringValue(item.id) : undefined;
-}
-
-export function slugValue(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_.-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-export function stringListValue(value: unknown): string[] {
-  return Array.isArray(value) ? value.map((item) => stringValue(item)).filter((item): item is string => Boolean(item)) : [];
 }
