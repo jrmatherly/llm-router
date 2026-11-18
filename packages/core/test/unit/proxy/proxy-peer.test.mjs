@@ -77,10 +77,10 @@ function proxyGet(frontPort, url = "http://api.example.test/v1/messages", header
 
 test("gateway mode forwards the client's own credential unchanged", async () => {
   await withProxy(undefined, async ({ frontPort, upstreamRequests }) => {
-    assert.equal(await proxyGet(frontPort, undefined, { authorization: "Bearer sk-client" }), 200);
+    const credentials = { "api-key": "sk-client-c", authorization: "Bearer sk-client-a", "x-api-key": "sk-client-b", "x-goog-api-key": "sk-client-d" };
+    assert.equal(await proxyGet(frontPort, undefined, credentials), 200);
     assert.equal(upstreamRequests.length, 1);
-    assert.equal(upstreamRequests[0].authorization, "Bearer sk-client");
-    assert.equal(upstreamRequests[0]["x-api-key"], undefined);
+    for (const [name, value] of Object.entries(credentials)) assert.equal(upstreamRequests[0][name], value, name);
     assert.equal(upstreamRequests[0]["x-llmr-proxy-mode"], "gateway");
   });
 });
