@@ -1,6 +1,7 @@
 import { app } from "electron";
-import { autoUpdater, type ProgressInfo, type UpdateDownloadedEvent, type UpdateInfo } from "electron-updater";
+import { autoUpdater, type UpdateDownloadedEvent, type UpdateInfo } from "electron-updater";
 import { IPC_CHANNELS } from "@llmr/core/config/constants";
+import { deriveStatus, formatReleaseNotes, formatUpdateError, normalizeProgress, silentFailureStatus } from "./update-status";
 import windowsManager from "./windows";
 import type { AppUpdateStatus } from "@llmr/core/contracts/app";
 
@@ -19,7 +20,7 @@ class AppUpdateService {
   private installingUpdate = false;
   private prepareInstall?: InstallPreparation;
   private startupCheckTimer?: NodeJS.Timeout;
-  private status: AppUpdateStatus = this.deriveStatus({
+  private status: AppUpdateStatus = deriveStatus({
     canCheck: false,
     canDownload: false,
     canInstall: false,
@@ -108,7 +109,7 @@ class AppUpdateService {
         return this.publishSilentCheckFailure(error, restoreStatus);
       }
       return this.publishStatus({
-        lastError: formatError(error),
+        lastError: formatUpdateError(error),
         progress: undefined,
         state: "error"
       });
@@ -140,7 +141,7 @@ class AppUpdateService {
       return this.status;
     } catch (error) {
       const status = this.publishStatus({
-        lastError: formatError(error),
+        lastError: formatUpdateError(error),
         state: "error"
       });
       throw new Error(status.lastError);
@@ -169,7 +170,7 @@ class AppUpdateService {
     } catch (error) {
       this.installingUpdate = false;
       const status = this.publishStatus({
-        lastError: formatError(error),
+        lastError: formatUpdateError(error),
         state: "error"
       });
       throw new Error(status.lastError);
@@ -253,7 +254,7 @@ class AppUpdateService {
         return;
       }
       this.publishStatus({
-        lastError: formatError(error),
+        lastError: formatUpdateError(error),
         progress: undefined,
         state: "error"
       });
@@ -272,18 +273,7 @@ class AppUpdateService {
   }
 
   private publishSilentCheckFailure(error: unknown, restoreStatus: AppUpdateStatus): AppUpdateStatus {
-    const state = restoreStatus.state === "checking" || restoreStatus.state === "error" ? "idle" : restoreStatus.state;
-    return this.publishStatus({
-      availableVersion: restoreStatus.availableVersion,
-      downloadedAt: restoreStatus.downloadedAt,
-      lastCheckedAt: restoreStatus.lastCheckedAt,
-      lastError: formatError(error),
-      progress: restoreStatus.progress,
-      releaseDate: restoreStatus.releaseDate,
-      releaseName: restoreStatus.releaseName,
-      releaseNotes: restoreStatus.releaseNotes,
-      state
-    });
+    return this.publishStatus(silentFailureStatus(restoreStatus, error));
   }
 
   private publishUpdateInfo(
@@ -303,7 +293,7 @@ class AppUpdateService {
   }
 
   private publishStatus(patch: Partial<AppUpdateStatus>): AppUpdateStatus {
-    this.status = this.deriveStatus({
+    this.status = deriveStatus({
       ...this.status,
       ...patch,
       currentVersion: app.getVersion(),
@@ -314,63 +304,12 @@ class AppUpdateService {
     return this.status;
   }
 
-  private deriveStatus(status: AppUpdateStatus): AppUpdateStatus {
-    const busy = status.state === "checking" || status.state === "downloading" || status.state === "installing";
-    return {
-      ...status,
-      canCheck: status.supported && !busy,
-      canDownload: status.supported && status.state === "available",
-      canInstall: status.supported && status.state === "downloaded"
-    };
-  }
-
   private isUpdaterSupported(): boolean {
     return app.isPackaged || Boolean(readEnvString("LLMR_UPDATE_FEED_URL"));
   }
 }
 
 export const appUpdateService = new AppUpdateService();
-
-function normalizeProgress(progress: ProgressInfo): AppUpdateStatus["progress"] {
-  return {
-    bytesPerSecond: finiteNumber(progress.bytesPerSecond),
-    percent: finiteNumber(progress.percent),
-    total: finiteNumber(progress.total),
-    transferred: finiteNumber(progress.transferred)
-  };
-}
-
-function finiteNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function formatReleaseNotes(notes: UpdateInfo["releaseNotes"]): string | undefined {
-  if (typeof notes === "string") {
-    return notes.trim() || undefined;
-  }
-  if (!Array.isArray(notes)) {
-    return undefined;
-  }
-  return notes
-    .map((item) => [item.version, item.note].filter(Boolean).join("\n"))
-    .filter(Boolean)
-    .join("\n\n") || undefined;
-}
-
-function formatError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  if (isCodeSignatureValidationError(message)) {
-    return "Downloaded update failed code-signature validation. Download the latest installer manually, or try again after the package is re-signed.";
-  }
-  return message;
-}
-
-function isCodeSignatureValidationError(message: string): boolean {
-  return (
-    /code signature at url\b/i.test(message) &&
-    /did not pass validation/i.test(message)
-  ) || /code failed to satisfy specified code requirement/i.test(message);
-}
 
 function readEnvString(name: string): string | undefined {
   const value = process.env[name]?.trim();
