@@ -29,7 +29,7 @@
 2. **The two manifests name different gateway URLs, or `node_modules` holds a different version than the manifests.** A person expects one gateway everywhere. Task 2's architecture test pins both.
 3. **A release asset is replaced after LLMR locked it.** `npm ci` must fail with an integrity error, not install the new bytes. Task 2's test asserts that the lock entry carries a `sha512` integrity for the URL.
 4. **A tag is pushed that does not match `package.json`.** The release must fail before it publishes. Task 1 Step 5 runs the check with a wrong tag name.
-5. **A workflow or the Dockerfile regains a step that installs a gateway tarball over the locked one.** Task 2's test scans `.github/` and `Dockerfile` for the old names.
+5. **A workflow regains a step that installs a gateway tarball over the locked one.** Task 2's test scans every YAML file under `.github/` for the old names. The Dockerfile keeps its opt-in local-checkout step on purpose.
 
 ---
 
@@ -126,7 +126,7 @@ jobs:
         run: gh release create "$GITHUB_REF_NAME" the-next-ai-ai-gateway-*.tgz SHA256SUMS --verify-tag --title "$GITHUB_REF_NAME" --notes "Gateway build for LLM Router. Source: this tag."
 ```
 
-The two action SHAs are the ones LLMR's own workflows pin. In `ci.yml`, change the push branches to `llmr`, pin both actions to the same SHAs, add `persist-credentials: false`, set `node-version: 24`, and replace `npm test` with the Step 3 test command.
+The two action SHAs are the ones LLMR's own workflows pin. Add two sentences at the top of the fork's `README.md`: that this is LLM Router's build of `The-NeXT-AI/ai-gateway`, on the `llmr` branch, and that releases are tarballs attached to `v*` tags. In `ci.yml`, change the push branches to `llmr`, pin both actions to the same SHAs, add `persist-credentials: false`, set `node-version: 24`, and replace `npm test` with the Step 3 test command.
 
 Check the tag guard locally: `GITHUB_REF_NAME=v9.9.9 sh -c 'test "v$(node -p "require(\"./package.json\").version")" = "$GITHUB_REF_NAME"'; echo $?`
 Expected: `1`. With `GITHUB_REF_NAME=v1.0.22-llmr.1` it prints `0`.
@@ -134,12 +134,13 @@ Expected: `1`. With `GITHUB_REF_NAME=v1.0.22-llmr.1` it prints `0`.
 - [ ] **Step 6: Commit, then owner gate for the push**
 
 ```bash
-git add package.json package-lock.json .github/workflows
+git add package.json package-lock.json .github/workflows README.md
 git commit -m "chore: release 1.0.22-llmr.1 from a tag workflow"
 git diff --stat 0a2c0abd48d2144ed0ac2ce4d954a661c51ffcb1 HEAD
+grep -c -E "requestTransforms|routeResolvers|httpRoutes" dist/index.js
 ```
 
-Expected: only `package.json`, `package-lock.json` and the two workflow files. Ask the owner once for the push, the default-branch change and the tag, and to enable Actions on the fork.
+Expected: only `package.json`, `package-lock.json`, `README.md` and the two workflow files, and a non-zero count after `npm run build`. LLMR detects router-plugin support by those three markers in the gateway's `dist/index.js` (`routerPluginSupportMarkers` in `packages/core/src/gateway/core-runtime/supervisor.ts`), not by version. Ask the owner once for the push, the default-branch change and the tag, and to enable Actions on the fork.
 
 - [ ] **Step 7: Push, set the default branch, tag**
 
@@ -147,8 +148,10 @@ Expected: only `package.json`, `package-lock.json` and the two workflow files. A
 git push -u origin llmr
 gh repo edit jrmatherly/llmr-gateway --default-branch llmr
 git tag v1.0.22-llmr.1 && git push origin v1.0.22-llmr.1
-gh run watch --repo jrmatherly/llmr-gateway
+gh run list --repo jrmatherly/llmr-gateway --workflow Release --limit 1
 ```
+
+Expected: one Release run for the tag. Wait for it with `gh run watch <id> --repo jrmatherly/llmr-gateway`, and if that exits non-zero mid-run, read the result with `gh run view <id> --repo jrmatherly/llmr-gateway`. If no run appears, Actions is still disabled on the fork (owner step).
 
 - [ ] **Step 8: Verify the asset**
 
@@ -171,8 +174,8 @@ Repository: LLMR, branch `chore/gateway-fork-dependency`. One PR. Gateway source
 - Modify: `packages/core/package.json`, `packages/cli/package.json` (the `@the-next-ai/ai-gateway` dependency)
 - Modify: `package-lock.json` (by npm)
 - Delete: `.github/actions/prepare-release-gateway/`
-- Modify: `.github/workflows/test.yml`, `.github/workflows/release.yml`, `.github/workflows/docker-release.yml`, `Dockerfile`, `.gitignore`, `.github/dependabot.yml`
-- Delete if unused after the change: `build/docker-local-gateway.mjs`, `docker/local-ai-gateway/` (grep `local-ai-gateway` and `docker-local-gateway` first; `tests/architecture/dockerignore.test.mjs` and `package.json` scripts name them)
+- Modify: `.github/workflows/test.yml`, `.github/workflows/release.yml`, `.github/workflows/docker-release.yml`, `.github/dependabot.yml`
+- Keep unchanged: `Dockerfile`, `build/docker-local-gateway.mjs`, `docker/local-ai-gateway/`, the `docker:prepare-gateway` and `docker:clean-gateway` scripts, `.gitignore`, `README.md`, `docker/README.md`, the docs Docker guide. They are the opt-in way to build an image from a local gateway checkout (`LLMR_DOCKER_GATEWAY_SOURCE_DIR`), used by `build/docker-image.mjs`, `build/docker-compose.mjs` and `tests/system/docker-smoke.mjs`, and pinned by `tests/architecture/dockerignore.test.mjs` and `package-boundaries.test.mjs`. With no tarball in `docker/local-ai-gateway/`, the Dockerfile's conditional step does nothing and the image uses the lockfile.
 - Create: `tests/architecture/gateway-dependency.test.mjs`
 - Modify: `tests/architecture/workflow-permissions.test.mjs`
 - Modify: `AGENTS.md` (the `test:system` line describes the release gateway tarball)
@@ -205,9 +208,9 @@ test("core and cli depend on one gateway release tarball, and the lockfile pins 
   assert.equal(json(`node_modules/${name}/package.json`).version, version, "run npm ci: node_modules holds another gateway");
 });
 
-test("nothing builds or installs a gateway tarball beside the lockfile", () => {
+test("no workflow builds or installs a gateway tarball beside the lockfile", () => {
   const files = readdirSync(".github", { recursive: true }).map((file) => `.github/${file}`).filter((file) => /\.ya?ml$/.test(file));
-  for (const file of [...files, "Dockerfile"]) {
+  for (const file of files) {
     assert.doesNotMatch(readFileSync(file, "utf8"), /prepare-release-gateway|local-ai-gateway|gateway-package|The-NeXT-AI\/ai-gateway/, file);
   }
 });
@@ -229,8 +232,7 @@ Expected: `git diff --stat` shows the two manifests and `package-lock.json`; the
 - In `test.yml` and `release.yml`: delete the `gateway` job, every "Download gateway package" and "Install gateway" step, and `gateway` from each `needs:` (a job left with one need writes `needs: test`, not a list). Keep the `LLMR_TEST_GATEWAY_ENTRY` env lines; the path is unchanged.
 - In `test.yml`'s `docker-smoke` job: delete the download and the `ls docker/local-ai-gateway/...` check.
 - In `docker-release.yml`: delete "Prepare gateway package" and "Verify gateway package".
-- In `Dockerfile`: delete the `RUN if ls docker/local-ai-gateway/*.tgz ...` block. `npm ci` already installs the locked tarball.
-- In `.gitignore`: delete the `docker/local-ai-gateway/*.tgz` line if the directory is deleted.
+- Leave `Dockerfile` alone (see "Keep unchanged" above).
 - In `.github/dependabot.yml`, under the root npm entry, add:
 
 ```yaml
@@ -243,7 +245,8 @@ Expected: `git diff --stat` shows the two manifests and `package-lock.json`; the
 - Drop `.concat(".github/actions/prepare-release-gateway/action.yml")` from the file list and delete the `gatewayInstall` constant.
 - "release builds wait for the test job": `test` has no `needs`; `macos` is `needs: model-catalog`; `windows` and `linux` are `needs: [create-draft, model-catalog]`.
 - Replace "tests and releases install the gateway tarball the release builds" with a test named "tests and releases run the locked gateway" that keeps the `gatewayEntry` and `package-lock=false` assertions and asserts each of those jobs contains `run: npm ci\n`.
-- In "the Docker image is smoke-tested with the release gateway before any push": delete the `needs: gateway`, `path: docker/local-ai-gateway`, `prepared` and `ls docker/local-ai-gateway` assertions. Keep the rest.
+- In "the Docker image is smoke-tested with the release gateway before any push": delete the `needs: gateway`, `path: docker/local-ai-gateway`, `prepared` and `ls docker/local-ai-gateway` assertions. Keep the rest, and rename the test to "the Docker image is smoke-tested before any push".
+- In `AGENTS.md`, the `npm run test:system` line says CI builds the image "with the release gateway tarball first". Reword it: CI's `docker-smoke` job builds the image, then runs the same script with `LLMR_DOCKER_TEST_SKIP_BUILD=1`.
 
 - [ ] **Step 6: Run the checks**
 
