@@ -21,7 +21,7 @@ import {
   modelCatalogMaxOutputTokens
 } from "@llmr/core/gateway/model-catalog.ts";
 
-function testConfig(root) {
+function testConfig() {
   const config = createDefaultAppConfig();
   config.Providers = [{
     api_base_url: "https://example.test/v1",
@@ -68,7 +68,7 @@ test("OpenCode profile config routes primary and small models through LLMR", () 
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-profile-"));
   try {
     const profile = testProfile();
-    const result = writeOpenCodeGatewayConfig(root, testConfig(root), profile, "llmr-profile-key");
+    const result = writeOpenCodeGatewayConfig(root, testConfig(), profile, "llmr-profile-key");
     const config = JSON.parse(readFileSync(result.file, "utf8"));
 
     assert.equal(result.file, path.join(root, "profiles", "opencode-main", "opencode", "opencode.jsonc"));
@@ -179,7 +179,7 @@ test("OpenCode global config keeps user settings and snapshots the original JSON
       chmodSync(configFile, 0o644);
     }
     const profile = testProfile({ configFile, scope: "global" });
-    const result = writeOpenCodeGatewayConfig(root, testConfig(root), profile, "llmr-profile-key");
+    const result = writeOpenCodeGatewayConfig(root, testConfig(), profile, "llmr-profile-key");
     const managed = JSON.parse(readFileSync(configFile, "utf8"));
 
     assert.equal(resolveOpenCodeConfigFile(root, profile), configFile);
@@ -191,7 +191,7 @@ test("OpenCode global config keeps user settings and snapshots the original JSON
       chmodSync(configFile, 0o644);
       chmodSync(`${configFile}.llmr-original`, 0o644);
       chmodSync(result.backupFile, 0o644);
-      const unchanged = writeOpenCodeGatewayConfig(root, testConfig(root), profile, "llmr-profile-key");
+      const unchanged = writeOpenCodeGatewayConfig(root, testConfig(), profile, "llmr-profile-key");
       assert.equal(unchanged.changed, false);
       assert.equal(statSync(configFile).mode & 0o777, 0o600);
       assert.equal(statSync(`${configFile}.llmr-original`).mode & 0o777, 0o600);

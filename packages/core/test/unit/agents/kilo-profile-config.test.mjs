@@ -10,7 +10,7 @@ import {
   writeKiloGatewayConfig
 } from "@llmr/core/agents/kilo/profile-config.ts";
 
-function testConfig(root) {
+function testConfig() {
   const config = createDefaultAppConfig();
   config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model-a", "model-b"], name: "Provider" }];
   config.preferredProvider = "Provider";
@@ -39,7 +39,7 @@ test("Kilo profile config routes primary and small models through LLMR", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-kilo-profile-"));
   try {
     const profile = testProfile();
-    const result = writeKiloGatewayConfig(root, testConfig(root), profile, "llmr-profile-key");
+    const result = writeKiloGatewayConfig(root, testConfig(), profile, "llmr-profile-key");
     const config = JSON.parse(readFileSync(result.file, "utf8"));
 
     assert.equal(result.file, path.join(root, "profiles", "kilo-main", "kilo", "kilo.jsonc"));
@@ -72,7 +72,7 @@ test("Kilo global config keeps user settings and snapshots the original JSONC", 
       chmodSync(configFile, 0o644);
     }
     const profile = testProfile({ configFile, scope: "global" });
-    const result = writeKiloGatewayConfig(root, testConfig(root), profile, "llmr-profile-key");
+    const result = writeKiloGatewayConfig(root, testConfig(), profile, "llmr-profile-key");
     const managed = JSON.parse(readFileSync(configFile, "utf8"));
 
     assert.equal(resolveKiloConfigFile(root, profile), configFile);
@@ -84,7 +84,7 @@ test("Kilo global config keeps user settings and snapshots the original JSONC", 
       chmodSync(configFile, 0o644);
       chmodSync(`${configFile}.llmr-original`, 0o644);
       chmodSync(result.backupFile, 0o644);
-      const unchanged = writeKiloGatewayConfig(root, testConfig(root), profile, "llmr-profile-key");
+      const unchanged = writeKiloGatewayConfig(root, testConfig(), profile, "llmr-profile-key");
       assert.equal(unchanged.changed, false);
       assert.equal(statSync(configFile).mode & 0o777, 0o600);
       assert.equal(statSync(`${configFile}.llmr-original`).mode & 0o777, 0o600);

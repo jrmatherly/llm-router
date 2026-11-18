@@ -10,6 +10,7 @@
       "!**/*.css",
       "!**/*.astro",
       "!**/*.svg",
+      "!docs/public",
       "!examples/routing",
       "!packages/ui/src/generated"
     ]

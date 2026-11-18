@@ -68,7 +68,7 @@ async function evaluateRequest(request: RouteScriptWorkerRequest): Promise<Route
   }
 }
 
-function compileScript(source: string, requestId: number, context: vm.Context): Function {
+function compileScript(source: string, requestId: number, context: vm.Context) {
   return vm.compileFunction(
     `"use strict";\nreturn (async () => {\n${source}\n})();`,
     ["input", "api"],

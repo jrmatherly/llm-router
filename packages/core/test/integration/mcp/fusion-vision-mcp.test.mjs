@@ -460,7 +460,7 @@ test("Fusion vision MCP restricts the forwarded media-type label to supported ra
   }
   const child = spawnVision(t, provider.port);
 
-  const octetStream = await sendJsonRpc(child, {
+  await sendJsonRpc(child, {
     id: 1,
     jsonrpc: "2.0",
     method: "tools/call",
@@ -471,7 +471,7 @@ test("Fusion vision MCP restricts the forwarded media-type label to supported ra
   });
   assert.equal(provider.lastBody?.messages?.[0]?.content?.[1]?.image_url?.url, `data:image/png;base64,${pngA}`);
 
-  const textPlain = await sendJsonRpc(child, {
+  await sendJsonRpc(child, {
     id: 2,
     jsonrpc: "2.0",
     method: "tools/call",
@@ -482,7 +482,7 @@ test("Fusion vision MCP restricts the forwarded media-type label to supported ra
   });
   assert.equal(provider.lastBody?.messages?.[0]?.content?.[1]?.image_url?.url, `data:image/png;base64,${pngA}`);
 
-  const webp = await sendJsonRpc(child, {
+  await sendJsonRpc(child, {
     id: 3,
     jsonrpc: "2.0",
     method: "tools/call",

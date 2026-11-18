@@ -8,7 +8,6 @@ import {
   buildStyles,
   cleanDist,
   browserRendererHtmlInput,
-  cliSourceRoot,
   coreSourceRoot,
   copyAppAssets,
   copyBrowserRendererHtml,

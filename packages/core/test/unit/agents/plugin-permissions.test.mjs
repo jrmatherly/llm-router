@@ -27,7 +27,7 @@ test("plugin permissions gate dynamic gateway route registration", { skip: !proc
       ""
     ].join("\n"), "utf8");
 
-    const warnings = await startWithWarnings(configWithPlugin(dir, pluginFile, ["trusted-code"]));
+    const warnings = await startWithWarnings(configWithPlugin(pluginFile, ["trusted-code"]));
     assert.match(
       warnings.join("\n"),
       /Plugin permission-test requires permission "gateway-routes" to register gateway routes\./
@@ -35,7 +35,7 @@ test("plugin permissions gate dynamic gateway route registration", { skip: !proc
     assert.equal(pluginService.hasGatewayRoutes(), false);
     await pluginService.stop();
 
-    await pluginService.start(configWithPlugin(dir, pluginFile, ["trusted-code", "gateway-routes"]));
+    await pluginService.start(configWithPlugin(pluginFile, ["trusted-code", "gateway-routes"]));
     assert.equal(pluginService.hasGatewayRoutes(), true);
   } finally {
     await pluginService.stop();
@@ -64,7 +64,7 @@ test("plugins without permissions declarations are rejected", { skip: !process.e
       ""
     ].join("\n"), "utf8");
 
-    const warnings = await startWithWarnings(configWithPlugin(dir, pluginFile, undefined));
+    const warnings = await startWithWarnings(configWithPlugin(pluginFile, undefined));
     assert.match(
       warnings.join("\n"),
       /Plugin permission-test must explicitly declare permissions to load and execute plugin JavaScript\./
@@ -80,7 +80,7 @@ test("plugin permissions gate configured browser apps", { skip: !process.env.LLM
   const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-plugin-static-permissions-"));
   try {
     const warnings = await startWithWarnings({
-      ...baseConfig(dir),
+      ...baseConfig(),
       plugins: [{
         apps: [{ id: "app", name: "App", url: "/app" }],
         enabled: true,
@@ -121,7 +121,7 @@ test("known bundled plugins without persisted permissions receive scoped default
     ].join("\n"), "utf8");
 
     await pluginService.start({
-      ...baseConfig(dir),
+      ...baseConfig(),
       plugins: [{
         enabled: true,
         id: "cursor-proxy",
@@ -143,7 +143,7 @@ test("known bundled plugins without persisted permissions receive scoped default
       ""
     ].join("\n"), "utf8");
     const warnings = await startWithWarnings({
-      ...baseConfig(dir),
+      ...baseConfig(),
       plugins: [{
         enabled: true,
         id: "cursor-proxy",
@@ -173,7 +173,7 @@ test("app-only plugin surface can execute trusted JavaScript and register apps",
     ].join("\n"), "utf8");
 
     const warnings = await startWithWarnings({
-      ...baseConfig(dir),
+      ...baseConfig(),
       plugins: [{
         enabled: true,
         id: "app-only",
@@ -190,7 +190,7 @@ test("app-only plugin surface can execute trusted JavaScript and register apps",
     await pluginService.stop();
 
     await pluginService.start({
-      ...baseConfig(dir),
+      ...baseConfig(),
       plugins: [{
         enabled: true,
         id: "app-only",
@@ -229,7 +229,7 @@ test("plugin surfaces gate dynamic gateway registration", { skip: !process.env.L
       ""
     ].join("\n"), "utf8");
 
-    const warnings = await startWithWarnings(configWithPlugin(dir, pluginFile, ["trusted-code", "gateway-routes"], { surfaces: { gateway: false, provider: true } }));
+    const warnings = await startWithWarnings(configWithPlugin(pluginFile, ["trusted-code", "gateway-routes"], { surfaces: { gateway: false, provider: true } }));
     assert.match(
       warnings.join("\n"),
       /Plugin permission-test has gateway surface disabled and cannot register gateway routes\./
@@ -246,12 +246,12 @@ test("plugin modules are reloaded from the same path after gateway restart", { s
   try {
     const pluginFile = path.join(dir, "reload-plugin.cjs");
     writeReloadPlugin(pluginFile, "Version 1", "/v1");
-    await pluginService.start(configWithPlugin(dir, pluginFile, ["trusted-code", "apps"]));
+    await pluginService.start(configWithPlugin(pluginFile, ["trusted-code", "apps"]));
     assert.equal(pluginService.getApps()[0]?.name, "Version 1");
 
     await pluginService.stop();
     writeReloadPlugin(pluginFile, "Version 2", "/v2");
-    await pluginService.start(configWithPlugin(dir, pluginFile, ["trusted-code", "apps"]));
+    await pluginService.start(configWithPlugin(pluginFile, ["trusted-code", "apps"]));
     assert.equal(pluginService.getApps()[0]?.name, "Version 2");
   } finally {
     await pluginService.stop();
@@ -259,7 +259,7 @@ test("plugin modules are reloaded from the same path after gateway restart", { s
   }
 });
 
-function configWithPlugin(dir, pluginFile, permissions, overrides = {}) {
+function configWithPlugin(pluginFile, permissions, overrides = {}) {
   const plugin = {
     enabled: true,
     id: "permission-test",
@@ -270,7 +270,7 @@ function configWithPlugin(dir, pluginFile, permissions, overrides = {}) {
     plugin.permissions = permissions;
   }
   return {
-    ...baseConfig(dir),
+    ...baseConfig(),
     plugins: [plugin]
   };
 }
@@ -287,7 +287,7 @@ async function startWithWarnings(config) {
   return warnings;
 }
 
-function baseConfig(dir) {
+function baseConfig() {
   const config = createDefaultAppConfig();
   config.gateway.enabled = false;
   config.plugins = [];

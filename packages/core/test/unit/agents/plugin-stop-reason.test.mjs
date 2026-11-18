@@ -29,8 +29,8 @@ test("gateway restart reports disabled reason to removed plugin stop hooks", { s
       ""
     ].join("\n"), "utf8");
 
-    await pluginService.start(configWithPlugin(dir, pluginFile, true));
-    await gatewayService.start(configWithPlugin(dir, pluginFile, false));
+    await pluginService.start(configWithPlugin(pluginFile, true));
+    await gatewayService.start(configWithPlugin(pluginFile, false));
 
     assert.equal(readFileSync(reasonFile, "utf8"), "disabled\n");
   } finally {
@@ -45,7 +45,7 @@ test("gateway restart reports disabled reason to removed plugin stop hooks", { s
   }
 });
 
-function configWithPlugin(dir, pluginFile, enabled) {
+function configWithPlugin(pluginFile, enabled) {
   const config = createDefaultAppConfig();
   config.gateway.enabled = false;
   config.plugins = [{

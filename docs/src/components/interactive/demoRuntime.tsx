@@ -146,11 +146,6 @@ export function VirtualCursor({ state }: { state: CursorState }) {
   );
 }
 
-function center(el: Element): { x: number; y: number } {
-  const r = el.getBoundingClientRect();
-  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-}
-
 /** Trigger a real click via the native HTMLElement.click() method — the most
  *  reliable way to fire React onClick handlers (delegated at the root). */
 function fireClick(el: Element) {

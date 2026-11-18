@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { runInThisContext } from "node:vm";
 import {
   createProviderAccountWebContentFetchHandler,
   providerAccountWebContentInternalsForTest
@@ -142,13 +143,14 @@ test("browser account fetch script renders storage header templates", async () =
       },
       requestOrigin: "https://vendor.example.com"
     }, 5000);
-    const result = await (0, eval)(script) as any;
+    const result = await runInThisContext(script) as any;
 
     assert.equal(result.ok, true);
     assert.equal(result.text, "{\"balance\":12}");
     assert.equal(fetchInit?.credentials, "omit");
-    assert.equal((fetchInit?.headers as Record<string, string>).authorization, "Bearer access-123");
-    assert.equal((fetchInit?.headers as Record<string, string>)["x-csrf-token"], "csrf-456");
+    const headers = fetchInit?.headers as Record<string, string> | undefined;
+    assert.equal(headers?.authorization, "Bearer access-123");
+    assert.equal(headers?.["x-csrf-token"], "csrf-456");
     assert.equal(fetchInit?.redirect, "error");
   } finally {
     (globalThis as any).fetch = previousFetch;
