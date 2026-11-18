@@ -1299,6 +1299,9 @@ export function InstallExtensionDialog({
 }) {
 
   function selectMarketplace(entry: PluginMarketplaceEntry) {
+    if (entry.error) {
+      return;
+    }
     onChange({
       key: entry.id,
       apps: entry.apps,
@@ -1333,14 +1336,17 @@ export function InstallExtensionDialog({
                   <button
                     className={cn(
                       "flex w-full min-w-0 flex-col gap-1 rounded-md border px-3 py-2 text-left text-[12px] transition-colors",
-                      draft.marketplaceId === entry.id ? "border-primary/50 bg-primary/5" : "border-border bg-card hover:bg-muted/40"
+                      draft.marketplaceId === entry.id ? "border-primary/50 bg-primary/5" : "border-border bg-card",
+                      entry.error ? "cursor-not-allowed opacity-60" : draft.marketplaceId !== entry.id && "hover:bg-muted/40"
                     )}
+                    disabled={Boolean(entry.error)}
                     key={entry.id}
                     onClick={() => selectMarketplace(entry)}
                     type="button"
                   >
                     <span className="truncate font-semibold text-foreground">{entry.name}</span>
                     <span className="line-clamp-2 text-[11px] text-muted-foreground">{entry.description}</span>
+                    {entry.error ? <span className="text-[11px] text-destructive">{entry.error}</span> : null}
                     <span className="truncate text-[10px] text-muted-foreground/80">{entry.capabilities.join(", ")}</span>
                     <span className="truncate text-[10px] text-muted-foreground/80">Surfaces: {pluginSurfaceSummary(entry.surfaces)}</span>
                     {entry.permissions?.length ? (

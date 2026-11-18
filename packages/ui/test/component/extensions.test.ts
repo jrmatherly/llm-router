@@ -147,3 +147,10 @@ test("wrapperPluginCapability counts cursor-proxy routing rules and omits the la
   const unrouted = wrapperPluginCapability({ config: {}, id: "cursor-proxy" });
   assert.doesNotMatch(unrouted, /route|Configurable routing/);
 });
+
+test("a marketplace dependency that failed its integrity check blocks the install", () => {
+  const marketplace: PluginMarketplaceEntry[] = [{ capabilities: [], dependencies: [], description: "", error: "Integrity check failed", id: "dependency", modulePath: "", name: "Dependency" }];
+  const root: PluginInstallCandidate = { dependencies: [{ id: "dependency" }], id: "root", modulePath: "/tmp/root.cjs", name: "Root" };
+  const plan = resolvePluginInstallPlan(root, marketplace, []);
+  assert.deepEqual(plan.missing, ["dependency"]);
+});

@@ -473,7 +473,7 @@ export function pluginDependencyCandidate(
   }
 
   const entry = marketplaceById.get(dependency.id);
-  if (!entry) {
+  if (!entry || entry.error) {
     return undefined;
   }
   return {
