@@ -86,7 +86,7 @@ Researched on 2026-11-18 for the owner's decision. Each line says how it is know
 
 **Who the 400 reaches.** A new Fusion model in LLMR's UI starts with the built-in vision tool (measured: `createVirtualModelDraft` in `packages/ui/src/pages/home/shared/virtual-models.ts` sets `toolsText` to it). Vision, web search, image and video generation and a custom MCP tool are what Fusion exists for (the Fusion docs page). So the check covers the ordinary Fusion model, not a corner case. It fires for Claude Code v2.1.278 or later, in auto mode, routed to such a model.
 
-**What Claude Code does with that 400.** The user docs list no retry for a rejected `safeguards` field. The gateway guidance built into the 2.1.327 binary does: "If you or your upstream can't, answer `400 invalid_request_error` with a message that names `safeguards`: the client retries without them and runs the check itself with ordinary requests" (read from the binary's strings). A third party tested that on Claude Code 2.1.323 against a local stub and saw the retry without the beta value and the field (LogosOSS/Logos issue 161, comment of 2026-11-13). The patch's response is not in that form. `sendCountedBadRequest` answers `{"error": {"message": ...}}` with no `type` (read from `src/gateway/handler.ts` at the patched commit). The message does name `safeguards`. Whether Claude Code accepts that body is not known. How often it asks again after a retry is not known either: one log string says "the next request sends them again".
+**What Claude Code does with that 400.** The user docs list no retry for a rejected `safeguards` field. The gateway guidance built into the 2.1.327 binary does: "If you or your upstream can't, answer `400 invalid_request_error` with a message that names `safeguards`: the client retries without them and runs the check itself with ordinary requests" (read from the binary's strings). A third party tested that on Claude Code 2.1.323 against a local stub and saw the retry without the beta value and the field (LogosOSS/Logos issue 161, comment of 2026-11-13). The patch's response is not in that form. `sendCountedBadRequest` answers `{"error": {"message": ...}}` with no `type` (read from `src/gateway/handler.ts` at the patched commit). The message does name `safeguards`. The stub experiment below shows that Claude Code accepts that body too.
 
 **Why the patch rejects.** Its README gives the reason: with internal tools the gateway runs a tool loop of several upstream calls, and the server's verdicts are tied to tool-use IDs in one response. A verdict from one call cannot be trusted for another. Not passing `safeguards` through a tool loop is sound. Rejecting the request is one way to do that. Dropping the field is the other, and it is what the gateway does today.
 
@@ -94,11 +94,27 @@ Researched on 2026-11-18 for the owner's decision. Each line says how it is know
 
 | | Option | What a Claude Code user in auto mode sees on a Fusion model with a tool | Cost |
 |---|---|---|---|
-| A | Take the patch, and change the rejection's body to the form Claude Code specifies (`invalid_request_error`, a message naming `safeguards`). | A 400, then Claude Code's retry without the pair, then its own classifier. LLMR's request log records a failed request each time Claude Code asks again, and how often that is has not been observed. | A few lines in the fork. The upstream never sees the beta value without its field. |
+| A | Take the patch as written. | One 400 on the session's first request, then Claude Code stops sending the pair for that session and uses its own classifier (measured). LLMR's request log records that one failed request per session. | Nothing extra in the fork. The upstream never sees the beta value without its field in that session. |
 | B | Take the patch, and replace the rejection with dropping `safeguards` for a virtual model that has internal tools. | The same as today: the documented fallback to Claude Code's own classifier. Server review starts working on Fusion models without tools and stays working on direct models. | One more commit in the fork, about ten lines and a rewritten test. The beta header is still forwarded without its field, as today. |
 | C | Leave the safeguards patch out. Ship only the stream fix. | The same as today everywhere. | The eight cases stay expected failures, and server review never works through any virtual model. |
 
-**Recommendation: B, by a narrow margin.** Both A and B end with Claude Code running its own classifier. B changes nothing a user sees today and adds no failed requests to LLMR's log. A follows the rejection path Claude Code specifies and keeps a lone beta value away from the upstream, but it depends on retry behaviour nobody here has observed. A stub experiment settles that if the owner prefers A: point Claude Code at a local Messages stub that answers the specified 400 and count the rejected requests in one auto mode session.
+**Measured on 2026-11-18** with Claude Code 2.1.327 in `-p` auto mode, a fresh config directory, and a local stub of the Messages API (`research/2026-11-18-gateway-fork/`, where the README has the request logs):
+
+| Stub behaviour | What Claude Code sent | Its log line |
+|---|---|---|
+| 400 with the specified body | Request 1 with the pair, answered 400. Every later request without the beta value and without the field. | "it is not sent again this session and auto mode decides with the local classifier" |
+| 400 with the patch's own body (`{"error": {"message": ...}}`) | The same: one 400, then neither. | The same line. |
+| 200 with no results (what a virtual model does today, and option B) | Request 1 with the pair. Later requests keep the beta value and drop the field. | "the platform gave no classification for this request (server_no_result) ... classifies locally for the rest of this session and stops sending the classifier context" |
+
+Three things follow.
+
+- Option A works with the patch exactly as written. It costs one rejected request per session, not one per request.
+- After a fallback, Claude Code itself sends the beta value without the field. So a provider seeing the lone beta value is the client's own normal behaviour, not something option B introduces.
+- In all three runs Claude Code printed: "An upcoming release removes this fallback. In sessions like this one, each checked action will then be asked about or denied." The binary carries the matching text for `CLAUDE_CODE_AUTO_MODE_SERVER=0`: "Claude Code no longer has a check of its own to use instead."
+
+**Recommendation: A, the patch as written.** A and B end in the same place for the user, so the smaller change wins. A adds no commit of our own on top of upstream's patch, its one 400 per session is the rejection Claude Code is built to receive, and it keeps the provider from seeing the pair half-sent. B would need a custom commit to reach the same result.
+
+**What this means beyond the fork.** Once Claude Code removes the local fallback, auto mode will work through LLMR only where a real verdict comes back: a direct Anthropic model, or a virtual model without internal tools on an Anthropic provider, which is the path this patch opens. On every other route each checked action will be asked about or denied, whatever the gateway does with the field. The only gateway-side answer for those routes is to produce verdicts itself, as one gateway already does (incoai/splash issue 589). That is a product decision for a later spec, not part of this one.
 
 **What other gateways and providers show** (public issue reports, read on 2026-11-18).
 
@@ -107,13 +123,14 @@ Researched on 2026-11-18 for the owner's decision. Each line says how it is know
 - z.ai's Anthropic-format endpoint receives the pair straight from Claude Code and the session falls back with the billing notice; nothing fails (zai-org/feedback issue 785, Claude Code 2.1.278). cc-switch reports the same for its Anthropic-format pass-through to third-party models and tells users to set `CLAUDE_CODE_AUTO_MODE_SERVER=0` for those providers (cc-switch issue 7625).
 - A session that cannot fetch feature flags, for example with `DISABLE_TELEMETRY=1` or `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, has no local classifier to fall back to. Every checked action then needs approval, whether the gateway drops the field or rejects it. Only `CLAUDE_CODE_AUTO_MODE_SERVER=0` restores the local classifier (LogosOSS/Logos issue 161, reproduced there on 2.1.323; the Claude Code docs say such sessions ask the server by default from v2.1.282). LLMR sets neither variable (measured: `grep`), so this depends on the user's own environment.
 
-**A follow-up in LLMR that matters more than A against B.** LLMR writes the environment of each Claude Code profile and knows the profile's route. When the route cannot return verdicts (a non-Anthropic provider, or a Fusion model with internal tools), LLMR can set `CLAUDE_CODE_AUTO_MODE_SERVER=0` for that profile. Claude Code then never sends the pair: no notice, no wasted first response, and a working classifier even with telemetry off. cc-switch shipped the same remedy. Anthropic calls the variable temporary, so the fork's handling stays the backstop. This is LLMR code, outside this spec, and needs its own small plan after the fork.
+**A short-lived follow-up in LLMR.** LLMR writes each Claude Code profile's environment and knows its route. Setting `CLAUDE_CODE_AUTO_MODE_SERVER=0` for a profile whose route cannot return verdicts removes the notice and the wasted first request today, and cc-switch shipped that remedy. The measured notice says the local classifier it relies on is being removed, so this buys time only. Not planned here.
 
 **Not verified.**
 
-- What Anthropic answers when the beta value arrives without the `safeguards` field. No report found probes it. It is what every virtual model sends today, in LLMR and in upstream claude-code-router, and no issue found complains of it. One request settles it, with a real key: a `POST https://api.anthropic.com/v1/messages` carrying `anthropic-beta: dangerous-tool-use-2026-09-03` and an ordinary body with no `safeguards`. A 200 means option B is safe against Anthropic. A 400 means B must also remove that beta value, or A is the better choice.
-- What a strict non-Anthropic provider does with a forwarded `safeguards` field. The reports above cover z.ai and cc-switch's third-party routes only. Direct models already forward it today.
-- Whether Claude Code accepts the patch's error body, and how often it asks again (option A). The stub experiment above measures both.
+- What Anthropic answers when the beta value arrives without the `safeguards` field. Claude Code sends exactly that after a fallback (measured above), so a rejection would break its own fallback. Still not probed against Anthropic directly; one request with a real key settles it.
+- What a strict non-Anthropic provider does with a forwarded `safeguards` field. If it answers 400, the measured retry applies. Direct models already forward the field today.
+- Interactive sessions. The runs above were `-p`. The binary has one branch where a rejected request "is not sent again", for sessions whose tools may run on a tools host; it was not reached here.
+- When the fallback is removed. The notice gives no version or date.
 
 ## Deferred, with reasons
 
