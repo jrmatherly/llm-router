@@ -12,7 +12,7 @@ import type {
   GatewayProviderCapabilityProtocol,
   GatewayProviderProtocol
 } from "@llmr/core/contracts/app";
-import { codexDefaultBaseUrl, readCodexAuth } from "@llmr/core/agents/local-providers/codex";
+import { codexDefaultBaseUrl, codexOauthRequiredScopes, resolveCodexAuth } from "@llmr/core/agents/local-providers/codex";
 import { opencodeCatalogProtocolModelMap } from "@llmr/core/agents/local-providers/opencode";
 import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared";
 import { readClaudeAppsGatewaySession, readClaudeCodeOauth, resolveClaudeAppsGatewaySession, resolveClaudeCodeAuthOrStored } from "@llmr/core/agents/local-providers/service";
@@ -98,22 +98,8 @@ const protocolProbeCacheMs = 60 * 1000;
 const connectivityProbeCacheMs = 15 * 1000;
 const failedProbeCacheMs = 10 * 1000;
 const maxProbeCacheEntries = 500;
-const codexOauthTokenEndpoint = "https://auth.openai.com/oauth/token";
-const codexOauthClientId = "app_EMoamEEZ73f0CkXaXp7hrann";
-const codexOauthDefaultScope = "openid profile email offline_access";
-const codexOauthRequiredScopes = ["api.connectors.read", "api.connectors.invoke"];
-const codexOauthDefaultTimeoutMs = 8_000;
-const codexProbeOauthCache = new Map<string, CodexProbeOauthRefreshResult>();
-const inFlightCodexProbeOauthRefreshes = new Map<string, Promise<CodexProbeOauthRefreshResult>>();
 const probeCache = new Map<string, ProbeCacheEntry>();
 const inFlightProbes = new Map<string, Promise<GatewayProviderProbeResult>>();
-
-type CodexProbeOauthRefreshResult = {
-  accessToken?: string;
-  accountId?: string;
-  expiresAtMs: number;
-  refreshToken?: string;
-};
 
 export async function probeGatewayProvider(request: GatewayProviderProbeRequest): Promise<GatewayProviderProbeResult> {
   pruneProbeCache();
@@ -920,21 +906,13 @@ async function providerProbeAuthRequest(
   const auth = providerPlugins
     .map(providerPluginAuth)
     .find((item): item is Record<string, unknown> => Boolean(item));
-  let codexOauth = providerPlugins
-    .map(providerPluginCodexOauth)
-    .find((item): item is Record<string, unknown> => Boolean(item));
   let requestTransform = providerPlugins
     .map(providerPluginRequest)
     .find((item): item is Record<string, unknown> => Boolean(item));
-  const liveCodexAuth = providerProbeLiveCodexOauth(url, apiKey);
-  if (codexOauth && liveCodexAuth) {
-    codexOauth = {
-      ...codexOauth,
-      ...liveCodexAuth.codexOauth
-    };
-  } else {
-    codexOauth ??= liveCodexAuth?.codexOauth;
-  }
+  const liveCodexAuth = await providerProbeLiveCodexOauth(url, apiKey, providerPlugins);
+  const codexOauth = liveCodexAuth?.codexOauth ?? providerPlugins
+    .map(providerPluginCodexOauth)
+    .find((item): item is Record<string, unknown> => Boolean(item));
   requestTransform ??= liveCodexAuth?.request;
   if (codexOauth && apiKey === localAgentProviderApiKey && isCodexProbeEndpoint(url)) {
     requestTransform = withCodexProbeBackendRequestTransform(requestTransform);
@@ -946,7 +924,7 @@ async function providerProbeAuthRequest(
   }
 
   if (codexOauth) {
-    request = await providerProbeCodexOauthRequest(request.url, request.init, codexOauth);
+    request = providerProbeCodexOauthRequest(request.url, request.init, codexOauth);
   }
 
   if (liveCodexAuth?.isFedrampAccount) {
@@ -1005,29 +983,35 @@ function localClaudeAppsGatewayProbeUrl(apiKey: string | undefined, providerPlug
   return undefined;
 }
 
-function providerProbeLiveCodexOauth(
+// A local Codex plugin's stored tokens are a stale snapshot; the Codex login file is the only source.
+async function providerProbeLiveCodexOauth(
   url: string,
-  apiKey: string | undefined
-): { codexOauth: Record<string, unknown>; isFedrampAccount?: boolean; request: Record<string, unknown> } | undefined {
-  if (apiKey !== localAgentProviderApiKey || !isCodexProbeEndpoint(url)) {
+  apiKey: string | undefined,
+  providerPlugins: unknown[]
+): Promise<{ codexOauth: Record<string, unknown>; isFedrampAccount?: boolean; request: Record<string, unknown> } | undefined> {
+  const hasLocalPlugin = providerPlugins.some(isLocalCodexOauthProviderPlugin);
+  if (!hasLocalPlugin && (apiKey !== localAgentProviderApiKey || !isCodexProbeEndpoint(url))) {
     return undefined;
   }
 
-  const auth = readCodexAuth();
-  if (!auth?.accessToken && !auth?.refreshToken) {
+  const auth = await resolveCodexAuth();
+  if (!hasLocalPlugin && !auth?.accessToken) {
     return undefined;
   }
   return {
     codexOauth: {
-      ...(auth.accessToken ? { accessToken: auth.accessToken } : {}),
-      ...(auth.accountId ? { accountId: auth.accountId } : {}),
-      refreshIfMissingAccessToken: true,
-      ...(auth.refreshToken ? { refreshToken: auth.refreshToken } : {}),
+      ...(auth?.accessToken ? { accessToken: auth.accessToken } : {}),
+      ...(auth?.accountId ? { accountId: auth.accountId } : {}),
       required: true
     },
-    isFedrampAccount: auth.isFedrampAccount,
+    isFedrampAccount: auth?.isFedrampAccount,
     request: codexProbeBackendRequestTransform()
   };
+}
+
+function isLocalCodexOauthProviderPlugin(plugin: unknown): boolean {
+  const key = isRecord(plugin) ? readString(plugin.key)?.toLowerCase() ?? "" : "";
+  return key.startsWith("llmr-local-agent-") && key.includes("codex-oauth");
 }
 
 function isCodexProbeEndpoint(url: string): boolean {
@@ -1240,23 +1224,14 @@ function withCodexProbeBackendRequestTransform(requestTransform: Record<string, 
   };
 }
 
-async function providerProbeCodexOauthRequest(
+function providerProbeCodexOauthRequest(
   url: string,
   init: RequestInit,
   codexOauth: Record<string, unknown>
-): Promise<{ init: RequestInit; url: string }> {
+): { init: RequestInit; url: string } {
   const requiredScopes = codexRequiredScopes(codexOauth.requiredScopes);
-  const scope = codexOauthScope(readString(codexOauth.scope), requiredScopes);
-  let accessToken = readString(codexOauth.accessToken) || readString(codexOauth.access_token);
-  let refreshToken = readString(codexOauth.refreshToken) || readString(codexOauth.refresh_token);
+  const accessToken = readString(codexOauth.accessToken) || readString(codexOauth.access_token);
   let accountId = readString(codexOauth.accountId) || readString(codexOauth.account_id);
-
-  if (refreshToken && shouldRefreshCodexProbeToken(accessToken, codexOauth, requiredScopes)) {
-    const refreshed = await refreshCodexProbeAccessToken(codexOauth, refreshToken, scope);
-    accessToken = refreshed.accessToken || accessToken;
-    refreshToken = refreshed.refreshToken || refreshToken;
-    accountId = refreshed.accountId || accountId;
-  }
 
   const required = readBoolean(codexOauth.required) !== false;
   if (!accessToken) {
@@ -1315,118 +1290,6 @@ function readStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.map(readString).filter((item): item is string => Boolean(item))
     : [];
-}
-
-async function refreshCodexProbeAccessToken(
-  codexOauth: Record<string, unknown>,
-  refreshToken: string,
-  scope: string
-): Promise<CodexProbeOauthRefreshResult> {
-  const tokenEndpoint =
-    readString(codexOauth.tokenEndpoint) ||
-    readString(process.env.CODEX_REFRESH_TOKEN_URL_OVERRIDE) ||
-    codexOauthTokenEndpoint;
-  const clientId = readString(codexOauth.clientId) || codexOauthClientId;
-  const cacheKey = [
-    tokenEndpoint,
-    clientId,
-    scope,
-    hashSensitiveValue(refreshToken)
-  ].join("\n");
-  const now = Date.now();
-  const cached = codexProbeOauthCache.get(cacheKey);
-  if (cached?.accessToken && cached.expiresAtMs > now + 60_000) {
-    return cached;
-  }
-  const inFlight = inFlightCodexProbeOauthRefreshes.get(cacheKey);
-  if (inFlight) {
-    return inFlight;
-  }
-
-  const refresh = refreshCodexProbeAccessTokenUncached(codexOauth, refreshToken, scope, tokenEndpoint, clientId, now)
-    .finally(() => {
-      if (inFlightCodexProbeOauthRefreshes.get(cacheKey) === refresh) {
-        inFlightCodexProbeOauthRefreshes.delete(cacheKey);
-      }
-    });
-  inFlightCodexProbeOauthRefreshes.set(cacheKey, refresh);
-  return refresh;
-}
-
-async function refreshCodexProbeAccessTokenUncached(
-  codexOauth: Record<string, unknown>,
-  refreshToken: string,
-  scope: string,
-  tokenEndpoint: string,
-  clientId: string,
-  now: number
-): Promise<CodexProbeOauthRefreshResult> {
-  const timeoutMs = Math.max(1, Number(codexOauth.timeoutMs) || codexOauthDefaultTimeoutMs);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetchWithSystemProxy(tokenEndpoint, {
-      body: JSON.stringify({
-        client_id: clientId,
-        grant_type: "refresh_token",
-        refresh_token: refreshToken,
-        scope
-      }),
-      headers: {
-        "content-type": "application/json"
-      },
-      method: "POST",
-      signal: controller.signal
-    });
-    const text = await response.text();
-    const payload = parseJson(text);
-    if (!response.ok) {
-      throw new Error(`Codex OAuth token refresh returned HTTP ${response.status}${codexTokenRefreshErrorMessage(payload, text)}`);
-    }
-    if (!isRecord(payload)) {
-      throw new Error("Codex OAuth token refresh returned an invalid JSON payload.");
-    }
-
-    const accessToken = readString(payload.access_token) || readString(payload.accessToken);
-    if (!accessToken) {
-      throw new Error("Codex OAuth token refresh did not return an access token.");
-    }
-
-    const result = {
-      accessToken,
-      accountId: readString(payload.account_id) || readString(payload.accountId) || codexAccountIdFromToken(accessToken),
-      expiresAtMs: codexTokenExpiresAtMs(accessToken) ?? now + 30 * 60 * 1000,
-      refreshToken: readString(payload.refresh_token) || readString(payload.refreshToken) || refreshToken
-    };
-    codexProbeOauthCache.set([
-      tokenEndpoint,
-      clientId,
-      scope,
-      hashSensitiveValue(refreshToken)
-    ].join("\n"), result);
-    pruneCodexProbeOauthCache();
-    return result;
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(`Codex OAuth token refresh timed out after ${timeoutMs}ms.`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function pruneCodexProbeOauthCache(): void {
-  if (codexProbeOauthCache.size <= maxProbeCacheEntries) {
-    return;
-  }
-  const oldestEntries = [...codexProbeOauthCache.entries()]
-    .sort(([, left], [, right]) => left.expiresAtMs - right.expiresAtMs)
-    .slice(0, codexProbeOauthCache.size - maxProbeCacheEntries);
-  for (const [key] of oldestEntries) {
-    codexProbeOauthCache.delete(key);
-  }
 }
 
 async function requestJson(url: string, init: RequestInit): Promise<FetchJsonResult> {
@@ -2008,41 +1871,6 @@ function codexRequiredScopes(value: unknown): string[] {
   return scopes.length > 0 ? scopes : [...codexOauthRequiredScopes];
 }
 
-function codexOauthScope(configuredScope: string | undefined, requiredScopes: string[]): string {
-  return uniqueStrings([
-    ...((configuredScope || codexOauthDefaultScope).split(/\s+/)),
-    ...requiredScopes
-  ]).join(" ");
-}
-
-function shouldRefreshCodexProbeToken(
-  accessToken: string | undefined,
-  codexOauth: Record<string, unknown>,
-  requiredScopes: string[]
-): boolean {
-  if (readBoolean(codexOauth.forceRefresh)) {
-    return true;
-  }
-  if (!accessToken) {
-    return readBoolean(codexOauth.refreshIfMissingAccessToken) !== false;
-  }
-  if (codexAccessTokenExpired(accessToken)) {
-    return true;
-  }
-  return codexMissingRequiredScopes(accessToken, requiredScopes).length > 0;
-}
-
-function codexAccessTokenExpired(token: string | undefined): boolean {
-  const expiresAtMs = codexTokenExpiresAtMs(token);
-  return expiresAtMs !== undefined && Date.now() >= expiresAtMs - 60_000;
-}
-
-function codexTokenExpiresAtMs(token: string | undefined): number | undefined {
-  const payload = codexJwtPayload(token);
-  const exp = typeof payload?.exp === "number" && Number.isFinite(payload.exp) ? payload.exp : undefined;
-  return exp !== undefined ? exp * 1000 : undefined;
-}
-
 function codexMissingRequiredScopes(token: string, requiredScopes: string[]): string[] {
   if (requiredScopes.length === 0) {
     return [];
@@ -2103,15 +1931,6 @@ function codexJwtPayload(token: string | undefined): Record<string, unknown> | u
   } catch {
     return undefined;
   }
-}
-
-function codexTokenRefreshErrorMessage(payload: unknown, text: string): string {
-  const message = readPayloadMessage(payload);
-  if (message) {
-    return `: ${message}`;
-  }
-  const trimmed = text.trim();
-  return trimmed ? `: ${trimmed.slice(0, 500)}` : "";
 }
 
 function readBoolean(value: unknown): boolean | undefined {
