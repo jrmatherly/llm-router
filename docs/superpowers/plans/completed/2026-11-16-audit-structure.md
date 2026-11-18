@@ -33,7 +33,7 @@ Specific to this plan:
 - `codexCliMiddlewareRuntimeScript(): string` keeps its name, signature and module path.
 - ST-3, ST-4 and ST-5 are move-only. A moved declaration changes only by gaining `export`. No rename, no reformat, no merge with a same-named helper in another file.
 - Land ST-3 to ST-5 when no open branch touches `packages/core/src/profiles/service.ts`. The file had 29 commits in the 90 days before the audit, and a move-only PR conflicts with every one of them.
-- Biome does not lint the `.runtime.cjs` file. If TL-1 in the [tooling plan](completed/2026-11-16-audit-tooling.md) has merged, ST-1 adds `"!packages/core/src/agents/codex/*.runtime.cjs"` to `files.includes` in `biome.json` in the same PR. Nobody edits the script to satisfy lint, because that breaks the byte-identical gate.
+- Biome does not lint the `.runtime.cjs` file. If TL-1 in the [tooling plan](2026-11-16-audit-tooling.md) has merged, ST-1 adds `"!packages/core/src/agents/codex/*.runtime.cjs"` to `files.includes` in `biome.json` in the same PR. Nobody edits the script to satisfy lint, because that breaks the byte-identical gate.
 - JSDoc type annotations in the `.runtime.cjs` file are allowed. They are how D-7's check is satisfied, and they count as a non-obvious why.
 
 ## Measurements behind this plan
@@ -52,7 +52,7 @@ Run on 2026-11-16 at `136ad730` with the repo's own esbuild and TypeScript, agai
 ## ST-1: Move the Codex runtime script into a .cjs source file
 
 **Fixes:** F-G1 (first half)
-**Depends on:** UL-2, for ordering only, as the [program index](2026-11-16-audit-remediation-index.md) orders it. See the ordering note below.
+**Depends on:** UL-2, for ordering only, as the [program index](../2026-11-16-audit-remediation-index.md) orders it. See the ordering note below.
 **Branch:** `refactor/codex-runtime-source-file`
 **Size:** M (7,343 moved lines, about 60 new)
 **Owner steps:** Optional. After the next Windows release build, open `bin\llmr-codex-cli-middleware.js` under the LLMR config directory (`CONFIGDIR`) and confirm it has no carriage returns. Nobody has checked whether the Windows runner checks files out with CRLF.
@@ -67,7 +67,7 @@ The review of PR 106 changed these points:
 
 TL-1 had merged, so `biome.json` excludes `*.runtime.cjs` as the constraints say. The optional Windows check under Owner steps is still open.
 
-**Ordering against the [upstream leftovers plan](2026-11-16-audit-upstream-leftovers.md).** UL-1 and UL-2 edit this script (the `TZ` override and the `CODEXL_*` names). Either order works, and neither needs a fixed hash.
+**Ordering against the [upstream leftovers plan](../2026-11-16-audit-upstream-leftovers.md).** UL-1 and UL-2 edit this script (the `TZ` override and the `CODEXL_*` names). Either order works, and neither needs a fixed hash.
 
 - If the leftovers PRs merged first, this PR moves the edited text. The emitted hash is then not `e35ead7b…`. That is expected.
 - If this PR merges first, the leftovers PRs edit `cli-middleware-runtime-source.runtime.cjs` instead of `cli-middleware-runtime.ts`, at the same text anchors, three lines earlier.
@@ -509,10 +509,12 @@ Expected: `<N> declarations compared, 0 problems`, with N given in each PR below
 ## ST-3: Extract the shared profile apply helpers
 
 **Fixes:** F-G2 (first of three moves)
-**Depends on:** UL-2, for ordering only, as the [program index](2026-11-16-audit-remediation-index.md) orders it. UL-1 and UL-2 edit `profiles/service.ts`.
+**Depends on:** UL-2, for ordering only, as the [program index](../2026-11-16-audit-remediation-index.md) orders it. UL-1 and UL-2 edit `profiles/service.ts`.
 **Branch:** `refactor/profile-apply-support`
 **Size:** S (25 declarations, 141 lines)
 **Owner steps:** None
+
+**Status:** Merged 2026-11-18 with ST-4 and ST-5 as [PR 107](https://github.com/jrmatherly/llm-router/pull/107), squash commit `bd2057b7`, branch `refactor/profile-service-extractions`. The body check reported `25 declarations compared, 0 problems`. The base test count was 74, not 63, and it held after each commit. The moves were made with a TypeScript-AST script instead of by hand, and the unused imports `tsc` named matched Step 3.
 
 **Which helpers move, and why only these.** The move takes exactly the helpers that Grok and Kimi reach, directly or through another helper. That is 22 functions and 3 constants. It has to land first, because otherwise the agent modules would import `service.ts`, which imports them. `service.ts` has about 50 more helpers that are leaves by the same test, but only the Claude Code, Codex and takeover clusters use them. They stay where they are until those clusters move (see Deferred), so that each one moves once, to the place its users end up.
 
@@ -627,6 +629,8 @@ git commit -m "refactor(core): extract the shared profile apply helpers"
 **Size:** S (10 functions, 181 lines)
 **Owner steps:** None
 
+**Status:** Merged 2026-11-18 with ST-3 and ST-5 as [PR 107](https://github.com/jrmatherly/llm-router/pull/107), squash commit `bd2057b7`. The body check reported `10 declarations compared, 0 problems`, and both Grok tests ran.
+
 ### Task 1: Create `agents/grok/profile-config.ts`
 
 **Files:**
@@ -703,6 +707,8 @@ git commit -m "refactor(core): move the Grok profile code to agents/grok"
 **Branch:** `refactor/kimi-profile-config`
 **Size:** M (19 functions and 1 constant, 363 lines)
 **Owner steps:** None
+
+**Status:** Merged 2026-11-18 with ST-3 and ST-4 as [PR 107](https://github.com/jrmatherly/llm-router/pull/107), squash commit `bd2057b7`. The body check reported `20 declarations compared, 0 problems`, and 55 across the three new files. Both Kimi tests ran. `service.ts` went from 4,483 to 3,745 lines. A review mutation showed that `applyProfileRuntimeConfig`, `profilePath` and `disabledProfileStatus` have no test that tells Grok from Kimi. That gap is older than this PR.
 
 ### Task 1: Create `agents/kimi/profile-config.ts`
 

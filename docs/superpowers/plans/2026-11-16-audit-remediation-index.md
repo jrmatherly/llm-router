@@ -17,7 +17,7 @@
 | [Desktop hardening and UI dependency cleanup](completed/2026-11-16-audit-desktop-hardening.md) | DH-1 to DH-3 | F-D4 to F-D11 |
 | [Upstream leftovers](2026-11-16-audit-upstream-leftovers.md) | UL-1, UL-2 | F-E1, F-E2 |
 | [Lint and test type-checking](completed/2026-11-16-audit-tooling.md) | TL-1, TL-2 | F-F1 to F-F3 |
-| [Codex runtime source and profile service extraction](2026-11-16-audit-structure.md) | ST-1 to ST-5 | F-G1, F-G2 |
+| [Codex runtime source and profile service extraction](completed/2026-11-16-audit-structure.md) | ST-1 to ST-5 | F-G1, F-G2 |
 
 ## Order
 

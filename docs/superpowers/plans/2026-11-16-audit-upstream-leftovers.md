@@ -30,7 +30,7 @@ Specific to this plan:
 
 - D-9 applies to both PRs. UL-1 does not strip an existing `TZ: "UTC"` from anyone's settings. UL-2 adds no code that reads a `CODEXL_` name as a fallback.
 - Line numbers are from `136ad730`. UL-1 moves lines in `profiles/service.ts` and the runtime script before UL-2 starts. Find each edit by the symbol or text anchor given beside its line number.
-- The runtime script is one `String.raw` template. ST-1 in the [structure plan](2026-11-16-audit-structure.md) moves it to a `.cjs` file. The [program index](2026-11-16-audit-remediation-index.md) runs ST-1 after UL-2. If ST-1 has merged, make every runtime edit in that file. Find it with `git grep -l "function resolveConfigDir" packages/core/src`. The anchors are function names, so they hold in either file.
+- The runtime script is one `String.raw` template. ST-1 in the [structure plan](completed/2026-11-16-audit-structure.md) moves it to a `.cjs` file. The [program index](2026-11-16-audit-remediation-index.md) runs ST-1 after UL-2. If ST-1 has merged, make every runtime edit in that file. Find it with `git grep -l "function resolveConfigDir" packages/core/src`. The anchors are function names, so they hold in either file.
 - Read each file with Read before editing it. `.claude/rules/` files load only on Read, Edit and Write.
 - The profile-service integration tests skip unless `LLMR_INTERNAL_HOME_DIR` is set. `npm run test:core` sets it. When running that file alone, check the output for skipped tests. If the new tests show as skipped, run `npm run test:core` to see them.
 
