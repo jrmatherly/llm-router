@@ -971,13 +971,15 @@ class SseMcpClient implements McpClient {
       return;
     }
     await this.ensureStream();
+    const stream = this.streamAbort;
     await this.request("initialize", {
       capabilities: {},
       clientInfo: { name: toolHubServerName, version: "1.0.0" },
       protocolVersion: this.server.protocolVersion || protocolVersion
     }, this.server.startupTimeoutMs);
     await this.notification("notifications/initialized", {}).catch(() => undefined);
-    this.initialized = true;
+    // A stream that dropped during the handshake was replaced by one that never saw initialize.
+    this.initialized = this.streamAbort === stream;
   }
 
   private async ensureStream(): Promise<void> {
@@ -1015,6 +1017,20 @@ class SseMcpClient implements McpClient {
       controller.abort();
     }, this.server.startupTimeoutMs ?? defaultRequestTimeoutMs);
 
+    const resetStream = (error: Error): void => {
+      clearTimeout(timeout);
+      rejectEndpoint(error);
+      // close() or a newer stream owns the state by now; a late callback from this one must not reject their calls.
+      if (this.streamAbort !== controller) {
+        return;
+      }
+      this.endpointUrl = "";
+      this.initialized = false;
+      this.streamAbort = undefined;
+      this.streamBuffer = "";
+      this.rejectAll(error);
+    };
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     void (async () => {
@@ -1033,11 +1049,9 @@ class SseMcpClient implements McpClient {
             this.routeSseMessage(event.data);
           });
         }
-        this.rejectAll(new Error(`MCP SSE stream closed (${this.server.name}).`));
+        resetStream(new Error(`MCP SSE stream closed (${this.server.name}); the next call reconnects.`));
       } catch (error) {
-        clearTimeout(timeout);
-        rejectEndpoint(toError(error));
-        this.rejectAll(toError(error));
+        resetStream(toError(error));
       }
     })();
 
@@ -1070,6 +1084,8 @@ class SseMcpClient implements McpClient {
           timer
         });
       });
+      // The stream can reject this before the POST below settles, and an unhandled rejection ends the process.
+      pending.catch(() => undefined);
       return this.post(message).then(() => pending);
     });
   }

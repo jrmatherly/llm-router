@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   cancelClaudeAppsGatewayLogin,
+  normalizeLoginWaitTimeoutMs,
   startClaudeAppsGatewayLogin,
   waitClaudeAppsGatewayLogin
 } from "@llmr/core/agents/claude-apps-gateway/device-login-service.ts";
@@ -37,7 +38,7 @@ test("start returns the device code prompt", async (t) => {
   t.after(() => cancelClaudeAppsGatewayLogin({ sessionId: start.sessionId }));
   assert.equal(start.userCode, "WDJB-MJHT");
   assert.equal(start.gatewayUrl, gateway.url);
-  assert.equal(start.intervalSeconds, 0);
+  assert.equal(start.intervalSeconds, 1);
   assert.equal(start.verificationUri, `${gateway.url}/device`);
   assert.match(start.verificationUriComplete, /user_code=WDJB-MJHT/);
   assert.ok(Date.parse(start.expiresAt) > Date.now());
@@ -56,7 +57,7 @@ test("start ignores endpoint URLs in the discovery document", async (t) => {
   assert.ok(gateway.requests.some((request) => request.url === "/oauth/device_authorization"));
 });
 
-test("wait polls through pending and slow_down, then persists the session", { timeout: 10_000 }, async (t) => {
+test("wait polls through pending and slow_down, then persists the session", { timeout: 15_000 }, async (t) => {
   const configDir = tempConfigDir(t);
   const replies = [
     [400, { error: "authorization_pending" }],
@@ -204,3 +205,22 @@ function json(response, status, body) {
   response.writeHead(status, { "content-type": "application/json" });
   response.end(JSON.stringify(body));
 }
+
+test("an interval of 0 polls at most once per second", async (t) => {
+  const gateway = await fakeGateway(t, { token: () => [400, { error: "authorization_pending" }] });
+  const start = await startClaudeAppsGatewayLogin({ gatewayUrl: gateway.url }, { configDir: tempConfigDir(t) });
+  t.after(() => cancelClaudeAppsGatewayLogin({ sessionId: start.sessionId }));
+  const result = await waitClaudeAppsGatewayLogin({ sessionId: start.sessionId, timeoutMs: 1500 });
+  assert.equal(result.status, "pending");
+  const polls = gateway.requests.filter((request) => request.url === "/oauth/token").length;
+  assert.ok(polls <= 2, `polled ${polls} times in 1.5 s`);
+});
+
+test("normalizeLoginWaitTimeoutMs bounds what the RPC caller sends", () => {
+  assert.equal(normalizeLoginWaitTimeoutMs("abc"), 20_000);
+  assert.equal(normalizeLoginWaitTimeoutMs(Number.NaN), 20_000);
+  assert.equal(normalizeLoginWaitTimeoutMs(undefined), 20_000);
+  assert.equal(normalizeLoginWaitTimeoutMs(-5), 0);
+  assert.equal(normalizeLoginWaitTimeoutMs(300), 300);
+  assert.equal(normalizeLoginWaitTimeoutMs(999_999), 120_000);
+});

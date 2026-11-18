@@ -24,12 +24,14 @@ export function isSensitiveRequestLogHeaderName(value: string): boolean {
 
 const sensitiveUrlQueryNames: ReadonlySet<string> = new Set(["access_token", "api_key", "apikey", "key"]);
 
+const unparsedSensitiveUrlQueryPattern = new RegExp(`([?&](?:${[...sensitiveUrlQueryNames].join("|")})=)[^&#]*`, "gi");
+
 export function redactSensitiveUrlQuery(url: string): string {
   let parsed: URL;
   try {
     parsed = new URL(url, "http://127.0.0.1");
   } catch {
-    return url;
+    return url.replace(unparsedSensitiveUrlQueryPattern, "$1[redacted]");
   }
   for (const name of [...parsed.searchParams.keys()]) {
     if (sensitiveUrlQueryNames.has(name.trim().toLowerCase())) {

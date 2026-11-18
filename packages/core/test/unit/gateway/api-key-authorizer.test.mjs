@@ -155,3 +155,31 @@ test("gateway API key matching never uses a short-circuiting equality check", ()
   assert.match(source, /timingSafeEqual\(/);
   assert.doesNotMatch(source, /\.key\s*===/);
 });
+
+test("invalid tokens load persisted keys at most once per cache window", async (t) => {
+  const { configRepository } = await import("@llmr/core/config/config-repository.ts");
+  let loads = 0;
+  t.mock.method(configRepository, "listApiKeys", async () => {
+    loads += 1;
+    return [];
+  });
+  const config = configWithApiKeys([{ createdAt: new Date(0).toISOString(), id: "k1", key: "sk-right" }]);
+  for (let i = 0; i < 10; i++) {
+    const { response } = await authorizeRequest(config, { headers: { authorization: `Bearer sk-wrong-${i}` } });
+    assert.equal(response.statusCode, 401);
+  }
+  assert.ok(loads <= 1, `listApiKeys ran ${loads} times`);
+});
+
+test("a key persisted after a miss is accepted once the cache expires", async (t) => {
+  const { configRepository } = await import("@llmr/core/config/config-repository.ts");
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 5000 });
+  const persisted = [];
+  t.mock.method(configRepository, "listApiKeys", async () => [...persisted]);
+  const config = configWithApiKeys([{ createdAt: new Date(0).toISOString(), id: "k1", key: "sk-other" }]);
+  const request = { headers: { authorization: "Bearer sk-new" } };
+  assert.equal((await authorizeRequest(config, request)).response.statusCode, 401);
+  persisted.push({ createdAt: new Date(0).toISOString(), id: "k2", key: "sk-new" });
+  t.mock.timers.tick(1001);
+  assert.equal((await authorizeRequest(config, request)).result.ok, true);
+});

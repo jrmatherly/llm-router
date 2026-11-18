@@ -318,6 +318,37 @@ test("RequestLogStore keeps list rows lightweight and detail rows complete", asy
   }
 });
 
+test("RequestLogStore stores credential query parameters redacted", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-test-"));
+  let store;
+  try {
+    store = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
+    await store.record({
+      completedAt: new Date().toISOString(),
+      durationMs: 42,
+      method: "POST",
+      path: "/v1beta/models/gemini-2.5-pro:generateContent",
+      providerName: "test-provider",
+      requestBody: Buffer.from("{}", "utf8"),
+      requestHeaders: { "content-type": "application/json" },
+      requestId: "request-log-redaction-test",
+      responseBodyText: "{}",
+      responseHeaders: { "content-type": "application/json" },
+      startedAt: new Date().toISOString(),
+      statusCode: 200,
+      url: "http://127.0.0.1:3456/v1beta/models/gemini-2.5-pro:generateContent?key=AIzaSECRET&alt=sse"
+    });
+
+    const page = await store.list({ pageSize: 25 });
+    const detail = await store.getDetail({ id: page.items[0].id });
+    assert.equal(detail.url, "http://127.0.0.1:3456/v1beta/models/gemini-2.5-pro:generateContent?key=%5Bredacted%5D&alt=sse");
+    assert.doesNotMatch(JSON.stringify(page.items[0]), /AIzaSECRET/);
+  } finally {
+    await store?.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("RequestLogStore persists stream experience metrics and derives authoritative TPS", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-speed-test-"));
   let store;
