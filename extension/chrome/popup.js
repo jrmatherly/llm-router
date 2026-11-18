@@ -5,7 +5,7 @@ const domainPreview = document.getElementById("domain-preview");
 const domainList = document.getElementById("domain-list");
 const statusElement = document.getElementById("status");
 
-let loadedJob = { importUrl: "", origins: [] };
+let loadedJob = { domains: [], importUrl: "", origins: [] };
 
 document.addEventListener("DOMContentLoaded", () => {
   void restoreImportUrl();
@@ -48,7 +48,7 @@ async function loadJob() {
     setStatus(response.error, "error");
     return false;
   }
-  loadedJob = { importUrl, origins: response.origins };
+  loadedJob = { domains: response.domains, importUrl, origins: response.origins };
   renderDomains(response.domains);
   await chrome.storage.local.set({ lastImportUrl: importUrl });
   importButton.disabled = false;
@@ -64,7 +64,7 @@ async function runImport(granted) {
       return;
     }
     setStatus("Importing Chrome cookies and localStorage into LLMR...");
-    const response = await sendToWorker("llmr-login-import-run", loadedJob.importUrl);
+    const response = await sendToWorker("llmr-login-import-run", loadedJob.importUrl, loadedJob.domains);
     if (!response.ok) {
       throw new Error(response.error);
     }
@@ -80,9 +80,9 @@ async function runImport(granted) {
   }
 }
 
-async function sendToWorker(type, importUrl) {
+async function sendToWorker(type, importUrl, domains) {
   try {
-    return (await chrome.runtime.sendMessage({ importUrl, type })) ?? { error: "The LLMR Login Import worker did not reply.", ok: false };
+    return (await chrome.runtime.sendMessage({ domains, importUrl, type })) ?? { error: "The LLMR Login Import worker did not reply.", ok: false };
   } catch (error) {
     return { error: formatError(error), ok: false };
   }

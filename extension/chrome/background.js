@@ -4,7 +4,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  handler(message.importUrl, sender)
+  handler(message, sender)
     .then((reply) => sendResponse({ ...reply, ok: true }))
     .catch((error) => sendResponse({
       error: formatError(error),
@@ -27,7 +27,7 @@ function handlerFor(type) {
   }
 }
 
-async function confirmImport(importUrl, sender) {
+async function confirmImport({ importUrl }, sender) {
   const senderUrl = sender.tab?.url;
   if (typeof senderUrl !== "string") {
     throw new Error("Invalid LLMR import URL.");
@@ -49,15 +49,18 @@ async function confirmImport(importUrl, sender) {
   return { result: await importLoginState(job) };
 }
 
-async function previewImport(importUrl, sender) {
+async function previewImport({ importUrl }, sender) {
   requirePopupSender(sender);
   const job = await loadJob(importUrl);
   return { domains: job.domains, origins: originsForDomains(job.domains) };
 }
 
-async function runPopupImport(importUrl, sender) {
+async function runPopupImport({ domains, importUrl }, sender) {
   requirePopupSender(sender);
   const job = await loadJob(importUrl);
+  if (!Array.isArray(domains) || job.domains.join("\n") !== domains.join("\n")) {
+    throw new Error("The LLMR import job changed after it was loaded. Click Load Job again.");
+  }
   await ensureHostPermissions(job.domains);
   const result = await importLoginState(job);
   await chrome.storage.session.remove("pendingImportUrl");

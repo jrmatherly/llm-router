@@ -71,12 +71,14 @@ test("the worker refuses popup messages from a tab and asks for permission befor
   vm.runInNewContext(read("background.js"), context);
   const importUrl = "http://127.0.0.1:4000/chrome-import/jobs/j";
   const tab = { url: `${importUrl}/confirm` };
-  const reply = (type, sender) => new Promise((resolve) => assert.equal(listener({ importUrl, type }, sender, resolve), true));
+  const reply = (type, sender, domains) => new Promise((resolve) => assert.equal(listener({ domains, importUrl, type }, sender, resolve), true));
 
   assert.equal(listener({ type: "other" }, {}, () => {}), false);
   assert.equal((await reply("llmr-login-import-preview", { tab, url: tab.url })).ok, false);
   assert.equal((await reply("llmr-login-import-run", { url: "chrome-extension://other/popup.html" })).ok, false);
   assert.deepEqual((await reply("llmr-login-import-preview", { url: "chrome-extension://id/popup.html" })).domains, ["example.com"]);
+  assert.match((await reply("llmr-login-import-run", { url: "chrome-extension://id/popup.html" }, ["other.com"])).error, /changed after it was loaded/);
+  assert.match((await reply("llmr-login-import-run", { url: "chrome-extension://id/popup.html" }, ["example.com"])).error, /does not have Chrome site access/);
   assert.equal((await reply("llmr-login-import-confirm", { tab: { url: "http://127.0.0.1:5000/chrome-import/jobs/j/confirm" } })).error, "Invalid LLMR import URL.");
   const confirm = await reply("llmr-login-import-confirm", { tab });
   assert.equal(confirm.ok, false);
