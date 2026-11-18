@@ -29,7 +29,7 @@ Jason made these on 2026-11-16. They bind this plan. The spec records them as D-
 | CG-4 | Small gateway guards | CG-1, CG-2 |
 | CG-5 | Reconnect a dropped SSE MCP stream | CG-1 |
 | CG-6 | Require marketplace module integrity | CG-1 |
-| CG-7 | Refresh with the rotated Codex refresh token in the provider probe and account service | CG-1 |
+| CG-7 | Give the Codex login one owner in LLMR that refreshes and writes back | CG-1 |
 | CG-8 | Document retry stacking | None |
 | CG-9 | Delete the proxy key injection | CG-2 |
 
@@ -81,8 +81,7 @@ No task fixes these. Each one is stated so a reviewer does not rediscover it.
 - **Read-only targets.** A rename replaces a file whose mode forbids writing, where the in-place write failed with `EACCES`. A user who made `.zshrc` or the Grok `auth.json` read-only no longer gets a failed write. The file keeps its mode.
 - **Tunnels opened before capture is turned on.** A tunnel is opaque for its lifetime. Turning Capture network on affects new connections only.
 - **An evicted MITM server and a CONNECT in flight.** A CONNECT that resolved its server just before eviction can fail with 502. The client retries.
-- **Codex token rotation is unverified.** Nobody has checked whether the Codex OAuth token endpoint rotates refresh tokens (spec, "Not verified by anyone"). CG-7 makes the probe correct if it does. CG-7 keeps the rotated token in memory only, so a restart goes back to the token in `~/.codex/auth.json` or in the provider plugin config.
-- **The same pattern in `account-service.ts`.** `refreshCodexAccountToken` (`packages/core/src/providers/account-service.ts:1911`) keys `codexOauthCache` by the hash of the presented refresh token, stores the rotated token in the entry, and on the next stale refresh sends the presented token again (`refresh_token: refreshToken`, `:1941`). Review confirmed it on 2026-11-16 and added Steps 4a to 4c to CG-7 Task 1, which fix it the same way.
+- **Codex token rotation.** Settled on 2026-11-18: refresh tokens rotate and a reused one ends the login. CG-7 was redesigned around that (decision D-13), and its section lists its own limits.
 - **Captured bodies stay readable.** With Capture network on, every host is still decrypted, and any holder of a gateway key can read captured bodies through the `network_capture_get` MCP tool. After CG-9 every proxied tool holds one. The spec defers narrowing who can read them.
 - **Custom marketplaces.** A catalog set through `LLMR_PLUGIN_MARKETPLACE_URL` loses every module entry that has no `integrity`. D-9 accepts this.
 
@@ -1237,128 +1236,189 @@ Put this sentence in the PR description and the release notes of the release tha
 
 ---
 
-## CG-7 Refresh with the rotated Codex refresh token in the provider probe and account service
+## CG-7 Give the Codex login one owner in LLMR that refreshes and writes back
 
 **Fixes:** F-C12
 **Depends on:** CG-1
-**Branch:** `fix/probe-codex-refresh-rotation`
-**Size:** S
-**Owner steps:** None
+**Branch:** `fix/codex-auth-single-owner`
+**Size:** M
+**Owner steps:** After merge, sign in with `codex login` and run the live check in Task 4.
+**Decision:** D-13 (Jason, 2026-11-18). This section replaces the 2026-11-16 version, which kept the rotated token in memory only.
 
-What reading the code showed.
+### Why the first version was wrong
 
-- `providerProbeCodexOauthRequest` (`packages/core/src/providers/probe.ts:1243`) assigns `refreshToken = refreshed.refreshToken || refreshToken` at `:1257` and never reads `refreshToken` again. The assignment is dead.
-- The rotated token is not kept anywhere else. `refreshCodexProbeAccessToken` (`:1320`) keys `codexProbeOauthCache` by the hash of the token the caller presented. The caller gets that token from `readCodexAuth()`, which only reads `~/.codex/auth.json`, or from the provider plugin's `codexOauth` config (`:923-937`). No code in `packages/core/src` writes a Codex token back, and the gateway runtime bundle contains no `auth.json` string.
-- So once the cached access token is within 60 s of expiry, the next probe sends the token it presented the first time. If the endpoint rotates refresh tokens, that token is spent and the refresh fails.
+Read on 2026-11-18. Codex facts are from `openai/codex` at tag `rust-v0.169.0`, the version installed here.
 
-The fix keeps the chain in the cache entry the caller's token already maps to. It is the smallest place where the next refresh can find the rotated token. Writing into `~/.codex/auth.json` would put LLMR in a file the Codex CLI owns, and is out of scope (see Known limits).
+- A reused refresh token ends the login. `codex-rs/login/src/auth/manager.rs:1868` maps `refresh_token_reused` to a failure whose message is "log out and sign in again".
+- LLMR refreshes with the Codex CLI's token in three places, and none saves the new token: `refreshCodexProbeAccessToken` in `providers/probe.ts`, `refreshCodexAccountToken` in `providers/account-service.ts`, and the gateway package's own `codexOauth` step, which runs on every model request (`node_modules/@the-next-ai/ai-gateway/dist/index.js`, the function that logs "Codex OAuth auth started."). So one LLMR refresh leaves the CLI with a spent token, and an LLMR restart loses the new one.
+- Codex shares its file on purpose. Before a refresh it reloads `auth.json` and skips the refresh if the stored token changed (`manager.rs:3484-3511`). It writes under a lock on `CODEX_HOME/auth.lock` with a compare-and-save (`storage.rs:195-222`, `manager.rs:1757-1802`). It refreshes on its own every 8 days (`manager.rs:232`).
+- The default credential store is the file (`codex-rs/config/src/types.rs:138-148`). `keyring`, `auto` and `ephemeral` are opt-in through `cli_auth_credentials_store` in `config.toml`.
+- Grok, Kimi, Claude Code and the Claude apps gateway already have one resolver each that refreshes, writes back and feeds requests through `gateway/core-runtime/local-agent-auth-provider-hook.ts`. Codex is the only local agent that is not on that path. `resolveGrokAuth` in `agents/local-providers/grok.ts` is the pattern to follow.
+- In the gateway child, static provider plugins run after module hooks (the comment in `withoutStaticLocalOauthAuth`, `config-compiler.ts`). So a static `codexOauth` section would overwrite a token the live hook set. The section has to leave the static plugin.
+- `codexHomeDir()` (`agents/local-providers/codex.ts`) ignores `CODEX_HOME`.
+- The dotfiles project was asked on 2026-11-18 and manages nothing that conflicts: it does not track, link, back up or sync `auth.json`, sets neither `CODEX_HOME` nor `cli_auth_credentials_store`, and no tool there reads or writes the file.
 
-### Task 1: Refresh with the rotated token
+### Rules for the resolver
+
+These are the conditions D-13 was approved with. Each has a test in Task 1.
+
+1. Never create `auth.json`. A missing file means "not signed in"; the error tells the user to run `codex login`.
+2. Refresh and write only when the file holds a ChatGPT login: `tokens.refresh_token` is present and `auth_mode` is absent or the ChatGPT mode. An API-key login is left alone.
+3. Resolve the directory as Codex does: `CODEX_HOME` when set and not empty, otherwise `<home>/.codex`.
+4. If `config.toml` in that directory sets `cli_auth_credentials_store` to anything but `file`, do not refresh. Read the file if it exists and report an expired token as "run `codex`".
+5. Write the whole JSON back with unknown keys kept, through a temporary file in the same directory at mode `0600`, then rename. Refuse when `auth.json` is a symbolic link.
+6. Write only if the file still holds the refresh token that was sent. If it changed, a peer saved a newer login: drop our result and use the file's.
+7. LLMR does not take Codex's `auth.lock`. Node has no built-in advisory file lock, and a native dependency for it is not worth one forced `codex login` in a rare race. Rule 6 narrows the window to the time between a read and a rename.
+
+### Task 1: `resolveCodexAuth`, the one refresher
 
 **Files:**
-- Modify: `packages/core/src/providers/probe.ts:1251-1259` (`providerProbeCodexOauthRequest`), `:1320-1354` (`refreshCodexProbeAccessToken`), `:1356-1412` (`refreshCodexProbeAccessTokenUncached`)
-- Modify: `packages/core/src/providers/account-service.ts:1911-1975` (`refreshCodexAccountToken`, Steps 4a to 4c)
-- Test: `packages/core/test/unit/providers/provider-probe.test.mjs`, `packages/core/test/unit/providers/provider-account-service.test.mjs`
+- Modify: `packages/core/src/agents/local-providers/codex.ts`
+- Modify: `packages/core/src/agents/local-providers/service.ts` (export the new names beside the Grok ones)
+- Test: `packages/core/test/unit/agents/local-agent-provider-codex.test.mjs`
 
 **Interfaces:**
-- Changes: `refreshCodexProbeAccessTokenUncached(codexOauth, refreshToken, scope, tokenEndpoint, clientId, now, cacheKey: string)`. It stores its result under `cacheKey` instead of building a key from `refreshToken`.
+- Changes: `codexHomeDir()` follows rule 3. `readCodexAuth()` keeps its signature and also returns `idToken`, `authMode` and `lastRefresh`.
+- Produces: `resolveCodexAuth(options?: { forceRefresh?: boolean; requiredScopes?: string[] }): Promise<OAuthTokenSet | undefined>`, `codexAccessTokenExpired(token: string | undefined): boolean`, and `class CodexRefreshAuthError extends Error` for a refresh the token endpoint rejected with 400 or 401.
+- The token endpoint is `process.env.CODEX_REFRESH_TOKEN_URL_OVERRIDE` or `https://auth.openai.com/oauth/token`, the client id and default scope are the constants now duplicated in `probe.ts` and `account-service.ts`. Move them here.
 
-Behaviour.
+Behaviour, in the order `resolveGrokAuth` has it:
 
-- In `refreshCodexProbeAccessToken`, `cacheKey` is still built from the token the caller presented. When the cached entry is fresh, return it, as today. Otherwise call the uncached function with `cached?.refreshToken || refreshToken` and with `cacheKey`. The in-flight map keeps using `cacheKey`.
-- In `providerProbeCodexOauthRequest`, delete line 1257 and declare `refreshToken` with `const`.
+- Read the file. Prefer an unsaved in-memory result when the file still holds the token it replaced.
+- Return the login as it is when there is no refresh token, when rule 2 or rule 4 forbids a refresh, or when the access token is not within 60 s of expiry, carries the required scopes and `forceRefresh` is not set.
+- Otherwise share one in-flight refresh per file path.
+- On success, persist per rules 5 and 6 and set `last_refresh` to the current time in ISO 8601. If the write throws, keep the result in a module-level map, as `grokUnsavedRefreshes` does, and warn once without printing a token.
+- On `CodexRefreshAuthError`, read the file again. If its refresh token differs from the one sent, return that login. Otherwise rethrow.
 
-- [ ] **Step 1: Create the branch and write the failing test**
-
-```bash
-git switch -c fix/probe-codex-refresh-rotation
-```
-
-Model it on "connectivity probe refreshes Codex OAuth plugin auth" (`:493`). Use port `49177` in every URL so the module-level cache of other tests cannot match. `shortLived(n)` is `jwt({ "https://api.openai.com/auth": { chatgpt_account_id: "acct-rotate" }, exp: Math.floor(Date.now() / 1000) + 30, n, scope: "api.connectors.read api.connectors.invoke" })`. A 30 s lifetime makes the cached entry stale at once, because the cache wants more than 60 s left.
-
-The token endpoint stub records `body.refresh_token` in `refreshTokens`. It accepts `"refresh-rotate-0"` once and replies `{ access_token: shortLived(1), refresh_token: "refresh-rotate-1" }`. It accepts `"refresh-rotate-1"` and replies `{ access_token: shortLived(2), refresh_token: "refresh-rotate-2" }`. Any other token, including a second `"refresh-rotate-0"`, gets status 400 and `{ error: "invalid_grant", error_description: "refresh token reused" }`. `/codex/responses` replies 200 `{ id: "ok" }` for any bearer token.
-
-```js
-test("connectivity probe refreshes with the rotated Codex refresh token", async (t) => {
-  const probe = () => checkGatewayProviderConnectivity({
-    apiKey: "llmr-local-agent-login",
-    candidates: [{ baseUrl: "http://127.0.0.1:49177/codex", name: "Codex API", protocols: ["openai_responses"], source: "custom" }],
-    forceRefresh: true,
-    models: ["gpt-5-codex"],
-    providerPlugins: [{
-      codexOauth: { refreshToken: "refresh-rotate-0", tokenEndpoint: "http://127.0.0.1:49177/oauth/token" },
-      key: "llmr-local-agent-codex-api-codex-oauth",
-      providerName: "Codex API"
-    }],
-    protocols: ["openai_responses"]
-  });
-  const first = await probe();
-  const second = await probe();
-  assert.equal(first.failed.length, 0);
-  assert.equal(second.failed.length, 0);
-  assert.deepEqual(refreshTokens, ["refresh-rotate-0", "refresh-rotate-1"]);
-});
-```
-
-- [ ] **Step 2: Run the test and see it fail**
-
-Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/providers/provider-probe.test.js`
-Expected: FAIL. `second.failed.length` is 1 and `refreshTokens` is `["refresh-rotate-0", "refresh-rotate-0"]`.
-
-- [ ] **Step 3: Implement**
-
-- [ ] **Step 4: Run the test and see it pass**
-
-Expected: PASS for the whole file, including "connectivity probe shares concurrent Codex OAuth refreshes".
-
-Steps 4a to 4c were added in review on 2026-11-16. `refreshCodexAccountToken` in `account-service.ts` has the same defect: its cache key is the hash of the presented refresh token, and a stale entry is refreshed with the presented token (`:1941`), not with the rotated one the entry holds.
-
-- [ ] **Step 4a: Write the failing account-service test**
-
-In `provider-account-service.test.mjs`, model it on "Codex local account credential refreshes when only a refresh token is available" (`:332`), with the same `LLMR_INTERNAL_HOME_DIR` setup, so no `~/.codex/auth.json` exists. Use `tokenEndpoint: "http://127.0.0.1:49178/oauth/token"` so the module-level `codexOauthCache` of other tests cannot match. The fetch stub records `JSON.parse(init.body).refresh_token` in `refreshTokens`. It accepts `"refresh-acct-0"` once and replies `{ access_token: shortLived(1), refresh_token: "refresh-acct-1" }`, accepts `"refresh-acct-1"` and replies `{ access_token: shortLived(2), refresh_token: "refresh-acct-2" }`, and answers anything else with status 400 and `{ error: "invalid_grant" }`. `shortLived(n)` is the `jwt` helper (`:1003`) with `chatgpt_account_id: "acct-rotate"`, `exp` 30 s from now, `n`, and the scope the `:332` test uses.
-
-```js
-test("Codex local account credential refreshes with the rotated refresh token", async (t) => {
-  const plugin = {
-    codexOauth: { refreshToken: "refresh-acct-0", tokenEndpoint: "http://127.0.0.1:49178/oauth/token" },
-    key: "llmr-local-agent-codex-api-codex-oauth",
-    providerName: "Codex API"
-  };
-  const first = await localCodexAccountCredentialForTest(plugin);
-  const second = await localCodexAccountCredentialForTest(plugin);
-  assert.equal(first.apiKey, shortLived(1));
-  assert.equal(second.apiKey, shortLived(2));
-  assert.deepEqual(refreshTokens, ["refresh-acct-0", "refresh-acct-1"]);
-});
-```
-
-Build each `shortLived` token once and reuse it, so the `assert.equal` calls compare the same strings.
-
-- [ ] **Step 4b: Run it and see it fail**
-
-Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/providers/provider-account-service.test.js`
-Expected: FAIL. The second call rejects with "Codex OAuth token refresh returned HTTP 400", because it sends `"refresh-acct-0"` again and the caller rethrows when it holds no access token.
-
-- [ ] **Step 4c: Refresh with the cached rotated token**
-
-In `refreshCodexAccountToken`, keep `cacheKey` built from the presented token and keep the fresh-entry return. Send `cached?.refreshToken || refreshToken` as `refresh_token`, and use that same value as the fallback in `result.refreshToken`. Run the Step 4b command again. Expected: PASS for the whole file, including the `:332` test, whose request body still carries `"refresh-only"`.
-
-- [ ] **Step 5: Verify before opening the PR**
+- [ ] **Step 1: Create the branch and write the failing tests**
 
 ```bash
-npm run typecheck
-npm run test:architecture
-npm run test:core
+git switch -c fix/codex-auth-single-owner origin/main
 ```
 
-Expected: all exit 0.
+Each test sets `LLMR_INTERNAL_HOME_DIR` and `HOME` to its own temporary directory (both, or the real home is used) and sets `CODEX_REFRESH_TOKEN_URL_OVERRIDE` to a local `node:http` server on port 0. The server records each `refresh_token` it receives, answers a token it has seen before with 400 `{ "error": "refresh_token_reused" }`, and otherwise returns a new access token, `id_token` and refresh token. Build access tokens with the file's existing JWT helper, with `exp` 30 s ahead for "expired" and 1 h ahead for "fresh". The seed `auth.json` also holds `"agent_identity": { "keep": true }` and an unknown key, to prove rule 5.
 
-- [ ] **Step 6: Commit**
+Tests, one behaviour each:
+
+1. `two expiries send the first token, then the rotated one`: after two `resolveCodexAuth()` calls the server saw `["r0", "r1"]`.
+2. `the rotated login is saved to auth.json`: the file holds `r1`, the new access and id tokens, a `last_refresh`, mode `0600`, and the two extra keys unchanged.
+3. `concurrent callers share one refresh`: ten parallel calls, one request.
+4. `a login saved by a peer is adopted`: the server rejects `r0`; before the call resolves, the test rewrites the file with `rp` and a fresh token; the call returns the peer's token and sends nothing more.
+5. `a failed write keeps the rotated login in memory`: make the directory read-only, expire, call twice; the server saw `["r0", "r1"]`.
+6. `a missing auth.json is not created`: the call returns `undefined` and the file does not exist afterwards.
+7. `an API-key login is never refreshed`: `auth_mode` of the API-key mode and no `tokens`; no request, file bytes unchanged.
+8. `a symbolic link is not replaced`: `auth.json` links to another file; the call returns the refreshed login, and `lstat` still reports a link whose target bytes are unchanged.
+9. `CODEX_HOME moves the file`: the login is read from and written to `$CODEX_HOME/auth.json`.
+10. `a keyring store disables refresh`: `config.toml` holds `cli_auth_credentials_store = "keyring"`; an expired file login makes no request.
+11. `a fresh token makes no request`.
+
+- [ ] **Step 2: Run them and see them fail**
+
+Run: `node build/test.mjs core && rtk bypass node --test .test-dist/core/test/unit/agents/local-agent-provider-codex.test.js`
+Expected: the 11 new tests fail, because `resolveCodexAuth` does not exist.
+
+- [ ] **Step 3: Implement, then run the file again**
+
+Expected: PASS for the whole file. Read the exact `auth_mode` strings from `AuthMode` in `codex-rs/login` at the tag before writing rule 2, and name the file and line in the PR.
+
+- [ ] **Step 4: Mutate before trusting**
+
+Break rule 6 (always write), then rule 5 (drop unknown keys), then the in-flight map. Each must fail a named test. Restore.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add packages/core/src/providers/probe.ts packages/core/src/providers/account-service.ts packages/core/test/unit/providers/provider-probe.test.mjs packages/core/test/unit/providers/provider-account-service.test.mjs
-git commit -m "fix(providers): refresh Codex tokens with the rotated refresh token"
+git add packages/core/src/agents/local-providers packages/core/test/unit/agents/local-agent-provider-codex.test.mjs
+git commit -m "fix(providers): refresh the Codex login in one place and save it back"
 ```
+
+### Task 2: The probe and the account service use the resolver
+
+**Files:**
+- Modify: `packages/core/src/providers/probe.ts`, `packages/core/src/providers/account-service.ts`
+- Test: `packages/core/test/unit/providers/provider-probe.test.mjs`, `packages/core/test/unit/providers/provider-account-service.test.mjs`
+
+- Delete `refreshCodexProbeAccessToken`, `refreshCodexProbeAccessTokenUncached`, `pruneCodexProbeOauthCache`, `codexProbeOauthCache` and `inFlightCodexProbeOauthRefreshes` from `probe.ts`, and `refreshCodexAccountToken` and `codexOauthCache` from `account-service.ts`, with the constants and helpers only they use. `npm run typecheck` names the leftovers.
+- `providerProbeCodexOauthRequest` and `localCodexAccountCredential` call `resolveCodexAuth()` for the live login, passing the required scopes they check today. A plugin's own `codexOauth.accessToken` is used only when no file login exists.
+- A plugin's `codexOauth.refreshToken` and `tokenEndpoint` are no longer read. LLMR refreshes only the login in the file.
+
+- [ ] **Step 1: Write the failing tests**
+
+In each test file add `refreshes with the rotated Codex refresh token`, using the Task 1 server and a seeded `auth.json`: two probes (or two credential reads) with an expired token send `["r0", "r1"]`, and the file holds `r1`. Rewrite the existing tests that pass `codexOauth.refreshToken` or `tokenEndpoint` in a plugin ("connectivity probe refreshes Codex OAuth plugin auth", "connectivity probe shares concurrent Codex OAuth refreshes", "Codex local account credential refreshes when only a refresh token is available") to seed the file and set `CODEX_REFRESH_TOKEN_URL_OVERRIDE` instead. Keep what each one asserts about the outgoing request.
+
+- [ ] **Step 2: Run and see the new tests fail**, then implement, then run both files and `npm run test:core`.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git commit -m "refactor(providers): route Codex probe and account refreshes through resolveCodexAuth"
+```
+
+### Task 3: Requests use the live login, and the gateway package cannot refresh
+
+**Files:**
+- Modify: `packages/core/src/gateway/core-runtime/local-agent-auth-provider-hook.ts`, `packages/core/src/gateway/core-runtime/config-compiler.ts`, `packages/core/src/agents/local-providers/codex.ts` (`importCodexProvider`)
+- Test: `packages/core/test/unit/gateway/local-agent-auth-provider-hook.test.mjs`, `packages/core/test/integration/gateway/october-issues-wire.test.mjs`
+
+What the gateway package's `codexOauth` step does today, read from the bundle. The hook must do all of it, because the section leaves the static plugin:
+
+| Behaviour | Where the hook does it |
+|---|---|
+| `authorization: Bearer <access token>` and `ChatGPT-Account-Id` | `authenticate` |
+| Rewrites the upstream URL to `https://chatgpt.com/backend-api/codex` plus the path with a leading `/v1` or `/backend-api/codex` removed | `authenticate` |
+| For a path ending in `/responses`: `store: false`, `stream: true`, `instructions` set to "You are a helpful assistant." when empty, and `accept: text/event-stream` when no `accept` header is set | `transformRequest` |
+| Fails the request when the token lacks `api.connectors.read` or `api.connectors.invoke` | `authenticate`, with the same check `probe.ts` has |
+| Refreshes on expiry, missing scopes and one retry after an upstream 401 | `resolveCodexAuth`; pass `forceRefresh: true` when the hook input has `forceCodexOauthRefreshOnce` |
+
+- Add `"codex"` to `LocalAgentOauthKind`, matched by a key that contains `codex-oauth`. That makes `isLocalAgentOauthProviderPlugin` true for Codex plugins, so `localAgentAuthProviderHookPluginConfig` passes them to the hook.
+- In `config-compiler.ts`, `withoutStaticLocalOauthAuth` also removes `codexOauth` from the static plugin. `withCodexOauthRuntimeDefaults` and `withMissingCodexOauthProviderPlugins` stop writing `accessToken`, `refreshToken` and `accountId`; they keep the provider-matching fields and the `request` transform.
+- `importCodexProvider` stops copying `accessToken` and `refreshToken` into the provider plugin. The plugin keeps `accountId`, `required` and the FedRAMP header.
+- When no file login exists the hook returns `{ ok: false, error: "Codex login was not found. Run codex login." }`.
+
+- [ ] **Step 1: Pin today's upstream request before changing anything**
+
+In `october-issues-wire.test.mjs` add `Codex requests reach the upstream unchanged when the login comes from the live hook`. It follows the file's existing pattern (it runs only when `LLMR_TEST_GATEWAY_ENTRY` is set, which CI's gateway job does). Start a stub upstream and a stub token endpoint, seed `auth.json` with a fresh token, send one streaming and one non-streaming Responses request through the gateway child, and record the method, URL, headers and body the upstream received and the body the client received. Run it on `main` first and save both recordings in the test as the expected values, with the bearer token masked.
+
+- [ ] **Step 2: Add the assertions that must change**
+
+In the same test: with an expired seeded token, the token endpoint is called once, the upstream receives the new token, `auth.json` holds the rotated refresh token, and a second request makes no token call. Add a unit test in `local-agent-auth-provider-hook.test.mjs` for each row of the table.
+Expected before implementing: the rotation assertions fail, because the gateway package refreshes and does not write the file.
+
+- [ ] **Step 3: Implement and run**
+
+Run the two files with `LLMR_TEST_GATEWAY_ENTRY` pointing at the release gateway build, then `npm run test:core`.
+Expected: PASS, with the recordings from Step 1 unchanged.
+
+**Stop condition.** If the non-streaming client response differs from the Step 1 recording and the difference is inside the gateway package, stop. Commit Tasks 1 and 2 only, leave the static `codexOauth` section in place, and record in this section that the request path waits for the gateway fork. Do not ship a hook that changes what clients receive.
+
+- [ ] **Step 4: Check the bundles**
+
+`local-agent-auth-provider-hook.js` is its own bundle. Run `npm run build:assets`, confirm it still builds, restore the generated files, and check the bundle's size against `main`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git commit -m "fix(gateway): authenticate Codex requests from the live login"
+```
+
+### Task 4: Docs, verification and the live check
+
+- In the docs page that covers importing a local agent provider (`grep -rli codex docs/src/content/docs/en/configuration` finds the candidates; use `configuration.md` if none describes the Codex import), say that LLMR refreshes the Codex login and saves it to `auth.json`, that it never creates the file, and that a keyring-stored login is not refreshed.
+- [ ] Run `npm run typecheck`, `npm run lint`, `npm run test:architecture` and `npm run test:core`. Expected: all exit 0.
+- [ ] Open the PR. Its "Not covered" section says that nothing ran against a real Codex login.
+
+**Owner step, after merge.** This machine has no Codex login (`codex login status` printed "Not logged in" on 2026-11-18).
+
+1. Run `codex login`, then note `shasum ~/.codex/auth.json`.
+2. Start LLMR, import the Codex provider, and send one request through it. Expected: a reply, and the same checksum, because a fresh token needs no refresh.
+3. Force one refresh from the provider's account refresh in the app with the token aged past expiry, or wait for expiry. Expected: the checksum changes and `codex login status` still prints the signed-in account.
+4. Run any `codex` command. Expected: no "refresh token was already used" error.
+
+### Known limits
+
+- A race between LLMR and Codex inside the read-to-rename window costs one `codex login`. See rule 7.
+- A login kept in the system keyring is read by neither `readCodexAuth` nor this change.
+- Two machines that share one copied `auth.json` still invalidate each other. Separate logins do not.
 
 ---
 

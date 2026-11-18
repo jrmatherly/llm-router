@@ -33,7 +33,7 @@ Jason decided on 2026-11-17 to cut the number of branches and PRs. These PR ids 
 | ST-1 + ST-2 | Named when it starts | ST-2 type-checks the file ST-1 creates. ST-1's sha256 gate runs on the ST-1 commit, before ST-2 edits the script. |
 | ST-3 + ST-4 + ST-5 | Named when it starts | Three move-only extractions from `profiles/service.ts` that already had to land one after another. |
 
-Everything else stays one PR each. EU-1 and EU-2 stay apart so a packaging failure names its cause. TL-1 stays alone because adopting Biome touches many files. CG-7 needs a redesign first. The two ST batches are confirmed against the structure plan before they start.
+Everything else stays one PR each. EU-1 and EU-2 stay apart so a packaging failure names its cause. TL-1 stays alone because adopting Biome touches many files. CG-7 was redesigned on 2026-11-18 (decision D-13) and is one PR. The two ST batches are confirmed against the structure plan before they start.
 
 ### Wave 1. Make the release path trustworthy
 
@@ -77,7 +77,7 @@ Everything after this wave ships through the fixed path. Cut a release after RS-
 | CG-3 | Write user-owned files atomically | CG-1 | M |
 | CG-4 | Small gateway guards | CG-1, CG-2 | S |
 | CG-5 | Reconnect a dropped SSE MCP stream | CG-1 | S |
-| CG-7 | Refresh with the rotated Codex refresh token in the provider probe and account service | CG-1 | S |
+| CG-7 | Give the Codex login one owner in LLMR that refreshes and writes back (decision D-13) | CG-1 | M |
 | CG-8 | Document retry stacking (docs-only, straight to `main`) | None | S |
 
 ### Wave 5. Tooling, then structure
@@ -109,6 +109,7 @@ Open only one PR from each row at a time. Rebase the next one after the previous
 | `packages/core/src/agents/codex/app-launch.ts` | CG-1, UL-2 |
 | `packages/core/src/observability/request-log-store.ts` | CG-1, CG-4, TL-1 |
 | `packages/core/src/providers/account-service.ts` | CG-7, TL-1 |
+| `packages/core/src/agents/local-providers/codex.ts`, `packages/core/src/gateway/core-runtime/config-compiler.ts`, `packages/core/src/gateway/core-runtime/local-agent-auth-provider-hook.ts`, `packages/core/src/providers/probe.ts` | CG-7 |
 | `packages/ui/src/pages/home/shared/extensions.ts` | CG-6, DH-3 |
 | `packages/ui/test/component/layout.test.tsx` | CG-6, TL-1, TL-2 |
 | `packages/core/src/profiles/launch-service.ts` | UL-1, UL-2, CG-3, TL-1 |
