@@ -1,56 +1,74 @@
 const importUrlInput = document.getElementById("import-url");
+const loadButton = document.getElementById("load-button");
 const importButton = document.getElementById("import-button");
 const domainPreview = document.getElementById("domain-preview");
 const domainList = document.getElementById("domain-list");
 const statusElement = document.getElementById("status");
 
+let loadedJob = { importUrl: "", origins: [] };
+
 document.addEventListener("DOMContentLoaded", () => {
-  void restoreLastImportUrl();
+  void restoreImportUrl();
+});
+
+loadButton.addEventListener("click", () => {
+  void loadJob();
 });
 
 importButton.addEventListener("click", () => {
-  void runImport();
+  // Chrome grants a permission request only inside the click, so nothing may be awaited before it.
+  const granted = chrome.permissions.request({ origins: loadedJob.origins });
+  void runImport(granted);
 });
 
-async function restoreLastImportUrl() {
-  const stored = await chrome.storage.local.get(["lastImportUrl"]);
-  if (typeof stored.lastImportUrl === "string") {
-    importUrlInput.value = stored.lastImportUrl;
+async function restoreImportUrl() {
+  const { pendingImportUrl } = await chrome.storage.session.get(["pendingImportUrl"]);
+  const { lastImportUrl } = await chrome.storage.local.get(["lastImportUrl"]);
+  const importUrl = [pendingImportUrl, lastImportUrl].find((value) => typeof value === "string");
+  if (importUrl) {
+    importUrlInput.value = importUrl;
+  }
+  if (typeof pendingImportUrl === "string" && !(await loadJob())) {
+    await chrome.storage.session.remove("pendingImportUrl");
   }
 }
 
-async function runImport() {
-  const importUrl = normalizeImportUrl(importUrlInput.value);
+async function loadJob() {
+  const importUrl = importUrlInput.value.trim();
+  importButton.disabled = true;
+  renderDomains([]);
   if (!importUrl) {
-    renderDomains([]);
     setStatus("Paste the import URL copied from LLMR.", "error");
-    return;
+    return false;
   }
 
+  setStatus("Reading LLMR import job...");
+  const response = await sendToWorker("llmr-login-import-preview", importUrl);
+  if (!response.ok) {
+    setStatus(response.error, "error");
+    return false;
+  }
+  loadedJob = { importUrl, origins: response.origins };
+  renderDomains(response.domains);
+  await chrome.storage.local.set({ lastImportUrl: importUrl });
+  importButton.disabled = false;
+  setStatus("Review the domains, then click Import.");
+  return true;
+}
+
+async function runImport(granted) {
   importButton.disabled = true;
   try {
-    await chrome.storage.local.set({ lastImportUrl: importUrl });
-    setStatus("Reading LLMR import job...");
-    const job = await fetchImportJob(importUrl);
-    const domains = Array.isArray(job.domains) ? job.domains.map(normalizeDomain).filter(Boolean) : [];
-    if (domains.length === 0) {
-      throw new Error("LLMR import job does not include any domains.");
+    if (!(await granted)) {
+      setStatus("Chrome site access was not granted.", "error");
+      return;
     }
-    renderDomains(domains);
-
-    await ensureHostPermissions(domains);
-
-    setStatus(`Reading cookies for ${domains.join(", ")}...`);
-    const cookies = await readCookiesForDomains(domains);
-    setStatus(`Reading localStorage for ${domains.join(", ")}...`);
-    const localStorageEntries = await readLocalStorageForDomains(domains, cookies);
-
-    if (cookies.length === 0 && localStorageEntries.length === 0) {
-      throw new Error("No cookies or localStorage entries were found for the selected domains.");
+    setStatus("Importing Chrome cookies and localStorage into LLMR...");
+    const response = await sendToWorker("llmr-login-import-run", loadedJob.importUrl);
+    if (!response.ok) {
+      throw new Error(response.error);
     }
-
-    setStatus(`Sending ${cookies.length} cookies and ${localStorageItemCount(localStorageEntries)} localStorage items to LLMR...`);
-    const result = await submitCookies(importUrl, cookies, localStorageEntries, domains);
+    const result = response.result || {};
     setStatus(
       `Imported ${result.cookieImported ?? 0} cookies and ${result.localStorageImported ?? 0} localStorage items. Skipped ${result.skipped ?? 0}.`,
       "ok"
@@ -59,6 +77,14 @@ async function runImport() {
     setStatus(formatError(error), "error");
   } finally {
     importButton.disabled = false;
+  }
+}
+
+async function sendToWorker(type, importUrl) {
+  try {
+    return (await chrome.runtime.sendMessage({ importUrl, type })) ?? { error: "The LLMR Login Import worker did not reply.", ok: false };
+  } catch (error) {
+    return { error: formatError(error), ok: false };
   }
 }
 
@@ -72,235 +98,6 @@ function renderDomains(domains) {
     item.title = domain;
     domainList.appendChild(item);
   }
-}
-
-async function fetchImportJob(importUrl) {
-  const response = await fetch(importUrl, {
-    headers: {
-      "x-llmr-login-import": "chrome-extension"
-    }
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(body?.error?.message || `LLMR import job request failed (${response.status}).`);
-  }
-  if (!body.job || body.job.status !== "pending") {
-    throw new Error(`LLMR import job is ${body.job?.status || "unavailable"}.`);
-  }
-  return body.job;
-}
-
-async function submitCookies(importUrl, cookies, localStorage, domains) {
-  const response = await fetch(`${importUrl.replace(/\/+$/, "")}/cookies`, {
-    body: JSON.stringify({
-      cookies,
-      domains,
-      localStorage,
-      source: {
-        browser: "chrome",
-        extension: chrome.runtime.getManifest().version
-      }
-    }),
-    headers: {
-      "content-type": "application/json",
-      "x-llmr-login-import": "chrome-extension"
-    },
-    method: "POST"
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(body?.error?.message || `LLMR cookie import failed (${response.status}).`);
-  }
-  return body.result || {};
-}
-
-async function readCookiesForDomains(domains) {
-  const cookies = [];
-  for (const domain of domains) {
-    cookies.push(...await chrome.cookies.getAll({ domain }));
-  }
-  return dedupeCookies(cookies);
-}
-
-async function readLocalStorageForDomains(domains, cookies) {
-  const origins = localStorageOriginsForDomains(domains, cookies);
-  const entries = [];
-  for (const origin of origins) {
-    const entry = await readLocalStorageForOrigin(origin).catch(() => undefined);
-    if (entry && Object.keys(entry.items).length > 0) {
-      entries.push(entry);
-    }
-  }
-  return entries;
-}
-
-async function readLocalStorageForOrigin(origin) {
-  const tab = await chrome.tabs.create({
-    active: false,
-    url: `${origin}/`
-  });
-  try {
-    await waitForTabLoad(tab.id, 15000);
-    const [frameResult] = await chrome.scripting.executeScript({
-      func: () => {
-        const items = {};
-        for (let index = 0; index < window.localStorage.length; index += 1) {
-          const key = window.localStorage.key(index);
-          if (key !== null) {
-            items[key] = window.localStorage.getItem(key) || "";
-          }
-        }
-        return {
-          items,
-          origin: window.location.origin
-        };
-      },
-      target: { tabId: tab.id },
-      world: "MAIN"
-    });
-    const result = frameResult?.result;
-    if (!result || !allowedLocalStorageOrigin(result.origin, origin)) {
-      return undefined;
-    }
-    return result;
-  } finally {
-    if (tab.id !== undefined) {
-      await chrome.tabs.remove(tab.id).catch(() => undefined);
-    }
-  }
-}
-
-function waitForTabLoad(tabId, timeoutMs) {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = () => {
-      if (done) {
-        return;
-      }
-      done = true;
-      chrome.tabs.onUpdated.removeListener(listener);
-      window.clearTimeout(timeout);
-      resolve();
-    };
-    const listener = (updatedTabId, changeInfo) => {
-      if (updatedTabId === tabId && changeInfo.status === "complete") {
-        finish();
-      }
-    };
-    const timeout = window.setTimeout(finish, timeoutMs);
-    chrome.tabs.onUpdated.addListener(listener);
-  });
-}
-
-function dedupeCookies(cookies) {
-  const seen = new Set();
-  const result = [];
-  for (const cookie of cookies) {
-    const partitionKey = cookie.partitionKey ? JSON.stringify(cookie.partitionKey) : "";
-    const key = `${cookie.storeId || ""}\n${cookie.domain}\n${cookie.path}\n${cookie.name}\n${partitionKey}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(cookie);
-    }
-  }
-  return result;
-}
-
-function localStorageOriginsForDomains(domains, cookies) {
-  const origins = new Set();
-  for (const domain of domains) {
-    if (domain === "localhost" || isIpAddress(domain)) {
-      origins.add(`http://${domain}`);
-      origins.add(`https://${domain}`);
-    } else {
-      origins.add(`https://${domain}`);
-    }
-  }
-
-  for (const cookie of cookies) {
-    const host = normalizeDomain(cookie.domain);
-    if (!host || !cookie.hostOnly || !domains.some((domain) => host === domain || host.endsWith(`.${domain}`))) {
-      continue;
-    }
-    origins.add(`${cookie.secure === false ? "http" : "https"}://${host}`);
-  }
-
-  return [...origins];
-}
-
-function allowedLocalStorageOrigin(actualOrigin, requestedOrigin) {
-  try {
-    const actual = new URL(actualOrigin);
-    const requested = new URL(requestedOrigin);
-    return actual.protocol === requested.protocol && actual.hostname === requested.hostname && actual.port === requested.port;
-  } catch {
-    return false;
-  }
-}
-
-function localStorageItemCount(entries) {
-  return entries.reduce((count, entry) => count + Object.keys(entry.items || {}).length, 0);
-}
-
-function originsForDomains(domains) {
-  return [...new Set(domains.flatMap((domain) => {
-    if (domain === "localhost" || isIpAddress(domain)) {
-      return [
-        `http://${domain}/*`,
-        `https://${domain}/*`
-      ];
-    }
-    return [
-      `http://${domain}/*`,
-      `https://${domain}/*`,
-      `http://*.${domain}/*`,
-      `https://*.${domain}/*`
-    ];
-  }))];
-}
-
-async function ensureHostPermissions(domains) {
-  const origins = originsForDomains(domains);
-  const granted = await chrome.permissions.contains({ origins });
-  if (granted) {
-    return;
-  }
-  throw new Error(
-    [
-      `LLMR Login Import does not have Chrome site access for ${domains.join(", ")}.`,
-      "Reload the unpacked extension after updating it, then grant the extension site access for the requested domains in Chrome extensions settings."
-    ].join(" ")
-  );
-}
-
-function normalizeImportUrl(value) {
-  const raw = value.trim();
-  if (!raw) {
-    return "";
-  }
-  try {
-    const url = new URL(raw);
-    if (!["127.0.0.1", "localhost"].includes(url.hostname)) {
-      return "";
-    }
-    if (!/^\/chrome-import\/jobs\/[^/]+\/?$/.test(url.pathname)) {
-      return "";
-    }
-    url.pathname = url.pathname.replace(/\/+$/, "");
-    return url.toString();
-  } catch {
-    return "";
-  }
-}
-
-function normalizeDomain(value) {
-  return typeof value === "string"
-    ? value.trim().replace(/^\*\./, "").replace(/^\./, "").toLowerCase()
-    : "";
-}
-
-function isIpAddress(value) {
-  return /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) || value.includes(":");
 }
 
 function setStatus(message, kind = "") {

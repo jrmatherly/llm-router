@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "LLMR Login Import",
   "description": "Import selected Chrome site login cookies into LLMR's in-app browser.",
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "minimum_chrome_version": "127",
   "action": {
     "default_popup": "popup.html",
     "default_title": "LLMR Login Import"
@@ -28,7 +29,9 @@
   ],
   "host_permissions": [
     "http://127.0.0.1/*",
-    "http://localhost/*",
+    "http://localhost/*"
+  ],
+  "optional_host_permissions": [
     "http://*/*",
     "https://*/*"
   ]

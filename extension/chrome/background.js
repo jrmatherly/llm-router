@@ -1,15 +1,76 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || message.type !== "llmr-login-import-confirm") {
+  const handler = handlerFor(message?.type);
+  if (!handler) {
     return false;
   }
 
-  runImport(message.importUrl, sender.tab?.url)
-    .then((result) => sendResponse({ ok: true, result }))
-    .catch((error) => sendResponse({ error: formatError(error), ok: false }));
+  handler(message.importUrl, sender)
+    .then((reply) => sendResponse({ ...reply, ok: true }))
+    .catch((error) => sendResponse({
+      error: formatError(error),
+      ok: false,
+      ...(error?.needsPermission ? { needsPermission: true } : {})
+    }));
   return true;
 });
 
-async function runImport(importUrl, senderUrl) {
+function handlerFor(type) {
+  switch (type) {
+    case "llmr-login-import-confirm":
+      return confirmImport;
+    case "llmr-login-import-preview":
+      return previewImport;
+    case "llmr-login-import-run":
+      return runPopupImport;
+    default:
+      return undefined;
+  }
+}
+
+async function confirmImport(importUrl, sender) {
+  const senderUrl = sender.tab?.url;
+  if (typeof senderUrl !== "string") {
+    throw new Error("Invalid LLMR import URL.");
+  }
+
+  const job = await loadJob(importUrl, senderUrl);
+  if (!(await chrome.permissions.contains({ origins: originsForDomains(job.domains) }))) {
+    await chrome.storage.session.set({ pendingImportUrl: job.importUrl });
+    try {
+      await chrome.action.openPopup();
+    } catch {
+      // The reply below tells the user to open the popup by hand.
+    }
+    throw Object.assign(
+      new Error("Chrome needs your approval for these sites. Open the LLMR Login Import popup and click Import."),
+      { needsPermission: true }
+    );
+  }
+  return { result: await importLoginState(job) };
+}
+
+async function previewImport(importUrl, sender) {
+  requirePopupSender(sender);
+  const job = await loadJob(importUrl);
+  return { domains: job.domains, origins: originsForDomains(job.domains) };
+}
+
+async function runPopupImport(importUrl, sender) {
+  requirePopupSender(sender);
+  const job = await loadJob(importUrl);
+  await ensureHostPermissions(job.domains);
+  const result = await importLoginState(job);
+  await chrome.storage.session.remove("pendingImportUrl");
+  return { result };
+}
+
+function requirePopupSender(sender) {
+  if (sender.tab || sender.url !== chrome.runtime.getURL("popup.html")) {
+    throw new Error("This request is accepted only from the LLMR Login Import popup.");
+  }
+}
+
+async function loadJob(importUrl, senderUrl) {
   const normalizedImportUrl = normalizeImportUrl(importUrl, senderUrl);
   if (!normalizedImportUrl) {
     throw new Error("Invalid LLMR import URL.");
@@ -20,16 +81,17 @@ async function runImport(importUrl, senderUrl) {
   if (domains.length === 0) {
     throw new Error("LLMR import job does not include any domains.");
   }
+  return { domains, importUrl: normalizedImportUrl };
+}
 
-  await ensureHostPermissions(domains);
-
+async function importLoginState({ domains, importUrl }) {
   const cookies = await readCookiesForDomains(domains);
   const localStorageEntries = await readLocalStorageForDomains(domains, cookies);
   if (cookies.length === 0 && localStorageEntries.length === 0) {
     throw new Error("No cookies or localStorage entries were found for the selected domains.");
   }
 
-  return await submitLoginState(normalizedImportUrl, cookies, localStorageEntries, domains);
+  return await submitLoginState(importUrl, cookies, localStorageEntries, domains);
 }
 
 async function fetchImportJob(importUrl) {
@@ -212,7 +274,7 @@ async function ensureHostPermissions(domains) {
   throw new Error(
     [
       `LLMR Login Import does not have Chrome site access for ${domains.join(", ")}.`,
-      "Reload the unpacked extension after updating it, then grant the extension site access for the requested domains in Chrome extensions settings."
+      "Open the LLMR Login Import popup and click Import to grant site access."
     ].join(" ")
   );
 }
@@ -224,7 +286,7 @@ function normalizeImportUrl(value, senderUrl) {
   }
   try {
     const url = new URL(raw);
-    const senderOrigin = new URL(senderUrl).origin;
+    const senderOrigin = senderUrl === undefined ? url.origin : new URL(senderUrl).origin;
     if (url.origin !== senderOrigin) {
       return "";
     }
@@ -242,9 +304,10 @@ function normalizeImportUrl(value, senderUrl) {
 }
 
 function normalizeDomain(value) {
-  return typeof value === "string"
+  const host = typeof value === "string"
     ? value.trim().replace(/^\*\./, "").replace(/^\./, "").toLowerCase()
     : "";
+  return host === "localhost" || isIpAddress(host) || host.includes(".") ? host : "";
 }
 
 function allowedLocalStorageOrigin(actualOrigin, requestedOrigin) {
