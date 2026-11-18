@@ -78,6 +78,7 @@ Each line has its pinning test in the owning task.
 No task fixes these. Each one is stated so a reviewer does not rediscover it.
 
 - **Hard-linked rc files.** `writeFileAtomic` renames a temp file over the target. A symlink is followed and survives. A hard link is broken, and the other name keeps the old content.
+- **Read-only targets.** A rename replaces a file whose mode forbids writing, where the in-place write failed with `EACCES`. A user who made `.zshrc` or the Grok `auth.json` read-only no longer gets a failed write. The file keeps its mode.
 - **Tunnels opened before capture is turned on.** A tunnel is opaque for its lifetime. Turning Capture network on affects new connections only.
 - **An evicted MITM server and a CONNECT in flight.** A CONNECT that resolved its server just before eviction can fail with 502. The client retries.
 - **Codex token rotation is unverified.** Nobody has checked whether the Codex OAuth token endpoint rotates refresh tokens (spec, "Not verified by anyone"). CG-7 makes the probe correct if it does. CG-7 keeps the rotated token in memory only, so a restart goes back to the token in `~/.codex/auth.json` or in the provider plugin config.
@@ -450,6 +451,30 @@ git commit -m "docs: say which hosts proxy mode decrypts"
 **Branch:** `fix/atomic-user-file-writes`
 **Size:** M
 **Owner steps:** None
+
+**Status:** Merged 2026-11-17 as [PR 97](https://github.com/jrmatherly/llm-router/pull/97), squash commit `fd2fa592`. The review changed these points:
+
+- **Grok unsaved refresh.** `resolveGrokAuth` prefers the unsaved credential while the file still holds the refresh token it replaced. Task 2 as written compared expiry, which dropped a refresh that carried no expiry (a non-JWT access token with no `expires_in`) and sent the spent token again.
+- **A rejected unsaved refresh is dropped.** When the token endpoint answers 401 or 403 for the unsaved credential, the entry is deleted and the error is thrown. Peer adoption would have returned the stale copy on disk, and every later call would have presented the rejected token again.
+- **The Grok save warning quotes no file content.** A `JSON.parse` message includes the text around the error, which in `auth.json` is a credential (measured on Node 24.22.3).
+- **Corrupt-backup restore writes the root config first and removes `appliedId` last.** `appliedId` is what marks the keys as LLMR's, so a failed root write is retried on the next sync.
+- **A failed rename of the corrupt backup warns and returns.** This path runs on every settings save and gateway start for a user with no takeover profile.
+- **One warning, after acting.** It says whether the takeover keys were removed and names the `.corrupt-<timestamp>` file. The Task 1 text was printed before any check.
+- **A backup that cannot be read right now is left in place.** Only content that fails to parse, or is not a version 1 backup, counts as corrupt.
+- **One blank line above a managed block on the second line of an rc file survives.** The pattern's optional newline made that match start at offset 0.
+- Four more tests: an unparseable library or meta file, a backup of another version or shape, the warning naming the kept copy, and an unreadable backup.
+
+Found and left alone:
+
+- The parse-error message does not tell the user to fix or delete the file. A broken file in a profile's own Claude App data folder now blocks that profile's launch until the user finds it.
+- `restoreClaudeAppOwnedKey` still replaces a live file that does not parse with the snapshot. It predates CG-3 and is at odds with the apply path's refusal.
+- When the backup is corrupt and `_meta.json` does not parse, no key is removed and the backup is still moved aside, so nothing retries.
+
+All tests in this PR run with:
+
+```bash
+node build/test.mjs core && node --test .test-dist/core/test/unit/agents/claude-app-gateway-sync.test.js .test-dist/core/test/unit/agents/local-agent-provider-grok.test.js .test-dist/core/test/unit/profiles/shell-rc-path-block.test.js
+```
 
 Every write in this PR goes through `writeFileAtomic(file: string, content: string, options?: { mode?: number }): void` from `@llmr/core/profiles/backup-files` (`packages/core/src/profiles/backup-files.ts:76`). It writes a temp file beside the target and renames it, follows a symlink to its real file, and keeps the existing mode when `mode` is not given. Five `agents/*` modules import it already, and no architecture test forbids the import.
 
