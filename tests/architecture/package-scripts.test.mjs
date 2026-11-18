@@ -26,3 +26,15 @@ test("typecheck covers the TypeScript test files", () => {
     assert.ok(files.includes(file), file);
   }
 });
+
+test("lint is Biome with the formatter and assists off, pinned, and run by CI", () => {
+  const { devDependencies, scripts } = JSON.parse(readFileSync("package.json", "utf8"));
+  const biome = JSON.parse(readFileSync("biome.json", "utf8"));
+  const version = devDependencies["@biomejs/biome"];
+  assert.equal(scripts.lint, "biome lint --error-on-warnings .");
+  assert.match(version, /^\d+\.\d+\.\d+$/);
+  assert.equal(biome.$schema, `https://biomejs.dev/schemas/${version}/schema.json`);
+  assert.equal(biome.formatter.enabled, false);
+  assert.equal(biome.assist.enabled, false);
+  assert.match(readFileSync(".github/workflows/test.yml", "utf8"), /run: npm run lint\n/);
+});

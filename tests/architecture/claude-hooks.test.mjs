@@ -92,3 +92,8 @@ test("gate runs in the hook input cwd, not CLAUDE_PROJECT_DIR", () => {
   assert.equal(r.status, 0);
   assert.equal(readFileSync(path.join(dir, "ran-here"), "utf8"), dir);
 });
+
+test("gate default checks are typecheck, lint and the architecture tests", () => {
+  const source = readFileSync(path.join(hooksDir, "gate-commit.mjs"), "utf8");
+  assert.ok(source.includes('const DEFAULT_CHECKS = [["npm", ["run", "typecheck"]], ["npm", ["run", "lint"]], ["npm", ["run", "test:architecture"]]];'));
+});

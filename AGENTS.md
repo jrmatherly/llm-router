@@ -6,6 +6,7 @@ Fork of claude-code-router v3.1.3. Divergence from upstream is intended; never w
 
 - `npm ci` installs. npm only; see Repository etiquette.
 - `npm run typecheck` runs `tsc --noEmit` across the workspace, including the `.ts` and `.tsx` test files. The `.mjs` tests are not type-checked.
+- `npm run lint` runs Biome as a linter over the workspace. Fix what it reports. `npx biome lint --write <path>` applies the safe fixes; read the diff, because a "safe" fix once deleted a `"use strict"` that a classic script needed. Never pass `--unsafe` without `--only=<rule>`.
 - `npm run test:architecture` runs `tests/architecture/*.test.mjs`.
 - `npm run test:core`, `npm run test:ui`, `npm run test:electron`, `npm run test:cli` run one package.
 - `npm run test:e2e` builds the assets, then runs Playwright. Once per install, run `npm run test:e2e:install` first.
@@ -20,6 +21,7 @@ Read the check before changing the structure it guards. Change a rule only toget
 
 - `tests/architecture/*.test.mjs`: package boundaries, UI build contract, packaging, hooks. `npm run test:architecture`; the commit gate also runs it.
 - `packages/core/test/architecture/gateway-service-architecture.test.mjs`: the `gateway/service.ts` facade (20-line cap, no `GatewayService` class or `node:http`; it re-exports `gateway/application/gateway-service` and `routing/protocol-endpoints`, and no other gateway module imports it) and no filesystem persistence in `config-compiler.ts`. `npm run test:core`; the gate does not run it.
+- `biome.json`: lint rules, with the formatter and assists off on purpose. `npm run lint`; the commit gate and the Tests workflow run it. It skips `*.astro` (Biome does not see the template, so frontmatter names look unused), `*.svg` and `docs/public` (classic scripts that Biome would parse as modules). Turn a rule off only with its reason in the PR. `tests/architecture/package-scripts.test.mjs` pins the script, the exact version and the CI step.
 - `validateLightweightMcpBundles` and `forbiddenLightweightMcpInputs` in `build/esbuild.config.mjs`: size cap and forbidden imports for the bundles in `lightweightMcpBundleNames`. Only `npm run build:assets` runs it.
 - Path-scoped rules under `.claude/rules/` load on Read, Edit and Write of matching files and name their check. MCP reads such as `codegraph_explore` load no rule (measured 2026-10-25), so read a file with Read before changing it.
 
@@ -50,4 +52,4 @@ When their upstream sources are reachable, `npm run build:assets` and `npm run t
 
 ## Local checks
 
-In Claude Code sessions, `.claude/settings.json` blocks hand-edits to generated files, and runs typecheck plus `npm run test:architecture` before a `git commit` run through Bash and before the Jean commit tool (about 15 s). The gate matches command text and fails closed: the word `git` followed anywhere by the separate word `commit` runs it and can block the command, as in `git log | grep commit`. Indirect spellings such as `$GIT commit` slip past. A fresh worktree without `node_modules` blocks commits until `npm ci` runs there. `LLMR_GATE_COMMANDS`, `LLMR_VERIFY_COMMANDS` and `LLMR_VERIFY_E2E_COMMAND` exist for tests only; never set them in a session. Edits made through Bash (`sed`, redirects) and commits from other tools are not hooked; the tests above are the check.
+In Claude Code sessions, `.claude/settings.json` blocks hand-edits to generated files, and runs typecheck, `npm run lint` and `npm run test:architecture` before a `git commit` run through Bash and before the Jean commit tool (about 15 s). The gate matches command text and fails closed: the word `git` followed anywhere by the separate word `commit` runs it and can block the command, as in `git log | grep commit`. Indirect spellings such as `$GIT commit` slip past. A fresh worktree without `node_modules` blocks commits until `npm ci` runs there. `LLMR_GATE_COMMANDS`, `LLMR_VERIFY_COMMANDS` and `LLMR_VERIFY_E2E_COMMAND` exist for tests only; never set them in a session. Edits made through Bash (`sed`, redirects) and commits from other tools are not hooked; the tests above are the check.
