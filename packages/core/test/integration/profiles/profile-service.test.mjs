@@ -6,12 +6,13 @@ import path from "node:path";
 import test from "node:test";
 import { writeWorkbuddyModelsConfig } from "@llmr/core/agents/codex/app-launch.ts";
 import { resolveGrokSourceHome } from "@llmr/core/agents/grok/profile-config.ts";
+import { resolveKimiSourceHome } from "@llmr/core/agents/kimi/profile-config.ts";
 import { writePiGatewayConfig } from "@llmr/core/agents/pi/profile-config.ts";
 import { loadAppConfig } from "@llmr/core/config/config.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { replacePersistedApiKeys, replacePersistedAppConfig } from "@llmr/core/config/config-repository.ts";
 import { CONFIGDIR } from "@llmr/core/config/constants.ts";
-import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, resolveKimiSourceHome, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service.ts";
+import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service.ts";
 
 test("Grok profile source home follows profile and process environment overrides", () => {
   const previous = {
