@@ -4,7 +4,7 @@ if (process.platform !== "win32") {
   errors.push(
     [
       "Windows app builds must run on Windows.",
-      "This package includes better-sqlite3, and node-gyp cannot cross-compile its native Electron binary from macOS or Linux.",
+      "The NSIS packaging path is tested on Windows only.",
       "Use a Windows x64 machine or the GitHub Actions Windows release job."
     ].join(" ")
   );
