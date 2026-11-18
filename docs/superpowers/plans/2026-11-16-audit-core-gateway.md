@@ -1370,6 +1370,8 @@ git commit -m "fix(providers): refresh Codex tokens with the rotated refresh tok
 **Size:** S
 **Owner steps:** None
 
+**Status:** Committed to `main` on 2026-11-17 with this note. The paragraph is in the "Failure triggers" section of `routing.md`, as written below.
+
 ### Task 1: Add the stacking note to the routing docs
 
 **Files:**

@@ -494,6 +494,8 @@ Network errors move to the next attempt. Status-code fallback depends on the mod
 
 Before moving to the next attempt, LLMR waits for every fallback-triggering failure, including network errors. It honors a positive `Retry-After` header when the upstream provides one; otherwise it uses exponential backoff starting at 1 second and capped at 30 seconds per attempt.
 
+Retries stack. In **Retry** mode LLMR resends the request, the core runtime under it retries a failed upstream connection once, and a client SDK retries on its own (the Anthropic and OpenAI SDKs retry twice by default, on the same `408`, `409`, `429` and `5xx` statuses). One client call can therefore reach the provider many times. Keep `Retries` low when the client already retries, or turn the client's retries off. LLMR does not retry a streamed response after its headers arrive.
+
 **Fallback targets** also switches on `4xx` because model-not-found, auth, or provider-side rejection errors may only affect the current target. If the fallback model works, the request can still succeed.
 
 ## How to configure
