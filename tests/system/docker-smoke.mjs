@@ -35,13 +35,15 @@ try {
     "--name",
     containerName,
     "-p",
-    `${hostPort}:8080`,
+    `127.0.0.1:${hostPort}:8080`,
     "-e",
     `LLMR_WEB_AUTH_TOKEN=${token}`,
     "-e",
     "LLMR_PUBLIC_HOST=127.0.0.1",
     "-e",
     `LLMR_PUBLIC_PORT=${hostPort}`,
+    "-e",
+    "LLMR_WEB_ALLOWED_ORIGINS=https://trusted.example",
     "-v",
     `${volumeName}:/data`,
     imageName
@@ -89,6 +91,16 @@ try {
   const unauthorized = await rpc(baseUrl, "getAppInfo");
   assert.equal(unauthorized.status, 401);
   assert.equal((await unauthorized.json()).ok, false);
+
+  const hostileOrigin = await rpc(baseUrl, "getConfig", token, [], { origin: "https://evil.example" });
+  assert.equal(hostileOrigin.status, 403, "Nginx must forward the real browser origin");
+  const hostileReferer = await rpc(baseUrl, "getConfig", token, [], { referer: "https://evil.example/page" });
+  assert.equal(hostileReferer.status, 403, "Nginx must forward the real browser referer");
+  const trustedOrigin = await rpc(baseUrl, "getAppInfo", token, [], { origin: "https://trusted.example", referer: "https://trusted.example/page" });
+  assert.equal(trustedOrigin.status, 200);
+  assert.equal(trustedOrigin.headers.get("access-control-allow-origin"), "https://trusted.example");
+  const publicOrigin = await rpc(baseUrl, "getAppInfo", token, [], { origin: baseUrl, referer: `${baseUrl}/pages/home/index.html` });
+  assert.equal(publicOrigin.status, 200, "a loopback page must be able to call RPC through Nginx");
 
   const appInfo = await rpc(baseUrl, "getAppInfo", token);
   assert.equal(appInfo.status, 200);
@@ -216,11 +228,12 @@ fs.writeFileSync(path.join(configDir, "config.json"), JSON.stringify(config, nul
   run("docker", ["run", "--rm", "-v", `${volume}:/data`, "--entrypoint", "node", imageName, "-e", script]);
 }
 
-async function rpc(baseUrl, method, authToken, args = []) {
+async function rpc(baseUrl, method, authToken, args = [], sourceHeaders = {}) {
   return fetch(`${baseUrl}/api/llmr/rpc`, {
     body: JSON.stringify({ args, method }),
     headers: {
       "content-type": "application/json",
+      ...sourceHeaders,
       ...(authToken ? { "x-llmr-web-auth": authToken } : {})
     },
     method: "POST"

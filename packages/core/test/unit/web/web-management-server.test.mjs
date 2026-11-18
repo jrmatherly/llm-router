@@ -69,7 +69,79 @@ test("resolveRendererRoot falls back to the app resources when the CLI runs from
   }
 });
 
-test("web RPC ignores Origin and Referer when the auth token is valid", async () => {
+test("#1835 web RPC rejects hostile browser sources even with a valid token", async () => {
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const runtime = await startWebManagementServer({ authToken: "source-test", host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    for (const headers of [
+      { origin: "https://evil.example" },
+      { referer: "https://evil.example/page" },
+      { origin: "null" },
+      { origin: "file://localhost" },
+      { origin: "http://127.0.0.1:8000", referer: "https://evil.example/page" }
+    ]) {
+      const response = await fetch(new URL("/api/llmr/rpc", runtime.url), {
+        body: JSON.stringify({ args: [], method: "getAppInfo" }),
+        headers: { "content-type": "application/json", "x-llmr-web-auth": "source-test", ...headers },
+        method: "POST"
+      });
+      assert.equal(response.status, 403, JSON.stringify(headers));
+      assert.equal((await response.json()).ok, false);
+    }
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("#1835 browser origins support explicit public URLs and allowlists", async (t) => {
+  const previousPublic = process.env.LLMR_PUBLIC_BASE_URL;
+  const previousAllowed = process.env.LLMR_WEB_ALLOWED_ORIGINS;
+  process.env.LLMR_PUBLIC_BASE_URL = "https://llmr.example.com/";
+  process.env.LLMR_WEB_ALLOWED_ORIGINS = "https://tools.example.com, http://192.168.1.20:3458";
+  t.after(() => {
+    setOptionalEnv("LLMR_PUBLIC_BASE_URL", previousPublic);
+    setOptionalEnv("LLMR_WEB_ALLOWED_ORIGINS", previousAllowed);
+  });
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const runtime = await startWebManagementServer({ authToken: "remote-test", host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    for (const origin of ["https://llmr.example.com", "https://tools.example.com", "http://192.168.1.20:3458"]) {
+      const response = await fetch(new URL("/api/llmr/rpc", runtime.url), {
+        body: JSON.stringify({ args: [], method: "getAppInfo" }),
+        headers: { "content-type": "application/json", "x-llmr-web-auth": "remote-test", origin, referer: `${origin}/page` },
+        method: "POST"
+      });
+      assert.equal(response.status, 200, origin);
+      assert.equal(response.headers.get("access-control-allow-origin"), origin);
+    }
+    const denied = await fetch(new URL("/api/llmr/rpc", runtime.url), { headers: { origin: "https://evil.example" }, method: "OPTIONS" });
+    assert.equal(denied.status, 403);
+    assert.equal(denied.headers.get("access-control-allow-origin"), null);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("#1835 a wildcard bind trusts a browser on the server's own address and port only", async () => {
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const runtime = await startWebManagementServer({ authToken: "lan-test", host: "0.0.0.0", port: 0, startGateway: false });
+  try {
+    const port = runtime.server.address().port;
+    const statusFor = async (origin) => (await fetch(`http://127.0.0.1:${port}/api/llmr/rpc`, {
+      body: JSON.stringify({ args: [], method: "getAppInfo" }),
+      headers: { "content-type": "application/json", "x-llmr-web-auth": "lan-test", origin },
+      method: "POST"
+    })).status;
+    assert.equal(await statusFor(`http://192.0.2.1:${port}`), 200);
+    assert.equal(await statusFor(`https://192.0.2.1:${port}`), 403);
+    assert.equal(await statusFor(`http://192.0.2.1:${port + 1}`), 403);
+    assert.equal(await statusFor(`http://lan.example:${port}`), 403);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("web RPC accepts loopback tools with a valid auth token", async () => {
   const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
   const authToken = "test-web-auth-token";
   const runtime = await startWebManagementServer({

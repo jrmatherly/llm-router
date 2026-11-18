@@ -164,8 +164,12 @@ The public management authentication variables are:
 | `LLMR_WEB_HOST` | Management service listen address used when `--host` is omitted. |
 | `LLMR_WEB_PORT` | Management service port used when `--port` is omitted. |
 | `LLMR_WEB_AUTH_TOKEN` | Fixed management UI / RPC token; without it the process generates a random token. |
+| `LLMR_PUBLIC_BASE_URL` | Browser-facing address of the management UI when it differs from the listen address, such as `https://llmr.example.com` behind a reverse proxy. |
+| `LLMR_WEB_ALLOWED_ORIGINS` | Comma-separated extra browser origins that may call management RPC. |
 
 Listening on `0.0.0.0` exposes the management UI to the LAN or external networks. Only configure this when genuinely needed, and combine it with a fixed strong token, a host firewall or private network, and TLS provided by a trusted reverse proxy.
+
+Management RPC rejects a browser request whose `Origin` or `Referer` is not trusted, with `403`. Loopback addresses are trusted, and so is `http://<listen address>:<port>`. Behind a reverse proxy the browser's origin is the proxy's address, so set `LLMR_PUBLIC_BASE_URL` to it. A client that sends neither header, such as `curl`, needs only the token.
 
 The model gateway additionally requires separately created LLMR client keys. Upstream provider credentials are stored in the local data directory, so both the directory and its backups should be protected as sensitive data.
 

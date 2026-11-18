@@ -187,15 +187,17 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse,
     return;
   }
 
-  // CORS: allow cross-origin browsers (e.g. the docs setup wizard) to call the
-  // RPC endpoint. Origin-gated to loopback + LLMR_WEB_ALLOWED_ORIGINS. This only
-  // relaxes the browser same-origin policy; the x-llmr-web-auth token still
-  // authorizes /api/llmr/rpc, so no credential is exposed.
+  // CORS only relaxes the browser same-origin policy for a trusted origin; the
+  // x-llmr-web-auth token still authorizes /api/llmr/rpc.
   const corsOrigin = allowedWebCorsOrigin(request);
   if (corsOrigin) {
     applyWebCorsHeaders(response, corsOrigin);
   }
   if (request.method === "OPTIONS") {
+    if (!isAllowedWebBrowserSource(request, security)) {
+      sendText(response, 403, "Forbidden origin");
+      return;
+    }
     response.writeHead(204);
     response.end();
     return;
@@ -232,6 +234,10 @@ async function handleRpcRequest(request: IncomingMessage, response: ServerRespon
   }
   if (!hasValidWebAuthToken(request, security)) {
     sendJson(response, 401, { error: { message: "LLMR web authentication token is missing or invalid." }, ok: false });
+    return;
+  }
+  if (!isAllowedWebBrowserSource(request, security)) {
+    sendJson(response, 403, { error: { message: "LLMR web request origin is not allowed." }, ok: false });
     return;
   }
 
@@ -685,32 +691,58 @@ function isAllowedWebRequestHost(request: IncomingMessage, security: WebManageme
 
 const loopbackWebCorsHosts = new Set(["localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1"]);
 
-/**
- * Returns the request `Origin` if cross-origin callers are permitted, else
- * undefined. Permits loopback origins (any port) unconditionally so local tools
- * like the docs setup wizard work, plus any exact origin listed in the
- * `LLMR_WEB_ALLOWED_ORIGINS` env var (comma-separated) for remote deployments.
- */
+// Loopback origins on any port are trusted so local tools work. A remote
+// deployment names its browser-facing origins in
+// LLMR_PUBLIC_BASE_URL and LLMR_WEB_ALLOWED_ORIGINS (comma-separated).
 function allowedWebCorsOrigin(request: IncomingMessage): string | undefined {
   const origin = readHeaderValue(request.headers.origin);
-  if (!origin) return undefined;
-  const normalizedOrigin = origin.replace(/\/$/, "");
-  const configured = readEnvString("LLMR_WEB_ALLOWED_ORIGINS");
-  if (configured) {
-    const allow = new Set(
-      configured
-        .split(",")
-        .map((value) => value.trim().replace(/\/$/, ""))
-        .filter(Boolean)
-    );
-    if (allow.has(normalizedOrigin)) return origin;
-  }
+  return origin && isTrustedWebOrigin(origin) ? origin : undefined;
+}
+
+function parseWebOrigin(value: string): string | undefined {
   try {
-    if (loopbackWebCorsHosts.has(normalizeHostname(new URL(origin).hostname))) return origin;
+    const url = new URL(value);
+    return (url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password ? url.origin : undefined;
   } catch {
-    /* malformed origin — treat as not allowed */
+    return undefined;
   }
-  return undefined;
+}
+
+function isTrustedWebOrigin(value: string, security?: WebManagementSecurityContext): boolean {
+  const origin = parseWebOrigin(value);
+  if (!origin || value.replace(/\/$/, "") !== origin) {
+    return false;
+  }
+  const url = new URL(origin);
+  if (loopbackWebCorsHosts.has(normalizeHostname(url.hostname))) {
+    return true;
+  }
+  const configured = [readEnvString("LLMR_PUBLIC_BASE_URL"), ...(readEnvString("LLMR_WEB_ALLOWED_ORIGINS") ?? "").split(",")];
+  if (configured.some((item) => item && parseWebOrigin(item.trim()) === origin)) {
+    return true;
+  }
+  return Boolean(
+    security &&
+    url.protocol === "http:" &&
+    Number(url.port || 80) === security.port &&
+    isAllowedWebHostname(url.hostname, security)
+  );
+}
+
+// The token already stops a page that does not hold it. This also stops a page
+// that does, when a browser sent the request from an origin nobody trusted.
+// A client that sends neither header (curl, the CLI) is not a browser page.
+function isAllowedWebBrowserSource(request: IncomingMessage, security: WebManagementSecurityContext): boolean {
+  const origin = readHeaderValue(request.headers.origin);
+  if (origin && !isTrustedWebOrigin(origin, security)) {
+    return false;
+  }
+  const referer = readHeaderValue(request.headers.referer);
+  if (referer) {
+    const refererOrigin = parseWebOrigin(referer);
+    return Boolean(refererOrigin && isTrustedWebOrigin(refererOrigin, security));
+  }
+  return true;
 }
 
 function applyWebCorsHeaders(response: ServerResponse, origin: string): void {

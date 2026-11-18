@@ -164,8 +164,8 @@ server {
   location = /api/llmr/rpc {
     proxy_http_version 1.1;
     proxy_set_header Host ${LLMR_WEB_HOST}:${LLMR_WEB_PORT};
-    proxy_set_header Origin http://${LLMR_WEB_HOST}:${LLMR_WEB_PORT};
-    proxy_set_header Referer http://${LLMR_WEB_HOST}:${LLMR_WEB_PORT}/;
+    proxy_set_header Origin \$http_origin;
+    proxy_set_header Referer \$http_referer;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Host \$host;
     proxy_set_header X-Forwarded-Proto \$scheme;
