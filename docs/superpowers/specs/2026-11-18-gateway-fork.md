@@ -28,7 +28,7 @@ Each line is marked **measured** (run or read on 2026-11-18) or **recorded** (ta
 |---|---|---|
 | G-1 | LLMR owns its gateway build. Fork `The-NeXT-AI/ai-gateway` under a new repository name, publish a tarball from a release workflow there, and point LLMR's dependency at that tarball. Gateway fixes are commits in the fork, never `.patch` files. This settles row 29 of the upstream review. | Jason, 2026-11-17 |
 | G-2 | The audit program runs first, then this fork, then the upstream row ports. | Jason, 2026-11-17 |
-| G-3 | **Repository name.** Open. `jrmatherly/ai-gateway` is taken by an unrelated fork of an Azure sample (measured). This spec and the plan write `jrmatherly/llmr-gateway` as a placeholder. | Jason, pending |
+| G-3 | The fork is `jrmatherly/llmr-gateway`, public, with Actions enabled. `jrmatherly/ai-gateway` is taken by an unrelated fork of an Azure sample (measured). | Jason, 2026-11-18 |
 
 The design choices below are the session's, made on 2026-11-18 from the research. Each can be overruled before the plan runs.
 
@@ -64,11 +64,47 @@ The design choices below are the session's, made on 2026-11-18 from the research
 
 ## Steps only the owner can do
 
-- Name the fork (G-3).
-- Approve creating the public fork and, later, pushing to it. Both are outward-facing.
+- Done 2026-11-18: the fork's name and the go-ahead to create it as a public repository (G-3).
 - Enable Actions on the fork. GitHub disables workflows on a new fork until the owner turns them on.
-- Accept or refuse the behaviour change the safeguards patch brings. Its README says a virtual profile with internal gateway tools rejects a request that carries `safeguards`, before any upstream call. The review log records, from reading the Claude Code 2.1.326 binary, that Claude Code sends that field. Nobody has run this. The plan's Task 3 Step 5 measures it and stops for this decision.
+- Decide how the fork treats a `safeguards` request on a virtual model with internal tools. The research and the options are in "The safeguards rejection" below.
 - Optional, after the first release: a tag ruleset on the fork that restricts who can create `v*` tags.
+
+## The safeguards rejection
+
+Researched on 2026-11-18 for the owner's decision. Each line says how it is known.
+
+**What `safeguards` is.** In auto mode, Claude Code asks the server to check each action as part of the session's own model request. It sends a `safeguards` body field with a paired `anthropic-beta` value and reads `safeguard_results` from the response. It does this by default whenever `ANTHROPIC_BASE_URL` points at a gateway, from Claude Code v2.1.278 (Claude Code docs: `permission-modes`, "Server-side classifier review"; `llm-gateway-protocol`, "Feature pass-through"; `auto-mode-classifier-billing`). The installed 2.1.327 binary builds the field as `safeguards: [{ type, classifier_context, ... }]` and only when the server check is on (read from the binary's strings, not run).
+
+**What a gateway is asked to do.** Forward the header and the field unchanged, and return `safeguard_results` without dropping fields or rewriting tool-use IDs (same docs). When a response completes with no review results, Claude Code falls back to its own classifier requests and, on accounts billed for them, shows a notice once. When results arrive cut short or unreadable, it denies the action, and after ten such responses it stops the turn (docs: `errors`, "The server returned no safety verdict").
+
+**What LLMR does today.** A direct model passes the field through. A virtual model drops `safeguards`, unknown request fields and `safeguard_results`, and keeps the beta header (recorded: the review log's PR 88 entry, measured in CI). So a Claude Code session on any Fusion model gets the documented fallback: its own classifier, no error. LLMR sets none of the auto mode variables for a profile (measured: `grep` finds `CLAUDE_CODE_AUTO_MODE_SERVER` only in the generated option list).
+
+**What the patch changes.** Read from the patch file:
+
+- Every unknown top-level field of an Anthropic request and response now survives a virtual model, `safeguards` and `safeguard_results` included. This is the fix for the eight cases.
+- One new check in `src/gateway/handler.ts` returns HTTP 400 when the request is Anthropic format, its body has a `safeguards` key, and the virtual model has at least one internal tool. The message is "Server safeguards require client-owned tool execution. Select the native provider model or a virtual model without internal gateway tools." The patch's test shows that neither the tool nor the upstream is called.
+
+**Who the 400 reaches.** A new Fusion model in LLMR's UI starts with the built-in vision tool (measured: `createVirtualModelDraft` in `packages/ui/src/pages/home/shared/virtual-models.ts` sets `toolsText` to it). Vision, web search, image and video generation and a custom MCP tool are what Fusion exists for (the Fusion docs page). So the check covers the ordinary Fusion model, not a corner case. It fires for Claude Code v2.1.278 or later, in auto mode, routed to such a model.
+
+**What Claude Code does with that 400.** The docs list no automatic retry for a rejected `safeguards` field. The 2.1.327 binary has one: log strings describe sending the request again "without the dangerous-tool-use beta header and the safeguards field" after an HTTP 400, then asking again on the next request, and one branch where the request "is not sent again" (read from strings, not run). Inferred from that: most turns would work, at the cost of one rejected request each, and some would fail. Nobody has observed it.
+
+**Why the patch rejects.** Its README gives the reason: with internal tools the gateway runs a tool loop of several upstream calls, and the server's verdicts are tied to tool-use IDs in one response. A verdict from one call cannot be trusted for another. Not passing `safeguards` through a tool loop is sound. Rejecting the request is one way to do that. Dropping the field is the other, and it is what the gateway does today.
+
+**Options.**
+
+| | Option | What a Claude Code user in auto mode sees on a Fusion model with a tool | Cost |
+|---|---|---|---|
+| A | Take the patch as written. | An HTTP 400 per request, then whatever Claude Code's retry does (unobserved). Other Anthropic-format clients that send the field get a hard 400. | None in the fork. Risk of a regression against today for the most common Fusion setup. |
+| B | Take the patch, and replace the rejection with dropping `safeguards` for a virtual model that has internal tools. | The same as today: the documented fallback to Claude Code's own classifier. Server review starts working on Fusion models without tools and stays working on direct models. | One more commit in the fork, about ten lines and a rewritten test. The beta header is still forwarded without its field, as today. |
+| C | Leave the safeguards patch out. Ship only the stream fix. | The same as today everywhere. | The eight cases stay expected failures, and server review never works through any virtual model. |
+
+**Recommendation: B.** It fixes the eight cases, keeps the reason the patch has for not passing the field through a tool loop, and never makes a working setup return an error. The fallback it relies on is the behaviour Anthropic documents for a gateway that returns no review results.
+
+**Not verified.**
+
+- What a real Anthropic upstream answers when the beta header arrives without the `safeguards` field. That is already what every virtual model sends today. The check is a live Claude Code session in auto mode on a Fusion model with an Anthropic base model: `/status` shows "Auto mode server" as `Disabled` after the fallback, and no request fails. It needs a real key, so it is an owner check.
+- What a non-Anthropic provider that speaks the Anthropic format does with a forwarded `safeguards` field. Direct models already forward it today.
+- Claude Code's behaviour on the 400 (option A). Task 3 Step 5 would measure the gateway side only.
 
 ## Deferred, with reasons
 

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- The fork is written `jrmatherly/llmr-gateway` below. That name is a placeholder (G-3). Replace it everywhere with the name the owner gives before Task 1.
+- The fork is `jrmatherly/llmr-gateway`, public (G-3, owner, 2026-11-18).
 - Fork versions are `1.0.22-llmr.N`, tags `v1.0.22-llmr.N`. The package name stays `@the-next-ai/ai-gateway`, so `npm pack` writes `the-next-ai-ai-gateway-1.0.22-llmr.N.tgz`.
 - The asset URL is `https://github.com/jrmatherly/llmr-gateway/releases/download/v<version>/the-next-ai-ai-gateway-<version>.tgz`.
 - Creating the fork and pushing to it are outward-facing. Each needs the owner's word (spec, "Steps only the owner can do").
@@ -45,7 +45,7 @@ Repository: the fork. No LLMR file changes.
 **Interfaces:**
 - Produces: the release `v1.0.22-llmr.1` with assets `the-next-ai-ai-gateway-1.0.22-llmr.1.tgz` and `SHA256SUMS`, and the default branch `llmr`.
 
-- [ ] **Step 1: Owner gate.** Confirm the fork name and the go-ahead to create a public fork. Stop here without both.
+- [ ] **Step 1: Owner gate.** Passed on 2026-11-18: the owner approved the name `jrmatherly/llmr-gateway`, a public fork, and enabling Actions on it. The pushes in Step 7 still get one ask.
 
 - [ ] **Step 2: Create the fork and the `llmr` branch**
 
@@ -305,7 +305,9 @@ Expected: the 13 marked subtests now FAIL with "expected failure" semantics, mea
 - [ ] **Step 5: Measure the behaviour change for virtual models with tools**
 
 In the same scratch worktree, add one subtest to the `#1932` test beside the others: the `guardedProfile` with `tools` set to one internal gateway tool, a request carrying `safeguards` and the beta header, through "gateway child in public mode". Record the HTTP status and body. Then send the same request without `safeguards` and record that it succeeds.
-Expected, per the patch's README: the first is rejected before any upstream call. Report both results to the owner and wait. This is a product call: a client that always sends `safeguards` would stop working through such a model. Keep the subtest for Task 4 with the outcome the owner accepts.
+Before this step, read "The safeguards rejection" in the spec. If the owner has chosen option B there, first add a third commit that replaces the rejection in `src/gateway/handler.ts` with dropping `safeguards` from the request (the body and the preserved native fields) when the virtual model has internal tools, and rewrite the patch's `rejects server safeguards` test to assert HTTP 200 and an upstream body without `safeguards`. The subtest here then asserts the same through LLMR. If the owner has chosen C, skip Step 2 and this step, and keep the eight safeguards markers in Task 4.
+
+Expected with the patch as written (option A): the first is rejected with HTTP 400 before any upstream call. Report both results to the owner and wait. This is a product call: a client that always sends `safeguards` would stop working through such a model. Keep the subtest for Task 4 with the outcome the owner accepts.
 
 - [ ] **Step 6: Commit, owner gate, push, tag, verify**
 
