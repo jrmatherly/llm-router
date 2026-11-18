@@ -65,7 +65,7 @@ When the model returns `virtual_apply_patch`, LLMR rewrites it back to Codex's e
 
 Custom routes are configured in the Routing page rule list. The top **Search routing rules** field filters by rule name, condition, request action, and related row text; the top-right **Add** button opens the **Add Routing Rule** dialog. The table shows each rule under **Name**, **Condition**, **Request action**, **Status**, and **Action**.
 
-Custom rules match in list order, and the first enabled matching rule rewrites the request. Use the move up and move down buttons to adjust priority. Use the edit button to open **Edit Routing Rule**, and the delete button to open a confirmation dialog. Turning off the **Status** toggle keeps the rule in the list but removes it from matching.
+Custom rules match in list order, and the first enabled matching rule decides the request: it applies its rewrites, or none when it has no rewrite rows, and later rules are skipped. Use the move up and move down buttons to adjust priority. Use the edit button to open **Edit Routing Rule**, and the delete button to open a confirmation dialog. Turning off the **Status** toggle keeps the rule in the list but removes it from matching.
 
 ### Add or edit a rule
 
@@ -75,7 +75,7 @@ The dialog fields map directly to the saved rule:
 | --- | --- | --- |
 | **Name** | Enter a recognizable rule name. This field is required. | Shown in the **Name** column and included in search. |
 | **Condition** | Choose `request.header` or `request.body`, then fill in field, operator, and value. | Builds `condition.left`, `condition.operator`, and `condition.right`. |
-| **Rewrite request parameters** | Keep at least one rewrite row. Each row chooses an operation, target key, and required value fields. | Builds `rewrites`, applied when the rule matches. |
+| **Rewrite request parameters** | Each row chooses an operation, target key, and required value fields. A rule with no rows is a [pass-through](#script-prefilters-and-pass-through-conditions). | Builds `rewrites`, applied when the rule matches. |
 | **Enabled** | Turn the rule on or off. | Controls `enabled`; disabled rules do not match. |
 | **On failure** | Configure fallback behavior for this rule. | Overrides **Default on failure** when this rule matches. |
 
@@ -437,7 +437,7 @@ The value field is parsed as a common literal when possible: `true`, `false`, `n
 
 The **Rewrite request parameters** area starts with one `request.body.model` row. This is the common model-routing path: choose **Set**, use key `request.body.model`, and set the value to a target `provider/model` or Fusion model.
 
-Click **Add parameter** to add more rewrite rows. The trash button removes a row, but the last row cannot be removed. When the rule matches, LLMR applies the rewrite rows in order.
+Click **Add parameter** to add more rewrite rows. The trash button removes a row. When the rule matches, LLMR applies the rewrite rows in order.
 
 | Operation | Required fields | Behavior |
 | --- | --- | --- |
@@ -534,3 +534,20 @@ Load [`examples/routing/jev.js`](https://github.com/jrmatherly/llm-router/blob/m
 Set `LLMR_JEV_ROUTING_ENABLED=1`, `LLMR_JEV_FAST_MODEL=provider/fast-model`, `LLMR_JEV_REASONING_MODEL=provider/reasoning-model`, and `TYPESAFE_API_KEY` in the environment that starts LLMR. Launch the desktop app from an environment that passes these variables through. Select the script file in a rule, initially use a 1500 ms timeout, and put a static fallback rule for `auto` after it. Only requests whose model is `auto` are classified. Explicit models, images, missing configuration, uncertain answers, errors, and timeouts continue to later rules.
 
 `LLMR_JEV_ENDPOINT` accepts a full endpoint URL for a compatible service; a local service need not require a key. `LLMR_JEV_MODEL` selects the classifier model. Enabling the script sends up to 8192 characters of the latest user text, the input token count, and tool count to that service, and cloud calls incur its charges. Headers and system content are excluded. `LLMR_JEV_MIN_CONFIDENCE` defaults to `0.75`; evaluate that example threshold on your tasks. Tests cover the contract and fallback behavior, without measuring live classification accuracy or latency.
+
+### Script prefilters and pass-through conditions
+
+A script rule can carry a `condition` as an optional prefilter. LLMR evaluates it before it serializes the request or calls a worker, and a miss continues to the next rule. The rule editor shows it as **Prefilter (optional)**. Leave it blank to run the script for every request. A prefilter LLMR cannot read, such as one with an unknown operator, turns the rule off with a `rule-condition-invalid` diagnostic, because dropping it would run the script for every request. Opening the rule in the editor and saving it clears the prefilter.
+
+```json
+{
+  "type": "script",
+  "enabled": true,
+  "id": "lane-routing",
+  "name": "Lane routing",
+  "condition": { "left": "request.body.model", "operator": "starts-with", "right": "lane/" },
+  "script": { "apiVersion": 1, "language": "javascript", "file": "/data/route.js", "timeoutMs": 2000 }
+}
+```
+
+A condition rule with no rewrites is a pass-through: a request that matches it skips later rules and is routed as if no custom rule had matched, by the built-in agent route or the model the client asked for. The rule's own **On failure** setting still applies. Remove every rewrite row in the editor to make one.

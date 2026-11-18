@@ -1267,6 +1267,8 @@ async function resolveRouterRule(
   const rewrites = compiledRule.rewrites;
 
   if (rule.type === "script") {
+    // The prefilter runs before the body snapshot, so a miss costs no serialization.
+    if (rule.condition && !routerRuleConditionMatches(rule.condition, request, options.auth)) return undefined;
     if (!rule.script || !runtime.scriptRuntime) {
       runtime.runtimeDiagnostics.push({
         code: "script-runtime-error",

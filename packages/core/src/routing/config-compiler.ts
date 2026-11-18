@@ -170,7 +170,7 @@ function compileRouterRule(
   }
   diagnostics.push(...fallbackModelDiagnostics(rule.fallback, modelRegistry, diagnostic.source, rule));
   return {
-    active: (rule.type === "script" ? Boolean(rule.script) : rewrites.length > 0) && diagnostics.length === 0,
+    active: (rule.type === "script" ? Boolean(rule.script) : rule.type === "condition" ? Boolean(rule.condition) : rewrites.length > 0) && diagnostics.length === 0,
     diagnostics,
     model,
     rewrites,
@@ -185,6 +185,15 @@ function scriptRuleDiagnostics(
   diagnostic: { allowScript?: boolean; label: string; source: "profile" | "rule" }
 ): RouteDiagnostic[] {
   if (rule.type !== "script") return [];
+  // A dropped prefilter would run the script for every request, so the rule stays off.
+  if (rule.conditionInvalid) {
+    return [{
+      code: "rule-condition-invalid",
+      message: `${diagnostic.label} has a condition LLMR cannot read. Fix its left, operator and right, or remove it.`,
+      ruleId: rule.id,
+      source: diagnostic.source
+    }];
+  }
   if (diagnostic.allowScript === false) {
     return [{
       code: "script-api-unsupported",

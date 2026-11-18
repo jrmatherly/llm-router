@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { parseRouterRulesForTest } from "@llmr/core/config/config.ts";
 import { ROUTER_SCRIPT_MAX_SOURCE_BYTES } from "@llmr/core/contracts/app.ts";
 import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
@@ -67,6 +68,81 @@ function scriptInput(body = {}) {
     url: "/v1/messages"
   });
 }
+
+test("#1868 script condition skips serialization and worker execution on a miss", async (t) => {
+  const body = { model: "Provider/alpha", messages: [{ role: "user", content: "x".repeat(2 * 1024 * 1024) }] };
+  let snapshots = 0;
+  const stringify = JSON.stringify;
+  t.mock.method(JSON, "stringify", function (value, ...args) {
+    if (value === body) snapshots += 1;
+    return stringify.call(this, value, ...args);
+  });
+  let executions = 0;
+  const runtime = { execute: async () => { executions += 1; return { status: "ok", value: { model: "Provider/beta" } }; } };
+  const plugin = new LLMRouterPlugin(routingConfig([scriptRule("filtered", routeScript('return { model: "Provider/beta" };'), {
+    condition: { left: "request.body.model", operator: "starts-with", right: "lane/" }
+  })]), { scriptRuntime: runtime });
+  const result = await plugin.routeRequest(routingInput(body));
+  assert.equal(result.decision.model, "Provider/alpha");
+  assert.equal(executions, 0);
+  assert.equal(snapshots, 0);
+});
+
+test("#1868 a matching script prefilter still executes the isolated worker", async () => {
+  const runtime = new RouteScriptRuntime({ workerCount: 1, workerFile });
+  try {
+    const plugin = new LLMRouterPlugin(routingConfig([scriptRule("filtered", routeScript('return { model: "Provider/beta" };'), {
+      condition: { left: "request.body.model", operator: "==", right: "Provider/alpha" }
+    })]), { scriptRuntime: runtime });
+    const result = await plugin.routeRequest(routingInput({ model: "Provider/alpha" }));
+    assert.equal(result.decision.model, "Provider/beta");
+  } finally { await runtime.close(); }
+});
+
+test("#1868 a condition with no rewrites passes through and bypasses later scripts", async () => {
+  const runtime = new RouteScriptRuntime({ workerCount: 1, workerFile });
+  try {
+    const plugin = new LLMRouterPlugin(routingConfig([
+      { id: "pass", name: "Pass", enabled: true, type: "condition", condition: { left: "request.body.model", operator: "not-contains", right: "lane/" } },
+      scriptRule("later", routeScript('return { model: "Provider/beta" };'))
+    ]), { scriptRuntime: runtime });
+    const result = await plugin.routeRequest(routingInput({ model: "Provider/alpha" }));
+    assert.equal(result.decision.model, "Provider/alpha");
+    const unmatched = await plugin.routeRequest(routingInput({ model: "lane/slot" }));
+    assert.equal(unmatched.decision.model, "Provider/beta");
+  } finally { await runtime.close(); }
+});
+
+test("a script prefilter on request.tokenCount decides before the worker runs", async () => {
+  let executions = 0;
+  const runtime = { execute: async () => { executions += 1; return { status: "ok", value: { model: "Provider/beta" } }; } };
+  const plugin = new LLMRouterPlugin(routingConfig([scriptRule("big", routeScript('return { model: "Provider/beta" };'), {
+    condition: { left: "request.tokenCount", operator: ">", right: "100000" }
+  })]), { scriptRuntime: runtime });
+  const small = await plugin.routeRequest(routingInput({ model: "Provider/alpha", messages: [{ role: "user", content: "hi" }] }));
+  assert.equal(small.decision.model, "Provider/alpha");
+  assert.equal(executions, 0);
+  const big = await plugin.routeRequest(routingInput());
+  assert.equal(big.decision.model, "Provider/beta");
+  assert.equal(executions, 1);
+});
+
+test("a script rule whose prefilter cannot be read stays off and says why", async () => {
+  let executions = 0;
+  const runtime = { execute: async () => { executions += 1; return { status: "ok", value: { model: "Provider/beta" } }; } };
+  const [rule] = parseRouterRulesForTest([{
+    ...scriptRule("typo", routeScript('return { model: "Provider/beta" };')),
+    condition: { left: "request.body.model", operator: "startsWith", right: "lane/" }
+  }]);
+  assert.equal(rule.condition, undefined);
+  assert.equal(rule.conditionInvalid, true);
+  assert.equal(parseRouterRulesForTest([rule])[0].conditionInvalid, true);
+  const plugin = new LLMRouterPlugin(routingConfig([rule]), { scriptRuntime: runtime });
+  const result = await plugin.routeRequest(routingInput({ model: "Provider/alpha" }));
+  assert.equal(result.decision.model, "Provider/alpha");
+  assert.equal(executions, 0);
+  assert.deepEqual(result.decision.diagnostics.map((diagnostic) => diagnostic.code), ["rule-condition-invalid"]);
+});
 
 function tokenProbeBody() {
   return { model: "Provider/alpha", messages: [{ role: "user", content: "token-estimate-probe " + "x ".repeat(100_000) }] };

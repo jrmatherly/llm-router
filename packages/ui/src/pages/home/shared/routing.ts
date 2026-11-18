@@ -127,6 +127,7 @@ export function normalizeRouterRules(value: unknown): RouterRule[] | undefined {
       const fallback = isPlainRecord(rawFallback) ? normalizeRouterFallbackConfig(rawFallback) : undefined;
       return {
         ...(condition ? { condition } : {}),
+        ...(type === "script" && !condition && (item.condition !== undefined || item.conditionInvalid === true) ? { conditionInvalid: true as const } : {}),
         enabled: typeof item.enabled === "boolean" ? item.enabled : true,
         ...(fallback ? { fallback } : {}),
         id,
