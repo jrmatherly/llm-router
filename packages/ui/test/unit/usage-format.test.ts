@@ -42,18 +42,21 @@ test("formatLogTokenSummary uses the provided locale for token counts", () => {
     path: "/v1/messages",
     provider: "test-provider",
     reasoningTokens: 0,
-    requestBody: { encoding: "utf8", text: "" },
+    requestBody: { encoding: "utf8", sizeBytes: 0, text: "", truncated: false },
     requestHeaders: {},
     requestId: "req_test",
     retryAttempts: [],
+    routeAttemptCount: 0,
+    routeHopCount: 0,
+    routeTraceTruncated: false,
     responseHeaders: {},
     statusCode: 200,
     totalTokens: 135456,
     url: "https://example.test/v1/messages"
   };
-  const translate = (value: string) => value;
 
-  assert.equal(formatLogTokenSummary(entry, translate, "en-US"), "123.5K in  12K out");
+  assert.equal(formatLogTokenSummary(entry, "en-US"), "123.5K in  12K out");
+  assert.equal(formatLogTokenSummary(entry, "de-DE"), "123.456 in  12.000 out");
 });
 
 test("request log model summaries stay stable without list body text", () => {
@@ -83,6 +86,9 @@ test("request log model summaries stay stable without list body text", () => {
     responseHeaders: {},
     responseModel: "response-model",
     retryAttempts: [],
+    routeAttemptCount: 0,
+    routeHopCount: 0,
+    routeTraceTruncated: false,
     statusCode: 200,
     totalTokens: 0,
     url: "https://example.test/v1/messages"

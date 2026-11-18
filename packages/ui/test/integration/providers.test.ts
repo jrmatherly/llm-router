@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { LocalAgentProviderCandidate } from "@llmr/core/contracts/app.ts";
 import { newApiKeyUsageAccountConfig } from "@llmr/core/providers/new-api.ts";
 import { geminiProviderPreset } from "@llmr/core/providers/presets/gemini/index.ts";
 import { providerPresets } from "@llmr/core/providers/presets/index.ts";
@@ -45,6 +46,7 @@ import {
   setProviderPresets
 } from "@llmr/ui/pages/home/shared/index.tsx";
 import { installBrowserGlobals } from "../fixtures/index.ts";
+import type { AddProviderDraft } from "@llmr/ui/pages/home/shared/types.ts";
 
 installBrowserGlobals();
 
@@ -96,7 +98,7 @@ test("composite field groups do not label their nested controls", () => {
   const html = renderToStaticMarkup(
     React.createElement(
       FieldGroup,
-      { label: "Models" },
+      { children: null, label: "Models" },
       React.createElement("input", { "aria-label": "Search models" }),
       React.createElement("button", { type: "button" }, "Model settings")
     )
@@ -307,7 +309,7 @@ test("provider save does not invent keys the provider never had", () => {
 });
 
 test("provider probe result drops unavailable selected protocols", () => {
-  const draft = {
+  const draft: AddProviderDraft = {
     ...createProviderDraft([]),
     baseUrl: "https://generativelanguage.googleapis.com",
     protocol: "gemini_generate_content",
@@ -332,7 +334,7 @@ test("provider probe result drops unavailable selected protocols", () => {
 });
 
 test("provider probe result keeps only supported selected protocols", () => {
-  const draft = {
+  const draft: AddProviderDraft = {
     ...createProviderDraft([]),
     baseUrl: "https://generativelanguage.googleapis.com",
     protocol: "gemini_generate_content",
@@ -566,6 +568,7 @@ test("AddProviderDialog progressively reveals provider setup steps", () => {
         normalizedBaseUrl: draft.baseUrl,
         protocols: [{
           endpoint: draft.baseUrl,
+          message: "",
           protocol: "openai_chat_completions" as const,
           status: 200,
           supported: true
@@ -734,6 +737,7 @@ test("AddProviderForm stacks connection statuses with protocol detection guidanc
         normalizedBaseUrl: draft.baseUrl,
         protocols: [{
           endpoint: draft.baseUrl,
+          message: "",
           protocol: "openai_chat_completions" as const,
           status: 200,
           supported: true
@@ -1120,7 +1124,7 @@ test("provider protocol details keep failed endpoint rows unavailable", () => {
 });
 
 test("provider probe result applies detected New API key quota account connector", () => {
-  const draft = {
+  const draft: AddProviderDraft = {
     ...createProviderDraft([]),
     accountEnabled: false,
     baseUrl: "https://gateway.example/v1",
@@ -1247,7 +1251,7 @@ test("webcontent-json account config opens as browser draft", () => {
 });
 
 test("provider probe keeps anthropic prefix on the protocol capability", () => {
-  const draft = {
+  const draft: AddProviderDraft = {
     ...createProviderDraft([]),
     baseUrl: "https://gateway.example",
     protocol: "anthropic_messages",
@@ -1266,8 +1270,10 @@ test("provider probe keeps anthropic prefix on the protocol capability", () => {
     normalizedBaseUrl: "https://gateway.example/anthropic",
     protocols: [
       {
-        ...anthropicCapability,
+        baseUrl: anthropicCapability.baseUrl,
+        endpoint: anthropicCapability.endpoint,
         message: "HTTP 400: model is required",
+        protocol: "anthropic_messages" as const,
         status: 400,
         supported: true
       }
@@ -1378,7 +1384,7 @@ test("provider global URL always follows the typed endpoint instead of probe end
 
 test("Kimi Global preset keeps OpenAI Chat when probe detects anthropic fallback", () => {
   setProviderPresets([moonshotGlobalProviderPreset]);
-  const draft = {
+  const draft: AddProviderDraft = {
     ...createProviderDraft([]),
     baseUrl: "https://api.moonshot.ai/v1",
     presetId: "moonshot-global",
@@ -1665,7 +1671,7 @@ test("New API subscription template replaces its earlier copy", () => {
 });
 
 test("Zen and Go candidates use distinct local agent plugin suffixes", () => {
-  const zenCandidate = {
+  const zenCandidate: LocalAgentProviderCandidate = {
     id: "opencode-api-anthropic-messages",
     importable: true,
     kind: "opencode",
@@ -1738,7 +1744,7 @@ test("provider probe models prefer the protocol-scoped list", () => {
   assert.deepEqual(providerProbeModelsForProtocol(undefined, "openai_responses"), []);
 });
 
-function providerInstallLinkPayload(link) {
+function providerInstallLinkPayload(link: string) {
   const url = new URL(link);
   const payload = url.searchParams.get("payload");
   assert.ok(payload);

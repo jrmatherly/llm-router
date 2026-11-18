@@ -10,6 +10,7 @@
     "isolatedModules": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "noEmit": true,
@@ -27,6 +28,8 @@
     "packages/*/src/**/*.ts",
     "packages/*/src/**/*.d.ts",
     "packages/*/src/**/*.tsx",
+    "packages/*/test/**/*.ts",
+    "packages/*/test/**/*.tsx",
     "tests/e2e/**/*.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AgentAnalysisSessionRow, AgentAnalysisTraceRun, RequestLogEntry, RequestLogPage } from "@llmr/core/contracts/app.ts";
 import { AgentAnalysisView } from "@llmr/ui/pages/home/components/dashboard.tsx";
