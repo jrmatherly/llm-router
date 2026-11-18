@@ -23,6 +23,18 @@
 
 Run the waves in order. Inside a wave, PRs on different rows of the conflict table below can be open at the same time.
 
+### Batches
+
+Jason decided on 2026-11-17 to cut the number of branches and PRs. These PR ids land together as one branch and one squash-merged PR, with one commit per task. Each batch only joins PRs that would never be reverted apart. A plan's "Branch" line for a batched PR is superseded by the branch here.
+
+| Batch | Branch | Why these go together |
+|---|---|---|
+| CG-4 + CG-5 | `fix/gateway-guards-and-sse-reconnect` | Both are small reliability fixes in `packages/core` and touch different files. |
+| ST-1 + ST-2 | Named when it starts | ST-2 type-checks the file ST-1 creates. ST-1's sha256 gate runs on the ST-1 commit, before ST-2 edits the script. |
+| ST-3 + ST-4 + ST-5 | Named when it starts | Three move-only extractions from `profiles/service.ts` that already had to land one after another. |
+
+Everything else stays one PR each. EU-1 and EU-2 stay apart so a packaging failure names its cause. TL-1 stays alone because adopting Biome touches many files. CG-7 needs a redesign first. The two ST batches are confirmed against the structure plan before they start.
+
 ### Wave 1. Make the release path trustworthy
 
 | PR | What it does | Depends on | Size |
