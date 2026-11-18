@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -13,6 +13,7 @@ import {
 } from "@llmr/core/agents/claude-app/gateway-routes";
 import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, claudeAppTakesOverDirectLaunches, hasAvailableGatewayModels, type ApiKeyConfig, type AppConfig, type ClaudeAppGatewayApplyResult } from "@llmr/core/contracts/app";
 import { findModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
+import { writeFileAtomic } from "@llmr/core/profiles/backup-files";
 
 export { claudeAppTakesOverDirectLaunches } from "@llmr/core/contracts/app";
 
@@ -81,6 +82,8 @@ export type ClaudeAppGatewaySyncResult = {
   result: ClaudeAppGatewayApplyResult;
 };
 
+export class ClaudeAppConfigParseError extends Error {}
+
 export function hasClaudeAppTakeoverProfile(config: Pick<AppConfig, "profile">): boolean {
   return config.profile.profiles.some(claudeAppTakesOverDirectLaunches);
 }
@@ -102,7 +105,20 @@ export async function syncClaudeAppGatewayConfig(config: AppConfig): Promise<Cla
     };
   }
 
-  const applied = applyClaudeAppGatewayConfig(config);
+  let applied: ReturnType<typeof applyClaudeAppGatewayConfig>;
+  try {
+    applied = applyClaudeAppGatewayConfig(config);
+  } catch (error) {
+    if (!(error instanceof ClaudeAppConfigParseError)) {
+      throw error;
+    }
+    console.warn(`[claude-app] ${error.message}`);
+    return {
+      config,
+      configChanged: false,
+      result: skippedClaudeAppGatewayResult(config, error.message)
+    };
+  }
   if (applied.config === config) {
     return {
       config,
@@ -167,14 +183,20 @@ export function applyClaudeAppGatewayConfig(config: AppConfig, options: ClaudeAp
     modelDiscoveryEnabled: true
   };
 
+  const targets = uniqueClaudeAppGatewayPaths([paths, activePaths]).map((targetPaths) => ({
+    library: readJsonRecordForUpdate(targetPaths.configLibraryFile),
+    meta: readJsonRecordForUpdate(targetPaths.metaFile),
+    root: readJsonRecordForUpdate(targetPaths.rootConfigFile),
+    targetPaths
+  }));
   if (options.backup !== false) {
     backupClaudeAppGatewayConfig(paths);
   }
-  for (const targetPaths of uniqueClaudeAppGatewayPaths([paths, activePaths])) {
+  for (const { library, meta, root, targetPaths } of targets) {
     mkdirSync(targetPaths.libraryDir, { mode: 0o700, recursive: true });
-    applyClaudeAppGatewayLibraryConfig(targetPaths.configLibraryFile, gatewayConfig);
-    applyClaudeAppConfigMeta(targetPaths.metaFile);
-    applyClaudeAppDeploymentMode(targetPaths.rootConfigFile);
+    applyClaudeAppGatewayLibraryConfig(targetPaths.configLibraryFile, library, gatewayConfig);
+    applyClaudeAppConfigMeta(targetPaths.metaFile, meta);
+    applyClaudeAppDeploymentMode(targetPaths.rootConfigFile, root);
     if (options.refreshModelDiscoveryCache) {
       refreshClaudeAppModelDiscoveryCache(targetPaths.dataDir);
     }
@@ -217,6 +239,24 @@ export function restoreClaudeAppGatewayConfig(): void {
   }
 
   const paths = getClaudeAppGatewayPaths();
+  if (backup === "corrupt") {
+    console.warn(`[claude-app] ${CLAUDE_APP_GATEWAY_BACKUP_FILE} could not be read; removing LLMR's takeover keys without it.`);
+    const meta = readJsonRecord(paths.metaFile);
+    if (meta?.appliedId === CLAUDE_APP_CONFIG_ID) {
+      delete meta.appliedId;
+      writeJsonFile(paths.metaFile, meta);
+      const root = readJsonRecord(paths.rootConfigFile);
+      if (root?.deploymentMode === "3p") {
+        delete root.deploymentMode;
+        writeJsonFile(paths.rootConfigFile, root);
+      }
+    }
+    renameSync(
+      CLAUDE_APP_GATEWAY_BACKUP_FILE,
+      `${CLAUDE_APP_GATEWAY_BACKUP_FILE}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`
+    );
+    return;
+  }
   restoreClaudeAppOwnedKey(paths.rootConfigFile, backup.rootConfigFile, "deploymentMode", "3p");
   restoreClaudeAppOwnedKey(paths.metaFile, backup.metaFile, "appliedId", CLAUDE_APP_CONFIG_ID);
   // The inactive library entry contains preferences Claude writes during takeover.
@@ -368,17 +408,20 @@ function backupClaudeAppGatewayConfig(paths: ClaudeAppGatewayPaths): void {
   writeJsonFile(CLAUDE_APP_GATEWAY_BACKUP_FILE, backup);
 }
 
-function readClaudeAppGatewayBackup(): ClaudeAppGatewayBackup | undefined {
+function readClaudeAppGatewayBackup(): ClaudeAppGatewayBackup | "corrupt" | undefined {
+  if (!existsSync(CLAUDE_APP_GATEWAY_BACKUP_FILE)) {
+    return undefined;
+  }
   try {
     const parsed: unknown = JSON.parse(readFileSync(CLAUDE_APP_GATEWAY_BACKUP_FILE, "utf8"));
     if (!isPlainRecord(parsed) || parsed.version !== 1) {
-      return undefined;
+      return "corrupt";
     }
     const rootConfigFile = normalizeFileSnapshot(parsed.rootConfigFile);
     const metaFile = normalizeFileSnapshot(parsed.metaFile);
     const configLibraryFile = normalizeFileSnapshot(parsed.configLibraryFile);
     if (!rootConfigFile || !metaFile || !configLibraryFile) {
-      return undefined;
+      return "corrupt";
     }
     return {
       configLibraryFile,
@@ -388,7 +431,7 @@ function readClaudeAppGatewayBackup(): ClaudeAppGatewayBackup | undefined {
       version: 1
     };
   } catch {
-    return undefined;
+    return "corrupt";
   }
 }
 
@@ -421,12 +464,7 @@ function restoreFileSnapshot(file: string, snapshot: ClaudeAppGatewayFileSnapsho
   }
 
   mkdirSync(path.dirname(file), { recursive: true });
-  writeFileSync(file, snapshot.content ?? "", { encoding: "utf8", mode: 0o600 });
-  try {
-    chmodSync(file, 0o600);
-  } catch {
-    // File permissions are best-effort across platforms.
-  }
+  writeFileAtomic(file, snapshot.content ?? "", { mode: 0o600 });
 }
 
 function gatewayEndpoint(config: AppConfig): string {
@@ -468,8 +506,7 @@ function restoreClaudeAppOwnedKey(
   writeJsonFile(file, current);
 }
 
-function applyClaudeAppGatewayLibraryConfig(file: string, gatewayConfig: ClaudeAppGatewayConfig): void {
-  const current = readJsonRecord(file);
+function applyClaudeAppGatewayLibraryConfig(file: string, current: Record<string, unknown> | undefined, gatewayConfig: ClaudeAppGatewayConfig): void {
   for (const key of ["authentication", "inferenceModelsUpdatedAt", "inferenceModelsVersion", "unstableDisableModelVerification"]) {
     if (current) delete current[key];
   }
@@ -479,8 +516,7 @@ function applyClaudeAppGatewayLibraryConfig(file: string, gatewayConfig: ClaudeA
   });
 }
 
-function applyClaudeAppConfigMeta(metaFile: string): void {
-  const current = readJsonRecord(metaFile);
+function applyClaudeAppConfigMeta(metaFile: string, current: Record<string, unknown> | undefined): void {
   const entries = normalizeMetaEntries(current?.entries).filter((entry) => entry.id !== CLAUDE_APP_CONFIG_ID);
   entries.push({ id: CLAUDE_APP_CONFIG_ID, name: CLAUDE_APP_CONFIG_NAME });
 
@@ -510,8 +546,7 @@ function normalizeMetaEntries(value: unknown): Array<{ id: string; name: string 
   return entries;
 }
 
-function applyClaudeAppDeploymentMode(rootConfigFile: string): void {
-  const current = readJsonRecord(rootConfigFile);
+function applyClaudeAppDeploymentMode(rootConfigFile: string, current: Record<string, unknown> | undefined): void {
   writeJsonFile(rootConfigFile, {
     ...(current ?? {}),
     deploymentMode: "3p"
@@ -527,14 +562,33 @@ function readJsonRecord(file: string): Record<string, unknown> | undefined {
   }
 }
 
+function readJsonRecordForUpdate(file: string): Record<string, unknown> | undefined {
+  let text: string;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
+  }
+  if (!text.trim()) {
+    return undefined;
+  }
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (isPlainRecord(parsed)) {
+      return parsed;
+    }
+  } catch {
+    // Reported below with the same message as a non-object file.
+  }
+  throw new ClaudeAppConfigParseError(`${file} could not be parsed; LLMR left it unchanged.`);
+}
+
 function writeJsonFile(file: string, value: unknown): void {
   mkdirSync(path.dirname(file), { recursive: true });
-  writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-  try {
-    chmodSync(file, 0o600);
-  } catch {
-    // File permissions are best-effort across platforms.
-  }
+  writeFileAtomic(file, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {

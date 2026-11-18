@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -18,6 +18,7 @@ if (process.platform === "win32") {
 async function loadModules() {
   const {
     NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE,
+    applyClaudeAppGatewayConfig,
     claudeAppTakesOverDirectLaunches,
     hasClaudeAppTakeoverProfile,
     syncClaudeAppGatewayConfig
@@ -26,6 +27,7 @@ async function loadModules() {
   return {
     BACKUP_FILE: path.join(CONFIGDIR, "claude-app-gateway-backup.json"),
     NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE,
+    applyClaudeAppGatewayConfig,
     claudeAppTakesOverDirectLaunches,
     hasClaudeAppTakeoverProfile,
     syncClaudeAppGatewayConfig
@@ -258,6 +260,113 @@ test("#1768 restore removes absent takeover keys while preserving newly created 
     assert.equal(existsSync(paths.configLibraryFile), true);
   } finally {
     cleanup(BACKUP_FILE);
+  }
+});
+
+function takeoverConfig() {
+  return createConfig({ profile: { profiles: [claudeCodeProfile({ claudeAppTakeover: true })] } });
+}
+
+function readJson(file) {
+  return JSON.parse(readFileSync(file, "utf8"));
+}
+
+function writeRaw(file, content) {
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, content);
+}
+
+function corruptBackups(backupFile) {
+  const dir = path.dirname(backupFile);
+  return readdirSync(dir)
+    .filter((name) => name.startsWith("claude-app-gateway-backup.json.corrupt-"))
+    .map((name) => path.join(dir, name));
+}
+
+function cleanupCorrupt(backupFile) {
+  for (const file of corruptBackups(backupFile)) {
+    rmSync(file, { force: true });
+  }
+  cleanup(backupFile);
+}
+
+test("sync skips and leaves an unparseable claude_desktop_config.json unchanged", async (t) => {
+  const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
+  const paths = claudeAppPaths();
+  const warn = t.mock.method(console, "warn", () => {});
+  try {
+    writeRaw(paths.rootConfigFile, "{ not json");
+    const synced = await syncClaudeAppGatewayConfig(takeoverConfig());
+    assert.equal(readFileSync(paths.rootConfigFile, "utf8"), "{ not json");
+    assert.match(synced.result.message, /could not be parsed; LLMR left it unchanged\.$/);
+    assert.equal(synced.result.requiresRestart, false);
+    assert.equal(synced.configChanged, false);
+    assert.equal(existsSync(paths.configLibraryFile), false);
+    assert.equal(existsSync(BACKUP_FILE), false);
+    assert.equal(warn.mock.callCount(), 1);
+  } finally {
+    cleanup(BACKUP_FILE);
+  }
+});
+
+test("an explicit apply throws on an unparseable claude_desktop_config.json", async () => {
+  const { BACKUP_FILE, applyClaudeAppGatewayConfig } = await loadModules();
+  const paths = claudeAppPaths();
+  try {
+    writeRaw(paths.rootConfigFile, "{ not json");
+    assert.throws(() => applyClaudeAppGatewayConfig(takeoverConfig()), /could not be parsed; LLMR left it unchanged\.$/);
+    assert.equal(readFileSync(paths.rootConfigFile, "utf8"), "{ not json");
+  } finally {
+    cleanup(BACKUP_FILE);
+  }
+});
+
+test("apply treats an empty claude_desktop_config.json as missing", async () => {
+  const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
+  const paths = claudeAppPaths();
+  try {
+    writeRaw(paths.rootConfigFile, "");
+    await syncClaudeAppGatewayConfig(takeoverConfig());
+    assert.deepEqual(readJson(paths.rootConfigFile), { deploymentMode: "3p" });
+  } finally {
+    cleanup(BACKUP_FILE);
+  }
+});
+
+test("restore with a corrupt backup removes LLMR's takeover keys and keeps the backup bytes", async (t) => {
+  const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
+  const paths = claudeAppPaths();
+  const warn = t.mock.method(console, "warn", () => {});
+  try {
+    writeJsonFile(paths.rootConfigFile, { deploymentMode: "3p", preference: true });
+    writeJsonFile(paths.metaFile, { appliedId: "8f69f2f1-3275-4ad8-9317-4aa7e972f311", entries: [] });
+    writeRaw(BACKUP_FILE, "{ truncated");
+    await syncClaudeAppGatewayConfig(createConfig());
+    assert.deepEqual(readJson(paths.rootConfigFile), { preference: true });
+    assert.deepEqual(readJson(paths.metaFile), { entries: [] });
+    assert.equal(existsSync(BACKUP_FILE), false);
+    const kept = corruptBackups(BACKUP_FILE);
+    assert.equal(kept.length, 1);
+    assert.equal(readFileSync(kept[0], "utf8"), "{ truncated");
+    assert.equal(warn.mock.callCount(), 1);
+  } finally {
+    cleanupCorrupt(BACKUP_FILE);
+  }
+});
+
+test("restore with a corrupt backup leaves a user's own 3p mode alone", async (t) => {
+  const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
+  const paths = claudeAppPaths();
+  t.mock.method(console, "warn", () => {});
+  try {
+    writeJsonFile(paths.rootConfigFile, { deploymentMode: "3p" });
+    writeJsonFile(paths.metaFile, { appliedId: "someone-else" });
+    writeRaw(BACKUP_FILE, "{ truncated");
+    await syncClaudeAppGatewayConfig(createConfig());
+    assert.deepEqual(readJson(paths.rootConfigFile), { deploymentMode: "3p" });
+    assert.deepEqual(readJson(paths.metaFile), { appliedId: "someone-else" });
+  } finally {
+    cleanupCorrupt(BACKUP_FILE);
   }
 });
 
