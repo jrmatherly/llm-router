@@ -51,7 +51,7 @@ Copied from the spec.
 - Tests are `node:test` with `node:assert/strict`. Run one file with `node build/test.mjs <pkg> && node --test .test-dist/<pkg>/test/<kind>/<path>.test.js`.
 - The project has no consumers as of 2026-11-16 (decision D-9). No fix adds a compatibility shim, a migration for existing installs, or a deprecation period.
 - A rule and the check that enforces it change in the same PR.
-- This machine's `~/.npmrc` sets `min-release-age=7`. A package version younger than seven days does not install without an override, which is an owner step.
+- This machine's `~/.npmrc` sets `min-release-age`. It was `7` when this was written and `2` on 2026-11-17 (`npm config get min-release-age`). A package version younger than that many days does not install without an override, which is an owner step.
 
 Specific to this plan.
 

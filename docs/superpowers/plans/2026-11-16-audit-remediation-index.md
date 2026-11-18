@@ -135,7 +135,7 @@ Three cross-plan notes:
 
 ## Steps only the owner can do
 
-- **Before EU-1, EU-2 and DH-2.** Override `min-release-age=7` for the three installs, or wait until the versions are seven days old (`tldts@7.5.0` on 2026-11-19, `better-sqlite3@13.2.0` on 2026-11-21, `electron@45.3.3` on 2026-11-23).
+- **Before EU-1, EU-2 and DH-2.** No longer an owner step. `npm config get min-release-age` returned `2` on 2026-11-17, not the `7` this program was written against. `tldts@7.5.0` (published 2026-11-12) and `better-sqlite3@13.2.0` (2026-11-14) install now. `electron@45.3.3` (2026-11-16T05:55Z) installs from 2026-11-18T05:56Z. Re-run the command before an install, because the setting has changed once already.
 - **EU-1.** Approve the edit to `.claude/settings.json` that removes the `rebuild:sqlite3` deny rule together with the script it guards.
 - **EU-1.** Run the Windows and Linux packaging checks if a machine is available. Otherwise the first release after it is the first packaging run on those platforms.
 - **EU-2.** Run the Windows and Linux packaging checks. Confirm auto-update from 7.2.1 on Windows. RS-2 publishes the release automatically, so without those machines check the published release on Windows and Linux as soon as it is out. If a check fails, pull it back with `gh release edit vX.Y.Z --draft` and fix forward. Paste the release note that the desktop app now needs macOS 13 or later (EU-2 Task 8 Step 7).
