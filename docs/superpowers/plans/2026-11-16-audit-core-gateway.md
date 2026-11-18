@@ -1344,6 +1344,17 @@ git commit -m "docs: say that gateway, core-runtime and client SDK retries stack
 **Size:** S
 **Owner steps:** Task 2 Step 2. It needs the proxy CA trusted in the system certificate store and a real LLMR API key with a configured provider. An agent prepares the commands and stops.
 
+**Status:** Merged 2026-11-17 as [PR 94](https://github.com/jrmatherly/llm-router/pull/94), squash commit `b1722142`. The review added one test change: the forwarding test sends `authorization`, `x-api-key`, `api-key` and `x-goog-api-key` and checks each arrives unchanged.
+
+Task 2 Step 2 was run in a different form, at Jason's instruction that the agent run it. Proxy mode does not start without the proxy CA in the macOS System keychain (`getCertificateStatus`), `saveConfig` refuses `proxy.enabled` without it, and no CA exists on this machine, so the requests did not go through the proxy. Instead the built CLI (`llmr serve`) ran in a scratch `HOME` with a fake Anthropic provider, and the three requests went straight to the gateway port with the headers the proxy forwards (`x-llmr-proxy-mode: gateway`, `x-llmr-original-host`). Measured:
+
+| Arrangement | Valid LLMR key | Non-LLMR key | No key |
+|---|---|---|---|
+| Single runtime (default, the gateway child on the public port) | 200, 1 provider call | 401, 0 calls | 401, 0 calls |
+| Host in front of the child (forced with `contextArchive.enabled`; Proxy mode forces the same arrangement through the `proxy` blocker in `unifiedServerFallbackFeatureBlockers`) | 200, 1 provider call | 401 "Invalid API key.", 0 calls | 401 "API key is missing.", 0 calls |
+
+The child's own port (`corePort`) also answered a keyless request with 401. The unit tests prove what the proxy forwards, and this run proves the gateway rejects it. Still not run by anyone: the three curl commands through the proxy itself with a trusted CA, which is the only check of the HTTPS interception path end to end.
+
 Decision D-12 binds. In gateway mode the proxy stops replacing the client's credential with the first LLMR key. It forwards the request's own headers, and the gateway authorizer accepts or rejects them. There is no opt-in setting and no guard on "has a credential" (D-9, D-12). A tool that reaches LLMR through Proxy mode must carry an LLMR key.
 
 ### Task 1: Forward the client's own credential
