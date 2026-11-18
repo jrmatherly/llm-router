@@ -1,6 +1,6 @@
 # Stub experiment: what Claude Code does when a gateway rejects or drops `safeguards`
 
-Run on 2026-11-18 for the gateway fork spec ([`specs/2026-11-18-gateway-fork.md`](../../specs/2026-11-18-gateway-fork.md), "The safeguards rejection").
+Run on 2026-11-18 for the gateway fork spec ([`specs/completed/2026-11-18-gateway-fork.md`](../../specs/completed/2026-11-18-gateway-fork.md), "The safeguards rejection").
 
 ## Setup
 

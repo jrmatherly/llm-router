@@ -1,6 +1,8 @@
 # Gateway fork spec
 
-LLM Router (LLMR) runs its requests through the `@the-next-ai/ai-gateway` package. This spec records the decision to own that package's build, the research behind the design, and what remains for the owner to decide. The plan that implements it is [`plans/2026-11-18-gateway-fork.md`](../plans/2026-11-18-gateway-fork.md).
+LLM Router (LLMR) runs its requests through the `@the-next-ai/ai-gateway` package. This spec records the decision to own that package's build, the research behind the design, and what remains for the owner to decide. The plan that implements it is [`plans/completed/2026-11-18-gateway-fork.md`](../../plans/completed/2026-11-18-gateway-fork.md).
+
+**Status, 2026-11-18: shipped.** LLMR `main` installs the fork's [`v1.0.22-llmr.2`](https://github.com/jrmatherly/llmr-gateway/releases/tag/v1.0.22-llmr.2) since [PR 110](https://github.com/jrmatherly/llm-router/pull/110) (`4a3e82d7`). The plan's status notes carry the evidence for each acceptance item. "The problem today" describes the state before this work.
 
 ## Goal
 
@@ -143,7 +145,7 @@ Three things follow.
 
 ## Not verified by anyone
 
-- That the two patches make all 13 cases pass. The plan's Task 4 measures it before anything merges. If a case still fails, the plan stops and the gap is reported.
-- That the fork's full test suite passes at `0a2c0abd`. Today's action runs three test files only. The plan's Task 1 measures the full suite and falls back to those three files, with the failing names recorded, if it does not.
+- Verified since, 2026-11-18: the two patches make all 13 cases pass (plan Task 3, Step 4).
+- Verified since, 2026-11-18: the fork's full test suite passes at `0a2c0abd` (plan Task 1).
 - How a later npm major treats tarball URL dependencies. npm 11.19.1 has an `allow-remote` setting that defaults to `all` (measured: `npm config ls -l`). One secondary source says npm 12 turns remote fetches off by default. The check is `npm config get allow-remote` on the new major before LLMR adopts it. A project `.npmrc` line would settle it then.
 - Whether Dependabot would have opened pull requests for the URL dependency. G-11 makes the answer irrelevant.

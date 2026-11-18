@@ -8,7 +8,7 @@
 
 **Tech Stack:** GitHub Actions, `gh`, npm 11 tarball URL dependencies, `node:test`, vitest (in the fork).
 
-**Spec:** [`docs/superpowers/specs/2026-11-18-gateway-fork.md`](../specs/2026-11-18-gateway-fork.md). Read its Goal, Decisions (G-1 to G-12) and Global constraints before any task.
+**Spec:** [`docs/superpowers/specs/completed/2026-11-18-gateway-fork.md`](../../specs/completed/2026-11-18-gateway-fork.md). Read its Goal, Decisions (G-1 to G-12) and Global constraints before any task.
 
 ## Global Constraints
 
@@ -271,6 +271,8 @@ The PR's `## Why` opens with the spec's Goal. CI must be green on every job, inc
 
 ### Task 3: Land the two fixes in the fork and publish `1.0.22-llmr.2`
 
+**Status, 2026-11-18: done.** Release [`v1.0.22-llmr.2`](https://github.com/jrmatherly/llmr-gateway/releases/tag/v1.0.22-llmr.2) is published from fork commit `e8d61f0`, on top of `e79dff1` (stream patch) and `60e4ed8` (safeguards patch, unchanged per G-13). Verified: the checksum matches, the packed `package.json` says `1.0.22-llmr.2`, and the asset downloads without credentials (HTTP 200). Measured before the push: both patches applied with `git apply --check`, both typechecks passed, and the fork's suite passed after each patch (67 files and 976 tests, then 68 files and 978 tests, 7 skipped). With the local tarball installed in an LLMR worktree, all 13 marked cases passed, and with the `gatewayDefect` helper removed the routing file passed 33 of 33. What the work changed in Step 5: the gateway checks that an internal tool exists before it checks `safeguards` (a profile naming a tool no MCP server provides answers 400 with "Virtual model tool is not available from MCP provider"), so the subtest needs a real tool. It gets one from a stub MCP server, `packages/core/test/support/stub-mcp-server.mjs`, passed to the gateway child through a new optional `mcpServers` argument of the test's `run` helper.
+
 Repository: the fork, branch `llmr`.
 
 **Files (in the fork):** whatever the two patches touch under `src/` and `docs/`, plus `package.json` and `package-lock.json`.
@@ -327,6 +329,8 @@ Then repeat Task 1 Step 8 for `1.0.22-llmr.2`.
 
 ### Task 4: LLMR moves to `1.0.22-llmr.2` and deletes the expected-failure markers
 
+**Status, 2026-11-18: done.** Merged as [PR 110](https://github.com/jrmatherly/llm-router/pull/110), squash commit `4a3e82d7`. Measured: on `1.0.22-llmr.1` the edited routing file fails the 13 cases (5 on `socket closed`, 8 on `lost request safeguards`) and the new subtest (`200 !== 400`); on `1.0.22-llmr.2` it passes 33 of 33 with no `# EXPECTED FAILURE` line. `npm run typecheck`, `npm run lint`, `npm run test:architecture` and `npm run test:core` (1627 passed, 15 skipped) passed locally, and the PR's three checks passed, Docker smoke included. On `main` at the merge commit, `npm ci` installs `1.0.22-llmr.2`. Not run locally: `test:ui`, `test:electron`, `test:cli`. No review agents ran on this PR; the diff is the URL bump and 25 test lines.
+
 Repository: LLMR, branch `fix/gateway-stream-and-safeguards`. One PR.
 
 **Files:**
@@ -371,6 +375,8 @@ Expected: `1.0.22-llmr.2`. Confirm the Tests run for the merge commit is green w
 ---
 
 ### Task 5: Record it
+
+**Status, 2026-11-18: done.** Release note for the next LLMR release: "A provider stream that breaks mid-response now ends with an error the client can read, and Anthropic safeguards fields pass through virtual models. A Fusion model with a built-in tool answers a request that carries safeguards with HTTP 400; Claude Code takes that once per session and then checks actions itself."
 
 Docs only, straight to `main`.
 
