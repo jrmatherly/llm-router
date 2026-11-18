@@ -20,7 +20,7 @@ import { TOOL_HUB_MCP_RUNTIME_FILE_NAME, bundledToolHubMcpEntryPathCandidates } 
 import { mediaToolsGatewayEndpoint } from "@llmr/core/mcp/grok-media-config";
 import { buildProfileLaunchPlan, findProfileForOpen, profileLaunchSpawnCommand, profileOpenCommand, profileOpenSurfaces, resolveClaudeCodeSettingsFile, resolveProfileOpenSurface } from "@llmr/core/profiles/launch-core";
 import { profileApiKeyId } from "@llmr/core/profiles/api-key";
-import { backupFiles } from "@llmr/core/profiles/backup-files";
+import { backupFiles, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { applyProfileConfig, cleanupGeneratedBinBackups } from "@llmr/core/profiles/service";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@llmr/core/platform/windows-system";
 import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
@@ -1922,7 +1922,7 @@ function writeFileIfChanged(file: string, content: string): void {
   if (existsSync(file) && readFileSync(file, "utf8") === content) {
     return;
   }
-  writeFileSync(file, content, "utf8");
+  writeFileAtomic(file, content);
 }
 
 function persistLlmrBinOnPath(binDir: string): void {
@@ -2042,10 +2042,13 @@ function ensurePathBlock(file: string, binDir: string, block: string): void {
   const source = existsSync(file) ? readFileSync(file, "utf8") : "";
   const managedPattern = managedPathBlockPattern();
   if (managedPattern.test(source)) {
-    const withoutBlock = source.replace(managedPattern, "\n");
+    // The pattern takes the newline before the block, so only a block on the file's first line would gain one.
+    const replaceBlock = (replacement: string) =>
+      source.replace(managedPattern, (match, offset: number) => offset === 0 && !match.startsWith("\n") ? replacement.replace(/^\n/, "") : replacement);
+    const withoutBlock = replaceBlock("\n");
     // The rest of the file (often a dotfiles repo) already adds the bin dir, so the managed block is redundant.
-    const next = shellRcAlreadyAddsLlmrBin(withoutBlock, binDir) ? withoutBlock : source.replace(managedPattern, `\n${block}\n`);
-    writeFileIfChanged(file, ensureTrailingNewline(next).replace(/^\n+/, ""));
+    const next = shellRcAlreadyAddsLlmrBin(withoutBlock, binDir) ? withoutBlock : replaceBlock(`\n${block}\n`);
+    writeFileIfChanged(file, ensureTrailingNewline(next));
     return;
   }
   if (shellRcAlreadyAddsLlmrBin(source, binDir)) {
