@@ -639,8 +639,9 @@ Task 3 Step 1 was measured in Playwright's Chromium, not in Google Chrome: the w
 
 Found and left alone:
 
-- Chrome stops a service worker whose `fetch` waits more than 30 s. An import with several slow localStorage origins can cross that, and the extension then reports a failure for an import that completed. The popup now says the import may have completed. A fix needs a job status the extension can poll.
-- An import whose every entry was skipped is marked `completed`, so it cannot be retried.
+- Chrome's documentation says it stops a service worker whose `fetch` response takes more than 30 s. An import with several slow localStorage origins can cross that (about 30 s per origin in the worst case), and the extension would then report a failure for an import that completed. The popup now says the import may have completed. Research on 2026-11-18 did not reproduce the stop: in Playwright's Chromium an import completed with the response held for 45 s and for 150 s. That does not clear it, because Playwright attaches to the worker over the debugging protocol, which may keep the worker alive. One long import in Google Chrome settles it. A fix, if needed, is a job status the extension can poll, or writing the localStorage origins in parallel.
+- An import whose every entry was skipped is marked `completed`, so it cannot be retried. The status line can never yield `failed`. A one-line change to `result.imported > 0` with a test fixes it, and the browser page already handles `failed`.
+- `runtime.onInstalled` does fire with reason `update` when an unpacked extension is reloaded (Chrome's runtime reference). The review round's reading that it did not was a probe artifact. The point-of-use check stays, because it also covers a restart.
 - The worker accepts a multi-label public suffix such as `co.uk` from a job. Only a fake local server can send one.
 - The server accepts any `chrome-extension://` origin, not only this extension's. The deferred pairing key covers it.
 - A real **Reload** of an install that had 0.1.0 was not run. To check it, load 0.1.0 from `136ad730`, switch to `main`, click **Reload**, run one import, then run `chrome.permissions.getAll()` in the worker console. It must not list `https://*/*`.

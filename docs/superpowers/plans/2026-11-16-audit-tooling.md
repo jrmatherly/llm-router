@@ -428,6 +428,15 @@ Squash-merge title: `chore(lint): adopt Biome as a lint-only check (#NN)`.
 **Size:** M
 **Owner steps:** None.
 
+**Status:** Merged 2026-11-18 as [PR 101](https://github.com/jrmatherly/llm-router/pull/101), squash commit `3da61a13`. The typecheck reported the same 35 errors in the same 12 files as the evidence below. The review changed these points:
+
+- The locale test in `usage-format.test.ts` also asserts `de-DE`. With `en-US` alone it passed when `formatLogTokenSummary` ignored its locale, because `en-US` is the default where it runs.
+- The architecture test pins the `typecheck` script and checks the file list that `tsc --showConfig` resolves, not the glob strings. An `exclude` entry or a changed script passed the plan's version.
+- The route-map assertion in `share-cards.test.tsx` matches only the centre column's brand span.
+- The probe fixture's `protocols` entry in `providers.test.ts` is written out. Adding `protocol` did not change the test's outcome, because no assertion reads that entry (Review Focus 4 cannot happen with this code).
+
+Found and left alone: the onboarding tests do not assert on what `agentOptions` renders, because the form defaults to the same list. Nothing guards against `// @ts-nocheck` in a test file, and none exists. The evidence below says 6 Electron test files. There are 14, all clean. TL-1 finds the 11 shared fixes already done.
+
 ### Evidence
 
 Measured on 2026-11-16 at `136ad730` with the repo's TypeScript 6.0.3 and a scratch tsconfig that extends the root one, adds the two test globs and sets `allowImportingTsExtensions`.

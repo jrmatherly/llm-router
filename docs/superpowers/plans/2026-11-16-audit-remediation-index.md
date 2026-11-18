@@ -142,7 +142,7 @@ Three cross-plan notes:
 - **RS-5.** Enable Dependabot version updates in Settings (a fork needs the toggle) only after RS-4 and EU-2 have merged. Add the required checks, enforce SHA pinning, allow squash merges only, move the Apple secrets to a `release` environment, add the tag ruleset.
 - **HP-2.** Confirm in the running app that a provider saved from a deleted preset still works. Paste the release note about the six removed presets (HP-2 Step 11).
 - **HP-3.** Confirm the copyright line for the fork.
-- **DH-2.** Merged as PR 100. Run the Chrome checks with the unpacked extension (Task 3 Steps 1 to 3), and the reload check for an install that had extension 0.1.0. The plan's status note has the steps.
+- **DH-2.** Merged as PR 100. Run the Chrome checks with the unpacked extension (Task 3 Steps 1 to 3), the reload check for an install that had extension 0.1.0, and one import that takes over 30 s. The plan's status note has the steps.
 - **RS-2.** Run the first two commands of RS-5 step 5 (create the `release` environment and its `v*` tag policy) before RS-2 Task 2.3. They must also be in place before the first release after RS-2. Push the throwaway tag for the draft-release check, then delete the tag and its draft release.
 - **RS-1.** If Task 1.1 ends in outcome C, triage the new `F-A14` finding.
 - **DH-1.** RS-2 publishes the release automatically, so check the Windows build of the published release that carries DH-1 as soon as it is out. The IPC sender check fails closed, so a wrong path rule would break every renderer call there. If the home page is empty, pull the release back with `gh release edit vX.Y.Z --draft` and fix forward.
