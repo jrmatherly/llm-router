@@ -20,7 +20,7 @@ import {
 import { maxRequestLogBodyBytes, rawTraceHardMaxBodyBytes } from "@llmr/core/observability/request-log-limits";
 import { compactBase64ImagePayloads } from "@llmr/core/observability/request-log-body";
 import { requestLogRequestedModel, requestLogResponseModel } from "@llmr/core/observability/request-log-model";
-import { isSensitiveRequestLogHeaderName } from "@llmr/core/observability/sensitive-headers";
+import { isSensitiveRequestLogHeaderName, redactSensitiveUrlQuery } from "@llmr/core/observability/sensitive-headers";
 import { inferGatewayClient } from "@llmr/core/gateway/http/io";
 import { createSseBoundaryTracker, type SseBoundaryRepair } from "@llmr/core/gateway/request/sse-terminal";
 import type {
@@ -763,7 +763,7 @@ export class RequestLogStore {
           normalizeLabel(input.client, "unknown"),
           input.method,
           input.path,
-          input.url,
+          redactSensitiveUrlQuery(input.url),
           providerName,
           credentialInfo.id,
           credentialInfo.chain.join(","),
