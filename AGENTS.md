@@ -10,7 +10,7 @@ Fork of claude-code-router v3.1.3. Divergence from upstream is intended; never w
 - `npm run test:architecture` runs `tests/architecture/*.test.mjs`.
 - `npm run test:core`, `npm run test:ui`, `npm run test:electron`, `npm run test:cli` run one package.
 - `npm run test:e2e` builds the assets, then runs Playwright. Once per install, run `npm run test:e2e:install` first.
-- `npm run test:system` builds the Docker image and smoke-tests it. CI's `docker-smoke` job builds the image with the release gateway tarball first and runs the same script with `LLMR_DOCKER_TEST_SKIP_BUILD=1`. It needs Docker.
+- `npm run test:system` builds the Docker image and smoke-tests it. CI's `docker-smoke` job builds the image, then runs the same script with `LLMR_DOCKER_TEST_SKIP_BUILD=1`. It needs Docker.
 - `npm run build:assets` builds each package's `dist/`. `npm run dev:electron` runs the desktop app.
 - `npm run release -- <major|minor|patch|x.y.z>` cuts a release from a clean, up-to-date `main` whose latest Tests run for `HEAD` is green (it needs `gh`, and after a push to `main` you wait for that run): bumps every workspace manifest and the lockfile, runs typecheck and the architecture tests, commits `chore: release vX.Y.Z`, tags, and pushes. The tag push runs the Release workflow (GitHub release with desktop assets), and the Docker Release workflow follows a successful Release run on its own. `--dry-run` prints the plan.
 - One test file: `node build/test.mjs <pkg> && node --test .test-dist/<pkg>/test/<unit|integration|component|architecture>/<path>.test.js`. For `tests/architecture/`: `node build/test.mjs architecture && node --test .test-dist/architecture/test/<name>.test.js`. Do not pass `--scope`; it drops the subfolder from the output path.

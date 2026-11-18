@@ -15,7 +15,6 @@ concurrency:
 jobs:
   test:
     name: 🧪 Test
-    needs: gateway
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -34,15 +33,6 @@ jobs:
 
       - name: 📦 Install dependencies
         run: npm ci
-
-      - name: 📥 Download gateway package
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-gateway
-          path: .tmp/gateway-package
-
-      - name: 📦 Install gateway
-        run: npm install --no-save .tmp/gateway-package/*.tgz
 
       - name: 🔎 Typecheck
         run: npm run typecheck
@@ -80,27 +70,6 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  gateway:
-    name: 📦 Build gateway
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: 📥 Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: 📦 Prepare gateway package
-        uses: ./.github/actions/prepare-release-gateway
-
-      - name: 📤 Upload gateway package
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-gateway
-          path: docker/local-ai-gateway/the-next-ai-ai-gateway-*.tgz
-          if-no-files-found: error
-          retention-days: 1
-
   create-draft:
     name: 📝 Create draft release
     needs: test
@@ -127,7 +96,7 @@ jobs:
 
   macos:
     name: 🍎 macOS (${{ matrix.display_name }})
-    needs: [model-catalog, gateway]
+    needs: model-catalog
     environment: release
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
@@ -161,16 +130,6 @@ jobs:
 
       - name: 📦 Install dependencies
         run: npm ci
-
-      - name: 📥 Download gateway package
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-gateway
-          path: .tmp/gateway-package
-
-      - name: 📦 Install gateway
-        shell: bash
-        run: npm install --no-save .tmp/gateway-package/*.tgz
 
       - name: 📥 Download updated model catalog
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -290,7 +249,7 @@ jobs:
 
   windows:
     name: 🪟 Windows
-    needs: [create-draft, model-catalog, gateway]
+    needs: [create-draft, model-catalog]
     permissions:
       contents: write
     runs-on: windows-2025
@@ -309,16 +268,6 @@ jobs:
 
       - name: 📦 Install dependencies
         run: npm ci
-
-      - name: 📥 Download gateway package
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-gateway
-          path: .tmp/gateway-package
-
-      - name: 📦 Install gateway
-        shell: bash
-        run: npm install --no-save .tmp/gateway-package/*.tgz
 
       - name: 📥 Download updated model catalog
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -344,7 +293,7 @@ jobs:
 
   linux:
     name: 🐧 Linux
-    needs: [create-draft, model-catalog, gateway]
+    needs: [create-draft, model-catalog]
     permissions:
       contents: write
     runs-on: ubuntu-24.04
@@ -363,16 +312,6 @@ jobs:
 
       - name: 📦 Install dependencies
         run: npm ci
-
-      - name: 📥 Download gateway package
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-gateway
-          path: .tmp/gateway-package
-
-      - name: 📦 Install gateway
-        shell: bash
-        run: npm install --no-save .tmp/gateway-package/*.tgz
 
       - name: 📥 Download updated model catalog
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2

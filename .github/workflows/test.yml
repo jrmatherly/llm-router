@@ -15,30 +15,8 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  gateway:
-    name: 📦 Build gateway
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: 📥 Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: 📦 Prepare gateway package
-        uses: ./.github/actions/prepare-release-gateway
-
-      - name: 📤 Upload gateway package
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: test-gateway
-          path: docker/local-ai-gateway/the-next-ai-ai-gateway-*.tgz
-          if-no-files-found: error
-          retention-days: 1
-
   test:
     name: 🧪 Unit and architecture
-    needs: gateway
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -58,15 +36,6 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
-      - name: 📥 Download gateway package
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: test-gateway
-          path: .tmp/gateway-package
-
-      - name: 📦 Install gateway
-        run: npm install --no-save .tmp/gateway-package/*.tgz
-
       - name: 🔎 Typecheck
         run: npm run typecheck
 
@@ -78,7 +47,7 @@ jobs:
 
   e2e:
     name: 🎭 End to end
-    needs: [test, gateway]
+    needs: test
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -95,15 +64,6 @@ jobs:
 
       - name: 📦 Install dependencies
         run: npm ci
-
-      - name: 📥 Download gateway package
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: test-gateway
-          path: .tmp/gateway-package
-
-      - name: 📦 Install gateway
-        run: npm install --no-save .tmp/gateway-package/*.tgz
 
       - name: 🎭 Install Playwright Chromium
         run: npx playwright install --with-deps chromium
@@ -124,7 +84,6 @@ jobs:
 
   docker-smoke:
     name: 🐳 Docker smoke
-    needs: gateway
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -138,14 +97,8 @@ jobs:
         with:
           node-version-file: .node-version
 
-      - name: 📥 Download gateway package
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: test-gateway
-          path: docker/local-ai-gateway
-
       - name: 🐳 Build the image
-        run: ls docker/local-ai-gateway/the-next-ai-ai-gateway-*.tgz && docker build -t llm-router:local .
+        run: docker build -t llm-router:local .
 
       - name: 🐳 Smoke-test the image
         env:

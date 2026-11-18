@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 
-for (const file of readdirSync(".github/workflows").map((name) => `.github/workflows/${name}`).concat(".github/actions/prepare-release-gateway/action.yml")) {
+for (const file of readdirSync(".github/workflows").map((name) => `.github/workflows/${name}`)) {
   test(`${file} uses read-only defaults and no persisted credentials`, () => {
     const text = readFileSync(file, "utf8");
     const checkouts = text.match(/^\s+(?:- )?uses: actions\/checkout@/gm)?.length ?? 0;
@@ -19,15 +19,14 @@ function jobBlocks(file) {
   return new Map(starts.map((m, i) => [m[1], body.slice(m.index, starts[i + 1]?.index)]));
 }
 
-const gatewayInstall = "npm install --no-save .tmp/gateway-package/*.tgz";
 const gatewayEntry = /^ {6}LLMR_TEST_GATEWAY_ENTRY: \$\{\{ github\.workspace \}\}\/node_modules\/@the-next-ai\/ai-gateway\/bin\/next-ai-gateway\.js$/m;
 
 test("release builds wait for the test job", () => {
   const jobs = jobBlocks(".github/workflows/release.yml");
   for (const job of ["model-catalog", "create-draft"]) assert.match(jobs.get(job), /^ {4}needs: test$/m, job);
-  assert.match(jobs.get("test"), /^ {4}needs: gateway$/m);
-  assert.match(jobs.get("macos"), /^ {4}needs: \[model-catalog, gateway\]$/m);
-  for (const job of ["windows", "linux"]) assert.match(jobs.get(job), /^ {4}needs: \[create-draft, model-catalog, gateway\]$/m, job);
+  assert.doesNotMatch(jobs.get("test"), /^ {4}needs:/m);
+  assert.match(jobs.get("macos"), /^ {4}needs: model-catalog$/m);
+  for (const job of ["windows", "linux"]) assert.match(jobs.get(job), /^ {4}needs: \[create-draft, model-catalog\]$/m, job);
   assert.match(readFileSync(".github/workflows/test.yml", "utf8"), /npm run test:system/);
 });
 
@@ -58,17 +57,13 @@ test("macOS signing runs in the release environment", () => {
   }
 });
 
-test("tests and releases install the gateway tarball the release builds", () => {
+test("tests and releases run the locked gateway", () => {
   for (const file of [".github/workflows/test.yml", ".github/workflows/release.yml"]) {
     const jobs = jobBlocks(file);
-    assert.match(jobs.get("gateway"), /uses: \.\/\.github\/actions\/prepare-release-gateway/, file);
     assert.match(jobs.get("test"), gatewayEntry, file);
     assert.doesNotMatch(readFileSync(file, "utf8"), /package-lock=false/, `${file} installs honour the lockfile`);
     for (const name of file.endsWith("test.yml") ? ["test", "e2e"] : ["test"]) {
-      const block = jobs.get(name);
-      const ci = block.indexOf("run: npm ci\n");
-      assert.ok(ci > 0 && ci < block.indexOf(gatewayInstall), `${file} ${name} installs the gateway tarball after npm ci`);
-      assert.match(block, /^ {4}needs: \[?(?:test, )?gateway\b/m, `${file} ${name} waits for the gateway job`);
+      assert.ok(jobs.get(name).includes("run: npm ci\n"), `${file} ${name} installs from the lockfile`);
     }
   }
 });
@@ -79,15 +74,10 @@ test("pushes to main never cancel a Tests run", () => {
   assert.match(tests, /^ {2}cancel-in-progress: \$\{\{ github\.ref != 'refs\/heads\/main' \}\}$/m);
 });
 
-test("the Docker image is smoke-tested with the release gateway before any push", () => {
+test("the Docker image is smoke-tested before any push", () => {
   const smoke = jobBlocks(".github/workflows/test.yml").get("docker-smoke");
-  assert.match(smoke, /^ {4}needs: gateway$/m);
-  assert.match(smoke, /^ {10}path: docker\/local-ai-gateway$/m);
   assert.match(smoke, /LLMR_DOCKER_TEST_SKIP_BUILD: "1"/);
   const release = readFileSync(".github/workflows/docker-release.yml", "utf8");
-  const prepared = release.indexOf("uses: ./.github/actions/prepare-release-gateway");
-  assert.ok(prepared > 0 && prepared < release.indexOf("load: true"), "the gateway is prepared before the smoke image is built");
-  for (const text of [smoke, release]) assert.match(text, /run: ls docker\/local-ai-gateway\/the-next-ai-ai-gateway-\*\.tgz/);
   const smokeRun = release.indexOf("node tests/system/docker-smoke.mjs");
   assert.ok(smokeRun > 0 && smokeRun < release.indexOf("push: true"), "the smoke test runs before the push");
   assert.match(release, /^ {10}load: true$/m);
