@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { installSocketTypeOfServiceCompat } from "@llmr/core/platform/socket-compat";
 import { resolveRuntimeDataDir, setRuntimeAppPaths } from "@llmr/core/runtime/app-paths";
 import { copyMissingDirectoryContents, sameFilesystemPath } from "@llmr/core/storage/migration";
+import { startupErrorMessage } from "@llmr/electron/main/startup-error";
 
 installSocketTypeOfServiceCompat();
 
@@ -68,24 +69,6 @@ function configureRuntimeUserDataPath(currentUserDataPath: string): string {
   copyMissingDirectoryContents(currentUserDataPath, sharedUserDataPath, "Electron app data directory");
   app.setPath("userData", sharedUserDataPath);
   return app.getPath("userData");
-}
-
-function startupErrorMessage(detail: string): string {
-  if (isBetterSqliteNativeError(detail)) {
-    return [
-      "The bundled SQLite native module could not be loaded.",
-      "",
-      "This usually means the installed app is missing the better-sqlite3 binary for this platform, or the file is damaged. Reinstall LLM Router. If the error returns, report it with the detail below.",
-      "",
-      detail
-    ].join("\n");
-  }
-
-  return detail;
-}
-
-function isBetterSqliteNativeError(detail: string): boolean {
-  return /better[-_]sqlite3|better_sqlite3\.node|NODE_MODULE_VERSION|ERR_DLOPEN_FAILED|Cannot find module ['"]better-sqlite3/i.test(detail);
 }
 
 function formatErrorDetail(error: unknown): string {

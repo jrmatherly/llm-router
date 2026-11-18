@@ -3,7 +3,9 @@ const path = require("node:path");
 
 const betterSqlitePackageRelativePath = path.join("app.asar.unpacked", "node_modules", "better-sqlite3");
 const betterSqlitePrebuildsRelativePath = path.join(betterSqlitePackageRelativePath, "prebuilds");
+// lib/binding.js loads build/Debug and build/Release before prebuilds/, so a compiled build/ would ship unverified.
 const betterSqlitePrunablePaths = [
+  "build",
   "deps",
   "src",
   "binding.gyp",
@@ -19,8 +21,11 @@ module.exports = async function verifyPackagedApp(context) {
   const arch = normalizeArch(context?.arch);
   const appOutDir = context?.appOutDir;
 
-  if (!platform || !arch || !appOutDir) {
+  if (!platform || !appOutDir) {
     throw new Error("Packaged app verification did not receive electron-builder platform context.");
+  }
+  if (!arch) {
+    throw new Error(`Packaged app verification received unknown architecture ${String(context.arch)}.`);
   }
 
   const resourcesDir = findResourcesDir(appOutDir, platform);
@@ -39,7 +44,7 @@ module.exports = async function verifyPackagedApp(context) {
     );
   }
 
-  if (arch && !nativeArchMatches(nativeInfo, arch)) {
+  if (!nativeArchMatches(nativeInfo, arch)) {
     throw new Error(
       `Packaged better-sqlite3 native module targets ${formatNativeInfo(nativeInfo)}, ` +
         `but electron-builder is packaging ${platform}/${arch}. Run npm ci to restore the better-sqlite3 prebuilds.`
