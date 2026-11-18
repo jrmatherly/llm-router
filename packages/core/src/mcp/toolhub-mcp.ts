@@ -1015,6 +1015,20 @@ class SseMcpClient implements McpClient {
       controller.abort();
     }, this.server.startupTimeoutMs ?? defaultRequestTimeoutMs);
 
+    const resetStream = (error: Error): void => {
+      clearTimeout(timeout);
+      rejectEndpoint(error);
+      // close() or a newer stream owns the state by now; a late callback from this one must not reject their calls.
+      if (this.streamAbort !== controller) {
+        return;
+      }
+      this.endpointUrl = "";
+      this.initialized = false;
+      this.streamAbort = undefined;
+      this.streamBuffer = "";
+      this.rejectAll(error);
+    };
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     void (async () => {
@@ -1033,11 +1047,9 @@ class SseMcpClient implements McpClient {
             this.routeSseMessage(event.data);
           });
         }
-        this.rejectAll(new Error(`MCP SSE stream closed (${this.server.name}).`));
+        resetStream(new Error(`MCP SSE stream closed (${this.server.name}).`));
       } catch (error) {
-        clearTimeout(timeout);
-        rejectEndpoint(toError(error));
-        this.rejectAll(toError(error));
+        resetStream(toError(error));
       }
     })();
 

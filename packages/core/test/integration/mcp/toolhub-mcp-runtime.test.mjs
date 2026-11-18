@@ -737,6 +737,80 @@ test("built ToolHub MCP runtime keeps resolve cache scoped by task", async (t) =
   assert.deepEqual(second.result.selectedToolNames, ["mcp.multi_mcp.campaign-calendar"]);
 });
 
+test("an SSE backend that drops its stream is reconnected on the next call", async (t) => {
+  const runtime = toolHubRuntimePath();
+  if (!existsSync(runtime)) {
+    t.skip("ToolHub MCP runtime has not been built.");
+    return;
+  }
+
+  const { server: backend, state } = createMcpSseServer();
+  const resolver = createFixedResolverServer(["mcp.sse_mcp.echo"]);
+  try {
+    await listen(backend);
+    await listen(resolver);
+  } catch (error) {
+    backend.close();
+    resolver.close();
+    t.skip(`Local HTTP listen is unavailable: ${error.message}`);
+    return;
+  }
+  t.after(() => {
+    backend.closeAllConnections();
+    backend.close();
+    resolver.close();
+  });
+
+  const child = spawn(process.execPath, [runtime], {
+    env: {
+      ...process.env,
+      TOOLHUB_MCP_SERVERS_JSON: JSON.stringify([
+        { name: "sse-mcp", requestTimeoutMs: 2000, transport: "sse", url: `http://127.0.0.1:${backend.address().port}/sse` }
+      ]),
+      TOOLHUB_OPENAI_API_KEY: "test-key",
+      TOOLHUB_OPENAI_BASE_URL: `http://127.0.0.1:${resolver.address().port}/v1`,
+      TOOLHUB_OPENAI_MODEL: "resolver-model",
+      TOOLHUB_REQUEST_TIMEOUT_MS: "10000"
+    },
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  t.after(() => child.kill());
+
+  const stderr = [];
+  child.stderr.on("data", (chunk) => stderr.push(chunk.toString("utf8")));
+  const reader = jsonLineReader(child);
+  const call = async (id, method, params) => {
+    writeJsonLine(child, { id, jsonrpc: "2.0", method, params });
+    return reader.nextMessage(id, 12_000).catch((error) => {
+      error.message += ` stderr: ${stderr.join("")}`;
+      throw error;
+    });
+  };
+  await call(1, "initialize", {
+    capabilities: {},
+    clientInfo: { name: "sse-reconnect-test", version: "1.0.0" },
+    protocolVersion: "2024-11-05"
+  });
+  writeJsonLine(child, { jsonrpc: "2.0", method: "notifications/initialized", params: {} });
+  const resolved = await call(2, "tools/call", { name: "tool_hub.resolve", arguments: { task: "echo something" } });
+  assert.equal(resolved.error, undefined, JSON.stringify(resolved.error));
+
+  const invoke = { name: "tool_hub.invoke", arguments: { args: {}, tool: "mcp.sse_mcp.echo" } };
+  const first = await call(3, "tools/call", invoke);
+  if (!state.streams[0].closed) {
+    await once(state.streams[0], "close");
+  }
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  const second = await call(4, "tools/call", invoke);
+
+  assert.equal(first.error, undefined, JSON.stringify(first.error));
+  assert.match(JSON.stringify(first.result), /"ok"/);
+  assert.equal(second.error, undefined, JSON.stringify(second.error));
+  assert.match(JSON.stringify(second.result), /"ok"/);
+  assert.doesNotMatch(JSON.stringify(second.result), /timed out/);
+  assert.equal(state.gets, 2);
+});
+
 function toolHubRuntimePath() {
   return path.join(process.cwd(), ".test-dist", "core", "runtime", "toolhub-mcp.js");
 }
@@ -1014,6 +1088,45 @@ function createMcpHttpServer(options = {}) {
     }
     response.end(JSON.stringify({ id: payload.id, jsonrpc: "2.0", result: {} }));
   });
+}
+
+// An SSE MCP backend that ends its stream after the first tools/call reply.
+function createMcpSseServer() {
+  const state = { gets: 0, streams: [] };
+  let dropped = false;
+  const results = {
+    initialize: {
+      capabilities: { tools: {} },
+      protocolVersion: "2024-11-05",
+      serverInfo: { name: "sse-mcp", version: "1.0.0" }
+    },
+    "tools/call": { content: [{ text: "ok", type: "text" }] },
+    "tools/list": { tools: [{ description: "Echo the input back.", inputSchema: { type: "object" }, name: "echo" }] }
+  };
+  const server = createServer(async (request, response) => {
+    const url = new URL(request.url, "http://127.0.0.1");
+    if (request.method === "GET" && url.pathname === "/sse") {
+      state.gets += 1;
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.write(`event: endpoint\ndata: /messages?session=${state.gets}\n\n`);
+      state.streams.push(response);
+      return;
+    }
+    const payload = await readJsonBody(request);
+    response.statusCode = 202;
+    response.end();
+    const stream = state.streams[Number(url.searchParams.get("session")) - 1];
+    const result = results[payload.method];
+    if (!result || !stream || stream.writableEnded) {
+      return;
+    }
+    stream.write(`event: message\ndata: ${JSON.stringify({ id: payload.id, jsonrpc: "2.0", result })}\n\n`);
+    if (payload.method === "tools/call" && !dropped) {
+      dropped = true;
+      stream.end();
+    }
+  });
+  return { server, state };
 }
 
 function createTaskAwareResolverServer() {
