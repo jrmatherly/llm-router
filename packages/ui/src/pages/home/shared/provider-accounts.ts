@@ -65,16 +65,6 @@ export function providerAccountMeterProgress(meter: ProviderAccountMeter): numbe
   return ratio === undefined ? undefined : Math.max(3, Math.round(ratio * 100));
 }
 
-export function providerAccountCurrentMeterDetail(meter: ProviderAccountMeter, now = Date.now()): NonNullable<ProviderAccountMeter["details"]>[number] | undefined {
-  return (meter.details ?? [])
-    .filter((detail) => {
-      const effectiveAt = providerAccountDetailTimestamp(detail.effectiveAt);
-      const expiresAt = providerAccountDetailTimestamp(detail.expiresAt);
-      return effectiveAt !== undefined && expiresAt !== undefined && effectiveAt <= now && now < expiresAt;
-    })
-    .sort((a, b) => (providerAccountDetailTimestamp(a.expiresAt) ?? Number.MAX_SAFE_INTEGER) - (providerAccountDetailTimestamp(b.expiresAt) ?? Number.MAX_SAFE_INTEGER))[0];
-}
-
 export function providerAccountMeterDetailValidityProgress(detail: NonNullable<ProviderAccountMeter["details"]>[number], now = Date.now()): number | undefined {
   const effectiveAt = providerAccountDetailTimestamp(detail.effectiveAt);
   const expiresAt = providerAccountDetailTimestamp(detail.expiresAt);
