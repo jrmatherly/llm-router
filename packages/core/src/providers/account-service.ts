@@ -1,6 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import { loadAppConfig } from "@llmr/core/config/config";
-import { attachCodexRateLimitResetCreditDetails } from "@llmr/core/agents/local-providers/codex";
+import {
+  attachCodexRateLimitResetCreditDetails,
+  codexOauthClientId,
+  codexOauthRequiredScopes,
+  codexOauthScope as codexOauthDefaultScope,
+  codexOauthTokenEndpoint
+} from "@llmr/core/agents/local-providers/codex";
 import {
   codexDefaultBaseUrl,
   localAgentProviderApiKey,
@@ -116,10 +122,6 @@ const maxStaleAccountSnapshotMs = 2 * 60 * 1000;
 const maxCacheEntries = 500;
 const standardAccountPaths = ["/.well-known/llmr/account", "/v1/account/limits"];
 const codexRateLimitResetCreditConsumeEndpoint = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume";
-const codexOauthTokenEndpoint = "https://auth.openai.com/oauth/token";
-const codexOauthClientId = "app_EMoamEEZ73f0CkXaXp7hrann";
-const codexOauthDefaultScope = "openid profile email offline_access api.connectors.read api.connectors.invoke";
-const codexOauthRequiredScopes = ["api.connectors.read", "api.connectors.invoke"];
 const codexOauthDefaultTimeoutMs = 8_000;
 const claudeOauthUsageEndpointPattern = /^https:\/\/api\.anthropic\.com\/api\/oauth\/usage(?:$|[?#])/i;
 const claudeOauthUsageWindows = [

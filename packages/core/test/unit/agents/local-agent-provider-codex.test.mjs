@@ -1,14 +1,383 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import http from "node:http";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import {
   attachCodexRateLimitResetCreditDetails,
+  CodexRefreshAuthError,
   codexDefaultBaseUrl,
   codexModelCatalogFromPayloadForTest,
   codexProviderAccountConfig,
   codexRateLimitResetCreditDetails,
-  normalizeCodexProviderAccountConfig
+  normalizeCodexProviderAccountConfig,
+  readCodexLocalModelCatalog,
+  resolveCodexAuth
 } from "@llmr/core/agents/local-providers/codex.ts";
 import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared.ts";
+import { CONFIGDIR } from "@llmr/core/config/constants.ts";
+
+const codexEnvKeys = ["CODEX_HOME", "CODEX_REFRESH_TOKEN_URL_OVERRIDE", "HOME", "LLMR_INTERNAL_HOME_DIR", "USERPROFILE"];
+
+function jwt(payload) {
+  return [
+    base64url({ alg: "none", typ: "JWT" }),
+    base64url(payload),
+    ""
+  ].join(".");
+}
+
+function base64url(value) {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+function accessToken(lifetimeSeconds, scp = ["openid", "api.connectors.read", "api.connectors.invoke"]) {
+  return jwt({ exp: Math.floor(Date.now() / 1000) + lifetimeSeconds, scp });
+}
+
+function nextRefreshToken(token) {
+  const match = /^r(\d+)$/.exec(token);
+  return match ? `r${Number(match[1]) + 1}` : `${token}-next`;
+}
+
+async function codexFixture(t, { lifetimeSeconds = 3600, onRequest } = {}) {
+  const saved = Object.fromEntries(codexEnvKeys.map((key) => [key, process.env[key]]));
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-codex-auth-"));
+  const codexDir = path.join(home, ".codex");
+  mkdirSync(codexDir, { recursive: true });
+  const requests = [];
+  const seen = new Set();
+  const server = http.createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => {
+      body += chunk;
+    });
+    request.on("end", async () => {
+      const payload = JSON.parse(body);
+      requests.push({ ...payload, path: request.url });
+      const send = (status, value) => {
+        response.writeHead(status, { "content-type": "application/json" });
+        response.end(JSON.stringify(value));
+      };
+      const override = await onRequest?.(payload);
+      if (override) {
+        send(override.status, override.body);
+        return;
+      }
+      if (seen.has(payload.refresh_token)) {
+        send(400, { error: "refresh_token_reused" });
+        return;
+      }
+      seen.add(payload.refresh_token);
+      send(200, {
+        access_token: accessToken(lifetimeSeconds),
+        id_token: jwt({ "https://api.openai.com/auth": { chatgpt_account_id: "acct-1" }, rotated: payload.refresh_token }),
+        refresh_token: nextRefreshToken(payload.refresh_token)
+      });
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  process.env.LLMR_INTERNAL_HOME_DIR = home;
+  process.env.CODEX_REFRESH_TOKEN_URL_OVERRIDE = `${origin}/oauth/token`;
+  delete process.env.CODEX_HOME;
+  t.after(async () => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    await new Promise((resolve) => server.close(resolve));
+    chmodSync(codexDir, 0o700);
+    rmSync(home, { force: true, recursive: true });
+  });
+  const authFile = path.join(codexDir, "auth.json");
+  return {
+    authFile,
+    codexDir,
+    home,
+    lockFile: (file = authFile) => path.join(CONFIGDIR, "locks", `codex-auth-${createHash("sha256").update(file).digest("hex").slice(0, 16)}.lock`),
+    origin,
+    readAuth: (file = authFile) => JSON.parse(readFileSync(file, "utf8")),
+    requests,
+    seed: (login = {}, file = authFile) => writeFileSync(file, `${JSON.stringify(chatgptLogin(login), null, 2)}\n`),
+    seen
+  };
+}
+
+function chatgptLogin({ expiresIn = -10, refreshToken = "r0", tokens = {}, ...rest } = {}) {
+  return {
+    agent_identity: { name: "kept" },
+    auth_mode: "chatgpt",
+    made_up_key: [1, 2, 3],
+    tokens: {
+      access_token: accessToken(expiresIn),
+      account_id: "acct-1",
+      id_token: jwt({ "https://api.openai.com/auth": { chatgpt_account_id: "acct-1" } }),
+      refresh_token: refreshToken,
+      ...tokens
+    },
+    ...rest
+  };
+}
+
+test("two expiries send the first token, then the rotated one", async (t) => {
+  const codex = await codexFixture(t, { lifetimeSeconds: 30 });
+  codex.seed();
+
+  await resolveCodexAuth();
+  await resolveCodexAuth();
+
+  assert.deepEqual(codex.requests.map((request) => request.refresh_token), ["r0", "r1"]);
+});
+
+test("the rotated login is saved to auth.json", async (t) => {
+  const codex = await codexFixture(t);
+  codex.seed();
+  const before = codex.readAuth();
+
+  const auth = await resolveCodexAuth();
+
+  const after = codex.readAuth();
+  assert.equal(after.tokens.refresh_token, "r1");
+  assert.equal(after.tokens.access_token, auth.accessToken);
+  assert.notEqual(after.tokens.access_token, before.tokens.access_token);
+  assert.notEqual(after.tokens.id_token, before.tokens.id_token);
+  assert.equal(after.tokens.id_token, auth.idToken);
+  assert.ok(Number.isFinite(Date.parse(after.last_refresh)));
+  assert.deepEqual(after.agent_identity, before.agent_identity);
+  assert.deepEqual(after.made_up_key, before.made_up_key);
+  assert.equal(after.auth_mode, "chatgpt");
+  assert.equal(after.tokens.account_id, "acct-1");
+  if (process.platform !== "win32") {
+    assert.equal(statSync(codex.authFile).mode & 0o777, 0o600);
+  }
+});
+
+test("concurrent callers share one refresh", async (t) => {
+  const codex = await codexFixture(t, { lifetimeSeconds: 30 });
+  codex.seed();
+
+  const results = await Promise.all(Array.from({ length: 10 }, () => resolveCodexAuth()));
+
+  assert.equal(codex.requests.length, 1);
+  assert.ok(results.every((auth) => auth.refreshToken === "r1"));
+});
+
+test("a second process waits for the lock", async (t) => {
+  const codex = await codexFixture(t);
+  codex.seed();
+  const lockFile = codex.lockFile();
+  mkdirSync(path.dirname(lockFile), { recursive: true });
+  writeFileSync(lockFile, JSON.stringify({ pid: 999999, timestamp: Date.now() }));
+  t.after(() => rmSync(lockFile, { force: true }));
+  setTimeout(() => {
+    codex.seed({ expiresIn: 3600, refreshToken: "rp" });
+    rmSync(lockFile, { force: true });
+  }, 300);
+
+  const auth = await resolveCodexAuth();
+
+  assert.equal(auth.refreshToken, "rp");
+  assert.equal(codex.requests.length, 0);
+});
+
+test("a stale lock is taken over", async (t) => {
+  const codex = await codexFixture(t);
+  codex.seed();
+  const lockFile = codex.lockFile();
+  mkdirSync(path.dirname(lockFile), { recursive: true });
+  const staleAt = Date.now() - 60_000;
+  writeFileSync(lockFile, JSON.stringify({ pid: 999999, timestamp: staleAt }));
+  utimesSync(lockFile, staleAt / 1000, staleAt / 1000);
+  t.after(() => rmSync(lockFile, { force: true }));
+
+  const auth = await resolveCodexAuth();
+
+  assert.equal(auth.refreshToken, "r1");
+  assert.equal(codex.requests.length, 1);
+  assert.equal(existsSync(lockFile), false);
+});
+
+test("a login saved by a peer during the request wins", async (t) => {
+  let codex;
+  codex = await codexFixture(t, {
+    onRequest: () => {
+      codex.seed({ expiresIn: 3600, refreshToken: "rp" });
+    }
+  });
+  codex.seed();
+
+  const auth = await resolveCodexAuth();
+
+  assert.equal(codex.requests.length, 1);
+  assert.equal(codex.readAuth().tokens.refresh_token, "rp");
+  assert.equal(auth.refreshToken, "rp");
+});
+
+test("a rejected refresh adopts a peer's login", async (t) => {
+  let codex;
+  codex = await codexFixture(t, {
+    onRequest: () => {
+      codex.seed({ expiresIn: 3600, refreshToken: "rp" });
+      return { body: { error: "refresh_token_reused" }, status: 400 };
+    }
+  });
+  codex.seed();
+
+  const auth = await resolveCodexAuth();
+
+  assert.equal(auth.refreshToken, "rp");
+  assert.equal(auth.accessToken, codex.readAuth().tokens.access_token);
+  assert.equal(codex.requests.length, 1);
+});
+
+test("a rejected refresh with no peer throws CodexRefreshAuthError", async (t) => {
+  const codex = await codexFixture(t);
+  codex.seed();
+  codex.seen.add("r0");
+
+  await assert.rejects(resolveCodexAuth(), CodexRefreshAuthError);
+  assert.equal(codex.readAuth().tokens.refresh_token, "r0");
+});
+
+test("a symbolic link is never refreshed", async (t) => {
+  if (process.platform === "win32") {
+    t.skip("symbolic links need extra rights on Windows");
+    return;
+  }
+  const codex = await codexFixture(t);
+  const target = path.join(codex.home, "real-auth.json");
+  codex.seed({}, target);
+  symlinkSync(target, codex.authFile);
+  const targetBefore = readFileSync(target, "utf8");
+
+  const auth = await resolveCodexAuth();
+
+  assert.equal(auth.refreshToken, "r0");
+  assert.equal(codex.requests.length, 0);
+  assert.ok(lstatSync(codex.authFile).isSymbolicLink());
+  assert.equal(readlinkSync(codex.authFile), target);
+  assert.equal(readFileSync(target, "utf8"), targetBefore);
+});
+
+test("an unwritable directory is never refreshed", async (t) => {
+  if (process.platform === "win32" || process.getuid?.() === 0) {
+    t.skip("directory modes do not stop this user from writing");
+    return;
+  }
+  const codex = await codexFixture(t);
+  codex.seed();
+  chmodSync(codex.codexDir, 0o500);
+
+  const auth = await resolveCodexAuth();
+
+  assert.equal(auth.refreshToken, "r0");
+  assert.equal(codex.requests.length, 0);
+});
+
+test("a missing auth.json is not created", async (t) => {
+  const codex = await codexFixture(t);
+
+  assert.equal(await resolveCodexAuth(), undefined);
+  assert.equal(existsSync(codex.authFile), false);
+  assert.equal(codex.requests.length, 0);
+});
+
+test("an API-key login is never refreshed", async (t) => {
+  const codex = await codexFixture(t);
+  for (const login of [
+    chatgptLogin({ auth_mode: "apikey" }),
+    { ...chatgptLogin(), auth_mode: undefined, OPENAI_API_KEY: "sk-test" }
+  ]) {
+    writeFileSync(codex.authFile, JSON.stringify(login));
+    const before = readFileSync(codex.authFile, "utf8");
+
+    await resolveCodexAuth();
+
+    assert.equal(readFileSync(codex.authFile, "utf8"), before);
+  }
+  assert.equal(codex.requests.length, 0);
+});
+
+test("an externally managed login is never refreshed", async (t) => {
+  const codex = await codexFixture(t);
+  codex.seed({ auth_mode: "chatgptAuthTokens" });
+  const before = readFileSync(codex.authFile, "utf8");
+
+  await resolveCodexAuth();
+
+  assert.equal(codex.requests.length, 0);
+  assert.equal(readFileSync(codex.authFile, "utf8"), before);
+});
+
+test("CODEX_HOME moves the file", async (t) => {
+  const codex = await codexFixture(t);
+  const codexHome = path.join(codex.home, "elsewhere");
+  mkdirSync(codexHome);
+  process.env.CODEX_HOME = codexHome;
+  const authFile = path.join(codexHome, "auth.json");
+  codex.seed({}, authFile);
+  writeFileSync(path.join(codexHome, "models_cache.json"), JSON.stringify({ models: [{ slug: "gpt-codex-home" }] }));
+
+  const auth = await resolveCodexAuth();
+
+  assert.equal(auth.sourceFile, authFile);
+  assert.equal(codex.readAuth(authFile).tokens.refresh_token, "r1");
+  assert.equal(existsSync(codex.authFile), false);
+  assert.ok(readCodexLocalModelCatalog().models.includes("gpt-codex-home"));
+});
+
+test("a keyring store disables refresh", async (t) => {
+  const codex = await codexFixture(t);
+  const configFile = path.join(codex.codexDir, "config.toml");
+  codex.seed();
+  writeFileSync(configFile, 'model = "gpt-5-codex"\ncli_auth_credentials_store = "keyring"\n');
+
+  assert.equal((await resolveCodexAuth()).refreshToken, "r0");
+  assert.equal(codex.requests.length, 0);
+
+  writeFileSync(configFile, 'model = "gpt-5-codex"\n\n[profiles.x]\ncli_auth_credentials_store = "keyring"\n');
+
+  assert.equal((await resolveCodexAuth()).refreshToken, "r1");
+  assert.equal(codex.requests.length, 1);
+});
+
+test("the refresh goes to the login's own issuer", async (t) => {
+  const codex = await codexFixture(t);
+  delete process.env.CODEX_REFRESH_TOKEN_URL_OVERRIDE;
+  codex.seed({ tokens: { oauth_provenance: { client_id: "client-x", issuer: codex.origin } } });
+
+  await resolveCodexAuth();
+
+  assert.equal(codex.requests.length, 1);
+  assert.equal(codex.requests[0].client_id, "client-x");
+  assert.equal(codex.requests[0].path, "/oauth/token");
+  assert.equal(codex.requests[0].grant_type, "refresh_token");
+  assert.equal(codex.requests[0].scope, "openid profile email offline_access api.connectors.read api.connectors.invoke");
+});
+
+test("a fresh token makes no request", async (t) => {
+  const codex = await codexFixture(t);
+  codex.seed({ expiresIn: 3600 });
+
+  assert.equal((await resolveCodexAuth()).refreshToken, "r0");
+  assert.equal(codex.requests.length, 0);
+});
+
+test("a token missing the connector scopes makes no request", async (t) => {
+  const codex = await codexFixture(t);
+  codex.seed({ tokens: { access_token: accessToken(3600, ["openid"]) } });
+
+  assert.equal((await resolveCodexAuth()).refreshToken, "r0");
+  assert.equal(codex.requests.length, 0);
+});
 
 test("Codex provider account config includes manual reset meter", () => {
   const config = codexProviderAccountConfig();

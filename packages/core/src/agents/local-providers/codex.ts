@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { accessSync, closeSync, constants as fsConstants, lstatSync, mkdirSync, openSync, readFileSync, rmSync, statSync, writeSync } from "node:fs";
 import path from "node:path";
 import type {
   LocalAgentProviderCandidate,
@@ -12,6 +14,8 @@ import type {
   ProviderModelMetadata,
   ProviderReasoningLevel
 } from "@llmr/core/contracts/app";
+import { CONFIGDIR } from "@llmr/core/config/constants";
+import { writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { normalizeProviderBaseUrl } from "@llmr/core/providers/url";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
@@ -34,10 +38,43 @@ import {
 } from "@llmr/core/agents/local-providers/shared";
 
 export const codexDefaultBaseUrl = "https://chatgpt.com/backend-api/codex";
+export const codexOauthClientId = "app_EMoamEEZ73f0CkXaXp7hrann";
+export const codexOauthRequiredScopes = ["api.connectors.read", "api.connectors.invoke"];
+export const codexOauthScope = "openid profile email offline_access api.connectors.read api.connectors.invoke";
+export const codexOauthTokenEndpoint = "https://auth.openai.com/oauth/token";
 
 const codexAccountBaseUrl = "https://chatgpt.com/backend-api";
 const codexDefaultModels = ["gpt-5-codex"];
 const codexProbeTimeoutMs = 8_000;
+const codexRefreshTimeoutMs = 8_000;
+const codexLockPollMs = 100;
+const codexLockStaleMs = 30_000;
+const codexLockWaitMs = 15_000;
+
+const codexRefreshInFlight = new Map<string, Promise<CodexTokenSet | undefined>>();
+const codexUnsavedRefreshes = new Map<string, { refreshed: CodexTokenSet; replacedRefreshToken: string }>();
+const codexSaveWarnings = new Set<string>();
+
+export class CodexRefreshAuthError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "CodexRefreshAuthError";
+    this.status = status;
+  }
+}
+
+export type CodexTokenSet = OAuthTokenSet & {
+  authMode?: string;
+  idToken?: string;
+  lastRefresh?: string;
+};
+
+type CodexLogin = {
+  auth: CodexTokenSet;
+  record: Record<string, unknown>;
+};
 
 export type LocalAgentModelCatalog = {
   modelDisplayNames?: Record<string, string>;
@@ -294,8 +331,40 @@ export async function probeCodexProvider(candidate: LocalAgentProviderCandidate)
   };
 }
 
-export function readCodexAuth(): OAuthTokenSet | undefined {
-  const sourceFile = path.join(codexHomeDir(), ".codex", "auth.json");
+export function readCodexAuth(): CodexTokenSet | undefined {
+  return readCodexLogin(codexAuthFile())?.auth;
+}
+
+export function codexAccessTokenExpired(token: string | undefined): boolean {
+  const exp = readJwtPayload(token)?.exp;
+  return typeof exp === "number" && Date.now() >= exp * 1000 - 60_000;
+}
+
+export async function resolveCodexAuth(): Promise<CodexTokenSet | undefined> {
+  const sourceFile = codexAuthFile();
+  const login = readCodexLogin(sourceFile);
+  if (!login) {
+    return undefined;
+  }
+  const auth = preferUnsavedCodexRefresh(login.auth);
+  if (!shouldRefreshCodexLogin(login.record, auth)) {
+    return auth;
+  }
+  let refresh = codexRefreshInFlight.get(sourceFile);
+  if (!refresh) {
+    refresh = refreshCodexLoginUnderLock(sourceFile).finally(() => {
+      codexRefreshInFlight.delete(sourceFile);
+    });
+    codexRefreshInFlight.set(sourceFile, refresh);
+  }
+  return refresh;
+}
+
+function codexAuthFile(): string {
+  return path.join(codexHomeDir(), "auth.json");
+}
+
+function readCodexLogin(sourceFile: string): CodexLogin | undefined {
   const record = readJsonRecord(sourceFile);
   if (!record) {
     return undefined;
@@ -304,15 +373,244 @@ export function readCodexAuth(): OAuthTokenSet | undefined {
   const idToken = readString(tokens.id_token) || readString(tokens.idToken);
   const idTokenClaims = readCodexIdTokenClaims(idToken);
   return {
-    accountId:
-      readString(tokens.account_id) ||
-      readString(tokens.accountId) ||
-      idTokenClaims.accountId,
-    accessToken: readString(tokens.access_token) || readString(tokens.accessToken),
-    isFedrampAccount: idTokenClaims.isFedrampAccount,
-    refreshToken: readString(tokens.refresh_token) || readString(tokens.refreshToken),
-    sourceFile
+    auth: {
+      accountId:
+        readString(tokens.account_id) ||
+        readString(tokens.accountId) ||
+        idTokenClaims.accountId,
+      accessToken: readString(tokens.access_token) || readString(tokens.accessToken),
+      authMode: readString(record.auth_mode),
+      idToken,
+      isFedrampAccount: idTokenClaims.isFedrampAccount,
+      lastRefresh: readString(record.last_refresh),
+      refreshToken: readString(tokens.refresh_token) || readString(tokens.refreshToken),
+      sourceFile
+    },
+    record
   };
+}
+
+function preferUnsavedCodexRefresh(disk: CodexTokenSet): CodexTokenSet {
+  const unsaved = codexUnsavedRefreshes.get(disk.sourceFile);
+  if (!unsaved) {
+    return disk;
+  }
+  // A changed refresh token on disk means a peer saved a newer login.
+  if (disk.refreshToken === unsaved.replacedRefreshToken) {
+    return unsaved.refreshed;
+  }
+  codexUnsavedRefreshes.delete(disk.sourceFile);
+  return disk;
+}
+
+function shouldRefreshCodexLogin(record: Record<string, unknown>, auth: CodexTokenSet): boolean {
+  return isChatgptLogin(record) &&
+    Boolean(auth.refreshToken) &&
+    codexAccessTokenExpired(auth.accessToken) &&
+    codexCredentialStoreIsFile() &&
+    codexLoginIsSavable(auth.sourceFile);
+}
+
+// Codex's own order (codex-rs/login/src/auth/manager.rs): auth_mode first, then any API credential beats tokens.
+function isChatgptLogin(record: Record<string, unknown>): boolean {
+  if (record.auth_mode != null) {
+    return record.auth_mode === "chatgpt";
+  }
+  return record.personal_access_token == null &&
+    record.bedrock_api_key == null &&
+    record.bedrock_access_keys == null &&
+    record.OPENAI_API_KEY == null;
+}
+
+function codexCredentialStoreIsFile(): boolean {
+  let text: string;
+  try {
+    text = readFileSync(path.join(codexHomeDir(), "config.toml"), "utf8");
+  } catch {
+    return true;
+  }
+  const topLevel = text.split(/^\s*\[/m)[0] ?? "";
+  const match = topLevel.match(/^\s*cli_auth_credentials_store\s*=\s*["']?([^"'\s#]*)/m);
+  return !match || match[1] === "file";
+}
+
+// The refresh spends the old token, so a result that cannot be saved must not be requested.
+function codexLoginIsSavable(sourceFile: string): boolean {
+  try {
+    if (lstatSync(sourceFile).isSymbolicLink()) {
+      return false;
+    }
+    accessSync(sourceFile, fsConstants.W_OK);
+    accessSync(path.dirname(sourceFile), fsConstants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function refreshCodexLoginUnderLock(sourceFile: string): Promise<CodexTokenSet | undefined> {
+  const releaseLock = await acquireCodexAuthLock(sourceFile);
+  try {
+    const login = readCodexLogin(sourceFile);
+    if (!login) {
+      return undefined;
+    }
+    const auth = preferUnsavedCodexRefresh(login.auth);
+    if (!shouldRefreshCodexLogin(login.record, auth)) {
+      return auth;
+    }
+    return await refreshCodexLogin(login, auth);
+  } finally {
+    releaseLock();
+  }
+}
+
+async function acquireCodexAuthLock(sourceFile: string): Promise<() => void> {
+  const lockFile = path.join(
+    CONFIGDIR,
+    "locks",
+    `codex-auth-${createHash("sha256").update(sourceFile).digest("hex").slice(0, 16)}.lock`
+  );
+  mkdirSync(path.dirname(lockFile), { recursive: true });
+  const deadline = Date.now() + codexLockWaitMs;
+  for (;;) {
+    try {
+      const fd = openSync(lockFile, "wx");
+      try {
+        writeSync(fd, JSON.stringify({ pid: process.pid, timestamp: Date.now() }));
+      } finally {
+        closeSync(fd);
+      }
+      return () => rmSync(lockFile, { force: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw error;
+      }
+    }
+    if (codexLockAgeMs(lockFile) > codexLockStaleMs) {
+      rmSync(lockFile, { force: true });
+      continue;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error("Timed out waiting for another LLMR process to refresh the Codex login.");
+    }
+    await new Promise((resolve) => setTimeout(resolve, codexLockPollMs));
+  }
+}
+
+function codexLockAgeMs(lockFile: string): number {
+  try {
+    const content = parseJson(readFileSync(lockFile, "utf8"));
+    const timestamp = isRecord(content) && typeof content.timestamp === "number"
+      ? content.timestamp
+      : statSync(lockFile).mtimeMs;
+    return Date.now() - timestamp;
+  } catch {
+    return 0;
+  }
+}
+
+async function refreshCodexLogin(login: CodexLogin, auth: CodexTokenSet): Promise<CodexTokenSet | undefined> {
+  const sentRefreshToken = auth.refreshToken ?? "";
+  const fileRefreshToken = login.auth.refreshToken;
+  try {
+    const payload = await requestCodexTokenRefresh(login.record, sentRefreshToken);
+    const accessToken = readString(payload.access_token);
+    if (!accessToken) {
+      throw new Error("Codex OAuth token refresh did not return an access token.");
+    }
+    const refreshed: CodexTokenSet = {
+      ...auth,
+      accessToken,
+      idToken: readString(payload.id_token) ?? auth.idToken,
+      lastRefresh: new Date().toISOString(),
+      refreshToken: readString(payload.refresh_token) ?? sentRefreshToken
+    };
+    return saveRefreshedCodexLogin(refreshed, fileRefreshToken, readString(payload.id_token));
+  } catch (error) {
+    if (!(error instanceof CodexRefreshAuthError)) {
+      throw error;
+    }
+    codexUnsavedRefreshes.delete(auth.sourceFile);
+    const latest = readCodexLogin(auth.sourceFile)?.auth;
+    if (latest?.refreshToken && latest.refreshToken !== sentRefreshToken && latest.refreshToken !== fileRefreshToken) {
+      return latest;
+    }
+    throw error;
+  }
+}
+
+async function requestCodexTokenRefresh(record: Record<string, unknown>, refreshToken: string): Promise<Record<string, unknown>> {
+  const tokens = isRecord(record.tokens) ? record.tokens : {};
+  const provenance = isRecord(tokens.oauth_provenance) ? tokens.oauth_provenance : {};
+  const issuer = readString(provenance.issuer)?.replace(/\/+$/, "");
+  const tokenEndpoint =
+    readString(process.env.CODEX_REFRESH_TOKEN_URL_OVERRIDE) ||
+    (issuer ? `${issuer}/oauth/token` : codexOauthTokenEndpoint);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), codexRefreshTimeoutMs);
+  try {
+    const response = await fetchWithSystemProxy(tokenEndpoint, {
+      body: JSON.stringify({
+        client_id: readString(provenance.client_id) || codexOauthClientId,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        scope: codexOauthScope
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+      signal: controller.signal
+    });
+    const payload = parseJson(await response.text());
+    const body = isRecord(payload) ? payload : {};
+    if (!response.ok) {
+      // Only the error fields are quoted: a token endpoint's body can echo credentials.
+      const reason = readString(body.error_description) || readString(body.error);
+      const message = `Codex OAuth token refresh returned HTTP ${response.status}${reason ? `: ${reason}` : ""}`;
+      if (response.status === 400 || response.status === 401) {
+        throw new CodexRefreshAuthError(response.status, message);
+      }
+      throw new Error(message);
+    }
+    return body;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Codex OAuth token refresh timed out after ${codexRefreshTimeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function saveRefreshedCodexLogin(refreshed: CodexTokenSet, fileRefreshToken: string | undefined, idToken: string | undefined): CodexTokenSet | undefined {
+  const sourceFile = refreshed.sourceFile;
+  try {
+    const current = readCodexLogin(sourceFile);
+    const tokens = current?.record.tokens;
+    if (!current || !isRecord(tokens)) {
+      throw new Error("the file no longer holds a Codex login");
+    }
+    if (current.auth.refreshToken !== fileRefreshToken) {
+      codexUnsavedRefreshes.delete(sourceFile);
+      return current.auth;
+    }
+    tokens.access_token = refreshed.accessToken;
+    tokens.refresh_token = refreshed.refreshToken;
+    if (idToken) {
+      tokens.id_token = idToken;
+    }
+    current.record.last_refresh = refreshed.lastRefresh;
+    writeFileAtomic(sourceFile, `${JSON.stringify(current.record, null, 2)}\n`, { mode: 0o600 });
+    codexUnsavedRefreshes.delete(sourceFile);
+  } catch (error) {
+    codexUnsavedRefreshes.set(sourceFile, { refreshed, replacedRefreshToken: fileRefreshToken ?? "" });
+    if (!codexSaveWarnings.has(sourceFile)) {
+      codexSaveWarnings.add(sourceFile);
+      console.warn(`[codex] Could not save the refreshed login to ${sourceFile}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return refreshed;
 }
 
 export function codexProviderAccountConfig(): ProviderAccountConfig {
@@ -606,7 +904,7 @@ function codexBackendRequestTransform(): Record<string, unknown> {
 }
 
 export function readCodexLocalModelCatalog(): LocalAgentModelCatalog {
-  const modelsFile = path.join(codexHomeDir(), ".codex", "models_cache.json");
+  const modelsFile = path.join(codexHomeDir(), "models_cache.json");
   const record = readJsonRecord(modelsFile);
   const catalog = codexModelCatalogFromPayload(record);
   const uniqueModels = uniqueStrings([...catalog.models, ...codexDefaultModels]);
@@ -852,7 +1150,7 @@ export function codexModelCatalogFromPayloadForTest(payload: unknown): LocalAgen
 }
 
 function codexHomeDir(): string {
-  return resolveRuntimeAppPath("home");
+  return readString(process.env.CODEX_HOME) || path.join(resolveRuntimeAppPath("home"), ".codex");
 }
 
 function readCodexIdTokenClaims(idToken: string | undefined): { accountId?: string; isFedrampAccount?: boolean } {
