@@ -120,7 +120,7 @@ async function fetchImportJob(importUrl) {
     throw new Error(body?.error?.message || `LLMR import job request failed (${response.status}).`);
   }
   if (!body.job || body.job.status !== "pending") {
-    throw new Error(`LLMR import job is ${body.job?.status || "unavailable"}.`);
+    throw new Error(`LLMR import job is ${body.job?.status || "unavailable"}. Start a new import in LLMR.`);
   }
   return body.job;
 }
@@ -146,7 +146,12 @@ async function submitLoginState(importUrl, cookies, localStorage, domains) {
   if (!response.ok) {
     throw new Error(body?.error?.message || `LLMR login import failed (${response.status}).`);
   }
-  return body.result || {};
+  const result = body.result || {};
+  if (!result.imported) {
+    const firstError = result.errors?.[0] ? ` First error: ${result.errors[0]}.` : "";
+    throw new Error(`LLMR imported nothing and skipped ${result.skipped ?? 0} entries.${firstError} Start a new import in LLMR.`);
+  }
+  return result;
 }
 
 async function readCookiesForDomains(domains) {

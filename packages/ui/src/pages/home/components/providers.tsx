@@ -22,6 +22,7 @@ import {
 } from "../shared/index";
 import { PopoverPortal } from "@/components/ui/popover";
 import { Tooltip, TooltipPortal } from "@/components/ui/tooltip";
+import { chromeLoginImportFailureMessage } from "@/lib/chrome-login-import";
 import { providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
 import type { ChromeLoginImportJob, LocalAgentProviderCandidate, OpenRouterProviderCatalogItem, OpenRouterProviderCatalogRequest, ProviderAccountHttpJsonConnectorConfig, ProviderAccountWebContentJsonConnectorConfig } from "@llmr/core/contracts/app";
 import type { ReactNode } from "react";
@@ -2934,7 +2935,12 @@ function ProviderUsageSettings({
       if (!getChromeLoginImport) {
         return;
       }
-      void getChromeLoginImport(chromeImportJob.id).then(setChromeImportJob).catch((error) => {
+      void getChromeLoginImport(chromeImportJob.id).then((job) => {
+        setChromeImportJob(job);
+        if (job?.status === "failed") {
+          setChromeImportMessage(chromeLoginImportFailureMessage(job));
+        }
+      }).catch((error) => {
         setChromeImportJob(undefined);
         setTestError(formatAppError(error));
       });

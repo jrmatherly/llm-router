@@ -36,7 +36,7 @@ test("the popup delegates the import to the worker", () => {
   assert.match(popup, /llmr-login-import-run/);
 });
 
-function loadWorker({ granted = false, standing = false } = {}) {
+function loadWorker({ granted = false, jobStatus = "pending", result = { cookieImported: 1, imported: 1, skipped: 0 }, standing = false } = {}) {
   const calls = { contains: [], posts: 0, removed: [] };
   const listeners = {};
   const session = {};
@@ -65,7 +65,7 @@ function loadWorker({ granted = false, standing = false } = {}) {
     fetch: async (_url, init) => {
       const post = init?.method === "POST";
       calls.posts += post ? 1 : 0;
-      return { json: async () => (post ? { result: { cookieImported: 1 } } : { job: { domains: ["example.com"], status: "pending" } }), ok: true };
+      return { json: async () => (post ? { result } : { job: { domains: ["example.com"], status: jobStatus } }), ok: true };
     },
     URL
   };
@@ -185,4 +185,27 @@ test("the popup asks Chrome for the previewed origins inside the click", async (
   assert.equal(elements.status.textContent, "Chrome site access was not granted.");
   handlers["import-url:input"]();
   assert.equal(elements["import-button"].disabled, true);
+});
+
+test("the worker reports an import that LLMR skipped entirely as an error", async () => {
+  const result = { cookieImported: 0, errors: ["example.com:sid: rejected"], imported: 0, skipped: 3 };
+  const { calls, send } = loadWorker({ granted: true, result });
+  const run = await send({ domains: ["example.com"], importUrl, type: "llmr-login-import-run" }, popup);
+  assert.equal(calls.posts, 1);
+  assert.equal(run.ok, false);
+  assert.match(run.error, /imported nothing and skipped 3 entries\. First error: example\.com:sid: rejected\. Start a new import in LLMR\./);
+});
+
+test("the worker reports a partly skipped localStorage-only import as a success", async () => {
+  const result = { cookieImported: 0, imported: 1, localStorageImported: 1, skipped: 2 };
+  const run = await loadWorker({ granted: true, result }).send({ domains: ["example.com"], importUrl, type: "llmr-login-import-run" }, popup);
+  assert.equal(run.ok, true);
+  assert.equal(run.result.localStorageImported, 1);
+});
+
+test("the worker says to start a new import when the job is no longer pending", async () => {
+  for (const jobStatus of ["failed", "completed", "expired"]) {
+    const preview = await loadWorker({ jobStatus }).send({ importUrl, type: "llmr-login-import-preview" }, popup);
+    assert.equal(preview.error, `LLMR import job is ${jobStatus}. Start a new import in LLMR.`);
+  }
 });

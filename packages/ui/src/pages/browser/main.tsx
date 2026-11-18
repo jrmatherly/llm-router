@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { ArrowLeft, ArrowRight, Check, KeyRound, LoaderCircle, Plus, RotateCw, UserRound, X } from "lucide-react";
 import type { BuiltInBrowserState, ChromeLoginImportJob, ChromeLoginImportRequest } from "@llmr/core/contracts/app";
 import { formatErrorMessage } from "@llmr/core/contracts/error-message";
+import { chromeLoginImportFailureMessage } from "@/lib/chrome-login-import";
 
 declare global {
   interface Window {
@@ -77,6 +78,10 @@ function BrowserChrome() {
           return;
         }
         setChromeImportJob(job);
+        if (job.status === "failed") {
+          setChromeImportMessage("");
+          setChromeImportError(chromeLoginImportFailureMessage(job));
+        }
         if (job.status === "completed" && activeTab?.id && activeTabMatchesImport(activeTab.url, job.domains)) {
           void run(window.llmrBrowser?.reload(activeTab.id));
         }
@@ -140,7 +145,7 @@ function BrowserChrome() {
       return "Chrome import expired";
     }
     if (chromeImportJob.status === "failed") {
-      return "Chrome import failed";
+      return chromeLoginImportFailureMessage(chromeImportJob);
     }
     return "Chrome import pending. Confirm it in the browser window.";
   }

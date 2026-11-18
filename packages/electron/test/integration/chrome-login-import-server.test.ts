@@ -75,3 +75,63 @@ test("a second POST during an import gets 409 and a failed POST leaves the job p
   assert.equal(JSON.parse((await send(job.importUrl)).body).job.status, "pending");
   assert.equal((await postJson(cookiesUrl, "{}")).status, 500);
 });
+
+test("an import that skips every entry fails the job", async () => {
+  const job = await createJob();
+  const reply = await postJson(`${job.importUrl}/cookies`, JSON.stringify({
+    cookies: [{ domain: "evil.example", name: "sid", value: "1" }],
+    localStorage: [{ items: { a: "1" }, origin: "https://evil.example" }]
+  }));
+  assert.equal(reply.status, 200);
+  const body = JSON.parse(reply.body);
+  assert.equal(body.result.imported, 0);
+  assert.equal(body.result.skipped, 2);
+  assert.equal(body.job.status, "failed");
+  assert.equal(JSON.parse((await send(job.importUrl)).body).job.status, "failed");
+  const again = await postJson(`${job.importUrl}/cookies`, '{"cookies":[{"domain":"example.com","name":"sid","value":"1"}]}');
+  assert.equal(again.status, 409);
+  assert.equal(JSON.parse(again.body).error.message, "Chrome login import job is failed.");
+});
+
+function fakeSessions(rejectName: string) {
+  const calls = { flushed: 0, set: [] as string[] };
+  const partitionSession = () => ({
+    cookies: {
+      flushStore: async () => { calls.flushed += 1; },
+      set: async (details: { name: string }) => {
+        calls.set.push(details.name);
+        if (details.name === rejectName) {
+          throw new Error("rejected by the cookie store");
+        }
+      }
+    }
+  });
+  return { calls, partitionSession };
+}
+
+const exampleCookie = (name: string, domain = ".example.com") => ({ domain, name, path: "/", value: "1" });
+
+test("a partly skipped import completes and flushes the cookie store", async () => {
+  const { calls, partitionSession } = fakeSessions("bad");
+  const job = await chromeLoginImportInternalsForTest.createService(partitionSession as any).createJob({ domains: ["example.com"] });
+  const reply = await postJson(`${job.importUrl}/cookies`, JSON.stringify({
+    cookies: [exampleCookie("sid"), exampleCookie("bad"), exampleCookie("other", "evil.example")]
+  }));
+  const body = JSON.parse(reply.body);
+  assert.equal(reply.status, 200);
+  assert.equal(body.result.imported, 1);
+  assert.equal(body.result.skipped, 2);
+  assert.equal(body.job.status, "completed");
+  assert.deepEqual(calls.set, ["sid", "bad"]);
+  assert.equal(calls.flushed, 1);
+});
+
+test("an import whose every write is rejected fails with the errors, and still flushes", async () => {
+  const { calls, partitionSession } = fakeSessions("sid");
+  const job = await chromeLoginImportInternalsForTest.createService(partitionSession as any).createJob({ domains: ["example.com"] });
+  const body = JSON.parse((await postJson(`${job.importUrl}/cookies`, JSON.stringify({ cookies: [exampleCookie("sid")] }))).body);
+  assert.equal(body.result.imported, 0);
+  assert.equal(body.job.status, "failed");
+  assert.match(body.result.errors[0], /sid: rejected by the cookie store/);
+  assert.equal(calls.flushed, 1);
+});
