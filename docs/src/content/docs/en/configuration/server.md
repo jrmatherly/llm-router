@@ -53,6 +53,8 @@ Proxy mode is the local proxy capability. When enabled, clients can send HTTP/HT
 | Proxy status | Shows whether the proxy service is running. |
 | Restart Proxy | Restarts the proxy service when proxy mode is enabled. |
 
+Proxy mode does not add an LLMR key to a request. A tool that reaches LLMR through the proxy must send an LLMR API key in the header its SDK already uses (`Authorization`, `x-api-key`, `api-key` or `x-goog-api-key`). A key in the query string, such as `?key=`, is not accepted. LLMR rejects a request that carries a provider key or no key. An app that signs in with OAuth and cannot be given an API key cannot be routed through Proxy mode. Point it at the LLMR gateway address directly, or use an agent profile.
+
 A connection that was opened as a tunnel stays a tunnel, also after Capture network is turned on or its host becomes a routed host. Turn on Capture network, or add the target, before you start the client.
 
 Proxy mode changes local networking and certificate trust and is primarily a desktop feature. Container deployments should normally point clients directly at the public LLMR Nginx gateway; changing the host system proxy or installing a host CA from inside the container is not supported.

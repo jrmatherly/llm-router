@@ -63,9 +63,9 @@ async function withProxy(peerAddress, run) {
   }
 }
 
-function proxyGet(frontPort, url = "http://api.example.test/v1/messages") {
+function proxyGet(frontPort, url = "http://api.example.test/v1/messages", headers = {}) {
   return new Promise((resolve, reject) => {
-    const request = http.request({ host: "127.0.0.1", path: url, port: frontPort });
+    const request = http.request({ headers, host: "127.0.0.1", path: url, port: frontPort });
     request.once("error", reject);
     request.once("response", (response) => {
       response.resume();
@@ -75,11 +75,23 @@ function proxyGet(frontPort, url = "http://api.example.test/v1/messages") {
   });
 }
 
-test("a loopback absolute-URL request reaches the gateway with the API key", async () => {
+test("gateway mode forwards the client's own credential unchanged", async () => {
+  await withProxy(undefined, async ({ frontPort, upstreamRequests }) => {
+    const credentials = { "api-key": "sk-client-c", authorization: "Bearer sk-client-a", "x-api-key": "sk-client-b", "x-goog-api-key": "sk-client-d" };
+    assert.equal(await proxyGet(frontPort, undefined, credentials), 200);
+    assert.equal(upstreamRequests.length, 1);
+    for (const [name, value] of Object.entries(credentials)) assert.equal(upstreamRequests[0][name], value, name);
+    assert.equal(upstreamRequests[0]["x-llmr-proxy-mode"], "gateway");
+  });
+});
+
+test("gateway mode adds no key to a request that carries none", async () => {
   await withProxy(undefined, async ({ frontPort, upstreamRequests }) => {
     assert.equal(await proxyGet(frontPort), 200);
     assert.equal(upstreamRequests.length, 1);
-    assert.equal(upstreamRequests[0].authorization, "Bearer sk-test-proxy-peer");
+    assert.equal(upstreamRequests[0].authorization, undefined);
+    assert.equal(upstreamRequests[0]["x-api-key"], undefined);
+    assert.equal(JSON.stringify(upstreamRequests[0]).includes("sk-test-proxy-peer"), false);
   });
 });
 
