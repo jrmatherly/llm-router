@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -439,6 +439,77 @@ test("Grok local provider coalesces concurrent refreshes of the same credential"
     }
   });
 });
+
+const fileModesDoNotBlockWrites = process.platform === "win32" || process.getuid?.() === 0;
+
+test("Grok keeps a rotated refresh token in memory when auth.json cannot be saved", { skip: fileModesDoNotBlockWrites }, async (t) => {
+  await withGrokHome(async (grokHome) => {
+    const fetchCalls = stubLockedGrokRefresh(t, grokHome);
+    const warn = t.mock.method(console, "warn", () => {});
+    try {
+      const first = await resolveGrokAuth();
+      const second = await resolveGrokAuth();
+      assert.equal(fetchCalls.count, 1);
+      assert.equal(first.accessToken, "refreshed-grok-access-token");
+      assert.equal(second.accessToken, "refreshed-grok-access-token");
+      assert.equal(second.refreshToken, "rotated-1");
+      assert.equal(warn.mock.callCount(), 1);
+      assert.equal(JSON.parse(readFileSync(path.join(grokHome, "auth.json"), "utf8"))["https://auth.x.ai::test-account"].refresh_token, "grok-refresh-token");
+    } finally {
+      unlockGrokHome(grokHome);
+    }
+  });
+});
+
+test("a newer Grok credential on disk wins over the unsaved one", { skip: fileModesDoNotBlockWrites }, async (t) => {
+  await withGrokHome(async (grokHome) => {
+    const fetchCalls = stubLockedGrokRefresh(t, grokHome);
+    t.mock.method(console, "warn", () => {});
+    try {
+      await resolveGrokAuth();
+      unlockGrokHome(grokHome);
+      writeGrokAuth(grokHome, { key: "peer-token", refresh_token: "peer-refresh", expires_at: "2999-01-01T00:00:00Z", oidc_client_id: "grok-client-id", oidc_issuer: "https://auth.x.ai" });
+      const auth = await resolveGrokAuth();
+      assert.equal(auth.accessToken, "peer-token");
+      assert.equal(fetchCalls.count, 1);
+    } finally {
+      unlockGrokHome(grokHome);
+    }
+  });
+});
+
+function stubLockedGrokRefresh(t, grokHome) {
+  writeGrokAuth(grokHome, {
+    key: "expired-token",
+    refresh_token: "grok-refresh-token",
+    expires_at: "2000-01-01T00:00:00Z",
+    oidc_client_id: "grok-client-id",
+    oidc_issuer: "https://auth.x.ai"
+  });
+  const fetchCalls = { count: 0 };
+  const previousFetch = globalThis.fetch;
+  process.env.GROK_OIDC_TOKEN_ENDPOINT = "http://127.0.0.1/grok/oauth/token";
+  globalThis.fetch = async () => {
+    fetchCalls.count += 1;
+    return new Response(JSON.stringify({
+      access_token: "refreshed-grok-access-token",
+      expires_in: 3600,
+      refresh_token: "rotated-1"
+    }), { headers: { "content-type": "application/json" }, status: 200 });
+  };
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+  });
+  // The file mode blocks an in-place write and the directory mode blocks a rename into it.
+  chmodSync(path.join(grokHome, "auth.json"), 0o400);
+  chmodSync(grokHome, 0o500);
+  return fetchCalls;
+}
+
+function unlockGrokHome(grokHome) {
+  chmodSync(grokHome, 0o700);
+  chmodSync(path.join(grokHome, "auth.json"), 0o600);
+}
 
 async function withGrokHome(run) {
   const previousGrokHome = process.env.GROK_HOME;

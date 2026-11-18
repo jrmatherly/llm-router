@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type {
   GatewayProviderCapability,
@@ -32,6 +32,7 @@ import {
   uniqueStrings,
   type OAuthTokenSet
 } from "@llmr/core/agents/local-providers/shared";
+import { writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import { normalizeProviderBaseUrl } from "@llmr/core/providers/url";
 import { resolveUserPath } from "@llmr/core/runtime/app-paths";
@@ -48,6 +49,7 @@ const grokOauthDefaultTimeoutMs = 8_000;
 const grokFallbackClientVersion = "0.2.93";
 
 const grokRefreshInFlight = new Map<string, Promise<GrokTokenSet>>();
+const grokUnsavedRefreshes = new Map<string, GrokTokenSet>();
 
 const grokBillingResetPaths = [
   "$.billingPeriodEnd",
@@ -263,7 +265,8 @@ export function readGrokAuth(): GrokTokenSet | undefined {
 }
 
 export async function resolveGrokAuth(): Promise<GrokTokenSet | undefined> {
-  const auth = readGrokAuth();
+  const disk = readGrokAuth();
+  const auth = disk && preferUnsavedGrokRefresh(disk);
   if (!auth?.refreshToken || (auth.accessToken && !grokAccessTokenExpired(auth))) {
     return auth;
   }
@@ -271,7 +274,7 @@ export async function resolveGrokAuth(): Promise<GrokTokenSet | undefined> {
   // rotates on every refresh, so every in-process caller must share a single
   // refresh attempt (and its peer-rotation adoption outcome) instead of
   // submitting the same stale token in parallel.
-  const key = `${auth.sourceFile}::${auth.authRecordKey ?? ""}`;
+  const key = grokAuthKey(auth);
   let refresh = grokRefreshInFlight.get(key);
   if (!refresh) {
     refresh = (async () => {
@@ -286,6 +289,24 @@ export async function resolveGrokAuth(): Promise<GrokTokenSet | undefined> {
     grokRefreshInFlight.set(key, refresh);
   }
   return refresh;
+}
+
+function grokAuthKey(auth: GrokTokenSet): string {
+  return `${auth.sourceFile}::${auth.authRecordKey ?? ""}`;
+}
+
+function preferUnsavedGrokRefresh(disk: GrokTokenSet): GrokTokenSet {
+  const key = grokAuthKey(disk);
+  const unsaved = grokUnsavedRefreshes.get(key);
+  if (!unsaved) {
+    return disk;
+  }
+  const diskExpiresAt = dateMs(disk.expiresAt) ?? jwtExpiresAtMs(disk.accessToken) ?? 0;
+  if ((dateMs(unsaved.expiresAt) ?? 0) > diskExpiresAt) {
+    return unsaved;
+  }
+  grokUnsavedRefreshes.delete(key);
+  return disk;
 }
 
 function adoptPeerRotatedGrokAuth(auth: GrokTokenSet, error: unknown): GrokTokenSet {
@@ -716,7 +737,13 @@ async function refreshGrokAuth(auth: GrokTokenSet): Promise<GrokTokenSet> {
       expiresAt: refreshedGrokExpiresAt(accessToken, payload),
       refreshToken: readString(payload?.refresh_token) || readString(payload?.refreshToken) || refreshToken
     };
-    persistRefreshedGrokAuth(refreshed);
+    try {
+      persistRefreshedGrokAuth(refreshed);
+      grokUnsavedRefreshes.delete(grokAuthKey(refreshed));
+    } catch (error) {
+      grokUnsavedRefreshes.set(grokAuthKey(refreshed), refreshed);
+      console.warn(`[grok] Could not save the refreshed credential to ${auth.sourceFile}: ${error instanceof Error ? error.message : String(error)}`);
+    }
     return refreshed;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
@@ -852,29 +879,25 @@ function persistRefreshedGrokAuth(auth: GrokTokenSet): void {
   if (!auth.sourceFile || !auth.accessToken) {
     return;
   }
-  try {
-    const parsed = JSON.parse(readFileSync(auth.sourceFile, "utf8")) as unknown;
-    if (!isRecord(parsed)) {
-      return;
-    }
-    let target: Record<string, unknown> = parsed;
-    if (auth.authRecordKey) {
-      const authRecord = parsed[auth.authRecordKey];
-      if (isRecord(authRecord)) {
-        target = authRecord;
-      }
-    }
-    target.key = auth.accessToken;
-    if (auth.refreshToken) {
-      target.refresh_token = auth.refreshToken;
-    }
-    if (auth.expiresAt) {
-      target.expires_at = auth.expiresAt;
-    }
-    writeFileSync(auth.sourceFile, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
-  } catch {
-    // Best effort. The refreshed token is still used for this LLMR run.
+  const parsed = JSON.parse(readFileSync(auth.sourceFile, "utf8")) as unknown;
+  if (!isRecord(parsed)) {
+    throw new Error("the file does not hold a JSON object");
   }
+  let target: Record<string, unknown> = parsed;
+  if (auth.authRecordKey) {
+    const authRecord = parsed[auth.authRecordKey];
+    if (isRecord(authRecord)) {
+      target = authRecord;
+    }
+  }
+  target.key = auth.accessToken;
+  if (auth.refreshToken) {
+    target.refresh_token = auth.refreshToken;
+  }
+  if (auth.expiresAt) {
+    target.expires_at = auth.expiresAt;
+  }
+  writeFileAtomic(auth.sourceFile, `${JSON.stringify(parsed, null, 2)}\n`);
 }
 
 function parseJsonRecord(text: string): Record<string, unknown> | undefined {
