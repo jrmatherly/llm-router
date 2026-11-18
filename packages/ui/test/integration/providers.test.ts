@@ -1270,7 +1270,8 @@ test("provider probe keeps anthropic prefix on the protocol capability", () => {
     normalizedBaseUrl: "https://gateway.example/anthropic",
     protocols: [
       {
-        ...anthropicCapability,
+        baseUrl: anthropicCapability.baseUrl,
+        endpoint: anthropicCapability.endpoint,
         message: "HTTP 400: model is required",
         protocol: "anthropic_messages" as const,
         status: 400,

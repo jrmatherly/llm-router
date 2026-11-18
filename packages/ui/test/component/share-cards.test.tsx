@@ -32,7 +32,7 @@ const minimalPosterHeaderProps = { title: "Route Map", tone: "indigo" as const }
 
 test("share card route map and poster header name the product", () => {
   const map = renderToStaticMarkup(<RouteMapCard usageStats={emptyUsageStats} />);
-  assert.match(map, /LLMR/);
+  assert.match(map, /<span>LLMR<\/span>/);
   const header = renderToStaticMarkup(<SharePosterHeader {...minimalPosterHeaderProps} />);
   assert.match(header, />Route Map</);
   assert.match(header, />LLMR</);

@@ -56,6 +56,7 @@ test("formatLogTokenSummary uses the provided locale for token counts", () => {
   };
 
   assert.equal(formatLogTokenSummary(entry, "en-US"), "123.5K in  12K out");
+  assert.equal(formatLogTokenSummary(entry, "de-DE"), "123.456 in  12.000 out");
 });
 
 test("request log model summaries stay stable without list body text", () => {
