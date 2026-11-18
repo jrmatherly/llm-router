@@ -69,6 +69,29 @@ Each line names the task that pins it.
 - **Size:** M.
 - **Owner steps:** Approve `--min-release-age=0` for the one install in Task 1 if work starts before 2026-11-21. Approve the edit to `permissions.deny` in `.claude/settings.json` (Task 4). Run the Windows and Linux packaging checks in Task 5 if a machine is available.
 
+**Status:** Merged 2026-11-17 as [PR 99](https://github.com/jrmatherly/llm-router/pull/99), squash commit `a6565051`. Jason approved the `.claude/settings.json` edit. No release-age override was needed, because `npm config get min-release-age` returned `2`. Measured on 13.2.0: loads under Node 24.22.3 and Electron 42.11.18; `darwin-arm64` needs macOS 11.0, `darwin-x64` 10.7; the Linux x64 and arm64 prebuilds need glibc 2.34.
+
+This plan was wrong on one point, and the first push was red because of it:
+
+- **13.2.0 does need an `allowScripts` entry.** Task 1 Step 2 says to delete the entry because the package has no install script. It ships `binding.gyp`, so a clean `npm ci` runs the implicit `node-gyp rebuild` (npm 11.19.1, with `gypfile: false` in the package). The Docker image has no Python, so its build failed, and on a CI runner the rebuild left a `build/` directory. The fix is `"better-sqlite3": false` under `allowScripts`, checked in a scratch install with a clean user config. A developer tree updated with `npm install` did not show the problem.
+
+The review also changed these points:
+
+- `verify-packaged-app.cjs` removes a `build/` directory from the packaged app. `lib/binding.js` loads `build/Release` before `prebuilds/`, so a compiled binary would have shipped and loaded without being checked.
+- The Task 2 assertion that `node_modules/better-sqlite3/build` does not exist is gone. It read the developer's install, not the repository. The test pins the `allowScripts` entry and `asarUnpack` instead.
+- The verifier is tested against the real `darwin`, `linux` and `win32` prebuilds on any host, with a platform mismatch and an architecture mismatch. CI runs on Ubuntu only, so the Mach-O and PE paths had no test before a release.
+- `isBetterSqliteNativeError` matches only what a failed load of the binary produces. It matched `better-sqlite3` anywhere in the stack, so a corrupt, locked or missing database showed the "Reinstall LLM Router" dialog. It moved to `packages/electron/src/main/startup-error.ts` with a unit test.
+- An architecture value the verifier does not know is named in its error.
+- `build/run-tests.mjs` runs the core suite under Node with no Electron fallback.
+
+Not run: Windows and Linux packaging (Task 5 Step 5, owner) and an x64 macOS package. `npm run test:system` was not run locally because Docker was not running; the PR's Docker smoke check passed on the final commit.
+
+Found and left alone:
+
+- The Linux prebuilds need glibc 2.34, so the AppImage will not start on Ubuntu 20.04, Debian 11 or RHEL 8. Nobody measured the floor of the 12.x binary that releases compiled, so whether this is a change is unknown. Comparing with the v7.2.2 AppImage would settle it.
+- `docker/entrypoint.sh` has an empty `catch` around `require("better-sqlite3")` that never fires for a binding failure, because the binding loads on the first `new Database`.
+- In the CLI and the Docker image nothing classifies a SQLite load failure. The raw stack goes to stderr.
+
 ### Task 1: Prove that 13.2.0 loads under Node and Electron 42
 
 Nothing is deleted before this task passes.
