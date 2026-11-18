@@ -68,6 +68,7 @@ The design choices below are the session's, made on 2026-11-18 from the research
 - Done 2026-11-18: the fork's name and the go-ahead to create it as a public repository (G-3).
 - Enable Actions on the fork. GitHub disables workflows on a new fork until the owner turns them on.
 - Done 2026-11-18: the safeguards choice (G-13).
+- Optional: turn on immutable releases in the fork. `v1.0.22-llmr.1` is not immutable (PR 109 review, `gh release view --json isImmutable`). A replaced asset fails every `npm ci` with an integrity error, which is safe but stops all installs.
 - Optional, after the first release: a tag ruleset on the fork that restricts who can create `v*` tags.
 
 ## The safeguards rejection

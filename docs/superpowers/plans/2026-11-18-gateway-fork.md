@@ -171,6 +171,8 @@ Expected: `OK`, `"version": "1.0.22-llmr.1"`, and `200` with no credentials.
 
 ### Task 2: LLMR installs the fork's tarball and drops its own gateway build
 
+**Status, 2026-11-18: done.** Merged as [PR 109](https://github.com/jrmatherly/llm-router/pull/109), squash commit `3a544e10`. Measured before the merge: the routing test file still reports 13 expected failures; with `LLMR_TEST_GATEWAY_ENTRY` set as CI sets it, `#1852` and `recent issues` pass locally (acceptance 4), which confirms they failed on npm's bytes; CI's Docker smoke job built the image with the gateway fetched from the release URL. What the review changed: the Docker release workflow can be dispatched for an older tag, whose lockfile takes the gateway from npm, so its metadata step now fails on a lockfile that does not resolve the gateway from the fork; the architecture test's ban now covers an `npm install` of any tarball or of the gateway package, the upstream repository name in any letter case and the local-checkout switches, and it reads every workspace manifest. What this plan missed: the ruleset "main: tests must pass" required the check "📦 Build gateway", the job the PR deletes, so the merge was blocked until the owner approved removing that one check (the other three stay required). Two deviations by the implementer: `node -p "require('@the-next-ai/ai-gateway/package.json')"` fails because the package's `exports` map hides `package.json`, so read `./node_modules/@the-next-ai/ai-gateway/package.json` by path; and the `docker-smoke` job has no `needs` left. Not run: `test:ui`, `test:electron`, `test:cli` locally, and the release and Docker release workflows, which first run with this change at the next tag.
+
 Repository: LLMR, branch `chore/gateway-fork-dependency`. One PR. Gateway source is unchanged from what CI runs today, so the 13 `gatewayDefect` markers stay.
 
 **Files:**
@@ -363,7 +365,7 @@ The PR body lists the acceptance items from the spec with the evidence for each.
 
 - [ ] **Step 6: Verify acceptance on `main`**
 
-Run on a clean checkout of the merge commit: `npm ci && node -p "require('@the-next-ai/ai-gateway/package.json').version"`
+Run on a clean checkout of the merge commit: `npm ci && node -p "require('./node_modules/@the-next-ai/ai-gateway/package.json').version"`
 Expected: `1.0.22-llmr.2`. Confirm the Tests run for the merge commit is green with `gh run list --branch main --limit 4`.
 
 ---
