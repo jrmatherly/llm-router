@@ -1,15 +1,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const betterSqliteNativeRelativePath = path.join(
-  "app.asar.unpacked",
-  "node_modules",
-  "better-sqlite3",
-  "build",
-  "Release",
-  "better_sqlite3.node"
-);
 const betterSqlitePackageRelativePath = path.join("app.asar.unpacked", "node_modules", "better-sqlite3");
+const betterSqlitePrebuildsRelativePath = path.join(betterSqlitePackageRelativePath, "prebuilds");
 const betterSqlitePrunablePaths = [
   "deps",
   "src",
@@ -18,9 +11,7 @@ const betterSqlitePrunablePaths = [
   "docs",
   "benchmark",
   "benchmarks",
-  "test",
-  path.join("build", "Release", "obj"),
-  path.join("build", "Release", "obj.target")
+  "test"
 ];
 
 module.exports = async function verifyPackagedApp(context) {
@@ -28,44 +19,47 @@ module.exports = async function verifyPackagedApp(context) {
   const arch = normalizeArch(context?.arch);
   const appOutDir = context?.appOutDir;
 
-  if (!platform || !appOutDir) {
+  if (!platform || !arch || !appOutDir) {
     throw new Error("Packaged app verification did not receive electron-builder platform context.");
   }
 
   const resourcesDir = findResourcesDir(appOutDir, platform);
   assertFile(path.join(resourcesDir, "app.asar"), "Packaged app archive");
-  cleanupBetterSqlitePackage(resourcesDir);
+  const keepPrebuild = `${platform}-${arch}.node`;
+  cleanupBetterSqlitePackage(resourcesDir, keepPrebuild);
 
-  const nativeModule = path.join(resourcesDir, betterSqliteNativeRelativePath);
+  const nativeModule = path.join(resourcesDir, betterSqlitePrebuildsRelativePath, keepPrebuild);
   assertFile(nativeModule, "better-sqlite3 native module");
-  const sidecars = fs.readdirSync(path.dirname(nativeModule)).filter((name) => /^better_sqlite3\.electron-.*\.node$/.test(name));
-  if (sidecars.length > 0) {
-    throw new Error(
-      `Packaged better-sqlite3 carries the local Electron sidecar ${sidecars.join(", ")}; ` +
-        "electron-builder.json must exclude better_sqlite3.electron-*.node."
-    );
-  }
 
   const nativeInfo = inspectNativeModule(nativeModule);
   if (nativeInfo.platform !== platform) {
     throw new Error(
       `Packaged better-sqlite3 native module targets ${formatNativeInfo(nativeInfo)}, ` +
-        `but electron-builder is packaging ${platform}/${arch}. Rebuild native dependencies for the target platform before packaging.`
+        `but electron-builder is packaging ${platform}/${arch}. Run npm ci to restore the better-sqlite3 prebuilds.`
     );
   }
 
   if (arch && !nativeArchMatches(nativeInfo, arch)) {
     throw new Error(
       `Packaged better-sqlite3 native module targets ${formatNativeInfo(nativeInfo)}, ` +
-        `but electron-builder is packaging ${platform}/${arch}. Run npm run rebuild:sqlite3 on the target platform before packaging.`
+        `but electron-builder is packaging ${platform}/${arch}. Run npm ci to restore the better-sqlite3 prebuilds.`
     );
   }
 };
 
-function cleanupBetterSqlitePackage(resourcesDir) {
+function cleanupBetterSqlitePackage(resourcesDir, keepPrebuild) {
   const packageDir = path.join(resourcesDir, betterSqlitePackageRelativePath);
   for (const relativePath of betterSqlitePrunablePaths) {
     fs.rmSync(path.join(packageDir, relativePath), { force: true, recursive: true });
+  }
+  const prebuildsDir = path.join(resourcesDir, betterSqlitePrebuildsRelativePath);
+  if (!fs.existsSync(prebuildsDir)) {
+    return;
+  }
+  for (const name of fs.readdirSync(prebuildsDir)) {
+    if (name !== keepPrebuild) {
+      fs.rmSync(path.join(prebuildsDir, name), { force: true, recursive: true });
+    }
   }
 }
 

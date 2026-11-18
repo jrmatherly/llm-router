@@ -11,7 +11,7 @@
     "test:unit": "node ../../build/test.mjs electron --scope unit && node ../../build/run-tests.mjs electron"
   },
   "dependencies": {
-    "better-sqlite3": "^12.11.1"
+    "better-sqlite3": "^13.2.0"
   },
   "devDependencies": {
     "electron": "^42.3.3",

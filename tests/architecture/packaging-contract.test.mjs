@@ -1,40 +1,65 @@
 import assert from "node:assert/strict";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-test("packaged apps never carry the Electron sidecar binary", () => {
-  const config = JSON.parse(readFileSync(path.join(process.cwd(), "electron-builder.json"), "utf8"));
-  assert.ok(config.files.includes("!node_modules/better-sqlite3/build/Release/better_sqlite3.electron-*.node"));
-});
-
 const verifyPackagedApp = createRequire(path.join(process.cwd(), "package.json"))("./build/verify-packaged-app.cjs");
 
 const hostPlatform = process.platform;
+const hostPrebuild = `${hostPlatform}-${process.arch}.node`;
+const foreignPrebuilds = ["darwin-arm64.node", "linux-x64.node", "win32-x64.node"].filter((name) => name !== hostPrebuild);
 
-function packagedApp() {
+function packagedApp({ withHostPrebuild = true } = {}) {
   const appOutDir = mkdtempSync(path.join(os.tmpdir(), "llmr-packaged-"));
   const resources = hostPlatform === "darwin"
     ? path.join(appOutDir, "Fake.app", "Contents", "Resources")
     : path.join(appOutDir, "resources");
-  const release = path.join(resources, "app.asar.unpacked", "node_modules", "better-sqlite3", "build", "Release");
-  mkdirSync(release, { recursive: true });
+  const prebuilds = path.join(resources, "app.asar.unpacked", "node_modules", "better-sqlite3", "prebuilds");
+  mkdirSync(prebuilds, { recursive: true });
   writeFileSync(path.join(resources, "app.asar"), "asar");
-  copyFileSync(path.join(process.cwd(), "node_modules", "better-sqlite3", "build", "Release", "better_sqlite3.node"), path.join(release, "better_sqlite3.node"));
-  return { appOutDir, release };
+  for (const name of foreignPrebuilds) {
+    writeFileSync(path.join(prebuilds, name), "foreign");
+  }
+  if (withHostPrebuild) {
+    copyFileSync(path.join(process.cwd(), "node_modules", "better-sqlite3", "prebuilds", hostPrebuild), path.join(prebuilds, hostPrebuild));
+  }
+  return { appOutDir, prebuilds };
 }
 
-test("packaged-app verification accepts a bundle with only the main binary", async () => {
+test("electron-builder ships the better-sqlite3 prebuild and never rebuilds it", () => {
+  const config = JSON.parse(readFileSync(path.join(process.cwd(), "electron-builder.json"), "utf8"));
+  assert.equal(config.npmRebuild, false);
+  assert.deepEqual(config.files.filter((entry) => entry.includes("build/Release")), []);
+  assert.equal(existsSync(path.join(process.cwd(), "node_modules", "better-sqlite3", "build")), false);
+});
+
+test("packaged-app verification accepts a bundle with the host prebuild", async () => {
   const { appOutDir } = packagedApp();
   await verifyPackagedApp({ appOutDir, arch: process.arch, electronPlatformName: hostPlatform });
 });
 
-test("packaged-app verification rejects a bundle that carries an Electron sidecar", async () => {
-  const { appOutDir, release } = packagedApp();
-  writeFileSync(path.join(release, "better_sqlite3.electron-42.4.1.node"), "");
-  await assert.rejects(verifyPackagedApp({ appOutDir, arch: process.arch, electronPlatformName: hostPlatform }), /better_sqlite3\.electron-42\.4\.1\.node/);
+test("packaged-app verification removes other platforms' prebuilds", async () => {
+  const { appOutDir, prebuilds } = packagedApp();
+  await verifyPackagedApp({ appOutDir, arch: process.arch === "arm64" ? 3 : 1, electronPlatformName: hostPlatform });
+  assert.deepEqual(readdirSync(prebuilds), [hostPrebuild]);
+});
+
+test("packaged-app verification rejects a bundle without the host prebuild", async () => {
+  const { appOutDir } = packagedApp({ withHostPrebuild: false });
+  await assert.rejects(
+    verifyPackagedApp({ appOutDir, arch: process.arch, electronPlatformName: hostPlatform }),
+    /better-sqlite3 native module is missing: .*prebuilds/
+  );
+});
+
+test("packaged-app verification rejects an architecture that has no prebuild", async () => {
+  const { appOutDir } = packagedApp();
+  await assert.rejects(
+    verifyPackagedApp({ appOutDir, arch: "universal", electronPlatformName: hostPlatform }),
+    /better-sqlite3 native module is missing: .*-universal\.node/
+  );
 });
 
 test("the packaged Electron app and electron-builder agree on the product name", () => {
