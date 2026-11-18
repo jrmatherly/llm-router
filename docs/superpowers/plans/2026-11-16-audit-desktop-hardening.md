@@ -56,6 +56,17 @@ Each line has its pinning test or check in the task named.
 **Size:** M
 **Owner steps:** One. The sender check in Task 3 fails closed, and CI runs only on Ubuntu. RS-2 publishes the release automatically once every platform uploads, so there is no pause before it goes out. As soon as the release that carries DH-1 is out, install its Windows build once and confirm that the home page shows providers and settings. If the page is empty, the frame URL did not match the renderer root. Pull the release back with `gh release edit vX.Y.Z --draft`, report the value of `event.senderFrame?.url` from the main-process log, and fix forward.
 
+**Status:** Merged 2026-11-17 as [PR 95](https://github.com/jrmatherly/llm-router/pull/95), squash commit `2b58ce11`. The review changed these points:
+
+- `isAppRendererFrame` ignores the case of a Windows drive letter, adds the trailing slash to the root itself, and rejects a decoded path with a `..` segment. `assertAppRendererSender` logs the rejected frame URL and the expected root.
+- `openPluginRequest` reads the gateway status again after the confirmation dialog closes.
+- A loopback address followed by `?` or `#` also loads over http.
+- `electron-security.test.mjs` also pins that `ipc.ts` uses no `ipcMain.on`, that every built-in browser handler calls `assertBrowserSender`, and that only `openPluginApp` skips the confirmation.
+
+Task 7 ran from a script over CDP and the main-process inspector in an isolated home. Step 2 used a plain window that loads the tray page, not the real popover. Step 3 replaced `dialog.showMessageBox` with a recorder. The owner step on the Windows build is still open.
+
+Found and left alone: opening the built-in browser sometimes logs "Renderer process crashed" when the app is launched with `--disable-gpu --no-sandbox`. Over 20 launches each, `main` at `5ba62899` crashed 6 times and the branch 5. A normal launch was not checked.
+
 ### File structure
 
 | File | Responsibility |
