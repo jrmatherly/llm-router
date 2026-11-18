@@ -469,6 +469,7 @@ test("Fusion vision MCP restricts the forwarded media-type label to supported ra
       name: "vision_understand"
     }
   });
+  assert.equal(provider.requests, 1);
   assert.equal(provider.lastBody?.messages?.[0]?.content?.[1]?.image_url?.url, `data:image/png;base64,${pngA}`);
 
   await sendJsonRpc(child, {
@@ -480,6 +481,7 @@ test("Fusion vision MCP restricts the forwarded media-type label to supported ra
       name: "vision_understand"
     }
   });
+  assert.equal(provider.requests, 2);
   assert.equal(provider.lastBody?.messages?.[0]?.content?.[1]?.image_url?.url, `data:image/png;base64,${pngA}`);
 
   await sendJsonRpc(child, {
@@ -491,6 +493,7 @@ test("Fusion vision MCP restricts the forwarded media-type label to supported ra
       name: "vision_understand"
     }
   });
+  assert.equal(provider.requests, 3);
   assert.equal(provider.lastBody?.messages?.[0]?.content?.[1]?.image_url?.url, `data:image/webp;base64,${pngA}`);
 });
 
