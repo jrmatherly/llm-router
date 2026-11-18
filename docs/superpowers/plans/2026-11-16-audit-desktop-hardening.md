@@ -625,6 +625,26 @@ Expected: every command exits 0. `npm run test:e2e` drives the built app through
 **Size:** M
 **Owner steps:** Task 1 Step 1 installs `tldts@^7.5.0`, which the 7-day cooldown allows from 2026-11-19. Before then it needs the owner's approval for `--min-release-age=0` on that one command. Task 3 needs Google Chrome 127 or newer with the unpacked extension loaded from the branch. An agent that can drive Chrome may run it. Otherwise the owner does.
 
+**Status:** Merged 2026-11-17 as [PR 100](https://github.com/jrmatherly/llm-router/pull/100), squash commit `58adcba8`. No release-age override was needed (`min-release-age` was `2`, and `tldts` resolved to 7.5.4). The review changed these points:
+
+- An install that had extension 0.1.0 kept `http://*/*` and `https://*/*` after the update, because Chrome keeps a granted host permission when an update makes it optional. The worker now drops that access before every job (`dropStandingSiteAccess` in `background.js`). Measured in Playwright's Chromium: the grant survives the manifest change, `permissions.contains` reports it, and `permissions.remove` clears it for good.
+- `normalizeImportDomain` strips a trailing dot before the public-suffix rule. `com.` passed it, because tldts returns `com` for that host. The worker's `normalizeDomain` strips it too.
+- A request that names only rejected domains gets an error that lists them.
+- The popup's **Import** sends the previewed domains, and the worker refuses the run when the job no longer lists exactly those.
+- The localStorage write uses the existing 15 s timeout, so a hung write cannot hold the in-flight marker until the job expires.
+- The popup handles rejected promises, disables **Import** after a success or an edit to the URL, and stores a loaded job in session storage so a popup that Chrome closed reloads it.
+- The extension tests drive the worker, the confirm script and the popup with a fake `chrome` object. The plan's source-text checks for the trusted click and the popup sender passed with those checks inverted or removed.
+
+Task 3 Step 1 was measured in Playwright's Chromium, not in Google Chrome: the worker's `GET` sends no `Origin`, its `POST` sends `Origin: chrome-extension://<id>`, and there is no preflight, so the 403 rule stands. Step 2 is inferred from a second job request that only the popup sends. Steps 1 to 3 in Google Chrome are still the owner's.
+
+Found and left alone:
+
+- Chrome stops a service worker whose `fetch` waits more than 30 s. An import with several slow localStorage origins can cross that, and the extension then reports a failure for an import that completed. The popup now says the import may have completed. A fix needs a job status the extension can poll.
+- An import whose every entry was skipped is marked `completed`, so it cannot be retried.
+- The worker accepts a multi-label public suffix such as `co.uk` from a job. Only a fake local server can send one.
+- The server accepts any `chrome-extension://` origin, not only this extension's. The deferred pairing key covers it.
+- A real **Reload** of an install that had 0.1.0 was not run. To check it, load 0.1.0 from `136ad730`, switch to `main`, click **Reload**, run one import, then run `chrome.permissions.getAll()` in the worker console. It must not list `https://*/*`.
+
 **What stays open.** The content script still matches the confirm path on any loopback port, because the job server listens on a random port and Chrome match patterns cannot name one. After DH-2 a page on another local port can still show a fake confirm page. For a domain the user has never granted, Chrome's own permission prompt names the domain. For a domain the user granted earlier, Chrome may grant it again with no prompt, so one trusted click on the fake page can send that domain's cookies to the local process that served it. Closing that needs a pairing key that binds the extension to one LLMR install. The spec defers the pairing key (see "Deferred, with reasons").
 
 ### Task 1: Job server rules in the app
