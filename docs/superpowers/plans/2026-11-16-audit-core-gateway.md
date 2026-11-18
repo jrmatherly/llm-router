@@ -732,6 +732,22 @@ git commit -m "fix(profiles): write shell rc files atomically and keep their lea
 **Size:** S
 **Owner steps:** None
 
+**Status:** Merged 2026-11-17 with CG-5 as [PR 98](https://github.com/jrmatherly/llm-router/pull/98), squash commit `a47bbd46`, on branch `fix/gateway-guards-and-sse-reconnect` (the index's "Batches" section). The review changed one point here:
+
+- `redactSensitiveUrlQuery` redacts credential parameters in the raw text of a target it cannot parse, such as `//?key=abc`. It returned such a target unchanged, so the request log kept the key.
+
+Found and left alone:
+
+- A target such as `//v1/messages?key=abc` parses with `v1` as the host, so the stored URL is `/messages?key=%5Bredacted%5D`. The key is redacted and the path shown is wrong.
+- `waitClaudeAppsGatewayLogin` has no test that tells `normalizeLoginWaitTimeoutMs(request.timeoutMs)` from the old expression. The helper is unit-tested; a test of the call site needs mocked timers.
+- Nothing invalidates the persisted-key cache on a write. A key another process saves works after at most one second. Keys saved through the UI or a profile are also in the in-process config and work at once.
+
+All CG-4 tests run with:
+
+```bash
+node build/test.mjs core && node --test .test-dist/core/test/unit/gateway/api-key-authorizer.test.js .test-dist/core/test/unit/agents/claude-apps-gateway-device-login.test.js .test-dist/core/test/integration/observability/request-log-store.test.js .test-dist/core/test/unit/observability/sensitive-url-query.test.js
+```
+
 ### Task 1: Delete refresh-on-miss in the API key authorizer
 
 **Files:**
@@ -917,6 +933,22 @@ git commit -m "fix(observability): redact credential query parameters in request
 **Branch:** `fix/mcp-sse-reconnect`
 **Size:** S
 **Owner steps:** None
+
+**Status:** Merged 2026-11-17 with CG-4 as [PR 98](https://github.com/jrmatherly/llm-router/pull/98), squash commit `a47bbd46`. The review changed these points:
+
+- **A drop during a call's POST no longer ends the runtime.** `request` created the pending promise and attached a handler only after the POST settled. A stream that ended in between rejected it unhandled, and the ToolHub MCP process exited (reproduced with a failing test). The pending promise now always has a handler. This predates CG-5 and sits on the same path.
+- **A drop during the handshake.** `ensureInitialized` sets `initialized` only when the stream it initialized is still the current one. A stream that dropped after the `initialize` reply was replaced by one that never saw `initialize`. No test covers it, because the window is a few microtasks.
+- The stream-closed error reads `MCP SSE stream closed (<name>); the next call reconnects.`
+- The Task 1 test also asserts that the second session receives `initialize` before `tools/call`. As written it passed with `initialized` left `true` (checked by mutation).
+- Two more tests: a drop during the POST, and a stream that closes before its `endpoint` event.
+
+Found and left alone: two concurrent calls on a cold client each send `initialize`. It predates CG-5.
+
+All CG-5 tests run with:
+
+```bash
+node build/test.mjs core && node --test .test-dist/core/test/integration/mcp/toolhub-mcp-runtime.test.js
+```
 
 ### Task 1: Reset the SSE client when its stream ends
 
