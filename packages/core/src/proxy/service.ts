@@ -835,7 +835,6 @@ class ProxyService {
 
     await forwardRequest({
       capture,
-      config: this.config,
       mode,
       pluginRoute,
       request,
@@ -949,7 +948,6 @@ function createNoopNetworkCapture(): ActiveProxyNetworkCapture {
 
 function forwardRequest({
   capture,
-  config,
   mode,
   pluginRoute,
   request,
@@ -960,7 +958,6 @@ function forwardRequest({
   upstreamUrl
 }: {
   capture: ActiveProxyNetworkCapture;
-  config: AppConfig;
   mode: ProxyForwardMode;
   pluginRoute?: GatewayPluginProxyRouteMatch;
   request: IncomingMessage;
@@ -973,7 +970,6 @@ function forwardRequest({
   const proxyServer = selectUpstreamProxyForUrl(upstreamProxy, upstreamUrl);
   if (!proxyServer) {
     return forwardDirectRequest({
-      config,
       capture,
       mode,
       pluginRoute,
@@ -987,7 +983,6 @@ function forwardRequest({
 
   if (upstreamUrl.protocol === "https:") {
     return forwardHttpsRequestViaHttpProxy({
-      config,
       capture,
       mode,
       pluginRoute,
@@ -1001,7 +996,6 @@ function forwardRequest({
   }
 
   return forwardHttpRequestViaHttpProxy({
-    config,
     capture,
     mode,
     pluginRoute,
@@ -1016,7 +1010,6 @@ function forwardRequest({
 
 function forwardDirectRequest({
   capture,
-  config,
   mode,
   pluginRoute,
   request,
@@ -1026,7 +1019,6 @@ function forwardDirectRequest({
   upstreamUrl
 }: {
   capture: ActiveProxyNetworkCapture;
-  config: AppConfig;
   mode: ProxyForwardMode;
   pluginRoute?: GatewayPluginProxyRouteMatch;
   request: IncomingMessage;
@@ -1039,7 +1031,7 @@ function forwardDirectRequest({
     const transport = upstreamUrl.protocol === "https:" ? https : http;
     const upstreamRequest = transport.request(
       {
-        headers: createForwardHeaders(request.headers, upstreamUrl, routedToGateway, config, { pluginRoute, targetUrl }),
+        headers: createForwardHeaders(request.headers, upstreamUrl, routedToGateway, { pluginRoute, targetUrl }),
         hostname: upstreamUrl.hostname,
         method: request.method,
         path: `${upstreamUrl.pathname}${upstreamUrl.search}`,
@@ -1089,7 +1081,6 @@ function forwardDirectRequest({
 
 function forwardHttpRequestViaHttpProxy({
   capture,
-  config,
   mode,
   pluginRoute,
   proxyServer,
@@ -1100,7 +1091,6 @@ function forwardHttpRequestViaHttpProxy({
   upstreamUrl
 }: {
   capture: ActiveProxyNetworkCapture;
-  config: AppConfig;
   mode: ProxyForwardMode;
   pluginRoute?: GatewayPluginProxyRouteMatch;
   proxyServer: UpstreamProxyServer;
@@ -1116,7 +1106,7 @@ function forwardHttpRequestViaHttpProxy({
       {
         agent: false,
         headers: {
-          ...createForwardHeaders(request.headers, upstreamUrl, routedToGateway, config, { pluginRoute, targetUrl }),
+          ...createForwardHeaders(request.headers, upstreamUrl, routedToGateway, { pluginRoute, targetUrl }),
           ...(proxyAuthorization ? { "proxy-authorization": proxyAuthorization } : {})
         },
         hostname: proxyServer.host,
@@ -1174,7 +1164,6 @@ function forwardHttpRequestViaHttpProxy({
 
 function forwardHttpsRequestViaHttpProxy({
   capture,
-  config,
   mode,
   pluginRoute,
   proxyServer,
@@ -1185,7 +1174,6 @@ function forwardHttpsRequestViaHttpProxy({
   upstreamUrl
 }: {
   capture: ActiveProxyNetworkCapture;
-  config: AppConfig;
   mode: ProxyForwardMode;
   pluginRoute?: GatewayPluginProxyRouteMatch;
   proxyServer: UpstreamProxyServer;
@@ -1235,7 +1223,7 @@ function forwardHttpsRequestViaHttpProxy({
       const upstreamRequest = https.request(
         {
           agent: tunnelAgent,
-          headers: createForwardHeaders(request.headers, upstreamUrl, routedToGateway, config, { pluginRoute, targetUrl }),
+          headers: createForwardHeaders(request.headers, upstreamUrl, routedToGateway, { pluginRoute, targetUrl }),
           hostname: upstreamUrl.hostname,
           method: request.method,
           path: `${upstreamUrl.pathname}${upstreamUrl.search}`,
@@ -1332,7 +1320,6 @@ function createForwardHeaders(
   headers: IncomingHttpHeaders,
   upstreamUrl: URL,
   routedToGateway: boolean,
-  config: AppConfig,
   route?: {
     pluginRoute?: GatewayPluginProxyRouteMatch;
     targetUrl?: URL;
@@ -1362,26 +1349,11 @@ function createForwardHeaders(
     forwarded.host = upstreamUrl.host;
     forwarded["x-llmr-proxy-mode"] = "gateway";
     forwarded["x-llmr-original-host"] = readHeader(headers.host) ?? "";
-    delete forwarded.authorization;
-    delete forwarded["x-api-key"];
-    const apiKey = primaryApiKey(config);
-    if (apiKey) {
-      forwarded.authorization = `Bearer ${apiKey}`;
-      forwarded["x-api-key"] = apiKey;
-    }
   } else {
     forwarded.host = upstreamUrl.host;
     forwarded["x-llmr-proxy-mode"] = "transparent";
   }
   return forwarded;
-}
-
-function primaryApiKey(config: AppConfig): string | undefined {
-  const values = [
-    ...(Array.isArray(config.APIKEYS) ? config.APIKEYS.map((item) => item.key) : []),
-    config.APIKEY
-  ];
-  return values.map((value) => value?.trim()).find(Boolean);
 }
 
 function filterResponseHeaders(headers: IncomingHttpHeaders): Record<string, string | string[]> {
