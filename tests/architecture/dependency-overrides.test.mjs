@@ -15,11 +15,11 @@ test("ai-gateway never loads the glob that the root override forces to a new maj
   assert.deepEqual(references, [], "ai-gateway references glob now: drop its override in package.json and triage the glob range again");
 });
 
-test("no manifest depends on baseui or styletron, and core-js cannot run install scripts", () => {
-  for (const file of ["package.json", "packages/ui/package.json", "docs/package.json"]) {
-    const manifest = JSON.parse(readFileSync(file, "utf8"));
-    const names = Object.keys({ ...manifest.dependencies, ...manifest.devDependencies });
-    assert.deepEqual(names.filter((name) => /^(baseui|styletron-)/.test(name)), [], file);
+test("no install carries baseui or styletron, and core-js cannot run install scripts", () => {
+  // The lockfiles cover every manifest, every dependency field and transitive installs.
+  for (const file of ["package-lock.json", "docs/package-lock.json"]) {
+    const installed = Object.keys(JSON.parse(readFileSync(file, "utf8")).packages);
+    assert.deepEqual(installed.filter((name) => /(?:^|\/)node_modules\/(?:baseui|styletron-[^/]+)$/.test(name)), [], file);
   }
   const { allowScripts } = JSON.parse(readFileSync("package.json", "utf8"));
   assert.deepEqual(Object.keys(allowScripts).filter((name) => name.startsWith("core-js@")), []);

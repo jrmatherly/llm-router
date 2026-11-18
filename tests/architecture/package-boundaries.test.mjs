@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { isBuiltin } from "node:module";
 import path from "node:path";
 import test from "node:test";
 
@@ -32,6 +33,28 @@ test("package code and tests do not reach into another package through relative 
         ? [path.relative(projectRoot, file)]
         : [];
     });
+  });
+
+  assert.deepEqual(violations, []);
+});
+
+// Hoisting resolves an undeclared import in this checkout; the Docker image and the packaged app install per package.
+test("every package a workspace's source imports is declared in that workspace's manifest", () => {
+  const specifier = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+)["']((?:@[a-z0-9-][a-z0-9-._]*\/)?[a-z0-9-][a-z0-9-._]*)(?:\/[^"'\n]*)?["']/gm;
+  const violations = packageNames.flatMap((packageName) => {
+    const packageRoot = path.join(projectRoot, "packages", packageName);
+    const manifest = JSON.parse(readFileSync(path.join(packageRoot, "package.json"), "utf8"));
+    const declared = new Set(Object.keys({
+      ...manifest.dependencies,
+      ...manifest.devDependencies,
+      ...manifest.optionalDependencies,
+      ...manifest.peerDependencies
+    }));
+    return sourceFiles(path.join(packageRoot, "src")).flatMap((file) =>
+      [...readFileSync(file, "utf8").matchAll(specifier)]
+        .map((match) => match[1])
+        .filter((name) => !name.startsWith("@llmr/") && !isBuiltin(name) && !declared.has(name))
+        .map((name) => `${path.relative(projectRoot, file)}: ${name}`));
   });
 
   assert.deepEqual(violations, []);
