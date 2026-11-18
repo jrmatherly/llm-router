@@ -20,6 +20,8 @@ type StoredChromeLoginImportJob = ChromeLoginImportJob;
 
 type CookieSetDetails = Parameters<Electron.Cookies["set"]>[0];
 
+type PartitionSession = (partition: string) => Pick<Electron.Session, "cookies">;
+
 const browserPartition = "persist:llmr-built-in-browser";
 const webSearchPartition = "persist:llmr-browser-web-search-mcp";
 const importJobTtlMs = 5 * 60_000;
@@ -32,6 +34,8 @@ class ChromeLoginImportService {
   private readonly jobs = new Map<string, StoredChromeLoginImportJob>();
   private serverInfo?: ServerInfo;
   private serverStartPromise?: Promise<ServerInfo>;
+
+  constructor(private readonly partitionSession: PartitionSession = (partition) => session.fromPartition(partition)) {}
 
   async createJob(request: ChromeLoginImportRequest): Promise<ChromeLoginImportJob> {
     const domains = uniqueStrings(request.domains.map(normalizeImportDomain).filter((item): item is string => Boolean(item)));
@@ -204,6 +208,7 @@ class ChromeLoginImportService {
       skipped: 0
     };
     const errors: string[] = [];
+    let cookieWriteAttempted = false;
 
     for (const cookie of importPayload.cookies) {
       const normalized = normalizeChromeCookie(cookie, job.domains);
@@ -212,8 +217,9 @@ class ChromeLoginImportService {
         continue;
       }
 
+      cookieWriteAttempted = true;
       try {
-        await Promise.all(partitions.map((partition) => session.fromPartition(partition).cookies.set(normalized)));
+        await Promise.all(partitions.map((partition) => this.partitionSession(partition).cookies.set(normalized)));
         result.cookieImported += 1;
       } catch (error) {
         result.cookieSkipped += 1;
@@ -223,8 +229,9 @@ class ChromeLoginImportService {
       }
     }
 
-    if (result.cookieImported > 0) {
-      await Promise.all(partitions.map((partition) => session.fromPartition(partition).cookies.flushStore()));
+    // A cookie counted as skipped can still be in one partition's store when the other partition rejected it.
+    if (cookieWriteAttempted) {
+      await Promise.all(partitions.map((partition) => this.partitionSession(partition).cookies.flushStore()));
     }
 
     for (const localStorageEntry of importPayload.localStorage) {
@@ -610,7 +617,7 @@ function formatError(error: unknown): string {
 
 export const chromeLoginImportInternalsForTest = {
   confirmationPageHtml,
-  createService: () => new ChromeLoginImportService(),
+  createService: (partitionSession?: PartitionSession) => new ChromeLoginImportService(partitionSession),
   normalizeChromeCookie,
   normalizeImportDomain,
   normalizeLocalStorageEntry,
