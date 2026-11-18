@@ -16,7 +16,7 @@ import {
   isGatewayProviderEnabled, isMacPlatform, isPlainRecord, isProfileDraftSubmittable, isProviderNameDuplicate, isProviderProbeCandidateReady,
   isRoutingRuleDraftSubmittable,
   isLocalAgentLoginDraft, isTraySupportedPlatform,
-  LayoutGroup, mergeProviderModelLists, modelDescriptionsForModels, modelDisplayNamesForModels, modelMetadataForModels,
+  LayoutGroup, mergeProviderModelLists, missingPluginDependenciesMessage, modelDescriptionsForModels, modelDisplayNamesForModels, modelMetadataForModels,
   navigation, NavigationId, normalizeApiKeys, normalizeBotGatewaySavedConfigs, normalizeConfig, normalizeObservabilityConfig, normalizeOverviewWidgets, normalizeProxyConfig,
   normalizeProfileItem, normalizeProviderBaseUrl, normalizeRouterFallbackConfig, normalizeThemePreference, normalizeToolHubConfig, normalizeTrayBalanceProgressConfig, normalizeTrayIconPreference,
   normalizeTrayWidgets, normalizeTrayWindowModules, normalizeVirtualModelDraftPatch, OnboardingReadinessOptions, OnboardingStepId, onboardingStepOrder,
@@ -2248,7 +2248,7 @@ function App() {
     };
     const installPlan = resolvePluginInstallPlan(normalizedCandidate, pluginMarketplace, draftConfig.plugins ?? []);
     if (installPlan.missing.length > 0) {
-      setExtensionInstallError(`Missing plugin dependencies: ${installPlan.missing.join(", ")}`);
+      setExtensionInstallError(missingPluginDependenciesMessage(installPlan.missing, pluginMarketplace));
       return;
     }
 

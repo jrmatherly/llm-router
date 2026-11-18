@@ -319,13 +319,14 @@ For `marketplace/plugins.json`, a provider usage connector entry can be:
     "name": "Example account usage",
     "description": "Provider account usage connector",
     "module": "../plugins/example-usage/index.cjs",
+    "integrity": "<sha256 of index.cjs>",
     "surfaces": { "apps": false, "gateway": false, "provider": true },
     "permissions": ["trusted-code", "provider-account-connectors"]
   }]
 }
 ```
 
-Catalogs and modules require HTTPS. Relative module paths resolve against the catalog URL. Modules must be `.cjs`, `.mjs`, or `.js` files with dependencies bundled: the downloader fetches one file without installing npm packages or neighboring files. Distribute multi-file extensions as a local directory instead. Prefer an `integrity` field containing the module's actual 64-character hexadecimal SHA-256 or `sha256-<base64>` digest; update it whenever the module changes. Compute it with `shasum -a 256 index.cjs`.
+Catalogs and modules require HTTPS. Relative module paths resolve against the catalog URL. Modules must be `.cjs`, `.mjs`, or `.js` files with dependencies bundled: the downloader fetches one file without installing npm packages or neighboring files. Distribute multi-file extensions as a local directory instead. Each entry with a `module` requires an `integrity` field that holds the module's 64-character hexadecimal SHA-256 or `sha256-<base64>` digest. LLMR skips a module entry that has none, and an entry whose dependency has a `module` without one. Update the digest whenever the module changes. If the downloaded file does not match, the Extensions page lists the entry as "Integrity check failed" and does not let you install it. Compute it with `shasum -a 256 index.cjs`.
 
 `dependencies` lists plugin IDs or objects with `id`, `module`, `integrity`, `permissions`, and `surfaces`; these are plugin dependencies, not npm packages. `apps` contains entries such as `{ "id": "status", "name": "Status", "url": "/plugins/status" }`; app-only entries can omit `module`. `capabilities` is a string array. Set `LLMR_PLUGIN_MARKETPLACE_URL` before starting LLMR to use your own HTTPS catalog.
 

@@ -457,6 +457,11 @@ export function resolvePluginInstallPlan(
   };
 }
 
+export function missingPluginDependenciesMessage(missing: string[], marketplace: PluginMarketplaceEntry[]): string {
+  const failed = new Set(marketplace.filter((entry) => entry.error).map((entry) => entry.id));
+  return `Missing plugin dependencies: ${missing.map((id) => failed.has(id) ? `${id} (integrity check failed)` : id).join(", ")}`;
+}
+
 export function pluginDependencyCandidate(
   dependency: PluginDependency,
   marketplaceById: Map<string, PluginMarketplaceEntry>
@@ -473,7 +478,7 @@ export function pluginDependencyCandidate(
   }
 
   const entry = marketplaceById.get(dependency.id);
-  if (!entry) {
+  if (!entry || entry.error) {
     return undefined;
   }
   return {

@@ -1227,6 +1227,7 @@ export type PluginMarketplaceEntry = {
   capabilities: string[];
   dependencies: PluginDependency[];
   description: string;
+  error?: string;
   id: string;
   integrity?: string;
   modulePath: string;

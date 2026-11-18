@@ -73,7 +73,7 @@ export function backupBeforeWrite(file: string, previous: string | undefined, op
   return previous === undefined ? undefined : backupCurrentFile(file, options);
 }
 
-export function writeFileAtomic(file: string, content: string, options: { mode?: number } = {}): void {
+export function writeFileAtomic(file: string, content: string | Uint8Array, options: { mode?: number } = {}): void {
   const target = resolveWriteTarget(file);
   removeStaleTemporaryFiles(target);
   const mode = options.mode ?? (existsSync(target) ? statSync(target).mode & 0o777 : undefined);

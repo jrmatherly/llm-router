@@ -24,6 +24,11 @@
       "required": [
         "id"
       ],
+      "dependentRequired": {
+        "module": [
+          "integrity"
+        ]
+      },
       "properties": {
         "id": {
           "type": "string",
@@ -87,6 +92,11 @@
         "id",
         "name"
       ],
+      "dependentRequired": {
+        "module": [
+          "integrity"
+        ]
+      },
       "anyOf": [
         {
           "required": [

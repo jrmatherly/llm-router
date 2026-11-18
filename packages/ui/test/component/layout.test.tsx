@@ -3,7 +3,8 @@ import test from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { GatewayStartupErrorBanner, groupSidebarNavigation, MainLayout, UpdateEntryButton } from "@llmr/ui/pages/home/components/layout.tsx";
-import { MediaModelConfigurationPanel, VirtualModelsView } from "@llmr/ui/pages/home/components/virtual-models.tsx";
+import type { PluginMarketplaceEntry } from "@llmr/core/contracts/app.ts";
+import { InstallExtensionDialog, MediaModelConfigurationPanel, VirtualModelsView } from "@llmr/ui/pages/home/components/virtual-models.tsx";
 import { appCopy } from "@llmr/ui/pages/home/shared/i18n.tsx";
 import { createVirtualModelDraft } from "@llmr/ui/pages/home/shared/virtual-models.ts";
 import { appConfigFixture } from "../fixtures/index.ts";
@@ -197,4 +198,18 @@ test("opening the update entry only checks when the status is not already action
   for (const state of ["checking", "available", "downloading", "downloaded", "installing"] as const) {
     assert.equal(shouldCheckForUpdateOnOpen({ ...fallbackUpdateStatus, state }), false, state);
   }
+});
+
+test("InstallExtensionDialog shows a failed integrity check and disables that entry", () => {
+  const entry = { capabilities: [], dependencies: [], description: "Usage connector", id: "bad", modulePath: "", name: "Bad plugin" };
+  const draft = { dependencies: [], key: "", marketplaceId: "", modulePath: "", selectedName: "" };
+  const render = (marketplace: PluginMarketplaceEntry[]) => renderToStaticMarkup(
+    <InstallExtensionDialog canSubmit={false} draft={draft} error="" marketplace={marketplace} onChange={() => undefined} onChooseLocal={() => undefined} onClose={() => undefined} onSubmit={() => undefined} />
+  );
+  const failed = render([{ ...entry, error: "Integrity check failed" }]);
+  assert.match(failed, /Integrity check failed/);
+  assert.match(failed, /<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*Bad plugin/s);
+  const healthy = render([{ ...entry, modulePath: "/tmp/bad.cjs" }]);
+  assert.doesNotMatch(healthy, /Integrity check failed/);
+  assert.doesNotMatch(healthy, /<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*Bad plugin/s);
 });

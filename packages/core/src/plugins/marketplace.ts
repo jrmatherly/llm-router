@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { DATADIR } from "@llmr/core/config/constants";
 import { GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, type GatewayPluginAppConfig, type GatewayPluginPermission, type GatewayPluginSurface, type PluginDependency, type PluginMarketplaceEntry } from "@llmr/core/contracts/app";
+import { writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 
 type MarketplaceCache = {
@@ -20,6 +21,8 @@ const marketplaceCacheTtlMs = 5 * 60 * 1000;
 const maxMarketplaceManifestBytes = 1024 * 1024;
 const maxMarketplaceModuleBytes = 8 * 1024 * 1024;
 const gatewayPluginPermissionIdSet = new Set<string>(GATEWAY_PLUGIN_PERMISSION_IDS);
+
+class MarketplaceIntegrityError extends Error {}
 
 let marketplaceCache: MarketplaceCache | undefined;
 let marketplaceRequest: Promise<PluginMarketplaceEntry[]> | undefined;
@@ -94,7 +97,8 @@ export async function normalizeMarketplaceManifest(
     try {
       entry = await normalizeMarketplaceEntry(item, manifestUrl, options);
     } catch (error) {
-      console.warn(`[plugin-marketplace] Failed to load marketplace entry: ${formatError(error)}`);
+      const label = isRecord(item) ? readString(item.id) || readString(item.key) || "unknown" : "unknown";
+      console.warn(`[plugin-marketplace] Failed to load marketplace entry ${label}: ${formatError(error)}`);
       continue;
     }
     if (!entry || seen.has(entry.id)) {
@@ -144,19 +148,33 @@ async function normalizeMarketplaceEntry(
 
   const moduleUrl = moduleValue ? resolveRemoteMarketplaceUrl(moduleValue, manifestUrl) : "";
   let modulePath = "";
-  if (moduleUrl) {
-    const cachedModulePath = await cachedMarketplaceModulePath(id, moduleUrl, integrity, options);
-    if (!cachedModulePath) {
-      return undefined;
+  let dependencies: PluginDependency[] = [];
+  let error: string | undefined;
+  try {
+    if (moduleUrl) {
+      const cachedModulePath = await cachedMarketplaceModulePath(id, moduleUrl, integrity, options);
+      if (!cachedModulePath) {
+        return undefined;
+      }
+      modulePath = cachedModulePath;
     }
-    modulePath = cachedModulePath;
+    dependencies = await parsePluginDependencies(value.dependencies ?? value.pluginDependencies, manifestUrl, options);
+  } catch (caught) {
+    if (!(caught instanceof MarketplaceIntegrityError)) {
+      throw caught;
+    }
+    console.warn(`[plugin-marketplace] Integrity check failed for marketplace entry ${id}: ${caught.message}`);
+    modulePath = "";
+    dependencies = [];
+    error = "Integrity check failed";
   }
 
   return {
     ...(apps.length ? { apps } : {}),
     capabilities: readStringArray(value.capabilities),
-    dependencies: await parsePluginDependencies(value.dependencies ?? value.pluginDependencies, manifestUrl, options),
+    dependencies,
     description,
+    ...(error ? { error } : {}),
     id,
     ...(integrity ? { integrity } : {}),
     modulePath,
@@ -242,29 +260,35 @@ async function cachedMarketplaceModulePath(
   }
 
   const expectedSha256 = normalizeSha256Integrity(integrity);
-  const cacheKey = expectedSha256 || hashString(moduleUrl);
-  const file = path.join(marketplaceModuleCacheDir, `${sanitizeFileSegment(id)}-${cacheKey.slice(0, 24)}${extension}`);
-  if (existsSync(file) && (options.offline || expectedSha256)) {
-    if (expectedSha256) {
-      verifySha256(readFileSync(file, "utf8"), expectedSha256, moduleUrl);
-    }
-    return file;
+  if (!expectedSha256) {
+    throw new Error(`Marketplace module must declare a sha256 integrity: ${moduleUrl}`);
   }
-  if (options.offline) {
+  const file = path.join(marketplaceModuleCacheDir, `${sanitizeFileSegment(id)}-${expectedSha256.slice(0, 24)}${extension}`);
+  if (existsSync(file)) {
+    if (sha256Hex(readFileSync(file)) === expectedSha256) {
+      return file;
+    }
+    if (options.offline) {
+      throw new MarketplaceIntegrityError(`Cached marketplace module hash mismatch for ${moduleUrl}.`);
+    }
+    console.warn(`[plugin-marketplace] Cached module failed its hash and is downloaded again: ${moduleUrl}`);
+  } else if (options.offline) {
     console.warn(`[plugin-marketplace] Cached module is missing while offline: ${moduleUrl}`);
     return undefined;
   }
 
-  const source = await fetchText(moduleUrl, maxMarketplaceModuleBytes);
-  if (expectedSha256) {
-    verifySha256(source, expectedSha256, moduleUrl);
-  }
+  const bytes = await fetchBytes(moduleUrl, maxMarketplaceModuleBytes);
+  verifySha256(bytes, expectedSha256, moduleUrl);
   ensureMarketplaceCacheDir();
-  writeFileSync(file, source, "utf8");
+  writeFileAtomic(file, bytes);
   return file;
 }
 
 async function fetchText(url: string, maxBytes: number): Promise<string> {
+  return new TextDecoder().decode(await fetchBytes(url, maxBytes));
+}
+
+async function fetchBytes(url: string, maxBytes: number): Promise<Buffer> {
   assertHttpsUrl(url, "Marketplace URL");
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), marketplaceFetchTimeoutMs);
@@ -286,11 +310,11 @@ async function fetchText(url: string, maxBytes: number): Promise<string> {
       throw new Error(`Response is too large: ${contentLength} bytes`);
     }
 
-    const text = await response.text();
-    if (Buffer.byteLength(text, "utf8") > maxBytes) {
-      throw new Error(`Response is too large: ${Buffer.byteLength(text, "utf8")} bytes`);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > maxBytes) {
+      throw new Error(`Response is too large: ${bytes.length} bytes`);
     }
-    return text;
+    return bytes;
   } finally {
     clearTimeout(timeout);
   }
@@ -590,20 +614,23 @@ function normalizeSha256Integrity(value: string | undefined): string | undefined
     return undefined;
   }
   const prefixed = raw.match(/^sha256-([A-Za-z0-9+/=]+)$/);
-  if (prefixed) {
-    return Buffer.from(prefixed[1], "base64").toString("hex");
-  }
-  const hex = raw.replace(/^sha256:/i, "").replace(/^sha256=/i, "");
+  const hex = prefixed
+    ? Buffer.from(prefixed[1], "base64").toString("hex")
+    : raw.replace(/^sha256:/i, "").replace(/^sha256=/i, "");
   if (/^[a-f0-9]{64}$/i.test(hex)) {
     return hex.toLowerCase();
   }
   throw new Error(`Marketplace module has invalid SHA-256 integrity: ${raw}`);
 }
 
-function verifySha256(source: string, expectedHex: string, label: string): void {
-  const actual = createHash("sha256").update(source, "utf8").digest("hex");
+function sha256Hex(source: Buffer): string {
+  return createHash("sha256").update(source).digest("hex");
+}
+
+function verifySha256(source: Buffer, expectedHex: string, label: string): void {
+  const actual = sha256Hex(source);
   if (actual !== expectedHex) {
-    throw new Error(`Marketplace module hash mismatch for ${label}.`);
+    throw new MarketplaceIntegrityError(`Marketplace module hash mismatch for ${label}: got ${actual} over ${source.length} bytes.`);
   }
 }
 
@@ -627,10 +654,6 @@ function pluginIdValue(value: string | undefined): string {
 
 function sanitizeFileSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "plugin";
-}
-
-function hashString(value: string): string {
-  return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
 
 function cloneMarketplaceEntry(entry: PluginMarketplaceEntry): PluginMarketplaceEntry {
