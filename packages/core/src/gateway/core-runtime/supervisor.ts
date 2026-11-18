@@ -65,7 +65,7 @@ export function spawnGatewayProcess(
   const child = spawn(nodeRuntime.command, args, {
     cwd: CONFIGDIR,
     env,
-    serialization: "advanced",
+    // JSON IPC, not "advanced": the child may be a system Node whose V8 cannot read this process's serialization format.
     stdio: ["ignore", "pipe", "pipe", "ipc"],
     // On Windows a console child of a console-less parent opens a console window.
     windowsHide: true

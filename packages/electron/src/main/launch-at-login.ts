@@ -23,7 +23,6 @@ function loginItemSettings(openAtLogin: boolean): Electron.Settings {
   };
 
   if (process.platform === "darwin") {
-    settings.openAsHidden = false;
     return settings;
   }
 

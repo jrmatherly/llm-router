@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -112,6 +112,44 @@ test("gateway start observes an exit that occurs while the runtime marker is bei
     } else {
       process.env.LLMR_GATEWAY_EARLY_EXIT_SENTINEL = previousGatewayEntryLoaded;
     }
+    await gatewayService.stop();
+    await deletePersistedRuntimeState("gateway");
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("gateway child IPC uses JSON serialization so a Node with another V8 can read it", async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-gateway-ipc-mode-test-"));
+  const gatewayEntry = path.join(dir, "gateway-entry.cjs");
+  const ipcMode = path.join(dir, "ipc-mode");
+  const previousGatewayEntry = process.env.LLMR_GATEWAY_ENTRY;
+  const previousIpcMode = process.env.LLMR_GATEWAY_IPC_MODE_SENTINEL;
+  // Only the JSON channel refuses a BigInt, and Node hides the channel's mode from the child.
+  writeFileSync(
+    gatewayEntry,
+    [
+      'const { writeFileSync } = require("node:fs");',
+      'let mode = "advanced";',
+      'try { process.send({ probe: 1n }); } catch { mode = "json"; }',
+      "writeFileSync(process.env.LLMR_GATEWAY_IPC_MODE_SENTINEL, mode);",
+      "process.exit(23);",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+
+  try {
+    await gatewayService.stop();
+    process.env.LLMR_GATEWAY_ENTRY = gatewayEntry;
+    process.env.LLMR_GATEWAY_IPC_MODE_SENTINEL = ipcMode;
+
+    await gatewayService.start(gatewayTestConfig(await reserveLoopbackPort()));
+    await waitForFile(ipcMode);
+
+    assert.equal(readFileSync(ipcMode, "utf8"), "json");
+  } finally {
+    restoreEnv("LLMR_GATEWAY_ENTRY", previousGatewayEntry);
+    restoreEnv("LLMR_GATEWAY_IPC_MODE_SENTINEL", previousIpcMode);
     await gatewayService.stop();
     await deletePersistedRuntimeState("gateway");
     rmSync(dir, { force: true, recursive: true });

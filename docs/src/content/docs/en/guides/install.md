@@ -17,6 +17,8 @@ In desktop/CLI deployments, management and the model gateway use different ports
 
 ## Install the desktop app
 
+The desktop app needs macOS 13 (Ventura) or later on a Mac.
+
 1. Open [GitHub Releases](https://github.com/jrmatherly/llm-router/releases/latest).
 2. Download `.dmg`/`.zip` for macOS, `.exe` for Windows, or `.AppImage` for Linux.
 3. Install and open **LLM Router**.
