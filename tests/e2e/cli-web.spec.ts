@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./cli-web-runtime";
 
-const cliWebAuthToken = "playwright-cli-web-auth-token";
+const cliWebAuthToken = "playwright-cli-web-auth-token-0123456789";
 
 let runtime: CliWebRuntime | undefined;
 
@@ -21,14 +21,25 @@ test.afterAll(async () => {
   runtime = undefined;
 });
 
-test("uses LLMR_WEB_AUTH_TOKEN for CLI web authentication", async () => {
+test("the page asks for the token when the URL carries none", async ({ page }) => {
   const current = requireRuntime();
-  expect(current.token).toBe(cliWebAuthToken);
+  await page.goto(`${current.baseUrl}/`);
+  await page.getByRole("dialog").locator("input[type=password]").fill(current.token);
+  await page.getByRole("dialog").getByRole("button").click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("body")).toContainText(/Configure provider|Connect agent|Let's start/, { timeout: 15_000 });
+});
+
+test("a wrong token is asked for again", async ({ page }) => {
+  const current = requireRuntime();
+  await page.goto(`${current.baseUrl}/#llmr_web_token=wrong-token-0123456789-0123456789`);
+  await expect(page.getByRole("dialog")).toContainText("not accepted");
+  expect(new URL(page.url()).hash, "the token leaves the address bar").toBe("");
 });
 
 test("serves the management UI in a browser", async ({ page }) => {
   const current = requireRuntime();
-  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await expect(page).toHaveTitle("LLM Router");
   await expect(page.locator("#root")).toBeAttached();
   await expect(page.locator("body")).toContainText(/Configure provider|Connect agent|Let's start/, { timeout: 15_000 });

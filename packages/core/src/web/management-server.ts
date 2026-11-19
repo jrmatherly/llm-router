@@ -107,8 +107,11 @@ export type WebManagementServerOptions = {
 };
 
 export type WebManagementServerRuntime = {
+  authToken: string;
   close: () => Promise<void>;
+  openUrl: string;
   server: Server;
+  tokenGenerated: boolean;
   url: string;
 };
 
@@ -130,7 +133,7 @@ const defaultWebHost = "127.0.0.1";
 const defaultWebPort = 3458;
 const maxRpcBodyBytes = 8 * 1024 * 1024;
 const webAuthHeader = "x-llmr-web-auth";
-const webAuthQueryParam = "llmr_web_token";
+const webAuthFragmentParam = "llmr_web_token";
 const staticRoot = resolveRendererRoot();
 const homeHtmlFile = path.join(staticRoot, "pages", "home", "index.html");
 const rendererAssetsRoot = path.join(staticRoot, "assets");
@@ -143,7 +146,9 @@ export async function startWebManagementServer(options: WebManagementServerOptio
   void refreshModelCatalog();
   const host = options.host?.trim() || readEnvString("LLMR_WEB_HOST") || defaultWebHost;
   const requestedPort = options.port ?? readEnvPort("LLMR_WEB_PORT") ?? defaultWebPort;
-  const authToken = options.authToken?.trim() || readEnvString("LLMR_WEB_AUTH_TOKEN") || randomBytes(32).toString("base64url");
+  const suppliedToken = options.authToken?.trim() || readEnvString("LLMR_WEB_AUTH_TOKEN");
+  const tokenGenerated = !suppliedToken;
+  const authToken = suppliedToken || randomBytes(32).toString("base64url");
   let security: WebManagementSecurityContext | undefined;
   const server = createServer((request, response) => {
     if (!security) {
@@ -158,8 +163,8 @@ export async function startWebManagementServer(options: WebManagementServerOptio
   const listenedPort = await listenWithFallback(server, requestedPort, host);
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : listenedPort;
-  const baseUrl = `http://${formatListenHost(host)}:${port}/`;
-  const url = urlWithWebAuthToken(baseUrl, authToken);
+  const url = `http://${formatListenHost(host)}:${port}/`;
+  const openUrl = tokenGenerated ? webManagementOpenUrl(url, authToken) : url;
   security = createWebManagementSecurityContext(host, port, authToken);
   warnAboutUnusableWebOrigins();
 
@@ -167,20 +172,27 @@ export async function startWebManagementServer(options: WebManagementServerOptio
     await startConfiguredServices("web startup");
   }
   if (options.open) {
-    await openSystemExternal(url).catch((error) => {
-      console.warn(`[web] Failed to open ${url}: ${formatError(error)}`);
+    await openSystemExternal(openUrl).catch((error) => {
+      console.warn(`[web] Failed to open ${describeWebManagementUrl({ openUrl, tokenGenerated, url })}: ${formatError(error)}`);
     });
   }
 
   return {
+    authToken,
     close: async () => {
       await closeServer(server);
       await stopConfiguredServices();
       await closeRequestLogRuntime();
     },
+    openUrl,
     server,
+    tokenGenerated,
     url
   };
+}
+
+export function describeWebManagementUrl(runtime: Pick<WebManagementServerRuntime, "openUrl" | "tokenGenerated" | "url">): string {
+  return runtime.tokenGenerated ? runtime.openUrl : `${runtime.url} (sign in with your LLMR_WEB_AUTH_TOKEN)`;
 }
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse, security: WebManagementSecurityContext): Promise<void> {
@@ -690,10 +702,8 @@ export function resolveRendererRoot(
   return candidates.find((candidate) => existsSync(path.join(candidate, "pages", "home", "index.html"))) ?? candidates[0];
 }
 
-function urlWithWebAuthToken(value: string, authToken: string): string {
-  const url = new URL(value);
-  url.searchParams.set(webAuthQueryParam, authToken);
-  return url.toString();
+export function webManagementOpenUrl(url: string, authToken: string): string {
+  return `${url}#${webAuthFragmentParam}=${encodeURIComponent(authToken)}`;
 }
 
 function isAllowedWebRequestHost(request: IncomingMessage, security: WebManagementSecurityContext): boolean {

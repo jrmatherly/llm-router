@@ -36,15 +36,42 @@ test("normalizeExternalHttpTarget accepts absolute http, https, and LLMR plugin 
   assert.throws(() => normalizeExternalHttpTarget("example.com"), /valid absolute URL/);
 });
 
-test("the management URL carries the token as llmr_web_token", async () => {
+test("the runtime keeps the token out of its URL", async () => {
   const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
-  const runtime = await startWebManagementServer({ authToken: "test-web-auth-token", host: "127.0.0.1", port: 0, startGateway: false });
+  const authToken = "test-web-auth-token-0123456789abcdef";
+  const runtime = await startWebManagementServer({ authToken, host: "127.0.0.1", port: 0, startGateway: false });
   try {
-    const url = new URL(runtime.url);
-    assert.equal(url.searchParams.get("llmr_web_token"), "test-web-auth-token");
+    assert.equal(new URL(runtime.url).search, "");
+    assert.equal(new URL(runtime.url).hash, "");
+    assert.equal(runtime.authToken, authToken);
+    assert.equal(runtime.tokenGenerated, false);
+    assert.equal(runtime.openUrl, runtime.url, "a supplied token is not put in any URL");
   } finally {
     await runtime.close();
   }
+});
+
+test("a generated token is offered once, in the fragment, and survives escaping", async (t) => {
+  const previous = process.env.LLMR_WEB_AUTH_TOKEN;
+  t.after(() => setOptionalEnv("LLMR_WEB_AUTH_TOKEN", previous));
+  delete process.env.LLMR_WEB_AUTH_TOKEN;
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const runtime = await startWebManagementServer({ host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    assert.equal(runtime.tokenGenerated, true);
+    assert.equal(new URL(runtime.openUrl).search, "");
+    assert.equal(decodeURIComponent(new URL(runtime.openUrl).hash.slice("#llmr_web_token=".length)), runtime.authToken);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("a supplied token is never part of what LLMR prints, a generated one is", async () => {
+  const { describeWebManagementUrl } = await import("@llmr/core/web/management-server.ts");
+  const url = "http://127.0.0.1:3458/";
+  const openUrl = `${url}#llmr_web_token=secret-value`;
+  assert.equal(describeWebManagementUrl({ openUrl: url, tokenGenerated: false, url }), `${url} (sign in with your LLMR_WEB_AUTH_TOKEN)`);
+  assert.equal(describeWebManagementUrl({ openUrl, tokenGenerated: true, url }), openUrl);
 });
 
 test("resolveRendererRoot falls back to the app resources when the CLI runs from a copy outside the app", async () => {

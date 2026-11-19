@@ -59,7 +59,7 @@ export async function startCliWebServer(authToken: string): Promise<CliWebRuntim
     stderr += chunk;
   });
 
-  const service = await new Promise<{ baseUrl: string; token: string }>((resolve, reject) => {
+  const baseUrl = await new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(`LLMR web service did not start within ${startupTimeoutMs}ms.\nstdout:\n${stdout}\nstderr:\n${stderr}`));
     }, startupTimeoutMs);
@@ -79,27 +79,18 @@ export async function startCliWebServer(authToken: string): Promise<CliWebRuntim
         return;
       }
       cleanup();
-      const url = new URL(match[1]);
-      resolve({
-        baseUrl: `${url.protocol}//${url.host}`,
-        token: url.searchParams.get("llmr_web_token") ?? ""
-      });
+      resolve(new URL(match[1]).origin);
     };
 
     child.on("exit", onExit);
     child.stdout.on("data", onStdout);
   });
 
-  if (!service.token) {
-    await stopCliWebServer(child);
-    rmSync(testHome, { force: true, recursive: true });
-    throw new Error("LLMR web service started without a web auth token.");
-  }
-
   return {
-    ...service,
+    baseUrl,
     child,
-    testHome
+    testHome,
+    token: authToken
   };
 }
 

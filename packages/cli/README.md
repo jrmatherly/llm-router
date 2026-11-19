@@ -113,7 +113,7 @@ Important files include:
 
 - `config.sqlite`: current application configuration.
 - `app-data/`: usage, request-log, certificate, and other runtime databases/files.
-- `service.json`: state and private token for a detached CLI service.
+- `service.json`: state, management token and private service token for a detached CLI service.
 - `profiles/` and `bin/`: isolated profile configuration and launch wrappers.
 
 Do not edit or copy live SQLite files while LLMR is writing to them. Use the UI export feature, or stop LLMR before taking a filesystem backup.
@@ -126,7 +126,7 @@ Do not edit or copy live SQLite files while LLMR is writing to them. Use the UI 
 | `LLMR_WEB_PORT` | Default management port when `--port` is omitted. |
 | `LLMR_WEB_AUTH_TOKEN` | Fixes the management UI/RPC token instead of generating a random token for the process. |
 
-The authenticated management URL contains `llmr_web_token` in its query string. Treat that URL like a password and avoid copying it into logs, tickets, or shell history. Bind to `127.0.0.1` unless remote access is intentional. For remote access, use a firewall or private network plus TLS at a trusted reverse proxy.
+When LLMR generates the token it prints the management URL once, in the form `/#llmr_web_token=<token>`. A token you set with `LLMR_WEB_AUTH_TOKEN` is never printed and never goes in a URL: the page asks for it. The token is kept per browser tab, so a new tab asks again. The fragment keeps the token out of server and proxy logs, but it may remain in browser history. Treat a URL that carries the token like a password and avoid copying it into logs, tickets, or shell history. Run `llmr stop` before upgrading: a newer build does not read the `service.json` an older one wrote. Bind to `127.0.0.1` unless remote access is intentional. For remote access, use a firewall or private network plus TLS at a trusted reverse proxy.
 
 Do not expose the gateway without creating LLMR client API keys. Upstream provider credentials are stored in LLMR's local data directory, so protect that directory and its backups.
 

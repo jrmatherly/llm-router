@@ -14,10 +14,17 @@ test("#1835 generated Nginx config forwards browser sources without forging them
   const entrypoint = readFileSync("docker/entrypoint.sh", "utf8");
   const template = entrypoint.split("cat > /etc/nginx/conf.d/default.conf <<EOF\n")[1].split("\nEOF")[0];
   const rendered = spawnSync("sh", ["-c", `cat <<EOF\n${template}\nEOF`], {
-    encoding: "utf8", env: { LLMR_WEB_HOST: "127.0.0.1", LLMR_WEB_PORT: "3459", LLMR_NGINX_PORT: "8080", LLMR_GATEWAY_HOST: "127.0.0.1", LLMR_GATEWAY_PORT: "3456", LLMR_WEB_AUTH_TOKEN_QUERY: "private-token" }
+    encoding: "utf8", env: { LLMR_WEB_HOST: "127.0.0.1", LLMR_WEB_PORT: "3459", LLMR_NGINX_PORT: "8080", LLMR_GATEWAY_HOST: "127.0.0.1", LLMR_GATEWAY_PORT: "3456" }
   });
   assert.equal(rendered.status, 0, rendered.stderr);
   assert.match(rendered.stdout, /proxy_set_header Origin \$http_origin;/);
   assert.match(rendered.stdout, /proxy_set_header Referer \$http_referer;/);
-  assert.doesNotMatch(rendered.stdout, /private-token/);
+});
+
+test("the Docker entrypoint keeps the management token out of the URL query", () => {
+  const entrypoint = readFileSync("docker/entrypoint.sh", "utf8");
+  assert.match(entrypoint, /return 302 \/pages\/home\/index\.html;/, "the root redirect carries no query");
+  assert.doesNotMatch(entrypoint, /\?llmr_web_token=/);
+  assert.doesNotMatch(entrypoint, /export LLMR_WEB_AUTH_TOKEN_QUERY/, "the encoded token is not handed to child processes");
+  assert.match(entrypoint, /\/#llmr_web_token=/, "a generated token is printed in the fragment");
 });

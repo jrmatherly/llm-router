@@ -31,7 +31,7 @@ Nginx exposes:
 
 | Path | Purpose |
 | --- | --- |
-| `/`, `/pages/home/index.html` | Management UI. The root path redirects to the page and keeps a `llmr_web_token` query parameter if the request has one. Nginx never adds the token. |
+| `/`, `/pages/home/index.html` | Management UI. The root path redirects to the page. Nginx never adds the token and no URL query carries it. |
 | `/api/llmr/rpc` | Management RPC, protected by the management token. |
 | `/health` | Model gateway health; container or UI status is not reflected here. |
 | `/v1/*`, `/v1beta/*`, `/messages`, `/chat/completions`, `/responses`, `/interactions`, `/mcp/*` | Model and MCP gateway endpoints. |
@@ -45,7 +45,7 @@ npm run docker:compose:up
 docker compose logs -f llmr
 ```
 
-Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `LLMR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a fresh volume the management UI is available immediately; the model gateway only starts working after a provider and a model have been added.
+Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/#llmr_web_token=<token>`. It is only printed when the token was generated; if you set `LLMR_WEB_AUTH_TOKEN` yourself, open `http://127.0.0.1:3458/` and type the token when the page asks. The token is kept per browser tab, so a new tab asks again. On a fresh volume the management UI is available immediately; the model gateway only starts working after a provider and a model have been added.
 
 When `LLMR_DOCKER_GATEWAY_SOURCE_DIR` points at a local ai-gateway checkout, the npm Compose script packs it before building so the image uses that plugin-capable ai-gateway runtime. Without one, the image uses the package-lock dependency. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
@@ -110,7 +110,7 @@ LLMR_WEB_AUTH_TOKEN=replace-with-a-long-random-value
 LLMR_PUBLIC_BASE_URL=http://127.0.0.1:3458
 ```
 
-Use it via `docker run --env-file`, or map the same variables into the Compose service `environment`. The complete management URL containing `llmr_web_token` should also be protected like a password, because it can appear in browser history, reverse proxy logs, screenshots, and tickets.
+Use it via `docker run --env-file`, or map the same variables into the Compose service `environment`. A management URL that carries `#llmr_web_token=` should also be protected like a password. The fragment is not sent to Nginx or a reverse proxy, so it stays out of their logs, but it may remain in browser history, screenshots, and tickets.
 
 ## Change the external port or address
 
@@ -255,7 +255,7 @@ docker compose config
 
 ### The root address returns `302`
 
-This is expected behavior. Nginx redirects the root address to the management page and keeps the query string, so a `llmr_web_token` you supply survives. It does not add a token.
+This is expected behavior. Nginx redirects the root address to the management page. It does not add a token, and the browser carries a `#llmr_web_token=` fragment across the redirect by itself.
 
 ### `/health` returns `502`
 
@@ -263,7 +263,7 @@ It checks the model gateway, not Nginx or the UI. A fresh volume without a confi
 
 ### The UI returns `401` after a token change
 
-Reopen `/?llmr_web_token=<token>` with the current token (for a generated token, read it from `docker compose logs llmr`); close tabs and bookmarks that still use the old `llmr_web_token`.
+Type the current token when the page asks for it (for a generated token, open the `/#llmr_web_token=<token>` URL from `docker compose logs llmr`); close tabs and bookmarks that still use an old token.
 
 ### The UI returns `403` from another machine or a domain
 
