@@ -10,6 +10,7 @@ import { codexDesktopAppName, launchZcodeAppProfile } from "@llmr/core/agents/co
 import { loadAppConfig } from "@llmr/core/config/config";
 import { APP_NAME, CONFIGDIR } from "@llmr/core/config/constants";
 import { installSocketTypeOfServiceCompat } from "@llmr/core/platform/socket-compat";
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { applyProfileConfig, applyProfileRuntimeConfig } from "@llmr/core/profiles/service";
 import { ensureProfileGateway, ProfileGatewayUnavailableError } from "@llmr/core/profiles/launch-service";
 import { buildProfileLaunchPlan, defaultProfileOpenSurface, findProfileForOpen, profileLaunchSpawnCommand, resolveProfileOpenSurface, shouldAutoStartProfileGateway } from "@llmr/core/profiles/launch-core";
@@ -228,7 +229,7 @@ async function main(): Promise<void> {
     }
 
     const childEnv = {
-      ...process.env,
+      ...withoutLlmrSecretEnv(),
       ...plan.env,
       ...botGatewayProfileEnv(launchConfig, profile, resolvedSurface)
     };

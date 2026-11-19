@@ -199,7 +199,7 @@ Most deployments should set only `LLMR_WEB_AUTH_TOKEN`, `LLMR_PUBLIC_BASE_URL`, 
 | `LLMR_PUBLIC_PORT` | `3458` | Used only to derive `LLMR_PUBLIC_BASE_URL` when the full URL is unset. |
 | `LLMR_DATA_DIR` | `/data` | Container data root and process `HOME`. Mount persistent storage here. |
 | `LLMR_NGINX_PORT` | `8080` | Container-private Nginx listen port. Match the container side of the published mapping if changed. |
-| `LLMR_WEB_HOST` | `127.0.0.1` | Container-private management server host. It must stay loopback: any other address makes the container refuse to start. In Docker, what you publish with `-p` is what is exposed: no LLMR flag checks it. |
+| `LLMR_WEB_HOST` | `127.0.0.1` | Container-private management server host. It must stay loopback: any other address makes the container refuse to start unless `LLMR_WEB_ALLOW_REMOTE=1` is set. In Docker, what you publish with `-p` is what is exposed: no LLMR flag checks it. |
 | `LLMR_WEB_PORT` | `3459` | Container-private management server port. |
 | `LLMR_GATEWAY_HOST` | `127.0.0.1` | Container-private gateway listener host. |
 | `LLMR_GATEWAY_PORT` | `3456` | Container-private gateway listener port used by Nginx. |

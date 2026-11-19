@@ -211,7 +211,7 @@ A typical deployment only needs `LLMR_WEB_AUTH_TOKEN`, `LLMR_PUBLIC_BASE_URL`, a
 | `LLMR_PUBLIC_PORT` | `3458` | Only used to compose the public address when no full public URL is set. |
 | `LLMR_DATA_DIR` | `/data` | Data root, also used as the process `HOME`. |
 | `LLMR_NGINX_PORT` | `8080` | Nginx listen port inside the container; should match the right side of the port mapping. |
-| `LLMR_WEB_HOST` | `127.0.0.1` | Management service listen address inside the container. It must stay loopback: any other address makes the container refuse to start. In Docker, what you publish with `-p` is what is exposed: no LLMR flag checks it. |
+| `LLMR_WEB_HOST` | `127.0.0.1` | Management service listen address inside the container. It must stay loopback: any other address makes the container refuse to start unless `LLMR_WEB_ALLOW_REMOTE=1` is set. In Docker, what you publish with `-p` is what is exposed: no LLMR flag checks it. |
 | `LLMR_WEB_PORT` | `3459` | Management service port inside the container. |
 | `LLMR_GATEWAY_HOST` | `127.0.0.1` | Model gateway listen address inside the container. |
 | `LLMR_GATEWAY_PORT` | `3456` | Model gateway port inside the container that Nginx proxies to. |
