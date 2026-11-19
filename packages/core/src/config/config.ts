@@ -15,10 +15,11 @@ import { LEGACY_ACTIVE_CONFIG_FILE, LEGACY_CONFIG_FILE } from "@llmr/core/config
 import { normalizeCodexProviderAccountConfig } from "@llmr/core/agents/local-providers/codex";
 import { normalizeGrokProviderAccountConfig, normalizeGrokProviderMediaCapabilities } from "@llmr/core/agents/local-providers/grok";
 import { removeOpenCodeProviderAccountConfig } from "@llmr/core/agents/local-providers/opencode";
-import { CLAUDE_CODE_DEFAULT_ENV, CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, DEFAULT_TRAY_COMPONENT_VARIANTS, GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, OVERVIEW_WIDGET_SIZE_VALUES, ROUTER_FALLBACK_MAX_RETRY_COUNT, ROUTER_SCRIPT_API_VERSION, ROUTER_SCRIPT_DEFAULT_TIMEOUT_MS, ROUTER_SCRIPT_MAX_TIMEOUT_MS, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS, enforceSingleEnabledGlobalProfilePerAgent, isEnabledGlobalProfile, knownGatewayPluginDefaultPermissions, knownGatewayPluginDefaultSurfaces } from "@llmr/core/contracts/app";
+import { CLAUDE_CODE_DEFAULT_ENV, CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, DEFAULT_TRAY_COMPONENT_VARIANTS, GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, OVERVIEW_WIDGET_SIZE_VALUES, ROUTER_FALLBACK_MAX_RETRY_COUNT, ROUTER_SCRIPT_API_VERSION, ROUTER_SCRIPT_DEFAULT_TIMEOUT_MS, ROUTER_SCRIPT_MAX_TIMEOUT_MS, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS, enforceSingleEnabledGlobalProfilePerAgent, isEnabledGlobalProfile, isRestorableGlobalProfile, knownGatewayPluginDefaultPermissions, knownGatewayPluginDefaultSurfaces } from "@llmr/core/contracts/app";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config";
 import { maxRequestLogBodyBytes } from "@llmr/core/observability/request-log-limits";
 import { providerRuntimeId } from "@llmr/core/routing/model-registry";
+import { reconcileProfileModelSelections } from "@llmr/core/profiles/model-selection";
 import { findProviderPresetByBaseUrl, primaryProviderPresetEndpoint, providerApiKeySafetyIssue, providerEndpointCanReceiveProviderApiKey } from "@llmr/core/providers/presets/index";
 import type {
   AppConfig,
@@ -392,6 +393,29 @@ export async function saveAppConfig(config: AppConfig): Promise<AppConfig> {
   return enqueueAppConfigWrite(() => saveAppConfigNow(config));
 }
 
+// Recovery must work when unrelated settings would fail validation, so it changes one flag in place.
+export async function disableGlobalAgentProfile(profileId: string): Promise<AppConfig> {
+  return enqueueAppConfigWrite(async () => {
+    const loaded = await loadAppConfig();
+    const target = loaded.profile.profiles.find((item) => item.id === profileId);
+    if (!target || !isRestorableGlobalProfile(target)) {
+      throw new Error("Choose a system-default Claude Code or Codex profile to restore.");
+    }
+    await updatePersistedAppConfig((current) => {
+      const stored = isObject(current) && isObject(current.profile) ? current.profile : {};
+      // Without a stored list the loader builds the profiles from the legacy blocks or the defaults, so that list is stored.
+      const profiles = Array.isArray(stored.profiles)
+        ? stored.profiles.map((item, index) => isObject(item) && parseProfileEntry(item, index)?.id === profileId ? { ...item, enabled: false } : item)
+        : sanitizeProfileConfigForDisk({
+            ...loaded.profile,
+            profiles: loaded.profile.profiles.map((item) => item.id === profileId ? { ...item, enabled: false } : item)
+          }).profiles;
+      return { ...(isObject(current) ? current : {}), profile: { ...stored, profiles } };
+    });
+    return loadAppConfig();
+  });
+}
+
 export async function saveAppThemePreference(theme: unknown): Promise<AppConfig["theme"]> {
   const normalizedTheme = normalizeAppThemePreference(theme);
   return enqueueAppConfigWrite(async () => {
@@ -402,7 +426,7 @@ export async function saveAppThemePreference(theme: unknown): Promise<AppConfig[
 }
 
 async function saveAppConfigNow(config: AppConfig): Promise<AppConfig> {
-  const normalizedConfig = withSingleEnabledGlobalProfiles(config);
+  const normalizedConfig = reconcileProfileModelSelections(withSingleEnabledGlobalProfiles(config));
   assertProviderApiKeysAreSafe(normalizedConfig);
   const pluginMigration = migrateKnownGatewayPluginConfigs(normalizedConfig.plugins);
   // Credentials have their own save operation. A settings snapshot may predate
@@ -3243,117 +3267,119 @@ function parseProfiles(value: unknown): ProfileConfig[] | undefined {
   }
 
   return value
-    .map((item, index): ProfileConfig | undefined => {
-      if (!isObject(item)) {
-        return undefined;
-      }
-      const agent = parseProfileAgent(item.agent);
-      if (!agent) {
-        return undefined;
-      }
-      const enabled = typeof item.enabled === "boolean" ? item.enabled : true;
-      const id = readString(item.id) || `profile-${index + 1}`;
-      const name = readString(item.name) || defaultProfileAgentName(agent);
-      const model = readString(item.model) ?? "";
-      const parsedAvailableModels = parseStringList(item.availableModels ?? item.available_models ?? item.models);
-      const availableModels = parsedAvailableModels.length > 0
-        ? uniqueStrings([model, ...parsedAvailableModels].filter(Boolean))
-        : undefined;
-      const env = parseStringRecord(item.env) ?? {};
-      const parsedSurface = parseProfileSurface(readString(item.surface) || readString(item.entry) || readString(item.frontend)) || "auto";
-      const surface = agent === "workbuddy" || agent === "zcode"
-        ? "app"
-        : agent === "pi" || agent === "kilo"
-          ? "cli"
-          : parsedSurface;
-      const botConfigId = surface !== "cli"
-        ? readString(item.botConfigId) || readString(item.bot_config_id) || readString(item.savedBotConfigId) || readString(item.saved_bot_config_id)
-        : "";
-      const parsedBotGateway = parseBotGateway(item.botGateway ?? item.bot_gateway ?? item.bot);
-      const botGateway = surface !== "cli" && parsedBotGateway ? completeBotGatewayConfig(parsedBotGateway) : undefined;
-      const managedCompact = readManagedCompact(item);
-      const routing = parseProfileRouting(item.routing ?? item.route, agent);
-
-      if (agent === "claude-code") {
-        const appPath = readProfileAppPath(item, agent);
-        const claudeSettings = parseUnknownRecord(item.claudeSettings ?? item.claude_settings);
-        return {
-          agent,
-          ...(appPath ? { appPath } : {}),
-          ...(botConfigId ? { botConfigId } : {}),
-          ...(botGateway ? { botGateway } : {}),
-          ...(item.claudeAppTakeover === true ? { claudeAppTakeover: true } : {}),
-          ...(item.claudeCodeSharedHome === true ? { claudeCodeSharedHome: true } : {}),
-          ...(claudeSettings ? { claudeSettings } : {}),
-          enabled,
-          env: claudeCodeProfileEnv(env),
-          fableModel: readString(item.fableModel) || readString(item.defaultFableModel) || "",
-          haikuModel: readString(item.haikuModel) || readString(item.defaultHaikuModel) || readString(item.smallFastModel) || readString(item.smallModel) || "",
-          id,
-          ...(managedCompact !== undefined ? { managedCompact } : {}),
-          ...(availableModels ? { availableModels } : {}),
-          model,
-          name,
-          opusModel: readString(item.opusModel) || readString(item.defaultOpusModel) || "",
-          ...(routing ? { routing } : {}),
-          scope: parseProfileScope(readString(item.scope) || readString(item.applyScope) || readString(item.effectScope)) || "global",
-          settingsFile: readString(item.settingsFile) || readString(item.configFile) || "~/.claude/settings.json",
-          sonnetModel: readString(item.sonnetModel) || readString(item.defaultSonnetModel) || "",
-          smallFastModel: readString(item.smallFastModel) || readString(item.smallModel) || "",
-          surface
-        };
-      }
-
-      if (agent === "grok" || agent === "kimi" || agent === "pi") {
-        return {
-          agent,
-          ...(availableModels ? { availableModels } : {}),
-          enabled,
-          env: codexCompatibleProfileEnv(env),
-          id,
-          model,
-          name,
-          ...(routing ? { routing } : {}),
-          scope: "llmr",
-          surface: "cli"
-        };
-      }
-
-      const appPath = readProfileAppPath(item, agent);
-      const showAllSessions = agent === "zcode" || agent === "opencode" || agent === "kilo" || agent === "workbuddy"
-        ? false
-        : typeof item.showAllSessions === "boolean"
-          ? item.showAllSessions
-          : typeof item.show_all_sessions === "boolean"
-            ? item.show_all_sessions
-            : undefined;
-      return {
-        agent,
-        ...(appPath ? { appPath } : {}),
-        ...(botConfigId ? { botConfigId } : {}),
-        ...(botGateway ? { botGateway } : {}),
-        cliMiddleware: true,
-        codexCliPath: readString(item.codexCliPath) || readString(item.cliPath) || readString(item.codexPath) || "",
-        codexHome: readString(item.codexHome) || readString(item.home) || "",
-        configFormat: parseCodexProfileConfigFormat(readString(item.configFormat) || readString(item.profileConfigFormat)) || "separate_profile_files",
-        configFile: normalizeCodexConfigFileForAgent(agent, readString(item.configFile) || readString(item.settingsFile)),
-        enabled,
-        env: codexCompatibleProfileEnv(env),
-        id,
-        ...(managedCompact !== undefined ? { managedCompact } : {}),
-        ...(availableModels ? { availableModels } : {}),
-        model,
-        name,
-        providerId: readString(item.providerId) || readString(item.provider) || "llm-router",
-        providerName: readString(item.providerName) || "LLM Router",
-        remoteFrontendMode: parseCodexRemoteFrontendMode(readString(item.remoteFrontendMode) || readString(item.frontendMode) || readString(item.coreMode)) || "app",
-        ...(routing ? { routing } : {}),
-        scope: parseProfileScope(readString(item.scope) || readString(item.applyScope) || readString(item.effectScope)) || "global",
-        ...(showAllSessions !== undefined ? { showAllSessions } : {}),
-        surface
-      };
-    })
+    .map(parseProfileEntry)
     .filter((item): item is ProfileConfig => Boolean(item));
+}
+
+function parseProfileEntry(item: unknown, index: number): ProfileConfig | undefined {
+  if (!isObject(item)) {
+    return undefined;
+  }
+  const agent = parseProfileAgent(item.agent);
+  if (!agent) {
+    return undefined;
+  }
+  const enabled = typeof item.enabled === "boolean" ? item.enabled : true;
+  const id = readString(item.id) || `profile-${index + 1}`;
+  const name = readString(item.name) || defaultProfileAgentName(agent);
+  const model = readString(item.model) ?? "";
+  const parsedAvailableModels = parseStringList(item.availableModels ?? item.available_models ?? item.models);
+  const availableModels = parsedAvailableModels.length > 0
+    ? uniqueStrings([model, ...parsedAvailableModels].filter(Boolean))
+    : undefined;
+  const env = parseStringRecord(item.env) ?? {};
+  const parsedSurface = parseProfileSurface(readString(item.surface) || readString(item.entry) || readString(item.frontend)) || "auto";
+  const surface = agent === "workbuddy" || agent === "zcode"
+    ? "app"
+    : agent === "pi" || agent === "kilo"
+      ? "cli"
+      : parsedSurface;
+  const botConfigId = surface !== "cli"
+    ? readString(item.botConfigId) || readString(item.bot_config_id) || readString(item.savedBotConfigId) || readString(item.saved_bot_config_id)
+    : "";
+  const parsedBotGateway = parseBotGateway(item.botGateway ?? item.bot_gateway ?? item.bot);
+  const botGateway = surface !== "cli" && parsedBotGateway ? completeBotGatewayConfig(parsedBotGateway) : undefined;
+  const managedCompact = readManagedCompact(item);
+  const routing = parseProfileRouting(item.routing ?? item.route, agent);
+
+  if (agent === "claude-code") {
+    const appPath = readProfileAppPath(item, agent);
+    const claudeSettings = parseUnknownRecord(item.claudeSettings ?? item.claude_settings);
+    return {
+      agent,
+      ...(appPath ? { appPath } : {}),
+      ...(botConfigId ? { botConfigId } : {}),
+      ...(botGateway ? { botGateway } : {}),
+      ...(item.claudeAppTakeover === true ? { claudeAppTakeover: true } : {}),
+      ...(item.claudeCodeSharedHome === true ? { claudeCodeSharedHome: true } : {}),
+      ...(claudeSettings ? { claudeSettings } : {}),
+      enabled,
+      env: claudeCodeProfileEnv(env),
+      fableModel: readString(item.fableModel) || readString(item.defaultFableModel) || "",
+      haikuModel: readString(item.haikuModel) || readString(item.defaultHaikuModel) || readString(item.smallFastModel) || readString(item.smallModel) || "",
+      id,
+      ...(managedCompact !== undefined ? { managedCompact } : {}),
+      ...(availableModels ? { availableModels } : {}),
+      model,
+      name,
+      opusModel: readString(item.opusModel) || readString(item.defaultOpusModel) || "",
+      ...(routing ? { routing } : {}),
+      scope: parseProfileScope(readString(item.scope) || readString(item.applyScope) || readString(item.effectScope)) || "global",
+      settingsFile: readString(item.settingsFile) || readString(item.configFile) || "~/.claude/settings.json",
+      sonnetModel: readString(item.sonnetModel) || readString(item.defaultSonnetModel) || "",
+      smallFastModel: readString(item.smallFastModel) || readString(item.smallModel) || "",
+      surface
+    };
+  }
+
+  if (agent === "grok" || agent === "kimi" || agent === "pi") {
+    return {
+      agent,
+      ...(availableModels ? { availableModels } : {}),
+      enabled,
+      env: codexCompatibleProfileEnv(env),
+      id,
+      model,
+      name,
+      ...(routing ? { routing } : {}),
+      scope: "llmr",
+      surface: "cli"
+    };
+  }
+
+  const appPath = readProfileAppPath(item, agent);
+  const showAllSessions = agent === "zcode" || agent === "opencode" || agent === "kilo" || agent === "workbuddy"
+    ? false
+    : typeof item.showAllSessions === "boolean"
+      ? item.showAllSessions
+      : typeof item.show_all_sessions === "boolean"
+        ? item.show_all_sessions
+        : undefined;
+  return {
+    agent,
+    ...(appPath ? { appPath } : {}),
+    ...(botConfigId ? { botConfigId } : {}),
+    ...(botGateway ? { botGateway } : {}),
+    cliMiddleware: true,
+    codexCliPath: readString(item.codexCliPath) || readString(item.cliPath) || readString(item.codexPath) || "",
+    codexHome: readString(item.codexHome) || readString(item.home) || "",
+    configFormat: parseCodexProfileConfigFormat(readString(item.configFormat) || readString(item.profileConfigFormat)) || "separate_profile_files",
+    configFile: normalizeCodexConfigFileForAgent(agent, readString(item.configFile) || readString(item.settingsFile)),
+    enabled,
+    env: codexCompatibleProfileEnv(env),
+    id,
+    ...(managedCompact !== undefined ? { managedCompact } : {}),
+    ...(availableModels ? { availableModels } : {}),
+    model,
+    name,
+    providerId: readString(item.providerId) || readString(item.provider) || "llm-router",
+    providerName: readString(item.providerName) || "LLM Router",
+    remoteFrontendMode: parseCodexRemoteFrontendMode(readString(item.remoteFrontendMode) || readString(item.frontendMode) || readString(item.coreMode)) || "app",
+    ...(routing ? { routing } : {}),
+    scope: parseProfileScope(readString(item.scope) || readString(item.applyScope) || readString(item.effectScope)) || "global",
+    ...(showAllSessions !== undefined ? { showAllSessions } : {}),
+    surface
+  };
 }
 
 function parseProfileRouting(value: unknown, _agent: ProfileConfig["agent"]): ProfileRoutingConfig | undefined {

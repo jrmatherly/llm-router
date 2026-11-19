@@ -37,7 +37,7 @@ import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-pr
 import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
-import { applyProfileConfig, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
+import { applyProfileConfig, recoverGlobalAgentProfile, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, openProfileInTerminal, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
@@ -479,6 +479,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
     ensureProxyCertificateAuthority();
     await revealFile(PROXY_CA_CERT_FILE);
   },
+  recoverGlobalProfile: (profileId) => recoverGlobalAgentProfile(readRequiredString(profileId, "Profile ID is required."), (config) => gatewayService.updateConfig(config)),
   resetCodexRateLimitCredit: (request) => resetCodexRateLimitCredit(request as ProviderAccountResetRequest),
   resetOverviewStatistics: () => resetOverviewStatistics(),
   saveApiKeys: async (apiKeys) => {

@@ -34,7 +34,7 @@ import {
   VirtualModelDraft, virtualModelProfileFromDraft, virtualModelProfilesUseMediaTools
 } from "./shared/index";
 import { preserveEqualPollingSnapshot, startVisiblePolling } from "./shared/polling";
-import { configsEqual, createConfigSaveQueue, mergeSavedApiKeys, reconcileSavedConfig } from "./shared/config-persistence";
+import { configsEqual, createConfigSaveQueue, mergeSavedApiKeys, reconcileRecoveredProfileConfig, reconcileSavedConfig } from "./shared/config-persistence";
 import { renameProviderReferences } from "./shared/provider-references";
 import {
   AppDialogStack, FeedbackStack, LightToast, MainLayout, OnboardingLayout, PersistenceFeedback, shouldCheckForUpdateOnOpen
@@ -1060,12 +1060,16 @@ function App() {
     return normalized;
   }
 
-  async function persistConfig(config: AppConfig, setError: (message: string) => void, options?: AppSaveConfigOptions, feedbackTarget: ConfigSaveFeedbackTarget = "global"): Promise<boolean> {
-    const requestId = ++autoSaveRequestId.current;
+  function cancelPendingAutoSave(): number {
     if (autoSaveTimer.current !== undefined) {
       window.clearTimeout(autoSaveTimer.current);
       autoSaveTimer.current = undefined;
     }
+    return ++autoSaveRequestId.current;
+  }
+
+  async function persistConfig(config: AppConfig, setError: (message: string) => void, options?: AppSaveConfigOptions, feedbackTarget: ConfigSaveFeedbackTarget = "global"): Promise<boolean> {
+    const requestId = cancelPendingAutoSave();
     const configWithTheme = normalizeConfig({
       ...config,
       theme: themePreference
@@ -2003,9 +2007,9 @@ function App() {
       return;
     }
     const index = providerDeleteIndex;
-    if (await removeProvider(index)) {
-      setProviderDeleteIndex(undefined);
-    }
+    // The draft already lost the provider, so a failed save must not leave the dialog pointing at the next one.
+    setProviderDeleteIndex(undefined);
+    await removeProvider(index);
   }
 
   function openAddRoutingRuleDialog() {
@@ -3104,6 +3108,36 @@ function App() {
     });
   }
 
+  async function recoverGlobalProfile(index: number) {
+    const profile = currentDraft.current.profile.profiles[index];
+    if (!profile || !window.llmr || profileActionBusy) {
+      return;
+    }
+    cancelPendingAutoSave();
+    explicitConfigSaves.current += 1;
+    setProfileActionBusy({ profileId: profile.id, surface: "cli" });
+    setProfileActionError("");
+    try {
+      const result = await configSaveQueue.current.run(
+        () => window.llmr!.recoverGlobalProfile(profile.id),
+        (recovered) => {
+          const saved = normalizeConfig(recovered.config);
+          setConfigSnapshots(saved, normalizeConfig(reconcileRecoveredProfileConfig(currentSaved.current, currentDraft.current, saved, profile.id)));
+        }
+      );
+      if (!result.status.ok) {
+        throw new Error(result.status.message);
+      }
+      showToast(`${result.status.message} Reopen the agent.`);
+    } catch (error) {
+      setProfileActionError(formatAppError(error));
+    } finally {
+      explicitConfigSaves.current -= 1;
+      setProfileActionBusy(undefined);
+      setAutoSaveResumeRevision((revision) => revision + 1);
+    }
+  }
+
   function removeProfile(index: number) {
     updateConfig((next) => ({
       ...next,
@@ -3277,6 +3311,7 @@ function App() {
                 openProfileApp: (index) => void openProfileAppFromList(index),
                 profileActionBusy,
                 profileRuntimeStatus,
+                recoverGlobalProfile: (index) => void recoverGlobalProfile(index),
                 removeProfile: setProfileDeleteIndex,
                 stopProfileApp: (index) => void stopProfileAppFromList(index),
                 updateProfileItem

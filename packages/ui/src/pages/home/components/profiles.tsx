@@ -1,3 +1,4 @@
+import { isRestorableGlobalProfile } from "@llmr/core/contracts/app";
 import { useDraftClose } from "./unsaved-changes";
 import {
   AddProfileDraft, AddRoutingRuleDraft, AgentLogo, AnimatedIconSwap, AnimatedPopover, AnimatePresence, AppConfig, Badge, BotGatewaySavedConfig, botGatewaySavedConfigLabel, BotHandoffScanTarget, Button,
@@ -57,6 +58,7 @@ export function ProfileView({
   openProfileApp,
   profileActionBusy,
   profileRuntimeStatus,
+  recoverGlobalProfile,
   removeProfile,
   stopProfileApp,
   updateProfileItem
@@ -70,6 +72,7 @@ export function ProfileView({
   openProfileApp: (index: number) => void;
   profileActionBusy?: ProfileActionBusy;
   profileRuntimeStatus: ProfileRuntimeStatus;
+  recoverGlobalProfile?: (index: number) => void;
   removeProfile: (index: number) => void;
   stopProfileApp: (index: number) => void;
   updateProfileItem: (index: number, patch: Partial<ProfileConfig>) => void;
@@ -191,6 +194,11 @@ export function ProfileView({
                       </div>
                     ) : null}
                   </div>
+                  {recoverGlobalProfile && isRestorableGlobalProfile(profile) ? (
+                    <Button className="mt-2 self-start" disabled={profileActionDisabled} onClick={() => recoverGlobalProfile(index)} size="sm" type="button" variant="outline">
+                      Restore original settings
+                    </Button>
+                  ) : null}
                   <div
                     aria-label={`${profile.name || "Profile"} Profile actions`}
                     className="mt-3 flex min-w-0 items-center justify-between gap-2 border-t border-border/60 pt-2"

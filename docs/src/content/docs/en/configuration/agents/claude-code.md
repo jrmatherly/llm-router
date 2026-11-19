@@ -97,4 +97,5 @@ If you bind a Bot and open Claude App from LLMR, Claude App can relay conversati
 - **`/model` shows no LLMR models:** confirm a provider + model is configured.
 - **Claude App did not pick up the config:** Claude App is already running — reopen it from LLMR, or restart it when prompted.
 - **Claude App opens signed out of claude.ai, with LLM Router as its gateway:** a profile's **Route Claude App launched outside LLMR through LLMR** toggle is on, or LLM Router did not quit cleanly and has not started since. Turn the toggle off, or start LLM Router once, to put Dock and account-switcher launches back on the normal app.
+- **You want Claude Code off LLMR again:** use **Restore original settings** on the System default profile. See [Restore original settings](/en/configuration/profiles/#restore-original-settings).
 - **Model aliases have no effect:** aliases only change which provider model a Claude Code tier uses; the value must be a valid `Provider/model` or Fusion model that LLMR can serve.

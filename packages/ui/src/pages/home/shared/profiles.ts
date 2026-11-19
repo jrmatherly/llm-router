@@ -34,7 +34,7 @@ import { isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrin
 import { virtualModelProfileModelNames } from "./providers";
 import { normalizeRouterRules } from "./routing";
 import { keyValueRowsFromRecord, recordFromKeyValueRows, stringRecordValue, validateProfileEnvRows } from "./virtual-models";
-import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
+import { gatewayModelSelectionMatcher, isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 import type { AddProfileDraft, BotGatewayConfigDraft } from "./types";
 
 export function defaultProfileClientModel(config: AppConfig): string {
@@ -75,7 +75,10 @@ export function profileModelProviderOptions(
       name: provider.name.trim()
     }))
     .filter((provider) => provider.models.length > 0);
-  const fusionModels = virtualModelProfileModelNames(virtualModelProfiles);
+  // A virtual model with no exact alias has only a label here, which no request can route to.
+  const isConfigured = gatewayModelSelectionMatcher({ Providers: providers, virtualModelProfiles });
+  const fusionModels = virtualModelProfileModelNames(virtualModelProfiles)
+    .filter((model) => isConfigured(`${fusionModelProviderName}/${model}`));
   return fusionModels.length > 0
     ? [...providerOptions, { models: fusionModels, name: fusionModelProviderName }]
     : providerOptions;

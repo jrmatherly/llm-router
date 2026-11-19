@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, claudeCodeUsesSharedHome, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
+import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, claudeAppTakesOverDirectLaunches, claudeCodeUsesSharedHome, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isEnabledGlobalProfile, isGatewayProviderEnabled, type AppConfig, type GlobalProfileRecoveryResult, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
 import { resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
 import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@llmr/core/agents/claude-code/gateway-login-policy";
-import { appConfigLoadError, loadAppConfig } from "@llmr/core/config/config";
+import { appConfigLoadError, disableGlobalAgentProfile, loadAppConfig } from "@llmr/core/config/config";
 import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import {
@@ -149,13 +149,75 @@ type ApplyProfileConfigOptions = {
 
 let applyQueue: Promise<unknown> = Promise.resolve();
 
+function enqueueApply<T>(operation: () => T | Promise<T>): Promise<T> {
+  const run = applyQueue.then(operation);
+  applyQueue = run.catch(() => undefined);
+  return run;
+}
+
 export function applyProfileConfig(
   config: AppConfig,
   options: ApplyProfileConfigOptions = {}
 ): Promise<ProfileApplyResult> {
-  const run = applyQueue.then(() => applyProfileConfigNow(config, options));
-  applyQueue = run.catch(() => undefined);
-  return run;
+  return enqueueApply(() => applyProfileConfigNow(config, options));
+}
+
+// The disable is saved by the time refreshRuntime runs, so its failure is reported in the status, never thrown.
+export async function recoverGlobalAgentProfile(
+  profileId: string,
+  refreshRuntime: (config: AppConfig) => unknown = () => undefined
+): Promise<GlobalProfileRecoveryResult> {
+  // Saved before any file changes, so a failed restore cannot be followed by a startup that takes the agent over again.
+  const config = await disableGlobalAgentProfile(profileId);
+  const profile = config.profile.profiles.find((item) => item.id === profileId);
+  if (!profile) {
+    throw new Error(`Profile ${profileId} is not in the saved configuration.`);
+  }
+  const status = await enqueueApply((): ProfileClientApplyStatus => {
+    try {
+      const file = profilePath(profile);
+      if (profile.agent === "claude-code") {
+        if (existsSync(file) && !parseJsonContent(readFileSync(file, "utf8"))) {
+          throw new Error(`${file} is not valid JSON.`);
+        }
+        cleanupClaudeCodeGeneratedFiles(profile);
+      }
+      const owner = config.profile.profiles.find((other) => other.agent === profile.agent && isEnabledGlobalProfile(other) && profilePath(other) === file);
+      const restored: ProfileClientApplyStatus = owner
+        ? {
+            client: profile.agent,
+            enabled: false,
+            message: `${codexCompatibleClientName(profile.agent)} profile is disabled. Profile "${owner.name || owner.id}" still manages ${file}, so LLMR left it unchanged.`,
+            ok: true,
+            path: file
+          }
+        : disabledProfileStatus(profile);
+      // A normal save releases Claude App the same way once no profile takes it over.
+      if (!config.profile.profiles.some(claudeAppTakesOverDirectLaunches)) {
+        restoreClaudeAppGatewayConfig();
+      }
+      return restored;
+    } catch (error) {
+      console.error(`Failed to restore the original settings for profile ${profile.name || profile.id}: ${formatError(error)}`);
+      return {
+        client: profile.agent,
+        enabled: false,
+        message: `This profile is disabled, but its original settings could not be restored: ${formatError(error)}`,
+        ok: false,
+        path: profilePath(profile)
+      };
+    }
+  });
+  try {
+    await refreshRuntime(config);
+  } catch (error) {
+    console.error(`Failed to refresh the running gateway after restoring profile ${profile.name || profile.id}: ${formatError(error)}`);
+    return {
+      config,
+      status: { ...status, message: `${status.message} LLMR could not refresh the running gateway: ${formatError(error)} Restart LLMR.`, ok: false }
+    };
+  }
+  return { config, status };
 }
 
 async function applyProfileConfigNow(
@@ -3378,7 +3440,7 @@ function disabledRestoreStatus(
           ? restoreResult.changed
             ? `${codexCompatibleClientName(client)} config was restored from the LLMR backup because the global profile is disabled.`
             : `${codexCompatibleClientName(client)} config already matches the LLMR backup; profile is disabled.`
-          : disabledMessage,
+          : `${disabledMessage} LLMR found nothing to restore in ${resolveUserPath(file)} and left it unchanged.`,
     ok: !restoreResult.missingBackup,
     path: resolveUserPath(file)
   };

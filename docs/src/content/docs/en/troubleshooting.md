@@ -17,6 +17,10 @@ A: Four things decide whether requests pass through LLMR: service status, how th
 2. Confirm the agent was launched from LLMR, not opened directly.
 3. On the Agent Profiles page, confirm the config is applied and its scope covers the current project.
 
+#### Q: Claude Code or Codex still goes through LLMR. How do I put my own settings back?
+
+A: Use **Restore original settings** on the agent's **System default** profile card. It disables the profile and restores the agent's own config file, even while the gateway is stopped or other settings would not save. Then reopen the agent. See [Restore original settings](/en/configuration/profiles/#restore-original-settings) for what each agent gets back.
+
 #### Q: The Observability page shows no agent execution trace.
 
 A: The observability switches are off. Open **Settings → Logs & Observability**, enable **Request logs** and **Agent observability**, then start a new agent task. The Observability page only records tasks that run after the switches are on: steps, tool calls, tool results, and duration.

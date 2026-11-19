@@ -70,6 +70,15 @@ test("#1951 a client rendering only error.message sees the failed provider, root
   assert.equal(appendAggregateErrorAttemptSummary(result, [], context), undefined);
 });
 
+test("#1951 a failure behind a system-default profile names the profile and the recovery action", () => {
+  const input = JSON.stringify({ error: { message: "All target providers failed.", attempts: [{ provider_name: "Devin", stage: "upstream_response", status: 500, message: "Upstream request failed." }] } });
+  const context = { recoveryProfile: "Codex\r\nMain", requestedModel: "Devin/agent" };
+  const result = appendAggregateErrorAttemptSummary(input, [], context);
+  const message = JSON.parse(result).error.message;
+  assert.match(message, /Requested model: Devin\/agent\. To stop LLMR routing for profile "Codex {2}Main", open Agent Profiles in LLMR and choose Restore original settings\.$/);
+  assert.equal(appendAggregateErrorAttemptSummary(result, [], context), undefined);
+});
+
 test("an attempt summary leads with provider and model, and the requested model is sanitized and capped", () => {
   const input = JSON.stringify({ error: { message: "All target providers failed.", attempts: [
     { provider: "p", model: "m", stage: "s", status: 500, message: "x" }

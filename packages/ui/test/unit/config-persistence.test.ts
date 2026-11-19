@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config";
-import { configsEqual, createConfigSaveQueue, mergeSavedApiKeys, reconcileSavedConfig } from "@llmr/ui/pages/home/shared/config-persistence";
+import { configsEqual, createConfigSaveQueue, mergeSavedApiKeys, reconcileRecoveredProfileConfig, reconcileSavedConfig } from "@llmr/ui/pages/home/shared/config-persistence";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -118,4 +118,20 @@ test("a key-only response never replaces unrelated unsaved settings", () => {
   assert.deepEqual(next.APIKEYS.map((key) => key.id), ["remaining-key"]);
   assert.equal(next.APIKEY, saved.APIKEY);
   assert.equal(configsEqual(next, saved), false);
+});
+
+test("#1951 a recovered profile stays disabled while unrelated unsaved edits survive", () => {
+  const saved = createDefaultAppConfig();
+  const target = saved.profile.profiles.find((profile) => profile.agent === "claude-code" && (profile.scope ?? "global") === "global");
+  assert.ok(target, "the default config has a global Claude Code profile");
+  saved.profile.profiles = saved.profile.profiles.map((profile) => profile.id === target.id ? { ...profile, enabled: false } : profile);
+  const draft = structuredClone(saved);
+  draft.profile.profiles = draft.profile.profiles.map((profile) => profile.id === target.id ? { ...profile, enabled: true } : profile);
+  draft.trayShowTokenRate = true;
+  const recovered = structuredClone(saved);
+  recovered.configRevision = "after-recovery";
+  const next = reconcileRecoveredProfileConfig(saved, draft, recovered, target.id);
+  assert.equal(next.profile.profiles.find((profile) => profile.id === target.id)?.enabled, false, "an unsaved toggle must not re-enable the recovered profile");
+  assert.equal(next.trayShowTokenRate, true, "an unsaved unrelated edit is kept for the next autosave");
+  assert.equal(next.configRevision, "after-recovery");
 });

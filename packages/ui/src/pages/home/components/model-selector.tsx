@@ -28,6 +28,7 @@ import {
   X,
   type VirtualModelProfileConfig
 } from "../shared/index";
+import { gatewayModelSelectionMatcher } from "@llmr/core/contracts/app";
 import { PopoverPortal } from "@/components/ui/popover";
 
 const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -332,6 +333,11 @@ export function ModelMultiSelector({
     () => profileModelProviderOptions(providers, virtualModelProfiles),
     [providers, virtualModelProfiles]
   );
+  const isConfigured = useMemo(
+    () => gatewayModelSelectionMatcher({ Providers: providers, virtualModelProfiles }),
+    [providers, virtualModelProfiles]
+  );
+  const unavailable = value.filter((model) => !isConfigured(model));
   const normalizedQuery = query.trim().toLowerCase();
   const models = providerOptions.flatMap((provider) => provider.models
     .map((model) => ({
@@ -389,6 +395,19 @@ export function ModelMultiSelector({
           Clear
         </Button>
       </div>
+      {unavailable.length > 0 ? (
+        <div className="border-b border-border p-2 text-[12px]">
+          <p className="text-destructive">Unavailable selected models</p>
+          {unavailable.map((model) => (
+            <div className="flex items-center gap-2 py-1" key={model}>
+              <span className="min-w-0 flex-1 truncate" title={model}>{model}</span>
+              <Button onClick={() => onChange(value.filter((candidate) => candidate !== model))} size="sm" type="button" variant="outline">
+                Remove
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="max-h-[220px] overflow-auto p-2">
         {models.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-6 text-center text-[12px] text-muted-foreground">
