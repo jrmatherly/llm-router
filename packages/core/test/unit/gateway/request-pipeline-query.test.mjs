@@ -6,11 +6,28 @@ import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 
 test("#1819 client-visible fallback error includes 429 and 404 before final model_resolution 400", async () => {
+  const payload = await failEveryFallbackTarget();
+  assert.match(payload.error.message, /Requested model: Primary\/model\.$/);
+});
+
+test("#1951 the failure from a system-default profile names the recovery action and an LLMR-only profile's does not", async () => {
+  for (const [agent, scope, hinted] of [["claude-code", "global", true], ["codex", "global", true], ["claude-code", "llmr", false]]) {
+    const profile = { agent, enabled: true, id: `${agent}-${scope}`, model: "Primary/model", name: "Main", scope };
+    const payload = await failEveryFallbackTarget(profile);
+    const hint = 'Requested model: Primary/model. To stop LLMR routing for profile "Main", open Agent Profiles in LLMR and choose Restore original settings.';
+    assert.equal(payload.error.message.endsWith(hint), hinted, `${agent} ${scope}: ${payload.error.message}`);
+    if (!hinted) assert.match(payload.error.message, /Requested model: Primary\/model\.$/);
+  }
+});
+
+async function failEveryFallbackTarget(profile) {
   const config = createDefaultAppConfig();
   config.observability.requestLogs = false;
   config.contextArchive.enabled = false;
   config.Providers = ["Primary", "Secondary", "Final"].map(name => ({ name, models: ["model"], type: "openai_chat_completions", api_base_url: "http://127.0.0.1:9/v1" }));
   config.Router.fallback = { mode: "model-chain", models: ["Secondary/model", "Final/model"], retryCount: 0 };
+  if (profile) config.profile.profiles = [profile];
+  const apiKey = profile ? { enabled: true, id: `profile:${profile.id}`, key: "profile-key", name: profile.name } : undefined;
   const router = new LLMRouterPlugin(config);
   const pipeline = new GatewayRequestPipeline({
     getBrowserWebSearchMcpIntegration: () => undefined, getConfig: () => config, getCoreAuthToken: () => "test", getPlugin: () => router,
@@ -34,7 +51,7 @@ test("#1819 client-visible fallback error includes 429 and 404 before final mode
     let status;
     const response = new Writable({ write(chunk, _encoding, done) { chunks.push(chunk.toString()); done(); } });
     response.writeHead = (value) => { status = value; return response; };
-    await pipeline.proxyRequest(request, response, "/v1/messages");
+    await pipeline.proxyRequest(request, response, "/v1/messages", apiKey);
     assert.equal(calls, 3);
     assert.equal(status, 400);
     const payload = JSON.parse(chunks.join(""));
@@ -42,9 +59,9 @@ test("#1819 client-visible fallback error includes 429 and 404 before final mode
     assert.match(payload.error.message, /HTTP 429/);
     assert.match(payload.error.message, /HTTP 404/);
     assert.match(payload.error.message, /Unknown final model/);
-    assert.match(payload.error.message, /Requested model: Primary\/model\.$/);
+    return payload;
   } finally { globalThis.fetch = previousFetch; }
-});
+}
 
 test("gateway pipeline preserves response retrieval query parameters and encoded values", async () => {
   const config = createDefaultAppConfig();

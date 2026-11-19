@@ -479,11 +479,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
     ensureProxyCertificateAuthority();
     await revealFile(PROXY_CA_CERT_FILE);
   },
-  recoverGlobalProfile: async (profileId) => {
-    const result = await recoverGlobalAgentProfile(readRequiredString(profileId, "Profile ID is required."));
-    await gatewayService.updateConfig(result.config);
-    return result;
-  },
+  recoverGlobalProfile: (profileId) => recoverGlobalAgentProfile(readRequiredString(profileId, "Profile ID is required."), (config) => gatewayService.updateConfig(config)),
   resetCodexRateLimitCredit: (request) => resetCodexRateLimitCredit(request as ProviderAccountResetRequest),
   resetOverviewStatistics: () => resetOverviewStatistics(),
   saveApiKeys: async (apiKeys) => {

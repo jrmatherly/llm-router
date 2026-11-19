@@ -43,13 +43,14 @@ test("#1951 global Claude Code and Codex cards offer recovery even when already 
     { ...profile, id: "global-claude", scope: "global" },
     { ...profile, agent: "codex", enabled: false, id: "global-codex", scope: "global" },
     { ...profile, id: "isolated-claude", scope: "llmr" },
-    { ...profile, agent: "opencode", id: "global-opencode", scope: "global" }
+    { ...profile, agent: "opencode", id: "global-opencode", scope: "global" },
+    { ...profile, id: "unscoped-claude" }
   ];
   const html = renderToStaticMarkup(<ProfileView addProfile={() => undefined} applyError="" config={config}
     copyProfileCliCommand={() => undefined} editProfile={() => undefined} openProfileApp={() => undefined}
     profileRuntimeStatus={{ profiles: [] }} recoverGlobalProfile={() => undefined} removeProfile={() => undefined}
     stopProfileApp={() => undefined} updateProfileItem={() => undefined} />);
-  assert.equal((html.match(/Restore original settings/g) ?? []).length, 2);
+  assert.equal((html.match(/Restore original settings/g) ?? []).length, 3, "a card with no scope is a system-default card");
 });
 
 test("AddProfileForm does not show the profile requirements panel", () => {

@@ -283,12 +283,10 @@ handle(IPC_CHANNELS.appApplyProfile, async () => {
   const config = await loadAppConfig();
   return applyProfileConfig(config);
 });
-handle(IPC_CHANNELS.appRecoverGlobalProfile, async (_event, profileId: unknown) => {
-  const result = await recoverGlobalAgentProfile(String(profileId ?? ""));
-  await gatewayService.updateConfig(result.config);
-  await trayController.refreshIconFromConfig(result.config);
-  return result;
-});
+handle(IPC_CHANNELS.appRecoverGlobalProfile, (_event, profileId: unknown) => recoverGlobalAgentProfile(String(profileId ?? ""), async (config) => {
+  await gatewayService.updateConfig(config);
+  await trayController.refreshIconFromConfig(config);
+}));
 handle(IPC_CHANNELS.appCheckProviderConnectivity, (_event, request: GatewayProviderConnectivityCheckRequest) => {
   return checkGatewayProviderConnectivity(request);
 });

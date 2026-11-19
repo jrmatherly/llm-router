@@ -176,17 +176,26 @@ With a Bot bound, WorkBuddy can relay conversations through the selected IM chan
 
 ## Repair unavailable model selections
 
-The model picker lists saved selections that no enabled provider or virtual model serves under **Unavailable selected models**, each with a **Remove** button. A selection written another way still counts as available: a different letter case, `provider,model` instead of `provider/model`, a bare model name, or a provider's ID instead of its name.
+The model picker lists saved selections that no enabled provider or virtual model serves under **Unavailable selected models**, each with a **Remove** button. A selection written another way still counts as available: a different letter case, `provider,model` instead of `provider/model`, a bare model name, or a provider's ID instead of its name. The save also accepts any name the gateway's model registry resolves, so the picker can mark an entry unavailable that a save keeps.
 
-Saving drops unavailable entries from a profile's model list and keeps its default model in the list. If an enabled profile's default model is no longer served, for example after you delete or turn off its provider, the save is refused with a message that names the profile, the provider and the provider's models. Choose a configured default model for that profile, or turn the profile off, and save again. Until then every settings save fails with that message, including the provider change that caused it. LLMR never empties the list to make the save pass, because an empty list allows every model. A turned-off profile whose list has no served model left keeps that list until you repair it.
+Saving drops unavailable entries from a profile's model list. If no served entry is left, the save puts the profile's default model in the list, when that model is served. The gateway always allows a profile's default model, listed or not.
+
+A save is refused in two cases, both only for an enabled profile with a model list:
+
+- **The default model is not served.** This happens, for example, after you delete or disable its provider. If the provider is gone or disabled, the message says the model is not served by an enabled provider or virtual model. If the provider is enabled but does not list the model, the message names the provider and lists its models.
+- **No entry in the list is served, and the profile has no default model.**
+
+Each message names the profile. Choose a configured model for that profile, or disable the profile, and save again.
+
+The refusal applies to every save, not only to a save of that profile. Until the profile is fixed or disabled, no settings change can be saved, including the provider change that caused it. LLMR never empties the list to make the save pass, because an empty list allows every model. A disabled profile whose list has no served model left keeps that list until you repair it.
 
 ## Restore original settings
 
-A **System default** Claude Code or Codex profile has a **Restore original settings** button. It turns the profile off and saves that, then puts the agent's own config file back. Reopen the agent afterwards. It works while the gateway is stopped, and other invalid settings, such as another profile's unavailable model, do not block it. Restarting LLMR keeps the profile off.
+A **System default** Claude Code or Codex profile has a **Restore original settings** button. It disables the profile and saves that, then puts the agent's own config file back. Reopen the agent afterwards. It works while the gateway is stopped, and other invalid settings, such as another profile's unavailable model, do not block it. Restarting LLMR keeps the profile disabled.
 
-- **Claude Code**: LLMR removes its own keys from `settings.json` and keeps everything else, including edits you made after LLMR took the file over. A base URL you had set before the takeover comes back, unless all three of `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_BASE_URL` and `CLAUDE_AGENT_API_BASE_URL` held the same value, which LLMR reads as its own. If `settings.json` is not valid JSON, LLMR leaves it alone and reports that.
-- **Codex**: LLMR replaces `config.toml` with the copy it saved before the takeover, after copying the current file next to it as `config.toml.llmr-backup-<time>`. Edits made to `config.toml` after the takeover are in that backup, not in the restored file.
+- **Claude Code**: LLMR removes its own keys from `settings.json` and keeps everything else, including edits you made after LLMR took the file over. Before it changes the file, it copies the current one next to it as `settings.json.llmr-backup-<time>`. A base URL you had set before the takeover comes back, unless all three of `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_BASE_URL` and `CLAUDE_AGENT_API_BASE_URL` held the same value, which LLMR reads as its own. If `settings.json` is not valid JSON, LLMR leaves it alone and reports that.
+- **Codex**: LLMR replaces `config.toml` with the copy it saved before the takeover, after copying the current file next to it as `config.toml.llmr-backup-<time>`. Edits made to `config.toml` after the takeover are in that backup, not in the restored file. If there was no `config.toml` before the takeover, LLMR deletes it after making that backup.
 
-If LLMR has no copy of the original file, it says so and the profile stays off. The profile's toggle turns routing back on.
+The message after a restore says what LLMR did. If it found nothing of its own to restore, it says so and leaves the file unchanged. If another enabled system-default profile of the same agent uses the same file, LLMR leaves the file to that profile and names it. If LLMR has no copy of the original file, it says so and the profile stays disabled. If the running gateway could not take the new settings, the message says to restart LLMR. Enable the profile again to turn routing back on.
 
-When a request through a system-default Claude Code or Codex profile fails on every provider, the error the agent shows names the provider, the requested model and the profile, and points to this button.
+When a request through a system-default Claude Code or Codex profile fails on every provider, the combined error can end with a pointer to this button. It names the requested model and the profile. Not every failure carries it.

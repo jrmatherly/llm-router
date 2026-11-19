@@ -3128,7 +3128,7 @@ function App() {
       if (!result.status.ok) {
         throw new Error(result.status.message);
       }
-      showToast("Original settings restored. The profile is disabled; reopen the agent.");
+      showToast(`${result.status.message} Reopen the agent.`);
     } catch (error) {
       setProfileActionError(formatAppError(error));
     } finally {

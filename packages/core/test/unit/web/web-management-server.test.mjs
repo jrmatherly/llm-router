@@ -660,6 +660,86 @@ test("#1951 recovery keeps user edits to a file LLMR created and reports malform
   }
 });
 
+test("restoring a disabled profile leaves the file an enabled profile of the same agent still manages", async () => {
+  const { applyProfileConfig, recoverGlobalAgentProfile } = await import("@llmr/core/profiles/service.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  const root = mkdtempSync(path.join(runtimeRoot, "shared-file-"));
+  try {
+    for (const agent of ["claude-code", "codex"]) {
+      const file = path.join(root, agent, agent === "codex" ? "config.toml" : "settings.json");
+      const original = agent === "codex" ? 'model = "original-model"\n' : `${JSON.stringify({ env: { USER_SETTING: "kept" } })}\n`;
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, original);
+      const fileKey = agent === "codex" ? "configFile" : "settingsFile";
+      const config = createDefaultAppConfig();
+      config.Providers = [{ models: ["m"], name: "Live", type: "openai_chat_completions" }];
+      config.virtualModelProfiles = [];
+      config.profile.profiles = [
+        { agent, enabled: false, id: `${agent}-off`, model: "Live/m", name: "Spare", scope: "global", [fileKey]: file },
+        { agent, enabled: true, id: `${agent}-on`, model: "Live/m", name: "Main", scope: "global", [fileKey]: file }
+      ];
+      await applyProfileConfig(config);
+      const takenOver = readFileSync(file, "utf8");
+      assert.notEqual(takenOver, original, `${agent}: the enabled profile took the file over`);
+      await replacePersistedAppConfig(config);
+      const result = await recoverGlobalAgentProfile(`${agent}-off`);
+      assert.equal(result.status.ok, true, result.status.message);
+      assert.match(result.status.message, /disabled.*"Main" still manages/);
+      assert.equal(readFileSync(file, "utf8"), takenOver, `${agent}: the enabled profile keeps its takeover`);
+      assert.equal(result.config.profile.profiles.find((profile) => profile.id === `${agent}-on`).enabled, true);
+    }
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("recovery decides on the profile the loader reads, not the stored entry", async () => {
+  const { recoverGlobalAgentProfile } = await import("@llmr/core/profiles/service.ts");
+  const { loadAppConfig } = await import("@llmr/core/config/config.ts");
+  const { replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  const root = mkdtempSync(path.join(runtimeRoot, "loader-shape-"));
+  const settingsFile = path.join(root, "settings.json");
+  await loadAppConfig();
+  try {
+    await replacePersistedAppConfig({ profile: { profiles: [{ agent: "unknown-agent" }, { agent: "Claude Code", applyScope: "system", settingsFile }] } });
+    const derived = await recoverGlobalAgentProfile("profile-2");
+    assert.equal(derived.status.ok, true, derived.status.message);
+    assert.equal((await loadAppConfig()).profile.profiles.find((profile) => profile.id === "profile-2").enabled, false, "a derived id and an agent alias reach the stored entry");
+
+    await replacePersistedAppConfig({ profile: { profiles: [{ agent: "claude-code", id: "managed-scope", scope: "managed", settingsFile }] } });
+    await assert.rejects(recoverGlobalAgentProfile("managed-scope"), /system-default Claude Code or Codex profile/);
+    assert.equal((await loadAppConfig()).profile.profiles[0].enabled, true, "an LLMR-only profile is left alone");
+
+    await replacePersistedAppConfig({ profile: { claudeCode: { enabled: true, settingsFile } } });
+    const legacy = await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(legacy.status.ok, true, legacy.status.message);
+    assert.deepEqual((await loadAppConfig()).profile.profiles.map((profile) => [profile.id, profile.enabled]), [["default-claude-code", false]]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a failed runtime refresh after recovery still returns the disabled profile and says to restart", async () => {
+  const { recoverGlobalAgentProfile } = await import("@llmr/core/profiles/service.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  const root = mkdtempSync(path.join(runtimeRoot, "refresh-fails-"));
+  const config = createDefaultAppConfig();
+  config.profile.profiles = [{ agent: "claude-code", enabled: true, id: "refresh-fails", name: "Refresh", scope: "global", settingsFile: path.join(root, "settings.json") }];
+  await replacePersistedAppConfig(config);
+  try {
+    const result = await recoverGlobalAgentProfile("refresh-fails", () => {
+      throw new Error("gateway refresh exploded");
+    });
+    assert.equal(result.config.profile.profiles[0].enabled, false);
+    assert.equal(result.status.ok, false);
+    assert.match(result.status.message, /disabled.*gateway refresh exploded.*Restart LLMR/);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 // Seeded after start: the start-up sync restores any Claude App takeover no profile asks for.
 async function seedClaudeAppTakeover() {
   const { CONFIGDIR } = await import("@llmr/core/config/constants.ts");
