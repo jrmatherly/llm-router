@@ -994,6 +994,9 @@ test("raw trace replay isolates a failing bundle and continues with later bundle
     },
     getConfig: createConfig,
     replayIntervalMs: 10_000,
+    // Which bundle a pass reaches first follows directory order. Under the default 25 ms
+    // budget a slow failure of the first one ends the pass, and the next is 10 s away.
+    replayTimeBudgetMs: 1_000,
     spoolDirectory
   });
   try {
