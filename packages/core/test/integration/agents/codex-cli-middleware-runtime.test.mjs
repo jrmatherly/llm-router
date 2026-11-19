@@ -1722,6 +1722,71 @@ test("Claude App bot worker keeps project and session selection as separate leve
   }
 });
 
+test("Claude App bot sessions read the account from ~/.claude.json while CLAUDE_CONFIG_DIR is unset", (t) => {
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-claude-account-"));
+  const previous = process.env.CLAUDE_CONFIG_DIR;
+  t.after(() => {
+    restoreProcessEnv("CLAUDE_CONFIG_DIR", previous);
+    rmSync(home, { force: true, recursive: true });
+  });
+  delete process.env.CLAUDE_CONFIG_DIR;
+  mkdirSync(path.join(home, ".claude"), { recursive: true });
+  writeFileSync(path.join(home, ".claude.json"), JSON.stringify({ oauthAccount: { accountUuid: "aaaa1111-0000", organizationUuid: "bbbb2222-0000" } }));
+  writeFileSync(path.join(home, ".claude", ".claude.json"), JSON.stringify({ oauthAccount: { accountUuid: "wrong-0000", organizationUuid: "wrong-0000" } }));
+  const runtime = codexCliMiddlewareRuntimeScript();
+  const names = ["nonEmptyEnv", "readJsonFile", "expandHome", "runtimeHomeDir", "uuidPrefix", "stringValue", "defaultClaudeAppLocalAgentParentDir"];
+  const source = names.map((name) => extractRuntimeFunctionSource(runtime, name)).join("\n");
+  const parentDir = Function("path", "fs", "os", `${source}; return defaultClaudeAppLocalAgentParentDir;`)(
+    path,
+    { readFileSync },
+    { homedir: () => home }
+  );
+  assert.equal(parentDir("/sessions"), path.join("/sessions", "aaaa1111", "bbbb2222"));
+});
+
+test("Claude App bot sessions copy their .claude.json from ~/.claude.json while CLAUDE_CONFIG_DIR is unset", (t) => {
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-claude-template-"));
+  const previous = { base: process.env.LLMR_CLAUDE_BASE_CONFIG_DIR, configDir: process.env.CLAUDE_CONFIG_DIR };
+  t.after(() => {
+    restoreProcessEnv("CLAUDE_CONFIG_DIR", previous.configDir);
+    restoreProcessEnv("LLMR_CLAUDE_BASE_CONFIG_DIR", previous.base);
+    rmSync(home, { force: true, recursive: true });
+  });
+  delete process.env.CLAUDE_CONFIG_DIR;
+  process.env.LLMR_CLAUDE_BASE_CONFIG_DIR = path.join(home, ".claude");
+  const stateFile = path.join(home, ".claude.json");
+  const nestedFile = path.join(home, ".claude", ".claude.json");
+  const state = JSON.stringify({ oauthAccount: { accountUuid: "home-state" } });
+  const nested = JSON.stringify({ oauthAccount: { accountUuid: "nested-state" } });
+  const settings = JSON.stringify({ env: { FROM: "claude-dir" } });
+  mkdirSync(path.join(home, ".claude"), { recursive: true });
+  writeFileSync(stateFile, state);
+  writeFileSync(nestedFile, nested);
+  writeFileSync(path.join(home, ".claude", "settings.json"), settings);
+  const runtime = codexCliMiddlewareRuntimeScript();
+  const names = ["nonEmptyEnv", "expandHome", "runtimeHomeDir", "uniqueExistingDirs", "inferBaseClaudeConfigDirFromSession", "claudeConfigSourceDirs", "copyClaudeConfigFile", "copyClaudeConfigTemplate", "ensureClaudeSessionConfig"];
+  const source = names.map((name) => extractRuntimeFunctionSource(runtime, name)).join("\n");
+  const { copyClaudeConfigTemplate, ensureClaudeSessionConfig } = Function("path", "fs", "os", "log", "formatError", `${source}; return { copyClaudeConfigTemplate, ensureClaudeSessionConfig };`)(
+    path,
+    { copyFileSync: (from, to) => writeFileSync(to, readFileSync(from)), existsSync, mkdirSync, writeFileSync },
+    { homedir: () => home },
+    () => {},
+    String
+  );
+
+  const templateSession = path.join(home, "sessions", "from-template");
+  const ensuredSession = path.join(home, "sessions", "ensured");
+  copyClaudeConfigTemplate(templateSession, null);
+  ensureClaudeSessionConfig(ensuredSession);
+
+  for (const session of [templateSession, ensuredSession]) {
+    assert.equal(readFileSync(path.join(session, ".claude.json"), "utf8"), state);
+    assert.equal(readFileSync(path.join(session, "settings.json"), "utf8"), settings);
+  }
+  assert.equal(readFileSync(stateFile, "utf8"), state);
+  assert.equal(readFileSync(nestedFile, "utf8"), nested);
+});
+
 function writeRuntimeScript(dir) {
   const file = path.join(dir, "llmr-codex-cli-middleware.js");
   writeFileSync(file, codexCliMiddlewareRuntimeScript());

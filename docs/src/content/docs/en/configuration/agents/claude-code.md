@@ -46,7 +46,7 @@ Use this page when you want to route Claude Code to a non-Anthropic provider, pi
 | Opus model | Optional model selector | Overrides the Opus tier. |
 | Sonnet model | Optional model selector | Overrides the Sonnet tier. |
 | Haiku model | Optional model selector | Overrides the small/fast tier. |
-| Settings file | Path | Used for the system-default Claude Code profile. |
+| Settings file | Path | Used for the system-default Claude Code profile. On the default `~/.claude/settings.json`, Claude Code runs on its own home, so the profile shares Claude Code's state, login and auto-compact windows with a plain `claude`. |
 | LLMR managed compact | Toggle | Lets LLMR manage context compaction for this profile. |
 | Environment variables | Key/value rows | Optional advanced overrides; leave empty for normal use. |
 | Bot | Select a saved Bot (App entry only) | Binds an AgentClaw IM bot to the Claude App entry. CLI does not forward bot messages. |

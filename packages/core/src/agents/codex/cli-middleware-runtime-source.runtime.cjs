@@ -6508,7 +6508,7 @@ function createClaudeAppLocalAgentSession(text, projectDirectory) {
 }
 
 function defaultClaudeAppLocalAgentParentDir(root) {
-  const config = readJsonFile(path.join(nonEmptyEnv("CLAUDE_CONFIG_DIR") || path.join(os.homedir(), ".claude"), ".claude.json")) || {};
+  const config = readJsonFile(path.join(nonEmptyEnv("CLAUDE_CONFIG_DIR") || os.homedir(), ".claude.json")) || {};
   const account = config.oauthAccount && typeof config.oauthAccount === "object" ? config.oauthAccount : {};
   const accountPrefix = uuidPrefix(stringValue(account.accountUuid)) || "llmr";
   const orgPrefix = uuidPrefix(stringValue(account.organizationUuid)) || "00000000";
@@ -6540,8 +6540,8 @@ function claudeAppSessionTemplateFields(value) {
 function copyClaudeConfigTemplate(claudeConfigDir, template) {
   const targetDir = expandHome(claudeConfigDir);
   fs.mkdirSync(targetDir, { recursive: true });
-  copyClaudeConfigFile(targetDir, ".claude.json", claudeConfigSourceDirs(template, "session-first"));
-  copyClaudeConfigFile(targetDir, "settings.json", claudeConfigSourceDirs(template, "base-first"));
+  copyClaudeConfigFile(targetDir, ".claude.json", claudeConfigSourceDirs(template, "session-first", ".claude.json"));
+  copyClaudeConfigFile(targetDir, "settings.json", claudeConfigSourceDirs(template, "base-first", "settings.json"));
   if (!fs.existsSync(path.join(targetDir, ".claude.json"))) {
     fs.writeFileSync(path.join(targetDir, ".claude.json"), JSON.stringify({ firstStartTime: new Date().toISOString() }, null, 2));
   }
@@ -6552,9 +6552,9 @@ function ensureClaudeSessionConfig(claudeConfigDir) {
   if (!targetDir) return;
   try {
     fs.mkdirSync(targetDir, { recursive: true });
-    copyClaudeConfigFile(targetDir, "settings.json", claudeConfigSourceDirs(null, "base-first"));
+    copyClaudeConfigFile(targetDir, "settings.json", claudeConfigSourceDirs(null, "base-first", "settings.json"));
     if (!fs.existsSync(path.join(targetDir, ".claude.json"))) {
-      copyClaudeConfigFile(targetDir, ".claude.json", claudeConfigSourceDirs(null, "base-first"));
+      copyClaudeConfigFile(targetDir, ".claude.json", claudeConfigSourceDirs(null, "base-first", ".claude.json"));
     }
   } catch (error) {
     log("claude_session_config_ensure_failed", { claudeConfigDir: targetDir, error: formatError(error) });
@@ -6579,8 +6579,10 @@ function copyClaudeConfigFile(targetDir, filename, sourceDirs) {
   return false;
 }
 
-function claudeConfigSourceDirs(template, order) {
+function claudeConfigSourceDirs(template, order, filename) {
   const base = [
+    // Claude Code keeps .claude.json in CLAUDE_CONFIG_DIR, or in the home dir itself while it is unset.
+    filename === ".claude.json" ? nonEmptyEnv("CLAUDE_CONFIG_DIR") || os.homedir() : "",
     nonEmptyEnv("LLMR_CLAUDE_BASE_CONFIG_DIR"),
     nonEmptyEnv("CLAUDE_CONFIG_DIR"),
     path.join(os.homedir(), ".claude")

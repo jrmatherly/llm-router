@@ -1,10 +1,46 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import {
   CLAUDE_CODE_MCP_CONFIG_ENV,
+  claudeCodeHomeEnv,
+  claudeCodeHomeUnsetEnvKeys,
   claudeCodeMcpConfigEnv
 } from "@llmr/core/agents/claude-code/environment.ts";
 import { toolHubClaudeCodeMcpConfig } from "@llmr/core/mcp/toolhub-config.ts";
+
+test("a Claude Code profile on the default ~/.claude exports no CLAUDE_CONFIG_DIR; any other home exports its own", () => {
+  const defaultSettings = path.join(os.homedir(), ".claude", "settings.json");
+  const customSettings = path.join(os.homedir(), ".claude-work", "settings.json");
+  const generatedSettings = path.join(os.homedir(), "llmr", "profiles", "claude-main", "claude", "settings.json");
+  const global = { agent: "claude-code", scope: "global" };
+  const generated = { agent: "claude-code", scope: "llmr" };
+
+  assert.deepEqual(claudeCodeHomeEnv(global, defaultSettings), {});
+  assert.deepEqual(claudeCodeHomeUnsetEnvKeys(global, defaultSettings), ["CLAUDE_CONFIG_DIR"]);
+  assert.deepEqual(claudeCodeHomeEnv({ ...global, claudeCodeSharedHome: true }, defaultSettings), {});
+  assert.deepEqual(claudeCodeHomeEnv(global, customSettings), { CLAUDE_CONFIG_DIR: path.dirname(customSettings) });
+  assert.deepEqual(claudeCodeHomeEnv(generated, generatedSettings), { CLAUDE_CONFIG_DIR: path.dirname(generatedSettings) });
+  assert.deepEqual(claudeCodeHomeEnv({ ...generated, claudeCodeSharedHome: true }, generatedSettings), { LLMR_CLAUDE_CODE_SETTINGS_FILE: generatedSettings });
+});
+
+test("a default-home profile keeps CLAUDE_CONFIG_DIR when LLMR's home is not the child's HOME", (t) => {
+  const previous = process.env.LLMR_INTERNAL_HOME_DIR;
+  const runtimeHome = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-home-"));
+  t.after(() => {
+    process.env.LLMR_INTERNAL_HOME_DIR = previous;
+    rmSync(runtimeHome, { force: true, recursive: true });
+  });
+  process.env.LLMR_INTERNAL_HOME_DIR = runtimeHome;
+  const global = { agent: "claude-code", scope: "global" };
+  const settingsFile = path.join(runtimeHome, ".claude", "settings.json");
+
+  assert.deepEqual(claudeCodeHomeEnv(global, settingsFile), { CLAUDE_CONFIG_DIR: path.join(runtimeHome, ".claude") });
+  assert.deepEqual(claudeCodeHomeUnsetEnvKeys(global, settingsFile), []);
+  assert.deepEqual(claudeCodeHomeEnv(global, path.join(os.homedir(), ".claude", "settings.json")), { CLAUDE_CONFIG_DIR: path.join(os.homedir(), ".claude") });
+});
 
 test("exports Claude Code MCP config path env for wrapper injection", () => {
   assert.deepEqual(claudeCodeMcpConfigEnv("/tmp/toolhub-mcp.json"), {
