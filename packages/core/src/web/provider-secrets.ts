@@ -15,9 +15,9 @@ const secretsByReference = new Map<string, string>();
 
 function isSecretField(key: string, parentKey?: string): boolean {
   const normalized = key.toLowerCase().replace(/[-_]/g, "");
-  return ["authorization", "proxyauthorization", "cookie", "setcookie"].includes(normalized) ||
-    /(?:token|secret|password|apikey|privatekey|accesskey|secretkey|subscriptionkey|authkey)$/.test(normalized) ||
-    /^[A-Z0-9]+(?:_[A-Z0-9]+)*_(?:KEY|PAT)$/.test(key) ||
+  return ["cookie", "setcookie", "heliconeauth"].includes(normalized) ||
+    /(?:authorization|token|secret|password|passphrase|apikeys?|privatekey|accesskey|secretkey|subscriptionkey|functionskey|authkey)$/.test(normalized) ||
+    /^[A-Z0-9]+(?:_[A-Z0-9]+)*_(?:KEYS?|PAT)(?:_\d+)?$/.test(key) ||
     (key === "key" && parentKey === "query");
 }
 

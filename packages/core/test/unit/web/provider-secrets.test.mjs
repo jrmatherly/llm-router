@@ -136,7 +136,7 @@ test("#1835 a reference this server never issued is refused", () => {
 });
 
 test("credential names the first rule missed are hidden", () => {
-  const names = ["Ocp-Apim-Subscription-Key", "privateKey", "private_key", "access_key", "secretAccessKey", "AWS_SECRET_ACCESS_KEY", "sessionToken", "authToken", "bearerToken", "botToken", "appSecret", "secret_key", "x-auth-key", "OPENAI_KEY", "GITHUB_PAT"];
+  const names = ["Ocp-Apim-Subscription-Key", "privateKey", "private_key", "access_key", "secretAccessKey", "AWS_SECRET_ACCESS_KEY", "sessionToken", "authToken", "bearerToken", "botToken", "appSecret", "secret_key", "x-auth-key", "OPENAI_KEY", "GITHUB_PAT", "cf-aig-authorization", "Helicone-Auth", "x-functions-key", "ANTHROPIC_API_KEYS", "OPENAI_API_KEY_1", "SSH_PASSPHRASE"];
   const config = { Providers: [{ extraHeaders: Object.fromEntries(names.map((name) => [name, `value-of-${name}`])), id: "p", name: "P" }] };
   const masked = redactWebConfig(config);
   for (const name of names) {
@@ -152,6 +152,7 @@ test("a key in a URL query object is a credential, a key elsewhere is not", () =
   assert.equal(masked.providerPlugins[0].key, "llmr-local-agent-opencode");
   assert.equal(masked.providerPlugins[0].auth.query.alt, "sse");
   assert.deepEqual(restoreWebConfigSecrets(masked), config);
+  assert.throws(() => restoreWebConfigSecrets({ providerPlugins: [{ key: masked.providerPlugins[0].auth.query.key, name: "plugin" }] }), /only be kept in a credential field/);
 });
 
 test("names that only look like credentials stay readable", () => {
