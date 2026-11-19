@@ -296,6 +296,6 @@ Local compatible services such as llama.cpp also group token usage under the con
 
 ## Deferred tool loading
 
-Some clients mark tool declarations with `defer_loading`. A provider that has no deferred tool loader may reject every request that carries it. For such a provider, turn off **Deferred tool loading** under **Advanced settings**. This saves `supportsDeferredTools: false`.
+Some clients mark tool declarations with `defer_loading`. A provider that has no deferred tool loader may reject every request that carries it. For such a provider, turn off **Deferred tool loading** under **Advanced settings**. This saves `supportsDeferredTools: false`. In a hand-edited config the value must be the JSON boolean `false`; LLMR ignores a string such as `"false"` and logs a warning.
 
-LLMR then removes `defer_loading` from the tool declarations it sends to that provider, including tools nested in a namespace. Tool names, descriptions and input schemas are sent unchanged. The setting is on by default, and it applies only to requests sent to this provider: when a request falls back to another provider, that provider receives the original declarations.
+LLMR then removes `defer_loading` from every tool declaration it sends to that provider: from the tool itself, from its `function` object, from tools nested in a namespace, and from the `default_config` and `configs` of a toolset. Tool names, descriptions and input schemas are sent unchanged. The setting is on by default, and it applies only to requests sent to this provider: when a request falls back to another provider, that provider receives the original declarations.

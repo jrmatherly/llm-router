@@ -1462,11 +1462,11 @@ function parseProviders(value: unknown): GatewayProviderConfig[] | undefined {
         credentials: parseProviderCredentials(item.credentials ?? item.keys ?? item.apiKeys),
         extraBody: item.extraBody,
         extraHeaders: item.extraHeaders ?? item.extra_headers ?? item.headers,
-        forwardThinkingParameters: readBoolean(item.forwardThinkingParameters ?? item.forward_thinking_parameters),
+        forwardThinkingParameters: readProviderBoolean(name, "forwardThinkingParameters", item.forwardThinkingParameters ?? item.forward_thinking_parameters),
         icon: readString(item.icon),
         id: readString(item.id),
         enabled: item.enabled === false ? false : undefined,
-        autoFetchModels: readBoolean(item.autoFetchModels ?? item.auto_fetch_models ?? item.autoRefreshModels ?? item.auto_refresh_models),
+        autoFetchModels: readProviderBoolean(name, "autoFetchModels", item.autoFetchModels ?? item.auto_fetch_models ?? item.autoRefreshModels ?? item.auto_refresh_models),
         autoFetchKnownModels: parseStringArray(item.autoFetchKnownModels ?? item.auto_fetch_known_models ?? item.autoRefreshKnownModels ?? item.auto_refresh_known_models),
         modelDescriptions,
         modelDisplayNames,
@@ -1475,7 +1475,7 @@ function parseProviders(value: unknown): GatewayProviderConfig[] | undefined {
         name,
         provider: readString(item.provider),
         protocolDetectionMode: parseEnumValue(item.protocolDetectionMode, ["auto", "manual"], undefined),
-        supportsDeferredTools: readBoolean(item.supportsDeferredTools ?? item.supports_deferred_tools),
+        supportsDeferredTools: readProviderBoolean(name, "supportsDeferredTools", item.supportsDeferredTools ?? item.supports_deferred_tools),
         transformer: item.transformer,
         type: readString(item.type)
       };
@@ -3392,6 +3392,13 @@ function parseProfileRouting(value: unknown, _agent: ProfileConfig["agent"]): Pr
 
 function readBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
+}
+
+function readProviderBoolean(provider: string, field: string, value: unknown): boolean | undefined {
+  if (value !== undefined && value !== null && typeof value !== "boolean") {
+    console.warn(`[config] Provider ${provider}: ${field} must be true or false; ignoring ${JSON.stringify(value)}.`);
+  }
+  return readBoolean(value);
 }
 
 function readProfileAppPath(item: Record<string, unknown>, agent: ProfileConfig["agent"]): string | undefined {

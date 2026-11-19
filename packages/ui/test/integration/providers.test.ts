@@ -32,6 +32,7 @@ import {
   providerAccountConnectorsTextWithNewApiSubscriptionTemplate,
   providerAccountConnectorsTextWithNewApiUserBalanceTemplate,
   providerAutoFetchKnownModelsForSave,
+  providerSupportsDeferredToolsForSave,
   parseProviderAccountDraft,
   parseProviderExtraJsonDraft,
   providerBrowserConnectorFromDraft,
@@ -447,6 +448,8 @@ test("#1912 deferred tool loading defaults on and stays editable after saving fa
   assert.equal(createProviderDraftFromProvider({ models: ["tool-model"], name: "Modern" }).supportsDeferredTools, true);
   const draft = createProviderDraftFromProvider({ models: ["tool-model"], name: "Legacy", supportsDeferredTools: false });
   assert.equal(draft.supportsDeferredTools, false);
+  assert.equal(providerSupportsDeferredToolsForSave(draft), false);
+  assert.equal(providerSupportsDeferredToolsForSave({ supportsDeferredTools: true }), undefined, "on is saved as an absent field");
   const html = renderToStaticMarkup(React.createElement(AddProviderForm, {
     activeStep: "verify", draft, error: "", mode: "edit", onChange: () => undefined,
     probeLoading: false, providers: []

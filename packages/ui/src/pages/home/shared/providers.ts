@@ -2301,6 +2301,10 @@ export function providerModelDisplayTitle(provider: GatewayProviderConfig, model
   return providerModelDisplayName(provider, model);
 }
 
+export function providerSupportsDeferredToolsForSave(draft: Pick<AddProviderDraft, "supportsDeferredTools">): false | undefined {
+  return draft.supportsDeferredTools ? undefined : false;
+}
+
 export function providerAutoFetchKnownModelsForSave({
   currentModels,
   detectedModels = [],
