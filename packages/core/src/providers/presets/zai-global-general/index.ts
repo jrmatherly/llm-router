@@ -1,6 +1,7 @@
 import type { ProviderAccountConfig, ProviderAccountMappingConfig } from "@llmr/core/contracts/app";
 import type { ProviderPreset } from "@llmr/core/providers/presets/types";
 
+// Windows are selected by `unit` alone (3 = 5h, 6 = weekly) because the limit `type` was renamed from TOKENS_LIMIT to CREDIT_LIMIT.
 const zaiQuotaMapping: ProviderAccountMappingConfig = {
   meters: [
     {
@@ -8,10 +9,10 @@ const zaiQuotaMapping: ProviderAccountMappingConfig = {
       kind: "quota",
       label: "5h quota",
       limit: 100,
-      remaining: "100 - $.data.limits[?(@.type==\"TOKENS_LIMIT\" && @.unit==3)].percentage",
-      resetAt: "$.data.limits[?(@.type==\"TOKENS_LIMIT\" && @.unit==3)].nextResetTime",
+      remaining: "100 - $.data.limits[?(@.unit==3)].percentage",
+      resetAt: "$.data.limits[?(@.unit==3)].nextResetTime",
       unit: "%",
-      used: "$.data.limits[?(@.type==\"TOKENS_LIMIT\" && @.unit==3)].percentage",
+      used: "$.data.limits[?(@.unit==3)].percentage",
       window: "5h"
     },
     {
@@ -19,13 +20,14 @@ const zaiQuotaMapping: ProviderAccountMappingConfig = {
       kind: "quota",
       label: "Weekly quota",
       limit: 100,
-      remaining: "100 - $.data.limits[?(@.type==\"TOKENS_LIMIT\" && @.unit==6)].percentage",
-      resetAt: "$.data.limits[?(@.type==\"TOKENS_LIMIT\" && @.unit==6)].nextResetTime",
+      remaining: "100 - $.data.limits[?(@.unit==6)].percentage",
+      resetAt: "$.data.limits[?(@.unit==6)].nextResetTime",
       unit: "%",
-      used: "$.data.limits[?(@.type==\"TOKENS_LIMIT\" && @.unit==6)].percentage",
+      used: "$.data.limits[?(@.unit==6)].percentage",
       window: "weekly"
     }
-  ]
+  ],
+  message: "$.msg"
 };
 
 const zaiGlobalProviderAccountConfig: ProviderAccountConfig = {

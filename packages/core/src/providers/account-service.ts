@@ -1601,7 +1601,8 @@ function mappedMeterFromPayload(
   const limit = readMappedNumber(config.limit, payload);
   const remaining = readMappedNumber(config.remaining, payload);
   const used = readMappedNumber(config.used, payload);
-  if (limit === undefined && remaining === undefined && used === undefined) {
+  // A literal limit is not a reading, so a meter with nothing else read from the payload would show as full.
+  if (remaining === undefined && used === undefined && readMappedNumber(mappedPayloadPaths(config.limit), payload) === undefined) {
     return undefined;
   }
   return normalizeMeter({
@@ -1615,6 +1616,10 @@ function mappedMeterFromPayload(
     used,
     window: config.window
   }, source);
+}
+
+function mappedPayloadPaths(value: ProviderAccountMappedNumberExpression | undefined): string[] {
+  return (Array.isArray(value) ? value : [value]).filter((term): term is string => typeof term === "string" && term.includes("$"));
 }
 
 function mappedMetersFromPayload(

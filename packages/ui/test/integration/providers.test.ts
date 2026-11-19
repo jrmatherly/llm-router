@@ -1511,6 +1511,30 @@ test("provider deep link config saves anthropic probe prefix as capability URL",
   ]);
 });
 
+test("provider deep link for a preset URL saves the standard account so main resolves the preset connector at runtime", () => {
+  setProviderPresets(providerPresets);
+  const payload = {
+    apiKey: "zai-key",
+    baseUrl: "https://api.z.ai/api/anthropic",
+    models: ["glm-5"],
+    name: "Z.ai Import",
+    protocol: "anthropic_messages" as const
+  };
+
+  const provider = createProviderConfigFromDeepLink(payload, [], undefined);
+  assert.deepEqual(provider.account, { connectors: [{ auth: "provider-api-key", type: "standard" }], enabled: true });
+
+  const draftAccount = parseProviderAccountDraft(buildProviderImportDraft(payload, []));
+  assert.notEqual(typeof draftAccount, "string");
+  assert.deepEqual(typeof draftAccount === "string" ? undefined : draftAccount?.connectors, [{ auth: "provider-api-key", type: "standard" }]);
+
+  const ownAccount = {
+    connectors: [{ auth: "provider-api-key" as const, endpoint: "https://api.z.ai/custom/usage", mapping: { meters: [] }, type: "http-json" as const }],
+    enabled: true
+  };
+  assert.deepEqual(createProviderConfigFromDeepLink({ ...payload, account: ownAccount }, [], undefined).account, ownAccount);
+});
+
 test("provider display icon prefers custom icons and falls back to preset icons", () => {
   setProviderPresets([geminiProviderPreset, minimaxChinaProviderPreset, xiaomiMimoProviderPreset]);
 
