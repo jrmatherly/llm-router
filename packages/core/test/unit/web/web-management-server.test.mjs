@@ -119,6 +119,31 @@ test("a non-loopback bind needs an explicit opt-in", async (t) => {
   await optedIn.close();
 });
 
+test("every response forbids framing and sends no referrer", async () => {
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const authToken = "test-web-auth-token-0123456789abcdef";
+  const runtime = await startWebManagementServer({ authToken, host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    const endpoint = new URL("/api/llmr/rpc", runtime.url);
+    const body = JSON.stringify({ args: [], method: "getAppInfo" });
+    const responses = {
+      "GET /": await fetch(runtime.url),
+      "RPC 200": await fetch(endpoint, { body, headers: { "content-type": "application/json", "x-llmr-web-auth": authToken }, method: "POST" }),
+      "RPC 401": await fetch(endpoint, { body, headers: { "content-type": "application/json" }, method: "POST" }),
+      "OPTIONS 204": await fetch(endpoint, { headers: { origin: "http://127.0.0.1:8000" }, method: "OPTIONS" })
+    };
+    assert.deepEqual(Object.values(responses).map((response) => response.status).slice(1), [200, 401, 204]);
+    for (const [name, response] of Object.entries(responses)) {
+      assert.match(response.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/, name);
+      assert.equal(response.headers.get("referrer-policy"), "no-referrer", name);
+      assert.equal(response.headers.get("x-frame-options"), "DENY", name);
+      assert.equal(response.headers.get("x-content-type-options"), "nosniff", name);
+    }
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("resolveRendererRoot falls back to the app resources when the CLI runs from a copy outside the app", async () => {
   const { resolveRendererRoot } = await import("@llmr/core/web/management-server.ts");
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-renderer-root-test-"));
