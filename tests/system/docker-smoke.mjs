@@ -155,7 +155,16 @@ try {
   };
   const savedConfig = await rpc(baseUrl, "saveConfig", token, [openRouterConfig, { applyProfile: false }]);
   assert.equal(savedConfig.status, 200);
-  assert.equal((await savedConfig.json()).ok, true);
+  const savedPayload = await savedConfig.json();
+  assert.equal(savedPayload.ok, true);
+  assert.ok(!JSON.stringify(savedPayload.value).includes("test-openrouter-key"));
+  const redactedConfig = await (await rpc(baseUrl, "getConfig", token)).json();
+  assert.ok(!JSON.stringify(redactedConfig.value).includes("test-openrouter-key"));
+  const roundTrip = await rpc(baseUrl, "saveConfig", token, [redactedConfig.value, { applyProfile: false }]);
+  assert.equal(roundTrip.status, 200);
+  assert.equal((await roundTrip.json()).ok, true);
+  const storedKey = run("docker", ["exec", containerId, "node", "-e", "const Database=require('better-sqlite3');const db=new Database('/data/.llm-router/config.sqlite',{readonly:true});const config=JSON.parse(db.prepare(\"select value_json from app_config where key = 'default'\").get().value_json);process.stdout.write(config.Providers[0].apiKey || config.Providers[0].api_key || '');db.close();"]);
+  assert.equal(storedKey, "test-openrouter-key", "a masked config round trip must keep the saved provider key");
 
   const startedGateway = await rpc(baseUrl, "startGateway", token);
   assert.equal(startedGateway.status, 200);
