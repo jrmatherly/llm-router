@@ -96,6 +96,7 @@ export type AddProviderDraft = {
   protocol: GatewayProviderProtocol;
   selectedModels: string[];
   selectedProtocols: GatewayProviderProtocol[];
+  supportsDeferredTools: boolean;
   usageBalanceLimitPath: string;
   usageBalanceRemainingPath: string;
   usageBalanceUnit: string;

@@ -25,7 +25,7 @@ import {
   PluginInstallCandidate, PluginMarketplaceEntry, PluginSettingsDraft, presetCapabilitiesFromDraft,
   probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptions, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
   profileOpenCommandFallback, profileOpenSurfaces, ProviderAccountSnapshot, providerApiKeySafetyIssue, ProviderConnectivityCheckReport, ProviderDeepLinkPayload, ProviderDeepLinkRequest, providerIdentitySafetyIssue, providerProbeCandidates,
-  providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, ProxyNetworkSnapshot,
+  providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, providerSupportsDeferredToolsForSave, ProxyNetworkSnapshot,
   ProxyStatus, RequestLogListFilter, RequestLogPage,
   ResolvedTheme, resolvePluginInstallPlan, resolveProviderDeepLinkCatalogModels, removeLocalAgentProviderPluginsForProvider, RouterRule, routingRuleFromDraft, SettingsPageId,
   setProviderPresets, splitLines, appErrorMessage, TrayBalanceProgressConfig, TrayWidgetConfig,
@@ -1882,6 +1882,7 @@ function App() {
       models,
       name: providerName,
       protocolDetectionMode: providerDraft.protocolDetectionMode === "manual" ? "manual" : undefined,
+      supportsDeferredTools: providerSupportsDeferredToolsForSave(providerDraft),
       type: protocol
     };
     const importedProviderPlugins = materializeProviderPluginTemplates(providerDraft.providerPlugins, providerName, protocol, providerId);

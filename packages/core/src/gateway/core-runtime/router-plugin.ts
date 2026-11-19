@@ -45,6 +45,7 @@ import {
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response";
 import { hoistAnthropicToolResultImages } from "@llmr/core/gateway/features/anthropic-tool-result-images";
+import { withoutDeferredToolFlags } from "@llmr/core/gateway/features/deferred-tools";
 import { coreGatewayAuthHeader, rawTraceSyncHeader, rawTraceSyncPath, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
 import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
 import {
@@ -151,6 +152,7 @@ type GatewayRequestTransformInput = {
 
 type UpstreamRequest = {
   body?: unknown;
+  bodyEncoding?: string;
   headers?: Record<string, string>;
   method?: string;
   url?: string;
@@ -381,6 +383,19 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
         const apiKey = await resolveApiKey(config, requestInput.request?.headers);
         setApiKeyAuthContextHeaders(requestInput.request?.headers, apiKey);
         return undefined;
+      }
+    }],
+    // A provider hook edits one attempt's upstream body, so a fallback provider still gets the original flags.
+    providerHooks: [{
+      key: "llmr-deferred-tool-compatibility",
+      transformRequest: (hookInput: { targetProviderConfig?: { name?: string }; upstreamRequest: UpstreamRequest }) => {
+        const upstream = hookInput.upstreamRequest;
+        const provider = modelRegistryForConfig(config).findProvider(hookInput.targetProviderConfig?.name);
+        if (provider?.supportsDeferredTools !== false || (upstream.bodyEncoding ?? "json") !== "json" || !isRecord(upstream.body)) {
+          return { ok: true, value: upstream };
+        }
+        const body = withoutDeferredToolFlags(upstream.body);
+        return { ok: true, value: body === upstream.body ? upstream : { ...upstream, body } };
       }
     }],
     requestTransforms: [{

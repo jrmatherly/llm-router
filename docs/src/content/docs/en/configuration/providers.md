@@ -293,3 +293,9 @@ Fill **New API user ID** before clicking the button only if your New API version
 ### Local model usage and pricing
 
 Local compatible services such as llama.cpp also group token usage under the configured provider name. Runtime protocol and credential aliases are normalized to that name. A GGUF filename alias usually has no cloud catalog price. To calculate custom costs, set `inputUsdPerMillionTokens` and `outputUsdPerMillionTokens` in the model metadata's `pricing` object; both are USD per million tokens. Set both to `0` to explicitly record no API charge. Without a configured price, LLMR does not infer hardware, electricity, or hosting costs. Existing historical records are not automatically rewritten.
+
+## Deferred tool loading
+
+Some clients mark tool declarations with `defer_loading`. A provider that has no deferred tool loader may reject every request that carries it. For such a provider, turn off **Deferred tool loading** under **Advanced settings**. This saves `supportsDeferredTools: false`. In a hand-edited config the value must be the JSON boolean `false`; LLMR ignores a string such as `"false"` and logs a warning.
+
+LLMR then removes `defer_loading` from every tool declaration it sends to that provider: from the tool itself, from its `function` object, from tools nested in a namespace, and from the `default_config` and `configs` of a toolset. Tool names, descriptions and input schemas are sent unchanged. The setting is on by default, and it applies only to requests sent to this provider: when a request falls back to another provider, that provider receives the original declarations.

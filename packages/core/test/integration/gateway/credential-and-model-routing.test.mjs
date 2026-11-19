@@ -42,6 +42,11 @@ async function run(providerFactory, probes, { configure, mcpServers, publicGatew
     const token = req.headers.authorization?.replace(/^Bearer /, "") ?? req.headers["x-api-key"];
     const key = token === "good" || token === "bad" ? token : "other";
     calls.push({ path: req.url, body, key, beta: req.headers["anthropic-beta"] });
+    if (failure === "reject-deferred" && body.tools?.some(tool => tool.defer_loading !== undefined)) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: { message: "defer_loading requires a deferred loader" } }));
+      return;
+    }
     if (key === "bad" || failure === "all-fail") {
       if (failure === "network") { req.socket.destroy(); return; }
       if (failure === "timeout") return; // Never respond; the core's upstreamTimeoutMs must end this attempt.
@@ -279,6 +284,30 @@ test("#1923 a pin on the first provider does not follow the request to a fallbac
     [probe("pinned-primary::openai_chat_completions::cred:key-2/pool-model", 401)], {
       configure: config => { config.Router.fallback = { mode: "model-chain", models: ["unpinned-fallback/pool-model"], retryCount: 0 }; }
     });
+});
+
+test("#1912 a provider without deferred tool loading gets the tools without the flag, and a fallback keeps it", { timeout: 30000 }, async () => {
+  const deferredTool = { name: "t", defer_loading: true, input_schema: { type: "object" } };
+  const plainTool = { name: "t", input_schema: { type: "object" } };
+  const legacy = (url, apiKey) => ({ id: "legacy", name: "Legacy", type: "anthropic_messages", api_base_url: `${url}/native`, api_key: apiKey,
+    models: ["tool-model"], supportsDeferredTools: false });
+  for (const { coreOnly, publicGatewayMode, via } of paths) {
+    const rejected = { ...probe("legacy/tool-model", "reject-deferred", "/v1/messages"), coreOnly, keys: ["good"], status: 200 };
+    rejected.body.tools = [deferredTool];
+    rejected.assertResponse = (_text, attempts) => assert.deepEqual(attempts.map(attempt => attempt.body.tools), [[plainTool]], via);
+    await run(url => [legacy(url, "good")], [rejected], { publicGatewayMode });
+  }
+
+  const fallback = probe("legacy/tool-model", 401, "/v1/messages");
+  fallback.body.tools = [deferredTool];
+  fallback.assertResponse = (_text, attempts) => {
+    assert.deepEqual(attempts.slice(0, -1).map(attempt => attempt.body.tools), attempts.slice(0, -1).map(() => [plainTool]));
+    assert.deepEqual(attempts.at(-1).body.tools, [deferredTool]);
+  };
+  await run(url => [legacy(url, "bad"),
+    { id: "modern", name: "Modern", type: "anthropic_messages", api_base_url: `${url}/native`, api_key: "good", models: ["tool-model"] }], [fallback], {
+    configure: config => { config.Router.fallback = { mode: "model-chain", models: ["modern/tool-model"], retryCount: 0 }; }
+  });
 });
 
 const paths = [

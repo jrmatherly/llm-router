@@ -185,6 +185,7 @@ export type GatewayProviderConfig = {
   name: string;
   provider?: string;
   protocolDetectionMode?: "auto" | "manual";
+  supportsDeferredTools?: boolean;
   transformer?: unknown;
   type?: GatewayProviderProtocol | string;
 };

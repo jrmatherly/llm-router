@@ -32,6 +32,7 @@ import {
   providerAccountConnectorsTextWithNewApiSubscriptionTemplate,
   providerAccountConnectorsTextWithNewApiUserBalanceTemplate,
   providerAutoFetchKnownModelsForSave,
+  providerSupportsDeferredToolsForSave,
   parseProviderAccountDraft,
   parseProviderExtraJsonDraft,
   providerBrowserConnectorFromDraft,
@@ -440,6 +441,21 @@ test("AddProviderForm renders auto model refresh in advanced settings", () => {
   assert.match(html, /data-ui-tooltip-trigger/);
   assert.match(html, /aria-label="Poll the provider models endpoint every 10 minutes and add newly discovered models automatically\."/);
   assert.match(html, /aria-checked="true"/);
+});
+
+test("#1912 deferred tool loading defaults on and stays editable after saving false", () => {
+  assert.equal(createProviderDraft([]).supportsDeferredTools, true);
+  assert.equal(createProviderDraftFromProvider({ models: ["tool-model"], name: "Modern" }).supportsDeferredTools, true);
+  const draft = createProviderDraftFromProvider({ models: ["tool-model"], name: "Legacy", supportsDeferredTools: false });
+  assert.equal(draft.supportsDeferredTools, false);
+  assert.equal(providerSupportsDeferredToolsForSave(draft), false);
+  assert.equal(providerSupportsDeferredToolsForSave({ supportsDeferredTools: true }), undefined, "on is saved as an absent field");
+  const html = renderToStaticMarkup(React.createElement(AddProviderForm, {
+    activeStep: "verify", draft, error: "", mode: "edit", onChange: () => undefined,
+    probeLoading: false, providers: []
+  }));
+  assert.match(html, /aria-label="Deferred tool loading"[^>]*aria-checked="false"|aria-checked="false"[^>]*aria-label="Deferred tool loading"/);
+  assert.match(html, /tool definitions are sent without defer_loading/);
 });
 
 test("edit provider dialog keeps advanced settings collapsed by default", () => {
