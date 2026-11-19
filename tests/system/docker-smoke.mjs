@@ -69,7 +69,7 @@ try {
   const page = await fetch(`${baseUrl}${redirectLocation}`, { redirect: "manual" });
   assert.equal(page.status, 200);
   assert.ok(page.headers.get("content-security-policy")?.includes("frame-ancestors 'none'"), "the page must not be framed");
-  assert.ok(page.headers.get("referrer-policy")?.includes("no-referrer"));
+  assert.ok(page.headers.get("referrer-policy")?.includes("same-origin"));
   assert.ok(page.headers.get("x-frame-options")?.includes("DENY"));
   const pageHtml = await page.text();
   assert.match(pageHtml, /LLM Router/);

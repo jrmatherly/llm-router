@@ -138,7 +138,7 @@ const minWebAuthTokenLength = 32;
 // frame-ancestors is ignored in the page's <meta> policy, so it has to be a header.
 const webSecurityHeaders = {
   "content-security-policy": "frame-ancestors 'none'",
-  "referrer-policy": "no-referrer",
+  "referrer-policy": "same-origin",
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY"
 };

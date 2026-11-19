@@ -19,7 +19,7 @@ test("#1835 generated Nginx config forwards browser sources without forging them
   assert.equal(rendered.status, 0, rendered.stderr);
   assert.match(rendered.stdout, /proxy_set_header Origin \$http_origin;/);
   assert.match(rendered.stdout, /proxy_set_header Referer \$http_referer;/);
-  for (const header of [`Content-Security-Policy "frame-ancestors 'none'"`, `Referrer-Policy "no-referrer"`, `X-Frame-Options "DENY"`]) {
+  for (const header of [`Content-Security-Policy "frame-ancestors 'none'"`, `Referrer-Policy "same-origin"`, `X-Frame-Options "DENY"`]) {
     assert.ok(rendered.stdout.includes(`add_header ${header} always;`), header);
   }
 });

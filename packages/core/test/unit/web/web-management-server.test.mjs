@@ -135,7 +135,7 @@ test("every response forbids framing and sends no referrer", async () => {
     assert.deepEqual(Object.values(responses).map((response) => response.status).slice(1), [200, 401, 204]);
     for (const [name, response] of Object.entries(responses)) {
       assert.match(response.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/, name);
-      assert.equal(response.headers.get("referrer-policy"), "no-referrer", name);
+      assert.equal(response.headers.get("referrer-policy"), "same-origin", name);
       assert.equal(response.headers.get("x-frame-options"), "DENY", name);
       assert.equal(response.headers.get("x-content-type-options"), "nosniff", name);
     }
