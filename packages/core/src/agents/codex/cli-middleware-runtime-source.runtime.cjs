@@ -21,6 +21,8 @@ const CONFIG_DIR = resolveConfigDir();
 const LOG_PATH = process.env.LLMR_CODEX_CLI_MIDDLEWARE_LOG || "";
 const CLAUDE_CODE_MCP_CONFIG_ENV = "LLMR_CLAUDE_CODE_MCP_CONFIG";
 const CLAUDE_CODE_SETTINGS_FILE_ENV = "LLMR_CLAUDE_CODE_SETTINGS_FILE";
+// Normalized catalog item -> raw catalog entry, so the merge can tell declared capabilities from defaults.
+const MODEL_CATALOG_CAPABILITIES = new WeakMap();
 const ACCOUNT_REMOTE_PLUGIN_MARKETPLACE_KINDS = new Set([
   "created-by-me-remote",
   "shared-with-me",
@@ -4457,7 +4459,7 @@ function codexModelListItemFromCatalog(item, selectedModel) {
   const contextWindow = positiveInteger(item.contextWindow ?? item.context_window) ?? base.contextWindow;
   const inputModalities = readArrayValue(item.inputModalities) ?? readArrayValue(item.input_modalities) ?? base.inputModalities;
   const supportedReasoningEfforts = readArrayValue(item.supportedReasoningEfforts) ?? readArrayValue(item.supported_reasoning_efforts) ?? base.supportedReasoningEfforts;
-  return {
+  const output = {
     ...base,
     ...item,
     id: stringValue(item.id) || id,
@@ -4484,11 +4486,33 @@ function codexModelListItemFromCatalog(item, selectedModel) {
     defaultServiceTier,
     default_service_tier: defaultServiceTier
   };
+  MODEL_CATALOG_CAPABILITIES.set(output, item);
+  return output;
 }
 
 function mergeCatalogModelListItem(existingItem, catalogItem) {
   if (!catalogItem || typeof catalogItem !== "object") return existingItem;
   const output = { ...catalogItem, ...existingItem };
+  const declared = MODEL_CATALOG_CAPABILITIES.get(catalogItem) ?? {};
+  for (const [camelKey, snakeKey] of [
+    ["inputModalities", "input_modalities"],
+    ["supportedReasoningEfforts", "supported_reasoning_efforts"]
+  ]) {
+    // The catalog declares efforts as options under the camel key and as strings under the snake key.
+    const camelValue = readArrayValue(declared[camelKey]);
+    const snakeValue = readArrayValue(declared[snakeKey]);
+    if (camelValue || snakeValue) {
+      output[camelKey] = camelValue ?? snakeValue;
+      output[snakeKey] = snakeValue ?? camelValue;
+    }
+  }
+  if (declared.defaultReasoningEffort !== undefined || declared.default_reasoning_effort !== undefined) {
+    const declaredValue = declared.defaultReasoningEffort !== undefined
+      ? declared.defaultReasoningEffort
+      : declared.default_reasoning_effort;
+    output.defaultReasoningEffort = declaredValue;
+    output.default_reasoning_effort = declaredValue;
+  }
   for (const [camelKey, snakeKey] of [
     ["additionalSpeedTiers", "additional_speed_tiers"],
     ["serviceTiers", "service_tiers"]
