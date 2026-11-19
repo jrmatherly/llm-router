@@ -19,7 +19,6 @@ if [ -z "${LLMR_WEB_AUTH_TOKEN:-}" ]; then
 elif [ "${#LLMR_WEB_AUTH_TOKEN}" -lt 32 ]; then
   echo "Warning: LLMR_WEB_AUTH_TOKEN is shorter than 32 characters; use a long random value before exposing the port beyond loopback." >&2
 fi
-LLMR_WEB_AUTH_TOKEN_QUERY="$(node -e "process.stdout.write(encodeURIComponent(process.argv[1] || ''))" "${LLMR_WEB_AUTH_TOKEN}")"
 
 export HOME="${LLMR_DATA_DIR}"
 export LLMR_DATA_DIR
@@ -31,7 +30,6 @@ export LLMR_PUBLIC_BASE_URL
 export LLMR_PUBLIC_HOST
 export LLMR_PUBLIC_PORT
 export LLMR_WEB_AUTH_TOKEN
-export LLMR_WEB_AUTH_TOKEN_QUERY
 export LLMR_WEB_HOST
 export LLMR_WEB_PORT
 
@@ -151,10 +149,10 @@ server {
 
   client_max_body_size 8m;
 
-  # The management token is never put in a response. A token the user supplies
-  # in the query string is passed on to the page, which reads it from the URL.
+  # The management token is never put in a response or a query string. The
+  # browser keeps a URL fragment across this redirect without sending it.
   location = / {
-    return 302 /pages/home/index.html\$is_args\$args;
+    return 302 /pages/home/index.html;
   }
 
   location = /pages/home/index.html {
@@ -203,7 +201,7 @@ EOF
 
 # A generated token is only reachable through the container logs.
 if [ "${LLMR_WEB_AUTH_TOKEN_GENERATED}" = "1" ]; then
-  echo "LLMR management UI: ${LLMR_PUBLIC_BASE_URL%/}/?llmr_web_token=${LLMR_WEB_AUTH_TOKEN_QUERY}"
+  echo "LLMR management UI: ${LLMR_PUBLIC_BASE_URL%/}/#llmr_web_token=$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" -- "${LLMR_WEB_AUTH_TOKEN}")"
 fi
 
 if [ "$#" -gt 0 ]; then

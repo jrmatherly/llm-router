@@ -7,7 +7,7 @@ import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./c
 // host's locale instead of hard-coding dual-language selectors.
 test.use({ locale: "en-US" });
 
-const cliWebAuthToken = "playwright-provider-edit-token";
+const cliWebAuthToken = "playwright-provider-edit-token-0123456789";
 
 // A provider shaped like a hand-written config entry: the dialog renders none of
 // extraBody, extraHeaders or transformer, so saving must not drop them.
@@ -39,7 +39,7 @@ test.afterAll(async () => {
 test("keeps config-only provider fields when the provider is saved from the dialog", async ({ page }) => {
   const current = requireRuntime();
 
-  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await waitForBridge(page);
   await page.evaluate(async (provider) => {
     const config = await window.llmr!.getConfig();
@@ -78,7 +78,7 @@ test("keeps config-only provider fields when the provider is saved from the dial
 test("edits extraBody from the advanced settings section", async ({ page }) => {
   const current = requireRuntime();
 
-  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await waitForBridge(page);
   await page.evaluate(async (provider) => {
     const config = await window.llmr!.getConfig();
@@ -112,7 +112,7 @@ test("edits extraBody from the advanced settings section", async ({ page }) => {
 test("refuses to save a malformed advanced JSON box", async ({ page }) => {
   const current = requireRuntime();
 
-  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await waitForBridge(page);
   await page.evaluate(async (provider) => {
     const config = await window.llmr!.getConfig();
@@ -266,7 +266,7 @@ test("resumes an unrelated pending autosave after the provider form save fails",
 
 async function prepareProviderRegressionPage(page: Page, withReferences = false): Promise<void> {
   const current = requireRuntime();
-  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await waitForBridge(page);
   await page.evaluate(async ({ provider, withReferences }) => {
     const config = await window.llmr!.getConfig();

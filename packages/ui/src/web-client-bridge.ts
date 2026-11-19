@@ -2,20 +2,24 @@ type LlmrApi = NonNullable<Window["llmr"]>;
 
 const rpcEndpoint = "/api/llmr/rpc";
 const webAuthHeader = "x-llmr-web-auth";
-const webAuthQueryParam = "llmr_web_token";
+const webAuthFragmentParam = "llmr_web_token";
 const webAuthStorageKey = "llmr.webAuthToken";
-const webAuthToken = readWebAuthToken();
+let webAuthToken = readWebAuthToken();
+let webAuthPrompt: Promise<never> | undefined;
 
 type RpcResponse =
   | { ok: true; value: unknown }
   | { error: { message: string; stack?: string }; ok: false };
 
 async function rpc(method: string, args: unknown[] = []): Promise<unknown> {
+  if (!webAuthToken) {
+    return requestWebAuthToken("Enter the LLMR management token.");
+  }
   const response = await fetch(rpcEndpoint, {
     body: JSON.stringify({ args: trimTrailingUndefined(args), method }),
     headers: {
       "content-type": "application/json",
-      ...(webAuthToken ? { [webAuthHeader]: webAuthToken } : {})
+      [webAuthHeader]: webAuthToken
     },
     method: "POST"
   });
@@ -24,6 +28,12 @@ async function rpc(method: string, args: unknown[] = []): Promise<unknown> {
     payload = await response.json() as RpcResponse;
   } catch {
     payload = undefined;
+  }
+  // A 401 without LLMR's body came from a proxy in front, and the token may be fine.
+  if (response.status === 401 && payload?.ok === false) {
+    webAuthToken = "";
+    removeStoredWebAuthToken();
+    return requestWebAuthToken("That token was not accepted. Enter the LLMR management token.");
   }
   if (!response.ok || !payload?.ok) {
     const message = payload && !payload.ok
@@ -55,17 +65,61 @@ function readWebAuthToken(): string {
 
 function readWebAuthTokenFromUrl(): string {
   try {
-    const url = new URL(window.location.href);
-    const token = url.searchParams.get(webAuthQueryParam)?.trim() ?? "";
-    if (!token) {
+    const prefix = `${webAuthFragmentParam}=`;
+    const params = window.location.hash.slice(1).split("&");
+    const raw = params.find((param) => param.startsWith(prefix));
+    if (raw === undefined) {
       return "";
     }
-    url.searchParams.delete(webAuthQueryParam);
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-    return token;
+    const rest = params.filter((param) => param !== raw).join("&");
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}${rest ? `#${rest}` : ""}`);
+    // Not URLSearchParams: it would turn a "+" in the token into a space.
+    return decodeURIComponent(raw.slice(prefix.length)).trim();
   } catch {
     return "";
   }
+}
+
+function requestWebAuthToken(message: string): Promise<never> {
+  webAuthPrompt ??= new Promise<never>(() => {
+    const dialog = document.createElement("dialog");
+    const form = document.createElement("form");
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    const button = document.createElement("button");
+    label.textContent = message;
+    // Inline styles: the app stylesheet resets dialog, input and button to bare text.
+    dialog.style.cssText = "margin:auto;padding:24px;border:1px solid GrayText;border-radius:8px;background:Canvas;color:CanvasText;font:14px system-ui,sans-serif";
+    label.style.display = "block";
+    input.type = "password";
+    input.autocomplete = "off";
+    input.required = true;
+    input.style.cssText = "display:block;box-sizing:border-box;margin:12px 0;padding:6px 8px;width:320px;max-width:100%;border:1px solid GrayText;border-radius:4px;background:Field;color:FieldText";
+    button.type = "submit";
+    button.textContent = "Sign in";
+    button.style.cssText = "padding:6px 14px;border:1px solid GrayText;border-radius:4px;background:ButtonFace;color:ButtonText;cursor:pointer";
+    label.append(input);
+    form.append(label, button);
+    dialog.append(form);
+    dialog.addEventListener("cancel", (event) => event.preventDefault());
+    // A second Escape closes a dialog whatever "cancel" says.
+    dialog.addEventListener("close", () => dialog.showModal());
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const token = input.value.trim();
+      if (!token) {
+        return;
+      }
+      if (!writeStoredWebAuthToken(token)) {
+        // Storage is blocked: carry the token over the reload in the fragment.
+        window.location.hash = `${webAuthFragmentParam}=${encodeURIComponent(token)}`;
+      }
+      window.location.reload();
+    });
+    document.body.append(dialog);
+    dialog.showModal();
+  });
+  return webAuthPrompt;
 }
 
 function readStoredWebAuthToken(): string {
@@ -76,11 +130,20 @@ function readStoredWebAuthToken(): string {
   }
 }
 
-function writeStoredWebAuthToken(token: string): void {
+function writeStoredWebAuthToken(token: string): boolean {
   try {
     window.sessionStorage.setItem(webAuthStorageKey, token);
+    return true;
   } catch {
-    // The in-memory token still works for the current page load if storage is unavailable.
+    return false;
+  }
+}
+
+function removeStoredWebAuthToken(): void {
+  try {
+    window.sessionStorage.removeItem(webAuthStorageKey);
+  } catch {
+    // Nothing stored means nothing to remove.
   }
 }
 

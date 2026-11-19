@@ -21,7 +21,7 @@ Nginx routes:
 
 | Public route | Purpose |
 | --- | --- |
-| `/` and `/pages/home/index.html` | Browser management UI. `/` redirects to the page and keeps a `llmr_web_token` query parameter if the request has one. The token is never added by Nginx. |
+| `/` and `/pages/home/index.html` | Browser management UI. `/` redirects to the page. Nginx never adds the token and no URL query carries it. |
 | `/api/llmr/rpc` | Authenticated management RPC. |
 | `/health` | Gateway health, not container/UI health. It can return `502` until a provider and model are configured and the gateway starts. |
 | `/v1/*`, `/v1beta/*`, `/messages`, `/chat/completions`, `/responses`, `/interactions`, `/mcp/*` | Supported model and MCP gateway requests. |
@@ -35,7 +35,7 @@ npm run docker:compose:up
 docker compose logs -f llmr
 ```
 
-Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/?llmr_web_token=<token>`. It is only printed when the token was generated; if you set `LLMR_WEB_AUTH_TOKEN` yourself, add it to the URL. On a new volume, the management UI is immediately available. Add a provider and model, create an LLMR client key under **API Keys**, and start the gateway from **Server**.
+Open the management URL that the entrypoint prints in the container log, `http://127.0.0.1:3458/#llmr_web_token=<token>`. It is only printed when the token was generated; if you set `LLMR_WEB_AUTH_TOKEN` yourself, open `http://127.0.0.1:3458/` and type the token when the page asks. The token is kept per browser tab, so a new tab asks again. On a new volume, the management UI is immediately available. Add a provider and model, create an LLMR client key under **API Keys**, and start the gateway from **Server**.
 
 When `LLMR_DOCKER_GATEWAY_SOURCE_DIR` points at a local ai-gateway checkout, the npm Compose script packs it before building so the image uses that plugin-capable ai-gateway runtime. Without one, the image uses the package-lock dependency. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
@@ -86,10 +86,10 @@ Each release publishes a public `linux/amd64` and `linux/arm64` image to GHCR, t
 
 There are two independent authentication layers:
 
-1. `LLMR_WEB_AUTH_TOKEN` protects management RPC. You open the management page with it in the URL (`/?llmr_web_token=<token>`), and the browser sends it to RPC as `x-llmr-web-auth`. Nginx never sends it to a client.
+1. `LLMR_WEB_AUTH_TOKEN` protects management RPC. A generated token is offered once in the URL fragment (`/#llmr_web_token=<token>`), which is not sent to any server; a token you set is typed into the page. The browser sends it to RPC as `x-llmr-web-auth`. Nginx never sends it to a client.
 2. LLMR client API keys created in the **API Keys** page protect model gateway requests. These are separate from upstream provider credentials.
 
-If `LLMR_WEB_AUTH_TOKEN` is unset, the entrypoint generates a new random token on each container start and prints the management URL once to the container log. Opening `/` without a token loads the page, but every management call fails with `401` until the token is supplied. The page keeps the token for the browser tab session. A stable token is recommended for persistent or remote deployments.
+If `LLMR_WEB_AUTH_TOKEN` is unset, the entrypoint generates a new random token on each container start and prints the management URL once to the container log. Opening `/` without a token loads the page, which asks for the token before it shows anything. The page keeps the token for the browser tab session. A stable token is recommended for persistent or remote deployments.
 
 Avoid putting the token directly in shell history. Create a protected environment file instead:
 
@@ -104,7 +104,7 @@ Security guidance:
 
 - Bind the published port to `127.0.0.1` unless LAN or remote access is intentional.
 - Never expose the management UI over untrusted networks without TLS, a firewall/private network, and a fixed strong management token.
-- Treat tokenized management URLs as secrets; URLs may be recorded in browser history, proxy logs, screenshots, and support tickets.
+- Treat a management URL that carries `#llmr_web_token=` as a secret. The fragment stays out of server and proxy logs, but it may be recorded in browser history, screenshots, and support tickets.
 - The web management API hides upstream provider credentials from the browser. In the configuration it returns, the secret fields of providers, provider plugins and Tool Hub are replaced by references that begin `[LLMR REDACTED]`: API keys, pool keys, authentication and cookie headers, and fields named like `*_TOKEN`, `*_SECRET`, `*_PASSWORD` or `*_API_KEY`. A credential read while importing a local agent or a provider manifest is hidden the same way. Leave a reference in place to keep the saved credential, type a new value to replace it, or clear the field to remove it. References stop working when the container restarts, so reload the page afterwards. This guards against a credential being read off the screen or out of a captured response. It does not limit a holder of the management token, who can change where a saved key is sent and can run commands on the host through a saved MCP server, so treat that token as full access. Not covered: LLMR client keys, the upstream proxy password, MCP servers under Agent Profiles, and bot credentials are returned as saved.
 - Create scoped LLMR client API keys before exposing gateway routes. Do not reuse upstream provider credentials as client keys.
 - Protect `/data` and its backups because they contain configuration, provider credentials, LLMR client keys, request data, and generated certificates.
@@ -241,7 +241,7 @@ docker compose config
 
 ### `/` returns `302`
 
-This is expected. Nginx redirects the root URL to the management page and keeps the query string, so a `llmr_web_token` you supply survives. It does not add a token.
+This is expected. Nginx redirects the root URL to the management page. It does not add a token, and the browser carries a `#llmr_web_token=` fragment across the redirect by itself.
 
 ### `/health` returns `502`
 
@@ -249,7 +249,7 @@ This is expected. Nginx redirects the root URL to the management page and keeps 
 
 ### The UI returns `401` after a token change
 
-Open `/?llmr_web_token=<token>` again with the current token (for a generated token, read it from `docker compose logs llmr`). Close stale tabs and avoid bookmarks that contain an old `llmr_web_token`.
+Type the current token when the page asks for it (for a generated token, open the `/#llmr_web_token=<token>` URL from `docker compose logs llmr`). Close stale tabs and avoid bookmarks that contain an old token.
 
 ### Clients still use the old port or hostname
 

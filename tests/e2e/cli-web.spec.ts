@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./cli-web-runtime";
 
-const cliWebAuthToken = "playwright-cli-web-auth-token";
+const cliWebAuthToken = "playwright-cli-web-auth-token-0123456789";
 
 let runtime: CliWebRuntime | undefined;
 
@@ -21,14 +21,64 @@ test.afterAll(async () => {
   runtime = undefined;
 });
 
-test("uses LLMR_WEB_AUTH_TOKEN for CLI web authentication", async () => {
+test("the page asks for the token when the URL carries none", async ({ page }) => {
   const current = requireRuntime();
-  expect(current.token).toBe(cliWebAuthToken);
+  await page.goto(`${current.baseUrl}/`);
+  await page.getByRole("dialog").locator("input[type=password]").fill(current.token);
+  await page.getByRole("dialog").getByRole("button").click();
+  await expect(page.locator("body")).toContainText(/Configure provider|Connect agent|Let's start/, { timeout: 15_000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("a wrong token is asked for again", async ({ page }) => {
+  const current = requireRuntime();
+  await page.goto(`${current.baseUrl}/#llmr_web_token=wrong-token-0123456789-0123456789`);
+  await expect(page.getByRole("dialog")).toContainText("not accepted");
+  expect(new URL(page.url()).hash, "the token leaves the address bar").toBe("");
+});
+
+test("the prompt signs in when the browser refuses to store the token", async ({ page }) => {
+  const current = requireRuntime();
+  await page.addInitScript(() => {
+    Storage.prototype.setItem = () => {
+      throw new DOMException("blocked", "SecurityError");
+    };
+  });
+  await page.goto(`${current.baseUrl}/`);
+  await page.getByRole("dialog").locator("input[type=password]").fill(current.token);
+  await page.getByRole("dialog").getByRole("button").click();
+  await expect(page.locator("body")).toContainText(/Configure provider|Connect agent|Let's start/, { timeout: 15_000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("a 401 that is not LLMR's own keeps the token", async ({ page }) => {
+  const current = requireRuntime();
+  await page.route("**/api/llmr/rpc", (route) => route.fulfill({ body: "<html>sign in</html>", contentType: "text/html", status: 401 }));
+  const refused = page.waitForResponse((response) => response.url().endsWith("/api/llmr/rpc") && response.status() === 401);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
+  await refused;
+  expect(await page.evaluate(() => window.sessionStorage.getItem("llmr.webAuthToken"))).toBe(current.token);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("a fragment that cannot be decoded still leaves the address bar", async ({ page }) => {
+  const current = requireRuntime();
+  await page.goto(`${current.baseUrl}/#llmr_web_token=%E0`);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  expect(new URL(page.url()).hash).toBe("");
+});
+
+test("the prompt comes back when it is closed", async ({ page }) => {
+  const current = requireRuntime();
+  await page.goto(`${current.baseUrl}/`);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.evaluate(() => document.querySelector("dialog")?.close());
+  await expect(page.getByRole("dialog")).toBeVisible();
 });
 
 test("serves the management UI in a browser", async ({ page }) => {
   const current = requireRuntime();
-  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await expect(page).toHaveTitle("LLM Router");
   await expect(page.locator("#root")).toBeAttached();
   await expect(page.locator("body")).toContainText(/Configure provider|Connect agent|Let's start/, { timeout: 15_000 });

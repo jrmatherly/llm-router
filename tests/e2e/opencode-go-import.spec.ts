@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./cli-web-runtime";
 
-const cliWebAuthToken = "playwright-opencode-go-token";
+const cliWebAuthToken = "playwright-opencode-go-token-0123456789";
 
 const lockedDetail = "OpenCode Go credential was found, but no OpenCode Go models were detected. Connect OpenCode Go in OpenCode to refresh its model cache, then rescan.";
 const availableDetail = "OpenCode Go login detected. Click Import to add it as a gateway provider.";
@@ -92,7 +92,7 @@ async function mockCandidates(page: Page): Promise<void> {
 }
 
 async function openAddProviderDialog(page: Page, current: CliWebRuntime, providersLabel: string, addLabel: string): Promise<void> {
-  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await waitForBridge(page);
   await page.evaluate(async () => {
     await window.llmr?.setOnboardingFinished?.();

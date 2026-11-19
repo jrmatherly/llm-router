@@ -5,7 +5,7 @@ import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./c
 
 test.use({ locale: "en-US", ...(process.env.LLMR_TEST_BROWSER_CHANNEL ? { channel: process.env.LLMR_TEST_BROWSER_CHANNEL } : {}) });
 let runtime: CliWebRuntime;
-test.beforeAll(async () => { runtime = await startCliWebServer("issue-audit-test-token"); });
+test.beforeAll(async () => { runtime = await startCliWebServer("issue-audit-test-token-0123456789abcdef"); });
 test.afterAll(async () => { if (runtime) await disposeCliWebRuntime(runtime); });
 
 test("#1825/#1826/#1819 stale RPC saves preserve providers, rules, fallback and detected endpoints", async ({ request }) => {
@@ -33,7 +33,7 @@ test("#1825/#1826/#1819 stale RPC saves preserve providers, rules, fallback and 
 });
 
 test("#1800 seven heatmap rows fit their clipping ancestor across wide layouts and resizes", async ({ page }) => {
-  await page.goto(`${runtime.baseUrl}/?llmr_web_token=${runtime.token}`);
+  await page.goto(`${runtime.baseUrl}/#llmr_web_token=${encodeURIComponent(runtime.token)}`);
   await expect.poll(() => page.evaluate(() => Boolean(window.llmr?.getConfig))).toBe(true);
   await page.evaluate(async () => {
     const config = await window.llmr!.getConfig();
@@ -64,14 +64,14 @@ test("#1800 tray renderer shows all seven activity rows at narrow and wide width
   const html = readFileSync(path.resolve("packages/ui/dist/renderer/pages/tray/index.html"), "utf8")
     .replace('<script type="module"', '<script src="/assets/web-client-bridge.js"></script><script type="module"');
   await page.route("**/pages/tray/index.html*", route => route.fulfill({ contentType: "text/html", body: html }));
-  await page.goto(`${runtime.baseUrl}/?llmr_web_token=${runtime.token}`);
+  await page.goto(`${runtime.baseUrl}/#llmr_web_token=${encodeURIComponent(runtime.token)}`);
   await expect.poll(() => page.evaluate(() => Boolean(window.llmr?.getConfig))).toBe(true);
   await page.evaluate(async () => {
     const config = await window.llmr!.getConfig();
     config.trayWidgets = [{ id: "activity", type: "activity" }];
     await window.llmr!.saveConfig(config, { applyProfile: false });
   });
-  await page.goto(`${runtime.baseUrl}/pages/tray/index.html?llmr_web_token=${runtime.token}`);
+  await page.goto(`${runtime.baseUrl}/pages/tray/index.html#llmr_web_token=${encodeURIComponent(runtime.token)}`);
   const grid = page.getByRole("img", { name: "Activity Tokens" });
   for (const width of [360, 680, 420]) {
     await page.setViewportSize({ width, height: 600 });

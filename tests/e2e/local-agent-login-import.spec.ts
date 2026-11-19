@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./cli-web-runtime";
 
-const cliWebAuthToken = "playwright-local-agent-login-token";
+const cliWebAuthToken = "playwright-local-agent-login-token-0123456789";
 const localAgentProviderApiKey = "llmr-local-agent-login";
 const providerName = "Claude Code API";
 
@@ -67,7 +67,7 @@ test.use({ locale: "en-US" });
 test("onboarding drops the credentials step after a local agent import", async ({ page }) => {
   const current = requireRuntime();
   await mockLocalAgentRpc(page);
-  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await waitForBridge(page);
 
   await expect(page.getByText("Add credentials")).toBeVisible();
@@ -86,7 +86,7 @@ test("onboarding discovers the imported login's models through its plugins", asy
   const current = requireRuntime();
   const probeRequests: Array<{ apiKey?: string; providerPlugins?: unknown[] }> = [];
   await mockLocalAgentRpc(page, probeRequests);
-  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await waitForBridge(page);
 
   await page.getByRole("button", { name: "Import", exact: true }).click();
@@ -105,7 +105,7 @@ test("onboarding discovers the imported login's models through its plugins", asy
 test("the add provider dialog goes from the import to Pick models and back", async ({ page }) => {
   const current = requireRuntime();
   await mockLocalAgentRpc(page);
-  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await waitForBridge(page);
   await page.evaluate(async () => {
     await window.llmr?.setOnboardingFinished?.();
@@ -132,7 +132,7 @@ test("the add provider dialog goes from the import to Pick models and back", asy
 
 test("editing an imported provider shows the local login notice instead of the marker", async ({ page }) => {
   const current = requireRuntime();
-  await page.goto(`${current.baseUrl}/?llmr_web_token=${current.token}`);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await waitForBridge(page);
   await page.evaluate(async ({ apiKey, name }) => {
     const config = await window.llmr!.getConfig();

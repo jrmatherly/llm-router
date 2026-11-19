@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { installSocketTypeOfServiceCompat } from "@llmr/core/platform/socket-compat";
-import { startWebManagementServer } from "@llmr/core/web/management-server";
+import { describeWebManagementUrl, startWebManagementServer } from "@llmr/core/web/management-server";
 
 installSocketTypeOfServiceCompat();
 
@@ -25,7 +25,7 @@ export async function runCoreServer(args = process.argv.slice(2)): Promise<void>
     port: options.port,
     startGateway: options.startGateway
   });
-  process.stdout.write(`LLMR core server is running at ${runtime.url}\n`);
+  process.stdout.write(`LLMR core server is running at ${describeWebManagementUrl(runtime)}\n`);
 
   let closing = false;
   const shutdown = (signal: NodeJS.Signals) => {

@@ -13,8 +13,9 @@ import { installSocketTypeOfServiceCompat } from "@llmr/core/platform/socket-com
 import { applyProfileConfig, applyProfileRuntimeConfig } from "@llmr/core/profiles/service";
 import { ensureProfileGateway, ProfileGatewayUnavailableError } from "@llmr/core/profiles/launch-service";
 import { buildProfileLaunchPlan, defaultProfileOpenSurface, findProfileForOpen, profileLaunchSpawnCommand, resolveProfileOpenSurface, shouldAutoStartProfileGateway } from "@llmr/core/profiles/launch-core";
-import { openSystemExternal, startWebManagementServer } from "@llmr/core/web/management-server";
+import { describeWebManagementUrl, openSystemExternal, startWebManagementServer, webManagementOpenUrl } from "@llmr/core/web/management-server";
 import { assertAvailableGatewayModels, type AppConfig, type GatewayStatus, type ProfileConfig, type ProfileOpenResult, type ProfileOpenSurface } from "@llmr/core/contracts/app";
+import { readServiceState as readServiceStateFile, serviceAuthToken, type ServiceState, writeServiceState as writeServiceStateFile } from "@llmr/cli/service-state";
 import { staleDesktopRuntimeWarning } from "@llmr/cli/stale-runtime";
 
 installSocketTypeOfServiceCompat();
@@ -51,16 +52,6 @@ type VersionCliOptions = {
 
 type CliOptions = ProfileCliOptions | StopCliOptions | VersionCliOptions | WebCliOptions;
 
-type ServiceState = {
-  host?: string;
-  pid: number;
-  profileManaged: boolean;
-  serviceToken?: string;
-  startedAt: string;
-  startGateway: boolean;
-  url: string;
-};
-
 const serviceStateFileName = "service.json";
 const serviceStartLockFileName = "service-start.lock";
 const profileGatewayLeaseDirName = "profile-gateway-leases";
@@ -71,7 +62,6 @@ const serviceStopTimeoutMs = 10_000;
 const profileGatewayIdleGraceMs = 2_000;
 const profileGatewayLeasePollMs = 500;
 const webAuthHeader = "x-llmr-web-auth";
-const webAuthQueryParam = "llmr_web_token";
 const defaultCliCommandName = "llmr";
 const prepareProfileOnlyEnv = "LLMR_CLI_PREPARE_PROFILE_ONLY";
 
@@ -442,9 +432,9 @@ async function startService(options: WebCliOptions): Promise<ServiceState> {
     if (!state) {
       throw new Error(`LLMR service did not report ready within ${serviceStartTimeoutMs}ms.`);
     }
-    process.stdout.write(`LLMR service started at ${state.url} (pid ${state.pid}).\n`);
+    process.stdout.write(`LLMR service started at ${describeServiceUrl(state)} (pid ${state.pid}).\n`);
     if (options.open) {
-      await openManagementUrl(state.url);
+      await openManagementUrl(state);
     }
     return state;
   } finally {
@@ -467,9 +457,9 @@ async function reuseRunningService(current: ServiceState, options: WebCliOptions
   if (state !== current) {
     writeServiceState(state);
   }
-  process.stdout.write(`LLMR service is already running at ${state.url} (pid ${state.pid}).\n`);
+  process.stdout.write(`LLMR service is already running at ${describeServiceUrl(state)} (pid ${state.pid}).\n`);
   if (options.open) {
-    await openManagementUrl(state.url);
+    await openManagementUrl(state);
   }
   return state;
 }
@@ -481,13 +471,21 @@ async function openManagementUi(options: WebCliOptions): Promise<void> {
   });
 }
 
-async function openManagementUrl(url: string): Promise<void> {
+function serviceOpenUrl(state: ServiceState): string {
+  return state.tokenGenerated ? webManagementOpenUrl(state.url, state.authToken) : state.url;
+}
+
+function describeServiceUrl(state: ServiceState): string {
+  return describeWebManagementUrl({ openUrl: serviceOpenUrl(state), tokenGenerated: state.tokenGenerated, url: state.url });
+}
+
+async function openManagementUrl(state: ServiceState): Promise<void> {
   try {
-    await openSystemExternal(url);
-    process.stdout.write(`Opened LLMR management UI at ${url}\n`);
+    await openSystemExternal(serviceOpenUrl(state));
+    process.stdout.write(`Opened LLMR management UI at ${describeServiceUrl(state)}\n`);
   } catch (error) {
     process.stderr.write(`Failed to open browser: ${formatError(error)}\n`);
-    process.stdout.write(`LLMR management UI is available at ${url}\n`);
+    process.stdout.write(`LLMR management UI is available at ${describeServiceUrl(state)}\n`);
   }
 }
 
@@ -512,16 +510,18 @@ async function runWebServer(options: WebCliOptions): Promise<void> {
   if (options.daemonChild) {
     const serviceToken = process.env[serviceInstanceTokenEnv]?.trim() || undefined;
     writeServiceState({
-      host: options.host,
+      authToken: runtime.authToken,
+      ...(options.host ? { host: options.host } : {}),
       pid: process.pid,
       profileManaged: options.profileManaged,
       ...(serviceToken ? { serviceToken } : {}),
       startedAt: new Date().toISOString(),
       startGateway: options.startGateway,
+      tokenGenerated: runtime.tokenGenerated,
       url: runtime.url
     });
   }
-  process.stdout.write(`LLMR web management is running at ${runtime.url}\n`);
+  process.stdout.write(`LLMR web management is running at ${describeWebManagementUrl(runtime)}\n`);
 
   let closing = false;
   let profileLeaseMonitor: NodeJS.Timeout | undefined;
@@ -721,34 +721,11 @@ function cliCommandName(): string {
 }
 
 function readServiceState(): ServiceState | undefined {
-  const file = serviceStateFile();
-  if (!existsSync(file)) {
-    return undefined;
-  }
-  try {
-    const parsed = JSON.parse(readFileSync(file, "utf8")) as Partial<ServiceState>;
-    const pid = Number(parsed.pid);
-    if (!Number.isInteger(pid) || pid <= 0 || typeof parsed.url !== "string") {
-      return undefined;
-    }
-    return {
-      host: parsed.host,
-      pid,
-      profileManaged: parsed.profileManaged === true,
-      serviceToken: typeof parsed.serviceToken === "string" && parsed.serviceToken.trim() ? parsed.serviceToken.trim() : undefined,
-      startedAt: parsed.startedAt || "",
-      startGateway: parsed.startGateway !== false,
-      url: parsed.url
-    };
-  } catch {
-    return undefined;
-  }
+  return readServiceStateFile(serviceStateFile());
 }
 
 function writeServiceState(state: ServiceState): void {
-  const file = serviceStateFile();
-  mkdirSync(path.dirname(file), { recursive: true });
-  writeFileSync(file, `${JSON.stringify(state, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  writeServiceStateFile(state, serviceStateFile());
 }
 
 function clearServiceState(pid?: number): void {
@@ -978,7 +955,7 @@ async function waitForServiceUnavailable(state: ServiceState, timeoutMs: number)
 
 async function callServiceRpc<T>(state: ServiceState, method: string, args: unknown[] = [], timeoutMs = serviceRpcTimeoutMs): Promise<T> {
   const endpoint = serviceRpcEndpoint(state.url);
-  const authToken = serviceAuthToken(state.url);
+  const authToken = serviceAuthToken(state);
   if (!endpoint || !authToken) {
     throw new Error("LLMR service state does not include a usable management URL.");
   }
@@ -1011,14 +988,6 @@ function serviceRpcEndpoint(url: string): string | undefined {
     return `${parsed.origin}/api/llmr/rpc`;
   } catch {
     return undefined;
-  }
-}
-
-function serviceAuthToken(url: string): string {
-  try {
-    return new URL(url).searchParams.get(webAuthQueryParam)?.trim() ?? "";
-  } catch {
-    return "";
   }
 }
 
