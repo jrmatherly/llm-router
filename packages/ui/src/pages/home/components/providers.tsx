@@ -1993,7 +1993,7 @@ export function AddProviderForm({
   providerPlugins?: unknown[];
   providers: GatewayProviderConfig[];
 }) {
-  const [advancedOpen, setAdvancedOpen] = useState(() => Boolean(draft.autoFetchModels));
+  const [advancedOpen, setAdvancedOpen] = useState(() => draft.autoFetchModels || !draft.supportsDeferredTools);
   const [iconDetecting, setIconDetecting] = useState(false);
   const [autoDetectInfoPosition, setAutoDetectInfoPosition] = useState<{ left: number; top: number }>();
   const [protocolProbeDetails, setProtocolProbeDetails] = useState<ProviderProtocolProbeDetailsState>();
@@ -2466,6 +2466,26 @@ export function AddProviderForm({
                         aria-label="Auto detect protocols"
                         checked={!manualProtocolDetection}
                         onCheckedChange={updateAutoProtocolDetection}
+                      />
+                    </div>
+                    <div className="sm:col-span-2 flex min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 text-[12px] font-semibold">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="min-w-0 truncate">Deferred tool loading</span>
+                        <Tooltip
+                          aria-label="Turn off for providers that reject defer_loading. When off, tool definitions are sent without defer_loading."
+                          className="h-5 w-5 items-center justify-center rounded-full text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                          content="Turn off for providers that reject defer_loading. When off, tool definitions are sent without defer_loading."
+                          contentClassName="w-[260px] max-w-[calc(100vw-64px)] whitespace-normal px-2.5 py-2 text-left font-medium leading-4"
+                          side="right"
+                          tabIndex={0}
+                        >
+                          <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                        </Tooltip>
+                      </span>
+                      <Switch
+                        aria-label="Deferred tool loading"
+                        checked={draft.supportsDeferredTools}
+                        onCheckedChange={(supportsDeferredTools) => onChange({ supportsDeferredTools })}
                       />
                     </div>
                     <ProviderUsageSettings

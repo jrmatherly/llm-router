@@ -648,7 +648,8 @@ export function createProviderDraftFromDeepLinkPayload(
     providerPlugins: [],
     protocol,
     selectedModels: [],
-    selectedProtocols: uniqueProviderProtocols(preset?.endpoints.flatMap((item) => item.protocols) ?? [protocol])
+    selectedProtocols: uniqueProviderProtocols(preset?.endpoints.flatMap((item) => item.protocols) ?? [protocol]),
+    supportsDeferredTools: true
   };
 }
 
@@ -758,7 +759,8 @@ export function createProviderDraft(providers: GatewayProviderConfig[]): AddProv
     providerPlugins: [],
     protocol: "openai_chat_completions",
     selectedModels: [],
-    selectedProtocols: []
+    selectedProtocols: [],
+    supportsDeferredTools: true
   };
 }
 
@@ -795,7 +797,8 @@ export function createProviderDraftFromProvider(provider: GatewayProviderConfig)
     providerPlugins: [],
     protocol,
     selectedModels: [],
-    selectedProtocols: selectedProviderProtocolsFromCapabilities(provider.capabilities, protocol)
+    selectedProtocols: selectedProviderProtocolsFromCapabilities(provider.capabilities, protocol),
+    supportsDeferredTools: provider.supportsDeferredTools !== false
   };
 }
 

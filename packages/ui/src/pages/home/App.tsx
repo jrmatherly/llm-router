@@ -1882,6 +1882,7 @@ function App() {
       models,
       name: providerName,
       protocolDetectionMode: providerDraft.protocolDetectionMode === "manual" ? "manual" : undefined,
+      supportsDeferredTools: providerDraft.supportsDeferredTools ? undefined : false,
       type: protocol
     };
     const importedProviderPlugins = materializeProviderPluginTemplates(providerDraft.providerPlugins, providerName, protocol, providerId);

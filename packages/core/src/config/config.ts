@@ -1475,6 +1475,7 @@ function parseProviders(value: unknown): GatewayProviderConfig[] | undefined {
         name,
         provider: readString(item.provider),
         protocolDetectionMode: parseEnumValue(item.protocolDetectionMode, ["auto", "manual"], undefined),
+        supportsDeferredTools: readBoolean(item.supportsDeferredTools ?? item.supports_deferred_tools),
         transformer: item.transformer,
         type: readString(item.type)
       };
