@@ -1,10 +1,27 @@
 import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import {
   CLAUDE_CODE_MCP_CONFIG_ENV,
+  claudeCodeHomeEnv,
   claudeCodeMcpConfigEnv
 } from "@llmr/core/agents/claude-code/environment.ts";
 import { toolHubClaudeCodeMcpConfig } from "@llmr/core/mcp/toolhub-config.ts";
+
+test("a Claude Code profile on the default ~/.claude exports no CLAUDE_CONFIG_DIR; any other home exports its own", () => {
+  const defaultSettings = path.join(os.homedir(), ".claude", "settings.json");
+  const customSettings = path.join(os.homedir(), ".claude-work", "settings.json");
+  const generatedSettings = path.join(os.homedir(), "llmr", "profiles", "claude-main", "claude", "settings.json");
+  const global = { agent: "claude-code", scope: "global" };
+  const generated = { agent: "claude-code", scope: "llmr" };
+
+  assert.deepEqual(claudeCodeHomeEnv(global, defaultSettings), {});
+  assert.deepEqual(claudeCodeHomeEnv({ ...global, claudeCodeSharedHome: true }, defaultSettings), {});
+  assert.deepEqual(claudeCodeHomeEnv(global, customSettings), { CLAUDE_CONFIG_DIR: path.dirname(customSettings) });
+  assert.deepEqual(claudeCodeHomeEnv(generated, generatedSettings), { CLAUDE_CONFIG_DIR: path.dirname(generatedSettings) });
+  assert.deepEqual(claudeCodeHomeEnv({ ...generated, claudeCodeSharedHome: true }, generatedSettings), { LLMR_CLAUDE_CODE_SETTINGS_FILE: generatedSettings });
+});
 
 test("exports Claude Code MCP config path env for wrapper injection", () => {
   assert.deepEqual(claudeCodeMcpConfigEnv("/tmp/toolhub-mcp.json"), {

@@ -8,12 +8,14 @@ import { appConfigLoadError, disableGlobalAgentProfile, loadAppConfig } from "@l
 import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import {
+  CLAUDE_CODE_CONFIG_DIR_ENV,
   CLAUDE_CODE_MANAGED_MODEL_ENV_KEYS,
   CLAUDE_CODE_MCP_CONFIG_ENV,
   STALE_BOT_GATEWAY_ENV_PREFIX,
   STALE_CLAUDE_CODE_SETTINGS_ENV_KEYS,
   type ClaudeCodeModelSelection,
   claudeCodeHomeEnv,
+  claudeCodeHomeUnsetEnvKeys,
   claudeCodeModelEnv,
   claudeCodeMcpConfigEnv,
   clearClaudeCodeManagedModelEnv,
@@ -559,7 +561,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
       remoteSyncApiKeyFile: wifResult.file,
       wifIdentityTokenFile: authMode === "wif" ? wifResult.file : undefined
     }, toolHubMcpConfigResult.file);
-    const autoCompactResult = writeClaudeCodeAutoCompactWindowsCache(config, settingsFile);
+    const autoCompactResult = writeClaudeCodeAutoCompactWindowsCache(config, profile, settingsFile);
     const nextSettings = claudeCodeNextSettings(settings, profileSettings, env, authMode, helperResult?.file);
     const managedEnvKeys = claudeCodeManagedSettingsEnvKeys(profileEnvValues, profileSettingsEnv, mcpConfigEnv, wifEnv);
     for (const key of profileSettingsState.envKeys) {
@@ -1717,7 +1719,7 @@ function claudeCodeWrapperShellScript(
   return [
     "#!/bin/sh",
     ...envExports,
-    ...claudeCodeFirstPartyProviderEnvKeys.map((key) => `unset ${key}`),
+    ...[...claudeCodeFirstPartyProviderEnvKeys, ...claudeCodeHomeUnsetEnvKeys(profile, resolveClaudeCodeSettingsFile(profile))].map((key) => `unset ${key}`),
     ...shellEnvExports(claudeCodeRuntimeEnv(config, profile, auth.wifIdentityTokenFile)),
     ...shellEnvExports(claudeCodeMcpConfigEnv(mcpConfigFile)),
     `: "\${LLMR_PROFILE_SURFACE:=${surface}}"`,
@@ -1753,7 +1755,7 @@ function claudeCodeWrapperCmdScript(
   return [
     "@echo off",
     ...envExports,
-    ...claudeCodeFirstPartyProviderEnvKeys.map((key) => cmdSetLine(key, "")),
+    ...[...claudeCodeFirstPartyProviderEnvKeys, ...claudeCodeHomeUnsetEnvKeys(profile, resolveClaudeCodeSettingsFile(profile))].map((key) => cmdSetLine(key, "")),
     ...cmdEnvExports(claudeCodeRuntimeEnv(config, profile, auth.wifIdentityTokenFile)),
     ...cmdEnvExports(claudeCodeMcpConfigEnv(mcpConfigFile)),
     `if not defined LLMR_PROFILE_SURFACE ${cmdSetLine("LLMR_PROFILE_SURFACE", surface)}`,
@@ -2201,9 +2203,14 @@ function hasClaudeCodeOneMillionContextSuffix(model: string): boolean {
 
 function writeClaudeCodeAutoCompactWindowsCache(
   config: AppConfig,
+  profile: ProfileConfig,
   settingsFile: string
-): { backupFile?: string; changed: boolean; file: string } {
-  const file = path.join(path.dirname(settingsFile), ".claude.json");
+): { backupFile?: string; changed: boolean; file?: string } {
+  const configDir = claudeCodeHomeEnv(profile, settingsFile)[CLAUDE_CODE_CONFIG_DIR_ENV];
+  if (!configDir) {
+    return { changed: false };
+  }
+  const file = path.join(configDir, ".claude.json");
   const current = readClaudeCodeGlobalConfigObject(file);
   const next = {
     ...current,

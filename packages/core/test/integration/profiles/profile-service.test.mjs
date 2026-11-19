@@ -436,6 +436,7 @@ test("a shared-home Claude Code profile never writes ~/.claude and blanks the us
       assert.equal(wrapper.includes("CLAUDE_CONFIG_DIR"), false);
       assert.match(wrapper, /LLMR_CLAUDE_CODE_SETTINGS_FILE=/);
     }
+    assert.equal(existsSync(path.join(CONFIGDIR, "profiles", profile.id, "claude", ".claude.json")), false);
     assert.equal(existsSync(path.join(CONFIGDIR, "global-profile-takeover.json")), false);
     assert.deepEqual(restoreGlobalProfileConfigsOnExit(config.profile.profiles), []);
     await restoreTakeoversWhenNoGatewayServes();
@@ -464,7 +465,50 @@ test("a shared-home Claude Code profile never writes ~/.claude and blanks the us
   }
 });
 
-test("profile service honors the top-level profile disabled flag", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("a global Claude Code profile on the default ~/.claude unsets CLAUDE_CONFIG_DIR and writes no .claude.json", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  assert.equal(os.homedir(), home);
+  const claudeDir = path.join(home, ".claude");
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  const profile = {
+    agent: "claude-code",
+    enabled: true,
+    env: {},
+    id: "default-home-claude",
+    model: "Provider/model",
+    name: "Default Home Claude",
+    scope: "global",
+    smallFastModel: "",
+    surface: "cli"
+  };
+  const config = createDefaultAppConfig();
+  config.APIKEY = "llmr-profile-default-home-test";
+  config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-profile-default-home-test", name: "Profile: Default Home Claude" }];
+  config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  config.profile.profiles = [profile];
+  try {
+    rmSync(takeoverFile, { force: true });
+    const result = await applyProfileFixture(config);
+    assert.equal(result.clients.find((client) => client.client === "claude-code")?.ok, true);
+    assert.ok(existsSync(path.join(claudeDir, "settings.json")));
+    assert.equal(existsSync(path.join(claudeDir, ".claude.json")), false);
+    assert.equal(existsSync(path.join(home, ".claude.json")), false);
+    const extension = process.platform === "win32" ? ".cmd" : "";
+    const wrapper = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}${extension}`), "utf8");
+    if (process.platform === "win32") {
+      assert.match(wrapper, /^set CLAUDE_CONFIG_DIR=\r?$/m);
+    } else {
+      assert.match(wrapper, /^unset CLAUDE_CONFIG_DIR$/m);
+      assert.doesNotMatch(wrapper, /export CLAUDE_CONFIG_DIR=/);
+    }
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(claudeDir, { force: true, recursive: true });
+  }
+});
+
+test("profile service honors the top-level profile disabled flag",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-profile-disabled-"));
   try {
     const settingsFile = path.join(root, ".claude", "settings.json");

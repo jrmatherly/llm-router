@@ -1,6 +1,8 @@
 import path from "node:path";
 import { claudeCodeUsesSharedHome, type ProfileConfig } from "@llmr/core/contracts/app";
+import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 
+export const CLAUDE_CODE_CONFIG_DIR_ENV = "CLAUDE_CONFIG_DIR";
 export const CLAUDE_CODE_MCP_CONFIG_ENV = "LLMR_CLAUDE_CODE_MCP_CONFIG";
 export const CLAUDE_CODE_SETTINGS_FILE_ENV = "LLMR_CLAUDE_CODE_SETTINGS_FILE";
 export const CLAUDE_CODE_MODEL_ENV = "ANTHROPIC_MODEL";
@@ -40,10 +42,22 @@ export function claudeCodeMcpConfigEnv(configFile: string | undefined): Record<s
     : {};
 }
 
+// Claude Code reads ~/.claude.json and the unsuffixed Keychain item only while CLAUDE_CONFIG_DIR is unset, even when it names ~/.claude.
+export function claudeCodeConfigDir(settingsFile: string): string | undefined {
+  const dir = path.dirname(settingsFile);
+  return dir === resolveUserPath("~/.claude") ? undefined : dir;
+}
+
 export function claudeCodeHomeEnv(profile: Pick<ProfileConfig, "agent" | "claudeCodeSharedHome" | "scope">, settingsFile: string): Record<string, string> {
-  return claudeCodeUsesSharedHome(profile)
-    ? { [CLAUDE_CODE_SETTINGS_FILE_ENV]: settingsFile }
-    : { CLAUDE_CONFIG_DIR: path.dirname(settingsFile) };
+  if (claudeCodeUsesSharedHome(profile)) {
+    return { [CLAUDE_CODE_SETTINGS_FILE_ENV]: settingsFile };
+  }
+  const configDir = claudeCodeConfigDir(settingsFile);
+  return configDir ? { [CLAUDE_CODE_CONFIG_DIR_ENV]: configDir } : {};
+}
+
+export function claudeCodeHomeUnsetEnvKeys(profile: Pick<ProfileConfig, "agent" | "claudeCodeSharedHome" | "scope">, settingsFile: string): string[] {
+  return claudeCodeUsesSharedHome(profile) || claudeCodeConfigDir(settingsFile) ? [] : [CLAUDE_CODE_CONFIG_DIR_ENV];
 }
 
 export function claudeCodeModelEnv(selection: ClaudeCodeModelSelection): Record<string, string> {

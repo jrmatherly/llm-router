@@ -6,7 +6,7 @@ import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import type { AppConfig, ProfileConfig } from "@llmr/core/contracts/app";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import { prepareClaudeAppVmStorage } from "@llmr/core/agents/claude-app/vm-storage";
-import { claudeCodeModelEnv as claudeCodeProfileModelEnv, isClaudeCodeManagedModelEnvKey } from "@llmr/core/agents/claude-code/environment";
+import { CLAUDE_CODE_CONFIG_DIR_ENV, claudeCodeConfigDir, claudeCodeModelEnv as claudeCodeProfileModelEnv, isClaudeCodeManagedModelEnvKey } from "@llmr/core/agents/claude-code/environment";
 import { resolveClaudeCodeSettingsFile } from "@llmr/core/profiles/launch-core";
 import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@llmr/core/platform/windows-app-discovery";
 import { resolveUserPath } from "@llmr/core/runtime/app-paths";
@@ -49,8 +49,6 @@ export async function launchClaudeAppProfile(configDir: string, profile: Profile
     ].filter(Boolean).join(" "));
   }
 
-  const settingsFile = resolveClaudeCodeSettingsFile(configDir, profile);
-  const settingsDir = path.dirname(settingsFile);
   const userDataDir = resolveClaudeAppProfileUserDataDir(configDir, profile);
   mkdirSync(userDataDir, { recursive: true });
   const vmStorage = prepareClaudeAppVmStorage(configDir, userDataDir);
@@ -58,22 +56,7 @@ export async function launchClaudeAppProfile(configDir: string, profile: Profile
     console.warn(`[profile] Failed to clone Claude App VM seed for ${profile.name || profile.id}. Claude App may rebuild its VM in ${vmStorage.targetBundleDir}.`);
   }
 
-  const appEnv: Record<string, string> = {
-    ...profileEnv(profile),
-    ...claudeCodeModelEnv(profile),
-    ...(config ? botGatewayProfileEnv(config, profile, "app") : {}),
-    CLAUDE_CONFIG_DIR: settingsDir,
-    CLAUDE_USER_DATA_DIR: userDataDir,
-    LLMR_CLAUDE_APP_USER_DATA_PATH: userDataDir,
-    LLMR_PROFILE_SURFACE: "app",
-    ELECTRON_ENABLE_LOGGING: "1"
-  };
-  const env: NodeJS.ProcessEnv = {
-    ...withoutLlmrSecretEnv(),
-    ...appEnv
-  };
-  delete env.ELECTRON_RUN_AS_NODE;
-
+  const { appEnv, env } = claudeAppLaunchEnv(configDir, profile, userDataDir, config);
   const launch = claudeAppLaunchCommand(lookup.executable, userDataDir, appEnv);
   const child = spawn(launch.command, launch.args, {
     detached: true,
@@ -89,6 +72,34 @@ export async function launchClaudeAppProfile(configDir: string, profile: Profile
     pid: child.pid,
     userDataDir
   };
+}
+
+export function claudeAppLaunchEnv(
+  launchConfigDir: string,
+  profile: ProfileConfig,
+  userDataDir: string,
+  config?: AppConfig
+): { appEnv: Record<string, string>; env: NodeJS.ProcessEnv } {
+  const configDir = claudeCodeConfigDir(resolveClaudeCodeSettingsFile(launchConfigDir, profile));
+  const appEnv: Record<string, string> = {
+    ...profileEnv(profile),
+    ...claudeCodeModelEnv(profile),
+    ...(config ? botGatewayProfileEnv(config, profile, "app") : {}),
+    ...(configDir ? { [CLAUDE_CODE_CONFIG_DIR_ENV]: configDir } : {}),
+    CLAUDE_USER_DATA_DIR: userDataDir,
+    LLMR_CLAUDE_APP_USER_DATA_PATH: userDataDir,
+    LLMR_PROFILE_SURFACE: "app",
+    ELECTRON_ENABLE_LOGGING: "1"
+  };
+  const env: NodeJS.ProcessEnv = {
+    ...withoutLlmrSecretEnv(),
+    ...appEnv
+  };
+  delete env.ELECTRON_RUN_AS_NODE;
+  if (!configDir) {
+    delete env[CLAUDE_CODE_CONFIG_DIR_ENV];
+  }
+  return { appEnv, env };
 }
 
 export function resolveClaudeAppProfileUserDataDir(configDir: string, profile: ProfileConfig): string {

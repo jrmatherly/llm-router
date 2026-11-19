@@ -166,9 +166,18 @@ test("a shared-home Claude Code launch keeps the user's config dir and passes th
   assert.equal(shared.env.CLAUDE_CONFIG_DIR, undefined);
   assert.equal(shared.env.LLMR_CLAUDE_CODE_SETTINGS_FILE, path.join(configDir, "profiles", "claude-main", "claude", "settings.json"));
 
-  const global = buildProfileLaunchPlan(configDir, { ...claudeProfile, claudeCodeSharedHome: true, scope: "global" }, "cli");
+  const global = buildProfileLaunchPlan(configDir, { ...claudeProfile, claudeCodeSharedHome: true, scope: "global", settingsFile: "/tmp/claude-work/settings.json" }, "cli");
   assert.equal(global.env.LLMR_CLAUDE_CODE_SETTINGS_FILE, undefined);
-  assert.ok(global.env.CLAUDE_CONFIG_DIR);
+  assert.equal(global.env.CLAUDE_CONFIG_DIR, path.resolve("/tmp/claude-work"));
+});
+
+test("a Claude Code launch plan on the default ~/.claude leaves CLAUDE_CONFIG_DIR unset", () => {
+  const configDir = path.join(path.sep, "tmp", "llmr-config");
+  const defaultHome = buildProfileLaunchPlan(configDir, { ...claudeProfile, scope: "global" }, "cli");
+  assert.equal("CLAUDE_CONFIG_DIR" in defaultHome.env, false);
+
+  const generated = buildProfileLaunchPlan(configDir, claudeProfile, "cli");
+  assert.equal(generated.env.CLAUDE_CONFIG_DIR, path.join(configDir, "profiles", "claude-main", "claude"));
 });
 
 test("a Claude Code launch plan in a China time zone sets no TZ", () => {

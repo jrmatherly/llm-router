@@ -3,7 +3,30 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { claudeAppLaunchCommand, findInstalledClaudeAppExecutable, normalizeClaudeAppCandidate } from "@llmr/core/agents/claude-app/launch.ts";
+import { claudeAppLaunchCommand, claudeAppLaunchEnv, findInstalledClaudeAppExecutable, normalizeClaudeAppCandidate } from "@llmr/core/agents/claude-app/launch.ts";
+
+test("a Claude App launch on the default ~/.claude drops CLAUDE_CONFIG_DIR, even an inherited one", (t) => {
+  const tempDir = mkdtempForTest();
+  const previous = process.env.CLAUDE_CONFIG_DIR;
+  t.after(() => {
+    if (previous === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+    else process.env.CLAUDE_CONFIG_DIR = previous;
+    rmSync(tempDir, { force: true, recursive: true });
+  });
+  process.env.CLAUDE_CONFIG_DIR = path.join(tempDir, "inherited");
+  const profile = { agent: "claude-code", enabled: true, id: "claude-app", model: "", name: "Claude App", scope: "global", surface: "auto" };
+  const userDataDir = path.join(tempDir, "user-data");
+
+  const defaultHome = claudeAppLaunchEnv(tempDir, profile, userDataDir);
+  assert.equal("CLAUDE_CONFIG_DIR" in defaultHome.appEnv, false);
+  assert.equal("CLAUDE_CONFIG_DIR" in defaultHome.env, false);
+  assert.equal(defaultHome.env.CLAUDE_USER_DATA_DIR, userDataDir);
+
+  const generated = claudeAppLaunchEnv(tempDir, { ...profile, scope: "llmr" }, userDataDir);
+  const generatedDir = path.join(tempDir, "profiles", "claude-app", "claude");
+  assert.equal(generated.appEnv.CLAUDE_CONFIG_DIR, generatedDir);
+  assert.equal(generated.env.CLAUDE_CONFIG_DIR, generatedDir);
+});
 
 test("claudeAppLaunchCommand opens macOS app bundles through LaunchServices", (t) => {
   const tempDir = mkdtempForTest();

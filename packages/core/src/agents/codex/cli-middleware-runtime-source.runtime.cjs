@@ -6508,7 +6508,7 @@ function createClaudeAppLocalAgentSession(text, projectDirectory) {
 }
 
 function defaultClaudeAppLocalAgentParentDir(root) {
-  const config = readJsonFile(path.join(nonEmptyEnv("CLAUDE_CONFIG_DIR") || path.join(os.homedir(), ".claude"), ".claude.json")) || {};
+  const config = readJsonFile(path.join(nonEmptyEnv("CLAUDE_CONFIG_DIR") || os.homedir(), ".claude.json")) || {};
   const account = config.oauthAccount && typeof config.oauthAccount === "object" ? config.oauthAccount : {};
   const accountPrefix = uuidPrefix(stringValue(account.accountUuid)) || "llmr";
   const orgPrefix = uuidPrefix(stringValue(account.organizationUuid)) || "00000000";

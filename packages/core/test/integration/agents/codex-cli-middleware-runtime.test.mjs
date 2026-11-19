@@ -1722,6 +1722,28 @@ test("Claude App bot worker keeps project and session selection as separate leve
   }
 });
 
+test("Claude App bot sessions read the account from ~/.claude.json while CLAUDE_CONFIG_DIR is unset", (t) => {
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-claude-account-"));
+  const previous = process.env.CLAUDE_CONFIG_DIR;
+  t.after(() => {
+    restoreProcessEnv("CLAUDE_CONFIG_DIR", previous);
+    rmSync(home, { force: true, recursive: true });
+  });
+  delete process.env.CLAUDE_CONFIG_DIR;
+  mkdirSync(path.join(home, ".claude"), { recursive: true });
+  writeFileSync(path.join(home, ".claude.json"), JSON.stringify({ oauthAccount: { accountUuid: "aaaa1111-0000", organizationUuid: "bbbb2222-0000" } }));
+  writeFileSync(path.join(home, ".claude", ".claude.json"), JSON.stringify({ oauthAccount: { accountUuid: "wrong-0000", organizationUuid: "wrong-0000" } }));
+  const runtime = codexCliMiddlewareRuntimeScript();
+  const names = ["nonEmptyEnv", "readJsonFile", "expandHome", "runtimeHomeDir", "uuidPrefix", "stringValue", "defaultClaudeAppLocalAgentParentDir"];
+  const source = names.map((name) => extractRuntimeFunctionSource(runtime, name)).join("\n");
+  const parentDir = Function("path", "fs", "os", `${source}; return defaultClaudeAppLocalAgentParentDir;`)(
+    path,
+    { readFileSync },
+    { homedir: () => home }
+  );
+  assert.equal(parentDir("/sessions"), path.join("/sessions", "aaaa1111", "bbbb2222"));
+});
+
 function writeRuntimeScript(dir) {
   const file = path.join(dir, "llmr-codex-cli-middleware.js");
   writeFileSync(file, codexCliMiddlewareRuntimeScript());

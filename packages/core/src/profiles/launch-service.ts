@@ -8,6 +8,7 @@ import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import { applyClaudeAppGatewayConfig, claudeAppTakesOverDirectLaunches, readClaudeAppGatewayApiKeyCandidates } from "@llmr/core/agents/claude-app/gateway-service";
 import { launchClaudeAppProfile, resolveClaudeAppProfileUserDataDir } from "@llmr/core/agents/claude-app/launch";
 import { resolveClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
+import { CLAUDE_CODE_CONFIG_DIR_ENV, claudeCodeConfigDir } from "@llmr/core/agents/claude-code/environment";
 import { codexDesktopAppName, launchCodexAppProfile, launchWorkbuddyAppProfile, launchZcodeAppProfile, prepareCodexAppNetResponder, refreshCodexCompatibleAppProfileFiles, workbuddyDesktopAppName } from "@llmr/core/agents/codex/app-launch";
 import { CodexAppMediaPreviewBridge, shouldEnableCodexMediaPreviewBridge } from "@llmr/core/agents/codex/media-preview-bridge";
 import { findRunningOpenCodeAppPid, launchOpenCodeAppProfile, openCodeAppLaunchSignature } from "@llmr/core/agents/opencode/app-launch";
@@ -1341,27 +1342,8 @@ function startClaudeAppBotWorker(config: AppConfig, profile: ReturnType<typeof f
   const runtimeFile = path.join(CONFIGDIR, "bin", "llmr-codex-cli-middleware.js");
   ensureBotWorkerRuntime(runtimeFile);
 
-  const settingsFile = resolveClaudeCodeSettingsFile(CONFIGDIR, profile);
-  const settingsEnv = readClaudeCodeSettingsEnv(settingsFile);
-  const claudeAppUserDataDir = resolveClaudeAppProfileUserDataDir(CONFIGDIR, profile);
   const nodeLaunch = nodeRuntimeLaunch();
-  const env: NodeJS.ProcessEnv = {
-    ...withoutLlmrSecretEnv(),
-    ...stringRecord(profile.env),
-    ...settingsEnv,
-    ...botEnv,
-    ...(nodeLaunch.electronRunAsNode ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
-    LLMR_CLAUDE_BASE_CONFIG_DIR: path.dirname(settingsFile),
-    CLAUDE_CONFIG_DIR: path.dirname(settingsFile),
-    CLAUDE_USER_DATA_DIR: claudeAppUserDataDir,
-    LLMR_CLAUDE_APP_USER_DATA_PATH: claudeAppUserDataDir,
-    LLMR_CLAUDE_CODE_BOT_WORKER: "1",
-    LLMR_CLAUDE_CODE_MODEL: profile.model.trim(),
-    LLMR_CODEX_MODEL: profile.model.trim(),
-    LLMR_CODEX_WORKSPACE_NAME: profile.name || profile.id,
-    LLMR_PROFILE_SURFACE: "app"
-  };
-  delete env.ELECTRON_NO_ATTACH_CONSOLE;
+  const env = claudeAppBotWorkerEnv(profile, botEnv, Boolean(nodeLaunch.electronRunAsNode));
 
   const child = spawn(nodeLaunch.command, [runtimeFile, "claude-bot-worker", "--workspace-name", profile.name || profile.id], {
     detached: false,
@@ -1393,6 +1375,33 @@ function startClaudeAppBotWorker(config: AppConfig, profile: ReturnType<typeof f
     }
     console.warn(`[profile] Claude App bot worker failed: ${formatError(error)}`);
   });
+}
+
+export function claudeAppBotWorkerEnv(profile: ProfileConfig, botEnv: Record<string, string>, electronRunAsNode: boolean): NodeJS.ProcessEnv {
+  const settingsFile = resolveClaudeCodeSettingsFile(CONFIGDIR, profile);
+  const claudeAppUserDataDir = resolveClaudeAppProfileUserDataDir(CONFIGDIR, profile);
+  const configDir = claudeCodeConfigDir(settingsFile);
+  const env: NodeJS.ProcessEnv = {
+    ...withoutLlmrSecretEnv(),
+    ...stringRecord(profile.env),
+    ...readClaudeCodeSettingsEnv(settingsFile),
+    ...botEnv,
+    ...(electronRunAsNode ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
+    LLMR_CLAUDE_BASE_CONFIG_DIR: path.dirname(settingsFile),
+    ...(configDir ? { [CLAUDE_CODE_CONFIG_DIR_ENV]: configDir } : {}),
+    CLAUDE_USER_DATA_DIR: claudeAppUserDataDir,
+    LLMR_CLAUDE_APP_USER_DATA_PATH: claudeAppUserDataDir,
+    LLMR_CLAUDE_CODE_BOT_WORKER: "1",
+    LLMR_CLAUDE_CODE_MODEL: profile.model.trim(),
+    LLMR_CODEX_MODEL: profile.model.trim(),
+    LLMR_CODEX_WORKSPACE_NAME: profile.name || profile.id,
+    LLMR_PROFILE_SURFACE: "app"
+  };
+  delete env.ELECTRON_NO_ATTACH_CONSOLE;
+  if (!configDir) {
+    delete env[CLAUDE_CODE_CONFIG_DIR_ENV];
+  }
+  return env;
 }
 
 function startOpenCodeAppBotWorker(
