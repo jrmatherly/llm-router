@@ -1,13 +1,13 @@
 # What the web management token can do, and what limiting it would take
 
-Research for open follow-up 4 in `docs/superpowers/upstream-review/reviews/2026-11-16-review.md`. Read-only; no code changed. Code state: `main` at `75562a9e`. This is a findings document, not a plan. The owner picks a direction first.
+Research for open follow-up 4 in `docs/superpowers/upstream-review/reviews/2026-11-16-review.md`. Read-only; no code changed. Code state: `main` at `eeb13d5b`; nothing under `packages/` differs from `75562a9e`, where the research began (RUN: `git diff 75562a9e eeb13d5b -- packages` is empty). This is a findings document, not a plan. The owner picks a direction first.
 
 ## Answer in short
 
-- **The token is full control of the host account LLMR runs as, by several independent routes.** Five separate RPC paths run a command or load code, and one of them needs a single call with no saved config (`startBotGatewayQrLogin`). `testRouteScript` alone reads and writes any file the process can, returns the whole process environment, and fetches any URL.
-- **Masking provider keys (PR 115) therefore protects against shoulder-surfing and a leaked response, not against a token holder.** `testRouteScript` can read `config.sqlite` directly.
+- **The token is full control of the host account LLMR runs as, by several independent routes.** At least six independent routes run a command or load code the caller chooses: the bot gateway command, a stdio MCP server, a plugin module, the custom router file, a profile's app path, and files that profile apply writes for an agent to run later (Part 2.3). One of them needs a single call with no saved config (`startBotGatewayQrLogin`). `testRouteScript` alone reads and writes any file the process can, up to 1 MiB each and as UTF-8 text, returns the whole process environment, and fetches any URL.
+- **Masking provider keys (PR 115) therefore protects against shoulder-surfing and a leaked response, not against a token holder.** `testRouteScript` can read the config database as text: on a throwaway home, a saved provider key was readable in `config.sqlite-wal` read as UTF-8, the way the bridge reads a file (RUN, with `fs.readFileSync(file, "utf8")`, not through the RPC). A database file over 1 MiB is refused by the bridge.
 - **The three paths in the follow-up are confirmed**, with two corrections: the probe path also sends the *local agent logins* (Codex, Claude Code, Claude apps gateway tokens) to a caller-chosen address with no masked reference involved, and `saveConfig` does not need to change an existing provider's URL, because a reference names the secret and can be placed in a new provider.
-- **A destination check alone (direction c) is worth nothing until every code-running route is closed** (direction b), and direction b is large: at least nine config fields and three RPC arguments start a process or load a module.
+- **A destination check alone (direction c) is worth nothing until every code-running route is closed** (direction b), and direction b is large: fifteen config fields and three RPC arguments start a process, load a module or choose where an executed file is written (the list ends Part 2.3).
 - The existing exposure is narrow by default: the server binds `127.0.0.1` (`management-server.ts:129`), Docker keeps it on loopback behind Nginx (`Dockerfile:32`, `docker/entrypoint.sh:5`), and PR 114 rejects untrusted browser origins.
 
 ## How to read the labels
@@ -15,11 +15,15 @@ Research for open follow-up 4 in `docs/superpowers/upstream-review/reviews/2026-
 | Label | Meaning |
 |---|---|
 | **R** | Read in the code by the author of this document, at the cited lines. |
-| **A** | Read by a research subagent and reported with a quoted line. Not re-read by the author. Treat as a lead until checked. |
+| **A** | Read by a research subagent and reported with a quoted line, then re-read once by a second, independent subagent in the audit of 2026-11-19 (see below). Not re-read by the author. |
 | **RUN** | Executed during this research; the command is described. |
 | **INF** | Inferred, not traced to the end. |
 
 Paths are under `packages/core/src/` unless they start with another top-level folder. `ms.ts` is `web/management-server.ts`; `ps.ts` is `web/provider-secrets.ts`.
+
+## Audit (2026-11-19)
+
+A second pass re-read every row labelled **A** in Parts 1 to 3, re-ran the two tables that came from a run (the unmatched key names in Part 3 and the odd-shape table in Part 4), and checked every `file:line` in Parts 3 to 5. No claim was wrong in substance. The corrections it produced are applied in place: counts that disagreed between sections, two line numbers in Part 3, the size limit on route script file access, what `openProfileInTerminal` writes, what a probe result returns, the scope of the non-string masking gap, and the statement that the docs do not yet call the token full access (they do, since PR 115). It also settled three items that Part 5 had listed as open and added three config fields to the list in Part 2.3. What it did not cover is at the end of Part 5.
 
 ## Live verification (2026-11-19)
 
@@ -49,16 +53,16 @@ Gain column: **CMD** starts a process or loads code the caller chooses. **FILE**
 | Handler | `ms.ts` | Gain | How |
 |---|---|---|---|
 | `startBotGatewayQrLogin` | 494 | **CMD**, one call | Takes `request.config.botGateway` from the argument, not saved config (`agents/bot-gateway/qr-login-service.ts:52-53`). `bot.command`, `args`, `cwd` go to the SDK client (`:199-205`, `:183-191`), which spawns them (`node_modules/@the-next-ai/bot-gateway-sdk/dist/index.js:223`). Only guard: `enabled`, platform `weixin-ilink`, auth `qr_login` (`:54`). Also `mkdirSync` on a caller-influenced state dir (`:58-59`). The child inherits all of `process.env` (`:186`), including `LLMR_WEB_AUTH_TOKEN`. (R) |
-| `testRouteScript` | 510 | **FILE**, **READ**, **NET**, then **CMD** | Runs `request.script.source` from the argument (`gateway/application/gateway-service.ts:467-480`) in a worker with plain `node:vm` (`routing/route-script-worker.ts:35`). The bridge exposes `fs.readText`/`fs.writeText` on any path (`:175-188`, `:286-308`), the whole `process.env` (`:48`, `:204-207`) and `fetch` of any http(s) URL (`:152`, `:209-232`). Output returns to the caller. Writing a `.js` file and then pointing `CUSTOM_ROUTER_PATH` or a plugin `module` at it makes it **CMD**. (R) |
+| `testRouteScript` | 510 | **FILE**, **READ**, **NET**, then **CMD** | Runs `request.script.source` from the argument (`gateway/application/gateway-service.ts:467-480`) in a worker with plain `node:vm` (`routing/route-script-worker.ts:35`). The bridge exposes `fs.readText`/`fs.writeText` on any path (`:175-188`, `:286-308`), the whole `process.env` (`:48`, `:204-207`) and `fetch` of any http(s) URL (`:152`, `:209-232`), with `redirect: "manual"` (`:226`). A file read or write is capped at 1 MiB and is UTF-8 text (`:12`, `:286-297`). Output returns to the caller. Writing a `.js` file and then pointing `CUSTOM_ROUTER_PATH` or a plugin `module` at it makes it **CMD**. (R) |
 | `saveConfig` | 452 | **CMD**, **FILE**, **SEND**, **HOST**, **READ** | Stores an arbitrary `AppConfig` (`config/config.ts:391`). See Part 2 for each field that starts a process, loads a module, writes a file or moves a key. Returns the config, masked only in the three fields. (R) |
 | `applyClaudeAppGateway` | 290 | same as `saveConfig` | Saves the config in its argument (`ms.ts:292`), restores references the same way (`ms.ts:275`). (R) |
 | `listMcpServerTools` | 373 | **CMD** (after `saveConfig`) | Spawns the saved server's `command`, `args`, `cwd`, `env` (`mcp/tool-discovery.ts:58-60`). No allow-list in normalisation (`config/config.ts:2495-2503`). Only `LLMR_*TOKEN/SECRET/PASSWORD/API_KEY` names are stripped from the inherited env (`mcp/child-env.ts:3`). (R) The child's stderr tail returns in the error (A). |
-| `startGateway`, `restartGateway`, `restartProxy` | 496, 423, 430 | **CMD** (after `saveConfig`), **HOST** | Gateway start loads every configured plugin module with `import()` (`plugins/service.ts:976-980`; called from `gateway-service.ts:185`, A) and applies profiles (file writes, Part 2). `saveConfig` already restarts the gateway when `plugins` changed (A: `gateway/runtime-change.ts`), so these are not needed for the chain. |
-| `openProfile` | 407 | **CMD** (after `saveConfig`) | Spawns the profile's app. The executable comes from `profile.appPath` with `allowGenericExecutable: true`; on macOS and Linux any existing file passes (`agents/claude-app/launch.ts:77`, `:162`, `:249-259`). (A) |
-| `openProfileInTerminal` | 416 | **CMD**, macOS only | Writes `<bin>/llmr-open-<slug>.command` and opens it (`profiles/launch-service.ts:125-147`). The wrapper it runs embeds `profile.env` and binary paths from config. (A) |
-| `applyProfile`, `getProfileOpenCommand` | 323, 357 | **FILE** (after `saveConfig`) | `applyProfileConfig` writes agent config files and wrapper scripts from saved config; see Part 2. `getProfileOpenCommand` returns only `llmr <profile> [app]` (`profiles/launch-core.ts:98`). (A) |
+| `startGateway`, `restartGateway`, `restartProxy` | 496, 423, 430 | **CMD** (after `saveConfig`), **HOST** | Gateway start loads every configured plugin module with `import()` (`plugins/service.ts:976-980`; called from `gateway-service.ts:185`, A) and applies profiles (file writes, Part 2). `saveConfig` itself starts or restarts the gateway when any of `plugins`, `CUSTOM_ROUTER_PATH`, `Router`, `agent`, `profile`, `providerPlugins`, `toolHub` or `proxy` changed (`gateway/runtime-change.ts:8-34`, `ms.ts:466-475`), then applies profiles (`ms.ts:477-479`), so these handlers are not needed for the chain (R). |
+| `openProfile` | 407 | **CMD** (after `saveConfig`) | Spawns the profile's app. The executable comes from `profile.appPath` with `allowGenericExecutable: true`; on macOS and Linux any existing file passes: the only test is that it is a file, the exec bit is not checked, and a file outside an `.app` bundle is spawned directly (`agents/claude-app/launch.ts:77`, `:128-131`, `:162`, `:249-259`). This is the `claude-code` profile on the `app` surface (`profiles/launch-service.ts:165`). Codex and OpenCode app profiles also take `appPath` from config (`agents/codex/app-launch.ts:588`, `agents/opencode/app-launch.ts:67`); their checks were not read. CLI profiles spawn the generated wrapper instead. (A) |
+| `openProfileInTerminal` | 416 | **CMD**, macOS only | Writes `<bin>/llmr-open-<slug>.command` and opens it (`profiles/launch-service.ts:125-147`). That file holds only `HOME`, the `LLMR_INTERNAL_*` variables and the launcher command (`:149-154`, R). `profile.env` and the binary paths are in the Claude wrapper the launcher then runs (`profiles/service.ts:1648-1665`). The handler applies the profile and writes the launcher before its macOS test (`:126-128`), so it writes files on every OS. (A) |
+| `applyProfile`, `getProfileOpenCommand` | 323, 357 | **FILE** (after `saveConfig`) | `applyProfileConfig` writes agent config files and wrapper scripts from saved config; see Part 2. `saveConfig` already calls it (`ms.ts:477-479`, R). `getProfileOpenCommand` returns only `llmr <profile> [app]` (`profiles/launch-core.ts:98`). (A) |
 | `testProviderAccountConnector` | 509 | **SEND**, **NET** with read-back | Part 2. Returns the fetched JSON body whole (`providers/account-service.ts:250-257`), so it reads any JSON endpoint the host can reach, including loopback and cloud metadata. (R) |
-| `probeProvider`, `probeProviderCandidates`, `checkProviderConnectivity` | 418, 419, 326 | **SEND**, **NET** | Part 2. Results carry status and an upstream message, not the body. (R for the send; A for the result shape) |
+| `probeProvider`, `probeProviderCandidates`, `checkProviderConnectivity` | 418, 419, 326 | **SEND**, **NET** | Part 2. Results carry status, the upstream payload's message field, and the model ids and display names parsed from the body, not the body itself (`providers/probe.ts:1481-1515`, `:1804-1815`). (R for the send; A for the result shape) |
 | `getOpenRouterProviderCatalog` | 361 | **SEND**, **NET** | Part 2. (R) |
 | `getProviderAccountSnapshots` | 359 | **SEND** (after `saveConfig`) | Sends each saved provider's key, or the local agent login for a marker provider, to the saved connector endpoints (`account-service.ts:127-153`, `:697-739`, `:1685-1706`). (R) |
 | `installProxyCertificate` | 372 | **HOST** | macOS: `osascript … with administrator privileges` adding the LLMR CA to the System keychain as a trusted root; Windows: `certutil -user -addstore Root` with no prompt in the code (`proxy/service.ts:422-456`, `:1632-1672`). Fixed inputs. In web mode the in-app consent defaults to approved (`:483`). (A) |
@@ -74,8 +78,8 @@ Gain column: **CMD** starts a process or loads code the caller chooses. **FILE**
 | `openBuiltInBrowser`, `openBotGatewayQrWindow` | 394, 385 | **OPEN** | `http:`, `https:` or `llmr://plugin…` only (`ms.ts:1535-1553`), passed to `open`/`rundll32`/`xdg-open` as one argument (`ms.ts:1513-1525`). (R) The `llmr://plugin` handler is Electron-only (A). |
 | `selectPluginDirectory` | 488 | **FILE** (read, narrow) | Parses `plugin.json` and `package.json` in any directory and returns derived fields (`name`, `main`, `dependencies`, paths), not raw content (`ms.ts:970-1003`). Executes nothing. (R) |
 | `fetchProviderManifest` | 341 | **NET**, guarded | HTTPS only, refuses private and reserved addresses after DNS lookup (`providers/manifest-service.ts:40-42`, `:145`, `:239-248`), deletes `apiKey` (`:31`), result masked with `redactWebSecrets` (`ms.ts:276`). The one handler with a destination guard today. (R) |
-| `detectProviderIcon` | 339 | **NET** | Fetches pages derived from `request.baseUrl` (`providers/icons.ts:16`, `:120`, `:169`). No key sent. Guarding not read. (R for the fetch, INF for the absence of a guard) |
-| `startClaudeAppsGatewayLogin`, `waitClaudeAppsGatewayLogin`, `cancelClaudeAppsGatewayLogin` | 495, 518, 325 | **NET**, **FILE** (fixed) | Device login against `request.gatewayUrl` (`agents/claude-apps-gateway/device-login-service.ts:51`). Returns user code, email and models, no tokens (A). Where the session is stored was not read. |
+| `detectProviderIcon` | 339 | **NET** | Fetches pages derived from `request.baseUrl` (`providers/icons.ts:16`, `:120`, `:169`). No key sent. No private-address guard: only an http(s) scheme test (`:53`, `:109`). It also fetches every caller-supplied `sourceUrls[]` entry (`:99-113`) and sends the site URL to a third-party favicon service (`:79-88`). The response is not returned, only a cached image path. (R for the fetch, A for the rest) |
+| `startClaudeAppsGatewayLogin`, `waitClaudeAppsGatewayLogin`, `cancelClaudeAppsGatewayLogin` | 495, 518, 325 | **NET**, **FILE** (fixed) | Device login against `request.gatewayUrl` (`agents/claude-apps-gateway/device-login-service.ts:51`). The URL must be https, or http for a loopback host (`agents/claude-apps-gateway/session-store.ts:30-42`, R). Returns user code, email and models, no tokens (A). The session, with its access and refresh tokens, is stored in `<config dir>/claude-apps-gateway/<host>.json`, mode 0600 (`session-store.ts:48-49`, `:71-86`, R). |
 | `waitBotGatewayQrLogin`, `cancelBotGatewayQrLogin`, `closeBotGatewayQrWindow` | 517, 324, 338 | none new | Act on a session `startBotGatewayQrLogin` made. Return no bot token (A). |
 | `importLocalAgentProvider` | 371 | **READ**, one gap | Reads a local agent login into a provider; tokens masked by `redactWebSecrets`, except the OpenCode Gemini key under `query.key` (Part 3). (R for the gap) |
 | `getLocalAgentProviderCandidates`, `probeLocalAgentProvider` | 354, 417 | none | Paths and key *names* of credential files, no values (`agents/local-providers/claude-code.ts:491`). (A) |
@@ -87,7 +91,7 @@ Gain column: **CMD** starts a process or loads code the caller chooses. **FILE**
 | `getServiceIdentity` | 347 | none | Returns booleans; confirms a full guess of `LLMR_SERVICE_INSTANCE_TOKEN` with a plain `===` (`ms.ts:350-352`). (R) |
 | `getPluginMarketplace` | 356 | **FILE** (cache) | URL from an env var or a constant, not the caller; downloads listed modules to a cache dir after a sha256 check, runs nothing (`plugins/marketplace.ts:30-58`, `:246-284`). (A) |
 | `resetOverviewStatistics`, `setOnboardingFinished` | 442, 489 | **HOST** | Clear usage statistics; set a flag. (R, by name and handler body only) |
-| `getAppInfo`, `getGatewayStatus`, `getProxyStatus`, `getProxyCertificateStatus`, `getProfileRuntimeStatus`, `getOnboardingFinished`, `getProviderCatalogModels`, `getProviderPresets`, `getUsageStats`, `getUpdateStatus`, `updateCheck`, `updateDownload`, `updateInstall`, `validateRouteScript` | 344-369, 511-516 | none | File paths, status, catalog data. `validateRouteScript` only compiles (`route-script-worker.ts:39-40`). The update handlers return a constant or throw. (R for the handler bodies; A for `getProxyStatus` omitting the upstream password; `getProviderPresets` and `getUsageStats` outputs not read) |
+| `getAppInfo`, `getGatewayStatus`, `getProxyStatus`, `getProxyCertificateStatus`, `getProfileRuntimeStatus`, `getOnboardingFinished`, `getProviderCatalogModels`, `getProviderPresets`, `getUsageStats`, `getUpdateStatus`, `updateCheck`, `updateDownload`, `updateInstall`, `validateRouteScript` | 344-370, 511-516 | none | File paths, status, catalog data. `validateRouteScript` only compiles (`route-script-worker.ts:39-40`). The update handlers return a constant or throw. (R for the handler bodies; A for `getProxyStatus` omitting the upstream password; `getProviderPresets` and `getUsageStats` outputs not read) |
 
 ## Part 2. The three paths, confirmed or corrected
 
@@ -142,7 +146,7 @@ Further saved destinations for a provider key:
 - the upstream proxy: `proxy.upstream.custom` routes provider traffic through a caller-chosen proxy (`proxy/system-proxy-fetch.ts:31-46`). A proxy sees keys only for `http://` providers; HTTPS is tunnelled (INF);
 - a marker provider with a connector: `getProviderAccountSnapshots` swaps in the local agent login and sends it to the connector endpoint (`account-service.ts:1685-1706`, `:1715-1757`) (R).
 
-### 2.3 `saveConfig` plus `listMcpServerTools` runs a command: confirmed, and it is one of five routes
+### 2.3 `saveConfig` plus `listMcpServerTools` runs a command: confirmed, and it is one of at least six routes
 
 Confirmed as recorded (`ms.ts:373-384`, `mcp/tool-discovery.ts:58`, `config/config.ts:2495-2503`) (R). The other items the brief asked about:
 
@@ -150,24 +154,24 @@ Confirmed as recorded (`ms.ts:373-384`, `mcp/tool-discovery.ts:58`, `config/conf
 |---|---|---|
 | Route scripts (`testRouteScript`) | File read and write anywhere, full `process.env`, any fetch. Plain `node:vm` in a worker, not a security sandbox. No config needed. | R |
 | Route scripts (`validateRouteScript`) | Compile only. | R |
-| Route scripts saved in `Router.rules[].script` | Same bridge, run on gateway requests. | A (config parse), INF (request wiring) |
+| Route scripts saved in `Router.rules[].script` | Same bridge, run on gateway requests (`gateway/llm-router-plugin.ts:1287`). | A |
 | `CUSTOM_ROUTER_PATH` | `require` of the file with full privileges (`gateway/llm-router-plugin.ts:251`). An absolute path is accepted anywhere; extension must be `.js/.cjs/.mjs` (`:263-290`). | R |
 | Plugins (`plugins[].module`) | `import()` in the management process on every gateway start (`plugins/service.ts:976-980`). Gated by a `trusted-code` permission (`:527`) that is itself a field of the saved config (`config/config.ts:2675`). | R for the load and gate; A for the permission source |
-| Plugins (`plugins[].coreGateway.plugins[]`) | Forwarded to the gateway child, which imports their `modulePath`. | A |
+| Plugins (`plugins[].coreGateway.plugins[]`, `plugins[].coreGateway.config.plugins`) | Both lists are merged and forwarded to the gateway (`plugins/service.ts:407-416`, R), which imports each `modulePath`. Each is gated by a permission the plugin's own saved config declares: `core-gateway-plugins` and `core-gateway-config` (`plugins/service.ts:602-612`, R). | R for the merge and gates; A for the import in the gateway bundle |
 | `selectPluginDirectory` | Reads manifest JSON from any directory; executes nothing. | R |
 | Tool Hub MCP servers (`toolHub.mcpServers`) | Not spawned by LLMR at start. Spawned by the separate Tool Hub process (`mcp/toolhub-mcp.ts:1299`) and by the gateway child for `agent.mcpServers`. | A; spawn timing not determined |
-| Profile apply | Writes `profile.claudeSettings` (arbitrary JSON, no key allow-list, so `hooks`, `apiKeyHelper`, `statusLine`) into a caller-chosen `settingsFile`, default `~/.claude/settings.json`; writes wrapper scripts embedding `profile.env` and binary paths. The agent runs them later. | A |
+| Profile apply | Writes `profile.claudeSettings` into a caller-chosen `settingsFile`, default `~/.claude/settings.json` (`profiles/service.ts:901`, `:1322-1341`). The only filter drops `__proto__`, `constructor` and `prototype` (`:1362-1378`), so `hooks` and `statusLine` pass; in `api-key-helper` auth mode LLMR replaces `apiKeyHelper` itself (`:1330-1334`). Writes Codex `config.toml` to `profile.codexHome` or `profile.configFile` (`profiles/launch-core.ts:268-280`, R). Writes wrapper scripts that export `profile.env` and `LLMR_CLAUDE_CODE_BIN`, shell-quoted (`profiles/service.ts:1648-1665`). The agent runs them later. `saveConfig` triggers all of this. | A |
 | `openProfile` | Spawns `profile.appPath`; any existing file on macOS and Linux. | A |
 | `openProfileInTerminal` | macOS: writes and opens a `.command` script. | A |
 | `openBuiltInBrowser` | Opens an http(s) or `llmr://plugin` URL. No command injection: one argv element. | R |
 | Proxy certificate handlers | Fixed commands; `installProxyCertificate` asks the OS for admin rights and trusts the LLMR CA system-wide. With `proxy.enabled` and `proxy.systemProxy`, `saveConfig` then sets the host's system proxy (`networksetup`, `reg.exe`), after which `getProxyNetworkCaptures` returns intercepted bodies. | A |
 | `startBotGatewayQrLogin` | Spawns a command from its own argument. Not in the brief's list; the shortest route found. | R |
 
-Config fields that start a process or load code, for direction (b): `agent.mcpServers[].command`, `toolHub.mcpServers[].command`, `plugins[].module`, `plugins[].coreGateway.plugins[]`, `plugins[].coreGateway.config` (INF), `CUSTOM_ROUTER_PATH`, `Router.rules[].script`, `profile.profiles[].appPath`, `profile.profiles[].env` and the binary-path keys in it, `profile.*.claudeSettings`, `profile.*.settingsFile`, `botGateway.command`, `botConfigs[].botGateway.command`. RPC arguments that do the same: `startBotGatewayQrLogin` `config.botGateway`, `testRouteScript` `script`, and any `saveConfig` body.
+Config fields that start a process or load code, for direction (b): `agent.mcpServers[].command`, `toolHub.mcpServers[].command`, `plugins[].module`, `plugins[].coreGateway.plugins[]`, `plugins[].coreGateway.config`, `CUSTOM_ROUTER_PATH`, `Router.rules[].script`, `profile.profiles[].appPath`, `profile.profiles[].env` and the binary-path keys in it, `profile.*.claudeSettings`, `profile.*.settingsFile`, `profile.*.codexHome`, `profile.*.configFile`, `botGateway.command`, `botConfigs[].botGateway.command`. That is fifteen, counting `plugins[].coreGateway.config` once: its `plugins` key is confirmed, its other keys are INF. RPC arguments that do the same: `startBotGatewayQrLogin` `config.botGateway`, `testRouteScript` `script`, and any `saveConfig` body.
 
 ## Part 3. Secrets the web RPC still returns in clear
 
-Returned by `getConfig` (`ms.ts:345`), `saveConfig` (`:484`) and `saveApiKeys` (`:450`). Types in `contracts/app.ts`.
+Returned by `getConfig` (`ms.ts:345`), `saveConfig` (`:452`, returning at `:484`) and `saveApiKeys` (`:443`, returning at `:450`). Types in `contracts/app.ts`.
 
 | Field | Declared | Label |
 |---|---|---|
@@ -178,19 +182,19 @@ Returned by `getConfig` (`ms.ts:345`), `saveConfig` (`:484`) and `saveApiKeys` (
 | `profile.profiles[].env`, `.claudeSettings`, `.botGateway` | `app.ts:1882`; inner lines A | A |
 | `plugins[].config`, `plugins[].coreGateway.*`, `plugins[].proxy.routes[].headers` | `app.ts:1881`; inner lines A | A |
 | `virtualModelProfiles[].metadata.fusionVision.apiKey`, `.fusionWebSearch.env` | `mcp/fusion-config.ts:685`, `:713` | A |
-| `Router.rules[].rewrites[].value` (a header value) | `app.ts:711` | A |
+| `Router.rules[].rewrites[].value` (a string a rule writes into the request; whether a given one is a header depends on its `key`, not read) | `app.ts:711` | A |
 
 Inside the three masked fields, masking goes by key name (`ps.ts:16-21`):
 
-- **Not matched (RUN by the subagent against the three regexes):** `key`, `Ocp-Apim-Subscription-Key`, `privateKey`, `private_key`, `access_key`, `secretAccessKey`, `AWS_SECRET_ACCESS_KEY`, `sessionToken`, `authToken`, `bearerToken`, `botToken`, `appSecret`, `secret_key`, `x-auth-key`, `GITHUB_PAT`, `OPENAI_KEY`. A header or env entry with one of these names is returned in clear. (A)
+- **Not matched (RUN twice, by the research subagent and again in the audit, against the three regexes):** `key`, `Ocp-Apim-Subscription-Key`, `privateKey`, `private_key`, `access_key`, `secretAccessKey`, `AWS_SECRET_ACCESS_KEY`, `sessionToken`, `authToken`, `bearerToken`, `botToken`, `appSecret`, `secret_key`, `x-auth-key`, `GITHUB_PAT`, `OPENAI_KEY`. A header or env entry with one of these names is returned in clear. The third regex needs a `-` or `_` before the word, which is why `sessionToken` and `authToken` fail while `GITHUB_TOKEN` matches. (A)
 - **A concrete case:** the OpenCode Gemini import writes the key under `auth.query.key` (`agents/local-providers/opencode.ts:328-330`), so it is clear in the `importLocalAgentProvider` result and in `getConfig().providerPlugins` once saved, while the same key under `x-goog-api-key` two lines above is masked. (R)
-- A URL with `user:pass@` or `?key=` in `api_base_url`; `args[]` of a Tool Hub server; any non-string under a credential key (`ps.ts:39`). (R for the code, INF that such values occur)
+- A URL with `user:pass@` or `?key=` in `api_base_url`; `args[]` of a Tool Hub server; a number or boolean under a credential key (`ps.ts:39`; strings inside an object or array under such a key are masked, `ps.ts:32-37`). (R for the code, INF that such values occur)
 
 Outside the config:
 
 | RPC | What comes back | Label |
 |---|---|---|
-| `testRouteScript` | Anything: file contents, `process.env` (which holds `LLMR_WEB_AUTH_TOKEN` when set by env, and provider keys set by env). | R |
+| `testRouteScript` | File contents up to 1 MiB each, decoded as UTF-8, and `process.env` (which holds `LLMR_WEB_AUTH_TOKEN` when set by env, and provider keys set by env). | R |
 | `testProviderAccountConnector` | The whole JSON reply of the endpoint, plus flattened paths (`account-service.ts:252-256`). | R |
 | Request log and trace RPCs | Bodies and tool content unredacted; headers redacted at capture by name (`observability/sensitive-headers.ts:1-23`); URL query redacted only for `access_token`, `api_key`, `apikey`, `key` (`:25`). | R for the classifier, A for the store |
 | `getProxyNetworkCaptures` | Bodies unredacted (`proxy/service.ts:1763-1768`), headers redacted (`:1825`). | R |
@@ -206,7 +210,7 @@ No choice is made here. Sizes are rough and relative.
 
 What it means: say so, and narrow who can reach the server.
 
-- Documentation: one statement in the web and Docker docs that the token equals a shell as the LLMR user. Replace the comment at `ps.ts:120-122` and the "not masked" list in the review log with a pointer to it.
+- Documentation: already partly done. Since PR 115 the CLI guide, the Docker guide and `docker/README.md` each say the token "can run commands on the host through a saved MCP server, so treat that token as full access" and list the fields that are "returned as saved" (`docs/src/content/docs/en/guides/cli.md:174`, `docs/src/content/docs/en/guides/docker.md:102`, `docker/README.md:108`). What is left is to name the shorter routes found here and to say it in the server and provider pages too. Replace the comment at `ps.ts:120-122` and the "not masked" list in the review log with a pointer to it.
 - Default exposure, already in place: loopback bind (`ms.ts:129`), Docker web server on loopback behind Nginx (`Dockerfile:32`), origin check from PR 114, token out of the address bar.
 - Possible narrowing, each small: stop printing the tokened URL where a log collects it (`cli.ts:524`, `entrypoint.sh:206`); refuse a non-loopback bind without an explicit flag; strip `LLMR_WEB_AUTH_TOKEN` from `process.env` handed to children and route scripts (`route-script-worker.ts:204-207`, `qr-login-service.ts:186`); fix the two masking gaps that are plain bugs (`query.key`, non-string values).
 - Cost: small. Risk left: anyone who gets the token, or a script running in a trusted origin, owns the host. Masking stays cosmetic and should be described that way.
@@ -217,7 +221,7 @@ What it means: the token can manage providers and routing but cannot make the ho
 
 Must cover, or it is not a boundary:
 
-1. The thirteen config fields and three RPC arguments listed at the end of Part 2.3. `saveConfig` would have to refuse a change to any of them (compare against the stored value field by field), and `startBotGatewayQrLogin` would have to use saved config, not its argument.
+1. The fifteen config fields and three RPC arguments listed at the end of Part 2.3. `saveConfig` would have to refuse a change to any of them (compare against the stored value field by field), and `startBotGatewayQrLogin` would have to use saved config, not its argument.
 2. `testRouteScript` and saved route scripts: the bridge's `fs`, `env` and `fetch` (`route-script-worker.ts:152-188`) are host access by design. Either scripts become unavailable over the web RPC, or the bridge loses those three for web callers, which changes what a route script is.
 3. Profile apply: `claudeSettings` and `settingsFile` write files another program executes. An allow-list of settings keys, or not editable over web.
 4. The file-write primitive behind any remaining path: a rule that only blocks *changing* a module path fails if the caller can overwrite the file already named there.
@@ -263,7 +267,7 @@ What it means: a restored reference may only be sent to a host it was saved with
 | `https://EVIL.example./v1` | `https://evil.example./v1` (trailing dot kept; a different origin string from `evil.example`) |
 | `http://[::ffff:169.254.169.254]/` | `http://[::ffff:a9fe:a9fe]` |
 
-The first two rows are the two bypasses of the PR 115 check. Separately (RUN: `new URL` on Node 24), plain `fetch` accepts a leading space and strips tabs and newlines inside a URL, which is what matters for the raw `http-json` endpoint.
+The first two rows are the addresses that got past the address check written during PR 115's review. That check was removed before the merge and is not on `main` (see "Stale-build hazard"); nothing checks a probe address today. Separately (RUN: `new URL` on Node 24), plain `fetch` accepts a leading space and strips tabs and newlines inside a URL, which is what matters for the raw `http-json` endpoint.
 
 **Shapes it must fail closed on:**
 
@@ -296,10 +300,10 @@ Also to decide: whether an allowed host may resolve to a private address (`fetch
 |---|---|
 | Does the gateway child spawn `agent.mcpServers` at boot or on first tool use? | Start the gateway with a stdio server whose command writes a marker file, send no request, check for the file. |
 | What does `@the-next-ai/ai-gateway` do with `baseurl` after LLMR normalises it (further rewriting, redirects)? | Read the provider request builder in the fork `jrmatherly/llmr-gateway`. |
-| Do `plugins[].coreGateway.config` keys reach a spawn in the gateway child? | Trace `configExternal` and similar keys in the gateway's `dist/index.js`. |
+| Do `plugins[].coreGateway.config` keys other than `plugins` reach a spawn in the gateway? (`plugins` reaches an `import()`; Part 2.3.) | Trace `configExternal` and similar keys in the gateway's `dist/index.js`. |
 | Do the wrapper scripts execute the binary path taken from `profile.env`? Does Codex `config.toml` take caller-set fields that run a command? | Read the wrapper runtime and the Codex config writer in `profiles/service.ts`. |
 | Not run live: the local agent logins sent by a probe (Part 2.1, correction 1), the plugin `import()` and custom router `require` chains, profile `claudeSettings` writes, and `startBotGatewayQrLogin` on a current build. The chains in "Live verification" were run. | Repeat that recipe after `npm run build:assets`, planting a `llmr-local-agent-codex-oauth` plugin with a test login, a `.js` plugin module that writes a marker, and a profile whose `settingsFile` is inside the throwaway home. |
-| Is `detectProviderIcon` guarded against private addresses? Where does the Claude apps gateway login store its session? | Read `providers/icons.ts:100-210` and `agents/claude-apps-gateway/device-login-service.ts`. |
 | Does Nginx in the Docker image log the first request's tokened URL? | Run the image and read the access log; no `access_log` directive was found under `docker/`. |
-| Which rows marked **A** hold when re-read? | Re-read the cited lines; the headline ones (bot gateway spawn, route script bridge, MCP spawn, plugin import, custom router) were re-read and are marked R. |
+| What the audit of 2026-11-19 did not cover | The `probe.ts` and `account-service.ts` line references in Part 2.1 and 2.2 (labelled R, not re-read); the `appPath` checks for Codex and OpenCode app profiles; every Windows path; what the wrapper runtime executes; the bodies of `getProviderPresets` and `getUsageStats`; the redaction inside the proxy sampler; whether a field that holds a secret exists outside the Part 3 table. Each is settled by reading the cited file. |
+| Can `testRouteScript` read a config database larger than 1 MiB, or one whose data is in the main file as binary pages? | The bridge refuses a file over 1 MiB. The 1 MiB case and the main-file case were not run; the WAL case was (see "Answer in short"). Run `testRouteScript` against a throwaway home after a checkpoint. |
 | Does an upstream proxy see keys for HTTPS providers? | Inferred no (CONNECT tunnel); confirm by reading `proxyDispatcher` in `proxy/system-proxy-fetch.ts`. |
