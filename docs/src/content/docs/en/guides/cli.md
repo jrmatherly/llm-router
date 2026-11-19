@@ -171,6 +171,8 @@ Listening on `0.0.0.0` exposes the management UI to the LAN or external networks
 
 Management RPC rejects a browser request whose `Origin` or `Referer` is not trusted, with `403`. Loopback addresses are trusted, and so is `http://<listen address>:<port>`. When the listen address is `0.0.0.0` or `::`, any IP address on that port is trusted. Behind a reverse proxy the browser's origin is the proxy's address, so set `LLMR_PUBLIC_BASE_URL` to it. A client that sends neither header, such as `curl`, needs only the token.
 
+The web management API hides upstream provider credentials from the browser. In the configuration it returns, the secret fields of providers, provider plugins and Tool Hub (API keys, pool keys, authentication headers, and environment values named like `*_TOKEN` or `*_API_KEY`) are replaced by references that begin `[LLMR REDACTED]`. Leave a reference in place to keep the saved credential, type a new value to replace it, or clear the field to remove it. A connection test sends a saved key only to an address its provider already uses; to test a new address, type the key again. References stop working when `llmr serve` restarts, so reload the page afterwards. This guards against a credential being read off the screen or out of a captured response. It does not limit what a holder of the management token can do, and it does not cover LLMR client keys, MCP servers under agent profiles, bot credentials, or a credential the page shows while importing a local agent.
+
 The model gateway additionally requires separately created LLMR client keys. Upstream provider credentials are stored in the local data directory, so both the directory and its backups should be protected as sensitive data.
 
 ## Process manager example

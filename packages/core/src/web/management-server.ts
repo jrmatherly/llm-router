@@ -7,6 +7,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import packageJson from "../../package.json";
+import { redactWebRpcValue, rejectWebSecretReferences, restoreWebConfigSecrets, restoreWebProbeSecrets } from "@llmr/core/web/provider-secrets";
 import { loadOnboardingFinished, markOnboardingFinished } from "@llmr/core/config/onboarding-state";
 import { scanBotHandoffBluetoothTargets, scanBotHandoffWifiTargets } from "@llmr/core/agents/bot-gateway/handoff-scan-service";
 import { cancelBotGatewayQrLogin, startBotGatewayQrLogin, waitBotGatewayQrLogin } from "@llmr/core/agents/bot-gateway/qr-login-service";
@@ -257,12 +258,21 @@ async function handleRpcRequest(request: IncomingMessage, response: ServerRespon
   }
 
   try {
-    const value = await handler(...(Array.isArray(payload.args) ? payload.args : []));
-    sendJson(response, 200, { ok: true, value });
+    const args = Array.isArray(payload.args) ? [...payload.args] : [];
+    if (webConfigMethods.has(method)) {
+      args[0] = restoreWebConfigSecrets(args[0]);
+    } else if (webProbeMethods.has(method)) {
+      args[0] = restoreWebProbeSecrets(args[0], await loadAppConfig());
+    }
+    rejectWebSecretReferences(webConfigMethods.has(method) || webProbeMethods.has(method) ? args.slice(1) : args);
+    sendJson(response, 200, { ok: true, value: redactWebRpcValue(await handler(...args)) });
   } catch (error) {
     sendJson(response, error instanceof Error && error.name === "AppConfigConflictError" ? 409 : 500, { error: { message: formatError(error) }, ok: false });
   }
 }
+
+const webConfigMethods = new Set(["applyClaudeAppGateway", "saveConfig"]);
+const webProbeMethods = new Set(["checkProviderConnectivity", "getOpenRouterProviderCatalog", "probeProvider", "probeProviderCandidates", "testProviderAccountConnector"]);
 
 const unsupportedUpdateStatus: AppUpdateStatus = {
   canCheck: false,
