@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import type { AppConfig, ProfileConfig } from "@llmr/core/contracts/app";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import { buildCodexModelCatalog, type CodexModelCatalog, type CodexModelCatalogItem } from "@llmr/core/agents/codex/model-catalog";
@@ -615,7 +616,7 @@ async function launchCodexCompatibleAppProfile(
     ELECTRON_ENABLE_LOGGING: "1"
   };
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...withoutLlmrSecretEnv(),
     ...appEnv
   };
   delete env.ELECTRON_RUN_AS_NODE;

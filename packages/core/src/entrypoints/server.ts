@@ -5,6 +5,7 @@ import { describeWebManagementUrl, startWebManagementServer } from "@llmr/core/w
 installSocketTypeOfServiceCompat();
 
 type CoreServerOptions = {
+  allowRemote: boolean;
   help: boolean;
   host?: string;
   open: boolean;
@@ -20,6 +21,7 @@ export async function runCoreServer(args = process.argv.slice(2)): Promise<void>
   }
 
   const runtime = await startWebManagementServer({
+    allowRemote: options.allowRemote,
     host: options.host,
     open: options.open,
     port: options.port,
@@ -44,6 +46,7 @@ export async function runCoreServer(args = process.argv.slice(2)): Promise<void>
 
 function parseCoreServerArgs(args: string[]): CoreServerOptions {
   const options: CoreServerOptions = {
+    allowRemote: false,
     help: false,
     open: false,
     startGateway: true
@@ -69,6 +72,10 @@ function parseCoreServerArgs(args: string[]): CoreServerOptions {
     }
     if (arg === "--no-gateway") {
       options.startGateway = false;
+      continue;
+    }
+    if (arg === "--allow-remote") {
+      options.allowRemote = true;
       continue;
     }
     if (arg === "--host") {
@@ -98,15 +105,16 @@ function parseCoreServerArgs(args: string[]): CoreServerOptions {
 function printHelp(): void {
   process.stdout.write([
     "Usage:",
-    "  llmr-core-server [--host <host>] [--port <port>] [--no-gateway]",
+    "  llmr-core-server [--host <host>] [--allow-remote] [--port <port>] [--no-gateway]",
     "",
     "Options:",
     "  --host <host>    Management server host. Defaults to LLMR_WEB_HOST or 127.0.0.1.",
+    "  --allow-remote   Allow a --host that is not localhost, 127.0.0.1 or ::1.",
     "  --port <port>    Management server port. Defaults to LLMR_WEB_PORT or 3458.",
     "  --no-gateway     Start only the web management server.",
     "",
     "Environment:",
-    "  LLMR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication."
+    "  LLMR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication. At least 32 characters."
   ].join("\n") + "\n");
 }
 

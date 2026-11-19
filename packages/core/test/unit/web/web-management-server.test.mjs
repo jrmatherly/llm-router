@@ -74,6 +74,46 @@ test("a supplied token is never part of what LLMR prints, a generated one is", a
   assert.equal(describeWebManagementUrl({ openUrl, tokenGenerated: true, url }), openUrl);
 });
 
+test("a token set in the environment must be at least 32 characters", async (t) => {
+  const previous = process.env.LLMR_WEB_AUTH_TOKEN;
+  t.after(() => setOptionalEnv("LLMR_WEB_AUTH_TOKEN", previous));
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  process.env.LLMR_WEB_AUTH_TOKEN = "short-token";
+  await assert.rejects(startWebManagementServer({ host: "127.0.0.1", port: 0, startGateway: false }), /LLMR_WEB_AUTH_TOKEN must be at least 32 characters.*openssl rand -base64 32/);
+});
+
+test("the token is gone from the environment once the server has read it", async (t) => {
+  const previous = process.env.LLMR_WEB_AUTH_TOKEN;
+  t.after(() => setOptionalEnv("LLMR_WEB_AUTH_TOKEN", previous));
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  process.env.LLMR_WEB_AUTH_TOKEN = "test-web-auth-token-0123456789abcdef";
+  const runtime = await startWebManagementServer({ host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    assert.equal(process.env.LLMR_WEB_AUTH_TOKEN, undefined);
+    assert.equal(runtime.authToken, "test-web-auth-token-0123456789abcdef");
+    assert.equal(runtime.tokenGenerated, false);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("a non-loopback bind needs an explicit opt-in", async (t) => {
+  const previous = process.env.LLMR_WEB_ALLOW_REMOTE;
+  t.after(() => setOptionalEnv("LLMR_WEB_ALLOW_REMOTE", previous));
+  delete process.env.LLMR_WEB_ALLOW_REMOTE;
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const authToken = "test-web-auth-token-0123456789abcdef";
+  for (const host of ["0.0.0.0", "192.0.2.1", "127.0.0.2"]) {
+    await assert.rejects(startWebManagementServer({ authToken, host, port: 0, startGateway: false }), /--allow-remote/, host);
+  }
+  for (const host of ["127.0.0.1", "localhost", "LOCALHOST", "::1", "[::1]"]) {
+    const runtime = await startWebManagementServer({ authToken, host, port: 0, startGateway: false });
+    await runtime.close();
+  }
+  const remote = await startWebManagementServer({ allowRemote: true, authToken, host: "0.0.0.0", port: 0, startGateway: false });
+  await remote.close();
+});
+
 test("resolveRendererRoot falls back to the app resources when the CLI runs from a copy outside the app", async () => {
   const { resolveRendererRoot } = await import("@llmr/core/web/management-server.ts");
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-renderer-root-test-"));
@@ -166,7 +206,7 @@ test("#1835 browser origins support explicit public URLs and allowlists", async 
 
 test("#1835 a wildcard bind trusts a browser on the server's own address and port only", async () => {
   const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
-  const runtime = await startWebManagementServer({ authToken: "lan-test", host: "0.0.0.0", port: 0, startGateway: false });
+  const runtime = await startWebManagementServer({ allowRemote: true, authToken: "lan-test", host: "0.0.0.0", port: 0, startGateway: false });
   try {
     const port = runtime.server.address().port;
     const statusFor = async (origin) => (await fetch(`http://127.0.0.1:${port}/api/llmr/rpc`, {

@@ -2,6 +2,7 @@ import { execFile, spawn, spawnSync, type ChildProcess } from "node:child_proces
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { assertAvailableGatewayModels, type AppConfig, type ProfileConfig, type ProfileOpenCommandResult, type ProfileOpenRequest, type ProfileOpenResult, type ProfileRuntimeEntry, type ProfileRuntimeStatus, type ProfileStopResult } from "@llmr/core/contracts/app";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import { applyClaudeAppGatewayConfig, claudeAppTakesOverDirectLaunches, readClaudeAppGatewayApiKeyCandidates } from "@llmr/core/agents/claude-app/gateway-service";
@@ -180,7 +181,7 @@ export async function openProfileFromLlmr(config: AppConfig, request: ProfileOpe
   const child = spawn(launch.command, launch.args, {
     detached: true,
     env: {
-      ...process.env,
+      ...withoutLlmrSecretEnv(),
       ...plan.env,
       ...botGatewayProfileEnv(config, profile, surface)
     },
@@ -1345,7 +1346,7 @@ function startClaudeAppBotWorker(config: AppConfig, profile: ReturnType<typeof f
   const claudeAppUserDataDir = resolveClaudeAppProfileUserDataDir(CONFIGDIR, profile);
   const nodeLaunch = nodeRuntimeLaunch();
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...withoutLlmrSecretEnv(),
     ...stringRecord(profile.env),
     ...settingsEnv,
     ...botEnv,
@@ -1421,7 +1422,7 @@ function startOpenCodeAppBotWorker(
   ensureBotWorkerRuntime(runtimeFile);
   const nodeLaunch = nodeRuntimeLaunch();
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...withoutLlmrSecretEnv(),
     ...stringRecord(profile.env),
     ...botEnv,
     ...(nodeLaunch.electronRunAsNode ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
@@ -1483,7 +1484,7 @@ function startCodexAppBotWorker(config: AppConfig, profile: ReturnType<typeof fi
   const plan = buildProfileLaunchPlan(CONFIGDIR, profile, "app", ["codex-bot-worker", "--workspace-name", profile.name || profile.id]);
   const launch = profileLaunchSpawnCommand(plan);
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...withoutLlmrSecretEnv(),
     ...plan.env,
     ...botEnv,
     LLMR_CODEX_BOT_WORKER: "1",

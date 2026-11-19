@@ -13,7 +13,7 @@ import { installSocketTypeOfServiceCompat } from "@llmr/core/platform/socket-com
 import { applyProfileConfig, applyProfileRuntimeConfig } from "@llmr/core/profiles/service";
 import { ensureProfileGateway, ProfileGatewayUnavailableError } from "@llmr/core/profiles/launch-service";
 import { buildProfileLaunchPlan, defaultProfileOpenSurface, findProfileForOpen, profileLaunchSpawnCommand, resolveProfileOpenSurface, shouldAutoStartProfileGateway } from "@llmr/core/profiles/launch-core";
-import { describeWebManagementUrl, openSystemExternal, startWebManagementServer, webManagementOpenUrl } from "@llmr/core/web/management-server";
+import { assertWebManagementStartAllowed, describeWebManagementUrl, openSystemExternal, startWebManagementServer, webManagementOpenUrl } from "@llmr/core/web/management-server";
 import { assertAvailableGatewayModels, type AppConfig, type GatewayStatus, type ProfileConfig, type ProfileOpenResult, type ProfileOpenSurface } from "@llmr/core/contracts/app";
 import { readServiceState as readServiceStateFile, serviceAuthToken, type ServiceState, writeServiceState as writeServiceStateFile } from "@llmr/cli/service-state";
 import { staleDesktopRuntimeWarning } from "@llmr/cli/stale-runtime";
@@ -29,6 +29,7 @@ type ProfileCliOptions = {
 };
 
 type WebCliOptions = {
+  allowRemote?: boolean;
   command: "start" | "ui" | "web";
   daemon: boolean;
   daemonChild: boolean;
@@ -370,6 +371,10 @@ function parseWebArgs(args: string[], command: WebCliOptions["command"], default
       options.profileManaged = true;
       continue;
     }
+    if (arg === "--allow-remote") {
+      options.allowRemote = true;
+      continue;
+    }
     if (arg === "--host") {
       index += 1;
       options.host = requiredArg(args[index], "--host");
@@ -405,12 +410,15 @@ async function startService(options: WebCliOptions): Promise<ServiceState> {
       clearServiceState(current.pid);
     }
 
+    // The detached child cannot report a refusal, so refuse here first.
+    assertWebManagementStartAllowed(options);
     const serviceToken = generateServiceToken();
     const childArgs = [
       currentCliScript(),
       "serve",
       "--daemon-child",
       ...(options.profileManaged ? ["--profile-managed"] : []),
+      ...(options.allowRemote ? ["--allow-remote"] : []),
       ...(options.host ? ["--host", options.host] : []),
       ...(options.port ? ["--port", String(options.port)] : []),
       "--no-open",
@@ -502,6 +510,7 @@ function serviceChildEnv(serviceToken: string): NodeJS.ProcessEnv {
 
 async function runWebServer(options: WebCliOptions): Promise<void> {
   const runtime = await startWebManagementServer({
+    allowRemote: options.allowRemote,
     host: options.host,
     open: options.open,
     port: options.port,
@@ -595,9 +604,9 @@ function printHelp(exitCode: number): void {
   const command = cliCommandName();
   const output = [
     "Usage:",
-    `  ${command} start [--daemon] [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
-    `  ${command} ui [--daemon] [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
-    `  ${command} serve [--daemon] [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
+    `  ${command} start [--daemon] [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
+    `  ${command} ui [--daemon] [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
+    `  ${command} serve [--daemon] [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
     `  ${command} stop`,
     `  ${command} <profile-name-or-id> [cli|app] [-- <agent args>]`,
     `  ${command} --version`,
@@ -625,11 +634,12 @@ function printStartHelp(exitCode: number): void {
   const command = cliCommandName();
   const output = [
     "Usage:",
-    `  ${command} start [--daemon] [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
+    `  ${command} start [--daemon] [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
     "",
     "Options:",
     "  --daemon         Run the management server in the background (default for start).",
     "  --host <host>    Management server host. Defaults to LLMR_WEB_HOST or 127.0.0.1.",
+    "  --allow-remote   Allow a --host that is not localhost, 127.0.0.1 or ::1.",
     "  --port <port>    Management server port. Defaults to LLMR_WEB_PORT or 3458.",
     "  --open           Open the management page in the default browser.",
     "  --no-open        Do not open the management page.",
@@ -639,7 +649,7 @@ function printStartHelp(exitCode: number): void {
     "Environment:",
     "  LLMR_WEB_HOST        Default management server host.",
     "  LLMR_WEB_PORT        Default management server port.",
-    "  LLMR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication."
+    "  LLMR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication. At least 32 characters."
   ].join("\n");
   const stream = exitCode === 0 ? process.stdout : process.stderr;
   stream.write(`${output}\n`);
@@ -650,13 +660,14 @@ function printUiHelp(exitCode: number): void {
   const command = cliCommandName();
   const output = [
     "Usage:",
-    `  ${command} ui [--daemon] [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
+    `  ${command} ui [--daemon] [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
     "",
     "Starts the background LLMR service if needed and opens the management UI in the default browser.",
     "",
     "Options:",
     "  --daemon         Run the management server in the background (default for ui).",
     "  --host <host>    Management server host. Defaults to LLMR_WEB_HOST or 127.0.0.1.",
+    "  --allow-remote   Allow a --host that is not localhost, 127.0.0.1 or ::1.",
     "  --port <port>    Management server port. Defaults to LLMR_WEB_PORT or 3458.",
     "  --open           Open the management page (default).",
     "  --no-open        Start or find the service and print the management URL without opening a browser.",
@@ -666,7 +677,7 @@ function printUiHelp(exitCode: number): void {
     "Environment:",
     "  LLMR_WEB_HOST        Default management server host.",
     "  LLMR_WEB_PORT        Default management server port.",
-    "  LLMR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication."
+    "  LLMR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication. At least 32 characters."
   ].join("\n");
   const stream = exitCode === 0 ? process.stdout : process.stderr;
   stream.write(`${output}\n`);
@@ -690,13 +701,14 @@ function printWebHelp(exitCode: number): void {
   const command = cliCommandName();
   const output = [
     "Usage:",
-    `  ${command} serve [--daemon] [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
+    `  ${command} serve [--daemon] [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]`,
     "",
     `Runs in the foreground by default. ${command} web is an alias.`,
     "",
     "Options:",
     "  --daemon         Start the management server in the background instead of the foreground.",
     "  --host <host>    Management server host. Defaults to LLMR_WEB_HOST or 127.0.0.1.",
+    "  --allow-remote   Allow a --host that is not localhost, 127.0.0.1 or ::1.",
     "  --port <port>    Management server port. Defaults to LLMR_WEB_PORT or 3458.",
     "  --open           Open the management page in the default browser.",
     "  --no-open        Do not open the management page (default).",
@@ -706,7 +718,7 @@ function printWebHelp(exitCode: number): void {
     "Environment:",
     "  LLMR_WEB_HOST        Default management server host.",
     "  LLMR_WEB_PORT        Default management server port.",
-    "  LLMR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication."
+    "  LLMR_WEB_AUTH_TOKEN  Use this token for management UI and RPC authentication. At least 32 characters."
   ].join("\n");
   const stream = exitCode === 0 ? process.stdout : process.stderr;
   stream.write(`${output}\n`);

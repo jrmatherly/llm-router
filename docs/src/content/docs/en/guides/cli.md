@@ -162,12 +162,13 @@ The public management authentication variables are:
 | Variable | Description |
 | --- | --- |
 | `LLMR_WEB_HOST` | Management service listen address used when `--host` is omitted. |
+| `LLMR_WEB_ALLOW_REMOTE` | Set to `1` to allow a listen address that is not loopback. Same as `--allow-remote`. |
 | `LLMR_WEB_PORT` | Management service port used when `--port` is omitted. |
-| `LLMR_WEB_AUTH_TOKEN` | Fixed management UI / RPC token; without it the process generates a random token. A token set here is never printed; the page asks for it. |
+| `LLMR_WEB_AUTH_TOKEN` | Fixed management UI / RPC token; without it the process generates a random token. A token set here is never printed; the page asks for it. Must be at least 32 characters (`openssl rand -base64 32`); a shorter one stops start-up. |
 | `LLMR_PUBLIC_BASE_URL` | Browser-facing address of the management UI when it differs from the listen address, such as `https://llmr.example.com` behind a reverse proxy. |
 | `LLMR_WEB_ALLOWED_ORIGINS` | Comma-separated extra browser origins that may call management RPC. |
 
-Listening on `0.0.0.0` exposes the management UI to the LAN or external networks. Only configure this when genuinely needed, and combine it with a fixed strong token, a host firewall or private network, and TLS provided by a trusted reverse proxy.
+Listening on `0.0.0.0` exposes the management UI to the LAN or external networks, and the management token is full access to the machine. A host other than `localhost`, `127.0.0.1` or `::1` needs `--allow-remote` (or `LLMR_WEB_ALLOW_REMOTE=1`); without it LLMR exits with a message naming the flag. Only configure this when genuinely needed, and combine it with a fixed strong token, a host firewall or private network, and TLS provided by a trusted reverse proxy.
 
 Management RPC rejects a browser request whose `Origin` or `Referer` is not trusted, with `403`. Loopback addresses are trusted, and so is `http://<listen address>:<port>`. When the listen address is `0.0.0.0` or `::`, any IP address on that port is trusted. Behind a reverse proxy the browser's origin is the proxy's address, so set `LLMR_PUBLIC_BASE_URL` to it. A client that sends neither header, such as `curl`, needs only the token.
 

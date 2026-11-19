@@ -35,6 +35,9 @@ test("every service command exposes its package-owned command help", () => {
     const result = runCli([command, "--help"]);
     assert.equal(result.status, 0, `${command}: ${result.stderr}`);
     assert.match(result.stdout, usage, command);
+    if (command !== "stop") {
+      assert.match(result.stdout, /--allow-remote/, command);
+    }
   }
 });
 
@@ -130,13 +133,22 @@ for (const [name, args, error] of [
   });
 }
 
-function runCli(args, { env = {} } = {}) {
+function runCli(args, { env = {}, timeout } = {}) {
   return spawnSync(process.execPath, [cliRuntime, ...args], {
     encoding: "utf8",
     env: {
       ...process.env,
       LLMR_CLI_COMMAND_NAME: "",
       ...env
-    }
+    },
+    timeout
   });
 }
+
+test("a non-loopback host without --allow-remote exits at once and names the flag", () => {
+  for (const command of ["serve", "start"]) {
+    const result = runCli([command, "--host", "0.0.0.0", "--no-open", "--no-gateway"], { timeout: 20_000 });
+    assert.equal(result.status, 1, command);
+    assert.match(result.stderr, /--allow-remote/, command);
+  }
+});

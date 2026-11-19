@@ -99,6 +99,7 @@ const gatewayPluginPermissionIdSet = new Set<string>(GATEWAY_PLUGIN_PERMISSION_I
 const gatewayPluginSurfaceIdSet = new Set<string>(GATEWAY_PLUGIN_SURFACE_IDS);
 
 export type WebManagementServerOptions = {
+  allowRemote?: boolean;
   authToken?: string;
   host?: string;
   open?: boolean;
@@ -132,6 +133,7 @@ type WebManagementSecurityContext = {
 const defaultWebHost = "127.0.0.1";
 const defaultWebPort = 3458;
 const maxRpcBodyBytes = 8 * 1024 * 1024;
+const minWebAuthTokenLength = 32;
 const webAuthHeader = "x-llmr-web-auth";
 const webAuthFragmentParam = "llmr_web_token";
 const staticRoot = resolveRendererRoot();
@@ -144,9 +146,12 @@ export async function startWebManagementServer(options: WebManagementServerOptio
   // Serve from the bundled or cached catalog at once; the catalog indexes
   // rebuild on the next lookup when the download lands.
   void refreshModelCatalog();
-  const host = options.host?.trim() || readEnvString("LLMR_WEB_HOST") || defaultWebHost;
+  assertWebManagementStartAllowed(options);
+  const host = webManagementHost(options);
   const requestedPort = options.port ?? readEnvPort("LLMR_WEB_PORT") ?? defaultWebPort;
   const suppliedToken = options.authToken?.trim() || readEnvString("LLMR_WEB_AUTH_TOKEN");
+  // Processes started from here on must not inherit the token.
+  delete process.env.LLMR_WEB_AUTH_TOKEN;
   const tokenGenerated = !suppliedToken;
   const authToken = suppliedToken || randomBytes(32).toString("base64url");
   let security: WebManagementSecurityContext | undefined;
@@ -189,6 +194,22 @@ export async function startWebManagementServer(options: WebManagementServerOptio
     tokenGenerated,
     url
   };
+}
+
+function webManagementHost(options: Pick<WebManagementServerOptions, "host">): string {
+  const host = options.host?.trim() || readEnvString("LLMR_WEB_HOST") || defaultWebHost;
+  return host.replace(/^\[(.*)\]$/, "$1");
+}
+
+export function assertWebManagementStartAllowed(options: Pick<WebManagementServerOptions, "allowRemote" | "host"> = {}): void {
+  const envToken = readEnvString("LLMR_WEB_AUTH_TOKEN");
+  if (envToken && envToken.length < minWebAuthTokenLength) {
+    throw new Error(`LLMR_WEB_AUTH_TOKEN must be at least ${minWebAuthTokenLength} characters. Generate one with: openssl rand -base64 32`);
+  }
+  const host = webManagementHost(options);
+  if (!loopbackWebCorsHosts.has(normalizeHostname(host)) && !options.allowRemote && readEnvString("LLMR_WEB_ALLOW_REMOTE") !== "1") {
+    throw new Error(`Refusing to listen on ${host}: the management token is full access to this machine. Only localhost, 127.0.0.1 and ::1 are local. Pass --allow-remote or set LLMR_WEB_ALLOW_REMOTE=1 to expose it.`);
+  }
 }
 
 export function describeWebManagementUrl(runtime: Pick<WebManagementServerRuntime, "openUrl" | "tokenGenerated" | "url">): string {

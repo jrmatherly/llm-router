@@ -1,3 +1,4 @@
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { calculateTokenCount } from "@llmr/core/routing/token-estimator";
 import { promises as fs } from "node:fs";
 import os from "node:os";
@@ -202,7 +203,7 @@ function createRouteScriptBridge(deadline: number, estimateTokens: (body: Record
 }
 
 function routeScriptEnvironment(): Record<string, string> {
-  return Object.fromEntries(Object.entries(process.env)
+  return Object.fromEntries(Object.entries(withoutLlmrSecretEnv())
     .filter((entry): entry is [string, string] => typeof entry[1] === "string"));
 }
 

@@ -17,7 +17,8 @@ if [ -z "${LLMR_WEB_AUTH_TOKEN:-}" ]; then
   LLMR_WEB_AUTH_TOKEN="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
   LLMR_WEB_AUTH_TOKEN_GENERATED=1
 elif [ "${#LLMR_WEB_AUTH_TOKEN}" -lt 32 ]; then
-  echo "Warning: LLMR_WEB_AUTH_TOKEN is shorter than 32 characters; use a long random value before exposing the port beyond loopback." >&2
+  echo "LLMR_WEB_AUTH_TOKEN must be at least 32 characters. Generate one with: openssl rand -base64 32" >&2
+  exit 1
 fi
 
 export HOME="${LLMR_DATA_DIR}"
