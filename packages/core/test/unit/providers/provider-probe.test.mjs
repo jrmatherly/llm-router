@@ -593,6 +593,54 @@ test("connectivity probe never refreshes a Codex OAuth section on a plugin that 
   assert.equal(calls[0]?.authorization, `Bearer ${staticToken}`);
 });
 
+test("connectivity probe still requires the connector scopes of a Codex OAuth section on a plugin that is not a local agent", async (t) => {
+  const codex = await useCodexLogin(t);
+  const calls = [];
+  codexUpstream(t, codex, calls);
+
+  // The gateway enforces these scopes for such a section, so the probe reports the same.
+  const report = await codexProbe("http://127.0.0.1:49127/codex", [{
+    codexOauth: { accessToken: codexAccessToken(3600, "acct-static", "openid profile email offline_access") },
+    key: "custom-codex-oauth",
+    providerName: "Codex API"
+  }]);
+
+  assert.equal(report.passed.length, 0);
+  assert.match(report.failed[0]?.message ?? "", /missing required scopes: api\.connectors\.read, api\.connectors\.invoke/);
+  assert.deepEqual(calls, []);
+});
+
+test("connectivity probe reports why an expired Codex login could not refresh", async (t) => {
+  const codex = await useCodexLogin(t, { tokenError: { error: "invalid_grant", error_description: "Refresh token revoked" } });
+  codex.seed();
+  const calls = [];
+  codexUpstream(t, codex, calls);
+
+  const report = await codexProbe("https://chatgpt.com/backend-api/codex", [localCodexPlugin]);
+
+  assert.equal(report.passed.length, 0);
+  assert.match(report.failed[0]?.message ?? "", /Refresh token revoked/);
+  assert.deepEqual(calls, []);
+});
+
+test("connectivity probe reports the detail field of an upstream error body", async (t) => {
+  useFetch(t, undefined, async () => new Response(JSON.stringify({ detail: "Missing scopes: api.connectors.invoke" }), {
+    headers: { "content-type": "application/json" },
+    status: 403
+  }));
+
+  const report = await checkGatewayProviderConnectivity({
+    apiKey: "sk-test",
+    candidates: [{ baseUrl: "http://127.0.0.1:49128/v1", name: "Detail upstream", protocols: ["openai_responses"], source: "custom" }],
+    forceRefresh: true,
+    models: ["gpt-test"],
+    protocols: ["openai_responses"]
+  });
+
+  assert.equal(report.passed.length, 0);
+  assert.match(report.failed[0]?.message ?? "", /HTTP 403: Missing scopes: api\.connectors\.invoke/);
+});
+
 test("connectivity probe applies Codex request defaults for OAuth plugins", async (t) => {
   const codex = await useCodexLogin(t, { accountId: "acct-codex-defaults" });
   const accessToken = codexAccessToken(3600, "acct-codex-defaults");
@@ -1053,7 +1101,7 @@ function codexAccessToken(lifetimeSeconds, accountId = "acct-codex", scope = "ap
   });
 }
 
-async function useCodexLogin(t, { accountId = "acct-codex", delayMs = 0, lifetimeSeconds = 3600 } = {}) {
+async function useCodexLogin(t, { accountId = "acct-codex", delayMs = 0, lifetimeSeconds = 3600, tokenError } = {}) {
   const saved = Object.fromEntries(codexEnvKeys.map((key) => [key, process.env[key]]));
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "llmr-codex-probe-login-"));
   const codexDir = path.join(home, ".codex");
@@ -1070,6 +1118,11 @@ async function useCodexLogin(t, { accountId = "acct-codex", delayMs = 0, lifetim
       const payload = JSON.parse(body);
       requests.push(payload);
       await new Promise((resolve) => setTimeout(resolve, delayMs));
+      if (tokenError) {
+        response.writeHead(400, { "content-type": "application/json" });
+        response.end(JSON.stringify(tokenError));
+        return;
+      }
       response.writeHead(seen.has(payload.refresh_token) ? 400 : 200, { "content-type": "application/json" });
       if (seen.has(payload.refresh_token)) {
         response.end(JSON.stringify({ error: "refresh_token_reused" }));

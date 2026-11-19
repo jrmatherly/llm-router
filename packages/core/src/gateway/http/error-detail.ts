@@ -273,6 +273,7 @@ function extractAttemptDetailMessage(details: unknown): string | undefined {
     if (nested) return nested;
   }
   if (typeof record.error === "string" && record.error.trim()) return record.error.trim().slice(0, attemptMessageLimit);
+  if (typeof record.detail === "string" && record.detail.trim()) return record.detail.trim().slice(0, attemptMessageLimit);
   const raw = record.raw;
   if (typeof raw === "string" && raw.trim()) {
     const parsed = parseSseErrorPayload(raw);
