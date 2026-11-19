@@ -588,9 +588,10 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
       backupFile: writeResult.backupFile ?? wrapperResult.backupFile ?? autoCompactResult.backupFile,
       client: "claude-code",
       enabled: true,
-      message: changed
-        ? `Claude Code settings are managed by LLMR (wrapper ${wrapperResult.file}).`
-        : "Claude Code settings already match LLMR.",
+      message: [
+        changed ? `Claude Code settings are managed by LLMR (wrapper ${wrapperResult.file}).` : "Claude Code settings already match LLMR.",
+        ...(autoCompactResult.file ? [] : ["Claude Code uses its own auto-compact windows for this profile."])
+      ].join(" "),
       ok: true,
       path: settingsFile
     };

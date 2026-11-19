@@ -508,7 +508,90 @@ test("a global Claude Code profile on the default ~/.claude unsets CLAUDE_CONFIG
   }
 });
 
-test("profile service honors the top-level profile disabled flag",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("a default-home Claude Code profile leaves ~/.claude.json and ~/.claude/.claude.json byte-identical through apply and disable", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  assert.equal(os.homedir(), home);
+  const claudeDir = path.join(home, ".claude");
+  const stateFile = path.join(home, ".claude.json");
+  const nestedFile = path.join(claudeDir, ".claude.json");
+  const state = "{\"keep\":\"home-state\"}\n";
+  const nested = "{\"keep\":\"nested-state\"}\n";
+  mkdirSync(claudeDir, { recursive: true });
+  writeFileSync(stateFile, state);
+  writeFileSync(nestedFile, nested);
+  const { config, profile } = defaultHomeClaudeFixture("default-home-files");
+  try {
+    const applied = (await applyProfileFixture(config)).clients.find((client) => client.client === "claude-code");
+    assert.equal(applied?.ok, true);
+    assert.match(applied?.message ?? "", /Claude Code uses its own auto-compact windows for this profile\.$/);
+    assert.equal(readFileSync(stateFile, "utf8"), state);
+    assert.equal(readFileSync(nestedFile, "utf8"), nested);
+    profile.enabled = false;
+    await applyProfileFixture(config);
+    assert.equal(readFileSync(stateFile, "utf8"), state);
+    assert.equal(readFileSync(nestedFile, "utf8"), nested);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(claudeDir, { force: true, recursive: true });
+    rmSync(stateFile, { force: true });
+  }
+});
+
+test("a default-home Claude Code profile writes a cmd wrapper that clears CLAUDE_CONFIG_DIR", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  const platform = Object.getOwnPropertyDescriptor(process, "platform");
+  const { config, profile } = defaultHomeClaudeFixture("default-home-cmd");
+  Object.defineProperty(process, "platform", { value: "win32" });
+  try {
+    const applied = (await applyProfileFixture(config)).clients.find((client) => client.client === "claude-code");
+    Object.defineProperty(process, "platform", platform);
+    assert.equal(applied?.ok, true);
+    const wrapper = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}.cmd`), "utf8");
+    assert.match(wrapper, /^set CLAUDE_CONFIG_DIR=\r?$/m);
+    assert.doesNotMatch(wrapper, /^set CLAUDE_CONFIG_DIR=[^\r\n]/m);
+  } finally {
+    Object.defineProperty(process, "platform", platform);
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}.cmd`), { force: true });
+    rmSync(path.join(home, ".claude"), { force: true, recursive: true });
+  }
+});
+
+test("a global Claude Code profile with its own settings file keeps CLAUDE_CONFIG_DIR and its auto-compact cache", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  const dir = path.join(home, ".claude-work");
+  const { config, profile } = defaultHomeClaudeFixture("own-home-claude", { settingsFile: "~/.claude-work/settings.json" });
+  try {
+    const applied = (await applyProfileFixture(config)).clients.find((client) => client.client === "claude-code");
+    assert.equal(applied?.ok, true);
+    assert.doesNotMatch(applied?.message ?? "", /own auto-compact windows/);
+    assert.ok(JSON.parse(readFileSync(path.join(dir, ".claude.json"), "utf8")).autoCompactWindowsCache);
+    const wrapper = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}`), "utf8");
+    assert.ok(wrapper.split("\n").includes(`export CLAUDE_CONFIG_DIR='${dir}'`));
+    assert.doesNotMatch(wrapper, /^unset CLAUDE_CONFIG_DIR$/m);
+    assert.equal(existsSync(path.join(home, ".claude.json")), false);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a default-home Claude Code profile's sh wrapper unsets CLAUDE_CONFIG_DIR after any profile value", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  const { config, profile } = defaultHomeClaudeFixture("default-home-order", { env: { CLAUDE_CONFIG_DIR: "/somewhere/else" } });
+  try {
+    await applyProfileFixture(config);
+    const lines = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}`), "utf8").split("\n");
+    const unsetAt = lines.indexOf("unset CLAUDE_CONFIG_DIR");
+    assert.ok(unsetAt > 0);
+    assert.deepEqual(lines.slice(unsetAt + 1).filter((line) => line.includes("CLAUDE_CONFIG_DIR")), []);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(path.join(home, ".claude"), { force: true, recursive: true });
+  }
+});
+
+test("profile service honors the top-level profile disabled flag", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-profile-disabled-"));
   try {
     const settingsFile = path.join(root, ".claude", "settings.json");
@@ -3124,6 +3207,16 @@ test("profile service reports a failed model discovery cache invalidation withou
 
 // Profile application reads credentials from their authoritative store. Persist
 // each fixture explicitly; config snapshots are no longer credential updates.
+function defaultHomeClaudeFixture(id, extra = {}) {
+  const profile = { agent: "claude-code", enabled: true, env: {}, id, model: "Provider/model", name: id, scope: "global", smallFastModel: "", surface: "cli", ...extra };
+  const config = createDefaultAppConfig();
+  config.APIKEY = `llmr-${id}`;
+  config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${id}`, key: `llmr-${id}`, name: id }];
+  config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  config.profile.profiles = [profile];
+  return { config, profile };
+}
+
 async function applyProfileFixture(config, options) {
   await replacePersistedApiKeys(config.APIKEYS ?? []);
   return applyProfileConfig(config, options);

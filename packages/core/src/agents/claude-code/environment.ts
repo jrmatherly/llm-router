@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 import { claudeCodeUsesSharedHome, type ProfileConfig } from "@llmr/core/contracts/app";
 import { resolveUserPath } from "@llmr/core/runtime/app-paths";
@@ -43,9 +44,10 @@ export function claudeCodeMcpConfigEnv(configFile: string | undefined): Record<s
 }
 
 // Claude Code reads ~/.claude.json and the unsuffixed Keychain item only while CLAUDE_CONFIG_DIR is unset, even when it names ~/.claude.
+// Unset it only when the dir is the default of both LLMR's runtime home and the child's HOME, so an isolated run stays pinned.
 export function claudeCodeConfigDir(settingsFile: string): string | undefined {
   const dir = path.dirname(settingsFile);
-  return dir === resolveUserPath("~/.claude") ? undefined : dir;
+  return dir === resolveUserPath("~/.claude") && dir === path.join(os.homedir(), ".claude") ? undefined : dir;
 }
 
 export function claudeCodeHomeEnv(profile: Pick<ProfileConfig, "agent" | "claudeCodeSharedHome" | "scope">, settingsFile: string): Record<string, string> {

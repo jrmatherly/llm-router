@@ -28,6 +28,21 @@ test("a Claude App launch on the default ~/.claude drops CLAUDE_CONFIG_DIR, even
   assert.equal(generated.env.CLAUDE_CONFIG_DIR, generatedDir);
 });
 
+test("a Claude App launch on the default ~/.claude keeps CLAUDE_CONFIG_DIR when LLMR's home is not the child's HOME", (t) => {
+  const tempDir = mkdtempForTest();
+  const previous = process.env.LLMR_INTERNAL_HOME_DIR;
+  t.after(() => {
+    process.env.LLMR_INTERNAL_HOME_DIR = previous;
+    rmSync(tempDir, { force: true, recursive: true });
+  });
+  process.env.LLMR_INTERNAL_HOME_DIR = tempDir;
+  const profile = { agent: "claude-code", enabled: true, id: "claude-app", model: "", name: "Claude App", scope: "global", surface: "auto" };
+
+  const launch = claudeAppLaunchEnv(tempDir, profile, path.join(tempDir, "user-data"));
+  assert.equal(launch.appEnv.CLAUDE_CONFIG_DIR, path.join(tempDir, ".claude"));
+  assert.equal(launch.env.CLAUDE_CONFIG_DIR, path.join(tempDir, ".claude"));
+});
+
 test("claudeAppLaunchCommand opens macOS app bundles through LaunchServices", (t) => {
   const tempDir = mkdtempForTest();
   t.after(() => rmSync(tempDir, { force: true, recursive: true }));
