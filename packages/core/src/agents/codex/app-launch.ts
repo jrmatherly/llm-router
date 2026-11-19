@@ -6,7 +6,7 @@ import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import type { AppConfig, ProfileConfig } from "@llmr/core/contracts/app";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import { buildCodexModelCatalog, type CodexModelCatalog, type CodexModelCatalogItem } from "@llmr/core/agents/codex/model-catalog";
-import { CODEX_APP_NET_RESPONDER_PORT, codexAppApiBaseUrl, ensureCodexAppNetResponder } from "@llmr/core/agents/codex/app-net-responder";
+import { CODEX_APP_NET_RESPONDER_PORT, codexAppApiBaseUrl, ensureCodexAppNetResponder, secureCodexAppResponderLog } from "@llmr/core/agents/codex/app-net-responder";
 import { prepareCodexAppCdpUserDataDir } from "@llmr/core/agents/codex/media-preview-bridge";
 import { backupBeforeWrite, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { buildProfileLaunchPlan, resolveCodexConfigFile } from "@llmr/core/profiles/launch-core";
@@ -984,6 +984,7 @@ export async function prepareCodexAppNetResponder(configDir: string): Promise<vo
   const port = codexAppNetResponderPort("codex");
   if (!port) return;
   const logPath = path.join(configDir, "codex-app-inspector.log");
+  await secureCodexAppResponderLog(logPath);
   try {
     await ensureCodexAppNetResponder({ listenPort: port, logPath });
   } catch (error) {

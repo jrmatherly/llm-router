@@ -878,7 +878,7 @@ export function AddProfileForm({
           </div>
         ) : null}
         {draft.agent === "codex" && draft.surface !== "cli" && draft.scope !== "global" ? (
-          <p className="text-[12px] text-muted-foreground">The ChatGPT app opened from this profile signs in with your personal Codex login (~/.codex/auth.json) unless you signed in inside the profile's own Codex home.</p>
+          <p className="min-w-0 text-[12px] text-muted-foreground">The ChatGPT app opened from this profile signs in with your personal Codex login (~/.codex/auth.json) unless you signed in inside the profile's own Codex home.</p>
         ) : null}
         {draft.agent === "claude-code" && draft.surface !== "app" && draft.scope !== "global" ? (
           <div className="min-w-0 space-y-1">

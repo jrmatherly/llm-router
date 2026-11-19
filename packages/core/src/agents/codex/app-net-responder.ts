@@ -1,4 +1,4 @@
-import { appendFile, chmod, mkdir } from "node:fs/promises";
+import { appendFile, chmod, mkdir, readFile, rm } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
 import path from "node:path";
 
@@ -156,6 +156,28 @@ export function codexAppApiBaseUrl(port: number = CODEX_APP_NET_RESPONDER_PORT):
   return `http://localhost:${port}`;
 }
 
+/**
+ * Earlier versions logged the account id and request bodies to a file with the
+ * default mode. Such a log is deleted; any other existing log is made private,
+ * because appendFile's mode applies only when it creates the file.
+ */
+export async function secureCodexAppResponderLog(logPath: string): Promise<void> {
+  try {
+    if (/"(accountId|body)":/.test(await readFile(logPath, "utf8"))) await rm(logPath);
+    else await chmod(logPath, 0o600);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[codex-app] Could not make ${logPath} private; a log from an older version may hold account ids: ${message}`);
+  }
+}
+
+/** The app puts the account id in paths such as /accounts/<id>/settings. */
+function responderLogPath(pathname: string, accountIdHeader: string | undefined): string {
+  const withoutHeaderId = accountIdHeader ? pathname.split(accountIdHeader).join(":account") : pathname;
+  return withoutHeaderId.replace(/\/accounts\/(?!check(?:\/|$)|optimized(?:\/|$))[^/]+/g, "/accounts/:account");
+}
+
 async function appendResponderLog(logPath: string, entry: Record<string, unknown>): Promise<void> {
   try {
     await mkdir(path.dirname(logPath), { recursive: true });
@@ -196,8 +218,8 @@ export function ensureCodexAppNetResponder(options: {
 /**
  * Loopback HTTP responder for the LLMR-launched ChatGPT app. Pointed at via
  * the CODEX_API_BASE_URL environment variable (honored by the app's desktop
- * API URL builder), it serves the virtual-account routes locally and records
- * every other request for further route discovery.
+ * API URL builder), it serves the virtual-account routes locally and logs the
+ * method, path and status of every request, so missing routes can be found.
  */
 export async function startCodexAppNetResponder(options: {
   listenPort: number;
@@ -216,14 +238,15 @@ export async function startCodexAppNetResponder(options: {
         size += Buffer.byteLength(chunk);
         if (size > 1024 * 1024) break;
       }
-      const accountId = String(request.headers["chatgpt-account-id"] || VIRTUAL_ACCOUNT_ID);
+      const accountIdHeader = String(request.headers["chatgpt-account-id"] || "");
+      const accountId = accountIdHeader || VIRTUAL_ACCOUNT_ID;
       // With a bridged login the account id and bodies are the user's own, so only the request's shape is logged.
       await appendResponderLog(logPath, {
         bodyBytes: size,
         event: route ? "virtual-response" : "not-found",
         method: request.method,
         status: route ? 200 : 404,
-        url: url.pathname
+        url: responderLogPath(url.pathname, accountIdHeader)
       });
       if (route) {
         const body = JSON.stringify(route.bodyFor ? route.bodyFor({ accountId }) : route.body);
@@ -252,9 +275,6 @@ export async function startCodexAppNetResponder(options: {
     });
   });
   await appendResponderLog(logPath, { event: "responder-started", port: boundPort });
-  // A log an older version created keeps its mode, and that log holds account ids and bodies.
-  await chmod(logPath, 0o600).catch(() => {});
-
   return {
     port: boundPort,
     baseUrl: codexAppApiBaseUrl(boundPort),

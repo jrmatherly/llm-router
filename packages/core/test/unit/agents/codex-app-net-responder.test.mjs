@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -8,6 +8,7 @@ import {
   codexVirtualAccountRoutes,
   ensureCodexAppNetResponder,
   matchCodexVirtualRoute,
+  secureCodexAppResponderLog,
   startCodexAppNetResponder
 } from "@llmr/core/agents/codex/app-net-responder.ts";
 import { codexAppNetResponderEnv, codexElectronArgsForTest } from "@llmr/core/agents/codex/app-launch.ts";
@@ -139,6 +140,12 @@ test("responder log keeps the account id and request bodies out of a private fil
       headers: { "chatgpt-account-id": "acct-secret-marker" },
       method: "POST"
     });
+    await fetch(`${responder.baseUrl}/accounts/acct-secret-marker/settings?token=query-secret-marker`);
+    await fetch(`${responder.baseUrl}/unknown/acct-secret-marker/usage`, {
+      headers: { "chatgpt-account-id": "acct-secret-marker" }
+    });
+    await fetch(`${responder.baseUrl}/accounts/check/v4-2023-04-27`);
+    await fetch(`${responder.baseUrl}/accounts/optimized/check`);
   } finally {
     responder.close();
   }
@@ -150,11 +157,46 @@ test("responder log keeps the account id and request bodies out of a private fil
       requests.map(({ ts, ...entry }) => entry),
       [
         { bodyBytes: Buffer.byteLength(body), event: "virtual-response", method: "POST", status: 200, url: "/wham/accounts/check" },
-        { bodyBytes: Buffer.byteLength(body), event: "not-found", method: "POST", status: 404, url: "/wham/usage" }
+        { bodyBytes: Buffer.byteLength(body), event: "not-found", method: "POST", status: 404, url: "/wham/usage" },
+        { bodyBytes: 0, event: "virtual-response", method: "GET", status: 200, url: "/accounts/:account/settings" },
+        { bodyBytes: 0, event: "not-found", method: "GET", status: 404, url: "/unknown/:account/usage" },
+        { bodyBytes: 0, event: "virtual-response", method: "GET", status: 200, url: "/accounts/check/v4-2023-04-27" },
+        { bodyBytes: 0, event: "virtual-response", method: "GET", status: 200, url: "/accounts/optimized/check" }
       ]
     );
     if (process.platform !== "win32") assert.equal(statSync(logPath).mode & 0o777, 0o600);
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a log from an older version is deleted when it holds account ids or bodies, and made private otherwise", async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-net-responder-legacy-"));
+  const logPath = path.join(dir, "responder.log");
+  const warn = console.warn;
+  const warnings = [];
+  console.warn = (message) => warnings.push(String(message));
+  try {
+    await secureCodexAppResponderLog(logPath);
+    assert.equal(existsSync(logPath), false);
+
+    writeFileSync(logPath, '{"ts":1,"event":"not-found","accountId":"acct-9","body":"{}"}\n', { mode: 0o644 });
+    await secureCodexAppResponderLog(logPath);
+    assert.equal(existsSync(logPath), false);
+
+    writeFileSync(logPath, '{"ts":1,"event":"responder-started","port":8000}\n', { mode: 0o644 });
+    await secureCodexAppResponderLog(logPath);
+    assert.match(readFileSync(logPath, "utf8"), /responder-started/);
+    if (process.platform !== "win32") assert.equal(statSync(logPath).mode & 0o777, 0o600);
+    assert.deepEqual(warnings, []);
+
+    rmSync(logPath);
+    mkdirSync(logPath);
+    await secureCodexAppResponderLog(logPath);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /Could not make .*responder\.log private/);
+  } finally {
+    console.warn = warn;
     rmSync(dir, { recursive: true, force: true });
   }
 });
