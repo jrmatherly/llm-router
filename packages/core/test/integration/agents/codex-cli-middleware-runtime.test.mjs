@@ -900,6 +900,152 @@ test("Codex app-server merges LLMR Fast Mode catalog metadata without spoofing a
   });
 });
 
+test("Codex app-server preserves catalog image and reasoning capabilities over native defaults", { skip: process.platform === "win32" }, () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-capabilities-"));
+  const runtimeFile = writeRuntimeScript(dir);
+  const fakeCodex = path.join(dir, "fake-codex");
+  const codexHome = path.join(dir, "codex-home");
+  const isolatedHome = path.join(dir, "home");
+  mkdirSync(codexHome, { recursive: true });
+  mkdirSync(isolatedHome, { recursive: true });
+  writeFileSync(fakeCodex, [
+    "#!/usr/bin/env node",
+    "const readline = require('node:readline');",
+    "const input = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });",
+    "const textOnly = (id) => ({ id, hidden: true, inputModalities: ['text'], supportedReasoningEfforts: [], defaultReasoningEffort: null });",
+    "const capable = (id) => ({ id, hidden: true, inputModalities: ['text', 'image'], supportedReasoningEfforts: [{ reasoningEffort: 'high' }], defaultReasoningEffort: 'high' });",
+    "input.on('line', (line) => {",
+    "  const request = JSON.parse(line);",
+    "  const result = request.method === 'model/list'",
+    "    ? { data: [...['example/gpt-test', 'both-shapes', 'undeclared-model', 'string-model'].map(textOnly), ...['empty-camel', 'empty-snake'].map(capable)], nextCursor: null }",
+    "    : {};",
+    "  process.stdout.write(JSON.stringify({ id: request.id, result }) + '\\n');",
+    "});",
+    ""
+  ].join("\n"));
+  chmodSync(fakeCodex, 0o700);
+
+  const result = spawnSync(process.execPath, [runtimeFile, "app-server"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      LLMR_CODEX_CHATGPT_AUTH_FILE: "",
+      LLMR_CODEX_MODEL_CATALOG: JSON.stringify({
+        models: [
+          {
+            slug: "example/gpt-test",
+            input_modalities: ["text", "image"],
+            supported_reasoning_efforts: ["low", "medium", "high", "xhigh", "max", "ultra"],
+            default_reasoning_effort: "medium"
+          },
+          {
+            slug: "both-shapes",
+            supportedReasoningEfforts: [{ description: "High", reasoningEffort: "high" }],
+            supported_reasoning_efforts: ["high"]
+          },
+          { slug: "undeclared-model" },
+          "string-model",
+          { slug: "empty-camel", inputModalities: [], supportedReasoningEfforts: [], defaultReasoningEffort: null },
+          { slug: "empty-snake", input_modalities: [], supported_reasoning_efforts: [], default_reasoning_effort: null }
+        ]
+      }),
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
+      CODEX_HOME: codexHome,
+      HOME: isolatedHome
+    },
+    input: JSON.stringify({ id: 1, method: "model/list", params: {} }) + "\n"
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const models = JSON.parse(result.stdout.trim()).result.data;
+  const model = models.find((item) => item.id === "example/gpt-test");
+  assert.deepEqual(model.inputModalities, ["text", "image"]);
+  assert.deepEqual(model.input_modalities, ["text", "image"]);
+  assert.deepEqual(model.supportedReasoningEfforts, ["low", "medium", "high", "xhigh", "max", "ultra"]);
+  assert.deepEqual(model.supported_reasoning_efforts, ["low", "medium", "high", "xhigh", "max", "ultra"]);
+  assert.equal(model.defaultReasoningEffort, "medium");
+  assert.equal(model.default_reasoning_effort, "medium");
+  assert.equal(model.hidden, true);
+  // LLMR's own catalog writes both effort keys, each in its own shape.
+  const both = models.find((item) => item.id === "both-shapes");
+  assert.deepEqual(both.supportedReasoningEfforts, [{ description: "High", reasoningEffort: "high" }]);
+  assert.deepEqual(both.supported_reasoning_efforts, ["high"]);
+  assert.deepEqual(both.inputModalities, ["text"]);
+  for (const id of ["undeclared-model", "string-model"]) {
+    const undeclared = models.find((item) => item.id === id);
+    assert.deepEqual(undeclared.inputModalities, ["text"], id);
+    assert.deepEqual(undeclared.supportedReasoningEfforts, [], id);
+    assert.equal(undeclared.defaultReasoningEffort, null, id);
+    assert.equal(undeclared.hidden, true, id);
+  }
+  for (const id of ["empty-camel", "empty-snake"]) {
+    const empty = models.find((item) => item.id === id);
+    assert.deepEqual(empty.inputModalities, [], id);
+    assert.deepEqual(empty.input_modalities, [], id);
+    assert.deepEqual(empty.supportedReasoningEfforts, [], id);
+    assert.deepEqual(empty.supported_reasoning_efforts, [], id);
+    assert.equal(empty.defaultReasoningEffort, null, id);
+    assert.equal(empty.default_reasoning_effort, null, id);
+    assert.equal(empty.hidden, true, id);
+  }
+});
+
+test("Codex app-server keeps the capabilities of a catalog file written by LLMR", { skip: process.platform === "win32" }, () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-catalog-file-"));
+  const runtimeFile = writeRuntimeScript(dir);
+  const fakeCodex = path.join(dir, "fake-codex");
+  const codexHome = path.join(dir, "codex-home");
+  const isolatedHome = path.join(dir, "home");
+  const catalogFile = path.join(dir, "catalog.json");
+  mkdirSync(codexHome, { recursive: true });
+  mkdirSync(isolatedHome, { recursive: true });
+  const id = "example/gpt-5.5";
+  const catalog = buildCodexModelCatalog(undefined, id);
+  const declared = catalog.models.find((item) => item.slug === id);
+  writeFileSync(catalogFile, JSON.stringify(catalog));
+  writeFileSync(fakeCodex, [
+    "#!/usr/bin/env node",
+    "const readline = require('node:readline');",
+    "const input = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });",
+    "input.on('line', (line) => {",
+    "  const request = JSON.parse(line);",
+    `  const result = request.method === 'model/list'`,
+    `    ? { data: [{ id: ${JSON.stringify(id)}, hidden: true, inputModalities: [], supportedReasoningEfforts: [], defaultReasoningEffort: null }], nextCursor: null }`,
+    "    : {};",
+    "  process.stdout.write(JSON.stringify({ id: request.id, result }) + '\\n');",
+    "});",
+    ""
+  ].join("\n"));
+  chmodSync(fakeCodex, 0o700);
+
+  const result = spawnSync(process.execPath, [runtimeFile, "app-server"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      LLMR_CODEX_CHATGPT_AUTH_FILE: "",
+      LLMR_CODEX_MODEL_CATALOG: "",
+      LLMR_CODEX_MODEL_CATALOG_FILE: catalogFile,
+      LLMR_CODEX_REMOTE_FRONTEND_MODE: "app",
+      LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
+      CODEX_HOME: codexHome,
+      HOME: isolatedHome
+    },
+    input: JSON.stringify({ id: 1, method: "model/list", params: {} }) + "\n"
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const model = JSON.parse(result.stdout.trim()).result.data.find((item) => item.id === id);
+  assert.ok(declared.supportedReasoningEfforts.length > 0);
+  assert.equal(typeof declared.supportedReasoningEfforts[0].reasoningEffort, "string");
+  assert.deepEqual(model.supportedReasoningEfforts, declared.supportedReasoningEfforts);
+  assert.deepEqual(model.supported_reasoning_efforts, declared.supported_reasoning_efforts);
+  assert.deepEqual(model.inputModalities, declared.input_modalities);
+  assert.deepEqual(model.input_modalities, declared.input_modalities);
+  assert.equal(model.defaultReasoningEffort, declared.default_reasoning_effort);
+  assert.equal(model.hidden, true);
+});
+
 test("Claude Code wrapper leaves the scoped profile model as an environment default", { skip: process.platform === "win32" }, () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-wrapper-"));
   const runtimeFile = writeRuntimeScript(dir);
