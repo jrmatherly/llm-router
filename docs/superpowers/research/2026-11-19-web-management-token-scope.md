@@ -21,6 +21,23 @@ Research for open follow-up 4 in `docs/superpowers/upstream-review/reviews/2026-
 
 Paths are under `packages/core/src/` unless they start with another top-level folder. `ms.ts` is `web/management-server.ts`; `ps.ts` is `web/provider-secrets.ts`.
 
+## Live verification (2026-11-19)
+
+The shortest chains were run against `llmr serve --no-gateway` on `127.0.0.1`, with `HOME` and `LLMR_INTERNAL_HOME_DIR` set to a throwaway directory and a harmless marker command (`/usr/bin/touch`) or a local sink server standing in for an attacker. All results below are **RUN** against a dist rebuilt from `main` at `322c2bc8`.
+
+| Chain | Result |
+|---|---|
+| `testRouteScript`, script reads a file and calls `api.env("LLMR_WEB_AUTH_TOKEN")` | Returned the file's contents and the management token. |
+| `saveConfig` with a stdio MCP server, then `listMcpServerTools` | Ran the command (marker file created). |
+| `probeProvider` with a saved-key reference and `baseUrl` `127.0.0.1:<sink>/v1` (no scheme) | The sink received the saved key as `authorization: Bearer` and `x-api-key` on `/v1/models` and `/v1/messages`. |
+| Same with a leading space before `http://` | Same: the key reached the sink. |
+| `testProviderAccountConnector` `http-json`, endpoint `␠http://127.0.0.1:<sink>/acct` | The sink received the key as `authorization: Bearer`. |
+| `saveConfig` adding a second provider at the sink's address that carries the first provider's reference | Accepted (HTTP 200); both providers hold the same reference. |
+
+`startBotGatewayQrLogin` with `command: /usr/bin/touch` also created its marker, but only on the stale build described next; its source is unchanged by PR 115 and was re-read (R).
+
+**Stale-build hazard.** The `dist/` on this checkout before the rebuild (built 2026-11-18 19:31, before `75562a9e`) still contained a probe address check that was written and then removed inside PR 115: probes failed with "A saved provider credential can only be sent to its own provider's address." `git log -S` finds that message in no commit under `packages/core/src`, so it never reached `main`. A live check run without `npm run build:assets` first reports a guard that does not exist. After the rebuild, restore the generated files with `git checkout -- packages/core/models.json packages/ui/src/generated`.
+
 ## Part 1. Every handler in `rpcHandlers`
 
 `rpcHandlers` is `ms.ts:289-519` and has 69 entries (RUN: counted with grep over those lines). Every call needs the token (`ms.ts:235`) and a trusted or absent browser origin (`ms.ts:239`). Responses pass through `redactWebRpcValue`, which masks only inside an object that has a `Providers` array, and there only `Providers`, `providerPlugins` and `toolHub` (`ps.ts:8`, `ps.ts:71-82`) (R).
@@ -106,7 +123,7 @@ All R. These are refreshable account logins, not API keys, and no destination te
 `restoreWebConfigSecrets` restores any known reference under any credential-named key inside `Providers`, `providerPlugins` and `toolHub` (`ps.ts:109-118`) (R). A reference is a keyed hash of the secret, not of its place (`ps.ts:10-14`, `:42`). So:
 
 - changing `api_base_url` of the provider that holds the key works, as recorded;
-- **Correction 2:** so does adding a *new* provider, credential, account connector header, plugin auth header or `toolHub.llm.apiKey` that carries the reference. A check that compares "this provider's URL before and after" misses all of these. The rule has to bind the secret, not the provider.
+- **Correction 2:** so does adding a *new* provider, credential, account connector header, plugin auth header or `toolHub.llm.apiKey` that carries the reference. A check that compares "this provider's URL before and after" misses all of these. The rule has to bind the secret, not the provider. (RUN for a new provider: see Live verification.)
 
 Where a saved provider key is then sent, and the field each sender reads:
 
@@ -281,7 +298,7 @@ Also to decide: whether an allowed host may resolve to a private address (`fetch
 | What does `@the-next-ai/ai-gateway` do with `baseurl` after LLMR normalises it (further rewriting, redirects)? | Read the provider request builder in the fork `jrmatherly/llmr-gateway`. |
 | Do `plugins[].coreGateway.config` keys reach a spawn in the gateway child? | Trace `configExternal` and similar keys in the gateway's `dist/index.js`. |
 | Do the wrapper scripts execute the binary path taken from `profile.env`? Does Codex `config.toml` take caller-set fields that run a command? | Read the wrapper runtime and the Codex config writer in `profiles/service.ts`. |
-| None of the chains in Part 1 was executed end to end against a running server. | Use the live web UI recipe from the handoff (`serve --no-gateway` with a throwaway `HOME`), then call `startBotGatewayQrLogin` with a command that writes a marker file, and `testRouteScript` with a script that reads one. |
+| Not run live: the local agent logins sent by a probe (Part 2.1, correction 1), the plugin `import()` and custom router `require` chains, profile `claudeSettings` writes, and `startBotGatewayQrLogin` on a current build. The chains in "Live verification" were run. | Repeat that recipe after `npm run build:assets`, planting a `llmr-local-agent-codex-oauth` plugin with a test login, a `.js` plugin module that writes a marker, and a profile whose `settingsFile` is inside the throwaway home. |
 | Is `detectProviderIcon` guarded against private addresses? Where does the Claude apps gateway login store its session? | Read `providers/icons.ts:100-210` and `agents/claude-apps-gateway/device-login-service.ts`. |
 | Does Nginx in the Docker image log the first request's tokened URL? | Run the image and read the access log; no `access_log` directive was found under `docker/`. |
 | Which rows marked **A** hold when re-read? | Re-read the cited lines; the headline ones (bot gateway spawn, route script bridge, MCP spawn, plugin import, custom router) were re-read and are marked R. |
