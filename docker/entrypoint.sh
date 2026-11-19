@@ -21,6 +21,17 @@ elif [ "${#LLMR_WEB_AUTH_TOKEN}" -lt 32 ]; then
   exit 1
 fi
 
+# The server refuses this too, but under pm2 that is a restart loop behind a running Nginx.
+case "${LLMR_WEB_HOST}" in
+  127.0.0.1|localhost|::1) ;;
+  *)
+    if [ "${LLMR_WEB_ALLOW_REMOTE:-}" != "1" ]; then
+      echo "LLMR_WEB_HOST=${LLMR_WEB_HOST} is not loopback. Leave it unset, or set LLMR_WEB_ALLOW_REMOTE=1 to expose the management server." >&2
+      exit 1
+    fi
+    ;;
+esac
+
 export HOME="${LLMR_DATA_DIR}"
 export LLMR_DATA_DIR
 export LLMR_GATEWAY_HOST

@@ -59,12 +59,13 @@ The management UI defaults to `http://127.0.0.1:3458`; the model gateway default
 ## `llmr start`
 
 ```text
-llmr start [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr start [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 | Option | Description |
 | --- | --- |
 | `--host <host>` | Management service listen address, default `127.0.0.1`. `--host=value` is also accepted. |
+| `--allow-remote` | Allow a listen address other than `localhost`, `127.0.0.1` or `::1`. Same as `LLMR_WEB_ALLOW_REMOTE=1`. |
 | `--port <port>` | Preferred management service port, default `3458`. `--port=value` is also accepted. |
 | `--open` | Open a browser after startup. |
 | `--no-open` | Do not open a browser. |
@@ -76,7 +77,7 @@ If the preferred port is occupied, LLMR keeps trying following ports and prints 
 ## `llmr ui`
 
 ```text
-llmr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr ui [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 `ui` uses the same background service as `start`, but opens a browser by default. When LLMR generates the token it prints the management URL once, in the form `/#llmr_web_token=<token>`. A token you set with `LLMR_WEB_AUTH_TOKEN` is never printed: the page asks for it. The token is kept per browser tab, so a new tab asks again. The fragment keeps the token out of server and proxy logs, but it may remain in browser history. Treat a URL that carries the token as a password and do not paste it into logs, tickets, or public screenshots.
@@ -84,7 +85,7 @@ llmr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gatew
 ## `llmr serve`
 
 ```text
-llmr serve [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr serve [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 `serve` stays in the foreground and shuts down the management service and configured services on `SIGINT` or `SIGTERM`. Prefer it when troubleshooting startup errors, because errors are printed directly to the current terminal.

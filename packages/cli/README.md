@@ -49,10 +49,11 @@ The management token and LLMR client API keys are different credentials. The man
 ### `llmr start`
 
 ```text
-llmr start [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr start [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 - `--host <host>`: management listener, default `127.0.0.1`.
+- `--allow-remote`: allow a listener other than `localhost`, `127.0.0.1` or `::1`. Same as `LLMR_WEB_ALLOW_REMOTE=1`.
 - `--port <port>`: preferred management port, default `3458`.
 - `--open` / `--no-open`: enable or disable opening a browser.
 - `--gateway`: explicitly request gateway startup; this is the default.
@@ -61,7 +62,7 @@ llmr start [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-ga
 ### `llmr ui`
 
 ```text
-llmr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr ui [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 `ui` opens the browser by default. Use `--no-open` on SSH or other headless sessions.
@@ -69,7 +70,7 @@ llmr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gatew
 ### `llmr serve`
 
 ```text
-llmr serve [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr serve [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 `serve` stays attached to the current terminal and handles `SIGINT`/`SIGTERM`. It is the appropriate mode for a process supervisor. `llmr stop` only manages the detached service; stop a foreground server through its terminal or supervisor.

@@ -53,6 +53,33 @@ test("a background service is started, reused and stopped without printing a sup
   await assert.rejects(fetch(`http://127.0.0.1:${port}/`), "the port is closed after stop");
 });
 
+test("--allow-remote reaches the background service", async (t) => {
+  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-cli-daemon-"));
+  const env = isolateTestHome(home, {
+    ...process.env,
+    LLMR_CLI_COMMAND_NAME: "",
+    LLMR_MODEL_CATALOG_PATH: path.join(process.cwd(), "packages", "core", "models.json"),
+    LLMR_WEB_AUTH_TOKEN: token
+  });
+  delete env.LLMR_WEB_ALLOW_REMOTE;
+  const run = (args) => spawnSync(process.execPath, [cliRuntime, ...args], { encoding: "utf8", env, timeout: 60_000 });
+  const stateFile = path.join(home, ".llm-router", "service.json");
+  t.after(() => {
+    run(["stop"]);
+    try {
+      process.kill(JSON.parse(readFileSync(stateFile, "utf8")).pid);
+    } catch {
+      // Already stopped.
+    }
+    rmSync(home, { force: true, recursive: true });
+  });
+
+  const started = run(["start", "--host", "0.0.0.0", "--allow-remote", "--port", String(await freePort()), "--no-open", "--no-gateway"]);
+  assert.equal(started.status, 0, started.stderr);
+  assert.equal(new URL(JSON.parse(readFileSync(stateFile, "utf8")).url).hostname, "0.0.0.0");
+  assert.equal(run(["stop"]).status, 0);
+});
+
 function freePort() {
   return new Promise((resolve, reject) => {
     const server = createServer();

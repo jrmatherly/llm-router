@@ -42,6 +42,7 @@ import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, op
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
 import { proxyService } from "@llmr/core/proxy/service";
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { listMcpServerTools } from "@llmr/core/mcp/tool-discovery";
 import { closeRequestLogRuntime, getAgentAnalysis, getAgentTracePayload, getRequestLogBodyChunk, getRequestLogDetail, getRequestLogs } from "@llmr/core/observability/request-log-store";
 import { shouldRecordRequestLogs } from "@llmr/core/observability/raw-trace-sync";
@@ -1587,6 +1588,7 @@ function execDetached(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       detached: true,
+      env: withoutLlmrSecretEnv(),
       stdio: "ignore",
       windowsHide: true
     });

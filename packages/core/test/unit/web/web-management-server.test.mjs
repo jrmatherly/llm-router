@@ -112,6 +112,11 @@ test("a non-loopback bind needs an explicit opt-in", async (t) => {
   }
   const remote = await startWebManagementServer({ allowRemote: true, authToken, host: "0.0.0.0", port: 0, startGateway: false });
   await remote.close();
+  process.env.LLMR_WEB_ALLOW_REMOTE = "true";
+  await assert.rejects(startWebManagementServer({ authToken, host: "0.0.0.0", port: 0, startGateway: false }), /--allow-remote/, "only 1 opts in");
+  process.env.LLMR_WEB_ALLOW_REMOTE = "1";
+  const optedIn = await startWebManagementServer({ authToken, host: "0.0.0.0", port: 0, startGateway: false });
+  await optedIn.close();
 });
 
 test("resolveRendererRoot falls back to the app resources when the CLI runs from a copy outside the app", async () => {

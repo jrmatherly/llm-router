@@ -3,13 +3,13 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-// LLMR's own processes: the core gateway runtime and the detached CLI daemon.
+// LLMR's own processes: the gateway native-module probe (supervisor.ts) and the detached CLI daemon, which reads LLMR_WEB_AUTH_TOKEN.
 const ownProcessSpreads = {
   "packages/cli/src/cli.ts": 1,
   "packages/core/src/gateway/core-runtime/supervisor.ts": 1
 };
 
-test("a child that is not LLMR itself never inherits the whole environment", () => {
+test("no child but LLMR itself is handed a spread of the whole environment", () => {
   const found = {};
   for (const root of ["packages/cli/src", "packages/core/src", "packages/electron/src"]) {
     for (const entry of readdirSync(root, { recursive: true, withFileTypes: true })) {
