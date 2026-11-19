@@ -26,7 +26,8 @@ const zaiQuotaMapping: ProviderAccountMappingConfig = {
       used: "$.data.limits[?(@.unit==6)].percentage",
       window: "weekly"
     }
-  ]
+  ],
+  message: "$.msg"
 };
 
 const zaiGlobalProviderAccountConfig: ProviderAccountConfig = {

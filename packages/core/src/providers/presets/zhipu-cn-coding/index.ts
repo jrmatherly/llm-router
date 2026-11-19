@@ -1,7 +1,7 @@
 import type { ProviderAccountConfig, ProviderAccountMappingConfig } from "@llmr/core/contracts/app";
 import type { ProviderPreset } from "@llmr/core/providers/presets/types";
 
-// Windows are selected by `unit` alone (3 = 5h, 6 = weekly) because the limit `type` was renamed from TOKENS_LIMIT to CREDIT_LIMIT.
+// Windows are selected by `unit` alone (3 = 5h, 6 = weekly) because the limit `type` differs across endpoints (TOKENS_LIMIT, CREDIT_LIMIT).
 const zhipuQuotaMapping: ProviderAccountMappingConfig = {
   meters: [
     {
@@ -26,7 +26,8 @@ const zhipuQuotaMapping: ProviderAccountMappingConfig = {
       used: "$.data.limits[?(@.unit==6)].percentage",
       window: "weekly"
     }
-  ]
+  ],
+  message: "$.msg"
 };
 
 const zhipuCnProviderAccountConfig: ProviderAccountConfig = {

@@ -1623,7 +1623,8 @@ export function defaultProviderAccountConfigForPreset(presetId: string | undefin
 }
 
 export function defaultProviderAccountConfigForBaseUrl(baseUrl: string): ProviderAccountConfig | undefined {
-  return cloneProviderAccountConfig(findProviderPresetByBaseUrl(baseUrl)?.account ?? defaultProviderAccountConfig);
+  // Save the standard connector, not a copy of the preset's, so later preset fixes reach imported providers; main resolves it at runtime.
+  return cloneProviderAccountConfig(findProviderPresetByBaseUrl(baseUrl)?.account?.enabled ? standardProviderAccountConfig : defaultProviderAccountConfig);
 }
 
 export function providerAccountConnectorExample(): string {

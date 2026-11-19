@@ -27,7 +27,8 @@ const minimaxQuotaMapping: ProviderAccountMappingConfig = {
       used: "100 - $.model_remains[?(@.model_name==\"general\")].current_weekly_remaining_percent",
       window: "weekly"
     }
-  ]
+  ],
+  message: "$.base_resp.status_msg"
 };
 
 const minimaxGlobalProviderAccountConfig: ProviderAccountConfig = {
