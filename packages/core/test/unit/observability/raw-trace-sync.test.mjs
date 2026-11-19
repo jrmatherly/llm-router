@@ -973,7 +973,7 @@ test("raw trace replay stops when its time budget is exhausted", async () => {
 test("raw trace replay isolates a failing bundle and continues with later bundles", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-isolated-replay-test-"));
   const spoolDirectory = path.join(dir, "spool");
-  for (const name of ["bad", "good"]) {
+  const writeBundle = (name) => {
     const bundleDirectory = path.join(spoolDirectory, `${name}-bundle`);
     const bodyFile = path.join(bundleDirectory, "upstream_request.json");
     mkdirSync(bundleDirectory, { recursive: true });
@@ -983,26 +983,37 @@ test("raw trace replay isolates a failing bundle and continues with later bundle
       requestId: `${name}-bundle-id`,
       turnKey: `${name}-request`
     }));
-  }
-  let goodApplied = false;
-  const synchronizer = new RawTraceSynchronizer({
+  };
+  const attempted = [];
+  const createSynchronizer = () => new RawTraceSynchronizer({
     enqueueUpdate: async (update, files) => {
+      attempted.push(update.bundleId);
       if (update.bundleId === "bad-bundle-id") throw new Error("permanent bad bundle");
-      goodApplied = true;
       rmSync(files.cleanupDirectory, { force: true, recursive: true });
       return { accepted: true, degraded: false };
     },
     getConfig: createConfig,
     replayIntervalMs: 10_000,
+    // The default 25 ms budget can end the pass after the failing bundle, and the next is 10 s away.
+    replayTimeBudgetMs: 1_000,
     spoolDirectory
   });
+  // A pass visits the inbox oldest first, so the failing bundle is accepted by an earlier run.
+  const first = createSynchronizer();
+  const second = createSynchronizer();
   try {
-    await synchronizer.start();
-    await waitFor(() => goodApplied);
-    assert.equal(goodApplied, true);
+    writeBundle("bad");
+    await first.start();
+    await waitFor(() => attempted.length === 1);
+    await first.stop();
+    writeBundle("good");
+    await second.start();
+    await waitFor(() => attempted.includes("good-bundle-id"));
+    assert.deepEqual(attempted, ["bad-bundle-id", "bad-bundle-id", "good-bundle-id"]);
     assert.equal(readdirSync(path.join(spoolDirectory, ".llmr-inbox")).length, 1);
   } finally {
-    await synchronizer.stop();
+    await first.stop();
+    await second.stop();
     rmSync(dir, { force: true, recursive: true });
   }
 });
