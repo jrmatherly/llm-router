@@ -17,7 +17,7 @@ Install and open the LLMR desktop app once, then open a new terminal:
 llmr --help
 ```
 
-Opening an upgraded desktop app refreshes `llmr`. Run `llmr stop` before upgrading: a newer build does not read the `service.json` an older one wrote, so a daemon left running has to be ended by the `pid` in `~/.llm-router/service.json`. This fork does not publish the CLI to npm; the `@musistudio/claude-code-router` npm package is the upstream project and installs a different command.
+Opening an upgraded desktop app refreshes `llmr`. When upgrading from v7.2.2 or earlier, run `llmr stop` first: a newer build does not read the `service.json` an older one wrote, so a daemon left running has to be ended by the `pid` in `~/.llm-router/service.json`. This fork does not publish the CLI to npm; the `@musistudio/claude-code-router` npm package is the upstream project and installs a different command.
 
 If the command is not found, open LLMR once more, then open a new terminal.
 
@@ -49,7 +49,7 @@ The management UI defaults to `http://127.0.0.1:3458`; the model gateway default
 
 | Command | Mode | Purpose |
 | --- | --- | --- |
-| `llmr start` | Background | Starts the management service and model gateway, and prints the authenticated management URL. |
+| `llmr start` | Background | Starts the management service and model gateway, and prints the management URL, with the token in its fragment only when LLMR generated it. |
 | `llmr ui` | Background | Reuses or starts the background service and opens a browser. |
 | `llmr stop` | One-shot | Stops the background service started by `start` or `ui`. |
 | `llmr serve` | Foreground | Runs in the current terminal; suitable for viewing logs or handing off to a process manager. |
@@ -79,7 +79,7 @@ If the preferred port is occupied, LLMR keeps trying following ports and prints 
 llmr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
-`ui` uses the same background service as `start`, but opens a browser by default. When LLMR generates the token it prints the management URL once, in the form `/#llmr_web_token=<token>`. A token you set with `LLMR_WEB_AUTH_TOKEN` is never printed and never goes in a URL: the page asks for it. The token is kept per browser tab, so a new tab asks again. The fragment keeps the token out of server and proxy logs, but it may remain in browser history. Treat a URL that carries the token as a password and do not paste it into logs, tickets, or public screenshots.
+`ui` uses the same background service as `start`, but opens a browser by default. When LLMR generates the token it prints the management URL once, in the form `/#llmr_web_token=<token>`. A token you set with `LLMR_WEB_AUTH_TOKEN` is never printed: the page asks for it. The token is kept per browser tab, so a new tab asks again. The fragment keeps the token out of server and proxy logs, but it may remain in browser history. Treat a URL that carries the token as a password and do not paste it into logs, tickets, or public screenshots.
 
 ## `llmr serve`
 

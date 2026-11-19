@@ -23,16 +23,17 @@ async function rpc(method: string, args: unknown[] = []): Promise<unknown> {
     },
     method: "POST"
   });
-  if (response.status === 401) {
-    webAuthToken = "";
-    removeStoredWebAuthToken();
-    return requestWebAuthToken("That token was not accepted. Enter the LLMR management token.");
-  }
   let payload: RpcResponse | undefined;
   try {
     payload = await response.json() as RpcResponse;
   } catch {
     payload = undefined;
+  }
+  // A 401 without LLMR's body came from a proxy in front, and the token may be fine.
+  if (response.status === 401 && payload?.ok === false) {
+    webAuthToken = "";
+    removeStoredWebAuthToken();
+    return requestWebAuthToken("That token was not accepted. Enter the LLMR management token.");
   }
   if (!response.ok || !payload?.ok) {
     const message = payload && !payload.ok
@@ -134,7 +135,6 @@ function writeStoredWebAuthToken(token: string): boolean {
     window.sessionStorage.setItem(webAuthStorageKey, token);
     return true;
   } catch {
-    // The in-memory token still works for the current page load if storage is unavailable.
     return false;
   }
 }

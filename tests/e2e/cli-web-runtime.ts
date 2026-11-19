@@ -79,6 +79,10 @@ export async function startCliWebServer(authToken: string): Promise<CliWebRuntim
         return;
       }
       cleanup();
+      if (stdout.includes(authToken)) {
+        reject(new Error("LLMR web service printed the token it was given."));
+        return;
+      }
       resolve(new URL(match[1]).origin);
     };
 

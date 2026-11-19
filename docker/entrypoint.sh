@@ -201,7 +201,7 @@ EOF
 
 # A generated token is only reachable through the container logs.
 if [ "${LLMR_WEB_AUTH_TOKEN_GENERATED}" = "1" ]; then
-  echo "LLMR management UI: ${LLMR_PUBLIC_BASE_URL%/}/#llmr_web_token=$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "${LLMR_WEB_AUTH_TOKEN}")"
+  echo "LLMR management UI: ${LLMR_PUBLIC_BASE_URL%/}/#llmr_web_token=$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" -- "${LLMR_WEB_AUTH_TOKEN}")"
 fi
 
 if [ "$#" -gt 0 ]; then

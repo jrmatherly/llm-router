@@ -26,8 +26,8 @@ test("the page asks for the token when the URL carries none", async ({ page }) =
   await page.goto(`${current.baseUrl}/`);
   await page.getByRole("dialog").locator("input[type=password]").fill(current.token);
   await page.getByRole("dialog").getByRole("button").click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator("body")).toContainText(/Configure provider|Connect agent|Let's start/, { timeout: 15_000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
 test("a wrong token is asked for again", async ({ page }) => {
@@ -48,6 +48,16 @@ test("the prompt signs in when the browser refuses to store the token", async ({
   await page.getByRole("dialog").locator("input[type=password]").fill(current.token);
   await page.getByRole("dialog").getByRole("button").click();
   await expect(page.locator("body")).toContainText(/Configure provider|Connect agent|Let's start/, { timeout: 15_000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("a 401 that is not LLMR's own keeps the token", async ({ page }) => {
+  const current = requireRuntime();
+  await page.route("**/api/llmr/rpc", (route) => route.fulfill({ body: "<html>sign in</html>", contentType: "text/html", status: 401 }));
+  const refused = page.waitForResponse((response) => response.url().endsWith("/api/llmr/rpc") && response.status() === 401);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
+  await refused;
+  expect(await page.evaluate(() => window.sessionStorage.getItem("llmr.webAuthToken"))).toBe(current.token);
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
