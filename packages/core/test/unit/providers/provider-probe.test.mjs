@@ -553,8 +553,7 @@ test("connectivity probe refreshes Codex OAuth plugin auth", async (t) => {
   assert.deepEqual(codex.requests, [{
     client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
     grant_type: "refresh_token",
-    refresh_token: "r0",
-    scope: "openid profile email offline_access api.connectors.read api.connectors.invoke"
+    refresh_token: "r0"
   }]);
   assert.deepEqual(calls.map((call) => call.pathname), ["/codex/responses"]);
   assert.equal(calls[0]?.authorization, `Bearer ${codex.issued[0]}`);
@@ -714,6 +713,20 @@ test("connectivity probe prefers live Codex auth over saved OAuth plugin tokens"
   assert.equal(calls[0]?.authorization, `Bearer ${liveToken}`);
   assert.equal(calls[0]?.chatgptAccountId, "acct-live-file");
   assert.equal(calls[0]?.body?.max_output_tokens, undefined);
+});
+
+test("#1941 connectivity probe accepts a live Codex login without the connector scopes", async (t) => {
+  const codex = await useCodexLogin(t);
+  const accessToken = codexAccessToken(3600, "acct-model-only", "openid profile email offline_access");
+  codex.seed({ accessToken });
+  const calls = [];
+  codexUpstream(t, codex, calls);
+
+  const report = await codexProbe("https://chatgpt.com/backend-api/codex", [localCodexPlugin]);
+
+  assert.equal(report.passed.length, 1, JSON.stringify(report.failed));
+  assert.equal(calls[0]?.authorization, `Bearer ${accessToken}`);
+  assert.deepEqual(codex.requests, []);
 });
 
 test("connectivity probe shares concurrent Codex OAuth refreshes", async (t) => {
@@ -1032,11 +1045,11 @@ function base64url(value) {
 
 const codexEnvKeys = ["CODEX_HOME", "CODEX_REFRESH_TOKEN_URL_OVERRIDE", "HOME", "LLMR_INTERNAL_HOME_DIR", "USERPROFILE"];
 
-function codexAccessToken(lifetimeSeconds, accountId = "acct-codex") {
+function codexAccessToken(lifetimeSeconds, accountId = "acct-codex", scope = "api.connectors.read api.connectors.invoke") {
   return jwt({
     "https://api.openai.com/auth": { chatgpt_account_id: accountId },
     exp: Math.floor(Date.now() / 1000) + lifetimeSeconds,
-    scope: "api.connectors.read api.connectors.invoke"
+    scope
   });
 }
 

@@ -426,14 +426,15 @@ test("Codex local agent auth hook sets the bearer token and account id from the 
   assert.deepEqual(codex.requests, []);
 });
 
-test("Codex local agent auth hook fails a token without the connector scopes", async (t) => {
+test("#1941 Codex local agent auth hook accepts a token without the connector scopes", async (t) => {
   const codex = await codexHookFixture(t);
-  codex.seed({ expiresIn: 3600, tokens: { access_token: codexJwt({ exp: Math.floor(Date.now() / 1000) + 3600, scp: ["openid"] }) } });
+  const accessToken = codexJwt({ exp: Math.floor(Date.now() / 1000) + 3600, scp: ["openid", "profile", "email", "offline_access"] });
+  codex.seed({ expiresIn: 3600, tokens: { access_token: accessToken } });
 
   const result = await codexHook().authenticate({ upstreamRequest: codexUpstreamRequest() });
 
-  assert.equal(result.ok, false);
-  assert.match(result.error, /missing required scopes: api\.connectors\.read, api\.connectors\.invoke\. Run codex login/);
+  assert.equal(result.ok, true);
+  assert.equal(result.value.headers.authorization, `Bearer ${accessToken}`);
   assert.deepEqual(codex.requests, []);
 });
 

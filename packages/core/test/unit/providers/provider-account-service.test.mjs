@@ -341,8 +341,7 @@ test("Codex local account credential refreshes an expired login", async (t) => {
   assert.deepEqual(codex.requests, [{
     client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
     grant_type: "refresh_token",
-    refresh_token: "r0",
-    scope: "openid profile email offline_access api.connectors.read api.connectors.invoke"
+    refresh_token: "r0"
   }]);
 });
 

@@ -1002,7 +1002,8 @@ async function providerProbeLiveCodexOauth(
     codexOauth: {
       ...(auth?.accessToken ? { accessToken: auth.accessToken } : {}),
       ...(auth?.accountId ? { accountId: auth.accountId } : {}),
-      required: true
+      required: true,
+      requiredScopes: []
     },
     isFedrampAccount: auth?.isFedrampAccount,
     request: codexProbeBackendRequestTransform()
