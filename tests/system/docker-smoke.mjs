@@ -72,7 +72,7 @@ try {
   assert.match(pageHtml, /LLM Router/);
   assert.match(pageHtml, /web-client-bridge\.js/);
 
-  assert.ok(!run("docker", ["logs", containerId]).includes(token), "a token the user set must not appear in the container log");
+  assert.doesNotMatch(run("docker", ["logs", containerId]), /llmr_web_token/, "a token the user set must not appear in the container log, in any encoding");
 
   const bridge = await fetch(`${baseUrl}/assets/web-client-bridge.js`);
   assert.equal(bridge.status, 200);

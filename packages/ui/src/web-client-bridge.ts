@@ -70,11 +70,10 @@ function readWebAuthTokenFromUrl(): string {
     if (raw === undefined) {
       return "";
     }
-    // Not URLSearchParams: it would turn a "+" in the token into a space.
-    const token = decodeURIComponent(raw.slice(prefix.length)).trim();
     const rest = params.filter((param) => param !== raw).join("&");
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}${rest ? `#${rest}` : ""}`);
-    return token;
+    // Not URLSearchParams: it would turn a "+" in the token into a space.
+    return decodeURIComponent(raw.slice(prefix.length)).trim();
   } catch {
     return "";
   }
@@ -102,13 +101,19 @@ function requestWebAuthToken(message: string): Promise<never> {
     form.append(label, button);
     dialog.append(form);
     dialog.addEventListener("cancel", (event) => event.preventDefault());
+    // A second Escape closes a dialog whatever "cancel" says.
+    dialog.addEventListener("close", () => dialog.showModal());
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       const token = input.value.trim();
-      if (token) {
-        writeStoredWebAuthToken(token);
-        window.location.reload();
+      if (!token) {
+        return;
       }
+      if (!writeStoredWebAuthToken(token)) {
+        // Storage is blocked: carry the token over the reload in the fragment.
+        window.location.hash = `${webAuthFragmentParam}=${encodeURIComponent(token)}`;
+      }
+      window.location.reload();
     });
     document.body.append(dialog);
     dialog.showModal();
@@ -124,11 +129,13 @@ function readStoredWebAuthToken(): string {
   }
 }
 
-function writeStoredWebAuthToken(token: string): void {
+function writeStoredWebAuthToken(token: string): boolean {
   try {
     window.sessionStorage.setItem(webAuthStorageKey, token);
+    return true;
   } catch {
     // The in-memory token still works for the current page load if storage is unavailable.
+    return false;
   }
 }
 

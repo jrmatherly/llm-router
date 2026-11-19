@@ -37,6 +37,35 @@ test("a wrong token is asked for again", async ({ page }) => {
   expect(new URL(page.url()).hash, "the token leaves the address bar").toBe("");
 });
 
+test("the prompt signs in when the browser refuses to store the token", async ({ page }) => {
+  const current = requireRuntime();
+  await page.addInitScript(() => {
+    Storage.prototype.setItem = () => {
+      throw new DOMException("blocked", "SecurityError");
+    };
+  });
+  await page.goto(`${current.baseUrl}/`);
+  await page.getByRole("dialog").locator("input[type=password]").fill(current.token);
+  await page.getByRole("dialog").getByRole("button").click();
+  await expect(page.locator("body")).toContainText(/Configure provider|Connect agent|Let's start/, { timeout: 15_000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("a fragment that cannot be decoded still leaves the address bar", async ({ page }) => {
+  const current = requireRuntime();
+  await page.goto(`${current.baseUrl}/#llmr_web_token=%E0`);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  expect(new URL(page.url()).hash).toBe("");
+});
+
+test("the prompt comes back when it is closed", async ({ page }) => {
+  const current = requireRuntime();
+  await page.goto(`${current.baseUrl}/`);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.evaluate(() => document.querySelector("dialog")?.close());
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+
 test("serves the management UI in a browser", async ({ page }) => {
   const current = requireRuntime();
   await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);

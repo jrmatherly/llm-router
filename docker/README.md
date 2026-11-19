@@ -89,7 +89,7 @@ There are two independent authentication layers:
 1. `LLMR_WEB_AUTH_TOKEN` protects management RPC. A generated token is offered once in the URL fragment (`/#llmr_web_token=<token>`), which is not sent to any server; a token you set is typed into the page. The browser sends it to RPC as `x-llmr-web-auth`. Nginx never sends it to a client.
 2. LLMR client API keys created in the **API Keys** page protect model gateway requests. These are separate from upstream provider credentials.
 
-If `LLMR_WEB_AUTH_TOKEN` is unset, the entrypoint generates a new random token on each container start and prints the management URL once to the container log. Opening `/` without a token loads the page, but every management call fails with `401` until the token is supplied. The page keeps the token for the browser tab session. A stable token is recommended for persistent or remote deployments.
+If `LLMR_WEB_AUTH_TOKEN` is unset, the entrypoint generates a new random token on each container start and prints the management URL once to the container log. Opening `/` without a token loads the page, which asks for the token before it shows anything. The page keeps the token for the browser tab session. A stable token is recommended for persistent or remote deployments.
 
 Avoid putting the token directly in shell history. Create a protected environment file instead:
 
