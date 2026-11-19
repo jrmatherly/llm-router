@@ -4494,11 +4494,11 @@ function mergeCatalogModelListItem(existingItem, catalogItem) {
   if (!catalogItem || typeof catalogItem !== "object") return existingItem;
   const output = { ...catalogItem, ...existingItem };
   const declared = MODEL_CATALOG_CAPABILITIES.get(catalogItem) ?? {};
+  // Keep each key's own declared value: LLMR's catalog writes efforts as option objects under the camel key and as strings under the snake key.
   for (const [camelKey, snakeKey] of [
     ["inputModalities", "input_modalities"],
     ["supportedReasoningEfforts", "supported_reasoning_efforts"]
   ]) {
-    // The catalog declares efforts as options under the camel key and as strings under the snake key.
     const camelValue = readArrayValue(declared[camelKey]);
     const snakeValue = readArrayValue(declared[snakeKey]);
     if (camelValue || snakeValue) {
