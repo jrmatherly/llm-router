@@ -1,4 +1,4 @@
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, chmod, mkdir } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
 import path from "node:path";
 
@@ -159,7 +159,7 @@ export function codexAppApiBaseUrl(port: number = CODEX_APP_NET_RESPONDER_PORT):
 async function appendResponderLog(logPath: string, entry: Record<string, unknown>): Promise<void> {
   try {
     await mkdir(path.dirname(logPath), { recursive: true });
-    await appendFile(logPath, JSON.stringify({ ts: Date.now(), ...entry }) + "\n", "utf8");
+    await appendFile(logPath, JSON.stringify({ ts: Date.now(), ...entry }) + "\n", { encoding: "utf8", mode: 0o600 });
   } catch {
   }
 }
@@ -211,23 +211,19 @@ export async function startCodexAppNetResponder(options: {
     void (async () => {
       const url = new URL(request.url || "/", "http://localhost");
       const route = matchCodexVirtualRoute(url.pathname, routes);
-      const chunks: Buffer[] = [];
       let size = 0;
       for await (const chunk of request) {
-        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-        size += buffer.length;
+        size += Buffer.byteLength(chunk);
         if (size > 1024 * 1024) break;
-        chunks.push(buffer);
       }
-      const requestBody = Buffer.concat(chunks).toString("utf8");
       const accountId = String(request.headers["chatgpt-account-id"] || VIRTUAL_ACCOUNT_ID);
+      // With a bridged login the account id and bodies are the user's own, so only the request's shape is logged.
       await appendResponderLog(logPath, {
+        bodyBytes: size,
         event: route ? "virtual-response" : "not-found",
         method: request.method,
-        host: request.headers.host,
-        url: url.pathname,
-        accountId,
-        body: requestBody ? requestBody.slice(0, 4096) : undefined
+        status: route ? 200 : 404,
+        url: url.pathname
       });
       if (route) {
         const body = JSON.stringify(route.bodyFor ? route.bodyFor({ accountId }) : route.body);
@@ -256,6 +252,8 @@ export async function startCodexAppNetResponder(options: {
     });
   });
   await appendResponderLog(logPath, { event: "responder-started", port: boundPort });
+  // A log an older version created keeps its mode, and that log holds account ids and bodies.
+  await chmod(logPath, 0o600).catch(() => {});
 
   return {
     port: boundPort,

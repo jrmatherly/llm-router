@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -121,6 +121,42 @@ test("responder serves virtual routes over loopback HTTP and records misses", as
   assert.ok(entries.some((entry) => entry.event === "responder-started"));
   assert.ok(entries.some((entry) => entry.event === "virtual-response" && entry.url === "/wham/accounts/check"));
   assert.ok(entries.some((entry) => entry.event === "not-found" && entry.url === "/wham/usage"));
+});
+
+test("responder log keeps the account id and request bodies out of a private file", async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-net-responder-privacy-"));
+  const logPath = path.join(dir, "responder.log");
+  const responder = await startCodexAppNetResponder({ listenPort: 0, logPath });
+  const body = JSON.stringify({ prompt: "body-secret-marker" });
+  try {
+    await fetch(`${responder.baseUrl}/wham/accounts/check`, {
+      body,
+      headers: { authorization: "Bearer token-secret-marker", "chatgpt-account-id": "acct-secret-marker" },
+      method: "POST"
+    });
+    await fetch(`${responder.baseUrl}/wham/usage`, {
+      body,
+      headers: { "chatgpt-account-id": "acct-secret-marker" },
+      method: "POST"
+    });
+  } finally {
+    responder.close();
+  }
+  try {
+    const raw = readFileSync(logPath, "utf8");
+    assert.doesNotMatch(raw, /secret-marker/);
+    const requests = raw.trim().split("\n").map((line) => JSON.parse(line)).filter((entry) => entry.url);
+    assert.deepEqual(
+      requests.map(({ ts, ...entry }) => entry),
+      [
+        { bodyBytes: Buffer.byteLength(body), event: "virtual-response", method: "POST", status: 200, url: "/wham/accounts/check" },
+        { bodyBytes: Buffer.byteLength(body), event: "not-found", method: "POST", status: 404, url: "/wham/usage" }
+      ]
+    );
+    if (process.platform !== "win32") assert.equal(statSync(logPath).mode & 0o777, 0o600);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("codex app env points the desktop API base at the loopback responder", () => {

@@ -64,6 +64,18 @@ Use this page to route Codex to a non-OpenAI provider, pin a model, or run separ
   ```
 - **App:** click the play button to open ChatGPT with this profile's model and provider. Reopening the same profile activates the existing window.
 
+### Which ChatGPT login the app uses
+
+A profile that is not the **System default** has its own Codex home, but the ChatGPT app opened from it does not get its own identity. The app signs in with the first login LLMR finds:
+
+1. `auth.json` in the profile's own Codex home, if you signed in there.
+2. Your personal Codex login, `~/.codex/auth.json`.
+3. A placeholder account that LLMR makes up, when neither file holds a ChatGPT login.
+
+So every such profile normally acts as your personal ChatGPT account in the app. Model requests are separate: they go to LLMR with the profile's gateway key, not with the ChatGPT login.
+
+LLMR answers the app's account requests itself on `localhost:8000` and records each one in `codex-app-inspector.log` in its configuration directory: the time, method, path, status and body size. The file is readable only by you, and LLMR writes no account id and no request body to it.
+
 ## Multi-instance
 
 Create separate Codex profiles when you want different models or providers.

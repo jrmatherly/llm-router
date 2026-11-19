@@ -989,7 +989,7 @@ export async function prepareCodexAppNetResponder(configDir: string): Promise<vo
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     try {
-      appendFileSync(logPath, JSON.stringify({ ts: Date.now(), event: "responder-start-error", error: message }) + "\n", "utf8");
+      appendFileSync(logPath, JSON.stringify({ ts: Date.now(), event: "responder-start-error", error: message }) + "\n", { encoding: "utf8", mode: 0o600 });
     } catch {
     }
     throw new Error(`ChatGPT local account API could not start at ${codexAppApiBaseUrl(port)}: ${message}`);
