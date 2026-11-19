@@ -161,6 +161,10 @@ server {
 
   client_max_body_size 8m;
 
+  add_header Content-Security-Policy "frame-ancestors 'none'" always;
+  add_header Referrer-Policy "same-origin" always;
+  add_header X-Frame-Options "DENY" always;
+
   # The management token is never put in a response or a query string. The
   # browser keeps a URL fragment across this redirect without sending it.
   location = / {

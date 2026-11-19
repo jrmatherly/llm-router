@@ -135,6 +135,13 @@ const defaultWebHost = "127.0.0.1";
 const defaultWebPort = 3458;
 const maxRpcBodyBytes = 8 * 1024 * 1024;
 const minWebAuthTokenLength = 32;
+// frame-ancestors is ignored in the page's <meta> policy, so it has to be a header.
+const webSecurityHeaders = {
+  "content-security-policy": "frame-ancestors 'none'",
+  "referrer-policy": "same-origin",
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY"
+};
 const webAuthHeader = "x-llmr-web-auth";
 const webAuthFragmentParam = "llmr_web_token";
 const staticRoot = resolveRendererRoot();
@@ -232,7 +239,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse,
       sendText(response, 403, "Forbidden origin");
       return;
     }
-    response.writeHead(204);
+    response.writeHead(204, webSecurityHeaders);
     response.end();
     return;
   }
@@ -668,7 +675,7 @@ function sendBuffer(response: ServerResponse, status: number, body: Buffer, cont
     "cache-control": "no-store",
     "content-length": body.length,
     "content-type": contentType,
-    "x-content-type-options": "nosniff"
+    ...webSecurityHeaders
   });
   if (headOnly) {
     response.end();
@@ -683,7 +690,7 @@ function sendJson(response: ServerResponse, status: number, payload: unknown): v
     "cache-control": "no-store",
     "content-length": body.length,
     "content-type": "application/json; charset=utf-8",
-    "x-content-type-options": "nosniff"
+    ...webSecurityHeaders
   });
   response.end(body);
 }

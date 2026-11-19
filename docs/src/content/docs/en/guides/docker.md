@@ -249,7 +249,7 @@ docker compose restart llmr
 docker compose config
 ```
 
-`docker compose ps` shows container health; `/health` shows model gateway health. The two are not interchangeable.
+`docker compose ps` shows container health; `/health` shows model gateway health. The two are not interchangeable. `/health` answers without the management token or a client key. It returns the gateway state, its internal core endpoint and a timestamp, and grants no management access.
 
 ## Troubleshooting
 
