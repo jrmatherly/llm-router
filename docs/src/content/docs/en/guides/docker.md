@@ -68,16 +68,7 @@ Do not add `--volumes` to `docker compose down` unless you explicitly want to de
 
 ## Local-only access
 
-The repository default mapping `3458:8080` listens on every host interface. If you only access it from the current machine, change it to:
-
-```yaml
-services:
-  llmr:
-    ports:
-      - "127.0.0.1:3458:8080"
-```
-
-The left side of the port mapping is the host address and port; the right side is the Nginx container port. Do not change the right side to the internal gateway's `3456`.
+The repository default mapping `127.0.0.1:3458:8080` permits access from the current machine only. The left side of the port mapping is the host address and port; the right side is the Nginx container port. Do not change the right side to the internal gateway's `3456`.
 
 ## Using `docker run`
 
@@ -133,7 +124,7 @@ services:
       LLMR_WEB_AUTH_TOKEN: ${LLMR_WEB_AUTH_TOKEN:?set LLMR_WEB_AUTH_TOKEN}
 ```
 
-`LLMR_PUBLIC_BASE_URL` is synchronized into LLMR's public router endpoint. It does not publish a Docker port by itself, nor does it change the Nginx listen address.
+`LLMR_PUBLIC_BASE_URL` is synchronized into LLMR's public router endpoint. Its origin is also the browser origin that management RPC accepts. It does not publish a Docker port by itself, nor does it change the Nginx listen address.
 
 ## Domain, HTTPS, and reverse proxy
 
@@ -154,6 +145,7 @@ The reverse proxy should forward all paths to the LLMR Nginx and must:
 - Support long-running model requests;
 - Not buffer SSE and streaming model responses;
 - Allow an adequate request body size;
+- Pass the browser's `Origin` and `Referer` headers through unchanged;
 - Expose only the reverse proxy entrypoint publicly, while host port `3458` stays bound to localhost;
 - Be combined with a firewall, VPN / private network, or additional access control so the management UI is not directly exposed to untrusted networks.
 
@@ -211,7 +203,8 @@ A typical deployment only needs `LLMR_WEB_AUTH_TOKEN`, `LLMR_PUBLIC_BASE_URL`, a
 | Variable | Default | Description |
 | --- | --- | --- |
 | `LLMR_WEB_AUTH_TOKEN` | Randomly generated per start | Management UI / RPC token. Persistent or remote deployments should set a fixed strong value. |
-| `LLMR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Full public address written into LLMR configuration; takes precedence over Public Host / Port once set. |
+| `LLMR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Full public address written into LLMR configuration. Its origin is the one a non-loopback browser may call management RPC from. Takes precedence over Public Host / Port once set. |
+| `LLMR_WEB_ALLOWED_ORIGINS` | Empty | Comma-separated extra browser origins that may call management RPC, such as `https://tools.example.com`. |
 | `LLMR_PUBLIC_HOST` | `127.0.0.1` | Only used to compose the public address when no full public URL is set; does not change the Docker port binding. |
 | `LLMR_PUBLIC_PORT` | `3458` | Only used to compose the public address when no full public URL is set. |
 | `LLMR_DATA_DIR` | `/data` | Data root, also used as the process `HOME`. |
@@ -269,6 +262,10 @@ It checks the model gateway, not Nginx or the UI. A fresh volume without a confi
 ### The UI returns `401` after a token change
 
 Reopen `/?llmr_web_token=<token>` with the current token (for a generated token, read it from `docker compose logs llmr`); close tabs and bookmarks that still use the old `llmr_web_token`.
+
+### The UI returns `403` from another machine or a domain
+
+Management RPC rejects a browser request whose `Origin` or `Referer` is not trusted. Loopback addresses are always trusted. For any other address, set `LLMR_PUBLIC_BASE_URL` to the exact address in the browser's address bar, and list further origins in `LLMR_WEB_ALLOWED_ORIGINS`, then recreate the container. A client that sends neither header, such as `curl`, needs only the token.
 
 ### Clients still use the old port or domain
 

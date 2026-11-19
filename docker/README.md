@@ -39,7 +39,7 @@ Open the management URL that the entrypoint prints in the container log, `http:/
 
 When `LLMR_DOCKER_GATEWAY_SOURCE_DIR` points at a local ai-gateway checkout, the npm Compose script packs it before building so the image uses that plugin-capable ai-gateway runtime. Without one, the image uses the package-lock dependency. If you run `docker compose up -d --build` directly, run `npm run docker:prepare-gateway` first. `npm run docker:build` performs the same preparation automatically.
 
-The repository Compose file publishes `127.0.0.1:3458:8080`, stores data in the `llmr-data` named volume, and restarts the service unless explicitly stopped. Only this machine can reach it. Nginx forwards every request to the management server as a loopback request, so the published port is the only network boundary in front of management RPC besides `LLMR_WEB_AUTH_TOKEN`. To expose it on a LAN deliberately, set a stable strong `LLMR_WEB_AUTH_TOKEN` (32 characters or more) and `LLMR_PUBLIC_BASE_URL`, then publish on a specific host address, or on every interface:
+The repository Compose file publishes `127.0.0.1:3458:8080`, stores data in the `llmr-data` named volume, and restarts the service unless explicitly stopped. Only this machine can reach it. Management RPC needs `LLMR_WEB_AUTH_TOKEN`, and it also rejects a browser request whose `Origin` or `Referer` is not trusted. Nginx forwards both headers as the browser sent them. Trusted origins are loopback addresses, `LLMR_PUBLIC_BASE_URL`, and the comma-separated `LLMR_WEB_ALLOWED_ORIGINS`. A client that sends neither header, such as `curl`, needs only the token. To expose it on a LAN deliberately, set a stable strong `LLMR_WEB_AUTH_TOKEN` (32 characters or more) and set `LLMR_PUBLIC_BASE_URL` to the address the browser uses, or the management UI's requests get `403`. Then publish on a specific host address, or on every interface:
 
 ```yaml
 ports:
@@ -192,7 +192,8 @@ Most deployments should set only `LLMR_WEB_AUTH_TOKEN`, `LLMR_PUBLIC_BASE_URL`, 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `LLMR_WEB_AUTH_TOKEN` | Random per container start | Management UI/RPC token. Set a stable strong value for persistent or remote use. |
-| `LLMR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Exact public gateway/UI base URL written into LLMR configuration. Overrides `LLMR_PUBLIC_HOST` and `LLMR_PUBLIC_PORT`. |
+| `LLMR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Exact public gateway/UI base URL written into LLMR configuration. Its origin is the one a non-loopback browser may call management RPC from. Overrides `LLMR_PUBLIC_HOST` and `LLMR_PUBLIC_PORT`. |
+| `LLMR_WEB_ALLOWED_ORIGINS` | Empty | Comma-separated extra browser origins that may call management RPC, such as `https://tools.example.com`. |
 | `LLMR_PUBLIC_HOST` | `127.0.0.1` | Used only to derive `LLMR_PUBLIC_BASE_URL` when the full URL is unset; it does not change Docker port publishing. |
 | `LLMR_PUBLIC_PORT` | `3458` | Used only to derive `LLMR_PUBLIC_BASE_URL` when the full URL is unset. |
 | `LLMR_DATA_DIR` | `/data` | Container data root and process `HOME`. Mount persistent storage here. |
