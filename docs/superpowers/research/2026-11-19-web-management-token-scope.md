@@ -2,6 +2,12 @@
 
 Research for open follow-up 4 in `docs/superpowers/upstream-review/reviews/2026-11-16-review.md`. Read-only; no code changed. Code state: `main` at `eeb13d5b`; nothing under `packages/` differs from `75562a9e`, where the research began (RUN: `git diff 75562a9e eeb13d5b -- packages` is empty). This is a findings document, not a plan. The owner picks a direction first.
 
+## Outcome (2026-11-19)
+
+The owner chose direction (a) on 2026-11-18: the token is full administrative access by design, and directions (b) and (c) are declined. The hardening that follows from it landed as [PR 116](https://github.com/jrmatherly/llm-router/pull/116) (token out of the URL query and the logs), [PR 117](https://github.com/jrmatherly/llm-router/pull/117) (32-character minimum, `--allow-remote`, LLMR secrets kept out of child processes), [PR 118](https://github.com/jrmatherly/llm-router/pull/118) (framing and referrer headers) and [PR 119](https://github.com/jrmatherly/llm-router/pull/119) (credential names the first masking rule missed). The plan is `docs/superpowers/plans/completed/2026-11-19-web-management-token-hardening.md`.
+
+One finding was held out of this document until PR 116 merged: the Docker entrypoint printed the management URL with the token in its query, including a token the operator had supplied, so the token sat in the container log. A supplied token is no longer printed, and a generated one is offered only in the URL fragment.
+
 ## Answer in short
 
 - **The token is full control of the host account LLMR runs as, by several independent routes.** At least six independent routes run a command or load code the caller chooses: the bot gateway command, a stdio MCP server, a plugin module, the custom router file, a profile's app path, and files that profile apply writes for an agent to run later (Part 2.3). One of them needs a single call with no saved config (`startBotGatewayQrLogin`). `testRouteScript` alone reads and writes any file the process can, up to 1 MiB each and as UTF-8 text, returns the whole process environment, and fetches any URL.
@@ -186,8 +192,7 @@ Returned by `getConfig` (`ms.ts:345`), `saveConfig` (`:452`, returning at `:484`
 
 Inside the three masked fields, masking goes by key name (`ps.ts:16-21`):
 
-- **Not matched (RUN twice, by the research subagent and again in the audit, against the three regexes):** `key`, `Ocp-Apim-Subscription-Key`, `privateKey`, `private_key`, `access_key`, `secretAccessKey`, `AWS_SECRET_ACCESS_KEY`, `sessionToken`, `authToken`, `bearerToken`, `botToken`, `appSecret`, `secret_key`, `x-auth-key`, `GITHUB_PAT`, `OPENAI_KEY`. A header or env entry with one of these names is returned in clear. The third regex needs a `-` or `_` before the word, which is why `sessionToken` and `authToken` fail while `GITHUB_TOKEN` matches. (A)
-- **A concrete case:** the OpenCode Gemini import writes the key under `auth.query.key` (`agents/local-providers/opencode.ts:328-330`), so it is clear in the `importLocalAgentProvider` result and in `getConfig().providerPlugins` once saved, while the same key under `x-goog-api-key` two lines above is masked. (R)
+- The credential names this research found unmatched, and the OpenCode Gemini key under `auth.query.key`, are masked since [PR 119](https://github.com/jrmatherly/llm-router/pull/119). Still returned in clear:
 - A URL with `user:pass@` or `?key=` in `api_base_url`; `args[]` of a Tool Hub server; a number or boolean under a credential key (`ps.ts:39`; strings inside an object or array under such a key are masked, `ps.ts:32-37`). (R for the code, INF that such values occur)
 
 Outside the config:
