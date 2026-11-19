@@ -877,6 +877,9 @@ export function AddProfileForm({
             <p className="text-[12px] text-muted-foreground">Also applies to launches from the Dock or an account switcher. Claude App then opens in third-party mode, signed out of claude.ai. Only one profile can have this on.</p>
           </div>
         ) : null}
+        {draft.agent === "codex" && draft.surface !== "cli" && draft.scope !== "global" ? (
+          <p className="min-w-0 text-[12px] text-muted-foreground">The ChatGPT app opened from this profile signs in with your personal Codex login (~/.codex/auth.json) unless you signed in inside the profile's own Codex home.</p>
+        ) : null}
         {draft.agent === "claude-code" && draft.surface !== "app" && draft.scope !== "global" ? (
           <div className="min-w-0 space-y-1">
             <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">

@@ -174,6 +174,29 @@ test("AddProfileForm uses Codex-specific enhanced route info for Codex profiles"
   assert.equal(profileConfigFromDraft(draft, []).providerName, "LLM Router");
 });
 
+test("AddProfileForm says which ChatGPT login a Codex app profile opened from LLMR uses", () => {
+  const config = appConfigFixture();
+  const render = (overrides: Partial<ReturnType<typeof createProfileDraft>>) => renderToStaticMarkup(
+    <AddProfileForm
+      botConfigs={[]}
+      draft={{ ...createProfileDraft("codex"), ...overrides }}
+      error=""
+      mode="edit"
+      onChange={() => undefined}
+      onCreateBot={() => undefined}
+      providers={config.Providers}
+      virtualModelProfiles={config.virtualModelProfiles}
+    />
+  );
+  const hint = /signs in with your personal Codex login/;
+
+  assert.match(render({ scope: "llmr", surface: "app" }), hint);
+  assert.match(render({ scope: "llmr", surface: "auto" }), hint);
+  assert.doesNotMatch(render({ scope: "llmr", surface: "cli" }), hint);
+  assert.doesNotMatch(render({ scope: "global", surface: "app" }), hint);
+  assert.doesNotMatch(render({ ...createProfileDraft("claude-code"), scope: "llmr", surface: "app" }), hint);
+});
+
 test("new profiles default to the llm-router provider ID and saved claude-code-router profiles keep theirs", () => {
   assert.equal(createProfileDraft("opencode").providerId, "llm-router");
 

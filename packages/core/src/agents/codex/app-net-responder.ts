@@ -1,4 +1,4 @@
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, chmod, mkdir, readFile, rm } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
 import path from "node:path";
 
@@ -156,10 +156,32 @@ export function codexAppApiBaseUrl(port: number = CODEX_APP_NET_RESPONDER_PORT):
   return `http://localhost:${port}`;
 }
 
+/**
+ * Earlier versions logged the account id and request bodies to a file with the
+ * default mode. Such a log is deleted; any other existing log is made private,
+ * because appendFile's mode applies only when it creates the file.
+ */
+export async function secureCodexAppResponderLog(logPath: string): Promise<void> {
+  try {
+    if (/"(accountId|body)":/.test(await readFile(logPath, "utf8"))) await rm(logPath);
+    else await chmod(logPath, 0o600);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[codex-app] Could not make ${logPath} private; a log from an older version may hold account ids: ${message}`);
+  }
+}
+
+/** The app puts the account id in paths such as /accounts/<id>/settings. */
+function responderLogPath(pathname: string, accountIdHeader: string | undefined): string {
+  const withoutHeaderId = accountIdHeader ? pathname.split(accountIdHeader).join(":account") : pathname;
+  return withoutHeaderId.replace(/\/accounts\/(?!check(?:\/|$)|optimized(?:\/|$))[^/]+/g, "/accounts/:account");
+}
+
 async function appendResponderLog(logPath: string, entry: Record<string, unknown>): Promise<void> {
   try {
     await mkdir(path.dirname(logPath), { recursive: true });
-    await appendFile(logPath, JSON.stringify({ ts: Date.now(), ...entry }) + "\n", "utf8");
+    await appendFile(logPath, JSON.stringify({ ts: Date.now(), ...entry }) + "\n", { encoding: "utf8", mode: 0o600 });
   } catch {
   }
 }
@@ -196,8 +218,8 @@ export function ensureCodexAppNetResponder(options: {
 /**
  * Loopback HTTP responder for the LLMR-launched ChatGPT app. Pointed at via
  * the CODEX_API_BASE_URL environment variable (honored by the app's desktop
- * API URL builder), it serves the virtual-account routes locally and records
- * every other request for further route discovery.
+ * API URL builder), it serves the virtual-account routes locally and logs the
+ * method, path and status of every request, so missing routes can be found.
  */
 export async function startCodexAppNetResponder(options: {
   listenPort: number;
@@ -211,23 +233,20 @@ export async function startCodexAppNetResponder(options: {
     void (async () => {
       const url = new URL(request.url || "/", "http://localhost");
       const route = matchCodexVirtualRoute(url.pathname, routes);
-      const chunks: Buffer[] = [];
       let size = 0;
       for await (const chunk of request) {
-        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-        size += buffer.length;
+        size += Buffer.byteLength(chunk);
         if (size > 1024 * 1024) break;
-        chunks.push(buffer);
       }
-      const requestBody = Buffer.concat(chunks).toString("utf8");
-      const accountId = String(request.headers["chatgpt-account-id"] || VIRTUAL_ACCOUNT_ID);
+      const accountIdHeader = String(request.headers["chatgpt-account-id"] || "");
+      const accountId = accountIdHeader || VIRTUAL_ACCOUNT_ID;
+      // With a bridged login the account id and bodies are the user's own, so only the request's shape is logged.
       await appendResponderLog(logPath, {
+        bodyBytes: size,
         event: route ? "virtual-response" : "not-found",
         method: request.method,
-        host: request.headers.host,
-        url: url.pathname,
-        accountId,
-        body: requestBody ? requestBody.slice(0, 4096) : undefined
+        status: route ? 200 : 404,
+        url: responderLogPath(url.pathname, accountIdHeader)
       });
       if (route) {
         const body = JSON.stringify(route.bodyFor ? route.bodyFor({ accountId }) : route.body);
@@ -256,7 +275,6 @@ export async function startCodexAppNetResponder(options: {
     });
   });
   await appendResponderLog(logPath, { event: "responder-started", port: boundPort });
-
   return {
     port: boundPort,
     baseUrl: codexAppApiBaseUrl(boundPort),
