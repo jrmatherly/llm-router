@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@llmr/core/platform/windows-app-discovery";
 import { windowsSystemCommand } from "@llmr/core/platform/windows-system";
 import type { ProfileConfig } from "@llmr/core/contracts/app";
@@ -73,7 +74,7 @@ export function launchOpenCodeAppProfile(
   }
   const userDataDir = resolveOpenCodeDesktopUserDataDir();
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...withoutLlmrSecretEnv(),
     ...profile.env,
     ...extraEnv,
     LLMR_PROFILE_SURFACE: "app",

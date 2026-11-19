@@ -49,10 +49,11 @@ The management token and LLMR client API keys are different credentials. The man
 ### `llmr start`
 
 ```text
-llmr start [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr start [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 - `--host <host>`: management listener, default `127.0.0.1`.
+- `--allow-remote`: allow a listener other than `localhost`, `127.0.0.1` or `::1`. Same as `LLMR_WEB_ALLOW_REMOTE=1`.
 - `--port <port>`: preferred management port, default `3458`.
 - `--open` / `--no-open`: enable or disable opening a browser.
 - `--gateway`: explicitly request gateway startup; this is the default.
@@ -61,7 +62,7 @@ llmr start [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-ga
 ### `llmr ui`
 
 ```text
-llmr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr ui [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 `ui` opens the browser by default. Use `--no-open` on SSH or other headless sessions.
@@ -69,7 +70,7 @@ llmr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gatew
 ### `llmr serve`
 
 ```text
-llmr serve [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr serve [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 `serve` stays attached to the current terminal and handles `SIGINT`/`SIGTERM`. It is the appropriate mode for a process supervisor. `llmr stop` only manages the detached service; stop a foreground server through its terminal or supervisor.
@@ -123,10 +124,11 @@ Do not edit or copy live SQLite files while LLMR is writing to them. Use the UI 
 | Variable | Description |
 | --- | --- |
 | `LLMR_WEB_HOST` | Default management listener when `--host` is omitted. |
+| `LLMR_WEB_ALLOW_REMOTE` | Set to `1` to allow a listener that is not loopback. Same as `--allow-remote`. |
 | `LLMR_WEB_PORT` | Default management port when `--port` is omitted. |
-| `LLMR_WEB_AUTH_TOKEN` | Fixes the management UI/RPC token instead of generating a random token for the process. |
+| `LLMR_WEB_AUTH_TOKEN` | Fixes the management UI/RPC token instead of generating a random token for the process. Must be at least 32 characters (`openssl rand -base64 32`); a shorter one stops start-up. |
 
-When LLMR generates the token it prints the management URL once, in the form `/#llmr_web_token=<token>`. A token you set with `LLMR_WEB_AUTH_TOKEN` is never printed: the page asks for it. The token is kept per browser tab, so a new tab asks again. The fragment keeps the token out of server and proxy logs, but it may remain in browser history. Treat a URL that carries the token like a password and avoid copying it into logs, tickets, or shell history. When upgrading from v7.2.2 or earlier, run `llmr stop` first: a newer build does not read the `service.json` an older one wrote. Bind to `127.0.0.1` unless remote access is intentional. For remote access, use a firewall or private network plus TLS at a trusted reverse proxy.
+When LLMR generates the token it prints the management URL once, in the form `/#llmr_web_token=<token>`. A token you set with `LLMR_WEB_AUTH_TOKEN` is never printed: the page asks for it. The token is kept per browser tab, so a new tab asks again. The fragment keeps the token out of server and proxy logs, but it may remain in browser history. Treat a URL that carries the token like a password and avoid copying it into logs, tickets, or shell history. When upgrading from v7.2.2 or earlier, run `llmr stop` first: a newer build does not read the `service.json` an older one wrote. Bind to `127.0.0.1` unless remote access is intentional. A host other than `localhost`, `127.0.0.1` or `::1` needs `--allow-remote` (or `LLMR_WEB_ALLOW_REMOTE=1`); without it LLMR exits with a message naming the flag. For remote access, use a firewall or private network plus TLS at a trusted reverse proxy.
 
 Do not expose the gateway without creating LLMR client API keys. Upstream provider credentials are stored in LLMR's local data directory, so protect that directory and its backups.
 

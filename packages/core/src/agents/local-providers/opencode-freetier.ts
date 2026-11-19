@@ -6,6 +6,7 @@ import {
   providerNameSlugPlaceholder,
   readString
 } from "@llmr/core/agents/local-providers/shared";
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 
 /**
  * Free-tier client fingerprint for login-less ("public") OpenCode Zen imports.
@@ -225,6 +226,7 @@ function readInstalledOpenCodeUserAgent(): string | undefined {
   try {
     const output = execFileSync("opencode", ["--version"], {
       encoding: "utf8",
+      env: withoutLlmrSecretEnv(),
       stdio: ["ignore", "pipe", "ignore"],
       timeout: 3000
     }).trim();

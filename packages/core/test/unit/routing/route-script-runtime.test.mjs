@@ -1140,3 +1140,21 @@ test("the token estimate is the same on both sides of its 1 MiB branch", async (
   const large = calculateTokenCount(undefined, unit.repeat(repeats), undefined);
   assert.equal(large - small, Math.ceil(repeats * 6 * 1.15) - Math.ceil(1000 * 6 * 1.15));
 });
+
+test("route scripts cannot read LLMR's own secrets from the environment", async (t) => {
+  const previous = process.env.LLMR_SERVICE_INSTANCE_TOKEN;
+  t.after(() => {
+    if (previous === undefined) delete process.env.LLMR_SERVICE_INSTANCE_TOKEN;
+    else process.env.LLMR_SERVICE_INSTANCE_TOKEN = previous;
+  });
+  process.env.LLMR_SERVICE_INSTANCE_TOKEN = "service-instance-secret";
+  const runtime = new RouteScriptRuntime({ workerCount: 1, workerFile });
+  const script = routeScript(`return [api.env("LLMR_SERVICE_INSTANCE_TOKEN"), typeof api.env("PATH")];`);
+  try {
+    const result = await runtime.execute("env-filter", script, buildRouteScriptInput({ body: {}, headers: {}, log: console, method: "POST", url: "/v1/messages" }));
+    assert.equal(result.status, "ok");
+    assert.deepEqual(result.value, [null, "string"]);
+  } finally {
+    await runtime.close();
+  }
+});

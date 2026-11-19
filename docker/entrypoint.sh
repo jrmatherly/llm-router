@@ -17,8 +17,20 @@ if [ -z "${LLMR_WEB_AUTH_TOKEN:-}" ]; then
   LLMR_WEB_AUTH_TOKEN="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
   LLMR_WEB_AUTH_TOKEN_GENERATED=1
 elif [ "${#LLMR_WEB_AUTH_TOKEN}" -lt 32 ]; then
-  echo "Warning: LLMR_WEB_AUTH_TOKEN is shorter than 32 characters; use a long random value before exposing the port beyond loopback." >&2
+  echo "LLMR_WEB_AUTH_TOKEN must be at least 32 characters. Generate one with: openssl rand -base64 32" >&2
+  exit 1
 fi
+
+# The server refuses this too, but under pm2 that is a restart loop behind a running Nginx.
+case "${LLMR_WEB_HOST}" in
+  127.0.0.1|localhost|::1) ;;
+  *)
+    if [ "${LLMR_WEB_ALLOW_REMOTE:-}" != "1" ]; then
+      echo "LLMR_WEB_HOST=${LLMR_WEB_HOST} is not loopback. Leave it unset, or set LLMR_WEB_ALLOW_REMOTE=1 to expose the management server." >&2
+      exit 1
+    fi
+    ;;
+esac
 
 export HOME="${LLMR_DATA_DIR}"
 export LLMR_DATA_DIR

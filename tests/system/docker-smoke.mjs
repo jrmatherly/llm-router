@@ -9,7 +9,7 @@ import { prepareLocalGatewayPackage } from "../../build/docker-local-gateway.mjs
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..", "..");
 const imageName = process.env.LLMR_DOCKER_TEST_IMAGE || "llm-router:local";
-const token = process.env.LLMR_DOCKER_TEST_WEB_AUTH_TOKEN || "token+/&=#?";
+const token = process.env.LLMR_DOCKER_TEST_WEB_AUTH_TOKEN || "token+/&=#?-0123456789-0123456789abc";
 const testId = randomUUID().slice(0, 8);
 const containerName = `llmr-docker-smoke-${testId}`;
 const volumeName = `llmr-docker-smoke-${testId}`;

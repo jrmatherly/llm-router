@@ -10,6 +10,7 @@ import type {
   ProviderAccountConfig,
   ProviderModelMetadata
 } from "@llmr/core/contracts/app";
+import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import { findProviderPresetByBaseUrl } from "@llmr/core/providers/presets/index";
 import { resolveUserPath } from "@llmr/core/runtime/app-paths";
@@ -672,6 +673,7 @@ function kimiCliVersion(): string {
     try {
       const value = execFileSync(command, ["--version"], {
         encoding: "utf8",
+        env: withoutLlmrSecretEnv(),
         stdio: ["ignore", "pipe", "ignore"],
         timeout: 2_000
       }).trim();

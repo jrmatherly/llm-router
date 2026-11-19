@@ -204,14 +204,14 @@ A typical deployment only needs `LLMR_WEB_AUTH_TOKEN`, `LLMR_PUBLIC_BASE_URL`, a
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `LLMR_WEB_AUTH_TOKEN` | Randomly generated per start | Management UI / RPC token. Persistent or remote deployments should set a fixed strong value. |
+| `LLMR_WEB_AUTH_TOKEN` | Randomly generated per start | Management UI / RPC token. Persistent or remote deployments should set a fixed strong value of at least 32 characters (`openssl rand -base64 32`); a shorter one stops the container. |
 | `LLMR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Full public address written into LLMR configuration. Its origin is the one a non-loopback browser may call management RPC from. Takes precedence over Public Host / Port once set. |
 | `LLMR_WEB_ALLOWED_ORIGINS` | Empty | Comma-separated extra browser origins that may call management RPC, such as `https://tools.example.com`. |
 | `LLMR_PUBLIC_HOST` | `127.0.0.1` | Only used to compose the public address when no full public URL is set; does not change the Docker port binding. |
 | `LLMR_PUBLIC_PORT` | `3458` | Only used to compose the public address when no full public URL is set. |
 | `LLMR_DATA_DIR` | `/data` | Data root, also used as the process `HOME`. |
 | `LLMR_NGINX_PORT` | `8080` | Nginx listen port inside the container; should match the right side of the port mapping. |
-| `LLMR_WEB_HOST` | `127.0.0.1` | Management service listen address inside the container. |
+| `LLMR_WEB_HOST` | `127.0.0.1` | Management service listen address inside the container. It must stay loopback: any other address makes the container refuse to start unless `LLMR_WEB_ALLOW_REMOTE=1` is set. In Docker, what you publish with `-p` is what is exposed: no LLMR flag checks it. |
 | `LLMR_WEB_PORT` | `3459` | Management service port inside the container. |
 | `LLMR_GATEWAY_HOST` | `127.0.0.1` | Model gateway listen address inside the container. |
 | `LLMR_GATEWAY_PORT` | `3456` | Model gateway port inside the container that Nginx proxies to. |

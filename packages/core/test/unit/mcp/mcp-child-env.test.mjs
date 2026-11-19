@@ -130,3 +130,14 @@ test("child process env drops LLMR secrets and keeps everything else", () => {
     { LLMR_INTERNAL_HOME_DIR: "/home/llmr", PATH: "/usr/bin", TAVILY_API_KEY: "user-key" }
   );
 });
+
+test("the filter keeps LLMR settings that only name where a secret lives", () => {
+  const env = withoutLlmrSecretEnv({
+    LLMR_REMOTE_SYNC_API_KEY: "secret",
+    LLMR_REMOTE_SYNC_API_KEY_FILE: "/path/to/key",
+    LLMR_REMOTE_SYNC_API_KEY_HELPER: "helper --print",
+    LLMR_WEB_AUTH_TOKEN: "secret",
+    PATH: "/usr/bin"
+  });
+  assert.deepEqual(env, { LLMR_REMOTE_SYNC_API_KEY_FILE: "/path/to/key", LLMR_REMOTE_SYNC_API_KEY_HELPER: "helper --print", PATH: "/usr/bin" });
+});

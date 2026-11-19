@@ -192,14 +192,14 @@ Most deployments should set only `LLMR_WEB_AUTH_TOKEN`, `LLMR_PUBLIC_BASE_URL`, 
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `LLMR_WEB_AUTH_TOKEN` | Random per container start | Management UI/RPC token. Set a stable strong value for persistent or remote use. |
+| `LLMR_WEB_AUTH_TOKEN` | Random per container start | Management UI/RPC token. Set a stable strong value of at least 32 characters (`openssl rand -base64 32`) for persistent or remote use; a shorter one stops the container. |
 | `LLMR_PUBLIC_BASE_URL` | `http://127.0.0.1:3458` | Exact public gateway/UI base URL written into LLMR configuration. Its origin is the one a non-loopback browser may call management RPC from. Overrides `LLMR_PUBLIC_HOST` and `LLMR_PUBLIC_PORT`. |
 | `LLMR_WEB_ALLOWED_ORIGINS` | Empty | Comma-separated extra browser origins that may call management RPC, such as `https://tools.example.com`. |
 | `LLMR_PUBLIC_HOST` | `127.0.0.1` | Used only to derive `LLMR_PUBLIC_BASE_URL` when the full URL is unset; it does not change Docker port publishing. |
 | `LLMR_PUBLIC_PORT` | `3458` | Used only to derive `LLMR_PUBLIC_BASE_URL` when the full URL is unset. |
 | `LLMR_DATA_DIR` | `/data` | Container data root and process `HOME`. Mount persistent storage here. |
 | `LLMR_NGINX_PORT` | `8080` | Container-private Nginx listen port. Match the container side of the published mapping if changed. |
-| `LLMR_WEB_HOST` | `127.0.0.1` | Container-private management server host. |
+| `LLMR_WEB_HOST` | `127.0.0.1` | Container-private management server host. It must stay loopback: any other address makes the container refuse to start unless `LLMR_WEB_ALLOW_REMOTE=1` is set. In Docker, what you publish with `-p` is what is exposed: no LLMR flag checks it. |
 | `LLMR_WEB_PORT` | `3459` | Container-private management server port. |
 | `LLMR_GATEWAY_HOST` | `127.0.0.1` | Container-private gateway listener host. |
 | `LLMR_GATEWAY_PORT` | `3456` | Container-private gateway listener port used by Nginx. |

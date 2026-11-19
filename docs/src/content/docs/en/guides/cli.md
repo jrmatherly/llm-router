@@ -59,12 +59,13 @@ The management UI defaults to `http://127.0.0.1:3458`; the model gateway default
 ## `llmr start`
 
 ```text
-llmr start [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr start [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 | Option | Description |
 | --- | --- |
 | `--host <host>` | Management service listen address, default `127.0.0.1`. `--host=value` is also accepted. |
+| `--allow-remote` | Allow a listen address other than `localhost`, `127.0.0.1` or `::1`. Same as `LLMR_WEB_ALLOW_REMOTE=1`. |
 | `--port <port>` | Preferred management service port, default `3458`. `--port=value` is also accepted. |
 | `--open` | Open a browser after startup. |
 | `--no-open` | Do not open a browser. |
@@ -76,7 +77,7 @@ If the preferred port is occupied, LLMR keeps trying following ports and prints 
 ## `llmr ui`
 
 ```text
-llmr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr ui [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 `ui` uses the same background service as `start`, but opens a browser by default. When LLMR generates the token it prints the management URL once, in the form `/#llmr_web_token=<token>`. A token you set with `LLMR_WEB_AUTH_TOKEN` is never printed: the page asks for it. The token is kept per browser tab, so a new tab asks again. The fragment keeps the token out of server and proxy logs, but it may remain in browser history. Treat a URL that carries the token as a password and do not paste it into logs, tickets, or public screenshots.
@@ -84,7 +85,7 @@ llmr ui [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gatew
 ## `llmr serve`
 
 ```text
-llmr serve [--host <host>] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
+llmr serve [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [--gateway|--no-gateway]
 ```
 
 `serve` stays in the foreground and shuts down the management service and configured services on `SIGINT` or `SIGTERM`. Prefer it when troubleshooting startup errors, because errors are printed directly to the current terminal.
@@ -162,12 +163,13 @@ The public management authentication variables are:
 | Variable | Description |
 | --- | --- |
 | `LLMR_WEB_HOST` | Management service listen address used when `--host` is omitted. |
+| `LLMR_WEB_ALLOW_REMOTE` | Set to `1` to allow a listen address that is not loopback. Same as `--allow-remote`. |
 | `LLMR_WEB_PORT` | Management service port used when `--port` is omitted. |
-| `LLMR_WEB_AUTH_TOKEN` | Fixed management UI / RPC token; without it the process generates a random token. A token set here is never printed; the page asks for it. |
+| `LLMR_WEB_AUTH_TOKEN` | Fixed management UI / RPC token; without it the process generates a random token. A token set here is never printed; the page asks for it. Must be at least 32 characters (`openssl rand -base64 32`); a shorter one stops start-up. |
 | `LLMR_PUBLIC_BASE_URL` | Browser-facing address of the management UI when it differs from the listen address, such as `https://llmr.example.com` behind a reverse proxy. |
 | `LLMR_WEB_ALLOWED_ORIGINS` | Comma-separated extra browser origins that may call management RPC. |
 
-Listening on `0.0.0.0` exposes the management UI to the LAN or external networks. Only configure this when genuinely needed, and combine it with a fixed strong token, a host firewall or private network, and TLS provided by a trusted reverse proxy.
+Listening on `0.0.0.0` exposes the management UI to the LAN or external networks, and the management token is full access to the machine. A host other than `localhost`, `127.0.0.1` or `::1` needs `--allow-remote` (or `LLMR_WEB_ALLOW_REMOTE=1`); without it LLMR exits with a message naming the flag. Only configure this when genuinely needed, and combine it with a fixed strong token, a host firewall or private network, and TLS provided by a trusted reverse proxy.
 
 Management RPC rejects a browser request whose `Origin` or `Referer` is not trusted, with `403`. Loopback addresses are trusted, and so is `http://<listen address>:<port>`. When the listen address is `0.0.0.0` or `::`, any IP address on that port is trusted. Behind a reverse proxy the browser's origin is the proxy's address, so set `LLMR_PUBLIC_BASE_URL` to it. A client that sends neither header, such as `curl`, needs only the token.
 
