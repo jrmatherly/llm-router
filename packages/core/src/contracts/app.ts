@@ -1146,6 +1146,27 @@ export function availableGatewayModelIds(config: Pick<AppConfig, "Providers" | "
   return uniqueGatewayModelIds(ids);
 }
 
+// The renderer cannot load ModelRegistry, so the picker and the save share this check; the save also accepts what the registry resolves.
+export function gatewayModelSelectionMatcher(config: Pick<AppConfig, "Providers" | "virtualModelProfiles">): (value: string | undefined) => boolean {
+  const keys = new Set(availableGatewayModelIds(config).map((id) => id.toLowerCase()));
+  for (const provider of config.Providers) {
+    if (!isGatewayProviderEnabled(provider) || !Array.isArray(provider.models)) {
+      continue;
+    }
+    for (const rawModel of provider.models) {
+      const model = rawModel.trim().toLowerCase();
+      keys.add(model);
+      for (const alias of [provider.name, provider.id, provider.provider]) {
+        if (alias?.trim()) {
+          keys.add(`${alias.trim().toLowerCase()}/${model}`);
+        }
+      }
+    }
+  }
+  keys.delete("");
+  return (value) => keys.has((value ?? "").trim().replace(/\s*,\s*/, "/").toLowerCase());
+}
+
 function availableGatewayBaseModelEntries(providers: GatewayProviderConfig[]): Array<{ modelName: string; providerName: string }> {
   return providers.flatMap((provider) => {
     const providerName = provider.name?.trim();
@@ -1538,6 +1559,10 @@ export function isEnabledGlobalProfile(profile: Pick<ProfileConfig, "enabled" | 
   return profile.enabled && normalizeProfileScopeValue(profile.scope) === "global";
 }
 
+export function isRestorableGlobalProfile(profile: Pick<ProfileConfig, "agent" | "scope">): boolean {
+  return (profile.agent === "claude-code" || profile.agent === "codex") && normalizeProfileScopeValue(profile.scope) === "global";
+}
+
 // Claude App reads the shared Claude-3p data dir at every launch, including
 // one from the Dock or the account switcher, so writing there takes over
 // launches LLMR did not make. Only an explicit per-profile opt-in may write it;
@@ -1899,6 +1924,11 @@ export type AppConfig = {
 
 export type AppSaveConfigOptions = {
   applyProfile?: boolean;
+};
+
+export type GlobalProfileRecoveryResult = {
+  config: AppConfig;
+  status: ProfileClientApplyStatus;
 };
 
 export type ClaudeAppGatewayApplyResult = {

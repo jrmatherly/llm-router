@@ -173,3 +173,20 @@ With a Bot bound, WorkBuddy can relay conversations through the selected IM chan
 2. While testing, prefer **Only opened from LLMR** to avoid changing the system default agent.
 3. To keep desktop windows side by side, use `App only` or `CLI & APP`, then open the App from LLMR.
 4. If the same config is already running, opening it again activates the existing window. Create another Agent Profile when you need a second instance.
+
+## Repair unavailable model selections
+
+The model picker lists saved selections that no enabled provider or virtual model serves under **Unavailable selected models**, each with a **Remove** button. A selection written another way still counts as available: a different letter case, `provider,model` instead of `provider/model`, a bare model name, or a provider's ID instead of its name.
+
+Saving drops unavailable entries from a profile's model list and keeps its default model in the list. If an enabled profile's default model is no longer served, for example after you delete or turn off its provider, the save is refused with a message that names the profile, the provider and the provider's models. Choose a configured default model for that profile, or turn the profile off, and save again. Until then every settings save fails with that message, including the provider change that caused it. LLMR never empties the list to make the save pass, because an empty list allows every model. A turned-off profile whose list has no served model left keeps that list until you repair it.
+
+## Restore original settings
+
+A **System default** Claude Code or Codex profile has a **Restore original settings** button. It turns the profile off and saves that, then puts the agent's own config file back. Reopen the agent afterwards. It works while the gateway is stopped, and other invalid settings, such as another profile's unavailable model, do not block it. Restarting LLMR keeps the profile off.
+
+- **Claude Code**: LLMR removes its own keys from `settings.json` and keeps everything else, including edits you made after LLMR took the file over. A base URL you had set before the takeover comes back, unless all three of `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_BASE_URL` and `CLAUDE_AGENT_API_BASE_URL` held the same value, which LLMR reads as its own. If `settings.json` is not valid JSON, LLMR leaves it alone and reports that.
+- **Codex**: LLMR replaces `config.toml` with the copy it saved before the takeover, after copying the current file next to it as `config.toml.llmr-backup-<time>`. Edits made to `config.toml` after the takeover are in that backup, not in the restored file.
+
+If LLMR has no copy of the original file, it says so and the profile stays off. The profile's toggle turns routing back on.
+
+When a request through a system-default Claude Code or Codex profile fails on every provider, the error the agent shows names the provider, the requested model and the profile, and points to this button.

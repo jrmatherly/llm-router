@@ -58,7 +58,7 @@ export function appendAggregateErrorAttemptSummary(text: string, previousAttempt
   error?: string;
   model?: string;
   statusCode?: number;
-}> = [], context: { requestedModel?: string } = {}): string | undefined {
+}> = [], context: { recoveryProfile?: string; requestedModel?: string } = {}): string | undefined {
   let payload: AggregateErrorPayload;
   try {
     const parsed: unknown = JSON.parse(text);
@@ -117,9 +117,10 @@ export function appendAggregateErrorAttemptSummary(text: string, previousAttempt
   if (!summary) {
     return undefined;
   }
-  const tail = context.requestedModel
-    ? `${summary} Requested model: ${context.requestedModel.replace(/[\r\n\t]/g, " ").slice(0, 160)}.`
-    : summary;
+  const label = (value: string) => value.replace(/[\r\n\t]/g, " ").slice(0, 160);
+  const tail = summary
+    + (context.requestedModel ? ` Requested model: ${label(context.requestedModel)}.` : "")
+    + (context.recoveryProfile ? ` To stop LLMR routing for profile "${label(context.recoveryProfile)}", open Agent Profiles in LLMR and choose Restore original settings.` : "");
   if (error.message.endsWith(tail)) return undefined;
   const enriched: AggregateErrorPayload = { ...payload, error: { ...error, message: `${error.message} ${tail}` } };
   return `${JSON.stringify(enriched)}\n`;

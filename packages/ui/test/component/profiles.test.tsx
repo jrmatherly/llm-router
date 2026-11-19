@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { ProfileConfig } from "@llmr/core/contracts/app.ts";
+import { gatewayModelSelectionMatcher, type GatewayProviderConfig, type ProfileConfig, type VirtualModelProfileConfig } from "@llmr/core/contracts/app.ts";
+import { ModelMultiSelector } from "@llmr/ui/pages/home/components/model-selector.tsx";
 import { AddProfileForm, DeleteProfileDialog, ProfileOpenDialog, ProfileView } from "@llmr/ui/pages/home/components/profiles.tsx";
-import { createProfileDraft, createProfileDraftFromProfile, isProfileDraftSubmittable, normalizeUnknownProfileItem, profileAgentLogoUrl, profileConfigFromDraft, profileDraftWithDetectedAppPath, profileSummaryItems } from "@llmr/ui/pages/home/shared/profiles.ts";
+import { createProfileDraft, createProfileDraftFromProfile, isProfileDraftSubmittable, normalizeUnknownProfileItem, profileAgentLogoUrl, profileConfigFromDraft, profileDraftWithDetectedAppPath, profileModelProviderOptions, profileSummaryItems } from "@llmr/ui/pages/home/shared/profiles.ts";
 import type { AddProfileDraft } from "@llmr/ui/pages/home/shared/types.ts";
 import { appConfigFixture } from "../fixtures/index.ts";
 
@@ -34,6 +35,21 @@ test("DeleteProfileDialog identifies the profile and requires an explicit confir
   assert.match(html, /Claude Code/);
   assert.match(html, />Cancel<\/button>/);
   assert.match(html, />Delete<\/button>/);
+});
+
+test("#1951 global Claude Code and Codex cards offer recovery even when already disabled", () => {
+  const config = appConfigFixture();
+  config.profile.profiles = [
+    { ...profile, id: "global-claude", scope: "global" },
+    { ...profile, agent: "codex", enabled: false, id: "global-codex", scope: "global" },
+    { ...profile, id: "isolated-claude", scope: "llmr" },
+    { ...profile, agent: "opencode", id: "global-opencode", scope: "global" }
+  ];
+  const html = renderToStaticMarkup(<ProfileView addProfile={() => undefined} applyError="" config={config}
+    copyProfileCliCommand={() => undefined} editProfile={() => undefined} openProfileApp={() => undefined}
+    profileRuntimeStatus={{ profiles: [] }} recoverGlobalProfile={() => undefined} removeProfile={() => undefined}
+    stopProfileApp={() => undefined} updateProfileItem={() => undefined} />);
+  assert.equal((html.match(/Restore original settings/g) ?? []).length, 2);
 });
 
 test("AddProfileForm does not show the profile requirements panel", () => {
@@ -802,4 +818,34 @@ test("the shared-home toggle shows for generated scopes, round-trips, and is dro
   assert.equal(stored.claudeCodeSharedHome, true);
   assert.equal(createProfileDraftFromProfile(stored).claudeCodeSharedHome, true);
   assert.equal("claudeCodeSharedHome" in profileConfigFromDraft({ ...draft, scope: "global" }, []), false);
+});
+
+test("#1910 stale selected model names remain visible and removable", () => {
+  const html = renderToStaticMarkup(<ModelMultiSelector onChange={() => undefined} providers={[{ models: ["valid"], name: "Local" } as GatewayProviderConfig]}
+    value={["Local/valid", "Gone/stale", "Local/removed"]} />);
+  assert.match(html, /Unavailable selected models/);
+  assert.match(html, /Gone\/stale/);
+  assert.match(html, /Local\/removed/);
+  assert.equal((html.match(/>Remove<\/button>/g) ?? []).length, 2);
+});
+
+test("selections the save keeps are not listed as unavailable", () => {
+  const providers = [{ id: "local-engine", models: ["local-model"], name: "Local", provider: "local-preset" } as GatewayProviderConfig];
+  const virtualModelProfiles = [{ displayName: "Smart", enabled: true, key: "smart", match: { exactAliases: ["smart"], prefixes: [], suffixes: [] }, materialization: { enabled: true, includeInGatewayModels: true } } as unknown as VirtualModelProfileConfig];
+  const html = renderToStaticMarkup(<ModelMultiSelector onChange={() => undefined} providers={providers} virtualModelProfiles={virtualModelProfiles}
+    value={["local/LOCAL-MODEL", "fusion/SMART"]} />);
+  assert.doesNotMatch(html, /Unavailable selected models/);
+});
+
+test("every model the picker offers counts as configured, so a save keeps it", () => {
+  const providers = [{ models: ["base"], name: "Local" } as GatewayProviderConfig];
+  const visible = { enabled: true, materialization: { enabled: true, includeInGatewayModels: true } };
+  const virtualModelProfiles = [
+    { ...visible, displayName: "Aliased", key: "aliased", match: { exactAliases: ["smart"], prefixes: [], suffixes: [] } },
+    { ...visible, displayName: "Prefixed", key: "prefixed", match: { exactAliases: [], prefixes: ["fast-"], suffixes: ["-long"] } },
+    { ...visible, displayName: "Bare", key: "bare", match: { exactAliases: [], prefixes: [], suffixes: [] } }
+  ] as unknown as VirtualModelProfileConfig[];
+  const offered = profileModelProviderOptions(providers, virtualModelProfiles).flatMap((provider) => provider.models.map((model) => `${provider.name}/${model}`));
+  assert.deepEqual(offered, ["Local/base", "Fusion/smart"], "a virtual model with no exact alias has no routable name to offer");
+  assert.deepEqual(offered.filter((model) => !gatewayModelSelectionMatcher({ Providers: providers, virtualModelProfiles })(model)), []);
 });

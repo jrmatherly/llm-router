@@ -43,6 +43,7 @@ import type {
   GatewayProviderProbeRequest,
   GatewayProviderProbeResult,
   GatewayStatus,
+  GlobalProfileRecoveryResult,
   LocalAgentProviderCandidate,
   LocalAgentProviderImportRequest,
   LocalAgentProviderImportResult,
@@ -146,6 +147,7 @@ declare global {
       probeProviderCandidates: (request: GatewayProviderProbeCandidatesRequest) => Promise<GatewayProviderProbeCandidateResult | undefined>;
       probeProvider: (request: GatewayProviderProbeRequest) => Promise<GatewayProviderProbeResult>;
       quitApp: () => Promise<void>;
+      recoverGlobalProfile: (profileId: string) => Promise<GlobalProfileRecoveryResult>;
       revealProxyCertificate: () => Promise<void>;
       renderHtmlPng?: (request: AppRenderHtmlPngRequest) => Promise<AppRenderHtmlPngResult>;
       resetCodexRateLimitCredit: (request: ProviderAccountResetRequest) => Promise<ProviderAccountResetResult>;

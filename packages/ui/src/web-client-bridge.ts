@@ -221,6 +221,7 @@ const webClientBridge: LlmrApi = {
   probeProvider: (request) => rpc("probeProvider", [request]) as ReturnType<LlmrApi["probeProvider"]>,
   probeProviderCandidates: (request) => rpc("probeProviderCandidates", [request]) as ReturnType<LlmrApi["probeProviderCandidates"]>,
   quitApp: () => rpc("quitApp") as ReturnType<LlmrApi["quitApp"]>,
+  recoverGlobalProfile: (profileId) => rpc("recoverGlobalProfile", [profileId]) as ReturnType<LlmrApi["recoverGlobalProfile"]>,
   restartGateway: () => rpc("restartGateway") as ReturnType<LlmrApi["restartGateway"]>,
   restartProxy: () => rpc("restartProxy") as ReturnType<LlmrApi["restartProxy"]>,
   revealProxyCertificate: () => rpc("revealProxyCertificate") as ReturnType<LlmrApi["revealProxyCertificate"]>,

@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, claudeCodeUsesSharedHome, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
+import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, claudeAppTakesOverDirectLaunches, claudeCodeUsesSharedHome, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isGatewayProviderEnabled, type AppConfig, type GlobalProfileRecoveryResult, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
 import { resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
 import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@llmr/core/agents/claude-code/gateway-login-policy";
-import { appConfigLoadError, loadAppConfig } from "@llmr/core/config/config";
+import { appConfigLoadError, disableGlobalAgentProfile, loadAppConfig } from "@llmr/core/config/config";
 import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import {
@@ -149,13 +149,52 @@ type ApplyProfileConfigOptions = {
 
 let applyQueue: Promise<unknown> = Promise.resolve();
 
+function enqueueApply<T>(operation: () => T | Promise<T>): Promise<T> {
+  const run = applyQueue.then(operation);
+  applyQueue = run.catch(() => undefined);
+  return run;
+}
+
 export function applyProfileConfig(
   config: AppConfig,
   options: ApplyProfileConfigOptions = {}
 ): Promise<ProfileApplyResult> {
-  const run = applyQueue.then(() => applyProfileConfigNow(config, options));
-  applyQueue = run.catch(() => undefined);
-  return run;
+  return enqueueApply(() => applyProfileConfigNow(config, options));
+}
+
+export async function recoverGlobalAgentProfile(profileId: string): Promise<GlobalProfileRecoveryResult> {
+  // Saved before any file changes, so a failed restore cannot be followed by a startup that takes the agent over again.
+  const config = await disableGlobalAgentProfile(profileId);
+  const profile = config.profile.profiles.find((item) => item.id === profileId);
+  if (!profile) {
+    throw new Error(`Profile ${profileId} is not in the saved configuration.`);
+  }
+  const status = await enqueueApply((): ProfileClientApplyStatus => {
+    try {
+      const file = profilePath(profile);
+      if (profile.agent === "claude-code") {
+        if (existsSync(file) && !parseJsonContent(readFileSync(file, "utf8"))) {
+          throw new Error(`${file} is not valid JSON.`);
+        }
+        cleanupClaudeCodeGeneratedFiles(profile);
+      }
+      const restored = disabledProfileStatus(profile);
+      // A normal save releases Claude App the same way once no profile takes it over.
+      if (!config.profile.profiles.some(claudeAppTakesOverDirectLaunches)) {
+        restoreClaudeAppGatewayConfig();
+      }
+      return restored;
+    } catch (error) {
+      return {
+        client: profile.agent,
+        enabled: false,
+        message: `This profile is disabled, but its original settings could not be restored: ${formatError(error)}`,
+        ok: false,
+        path: profilePath(profile)
+      };
+    }
+  });
+  return { config, status };
 }
 
 async function applyProfileConfigNow(

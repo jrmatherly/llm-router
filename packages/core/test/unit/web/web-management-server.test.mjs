@@ -532,6 +532,134 @@ test("closing the web service releases the recorded takeovers when the config fa
   assertReleased(settingsFile);
 });
 
+test("#1951 authenticated recovery restores both agent configs while the gateway is down and survives reapply", async () => {
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { applyProfileConfig } = await import("@llmr/core/profiles/service.ts");
+  const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
+  const { replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  const root = mkdtempSync(path.join(runtimeRoot, "recovery-"));
+  const claudeFile = path.join(root, "claude", "settings.json");
+  const codexFile = path.join(root, "codex", "config.toml");
+  // One base URL: all three set alike read as an LLMR takeover, which the release drops instead of restoring.
+  const originals = new Map([
+    [claudeFile, `${JSON.stringify({ env: { ANTHROPIC_BASE_URL: "https://original.invalid", USER_SETTING: "kept" }, permissions: { defaultMode: "default" } })}\n`],
+    [codexFile, 'model = "original-model"\nmodel_provider = "original-provider"\n[model_providers.original-provider]\nbase_url = "https://original.invalid/v1"\n']
+  ]);
+  for (const [file, content] of originals) {
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, content);
+  }
+  const config = createDefaultAppConfig();
+  config.Providers = [{ api_key: "private-provider-key", models: ["m"], name: "Broken", type: "openai_chat_completions" }];
+  config.virtualModelProfiles = [];
+  config.profile.enabled = true;
+  config.profile.profiles = [
+    { agent: "claude-code", enabled: true, id: "recovery-claude", model: "Broken/m", name: "Claude Main", scope: "global", settingsFile: claudeFile },
+    { agent: "codex", configFile: codexFile, enabled: true, id: "recovery-codex", model: "Broken/m", name: "Codex Main", scope: "global" }
+  ];
+  await applyProfileConfig(config);
+  for (const [file, content] of originals) assert.notEqual(readFileSync(file, "utf8"), content);
+  const edited = JSON.parse(readFileSync(claudeFile, "utf8"));
+  edited.env.USER_SETTING = "edited after takeover";
+  edited.statusLine = { command: "my-status", type: "command" };
+  writeFileSync(claudeFile, JSON.stringify(edited));
+  const expectedClaude = JSON.parse(originals.get(claudeFile));
+  expectedClaude.env.USER_SETTING = edited.env.USER_SETTING;
+  expectedClaude.statusLine = edited.statusLine;
+  // An unrelated profile that no save would accept must not block a narrow opt-out.
+  config.profile.profiles.push({ agent: "claude-code", availableModels: ["Gone/model"], enabled: true, id: "invalid-unrelated", model: "Gone/model", name: "Unrelated", scope: "llmr" });
+  await replacePersistedAppConfig(config);
+  const stale = await loadAppConfig();
+  const runtime = await startWebManagementServer({ authToken: "recovery-auth", host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    const denied = await fetch(new URL("/api/llmr/rpc", runtime.url), {
+      body: JSON.stringify({ args: ["recovery-claude"], method: "recoverGlobalProfile" }),
+      headers: { "content-type": "application/json" },
+      method: "POST"
+    });
+    assert.equal(denied.status, 401);
+    assert.equal((await loadAppConfig()).profile.profiles[0].enabled, true);
+    for (const id of ["recovery-claude", "recovery-codex"]) {
+      const result = await rpc(runtime.url, "recovery-auth", "recoverGlobalProfile", [id]);
+      assert.equal(result.ok, true, JSON.stringify(result));
+      assert.equal(result.value.status.ok, true, result.value.status.message);
+      assert.equal(result.value.config.profile.profiles.find((profile) => profile.id === id).enabled, false);
+      assert.ok(!JSON.stringify(result).includes("private-provider-key"), "web recovery redacts returned credentials");
+    }
+    stale.profile.profiles = stale.profile.profiles.filter((profile) => profile.id !== "invalid-unrelated");
+    await assert.rejects(saveAppConfig(stale), (error) => error.name === "AppConfigConflictError", "a stale snapshot cannot re-enable the takeover");
+    const saved = await loadAppConfig();
+    assert.equal(saved.profile.profiles.find((profile) => profile.id === "invalid-unrelated").enabled, true);
+    await applyProfileConfig(saved);
+    assert.deepEqual(JSON.parse(readFileSync(claudeFile, "utf8")), expectedClaude, "restore keeps edits made after the takeover and a reapply does not take over again");
+    assert.equal(readFileSync(codexFile, "utf8"), originals.get(codexFile));
+    const rejected = await fetch(new URL("/api/llmr/rpc", runtime.url), {
+      body: JSON.stringify({ args: ["invalid-unrelated"], method: "recoverGlobalProfile" }),
+      headers: { "content-type": "application/json", "x-llmr-web-auth": "recovery-auth" },
+      method: "POST"
+    });
+    assert.equal(rejected.status, 500);
+    assert.match((await rejected.json()).error.message, /system-default Claude Code or Codex profile/);
+  } finally {
+    await runtime.close();
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("#1951 a missing original backup reports failure and keeps the profile disabled", async () => {
+  const { recoverGlobalAgentProfile } = await import("@llmr/core/profiles/service.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { loadAppConfig } = await import("@llmr/core/config/config.ts");
+  const { replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  const root = mkdtempSync(path.join(runtimeRoot, "missing-backup-"));
+  const file = path.join(root, "config.toml");
+  const managed = '# BEGIN LLMR managed profile\nmodel = "broken"\n# END LLMR managed profile\n';
+  writeFileSync(file, managed);
+  const config = createDefaultAppConfig();
+  config.profile.profiles = [{ agent: "codex", configFile: file, enabled: true, id: "missing-backup", model: "broken", name: "Missing backup", scope: "global" }];
+  await replacePersistedAppConfig(config);
+  try {
+    const result = await recoverGlobalAgentProfile("missing-backup");
+    assert.equal(result.status.ok, false);
+    assert.match(result.status.message, /No original.*backup/);
+    assert.equal((await loadAppConfig()).profile.profiles[0].enabled, false);
+    assert.equal(readFileSync(file, "utf8"), managed);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("#1951 recovery keeps user edits to a file LLMR created and reports malformed settings", async () => {
+  const { recoverGlobalAgentProfile } = await import("@llmr/core/profiles/service.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  const root = mkdtempSync(path.join(runtimeRoot, "claude-recovery-extra-"));
+  try {
+    for (const malformed of [false, true]) {
+      const file = path.join(root, malformed ? "bad.json" : "new.json");
+      const config = createDefaultAppConfig();
+      config.profile.profiles = [{ agent: "claude-code", enabled: true, id: "claude-recovery-extra", name: "Claude recovery", scope: "global", settingsFile: file }];
+      await replacePersistedAppConfig(config);
+      const content = malformed ? "{bad JSON" : JSON.stringify({ apiKeyHelper: "llmr-claude-code-api-key-extra",
+        env: { ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456", ANTHROPIC_BASE_URL: "http://127.0.0.1:3456", CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456", USER_EDIT: "keep" } });
+      writeFileSync(file, content);
+      writeFileSync(`${file}.llmr-original-missing`, "");
+      const result = await recoverGlobalAgentProfile("claude-recovery-extra");
+      assert.equal(result.config.profile.profiles[0].enabled, false);
+      assert.equal(result.status.ok, !malformed, result.status.message);
+      if (malformed) {
+        assert.match(result.status.message, /disabled.*not valid JSON/);
+        assert.equal(readFileSync(file, "utf8"), content);
+      } else {
+        assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), { env: { USER_EDIT: "keep" } });
+      }
+    }
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 // Seeded after start: the start-up sync restores any Claude App takeover no profile asks for.
 async function seedClaudeAppTakeover() {
   const { CONFIGDIR } = await import("@llmr/core/config/constants.ts");

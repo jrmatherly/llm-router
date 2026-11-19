@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
-import type { ApiKeyConfig, AppConfig, ProfileConfig, RequestRouteTraceChange, RequestStreamMetrics, RouterFallbackConfig } from "@llmr/core/contracts/app";
+import { isRestorableGlobalProfile, type ApiKeyConfig, type AppConfig, type ProfileConfig, type RequestRouteTraceChange, type RequestStreamMetrics, type RouterFallbackConfig } from "@llmr/core/contracts/app";
 import {
   createSseErrorDetector,
   markGatewayRequestLogDropped,
@@ -954,6 +954,9 @@ export class GatewayRequestPipeline {
           return;
         }
         const outboundErrorText = appendAggregateErrorAttemptSummary(bufferedErrorText, upstreamResult.failedAttempts, {
+          recoveryProfile: authenticatedProfile && isRestorableGlobalProfile(authenticatedProfile)
+            ? authenticatedProfile.name || authenticatedProfile.id
+            : undefined,
           requestedModel: modelBeforeRouting
         }) ?? bufferedErrorText;
         if (outboundErrorText !== bufferedErrorText) {

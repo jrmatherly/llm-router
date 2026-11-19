@@ -15,10 +15,11 @@ import { LEGACY_ACTIVE_CONFIG_FILE, LEGACY_CONFIG_FILE } from "@llmr/core/config
 import { normalizeCodexProviderAccountConfig } from "@llmr/core/agents/local-providers/codex";
 import { normalizeGrokProviderAccountConfig, normalizeGrokProviderMediaCapabilities } from "@llmr/core/agents/local-providers/grok";
 import { removeOpenCodeProviderAccountConfig } from "@llmr/core/agents/local-providers/opencode";
-import { CLAUDE_CODE_DEFAULT_ENV, CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, DEFAULT_TRAY_COMPONENT_VARIANTS, GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, OVERVIEW_WIDGET_SIZE_VALUES, ROUTER_FALLBACK_MAX_RETRY_COUNT, ROUTER_SCRIPT_API_VERSION, ROUTER_SCRIPT_DEFAULT_TIMEOUT_MS, ROUTER_SCRIPT_MAX_TIMEOUT_MS, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS, enforceSingleEnabledGlobalProfilePerAgent, isEnabledGlobalProfile, knownGatewayPluginDefaultPermissions, knownGatewayPluginDefaultSurfaces } from "@llmr/core/contracts/app";
+import { CLAUDE_CODE_DEFAULT_ENV, CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, DEFAULT_TRAY_COMPONENT_VARIANTS, GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, OVERVIEW_WIDGET_SIZE_VALUES, ROUTER_FALLBACK_MAX_RETRY_COUNT, ROUTER_SCRIPT_API_VERSION, ROUTER_SCRIPT_DEFAULT_TIMEOUT_MS, ROUTER_SCRIPT_MAX_TIMEOUT_MS, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS, enforceSingleEnabledGlobalProfilePerAgent, isEnabledGlobalProfile, knownGatewayPluginDefaultPermissions, isRestorableGlobalProfile, knownGatewayPluginDefaultSurfaces } from "@llmr/core/contracts/app";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config";
 import { maxRequestLogBodyBytes } from "@llmr/core/observability/request-log-limits";
 import { providerRuntimeId } from "@llmr/core/routing/model-registry";
+import { reconcileProfileModelSelections } from "@llmr/core/profiles/model-selection";
 import { findProviderPresetByBaseUrl, primaryProviderPresetEndpoint, providerApiKeySafetyIssue, providerEndpointCanReceiveProviderApiKey } from "@llmr/core/providers/presets/index";
 import type {
   AppConfig,
@@ -392,6 +393,24 @@ export async function saveAppConfig(config: AppConfig): Promise<AppConfig> {
   return enqueueAppConfigWrite(() => saveAppConfigNow(config));
 }
 
+// Recovery must work when unrelated settings would fail validation, so it changes one flag in place.
+export async function disableGlobalAgentProfile(profileId: string): Promise<AppConfig> {
+  return enqueueAppConfigWrite(async () => {
+    await loadAppConfig();
+    await updatePersistedAppConfig((current) => {
+      const profile = isObject(current) && isObject(current.profile) ? current.profile as AppConfig["profile"] : undefined;
+      const profiles = Array.isArray(profile?.profiles) ? profile.profiles : [];
+      const target = profiles.find((item) => isObject(item) && item.id === profileId);
+      if (!profile || !target || !isRestorableGlobalProfile(target)) {
+        throw new Error("Choose a system-default Claude Code or Codex profile to restore.");
+      }
+      // loadAppConfig derives the legacy profile flags, so only the target changes on disk.
+      return { ...(current as Record<string, unknown>), profile: { ...profile, profiles: profiles.map((item) => item === target ? { ...item, enabled: false } : item) } };
+    });
+    return loadAppConfig();
+  });
+}
+
 export async function saveAppThemePreference(theme: unknown): Promise<AppConfig["theme"]> {
   const normalizedTheme = normalizeAppThemePreference(theme);
   return enqueueAppConfigWrite(async () => {
@@ -402,7 +421,7 @@ export async function saveAppThemePreference(theme: unknown): Promise<AppConfig[
 }
 
 async function saveAppConfigNow(config: AppConfig): Promise<AppConfig> {
-  const normalizedConfig = withSingleEnabledGlobalProfiles(config);
+  const normalizedConfig = reconcileProfileModelSelections(withSingleEnabledGlobalProfiles(config));
   assertProviderApiKeysAreSafe(normalizedConfig);
   const pluginMigration = migrateKnownGatewayPluginConfigs(normalizedConfig.plugins);
   // Credentials have their own save operation. A settings snapshot may predate

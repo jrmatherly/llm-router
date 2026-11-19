@@ -26,6 +26,18 @@ export function reconcileSavedConfig(base: AppConfig, draft: AppConfig, saved: A
   return configsEqual(merged, saved) ? saved : merged;
 }
 
+// Recovery never saw the unsaved draft, so its edits are kept, except a toggle that would re-enable the recovered profile.
+export function reconcileRecoveredProfileConfig(saved: AppConfig, draft: AppConfig, recovered: AppConfig, profileId: string): AppConfig {
+  const merged = reconcileSavedConfig(saved, draft, recovered);
+  return {
+    ...merged,
+    profile: {
+      ...merged.profile,
+      profiles: merged.profile.profiles.map((profile) => profile.id === profileId ? { ...profile, enabled: false } : profile)
+    }
+  };
+}
+
 function mergeChanges(base: unknown, draft: unknown, saved: unknown): unknown {
   if (configsEqual(base, draft)) return saved;
   if (isEntityList(base) && isEntityList(draft) && isEntityList(saved)) {

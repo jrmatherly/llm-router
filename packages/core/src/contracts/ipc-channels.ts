@@ -40,6 +40,7 @@ export const IPC_CHANNELS = {
   appOpenProfileInTerminal: "llmr:app:open-profile-in-terminal",
   appApplyClaudeAppGateway: "llmr:app:apply-claude-app-gateway",
   appApplyProfile: "llmr:app:apply-profile",
+  appRecoverGlobalProfile: "llmr:app:recover-global-profile",
   appBotGatewayQrLoginCancel: "llmr:app:bot-gateway-qr-login-cancel",
   appBotGatewayQrLoginStart: "llmr:app:bot-gateway-qr-login-start",
   appBotGatewayQrLoginWait: "llmr:app:bot-gateway-qr-login-wait",
