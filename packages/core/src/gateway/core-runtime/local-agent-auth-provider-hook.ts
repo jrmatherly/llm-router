@@ -15,7 +15,7 @@ import {
   type ClaudeAppsGatewaySession,
   type CodexTokenSet
 } from "@llmr/core/agents/local-providers/service";
-import { codexAccessTokenExpired, codexOauthRequiredScopes } from "@llmr/core/agents/local-providers/codex";
+import { codexAccessTokenExpired } from "@llmr/core/agents/local-providers/codex";
 import { applyOpenCodePublicFreeTierHeaders, isOpenCodePublicFreeTierPlugin, withOpenCodePublicFreeTierTools } from "@llmr/core/agents/local-providers/opencode-freetier";
 import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
 import { kimiAccessTokenExpired, kimiIdentityHeaders } from "@llmr/core/agents/local-providers/kimi";
@@ -274,14 +274,6 @@ async function authenticateCodex(
     return { error: "Codex login has expired and LLMR cannot refresh it. Run codex login.", ok: false };
   }
   const claims = jwtClaims(token);
-  const grantedScopes = ["scope", "scopes", "scp"].flatMap((name) => {
-    const value = claims[name];
-    return typeof value === "string" ? value.split(/\s+/) : Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
-  });
-  const missingScopes = grantedScopes.length > 0 ? codexOauthRequiredScopes.filter((scope) => !grantedScopes.includes(scope)) : [];
-  if (missingScopes.length > 0) {
-    return { error: `Codex OAuth access token is missing required scopes: ${missingScopes.join(", ")}. Run codex login again.`, ok: false };
-  }
   const headers = withBearerAuth(input.upstreamRequest.headers, token, originalRemoveHeaders(plugin));
   const tokenAuthClaims = isRecord(claims["https://api.openai.com/auth"]) ? claims["https://api.openai.com/auth"] : {};
   const accountId = auth?.accountId || stringValue(tokenAuthClaims.chatgpt_account_id) || stringValue(tokenAuthClaims.account_id);

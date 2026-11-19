@@ -40,7 +40,6 @@ import {
 export const codexDefaultBaseUrl = "https://chatgpt.com/backend-api/codex";
 export const codexOauthClientId = "app_EMoamEEZ73f0CkXaXp7hrann";
 export const codexOauthRequiredScopes = ["api.connectors.read", "api.connectors.invoke"];
-export const codexOauthScope = "openid profile email offline_access api.connectors.read api.connectors.invoke";
 export const codexOauthTokenEndpoint = "https://auth.openai.com/oauth/token";
 
 const codexAccountBaseUrl = "https://chatgpt.com/backend-api";
@@ -594,8 +593,7 @@ async function requestCodexTokenRefresh(record: Record<string, unknown>, refresh
       body: JSON.stringify({
         client_id: readString(provenance.client_id) || codexOauthClientId,
         grant_type: "refresh_token",
-        refresh_token: refreshToken,
-        scope: codexOauthScope
+        refresh_token: refreshToken
       }),
       headers: { "content-type": "application/json" },
       method: "POST",

@@ -180,6 +180,26 @@ test("appendAggregateErrorAttemptSummary extracts structured detail causes for g
   );
 });
 
+test("appendAggregateErrorAttemptSummary reads a detail field for a generic attempt message", () => {
+  const payload = {
+    error: {
+      attempts: [{
+        details: { detail: "Missing scopes: api.connectors.invoke" },
+        message: "Upstream request failed.",
+        stage: "upstream_response",
+        status: 403
+      }],
+      message: "All target providers failed."
+    }
+  };
+  const enriched = appendAggregateErrorAttemptSummary(JSON.stringify(payload));
+  assert.ok(enriched);
+  assert.equal(
+    JSON.parse(enriched).error.message,
+    "All target providers failed. [upstream_response|403] Missing scopes: api.connectors.invoke"
+  );
+});
+
 test("appendAggregateErrorAttemptSummary translates the issue 1799 vLLM context-limit error", () => {
   const upstreamMessage = "Requested token count exceeds the model's maximum context length of 262144 tokens. "
     + "You requested a total of 262462 tokens: 230462 tokens from the input messages and 32000 tokens for the completion.";

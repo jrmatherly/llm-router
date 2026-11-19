@@ -140,8 +140,15 @@ export async function probeGatewayProvider(request: GatewayProviderProbeRequest)
 export async function probeGatewayProviderCandidates(
   request: GatewayProviderProbeCandidatesRequest
 ): Promise<GatewayProviderProbeCandidateResult | undefined> {
+  return (await probeCandidates(request)).result;
+}
+
+async function probeCandidates(
+  request: GatewayProviderProbeCandidatesRequest
+): Promise<{ error?: unknown; result?: GatewayProviderProbeCandidateResult }> {
   const results: GatewayProviderProbeCandidateResult[] = [];
   const mode = request.mode ?? "protocols";
+  let lastError: unknown;
 
   for (const candidate of request.candidates) {
     const protocols = request.protocols
@@ -162,12 +169,13 @@ export async function probeGatewayProviderCandidates(
         protocols
       });
       results.push({ candidate, probe });
-    } catch {
+    } catch (error) {
       // Keep probing later candidates; the UI still receives the best usable result.
+      lastError = error;
     }
   }
 
-  return mergeProviderProbeCandidateResults(results);
+  return { error: lastError, result: mergeProviderProbeCandidateResults(results) };
 }
 
 export async function checkGatewayProviderConnectivity(
@@ -180,7 +188,7 @@ export async function checkGatewayProviderConnectivity(
       const startedAtMs = Date.now();
       const startedAt = new Date(startedAtMs).toISOString();
       try {
-        const result = await probeGatewayProviderCandidates({
+        const { error, result } = await probeCandidates({
           apiKey: request.apiKey,
           candidates: request.candidates,
           forceRefresh: request.forceRefresh,
@@ -195,7 +203,7 @@ export async function checkGatewayProviderConnectivity(
             model,
             probe: undefined,
             report: {
-              message: "Request failed.",
+              message: error === undefined ? "Request failed." : formatError(error),
               model,
               protocols: [],
               supported: false
@@ -1002,7 +1010,8 @@ async function providerProbeLiveCodexOauth(
     codexOauth: {
       ...(auth?.accessToken ? { accessToken: auth.accessToken } : {}),
       ...(auth?.accountId ? { accountId: auth.accountId } : {}),
-      required: true
+      required: true,
+      requiredScopes: []
     },
     isFedrampAccount: auth?.isFedrampAccount,
     request: codexProbeBackendRequestTransform()
@@ -1824,11 +1833,10 @@ function readPayloadMessage(payload: unknown): string | undefined {
     return directMessage;
   }
 
-  if (isRecord(payload.error)) {
-    return readString(payload.error.message) || readString(payload.error.type) || readString(payload.error.code);
-  }
-
-  return undefined;
+  const errorMessage = isRecord(payload.error)
+    ? readString(payload.error.message) || readString(payload.error.type) || readString(payload.error.code)
+    : undefined;
+  return errorMessage || readString(payload.detail);
 }
 
 function parseJson(value: string): unknown {

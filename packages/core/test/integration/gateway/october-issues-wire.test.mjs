@@ -260,7 +260,23 @@ test("an upstream 401 on a Codex request makes no token call", { skip, timeout: 
   for (const call of codex.upstreamCalls) assert.equal(call.headers.authorization, `Bearer ${accessToken}`);
 });
 
-async function codexWireFixture(t, { upstreamStatus = 200 } = {}) {
+test("#1941 a Codex login without the connector scopes reaches the upstream, before and after a refresh", { skip, timeout: 30000 }, async (t) => {
+  const codex = await codexWireFixture(t, { scp: ["openid", "profile", "email", "offline_access"] });
+  const accessToken = codex.seed(3600);
+  const gateway = await codex.start();
+  const fresh = await codex.send(gateway, false);
+  assert.equal(fresh.status, 200, await fresh.text());
+  assert.deepEqual(codex.tokenCalls, []);
+  assert.equal(codex.upstreamCalls[0].headers.authorization, `Bearer ${accessToken}`);
+
+  codex.seed(-10);
+  const refreshed = await codex.send(gateway, false);
+  assert.equal(refreshed.status, 200, await refreshed.text());
+  assert.deepEqual(codex.tokenCalls, ["r0"]);
+  assert.equal(codex.upstreamCalls[1].headers.authorization, `Bearer ${codex.issued[0]}`);
+});
+
+async function codexWireFixture(t, { scp = ["openid", "api.connectors.read", "api.connectors.invoke"], upstreamStatus = 200 } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), "llmr-codex-wire-"));
   const envKeys = ["CODEX_HOME", "HOME", "LLMR_INTERNAL_HOME_DIR", "USERPROFILE"];
   const savedEnv = Object.fromEntries(envKeys.map(key => [key, process.env[key]]));
@@ -285,7 +301,7 @@ async function codexWireFixture(t, { upstreamStatus = 200 } = {}) {
         res.end(JSON.stringify({ error: "refresh_token_reused" }));
         return;
       }
-      issued.push(codexWireToken(3600));
+      issued.push(codexWireToken(3600, scp));
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ access_token: issued.at(-1), refresh_token: `r${Number(body.refresh_token.slice(1)) + 1}` }));
       return;
@@ -334,7 +350,7 @@ setGlobalDispatcher(new LoopbackOnly());
     tokenCalls,
     upstreamCalls,
     seed(lifetimeSeconds) {
-      const accessToken = codexWireToken(lifetimeSeconds);
+      const accessToken = codexWireToken(lifetimeSeconds, scp);
       writeFileSync(authFile, JSON.stringify({ auth_mode: "chatgpt", tokens: { access_token: accessToken, account_id: "acct-wire", refresh_token: "r0" } }));
       return accessToken;
     },
@@ -358,7 +374,7 @@ setGlobalDispatcher(new LoopbackOnly());
   };
 }
 
-function codexWireToken(lifetimeSeconds) { return testJwt({ exp: Math.floor(Date.now() / 1000) + lifetimeSeconds, scp: ["openid", "api.connectors.read", "api.connectors.invoke"] }); }
+function codexWireToken(lifetimeSeconds, scp) { return testJwt({ exp: Math.floor(Date.now() / 1000) + lifetimeSeconds, scp }); }
 function testJwt(payload) { const part = value => Buffer.from(JSON.stringify(value)).toString("base64url"); return `${part({ alg: "none", typ: "JWT" })}.${part(payload)}.`; }
 async function readJson(request) { let text = ""; for await (const chunk of request) text += chunk; return JSON.parse(text || "{}"); }
 async function listen(server) { await new Promise((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); }); return `http://127.0.0.1:${server.address().port}`; }

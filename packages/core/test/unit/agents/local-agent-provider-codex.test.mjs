@@ -386,7 +386,7 @@ test("the refresh goes to the login's own issuer", async (t) => {
   assert.equal(codex.requests[0].client_id, "client-x");
   assert.equal(codex.requests[0].path, "/oauth/token");
   assert.equal(codex.requests[0].grant_type, "refresh_token");
-  assert.equal(codex.requests[0].scope, "openid profile email offline_access api.connectors.read api.connectors.invoke");
+  assert.ok(!("scope" in codex.requests[0]));
 });
 
 test("a fresh token makes no request", async (t) => {
