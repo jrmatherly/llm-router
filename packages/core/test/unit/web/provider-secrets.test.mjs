@@ -134,3 +134,28 @@ test("#1835 a reference cannot be read back through a field the response shows",
 test("#1835 a reference this server never issued is refused", () => {
   assert.throws(() => restoreWebConfigSecrets({ Providers: [{ api_key: `${webSecretPlaceholder}:unknown` }] }), /no longer known/);
 });
+
+test("credential names the first rule missed are hidden", () => {
+  const names = ["Ocp-Apim-Subscription-Key", "privateKey", "private_key", "access_key", "secretAccessKey", "AWS_SECRET_ACCESS_KEY", "sessionToken", "authToken", "bearerToken", "botToken", "appSecret", "secret_key", "x-auth-key", "OPENAI_KEY", "GITHUB_PAT"];
+  const config = { Providers: [{ extraHeaders: Object.fromEntries(names.map((name) => [name, `value-of-${name}`])), id: "p", name: "P" }] };
+  const masked = redactWebConfig(config);
+  for (const name of names) {
+    assert.doesNotMatch(masked.Providers[0].extraHeaders[name], /value-of-/, name);
+  }
+  assert.deepEqual(restoreWebConfigSecrets(masked), config);
+});
+
+test("a key in a URL query object is a credential, a key elsewhere is not", () => {
+  const config = { providerPlugins: [{ auth: { query: { alt: "sse", key: "gemini-key" } }, key: "llmr-local-agent-opencode", name: "plugin" }] };
+  const masked = redactWebConfig(config);
+  assert.doesNotMatch(JSON.stringify(masked), /gemini-key/);
+  assert.equal(masked.providerPlugins[0].key, "llmr-local-agent-opencode");
+  assert.equal(masked.providerPlugins[0].auth.query.alt, "sse");
+  assert.deepEqual(restoreWebConfigSecrets(masked), config);
+});
+
+test("names that only look like credentials stay readable", () => {
+  const readable = { apiKeyHelper: "helper", auth: "provider-api-key", authMode: "api-key", authScheme: "Bearer", keyFile: "/path", max_tokens: 1, maxTokens: 2, monkey: "x", passwordless: true, token_limit: 3, tokenizer: "cl100k", tokens: 4 };
+  const config = { Providers: [{ ...readable, id: "p", name: "P" }] };
+  assert.deepEqual(redactWebConfig(config), config);
+});
