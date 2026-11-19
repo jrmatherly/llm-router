@@ -24,13 +24,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isReference(value: unknown): value is string {
-  return typeof value === "string" && value.startsWith(`${webSecretPlaceholder}:`);
+function hasReference(value: unknown): value is string {
+  return typeof value === "string" && value.includes(`${webSecretPlaceholder}:`);
 }
 
 function mask(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(mask);
+  }
+  if (isRecord(value)) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, mask(item)]));
   }
   // The local-agent marker is a mode switch the UI compares against, not a credential.
   if (typeof value !== "string" || !value || value === localAgentProviderApiKey || secretsByReference.has(value)) {
@@ -49,6 +52,10 @@ function redact(value: unknown): unknown {
     return value;
   }
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, isSecretField(key) ? mask(item) : redact(item)]));
+}
+
+export function redactWebSecrets(value: unknown): unknown {
+  return redact(value);
 }
 
 export function redactWebConfig(config: AppConfig): AppConfig {
@@ -77,7 +84,7 @@ export function redactWebRpcValue(value: unknown): unknown {
 // A reference is restored only where a response would mask it again. Anywhere
 // else it would let a caller read the secret back through a visible field.
 function restore(value: unknown, restorable: boolean, inSecretField = false): unknown {
-  if (isReference(value)) {
+  if (hasReference(value)) {
     const secret = restorable && inSecretField ? secretsByReference.get(value) : undefined;
     if (secret === undefined) {
       throw new Error(inSecretField && restorable
@@ -92,7 +99,7 @@ function restore(value: unknown, restorable: boolean, inSecretField = false): un
   if (!isRecord(value)) {
     return value;
   }
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, restore(item, restorable, isSecretField(key))]));
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, restore(item, restorable, inSecretField || isSecretField(key))]));
 }
 
 export function rejectWebSecretReferences(value: unknown): void {
@@ -110,49 +117,9 @@ export function restoreWebConfigSecrets(config: unknown): unknown {
   ]));
 }
 
-function collectStrings(value: unknown, into: Set<string>, secretsOnly: boolean, inSecretField = false): Set<string> {
-  if (typeof value === "string") {
-    if (!secretsOnly || inSecretField) {
-      into.add(value);
-    }
-  } else if (Array.isArray(value)) {
-    for (const item of value) {
-      collectStrings(item, into, secretsOnly, inSecretField);
-    }
-  } else if (isRecord(value)) {
-    for (const [key, item] of Object.entries(value)) {
-      collectStrings(item, into, secretsOnly, isSecretField(key));
-    }
-  }
-  return into;
-}
-
-function httpOrigins(value: unknown): Set<string> {
-  const origins = new Set<string>();
-  for (const text of collectStrings(value, new Set(), false)) {
-    if (/^https?:\/\//i.test(text) && URL.canParse(text)) {
-      origins.add(new URL(text).origin);
-    }
-  }
-  return origins;
-}
-
-// A probe sends the key to the address in the request. A saved key goes only to
-// a host its own provider already names, so a probe cannot carry it elsewhere.
-export function restoreWebProbeSecrets(request: unknown, current: AppConfig): unknown {
-  const secrets = collectStrings(restore(collectReferences(request), true, true), new Set(), false);
-  const config = current as unknown as Record<string, unknown>;
-  const holders = redactedConfigFields.flatMap((field) => Array.isArray(config[field]) ? config[field] as unknown[] : [config[field]]);
-  const requested = httpOrigins(request);
-  for (const secret of secrets) {
-    const allowed = httpOrigins(holders.filter((holder) => collectStrings(holder, new Set(), true).has(secret)));
-    if (requested.size === 0 || [...requested].some((origin) => !allowed.has(origin))) {
-      throw new Error("A saved provider credential can only be sent to its own provider's address. Enter the credential again to use it with a new address.");
-    }
-  }
+// A probe sends the key to the address in its request, and nothing here checks
+// that address: a caller with the management token can already run a command
+// on this host through a saved MCP server, so a check would stop nobody.
+export function restoreWebProbeSecrets(request: unknown): unknown {
   return restore(request, true);
-}
-
-function collectReferences(value: unknown): string[] {
-  return [...collectStrings(value, new Set(), true)].filter(isReference);
 }
