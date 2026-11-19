@@ -13,11 +13,12 @@ const redactedConfigFields = ["Providers", "providerPlugins", "toolHub"] as cons
 const referenceKey = randomBytes(32);
 const secretsByReference = new Map<string, string>();
 
-function isSecretField(key: string): boolean {
+function isSecretField(key: string, parentKey?: string): boolean {
   const normalized = key.toLowerCase().replace(/[-_]/g, "");
-  return /^(?:apikey|apitoken|authorization|proxyauthorization|cookie|setcookie|password|token|accesstoken|refreshtoken|secret|clientsecret)$/.test(normalized) ||
-    /^x.*(?:apikey|token|secret)$/.test(normalized) ||
-    /[-_](?:api[-_]?key|token|secret|password)$/i.test(key);
+  return ["cookie", "setcookie", "heliconeauth"].includes(normalized) ||
+    /(?:authorization|token|secret|password|passphrase|apikeys?|privatekey|accesskey|secretkey|subscriptionkey|functionskey|authkey)$/.test(normalized) ||
+    /^[A-Z0-9]+(?:_[A-Z0-9]+)*_(?:KEYS?|PAT)(?:_\d+)?$/.test(key) ||
+    (key === "key" && parentKey === "query");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -44,14 +45,14 @@ function mask(value: unknown): unknown {
   return reference;
 }
 
-function redact(value: unknown): unknown {
+function redact(value: unknown, parentKey?: string): unknown {
   if (Array.isArray(value)) {
-    return value.map(redact);
+    return value.map((item) => redact(item, parentKey));
   }
   if (!isRecord(value)) {
     return value;
   }
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, isSecretField(key) ? mask(item) : redact(item)]));
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, isSecretField(key, parentKey) ? mask(item) : redact(item, key)]));
 }
 
 export function redactWebSecrets(value: unknown): unknown {
@@ -83,7 +84,7 @@ export function redactWebRpcValue(value: unknown): unknown {
 
 // A reference is restored only where a response would mask it again. Anywhere
 // else it would let a caller read the secret back through a visible field.
-function restore(value: unknown, restorable: boolean, inSecretField = false): unknown {
+function restore(value: unknown, restorable: boolean, inSecretField = false, parentKey?: string): unknown {
   if (hasReference(value)) {
     const secret = restorable && inSecretField ? secretsByReference.get(value) : undefined;
     if (secret === undefined) {
@@ -94,12 +95,12 @@ function restore(value: unknown, restorable: boolean, inSecretField = false): un
     return secret;
   }
   if (Array.isArray(value)) {
-    return value.map((item) => restore(item, restorable, inSecretField));
+    return value.map((item) => restore(item, restorable, inSecretField, parentKey));
   }
   if (!isRecord(value)) {
     return value;
   }
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, restore(item, restorable, inSecretField || isSecretField(key))]));
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, restore(item, restorable, inSecretField || isSecretField(key, parentKey), key)]));
 }
 
 export function rejectWebSecretReferences(value: unknown): void {
