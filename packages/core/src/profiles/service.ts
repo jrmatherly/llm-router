@@ -80,6 +80,16 @@ const managedToolHubMcpEnd = "# END LLMR managed ToolHub MCP";
 const managedContextArchiveMcpStart = "# BEGIN LLMR managed Context Archive MCP";
 const managedContextArchiveMcpEnd = "# END LLMR managed Context Archive MCP";
 const managedConfiguredModelPrefix = "# LLMR configured model = ";
+const codexManagedMarkers = [
+  managedRootStart,
+  managedRootEnd,
+  managedProviderStart,
+  managedProviderEnd,
+  managedToolHubMcpStart,
+  managedToolHubMcpEnd,
+  managedContextArchiveMcpStart,
+  managedContextArchiveMcpEnd
+];
 const globalProfileTakeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
 const fallbackClientToken = "llmr-local";
 const publicExecutableMode = 0o755;
@@ -210,16 +220,20 @@ export async function recoverGlobalAgentProfile(
       };
     }
   });
+  let result = status;
+  try {
+    await reconcileProfileApiKeys(config);
+  } catch (error) {
+    console.error(`Failed to revoke the API key of restored profile ${profile.name || profile.id}: ${formatError(error)}`);
+    result = { ...result, message: `${result.message} LLMR could not revoke this profile's API key, which still works: ${formatError(error)}`, ok: false };
+  }
   try {
     await refreshRuntime(config);
   } catch (error) {
     console.error(`Failed to refresh the running gateway after restoring profile ${profile.name || profile.id}: ${formatError(error)}`);
-    return {
-      config,
-      status: { ...status, message: `${status.message} LLMR could not refresh the running gateway: ${formatError(error)} Restart LLMR.`, ok: false }
-    };
+    result = { ...result, message: `${result.message} LLMR could not refresh the running gateway: ${formatError(error)} Restart LLMR.`, ok: false };
   }
-  return { config, status };
+  return { config, status: result };
 }
 
 async function applyProfileConfigNow(
@@ -669,11 +683,22 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
   const clientName = codexCompatibleClientName(profile.agent);
   const configFile = resolveCodexConfigFile(profile);
   if (!profile.enabled) {
+    // The apply loop reaches a disabled profile after the enabled one that shares its file, so restoring here would strip the owner's config.
+    const owner = config.profile.profiles.find((other) => other.agent === profile.agent && isEnabledGlobalProfile(other) && profilePath(other) === profilePath(profile));
+    if (owner) {
+      return {
+        client: profile.agent,
+        enabled: false,
+        message: `${clientName} profile is disabled. Profile "${owner.name || owner.id}" still manages ${configFile}, so LLMR left it unchanged.`,
+        ok: true,
+        path: configFile
+      };
+    }
     return restoreDisabledGlobalProfile(
       profile,
       configFile,
       `${clientName} profile is disabled.`,
-      { isManagedContent: (content) => isManagedCodexConfigContent(content, sanitizeCodexProviderId(profile.providerId || "") || "llm-router") }
+      codexManagedContent(profile.agent, [sanitizeCodexProviderId(profile.providerId || "") || "llm-router"])
     );
   }
 
@@ -1247,16 +1272,7 @@ function buildCodexConfigToml(
     toolHubMcp?: ToolHubMcpRuntimeConfig;
   }
 ): string {
-  let content = removeManagedMarkerLines(source, [
-    managedRootStart,
-    managedRootEnd,
-    managedProviderStart,
-    managedProviderEnd,
-    managedToolHubMcpStart,
-    managedToolHubMcpEnd,
-    managedContextArchiveMcpStart,
-    managedContextArchiveMcpEnd
-  ]);
+  let content = removeManagedMarkerLines(source, codexManagedMarkers);
   content = removeCodexProviderTable(content, values.providerId);
   content = removeCodexMcpServerTable(content, TOOL_HUB_MCP_SERVER_NAME, { includeChildTables: !values.toolHubMcp });
   content = removeCodexMcpServerTable(content, CONTEXT_ARCHIVE_MCP_SERVER_NAME, { includeChildTables: !values.contextArchiveMcp });
@@ -2946,6 +2962,7 @@ type RestoreFileResult = {
   changed: boolean;
   file: string;
   missingBackup: boolean;
+  removed?: boolean;
   restored: boolean;
   stripped?: boolean;
 };
@@ -3014,7 +3031,7 @@ function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus
     profile,
     configFile,
     `${clientName} profile is disabled.`,
-    { isManagedContent: (content) => isManagedCodexConfigContent(content, providerId) }
+    codexManagedContent(profile.agent, [providerId])
   );
   if (profile.agent !== "workbuddy" || !isGlobalProfile(profile)) {
     return status;
@@ -3067,10 +3084,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
     for (const file of uniqueResolvedPaths([
       ...codexProfiles.map(globalCodexConfigCandidate)
     ])) {
-      const restoreResult = restoreGlobalConfigFile(file, {
-        isManagedContent: (content) => providerIds.some((providerId) => isManagedCodexConfigContent(content, providerId)),
-        mode: privateFileMode
-      });
+      const restoreResult = restoreGlobalConfigFile(file, { ...codexManagedContent("codex", providerIds), mode: privateFileMode });
       if (restoreResult.changed || restoreResult.missingBackup) {
         statuses.push(inactiveGlobalCleanupStatus("codex", file, restoreResult));
       }
@@ -3471,8 +3485,17 @@ function restoreGlobalConfigFile(
 ): RestoreFileResult {
   const current = existsSync(file) ? readFileSync(file, "utf8") : undefined;
   const currentManaged = current !== undefined && options.isManagedContent(current);
+  const strip = options.keepLiveFile ? undefined : options.stripManagedContent;
+  const originalMissing = existsSync(originalMissingFilePath(file));
   if (current !== undefined && !currentManaged) {
-    const stripped = options.stripManagedContent && !options.keepLiveFile && hasTakeoverSnapshot(file) ? options.stripManagedContent(current) : undefined;
+    const stripped = strip && hasTakeoverSnapshot(file) ? strip(current) : undefined;
+    if (strip && originalMissing) {
+      const result: RestoreFileResult = stripped === undefined
+        ? { changed: false, file, missingBackup: false, restored: false }
+        : writeStrippedConfigFile(file, stripped, options.mode);
+      forgetMissingOriginal(file);
+      return result;
+    }
     if (stripped === undefined) {
       return { changed: false, file, missingBackup: false, restored: false };
     }
@@ -3494,7 +3517,18 @@ function restoreGlobalConfigFile(
     return { backupFile, changed: true, file, missingBackup: false, restored: true };
   }
 
-  if (existsSync(originalMissingFilePath(file))) {
+  if (originalMissing) {
+    if (strip) {
+      const stripped = current === undefined ? undefined : strip(current);
+      if (current !== undefined && stripped === undefined) {
+        return { changed: false, file, missingBackup: false, restored: false };
+      }
+      const result: RestoreFileResult = stripped === undefined
+        ? { changed: false, file, missingBackup: false, restored: true }
+        : writeStrippedConfigFile(file, stripped, options.mode);
+      forgetMissingOriginal(file);
+      return result;
+    }
     if (currentManaged) {
       const backupFile = backupCurrentConfigFile(file, options);
       rmSync(file, { force: true });
@@ -3509,6 +3543,34 @@ function restoreGlobalConfigFile(
     missingBackup: Boolean(currentManaged),
     restored: false
   };
+}
+
+// Only for a file that had no original. A backup of the unstripped file would hold the profile's token, and one of the stripped file would equal the live file, so this writes none.
+function writeStrippedConfigFile(file: string, stripped: string, mode: number | undefined): RestoreFileResult {
+  if (isEmptyConfigContent(stripped)) {
+    rmSync(file, { force: true });
+    return { changed: true, file, missingBackup: false, removed: true, restored: true };
+  }
+  writeFileAtomic(file, stripped, { mode });
+  return { changed: true, file, missingBackup: false, restored: false, stripped: true };
+}
+
+// Runs after the live file is settled, marker last, so a failure midway leaves a state the next restore still recognises.
+// Every backup goes: each is a copy from LLMR's time, and a stripped one would later be taken for the user's original and written back.
+function forgetMissingOriginal(file: string): void {
+  for (const backup of backupFiles(file)) {
+    rmSync(backup, { force: true });
+  }
+  rmSync(originalMissingFilePath(file), { force: true });
+}
+
+function isEmptyConfigContent(content: string): boolean {
+  if (!content.trim()) {
+    return true;
+  }
+  const settings = parseJsonContent(content);
+  return settings !== undefined &&
+    Object.keys(settings).every((key) => key === "env" && isRecord(settings.env) && Object.keys(settings.env).length === 0);
 }
 
 function hasTakeoverSnapshot(file: string): boolean {
@@ -3671,6 +3733,48 @@ function isManagedCodexConfigContent(content: string, providerId: string): boole
   }
   const escapedProvider = escapeRegExp(providerId);
   return new RegExp(`^\\s*\\[model_providers\\.(?:${escapedProvider}|${escapeRegExp(tomlQuotedKey(providerId))})\\]`, "m").test(content);
+}
+
+function codexManagedContent(agent: ProfileClientKind, providerIds: string[]): RestoreManagedContentMatchers {
+  return {
+    isManagedContent: (content) => providerIds.some((providerId) => isManagedCodexConfigContent(content, providerId)),
+    ...(agent === "codex" ? { stripManagedContent: (content: string) => stripManagedCodexConfigContent(content, providerIds) } : {})
+  };
+}
+
+// Codex adds its own tables inside LLMR's last marker pair (codex-cli 0.171.0, `codex mcp add`), so the markers bound nothing: each line goes by what it holds.
+function stripManagedCodexConfigContent(content: string, providerIds: string[]): string | undefined {
+  const configuredModel = managedConfiguredModel(content);
+  const providerValues = providerIds.flatMap((providerId) => [tomlString(providerId), `'${providerId}'`]);
+  const kept: string[] = [];
+  let inRoot = true;
+  let inRootBlock = false;
+  for (const line of content.split(/(?<=\n)/)) {
+    const trimmed = line.trim();
+    if (codexManagedMarkers.includes(trimmed)) {
+      inRootBlock = trimmed === managedRootStart;
+      continue;
+    }
+    inRoot = inRoot && !trimmed.startsWith("[");
+    const [, key, value] = (inRoot ? /^([A-Za-z_]+)\s*=\s*(.*?)(?:\s+#.*)?$/.exec(trimmed) : null) ?? [];
+    if (
+      (inRoot && trimmed.startsWith(managedConfiguredModelPrefix)) ||
+      (key === "model_provider" && providerValues.includes(value)) ||
+      (key === "model_catalog_json" && value.includes("llmr-model-catalog.json")) ||
+      (key === "model" && value === configuredModel) ||
+      (key === "show_all_sessions" && inRootBlock)
+    ) {
+      continue;
+    }
+    kept.push(line);
+  }
+  let next = kept.join("");
+  for (const providerId of providerIds) {
+    next = removeCodexProviderTable(next, providerId);
+  }
+  next = removeCodexMcpServerTable(next, TOOL_HUB_MCP_SERVER_NAME, { includeChildTables: true });
+  next = removeCodexMcpServerTable(next, CONTEXT_ARCHIVE_MCP_SERVER_NAME, { includeChildTables: true });
+  return next === content ? undefined : trimLeadingBlankLines(next).replace(/\n{2,}$/, "\n");
 }
 
 function isManagedZcodeConfigContent(content: string, providerId: string): boolean {
