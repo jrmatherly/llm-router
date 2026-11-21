@@ -4,7 +4,7 @@
 
 **Goal:** A person who installs LLM Router on a clean Mac can add a provider, connect the one agent they chose, and keep it connected, without a false error, a silent takeover of another agent, or a restart.
 
-**Architecture:** Two phases. Phase A is Tasks 0 to 5 (Task 4 is five tasks, in the order 4a, 4d, 4e, 4b, 4c, and Task 4d is four PRs with Task 4e run after its Part 1), an investigation task and a release task. It fixes agent profiles and the first-run screen, and it can ship without Phase B. Phase B is Tasks 6 to 9, the smaller UI defects, cost totals and a request log retention setting. Each code task is one branch and one squash-merged PR, except Task 4d, which is four. Tasks run one at a time in the order under "Order", because several of them edit the same files.
+**Architecture:** Two phases. Phase A is Tasks 0 to 5 (Task 4 is five tasks, in the order 4a, 4d, 4e, 4b, 4c, and Task 4d is four PRs with Task 4e run after its Part 1), an investigation task and a release task. It fixes agent profiles and the first-run screen, and it can ship without Phase B. Phase B is Tasks 6 to 9b, the smaller UI defects, cost totals and a request log retention setting. Each code task is one branch and one squash-merged PR, except Task 4d, which is four. Tasks run one at a time in the order under "Order", because several of them edit the same files.
 
 **Tech Stack:** TypeScript, Electron 45, React, `better-sqlite3`, `node:test` with `node:assert/strict`, component tests that render with `renderToStaticMarkup`.
 
@@ -12,7 +12,7 @@
 
 **Review history.** Written 2026-11-21 from three code explorations. Audited the same day by two independent passes, one that checked every path, symbol and test against the code and one on the design. The audit found two blockers that this version fixes. Task 4 would have deleted a user's own Codex settings, and Task 2's test named a fixture that does not exist. It also replaced Task 2's design, which restarted the gateway twice, and corrected the causes stated in Tasks 8 and 9. The plan author re-read each audit finding in the code before applying it. Task 4 and decisions V-7 and V-16 were rewritten later the same day after the restore research, and that rewrite was audited by two more passes. Appendix C records both. Task 4d and the safety-copy clause of V-7 were added after the stripper was measured against real Codex (Appendix D). Task 4e was added after the review of PR 133 (Appendix E). The whole plan was then audited against `main` at `06dd4b4f` by four passes, and Appendix F records what that changed.
 
-**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133). Next: Task 4e. A merged task's body describes the code as it was before its PR. Waiting on the owner: V-6 before Task 5, V-8's default before Task 9, and V-9. The Order table carries the same status per task.
+**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133). Next: Task 4e. A merged task's body describes the code as it was before its PR. No decision is waiting on the owner. The Order table carries the same status per task.
 
 **Evidence status.** A cause marked "inferred" was not confirmed by reading the code path end to end. Its task starts with the step that confirms it.
 
@@ -25,10 +25,10 @@
 | V-3 | The top-level `profile.enabled` is derived from the profiles alone. A stored `false` is no longer honoured. A config that v8.0.0 saved with the flag stuck recovers on load, with no migration step. | Plan author. Deleting the flag instead changes about ten runtime readers for the same outcome |
 | V-4 | Both default profiles ship disabled. Onboarding enables only the profile for the agent the user picks. A config that v8.0.0 already saved keeps both profiles enabled, and the release notes say so. | Owner, 2026-11-21, after the research in Appendix A |
 | V-5 | The onboarding "Connect agent" step gets a **Skip for now** action. It ships only together with V-4, because a skip with enabled defaults still applies both. | Owner, 2026-11-21, after the research in Appendix A |
-| V-6 | A gateway that has no provider model reports `state: "stopped"` with the reason in `lastError`. It is not an error. The audit proposed a separate `stoppedReason: "no-models"` field with `lastError` unset, so a reader can tell "never configured" from "failed". That widens `GatewayStatus` for one case. | **Open, owner to confirm.** Plan author's choice, and still his recommendation after the research in Appendix G: it needs no reader changed, where the audit's field needs eight. Outside practice favours a separate reason. Task 5 is blocked on it |
+| V-6 | A gateway that has no provider model reports `state: "stopped"` with the reason in `lastError`. It is not an error. The audit proposed a separate `stoppedReason: "no-models"` field with `lastError` unset, so a reader can tell "never configured" from "failed". That widens `GatewayStatus` for one case. | Owner, 2026-11-21, after the research in Appendix G. It needs no reader changed, where the audit's field needs eight |
 | V-7 | **Restore original settings** removes only what LLMR wrote, for every agent that has a stripper (Claude Code, Codex), on every trigger (the button, a profile switched off, a gateway stop, a quit) and whether or not an original file existed. A top-level Codex key is removed only while it still holds the value LLMR wrote, and the `model_provider` LLMR displaced is put back. A file is removed only when no original existed and nothing but LLMR's content is left, and "nothing left" is defined per format. A restore that leaves the profile disabled (the button, a profile switched off) revokes the profile's key at once. A quit or a gateway stop leaves the profile enabled and its key valid for the next launch. LLMR keeps no copy of its own token. When no original existed, a restore writes no backup and deletes every backup of that file, because the live file already holds the user's content and a stripped backup would later be taken for the user's original and written back. V-17 covers the case where the live file is gone. A Claude Code file that a restore strips is written back as two-space JSON, so its formatting can change (F-22), which is accepted. When an original existed, a backup that holds the user's content is kept with LLMR's content removed. Before a strip changes a file that someone other than LLMR edited, LLMR saves that file as it was, with its own token blanked, in its own data folder (`CONFIGDIR`, which is `~/.llm-router` on macOS), and keeps the last three per file. A Claude Code file whose original existed keeps its pre-strip backup beside the file instead. The copies hold any other secret the file held, and nothing deletes them when a profile is deleted or LLMR is removed. A restore never reads those copies, so none can be written back. They are the only fallback if the strip removes something of the user's. A restore that finds no original removes the `.llmr-original-missing` marker, so a file the user keeps becomes the original at the next takeover. An agent with no stripper (OpenCode, Kilo, Pi, ZCode, Workbuddy) keeps today's behaviour and never loses a backup. LLMR never removes `~/.claude`, `~/.codex`, `~/.claude.json` or `~/.claude/.claude.json`. | Owner, 2026-11-21, after the research in Appendix C. The backup and safety-copy clauses are from his second decision the same day, after the stripper was measured against real Codex (Appendix D) |
-| V-8 | Retention accepts 1 to 90 days and lives in the request log database, so every process reads the same number. **The default needs the owner's word.** 1 day keeps today's behaviour. 7 days is the audit's proposal, because the owner asked for the setting after one day surprised him. | **Open, owner to confirm the default.** Range and storage: plan author. The plan author recommends 7 after the research in Appendix G. Task 9 is blocked on it |
-| V-9 | No date filter on the Logs page in this plan. The list is sorted newest first and paged. | **Open, owner to confirm.** After the research in Appendix G the plan author recommends a small filter of presets (Today, 24 hours, 7 days, 30 days, All), with no calendar, as its own task after Task 9. It does not block Task 9 |
+| V-8 | Retention accepts 1 to 90 days and lives in the request log database, so every process reads the same number. The default is 7 days. | Range and storage: plan author. Default: owner, 2026-11-21, after the research in Appendix G |
+| V-9 | The Logs page gets a date filter of presets (Today, 24 hours, 7 days, 30 days, All), with no calendar and no custom range. It is its own task, Task 9b, after Task 9. | Owner, 2026-11-21, after the research in Appendix G |
 | V-10 | A push or tag on `jrmatherly/llmr-gateway` needs the owner's word each time. Nothing in Tasks 0 to 9 touches the fork. | Owner, standing rule |
 | V-11 | Onboarding keeps **System default** as the selected Effect scope, and the step names the file LLMR will change, the copy it keeps and the button that undoes it. The alternative, **Only opened from LLMR**, was not chosen, so the decision of 2026-11-01 that shared home is off by default stands (`docs/superpowers/specs/completed/2026-11-01-claude-code-shared-home-launch.md`). | Owner, 2026-11-21 |
 | V-12 | No installed-agent detection in this plan. Finders exist for the desktop apps only. A check for the `claude` and `codex` commands is new code on three operating systems and reports "not found" for a binary that is off `PATH`. | Plan author, from the 2026-11-21 research |
@@ -83,13 +83,14 @@ Run the tasks in this order, one at a time.
 | 8 | 4d Parts 2 to 4 | A | | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. One PR each, in order |
 | 9 | 4b | A | | Builds on the Codex stripper from Task 4a and the record from Task 4d |
 | 10 | 4c | A | | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
-| 11 | 5 | A | Blocked on V-6 | Edits `gateway-service.ts`, `layout.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
+| 11 | 5 | A | | Edits `gateway-service.ts`, `layout.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
 | 12 | 10 | A | | Investigation, no code. Steps 1 and 2 here. Steps 3 and 4 run inside Task 11's Pass 2, and Step 5 follows it |
 | 13 | 11 | A | | The owner's VM pass and the release |
 | 14 | 6 | B | | Edits `profiles.tsx` and `network-logs.tsx` |
-| 15 | 9 | B | Blocked on V-8's default | Edits `network-logs.tsx` after Task 6 |
-| 16 | 7 | B | | Edits `layout.tsx` after Task 5 |
-| 17 | 8 | B | | Independent, and its cause is not known |
+| 15 | 9 | B | | Edits `network-logs.tsx` after Task 6 |
+| 16 | 9b | B | Not audited yet | Edits `network-logs.tsx` and the log store after Task 9 |
+| 17 | 7 | B | | Edits `layout.tsx` after Task 5 |
+| 18 | 8 | B | | Independent, and its cause is not known |
 
 ---
 
@@ -615,7 +616,7 @@ After Tasks 4a and 4b a restore leaves the right content in `config.toml`. It st
 
 ### Task 5: Show no failure before the first provider exists (F-1, F-2)
 
-**Blocked on V-6.** Before Step 1 the owner confirms `state: "stopped"` with the reason in `lastError`, or picks the audit's `stoppedReason` field. The steps below are written for the first. Under the second, Step 1 asserts `stoppedReason` with `lastError` unset, and the eight readers that fall back to a generic string when `lastError` is unset must show the reason instead: one in `packages/cli/src/cli.ts`, two in `packages/core/src/web/management-server.ts`, one in `packages/core/src/profiles/launch-service.ts`, two in `packages/electron/src/main/deep-link.ts`, one in `packages/electron/src/main/ipc.ts` and `gatewayServiceMessage` in `packages/ui/src/pages/home/shared/services.tsx`. Find each by searching for `lastError`. Appendix G has the count.
+The owner chose `state: "stopped"` with the reason in `lastError` (V-6). The eight readers that print `lastError` when the gateway is not running then show the right sentence with no change (Appendix G).
 
 `startGateway` throws `NO_AVAILABLE_GATEWAY_MODELS_MESSAGE` when the config has no model (the `hasAvailableGatewayModels` check in `packages/core/src/gateway/application/gateway-service.ts`), and the catch further down that function turns that into `state: "error"`. `App.tsx` shows a red banner for any error state (`gatewayStartupError`). In the onboarding layout the banner is absolutely positioned and covers the heading (`packages/ui/src/pages/home/components/layout.tsx:81`).
 
@@ -748,9 +749,7 @@ In `profiles.test.tsx`, `AddProfileForm marks required and optional fields` asse
 
 ### Task 9: Add a request log retention setting (F-17, F-7)
 
-**Blocked on V-8's default.** The owner picks 1 or 7 before this task starts. The steps below write `<default>` for that number.
-
-If the owner rejects V-9, a date filter on the Logs page is a separate task and does not change this one.
+The default is 7 days (V-8).
 
 `pruneOldRequestLogs` (`packages/core/src/observability/request-log-store.ts`) deletes every row from before the start of today. No setting changes that. Two processes can have the database open, the desktop app and `llmr ui`. Each runs a writer worker and a query worker, and each worker builds its own store (`request-log-worker.ts:39`) that prunes on its own. Each store also skips the sweep once it has run for the day (`lastRetentionCleanupDay`, line 1583). A value held in memory by one store goes stale in the others, so the value lives in the database and every store reads it before it decides whether to sweep.
 
@@ -764,7 +763,7 @@ If the owner rejects V-9, a date filter on the Logs page is a separate task and 
 
 **Interfaces:**
 - Produces: `ObservabilityConfig.requestLogRetentionDays?: number`, an integer from 1 to 90.
-- Produces: `export const minRequestLogRetentionDays = 1`, `maxRequestLogRetentionDays = 90` and `defaultRequestLogRetentionDays = <default>` in `request-log-limits.ts`. Every default in this task reads the third constant.
+- Produces: `export const minRequestLogRetentionDays = 1`, `maxRequestLogRetentionDays = 90` and `defaultRequestLogRetentionDays = 7` in `request-log-limits.ts`. Every default in this task reads the third constant.
 - Produces: `RequestLogStore.setRetentionDays(days: number): void`, which writes the row and sweeps.
 - Produces: `RequestLogRuntime.setRetentionDays(days: number): Promise<void>`, an awaited RPC to the writer worker, handled in the worker's `handleMessage` the way `flush` is. It resolves when the row is written. Do not add a kind to `RequestLogStoreWriteCommand`: `reviveCommand` in the worker, `batchNeedsUsagePricing` and the `writeBatch` loop in the store, and the runtime's drop and retain code each treat any kind that is not one of the two known ones as a record or a raw-trace update. The query worker rejects writes, so the setter cannot go there.
 - Produces: a table `request_log_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)` created with `CREATE TABLE IF NOT EXISTS` in `open()`, holding the key `retention_days`. The store has no schema version list to update.
@@ -816,6 +815,30 @@ Run: `node build/test.mjs core && node --test .test-dist/core/test/integration/o
 - [ ] **Step 10: Keep Agent Analysis honest about its range.** Agent Analysis reads `request_logs` by a range of today, 24 hours, 7 days or 30 days (`getAgentAnalysisSince` in `request-log-store.ts`). A range longer than the retention shows only what is kept and says nothing. Failing test first, a component test on the control that picks the range: with a retention of 7, the 30 days choice is disabled and its `title` reads `Request logs are kept for 7 days. Change this in Settings.`, and the 7 days choice is enabled. Then disable every choice longer than the retention. If the selected range is longer than a retention the user just lowered, fall back to the longest one that fits. Find the control by searching the UI for `UsageStatsRange`, and confirm first that it is the one Agent Analysis uses and not the usage totals, which read another store and keep their full range.
 - [ ] **Step 11: Fix the two docs pages.** In `configuration/observability.md`, replace both "kept for the current day" sentences with the retention setting and its default, and add the table row. In "Verify the installation", step 4 becomes two steps. Turn on request logs under **Logs**, then send the request and confirm it is listed. Add one sentence that states the default retention and names the setting.
 - [ ] **Step 12: Commit.** `feat(logs): add a setting for how long request logs are kept`
+
+---
+
+### Task 9b: Filter the Logs page by a preset date range (V-9)
+
+Added on 2026-11-21 from the owner's decision on V-9. With more than one day kept, an older request is reachable only by paging back through every newer one.
+
+**Evidence status.** Read by the plan author: `RequestLogListFilter` (`packages/core/src/contracts/app.ts`) has no date field, the table has `request_logs_created_at_idx` and the list index ends in `created_at DESC`, and `getAgentAnalysisSince` already turns a `UsageStatsRange` into a date. **This task has not been audited against the code.** Have it audited before Step 1, as every other task here was.
+
+**Files:**
+- Modify: `packages/core/src/contracts/app.ts` (`RequestLogListFilter`), `packages/core/src/observability/request-log-store.ts` (the list query and its count), `packages/ui/src/pages/home/components/network-logs.tsx` (`LogsView`, `logFilterHasActiveValues`)
+- Test: `packages/core/test/integration/observability/request-log-retention.test.mjs`, `packages/ui/test/component/observability.test.tsx`
+
+**Interfaces:**
+- Produces: `RequestLogListFilter.range?: UsageStatsRange`. Unset means all.
+- Consumes: `defaultRequestLogRetentionDays` and the retention value `LogsView` receives, both from Task 9.
+
+- [ ] **Step 1: Write the failing store test.** With a retention of 30, record rows started 0, 2 and 10 days ago. `list({ range: "24h" })` has a total of 1, `list({ range: "7d" })` has 2, `list({ range: "30d" })` has 3 and `list({})` has 3. The total and the page come from the same filter.
+- [ ] **Step 2: Write the failing component test.** `LogsView` renders a select labelled `Filter request log date` with the choices `All dates`, `Today`, `Last 24 hours`, `Last 7 days` and `Last 30 days`. With a retention of 7, the `Last 30 days` choice is disabled.
+- [ ] **Step 3: Run both and watch them fail.**
+- [ ] **Step 4: Add the field and the clause.** Reuse `getAgentAnalysisSince` for the lower bound, and add `created_at >= ?` to the list query and to its count.
+- [ ] **Step 5: Add the select** beside the status filter, with the same component the other filters use. A chosen range counts as an active filter, so the clear control resets it. Disable a choice longer than the retention.
+- [ ] **Step 6: Run the tests.** Then `npm run test:core` and `npm run test:ui`.
+- [ ] **Step 7: Commit.** `feat(logs): filter request logs by a preset date range`
 
 ---
 
@@ -1050,7 +1073,7 @@ Not done: the audit's readings of Task 9's command paths and Task 8's pricing we
 
 ## Appendix G. Research behind V-6, V-8 and V-9
 
-Done on 2026-11-21 so the owner can decide the three open rows. The code was read by the plan author on `main` at `affc3bee`. Outside practice was read by a research agent from the vendors' own pages, most of which carry no date, and the plan author did not reopen them. Nothing here was run.
+Done on 2026-11-21 so the owner could decide the three open rows. He took the recommendation on each the same day: V-6 as written, 7 days for V-8, and presets as Task 9b for V-9. The code was read by the plan author on `main` at `affc3bee`. Outside practice was read by a research agent from the vendors' own pages, most of which carry no date, and the plan author did not reopen them. Nothing here was run.
 
 **V-6, how a gateway with no model reports itself.**
 - Eight places read the gateway status when it is not running, and each prints `lastError` or falls back to a generic "did not start": `cli.ts` (one), `management-server.ts` (two), `launch-service.ts` (one), `deep-link.ts` (two), `ipc.ts` (one) and `gatewayServiceMessage` in `services.tsx`. The plan's audit had counted four.
@@ -1072,4 +1095,4 @@ Done on 2026-11-21 so the owner can decide the three open rows. The code was rea
 - The list filter has a search box, status, provider, model and credential, and no date field (`RequestLogListFilter`). The table has an index on creation time, and the list's own index ends in it, so a lower bound on the date costs one clause.
 - Every general log viewer the agent read offers presets and a custom range (Grafana, Datadog, Honeycomb, Cloudflare). Among LLM gateways, Langfuse and OpenRouter document a date range and the rest document none. The evidence for gateways is thin.
 - At one day a date filter had nothing to do. At 7 to 90 days the only way to reach an older request is to page back through every newer one.
-- Recommendation: a preset filter (Today, 24 hours, 7 days, 30 days, All) that reuses `UsageStatsRange`, with no calendar and no custom range, as its own task after Task 9. Presets longer than the retention are disabled, as in Task 9 Step 10.
+- Recommendation: a preset filter (Today, 24 hours, 7 days, 30 days, All) that reuses `UsageStatsRange`, with no calendar and no custom range, as its own task after Task 9. Presets longer than the retention are disabled, as in Task 9 Step 10. It is Task 9b.
