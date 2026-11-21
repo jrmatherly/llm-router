@@ -70,8 +70,9 @@ export function saveRemovedConfigCopy(stateDir: string, file: string, content: s
   chmodFileIfRequested(copy, 0o600);
   try {
     pruneBackups(copyBase, 3);
-  } catch {
+  } catch (error) {
     // The copy that matters is saved. An older one left behind must not fail the restore.
+    console.error(`Failed to prune older copies of ${copyBase}: ${error instanceof Error ? error.message : String(error)}`);
   }
   return copy;
 }

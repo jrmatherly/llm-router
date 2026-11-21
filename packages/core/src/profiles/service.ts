@@ -3369,7 +3369,7 @@ function failedRestoreStatus(client: ProfileClientKind, file: string, error: unk
   return {
     client,
     enabled: false,
-    message: `LLMR could not restore ${resolveUserPath(file)} and left it unchanged: ${formatError(error)}`,
+    message: `LLMR could not restore ${resolveUserPath(file)}: ${formatError(error)}`,
     ok: false,
     path: resolveUserPath(file)
   };
