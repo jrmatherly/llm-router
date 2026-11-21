@@ -50,7 +50,7 @@ import {
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
 import { cmdQuote, defaultClientModel, disabledStatus, firstTomlTableIndex, formatError, gatewayEndpoint, gatewayNoProxyHosts, isRecord, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, stringRecord, tomlQuotedKey, tomlString, trimLeadingBlankLines, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
-import { backupBeforeWrite, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@llmr/core/profiles/backup-files";
+import { backupBeforeWrite, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, originalBackupSuffix, originalMissingSuffix, saveRemovedConfigCopy, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import {
   type CodexWrittenLines,
   type CodexWrittenRecord,
@@ -3528,9 +3528,13 @@ function restoreGlobalConfigFileContent(
   if (current !== undefined && !currentManaged) {
     const stripped = strip && hasTakeoverSnapshot(file) ? strip(current) : undefined;
     if (strip && originalMissing) {
-      const result: RestoreFileResult = stripped === undefined
-        ? { changed: false, file, missingBackup: false, restored: false }
-        : writeStrippedConfigFile(file, stripped, options.mode);
+      if (stripped === undefined) {
+        forgetMissingOriginal(file);
+        return { changed: false, file, missingBackup: false, restored: false };
+      }
+      // This file holds content LLMR did not write, so the strip is a guess about someone else's file.
+      saveConfigSafetyCopy(file, current);
+      const result = writeStrippedConfigFile(file, stripped, options.mode);
       forgetMissingOriginal(file);
       return result;
     }
@@ -3562,6 +3566,12 @@ function restoreGlobalConfigFileContent(
       if (current !== undefined && stripped === undefined) {
         return { changed: false, file, missingBackup: false, restored: false };
       }
+      // Each copy is saved before anything is changed or deleted, so a failed save leaves the restore to run again.
+      if (current === undefined) {
+        saveNewestUserBackupCopy(file, options.stripManagedContent ?? strip);
+      } else if (!isUntouchedSinceWritten(file, current)) {
+        saveConfigSafetyCopy(file, current);
+      }
       const result: RestoreFileResult = stripped === undefined
         ? { changed: false, file, missingBackup: false, restored: true }
         : writeStrippedConfigFile(file, stripped, options.mode);
@@ -3582,6 +3592,28 @@ function restoreGlobalConfigFileContent(
     missingBackup: Boolean(currentManaged),
     restored: false
   };
+}
+
+function saveConfigSafetyCopy(file: string, content: string): void {
+  saveRemovedConfigCopy(path.dirname(codexWrittenRecordFile(file)), file, content);
+}
+
+// Only Codex has a record. A managed file without one holds nothing but what LLMR writes, or its edits cannot be told, and gets no copy.
+function isUntouchedSinceWritten(file: string, current: string): boolean {
+  const record = readCodexWrittenRecord(file);
+  return !record || (!record.edited && record.sha256 === sha256Hex(current));
+}
+
+// The user deleted the live file, so the backups about to go are the last place their settings are.
+function saveNewestUserBackupCopy(file: string, strip: (content: string) => string | undefined): void {
+  for (const backup of backupFiles(file).reverse()) {
+    const content = readFileSync(backup, "utf8");
+    const kept = strip(content);
+    if (kept !== undefined && !isEmptyConfigContent(kept)) {
+      saveConfigSafetyCopy(file, content);
+      return;
+    }
+  }
 }
 
 // Only for a file that had no original. A backup of the unstripped file would hold the profile's token, and one of the stripped file would equal the live file, so this writes none.

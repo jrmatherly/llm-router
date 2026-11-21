@@ -490,6 +490,14 @@ Merged as PR 136, with these differences from the text below.
 
 #### Part 4: Save a safety copy before a strip changes an edited file
 
+Built as PR 137, with these differences from the text below.
+- The token pattern is `/llmr-profile-[A-Za-z0-9_-]+/g`. The text below also blanks `ccr-profile-` keys. `tests/architecture/llmr-rename.test.mjs` refuses a new `ccr` identifier, the owner's decision of 2026-10-27 is no `ccr` compatibility, and no code mints or recognises a `ccr-profile-` key. A key of that age in a file is copied as it is.
+- `saveRemovedConfigCopy` also sets mode `0700` on a state directory that already exists. An apply creates it with the default mode when it writes the record.
+- Step 3 tests each backup with `stripManagedContent`, which goes by the text, not with the live file's stripper. The record describes the live file only.
+- Two tests were added. `a restore that cannot save its copy leaves the edited config as it was` puts a directory where the copy would go and checks that the live file and the marker are untouched, for both agents. `a restore after the user deleted their Codex config copies the newest backup that holds something of theirs` builds three backups, the newest holding only LLMR's content. Each was added after a mutation survived.
+- A failed save throws out of the restore. On a quit that stops the agents after it from being restored, as any failed write in a restore already does.
+- A Codex file that tests managed and has no record, as after an upgrade, gets no copy. Nothing can tell whether someone edited it.
+
 **Files:** `packages/core/src/profiles/backup-files.ts`, `packages/core/src/profiles/service.ts` (`restoreGlobalConfigFile`); tests in `packages/core/test/unit/profiles/backup-files.test.mjs` and `profile-service.test.mjs`
 
 **Interfaces:**
