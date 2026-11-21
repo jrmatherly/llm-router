@@ -591,7 +591,7 @@ test("a default-home Claude Code profile's sh wrapper unsets CLAUDE_CONFIG_DIR a
   }
 });
 
-test("profile service honors the top-level profile disabled flag", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("a saved config with the top-level profile flag stuck off still applies its enabled profile", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-profile-disabled-"));
   try {
     const settingsFile = path.join(root, ".claude", "settings.json");
@@ -634,16 +634,16 @@ test("profile service honors the top-level profile disabled flag", { skip: !proc
     config.profile.enabled = false;
     config.profile.profiles = [profile];
 
-    const result = await applyProfileFixture(config);
+    await replacePersistedAppConfig(config);
+
+    const result = await applyProfileFixture(await loadAppConfig());
     const status = result.clients.find((client) => client.client === "claude-code");
-    assert.equal(result.enabled, false);
-    assert.equal(status?.enabled, false);
+    assert.equal(result.enabled, true);
+    assert.equal(status?.enabled, true);
     assert.equal(status?.ok, true);
     const current = JSON.parse(readFileSync(settingsFile, "utf8"));
-    assert.equal(current.apiKeyHelper, undefined);
-    assert.deepEqual(current.env, {
-      USER_VALUE: "kept"
-    });
+    assert.equal(typeof current.apiKeyHelper, "string");
+    assert.equal(current.env.USER_VALUE, "kept");
     assert.deepEqual(current.permissions, {
       allow: ["Bash(echo:*)"]
     });

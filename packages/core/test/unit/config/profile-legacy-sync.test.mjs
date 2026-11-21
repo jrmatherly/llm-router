@@ -89,4 +89,21 @@ test("saving profiles synchronizes legacy profile enabled flags", async () => {
   const loadedStuckConfig = await loadAppConfig();
   assert.equal(loadedStuckConfig.profile.enabled, true);
   assert.equal(loadedStuckConfig.profile.claudeCode.enabled, true);
+
+  loadedStuckConfig.profile.profiles = loadedStuckConfig.profile.profiles.map((profile) => ({ ...profile, enabled: false }));
+  const savedAllOff = await saveAppConfig(loadedStuckConfig);
+  assert.equal(savedAllOff.profile.enabled, false);
+  assert.equal((await loadPersistedAppConfig()).profile.enabled, false);
+
+  savedAllOff.profile.profiles = savedAllOff.profile.profiles.map((profile) =>
+    profile.agent === "claude-code" ? { ...profile, enabled: true } : profile
+  );
+  const savedOneOn = await saveAppConfig(savedAllOff);
+  assert.equal(savedOneOn.profile.enabled, true);
+  assert.equal(savedOneOn.profile.claudeCode.enabled, true);
+  assert.equal(savedOneOn.profile.codex.enabled, false);
+
+  const rawOneOn = await loadPersistedAppConfig();
+  assert.equal(rawOneOn.profile.enabled, true);
+  assert.equal(rawOneOn.profile.claudeCode.enabled, true);
 });
