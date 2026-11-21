@@ -930,14 +930,9 @@ export async function reconcileProfileApiKeys(config: AppConfig): Promise<void> 
     return;
   }
   const profiles = profileEntries(config);
-  try {
-    await pruneInactiveProfileApiKeys(config, profiles);
-    if (hasAvailableGatewayModels(config)) {
-      await ensureProfileApiKeys(config, profiles);
-    }
-  } catch (error) {
-    // The gateway must still start. The profile apply that follows runs the same writes and reports the failure to the user.
-    console.error(`Failed to prepare profile API keys before the gateway: ${formatError(error)}`);
+  await pruneInactiveProfileApiKeys(config, profiles);
+  if (hasAvailableGatewayModels(config)) {
+    await ensureProfileApiKeys(config, profiles);
   }
 }
 

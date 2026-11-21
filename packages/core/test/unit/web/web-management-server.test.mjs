@@ -928,3 +928,40 @@ async function closeServer(server) {
     });
   });
 }
+
+test("a profile save creates its key before the gateway starts, and a save with applyProfile false creates none", async (t) => {
+  const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
+  const { loadPersistedApiKeys, replacePersistedApiKeys } = await import("@llmr/core/config/config-repository.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { gatewayService } = await import("@llmr/core/gateway/service.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const profileKeyIds = async () => (await loadPersistedApiKeys()).map((key) => key.id).filter((id) => id.startsWith("profile:"));
+  const config = await loadAppConfig();
+  config.Providers = [{ api_base_url: "http://127.0.0.1:9/v1", api_key: "provider-key", id: "provider", models: ["model"], name: "Provider", type: "openai_chat_completions" }];
+  config.profile.profiles = createDefaultAppConfig().profile.profiles;
+  await saveAppConfig(config);
+  await replacePersistedApiKeys([]);
+  const status = gatewayService.getStatus();
+  const startedWithKeys = [];
+  t.mock.method(gatewayService, "start", async (next) => {
+    startedWithKeys.push(next.APIKEYS.map((key) => key.id).filter((id) => id.startsWith("profile:")));
+    return status;
+  });
+  const updateConfig = t.mock.method(gatewayService, "updateConfig", async () => undefined);
+  const token = "profile-key-save-test";
+  const runtime = await startWebManagementServer({ authToken: token, host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    const current = (await rpc(runtime.url, token, "getConfig")).value;
+    current.profile.enabled = true;
+    current.profile.profiles.find((profile) => profile.id === "default-claude-code").enabled = true;
+    const saved = (await rpc(runtime.url, token, "saveConfig", [current, { applyProfile: false }])).value;
+    assert.deepEqual(await profileKeyIds(), []);
+
+    await rpc(runtime.url, token, "saveConfig", [saved]);
+    assert.deepEqual(await profileKeyIds(), ["profile:default-claude-code"]);
+    assert.deepEqual(startedWithKeys, [[], ["profile:default-claude-code"]]);
+    assert.equal(updateConfig.mock.callCount(), 0);
+  } finally {
+    await runtime.close();
+  }
+});

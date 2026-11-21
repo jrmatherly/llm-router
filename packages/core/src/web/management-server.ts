@@ -576,7 +576,10 @@ async function startConfiguredServices(reason: string): Promise<void> {
     } catch (error) {
       console.error(`Failed to sync Claude App gateway config during ${reason}: ${formatError(error)}`);
     }
-    await reconcileProfileApiKeys(config);
+    // At launch the gateway must still start when the key store cannot be written.
+    await reconcileProfileApiKeys(config).catch((error) => {
+      console.error(`Failed to prepare profile API keys during ${reason}: ${formatError(error)}`);
+    });
     const status = await gatewayService.ensureStarted(config);
     if (status.state === "error") {
       console.error(`Failed to start gateway during ${reason}: ${status.lastError}`);

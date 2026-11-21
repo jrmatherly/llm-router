@@ -263,6 +263,15 @@ test("profile keys exist before any gateway runs, and a profile switched off los
   }
 });
 
+test("a profile gets no key while no provider offers a model", async () => {
+  await replacePersistedApiKeys([]);
+  const config = configWithProviderAndEnabledProfile("default-claude-code");
+  config.Providers = [];
+  await reconcileProfileApiKeys(config);
+  assert.deepEqual(config.APIKEYS.map((key) => key.id), []);
+  assert.deepEqual((await loadAppConfig()).APIKEYS.map((key) => key.id).filter((id) => id.startsWith("profile:")), []);
+});
+
 test("enabling the default Claude Code profile leaves the user's ~/.codex/config.toml byte for byte unchanged", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const runtimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");

@@ -53,5 +53,10 @@ test("a config that failed to load does not release the agent takeovers", async 
   await assert.rejects(applyProfileConfig(fallback), /config failed to load/);
   await reconcileProfileApiKeys(fallback);
   assert.deepEqual((await loadPersistedApiKeys()).map((key) => key.id), ["profile:config-load-failure-claude-code"]);
+
+  const keyStore = createBetterSqliteDatabase(APP_CONFIG_DB_FILE);
+  keyStore.exec("DROP TABLE api_keys");
+  keyStore.close();
+  await assert.rejects(reconcileProfileApiKeys(config));
   assert.match(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
 });
