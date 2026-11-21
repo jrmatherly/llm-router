@@ -3504,7 +3504,8 @@ function restoreGlobalConfigFile(
     return { backupFile, changed: true, file, missingBackup: false, restored: false, stripped: true };
   }
 
-  const snapshot = originalSnapshotCandidate(file, options);
+  const noOriginal = originalMissing && !existsSync(originalBackupFilePath(file));
+  const snapshot = originalSnapshotCandidate(file, options, noOriginal ? strip : undefined);
   if (snapshot) {
     if (current === snapshot.content) {
       chmodFileIfRequested(file, options.mode);
@@ -3579,7 +3580,8 @@ function hasTakeoverSnapshot(file: string): boolean {
 
 function originalSnapshotCandidate(
   file: string,
-  matchers: RestoreManagedContentMatchers
+  matchers: RestoreManagedContentMatchers,
+  stripWhenNoOriginal?: (content: string) => string | undefined
 ): { content: string; file: string } | undefined {
   // Prefer the most recent non-LLMR snapshot captured immediately before the
   // latest takeover. The permanent .llmr-original file can be stale when the
@@ -3589,6 +3591,10 @@ function originalSnapshotCandidate(
       continue;
     }
     const content = readFileSync(candidate, "utf8");
+    // With no original, a backup that holds anything of LLMR's was taken during the takeover: it can hold a setting the user has since deleted.
+    if (stripWhenNoOriginal?.(content) !== undefined) {
+      continue;
+    }
     if (!matchers.isManagedContent(content)) {
       // A backup taken at release can still hold the previous takeover's keys.
       return { content: matchers.stripManagedContent?.(content) ?? content, file: candidate };
