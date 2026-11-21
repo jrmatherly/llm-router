@@ -88,7 +88,7 @@ Run the tasks in this order, one at a time.
 | 13 | 11 | A | | The owner's VM pass and the release |
 | 14 | 6 | B | | Edits `profiles.tsx` and `network-logs.tsx` |
 | 15 | 9 | B | | Edits `network-logs.tsx` after Task 6 |
-| 16 | 9b | B | Not audited yet | Edits `network-logs.tsx` and the log store after Task 9 |
+| 16 | 9b | B | | Edits `network-logs.tsx` and the log store after Task 9 |
 | 17 | 7 | B | | Edits `layout.tsx` after Task 5 |
 | 18 | 8 | B | | Independent, and its cause is not known |
 
@@ -757,7 +757,7 @@ The default is 7 days (V-8).
 - Modify: `packages/core/src/contracts/app.ts:1273`, `packages/core/src/config/default-config.ts:119`, `packages/core/src/config/config.ts:1020-1040`, `packages/ui/src/pages/home/shared/config.ts:107`
 - Modify: `packages/core/src/observability/request-log-limits.ts`, `request-log-store.ts`, `request-log-runtime.ts`, `request-log-worker.ts`
 - Modify: `packages/electron/src/main/ipc.ts` (`appSaveConfig`), `packages/electron/src/main/main-app.ts` (`startConfiguredServices`), `packages/core/src/web/management-server.ts` (its save handler and `startConfiguredServices`)
-- Modify: `packages/ui/src/pages/home/components/settings.tsx` (export `ObservabilitySettingsPage`, which is private today), `packages/ui/src/pages/home/components/network-logs.tsx` (`LogsView` takes the number as a new prop), `packages/ui/src/App.tsx` (it builds `viewProps.logs`), `packages/ui/src/pages/home/components/layout.tsx` only if the prop does not pass through unchanged, and the `copy.settings` strings in `i18n.tsx`
+- Modify: `packages/ui/src/pages/home/components/settings.tsx` (export `ObservabilitySettingsPage`, which is private today), `packages/ui/src/pages/home/components/network-logs.tsx` (`LogsView` takes the number as a new optional prop, and shows the line only when it has one: `docs/src/components/interactive/LogsViewDemo.tsx` renders `LogsView` with a fixed list of props and is outside the root typecheck), `packages/ui/src/App.tsx` (it builds `viewProps.logs`), `packages/ui/src/pages/home/components/layout.tsx` only if the prop does not pass through unchanged, and the `copy.settings` strings in `i18n.tsx`
 - Modify: `docs/src/content/docs/en/guides/install.md`, `docs/src/content/docs/en/configuration/observability.md` (two sentences say logs are kept for the current day, and the settings table needs a `requestLogRetentionDays` row)
 - Test: `packages/core/test/integration/observability/request-log-retention.test.mjs` (create), `packages/core/test/unit/config/` (a new test through the config loader), `packages/core/test/unit/observability/request-log-maintenance.test.mjs` (the `#1930 expired rows are pruned past one batch` test expects a store with no saved value to prune, so write `retention_days` there before it reopens the store), `packages/ui/test/component/settings.test.tsx` (create)
 
@@ -822,22 +822,45 @@ Run: `node build/test.mjs core && node --test .test-dist/core/test/integration/o
 
 Added on 2026-11-21 from the owner's decision on V-9. With more than one day kept, an older request is reachable only by paging back through every newer one.
 
-**Evidence status.** Read by the plan author: `RequestLogListFilter` (`packages/core/src/contracts/app.ts`) has no date field, the table has `request_logs_created_at_idx` and the list index ends in `created_at DESC`, and `getAgentAnalysisSince` already turns a `UsageStatsRange` into a date. **This task has not been audited against the code.** Have it audited before Step 1, as every other task here was.
+**Evidence status.** The plan author audited this task against `main` at `11c10348` the same day and corrected it. Read in the code:
+- `buildLogWhereClause` in `request-log-store.ts` is the one place the list filter becomes SQL. `list` uses it for the count and for the page, and nothing else calls it.
+- The filter reaches the store unchecked from every caller. The IPC handler, the preload and the query worker pass it through, and `management-server.ts` casts whatever the web client sent.
+- `getAgentAnalysisSince` treats any value that is not `today`, `24h` or `7d` as 30 days. An unknown string must not reach it.
+- `Select` (`packages/ui/src/components/ui/select.tsx`) is a native `<select>` whose options take `disabled`, so a component test can see a disabled choice in static markup.
+- `clearRequestLogFilters` in `network-logs.tsx` returns its fields one by one. A field it does not name survives the clear control.
+- `docs/src/components/interactive/LogsViewDemo.tsx` renders the real `LogsView` with a fixed list of props, and the root `tsconfig.json` does not include `docs/`, so `npm run typecheck` would not catch a new required prop there.
+
+Run: on a table with the store's two indexes, SQLite answers both the page query and the count with `request_logs_list_idx` once `created_at >= ?` is added (`EXPLAIN QUERY PLAN`, on a minimal copy of the table, not the real schema).
+
+Not checked: the labels against anything a user asked for. They are the plan author's, under V-14's rule.
 
 **Files:**
-- Modify: `packages/core/src/contracts/app.ts` (`RequestLogListFilter`), `packages/core/src/observability/request-log-store.ts` (the list query and its count), `packages/ui/src/pages/home/components/network-logs.tsx` (`LogsView`, `logFilterHasActiveValues`)
-- Test: `packages/core/test/integration/observability/request-log-retention.test.mjs`, `packages/ui/test/component/observability.test.tsx`
+- Modify: `packages/core/src/contracts/app.ts` (`RequestLogListFilter`), `packages/core/src/observability/request-log-store.ts` (`buildLogWhereClause`)
+- Modify: `packages/ui/src/pages/home/shared/options.ts` (a new `requestLogRangeOptions` beside `requestLogStatusOptions`), `packages/ui/src/pages/home/shared/external.tsx` (it re-exports the options in two lists), `packages/ui/src/pages/home/components/network-logs.tsx` (`LogsView`, `logFilterHasActiveValues`, `clearRequestLogFilters`)
+- Test: `packages/core/test/integration/observability/request-log-retention.test.mjs` (Task 9 creates it), `packages/ui/test/component/observability.test.tsx`
 
 **Interfaces:**
-- Produces: `RequestLogListFilter.range?: UsageStatsRange`. Unset means all.
-- Consumes: `defaultRequestLogRetentionDays` and the retention value `LogsView` receives, both from Task 9.
+- Produces: `RequestLogListFilter.range?: UsageStatsRange`. Unset means all dates. A value that is not one of the four ranges also means all dates.
+- Produces: `requestLogRangeOptions: Array<{ label: string; value: "" | UsageStatsRange }>` with, in this order, `All dates` (`""`), `Today`, `Last 24 hours`, `Last 7 days`, `Last 30 days`. The empty value follows the provider and model selects, which use `""` for "all".
+- Consumes: the retention number `LogsView` receives from Task 9, an optional prop. With no number, no choice is disabled.
+- A range covers 1 day for `today` and `24h`, 7 for `7d` and 30 for `30d`. A choice is disabled when its days are more than the retention. At a retention of 1, `Last 24 hours` stays enabled and shows only today, because one day kept means since the start of today.
 
-- [ ] **Step 1: Write the failing store test.** With a retention of 30, record rows started 0, 2 and 10 days ago. `list({ range: "24h" })` has a total of 1, `list({ range: "7d" })` has 2, `list({ range: "30d" })` has 3 and `list({})` has 3. The total and the page come from the same filter.
-- [ ] **Step 2: Write the failing component test.** `LogsView` renders a select labelled `Filter request log date` with the choices `All dates`, `Today`, `Last 24 hours`, `Last 7 days` and `Last 30 days`. With a retention of 7, the `Last 30 days` choice is disabled.
-- [ ] **Step 3: Run both and watch them fail.**
-- [ ] **Step 4: Add the field and the clause.** Reuse `getAgentAnalysisSince` for the lower bound, and add `created_at >= ?` to the list query and to its count.
-- [ ] **Step 5: Add the select** beside the status filter, with the same component the other filters use. A chosen range counts as an active filter, so the clear control resets it. Disable a choice longer than the retention.
-- [ ] **Step 6: Run the tests.** Then `npm run test:core` and `npm run test:ui`.
+- [ ] **Step 1: Write the failing store tests**, in `request-log-retention.test.mjs`, with `rowStartedDaysAgo` and `setDays` from Task 9. Set a retention of 30 and record rows started 0, 2 and 10 days ago.
+  - `list({ range: "today" })` and `list({ range: "24h" })` each have a total of 1. `list({ range: "7d" })` has 2. `list({ range: "30d" })` and `list({})` have 3.
+  - `list({ range: "7d", pageSize: 1 })` has a total of 2 and `totalPages` of 2, so the count and the page share the bound.
+  - `list({ range: "bogus" })` has a total of 3. Without the check it would be read as 30 days, which this data cannot tell from all dates, so also record a row started 40 days ago under a retention of 90 and assert that `list({ range: "bogus" })` counts it.
+- [ ] **Step 2: Write the failing component tests**, in `observability.test.tsx`, with `LogsView` rendered to static markup.
+  - The markup has a select with `aria-label="Filter request log date"` and the five labels in order.
+  - With a retention of 7, the `Last 30 days` option carries `disabled` and the `Last 7 days` option does not. With no retention passed, no option carries `disabled`.
+  - With `filter={{ range: "7d" }}` and no rows, the view shows the filtered empty state that the test `LogsView explains filtered empty results and labels page sizes` already asserts for a status filter.
+- [ ] **Step 3: Run both files and watch them fail.**
+
+Run: `node build/test.mjs core && node --test .test-dist/core/test/integration/observability/request-log-retention.test.js`
+Run: `node build/test.mjs ui && node --test .test-dist/ui/test/component/observability.test.js`
+
+- [ ] **Step 4: Add the field and the clause.** In `buildLogWhereClause`, when `filter.range` is one of the four ranges, push `created_at >= ?` with `getAgentAnalysisSince(range, new Date()).toISOString()`, the form the Agent Analysis query already uses. Check the value against the four ranges first.
+- [ ] **Step 5: Add the select** after the status select, with the same `Select` and classes. `onValueChange` sends `{ range: value || undefined }`. Add `range` to `logFilterHasActiveValues` and `range: undefined` to `clearRequestLogFilters`. Leave a selected range alone when a lowered retention disables it: the list still shows what is kept.
+- [ ] **Step 6: Run the tests.** Then `npm run test:core`, `npm run test:ui` and `npm run typecheck`. Build the docs site once (`npm run build` in `docs/`), because the demo that renders `LogsView` is outside the root typecheck.
 - [ ] **Step 7: Commit.** `feat(logs): filter request logs by a preset date range`
 
 ---
@@ -1095,4 +1118,4 @@ Done on 2026-11-21 so the owner could decide the three open rows. He took the re
 - The list filter has a search box, status, provider, model and credential, and no date field (`RequestLogListFilter`). The table has an index on creation time, and the list's own index ends in it, so a lower bound on the date costs one clause.
 - Every general log viewer the agent read offers presets and a custom range (Grafana, Datadog, Honeycomb, Cloudflare). Among LLM gateways, Langfuse and OpenRouter document a date range and the rest document none. The evidence for gateways is thin.
 - At one day a date filter had nothing to do. At 7 to 90 days the only way to reach an older request is to page back through every newer one.
-- Recommendation: a preset filter (Today, 24 hours, 7 days, 30 days, All) that reuses `UsageStatsRange`, with no calendar and no custom range, as its own task after Task 9. Presets longer than the retention are disabled, as in Task 9 Step 10. It is Task 9b.
+- Recommendation: a preset filter (Today, 24 hours, 7 days, 30 days, All) that reuses `UsageStatsRange`, with no calendar and no custom range, as its own task after Task 9. Presets longer than the retention are disabled, as in Task 9 Step 10. It is Task 9b, which the plan author audited against the code after writing it.
