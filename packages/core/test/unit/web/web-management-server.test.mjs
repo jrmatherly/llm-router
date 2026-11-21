@@ -587,6 +587,7 @@ test("#1951 authenticated recovery restores both agent configs while the gateway
       assert.equal(result.value.config.profile.profiles.find((profile) => profile.id === id).enabled, false);
       assert.ok(!JSON.stringify(result).includes("private-provider-key"), "web recovery redacts returned credentials");
     }
+    stale.profile.enabled = true;
     stale.profile.profiles = stale.profile.profiles.filter((profile) => profile.id !== "invalid-unrelated");
     await assert.rejects(saveAppConfig(stale), (error) => error.name === "AppConfigConflictError", "a stale snapshot cannot re-enable the takeover");
     const saved = await loadAppConfig();
@@ -617,6 +618,7 @@ test("#1951 a missing original backup reports failure and keeps the profile disa
   const managed = '# BEGIN LLMR managed profile\nmodel = "broken"\n# END LLMR managed profile\n';
   writeFileSync(file, managed);
   const config = createDefaultAppConfig();
+  config.profile.enabled = true;
   config.profile.profiles = [{ agent: "codex", configFile: file, enabled: true, id: "missing-backup", model: "broken", name: "Missing backup", scope: "global" }];
   await replacePersistedAppConfig(config);
   try {
@@ -639,6 +641,7 @@ test("#1951 recovery keeps user edits to a file LLMR created and reports malform
     for (const malformed of [false, true]) {
       const file = path.join(root, malformed ? "bad.json" : "new.json");
       const config = createDefaultAppConfig();
+      config.profile.enabled = true;
       config.profile.profiles = [{ agent: "claude-code", enabled: true, id: "claude-recovery-extra", name: "Claude recovery", scope: "global", settingsFile: file }];
       await replacePersistedAppConfig(config);
       const content = malformed ? "{bad JSON" : JSON.stringify({ apiKeyHelper: "llmr-claude-code-api-key-extra",
@@ -675,6 +678,7 @@ test("restoring a disabled profile leaves the file an enabled profile of the sam
       const config = createDefaultAppConfig();
       config.Providers = [{ models: ["m"], name: "Live", type: "openai_chat_completions" }];
       config.virtualModelProfiles = [];
+      config.profile.enabled = true;
       config.profile.profiles = [
         { agent, enabled: false, id: `${agent}-off`, model: "Live/m", name: "Spare", scope: "global", [fileKey]: file },
         { agent, enabled: true, id: `${agent}-on`, model: "Live/m", name: "Main", scope: "global", [fileKey]: file }
@@ -726,6 +730,7 @@ test("a failed runtime refresh after recovery still returns the disabled profile
   const { replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
   const root = mkdtempSync(path.join(runtimeRoot, "refresh-fails-"));
   const config = createDefaultAppConfig();
+  config.profile.enabled = true;
   config.profile.profiles = [{ agent: "claude-code", enabled: true, id: "refresh-fails", name: "Refresh", scope: "global", settingsFile: path.join(root, "settings.json") }];
   await replacePersistedAppConfig(config);
   try {
@@ -778,6 +783,7 @@ async function startWithStubbedGateway(t, gatewayPort) {
     name: "Test Provider",
     type: "openai_chat_completions"
   }];
+  config.profile.enabled = true;
   config.profile.profiles = [{
     agent: "claude-code",
     enabled: true,

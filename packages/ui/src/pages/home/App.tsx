@@ -35,6 +35,7 @@ import {
 } from "./shared/index";
 import { preserveEqualPollingSnapshot, startVisiblePolling } from "./shared/polling";
 import { configsEqual, createConfigSaveQueue, mergeSavedApiKeys, reconcileRecoveredProfileConfig, reconcileSavedConfig } from "./shared/config-persistence";
+import { onboardingProfileIndex, withOnboardingProfile } from "./shared/onboarding-profile";
 import { renameProviderReferences } from "./shared/provider-references";
 import {
   AppDialogStack, FeedbackStack, LightToast, MainLayout, OnboardingLayout, PersistenceFeedback, shouldCheckForUpdateOnOpen
@@ -185,6 +186,7 @@ function App() {
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStepId>(() => getDefaultOnboardingStep(fallbackConfig));
   const [onboardingFinished, setOnboardingFinished] = useState(() => !window.llmr);
   const [onboardingProfileConfirmed, setOnboardingProfileConfirmed] = useState(() => !window.llmr);
+  const [onboardingProfileSkipped, setOnboardingProfileSkipped] = useState(false);
   const [appInfo, setAppInfo] = useState<AppInfo>(fallbackInfo);
   const [draftConfig, setDraftConfig] = useState<AppConfig>(fallbackConfig);
   const [configLoaded, setConfigLoaded] = useState(() => !window.llmr);
@@ -783,8 +785,9 @@ function App() {
   });
   const onboardingReadiness = useMemo<OnboardingReadinessOptions>(() => ({
     profileConfirmed: onboardingProfileConfirmed,
+    profileSkipped: onboardingProfileSkipped,
     requireProfileConfirmation: activeView === "onboarding" && !onboardingFinished
-  }), [activeView, onboardingFinished, onboardingProfileConfirmed]);
+  }), [activeView, onboardingFinished, onboardingProfileConfirmed, onboardingProfileSkipped]);
   const deferProfileApplyOnSave = activeView === "onboarding" && !onboardingFinished && !onboardingProfileConfirmed;
 
   useEffect(() => {
@@ -816,7 +819,7 @@ function App() {
       return;
     }
 
-    const sameAgentIndex = draftConfig.profile.profiles.findIndex((profile) => profile.enabled && profile.agent === profileDraft.agent);
+    const sameAgentIndex = onboardingProfileIndex(draftConfig.profile.profiles, profileDraft.agent);
     const fallbackIndex = onboardingProfileDraftSource.current
       ? -1
       : draftConfig.profile.profiles.findIndex((profile) => profile.enabled);
@@ -3002,10 +3005,10 @@ function App() {
       return false;
     }
     setProfileSubmitBusy("add");
-    const onboardingProfileIndex = activeView === "onboarding"
-      ? draftConfig.profile.profiles.findIndex((item) => item.enabled && item.agent === profileDraft.agent)
+    const onboardingIndex = activeView === "onboarding"
+      ? onboardingProfileIndex(draftConfig.profile.profiles, profileDraft.agent)
       : -1;
-    const existingProfile = onboardingProfileIndex >= 0 ? draftConfig.profile.profiles[onboardingProfileIndex] : undefined;
+    const existingProfile = onboardingIndex >= 0 ? draftConfig.profile.profiles[onboardingIndex] : undefined;
     const profile = profileConfigFromDraft(profileDraft, draftConfig.profile.profiles, existingProfile, draftConfig.botConfigs);
     setProfileAgentTab(profile.agent);
     const next = buildConfigUpdate((config) => ({
@@ -3014,11 +3017,12 @@ function App() {
         ...config.profile,
         enabled: true,
         profiles: (() => {
-          const profiles = [...config.profile.profiles];
-          const profileIndex = onboardingProfileIndex >= 0 && profiles[onboardingProfileIndex]
-            ? onboardingProfileIndex
-            : profiles.length;
-          profiles[profileIndex] = profile;
+          const profileIndex = onboardingIndex >= 0 && config.profile.profiles[onboardingIndex]
+            ? onboardingIndex
+            : config.profile.profiles.length;
+          const profiles = activeView === "onboarding"
+            ? withOnboardingProfile(config.profile.profiles, profileIndex, profile)
+            : [...config.profile.profiles, profile];
           return enforceSingleEnabledGlobalProfilePerAgent(profiles, profileIndex);
         })()
       }
@@ -3032,6 +3036,7 @@ function App() {
       setProfileActionError("");
       if (activeView === "onboarding") {
         setOnboardingProfileConfirmed(true);
+        setOnboardingProfileSkipped(false);
         setOnboardingStep("enter");
       } else {
         void showProfileReadyDialog(profile);
@@ -3189,7 +3194,16 @@ function App() {
               onRefreshProviderModels: refreshProviderModels,
               onChangeProfile: updateProfileDraft,
               onChangeProvider: updateProviderDraft,
-              onSelectStep: setOnboardingStep,
+              onSelectStep: (step) => {
+                if (step === "profile") {
+                  setOnboardingProfileSkipped(false);
+                }
+                setOnboardingStep(step);
+              },
+              onSkipProfile: () => {
+                setOnboardingProfileSkipped(true);
+                setOnboardingStep("enter");
+              },
               onSubmitProfile: submitProfileDraft,
               onSubmitProvider: submitProviderDraft,
               profileDraft,

@@ -154,6 +154,7 @@ test("managed compact profile enables archive only for that profile API key", as
     { id: "profile:managed-compact", key: "managed-key", name: "Managed Compact" },
     { id: "profile:plain-profile", key: "plain-key", name: "Plain Profile" }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "claude-code",

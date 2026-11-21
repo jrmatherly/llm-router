@@ -155,6 +155,7 @@ test("profile service preserves user statusLine when the active global Claude ta
       models: ["model"],
       name: "Provider"
     }];
+    config.profile.enabled = true;
     config.profile.profiles = [profile];
 
     const result = await applyProfileFixture(config);
@@ -219,6 +220,7 @@ test("profile service writes global Claude settings under the runtime home, neve
       models: ["model"],
       name: "Provider"
     }];
+    config.profile.enabled = true;
     config.profile.profiles = [profile];
 
     const result = await applyProfileFixture(config);
@@ -238,7 +240,43 @@ test("profile service writes global Claude settings under the runtime home, neve
   }
 });
 
-test("profile service does not overwrite invalid global Claude settings JSON", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("enabling the default Claude Code profile leaves the user's ~/.codex/config.toml byte for byte unchanged", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const runtimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  const claudeDir = path.join(runtimeHome, ".claude");
+  const codexDir = path.join(runtimeHome, ".codex");
+  const codexConfigFile = path.join(codexDir, "config.toml");
+  const userCodexConfig = "model = \"gpt-5\"\nmodel_provider = \"openai\"\n";
+  try {
+    rmSync(takeoverFile, { force: true });
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(codexConfigFile, userCodexConfig);
+
+    const config = createDefaultAppConfig();
+    config.APIKEY = "llmr-profile-chosen-agent-test";
+    config.Providers = [{
+      api_base_url: "https://example.test/v1",
+      api_key: "provider-key",
+      models: ["model"],
+      name: "Provider"
+    }];
+    config.profile.enabled = true;
+    config.profile.profiles.find((profile) => profile.id === "default-claude-code").enabled = true;
+
+    const result = await applyProfileFixture(config);
+    assert.equal(result.clients.some((client) => client.client === "claude-code" && client.ok), true);
+    assert.match(readFileSync(path.join(claudeDir, "settings.json"), "utf8"), /apiKeyHelper/);
+    assert.equal(readFileSync(codexConfigFile, "utf8"), userCodexConfig);
+    assert.deepEqual(readdirSync(codexDir), ["config.toml"]);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(claudeDir, { force: true, recursive: true });
+    rmSync(codexDir, { force: true, recursive: true });
+  }
+});
+
+test("profile service does not overwrite invalid global Claude settings JSON",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-invalid-settings-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
@@ -274,6 +312,7 @@ test("profile service does not overwrite invalid global Claude settings JSON", {
       models: ["model"],
       name: "Provider"
     }];
+    config.profile.enabled = true;
     config.profile.profiles = [profile];
 
     const result = await applyProfileFixture(config);
@@ -324,6 +363,7 @@ test("profile service refuses to apply a Claude Code profile when the settings f
       models: ["model"],
       name: "Provider"
     }];
+    config.profile.enabled = true;
     config.profile.profiles = [profile];
 
     const result = await applyProfileFixture(config);
@@ -378,6 +418,7 @@ test("profile service refuses to apply a Claude Code profile when a managed sett
       models: ["model"],
       name: "Provider"
     }];
+    config.profile.enabled = true;
     config.profile.profiles = [profile];
 
     const result = await applyProfileFixture(config);
@@ -413,6 +454,7 @@ test("a shared-home Claude Code profile never writes ~/.claude and blanks the us
   config.APIKEY = "llmr-profile-shared-home-test";
   config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-profile-shared-home-test", name: "Profile: Shared Home Claude" }];
   config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  config.profile.enabled = true;
   config.profile.profiles = [profile];
   try {
     mkdirSync(path.dirname(userSettingsFile), { recursive: true });
@@ -485,6 +527,7 @@ test("a global Claude Code profile on the default ~/.claude unsets CLAUDE_CONFIG
   config.APIKEY = "llmr-profile-default-home-test";
   config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-profile-default-home-test", name: "Profile: Default Home Claude" }];
   config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  config.profile.enabled = true;
   config.profile.profiles = [profile];
   try {
     rmSync(takeoverFile, { force: true });
@@ -710,6 +753,7 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
     staleLegacyConfig.profile.claudeCode.enabled = true;
     staleLegacyConfig.profile.claudeCode.settingsFile = "~/.claude/settings.json";
     staleLegacyConfig.profile.codex.enabled = true;
+    staleLegacyConfig.profile.enabled = true;
     staleLegacyConfig.profile.profiles = [];
     await replacePersistedAppConfig(staleLegacyConfig);
 
@@ -774,6 +818,7 @@ test("profile service does not rewrite Claude settings when only user-managed fi
       models: ["model"],
       name: "Provider"
     }];
+    config.profile.enabled = true;
     config.profile.profiles = [profile];
 
     const initialResult = await applyProfileFixture(config);
@@ -820,20 +865,24 @@ test("profile service restores between-session user edits after many takeover re
     config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-prune-restore-test", name: "Profile: Prune Restore OpenCode" }];
     config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models, name: "Provider" }];
 
+    config.profile.enabled = true;
     config.profile.profiles = [profile];
     await applyProfileFixture(config);
+    config.profile.enabled = true;
     config.profile.profiles = [{ ...profile, enabled: false }];
     await applyProfileFixture(config);
     const userEdit = { theme: "light" };
     writeFileSync(configFile, `${JSON.stringify(userEdit, null, 2)}\n`);
 
     for (const model of models) {
+      config.profile.enabled = true;
       config.profile.profiles = [{ ...profile, model: `Provider/${model}` }];
       await applyProfileFixture(config);
     }
     const backups = readdirSync(root).filter((name) => name.startsWith("opencode.json.llmr-backup-"));
     assert.equal(backups.length, 6);
 
+    config.profile.enabled = true;
     config.profile.profiles = [{ ...profile, enabled: false }];
     await applyProfileFixture(config);
     assert.deepEqual(JSON.parse(readFileSync(configFile, "utf8")), userEdit);
@@ -870,20 +919,24 @@ test("profile service restores between-session ZCode edits after many takeover r
     config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-prune-restore-test", name: "Profile: Prune Restore ZCode" }];
     config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models, name: "Provider" }];
 
+    config.profile.enabled = true;
     config.profile.profiles = [profile];
     await applyProfileFixture(config);
+    config.profile.enabled = true;
     config.profile.profiles = [{ ...profile, enabled: false }];
     await applyProfileFixture(config);
     const userEdit = { model: { main: "builtin:zai/glm-6" } };
     writeFileSync(configFile, `${JSON.stringify(userEdit, null, 2)}\n`);
 
     for (const model of models) {
+      config.profile.enabled = true;
       config.profile.profiles = [{ ...profile, model: `Provider/${model}` }];
       await applyProfileFixture(config);
     }
     const backups = readdirSync(path.dirname(configFile)).filter((name) => name.startsWith("config.json.llmr-backup-"));
     assert.equal(backups.length, 6);
 
+    config.profile.enabled = true;
     config.profile.profiles = [{ ...profile, enabled: false }];
     await applyProfileFixture(config);
     assert.deepEqual(JSON.parse(readFileSync(configFile, "utf8")), userEdit);
@@ -919,6 +972,7 @@ test("ZCode wrapper exports the workspace name under its LLMR_ name", { skip: pr
     config.APIKEY = "llmr-workspace-name-test";
     config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-workspace-name-test", name: "Profile: Workspace Name ZCode" }];
     config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["m1"], name: "Provider" }];
+    config.profile.enabled = true;
     config.profile.profiles = [profile];
     await applyProfileFixture(config);
     const content = readFileSync(path.join(CONFIGDIR, "bin", "llmr-codex-cli-stdio-workspace-name-zcode"), "utf8");
@@ -985,6 +1039,7 @@ test("profile service applies and removes profile Claude settings", { skip: !pro
       models: ["model"],
       name: "Provider"
     }];
+    config.profile.enabled = true;
     config.profile.profiles = [profile];
 
     const firstResult = await applyProfileFixture(config);
@@ -997,6 +1052,7 @@ test("profile service applies and removes profile Claude settings", { skip: !pro
     assert.equal(firstSettings.env.USER_VALUE, "kept");
     assert.equal(firstSettings.env.CLAUDE_CODE_MAX_RETRIES, "3");
 
+    config.profile.enabled = true;
     config.profile.profiles = [{
       ...profile,
       claudeSettings: {},
@@ -1013,10 +1069,12 @@ test("profile service applies and removes profile Claude settings", { skip: !pro
     assert.equal(secondSettings.env.CLAUDE_CODE_MAX_RETRIES, undefined);
     assert.equal(secondSettings.env.USER_VALUE, "kept");
 
+    config.profile.enabled = true;
     config.profile.profiles = [profile];
     await applyProfileFixture(config);
     assert.equal(JSON.parse(readFileSync(settingsFile, "utf8")).permissions.defaultMode, "acceptEdits");
 
+    config.profile.enabled = true;
     config.profile.profiles = [{ ...profile, enabled: false }];
     const disabledResult = await applyProfileFixture(config);
     assert.equal(disabledResult.clients.some((client) => client.client === "claude-code" && client.ok), true);
@@ -1044,6 +1102,7 @@ test("profile service can exclude ZCode from automatic synchronization", async (
     writeFileSync(configFile, original);
 
     const config = createDefaultAppConfig();
+    config.profile.enabled = true;
     config.profile.profiles = [
       {
         agent: "zcode",
@@ -1153,6 +1212,7 @@ test("profile service overwrites generated bin files without creating backups", 
       name: "Profile: Generated Bin Test"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "claude-code",
@@ -1292,6 +1352,7 @@ test("profile service refreshes LLMR-managed global Claude gateway env for gener
       models: ["model"],
       name: "Provider"
     }];
+    config.profile.enabled = true;
     config.profile.profiles = [{
       agent: "claude-code",
       enabled: true,
@@ -1355,6 +1416,7 @@ test("#1779 profile service defaults to apiKeyHelper even on Claude Code 2.1.235
       models: ["model"],
       name: "Provider"
     }];
+    config.profile.enabled = true;
     config.profile.profiles = [{
       agent: "claude-code",
       enabled: true,
@@ -1414,6 +1476,7 @@ test("#1798 profile service removes boolean autoMode when apiKeyHelper manages a
     models: ["model"],
     name: "Provider"
   }];
+  config.profile.enabled = true;
   config.profile.profiles = [{
     agent: "claude-code",
     claudeSettings: {
@@ -1478,6 +1541,7 @@ test("Codex profile launcher bypasses middleware for Browser and Computer Use he
       models: ["model"],
       name: "Provider"
     }];
+    config.profile.enabled = true;
     config.profile.profiles = [{
       agent: "codex",
       cliMiddleware: true,
@@ -1571,6 +1635,7 @@ test("profile service injects ToolHub MCP into Codex config", { skip: !process.e
       name: "Profile: Codex ToolHub Test"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "codex",
@@ -1700,6 +1765,7 @@ test("profile service injects Context Archive MCP for managed Claude Code profil
       name: "Profile: Managed Compact Claude"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "claude-code",
@@ -1752,6 +1818,7 @@ test("profile service injects Context Archive MCP for managed Codex profile", { 
       name: "Profile: Managed Compact Codex"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "codex",
@@ -1814,6 +1881,7 @@ test("profile service injects Context Archive MCP for managed Claude Code withou
       name: "Profile: Context Archive MCP Test"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "claude-code",
@@ -1872,6 +1940,7 @@ test("profile service writes a Grok CLI wrapper that points model discovery and 
       name: "Profile: Grok Gateway Test"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "grok",
@@ -2001,6 +2070,7 @@ test("profile service writes a multi-model Kimi CLI home that points inference t
       name: "Profile: Kimi Gateway Test"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "kimi",
@@ -2092,6 +2162,7 @@ test("profile service writes a Pi config and wrapper that points inference to LL
       name: "Profile: Pi Gateway Test"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "pi",
@@ -2152,6 +2223,7 @@ test("#1851 Windows Pi wrapper uses the argument-aware CLI runtime", { skip: !pr
   const config = createDefaultAppConfig();
   config.Providers = [{ name: "Provider", models: ["model"], type: "openai_chat_completions", api_base_url: "https://example.test/v1" }];
   config.APIKEYS = [{ id: "profile:pi-dispatch", key: "test", name: "Pi" }];
+  config.profile.enabled = true;
   config.profile.profiles = [{ agent: "pi", enabled: true, env: {}, id: "pi-dispatch", model: "Provider/model", name: "Pi", scope: "llmr", surface: "cli" }];
   try {
     Object.defineProperty(process, "platform", { value: "win32", configurable: true });
@@ -2185,6 +2257,7 @@ test("profile service writes an OpenCode CLI wrapper and shared CLI/App config",
       name: "Profile: OpenCode Gateway Test"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "opencode",
@@ -2265,6 +2338,7 @@ test("profile service removes disabled and deleted OpenCode wrappers and API key
     scope: "llmr",
     surface: "auto"
   };
+  config.profile.enabled = true;
   config.profile.profiles = [profile];
   const commandExtension = process.platform === "win32" ? ".cmd" : "";
   const wrapperFile = path.join(CONFIGDIR, "bin", `llmr-opencode-wrapper-${profileId}${commandExtension}`);
@@ -2282,6 +2356,7 @@ test("profile service removes disabled and deleted OpenCode wrappers and API key
   assert.equal(existsSync(wrapperFile), true);
   assert.ok(config.APIKEYS.some((apiKey) => apiKey.id === `profile:${profileId}`));
 
+  config.profile.enabled = true;
   config.profile.profiles = [];
   await applyProfileFixture(config);
   assert.equal(existsSync(wrapperFile), false);
@@ -2330,6 +2405,7 @@ test("profile service clears stale Claude Code ToolHub artifacts when no gateway
   const config = createDefaultAppConfig();
   config.Providers = [];
   config.virtualModelProfiles = [];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "claude-code",
@@ -2617,6 +2693,7 @@ async function withGlobalClaudeProfileRelease(original, run) {
     models: ["model"],
     name: "Provider"
   }];
+  config.profile.enabled = true;
   config.profile.profiles = [profile];
   const apply = async () => {
     const result = await applyProfileFixture(config);
@@ -2796,6 +2873,7 @@ test("release after a re-takeover never restores a backup that still points at L
 test("deleting the global Claude profile restores the user's own provider env", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ apply, config, readSettings, settingsFile }) => {
     await apply();
+    config.profile.enabled = true;
     config.profile.profiles = [];
     await applyProfileFixture(config);
     assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
@@ -2808,6 +2886,7 @@ test("the sweep restores the user's own provider env from a deleted profile's ta
     const profile = config.profile.profiles[0];
     const stateFile = path.join(CONFIGDIR, "profiles", profile.id, "claude", "settings-state.json");
     assert.equal(applyProfileRuntimeConfig(config, profile, "llmr-profile-displaced-env-test").ok, true);
+    config.profile.enabled = true;
     config.profile.profiles = [];
     await applyProfileFixture(config);
     assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
@@ -3100,6 +3179,7 @@ test("profile service invalidates Claude gateway model discovery cache only when
       name: "Profile: Claude Model Discovery Cache Test"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "claude-code",
@@ -3166,6 +3246,7 @@ test("profile service reports a failed model discovery cache invalidation withou
       name: "Profile: Claude Model Discovery Cache Failure Test"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [
     {
       agent: "claude-code",
@@ -3213,6 +3294,7 @@ function defaultHomeClaudeFixture(id, extra = {}) {
   config.APIKEY = `llmr-${id}`;
   config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${id}`, key: `llmr-${id}`, name: id }];
   config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  config.profile.enabled = true;
   config.profile.profiles = [profile];
   return { config, profile };
 }
@@ -3391,6 +3473,7 @@ function serializedApplyFixture(root, model) {
     models: ["one", "two"],
     name: "Provider"
   }];
+  config.profile.enabled = true;
   config.profile.profiles = [profile];
   return { config, settingsFile };
 }

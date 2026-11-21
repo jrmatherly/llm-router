@@ -397,6 +397,7 @@ export const onboardingStepOrder: OnboardingStepId[] = ["provider", "profile", "
 
 export type OnboardingReadinessOptions = {
   profileConfirmed?: boolean;
+  profileSkipped?: boolean;
   requireProfileConfirmation?: boolean;
 };
 
@@ -405,6 +406,9 @@ export function isOnboardingProviderReady(config: AppConfig): boolean {
 }
 
 export function isOnboardingProfileReady(config: AppConfig, options: OnboardingReadinessOptions = {}): boolean {
+  if (options.profileSkipped) {
+    return true;
+  }
   const profileConfigured = config.profile.profiles.some((profile) => profile.enabled);
   return profileConfigured && (!options.requireProfileConfirmation || Boolean(options.profileConfirmed));
 }

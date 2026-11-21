@@ -143,3 +143,57 @@ test("Onboarding skips credentials for a local agent import", () => {
   assert.match(html, /Pick models/);
   assert.match(html, /aria-label="Step 1 \/ 5"/);
 });
+
+function renderOnboarding(activeStep: "provider" | "profile" | "enter", readiness?: { profileSkipped?: boolean }) {
+  const config = appConfigFixture();
+  config.Providers = [{
+    api_base_url: "https://gateway.example/v1",
+    api_key: "sk-test",
+    models: ["example-model"],
+    name: "Example Provider",
+    type: "openai_chat_completions"
+  }];
+  config.profile.profiles = config.profile.profiles.map((profile) => ({ ...profile, enabled: false }));
+  return renderToStaticMarkup(
+    <OnboardingView
+      activeStep={activeStep}
+      agentOptions={profileAgentOptions}
+      canSubmitProfile
+      canSubmitProvider={false}
+      config={config}
+      endpoint="http://127.0.0.1:3456"
+      gatewayStatus={fallbackGatewayStatus}
+      onCheckProvider={async () => ({ failed: [], passed: [], results: [] })}
+      onChangeProfile={() => undefined}
+      onChangeProvider={() => undefined}
+      onComplete={() => undefined}
+      onSelectStep={() => undefined}
+      onSkipProfile={() => undefined}
+      onSubmitProfile={async () => false}
+      onSubmitProvider={async () => false}
+      profileDraft={createProfileDraft()}
+      profileError=""
+      providerConnectivityLoading={false}
+      providerDraft={createProviderDraft([])}
+      providerError=""
+      providerProbeLoading={false}
+      readiness={readiness}
+    />
+  );
+}
+
+test("Onboarding offers Skip for now on the Connect agent step only", () => {
+  assert.match(renderOnboarding("profile"), /Skip for now/);
+  assert.doesNotMatch(renderOnboarding("provider"), /Skip for now/);
+  assert.doesNotMatch(renderOnboarding("enter"), /Skip for now/);
+});
+
+test("Onboarding shows a skipped agent step as skipped and lets the user start", () => {
+  const skipped = renderOnboarding("enter", { profileSkipped: true });
+  assert.match(skipped, /Skipped\. Add one under Agent Profiles\./);
+  assert.doesNotMatch(skipped, /<button[^>]* disabled=""[^>]*>(?:<svg.*?<\/svg>)?Let&#x27;s start/);
+
+  const notSkipped = renderOnboarding("enter");
+  assert.doesNotMatch(notSkipped, /Skipped\. Add one under Agent Profiles\./);
+  assert.match(notSkipped, /<button[^>]* disabled=""[^>]*>(?:<svg.*?<\/svg>)?Let&#x27;s start/);
+});

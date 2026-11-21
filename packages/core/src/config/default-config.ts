@@ -127,7 +127,7 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
     plugins: [],
     profile: {
       claudeCode: {
-        enabled: true,
+        enabled: false,
         fableModel: "",
         haikuModel: "",
         managedCompact: false,
@@ -143,18 +143,18 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
         codexHome: "",
         configFormat: "separate_profile_files",
         configFile: "~/.codex/config.toml",
-        enabled: true,
+        enabled: false,
         managedCompact: false,
         model: "",
         providerId: "llm-router",
         providerName: "LLM Router",
         showAllSessions: false
       },
-      enabled: true,
+      enabled: false,
       profiles: [
         {
           agent: "claude-code",
-          enabled: true,
+          enabled: false,
           env: { ...CLAUDE_CODE_DEFAULT_ENV },
           fableModel: "",
           haikuModel: "",
@@ -176,7 +176,7 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
           codexHome: "",
           configFormat: "separate_profile_files",
           configFile: "~/.codex/config.toml",
-          enabled: true,
+          enabled: false,
           env: {},
           id: "default-codex",
           managedCompact: false,
