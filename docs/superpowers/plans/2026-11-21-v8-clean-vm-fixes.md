@@ -4,7 +4,7 @@
 
 **Goal:** A person who installs LLM Router on a clean Mac can add a provider, connect the one agent they chose, and keep it connected, without a false error, a silent takeover of another agent, or a restart.
 
-**Architecture:** Two phases. Phase A is Tasks 0 to 5 (Task 4 is five tasks, in the order 4a, 4d, 4e, 4b, 4c, and Task 4d is four PRs with Task 4e run after its Part 1), an investigation task and a release task. It fixes agent profiles and the first-run screen, and it can ship without Phase B. Phase B is Tasks 6 to 9b, the smaller UI defects, cost totals and a request log retention setting. Each code task is one branch and one squash-merged PR, except Task 4d, which is four. Tasks run one at a time in the order under "Order", because several of them edit the same files.
+**Architecture:** Two phases. Phase A is Tasks 0 to 5 (Task 4 is five tasks, in the order 4a, 4d, 4e, 4b, 4c, and Task 4d is four PRs with Task 4e run after its Part 1), an investigation task and a release task. It fixes agent profiles and the first-run screen, and it can ship without Phase B. Phase B is Tasks 6 to 9b, the smaller UI defects, cost totals and a request log retention setting. Each code task up to Task 4b is one branch and one squash-merged PR, except Task 4d, which is four. After Task 4b the tasks are grouped into four more PRs (V-18). Tasks run one at a time in the order under "Order", because several of them edit the same files.
 
 **Tech Stack:** TypeScript, Electron 45, React, `better-sqlite3`, `node:test` with `node:assert/strict`, component tests that render with `renderToStaticMarkup`.
 
@@ -12,7 +12,7 @@
 
 **Review history.** Written 2026-11-21 from three code explorations. Audited the same day by two independent passes, one that checked every path, symbol and test against the code and one on the design. The audit found two blockers that this version fixes. Task 4 would have deleted a user's own Codex settings, and Task 2's test named a fixture that does not exist. It also replaced Task 2's design, which restarted the gateway twice, and corrected the causes stated in Tasks 8 and 9. The plan author re-read each audit finding in the code before applying it. Task 4 and decisions V-7 and V-16 were rewritten later the same day after the restore research, and that rewrite was audited by two more passes. Appendix C records both. Task 4d and the safety-copy clause of V-7 were added after the stripper was measured against real Codex (Appendix D). Task 4e was added after the review of PR 133 (Appendix E). The whole plan was then audited against `main` at `06dd4b4f` by four passes, and Appendix F records what that changed.
 
-**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133), Task 4e (PR 134), Task 4d Part 2 (PR 135), Task 4d Part 3 (PR 136). Next: Task 4d Part 4. A merged task's body describes the code as it was before its PR. No decision is waiting on the owner. The Order table carries the same status per task.
+**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133), Task 4e (PR 134), Task 4d Part 2 (PR 135), Task 4d Part 3 (PR 136), Task 4d Part 4 (PR 137), which completes Task 4d. Next: Task 4b, alone in its PR. The remaining code tasks ship as five PRs (V-18). A merged task's body describes the code as it was before its PR. No decision is waiting on the owner. The Order table carries the same status per task.
 
 **Evidence status.** A cause marked "inferred" was not confirmed by reading the code path end to end. Its task starts with the step that confirms it.
 
@@ -36,6 +36,7 @@
 | V-14 | The plan author chose these user-visible strings and values. Change any of them in review without reopening the plan: the media protocol labels `OpenAI Images`, `OpenAI Video` and `xAI Video`, the placeholder `Select default model`, the toast offset `top-14`, the consent sentence in Task 3 Step 8, the `Skip for now` label and the skipped Profile row text. | Plan author |
 | V-15 | A per-PR gate is the unit, component and end-to-end tests. The clean-VM checks run once, by the owner, on a build that holds every Phase A task (Task 11). An agent cannot drive the UTM window, and the checks need a provider key that must not sit in a repo or a shared folder. | Plan author, from the audit |
 | V-16 | **Restore original settings** acts without a confirmation prompt, and only together with V-7. The same file changes run on a quit and a gateway stop, where nobody can answer a prompt. The result message does the prompt's work: it names what was removed and what was kept, says that switching the profile on again undoes it, and says the agent may ask the user to log in. The message is shown where a person asked for the restore. A quit and a gateway stop show none. | Owner, 2026-11-21, after the research in Appendix C |
+| V-18 | The code tasks left after Task 4d ship as five PRs, not eight: Task 4b alone; Tasks 4c and 5 together; Tasks 6 and 7 together; Tasks 9 and 9b together; Task 8 alone, if its measurement finds anything to change. Inside a PR the tasks are built in the order of the Order table, each with its own tests and its own commit. Task 4b stays alone because it makes the strip run on every quit and every Task 4 PR so far drew reviewer findings. A squash-merged pair can only be reverted together. | Owner, 2026-11-21, on the plan author's recommendation |
 | V-17 | When a restore finds no original and the user has deleted the live file, LLMR saves the newest backup that holds something of the user's as a safety copy, by V-7's safety-copy rules (LLMR's data folder, token blanked, last three per file), before it deletes the backups. The file stays absent. This widens V-7's safety-copy clause, which covered only a strip of a live file. | Owner, 2026-11-21, after the review of PR 133 (Appendix E) |
 
 ## Global Constraints
@@ -50,7 +51,7 @@
 - `npm run build:assets` and `npm run test:e2e` rewrite `packages/core/models.json` and `packages/ui/src/generated`. Restore them afterwards with `git checkout -- packages/core/models.json packages/ui/src/generated`.
 - Before each PR: `npm run typecheck`, `npm run lint`, `npm run test:architecture`, and the package suites the task touches. Tasks 3, 4c and 5 also run `npm run test:e2e`. Task 3 also runs `npm run test:system`.
 - Merging needs the owner's word, once per PR.
-- No two tasks run at the same time. Start each task from `main` after the task before it has merged.
+- No two PRs run at the same time. Start each PR from `main` after the one before it has merged. The tasks of one PR (V-18) are built in order on the same branch.
 - Tasks 1, 2 and 3 ship in the same release. Task 3 without Task 1 leaves a new install unable to connect any agent.
 - No test, script or doc in this repo names a real provider host or holds a key.
 
@@ -80,17 +81,17 @@ Run the tasks in this order, one at a time.
 | 5 | 4a | A | Merged, PR 132 | Its tests need Task 3's defaults, and it uses Task 2's `reconcileProfileApiKeys` |
 | 6 | 4d Part 1 | A | Merged, PR 133 | The F-23 guard |
 | 7 | 4e | A | Merged, PR 134 | Corrects the guard Part 1 shipped, in the same function, before anything else builds on it |
-| 8 | 4d Parts 2 to 4 | A | Part 2 merged, PR 135. Part 3 merged, PR 136. Next: Part 4 | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. One PR each, in order |
-| 9 | 4b | A | | Builds on the Codex stripper from Task 4a and the record from Task 4d |
-| 10 | 4c | A | | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
-| 11 | 5 | A | | Edits `gateway-service.ts`, `layout.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
+| 8 | 4d Parts 2 to 4 | A | Part 2 merged, PR 135. Part 3 merged, PR 136. Part 4 merged, PR 137 | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. One PR each, in order |
+| 9 | 4b | A | Next. Its own PR | Builds on the Codex stripper from Task 4a and the record from Task 4d |
+| 10 | 4c | A | One PR with Task 5 | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
+| 11 | 5 | A | One PR with Task 4c | Edits `gateway-service.ts`, `layout.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
 | 12 | 10 | A | | Investigation, no code. Steps 1 and 2 here. Steps 3 and 4 run inside Task 11's Pass 2, and Step 5 follows it |
 | 13 | 11 | A | | The owner's VM pass and the release |
-| 14 | 6 | B | | Edits `profiles.tsx` and `network-logs.tsx` |
-| 15 | 9 | B | | Edits `network-logs.tsx` after Task 6 |
-| 16 | 9b | B | | Edits `network-logs.tsx` and the log store after Task 9 |
-| 17 | 7 | B | | Edits `layout.tsx` after Task 5 |
-| 18 | 8 | B | | Independent, and its cause is not known |
+| 14 | 6 | B | One PR with Task 7 | Edits `profiles.tsx` and `network-logs.tsx` |
+| 15 | 7 | B | One PR with Task 6 | Edits `layout.tsx` after Task 5. Moved up from position 17 by V-18. Task 9 touches `layout.tsx` only if a prop does not pass through, and then it edits the file as Task 7 left it |
+| 16 | 9 | B | One PR with Task 9b | Edits `network-logs.tsx` after Task 6 |
+| 17 | 9b | B | One PR with Task 9 | Edits `network-logs.tsx` and the log store after Task 9 |
+| 18 | 8 | B | Its own PR, if it changes code | Independent, and its cause is not known |
 
 ---
 
@@ -490,7 +491,7 @@ Merged as PR 136, with these differences from the text below.
 
 #### Part 4: Save a safety copy before a strip changes an edited file
 
-Built as PR 137, with these differences from the text below.
+Merged as PR 137 (`6b8d27d4`), with these differences from the text below.
 - The token pattern is `/llmr-profile-[A-Za-z0-9_-]+/g`. The text below also blanks `ccr-profile-` keys. `tests/architecture/llmr-rename.test.mjs` refuses a new `ccr` identifier, the owner's decision of 2026-10-27 is no `ccr` compatibility, and no code mints or recognises a `ccr-profile-` key. A key of that age in a file is copied as it is.
 - `saveRemovedConfigCopy` also sets mode `0700` on a state directory that already exists. An apply creates it with the default mode when it writes the record.
 - Step 3 tests each backup with `stripManagedContent`, which goes by the text, not with the live file's stripper. The record describes the live file only.
