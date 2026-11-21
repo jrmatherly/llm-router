@@ -134,3 +134,83 @@ export function stripManagedCodexConfigContent(content: string, providerIds: str
 export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+type TomlScanState = { depth: number; multiline: "" | "\"\"\"" | "'''" };
+
+// No TOML parser is installed and a parser could not make a line-preserving edit, so this tracks only what decides whether a line starts inside a value.
+export function* scanTomlLines(content: string): Generator<{ inValue: boolean; line: string }> {
+  const state: TomlScanState = { depth: 0, multiline: "" };
+  for (const line of content.split(/(?<=\n)/)) {
+    yield { inValue: state.multiline !== "" || state.depth > 0, line };
+    scanTomlLine(line, state);
+  }
+}
+
+export function removeTablesOutsideValues(content: string, isHeader: (header: string) => boolean): string {
+  const kept: string[] = [];
+  let removing = false;
+  // A comment directly above the next header belongs to that table, not to the one being removed.
+  let commentsAboveNextHeader: string[] = [];
+  for (const { inValue, line } of scanTomlLines(content)) {
+    const trimmed = line.trim();
+    if (!inValue && trimmed.startsWith("[")) {
+      kept.push(...commentsAboveNextHeader);
+      commentsAboveNextHeader = [];
+      removing = isHeader(trimmed.slice(0, scanTomlLine(trimmed, { depth: 0, multiline: "" })).trim());
+    }
+    if (!removing) {
+      kept.push(line);
+    } else if (!inValue && (trimmed.startsWith("#") || (trimmed === "" && commentsAboveNextHeader.length > 0))) {
+      commentsAboveNextHeader.push(line);
+    } else {
+      commentsAboveNextHeader = [];
+    }
+  }
+  return [...kept, ...commentsAboveNextHeader].join("");
+}
+
+// Returns where the line's comment starts, or its length.
+function scanTomlLine(line: string, state: TomlScanState): number {
+  let index = 0;
+  while (index < line.length) {
+    const char = line[index];
+    if (state.multiline) {
+      if (char === "\\" && state.multiline === "\"\"\"") {
+        index += 2;
+      } else if (line.startsWith(state.multiline, index)) {
+        index += 3;
+        // The string's own text may end in up to two quotes, so the closing run is up to five.
+        for (let extra = 0; extra < 2 && line[index] === char; extra += 1) {
+          index += 1;
+        }
+        state.multiline = "";
+      } else {
+        index += 1;
+      }
+    } else if (char === "#") {
+      return index;
+    } else if (line.startsWith("\"\"\"", index) || line.startsWith("'''", index)) {
+      state.multiline = char === "'" ? "'''" : "\"\"\"";
+      index += 3;
+    } else if (char === "\"" || char === "'") {
+      index = oneLineStringEnd(line, index);
+    } else {
+      if (char === "[" || char === "{") {
+        state.depth += 1;
+      } else if (char === "]" || char === "}") {
+        state.depth = Math.max(0, state.depth - 1);
+      }
+      index += 1;
+    }
+  }
+  return line.length;
+}
+
+function oneLineStringEnd(line: string, start: number): number {
+  const quote = line[start];
+  let index = start + 1;
+  while (index < line.length && line[index] !== quote && line[index] !== "\n") {
+    index += quote === "\"" && line[index] === "\\" ? 2 : 1;
+  }
+  return index + 1;
+}
