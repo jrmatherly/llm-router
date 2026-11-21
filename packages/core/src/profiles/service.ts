@@ -1076,11 +1076,36 @@ function claudeCodeManagedSettingsScope(profile: ProfileConfig): ClaudeCodeProfi
 
 function claudeCodeManagedContent(profile: ProfileConfig): RestoreManagedContentMatchers {
   const scope = claudeCodeManagedSettingsScope(profile);
+  const strip = (content: string) => stripManagedClaudeCodeSettingsContent(content, scope.envKeys, scope.paths, scope.displacedEnv, scope.endpoints);
   return {
     isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, scope.paths),
     onReleased: () => releaseClaudeCodeSettingsState(claudeCodeProfileSettingsStateFile(profile)),
-    stripManagedContent: (content) => stripManagedClaudeCodeSettingsContent(content, scope.envKeys, scope.paths, scope.displacedEnv, scope.endpoints)
+    stripManagedContent: strip,
+    takeoverContent: (content) => claudeCodeTakeoverContent(content, scope.endpoints, strip)
   };
+}
+
+// Goes by the values LLMR writes, not key names: the user's own NO_PROXY or model env key is not a takeover.
+// With no endpoint on record LLMR's own address cannot be told from the user's, so anything the stripper would change counts.
+function claudeCodeTakeoverContent(
+  content: string,
+  endpoints: string[],
+  strip: (content: string) => string | undefined
+): TakeoverContent {
+  const settings = parseJsonContent(content);
+  if (!settings) {
+    return "unparsed";
+  }
+  if (endpoints.length === 0) {
+    return strip(content) === undefined ? "none" : "parsed";
+  }
+  const env = isRecord(settings.env) ? settings.env : {};
+  return isManagedClaudeCodeApiKeyHelper(settings.apiKeyHelper) ||
+    claudeCodeGatewayEnvKeys.some((key) => typeof env[key] === "string" && endpoints.includes(env[key] as string)) ||
+    isClaudeCodeGatewayTakeoverEnv(env) ||
+    env.ANTHROPIC_FEDERATION_RULE_ID === claudeCodeWifFederationRuleId
+    ? "parsed"
+    : "none";
 }
 
 function hasClaudeCodeTakeoverState(state: ClaudeCodeProfileSettingsState): boolean {
@@ -1121,10 +1146,12 @@ function orphanedClaudeCodeManagedContent(settingsFile: string): RestoreManagedC
   const envKeys = uniqueStrings(states.flatMap((state) => state.envKeys));
   const endpoints = uniqueStrings(states.flatMap((state) => state.endpoints));
   const displacedEnv = Object.assign({}, ...states.map((state) => state.displacedEnv)) as Record<string, string>;
+  const strip = (content: string) => stripManagedClaudeCodeSettingsContent(content, envKeys, paths, displacedEnv, endpoints);
   return {
     isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, paths),
     onReleased: () => stateFiles.forEach(releaseClaudeCodeSettingsState),
-    stripManagedContent: (content) => stripManagedClaudeCodeSettingsContent(content, envKeys, paths, displacedEnv, endpoints)
+    stripManagedContent: strip,
+    takeoverContent: (content) => claudeCodeTakeoverContent(content, endpoints, strip)
   };
 }
 
@@ -2971,7 +2998,11 @@ type RestoreManagedContentMatchers = {
   isManagedContent: (content: string) => boolean;
   onReleased?: () => void;
   stripManagedContent?: (content: string) => string | undefined;
+  takeoverContent?: (content: string) => TakeoverContent;
 };
+
+// "parsed": valid content that carries the marks of an LLMR takeover. "unparsed": content that is not valid for its format.
+type TakeoverContent = "none" | "parsed" | "unparsed";
 
 function restoreDisabledGlobalProfile(
   profile: ProfileConfig,
@@ -3064,7 +3095,11 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
       const matchers: RestoreManagedContentMatchers = (liveOwner ? undefined : orphanedClaudeCodeManagedContent(file)) ??
         (owner
           ? claudeCodeManagedContent(owner)
-          : { isManagedContent: isManagedClaudeCodeSettingsContent, stripManagedContent: stripManagedClaudeCodeSettingsContent });
+          : {
+              isManagedContent: isManagedClaudeCodeSettingsContent,
+              stripManagedContent: stripManagedClaudeCodeSettingsContent,
+              takeoverContent: (content) => claudeCodeTakeoverContent(content, [], stripManagedClaudeCodeSettingsContent)
+            });
       const restoreResult = restoreGlobalConfigFile(file, {
         ...matchers,
         keepLiveFile: enabledClaudeProfiles.length > 0,
@@ -3591,8 +3626,12 @@ function originalSnapshotCandidate(
       continue;
     }
     const content = readFileSync(candidate, "utf8");
-    // With no original, a backup the stripper would change is a copy from LLMR's time and can hold a setting the user has since deleted.
-    if (stripWhenNoOriginal?.(content) !== undefined) {
+    // An apply never backs up a file it cannot parse, so an unparsed candidate is damage. With no original, a copy that carries a takeover can hold a setting the user has since deleted.
+    const takeover = matchers.takeoverContent?.(content);
+    if (takeover === "unparsed") {
+      continue;
+    }
+    if (stripWhenNoOriginal && (takeover === undefined ? stripWhenNoOriginal(content) !== undefined : takeover === "parsed")) {
       continue;
     }
     if (!matchers.isManagedContent(content)) {

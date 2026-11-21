@@ -12,7 +12,7 @@
 
 **Review history.** Written 2026-11-21 from three code explorations. Audited the same day by two independent passes, one that checked every path, symbol and test against the code and one on the design. The audit found two blockers that this version fixes. Task 4 would have deleted a user's own Codex settings, and Task 2's test named a fixture that does not exist. It also replaced Task 2's design, which restarted the gateway twice, and corrected the causes stated in Tasks 8 and 9. The plan author re-read each audit finding in the code before applying it. Task 4 and decisions V-7 and V-16 were rewritten later the same day after the restore research, and that rewrite was audited by two more passes. Appendix C records both. Task 4d and the safety-copy clause of V-7 were added after the stripper was measured against real Codex (Appendix D). Task 4e was added after the review of PR 133 (Appendix E). The whole plan was then audited against `main` at `06dd4b4f` by four passes, and Appendix F records what that changed.
 
-**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133). Next: Task 4e. A merged task's body describes the code as it was before its PR. No decision is waiting on the owner. The Order table carries the same status per task.
+**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133), Task 4e (PR 134). Next: Task 4d Part 2. A merged task's body describes the code as it was before its PR. No decision is waiting on the owner. The Order table carries the same status per task.
 
 **Evidence status.** A cause marked "inferred" was not confirmed by reading the code path end to end. Its task starts with the step that confirms it.
 
@@ -79,8 +79,8 @@ Run the tasks in this order, one at a time.
 | 4 | 2 | A | Merged, PR 131 | Edits `gateway-service.ts` before Task 5 does |
 | 5 | 4a | A | Merged, PR 132 | Its tests need Task 3's defaults, and it uses Task 2's `reconcileProfileApiKeys` |
 | 6 | 4d Part 1 | A | Merged, PR 133 | The F-23 guard |
-| 7 | 4e | A | Next | Corrects the guard Part 1 shipped, in the same function, before anything else builds on it |
-| 8 | 4d Parts 2 to 4 | A | | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. One PR each, in order |
+| 7 | 4e | A | Merged, PR 134 | Corrects the guard Part 1 shipped, in the same function, before anything else builds on it |
+| 8 | 4d Parts 2 to 4 | A | Next: Part 2 | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. One PR each, in order |
 | 9 | 4b | A | | Builds on the Codex stripper from Task 4a and the record from Task 4d |
 | 10 | 4c | A | | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
 | 11 | 5 | A | | Edits `gateway-service.ts`, `layout.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
@@ -500,6 +500,13 @@ No TOML parser is in any `package.json` or in `node_modules`, and a parser could
 ---
 
 ### Task 4e: Tell a takeover copy from the user's file by LLMR's own values (F-27, F-29)
+
+**Merged as PR 134, and its review changed three things the text below does not show.**
+- Every Claude Code candidate that does not parse is `"unparsed"` and skipped, whatever its text holds. An apply never backs up a file it cannot parse, so the helper-path and endpoint text checks were narrower than their own reason, and a backup cut off before those values was still written back (run by two reviewers).
+- With no endpoint on record, `claudeCodeTakeoverContent` falls back to PR 133's test and calls `"parsed"` anything the stripper would change. A reviewer ran a state where the takeover record was already released and a backup holding one gateway key at LLMR's address was written back, which `main` did not do.
+- `originalSnapshotCandidate` takes the stripper again, as in PR 133, and classifies each candidate once.
+
+A mutation run by a reviewer found seven conditions no test caught. PR 134 added tests until every one of ten mutations fails at least one test.
 
 Added on 2026-11-21 after the review of PR 133 (Appendix E). One PR, from `main`, before Task 4d Part 2.
 
