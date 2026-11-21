@@ -190,6 +190,39 @@ test("gateway start waits for matching runtime health before reporting running",
   }
 });
 
+test("a key added in place to the held config restarts the gateway, and an unchanged config does not", async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-gateway-key-restart-test-"));
+  const gatewayEntry = path.join(dir, "gateway-entry.cjs");
+  const previousGatewayEntry = process.env.LLMR_GATEWAY_ENTRY;
+  const previousReadySentinel = process.env.LLMR_GATEWAY_READY_SENTINEL;
+  writeFileSync(gatewayEntry, delayedHealthyGatewayEntry(), "utf8");
+
+  try {
+    await gatewayService.stop();
+    process.env.LLMR_GATEWAY_ENTRY = gatewayEntry;
+    process.env.LLMR_GATEWAY_READY_SENTINEL = path.join(dir, "gateway-ready");
+
+    const config = gatewayTestConfig(await reserveLoopbackPort());
+    assert.equal((await gatewayService.start(config)).state, "running");
+    const pidBefore = gatewayService.getStatus().pid;
+
+    config.APIKEYS = [...config.APIKEYS, { id: "profile:test", key: "llmr-profile-test-key-0123456789abcdef", name: "Profile: Claude Code" }];
+    await gatewayService.updateConfig(config);
+    assert.equal(gatewayService.getStatus().state, "running");
+    const pidAfterKey = gatewayService.getStatus().pid;
+    assert.notEqual(pidAfterKey, pidBefore);
+
+    await gatewayService.updateConfig(structuredClone(config));
+    assert.equal(gatewayService.getStatus().pid, pidAfterKey);
+  } finally {
+    restoreEnv("LLMR_GATEWAY_ENTRY", previousGatewayEntry);
+    restoreEnv("LLMR_GATEWAY_READY_SENTINEL", previousReadySentinel);
+    await gatewayService.stop();
+    await deletePersistedRuntimeState("gateway");
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("gateway start completes the IPC and health handshake with the bundled runtime", async () => {
   const previousGatewayEntry = process.env.LLMR_GATEWAY_ENTRY;
   try {

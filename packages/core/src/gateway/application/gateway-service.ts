@@ -28,7 +28,7 @@ import {
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline";
 import { GatewayHttpRequestHandler } from "@llmr/core/gateway/http/request-handler";
 import { gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
-import { shouldRestartGatewayForRuntimeConfigChange } from "@llmr/core/gateway/runtime-change";
+import { runtimeGatewayConfigSignature } from "@llmr/core/gateway/runtime-change";
 import { RouteScriptRuntime } from "@llmr/core/routing/route-script-runtime";
 import { buildRouteScriptInput } from "@llmr/core/routing/route-script-context";
 import { compileRouterConfig } from "@llmr/core/routing/config-compiler";
@@ -120,6 +120,7 @@ class GatewayService {
   private coreRestartTimer?: NodeJS.Timeout;
   private coreRecovery?: Promise<GatewayStatus>;
   private config?: AppConfig;
+  private runtimeConfigSignature?: string;
   private coreAuthToken = "";
   private externalGatewayApiKey?: string;
   private plugin?: LLMRouterPlugin;
@@ -167,7 +168,7 @@ class GatewayService {
     }
     await this.stopGateway({ nextConfig: config });
     if (recoveryGeneration !== undefined && recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
-    this.config = config;
+    this.holdConfig(config);
     const coreAuthToken = generateCoreGatewayAuthToken();
     const scriptValidationErrors = await this.routeScriptRuntime.prepare(config.Router.rules);
     this.plugin = new LLMRouterPlugin(config, {
@@ -421,6 +422,12 @@ class GatewayService {
     };
   }
 
+  // The held config is mutated in place by callers, so a restart is decided against the signature taken when it was held.
+  private holdConfig(config: AppConfig): void {
+    this.config = config;
+    this.runtimeConfigSignature = runtimeGatewayConfigSignature(config);
+  }
+
   async updateConfig(config: AppConfig): Promise<void> {
     assertLoopbackCoreHost(config.gateway.coreHost);
     if (this.status.gatewayManagedExternally) {
@@ -428,7 +435,7 @@ class GatewayService {
       return;
     }
     if (this.config && this.status.state === "running" &&
-      shouldRestartGatewayForRuntimeConfigChange(this.config, config)) {
+      this.runtimeConfigSignature !== runtimeGatewayConfigSignature(config)) {
       await this.start(config);
       return;
     }
@@ -438,7 +445,7 @@ class GatewayService {
       scriptRuntime: this.routeScriptRuntime,
       scriptValidationErrors
     });
-    this.config = config;
+    this.holdConfig(config);
     this.plugin = nextPlugin;
     const singleGatewayRuntime = Boolean(this.child && !this.server && shouldRunGatewayRuntime(config));
     const runtimeCoreEndpoint = singleGatewayRuntime
@@ -673,7 +680,7 @@ class GatewayService {
         throw new Error(`Persisted configuration revision ${actualRevision || "(missing)"} does not match the requested revision ${expectedRevision}.`);
       }
       const restartRequired = forceRestart || !this.config ||
-        shouldRestartGatewayForRuntimeConfigChange(this.config, nextConfig);
+        this.runtimeConfigSignature !== runtimeGatewayConfigSignature(nextConfig);
       if (restartRequired) {
         const status = await this.start(nextConfig);
         if (status.state === "error") {
@@ -690,7 +697,7 @@ class GatewayService {
   }
 
   private markExternalGatewayRunning(config: AppConfig, externalEndpoint: string, apiKey?: string): void {
-    this.config = config;
+    this.holdConfig(config);
     this.child = undefined;
     this.server = undefined;
     this.coreAuthToken = "";

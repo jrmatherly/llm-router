@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -68,7 +69,31 @@ test("onboarding lets the user skip the agent, then connects only the agent they
   const claudeSettingsFile = path.join(runtime.testHome, ".claude", "settings.json");
   await expect.poll(() => existsSync(claudeSettingsFile) ? readFileSync(claudeSettingsFile, "utf8") : "").toMatch(/apiKeyHelper/);
   expect(existsSync(path.join(runtime.testHome, ".codex"))).toBe(false);
+
+  const helper = (JSON.parse(readFileSync(claudeSettingsFile, "utf8")) as { apiKeyHelper: string }).apiKeyHelper;
+  const profileKey = execFileSync(helper, { encoding: "utf8" }).trim();
+  expect(profileKey).toMatch(/^llmr-profile-/);
+  const gateway = await page.evaluate(() => window.llmr!.getGatewayStatus());
+  expect(gateway.state).toBe("running");
+  expect(await gatewayStatusFor(gateway.endpoint, profileKey)).not.toBe(401);
+  expect(await gatewayStatusFor(gateway.endpoint, "llmr-profile-not-a-real-key")).toBe(401);
+
+  await page.evaluate(async () => {
+    const next = await window.llmr!.getConfig();
+    next.profile.profiles = next.profile.profiles.map((profile) => ({ ...profile, enabled: false }));
+    await window.llmr!.saveConfig(next);
+  });
+  expect(await gatewayStatusFor(gateway.endpoint, profileKey)).toBe(401);
 });
+
+async function gatewayStatusFor(endpoint: string, apiKey: string): Promise<number> {
+  const response = await fetch(`${endpoint}/v1/messages`, {
+    body: JSON.stringify({ max_tokens: 1, messages: [{ content: "ping", role: "user" }], model: "onboarding-provider/onboarding-model" }),
+    headers: { "anthropic-version": "2023-06-01", "content-type": "application/json", "x-api-key": apiKey },
+    method: "POST"
+  });
+  return response.status;
+}
 
 async function enabledProfileIds(page: Page): Promise<string[]> {
   return page.evaluate(async () => (await window.llmr!.getConfig()).profile.profiles

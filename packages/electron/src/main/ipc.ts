@@ -43,7 +43,7 @@ import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-pr
 import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
-import { applyProfileConfig, recoverGlobalAgentProfile, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
+import { applyProfileConfig, reconcileProfileApiKeys, recoverGlobalAgentProfile, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { desktopCliCommandName, getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, openProfileInTerminal, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
@@ -345,6 +345,9 @@ handle(IPC_CHANNELS.appSaveConfig, async (_event, config: AppConfig, options?: A
   }
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
   savedConfig = syncedClaudeAppConfig.config;
+  if (options?.applyProfile !== false) {
+    await reconcileProfileApiKeys(savedConfig);
+  }
   let runtimeStatus = gatewayService.getStatus();
   const restartRequired = syncedClaudeAppConfig.configChanged ||
     shouldRestartGatewayForRuntimeConfigChange(previousConfig, savedConfig);
@@ -378,6 +381,7 @@ handle(IPC_CHANNELS.appSaveApiKeys, async (_event, apiKeys: ApiKeyConfig[]) => {
   const savedConfig = await saveApiKeysConfig(apiKeys);
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
   const nextConfig = syncedClaudeAppConfig.config;
+  await reconcileProfileApiKeys(nextConfig);
   await gatewayService.updateConfig(nextConfig);
   logProfileApplyResult(await applyProfileConfig(nextConfig));
   invalidateProviderAccountSnapshotCache();
@@ -392,6 +396,7 @@ handle(IPC_CHANNELS.appSetOnboardingFinished, async () => {
 handle(IPC_CHANNELS.appRestartGateway, async () => {
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
   const config = syncedClaudeAppConfig.config;
+  await reconcileProfileApiKeys(config);
   const status = await gatewayService.restart(config);
   await applyProfileIfServiceRunning(config, status);
   await builtInBrowserService.syncProxy(config);
@@ -400,6 +405,7 @@ handle(IPC_CHANNELS.appRestartGateway, async () => {
 handle(IPC_CHANNELS.appStartGateway, async () => {
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
   const config = syncedClaudeAppConfig.config;
+  await reconcileProfileApiKeys(config);
   const status = await gatewayService.ensureStarted(config);
   await applyProfileIfServiceRunning(config, status);
   await builtInBrowserService.syncProxy(config);
@@ -424,6 +430,7 @@ handle(IPC_CHANNELS.appShowMainWindow, () => {
 handle(IPC_CHANNELS.appRestartProxy, async () => {
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
   const config = syncedClaudeAppConfig.config;
+  await reconcileProfileApiKeys(config);
   const status = await gatewayService.restart(config);
   await applyProfileIfServiceRunning(config, status);
   await builtInBrowserService.syncProxy(config);
@@ -441,6 +448,7 @@ function syncProviderModelAutoRefresh(config: AppConfig): void {
   syncProviderModelAutoRefreshService(config, {
     logger: console,
     onConfigChanged: async (nextConfig) => {
+      await reconcileProfileApiKeys(nextConfig);
       await gatewayService.updateConfig(nextConfig);
       await applyProfileIfServiceRunning(nextConfig, gatewayService.getStatus());
       invalidateProviderAccountSnapshotCache();

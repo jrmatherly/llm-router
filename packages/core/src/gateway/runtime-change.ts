@@ -4,7 +4,7 @@ export function shouldRestartGatewayForRuntimeConfigChange(previousConfig: AppCo
   return runtimeGatewayConfigSignature(previousConfig) !== runtimeGatewayConfigSignature(nextConfig);
 }
 
-function runtimeGatewayConfigSignature(config: AppConfig): string {
+export function runtimeGatewayConfigSignature(config: AppConfig): string {
   return JSON.stringify({
     APIKEY: config.APIKEY,
     APIKEYS: config.APIKEYS,
