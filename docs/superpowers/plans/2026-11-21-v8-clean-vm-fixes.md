@@ -314,13 +314,11 @@ Nothing is displaced when no original existed, so this task puts nothing back. T
 - Test: `packages/core/test/integration/profiles/profile-service.test.mjs`, `packages/core/test/unit/web/web-management-server.test.mjs` (beside the `#1951` recovery tests), `packages/core/test/unit/profiles/backup-files.test.mjs`
 
 **Interfaces:**
-- Produces: `stripManagedCodexConfigContent(content: string, providerIds: string[], displaced: CodexDisplacedConfig = {}): string | undefined` with `type CodexDisplacedConfig = { model?: string; modelCatalogJson?: string; modelProvider?: string; profileTable?: string; showAllSessions?: string }`, each value a whole TOML line or table as the user wrote it.
-  - It deletes every line between each of LLMR's four marker pairs, markers included. One exception: a root `model = ` line whose value differs from the `# LLMR configured model = ` value in the same block is the user's and stays.
-  - Where a marker pair is missing, it falls back to values: it removes `[model_providers.<id>]` for each given id, a root `model_provider` equal to one of the ids, and a root `model_catalog_json` that points at `llmr-model-catalog.json`. It removes no other root key.
-  - It puts a displaced value back only in place of the LLMR line it removed. It never re-inserts a line the user deleted.
-  - It re-serialises nothing, so the user's comments and table order survive. A second call on its own output returns `undefined`.
+- Produces: `stripManagedCodexConfigContent(content: string, providerIds: string[]): string | undefined`. Task 4b adds a `displaced` argument when it has a caller.
+  - It removes each line by what the line holds, never by where it sits. Codex writes its own new tables inside LLMR's last marker pair (checked with codex-cli 0.171.0 and `codex mcp add`, 2026-11-21), so a rule that deleted everything between the markers would delete the user's table.
+  - It removes: the eight marker lines; in the root section, a `model_provider` equal to a given id, a `model_catalog_json` that points at `llmr-model-catalog.json`, the `# LLMR configured model = ` comment and a `model` line equal to that comment's value; a `show_all_sessions` line only inside the root marker pair; `[model_providers.<id>]` for each given id; and LLMR's ToolHub and Context Archive MCP tables with their child tables.
+  - Everything else stays, wherever it sits. It re-serialises nothing, so the user's comments and table order survive. A second call on its own output returns `undefined`.
 - Produces: a per-format test for "nothing left". TOML: whitespace only. Claude Code JSON: `{}` or an object whose only key is an empty `env`.
-- Produces: `backupContent(file, content, options)` in `backup-files.ts`, a content-taking sibling of `backupCurrentFile`, which copies the file.
 - Produces: `RestoreFileResult` gains `removed?: boolean`, true when the restore deleted a file whose original was missing.
 - Consumes: `reconcileProfileApiKeys` from Task 2.
 
@@ -344,7 +342,7 @@ Nothing is displaced when no original existed, so this task puts nothing back. T
   - With a stripper: strip the current content. If nothing is left by the per-format test, remove the file and return `removed: true`. Otherwise write the stripped content.
   - With a stripper, write no backup in this branch. A backup of the stripped file would equal the new live file, and a backup of the unstripped file would hold the token.
   - With a stripper, remove the `.llmr-original-missing` marker in every outcome of this branch, including the one where the file is already absent. The next takeover then records the user's file as the original.
-  - With a stripper, sweep `backupFiles(file)`: delete each backup whose stripped content leaves nothing, and rewrite every other backup as its stripped content through `backupContent`.
+  - With a stripper, sweep `backupFiles(file)`: delete each backup whose stripped content leaves nothing, and rewrite every other backup in place as its stripped content, keeping its file mode.
   - Without a stripper, change nothing. A file LLMR calls managed can still hold the user's content for these agents, so no backup of theirs is ever deleted.
   - Apply the no-backup rule and the marker rule to the Claude Code strip branch too. Its backups hold no token, but each one is a leftover file named `llmr`.
 - [ ] **Step 6: Revoke the key.** In `recoverGlobalAgentProfile`, call `await reconcileProfileApiKeys(config)` inside the existing `try` that wraps `refreshRuntime`, before `refreshRuntime`. Both `refreshRuntime` callers end in `gatewayService.updateConfig`, which restarts the gateway when the key list changes. A token left in any copy is then refused.
@@ -367,7 +365,8 @@ Stripping every time is not the fix. The writer drops four root keys and the use
 - Test: `packages/core/test/integration/profiles/profile-service.test.mjs`, `packages/core/test/unit/profiles/backup-files.test.mjs`, `packages/core/test/unit/web/web-management-server.test.mjs`
 
 **Interfaces:**
-- Consumes: `stripManagedCodexConfigContent`, `CodexDisplacedConfig` and `backupContent` from Task 4a.
+- Consumes: `stripManagedCodexConfigContent` from Task 4a. This task adds its `displaced` argument (`type CodexDisplacedConfig = { model?: string; modelCatalogJson?: string; modelProvider?: string; profileTable?: string; showAllSessions?: string }`, each value a whole TOML line or table as the user wrote it) and puts a displaced value back only in place of the LLMR line it removed.
+- Produces: `backupContent(file, content, options)` in `backup-files.ts`, a content-taking sibling of `backupCurrentFile`, which copies the file. Task 4a's sweep rewrites an existing backup in place and needs none.
 - Produces: a Codex state file beside Claude Code's, at `<llmrManagedProfileDir(profile)>/codex/takeover-state.json`, holding the SHA-256 of the `config.toml` LLMR last wrote. Mirror `claudeCodeProfileSettingsStateFile` and clear it through `onReleased`. Do not add fields to `GlobalProfileTakeoverRecord`: `synchronizeGlobalProfileTakeovers` compares those records by JSON, and a new field would make every apply restore and retake every agent.
 - Produces: `stripBeforeSnapshot?: boolean` on `RestoreManagedContentMatchers`, set at the Codex call sites only.
 - Produces: the displaced values for a strip come from the snapshot, not from new state. Read the four root lines and the `[profiles.<providerId>]` table out of the `originalSnapshotCandidate` content.
@@ -493,7 +492,7 @@ The owner runs this task. It needs a provider key, which stays in the VM and out
 - [ ] Switch both cards off, switch Claude Code on, run `./collect.sh latch`. Pass when the log shows `~/.claude/settings.json` (Task 1).
 - [ ] Click **Restore original settings** on the Claude Code card, run `./collect.sh after-restore`. Pass when `~/.claude` holds no file whose name contains `llmr` (Task 4a).
 - [ ] Switch the Codex card on, then click **Restore original settings** on it and run `./collect.sh after-codex-restore`. Before the click, copy the "Profile: Codex" key from API Keys. Pass when `config.toml` is gone (no original existed in this VM), no file under `~/.codex` contains that key, and `curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer <that key>" http://127.0.0.1:3456/v1/models` prints `401` (Tasks 4a and 4c). `~/.codex/.llm-router/` may remain only if the Codex app was opened from LLMR.
-- [ ] Third pass, only if Codex is installed in the VM. Write a `~/.codex/config.toml` of your own with a comment and `model_provider = "openai"`, and keep a copy. Switch the Codex card on. In Codex, trust a folder, so that Codex itself rewrites the file. Quit LLM Router, do not click Restore. Run `diff` between the copy and the file. Pass when the only differences are the lines Codex added (Tasks 4a and 4b). This is the one check of whether Codex keeps LLMR's comment markers when it rewrites the file.
+- [ ] Third pass, only if Codex is installed in the VM. Write a `~/.codex/config.toml` of your own with a comment and `model_provider = "openai"`, and keep a copy. Switch the Codex card on. In Codex, trust a folder, so that Codex itself rewrites the file. Quit LLM Router, do not click Restore. Run `diff` between the copy and the file. Pass when the only differences are the lines Codex added (Tasks 4a and 4b). Task 4a checked one case offline: `codex mcp add` keeps the markers and writes its table inside LLMR's last block. This pass checks an edit Codex makes from its own UI.
 - [ ] Run Task 10 Steps 3 and 4 in this VM.
 
 **Release:**
@@ -741,6 +740,7 @@ The owner asked for research before confirming V-7 and V-16. One agent traced th
 | Side files and messages | Steps of Task 4a | Task 4c | Task 4a was the largest task in the plan. The data-loss fix now lands first and alone |
 | Messages | Three texts, "log in again" | Five texts, scoped to two agents and to the paths where the profile ends disabled | The takeover sync re-applies at once, and a user who only used the agent through LLMR never logged in before |
 | V-7 | "Revokes the key at once" on every trigger | Only when the restore leaves the profile disabled | A quit leaves the profile enabled and reuses the key at the next launch |
+| The stripper, again (found while building Task 4a) | Delete everything between each marker pair | Remove each line by what it holds | Codex writes a new table inside LLMR's last marker pair, so the block rule would have deleted the user's table. Reproduced with codex-cli 0.171.0 |
 | Task 11 | One restore check | A token check, a 401 check and a third pass on a real Codex install | Whether Codex keeps LLMR's comment markers when it rewrites the file is known only second-hand |
 
 Not taken from the audit: promoting "Claude Code values under LLMR's own key names" from Open items to a task. It is user content lost, so it bears on the goal, but it is known only from a probe the plan author did not rerun. It stays in Open items with its check named.
