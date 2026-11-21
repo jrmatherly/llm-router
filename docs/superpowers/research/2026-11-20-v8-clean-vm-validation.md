@@ -175,6 +175,16 @@ Found 2026-11-21, after Task 4a merged (PR 132), by measuring the Codex stripper
 
 Fix plan: Task 4d for all four in the stripper and the restore path. The writer's share of F-26, and a CRLF fault in the writer's marker regex, are in the plan's Open items.
 
+### F-27 to F-29: what the review of PR 133 found
+
+Reviewers of PR 133 ran these in an isolated home. The plan author reran each on `main` at `2e83ff7c`.
+
+- **F-27. Claude Code: an older backup is restored over the user's newest file.** With a stale `.llmr-original-missing` marker, an old backup with nothing of LLMR's in it, and a live file holding only keys LLMR also writes (the user's own `NO_PROXY` with `localhost`, a model env key), a restore writes the old backup back. The guard from PR 133 refuses the newest backup because the stripper would change it. Reached from a planted state only.
+- **F-28. Claude Code: a deleted live file takes the backups with it.** With no original, after the user deletes `settings.json`, a restore deletes every backup, including one that holds a key the user added, and reports "already matches the LLMR backup".
+- **F-29. Claude Code: a backup that does not parse is restored.** A truncated copy of LLMR's file among the backups is written back with status ok, whether or not an original existed. An apply never backs up a file that does not parse, so the state needs an outside cause such as a full disk.
+
+Fix plan: Task 4e for F-27 and F-29. Task 4d Part 4 for the copy in F-28, on the owner's word (V-17), and Task 4c for its message.
+
 ## Notes, not defects
 
 - The dmg carries no signature of its own (`spctl` on the dmg: "no usable signature"). Gatekeeper accepts the notarized, stapled app inside.

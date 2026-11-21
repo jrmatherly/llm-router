@@ -4,13 +4,13 @@
 
 **Goal:** A person who installs LLM Router on a clean Mac can add a provider, connect the one agent they chose, and keep it connected, without a false error, a silent takeover of another agent, or a restart.
 
-**Architecture:** Two phases. Phase A is Tasks 0 to 5 (Task 4 is four PRs, in the order 4a, 4d, 4b, 4c), an investigation task and a release task. It fixes agent profiles and the first-run screen, and it can ship without Phase B. Phase B is Tasks 6 to 9, the smaller UI defects, cost totals and a request log retention setting. Each task is one branch and one squash-merged PR. Tasks run one at a time in the order under "Order", because several of them edit the same files.
+**Architecture:** Two phases. Phase A is Tasks 0 to 5 (Task 4 is five tasks, in the order 4a, 4d, 4e, 4b, 4c, and Task 4d is four PRs with Task 4e run after its Part 1), an investigation task and a release task. It fixes agent profiles and the first-run screen, and it can ship without Phase B. Phase B is Tasks 6 to 9, the smaller UI defects, cost totals and a request log retention setting. Each task is one branch and one squash-merged PR. Tasks run one at a time in the order under "Order", because several of them edit the same files.
 
 **Tech Stack:** TypeScript, Electron 45, React, `better-sqlite3`, `node:test` with `node:assert/strict`, component tests that render with `renderToStaticMarkup`.
 
-**Spec:** [`docs/superpowers/research/2026-11-20-v8-clean-vm-validation.md`](../research/2026-11-20-v8-clean-vm-validation.md). Finding ids F-1 to F-26 come from that record. Read each finding a task names before you start the task.
+**Spec:** [`docs/superpowers/research/2026-11-20-v8-clean-vm-validation.md`](../research/2026-11-20-v8-clean-vm-validation.md). Finding ids F-1 to F-29 come from that record. Read each finding a task names before you start the task.
 
-**Review history.** Written 2026-11-21 from three code explorations. Audited the same day by two independent passes, one that checked every path, symbol and test against the code and one on the design. The audit found two blockers that this version fixes. Task 4 would have deleted a user's own Codex settings, and Task 2's test named a fixture that does not exist. It also replaced Task 2's design, which restarted the gateway twice, and corrected the causes stated in Tasks 8 and 9. The plan author re-read each audit finding in the code before applying it. Task 4 and decisions V-7 and V-16 were rewritten later the same day after the restore research, and that rewrite was audited by two more passes. Appendix C records both. Task 4d and the safety-copy clause of V-7 were added after the stripper was measured against real Codex (Appendix D).
+**Review history.** Written 2026-11-21 from three code explorations. Audited the same day by two independent passes, one that checked every path, symbol and test against the code and one on the design. The audit found two blockers that this version fixes. Task 4 would have deleted a user's own Codex settings, and Task 2's test named a fixture that does not exist. It also replaced Task 2's design, which restarted the gateway twice, and corrected the causes stated in Tasks 8 and 9. The plan author re-read each audit finding in the code before applying it. Task 4 and decisions V-7 and V-16 were rewritten later the same day after the restore research, and that rewrite was audited by two more passes. Appendix C records both. Task 4d and the safety-copy clause of V-7 were added after the stripper was measured against real Codex (Appendix D). Task 4e was added after the review of PR 133 (Appendix E).
 
 **Evidence status.** A cause marked "inferred" was not confirmed by reading the code path end to end. Its task starts with the step that confirms it.
 
@@ -34,6 +34,7 @@
 | V-14 | The plan author chose these user-visible strings and values. Change any of them in review without reopening the plan: the media protocol labels `OpenAI Images`, `OpenAI Video` and `xAI Video`, the placeholder `Select default model`, the toast offset `top-14`, the consent sentence in Task 3 Step 7, the `Skip for now` label and the skipped Profile row text. | Plan author |
 | V-15 | A per-PR gate is the unit, component and end-to-end tests. The clean-VM checks run once, by the owner, on a build that holds every Phase A task (Task 11). An agent cannot drive the UTM window, and the checks need a provider key that must not sit in a repo or a shared folder. | Plan author, from the audit |
 | V-16 | **Restore original settings** acts without a confirmation prompt, and only together with V-7. The same file changes run on a quit and a gateway stop, where nobody can answer a prompt. The result message does the prompt's work: it names what was removed and what was kept, says that switching the profile on again undoes it, and says the agent may ask the user to log in. The message is shown where a person asked for the restore. A quit and a gateway stop show none. | Owner, 2026-11-21, after the research in Appendix C |
+| V-17 | When a restore finds no original and the user has deleted the live file, LLMR saves the newest backup that holds something of the user's as a safety copy, by V-7's safety-copy rules (LLMR's data folder, token blanked, last three per file), before it deletes the backups. The file stays absent. **This widens V-7's safety-copy clause, which covers only a strip of a live file, and needs the owner's word.** Without it the backups are deleted with no copy, as V-7 reads today and as PR 133 left it. | Plan author's proposal, 2026-11-21, after the review of PR 133 (Appendix E). Open |
 
 ## Global Constraints
 
@@ -73,16 +74,18 @@ Run the tasks in this order, one at a time.
 | 3 | 3 | A | Changes the default config that every later test builds on |
 | 4 | 2 | A | Edits `gateway-service.ts` before Task 5 does |
 | 5 | 4a | A | Its tests need Task 3's defaults, and it uses Task 2's `reconcileProfileApiKeys` |
-| 6 | 4d | A | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. Four PRs, Parts 1 to 4 in order |
-| 7 | 4b | A | Builds on the Codex stripper from Task 4a and the record from Task 4d |
-| 8 | 4c | A | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
-| 9 | 5 | A | Edits `gateway-service.ts`, `App.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
-| 10 | 10 | A | Investigation, no code |
-| 11 | 11 | A | The owner's VM pass and the release |
-| 12 | 6 | B | Edits `profiles.tsx` and `network-logs.tsx` |
-| 13 | 9 | B | Edits `network-logs.tsx` after Task 6 |
-| 14 | 7 | B | Edits `layout.tsx` after Task 5 |
-| 15 | 8 | B | Independent, and its cause is inferred |
+| 6 | 4d Part 1 | A | Merged as PR 133 |
+| 7 | 4e | A | Corrects the guard Part 1 shipped, in the same function, before anything else builds on it |
+| 8 | 4d Parts 2 to 4 | A | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. One PR each, in order |
+| 9 | 4b | A | Builds on the Codex stripper from Task 4a and the record from Task 4d |
+| 10 | 4c | A | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
+| 11 | 5 | A | Edits `gateway-service.ts`, `App.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
+| 12 | 10 | A | Investigation, no code |
+| 13 | 11 | A | The owner's VM pass and the release |
+| 14 | 6 | B | Edits `profiles.tsx` and `network-logs.tsx` |
+| 15 | 9 | B | Edits `network-logs.tsx` after Task 6 |
+| 16 | 7 | B | Edits `layout.tsx` after Task 5 |
+| 17 | 8 | B | Independent, and its cause is inferred |
 
 ---
 
@@ -482,7 +485,54 @@ No TOML parser is in any `package.json` or in `node_modules`, and a parser could
   - in the path where the live file tests managed, which a Codex file with LLMR's block always takes, save unless the file is untouched.
 
   Order: read the record; compute the stripped content; save the copy, and throw before touching the live file if that fails; write or remove the live file; delete the backups; remove the marker; clear the record last.
-- [ ] **Step 3: Run the tests. State the limits in the PR. Commit.** `fix(profiles): keep a safety copy of an agent config before stripping it`. Limits: a copy is raw apart from LLMR's token, so it holds any other secret the file held. Nothing deletes the copies when a profile is deleted or LLMR is removed. Two copies written in the same millisecond share a name.
+- [ ] **Step 3: Save a copy when the live file is gone (F-28). Only with the owner's word on V-17.** Without it, skip this step and say so in the PR.
+  - Failing test first, in `profile-service.test.mjs`: `a restore after the user deleted their Claude Code settings keeps a copy of what the backups held`. Claude Code, no original. Add `permissions: { allow: ["Bash(ls)"] }`, re-apply with a second model so a backup is written, delete `settings.json`, recover. `settings.json` is still absent, the directory holds no name that contains `llmr`, and the record directory for that file holds exactly one copy, which contains `Bash(ls)`. No second test for "no edit": an apply with no previous file writes no backup, so that case cannot fail. The branch is reached for Codex too, which is intended: `stripManagedCodexConfigContent` decides there what a backup holds of the user's.
+  - In the no-original branch of `restoreGlobalConfigFile`, when `current === undefined`: before `forgetMissingOriginal`, walk `backupFiles(file)` newest first and take the first one for which `strip(content)` returns content that is not empty by `isEmptyConfigContent`. Pass that backup's raw content to `saveRemovedConfigCopy`. Throw before deleting anything if the save fails. A backup with nothing of LLMR's in it cannot be there: the lookup above this branch would have restored it. A backup that does not parse is passed over, because the stripper returns nothing for it.
+- [ ] **Step 4: Run the tests. State the limits in the PR. Commit.** `fix(profiles): keep a safety copy of an agent config before stripping it`. Limits: a copy is raw apart from LLMR's token, so it holds any other secret the file held. Nothing deletes the copies when a profile is deleted or LLMR is removed. Two copies written in the same millisecond share a name.
+
+---
+
+### Task 4e: Tell a takeover copy from the user's file by LLMR's own values (F-27, F-29)
+
+Added on 2026-11-21 after the review of PR 133 (Appendix E). One PR, from `main`, before Task 4d Part 2.
+
+PR 133 made the snapshot lookup skip, when no original existed, any backup the stripper would change. That test is too wide for Claude Code. `stripManagedClaudeCodeSettingsContent` goes by key name: it changes a file that holds the user's own `NO_PROXY` with `localhost` in it, or one of the model env keys while a takeover is active. Such a file is the user's, not a copy from LLMR's time. The lookup also has no answer for a backup that does not parse.
+
+- **F-27, an older backup wins.** Stale `.llmr-original-missing` marker, an old backup with nothing of LLMR's in it, and a live `settings.json` of `{"env":{"ANTHROPIC_DEFAULT_OPUS_MODEL":"my-opus","NO_PROXY":"localhost,corp.internal"}}`. Apply, recover. The file comes back as the old backup. Run by the plan author on `main` at `2e83ff7c`.
+- **F-29, a backup that does not parse is restored.** A truncated copy of LLMR's `settings.json` among the backups is written back with status ok, with or without an original. Run by the plan author on `main` at `2e83ff7c`, both ways.
+
+**What settles it.** A copy from LLMR's time holds a value only LLMR writes: its `apiKeyHelper` path, a gateway base URL equal to an endpoint LLMR recorded, all three gateway keys set alike, or LLMR's federation rule id. `claudeCodeDisplacedEnv` uses the endpoint and three-alike tests at apply time. The user's own `NO_PROXY` or model env key carries none of these.
+
+**Evidence status.** Built twice as throwaway code on `main` at `2e83ff7c`. The first build returned an accepted backup unstripped. An auditor ran it and found that it wrote LLMR's own leftovers back in two planted states, which `main` does not. The plan author rebuilt it as written below and ran it: `npm run test:core` passed (1767, 0 fail, with three probes), the F-27 state restored the user's newest file, and both of the auditor's states came out with nothing of LLMR's. The F-29 states were run on the first build only, and the second build did not change that path. The sketch is not in the repo.
+
+**Files:**
+- Modify: `packages/core/src/profiles/service.ts` (`RestoreManagedContentMatchers`, `restoreGlobalConfigFile`, `originalSnapshotCandidate`, `claudeCodeManagedContent`, `orphanedClaudeCodeManagedContent`, the bare Claude Code matcher in `restoreInactiveGlobalProfileConfigs`)
+- Test: `packages/core/test/integration/profiles/profile-service.test.mjs`
+
+**Interfaces:**
+- Produces: `RestoreManagedContentMatchers` gains `takeoverContent?: (content: string) => "none" | "parsed" | "unparsed"`.
+  - `"parsed"`: the content parses and holds a value only LLMR writes.
+  - `"unparsed"`: the content does not parse and its text holds one.
+  - `"none"`: neither. Content that does not parse and holds no such text is `"none"`, so `profile service restores global agent configs on exit`, whose fixtures are not JSON, keeps passing.
+- Produces: `claudeCodeTakeoverContent(content: string, endpoints: string[]): "none" | "parsed" | "unparsed"`.
+  - Parsed, any one of: `isManagedClaudeCodeApiKeyHelper(settings.apiKeyHelper)`; one of `claudeCodeGatewayEnvKeys` holds a string that is in `endpoints`; `isClaudeCodeGatewayTakeoverEnv(env)`, whatever is recorded, because a backup from before a port change holds an endpoint no longer on record; `env.ANTHROPIC_FEDERATION_RULE_ID === claudeCodeWifFederationRuleId`, because a WIF profile writes no helper path.
+  - Unparsed: the text includes `llmr-claude-code-api-key-` or one of `endpoints`.
+- All three Claude Code matcher builders set `takeoverContent`: `claudeCodeManagedContent` with `scope.endpoints`, `orphanedClaudeCodeManagedContent` with its merged `endpoints`, the bare matcher with `[]`.
+- `originalSnapshotCandidate` skips a candidate when `takeoverContent` says `"unparsed"`, on every call. When no original existed and a stripper is set, it also skips one that says `"parsed"`. A matcher with no `takeoverContent` (Codex) keeps PR 133's test, `strip(content) !== undefined`, in that mode.
+- An accepted candidate is still returned as `stripManagedContent?.(content) ?? content`, as today. Do not return it unstripped. A backup can hold LLMR's `NO_PROXY` hosts and model-discovery keys with none of the values above (the user removed the helper and the URLs, and LLMR backed the file up at the next apply), and only the strip removes those.
+- Codex is unchanged. Its `isManagedContent` already refuses a backup with LLMR's markers or provider table, and TOML has no parse step here.
+
+- [ ] **Step 1: Write the failing tests**, in `profile-service.test.mjs`, each with `withAppliedDefaultProfiles(["default-claude-code"], run, beforeApply)`.
+  - `a stale marker beside an old clean backup still restores the user's newest Claude Code settings`. `beforeApply` writes `settings.json.llmr-original-missing`, `settings.json.llmr-backup-2000-01-01T00-00-00-000Z` holding `{"permissions":{"allow":["Bash(ls)"]}}`, and `settings.json` holding the F-27 text above followed by a newline. Every `beforeApply` here starts with `mkdirSync(claudeDir, { recursive: true })`, because the helper's clean-up removes the directory. After `recoverGlobalAgentProfile("default-claude-code")`, the file parses to `{ env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "corp.internal" } }` by `assert.deepEqual`. The strip removes `localhost`, which is the Open items row on LLMR's own key names and not this task.
+  - `a truncated copy of LLMR's settings among the backups is not restored`. After the apply, write the first 70% of the applied file to `settings.json.llmr-backup-2099-01-01T00-00-00-000Z`. Assert first that `JSON.parse` of that text throws and that it includes `llmr-claude-code-api-key-`. Recover. The status is ok and `settings.json` does not exist.
+  - `a truncated copy of LLMR's settings does not displace the user's original`. `beforeApply` writes `settings.json` as `{"permissions":{"allow":["Bash(ls)"]}}` and a newline. After the apply, rewrite the live file with only its `apiKeyHelper` and `env`, and plant the same truncated backup. Recover. The file equals the original text exactly, newline included.
+  - `a backup that holds LLMR's leftover env keys does not bring them back`. After the apply, read the applied `env`, drop the three `claudeCodeGatewayEnvKeys` from it, and write `{ permissions: { allow: ["Bash(ls)"] }, env: <the rest> }` to `settings.json.llmr-backup-2099-01-01T00-00-00-000Z`. Assert the backup text includes `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`. Recover. `settings.json` is absent or does not include that name. Under this task the file comes back as `permissions` with an empty `env`. On `main` today it is removed. Either is accepted, and the test is there to fail when a candidate is returned unstripped.
+  - `a takeover copy from before a port change is not restored`. After the apply, write a backup dated 2099 holding `permissions` and all three gateway keys set to `http://127.0.0.1:9999`. Recover. `settings.json` does not exist.
+- [ ] **Step 2: Run them and watch them fail.** `node build/test.mjs core && node --test --test-name-pattern="stale marker beside|truncated copy" .test-dist/core/test/integration/profiles/profile-service.test.js`. Expected: the first returns the `permissions` backup, and the two truncated-copy tests leave a live file that does not parse. The last two pass on `main` today, because PR 133's wider test refuses both backups. They are there to fail under a wrong build of this task.
+- [ ] **Step 3: Add `takeoverContent` and `claudeCodeTakeoverContent`, and use them in the lookup**, as the Interfaces block says. Reword the comment PR 133 left in `originalSnapshotCandidate` to name the new test.
+- [ ] **Step 4: Run the tests.** The three new ones pass. `restoring a Claude Code settings file LLMR created does not bring back a key the user deleted` and `a stale original-missing marker does not cost the user their own Codex config` still pass. Then `npm run test:core`, `npm run typecheck`, `npm run lint`, `npm run test:architecture`.
+- [ ] **Step 5: Break it three times.** Make the no-original mode skip nothing and confirm `restoring a Claude Code settings file LLMR created does not bring back a key the user deleted` fails. Make `"unparsed"` return `"none"` and confirm both truncated-copy tests fail. Return an accepted candidate unstripped and confirm the leftover-env test fails. Put all three back.
+- [ ] **Step 6: State the limits in the PR. Commit.** `fix(profiles): tell a takeover copy from the user's file by LLMR's own values`. Limits: a user whose own settings set all three gateway keys alike, or point one at the address LLMR's gateway uses, is taken for a takeover copy, which the Open items row on LLMR's own key names already describes. A backup with LLMR's leftover env keys and none of its values is taken for the user's file and restored stripped, so it can bring back a key the user deleted after that backup was taken. That needs the user to have removed the helper and the URLs by hand first. A restore through the snapshot still leaves the stale marker and the backups beside the file, as before this task. F-28 is Task 4d Part 4, Step 3.
 
 ---
 
@@ -793,8 +843,6 @@ No task covers these. Each names what settles it.
 | Codex and Workbuddy on one config directory | The owner guard is per agent, so a Codex restore strips a provider table a Workbuddy profile on the same directory still needs. Read in code by the audit, not reproduced. | Reproduce it in a test home. If it holds, skip the strip while another enabled Codex-family profile uses the file. |
 | The Codex stripper on a real original | `originalSnapshotCandidate` applies the stripper to a snapshot. A profile whose provider id equals a provider the user's own file names (for example `openai`) would lose the user's `model_provider` line from what is restored. The `.llmr-original` file itself stays intact. Read in code by a reviewer. | Strip a snapshot's `model_provider` only when the snapshot shows other LLMR content. |
 | The Codex writer on awkward files | `removeCodexProviderTable`, `removeCodexMcpServerTable` and `removeManagedMarkerLines` run on the user's file at every apply and know nothing of multi-line strings. A `"""` string that holds a line like `[model_providers.llm-router]` is cut, and Codex then fails to load the file. On a CRLF file the marker regex eats line breaks and leaves bare carriage returns. Measured by a research agent, 2026-11-21. Task 4d fixes the stripper's own scan and leaves the writer. | Give the writer the string-aware line iterator from Task 4d, and match markers with an optional carriage return. Check first whether Codex or a Windows editor ever saves the file as CRLF. |
-| A backup that does not parse | `stripManagedClaudeCodeSettingsContent` returns `undefined` for JSON it cannot parse, the same answer as "nothing of LLMR's", and such content never tests managed. A truncated copy of LLMR's file among the backups is then written back as the original, with status ok. Run by a reviewer of PR 133 with a hand-planted backup, the same on `main`. Whether an apply can back up a malformed live file was not checked. | Give the stripper a "cannot parse" answer distinct from "nothing to strip", and refuse such a backup. |
-| The F-23 guard beside a stale marker | With no original, the restore skips a backup the stripper would change and goes on to older ones. A Claude Code original that held only keys LLMR also writes (the user's own `NO_PROXY` with `localhost`, a model env key) is such a backup, so an older clean backup wins over it. Run by a reviewer of PR 133 from a planted state (stale marker, an old clean backup, such a live file); not reached from a clean start. Stopping at the first skipped backup instead loses a real original that sits behind an apply-time backup. Separately, when the user deleted the live file, the skipped backups are deleted with status "already matches the LLMR backup"; `main` wrote the newest one back. That follows V-7, and the wording is Task 4c's. | The V-7 rule for values (the row "Claude Code values under LLMR's own key names") removes the first case. |
 | Agents with no stripper | OpenCode, Kilo, Pi, ZCode and Workbuddy have an all-or-nothing managed test, so a restore can remove a file that holds the user's content. V-7 leaves them on today's behaviour, where the backup survives. | Write a stripper per agent, then apply Task 4a's rules to it. |
 | The empty `~/Library/Application Support/LLM Router` folder | Cosmetic. Electron creates it before LLMR moves its data directory. | Leave it unless the owner wants it gone. |
 
@@ -924,3 +972,22 @@ The harness is not in the repo. It was left in `scratchpad/exp/` of the session 
 Not taken: verifying a strip at run time by comparing lines before and after. Without a record of what LLMR wrote it repeats the stripper's own guess, and a refusal on quit would leave the token in place with nobody to see it. The record makes the strip exact instead.
 
 Outside practice, read through a summarising fetch by the research agent: conda and rustup strip their own lines and keep no copy; oh-my-zsh, dpkg and rpm keep one suffixed copy beside the file; Apple's file system guide puts files an app manages on its own under Application Support, not in the user's folders: <https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html>.
+
+## Appendix E. What the review of PR 133 changed
+
+PR 133 (Task 4d Part 1) was reviewed by three agents, each of which ran sequences in an isolated home. Three findings were left unfixed in that PR and recorded as Open items. The owner asked for proper fixes the same day. The plan author reran all three on `main` at `2e83ff7c` with throwaway tests, then built the fix for two of them as throwaway code and ran the core suite against it.
+
+| Finding | Measured on `main` | Where it is fixed |
+|---|---|---|
+| F-27 | With a stale marker, an old clean backup and a live file holding only keys LLMR also writes, a restore writes the old backup back | Task 4e |
+| F-28 | After the user deletes the live file, a no-original restore deletes a backup holding the user's `permissions` key and reports "already matches the LLMR backup". Before PR 133 the backup was written back, which resurrected a file the user had deleted | The copy: Task 4d Part 4, Step 3, on the owner's word (V-17). The message: Task 4c's `absent` text |
+| F-29 | A truncated copy of LLMR's `settings.json` among the backups is restored with status ok, with or without an original | Task 4e |
+
+**What the research found.**
+- An apply refuses a `settings.json` that does not parse (`readClaudeCodeSettingsObject` throws, and the status is not ok) and writes no backup of it. Run. So a Claude Code backup that does not parse never came from an apply, and one that also carries LLMR's helper path or endpoint is never the user's original.
+- PR 133's test, "the stripper would change it", is true of files that are wholly the user's, because the Claude Code stripper goes by key name. The apply path already has the narrower test in `claudeCodeDisplacedEnv`.
+- Stopping the lookup at the first skipped backup was considered and not taken. A real original can sit behind an apply-time backup beside a stale marker, and stopping would strip the live file and delete that original. Reasoned from the code, not run.
+- For Claude Code the no-original lookup is reached only when the live file is absent or holds nothing but keys LLMR also writes. A file with any other key is stripped in place first. Run in PR 133.
+- An audit of the first draft of Task 4e built it and ran it. It found that returning an accepted backup unstripped writes LLMR's leftover env back, and that the takeover test missed a copy from before a port change and a WIF profile's copy. The plan author rebuilt the design with both corrections and reran the suite and the auditor's two states.
+
+Not covered here: the stripper still removes the user's own values under LLMR's key names when it strips a live file or a takeover-time backup. That is the Open items row "Claude Code values under LLMR's own key names".
