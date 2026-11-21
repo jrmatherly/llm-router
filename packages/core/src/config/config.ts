@@ -468,7 +468,7 @@ function withSingleEnabledGlobalProfiles(config: AppConfig): AppConfig {
 
 function synchronizeLegacyProfileConfig(profile: AppConfig["profile"]): AppConfig["profile"] {
   const profiles = enforceSingleEnabledGlobalProfilePerAgent(profile.profiles);
-  const profileEnabled = profile.enabled !== false && profiles.some((item) => item.enabled);
+  const profileEnabled = profiles.some((item) => item.enabled);
   const claudeCodeProfile = profileEnabled ? activeGlobalProfile(profiles, "claude-code") : undefined;
   const codexProfile = profileEnabled ? activeGlobalProfile(profiles, "codex") : undefined;
 

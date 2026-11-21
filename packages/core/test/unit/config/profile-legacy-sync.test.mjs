@@ -31,15 +31,15 @@ test("saving profiles synchronizes legacy profile enabled flags", async () => {
   topLevelDisabledConfig.configRevision = savedWithoutClaude.configRevision;
   topLevelDisabledConfig.profile.enabled = false;
   const savedTopLevelDisabled = await saveAppConfig(topLevelDisabledConfig);
-  assert.equal(savedTopLevelDisabled.profile.enabled, false);
-  assert.equal(savedTopLevelDisabled.profile.claudeCode.enabled, false);
-  assert.equal(savedTopLevelDisabled.profile.codex.enabled, false);
+  assert.equal(savedTopLevelDisabled.profile.enabled, true);
+  assert.equal(savedTopLevelDisabled.profile.claudeCode.enabled, true);
+  assert.equal(savedTopLevelDisabled.profile.codex.enabled, true);
   assert.equal(savedTopLevelDisabled.profile.profiles.some((profile) => profile.enabled), true);
 
   const rawTopLevelDisabled = await loadPersistedAppConfig();
-  assert.equal(rawTopLevelDisabled.profile.enabled, false);
-  assert.equal(rawTopLevelDisabled.profile.claudeCode.enabled, false);
-  assert.equal(rawTopLevelDisabled.profile.codex.enabled, false);
+  assert.equal(rawTopLevelDisabled.profile.enabled, true);
+  assert.equal(rawTopLevelDisabled.profile.claudeCode.enabled, true);
+  assert.equal(rawTopLevelDisabled.profile.codex.enabled, true);
 
   savedWithoutClaude.profile.profiles = [];
   savedWithoutClaude.configRevision = savedTopLevelDisabled.configRevision;
@@ -82,4 +82,11 @@ test("saving profiles synchronizes legacy profile enabled flags", async () => {
   assert.equal(loadedLegacyBooleanConfig.profile.claudeCode.managedCompact, true);
   assert.equal(loadedLegacyBooleanConfig.profile.codex.managedCompact, true);
   assert.equal(loadedLegacyBooleanConfig.profile.codex.showAllSessions, true);
+
+  const stuckConfig = createDefaultAppConfig();
+  stuckConfig.profile.enabled = false;
+  await replacePersistedAppConfig(stuckConfig);
+  const loadedStuckConfig = await loadAppConfig();
+  assert.equal(loadedStuckConfig.profile.enabled, true);
+  assert.equal(loadedStuckConfig.profile.claudeCode.enabled, true);
 });
