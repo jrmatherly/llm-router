@@ -4,13 +4,13 @@
 
 **Goal:** A person who installs LLM Router on a clean Mac can add a provider, connect the one agent they chose, and keep it connected, without a false error, a silent takeover of another agent, or a restart.
 
-**Architecture:** Two phases. Phase A is Tasks 0 to 5, an investigation task and a release task. It fixes agent profiles and the first-run screen, and it can ship without Phase B. Phase B is Tasks 6 to 9, the smaller UI defects, cost totals and a request log retention setting. Each task is one branch and one squash-merged PR. Tasks run one at a time in the order under "Order", because several of them edit the same files.
+**Architecture:** Two phases. Phase A is Tasks 0 to 5 (Task 4 is two PRs, 4a and 4b), an investigation task and a release task. It fixes agent profiles and the first-run screen, and it can ship without Phase B. Phase B is Tasks 6 to 9, the smaller UI defects, cost totals and a request log retention setting. Each task is one branch and one squash-merged PR. Tasks run one at a time in the order under "Order", because several of them edit the same files.
 
 **Tech Stack:** TypeScript, Electron 45, React, `better-sqlite3`, `node:test` with `node:assert/strict`, component tests that render with `renderToStaticMarkup`.
 
 **Spec:** [`docs/superpowers/research/2026-11-20-v8-clean-vm-validation.md`](../research/2026-11-20-v8-clean-vm-validation.md). Finding ids F-1 to F-17 come from that record. Read each finding a task names before you start the task.
 
-**Review history.** Written 2026-11-21 from three code explorations. Audited the same day by two independent passes, one that checked every path, symbol and test against the code and one on the design. The audit found two blockers that this version fixes. Task 4 would have deleted a user's own Codex settings, and Task 2's test named a fixture that does not exist. It also replaced Task 2's design, which restarted the gateway twice, and corrected the causes stated in Tasks 8 and 9. The plan author re-read each audit finding in the code before applying it.
+**Review history.** Written 2026-11-21 from three code explorations. Audited the same day by two independent passes, one that checked every path, symbol and test against the code and one on the design. The audit found two blockers that this version fixes. Task 4 would have deleted a user's own Codex settings, and Task 2's test named a fixture that does not exist. It also replaced Task 2's design, which restarted the gateway twice, and corrected the causes stated in Tasks 8 and 9. The plan author re-read each audit finding in the code before applying it. Task 4 and decisions V-7 and V-16 were rewritten later the same day after the restore research in Appendix C.
 
 **Evidence status.** A cause marked "inferred" was not confirmed by reading the code path end to end. Its task starts with the step that confirms it.
 
@@ -24,7 +24,7 @@
 | V-4 | Both default profiles ship disabled. Onboarding enables only the profile for the agent the user picks. A config that v8.0.0 already saved keeps both profiles enabled, and the release notes say so. | Owner, 2026-11-21, after the research in Appendix A |
 | V-5 | The onboarding "Connect agent" step gets a **Skip for now** action. It ships only together with V-4, because a skip with enabled defaults still applies both. | Owner, 2026-11-21, after the research in Appendix A |
 | V-6 | A gateway that has no provider model reports `state: "stopped"` with the reason in `lastError`. It is not an error. The audit proposed a separate `stoppedReason: "no-models"` field with `lastError` unset, so a reader can tell "never configured" from "failed". That widens `GatewayStatus` for one case. | Plan author. The owner has not confirmed it and may prefer the audit's field |
-| V-7 | **Restore original settings** never deletes content LLMR did not write. When the original file did not exist, LLMR removes its own content. A file that then holds nothing is removed with its marker and with backups that hold only LLMR's content. A file that still holds the user's content stays. LLMR never removes `~/.claude`, `~/.codex`, `~/.claude.json` or `~/.claude/.claude.json`. | Plan author, from the owner's standing rule on `~/.claude.json` and the audit's data-loss finding. The owner has not confirmed it |
+| V-7 | **Restore original settings** removes only what LLMR wrote, for every agent that has a stripper (Claude Code, Codex), on every trigger (the button, a profile switched off, a gateway stop, a quit) and whether or not an original file existed. A top-level Codex key is removed only while it still holds the value LLMR wrote, and the `model_provider` LLMR displaced is put back. A file is removed only when no original existed and nothing but LLMR's content is left, and "nothing left" is defined per format. Restore revokes the profile's key at once. It deletes backups that hold only LLMR's content, and keeps a backup that holds the user's content with LLMR's token removed. An agent with no stripper (OpenCode, Kilo, Pi, ZCode, Workbuddy) keeps today's behaviour and never loses a backup. LLMR never removes `~/.claude`, `~/.codex`, `~/.claude.json` or `~/.claude/.claude.json`. | Owner, 2026-11-21, after the research in Appendix C |
 | V-8 | Retention accepts 1 to 90 days and lives in the request log database, so every process reads the same number. **The default needs the owner's word.** 1 day keeps today's behaviour. 7 days is the audit's proposal, because the owner asked for the setting after one day surprised him. | Range and storage: plan author. Default: open |
 | V-9 | No date filter on the Logs page in this plan. The list is sorted newest first and paged. | Plan author. The owner has not confirmed it |
 | V-10 | A push or tag on `jrmatherly/llmr-gateway` needs the owner's word each time. Nothing in Tasks 0 to 9 touches the fork. | Owner, standing rule |
@@ -33,7 +33,7 @@
 | V-13 | LLMR creates and prunes profile keys before it starts or updates the gateway, so one restart carries the new key list. The gateway child still restarts on a profile change, as it does today, and a restart drops requests in flight. A reload without a restart needs a change in the gateway fork and is not in this plan. | Plan author, from the audit |
 | V-14 | The plan author chose these user-visible strings and values. Change any of them in review without reopening the plan: the media protocol labels `OpenAI Images`, `OpenAI Video` and `xAI Video`, the placeholder `Select default model`, the toast offset `top-14`, the consent sentence in Task 3 Step 7, the `Skip for now` label and the skipped Profile row text. | Plan author |
 | V-15 | A per-PR gate is the unit, component and end-to-end tests. The clean-VM checks run once, by the owner, on a build that holds every Phase A task (Task 11). An agent cannot drive the UTM window, and the checks need a provider key that must not sit in a repo or a shared folder. | Plan author, from the audit |
-| V-16 | **Restore original settings** keeps acting without a confirmation prompt. With V-7 it can no longer delete the user's content. | Plan author. The owner has not confirmed it |
+| V-16 | **Restore original settings** acts without a confirmation prompt, and only together with V-7. The same file changes run on a quit and a gateway stop, where nobody can answer a prompt. The result message does the prompt's work: it names what was removed and what was kept, says that switching the profile on again undoes it, and says the agent may need its vendor login again. | Owner, 2026-11-21, after the research in Appendix C |
 
 ## Global Constraints
 
@@ -58,8 +58,9 @@ Each line names a condition no finding's own test covers. The test that pins it 
 1. A config that v8.0.0 saved with `profile.enabled: false` and one enabled profile loads with that profile applied. Task 1, Step 1.
 2. A new install saves its config with no enabled profile, then the user enables one profile and saves again. The profile applies. Task 3, Step 4.
 3. A user who already has a `~/.codex/config.toml` with their own `model` and `model_provider` finishes onboarding with Claude Code. LLMR leaves the Codex file byte for byte unchanged. Task 3, Step 3.
-4. A user has a hand-written `~/.claude/settings.json` with their own `env` block. LLMR applies a profile and the user then clicks **Restore original settings**. The file is byte for byte what the user wrote. Task 4, Step 3.
-5. LLMR created `~/.codex/config.toml`, and the user or Codex later added an `[mcp_servers.x]` table to it. After a restore the file still holds that table and none of LLMR's blocks. Task 4, Step 2.
+4. A user has a hand-written `~/.claude/settings.json` with their own `env` block. LLMR applies a profile and the user then clicks **Restore original settings**. The file parses to the same settings the user wrote. Formatting may change, because the Claude Code stripper writes the file back with `JSON.stringify`. Task 4a, Step 2.
+5. LLMR created `~/.codex/config.toml`, and the user or Codex later added an `[mcp_servers.x]` table to it. After a restore the file still holds that table and none of LLMR's blocks, and no file under `~/.codex` holds LLMR's bearer token. The same holds when the restore runs from a quit. Task 4a, Step 2.
+6. A user had their own `~/.codex/config.toml` with `model_provider = "openai"`, and added an `[mcp_servers.x]` table while LLMR had the file. After a restore the file holds that table and `model_provider = "openai"`, and none of LLMR's content. Task 4b, Step 1.
 
 ## Order
 
@@ -71,14 +72,15 @@ Run the tasks in this order, one at a time.
 | 2 | 1 | A | Task 3 breaks new installs without it |
 | 3 | 3 | A | Changes the default config that every later test builds on |
 | 4 | 2 | A | Edits `gateway-service.ts` before Task 5 does |
-| 5 | 4 | A | Its tests need Task 3's defaults |
-| 6 | 5 | A | Edits `gateway-service.ts`, `App.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
-| 7 | 10 | A | Investigation, no code |
-| 8 | 11 | A | The owner's VM pass and the release |
-| 9 | 6 | B | Edits `profiles.tsx` and `network-logs.tsx` |
-| 10 | 9 | B | Edits `network-logs.tsx` after Task 6 |
-| 11 | 7 | B | Edits `layout.tsx` after Task 5 |
-| 12 | 8 | B | Independent, and its cause is inferred |
+| 5 | 4a | A | Its tests need Task 3's defaults, and it uses Task 2's `reconcileProfileApiKeys` |
+| 6 | 4b | A | Builds on the Codex stripper from Task 4a |
+| 7 | 5 | A | Edits `gateway-service.ts`, `App.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
+| 8 | 10 | A | Investigation, no code |
+| 9 | 11 | A | The owner's VM pass and the release |
+| 10 | 6 | B | Edits `profiles.tsx` and `network-logs.tsx` |
+| 11 | 9 | B | Edits `network-logs.tsx` after Task 6 |
+| 12 | 7 | B | Edits `layout.tsx` after Task 5 |
+| 13 | 8 | B | Independent, and its cause is inferred |
 
 ---
 
@@ -285,53 +287,81 @@ Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/gateway/
 
 ---
 
-### Task 4: Leave nothing of LLMR's behind after a restore, and nothing of the user's lost (F-13)
+### Task 4a: Strip only LLMR's content from Codex, and clean up a restore that finds no original (F-13, F-18, F-21)
 
-`restoreGlobalConfigFile` (`packages/core/src/profiles/service.ts:3457`) handles "the original did not exist" at lines 3486 to 3492. It copies LLMR's managed file to a timestamped backup, removes the file and keeps the `.llmr-original-missing` marker. For Codex that backup holds the profile's bearer token, and the Codex side files are never removed.
+Rewritten on 2026-11-21 after the research in Appendix C. Line numbers in `packages/core/src/profiles/service.ts` drift, so this task names symbols.
 
-**The two agents differ, and the difference is a data-loss risk.** A Claude Code file counts as managed only when it holds nothing but LLMR's settings (`isManagedClaudeCodeSettingsContent`, line 3557). A Codex file counts as managed when it merely contains LLMR's marker or its provider table (`isManagedCodexConfigContent`, line 3657). So a `~/.codex/config.toml` that LLMR created and the user later added to is "managed". Removing it without a backup would delete the user's own settings. Today's backup is the only copy that survives.
+`restoreGlobalConfigFile` handles "the original did not exist" in its last branch. It copies LLMR's managed file to a timestamped backup, removes the file and keeps the `.llmr-original-missing` marker. For Codex that backup holds the profile's bearer token.
 
-`restoreGlobalConfigFile` is shared. `restoreInactiveGlobalProfileConfigs` calls it on every apply, and OpenCode, Kilo and the Workbuddy `models.json` go through it too.
+**The two agents differ, and the difference is a data-loss risk.**
+- Claude Code has a stripper, `stripManagedClaudeCodeSettingsContent`. A file counts as managed only when it holds nothing but LLMR's settings (`isManagedClaudeCodeSettingsContent`).
+- Codex has no stripper. A file counts as managed when it merely contains LLMR's marker or its provider table (`isManagedCodexConfigContent`), and both Codex restore call sites pass `isManagedContent` alone. So a `~/.codex/config.toml` that LLMR created and the user or Codex later added to is removed whole. Codex adds to it on its own: it saves folder trust, the chosen model and MCP servers there.
+
+**The same code runs with nobody watching.** `restoreInactiveGlobalProfileConfigs` calls `restoreGlobalConfigFile` on every apply, and `restoreGlobalProfileConfigsOnExit` calls it on a gateway stop, a quit, a termination signal and an update install. Every rule in this task holds on those paths too.
+
+**Evidence status.** What `buildCodexConfigToml` writes, and what it displaces, was read by a research agent and probed in an isolated home. Step 1 confirms it before any code changes.
 
 **Files:**
-- Modify: `packages/core/src/profiles/service.ts:3440-3495`, and the shared tail of `disabledProfileStatus` near line 2999 that Codex and Workbuddy use
-- Test: `packages/core/test/unit/web/web-management-server.test.mjs` (beside the `#1951 recovery` test near line 632), `packages/core/test/integration/profiles/profile-service.test.mjs`
+- Modify: `packages/core/src/profiles/service.ts` (`restoreGlobalConfigFile`, the Codex calls to `restoreDisabledGlobalProfile` and the Codex branch of `restoreInactiveGlobalProfileConfigs`, `disabledRestoreStatus`, `recoverGlobalAgentProfile`, the takeover record that `synchronizeGlobalProfileTakeovers` writes)
+- Test: `packages/core/test/integration/profiles/profile-service.test.mjs`, `packages/core/test/unit/web/web-management-server.test.mjs` (beside the `#1951` recovery tests), `packages/core/test/unit/profiles/backup-files.test.mjs`
 
 **Interfaces:**
+- Produces: `stripManagedCodexConfigContent(content: string, providerId: string, displaced: { modelProvider?: string }): string | undefined`. It returns the content without LLMR's root block, provider table and LLMR-added MCP table, with `displaced.modelProvider` put back as the root `model_provider`. It returns `undefined` when there is nothing of LLMR's to remove. It is built from the writer's own helpers (`removeManagedMarkerLines`, `removeCodexProviderTable`, `removeCodexMcpServerTable`) and re-serialises nothing, so the user's comments and table order survive.
+- Produces: a per-format test for "nothing left". TOML: whitespace only. Claude Code JSON: `{}` or an object whose only key is an empty `env`.
 - Produces: `RestoreFileResult` gains `removed?: boolean`, true when the restore deleted a file whose original was missing.
+- Consumes: `reconcileProfileApiKeys` from Task 2.
 
-- [ ] **Step 1: Write the failing Claude Code test.** New test beside `#1951`, following its custom `settingsFile` pattern at line 633. `recoverGlobalAgentProfile` loads the saved config, so call `replacePersistedAppConfig(config)` first. Apply the Claude Code profile in a test home where the settings file does not exist, then call `recoverGlobalAgentProfile("default-claude-code")`.
+- [ ] **Step 1: Confirm what the Codex writer writes and displaces.** Read `buildCodexConfigToml` and `managedModelAssignment`. List in the PR every line and table LLMR adds, which user root keys it removes (`model`, `model_provider`, `model_catalog_json`, `show_all_sessions` are reported), and which of those it keeps anywhere. The report says the user's `model` line is kept inside LLMR's block and the user's `model_provider` is dropped. If the code disagrees, the code wins and the interface above changes with it.
+- [ ] **Step 2: Write the failing tests.** Each runs in a test home, through `recoverGlobalAgentProfile` after `replacePersistedAppConfig(config)`.
+  - Claude Code, no original: apply, recover. The settings file is gone and its directory holds no name that contains `llmr`. The message matches `/was removed because it did not exist before LLMR/`.
+  - Claude Code, Review Focus 4: write a `settings.json` with the user's own `env` block and one other key, apply, recover. `JSON.parse` of the file deep-equals `JSON.parse` of what the user wrote. The `#1951` test asserts parsed equality for one shape. Name it in the PR if it already covers this one.
+  - Codex, no original: apply `default-codex` where `~/.codex` does not exist, recover. `config.toml` is gone, and no file under `~/.codex` contains `experimental_bearer_token`.
+  - Codex, Review Focus 5: after the apply, append `[mcp_servers.mine]` with `command = "my-server"` and a `[projects."/tmp/x"]` table with `trust_level = "trusted"`, then recover. The file matches `/\[mcp_servers\.mine\]/` and `/trust_level/`, does not match `/model_providers\.llm-router|LLMR managed/`, and no file under `~/.codex` contains `experimental_bearer_token`.
+  - Codex, the user's own model: after the apply, change the root `model` line to a value LLMR did not write, then recover. That line is still there.
+  - Codex, quit path: the Review Focus 5 setup, restored through `restoreGlobalProfileConfigsOnExit` in place of the button. Same assertions.
+  - Key revoked: after recover, `loadPersistedApiKeys()` holds no `profile:default-codex` key.
+- [ ] **Step 3: Run the tests and watch them fail.** The Codex content tests fail because the whole file is removed. The no-original tests fail on a leftover backup and marker. The key test fails because the key outlives the restore.
+- [ ] **Step 4: Record what LLMR displaces.** Where the takeover record already stores Claude Code's `displacedEnv`, store the Codex root `model_provider` LLMR removed. Read how `displacedEnv` is recorded and mirror it.
+- [ ] **Step 5: Add `stripManagedCodexConfigContent`** and pass it as `stripManagedContent` at both Codex restore call sites. Do not pass it for Workbuddy, OpenCode, Kilo, Pi or ZCode.
+- [ ] **Step 6: Change the missing-original branch of `restoreGlobalConfigFile`.**
+  - With a stripper: strip the current content. If nothing is left by the per-format test, remove the file and its marker and return `removed: true`. Otherwise write the stripped content and keep the marker.
+  - Without a stripper: change nothing. The file is backed up and removed and the marker stays, as today. A file LLMR calls managed can still hold the user's content for these agents, so no backup of theirs is ever deleted.
+  - With a stripper, make no backup of content that was LLMR's alone, and delete each backup in `backupFiles(file)` whose stripped content leaves nothing. Every other backup stays in this task.
+- [ ] **Step 7: Revoke the key.** In `recoverGlobalAgentProfile`, call `reconcileProfileApiKeys(config)` after the profile is saved as disabled and before `refreshRuntime`. A token left in any copy is then refused by the gateway.
+- [ ] **Step 8: Remove the Codex side files LLMR alone wrote.** When a Codex profile's restore removed or stripped `config.toml`, remove `<providerId>.config.toml` and `llmr-model-catalog.json` with their markers, but only when no other enabled Codex profile uses the same config directory. Do not remove `~/.codex/.llm-router/`: LLMR launches the Codex app with that directory as its user-data directory, so the app's own data lives there (Open items).
+- [ ] **Step 9: Write the result messages (V-16).** In `disabledRestoreStatus`:
+  - `removed: true`: `<Agent> config was removed because it did not exist before LLMR; profile is disabled.`
+  - File already absent: `<Agent> config is already absent, as before LLMR; profile is disabled.`
+  - Stripped and kept: `LLMR's settings were removed from <Agent> config and your own settings were kept; profile is disabled.`
+  - Each message ends with `Switch the profile on to undo this. <Agent> may ask you to log in again.`
+- [ ] **Step 10: Run the tests.** Expected: PASS, including `#1951`, `backup-files.test.mjs` and the OpenCode, Kilo, Pi and Workbuddy restore tests in `npm run test:core`. Extend `tests/e2e/onboarding-chosen-agent.spec.ts` with a restore through the `recoverGlobalProfile` call and an assertion on the files in `runtime.testHome`.
+- [ ] **Step 11: Commit.** `fix(profiles): remove only LLMR's content when a restore finds no original`
 
-```js
-assert.equal(existsSync(settingsFile), false);
-assert.deepEqual(readdirSync(path.dirname(settingsFile)).filter((name) => name.includes("llmr")), []);
-assert.match(result.status.message, /was removed because it did not exist before LLMR/);
-```
+---
 
-- [ ] **Step 2: Write the failing Codex tests.** The first is the clean case. Apply `default-codex` where `~/.codex` does not exist, recover it, and assert that `~/.codex` holds no `config.toml`, no `llm-router.config.toml`, no `llmr-model-catalog.json`, no `.llm-router` directory and no name that contains `llmr-`. The second is Review Focus 5. After the apply, append this to `config.toml`, then recover:
+### Task 4b: Keep Codex edits made during a takeover, and take LLMR's token out of kept backups (F-19, F-20)
 
-```toml
-[mcp_servers.mine]
-command = "my-server"
-```
+When the original `config.toml` existed, `restoreGlobalConfigFile` writes the pre-takeover snapshot back (`originalSnapshotCandidate`). That is exact for an untouched file. It discards anything the user or Codex wrote while LLMR had the file, because a Codex file with LLMR's block always counts as managed and never reaches the strip branch. The discarded content survives only in a timestamped backup that also holds LLMR's bearer token, and those backups pile up, one per quit.
 
-```js
-const left = readFileSync(codexConfig, "utf8");
-assert.match(left, /\[mcp_servers\.mine\]/);
-assert.doesNotMatch(left, /model_providers\.llm-router|LLMR managed/);
-```
+**Evidence status.** Probed by a research agent in an isolated home, not rerun. Step 1's tests confirm it.
 
-- [ ] **Step 3: Write the test for Review Focus 4.** Write a `settings.json` with the user's own `env` block and one other key. Read its bytes. Apply the Claude Code profile, recover it, and assert that the file's bytes equal the first read. If the existing `#1951` test already asserts exactly this, name it in the PR and add nothing.
-- [ ] **Step 4: Run and watch the new tests fail.** Step 1 and the first Codex test fail on a leftover backup and marker. The second Codex test fails because today the whole file is removed.
-- [ ] **Step 5: Change the missing-original branch.** `restoreGlobalConfigFile` already takes an optional `stripManagedContent`.
-  - With a stripper, strip the current content. If nothing but whitespace is left, remove the file and its marker and return `removed: true`. Otherwise write the stripped content and keep the marker.
-  - Without a stripper, a managed file holds only LLMR's content. Remove it and its marker and return `removed: true`.
-  - In both cases make no backup of content that was LLMR's alone.
-  - Remove a backup in `backupFiles(file)` only when `isManagedContent` accepts it and, where a stripper exists, its stripped content is blank. Every other backup stays.
-- [ ] **Step 6: Remove the Codex side files.** In the shared tail of `disabledProfileStatus`, for a Codex-compatible profile, treat the separate profile file and the model catalog the same way: when its `.llmr-original-missing` marker exists, remove the file, its marker and its LLMR-only backups. Remove the profile's directory under `~/.codex/.llm-router/`, then that directory if it is empty.
-- [ ] **Step 7: Fix the wording.** In `disabledRestoreStatus`, a result with `removed: true` says `<Agent> config was removed because it did not exist before LLMR; profile is disabled.` A result with the file already absent says `<Agent> config is already absent, as before LLMR; profile is disabled.` A result that stripped LLMR's content and kept the file says `LLMR's settings were removed from <Agent> config; profile is disabled.`
-- [ ] **Step 8: Run the tests.** Expected: PASS, including `#1951`, `packages/core/test/unit/profiles/backup-files.test.mjs` and the OpenCode, Kilo and Workbuddy restore tests in `npm run test:core`.
-- [ ] **Step 9: Commit.** `fix(profiles): remove only LLMR's content when a restore finds no original`
+**Files:**
+- Modify: `packages/core/src/profiles/service.ts` (`restoreGlobalConfigFile`, `backupCurrentConfigFile`, `originalSnapshotCandidate`), `packages/core/src/profiles/backup-files.ts`
+- Test: `packages/core/test/integration/profiles/profile-service.test.mjs`, `packages/core/test/unit/profiles/backup-files.test.mjs`
+
+**Interfaces:**
+- Consumes: `stripManagedCodexConfigContent` and the recorded `displaced.modelProvider` from Task 4a.
+
+- [ ] **Step 1: Write the failing tests.**
+  - Review Focus 6: a user `config.toml` with `model_provider = "openai"` and one comment line. Apply, append `[mcp_servers.x]`, recover. The file holds the table, the comment and `model_provider = "openai"`, and none of LLMR's content.
+  - Untouched original: apply and recover with no edit between. The file parses to the same TOML as the original.
+  - No token left: after each case, no file under `~/.codex` contains `experimental_bearer_token`.
+  - Backup count: apply and restore through `restoreGlobalProfileConfigsOnExit` seven times. No backup holds a token.
+- [ ] **Step 2: Run the tests and watch them fail.** The first fails because the table is gone. The token tests fail on the backups.
+- [ ] **Step 3: Strip before falling back to the snapshot.** For a matcher that has a stripper and whose managed test is a contains-test, strip the live file when it exists. Use the snapshot only when the live file is missing or the strip returns `undefined` for a file that still tests managed. Leave the Claude Code path as it is: its managed test is a whole-file test and its strip branch already runs first.
+- [ ] **Step 4: Keep no token in a backup.** Where a stripper exists, `backupCurrentConfigFile` writes the stripped content. A backup whose stripped content leaves nothing is not written. Existing backups are stripped or deleted the same way at the next restore.
+- [ ] **Step 5: Run `npm run test:core`.** Expected: PASS.
+- [ ] **Step 6: Commit.** `fix(profiles): keep Codex edits made while LLMR had the config, and keep no token in a backup`
 
 ---
 
@@ -404,7 +434,8 @@ The owner runs this task. It needs a provider key, which stays in the VM and out
 - [ ] Run `./collect.sh onboarding`. Pass when the log shows `~/.claude/settings.json` and no `~/.codex` directory (Task 3).
 - [ ] Copy the "Profile: Claude Code" key from API Keys. Switch the profile off. Run `curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer <that key>" http://127.0.0.1:3456/v1/models`. Pass when it prints `401` (Task 2).
 - [ ] Switch both cards off, switch Claude Code on, run `./collect.sh latch`. Pass when the log shows `~/.claude/settings.json` (Task 1).
-- [ ] Click **Restore original settings** on the Claude Code card, run `./collect.sh after-restore`. Pass when `~/.claude` holds no file whose name contains `llmr` (Task 4).
+- [ ] Click **Restore original settings** on the Claude Code card, run `./collect.sh after-restore`. Pass when `~/.claude` holds no file whose name contains `llmr` (Task 4a).
+- [ ] Switch the Codex card on, then click **Restore original settings** on it and run `./collect.sh after-codex-restore`. Pass when no file under `~/.codex` contains `experimental_bearer_token` and `config.toml` holds none of LLMR's content (Tasks 4a and 4b). `~/.codex/.llm-router/` may remain.
 - [ ] Run Task 10 Steps 3 and 4 in this VM.
 
 **Release:**
@@ -564,6 +595,10 @@ No task covers these. Each names what settles it.
 | Codex `experimental_bearer_token` | LLMR writes the profile token into `~/.codex/config.toml` under that key. OpenAI's config reference is reported to call the key discouraged and to name `env_key` in its place. That was read through a summarising fetch on 2026-11-21, so it is second-hand. | Read the Codex config reference directly, then test `env_key` with a wrapper-set variable against the installed Codex version. |
 | Installed-agent detection (V-12) | Finders exist for the Claude, ChatGPT, Workbuddy and OpenCode desktop apps. None exists for a CLI. | If the owner wants the step to preselect or warn, start from `getAppInfoPaths` in `packages/core/src/agents/app-info-paths.ts`, which already reaches the renderer and `llmr ui`. |
 | Windows and Linux | Every check in this plan ran or will run on macOS. | Decide whether Task 11 gains a Windows or Linux pass. |
+| A symlinked agent config whose target is missing (F-22) | Apply creates the target through the link, and a restore removes the link. The target keeps LLMR's content, for Codex including the token. Dotfile managers symlink these files. | Decide whether a restore follows the link. Start at the `rmSync(file)` in `restoreGlobalConfigFile`. |
+| Claude Code values under LLMR's own key names (F-22) | A user's own `NO_PROXY` hosts and `CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT` are reported lost on restore, and a user whose own settings already set the three base URLs alike gets "No original backup was found" with LLMR's endpoint left in place. Both come from telling LLMR's values from the user's by key name. | Reproduce each in a test home. The fix is the V-7 rule for values: remove a value only while it is the one LLMR wrote. |
+| `~/.codex/.llm-router/` and a custom-path `.claude.json` | LLMR launches the Codex app with a user-data directory under `~/.codex/.llm-router/`, so the app's own data lives there. For a Claude Code profile with a non-default `settingsFile`, LLMR writes `<dir>/.claude.json` with a marker and no restore touches it. | Read what the Codex app stores there before removing anything. Decide whether a restore owns the custom-path `.claude.json`. |
+| Agents with no stripper | OpenCode, Kilo, Pi, ZCode and Workbuddy have an all-or-nothing managed test, so a restore can remove a file that holds the user's content. V-7 leaves them on today's behaviour, where the backup survives. | Write a stripper per agent, then apply Task 4a's rules to it. |
 | The empty `~/Library/Application Support/LLM Router` folder | Cosmetic. Electron creates it before LLMR moves its data directory. | Leave it unless the owner wants it gone. |
 
 ## Appendix A. Research behind V-4, V-5 and V-11
@@ -618,3 +653,23 @@ Three researchers worked on 2026-11-21, two in the code and one on vendor docume
 | New | none | Task 10, Task 11, V-13 to V-16, two phases | Parked items that bear on the goal, a missing release step, and choices that were buried in steps. |
 
 Not taken from the audit: a `stoppedReason` field in place of `lastError` (recorded under V-6 for the owner), and splitting the plan into two files. The two phases do the same job in one file.
+
+## Appendix C. What the 2026-11-21 restore research changed
+
+The owner asked for research before confirming V-7 and V-16. One agent traced the restore code and probed each starting state in an isolated home. One read outside sources. The plan author confirmed the three code claims the redesign rests on: Codex has no stripper and its managed test is a contains-test, the Claude Code stripper always returns JSON text, and a gateway stop runs the same restore code as the button.
+
+| Where | Before | After | Why |
+|---|---|---|---|
+| V-7 | Covered the case where no original file existed | Covers every trigger and both cases, names which agents have a stripper, and adds key revocation and the backup rule | The quit path runs the same code, and a Codex file edited during a takeover loses those edits today |
+| V-16 | The plan author's call | The owner's, tied to V-7, with the result message specified | A prompt would guard one of several paths to the same file changes |
+| Task 4 | One task that assumed a Codex stripper | Task 4a writes the stripper and cleans the no-original case. Task 4b handles edits made during a takeover and tokens in backups | No Codex stripper exists. The old Step 5 would have deleted the backup that is the user's only copy |
+| Task 4, "nothing left" | Whitespace only | Defined per format | The Claude Code stripper returns `{"env": {}}` for a file that held only LLMR's settings, so the old branch could never remove the file |
+| Review Focus 4 | Byte for byte | Same settings, formatting may change | The Claude Code stripper writes the file back with `JSON.stringify`. Byte-exact needs a JSON editing dependency |
+| Old Step 6 | Remove `~/.codex/.llm-router/` | Leave it | The Codex app keeps its own data there |
+
+Outside sources, read on 2026-11-21 by the research agent and not re-read by the plan author:
+- Codex saves folder trust, the chosen model and MCP servers to `config.toml` on its own: `codex-rs/core/src/config/edit.rs` in `openai/codex`.
+- Claude Code saves `/model`, the theme and user-scope plugin choices to `~/.claude/settings.json`: <https://code.claude.com/docs/en/settings>.
+- conda (`init --reverse`) and rustup (`self uninstall`) strip their own lines and delete no file. A tool that does this same job with whole-file backup and restore fixed lost `mcp_servers` blocks in its v3.12.2 release notes.
+- Apple's Human Interface Guidelines on alerts, Microsoft's dialog guidance and Nielsen Norman Group reserve a confirmation for an action that cannot easily be undone: <https://developer.apple.com/design/human-interface-guidelines/alerts>, <https://www.nngroup.com/articles/confirmation-dialog/>.
+- CWE-459 and the OWASP Secrets Management Cheat Sheet say to delete leftover copies of a secret and to revoke it: <https://cwe.mitre.org/data/definitions/459.html>.

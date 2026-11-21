@@ -152,6 +152,18 @@ The banner is gone by the "Connect agent" step, once the provider and model are 
 
 The banner is still shown on "Verify connection", after a provider, key and model were entered but before the onboarding saved them. On that step it no longer covers the heading, because the heading sits lower.
 
+### F-18 to F-22: what a restore does to content LLMR did not write
+
+Found 2026-11-21 by reading the restore code and probing each starting state in an isolated home, while deciding V-7 and V-16 of the fix plan. Not seen in the VM. The plan author confirmed in the code that Codex has no stripper, that its managed test is a contains-test, and that a gateway stop runs the same restore code as the button. The rest is the research agent's probe and was not rerun.
+
+- **F-18.** A `~/.codex/config.toml` that LLMR created and the user or Codex later added to is removed whole on restore. Codex adds to the file on its own (folder trust, the chosen model, MCP servers). The additions survive only in a backup.
+- **F-19.** When the original `config.toml` existed, a restore writes the pre-takeover file back and discards anything written while LLMR had it. Claude Code's `settings.json` keeps such edits, because it has a stripper.
+- **F-20.** Each restore of a Codex file leaves a backup holding the profile's bearer token. Five remained after seven quits.
+- **F-21.** **Restore original settings** does not remove the profile's API key. It stays valid until the next apply.
+- **F-22.** Smaller cases: a symlinked config whose target is missing keeps LLMR's content after a restore; a user's own `NO_PROXY` hosts are lost; a user whose own settings already set the three base URLs alike gets a failed restore; a restored Claude Code file is rewritten with two-space JSON.
+
+The same restore code runs on a quit, a termination signal, an update install and every apply, so none of this is limited to the button. Fix plan: Tasks 4a and 4b for F-18 to F-21, Open items for F-22.
+
 ## Notes, not defects
 
 - The dmg carries no signature of its own (`spctl` on the dmg: "no usable signature"). Gatekeeper accepts the notarized, stapled app inside.
