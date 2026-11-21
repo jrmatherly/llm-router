@@ -183,7 +183,7 @@ Reviewers of PR 133 ran these in an isolated home. The plan author reran each on
 - **F-28. Claude Code: a deleted live file takes the backups with it.** With no original, after the user deletes `settings.json`, a restore deletes every backup, including one that holds a key the user added, and reports "already matches the LLMR backup".
 - **F-29. Claude Code: a backup that does not parse is restored.** A truncated copy of LLMR's file among the backups is written back with status ok, whether or not an original existed. An apply never backs up a file that does not parse, so the state needs an outside cause such as a full disk.
 
-Fix plan: Task 4e for F-27 and F-29. Task 4d Part 4 for the copy in F-28, on the owner's word (V-17), and Task 4c for its message.
+Fix plan: Task 4e for F-27 and F-29. Task 4d Part 4 for the copy in F-28 (V-17), and Task 4c for its message.
 
 ## Notes, not defects
 
