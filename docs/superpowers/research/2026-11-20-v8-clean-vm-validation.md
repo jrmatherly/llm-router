@@ -164,6 +164,17 @@ Found 2026-11-21 by reading the restore code and probing each starting state in 
 
 The same restore code runs on a quit, a termination signal, an update install and every apply, so none of this is limited to the button. Fix plan: Task 4a for F-18 and F-21, Task 4b for F-19 and F-20, Task 4c for the rest of F-13, Open items for F-22.
 
+### F-23 to F-26: where the restore still writes the wrong thing
+
+Found 2026-11-21, after Task 4a merged (PR 132), by measuring the Codex stripper against codex-cli 0.171.0 in throwaway homes and by reading the restore path. Not seen in the VM.
+
+- **F-23. Claude Code, no original: a deleted setting comes back.** Reproduced by the plan author on `main` at `1f85bbb3`: add a `permissions` key, let LLMR re-apply with a changed model, delete the key, click Restore. The key is written back, and two backups and the `.llmr-original-missing` marker stay. `restoreGlobalConfigFile` looks for a snapshot before it reaches the no-original branch, and a backup holding the user's key is unmanaged, so it passes for the original.
+- **F-24. Codex: LLMR's `model` line is left behind.** Rerun by the plan author. After a re-apply, `codex mcp add` drops the two comment lines above the first table, which are LLMR's `# LLMR configured model = ` line and its root END marker. The stripper knows LLMR's `model` line only by that comment. Codex is then set to LLMR's model id with no LLMR provider. Whether Codex fails at request time was not tested, because that needs a login.
+- **F-25. Codex: the user's `show_all_sessions` is lost.** Codex writes root keys inside LLMR's root block, and the stripper removes that key there. A research agent's measurement.
+- **F-26. Codex: a multi-line string is damaged.** A `"""` string line that reads like an LLMR table header or marker is removed or cuts the scan short, and the file can stop loading in Codex. The writer has the same fault on every apply. A research agent's measurement.
+
+Fix plan: Task 4d for all four in the stripper and the restore path. The writer's share of F-26, and a CRLF fault in the writer's marker regex, are in the plan's Open items.
+
 ## Notes, not defects
 
 - The dmg carries no signature of its own (`spctl` on the dmg: "no usable signature"). Gatekeeper accepts the notarized, stapled app inside.
