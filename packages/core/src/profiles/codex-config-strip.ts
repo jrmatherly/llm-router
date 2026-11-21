@@ -103,7 +103,11 @@ export function stripManagedCodexConfigContent(content: string, providerIds: str
   const kept: string[] = [];
   let inRoot = true;
   let inRootBlock = false;
-  for (const line of content.split(/(?<=\n)/)) {
+  for (const { inValue, line } of scanTomlLines(content)) {
+    if (inValue) {
+      kept.push(line);
+      continue;
+    }
     const trimmed = line.trim();
     if (codexManagedMarkers.includes(trimmed)) {
       inRootBlock = trimmed === managedRootStart;
@@ -122,12 +126,12 @@ export function stripManagedCodexConfigContent(content: string, providerIds: str
     }
     kept.push(line);
   }
-  let next = kept.join("");
-  for (const providerId of providerIds) {
-    next = removeCodexProviderTable(next, providerId);
-  }
-  next = removeCodexMcpServerTable(next, TOOL_HUB_MCP_SERVER_NAME, { includeChildTables: true });
-  next = removeCodexMcpServerTable(next, CONTEXT_ARCHIVE_MCP_SERVER_NAME, { includeChildTables: true });
+  const providerHeaders = providerIds.flatMap((providerId) => [`[model_providers.${providerId}]`, `[model_providers.${tomlQuotedKey(providerId)}]`]);
+  const mcpPrefixes = [TOOL_HUB_MCP_SERVER_NAME, CONTEXT_ARCHIVE_MCP_SERVER_NAME]
+    .flatMap((serverName) => [`[mcp_servers.${serverName}`, `[mcp_servers.${tomlQuotedKey(serverName)}`]);
+  const next = removeTablesOutsideValues(kept.join(""), (header) =>
+    providerHeaders.includes(header) ||
+    mcpPrefixes.some((prefix) => header === `${prefix}]` || header.startsWith(`${prefix}.`)));
   return next === content ? undefined : trimLeadingBlankLines(next).replace(/\n{2,}$/, "\n");
 }
 
