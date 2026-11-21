@@ -50,7 +50,7 @@ import {
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
 import { cmdQuote, defaultClientModel, disabledStatus, firstTomlTableIndex, formatError, gatewayEndpoint, gatewayNoProxyHosts, isRecord, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, stringRecord, tomlQuotedKey, tomlString, trimLeadingBlankLines, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
-import { backupBeforeWrite, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, originalBackupSuffix, originalMissingSuffix, saveRemovedConfigCopy, writeFileAtomic } from "@llmr/core/profiles/backup-files";
+import { backupBeforeWrite, backupContent, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, saveRemovedConfigCopy, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import {
   type CodexWrittenLines,
   type CodexWrittenRecord,
@@ -68,6 +68,7 @@ import {
   managedRootStart,
   managedToolHubMcpEnd,
   managedToolHubMcpStart,
+  readCodexDisplacedConfig,
   removeCodexMcpServerTable,
   removeCodexProviderTable,
   removeTomlTable,
@@ -755,10 +756,12 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
         sha256: sha256Hex(nextConfig)
       } satisfies CodexWrittenRecord, null, 2)}\n`, { mode: privateFileMode });
     }
-    const writeResult = writeFileWithBackup(configFile, nextConfig, {
-      isManagedContent: (content) => isManagedCodexConfigContent(content, providerId),
-      mode: privateFileMode
-    });
+    const writeResult = recordsWrittenLines
+      ? writeGlobalCodexConfig(configFile, nextConfig, providerId, previous)
+      : writeFileWithBackup(configFile, nextConfig, {
+          isManagedContent: (content) => isManagedCodexConfigContent(content, providerId),
+          mode: privateFileMode
+        });
     const separateProfileResult = maybeWriteSeparateCodexProfileFile(configFile, source, {
       configFormat,
       model,
@@ -1376,6 +1379,42 @@ function buildCodexConfigToml(
     content: `${rootBlock}${trimLeadingBlankLines(cleanedRoot)}${restSource}${providerBlock}${toolHubMcpBlock}${contextArchiveMcpBlock}`.replace(/\n{4,}/g, "\n\n\n"),
     written: rootLines.written
   };
+}
+
+// `record` describes the file being replaced, not the one being written.
+function writeGlobalCodexConfig(file: string, content: string, providerId: string, record: CodexWrittenRecord | undefined): { backupFile?: string; changed: boolean } {
+  mkdirSync(path.dirname(file), { recursive: true });
+  const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
+  if (previous === content) {
+    chmodFileIfRequested(file, privateFileMode);
+    return { changed: false };
+  }
+  const matchers = codexManagedContent("codex", [providerId], file);
+  const managed = previous !== undefined && matchers.isManagedContent(previous);
+  if (!managed) {
+    // A file LLMR already manages is nobody's original, and a copy of it would hold the token.
+    ensureOriginalSnapshot(file, previous, privateFileMode);
+  }
+  const noOriginal = existsSync(originalMissingFilePath(file)) && !existsSync(originalBackupFilePath(file));
+  // With no original, what is left of a managed file after a strip would pass for the user's original at the next restore and be written back.
+  // A managed file that is as LLMR wrote it holds nothing the snapshot lacks.
+  let backupFile: string | undefined;
+  if (previous !== undefined && !(managed && (noOriginal || isAsWritten(record, previous)))) {
+    const snapshot = originalSnapshotCandidate(file, matchers, noOriginal ? matchers.stripManagedContent : undefined)?.content;
+    const kept = managed
+      ? stripManagedCodexConfigContent(previous, [providerId], record, readCodexDisplacedConfig(snapshot ?? "", [providerId]))
+      : matchers.stripManagedContent?.(previous) ?? previous;
+    // A backup equal to the snapshot a restore would choose adds nothing.
+    if (kept !== undefined && kept !== snapshot && !(managed && isEmptyConfigContent(kept))) {
+      backupFile = backupContent(file, kept, { isManagedContent: matchers.isManagedContent, mode: privateFileMode });
+    }
+  }
+  writeFileAtomic(file, content, { mode: privateFileMode });
+  return { backupFile, changed: true };
+}
+
+function isAsWritten(record: CodexWrittenRecord | undefined, content: string): boolean {
+  return record !== undefined && !record.edited && record.sha256 === sha256Hex(content);
 }
 
 function codexWrittenRecordFile(file: string): string {
@@ -2987,7 +3026,9 @@ type RestoreFileResult = {
 type RestoreManagedContentMatchers = {
   isManagedContent: (content: string) => boolean;
   onReleased?: () => void;
-  stripLiveContent?: (content: string) => string | undefined;
+  // Set where a live file that changed since LLMR wrote it is stripped in place, and the snapshot only supplies what the apply displaced. Such a file's token never goes into a backup.
+  stripBeforeSnapshot?: boolean;
+  stripLiveContent?: (content: string, snapshot?: string) => string | undefined;
   stripManagedContent?: (content: string) => string | undefined;
   takeoverContent?: (content: string) => TakeoverContent;
 };
@@ -3549,8 +3590,12 @@ function restoreGlobalConfigFileContent(
   const currentManaged = current !== undefined && options.isManagedContent(current);
   const strip = options.keepLiveFile ? undefined : options.stripLiveContent ?? options.stripManagedContent;
   const originalMissing = existsSync(originalMissingFilePath(file));
+  const noOriginal = originalMissing && !existsSync(originalBackupFilePath(file));
+  const findSnapshot = () => originalSnapshotCandidate(file, options, noOriginal && !options.keepLiveFile ? options.stripManagedContent : undefined);
   if (current !== undefined && !currentManaged) {
-    const stripped = strip && hasTakeoverSnapshot(file) ? strip(current) : undefined;
+    const stripped = strip && hasTakeoverSnapshot(file)
+      ? options.stripBeforeSnapshot ? options.stripLiveContent?.(current, findSnapshot()?.content) : strip(current)
+      : undefined;
     if (strip && originalMissing) {
       if (stripped === undefined) {
         forgetMissingOriginal(file);
@@ -3565,17 +3610,30 @@ function restoreGlobalConfigFileContent(
     if (stripped === undefined) {
       return { changed: false, file, missingBackup: false, restored: false };
     }
+    if (options.stripBeforeSnapshot) {
+      saveConfigSafetyCopy(file, current);
+    }
     const backupFile = backupCurrentConfigFile(file, options);
     writeFileAtomic(file, stripped, { mode: options.mode });
     return { backupFile, changed: true, file, missingBackup: false, restored: false, stripped: true };
   }
 
-  const noOriginal = originalMissing && !existsSync(originalBackupFilePath(file));
-  const snapshot = originalSnapshotCandidate(file, options, noOriginal && !options.keepLiveFile ? options.stripManagedContent : undefined);
+  const snapshot = findSnapshot();
   if (snapshot) {
     if (current === snapshot.content) {
       chmodFileIfRequested(file, options.mode);
       return { changed: false, file, missingBackup: false, restored: true };
+    }
+
+    // The snapshot is byte-exact only for a file nobody touched. Anything else holds what the user or the agent wrote since, which the snapshot would discard.
+    // No record counts as touched: nothing shows the file is as LLMR wrote it.
+    if (options.stripBeforeSnapshot && current !== undefined && !isAsWritten(readCodexWrittenRecord(file), current)) {
+      const stripped = options.stripLiveContent?.(current, snapshot.content);
+      saveConfigSafetyCopy(file, current);
+      if (stripped !== undefined) {
+        writeFileAtomic(file, stripped, { mode: options.mode });
+        return { changed: true, file, missingBackup: false, restored: false, stripped: true };
+      }
     }
 
     const backupFile = current === undefined ? undefined : backupCurrentConfigFile(file, options);
@@ -3625,7 +3683,7 @@ function saveConfigSafetyCopy(file: string, content: string): void {
 // Only Codex has a record. A managed Claude Code file holds only LLMR's keys, and a Codex file without a record cannot show an edit, so neither gets a copy.
 function isUntouchedSinceWritten(file: string, current: string): boolean {
   const record = readCodexWrittenRecord(file);
-  return !record || (!record.edited && record.sha256 === sha256Hex(current));
+  return !record || isAsWritten(record, current);
 }
 
 // The user deleted the live file, so the backups about to go are the last place their settings are.
@@ -3701,8 +3759,11 @@ function originalSnapshotCandidate(
   return undefined;
 }
 
-function backupCurrentConfigFile(file: string, options: RestoreManagedContentMatchers & { mode?: number }): string {
-  return backupCurrentFile(file, { isManagedContent: options.isManagedContent, mode: options.mode });
+// A copy of a live file under `stripBeforeSnapshot` would hold the token. The snapshot or the safety copy already holds whatever of the user's is in it.
+function backupCurrentConfigFile(file: string, options: RestoreManagedContentMatchers & { mode?: number }): string | undefined {
+  return options.stripBeforeSnapshot
+    ? undefined
+    : backupCurrentFile(file, { isManagedContent: options.isManagedContent, mode: options.mode });
 }
 
 function originalBackupFilePath(file: string): string {
@@ -3845,9 +3906,15 @@ function codexManagedContent(agent: ProfileClientKind, providerIds: string[], fi
     isManagedContent,
     ...(agent === "codex"
       ? {
+          stripBeforeSnapshot: true,
           // The record describes the live file only: a backup or the original is stripped by its text.
-          stripLiveContent: (content: string) =>
-            stripManagedCodexConfigContent(content, providerIds, isManagedContent(content) ? readCodexWrittenRecord(file) : undefined),
+          stripLiveContent: (content: string, snapshot?: string) =>
+            stripManagedCodexConfigContent(
+              content,
+              providerIds,
+              isManagedContent(content) ? readCodexWrittenRecord(file) : undefined,
+              snapshot === undefined ? undefined : readCodexDisplacedConfig(snapshot, providerIds)
+            ),
           stripManagedContent: (content: string) => stripManagedCodexConfigContent(content, providerIds)
         }
       : {})

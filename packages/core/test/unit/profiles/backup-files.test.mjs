@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  backupContent,
   backupFilePath,
   backupFiles,
   ensureOriginalSnapshot,
@@ -162,4 +163,17 @@ test("saveRemovedConfigCopy keeps the newest three copies, private, with no prof
     assert.equal(content.split("\n").slice(1).join("\n"), 'token = "<removed LLMR profile token>"\nagain = "<removed LLMR profile token>"\nmine = "sk-user"\n');
   }
   assert.deepEqual(backupFiles(file), []);
+});
+
+test("backupContent writes the given text, not the file, as a private backup and prunes like any other", posixOnly, (t) => {
+  const { file } = setup(t);
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-21T00:00:00.000Z") });
+  for (let call = 1; call <= 7; call += 1) {
+    const backup = backupContent(file, `kept ${call}`, { isManagedContent: (content) => content !== "kept 1", mode: 0o600 });
+    assert.equal(readFileSync(backup, "utf8"), `kept ${call}`);
+    assert.equal(statSync(backup).mode & 0o777, 0o600);
+    t.mock.timers.tick(1000);
+  }
+  assert.deepEqual(backupFiles(file).map((backup) => readFileSync(backup, "utf8")), ["kept 1", "kept 3", "kept 4", "kept 5", "kept 6", "kept 7"]);
+  assert.equal(readFileSync(file, "utf8"), "old");
 });

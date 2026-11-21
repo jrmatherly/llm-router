@@ -7,6 +7,7 @@ import {
   managedProviderStart,
   managedRootEnd,
   managedRootStart,
+  readCodexDisplacedConfig,
   removeTablesOutsideValues,
   scanTomlLines,
   stripManagedCodexConfigContent
@@ -352,4 +353,85 @@ test("a strip with the record keeps every line of the user's and none of LLMR's,
     assert.deepEqual(lines(stripped), lines(user.join("\n")), `case ${index}\n${content}`);
     assert.equal(stripManagedCodexConfigContent(stripped, ["llm-router"], written), undefined, `second strip, case ${index}`);
   }
+});
+
+const usersOriginal = [
+  "# mine",
+  "model = \"gpt-mine\"",
+  "  model_provider = \"openai\" # default",
+  "model_catalog_json = \"/tmp/mine.json\"",
+  "show_all_sessions = false",
+  "",
+  "[profiles.other]",
+  "model = \"x\"",
+  "",
+  "[profiles.llm-router]",
+  "model = \"profile-model\"",
+  "",
+  "# about the next table",
+  "[mcp_servers.mine]",
+  "model_provider = \"not-a-root-key\"",
+  ""
+].join("\n");
+const usersDisplaced = {
+  model: "model = \"gpt-mine\"",
+  modelCatalogJson: "model_catalog_json = \"/tmp/mine.json\"",
+  modelProvider: "  model_provider = \"openai\" # default",
+  profileTables: ["[profiles.llm-router]\nmodel = \"profile-model\"\n\n# about the next table\n"],
+  showAllSessions: "show_all_sessions = false"
+};
+
+test("readCodexDisplacedConfig reads the root lines and the provider's profile table as the user wrote them", () => {
+  assert.deepEqual(readCodexDisplacedConfig(usersOriginal, ["llm-router"]), usersDisplaced);
+  assert.deepEqual(readCodexDisplacedConfig("[mcp_servers.mine]\nmodel = \"in a table\"\n", ["llm-router"]), {});
+  assert.deepEqual(
+    readCodexDisplacedConfig("[profiles.a]\nx = 1\n[profiles.\"b.c\"]\ny = 2\n", ["a", "b.c"]).profileTables,
+    ["[profiles.a]\nx = 1\n", "[profiles.\"b.c\"]\ny = 2\n"]
+  );
+});
+
+test("a strip puts each displaced root line back in place of the line of LLMR's that replaced it", () => {
+  const written = { modelLine: "model = \"Provider/model\"" };
+  const stripped = stripManagedCodexConfigContent(managed("[mcp_servers.mine]\ncommand = \"x\"\n\n"), ["llm-router"], written, usersDisplaced);
+  assert.equal(stripped, [
+    "  model_provider = \"openai\" # default",
+    "model = \"gpt-mine\"",
+    "model_catalog_json = \"/tmp/mine.json\"",
+    "[mcp_servers.mine]",
+    "command = \"x\"",
+    "",
+    "[profiles.llm-router]",
+    "model = \"profile-model\"",
+    "",
+    "# about the next table",
+    ""
+  ].join("\n"));
+});
+
+test("a displaced line stays out where the user removed or replaced LLMR's line, or already has the table", () => {
+  const edited = managed("[profiles.llm-router]\nmodel = \"newer\"\n\n")
+    .replace("model_provider = \"llm-router\"\n", "model_provider = \"azure\"\n")
+    .replace("model = \"Provider/model\"\n", "model = \"my-new-model\"\n")
+    .replace(/^model_catalog_json = .*\n/m, "");
+  assert.equal(
+    stripManagedCodexConfigContent(edited, ["llm-router"], { modelLine: "model = \"Provider/model\"" }, usersDisplaced),
+    "model_provider = \"azure\"\nmodel = \"my-new-model\"\n[profiles.llm-router]\nmodel = \"newer\"\n"
+  );
+});
+
+test("a displaced model line stays out while the model line in the file is the user's own", () => {
+  const stripped = stripManagedCodexConfigContent(managed("").replace("model = \"Provider/model\"", "model = \"gpt-mine\""), ["llm-router"], {}, { model: "model = \"gpt-mine\"" });
+  assert.equal(stripped, "model = \"gpt-mine\"\n");
+});
+
+test("a displaced line is put back once however many of LLMR's lines the file holds", () => {
+  const doubled = managed("").replace("model_provider = \"llm-router\"\n", "model_provider = \"llm-router\"\nmodel_provider = 'llm-router'\n");
+  assert.equal(
+    stripManagedCodexConfigContent(doubled, ["llm-router"], { modelLine: "model = \"Provider/model\"" }, { modelProvider: "model_provider = \"openai\"" }),
+    "model_provider = \"openai\"\n"
+  );
+});
+
+test("a displaced profile table alone is no reason to rewrite a file with nothing of LLMR's in it", () => {
+  assert.equal(stripManagedCodexConfigContent("[mcp_servers.mine]\ncommand = \"x\"\n", ["llm-router"], undefined, usersDisplaced), undefined);
 });
