@@ -4,11 +4,13 @@ import path from "node:path";
 
 // Compiled test bundles import this first. `node --test` on one file runs with
 // the developer's real HOME, and the profile service then rewrote
-// ~/.claude/settings.json on 2026-10-25. run-tests.mjs sets LLMR_TEST_HOME and
-// the same variables itself; here the guard only fills the gap.
-if (!process.env.LLMR_TEST_HOME) {
-  isolateTestHome(mkdtempSync(path.join(os.tmpdir(), "llmr-test-home-")));
-}
+// ~/.claude/settings.json on 2026-10-25, so a run outside run-tests.mjs gets a
+// temporary home here.
+// Under run-tests.mjs every test file is its own process, and they run at the
+// same time. Each takes a folder of its own inside the suite's home: files that
+// shared one raced on the persisted keys and config, and a test lost a key it
+// had just written.
+isolateTestHome(mkdtempSync(path.join(process.env.LLMR_TEST_HOME ?? os.tmpdir(), "llmr-test-home-")));
 
 export function isolateTestHome(testHome, env = process.env) {
   env.LLMR_TEST_HOME = testHome;
