@@ -96,8 +96,59 @@ export function removeTomlTable(source: string, section: string, name: string): 
   return kept.join("");
 }
 
+export type CodexWrittenRecord = {
+  edited: boolean;
+  file: string;
+  modelLine?: string;
+  sha256: string;
+  showAllSessionsLine?: string;
+};
+
+// The root lines that are LLMR's own. A line of the user's is never in here, even when it holds the value LLMR would write.
+export type CodexWrittenLines = Pick<CodexWrittenRecord, "modelLine" | "showAllSessionsLine">;
+
+// Codex drops the configured-model comment and writes root keys inside LLMR's root block (codex-cli 0.171.0), so the text alone cannot say whose a line is. The record of what LLMR last wrote can.
+export function decideCodexRootLines(input: {
+  configuredModel: string;
+  currentModelLine?: string;
+  currentShowAllSessionsLine?: string;
+  previous?: CodexWrittenLines;
+  previousConfiguredModel?: string;
+  showAllSessions: boolean;
+}): { modelLine: string; showAllSessionsLine?: string; written: CodexWrittenLines } {
+  const configuredValue = tomlString(input.configuredModel);
+  const ourModelLine = `model = ${configuredValue}`;
+  const currentModel = input.currentModelLine;
+  const configuredModelChanged = input.previousConfiguredModel !== undefined && input.previousConfiguredModel !== configuredValue;
+  const recordedAsOurs = input.previous !== undefined && currentModel !== undefined && currentModel === input.previous.modelLine;
+  const matchesComment = input.previous === undefined && currentModel !== undefined &&
+    input.previousConfiguredModel !== undefined && rootAssignmentValue(currentModel) === input.previousConfiguredModel;
+  const replaceModel = currentModel === undefined || configuredModelChanged || recordedAsOurs;
+  const modelLine = replaceModel ? ourModelLine : currentModel;
+
+  const currentShow = input.currentShowAllSessionsLine;
+  const showRecordedAsOurs = currentShow !== undefined && currentShow === input.previous?.showAllSessionsLine;
+  const ourShowLine = input.showAllSessions ? "show_all_sessions = true" : undefined;
+  const keepUsersShow = currentShow !== undefined && !showRecordedAsOurs;
+  const showAllSessionsLine = keepUsersShow ? currentShow : ourShowLine;
+
+  return {
+    modelLine,
+    ...(showAllSessionsLine === undefined ? {} : { showAllSessionsLine }),
+    written: {
+      ...(replaceModel || matchesComment ? { modelLine } : {}),
+      ...(showAllSessionsLine !== undefined && !keepUsersShow ? { showAllSessionsLine } : {})
+    }
+  };
+}
+
+function rootAssignmentValue(line: string): string | undefined {
+  return /^[A-Za-z_]+\s*=\s*(.*?)(?:\s+#.*)?$/.exec(line.trim())?.[1];
+}
+
 // Codex adds its own tables inside LLMR's last marker pair (codex-cli 0.171.0, `codex mcp add`), so the markers bound nothing: each line goes by what it holds.
-export function stripManagedCodexConfigContent(content: string, providerIds: string[]): string | undefined {
+// With `written`, a root `model` or `show_all_sessions` line goes only when it is the line LLMR recorded writing.
+export function stripManagedCodexConfigContent(content: string, providerIds: string[], _written?: CodexWrittenLines): string | undefined {
   const configuredModel = managedConfiguredModel(content);
   const providerValues = providerIds.flatMap((providerId) => [tomlString(providerId), `'${providerId}'`]);
   const kept: string[] = [];
