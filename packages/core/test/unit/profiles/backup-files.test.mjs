@@ -9,6 +9,7 @@ import {
   backupFiles,
   ensureOriginalSnapshot,
   pruneBackups,
+  saveRemovedConfigCopy,
   writeFileAtomic
 } from "@llmr/core/profiles/backup-files.ts";
 
@@ -139,4 +140,26 @@ test("ensureOriginalSnapshot records a missing file", (t) => {
   ensureOriginalSnapshot(file, undefined, undefined);
   assert.ok(existsSync(`${file}.llmr-original-missing`));
   assert.ok(!existsSync(`${file}.llmr-original`));
+});
+
+test("saveRemovedConfigCopy keeps the newest three copies, private, with no profile token", posixOnly, (t) => {
+  const { dir, file } = setup(t);
+  const stateDir = path.join(dir, "state", "key");
+  mkdirSync(stateDir, { mode: 0o755, recursive: true });
+  chmodSync(stateDir, 0o755);
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-21T00:00:00.000Z") });
+  for (let call = 1; call <= 4; call += 1) {
+    saveRemovedConfigCopy(stateDir, file, `call ${call}\ntoken = "llmr-profile-Ab_c-1"\nagain = "llmr-profile-Xy_z-2"\nmine = "sk-user"\n`);
+    t.mock.timers.tick(1000);
+  }
+  const copies = backupFiles(path.join(stateDir, "settings.json"));
+  assert.deepEqual(readdirSync(stateDir).sort(), copies.map((copy) => path.basename(copy)));
+  assert.deepEqual(copies.map((copy) => readFileSync(copy, "utf8").split("\n")[0]), ["call 2", "call 3", "call 4"]);
+  assert.equal(statSync(stateDir).mode & 0o777, 0o700);
+  for (const copy of copies) {
+    const content = readFileSync(copy, "utf8");
+    assert.equal(statSync(copy).mode & 0o777, 0o600);
+    assert.equal(content.split("\n").slice(1).join("\n"), 'token = "<removed LLMR profile token>"\nagain = "<removed LLMR profile token>"\nmine = "sk-user"\n');
+  }
+  assert.deepEqual(backupFiles(file), []);
 });

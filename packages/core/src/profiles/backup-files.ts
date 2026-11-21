@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { chmodSync, copyFileSync, existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 export const originalBackupSuffix = ".llmr-original";
@@ -56,6 +56,25 @@ export function ensureOriginalSnapshot(file: string, previous: string | undefine
   }
   copyFileSync(file, originalBackup);
   chmodFileIfRequested(originalBackup, mode);
+}
+
+const profileTokenPattern = /llmr-profile-[A-Za-z0-9_-]+/g;
+
+// Only LLMR's profile token is blanked, so the copy still holds any other secret the file held. It sits in LLMR's own folder, where no restore looks for a snapshot.
+export function saveRemovedConfigCopy(stateDir: string, file: string, content: string): string {
+  mkdirSync(stateDir, { mode: 0o700, recursive: true });
+  chmodFileIfRequested(stateDir, 0o700);
+  const copyBase = path.join(stateDir, path.basename(file));
+  const copy = backupFilePath(copyBase);
+  writeFileSync(copy, content.replace(profileTokenPattern, "<removed LLMR profile token>"), { encoding: "utf8", mode: 0o600 });
+  chmodFileIfRequested(copy, 0o600);
+  try {
+    pruneBackups(copyBase, 3);
+  } catch (error) {
+    // The copy that matters is saved. An older one left behind must not fail the restore.
+    console.error(`Failed to prune older copies of ${copyBase}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return copy;
 }
 
 type BackupOptions = { isManagedContent?: (content: string) => boolean; mode?: number };
