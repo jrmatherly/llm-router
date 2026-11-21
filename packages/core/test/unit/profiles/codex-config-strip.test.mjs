@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  decideCodexRootLines,
+  isRootKeyInsideManagedBlock,
   managedProviderEnd,
   managedProviderStart,
   managedRootEnd,
@@ -143,4 +145,211 @@ test("removing LLMR's tables from between the user's keeps their spacing and the
     "[mcp_servers.llmr-toolhub]", "y = 1", "", "# end", ""
   ].join("\n");
   assert.equal(strip(content), "[a]\nk = 1\n\n# mine\n\n[b]\nk = 2\n\n# end\n");
+});
+
+const ours = "model = \"Provider/model\"";
+const decide = (input) => decideCodexRootLines({ configuredModel: "Provider/model", showAllSessions: false, ...input });
+
+test("the first apply to a file with no model line writes LLMR's and records it", () => {
+  assert.deepEqual(decide({}), { modelLine: ours, written: { modelLine: ours } });
+});
+
+test("a re-apply with nothing changed keeps LLMR's model line as LLMR's", () => {
+  const result = decide({ currentModelLine: ours, previous: { modelLine: ours }, previousConfiguredModel: "\"Provider/model\"" });
+  assert.deepEqual(result, { modelLine: ours, written: { modelLine: ours } });
+});
+
+test("a changed profile model replaces the model line and records the new one", () => {
+  const next = "model = \"Provider/other\"";
+  const result = decide({ configuredModel: "Provider/other", currentModelLine: ours, previous: { modelLine: ours }, previousConfiguredModel: "\"Provider/model\"" });
+  assert.deepEqual(result, { modelLine: next, written: { modelLine: next } });
+});
+
+test("a model line the user put in place of LLMR's stays theirs", () => {
+  const mine = "model = \"my-own\"";
+  const result = decide({ currentModelLine: mine, previous: { modelLine: ours }, previousConfiguredModel: "\"Provider/model\"" });
+  assert.deepEqual(result, { modelLine: mine, written: {} });
+});
+
+test("a user's model line that equals LLMR's stays theirs when the record says so", () => {
+  const result = decide({ currentModelLine: ours, previous: {}, previousConfiguredModel: "\"Provider/model\"" });
+  assert.deepEqual(result, { modelLine: ours, written: {} });
+});
+
+test("after Codex dropped the configured-model comment the record still names LLMR's model line", () => {
+  assert.deepEqual(decide({ currentModelLine: ours, previous: { modelLine: ours } }), { modelLine: ours, written: { modelLine: ours } });
+  const next = "model = \"Provider/other\"";
+  assert.deepEqual(
+    decide({ configuredModel: "Provider/other", currentModelLine: ours, previous: { modelLine: ours } }),
+    { modelLine: next, written: { modelLine: next } }
+  );
+});
+
+test("the user's own model line is kept until the profile's model changes", () => {
+  const mine = "model = \"X\"";
+  assert.deepEqual(decide({ currentModelLine: mine }), { modelLine: mine, written: {} });
+  const next = "model = \"Provider/other\"";
+  assert.deepEqual(
+    decide({ configuredModel: "Provider/other", currentModelLine: mine, previous: {}, previousConfiguredModel: "\"Provider/model\"" }),
+    { modelLine: next, written: { modelLine: next } }
+  );
+});
+
+test("with no record a model line that equals the configured-model comment is LLMR's", () => {
+  assert.deepEqual(decide({ currentModelLine: ours, previousConfiguredModel: "\"Provider/model\"" }), { modelLine: ours, written: { modelLine: ours } });
+  assert.deepEqual(decide({ currentModelLine: "model = \"X\"", previousConfiguredModel: "\"Provider/model\"" }), { modelLine: "model = \"X\"", written: {} });
+});
+
+test("show_all_sessions is LLMR's only while it is the line LLMR recorded", () => {
+  const on = "show_all_sessions = true";
+  assert.deepEqual(decide({ currentModelLine: ours, previous: { modelLine: ours }, showAllSessions: true }).written, { modelLine: ours, showAllSessionsLine: on });
+  const switchedOff = decide({ currentModelLine: ours, currentShowAllSessionsLine: on, previous: { modelLine: ours, showAllSessionsLine: on } });
+  assert.equal(switchedOff.showAllSessionsLine, undefined);
+  assert.deepEqual(switchedOff.written, { modelLine: ours });
+  const usersOwn = decide({ currentModelLine: ours, currentShowAllSessionsLine: "show_all_sessions = false", previous: { modelLine: ours }, showAllSessions: true });
+  assert.equal(usersOwn.showAllSessionsLine, "show_all_sessions = false");
+  assert.deepEqual(usersOwn.written, { modelLine: ours });
+  const usersTrue = decide({ currentModelLine: ours, currentShowAllSessionsLine: on, previous: { modelLine: ours } });
+  assert.equal(usersTrue.showAllSessionsLine, on);
+  assert.deepEqual(usersTrue.written, { modelLine: ours });
+});
+
+// What codex-cli 0.171.0 leaves after `codex mcp add` on a re-applied file: the configured-model comment and the root END marker are gone.
+const afterCodexMcpAdd = [
+  managedRootStart,
+  "model_provider = \"llm-router\"",
+  ours,
+  "model_catalog_json = \"/tmp/codex-home/llmr-model-catalog.json\"",
+  "",
+  "[mcp_servers.mine]",
+  "command = \"my-server\"",
+  "",
+  "[mcp_servers.other]",
+  "command = \"other-cmd\"",
+  "",
+  providerBlock
+].join("\n");
+const usersTables = "[mcp_servers.mine]\ncommand = \"my-server\"\n\n[mcp_servers.other]\ncommand = \"other-cmd\"\n";
+
+test("with the record LLMR's model line goes even after Codex dropped the comment that named it", () => {
+  assert.equal(stripManagedCodexConfigContent(afterCodexMcpAdd, ["llm-router"], { modelLine: ours }), usersTables);
+  assert.equal(strip(afterCodexMcpAdd), `${ours}\n\n${usersTables}`);
+});
+
+test("with the record a model line the user changed or owns stays", () => {
+  const changed = afterCodexMcpAdd.replace(ours, "model = \"my-own\"");
+  assert.equal(stripManagedCodexConfigContent(changed, ["llm-router"], { modelLine: ours }), `model = "my-own"\n\n${usersTables}`);
+  const withComment = managed("");
+  assert.equal(stripManagedCodexConfigContent(withComment, ["llm-router"], {}), `${ours}\n`);
+  assert.equal(strip(withComment), "");
+});
+
+test("with the record a show_all_sessions line inside LLMR's root block stays unless LLMR wrote it", () => {
+  const withUsersLine = managed("").replace(managedRootEnd, `show_all_sessions = false\n${managedRootEnd}`);
+  assert.equal(stripManagedCodexConfigContent(withUsersLine, ["llm-router"], { modelLine: ours }), "show_all_sessions = false\n");
+  assert.equal(stripManagedCodexConfigContent(withUsersLine, ["llm-router"], { modelLine: ours, showAllSessionsLine: "show_all_sessions = true" }), "show_all_sessions = false\n");
+  const withOurLine = managed("").replace(managedRootEnd, `show_all_sessions = true\n${managedRootEnd}`);
+  assert.equal(stripManagedCodexConfigContent(withOurLine, ["llm-router"], { modelLine: ours, showAllSessionsLine: "show_all_sessions = true" }), "");
+});
+
+test("a file LLMR already had, with no record, has its model line claimed when it holds the configured model", () => {
+  assert.deepEqual(decide({ currentModelLine: ours, managedWithoutRecord: true }), { modelLine: ours, written: { modelLine: ours } });
+  assert.deepEqual(decide({ currentModelLine: "model = \"my-own\"", managedWithoutRecord: true }), { modelLine: "model = \"my-own\"", written: {} });
+  assert.deepEqual(decide({ currentModelLine: ours }), { modelLine: ours, written: {} });
+});
+
+test("a recorded line is matched by its value, so realigning it or adding a comment does not make it the user's", () => {
+  for (const reformatted of ["model  =  \"Provider/model\"", "model = \"Provider/model\"  # mine", "model=\"Provider/model\""]) {
+    const content = afterCodexMcpAdd.replace(ours, reformatted);
+    assert.equal(stripManagedCodexConfigContent(content, ["llm-router"], { modelLine: ours }), usersTables, reformatted);
+    assert.deepEqual(decide({ currentModelLine: reformatted, previous: { modelLine: ours } }).written, { modelLine: ours }, reformatted);
+  }
+  const realignedShow = managed("").replace(managedRootEnd, `show_all_sessions  =  true\n${managedRootEnd}`);
+  assert.equal(stripManagedCodexConfigContent(realignedShow, ["llm-router"], { modelLine: ours, showAllSessionsLine: "show_all_sessions = true" }), "");
+});
+
+test("a file LLMR already had, with no record, has a show_all_sessions line in LLMR's root block claimed", () => {
+  const on = "show_all_sessions = true";
+  const claimed = decide({ currentModelLine: ours, currentShowAllSessionsLine: on, managedWithoutRecord: true, showAllSessions: true, showAllSessionsInManagedBlock: true });
+  assert.deepEqual(claimed.written, { modelLine: ours, showAllSessionsLine: on });
+  const switchedOff = decide({ currentModelLine: ours, currentShowAllSessionsLine: on, managedWithoutRecord: true, showAllSessionsInManagedBlock: true });
+  assert.equal(switchedOff.showAllSessionsLine, undefined);
+  const below = decide({ currentModelLine: ours, currentShowAllSessionsLine: on, managedWithoutRecord: true, showAllSessions: true });
+  assert.deepEqual(below.written, { modelLine: ours });
+  const fresh = decide({ currentShowAllSessionsLine: on, showAllSessions: true, showAllSessionsInManagedBlock: true });
+  assert.deepEqual(fresh.written, { modelLine: ours });
+});
+
+test("isRootKeyInsideManagedBlock finds a root key only between LLMR's root markers", () => {
+  const inside = managed("").replace(managedRootEnd, `show_all_sessions = true\n${managedRootEnd}`);
+  assert.equal(isRootKeyInsideManagedBlock(inside, "show_all_sessions"), true);
+  assert.equal(isRootKeyInsideManagedBlock(managed("show_all_sessions = true\n"), "show_all_sessions"), false);
+  assert.equal(isRootKeyInsideManagedBlock(afterCodexMcpAdd.replace(ours, `${ours}\nshow_all_sessions = true`), "show_all_sessions"), true);
+  assert.equal(isRootKeyInsideManagedBlock(`${managedRootStart}\n[t]\nshow_all_sessions = true\n`, "show_all_sessions"), false);
+  assert.equal(isRootKeyInsideManagedBlock(`${managedRootStart}\nnote = """\nshow_all_sessions = true\n"""\n`, "show_all_sessions"), false);
+});
+
+function seededRandom(seed) {
+  let state = seed;
+  return () => {
+    state = (state + 0x6D2B79F5) | 0;
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+test("a strip with the record keeps every line of the user's and none of LLMR's, over 600 generated files", () => {
+  const random = seededRandom(20261121);
+  const pick = (items) => items[Math.floor(random() * items.length)];
+  const chance = (probability) => random() < probability;
+  const rootKeys = ["approval_policy = \"on-request\"", "sandbox_mode = \"read-only\"", "model_reasoning_effort = \"high\"", "show_all_sessions = false", "file_opener = \"vscode\""];
+  const multiLine = [`developer_instructions = """\n${llmrLikeLines}\n"""`, `notes = '''\n${llmrLikeLines}\n'''`, "extra_matrix = [\n  [\"a\", \"b\"],\n  [\"c\"],\n]"];
+  const table = (index) => [
+    ...(chance(0.3) ? [`# about table ${index}`] : []),
+    `[${pick(["mcp_servers", "projects", "profiles"])}.user${index}]${chance(0.2) ? " # mine" : ""}`,
+    `command = "cmd-${index}"`,
+    ...(chance(0.3) ? ["args = [\"a\\\"b\", 'C:\\']"] : []),
+    ...(chance(0.25) ? [`note = """\n${llmrLikeLines}\n"""`] : [])
+  ].join("\n");
+
+  for (let index = 0; index < 600; index += 1) {
+    const usersModel = chance(0.3) ? pick([ours, "model = \"my-own\""]) : undefined;
+    const ourShow = !usersModel && chance(0.2) ? "show_all_sessions = true" : undefined;
+    const written = { ...(usersModel ? {} : { modelLine: ours }), ...(ourShow ? { showAllSessionsLine: ourShow } : {}) };
+    const codexKeptTheComment = chance(0.5);
+    const usable = (key) => !(ourShow && key.startsWith("show_all_sessions"));
+    const insideRootBlock = rootKeys.filter((key) => usable(key) && chance(0.2));
+    const belowRootBlock = [...rootKeys.filter((key) => usable(key) && !insideRootBlock.includes(key) && chance(0.2)), ...multiLine.filter(() => chance(0.2))];
+    const tables = Array.from({ length: Math.floor(random() * 4) }, (_, tableIndex) => table(tableIndex));
+    const insideProviderBlock = chance(0.3) ? [`[mcp_servers.added${index}]\ncommand = "added"`] : [];
+    const user = [usersModel, ...insideRootBlock, ...belowRootBlock, ...tables, ...insideProviderBlock].filter((part) => part !== undefined);
+
+    const content = [
+      managedRootStart,
+      "model_provider = \"llm-router\"",
+      usersModel ?? ours,
+      "model_catalog_json = \"/tmp/codex-home/llmr-model-catalog.json\"",
+      ...(codexKeptTheComment ? ["# LLMR configured model = \"Provider/model\""] : []),
+      ...(ourShow ? [ourShow] : []),
+      ...insideRootBlock,
+      ...(codexKeptTheComment ? [managedRootEnd] : []),
+      ...belowRootBlock,
+      "",
+      ...tables.flatMap((part) => [part, ""]),
+      managedProviderStart,
+      "[model_providers.llm-router]",
+      "name = \"LLM Router\"",
+      "experimental_bearer_token = \"llmr-profile-TEST\"",
+      ...insideProviderBlock.flatMap((part) => ["", part]),
+      managedProviderEnd,
+      ...(index % 3 === 0 ? ["", "# BEGIN LLMR managed ToolHub MCP", "[mcp_servers.llmr-toolhub]", "command = \"node\"", "", "[mcp_servers.llmr-toolhub.env]", "LLMR_TOKEN = \"llmr-profile-TEST\"", "# END LLMR managed ToolHub MCP"] : []),
+      ""
+    ].join("\n");
+
+    const stripped = stripManagedCodexConfigContent(content, ["llm-router"], written) ?? content;
+    const lines = (text) => text.split("\n").filter((line) => line.trim() !== "");
+    assert.deepEqual(lines(stripped), lines(user.join("\n")), `case ${index}\n${content}`);
+    assert.equal(stripManagedCodexConfigContent(stripped, ["llm-router"], written), undefined, `second strip, case ${index}`);
+  }
 });
