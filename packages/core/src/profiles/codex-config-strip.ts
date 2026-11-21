@@ -230,7 +230,8 @@ export function stripManagedCodexConfigContent(
   written?: CodexWrittenLines,
   displaced: CodexDisplacedConfig = {}
 ): string | undefined {
-  const putBack = new Set<string>();
+  const putBack = new Map<string, number>();
+  const usersRootKeys = new Set<string>();
   const configuredModel = managedConfiguredModel(content);
   const providerValues = providerIds.flatMap((providerId) => [tomlString(providerId), `'${providerId}'`]);
   const kept: string[] = [];
@@ -257,12 +258,21 @@ export function stripManagedCodexConfigContent(
     ) {
       const usersLine = displaced[displacedRootKeys[key as keyof typeof displacedRootKeys]];
       if (usersLine !== undefined && !putBack.has(key)) {
-        putBack.add(key);
+        putBack.set(key, kept.length);
         kept.push(`${usersLine}\n`);
       }
       continue;
     }
+    if (key !== undefined) {
+      usersRootKeys.add(key);
+    }
     kept.push(line);
+  }
+  // A line of that key the user wrote beside LLMR's is their choice, and a second one would stop the file loading.
+  for (const [key, index] of putBack) {
+    if (usersRootKeys.has(key)) {
+      kept[index] = "";
+    }
   }
   const providerHeaders = providerIds.flatMap((providerId) => [`[model_providers.${providerId}]`, `[model_providers.${tomlQuotedKey(providerId)}]`]);
   const mcpPrefixes = [TOOL_HUB_MCP_SERVER_NAME, CONTEXT_ARCHIVE_MCP_SERVER_NAME]

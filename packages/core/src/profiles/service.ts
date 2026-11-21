@@ -1400,13 +1400,18 @@ function writeGlobalCodexConfig(file: string, content: string, providerId: strin
   // A managed file that is as LLMR wrote it holds nothing the snapshot lacks.
   let backupFile: string | undefined;
   if (previous !== undefined && !(managed && (noOriginal || isAsWritten(record, previous)))) {
-    const snapshot = originalSnapshotCandidate(file, matchers, noOriginal ? matchers.stripManagedContent : undefined)?.content;
-    const kept = managed
-      ? stripManagedCodexConfigContent(previous, [providerId], record, readCodexDisplacedConfig(snapshot ?? "", [providerId]))
-      : matchers.stripManagedContent?.(previous) ?? previous;
-    // A backup equal to the snapshot a restore would choose adds nothing.
-    if (kept !== undefined && kept !== snapshot && !(managed && isEmptyConfigContent(kept))) {
-      backupFile = backupContent(file, kept, { isManagedContent: matchers.isManagedContent, mode: privateFileMode });
+    try {
+      const snapshot = originalSnapshotCandidate(file, matchers, noOriginal ? matchers.stripManagedContent : undefined)?.content;
+      const kept = managed
+        ? stripManagedCodexConfigContent(previous, [providerId], record, readCodexDisplacedConfig(snapshot ?? "", [providerId]))
+        : matchers.stripManagedContent?.(previous) ?? previous;
+      // A backup equal to the snapshot a restore would choose adds nothing.
+      if (kept !== undefined && kept !== snapshot && !(managed && isEmptyConfigContent(kept))) {
+        backupFile = backupContent(file, kept, { isManagedContent: matchers.isManagedContent, mode: privateFileMode });
+      }
+    } catch (error) {
+      // A snapshot that cannot be read must not stop the apply. No backup is written without it: one made without the user's displaced lines would be chosen over the original at the next restore.
+      console.error(`Failed to back up ${resolveUserPath(file)} before writing it: ${formatError(error)}`);
     }
   }
   writeFileAtomic(file, content, { mode: privateFileMode });
@@ -2657,7 +2662,8 @@ function isBotGatewayEnvKey(key: string): boolean {
 
 function removeRootTomlKeys(source: string, keys: string[]): string {
   const keyPattern = keys.map(escapeRegExp).join("|");
-  const pattern = new RegExp(`^\\s*(?:${keyPattern})\\s*=.*(?:\\n|$)`, "gm");
+  // In a CRLF file `$` matches ahead of the carriage return, and a leading `\s*` then ate the line feed before the key and left that carriage return on its own.
+  const pattern = new RegExp(`^[ \\t]*(?:${keyPattern})\\s*=.*(?:\\r?\\n|$)`, "gm");
   return source.replace(pattern, "");
 }
 
@@ -3680,7 +3686,7 @@ function saveConfigSafetyCopy(file: string, content: string): void {
   saveRemovedConfigCopy(path.dirname(codexWrittenRecordFile(file)), file, content);
 }
 
-// Only Codex has a record. A managed Claude Code file holds only LLMR's keys, and a Codex file without a record cannot show an edit, so neither gets a copy.
+// For a file that had no original. Only Codex has a record. A managed Claude Code file holds only LLMR's keys, and a Codex file without a record cannot show an edit, so neither gets a copy here.
 function isUntouchedSinceWritten(file: string, current: string): boolean {
   const record = readCodexWrittenRecord(file);
   return !record || isAsWritten(record, current);

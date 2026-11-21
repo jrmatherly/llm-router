@@ -408,6 +408,39 @@ test("a strip puts each displaced root line back in place of the line of LLMR's 
   ].join("\n"));
 });
 
+test("readCodexDisplacedConfig ends the profile table at a child table and at an indented header", () => {
+  const table = "[profiles.llm-router]\nmodel = \"p\"\n";
+  for (const next of ["[profiles.llm-router.features]\nx = true\n", "  [projects.x]\ntrust_level = \"trusted\"\n"]) {
+    assert.deepEqual(readCodexDisplacedConfig(`${table}${next}`, ["llm-router"]).profileTables, [table], next);
+  }
+});
+
+test("a displaced profile table is appended to a file left with nothing else, with no blank lines above it", () => {
+  const table = "[profiles.llm-router]\nmodel = \"p\"\n";
+  assert.equal(stripManagedCodexConfigContent(managed(""), ["llm-router"], { modelLine: "model = \"Provider/model\"" }, { profileTables: [table] }), table);
+});
+
+test("a profile table header inside a multi-line string does not count as the table being there", () => {
+  const table = "[profiles.llm-router]\nmodel = \"p\"\n";
+  const notes = "notes = \"\"\"\n[profiles.llm-router]\n\"\"\"\n";
+  const stripped = stripManagedCodexConfigContent(managed(notes), ["llm-router"], { modelLine: "model = \"Provider/model\"" }, { profileTables: [table] });
+  assert.equal(stripped, `${notes}\n${table}`);
+});
+
+test("a displaced line stays out where the user wrote their own line of that key beside LLMR's", () => {
+  const written = { modelLine: "model = \"Provider/model\"" };
+  for (const before of [true, false]) {
+    const own = "model_provider = \"azure\"\nmodel_catalog_json = \"/tmp/own.json\"\n";
+    const edited = before ? `${own}${managed("")}` : managed("").replace("# END LLMR managed profile\n", `# END LLMR managed profile\n${own}`);
+    assert.notEqual(edited, managed(""));
+    const stripped = stripManagedCodexConfigContent(edited, ["llm-router"], written, usersDisplaced);
+    const lines = stripped.slice(0, stripped.indexOf("[")).split("\n");
+    assert.deepEqual(lines.filter((line) => /^\s*model_provider\s*=/.test(line)), ["model_provider = \"azure\""], `before: ${before}`);
+    assert.deepEqual(lines.filter((line) => /^\s*model_catalog_json\s*=/.test(line)), ["model_catalog_json = \"/tmp/own.json\""], `before: ${before}`);
+    assert.deepEqual(lines.filter((line) => /^\s*model\s*=/.test(line)), ["model = \"gpt-mine\""], `before: ${before}`);
+  }
+});
+
 test("a displaced line stays out where the user removed or replaced LLMR's line, or already has the table", () => {
   const edited = managed("[profiles.llm-router]\nmodel = \"newer\"\n\n")
     .replace("model_provider = \"llm-router\"\n", "model_provider = \"azure\"\n")

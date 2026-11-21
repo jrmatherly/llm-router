@@ -4554,6 +4554,89 @@ test("no file beside a Codex config holds the profile's token after a second app
   }
 });
 
+test("a Codex config with Windows line endings holds no stray carriage return after an apply or a restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "# mine\r\nmodel = \"gpt-mine\"\r\nmodel_provider = \"openai\"\r\nshow_all_sessions = true\r\n\r\n[mcp_servers.mine]\r\ncommand = \"my-server\"\r\n";
+  const bareCarriageReturn = /\r(?!\n)/;
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile }) => {
+    assert.doesNotMatch(readFileSync(codexConfigFile, "utf8"), bareCarriageReturn);
+    writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\r\n[mcp_servers.later]\r\ncommand = "later"\r\n`);
+    await recoverGlobalAgentProfile("default-codex");
+    const restored = readFileSync(codexConfigFile, "utf8");
+    assert.doesNotMatch(restored, bareCarriageReturn);
+    assert.match(restored, /\[mcp_servers\.later\]/);
+    assert.match(restored, /^model_provider = "openai"\r?$/m);
+    assert.doesNotMatch(restored, llmrCodexContent);
+  }, ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml"), original);
+  });
+});
+
+test("a second Codex apply reports no change and repairs the file's mode, and an apply after an edit reports one", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || process.platform === "win32" }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const codexStatus = async () => (await applyProfileConfig(fixture.config)).clients.find((status) => status.client === "codex");
+    chmodSync(fixture.codexConfigFile, 0o644);
+    assert.match((await codexStatus()).message, /already matches LLMR/);
+    assert.equal(statSync(fixture.codexConfigFile).mode & 0o777, 0o600);
+    appendUserCodexTables(fixture);
+    assert.match((await codexStatus()).message, /is managed by LLMR/);
+  });
+});
+
+test("an original with a child table under the profile table comes back with each header once", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "model_provider = \"openai\"\n\n[profiles.llm-router]\nmodel = \"p\"\n\n[profiles.llm-router.features]\nx = true\n";
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    appendUserCodexTables(fixture);
+    await recoverGlobalAgentProfile("default-codex");
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.deepEqual(restored.match(/^\[profiles\.llm-router[^\n]*$/gm).sort(), ["[profiles.llm-router.features]", "[profiles.llm-router]"]);
+    assert.equal(restored.match(/^model_provider = /gm).length, 1);
+    assert.match(restored, /\[mcp_servers\.mine\]/);
+  }, ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml"), original);
+  });
+});
+
+test("a restore after the user deleted their Codex config brings back the backup an apply wrote, with their edit and no token", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    appendUserCodexTables(fixture);
+    await applySecondCodexModel(fixture.config);
+    assert.equal(codexBackups(fixture.codexDir).length, 1);
+    rmSync(fixture.codexConfigFile);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.match(restored, /\[mcp_servers\.mine\]/);
+    assert.match(restored, /^model_provider = "openai"$/m);
+    assert.doesNotMatch(restored, llmrCodexContent);
+    assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), []);
+  }, ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml"), "model_provider = \"openai\"\n");
+  });
+});
+
+test("an apply over an edited Codex config goes ahead when the saved original cannot be read", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || process.platform === "win32" }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const original = `${fixture.codexConfigFile}.llmr-original`;
+    appendUserCodexTables(fixture);
+    chmodSync(original, 0o000);
+    try {
+      const applied = await applySecondCodexModel(fixture.config);
+      assert.deepEqual(applied.clients.filter((status) => !status.ok), []);
+      assert.match(readFileSync(fixture.codexConfigFile, "utf8"), /^model = "Provider\/model-2"$/m);
+      assert.match(readFileSync(fixture.codexConfigFile, "utf8"), /\[mcp_servers\.mine\]/);
+      assert.deepEqual(codexBackups(fixture.codexDir), []);
+    } finally {
+      chmodSync(original, 0o600);
+    }
+  }, ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml"), "model_provider = \"openai\"\n");
+  });
+});
+
 test("an apply over an edited Codex config keeps a backup of the user's content with nothing of LLMR's, and a restore keeps the edit", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
     await applySecondCodexModel(fixture.config);
