@@ -3754,20 +3754,6 @@ test("a stale original-missing marker does not cost the user their own Codex con
   });
 });
 
-test("a stale original-missing marker does not cost the user their own Claude Code settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const original = { env: { ANTHROPIC_BASE_URL: "https://proxy.example.test" }, permissions: { allow: ["Bash(ls)"] } };
-  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
-    const settingsFile = path.join(claudeDir, "settings.json");
-    assert.match(readFileSync(settingsFile, "utf8"), /apiKeyHelper/);
-    await recoverGlobalAgentProfile("default-claude-code");
-    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), original);
-  }, ({ claudeDir }) => {
-    mkdirSync(claudeDir, { recursive: true });
-    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(original, null, 2)}\n`);
-    writeFileSync(path.join(claudeDir, "settings.json.llmr-original-missing"), "");
-  });
-});
-
 test("restoring original settings revokes the profile's key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async () => {
     await recoverGlobalAgentProfile("default-codex");

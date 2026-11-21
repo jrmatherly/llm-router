@@ -3591,7 +3591,7 @@ function originalSnapshotCandidate(
       continue;
     }
     const content = readFileSync(candidate, "utf8");
-    // With no original, a backup that holds anything of LLMR's was taken during the takeover: it can hold a setting the user has since deleted.
+    // With no original, a backup the stripper would change is a copy from LLMR's time and can hold a setting the user has since deleted.
     if (stripWhenNoOriginal?.(content) !== undefined) {
       continue;
     }
