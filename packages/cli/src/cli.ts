@@ -622,9 +622,9 @@ function printHelp(exitCode: number): void {
     `  ${command} ui`,
     `  ${command} serve --no-open`,
     `  ${command} stop`,
-    `  ${command} Codex`,
-    `  ${command} default-codex -- --model gpt-5-codex`,
-    `  ${command} default-codex app`
+    `  ${command} <profile>`,
+    `  ${command} <profile> -- --model gpt-5-codex`,
+    `  ${command} <profile> app`
   ].join("\n");
   const stream = exitCode === 0 ? process.stdout : process.stderr;
   stream.write(`${output}\n`);

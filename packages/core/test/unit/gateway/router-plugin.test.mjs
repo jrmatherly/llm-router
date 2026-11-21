@@ -263,6 +263,7 @@ test("LLMR router core plugin resolves bare Codex companion models through the a
       type: "openai_chat_completions"
     }
   ];
+  config.profile.enabled = true;
   config.profile.profiles = [{
     agent: "codex",
     enabled: true,
@@ -872,6 +873,7 @@ test("LLMR router core plugin serves public model discovery before built-in gate
   }];
   config.APIKEY = "client-key";
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "profile:limited", key: "client-key" }];
+  config.profile.enabled = true;
   config.profile.profiles = [{
     ...config.profile.profiles[0],
     availableModels: ["Primary/alpha"],
@@ -902,6 +904,7 @@ test("LLMR router core plugin rejects profile-disallowed routed models", async (
   }];
   config.APIKEY = "client-key";
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "profile:limited", key: "client-key" }];
+  config.profile.enabled = true;
   config.profile.profiles = [{
     ...config.profile.profiles[0],
     availableModels: ["Primary/alpha"],

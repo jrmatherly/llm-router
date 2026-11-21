@@ -25,6 +25,7 @@ test("a config that failed to load does not release the agent takeovers", async 
   writeFileSync(settingsFile, `${JSON.stringify({ env: { ANTHROPIC_MODEL: "user-model" } }, null, 2)}\n`);
   const config = createDefaultAppConfig();
   config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  config.profile.enabled = true;
   config.profile.profiles = [{
     agent: "claude-code",
     enabled: true,

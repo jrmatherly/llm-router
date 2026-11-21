@@ -26,7 +26,10 @@ async function failEveryFallbackTarget(profile) {
   config.contextArchive.enabled = false;
   config.Providers = ["Primary", "Secondary", "Final"].map(name => ({ name, models: ["model"], type: "openai_chat_completions", api_base_url: "http://127.0.0.1:9/v1" }));
   config.Router.fallback = { mode: "model-chain", models: ["Secondary/model", "Final/model"], retryCount: 0 };
-  if (profile) config.profile.profiles = [profile];
+  if (profile) {
+    config.profile.enabled = true;
+    config.profile.profiles = [profile];
+  }
   const apiKey = profile ? { enabled: true, id: `profile:${profile.id}`, key: "profile-key", name: profile.name } : undefined;
   const router = new LLMRouterPlugin(config);
   const pipeline = new GatewayRequestPipeline({

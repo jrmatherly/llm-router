@@ -16,7 +16,9 @@ test("saving profiles synchronizes legacy profile enabled flags", async () => {
   const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
 
   const config = createDefaultAppConfig();
-  config.profile.profiles = config.profile.profiles.filter((profile) => profile.agent !== "claude-code");
+  config.profile.profiles = config.profile.profiles
+    .filter((profile) => profile.agent !== "claude-code")
+    .map((profile) => ({ ...profile, enabled: true }));
 
   const savedWithoutClaude = await saveAppConfig(config);
   assert.equal(savedWithoutClaude.profile.enabled, true);
@@ -29,7 +31,7 @@ test("saving profiles synchronizes legacy profile enabled flags", async () => {
 
   const topLevelDisabledConfig = createDefaultAppConfig();
   topLevelDisabledConfig.configRevision = savedWithoutClaude.configRevision;
-  topLevelDisabledConfig.profile.enabled = false;
+  topLevelDisabledConfig.profile.profiles = topLevelDisabledConfig.profile.profiles.map((profile) => ({ ...profile, enabled: true }));
   const savedTopLevelDisabled = await saveAppConfig(topLevelDisabledConfig);
   assert.equal(savedTopLevelDisabled.profile.enabled, true);
   assert.equal(savedTopLevelDisabled.profile.claudeCode.enabled, true);
@@ -84,7 +86,7 @@ test("saving profiles synchronizes legacy profile enabled flags", async () => {
   assert.equal(loadedLegacyBooleanConfig.profile.codex.showAllSessions, true);
 
   const stuckConfig = createDefaultAppConfig();
-  stuckConfig.profile.enabled = false;
+  stuckConfig.profile.profiles = stuckConfig.profile.profiles.map((profile) => ({ ...profile, enabled: true }));
   await replacePersistedAppConfig(stuckConfig);
   const loadedStuckConfig = await loadAppConfig();
   assert.equal(loadedStuckConfig.profile.enabled, true);
@@ -106,4 +108,19 @@ test("saving profiles synchronizes legacy profile enabled flags", async () => {
   const rawOneOn = await loadPersistedAppConfig();
   assert.equal(rawOneOn.profile.enabled, true);
   assert.equal(rawOneOn.profile.claudeCode.enabled, true);
+});
+
+test("a new install can enable its first profile after an earlier save", async () => {
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
+
+  const fresh = createDefaultAppConfig();
+  fresh.configRevision = (await loadAppConfig()).configRevision;
+  const saved = await saveAppConfig(fresh);
+  assert.equal(saved.profile.enabled, false);
+  saved.profile.profiles[0].enabled = true;
+  const savedAgain = await saveAppConfig(saved);
+  assert.equal(savedAgain.profile.enabled, true);
+  assert.equal(savedAgain.profile.claudeCode.enabled, true);
+  assert.equal(savedAgain.profile.codex.enabled, false);
 });

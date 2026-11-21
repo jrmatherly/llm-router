@@ -51,6 +51,7 @@ export function OnboardingView({
   onComplete,
   onRefreshProviderModels,
   onSelectStep,
+  onSkipProfile,
   onSubmitProfile,
   onSubmitProvider,
   profileDraft,
@@ -76,6 +77,7 @@ export function OnboardingView({
   onComplete: () => void | Promise<void>;
   onRefreshProviderModels?: () => Promise<unknown>;
   onSelectStep: (step: OnboardingStepId) => void;
+  onSkipProfile?: () => void;
   onSubmitProfile: () => Promise<boolean>;
   onSubmitProvider: () => Promise<boolean>;
   profileDraft: AddProfileDraft;
@@ -305,7 +307,7 @@ export function OnboardingView({
                 >
                   <div className="mx-auto flex w-full max-w-[520px] flex-col overflow-hidden rounded-lg border border-border bg-background/70">
                     <OnboardingStatusRow label="Provider" ready={providerReady} />
-                    <OnboardingStatusRow label="Profile" ready={profileReady} />
+                    <OnboardingStatusRow label="Profile" note={readiness?.profileSkipped ? "Skipped. Add one under Agent Profiles." : undefined} ready={profileReady} />
                     <OnboardingStatusRow label="Service" ready={serviceReady} />
                     <OnboardingDetailRow label="Endpoint" value={endpoint} />
                   </div>
@@ -325,6 +327,11 @@ export function OnboardingView({
               </div>
 
               <div className="mt-5 flex shrink-0 items-center justify-end gap-3 border-t border-border/60 pt-4 max-[640px]:items-stretch">
+                {activeStep === "profile" && !profileReady && onSkipProfile ? (
+                  <Button onClick={onSkipProfile} type="button" variant="outline">
+                    Skip for now
+                  </Button>
+                ) : null}
                 <Button disabled={nextDisabled} onClick={() => void goToNextStep()} type="button">
                   {providerSubmitLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : activeStep === "enter" ? <Check className="h-4 w-4" /> : null}
                   {providerSubmitLoading ? "Loading" : activeStep === "enter" ? "Let's start" : "Next step"}
@@ -398,7 +405,10 @@ function OnboardingProgress({
   );
 }
 
-function OnboardingStatusRow({ label, ready }: { label: string; ready: boolean }) {
+function OnboardingStatusRow({ label, note, ready }: { label: string; note?: string; ready: boolean }) {
+  if (note) {
+    return <OnboardingDetailRow label={label} value={note} />;
+  }
   return (
     <div className="flex min-h-11 min-w-0 items-center justify-between gap-3 border-b border-border/60 px-3 py-2.5 last:border-b-0">
       <span className="min-w-0 truncate text-[13px] font-medium text-foreground">{label}</span>

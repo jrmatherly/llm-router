@@ -66,9 +66,11 @@ test("single gateway runtime falls back when a router rule has fallback", () => 
 
 test("single gateway runtime falls back when a profile route has fallback", () => {
   const config = createDefaultAppConfig();
+  config.profile.enabled = true;
   config.profile.profiles = config.profile.profiles.map((profile) => profile.id === "default-claude-code"
     ? {
         ...profile,
+        enabled: true,
         routing: {
           enabled: true,
           enhancedRoute: false,

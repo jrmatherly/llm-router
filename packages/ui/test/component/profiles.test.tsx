@@ -72,6 +72,25 @@ test("AddProfileForm does not show the profile requirements panel", () => {
   assert.doesNotMatch(html, /Profile guidance/);
 });
 
+test("AddProfileForm names the file a system-default profile rewrites, and says nothing for an LLMR-only one", () => {
+  const config = appConfigFixture();
+  const render = (draft: ReturnType<typeof createProfileDraft>) => renderToStaticMarkup(
+    <AddProfileForm
+      botConfigs={config.botConfigs}
+      draft={draft}
+      error=""
+      onChange={() => undefined}
+      onCreateBot={() => undefined}
+      providers={config.Providers}
+      virtualModelProfiles={config.virtualModelProfiles}
+    />
+  );
+
+  assert.match(render({ ...createProfileDraft("claude-code"), scope: "global" }), /LLMR rewrites ~\/\.claude\/settings\.json while it runs\..*Restore original settings\./);
+  assert.match(render({ ...createProfileDraft("codex"), scope: "global" }), /LLMR rewrites ~\/\.codex\/config\.toml while it runs\./);
+  assert.doesNotMatch(render({ ...createProfileDraft("claude-code"), scope: "llmr" }), /LLMR rewrites/);
+});
+
 test("AddProfileForm keeps profile routing inside Advanced settings", () => {
   const config = appConfigFixture();
   const html = renderToStaticMarkup(

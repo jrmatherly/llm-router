@@ -846,6 +846,11 @@ export function AddProfileForm({
           {draft.agent === "claude-code" && draft.surface !== "cli" ? (
             <p className="text-[12px] text-muted-foreground">Applies to the CLI entry. The App entry uses the toggle below.</p>
           ) : null}
+          {draft.scope === "global" && (draft.agent === "claude-code" || draft.agent === "codex") ? (
+            <p className="text-[12px] text-muted-foreground">
+              LLMR rewrites {draft.agent === "codex" ? "~/.codex/config.toml" : "~/.claude/settings.json"} while it runs. It keeps a copy of your file if you had one, and puts things back when you quit LLMR or click Restore original settings.
+            </p>
+          ) : null}
         </Field>
         <Field label="Entry mode" requirement="required" requirementLabel={requiredFieldLabel}>
           <SelectControl

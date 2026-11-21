@@ -189,6 +189,7 @@ try {
 
   const runningGatewayHealth = await fetch(`${baseUrl}/health`);
   assert.equal(runningGatewayHealth.status, 200);
+  assert.doesNotMatch(dockerExec(containerId, ["ls", "-A", "/data"]), /^\.(claude|codex)$/m, "a running gateway with a provider must take over no agent");
   const runningGatewayHealthPayload = await runningGatewayHealth.json();
   assert.equal(runningGatewayHealthPayload.status, "ok");
   assert.equal(typeof runningGatewayHealthPayload.runtimeId, "string");
