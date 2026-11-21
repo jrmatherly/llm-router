@@ -24,7 +24,7 @@
 | V-4 | Both default profiles ship disabled. Onboarding enables only the profile for the agent the user picks. A config that v8.0.0 already saved keeps both profiles enabled, and the release notes say so. | Owner, 2026-11-21, after the research in Appendix A |
 | V-5 | The onboarding "Connect agent" step gets a **Skip for now** action. It ships only together with V-4, because a skip with enabled defaults still applies both. | Owner, 2026-11-21, after the research in Appendix A |
 | V-6 | A gateway that has no provider model reports `state: "stopped"` with the reason in `lastError`. It is not an error. The audit proposed a separate `stoppedReason: "no-models"` field with `lastError` unset, so a reader can tell "never configured" from "failed". That widens `GatewayStatus` for one case. | Plan author. The owner has not confirmed it and may prefer the audit's field |
-| V-7 | **Restore original settings** removes only what LLMR wrote, for every agent that has a stripper (Claude Code, Codex), on every trigger (the button, a profile switched off, a gateway stop, a quit) and whether or not an original file existed. A top-level Codex key is removed only while it still holds the value LLMR wrote, and the `model_provider` LLMR displaced is put back. A file is removed only when no original existed and nothing but LLMR's content is left, and "nothing left" is defined per format. A restore that leaves the profile disabled (the button, a profile switched off) revokes the profile's key at once. A quit or a gateway stop leaves the profile enabled and its key valid for the next launch. LLMR keeps no copy of its own token. When no original existed, a restore writes no backup and deletes every backup of that file, because the live file already holds the user's content and a stripped backup would later be taken for the user's original and written back. When an original existed, a backup that holds the user's content is kept with LLMR's content removed. Before a strip changes a file that someone other than LLMR edited, LLMR saves that file as it was, with its own token blanked, in its own data folder (`CONFIGDIR`, which is `~/.llm-router` on macOS), and keeps the last three per file. A Claude Code file whose original existed keeps its pre-strip backup beside the file instead. A restore never reads those copies, so none can be written back. They are the only fallback if the strip removes something of the user's. A restore that finds no original removes the `.llmr-original-missing` marker, so a file the user keeps becomes the original at the next takeover. An agent with no stripper (OpenCode, Kilo, Pi, ZCode, Workbuddy) keeps today's behaviour and never loses a backup. LLMR never removes `~/.claude`, `~/.codex`, `~/.claude.json` or `~/.claude/.claude.json`. | Owner, 2026-11-21, after the research in Appendix C. The backup and safety-copy clauses are from his second decision the same day, after the stripper was measured against real Codex (Appendix D) |
+| V-7 | **Restore original settings** removes only what LLMR wrote, for every agent that has a stripper (Claude Code, Codex), on every trigger (the button, a profile switched off, a gateway stop, a quit) and whether or not an original file existed. A top-level Codex key is removed only while it still holds the value LLMR wrote, and the `model_provider` LLMR displaced is put back. A file is removed only when no original existed and nothing but LLMR's content is left, and "nothing left" is defined per format. A restore that leaves the profile disabled (the button, a profile switched off) revokes the profile's key at once. A quit or a gateway stop leaves the profile enabled and its key valid for the next launch. LLMR keeps no copy of its own token. When no original existed, a restore writes no backup and deletes every backup of that file, because the live file already holds the user's content and a stripped backup would later be taken for the user's original and written back. When an original existed, a backup that holds the user's content is kept with LLMR's content removed. Before a strip changes a file that someone other than LLMR edited, LLMR saves that file as it was, with its own token blanked, in its own data folder (`CONFIGDIR`, which is `~/.llm-router` on macOS), and keeps the last three per file. A Claude Code file whose original existed keeps its pre-strip backup beside the file instead. The copies hold any other secret the file held, and nothing deletes them when a profile is deleted or LLMR is removed. A restore never reads those copies, so none can be written back. They are the only fallback if the strip removes something of the user's. A restore that finds no original removes the `.llmr-original-missing` marker, so a file the user keeps becomes the original at the next takeover. An agent with no stripper (OpenCode, Kilo, Pi, ZCode, Workbuddy) keeps today's behaviour and never loses a backup. LLMR never removes `~/.claude`, `~/.codex`, `~/.claude.json` or `~/.claude/.claude.json`. | Owner, 2026-11-21, after the research in Appendix C. The backup and safety-copy clauses are from his second decision the same day, after the stripper was measured against real Codex (Appendix D) |
 | V-8 | Retention accepts 1 to 90 days and lives in the request log database, so every process reads the same number. **The default needs the owner's word.** 1 day keeps today's behaviour. 7 days is the audit's proposal, because the owner asked for the setting after one day surprised him. | Range and storage: plan author. Default: open |
 | V-9 | No date filter on the Logs page in this plan. The list is sorted newest first and paged. | Plan author. The owner has not confirmed it |
 | V-10 | A push or tag on `jrmatherly/llmr-gateway` needs the owner's word each time. Nothing in Tasks 0 to 9 touches the fork. | Owner, standing rule |
@@ -73,7 +73,7 @@ Run the tasks in this order, one at a time.
 | 3 | 3 | A | Changes the default config that every later test builds on |
 | 4 | 2 | A | Edits `gateway-service.ts` before Task 5 does |
 | 5 | 4a | A | Its tests need Task 3's defaults, and it uses Task 2's `reconcileProfileApiKeys` |
-| 6 | 4d | A | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit |
+| 6 | 4d | A | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. Four PRs, Parts 1 to 4 in order |
 | 7 | 4b | A | Builds on the Codex stripper from Task 4a and the record from Task 4d |
 | 8 | 4c | A | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
 | 9 | 5 | A | Edits `gateway-service.ts`, `App.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
@@ -356,84 +356,133 @@ Nothing is displaced when no original existed, so this task puts nothing back. T
 
 ### Task 4d: Make the Codex strip exact, and keep a safety copy of what a strip changes (F-23 to F-26)
 
-Runs after Task 4a and before Task 4b. Added on 2026-11-21 after the stripper from Task 4a was measured against real Codex, then corrected the same day by an audit against the code (Appendix D).
+Runs after Task 4a and before Task 4b. Added on 2026-11-21 after the stripper from Task 4a was measured against real Codex, then corrected by two audits against the code the same day (Appendix D).
+
+**This task is four PRs, in this order.** Each is one branch from `main` after the one before it merged: Part 1 (F-23), Part 2 (F-26), Part 3 (F-24, F-25), Part 4 (the safety copy).
 
 Task 4a's stripper decides what is LLMR's by reading the text. Measured against codex-cli 0.171.0, that guess fails in ways real Codex reaches:
-- **LLMR's `model` line is left behind (F-24).** After a re-apply, the user's `[mcp_servers.*]` tables sit right under LLMR's root block. `codex mcp add` rewrites that section and drops the comment lines above the first table, which are `# LLMR configured model = ` and the root END marker. The stripper recognises LLMR's `model` line only by that comment. The plan author and the auditor each reran this.
-- **The same state stops a model change from applying.** With the comment gone, `managedConfiguredModel` returns `undefined`, so `managedModelAssignment` keeps LLMR's old `model` line as if it were the user's. Read in code by the auditor, not run.
+- **LLMR's `model` line is left behind (F-24).** After a re-apply, the user's `[mcp_servers.*]` tables sit right under LLMR's root block. `codex mcp add` rewrites that section and drops the comment lines above the first table, which are `# LLMR configured model = ` and the root END marker. The stripper recognises LLMR's `model` line only by that comment. Rerun three times.
+- **The same state stops a model change from applying.** With the comment gone, `managedModelAssignment` keeps LLMR's old `model` line as if it were the user's. Run by the second auditor: the `model` line kept the old value while the comment took the new one.
 - **The user's `show_all_sessions` is lost (F-25).** Codex writes root keys inside LLMR's root block, and the stripper removes that key there.
 - **A multi-line string is damaged (F-26).** Codex writes `"""` strings itself. A string line that reads like an LLMR table header ends the stripper's root scan early or is removed with "its table", and the file can stop loading.
+- **A Claude Code restore writes back a deleted setting (F-23).** With no original, `restoreGlobalConfigFile` asks `originalSnapshotCandidate` for a snapshot before it reaches the no-original branch. A backup that holds a key the user later deleted is unmanaged, so it is taken for the original. Reproduced by the plan author on `main`.
 
-A separate fault, reproduced by the plan author on `main` (F-23): for Claude Code with no original, `restoreGlobalConfigFile` asks `originalSnapshotCandidate` for a snapshot before it reaches the no-original branch. A backup that holds a key the user later deleted is unmanaged, so it is taken for the original and written back.
+**Evidence status.** F-23 and F-24 were rerun. F-25, F-26 and the counts in Appendix D are a research agent's measurements. The fixes below are designs that two audits checked against the code. None has been built.
 
-The fix has three parts. LLMR records which lines it wrote, so the strip removes exactly those. The scan knows when it is inside a multi-line value. And a strip that changes a file someone else edited first saves that file in LLMR's own folder.
+**The file Codex leaves (F-24), for the tests.** Produced with codex-cli 0.171.0 by `codex mcp add other -- other-cmd` on a re-applied file. Path and token replaced.
 
-**Evidence status.** F-23 and F-24 were rerun. F-25, F-26 and the counts in Appendix D are a research agent's measurements. Step 1 reruns F-24 before any code changes.
+```toml
+# BEGIN LLMR managed profile
+model_provider = "llm-router"
+model = "Provider/model"
+model_catalog_json = "/tmp/codex-home/llmr-model-catalog.json"
 
-**Files:**
-- Create: `packages/core/src/profiles/codex-config-strip.ts`. It holds the stripper, its line scan and the helpers the stripper shares with the writer, and it never imports `service.ts`.
-- Modify: `packages/core/src/profiles/service.ts` (`applyCodexProfile`, `buildCodexConfigToml`, `managedModelAssignment`, `codexManagedContent`, `restoreGlobalConfigFile`, the three Codex restore call sites), `packages/core/src/profiles/backup-files.ts`
-- Test: `packages/core/test/unit/profiles/codex-config-strip.test.mjs` (new), `packages/core/test/integration/profiles/profile-service.test.mjs`, `packages/core/test/unit/profiles/backup-files.test.mjs`
+[mcp_servers.mine]
+command = "my-server"
+
+[mcp_servers.other]
+command = "other-cmd"
+
+# BEGIN LLMR managed Codex provider
+[model_providers.llm-router]
+name = "LLM Router"
+base_url = "http://127.0.0.1:3456/v1"
+experimental_bearer_token = "llmr-profile-TEST"
+wire_api = "responses"
+# END LLMR managed Codex provider
+```
+
+Before Codex ran, the file also had `# LLMR configured model = "Provider/model"` and `# END LLMR managed profile` after the catalog line, `[mcp_servers.mine]` directly after that END marker, and no `other` table.
+
+To rerun it where `command -v codex` finds Codex: write the re-applied file and a valid one-model catalog built with `codexModelCatalogJson` into a temp directory `$T`, with `model_catalog_json` pointing into `$T`. Codex refuses a config whose catalog is missing or empty. Run `env -i PATH="$PATH" HOME=$T CODEX_HOME=$T codex mcp add other -- other-cmd`, and diff `config.toml` only, because Codex also creates `tmp/`. Never use the real `~/.codex`.
+
+#### Part 1: Do not take a backup for the original when none existed (F-23)
+
+**Files:** `packages/core/src/profiles/service.ts` (`restoreGlobalConfigFile`, `originalSnapshotCandidate`), `packages/core/test/integration/profiles/profile-service.test.mjs`
+
+- [ ] **Step 1: Write the failing tests.**
+  - F-23: Claude Code, no original, add a `permissions` key, re-apply with a changed model so a backup is written (the provider needs a second model), delete the key, recover. The settings file is gone and its directory holds no name that contains `llmr`.
+  - A stale marker keeps a real original: write a `.llmr-original-missing` marker by hand beside a user `config.toml` that holds `model_provider = "openai"`, apply, recover. The file is byte for byte what the user wrote. v8.0.0 kept the marker after a restore, so installs in this state exist. This passes today and must keep passing.
+- [ ] **Step 2: Narrow the lookup.** Do not skip `originalSnapshotCandidate`. When the local `strip` is set (it is `undefined` under `keepLiveFile`), `originalMissing` is true and `.llmr-original` is absent, accept only a backup for which `strip(content)` returns `undefined`. Such a backup holds nothing of LLMR's, so it predates the takeover. F-23's backup holds LLMR's `env` and is refused.
+- [ ] **Step 3: Run `npm run test:core`, `npm run typecheck`, `npm run lint`. Commit.** `fix(profiles): do not restore a backup as the original when no original existed`
+
+#### Part 2: Make the stripper's scan aware of multi-line values (F-26)
+
+**Files:** create `packages/core/src/profiles/codex-config-strip.ts`; modify `packages/core/src/profiles/service.ts`; test `packages/core/test/unit/profiles/codex-config-strip.test.mjs` (new)
+
+No TOML parser is in any `package.json` or in `node_modules`, and a parser could not make a line-preserving edit, so the scan is written by hand.
+
+- [ ] **Step 1: Move the stripper** to `codex-config-strip.ts` with what it depends on: the eight marker constants and `codexManagedMarkers`, `managedConfiguredModelPrefix`, `managedConfiguredModel`, `removeTomlTable`, `removeCodexProviderTable`, `removeCodexMcpServerTable`, `isCodexMcpServerChildTable` and `escapeRegExp`. `service.ts` imports them back for the writer. The new file never imports `service.ts`. Change no behaviour. Run `npm run test:core`: a green run is the check that nothing changed.
+- [ ] **Step 2: Write the failing unit tests** on the exported stripper.
+  - A root `developer_instructions = """` string that holds the lines `[model_providers.llm-router]`, `# END LLMR managed Codex provider` and `[docs](https://example.com)` comes back byte for byte, with LLMR's real content gone. The same for a multi-line array whose lines start with `[`, for a one-line string that contains `"""`, and for a `'''` string.
+  - A file with nothing of LLMR's, including one whose multi-line string holds LLMR-like lines, returns `undefined`.
+  - `[model_providers."llm-router"]`, `[mcp_servers.llmr-toolhub.env]`, a header with a trailing comment and a `[[array.of.tables]]` header are each handled.
+- [ ] **Step 3: Add `scanTomlLines(content)`.** It yields each line with `inValue: boolean`, the state at the start of the line: inside a multi-line string, or at a bracket depth above 0. It reads each line character by character.
+  - It skips `#` comments outside strings.
+  - It skips one-line `"…"` strings, with backslash escapes, and `'…'` strings. A one-line string ends at the end of its line.
+  - It tracks `"""` strings, with backslash escapes, and `'''` strings. The closing run may be up to five quotes for both.
+  - It counts brackets and braces on every line outside strings and comments, so a header such as `[a."b]#"] # c` or `[[x]]` returns to depth 0.
+
+  A line is a table header only when it starts with `[` while `inValue` is false.
+- [ ] **Step 4: Add `removeTablesOutsideValues(content, isHeader)`.** `isHeader` receives the header line trimmed, with any trailing comment removed. A removed table runs to the next header line or the end of the file. Blank and comment lines directly above that next header stay. A child table is a separate table, so the predicate must match `[mcp_servers.<name>.` itself. The stripper uses the scan for its root scan and this function in place of its calls to `removeCodexProviderTable` and `removeCodexMcpServerTable`. The writer keeps calling those two unchanged, and their faults are in Open items.
+- [ ] **Step 5: Run the tests. Commit.** `fix(profiles): keep multi-line values intact when stripping a Codex config`
+
+#### Part 3: Record which lines LLMR wrote, and strip exactly those (F-24, F-25)
+
+**Files:** `packages/core/src/profiles/codex-config-strip.ts`, `packages/core/src/profiles/service.ts` (`applyCodexProfile`, `buildCodexConfigToml`, `managedModelAssignment`, `codexManagedContent`, `restoreGlobalConfigFile`, `RestoreManagedContentMatchers`); tests in `codex-config-strip.test.mjs` and `profile-service.test.mjs`
 
 **Interfaces:**
-- Produces: `type CodexWrittenRecord = { file: string; modelLine?: string; sha256: string; showAllSessionsLine?: string }`, saved at `<CONFIGDIR>/agent-config-state/<first 16 hex of the SHA-256 of normalizedFileKey(file)>/written.json`.
-  - `modelLine` and `showAllSessionsLine` are present only when that line is LLMR's own. `sha256` is of the whole file as LLMR wrote it.
-  - It is keyed by `normalizedFileKey(file)`, not by profile and not by the real path. The Codex branch of `restoreInactiveGlobalProfileConfigs` has no profile, and backups and markers already sit beside the link path.
+- Produces: `type CodexWrittenRecord = { edited: boolean; file: string; modelLine?: string; sha256: string; showAllSessionsLine?: string }`, saved at `<CONFIGDIR>/agent-config-state/<first 16 hex of the SHA-256 of normalizedFileKey(file)>/written.json`.
+  - `modelLine` and `showAllSessionsLine` are present only when that line is LLMR's own. Both are compared against `line.trim()`.
+  - `sha256` is of the whole file as LLMR last wrote it. A re-apply rewrites the file and takes a new hash, so the hash alone cannot say that nobody edited the file. `edited` says it: true when a previous record exists and `sha256(source)` differs from `previous.sha256`, or when no record exists and the source tests managed. Once true it stays true until the record is cleared.
+  - **Untouched** means: the record exists, `edited` is false and the hash matches the file. Task 4b and Part 4 use this word.
+  - The key is `normalizedFileKey(file)`, not the profile and not the real path. One caller has no profile, and backups and markers already sit beside the link path.
   - Do not put it under `llmrManagedProfileDir(profile)/codex/`. That is where an LLMR-scope profile's generated `config.toml` lives.
-  - Task 4b consumes `sha256`.
-- Produces: `buildCodexConfigToml` takes a `previous?: CodexWrittenRecord` value and returns `{ content, modelLine?, showAllSessionsLine? }` in place of a string.
-- Produces: `stripManagedCodexConfigContent(content, providerIds, written?)` exported from `codex-config-strip.ts`.
-  - With `written`, it removes a root `model` line only when it equals `written.modelLine`, and ignores the configured-model comment. It removes `show_all_sessions` only when it equals `written.showAllSessionsLine`.
-  - Without `written` it behaves as Task 4a left it. That covers an install that applied before this task, and a deleted state folder. F-24 and F-25 remain in that case.
-- Produces: `scanTomlLines(content)` and `removeTablesOutsideValues(content, isHeader)` in `codex-config-strip.ts`.
-- Produces: `saveRemovedConfigCopy(stateDir, file, content)` in `backup-files.ts`. `service.ts` computes `stateDir`, so `backup-files.ts` keeps importing nothing from `@llmr`. It creates `stateDir` with mode `0700`, writes `content` to `backupFilePath(path.join(stateDir, path.basename(file)))` with mode `0600` after replacing every match of `/(?:llmr|ccr)-profile-[A-Za-z0-9_-]+/g` with a placeholder, then calls `pruneBackups(path.join(stateDir, path.basename(file)), 3)`. Profile keys made before the `ccr` rename start with `ccr-profile-` and are kept for life, so the pattern covers both. `originalSnapshotCandidate` reads only siblings of the agent's file, so it never sees these copies.
+  - Write it only when `profile.agent === "codex"` and the profile is global. `applyCodexProfile` also serves Workbuddy and generated-scope profiles, which no restore reaches.
+  - A record that is unreadable, ill-shaped, or whose `file` differs from the key is no record. Reading it never throws.
+- Produces: an exported pure function in `codex-config-strip.ts` that decides which lines are LLMR's, given the source, the previous record and what the profile sets. `buildCodexConfigToml` calls it and returns `{ content, modelLine?, showAllSessionsLine? }` in place of a string. Being pure and exported, it is unit-tested without the private builder.
+- Produces: `stripManagedCodexConfigContent(content, providerIds, written?)`. With `written`, it removes a root `model` line only when it equals `written.modelLine`, and ignores the configured-model comment. It removes `show_all_sessions` only when it equals `written.showAllSessionsLine`. Without `written` it behaves as Task 4a left it.
+- Produces: `RestoreManagedContentMatchers` gains `stripLiveContent?`, and `codexManagedContent(agent, providerIds, file)` gains a file argument. `restoreGlobalConfigFile` uses `options.stripLiveContent ?? options.stripManagedContent` for the live file. `originalSnapshotCandidate` keeps `stripManagedContent`, which never gets `written`. One closure serves both today, so without this split the user's original would be stripped with LLMR's record.
 - Do not add fields to `GlobalProfileTakeoverRecord` (see Task 4b).
 
-- [ ] **Step 1: Rerun F-24.** Where `command -v codex` finds Codex: write a re-applied file (LLMR's root block, then `[mcp_servers.mine]`, then the provider block) and a valid one-model catalog built with `codexModelCatalogJson`, into a temp directory `$T`. Codex refuses a config whose `model_catalog_json` points at a missing or empty catalog. Run `env -i PATH="$PATH" HOME=$T CODEX_HOME=$T codex mcp add other -- other-cmd`, then diff. Expected: the `# LLMR configured model = ` comment and the root END marker are gone. Never use the real `~/.codex`. Where Codex is not installed, say so in the PR.
-- [ ] **Step 2: Write the failing tests.**
-  - Unit, `codex-config-strip.test.mjs`, on the exported stripper:
-    - F-24: commit the file Codex left in Step 1 as a fixture string. With `written`, LLMR's `model` line is gone. Without it, the line stays, which pins the stated limit.
-    - A `model` line the user changed stays. A user `model` line equal to LLMR's stays when `written` has no `modelLine`, even with the configured-model comment present.
-    - F-25: a `show_all_sessions = false` the user wrote inside LLMR's root block stays when `written` has no `showAllSessionsLine`. LLMR's own line goes when it has one. A user's `false` over LLMR's recorded `true` stays.
-    - F-26: a root `developer_instructions = """` string that holds the lines `[model_providers.llm-router]`, `# END LLMR managed Codex provider` and `[docs](https://example.com)` comes back byte for byte, with LLMR's real content gone. The same for a multi-line array whose lines start with `[`, and for a one-line string that contains `"""`.
-    - A file with nothing of LLMR's, including one whose multi-line string holds LLMR-like lines, returns `undefined`.
-    - A property test with a fixed seed over generated user content, placed where Codex writes it (root keys inside the root block, tables inside the last marker block): every user line survives, nothing of LLMR's remains, and a second strip returns `undefined`. At least 500 cases. The generator must not produce a user line equal to one of LLMR's own.
-  - Unit, `backup-files.test.mjs`: four calls to `saveRemovedConfigCopy` with distinct timestamps leave the newest three, each with mode `0600`, and none contains an `llmr-profile-` or `ccr-profile-` token.
-  - Integration, `profile-service.test.mjs`. `CONFIGDIR` is shared by every test in the file, so each assertion looks only in the record directory for this test's `config.toml` or `settings.json`.
-    - F-23: Claude Code, no original, add a `permissions` key, re-apply with a changed model so a backup is written, delete the key, recover. The settings file is gone and its directory holds no name that contains `llmr`.
-    - Safety copy: the Review Focus 5 restore leaves one copy in the record directory that holds the user's tables and LLMR's block, and does not contain the profile's token value.
-    - No safety copy for a file nobody edited: apply, recover. The record directory holds no copy.
-    - The record: after an apply, `written.json` exists and its `sha256` matches the file. After each restore outcome (removed, stripped, snapshot written, already absent) it is gone.
-    - A model change still applies after Codex dropped the comment: apply, replace the file with the Step 1 fixture, change the profile's model, apply. The root `model` line is the new model.
-- [ ] **Step 3: Run the tests and watch them fail.**
-- [ ] **Step 4: Move the stripper** to `codex-config-strip.ts` with what it depends on: the eight marker constants and `codexManagedMarkers`, `managedConfiguredModelPrefix`, `managedConfiguredModel`, `removeTomlTable`, `removeCodexProviderTable`, `removeCodexMcpServerTable`, `isCodexMcpServerChildTable` and `escapeRegExp`. `service.ts` imports them back for the writer. Change no behaviour. Run `npm run test:core`. Expected: PASS.
-- [ ] **Step 5: Make the scan string-aware.** Add `scanTomlLines(content)`. It yields each line with `inValue: boolean`, true while the line sits inside a multi-line value. It reads each line character by character:
-  - it skips `#` comments outside strings;
-  - it skips one-line `"…"` strings, with backslash escapes, and `'…'` strings;
-  - it tracks `"""` strings, with backslash escapes and a closing run of up to five quotes, and `'''` strings;
-  - it tracks the bracket depth of a value that spans several lines, such as an array or an inline table.
+- [ ] **Step 1: Write the failing tests.** Add `CONFIGDIR/agent-config-state` to what `withAppliedDefaultProfiles` removes in its `cleanUp`. Every Codex test shares one `config.toml` path and so one record directory.
+  - Unit, the ownership function, one case each: first apply with no original; re-apply with no change; profile model changed; the user replaced LLMR's `model` line; the user's model equals LLMR's; the F-24 state with the same model and with a changed one; an original with the user's `model` line, then a profile model change; `showAllSessions` switched on then off; a missing, corrupt or stale record.
+  - Unit, the stripper: the F-24 fixture above with `written` loses LLMR's `model` line, and without it keeps the line. A `model` line the user changed stays. A user `model` equal to LLMR's stays when `written` has no `modelLine`, even with the comment present. A `show_all_sessions = false` the user wrote inside LLMR's root block stays.
+  - Unit, a property test with a fixed seed. It assembles LLMR's blocks from the marker constants, places generated user content where Codex writes it, passes `written`, and compares non-blank lines: every user line survives, nothing of LLMR's remains, a second strip returns `undefined`. At least 500 cases. The generator must not produce a user line equal to one of LLMR's.
+  - Integration: after an apply, `written.json` exists and its `sha256` matches the file. After each restore outcome it is gone.
+  - Integration: a model change applies after Codex dropped the comment. Apply, delete the comment and the root END marker from the applied file, change the profile's model to a second model on the provider, apply. The root `model` line is the new model.
+  - Integration: the original has `model = "X"`, the profile model goes to Y and back to X, recover. The user's line is back.
+  - Integration: a stale record does not cost the user a line. Leave a record behind, write a user file whose `model` line equals the record's `modelLine`, apply, recover. The line is still there.
+- [ ] **Step 2: Decide ownership.**
+  - Ignore `previous` unless the source tests managed.
+  - The `model` line is LLMR's when the source has no root `model` line, or the configured model changed, or the current root `model` line equals `previous.modelLine`. With no usable record, a `model` line whose value equals the configured-model comment is LLMR's.
+  - When the current line equals `previous.modelLine`, treat the configured model as changed if that line differs from the one LLMR would write now. That applies a new profile model after Codex dropped the comment. It never overwrites a line the user changed, because that line no longer equals the record.
+  - The `show_all_sessions` line is LLMR's when the user had none and the profile sets it, or when the current line equals `previous.showAllSessionsLine`. When it equals the record and the profile no longer sets it, write no line. Today that line survives being switched off.
+- [ ] **Step 3: Write the record before the file.** In `applyCodexProfile`, write `written.json` atomically, then `config.toml`. With the file first, a crash between the two leaves LLMR's new `model` line recorded as the user's for good. With the record first, the next apply repairs it through the comment.
+- [ ] **Step 4: Use the record in the strip.** Pass `written` through `stripLiveContent`, and only when the live content tests managed.
+- [ ] **Step 5: Clear the record** inside `restoreGlobalConfigFile`, by file key, last, on every return except the `keepLiveFile` and `missingBackup` ones. That includes "already equals the snapshot". Do not use `onReleased`: the Codex branch of `restoreInactiveGlobalProfileConfigs` never calls it. The takeover sync restores before the apply loop runs, so a record it clears is written again by the apply that follows.
+- [ ] **Step 6: Run the tests. State the limits in the PR. Commit.** `fix(profiles): strip exactly the lines LLMR recorded writing to a Codex config`. Limits: a crash can leave LLMR's old `model` line behind, and never removes a user's line. A re-apply still drops the user's own root `model_provider` (Task 4b). `isManagedCodexConfigContent` still calls a file managed when a user string holds `[model_providers.llm-router]`.
 
-  A line is a table header only when it starts with `[` while `inValue` is false and the depth is 0. Add `removeTablesOutsideValues(content, isHeader)`. The stripper uses the scan for its root scan and uses `removeTablesOutsideValues` in place of its calls to `removeCodexProviderTable` and `removeCodexMcpServerTable`. The writer keeps calling those two unchanged, and their faults are in Open items.
-- [ ] **Step 6: Record what LLMR wrote.** In `applyCodexProfile`, read the previous record for `configFile` before building, and pass it to `buildCodexConfigToml`.
-  - The `model` line is LLMR's when the source has no root `model` line, or the configured model changed, or the current root `model` line equals `previous.modelLine`.
-  - In that last case, treat the configured model as changed when `previous.modelLine` differs from the line LLMR would write now. That applies a new profile model after Codex dropped the comment.
-  - The `show_all_sessions` line is LLMR's when the user had none and the profile sets it, or when the current line equals `previous.showAllSessionsLine`.
+#### Part 4: Save a safety copy before a strip changes an edited file
 
-  After `writeFileWithBackup`, save `written.json`, also when the file content did not change. Clear the record inside `restoreGlobalConfigFile`, by file key, on every outcome that leaves the file without LLMR's content: removed, stripped, snapshot written, already absent. Do not use `onReleased` for this: the Codex branch of `restoreInactiveGlobalProfileConfigs` never calls it. The takeover sync restores before the apply loop runs, so a record it clears is written again by the apply that follows.
-- [ ] **Step 7: Use the record in the strip.** In `codexManagedContent`, pass `written` to the stripper only when it strips the live file. `originalSnapshotCandidate` runs the same `stripManagedContent` over a snapshot. A user's original whose `model` line equals `written.modelLine` would lose that line from what is restored, so the snapshot keeps being stripped without `written`.
-- [ ] **Step 8: Close the write-back (F-23).** In `restoreGlobalConfigFile`, skip `originalSnapshotCandidate` when the local `strip` is set, `originalMissing` is true and `.llmr-original` does not exist. Use the local `strip`, which is `undefined` under `keepLiveFile`, and not `options.stripManagedContent`, or a managed file under `keepLiveFile` would reach the removal in the no-original branch. `ensureOriginalSnapshot` never creates both files, so a file that has both was made by hand, and then the real original wins.
-- [ ] **Step 9: Save the safety copy.** `restoreGlobalConfigFile` has two no-original paths. In each, when `strip(current)` returns content and before the live file is written or removed, call `saveRemovedConfigCopy`:
-  - in the path where the live file tests unmanaged, always. That file holds content LLMR did not write, and it is the only path an edited Claude Code file reaches;
-  - in the path where the live file tests managed, which a Codex file with LLMR's block always takes, only when no record exists or `sha256(current)` differs from `written.sha256`.
-- [ ] **Step 10: Run the tests.** `npm run test:core`, `npm run typecheck`, `npm run lint`.
-- [ ] **Step 11: State the limits in the PR.**
-  - A re-apply still drops the user's own root `model_provider` (Task 4b).
-  - The writer still mishandles a multi-line string that holds an LLMR-like line, and a CRLF file (Open items).
-  - `isManagedCodexConfigContent` still calls a file managed when a user string holds `[model_providers.llm-router]`.
-  - A file applied before this task has no record, so F-24 and F-25 remain for it until the next apply writes one.
-  - A safety copy is raw apart from the token, so it holds whatever else the file held.
-  - Two copies written in the same millisecond share a name.
-- [ ] **Step 12: Commit.** `fix(profiles): strip exactly what LLMR wrote from a Codex config, and keep a safety copy`
+**Files:** `packages/core/src/profiles/backup-files.ts`, `packages/core/src/profiles/service.ts` (`restoreGlobalConfigFile`); tests in `packages/core/test/unit/profiles/backup-files.test.mjs` and `profile-service.test.mjs`
+
+**Interfaces:**
+- Produces: `saveRemovedConfigCopy(stateDir, file, content)` in `backup-files.ts`. `service.ts` computes `stateDir`, so `backup-files.ts` keeps importing nothing from `@llmr`. It creates `stateDir` with mode `0700`, writes `content` to `backupFilePath(path.join(stateDir, path.basename(file)))` with mode `0600` after replacing every match of `/(?:llmr|ccr)-profile-[A-Za-z0-9_-]+/g` with a placeholder, then calls `pruneBackups(path.join(stateDir, path.basename(file)), 3)`. Profile keys made before the `ccr` rename start with `ccr-profile-` and are kept for life. `originalSnapshotCandidate` reads only siblings of the agent's file, so it never sees these copies.
+
+- [ ] **Step 1: Write the failing tests.**
+  - Unit: four calls with distinct timestamps (`t.mock.timers.enable({ apis: ["Date"] })`) leave the newest three, each with mode `0600`, and none contains an `llmr-profile-` or `ccr-profile-` token.
+  - Integration, each looking only in the record directory for this test's file:
+    - The Review Focus 5 restore leaves one copy that holds the user's tables and LLMR's block, and not the profile's token value.
+    - Apply, recover, with no edit: no copy.
+    - Append a table, re-apply, recover: a copy exists. The re-apply took a new hash, and only `edited` shows that someone touched the file.
+    - An edited Claude Code `settings.json` with no original leaves a copy.
+- [ ] **Step 2: Save the copy, in a safe order.** In each of the two no-original paths of `restoreGlobalConfigFile`, when `strip(current)` returns content:
+  - in the path where the live file tests unmanaged, always save. That file holds content LLMR did not write, and it is the only path an edited Claude Code file reaches;
+  - in the path where the live file tests managed, which a Codex file with LLMR's block always takes, save unless the file is untouched.
+
+  Order: read the record; compute the stripped content; save the copy, and throw before touching the live file if that fails; write or remove the live file; delete the backups; remove the marker; clear the record last.
+- [ ] **Step 3: Run the tests. State the limits in the PR. Commit.** `fix(profiles): keep a safety copy of an agent config before stripping it`. Limits: a copy is raw apart from LLMR's token, so it holds any other secret the file held. Nothing deletes the copies when a profile is deleted or LLMR is removed. Two copies written in the same millisecond share a name.
 
 ---
 
@@ -452,7 +501,7 @@ Stripping every time is not the fix. The writer drops four root keys and the use
 **Interfaces:**
 - Consumes: `stripManagedCodexConfigContent(content, providerIds, written?)` from Task 4d. This task adds a fourth argument, `displaced` (`type CodexDisplacedConfig = { model?: string; modelCatalogJson?: string; modelProvider?: string; profileTable?: string; showAllSessions?: string }`, each value a whole TOML line or table as the user wrote it) and puts a displaced value back only in place of the LLMR line it removed.
 - Produces: `backupContent(file, content, options)` in `backup-files.ts`, a content-taking sibling of `backupCurrentFile`, which copies the file.
-- Consumes: the `written.json` record from Task 4d, which already holds the SHA-256 of the `config.toml` LLMR last wrote, and `saveRemovedConfigCopy`. Do not add fields to `GlobalProfileTakeoverRecord`: `synchronizeGlobalProfileTakeovers` compares those records by JSON, and a new field would make every apply restore and retake every agent.
+- Consumes: the `written.json` record from Task 4d Part 3, with its `sha256` and `edited` fields, and `saveRemovedConfigCopy` from Part 4. Do not add fields to `GlobalProfileTakeoverRecord`: `synchronizeGlobalProfileTakeovers` compares those records by JSON, and a new field would make every apply restore and retake every agent.
 - Produces: `stripBeforeSnapshot?: boolean` on `RestoreManagedContentMatchers`, set at the Codex call sites only.
 - Produces: the displaced values for a strip come from the snapshot, not from new state. Read the four root lines and the `[profiles.<providerId>]` table out of the `originalSnapshotCandidate` content.
 
@@ -464,8 +513,8 @@ Stripping every time is not the fix. The writer drops four root keys and the use
   - Seven cycles: apply and restore through `restoreGlobalProfileConfigsOnExit` seven times. No backup holds the token value, no two neighbouring backups are equal, and `.llmr-original` is still the snapshot a restore chooses.
 - [ ] **Step 2: Run the tests and watch them fail.** Review Focus 6 fails because the appended table is gone. The token tests fail on the backups.
 - [ ] **Step 3: Read what LLMR wrote.** Task 4d already saves the SHA-256 of the written `config.toml` in `written.json`. Add nothing new here.
-- [ ] **Step 4: Strip only a file that changed since LLMR wrote it.** In `restoreGlobalConfigFile`, when `stripBeforeSnapshot` is set and the live file tests managed: if its hash equals the stored one, write the snapshot back as today and clear the record. If it differs, or no record exists, call `saveRemovedConfigCopy(file, current)` first, then write `stripManagedCodexConfigContent(current, providerIds, written, displaced)` with `displaced` read from the snapshot. The record is keyed by file path, so `restoreInactiveGlobalProfileConfigs` finds it without a profile. Leave the Claude Code path as it is.
-- [ ] **Step 5: Keep no token in a backup.** Every backup of the Codex `config.toml`, from `backupCurrentConfigFile` and from `writeFileWithBackup` in `applyCodexProfile`, writes the stripped content through `backupContent`. A backup whose stripped content leaves nothing, or that equals the newest backup or `.llmr-original`, is not written.
+- [ ] **Step 4: Strip only a file that changed since LLMR wrote it.** In `restoreGlobalConfigFile`, when `stripBeforeSnapshot` is set and the live file tests managed: if the file is untouched, as Task 4d Part 3 defines the word, write the snapshot back as today and clear the record. A matching hash alone is not enough: a re-apply takes a new hash of a file the user edited. Otherwise call `saveRemovedConfigCopy(stateDir, file, current)` first, then write `stripManagedCodexConfigContent(current, providerIds, written, displaced)` with `displaced` read from the snapshot. The record is keyed by file path, so `restoreInactiveGlobalProfileConfigs` finds it without a profile. Leave the Claude Code path as it is.
+- [ ] **Step 5: Keep no token in a backup.** Every backup of the Codex `config.toml`, from `backupCurrentConfigFile` and from `writeFileWithBackup` in `applyCodexProfile`, writes the stripped content through `backupContent`. An apply-time backup is stripped with the previous record, the one that describes the file being backed up. A backup whose stripped content leaves nothing, or that equals the newest backup or `.llmr-original`, is not written.
 - [ ] **Step 6: Check pruning.** A stripped backup tests unmanaged, so `pruneBackups` and `originalSnapshotCandidate` could prefer it to `.llmr-original`. The seven-cycle test pins that they do not. If it fails, make `originalSnapshotCandidate` prefer `.llmr-original` when it exists.
 - [ ] **Step 7: Run `npm run test:core`.** Expected: PASS.
 - [ ] **Step 8: Commit.** `fix(profiles): keep Codex edits made while LLMR had the config, and keep no token in a backup`
@@ -867,6 +916,8 @@ The harness is not in the repo. It was left in `scratchpad/exp/` of the session 
 | New | none | Task 4d, between 4a and 4b | Task 4b makes the strip run on every quit for a changed file. The strip has to be exact first |
 
 **Audit of Task 4d, the same day.** One pass checked the first draft of Task 4d against the code and found it could not be run as written. The plan author confirmed the symbols and history it cites. It changed: how `applyCodexProfile` learns which lines are LLMR's (`buildCodexConfigToml` returned only a string), where the record is cleared (the first draft used a hook one call site never reaches), which of the two no-original paths save a safety copy, how the copies are pruned (the first draft's call pruned nothing), the token pattern (older keys start with `ccr-profile-`), and two tests that could not be written. It also found that the string scan needs to track one-line strings, comments and bracket depth, not only `"""`.
+
+**Second audit of Task 4d, the same day.** A pass on a different model checked the corrected text and ran sequences in a throwaway home. Its verdict was "yes with fixes". It changed: the record gains `edited`, because a re-apply rehashes a file the user edited and the hash alone then reports it as untouched (run); the F-23 guard no longer skips the snapshot lookup, because a stale marker left by v8.0.0 sits beside a real original and skipping would lose it (run); a record is ignored unless the file tests managed, and is written before the file; the live file and the snapshot get separate strippers; a `show_all_sessions` line is removed when the profile stops setting it (run); and the task is split into four PRs. The plan author accepted these on the auditor's evidence and did not rerun them. The fixes are designs that nobody has built.
 
 Not taken: verifying a strip at run time by comparing lines before and after. Without a record of what LLMR wrote it repeats the stripper's own guess, and a refusal on quit would leave the token in place with nobody to see it. The record makes the strip exact instead.
 
