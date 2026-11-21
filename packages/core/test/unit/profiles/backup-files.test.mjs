@@ -145,6 +145,8 @@ test("ensureOriginalSnapshot records a missing file", (t) => {
 test("saveRemovedConfigCopy keeps the newest three copies, private, with no profile token", posixOnly, (t) => {
   const { dir, file } = setup(t);
   const stateDir = path.join(dir, "state", "key");
+  mkdirSync(stateDir, { mode: 0o755, recursive: true });
+  chmodSync(stateDir, 0o755);
   t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-21T00:00:00.000Z") });
   for (let call = 1; call <= 4; call += 1) {
     saveRemovedConfigCopy(stateDir, file, `call ${call}\ntoken = "llmr-profile-Ab_c-1"\nagain = "llmr-profile-Xy_z-2"\nmine = "sk-user"\n`);
@@ -157,8 +159,7 @@ test("saveRemovedConfigCopy keeps the newest three copies, private, with no prof
   for (const copy of copies) {
     const content = readFileSync(copy, "utf8");
     assert.equal(statSync(copy).mode & 0o777, 0o600);
-    assert.doesNotMatch(content, /llmr-profile-/);
-    assert.match(content, /mine = "sk-user"/);
+    assert.equal(content.split("\n").slice(1).join("\n"), 'token = "<removed LLMR profile token>"\nagain = "<removed LLMR profile token>"\nmine = "sk-user"\n');
   }
   assert.deepEqual(backupFiles(file), []);
 });

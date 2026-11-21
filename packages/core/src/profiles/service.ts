@@ -3005,11 +3005,15 @@ function restoreDisabledGlobalProfile(
     return disabledStatus(profile.agent, file, disabledMessage);
   }
 
-  const restoreResult = restoreGlobalConfigFile(file, { ...matchers, mode: privateFileMode });
-  if (restoreResult.changed || restoreResult.restored) {
-    matchers.onReleased?.();
+  try {
+    const restoreResult = restoreGlobalConfigFile(file, { ...matchers, mode: privateFileMode });
+    if (restoreResult.changed || restoreResult.restored) {
+      matchers.onReleased?.();
+    }
+    return disabledRestoreStatus(profile.agent, file, disabledMessage, restoreResult, profile.name || profile.id || profile.agent);
+  } catch (error) {
+    return failedRestoreStatus(profile.agent, file, error);
   }
-  return disabledRestoreStatus(profile.agent, file, disabledMessage, restoreResult, profile.name || profile.id || profile.agent);
 }
 
 function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus {
@@ -3080,27 +3084,31 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
         .map((profile) => profile.settingsFile || "")
         .filter(Boolean)
     ])) {
-      const owners = claudeProfiles.filter((profile) => resolveClaudeCodeSettingsFile(profile) === file);
-      const liveOwner = owners.find((profile) => hasClaudeCodeTakeoverState(readClaudeCodeProfileSettingsState(profile)));
-      const owner = liveOwner ?? owners[0];
-      const matchers: RestoreManagedContentMatchers = (liveOwner ? undefined : orphanedClaudeCodeManagedContent(file)) ??
-        (owner
-          ? claudeCodeManagedContent(owner)
-          : {
-              isManagedContent: isManagedClaudeCodeSettingsContent,
-              stripManagedContent: stripManagedClaudeCodeSettingsContent,
-              takeoverContent: (content) => claudeCodeTakeoverContent(content, [], stripManagedClaudeCodeSettingsContent)
-            });
-      const restoreResult = restoreGlobalConfigFile(file, {
-        ...matchers,
-        keepLiveFile: enabledClaudeProfiles.length > 0,
-        mode: privateFileMode
-      });
-      if (restoreResult.changed || restoreResult.restored) {
-        matchers.onReleased?.();
-      }
-      if (restoreResult.changed || restoreResult.missingBackup) {
-        statuses.push(inactiveGlobalCleanupStatus("claude-code", file, restoreResult));
+      try {
+        const owners = claudeProfiles.filter((profile) => resolveClaudeCodeSettingsFile(profile) === file);
+        const liveOwner = owners.find((profile) => hasClaudeCodeTakeoverState(readClaudeCodeProfileSettingsState(profile)));
+        const owner = liveOwner ?? owners[0];
+        const matchers: RestoreManagedContentMatchers = (liveOwner ? undefined : orphanedClaudeCodeManagedContent(file)) ??
+          (owner
+            ? claudeCodeManagedContent(owner)
+            : {
+                isManagedContent: isManagedClaudeCodeSettingsContent,
+                stripManagedContent: stripManagedClaudeCodeSettingsContent,
+                takeoverContent: (content) => claudeCodeTakeoverContent(content, [], stripManagedClaudeCodeSettingsContent)
+              });
+        const restoreResult = restoreGlobalConfigFile(file, {
+          ...matchers,
+          keepLiveFile: enabledClaudeProfiles.length > 0,
+          mode: privateFileMode
+        });
+        if (restoreResult.changed || restoreResult.restored) {
+          matchers.onReleased?.();
+        }
+        if (restoreResult.changed || restoreResult.missingBackup) {
+          statuses.push(inactiveGlobalCleanupStatus("claude-code", file, restoreResult));
+        }
+      } catch (error) {
+        statuses.push(failedRestoreStatus("claude-code", file, error));
       }
     }
   }
@@ -3110,9 +3118,13 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
     for (const file of uniqueResolvedPaths([
       ...codexProfiles.map(globalCodexConfigCandidate)
     ])) {
-      const restoreResult = restoreGlobalConfigFile(file, { ...codexManagedContent("codex", providerIds, file), mode: privateFileMode });
-      if (restoreResult.changed || restoreResult.missingBackup) {
-        statuses.push(inactiveGlobalCleanupStatus("codex", file, restoreResult));
+      try {
+        const restoreResult = restoreGlobalConfigFile(file, { ...codexManagedContent("codex", providerIds, file), mode: privateFileMode });
+        if (restoreResult.changed || restoreResult.missingBackup) {
+          statuses.push(inactiveGlobalCleanupStatus("codex", file, restoreResult));
+        }
+      } catch (error) {
+        statuses.push(failedRestoreStatus("codex", file, error));
       }
     }
   }
@@ -3349,6 +3361,18 @@ function restoreGlobalProfileTakeoverRecords(records: GlobalProfileTakeoverRecor
     scope: "global",
     surface: "auto"
   }));
+}
+
+// One agent's failed restore is reported, not thrown: a throw stops every other agent being restored on a quit and being applied on a save.
+function failedRestoreStatus(client: ProfileClientKind, file: string, error: unknown): ProfileClientApplyStatus {
+  console.error(`Failed to restore ${resolveUserPath(file)}: ${formatError(error)}`);
+  return {
+    client,
+    enabled: false,
+    message: `LLMR could not restore ${resolveUserPath(file)} and left it unchanged: ${formatError(error)}`,
+    ok: false,
+    path: resolveUserPath(file)
+  };
 }
 
 function dedupeGlobalProfileTakeovers(records: GlobalProfileTakeoverRecord[]): GlobalProfileTakeoverRecord[] {
@@ -3598,7 +3622,7 @@ function saveConfigSafetyCopy(file: string, content: string): void {
   saveRemovedConfigCopy(path.dirname(codexWrittenRecordFile(file)), file, content);
 }
 
-// Only Codex has a record. A managed file without one holds nothing but what LLMR writes, or its edits cannot be told, and gets no copy.
+// Only Codex has a record. A managed Claude Code file holds only LLMR's keys, and a Codex file without a record cannot show an edit, so neither gets a copy.
 function isUntouchedSinceWritten(file: string, current: string): boolean {
   const record = readCodexWrittenRecord(file);
   return !record || (!record.edited && record.sha256 === sha256Hex(current));
@@ -3616,7 +3640,7 @@ function saveNewestUserBackupCopy(file: string, strip: (content: string) => stri
   }
 }
 
-// Only for a file that had no original. A backup of the unstripped file would hold the profile's token, and one of the stripped file would equal the live file, so this writes none.
+// Only for a file that had no original. The caller has saved any safety copy. A backup beside the file would hold the profile's token, or would equal the stripped file, so this writes none.
 function writeStrippedConfigFile(file: string, stripped: string, mode: number | undefined): RestoreFileResult {
   if (isEmptyConfigContent(stripped)) {
     rmSync(file, { force: true });

@@ -60,7 +60,7 @@ export function ensureOriginalSnapshot(file: string, previous: string | undefine
 
 const profileTokenPattern = /llmr-profile-[A-Za-z0-9_-]+/g;
 
-// The copy is the file as it was, so it holds any other secret the file held. It sits in LLMR's own folder, where no restore looks for a snapshot.
+// Only LLMR's profile token is blanked, so the copy still holds any other secret the file held. It sits in LLMR's own folder, where no restore looks for a snapshot.
 export function saveRemovedConfigCopy(stateDir: string, file: string, content: string): string {
   mkdirSync(stateDir, { mode: 0o700, recursive: true });
   chmodFileIfRequested(stateDir, 0o700);
@@ -68,7 +68,11 @@ export function saveRemovedConfigCopy(stateDir: string, file: string, content: s
   const copy = backupFilePath(copyBase);
   writeFileSync(copy, content.replace(profileTokenPattern, "<removed LLMR profile token>"), { encoding: "utf8", mode: 0o600 });
   chmodFileIfRequested(copy, 0o600);
-  pruneBackups(copyBase, 3);
+  try {
+    pruneBackups(copyBase, 3);
+  } catch {
+    // The copy that matters is saved. An older one left behind must not fail the restore.
+  }
   return copy;
 }
 
