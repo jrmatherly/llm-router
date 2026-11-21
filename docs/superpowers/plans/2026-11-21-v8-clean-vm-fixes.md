@@ -12,7 +12,7 @@
 
 **Review history.** Written 2026-11-21 from three code explorations. Audited the same day by two independent passes, one that checked every path, symbol and test against the code and one on the design. The audit found two blockers that this version fixes. Task 4 would have deleted a user's own Codex settings, and Task 2's test named a fixture that does not exist. It also replaced Task 2's design, which restarted the gateway twice, and corrected the causes stated in Tasks 8 and 9. The plan author re-read each audit finding in the code before applying it. Task 4 and decisions V-7 and V-16 were rewritten later the same day after the restore research, and that rewrite was audited by two more passes. Appendix C records both. Task 4d and the safety-copy clause of V-7 were added after the stripper was measured against real Codex (Appendix D). Task 4e was added after the review of PR 133 (Appendix E). The whole plan was then audited against `main` at `06dd4b4f` by four passes, and Appendix F records what that changed.
 
-**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133), Task 4e (PR 134). Next: Task 4d Part 2. A merged task's body describes the code as it was before its PR. No decision is waiting on the owner. The Order table carries the same status per task.
+**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133), Task 4e (PR 134), Task 4d Part 2 (PR 135). Next: Task 4d Part 3. A merged task's body describes the code as it was before its PR. No decision is waiting on the owner. The Order table carries the same status per task.
 
 **Evidence status.** A cause marked "inferred" was not confirmed by reading the code path end to end. Its task starts with the step that confirms it.
 
@@ -80,7 +80,7 @@ Run the tasks in this order, one at a time.
 | 5 | 4a | A | Merged, PR 132 | Its tests need Task 3's defaults, and it uses Task 2's `reconcileProfileApiKeys` |
 | 6 | 4d Part 1 | A | Merged, PR 133 | The F-23 guard |
 | 7 | 4e | A | Merged, PR 134 | Corrects the guard Part 1 shipped, in the same function, before anything else builds on it |
-| 8 | 4d Parts 2 to 4 | A | Next: Part 2 | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. One PR each, in order |
+| 8 | 4d Parts 2 to 4 | A | Part 2 merged, PR 135. Next: Part 3 | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. One PR each, in order |
 | 9 | 4b | A | | Builds on the Codex stripper from Task 4a and the record from Task 4d |
 | 10 | 4c | A | | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
 | 11 | 5 | A | | Edits `gateway-service.ts`, `layout.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
@@ -417,6 +417,12 @@ Merged as PR 133. Its Step 2 test was replaced by Task 4e's narrower one.
 - [ ] **Step 3: Run `npm run test:core`, `npm run typecheck`, `npm run lint`. Commit.** `fix(profiles): do not restore a backup as the original when no original existed`
 
 #### Part 2: Make the stripper's scan aware of multi-line values (F-26)
+
+Merged as PR 135, with three differences from the steps below.
+- `tomlString`, `tomlQuotedKey` and `trimLeadingBlankLines` were already in `apply-support.ts`, so the new file imports them from there and nothing else moved.
+- `removeTablesOutsideValues` keeps a comment block only when a blank line sets it off from the removed table's body, whether a header or the end of the file follows it. A comment that directly follows the table's lines goes with the table, so a commented-out token line does not survive. A blank line alone is dropped with the table, as before, so a strip gives the same bytes it gave for a file LLMR wrote.
+- When a value is still open at the end of the file, `scanTomlLines` reports no line as inside a value. The file is not valid TOML then, and trusting the scan left LLMR's provider table and token in place while the restore reported success (run by a reviewer with four hand-broken files, which `main` stripped correctly).
+- The stripper keeps every line that starts inside a value before it looks at anything else, a marker line included.
 
 **Files:** create `packages/core/src/profiles/codex-config-strip.ts`; modify `packages/core/src/profiles/service.ts`; test `packages/core/test/unit/profiles/codex-config-strip.test.mjs` (new)
 
