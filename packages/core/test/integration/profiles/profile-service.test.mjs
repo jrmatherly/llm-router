@@ -3754,6 +3754,79 @@ test("a stale original-missing marker does not cost the user their own Codex con
   });
 });
 
+function truncatedClaudeSettings(settingsFile) {
+  const applied = readFileSync(settingsFile, "utf8");
+  const truncated = applied.slice(0, Math.floor(applied.length * 0.7));
+  assert.throws(() => JSON.parse(truncated));
+  assert.match(truncated, /llmr-claude-code-api-key-/);
+  return truncated;
+}
+
+test("a stale marker beside an old clean backup still restores the user's newest Claude Code settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const settingsFile = path.join(claudeDir, "settings.json");
+    assert.match(readFileSync(settingsFile, "utf8"), /apiKeyHelper/);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "corp.internal" } });
+  }, ({ claudeDir }) => {
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(path.join(claudeDir, "settings.json.llmr-original-missing"), "");
+    writeFileSync(path.join(claudeDir, "settings.json.llmr-backup-2000-01-01T00-00-00-000Z"), JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }));
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify({ env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "localhost,corp.internal" } })}\n`);
+  });
+});
+
+test("a truncated copy of LLMR's settings among the backups is not restored", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const settingsFile = path.join(claudeDir, "settings.json");
+    writeFileSync(path.join(claudeDir, "settings.json.llmr-backup-2099-01-01T00-00-00-000Z"), truncatedClaudeSettings(settingsFile));
+    const result = await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(existsSync(settingsFile), false);
+  });
+});
+
+test("a truncated copy of LLMR's settings does not displace the user's original", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } })}\n`;
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const settingsFile = path.join(claudeDir, "settings.json");
+    const truncated = truncatedClaudeSettings(settingsFile);
+    const { apiKeyHelper, env } = JSON.parse(readFileSync(settingsFile, "utf8"));
+    writeFileSync(settingsFile, `${JSON.stringify({ apiKeyHelper, env }, null, 2)}\n`);
+    writeFileSync(path.join(claudeDir, "settings.json.llmr-backup-2099-01-01T00-00-00-000Z"), truncated);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(readFileSync(settingsFile, "utf8"), original);
+  }, ({ claudeDir }) => {
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(path.join(claudeDir, "settings.json"), original);
+  });
+});
+
+test("a backup that holds LLMR's leftover env keys does not bring them back", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const settingsFile = path.join(claudeDir, "settings.json");
+    const { ANTHROPIC_API_BASE_URL, ANTHROPIC_BASE_URL, CLAUDE_AGENT_API_BASE_URL, ...leftover } = JSON.parse(readFileSync(settingsFile, "utf8")).env;
+    const backup = JSON.stringify({ permissions: { allow: ["Bash(ls)"] }, env: leftover });
+    assert.match(backup, /CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY/);
+    writeFileSync(path.join(claudeDir, "settings.json.llmr-backup-2099-01-01T00-00-00-000Z"), backup);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(existsSync(settingsFile) && readFileSync(settingsFile, "utf8").includes("CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"), false);
+  });
+});
+
+test("a takeover copy from before a port change is not restored", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const settingsFile = path.join(claudeDir, "settings.json");
+    const oldEndpoint = "http://127.0.0.1:9999";
+    writeFileSync(path.join(claudeDir, "settings.json.llmr-backup-2099-01-01T00-00-00-000Z"), JSON.stringify({
+      env: { ANTHROPIC_API_BASE_URL: oldEndpoint, ANTHROPIC_BASE_URL: oldEndpoint, CLAUDE_AGENT_API_BASE_URL: oldEndpoint },
+      permissions: { allow: ["Bash(ls)"] }
+    }));
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(existsSync(settingsFile), false);
+  });
+});
+
 test("restoring original settings revokes the profile's key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async () => {
     await recoverGlobalAgentProfile("default-codex");
