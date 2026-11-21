@@ -3570,7 +3570,7 @@ function filesHolding(dir, value) {
   return filesUnder(dir).filter((file) => readFileSync(file, "utf8").includes(value));
 }
 
-async function withAppliedDefaultProfiles(profileIds, run) {
+async function withAppliedDefaultProfiles(profileIds, run, beforeApply) {
   const runtimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   const claudeDir = path.join(runtimeHome, ".claude");
@@ -3589,6 +3589,7 @@ async function withAppliedDefaultProfiles(profileIds, run) {
     for (const profileId of profileIds.slice(1)) {
       config.profile.profiles.find((profile) => profile.id === profileId).enabled = true;
     }
+    beforeApply?.({ claudeDir, codexDir });
     await applyProfileConfig(config);
     await replacePersistedAppConfig(config);
     const tokens = Object.fromEntries((await loadPersistedApiKeys()).map((apiKey) => [apiKey.id, apiKey.key]));
@@ -3715,6 +3716,55 @@ test("restoring a Claude Code settings file LLMR created leaves nothing named ll
     assert.equal(result.status.ok, true, result.status.message);
     assert.equal(existsSync(settingsFile), false);
     assert.deepEqual(readdirSync(claudeDir).filter((name) => name.includes("llmr")), []);
+  });
+});
+
+test("restoring a Claude Code settings file LLMR created does not bring back a key the user deleted", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const settingsFile = path.join(claudeDir, "settings.json");
+    const applied = JSON.parse(readFileSync(settingsFile, "utf8"));
+    writeFileSync(settingsFile, `${JSON.stringify({ ...applied, permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`);
+    config.Providers[0].models.push("model-2");
+    config.profile.profiles.find((profile) => profile.id === "default-claude-code").model = "Provider/model-2";
+    await applyProfileConfig(config);
+    await replacePersistedAppConfig(config);
+    const backups = readdirSync(claudeDir).filter((name) => name.startsWith("settings.json.llmr-backup-"));
+    assert.equal(backups.length, 1);
+    assert.match(readFileSync(path.join(claudeDir, backups[0]), "utf8"), /permissions/);
+    const { permissions, ...withoutPermissions } = JSON.parse(readFileSync(settingsFile, "utf8"));
+    assert.deepEqual(permissions, { allow: ["Bash(ls)"] });
+    writeFileSync(settingsFile, `${JSON.stringify(withoutPermissions, null, 2)}\n`);
+    const result = await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(existsSync(settingsFile), false);
+    assert.deepEqual(readdirSync(claudeDir).filter((name) => name.includes("llmr")), []);
+  });
+});
+
+test("a stale original-missing marker does not cost the user their own Codex config", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "model_provider = \"openai\"\n\n[mcp_servers.mine]\ncommand = \"my-server\"\n";
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile }) => {
+    assert.match(readFileSync(codexConfigFile, "utf8"), /\[model_providers\.llm-router\]/);
+    await recoverGlobalAgentProfile("default-codex");
+    assert.equal(readFileSync(codexConfigFile, "utf8"), original);
+  }, ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml"), original);
+    writeFileSync(path.join(codexDir, "config.toml.llmr-original-missing"), "");
+  });
+});
+
+test("a stale original-missing marker does not cost the user their own Claude Code settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = { env: { ANTHROPIC_BASE_URL: "https://proxy.example.test" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const settingsFile = path.join(claudeDir, "settings.json");
+    assert.match(readFileSync(settingsFile, "utf8"), /apiKeyHelper/);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), original);
+  }, ({ claudeDir }) => {
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(original, null, 2)}\n`);
+    writeFileSync(path.join(claudeDir, "settings.json.llmr-original-missing"), "");
   });
 });
 
