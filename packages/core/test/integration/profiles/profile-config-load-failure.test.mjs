@@ -13,10 +13,10 @@ test("a config that failed to load does not release the agent takeovers", async 
   process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(home, "app-data");
   process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(home, "user-data");
   const { loadAppConfig } = await import("@llmr/core/config/config.ts");
-  const { replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  const { loadPersistedApiKeys, replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
   const { APP_CONFIG_DB_FILE } = await import("@llmr/core/config/constants.ts");
   const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
-  const { applyProfileConfig } = await import("@llmr/core/profiles/service.ts");
+  const { applyProfileConfig, reconcileProfileApiKeys } = await import("@llmr/core/profiles/service.ts");
   const { createBetterSqliteDatabase } = await import("@llmr/core/storage/sqlite-native.ts");
   assert.ok(path.resolve(APP_CONFIG_DB_FILE).startsWith(home), "config DB lives in this test's home");
 
@@ -51,5 +51,12 @@ test("a config that failed to load does not release the agent takeovers", async 
   const fallback = await loadAppConfig();
   assert.deepEqual(fallback.Providers, []);
   await assert.rejects(applyProfileConfig(fallback), /config failed to load/);
+  await reconcileProfileApiKeys(fallback);
+  assert.deepEqual((await loadPersistedApiKeys()).map((key) => key.id), ["profile:config-load-failure-claude-code"]);
+
+  const keyStore = createBetterSqliteDatabase(APP_CONFIG_DB_FILE);
+  keyStore.exec("DROP TABLE api_keys");
+  keyStore.close();
+  await assert.rejects(reconcileProfileApiKeys(config));
   assert.match(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
 });

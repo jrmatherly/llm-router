@@ -925,6 +925,17 @@ function profileEntries(config: AppConfig): ProfileConfig[] {
   return profiles.map((profile) => profile.enabled ? { ...profile, enabled: false } : profile);
 }
 
+export async function reconcileProfileApiKeys(config: AppConfig): Promise<void> {
+  if (appConfigLoadError(config)) {
+    return;
+  }
+  const profiles = profileEntries(config);
+  await pruneInactiveProfileApiKeys(config, profiles);
+  if (hasAvailableGatewayModels(config)) {
+    await ensureProfileApiKeys(config, profiles);
+  }
+}
+
 async function ensureProfileApiKeys(config: AppConfig, profiles: ProfileConfig[]): Promise<Map<string, string>> {
   let tokens = new Map<string, string>();
   config.APIKEYS = await updatePersistedApiKeys((current) => {

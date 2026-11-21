@@ -37,7 +37,7 @@ import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-pr
 import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
-import { applyProfileConfig, recoverGlobalAgentProfile, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
+import { applyProfileConfig, reconcileProfileApiKeys, recoverGlobalAgentProfile, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, openProfileInTerminal, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
@@ -448,6 +448,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
   openProfile: async (request) => {
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
     const config = syncedClaudeAppConfig.config;
+    await reconcileProfileApiKeys(config);
     const status = await gatewayService.ensureStarted(config);
     if (status.state !== "running") {
       throw new Error(status.lastError || "LLMR gateway did not start.");
@@ -464,6 +465,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
   restartGateway: async () => {
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
     const config = syncedClaudeAppConfig.config;
+    await reconcileProfileApiKeys(config);
     const status = await gatewayService.restart(config);
     await applyProfileIfServiceRunning(config, status);
     return status;
@@ -471,6 +473,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
   restartProxy: async () => {
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
     const config = syncedClaudeAppConfig.config;
+    await reconcileProfileApiKeys(config);
     const status = await gatewayService.restart(config);
     await applyProfileIfServiceRunning(config, status);
     return proxyService.getStatus();
@@ -486,6 +489,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
     const savedConfig = await saveApiKeysConfig(apiKeys as ApiKeyConfig[]);
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
     const nextConfig = syncedClaudeAppConfig.config;
+    await reconcileProfileApiKeys(nextConfig);
     await gatewayService.updateConfig(nextConfig);
     logProfileApplyResult(await applyProfileConfig(nextConfig));
     invalidateProviderAccountSnapshotCache();
@@ -503,6 +507,9 @@ const rpcHandlers: Record<string, RpcHandler> = {
     let savedConfig = await saveAppConfig(nextInput);
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
     savedConfig = syncedClaudeAppConfig.config;
+    if ((options as AppSaveConfigOptions | undefined)?.applyProfile !== false) {
+      await reconcileProfileApiKeys(savedConfig);
+    }
     let runtimeStatus = gatewayService.getStatus();
     const restartRequired = syncedClaudeAppConfig.configChanged ||
       shouldRestartGatewayForRuntimeConfigChange(previousConfig, savedConfig);
@@ -538,6 +545,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
   startGateway: async () => {
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(await loadAppConfig());
     const config = syncedClaudeAppConfig.config;
+    await reconcileProfileApiKeys(config);
     const status = await gatewayService.ensureStarted(config);
     await applyProfileIfServiceRunning(config, status);
     return status;
@@ -568,6 +576,10 @@ async function startConfiguredServices(reason: string): Promise<void> {
     } catch (error) {
       console.error(`Failed to sync Claude App gateway config during ${reason}: ${formatError(error)}`);
     }
+    // At launch the gateway must still start when the key store cannot be written.
+    await reconcileProfileApiKeys(config).catch((error) => {
+      console.error(`Failed to prepare profile API keys during ${reason}: ${formatError(error)}`);
+    });
     const status = await gatewayService.ensureStarted(config);
     if (status.state === "error") {
       console.error(`Failed to start gateway during ${reason}: ${status.lastError}`);
@@ -608,6 +620,7 @@ function syncProviderModelAutoRefresh(config: AppConfig): void {
   syncProviderModelAutoRefreshService(config, {
     logger: console,
     onConfigChanged: async (nextConfig) => {
+      await reconcileProfileApiKeys(nextConfig);
       await gatewayService.updateConfig(nextConfig);
       await applyProfileIfServiceRunning(nextConfig, gatewayService.getStatus());
       invalidateProviderAccountSnapshotCache();

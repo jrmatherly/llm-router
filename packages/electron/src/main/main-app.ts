@@ -7,7 +7,7 @@ import { syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway
 import { deepLinkService } from "./deep-link";
 import { gatewayService } from "@llmr/core/gateway/service";
 import "./ipc";
-import { applyProfileConfig, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
+import { applyProfileConfig, reconcileProfileApiKeys, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { ensureLlmrCliLauncher, persistPreparedLlmrCliPath, prepareLlmrCliLauncherRuntime, type LlmrCliLauncherPreparation } from "@llmr/core/profiles/launch-service";
 import { syncLaunchAtLogin } from "./launch-at-login";
 import { proxyService } from "@llmr/core/proxy/service";
@@ -220,6 +220,10 @@ function startConfiguredServices(reason: string): Promise<void> {
         } catch (error) {
           console.error(`Failed to sync launch-at-login setting during ${reason}: ${formatError(error)}`);
         }
+        // At launch the gateway must still start when the key store cannot be written.
+        await reconcileProfileApiKeys(config).catch((error) => {
+          console.error(`Failed to prepare profile API keys during ${reason}: ${formatError(error)}`);
+        });
         const status = await gatewayService.ensureStarted(config);
         if (status.state === "error") {
           console.error(`Failed to start gateway during ${reason}: ${status.lastError}`);
@@ -253,6 +257,7 @@ function syncProviderModelAutoRefresh(config: AppConfig): void {
   syncProviderModelAutoRefreshService(config, {
     logger: console,
     onConfigChanged: async (nextConfig) => {
+      await reconcileProfileApiKeys(nextConfig);
       await gatewayService.updateConfig(nextConfig);
       if (gatewayService.getStatus().state === "running") {
         const profileResult = await applyProfileConfig(nextConfig);

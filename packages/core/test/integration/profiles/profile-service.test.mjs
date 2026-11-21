@@ -12,7 +12,7 @@ import { loadAppConfig } from "@llmr/core/config/config.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { replacePersistedApiKeys, replacePersistedAppConfig } from "@llmr/core/config/config-repository.ts";
 import { CONFIGDIR } from "@llmr/core/config/constants.ts";
-import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service.ts";
+import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, reconcileProfileApiKeys, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service.ts";
 
 test("Grok profile source home follows profile and process environment overrides", () => {
   const previous = {
@@ -238,6 +238,38 @@ test("profile service writes global Claude settings under the runtime home, neve
     rmSync(path.dirname(runtimeSettingsFile), { force: true, recursive: true });
     rmSync(processHome, { force: true, recursive: true });
   }
+});
+
+test("profile keys exist before any gateway runs, and a profile switched off loses its key", async () => {
+  await replacePersistedApiKeys([{ id: "user-key", key: "llmr-user-key-0123456789", name: "Mine" }]);
+  try {
+    const config = configWithProviderAndEnabledProfile("default-claude-code");
+    await reconcileProfileApiKeys(config);
+    const profileKey = config.APIKEYS.find((key) => key.name === "Profile: Claude Code");
+    assert.match(profileKey?.key ?? "", /^llmr-profile-/);
+    assert.deepEqual(config.APIKEYS.map((key) => key.id), ["user-key", "profile:default-claude-code"]);
+    assert.deepEqual((await loadAppConfig()).APIKEYS.map((key) => key.id), ["user-key", "profile:default-claude-code"]);
+    assert.equal(existsSync(path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".claude", "settings.json")), false);
+
+    await reconcileProfileApiKeys(config);
+    assert.equal(config.APIKEYS.find((key) => key.name === "Profile: Claude Code")?.key, profileKey.key);
+
+    config.profile.profiles.find((profile) => profile.id === "default-claude-code").enabled = false;
+    await reconcileProfileApiKeys(config);
+    assert.deepEqual(config.APIKEYS.map((key) => key.id), ["user-key"]);
+    assert.deepEqual((await loadAppConfig()).APIKEYS.map((key) => key.id), ["user-key"]);
+  } finally {
+    await replacePersistedApiKeys([]);
+  }
+});
+
+test("a profile gets no key while no provider offers a model", async () => {
+  await replacePersistedApiKeys([]);
+  const config = configWithProviderAndEnabledProfile("default-claude-code");
+  config.Providers = [];
+  await reconcileProfileApiKeys(config);
+  assert.deepEqual(config.APIKEYS.map((key) => key.id), []);
+  assert.deepEqual((await loadAppConfig()).APIKEYS.map((key) => key.id).filter((id) => id.startsWith("profile:")), []);
 });
 
 test("enabling the default Claude Code profile leaves the user's ~/.codex/config.toml byte for byte unchanged", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
@@ -3296,6 +3328,14 @@ function defaultHomeClaudeFixture(id, extra = {}) {
   config.profile.enabled = true;
   config.profile.profiles = [profile];
   return { config, profile };
+}
+
+function configWithProviderAndEnabledProfile(profileId) {
+  const config = createDefaultAppConfig();
+  config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  config.profile.enabled = true;
+  config.profile.profiles.find((profile) => profile.id === profileId).enabled = true;
+  return config;
 }
 
 async function applyProfileFixture(config, options) {
