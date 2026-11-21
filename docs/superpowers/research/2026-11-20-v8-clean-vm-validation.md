@@ -158,11 +158,11 @@ Found 2026-11-21 by reading the restore code and probing each starting state in 
 
 - **F-18.** A `~/.codex/config.toml` that LLMR created and the user or Codex later added to is removed whole on restore. Codex adds to the file on its own (folder trust, the chosen model, MCP servers). The additions survive only in a backup.
 - **F-19.** When the original `config.toml` existed, a restore writes the pre-takeover file back and discards anything written while LLMR had it. Claude Code's `settings.json` keeps such edits, because it has a stripper.
-- **F-20.** Each restore of a Codex file leaves a backup holding the profile's bearer token. Five remained after seven quits.
+- **F-20.** Each restore of a Codex file, and each apply that changes it, leaves a backup holding the profile's token. Five remained after seven quits. The token is written in three places: `experimental_bearer_token`, an MCP server's `env` table and an `Authorization` header.
 - **F-21.** **Restore original settings** does not remove the profile's API key. It stays valid until the next apply.
 - **F-22.** Smaller cases: a symlinked config whose target is missing keeps LLMR's content after a restore; a user's own `NO_PROXY` hosts are lost; a user whose own settings already set the three base URLs alike gets a failed restore; a restored Claude Code file is rewritten with two-space JSON.
 
-The same restore code runs on a quit, a termination signal, an update install and every apply, so none of this is limited to the button. Fix plan: Tasks 4a and 4b for F-18 to F-21, Open items for F-22.
+The same restore code runs on a quit, a termination signal, an update install and every apply, so none of this is limited to the button. Fix plan: Task 4a for F-18 and F-21, Task 4b for F-19 and F-20, Task 4c for the rest of F-13, Open items for F-22.
 
 ## Notes, not defects
 
