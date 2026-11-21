@@ -104,14 +104,18 @@ export type CodexWrittenRecord = {
   showAllSessionsLine?: string;
 };
 
-// The root lines that are LLMR's own. A line of the user's is never in here, even when it holds the value LLMR would write.
+// The root lines LLMR wrote. They are matched by value, so a formatter that realigns a line does not make it the user's.
 export type CodexWrittenLines = Pick<CodexWrittenRecord, "modelLine" | "showAllSessionsLine">;
 
-// Codex drops the configured-model comment and writes root keys inside LLMR's root block (codex-cli 0.171.0), so the text alone cannot say whose a line is. The record of what LLMR last wrote can.
+// Codex drops the configured-model comment and writes root keys inside LLMR's root block (codex-cli 0.171.0), so the text alone cannot say whose a line is. The record of what LLMR last wrote is the better witness.
 export function decideCodexRootLines(input: {
   configuredModel: string;
   currentModelLine?: string;
   currentShowAllSessionsLine?: string;
+  // True when LLMR already had the file but left no usable record, as after an upgrade.
+  managedWithoutRecord?: boolean;
+  // Only read with `managedWithoutRecord`: whether the show_all_sessions line sits inside LLMR's root block.
+  showAllSessionsInManagedBlock?: boolean;
   previous?: CodexWrittenLines;
   previousConfiguredModel?: string;
   showAllSessions: boolean;
@@ -120,14 +124,18 @@ export function decideCodexRootLines(input: {
   const ourModelLine = `model = ${configuredValue}`;
   const currentModel = input.currentModelLine;
   const configuredModelChanged = input.previousConfiguredModel !== undefined && input.previousConfiguredModel !== configuredValue;
-  const recordedAsOurs = input.previous !== undefined && currentModel !== undefined && currentModel === input.previous.modelLine;
-  const matchesComment = input.previous === undefined && currentModel !== undefined &&
-    input.previousConfiguredModel !== undefined && rootAssignmentValue(currentModel) === input.previousConfiguredModel;
+  const currentValue = rootAssignmentValue(currentModel);
+  const recordedAsOurs = input.previous !== undefined && sameRootAssignment(currentModel, input.previous.modelLine);
+  // With no record the text has to do: the line is LLMR's when it holds the model LLMR named in its comment, or the one it would write to a file it already had.
+  const matchesComment = input.previous === undefined && currentValue !== undefined &&
+    (currentValue === input.previousConfiguredModel || (input.managedWithoutRecord === true && currentValue === configuredValue));
   const replaceModel = currentModel === undefined || configuredModelChanged || recordedAsOurs;
   const modelLine = replaceModel ? ourModelLine : currentModel;
 
   const currentShow = input.currentShowAllSessionsLine;
-  const showRecordedAsOurs = currentShow !== undefined && currentShow === input.previous?.showAllSessionsLine;
+  // With no record, where the line sits is the only evidence, and it is the evidence the text strip goes by.
+  const showRecordedAsOurs = sameRootAssignment(currentShow, input.previous?.showAllSessionsLine) ||
+    (input.managedWithoutRecord === true && input.showAllSessionsInManagedBlock === true && currentShow !== undefined);
   const ourShowLine = input.showAllSessions ? "show_all_sessions = true" : undefined;
   const keepUsersShow = currentShow !== undefined && !showRecordedAsOurs;
   const showAllSessionsLine = keepUsersShow ? currentShow : ourShowLine;
@@ -142,8 +150,31 @@ export function decideCodexRootLines(input: {
   };
 }
 
-function rootAssignmentValue(line: string): string | undefined {
-  return /^[A-Za-z_]+\s*=\s*(.*?)(?:\s+#.*)?$/.exec(line.trim())?.[1];
+export function isRootKeyInsideManagedBlock(source: string, key: string): boolean {
+  let inRootBlock = false;
+  for (const { inValue, line } of scanTomlLines(source)) {
+    const trimmed = line.trim();
+    if (inValue) {
+      continue;
+    }
+    if (codexManagedMarkers.includes(trimmed)) {
+      inRootBlock = trimmed === managedRootStart;
+    } else if (trimmed.startsWith("[")) {
+      return false;
+    } else if (inRootBlock && new RegExp(`^${escapeRegExp(key)}\\s*=`).test(trimmed)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function rootAssignmentValue(line: string | undefined): string | undefined {
+  return line === undefined ? undefined : /^[A-Za-z_]+\s*=\s*(.*?)(?:\s+#.*)?$/.exec(line.trim())?.[1];
+}
+
+export function sameRootAssignment(line: string | undefined, recorded: string | undefined): boolean {
+  const value = rootAssignmentValue(line);
+  return value !== undefined && value === rootAssignmentValue(recorded);
 }
 
 // Codex adds its own tables inside LLMR's last marker pair (codex-cli 0.171.0, `codex mcp add`), so the markers bound nothing: each line goes by what it holds.
@@ -170,8 +201,8 @@ export function stripManagedCodexConfigContent(content: string, providerIds: str
       (inRoot && trimmed.startsWith(managedConfiguredModelPrefix)) ||
       (key === "model_provider" && providerValues.includes(value)) ||
       (key === "model_catalog_json" && value.includes("llmr-model-catalog.json")) ||
-      (key === "model" && (written ? trimmed === written.modelLine : value === configuredModel)) ||
-      (key === "show_all_sessions" && (written ? trimmed === written.showAllSessionsLine : inRootBlock))
+      (key === "model" && (written ? sameRootAssignment(trimmed, written.modelLine) : value === configuredModel)) ||
+      (key === "show_all_sessions" && (written ? sameRootAssignment(trimmed, written.showAllSessionsLine) : inRootBlock))
     ) {
       continue;
     }

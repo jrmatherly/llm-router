@@ -450,6 +450,9 @@ Merged as PR 136, with these differences from the text below.
 - With no record, a `model` line that equals the configured-model comment is recorded as LLMR's and left as the user or LLMR typed it. It is rewritten only when the model changed or the record names it.
 - `restoreGlobalConfigFile` became a thin wrapper that clears the record after `restoreGlobalConfigFileContent` returns, which covers every return at once.
 - `written.json` is `{ edited, file, modelLine?, sha256, showAllSessionsLine? }` as specified. `file` holds `normalizedFileKey(file)`.
+- A recorded line is matched by its value, not its text, so a formatter that realigns LLMR's line does not make it the user's. The first build compared text, and a reviewer ran a realigned line that then survived a restore where `main` removed it.
+- With no usable record beside a file that tests managed, as after an upgrade, the text is the evidence: a `model` line that holds the configured model is LLMR's, and so is a `show_all_sessions` line inside LLMR's root block. Two reviewers ran upgrade states where the first build left those lines behind and `main` did not.
+- Clearing the record never throws. A failed clear had turned a finished restore into a reported failure for any agent, and on quit it stopped the remaining agents being restored. A record left behind is ignored once the file holds nothing of LLMR's.
 
 **Files:** `packages/core/src/profiles/codex-config-strip.ts`, `packages/core/src/profiles/service.ts` (`applyCodexProfile`, `buildCodexConfigToml`, `managedModelAssignment`, `codexManagedContent`, `restoreGlobalConfigFile`, `RestoreManagedContentMatchers`); tests in `codex-config-strip.test.mjs` and `profile-service.test.mjs`
 

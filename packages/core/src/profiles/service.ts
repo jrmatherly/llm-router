@@ -57,6 +57,7 @@ import {
   codexManagedMarkers,
   decideCodexRootLines,
   escapeRegExp,
+  isRootKeyInsideManagedBlock,
   managedConfiguredModel,
   managedConfiguredModelPrefix,
   managedContextArchiveMcpEnd,
@@ -733,6 +734,7 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
       contextArchiveMcp,
       modelCatalogFile,
       configFormat,
+      managedWithoutRecord: sourceManaged && !previous,
       model,
       previous,
       providerId,
@@ -743,7 +745,7 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
     });
     const nextConfig = built.content;
     if (recordsWrittenLines) {
-      // Before the file: a crash between the two then leaves a record the next apply repairs, not a line of LLMR's recorded as the user's.
+      // Before the file: a crash between the two then leaves a record that is at worst too cautious (`edited` turns true), not a line of LLMR's recorded as the user's.
       const recordFile = codexWrittenRecordFile(configFile);
       mkdirSync(path.dirname(recordFile), { recursive: true });
       writeFileAtomic(recordFile, `${JSON.stringify({
@@ -1314,6 +1316,7 @@ function buildCodexConfigToml(
     model: string;
     providerId: string;
     providerName: string;
+    managedWithoutRecord?: boolean;
     previous?: CodexWrittenLines;
     showAllSessions: boolean;
     token: string;
@@ -1335,7 +1338,9 @@ function buildCodexConfigToml(
     configuredModel: values.model,
     currentModelLine: rootTomlAssignment(rootSource, "model"),
     currentShowAllSessionsLine: rootTomlAssignment(rootSource, "show_all_sessions"),
+    managedWithoutRecord: values.managedWithoutRecord,
     previous: values.previous,
+    showAllSessionsInManagedBlock: isRootKeyInsideManagedBlock(source, "show_all_sessions"),
     previousConfiguredModel: managedConfiguredModel(rootSource),
     showAllSessions: values.showAllSessions
   });
@@ -1392,7 +1397,11 @@ function readCodexWrittenRecord(file: string): CodexWrittenRecord | undefined {
 }
 
 function clearCodexWrittenRecord(file: string): void {
-  rmSync(codexWrittenRecordFile(file), { force: true });
+  try {
+    rmSync(codexWrittenRecordFile(file), { force: true });
+  } catch {
+    // The restore has already happened and must not be reported as failed. A record left behind is ignored once the file holds nothing of LLMR's.
+  }
 }
 
 function sha256Hex(content: string): string {
@@ -3501,7 +3510,7 @@ function restoreGlobalConfigFile(
   options: RestoreManagedContentMatchers & { keepLiveFile?: boolean; mode?: number }
 ): RestoreFileResult {
   const result = restoreGlobalConfigFileContent(file, options);
-  // Last, so a failure before it leaves the record for the next restore. Not through `onReleased`: the sweep for inactive Codex profiles never calls it.
+  // Last, so a failure before it leaves the record for the next restore. Not through `onReleased`: the sweep for inactive Codex profiles never calls it. It runs for every agent's file and finds a record only for Codex.
   if (!options.keepLiveFile && !result.missingBackup) {
     clearCodexWrittenRecord(file);
   }

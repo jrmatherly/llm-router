@@ -3775,6 +3775,101 @@ test("a record left over from an earlier takeover does not cost the user a Codex
   });
 });
 
+test("a Codex config from before LLMR kept a record still loses LLMR's model line on restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const applied = readFileSync(fixture.codexConfigFile, "utf8");
+    writeFileSync(fixture.codexConfigFile, applied.replace(/^# LLMR configured model = .*\n/m, "").replace(/^# END LLMR managed profile\n/m, userCodexAdditions.trimStart()));
+    rmSync(codexWrittenRecordFile(fixture.codexConfigFile));
+    await applyProfileConfig(fixture.config);
+    assert.match(readCodexWrittenRecord(fixture.codexConfigFile).modelLine, /^model = /);
+    await recoverGlobalAgentProfile("default-codex");
+    assert.doesNotMatch(readFileSync(fixture.codexConfigFile, "utf8"), /^model = /m);
+    assertCodexKeepsOnlyUserContent(fixture);
+  });
+});
+
+test("a record that cannot be removed does not turn a finished restore into a failure", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || process.platform === "win32" }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const recordDir = path.dirname(codexWrittenRecordFile(fixture.codexConfigFile));
+    chmodSync(recordDir, 0o500);
+    try {
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, result.status.message);
+      assert.equal(existsSync(fixture.codexConfigFile), false);
+    } finally {
+      chmodSync(recordDir, 0o700);
+    }
+  });
+});
+
+test("a show_all_sessions line LLMR wrote before it kept a record is still removed on restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    fixture.config.profile.profiles.find((profile) => profile.id === "default-codex").showAllSessions = true;
+    await applyProfileConfig(fixture.config);
+    await replacePersistedAppConfig(fixture.config);
+    rmSync(codexWrittenRecordFile(fixture.codexConfigFile));
+    appendUserCodexTables(fixture);
+    await applyProfileConfig(fixture.config);
+    assert.match(readFileSync(fixture.codexConfigFile, "utf8"), /^show_all_sessions = true$/m);
+    await recoverGlobalAgentProfile("default-codex");
+    assert.doesNotMatch(readFileSync(fixture.codexConfigFile, "utf8"), /show_all_sessions/);
+    assertCodexKeepsOnlyUserContent(fixture);
+  });
+});
+
+test("a restore that finds no backup keeps the record of what LLMR wrote", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    rmSync(`${fixture.codexConfigFile}.llmr-original-missing`);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, false);
+    assert.match(readCodexWrittenRecord(fixture.codexConfigFile).modelLine, /^model = /);
+  });
+});
+
+test("when the record cannot be written the Codex config is left as it was", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || process.platform === "win32" }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const before = readFileSync(fixture.codexConfigFile, "utf8");
+    const recordDir = path.dirname(codexWrittenRecordFile(fixture.codexConfigFile));
+    chmodSync(recordDir, 0o500);
+    try {
+      const result = await applySecondCodexModel(fixture.config);
+      assert.equal(result.clients.find((client) => client.client === "codex").ok, false);
+      assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), before);
+    } finally {
+      chmodSync(recordDir, 0o700);
+    }
+  });
+});
+
+test("a record with a field of the wrong type is no record", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    appendUserCodexTables(fixture);
+    const recordFile = codexWrittenRecordFile(fixture.codexConfigFile);
+    const record = readCodexWrittenRecord(fixture.codexConfigFile);
+    writeFileSync(recordFile, JSON.stringify({ ...record, edited: "no" }));
+    await applyProfileConfig(fixture.config);
+    assert.equal(readCodexWrittenRecord(fixture.codexConfigFile).edited, true);
+    writeFileSync(recordFile, JSON.stringify({ ...record, modelLine: 5 }));
+    await recoverGlobalAgentProfile("default-codex");
+    assert.doesNotMatch(readFileSync(fixture.codexConfigFile, "utf8"), /^model = /m);
+    assertCodexKeepsOnlyUserContent(fixture);
+  });
+});
+
+test("with no record a show_all_sessions line the user added below LLMR's block stays theirs", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const applied = readFileSync(fixture.codexConfigFile, "utf8");
+    const edited = applied.replace(/^# END LLMR managed profile\n/m, "# END LLMR managed profile\nshow_all_sessions = false\n");
+    assert.notEqual(edited, applied);
+    writeFileSync(fixture.codexConfigFile, edited);
+    rmSync(codexWrittenRecordFile(fixture.codexConfigFile));
+    await applyProfileConfig(fixture.config);
+    assert.equal(readCodexWrittenRecord(fixture.codexConfigFile).showAllSessionsLine, undefined);
+    await recoverGlobalAgentProfile("default-codex");
+    assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), "show_all_sessions = false\n");
+  });
+});
+
 test("a record that cannot be read is no record", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
     appendUserCodexTables(fixture);

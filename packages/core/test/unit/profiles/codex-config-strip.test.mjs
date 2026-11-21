@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   decideCodexRootLines,
+  isRootKeyInsideManagedBlock,
   managedProviderEnd,
   managedProviderStart,
   managedRootEnd,
@@ -251,6 +252,43 @@ test("with the record a show_all_sessions line inside LLMR's root block stays un
   assert.equal(stripManagedCodexConfigContent(withOurLine, ["llm-router"], { modelLine: ours, showAllSessionsLine: "show_all_sessions = true" }), "");
 });
 
+test("a file LLMR already had, with no record, has its model line claimed when it holds the configured model", () => {
+  assert.deepEqual(decide({ currentModelLine: ours, managedWithoutRecord: true }), { modelLine: ours, written: { modelLine: ours } });
+  assert.deepEqual(decide({ currentModelLine: "model = \"my-own\"", managedWithoutRecord: true }), { modelLine: "model = \"my-own\"", written: {} });
+  assert.deepEqual(decide({ currentModelLine: ours }), { modelLine: ours, written: {} });
+});
+
+test("a recorded line is matched by its value, so realigning it or adding a comment does not make it the user's", () => {
+  for (const reformatted of ["model  =  \"Provider/model\"", "model = \"Provider/model\"  # mine", "model=\"Provider/model\""]) {
+    const content = afterCodexMcpAdd.replace(ours, reformatted);
+    assert.equal(stripManagedCodexConfigContent(content, ["llm-router"], { modelLine: ours }), usersTables, reformatted);
+    assert.deepEqual(decide({ currentModelLine: reformatted, previous: { modelLine: ours } }).written, { modelLine: ours }, reformatted);
+  }
+  const realignedShow = managed("").replace(managedRootEnd, `show_all_sessions  =  true\n${managedRootEnd}`);
+  assert.equal(stripManagedCodexConfigContent(realignedShow, ["llm-router"], { modelLine: ours, showAllSessionsLine: "show_all_sessions = true" }), "");
+});
+
+test("a file LLMR already had, with no record, has a show_all_sessions line in LLMR's root block claimed", () => {
+  const on = "show_all_sessions = true";
+  const claimed = decide({ currentModelLine: ours, currentShowAllSessionsLine: on, managedWithoutRecord: true, showAllSessions: true, showAllSessionsInManagedBlock: true });
+  assert.deepEqual(claimed.written, { modelLine: ours, showAllSessionsLine: on });
+  const switchedOff = decide({ currentModelLine: ours, currentShowAllSessionsLine: on, managedWithoutRecord: true, showAllSessionsInManagedBlock: true });
+  assert.equal(switchedOff.showAllSessionsLine, undefined);
+  const below = decide({ currentModelLine: ours, currentShowAllSessionsLine: on, managedWithoutRecord: true, showAllSessions: true });
+  assert.deepEqual(below.written, { modelLine: ours });
+  const fresh = decide({ currentShowAllSessionsLine: on, showAllSessions: true, showAllSessionsInManagedBlock: true });
+  assert.deepEqual(fresh.written, { modelLine: ours });
+});
+
+test("isRootKeyInsideManagedBlock finds a root key only between LLMR's root markers", () => {
+  const inside = managed("").replace(managedRootEnd, `show_all_sessions = true\n${managedRootEnd}`);
+  assert.equal(isRootKeyInsideManagedBlock(inside, "show_all_sessions"), true);
+  assert.equal(isRootKeyInsideManagedBlock(managed("show_all_sessions = true\n"), "show_all_sessions"), false);
+  assert.equal(isRootKeyInsideManagedBlock(afterCodexMcpAdd.replace(ours, `${ours}\nshow_all_sessions = true`), "show_all_sessions"), true);
+  assert.equal(isRootKeyInsideManagedBlock(`${managedRootStart}\n[t]\nshow_all_sessions = true\n`, "show_all_sessions"), false);
+  assert.equal(isRootKeyInsideManagedBlock(`${managedRootStart}\nnote = """\nshow_all_sessions = true\n"""\n`, "show_all_sessions"), false);
+});
+
 function seededRandom(seed) {
   let state = seed;
   return () => {
@@ -305,6 +343,7 @@ test("a strip with the record keeps every line of the user's and none of LLMR's,
       "experimental_bearer_token = \"llmr-profile-TEST\"",
       ...insideProviderBlock.flatMap((part) => ["", part]),
       managedProviderEnd,
+      ...(index % 3 === 0 ? ["", "# BEGIN LLMR managed ToolHub MCP", "[mcp_servers.llmr-toolhub]", "command = \"node\"", "", "[mcp_servers.llmr-toolhub.env]", "LLMR_TOKEN = \"llmr-profile-TEST\"", "# END LLMR managed ToolHub MCP"] : []),
       ""
     ].join("\n");
 
