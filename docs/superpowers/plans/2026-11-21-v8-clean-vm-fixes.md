@@ -420,7 +420,8 @@ Merged as PR 133. Its Step 2 test was replaced by Task 4e's narrower one.
 
 Merged as PR 135, with three differences from the steps below.
 - `tomlString`, `tomlQuotedKey` and `trimLeadingBlankLines` were already in `apply-support.ts`, so the new file imports them from there and nothing else moved.
-- `removeTablesOutsideValues` keeps the comment lines directly above the next header, and a blank line only when it sits between such a comment and the header. A blank line alone is dropped with the table, as before, so a strip gives the same bytes it gave for a file LLMR wrote.
+- `removeTablesOutsideValues` keeps a comment block only when a blank line sets it off from the removed table's body, whether a header or the end of the file follows it. A comment that directly follows the table's lines goes with the table, so a commented-out token line does not survive. A blank line alone is dropped with the table, as before, so a strip gives the same bytes it gave for a file LLMR wrote.
+- When a value is still open at the end of the file, `scanTomlLines` reports no line as inside a value. The file is not valid TOML then, and trusting the scan left LLMR's provider table and token in place while the restore reported success (run by a reviewer with four hand-broken files, which `main` stripped correctly).
 - The stripper keeps every line that starts inside a value before it looks at anything else, a marker line included.
 
 **Files:** create `packages/core/src/profiles/codex-config-strip.ts`; modify `packages/core/src/profiles/service.ts`; test `packages/core/test/unit/profiles/codex-config-strip.test.mjs` (new)

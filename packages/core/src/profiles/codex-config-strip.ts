@@ -65,7 +65,7 @@ export function removeCodexMcpServerTable(
   return kept.join("");
 }
 
-export function isCodexMcpServerChildTable(trimmedLine: string, serverName: string, enabled: boolean): boolean {
+function isCodexMcpServerChildTable(trimmedLine: string, serverName: string, enabled: boolean): boolean {
   if (!enabled) {
     return false;
   }
@@ -142,32 +142,43 @@ export function escapeRegExp(value: string): string {
 type TomlScanState = { depth: number; multiline: "" | "\"\"\"" | "'''" };
 
 // No TOML parser is installed and a parser could not make a line-preserving edit, so this tracks only what decides whether a line starts inside a value.
-export function* scanTomlLines(content: string): Generator<{ inValue: boolean; line: string }> {
+export function scanTomlLines(content: string): Array<{ inValue: boolean; line: string }> {
   const state: TomlScanState = { depth: 0, multiline: "" };
-  for (const line of content.split(/(?<=\n)/)) {
-    yield { inValue: state.multiline !== "" || state.depth > 0, line };
+  const lines = content.split(/(?<=\n)/).map((line) => {
+    const inValue = state.multiline !== "" || state.depth > 0;
     scanTomlLine(line, state);
-  }
+    return { inValue, line };
+  });
+  // A value still open at the end means the file is not valid TOML. Trusting the scan there would hide LLMR's own lines, token included, behind the user's typo.
+  return state.multiline !== "" || state.depth > 0 ? lines.map(({ line }) => ({ inValue: false, line })) : lines;
 }
 
 export function removeTablesOutsideValues(content: string, isHeader: (header: string) => boolean): string {
   const kept: string[] = [];
   let removing = false;
-  // A comment directly above the next header belongs to that table, not to the one being removed.
+  // A comment block set off by a blank line belongs to the table below it, not to the one being removed.
   let commentsAboveNextHeader: string[] = [];
+  let blankSinceBody = false;
   for (const { inValue, line } of scanTomlLines(content)) {
     const trimmed = line.trim();
     if (!inValue && trimmed.startsWith("[")) {
       kept.push(...commentsAboveNextHeader);
       commentsAboveNextHeader = [];
+      blankSinceBody = false;
       removing = isHeader(trimmed.slice(0, scanTomlLine(trimmed, { depth: 0, multiline: "" })).trim());
     }
     if (!removing) {
       kept.push(line);
-    } else if (!inValue && (trimmed.startsWith("#") || (trimmed === "" && commentsAboveNextHeader.length > 0))) {
+    } else if (!inValue && trimmed === "") {
+      blankSinceBody = true;
+      if (commentsAboveNextHeader.length > 0) {
+        commentsAboveNextHeader.push(line);
+      }
+    } else if (!inValue && blankSinceBody && trimmed.startsWith("#")) {
       commentsAboveNextHeader.push(line);
     } else {
       commentsAboveNextHeader = [];
+      blankSinceBody = false;
     }
   }
   return [...kept, ...commentsAboveNextHeader].join("");

@@ -3667,6 +3667,20 @@ test("restoring a Codex config whose LLMR markers were deleted by hand still rem
   });
 });
 
+test("restoring a Codex config with a value the user left open still removes LLMR's provider and token", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, codexToken }) => {
+    const applied = readFileSync(codexConfigFile, "utf8");
+    const broken = "[mcp_servers.mine]\ncommand = \"my-server\"\ndescription = \"\"\"oops\n";
+    const edited = applied.replace("# BEGIN LLMR managed Codex provider", `${broken}# BEGIN LLMR managed Codex provider`);
+    assert.notEqual(edited, applied);
+    writeFileSync(codexConfigFile, edited);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(readFileSync(codexConfigFile, "utf8"), broken);
+    assert.deepEqual(filesHolding(codexDir, codexToken), []);
+  });
+});
+
 test("restoring a Codex config twice changes nothing the second time", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir }) => {
     writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}${userCodexAdditions}`);
