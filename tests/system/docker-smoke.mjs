@@ -135,7 +135,6 @@ try {
   const gatewayHealth = await fetch(`${baseUrl}/health`);
   assert.equal(gatewayHealth.status, 502, "Gateway health should be proxied by Nginx and fail while no models are configured");
   assert.equal(await waitForHealth(containerId), "healthy", "A container with no models configured is still healthy");
-  assert.doesNotMatch(dockerExec(containerId, ["ls", "-A", "/data"]), /^\.(claude|codex)$/m, "a container with no saved config must take over no agent");
 
   const openRouterConfig = {
     ...configPayload.value,
@@ -165,7 +164,6 @@ try {
   const roundTrip = await rpc(baseUrl, "saveConfig", token, [redactedConfig.value, { applyProfile: false }]);
   assert.equal(roundTrip.status, 200);
   assert.equal((await roundTrip.json()).ok, true);
-  assert.doesNotMatch(dockerExec(containerId, ["ls", "-A", "/data"]), /^\.(claude|codex)$/m, "saving a provider must take over no agent");
   const storedKey = run("docker", ["exec", containerId, "node", "-e", "const Database=require('better-sqlite3');const db=new Database('/data/.llm-router/config.sqlite',{readonly:true});const config=JSON.parse(db.prepare(\"select value_json from app_config where key = 'default'\").get().value_json);process.stdout.write(config.Providers[0].apiKey || config.Providers[0].api_key || '');db.close();"]);
   assert.equal(storedKey, "test-openrouter-key", "a masked config round trip must keep the saved provider key");
 
@@ -191,6 +189,7 @@ try {
 
   const runningGatewayHealth = await fetch(`${baseUrl}/health`);
   assert.equal(runningGatewayHealth.status, 200);
+  assert.doesNotMatch(dockerExec(containerId, ["ls", "-A", "/data"]), /^\.(claude|codex)$/m, "a running gateway with a provider must take over no agent");
   const runningGatewayHealthPayload = await runningGatewayHealth.json();
   assert.equal(runningGatewayHealthPayload.status, "ok");
   assert.equal(typeof runningGatewayHealthPayload.runtimeId, "string");

@@ -14,6 +14,20 @@ test("onboarding enables the chosen agent's default profile and leaves the other
   assert.equal(next.length, profiles.length);
 });
 
+test("onboarding enables the default Codex profile and leaves Claude Code off", () => {
+  const profiles = createDefaultAppConfig().profile.profiles;
+  const index = onboardingProfileIndex(profiles, "codex");
+  assert.equal(profiles[index].id, "default-codex");
+  const next = withOnboardingProfile(profiles, index, profiles[index]);
+  assert.equal(next.find((profile) => profile.agent === "claude-code")?.enabled, false);
+  assert.equal(next.find((profile) => profile.agent === "codex")?.enabled, true);
+});
+
+test("onboarding never picks up a disabled LLMR-only profile", () => {
+  const [claudeCode] = createDefaultAppConfig().profile.profiles;
+  assert.equal(onboardingProfileIndex([{ ...claudeCode, enabled: false, id: "spare", scope: "llmr" }], "claude-code"), -1);
+});
+
 test("onboarding edits an enabled profile of the chosen agent before the disabled default", () => {
   const profiles = createDefaultAppConfig().profile.profiles;
   const own = { ...profiles[0], enabled: true, id: "own-claude-code", scope: "llmr" as const };

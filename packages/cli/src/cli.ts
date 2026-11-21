@@ -622,7 +622,7 @@ function printHelp(exitCode: number): void {
     `  ${command} ui`,
     `  ${command} serve --no-open`,
     `  ${command} stop`,
-    `  ${command} Codex`,
+    `  ${command} <profile>`,
     `  ${command} <profile> -- --model gpt-5-codex`,
     `  ${command} <profile> app`
   ].join("\n");

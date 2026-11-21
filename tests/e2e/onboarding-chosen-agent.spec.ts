@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./cli-web-runtime";
@@ -52,6 +52,7 @@ test("onboarding lets the user skip the agent, then connects only the agent they
   await page.getByRole("button", { name: "Skip for now" }).click();
   await expect(page.getByText("Skipped. Add one under Agent Profiles.")).toBeVisible();
   expect(await enabledProfileIds(page)).toEqual([]);
+  expect(existsSync(path.join(runtime.testHome, ".claude"))).toBe(false);
 
   await page.getByRole("button", { name: "Back" }).click();
   await expect(page.getByRole("heading", { name: "Connect agent" })).toBeVisible();
@@ -64,6 +65,8 @@ test("onboarding lets the user skip the agent, then connects only the agent they
   await expect.poll(() => enabledProfileIds(page)).toEqual(["default-claude-code"]);
   const config = await page.evaluate(() => window.llmr!.getConfig());
   expect(config.profile.profiles.map((profile) => profile.id)).toEqual(["default-claude-code", "default-codex"]);
+  const claudeSettingsFile = path.join(runtime.testHome, ".claude", "settings.json");
+  await expect.poll(() => existsSync(claudeSettingsFile) ? readFileSync(claudeSettingsFile, "utf8") : "").toMatch(/apiKeyHelper/);
   expect(existsSync(path.join(runtime.testHome, ".codex"))).toBe(false);
 });
 

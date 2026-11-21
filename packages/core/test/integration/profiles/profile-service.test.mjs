@@ -276,7 +276,7 @@ test("enabling the default Claude Code profile leaves the user's ~/.codex/config
   }
 });
 
-test("profile service does not overwrite invalid global Claude settings JSON",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("profile service does not overwrite invalid global Claude settings JSON", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-invalid-settings-"));
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
@@ -753,7 +753,6 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
     staleLegacyConfig.profile.claudeCode.enabled = true;
     staleLegacyConfig.profile.claudeCode.settingsFile = "~/.claude/settings.json";
     staleLegacyConfig.profile.codex.enabled = true;
-    staleLegacyConfig.profile.enabled = true;
     staleLegacyConfig.profile.profiles = [];
     await replacePersistedAppConfig(staleLegacyConfig);
 
