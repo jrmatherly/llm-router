@@ -3090,8 +3090,8 @@ test("profile service restores global agent configs on exit", () => {
     const zcodeV2File = path.join(zcodeRoot, "v2", "config.json");
     const zcodeCacheFile = path.join(zcodeRoot, "v2", "bots-model-cache.v2.json");
     const files = [claudeFile, codexFile, openCodeFile, zcodeFile, zcodeV2File, zcodeCacheFile];
-    const originals = new Map(files.map((file, index) => [file, `original-${index}\n`]));
-    const latestSnapshots = new Map(files.map((file, index) => [file, `latest-${index}\n`]));
+    const originals = new Map(files.map((file, index) => [file, `${JSON.stringify({ original: index })}\n`]));
+    const latestSnapshots = new Map(files.map((file, index) => [file, `${JSON.stringify({ latest: index })}\n`]));
 
     for (const [file, original] of originals) {
       mkdirSync(path.dirname(file), { recursive: true });
@@ -3799,6 +3799,81 @@ test("a truncated copy of LLMR's settings does not displace the user's original"
   }, ({ claudeDir }) => {
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(path.join(claudeDir, "settings.json"), original);
+  });
+});
+
+test("a backup that does not parse is not restored whatever it holds", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } })}\n`;
+  for (const damaged of ["{\n  \"apiKeyH", "{ \"permissions\": "]) {
+    await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+      const settingsFile = path.join(claudeDir, "settings.json");
+      const { apiKeyHelper, env } = JSON.parse(readFileSync(settingsFile, "utf8"));
+      writeFileSync(settingsFile, `${JSON.stringify({ apiKeyHelper, env }, null, 2)}\n`);
+      writeFileSync(path.join(claudeDir, "settings.json.llmr-backup-2099-01-01T00-00-00-000Z"), damaged);
+      await recoverGlobalAgentProfile("default-claude-code");
+      assert.equal(readFileSync(settingsFile, "utf8"), original);
+    }, ({ claudeDir }) => {
+      mkdirSync(claudeDir, { recursive: true });
+      writeFileSync(path.join(claudeDir, "settings.json"), original);
+    });
+  }
+});
+
+test("a backup that carries one mark of a takeover is not restored when no original existed", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const marks = {
+    "LLMR's helper": (applied) => ({ apiKeyHelper: applied.apiKeyHelper }),
+    "one gateway key on the recorded endpoint": (applied) => ({ env: { ANTHROPIC_BASE_URL: applied.env.ANTHROPIC_BASE_URL } }),
+    "LLMR's federation rule": () => ({ env: { ANTHROPIC_FEDERATION_RULE_ID: "llmr-local" } })
+  };
+  for (const [name, mark] of Object.entries(marks)) {
+    await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+      const settingsFile = path.join(claudeDir, "settings.json");
+      const applied = JSON.parse(readFileSync(settingsFile, "utf8"));
+      writeFileSync(path.join(claudeDir, "settings.json.llmr-backup-2099-01-01T00-00-00-000Z"), JSON.stringify({ permissions: { allow: ["Bash(ls)"] }, ...mark(applied) }));
+      await recoverGlobalAgentProfile("default-claude-code");
+      assert.equal(existsSync(settingsFile), false, name);
+    });
+  }
+});
+
+test("the sweep for a Claude Code profile that is gone does not restore a backup that does not parse", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } })}\n`;
+  const plantOriginal = ({ claudeDir }) => {
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(path.join(claudeDir, "settings.json"), original);
+  };
+  const managed = `${JSON.stringify({ apiKeyHelper: "/tmp/llmr-claude-code-api-key-test", env: { ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456", ANTHROPIC_BASE_URL: "http://127.0.0.1:3456", CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456" } })}\n`;
+  // With the profile's takeover state on disk the sweep takes the orphaned matcher.
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const settingsFile = path.join(claudeDir, "settings.json");
+    const { apiKeyHelper, env } = JSON.parse(readFileSync(settingsFile, "utf8"));
+    writeFileSync(settingsFile, `${JSON.stringify({ apiKeyHelper, env }, null, 2)}\n`);
+    writeFileSync(path.join(claudeDir, "settings.json.llmr-backup-2099-01-01T00-00-00-000Z"), "{\n  \"apiKeyH");
+    restoreInactiveGlobalProfileConfigs([]);
+    assert.equal(readFileSync(settingsFile, "utf8"), original);
+  }, plantOriginal);
+  // With no Claude Code state at all it takes the bare matcher.
+  await withAppliedDefaultProfiles(["default-codex"], async ({ claudeDir }) => {
+    const settingsFile = path.join(claudeDir, "settings.json");
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(`${settingsFile}.llmr-original`, original);
+    writeFileSync(`${settingsFile}.llmr-backup-2099-01-01T00-00-00-000Z`, "{\n  \"apiKeyH");
+    writeFileSync(settingsFile, managed);
+    restoreInactiveGlobalProfileConfigs([]);
+    assert.equal(readFileSync(settingsFile, "utf8"), original);
+  });
+});
+
+test("with no endpoint on record a backup that points at LLMR's address is not restored", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ claudeDir }) => {
+    const settingsFile = path.join(claudeDir, "settings.json");
+    const endpoint = "http://127.0.0.1:3456";
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(`${settingsFile}.llmr-original-missing`, "");
+    writeFileSync(`${settingsFile}.llmr-backup-2099-01-01T00-00-00-000Z`, JSON.stringify({ env: { ANTHROPIC_BASE_URL: endpoint, NO_PROXY: "127.0.0.1" }, permissions: { allow: ["Bash(ls)"] } }));
+    writeFileSync(settingsFile, `${JSON.stringify({ apiKeyHelper: "/tmp/llmr-claude-code-api-key-test", env: { ANTHROPIC_API_BASE_URL: endpoint, ANTHROPIC_BASE_URL: endpoint, CLAUDE_AGENT_API_BASE_URL: endpoint } })}\n`);
+    restoreInactiveGlobalProfileConfigs([]);
+    assert.equal(existsSync(settingsFile), false);
   });
 });
 

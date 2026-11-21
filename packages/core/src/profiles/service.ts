@@ -1076,19 +1076,28 @@ function claudeCodeManagedSettingsScope(profile: ProfileConfig): ClaudeCodeProfi
 
 function claudeCodeManagedContent(profile: ProfileConfig): RestoreManagedContentMatchers {
   const scope = claudeCodeManagedSettingsScope(profile);
+  const strip = (content: string) => stripManagedClaudeCodeSettingsContent(content, scope.envKeys, scope.paths, scope.displacedEnv, scope.endpoints);
   return {
     isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, scope.paths),
     onReleased: () => releaseClaudeCodeSettingsState(claudeCodeProfileSettingsStateFile(profile)),
-    stripManagedContent: (content) => stripManagedClaudeCodeSettingsContent(content, scope.envKeys, scope.paths, scope.displacedEnv, scope.endpoints),
-    takeoverContent: (content) => claudeCodeTakeoverContent(content, scope.endpoints)
+    stripManagedContent: strip,
+    takeoverContent: (content) => claudeCodeTakeoverContent(content, scope.endpoints, strip)
   };
 }
 
-// Goes by LLMR's own values, not key names: the user's own NO_PROXY or model env key is not a takeover.
-function claudeCodeTakeoverContent(content: string, endpoints: string[]): TakeoverContent {
+// Goes by the values LLMR writes, not key names: the user's own NO_PROXY or model env key is not a takeover.
+// With no endpoint on record LLMR's own address cannot be told from the user's, so anything the stripper would change counts.
+function claudeCodeTakeoverContent(
+  content: string,
+  endpoints: string[],
+  strip: (content: string) => string | undefined
+): TakeoverContent {
   const settings = parseJsonContent(content);
   if (!settings) {
-    return isManagedClaudeCodeApiKeyHelper(content) || endpoints.some((endpoint) => content.includes(endpoint)) ? "unparsed" : "none";
+    return "unparsed";
+  }
+  if (endpoints.length === 0) {
+    return strip(content) === undefined ? "none" : "parsed";
   }
   const env = isRecord(settings.env) ? settings.env : {};
   return isManagedClaudeCodeApiKeyHelper(settings.apiKeyHelper) ||
@@ -1137,11 +1146,12 @@ function orphanedClaudeCodeManagedContent(settingsFile: string): RestoreManagedC
   const envKeys = uniqueStrings(states.flatMap((state) => state.envKeys));
   const endpoints = uniqueStrings(states.flatMap((state) => state.endpoints));
   const displacedEnv = Object.assign({}, ...states.map((state) => state.displacedEnv)) as Record<string, string>;
+  const strip = (content: string) => stripManagedClaudeCodeSettingsContent(content, envKeys, paths, displacedEnv, endpoints);
   return {
     isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, paths),
     onReleased: () => stateFiles.forEach(releaseClaudeCodeSettingsState),
-    stripManagedContent: (content) => stripManagedClaudeCodeSettingsContent(content, envKeys, paths, displacedEnv, endpoints),
-    takeoverContent: (content) => claudeCodeTakeoverContent(content, endpoints)
+    stripManagedContent: strip,
+    takeoverContent: (content) => claudeCodeTakeoverContent(content, endpoints, strip)
   };
 }
 
@@ -2991,7 +3001,7 @@ type RestoreManagedContentMatchers = {
   takeoverContent?: (content: string) => TakeoverContent;
 };
 
-// "parsed" and "unparsed" both mean the content holds a value only LLMR writes; "unparsed" content is not valid for its format.
+// "parsed": valid content that carries the marks of an LLMR takeover. "unparsed": content that is not valid for its format.
 type TakeoverContent = "none" | "parsed" | "unparsed";
 
 function restoreDisabledGlobalProfile(
@@ -3088,7 +3098,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
           : {
               isManagedContent: isManagedClaudeCodeSettingsContent,
               stripManagedContent: stripManagedClaudeCodeSettingsContent,
-              takeoverContent: (content) => claudeCodeTakeoverContent(content, [])
+              takeoverContent: (content) => claudeCodeTakeoverContent(content, [], stripManagedClaudeCodeSettingsContent)
             });
       const restoreResult = restoreGlobalConfigFile(file, {
         ...matchers,
@@ -3530,10 +3540,7 @@ function restoreGlobalConfigFile(
   }
 
   const noOriginal = originalMissing && !existsSync(originalBackupFilePath(file));
-  const holdsTakeover = options.takeoverContent
-    ? (content: string) => options.takeoverContent?.(content) === "parsed"
-    : (content: string) => strip?.(content) !== undefined;
-  const snapshot = originalSnapshotCandidate(file, options, noOriginal && strip ? holdsTakeover : undefined);
+  const snapshot = originalSnapshotCandidate(file, options, noOriginal ? strip : undefined);
   if (snapshot) {
     if (current === snapshot.content) {
       chmodFileIfRequested(file, options.mode);
@@ -3609,7 +3616,7 @@ function hasTakeoverSnapshot(file: string): boolean {
 function originalSnapshotCandidate(
   file: string,
   matchers: RestoreManagedContentMatchers,
-  holdsTakeover?: (content: string) => boolean
+  stripWhenNoOriginal?: (content: string) => string | undefined
 ): { content: string; file: string } | undefined {
   // Prefer the most recent non-LLMR snapshot captured immediately before the
   // latest takeover. The permanent .llmr-original file can be stale when the
@@ -3619,8 +3626,12 @@ function originalSnapshotCandidate(
       continue;
     }
     const content = readFileSync(candidate, "utf8");
-    // An apply never backs up a file it cannot parse, so one that names LLMR's values is damage. With no original, any copy from LLMR's time can hold a setting the user has since deleted.
-    if (matchers.takeoverContent?.(content) === "unparsed" || holdsTakeover?.(content)) {
+    // An apply never backs up a file it cannot parse, so an unparsed candidate is damage. With no original, a copy that carries a takeover can hold a setting the user has since deleted.
+    const takeover = matchers.takeoverContent?.(content);
+    if (takeover === "unparsed") {
+      continue;
+    }
+    if (stripWhenNoOriginal && (takeover === undefined ? stripWhenNoOriginal(content) !== undefined : takeover === "parsed")) {
       continue;
     }
     if (!matchers.isManagedContent(content)) {
