@@ -148,7 +148,7 @@ function rootAssignmentValue(line: string): string | undefined {
 
 // Codex adds its own tables inside LLMR's last marker pair (codex-cli 0.171.0, `codex mcp add`), so the markers bound nothing: each line goes by what it holds.
 // With `written`, a root `model` or `show_all_sessions` line goes only when it is the line LLMR recorded writing.
-export function stripManagedCodexConfigContent(content: string, providerIds: string[], _written?: CodexWrittenLines): string | undefined {
+export function stripManagedCodexConfigContent(content: string, providerIds: string[], written?: CodexWrittenLines): string | undefined {
   const configuredModel = managedConfiguredModel(content);
   const providerValues = providerIds.flatMap((providerId) => [tomlString(providerId), `'${providerId}'`]);
   const kept: string[] = [];
@@ -170,8 +170,8 @@ export function stripManagedCodexConfigContent(content: string, providerIds: str
       (inRoot && trimmed.startsWith(managedConfiguredModelPrefix)) ||
       (key === "model_provider" && providerValues.includes(value)) ||
       (key === "model_catalog_json" && value.includes("llmr-model-catalog.json")) ||
-      (key === "model" && value === configuredModel) ||
-      (key === "show_all_sessions" && inRootBlock)
+      (key === "model" && (written ? trimmed === written.modelLine : value === configuredModel)) ||
+      (key === "show_all_sessions" && (written ? trimmed === written.showAllSessionsLine : inRootBlock))
     ) {
       continue;
     }
