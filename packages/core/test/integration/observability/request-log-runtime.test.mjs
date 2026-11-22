@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { Worker } from "node:worker_threads";
 import { RequestLogAdmissionStore } from "@llmr/core/observability/request-log-admission-store.ts";
+import { readRawTraceRequestLogBundle } from "@llmr/core/observability/raw-trace-sync.ts";
 import { createRequestLogRuntime, RequestLogStore } from "@llmr/core/observability/request-log-store.ts";
 import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace.ts";
 import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
@@ -208,6 +209,50 @@ test("RequestLogRuntime creates a standalone record from single-service raw trac
     assert.equal(page.items[0].completedAt, completedAt);
     assert.equal(page.items[0].durationMs, 1234);
     assert.equal(page.items[0].totalTokens, 7);
+  } finally {
+    await runtime.close({ timeoutMs: 5_000 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a refused request's row cuts the model the client typed to 200 characters", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-refused-model-test-"));
+  const runtime = createRuntime(dir, { rawTraceSpoolDir: path.join(dir, "spool") });
+  const model = "m".repeat(500);
+  const bundleDirectory = path.join(dir, "spool", "refused-bundle");
+  const clientMetadataFile = path.join(bundleDirectory, "client_request_metadata.json");
+  const clientBodyFile = path.join(bundleDirectory, "client_request.json");
+  const upstreamMetadataFile = path.join(bundleDirectory, "upstream_request_metadata.json");
+  const responseMetadataFile = path.join(bundleDirectory, "upstream_response_metadata.json");
+  const clientBody = JSON.stringify({ messages: [], model });
+  mkdirSync(bundleDirectory, { recursive: true });
+  writeFileSync(clientMetadataFile, JSON.stringify({ method: "POST", url: "/v1/chat/completions" }));
+  writeFileSync(clientBodyFile, clientBody);
+  writeFileSync(upstreamMetadataFile, JSON.stringify({ method: "POST" }));
+  writeFileSync(responseMetadataFile, JSON.stringify({ statusCode: 400 }));
+  try {
+    const bundle = await readRawTraceRequestLogBundle({
+      parts: [
+        { filePath: clientMetadataFile, partType: "client_request_metadata" },
+        { contentType: "application/json", filePath: clientBodyFile, originalBytes: clientBody.length, partType: "client_request" },
+        { filePath: upstreamMetadataFile, partType: "upstream_request_metadata" },
+        { filePath: responseMetadataFile, partType: "upstream_response_metadata" }
+      ],
+      requestId: "refused-bundle",
+      target: { model, providerName: "Stub" },
+      turnKey: "refused-long-model"
+    }, path.join(dir, "spool"));
+    assert.ok(bundle);
+    assert.equal(runtime.enqueueRawTrace({ ...bundle.update, allowStandaloneRecord: true }, { ...bundle.files, maxBodyBytes: 65_536 }).accepted, true);
+    await runtime.flush({ timeoutMs: 10_000 });
+
+    const page = await runtime.list({ pageSize: 25 });
+    assert.equal(page.items.length, 1);
+    assert.equal(page.items[0].statusCode, 400);
+    assert.equal(page.items[0].path, "/v1/chat/completions");
+    assert.equal(page.items[0].model, model.slice(0, 200));
+    assert.equal(page.items[0].resolvedModel, model.slice(0, 200));
+    assert.equal(page.items[0].requestedModel, model.slice(0, 200));
   } finally {
     await runtime.close({ timeoutMs: 5_000 });
     rmSync(dir, { force: true, recursive: true });
