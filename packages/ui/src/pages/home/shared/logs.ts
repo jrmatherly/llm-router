@@ -8,6 +8,10 @@ import {
 
 import { isPlainRecord, stringValue } from "./common";
 
+export function requestLogRetentionNotice(days: number): string {
+  return `Request logs are kept for ${days} ${days === 1 ? "day" : "days"}. Change this in Settings.`;
+}
+
 export function formatLogDateTime(value: string): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) {

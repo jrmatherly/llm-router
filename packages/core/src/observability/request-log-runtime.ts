@@ -331,6 +331,11 @@ export class RequestLogRuntime {
     return await this.query<AgentAnalysisTracePayloadFullResult>("getTracePayload", [request]);
   }
 
+  async setRetentionDays(days: number): Promise<void> {
+    if (this.closed) throw new Error("Request log runtime is closed.");
+    await this.writerRpc("setRetentionDays", [days]);
+  }
+
   metrics(): RequestLogRuntimeMetrics {
     this.pruneAdmissionOverlay();
     return {

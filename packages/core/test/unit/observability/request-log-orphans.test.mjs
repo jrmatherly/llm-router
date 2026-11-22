@@ -37,6 +37,7 @@ test("#1930 sweep preserves old pending and shared live refs, and retries orphan
     age(bodyFile(dir, liveRef)); age(bodyFile(dir, pendingRef));
     // A stale row can share a sidecar with a retained row.
     db.prepare("UPDATE request_logs SET created_at='2000-01-01', request_body_ref=? WHERE request_id='stale'").run(liveRef);
+    db.prepare("INSERT INTO request_log_settings (key, value) VALUES ('retention_days', '7')").run();
     const abandoned = orphan(dir, "aa-abandoned");
     const retry = orphan(dir, "ab-retry");
     const fresh = orphan(dir, "ac-fresh"); fs.utimesSync(fresh, new Date(), new Date());

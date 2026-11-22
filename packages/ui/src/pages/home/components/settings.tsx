@@ -12,6 +12,11 @@ import {
   appLogoUrl, trayMascotIconUrls, arrayMove, defaultTrayWidgetVariant, isTraySingletonWidgetType, normalizeTrayWidget, normalizeTrayWidgets, Switch, Textarea, Trash2, trayWidgetVariantOptions, useEffect, useMemo, useRef, useSensor, useSensors, useSortable, useState, validateMcpServerDraft,
   providerAccountSnapshotKey, providerAccountSnapshotLabel, uniqueStrings, X
 } from "../shared/index";
+import {
+  defaultRequestLogRetentionDays,
+  maxRequestLogRetentionDays,
+  minRequestLogRetentionDays
+} from "@llmr/core/observability/request-log-limits";
 import { productShortName } from "../shared/brand";
 import { ModelSelector } from "./model-selector";
 
@@ -525,7 +530,7 @@ function ProxySettingsSection({
   );
 }
 
-function ObservabilitySettingsPage({
+export function ObservabilitySettingsPage({
   copy,
   observability,
   onChange
@@ -534,6 +539,21 @@ function ObservabilitySettingsPage({
   observability: AppConfig["observability"];
   onChange: (patch: Partial<AppConfig["observability"]>) => void;
 }) {
+  const retentionDays = observability.requestLogRetentionDays ?? defaultRequestLogRetentionDays;
+  const [retentionDraft, setRetentionDraft] = useState(String(retentionDays));
+  useEffect(() => setRetentionDraft(String(retentionDays)), [retentionDays]);
+  // Commit on blur, not per keystroke: autosave would prune at each partial value, and pruning cannot be undone.
+  const commitRetention = () => {
+    const days = Math.floor(Number(retentionDraft));
+    if (!retentionDraft.trim() || !Number.isFinite(days)) {
+      setRetentionDraft(String(retentionDays));
+      return;
+    }
+    const clamped = Math.max(minRequestLogRetentionDays, Math.min(maxRequestLogRetentionDays, days));
+    setRetentionDraft(String(clamped));
+    if (clamped !== retentionDays) onChange({ requestLogRetentionDays: clamped });
+  };
+
   return (
     <div className={cn(settingsPageContentWidthClassName, "grid grid-cols-1 gap-5")}>
       <h3 className="text-[15px] font-semibold text-foreground">{copy.settings.observability}</h3>
@@ -545,6 +565,21 @@ function ObservabilitySettingsPage({
           label={copy.settings.requestLogs}
           onChange={(requestLogs) => onChange({ requestLogs })}
         />
+        <Field className="max-w-[240px]" label={copy.settings.requestLogRetentionDays}>
+          <Input
+            inputMode="numeric"
+            max={maxRequestLogRetentionDays}
+            min={minRequestLogRetentionDays}
+            onBlur={commitRetention}
+            onChange={(event) => setRetentionDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") commitRetention();
+            }}
+            step={1}
+            type="number"
+            value={retentionDraft}
+          />
+        </Field>
         <SettingsSwitchRow
           checked={observability.agentAnalysis}
           description={copy.settings.agentAnalysisDescription}

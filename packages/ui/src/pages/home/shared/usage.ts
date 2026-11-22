@@ -242,6 +242,12 @@ export function formatToolCounts(values: Array<{ count: number; name: string }>)
   return values.map((item) => `${item.name} x${item.count}`).join(", ");
 }
 
+export function usageRangeDays(range: UsageStatsRange): number {
+  if (range === "7d") return 7;
+  if (range === "30d") return 30;
+  return 1;
+}
+
 export function rangeLabel(range: UsageStatsRange): string {
   if (range === "today") {
     return "Today";

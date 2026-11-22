@@ -44,7 +44,7 @@ import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
 import { proxyService } from "@llmr/core/proxy/service";
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { listMcpServerTools } from "@llmr/core/mcp/tool-discovery";
-import { closeRequestLogRuntime, getAgentAnalysis, getAgentTracePayload, getRequestLogBodyChunk, getRequestLogDetail, getRequestLogs } from "@llmr/core/observability/request-log-store";
+import { applyRequestLogRetentionDays, closeRequestLogRuntime, getAgentAnalysis, getAgentTracePayload, getRequestLogBodyChunk, getRequestLogDetail, getRequestLogs } from "@llmr/core/observability/request-log-store";
 import { shouldRecordRequestLogs } from "@llmr/core/observability/raw-trace-sync";
 import { getUsageStats, resetOverviewStatistics } from "@llmr/core/usage/store";
 import { gatewayService } from "@llmr/core/gateway/service";
@@ -505,6 +505,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
       }
     }
     let savedConfig = await saveAppConfig(nextInput);
+    await applyRequestLogRetentionDays(savedConfig.observability.requestLogRetentionDays);
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
     savedConfig = syncedClaudeAppConfig.config;
     if ((options as AppSaveConfigOptions | undefined)?.applyProfile !== false) {
@@ -571,6 +572,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
 async function startConfiguredServices(reason: string): Promise<void> {
   try {
     let config = await loadAppConfig();
+    void applyRequestLogRetentionDays(config.observability.requestLogRetentionDays);
     try {
       config = (await syncClaudeAppGatewayConfig(config)).config;
     } catch (error) {

@@ -1120,6 +1120,25 @@ test("RequestLogRuntime accounts bounded file-backed raw bodies against queue me
   }
 });
 
+test("RequestLogRuntime setRetentionDays resolves after the writer saved the value and pruned older rows", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-retention-test-"));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  const store = new RequestLogStore(dbFile);
+  const runtime = createRequestLogRuntime({ dbFile, workerFile });
+  try {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    await store.record({ ...createRecord("old"), completedAt: threeDaysAgo, startedAt: threeDaysAgo });
+    await store.record(createRecord("new"));
+    await runtime.setRetentionDays(2);
+    assert.deepEqual((await runtime.list({})).items.map((item) => item.requestId), ["new"]);
+    await assert.rejects(runtime.setRetentionDays(0), /whole number of days/);
+  } finally {
+    await runtime.close({ timeoutMs: 5_000 });
+    await store.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("RequestLogRuntime terminally rejects delayed raw traces for records dropped by overload", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-shared-admission-test-"));
   const realDateNow = Date.now;

@@ -15,11 +15,11 @@ import {
   OverviewWidgetType, OverviewWidgetVariant, Pencil, Pie, PieChart, Plus,
   PointerSensor, primaryProviderAccountMeter, providerAccountMeterDetailValidityProgress, providerAccountMeterProgress, providerAccountMetersForDisplay, providerAccountProgressClass, isGatewayProviderEnabled, isProviderAccountManualResetMeter,
   providerAccountSnapshotKey, providerAccountSnapshotLabel, providerDisplayIcon,
-  ProviderAccountMeter, ProviderAccountSnapshot, ReactNode, ReactPointerEvent, rectSortingStrategy, RefreshCw, RequestLogEntry, Select,
+  ProviderAccountMeter, ProviderAccountSnapshot, ReactNode, ReactPointerEvent, rectSortingStrategy, RefreshCw, RequestLogEntry, requestLogRetentionNotice, Select,
   SelectControl, SortableContext, sortableKeyboardCoordinates, systemStatusPointTooltip,
   Tabs, TabsList, TabsTrigger, Tooltip, Trash2, UsageComparisonRow, usageRangeOptions,
   GatewayProviderConfig, UsageSeriesPoint, UsageStatsRange, UsageStatsSnapshot, usageStatusTone, UsageTotals,
-  useEffect, useMemo, useRef, useSensor, useSensors, useSortable,
+  usageRangeDays, useEffect, useMemo, useRef, useSensor, useSensors, useSortable,
   useState, X, XAxis, YAxis
 } from "../shared/index";
 import { buildTokenActivity, type TokenActivityCell } from "@/lib/usage-activity";
@@ -4486,12 +4486,18 @@ function providerAccountShowProgress(dimensions: OverviewWidgetDimensions): bool
   return dimensions.height >= 1;
 }
 
+export function fitAgentAnalysisRange(range: UsageStatsRange, retentionDays: number | undefined): UsageStatsRange {
+  if (retentionDays === undefined || usageRangeDays(range) <= retentionDays) return range;
+  return agentAnalysisRangeOptions.filter((option) => usageRangeDays(option.value) <= retentionDays).at(-1)?.value ?? range;
+}
+
 export function AgentAnalysisView({
   agentFilter,
   error,
   loading,
   range,
   refreshAnalysis,
+  retentionDays,
   selectedSession,
   setAgentFilter,
   setRange,
@@ -4503,12 +4509,17 @@ export function AgentAnalysisView({
   loading: boolean;
   range: UsageStatsRange;
   refreshAnalysis: () => void;
+  retentionDays?: number;
   selectedSession?: AgentAnalysisSessionSelection;
   setAgentFilter: (value: AgentFilterValue) => void;
   setRange: (range: UsageStatsRange) => void;
   setSelectedSession: (value?: AgentAnalysisSessionSelection) => void;
   snapshot: AgentAnalysisSnapshot;
 }) {
+  useEffect(() => {
+    const fitted = fitAgentAnalysisRange(range, retentionDays);
+    if (fitted !== range) setRange(fitted);
+  }, [range, retentionDays, setRange]);
 
   return (
     <motion.div
@@ -4533,20 +4544,25 @@ export function AgentAnalysisView({
           value={agentFilter}
         />
         <div className="flex rounded-md border border-border bg-background p-0.5">
-          {agentAnalysisRangeOptions.map((option) => (
-            <Button
-              className={cn(
-                "h-7 rounded px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground",
-                range === option.value && "bg-card text-foreground shadow-sm"
-              )}
-              key={option.value}
-              onClick={() => setRange(option.value)}
-              type="button"
-              unstyled
-            >
-              {option.label}
-            </Button>
-          ))}
+          {agentAnalysisRangeOptions.map((option) => {
+            const beyondRetention = retentionDays !== undefined && usageRangeDays(option.value) > retentionDays;
+            return (
+              <Button
+                className={cn(
+                  "h-7 rounded px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted-foreground",
+                  range === option.value && "bg-card text-foreground shadow-sm"
+                )}
+                disabled={beyondRetention}
+                key={option.value}
+                onClick={() => setRange(option.value)}
+                title={beyondRetention ? requestLogRetentionNotice(retentionDays) : undefined}
+                type="button"
+                unstyled
+              >
+                {option.label}
+              </Button>
+            );
+          })}
         </div>
         <Button aria-label="Refresh observability" className="h-8 gap-1.5 px-2.5 text-[12px]" onClick={refreshAnalysis} title="Refresh observability" type="button" variant="outline">
           <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
