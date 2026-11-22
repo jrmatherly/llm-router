@@ -12,7 +12,7 @@
 
 **Review history.** Written 2026-11-21 from three code explorations. Audited the same day by two independent passes, one that checked every path, symbol and test against the code and one on the design. The audit found two blockers that this version fixes. Task 4 would have deleted a user's own Codex settings, and Task 2's test named a fixture that does not exist. It also replaced Task 2's design, which restarted the gateway twice, and corrected the causes stated in Tasks 8 and 9. The plan author re-read each audit finding in the code before applying it. Task 4 and decisions V-7 and V-16 were rewritten later the same day after the restore research, and that rewrite was audited by two more passes. Appendix C records both. Task 4d and the safety-copy clause of V-7 were added after the stripper was measured against real Codex (Appendix D). Task 4e was added after the review of PR 133 (Appendix E). The whole plan was then audited against `main` at `06dd4b4f` by four passes, and Appendix F records what that changed.
 
-**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133), Task 4e (PR 134), Task 4d Part 2 (PR 135), Task 4d Part 3 (PR 136), Task 4d Part 4 (PR 137), which completes Task 4d. Next: Task 4b, alone in its PR. The remaining code tasks ship as five PRs (V-18). A merged task's body describes the code as it was before its PR. No decision is waiting on the owner. The Order table carries the same status per task.
+**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133), Task 4e (PR 134), Task 4d Part 2 (PR 135), Task 4d Part 3 (PR 136), Task 4d Part 4 (PR 137), which completes Task 4d, Task 4b (PR 138). Next: Tasks 4c and 5, in one PR. The code tasks left ship as four more PRs (V-18). A merged task's body describes the code as it was before its PR. No decision is waiting on the owner. The Order table carries the same status per task.
 
 **Evidence status.** A cause marked "inferred" was not confirmed by reading the code path end to end. Its task starts with the step that confirms it.
 
@@ -82,8 +82,8 @@ Run the tasks in this order, one at a time.
 | 6 | 4d Part 1 | A | Merged, PR 133 | The F-23 guard |
 | 7 | 4e | A | Merged, PR 134 | Corrects the guard Part 1 shipped, in the same function, before anything else builds on it |
 | 8 | 4d Parts 2 to 4 | A | Part 2 merged, PR 135. Part 3 merged, PR 136. Part 4 merged, PR 137 | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. One PR each, in order |
-| 9 | 4b | A | Next. Its own PR | Builds on the Codex stripper from Task 4a and the record from Task 4d |
-| 10 | 4c | A | One PR with Task 5 | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
+| 9 | 4b | A | Merged, PR 138 | Builds on the Codex stripper from Task 4a and the record from Task 4d |
+| 10 | 4c | A | Next. One PR with Task 5 | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
 | 11 | 5 | A | One PR with Task 4c | Edits `gateway-service.ts`, `layout.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
 | 12 | 10 | A | | Investigation, no code. Steps 1 and 2 here. Steps 3 and 4 run inside Task 11's Pass 2, and Step 5 follows it |
 | 13 | 11 | A | | The owner's VM pass and the release |
@@ -578,7 +578,7 @@ PR 133 made the snapshot lookup skip, when no original existed, any backup the s
 
 ### Task 4b: Keep Codex edits made during a takeover, and keep no token in any backup (F-19, F-20)
 
-Built as PR 138, with these differences from the text below.
+Merged as PR 138 (`dcc6e644`), with these differences from the text below.
 - `stripLiveContent(content, snapshot?)` takes the snapshot's text, not the displaced values. `restoreGlobalConfigFile` has no provider ids to find the profile table with, so the closure in `codexManagedContent` calls `readCodexDisplacedConfig(snapshot, providerIds)`. `CodexDisplacedConfig` has `profileTables`, a list, because the sweep passes several provider ids.
 - A file with no record counts as touched (Step 4): it is stripped, with a safety copy. Nothing shows it is as LLMR wrote it. Without a record the strip goes by the text and can leave LLMR's `model` line where Codex dropped the comment, a state only an upgrade reaches.
 - Step 5, no original: only a managed source gets no apply-time backup. An unmanaged source is still backed up, or a real original beside a stale marker would be lost.
