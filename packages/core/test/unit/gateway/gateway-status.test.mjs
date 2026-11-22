@@ -10,8 +10,10 @@ import {
   replacePersistedRuntimeState
 } from "@llmr/core/config/config-repository.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE } from "@llmr/core/contracts/app.ts";
 import { endpoint } from "@llmr/core/gateway/core-runtime/supervisor.ts";
 import { gatewayService } from "@llmr/core/gateway/service.ts";
+import { mediaService } from "@llmr/core/media/service.ts";
 import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 test("gateway endpoints normalize wildcard and IPv6 hosts", () => {
@@ -35,6 +37,59 @@ test("gateway start persists preflight validation failures for status polling", 
   assert.equal(polledStatus.lastError, "Core gateway host must be 127.0.0.1 or ::1.");
 
   await gatewayService.stop();
+});
+
+test("a gateway with no provider model is stopped, not failed", async () => {
+  await gatewayService.stop();
+  try {
+    const status = await gatewayService.start(createDefaultAppConfig());
+    assert.equal(status.state, "stopped");
+    assert.equal(status.lastError, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE);
+    assert.equal(status.pid, undefined);
+    assert.equal(gatewayService.getStatus().state, "stopped");
+  } finally {
+    await gatewayService.stop();
+  }
+});
+
+test("a gateway with no provider model leaves the media tools stopped", async () => {
+  await gatewayService.stop();
+  const config = createDefaultAppConfig();
+  config.mediaTools.enabled = true;
+  try {
+    assert.equal((await gatewayService.start(config)).state, "stopped");
+    assert.equal(mediaService.enabled(), false);
+  } finally {
+    await gatewayService.stop();
+  }
+});
+
+test("a gateway stopped for no model starts once a provider is added, and drops the old reason", async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-gateway-first-provider-test-"));
+  const gatewayEntry = path.join(dir, "gateway-entry.cjs");
+  const previousGatewayEntry = process.env.LLMR_GATEWAY_ENTRY;
+  const previousReadySentinel = process.env.LLMR_GATEWAY_READY_SENTINEL;
+  writeFileSync(gatewayEntry, delayedHealthyGatewayEntry(), "utf8");
+
+  try {
+    await gatewayService.stop();
+    process.env.LLMR_GATEWAY_ENTRY = gatewayEntry;
+    process.env.LLMR_GATEWAY_READY_SENTINEL = path.join(dir, "gateway-ready");
+
+    const emptyConfig = createDefaultAppConfig();
+    emptyConfig.gateway.enabled = true;
+    assert.equal((await gatewayService.start(emptyConfig)).state, "stopped");
+
+    const status = await gatewayService.start(gatewayTestConfig(await reserveLoopbackPort()));
+    assert.equal(status.state, "running");
+    assert.equal(status.lastError, undefined);
+  } finally {
+    restoreEnv("LLMR_GATEWAY_ENTRY", previousGatewayEntry);
+    restoreEnv("LLMR_GATEWAY_READY_SENTINEL", previousReadySentinel);
+    await gatewayService.stop();
+    await deletePersistedRuntimeState("gateway");
+    rmSync(dir, { force: true, recursive: true });
+  }
 });
 
 test("gateway stop preserves a runtime marker that this service instance does not own", async () => {

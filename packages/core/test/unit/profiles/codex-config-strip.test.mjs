@@ -8,7 +8,9 @@ import {
   managedRootEnd,
   managedRootStart,
   readCodexDisplacedConfig,
+  removeCodexMcpServerTable,
   removeTablesOutsideValues,
+  removeTomlTable,
   scanTomlLines,
   stripManagedCodexConfigContent
 } from "@llmr/core/profiles/codex-config-strip.ts";
@@ -467,4 +469,26 @@ test("a displaced line is put back once however many of LLMR's lines the file ho
 
 test("a displaced profile table alone is no reason to rewrite a file with nothing of LLMR's in it", () => {
   assert.equal(stripManagedCodexConfigContent("[mcp_servers.mine]\ncommand = \"x\"\n", ["llm-router"], undefined, usersDisplaced), undefined);
+});
+
+test("removeTomlTable takes a table whole and leaves a header that is only text inside a value", () => {
+  const quotes = "\"".repeat(3);
+  const inString = `notes = ${quotes}\n[profiles.llm-router]\nkeep = 1\n${quotes}\nafter = 2\n`;
+  assert.equal(removeTomlTable(inString, "profiles", "llm-router"), inString);
+  const nested = `before = 1\n\n[profiles.llm-router]\nx = [\n  [1, 2],\n]\ny = 3\n\n[mcp_servers.after]\ncommand = "after"\n`;
+  assert.equal(removeTomlTable(nested, "profiles", "llm-router"), "before = 1\n\n[mcp_servers.after]\ncommand = \"after\"\n");
+});
+
+test("removeCodexMcpServerTable takes a server's table whole and leaves its header where it is only text", () => {
+  const quotes = "\"".repeat(3);
+  const inString = `notes = ${quotes}\n[mcp_servers.x]\nkeep = 1\n${quotes}\nafter = 2\n`;
+  assert.equal(removeCodexMcpServerTable(inString, "x"), inString);
+  const nested = `before = 1\n\n[mcp_servers.x]\nargs = [\n  ["a", "b"],\n]\ncommand = "x"\n\n[mcp_servers.mine]\ncommand = "mine"\n`;
+  assert.equal(removeCodexMcpServerTable(nested, "x"), "before = 1\n\n[mcp_servers.mine]\ncommand = \"mine\"\n");
+});
+
+test("readCodexDisplacedConfig reads a root key from its own line, not from text inside a value", () => {
+  const quotes = "\"".repeat(3);
+  const snapshot = `notes = ${quotes}\nmodel = "inside"\nmodel_provider = "inside"\n${quotes}\nmodel = "real"\n`;
+  assert.deepEqual(readCodexDisplacedConfig(snapshot, ["llm-router"]), { model: "model = \"real\"" });
 });

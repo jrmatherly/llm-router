@@ -1021,6 +1021,11 @@ function codexElectronUserDataDir(codexHome: string, profile: ProfileConfig, spe
   );
 }
 
+export function codexAppModelCatalogPath(codexHome: string, profile: ProfileConfig): string {
+  const spec = codexCompatibleAppSpecForProfile(profile);
+  return codexAppModelCatalogFile(codexElectronUserDataDir(codexHome, profile, spec), spec);
+}
+
 function codexAppModelCatalogFile(userDataDir: string, spec: CodexCompatibleAppSpec): string {
   return path.join(userDataDir, spec.modelCatalogFilename);
 }

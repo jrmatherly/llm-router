@@ -6,6 +6,7 @@ import {
   useState,
   UserRound, X
 } from "../shared/index";
+import { GatewayStartupErrorBanner } from "./gateway-startup-error-banner";
 import { AddProviderForm, ProviderConnectivityCheckDialog } from "./providers";
 import { AddProfileForm } from "./profiles";
 
@@ -44,6 +45,7 @@ export function OnboardingView({
   canSubmitProvider,
   config,
   endpoint,
+  gatewayStartupError,
   gatewayStatus,
   onCheckProvider,
   onChangeProfile,
@@ -70,6 +72,7 @@ export function OnboardingView({
   canSubmitProvider: boolean;
   config: AppConfig;
   endpoint: string;
+  gatewayStartupError?: string;
   gatewayStatus: GatewayStatus;
   onCheckProvider: (models?: string[]) => Promise<ProviderConnectivityCheckReport>;
   onChangeProfile: (patch: Partial<AddProfileDraft>) => void;
@@ -230,6 +233,7 @@ export function OnboardingView({
             transition={shouldReduceMotion ? reducedMotionTransition : { duration: 0.28, ease: motionEase }}
           >
             <OnboardingProgress activeStep={activeStep} providerSetupStep={providerSetupStep} providerSetupSteps={providerSetupSteps} />
+            <GatewayStartupErrorBanner className="mx-4 mt-3 sm:mx-5" message={gatewayStartupError} />
             <div className="flex min-h-0 min-w-0 flex-1 flex-col p-4 sm:p-5">
               <div className="flex h-8 shrink-0 items-center">
                 {previousStep || previousProviderSetupStep ? (

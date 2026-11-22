@@ -1,6 +1,6 @@
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME } from "@llmr/core/gateway/context-archive";
 import { TOOL_HUB_MCP_SERVER_NAME } from "@llmr/core/mcp/toolhub-config";
-import { firstTomlTableIndex, tomlQuotedKey, tomlString, trimLeadingBlankLines } from "@llmr/core/profiles/apply-support";
+import { tomlQuotedKey, tomlString, trimLeadingBlankLines } from "@llmr/core/profiles/apply-support";
 
 export const managedRootStart = "# BEGIN LLMR managed profile";
 export const managedRootEnd = "# END LLMR managed profile";
@@ -36,7 +36,7 @@ export function removeCodexMcpServerTable(
   serverName: string,
   options: { includeChildTables?: boolean } = {}
 ): string {
-  const lines = source.split(/(?<=\n)/);
+  const lines = scanTomlLines(source);
   const headers = new Set([
     `[mcp_servers.${serverName}]`,
     `[mcp_servers.${tomlQuotedKey(serverName)}]`,
@@ -49,15 +49,15 @@ export function removeCodexMcpServerTable(
   ]);
   const kept: string[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
+    const { inValue, line } = lines[index];
     const trimmed = line.trim();
-    if (!headers.has(trimmed) && !isCodexMcpServerChildTable(trimmed, serverName, Boolean(options.includeChildTables))) {
+    if (inValue || (!headers.has(trimmed) && !isCodexMcpServerChildTable(trimmed, serverName, Boolean(options.includeChildTables)))) {
       kept.push(line);
       continue;
     }
 
     index += 1;
-    while (index < lines.length && !/^\s*\[/.test(lines[index])) {
+    while (index < lines.length && (lines[index].inValue || !/^\s*\[/.test(lines[index].line))) {
       index += 1;
     }
     index -= 1;
@@ -73,22 +73,24 @@ function isCodexMcpServerChildTable(trimmedLine: string, serverName: string, ena
     trimmedLine.startsWith(`[mcp_servers.${tomlQuotedKey(serverName)}.`);
 }
 
+// A line that starts with `[` inside an array or a multi-line string is not a header, and a table cut there leaves the rest of its value behind as broken TOML.
 export function removeTomlTable(source: string, section: string, name: string): string {
-  const lines = source.split(/(?<=\n)/);
+  const lines = scanTomlLines(source);
   const headers = new Set([
     `[${section}.${name}]`,
     `[${section}.${tomlQuotedKey(name)}]`
   ]);
+  const isHeader = (index: number) => !lines[index].inValue && /^\s*\[/.test(lines[index].line);
   const kept: string[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!headers.has(line.trim())) {
+    const { inValue, line } = lines[index];
+    if (inValue || !headers.has(line.trim())) {
       kept.push(line);
       continue;
     }
 
     index += 1;
-    while (index < lines.length && !/^\s*\[/.test(lines[index])) {
+    while (index < lines.length && !isHeader(index)) {
       index += 1;
     }
     index -= 1;
@@ -195,11 +197,12 @@ const displacedRootKeys = {
 
 // Reads them the way the writer removes them, one line per root key and a table up to the next header, so what comes back is what went.
 export function readCodexDisplacedConfig(snapshot: string, providerIds: string[]): CodexDisplacedConfig {
-  const rootEnd = firstTomlTableIndex(snapshot);
+  const rootEnd = firstCodexTableIndex(snapshot);
   const root = rootEnd === -1 ? snapshot : snapshot.slice(0, rootEnd);
   const displaced: CodexDisplacedConfig = {};
   for (const [key, field] of Object.entries(displacedRootKeys)) {
-    const line = new RegExp(`^[ \\t]*${key}\\s*=.*$`, "m").exec(root)?.[0];
+    const assignment = new RegExp(`^[ \\t]*${key}\\s*=`);
+    const line = scanTomlLines(root).find((item) => !item.inValue && assignment.test(item.line))?.line.replace(/\r?\n$/, "");
     if (line !== undefined) {
       displaced[field] = line;
     }
@@ -299,6 +302,27 @@ export function escapeRegExp(value: string): string {
 type TomlScanState = { depth: number; multiline: "" | "\"\"\"" | "'''" };
 
 // No TOML parser is installed and a parser could not make a line-preserving edit, so this tracks only what decides whether a line starts inside a value.
+// The offset where the root section ends: the first `[` line that is a header, not a line of an array or a multi-line string.
+// It starts at any blank lines above that header, as `firstTomlTableIndex` does, so the two give the same bytes for a file with no such value.
+export function firstCodexTableIndex(content: string): number {
+  const insideValue = new Set<number>();
+  let offset = 0;
+  for (const { inValue, line } of scanTomlLines(content)) {
+    if (inValue) {
+      insideValue.add(offset);
+    }
+    offset += line.length;
+  }
+  const header = /^\s*\[/gm;
+  for (let match = header.exec(content); match; match = header.exec(content)) {
+    const bracket = match.index + match[0].length - 1;
+    if (!insideValue.has(content.lastIndexOf("\n", bracket) + 1)) {
+      return match.index;
+    }
+  }
+  return -1;
+}
+
 export function scanTomlLines(content: string): Array<{ inValue: boolean; line: string }> {
   const state: TomlScanState = { depth: 0, multiline: "" };
   const lines = content.split(/(?<=\n)/).map((line) => {
