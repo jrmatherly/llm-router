@@ -2466,8 +2466,14 @@ export function providerNameEquals(left: string, right: string): boolean {
   return left.trim().toLowerCase() === right.trim().toLowerCase();
 }
 
+const mediaProtocolLabels: Record<string, string> = {
+  openai_image_generations: "OpenAI Images",
+  openai_video_generations: "OpenAI Video",
+  xai_video_generations: "xAI Video"
+};
+
 export function providerProtocolLabel(protocol: GatewayProviderProtocol | string): string {
-  return providerProtocolOptions.find((option) => option.value === protocol)?.label ?? String(protocol);
+  return providerProtocolOptions.find((option) => option.value === protocol)?.label ?? mediaProtocolLabels[protocol] ?? String(protocol);
 }
 
 export function probeProtocolMessage(message: string | undefined): string {

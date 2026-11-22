@@ -898,7 +898,7 @@ export function AddProfileForm({
           <>
             <Field label="Default model" requirement="required" requirementLabel={requiredFieldLabel}>
               <ModelSelector
-                placeholder={modelPlaceholder || "Select default model"}
+                placeholder="Select default model"
                 providers={providers}
                 value={draft.model}
                 virtualModelProfiles={virtualModelProfiles}
@@ -966,7 +966,7 @@ export function AddProfileForm({
         ) : draft.agent === "kimi" ? (
           <Field className="sm:col-span-2" label="Kimi model" requirement="required" requirementLabel={requiredFieldLabel}>
             <ModelSelector
-              placeholder={modelPlaceholder}
+              placeholder="Select default model"
               providers={providers}
               value={draft.model}
               virtualModelProfiles={virtualModelProfiles}

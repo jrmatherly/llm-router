@@ -39,6 +39,7 @@ import {
   providerGlobalBaseUrlForProbe,
   providerManualFieldsForSave,
   providerPresetIconUrls,
+  providerProtocolLabel,
   providerProtocolOptions,
   providerProbeCandidates,
   providerProbeModelsForProtocol,
@@ -1808,4 +1809,10 @@ test("a saved provider whose preset was dropped opens as custom with no preset i
   assert.equal(draft.apiKey, "sk-test");
   assert.equal(draft.modelsText, "gpt-5.5");
   assert.equal(providerDisplayIcon(provider), "");
+});
+
+test("media protocols show a name instead of their raw id", () => {
+  assert.equal(providerProtocolLabel("openai_image_generations"), "OpenAI Images");
+  assert.equal(providerProtocolLabel("openai_video_generations"), "OpenAI Video");
+  assert.equal(providerProtocolLabel("xai_video_generations"), "xAI Video");
 });

@@ -78,6 +78,9 @@ test("loads the Electron preload bridge and IPC contract", async () => {
   expect(appInfo?.configDir).toContain(current.testHome);
   expect(appInfo?.configDbFile).toContain("config.sqlite");
 
+  const publishedZoom = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--llmr-zoom").trim());
+  expect(publishedZoom).toBe("1");
+
   const config = await page.evaluate(async () => window.llmr?.getConfig());
   expect(config?.gateway.enabled).toBe(false);
   expect(config?.gateway.port).toBe(current.gatewayPort);

@@ -139,16 +139,17 @@ export function MainLayout({
   visibleNavigation: MainNavigationItem[];
 }) {
   const showUpdateButton = updateStatus.supported;
-  const windowControlSafeAreaWidth = showUpdateButton
-    ? (isMac ? 188 : 124)
-    : (isMac ? 152 : 88);
+  // The native macOS window buttons do not scale with the page zoom, so the inset that clears them is divided by it.
+  const windowControlSafeAreaWidth = isMac
+    ? `calc(84px / var(--llmr-zoom, 1) + ${showUpdateButton ? 104 : 68}px)`
+    : (showUpdateButton ? 124 : 88);
   const navigationGroups = groupSidebarNavigation(visibleNavigation);
 
   return (
     <>
       <div className={cn(
         "app-no-drag app-window-controls pointer-events-auto absolute top-2 z-[90] flex items-center",
-        isMac ? "left-[84px] gap-0.5" : "left-3 gap-1"
+        isMac ? "left-[calc(84px/var(--llmr-zoom,1))] gap-0.5" : "left-3 gap-1"
       )}>
         <Button
           aria-controls="primary-sidebar"
@@ -260,7 +261,7 @@ export function MainLayout({
         <div
           className={cn(
             "app-drag relative flex h-12 shrink-0 items-center bg-background/95 px-5 max-[720px]:h-auto max-[720px]:px-3 max-[720px]:py-2",
-            needsTrafficLightSafeArea && "pl-[116px] max-[720px]:pl-[116px]"
+            needsTrafficLightSafeArea && "pl-[calc(84px/var(--llmr-zoom,1)+32px)] max-[720px]:pl-[calc(84px/var(--llmr-zoom,1)+32px)]"
           )}
         >
           {needsTrafficLightSafeArea || !sidebarOpen ? (

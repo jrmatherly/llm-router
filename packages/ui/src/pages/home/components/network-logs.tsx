@@ -961,7 +961,7 @@ export function LogExpandedDetails({
           {entry.method} {entry.path}
         </span>
       </div>
-      <div className={cn("network-body-meta grid grid-cols-2 gap-y-2 border-b px-3 py-2 text-[12px] sm:grid-cols-4", hasCredentialInfo ? "lg:grid-cols-12" : "lg:grid-cols-9")}>
+      <div className={cn("network-body-meta grid grid-cols-2 gap-x-4 gap-y-2 border-b px-3 py-2 text-[12px] sm:grid-cols-4", hasCredentialInfo ? "lg:grid-cols-12" : "lg:grid-cols-9")}>
         <LogMetric label="Duration" value={formatDuration(entry.durationMs)} />
         <LogMetric label="Stream" value={entry.isStream ? "Streaming" : "Non-streaming"} />
         {entry.outputTokensPerSecond !== undefined ? <LogMetric label="Output speed" value={formatTokenRate(entry.outputTokensPerSecond)} /> : null}
@@ -1374,7 +1374,7 @@ function LogMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <div className="network-muted truncate text-[11px]">{label}</div>
-      <div className="truncate font-mono text-[12px] font-semibold">{value}</div>
+      <div className="truncate font-mono text-[12px] font-semibold" title={value}>{value}</div>
     </div>
   );
 }

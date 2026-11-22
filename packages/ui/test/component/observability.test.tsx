@@ -3,7 +3,7 @@ import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AgentAnalysisSessionRow, AgentAnalysisTraceRun, RequestLogEntry, RequestLogPage } from "@llmr/core/contracts/app.ts";
 import { AgentAnalysisView } from "@llmr/ui/pages/home/components/dashboard.tsx";
-import { LogsView } from "@llmr/ui/pages/home/components/network-logs.tsx";
+import { LogExpandedDetails, LogsView } from "@llmr/ui/pages/home/components/network-logs.tsx";
 import { createEmptyAgentAnalysis } from "@llmr/ui/pages/home/shared/usage.ts";
 
 const emptyLogPage: RequestLogPage = {
@@ -388,4 +388,10 @@ test("#1801 LogsView shows missing HTTP status as neutral", () => {
   );
   assert.match(html, /network-dot-unknown/);
   assert.doesNotMatch(html, /network-dot-error|network-state-pill-error/);
+});
+
+test("LogExpandedDetails keeps a gap between summary columns and titles each value", () => {
+  const html = renderToStaticMarkup(<LogExpandedDetails entry={sampleRequestLogEntry} />);
+  assert.match(html, /network-body-meta[^"]*gap-x-4/);
+  assert.match(html, /title="req-token-copy"[^>]*>req-token-copy</);
 });

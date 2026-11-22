@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webUtils } from "electron";
+import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 import { formatErrorMessage } from "@llmr/core/contracts/error-message";
 import { IPC_CHANNELS } from "@llmr/core/contracts/ipc-channels";
 import type {
@@ -109,6 +109,14 @@ function cleanIpcError(error: unknown): Error {
   }
   return cleaned;
 }
+
+function publishZoomFactor(): void {
+  document.documentElement?.style.setProperty("--llmr-zoom", String(webFrame.getZoomFactor()));
+}
+
+// A zoom change resizes the CSS viewport, so "resize" also reports it.
+window.addEventListener("DOMContentLoaded", publishZoomFactor);
+window.addEventListener("resize", publishZoomFactor);
 
 contextBridge.exposeInMainWorld("llmr", {
   applyClaudeAppGateway: (config?: AppConfig) => invoke(IPC_CHANNELS.appApplyClaudeAppGateway, config) as Promise<ClaudeAppGatewayApplyResult>,
