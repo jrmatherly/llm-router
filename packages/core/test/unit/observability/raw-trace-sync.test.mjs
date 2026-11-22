@@ -299,6 +299,33 @@ test("a trace with an upstream URL keeps the upstream path, body and headers", a
   }
 });
 
+test("a trace with an upstream body but no upstream URL keeps the upstream body and headers", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-upstream-no-url-test-"));
+  try {
+    const { manifest, spoolDirectory } = writeRefusedRawTrace(dir, { model: "known-model" });
+    const bundleDirectory = path.join(spoolDirectory, "refused-bundle");
+    const upstreamBody = JSON.stringify({ model: "upstream-model" });
+    writeFileSync(path.join(bundleDirectory, "upstream_request_metadata.json"), JSON.stringify({
+      headers: { "x-provider": "kept" },
+      truncated: true
+    }));
+    writeFileSync(path.join(bundleDirectory, "upstream_request.json"), upstreamBody);
+    manifest.parts.push({
+      contentType: "application/json",
+      filePath: path.join(bundleDirectory, "upstream_request.json"),
+      originalBytes: upstreamBody.length,
+      partType: "upstream_request"
+    });
+    const bundle = await readRawTraceRequestLogBundle(manifest, spoolDirectory);
+
+    assert.ok(bundle);
+    assert.deepEqual(bundle.update.requestHeaders, { "x-provider": "kept" });
+    assert.equal(readFileSync(bundle.files.requestBody.filePath, "utf8"), upstreamBody);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 function writeRefusedRawTrace(dir, { clientUrl = "/v1/chat/completions", model }) {
   const spoolDirectory = path.join(dir, "spool");
   const bundleDirectory = path.join(spoolDirectory, "refused-bundle");

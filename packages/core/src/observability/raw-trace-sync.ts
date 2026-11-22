@@ -1682,8 +1682,9 @@ export async function readRawTraceRequestLogBundle(
   ]);
   const upstreamResponseBody = upstreamResponseStream ?? fallbackResponseBody;
   const target = isRecord(manifest.target) ? manifest.target : {};
-  // A request the gateway refused before any upstream call has no upstream URL.
-  const refusedBeforeUpstream = !stringValue(upstreamRequestMetadata?.url);
+  // A request the gateway refused before any upstream call has no upstream URL and no upstream body part.
+  const refusedBeforeUpstream = !stringValue(upstreamRequestMetadata?.url) &&
+    !parts.some((part) => stringValue(part.partType) === "upstream_request");
   const requestMetadata = refusedBeforeUpstream ? clientRequestMetadata : upstreamRequestMetadata;
   const requestBody = refusedBeforeUpstream ? clientRequestBody : upstreamRequestBody;
   const model = stringValue(target.model);
@@ -1759,7 +1760,8 @@ async function readRawTraceJsonPart(
     const text = await readFile(part.filePath, "utf8");
     const parsed = JSON.parse(text) as unknown;
     return isRecord(parsed) ? parsed : undefined;
-  } catch {
+  } catch (error) {
+    console.warn(`[gateway] Failed to parse raw trace part ${partType}: ${formatError(error)}`);
     return undefined;
   }
 }

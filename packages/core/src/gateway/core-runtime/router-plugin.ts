@@ -378,8 +378,8 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
             publicAuthKeys,
             rejectMissing: false
           });
-          // The fork's static key check runs next with required: true, so a request with no key ends in 401.
-          if (!authorization.ok || !hasAuthToken(requestInput.request?.headers)) {
+          // A request with no key passes this hook and the fork's static key check refuses it with 401, so it is counted here.
+          if (!authorization.ok || !readAuthToken(requestInput.request?.headers)) {
             sharedRefusedKeyRequestPublisher.record({
               headers: requestInput.request?.headers ?? {},
               reason: authorization.ok ? "API key is missing." : authorization.error,
@@ -639,6 +639,10 @@ class RefusedKeyRequestPublisher {
 
   private publishNow(): void {
     this.lastPublishedAt = Date.now();
+    // A send on a closed channel emits an unhandled "error" on process, which would end the child.
+    if (!process.connected) {
+      return;
+    }
     const message: LlmrRefusedKeyRequestsMessage = {
       ...this.log.snapshot(),
       protocolVersion: 1,
@@ -647,7 +651,7 @@ class RefusedKeyRequestPublisher {
     try {
       process.send?.(message);
     } catch {
-      // A parent that has gone away cannot take the count.
+      // A count that cannot be serialized or sent is dropped; the request is still refused.
     }
   }
 }
@@ -1423,19 +1427,10 @@ function readAuthToken(headers: Record<string, HeaderValue> | undefined): string
   for (const headerName of sdkCompatibleTokenHeaderNames) {
     const raw = readHeader(headers, headerName);
     if (raw) {
-      return authTokenFromHeader(raw);
+      return raw.toLowerCase().startsWith("bearer ") ? raw.slice(7).trim() : raw.trim();
     }
   }
   return undefined;
-}
-
-// The fork skips a key header with no value and reads the next one, so "no key" means no header holds one.
-function hasAuthToken(headers: Record<string, HeaderValue> | undefined): boolean {
-  return sdkCompatibleTokenHeaderNames.some((headerName) => Boolean(authTokenFromHeader(readHeader(headers, headerName) ?? "")));
-}
-
-function authTokenFromHeader(raw: string): string {
-  return raw.toLowerCase().startsWith("bearer ") ? raw.slice(7).trim() : raw.trim();
 }
 
 function readRemoteControlQueryAuthToken(url: string | undefined): string | undefined {

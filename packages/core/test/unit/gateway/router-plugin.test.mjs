@@ -769,12 +769,35 @@ test("a request with the core token or a good key sends no refused-key count", a
   assert.deepEqual(messages, []);
 });
 
-test("an empty bearer header beside a good x-api-key is not counted as missing", async (t) => {
+test("a bare Bearer header is refused by the hook and counted once", async (t) => {
   const { messages, plugin } = await refusedKeyHarness(t);
-  const result = await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: "Bearer ", "x-api-key": "client-key" }));
+  const result = await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: "Bearer" }));
 
-  assert.equal(result, undefined);
-  assert.deepEqual(messages, []);
+  assert.equal(result?.ok, false);
+  assert.equal(result.status, 401);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].count, 1);
+  assert.equal(messages[0].recent[0].reason, result.error);
+});
+
+test("a refused-key count that cannot be sent still refuses the request", async (t) => {
+  const { plugin } = await refusedKeyHarness(t);
+  process.send = () => { throw new Error("channel closed"); };
+  const result = await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: "Bearer wrong" }));
+
+  assert.equal(result?.ok, false);
+  assert.equal(result.status, 401);
+});
+
+test("no refused-key count is sent once the parent channel is closed", async (t) => {
+  const { plugin } = await refusedKeyHarness(t);
+  let sends = 0;
+  process.send = () => { sends += 1; return true; };
+  Object.defineProperty(process, "connected", { configurable: true, value: false, writable: true });
+  const result = await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: "Bearer wrong" }));
+
+  assert.equal(result?.ok, false);
+  assert.equal(sends, 0);
 });
 
 test("a refused request on a catch-all route is counted with its path and no query string", async (t) => {
@@ -802,12 +825,27 @@ test("refused-key counts inside one second arrive in one trailing message", asyn
   assert.equal(messages[1].recent.length, 3);
 });
 
+test("refused-key counts keep arriving after a trailing message", async (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: 1_000_000 });
+  const { messages, plugin } = await refusedKeyHarness(t);
+  for (let index = 0; index < 3; index += 1) {
+    await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: `Bearer wrong-${index}` }));
+  }
+  t.mock.timers.tick(1_000);
+  t.mock.timers.tick(1_000);
+  await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: "Bearer wrong-3" }));
+
+  assert.equal(messages.at(-1).count, 4);
+});
+
 async function refusedKeyHarness(t) {
   resetRefusedKeyRequestPublisherForTest();
   const config = createDefaultAppConfig();
   config.APIKEY = "client-key";
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "client", key: "client-key" }];
   const originalSend = process.send;
+  const originalConnected = Object.getOwnPropertyDescriptor(process, "connected");
+  Object.defineProperty(process, "connected", { configurable: true, value: true, writable: true });
   const messages = [];
   process.send = (message) => {
     if (message?.type === llmrRefusedKeyRequestsMessageType) messages.push(message);
@@ -817,6 +855,8 @@ async function refusedKeyHarness(t) {
     resetRefusedKeyRequestPublisherForTest();
     if (originalSend) process.send = originalSend;
     else delete process.send;
+    if (originalConnected) Object.defineProperty(process, "connected", originalConnected);
+    else delete process.connected;
   });
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config, coreAuthToken: "core-token", publicGatewayMode: true } } });
   return { messages, plugin };

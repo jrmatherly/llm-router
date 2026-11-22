@@ -47,6 +47,7 @@ import { setExternalLiveTokenRateSnapshot } from "@llmr/core/observability/strea
 installSocketTypeOfServiceCompat();
 
 const coreGatewayLiveTokenRateSourceId = "core-gateway";
+let warnedMalformedRefusedKeyMessage = false;
 
 type RouteScriptTestHeaders = Record<string, string | string[] | undefined>;
 type SingleGatewayRuntimeBlockerOptions = {
@@ -171,7 +172,7 @@ class GatewayService {
         lastError: coreHostError,
         state: "error"
       };
-      return this.status;
+      return this.getStatus();
     }
     await this.stopGateway({ nextConfig: config });
     if (recoveryGeneration !== undefined && recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
@@ -217,7 +218,7 @@ class GatewayService {
           lastError: NO_AVAILABLE_GATEWAY_MODELS_MESSAGE,
           state: "stopped"
         };
-        return this.status;
+        return this.getStatus();
       }
       if (!shouldRunServer && !shouldRunGateway) {
         await mediaService.stop();
@@ -228,7 +229,7 @@ class GatewayService {
           ...this.status,
           state: "stopped"
         };
-        return this.status;
+        return this.getStatus();
       }
 
       await this.rawTraceSynchronizer.start();
@@ -306,7 +307,7 @@ class GatewayService {
         state: "running"
       };
       this.runtimeConfigReloadError = undefined;
-      return this.status;
+      return this.getStatus();
     } catch (error) {
       if (recoveryGeneration !== undefined && recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
       await this.stopGateway();
@@ -315,7 +316,7 @@ class GatewayService {
         lastError: formatError(error),
         state: "error"
       };
-      return this.status;
+      return this.getStatus();
     }
   }
 
@@ -650,6 +651,13 @@ class GatewayService {
     }
     if (isRefusedKeyRequestsMessage(message)) {
       mergeChildRefusedKeyRequests(message);
+      return;
+    }
+    if ((message as { type?: unknown } | null)?.type === llmrRefusedKeyRequestsMessageType) {
+      if (!warnedMalformedRefusedKeyMessage) {
+        warnedMalformedRefusedKeyMessage = true;
+        console.warn("[gateway] Ignored a malformed refused-key requests message from the core gateway.");
+      }
       return;
     }
     if (isRuntimeConfigReloadMessage(message)) {
