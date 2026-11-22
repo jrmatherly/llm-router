@@ -120,6 +120,8 @@ Proposed fix, in two PRs:
 
 Left for later tasks, each its own decision: long-prompt, batch and service-tier prices; a cost the provider reports; showing an unpriced request as unknown and not $0; re-pricing rows already stored.
 
+Fixed in PR 144 (merged 2026-11-22), as one PR with a last step the owner added, the median reseller offer for a model with no other price. Task 8 of the fix plan records what was built and what review changed.
+
 ### F-10: values collide in the expanded log row
 
 In the expanded row's summary grid, Request ID runs into Client (`a6807dd9-9af9…curl`) and Model runs into Input (`claude-haiku-…143`). Seen with the window about 1660 px wide and the page zoomed out one step.
