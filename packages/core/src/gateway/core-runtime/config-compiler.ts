@@ -14,7 +14,7 @@ import { mediaToolsMcpServer } from "@llmr/core/mcp/grok-media-config";
 import { resolveGatewayPublicModelId } from "@llmr/core/gateway/features/model-discovery";
 import { activeProviderCredentials, inferProtocol, normalizedProviderCapabilities, normalizeProviderProtocol, providerCapabilityForClientProtocol, providerCapabilityInternalName, providerCapabilityNameMatches, providerCredentialInternalName, providerProtocolForClientProtocol, sortProviderCredentialsForConfig, toCoreGatewayProviders } from "@llmr/core/providers/runtime-topology";
 import { buildRawTraceConfig } from "@llmr/core/observability/raw-trace-sync";
-import { endpoint, gatewayRuntimeSupportsRouterPlugin, resolveLocalAgentAuthProviderHookEntry, resolveRouterPluginEntry, resolveUndiciProxyAgentModule, resolveUpstreamHeaderSanitizerEntry, writeGatewayProxyPreloadFile } from "@llmr/core/gateway/core-runtime/supervisor";
+import { endpoint, gatewayRuntimeSupportsRouterPlugin, publicGatewayAuthTokens, resolveLocalAgentAuthProviderHookEntry, resolveRouterPluginEntry, resolveUndiciProxyAgentModule, resolveUpstreamHeaderSanitizerEntry, writeGatewayProxyPreloadFile } from "@llmr/core/gateway/core-runtime/supervisor";
 import { billingUsageSyncHeader, billingUsageSyncPath, claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta, coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayUpstreamProxyUrlEnv } from "@llmr/core/gateway/internal/shared";
 import type { BrowserWebSearchMcpIntegration, CoreGatewayProvider } from "@llmr/core/gateway/internal/shared";
 import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
@@ -219,12 +219,7 @@ function coreGatewayStaticAuthKeys(
   if (!options.publicGatewayMode) {
     return [coreAuthToken];
   }
-  return uniqueStrings([
-    coreAuthToken,
-    ...(options.publicAuthKeys ?? []),
-    ...(config.APIKEYS ?? []).map((apiKey) => apiKey.key),
-    config.APIKEY
-  ].map((key) => key?.trim()).filter((key): key is string => Boolean(key)));
+  return uniqueStrings([...publicGatewayAuthTokens(config, coreAuthToken), ...(options.publicAuthKeys ?? [])]);
 }
 
 function localAgentAuthProviderHookPluginConfig(providerPlugins: unknown[]): Record<string, unknown> | undefined {
@@ -886,5 +881,5 @@ function withoutCoreGatewayAuthTokenEnv<T>(server: T): T {
   if (!isRecord(server) || typeof server.command !== "string") {
     return server;
   }
-  return { ...server, env: { [coreGatewayAuthTokenEnv]: "", ...(isRecord(server.env) ? server.env : {}) } };
+  return { ...server, env: { [coreGatewayAuthTokenEnv]: "", MANAGER_API_KEY: "", ...(isRecord(server.env) ? server.env : {}) } };
 }

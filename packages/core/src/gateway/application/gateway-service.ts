@@ -13,7 +13,7 @@ import { pluginService } from "@llmr/core/plugins/service";
 import { proxyService } from "@llmr/core/proxy/service";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler";
-import { isAddressInUseMessage, probeExistingLlmrGateway, reloadExistingLlmrGatewayConfig } from "@llmr/core/gateway/existing-gateway-probe";
+import { existingGatewayPredatesManagerKey, isAddressInUseMessage, probeExistingLlmrGateway, reloadExistingLlmrGatewayConfig } from "@llmr/core/gateway/existing-gateway-probe";
 import { closeServer, formatError, sendGatewayError } from "@llmr/core/gateway/http/io";
 import { RawTraceSynchronizer } from "@llmr/core/observability/raw-trace-sync";
 import { GatewayBillingSynchronizer } from "@llmr/core/usage/billing-sync";
@@ -319,13 +319,7 @@ class GatewayService {
       if (currentStatus.gatewayManagedExternally) {
         const existingGateway = await probeExistingLlmrGateway(config);
         if (existingGateway.state === "usable") {
-          this.markExternalGatewayRunning(config, existingGateway.endpoint, existingGateway.apiKey);
-          try {
-            await this.reloadExternalGatewayConfig(config, false);
-          } catch {
-            return this.getStatus();
-          }
-          return this.getStatus();
+          return this.adoptExternalGateway(config, existingGateway.endpoint, existingGateway.apiKey);
         }
       }
       if (!currentStatus.gatewayManagedExternally) {
@@ -351,11 +345,25 @@ class GatewayService {
       }
     }
 
-    this.markExternalGatewayRunning(config, existingGateway.endpoint, existingGateway.apiKey);
+    return this.adoptExternalGateway(config, existingGateway.endpoint, existingGateway.apiKey);
+  }
+
+  private async adoptExternalGateway(config: AppConfig, externalEndpoint: string, apiKey?: string): Promise<GatewayStatus> {
+    if (await existingGatewayPredatesManagerKey(externalEndpoint, apiKey ?? "")) {
+      this.externalGatewayApiKey = undefined;
+      this.status = {
+        ...this.status,
+        gatewayManagedExternally: undefined,
+        lastError: `A running LLM Router gateway from an older version holds ${externalEndpoint}. Quit it, then start LLM Router again.`,
+        state: "error"
+      };
+      return this.getStatus();
+    }
+    this.markExternalGatewayRunning(config, externalEndpoint, apiKey);
     try {
       await this.reloadExternalGatewayConfig(config, false);
     } catch {
-      return this.getStatus();
+      // reloadExternalGatewayConfig records its own failure in the status.
     }
     return this.getStatus();
   }

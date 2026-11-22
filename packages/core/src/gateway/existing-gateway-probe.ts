@@ -69,6 +69,13 @@ export async function probeExistingLlmrGateway(
   return { endpoint, status: models.status ?? 0, state: "unusable" };
 }
 
+export async function existingGatewayPredatesManagerKey(endpoint: string, apiKey: string): Promise<boolean> {
+  const probe = await fetchExistingGateway(endpoint, "/manager/config", {
+    headers: { authorization: `Bearer ${apiKey}` }
+  });
+  return probe.status === 200;
+}
+
 export const nonLocalGatewayMessage = "The configured gateway host is not an address of this machine.";
 
 export function isLocalGatewayEndpoint(endpoint: string): boolean {

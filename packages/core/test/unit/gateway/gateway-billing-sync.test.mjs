@@ -66,6 +66,28 @@ test("core gateway public mode listens on the public gateway endpoint and accept
   assert.equal(compiled.rawTrace.mode, "body_redacted");
 });
 
+test("an expired API key is not handed to the gateway child, the primary key included", async () => {
+  const config = createDefaultAppConfig();
+  const old = { createdAt: new Date(0).toISOString(), expiresAt: "2020-01-02T00:00:00.000Z", id: "old", key: "old-key" };
+  const good = { createdAt: new Date(0).toISOString(), id: "good", key: "good-key" };
+  const compiledKeys = async () => (await compileCoreGatewayConfig(
+    config,
+    "raw-trace-token",
+    "billing-usage-token",
+    "core-auth-token",
+    undefined,
+    undefined,
+    { publicGatewayMode: true }
+  )).auth.staticApiKeys.keys;
+  config.APIKEYS = [old, good];
+  config.APIKEY = "old-key";
+  assert.deepEqual(publicGatewayAuthTokens(config, "core-auth-token"), ["core-auth-token", "good-key"]);
+  assert.deepEqual(await compiledKeys(), ["core-auth-token", "good-key"]);
+  config.APIKEYS = [old];
+  assert.deepEqual(publicGatewayAuthTokens(config, "core-auth-token"), ["core-auth-token"]);
+  assert.deepEqual(await compiledKeys(), ["core-auth-token"]);
+});
+
 test("Codex OAuth providers remove unsupported Responses request fields", async () => {
   const config = createDefaultAppConfig();
   config.providerPlugins = [{

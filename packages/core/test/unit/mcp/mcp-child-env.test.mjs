@@ -9,22 +9,9 @@ import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env.ts";
 import { listMcpServerTools } from "@llmr/core/mcp/tool-discovery.ts";
+import { withEnv } from "../../support/with-env.mjs";
 
 const secretNames = ["LLMR_WEB_AUTH_TOKEN", "LLMR_CORE_GATEWAY_AUTH_TOKEN", "LLMR_REMOTE_SYNC_API_KEY"];
-
-function withEnv(t, values) {
-  const previous = Object.fromEntries(Object.keys(values).map((name) => [name, process.env[name]]));
-  Object.assign(process.env, values);
-  t.after(() => {
-    for (const [name, value] of Object.entries(previous)) {
-      if (value === undefined) {
-        delete process.env[name];
-      } else {
-        process.env[name] = value;
-      }
-    }
-  });
-}
 
 // A stdio MCP server that reports which of the watched variables it can see as tool names.
 const envProbeServer = `
@@ -84,7 +71,7 @@ test("compiled stdio MCP servers hide the core runtime's client API keys", async
   const compiled = await compileCoreGatewayConfig(config, "raw-trace-token", "billing-token", "core-token");
   const servers = Object.fromEntries(compiled.agent.mcpServers.map((server) => [server.name, server]));
 
-  assert.deepEqual(servers.user.env, { LLMR_CORE_GATEWAY_AUTH_TOKEN: "", TAVILY_API_KEY: "user-key" });
+  assert.deepEqual(servers.user.env, { LLMR_CORE_GATEWAY_AUTH_TOKEN: "", MANAGER_API_KEY: "", TAVILY_API_KEY: "user-key" });
   assert.equal(servers.remote.env, undefined);
   assert.equal(servers.user.stdioMessageMode, "newline-json");
   assert.equal(servers.framed.stdioMessageMode, "newline-json");

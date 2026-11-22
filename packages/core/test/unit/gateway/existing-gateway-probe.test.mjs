@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
-import { probeExistingLlmrGateway } from "@llmr/core/gateway/existing-gateway-probe.ts";
+import { existingGatewayPredatesManagerKey, probeExistingLlmrGateway } from "@llmr/core/gateway/existing-gateway-probe.ts";
 
 function probeConfig(host) {
   const config = createDefaultAppConfig();
@@ -75,6 +75,25 @@ test("existing gateway probe skips an expired first key", async (t) => {
   assert.equal(result.state, "usable");
   assert.equal(result.apiKey, "second-key");
   assert.deepEqual(requests.filter((request) => request.authorization).map((request) => request.authorization), ["Bearer second-key"]);
+});
+
+test("a running gateway from an older version is told apart by its manager route", async (t) => {
+  let status = 200;
+  const requests = withFetch(t, () => Response.json({}, { status }));
+
+  assert.equal(await existingGatewayPredatesManagerKey("http://127.0.0.1:3466", "first-key"), true);
+  assert.deepEqual(requests, [{ authorization: "Bearer first-key", host: "127.0.0.1", path: "/manager/config" }]);
+  for (status of [401, 403, 404]) {
+    assert.equal(await existingGatewayPredatesManagerKey("http://127.0.0.1:3466", "first-key"), false, String(status));
+  }
+});
+
+test("a gateway that cannot be reached is not taken for an older version", async (t) => {
+  withFetch(t, () => {
+    throw new Error("connect ECONNREFUSED");
+  });
+
+  assert.equal(await existingGatewayPredatesManagerKey("http://127.0.0.1:3466", "first-key"), false);
 });
 
 test("existing gateway probe sends no key to a health response without the LLMR shape", async (t) => {
