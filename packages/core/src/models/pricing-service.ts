@@ -20,8 +20,8 @@ export type ResolvedModelPrice = {
 
 // "unpriced": every catalog source loaded and none holds a price, so no writer
 // estimates and both back-fills skip the row. "no-catalog": nothing was
-// searched, or a source is failing, so each writer's fallback estimate and
-// back-fill still run.
+// searched, or nothing was found while a source is failing, so each writer's
+// fallback estimate and back-fill still run.
 export type RequestPriceOutcome =
   | { price: ResolvedModelPrice; state: "priced" }
   | { state: "unpriced" }
@@ -166,7 +166,7 @@ export function resolveRequestPrice(
   if (hasCompleteProviderModelPricing(userPricing)) {
     return { price: { pricing: userPricing, source: "custom" }, state: "priced" };
   }
-  if (!catalog || Array.from(catalog.values()).some((source) => source.failed)) {
+  if (!catalog) {
     return { state: "no-catalog" };
   }
   const provider = config && providerName
@@ -178,9 +178,11 @@ export function resolveRequestPrice(
     provider?.name ?? providerName,
     catalogProviderIdsForBaseUrl(provider?.baseurl || provider?.baseUrl || provider?.api_base_url)
   );
-  return entry
-    ? { price: { pricing: entry.pricing, source: entry.source }, state: "priced" }
-    : { state: "unpriced" };
+  if (entry) {
+    return { price: { pricing: entry.pricing, source: entry.source }, state: "priced" };
+  }
+  // "unpriced" is stored and never back-filled, so it needs every source: a source that failed may hold the price.
+  return Array.from(catalog.values()).some((source) => source.failed) ? { state: "no-catalog" } : { state: "unpriced" };
 }
 
 /** A resolved price wins over the legacy pricing fields; "unpriced" forbids a writer's own estimate. */

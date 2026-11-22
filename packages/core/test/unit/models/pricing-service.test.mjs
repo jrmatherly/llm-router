@@ -516,12 +516,13 @@ async function withFlakyModelsDev(run) {
   }
 }
 
-test("while one price source is failing, a request resolves as no catalog rather than unpriced", async () => {
+test("while one price source is failing, a model the others cannot price resolves as no catalog rather than unpriced, and one they can is priced", async () => {
   const warn = mock.method(console, "warn", () => undefined);
   try {
     await withFlakyModelsDev(async (state) => {
       await preloadUsagePriceCatalog({ forceRefresh: true });
       assert.deepEqual(resolveRequestPrice(customConfig, "VM Custom", "claude-haiku-5-5"), { state: "no-catalog" });
+      assert.equal(resolveRequestPrice(customConfig, "VM Custom", "unrelated-model").price?.source, "litellm");
 
       state.modelsDev = haikuModelsDev;
       mock.timers.tick(5 * 60 * 1000);
