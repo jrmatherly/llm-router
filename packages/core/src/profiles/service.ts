@@ -2742,7 +2742,8 @@ function legacyCodexProfileTableBody(source: string, providerId: string): string
 
 function removeManagedMarkerLines(source: string, markers: string[]): string {
   const markerPattern = markers.map(escapeRegExp).join("|");
-  const pattern = new RegExp(`^\\s*(?:${markerPattern})\\s*(?:\\n|$)`, "gm");
+  // In a CRLF file `^` also matches between the carriage return and the line feed. A match that began there took that line feed and glued the next table header onto the line above, where no later pass found it.
+  const pattern = new RegExp(`(?<!\\r)^\\s*(?:${markerPattern})\\s*(?:\\n|$)`, "gm");
   return source.replace(pattern, "");
 }
 
