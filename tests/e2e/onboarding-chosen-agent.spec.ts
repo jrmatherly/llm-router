@@ -92,6 +92,7 @@ test("onboarding lets the user skip the agent, then connects only the agent they
   await expect.poll(() => existsSync(claudeSettingsFile) ? readFileSync(claudeSettingsFile, "utf8") : "").toMatch(/apiKeyHelper/);
   const secondKey = execFileSync(helper, { encoding: "utf8" }).trim();
   expect(secondKey).toMatch(/^llmr-profile-/);
+  expect(secondKey).not.toBe(profileKey);
   await expect.poll(() => gatewayStatusFor(gateway.endpoint, secondKey).catch(() => 401)).not.toBe(401);
   await saveProfilesEnabled(page, () => false);
   await expect.poll(() => gatewayStatusFor(gateway.endpoint, secondKey).catch(() => 0)).toBe(401);

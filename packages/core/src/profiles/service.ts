@@ -227,8 +227,9 @@ export async function recoverGlobalAgentProfile(
     }
   });
   let result = status;
-  // After a failed restore the agent's file can still hold the key, and revoking it would leave the agent with a dead one.
-  if (status.ok || !token || !fileMayHold(profilePath(profile), token)) {
+  // After a failed restore the agent can still hold the key, and revoking it would leave the agent with a dead one.
+  // Only Codex keeps its key in the config file itself, so only there can a failure after that file was settled be told apart.
+  if (status.ok || (profile.agent === "codex" && Boolean(token) && !fileMayHold(profilePath(profile), token ?? ""))) {
     try {
       await reconcileProfileApiKeys(config);
     } catch (error) {
@@ -801,9 +802,11 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
       backupFile: writeResult.backupFile,
       client: profile.agent,
       enabled: true,
-      message: changed
+      message: `${changed
         ? `${clientName} config is managed by LLMR${extras.length ? ` (${extras.join(", ")})` : ""}.`
-        : `${clientName} config already matches LLMR.`,
+        : `${clientName} config already matches LLMR.`}${separateProfileResult?.copy
+        ? ` LLMR could not merge your [profiles.${providerId}] settings into ${separateProfileResult.file} and kept them at ${separateProfileResult.copy}.`
+        : ""}`,
       ok: true,
       path: configFile
     };
@@ -1510,7 +1513,7 @@ function maybeWriteSeparateCodexProfileFile(
     providerId: string;
     showAllSessions: boolean;
   }
-): { changed: boolean; file: string } | undefined {
+): { changed: boolean; copy?: string; file: string } | undefined {
   if (values.configFormat !== "separate_profile_files") {
     return undefined;
   }
@@ -1521,21 +1524,46 @@ function maybeWriteSeparateCodexProfileFile(
   const existingRoot = tableStart === -1 ? existing : existing.slice(0, tableStart);
   // The writer takes the user's `[profiles.<provider>]` table out of config.toml on every apply, so one written while this file exists has to land here too. Its keys win over the ones already here.
   let previous = existing || moved;
+  let copy: string | undefined;
   if (moved && existing) {
-    if (isPlainTomlAssignments(moved) && isPlainTomlAssignments(existingRoot)) {
-      const movedKeys = [...moved.matchAll(/^[ \t]*([A-Za-z0-9_-]+)\s*=/gm)].map((match) => match[1]);
-      previous = `${moved}\n${removeRootTomlKeys(existingRoot, movedKeys)}${existing.slice(existingRoot.length)}`;
+    const mergedRoot = mergeMovedCodexProfileKeys(moved, existingRoot);
+    if (mergedRoot === undefined) {
+      // The table is already out of config.toml, so it is kept as a copy and the caller says where.
+      copy = saveConfigSafetyCopy(file, moved);
     } else {
-      // The merge goes line by line and would break a value that spans lines or miss a quoted key, so the table is kept as a copy and this file is left as it is.
-      saveConfigSafetyCopy(file, moved);
+      previous = `${mergedRoot}${existing.slice(existingRoot.length)}`;
     }
   }
   const next = buildSeparateCodexProfileToml(previous, values);
   const writeResult = writeFileWithBackup(file, next, { mode: privateFileMode });
   return {
     changed: writeResult.changed,
+    copy,
     file
   };
+}
+
+// The merge goes line by line. It gives up, returning nothing, where that would break a value or miss a key: a moved table that is cut short or has a quoted key, or one of its keys held here by a quoted key or a value that spans lines.
+function mergeMovedCodexProfileKeys(moved: string, existingRoot: string): string | undefined {
+  const keyOf = (line: string) => /^\s*(["']?)([A-Za-z0-9_-]+)\1\s*=/.exec(line);
+  // `scanTomlLines` reports every line as outside a value when the text ends inside one, which a table cut short does.
+  const closed = (text: string) => ["\"".repeat(3), "'".repeat(3)].every((quotes) => text.split(quotes).length % 2 === 1);
+  const movedLines = scanTomlLines(moved);
+  if (!closed(moved) || !closed(existingRoot) || movedLines.some(({ inValue, line }) => !inValue && /^\s*["']/.test(line))) {
+    return undefined;
+  }
+  const movedKeys = new Set(movedLines.map(({ inValue, line }) => inValue ? undefined : keyOf(line)?.[2]));
+  const existingLines = scanTomlLines(existingRoot);
+  const kept: string[] = [];
+  for (const [index, { inValue, line }] of existingLines.entries()) {
+    const key = inValue ? null : keyOf(line);
+    if (!key || !movedKeys.has(key[2])) {
+      kept.push(line);
+    } else if (key[1] || existingLines[index + 1]?.inValue) {
+      return undefined;
+    }
+  }
+  return `${moved}\n${kept.join("")}`;
 }
 
 function buildSeparateCodexProfileToml(
@@ -3110,9 +3138,10 @@ function restoreDisabledCodexProfile(profile: ProfileConfig, configFile: string,
   const suffix = staysDisabled ? ` Profile is disabled. Switch it on to undo this. ${name} may ask you to log in.` : "";
   try {
     const { copy, returned } = restoreCodexSideFiles(profile, configFile, providerId);
+    const base = suffix && status.message.endsWith(suffix) ? status.message.slice(0, -suffix.length) : status.message;
     const message = returned
       ? hadConfig
-        ? restoredConfigMessage("codex", { stripped: true }, staysDisabled) ?? status.message
+        ? `${base} Your own profile settings, which LLMR had moved to ${providerId}.config.toml, are in it again.${base === status.message ? "" : suffix}`
         : `${name} config now holds only your own profile settings, which LLMR had moved to ${providerId}.config.toml.${suffix}`
       : status.message;
     return copy ? { ...status, message: `${message} LLMR kept a copy of what else you had in ${providerId}.config.toml at ${copy}.` } : { ...status, message };
@@ -3169,7 +3198,9 @@ function returnCodexProfileTable(configFile: string, profileFile: string, provid
   const config = existsSync(configFile) ? readFileSync(configFile, "utf8") : "";
   const headerInConfig = new RegExp(`^[ \\t]*\\[profiles\\.(?:${escapeRegExp(providerId)}|${escapeRegExp(tomlQuotedKey(providerId))})\\]`, "m").test(config);
   // A table cannot be folded into the profile table. Keys cannot be added to a table config.toml already has without guessing which of two values the user means, unless they are the ones it holds.
-  const left = tableStart !== -1 || (body !== "" && headerInConfig && body !== legacyCodexProfileTableBody(config, providerId).trim());
+  const assignments = (text: string) => text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
+  const inConfig = new Set(assignments(legacyCodexProfileTableBody(config, providerId)));
+  const left = tableStart !== -1 || (headerInConfig && assignments(body).some((line) => !inConfig.has(line)));
   const copy = left ? saveConfigSafetyCopy(profileFile, current) : undefined;
   if (!body || headerInConfig) {
     return { copy, returned: false };
@@ -3843,11 +3874,6 @@ function restoreGlobalConfigFileContent(
 
 function saveConfigSafetyCopy(file: string, content: string): string {
   return saveRemovedConfigCopy(path.dirname(codexWrittenRecordFile(file)), file, content);
-}
-
-// False for a value that spans lines and for a quoted key, which a line-by-line edit cannot handle.
-function isPlainTomlAssignments(content: string): boolean {
-  return scanTomlLines(content).every(({ inValue, line }) => !inValue && !/^\s*["']/.test(line));
 }
 
 // For a file that had no original. Only Codex has a record. A managed Claude Code file holds only LLMR's keys, and a Codex file without a record cannot show an edit, so neither gets a copy here.
