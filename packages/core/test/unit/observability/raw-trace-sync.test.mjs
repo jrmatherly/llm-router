@@ -5,6 +5,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { preloadUsagePriceCatalog } from "@llmr/core/models/pricing-service.ts";
 import { providerRuntimeId } from "@llmr/core/routing/model-registry.ts";
 import { rawTraceSyncHeader } from "@llmr/core/gateway/internal/shared.ts";
 import { rawTraceHardMaxBodyBytes, rawTraceMaxPartBytes } from "@llmr/core/observability/request-log-limits.ts";
@@ -27,6 +28,32 @@ test("#1809 raw trace resolves runtime provider aliases and custom pricing", () 
   });
   assert.equal(policy.update.provider, "Local Ollama");
   assert.deepEqual(policy.update.pricing, pricing);
+});
+
+test("raw trace carries an unpriced outcome for a model the loaded catalog cannot price", async () => {
+  const config = createConfig();
+  const provider = { name: "Local Ollama", type: "openai_chat_completions", baseUrl: "http://localhost:11434/v1", models: ["local-model"] };
+  config.Providers = [provider];
+  const previousFetch = globalThis.fetch;
+  const serveCatalogs = (loaded) => async (url) => {
+    const target = String(url);
+    if (!loaded) return Response.json({});
+    if (target.includes("litellm")) return Response.json({ "other-model": { input_cost_per_token: 0.000001, output_cost_per_token: 0.000001 } });
+    if (target.includes("models.dev")) return Response.json({ host: { models: { "other-model": { cost: { input: 1, output: 1 } } } } });
+    return Response.json({ data: [{ id: "lab/other-model", pricing: { completion: "0.000001", prompt: "0.000001" } }] });
+  };
+  try {
+    globalThis.fetch = serveCatalogs(true);
+    await preloadUsagePriceCatalog({ forceRefresh: true });
+    const policy = applyRawTraceRequestLogPolicy(config, {
+      model: "local-model", provider: "Local Ollama", requestId: "unpriced-trace", statusCode: 200
+    });
+    assert.deepEqual(policy.update.price, { state: "unpriced" });
+  } finally {
+    globalThis.fetch = serveCatalogs(false);
+    await preloadUsagePriceCatalog({ forceRefresh: true }).catch(() => undefined);
+    globalThis.fetch = previousFetch;
+  }
 });
 
 test("raw trace applies metadata-only body privacy while retaining original sizes", () => {

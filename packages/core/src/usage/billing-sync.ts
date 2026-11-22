@@ -4,6 +4,7 @@ import type { AppConfig } from "@llmr/core/contracts/app";
 import { readHeader, readRequestBody, sendJson } from "@llmr/core/gateway/http/io";
 import { billingUsageSyncHeader } from "@llmr/core/gateway/internal/shared";
 import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
+import { resolveRequestPrice } from "@llmr/core/models/pricing-service";
 import { findProviderByPublicOrInternalName, resolveResponseProviderProtocol } from "@llmr/core/providers/runtime-topology";
 import { normalizeUsageInputTokens } from "@llmr/core/usage/normalization";
 import { UsageStore, usageStore, type UsageEventInput } from "@llmr/core/usage/store";
@@ -192,6 +193,8 @@ export class GatewayBillingSynchronizer {
       model,
       modelIsRouteSelector: false,
       path,
+      // Used only when the gateway reports no cost.
+      price: resolveRequestPrice(this.getConfig(), provider, model),
       provider,
       requestId: eventId,
       statusCode,

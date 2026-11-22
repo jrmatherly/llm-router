@@ -26,6 +26,7 @@ import {
   llmrRuntimeConfigReloadMessageType
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline";
+import { preloadUsagePriceCatalog } from "@llmr/core/models/pricing-service";
 import { GatewayHttpRequestHandler } from "@llmr/core/gateway/http/request-handler";
 import { gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
 import { runtimeGatewayConfigSignature } from "@llmr/core/gateway/runtime-change";
@@ -105,7 +106,10 @@ class GatewayService {
     getConfig: () => this.config,
     getCoreAuthToken: () => this.coreAuthToken,
     getPlugin: () => this.plugin,
-    getStatus: () => ({ coreEndpoint: this.status.coreEndpoint, endpoint: this.status.endpoint })
+    getStatus: () => ({ coreEndpoint: this.status.coreEndpoint, endpoint: this.status.endpoint }),
+    refreshUsagePriceCatalog: () => {
+      void preloadUsagePriceCatalog();
+    }
   });
 
   private browserAutomationMcpIntegration?: BrowserAutomationMcpIntegration;

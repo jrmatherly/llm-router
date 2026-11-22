@@ -8,7 +8,7 @@ import {
   recordGatewayRequestLog
 } from "@llmr/core/observability/request-log-store";
 import { requestLogRequestedModel, requestLogResponseModel } from "@llmr/core/observability/request-log-model";
-import { recordGatewayUsageCapture, type UsageCaptureInput } from "@llmr/core/usage/store";
+import { recordGatewayUsageCapture, resolveUsagePricingTarget, type UsageCaptureInput } from "@llmr/core/usage/store";
 import { LLMRouterPlugin, type ClaudeCodeRouteDecision } from "@llmr/core/gateway/llm-router-plugin";
 import {
   codexCompactResponseStream,
@@ -41,7 +41,7 @@ import { providerProtocolForClientProtocol, resolveProviderLogName, resolveRespo
 import { createBodySampler, requestLogSampled, shouldRecordRequestLogs } from "@llmr/core/observability/raw-trace-sync";
 import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace";
 import { coreGatewayBodyLimitBytes, coreGatewayUsageAttributionConfig } from "@llmr/core/gateway/core-runtime/config-compiler";
-import { providerModelPricingForUsage } from "@llmr/core/models/pricing-service";
+import { resolveRequestPrice, usagePriceCatalogNeedsRefresh, type RequestPriceOutcome } from "@llmr/core/models/pricing-service";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import { clientClosedRequestStatusCode, clientDisconnectMessage, coreGatewayAuthHeader, resolveStreamRequestLogOutcome, UpstreamRequestError } from "@llmr/core/gateway/internal/shared";
 import type { BrowserWebSearchMcpIntegration, BrowserWebSearchProtocolRecord, UpstreamFetchResult } from "@llmr/core/gateway/internal/shared";
@@ -70,6 +70,7 @@ export type GatewayRequestPipelineDependencies = {
   getCoreAuthToken: () => string;
   getPlugin: () => LLMRouterPlugin | undefined;
   getStatus: () => { coreEndpoint: string; endpoint: string };
+  refreshUsagePriceCatalog?: () => void;
 };
 
 function reportedRouteChange(
@@ -265,8 +266,33 @@ export class GatewayRequestPipeline {
       }
       const modelBeforeRouting = requestLogRequestedModel(bodyToForward ?? requestBody, path);
       const usageAttributionConfig = coreGatewayUsageAttributionConfig(this.config);
-      const recordUsage = (input: Omit<UsageCaptureInput, "config">) => {
-        void recordGatewayUsageCapture({ ...input, config: usageAttributionConfig });
+      // Resolved once, by the first write that needs it, and handed to both
+      // writers so they price by the same lookup.
+      let requestPrice: RequestPriceOutcome | undefined;
+      const priceFor = (responseHeaders: Headers) => {
+        if (requestPrice) {
+          return requestPrice;
+        }
+        const target = resolveUsagePricingTarget(usageAttributionConfig, {
+          fallbackModel: routedModel,
+          providerName: resolveProviderLogName(responseHeaders, this.config, routedModel),
+          responseHeaders
+        });
+        requestPrice = resolveRequestPrice(usageAttributionConfig, target.provider, target.model);
+        // With a price resolved here the usage sweep no longer fires, and it was
+        // this process's only catalog reload. Not awaited; a user price needs no catalog.
+        const userPriced = requestPrice.state === "priced" && requestPrice.price.source === "custom";
+        if (!userPriced && usagePriceCatalogNeedsRefresh()) {
+          this.dependencies.refreshUsagePriceCatalog?.();
+        }
+        return requestPrice;
+      };
+      const recordUsage = (input: Omit<UsageCaptureInput, "config" | "price">) => {
+        void recordGatewayUsageCapture({
+          ...input,
+          config: usageAttributionConfig,
+          price: priceFor(input.responseHeaders)
+        });
       };
       const upstreamAbortController = new AbortController();
       let clientDisconnected = false;
@@ -330,12 +356,8 @@ export class GatewayRequestPipeline {
           method,
           model: routedModel,
           path,
+          price: priceFor(responseHeaders),
           providerName: resolveProviderLogName(responseHeaders, config, routedModel),
-          pricing: providerModelPricingForUsage(
-            config,
-            resolveProviderLogName(responseHeaders, config, routedModel),
-            routedModel
-          ),
           providerProtocol: resolveResponseProviderProtocol(responseHeaders, this.config),
           requestedModel,
           requestBody: shouldSendBody(method) ? bodyToForward ?? Buffer.alloc(0) : Buffer.alloc(0),

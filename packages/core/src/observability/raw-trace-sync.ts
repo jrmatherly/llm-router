@@ -25,9 +25,9 @@ import { endpoint } from "@llmr/core/gateway/core-runtime/supervisor";
 import { maxUsageCaptureBytes, rawTraceSyncHeader, rawTraceSyncPath } from "@llmr/core/gateway/internal/shared";
 import type { RawTracePartText } from "@llmr/core/gateway/internal/shared";
 import { resolveResponseProviderProtocol } from "@llmr/core/providers/runtime-topology";
-import { recordGatewayUsageCaptureIfMissing } from "@llmr/core/usage/store";
+import { recordGatewayUsageCaptureIfMissing, resolveUsagePricingTarget } from "@llmr/core/usage/store";
 import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
-import { providerModelPricingForUsage } from "@llmr/core/models/pricing-service";
+import { resolveRequestPrice, type RequestPriceOutcome } from "@llmr/core/models/pricing-service";
 
 type RawTraceSynchronizerDependencies = {
   enqueueUpdate?: (
@@ -408,17 +408,18 @@ export class RawTraceSynchronizer {
         this.retryStates.delete(stored.bundleId);
         return true;
       }
-      await recordUsageCaptureFromRawTrace(config, bundle.update, bundle.files);
-      if (!shouldRecordRequestLogs(config)) {
-        await this.cleanupStoredBundle(stored);
-        this.retryStates.delete(stored.bundleId);
-        return true;
-      }
       const standaloneRequestLog = this.dependencies.allowStandaloneRequestLogs?.() === true;
       const policy = applyRawTraceRequestLogPolicy(config, {
         ...bundle.update,
         ...(standaloneRequestLog ? { allowStandaloneRecord: true } : {})
       });
+      // The usage write reads bundle.update: the policy may have emptied the bodies.
+      await recordUsageCaptureFromRawTrace(config, bundle.update, bundle.files, policy.update.price);
+      if (!shouldRecordRequestLogs(config)) {
+        await this.cleanupStoredBundle(stored);
+        this.retryStates.delete(stored.bundleId);
+        return true;
+      }
       const maxBodyBytes = resolveRawTraceBodyLimit(config.observability.requestLogMaxBodyBytes);
       const files = policy.bodyDisposition === "suppress"
         ? { cleanupDirectory: bundle.files.cleanupDirectory, maxBodyBytes }
@@ -1520,10 +1521,17 @@ export function applyRawTraceRequestLogPolicy(
       : outcome === "failure"
         ? "capture"
         : "defer";
+  const target = resolveUsagePricingTarget(config, {
+    fallbackModel: input.model,
+    providerName: input.provider,
+    responseHeaders: headersFromRawTrace(input.responseHeaders)
+  });
+  const price = resolveRequestPrice(config, target.provider, target.model);
   const policyInput: RequestLogRawTraceUpdateInput = {
     ...input,
     provider: modelRegistryForConfig(config).findProvider(input.provider)?.name ?? input.provider,
-    pricing: providerModelPricingForUsage(config, input.provider, input.model),
+    price,
+    ...(price.state === "priced" ? { pricing: price.price.pricing, pricingSource: price.price.source } : {}),
     bodyCapturePolicy,
     // An upstream trace never owns the final request outcome. Even an HTTP 2xx
     // can be followed by a downstream disconnect or response write failure.
@@ -1550,7 +1558,8 @@ export function rawTraceRequestOutcome(
 async function recordUsageCaptureFromRawTrace(
   config: AppConfig,
   input: RequestLogRawTraceUpdateInput,
-  files: RequestLogRawTraceFiles
+  files: RequestLogRawTraceFiles,
+  price: RequestPriceOutcome | undefined
 ): Promise<void> {
   const method = input.method ?? "POST";
   const path = input.path ?? pathFromUrl(input.url) ?? "/";
@@ -1567,6 +1576,7 @@ async function recordUsageCaptureFromRawTrace(
     fallbackModel: input.model,
     method,
     path,
+    price,
     providerName: input.provider,
     providerProtocol: resolveResponseProviderProtocol(responseHeaders, config),
     requestId: input.requestId,

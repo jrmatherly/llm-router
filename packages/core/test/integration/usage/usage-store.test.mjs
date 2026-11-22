@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { preloadUsagePriceCatalog, resolveRequestPrice } from "@llmr/core/models/pricing-service.ts";
 import { RequestLogStore } from "@llmr/core/observability/request-log-store.ts";
 import { providerRuntimeId } from "@llmr/core/routing/model-registry.ts";
 import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
@@ -1039,4 +1040,214 @@ test("UsageStore backs off request-log backfill after it fails", async (t) => {
     t.mock.timers.tick(60_001);
     assert.equal((await usageStore.getStats("24h", { includeProxy: true })).totals.requestCount, 1, "retried after the backoff");
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("the usage sweep skips a row resolved as unpriced and still prices a row written before any catalog", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-unpriced-sweep-test-"));
+  try {
+    let loaded = false;
+    let sweepDone;
+    const swept = new Promise((resolve) => { sweepDone = resolve; });
+    const store = new UsageStore(path.join(dir, "usage.sqlite"), {
+      estimateCost: async () => loaded ? { amountUsd: 1, model: "any-model", source: "litellm" } : undefined,
+      loadPriceCatalog: async () => {
+        loaded = true;
+        setImmediate(sweepDone);
+      },
+      priceCatalogNeedsRefresh: () => !loaded
+    });
+    const event = { durationMs: 1, method: "POST", model: "any-model", path: "/v1/messages", provider: "alpha", statusCode: 200, usage: { inputTokens: 10, outputTokens: 1 } };
+    await store.record({ ...event, price: { state: "unpriced" }, requestId: "unpriced-request" });
+    await store.record({ ...event, price: { state: "no-catalog" }, requestId: "no-catalog-request" });
+    await swept;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const database = createBetterSqliteDatabase(path.join(dir, "usage.sqlite"));
+    try {
+      const row = (requestId) => ({ ...database.prepare("SELECT cost_source, cost_usd FROM usage_events WHERE request_id = ?").get(requestId) });
+      assert.deepEqual(row("unpriced-request"), { cost_source: "unpriced", cost_usd: null });
+      assert.deepEqual(row("no-catalog-request"), { cost_source: "litellm", cost_usd: 1 });
+    } finally {
+      database.close();
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("a log row copied into the totals keeps its price source, and a log database without the column still copies", async () => {
+  for (const dropColumn of [false, true]) {
+    const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-copy-cost-source-test-"));
+    try {
+      const requestLogDbFile = path.join(dir, "request-logs.sqlite");
+      const logs = new RequestLogStore(requestLogDbFile);
+      const createdAt = new Date().toISOString();
+      const pricing = { inputUsdPerMillionTokens: 5, outputUsdPerMillionTokens: 6 };
+      await logs.writeBatch([{
+        eventId: "median-event",
+        input: {
+          completedAt: createdAt,
+          durationMs: 10,
+          method: "POST",
+          path: "/v1/messages",
+          price: { price: { pricing, source: "models.dev-median" }, state: "priced" },
+          providerName: "alpha",
+          requestBody: Buffer.from(JSON.stringify({ model: "lab-model" })),
+          requestHeaders: { "content-type": "application/json" },
+          requestId: "median-request",
+          responseBodyText: JSON.stringify({ model: "lab-model", usage: { input_tokens: 1_000_000, output_tokens: 0 } }),
+          responseHeaders: { "content-type": "application/json" },
+          startedAt: createdAt,
+          statusCode: 200,
+          url: "http://127.0.0.1:3456/v1/messages"
+        },
+        kind: "record",
+        sequence: 1
+      }]);
+      await logs.close();
+      if (dropColumn) {
+        const database = createBetterSqliteDatabase(requestLogDbFile);
+        try {
+          database.exec("ALTER TABLE request_logs DROP COLUMN cost_source");
+        } finally {
+          database.close();
+        }
+      }
+
+      const usageDbFile = path.join(dir, "usage.sqlite");
+      const stats = await new UsageStore(usageDbFile, { requestLogDbFile }).getStats("today", { includeProxy: true });
+      assert.equal(stats.totals.requestCount, 1);
+      const database = createBetterSqliteDatabase(usageDbFile);
+      try {
+        assert.deepEqual(
+          { ...database.prepare("SELECT cost_source, cost_usd FROM usage_events WHERE request_id = 'median-request'").get() },
+          { cost_source: dropColumn ? "request_log" : "models.dev-median", cost_usd: 5 }
+        );
+      } finally {
+        database.close();
+      }
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+const customHaikuProvider = {
+  baseUrl: "https://api.example.com",
+  models: ["claude-haiku-5-5"],
+  name: "VM Custom",
+  type: "anthropic_messages"
+};
+const customHaikuConfig = { Providers: [customHaikuProvider] };
+const haikuResponseBody = JSON.stringify({
+  model: "claude-haiku-5-5",
+  usage: { input_tokens: 143, output_tokens: 4 }
+});
+
+// Stands in for a process that loaded its catalog at another time: the same
+// offers at other prices, served through fetch and never from an outside host.
+async function loadHaikuCatalog(input, output) {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    if (target.includes("models.dev")) {
+      return Response.json({
+        "reseller-a": { models: { "claude-haiku-5-5": { canonical_model_id: "anthropic/claude-haiku-5-5", cost: { input: 0.1714, output: 0.8571 } } } },
+        anthropic: { models: { "claude-haiku-5-5": { cost: { input, output } } } }
+      });
+    }
+    if (target.includes("openrouter.ai")) {
+      return Response.json({ data: [{ id: "lab/unrelated-model", pricing: { completion: "0.000001", prompt: "0.000001" } }] });
+    }
+    return Response.json({ "unrelated-model": { input_cost_per_token: 0.000001, output_cost_per_token: 0.000001 } });
+  };
+  try {
+    await preloadUsagePriceCatalog({ forceRefresh: true });
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+}
+
+async function recordHaikuRequest(dir, requestId, price) {
+  const requestLogDbFile = path.join(dir, "request-logs.sqlite");
+  const createdAt = new Date().toISOString();
+  const logs = new RequestLogStore(requestLogDbFile);
+  await logs.writeBatch([{
+    eventId: `${requestId}-event`,
+    input: {
+      client: "curl",
+      completedAt: createdAt,
+      durationMs: 30,
+      method: "POST",
+      path: "/v1/messages",
+      price,
+      providerName: customHaikuProvider.name,
+      requestBody: Buffer.from(JSON.stringify({ model: "claude-haiku-5-5" })),
+      requestHeaders: { "content-type": "application/json" },
+      requestId,
+      responseBodyText: haikuResponseBody,
+      responseHeaders: { "content-type": "application/json" },
+      startedAt: createdAt,
+      statusCode: 200,
+      url: "http://127.0.0.1:3456/v1/messages"
+    },
+    kind: "record",
+    sequence: 1
+  }]);
+  await logs.close();
+  await new UsageStore(path.join(dir, "usage.sqlite"), { requestLogDbFile }).recordCapture({
+    bodyText: haikuResponseBody,
+    client: "curl",
+    config: customHaikuConfig,
+    durationMs: 30,
+    fallbackModel: "claude-haiku-5-5",
+    method: "POST",
+    path: "/v1/messages",
+    price,
+    providerName: customHaikuProvider.name,
+    providerProtocol: "anthropic_messages",
+    requestId,
+    responseHeaders: new Headers({ "content-type": "application/json" }),
+    statusCode: 200
+  });
+  const read = (file, table) => {
+    const database = createBetterSqliteDatabase(path.join(dir, file));
+    try {
+      return database.prepare(`SELECT cost_source, cost_usd FROM ${table} WHERE request_id = ?`).get(requestId);
+    } finally {
+      database.close();
+    }
+  };
+  return { logRow: read("request-logs.sqlite", "request_logs"), usageRow: read("usage.sqlite", "usage_events") };
+}
+
+// These two tests load a price catalog into module state, so they stay last
+// and unload it when they finish.
+test("a request priced once keeps one cost and one source in Logs and in the totals after the catalog changes", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-logs-cost-parity-test-"));
+  try {
+    await loadHaikuCatalog(0.1, 0.5);
+    const price = resolveRequestPrice(customHaikuConfig, customHaikuProvider.name, "claude-haiku-5-5");
+    await loadHaikuCatalog(0.2, 1);
+
+    const { logRow, usageRow } = await recordHaikuRequest(dir, "vm-request-1", price);
+
+    assert.ok(Math.abs(logRow.cost_usd - 0.0000163) < 1e-12, "priced by the catalog the request was resolved against");
+    assert.deepEqual({ ...usageRow }, { ...logRow });
+    assert.equal(logRow.cost_source, "models.dev");
+  } finally {
+    await preloadUsagePriceCatalog({ forceRefresh: true }).catch(() => undefined);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a request resolved to no price is estimated by neither writer, whatever catalog each holds", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-logs-unpriced-test-"));
+  try {
+    await loadHaikuCatalog(0.2, 1);
+
+    const { logRow, usageRow } = await recordHaikuRequest(dir, "vm-request-2", { state: "unpriced" });
+
+    assert.deepEqual({ ...logRow }, { cost_source: "unpriced", cost_usd: null });
+    assert.deepEqual({ ...usageRow }, { cost_source: "unpriced", cost_usd: null });
+  } finally {
+    await preloadUsagePriceCatalog({ forceRefresh: true }).catch(() => undefined);
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

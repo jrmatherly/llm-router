@@ -8,7 +8,13 @@ import { decodeClaudeAppGatewayRouteId } from "@llmr/core/agents/claude-app/gate
 import {
   estimateUsageCostUsd,
   estimateUsageCostUsdFromLoadedCatalog,
-  usagePriceCatalogNeedsRefresh
+  hasCompleteProviderModelPricing,
+  parseUsagePricingSource,
+  pricingForWrite,
+  unpricedCostSource,
+  usagePriceCatalogNeedsRefresh,
+  type RequestPriceOutcome,
+  type UsagePricingSource
 } from "@llmr/core/models/pricing-service";
 import { createBetterSqliteDatabase, type BetterSqliteDatabase, type BetterSqliteStatement } from "@llmr/core/storage/sqlite-native";
 import { normalizeUsageInputTokens } from "@llmr/core/usage/normalization";
@@ -101,6 +107,7 @@ type RequestLogUsageContext = {
   model: string;
   path: string;
   pricing?: ProviderModelPricing;
+  pricingSource?: UsagePricingSource;
   provider: string;
 };
 
@@ -135,8 +142,10 @@ export type RequestLogRecordInput = {
   method: string;
   model?: string;
   path: string;
+  price?: RequestPriceOutcome;
   providerName?: string;
   pricing?: ProviderModelPricing;
+  pricingSource?: UsagePricingSource;
   providerProtocol?: GatewayProviderProtocol;
   requestedModel?: string;
   requestBody: Buffer;
@@ -158,7 +167,9 @@ export type RequestLogRecordInput = {
 };
 
 export type RequestLogRawTraceUpdateInput = {
+  price?: RequestPriceOutcome;
   pricing?: ProviderModelPricing;
+  pricingSource?: UsagePricingSource;
   allowStandaloneRecord?: boolean;
   attempt?: number;
   bodyCapturePolicy?: "all" | "errors" | "none";
@@ -570,10 +581,12 @@ export class RequestLogStore {
           input_tokens,
           model,
           output_tokens,
+          cost_source,
           pricing_json,
           provider
         FROM request_logs
         WHERE cost_usd IS NULL
+          AND cost_source <> '${unpricedCostSource}'
           AND (cache_read_tokens + cache_write_tokens + input_tokens + output_tokens) > 0
           ${beforeId === undefined ? "" : "AND id < ?"}
         ORDER BY id DESC
@@ -581,7 +594,7 @@ export class RequestLogStore {
       `,
       beforeId === undefined ? [limit] : [beforeId, limit]
     );
-    const update = database.prepare("UPDATE request_logs SET cost_usd = ? WHERE id = ? AND cost_usd IS NULL");
+    const update = database.prepare("UPDATE request_logs SET cost_usd = ?, cost_source = ? WHERE id = ? AND cost_usd IS NULL");
     let updated = 0;
     database.transaction(() => {
       for (const row of rows) {
@@ -592,10 +605,11 @@ export class RequestLogStore {
           model: String(row.model ?? ""),
           outputTokens: normalizeCount(row.output_tokens),
           pricing: parseStoredModelPricing(row.pricing_json),
+          pricingSource: parseUsagePricingSource(row.cost_source),
           provider: String(row.provider ?? "")
         });
         if (!cost) continue;
-        updated += Number(update.run(cost.amountUsd, normalizeCount(row.id)).changes);
+        updated += Number(update.run(cost.amountUsd, cost.source, normalizeCount(row.id)).changes);
       }
     })();
     if (updated > 0) this.revision += 1;
@@ -671,6 +685,9 @@ export class RequestLogStore {
     // match the fail-closed secret classifier. Extract them before sanitizing;
     // the persisted header JSON remains redacted.
     const credentialInfo = readCredentialLogInfo(rawResponseHeaders, rawRequestHeaders);
+    const write = pricingForWrite(input);
+    const pricing = write.estimate ? write.pricing : undefined;
+    const pricingSource = write.estimate ? write.pricingSource : undefined;
     const costInput = {
       cacheReadTokens,
       cacheWrite1hTokens,
@@ -679,12 +696,15 @@ export class RequestLogStore {
       inputTokens,
       model,
       outputTokens,
-      pricing: input.pricing,
+      pricing,
+      pricingSource,
       provider: providerName
     };
-    const cost = database.inTransaction
-      ? estimateUsageCostUsdFromLoadedCatalog(costInput)
-      : await estimateUsageCostUsd(costInput);
+    const cost = !write.estimate
+      ? undefined
+      : database.inTransaction
+        ? estimateUsageCostUsdFromLoadedCatalog(costInput)
+        : await estimateUsageCostUsd(costInput);
     const ownsBodyTransaction = !database.inTransaction;
     if (ownsBodyTransaction) database.exec("BEGIN IMMEDIATE");
     try {
@@ -749,6 +769,7 @@ export class RequestLogStore {
           cache_write_tokens,
           total_tokens,
           cost_usd,
+          cost_source,
           pricing_json,
           request_headers,
           response_headers,
@@ -766,7 +787,7 @@ export class RequestLogStore {
           response_body_ref,
           stream_metrics_json,
           error
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       let inserted = false;
@@ -803,7 +824,8 @@ export class RequestLogStore {
           cacheWriteTokens,
           totalTokens,
           cost?.amountUsd ?? null,
-          input.pricing ? JSON.stringify(input.pricing) : "",
+          write.estimate ? pricingSource ?? cost?.source ?? "" : unpricedCostSource,
+          pricing ? JSON.stringify(pricing) : "",
           JSON.stringify(requestHeaders),
           JSON.stringify(responseHeaders),
           requestBody.text,
@@ -1008,20 +1030,23 @@ export class RequestLogStore {
           inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
         const model = normalizeLabel(requestLogStorageModel(usage.model) ?? modelFromTrace ?? existingUsageContext.model, "unknown");
         const provider = normalizeLabel(providerFromTrace ?? existingUsageContext.provider, "unknown");
-        const costInput = {
-          cacheReadTokens,
-          cacheWrite1hTokens,
-          cacheWrite5mTokens,
-          cacheWriteTokens,
-          inputTokens,
-          model,
-          outputTokens,
-          pricing: existingUsageContext.pricing,
-          provider
-        };
-        const cost = database.inTransaction
-          ? estimateUsageCostUsdFromLoadedCatalog(costInput)
-          : await estimateUsageCostUsd(costInput);
+        // Only a complete price stored with the row re-prices it. A price
+        // resolved for the trace may differ from the one the usage row was
+        // written with, so any other row keeps its cost for the back-fill.
+        const cost = hasCompleteProviderModelPricing(existingUsageContext.pricing)
+          ? estimateUsageCostUsdFromLoadedCatalog({
+              cacheReadTokens,
+              cacheWrite1hTokens,
+              cacheWrite5mTokens,
+              cacheWriteTokens,
+              inputTokens,
+              model,
+              outputTokens,
+              pricing: existingUsageContext.pricing,
+              pricingSource: existingUsageContext.pricingSource,
+              provider
+            })
+          : undefined;
 
         pushValue("input_tokens", inputTokens);
         pushValue("output_tokens", outputTokens);
@@ -1030,6 +1055,7 @@ export class RequestLogStore {
         pushValue("cache_write_tokens", cacheWriteTokens);
         pushValue("total_tokens", totalTokens);
         pushValue("cost_usd", cost?.amountUsd);
+        pushValue("cost_source", cost?.source);
         if (usage.model && !modelFromTrace) {
           pushValue("model", model);
         }
@@ -1498,6 +1524,7 @@ export class RequestLogStore {
         cache_write_tokens INTEGER NOT NULL DEFAULT 0,
         total_tokens INTEGER NOT NULL DEFAULT 0,
         cost_usd REAL,
+        cost_source TEXT NOT NULL DEFAULT '',
         pricing_json TEXT NOT NULL DEFAULT '',
         request_headers TEXT NOT NULL DEFAULT '{}',
         response_headers TEXT NOT NULL DEFAULT '{}',
@@ -1803,8 +1830,10 @@ function standaloneRecordInputFromRawTrace(
     method: input.method ?? "POST",
     model: input.model,
     path: input.path ?? pathFromUrl(input.url) ?? "/",
+    price: input.price,
     providerName: input.provider,
     pricing: input.pricing,
+    pricingSource: input.pricingSource,
     requestBody: requestBody.buffer,
     requestBodySizeBytes: requestBody.sizeBytes,
     requestBodyTruncated: requestBody.truncated,
@@ -4586,6 +4615,7 @@ function ensureRequestLogSchema(database: SqlDatabase): void {
   addColumn("cache_write_tokens", "INTEGER NOT NULL DEFAULT 0");
   addColumn("total_tokens", "INTEGER NOT NULL DEFAULT 0");
   addColumn("cost_usd", "REAL");
+  addColumn("cost_source", "TEXT NOT NULL DEFAULT ''");
   addColumn("pricing_json", "TEXT NOT NULL DEFAULT ''");
   addColumn("request_headers", "TEXT NOT NULL DEFAULT '{}'");
   addColumn("response_headers", "TEXT NOT NULL DEFAULT '{}'");
@@ -6127,11 +6157,12 @@ function finalAttemptFromHeaders(
 }
 
 function readRequestLogUsageContext(database: SqlDatabase, requestId: string): RequestLogUsageContext {
-  const row = queryRows(database, "SELECT model, path, pricing_json, provider FROM request_logs WHERE request_id = ? LIMIT 1", [requestId])[0];
+  const row = queryRows(database, "SELECT cost_source, model, path, pricing_json, provider FROM request_logs WHERE request_id = ? LIMIT 1", [requestId])[0];
   return {
     model: normalizeLabel(String(row?.model ?? ""), "unknown"),
     path: normalizeLabel(String(row?.path ?? ""), ""),
     pricing: parseStoredModelPricing(row?.pricing_json),
+    pricingSource: parseUsagePricingSource(row?.cost_source),
     provider: normalizeLabel(String(row?.provider ?? ""), "unknown")
   };
 }
@@ -6220,11 +6251,13 @@ function batchNeedsUsagePricing(
   commands: RequestLogStoreWriteCommand[]
 ): boolean {
   for (const command of commands) {
+    // A price the main process resolved, or found none for, needs no catalog here.
+    const resolved = command.input.price !== undefined && command.input.price.state !== "no-catalog";
     if (command.kind === "raw-trace-update") {
-      if (rawTraceHasBillableUsage(command.input)) return true;
+      if (!resolved && rawTraceHasBillableUsage(command.input)) return true;
       continue;
     }
-    if (recordHasBillableUsage(command.input) && !hasCompleteCustomPricing(command.input.pricing)) return true;
+    if (!resolved && recordHasBillableUsage(command.input) && !hasCompleteProviderModelPricing(command.input.pricing)) return true;
     const requestId = command.input.requestId?.trim();
     if (!requestId) continue;
     const row = queryRows(
@@ -6245,15 +6278,6 @@ function recordHasBillableUsage(input: RequestLogRecordInput): boolean {
   return hasBillableUsageComponents(
     mergeUsageSnapshots(extractUsageFromBillingHeaders(input.responseHeaders), bodyUsage) ?? {}
   );
-}
-
-function hasCompleteCustomPricing(pricing: ProviderModelPricing | undefined): boolean {
-  return typeof pricing?.inputUsdPerMillionTokens === "number" &&
-    Number.isFinite(pricing.inputUsdPerMillionTokens) &&
-    pricing.inputUsdPerMillionTokens >= 0 &&
-    typeof pricing.outputUsdPerMillionTokens === "number" &&
-    Number.isFinite(pricing.outputUsdPerMillionTokens) &&
-    pricing.outputUsdPerMillionTokens >= 0;
 }
 
 function rawTraceHasBillableUsage(input: RequestLogRawTraceUpdateInput): boolean {
