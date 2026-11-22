@@ -3,6 +3,7 @@ import test, { mock } from "node:test";
 import {
   estimateUsageCostUsd,
   estimateUsageCostUsdFromLoadedCatalog,
+  parseUsagePricingSource,
   preloadUsagePriceCatalog,
   providerModelPricingForUsage,
   resolveProviderModelPrice,
@@ -293,14 +294,81 @@ test("the maker's entry is found by a provider/model name, by the one canonical 
   });
 });
 
-test("a canonical id that names no priced entry does not fall back to the reseller's price", async () => {
+const labOffer = (input, output, extra = {}) => ({
+  canonical_model_id: "lab/lab-model",
+  cost: { input, output, ...extra }
+});
+const labModelsDev = {
+  "reseller-a": { models: { "lab-model": labOffer(50, 60) } },
+  "reseller-b": { models: { "lab-model": labOffer(5, 6, { cache_read: 0.5 }) } },
+  "reseller-c": { models: { "lab-model": labOffer(1, 100) } }
+};
+const labMedian = {
+  pricing: { cacheReadUsdPerMillionTokens: 0.5, inputUsdPerMillionTokens: 5, outputUsdPerMillionTokens: 6 },
+  source: "models.dev-median"
+};
+
+test("a canonical id that names no priced entry is priced by the median reseller offer, labelled as such", async () => {
+  await withPriceCatalogs({ modelsDev: labModelsDev }, () => {
+    assert.deepEqual(resolveProviderModelPrice(customConfig, "VM Custom", "lab-model"), labMedian);
+    assert.deepEqual(resolveProviderModelPrice(customConfig, "VM Custom", "reseller-a/lab-model"), labMedian);
+    assert.deepEqual(
+      estimateUsageCostUsdFromLoadedCatalog({ ...million, model: "lab-model", provider: "VM Custom" }),
+      { amountUsd: 11, model: "lab-model", source: "models.dev-median" }
+    );
+  });
+});
+
+test("the median offer does not depend on the order the catalog lists its providers", async () => {
+  const reversed = Object.fromEntries(Object.entries(labModelsDev).reverse());
+  await withPriceCatalogs({ modelsDev: reversed }, () => {
+    assert.deepEqual(resolveProviderModelPrice(customConfig, "VM Custom", "lab-model"), labMedian);
+  });
+});
+
+test("an even number of offers takes the lower middle offer, ordered by input then output price", async () => {
   const modelsDev = {
-    "reseller-a": { models: { "lab-model": { canonical_model_id: "lab/lab-model", cost: { input: 1, output: 1 } } } }
+    "reseller-a": { models: { "lab-model": labOffer(2, 9) } },
+    "reseller-b": { models: { "lab-model": labOffer(8, 8) } },
+    "reseller-c": { models: { "lab-model": labOffer(1, 1) } },
+    "reseller-d": { models: { "lab-model": labOffer(2, 3) } }
   };
   await withPriceCatalogs({ modelsDev }, () => {
-    assert.deepEqual(resolveRequestPrice(customConfig, "VM Custom", "lab-model"), { state: "unpriced" });
-    assert.deepEqual(resolveRequestPrice(customConfig, "VM Custom", "reseller-a/lab-model"), { state: "unpriced" });
+    assert.deepEqual(resolveProviderModelPrice(customConfig, "VM Custom", "lab-model"), {
+      pricing: { inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 3 },
+      source: "models.dev-median"
+    });
   });
+});
+
+test("an offer priced 0 for input and output is not counted toward the median", async () => {
+  const modelsDev = {
+    "free-tier": { models: { "lab-model": labOffer(0, 0) } },
+    "reseller-a": { models: { "lab-model": labOffer(3, 3) } },
+    "reseller-b": { models: { "lab-model": labOffer(6, 6) } },
+    "reseller-c": { models: { "lab-model": labOffer(9, 9) } }
+  };
+  await withPriceCatalogs({ modelsDev }, () => {
+    assert.deepEqual(resolveProviderModelPrice(customConfig, "VM Custom", "lab-model"), {
+      pricing: { inputUsdPerMillionTokens: 6, outputUsdPerMillionTokens: 6 },
+      source: "models.dev-median"
+    });
+  });
+});
+
+test("a LiteLLM entry wins over the median reseller offer", async () => {
+  const liteLlm = { "lab-model": { input_cost_per_token: 0.000007, output_cost_per_token: 0.000008 } };
+  await withPriceCatalogs({ liteLlm, modelsDev: labModelsDev }, () => {
+    assert.deepEqual(resolveProviderModelPrice(customConfig, "VM Custom", "lab-model"), {
+      pricing: { inputUsdPerMillionTokens: 7, outputUsdPerMillionTokens: 8 },
+      source: "litellm"
+    });
+  });
+});
+
+test("a stored models.dev-median source reads back as a pricing source", () => {
+  assert.equal(parseUsagePricingSource("models.dev-median"), "models.dev-median");
+  assert.equal(parseUsagePricingSource("models.dev-mean"), undefined);
 });
 
 test("a bare name with more than one canonical id skips the maker and is priced by LiteLLM", async () => {
@@ -347,10 +415,23 @@ test("LiteLLM prices a model by its exact key, then by its bare name", async () 
   });
 });
 
-test("a model only resellers offer, with no canonical id and no LiteLLM entry, is unpriced", async () => {
+test("a model only resellers offer, with no canonical id and no LiteLLM entry, gets the median offer", async () => {
   const modelsDev = {
     "reseller-a": { models: { "orphan": { cost: { input: 1, output: 1 } } } },
     "reseller-b": { models: { "orphan": { cost: { input: 2, output: 2 } } } }
+  };
+  await withPriceCatalogs({ liteLlm: { other: { input_cost_per_token: 1, output_cost_per_token: 1 } }, modelsDev }, () => {
+    assert.deepEqual(resolveProviderModelPrice(customConfig, "VM Custom", "orphan"), {
+      pricing: { inputUsdPerMillionTokens: 1, outputUsdPerMillionTokens: 1 },
+      source: "models.dev-median"
+    });
+  });
+});
+
+test("a model with no offer that has both an input and an output price above zero stays unpriced", async () => {
+  const modelsDev = {
+    "free-tier": { models: { "orphan": { cost: { input: 0, output: 0 } } } },
+    "half-listed": { models: { "orphan": { cost: { input: 2 } } } }
   };
   await withPriceCatalogs({ liteLlm: { other: { input_cost_per_token: 1, output_cost_per_token: 1 } }, modelsDev }, () => {
     assert.deepEqual(resolveRequestPrice(customConfig, "VM Custom", "orphan"), { state: "unpriced" });

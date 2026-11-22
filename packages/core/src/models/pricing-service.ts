@@ -4,7 +4,9 @@ import { catalogProviderIdsForBaseUrl } from "@llmr/core/providers/model-catalog
 import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
 
 type ModelPricingSource = "litellm" | "models.dev" | "openrouter";
-export type UsagePricingSource = ModelPricingSource | "custom";
+// "models.dev-median" is an estimate from reseller offers, never a listed price.
+type CatalogPricingSource = ModelPricingSource | "models.dev-median";
+export type UsagePricingSource = CatalogPricingSource | "custom";
 
 export type ResolvedModelPrice = {
   pricing: ProviderModelPricing;
@@ -53,7 +55,7 @@ type CatalogEntry = {
   canonicalModelId?: string;
   model: string;
   pricing: CompleteModelPricing;
-  source: ModelPricingSource;
+  source: CatalogPricingSource;
 };
 
 type BareNameOffers = {
@@ -90,7 +92,7 @@ const fetchTimeoutMs = 5000;
 const liteLlmPricesUrl = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
 const modelsDevPricesUrl = "https://models.dev/api.json";
 const openRouterModelsUrl = "https://openrouter.ai/api/v1/models";
-const pricingSources = new Set<UsagePricingSource>(["custom", "litellm", "models.dev", "openrouter"]);
+const pricingSources = new Set<UsagePricingSource>(["custom", "litellm", "models.dev", "models.dev-median", "openrouter"]);
 
 let catalog: PriceCatalog | undefined;
 let catalogPromise: Promise<PriceCatalog> | undefined;
@@ -294,7 +296,8 @@ const catalogRuleSteps: Array<(context: CatalogRuleContext) => CatalogEntry | un
   mappedProviderEntry,
   makerEntry,
   soleOfferEntry,
-  liteLlmEntry
+  liteLlmEntry,
+  medianOfferEntry
 ];
 
 function findCatalogRulePrice(
@@ -384,6 +387,23 @@ function soleOfferEntry(context: CatalogRuleContext): CatalogEntry | undefined {
 function liteLlmEntry(context: CatalogRuleContext): CatalogEntry | undefined {
   const liteLlm = context.catalog.get("litellm")?.index.byKey;
   return liteLlm?.get(context.model) ?? liteLlm?.get(context.bare);
+}
+
+// byKey holds only offers with an input and an output price, not both 0.
+// Ordering by price, then key, keeps the pick independent of catalog order.
+function medianOfferEntry(context: CatalogRuleContext): CatalogEntry | undefined {
+  const modelsDev = context.catalog.get("models.dev")?.index;
+  const offers = Array.from(modelsDev?.byBareName.get(context.bare)?.offerKeys ?? [])
+    .flatMap((key) => {
+      const entry = modelsDev?.byKey.get(key);
+      return entry ? [{ entry, key }] : [];
+    })
+    .sort((a, b) =>
+      a.entry.pricing.inputUsdPerMillionTokens - b.entry.pricing.inputUsdPerMillionTokens ||
+      a.entry.pricing.outputUsdPerMillionTokens - b.entry.pricing.outputUsdPerMillionTokens ||
+      (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  const median = offers[Math.floor((offers.length - 1) / 2)]?.entry;
+  return median && { ...median, source: "models.dev-median" };
 }
 
 async function getPriceCatalog(): Promise<PriceCatalog> {
