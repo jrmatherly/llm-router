@@ -33,8 +33,10 @@ test("sidebar navigation groups pages and hides networking from the sidebar", ()
   ]);
 });
 
-test("sidebar navigation scrolls vertically without displacing the settings footer", () => {
-  const html = renderToStaticMarkup(
+function renderMainLayout(overrides: { isMac?: boolean; sidebarOpen?: boolean } = {}): string {
+  const isMac = overrides.isMac ?? false;
+  const sidebarOpen = overrides.sidebarOpen ?? true;
+  return renderToStaticMarkup(
     <MainLayout
       activeView="networking"
       agentAnalysisEnabled={false}
@@ -44,8 +46,8 @@ test("sidebar navigation scrolls vertically without displacing the settings foot
       gatewayActionBusy={false}
       gatewayEndpoint="http://127.0.0.1:3456"
       gatewayStatus={fallbackGatewayStatus}
-      isMac={false}
-      needsTrafficLightSafeArea={false}
+      isMac={isMac}
+      needsTrafficLightSafeArea={isMac && !sidebarOpen}
       networkCaptureEnabled={false}
       onOpenServerSettings={() => undefined}
       onOpenSettings={() => undefined}
@@ -54,7 +56,7 @@ test("sidebar navigation scrolls vertically without displacing the settings foot
       onToggleSidebar={() => undefined}
       requestLogsEnabled={false}
       shouldReduceMotion={true}
-      sidebarOpen
+      sidebarOpen={sidebarOpen}
       toggleGatewayService={() => undefined}
       updateActionBusy={false}
       updateStatus={fallbackUpdateStatus}
@@ -62,10 +64,28 @@ test("sidebar navigation scrolls vertically without displacing the settings foot
       visibleNavigation={navigation}
     />
   );
+}
+
+test("sidebar navigation scrolls vertically without displacing the settings footer", () => {
+  const html = renderMainLayout();
 
   assert.match(html, /<nav class="[^"]*overflow-y-auto[^"]*max-\[720px\]:overflow-y-hidden[^"]*"/);
   assert.match(html, /class="grid shrink-0 gap-1 border-t/);
   assert.ok(html.indexOf("</nav>") < html.indexOf("Settings"));
+});
+
+test("the macOS window-button inset divides by the page zoom, and other platforms keep fixed insets", () => {
+  const mac = renderMainLayout({ isMac: true, sidebarOpen: false });
+  assert.match(mac, /app-window-controls[^"]*left-\[calc\(84px\/var\(--llmr-zoom,1\)\)\]/);
+  assert.match(mac, /pl-\[calc\(84px\/var\(--llmr-zoom,1\)\+32px\)\]/);
+  assert.match(mac, /style="width:calc\(84px \/ var\(--llmr-zoom, 1\) \+ \d+px\)"/);
+
+  const macOpen = renderMainLayout({ isMac: true });
+  assert.match(macOpen, /style="width:calc\(84px \/ var\(--llmr-zoom, 1\) \+ \d+px\)"/);
+
+  const other = renderMainLayout({ sidebarOpen: false });
+  assert.doesNotMatch(other, /--llmr-zoom/);
+  assert.match(other, /app-window-controls[^"]*left-3/);
 });
 
 test("GatewayStartupErrorBanner renders startup failure details", () => {
