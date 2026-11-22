@@ -49,13 +49,14 @@ import {
 } from "@llmr/core/agents/pi/profile-config";
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { profileApiKeyId, pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
-import { cmdQuote, defaultClientModel, disabledStatus, firstTomlTableIndex, formatError, gatewayEndpoint, gatewayNoProxyHosts, isRecord, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, stringRecord, tomlQuotedKey, tomlString, trimLeadingBlankLines, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
+import { cmdQuote, defaultClientModel, disabledStatus, formatError, gatewayEndpoint, gatewayNoProxyHosts, isRecord, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, stringRecord, tomlQuotedKey, tomlString, trimLeadingBlankLines, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
 import { backupBeforeWrite, backupContent, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, saveRemovedConfigCopy, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import {
   type CodexWrittenLines,
   type CodexWrittenRecord,
   codexManagedMarkers,
   decideCodexRootLines,
+  firstCodexTableIndex,
   escapeRegExp,
   isRootKeyInsideManagedBlock,
   managedConfiguredModel,
@@ -73,8 +74,7 @@ import {
   removeCodexProviderTable,
   removeTomlTable,
   scanTomlLines,
-  stripManagedCodexConfigContent,
-  tomlValueOpenAtEnd
+  stripManagedCodexConfigContent
 } from "@llmr/core/profiles/codex-config-strip";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
 import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
@@ -806,7 +806,7 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
       message: `${changed
         ? `${clientName} config is managed by LLMR${extras.length ? ` (${extras.join(", ")})` : ""}.`
         : `${clientName} config already matches LLMR.`}${separateProfileResult?.copy
-        ? ` LLMR could not merge your [profiles.${providerId}] settings into ${separateProfileResult.file} and kept them at ${separateProfileResult.copy}.`
+        ? ` The [profiles.${providerId}] table you added replaced your settings in ${separateProfileResult.file}, and LLMR kept the earlier ones at ${separateProfileResult.copy}.`
         : ""}`,
       ok: true,
       path: configFile
@@ -1342,7 +1342,7 @@ function buildCodexConfigToml(
     content = removeCodexProfileTable(content, values.providerId);
   }
 
-  const firstTableIndex = firstTomlTableIndex(content);
+  const firstTableIndex = firstCodexTableIndex(content);
   const rootSource = firstTableIndex === -1 ? content : content.slice(0, firstTableIndex);
   const restSource = firstTableIndex === -1 ? "" : content.slice(firstTableIndex);
   const rootLines = decideCodexRootLines({
@@ -1521,21 +1521,13 @@ function maybeWriteSeparateCodexProfileFile(
   const file = path.join(path.dirname(configFile), `${values.providerId}.config.toml`);
   const moved = legacyCodexProfileTableBody(source, values.providerId);
   const existing = existsSync(file) ? readFileSync(file, "utf8") : "";
-  const tableStart = firstTomlTableIndex(existing);
-  const existingRoot = tableStart === -1 ? existing : existing.slice(0, tableStart);
-  // The writer takes the user's `[profiles.<provider>]` table out of config.toml on every apply, so one written while this file exists has to land here too. Its keys win over the ones already here.
-  let previous = existing || moved;
+  // The writer takes the user's `[profiles.<provider>]` table out of config.toml on every apply. One written while this file exists is their newest word, so it replaces what they had here, whole. Folding the two together means editing TOML line by line, which three attempts each got wrong for some input.
   let copy: string | undefined;
-  if (moved && existing) {
-    const mergedRoot = mergeMovedCodexProfileKeys(moved, existingRoot);
-    if (mergedRoot === undefined) {
-      // The table is already out of config.toml, so it is kept as a copy and the caller says where.
-      copy = saveConfigSafetyCopy(file, moved);
-      console.warn(`[profiles] Kept your [profiles.${values.providerId}] settings at ${copy}: they could not be merged into ${resolveUserPath(file)}.`);
-    } else {
-      previous = `${mergedRoot}${existing.slice(existingRoot.length)}`;
-    }
+  if (moved && codexProfileFileUsersContent(existing, values.providerId)) {
+    copy = saveConfigSafetyCopy(file, existing);
+    console.warn(`[profiles] The [profiles.${values.providerId}] table added to ${resolveUserPath(configFile)} replaced your settings in ${resolveUserPath(file)}. The earlier ones are at ${copy}.`);
   }
+  const previous = moved || existing;
   const next = buildSeparateCodexProfileToml(previous, values);
   const writeResult = writeFileWithBackup(file, next, { mode: privateFileMode });
   return {
@@ -1543,28 +1535,6 @@ function maybeWriteSeparateCodexProfileFile(
     copy,
     file
   };
-}
-
-// The merge goes line by line. It gives up, returning nothing, where that would break a value or miss a key: a text that ends inside a value, a quoted or dotted key on either side's own lines, or a moved key held here by a value that spans lines.
-function mergeMovedCodexProfileKeys(moved: string, existingRoot: string): string | undefined {
-  const keyOf = (line: string) => /^\s*([A-Za-z0-9_-]+)\s*=/.exec(line)?.[1];
-  const movedLines = scanTomlLines(moved);
-  const existingLines = scanTomlLines(existingRoot);
-  const oddKey = ({ inValue, line }: { inValue: boolean; line: string }) => !inValue && /^\s*(?:["']|[A-Za-z0-9_-]+\s*\.)/.test(line);
-  if (tomlValueOpenAtEnd(moved) || tomlValueOpenAtEnd(existingRoot) || movedLines.some(oddKey) || existingLines.some(oddKey)) {
-    return undefined;
-  }
-  const movedKeys = new Set(movedLines.map(({ inValue, line }) => inValue ? undefined : keyOf(line)));
-  const kept: string[] = [];
-  for (const [index, { inValue, line }] of existingLines.entries()) {
-    const key = inValue ? undefined : keyOf(line);
-    if (!key || !movedKeys.has(key)) {
-      kept.push(line);
-    } else if (existingLines[index + 1]?.inValue) {
-      return undefined;
-    }
-  }
-  return `${moved}\n${kept.join("")}`;
 }
 
 function buildSeparateCodexProfileToml(
@@ -1575,7 +1545,7 @@ function buildSeparateCodexProfileToml(
     showAllSessions: boolean;
   }
 ): string {
-  const firstTableIndex = firstTomlTableIndex(source);
+  const firstTableIndex = firstCodexTableIndex(source);
   const rootSource = firstTableIndex === -1 ? source : source.slice(0, firstTableIndex);
   let restSource = firstTableIndex === -1 ? "" : source.slice(firstTableIndex);
   restSource = removeCodexMcpServerTable(restSource, TOOL_HUB_MCP_SERVER_NAME, { includeChildTables: true });
@@ -2711,18 +2681,21 @@ function isBotGatewayEnvKey(key: string): boolean {
     key === "LLMR_BOT_GATEWAY_SDK_MODULE";
 }
 
+// A line inside a value is text, not a key, and a value that spans lines goes with its key. Whole lines go, so a CRLF file keeps no stray carriage return.
 function removeRootTomlKeys(source: string, keys: string[]): string {
-  const keyPattern = keys.map(escapeRegExp).join("|");
-  // In a CRLF file `$` matches ahead of the carriage return, and a leading `\s*` then ate the line feed before the key and left that carriage return on its own.
-  const pattern = new RegExp(`^[ \\t]*(?:${keyPattern})\\s*=.*(?:\\r?\\n|$)`, "gm");
-  return source.replace(pattern, "");
+  const assignment = new RegExp(`^[ \\t]*(?:${keys.map(escapeRegExp).join("|")})\\s*=`);
+  let removing = false;
+  return scanTomlLines(source).filter(({ inValue, line }) => {
+    removing = inValue ? removing : assignment.test(line);
+    return !removing;
+  }).map(({ line }) => line).join("");
 }
 
 function rootTomlAssignment(source: string, key: string): string | undefined {
-  const rootEnd = firstTomlTableIndex(source);
+  const rootEnd = firstCodexTableIndex(source);
   const rootSource = rootEnd === -1 ? source : source.slice(0, rootEnd);
-  const pattern = new RegExp(`^\\s*${escapeRegExp(key)}\\s*=.*$`, "m");
-  return rootSource.match(pattern)?.[0].trim();
+  const assignment = new RegExp(`^\\s*${escapeRegExp(key)}\\s*=`);
+  return scanTomlLines(rootSource).find(({ inValue, line }) => !inValue && assignment.test(line))?.line.trim();
 }
 
 function managedModelAssignment(source: string, configuredModel: string): string {
@@ -3184,8 +3157,7 @@ function returnCodexProfileTable(configFile: string, profileFile: string, provid
     return { returned: false };
   }
   const current = readFileSync(profileFile, "utf8");
-  // LLMR's `show_all_sessions = true` carries no mark, so a line that reads exactly so counts as LLMR's.
-  const usersContent = (content: string) => (stripManagedCodexConfigContent(content, [providerId]) ?? content).replace(/^show_all_sessions = true\r?\n?/m, "").trim();
+  const usersContent = (content: string) => codexProfileFileUsersContent(content, providerId);
   const kept = usersContent(current);
   const originalFile = originalBackupFilePath(profileFile);
   if (existsSync(originalFile)) {
@@ -3195,7 +3167,7 @@ function returnCodexProfileTable(configFile: string, profileFile: string, provid
   if (!kept || !existsSync(originalMissingFilePath(profileFile))) {
     return { returned: false };
   }
-  const tableStart = firstTomlTableIndex(kept);
+  const tableStart = firstCodexTableIndex(kept);
   const body = (tableStart === -1 ? kept : kept.slice(0, tableStart)).trim();
   const config = existsSync(configFile) ? readFileSync(configFile, "utf8") : "";
   const headerInConfig = new RegExp(`^[ \\t]*\\[profiles\\.(?:${escapeRegExp(providerId)}|${escapeRegExp(tomlQuotedKey(providerId))})\\]`, "m").test(config);
@@ -3210,6 +3182,11 @@ function returnCodexProfileTable(configFile: string, profileFile: string, provid
   }
   writeFileAtomic(configFile, `${config.trim() ? `${config.trimEnd()}\n\n` : ""}[profiles.${tomlKey(providerId)}]\n${body}\n`, { mode: privateFileMode });
   return { copy, returned: true };
+}
+
+// LLMR's `show_all_sessions = true` carries no mark, so a line that reads exactly so counts as LLMR's.
+function codexProfileFileUsersContent(content: string, providerId: string): string {
+  return (stripManagedCodexConfigContent(content, [providerId]) ?? content).replace(/^show_all_sessions = true\r?\n?/m, "").trim();
 }
 
 // Only a file LLMR took over has an original or a marker beside it. Anything else is the user's and stays.
