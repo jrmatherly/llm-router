@@ -4617,10 +4617,11 @@ test("a restore after the user deleted their Codex config brings back the backup
   });
 });
 
-test("an apply over an edited Codex config goes ahead when the saved original cannot be read", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || process.platform === "win32" }, async () => {
+test("an apply over an edited Codex config goes ahead when the saved original cannot be read, and keeps a copy of the edit", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || process.platform === "win32" }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
     const original = `${fixture.codexConfigFile}.llmr-original`;
     appendUserCodexTables(fixture);
+    writeFileSync(fixture.codexConfigFile, readFileSync(fixture.codexConfigFile, "utf8").replace(/^model = .*$/m, "model = \"my-own-model\""));
     chmodSync(original, 0o000);
     try {
       const applied = await applySecondCodexModel(fixture.config);
@@ -4628,6 +4629,10 @@ test("an apply over an edited Codex config goes ahead when the saved original ca
       assert.match(readFileSync(fixture.codexConfigFile, "utf8"), /^model = "Provider\/model-2"$/m);
       assert.match(readFileSync(fixture.codexConfigFile, "utf8"), /\[mcp_servers\.mine\]/);
       assert.deepEqual(codexBackups(fixture.codexDir), []);
+      const copies = safetyCopies(fixture.codexConfigFile);
+      assert.equal(copies.length, 1);
+      assert.match(readFileSync(copies[0], "utf8"), /^model = "my-own-model"$/m);
+      assert.equal(readFileSync(copies[0], "utf8").includes(fixture.codexToken), false);
     } finally {
       chmodSync(original, 0o600);
     }

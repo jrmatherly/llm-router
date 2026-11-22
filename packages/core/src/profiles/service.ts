@@ -1400,8 +1400,17 @@ function writeGlobalCodexConfig(file: string, content: string, providerId: strin
   // A managed file that is as LLMR wrote it holds nothing the snapshot lacks.
   let backupFile: string | undefined;
   if (previous !== undefined && !(managed && (noOriginal || isAsWritten(record, previous)))) {
+    let snapshot: string | undefined;
+    let snapshotRead = true;
     try {
-      const snapshot = originalSnapshotCandidate(file, matchers, noOriginal ? matchers.stripManagedContent : undefined)?.content;
+      snapshot = originalSnapshotCandidate(file, matchers, noOriginal ? matchers.stripManagedContent : undefined)?.content;
+    } catch (error) {
+      // A snapshot that cannot be read must not stop the apply. A backup made without the user's displaced lines would be chosen over the original at the next restore, so what the file held goes to a safety copy, which no restore reads.
+      console.error(`Failed to read the saved original of ${resolveUserPath(file)}: ${formatError(error)}`);
+      snapshotRead = false;
+      saveConfigSafetyCopy(file, previous);
+    }
+    if (snapshotRead) {
       const kept = managed
         ? stripManagedCodexConfigContent(previous, [providerId], record, readCodexDisplacedConfig(snapshot ?? "", [providerId]))
         : matchers.stripManagedContent?.(previous) ?? previous;
@@ -1409,9 +1418,6 @@ function writeGlobalCodexConfig(file: string, content: string, providerId: strin
       if (kept !== undefined && kept !== snapshot && !(managed && isEmptyConfigContent(kept))) {
         backupFile = backupContent(file, kept, { isManagedContent: matchers.isManagedContent, mode: privateFileMode });
       }
-    } catch (error) {
-      // A snapshot that cannot be read must not stop the apply. No backup is written without it: one made without the user's displaced lines would be chosen over the original at the next restore.
-      console.error(`Failed to back up ${resolveUserPath(file)} before writing it: ${formatError(error)}`);
     }
   }
   writeFileAtomic(file, content, { mode: privateFileMode });
