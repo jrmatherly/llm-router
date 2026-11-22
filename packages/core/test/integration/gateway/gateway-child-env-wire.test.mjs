@@ -69,7 +69,7 @@ async function startGateway(t, layout, edit) {
 }
 
 for (const layout of ["single", "compat"]) {
-  test(`the gateway child answers its manager routes only to its own key (${layout})`, { skip, timeout: 60000 }, async (t) => {
+  test(`the gateway child serves no manager or agent routes, and LLMR's own front still asks for a key (${layout})`, { skip, timeout: 60000 }, async (t) => {
     const gateway = await startGateway(t, layout);
     const secrets = ["sk-good-key-0001", "test-provider-secret", gateway.service.coreAuthToken];
     const dir = mkdtempSync(path.join(tmpdir(), "llmr-wire-"));
@@ -88,8 +88,8 @@ for (const layout of ["single", "compat"]) {
       for (const route of ["/manager/config", "/manager/plugins", "/manager/providers"]) {
         for (const headers of callers) {
           const response = await send(port, route, { headers });
-          const sentKey = "authorization" in headers || "x-manager-key" in headers;
-          assert.equal(response.status, onChild && sentKey ? 403 : 401, `${port} ${route}`);
+          // LLMR's own front passes a request with a good key on to the child.
+          assert.equal(response.status, onChild || headers === good ? 404 : 401, `${port} ${route}`);
           for (const secret of secrets) assert.equal(response.body.includes(secret), false, `${route} body`);
         }
       }
@@ -99,23 +99,24 @@ for (const layout of ["single", "compat"]) {
           headers: { ...headers, "content-type": "application/json" },
           method: "POST"
         });
-        const sentKey = "authorization" in headers || "x-manager-key" in headers;
-        assert.equal(install.status, onChild && sentKey ? 403 : 401, `${port} POST /manager/plugins`);
+        assert.equal(install.status, onChild || headers === good ? 404 : 401, `${port} POST /manager/plugins`);
       }
       const write = await send(port, "/manager/config", {
         body: "{}",
         headers: { "content-type": "application/json" },
         method: "PUT"
       });
-      assert.equal(write.status, 401);
+      assert.equal(write.status, onChild ? 404 : 401);
     }
     assert.equal(existsSync(marker), false);
     for (const route of ["/", "/health", "/ready"]) {
       const response = await send(gateway.corePort, route);
       for (const secret of secrets) assert.equal(response.body.includes(secret), false, `${route} body`);
     }
-    const envKey = await send(gateway.corePort, "/agent/sessions", { headers: { authorization: "Bearer sk-env-key-0003" } });
-    assert.equal(envKey.status, 401);
+    for (const headers of [{}, good, { authorization: "Bearer sk-env-key-0003" }]) {
+      assert.equal((await send(gateway.corePort, "/agent/sessions", { headers })).status, 404, JSON.stringify(headers));
+    }
+    assert.equal((await send(gateway.corePort, "/v1/models", { headers: { authorization: "Bearer sk-env-key-0003" } })).status, 401);
   });
 }
 
@@ -144,9 +145,9 @@ test("the gateway child refuses an API key that has expired", { skip, timeout: 6
     config.APIKEY = "sk-expired-key-0002";
   });
   const expired = { authorization: "Bearer sk-expired-key-0002" };
-  assert.equal((await send(gateway.publicPort, "/agent/sessions", { headers: expired })).status, 401);
   assert.equal((await send(gateway.publicPort, "/v1/models/native", { headers: expired })).status, 401);
-  assert.equal((await send(gateway.publicPort, "/agent/sessions", { headers: good })).status, 200);
+  assert.equal((await send(gateway.publicPort, "/v1/models", { headers: expired })).status, 401);
+  assert.equal((await send(gateway.publicPort, "/v1/models", { headers: good })).status, 200);
   const core = { authorization: `Bearer ${gateway.service.coreAuthToken}` };
   assert.equal((await send(gateway.publicPort, "/v1/models", { headers: core })).status, 200);
 });

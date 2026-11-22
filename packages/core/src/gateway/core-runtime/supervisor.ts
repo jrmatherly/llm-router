@@ -31,7 +31,7 @@ const gatewayRuntimeStateKey = "gateway";
 const defaultGatewayConfigAcceptanceTimeoutMs = 30_000;
 const gatewayStartupTimeoutMs = 15_000;
 const gatewayChildOutputLimit = 4000;
-const removedInheritedEnvNames = new Set(["AUTH_STATIC_API_KEY", "AUTH_STATIC_API_KEYS", "CORS_ORIGIN", "MANAGER_API_KEY"]);
+const removedInheritedEnvNames = new Set(["AUTH_STATIC_API_KEY", "AUTH_STATIC_API_KEYS", "CORS_ORIGIN", "GATEWAY_MANAGEMENT_ROUTES_ENABLED", "MANAGER_API_KEY"]);
 const privateDirMode = 0o700;
 const privateFileMode = 0o600;
 const routerPluginSupportMarkers = [
@@ -396,13 +396,15 @@ function createGatewayProcessEnv(
 
   // An inherited value would override what LLMR chose: RAW_TRACE_* could bypass
   // LLMR privacy, size, spool, or sync-endpoint controls, and the key and CORS
-  // names would add keys to the child or replace its manager key and allowed
-  // origins. Windows reads names without regard to case.
+  // names would add keys to the child, replace its manager key and allowed
+  // origins, or turn its manager and agent routes back on. Windows reads names
+  // without regard to case.
   for (const key of Object.keys(env)) {
     const name = key.toUpperCase();
     if (name.startsWith("RAW_TRACE_") || name.startsWith("GATEWAY_CORS_") || removedInheritedEnvNames.has(name)) delete env[key];
   }
   env.GATEWAY_CORS_ORIGIN = endpoint(config.gateway.host, config.gateway.port);
+  env.GATEWAY_MANAGEMENT_ROUTES_ENABLED = "false";
   env.MANAGER_API_KEY = generateCoreGatewayAuthToken();
 
   const noProxy = mergeNoProxy(env.NO_PROXY || env.no_proxy, [
