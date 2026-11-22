@@ -1042,6 +1042,92 @@ test("UsageStore backs off request-log backfill after it fails", async (t) => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test("the usage sweep skips a row resolved as unpriced and still prices a row written before any catalog", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-unpriced-sweep-test-"));
+  try {
+    let loaded = false;
+    let sweepDone;
+    const swept = new Promise((resolve) => { sweepDone = resolve; });
+    const store = new UsageStore(path.join(dir, "usage.sqlite"), {
+      estimateCost: async () => loaded ? { amountUsd: 1, model: "any-model", source: "litellm" } : undefined,
+      loadPriceCatalog: async () => {
+        loaded = true;
+        setImmediate(sweepDone);
+      },
+      priceCatalogNeedsRefresh: () => !loaded
+    });
+    const event = { durationMs: 1, method: "POST", model: "any-model", path: "/v1/messages", provider: "alpha", statusCode: 200, usage: { inputTokens: 10, outputTokens: 1 } };
+    await store.record({ ...event, price: { state: "unpriced" }, requestId: "unpriced-request" });
+    await store.record({ ...event, price: { state: "no-catalog" }, requestId: "no-catalog-request" });
+    await swept;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const database = createBetterSqliteDatabase(path.join(dir, "usage.sqlite"));
+    try {
+      const row = (requestId) => ({ ...database.prepare("SELECT cost_source, cost_usd FROM usage_events WHERE request_id = ?").get(requestId) });
+      assert.deepEqual(row("unpriced-request"), { cost_source: "unpriced", cost_usd: null });
+      assert.deepEqual(row("no-catalog-request"), { cost_source: "litellm", cost_usd: 1 });
+    } finally {
+      database.close();
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("a log row copied into the totals keeps its price source, and a log database without the column still copies", async () => {
+  for (const dropColumn of [false, true]) {
+    const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-copy-cost-source-test-"));
+    try {
+      const requestLogDbFile = path.join(dir, "request-logs.sqlite");
+      const logs = new RequestLogStore(requestLogDbFile);
+      const createdAt = new Date().toISOString();
+      const pricing = { inputUsdPerMillionTokens: 5, outputUsdPerMillionTokens: 6 };
+      await logs.writeBatch([{
+        eventId: "median-event",
+        input: {
+          completedAt: createdAt,
+          durationMs: 10,
+          method: "POST",
+          path: "/v1/messages",
+          price: { price: { pricing, source: "models.dev-median" }, state: "priced" },
+          providerName: "alpha",
+          requestBody: Buffer.from(JSON.stringify({ model: "lab-model" })),
+          requestHeaders: { "content-type": "application/json" },
+          requestId: "median-request",
+          responseBodyText: JSON.stringify({ model: "lab-model", usage: { input_tokens: 1_000_000, output_tokens: 0 } }),
+          responseHeaders: { "content-type": "application/json" },
+          startedAt: createdAt,
+          statusCode: 200,
+          url: "http://127.0.0.1:3456/v1/messages"
+        },
+        kind: "record",
+        sequence: 1
+      }]);
+      await logs.close();
+      if (dropColumn) {
+        const database = createBetterSqliteDatabase(requestLogDbFile);
+        try {
+          database.exec("ALTER TABLE request_logs DROP COLUMN cost_source");
+        } finally {
+          database.close();
+        }
+      }
+
+      const usageDbFile = path.join(dir, "usage.sqlite");
+      const stats = await new UsageStore(usageDbFile, { requestLogDbFile }).getStats("today", { includeProxy: true });
+      assert.equal(stats.totals.requestCount, 1);
+      const database = createBetterSqliteDatabase(usageDbFile);
+      try {
+        assert.deepEqual(
+          { ...database.prepare("SELECT cost_source, cost_usd FROM usage_events WHERE request_id = 'median-request'").get() },
+          { cost_source: dropColumn ? "request_log" : "models.dev-median", cost_usd: 5 }
+        );
+      } finally {
+        database.close();
+      }
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
 const customHaikuProvider = {
   baseUrl: "https://api.example.com",
   models: ["claude-haiku-5-5"],
@@ -1058,12 +1144,19 @@ const haikuResponseBody = JSON.stringify({
 // offers at other prices, served through fetch and never from an outside host.
 async function loadHaikuCatalog(input, output) {
   const previousFetch = globalThis.fetch;
-  globalThis.fetch = async (url) => Response.json(String(url).includes("models.dev")
-    ? {
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    if (target.includes("models.dev")) {
+      return Response.json({
         "reseller-a": { models: { "claude-haiku-5-5": { canonical_model_id: "anthropic/claude-haiku-5-5", cost: { input: 0.1714, output: 0.8571 } } } },
         anthropic: { models: { "claude-haiku-5-5": { cost: { input, output } } } }
-      }
-    : {});
+      });
+    }
+    if (target.includes("openrouter.ai")) {
+      return Response.json({ data: [{ id: "lab/unrelated-model", pricing: { completion: "0.000001", prompt: "0.000001" } }] });
+    }
+    return Response.json({ "unrelated-model": { input_cost_per_token: 0.000001, output_cost_per_token: 0.000001 } });
+  };
   try {
     await preloadUsagePriceCatalog({ forceRefresh: true });
   } finally {
@@ -1151,8 +1244,8 @@ test("a request resolved to no price is estimated by neither writer, whatever ca
 
     const { logRow, usageRow } = await recordHaikuRequest(dir, "vm-request-2", { state: "unpriced" });
 
-    assert.deepEqual({ ...logRow }, { cost_source: "", cost_usd: null });
-    assert.deepEqual({ ...usageRow }, { cost_source: "", cost_usd: null });
+    assert.deepEqual({ ...logRow }, { cost_source: "unpriced", cost_usd: null });
+    assert.deepEqual({ ...usageRow }, { cost_source: "unpriced", cost_usd: null });
   } finally {
     await preloadUsagePriceCatalog({ forceRefresh: true }).catch(() => undefined);
     rmSync(dir, { recursive: true, force: true });

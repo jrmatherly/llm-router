@@ -41,12 +41,7 @@ import { providerProtocolForClientProtocol, resolveProviderLogName, resolveRespo
 import { createBodySampler, requestLogSampled, shouldRecordRequestLogs } from "@llmr/core/observability/raw-trace-sync";
 import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace";
 import { coreGatewayBodyLimitBytes, coreGatewayUsageAttributionConfig } from "@llmr/core/gateway/core-runtime/config-compiler";
-import {
-  preloadUsagePriceCatalog,
-  resolveRequestPrice,
-  usagePriceCatalogNeedsRefresh,
-  type RequestPriceOutcome
-} from "@llmr/core/models/pricing-service";
+import { resolveRequestPrice, usagePriceCatalogNeedsRefresh, type RequestPriceOutcome } from "@llmr/core/models/pricing-service";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import { clientClosedRequestStatusCode, clientDisconnectMessage, coreGatewayAuthHeader, resolveStreamRequestLogOutcome, UpstreamRequestError } from "@llmr/core/gateway/internal/shared";
 import type { BrowserWebSearchMcpIntegration, BrowserWebSearchProtocolRecord, UpstreamFetchResult } from "@llmr/core/gateway/internal/shared";
@@ -75,6 +70,7 @@ export type GatewayRequestPipelineDependencies = {
   getCoreAuthToken: () => string;
   getPlugin: () => LLMRouterPlugin | undefined;
   getStatus: () => { coreEndpoint: string; endpoint: string };
+  refreshUsagePriceCatalog?: () => void;
 };
 
 function reportedRouteChange(
@@ -270,8 +266,8 @@ export class GatewayRequestPipeline {
       }
       const modelBeforeRouting = requestLogRequestedModel(bodyToForward ?? requestBody, path);
       const usageAttributionConfig = coreGatewayUsageAttributionConfig(this.config);
-      // Resolved once, by the first write that needs it, and handed to both the
-      // usage write and the request log write so the two rows cannot disagree.
+      // Resolved once, by the first write that needs it, and handed to both
+      // writers so they price by the same lookup.
       let requestPrice: RequestPriceOutcome | undefined;
       const priceFor = (responseHeaders: Headers) => {
         if (requestPrice) {
@@ -283,11 +279,11 @@ export class GatewayRequestPipeline {
           responseHeaders
         });
         requestPrice = resolveRequestPrice(usageAttributionConfig, target.provider, target.model);
-        // Nothing else reloads the main process's catalog while rows keep
-        // pricing. Started, never awaited; a price the user set needs no catalog.
+        // With a price resolved here the usage sweep no longer fires, and it was
+        // this process's only catalog reload. Not awaited; a user price needs no catalog.
         const userPriced = requestPrice.state === "priced" && requestPrice.price.source === "custom";
         if (!userPriced && usagePriceCatalogNeedsRefresh()) {
-          void preloadUsagePriceCatalog().catch(() => undefined);
+          this.dependencies.refreshUsagePriceCatalog?.();
         }
         return requestPrice;
       };

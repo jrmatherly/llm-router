@@ -60,7 +60,7 @@ export function catalogProviderIdsForBaseUrl(baseUrl: string | undefined): strin
   return presetId ? presetCatalogProviderIds[presetId] ?? [] : [];
 }
 
-type CatalogProviderModelOverride =ProviderCatalogModelsResult & {
+type CatalogProviderModelOverride = ProviderCatalogModelsResult & {
   metadataModelAliases?: Record<string, string>;
 };
 

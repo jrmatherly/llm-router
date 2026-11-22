@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { mock } from "node:test";
 import { preloadUsagePriceCatalog } from "@llmr/core/models/pricing-service.ts";
 import { RequestLogStore } from "@llmr/core/observability/request-log-store.ts";
 import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
@@ -260,6 +260,9 @@ test("a log row stores where its price came from and keeps it through a raw-trac
       database.close();
     }
   };
+  // Whatever catalog an earlier test left behind is stale a day later, so the
+  // refresh flag below reflects only whether the batch needs a catalog.
+  mock.timers.enable({ apis: ["Date"], now: Date.now() + 25 * 60 * 60 * 1000 });
   try {
     const pricing = { inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 8 };
     const price = { price: { pricing, source: "models.dev" }, state: "priced" };
@@ -289,7 +292,7 @@ test("a log row stores where its price came from and keeps it through a raw-trac
     ]);
     assert.equal(result.pricingRefreshNeeded, false, "a price resolved by the main process needs no catalog in the worker");
     assert.deepEqual(readRow("resolved-request"), { cost_source: "models.dev", cost_usd: 6 });
-    assert.deepEqual(readRow("unpriced-request"), { cost_source: "", cost_usd: null });
+    assert.deepEqual(readRow("unpriced-request"), { cost_source: "unpriced", cost_usd: null });
 
     assert.equal(await store.updateFromRawTrace({
       requestId: "resolved-request",
@@ -305,6 +308,140 @@ test("a log row stores where its price came from and keeps it through a raw-trac
     }
     assert.equal(await store.backfillMissingUsageCosts(), 1);
     assert.deepEqual(readRow("late-request"), { cost_source: "litellm", cost_usd: 2 });
+  } finally {
+    mock.timers.reset();
+    await store.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+const usageBody = '{"usage":{"input_tokens":1000000,"output_tokens":500000}}';
+
+async function loadCatalog(liteLlm) {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    if (target.includes("litellm")) return Response.json(liteLlm);
+    if (target.includes("models.dev")) return Response.json({ host: { models: { "unrelated-model": { cost: { input: 1, output: 1 } } } } });
+    if (target.includes("openrouter.ai")) return Response.json({ data: [{ id: "lab/unrelated-model", pricing: { completion: "0.000001", prompt: "0.000001" } }] });
+    throw new Error(`a test must not reach ${target}`);
+  };
+  try {
+    await preloadUsagePriceCatalog({ forceRefresh: true });
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+}
+
+function openStore(prefix) {
+  const dir = mkdtempSync(path.join(tmpdir(), prefix));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  return {
+    dir,
+    readRow: (requestId) => {
+      const database = createBetterSqliteDatabase(dbFile);
+      try {
+        return { ...database.prepare("SELECT cost_source, cost_usd FROM request_logs WHERE request_id = ?").get(requestId) };
+      } finally {
+        database.close();
+      }
+    },
+    store: new RequestLogStore(dbFile)
+  };
+}
+
+const litellmPrice = { price: { pricing: { inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 8 }, source: "litellm" }, state: "priced" };
+
+test("a raw trace does not price an existing row by its own outcome while the row's usage row stays unpriced", async () => {
+  const { dir, readRow, store } = openStore("llmr-request-log-raw-trace-outcome-test-");
+  try {
+    await loadCatalog({});
+    await store.writeBatch([{
+      eventId: "no-catalog-event",
+      input: { ...createRecord("no-catalog-request", "{}"), price: { state: "no-catalog" } },
+      kind: "record",
+      sequence: 1
+    }]);
+    await loadCatalog({ "pricing-lock-model": { input_cost_per_token: 0.000002, output_cost_per_token: 0.000008 } });
+    await store.writeBatch([{
+      input: { price: litellmPrice, requestId: "no-catalog-request", responseBodyText: usageBody },
+      kind: "raw-trace-update",
+      sequence: 2
+    }]);
+    assert.deepEqual(readRow("no-catalog-request"), { cost_source: "", cost_usd: null });
+  } finally {
+    await store.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a row the raw trace itself creates takes the trace's outcome", async () => {
+  const { dir, readRow, store } = openStore("llmr-request-log-raw-trace-create-test-");
+  try {
+    await store.writeBatch([{
+      input: {
+        allowStandaloneRecord: true,
+        method: "POST",
+        model: "pricing-lock-model",
+        path: "/v1/messages",
+        price: litellmPrice,
+        provider: "pricing-lock-provider",
+        requestId: "trace-created-request",
+        responseBodyText: usageBody,
+        statusCode: 200
+      },
+      kind: "raw-trace-update",
+      sequence: 1
+    }]);
+    assert.deepEqual(readRow("trace-created-request"), { cost_source: "litellm", cost_usd: 6 });
+  } finally {
+    await store.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a raw trace that prices a row from its stored price writes the source the row lacked", async () => {
+  const { dir, readRow, store } = openStore("llmr-request-log-raw-trace-source-test-");
+  try {
+    await store.writeBatch([{
+      eventId: "stored-price-event",
+      input: { ...createRecord("stored-price-request", "{}"), pricing: { inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 8 } },
+      kind: "record",
+      sequence: 1
+    }]);
+    assert.deepEqual(readRow("stored-price-request"), { cost_source: "", cost_usd: null });
+    assert.equal(await store.updateFromRawTrace({ requestId: "stored-price-request", responseBodyText: usageBody }), true);
+    assert.deepEqual(readRow("stored-price-request"), { cost_source: "custom", cost_usd: 6 });
+  } finally {
+    await store.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("the back-fill skips a row resolved as unpriced and still prices a row written before any catalog", async () => {
+  const { dir, readRow, store } = openStore("llmr-request-log-unpriced-backfill-test-");
+  try {
+    await loadCatalog({});
+    await store.writeBatch([
+      {
+        eventId: "unpriced-event",
+        input: { ...createRecord("unpriced-request", usageBody), price: { state: "unpriced" } },
+        kind: "record",
+        sequence: 1
+      },
+      {
+        eventId: "no-catalog-event",
+        input: { ...createRecord("no-catalog-request", usageBody), price: { state: "no-catalog" } },
+        kind: "record",
+        sequence: 2
+      }
+    ]);
+    assert.deepEqual(readRow("no-catalog-request"), { cost_source: "", cost_usd: null });
+    await loadCatalog({ "pricing-lock-model": { input_cost_per_token: 0.000002, output_cost_per_token: 0.000008 } });
+
+    assert.equal(await store.backfillMissingUsageCosts(), 1);
+    assert.deepEqual(readRow("unpriced-request"), { cost_source: "unpriced", cost_usd: null });
+    assert.deepEqual(readRow("no-catalog-request"), { cost_source: "litellm", cost_usd: 6 });
   } finally {
     await store.close();
     rmSync(dir, { force: true, recursive: true });

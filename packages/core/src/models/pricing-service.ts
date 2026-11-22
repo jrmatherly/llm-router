@@ -8,14 +8,20 @@ type ModelPricingSource = "litellm" | "models.dev" | "openrouter";
 type CatalogPricingSource = ModelPricingSource | "models.dev-median";
 export type UsagePricingSource = CatalogPricingSource | "custom";
 
+export type CompleteModelPricing = ProviderModelPricing & {
+  inputUsdPerMillionTokens: number;
+  outputUsdPerMillionTokens: number;
+};
+
 export type ResolvedModelPrice = {
-  pricing: ProviderModelPricing;
+  pricing: CompleteModelPricing;
   source: UsagePricingSource;
 };
 
-// "unpriced": a loaded catalog was searched and holds no price, so no writer
-// estimates on its own. "no-catalog": nothing was searched, so each writer's
-// fallback estimate and back-fill still run.
+// "unpriced": every catalog source loaded and none holds a price, so no writer
+// estimates and both back-fills skip the row. "no-catalog": nothing was
+// searched, or a source is failing, so each writer's fallback estimate and
+// back-fill still run.
 export type RequestPriceOutcome =
   | { price: ResolvedModelPrice; state: "priced" }
   | { state: "unpriced" }
@@ -46,10 +52,12 @@ export type UsageCostEstimate = {
   source: UsagePricingSource;
 };
 
-type CompleteModelPricing = ProviderModelPricing & {
-  inputUsdPerMillionTokens: number;
-  outputUsdPerMillionTokens: number;
-};
+// Stored in cost_source for a row resolved as "unpriced", so neither back-fill prices it.
+export const unpricedCostSource = "unpriced";
+
+export type WritePricing =
+  | { estimate: false }
+  | { estimate: true; pricing?: ProviderModelPricing; pricingSource?: UsagePricingSource };
 
 type CatalogEntry = {
   canonicalModelId?: string;
@@ -64,8 +72,9 @@ type BareNameOffers = {
 };
 
 // byKey holds "<provider id>/<model key>" for models.dev and the source's own
-// key otherwise. No bare-name key keeps a first entry: models.dev lists its
-// providers in a different order on each fetch.
+// key otherwise, and no bare-name keys: models.dev orders providers differently
+// on each fetch, so a first-wins bare key would change between loads.
+// byBareName lists every offer instead.
 type PriceIndex = {
   byBareName: Map<string, BareNameOffers>;
   byKey: Map<string, CatalogEntry>;
@@ -73,6 +82,7 @@ type PriceIndex = {
 
 type SourcePrices = {
   expiresAt: number;
+  failed: boolean;
   index: PriceIndex;
 };
 
@@ -92,7 +102,13 @@ const fetchTimeoutMs = 5000;
 const liteLlmPricesUrl = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
 const modelsDevPricesUrl = "https://models.dev/api.json";
 const openRouterModelsUrl = "https://openrouter.ai/api/v1/models";
-const pricingSources = new Set<UsagePricingSource>(["custom", "litellm", "models.dev", "models.dev-median", "openrouter"]);
+const pricingSources = new Set(Object.keys({
+  custom: true,
+  litellm: true,
+  "models.dev": true,
+  "models.dev-median": true,
+  openrouter: true
+} satisfies Record<UsagePricingSource, true>));
 
 let catalog: PriceCatalog | undefined;
 let catalogPromise: Promise<PriceCatalog> | undefined;
@@ -135,10 +151,12 @@ export function estimateUsageCostUsdFromLoadedCatalog(
   if (hasCompleteProviderModelPricing(input.pricing)) {
     return estimateUsageCostFromPricing(input, model, input.pricing, input.pricingSource || "custom");
   }
+  // No config here, so no base-URL mapping: a fallback can price differently from resolveRequestPrice.
   const entry = catalog && findCatalogRulePrice(catalog, model, input.provider, []);
   return entry ? estimateUsageCostFromPricing(input, entry.model, entry.pricing, entry.source) : undefined;
 }
 
+/** Never loads the catalog: "no-catalog" means this process has none yet. */
 export function resolveRequestPrice(
   config: Pick<AppConfig, "Providers"> | undefined,
   providerName: string | undefined,
@@ -148,7 +166,7 @@ export function resolveRequestPrice(
   if (hasCompleteProviderModelPricing(userPricing)) {
     return { price: { pricing: userPricing, source: "custom" }, state: "priced" };
   }
-  if (!catalog || !catalogHasPrices(catalog)) {
+  if (!catalog || Array.from(catalog.values()).some((source) => source.failed)) {
     return { state: "no-catalog" };
   }
   const provider = config && providerName
@@ -165,34 +183,19 @@ export function resolveRequestPrice(
     : { state: "unpriced" };
 }
 
-/** Synchronous. Reads the loaded catalog only. */
-export function resolveProviderModelPrice(
-  config: Pick<AppConfig, "Providers"> | undefined,
-  providerName: string | undefined,
-  modelName: string | undefined
-): ResolvedModelPrice | undefined {
-  const outcome = resolveRequestPrice(config, providerName, modelName);
-  return outcome.state === "priced" ? outcome.price : undefined;
-}
-
-/** What a writer prices with, and whether it may estimate at all. */
-export function pricingForWrite(input: RequestPriceInput): {
-  estimate: boolean;
-  pricing?: ProviderModelPricing;
-  pricingSource?: UsagePricingSource;
-} {
+/** A resolved price wins over the legacy pricing fields; "unpriced" forbids a writer's own estimate. */
+export function pricingForWrite(input: RequestPriceInput): WritePricing {
   if (input.price?.state === "priced") {
     return { estimate: true, pricing: input.price.price.pricing, pricingSource: input.price.price.source };
   }
-  return {
-    estimate: input.price?.state !== "unpriced",
-    pricing: input.pricing,
-    pricingSource: input.pricingSource
-  };
+  if (input.price?.state === "unpriced") {
+    return { estimate: false };
+  }
+  return { estimate: true, pricing: input.pricing, pricingSource: input.pricingSource };
 }
 
 export function parseUsagePricingSource(value: unknown): UsagePricingSource | undefined {
-  return pricingSources.has(value as UsagePricingSource) ? value as UsagePricingSource : undefined;
+  return typeof value === "string" && pricingSources.has(value) ? value as UsagePricingSource : undefined;
 }
 
 export function hasCompleteProviderModelPricing(
@@ -290,7 +293,6 @@ function hasBillableUsage(input: UsageCostInput): boolean {
     normalizeCount(input.cacheWrite1hTokens) > 0;
 }
 
-// The rule's catalog steps, in order. A step that finds nothing goes on to the next.
 const catalogRuleSteps: Array<(context: CatalogRuleContext) => CatalogEntry | undefined> = [
   openRouterEntry,
   mappedProviderEntry,
@@ -420,10 +422,6 @@ async function getPriceCatalog(): Promise<PriceCatalog> {
   }
 }
 
-function catalogHasPrices(prices: PriceCatalog): boolean {
-  return Array.from(prices.values()).some((source) => source.index.byKey.size > 0);
-}
-
 const priceSources: Record<ModelPricingSource, () => Promise<PriceIndex>> = {
   litellm: fetchLiteLlmPrices,
   "models.dev": fetchModelsDevPrices,
@@ -442,10 +440,18 @@ async function loadPriceCatalog(previous: PriceCatalog | undefined): Promise<Pri
       next.set(source, cached);
       return;
     }
-    const index = await fetchPrices().catch(emptyPriceIndex);
-    next.set(source, index.byKey.size > 0
-      ? { expiresAt: now + catalogTtlMs, index }
-      : { expiresAt: now + failedSourceRetryMs, index: cached?.index ?? index });
+    const result: { index: PriceIndex } | { error: string } = await fetchPrices().then(
+      (index) => index.byKey.size > 0 ? { index } : { error: "the response held no prices" },
+      (error: unknown) => ({ error: error instanceof Error ? error.message : String(error) })
+    );
+    if ("index" in result) {
+      next.set(source, { expiresAt: now + catalogTtlMs, failed: false, index: result.index });
+      return;
+    }
+    if (!cached?.failed) {
+      console.warn(`[usage] Could not load prices from ${source}: ${result.error}`);
+    }
+    next.set(source, { expiresAt: now + failedSourceRetryMs, failed: true, index: cached?.index ?? emptyPriceIndex() });
   }));
   return next;
 }
@@ -582,7 +588,7 @@ function addCatalogEntry(
   index.byKey.set(key, { ...(canonicalModelId ? { canonicalModelId } : {}), model: model.trim(), pricing, source });
 }
 
-// Name hints for a provider that serves a maker's models under its own base URL.
+// Guesses the maker from the provider's name, for a provider whose base URL maps to no catalog id.
 function firstPartyProviderIds(provider: string): string[] {
   const ids = new Set<string>();
   const add = (value: string) => ids.add(value);

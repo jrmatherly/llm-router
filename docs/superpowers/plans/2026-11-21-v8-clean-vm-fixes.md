@@ -1004,10 +1004,10 @@ Candidates the audit left: a gateway-reported cost that differs from the estimat
 - Test: `packages/core/test/unit/models/pricing-service.test.mjs`, `packages/core/test/integration/observability/request-log-pricing-transaction.test.mjs`, `packages/core/test/integration/observability/request-log-store.test.mjs`, `packages/core/test/integration/usage/usage-store.test.mjs`, `packages/core/test/integration/gateway/recent-issues-wire.test.mjs`
 
 **Interfaces:**
-- Produces: `ResolvedModelPrice = { pricing: ProviderModelPricing; source: UsagePricingSource }` and `resolveProviderModelPrice(config, providerName, modelName)` in `pricing-service.ts`. It is synchronous and reads the loaded catalog only.
+- Produces: `ResolvedModelPrice = { pricing: CompleteModelPricing; source: UsagePricingSource }` and `resolveRequestPrice(config, providerName, modelName)` in `pricing-service.ts`, which returns a `priced`, `unpriced` or `no-catalog` outcome. It is synchronous and reads the loaded catalog only.
 - Produces: a `pricingSource` field beside each existing `pricing` field on the usage and request log inputs, and a column `request_logs.cost_source TEXT NOT NULL DEFAULT ''` added the way `pricing_json` was.
 - Produces: one shared helper that returns the provider and the model to price for a request, built from the attribution `recordCapture` uses today, so the pipeline, the usage write and the raw-trace policy resolve on the same strings.
-- The values of `cost_source` stay `custom`, `models.dev`, `models.dev-median`, `litellm`, `openrouter`, `gateway_billing` and `request_log`.
+- The values of `cost_source` stay `custom`, `models.dev`, `models.dev-median`, `litellm`, `openrouter`, `gateway_billing` and `request_log`, plus `unpriced`: a row resolved as unpriced against a loaded catalog, which both back-fills skip. `unpriced` is a stored marker, not a pricing source.
 
 - [ ] **Step 4: Index the catalog by provider and by maker.** A models.dev entry is keyed by `<provider id>/<model key>` only, and the parser also reads `canonical_model_id`. LiteLLM and OpenRouter entries are keyed by their exact key. No bare-name key keeps a first entry. Failing tests first, with fixture catalogs served through `globalThis.fetch`: two catalogs with the same entries in a different provider order give the same price.
 - [ ] **Step 5: Choose the price by rule.** In order, and a step that finds nothing or finds a price of 0 for both input and output goes on to the next:

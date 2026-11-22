@@ -11,6 +11,7 @@ import {
   hasCompleteProviderModelPricing,
   parseUsagePricingSource,
   pricingForWrite,
+  unpricedCostSource,
   usagePriceCatalogNeedsRefresh,
   type RequestPriceOutcome,
   type UsagePricingSource
@@ -585,6 +586,7 @@ export class RequestLogStore {
           provider
         FROM request_logs
         WHERE cost_usd IS NULL
+          AND cost_source <> '${unpricedCostSource}'
           AND (cache_read_tokens + cache_write_tokens + input_tokens + output_tokens) > 0
           ${beforeId === undefined ? "" : "AND id < ?"}
         ORDER BY id DESC
@@ -683,7 +685,9 @@ export class RequestLogStore {
     // match the fail-closed secret classifier. Extract them before sanitizing;
     // the persisted header JSON remains redacted.
     const credentialInfo = readCredentialLogInfo(rawResponseHeaders, rawRequestHeaders);
-    const { estimate, pricing, pricingSource } = pricingForWrite(input);
+    const write = pricingForWrite(input);
+    const pricing = write.estimate ? write.pricing : undefined;
+    const pricingSource = write.estimate ? write.pricingSource : undefined;
     const costInput = {
       cacheReadTokens,
       cacheWrite1hTokens,
@@ -696,7 +700,7 @@ export class RequestLogStore {
       pricingSource,
       provider: providerName
     };
-    const cost = !estimate
+    const cost = !write.estimate
       ? undefined
       : database.inTransaction
         ? estimateUsageCostUsdFromLoadedCatalog(costInput)
@@ -820,7 +824,7 @@ export class RequestLogStore {
           cacheWriteTokens,
           totalTokens,
           cost?.amountUsd ?? null,
-          pricingSource ?? cost?.source ?? "",
+          write.estimate ? pricingSource ?? cost?.source ?? "" : unpricedCostSource,
           pricing ? JSON.stringify(pricing) : "",
           JSON.stringify(requestHeaders),
           JSON.stringify(responseHeaders),
@@ -1026,27 +1030,23 @@ export class RequestLogStore {
           inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
         const model = normalizeLabel(requestLogStorageModel(usage.model) ?? modelFromTrace ?? existingUsageContext.model, "unknown");
         const provider = normalizeLabel(providerFromTrace ?? existingUsageContext.provider, "unknown");
-        // The price stored with the row wins, so a re-price keeps its source.
-        const { estimate, pricing, pricingSource } = pricingForWrite(
-          existingUsageContext.pricing ? existingUsageContext : input
-        );
-        const costInput = {
-          cacheReadTokens,
-          cacheWrite1hTokens,
-          cacheWrite5mTokens,
-          cacheWriteTokens,
-          inputTokens,
-          model,
-          outputTokens,
-          pricing,
-          pricingSource,
-          provider
-        };
-        const cost = !estimate
-          ? undefined
-          : database.inTransaction
-            ? estimateUsageCostUsdFromLoadedCatalog(costInput)
-            : await estimateUsageCostUsd(costInput);
+        // Only a complete price stored with the row re-prices it. A price
+        // resolved for the trace may differ from the one the usage row was
+        // written with, so any other row keeps its cost for the back-fill.
+        const cost = hasCompleteProviderModelPricing(existingUsageContext.pricing)
+          ? estimateUsageCostUsdFromLoadedCatalog({
+              cacheReadTokens,
+              cacheWrite1hTokens,
+              cacheWrite5mTokens,
+              cacheWriteTokens,
+              inputTokens,
+              model,
+              outputTokens,
+              pricing: existingUsageContext.pricing,
+              pricingSource: existingUsageContext.pricingSource,
+              provider
+            })
+          : undefined;
 
         pushValue("input_tokens", inputTokens);
         pushValue("output_tokens", outputTokens);

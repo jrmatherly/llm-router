@@ -10,6 +10,7 @@ import {
   preloadUsagePriceCatalog,
   pricingForWrite,
   resolveRequestPrice,
+  unpricedCostSource,
   usagePriceCatalogNeedsRefresh,
   type RequestPriceOutcome,
   type UsageCostEstimate,
@@ -204,8 +205,8 @@ export class UsageStore {
     const explicitCost = normalizeOptionalCost(event.costUsd);
     // Read before estimating: a catalog that lands in between must still sweep this row.
     const catalogNeedsRefresh = this.priceCatalogNeedsRefresh();
-    const { estimate, pricing, pricingSource } = pricingForWrite(event);
-    const estimatedCost = explicitCost === undefined && estimate
+    const write = pricingForWrite(event);
+    const estimatedCost = explicitCost === undefined && write.estimate
       ? await this.estimateCost({
           cacheReadTokens,
           cacheWrite1hTokens,
@@ -214,15 +215,15 @@ export class UsageStore {
           inputTokens,
           model,
           outputTokens,
-          pricing,
-          ...(pricingSource ? { pricingSource } : {}),
+          pricing: write.pricing,
+          ...(write.pricingSource ? { pricingSource: write.pricingSource } : {}),
           provider
         })
       : undefined;
     const costUsd = explicitCost ?? estimatedCost?.amountUsd;
-    const costSource = explicitCost === undefined
-      ? estimatedCost?.source ?? ""
-      : normalizeLabel(event.costSource, "gateway_billing");
+    const costSource = explicitCost !== undefined
+      ? normalizeLabel(event.costSource, "gateway_billing")
+      : write.estimate ? estimatedCost?.source ?? "" : unpricedCostSource;
 
     this.pruneOldUsageEvents(database);
     const statement = database.prepare(`
@@ -269,7 +270,7 @@ export class UsageStore {
       costSource
     );
     usageEvents.emit("recorded");
-    if (costUsd === undefined && estimate && totalTokens > 0 && model !== "unknown" && catalogNeedsRefresh) {
+    if (costUsd === undefined && write.estimate && totalTokens > 0 && model !== "unknown" && catalogNeedsRefresh) {
       this.priceUnpricedEventsAfterCatalogLoads(database);
     }
   }
@@ -310,6 +311,7 @@ export class UsageStore {
           WHERE id < ?
             AND created_at >= ?
             AND cost_usd IS NULL
+            AND cost_source <> '${unpricedCostSource}'
             AND (cache_read_tokens + cache_write_tokens + input_tokens + output_tokens) > 0
           ORDER BY id DESC
           LIMIT ?
@@ -531,6 +533,9 @@ export class UsageStore {
   private backfillFromAttachedRequestLog(database: SqlDatabase, requestLogDbFile: string, since: Date): void {
     database.exec(`ATTACH DATABASE ${sqlString(requestLogDbFile)} AS request_log_source`);
     try {
+      // A log database the request log writer has not opened since the column was added lacks it.
+      const hasCostSource = queryRows(database, "PRAGMA request_log_source.table_info(request_logs)")
+        .some((column) => column.name === "cost_source");
       database.prepare(`
           INSERT INTO usage_events (
             created_at,
@@ -570,7 +575,7 @@ export class UsageStore {
             logs.cache_write_tokens,
             logs.total_tokens,
             logs.cost_usd,
-            'request_log'
+            ${hasCostSource ? "COALESCE(NULLIF(logs.cost_source, ''), 'request_log')" : "'request_log'"}
           FROM request_log_source.request_logs AS logs
           WHERE logs.source_usage_id IS NULL
             AND logs.path NOT LIKE ?
