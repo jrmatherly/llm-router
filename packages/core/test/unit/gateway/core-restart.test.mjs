@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
+import { resetRefusedKeyRequestsForTest } from "@llmr/core/gateway/auth/refused-key-requests.ts";
+import { llmrRefusedKeyRequestsMessageType } from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
 
 // A fresh service without starting HTTP, plugins, or child processes.
 function createService() {
@@ -126,3 +128,39 @@ test("#1867 an obsolete child's exit cannot restart its replacement", async (t) 
   assert.equal(restarts, 0);
   assert.equal(service.getStatus().state, "running");
 });
+
+test("refused-key counts survive a core restart and only the current child is heard", () => {
+  resetRefusedKeyRequestsForTest();
+  const { child, service } = crashedService();
+  service.handleCoreGatewayMessage(child, refusedKeyMessage(1, ["2026-11-22T00:00:01.000Z"]));
+  service.handleCoreGatewayMessage(child, refusedKeyMessage(2, ["2026-11-22T00:00:02.000Z", "2026-11-22T00:00:01.000Z"]));
+  const nextChild = {};
+  service.adoptCoreGatewayChild(nextChild);
+  service.handleCoreGatewayMessage(child, refusedKeyMessage(9, ["2026-11-22T00:00:09.000Z"]));
+  service.handleCoreGatewayMessage(nextChild, refusedKeyMessage(1, ["2026-11-22T00:00:03.000Z"]));
+  service.handleCoreGatewayMessage(nextChild, { count: "lots", protocolVersion: 1, recent: [], type: llmrRefusedKeyRequestsMessageType });
+
+  const { refusedForKey } = service.getStatus();
+  assert.equal(service.child, nextChild);
+  assert.equal(refusedForKey.count, 3);
+  assert.deepEqual(refusedForKey.recent.map((entry) => entry.at), [
+    "2026-11-22T00:00:03.000Z",
+    "2026-11-22T00:00:02.000Z",
+    "2026-11-22T00:00:01.000Z"
+  ]);
+});
+
+test("a status with no refused-key requests carries no refusedForKey", () => {
+  resetRefusedKeyRequestsForTest();
+  const { service } = crashedService();
+  assert.equal("refusedForKey" in service.getStatus(), false);
+});
+
+function refusedKeyMessage(count, times) {
+  return {
+    count,
+    protocolVersion: 1,
+    recent: times.map((at) => ({ at, client: "Codex", reason: "Invalid or expired API key.", route: "/v1/responses" })),
+    type: llmrRefusedKeyRequestsMessageType
+  };
+}

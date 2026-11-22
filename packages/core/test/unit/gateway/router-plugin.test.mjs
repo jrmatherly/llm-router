@@ -12,6 +12,7 @@ import {
   llmrLiveTokenRateSnapshotMessageType,
   llmrLiveTokenRateStreamHookKey,
   llmrOpenRouterDiscountFinalizeResponseHookKey,
+  llmrRefusedKeyRequestsMessageType,
   llmrRuntimeConfigReloadMessageType,
   llmrRouteReasonHeader,
   llmrRouteSourceHeader,
@@ -24,7 +25,7 @@ import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/
 import { coreGatewayAuthHeader } from "@llmr/core/gateway/internal/shared.ts";
 import { llmrRemoteControlPathPrefix } from "@llmr/core/gateway/remote-control-service.ts";
 import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control.ts";
-import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/router-plugin.ts";
+import { createGatewayPlugin, resetRefusedKeyRequestPublisherForTest } from "@llmr/core/gateway/core-runtime/router-plugin.ts";
 import { providerRuntimeId } from "@llmr/core/routing/model-registry.ts";
 import { sanitizeHeaderValue, toCoreGatewayProviders } from "@llmr/core/providers/runtime-topology.ts";
 
@@ -735,6 +736,98 @@ test("LLMR router core plugin rejects expired public API keys before gateway sta
   assert.equal(headers["x-auth-api-key-id"], undefined);
   assert.equal(headers["x-auth-sub"], undefined);
 });
+
+test("a wrong public API key sends one refused-key count to the parent without the key", async (t) => {
+  const { messages, plugin } = await refusedKeyHarness(t);
+  await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: "Bearer WRONG-SECRET-KEY" }));
+
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].count, 1);
+  assert.equal(messages[0].protocolVersion, 1);
+  assert.equal(messages[0].recent[0].reason, "Invalid or expired API key.");
+  assert.equal(messages[0].recent[0].route, "/v1/chat/completions");
+  assert.doesNotMatch(JSON.stringify(messages), /WRONG-SECRET-KEY/);
+});
+
+test("a request with no API key is counted as missing and still passes the hook", async (t) => {
+  const { messages, plugin } = await refusedKeyHarness(t);
+  const headers = { "user-agent": "openai-codex test" };
+  const result = await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput(headers));
+
+  assert.equal(result, undefined);
+  assert.equal(headers["x-auth-api-key-id"], undefined);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].recent[0].reason, "API key is missing.");
+  assert.equal(messages[0].recent[0].client, "Codex");
+});
+
+test("a request with the core token or a good key sends no refused-key count", async (t) => {
+  const { messages, plugin } = await refusedKeyHarness(t);
+  assert.equal(await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: "Bearer core-token" })), undefined);
+  assert.equal(await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: "Bearer client-key" })), undefined);
+
+  assert.deepEqual(messages, []);
+});
+
+test("an empty bearer header beside a good x-api-key is not counted as missing", async (t) => {
+  const { messages, plugin } = await refusedKeyHarness(t);
+  const result = await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: "Bearer ", "x-api-key": "client-key" }));
+
+  assert.equal(result, undefined);
+  assert.deepEqual(messages, []);
+});
+
+test("a refused request on a catch-all route is counted with its path and no query string", async (t) => {
+  const { messages, plugin } = await refusedKeyHarness(t);
+  await plugin.requestHooks[0].beforeAuth({
+    request: { headers: { authorization: "Bearer wrong" }, method: "GET", url: "/models?x=1" },
+    route: { method: "GET", route: "/*", url: "/models?x=1" }
+  });
+
+  assert.equal(messages[0].recent[0].route, "/models");
+});
+
+test("refused-key counts inside one second arrive in one trailing message", async (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: 1_000_000 });
+  const { messages, plugin } = await refusedKeyHarness(t);
+  for (let index = 0; index < 3; index += 1) {
+    await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: `Bearer wrong-${index}` }));
+  }
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].count, 1);
+
+  t.mock.timers.tick(1_000);
+  assert.equal(messages.length, 2);
+  assert.equal(messages[1].count, 3);
+  assert.equal(messages[1].recent.length, 3);
+});
+
+async function refusedKeyHarness(t) {
+  resetRefusedKeyRequestPublisherForTest();
+  const config = createDefaultAppConfig();
+  config.APIKEY = "client-key";
+  config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "client", key: "client-key" }];
+  const originalSend = process.send;
+  const messages = [];
+  process.send = (message) => {
+    if (message?.type === llmrRefusedKeyRequestsMessageType) messages.push(message);
+    return true;
+  };
+  t.after(() => {
+    resetRefusedKeyRequestPublisherForTest();
+    if (originalSend) process.send = originalSend;
+    else delete process.send;
+  });
+  const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config, coreAuthToken: "core-token", publicGatewayMode: true } } });
+  return { messages, plugin };
+}
+
+function refusedKeyHookInput(headers) {
+  return {
+    request: { headers, method: "POST", url: "/v1/chat/completions" },
+    route: { method: "POST", route: "/v1/chat/completions", url: "/v1/chat/completions" }
+  };
+}
 
 test("LLMR router core plugin protects internal route decisions with the core token", async () => {
   const config = createDefaultAppConfig();

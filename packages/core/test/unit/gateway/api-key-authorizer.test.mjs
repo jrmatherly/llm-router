@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { authorize, exchangeClaudeCodeWifToken } from "@llmr/core/gateway/auth/api-key-authorizer.ts";
+import { refusedKeyRequests, resetRefusedKeyRequestsForTest } from "@llmr/core/gateway/auth/refused-key-requests.ts";
 
 const authorizerSourceFile = path.join(
   process.cwd(),
@@ -182,4 +183,40 @@ test("a key persisted after a miss is accepted once the cache expires", async (t
   persisted.push({ createdAt: new Date(0).toISOString(), id: "k2", key: "sk-new" });
   t.mock.timers.tick(1001);
   assert.equal((await authorizeRequest(config, request)).result.ok, true);
+});
+
+test("each 401 from the front counts one refused-key request with its reason", async () => {
+  resetRefusedKeyRequestsForTest();
+  const config = configWithApiKeys([
+    { createdAt: new Date(0).toISOString(), id: "primary", key: gatewayApiKey },
+    { createdAt: new Date(0).toISOString(), expiresAt: new Date(Date.now() - 60_000).toISOString(), id: "old", key: "llmr-expired-key" }
+  ]);
+  await authorizeRequest(config, { headers: { authorization: "Bearer llmr-wrong-key" } });
+  await authorizeRequest(config, { headers: {} });
+  await authorizeRequest(config, { headers: { authorization: "Bearer llmr-expired-key" } });
+
+  const refused = refusedKeyRequests();
+  assert.equal(refused.count, 3);
+  assert.deepEqual(new Set(refused.recent.map((entry) => entry.reason)), new Set(["Invalid API key.", "API key is missing.", "API key is expired."]));
+  assert.doesNotMatch(JSON.stringify(refused), /llmr-wrong-key|llmr-expired-key/);
+});
+
+test("a request the front lets in counts no refused-key request", async () => {
+  resetRefusedKeyRequestsForTest();
+  const config = configWithApiKeys([{ createdAt: new Date(0).toISOString(), id: "primary", key: gatewayApiKey }]);
+  const { result } = await authorizeRequest(config, { headers: { authorization: `Bearer ${gatewayApiKey}` } });
+
+  assert.equal(result.ok, true);
+  assert.equal(refusedKeyRequests().count, 0);
+});
+
+test("a remote control request with a wrong query key is counted by its path alone", async () => {
+  resetRefusedKeyRequestsForTest();
+  const config = configWithApiKeys([{ createdAt: new Date(0).toISOString(), id: "primary", key: gatewayApiKey }]);
+  await authorizeRequest(config, { url: "/__llmr/remote/status?api_key=llmr-wrong-query-key" });
+
+  const [entry] = refusedKeyRequests().recent;
+  assert.equal(entry.route, "/__llmr/remote/status");
+  assert.equal(entry.reason, "Invalid API key.");
+  assert.doesNotMatch(JSON.stringify(refusedKeyRequests()), /llmr-wrong-query-key|api_key/);
 });

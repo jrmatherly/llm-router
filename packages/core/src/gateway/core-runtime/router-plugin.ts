@@ -7,6 +7,7 @@ import {
   exchangeClaudeCodeWifToken,
   resolveApiKeyFromHeaders
 } from "@llmr/core/gateway/auth/api-key-authorizer";
+import { createRefusedKeyRequestLog, type RefusedKeyRequestInput } from "@llmr/core/gateway/auth/refused-key-requests";
 import { llmrRemoteControlPathPrefix, llmrRemoteControlService, remoteControlOwnerId } from "@llmr/core/gateway/remote-control-service";
 import {
   LLMRouterPlugin,
@@ -25,6 +26,7 @@ import {
   llmrOpenRouterDiscountFinalizeResponseHookKey,
   llmrOpenRouterDiscountFinalizeStreamHookKey,
   llmrOpenRouterDiscountRequestIdHeader,
+  llmrRefusedKeyRequestsMessageType,
   llmrRouteDiagnosticsHeader,
   llmrRouteFallbackHeader,
   llmrRouteHeaderNames,
@@ -41,6 +43,7 @@ import {
   llmrRouterRouteResolverKey,
   llmrRouterRequestTransformKey,
   encodeLlmrRouteFallbackHeader,
+  type LlmrRefusedKeyRequestsMessage,
   type LlmrRouterPluginRouteRequest
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response";
@@ -121,6 +124,11 @@ type GatewayRequestHookInput = {
     headers?: Record<string, HeaderValue>;
     id?: string;
     method?: string;
+    url?: string;
+  };
+  route?: {
+    method?: string;
+    route?: string;
     url?: string;
   };
 };
@@ -370,6 +378,14 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
             publicAuthKeys,
             rejectMissing: false
           });
+          // The fork's static key check runs next with required: true, so a request with no key ends in 401.
+          if (!authorization.ok || !hasAuthToken(requestInput.request?.headers)) {
+            sharedRefusedKeyRequestPublisher.record({
+              headers: requestInput.request?.headers ?? {},
+              reason: authorization.ok ? "API key is missing." : authorization.error,
+              route: refusedKeyRequestRoute(requestInput)
+            });
+          }
           if (!authorization.ok) {
             return {
               ok: false,
@@ -588,6 +604,65 @@ class CoreGatewayLiveTokenRatePublisher {
       this.publishTimer.unref?.();
     }
   }
+}
+
+const refusedKeyRequestPublishIntervalMs = 1_000;
+
+class RefusedKeyRequestPublisher {
+  private log = createRefusedKeyRequestLog();
+  private lastPublishedAt = Number.NEGATIVE_INFINITY;
+  private publishTimer?: NodeJS.Timeout;
+
+  record(input: RefusedKeyRequestInput): void {
+    this.log.record(input);
+    if (typeof process.send !== "function" || this.publishTimer) {
+      return;
+    }
+    const delayMs = refusedKeyRequestPublishIntervalMs - (Date.now() - this.lastPublishedAt);
+    if (delayMs <= 0) {
+      this.publishNow();
+      return;
+    }
+    this.publishTimer = setTimeout(() => {
+      this.publishTimer = undefined;
+      this.publishNow();
+    }, delayMs);
+    this.publishTimer.unref?.();
+  }
+
+  reset(): void {
+    clearTimeout(this.publishTimer);
+    this.publishTimer = undefined;
+    this.lastPublishedAt = Number.NEGATIVE_INFINITY;
+    this.log = createRefusedKeyRequestLog();
+  }
+
+  private publishNow(): void {
+    this.lastPublishedAt = Date.now();
+    const message: LlmrRefusedKeyRequestsMessage = {
+      ...this.log.snapshot(),
+      protocolVersion: 1,
+      type: llmrRefusedKeyRequestsMessageType
+    };
+    try {
+      process.send?.(message);
+    } catch {
+      // A parent that has gone away cannot take the count.
+    }
+  }
+}
+
+const sharedRefusedKeyRequestPublisher = new RefusedKeyRequestPublisher();
+
+export function resetRefusedKeyRequestPublisherForTest(): void {
+  sharedRefusedKeyRequestPublisher.reset();
+}
+
+function refusedKeyRequestRoute(requestInput: GatewayRequestHookInput): string {
+  const route = requestInput.route?.route;
+  return route && route !== "/*"
+    ? route
+    : requestPath(requestInput.route?.url ?? requestInput.request?.url ?? "/");
 }
 
 function coreGatewayLiveTokenRatePublisherFor(enabled: boolean): CoreGatewayLiveTokenRatePublisher {
@@ -1348,10 +1423,19 @@ function readAuthToken(headers: Record<string, HeaderValue> | undefined): string
   for (const headerName of sdkCompatibleTokenHeaderNames) {
     const raw = readHeader(headers, headerName);
     if (raw) {
-      return raw.toLowerCase().startsWith("bearer ") ? raw.slice(7).trim() : raw.trim();
+      return authTokenFromHeader(raw);
     }
   }
   return undefined;
+}
+
+// The fork skips a key header with no value and reads the next one, so "no key" means no header holds one.
+function hasAuthToken(headers: Record<string, HeaderValue> | undefined): boolean {
+  return sdkCompatibleTokenHeaderNames.some((headerName) => Boolean(authTokenFromHeader(readHeader(headers, headerName) ?? "")));
+}
+
+function authTokenFromHeader(raw: string): string {
+  return raw.toLowerCase().startsWith("bearer ") ? raw.slice(7).trim() : raw.trim();
 }
 
 function readRemoteControlQueryAuthToken(url: string | undefined): string | undefined {

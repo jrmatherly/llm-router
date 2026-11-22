@@ -1,4 +1,4 @@
-import type { RouterFallbackConfig } from "@llmr/core/contracts/app";
+import type { RefusedKeyRequest, RouterFallbackConfig } from "@llmr/core/contracts/app";
 
 export const llmrRouterPluginKey = "llm-router";
 export const llmrRouterRequestTransformKey = "llm-router-request-transform";
@@ -16,6 +16,14 @@ export const llmrRuntimeConfigReloadMessageType = "llmr:runtime-config-reload";
 export const llmrLiveTokenRateConfigMessageType = "llmr:live-token-rate-config";
 export const llmrLiveTokenRateSnapshotMessageType = "llmr:live-token-rate-snapshot";
 export const llmrLiveTokenRateStreamHookKey = "llmr-live-token-rate-stream-hook";
+export const llmrRefusedKeyRequestsMessageType = "llmr:refused-key-requests";
+
+export type LlmrRefusedKeyRequestsMessage = {
+  count: number;
+  protocolVersion: 1;
+  recent: RefusedKeyRequest[];
+  type: typeof llmrRefusedKeyRequestsMessageType;
+};
 
 export type LlmrLiveTokenRateConfigMessage = {
   enabled: boolean;
