@@ -105,6 +105,7 @@ export function normalizeObservabilityConfig(config: Partial<AppConfig["observab
     agentAnalysis: Boolean(config?.agentAnalysis),
     requestLogBodyCapture: config?.requestLogBodyCapture ?? fallbackConfig.observability.requestLogBodyCapture,
     requestLogMaxBodyBytes: config?.requestLogMaxBodyBytes ?? fallbackConfig.observability.requestLogMaxBodyBytes,
+    requestLogRetentionDays: config?.requestLogRetentionDays ?? fallbackConfig.observability.requestLogRetentionDays,
     requestLogSuccessSampleRate: config?.requestLogSuccessSampleRate ?? fallbackConfig.observability.requestLogSuccessSampleRate,
     requestLogs: Boolean(config?.requestLogs)
   };

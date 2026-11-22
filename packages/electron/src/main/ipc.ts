@@ -49,7 +49,7 @@ import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
 import { proxyService } from "@llmr/core/proxy/service";
 import { listMcpServerTools } from "@llmr/core/mcp/tool-discovery";
-import { getAgentAnalysis, getAgentTracePayload, getRequestLogBodyChunk, getRequestLogDetail, getRequestLogs } from "@llmr/core/observability/request-log-store";
+import { applyRequestLogRetentionDays, getAgentAnalysis, getAgentTracePayload, getRequestLogBodyChunk, getRequestLogDetail, getRequestLogs } from "@llmr/core/observability/request-log-store";
 import trayController from "./tray-controller";
 import { appUpdateService } from "./update-service";
 import { getUsageStats, resetOverviewStatistics } from "@llmr/core/usage/store";
@@ -332,6 +332,7 @@ handle(IPC_CHANNELS.appSaveConfig, async (_event, config: AppConfig, options?: A
   const launchAtLoginChanged = Boolean(config.launchAtLogin) !== Boolean(previousConfig.launchAtLogin);
   let savedConfig = await saveAppConfig(config);
   applyAppThemePreference(savedConfig.theme);
+  await applyRequestLogRetentionDays(savedConfig.observability.requestLogRetentionDays);
   if (launchAtLoginChanged) {
     try {
       syncLaunchAtLogin(savedConfig);

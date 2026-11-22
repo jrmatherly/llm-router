@@ -6,6 +6,9 @@ export const rawTraceHardMaxBodyBytes = 50 * 1024 * 1024;
 export const maxRequestLogBodyBytes = rawTraceHardMaxBodyBytes;
 export const defaultRequestLogBodyBytes = rawTraceHardMaxBodyBytes;
 export const rawTraceMaxPartBytes = Number.MAX_SAFE_INTEGER;
+export const minRequestLogRetentionDays = 1;
+export const maxRequestLogRetentionDays = 90;
+export const defaultRequestLogRetentionDays = 7;
 
 export function resolveRawTraceBodyLimit(value: number | undefined): number {
   const configured = value ?? defaultRequestLogBodyBytes;

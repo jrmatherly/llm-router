@@ -17,7 +17,13 @@ import {
   suppressRequestLogRawTraceBodies,
   type RequestLogEnqueueResult
 } from "@llmr/core/observability/request-log-runtime";
-import { maxRequestLogBodyBytes, rawTraceHardMaxBodyBytes } from "@llmr/core/observability/request-log-limits";
+import {
+  defaultRequestLogRetentionDays,
+  maxRequestLogBodyBytes,
+  maxRequestLogRetentionDays,
+  minRequestLogRetentionDays,
+  rawTraceHardMaxBodyBytes
+} from "@llmr/core/observability/request-log-limits";
 import { compactBase64ImagePayloads } from "@llmr/core/observability/request-log-body";
 import { requestLogRequestedModel, requestLogResponseModel } from "@llmr/core/observability/request-log-model";
 import { isSensitiveRequestLogHeaderName, redactSensitiveUrlQuery } from "@llmr/core/observability/sensitive-headers";
@@ -428,7 +434,7 @@ export class RequestLogStore {
   private initPromise?: Promise<SqlDatabase>;
   private insertRequestStatement?: BetterSqliteStatement;
   private insertRouteTraceStatement?: BetterSqliteStatement;
-  private lastRetentionCleanupDay?: string;
+  private lastRetentionCleanupKey?: string;
   private bodySweep?: Generator<string>;
   private bodySweepCompletedAt = 0;
   private revision = 0;
@@ -452,6 +458,16 @@ export class RequestLogStore {
   async checkpoint(): Promise<void> {
     const database = await this.getDatabase();
     database.pragma("wal_checkpoint(PASSIVE)");
+  }
+
+  async setRetentionDays(days: number): Promise<void> {
+    if (!isRequestLogRetentionDays(days)) {
+      throw new RangeError(`Request log retention must be a whole number of days from ${minRequestLogRetentionDays} to ${maxRequestLogRetentionDays}.`);
+    }
+    const database = await this.getDatabase();
+    database.prepare(`INSERT INTO request_log_settings (key, value) VALUES ('retention_days', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(String(days));
+    this.pruneOldRequestLogs(database);
   }
 
   async close(): Promise<void> {
@@ -1536,6 +1552,11 @@ export class RequestLogStore {
         UNIQUE(request_log_id, seq)
       );
 
+      CREATE TABLE IF NOT EXISTS request_log_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS request_log_pending_updates (
         request_id TEXT PRIMARY KEY,
         received_at INTEGER NOT NULL,
@@ -1579,13 +1600,23 @@ export class RequestLogStore {
       }
     }
     const now = new Date();
-    const dayKey = formatLocalDayKey(now);
-    if (this.lastRetentionCleanupDay === dayKey) {
+    const days = readRequestLogRetentionDays(database);
+    const cleanupKey = `${formatLocalDayKey(now)}:${days ?? "unset"}`;
+    if (this.lastRetentionCleanupKey === cleanupKey) {
       return;
     }
     pruneRawTraceEvents(database, now.getTime());
+    // Pruning does not bump revision, and another connection (the writer worker or another LLMR process) may have pruned too, so drop the cached analysis.
+    this.analysisCache = undefined;
+    // Pruning cannot be undone, so a database the app has not given a retention keeps every request log row.
+    if (days === undefined) {
+      this.lastRetentionCleanupKey = cleanupKey;
+      return;
+    }
 
-    const cutoff = floorDay(now).toISOString();
+    const cutoffDate = floorDay(now);
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoff = cutoffDate.toISOString();
     const staleCount = firstNumber(
       queryRows(
         database,
@@ -1596,7 +1627,7 @@ export class RequestLogStore {
     );
 
     if (staleCount === 0) {
-      this.lastRetentionCleanupDay = dayKey;
+      this.lastRetentionCleanupKey = cleanupKey;
       return;
     }
 
@@ -1613,7 +1644,7 @@ export class RequestLogStore {
       flushRequestLogBodyDeletes(database, this.bodyDir);
       if (removed === 0) break;
     }
-    this.lastRetentionCleanupDay = dayKey;
+    this.lastRetentionCleanupKey = cleanupKey;
   }
 
   private sweepOrphanBodies(database: SqlDatabase): void {
@@ -1949,6 +1980,14 @@ export async function getAgentTracePayload(request: AgentAnalysisTracePayloadReq
 
 export async function flushRequestLogRuntime(timeoutMs = 2_000): Promise<{ pending: number; timedOut: boolean }> {
   return await requestLogRuntime.flush({ timeoutMs });
+}
+
+export async function applyRequestLogRetentionDays(days = defaultRequestLogRetentionDays): Promise<void> {
+  try {
+    await requestLogRuntime.setRetentionDays(days);
+  } catch (error) {
+    console.warn(`[request-log] Failed to apply request log retention: ${formatError(error)}`);
+  }
 }
 
 export async function closeRequestLogRuntime(timeoutMs = 2_000): Promise<void> {
@@ -4736,6 +4775,17 @@ function pruneRawTraceEvents(database: SqlDatabase, now = Date.now()): void {
     .run(now - rawTraceEventRetentionMs);
 }
 
+function isRequestLogRetentionDays(value: number): boolean {
+  return Number.isInteger(value) && value >= minRequestLogRetentionDays && value <= maxRequestLogRetentionDays;
+}
+
+function readRequestLogRetentionDays(database: SqlDatabase): number | undefined {
+  const row = database.prepare("SELECT value FROM request_log_settings WHERE key = 'retention_days'").get() as
+    { value?: unknown } | undefined;
+  const days = Number(row?.value);
+  return isRequestLogRetentionDays(days) ? days : undefined;
+}
+
 function ensureRequestRouteTraceSchema(database: SqlDatabase): void {
   const columns = new Set(
     queryRows(database, "PRAGMA table_info(request_route_traces)")
@@ -4897,7 +4947,12 @@ function buildLogWhereClause(filter: RequestLogListFilter): { params: SqlValue[]
   const model = normalizeFilterValue(filter.model);
   const provider = normalizeFilterValue(filter.provider);
   const query = normalizeFilterValue(filter.query);
+  const range = filter.range;
 
+  if (range === "today" || range === "24h" || range === "7d" || range === "30d") {
+    where.push("created_at >= ?");
+    params.push(getAgentAnalysisSince(range, new Date()).toISOString());
+  }
   if (status === "success") {
     where.push("ok = 1");
   } else if (status === "error") {

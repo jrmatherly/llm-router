@@ -61,6 +61,7 @@ test("#1930 expired rows are pruned past one batch and their body files go with 
     const kept = database.prepare("SELECT request_body_ref AS ref FROM request_logs WHERE request_id = 'kept'").get().ref;
     assert.equal(expired.filter(Boolean).length, 140);
     database.prepare("UPDATE request_logs SET created_at = '2000-01-01' WHERE request_id LIKE 'expired-%'").run();
+    database.prepare("INSERT INTO request_log_settings (key, value) VALUES ('retention_days', '7')").run();
     await store.close();
 
     await open();

@@ -18,7 +18,7 @@ import { browserWebSearchMcpService } from "./electron-web-search-mcp";
 import { applyNativeThemePreference } from "./native-theme";
 import { installPermissionPolicy } from "./permission-policy";
 import windowsManager from "./windows";
-import { closeRequestLogRuntime } from "@llmr/core/observability/request-log-store";
+import { applyRequestLogRetentionDays, closeRequestLogRuntime } from "@llmr/core/observability/request-log-store";
 import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
 import type { AppConfig } from "@llmr/core/contracts/app";
 
@@ -205,6 +205,7 @@ function startConfiguredServices(reason: string): Promise<void> {
   if (!startServicesPromise) {
     startServicesPromise = loadAppConfig()
       .then(async (config) => {
+        void applyRequestLogRetentionDays(config.observability.requestLogRetentionDays);
         try {
           config = (await syncClaudeAppGatewayConfig(config)).config;
         } catch (error) {

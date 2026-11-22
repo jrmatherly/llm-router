@@ -1274,6 +1274,7 @@ export type ObservabilityConfig = {
   agentAnalysis: boolean;
   requestLogBodyCapture?: "all" | "errors" | "none";
   requestLogMaxBodyBytes?: number;
+  requestLogRetentionDays?: number;
   requestLogSuccessSampleRate?: number;
   requestLogs: boolean;
 };
@@ -2128,6 +2129,7 @@ export type RequestLogListFilter = {
   pageSize?: number;
   provider?: string;
   query?: string;
+  range?: UsageStatsRange;
   status?: RequestLogStatusFilter;
 };
 

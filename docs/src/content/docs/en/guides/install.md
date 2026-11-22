@@ -54,8 +54,11 @@ After configuring a provider, model, and LLMR client key:
 
 1. Confirm Server shows Running.
 2. Request `/health` on the deployment's gateway address and expect a `200` running response.
-3. Send one minimal model request to a compatible endpoint using the LLMR client key.
-4. Confirm requested/resolved model, provider, status, and latency under Logs.
+3. Open **Logs** and turn on request logs. They are off on a new install.
+4. Send one minimal model request to a compatible endpoint using the LLMR client key.
+5. Confirm the request is listed under Logs with its requested/resolved model, provider, status, and latency.
+
+Request logs are kept for 7 days by default. Change this with **Keep request logs for (days)** under **Settings → Logs & Observability**.
 
 A reachable management UI does not prove that the model gateway is usable. Docker `/health` returning `502` is expected before a provider/model has been configured.
 

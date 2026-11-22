@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { AgentAnalysisSessionRow, AgentAnalysisTraceRun, RequestLogEntry, RequestLogPage } from "@llmr/core/contracts/app.ts";
-import { AgentAnalysisView } from "@llmr/ui/pages/home/components/dashboard.tsx";
+import type { AgentAnalysisSessionRow, AgentAnalysisTraceRun, RequestLogEntry, RequestLogListFilter, RequestLogPage } from "@llmr/core/contracts/app.ts";
+import { AgentAnalysisView, fitAgentAnalysisRange } from "@llmr/ui/pages/home/components/dashboard.tsx";
 import { LogExpandedDetails, LogsView } from "@llmr/ui/pages/home/components/network-logs.tsx";
 import { createEmptyAgentAnalysis } from "@llmr/ui/pages/home/shared/usage.ts";
+
+function firstMatch(html: string, pattern: RegExp): string {
+  const match = html.match(pattern);
+  assert.ok(match, `markup matching ${pattern} rendered`);
+  return match[0];
+}
 
 const emptyLogPage: RequestLogPage = {
   generatedAt: "2026-07-23T00:00:00.000Z",
@@ -86,6 +92,50 @@ test("LogsView explains filtered empty results and labels page sizes", () => {
   assert.match(html, /No request logs match the current filters\./);
   assert.match(html, /Clear filters/);
   assert.match(html, /25 \/ page/);
+});
+
+test("LogsView says how long request logs are kept only when it is given the retention", () => {
+  const render = (retentionDays?: number) => renderToStaticMarkup(
+    <LogsView
+      error=""
+      filter={{ page: 1, pageSize: 25, status: "all" }}
+      loading={false}
+      page={emptyLogPage}
+      refreshLogs={() => undefined}
+      retentionDays={retentionDays}
+      updateFilter={() => undefined}
+    />
+  );
+
+  assert.match(render(7), /Request logs are kept for 7 days\. Change this in Settings\./);
+  assert.match(render(1), /Request logs are kept for 1 day\. Change this in Settings\./);
+  assert.doesNotMatch(render(), /Request logs are kept for/);
+});
+
+test("LogsView offers preset date ranges and disables those longer than the retention", () => {
+  const render = (props: { filter?: RequestLogListFilter; retentionDays?: number } = {}) => renderToStaticMarkup(
+    <LogsView
+      error=""
+      filter={props.filter ?? { page: 1, pageSize: 25, status: "all" }}
+      loading={false}
+      page={emptyLogPage}
+      refreshLogs={() => undefined}
+      retentionDays={props.retentionDays}
+      updateFilter={() => undefined}
+    />
+  );
+  const dateSelect = (html: string) => firstMatch(html, /<select[^>]*aria-label="Filter request log date"[^>]*>.*?<\/select>/);
+  const option = (html: string, label: string) => firstMatch(dateSelect(html), new RegExp(`<option[^>]*>${label}</option>`));
+
+  const labels = [...dateSelect(render()).matchAll(/<option[^>]*>([^<]*)<\/option>/g)].map((match) => match[1]);
+  assert.deepEqual(labels, ["All dates", "Today", "Last 24 hours", "Last 7 days", "Last 30 days"]);
+
+  const kept7 = render({ retentionDays: 7 });
+  assert.match(option(kept7, "Last 30 days"), /disabled=""/);
+  assert.doesNotMatch(option(kept7, "Last 7 days"), /disabled=""/);
+  assert.doesNotMatch(dateSelect(render()), /disabled=""/);
+
+  assert.match(render({ filter: { page: 1, pageSize: 25, range: "7d", status: "all" } }), /No request logs match the current filters\./);
 });
 
 test("AgentAnalysisView keeps session headings horizontal and shows cache rate and cost", () => {
@@ -378,6 +428,36 @@ test("AgentAnalysisView surfaces bounded analysis and missing session states", (
   assert.match(html, /5,000/);
   assert.match(html, /Session not found or outside the selected range/);
   assert.doesNotMatch(html, /Loading session metrics/);
+});
+
+test("AgentAnalysisView disables ranges longer than the request log retention and says why", () => {
+  const html = renderToStaticMarkup(
+    <AgentAnalysisView
+      agentFilter="all"
+      error=""
+      loading={false}
+      range="7d"
+      refreshAnalysis={() => undefined}
+      retentionDays={7}
+      setAgentFilter={() => undefined}
+      setRange={() => undefined}
+      setSelectedSession={() => undefined}
+      snapshot={createEmptyAgentAnalysis("7d")}
+    />
+  );
+  const rangeButton = (label: string) => firstMatch(html, new RegExp(`<button[^>]*>${label}</button>`));
+
+  assert.match(rangeButton("30d"), /disabled=""/);
+  assert.match(rangeButton("30d"), /title="Request logs are kept for 7 days\. Change this in Settings\."/);
+  assert.doesNotMatch(rangeButton("7d"), /disabled=""/);
+  assert.doesNotMatch(rangeButton("24h"), /disabled=""/);
+});
+
+test("an Agent Analysis range longer than a lowered retention falls back to the longest range that fits", () => {
+  assert.equal(fitAgentAnalysisRange("30d", 7), "7d");
+  assert.equal(fitAgentAnalysisRange("7d", 3), "24h");
+  assert.equal(fitAgentAnalysisRange("24h", 1), "24h");
+  assert.equal(fitAgentAnalysisRange("30d", undefined), "30d");
 });
 
 test("#1801 LogsView shows missing HTTP status as neutral", () => {

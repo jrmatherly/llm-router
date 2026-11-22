@@ -1120,6 +1120,62 @@ test("RequestLogRuntime accounts bounded file-backed raw bodies against queue me
   }
 });
 
+test("RequestLogRuntime setRetentionDays resolves after the writer saved the value and pruned older rows", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-retention-test-"));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  const store = new RequestLogStore(dbFile);
+  const runtime = createRequestLogRuntime({ dbFile, workerFile });
+  try {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    await store.record({ ...createRecord("old"), completedAt: threeDaysAgo, startedAt: threeDaysAgo });
+    await store.record(createRecord("new"));
+    await runtime.setRetentionDays(2);
+    assert.deepEqual((await runtime.list({})).items.map((item) => item.requestId), ["new"]);
+    for (const days of [0, 91, 2.5, Number.NaN]) {
+      await assert.rejects(runtime.setRetentionDays(days), /whole number of days/, String(days));
+    }
+  } finally {
+    await runtime.close({ timeoutMs: 5_000 });
+    await store.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("RequestLogRuntime saves a retention value the writer died before saving once a new writer is ready", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-retention-crash-test-"));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  const fixture = path.join(dir, "worker.cjs");
+  writeFileSync(fixture, `
+    const { parentPort, workerData } = require('node:worker_threads');
+    const fs = require('node:fs');
+    parentPort.on('message', (message) => {
+      if (message.method === 'setRetentionDays' && message.args[0] === 30 && !fs.existsSync(workerData.dbFile + '.crashed')) {
+        fs.writeFileSync(workerData.dbFile + '.crashed', '1');
+        process.exit(1);
+      }
+    });
+    require(${JSON.stringify(workerFile)});
+  `);
+  const runtime = createRequestLogRuntime({ dbFile, workerFile: fixture });
+  const warn = console.warn;
+  console.warn = () => undefined;
+  let database;
+  try {
+    await runtime.setRetentionDays(7);
+    database = createBetterSqliteDatabase(dbFile);
+    const savedDays = () => database.prepare("SELECT value FROM request_log_settings WHERE key = 'retention_days'").get()?.value;
+    assert.equal(savedDays(), "7");
+    await assert.rejects(runtime.setRetentionDays(30), /exited with 1/);
+    await waitForCondition(() => savedDays() === "30", 5_000);
+    assert.equal(runtime.metrics().writerRestarts, 1);
+  } finally {
+    console.warn = warn;
+    database?.close();
+    await runtime.close({ timeoutMs: 5_000 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("RequestLogRuntime terminally rejects delayed raw traces for records dropped by overload", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-shared-admission-test-"));
   const realDateNow = Date.now;

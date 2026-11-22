@@ -95,6 +95,11 @@ async function handleMessage(message: WorkerMessage): Promise<void> {
     case "list":
       result = await store.list(args[0] as Parameters<RequestLogStore["list"]>[0]);
       break;
+    case "setRetentionDays":
+      if (configuration.mode !== "writer") throw new Error("Query worker cannot process writes.");
+      await store.setRetentionDays(args[0] as number);
+      result = true;
+      break;
     case "shutdown":
       shuttingDown = true;
       await store.close();

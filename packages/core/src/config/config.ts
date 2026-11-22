@@ -17,7 +17,11 @@ import { normalizeGrokProviderAccountConfig, normalizeGrokProviderMediaCapabilit
 import { removeOpenCodeProviderAccountConfig } from "@llmr/core/agents/local-providers/opencode";
 import { CLAUDE_CODE_DEFAULT_ENV, CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, DEFAULT_TRAY_COMPONENT_VARIANTS, GATEWAY_PLUGIN_PERMISSION_IDS, GATEWAY_PLUGIN_SURFACE_IDS, OVERVIEW_WIDGET_SIZE_VALUES, ROUTER_FALLBACK_MAX_RETRY_COUNT, ROUTER_SCRIPT_API_VERSION, ROUTER_SCRIPT_DEFAULT_TIMEOUT_MS, ROUTER_SCRIPT_MAX_TIMEOUT_MS, TRAY_SINGLETON_WIDGET_TYPES, TRAY_TOP_WIDGET_TYPES, TRAY_WINDOW_MODULE_IDS, enforceSingleEnabledGlobalProfilePerAgent, isEnabledGlobalProfile, isRestorableGlobalProfile, knownGatewayPluginDefaultPermissions, knownGatewayPluginDefaultSurfaces } from "@llmr/core/contracts/app";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config";
-import { maxRequestLogBodyBytes } from "@llmr/core/observability/request-log-limits";
+import {
+  maxRequestLogBodyBytes,
+  maxRequestLogRetentionDays,
+  minRequestLogRetentionDays
+} from "@llmr/core/observability/request-log-limits";
 import { providerRuntimeId } from "@llmr/core/routing/model-registry";
 import { reconcileProfileModelSelections } from "@llmr/core/profiles/model-selection";
 import { findProviderPresetByBaseUrl, primaryProviderPresetEndpoint, providerApiKeySafetyIssue, providerEndpointCanReceiveProviderApiKey } from "@llmr/core/providers/presets/index";
@@ -1034,6 +1038,12 @@ function parseObservability(value: unknown): Partial<ObservabilityConfig> | unde
   }
   if (typeof value.requestLogMaxBodyBytes === "number" && Number.isFinite(value.requestLogMaxBodyBytes)) {
     observability.requestLogMaxBodyBytes = Math.max(0, Math.min(maxRequestLogBodyBytes, Math.floor(value.requestLogMaxBodyBytes)));
+  }
+  if (typeof value.requestLogRetentionDays === "number" && Number.isFinite(value.requestLogRetentionDays)) {
+    observability.requestLogRetentionDays = Math.max(
+      minRequestLogRetentionDays,
+      Math.min(maxRequestLogRetentionDays, Math.floor(value.requestLogRetentionDays))
+    );
   }
   if (typeof value.requestLogSuccessSampleRate === "number" && Number.isFinite(value.requestLogSuccessSampleRate)) {
     observability.requestLogSuccessSampleRate = Math.max(0, Math.min(1, value.requestLogSuccessSampleRate));

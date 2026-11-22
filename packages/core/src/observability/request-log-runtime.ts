@@ -160,7 +160,9 @@ export class RequestLogRuntime {
   private queryWorkerReady?: Promise<void>;
   private readonly queue: QueuedCommand[] = [];
   private revision = 0;
+  private requestedRetentionDays?: number;
   private readonly runtimeId = randomUUID();
+  private savedRetentionDays?: number;
   private readonly writerRequests = new Map<number, PendingRpc>();
   private writerRestartCount = 0;
   private writerRestartTimer?: NodeJS.Timeout;
@@ -329,6 +331,12 @@ export class RequestLogRuntime {
 
   async getTracePayload(request: AgentAnalysisTracePayloadRequest): Promise<AgentAnalysisTracePayloadFullResult> {
     return await this.query<AgentAnalysisTracePayloadFullResult>("getTracePayload", [request]);
+  }
+
+  async setRetentionDays(days: number): Promise<void> {
+    if (this.closed) throw new Error("Request log runtime is closed.");
+    this.requestedRetentionDays = days;
+    await this.sendRequestedRetentionDays();
   }
 
   metrics(): RequestLogRuntimeMetrics {
@@ -732,6 +740,10 @@ export class RequestLogRuntime {
           worker.off("error", onStartupError);
           resolve();
           this.schedulePump(true);
+          // A writer that died mid-request lost the value; without this the database keeps the old one and prunes by it.
+          this.sendRequestedRetentionDays().catch((error) => {
+            console.warn(`[request-log] Failed to save request log retention: ${formatRuntimeError(error)}`);
+          });
           return;
         }
         this.handleWriterMessage(message);
@@ -913,6 +925,15 @@ export class RequestLogRuntime {
     return await rpc<T>(this.queryWorker, this.queryRequests, ++this.nextRequestId, method, args, {
       revision: this.revision
     });
+  }
+
+  private async sendRequestedRetentionDays(): Promise<void> {
+    // A newer value can be requested while an older one is in flight, so send until the writer has the latest.
+    while (this.requestedRetentionDays !== undefined && this.requestedRetentionDays !== this.savedRetentionDays) {
+      const days = this.requestedRetentionDays;
+      await this.writerRpc("setRetentionDays", [days]);
+      this.savedRetentionDays = days;
+    }
   }
 
   private async writerRpc<T = unknown>(method: string, args: unknown[]): Promise<T> {

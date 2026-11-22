@@ -14,8 +14,8 @@ import {
   networkExchangeMatchesQuery, networkHeaderRows, networkLifecycleLabel, networkQueryRows, networkRowId, networkSummaryRows,
   Pause, Play, prepareLogBodyForWorker, ProxyNetworkBody, ProxyNetworkExchange, ProxyNetworkSnapshot, ProxyStatus,
   ReactNode, ReactPointerEvent, RefreshCw, RequestLogBody, RequestLogBodyChunk, RequestLogEntry, RequestLogListFilter,
-  RequestLogPage, requestLogPageSizeOptions, RequestLogStatusFilter, requestLogStatusOptions, Search, Select, Trash2, useCallback, useEffect, useMemo, useRef,
-  useState
+  RequestLogPage, requestLogPageSizeOptions, requestLogRangeOptions, requestLogRetentionNotice, RequestLogStatusFilter, requestLogStatusOptions, Search, Select, Trash2,
+  usageRangeDays, UsageStatsRange, useCallback, useEffect, useMemo, useRef, useState
 } from "../shared/index";
 import { TooltipPortal } from "@/components/ui/tooltip";
 type NetworkRequestTab = "body" | "header" | "query" | "raw" | "summary";
@@ -359,6 +359,7 @@ export function LogsView({
   onFocusedRequestHandled,
   page,
   refreshLogs,
+  retentionDays,
   updateFilter
 }: {
   enabled?: boolean;
@@ -370,6 +371,7 @@ export function LogsView({
   onFocusedRequestHandled?: () => void;
   page: RequestLogPage;
   refreshLogs: () => void;
+  retentionDays?: number;
   updateFilter: (patch: RequestLogListFilter, resetPage?: boolean) => void;
 }) {
   const [expandedId, setExpandedId] = useState<number>();
@@ -527,6 +529,16 @@ export function LogsView({
             value={filter.status ?? "all"}
           />
           <Select
+            aria-label="Filter request log date"
+            className="h-7 w-[118px] bg-[length:14px] px-2 pr-7 text-[11px]"
+            onValueChange={(value) => updateFilter({ range: (value || undefined) as UsageStatsRange | undefined })}
+            options={requestLogRangeOptions.map((option) => ({
+              ...option,
+              disabled: option.value !== "" && retentionDays !== undefined && usageRangeDays(option.value) > retentionDays
+            }))}
+            value={filter.range ?? ""}
+          />
+          <Select
             aria-label="Filter request log provider"
             className="h-7 w-[148px] bg-[length:14px] px-2 pr-7 text-[11px]"
             onValueChange={(value) => updateFilter({ provider: value || undefined })}
@@ -591,6 +603,10 @@ export function LogsView({
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
           </button>
         </div>
+
+        {retentionDays ? (
+          <div className="border-b px-3 py-1 text-[11px] text-muted-foreground">{requestLogRetentionNotice(retentionDays)}</div>
+        ) : null}
 
         {error ? (
           <div className="network-error-box mx-3 mt-3 rounded-md border px-3 py-2 text-[12px]">{error}</div>
@@ -728,6 +744,7 @@ function logFilterHasActiveValues(filter: RequestLogListFilter): boolean {
     filter.provider?.trim() ||
     filter.model?.trim() ||
     filter.credential?.trim() ||
+    filter.range ||
     (filter.status && filter.status !== "all")
   );
 }
@@ -739,6 +756,7 @@ function clearRequestLogFilters(): RequestLogListFilter {
     page: 1,
     provider: undefined,
     query: "",
+    range: undefined,
     status: "all"
   };
 }

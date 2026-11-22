@@ -3271,6 +3271,7 @@ function App() {
                 onFocusedRequestHandled: () => setFocusedRequestLogId(undefined),
                 page: requestLogPage,
                 refreshLogs: () => void refreshRequestLogs(),
+                retentionDays: draftConfig.observability.requestLogRetentionDays,
                 updateFilter: updateRequestLogFilter
               },
               models: {
@@ -3290,6 +3291,7 @@ function App() {
                 loading: agentAnalysisLoading,
                 range: agentAnalysisRange,
                 refreshAnalysis: () => void refreshAgentAnalysis(),
+                retentionDays: draftConfig.observability.requestLogRetentionDays,
                 selectedSession: agentAnalysisSession,
                 setAgentFilter: updateAgentAnalysisAgent,
                 setRange: updateAgentAnalysisRange,

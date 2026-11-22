@@ -7,7 +7,7 @@ import {
   type AppConfig,
   type ProxyRouteTarget
 } from "@llmr/core/contracts/app";
-import { defaultRequestLogBodyBytes } from "@llmr/core/observability/request-log-limits";
+import { defaultRequestLogBodyBytes, defaultRequestLogRetentionDays } from "@llmr/core/observability/request-log-limits";
 
 export const DEFAULT_PROXY_TARGETS: ProxyRouteTarget[] = [
   { host: "api.anthropic.com", paths: ["/v1/messages", "/v1/messages/count_tokens"] },
@@ -120,6 +120,7 @@ export function createDefaultAppConfig(options: DefaultAppConfigOptions = {}): A
       agentAnalysis: false,
       requestLogBodyCapture: "all",
       requestLogMaxBodyBytes: defaultRequestLogBodyBytes,
+      requestLogRetentionDays: defaultRequestLogRetentionDays,
       requestLogSuccessSampleRate: 1,
       requestLogs: false
     },
