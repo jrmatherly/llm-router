@@ -1682,7 +1682,7 @@ export async function readRawTraceRequestLogBundle(
   ]);
   const upstreamResponseBody = upstreamResponseStream ?? fallbackResponseBody;
   const target = isRecord(manifest.target) ? manifest.target : {};
-  // A request the gateway refused before any upstream call has no upstream URL and no upstream body part.
+  // The fork still writes upstream metadata for a request it refused before the provider call, with no url and a fixed POST, so the client request stands in, and the model is the client's own text.
   const refusedBeforeUpstream = !stringValue(upstreamRequestMetadata?.url) &&
     !parts.some((part) => stringValue(part.partType) === "upstream_request");
   const requestMetadata = refusedBeforeUpstream ? clientRequestMetadata : upstreamRequestMetadata;

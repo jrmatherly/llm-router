@@ -713,8 +713,8 @@ function RefusedKeyRequestsNotice({ refused }: { refused: RefusedKeyRequests }) 
         {subject} refused for a missing, wrong or expired API key since LLM Router started.
       </div>
       <ul className="mt-1.5 grid gap-1 text-[11px] text-muted-foreground">
-        {refused.recent.map((entry) => (
-          <li className="flex min-w-0 flex-wrap gap-x-3" key={[entry.at, entry.route, entry.reason, entry.client].join("|")}>
+        {refused.recent.map((entry, index) => (
+          <li className="flex min-w-0 flex-wrap gap-x-3" key={`${entry.at}-${index}`}>
             <span className="font-mono">{formatLogDateTime(entry.at)}</span>
             <span className="min-w-0 max-w-full truncate">{entry.client}</span>
             <span className="min-w-0 max-w-full truncate font-mono">{entry.route}</span>

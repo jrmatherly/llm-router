@@ -639,17 +639,14 @@ class RefusedKeyRequestPublisher {
 
   private publishNow(): void {
     this.lastPublishedAt = Date.now();
-    // A send on a closed channel emits an unhandled "error" on process, which would end the child.
-    if (!process.connected) {
-      return;
-    }
     const message: LlmrRefusedKeyRequestsMessage = {
       ...this.log.snapshot(),
       protocolVersion: 1,
       type: llmrRefusedKeyRequestsMessageType
     };
     try {
-      process.send?.(message);
+      // With a callback, a closed channel or a failed write reaches it instead of an "error" on process, which would end the child.
+      process.send?.(message, () => undefined);
     } catch {
       // A count that cannot be serialized or sent is dropped; the request is still refused.
     }
@@ -664,6 +661,7 @@ export function resetRefusedKeyRequestPublisherForTest(): void {
 
 function refusedKeyRequestRoute(requestInput: GatewayRequestHookInput): string {
   const route = requestInput.route?.route;
+  // The fork's route pattern drops ids and the query string; its catch-all "/*" names nothing, so the path stands in.
   return route && route !== "/*"
     ? route
     : requestPath(requestInput.route?.url ?? requestInput.request?.url ?? "/");

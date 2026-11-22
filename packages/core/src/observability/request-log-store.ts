@@ -31,7 +31,7 @@ import {
   rawTraceHardMaxBodyBytes
 } from "@llmr/core/observability/request-log-limits";
 import { compactBase64ImagePayloads } from "@llmr/core/observability/request-log-body";
-import { requestLogRequestedModel, requestLogResponseModel } from "@llmr/core/observability/request-log-model";
+import { maxRequestLogModelLength, requestLogRequestedModel, requestLogResponseModel } from "@llmr/core/observability/request-log-model";
 import { isSensitiveRequestLogHeaderName, redactSensitiveUrlQuery } from "@llmr/core/observability/sensitive-headers";
 import { inferGatewayClient } from "@llmr/core/gateway/http/io";
 import { createSseBoundaryTracker, type SseBoundaryRepair } from "@llmr/core/gateway/request/sse-terminal";
@@ -648,12 +648,12 @@ export class RequestLogStore {
       })
     ) ?? {};
     const route = splitRequestLogRouteSelector(input.fallbackModel);
-    const bodyModel = requestLogRequestedModel(input.requestBody, input.path);
+    const bodyModel = requestLogRequestedModel(input.requestBody, input.path)?.slice(0, maxRequestLogModelLength);
     const requestModel = normalizeFilterValue(input.model) ?? bodyModel;
     const requestModelForStorage = requestLogStorageModel(requestModel);
     const usageRoute = decodedClaudeAppGatewayRouteParts(usage.model);
     const usageModelForStorage = usageRoute?.model ?? normalizeFilterValue(usage.model);
-    const requestedModel = normalizeFilterValue(input.requestedModel) ?? bodyModel ?? "";
+    const requestedModel = (normalizeFilterValue(input.requestedModel) ?? bodyModel ?? "").slice(0, maxRequestLogModelLength);
     const resolvedModel = normalizeFilterValue(input.resolvedModel) ??
       normalizeFilterValue(input.model) ??
       route.model ??
@@ -4551,7 +4551,7 @@ function migrateRequestLogModelSummaries(database: SqlDatabase): void {
     database.transaction(() => {
       for (const { id } of ids) {
         const row = read.get(id) as Record<string, SqlValue>;
-        const requestedModel = requestLogRequestedModel(String(row.request_body_text ?? ""), String(row.path ?? "")) ?? "";
+        const requestedModel = (requestLogRequestedModel(String(row.request_body_text ?? ""), String(row.path ?? "")) ?? "").slice(0, maxRequestLogModelLength);
         const resolvedModel = normalizeFilterValue(String(row.model ?? "")) ?? "";
         const responseModel = requestLogResponseModel(String(row.response_body_text ?? "")) ?? "";
         update.run(requestedModel, resolvedModel, responseModel, id);

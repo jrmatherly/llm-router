@@ -2,13 +2,15 @@ import { routeModelFromPath } from "@llmr/core/routing/protocol-adapter";
 
 type JsonRecord = Record<string, unknown>;
 
-// The requested model is whatever the client typed, so it is cut before it reaches a column or a usage event.
+// The client picks this name, so it is cut before it is stored.
 export const maxRequestLogModelLength = 200;
 
 export function requestLogRequestedModel(body: Buffer | string, path = ""): string | undefined {
-  const model = normalizeModel(routeModelFromPath(path)) ??
-    modelFromPayload(parseJsonBody(typeof body === "string" ? body : body.toString("utf8")));
-  return model?.slice(0, maxRequestLogModelLength);
+  const pathModel = normalizeModel(routeModelFromPath(path));
+  if (pathModel) {
+    return pathModel;
+  }
+  return modelFromPayload(parseJsonBody(typeof body === "string" ? body : body.toString("utf8")));
 }
 
 export function requestLogResponseModel(text: string): string | undefined {

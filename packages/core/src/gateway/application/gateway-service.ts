@@ -440,7 +440,7 @@ class GatewayService {
 
   getStatus(): GatewayStatus {
     const refusedForKey = refusedKeyRequests();
-    // Set after the spread, so a copy of an older status that this.status holds never shows.
+    // this.status can hold an earlier getStatus() copy (start() spreads one in), so its refusedForKey gives way to the live one.
     const { refusedForKey: _stale, ...status } = this.status;
     return {
       ...status,

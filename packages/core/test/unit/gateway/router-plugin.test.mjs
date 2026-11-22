@@ -789,15 +789,25 @@ test("a refused-key count that cannot be sent still refuses the request", async 
   assert.equal(result.status, 401);
 });
 
-test("no refused-key count is sent once the parent channel is closed", async (t) => {
+test("a refused-key send that fails later reaches its callback, not an error on process", async (t) => {
   const { plugin } = await refusedKeyHarness(t);
-  let sends = 0;
-  process.send = () => { sends += 1; return true; };
-  Object.defineProperty(process, "connected", { configurable: true, value: false, writable: true });
+  let callbacks = 0;
+  process.send = (_message, callback) => {
+    assert.equal(typeof callback, "function");
+    callbacks += 1;
+    callback(new Error("channel closed"));
+    return false;
+  };
+  const errors = [];
+  const onError = (error) => errors.push(error);
+  process.on("error", onError);
+  t.after(() => process.off("error", onError));
   const result = await plugin.requestHooks[0].beforeAuth(refusedKeyHookInput({ authorization: "Bearer wrong" }));
+  await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(result?.ok, false);
-  assert.equal(sends, 0);
+  assert.equal(callbacks, 1);
+  assert.deepEqual(errors, []);
 });
 
 test("a refused request on a catch-all route is counted with its path and no query string", async (t) => {
@@ -844,8 +854,6 @@ async function refusedKeyHarness(t) {
   config.APIKEY = "client-key";
   config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "client", key: "client-key" }];
   const originalSend = process.send;
-  const originalConnected = Object.getOwnPropertyDescriptor(process, "connected");
-  Object.defineProperty(process, "connected", { configurable: true, value: true, writable: true });
   const messages = [];
   process.send = (message) => {
     if (message?.type === llmrRefusedKeyRequestsMessageType) messages.push(message);
@@ -855,8 +863,6 @@ async function refusedKeyHarness(t) {
     resetRefusedKeyRequestPublisherForTest();
     if (originalSend) process.send = originalSend;
     else delete process.send;
-    if (originalConnected) Object.defineProperty(process, "connected", originalConnected);
-    else delete process.connected;
   });
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config, coreAuthToken: "core-token", publicGatewayMode: true } } });
   return { messages, plugin };

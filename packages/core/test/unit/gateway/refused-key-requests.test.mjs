@@ -92,6 +92,23 @@ test("a child snapshot is bounded before it is held", () => {
   }
 });
 
+test("a child count that is not finite gives a finite total", () => {
+  for (const count of [Number.NaN, Number.POSITIVE_INFINITY]) {
+    resetRefusedKeyRequestsForTest();
+    mergeChildRefusedKeyRequests({ count, recent: [childEntry("2026-11-22T00:00:01.000Z")] });
+    assert.equal(refusedKeyRequests().count, 1);
+  }
+});
+
+test("a child count below its entries counts every entry", () => {
+  resetRefusedKeyRequestsForTest();
+  mergeChildRefusedKeyRequests({
+    count: 0,
+    recent: [childEntry("2026-11-22T00:00:01.000Z"), childEntry("2026-11-22T00:00:02.000Z"), childEntry("2026-11-22T00:00:03.000Z")]
+  });
+  assert.equal(refusedKeyRequests().count, 3);
+});
+
 test("a route's fragment is dropped", () => {
   resetRefusedKeyRequestsForTest();
   recordRefusedKeyRequest({ headers: {}, reason: "Invalid API key.", route: "/a#k=SECRET" });

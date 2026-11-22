@@ -38,13 +38,14 @@ export function recordRefusedKeyRequest(input: RefusedKeyRequestInput): void {
 }
 
 export function mergeChildRefusedKeyRequests(snapshot: RefusedKeyRequests): void {
+  const recent = newestRefusedKeyRequests(snapshot.recent.map(boundedRefusedKeyRequest));
   currentChild = {
-    count: Math.max(0, Math.floor(snapshot.count)),
-    recent: newestRefusedKeyRequests(snapshot.recent.map(boundedRefusedKeyRequest))
+    count: Math.max(recent.length, Number.isFinite(snapshot.count) ? Math.floor(snapshot.count) : 0),
+    recent
   };
 }
 
-// A new child starts counting at zero, so the last child's count moves into the base.
+// A new child counts from zero, so the last child's totals move into the folded totals.
 export function foldChildRefusedKeyRequests(): void {
   foldedChildCount += currentChild.count;
   foldedChildRecent = newestRefusedKeyRequests([...currentChild.recent, ...foldedChildRecent]);
@@ -86,6 +87,6 @@ function boundedRefusedKeyRequest(entry: RefusedKeyRequest): RefusedKeyRequest {
 
 function newestRefusedKeyRequests(entries: RefusedKeyRequest[]): RefusedKeyRequest[] {
   return [...entries]
-    .sort((left, right) => right.at.localeCompare(left.at))
+    .sort((left, right) => (left.at < right.at ? 1 : left.at > right.at ? -1 : 0))
     .slice(0, maxRecentRefusedKeyRequests);
 }
