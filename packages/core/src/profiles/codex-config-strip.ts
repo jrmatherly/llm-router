@@ -73,22 +73,24 @@ function isCodexMcpServerChildTable(trimmedLine: string, serverName: string, ena
     trimmedLine.startsWith(`[mcp_servers.${tomlQuotedKey(serverName)}.`);
 }
 
+// A line that starts with `[` inside an array or a multi-line string is not a header, and a table cut there leaves the rest of its value behind as broken TOML.
 export function removeTomlTable(source: string, section: string, name: string): string {
-  const lines = source.split(/(?<=\n)/);
+  const lines = scanTomlLines(source);
   const headers = new Set([
     `[${section}.${name}]`,
     `[${section}.${tomlQuotedKey(name)}]`
   ]);
+  const isHeader = (index: number) => !lines[index].inValue && /^\s*\[/.test(lines[index].line);
   const kept: string[] = [];
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!headers.has(line.trim())) {
+    const { inValue, line } = lines[index];
+    if (inValue || !headers.has(line.trim())) {
       kept.push(line);
       continue;
     }
 
     index += 1;
-    while (index < lines.length && !/^\s*\[/.test(lines[index])) {
+    while (index < lines.length && !isHeader(index)) {
       index += 1;
     }
     index -= 1;
@@ -299,6 +301,15 @@ export function escapeRegExp(value: string): string {
 type TomlScanState = { depth: number; multiline: "" | "\"\"\"" | "'''" };
 
 // No TOML parser is installed and a parser could not make a line-preserving edit, so this tracks only what decides whether a line starts inside a value.
+// True for a text that ends inside a multi-line string, an array or an inline table, as one cut short does.
+export function tomlValueOpenAtEnd(content: string): boolean {
+  const state: TomlScanState = { depth: 0, multiline: "" };
+  for (const line of content.split(/(?<=\n)/)) {
+    scanTomlLine(line, state);
+  }
+  return state.multiline !== "" || state.depth > 0;
+}
+
 export function scanTomlLines(content: string): Array<{ inValue: boolean; line: string }> {
   const state: TomlScanState = { depth: 0, multiline: "" };
   const lines = content.split(/(?<=\n)/).map((line) => {

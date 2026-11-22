@@ -73,7 +73,8 @@ import {
   removeCodexProviderTable,
   removeTomlTable,
   scanTomlLines,
-  stripManagedCodexConfigContent
+  stripManagedCodexConfigContent,
+  tomlValueOpenAtEnd
 } from "@llmr/core/profiles/codex-config-strip";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
 import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
@@ -1530,6 +1531,7 @@ function maybeWriteSeparateCodexProfileFile(
     if (mergedRoot === undefined) {
       // The table is already out of config.toml, so it is kept as a copy and the caller says where.
       copy = saveConfigSafetyCopy(file, moved);
+      console.warn(`[profiles] Kept your [profiles.${values.providerId}] settings at ${copy}: they could not be merged into ${resolveUserPath(file)}.`);
     } else {
       previous = `${mergedRoot}${existing.slice(existingRoot.length)}`;
     }
@@ -1543,23 +1545,22 @@ function maybeWriteSeparateCodexProfileFile(
   };
 }
 
-// The merge goes line by line. It gives up, returning nothing, where that would break a value or miss a key: a moved table that is cut short or has a quoted key, or one of its keys held here by a quoted key or a value that spans lines.
+// The merge goes line by line. It gives up, returning nothing, where that would break a value or miss a key: a text that ends inside a value, a quoted or dotted key on either side's own lines, or a moved key held here by a value that spans lines.
 function mergeMovedCodexProfileKeys(moved: string, existingRoot: string): string | undefined {
-  const keyOf = (line: string) => /^\s*(["']?)([A-Za-z0-9_-]+)\1\s*=/.exec(line);
-  // `scanTomlLines` reports every line as outside a value when the text ends inside one, which a table cut short does.
-  const closed = (text: string) => ["\"".repeat(3), "'".repeat(3)].every((quotes) => text.split(quotes).length % 2 === 1);
+  const keyOf = (line: string) => /^\s*([A-Za-z0-9_-]+)\s*=/.exec(line)?.[1];
   const movedLines = scanTomlLines(moved);
-  if (!closed(moved) || !closed(existingRoot) || movedLines.some(({ inValue, line }) => !inValue && /^\s*["']/.test(line))) {
+  const existingLines = scanTomlLines(existingRoot);
+  const oddKey = ({ inValue, line }: { inValue: boolean; line: string }) => !inValue && /^\s*(?:["']|[A-Za-z0-9_-]+\s*\.)/.test(line);
+  if (tomlValueOpenAtEnd(moved) || tomlValueOpenAtEnd(existingRoot) || movedLines.some(oddKey) || existingLines.some(oddKey)) {
     return undefined;
   }
-  const movedKeys = new Set(movedLines.map(({ inValue, line }) => inValue ? undefined : keyOf(line)?.[2]));
-  const existingLines = scanTomlLines(existingRoot);
+  const movedKeys = new Set(movedLines.map(({ inValue, line }) => inValue ? undefined : keyOf(line)));
   const kept: string[] = [];
   for (const [index, { inValue, line }] of existingLines.entries()) {
-    const key = inValue ? null : keyOf(line);
-    if (!key || !movedKeys.has(key[2])) {
+    const key = inValue ? undefined : keyOf(line);
+    if (!key || !movedKeys.has(key)) {
       kept.push(line);
-    } else if (key[1] || existingLines[index + 1]?.inValue) {
+    } else if (existingLines[index + 1]?.inValue) {
       return undefined;
     }
   }
@@ -2749,9 +2750,10 @@ function legacyCodexProfileTableBody(source: string, providerId: string): string
   ]);
   const lines: string[] = [];
   let inTarget = false;
-  for (const line of source.split(/\r?\n/)) {
+  // A header is a `[` line outside a value, as in `removeTomlTable`, so both take the same lines.
+  for (const { inValue, line } of scanTomlLines(source)) {
     const trimmed = line.trim();
-    if (/^\s*\[/.test(trimmed)) {
+    if (!inValue && trimmed.startsWith("[")) {
       if (inTarget) {
         break;
       }
@@ -2759,7 +2761,7 @@ function legacyCodexProfileTableBody(source: string, providerId: string): string
       continue;
     }
     if (inTarget) {
-      lines.push(line);
+      lines.push(line.replace(/\r?\n$/, ""));
     }
   }
   return lines.join("\n").trim();
@@ -3199,7 +3201,8 @@ function returnCodexProfileTable(configFile: string, profileFile: string, provid
   const headerInConfig = new RegExp(`^[ \\t]*\\[profiles\\.(?:${escapeRegExp(providerId)}|${escapeRegExp(tomlQuotedKey(providerId))})\\]`, "m").test(config);
   // A table cannot be folded into the profile table. Keys cannot be added to a table config.toml already has without guessing which of two values the user means, unless they are the ones it holds.
   const assignments = (text: string) => text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
-  const inConfig = new Set(assignments(legacyCodexProfileTableBody(config, providerId)));
+  // A line inside one of the table's values is text, not a setting the table holds.
+  const inConfig = new Set(assignments(scanTomlLines(legacyCodexProfileTableBody(config, providerId)).filter(({ inValue }) => !inValue).map(({ line }) => line).join("")));
   const left = tableStart !== -1 || (headerInConfig && assignments(body).some((line) => !inConfig.has(line)));
   const copy = left ? saveConfigSafetyCopy(profileFile, current) : undefined;
   if (!body || headerInConfig) {

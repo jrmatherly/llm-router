@@ -5157,17 +5157,78 @@ test("an apply merges a moved table past a multi-line value it does not touch, a
   });
 });
 
-test("an apply does not merge a moved table whose multi-line value was cut short", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("an apply does not merge a moved table whose last value is never closed", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
     const profileFile = path.join(codexDir, "llm-router.config.toml");
     const before = readFileSync(profileFile, "utf8");
-    writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\n[profiles.llm-router]\nnotes = """\n[x]\n"""\n`);
+    writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\n[profiles.llm-router]\nnotes = """\nnever closed\n`);
     await applyProfileConfig(config);
-    const applied = readFileSync(profileFile, "utf8");
-    assert.equal((applied.match(/"""/g) ?? []).length % 2, 0, applied);
-    assert.equal((before.match(/"""/g) ?? []).length, (applied.match(/"""/g) ?? []).length);
-    assert.equal(safetyCopies(profileFile).length, 1);
+    assert.equal(readFileSync(profileFile, "utf8").includes("never closed"), false);
+    assert.equal((readFileSync(profileFile, "utf8").match(/"""/g) ?? []).length, (before.match(/"""/g) ?? []).length);
+    const copies = safetyCopies(profileFile);
+    assert.equal(copies.length, 1);
+    assert.match(readFileSync(copies[0], "utf8"), /never closed/);
   });
+});
+
+test("an apply moves a profile table whole when a value in it holds a line that starts with a bracket", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const tables = {
+    "a nested array": "x = [\n  [1, 2],\n]\ny = 3\n",
+    "a bracket line in a literal string": "notes = " + "'".repeat(3) + "\n[not]\n" + "'".repeat(3) + "\nk = 1\n"
+  };
+  for (const [name, table] of Object.entries(tables)) {
+    for (const profileFileExists of [true, false]) {
+      await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+        const profileFile = path.join(codexDir, "llm-router.config.toml");
+        if (!profileFileExists) {
+          rmSync(profileFile);
+        }
+        writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\n[profiles.llm-router]\n${table}\n[mcp_servers.after]\ncommand = "after"\n`);
+        await applyProfileConfig(config);
+        const applied = readFileSync(codexConfigFile, "utf8");
+        assert.doesNotMatch(applied, /^\[profiles\.llm-router\]/m, name);
+        for (const line of table.trim().split("\n")) {
+          assert.equal(applied.split("\n").includes(line), false, `${name}: config.toml still holds ${line}`);
+        }
+        assert.match(applied, /\[mcp_servers\.after\]\ncommand = "after"/, name);
+        assert.ok(readFileSync(profileFile, "utf8").includes(table), `${name}: ${readFileSync(profileFile, "utf8")}`);
+        assert.deepEqual(safetyCopies(profileFile), [], name);
+      });
+    }
+  }
+});
+
+test("an apply keeps a moved profile table as a copy when either side writes a key with a dot", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const cases = [
+    { existing: "a.b = 1\n", moved: "a = { c = 2 }\n" },
+    { existing: "a = { c = 2 }\n", moved: "a.b = 1\n" }
+  ];
+  for (const { existing, moved } of cases) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+      const profileFile = path.join(codexDir, "llm-router.config.toml");
+      writeFileSync(profileFile, `${readFileSync(profileFile, "utf8")}${existing}`);
+      writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\n[profiles.llm-router]\n${moved}`);
+      await applyProfileConfig(config);
+      const applied = readFileSync(profileFile, "utf8");
+      assert.ok(applied.includes(existing), moved);
+      assert.equal(applied.includes(moved), false, moved);
+      const copies = safetyCopies(profileFile);
+      assert.equal(copies.length, 1, moved);
+      assert.equal(readFileSync(copies[0], "utf8").trim(), moved.trim());
+    });
+  }
+});
+
+test("a line added to LLMR's Codex profile file is copied even when the user's own table holds the same text inside a string", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "model_provider = \"openai\"\n\n[profiles.llm-router]\nnotes = \"\"\"\nx = 1\n\"\"\"\n";
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexDir }) => {
+    const profileFile = path.join(codexDir, "llm-router.config.toml");
+    writeFileSync(profileFile, `${readFileSync(profileFile, "utf8")}x = 1\n`);
+    await recoverGlobalAgentProfile("default-codex");
+    const copies = safetyCopies(profileFile);
+    assert.equal(copies.length, 1);
+    assert.match(readFileSync(copies[0], "utf8"), /^x = 1$/m);
+  }, plantCodexOriginal(original));
 });
 
 test("a restore that writes the original Codex config back says so, and that the user's profile settings are in it again", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {

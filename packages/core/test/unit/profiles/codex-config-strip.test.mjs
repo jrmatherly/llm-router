@@ -9,6 +9,7 @@ import {
   managedRootStart,
   readCodexDisplacedConfig,
   removeTablesOutsideValues,
+  removeTomlTable,
   scanTomlLines,
   stripManagedCodexConfigContent
 } from "@llmr/core/profiles/codex-config-strip.ts";
@@ -467,4 +468,12 @@ test("a displaced line is put back once however many of LLMR's lines the file ho
 
 test("a displaced profile table alone is no reason to rewrite a file with nothing of LLMR's in it", () => {
   assert.equal(stripManagedCodexConfigContent("[mcp_servers.mine]\ncommand = \"x\"\n", ["llm-router"], undefined, usersDisplaced), undefined);
+});
+
+test("removeTomlTable takes a table whole and leaves a header that is only text inside a value", () => {
+  const quotes = "\"".repeat(3);
+  const inString = `notes = ${quotes}\n[profiles.llm-router]\nkeep = 1\n${quotes}\nafter = 2\n`;
+  assert.equal(removeTomlTable(inString, "profiles", "llm-router"), inString);
+  const nested = `before = 1\n\n[profiles.llm-router]\nx = [\n  [1, 2],\n]\ny = 3\n\n[mcp_servers.after]\ncommand = "after"\n`;
+  assert.equal(removeTomlTable(nested, "profiles", "llm-router"), "before = 1\n\n[mcp_servers.after]\ncommand = \"after\"\n");
 });
