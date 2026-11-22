@@ -497,7 +497,7 @@ export function LogsView({
 
   if (!enabled) {
     return (
-      <div className="network-view flex min-w-0 flex-col">
+      <div className="network-view flex min-w-0 flex-col overflow-y-auto">
         {refusedNotice}
         <MonitorDisabledView
           actionLabel="Enable request logs"
