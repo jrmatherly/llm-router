@@ -220,3 +220,17 @@ test("a remote control request with a wrong query key is counted by its path alo
   assert.equal(entry.reason, "Invalid API key.");
   assert.doesNotMatch(JSON.stringify(refusedKeyRequests()), /llmr-wrong-query-key|api_key/);
 });
+
+test("a store with no keys answers 403 and counts no refused-key request", async (t) => {
+  const { configRepository } = await import("@llmr/core/config/config-repository.ts");
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 60_000 });
+  t.mock.method(configRepository, "listApiKeys", async () => []);
+  resetRefusedKeyRequestsForTest();
+  const config = configWithApiKeys([]);
+  config.APIKEY = "";
+  const { response, result } = await authorizeRequest(config, { headers: { authorization: "Bearer llmr-any-key" } });
+
+  assert.equal(result.ok, false);
+  assert.equal(response.statusCode, 403);
+  assert.equal(refusedKeyRequests().count, 0);
+});

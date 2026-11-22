@@ -62,6 +62,42 @@ test("a separate refused key log does not share the parent's state", () => {
   assert.equal(refusedKeyRequests().count, 0);
 });
 
+test("a fold with no later child message keeps the folded count", () => {
+  resetRefusedKeyRequestsForTest();
+  mergeChildRefusedKeyRequests({ count: 2, recent: [childEntry("2026-11-22T00:00:02.000Z")] });
+  foldChildRefusedKeyRequests();
+  assert.equal(refusedKeyRequests().count, 2);
+});
+
+test("a child snapshot is bounded before it is held", () => {
+  resetRefusedKeyRequestsForTest();
+  const long = "x".repeat(300);
+  const recent = Array.from({ length: 7 }, (_, index) => ({
+    at: `2026-11-22T00:00:0${index}.000Z`,
+    client: long,
+    reason: "r".repeat(200),
+    route: `/${long}`
+  }));
+  for (const count of [-3, 2.7]) {
+    mergeChildRefusedKeyRequests({ count, recent });
+    const snapshot = refusedKeyRequests();
+    assert.ok(snapshot.count >= 0);
+    assert.ok(Number.isInteger(snapshot.count));
+    assert.equal(snapshot.recent.length, 5);
+    for (const entry of snapshot.recent) {
+      assert.ok(entry.route.length <= 120);
+      assert.ok(entry.client.length <= 60);
+      assert.equal(entry.reason.length, 120);
+    }
+  }
+});
+
+test("a route's fragment is dropped", () => {
+  resetRefusedKeyRequestsForTest();
+  recordRefusedKeyRequest({ headers: {}, reason: "Invalid API key.", route: "/a#k=SECRET" });
+  assert.equal(refusedKeyRequests().recent[0].route, "/a");
+});
+
 function childEntry(at) {
   return { at, client: "Codex", reason: "Invalid or expired API key.", route: "/v1/responses" };
 }

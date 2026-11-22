@@ -202,33 +202,69 @@ for (const layout of ["single", "compat"]) {
       row = (await requestLogRuntime.list({ pageSize: 100 })).items.find(item => item.statusCode === 400 && item.path === "/v1/chat/completions" && item.model === model && item.provider === "Provider");
       return Boolean(row);
     }, 20000);
+    const rowFoundAt = Date.now();
     const database = await usageStore.getDatabase();
-    for (const read of [1, 2]) {
+    const readUsage = async (read) => {
       const totals = await usageStore.getTotalsSince(since, { model }, { includeProxy: true });
       assert.equal(totals.requestCount, 1, `usage read ${read}: ${JSON.stringify(totals)}`);
       assert.equal(totals.errorCount, 1, `usage read ${read}`);
       const events = database.prepare("SELECT request_id, status_code FROM usage_events WHERE model = ?").all(model);
       assert.deepEqual(events, [{ request_id: row.requestId, status_code: 400 }], `usage read ${read}`);
-    }
+    };
+    await readUsage(1);
+    // A duplicate event would come from a later trace sync, so the second read waits for the log to settle.
+    await until(async () => {
+      const flushed = await flushRequestLogRuntime(1000);
+      return flushed.pending === 0 && !flushed.timedOut && Date.now() - rowFoundAt >= 2000;
+    }, 10000);
+    await readUsage(2);
   });
 }
 
 test("a request with a wrong API key shows on the gateway status without the key", { skip, timeout: 60000 }, async (t) => {
   const { port, service } = await startWireService(t, "single");
   const wrongKey = "sk-wrong-key-9999";
+  const before = refusedKeyCount(service);
+  const sentAt = new Date().toISOString();
   const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions?x=1`, {
     body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model: "Provider/native" }),
     headers: { authorization: `Bearer ${wrongKey}`, "content-type": "application/json" },
     method: "POST"
   });
   assert.equal(response.status, 401, await response.text());
-  await until(() => service.getStatus().refusedForKey?.count === 1, 5000);
+  await until(() => refusedKeyCount(service) === before + 1, 5000);
   const { refusedForKey } = service.getStatus();
-  assert.equal(refusedForKey.recent.length, 1);
-  assert.equal(refusedForKey.recent[0].reason, "Invalid or expired API key.");
-  assert.equal(refusedForKey.recent[0].route, "/v1/chat/completions");
+  const [newest] = refusedForKey.recent;
+  assert.ok(newest.at >= sentAt, `newest refusal ${newest.at} was made after ${sentAt}`);
+  assert.equal(newest.reason, "Invalid or expired API key.");
+  assert.equal(newest.route, "/v1/chat/completions");
   for (const part of [wrongKey, wrongKey.slice(-4), "x=1"]) assert.equal(JSON.stringify(refusedForKey).includes(part), false, part);
 });
+
+test("refused-key counts survive a killed core", { skip, timeout: 60000 }, async (t) => {
+  const { port, service } = await startWireService(t, "single");
+  const sendWrongKey = async () => {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model: "Provider/native" }),
+      headers: { authorization: "Bearer sk-wrong-key-8888", "content-type": "application/json" },
+      method: "POST"
+    });
+    assert.equal(response.status, 401, await response.text());
+  };
+  const before = refusedKeyCount(service);
+  await sendWrongKey();
+  await until(() => refusedKeyCount(service) === before + 1, 5000);
+  const { pid } = service.getStatus();
+  service.child.kill("SIGKILL");
+  await until(() => service.getStatus().state === "running" && service.getStatus().pid !== pid, 15000);
+  await sendWrongKey();
+  await until(() => refusedKeyCount(service) === before + 2, 5000);
+  assert.equal(refusedKeyCount(service), before + 2);
+});
+
+function refusedKeyCount(service) {
+  return service.getStatus().refusedForKey?.count ?? 0;
+}
 
 async function startWireService(t, layout) {
   const originalEntry = process.env.LLMR_GATEWAY_ENTRY;
