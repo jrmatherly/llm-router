@@ -24,7 +24,7 @@ Request logs record model request details passing through LLMR, including reques
 
 The Logs page supports filtering by status, provider, model, credential, request ID, model name, request body, or response body. A single record shows the main request and response fields, including `request model`, `resolved provider`, `resolved model`, status code, response body, errors, duration, tokens, and cost estimate.
 
-Regular request logs are kept locally for 7 days by default. Change this under **Settings → Logs & Observability → Keep request logs for (days)**, from 1 to 90 days. Days are counted by local date: a setting of 1 keeps today's requests, 2 keeps today's and yesterday's, and so on. They are useful for troubleshooting, not long-term audit archiving.
+Regular request logs are kept locally for 7 days by default. Change this under **Settings → Logs & Observability → Keep request logs for (days)**, from 1 to 90 days. Days are counted by local date, and today is kept on top of the setting: 1 keeps today's and yesterday's requests, 7 keeps today's and the 7 days before, so every date filter on the Logs page that the setting allows shows its full window. Lowering the setting deletes older logs as soon as it is saved, and they cannot be recovered. They are useful for troubleshooting, not long-term audit archiving.
 
 ## Body capture, sampling and retention
 
@@ -32,7 +32,7 @@ Request logs are governed by four low-level config options (the defaults fit mos
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `requestLogRetentionDays` | `7` | Number of days request logs are kept, from `1` to `90`. `1` keeps today's requests only. |
+| `requestLogRetentionDays` | `7` | Number of days request logs are kept, from `1` to `90`. `1` keeps today's and yesterday's requests. |
 | `requestLogBodyCapture` | `all` | Whether to record request and response bodies: `all` records all, `errors` records bodies only for failed requests, `none` records no bodies. |
 | `requestLogMaxBodyBytes` | `52428800` (50 MiB) | In-memory body capture and preview budget for a single request or response body. File-backed raw trace bodies can exceed this limit; the full body is stored in sidecar storage and loaded on demand from the Logs page. |
 | `requestLogSuccessSampleRate` | `1` | Sampling rate for successful requests, between `0` and `1`. `1` records all, `0.1` records roughly one in ten. |

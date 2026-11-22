@@ -6,6 +6,12 @@ import { AgentAnalysisView, fitAgentAnalysisRange } from "@llmr/ui/pages/home/co
 import { LogExpandedDetails, LogsView } from "@llmr/ui/pages/home/components/network-logs.tsx";
 import { createEmptyAgentAnalysis } from "@llmr/ui/pages/home/shared/usage.ts";
 
+function firstMatch(html: string, pattern: RegExp): string {
+  const match = html.match(pattern);
+  assert.ok(match, `markup matching ${pattern} rendered`);
+  return match[0];
+}
+
 const emptyLogPage: RequestLogPage = {
   generatedAt: "2026-07-23T00:00:00.000Z",
   items: [],
@@ -118,8 +124,8 @@ test("LogsView offers preset date ranges and disables those longer than the rete
       updateFilter={() => undefined}
     />
   );
-  const dateSelect = (html: string) => html.match(/<select[^>]*aria-label="Filter request log date"[^>]*>.*?<\/select>/)?.[0] ?? "";
-  const option = (html: string, label: string) => dateSelect(html).match(new RegExp(`<option[^>]*>${label}</option>`))?.[0] ?? "";
+  const dateSelect = (html: string) => firstMatch(html, /<select[^>]*aria-label="Filter request log date"[^>]*>.*?<\/select>/);
+  const option = (html: string, label: string) => firstMatch(dateSelect(html), new RegExp(`<option[^>]*>${label}</option>`));
 
   const labels = [...dateSelect(render()).matchAll(/<option[^>]*>([^<]*)<\/option>/g)].map((match) => match[1]);
   assert.deepEqual(labels, ["All dates", "Today", "Last 24 hours", "Last 7 days", "Last 30 days"]);
@@ -439,7 +445,7 @@ test("AgentAnalysisView disables ranges longer than the request log retention an
       snapshot={createEmptyAgentAnalysis("7d")}
     />
   );
-  const rangeButton = (label: string) => html.match(new RegExp(`<button[^>]*>${label}</button>`))?.[0] ?? "";
+  const rangeButton = (label: string) => firstMatch(html, new RegExp(`<button[^>]*>${label}</button>`));
 
   assert.match(rangeButton("30d"), /disabled=""/);
   assert.match(rangeButton("30d"), /title="Request logs are kept for 7 days\. Change this in Settings\."/);

@@ -19,6 +19,7 @@ export type AppCopy = {
     observability: string;
     proxy: string;
     requestLogRetentionDays: string;
+    requestLogRetentionDaysDescription: string;
     requestLogs: string;
     requestLogsDescription: string;
     theme: string;
@@ -128,6 +129,7 @@ export const appCopy: AppCopy = {
     observability: "Logs & Observability",
     proxy: "Proxy",
     requestLogRetentionDays: "Keep request logs for (days)",
+    requestLogRetentionDaysDescription: "Lowering this deletes older logs right away. They cannot be recovered.",
     requestLogs: "Request logs",
     requestLogsDescription: "Record gateway requests and show the Logs page.",
     theme: "Theme",

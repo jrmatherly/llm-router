@@ -10,7 +10,7 @@ import {
   PanelLeftOpen, Power, ProviderAccountMeter, ProviderAccountSnapshot, ReactNode, ResolvedTheme, Select, SelectControl,
   PointerSensor, rectSortingStrategy, Settings, SettingsPageId, SortableContext, sortableKeyboardCoordinates, themeDisplayName, TrayBalanceProgressConfig, TrayComponentVariants, TrayWidgetConfig, TrayWidgetType, TrayWidgetVariant,
   appLogoUrl, trayMascotIconUrls, arrayMove, defaultTrayWidgetVariant, isTraySingletonWidgetType, normalizeTrayWidget, normalizeTrayWidgets, Switch, Textarea, Trash2, trayWidgetVariantOptions, useEffect, useMemo, useRef, useSensor, useSensors, useSortable, useState, validateMcpServerDraft,
-  providerAccountSnapshotKey, providerAccountSnapshotLabel, uniqueStrings, X
+  providerAccountSnapshotKey, providerAccountSnapshotLabel, resolveRetentionDraft, uniqueStrings, X
 } from "../shared/index";
 import {
   defaultRequestLogRetentionDays,
@@ -542,16 +542,11 @@ export function ObservabilitySettingsPage({
   const retentionDays = observability.requestLogRetentionDays ?? defaultRequestLogRetentionDays;
   const [retentionDraft, setRetentionDraft] = useState(String(retentionDays));
   useEffect(() => setRetentionDraft(String(retentionDays)), [retentionDays]);
-  // Commit on blur, not per keystroke: autosave would prune at each partial value, and pruning cannot be undone.
+  // Commit on blur or Enter, not on change: the debounced autosave could save a partial value such as 3 on the way to 30, and pruning cannot be undone.
   const commitRetention = () => {
-    const days = Math.floor(Number(retentionDraft));
-    if (!retentionDraft.trim() || !Number.isFinite(days)) {
-      setRetentionDraft(String(retentionDays));
-      return;
-    }
-    const clamped = Math.max(minRequestLogRetentionDays, Math.min(maxRequestLogRetentionDays, days));
-    setRetentionDraft(String(clamped));
-    if (clamped !== retentionDays) onChange({ requestLogRetentionDays: clamped });
+    const days = resolveRetentionDraft(retentionDraft, retentionDays);
+    if (days === undefined) setRetentionDraft(String(retentionDays));
+    else onChange({ requestLogRetentionDays: days });
   };
 
   return (
@@ -580,6 +575,7 @@ export function ObservabilitySettingsPage({
             value={retentionDraft}
           />
         </Field>
+        <p className="-mt-2 text-[11px] leading-4 text-muted-foreground">{copy.settings.requestLogRetentionDaysDescription}</p>
         <SettingsSwitchRow
           checked={observability.agentAnalysis}
           description={copy.settings.agentAnalysisDescription}

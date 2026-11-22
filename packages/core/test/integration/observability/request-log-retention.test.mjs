@@ -9,7 +9,11 @@ const dayMs = 24 * 60 * 60 * 1000;
 let sequence = 0;
 
 function rowStartedDaysAgo(days) {
-  const startedAt = new Date(Date.now() - days * dayMs).toISOString();
+  return rowStartedAt(new Date(Date.now() - days * dayMs));
+}
+
+function rowStartedAt(date) {
+  const startedAt = date.toISOString();
   sequence += 1;
   return {
     completedAt: startedAt,
@@ -59,6 +63,23 @@ test("a row two days old survives a three-day retention and is pruned at one day
   assert.equal((await store.list({})).total, 0);
 }));
 
+test("a retention of N keeps today and the N local days before it", withDatabase(async (open) => {
+  const store = open();
+  const yesterday = new Date();
+  yesterday.setHours(0, 0, 0, 0);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const ids = async () => (await store.list({})).items.map((item) => item.requestId).sort();
+  const now = rowStartedAt(new Date());
+  const afterYesterdayMidnight = rowStartedAt(new Date(yesterday.getTime() + 1));
+  const beforeYesterdayMidnight = rowStartedAt(new Date(yesterday.getTime() - 1));
+  for (const row of [now, afterYesterdayMidnight, beforeYesterdayMidnight]) await store.record(row);
+  await setDays(store, 2);
+  assert.deepEqual(await ids(), [now, afterYesterdayMidnight, beforeYesterdayMidnight].map((row) => row.requestId).sort());
+
+  await setDays(store, 1);
+  assert.deepEqual(await ids(), [now, afterYesterdayMidnight].map((row) => row.requestId).sort());
+}));
+
 test("a second open store follows a value the first one changes the same day", withDatabase(async (open) => {
   const first = open();
   const second = open();
@@ -95,7 +116,7 @@ test("a date range that is not one of the presets lists every date", withDatabas
 
 test("a store with no saved value prunes nothing", withDatabase(async (open) => {
   const first = open();
-  await first.record(rowStartedDaysAgo(30));
+  await first.record(rowStartedAt(new Date("2000-01-01T00:00:00.000Z")));
   await first.close();
   const second = open();
   assert.equal((await second.list({})).total, 1);

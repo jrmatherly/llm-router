@@ -1606,16 +1606,16 @@ export class RequestLogStore {
       return;
     }
     pruneRawTraceEvents(database, now.getTime());
-    // Another process may have pruned rows this store's cached analysis still counts.
+    // Pruning does not bump revision, and another connection (the writer worker or another LLMR process) may have pruned too, so drop the cached analysis.
     this.analysisCache = undefined;
-    // Pruning cannot be undone, so a database the app has not given a retention keeps every row.
+    // Pruning cannot be undone, so a database the app has not given a retention keeps every request log row.
     if (days === undefined) {
       this.lastRetentionCleanupKey = cleanupKey;
       return;
     }
 
     const cutoffDate = floorDay(now);
-    cutoffDate.setDate(cutoffDate.getDate() - (days - 1));
+    cutoffDate.setDate(cutoffDate.getDate() - days);
     const cutoff = cutoffDate.toISOString();
     const staleCount = firstNumber(
       queryRows(

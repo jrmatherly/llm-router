@@ -2,11 +2,19 @@ import type {
   RequestLogBody,
   RequestLogEntry
 } from "@llmr/core/contracts/app";
+import { maxRequestLogRetentionDays, minRequestLogRetentionDays } from "@llmr/core/observability/request-log-limits";
 import {
   formatCompactNumber
 } from "./usage";
 
 import { isPlainRecord, stringValue } from "./common";
+
+// Never clamp: a saved retention prunes at once, so "0" or "-1" meant as "keep forever" must not become 1.
+export function resolveRetentionDraft(draft: string, current: number): number | undefined {
+  const days = Number(draft);
+  const valid = Number.isInteger(days) && days >= minRequestLogRetentionDays && days <= maxRequestLogRetentionDays;
+  return valid && days !== current ? days : undefined;
+}
 
 export function requestLogRetentionNotice(days: number): string {
   return `Request logs are kept for ${days} ${days === 1 ? "day" : "days"}. Change this in Settings.`;
