@@ -33,7 +33,7 @@ test("sidebar navigation groups pages and hides networking from the sidebar", ()
   ]);
 });
 
-function renderMainLayout(overrides: { isMac?: boolean; sidebarOpen?: boolean } = {}): string {
+function renderMainLayout(overrides: { isMac?: boolean; sidebarOpen?: boolean; updateSupported?: boolean } = {}): string {
   const isMac = overrides.isMac ?? false;
   const sidebarOpen = overrides.sidebarOpen ?? true;
   return renderToStaticMarkup(
@@ -59,7 +59,7 @@ function renderMainLayout(overrides: { isMac?: boolean; sidebarOpen?: boolean } 
       sidebarOpen={sidebarOpen}
       toggleGatewayService={() => undefined}
       updateActionBusy={false}
-      updateStatus={fallbackUpdateStatus}
+      updateStatus={{ ...fallbackUpdateStatus, supported: overrides.updateSupported ?? false }}
       viewProps={{} as never}
       visibleNavigation={navigation}
     />
@@ -77,11 +77,14 @@ test("sidebar navigation scrolls vertically without displacing the settings foot
 test("the macOS window-button inset divides by the page zoom, and other platforms keep fixed insets", () => {
   const mac = renderMainLayout({ isMac: true, sidebarOpen: false });
   assert.match(mac, /app-window-controls[^"]*left-\[calc\(84px\/var\(--llmr-zoom,1\)\)\]/);
-  assert.match(mac, /pl-\[calc\(84px\/var\(--llmr-zoom,1\)\+32px\)\]/);
-  assert.match(mac, /style="width:calc\(84px \/ var\(--llmr-zoom, 1\) \+ \d+px\)"/);
+  assert.match(mac, / pl-\[calc\(84px\/var\(--llmr-zoom,1\)\+32px\)\] max-\[720px\]:pl-\[calc\(84px\/var\(--llmr-zoom,1\)\+32px\)\]"/);
+  assert.match(mac, /style="width:calc\(84px \/ var\(--llmr-zoom, 1\) \+ 68px\)"/);
 
   const macOpen = renderMainLayout({ isMac: true });
-  assert.match(macOpen, /style="width:calc\(84px \/ var\(--llmr-zoom, 1\) \+ \d+px\)"/);
+  assert.match(macOpen, /style="width:calc\(84px \/ var\(--llmr-zoom, 1\) \+ 68px\)"/);
+
+  const macWithUpdateButton = renderMainLayout({ isMac: true, updateSupported: true });
+  assert.match(macWithUpdateButton, /style="width:calc\(84px \/ var\(--llmr-zoom, 1\) \+ 104px\)"/);
 
   const other = renderMainLayout({ sidebarOpen: false });
   assert.doesNotMatch(other, /--llmr-zoom/);

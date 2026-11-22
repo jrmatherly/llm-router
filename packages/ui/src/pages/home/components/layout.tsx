@@ -139,7 +139,7 @@ export function MainLayout({
   visibleNavigation: MainNavigationItem[];
 }) {
   const showUpdateButton = updateStatus.supported;
-  // The native macOS window buttons do not scale with the page zoom, so their 84px inset is divided by it.
+  // The native macOS window buttons do not scale with the page zoom, so the inset that clears them is divided by it.
   const windowControlSafeAreaWidth = isMac
     ? `calc(84px / var(--llmr-zoom, 1) + ${showUpdateButton ? 104 : 68}px)`
     : (showUpdateButton ? 124 : 88);
