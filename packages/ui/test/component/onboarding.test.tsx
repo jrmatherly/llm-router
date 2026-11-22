@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { OnboardingLayout } from "@llmr/ui/pages/home/components/layout.tsx";
 import { OnboardingView } from "@llmr/ui/pages/home/components/onboarding.tsx";
 import {
   createProfileDraft,
@@ -144,7 +146,7 @@ test("Onboarding skips credentials for a local agent import", () => {
   assert.match(html, /aria-label="Step 1 \/ 5"/);
 });
 
-function renderOnboarding(activeStep: "provider" | "profile" | "enter", readiness?: { profileSkipped?: boolean }) {
+function onboardingProps(activeStep: "provider" | "profile" | "enter", readiness?: { profileSkipped?: boolean }): ComponentProps<typeof OnboardingView> {
   const config = appConfigFixture();
   config.Providers = [{
     api_base_url: "https://gateway.example/v1",
@@ -154,32 +156,34 @@ function renderOnboarding(activeStep: "provider" | "profile" | "enter", readines
     type: "openai_chat_completions"
   }];
   config.profile.profiles = config.profile.profiles.map((profile) => ({ ...profile, enabled: false }));
-  return renderToStaticMarkup(
-    <OnboardingView
-      activeStep={activeStep}
-      agentOptions={profileAgentOptions}
-      canSubmitProfile
-      canSubmitProvider={false}
-      config={config}
-      endpoint="http://127.0.0.1:3456"
-      gatewayStatus={fallbackGatewayStatus}
-      onCheckProvider={async () => ({ failed: [], passed: [], results: [] })}
-      onChangeProfile={() => undefined}
-      onChangeProvider={() => undefined}
-      onComplete={() => undefined}
-      onSelectStep={() => undefined}
-      onSkipProfile={() => undefined}
-      onSubmitProfile={async () => false}
-      onSubmitProvider={async () => false}
-      profileDraft={createProfileDraft()}
-      profileError=""
-      providerConnectivityLoading={false}
-      providerDraft={createProviderDraft([])}
-      providerError=""
-      providerProbeLoading={false}
-      readiness={readiness}
-    />
-  );
+  return {
+    activeStep,
+    agentOptions: profileAgentOptions,
+    canSubmitProfile: true,
+    canSubmitProvider: false,
+    config,
+    endpoint: "http://127.0.0.1:3456",
+    gatewayStatus: fallbackGatewayStatus,
+    onCheckProvider: async () => ({ failed: [], passed: [], results: [] }),
+    onChangeProfile: () => undefined,
+    onChangeProvider: () => undefined,
+    onComplete: () => undefined,
+    onSelectStep: () => undefined,
+    onSkipProfile: () => undefined,
+    onSubmitProfile: async () => false,
+    onSubmitProvider: async () => false,
+    profileDraft: createProfileDraft(),
+    profileError: "",
+    providerConnectivityLoading: false,
+    providerDraft: createProviderDraft([]),
+    providerError: "",
+    providerProbeLoading: false,
+    readiness
+  };
+}
+
+function renderOnboarding(activeStep: "provider" | "profile" | "enter", readiness?: { profileSkipped?: boolean }) {
+  return renderToStaticMarkup(<OnboardingView {...onboardingProps(activeStep, readiness)} />);
 }
 
 test("Onboarding offers Skip for now on the Connect agent step only", () => {
@@ -196,4 +200,19 @@ test("Onboarding shows a skipped agent step as skipped and lets the user start",
   const notSkipped = renderOnboarding("enter");
   assert.doesNotMatch(notSkipped, /Skipped\. Add one under Agent Profiles\./);
   assert.match(notSkipped, /<button[^>]* disabled=""[^>]*>(?:<svg.*?<\/svg>)?Let&#x27;s start/);
+});
+
+test("Onboarding shows a gateway startup error below the progress bar, in flow", () => {
+  const html = renderToStaticMarkup(<OnboardingView {...onboardingProps("provider")} gatewayStartupError="boom" />);
+  const bannerIndex = html.indexOf("Service failed to start");
+  assert.ok(bannerIndex > html.indexOf('role="progressbar"'), "banner renders after the progress bar");
+  assert.match(html, /boom/);
+});
+
+test("Onboarding layout does not float the gateway startup error over the heading", () => {
+  const html = renderToStaticMarkup(
+    <OnboardingLayout gatewayStartupError="boom" loaded onboarding={onboardingProps("provider")} />
+  );
+  assert.match(html, /Service failed to start/);
+  assert.doesNotMatch(html, /absolute inset-x-0 top-12/);
 });

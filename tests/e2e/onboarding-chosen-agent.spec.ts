@@ -38,6 +38,8 @@ test("onboarding lets the user skip the agent, then connects only the agent they
 
   await page.goto(url);
   await waitForBridge(page);
+  await expect.poll(async () => (await page.evaluate(() => window.llmr!.getGatewayStatus())).state).toBe("stopped");
+  await expect(page.getByText("Service failed to start")).toHaveCount(0);
   await page.evaluate(async (item) => {
     const config = await window.llmr!.getConfig();
     config.Providers = [item];

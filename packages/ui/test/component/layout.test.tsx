@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { GatewayStartupErrorBanner, groupSidebarNavigation, MainLayout, UpdateEntryButton } from "@llmr/ui/pages/home/components/layout.tsx";
+import { GatewayStartupErrorBanner } from "@llmr/ui/pages/home/components/gateway-startup-error-banner.tsx";
+import { groupSidebarNavigation, MainLayout, UpdateEntryButton } from "@llmr/ui/pages/home/components/layout.tsx";
 import type { PluginMarketplaceEntry } from "@llmr/core/contracts/app.ts";
 import { InstallExtensionDialog, MediaModelConfigurationPanel, VirtualModelsView } from "@llmr/ui/pages/home/components/virtual-models.tsx";
 import { appCopy } from "@llmr/ui/pages/home/shared/i18n.tsx";

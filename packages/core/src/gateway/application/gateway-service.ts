@@ -203,7 +203,13 @@ class GatewayService {
         (shouldRunUnifiedServer(config) || pluginService.hasGatewayRoutes() || config.mediaTools.enabled);
       const shouldRunGateway = shouldRunGatewayRuntime(config);
       if (shouldRunGateway && !hasAvailableGatewayModels(config)) {
-        throw new Error(NO_AVAILABLE_GATEWAY_MODELS_MESSAGE);
+        await this.stopGateway();
+        this.status = {
+          ...this.status,
+          lastError: NO_AVAILABLE_GATEWAY_MODELS_MESSAGE,
+          state: "stopped"
+        };
+        return this.status;
       }
       if (!shouldRunServer && !shouldRunGateway) {
         await mediaService.stop();

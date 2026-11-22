@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import { MorphIcon } from "@musistudio/lucide-morph-react";
 import { collapseSidebarToExpandInspectorMorph } from "@/lib/morph-icon";
 import {
-  AnimatePresence, AppConfig, AppCopy, Button, Check, CircleAlert, cn, EndpointTitleBar,
+  AnimatePresence, AppConfig, AppCopy, Button, Check, cn, EndpointTitleBar,
   AppUpdateStatus, GatewayStatus, listSpringTransition, LucideIcon, motion, motionEase,
   LoaderCircle, NavigationId, RefreshCw,
   reducedMotionTransition, ServiceControlButton, Settings, ViewId, ViewMotionShell, viewUsesInternalScroll
@@ -10,6 +10,7 @@ import {
 import { ApiKeysView } from "./api-keys";
 import { AgentAnalysisView, OverviewView } from "./dashboard";
 import { ExtensionsView } from "./extensions";
+import { GatewayStartupErrorBanner } from "./gateway-startup-error-banner";
 import { LogsView, NetworkingView } from "./network-logs";
 import { OnboardingView } from "./onboarding";
 import { ProfileView } from "./profiles";
@@ -78,10 +79,7 @@ export function OnboardingLayout({
   return (
     <main className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
       <div className="app-drag absolute inset-x-0 top-0 z-10 h-10" />
-      <div className="pointer-events-none absolute inset-x-0 top-12 z-30 px-5 max-[720px]:top-10 max-[720px]:px-3">
-        <GatewayStartupErrorBanner className="pointer-events-auto mx-auto max-w-2xl shadow-lg" message={gatewayStartupError} />
-      </div>
-      {loaded ? <OnboardingView {...onboarding} /> : null}
+      {loaded ? <OnboardingView {...onboarding} gatewayStartupError={gatewayStartupError} /> : null}
     </main>
   );
 }
@@ -382,50 +380,6 @@ export function UpdateEntryButton({
         />
       ) : null}
     </Button>
-  );
-}
-
-export function GatewayStartupErrorBanner({
-  className,
-  message,
-  onOpenServerSettings
-}: {
-  className?: string;
-  message?: string;
-  onOpenServerSettings?: () => void;
-}) {
-  const detail = message?.trim();
-  if (!detail) {
-    return null;
-  }
-
-  return (
-    <div
-      aria-live="assertive"
-      className={cn(
-        "app-no-drag flex min-w-0 items-start gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive",
-        className
-      )}
-      role="alert"
-    >
-      <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <div className="font-semibold">Service failed to start</div>
-        <div className="mt-0.5 whitespace-pre-wrap break-words">{detail}</div>
-      </div>
-      {onOpenServerSettings ? (
-        <Button
-          className="shrink-0 border-destructive/30 bg-background/80 text-destructive hover:bg-destructive/10"
-          onClick={onOpenServerSettings}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <Settings className="h-3.5 w-3.5" />
-          Server
-        </Button>
-      ) : null}
-    </div>
   );
 }
 

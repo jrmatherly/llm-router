@@ -26,6 +26,14 @@ test("ToolHub config changes restart the gateway runtime", () => {
   assert.equal(shouldRestartGatewayForRuntimeConfigChange(previous, next), true);
 });
 
+test("adding the first provider restarts the gateway runtime", () => {
+  const previous = createDefaultAppConfig();
+  const next = createDefaultAppConfig();
+  next.Providers = [{ api_base_url: "http://127.0.0.1:9/v1", api_key: "test", models: ["m"], name: "P", type: "openai_chat_completions" }];
+
+  assert.equal(shouldRestartGatewayForRuntimeConfigChange(previous, next), true);
+});
+
 test("media tool policy changes restart the gateway runtime", () => {
   const previous = createDefaultAppConfig();
   const next = createDefaultAppConfig();
