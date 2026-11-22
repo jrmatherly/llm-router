@@ -478,6 +478,76 @@ test("startGateway reuses an already healthy LLMR gateway on the configured port
   }
 });
 
+test("startGateway does not adopt a running gateway from an older version", async () => {
+  const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
+  const { gatewayRuntimeConfigRevision } = await import("@llmr/core/gateway/runtime-config-control.ts");
+  const { gatewayService } = await import("@llmr/core/gateway/service.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  await gatewayService.stop();
+  const gatewayPort = await reserveLoopbackPort();
+  const webAuthToken = "test-web-auth-token";
+  const config = await loadAppConfig();
+  config.gateway.port = gatewayPort;
+  config.gateway.corePort = await reserveLoopbackPort();
+  config.Providers = [{
+    api_base_url: "http://127.0.0.1:9/v1",
+    api_key: "test-provider-key",
+    id: "test-provider",
+    models: ["test-model"],
+    name: "Test Provider",
+    type: "openai_chat_completions"
+  }];
+  const savedConfig = await saveAppConfig(config);
+  const externalGatewayState = {
+    managerStatus: 200,
+    reloadRequests: [],
+    revision: gatewayRuntimeConfigRevision(savedConfig)
+  };
+  const externalGateway = createHealthyLlmrGateway(savedConfig.APIKEY, externalGatewayState);
+  await listen(externalGateway, gatewayPort);
+  const runtime = await startWebManagementServer({
+    authToken: webAuthToken,
+    host: "127.0.0.1",
+    port: 0,
+    startGateway: false
+  });
+  const originalStart = gatewayService.start;
+  let managedStarts = 0;
+  gatewayService.start = async function (...args) {
+    managedStarts += 1;
+    return originalStart.apply(this, args);
+  };
+
+  try {
+    const payload = await rpc(runtime.url, webAuthToken, "startGateway");
+
+    assert.equal(payload.ok, true);
+    assert.equal(payload.value.state, "error");
+    assert.equal(payload.value.lastError, `A running LLM Router gateway from an older version holds http://127.0.0.1:${gatewayPort}. Quit it, then start LLM Router again.`);
+    assert.equal(payload.value.endpoint, `http://127.0.0.1:${gatewayPort}`);
+    assert.equal(payload.value.gatewayManagedExternally, undefined);
+    assert.equal(managedStarts, 0);
+    assert.deepEqual(externalGatewayState.reloadRequests, []);
+
+    externalGatewayState.managerStatus = undefined;
+    const adopted = await rpc(runtime.url, webAuthToken, "startGateway");
+    assert.equal(adopted.value.state, "running", adopted.value.lastError);
+    assert.equal(adopted.value.gatewayManagedExternally, true);
+
+    externalGatewayState.managerStatus = 200;
+    const refusedAgain = await rpc(runtime.url, webAuthToken, "startGateway");
+    assert.equal(refusedAgain.value.state, "error");
+    assert.equal(refusedAgain.value.lastError, payload.value.lastError);
+    assert.equal(refusedAgain.value.gatewayManagedExternally, undefined);
+    assert.equal(managedStarts, 0);
+  } finally {
+    gatewayService.start = originalStart;
+    await runtime.close();
+    await gatewayService.stop();
+    await closeServer(externalGateway);
+  }
+});
+
 test("closing the web service releases the Claude Code takeover when no gateway still serves", async (t) => {
   const { runtime, settingsFile } = await startWithStubbedGateway(t, await reserveLoopbackPort());
   const claudeAppBackup = await seedClaudeAppTakeover();
@@ -855,6 +925,10 @@ function createHealthyLlmrGateway(apiKey, state) {
         return;
       }
       sendJson(response, 200, { data: [{ id: "test-model", object: "model" }], object: "list" });
+      return;
+    }
+    if (url.pathname === "/manager/config" && state?.managerStatus) {
+      sendJson(response, state.managerStatus, {});
       return;
     }
     if (url.pathname === "/__llmr/runtime/config") {

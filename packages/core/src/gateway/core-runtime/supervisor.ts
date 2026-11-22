@@ -14,6 +14,7 @@ import {
   replacePersistedRuntimeState
 } from "@llmr/core/config/config-repository";
 import type { AppConfig, GatewayNetworkEndpoint } from "@llmr/core/contracts/app";
+import { isApiKeyExpired } from "@llmr/core/gateway/auth/api-key-authorizer";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
@@ -30,6 +31,7 @@ const gatewayRuntimeStateKey = "gateway";
 const defaultGatewayConfigAcceptanceTimeoutMs = 30_000;
 const gatewayStartupTimeoutMs = 15_000;
 const gatewayChildOutputLimit = 4000;
+const removedInheritedEnvNames = new Set(["AUTH_STATIC_API_KEY", "AUTH_STATIC_API_KEYS", "CORS_ORIGIN", "MANAGER_API_KEY"]);
 const privateDirMode = 0o700;
 const privateFileMode = 0o600;
 const routerPluginSupportMarkers = [
@@ -392,12 +394,16 @@ function createGatewayProcessEnv(
     delete env.ELECTRON_RUN_AS_NODE;
   }
 
-  // The managed gateway must use the generated raw-trace policy. Inheriting
-  // the upstream gateway's RAW_TRACE_* overrides could bypass LLMR privacy,
-  // size, spool, or sync-endpoint controls.
+  // An inherited value would override what LLMR chose: RAW_TRACE_* could bypass
+  // LLMR privacy, size, spool, or sync-endpoint controls, and the key and CORS
+  // names would add keys to the child or replace its manager key and allowed
+  // origins. Windows reads names without regard to case.
   for (const key of Object.keys(env)) {
-    if (key.startsWith("RAW_TRACE_")) delete env[key];
+    const name = key.toUpperCase();
+    if (name.startsWith("RAW_TRACE_") || name.startsWith("GATEWAY_CORS_") || removedInheritedEnvNames.has(name)) delete env[key];
   }
+  env.GATEWAY_CORS_ORIGIN = endpoint(config.gateway.host, config.gateway.port);
+  env.MANAGER_API_KEY = generateCoreGatewayAuthToken();
 
   const noProxy = mergeNoProxy(env.NO_PROXY || env.no_proxy, [
     "127.0.0.1",
@@ -423,12 +429,16 @@ function createGatewayProcessEnv(
   return env;
 }
 
+export function gatewayProcessEnvForTest(config: AppConfig, coreAuthToken: string): NodeJS.ProcessEnv {
+  return createGatewayProcessEnv(config, undefined, "test-runtime", coreAuthToken, false);
+}
+
 export function publicGatewayAuthTokens(config: AppConfig, coreAuthToken: string): string[] {
-  return uniqueStrings([
-    coreAuthToken,
-    ...(Array.isArray(config.APIKEYS) ? config.APIKEYS.map((apiKey) => apiKey.key) : []),
-    config.APIKEY
-  ]);
+  const apiKeys = Array.isArray(config.APIKEYS) ? config.APIKEYS : [];
+  // An expired APIKEYS entry also drops a bare APIKEY with the same value, because configuredApiKeys keeps the APIKEYS entry.
+  const expired = new Set(apiKeys.filter(isApiKeyExpired).map((apiKey) => apiKey.key.trim()));
+  return uniqueStrings([coreAuthToken, ...apiKeys.map((apiKey) => apiKey.key), config.APIKEY])
+    .filter((key) => !expired.has(key));
 }
 
 function resolveGatewayNodeRuntime(): GatewayNodeRuntime {
