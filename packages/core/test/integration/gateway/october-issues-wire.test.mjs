@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
@@ -12,13 +12,16 @@ import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
 import { closeRequestLogRuntime, flushRequestLogRuntime, requestLogRuntime } from "@llmr/core/observability/request-log-store.ts";
 
-import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
+import { gatewayService, singleGatewayRuntimeBlockersForTest } from "@llmr/core/gateway/application/gateway-service.ts";
 import { pluginService } from "@llmr/core/plugins/service.ts";
 import { resolveRuntimeConfigDir } from "@llmr/core/runtime/app-paths.ts";
+import { usageStore } from "@llmr/core/usage/store.ts";
 import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 const entry = process.env.LLMR_TEST_GATEWAY_ENTRY;
 const skip = !entry && "set LLMR_TEST_GATEWAY_ENTRY to the gateway production entry";
+// The request log runtime cannot reopen once closed, and several tests here share it.
+after(() => closeRequestLogRuntime());
 
 test("#1850/#1861 fallback attribution reaches OpenAI JSON/SSE clients and request logs", { skip, timeout: 30000 }, async () => {
   const root = mkdtempSync(path.join(tmpdir(), "llmr-october-fallback-"));
@@ -90,7 +93,6 @@ test("#1850/#1861 fallback attribution reaches OpenAI JSON/SSE clients and reque
     await close(host);
     if (gateway) await stopGateway(gateway);
     await close(upstream);
-    await closeRequestLogRuntime();
     rmSync(root, { recursive: true, force: true });
   }
 });
@@ -180,6 +182,123 @@ test("#1867 a killed managed core restarts and restores the real service health"
     else process.env.LLMR_GATEWAY_ENTRY = originalEntry;
   }
 });
+
+for (const layout of ["single", "compat"]) {
+  test(`a request for a model no provider has gets one Logs row and one usage event (${layout})`, { skip, timeout: 60000 }, async (t) => {
+    const { port, upstreamCalls } = await startWireService(t, layout);
+    const since = new Date(Date.now() - 1000);
+    const model = `no-provider-has-this-model-${layout}`;
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model }),
+      headers: { authorization: "Bearer sk-wire-key-0001", "content-type": "application/json" },
+      method: "POST"
+    });
+    assert.equal(response.status, 400, await response.text());
+    assert.deepEqual(upstreamCalls, []);
+    let row;
+    // The host's own row names no provider; the provider comes only from the child's trace.
+    await until(async () => {
+      await flushRequestLogRuntime(1000);
+      row = (await requestLogRuntime.list({ pageSize: 100 })).items.find(item => item.statusCode === 400 && item.path === "/v1/chat/completions" && item.model === model && item.provider === "Provider");
+      return Boolean(row);
+    }, 20000);
+    const rowFoundAt = Date.now();
+    const database = await usageStore.getDatabase();
+    const readUsage = async (read) => {
+      const totals = await usageStore.getTotalsSince(since, { model }, { includeProxy: true });
+      assert.equal(totals.requestCount, 1, `usage read ${read}: ${JSON.stringify(totals)}`);
+      assert.equal(totals.errorCount, 1, `usage read ${read}`);
+      const events = database.prepare("SELECT request_id, status_code FROM usage_events WHERE model = ?").all(model);
+      assert.deepEqual(events, [{ request_id: row.requestId, status_code: 400 }], `usage read ${read}`);
+    };
+    await readUsage(1);
+    // A duplicate event would come from a later trace sync, so the second read waits for the log to settle.
+    await until(async () => {
+      const flushed = await flushRequestLogRuntime(1000);
+      return flushed.pending === 0 && !flushed.timedOut && Date.now() - rowFoundAt >= 2000;
+    }, 10000);
+    await readUsage(2);
+  });
+}
+
+test("a request with a wrong API key shows on the gateway status without the key", { skip, timeout: 60000 }, async (t) => {
+  const { port, service } = await startWireService(t, "single");
+  const wrongKey = "sk-wrong-key-9999";
+  const before = refusedKeyCount(service);
+  const sentAt = new Date().toISOString();
+  const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions?x=1`, {
+    body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model: "Provider/native" }),
+    headers: { authorization: `Bearer ${wrongKey}`, "content-type": "application/json" },
+    method: "POST"
+  });
+  assert.equal(response.status, 401, await response.text());
+  await until(() => refusedKeyCount(service) === before + 1, 5000);
+  const { refusedForKey } = service.getStatus();
+  const [newest] = refusedForKey.recent;
+  assert.ok(newest.at >= sentAt, `newest refusal ${newest.at} was made after ${sentAt}`);
+  assert.equal(newest.reason, "Invalid or expired API key.");
+  assert.equal(newest.route, "/v1/chat/completions");
+  for (const part of [wrongKey, wrongKey.slice(-4), "x=1"]) assert.equal(JSON.stringify(refusedForKey).includes(part), false, part);
+});
+
+test("refused-key counts survive a killed core", { skip, timeout: 60000 }, async (t) => {
+  const { port, service } = await startWireService(t, "single");
+  const sendWrongKey = async () => {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model: "Provider/native" }),
+      headers: { authorization: "Bearer sk-wrong-key-8888", "content-type": "application/json" },
+      method: "POST"
+    });
+    assert.equal(response.status, 401, await response.text());
+  };
+  const before = refusedKeyCount(service);
+  await sendWrongKey();
+  await until(() => refusedKeyCount(service) === before + 1, 5000);
+  const { pid } = service.getStatus();
+  service.child.kill("SIGKILL");
+  await until(() => service.getStatus().state === "running" && service.getStatus().pid !== pid, 15000);
+  await sendWrongKey();
+  await until(() => refusedKeyCount(service) === before + 2, 5000);
+  assert.equal(refusedKeyCount(service), before + 2);
+});
+
+function refusedKeyCount(service) {
+  return service.getStatus().refusedForKey?.count ?? 0;
+}
+
+async function startWireService(t, layout) {
+  const originalEntry = process.env.LLMR_GATEWAY_ENTRY;
+  process.env.LLMR_GATEWAY_ENTRY = entry;
+  requestLogRuntime.options.workerFile = path.resolve(__dirname, "../../../runtime/request-log-worker.js");
+  const service = new gatewayService.constructor();
+  const upstreamCalls = [];
+  const upstream = createServer((req, res) => { upstreamCalls.push(req.url); req.resume(); res.end("{}"); });
+  t.after(async () => {
+    await service.stop();
+    await close(upstream);
+    if (originalEntry === undefined) delete process.env.LLMR_GATEWAY_ENTRY;
+    else process.env.LLMR_GATEWAY_ENTRY = originalEntry;
+  });
+  const upstreamUrl = await listen(upstream);
+  const port = await reserveLoopbackPort();
+  const corePort = layout === "single" ? port : await reserveLoopbackPort();
+  const config = createDefaultAppConfig();
+  config.Providers = [{ name: "Provider", id: "provider", models: ["native"], type: "anthropic_messages", api_base_url: upstreamUrl, api_key: "test" }];
+  config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "wire", key: "sk-wire-key-0001" }];
+  config.APIKEY = "sk-wire-key-0001";
+  config.gateway = { ...config.gateway, enabled: true, host: "127.0.0.1", port, coreHost: "127.0.0.1", corePort };
+  config.mediaTools.enabled = false;
+  config.proxy.enabled = false; config.proxy.captureNetwork = false;
+  config.contextArchive.enabled = layout === "compat";
+  config.observability = { ...config.observability, requestLogs: true, requestLogBodyCapture: "all", requestLogSuccessSampleRate: 1 };
+  config.profile.enabled = false; config.profile.profiles = [];
+  config.plugins = [];
+  assert.deepEqual(singleGatewayRuntimeBlockersForTest(config, { gatewayRuntimeSupportsRouterPlugin: () => true }), layout === "single" ? [] : ["context-archive"]);
+  const started = await service.start(config);
+  assert.equal(started.state, "running", started.lastError);
+  assert.equal(Boolean(service.server), layout === "compat");
+  return { port, service, upstreamCalls };
+}
 
 test("Codex requests reach the upstream unchanged when the login comes from the live hook", { skip, timeout: 30000 }, async (t) => {
   const codex = await codexWireFixture(t);

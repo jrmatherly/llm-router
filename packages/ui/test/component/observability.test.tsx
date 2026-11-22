@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { AgentAnalysisSessionRow, AgentAnalysisTraceRun, RequestLogEntry, RequestLogListFilter, RequestLogPage } from "@llmr/core/contracts/app.ts";
 import { AgentAnalysisView, fitAgentAnalysisRange } from "@llmr/ui/pages/home/components/dashboard.tsx";
 import { LogExpandedDetails, LogsView } from "@llmr/ui/pages/home/components/network-logs.tsx";
+import { formatLogDateTime } from "@llmr/ui/pages/home/shared/logs.ts";
 import { createEmptyAgentAnalysis } from "@llmr/ui/pages/home/shared/usage.ts";
 
 function firstMatch(html: string, pattern: RegExp): string {
@@ -75,6 +76,67 @@ test("LogsView keeps disabled request logs discoverable with an enable action", 
 
   assert.match(html, /Request logs are off/);
   assert.match(html, /Enable request logs/);
+});
+
+test("LogsView shows requests refused for the API key, with logs on or off, and nothing at zero", () => {
+  const refusedForKey = {
+    count: 2,
+    recent: [
+      { at: "2026-11-22T10:00:02.000Z", client: "Codex", reason: "Invalid or expired API key.", route: "/v1/responses" },
+      { at: "2026-11-22T10:00:01.000Z", client: "unknown", reason: "API key is missing.", route: "/v1/messages" }
+    ]
+  };
+  const render = (enabled: boolean, refused?: typeof refusedForKey) => renderToStaticMarkup(
+    <LogsView
+      enabled={enabled}
+      error=""
+      filter={{ page: 1, pageSize: 25, status: "all" }}
+      loading={false}
+      onEnable={() => undefined}
+      page={emptyLogPage}
+      refreshLogs={() => undefined}
+      refusedForKey={refused}
+      updateFilter={() => undefined}
+    />
+  );
+  const line = /2 requests were refused for a missing, wrong or expired API key since LLM Router started\./;
+
+  for (const enabled of [true, false]) {
+    const html = render(enabled, refusedForKey);
+    assert.match(html, line);
+    assert.match(html, /Codex/);
+    assert.match(html, /\/v1\/responses/);
+    assert.match(html, /API key is missing\./);
+    assert.ok(html.indexOf("/v1/responses") < html.indexOf("/v1/messages"), "newest refusal first");
+  }
+  assert.match(render(false, refusedForKey), /Request logs are off/);
+  assert.doesNotMatch(render(true, { count: 0, recent: [] }), /were refused/);
+  assert.doesNotMatch(render(false), /were refused/);
+});
+
+test("LogsView words one refused request in the singular, with its time, outside the log shell", () => {
+  const at = "2026-11-22T10:00:01.000Z";
+  for (const enabled of [true, false]) {
+    const html = renderToStaticMarkup(
+      <LogsView
+        enabled={enabled}
+        error=""
+        filter={{ page: 1, pageSize: 25, status: "all" }}
+        loading={false}
+        onEnable={() => undefined}
+        page={emptyLogPage}
+        refreshLogs={() => undefined}
+        refusedForKey={{ count: 1, recent: [{ at, client: "Codex", reason: "API key is missing.", route: "/v1/messages" }] }}
+        updateFilter={() => undefined}
+      />
+    );
+    assert.match(html, /1 request was refused/);
+    assert.doesNotMatch(html, /1 requests were/);
+    assert.ok(formatLogDateTime(at));
+    assert.ok(html.includes(formatLogDateTime(at)), "the refusal's time is shown");
+    const notice = firstMatch(html, /<div class="[^"]*"><div[^>]*role="status"[^>]*>1 request was refused/);
+    assert.doesNotMatch(notice.match(/^<div class="([^"]*)"/)?.[1] ?? "", /network-shell/);
+  }
 });
 
 test("LogsView explains filtered empty results and labels page sizes", () => {

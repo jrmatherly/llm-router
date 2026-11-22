@@ -3271,6 +3271,7 @@ function App() {
                 onFocusedRequestHandled: () => setFocusedRequestLogId(undefined),
                 page: requestLogPage,
                 refreshLogs: () => void refreshRequestLogs(),
+                refusedForKey: gatewayStatus.refusedForKey,
                 retentionDays: draftConfig.observability.requestLogRetentionDays,
                 updateFilter: updateRequestLogFilter
               },

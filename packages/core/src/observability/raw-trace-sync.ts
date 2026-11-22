@@ -18,6 +18,7 @@ import {
   type RequestLogEnqueueResult
 } from "@llmr/core/observability/request-log-runtime";
 import { rawTraceMaxPartBytes, resolveRawTraceBodyLimit } from "@llmr/core/observability/request-log-limits";
+import { maxRequestLogModelLength } from "@llmr/core/observability/request-log-model";
 import { redactSensitiveUrlQuery } from "@llmr/core/observability/sensitive-headers";
 import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
 import { formatError, inferGatewayClient, parseJsonObject, readHeader, readRequestBody, sendJson, shouldCaptureGatewayUsage } from "@llmr/core/gateway/http/io";
@@ -1666,6 +1667,7 @@ export async function readRawTraceRequestLogBundle(
     clientRequestMetadata,
     upstreamRequestMetadata,
     upstreamResponseMetadata,
+    clientRequestBody,
     upstreamRequestBody,
     upstreamResponseStream,
     fallbackResponseBody
@@ -1673,13 +1675,20 @@ export async function readRawTraceRequestLogBundle(
     readRawTraceJsonPart(parts, "client_request_metadata", spoolDirectory),
     readRawTraceJsonPart(parts, "upstream_request_metadata", spoolDirectory),
     readRawTraceJsonPart(parts, "upstream_response_metadata", spoolDirectory),
+    readRawTracePart(parts, "client_request", spoolDirectory),
     readRawTracePart(parts, "upstream_request", spoolDirectory),
     readRawTracePart(parts, "response_stream", spoolDirectory),
     readRawTracePart(parts, "upstream_response", spoolDirectory)
   ]);
   const upstreamResponseBody = upstreamResponseStream ?? fallbackResponseBody;
   const target = isRecord(manifest.target) ? manifest.target : {};
-  const rawUrl = stringValue(upstreamRequestMetadata?.url);
+  // The fork still writes upstream metadata for a request it refused before the provider call, with no url and a fixed POST, so the client request stands in, and the model is the client's own text.
+  const refusedBeforeUpstream = !stringValue(upstreamRequestMetadata?.url) &&
+    !parts.some((part) => stringValue(part.partType) === "upstream_request");
+  const requestMetadata = refusedBeforeUpstream ? clientRequestMetadata : upstreamRequestMetadata;
+  const requestBody = refusedBeforeUpstream ? clientRequestBody : upstreamRequestBody;
+  const model = stringValue(target.model);
+  const rawUrl = stringValue(requestMetadata?.url);
   const url = rawUrl ? redactSensitiveUrlQuery(rawUrl) : undefined;
   const clientRequestHeaders = headerRecordFromUnknown(clientRequestMetadata?.headers);
   const upstreamRequestHeaders = headerRecordFromUnknown(upstreamRequestMetadata?.headers);
@@ -1692,7 +1701,7 @@ export async function readRawTraceRequestLogBundle(
   return {
     files: {
       cleanupDirectory: rawTraceBundleDirectory(parts, spoolDirectory),
-      requestBody: upstreamRequestBody,
+      requestBody,
       responseBody: upstreamResponseBody
     },
     update: {
@@ -1702,14 +1711,14 @@ export async function readRawTraceRequestLogBundle(
       ...(client ? { client } : {}),
       ...(stringValue(manifest.completedAt) ? { completedAt: stringValue(manifest.completedAt) } : {}),
       ...(numberValue(manifest.durationMs) !== undefined ? { durationMs: numberValue(manifest.durationMs) } : {}),
-      method: stringValue(upstreamRequestMetadata?.method) || "POST",
-      model: stringValue(target.model),
+      method: stringValue(requestMetadata?.method) || "POST",
+      model: refusedBeforeUpstream ? model?.slice(0, maxRequestLogModelLength) : model,
       path: pathFromUrl(url),
       provider: stringValue(target.providerName) || stringValue(target.provider),
-      requestBodyContentType: upstreamRequestBody?.contentType,
-      requestBodySizeBytes: upstreamRequestBody?.sizeBytes,
-      requestBodyTruncated: upstreamRequestBody?.truncated,
-      requestHeaders: upstreamRequestHeaders,
+      requestBodyContentType: requestBody?.contentType,
+      requestBodySizeBytes: requestBody?.sizeBytes,
+      requestBodyTruncated: requestBody?.truncated,
+      requestHeaders: refusedBeforeUpstream ? undefined : upstreamRequestHeaders,
       requestId,
       isStream: upstreamResponseStream !== undefined,
       responseBodyContentType: upstreamResponseBody?.contentType,
@@ -1751,7 +1760,8 @@ async function readRawTraceJsonPart(
     const text = await readFile(part.filePath, "utf8");
     const parsed = JSON.parse(text) as unknown;
     return isRecord(parsed) ? parsed : undefined;
-  } catch {
+  } catch (error) {
+    console.warn(`[gateway] Failed to parse raw trace part ${partType}: ${formatError(error)}`);
     return undefined;
   }
 }
@@ -1836,7 +1846,7 @@ function pathFromUrl(value: string | undefined): string | undefined {
     return undefined;
   }
   try {
-    return new URL(value).pathname || undefined;
+    return new URL(value, "http://127.0.0.1").pathname || undefined;
   } catch {
     return undefined;
   }

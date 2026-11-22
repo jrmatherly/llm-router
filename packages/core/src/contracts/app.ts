@@ -1958,7 +1958,20 @@ export type GatewayStatus = {
   lastStartedAt?: string;
   networkEndpoints: GatewayNetworkEndpoint[];
   pid?: number;
+  refusedForKey?: RefusedKeyRequests;
   state: "stopped" | "starting" | "running" | "error";
+};
+
+export type RefusedKeyRequest = {
+  at: string;
+  client: string;
+  reason: string;
+  route: string;
+};
+
+export type RefusedKeyRequests = {
+  count: number;
+  recent: RefusedKeyRequest[];
 };
 
 export type ProxyStatus = {

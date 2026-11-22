@@ -7,6 +7,7 @@ import {
   exchangeClaudeCodeWifToken,
   resolveApiKeyFromHeaders
 } from "@llmr/core/gateway/auth/api-key-authorizer";
+import { createRefusedKeyRequestLog, type RefusedKeyRequestInput } from "@llmr/core/gateway/auth/refused-key-requests";
 import { llmrRemoteControlPathPrefix, llmrRemoteControlService, remoteControlOwnerId } from "@llmr/core/gateway/remote-control-service";
 import {
   LLMRouterPlugin,
@@ -25,6 +26,7 @@ import {
   llmrOpenRouterDiscountFinalizeResponseHookKey,
   llmrOpenRouterDiscountFinalizeStreamHookKey,
   llmrOpenRouterDiscountRequestIdHeader,
+  llmrRefusedKeyRequestsMessageType,
   llmrRouteDiagnosticsHeader,
   llmrRouteFallbackHeader,
   llmrRouteHeaderNames,
@@ -41,6 +43,7 @@ import {
   llmrRouterRouteResolverKey,
   llmrRouterRequestTransformKey,
   encodeLlmrRouteFallbackHeader,
+  type LlmrRefusedKeyRequestsMessage,
   type LlmrRouterPluginRouteRequest
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response";
@@ -121,6 +124,11 @@ type GatewayRequestHookInput = {
     headers?: Record<string, HeaderValue>;
     id?: string;
     method?: string;
+    url?: string;
+  };
+  route?: {
+    method?: string;
+    route?: string;
     url?: string;
   };
 };
@@ -370,6 +378,14 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
             publicAuthKeys,
             rejectMissing: false
           });
+          // A request with no key passes this hook and the fork's static key check refuses it with 401, so it is counted here.
+          if (!authorization.ok || !readAuthToken(requestInput.request?.headers)) {
+            sharedRefusedKeyRequestPublisher.record({
+              headers: requestInput.request?.headers ?? {},
+              reason: authorization.ok ? "API key is missing." : authorization.error,
+              route: refusedKeyRequestRoute(requestInput)
+            });
+          }
           if (!authorization.ok) {
             return {
               ok: false,
@@ -588,6 +604,67 @@ class CoreGatewayLiveTokenRatePublisher {
       this.publishTimer.unref?.();
     }
   }
+}
+
+const refusedKeyRequestPublishIntervalMs = 1_000;
+
+class RefusedKeyRequestPublisher {
+  private log = createRefusedKeyRequestLog();
+  private lastPublishedAt = Number.NEGATIVE_INFINITY;
+  private publishTimer?: NodeJS.Timeout;
+
+  record(input: RefusedKeyRequestInput): void {
+    this.log.record(input);
+    if (typeof process.send !== "function" || this.publishTimer) {
+      return;
+    }
+    const delayMs = refusedKeyRequestPublishIntervalMs - (Date.now() - this.lastPublishedAt);
+    if (delayMs <= 0) {
+      this.publishNow();
+      return;
+    }
+    this.publishTimer = setTimeout(() => {
+      this.publishTimer = undefined;
+      this.publishNow();
+    }, delayMs);
+    this.publishTimer.unref?.();
+  }
+
+  reset(): void {
+    clearTimeout(this.publishTimer);
+    this.publishTimer = undefined;
+    this.lastPublishedAt = Number.NEGATIVE_INFINITY;
+    this.log = createRefusedKeyRequestLog();
+  }
+
+  private publishNow(): void {
+    this.lastPublishedAt = Date.now();
+    const message: LlmrRefusedKeyRequestsMessage = {
+      ...this.log.snapshot(),
+      protocolVersion: 1,
+      type: llmrRefusedKeyRequestsMessageType
+    };
+    try {
+      // With a callback, a closed channel or a failed write reaches it instead of an "error" on process, which would end the child.
+      process.send?.(message, () => undefined);
+    } catch {
+      // A count that cannot be serialized or sent is dropped; the request is still refused.
+    }
+  }
+}
+
+const sharedRefusedKeyRequestPublisher = new RefusedKeyRequestPublisher();
+
+export function resetRefusedKeyRequestPublisherForTest(): void {
+  sharedRefusedKeyRequestPublisher.reset();
+}
+
+function refusedKeyRequestRoute(requestInput: GatewayRequestHookInput): string {
+  const route = requestInput.route?.route;
+  // The fork's route pattern drops ids and the query string; its catch-all "/*" names nothing, so the path stands in.
+  return route && route !== "/*"
+    ? route
+    : requestPath(requestInput.route?.url ?? requestInput.request?.url ?? "/");
 }
 
 function coreGatewayLiveTokenRatePublisherFor(enabled: boolean): CoreGatewayLiveTokenRatePublisher {

@@ -23,6 +23,13 @@ test("the gateway child gets a manager key of its own and no inherited key names
   assert.equal(first.AUTH_STATIC_API_KEY_ENV in first, true);
 });
 
+test("the gateway child registers no manager or agent routes, whatever the shell says", (t) => {
+  withEnv(t, { GATEWAY_MANAGEMENT_ROUTES_ENABLED: "true", Gateway_Management_Routes_Enabled: "true" });
+  const env = gatewayProcessEnvForTest(createDefaultAppConfig(), "core-token");
+  assert.equal(env.GATEWAY_MANAGEMENT_ROUTES_ENABLED, "false");
+  assert.equal("Gateway_Management_Routes_Enabled" in env, false);
+});
+
 test("the gateway child sends CORS headers only to LLMR's own origin", (t) => {
   const names = [
     "CORS_ORIGIN",

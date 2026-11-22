@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
+import { pluginService } from "@llmr/core/plugins/service.ts";
+import { resetRefusedKeyRequestsForTest } from "@llmr/core/gateway/auth/refused-key-requests.ts";
+import { llmrRefusedKeyRequestsMessageType } from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
 
 // A fresh service without starting HTTP, plugins, or child processes.
 function createService() {
@@ -126,3 +130,88 @@ test("#1867 an obsolete child's exit cannot restart its replacement", async (t) 
   assert.equal(restarts, 0);
   assert.equal(service.getStatus().state, "running");
 });
+
+test("refused-key counts survive a core restart and only the current child is heard", () => {
+  resetRefusedKeyRequestsForTest();
+  const { child, service } = crashedService();
+  service.handleCoreGatewayMessage(child, refusedKeyMessage(1, ["2026-11-22T00:00:01.000Z"]));
+  service.handleCoreGatewayMessage(child, refusedKeyMessage(2, ["2026-11-22T00:00:02.000Z", "2026-11-22T00:00:01.000Z"]));
+  const nextChild = {};
+  service.adoptCoreGatewayChild(nextChild);
+  service.handleCoreGatewayMessage(child, refusedKeyMessage(9, ["2026-11-22T00:00:09.000Z"]));
+  service.handleCoreGatewayMessage(nextChild, refusedKeyMessage(1, ["2026-11-22T00:00:03.000Z"]));
+  service.handleCoreGatewayMessage(nextChild, { count: "lots", protocolVersion: 1, recent: [], type: llmrRefusedKeyRequestsMessageType });
+
+  const { refusedForKey } = service.getStatus();
+  assert.equal(service.child, nextChild);
+  assert.equal(refusedForKey.count, 3);
+  assert.deepEqual(refusedForKey.recent.map((entry) => entry.at), [
+    "2026-11-22T00:00:03.000Z",
+    "2026-11-22T00:00:02.000Z",
+    "2026-11-22T00:00:01.000Z"
+  ]);
+});
+
+test("a status with no refused-key requests carries no refusedForKey", () => {
+  resetRefusedKeyRequestsForTest();
+  const { service } = crashedService();
+  assert.equal("refusedForKey" in service.getStatus(), false);
+});
+
+test("a message from the replaced child that arrives after the new child's leaves the count alone", () => {
+  resetRefusedKeyRequestsForTest();
+  const { child, service } = crashedService();
+  service.handleCoreGatewayMessage(child, refusedKeyMessage(2, ["2026-11-22T00:00:02.000Z"]));
+  const nextChild = {};
+  service.adoptCoreGatewayChild(nextChild);
+  service.handleCoreGatewayMessage(nextChild, refusedKeyMessage(1, ["2026-11-22T00:00:03.000Z"]));
+  service.handleCoreGatewayMessage(child, refusedKeyMessage(9, ["2026-11-22T00:00:09.000Z"]));
+  assert.equal(service.getStatus().refusedForKey.count, 3);
+});
+
+test("a malformed refused-key message leaves the count alone", () => {
+  resetRefusedKeyRequestsForTest();
+  const { child, service } = crashedService();
+  service.handleCoreGatewayMessage(child, refusedKeyMessage(2, ["2026-11-22T00:00:02.000Z"]));
+  for (const message of [
+    { ...refusedKeyMessage(5, []), protocolVersion: 2 },
+    { ...refusedKeyMessage(5, []), recent: [null] },
+    { ...refusedKeyMessage(5, []), count: "5" }
+  ]) {
+    assert.doesNotThrow(() => service.handleCoreGatewayMessage(child, message));
+  }
+  assert.equal(service.getStatus().refusedForKey.count, 2);
+});
+
+test("a status copy that carries an old refused-key count never shows once the count is zero", () => {
+  resetRefusedKeyRequestsForTest();
+  const { service } = crashedService();
+  service.status.refusedForKey = { count: 4, recent: [] };
+  assert.equal("refusedForKey" in service.getStatus(), false);
+});
+
+test("the status a start returns carries the refused-key count", async (t) => {
+  resetRefusedKeyRequestsForTest();
+  const { child, service } = crashedService();
+  service.handleCoreGatewayMessage(child, refusedKeyMessage(2, ["2026-11-22T00:00:02.000Z"]));
+  service.stopGateway = async () => service.getStatus();
+  service.routeScriptRuntime = { close: async () => {}, prepare: async () => [] };
+  t.mock.method(pluginService, "start", async () => { throw new Error("plugin start failed"); });
+  const config = createDefaultAppConfig();
+  config.gateway.port = 0;
+  config.gateway.corePort = 0;
+
+  for (const status of [await service.start(config), await service.restart(config), await service.ensureStarted(config)]) {
+    assert.equal(status.state, "error");
+    assert.equal(status.refusedForKey?.count, 2);
+  }
+});
+
+function refusedKeyMessage(count, times) {
+  return {
+    count,
+    protocolVersion: 1,
+    recent: times.map((at) => ({ at, client: "Codex", reason: "Invalid or expired API key.", route: "/v1/responses" })),
+    type: llmrRefusedKeyRequestsMessageType
+  };
+}

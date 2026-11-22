@@ -228,6 +228,141 @@ test("raw trace bundle preserves manifest lifecycle metadata", async () => {
   }
 });
 
+test("a trace refused before any upstream call takes its path and body from the client request", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-refused-test-"));
+  try {
+    const { clientBody, manifest, spoolDirectory } = writeRefusedRawTrace(dir, { model: "unknown-model" });
+    const bundle = await readRawTraceRequestLogBundle(manifest, spoolDirectory);
+
+    assert.ok(bundle);
+    assert.equal(bundle.update.statusCode, 400);
+    assert.equal(bundle.update.model, "unknown-model");
+    assert.equal(bundle.update.provider, "Stub");
+    assert.equal(bundle.update.method, "POST");
+    assert.equal(bundle.update.path, "/v1/chat/completions");
+    assert.equal(bundle.update.url, "/v1/chat/completions");
+    assert.equal(bundle.update.requestHeaders, undefined);
+    assert.ok(bundle.files.requestBody);
+    assert.equal(readFileSync(bundle.files.requestBody.filePath, "utf8"), clientBody);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a refused trace redacts a key the client sent in its query string", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-refused-key-test-"));
+  try {
+    const { manifest, spoolDirectory } = writeRefusedRawTrace(dir, {
+      clientUrl: "/v1/chat/completions?key=SECRET-CLIENT-KEY",
+      model: "unknown-model"
+    });
+    const bundle = await readRawTraceRequestLogBundle(manifest, spoolDirectory);
+
+    assert.ok(bundle);
+    assert.equal(bundle.update.path, "/v1/chat/completions");
+    assert.match(bundle.update.url, /redacted/);
+    assert.doesNotMatch(bundle.update.url, /SECRET-CLIENT-KEY/);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a trace with an upstream URL keeps the upstream path, body and headers", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-upstream-test-"));
+  try {
+    const { manifest, spoolDirectory } = writeRefusedRawTrace(dir, { model: "known-model" });
+    const bundleDirectory = path.join(spoolDirectory, "refused-bundle");
+    const upstreamBody = JSON.stringify({ model: "upstream-model" });
+    writeFileSync(path.join(bundleDirectory, "upstream_request_metadata.json"), JSON.stringify({
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+      url: "https://provider.example/v2/complete?api_key=PROVIDER-KEY"
+    }));
+    writeFileSync(path.join(bundleDirectory, "upstream_request.json"), upstreamBody);
+    manifest.parts.push({
+      contentType: "application/json",
+      filePath: path.join(bundleDirectory, "upstream_request.json"),
+      originalBytes: upstreamBody.length,
+      partType: "upstream_request"
+    });
+    const bundle = await readRawTraceRequestLogBundle(manifest, spoolDirectory);
+
+    assert.ok(bundle);
+    assert.equal(bundle.update.method, "PUT");
+    assert.equal(bundle.update.path, "/v2/complete");
+    assert.doesNotMatch(bundle.update.url, /PROVIDER-KEY/);
+    assert.match(bundle.update.url, /^https:\/\/provider\.example\/v2\/complete/);
+    assert.deepEqual(bundle.update.requestHeaders, { "content-type": "application/json" });
+    assert.equal(readFileSync(bundle.files.requestBody.filePath, "utf8"), upstreamBody);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a trace with an upstream body but no upstream URL keeps the upstream body and headers", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-upstream-no-url-test-"));
+  try {
+    const { manifest, spoolDirectory } = writeRefusedRawTrace(dir, { model: "known-model" });
+    const bundleDirectory = path.join(spoolDirectory, "refused-bundle");
+    const upstreamBody = JSON.stringify({ model: "upstream-model" });
+    writeFileSync(path.join(bundleDirectory, "upstream_request_metadata.json"), JSON.stringify({
+      headers: { "x-provider": "kept" },
+      truncated: true
+    }));
+    writeFileSync(path.join(bundleDirectory, "upstream_request.json"), upstreamBody);
+    manifest.parts.push({
+      contentType: "application/json",
+      filePath: path.join(bundleDirectory, "upstream_request.json"),
+      originalBytes: upstreamBody.length,
+      partType: "upstream_request"
+    });
+    const bundle = await readRawTraceRequestLogBundle(manifest, spoolDirectory);
+
+    assert.ok(bundle);
+    assert.deepEqual(bundle.update.requestHeaders, { "x-provider": "kept" });
+    assert.equal(readFileSync(bundle.files.requestBody.filePath, "utf8"), upstreamBody);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+function writeRefusedRawTrace(dir, { clientUrl = "/v1/chat/completions", model }) {
+  const spoolDirectory = path.join(dir, "spool");
+  const bundleDirectory = path.join(spoolDirectory, "refused-bundle");
+  const clientBody = JSON.stringify({ messages: [{ content: "hi", role: "user" }], model });
+  const errorBody = JSON.stringify({ error: { message: "No route for model.", stage: "model_resolution" } });
+  const file = (name) => path.join(bundleDirectory, name);
+  mkdirSync(bundleDirectory, { recursive: true });
+  writeFileSync(file("client_request_metadata.json"), JSON.stringify({
+    headers: { authorization: "Bearer CLIENT-SECRET", "content-type": "application/json" },
+    method: "POST",
+    url: clientUrl
+  }));
+  writeFileSync(file("client_request.json"), clientBody);
+  writeFileSync(file("upstream_request_metadata.json"), JSON.stringify({ method: "POST" }));
+  writeFileSync(file("upstream_response_metadata.json"), JSON.stringify({
+    headers: { "content-type": "application/json" },
+    statusCode: 400
+  }));
+  writeFileSync(file("upstream_response.json"), errorBody);
+  return {
+    clientBody,
+    manifest: {
+      parts: [
+        { filePath: file("client_request_metadata.json"), partType: "client_request_metadata" },
+        { contentType: "application/json", filePath: file("client_request.json"), originalBytes: clientBody.length, partType: "client_request" },
+        { filePath: file("upstream_request_metadata.json"), partType: "upstream_request_metadata" },
+        { filePath: file("upstream_response_metadata.json"), partType: "upstream_response_metadata" },
+        { contentType: "application/json", filePath: file("upstream_response.json"), originalBytes: errorBody.length, partType: "upstream_response" }
+      ],
+      requestId: "refused-bundle",
+      target: { model, providerName: "Stub" },
+      turnKey: "refused-request"
+    },
+    spoolDirectory
+  };
+}
+
 test("stream sampler retains the original response byte size after capture truncation", () => {
   const sampler = createBodySampler();
   const body = Buffer.alloc(9 * 1024 * 1024, "x");

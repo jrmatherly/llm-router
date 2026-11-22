@@ -2,6 +2,9 @@ import { routeModelFromPath } from "@llmr/core/routing/protocol-adapter";
 
 type JsonRecord = Record<string, unknown>;
 
+// The client picks this name, so it is cut before it is stored.
+export const maxRequestLogModelLength = 200;
+
 export function requestLogRequestedModel(body: Buffer | string, path = ""): string | undefined {
   const pathModel = normalizeModel(routeModelFromPath(path));
   if (pathModel) {

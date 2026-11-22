@@ -19,11 +19,14 @@ import { RawTraceSynchronizer } from "@llmr/core/observability/raw-trace-sync";
 import { GatewayBillingSynchronizer } from "@llmr/core/usage/billing-sync";
 import { assertLoopbackCoreHost, endpoint, formatCoreGatewayChildExit, gatewayNetworkEndpoints, gatewayRuntimeSupportsRouterPlugin, generateCoreGatewayAuthToken, isCoreGatewayHealthy, loopbackCoreHostError, removeManagedCoreGatewayMarker, shouldRunGatewayRuntime, shouldRunUnifiedServer, spawnGatewayProcess, stopPreviousManagedCoreGateway, waitForCoreGatewayStop, waitForManagedCoreGatewayReady, writeManagedCoreGatewayMarker } from "@llmr/core/gateway/core-runtime/supervisor";
 import { coreGatewayAuthHeader } from "@llmr/core/gateway/internal/shared";
+import { foldChildRefusedKeyRequests, mergeChildRefusedKeyRequests, refusedKeyRequests } from "@llmr/core/gateway/auth/refused-key-requests";
 import type { BrowserAutomationMcpIntegration, BrowserWebSearchMcpIntegration, GatewayStopOptions } from "@llmr/core/gateway/internal/shared";
 import {
   llmrLiveTokenRateConfigMessageType,
   llmrLiveTokenRateSnapshotMessageType,
-  llmrRuntimeConfigReloadMessageType
+  llmrRefusedKeyRequestsMessageType,
+  llmrRuntimeConfigReloadMessageType,
+  type LlmrRefusedKeyRequestsMessage
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline";
 import { preloadUsagePriceCatalog } from "@llmr/core/models/pricing-service";
@@ -44,6 +47,7 @@ import { setExternalLiveTokenRateSnapshot } from "@llmr/core/observability/strea
 installSocketTypeOfServiceCompat();
 
 const coreGatewayLiveTokenRateSourceId = "core-gateway";
+let warnedMalformedRefusedKeyMessage = false;
 
 type RouteScriptTestHeaders = Record<string, string | string[] | undefined>;
 type SingleGatewayRuntimeBlockerOptions = {
@@ -168,7 +172,7 @@ class GatewayService {
         lastError: coreHostError,
         state: "error"
       };
-      return this.status;
+      return this.getStatus();
     }
     await this.stopGateway({ nextConfig: config });
     if (recoveryGeneration !== undefined && recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
@@ -214,7 +218,7 @@ class GatewayService {
           lastError: NO_AVAILABLE_GATEWAY_MODELS_MESSAGE,
           state: "stopped"
         };
-        return this.status;
+        return this.getStatus();
       }
       if (!shouldRunServer && !shouldRunGateway) {
         await mediaService.stop();
@@ -225,7 +229,7 @@ class GatewayService {
           ...this.status,
           state: "stopped"
         };
-        return this.status;
+        return this.getStatus();
       }
 
       await this.rawTraceSynchronizer.start();
@@ -268,20 +272,20 @@ class GatewayService {
           runtimeId,
           coreAuthToken
         );
-        this.child = spawnedGateway.child;
+        this.adoptCoreGatewayChild(spawnedGateway.child);
         this.coreAuthToken = coreAuthToken;
-        const managedChild = this.child;
+        const managedChild = spawnedGateway.child;
         const onChildMessage = (message: unknown) => this.handleCoreGatewayMessage(managedChild, message);
         let markerWritePromise: Promise<void> | undefined;
         let startupFailure: Error | undefined;
-        this.child.on("message", onChildMessage);
-        this.child.stdout?.on("data", (chunk) => console.info(`[gateway] ${chunk.toString().trimEnd()}`));
-        this.child.stderr?.on("data", (chunk) => console.warn(`[gateway] ${chunk.toString().trimEnd()}`));
-        this.child.once("error", (error) => {
+        managedChild.on("message", onChildMessage);
+        managedChild.stdout?.on("data", (chunk) => console.info(`[gateway] ${chunk.toString().trimEnd()}`));
+        managedChild.stderr?.on("data", (chunk) => console.warn(`[gateway] ${chunk.toString().trimEnd()}`));
+        managedChild.once("error", (error) => {
           startupFailure ??= new Error(`Core gateway failed to start: ${formatError(error)}`);
           void this.handleCoreGatewayTermination(managedChild, markerWritePromise, startupFailure.message);
         });
-        this.child.once("exit", (code, signal) => {
+        managedChild.once("exit", (code, signal) => {
           managedChild.off("message", onChildMessage);
           startupFailure ??= new Error(formatCoreGatewayChildExit(managedChild, code, signal));
           void this.handleCoreGatewayTermination(managedChild, markerWritePromise, startupFailure.message);
@@ -303,7 +307,7 @@ class GatewayService {
         state: "running"
       };
       this.runtimeConfigReloadError = undefined;
-      return this.status;
+      return this.getStatus();
     } catch (error) {
       if (recoveryGeneration !== undefined && recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
       await this.stopGateway();
@@ -312,7 +316,7 @@ class GatewayService {
         lastError: formatError(error),
         state: "error"
       };
-      return this.status;
+      return this.getStatus();
     }
   }
 
@@ -435,12 +439,21 @@ class GatewayService {
   }
 
   getStatus(): GatewayStatus {
+    const refusedForKey = refusedKeyRequests();
+    // this.status can hold an earlier getStatus() copy (start() spreads one in), so its refusedForKey gives way to the live one.
+    const { refusedForKey: _stale, ...status } = this.status;
     return {
-      ...this.status,
+      ...status,
       networkEndpoints: this.config
         ? gatewayNetworkEndpoints(this.config.gateway.host, this.config.gateway.port)
-        : this.status.networkEndpoints
+        : this.status.networkEndpoints,
+      ...(refusedForKey.count > 0 ? { refusedForKey } : {})
     };
+  }
+
+  private adoptCoreGatewayChild(child: ChildProcess): void {
+    foldChildRefusedKeyRequests();
+    this.child = child;
   }
 
   // The held config is mutated in place by callers, so a restart is decided against the signature taken when it was held.
@@ -634,6 +647,17 @@ class GatewayService {
         activeRequests: message.activeRequests,
         tokensPerSecond: message.tokensPerSecond
       });
+      return;
+    }
+    if (isRefusedKeyRequestsMessage(message)) {
+      mergeChildRefusedKeyRequests(message);
+      return;
+    }
+    if ((message as { type?: unknown } | null)?.type === llmrRefusedKeyRequestsMessageType) {
+      if (!warnedMalformedRefusedKeyMessage) {
+        warnedMalformedRefusedKeyMessage = true;
+        console.warn("[gateway] Ignored a malformed refused-key requests message from the core gateway.");
+      }
       return;
     }
     if (isRuntimeConfigReloadMessage(message)) {
@@ -838,6 +862,21 @@ function isLiveTokenRateSnapshotMessage(
     record.protocolVersion === 1 &&
     typeof record.activeRequests === "number" && Number.isFinite(record.activeRequests) &&
     typeof record.tokensPerSecond === "number" && Number.isFinite(record.tokensPerSecond);
+}
+
+function isRefusedKeyRequestsMessage(message: unknown): message is LlmrRefusedKeyRequestsMessage {
+  if (!message || typeof message !== "object" || Array.isArray(message)) {
+    return false;
+  }
+  const record = message as Record<string, unknown>;
+  return record.type === llmrRefusedKeyRequestsMessageType &&
+    record.protocolVersion === 1 &&
+    typeof record.count === "number" && Number.isFinite(record.count) &&
+    Array.isArray(record.recent) &&
+    record.recent.every((entry) => {
+      const item = entry as Record<string, unknown> | null;
+      return Boolean(item) && ["at", "client", "reason", "route"].every((key) => typeof item?.[key] === "string");
+    });
 }
 
 function withCoreRuntimeEndpoint(config: AppConfig, host: string, port: number): AppConfig {

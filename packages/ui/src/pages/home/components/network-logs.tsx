@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { requestLogOutcome } from "@llmr/core/contracts/app";
 import { Maximize2, Route, X } from "lucide-react";
-import type { RequestRouteTrace, RequestRouteTraceChange, RequestRouteTraceHop } from "@llmr/core/contracts/app";
+import type { RefusedKeyRequests, RequestRouteTrace, RequestRouteTraceChange, RequestRouteTraceHop } from "@llmr/core/contracts/app";
 import {
   AnimatedIconSwap, Check, ChevronDown, ChevronLeft,
   ChevronRight, clampNumber, clientInitial, cn, Copy, copyTextToClipboard,
@@ -359,6 +359,7 @@ export function LogsView({
   onFocusedRequestHandled,
   page,
   refreshLogs,
+  refusedForKey,
   retentionDays,
   updateFilter
 }: {
@@ -371,9 +372,13 @@ export function LogsView({
   onFocusedRequestHandled?: () => void;
   page: RequestLogPage;
   refreshLogs: () => void;
+  refusedForKey?: RefusedKeyRequests;
   retentionDays?: number;
   updateFilter: (patch: RequestLogListFilter, resetPage?: boolean) => void;
 }) {
+  const refusedNotice = refusedForKey && refusedForKey.count > 0
+    ? <RefusedKeyRequestsNotice refused={refusedForKey} />
+    : null;
   const [expandedId, setExpandedId] = useState<number>();
   const [detailById, setDetailById] = useState<Record<number, RequestLogEntry>>({});
   const [detailErrorById, setDetailErrorById] = useState<Record<number, string>>({});
@@ -492,24 +497,29 @@ export function LogsView({
 
   if (!enabled) {
     return (
-      <MonitorDisabledView
-        actionLabel="Enable request logs"
-        description="Request logs record gateway requests and make payload inspection available."
-        icon={<Database className="h-8 w-8" />}
-        onEnable={onEnable}
-        title="Request logs are off"
-      />
+      <div className="network-view flex min-w-0 flex-col overflow-y-auto">
+        {refusedNotice}
+        <MonitorDisabledView
+          actionLabel="Enable request logs"
+          className="min-h-0 flex-1"
+          description="Request logs record gateway requests and make payload inspection available."
+          icon={<Database className="h-8 w-8" />}
+          onEnable={onEnable}
+          title="Request logs are off"
+        />
+      </div>
     );
   }
 
   return (
     <motion.div
       animate={{ opacity: 1 }}
-      className="network-view min-w-0"
+      className="network-view flex min-w-0 flex-col"
       initial={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
     >
-      <div className="network-shell flex min-h-0 flex-col overflow-hidden rounded-lg border">
+      {refusedNotice}
+      <div className="network-shell flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
         <div className="network-toolbar flex min-h-10 min-w-0 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
           <div className="relative min-w-[220px] flex-1">
             <Search className="network-search-icon pointer-events-none absolute left-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2" />
@@ -695,14 +705,37 @@ export function LogsView({
   );
 }
 
+function RefusedKeyRequestsNotice({ refused }: { refused: RefusedKeyRequests }) {
+  const subject = refused.count === 1 ? "1 request was" : `${refused.count} requests were`;
+  return (
+    <div className="network-notice mb-3 min-w-0 shrink-0 rounded-lg border px-3 py-2 text-[12px]">
+      <div className="font-semibold text-foreground" role="status">
+        {subject} refused for a missing, wrong or expired API key since LLM Router started.
+      </div>
+      <ul className="mt-1.5 grid gap-1 text-[11px] text-muted-foreground">
+        {refused.recent.map((entry, index) => (
+          <li className="flex min-w-0 flex-wrap gap-x-3" key={`${entry.at}-${index}`}>
+            <span className="font-mono">{formatLogDateTime(entry.at)}</span>
+            <span className="min-w-0 max-w-full truncate">{entry.client}</span>
+            <span className="min-w-0 max-w-full truncate font-mono">{entry.route}</span>
+            <span>{entry.reason}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function MonitorDisabledView({
   actionLabel,
+  className,
   description,
   icon,
   onEnable,
   title
 }: {
   actionLabel: string;
+  className?: string;
   description: string;
   icon: ReactNode;
   onEnable?: () => void;
@@ -712,7 +745,7 @@ export function MonitorDisabledView({
   return (
     <motion.div
       animate={{ opacity: 1 }}
-      className="network-view min-w-0"
+      className={cn("network-view min-w-0", className)}
       initial={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
     >

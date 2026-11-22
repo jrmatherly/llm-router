@@ -36,7 +36,7 @@
     "test:integration": "node ../../build/test.mjs cli --scope integration && node ../../build/run-tests.mjs cli"
   },
   "dependencies": {
-    "@the-next-ai/ai-gateway": "https://github.com/jrmatherly/llmr-gateway/releases/download/v1.0.22-llmr.2/the-next-ai-ai-gateway-1.0.22-llmr.2.tgz",
+    "@the-next-ai/ai-gateway": "https://github.com/jrmatherly/llmr-gateway/releases/download/v1.0.22-llmr.3/the-next-ai-ai-gateway-1.0.22-llmr.3.tgz",
     "@the-next-ai/bot-gateway-sdk": "^0.1.0",
     "better-sqlite3": "^13.2.0",
     "node-forge": "^1.4.3",

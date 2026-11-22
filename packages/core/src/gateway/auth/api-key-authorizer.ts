@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:http";
 import type { ApiKeyConfig, AppConfig } from "@llmr/core/contracts/app";
 import { loadPersistedApiKeys } from "@llmr/core/config/config-repository";
+import { recordRefusedKeyRequest } from "@llmr/core/gateway/auth/refused-key-requests";
 import { formatError, readAuthToken, readRemoteControlQueryAuthToken, readRequestBody, sendJson } from "@llmr/core/gateway/http/io";
 import { estimateLimitUsage, limitRules, readWindowCounter } from "@llmr/core/gateway/limits/window-limiter";
 import type { ApiKeyAuthorizationResult, ApiKeyLimitRule, ApiKeyLimitUsage } from "@llmr/core/gateway/internal/shared";
@@ -33,16 +34,23 @@ export async function authorize(
 
   const token = readAuthToken(request.headers) || readRemoteControlQueryAuthToken(request);
   const apiKey = token ? findApiKeyByToken(apiKeys, token) : undefined;
-  if (apiKey) {
-    if (isApiKeyExpired(apiKey)) {
-      sendJson(response, 401, { error: { message: "API key is expired." } });
-      return { ok: false };
-    }
+  if (apiKey && !isApiKeyExpired(apiKey)) {
     return { ok: true, apiKey };
   }
 
-  sendJson(response, 401, { error: { message: token ? "Invalid API key." : "API key is missing." } });
+  const message = apiKey ? "API key is expired." : token ? "Invalid API key." : "API key is missing.";
+  // Only the pathname: remote control accepts the key as ?api_key= or ?key=.
+  recordRefusedKeyRequest({ headers: request.headers, reason: message, route: requestPathname(request.url) });
+  sendJson(response, 401, { error: { message } });
   return { ok: false };
+}
+
+function requestPathname(url: string | undefined): string {
+  try {
+    return new URL(url ?? "/", "http://127.0.0.1").pathname;
+  } catch {
+    return "/";
+  }
 }
 
 export async function resolveApiKeyFromHeaders(

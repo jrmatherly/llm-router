@@ -1029,7 +1029,8 @@
     max-height: 100%;
   }
 
-  .network-shell {
+  .network-shell,
+  .network-notice {
     background: var(--network-bg);
     border-color: var(--network-border);
     box-shadow: var(--network-shadow);

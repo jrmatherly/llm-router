@@ -902,6 +902,35 @@ test("RequestLogStore keeps an errorless gateway HTTP 500 authoritative over raw
   }
 });
 
+test("RequestLogStore cuts a long model in a Gemini-style path to 200 characters in requested_model", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-path-model-test-"));
+  const store = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
+  const startedAt = new Date().toISOString();
+  const model = "m".repeat(500);
+  try {
+    await store.record({
+      completedAt: startedAt,
+      durationMs: 5,
+      method: "POST",
+      path: `/v1beta/models/${model}:generateContent`,
+      requestBody: Buffer.from("{}"),
+      requestHeaders: { "content-type": "application/json" },
+      requestId: "gemini-path-long-model",
+      responseBodyText: "{}",
+      responseHeaders: { "content-type": "application/json" },
+      startedAt,
+      statusCode: 400,
+      url: `http://127.0.0.1:3456/v1beta/models/${model}:generateContent`
+    });
+
+    const page = await store.list({ pageSize: 25 });
+    assert.equal(page.items[0].requestedModel, model.slice(0, 200));
+  } finally {
+    await store.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("RequestLogStore consumes fallback bundles by unique bundle id and only final attempt mutates outcome", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-fallback-bundles-test-"));
   const dbFile = path.join(dir, "request-logs.sqlite");
