@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { requestLogOutcome } from "@llmr/core/contracts/app";
 import { Maximize2, Route, X } from "lucide-react";
-import type { RequestRouteTrace, RequestRouteTraceChange, RequestRouteTraceHop } from "@llmr/core/contracts/app";
+import type { RefusedKeyRequests, RequestRouteTrace, RequestRouteTraceChange, RequestRouteTraceHop } from "@llmr/core/contracts/app";
 import {
   AnimatedIconSwap, Check, ChevronDown, ChevronLeft,
   ChevronRight, clampNumber, clientInitial, cn, Copy, copyTextToClipboard,
@@ -359,6 +359,7 @@ export function LogsView({
   onFocusedRequestHandled,
   page,
   refreshLogs,
+  refusedForKey,
   retentionDays,
   updateFilter
 }: {
@@ -371,9 +372,13 @@ export function LogsView({
   onFocusedRequestHandled?: () => void;
   page: RequestLogPage;
   refreshLogs: () => void;
+  refusedForKey?: RefusedKeyRequests;
   retentionDays?: number;
   updateFilter: (patch: RequestLogListFilter, resetPage?: boolean) => void;
 }) {
+  const refusedNotice = refusedForKey && refusedForKey.count > 0
+    ? <RefusedKeyRequestsNotice refused={refusedForKey} />
+    : null;
   const [expandedId, setExpandedId] = useState<number>();
   const [detailById, setDetailById] = useState<Record<number, RequestLogEntry>>({});
   const [detailErrorById, setDetailErrorById] = useState<Record<number, string>>({});
@@ -492,13 +497,16 @@ export function LogsView({
 
   if (!enabled) {
     return (
-      <MonitorDisabledView
-        actionLabel="Enable request logs"
-        description="Request logs record gateway requests and make payload inspection available."
-        icon={<Database className="h-8 w-8" />}
-        onEnable={onEnable}
-        title="Request logs are off"
-      />
+      <>
+        {refusedNotice}
+        <MonitorDisabledView
+          actionLabel="Enable request logs"
+          description="Request logs record gateway requests and make payload inspection available."
+          icon={<Database className="h-8 w-8" />}
+          onEnable={onEnable}
+          title="Request logs are off"
+        />
+      </>
     );
   }
 
@@ -509,6 +517,7 @@ export function LogsView({
       initial={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
     >
+      {refusedNotice}
       <div className="network-shell flex min-h-0 flex-col overflow-hidden rounded-lg border">
         <div className="network-toolbar flex min-h-10 min-w-0 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
           <div className="relative min-w-[220px] flex-1">
@@ -692,6 +701,27 @@ export function LogsView({
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function RefusedKeyRequestsNotice({ refused }: { refused: RefusedKeyRequests }) {
+  const subject = refused.count === 1 ? "1 request was" : `${refused.count} requests were`;
+  return (
+    <div className="network-shell mb-3 min-w-0 rounded-lg border px-3 py-2 text-[12px]" role="status">
+      <div className="font-semibold text-foreground">
+        {subject} refused for a missing, wrong or expired API key since LLM Router started.
+      </div>
+      <ul className="mt-1.5 grid gap-1 text-[11px] text-muted-foreground">
+        {refused.recent.map((entry, index) => (
+          <li className="flex min-w-0 flex-wrap gap-x-3" key={`${entry.at}-${index}`}>
+            <span className="font-mono">{formatLogDateTime(entry.at)}</span>
+            <span className="truncate">{entry.client}</span>
+            <span className="truncate font-mono">{entry.route}</span>
+            <span>{entry.reason}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
