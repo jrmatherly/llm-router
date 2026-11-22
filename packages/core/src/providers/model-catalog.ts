@@ -55,7 +55,12 @@ const presetCatalogProviderIds: Record<string, string[]> = {
   "zhipu-cn-general": ["zhipuai"]
 };
 
-type CatalogProviderModelOverride = ProviderCatalogModelsResult & {
+export function catalogProviderIdsForBaseUrl(baseUrl: string | undefined): string[] {
+  const presetId = baseUrl ? findProviderPresetByBaseUrl(baseUrl)?.id : undefined;
+  return presetId ? presetCatalogProviderIds[presetId] ?? [] : [];
+}
+
+type CatalogProviderModelOverride =ProviderCatalogModelsResult & {
   metadataModelAliases?: Record<string, string>;
 };
 

@@ -4789,15 +4789,9 @@ function ModelMetadataEditor({
 
   function updatePricing(model: string, key: PricingKey, rawValue: string) {
     updateMetadata(model, (current) => {
-      const pricing = { ...(defaults?.[model]?.pricing ?? {}), ...(current.pricing ?? {}) };
-      const parsed = optionalNonNegativeNumber(rawValue);
-      if (parsed === undefined) delete pricing[key];
-      else pricing[key] = parsed;
-      if (key === "cacheWrite5mUsdPerMillionTokens") {
-        delete pricing.cacheWriteUsdPerMillionTokens;
-      }
+      const pricing = modelPricingAfterEdit(current.pricing, key, rawValue);
       const next = { ...current };
-      if (Object.keys(pricing).length > 0) next.pricing = pricing;
+      if (pricing) next.pricing = pricing;
       else delete next.pricing;
       return next;
     });
@@ -4931,16 +4925,16 @@ function ModelMetadataEditor({
           const modelDefaults = defaults?.[model];
           const effectiveContextWindow = modelMetadata?.contextWindow ?? modelMetadata?.maxContextWindow ??
             modelDefaults?.contextWindow ?? modelDefaults?.maxContextWindow;
-          const effectivePricing = {
-            cacheReadUsdPerMillionTokens: modelMetadata?.pricing?.cacheReadUsdPerMillionTokens ?? modelDefaults?.pricing?.cacheReadUsdPerMillionTokens,
-            cacheWrite1hUsdPerMillionTokens: modelMetadata?.pricing?.cacheWrite1hUsdPerMillionTokens ?? modelDefaults?.pricing?.cacheWrite1hUsdPerMillionTokens,
-            cacheWrite5mUsdPerMillionTokens: modelMetadata?.pricing?.cacheWrite5mUsdPerMillionTokens ??
-              modelMetadata?.pricing?.cacheWriteUsdPerMillionTokens ??
-              modelDefaults?.pricing?.cacheWrite5mUsdPerMillionTokens ??
-              modelDefaults?.pricing?.cacheWriteUsdPerMillionTokens,
-            inputUsdPerMillionTokens: modelMetadata?.pricing?.inputUsdPerMillionTokens ?? modelDefaults?.pricing?.inputUsdPerMillionTokens,
-            outputUsdPerMillionTokens: modelMetadata?.pricing?.outputUsdPerMillionTokens ?? modelDefaults?.pricing?.outputUsdPerMillionTokens
-          };
+          const savedPricing = modelMetadata?.pricing;
+          const defaultPricing = modelDefaults?.pricing;
+          const priceInput = (
+            key: PricingKey,
+            label: string,
+            value = savedPricing?.[key],
+            placeholder = defaultPricing?.[key]
+          ) => (
+            <ModelPriceInput label={label} onChange={(next) => updatePricing(model, key, next)} placeholder={placeholder} value={value} />
+          );
           const expanded = expandedModels.has(model);
           const label = displayNames?.[model]?.trim() || model;
           const fromSource = sourceModelSet.has(model) || Boolean(modelDefaults);
@@ -5044,11 +5038,16 @@ function ModelMetadataEditor({
                       ) : null}
                     </div>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <ModelPriceInput label={`Input(1M tokens/$)`} onChange={(value) => updatePricing(model, "inputUsdPerMillionTokens", value)} value={effectivePricing.inputUsdPerMillionTokens} />
-                      <ModelPriceInput label={`Output(1M tokens/$)`} onChange={(value) => updatePricing(model, "outputUsdPerMillionTokens", value)} value={effectivePricing.outputUsdPerMillionTokens} />
-                      <ModelPriceInput label={`Cache read(1M tokens/$)`} onChange={(value) => updatePricing(model, "cacheReadUsdPerMillionTokens", value)} value={effectivePricing.cacheReadUsdPerMillionTokens} />
-                      <ModelPriceInput label={`Cache write 5m(1M tokens/$)`} onChange={(value) => updatePricing(model, "cacheWrite5mUsdPerMillionTokens", value)} value={effectivePricing.cacheWrite5mUsdPerMillionTokens} />
-                      <ModelPriceInput label={`Cache write 1h(1M tokens/$)`} onChange={(value) => updatePricing(model, "cacheWrite1hUsdPerMillionTokens", value)} value={effectivePricing.cacheWrite1hUsdPerMillionTokens} />
+                      {priceInput("inputUsdPerMillionTokens", "Input(1M tokens/$)")}
+                      {priceInput("outputUsdPerMillionTokens", "Output(1M tokens/$)")}
+                      {priceInput("cacheReadUsdPerMillionTokens", "Cache read(1M tokens/$)")}
+                      {priceInput(
+                        "cacheWrite5mUsdPerMillionTokens",
+                        "Cache write 5m(1M tokens/$)",
+                        savedPricing?.cacheWrite5mUsdPerMillionTokens ?? savedPricing?.cacheWriteUsdPerMillionTokens,
+                        defaultPricing?.cacheWrite5mUsdPerMillionTokens ?? defaultPricing?.cacheWriteUsdPerMillionTokens
+                      )}
+                      {priceInput("cacheWrite1hUsdPerMillionTokens", "Cache write 1h(1M tokens/$)")}
                     </div>
                     <div className="text-[10px] leading-4 text-muted-foreground/75">Input and output prices are both required to override catalog pricing.</div>
                   </div>
@@ -5135,12 +5134,36 @@ function ModelMetadataEditor({
   );
 }
 
-function ModelPriceInput({ label, onChange, value }: { label: string; onChange: (value: string) => void; value?: number }) {
+function ModelPriceInput({ label, onChange, placeholder, value }: {
+  label: string;
+  onChange: (value: string) => void;
+  placeholder?: number;
+  value?: number;
+}) {
   return (
     <Field label={label}>
-      <Input min={0} onChange={(event) => onChange(event.target.value)} placeholder="0" step="any" type="number" value={value ?? ""} />
+      <Input min={0} onChange={(event) => onChange(event.target.value)} placeholder={String(placeholder ?? 0)} step="any" type="number" value={value ?? ""} />
     </Field>
   );
+}
+
+type ModelPricing = NonNullable<NonNullable<AddProviderDraft["modelMetadata"]>[string]["pricing"]>;
+
+// Starts from the provider's own saved prices only. Catalog defaults are
+// placeholders: saving them would turn a catalog snapshot into a user price.
+export function modelPricingAfterEdit(
+  saved: ModelPricing | undefined,
+  key: keyof ModelPricing,
+  rawValue: string
+): ModelPricing | undefined {
+  const pricing = { ...saved };
+  const parsed = optionalNonNegativeNumber(rawValue);
+  if (parsed === undefined) delete pricing[key];
+  else pricing[key] = parsed;
+  if (key === "cacheWrite5mUsdPerMillionTokens") {
+    delete pricing.cacheWriteUsdPerMillionTokens;
+  }
+  return Object.keys(pricing).length > 0 ? pricing : undefined;
 }
 
 function optionalPositiveInteger(value: string): number | undefined {

@@ -248,6 +248,69 @@ test("RequestLogStore prices Anthropic 5m and 1h cache writes separately", async
   }
 });
 
+test("a log row stores where its price came from and keeps it through a raw-trace re-price and a back-fill", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-cost-source-test-"));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  const store = new RequestLogStore(dbFile);
+  const readRow = (requestId) => {
+    const database = createBetterSqliteDatabase(dbFile);
+    try {
+      return { ...database.prepare("SELECT cost_source, cost_usd FROM request_logs WHERE request_id = ?").get(requestId) };
+    } finally {
+      database.close();
+    }
+  };
+  try {
+    const pricing = { inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 8 };
+    const price = { price: { pricing, source: "models.dev" }, state: "priced" };
+    const result = await store.writeBatch([
+      {
+        eventId: "resolved-event",
+        input: { ...createRecord("resolved-request", '{"usage":{"input_tokens":1000000,"output_tokens":500000}}'), price },
+        kind: "record",
+        sequence: 1
+      },
+      {
+        eventId: "unpriced-event",
+        input: {
+          ...createRecord("unpriced-request", '{"usage":{"input_tokens":1,"output_tokens":1}}'),
+          model: "no-price-model",
+          price: { state: "unpriced" }
+        },
+        kind: "record",
+        sequence: 2
+      },
+      {
+        eventId: "late-event",
+        input: { ...createRecord("late-request", "{}"), pricing, pricingSource: "litellm" },
+        kind: "record",
+        sequence: 3
+      }
+    ]);
+    assert.equal(result.pricingRefreshNeeded, false, "a price resolved by the main process needs no catalog in the worker");
+    assert.deepEqual(readRow("resolved-request"), { cost_source: "models.dev", cost_usd: 6 });
+    assert.deepEqual(readRow("unpriced-request"), { cost_source: "", cost_usd: null });
+
+    assert.equal(await store.updateFromRawTrace({
+      requestId: "resolved-request",
+      responseBodyText: '{"usage":{"input_tokens":2000000,"output_tokens":1000000}}'
+    }), true);
+    assert.deepEqual(readRow("resolved-request"), { cost_source: "models.dev", cost_usd: 12 });
+
+    const database = createBetterSqliteDatabase(dbFile);
+    try {
+      database.prepare("UPDATE request_logs SET input_tokens = 1000000, total_tokens = 1000000 WHERE request_id = 'late-request'").run();
+    } finally {
+      database.close();
+    }
+    assert.equal(await store.backfillMissingUsageCosts(), 1);
+    assert.deepEqual(readRow("late-request"), { cost_source: "litellm", cost_usd: 2 });
+  } finally {
+    await store.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 function createRecord(requestId, responseBodyText) {
   const now = new Date().toISOString();
   return {

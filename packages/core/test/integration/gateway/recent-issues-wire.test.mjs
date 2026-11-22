@@ -112,6 +112,8 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
         assert.equal(filtered.totals.totalTokens, 120 * expectedRows, label);
         assert.equal(all.totals.requestCount, filtered.totals.requestCount, label);
         assert.ok(Math.abs(filtered.totals.costUsd - expectedRows * 0.00032) < 1e-9, `custom cost: ${JSON.stringify(filtered.totals)}`);
+        assert.ok(page.items.every(row => Math.abs(row.costUsd - 0.00032) < 1e-12), `log row cost: ${label}`);
+        assert.ok(Math.abs(page.items.reduce((sum, row) => sum + row.costUsd, 0) - filtered.totals.costUsd) < 1e-9, `log costs add up to the usage total: ${label}`);
         t.diagnostic(`#1806/#1801/#1809 verified ${label}: SQLite status=200 tokens=120 cost=0.00032`);
       }
       // #1808: native tool_use IDs must be valid before they enter the client

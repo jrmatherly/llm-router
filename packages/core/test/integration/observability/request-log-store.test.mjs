@@ -72,6 +72,14 @@ test("RequestLogStore backfills model summaries when upgrading an existing datab
     assert.equal(page.items[0].requestedModel, "request-model");
     assert.equal(page.items[0].resolvedModel, "resolved-model");
     assert.equal(page.items[0].responseModel, "response-model");
+    await store.close();
+    store = undefined;
+    const upgraded = createBetterSqliteDatabase(dbFile);
+    try {
+      assert.equal(upgraded.prepare("SELECT cost_source FROM request_logs").get().cost_source, "");
+    } finally {
+      upgraded.close();
+    }
   } finally {
     await store?.close();
     rmSync(dir, { force: true, recursive: true });

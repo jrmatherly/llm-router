@@ -8,14 +8,21 @@ import { REQUEST_LOGS_DB_FILE, USAGE_DB_FILE } from "@llmr/core/config/constants
 import {
   estimateUsageCostUsdFromLoadedCatalog,
   preloadUsagePriceCatalog,
-  providerModelPricingForUsage,
+  pricingForWrite,
+  resolveRequestPrice,
   usagePriceCatalogNeedsRefresh,
+  type RequestPriceOutcome,
   type UsageCostEstimate,
-  type UsageCostInput
+  type UsageCostInput,
+  type UsagePricingSource
 } from "@llmr/core/models/pricing-service";
 import { createBetterSqliteDatabase, type BetterSqliteDatabase } from "@llmr/core/storage/sqlite-native";
 import { normalizeUsageInputTokens } from "@llmr/core/usage/normalization";
-import { isKnownProviderSelector, resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
+import {
+  isKnownProviderSelector,
+  resolveUsageModelAttribution,
+  type UsageModelAttribution
+} from "@llmr/core/usage/model-attribution";
 import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
 import type {
   AppConfig,
@@ -56,8 +63,10 @@ export type UsageEventInput = {
   model?: string;
   modelIsRouteSelector?: boolean;
   path: string;
+  price?: RequestPriceOutcome;
   provider?: string;
   pricing?: ProviderModelPricing;
+  pricingSource?: UsagePricingSource;
   requestId?: string;
   statusCode: number;
   usage?: UsageNumbers;
@@ -71,11 +80,21 @@ export type UsageCaptureInput = {
   fallbackModel?: string;
   method: string;
   path: string;
+  // Resolved once by the caller and shared with the request log write.
+  // Absent, recordCapture resolves it.
+  price?: RequestPriceOutcome;
   providerName?: string;
   providerProtocol?: GatewayProviderProtocol;
   requestId?: string;
   responseHeaders: Headers;
   statusCode: number;
+};
+
+export type UsagePricingTarget = {
+  fallbackAttribution: UsageModelAttribution;
+  model?: string;
+  provider?: string;
+  responseAttribution: UsageModelAttribution;
 };
 
 type UsageStatsQueryOptions = {
@@ -185,7 +204,8 @@ export class UsageStore {
     const explicitCost = normalizeOptionalCost(event.costUsd);
     // Read before estimating: a catalog that lands in between must still sweep this row.
     const catalogNeedsRefresh = this.priceCatalogNeedsRefresh();
-    const estimatedCost = explicitCost === undefined
+    const { estimate, pricing, pricingSource } = pricingForWrite(event);
+    const estimatedCost = explicitCost === undefined && estimate
       ? await this.estimateCost({
           cacheReadTokens,
           cacheWrite1hTokens,
@@ -194,7 +214,8 @@ export class UsageStore {
           inputTokens,
           model,
           outputTokens,
-          pricing: event.pricing,
+          pricing,
+          ...(pricingSource ? { pricingSource } : {}),
           provider
         })
       : undefined;
@@ -248,7 +269,7 @@ export class UsageStore {
       costSource
     );
     usageEvents.emit("recorded");
-    if (costUsd === undefined && totalTokens > 0 && model !== "unknown" && catalogNeedsRefresh) {
+    if (costUsd === undefined && estimate && totalTokens > 0 && model !== "unknown" && catalogNeedsRefresh) {
       this.priceUnpricedEventsAfterCatalogLoads(database);
     }
   }
@@ -334,20 +355,12 @@ export class UsageStore {
         source: "responseBody"
       })
     );
-    const fallbackAttribution = resolveUsageModelAttribution(input.config, input.fallbackModel);
-    const responseAttribution = resolveUsageResponseModelAttribution(input.config, bodyUsage?.model);
-    const route = splitRouteSelector(input.fallbackModel);
-    const reportedProvider =
-      input.providerName ??
-      readHeader(input.responseHeaders, "x-gateway-target-provider-name") ??
-      readHeader(input.responseHeaders, "x-gateway-target-provider") ??
-      responseAttribution.provider ??
-      fallbackAttribution.provider ??
-      route.provider;
-    const provider = input.config
-      ? modelRegistryForConfig(input.config).findProvider(reportedProvider)?.name ?? reportedProvider
-      : reportedProvider;
-    const model = responseAttribution.model ?? fallbackAttribution.model ?? route.model ?? input.fallbackModel;
+    const target = resolveUsagePricingTarget(input.config, { ...input, responseModel: bodyUsage?.model });
+    const { fallbackAttribution, provider, responseAttribution } = target;
+    const model = responseAttribution.model ??
+      fallbackAttribution.model ??
+      splitRouteSelector(input.fallbackModel).model ??
+      input.fallbackModel;
 
     await this.record({
       durationMs: input.durationMs,
@@ -357,14 +370,8 @@ export class UsageStore {
       modelIsRouteSelector: false,
       path: input.path,
       client: input.client,
+      price: input.price ?? resolveRequestPrice(input.config, provider, target.model),
       provider,
-      // Price the model that actually served the request. After a rewrite or
-      // fallback the display model is still the requested alias.
-      pricing: providerModelPricingForUsage(
-        input.config,
-        provider,
-        fallbackAttribution.model ?? input.fallbackModel ?? model
-      ),
       credentialId: readCredentialId(input.responseHeaders),
       requestId: input.requestId,
       statusCode: input.statusCode,
@@ -686,6 +693,38 @@ export async function recordGatewayUsageCaptureIfMissing(input: UsageCaptureInpu
   } catch (error) {
     console.warn(`[usage] Failed to record usage: ${formatError(error)}`);
   }
+}
+
+// The provider and the model a request is priced by. The pipeline, the usage
+// write and the raw-trace policy all resolve a price on these strings.
+export function resolveUsagePricingTarget(
+  config: Pick<AppConfig, "Providers" | "virtualModelProfiles"> | undefined,
+  input: {
+    fallbackModel?: string;
+    providerName?: string;
+    responseHeaders: Headers;
+    responseModel?: string;
+  }
+): UsagePricingTarget {
+  const fallbackAttribution = resolveUsageModelAttribution(config, input.fallbackModel);
+  const responseAttribution = resolveUsageResponseModelAttribution(config, input.responseModel);
+  const reportedProvider =
+    input.providerName ??
+    readHeader(input.responseHeaders, "x-gateway-target-provider-name") ??
+    readHeader(input.responseHeaders, "x-gateway-target-provider") ??
+    responseAttribution.provider ??
+    fallbackAttribution.provider ??
+    splitRouteSelector(input.fallbackModel).provider;
+  return {
+    fallbackAttribution,
+    // Price the model that actually served the request. After a rewrite or
+    // fallback the display model is still the requested alias.
+    model: fallbackAttribution.model ?? input.fallbackModel ?? responseAttribution.model,
+    provider: config
+      ? modelRegistryForConfig(config).findProvider(reportedProvider)?.name ?? reportedProvider
+      : reportedProvider,
+    responseAttribution
+  };
 }
 
 function resolveUsageResponseModelAttribution(
