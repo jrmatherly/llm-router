@@ -350,11 +350,13 @@ class GatewayService {
 
   private async adoptExternalGateway(config: AppConfig, externalEndpoint: string, apiKey?: string): Promise<GatewayStatus> {
     if (await existingGatewayPredatesManagerKey(externalEndpoint, apiKey ?? "")) {
+      this.holdConfig(config);
       this.externalGatewayApiKey = undefined;
       this.status = {
-        ...this.status,
-        gatewayManagedExternally: undefined,
+        coreEndpoint: endpoint(config.gateway.coreHost, config.gateway.corePort),
+        endpoint: externalEndpoint,
         lastError: `A running LLM Router gateway from an older version holds ${externalEndpoint}. Quit it, then start LLM Router again.`,
+        networkEndpoints: gatewayNetworkEndpoints(config.gateway.host, config.gateway.port),
         state: "error"
       };
       return this.getStatus();

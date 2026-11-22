@@ -69,7 +69,7 @@ test("core gateway public mode listens on the public gateway endpoint and accept
 test("an expired API key is not handed to the gateway child, the primary key included", async () => {
   const config = createDefaultAppConfig();
   const old = { createdAt: new Date(0).toISOString(), expiresAt: "2020-01-02T00:00:00.000Z", id: "old", key: "old-key" };
-  const good = { createdAt: new Date(0).toISOString(), id: "good", key: "good-key" };
+  const good = { createdAt: new Date(0).toISOString(), expiresAt: new Date(Date.now() + 86_400_000).toISOString(), id: "good", key: "good-key" };
   const compiledKeys = async () => (await compileCoreGatewayConfig(
     config,
     "raw-trace-token",

@@ -394,10 +394,10 @@ function createGatewayProcessEnv(
     delete env.ELECTRON_RUN_AS_NODE;
   }
 
-  // An inherited value would replace what LLMR chose: RAW_TRACE_* could bypass
+  // An inherited value would override what LLMR chose: RAW_TRACE_* could bypass
   // LLMR privacy, size, spool, or sync-endpoint controls, and the key and CORS
-  // names would replace the child's keys and allowed origins. Windows reads
-  // names without regard to case.
+  // names would add keys to the child or replace its manager key and allowed
+  // origins. Windows reads names without regard to case.
   for (const key of Object.keys(env)) {
     const name = key.toUpperCase();
     if (name.startsWith("RAW_TRACE_") || name.startsWith("GATEWAY_CORS_") || removedInheritedEnvNames.has(name)) delete env[key];
@@ -435,7 +435,7 @@ export function gatewayProcessEnvForTest(config: AppConfig, coreAuthToken: strin
 
 export function publicGatewayAuthTokens(config: AppConfig, coreAuthToken: string): string[] {
   const apiKeys = Array.isArray(config.APIKEYS) ? config.APIKEYS : [];
-  // The APIKEYS entry wins over a bare APIKEY with the same value, as in LLMR's own check.
+  // An expired APIKEYS entry also drops a bare APIKEY with the same value, because configuredApiKeys keeps the APIKEYS entry.
   const expired = new Set(apiKeys.filter(isApiKeyExpired).map((apiKey) => apiKey.key.trim()));
   return uniqueStrings([coreAuthToken, ...apiKeys.map((apiKey) => apiKey.key), config.APIKEY])
     .filter((key) => !expired.has(key));

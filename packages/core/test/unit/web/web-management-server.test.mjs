@@ -524,9 +524,22 @@ test("startGateway does not adopt a running gateway from an older version", asyn
     assert.equal(payload.ok, true);
     assert.equal(payload.value.state, "error");
     assert.equal(payload.value.lastError, `A running LLM Router gateway from an older version holds http://127.0.0.1:${gatewayPort}. Quit it, then start LLM Router again.`);
+    assert.equal(payload.value.endpoint, `http://127.0.0.1:${gatewayPort}`);
     assert.equal(payload.value.gatewayManagedExternally, undefined);
     assert.equal(managedStarts, 0);
     assert.deepEqual(externalGatewayState.reloadRequests, []);
+
+    externalGatewayState.managerStatus = undefined;
+    const adopted = await rpc(runtime.url, webAuthToken, "startGateway");
+    assert.equal(adopted.value.state, "running", adopted.value.lastError);
+    assert.equal(adopted.value.gatewayManagedExternally, true);
+
+    externalGatewayState.managerStatus = 200;
+    const refusedAgain = await rpc(runtime.url, webAuthToken, "startGateway");
+    assert.equal(refusedAgain.value.state, "error");
+    assert.equal(refusedAgain.value.lastError, payload.value.lastError);
+    assert.equal(refusedAgain.value.gatewayManagedExternally, undefined);
+    assert.equal(managedStarts, 0);
   } finally {
     gatewayService.start = originalStart;
     await runtime.close();

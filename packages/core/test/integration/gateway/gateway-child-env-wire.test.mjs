@@ -13,7 +13,7 @@ const entry = process.env.LLMR_TEST_GATEWAY_ENTRY;
 const skip = !entry && "set LLMR_TEST_GATEWAY_ENTRY to the gateway production entry";
 const good = { authorization: "Bearer sk-good-key-0001" };
 
-// node:http rather than fetch, which neither sets Host nor sends a body with a length.
+// node:http rather than fetch, which drops a Host header set by the caller.
 function send(port, route, { body, headers = {}, method = "GET" } = {}) {
   return new Promise((resolve, reject) => {
     const outgoing = request({
@@ -93,12 +93,15 @@ for (const layout of ["single", "compat"]) {
           for (const secret of secrets) assert.equal(response.body.includes(secret), false, `${route} body`);
         }
       }
-      const install = await send(port, "/manager/plugins", {
-        body: JSON.stringify({ enabled: true, key: "wire", modulePath }),
-        headers: { "content-type": "application/json" },
-        method: "POST"
-      });
-      assert.equal(install.status, 401);
+      for (const headers of callers) {
+        const install = await send(port, "/manager/plugins", {
+          body: JSON.stringify({ enabled: true, key: "wire", modulePath }),
+          headers: { ...headers, "content-type": "application/json" },
+          method: "POST"
+        });
+        const sentKey = "authorization" in headers || "x-manager-key" in headers;
+        assert.equal(install.status, onChild && sentKey ? 403 : 401, `${port} POST /manager/plugins`);
+      }
       const write = await send(port, "/manager/config", {
         body: "{}",
         headers: { "content-type": "application/json" },
@@ -116,21 +119,24 @@ for (const layout of ["single", "compat"]) {
   });
 }
 
-test("the gateway child sends CORS headers only to its own origin", { skip, timeout: 60000 }, async (t) => {
-  const gateway = await startGateway(t, "single");
-  const own = `http://127.0.0.1:${gateway.publicPort}`;
-  const foreign = await send(gateway.publicPort, "/v1/models", { headers: { ...good, origin: "https://evil.example" } });
-  assert.equal(foreign.status, 200);
-  assert.equal(foreign.headers["access-control-allow-origin"], undefined);
-  const same = await send(gateway.publicPort, "/v1/models", { headers: { ...good, origin: own } });
-  assert.equal(same.headers["access-control-allow-origin"], own);
-  const agent = await send(gateway.publicPort, "/v1/models", { headers: good });
-  assert.equal(agent.status, 200);
-  assert.equal(agent.headers["access-control-allow-origin"], undefined);
-  assert.ok(JSON.parse(agent.body).data.some((model) => model.id === "Provider/native"));
-  const preflight = await send(gateway.publicPort, "/v1/models", { headers: { "access-control-request-method": "PUT", origin: "https://evil.example" }, method: "OPTIONS" });
-  assert.equal(preflight.headers["access-control-allow-origin"], undefined);
-});
+for (const layout of ["single", "compat"]) {
+  test(`a foreign origin gets no CORS grant from the gateway (${layout})`, { skip, timeout: 60000 }, async (t) => {
+    const gateway = await startGateway(t, layout);
+    const own = `http://127.0.0.1:${gateway.publicPort}`;
+    const allowed = (response) => response.headers["access-control-allow-origin"];
+    const foreign = await send(gateway.publicPort, "/v1/models", { headers: { ...good, origin: "https://evil.example" } });
+    assert.equal(foreign.status, 200);
+    assert.ok([undefined, own].includes(allowed(foreign)), String(allowed(foreign)));
+    const same = await send(gateway.publicPort, "/v1/models", { headers: { ...good, origin: own } });
+    assert.equal(allowed(same), own);
+    const agent = await send(gateway.publicPort, "/v1/models", { headers: good });
+    assert.equal(agent.status, 200);
+    assert.ok([undefined, own].includes(allowed(agent)), String(allowed(agent)));
+    assert.ok(JSON.parse(agent.body).data.some((model) => model.id === "Provider/native"));
+    const preflight = await send(gateway.publicPort, "/v1/models", { headers: { "access-control-request-method": "PUT", origin: "https://evil.example" }, method: "OPTIONS" });
+    assert.ok([undefined, own].includes(allowed(preflight)), String(allowed(preflight)));
+  });
+}
 
 test("the gateway child refuses an API key that has expired", { skip, timeout: 60000 }, async (t) => {
   const gateway = await startGateway(t, "single", (config) => {
