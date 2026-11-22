@@ -4944,7 +4944,7 @@ test("a profile table the user added to a Codex config LLMR created comes back o
     await replacePersistedAppConfig(config);
     const result = await recoverGlobalAgentProfile("default-codex");
     assert.equal(result.status.ok, true, result.status.message);
-    assert.equal(result.status.message, `LLMR's settings were removed from Codex config and your own settings were kept.${disabledCodexSentence}`);
+    assert.equal(result.status.message, `Codex config now holds only your own profile settings, which LLMR had moved to llm-router.config.toml.${disabledCodexSentence}`);
     assert.equal(readFileSync(codexConfigFile, "utf8"), "[profiles.llm-router]\napproval_policy = \"on-request\"\nsandbox_mode = \"read-only\"\n");
     assert.deepEqual(readdirSync(codexDir), ["config.toml"]);
   });
@@ -4966,7 +4966,7 @@ test("a restore says what it did to the agent's config", { skip: !process.env.LL
   const recover = async () => (await recoverGlobalAgentProfile("default-codex")).status.message;
   await withAppliedDefaultProfiles(["default-codex"], async () => {
     assert.equal(await recover(), `Codex config was removed because it did not exist before LLMR.${disabledCodexSentence}`);
-    assert.equal(await recover(), `Codex config is already absent, as before LLMR.${disabledCodexSentence}`);
+    assert.equal(await recover(), `Codex config is absent, so LLMR had nothing to restore.${disabledCodexSentence}`);
   });
   await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
     appendUserCodexTables(fixture);
@@ -5013,7 +5013,7 @@ test("a profile switched off in a save is told how to undo the restore", { skip:
       // The takeover sync releases the file first, so the profile's own restore finds it gone.
       assert.deepEqual(
         applied.clients.filter((status) => status.client === "codex").map((status) => status.message),
-        [`Codex config is already absent, as before LLMR.${disabledCodexSentence}`, "Codex config was removed because it did not exist before LLMR."],
+        [`Codex config is absent, so LLMR had nothing to restore.${disabledCodexSentence}`, "Codex config was removed because it did not exist before LLMR."],
         String(others)
       );
     });
@@ -5028,6 +5028,7 @@ test("a restore that fails leaves the profile's key working, because the agent's
     mkdirSync(copyInTheWay, { recursive: true });
     const failed = await recoverGlobalAgentProfile("default-codex");
     assert.equal(failed.status.ok, false);
+    assert.doesNotMatch(failed.status.message, /still hold this profile's LLMR key/);
     assert.ok(readFileSync(fixture.codexConfigFile, "utf8").includes(fixture.codexToken));
     assert.deepEqual((await loadPersistedApiKeys()).map((apiKey) => apiKey.key), [fixture.codexToken]);
     assert.equal(existsSync(path.join(fixture.codexDir, "llmr-model-catalog.json")), true);
@@ -5067,6 +5068,83 @@ test("a Codex profile file the user wrote after a restore is theirs at the next 
   });
 });
 
+test("a line the user added to LLMR's Codex profile file is kept as a copy when their own config already has that table", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const restore of [() => recoverGlobalAgentProfile("default-codex"), (config) => restoreGlobalProfileConfigsOnExit(config.profile.profiles, { manageMarker: true })]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+      const profileFile = path.join(codexDir, "llm-router.config.toml");
+      assert.deepEqual(safetyCopies(profileFile), []);
+      writeFileSync(profileFile, `${readFileSync(profileFile, "utf8")}approval_policy = "never"\n`);
+      const result = await restore(config);
+      assert.equal(readFileSync(codexConfigFile, "utf8"), userCodexOriginal);
+      assert.equal(existsSync(profileFile), false);
+      const copies = safetyCopies(profileFile);
+      assert.equal(copies.length, 1);
+      assert.match(readFileSync(copies[0], "utf8"), /^approval_policy = "never"$/m);
+      const message = (result.status ?? result.find((status) => status.client === "codex")).message;
+      assert.ok(message.includes(copies[0]), message);
+    }, plantCodexOriginal());
+  }
+});
+
+test("a line from LLMR's Codex profile file is not written as a second table when the user's config has the quoted header", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir }) => {
+    const profileFile = path.join(codexDir, "llm-router.config.toml");
+    writeFileSync(profileFile, `${readFileSync(profileFile, "utf8")}approval_policy = "never"\n`);
+    writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\n[profiles."llm-router"]\nsandbox_mode = "read-only"\n`);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(readFileSync(codexConfigFile, "utf8"), "[profiles.\"llm-router\"]\nsandbox_mode = \"read-only\"\n");
+    assert.equal(safetyCopies(profileFile).length, 1);
+  });
+});
+
+test("a restore of a Codex config nobody added to keeps no copy of LLMR's profile file", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexDir }) => {
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.message, `Codex config was restored to what it was before LLMR.${disabledCodexSentence}`);
+    assert.deepEqual(safetyCopies(path.join(codexDir, "llm-router.config.toml")), []);
+  }, plantCodexOriginal());
+});
+
+test("an apply leaves LLMR's Codex profile file loadable when a moved table cannot be merged into it line by line", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const cases = {
+    "a multi-line value in the profile file": { existing: "sandbox_mode = \"\"\"\nread-only\n\"\"\"\n", moved: "sandbox_mode = \"workspace-write\"\n" },
+    "a multi-line value in the moved table": { existing: "sandbox_mode = \"read-only\"\n", moved: "notes = \"\"\"\nsandbox_mode = \"inside\"\n\"\"\"\n" },
+    "a quoted key in the profile file": { existing: "\"sandbox_mode\" = \"read-only\"\n", moved: "sandbox_mode = \"workspace-write\"\n" }
+  };
+  for (const [name, { existing, moved }] of Object.entries(cases)) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+      const profileFile = path.join(codexDir, "llm-router.config.toml");
+      writeFileSync(profileFile, `${readFileSync(profileFile, "utf8")}${existing}`);
+      writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\n[profiles.llm-router]\n${moved}`);
+      const applied = await applyProfileConfig(config);
+      assert.deepEqual(applied.clients.filter((status) => !status.ok), [], name);
+      assert.ok(readFileSync(profileFile, "utf8").includes(existing), name);
+      assert.doesNotMatch(readFileSync(codexConfigFile, "utf8"), /^\[profiles\.llm-router\]/m, name);
+      const copies = safetyCopies(profileFile);
+      assert.equal(copies.length, 1, name);
+      assert.equal(readFileSync(copies[0], "utf8").trim(), moved.trim(), name);
+    });
+  }
+});
+
+test("a Codex restore that cannot remove one of LLMR's side files says which, and still revokes a key no file holds", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    appendUserCodexTables(fixture);
+    const catalog = path.join(fixture.codexDir, "llmr-model-catalog.json");
+    rmSync(catalog);
+    mkdirSync(path.join(catalog, "in-the-way"), { recursive: true });
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, false);
+    assert.match(result.status.message, /^LLMR's settings were removed from Codex config and your own settings were kept\./);
+    assert.match(result.status.message, /llmr-model-catalog\.json/);
+    assert.doesNotMatch(result.status.message, /could not restore/);
+    assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), []);
+    assert.deepEqual((await loadPersistedApiKeys()).filter((apiKey) => apiKey.id === "profile:default-codex"), []);
+    rmSync(catalog, { recursive: true });
+  });
+});
+
 test("a table the user wrote into the Codex profile file LLMR created survives an apply and is kept as a copy at the restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
     const profileFile = path.join(codexDir, "llm-router.config.toml");
@@ -5083,5 +5161,6 @@ test("a table the user wrote into the Codex profile file LLMR created survives a
     const copies = safetyCopies(profileFile);
     assert.equal(copies.length, 1);
     assert.match(readFileSync(copies[0], "utf8"), /\[mcp_servers\.z\]/);
+    assert.ok(result.status.message.includes(copies[0]), result.status.message);
   });
 });

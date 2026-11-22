@@ -87,7 +87,21 @@ test("onboarding lets the user skip the agent, then connects only the agent they
   expect(existsSync(claudeSettingsFile)).toBe(false);
   expect(await enabledProfileIds(page)).toEqual([]);
   expect(await gatewayStatusFor(gateway.endpoint, profileKey)).toBe(401);
+
+  await saveProfilesEnabled(page, (id) => id === "default-claude-code");
+  await expect.poll(() => existsSync(claudeSettingsFile) ? readFileSync(claudeSettingsFile, "utf8") : "").toMatch(/apiKeyHelper/);
+  const secondKey = execFileSync(helper, { encoding: "utf8" }).trim();
+  expect(secondKey).toMatch(/^llmr-profile-/);
+  await expect.poll(() => gatewayStatusFor(gateway.endpoint, secondKey).catch(() => 401)).not.toBe(401);
+  await saveProfilesEnabled(page, () => false);
+  await expect.poll(() => gatewayStatusFor(gateway.endpoint, secondKey).catch(() => 0)).toBe(401);
 });
+
+async function saveProfilesEnabled(page: Page, enabled: (id: string) => boolean): Promise<void> {
+  const next = await page.evaluate(() => window.llmr!.getConfig());
+  next.profile.profiles = next.profile.profiles.map((profile) => ({ ...profile, enabled: enabled(profile.id) }));
+  await page.evaluate((config) => window.llmr!.saveConfig(config), next);
+}
 
 async function gatewayStatusFor(endpoint: string, apiKey: string): Promise<number> {
   const response = await fetch(`${endpoint}/v1/messages`, {

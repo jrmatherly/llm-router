@@ -204,6 +204,7 @@ class GatewayService {
       const shouldRunGateway = shouldRunGatewayRuntime(config);
       if (shouldRunGateway && !hasAvailableGatewayModels(config)) {
         await this.stopGateway();
+        console.info(`[gateway] Not started: ${NO_AVAILABLE_GATEWAY_MODELS_MESSAGE}`);
         this.status = {
           ...this.status,
           lastError: NO_AVAILABLE_GATEWAY_MODELS_MESSAGE,
