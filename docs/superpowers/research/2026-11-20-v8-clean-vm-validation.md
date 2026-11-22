@@ -94,6 +94,16 @@ With request logs on, a `gateway-check.sh` run made five gateway requests: `/v1/
 
 Six identical requests (143 in, 4 out). A Logs row shows Cost `$0.000016`. Overview and the tray both show `$0.000168` for the six, which is `$0.000028` each, 1.75 times the row. Either the two views price a request differently or the three requests made before logs were on were priced differently. Not traced.
 
+Update, 2026-11-22 (Task 8 of the fix plan). Traced, and the cause is still not proven. What is settled:
+
+- The recording code is not the cause. A test that records one request of 143 input and 4 output tokens with one seeded price gives one usage row whose cost equals the Logs row's cost exactly (run). The test is not committed, because it pins no difference.
+- The four candidates the plan left are ruled out. An ordinary request sends no billing event: only the Fusion vision tools emit one (`packages/core/src/mcp/fusion-vision-mcp.ts`), under their own event id (read). No whole number of extra rows at one price reaches the total, and no split of three rows at one price and three at another matches any offer in the catalog (arithmetic). Token normalisation only subtracts cache tokens, and there were none (read). With logs off the usage row comes from the same call (read).
+- The numbers fit one thing only: the usage rows were priced at $0.1714 in and $0.8571 out per million, and the Logs rows at $0.1 and $0.5. Six requests at the first price are $0.00016763, shown as `$0.000168`. One at the second is $0.0000163, shown as `$0.000016`. models.dev lists the first price for `claude-haiku-5-5` under one reseller (arithmetic over the catalog).
+- How two prices for one request are possible (read): `findModelPrice` (`packages/core/src/models/pricing-service.ts`) tries the bare model name before any provider-prefixed name, and `indexPrices` keeps the first entry it meets for a name. So a model served by a custom provider is priced by whichever provider models.dev happens to list first, and the provider that served the request plays no part. On 2026-11-22 models.dev had 32 offers for this model, from $0.05 to $0.1714 per million input tokens (run, three fetches). Logs rows are priced in the request log worker thread and usage rows in the main process, and each loads its own copy of the catalog, with a 5 second fetch timeout and a retry after 5 minutes for a source that failed.
+- Not shown: that the two copies differed in the VM. On 2026-11-22 the first models.dev offer was $0.1 and $0.5 in three fetches, so both sides would agree today. The state of 2026-11-20 cannot be read back.
+
+What settles it: in a test home, after one real request with logs on, compare `cost_usd` and `cost_source` in `usage_events` with `cost_usd` in `request_logs` for the same `request_id`. It can pass by luck when both copies load the same catalog, so a fix should not wait on it.
+
 ### F-10: values collide in the expanded log row
 
 In the expanded row's summary grid, Request ID runs into Client (`a6807dd9-9af9…curl`) and Model runs into Input (`claude-haiku-…143`). Seen with the window about 1660 px wide and the page zoomed out one step.
