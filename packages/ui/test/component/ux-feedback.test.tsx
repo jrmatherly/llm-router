@@ -34,7 +34,7 @@ test("global feedback stack keeps save feedback and toast notifications at the t
       <LightToast contained toast={{ id: 1, message: "Copied" }} />
     </FeedbackStack>
   );
-  assert.match(html, /fixed left-1\/2 top-5/);
+  assert.match(html, /fixed left-1\/2 top-14/);
   assert.match(html, /Saving changes/);
   assert.match(html, /Copied/);
   assert.doesNotMatch(html, /bottom-4/);

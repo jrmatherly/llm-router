@@ -43,7 +43,7 @@ export function PersistenceFeedback({ actionError, contained = false, disconnect
 }
 export function FeedbackStack({ children }: { children: React.ReactNode }) {
   return (
-    <div className="pointer-events-none fixed left-1/2 top-5 z-[10000] flex w-max max-w-[calc(100vw-24px)] -translate-x-1/2 flex-col items-center gap-3">
+    <div className="pointer-events-none fixed left-1/2 top-14 z-[10000] flex w-max max-w-[calc(100vw-24px)] -translate-x-1/2 flex-col items-center gap-3">
       {children}
     </div>
   );

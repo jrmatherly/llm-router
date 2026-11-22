@@ -347,6 +347,7 @@ test("AddProfileForm places APP_PATH below Bot settings", () => {
 
 test("AddProfileForm marks required and optional fields", () => {
   const config = appConfigFixture();
+  config.Providers = [{ models: ["first-model"], name: "Fixture" }];
   const html = renderToStaticMarkup(
     <AddProfileForm
       botConfigs={config.botConfigs}
@@ -363,6 +364,8 @@ test("AddProfileForm marks required and optional fields", () => {
   assert.equal(html.match(/>Optional<\/span>/g)?.length, 4);
   assert.match(html, /Default model/);
   assert.match(html, /Default model is required\./);
+  assert.match(html, /Select default model/);
+  assert.doesNotMatch(html, /Fixture\/first-model/);
   assert.match(html, /Fable model/);
   assert.match(html, /Opus model/);
   assert.match(html, /Sonnet model/);
@@ -379,6 +382,7 @@ test("Claude Code profiles require a default model before submission", () => {
 
 test("AddProfileForm labels Kimi CLI model fields with Kimi-specific copy", () => {
   const config = appConfigFixture();
+  config.Providers = [{ models: ["first-model"], name: "Fixture" }];
   const draft = createProfileDraft("kimi");
   const html = renderToStaticMarkup(
     <AddProfileForm
@@ -393,6 +397,8 @@ test("AddProfileForm labels Kimi CLI model fields with Kimi-specific copy", () =
   );
 
   assert.match(html, /Kimi model/);
+  assert.match(html, /Select default model/);
+  assert.doesNotMatch(html, /Fixture\/first-model/);
   assert.doesNotMatch(html, /Advanced settings need attention/);
   assert.doesNotMatch(html, /Allowed model list/);
   assert.doesNotMatch(html, /Default model/);
