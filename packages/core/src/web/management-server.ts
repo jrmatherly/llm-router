@@ -181,12 +181,13 @@ export async function startWebManagementServer(options: WebManagementServerOptio
   security = createWebManagementSecurityContext(host, port, authToken);
   warnAboutUnusableWebOrigins();
 
-  // Before the gateway check: a database used only by --no-gateway servers would otherwise never get a retention or be pruned.
-  void loadAppConfig()
-    .then((config) => applyRequestLogRetentionDays(config.observability.requestLogRetentionDays))
-    .catch((error) => console.warn(`[request-log] Failed to apply request log retention: ${formatError(error)}`));
   if (options.startGateway !== false) {
     await startConfiguredServices("web startup");
+  } else {
+    // A database used only by --no-gateway servers would otherwise never get a retention or be pruned.
+    void loadAppConfig()
+      .then((config) => applyRequestLogRetentionDays(config.observability.requestLogRetentionDays))
+      .catch((error) => console.warn(`[request-log] Failed to apply request log retention: ${formatError(error)}`));
   }
   if (options.open) {
     await openSystemExternal(openUrl).catch((error) => {
@@ -576,6 +577,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
 async function startConfiguredServices(reason: string): Promise<void> {
   try {
     let config = await loadAppConfig();
+    void applyRequestLogRetentionDays(config.observability.requestLogRetentionDays);
     try {
       config = (await syncClaudeAppGatewayConfig(config)).config;
     } catch (error) {
