@@ -2708,7 +2708,8 @@ function managedModelAssignment(source: string, configuredModel: string): string
 }
 
 function removeManagedConfiguredModelLine(source: string): string {
-  const pattern = new RegExp(`^\\s*${escapeRegExp(managedConfiguredModelPrefix)}.*(?:\\n|$)`, "gm");
+  // As in `removeManagedMarkerLines`: a match must not start at a CRLF's line feed. `.` stops at a `\r`, so the line break is matched with it.
+  const pattern = new RegExp(`(?<!\\r)^\\s*${escapeRegExp(managedConfiguredModelPrefix)}.*(?:\\r?\\n|$)`, "gm");
   return source.replace(pattern, "");
 }
 
@@ -2742,7 +2743,8 @@ function legacyCodexProfileTableBody(source: string, providerId: string): string
 
 function removeManagedMarkerLines(source: string, markers: string[]): string {
   const markerPattern = markers.map(escapeRegExp).join("|");
-  const pattern = new RegExp(`^\\s*(?:${markerPattern})\\s*(?:\\n|$)`, "gm");
+  // Multiline `^` also matches after a `\r`, so a match could start at a CRLF's line feed, remove it, and join the next line to the one above, where the line-based passes after this one no longer see it.
+  const pattern = new RegExp(`(?<!\\r)^\\s*(?:${markerPattern})\\s*(?:\\n|$)`, "gm");
   return source.replace(pattern, "");
 }
 

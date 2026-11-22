@@ -4554,6 +4554,64 @@ test("no file beside a Codex config holds the profile's token after a second app
   }
 });
 
+test("a Codex config with Windows line endings holds one copy of LLMR's blocks after a second apply, and none after a restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "# mine\r\nmodel = \"gpt-mine\"\r\nmodel_provider = \"openai\"\r\n\r\n[mcp_servers.mine]\r\ncommand = \"my-server\"\r\n";
+  for (const edit of [false, true]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, codexToken, config }) => {
+      await applySecondCodexModel(config);
+      const applied = readFileSync(codexConfigFile, "utf8");
+      for (const part of ["[model_providers.llm-router]", codexToken, "# BEGIN LLMR managed profile", "# END LLMR managed profile", "model_provider = \"llm-router\""]) {
+        assert.equal(applied.split(part).length - 1, 1, `${part}: ${JSON.stringify(applied)}`);
+      }
+      if (edit) {
+        writeFileSync(codexConfigFile, `${applied}\r\n[mcp_servers.later]\r\ncommand = "later"\r\n`);
+      }
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, result.status.message);
+      const restored = readFileSync(codexConfigFile, "utf8");
+      assert.doesNotMatch(restored, llmrCodexContent, JSON.stringify(restored));
+      assert.deepEqual(filesHolding(codexDir, codexToken), []);
+      assert.match(restored, /\[mcp_servers\.mine\]/);
+      assert.equal(restored.includes("[mcp_servers.later]"), edit);
+    }, ({ codexDir }) => {
+      mkdirSync(codexDir, { recursive: true });
+      writeFileSync(path.join(codexDir, "config.toml"), original);
+    });
+  }
+});
+
+test("a Codex config saved with Windows line endings after LLMR wrote it stays loadable through the next apply and a restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, codexToken, config }) => {
+    const applied = readFileSync(codexConfigFile, "utf8");
+    assert.match(applied, /^# LLMR configured model = /m);
+    const savedByWindowsEditor = applied
+      .replace(/^# LLMR configured model = /m, "approval_policy = \"never\"\n# LLMR configured model = ")
+      .replace(/\r?\n/g, "\r\n");
+    writeFileSync(codexConfigFile, `${savedByWindowsEditor}\r\n[mcp_servers.later]\r\ncommand = "later"\r\n`);
+    await applySecondCodexModel(config);
+    const reapplied = readFileSync(codexConfigFile, "utf8");
+    assert.doesNotMatch(reapplied, /\r(?!\n)/, JSON.stringify(reapplied));
+    for (const part of ["[model_providers.llm-router]", codexToken, "# BEGIN LLMR managed profile", "# LLMR configured model = ", "approval_policy = \"never\""]) {
+      assert.equal(reapplied.split(part).length - 1, 1, `${part}: ${JSON.stringify(reapplied)}`);
+    }
+    assert.doesNotMatch(reapplied, /(?:\r?\n){4,}/, JSON.stringify(reapplied));
+    const codexProfile = config.profile.profiles.find((profile) => profile.id === "default-codex");
+    for (const model of ["Provider/model", "Provider/model-2", "Provider/model", "Provider/model-2"]) {
+      codexProfile.model = model;
+      await applyProfileConfig(config);
+    }
+    assert.equal(readFileSync(codexConfigFile, "utf8"), reapplied, "four more applies leave the file as the first one did");
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    const restored = readFileSync(codexConfigFile, "utf8");
+    assert.doesNotMatch(restored, /\r(?!\n)/, JSON.stringify(restored));
+    assert.doesNotMatch(restored, llmrCodexContent, JSON.stringify(restored));
+    assert.match(restored, /^approval_policy = "never"\r?$/m);
+    assert.match(restored, /\[mcp_servers\.later\]/);
+    assert.deepEqual(filesHolding(codexDir, codexToken), []);
+  });
+});
+
 test("a Codex config with Windows line endings holds no stray carriage return after an apply or a restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const original = "# mine\r\nmodel = \"gpt-mine\"\r\nmodel_provider = \"openai\"\r\nshow_all_sessions = true\r\n\r\n[mcp_servers.mine]\r\ncommand = \"my-server\"\r\n";
   const bareCarriageReturn = /\r(?!\n)/;
