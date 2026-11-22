@@ -1,6 +1,6 @@
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME } from "@llmr/core/gateway/context-archive";
 import { TOOL_HUB_MCP_SERVER_NAME } from "@llmr/core/mcp/toolhub-config";
-import { tomlQuotedKey, tomlString, trimLeadingBlankLines } from "@llmr/core/profiles/apply-support";
+import { firstTomlTableIndex, tomlQuotedKey, tomlString, trimLeadingBlankLines } from "@llmr/core/profiles/apply-support";
 
 export const managedRootStart = "# BEGIN LLMR managed profile";
 export const managedRootEnd = "# END LLMR managed profile";
@@ -177,9 +177,61 @@ export function sameRootAssignment(line: string | undefined, recorded: string | 
   return value !== undefined && value === rootAssignmentValue(recorded);
 }
 
+// What an apply took out of the user's file: whole lines and tables as the user wrote them.
+export type CodexDisplacedConfig = {
+  model?: string;
+  modelCatalogJson?: string;
+  modelProvider?: string;
+  profileTables?: string[];
+  showAllSessions?: string;
+};
+
+const displacedRootKeys = {
+  model: "model",
+  model_catalog_json: "modelCatalogJson",
+  model_provider: "modelProvider",
+  show_all_sessions: "showAllSessions"
+} as const;
+
+// Reads them the way the writer removes them, one line per root key and a table up to the next header, so what comes back is what went.
+export function readCodexDisplacedConfig(snapshot: string, providerIds: string[]): CodexDisplacedConfig {
+  const rootEnd = firstTomlTableIndex(snapshot);
+  const root = rootEnd === -1 ? snapshot : snapshot.slice(0, rootEnd);
+  const displaced: CodexDisplacedConfig = {};
+  for (const [key, field] of Object.entries(displacedRootKeys)) {
+    const line = new RegExp(`^[ \\t]*${key}\\s*=.*$`, "m").exec(root)?.[0];
+    if (line !== undefined) {
+      displaced[field] = line;
+    }
+  }
+  const headers = providerIds.flatMap((providerId) => [`[profiles.${providerId}]`, `[profiles.${tomlQuotedKey(providerId)}]`]);
+  const profileTables: string[] = [];
+  let table: string[] | undefined;
+  for (const line of snapshot.split(/(?<=\n)/)) {
+    if (/^\s*\[/.test(line)) {
+      table = headers.includes(line.trim()) ? [] : undefined;
+      if (table) {
+        profileTables.push("");
+      }
+    }
+    if (table) {
+      profileTables[profileTables.length - 1] += line;
+    }
+  }
+  return profileTables.length > 0 ? { ...displaced, profileTables } : displaced;
+}
+
 // Codex adds its own tables inside LLMR's last marker pair (codex-cli 0.171.0, `codex mcp add`), so the markers bound nothing: each line goes by what it holds.
 // With `written`, a root `model` or `show_all_sessions` line goes only when it is the line LLMR recorded writing.
-export function stripManagedCodexConfigContent(content: string, providerIds: string[], written?: CodexWrittenLines): string | undefined {
+// A displaced root line comes back only in place of the line of LLMR's that took its place: where that line is gone or changed, the user has chosen since.
+export function stripManagedCodexConfigContent(
+  content: string,
+  providerIds: string[],
+  written?: CodexWrittenLines,
+  displaced: CodexDisplacedConfig = {}
+): string | undefined {
+  const putBack = new Map<string, number>();
+  const usersRootKeys = new Set<string>();
   const configuredModel = managedConfiguredModel(content);
   const providerValues = providerIds.flatMap((providerId) => [tomlString(providerId), `'${providerId}'`]);
   const kept: string[] = [];
@@ -204,9 +256,23 @@ export function stripManagedCodexConfigContent(content: string, providerIds: str
       (key === "model" && (written ? sameRootAssignment(trimmed, written.modelLine) : value === configuredModel)) ||
       (key === "show_all_sessions" && (written ? sameRootAssignment(trimmed, written.showAllSessionsLine) : inRootBlock))
     ) {
+      const usersLine = displaced[displacedRootKeys[key as keyof typeof displacedRootKeys]];
+      if (usersLine !== undefined && !putBack.has(key)) {
+        putBack.set(key, kept.length);
+        kept.push(`${usersLine}\n`);
+      }
       continue;
     }
+    if (key !== undefined) {
+      usersRootKeys.add(key);
+    }
     kept.push(line);
+  }
+  // A line of that key the user wrote beside LLMR's is their choice, and a second one would stop the file loading.
+  for (const [key, index] of putBack) {
+    if (usersRootKeys.has(key)) {
+      kept[index] = "";
+    }
   }
   const providerHeaders = providerIds.flatMap((providerId) => [`[model_providers.${providerId}]`, `[model_providers.${tomlQuotedKey(providerId)}]`]);
   const mcpPrefixes = [TOOL_HUB_MCP_SERVER_NAME, CONTEXT_ARCHIVE_MCP_SERVER_NAME]
@@ -214,7 +280,16 @@ export function stripManagedCodexConfigContent(content: string, providerIds: str
   const next = removeTablesOutsideValues(kept.join(""), (header) =>
     providerHeaders.includes(header) ||
     mcpPrefixes.some((prefix) => header === `${prefix}]` || header.startsWith(`${prefix}.`)));
-  return next === content ? undefined : trimLeadingBlankLines(next).replace(/\n{2,}$/, "\n");
+  if (next === content) {
+    return undefined;
+  }
+  const stripped = trimLeadingBlankLines(next).replace(/\n{2,}$/, "\n");
+  // The writer moves the user's `[profiles.<provider>]` table into a file of its own, so one that is absent here was taken, not deleted.
+  const present = new Set(scanTomlLines(stripped).filter(({ inValue }) => !inValue).map(({ line }) => line.trim()));
+  const missingTables = (displaced.profileTables ?? []).filter((table) => !present.has(table.slice(0, table.indexOf("\n")).trim()));
+  return missingTables.length === 0
+    ? stripped
+    : [stripped.trimEnd(), ...missingTables.map((table) => table.trimEnd())].filter(Boolean).join("\n\n").concat("\n");
 }
 
 export function escapeRegExp(value: string): string {

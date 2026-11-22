@@ -3111,7 +3111,14 @@ test("profile service restores global agent configs on exit", () => {
         CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456"
       }
     })}\n`);
-    writeFileSync(codexFile, "# BEGIN LLMR managed profile\nmodel = \"test\"\n# END LLMR managed profile\n");
+    // Without a record that says the file is as LLMR wrote it, a Codex restore strips the file in place.
+    const writeManagedCodex = () => {
+      const managed = "# BEGIN LLMR managed profile\nmodel = \"test\"\n# END LLMR managed profile\n";
+      writeFileSync(codexFile, managed);
+      mkdirSync(path.dirname(codexWrittenRecordFile(codexFile)), { recursive: true });
+      writeFileSync(codexWrittenRecordFile(codexFile), JSON.stringify({ edited: false, file: path.resolve(codexFile), sha256: createHash("sha256").update(managed).digest("hex") }));
+    };
+    writeManagedCodex();
     writeFileSync(openCodeFile, `${JSON.stringify({
       model: "llm-router/test",
       provider: {
@@ -3150,7 +3157,7 @@ test("profile service restores global agent configs on exit", () => {
       assert.equal(readFileSync(file, "utf8"), latest);
     }
 
-    writeFileSync(codexFile, "# BEGIN LLMR managed profile\nmodel = \"test\"\n# END LLMR managed profile\n");
+    writeManagedCodex();
     writeFileSync(openCodeFile, `${JSON.stringify({
       provider: { "llm-router": { options: { headers: { "x-llmr-client": "opencode" } } } }
     })}\n`);
@@ -3621,6 +3628,11 @@ function codexBackups(codexDir) {
   return existsSync(codexDir) ? readdirSync(codexDir).filter((name) => name.startsWith("config.toml.llmr-backup-")) : [];
 }
 
+// A copy of the live file as an apply wrote one before LLMR stopped keeping its token in backups.
+function plantTokenBackup({ codexConfigFile }, stamp = "2026-01-01T00-00-00-000Z", content = readFileSync(codexConfigFile, "utf8")) {
+  writeFileSync(`${codexConfigFile}.llmr-backup-${stamp}`, content);
+}
+
 function appendUserCodexTables({ codexConfigFile }) {
   writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}${userCodexAdditions}`);
 }
@@ -3791,19 +3803,11 @@ test("a restore after the user deleted their Claude Code settings keeps a copy o
 });
 
 test("a restore after the user deleted their Codex config copies the newest backup that holds something of theirs", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, codexToken, config }) => {
-    const applyModel = (model) => {
-      config.Providers[0].models.push(model);
-      config.profile.profiles.find((profile) => profile.id === "default-codex").model = `Provider/${model}`;
-      return applyProfileConfig(config);
-    };
-    const edit = (change) => writeFileSync(codexConfigFile, change(readFileSync(codexConfigFile, "utf8")));
-    edit((content) => `${content}\n[mcp_servers.older]\ncommand = "older"\n`);
-    await applyModel("model-2");
-    edit((content) => content.replace(/\[mcp_servers\.older\]\ncommand = "older"\n/, "[mcp_servers.newer]\ncommand = \"newer\"\n"));
-    await applyModel("model-3");
-    edit((content) => content.replace(/\[mcp_servers\.newer\]\ncommand = "newer"\n/, ""));
-    await applyModel("model-4");
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, codexToken }) => {
+    const applied = readFileSync(codexConfigFile, "utf8");
+    plantTokenBackup({ codexConfigFile }, "2026-01-01T00-00-00-000Z", `${applied}\n[mcp_servers.older]\ncommand = "older"\n`);
+    plantTokenBackup({ codexConfigFile }, "2026-01-02T00-00-00-000Z", `${applied}\n[mcp_servers.newer]\ncommand = "newer"\n`);
+    plantTokenBackup({ codexConfigFile }, "2026-01-03T00-00-00-000Z", applied);
     const backups = codexBackups(codexDir).sort().map((name) => readFileSync(path.join(codexDir, name), "utf8"));
     assert.deepEqual(backups.map((backup) => /mcp_servers\.(\w+)/.exec(backup)?.[1]), ["older", "newer", undefined]);
     rmSync(codexConfigFile);
@@ -4344,9 +4348,7 @@ test("restoring a Codex config keeps a table Codex wrote inside LLMR's provider 
 test("restoring a Codex config LLMR created leaves no backup from an earlier apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
     writeFileSync(fixture.codexConfigFile, `${readFileSync(fixture.codexConfigFile, "utf8")}${userCodexAdditions}`);
-    await applyProfileConfig(fixture.config);
-    const backups = () => readdirSync(fixture.codexDir).filter((name) => name.startsWith("config.toml.llmr-backup-"));
-    assert.equal(backups().length, 1);
+    plantTokenBackup(fixture);
     assert.ok(filesHolding(fixture.codexDir, fixture.codexToken).some((file) => file.includes(".llmr-backup-")), "the apply-time backup holds the token");
     await recoverGlobalAgentProfile("default-codex");
     assertCodexKeepsOnlyUserContent(fixture);
@@ -4356,8 +4358,7 @@ test("restoring a Codex config LLMR created leaves no backup from an earlier app
 test("a config.toml the user deletes after a restore is not written back by the next sweep", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
     appendUserCodexTables(fixture);
-    await applyProfileConfig(fixture.config);
-    assert.notDeepEqual(codexBackups(fixture.codexDir), []);
+    plantTokenBackup(fixture);
     await recoverGlobalAgentProfile("default-codex");
     rmSync(fixture.codexConfigFile);
     const profile = fixture.config.profile.profiles.find((item) => item.id === "default-codex");
@@ -4370,8 +4371,7 @@ test("restoring a Codex config twice does not bring back a table the user delete
   await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
     const applied = readFileSync(fixture.codexConfigFile, "utf8");
     appendUserCodexTables(fixture);
-    await applyProfileConfig(fixture.config);
-    assert.notDeepEqual(codexBackups(fixture.codexDir), []);
+    plantTokenBackup(fixture);
     writeFileSync(fixture.codexConfigFile, applied);
     await recoverGlobalAgentProfile("default-codex");
     await recoverGlobalAgentProfile("default-codex");
@@ -4457,5 +4457,342 @@ test("a disabled Codex profile listed after the enabled one that shares its file
     assert.match(applied, /\[model_providers\.llm-router\]/);
     assert.match(applied, /LLMR managed Codex provider/);
     assert.equal(existsSync(`${fixture.codexConfigFile}.llmr-original-missing`), true);
+  });
+});
+
+const userCodexOriginal = [
+  "# my codex settings",
+  "model = \"gpt-mine\"",
+  "model_provider = \"openai\"",
+  "model_catalog_json = \"/tmp/my-catalog.json\"",
+  "show_all_sessions = true",
+  "",
+  "[profiles.llm-router]",
+  "model = \"profile-model\"",
+  "",
+  "[projects.\"/tmp/own\"]",
+  "trust_level = \"untrusted\"",
+  ""
+].join("\n");
+const llmrCodexWrites = /LLMR|llmr-model-catalog|model_providers\.llm-router|model_provider = "llm-router"|Provider\/model/;
+
+function plantCodexOriginal(content = userCodexOriginal) {
+  return ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml"), content);
+  };
+}
+
+function filesBesideCodexConfigHolding({ codexConfigFile, codexDir, codexToken }) {
+  return filesHolding(codexDir, codexToken).filter((file) => file !== codexConfigFile);
+}
+
+function assertHoldsEveryLine(content, expected) {
+  const lines = content.split("\n");
+  for (const line of expected.split("\n").filter(Boolean)) {
+    assert.equal(lines.filter((item) => item === line).length, 1, `${line}\n---\n${content}`);
+  }
+}
+
+test("a Codex config edited while LLMR had it keeps the edit and gets back the user's own root lines and profile table", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    writeFileSync(fixture.codexConfigFile, `${readFileSync(fixture.codexConfigFile, "utf8")}\n[mcp_servers.x]\ncommand = "x"\n`);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assertHoldsEveryLine(restored, `${userCodexOriginal}[mcp_servers.x]\ncommand = "x"\n`);
+    assert.match(restored, /\[profiles\.llm-router\]\nmodel = "profile-model"\n/);
+    assert.doesNotMatch(restored, llmrCodexWrites);
+    assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), []);
+    const copies = safetyCopies(fixture.codexConfigFile);
+    assert.equal(copies.length, 1);
+    assert.match(readFileSync(copies[0], "utf8"), /\[mcp_servers\.x\]/);
+    assert.equal(existsSync(codexWrittenRecordFile(fixture.codexConfigFile)), false);
+  }, plantCodexOriginal());
+});
+
+test("a Codex config nobody touched while LLMR had it comes back byte for byte, also after a second apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const reapply of [false, true]) {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      if (reapply) {
+        await applySecondCodexModel(fixture.config);
+        await replacePersistedAppConfig(fixture.config);
+      }
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, result.status.message);
+      assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), userCodexOriginal, String(reapply));
+      assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), [], String(reapply));
+      assert.deepEqual(safetyCopies(fixture.codexConfigFile), [], String(reapply));
+    }, plantCodexOriginal());
+  }
+});
+
+test("the user's own Codex model line is back after the profile's model changed and the user added a table", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    await applySecondCodexModel(fixture.config);
+    await replacePersistedAppConfig(fixture.config);
+    assert.match(readFileSync(fixture.codexConfigFile, "utf8"), /^model = "Provider\/model-2"$/m);
+    appendUserCodexTables(fixture);
+    await recoverGlobalAgentProfile("default-codex");
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assertHoldsEveryLine(restored, userCodexOriginal);
+    assert.match(restored, /\[mcp_servers\.mine\]/);
+    assert.doesNotMatch(restored, llmrCodexWrites);
+  }, plantCodexOriginal());
+});
+
+test("no file beside a Codex config holds the profile's token after a second apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const original of [userCodexOriginal, undefined]) {
+    for (const edit of [() => undefined, appendUserCodexTables]) {
+      await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+        edit(fixture);
+        await applySecondCodexModel(fixture.config);
+        assert.ok(readFileSync(fixture.codexConfigFile, "utf8").includes(fixture.codexToken));
+        assert.deepEqual(filesBesideCodexConfigHolding(fixture), []);
+      }, original === undefined ? undefined : plantCodexOriginal(original));
+    }
+  }
+});
+
+test("a Codex config with Windows line endings holds no stray carriage return after an apply or a restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "# mine\r\nmodel = \"gpt-mine\"\r\nmodel_provider = \"openai\"\r\nshow_all_sessions = true\r\n\r\n[mcp_servers.mine]\r\ncommand = \"my-server\"\r\n";
+  const bareCarriageReturn = /\r(?!\n)/;
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile }) => {
+    assert.doesNotMatch(readFileSync(codexConfigFile, "utf8"), bareCarriageReturn);
+    writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\r\n[mcp_servers.later]\r\ncommand = "later"\r\n`);
+    await recoverGlobalAgentProfile("default-codex");
+    const restored = readFileSync(codexConfigFile, "utf8");
+    assert.doesNotMatch(restored, bareCarriageReturn);
+    assert.match(restored, /\[mcp_servers\.later\]/);
+    assert.match(restored, /^model_provider = "openai"\r?$/m);
+    assert.doesNotMatch(restored, llmrCodexContent);
+  }, ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml"), original);
+  });
+});
+
+test("a second Codex apply reports no change and repairs the file's mode, and an apply after an edit reports one", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || process.platform === "win32" }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const codexStatus = async () => (await applyProfileConfig(fixture.config)).clients.find((status) => status.client === "codex");
+    chmodSync(fixture.codexConfigFile, 0o644);
+    assert.match((await codexStatus()).message, /already matches LLMR/);
+    assert.equal(statSync(fixture.codexConfigFile).mode & 0o777, 0o600);
+    appendUserCodexTables(fixture);
+    assert.match((await codexStatus()).message, /is managed by LLMR/);
+  });
+});
+
+test("an original with a child table under the profile table comes back with each header once", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "model_provider = \"openai\"\n\n[profiles.llm-router]\nmodel = \"p\"\n\n[profiles.llm-router.features]\nx = true\n";
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    appendUserCodexTables(fixture);
+    await recoverGlobalAgentProfile("default-codex");
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.deepEqual(restored.match(/^\[profiles\.llm-router[^\n]*$/gm).sort(), ["[profiles.llm-router.features]", "[profiles.llm-router]"]);
+    assert.equal(restored.match(/^model_provider = /gm).length, 1);
+    assert.match(restored, /\[mcp_servers\.mine\]/);
+  }, ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml"), original);
+  });
+});
+
+test("a restore after the user deleted their Codex config brings back the backup an apply wrote, with their edit and no token", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    appendUserCodexTables(fixture);
+    await applySecondCodexModel(fixture.config);
+    assert.equal(codexBackups(fixture.codexDir).length, 1);
+    rmSync(fixture.codexConfigFile);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.match(restored, /\[mcp_servers\.mine\]/);
+    assert.match(restored, /^model_provider = "openai"$/m);
+    assert.doesNotMatch(restored, llmrCodexContent);
+    assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), []);
+  }, ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml"), "model_provider = \"openai\"\n");
+  });
+});
+
+test("an apply over an edited Codex config goes ahead when the saved original cannot be read, and keeps a copy of the edit", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || process.platform === "win32" }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const original = `${fixture.codexConfigFile}.llmr-original`;
+    appendUserCodexTables(fixture);
+    writeFileSync(fixture.codexConfigFile, readFileSync(fixture.codexConfigFile, "utf8").replace(/^model = .*$/m, "model = \"my-own-model\""));
+    chmodSync(original, 0o000);
+    try {
+      const applied = await applySecondCodexModel(fixture.config);
+      assert.deepEqual(applied.clients.filter((status) => !status.ok), []);
+      assert.match(readFileSync(fixture.codexConfigFile, "utf8"), /^model = "Provider\/model-2"$/m);
+      assert.match(readFileSync(fixture.codexConfigFile, "utf8"), /\[mcp_servers\.mine\]/);
+      assert.deepEqual(codexBackups(fixture.codexDir), []);
+      const copies = safetyCopies(fixture.codexConfigFile);
+      assert.equal(copies.length, 1);
+      assert.match(readFileSync(copies[0], "utf8"), /^model = "my-own-model"$/m);
+      assert.equal(readFileSync(copies[0], "utf8").includes(fixture.codexToken), false);
+    } finally {
+      chmodSync(original, 0o600);
+    }
+  }, ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml"), "model_provider = \"openai\"\n");
+  });
+});
+
+test("an apply over an edited Codex config keeps a backup of the user's content with nothing of LLMR's, and a restore keeps the edit", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    await applySecondCodexModel(fixture.config);
+    await replacePersistedAppConfig(fixture.config);
+    assert.deepEqual(codexBackups(fixture.codexDir), []);
+    // Codex drops LLMR's comment when it rewrites the file, so only the record names LLMR's model line.
+    writeFileSync(fixture.codexConfigFile, `${readFileSync(fixture.codexConfigFile, "utf8").replace(/^# LLMR configured model = .*\n/m, "")}${userCodexAdditions}`);
+    await applyProfileConfig(fixture.config);
+    const backups = codexBackups(fixture.codexDir);
+    assert.equal(backups.length, 1);
+    const backup = readFileSync(path.join(fixture.codexDir, backups[0]), "utf8");
+    assertHoldsEveryLine(backup, `${userCodexOriginal}${userCodexAdditions}`);
+    assert.doesNotMatch(backup, llmrCodexWrites);
+    assert.equal(statSync(path.join(fixture.codexDir, backups[0])).mode & 0o777, 0o600);
+    await applyProfileConfig(fixture.config);
+    assert.equal(codexBackups(fixture.codexDir).length, 1);
+    await recoverGlobalAgentProfile("default-codex");
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assertHoldsEveryLine(restored, `${userCodexOriginal}${userCodexAdditions}`);
+    assert.doesNotMatch(restored, llmrCodexWrites);
+  }, plantCodexOriginal());
+});
+
+test("an apply over a managed Codex config with neither an original nor its marker copies no token", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    rmSync(`${fixture.codexConfigFile}.llmr-original-missing`);
+    appendUserCodexTables(fixture);
+    await applySecondCodexModel(fixture.config);
+    assert.deepEqual(filesBesideCodexConfigHolding(fixture), []);
+    assert.equal(existsSync(`${fixture.codexConfigFile}.llmr-original`), false);
+  });
+});
+
+test("an apply over a Codex config the user emptied of their own tables writes no empty backup", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const applied = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.match(applied, /\[mcp_servers\.only\]\ncommand = "only"\n/);
+    writeFileSync(fixture.codexConfigFile, applied.replace(/\[mcp_servers\.only\]\ncommand = "only"\n/, ""));
+    await applySecondCodexModel(fixture.config);
+    assert.deepEqual(codexBackups(fixture.codexDir), []);
+  }, plantCodexOriginal("[mcp_servers.only]\ncommand = \"only\"\n"));
+});
+
+test("an apply over the user's own Codex config that still held a line of LLMR's backs it up without that line", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    writeFileSync(fixture.codexConfigFile, "model_provider = \"llm-router\"\n\n[mcp_servers.x]\ncommand = \"x\"\n");
+    await applySecondCodexModel(fixture.config);
+    const backups = codexBackups(fixture.codexDir);
+    assert.equal(backups.length, 1);
+    assert.equal(readFileSync(path.join(fixture.codexDir, backups[0]), "utf8"), "[mcp_servers.x]\ncommand = \"x\"\n");
+  }, plantCodexOriginal());
+});
+
+test("a table the user added to a Codex config LLMR created and then deleted does not come back", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const added = "\n[mcp_servers.mine]\ncommand = \"my-server\"\n";
+    writeFileSync(fixture.codexConfigFile, `${readFileSync(fixture.codexConfigFile, "utf8")}${added}`);
+    await applySecondCodexModel(fixture.config);
+    await replacePersistedAppConfig(fixture.config);
+    assert.deepEqual(codexBackups(fixture.codexDir), []);
+    const reapplied = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.match(reapplied, /\[mcp_servers\.mine\]\ncommand = "my-server"\n/);
+    writeFileSync(fixture.codexConfigFile, reapplied.replace(/\[mcp_servers\.mine\]\ncommand = "my-server"\n/, ""));
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(existsSync(fixture.codexConfigFile), false);
+    assert.deepEqual(readdirSync(fixture.codexDir).filter((name) => name.startsWith("config.toml.")), []);
+  });
+});
+
+test("seven launches and quits leave the user's Codex config as it was, with no token and no repeated backup beside it", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    let expected = userCodexOriginal;
+    for (let cycle = 1; cycle <= 7; cycle += 1) {
+      if (cycle === 4) {
+        expected = `${expected}\n[mcp_servers.between]\ncommand = "between"\n`;
+        writeFileSync(fixture.codexConfigFile, expected);
+      }
+      if (cycle > 1) {
+        await applyProfileConfig(fixture.config);
+      }
+      assert.ok(readFileSync(fixture.codexConfigFile, "utf8").includes(fixture.codexToken), String(cycle));
+      const statuses = restoreGlobalProfileConfigsOnExit(fixture.config.profile.profiles, { manageMarker: true });
+      assert.deepEqual(statuses.filter((status) => !status.ok), [], String(cycle));
+      assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), expected, String(cycle));
+      assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), [], String(cycle));
+    }
+    assert.equal(readFileSync(`${fixture.codexConfigFile}.llmr-original`, "utf8"), userCodexOriginal);
+    const backups = codexBackups(fixture.codexDir).sort().map((name) => readFileSync(path.join(fixture.codexDir, name), "utf8"));
+    assert.deepEqual(backups, [expected]);
+  }, plantCodexOriginal());
+});
+
+test("a Codex config the user replaced with their own and went on editing keeps both, and no file beside it holds the token", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const own = "model_provider = \"mine\"\n\n[model_providers.mine]\nbase_url = \"https://mine.invalid/v1\"\n";
+  for (const original of [userCodexOriginal, undefined]) {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      writeFileSync(fixture.codexConfigFile, own);
+      await applySecondCodexModel(fixture.config);
+      await replacePersistedAppConfig(fixture.config);
+      appendUserCodexTables(fixture);
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, result.status.message);
+      const restored = readFileSync(fixture.codexConfigFile, "utf8");
+      assertHoldsEveryLine(restored, `${own}${userCodexAdditions}`);
+      assert.doesNotMatch(restored, llmrCodexWrites);
+      assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), []);
+    }, original === undefined ? undefined : plantCodexOriginal(original));
+  }
+});
+
+test("a Codex config with an original and no record of what LLMR wrote is stripped, not replaced", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    rmSync(codexWrittenRecordFile(fixture.codexConfigFile));
+    appendUserCodexTables(fixture);
+    await recoverGlobalAgentProfile("default-codex");
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assertHoldsEveryLine(restored, `${userCodexOriginal}${userCodexAdditions}`);
+    assert.doesNotMatch(restored, llmrCodexWrites);
+    assert.equal(safetyCopies(fixture.codexConfigFile).length, 1);
+  }, plantCodexOriginal());
+});
+
+test("a Codex config left with only LLMR's root lines gets the user's own back, and a copy is kept", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const applied = readFileSync(fixture.codexConfigFile, "utf8");
+    const leftover = applied.slice(0, applied.indexOf("# BEGIN LLMR managed Codex provider")).replace(/^# (?:BEGIN|END) LLMR managed.*\n/gm, "");
+    assert.match(leftover, /^model_provider = "llm-router"$/m);
+    writeFileSync(fixture.codexConfigFile, `${leftover}\n[mcp_servers.x]\ncommand = "x"\n`);
+    const backupsBefore = codexBackups(fixture.codexDir);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.match(restored, /^model_provider = "openai"$/m);
+    assert.match(restored, /^model_catalog_json = "\/tmp\/my-catalog.json"$/m);
+    assert.match(restored, /\[mcp_servers\.x\]/);
+    assert.doesNotMatch(restored, llmrCodexWrites);
+    assert.deepEqual(codexBackups(fixture.codexDir), backupsBefore);
+    assert.equal(safetyCopies(fixture.codexConfigFile).length, 1);
+  }, plantCodexOriginal());
+});
+
+test("the user's Codex config is backed up even when an old backup beside a stale marker strips down to the same text", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const own = "model_provider = \"openai\"\n\n[mcp_servers.mine]\ncommand = \"my-server\"\n";
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile }) => {
+    await recoverGlobalAgentProfile("default-codex");
+    assert.equal(readFileSync(codexConfigFile, "utf8"), own);
+  }, ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml"), own);
+    writeFileSync(path.join(codexDir, "config.toml.llmr-original-missing"), "");
+    writeFileSync(path.join(codexDir, "config.toml.llmr-backup-2000-01-01T00-00-00-000Z"), `model_catalog_json = "/old/llmr-model-catalog.json"\n${own}`);
   });
 });

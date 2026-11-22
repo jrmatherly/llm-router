@@ -87,6 +87,15 @@ export function backupCurrentFile(file: string, options: BackupOptions = {}): st
   return backupFile;
 }
 
+// For a file whose backup must not be a plain copy, such as one that holds a token.
+export function backupContent(file: string, content: string, options: BackupOptions = {}): string {
+  const backupFile = backupFilePath(file);
+  writeFileSync(backupFile, content, options.mode === undefined ? "utf8" : { encoding: "utf8", mode: options.mode });
+  chmodFileIfRequested(backupFile, options.mode);
+  pruneBackups(file, undefined, options.isManagedContent);
+  return backupFile;
+}
+
 export function backupBeforeWrite(file: string, previous: string | undefined, options: BackupOptions = {}): string | undefined {
   ensureOriginalSnapshot(file, previous, options.mode);
   return previous === undefined ? undefined : backupCurrentFile(file, options);

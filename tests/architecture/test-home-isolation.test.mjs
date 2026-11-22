@@ -36,12 +36,18 @@ test("a compiled test run outside run-tests gets a temporary HOME", () => {
   }
 });
 
-test("the guard leaves the home run-tests already isolated", () => {
+test("each test process takes a home of its own inside the one run-tests isolated", () => {
   const testHome = mkdtempSync(path.join(os.tmpdir(), "llmr-runner-home-"));
   try {
-    const seen = homeSeenBy(isolateTestHome(testHome, { ...process.env }));
-    assert.equal(seen.home, testHome);
-    assert.equal(seen.internal, testHome);
+    const env = isolateTestHome(testHome, { ...process.env });
+    const first = homeSeenBy(env);
+    const second = homeSeenBy(env);
+    for (const seen of [first, second]) {
+      assert.equal(path.dirname(seen.home), testHome);
+      assert.equal(seen.internal, seen.home);
+      assert.equal(seen.homedir, seen.home);
+    }
+    assert.notEqual(first.home, second.home, "test files run at the same time and must not share persisted keys or config");
   } finally {
     rmSync(testHome, { force: true, recursive: true });
   }
