@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, claudeAppTakesOverDirectLaunches, claudeCodeUsesSharedHome, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isEnabledGlobalProfile, isGatewayProviderEnabled, type AppConfig, type GlobalProfileRecoveryResult, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
@@ -23,7 +23,7 @@ import {
   isStaleClaudeCodeSettingsEnvKey,
   normalizeClaudeCodeClientModel
 } from "@llmr/core/agents/claude-code/environment";
-import { isManagedWorkbuddyModelsContent, writeCodexCompatibleAppModelCatalog } from "@llmr/core/agents/codex/app-launch";
+import { codexAppModelCatalogPath, isManagedWorkbuddyModelsContent, writeCodexCompatibleAppModelCatalog } from "@llmr/core/agents/codex/app-launch";
 import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime";
 import { codexModelCatalogJson } from "@llmr/core/agents/codex/model-catalog";
 import { applyGrokProfile, grokWrapperPath } from "@llmr/core/agents/grok/profile-config";
@@ -48,7 +48,7 @@ import {
   writePiGatewayConfig
 } from "@llmr/core/agents/pi/profile-config";
 import { CONFIGDIR } from "@llmr/core/config/constants";
-import { pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
+import { profileApiKeyId, pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
 import { cmdQuote, defaultClientModel, disabledStatus, firstTomlTableIndex, formatError, gatewayEndpoint, gatewayNoProxyHosts, isRecord, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, stringRecord, tomlQuotedKey, tomlString, trimLeadingBlankLines, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
 import { backupBeforeWrite, backupContent, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, saveRemovedConfigCopy, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import {
@@ -189,6 +189,7 @@ export async function recoverGlobalAgentProfile(
   if (!profile) {
     throw new Error(`Profile ${profileId} is not in the saved configuration.`);
   }
+  const token = config.APIKEYS.find((apiKey) => apiKey.id === profileApiKeyId(profile))?.key;
   const status = await enqueueApply((): ProfileClientApplyStatus => {
     try {
       const file = profilePath(profile);
@@ -207,7 +208,7 @@ export async function recoverGlobalAgentProfile(
             ok: true,
             path: file
           }
-        : disabledProfileStatus(profile);
+        : disabledProfileStatus(profile, config.profile.profiles);
       // A normal save releases Claude App the same way once no profile takes it over.
       if (!config.profile.profiles.some(claudeAppTakesOverDirectLaunches)) {
         restoreClaudeAppGatewayConfig();
@@ -225,11 +226,18 @@ export async function recoverGlobalAgentProfile(
     }
   });
   let result = status;
-  try {
-    await reconcileProfileApiKeys(config);
-  } catch (error) {
-    console.error(`Failed to revoke the API key of restored profile ${profile.name || profile.id}: ${formatError(error)}`);
-    result = { ...result, message: `${result.message} LLMR could not revoke this profile's API key, which still works: ${formatError(error)}`, ok: false };
+  // After a failed restore the agent's file still holds the key, and revoking it would leave the agent with a dead one.
+  if (status.ok) {
+    try {
+      await reconcileProfileApiKeys(config);
+    } catch (error) {
+      console.error(`Failed to revoke the API key of restored profile ${profile.name || profile.id}: ${formatError(error)}`);
+      result = { ...result, message: `${result.message} LLMR could not revoke this profile's API key, which still works: ${formatError(error)}`, ok: false };
+    }
+  }
+  // The strip removes what LLMR wrote, not a copy of the key the user pasted into a setting of their own.
+  if (result.ok && token && fileHolds(profilePath(profile), token)) {
+    result = { ...result, message: `${result.message} Your own settings in ${profilePath(profile)} still hold this profile's LLMR key, which no longer works.` };
   }
   try {
     await refreshRuntime(config);
@@ -270,7 +278,7 @@ async function applyProfileConfigNow(
   );
 
   if (!result.enabled) {
-    result.clients = profiles.map(disabledProfileStatus);
+    result.clients = profiles.map((profile) => disabledProfileStatus(profile));
     result.clients.push(...takeoverStatuses);
     result.clients.push(...restoreInactiveGlobalProfileConfigs(profiles));
     return result;
@@ -698,12 +706,7 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
         path: configFile
       };
     }
-    return restoreDisabledGlobalProfile(
-      profile,
-      configFile,
-      `${clientName} profile is disabled.`,
-      codexManagedContent(profile.agent, [sanitizeCodexProviderId(profile.providerId || "") || "llm-router"], configFile)
-    );
+    return restoreDisabledCodexProfile(profile, configFile, config.profile.profiles);
   }
 
   try {
@@ -1511,9 +1514,14 @@ function maybeWriteSeparateCodexProfileFile(
     return undefined;
   }
   const file = path.join(path.dirname(configFile), `${values.providerId}.config.toml`);
-  const previous = existsSync(file)
-    ? readFileSync(file, "utf8")
-    : legacyCodexProfileTableBody(source, values.providerId);
+  const moved = legacyCodexProfileTableBody(source, values.providerId);
+  const existing = existsSync(file) ? readFileSync(file, "utf8") : "";
+  const tableStart = firstTomlTableIndex(existing);
+  const existingRoot = tableStart === -1 ? existing : existing.slice(0, tableStart);
+  // The writer takes the user's `[profiles.<provider>]` table out of config.toml on every apply, so one written while this file exists has to land here too. Its keys win over the ones already here.
+  const previous = moved && existing
+    ? `${moved}\n${removeRootTomlKeys(existingRoot, [...moved.matchAll(/^[ \t]*([A-Za-z0-9_-]+)\s*=/gm)].map((match) => match[1]))}${existing.slice(existingRoot.length)}`
+    : existing || moved;
   const next = buildSeparateCodexProfileToml(previous, values);
   const writeResult = writeFileWithBackup(file, next, { mode: privateFileMode });
   return {
@@ -3026,6 +3034,8 @@ function isManagedGeneratedBinFile(fileName: string): boolean {
 }
 
 type RestoreFileResult = {
+  // The file did not exist when the restore ran.
+  absent?: boolean;
   backupFile?: string;
   changed: boolean;
   file: string;
@@ -3052,7 +3062,8 @@ function restoreDisabledGlobalProfile(
   profile: ProfileConfig,
   file: string,
   disabledMessage: string,
-  matchers: RestoreManagedContentMatchers
+  matchers: RestoreManagedContentMatchers,
+  staysDisabled = true
 ): ProfileClientApplyStatus {
   if (!isGlobalProfile(profile)) {
     return disabledStatus(profile.agent, file, disabledMessage);
@@ -3063,15 +3074,117 @@ function restoreDisabledGlobalProfile(
     if (restoreResult.changed || restoreResult.restored) {
       matchers.onReleased?.();
     }
-    return disabledRestoreStatus(profile.agent, file, disabledMessage, restoreResult, profile.name || profile.id || profile.agent);
+    return disabledRestoreStatus(profile.agent, file, disabledMessage, restoreResult, profile.name || profile.id || profile.agent, staysDisabled);
   } catch (error) {
     return failedRestoreStatus(profile.agent, file, error);
   }
 }
 
-function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus {
+function restoreDisabledCodexProfile(profile: ProfileConfig, configFile: string, others: ProfileConfig[], staysDisabled = true): ProfileClientApplyStatus {
+  const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
+  const status = restoreDisabledGlobalProfile(
+    profile,
+    configFile,
+    `${codexCompatibleClientName(profile.agent)} profile is disabled.`,
+    codexManagedContent(profile.agent, [providerId], configFile),
+    staysDisabled
+  );
+  const dir = path.dirname(configFile);
+  // A config.toml that still holds LLMR's content still names the catalog, and another enabled profile in the directory still reads these files.
+  if (
+    !status.ok || profile.agent !== "codex" || !isGlobalProfile(profile) ||
+    others.some((other) => other.agent === "codex" && other.enabled && path.dirname(resolveCodexConfigFile(other)) === dir)
+  ) {
+    return status;
+  }
+  try {
+    return restoreCodexSideFiles(profile, configFile, providerId)
+      ? { ...status, message: restoredConfigMessage("codex", { stripped: true }, staysDisabled) ?? status.message }
+      : status;
+  } catch (error) {
+    return failedRestoreStatus("codex", configFile, error);
+  }
+}
+
+// Runs after config.toml is settled, so a profile table the snapshot already gave back is not written a second time. Returns whether it wrote one.
+function restoreCodexSideFiles(profile: ProfileConfig, configFile: string, providerId: string): boolean {
+  const dir = path.dirname(configFile);
+  const profileFile = path.join(dir, `${providerId}.config.toml`);
+  const returned = returnCodexProfileTable(configFile, profileFile, providerId);
+  restoreSideFile(profileFile);
+  restoreSideFile(codexModelCatalogFile(configFile));
+  const appCatalog = codexAppModelCatalogPath(dir, profile);
+  rmSync(appCatalog, { force: true });
+  // The Codex app keeps its own data in these directories, so each goes only when it is empty.
+  for (let parent = path.dirname(appCatalog); parent !== dir; parent = path.dirname(parent)) {
+    try {
+      rmdirSync(parent);
+    } catch {
+      break;
+    }
+  }
+  return returned;
+}
+
+// What the user has in the profile file is theirs: an apply moved their `[profiles.<provider>]` table into it, or they wrote there since.
+function returnCodexProfileTable(configFile: string, profileFile: string, providerId: string): boolean {
+  if (!existsSync(profileFile)) {
+    return false;
+  }
+  const current = readFileSync(profileFile, "utf8");
+  // LLMR's `show_all_sessions = true` carries no mark, so a line that reads exactly so counts as LLMR's.
+  const usersContent = (content: string) => (stripManagedCodexConfigContent(content, [providerId]) ?? content).replace(/^show_all_sessions = true\r?\n?/m, "").trim();
+  const kept = usersContent(current);
+  const originalFile = originalBackupFilePath(profileFile);
+  if (existsSync(originalFile)) {
+    // The original is about to be written back over whatever was added to the file since.
+    if (kept !== usersContent(readFileSync(originalFile, "utf8"))) {
+      saveConfigSafetyCopy(profileFile, current);
+    }
+    return false;
+  }
+  if (!kept || !existsSync(originalMissingFilePath(profileFile))) {
+    return false;
+  }
+  const tableStart = firstTomlTableIndex(kept);
+  if (tableStart !== -1) {
+    // A table cannot be folded into the profile table, so it is kept as a copy.
+    saveConfigSafetyCopy(profileFile, current);
+  }
+  const body = (tableStart === -1 ? kept : kept.slice(0, tableStart)).trim();
+  const config = existsSync(configFile) ? readFileSync(configFile, "utf8") : "";
+  if (!body || new RegExp(`^[ \\t]*\\[profiles\\.(?:${escapeRegExp(providerId)}|${escapeRegExp(tomlQuotedKey(providerId))})\\]`, "m").test(config)) {
+    return false;
+  }
+  writeFileAtomic(configFile, `${config.trim() ? `${config.trimEnd()}\n\n` : ""}[profiles.${tomlKey(providerId)}]\n${body}\n`, { mode: privateFileMode });
+  return true;
+}
+
+// Only a file LLMR took over has an original or a marker beside it. Anything else is the user's and stays.
+function restoreSideFile(file: string): void {
+  const originalFile = originalBackupFilePath(file);
+  if (existsSync(originalFile)) {
+    writeFileAtomic(file, readFileSync(originalFile));
+  } else if (existsSync(originalMissingFilePath(file))) {
+    rmSync(file, { force: true });
+  } else {
+    return;
+  }
+  forgetMissingOriginal(file);
+  rmSync(originalFile, { force: true });
+}
+
+function fileHolds(file: string, value: string): boolean {
+  try {
+    return readFileSync(file, "utf8").includes(value);
+  } catch {
+    return false;
+  }
+}
+
+function disabledProfileStatus(profile: ProfileConfig, others: ProfileConfig[] = [], staysDisabled = true): ProfileClientApplyStatus {
   if (profile.agent === "claude-code") {
-    return restoreDisabledGlobalProfile(profile, resolveClaudeCodeSettingsFile(profile), "Claude Code profile is disabled.", claudeCodeManagedContent(profile));
+    return restoreDisabledGlobalProfile(profile, resolveClaudeCodeSettingsFile(profile), "Claude Code profile is disabled.", claudeCodeManagedContent(profile), staysDisabled);
   }
   if (profile.agent === "zcode") {
     return restoreDisabledZcodeProfile(profile, resolveZcodeConfigFile(profile));
@@ -3103,15 +3216,9 @@ function disabledProfileStatus(profile: ProfileConfig): ProfileClientApplyStatus
       { isManagedContent: (content) => isManagedKiloConfigContent(content, providerId) }
     );
   }
-  const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
   const clientName = codexCompatibleClientName(profile.agent);
   const configFile = resolveCodexConfigFile(profile);
-  const status = restoreDisabledGlobalProfile(
-    profile,
-    configFile,
-    `${clientName} profile is disabled.`,
-    codexManagedContent(profile.agent, [providerId], configFile)
-  );
+  const status = restoreDisabledCodexProfile(profile, configFile, others, staysDisabled);
   if (profile.agent !== "workbuddy" || !isGlobalProfile(profile)) {
     return status;
   }
@@ -3406,6 +3513,7 @@ function globalProfileTakeoverRecords(profiles: ProfileConfig[]): GlobalProfileT
 }
 
 function restoreGlobalProfileTakeoverRecords(records: GlobalProfileTakeoverRecord[]): ProfileClientApplyStatus[] {
+  // A quit keeps the profile enabled, and the takeover sync applies it again at once.
   return records.map((record) => disabledProfileStatus({
     ...record,
     enabled: false,
@@ -3413,7 +3521,7 @@ function restoreGlobalProfileTakeoverRecords(records: GlobalProfileTakeoverRecor
     model: "",
     scope: "global",
     surface: "auto"
-  }));
+  }, [], false));
 }
 
 // One agent's failed restore is reported, not thrown: a throw stops every other agent being restored on a quit and being applied on a save.
@@ -3496,9 +3604,9 @@ function inactiveGlobalCleanupStatus(
     enabled: false,
     message: restoreResult.missingBackup
       ? `No active global ${codexCompatibleClientName(client)} profile is configured, but the global config is managed by LLMR and no original backup was found.`
-      : restoreResult.stripped
+      : restoredConfigMessage(client, restoreResult) ?? (restoreResult.stripped
         ? `${codexCompatibleClientName(client)} global config had its LLMR-managed settings removed because no active global profile is configured.`
-        : `${codexCompatibleClientName(client)} global config was restored because no active global profile is configured.`,
+        : `${codexCompatibleClientName(client)} global config was restored because no active global profile is configured.`),
     ok: !restoreResult.missingBackup,
     path: resolveUserPath(file)
   };
@@ -3562,7 +3670,8 @@ function disabledRestoreStatus(
   file: string,
   disabledMessage: string,
   restoreResult: RestoreFileResult,
-  profileName: string
+  profileName: string,
+  staysDisabled = false
 ): ProfileClientApplyStatus {
   return {
     backupFile: restoreResult.backupFile,
@@ -3570,16 +3679,38 @@ function disabledRestoreStatus(
     enabled: false,
     message: restoreResult.missingBackup
       ? `${disabledMessage} No original ${codexCompatibleClientName(client)} config backup was found for ${profileName}.`
-      : restoreResult.stripped
+      : restoredConfigMessage(client, restoreResult, staysDisabled) ?? (restoreResult.stripped
         ? `${codexCompatibleClientName(client)} config had its LLMR-managed settings removed because the global profile is disabled.`
         : restoreResult.restored
           ? restoreResult.changed
             ? `${codexCompatibleClientName(client)} config was restored from the LLMR backup because the global profile is disabled.`
             : `${codexCompatibleClientName(client)} config already matches the LLMR backup; profile is disabled.`
-          : `${disabledMessage} LLMR found nothing to restore in ${resolveUserPath(file)} and left it unchanged.`,
+          : `${disabledMessage} LLMR found nothing to restore in ${resolveUserPath(file)} and left it unchanged.`),
     ok: !restoreResult.missingBackup,
     path: resolveUserPath(file)
   };
+}
+
+// A restore asks for no confirmation, so its message says what happened to the file and how to undo it. Agents without a stripper keep the older wording.
+function restoredConfigMessage(client: ProfileClientKind, result: Partial<RestoreFileResult>, staysDisabled = false): string | undefined {
+  if (client !== "claude-code" && client !== "codex") {
+    return undefined;
+  }
+  const name = codexCompatibleClientName(client);
+  const outcome = result.removed
+    ? `${name} config was removed because it did not exist before LLMR.`
+    : result.absent
+      ? `${name} config is already absent, as before LLMR.`
+      : result.stripped
+        ? `LLMR's settings were removed from ${name} config and your own settings were kept.`
+        : result.restored
+          ? result.changed
+            ? `${name} config was restored to what it was before LLMR.`
+            : `${name} config already matches what it was before LLMR.`
+          : undefined;
+  return outcome && staysDisabled
+    ? `${outcome} Profile is disabled. Switch it on to undo this. ${name} may ask you to log in.`
+    : outcome;
 }
 
 function restoreGlobalConfigFile(
@@ -3667,7 +3798,7 @@ function restoreGlobalConfigFileContent(
         saveConfigSafetyCopy(file, current);
       }
       const result: RestoreFileResult = stripped === undefined
-        ? { changed: false, file, missingBackup: false, restored: true }
+        ? { absent: true, changed: false, file, missingBackup: false, restored: true }
         : writeStrippedConfigFile(file, stripped, options.mode);
       forgetMissingOriginal(file);
       return result;
@@ -3681,6 +3812,7 @@ function restoreGlobalConfigFileContent(
   }
 
   return {
+    absent: current === undefined,
     changed: false,
     file,
     missingBackup: Boolean(currentManaged),

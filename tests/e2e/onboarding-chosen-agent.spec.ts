@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./cli-web-runtime";
@@ -78,11 +78,12 @@ test("onboarding lets the user skip the agent, then connects only the agent they
   expect(await gatewayStatusFor(gateway.endpoint, profileKey)).not.toBe(401);
   expect(await gatewayStatusFor(gateway.endpoint, "llmr-profile-not-a-real-key")).toBe(401);
 
-  await page.evaluate(async () => {
-    const next = await window.llmr!.getConfig();
-    next.profile.profiles = next.profile.profiles.map((profile) => ({ ...profile, enabled: false }));
-    await window.llmr!.saveConfig(next);
-  });
+  const recovery = await page.evaluate(() => window.llmr!.recoverGlobalProfile("default-claude-code"));
+  expect(recovery.status.ok).toBe(true);
+  expect(recovery.status.message).toContain("Claude Code config was removed because it did not exist before LLMR.");
+  expect(readdirSync(path.join(runtime.testHome, ".claude")).filter((name) => name.includes("llmr"))).toEqual([]);
+  expect(existsSync(claudeSettingsFile)).toBe(false);
+  expect(await enabledProfileIds(page)).toEqual([]);
   expect(await gatewayStatusFor(gateway.endpoint, profileKey)).toBe(401);
 });
 
