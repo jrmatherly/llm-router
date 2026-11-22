@@ -12,7 +12,7 @@
 
 **Review history.** Written 2026-11-21 from three code explorations. Audited the same day by two independent passes, one that checked every path, symbol and test against the code and one on the design. The audit found two blockers that this version fixes. Task 4 would have deleted a user's own Codex settings, and Task 2's test named a fixture that does not exist. It also replaced Task 2's design, which restarted the gateway twice, and corrected the causes stated in Tasks 8 and 9. The plan author re-read each audit finding in the code before applying it. Task 4 and decisions V-7 and V-16 were rewritten later the same day after the restore research, and that rewrite was audited by two more passes. Appendix C records both. Task 4d and the safety-copy clause of V-7 were added after the stripper was measured against real Codex (Appendix D). Task 4e was added after the review of PR 133 (Appendix E). The whole plan was then audited against `main` at `06dd4b4f` by four passes, and Appendix F records what that changed.
 
-**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133), Task 4e (PR 134), Task 4d Part 2 (PR 135), Task 4d Part 3 (PR 136), Task 4d Part 4 (PR 137), which completes Task 4d, Task 4b (PR 138). Next: Tasks 4c and 5, in one PR. The code tasks left ship as four more PRs (V-18). A merged task's body describes the code as it was before its PR. No decision is waiting on the owner. The Order table carries the same status per task.
+**Status on 2026-11-21. Git is the record, and the checkboxes are not ticked.** Merged: Task 0 (PR 128), Task 1 (PR 129), Task 3 (PR 130), Task 2 (PR 131), Task 4a (PR 132), Task 4d Part 1 (PR 133), Task 4e (PR 134), Task 4d Part 2 (PR 135), Task 4d Part 3 (PR 136), Task 4d Part 4 (PR 137), which completes Task 4d, Task 4b (PR 138), Tasks 4c and 5 together (PR 139). Every Phase A code task is merged. Next: Task 10, an investigation with no code, then Task 11, the owner's VM pass and the Phase A release. The Phase B code tasks ship as three more PRs (V-18). A merged task's body describes the code as it was before its PR. No decision is waiting on the owner. The Order table carries the same status per task.
 
 **Evidence status.** A cause marked "inferred" was not confirmed by reading the code path end to end. Its task starts with the step that confirms it.
 
@@ -83,9 +83,9 @@ Run the tasks in this order, one at a time.
 | 7 | 4e | A | Merged, PR 134 | Corrects the guard Part 1 shipped, in the same function, before anything else builds on it |
 | 8 | 4d Parts 2 to 4 | A | Part 2 merged, PR 135. Part 3 merged, PR 136. Part 4 merged, PR 137 | Makes the stripper exact and adds the safety copy before Task 4b strips on every quit. One PR each, in order |
 | 9 | 4b | A | Merged, PR 138 | Builds on the Codex stripper from Task 4a and the record from Task 4d |
-| 10 | 4c | A | Next. One PR with Task 5 | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
-| 11 | 5 | A | One PR with Task 4c | Edits `gateway-service.ts`, `layout.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
-| 12 | 10 | A | | Investigation, no code. Steps 1 and 2 here. Steps 3 and 4 run inside Task 11's Pass 2, and Step 5 follows it |
+| 10 | 4c | A | Merged, PR 139 | Edits `disabledRestoreStatus` after Tasks 4a and 4b settle what a restore returns |
+| 11 | 5 | A | Merged, PR 139 | Edits `gateway-service.ts`, `layout.tsx` and `onboarding.tsx` after Tasks 2 and 3 |
+| 12 | 10 | A | Next | Investigation, no code. Steps 1 and 2 here. Steps 3 and 4 run inside Task 11's Pass 2, and Step 5 follows it |
 | 13 | 11 | A | | The owner's VM pass and the release |
 | 14 | 6 | B | One PR with Task 7 | Edits `profiles.tsx` and `network-logs.tsx` |
 | 15 | 7 | B | One PR with Task 6 | Edits `layout.tsx` after Task 5. Moved up from position 17 by V-18. Task 9 touches `layout.tsx` only if a prop does not pass through, and then it edits the file as Task 7 left it |
@@ -635,7 +635,7 @@ Stripping every time is not the fix. The writer drops four root keys and the use
 
 ### Task 4c: Remove the Codex side files and tell the user what a restore did (rest of F-13, V-16)
 
-Built as PR 139, in one PR with Task 5 (V-18), with these differences from the text below.
+Merged as PR 139 (`98d7ff98`), in one PR with Task 5 (V-18), with these differences from the text below.
 - The side files are settled by `restoreDisabledCodexProfile`, after `config.toml`, from the Codex tail of `disabledProfileStatus` and the disabled branch of `applyCodexProfile`. They are left alone when the `config.toml` restore was not ok, for Workbuddy and for a profile that is not global.
 - Step 2's guard for another enabled Codex profile in the directory applies to the Restore button and to a save that leaves some profile enabled. A save with every profile switched off, a quit and the takeover sync restore every record, so they pass no other profiles.
 - Step 1's shared-directory test uses a second profile with another file name. Only one enabled global profile per agent is applied, so two applied Codex profiles on one directory cannot exist.
@@ -686,7 +686,7 @@ After Tasks 4a and 4b a restore leaves the right content in `config.toml`. It st
 
 ### Task 5: Show no failure before the first provider exists (F-1, F-2)
 
-Built as PR 139, in one PR with Task 4c (V-18), with these differences from the text below.
+Merged as PR 139 (`98d7ff98`), in one PR with Task 4c (V-18), with these differences from the text below.
 - Step 4 calls `stopGateway()`, the teardown the catch already ran. The branch the step names skips the server, the proxy and the MCP shutdown.
 - Step 7 was not run. A dev build on the host could touch the real home. The manual Start path is pinned by tests in its place: `gatewayService.start` with no model returns `stopped` with the reason, and `gatewayServiceMessage` shows that reason for a gateway that is not running. Nothing renders the Server page.
 - V-6 says every reader that checks for a gateway that is not running reports `lastError`. Read against the code, that holds for all eight readers in Appendix G (`cli.ts`, `launch-service.ts`, `deep-link.ts` twice, `ipc.ts`, `management-server.ts` twice, and `gatewayServiceMessage` in the UI). A ninth reader differs: `reloadPersistedRuntimeConfig` throws only on `error`, so a reload into a config with no model no longer sets `runtimeConfigReloadError`. The reload did apply and the reason is in `lastError`, which matches V-6.
@@ -990,6 +990,11 @@ No task covers these. Each names what settles it.
 
 | Item | Why it is not a task | What settles it |
 |---|---|---|
+| A CRLF Codex config keeps LLMR's provider table and token after a restore | `removeManagedMarkerLines` in `service.ts` matches `^\s*(?:markers)\s*(?:\n|$)`. In a CRLF file `^` matches after the carriage return and `\s*` eats the line feed, so the second apply writes invalid TOML and the restore leaves `[model_providers.llm-router]` and `experimental_bearer_token` behind. Run by the last reviewer of PR 139, identical on `main`. It replaces the CRLF row below with its cause. Do this one first: it leaves the token in the user's file. | Match `^[ \t]*(?:markers)[ \t]*(?:\r?\n|$)`, with a CRLF fixture through two applies and a restore that searches for the token and parses the result. |
+| A restore with an original cuts the user's profile table at a `[` line inside a value | The profile-table loop in `readCodexDisplacedConfig` (`codex-config-strip.ts`) still tests raw lines, so for a nested array or a string with a bracket line the restore writes `[profiles.<provider>]` with the value cut short. The rest is in the named safety copy. Run by the last reviewer of PR 139, identical on `main`. PR 139's tests plant no original, so they miss it. | Walk `scanTomlLines(snapshot)` and take a header only outside a value, with `awkwardProfileTables` run over a planted original. |
+| A displaced root key whose value spans lines | `rootTomlAssignment` and `readCodexDisplacedConfig` carry only the first line of such a value, and `removeRootTomlKeys` now removes all of it. For a three-line `model` or `show_all_sessions` value the apply's output is invalid where `main`'s happened to parse, and the rest of the value is in no copy. Such values are not usable Codex settings. Run by the last reviewer of PR 139. | Carry the lines inside the value with the assignment, or leave a root key alone when its value spans lines. |
+| A fourth profile table added in a row pushes out the copy of the user's first settings | Each table the user adds while the profile file holds settings of theirs saves a copy, and the store keeps three per file. Run by the last reviewer of PR 139, who called it unlikely. | Skip the copy when the profile file equals the table that was moved last time. |
+| PR 139's tests do not parse TOML | They compare text and count keys. The plan author and two reviewers parsed outputs with Python's `tomllib` outside the repo, which found what the tests missed three times. | A check in the test helpers that both Codex files parse after each apply and restore, with a parser the repo can depend on in tests. |
 | The message of an apply that succeeded is shown nowhere | An apply can now say that a profile table replaced the user's earlier settings and where the copy is. Every caller logs only a status that is not ok, so the person sees that sentence only in the log, where PR 139 also writes a warning. Read by a reviewer of PR 139. | With the first row below: show a status whose message names a copy. |
 | A CRLF Codex config comes out invalid, with the token written twice | The strip of LLMR's own blocks is LF-only. Run by a reviewer of PR 139 on `main` and on the PR, with the same output. | A CRLF fixture through an apply and a restore, parsed with a TOML parser. |
 | The same `[profiles.<provider>]` table twice in `config.toml` | `removeTomlTable` takes both and `legacyCodexProfileTableBody` only the first, so the second is lost. Such a file is not valid TOML to begin with. Run by a reviewer of PR 139. | Take every matching table, or leave the file alone when there is more than one. |
