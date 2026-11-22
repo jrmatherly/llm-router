@@ -2129,6 +2129,7 @@ export type RequestLogListFilter = {
   pageSize?: number;
   provider?: string;
   query?: string;
+  range?: UsageStatsRange;
   status?: RequestLogStatusFilter;
 };
 

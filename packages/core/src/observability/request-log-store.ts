@@ -4947,7 +4947,12 @@ function buildLogWhereClause(filter: RequestLogListFilter): { params: SqlValue[]
   const model = normalizeFilterValue(filter.model);
   const provider = normalizeFilterValue(filter.provider);
   const query = normalizeFilterValue(filter.query);
+  const range = filter.range;
 
+  if (range === "today" || range === "24h" || range === "7d" || range === "30d") {
+    where.push("created_at >= ?");
+    params.push(getAgentAnalysisSince(range, new Date()).toISOString());
+  }
   if (status === "success") {
     where.push("ok = 1");
   } else if (status === "error") {

@@ -151,6 +151,14 @@ export const requestLogStatusOptions: Array<{ label: string; value: RequestLogSt
   { label: "Error", value: "error" }
 ];
 
+export const requestLogRangeOptions: Array<{ label: string; value: "" | UsageStatsRange }> = [
+  { label: "All dates", value: "" },
+  { label: "Today", value: "today" },
+  { label: "Last 24 hours", value: "24h" },
+  { label: "Last 7 days", value: "7d" },
+  { label: "Last 30 days", value: "30d" }
+];
+
 export const requestLogPageSizeOptions = [
   { label: "10 / page", value: "10" },
   { label: "25 / page", value: "25" },

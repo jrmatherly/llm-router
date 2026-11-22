@@ -14,8 +14,8 @@ import {
   networkExchangeMatchesQuery, networkHeaderRows, networkLifecycleLabel, networkQueryRows, networkRowId, networkSummaryRows,
   Pause, Play, prepareLogBodyForWorker, ProxyNetworkBody, ProxyNetworkExchange, ProxyNetworkSnapshot, ProxyStatus,
   ReactNode, ReactPointerEvent, RefreshCw, RequestLogBody, RequestLogBodyChunk, RequestLogEntry, RequestLogListFilter,
-  RequestLogPage, requestLogPageSizeOptions, requestLogRetentionNotice, RequestLogStatusFilter, requestLogStatusOptions, Search, Select, Trash2, useCallback, useEffect, useMemo, useRef,
-  useState
+  RequestLogPage, requestLogPageSizeOptions, requestLogRangeOptions, requestLogRetentionNotice, RequestLogStatusFilter, requestLogStatusOptions, Search, Select, Trash2,
+  usageRangeDays, UsageStatsRange, useCallback, useEffect, useMemo, useRef, useState
 } from "../shared/index";
 import { TooltipPortal } from "@/components/ui/tooltip";
 type NetworkRequestTab = "body" | "header" | "query" | "raw" | "summary";
@@ -529,6 +529,16 @@ export function LogsView({
             value={filter.status ?? "all"}
           />
           <Select
+            aria-label="Filter request log date"
+            className="h-7 w-[118px] bg-[length:14px] px-2 pr-7 text-[11px]"
+            onValueChange={(value) => updateFilter({ range: (value || undefined) as UsageStatsRange | undefined })}
+            options={requestLogRangeOptions.map((option) => ({
+              ...option,
+              disabled: option.value !== "" && retentionDays !== undefined && usageRangeDays(option.value) > retentionDays
+            }))}
+            value={filter.range ?? ""}
+          />
+          <Select
             aria-label="Filter request log provider"
             className="h-7 w-[148px] bg-[length:14px] px-2 pr-7 text-[11px]"
             onValueChange={(value) => updateFilter({ provider: value || undefined })}
@@ -734,6 +744,7 @@ function logFilterHasActiveValues(filter: RequestLogListFilter): boolean {
     filter.provider?.trim() ||
     filter.model?.trim() ||
     filter.credential?.trim() ||
+    filter.range ||
     (filter.status && filter.status !== "all")
   );
 }
@@ -745,6 +756,7 @@ function clearRequestLogFilters(): RequestLogListFilter {
     page: 1,
     provider: undefined,
     query: "",
+    range: undefined,
     status: "all"
   };
 }

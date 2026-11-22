@@ -69,6 +69,30 @@ test("a second open store follows a value the first one changes the same day", w
   assert.equal((await second.list({})).total, 0);
 }));
 
+test("a preset date range limits both the page and its count", withDatabase(async (open) => {
+  const store = open();
+  await setDays(store, 30);
+  for (const days of [0, 2, 10]) await store.record(rowStartedDaysAgo(days));
+
+  assert.equal((await store.list({ range: "today" })).total, 1);
+  assert.equal((await store.list({ range: "24h" })).total, 1);
+  assert.equal((await store.list({ range: "7d" })).total, 2);
+  assert.equal((await store.list({ range: "30d" })).total, 3);
+  assert.equal((await store.list({})).total, 3);
+  const paged = await store.list({ pageSize: 1, range: "7d" });
+  assert.equal(paged.total, 2);
+  assert.equal(paged.totalPages, 2);
+  assert.equal(paged.items.length, 1);
+}));
+
+test("a date range that is not one of the presets lists every date", withDatabase(async (open) => {
+  const store = open();
+  await setDays(store, 90);
+  for (const days of [0, 2, 10, 40]) await store.record(rowStartedDaysAgo(days));
+
+  assert.equal((await store.list({ range: "bogus" })).total, 4);
+}));
+
 test("a store with no saved value prunes nothing", withDatabase(async (open) => {
   const first = open();
   await first.record(rowStartedDaysAgo(30));
