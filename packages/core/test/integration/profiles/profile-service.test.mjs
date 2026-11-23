@@ -5,6 +5,7 @@ import { chmodSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, 
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { writeWorkbuddyModelsConfig } from "@llmr/core/agents/codex/app-launch.ts";
 import { resolveGrokSourceHome } from "@llmr/core/agents/grok/profile-config.ts";
 import { resolveKimiSourceHome } from "@llmr/core/agents/kimi/profile-config.ts";
@@ -717,6 +718,151 @@ test("a settings file in the runtime home is guarded when the OS home is elsewhe
     restoreEnv("HOME", previousHome);
     rmSync(elsewhere, { force: true, recursive: true });
   }
+});
+
+const claudeLoginEnv = { LLMR_CLAUDE_CODE_AUTH_MODE: "claude-login" };
+
+async function withClaudeLoginProfile(id, run, { beforeApply, passThrough = true, ...extra } = {}) {
+  const claudeDir = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".claude");
+  const userSettingsFile = path.join(claudeDir, "settings.json");
+  const fixture = defaultHomeClaudeFixture(id, { env: { ...claudeLoginEnv }, ...extra });
+  if (passThrough) {
+    fixture.config.Providers.push({ api_base_url: "https://example.test", api_key: "llmr-local-agent-login", models: ["claude-opus-4-8"], name: "Claude Code API" });
+    fixture.config.providerPlugins = [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }];
+  }
+  const apply = async () => {
+    const applied = (await applyProfileFixture(fixture.config)).clients.find((client) => client.client === "claude-code");
+    assert.equal(applied?.ok, true, applied?.message);
+    return applied;
+  };
+  const settingsFile = fixture.profile.claudeCodeSharedHome ? path.join(CONFIGDIR, "profiles", id, "claude", "settings.json") : userSettingsFile;
+  try {
+    mkdirSync(claudeDir, { recursive: true });
+    beforeApply?.(userSettingsFile);
+    await run({
+      ...fixture,
+      apply,
+      key: () => fixture.config.APIKEYS[0].key,
+      readSettings: () => JSON.parse(readFileSync(settingsFile, "utf8")),
+      settingsFile,
+      switchOff: async () => {
+        fixture.profile.enabled = false;
+        await applyProfileFixture(fixture.config);
+      },
+      userSettingsFile
+    });
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(claudeDir, { force: true, recursive: true });
+    rmSync(path.join(CONFIGDIR, "profiles", id), { force: true, recursive: true });
+  }
+}
+
+function writeUserClaudeSettings(settings) {
+  return (file) => writeFileSync(file, `${JSON.stringify(settings, null, 2)}\n`);
+}
+
+const userCustomHeaders = "X-Org-Route: prod\nX-Tenant: example";
+
+test("Claude login mode writes the gateway key as a custom header and no apiKeyHelper", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-header", async ({ apply, key, readSettings }) => {
+    await apply();
+    const settings = readSettings();
+    assert.ok(settings.env.ANTHROPIC_CUSTOM_HEADERS === `x-llmr-api-key: ${key()}`, "the custom headers hold only the gateway key line");
+    assert.equal("apiKeyHelper" in settings, false);
+    assert.equal(settings.env.ANTHROPIC_AUTH_TOKEN, undefined);
+    assert.equal(settings.env.ANTHROPIC_API_KEY, undefined);
+  });
+});
+
+test("Claude login mode keeps the user's own custom headers", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-user-headers", async ({ apply, key, readSettings, settingsFile }) => {
+    await apply();
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS === `${userCustomHeaders}\nx-llmr-api-key: ${key()}`, "the user's lines come first, then the gateway key line");
+    const written = readFileSync(settingsFile, "utf8");
+    await apply();
+    assert.ok(readFileSync(settingsFile, "utf8") === written, "a second apply leaves the file byte for byte");
+  }, { beforeApply: writeUserClaudeSettings({ env: { ANTHROPIC_CUSTOM_HEADERS: userCustomHeaders } }) });
+});
+
+test("a rotated profile key alone rewrites the settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-rotated", async ({ apply, config, key, readSettings }) => {
+    await apply();
+    const oldKey = key();
+    config.APIKEYS[0].key = "llmr-rotated-key-0002";
+    await apply();
+    const headers = readSettings().env.ANTHROPIC_CUSTOM_HEADERS;
+    assert.ok(headers.endsWith(`x-llmr-api-key: ${key()}`), "the value ends with the new key");
+    assert.equal(headers.includes(oldKey), false, "no line holds the old key");
+  });
+});
+
+test("a shared-home profile carries the user's own custom headers", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const userSettings = `${JSON.stringify({ env: { ANTHROPIC_CUSTOM_HEADERS: "X-Org-Route: prod" } })}\n`;
+  await withClaudeLoginProfile("claude-login-shared-home", async ({ apply, key, readSettings, userSettingsFile }) => {
+    await apply();
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS === `X-Org-Route: prod\nx-llmr-api-key: ${key()}`, "LLMR's file holds the user's line and the gateway key line");
+    assert.equal(readFileSync(userSettingsFile, "utf8"), userSettings);
+  }, { beforeApply: (file) => writeFileSync(file, userSettings), claudeCodeSharedHome: true, scope: "llmr" });
+});
+
+test("switching from the helper to Claude login removes the helper script", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-from-helper", async ({ apply, profile }) => {
+    const helperFile = path.join(CONFIGDIR, "bin", `llmr-claude-code-api-key-claude-login-from-helper${process.platform === "win32" ? ".cmd" : ""}`);
+    profile.env = {};
+    await apply();
+    assert.equal(existsSync(helperFile), true);
+    profile.env = { ...claudeLoginEnv };
+    await apply();
+    assert.equal(existsSync(helperFile), false);
+  });
+});
+
+test("Claude login mode without a pass-through provider says so", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-no-provider", async ({ apply }) => {
+    const applied = await apply();
+    assert.match(applied.message, /Claude login mode needs the Claude Code API provider/);
+  }, { passThrough: false });
+});
+
+test("a user's settings file that holds only custom headers still counts as the user's", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = { env: { ANTHROPIC_CUSTOM_HEADERS: "X-Org-Route: prod" } };
+  await withClaudeLoginProfile("claude-login-user-file", async ({ apply, readSettings, switchOff }) => {
+    await apply();
+    await switchOff();
+    assert.ok(isDeepStrictEqual(readSettings(), original), "the file is what the user wrote");
+  }, { beforeApply: writeUserClaudeSettings(original) });
+});
+
+test("a restore keeps a custom header the user added while Claude login mode was on", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-user-edit", async ({ apply, readSettings, settingsFile, switchOff }) => {
+    await apply();
+    const settings = readSettings();
+    settings.env.ANTHROPIC_CUSTOM_HEADERS = `X-Tenant: example\n${settings.env.ANTHROPIC_CUSTOM_HEADERS}`;
+    writeFileSync(settingsFile, `${JSON.stringify(settings, null, 2)}\n`);
+    await switchOff();
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS === "X-Tenant: example\nX-Org-Route: prod", "the user's edit and original line are left");
+  }, { beforeApply: writeUserClaudeSettings({ env: { ANTHROPIC_CUSTOM_HEADERS: "X-Org-Route: prod" } }) });
+});
+
+test("a restore removes the gateway key line and keeps the user's headers", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-restore", async ({ apply, key, readSettings, switchOff }) => {
+    await apply();
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS.includes(`x-llmr-api-key: ${key()}`), "apply wrote the gateway key line");
+    await switchOff();
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS === userCustomHeaders, "only the user's lines are left");
+  }, { beforeApply: writeUserClaudeSettings({ env: { ANTHROPIC_CUSTOM_HEADERS: userCustomHeaders } }) });
+});
+
+test("a restore removes the key when only the gateway key line was there", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-restore-only-key", async ({ apply, key, readSettings, switchOff }) => {
+    await apply();
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS === `x-llmr-api-key: ${key()}`, "apply wrote the gateway key line");
+    await switchOff();
+    const settings = readSettings();
+    assert.equal("ANTHROPIC_CUSTOM_HEADERS" in settings.env, false);
+    assert.equal(settings.env.USER_VALUE, "kept");
+  }, { beforeApply: writeUserClaudeSettings({ env: { USER_VALUE: "kept" } }) });
 });
 
 test("a default-home Claude Code profile writes a cmd wrapper that clears CLAUDE_CONFIG_DIR",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
