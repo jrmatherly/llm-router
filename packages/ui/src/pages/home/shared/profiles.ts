@@ -33,7 +33,8 @@ import {
 import { isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
 import { virtualModelProfileModelNames } from "./providers";
 import { normalizeRouterRules } from "./routing";
-import { keyValueRowsFromRecord, recordFromKeyValueRows, stringRecordValue, validateProfileEnvRows } from "./virtual-models";
+import { createKeyValueDraftRow, keyValueRowsFromRecord, recordFromKeyValueRows, stringRecordValue, validateProfileEnvRows } from "./virtual-models";
+import { CLAUDE_CODE_AUTH_MODE_ENV, normalizeClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
 import { gatewayModelSelectionMatcher, isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 import type { AddProfileDraft, BotGatewayConfigDraft } from "./types";
 
@@ -1051,6 +1052,15 @@ export function claudeCodeProfileEnv(env: Record<string, string> = {}): Record<s
     ...CLAUDE_CODE_DEFAULT_ENV,
     ...env
   };
+}
+
+export function claudeLoginEnabled(envRows: AddProfileDraft["envRows"]): boolean {
+  return envRows.some((row) => row.key.trim() === CLAUDE_CODE_AUTH_MODE_ENV && normalizeClaudeCodeGatewayAuthMode(row.value) === "claude-login");
+}
+
+export function withClaudeLogin(envRows: AddProfileDraft["envRows"], enabled: boolean): AddProfileDraft["envRows"] {
+  const others = envRows.filter((row) => row.key.trim() !== CLAUDE_CODE_AUTH_MODE_ENV);
+  return enabled ? [...others, createKeyValueDraftRow(CLAUDE_CODE_AUTH_MODE_ENV, "claude-login")] : others;
 }
 
 function codexCompatibleProfileEnv(env: Record<string, string>): Record<string, string> {

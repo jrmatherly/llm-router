@@ -19,6 +19,11 @@ export function claudeLoginProviderNames(config: ProviderConfig): string[] {
   return claudeLoginProviders(config).map((provider) => provider.name);
 }
 
+export function withoutClaudeLoginProviders<T extends ProviderConfig>(config: T): T {
+  const names = new Set(claudeLoginProviderNames(config));
+  return names.size === 0 ? config : { ...config, Providers: config.Providers.filter((provider) => !names.has(provider.name)) };
+}
+
 export function claudeLoginRoutedModel(config: ProviderConfig, model: string | undefined): string | undefined {
   const normalized = normalizeRouteSelector(model);
   const providers = claudeLoginProviders(config);

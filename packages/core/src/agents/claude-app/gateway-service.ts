@@ -12,6 +12,7 @@ import {
   type ClaudeAppGatewayModelRouteOptions
 } from "@llmr/core/agents/claude-app/gateway-routes";
 import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, claudeAppTakesOverDirectLaunches, hasAvailableGatewayModels, type ApiKeyConfig, type AppConfig, type ClaudeAppGatewayApplyResult } from "@llmr/core/contracts/app";
+import { withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { findModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
 import { writeFileAtomic } from "@llmr/core/profiles/backup-files";
 
@@ -97,7 +98,7 @@ export async function syncClaudeAppGatewayConfig(config: AppConfig): Promise<Cla
       result: skippedClaudeAppGatewayResult(config, NO_CLAUDE_APP_ENTRY_PROFILE_MESSAGE)
     };
   }
-  if (!hasAvailableGatewayModels(config)) {
+  if (!hasAvailableGatewayModels(withoutClaudeLoginProviders(config))) {
     return {
       config,
       configChanged: false,
@@ -159,7 +160,7 @@ function skippedClaudeAppGatewayResult(
 }
 
 export function applyClaudeAppGatewayConfig(config: AppConfig, options: ClaudeAppGatewayApplyOptions = {}): { config: AppConfig; result: ClaudeAppGatewayApplyResult } {
-  if (!hasAvailableGatewayModels(config)) {
+  if (!hasAvailableGatewayModels(withoutClaudeLoginProviders(config))) {
     throw new Error(NO_AVAILABLE_GATEWAY_MODELS_MESSAGE);
   }
 
@@ -167,7 +168,7 @@ export function applyClaudeAppGatewayConfig(config: AppConfig, options: ClaudeAp
   const paths = getClaudeAppGatewayPaths(options.dataDir);
   const activePaths = getClaudeAppActiveGatewayPaths(options.dataDir, paths);
   const endpoint = gatewayEndpoint(state.config);
-  const models = buildClaudeAppGatewayInferenceModels(state.config, {
+  const models = buildClaudeAppGatewayInferenceModels(withoutClaudeLoginProviders(state.config), {
     ...claudeAppGatewayModelRouteOptions,
     defaultTargetModel: options.defaultModel
   });

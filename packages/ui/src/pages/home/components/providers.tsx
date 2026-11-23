@@ -1,7 +1,7 @@
 import { ClaudeAppsGatewaySignInForm } from "./claude-apps-gateway-sign-in";
 import { useDraftClose } from "./unsaved-changes";
 import {
-  AddProviderDraft, isLocalAgentLoginDraft, localAgentProviderApiKey, openExternalUrl, type ProviderSetupStepId, providerSetupStepsForDraft, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
+  AddProviderDraft, isLocalAgentLoginDraft, providerConnectivityProviderPlugins, localAgentProviderApiKey, openExternalUrl, type ProviderSetupStepId, providerSetupStepsForDraft, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
   Box, Braces, Button, Card, CardContent, CardHeader, CardTitle,
   Check, Checkbox, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, cn,
   compareProviderAccountSnapshots, copyTextToClipboard, createDefaultProviderAccountDraft, createModelCatalogItems, createProviderAccountDraftFromConfig, createProviderCredentialDraft,
@@ -23,6 +23,7 @@ import {
 import { PopoverPortal } from "@/components/ui/popover";
 import { Tooltip, TooltipPortal } from "@/components/ui/tooltip";
 import { chromeLoginImportFailureMessage } from "@/lib/chrome-login-import";
+import { isLocalClaudeCodeOauthProviderPlugin } from "@llmr/core/providers/oauth-plugin";
 import { providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
 import type { ChromeLoginImportJob, LocalAgentProviderCandidate, OpenRouterProviderCatalogItem, OpenRouterProviderCatalogRequest, ProviderAccountHttpJsonConnectorConfig, ProviderAccountWebContentJsonConnectorConfig } from "@llmr/core/contracts/app";
 import type { ReactNode } from "react";
@@ -2011,6 +2012,7 @@ export function AddProviderForm({
   const detectedBaseUrl = providerCapabilityBaseUrlForProtocol(draft.baseUrl, detectedProtocol, probe);
   const safetyIssue = providerDraftSafetyIssue(draft, detectedBaseUrl);
   const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft);
+  const claudeLoginProvider = localAgentImport && providerConnectivityProviderPlugins(draft, providerPlugins).some(isLocalClaudeCodeOauthProviderPlugin);
   const setupStepIds = providerSetupStepsForDraft(draft);
   const localAgentProviderPlugins = useMemo(
     () => [...providerPlugins, ...draft.providerPlugins],
@@ -2312,7 +2314,9 @@ export function AddProviderForm({
         {showStep("credentials") ? localAgentImport ? (
           <div className="sm:col-span-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px] leading-5">
             <div className="font-semibold text-foreground">Signed in with your local agent</div>
-            <div className="text-muted-foreground">This provider uses the login from {draft.name}. No API key is needed.</div>
+            <div className="text-muted-foreground">
+              {claudeLoginProvider ? "This provider forwards the login Claude Code sends. Nothing is stored." : `This provider uses the login from ${draft.name}. No API key is needed.`}
+            </div>
           </div>
         ) : (
           <>
