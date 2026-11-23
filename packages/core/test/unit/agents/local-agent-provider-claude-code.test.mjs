@@ -1,441 +1,72 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import {
-  claudeCodeCandidate,
-  importClaudeCodeProvider,
-  readClaudeCodeOauth,
-  resolveClaudeCodeAuth
-} from "@llmr/core/agents/local-providers/claude-code.ts";
-import {
-  jsonResponse,
-  keychainAccount,
-  keychainNotFound,
-  stubTokenEndpoint,
-  withClaudeCodeHome,
-  withEnv,
-  withFakeKeychain,
-  withFakeSecurityFailure,
-  withFakeSecurityKeychain,
-  withFakeSecurityOutput,
-  withFakeSecurityScript,
-  withKeychainLogin,
-  withPlatform,
-  writeClaudeCredentials
-} from "../../support/claude-code-keychain.mjs";
+import { claudeCodeCandidate, importClaudeCodeProvider } from "@llmr/core/agents/local-providers/claude-code.ts";
+import { probeGatewayProvider } from "@llmr/core/providers/probe.ts";
+import { withEnv } from "../../support/with-env.mjs";
 
-test("Claude Code local provider prefers macOS Keychain credentials over stale file credentials", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async (home) => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityOutput({
-        claudeAiOauth: {
-          accessToken: "keychain-access-token",
-          refreshToken: "keychain-refresh-token"
-        }
-      }, async () => {
-        writeClaudeCredentials(home, {
-          access_token: "stale-file-access-token",
-          refresh_token: "stale-file-refresh-token"
-        });
+const skip = process.platform === "win32";
 
-        const candidate = claudeCodeCandidate();
-        assert.equal(candidate.status, "available");
-        assert.equal(candidate.importable, true);
-        assert.equal(candidate.sourceFile, `keychain:Claude Code-credentials (${keychainAccount})`);
+// A home with no login, and a `security` that records every call, so no test can reach the real Keychain.
+function withoutLogin(t) {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-claude-code-no-login-"));
+  const calls = path.join(dir, "security-calls");
+  writeFileSync(path.join(dir, "security"), `#!/bin/sh\necho "$1" >> "${calls}"\nexit 44\n`);
+  chmodSync(path.join(dir, "security"), 0o755);
+  withEnv(t, { CLAUDE_SECURESTORAGE_CONFIG_DIR: dir, HOME: dir, PATH: `${dir}${path.delimiter}${process.env.PATH}` });
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  return { securityCalled: () => existsSync(calls) };
+}
 
-        const result = await importClaudeCodeProvider(candidate, []);
-        assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer keychain-access-token");
-        assert.equal(result.providerPlugins[1].auth.headers.authorization, "Bearer keychain-access-token");
-      });
-    });
+test("the Claude Code candidate is importable on a machine with no login, and nothing asks the Keychain", { skip }, (t) => {
+  const home = withoutLogin(t);
+  assert.deepEqual(claudeCodeCandidate(), {
+    detail: "Forwards the login Claude Code sends. Usable only from a Claude Code profile in Claude login mode. Nothing is stored.",
+    id: "claude-code-api",
+    importable: true,
+    kind: "claude-code",
+    models: ["claude-sonnet-5"],
+    name: "Claude Code API",
+    protocol: "anthropic_messages",
+    status: "available"
   });
+  assert.equal(home.securityCalled(), false);
 });
 
-test("Claude Code local provider falls back to file credentials when Keychain is unavailable", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async (home) => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityFailure(async () => {
-        const credentialFile = writeClaudeCredentials(home, {
-          accessToken: "file-access-token",
-          expires_at: 1793249706961,
-          refreshToken: "file-refresh-token"
-        });
-
-        const candidate = claudeCodeCandidate();
-        assert.equal(candidate.status, "available");
-        assert.equal(candidate.importable, true);
-        assert.equal(candidate.sourceFile, credentialFile);
-        const oauth = readClaudeCodeOauth();
-        assert.deepEqual(oauth.store, { container: "root", kind: "file", path: credentialFile, refreshable: true });
-        assert.equal(oauth.expiresAt, undefined);
-
-        const result = await importClaudeCodeProvider(candidate, []);
-        assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer file-access-token");
-      });
-    });
-  });
+test("importing Claude Code stores no login in its plugins", { skip }, async (t) => {
+  const home = withoutLogin(t);
+  const result = await importClaudeCodeProvider(claudeCodeCandidate(), []);
+  assert.equal(result.provider.name, "Claude Code API");
+  assert.deepEqual(result.providerPlugins.map((plugin) => plugin.key.replace(/^.*-(claude-code-oauth(?:-internal)?)$/, "$1")), ["claude-code-oauth", "claude-code-oauth-internal"]);
+  assert.equal(result.providerPlugins.some((plugin) => "auth" in plugin), false);
+  assert.equal(JSON.stringify(result.providerPlugins).includes("authorization"), false);
+  assert.equal(home.securityCalled(), false);
 });
 
-// Claude Code >= 2.1 writes the credential item under the current $USER and
-// leaves any pre-2.1 item (account "unknown") in place on the same service
-// name. A lookup without `-a` matches the stale one, which only carries MCP
-// plugin OAuth. See musistudio/claude-code-router#1601.
-test("Claude Code local provider reads the credential item stored under the current account", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async () => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityKeychain([
-        {
-          account: "unknown",
-          modified: "20260604091803",
-          record: { mcpOAuth: { "plugin:github|1": { expiresAt: 1 } } },
-          service: "Claude Code-credentials"
-        },
-        {
-          account: keychainAccount,
-          modified: "20260729042837",
-          record: { claudeAiOauth: { accessToken: "live-access-token", refreshToken: "live-refresh-token" } },
-          service: "Claude Code-credentials"
-        }
-      ], async () => {
-        const candidate = claudeCodeCandidate();
-        assert.equal(candidate.status, "available");
-        assert.equal(candidate.importable, true);
-        assert.equal(candidate.sourceFile, `keychain:Claude Code-credentials (${keychainAccount})`);
-
-        const result = await importClaudeCodeProvider(candidate, []);
-        assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer live-access-token");
-      });
-    });
+test("probing the Claude Code provider sends no request", { skip }, async (t) => {
+  const home = withoutLogin(t);
+  let requests = 0;
+  const stub = createServer((_request, response) => {
+    requests += 1;
+    response.writeHead(500).end();
   });
-});
-
-// The only path to an item written under a different account (a login made as
-// another user, or a $USER that has since changed) is `security dump-keychain`
-// enumeration; the expected-name lookup cannot reach it.
-test("Claude Code local provider enumerates the keychain to find an item under another account", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async () => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityKeychain([
-        {
-          account: "other-user",
-          modified: "20260729042837",
-          record: { claudeAiOauth: { accessToken: "enumerated-access-token" } },
-          service: "Claude Code-credentials",
-          accountlessLookup: false
-        }
-      ], async () => {
-        const candidate = claudeCodeCandidate();
-        assert.equal(candidate.status, "available");
-        assert.equal(candidate.importable, true);
-        assert.equal(candidate.sourceFile, "keychain:Claude Code-credentials (other-user)");
-
-        const result = await importClaudeCodeProvider(candidate, []);
-        assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer enumerated-access-token");
-      });
-    });
+  await new Promise((resolve) => stub.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => stub.close(resolve)));
+  const baseUrl = `http://127.0.0.1:${stub.address().port}`;
+  const probe = await probeGatewayProvider({
+    apiKey: "llmr-local-agent-login",
+    baseUrl,
+    forceRefresh: true,
+    mode: "models",
+    models: ["claude-sonnet-5"],
+    providerPlugins: [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }],
+    protocols: ["anthropic_messages"]
   });
-});
-
-// mcpOAuth holds per-plugin tokens that are not Anthropic API credentials;
-// importing one yields a provider that 401s on every request.
-test("Claude Code local provider ignores mcpOAuth plugin tokens in favour of claudeAiOauth", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async () => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityKeychain([
-        {
-          account: keychainAccount,
-          modified: "20260729042837",
-          record: {
-            mcpOAuth: { "plugin:github|1": { accessToken: "mcp-plugin-token", refreshToken: "mcp-plugin-refresh" } },
-            claudeAiOauth: { accessToken: "live-access-token", refreshToken: "live-refresh-token" }
-          },
-          service: "Claude Code-credentials"
-        }
-      ], async () => {
-        const result = await importClaudeCodeProvider(claudeCodeCandidate(), []);
-        assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer live-access-token");
-      });
-    });
-  });
-});
-
-// Regression for the review on #1604: an mcpOAuth-only record must yield no
-// token at all, not a plugin token demoted to a fallback.
-test("Claude Code local provider does not import an mcpOAuth-only keychain token", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async () => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityKeychain([
-        {
-          account: keychainAccount,
-          modified: "20260729042837",
-          record: {
-            mcpOAuth: {
-              "plugin:github|1": {
-                accessToken: "mcp-plugin-token",
-                refreshToken: "mcp-plugin-refresh"
-              }
-            }
-          },
-          service: "Claude Code-credentials"
-        }
-      ], async () => {
-        const candidate = claudeCodeCandidate();
-
-        assert.equal(candidate.status, "locked");
-        assert.equal(candidate.importable, false);
-        assert.match(candidate.detail, /no OAuth token/);
-        assert.match(candidate.detail, /mcpOAuth/);
-        await assert.rejects(
-          () => importClaudeCodeProvider(candidate, []),
-          /Claude Code access token was not found/
-        );
-      });
-    });
-  });
-});
-
-// An mcpOAuth-only keychain record must not short-circuit the file fallback.
-test("Claude Code local provider prefers file credentials over an mcpOAuth-only keychain token", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async (home) => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityKeychain([
-        {
-          account: keychainAccount,
-          modified: "20260729042837",
-          record: {
-            mcpOAuth: {
-              "plugin:github|1": {
-                accessToken: "mcp-plugin-token",
-                refreshToken: "mcp-plugin-refresh"
-              }
-            }
-          },
-          service: "Claude Code-credentials"
-        }
-      ], async () => {
-        const credentialFile = writeClaudeCredentials(home, {
-          accessToken: "file-access-token",
-          refreshToken: "file-refresh-token"
-        });
-
-        const candidate = claudeCodeCandidate();
-
-        assert.equal(candidate.status, "available");
-        assert.equal(candidate.importable, true);
-        assert.equal(candidate.sourceFile, credentialFile);
-
-        const result = await importClaudeCodeProvider(candidate, []);
-        assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer file-access-token");
-      });
-    });
-  });
-});
-
-// With CLAUDE_CONFIG_DIR set, Claude Code appends the first 8 hex of
-// sha256(NFC(configDir)) to the service name.
-test("Claude Code local provider reads the config-dir-suffixed keychain service", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async (home) => {
-    await withPlatform("darwin", async () => {
-      const configDir = path.join(home, "alt-claude");
-      const suffix = createHash("sha256").update(configDir.normalize("NFC")).digest("hex").slice(0, 8);
-      const service = `Claude Code-credentials-${suffix}`;
-      await withEnv("CLAUDE_CONFIG_DIR", configDir, async () => {
-        await withFakeSecurityKeychain([
-          {
-            account: keychainAccount,
-            modified: "20260729042837",
-            record: { claudeAiOauth: { accessToken: "suffixed-access-token" } },
-            service
-          }
-        ], async () => {
-          const candidate = claudeCodeCandidate();
-          assert.equal(candidate.status, "available");
-          assert.equal(candidate.sourceFile, `keychain:${service} (${keychainAccount})`);
-        });
-      });
-    });
-  });
-});
-
-test("Claude Code local provider explains login state that carries no OAuth token", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async () => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityKeychain([
-        {
-          account: keychainAccount,
-          modified: "20260729042837",
-          record: { mcpOAuth: { "plugin:github|1": { expiresAt: 1 } } },
-          service: "Claude Code-credentials"
-        }
-      ], async () => {
-        const candidate = claudeCodeCandidate();
-        assert.equal(candidate.status, "locked");
-        assert.equal(candidate.importable, false);
-        assert.match(candidate.detail, /no OAuth token/);
-        assert.match(candidate.detail, /mcpOAuth/);
-      });
-    });
-  });
-});
-
-// errSecItemNotFound is the ordinary logged-out answer: it must not be reported
-// as an unreadable store.
-test("Claude Code local provider reports a missing candidate when no keychain item exists", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async () => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityKeychain([], async () => {
-        const candidate = claudeCodeCandidate();
-        assert.equal(candidate.status, "missing");
-        assert.equal(candidate.importable, false);
-        assert.equal(candidate.detail, "No local login state was found for this agent.");
-      });
-    });
-  });
-});
-
-test("Claude Code local provider carries expiry, scopes and store from the keychain record", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async () => {
-    await withPlatform("darwin", async () => {
-      await withFakeKeychain({ claudeAiOauth: { accessToken: "a", refreshToken: "r", expiresAt: 1793249706961, refreshTokenExpiresAt: 1800000000000, scopes: ["user:inference"] }, mcpOAuth: {} }, async () => {
-        const oauth = readClaudeCodeOauth();
-        assert.equal(oauth.expiresAt, 1793249706961);
-        assert.equal(oauth.refreshTokenExpiresAt, 1800000000000);
-        assert.deepEqual(oauth.scopes, ["user:inference"]);
-        assert.deepEqual(oauth.store, { account: keychainAccount, container: "claudeAiOauth", kind: "keychain", refreshable: true, service: "Claude Code-credentials" });
-      });
-    });
-  });
-});
-
-test("Claude Code local provider marks a custom-oauth keychain item as not refreshable", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async () => {
-    await withPlatform("darwin", async () => {
-      await withEnv("CLAUDE_CODE_CUSTOM_OAUTH_URL", "https://auth.example.test", async () => {
-        await withFakeKeychain({ claudeAiOauth: { accessToken: "a", expiresAt: "2026-10-28T00:00:00Z" } }, async () => {
-          const oauth = readClaudeCodeOauth();
-          assert.equal(oauth.expiresAt, undefined);
-          assert.deepEqual(oauth.store, { account: keychainAccount, container: "claudeAiOauth", kind: "keychain", refreshable: false, service: "Claude Code-custom-oauth-credentials" });
-        });
-      });
-    });
-  });
-});
-
-test("Claude Code local provider never marks a file login refreshable while CLAUDE_CODE_CUSTOM_OAUTH_URL is set", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async (home) => {
-    await withPlatform("darwin", async () => {
-      await withEnv("CLAUDE_CODE_CUSTOM_OAUTH_URL", "https://auth.example.test", async () => {
-        await withFakeSecurityFailure(async () => {
-          const credentialFile = writeClaudeCredentials(home, { claudeAiOauth: { accessToken: "a", refreshToken: "r", scopes: [] } });
-          const oauth = readClaudeCodeOauth();
-          assert.equal(oauth.scopes, undefined);
-          assert.deepEqual(oauth.store, { container: "claudeAiOauth", kind: "file", path: credentialFile, refreshable: false });
-        });
-      });
-    });
-  });
-});
-
-test("Claude Code local provider marks an accountless keychain read as not refreshable", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async () => {
-    await withPlatform("darwin", async () => {
-      const record = JSON.stringify({ claudeAiOauth: { accessToken: "a", refreshToken: "r" } });
-      const body = [
-        `if [ "$1" = "dump-keychain" ]; then exit 44; fi`,
-        `for arg in "$@"; do if [ "$arg" = "-a" ]; then ${keychainNotFound}; fi; done`,
-        `cat <<'LLMR_ACCOUNTLESS'`,
-        record,
-        "LLMR_ACCOUNTLESS",
-        ""
-      ].join("\n");
-      await withFakeSecurityScript(body, async () => {
-        const oauth = readClaudeCodeOauth();
-        assert.equal(oauth.store.account, undefined);
-        assert.equal(oauth.store.refreshable, false);
-        assert.equal(oauth.store.service, "Claude Code-credentials");
-      });
-    });
-  });
-});
-
-test("Claude Code local provider marks a keychain item whose account the safe pattern rejects as not refreshable", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async () => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityKeychain([
-        {
-          account: "other user",
-          modified: "20260729042837",
-          record: { claudeAiOauth: { accessToken: "a", refreshToken: "r" } },
-          service: "Claude Code-credentials",
-          accountlessLookup: false
-        }
-      ], async () => {
-        const oauth = readClaudeCodeOauth();
-        assert.equal(oauth.store.account, "other user");
-        assert.equal(oauth.store.refreshable, false);
-      });
-    });
-  });
-});
-
-test("importing Claude Code refreshes an expired access token first", { skip: process.platform === "win32" }, async (t) => {
-  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
-    stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
-    const result = await importClaudeCodeProvider(claudeCodeCandidate(), []);
-    assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer fresh");
-    assert.equal(result.providerPlugins[1].auth.headers.authorization, "Bearer fresh");
-  });
-});
-
-test("importing Claude Code fails when the refresh token was rejected", { skip: process.platform === "win32" }, async (t) => {
-  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
-    t.mock.method(console, "warn", () => {});
-    stubTokenEndpoint(t, () => jsonResponse(400, { error: "invalid_grant" }));
-    await assert.rejects(importClaudeCodeProvider(claudeCodeCandidate(), []), (error) => error.name === "ClaudeCodeRefreshAuthError");
-  });
-});
-
-test("importing Claude Code fails on a transient refresh failure instead of importing the stale token", { skip: process.platform === "win32" }, async (t) => {
-  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
-    t.mock.method(console, "warn", () => {});
-    stubTokenEndpoint(t, () => jsonResponse(503, {}));
-    await assert.rejects(importClaudeCodeProvider(claudeCodeCandidate(), []), (error) => error.name !== "ClaudeCodeRefreshAuthError" && /HTTP 503/.test(error.message));
-  });
-});
-
-test("Claude Code candidate is locked when the access token expired and no refresh token can renew it", { skip: process.platform === "win32" }, async () => {
-  await withKeychainLogin({ accessToken: "expired", expiresAt: Date.now() - 1 }, async () => {
-    const candidate = claudeCodeCandidate();
-    assert.equal(candidate.status, "locked");
-    assert.equal(candidate.importable, false);
-    assert.equal(candidate.detail, "Claude Code access token is expired and the login has no refresh token. Run `claude /login`, then retry.");
-  });
-});
-
-test("Claude Code candidate stays available for an expired access token with a refresh token", { skip: process.platform === "win32" }, async () => {
-  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
-    assert.equal(claudeCodeCandidate().status, "available");
-  });
-});
-
-test("Claude Code candidate is locked when the access token expired on a login LLMR cannot refresh", { skip: process.platform === "win32" }, async () => {
-  await withKeychainLogin({ accessToken: "expired", refreshToken: "r1", expiresAt: Date.now() - 1 }, async () => {
-    await withEnv("CLAUDE_CODE_CUSTOM_OAUTH_URL", "https://auth.example.test", async () => {
-      const candidate = claudeCodeCandidate();
-      assert.equal(candidate.status, "locked");
-      assert.equal(candidate.importable, false);
-      assert.equal(candidate.detail, "Claude Code access token is expired and LLMR cannot refresh this login. Run `claude /login`, then retry.");
-    });
-  });
-});
-
-test("Claude Code candidate without an access token stays locked, but the resolver refreshes it", { skip: process.platform === "win32" }, async (t) => {
-  await withKeychainLogin({ refreshToken: "r1" }, async () => {
-    const candidate = claudeCodeCandidate();
-    assert.equal(candidate.status, "locked");
-    assert.equal(candidate.detail, "Claude Code login was detected, but no usable access token was found.");
-    stubTokenEndpoint(t, () => jsonResponse(200, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" }));
-    assert.equal((await resolveClaudeCodeAuth()).accessToken, "fresh");
-  });
+  assert.equal(requests, 0);
+  assert.deepEqual(probe.models, ["claude-sonnet-5"]);
+  assert.equal(probe.detectedProtocol, "anthropic_messages");
+  assert.equal(home.securityCalled(), false);
 });

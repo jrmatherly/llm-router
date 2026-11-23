@@ -132,46 +132,6 @@ export function cloneProviderAccountConfig(account: ProviderAccountConfig | unde
   return account ? JSON.parse(JSON.stringify(account)) as ProviderAccountConfig : undefined;
 }
 
-export type OauthTokenSetFields = {
-  accessToken?: string;
-  expiresAt?: number;
-  refreshToken?: string;
-  refreshTokenExpiresAt?: number;
-  scopes?: string[];
-};
-
-// Reads the token fields on `value` itself, never descending into children.
-// Callers that know their record shape use this to avoid matching an unrelated
-// nested credential -- see the mcpOAuth note in claude-code.ts.
-export function readOauthTokenSetFields(value: unknown): OauthTokenSetFields | undefined {
-  if (!isRecord(value)) {
-    return undefined;
-  }
-  const accessToken =
-    readString(value.accessToken) ||
-    readString(value.access_token) ||
-    readString(value.anthropicAccessToken);
-  const refreshToken =
-    readString(value.refreshToken) ||
-    readString(value.refresh_token) ||
-    readString(value.anthropicRefreshToken);
-  if (!accessToken && !refreshToken) {
-    return undefined;
-  }
-  const scopes = Array.isArray(value.scopes) && value.scopes.length > 0 && value.scopes.every(scope => typeof scope === "string") ? value.scopes as string[] : undefined;
-  return {
-    accessToken,
-    expiresAt: readFiniteNumber(value.expiresAt),
-    refreshToken,
-    refreshTokenExpiresAt: readFiniteNumber(value.refreshTokenExpiresAt),
-    scopes
-  };
-}
-
-export function readFiniteNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
 export function readJsonRecord(file: string): Record<string, unknown> | undefined {
   if (!existsSync(file)) {
     return undefined;

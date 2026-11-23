@@ -18,7 +18,6 @@ import {
   grokProviderAccountConfig
 } from "@llmr/core/agents/local-providers/grok.ts";
 import { findProviderPreset } from "@llmr/core/providers/presets/index.ts";
-import { withEnv, withKeychainLogin } from "../../support/claude-code-keychain.mjs";
 
 const localAgentProviderApiKey = "llmr-local-agent-login";
 const codexDefaultBaseUrl = "https://chatgpt.com/backend-api/codex";
@@ -394,14 +393,11 @@ test("Codex local account credential falls back to the live auth file when plugi
   assert.equal(credential?.headers?.["ChatGPT-Account-Id"], "acct-live");
 });
 
-test("an imported Claude Code provider has no account connector", { skip: process.platform === "win32" }, async () => {
-  await withKeychainLogin({ accessToken: "sk-ant-oat01-FAKE", expiresAt: Date.now() + 3_600_000, refreshToken: "r1" }, async () => {
-    await withEnv("CLAUDE_SECURESTORAGE_CONFIG_DIR", path.join(os.homedir(), ".claude"), async () => {
-      const result = await importLocalAgentProvider({ id: "claude-code-api", providerNames: [] });
-      assert.equal(result.candidate.kind, "claude-code");
-      assert.equal(result.provider.account, undefined);
-    });
-  });
+test("an imported Claude Code provider has no account connector", async (t) => {
+  useTemporaryHome(t, "llmr-claude-code-account-");
+  const result = await importLocalAgentProvider({ id: "claude-code-api", providerNames: [] });
+  assert.equal(result.candidate.kind, "claude-code");
+  assert.equal(result.provider.account, undefined);
 });
 
 test("Kimi local account credential carries its API key and CLI identity", async (t) => {

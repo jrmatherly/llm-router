@@ -5,18 +5,3 @@ export function isLocalClaudeCodeOauthProviderPlugin(value: unknown): value is R
   const key = stringValue(value.key)?.toLowerCase() ?? "";
   return key.startsWith("llmr-local-agent-") && key.includes("claude-code-oauth");
 }
-
-export function mergeAnthropicBetaValues(...values: Array<string | undefined>): string {
-  const seen = new Set<string>();
-  const merged: string[] = [];
-  for (const value of values) {
-    for (const token of value?.split(",") ?? []) {
-      const normalized = token.trim();
-      const key = normalized.toLowerCase();
-      if (!normalized || seen.has(key)) continue;
-      seen.add(key);
-      merged.push(normalized);
-    }
-  }
-  return merged.join(",");
-}

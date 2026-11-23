@@ -241,10 +241,6 @@ export class UpstreamRequestError extends Error {
 
 export const requireFromHere = createRequire(__filename);
 
-export const claudeCodeOauthBetaHeader = "anthropic-beta";
-
-export const claudeCodeOauthRequiredBeta = "oauth-2025-04-20";
-
 export const coreGatewayAuthHeader = "x-llmr-core-auth";
 
 export const coreGatewayAuthTokenEnv = "LLMR_CORE_GATEWAY_AUTH_TOKEN";

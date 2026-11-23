@@ -70,7 +70,7 @@ function post(gateway, headers, body, extra = {}) {
   return send(gateway.publicPort, "/v1/messages", { body: JSON.stringify(body), headers, method: "POST", ...extra });
 }
 
-// Until the import is removed, compiling or serving a Claude Code plugin asks `security` for the developer's real login.
+// A `security` that records its calls, so a test can prove that serving a config from an earlier import asks nothing of the Keychain.
 function withoutKeychain(t) {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-no-keychain-"));
   const calls = path.join(dir, "calls");

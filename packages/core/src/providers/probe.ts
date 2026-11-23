@@ -15,8 +15,8 @@ import type {
 import { codexDefaultBaseUrl, codexOauthRequiredScopes, resolveCodexAuth } from "@llmr/core/agents/local-providers/codex";
 import { opencodeCatalogProtocolModelMap } from "@llmr/core/agents/local-providers/opencode";
 import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared";
-import { readClaudeAppsGatewaySession, readClaudeCodeOauth, resolveClaudeAppsGatewaySession, resolveClaudeCodeAuthOrStored } from "@llmr/core/agents/local-providers/service";
-import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
+import { readClaudeAppsGatewaySession, resolveClaudeAppsGatewaySession } from "@llmr/core/agents/local-providers/service";
+import { isLocalClaudeCodeOauthProviderPlugin } from "@llmr/core/providers/oauth-plugin";
 import { findProviderPresetByBaseUrl, providerApiKeySafetyIssue } from "@llmr/core/providers/presets/index";
 import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
@@ -102,6 +102,9 @@ const probeCache = new Map<string, ProbeCacheEntry>();
 const inFlightProbes = new Map<string, Promise<GatewayProviderProbeResult>>();
 
 export async function probeGatewayProvider(request: GatewayProviderProbeRequest): Promise<GatewayProviderProbeResult> {
+  if (isLocalClaudeProbe(request.apiKey, request.providerPlugins ?? [])) {
+    return localClaudeProbeResult(request);
+  }
   pruneProbeCache();
   const cacheKey = providerProbeCacheKey(request);
   const cached = probeCache.get(cacheKey);
@@ -402,7 +405,6 @@ function intersectProtocolModels(
 function providerProbeCacheKey(request: GatewayProviderProbeRequest): string {
   return JSON.stringify({
     apiKeyHash: hashSensitiveValue(request.apiKey ?? ""),
-    localClaudeTokenHash: hashSensitiveValue((isLocalClaudeProbe(request.apiKey, request.providerPlugins ?? []) ? readClaudeCodeOauth()?.accessToken : undefined) ?? ""),
     baseUrl: request.baseUrl.trim(),
     mode: request.mode ?? "protocols",
     models: uniqueStrings(request.models ?? []),
@@ -951,19 +953,6 @@ async function providerProbeAuthRequest(
     request = providerProbeRequestTransformRequest(request.url, request.init, requestTransform, context);
   }
 
-  {
-    const token = isLocalClaudeProbe(apiKey, providerPlugins)
-      ? (await resolveClaudeCodeAuthOrStored())?.accessToken
-      : undefined;
-    if (token) {
-      const headers = new Headers(request.init.headers);
-      headers.set("authorization", `Bearer ${token}`);
-      headers.delete("x-api-key");
-      headers.set("anthropic-beta", mergeAnthropicBetaValues(headers.get("anthropic-beta") ?? undefined, "oauth-2025-04-20"));
-      request = { ...request, init: { ...request.init, headers } };
-    }
-  }
-
   const gatewayUrl = localClaudeAppsGatewayProbeUrl(apiKey, providerPlugins);
   if (gatewayUrl) {
     const session = await resolveClaudeAppsGatewaySession(gatewayUrl).catch(() => readClaudeAppsGatewaySession(gatewayUrl));
@@ -976,6 +965,23 @@ async function providerProbeAuthRequest(
   }
 
   return request;
+}
+
+// The provider forwards the login each Claude Code request carries and holds none, so there is nothing to probe with.
+function localClaudeProbeResult(request: GatewayProviderProbeRequest): GatewayProviderProbeResult {
+  const baseUrl = request.baseUrl.trim();
+  return {
+    capabilities: [{ baseUrl, type: "anthropic_messages" }],
+    detectedProtocol: "anthropic_messages",
+    models: uniqueStrings(request.models ?? []),
+    normalizedBaseUrl: baseUrl,
+    protocols: [{
+      endpoint: baseUrl,
+      message: "Not checked. This provider forwards the login Claude Code sends and has none of its own to test with.",
+      protocol: "anthropic_messages",
+      supported: false
+    }]
+  };
 }
 
 function isLocalClaudeProbe(apiKey: string | undefined, providerPlugins: unknown[]): boolean {
