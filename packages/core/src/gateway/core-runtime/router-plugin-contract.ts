@@ -49,7 +49,9 @@ export const llmrRouteTokenCountHeader = "x-llmr-route-token-count";
 export const llmrCodexApplyPatchBridgeHeader = "x-llmr-codex-apply-patch-bridge";
 export const llmrCodexMultiAgentBridgeHeader = "x-llmr-codex-multi-agent-bridge";
 export const llmrOpenRouterDiscountRequestIdHeader = "x-llmr-openrouter-discount-request-id";
+export const llmrCallerAuthorizationHeader = "x-llmr-caller-authorization";
 export const llmrRouteHeaderNames = [
+  llmrCallerAuthorizationHeader,
   llmrCodexApplyPatchBridgeHeader,
   llmrCodexMultiAgentBridgeHeader,
   llmrOpenRouterDiscountRequestIdHeader,

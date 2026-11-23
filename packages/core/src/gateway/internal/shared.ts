@@ -32,7 +32,10 @@ export const claudeAppGatewayModelRouteOptions: ClaudeAppGatewayModelRouteOption
   supportsOneMillionContext: (model) => Boolean(findModelCatalogEntry(model)?.limits?.supports1MContext)
 };
 
+export const llmrApiKeyHeader = "x-llmr-api-key";
+
 export const sdkCompatibleTokenHeaderNames = [
+  llmrApiKeyHeader,
   "authorization",
   "x-api-key",
   "api-key",

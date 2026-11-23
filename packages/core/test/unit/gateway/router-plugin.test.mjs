@@ -698,6 +698,54 @@ test("LLMR router core plugin maps public API keys before gateway auth", async (
   assert.equal(headers["x-auth-sub"], "profile:limited");
 });
 
+async function passThroughAuthPlugin(publicGatewayMode) {
+  const config = createDefaultAppConfig();
+  config.APIKEY = "sk-good-key-0001";
+  config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "profile:good", key: "sk-good-key-0001" }];
+  return createGatewayPlugin({ plugin: { config: { appConfig: config, coreAuthToken: "core-token", publicGatewayMode } } });
+}
+
+test("the public gateway removes an inbound x-llmr-caller-authorization", async () => {
+  const plugin = await passThroughAuthPlugin(true);
+  const headers = { authorization: "Bearer sk-good-key-0001", "x-llmr-caller-authorization": "Bearer forged" };
+  const result = await plugin.requestHooks[0].beforeAuth({ request: { headers, method: "POST", url: "/v1/messages" } });
+
+  assert.equal(result, undefined);
+  assert.equal("x-llmr-caller-authorization" in headers, false);
+});
+
+test("the gateway child keeps x-llmr-caller-authorization from the front door", async () => {
+  const plugin = await passThroughAuthPlugin(false);
+  const headers = { authorization: "Bearer sk-good-key-0001", "x-llmr-caller-authorization": "Bearer forged" };
+  await plugin.requestHooks[0].beforeAuth({ request: { headers, method: "POST", url: "/v1/messages" } });
+
+  assert.equal(headers["x-llmr-caller-authorization"], "Bearer forged");
+});
+
+test("a key in x-llmr-api-key replaces whatever authorization held", async () => {
+  const plugin = await passThroughAuthPlugin(true);
+  const headers = { authorization: "Bearer sk-ant-oat01-FAKE", "x-llmr-api-key": "sk-good-key-0001" };
+  const result = await plugin.requestHooks[0].beforeAuth({ request: { headers, method: "POST", url: "/v1/messages" } });
+
+  assert.equal(result, undefined);
+  assert.equal(headers.authorization, "Bearer sk-good-key-0001");
+  assert.equal(headers["x-auth-api-key-id"], "profile:good");
+  assert.equal(Object.values(headers).some((value) => String(value).includes("sk-ant-oat01")), false);
+});
+
+test("a key in authorization is left as it was", async () => {
+  const plugin = await passThroughAuthPlugin(true);
+  const headers = { authorization: "Bearer sk-good-key-0001" };
+  const result = await plugin.requestHooks[0].beforeAuth({ request: { headers, method: "POST", url: "/v1/messages" } });
+
+  assert.equal(result, undefined);
+  assert.deepEqual(headers, {
+    authorization: "Bearer sk-good-key-0001",
+    "x-auth-api-key-id": "profile:good",
+    "x-auth-sub": "profile:good"
+  });
+});
+
 test("LLMR router core plugin maps SDK-compatible public API key headers before gateway auth", async () => {
   const config = createDefaultAppConfig();
   config.APIKEY = "client-key";

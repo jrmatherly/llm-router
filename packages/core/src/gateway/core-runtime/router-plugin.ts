@@ -49,7 +49,7 @@ import {
 import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response";
 import { hoistAnthropicToolResultImages } from "@llmr/core/gateway/features/anthropic-tool-result-images";
 import { withoutDeferredToolFlags } from "@llmr/core/gateway/features/deferred-tools";
-import { coreGatewayAuthHeader, rawTraceSyncHeader, rawTraceSyncPath, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
+import { coreGatewayAuthHeader, llmrApiKeyHeader, rawTraceSyncHeader, rawTraceSyncPath, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
 import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
 import {
   createClaudeCliBootstrapResponse,
@@ -392,6 +392,10 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
               status: authorization.status,
               error: authorization.error
             };
+          }
+          // The fork's static key check reads authorization first, where a Claude Code login would sit beside this key.
+          if (requestInput.request?.headers && readHeader(requestInput.request.headers, llmrApiKeyHeader)) {
+            requestInput.request.headers.authorization = `Bearer ${readAuthToken(requestInput.request.headers)}`;
           }
           setApiKeyAuthContextHeaders(requestInput.request?.headers, authorization.apiKey);
           return undefined;
