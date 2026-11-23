@@ -128,6 +128,13 @@ Read in the other plans on 2026-11-22 unless marked. This plan edits none of the
 
 No build task starts until Gate A passes. Task 1 is independent of pass-through and may be built first.
 
+**Result, 2026-11-23: passed.** The owner ran it on the VM with Claude Code 2.1.331, one patch version after the probe's 2.1.330. Every check A1 to A6 passed and no stop condition occurred.
+
+- **Part 1.** Every `POST /v1/messages` carried the key header, the login in `Authorization`, no `x-api-key` and the OAuth beta. `/status` showed the relay URL and the claude.ai login. One request at the start of the interactive session got a 429 `rate_limit_error` with `x-should-retry` and no rate-limit headers. The next request got 200 and Claude Code showed nothing. Which request it was is not known.
+- **Part 2.** With the stored login marked expired, Claude Code refreshed it by itself, wrote the new login back and got 200. No `oauth/token` path reached the relay.
+- **Part 3.** A rejected token got one 401 with `x-should-retry: false`. Claude Code refreshed and sent the request again 0.75 s later, which got 200. It printed no message about the login and did not loop. The run with the wrapped error body behaved the same, so on a 401 this version acted on the status, not on the body wording.
+- **Written down.** Only `HEAD /api/hello` and `POST /v1/messages?beta=true` reached the relay. `GET /v1/models` did not, with discovery switched on. `/model` listed Claude Code's own models. `/usage` showed the plan's usage with no request at the relay. Each 200 carried `anthropic-ratelimit-unified-status`, `-reset`, `-representative-claim`, `-fallback-percentage`, and the `7d` and `overage` sets of `-status`, `-reset` and `-utilization`. `/status` also reported that remote managed settings and the organization policy are not fetched with a custom base URL.
+
 **Setup.**
 
 1. On the VM, install Claude Code and Node 20 or later. Sign in with the subscription (`claude`, then `/login`). Confirm `claude -p "say ok"` prints an answer with no gateway.
