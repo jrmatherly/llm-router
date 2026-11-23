@@ -564,7 +564,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     env.ANTHROPIC_BASE_URL = endpoint;
     env.ANTHROPIC_API_BASE_URL = endpoint;
     env.CLAUDE_AGENT_API_BASE_URL = endpoint;
-    applyClaudeCodeCustomHeadersEnv(env, authMode, token, userSettingsFile);
+    applyClaudeCodeCustomHeadersEnv(env, authMode, token, managedProfileEnvKeys.includes(claudeCodeCustomHeadersEnvKey) ? undefined : userSettingsFile);
     applyGatewayNoProxyEnv(env, config);
     applyClaudeCodeGatewayCompatibilityEnv(env);
     for (const key of claudeCodeFirstPartyProviderEnvKeys) {
@@ -2884,15 +2884,19 @@ function claudeCodeManagedSettingsEnvKeys(
   ]);
 }
 
-// A shared-home profile's file replaces the user's whole value, so the user's lines are read from their own file when LLMR's has none.
+// A shared-home profile's file replaces the user's whole value, so the user's lines are read from their own file on every apply. The file is undefined when the profile's own env names the key.
 function applyClaudeCodeCustomHeadersEnv(env: Record<string, string>, authMode: ClaudeCodeGatewayAuthMode, token: string, userSettingsFile: string | undefined): void {
   withoutClaudeCodeGatewayKeyHeader(env);
   if (authMode !== "claude-login") {
     return;
   }
-  const userEnv = !env[claudeCodeCustomHeadersEnvKey] && userSettingsFile ? readJsonObject(userSettingsFile).env : undefined;
+  if (!userSettingsFile) {
+    env[claudeCodeCustomHeadersEnvKey] = claudeCodeCustomHeadersWithGatewayKey(env[claudeCodeCustomHeadersEnvKey], token);
+    return;
+  }
+  const userEnv = readJsonObject(userSettingsFile).env;
   const userHeaders = isRecord(userEnv) && typeof userEnv[claudeCodeCustomHeadersEnvKey] === "string" ? userEnv[claudeCodeCustomHeadersEnvKey] : undefined;
-  env[claudeCodeCustomHeadersEnvKey] = claudeCodeCustomHeadersWithGatewayKey(env[claudeCodeCustomHeadersEnvKey] ?? userHeaders, token);
+  env[claudeCodeCustomHeadersEnvKey] = claudeCodeCustomHeadersWithGatewayKey(userHeaders, token);
 }
 
 function withoutClaudeCodeGatewayKeyHeader(env: Record<string, unknown>): void {

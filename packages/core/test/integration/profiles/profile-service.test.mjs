@@ -806,6 +806,19 @@ test("a shared-home profile carries the user's own custom headers", { skip: !pro
   }, { beforeApply: (file) => writeFileSync(file, userSettings), claudeCodeSharedHome: true, scope: "llmr" });
 });
 
+test("a shared-home profile follows the user's custom headers on the next apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const userSettings = (headers) => `${JSON.stringify({ env: headers ? { ANTHROPIC_CUSTOM_HEADERS: headers } : {} })}\n`;
+  await withClaudeLoginProfile("claude-login-shared-home-edit", async ({ apply, key, readSettings, userSettingsFile }) => {
+    await apply();
+    writeFileSync(userSettingsFile, userSettings("X-Org-Route: staging"));
+    await apply();
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS === `X-Org-Route: staging\nx-llmr-api-key: ${key()}`, "LLMR's file holds the user's new line");
+    writeFileSync(userSettingsFile, userSettings());
+    await apply();
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS === `x-llmr-api-key: ${key()}`, "LLMR's file drops a line the user removed");
+  }, { beforeApply: (file) => writeFileSync(file, userSettings("X-Org-Route: prod")), claudeCodeSharedHome: true, scope: "llmr" });
+});
+
 test("switching from the helper to Claude login removes the helper script", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withClaudeLoginProfile("claude-login-from-helper", async ({ apply, profile }) => {
     const helperFile = path.join(CONFIGDIR, "bin", `llmr-claude-code-api-key-claude-login-from-helper${process.platform === "win32" ? ".cmd" : ""}`);
