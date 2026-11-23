@@ -19,6 +19,7 @@ import {
   claudeCodeModelEnv,
   claudeCodeMcpConfigEnv,
   clearClaudeCodeManagedModelEnv,
+  isClaudeCodeAccountFile,
   isClaudeCodeManagedModelEnvKey,
   isStaleClaudeCodeSettingsEnvKey,
   normalizeClaudeCodeClientModel
@@ -2395,6 +2396,9 @@ function writeClaudeCodeAutoCompactWindowsCache(
     return { changed: false };
   }
   const file = path.join(configDir, ".claude.json");
+  if (isClaudeCodeAccountFile(file)) {
+    return { changed: false };
+  }
   const current = readClaudeCodeGlobalConfigObject(file);
   const next = {
     ...current,

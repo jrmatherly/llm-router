@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { claudeCodeUsesSharedHome, type ProfileConfig } from "@llmr/core/contracts/app";
@@ -48,6 +49,23 @@ export function claudeCodeMcpConfigEnv(configFile: string | undefined): Record<s
 export function claudeCodeConfigDir(settingsFile: string): string | undefined {
   const dir = path.dirname(settingsFile);
   return dir === resolveUserPath("~/.claude") && dir === path.join(os.homedir(), ".claude") ? undefined : dir;
+}
+
+// Unlike claudeCodeConfigDir this resolves symlinks and letter case: a miss there only keeps a run pinned, a miss here writes the user's account file.
+export function isClaudeCodeAccountFile(file: string): boolean {
+  if (path.basename(file) !== ".claude.json") {
+    return false;
+  }
+  const dir = resolvedDir(path.dirname(file));
+  return dir === resolvedDir(resolveUserPath("~")) || dir === resolvedDir(os.homedir());
+}
+
+function resolvedDir(dir: string): string {
+  try {
+    return realpathSync.native(dir);
+  } catch {
+    return path.resolve(dir);
+  }
 }
 
 export function claudeCodeHomeEnv(profile: Pick<ProfileConfig, "agent" | "claudeCodeSharedHome" | "scope">, settingsFile: string): Record<string, string> {

@@ -613,7 +613,113 @@ test("a default-home Claude Code profile leaves ~/.claude.json and ~/.claude/.cl
   }
 });
 
-test("a default-home Claude Code profile writes a cmd wrapper that clears CLAUDE_CONFIG_DIR", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+const accountFiles = (dir) => readdirSync(dir).filter((name) => name.startsWith(".claude.json"));
+
+async function assertApplyAndDisableWriteNoAccountFile(id, settingsFile, home) {
+  const { config, profile } = defaultHomeClaudeFixture(id, { settingsFile });
+  const applied = (await applyProfileFixture(config)).clients.find((client) => client.client === "claude-code");
+  assert.equal(applied?.ok, true);
+  assert.deepEqual(accountFiles(home), []);
+  assert.match(applied?.message ?? "", /Claude Code uses its own auto-compact windows for this profile\.$/);
+  profile.enabled = false;
+  await applyProfileFixture(config);
+  assert.deepEqual(accountFiles(home), []);
+}
+
+function removeHomeSettingsFixture(home) {
+  restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+  for (const name of readdirSync(home)) {
+    if (name.startsWith(".claude.json") || name.startsWith("settings.json")) {
+      rmSync(path.join(home, name), { force: true });
+    }
+  }
+}
+
+test("a settings file directly in the home folder never creates ~/.claude.json", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  try {
+    await assertApplyAndDisableWriteNoAccountFile("home-settings-new", "~/settings.json", home);
+  } finally {
+    removeHomeSettingsFixture(home);
+  }
+});
+
+test("a settings file directly in the home folder leaves an existing ~/.claude.json byte for byte", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  const stateFile = path.join(home, ".claude.json");
+  const state = "{\"oauthAccount\":{\"emailAddress\":\"user@example.test\"}}\n";
+  writeFileSync(stateFile, state);
+  const { config, profile } = defaultHomeClaudeFixture("home-settings-existing", { settingsFile: "~/settings.json" });
+  try {
+    const applied = (await applyProfileFixture(config)).clients.find((client) => client.client === "claude-code");
+    assert.equal(applied?.ok, true);
+    assert.equal(readFileSync(stateFile, "utf8"), state);
+    assert.deepEqual(accountFiles(home), [".claude.json"]);
+    profile.enabled = false;
+    await applyProfileFixture(config);
+    assert.equal(readFileSync(stateFile, "utf8"), state);
+    assert.deepEqual(accountFiles(home), [".claude.json"]);
+  } finally {
+    removeHomeSettingsFixture(home);
+  }
+});
+
+test("a symlinked folder that resolves to the home folder is treated as the home folder", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || process.platform === "win32" }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  const alias = path.join(home, "alias");
+  symlinkSync(home, alias);
+  try {
+    await assertApplyAndDisableWriteNoAccountFile("home-settings-symlink", path.join(alias, "settings.json"), home);
+  } finally {
+    removeHomeSettingsFixture(home);
+    rmSync(alias, { force: true });
+  }
+});
+
+test("a home path written in another letter case is treated as the home folder", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async (t) => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  const upper = path.join(path.dirname(home), path.basename(home).toUpperCase());
+  if (upper === home || !existsSync(upper)) {
+    t.skip("the volume is case-sensitive");
+    return;
+  }
+  try {
+    await assertApplyAndDisableWriteNoAccountFile("home-settings-case", path.join(upper, "settings.json"), home);
+  } finally {
+    removeHomeSettingsFixture(home);
+  }
+});
+
+test("a settings file in the OS home is guarded when the runtime home is elsewhere", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  assert.equal(os.homedir(), home);
+  const elsewhere = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-home-"));
+  process.env.LLMR_INTERNAL_HOME_DIR = elsewhere;
+  try {
+    await assertApplyAndDisableWriteNoAccountFile("home-settings-os-home", path.join(home, "settings.json"), home);
+  } finally {
+    removeHomeSettingsFixture(home);
+    process.env.LLMR_INTERNAL_HOME_DIR = home;
+    rmSync(elsewhere, { force: true, recursive: true });
+  }
+});
+
+test("a settings file in the runtime home is guarded when the OS home is elsewhere", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || process.platform === "win32" }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  const previousHome = process.env.HOME;
+  const elsewhere = mkdtempSync(path.join(os.tmpdir(), "llmr-os-home-"));
+  process.env.HOME = elsewhere;
+  try {
+    assert.notEqual(os.homedir(), home);
+    await assertApplyAndDisableWriteNoAccountFile("home-settings-runtime-home", "~/settings.json", home);
+  } finally {
+    removeHomeSettingsFixture(home);
+    restoreEnv("HOME", previousHome);
+    rmSync(elsewhere, { force: true, recursive: true });
+  }
+});
+
+test("a default-home Claude Code profile writes a cmd wrapper that clears CLAUDE_CONFIG_DIR",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const home = process.env.LLMR_INTERNAL_HOME_DIR;
   const platform = Object.getOwnPropertyDescriptor(process, "platform");
   const { config, profile } = defaultHomeClaudeFixture("default-home-cmd");
