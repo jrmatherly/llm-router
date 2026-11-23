@@ -5,8 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import type {
   LocalAgentProviderCandidate,
-  LocalAgentProviderImportResult,
-  ProviderAccountConfig
+  LocalAgentProviderImportResult
 } from "@llmr/core/contracts/app";
 import {
   bearerAuthPlugin,
@@ -159,8 +158,7 @@ export async function importClaudeCodeProvider(candidate: LocalAgentProviderCand
   const provider = providerPayload(
     candidate,
     uniqueProviderName(providerNames, "Claude Code API"),
-    "https://api.anthropic.com",
-    claudeCodeProviderAccountConfig()
+    "https://api.anthropic.com"
   );
   const auth = bearerAuthPlugin("claude-code-oauth", token, {
     "anthropic-beta": "oauth-2025-04-20"
@@ -172,25 +170,6 @@ export async function importClaudeCodeProvider(candidate: LocalAgentProviderCand
     candidate,
     provider,
     providerPlugins: [auth, internalAuth]
-  };
-}
-
-function claudeCodeProviderAccountConfig(): ProviderAccountConfig {
-  return {
-    connectors: [
-      {
-        auth: "provider-api-key",
-        endpoint: "https://api.anthropic.com/api/oauth/usage",
-        headers: {
-          "Content-Type": "application/json",
-          "anthropic-beta": "oauth-2025-04-20"
-        },
-        mapping: { meters: [] },
-        parser: "claude-oauth-usage",
-        type: "http-json"
-      }
-    ],
-    enabled: true
   };
 }
 

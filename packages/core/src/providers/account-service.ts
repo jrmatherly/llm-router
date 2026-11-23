@@ -10,7 +10,6 @@ import {
   readCodexAuth,
   readGrokAuth,
   readKimiAuth,
-  resolveClaudeCodeAuthOrStored,
   resolveCodexAuth,
   resolveGrokAuth,
   resolveKimiAuth,
@@ -70,12 +69,6 @@ type CacheEntry = {
   staleUntil: number;
 };
 
-type ClaudeProfileCacheEntry = {
-  error?: string;
-  expiresAt: number;
-  plan?: string;
-};
-
 type ConnectorResult = {
   errors: ProviderAccountConnectorError[];
   meters: ProviderAccountMeter[];
@@ -108,18 +101,6 @@ const maxStaleAccountSnapshotMs = 2 * 60 * 1000;
 const maxCacheEntries = 500;
 const standardAccountPaths = ["/.well-known/llmr/account", "/v1/account/limits"];
 const codexRateLimitResetCreditConsumeEndpoint = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume";
-const claudeOauthUsageEndpointPattern = /^https:\/\/api\.anthropic\.com\/api\/oauth\/usage(?:$|[?#])/i;
-const claudeOauthUsageWindows = [
-  { id: "claude_five_hour_quota", key: "five_hour", label: "5h quota", window: "5h" },
-  { id: "claude_seven_day_quota", key: "seven_day", label: "7d quota", window: "weekly" },
-  { id: "claude_oauth_apps_quota", key: "seven_day_oauth_apps", label: "OAuth apps quota", window: "weekly" },
-  { id: "claude_opus_quota", key: "seven_day_opus", label: "Opus quota", window: "weekly" },
-  { id: "claude_sonnet_quota", key: "seven_day_sonnet", label: "Sonnet quota", window: "weekly" }
-] as const;
-const claudeProfileEndpoint = "https://api.anthropic.com/api/oauth/profile";
-const claudeProfileCacheTtlMs = 86_400_000;
-const claudeProfileFailureTtlMs = 900_000;
-const claudeProfileCache = new Map<string, ClaudeProfileCacheEntry>();
 const cache = new Map<string, CacheEntry>();
 const inFlightRefreshes = new Map<string, Promise<ProviderAccountSnapshot | undefined>>();
 let cacheGeneration = 0;
@@ -187,15 +168,6 @@ export async function testProviderAccountConnector(request: ProviderAccountTestR
     ? await fetchWebContentJson(provider, connector)
     : await fetchJson(connector.endpoint, provider, connector.auth, connector.headers, connector.method, connector.body);
   const source = connector.type;
-  if (connector.type === "http-json" && isClaudeOauthUsageConnector(connector)) {
-    const { planError, ...result } = await claudeOauthUsageResult(payload, provider, connector, connector.headers ?? {}, source);
-    return {
-      ...result,
-      message: [result.message, planError ? `Plan lookup failed: ${planError}` : undefined].filter(Boolean).join(" ") || undefined,
-      paths: flattenJsonPaths(payload),
-      payload
-    };
-  }
   if (connector.parser === "grok-subscription") {
     const meters = grokSubscriptionMeters(payload, source);
     return {
@@ -274,10 +246,6 @@ function normalizeProviderAccountTestConnector(
     method: connector.method ?? "GET",
     type: "http-json"
   };
-}
-
-export function claudeOauthUsageMetersForTest(payload: unknown, options = { omitFiveHour: false }): ProviderAccountMeter[] {
-  return claudeOauthUsageMeters(payload, options);
 }
 
 export function newApiKeyUsageMetersForTest(payload: unknown): ProviderAccountMeter[] {
@@ -737,14 +705,6 @@ async function resolveHttpJsonConnector(
     ...(request.headers ?? {})
   };
   const payload = await fetchJson(connector.endpoint, request.provider, connector.auth, headers, connector.method, connector.body);
-  if (isClaudeOauthUsageConnector(connector)) {
-    const { planError: _planError, ...result } = await claudeOauthUsageResult(payload, request.provider, connector, headers);
-    return {
-      ...result,
-      errors: [],
-      source: "http-json"
-    };
-  }
   if (connector.parser === "grok-subscription") {
     return {
       errors: [],
@@ -1253,150 +1213,6 @@ function newApiUserSelfData(payload: unknown): Record<string, unknown> | undefin
   return isRecord(data) ? data : payload;
 }
 
-function isClaudeOauthUsageConnector(connector: ProviderAccountHttpJsonConnectorConfig): boolean {
-  return connector.parser === "claude-oauth-usage" || claudeOauthUsageEndpointPattern.test(connector.endpoint);
-}
-
-async function claudeOauthUsageResult(
-  payload: unknown,
-  provider: GatewayProviderConfig,
-  connector: ProviderAccountHttpJsonConnectorConfig,
-  headers: Record<string, string>,
-  source: ProviderAccountConnectorSource = "http-json"
-): Promise<{ message?: string; meters: ProviderAccountMeter[]; plan?: string; planError?: string; status: ProviderAccountStatus }> {
-  // The bearer token only goes to the host the usage call already uses, so a custom endpoint gets no plan.
-  const { error: planError, plan } = claudeOauthUsageEndpointPattern.test(connector.endpoint) && connector.auth !== "none"
-    ? await readClaudeAccountPlan(provider, connector.auth, headers)
-    : {};
-  const omitFiveHour = plan?.toLowerCase() === "ultra" && claudeFiveHourWindowAbsent(payload);
-  const meters = claudeOauthUsageMeters(payload, { omitFiveHour }, source);
-  return {
-    message: meters.length === 0 ? "No usage data available." : undefined,
-    meters,
-    plan,
-    planError,
-    status: statusFromMeters(meters, [], 1)
-  };
-}
-
-async function readClaudeAccountPlan(
-  provider: GatewayProviderConfig,
-  auth: ProviderAccountAuthMode | undefined,
-  headers: Record<string, string>
-): Promise<ClaudeProfileCacheEntry> {
-  const key = hashSensitiveValue(providerApiKey(provider));
-  const cached = claudeProfileCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached;
-  }
-  for (const [staleKey, stale] of claudeProfileCache) {
-    if (stale.expiresAt <= Date.now()) {
-      claudeProfileCache.delete(staleKey);
-    }
-  }
-  let entry: ClaudeProfileCacheEntry;
-  try {
-    const profile = await fetchJson(claudeProfileEndpoint, provider, auth, headers);
-    const organization = isRecord(profile) ? profile.organization : undefined;
-    entry = {
-      expiresAt: Date.now() + claudeProfileCacheTtlMs,
-      plan: readString(isRecord(organization) ? organization.plan_display_name : undefined)
-    };
-  } catch (error) {
-    entry = { error: formatError(error), expiresAt: Date.now() + claudeProfileFailureTtlMs };
-  }
-  claudeProfileCache.set(key, entry);
-  return entry;
-}
-
-export function resetClaudeAccountPlanCacheForTest(): void {
-  claudeProfileCache.clear();
-}
-
-function claudeFiveHourWindowAbsent(payload: unknown): boolean {
-  const fiveHour = isRecord(payload) ? payload.five_hour : undefined;
-  return isRecord(fiveHour) && normalizeNumber(fiveHour.utilization) === 0 && (fiveHour.resets_at ?? null) === null;
-}
-
-function claudeOauthUsageMeters(
-  payload: unknown,
-  options: { omitFiveHour: boolean },
-  source: ProviderAccountConnectorSource = "http-json"
-): ProviderAccountMeter[] {
-  if (!isRecord(payload)) {
-    return [];
-  }
-
-  const windows = claudeOauthUsageWindows
-    .filter((window) => !(options.omitFiveHour && window.key === "five_hour"))
-    .map((window) => {
-      const data = payload[window.key];
-      return isRecord(data) ? claudePercentMeter(window.id, window.label, window.window, data.utilization, data.resets_at, source) : undefined;
-    });
-  const scopedIds = new Set<string>();
-  const scoped = (Array.isArray(payload.limits) ? payload.limits : []).map((item, index) => {
-    if (!isRecord(item) || item.kind !== "weekly_scoped") {
-      return undefined;
-    }
-    const scope = isRecord(item.scope) ? item.scope : {};
-    const displayName = readString(isRecord(scope.model) ? scope.model.display_name : undefined);
-    const slug = displayName?.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || String(index);
-    const id = scopedIds.has(`claude_weekly_scoped_${slug}`) ? `claude_weekly_scoped_${slug}_${index}` : `claude_weekly_scoped_${slug}`;
-    scopedIds.add(id);
-    const label = displayName ? `${displayName} weekly quota` : "Scoped weekly quota";
-    return claudePercentMeter(id, label, "weekly", item.percent, item.resets_at, source);
-  });
-  const extraUsage = isRecord(payload.extra_usage) && payload.extra_usage.is_enabled === true ? payload.extra_usage : undefined;
-  const creditLimit = normalizeNumber(extraUsage?.monthly_limit);
-  const usedCredits = normalizeNumber(extraUsage?.used_credits);
-  const extra = extraUsage
-    ? [
-      claudePercentMeter("claude_extra_usage", "Extra usage", "monthly", extraUsage.utilization, undefined, source),
-      creditLimit !== undefined && usedCredits !== undefined
-        ? {
-          id: "claude_extra_usage_credits",
-          kind: "balance" as const,
-          label: "Extra usage credits",
-          limit: creditLimit,
-          remaining: creditLimit - usedCredits,
-          source,
-          unit: "credits",
-          used: usedCredits,
-          window: "monthly"
-        }
-        : undefined
-    ]
-    : [];
-
-  return [...windows, ...scoped, ...extra].filter((meter): meter is ProviderAccountMeter => Boolean(meter));
-}
-
-function claudePercentMeter(
-  id: string,
-  label: string,
-  window: string,
-  utilization: unknown,
-  resetsAt: unknown,
-  source: ProviderAccountConnectorSource
-): ProviderAccountMeter | undefined {
-  const used = normalizeNumber(utilization);
-  if (used === undefined) {
-    return undefined;
-  }
-  return {
-    id,
-    kind: "quota",
-    label,
-    limit: 100,
-    remaining: 100 - used,
-    resetAt: readString(resetsAt),
-    source,
-    unit: "%",
-    used,
-    window
-  };
-}
-
 function kimiCodeUsageMeters(payload: unknown, source: ProviderAccountConnectorSource = "http-json"): ProviderAccountMeter[] {
   if (!isRecord(payload)) {
     return [];
@@ -1730,9 +1546,6 @@ async function localAgentProviderAccountCredential(
     if (key.includes("codex-oauth")) {
       return await localCodexAccountCredential(plugin);
     }
-    if (key.includes("claude-code-oauth")) {
-      return await localClaudeCodeAccountCredential(plugin);
-    }
     if (key.includes("grok-cli-oauth")) {
       return await localGrokAccountCredential(plugin);
     }
@@ -1886,16 +1699,6 @@ function codexJwtPayload(token: string | undefined): Record<string, unknown> | u
 function localBearerAccountCredential(plugin: Record<string, unknown>): { apiKey?: string; headers?: Record<string, string> } {
   const headers = localProviderPluginAuthHeaders(plugin);
   const apiKey = readBearerToken(headers.authorization || headers.Authorization);
-  return {
-    apiKey,
-    headers: withoutHeader(headers, "authorization")
-  };
-}
-
-async function localClaudeCodeAccountCredential(plugin: Record<string, unknown>): Promise<{ apiKey?: string; headers?: Record<string, string> }> {
-  const headers = localProviderPluginAuthHeaders(plugin);
-  const oauth = await resolveClaudeCodeAuthOrStored();
-  const apiKey = oauth?.accessToken || readBearerToken(headers.authorization || headers.Authorization);
   return {
     apiKey,
     headers: withoutHeader(headers, "authorization")

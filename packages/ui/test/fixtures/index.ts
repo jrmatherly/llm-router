@@ -230,32 +230,32 @@ export function accountSnapshots(): ProviderAccountSnapshot[] {
   ];
 }
 
-export function ultraClaudeSnapshot(): ProviderAccountSnapshot {
+export function planQuotaSnapshot(): ProviderAccountSnapshot {
   return {
     meters: [
       {
-        id: "claude_seven_day_quota",
+        id: "example_five_hour_quota",
         kind: "quota",
-        label: "7d quota",
+        label: "5h quota",
+        limit: 100,
+        remaining: 4,
+        unit: "%",
+        used: 96,
+        window: "5h"
+      },
+      {
+        id: "example_weekly_quota",
+        kind: "quota",
+        label: "Weekly quota",
         limit: 100,
         remaining: 31,
         unit: "%",
         used: 69,
         window: "weekly"
-      },
-      {
-        id: "claude_weekly_scoped_fable",
-        kind: "quota",
-        label: "Fable weekly quota",
-        limit: 100,
-        remaining: 4,
-        unit: "%",
-        used: 96,
-        window: "weekly"
       }
     ],
-    plan: "Ultra",
-    provider: "Claude Code API",
+    plan: "Pro",
+    provider: "Example Provider",
     source: "http-json",
     status: "critical",
     updatedAt: "2026-06-30T00:00:00.000Z"
