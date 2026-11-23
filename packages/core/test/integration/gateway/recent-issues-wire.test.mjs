@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -12,7 +12,7 @@ import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 // #1806 and #1808, and at the patched build to verify the fixes.
 const gatewayEntry = process.env.LLMR_TEST_GATEWAY_ENTRY;
 
-test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usage SQLite", {
+test("recent issues: production HTTP, tool replay, logs and usage SQLite", {
   skip: !gatewayEntry && "set LLMR_TEST_GATEWAY_ENTRY to the gateway production entry",
   timeout: 60000
 }, async (t) => {
@@ -172,55 +172,6 @@ test("recent issues: production HTTP, OAuth rotation, tool replay, logs and usag
     t.diagnostic("#1803 verified original encoded Fusion probe uses selected provider, not quota-exhausted Anthropic");
     await stopGateway(gateway);
     gateway = undefined;
-    // #1810: load compiled static + dynamic plugins in the actual gateway.
-    // Rotate the credentials file while the same gateway PID stays alive.
-    const oldStorage = process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR;
-    const oldPath = process.env.PATH;
-    const storage = path.join(root, "claude");
-    mkdirSync(storage);
-    const security = path.join(storage, "security");
-    writeFileSync(security, "#!/bin/sh\nexit 44\n");
-    chmodSync(security, 0o755);
-    process.env.PATH = `${storage}${path.delimiter}${oldPath}`;
-    process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR = storage;
-    try {
-      const credentials = path.join(storage, ".credentials.json");
-      writeFileSync(credentials, JSON.stringify({ accessToken: "oauth-before", refreshToken: "test-refresh" }));
-      const { probeGatewayProvider } = await import("@llmr/core/providers/probe.ts");
-      const oauthConfig = createDefaultAppConfig();
-      oauthConfig.Providers = [
-        { id: "claude-code-api", name: "Claude Code API", type: "anthropic_messages", api_base_url: `${upstreamUrl}/anthropic`, api_key: "llmr-local-agent-login", models: ["native"] },
-        { id: "static-api", name: "Static API", type: "anthropic_messages", api_base_url: `${upstreamUrl}/anthropic`, api_key: "static-secret", models: ["native"] }
-      ];
-      oauthConfig.providerPlugins = [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API", auth: { headers: { authorization: "Bearer import-time-expired", "anthropic-beta": "oauth-2025-04-20" }, removeHeaders: ["x-api-key"], strict: true } }];
-      const compiled = await compileCoreGatewayConfig(oauthConfig, "trace", "billing", "auth");
-      const authPlugin = compiled.plugins.find(plugin => plugin.key === "llmr-local-agent-auth-provider-hooks");
-      authPlugin.modulePath = path.resolve(__dirname, "../../../runtime/local-agent-auth-provider-hook.js");
-      gateway = await startGateway(root, { ...baseConfig, providers: compiled.providers, plugins: [authPlugin], providerPlugins: compiled.providerPlugins, virtualModelProfiles: [], rawTrace: { enabled: false }, billing: { enabled: false } });
-      const pid = gateway.child.pid;
-      for (const token of ["oauth-before", "oauth-after"]) {
-        writeFileSync(credentials, JSON.stringify({ accessToken: token, refreshToken: "test-refresh" }));
-        const response = await fetch(`${gateway.url}/v1/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ model: `${compiled.providers[0].name}/native`, max_tokens: 4, messages: [{ role: "user", content: "hi" }] }) });
-        assert.equal(response.status, 200, await response.text());
-        assert.equal(captures.at(-1).headers.authorization, `Bearer ${token}`);
-        assert.equal(captures.at(-1).headers["x-api-key"], undefined);
-        const beforeProbe = captures.length;
-        await probeGatewayProvider({ apiKey: "llmr-local-agent-login", baseUrl: `${upstreamUrl}/anthropic`, mode: "models", protocols: ["anthropic_messages"], providerPlugins: oauthConfig.providerPlugins });
-        const probeCalls = captures.slice(beforeProbe);
-        assert.ok(probeCalls.some(call => call.path.endsWith("/models")), "token rotation invalidates the model probe cache");
-        assert.ok(probeCalls.every(call => call.headers.authorization === `Bearer ${token}`), "models and protocol probes must use the same live token");
-        assert.equal(gateway.child.pid, pid);
-      }
-      const staticResponse = await fetch(`${gateway.url}/v1/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ model: `${compiled.providers[1].name}/native`, max_tokens: 4, messages: [{ role: "user", content: "hi" }] }) });
-      assert.equal(staticResponse.status, 200, await staticResponse.text());
-      assert.equal(captures.at(-1).headers["x-api-key"], "static-secret");
-      assert.notEqual(captures.at(-1).headers.authorization, "Bearer oauth-after");
-      t.diagnostic("#1810 verified live OAuth rotation and models probe without restarting; static API key preserved");
-    } finally {
-      if (oldStorage === undefined) delete process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR;
-      else process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR = oldStorage;
-      process.env.PATH = oldPath;
-    }
   } finally {
     if (gateway) await stopGateway(gateway);
     await close(sink);

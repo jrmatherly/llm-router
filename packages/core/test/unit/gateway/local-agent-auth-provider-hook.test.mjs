@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { claudeAppsGatewaySessionFile, persistClaudeAppsGatewaySession } from "@llmr/core/agents/claude-apps-gateway/session-store.ts";
-import { resetClaudeCodeAuthStateForTest } from "@llmr/core/agents/local-providers/claude-code.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
+import { claudeLoginMissingMessage } from "@llmr/core/gateway/features/claude-login-pass-through.ts";
 import {
   createGatewayPlugin,
   isLocalAgentOauthProviderPlugin
@@ -108,119 +108,40 @@ test("Grok local agent auth hook refreshes live login state before authenticatin
   });
 });
 
-// Regression for musistudio/claude-code-router#1628: the imported plugin's
-// auth.headers carry a token snapshot from import time, but the hook must
-// resolve the current on-disk token on every call so a rotation picked up by
-// the interactive Claude Code CLI is honored without a gateway restart.
-test("Claude Code local agent auth hook re-reads the on-disk access token on every request", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async (home) => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityFailure(async () => {
-        writeClaudeCredentials(home, {
-          accessToken: "stale-imported-access-token",
-          refreshToken: "stale-refresh-token"
-        });
+test("Claude Code hook copies the login the request carries", () => {
+  const result = claudeCodeHook().authenticate(claudeCodeHookInput({ "x-llmr-caller-authorization": callerLogin }));
 
-        const config = createDefaultAppConfig();
-        config.Providers = [{ name: "Claude Code API", id: "claude-code-api", api_base_url: "https://api.anthropic.com", models: ["claude-test"], type: "anthropic_messages" }];
-        config.providerPlugins = [claudeCodeOauthProviderPlugin()];
-        const compiled = await compileCoreGatewayConfig(config, "trace", "billing", "auth");
-        const modulePlugin = compiled.plugins.find((plugin) => plugin.key === "llmr-local-agent-auth-provider-hooks");
-        assert.ok(compiled.providerPlugins.every((plugin) => !plugin.auth));
-        const [hook] = createGatewayPlugin({ config: compiled, plugin: modulePlugin }).providerHooks;
-        assert.equal(hook.key, "module:llmr-live-auth:llmr-local-agent-claude-code-api-claude-code-oauth");
-
-        const upstreamRequest = {
-          headers: {
-            "content-type": "application/json",
-            "x-api-key": "client-key"
-          },
-          method: "POST",
-          url: "https://api.anthropic.com/v1/messages"
-        };
-
-        const staleAuth = await hook.authenticate({ upstreamRequest });
-        assert.equal(staleAuth.ok, true);
-        assert.equal(staleAuth.value.headers.authorization, "Bearer stale-imported-access-token");
-        assert.equal(staleAuth.value.headers["x-api-key"], undefined);
-        assert.equal(upstreamRequest.headers["x-api-key"], "client-key");
-
-        // Simulate the interactive Claude Code CLI rotating the shared token
-        // family on disk -- no gateway restart, no re-import.
-        writeClaudeCredentials(home, {
-          accessToken: "rotated-access-token",
-          refreshToken: "rotated-refresh-token"
-        });
-
-        const rotatedAuth = await hook.authenticate({ upstreamRequest });
-        assert.equal(rotatedAuth.ok, true);
-        assert.equal(rotatedAuth.value.headers.authorization, "Bearer rotated-access-token");
-        assert.equal(rotatedAuth.value.headers["anthropic-beta"], "oauth-2025-04-20");
-      });
-    });
-  });
+  assert.equal(result.ok, true);
+  assert.equal(result.value.headers.authorization === callerLogin, true, "authorization is the caller's login");
 });
 
-test("Claude Code local agent auth hook refreshes an expired token before authenticating", { skip: process.platform === "win32" }, async (t) => {
-  await withClaudeCodeHome(async (home) => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityFailure(async () => {
-        const credentialsFile = writeClaudeCredentials(home, {
-          claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" }
-        });
-        stubClaudeCodeTokenEndpoint(t, { access_token: "fresh", expires_in: 3600, refresh_token: "r2" });
+test("Claude Code hook removes x-api-key", () => {
+  const input = claudeCodeHookInput({ "x-llmr-caller-authorization": callerLogin });
+  const result = claudeCodeHook().authenticate(input);
 
-        const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeCodeOauthProviderPlugin()] } }).providerHooks;
-        const auth = await hook.authenticate({
-          upstreamRequest: { headers: {}, method: "POST", url: "https://api.anthropic.com/v1/messages" }
-        });
-        assert.equal(auth.value.headers.authorization, "Bearer fresh");
-        assert.equal(JSON.parse(readFileSync(credentialsFile, "utf8")).claudeAiOauth.refreshToken, "r2");
-      });
-    });
-  });
+  assert.equal("x-api-key" in result.value.headers, false);
+  assert.equal(input.upstreamRequest.headers["x-api-key"], "client-key");
 });
 
-test("Claude Code local agent auth hook fails the request when the refresh token was rejected", { skip: process.platform === "win32" }, async (t) => {
-  await withClaudeCodeHome(async (home) => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityFailure(async () => {
-        writeClaudeCredentials(home, {
-          claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" }
-        });
-        t.mock.method(console, "warn", () => {});
-        stubClaudeCodeTokenEndpoint(t, { error: "invalid_grant" }, 401);
-
-        const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeCodeOauthProviderPlugin()] } }).providerHooks;
-        const result = await hook.authenticate({
-          upstreamRequest: { headers: {}, method: "POST", url: "https://api.anthropic.com/v1/messages" }
-        });
-        assert.equal(result.ok, false);
-        assert.match(result.error, /claude \/login/);
-        assert.doesNotMatch(result.error, /r1|expired/);
-      });
-    });
-  });
+test("Claude Code hook refuses a request that carries no login, whatever the plugin stores", () => {
+  assert.deepEqual(claudeCodeHook().authenticate(claudeCodeHookInput({})), { error: claudeLoginMissingMessage, ok: false });
+  assert.deepEqual(claudeCodeHook().authenticate({ upstreamRequest: claudeCodeHookInput({}).upstreamRequest }), { error: claudeLoginMissingMessage, ok: false });
 });
 
-test("Claude Code local agent auth hook keeps the stored token after a transient refresh failure", { skip: process.platform === "win32" }, async (t) => {
-  await withClaudeCodeHome(async (home) => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityFailure(async () => {
-        writeClaudeCredentials(home, {
-          claudeAiOauth: { accessToken: "expired", expiresAt: Date.now() - 1, refreshToken: "r1" }
-        });
-        stubClaudeCodeTokenEndpoint(t, {}, 503);
+test("Claude Code hook refuses a carried value that is not a bearer login", () => {
+  const result = claudeCodeHook().authenticate(claudeCodeHookInput({ "x-llmr-caller-authorization": "sk-ant-api-key" }));
 
-        const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeCodeOauthProviderPlugin()] } }).providerHooks;
-        const result = await hook.authenticate({
-          upstreamRequest: { headers: {}, method: "POST", url: "https://api.anthropic.com/v1/messages" }
-        });
-        assert.equal(result.ok, true);
-        assert.equal(result.value.headers.authorization, "Bearer expired");
-      });
-    });
-  });
+  assert.deepEqual(result, { error: claudeLoginMissingMessage, ok: false });
+});
+
+test("Claude Code hook adds nothing to anthropic-beta", () => {
+  const input = claudeCodeHookInput({ "anthropic-beta": "made-up-beta-2099-01-01", "x-llmr-caller-authorization": callerLogin });
+  const sent = claudeCodeHook().authenticate(input);
+  delete input.upstreamRequest.headers["anthropic-beta"];
+  const absent = claudeCodeHook().authenticate(input);
+
+  assert.equal(sent.value.headers["anthropic-beta"], "made-up-beta-2099-01-01");
+  assert.equal("anthropic-beta" in absent.value.headers, false);
 });
 
 test("Claude apps gateway hook swaps in a refreshed bearer token", async (t) => {
@@ -658,6 +579,25 @@ function grokOauthProviderPlugin() {
   };
 }
 
+const callerLogin = "Bearer sk-ant-oat01-FAKE";
+
+function claudeCodeHook() {
+  const [hook] = createGatewayPlugin({ config: { providerPlugins: [claudeCodeOauthProviderPlugin()] } }).providerHooks;
+  assert.equal(hook.key, "module:llmr-live-auth:llmr-local-agent-claude-code-api-claude-code-oauth");
+  return hook;
+}
+
+function claudeCodeHookInput(headers) {
+  return {
+    request: { headers },
+    upstreamRequest: {
+      headers: { "anthropic-beta": "made-up-beta-2099-01-01", "content-type": "application/json", "x-api-key": "client-key" },
+      method: "POST",
+      url: "https://api.anthropic.com/v1/messages"
+    }
+  };
+}
+
 function claudeCodeOauthProviderPlugin() {
   return {
     auth: {
@@ -671,76 +611,6 @@ function claudeCodeOauthProviderPlugin() {
     key: "llmr-local-agent-claude-code-api-claude-code-oauth",
     providerName: "Claude Code API"
   };
-}
-
-async function withClaudeCodeHome(run) {
-  const home = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-code-hook-test-"));
-  const previousHome = process.env.HOME;
-  process.env.HOME = home;
-  try {
-    await run(home);
-  } finally {
-    restoreEnv("HOME", previousHome);
-    rmSync(home, { force: true, recursive: true });
-  }
-}
-
-async function withPlatform(platform, run) {
-  const descriptor = Object.getOwnPropertyDescriptor(process, "platform");
-  Object.defineProperty(process, "platform", {
-    configurable: true,
-    value: platform
-  });
-  try {
-    await run();
-  } finally {
-    Object.defineProperty(process, "platform", descriptor);
-  }
-}
-
-// Forces the macOS Keychain lookup to miss so the scan falls back to the file
-// credentials this test controls, regardless of the host's real Keychain state.
-async function withFakeSecurityFailure(run) {
-  await withFakeSecurityScript("exit 44\n", run);
-}
-
-async function withFakeSecurityScript(body, run) {
-  const binDir = mkdtempSync(path.join(os.tmpdir(), "llmr-claude-code-security-bin-"));
-  const securityPath = path.join(binDir, "security");
-  const previousPath = process.env.PATH;
-  const previousUser = process.env.USER;
-  writeFileSync(securityPath, `#!/bin/sh\n${body}`);
-  chmodSync(securityPath, 0o755);
-  process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ""}`;
-  process.env.USER = "llmr-test-user";
-  try {
-    await run();
-  } finally {
-    restoreEnv("PATH", previousPath);
-    restoreEnv("USER", previousUser);
-    rmSync(binDir, { force: true, recursive: true });
-  }
-}
-
-function stubClaudeCodeTokenEndpoint(t, body, status = 200) {
-  resetClaudeCodeAuthStateForTest();
-  const previousFetch = globalThis.fetch;
-  const previousEndpoint = process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT;
-  process.env.LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT = "http://127.0.0.1/claude/oauth/token";
-  globalThis.fetch = async () => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" }, status });
-  t.after(() => {
-    globalThis.fetch = previousFetch;
-    restoreEnv("LLMR_CLAUDE_CODE_OAUTH_TOKEN_ENDPOINT", previousEndpoint);
-    resetClaudeCodeAuthStateForTest();
-  });
-}
-
-function writeClaudeCredentials(home, credentials) {
-  const directory = path.join(home, ".claude");
-  const credentialFile = path.join(directory, ".credentials.json");
-  mkdirSync(directory, { recursive: true });
-  writeFileSync(credentialFile, JSON.stringify(credentials, null, 2));
-  return credentialFile;
 }
 
 async function withGrokHome(run) {

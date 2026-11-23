@@ -13,6 +13,8 @@ type Headers = Record<string, unknown>;
 
 export const claudeLoginRouteFallback: RouterFallbackConfig = { mode: "off", models: [], retryCount: 1 };
 
+export const claudeLoginMissingMessage = "This provider forwards the Claude login that Claude Code sends, and this request carried none. Sign in with \"claude /login\" and use a Claude Code profile in Claude login mode, or route this request to another provider.";
+
 export function claudeLoginProviderNames(config: ProviderConfig): string[] {
   return claudeLoginProviders(config).map((provider) => provider.name);
 }

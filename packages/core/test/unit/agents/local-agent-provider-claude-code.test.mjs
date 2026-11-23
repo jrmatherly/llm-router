@@ -8,9 +8,6 @@ import {
   readClaudeCodeOauth,
   resolveClaudeCodeAuth
 } from "@llmr/core/agents/local-providers/claude-code.ts";
-import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
-import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
-import { createGatewayPlugin } from "@llmr/core/gateway/core-runtime/local-agent-auth-provider-hook.ts";
 import {
   jsonResponse,
   keychainAccount,
@@ -75,57 +72,6 @@ test("Claude Code local provider falls back to file credentials when Keychain is
 
         const result = await importClaudeCodeProvider(candidate, []);
         assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer file-access-token");
-      });
-    });
-  });
-});
-
-test("Core gateway config replaces imported Claude Code OAuth token with live macOS Keychain token", { skip: process.platform === "win32" }, async () => {
-  await withClaudeCodeHome(async () => {
-    await withPlatform("darwin", async () => {
-      await withFakeSecurityOutput({
-        access_token: "keychain-runtime-token",
-        refresh_token: "keychain-refresh-token"
-      }, async () => {
-        assert.equal(readClaudeCodeOauth().store.container, "root");
-        const config = createDefaultAppConfig();
-        config.providerPlugins = [
-          {
-            auth: {
-              headers: {
-                authorization: "Bearer imported-stale-token",
-                "anthropic-beta": "oauth-2025-04-20"
-              },
-              removeHeaders: ["x-api-key"],
-              strict: true
-            },
-            key: "llmr-local-agent-claude-code-api-claude-code-oauth",
-            providerName: "Claude Code API"
-          }
-        ];
-        config.Providers = [
-          {
-            api_base_url: "https://api.anthropic.com",
-            id: "claude-code-api",
-            models: ["claude-sonnet-5"],
-            name: "Claude Code API",
-            type: "anthropic_messages"
-          }
-        ];
-
-        const compiled = await compileCoreGatewayConfig(config, "raw-trace-token", "billing-usage-token", "core-auth-token");
-        const plugin = compiled.providerPlugins.find((item) => item.key === "llmr-local-agent-claude-code-api-claude-code-oauth");
-
-        assert.equal(plugin.auth, undefined);
-        const livePlugin = compiled.plugins.find((item) => item.key === "llmr-local-agent-auth-provider-hooks");
-        const [hook] = createGatewayPlugin({ plugin: livePlugin }).providerHooks;
-        const result = await hook.authenticate({
-          upstreamRequest: { url: "https://api.anthropic.com/v1/messages", method: "POST", headers: { "x-api-key": "old" }, body: {} }
-        });
-        assert.equal(result.ok, true);
-        assert.equal(result.value.headers.authorization, "Bearer keychain-runtime-token");
-        assert.equal(result.value.headers["x-api-key"], undefined);
-        assert.match(result.value.headers["anthropic-beta"], /oauth-2025-04-20/);
       });
     });
   });

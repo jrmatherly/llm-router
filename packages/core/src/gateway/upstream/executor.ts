@@ -12,7 +12,6 @@ import { resolveConfiguredProviderModelSelector, resolveUniqueConfiguredProvider
 import { estimateLimitUsage } from "@llmr/core/gateway/limits/window-limiter";
 import { providerCredentialLimitState, readProviderCredentialCooldown, recordProviderCredentialOutcome } from "@llmr/core/providers/credential-pool";
 import { isRecord, stringValue } from "@llmr/core/gateway/internal/value";
-import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
 import { abortSignalMessage, formatError, omitLocalObservabilityHeaders, shouldSendBody, withCoreGatewayAuthHeader } from "@llmr/core/gateway/http/io";
 import { parseJsonObjectSafe, releaseJsonObject, serializeJsonBody, serializeJsonBodyWithModel } from "@llmr/core/gateway/http/body";
 import { claudeLoginRoutedProvider } from "@llmr/core/gateway/features/claude-login-pass-through";
@@ -21,7 +20,7 @@ import { llmrRoutedModelHeader } from "@llmr/core/gateway/core-runtime/router-pl
 import { activeProviderCredentials, findProviderByPublicOrInternalName, findProviderCredentialBySlug, normalizedProviderCapabilities, parseProviderCredentialInternalName, providerCapabilityForClientProtocol, providerCapabilityInternalName, providerCapabilityNameMatches, providerCredentialInternalName, providerCredentialPriority, providerCredentialRuntimeId, providerCredentialSlug, providerProtocolForClientProtocol, sanitizeHeaderValue } from "@llmr/core/providers/runtime-topology";
 import { delay } from "@llmr/core/gateway/internal/clock";
 import { retryDelayAfterNetworkError, retryDelayAfterStatus, shouldFallbackAfterStatus } from "@llmr/core/gateway/upstream/retry-policy";
-import { claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta, UpstreamRequestError } from "@llmr/core/gateway/internal/shared";
+import { UpstreamRequestError } from "@llmr/core/gateway/internal/shared";
 import type { ApiKeyLimitUsage, ProviderCredentialRoutingTarget, UpstreamAttempt, UpstreamFailedAttempt, UpstreamFetchResult } from "@llmr/core/gateway/internal/shared";
 import type { RouteTraceObserver } from "@llmr/core/observability/route-trace";
 import { monotonicNowMs } from "@llmr/core/observability/stream-experience";
@@ -667,12 +666,10 @@ function prepareUpstreamCredentialAttempt(input: {
     };
   }
 
-  const attemptHeaders = withClaudeCodeOauthBetaHeader(input.headers, input.config, target);
-
   const credentials = activeProviderCredentials(target.provider);
   if (credentials.length === 0) {
     const preserveModelSelector = shouldPreserveCapabilityModelSelector(input.attempt.body, target);
-    const targetHeaders = targetProviderFallbackHeaders(attemptHeaders, target.provider, target.protocol);
+    const targetHeaders = targetProviderFallbackHeaders(input.headers, target.provider, target.protocol);
     const targetBody = target.body ?? normalizedBody?.body ?? input.attempt.body;
     const providerQualifiedTargetBody = providerQualifiedTargetModelBody(
       targetBody,
@@ -683,7 +680,7 @@ function prepareUpstreamCredentialAttempt(input: {
       ...input.attempt,
       body: attemptBody(preserveModelSelector ? input.attempt.body : providerQualifiedTargetBody ?? targetBody),
       headers: preserveModelSelector
-        ? clearTargetProviderHeaders(attemptHeaders)
+        ? clearTargetProviderHeaders(input.headers)
         : targetHeaders
     };
   }
@@ -703,13 +700,13 @@ function prepareUpstreamCredentialAttempt(input: {
       ...input.attempt,
       body: attemptBody(preserveModelSelector ? input.attempt.body : target.body ?? normalizedBody?.body ?? input.attempt.body),
       headers: preserveModelSelector
-        ? clearTargetProviderHeaders(attemptHeaders)
-        : targetProviderFallbackHeaders(attemptHeaders, target.provider, target.protocol)
+        ? clearTargetProviderHeaders(input.headers)
+        : targetProviderFallbackHeaders(input.headers, target.provider, target.protocol)
     };
   }
 
   const headers: Record<string, string> = {
-    ...attemptHeaders,
+    ...input.headers,
     "x-target-providers": selection.credentials.map((candidate) => candidate.internalName).join(","),
     "x-llmr-logical-provider": providerRuntimeId(target.provider),
     "x-llmr-provider-credential-chain": selection.credentials.map((candidate) => candidate.credentialId).join(",")
@@ -728,49 +725,6 @@ function prepareUpstreamCredentialAttempt(input: {
     headers,
     logicalProvider: target.provider.name
   };
-}
-
-
-function withClaudeCodeOauthBetaHeader(
-  headers: Record<string, string>,
-  config: AppConfig,
-  target: ProviderCredentialRoutingTarget
-): Record<string, string> {
-  if (
-    target.protocol !== "anthropic_messages" ||
-    !claudeCodeOauthPluginMatchesTarget(config, target.provider, target.protocol)
-  ) {
-    return headers;
-  }
-
-  const existingEntry = Object.entries(headers)
-    .find(([name]) => name.trim().toLowerCase() === claudeCodeOauthBetaHeader);
-  const merged = mergeAnthropicBetaValues(existingEntry?.[1], claudeCodeOauthRequiredBeta);
-  if (existingEntry?.[0] === claudeCodeOauthBetaHeader && existingEntry[1] === merged) {
-    return headers;
-  }
-
-  const next = Object.fromEntries(
-    Object.entries(headers).filter(([name]) => name.trim().toLowerCase() !== claudeCodeOauthBetaHeader)
-  );
-  next[claudeCodeOauthBetaHeader] = merged;
-  return next;
-}
-
-
-function claudeCodeOauthPluginMatchesTarget(
-  config: AppConfig,
-  provider: GatewayProviderConfig,
-  protocol: GatewayProviderProtocol
-): boolean {
-  const targetNames = new Set([provider.name, providerRuntimeId(provider)].map((name) => name.trim().toLowerCase()));
-  return (config.providerPlugins ?? []).some((plugin) => {
-    if (!isLocalClaudeCodeOauthProviderPlugin(plugin)) {
-      return false;
-    }
-    const providerName = stringValue(plugin.providerName)?.toLowerCase();
-    return Boolean(providerName && (targetNames.has(providerName) || providerCapabilityNameMatches(provider, protocol, providerName)));
-  });
 }
 
 

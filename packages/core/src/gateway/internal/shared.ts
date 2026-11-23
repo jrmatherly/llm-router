@@ -13,6 +13,7 @@ export type CoreGatewayProvider = {
   apikey?: string;
   baseurl?: string;
   billing?: unknown;
+  clientCredentialPassthrough?: boolean;
   extraBody?: unknown;
   extraHeaders?: unknown;
   models: string[];

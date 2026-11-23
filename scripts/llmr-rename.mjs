@@ -56,7 +56,6 @@ export const kept = [
       "README.md",
       "docs/src/content/docs/en/guides/cli.md",
       "packages/core/test/unit/agents/local-agent-provider-claude-code.test.mjs",
-      "packages/core/test/unit/gateway/local-agent-auth-provider-hook.test.mjs",
       "packages/ui/test/component/layout.test.tsx"
     ],
     text: "musistudio/claude-code-router"
