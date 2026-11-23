@@ -819,6 +819,27 @@ test("a shared-home profile follows the user's custom headers on the next apply"
   }, { beforeApply: (file) => writeFileSync(file, userSettings("X-Org-Route: prod")), claudeCodeSharedHome: true, scope: "llmr" });
 });
 
+test("a shared-home profile says when the user's settings file cannot be read and keeps the last headers", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-shared-home-broken", async ({ apply, key, readSettings, userSettingsFile }) => {
+    await apply();
+    writeFileSync(userSettingsFile, "{ not json");
+    const applied = await apply();
+    assert.match(applied.message, /Your custom headers could not be read from .*settings\.json, so this profile keeps the ones from the last apply\.$/);
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS === `X-Org-Route: prod\nx-llmr-api-key: ${key()}`, "the last copied line stays");
+  }, { beforeApply: (file) => writeFileSync(file, `${JSON.stringify({ env: { ANTHROPIC_CUSTOM_HEADERS: "X-Org-Route: prod" } })}\n`), claudeCodeSharedHome: true, scope: "llmr" });
+});
+
+test("switching from Claude login back to the helper removes the gateway key line", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-to-helper", async ({ apply, profile, readSettings }) => {
+    await apply();
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS.includes("x-llmr-api-key: "), "apply wrote the key line");
+    profile.env = {};
+    await apply();
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS === userCustomHeaders, "only the user's lines are left");
+    assert.equal(typeof readSettings().apiKeyHelper, "string");
+  }, { beforeApply: writeUserClaudeSettings({ env: { ANTHROPIC_CUSTOM_HEADERS: userCustomHeaders } }) });
+});
+
 test("switching from the helper to Claude login removes the helper script", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withClaudeLoginProfile("claude-login-from-helper", async ({ apply, profile }) => {
     const helperFile = path.join(CONFIGDIR, "bin", `llmr-claude-code-api-key-claude-login-from-helper${process.platform === "win32" ? ".cmd" : ""}`);

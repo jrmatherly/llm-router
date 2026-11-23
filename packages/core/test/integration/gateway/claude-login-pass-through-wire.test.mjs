@@ -131,7 +131,7 @@ async function startGateway(t, layout, edit) {
   config.gateway = { ...config.gateway, coreHost: "127.0.0.1", corePort, enabled: true, host: "127.0.0.1", port: publicPort };
   config.mediaTools.enabled = false;
   config.proxy.enabled = false; config.proxy.captureNetwork = false;
-  // The context archive alone selects the two-process layout. A model-chain fallback would answer a refused request with 200.
+  // The two-process layout is selected by the context archive and not by a fallback chain, which would answer a refused request with 200.
   config.contextArchive.enabled = layout === "compat";
   config.observability.requestLogs = false; config.observability.requestLogBodyCapture = "none";
   config.profile.enabled = true;

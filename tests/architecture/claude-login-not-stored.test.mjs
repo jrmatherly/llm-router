@@ -3,10 +3,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-// `.credentials.json` alone is not matched: Grok's and ZCode's own login files use that name.
 const credentialMarkers = [
   "Claude Code-credentials",
-  ".claude/.credentials.json",
+  ".credentials.json",
   "claudeAiOauth",
   "platform.claude.com/v1/oauth/token",
   "oauth-2025-04-20"

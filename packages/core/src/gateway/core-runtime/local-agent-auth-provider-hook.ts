@@ -179,7 +179,7 @@ async function authenticateWithBearer(
   };
 }
 
-// The login is the caller's own. Nothing here reads, stores or refreshes one.
+// The login is the caller's own. Nothing here reads one from disk, stores one or refreshes one.
 function authenticateClaudeCode(
   input: ProviderPluginInput,
   plugin: Record<string, unknown>

@@ -49,7 +49,7 @@ import {
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response";
 import { hoistAnthropicToolResultImages } from "@llmr/core/gateway/features/anthropic-tool-result-images";
-import { carriesClaudeLogin, claudeLoginPassThroughTarget, claudeLoginRoutedProvider } from "@llmr/core/gateway/features/claude-login-pass-through";
+import { carriesClaudeLogin, claudeLoginCarriedValue, claudeLoginPassThroughTarget, claudeLoginRoutedProvider } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { withoutDeferredToolFlags } from "@llmr/core/gateway/features/deferred-tools";
 import { coreGatewayAuthHeader, llmrApiKeyHeader, rawTraceSyncHeader, rawTraceSyncPath, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
 import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
@@ -407,7 +407,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
               model: isRecord(body) ? stringValue(body.model) : undefined,
               path: requestPath(requestInput.request.url ?? "/")
             })) {
-              requestInput.request.headers[llmrCallerAuthorizationHeader] = requestInput.request.headers.authorization;
+              requestInput.request.headers[llmrCallerAuthorizationHeader] = claudeLoginCarriedValue(requestInput.request.headers);
             }
             requestInput.request.headers.authorization = `Bearer ${readAuthToken(requestInput.request.headers)}`;
           }

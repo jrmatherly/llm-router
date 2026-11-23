@@ -59,7 +59,7 @@ export function claudeLoginPassThroughTarget(input: {
   if (input.method.toUpperCase() !== "POST" || input.path.split("?")[0] !== "/v1/messages") {
     return undefined;
   }
-  if (!header(input.headers, llmrApiKeyHeader) || !header(input.headers, "authorization")?.startsWith("Bearer ")) {
+  if (!header(input.headers, llmrApiKeyHeader)) {
     return undefined;
   }
   const profile = profileForApiKey(input.config, input.apiKey);
@@ -67,6 +67,12 @@ export function claudeLoginPassThroughTarget(input: {
     return undefined;
   }
   return claudeLoginRoutedModel(input.config, input.model);
+}
+
+// A request with no login is still carried, with a value the provider hook refuses, so a signed-out Claude Code is told and is not answered by another provider.
+export function claudeLoginCarriedValue(headers: Headers): string {
+  const authorization = header(headers, "authorization");
+  return authorization?.startsWith("Bearer ") ? authorization : "none";
 }
 
 export function carriesClaudeLogin(headers: Headers | undefined): boolean {

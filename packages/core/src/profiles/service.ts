@@ -564,7 +564,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     env.ANTHROPIC_BASE_URL = endpoint;
     env.ANTHROPIC_API_BASE_URL = endpoint;
     env.CLAUDE_AGENT_API_BASE_URL = endpoint;
-    applyClaudeCodeCustomHeadersEnv(env, authMode, token, managedProfileEnvKeys.includes(claudeCodeCustomHeadersEnvKey) ? undefined : userSettingsFile);
+    const unreadableUserSettingsFile = applyClaudeCodeCustomHeadersEnv(env, authMode, token, managedProfileEnvKeys.includes(claudeCodeCustomHeadersEnvKey) ? undefined : userSettingsFile);
     applyGatewayNoProxyEnv(env, config);
     applyClaudeCodeGatewayCompatibilityEnv(env);
     for (const key of claudeCodeFirstPartyProviderEnvKeys) {
@@ -627,6 +627,9 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
         ...(autoCompactResult.file ? [] : ["Claude Code uses its own auto-compact windows for this profile."]),
         ...(authMode === "claude-login" && claudeLoginProviderNames(config).length === 0
           ? ["Claude login mode needs the Claude Code API provider. Until one is on, this profile's requests take the normal route."]
+          : []),
+        ...(unreadableUserSettingsFile
+          ? [`Your custom headers could not be read from ${unreadableUserSettingsFile}, so this profile keeps the ones from the last apply.`]
           : [])
       ].join(" "),
       ok: true,
@@ -2885,18 +2888,25 @@ function claudeCodeManagedSettingsEnvKeys(
 }
 
 // A shared-home profile's file replaces the user's whole value, so the user's lines are read from their own file on every apply. The file is undefined when the profile's own env names the key.
-function applyClaudeCodeCustomHeadersEnv(env: Record<string, string>, authMode: ClaudeCodeGatewayAuthMode, token: string, userSettingsFile: string | undefined): void {
+// Returns the user's file when it exists and cannot be read as JSON.
+function applyClaudeCodeCustomHeadersEnv(env: Record<string, string>, authMode: ClaudeCodeGatewayAuthMode, token: string, userSettingsFile: string | undefined): string | undefined {
   withoutClaudeCodeGatewayKeyHeader(env);
   if (authMode !== "claude-login") {
-    return;
+    return undefined;
   }
-  if (!userSettingsFile) {
-    env[claudeCodeCustomHeadersEnvKey] = claudeCodeCustomHeadersWithGatewayKey(env[claudeCodeCustomHeadersEnvKey], token);
-    return;
+  let own: string | undefined = env[claudeCodeCustomHeadersEnvKey];
+  let unreadable: string | undefined;
+  if (userSettingsFile) {
+    try {
+      const settings: unknown = existsSync(userSettingsFile) ? JSON.parse(readFileSync(userSettingsFile, "utf8")) : {};
+      const userEnv = isRecord(settings) ? settings.env : undefined;
+      own = isRecord(userEnv) && typeof userEnv[claudeCodeCustomHeadersEnvKey] === "string" ? userEnv[claudeCodeCustomHeadersEnvKey] : undefined;
+    } catch {
+      unreadable = userSettingsFile;
+    }
   }
-  const userEnv = readJsonObject(userSettingsFile).env;
-  const userHeaders = isRecord(userEnv) && typeof userEnv[claudeCodeCustomHeadersEnvKey] === "string" ? userEnv[claudeCodeCustomHeadersEnvKey] : undefined;
-  env[claudeCodeCustomHeadersEnvKey] = claudeCodeCustomHeadersWithGatewayKey(userHeaders, token);
+  env[claudeCodeCustomHeadersEnvKey] = claudeCodeCustomHeadersWithGatewayKey(own, token);
+  return unreadable;
 }
 
 function withoutClaudeCodeGatewayKeyHeader(env: Record<string, unknown>): void {

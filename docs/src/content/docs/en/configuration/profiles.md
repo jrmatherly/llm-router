@@ -62,11 +62,13 @@ The profile writes LLMR's base URL to its settings file and adds one line, `x-ll
 
 Claude Code then shows its own model list, not the one LLMR serves. A model you pin as `Provider/model` still goes through LLMR to that provider, with its routing rules.
 
-Three things work differently in this mode:
+A request on your subscription works differently from other LLMR traffic:
 
 - A model named without a provider prefix goes to your subscription through the `Claude Code API` provider. It skips Router rules and virtual models.
-- A request on your subscription does not fall back to another provider when it hits a limit or an error. Claude Code sees Anthropic's own error.
-- The login passes through any gateway plugins you installed on its way to Anthropic.
+- LLMR sends the request as Claude Code wrote it. The context archive, web search and ToolHub do not run on it.
+- It does not fall back to another provider when it hits a limit or an error. Claude Code sees Anthropic's own error.
+- If Claude Code is signed out, the request fails with a message that tells you to sign in. No other provider answers it.
+- Gateway plugins you installed may still see the request, including the login, on its way to Anthropic.
 
 Claude App and Claude Code CLI expose models differently:
 

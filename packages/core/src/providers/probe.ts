@@ -246,8 +246,11 @@ export async function checkGatewayProviderConnectivity(
       }
     })
   );
-  for (const check of checks) {
-    recordProviderConnectivityRequestLog(request, check, options.requestLog);
+  // The pass-through provider is never called, so there is no request to log.
+  if (!isLocalClaudeProbe(request.apiKey, request.providerPlugins ?? [])) {
+    for (const check of checks) {
+      recordProviderConnectivityRequestLog(request, check, options.requestLog);
+    }
   }
   const reports = checks.map((check) => check.report);
   return {

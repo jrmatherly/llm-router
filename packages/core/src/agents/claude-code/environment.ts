@@ -57,14 +57,17 @@ export function isClaudeCodeAccountFile(file: string): boolean {
     return false;
   }
   const dir = resolvedDir(path.dirname(file));
-  return dir === resolvedDir(resolveUserPath("~")) || dir === resolvedDir(os.homedir());
+  const homes = [resolvedDir(resolveUserPath("~")), resolvedDir(os.homedir())];
+  // A folder that cannot be resolved may be the home folder, so it is treated as one.
+  return dir === undefined || homes.includes(undefined) || homes.includes(dir);
 }
 
-function resolvedDir(dir: string): string {
+function resolvedDir(dir: string): string | undefined {
   try {
     return realpathSync.native(dir);
-  } catch {
-    return path.resolve(dir);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return code === "ENOENT" || code === "ENOTDIR" ? path.resolve(dir) : undefined;
   }
 }
 

@@ -32,7 +32,7 @@ import { recordProviderCredentialOutcome } from "@llmr/core/providers/credential
 import { codexApplyPatchBridgeResponseStream, prepareCodexApplyPatchBridgeRequest } from "@llmr/core/gateway/features/codex-patch-bridge";
 import { codexMultiAgentBridgeResponseStream, prepareCodexMultiAgentBridgeRequest } from "@llmr/core/gateway/features/codex-multi-agent-bridge";
 import { rewriteAnthropicMessageStartModelStream, shouldRewriteAnthropicMessageStartModel } from "@llmr/core/gateway/features/anthropic-response-model";
-import { claudeLoginPassThroughTarget } from "@llmr/core/gateway/features/claude-login-pass-through";
+import { claudeLoginCarriedValue, claudeLoginPassThroughTarget } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { prepareCursorOpenAICompatChatBody } from "@llmr/core/gateway/features/cursor-compat";
 import { filteredResponseHeaders, formatError, formatUpstreamErrorForLog, forwardHeaders, inferGatewayClient, readRequestBody, sendJson, shouldCaptureGatewayUsage, shouldSendBody, stripLocalGatewayAuthHeaders } from "@llmr/core/gateway/http/io";
 import { appendAggregateErrorAttemptSummary, shouldBufferAggregateErrorBody } from "@llmr/core/gateway/http/error-detail";
@@ -163,11 +163,11 @@ export class GatewayRequestPipeline {
       const previousAuthApiKeyId = headers["x-auth-api-key-id"];
       const previousAuthSub = headers["x-auth-sub"];
       const previousClientRequestId = headers["x-client-request-id"];
-      // Set for a Claude-login request: its login is carried and no body step below may touch it.
+      // Set for a Claude-login request: its login is carried and no body transform below runs on it.
       const claudeLoginTarget = claudeLoginPassThroughTarget({ apiKey, config: activeConfig, headers, method, model: requestedModel, path });
       if (apiKey) {
         if (claudeLoginTarget) {
-          headers[llmrCallerAuthorizationHeader] = headers.authorization;
+          headers[llmrCallerAuthorizationHeader] = claudeLoginCarriedValue(headers);
         }
         stripLocalGatewayAuthHeaders(headers);
         headers["x-auth-api-key-id"] = apiKey.id;

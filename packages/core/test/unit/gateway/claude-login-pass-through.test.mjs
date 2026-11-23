@@ -6,7 +6,7 @@ import test from "node:test";
 import { applyClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service.ts";
 import { buildClaudeAppGatewayModelRoutes, resolveClaudeAppGatewayRouteModel } from "@llmr/core/agents/claude-app/gateway-routes.ts";
 import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE } from "@llmr/core/contracts/app.ts";
-import { claudeLoginPassThroughTarget, claudeLoginProviderNames, withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through.ts";
+import { claudeLoginCarriedValue, claudeLoginPassThroughTarget, claudeLoginProviderNames, withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through.ts";
 import { createGatewayModelsResponse } from "@llmr/core/gateway/features/model-discovery.ts";
 
 const apiKey = { createdAt: new Date(0).toISOString(), id: "profile:p1", key: "sk-profile-key-0001" };
@@ -62,8 +62,12 @@ test("a gateway key sent in authorization is not pass-through traffic", () => {
   assert.equal(target({ headers: { authorization: "Bearer sk-profile-key-0001" } }), undefined);
 });
 
-test("an authorization value without Bearer is not carried", () => {
-  assert.equal(target({ headers: { authorization: "sk-ant-api-key", "x-llmr-api-key": "sk-profile-key-0001" } }), undefined);
+test("a request without a login is still routed to the pass-through provider, with a value the hook refuses", () => {
+  const key = { "x-llmr-api-key": "sk-profile-key-0001" };
+  assert.equal(target({ headers: key }), "Claude Code API/claude-opus-4-8");
+  assert.equal(claudeLoginCarriedValue(key), "none");
+  assert.equal(claudeLoginCarriedValue({ ...key, authorization: "sk-ant-api-key" }), "none");
+  assert.equal(claudeLoginCarriedValue({ ...key, authorization: "Bearer sk-ant-oat01-FAKE" }) === "Bearer sk-ant-oat01-FAKE", true);
 });
 
 test("only an enabled Claude Code profile in Claude login mode qualifies", () => {
