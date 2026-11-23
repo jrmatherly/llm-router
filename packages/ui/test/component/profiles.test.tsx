@@ -914,7 +914,7 @@ test("AddProfileForm offers the Claude login toggle on a Claude Code profile tha
     />
   );
   const toggle = /aria-label="Sign in with my Claude login"/;
-  const help = "Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code&#x27;s own. The gateway key is written to settings.json.";
+  const help = "Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code&#x27;s own. The gateway key is written to the settings file of this profile.";
 
   for (const surface of ["cli", "auto"] as const) {
     const html = render({ surface });

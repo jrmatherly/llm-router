@@ -900,7 +900,7 @@ export function AddProfileForm({
               <span className="text-[12px] font-medium">Sign in with my Claude login</span>
               <Toggle ariaLabel="Sign in with my Claude login" checked={claudeLoginEnabled(draft.envRows)} onChange={(enabled) => onChange({ envRows: withClaudeLogin(draft.envRows, enabled) })} />
             </div>
-            <p className="text-[12px] text-muted-foreground">Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code's own. The gateway key is written to settings.json.</p>
+            <p className="text-[12px] text-muted-foreground">Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code's own. The gateway key is written to the settings file of this profile.</p>
           </div>
         ) : null}
         {draft.agent === "claude-code" ? (
