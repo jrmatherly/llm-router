@@ -14,3 +14,19 @@ test("#1779 explicit federation and helper preferences remain available", () => 
     assert.equal(resolveClaudeCodeGatewayAuthMode({ env: { LLMR_CLAUDE_CODE_AUTH_MODE: mode } }), mode);
   }
 });
+
+test("a profile that names claude-login resolves to it, and nothing else does", (t) => {
+  assert.equal(resolveClaudeCodeGatewayAuthMode({ env: { LLMR_CLAUDE_CODE_AUTH_MODE: "claude-login" } }), "claude-login");
+  assert.equal(resolveClaudeCodeGatewayAuthMode({ env: { LLMR_CLAUDE_CODE_AUTH_MODE: "login" } }), "claude-login");
+  assert.equal(resolveClaudeCodeGatewayAuthMode({ env: {} }), "api-key-helper");
+
+  const previous = process.env.LLMR_CLAUDE_CODE_AUTH_MODE;
+  t.after(() => {
+    if (previous === undefined) delete process.env.LLMR_CLAUDE_CODE_AUTH_MODE;
+    else process.env.LLMR_CLAUDE_CODE_AUTH_MODE = previous;
+  });
+  process.env.LLMR_CLAUDE_CODE_AUTH_MODE = "claude-login";
+  assert.equal(resolveClaudeCodeGatewayAuthMode({ env: {} }), "api-key-helper", "one process variable must not move every profile");
+  process.env.LLMR_CLAUDE_CODE_AUTH_MODE = "wif";
+  assert.equal(resolveClaudeCodeGatewayAuthMode({ env: {} }), "wif", "the process fallback still serves the other modes");
+});

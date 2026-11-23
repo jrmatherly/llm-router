@@ -15,6 +15,7 @@ import { isRecord, stringValue } from "@llmr/core/gateway/internal/value";
 import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
 import { abortSignalMessage, formatError, omitLocalObservabilityHeaders, shouldSendBody, withCoreGatewayAuthHeader } from "@llmr/core/gateway/http/io";
 import { parseJsonObjectSafe, releaseJsonObject, serializeJsonBody, serializeJsonBodyWithModel } from "@llmr/core/gateway/http/body";
+import { claudeLoginRoutedProvider } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { resolveGatewayPublicModelId } from "@llmr/core/gateway/features/model-discovery";
 import { llmrRoutedModelHeader } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { activeProviderCredentials, findProviderByPublicOrInternalName, findProviderCredentialBySlug, normalizedProviderCapabilities, parseProviderCredentialInternalName, providerCapabilityForClientProtocol, providerCapabilityInternalName, providerCapabilityNameMatches, providerCredentialInternalName, providerCredentialPriority, providerCredentialRuntimeId, providerCredentialSlug, providerProtocolForClientProtocol, sanitizeHeaderValue } from "@llmr/core/providers/runtime-topology";
@@ -648,7 +649,8 @@ function prepareUpstreamCredentialAttempt(input: {
   path: string;
 }): UpstreamAttempt {
   const normalizedBody = normalizeConfiguredProviderModelBody(input.attempt.body, input.config);
-  const target = resolvePlannedProviderCredentialRoutingTarget(input.attempt, input.path) ??
+  const target = resolveClaudeLoginCredentialRoutingTarget(input.config, input.headers, input.path, input.attempt.body) ??
+    resolvePlannedProviderCredentialRoutingTarget(input.attempt, input.path) ??
     resolveProviderCredentialRoutingTarget(input.config, input.headers, input.path, input.attempt.body);
   const attemptBody = (body: Buffer | undefined) => usageAwareOpenAiChatAttemptBody({
     body,
@@ -815,6 +817,30 @@ function providerQualifiedTargetModelBody(
     return undefined;
   }
   return serializeJsonBodyWithModel(parsedBody, `${providerSelector}/${model}`);
+}
+
+
+// A carried request's model need not be in any list, and another provider may list the same id.
+function resolveClaudeLoginCredentialRoutingTarget(
+  config: AppConfig,
+  headers: Record<string, string>,
+  path: string,
+  body: Buffer | undefined
+): ProviderCredentialRoutingTarget | undefined {
+  const routed = claudeLoginRoutedProvider(config, headers, headers[llmrRoutedModelHeader]);
+  const clientProtocol = requestProtocolForPath(path);
+  const protocol = routed && clientProtocol ? providerProtocolForClientProtocol(routed.provider, clientProtocol) : undefined;
+  if (!routed || !protocol) {
+    return undefined;
+  }
+  const parsedBody = parseJsonObjectSafe(body);
+  return {
+    body: parsedBody ? serializeJsonBodyWithModel(parsedBody, routed.model) : body,
+    model: routed.model,
+    provider: routed.provider,
+    protocol,
+    source: "header"
+  };
 }
 
 

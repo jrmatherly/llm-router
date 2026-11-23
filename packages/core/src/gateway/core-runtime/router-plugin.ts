@@ -15,6 +15,7 @@ import {
 } from "@llmr/core/gateway/llm-router-plugin";
 import {
   llmrAnthropicReasoningResponseHookKey,
+  llmrCallerAuthorizationHeader,
   llmrCodexApplyPatchBridgeHeader,
   llmrCodexBridgeRequestTransformKey,
   llmrCodexBridgeResponseHookKey,
@@ -48,6 +49,7 @@ import {
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response";
 import { hoistAnthropicToolResultImages } from "@llmr/core/gateway/features/anthropic-tool-result-images";
+import { carriesClaudeLogin, claudeLoginPassThroughTarget, claudeLoginRoutedProvider } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { withoutDeferredToolFlags } from "@llmr/core/gateway/features/deferred-tools";
 import { coreGatewayAuthHeader, llmrApiKeyHeader, rawTraceSyncHeader, rawTraceSyncPath, sdkCompatibleTokenHeaderNames } from "@llmr/core/gateway/internal/shared";
 import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
@@ -121,6 +123,7 @@ type GatewayPluginHttpReply = {
 
 type GatewayRequestHookInput = {
   request?: {
+    body?: unknown;
     headers?: Record<string, HeaderValue>;
     id?: string;
     method?: string;
@@ -395,6 +398,17 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
           }
           // The fork's static key check reads authorization first, where a Claude Code login would sit beside this key.
           if (requestInput.request?.headers && readHeader(requestInput.request.headers, llmrApiKeyHeader)) {
+            const body = requestInput.request.body;
+            if (claudeLoginPassThroughTarget({
+              apiKey: authorization.apiKey,
+              config,
+              headers: requestInput.request.headers,
+              method: requestInput.request.method ?? "GET",
+              model: isRecord(body) ? stringValue(body.model) : undefined,
+              path: requestPath(requestInput.request.url ?? "/")
+            })) {
+              requestInput.request.headers[llmrCallerAuthorizationHeader] = requestInput.request.headers.authorization;
+            }
             requestInput.request.headers.authorization = `Bearer ${readAuthToken(requestInput.request.headers)}`;
           }
           setApiKeyAuthContextHeaders(requestInput.request?.headers, authorization.apiKey);
@@ -408,10 +422,10 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
     // A provider hook edits one attempt's upstream body, so a fallback provider still gets the original flags.
     providerHooks: [{
       key: "llmr-deferred-tool-compatibility",
-      transformRequest: (hookInput: { targetProviderConfig?: { name?: string }; upstreamRequest: UpstreamRequest }) => {
+      transformRequest: (hookInput: { request?: { headers?: Record<string, HeaderValue> }; targetProviderConfig?: { name?: string }; upstreamRequest: UpstreamRequest }) => {
         const upstream = hookInput.upstreamRequest;
         const provider = modelRegistryForConfig(config).findProvider(hookInput.targetProviderConfig?.name);
-        if (provider?.supportsDeferredTools !== false || (upstream.bodyEncoding ?? "json") !== "json" || !isRecord(upstream.body)) {
+        if (carriesClaudeLogin(hookInput.request?.headers) || provider?.supportsDeferredTools !== false || (upstream.bodyEncoding ?? "json") !== "json" || !isRecord(upstream.body)) {
           return { ok: true, value: upstream };
         }
         const body = withoutDeferredToolFlags(upstream.body);
@@ -1162,7 +1176,10 @@ function resolveLlmrGatewayRoute(
 
   const publicModel = resolveGatewayPublicModelId(routedModel, config) ?? routedModel;
   const modelRegistry = modelRegistryForConfig(config);
-  const resolved = modelRegistry.resolve(publicModel, { protocol }) ??
+  // The registry resolves only listed models, and Claude Code's own list changes with each release.
+  const claudeLogin = claudeLoginRoutedProvider(config, requestInput.request?.headers, publicModel);
+  const resolved = (claudeLogin ? { kind: "provider" as const, ...claudeLogin } : undefined) ??
+    modelRegistry.resolve(publicModel, { protocol }) ??
     resolveProfileProviderModel(config, requestInput.request?.headers, publicModel, modelRegistry);
   if (!resolved) {
     return undefined;

@@ -1257,3 +1257,65 @@ test("#1920 a pin that names no credential of the pool is passed on for the core
     assert.equal(result.targetProviders, undefined);
   }
 });
+
+function claudeLoginConfig() {
+  const config = createDefaultAppConfig();
+  config.APIKEY = "sk-profile-key-0001";
+  config.APIKEYS = [{ createdAt: new Date(0).toISOString(), id: "profile:p1", key: "sk-profile-key-0001" }];
+  config.Providers = [
+    { api_base_url: "https://example.test", api_key: "llmr-local-agent-login", id: "claude-code-api", models: ["claude-sonnet-5"], name: "Claude Code API", supportsDeferredTools: false, type: "anthropic_messages" },
+    { api_base_url: "https://example.test/other", api_key: "sk-other-key-0001", id: "other", models: ["model", "claude-opus-4-8"], name: "Other", type: "anthropic_messages" }
+  ];
+  config.providerPlugins = [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }];
+  config.profile = {
+    enabled: true,
+    profiles: [{ agent: "claude-code", enabled: true, env: { LLMR_CLAUDE_CODE_AUTH_MODE: "claude-login" }, id: "p1", model: "", name: "p1", scope: "global" }]
+  };
+  return config;
+}
+
+test("the route resolver sends a carried request to the pass-through provider for a model outside its list", async () => {
+  const config = claudeLoginConfig();
+  const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config } } });
+  const resolver = plugin.routeResolvers.find((item) => item.key === llmrRouterRouteResolverKey);
+  const resolve = (headers) => resolver.resolve({
+    request: { headers: { [llmrRoutedModelHeader]: "Claude Code API/claude-opus-4-8", ...headers }, method: "POST", url: "/v1/messages" },
+    requestBody: { messages: [], model: "claude-opus-4-8" }
+  });
+
+  const carried = resolve({ "x-llmr-caller-authorization": "Bearer sk-ant-oat01-FAKE" });
+  assert.equal(carried.targetProviderName, providerRuntimeId(config.Providers[0]));
+  assert.equal(carried.model, "claude-opus-4-8");
+  assert.deepEqual(carried.requestBody, { messages: [], model: "claude-opus-4-8" });
+  assert.equal(resolve({}), undefined);
+});
+
+test("the public gateway carries the Claude login only for pass-through traffic", async () => {
+  const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: claudeLoginConfig(), coreAuthToken: "core-token", publicGatewayMode: true } } });
+  const send = async (request) => {
+    const headers = { authorization: "Bearer sk-ant-oat01-FAKE", "x-llmr-api-key": "sk-profile-key-0001" };
+    const result = await plugin.requestHooks[0].beforeAuth({ request: { headers, method: "POST", url: "/v1/messages?beta=true", ...request } });
+    assert.equal(result, undefined);
+    assert.equal(headers.authorization === "Bearer sk-profile-key-0001", true);
+    return headers;
+  };
+  const carriesLogin = (headers) => Object.values(headers).some((value) => String(value).includes("sk-ant-oat01"));
+
+  const carried = await send({ body: { model: "claude-opus-4-8" } });
+  assert.equal(carried["x-llmr-caller-authorization"] === "Bearer sk-ant-oat01-FAKE", true);
+  assert.equal(carriesLogin(await send({ body: { model: "Other/model" } })), false, "a model pinned to another provider");
+  assert.equal(carriesLogin(await send({ body: { model: "claude-opus-4-8" }, url: "/v1/messages/count_tokens" })), false, "count_tokens");
+  assert.equal(carriesLogin(await send({ body: undefined, method: "GET", url: "/v1/models" })), false, "a model list");
+});
+
+test("the deferred-tool hook leaves a carried request's body alone", async () => {
+  const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: claudeLoginConfig() } } });
+  const hook = plugin.providerHooks.find((item) => item.key === "llmr-deferred-tool-compatibility");
+  const upstreamRequest = { body: { tools: [{ defer_loading: true, input_schema: { type: "object" }, name: "t" }] }, bodyEncoding: "json", method: "POST", url: "https://example.test/v1/messages" };
+  const targetProviderConfig = { name: "claude-code-api" };
+
+  const carried = hook.transformRequest({ request: { headers: { "x-llmr-caller-authorization": "Bearer sk-ant-oat01-FAKE" } }, targetProviderConfig, upstreamRequest });
+  assert.equal(carried.value, upstreamRequest);
+  const plain = hook.transformRequest({ request: { headers: {} }, targetProviderConfig, upstreamRequest });
+  assert.deepEqual(plain.value.body.tools, [{ input_schema: { type: "object" }, name: "t" }]);
+});
