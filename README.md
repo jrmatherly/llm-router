@@ -174,7 +174,7 @@ Your agent is now connected to LLMR. To add conditions, retries, request rewrite
 
 ### Upgrading from 8.x
 
-LLMR no longer imports, refreshes or writes back your Claude Code login, and the Claude 5-hour, weekly and plan meters are gone. The `Claude Code API` provider now forwards the login Claude Code sends from a profile with **Sign in with my Claude login** turned on. Turn that on in each Claude Code profile that should use your Claude subscription. A default model from another provider still starts every new session on that provider, whatever you pick with `/model`. Clear **Default model** in the profile to start on Claude Code's own default. Route rules, fallbacks and other agents' profiles that name a `Claude Code API` model now fail with a message that says to sign in. Point them at another provider. Claude Code's own `/usage` still shows your limits.
+LLMR no longer imports, refreshes or writes back your Claude Code login, and the Claude 5-hour, weekly and plan meters are gone. The `Claude Code API` provider now forwards the login Claude Code sends from a profile with **Sign in with my Claude login** turned on. Turn that on in each Claude Code profile that should use your Claude subscription. A default model from another provider still starts every new session on that provider, even if an earlier session picked another model with `/model`. Clear **Default model** in the profile to start on Claude Code's own default. Route rules, fallbacks and other agents' profiles that name a `Claude Code API` model now fail with a message that says to sign in. Point them at another provider. Claude Code's own `/usage` still shows your limits.
 
 ### Upgrading to 7.2
 
