@@ -77,9 +77,16 @@ export function saveRemovedConfigCopy(stateDir: string, file: string, content: s
   return copy;
 }
 
-type BackupOptions = { isManagedContent?: (content: string) => boolean; mode?: number };
+export type BackupOptions = { contentForBackup?: (content: string) => string; isManagedContent?: (content: string) => boolean; mode?: number };
 
 export function backupCurrentFile(file: string, options: BackupOptions = {}): string {
+  if (options.contentForBackup) {
+    const content = readFileSync(file, "utf8");
+    const forBackup = options.contentForBackup(content);
+    if (forBackup !== content) {
+      return backupContent(file, forBackup, options);
+    }
+  }
   const backupFile = backupFilePath(file);
   copyFileSync(file, backupFile);
   chmodFileIfRequested(backupFile, options.mode);

@@ -51,7 +51,7 @@ import {
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { profileApiKeyId, pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
 import { cmdQuote, defaultClientModel, disabledStatus, formatError, gatewayEndpoint, gatewayNoProxyHosts, isRecord, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, stringRecord, tomlQuotedKey, tomlString, trimLeadingBlankLines, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
-import { backupBeforeWrite, backupContent, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, saveRemovedConfigCopy, writeFileAtomic } from "@llmr/core/profiles/backup-files";
+import { type BackupOptions, backupBeforeWrite, backupContent, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, saveRemovedConfigCopy, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import {
   type CodexWrittenLines,
   type CodexWrittenRecord,
@@ -436,7 +436,7 @@ function cleanupClaudeCodeToolHubSettingsFile(
   }
   const content = `${JSON.stringify({ ...settings, env }, null, 2)}\n`;
   const writeResult = options.backup
-    ? writeFileWithBackup(file, content, { isManagedContent: options.isManagedContent, mode: privateFileMode })
+    ? writeFileWithBackup(file, content, { contentForBackup: claudeCodeSettingsBackupContent, isManagedContent: options.isManagedContent, mode: privateFileMode })
     : writeGeneratedFileIfChanged(file, content, { mode: privateFileMode });
   return { changed: writeResult.changed };
 }
@@ -1122,6 +1122,7 @@ function claudeCodeManagedContent(profile: ProfileConfig): RestoreManagedContent
   const scope = claudeCodeManagedSettingsScope(profile);
   const strip = (content: string) => stripManagedClaudeCodeSettingsContent(content, scope.envKeys, scope.paths, scope.displacedEnv, scope.endpoints);
   return {
+    contentForBackup: claudeCodeSettingsBackupContent,
     isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, scope.paths),
     onReleased: () => releaseClaudeCodeSettingsState(claudeCodeProfileSettingsStateFile(profile)),
     stripManagedContent: strip,
@@ -1192,6 +1193,7 @@ function orphanedClaudeCodeManagedContent(settingsFile: string): RestoreManagedC
   const displacedEnv = Object.assign({}, ...states.map((state) => state.displacedEnv)) as Record<string, string>;
   const strip = (content: string) => stripManagedClaudeCodeSettingsContent(content, envKeys, paths, displacedEnv, endpoints);
   return {
+    contentForBackup: claudeCodeSettingsBackupContent,
     isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, paths),
     onReleased: () => stateFiles.forEach(releaseClaudeCodeSettingsState),
     stripManagedContent: strip,
@@ -2286,6 +2288,7 @@ function syncClaudeCodeManagedGatewaySettingsFile(config: AppConfig, file: strin
     return;
   }
   writeFileWithBackup(file, `${JSON.stringify(nextSettings, null, 2)}\n`, {
+    contentForBackup: claudeCodeSettingsBackupContent,
     isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content),
     mode: privateFileMode
   });
@@ -2801,7 +2804,7 @@ function writeClaudeCodeSettingsIfManagedChanged(
     chmodFileIfRequested(file, privateFileMode);
     return { changed: false };
   }
-  return writeFileWithBackup(file, `${JSON.stringify(nextSettings, null, 2)}\n`, { isManagedContent, mode: privateFileMode });
+  return writeFileWithBackup(file, `${JSON.stringify(nextSettings, null, 2)}\n`, { contentForBackup: claudeCodeSettingsBackupContent, isManagedContent, mode: privateFileMode });
 }
 
 function claudeCodeSettingsManagedFieldsChanged(
@@ -2927,6 +2930,18 @@ function claudeCodeCustomHeadersWithGatewayKey(current: string | undefined, toke
   return [...(own ? [own] : []), `${llmrApiKeyHeader}: ${token}`].join("\n");
 }
 
+function claudeCodeSettingsBackupContent(content: string): string {
+  const settings = parseJsonContent(content);
+  if (!settings || !isRecord(settings.env)) {
+    return content;
+  }
+  const env = { ...settings.env };
+  withoutClaudeCodeGatewayKeyHeader(env);
+  return env[claudeCodeCustomHeadersEnvKey] === settings.env[claudeCodeCustomHeadersEnvKey]
+    ? content
+    : `${JSON.stringify({ ...settings, env }, null, 2)}\n`;
+}
+
 function claudeCodeCustomHeadersWithoutGatewayKey(current: string): string {
   const lines = current.split(/\r?\n/);
   const own = lines.filter((line) => line.split(":")[0].trim().toLowerCase() !== llmrApiKeyHeader);
@@ -2957,7 +2972,7 @@ function isClaudeCodeWifEnvKey(key: string): boolean {
 function writeFileWithBackup(
   file: string,
   content: string,
-  options: { isManagedContent?: (content: string) => boolean; mode?: number } = {}
+  options: BackupOptions = {}
 ): { backupFile?: string; changed: boolean } {
   mkdirSync(path.dirname(file), { recursive: true });
   const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
@@ -3120,6 +3135,7 @@ type RestoreFileResult = {
 };
 
 type RestoreManagedContentMatchers = {
+  contentForBackup?: (content: string) => string;
   isManagedContent: (content: string) => boolean;
   onReleased?: () => void;
   // Set where a live file that changed since LLMR wrote it is stripped in place, and the snapshot only supplies what the apply displaced. Such a file's token never goes into a backup.
@@ -3345,6 +3361,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
           (owner
             ? claudeCodeManagedContent(owner)
             : {
+                contentForBackup: claudeCodeSettingsBackupContent,
                 isManagedContent: isManagedClaudeCodeSettingsContent,
                 stripManagedContent: stripManagedClaudeCodeSettingsContent,
                 takeoverContent: (content) => claudeCodeTakeoverContent(content, [], stripManagedClaudeCodeSettingsContent)
@@ -4002,7 +4019,7 @@ function originalSnapshotCandidate(
 function backupCurrentConfigFile(file: string, options: RestoreManagedContentMatchers & { mode?: number }): string | undefined {
   return options.stripBeforeSnapshot
     ? undefined
-    : backupCurrentFile(file, { isManagedContent: options.isManagedContent, mode: options.mode });
+    : backupCurrentFile(file, { contentForBackup: options.contentForBackup, isManagedContent: options.isManagedContent, mode: options.mode });
 }
 
 function originalBackupFilePath(file: string): string {
