@@ -2,11 +2,11 @@ import { isRestorableGlobalProfile } from "@llmr/core/contracts/app";
 import { useDraftClose } from "./unsaved-changes";
 import {
   AddProfileDraft, AddRoutingRuleDraft, AgentLogo, AnimatedIconSwap, AnimatedPopover, AnimatePresence, AppConfig, Badge, BotGatewaySavedConfig, botGatewaySavedConfigLabel, BotHandoffScanTarget, Button,
-  Card, CardContent, CardHeader, CardTitle, Check, ChevronDown, CircleAlert, claudeLoginEnabled, Copy,
+  Card, CardContent, CardHeader, CardTitle, Check, ChevronDown, CircleAlert, claudeLoginEnabled, claudeLoginModelNotice, type ClaudeLoginModelField, Copy,
   createKeyValueDraftRow,
   createRoutingRuleDraft, createRoutingRuleDraftFromRule,
   cn, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader,
-  DialogTitle, Field, GatewayProviderConfig, Info, Input, KeyValueRowsControl, LoaderCircle, motion,
+  DialogTitle, Field, GatewayProviderConfig, Info, Input, isClaudeLoginProvider, KeyValueRowsControl, LoaderCircle, motion,
   normalizeProfileScope, normalizeProfileSurface, Pencil, Plus, PopoverContent,
   profileAgentLabel, profileAgentOptions, ProfileConfig, type ProfileAgentOption, profileModelProviderOptions, profileOpenSurfaces, profileScopeLabel, profileScopeOptions, profileSummaryItems, profileSurfaceLabel, profileSurfaceOptions,
   Play, Power, RefreshCw, Search, Select, SelectControl, Settings, Terminal, Toggle, Trash2, formatAppError, useLayoutEffect, type KeyValueDraftRow, type ProfileOpenSurface, type ProfileRuntimeStatus, type ReactDragEvent, type ReactNode, type VirtualModelProfileConfig,
@@ -727,6 +727,7 @@ export function AddProfileForm({
   mode = "add",
   onChange,
   onCreateBot,
+  providerPlugins = [],
   providers,
   virtualModelProfiles = []
 }: {
@@ -737,10 +738,17 @@ export function AddProfileForm({
   mode?: "add" | "edit";
   onChange: (patch: Partial<AddProfileDraft>) => void;
   onCreateBot: () => void;
+  providerPlugins?: unknown[];
   providers: GatewayProviderConfig[];
   virtualModelProfiles?: VirtualModelProfileConfig[];
 }) {
   const [advancedOpen, setAdvancedOpen] = useState(mode === "edit");
+  const claudeLogin = draft.agent === "claude-code" && claudeLoginEnabled(draft.envRows);
+  const claudeLoginProviderMissing = !providers.some((provider) => isClaudeLoginProvider(provider, providerPlugins));
+  const claudeLoginNotice = (field: ClaudeLoginModelField) => {
+    const notice = claudeLoginModelNotice(draft, field, providers, providerPlugins, virtualModelProfiles);
+    return notice ? <p className="text-[12px] text-muted-foreground">{notice}</p> : null;
+  };
   const [appPathDragActive, setAppPathDragActive] = useState(false);
   const appPathLabel = profileAppPathLabel(draft.agent);
   const showAppPathField = draft.surface !== "cli" && Boolean(appPathLabel);
@@ -901,19 +909,33 @@ export function AddProfileForm({
               <Toggle ariaLabel="Sign in with my Claude login" checked={claudeLoginEnabled(draft.envRows)} onChange={(enabled) => onChange({ envRows: withClaudeLogin(draft.envRows, enabled) })} />
             </div>
             <p className="text-[12px] text-muted-foreground">Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code's own. The gateway key is written to the settings file of this profile.</p>
+            {claudeLogin && claudeLoginProviderMissing ? (
+              <p className="text-[12px] text-muted-foreground">No Claude Code API provider is on. Add it under Providers. Until then this profile uses your other providers.</p>
+            ) : null}
+            {claudeLogin && draft.scope !== "global" && !draft.claudeCodeSharedHome ? (
+              <p className="text-[12px] text-muted-foreground">This profile has its own Claude home and starts signed out. Run /login once inside it, or turn on Use my ~/.claude in the terminal.</p>
+            ) : null}
+            {claudeLogin && draft.availableModels.length > 0 ? (
+              <p className="text-[12px] text-muted-foreground">This profile has an allowed model list. In Claude login mode it applies to every model Claude Code uses, including a pick from its own /model list and its background model. A request for a model that is not in the list is refused. The list is under Advanced settings.</p>
+            ) : null}
           </div>
         ) : null}
         {draft.agent === "claude-code" ? (
           <>
-            <Field label="Default model" requirement="required" requirementLabel={requiredFieldLabel}>
+            <Field
+              label="Default model"
+              requirement={claudeLogin ? "optional" : "required"}
+              requirementLabel={claudeLogin ? optionalFieldLabel : requiredFieldLabel}
+            >
               <ModelSelector
-                placeholder="Select default model"
+                placeholder={claudeLogin ? "Keep Claude Code default" : "Select default model"}
                 providers={providers}
                 value={draft.model}
                 virtualModelProfiles={virtualModelProfiles}
                 onChange={(model) => onChange({ model })}
               />
               {validation.defaultModel ? <ProfileFieldHint>{validation.defaultModel}</ProfileFieldHint> : null}
+              {claudeLoginNotice("model")}
             </Field>
             <Field label="Fable model" requirement="optional" requirementLabel={optionalFieldLabel}>
               <ModelSelector
@@ -923,6 +945,7 @@ export function AddProfileForm({
                 virtualModelProfiles={virtualModelProfiles}
                 onChange={(fableModel) => onChange({ fableModel })}
               />
+              {claudeLoginNotice("fableModel")}
             </Field>
             <Field label="Opus model" requirement="optional" requirementLabel={optionalFieldLabel}>
               <ModelSelector
@@ -932,6 +955,7 @@ export function AddProfileForm({
                 virtualModelProfiles={virtualModelProfiles}
                 onChange={(opusModel) => onChange({ opusModel })}
               />
+              {claudeLoginNotice("opusModel")}
             </Field>
             <Field label="Sonnet model" requirement="optional" requirementLabel={optionalFieldLabel}>
               <ModelSelector
@@ -941,6 +965,7 @@ export function AddProfileForm({
                 virtualModelProfiles={virtualModelProfiles}
                 onChange={(sonnetModel) => onChange({ sonnetModel })}
               />
+              {claudeLoginNotice("sonnetModel")}
             </Field>
             <Field label="Haiku model" requirement="optional" requirementLabel={optionalFieldLabel}>
               <ModelSelector
@@ -950,6 +975,7 @@ export function AddProfileForm({
                 virtualModelProfiles={virtualModelProfiles}
                 onChange={(haikuModel) => onChange({ haikuModel, smallFastModel: haikuModel })}
               />
+              {claudeLoginNotice("haikuModel")}
             </Field>
           </>
         ) : draft.agent === "grok" ? (
@@ -1856,7 +1882,7 @@ function profileDraftValidation(
   if (availableModelCount === 0) {
     issues.models = "Configure at least one enabled provider model before saving an agent profile.";
   }
-  if (draft.agent === "claude-code" && !draft.model.trim()) {
+  if (draft.agent === "claude-code" && !claudeLoginEnabled(draft.envRows) && !draft.model.trim()) {
     issues.defaultModel = "Default model is required.";
   }
   if (draft.availableModels.length > 0 && !draft.model.trim()) {
@@ -2254,6 +2280,7 @@ export function AddProfileDialog({
   onChange,
   onCreateBot,
   onClose,
+  providerPlugins,
   providers,
   submitting = false,
   virtualModelProfiles = [],
@@ -2268,6 +2295,7 @@ export function AddProfileDialog({
   onChange: (patch: Partial<AddProfileDraft>) => void;
   onCreateBot: () => void;
   onClose: () => void;
+  providerPlugins?: unknown[];
   providers: GatewayProviderConfig[];
   submitting?: boolean;
   virtualModelProfiles?: VirtualModelProfileConfig[];
@@ -2293,6 +2321,7 @@ export function AddProfileDialog({
             mode={mode}
             onChange={onChange}
             onCreateBot={onCreateBot}
+            providerPlugins={providerPlugins}
             providers={providers}
             virtualModelProfiles={virtualModelProfiles}
           />

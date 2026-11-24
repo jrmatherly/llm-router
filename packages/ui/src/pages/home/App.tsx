@@ -3421,6 +3421,7 @@ function App() {
             onChange: updateProfileDraft,
             onCreateBot: openBotSettingsWithAddDialog,
             onClose: () => setProfileAddOpen(false),
+            providerPlugins: draftConfig.providerPlugins,
             providers: draftConfig.Providers,
             submitting: profileSubmitBusy === "add",
             virtualModelProfiles: draftConfig.virtualModelProfiles ?? [],
@@ -3444,6 +3445,7 @@ function App() {
               setProfileEditIndex(undefined);
               setProfileActionError("");
             },
+            providerPlugins: draftConfig.providerPlugins,
             providers: draftConfig.Providers,
             submitting: profileSubmitBusy === "edit",
             virtualModelProfiles: draftConfig.virtualModelProfiles ?? [],

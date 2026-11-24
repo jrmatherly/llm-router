@@ -45,6 +45,7 @@ import {
   primaryProviderPresetEndpoint as primaryProviderPresetEndpointFromPreset
 } from "@llmr/core/providers/presets/utils";
 import { newApiSubscriptionSelfConnectorConfig, newApiUserSelfConnectorConfig } from "@llmr/core/providers/new-api";
+import { isLocalClaudeCodeOauthProviderPlugin } from "@llmr/core/providers/oauth-plugin";
 import { normalizeProviderBaseUrl, providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
 import {
   providerPresetIconUrls,
@@ -899,6 +900,19 @@ function providerPluginEnabled(plugin: unknown): boolean {
 function normalizeProviderPluginName(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed.toLowerCase() : undefined;
+}
+
+// Core's rule in gateway/features/claude-login-pass-through.ts, which cannot go into the browser bundle.
+export function isClaudeLoginProvider(provider: GatewayProviderConfig, providerPlugins: unknown[] | undefined): boolean {
+  if (!isGatewayProviderEnabled(provider)) {
+    return false;
+  }
+  const slug = provider.id ? providerNameSlug(provider.id) : undefined;
+  const id = slug && ["openai", "anthropic", "claude", "gemini", "google"].includes(slug) ? `provider-${slug}` : slug;
+  return (providerPlugins ?? []).some((plugin) => {
+    const bound = isLocalClaudeCodeOauthProviderPlugin(plugin) ? stringValue(plugin.providerName)?.toLowerCase().replace(/::[a-z_]+$/, "") : undefined;
+    return Boolean(bound) && (bound === provider.name.toLowerCase() || bound === id);
+  });
 }
 
 export function providerNameSlug(value: string): string {

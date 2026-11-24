@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { gatewayModelSelectionMatcher, type GatewayProviderConfig, type ProfileConfig, type VirtualModelProfileConfig } from "@llmr/core/contracts/app.ts";
+import { gatewayModelSelectionMatcher, type AppConfig, type GatewayProviderConfig, type ProfileConfig, type VirtualModelProfileConfig } from "@llmr/core/contracts/app.ts";
+import { claudeLoginProviderNames } from "@llmr/core/gateway/features/claude-login-pass-through.ts";
 import { ModelMultiSelector } from "@llmr/ui/pages/home/components/model-selector.tsx";
 import { AddProfileForm, DeleteProfileDialog, ProfileOpenDialog, ProfileView } from "@llmr/ui/pages/home/components/profiles.tsx";
-import { claudeLoginEnabled, createProfileDraft, createProfileDraftFromProfile, isProfileDraftSubmittable, withClaudeLogin, normalizeUnknownProfileItem, profileAgentLogoUrl, profileConfigFromDraft, profileDraftWithDetectedAppPath, profileModelProviderOptions, profileSummaryItems } from "@llmr/ui/pages/home/shared/profiles.ts";
+import { isClaudeLoginProvider } from "@llmr/ui/pages/home/shared/providers.ts";
+import { claudeLoginEnabled, claudeLoginModelNotice, type ClaudeLoginModelField, createProfileDraft, createProfileDraftFromProfile, isProfileDraftSubmittable, withClaudeLogin, normalizeUnknownProfileItem, profileAgentLogoUrl, profileConfigFromDraft, profileDraftWithDetectedAppPath, profileModelProviderOptions, profileSummaryItems } from "@llmr/ui/pages/home/shared/profiles.ts";
 import type { AddProfileDraft } from "@llmr/ui/pages/home/shared/types.ts";
 import { appConfigFixture } from "../fixtures/index.ts";
 
@@ -940,4 +942,98 @@ test("the Claude login toggle adds and removes only its env row", () => {
   assert.equal(claudeLoginEnabled(off), false);
   assert.deepEqual(off, rows);
   assert.equal(claudeLoginEnabled([{ id: "r", key: "LLMR_CLAUDE_CODE_AUTH_MODE", value: "api-key-helper" }]), false);
+});
+
+const loginDraft = () => {
+  const draft = createProfileDraft("claude-code");
+  return { ...draft, envRows: withClaudeLogin(draft.envRows, true) };
+};
+const loginProviders: GatewayProviderConfig[] = [
+  { models: ["first-model"], name: "Fixture" },
+  { api_key: "llmr-local-agent-login", models: ["claude-sonnet-5"], name: "Claude Code API" }
+];
+const loginPlugins = [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }];
+const loginForm = (draft: AddProfileDraft, providers = loginProviders, providerPlugins: unknown[] = loginPlugins) => renderToStaticMarkup(
+  <AddProfileForm botConfigs={[]} draft={draft} error="" onChange={() => undefined} onCreateBot={() => undefined} providerPlugins={providerPlugins} providers={providers} />
+);
+
+test("a Claude login profile can be saved without a default model", () => {
+  assert.equal(isProfileDraftSubmittable(createProfileDraft("claude-code")), false);
+  assert.equal(isProfileDraftSubmittable(loginDraft()), true);
+  assert.equal(isProfileDraftSubmittable({ ...loginDraft(), availableModels: ["Fixture/first-model"] }), false);
+});
+
+test("AddProfileForm marks the default model optional while the Claude login toggle is on", () => {
+  const off = loginForm(createProfileDraft("claude-code"));
+  const on = loginForm(loginDraft());
+  const count = (html: string, text: RegExp) => (html.match(text) ?? []).length;
+  assert.equal(count(on, />Required<\/span>/g), count(off, />Required<\/span>/g) - 1);
+  assert.equal(count(on, />Optional<\/span>/g), count(off, />Optional<\/span>/g) + 1);
+  assert.equal(count(on, /Keep Claude Code default/g), count(off, /Keep Claude Code default/g) + 1);
+  assert.doesNotMatch(on, /Default model is required\./);
+  assert.match(off, /Default model is required\./);
+});
+
+test("a model from another provider gets one line per field while the Claude login toggle is on", () => {
+  const notice = (draft: AddProfileDraft, field: ClaudeLoginModelField = "model") => claudeLoginModelNotice(draft, field, loginProviders, loginPlugins);
+  const startLine = "New sessions start on this model, which goes to Fixture, not to your Claude subscription.";
+  const opusLine = "Claude Code's Opus choice goes to Fixture, not to your Claude subscription.";
+  assert.equal(notice({ ...loginDraft(), model: "Fixture/first-model" }), startLine);
+  assert.equal(notice({ ...loginDraft(), opusModel: "Fixture/first-model" }, "opusModel"), opusLine);
+  assert.equal(notice({ ...loginDraft(), haikuModel: "Fixture/first-model" }, "haikuModel"), "Claude Code's Haiku choice goes to Fixture, not to your Claude subscription.");
+  assert.equal(notice({ ...loginDraft(), model: "Claude Code API/claude-sonnet-5" }), undefined);
+  assert.equal(notice({ ...loginDraft(), model: "claude-opus-4-8" }), undefined);
+  assert.equal(notice(loginDraft(), "opusModel"), undefined);
+  assert.equal(notice({ ...createProfileDraft("claude-code"), model: "Fixture/first-model" }), undefined);
+  const html = loginForm({ ...loginDraft(), model: "Fixture/first-model", opusModel: "Fixture/first-model" });
+  assert.ok(html.includes(startLine) && html.includes("Claude Code&#x27;s Opus choice goes to Fixture"));
+  assert.doesNotMatch(loginForm({ ...loginDraft(), model: "Claude Code API/claude-sonnet-5" }), /not to your Claude subscription/);
+});
+
+test("the form says when Claude login mode has no provider and when the profile starts signed out", () => {
+  const missing = /No Claude Code API provider is on\./;
+  const signedOut = /starts signed out\. Run \/login once inside it/;
+  assert.match(loginForm(loginDraft(), [loginProviders[0]]), missing);
+  assert.match(loginForm(loginDraft(), loginProviders, []), missing);
+  assert.doesNotMatch(loginForm(loginDraft()), missing);
+  assert.doesNotMatch(loginForm(createProfileDraft("claude-code"), [loginProviders[0]]), missing);
+  assert.match(loginForm(loginDraft()), signedOut);
+  assert.doesNotMatch(loginForm({ ...loginDraft(), claudeCodeSharedHome: true }), signedOut);
+  assert.doesNotMatch(loginForm({ ...loginDraft(), scope: "global" }), signedOut);
+  assert.doesNotMatch(loginForm(createProfileDraft("claude-code")), signedOut);
+});
+
+test("the form warns that an allowed model list applies to every model Claude Code uses", () => {
+  const listLine = /it applies to every model Claude Code uses/;
+  assert.match(loginForm({ ...loginDraft(), availableModels: ["Claude Code API/claude-sonnet-5"], model: "Claude Code API/claude-sonnet-5" }), listLine);
+  assert.doesNotMatch(loginForm(loginDraft()), listLine);
+  assert.doesNotMatch(loginForm({ ...createProfileDraft("claude-code"), availableModels: ["Fixture/first-model"], model: "Fixture/first-model" }), listLine);
+});
+
+test("the profile card marks Claude login mode", () => {
+  const profile = { agent: "claude-code", enabled: true, env: { LLMR_CLAUDE_CODE_AUTH_MODE: "claude-login" }, id: "p", model: "", name: "p", scope: "llmr" } as ProfileConfig;
+  const signIn = (config: AppConfig, item = profile) => profileSummaryItems(item, config).find((entry) => entry.label === "Sign-in")?.value;
+  const config = { ...appConfigFixture(), Providers: loginProviders, providerPlugins: loginPlugins };
+  assert.equal(signIn(config), "Claude login");
+  assert.equal(signIn({ ...config, providerPlugins: [] }), "Claude login, no Claude Code API provider");
+  assert.equal(signIn(config, { ...profile, env: {} }), undefined);
+});
+
+test("the UI and core name the same provider as the pass-through one", () => {
+  const internal = { key: "llmr-local-agent-claude-code-api-claude-code-oauth-internal", providerName: "claude-code-api::anthropic_messages" };
+  const claude = (extra: Partial<GatewayProviderConfig> = {}): GatewayProviderConfig => ({ ...loginProviders[1], ...extra });
+  const cases: Array<[GatewayProviderConfig, unknown[], boolean]> = [
+    [claude({ id: "claude-code-api", type: "anthropic_messages" }), [...loginPlugins, internal], true],
+    [claude({ api_key: "sk-own-key-0001" }), loginPlugins, true],
+    [claude({ id: "claude-code-api", name: "My Claude", type: "anthropic_messages" }), [...loginPlugins, internal], true],
+    [claude({ type: "anthropic_messages" }), [internal], false],
+    [claude({ id: "claude", name: "My Claude" }), [{ ...internal, providerName: "claude::anthropic_messages" }], false],
+    [claude({ enabled: false }), loginPlugins, false],
+    [claude(), [], false],
+    [claude(), [{ key: "llmr-local-agent-codex-codex-oauth", providerName: "Claude Code API" }], false]
+  ];
+  for (const [provider, providerPlugins, expected] of cases) {
+    assert.equal(isClaudeLoginProvider(provider, providerPlugins), expected);
+    assert.equal(claudeLoginProviderNames({ Providers: [provider], providerPlugins }).includes(provider.name), expected);
+  }
 });

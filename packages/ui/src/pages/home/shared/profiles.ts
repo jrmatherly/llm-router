@@ -31,7 +31,7 @@ import {
 } from "./fallbacks";
 
 import { isPlainRecord, normalizeProviderModelSelector, stringValue, uniqueStrings } from "./common";
-import { virtualModelProfileModelNames } from "./providers";
+import { isClaudeLoginProvider, virtualModelProfileModelNames } from "./providers";
 import { normalizeRouterRules } from "./routing";
 import { createKeyValueDraftRow, keyValueRowsFromRecord, recordFromKeyValueRows, stringRecordValue, validateProfileEnvRows } from "./virtual-models";
 import { CLAUDE_CODE_AUTH_MODE_ENV, normalizeClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
@@ -670,7 +670,7 @@ export function isProfileDraftSubmittable(draft: AddProfileDraft): boolean {
     return false;
   }
   if (draft.agent === "claude-code") {
-    return Boolean(draft.model.trim());
+    return claudeLoginEnabled(draft.envRows) || Boolean(draft.model.trim());
   }
   if (draft.agent === "grok") {
     return true;
@@ -1063,6 +1063,34 @@ export function withClaudeLogin(envRows: AddProfileDraft["envRows"], enabled: bo
   return enabled ? [...others, createKeyValueDraftRow(CLAUDE_CODE_AUTH_MODE_ENV, "claude-login")] : others;
 }
 
+export type ClaudeLoginModelField = "fableModel" | "haikuModel" | "model" | "opusModel" | "sonnetModel";
+
+const claudeLoginAliasNames: Record<Exclude<ClaudeLoginModelField, "model">, string> = {
+  fableModel: "Fable",
+  haikuModel: "Haiku",
+  opusModel: "Opus",
+  sonnetModel: "Sonnet"
+};
+
+export function claudeLoginModelNotice(
+  draft: Pick<AddProfileDraft, "agent" | "envRows" | ClaudeLoginModelField>,
+  field: ClaudeLoginModelField,
+  providers: GatewayProviderConfig[],
+  providerPlugins: unknown[] = [],
+  virtualModelProfiles: VirtualModelProfileConfig[] = []
+): string | undefined {
+  if (draft.agent !== "claude-code" || !claudeLoginEnabled(draft.envRows)) {
+    return undefined;
+  }
+  const provider = parseProfileModelValue(draft[field], providers, virtualModelProfiles).provider;
+  if (!provider || providers.some((item) => item.name === provider && isClaudeLoginProvider(item, providerPlugins))) {
+    return undefined;
+  }
+  return field === "model"
+    ? `New sessions start on this model, which goes to ${provider}, not to your Claude subscription.`
+    : `Claude Code's ${claudeLoginAliasNames[field]} choice goes to ${provider}, not to your Claude subscription.`;
+}
+
 function codexCompatibleProfileEnv(env: Record<string, string>): Record<string, string> {
   const { [CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV]: _ignored, ...result } = env;
   return result;
@@ -1343,8 +1371,17 @@ export function profileSummaryItems(
         label: item.label,
         value: displayProfileModel(item.value)
       }));
+    const signInItems = normalizeClaudeCodeGatewayAuthMode(profile.env?.[CLAUDE_CODE_AUTH_MODE_ENV]) === "claude-login"
+      ? [{
+          label: "Sign-in",
+          value: config.Providers.some((provider) => isClaudeLoginProvider(provider, config.providerPlugins))
+            ? "Claude login"
+            : "Claude login, no Claude Code API provider"
+        }]
+      : [];
     return [
       { label: "Model", value: modelValue },
+      ...signInItems,
       ...allowedModelSummaryItems,
       ...aliasItems,
       ...managedCompactItems,
