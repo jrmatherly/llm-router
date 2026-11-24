@@ -66,8 +66,7 @@ Each line is a condition no row's own test covers. The test that pins it is in t
 - A reload of the key list without a restart of the gateway child. It needs a fork change (V-13).
 - A gateway that another process owns (`gatewayManagedExternally`). That process's owner runs the poll.
 - Concurrent `startGateway` calls. `GatewayService.start` has no lock (read). Task 2 keeps the poll from adding one by the two-tick rule and does not add a lock. It clears a timer before it sets one, so two overlapping starts leave one timer.
-- A key written between the moment a caller loads the config and the moment the service takes it. Task 2 reads its baseline when the service takes the config, so such a key is in the baseline and not in the child, and the poll does not see it. In the save handlers that window is the few calls between `saveApiKeysConfig` and `updateConfig` (read, not timed). The next key change or restart picks it up.
-- A second try after a reload that failed. When the poll's reload cannot load the stored config, the error is logged and kept as the reload error, and the change waits for the next key change or restart.
+- A key written between the moment a caller loads the config and the moment the service takes it. Task 2 reads its baseline when the service is given the config, so such a key is in the baseline and not in the child, and the poll does not see it. In the save handlers that window is the few calls between `saveApiKeysConfig` and `updateConfig` (read, not timed). The time the old child takes to stop is outside the window. The next key change or restart picks it up.
 - A gateway from a version without Task 2. Task 3's wait runs its full length against it on every launch that created a key, then warns.
 - An edit of a generated key that was never stored. After a load failure whose generated `local-gateway` key could not be written, the page holds a key the store does not. An edit of it is skipped as deleted elsewhere (read, not run).
 - Two entries with one id in a saved list. No caller sends them (read). The second would replace the first.
@@ -247,11 +246,13 @@ After Task 1, because the reload trusts the stored list.
 
 The gateway child gets its keys once, at spawn. When another process writes a key, for example `llmr <profile>` while the desktop app runs the gateway, the running gateway keeps the key list it started with until something restarts it, so an added key and a removed key do not take effect. After this task the process that owns the gateway reads the stored key list once a second while the gateway runs, and reloads its stored config once when the list has changed. A key added elsewhere works, and a key revoked elsewhere stops working, within a few seconds and one child restart (V-13).
 
-**How the poll tells its own write from another's.** It does not compare the stored list with the config the service holds. Callers mutate that config in place (see the comment on `holdConfig`), and a service started from a config whose keys were never stored, which is every wire test, would be reloaded onto the stored config. It compares the stored list with the stored list as it was when the service last took a config. Three rules follow.
+**How the poll tells its own write from another's.** It does not compare the stored list with the config the service holds. Callers mutate that config in place (see the comment on `holdConfig`), and a service started from a config whose keys were never stored, which is every wire test, would be reloaded onto the stored config. It compares the stored list with the stored list as it was when the service last took a config. Five rules follow.
 
-1. **Baseline.** The service reads the stored list and remembers its JSON at the moment it takes a new config: in `startGateway` right after `holdConfig`, before anything is compiled or spawned, and in `updateConfig` right after its `holdConfig`. Every key save in the owning process ends in `updateConfig` or `start` (read in `ipc.ts` and `management-server.ts`), so its own write is inside the new baseline. The baseline is not read at the end of a start. A start takes seconds, the child gets the keys of the config it was started with, and a key written during the start has to stay outside the baseline so the poll sees it once the gateway runs. A restart after a crash starts from the config the service already holds (`scheduleCoreRestart`), so it takes no new baseline, and a key written while the child was down is seen after the restart.
+1. **Baseline.** The service reads the stored list and remembers its JSON as early as it is given a new config: at the top of `startGateway`, before the old child is stopped, and in `updateConfig` before the route scripts are prepared. The first build read it after `holdConfig`. A review of PR 150 moved it, because stopping the old child takes time and a key written meanwhile was inside the baseline and not in the new child. Every key save in the owning process ends in `updateConfig` or `start` (read in `ipc.ts` and `management-server.ts`), so its own write is inside the new baseline. The baseline is not read at the end of a start. A start takes seconds, the child gets the keys of the config it was started with, and a key written during the start has to stay outside the baseline so the poll sees it once the gateway runs. A restart after a crash starts from the config the service already holds (`scheduleCoreRestart`), so it takes no new baseline, and a key written while the child was down is seen after the restart.
 2. **Two ticks.** A changed list must be seen unchanged on two ticks in a row before the poll acts. A save handler writes the key and calls `updateConfig` some milliseconds later. Without this rule a tick between the two would schedule a second restart beside the handler's own. The rule does not rule out two restarts in every order. When the poll's reload restarts first and a handler's `updateConfig` then passes a config that differs from it, the gateway restarts again (inferred, a matter of timing).
-3. **Once per change.** When the poll acts it sets the baseline to the list it acted on, whatever the reload's outcome. A reload that fails is not retried every second.
+3. **Once per change, and again after a failure.** When the poll acts it sets the baseline to the list it acted on. When that reload fails while the gateway still runs, the baseline is set to a value no stored list equals and the poll waits a minute, then reloads again. The wait covers the list whose reload failed: a list that has changed since is reloaded without it. The same failure is logged once. The poll's failure is kept apart from the error a requested reload reports to its caller, so neither is taken for the other. The first build did not try again. Reviews of PR 150 changed that, because a removed key would otherwise stay accepted until the next key change, and set the wait, because a stored config that cannot be loaded logs a line on every load.
+4. **Never onto a config that would stop the gateway.** Before the poll's reload restarts a running child, it checks that the stored config would run the gateway and has a model to serve. If not, the reload is refused and counts as a failure under rule 3. The running gateway then keeps the key list it started with, as it did before this task, until the stored config can run. Stopping the gateway in that case is the other choice, and it is the owner's to make (see "Open with the owner"). Without this a key change in another process could stop a working gateway whose held config differs from the stored one, and that stop was counted as a success (found in the review of PR 150).
+5. **A read that fails.** A failed read of the stored list is logged once per run of failures. At a baseline it keeps the older baseline, so a change is reloaded later and not taken as applied.
 
 The reload is the existing `reloadPersistedRuntimeConfig`, which loads the stored config and restarts when `runtimeGatewayConfigSignature` differs. That signature includes `APIKEYS`. `loadAppConfig` does not throw when the stored config cannot be loaded. It returns the default config, marked so that `appConfigLoadError` reports the failure. Today the revision comparison keeps that default config away from a running gateway. The poll passes no revision, so the reload itself must refuse a config that carries a load error.
 
@@ -388,8 +389,8 @@ Expected: FAIL with `service.rememberStoredApiKeys is not a function`.
   - `reloadPersistedRuntimeConfig`: right after `loadAppConfig()`, throw an `Error` that carries `appConfigLoadError(nextConfig)` when it is set. The existing `catch` records and logs it, and nothing is started. Then skip the revision comparison when `expectedRevision` is `undefined`. Its two other callers pass a string. For them a fallback config already failed the revision comparison, so only the recorded message changes.
 
 - [ ] **Step 4: Wire the timer and the baseline.**
-  - `startGateway`: right after `this.holdConfig(config)`, `if (recoveryGeneration === undefined) await this.rememberStoredApiKeys();`. Where it sets `state: "running"` near its end, `clearInterval(this.storedApiKeysTimer)` and then start `storedApiKeysTimer = setInterval(() => { void this.checkStoredApiKeys(); }, storedApiKeysPollMs)` with `.unref()`.
-  - `updateConfig`: after the `this.holdConfig(config)` on its non-restart path, `await this.rememberStoredApiKeys()`. The restart path goes through `startGateway`.
+  - `startGateway`: right before `await this.stopGateway({ nextConfig: config })`, `if (recoveryGeneration === undefined) await this.rememberStoredApiKeys();`. Where it sets `state: "running"` near its end, `clearInterval(this.storedApiKeysTimer)` and then start `storedApiKeysTimer = setInterval(() => { void this.checkStoredApiKeys(); }, storedApiKeysPollMs)` with `.unref()`.
+  - `updateConfig`: on its non-restart path, before `routeScriptRuntime.prepare`, `await this.rememberStoredApiKeys()`. The restart path goes through `startGateway`.
   - `stopGateway`: clear the timer first and set the field to `undefined`. It leaves the baseline alone, so the recovery path keeps it.
   - `markExternalGatewayRunning` needs nothing. `checkStoredApiKeys` returns for a gateway another process owns.
 
@@ -416,7 +417,7 @@ for (const layout of ["single", "compat"]) {
     const firstPid = gateway.service.getStatus().pid;
     await updatePersistedApiKeys(() => [{ createdAt: "2026-01-01T00:00:00.000Z", id: "added", key: "sk-added-key-0004" }]);
     const deadline = Date.now() + 30000;
-    while (Date.now() < deadline && !(await status("sk-added-key-0004") === 200 && await status("sk-good-key-0001") === 401)) {
+    while (Date.now() < deadline && !(gateway.service.getStatus().state === "running" && await status("sk-added-key-0004") === 200 && await status("sk-good-key-0001") === 401)) {
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     assert.equal(await status("sk-added-key-0004"), 200);
@@ -430,17 +431,17 @@ for (const layout of ["single", "compat"]) {
 }
 ```
 
-  The last four lines are Review Focus 4 on the wire: one restart per change, and none after it. Note the time between the write and the first 200 in the PR description. Task 3's wait is checked against it.
+  The last four lines are Review Focus 4 on the wire: one restart per change, and none after it. The loop also waits for the state `running`. In the compat layout LLM Router's own front answers from the stored keys while the child is still restarting, so without that condition the pid is read in the middle of the restart (run by the builder: the case failed there). Note the time between the write and the first 200 in the PR description. Task 3's wait is checked against it. Measured on the build of 2026-11-24: 2328 ms in the single layout and 1792 ms in the compat layout, where that time is the front accepting the key and not the end of the restart.
 
 - [ ] **Step 7: Run the wire file with the real gateway entry.**
 
 Run: `node build/test.mjs core && LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" node --test .test-dist/core/test/integration/gateway/gateway-child-env-wire.test.js`. That is the value `.github/workflows/test.yml` sets. Without it every case of the file is skipped.
-Expected: every case passes in both layouts, 0 fail, 0 skipped. To see the new case fail first, run it with Step 4 reverted: each layout then keeps answering from the key list it started with.
+Expected: every case passes in both layouts, 0 fail, 0 skipped. To see the new case fail first, run it with Step 4 reverted. Run by the builder: the single layout then keeps refusing the added key, and the compat layout accepts the added key at once and keeps accepting the revoked one.
 
 - [ ] **Step 8: Run the gates.**
 
 Run: `npm run typecheck && npm run lint && npm run test:architecture && npm run test:core`
-Expected: all pass. `npm run test:core` matters here beyond the new files. Any core test that starts a real gateway for more than two seconds and writes a key without giving the service a new config would now be reloaded onto the stored config. A `loadAppConfig` call on an empty store is such a write, and the wire file had one until Step 6 stored its keys first. The other core tests that start a real gateway were not searched for it. If one fails, stop and report it before changing the test.
+Expected: all pass. `npm run test:core` matters here beyond the new files. Any core test that starts a real gateway for more than two seconds and writes a key without giving the service a new config would now be reloaded onto the stored config. A `loadAppConfig` call on an empty store is such a write, and the wire file had one until Step 6 stored its keys first. The other core tests that start a real gateway were not searched for it, and the whole core suite then ran with `LLMR_TEST_GATEWAY_ENTRY` set and passed (2074 pass, 0 fail, 2026-11-24). If one fails, stop and report it before changing the test.
 
 - [ ] **Step 9: Commit.** Subject: `fix(gateway): reload when another process changes the stored API keys`
 
@@ -533,6 +534,15 @@ Expected: all pass.
 ---
 
 ## Open with the owner
+
+**What should the gateway do when its keys changed in the store and the stored config would not run it? (Task 2, rule 4)**
+
+This happens only when the running gateway was started from a config that differs from the stored one.
+
+- (a) Keep running on the key list it started with, log the failure once and try again each minute. Task 2 is built this way. A key removed elsewhere stays accepted by this gateway until the stored config can run or the gateway is restarted, which is what happened before Task 2 in every case.
+- (b) Stop the gateway. No removed key stays accepted. A key change in another process then takes a working gateway down.
+
+Recommendation: (a). The two automated reviews of PR 150 disagreed on this: the error-handling review rated the stop as the more serious fault, and the commit security review asked for the stop.
 
 **What should a profile launch do when the gateway still refuses the profile's own key after the wait? (K-3, Task 3)**
 

@@ -6,7 +6,8 @@ import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { ApiKeyConfig, AppConfig, GatewayStatus, RouteScriptTestRequest, RouteScriptTestResult, RouteScriptValidationRequest, RouteScriptValidationResult, RouterRule } from "@llmr/core/contracts/app";
 import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, hasAvailableGatewayModels } from "@llmr/core/contracts/app";
-import { loadAppConfig } from "@llmr/core/config/config";
+import { appConfigLoadError, loadAppConfig } from "@llmr/core/config/config";
+import { loadPersistedApiKeys } from "@llmr/core/config/config-repository";
 import { backendService } from "@llmr/core/plugins/backend-service";
 import { getSystemProxyUrlForProtocol } from "@llmr/core/proxy/system-proxy-fetch";
 import { pluginService } from "@llmr/core/plugins/service";
@@ -47,6 +48,10 @@ import { setExternalLiveTokenRateSnapshot } from "@llmr/core/observability/strea
 installSocketTypeOfServiceCompat();
 
 const coreGatewayLiveTokenRateSourceId = "core-gateway";
+const storedApiKeysPollMs = 1000;
+const storedApiKeysRetryMs = 60_000;
+// Never equal to a stored list's JSON, so the poll reloads again.
+const unappliedStoredApiKeys = "";
 let warnedMalformedRefusedKeyMessage = false;
 
 type RouteScriptTestHeaders = Record<string, string | string[] | undefined>;
@@ -149,6 +154,13 @@ class GatewayService {
     networkEndpoints: [],
     state: "stopped"
   };
+  private storedApiKeysActedOn?: string;
+  private storedApiKeysBaseline?: string;
+  private storedApiKeysPending?: string;
+  private storedApiKeysReadFailed = false;
+  private storedApiKeysReloadFailure?: string;
+  private storedApiKeysRetryAt = 0;
+  private storedApiKeysTimer?: NodeJS.Timeout;
 
   setBrowserWebSearchMcpIntegration(integration: BrowserWebSearchMcpIntegration): void {
     this.browserWebSearchMcpIntegration = integration;
@@ -174,6 +186,8 @@ class GatewayService {
       };
       return this.getStatus();
     }
+    // Read before the old child stops: a key written from here on stays outside the baseline, so the poll sees it once the gateway runs.
+    if (recoveryGeneration === undefined) await this.rememberStoredApiKeys();
     await this.stopGateway({ nextConfig: config });
     if (recoveryGeneration !== undefined && recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
     this.holdConfig(config);
@@ -306,6 +320,8 @@ class GatewayService {
         pid: this.child?.pid,
         state: "running"
       };
+      clearInterval(this.storedApiKeysTimer);
+      this.storedApiKeysTimer = setInterval(() => { void this.checkStoredApiKeys(); }, storedApiKeysPollMs).unref();
       this.runtimeConfigReloadError = undefined;
       return this.getStatus();
     } catch (error) {
@@ -395,6 +411,8 @@ class GatewayService {
   }
 
   private async stopGateway(options: GatewayStopOptions = {}): Promise<GatewayStatus> {
+    clearInterval(this.storedApiKeysTimer);
+    this.storedApiKeysTimer = undefined;
     const child = this.child;
     const childCoreEndpoint = child ? this.status.coreEndpoint : "";
     this.child = undefined;
@@ -474,6 +492,7 @@ class GatewayService {
       return;
     }
 
+    await this.rememberStoredApiKeys();
     const scriptValidationErrors = await this.routeScriptRuntime.prepare(config.Router.rules);
     const nextPlugin = new LLMRouterPlugin(config, {
       scriptRuntime: this.routeScriptRuntime,
@@ -709,20 +728,68 @@ class GatewayService {
     }
   }
 
-  private schedulePersistedRuntimeConfigReload(expectedRevision: string, forceRestart: boolean): void {
-    this.runtimeConfigReloadError = undefined;
+  private async readStoredApiKeys(): Promise<string | undefined> {
+    try {
+      const stored = JSON.stringify(await loadPersistedApiKeys());
+      this.storedApiKeysReadFailed = false;
+      return stored;
+    } catch (error) {
+      if (!this.storedApiKeysReadFailed) console.warn(`[gateway] Failed to read the stored API keys: ${formatError(error)}`);
+      this.storedApiKeysReadFailed = true;
+      return undefined;
+    }
+  }
+
+  private async rememberStoredApiKeys(): Promise<void> {
+    this.storedApiKeysPending = undefined;
+    this.storedApiKeysRetryAt = 0;
+    // A failed read keeps the older baseline, so a change is reloaded later and not taken as applied.
+    this.storedApiKeysBaseline = await this.readStoredApiKeys() ?? this.storedApiKeysBaseline;
+  }
+
+  // Compared with the stored list as of the last config taken, not with the held config, which callers mutate and which may hold keys never stored.
+  private async checkStoredApiKeys(): Promise<void> {
+    if (this.status.state !== "running" || this.status.gatewayManagedExternally || !(this.child || this.server)) return;
+    const seen = await this.readStoredApiKeys();
+    if (seen === undefined) return;
+    // The wait after a failed reload covers the list that failed. A list that has changed since is reloaded without it.
+    if (Date.now() < this.storedApiKeysRetryAt && seen === this.storedApiKeysActedOn) return;
+    if (this.storedApiKeysBaseline === undefined) {
+      this.storedApiKeysBaseline = seen;
+    } else if (seen === this.storedApiKeysBaseline) {
+      this.storedApiKeysPending = undefined;
+    } else if (seen !== this.storedApiKeysPending) {
+      // A save handler writes keys and then calls updateConfig; waiting for a second tick keeps a tick between the two from restarting twice.
+      this.storedApiKeysPending = seen;
+    } else {
+      this.storedApiKeysActedOn = seen;
+      this.storedApiKeysBaseline = seen;
+      this.storedApiKeysPending = undefined;
+      this.schedulePersistedRuntimeConfigReload(undefined, false);
+    }
+  }
+
+  private schedulePersistedRuntimeConfigReload(expectedRevision: string | undefined, forceRestart: boolean): void {
+    if (expectedRevision !== undefined) this.runtimeConfigReloadError = undefined;
     this.runtimeConfigReloadQueue = this.runtimeConfigReloadQueue.then(
       () => this.reloadPersistedRuntimeConfig(expectedRevision, forceRestart),
       () => this.reloadPersistedRuntimeConfig(expectedRevision, forceRestart)
     );
   }
 
-  private async reloadPersistedRuntimeConfig(expectedRevision: string, forceRestart: boolean): Promise<void> {
+  // With no revision the reload is the key poll's own, and it keeps its failures apart from the ones a requested reload reports to its caller.
+  private async reloadPersistedRuntimeConfig(expectedRevision: string | undefined, forceRestart: boolean): Promise<void> {
+    const keyPoll = expectedRevision === undefined;
     try {
       const nextConfig = await loadAppConfig();
+      const loadError = appConfigLoadError(nextConfig);
+      if (loadError) throw new Error(loadError);
       const actualRevision = gatewayRuntimeConfigRevision(nextConfig);
-      if (actualRevision !== expectedRevision) {
+      if (!keyPoll && actualRevision !== expectedRevision) {
         throw new Error(`Persisted configuration revision ${actualRevision || "(missing)"} does not match the requested revision ${expectedRevision}.`);
+      }
+      if (keyPoll && this.child && !(shouldRunGatewayRuntime(nextConfig) && hasAvailableGatewayModels(nextConfig))) {
+        throw new Error("The stored configuration would not run the gateway, so the running gateway keeps the API keys it started with.");
       }
       const restartRequired = forceRestart || !this.config ||
         this.runtimeConfigSignature !== runtimeGatewayConfigSignature(nextConfig);
@@ -734,10 +801,23 @@ class GatewayService {
       } else {
         await this.updateConfig(nextConfig);
       }
-      this.runtimeConfigReloadError = undefined;
+      if (keyPoll) {
+        this.storedApiKeysReloadFailure = undefined;
+      } else {
+        this.runtimeConfigReloadError = undefined;
+      }
     } catch (error) {
-      this.runtimeConfigReloadError = formatError(error);
-      console.error(`[gateway] Failed to reload persisted runtime configuration: ${this.runtimeConfigReloadError}`);
+      const message = formatError(error);
+      if (!keyPoll) {
+        this.runtimeConfigReloadError = message;
+        console.error(`[gateway] Failed to reload persisted runtime configuration: ${message}`);
+        return;
+      }
+      // While the gateway still runs, the reload is tried again a minute later, and the same failure is logged once.
+      this.storedApiKeysBaseline = unappliedStoredApiKeys;
+      this.storedApiKeysRetryAt = Date.now() + storedApiKeysRetryMs;
+      if (message !== this.storedApiKeysReloadFailure) console.error(`[gateway] Failed to reload after a stored API key change: ${message}`);
+      this.storedApiKeysReloadFailure = message;
     }
   }
 
