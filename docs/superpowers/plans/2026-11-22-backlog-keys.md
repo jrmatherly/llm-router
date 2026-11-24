@@ -1,6 +1,6 @@
 # Backlog: API Keys and Gateway Reload Implementation Plan
 
-> **Status, 2026-11-24: corrected and audited again, waiting for the owner's approval to build.** A second-model audit of 2026-11-22 found 3 Blockers and 6 Corrections. Each was read again in the code at `main` `81773a5d` and held, and the tasks below carry the corrections. A second audit of the corrected text on 2026-11-24 found no Blocker and 5 Corrections, 4 of them in test text, and those are applied too. The text changed by that last round was not audited a third time. The audits live outside the repo. Tasks 1 and 2 merged on 2026-11-24 (PRs 149 and 150). Task 4 merged the same day (PR 151, `c53eb517`), with a second test that covers the Claude App open. Task 3 is the one task left. Task 4 and the second-round notes under "Open with the owner" were added the same day and audited once. Task 3 was rewritten the same day for the owner's answer (b), after a pass on his VM, and that text has its own audit.
+> **Status, 2026-11-24: corrected and audited again, waiting for the owner's approval to build.** A second-model audit of 2026-11-22 found 3 Blockers and 6 Corrections. Each was read again in the code at `main` `81773a5d` and held, and the tasks below carry the corrections. A second audit of the corrected text on 2026-11-24 found no Blocker and 5 Corrections, 4 of them in test text, and those are applied too. The text changed by that last round was not audited a third time. The audits live outside the repo. Tasks 1 and 2 merged on 2026-11-24 (PRs 149 and 150). Task 4 merged the same day (PR 151, `c53eb517`), with a second test that covers the Claude App open. Task 3 merged the same day (PR 153, `4b43ca2d`), so every task of this plan is merged and none is released. Task 4 and the second-round notes under "Open with the owner" were added the same day and audited once. Task 3 was rewritten the same day for the owner's answer (b), after a pass on his VM, and that text has its own audit.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -448,6 +448,15 @@ Expected: all pass. `npm run test:core` matters here beyond the new files. Any c
 ---
 
 ### Task 3: Wait for the profile's own key, and refuse the launch if the gateway still does not take it (K-3)
+
+**Merged, 2026-11-24: PR 153, `4b43ca2d`, with four changes its review added to the text below.**
+
+- **The refusal is built from the last probe of the wait.** Step 3 point 3 always builds it as `unauthorized`. A gateway that went away and did not come back is now reported as not reachable (pinned by a test). It is still a plain `Error`, so the owner's answer (b) holds: no service is started. The review argued for `ProfileGatewayUnavailableError` there, which would let a Grok, Kimi or Pi launch start its own service. Not done, and the owner's to change.
+- **The waiting line is printed with `console.warn`, not `console.info`.** It goes to stderr, so it stays out of output a script reads from the agent.
+- **`ensureGatewayConfigRunning` returns the config.** The one-field result type is gone.
+- **Three more tests.** The wait running out after one poll, a gateway gone at the end, and the gateway found on the port after a failed start.
+
+Found by the review and older than this task, with no task: with the global profile switch off a profile has no key of its own, and the launch runs on the first stored key with no refusal (read, not run).
 
 Rewritten on 2026-11-24 for the owner's answer (b), after the VM pass of that day. It first fell back to another key with a warning. Build it after Task 4, which removes the one case the wait cannot fix.
 
