@@ -4,19 +4,20 @@
 
 **Goal:** A person who turns on "Sign in with my Claude login" gets a form, a provider dialog, model pickers, a saved config and an upgrade note that all say what PR 146 does, before that change is released.
 
-**Architecture:** Two PRs. PR 1 is one branch with six tasks and one commit each. Task 1 is core. The owner answered question 1 with (a) on 2026-11-24, so it is built. Tasks 2, 3 and 5 are UI. Task 4 is core. Task 6 is docs. PR 2 is Task 7 alone and changes how a Claude Code settings backup is written. Core's probe result, the contract types and the request path are not touched.
+**Architecture:** Three PRs. PR 1 is one branch with six tasks and one commit each. Task 1 is core. The owner answered question 1 with (a) on 2026-11-24, so it is built. Tasks 2, 3 and 5 are UI. Task 4 is core. Task 6 is docs. PR 2 is Task 7 alone and changes how a Claude Code settings backup is written. PR 3 is one branch with Tasks 8, 9 and 10 and one commit each. It was added on 2026-11-24, after the release of 9.0.0 and a pass on a disposable VM, and it is UI and docs only. Core's probe result, the contract types and the request path are not touched.
 
 **Tech Stack:** TypeScript, React, `node:test` with `node:assert/strict`, `renderToStaticMarkup`, Playwright for the `tests/e2e/` specs.
 
 **Spec:** [`docs/superpowers/research/2026-11-23-pass-through-follow-ups.md`](../research/2026-11-23-pass-through-follow-ups.md). Finding ids F-1 to F-18 and decision ids FU-1 to FU-13 come from it. Read its Decisions table and the finding a task names before you start the task. The design those findings sit on is [`docs/superpowers/specs/2026-11-22-claude-code-login-pass-through.md`](../specs/2026-11-22-claude-code-login-pass-through.md).
 
-**Evidence status.** Written from reading at `main` `e789f962`, then audited, reviewed twice at `61bf9eae` (a builder dry-run and a design review), revised, and audited a second time. The record's "How this was checked" defines the labels. The **ran** labels mark runs on today's code or against a stand-in for code that does not exist yet. Every result that a "watch it fail" step expects was seen in one of those runs, unless the step says it is inferred. Everything else is read or inferred and says so. No fix here was built.
+**Evidence status.** Written from reading at `main` `e789f962`, then audited, reviewed twice at `61bf9eae` (a builder dry-run and a design review), revised, and audited a second time. The record's "How this was checked" defines the labels. The **ran** labels mark runs on today's code or against a stand-in for code that does not exist yet. Every result that a "watch it fail" step expects was seen in one of those runs, unless the step says it is inferred. Everything else is read or inferred and says so. No fix here was built. PR 3 was written later, at `013ebc2e`, and its own evidence paragraph says how.
 
 ## Decisions this plan rests on
 
 - **PT-1 to PT-11.** From the pass-through spec. PT-1 to PT-8 are the owner's and settled. Nothing here contradicts one. PT-2 (the mode is chosen per profile, nothing switches it on, and Claude Code shows its own model list), PT-5 (no body rewrite) and PT-11 (a bare model id goes to the pass-through provider) are the ones these tasks lean on.
 - **FU-1 to FU-13.** Recommended by the sessions, 2026-11-23. On 2026-11-24 the owner answered questions 1, 7 and 8 and gave the word to revise this plan and start PR 1. The session reads that as approval of the FU decisions PR 1 builds. FU-7 and question 9 concern PR 2 and the release and are still his to confirm. FU-1, FU-9 and FU-11 are Task 2. FU-10 is Tasks 3 and 4. FU-5 is Task 5. FU-2, FU-6 and FU-12 are Task 6. FU-3 is Task 1, and FU-3 and FU-4 together are question 1. FU-7 is Task 7. FU-8 is the split into two PRs. FU-13 is "Release order".
 - **Plan author, changeable in review.** The wording of every line of UI copy and doc text below, the names of the new helpers, and the choice to leave the provider dialog's step marker and the pane label "Models detected from this provider" as they are. Five of the new texts call the provider `Claude Code API`, the name the import gives it. Core still finds the provider after a rename, through its id, so after a rename those texts name a provider that is not in the list.
+- **Plan author for PR 3, changeable in review.** Four choices. Task 9 skips the automatic probe for edit drafts only and leaves the Add flow of a hand-typed placeholder as it is. Task 9 also changes two sentences of the dialog, which the question did not ask for, because they would be untrue with no probe result. Task 10 blocks Refresh and Check with a message and does not run them without the login. Task 8 gives an App-only profile the hint "The App entry uses the toggle below." and adds a link sentence to the System default hint for Claude Code only. The wording of every new text is the plan author's.
 
 ## Global Constraints
 
@@ -30,7 +31,7 @@
 - One end-to-end spec: `npm run build:assets && npx playwright test tests/e2e/<file>`, after `npm run test:e2e:install` once per install. The build can rewrite generated files, so finish with `git checkout -- packages/core/models.json packages/ui/src/generated`.
 - The wire tests skip unless `LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js"` is set. Every `npm run test:core` in this plan starts with it.
 - **Every commit leaves `npm run typecheck`, `npm run lint`, `npm run test:architecture` and the suites its task touches green.** `tsc` reports unused locals and parameters, so a task that removes the last use of an import removes the import.
-- Read a file with Read before you change it, so its path-scoped rule under `.claude/rules/` loads. `ui.md` applies to Tasks 2, 3 and 5.
+- Read a file with Read before you change it, so its path-scoped rule under `.claude/rules/` loads. `ui.md` applies to Tasks 2, 3, 5, 8, 9 and 10.
 - `node build/test.mjs <pkg>` bundles every test file of the package in one esbuild run. An import of a name that is not exported fails that build, and no test of the package runs (ran (audit), ran (review)). So a new export is added as a stub before the test that imports it is run, and each test step names what joins the test file's existing import line.
 - No test, script or doc names a real provider host as a target or holds a real key or login. Test values are made-up strings such as `Bearer sk-ant-oat01-FAKE` and `llmr-rotated-key-0002`.
 - Neither a key nor a login may appear in a log line, an error message or a test's failure output. A test that could print one on failure asserts a boolean or a count.
@@ -49,6 +50,9 @@ Each line is a condition no single task's own test covers alone. The test that p
 5. A Claude Code profile in Claude login mode still sees the pass-through provider's models, and a provider with the placeholder key and no Claude plugin entry is not hidden from anyone. Task 3, Step 1, the first test, and Task 4, Step 1, the third assertion.
 6. A Codex local-login provider keeps its heading, its connection check and its model refresh. Task 5, Step 1, the control test.
 7. A backup of a Claude-login settings file keeps the user's own custom header lines. Task 7, Step 2, the custom-headers test.
+8. An add draft keeps its automatic probe, whether it came from an import or was typed by hand. No test pins it. Task 9's condition names `providerEditIndex`, and Task 9, Step 4 says to read it.
+9. A saved provider with a key of its own is still probed when its edit dialog opens. Task 9, Step 1, the control.
+10. A provider being added is never blocked on Refresh or Check. Task 10, Step 1, the seventh and eighth assertions.
 
 ## Findings this plan closes
 
@@ -62,7 +66,10 @@ Each line is a condition no single task's own test covers alone. The test that p
 | F-4, F-18 | 6 |
 | F-5 | 6 for the sentence, 7 for the change |
 | F-7 | Not closed. Probe P8 and Gate B check G3 observe it. A failure is a new finding with no task here |
-| F-6, F-8, F-9 for other providers, F-10 | None. See "Not in this plan" and "Open with the owner" |
+| F-8, a linked `settings.json` | 8, as text in the form and the docs. Question 4 |
+| F-9 for other local-login providers | 9 for the automatic probe in the edit dialog, 10 for the saved login on Refresh and Check. Question 5 |
+| VP-1 of the VM pass of 2026-11-24, the scope hint on an App-only profile | 8 |
+| F-6, F-10 | None. See "Not in this plan" and "Open with the owner" |
 
 ## Conflicts with other plans
 
@@ -76,7 +83,7 @@ Each line is a condition no single task's own test covers alone. The test that p
 
 - **F-6, the empty `env` after a restore.** The backlog restore plan's Task 3 owns it.
 - **F-10, the account connector of a provider saved by an earlier version.** FU-4. The owner answered question 1 with (a), which leaves the connector as it is.
-- **F-9 for Codex, Grok and the other local-login providers.** Question 5.
+- **F-9 in the Add flow.** A provider added by hand with the placeholder typed as its key is still probed with it, and is still shown as an imported login. Tasks 9 and 10 cover the edit dialog. Question 5.
 - **A neutral probe state in the contract types.** Weighed under F-3 and not chosen.
 - **The Routing page.** It still offers the pass-through provider as a rule target and as a fallback (`routing.tsx:74-79`, `:690-695`, read (review)). A rule that sends another caller there gets the "no login" refusal. The spec defers a warning, and the README note of Task 6 says what happens. It is a known limit of this release.
 - **A bare saved model on the profile card.** The card shows a bare id as `<first provider that lists it>/<id>` (`shared/profiles.ts:124-126`, read), and core sends a bare id from a Claude-login profile to the subscription. The picker saves `Provider/model`, so a bare id is rare.
@@ -740,6 +747,330 @@ node build/test.mjs core && node --test --test-name-pattern="backupCurrentFile w
 
 ---
 
+## PR 3: what the VM pass of 2026-11-24 settled
+
+Branch `fix/vm-pass-follow-ups` from `main`. Three tasks, one commit each. All three are UI and docs. Core is not touched.
+
+**Evidence status of this section.** Written at `main` `013ebc2e` from reading and from the VM pass of 2026-11-24, which ran the released 9.0.0 app on a disposable VM. Nothing here was built or run by the session that wrote it, so every "watch it fail" result below is read from today's code or marked inferred. The VM had no real local login, so every credential it saw was the placeholder key.
+
+**What the code showed that the questions did not expect.** Each is followed below.
+
+- With no probe result, the dialog of a local-login provider does not read as it does today. Today the placeholder probe marks protocols supported on a 401, so the first status row reads "Compatible API protocols were found automatically" (VM pass, 2026-11-24). With no result that row reads "Choose a provider endpoint so LLMR can detect compatible protocols." and the model pane reads "This provider did not return a model list." (read, `components/providers.tsx:1769-1775`, `:4131`). Neither is true for a provider that was not asked. Task 9 changes both sentences.
+- The effect runs again when a Refresh result changes the draft's protocol or address. If the new condition sat in the branch that clears the probe state, it would wipe the result Refresh had just shown (read, `App.tsx:1499-1505`, `:1650-1658`, `:1577`). Task 9 adds its own branch, which keeps the result, as the manual-detection branch does (`:1443-1448`).
+- An edit draft never carries plugins. `createProviderDraftFromProvider` starts it with an empty list (`shared/providers.ts:798`), and the import panel renders nothing outside add mode (`components/providers.tsx:1410`). Both read. So Task 9's condition needs no clause about plugins.
+- The provider the VM pass used was typed by hand and has no plugin entry. Task 10 guards the saved login, which is a plugin entry. So Refresh and Check on such a provider still send the placeholder key to the address in the draft after Task 10. The placeholder is a fixed string in the source and is no login.
+- A profile's settings file is chosen by its scope alone (`resolveClaudeCodeSettingsFile`, `profiles/service.ts:1042-1047`, read). The entry mode is not read there. So an App-only profile with **System default** still rewrites `~/.claude/settings.json` (inferred, not run). No task changes that.
+
+### Task 8: The profile form and the docs say where the gateway key goes for a linked settings file, and the scope hint fits an App-only profile (question 4 answers (d) and (f), VM finding VP-1)
+
+Text only. No behaviour changes.
+
+A person whose `settings.json` is a link reads, in the form and in the docs, that the key goes into the file the link points to. An App-only Claude Code profile no longer reads about a CLI entry it does not have.
+
+**Evidence.** VM pass, 2026-11-24. With `~/.claude/settings.json` a link, starting LLM Router wrote its key-mode settings into the link's target and kept the link. Turning Claude login mode on wrote the profile's key into the link's target and kept the link. Turning it off removed the line. No backup beside the link held the key. With Agent Claude Code and Entry mode `App only`, the line under Effect scope read "Applies to the CLI entry. The App entry uses the toggle below."
+
+**Files:**
+- Modify: `packages/ui/src/pages/home/components/profiles.tsx` (the scope hint `:863-865`, the System default hint `:866-870`, the toggle's help text `:920`)
+- Modify: `docs/src/content/docs/en/configuration/profiles.md` (the second paragraph of "Claude login mode", `:61`)
+- Test: `packages/ui/test/component/profiles.test.tsx` (the tests at `:77`, `:844` and `:904`)
+
+**Interfaces:**
+- Changes, the toggle's help text (`:920`). Its last sentence becomes `The gateway key is written to the settings file of this profile, or to the file it links to.` The two sentences before it stay.
+- Changes, the scope hint (`:863-865`). `draft.surface` is `"auto"` (CLI & APP), `"cli"` or `"app"` (`shared/options.ts:142-146`, read). Today the hint shows for `"auto"` and `"app"`. It becomes two cases under `draft.agent === "claude-code"`. For `draft.surface === "auto"` the text stays `Applies to the CLI entry. The App entry uses the toggle below.` For `draft.surface === "app"` the text is `The App entry uses the toggle below.` The toggle it names is "Route Claude App launched outside LLMR through LLMR", which the form shows for both values (`:893-901`, read). For `"cli"` there is no hint, as today.
+- Changes, the System default hint (`:866-870`). For `draft.agent === "claude-code"` the paragraph gains one sentence at its end, after "Restore original settings.": ` If that file is a link, LLMR writes to the file it links to and keeps the link.` The Codex text is not changed, because no run looked at a linked `config.toml`. The sentence is added at the end so that the existing assertions on the paragraph's start still match (`profiles.test.tsx:91`, `tests/e2e/onboarding-chosen-agent.spec.ts:53`, read).
+- Changes, `profiles.md`. After the sentence "The gateway key sits in that file in plain text." add: `If your settings.json is a link, as in a dotfiles setup, a **System default** profile writes the key into the file the link points to and keeps the link. A profile with **Only opened from LLMR** has its own settings file and does not touch yours.` Put `settings.json` in code font.
+- Not changed: `docs/src/content/docs/en/configuration/agents/claude-code.md:42`, which describes the option for a profile with both entries. No core file. What the write does to a link.
+
+- [ ] **Step 1: Change the three tests** in `profiles.test.tsx`. No import changes.
+  - In `AddProfileForm offers the Claude login toggle on a Claude Code profile that can open in the terminal` (`:904`), the constant `help` becomes:
+
+```ts
+const help = "Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code&#x27;s own. The gateway key is written to the settings file of this profile, or to the file it links to.";
+```
+
+  - In `Claude Code App profiles expose the direct-launch takeover toggle next to Entry mode` (`:844`), replace the line `assert.match(html, /Applies to the CLI entry/);` with:
+
+```ts
+assert.doesNotMatch(html, /Applies to the CLI entry/);
+assert.match(html, />The App entry uses the toggle below\.</);
+assert.match(renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "auto" }), />Applies to the CLI entry\. The App entry uses the toggle below\.</);
+assert.doesNotMatch(renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "cli" }), /The App entry uses the toggle below/);
+```
+
+  - In `AddProfileForm names the file a system-default profile rewrites, and says nothing for an LLMR-only one` (`:77`), add after its three assertions:
+
+```ts
+const linkLine = /Restore original settings\. If that file is a link, LLMR writes to the file it links to and keeps the link\./;
+assert.match(render({ ...createProfileDraft("claude-code"), scope: "global" }), linkLine);
+assert.doesNotMatch(render({ ...createProfileDraft("codex"), scope: "global" }), /If that file is a link/);
+```
+
+- [ ] **Step 2: Run them and watch them fail.** `node build/test.mjs ui && node --test --test-name-pattern="offers the Claude login toggle|direct-launch takeover toggle|names the file a system-default profile rewrites" .test-dist/ui/test/component/profiles.test.js`. Expected, read from today's code and not run. The first fails at `assert.ok(html.includes(help), surface)` with the message `cli`. The second fails at the new `doesNotMatch`, because an App-only render holds the CLI sentence today. The third fails at its first new assertion. Its three old assertions pass.
+- [ ] **Step 3: Change the three texts** in `profiles.tsx` as Interfaces says.
+- [ ] **Step 4: Run the tests, then `npm run test:ui`.** Expected: PASS. Smallest mutations caught. Keeping one hint for both `"auto"` and `"app"` fails the second test's first new assertion. Showing the short hint for `"auto"` fails its third. Adding the link sentence for Codex fails the third test's last assertion.
+- [ ] **Step 5: Change `profiles.md`** as Interfaces says. Read the paragraph once in the diff.
+- [ ] **Step 6: Check the other places the old texts could be pinned.** `git grep -n "settings file of this profile\|Applies to the CLI entry" -- packages tests docs/src README.md`. Expected after the change: the two lines of `profiles.tsx`, the lines of `profiles.test.tsx` this task wrote, and `agents/claude-code.md:42`. Today no file under `tests/e2e/` holds either text (read).
+- [ ] **Step 7: Run the gates.** `npm run typecheck`, `npm run lint`, `npm run test:architecture`.
+- [ ] **Step 8: Commit.** `fix(ui): say where the gateway key goes for a linked settings file and fit the scope hint to an App-only profile`
+
+### Task 9: The edit dialog sends no automatic probe for a saved local-login provider (question 5, answer (b))
+
+Opening the edit dialog of a provider whose key is the placeholder sends no probe request, and neither does typing in its address field. The dialog says the provider was not asked. Refresh and Check Connection still work on a click. Saving keeps the provider's saved protocols.
+
+**Evidence.** VM pass, 2026-11-24. Opening the edit dialog of a saved provider whose key is the placeholder sent 16 requests to the saved address with nothing clicked. 12 carried the placeholder, 5 model-list GETs and 7 protocol POSTs. 4 were icon fetches. Editing the address in the dialog, with nothing clicked and nothing saved, sent the same 16 to the new address. An earlier run against a stand-in showed the probe finds no model for such a provider, because an edit draft holds no plugin (question 5, first run).
+
+**Which drafts are skipped.** Every edit draft (`providerEditIndex !== undefined`) for which `isLocalAgentLoginDraft` is true, in automatic detection mode. That is a saved provider whose key, or whose first enabled pool key, is the placeholder. Three kinds of draft are not skipped.
+
+- A Codex draft at Codex's default address. The branch before this one (`App.tsx:1449-1496`) handles it through `probeLocalAgentProvider`, which takes no address from the draft. It is not changed.
+- An add draft from an import. It carries its own plugins and keeps its probe, which is how its models are found. `providerEditIndex` is undefined for it.
+- An add draft with the placeholder typed by hand as its key. It keeps its probe too. The VM pass saw 12 placeholder requests after the key was typed in the Add flow. This task leaves them. The reason: an edit draft has saved protocols and capabilities that a save keeps when there is no probe result (`App.tsx:1783-1809`, `providerCapabilitiesForSave`, read). A new draft has none, so with no probe it would be saved on the default protocol whatever its endpoint speaks. A hand-typed placeholder is also the open VM finding that such a draft is shown as an imported login, which has no decision yet and is not settled here.
+
+**What the dialog shows with no probe result** (read, `components/providers.tsx`).
+
+- The credentials box reads "Signed in with your local agent", as today (`:2324-2330`).
+- The first status row keeps the title "Local login provider" and a green state. Its description would read "Choose a provider endpoint so LLMR can detect compatible protocols." (`:1769-1775`). This task changes that description.
+- The second row reads "Available after saving" and offers Check Connection, as today (`:1780-1797`, `:1809`).
+- The model pane's left side reads "No provider models" and "This provider did not return a model list. Add model IDs with Custom model." (`:4129-4131`). This task changes the second sentence. The saved models stay selected on the right, because they come from the draft and not from the probe (`:2040`).
+- Save is enabled by the name, the address and the models (`App.tsx:761-763`).
+- The icon fetches stay. They come from another effect (`components/providers.tsx:2129-2150`), run only for a custom endpoint with no saved icon, and send a user agent and an accept header and no credential (`packages/core/src/providers/icons.ts:204-207`, read).
+
+**Files:**
+- Modify: `packages/ui/src/pages/home/App.tsx` (the automatic probe effect `:1434-1577`)
+- Modify: `packages/ui/src/pages/home/components/providers.tsx` (`ProviderConnectionStatusPanel` `:1769-1775`, the picker call `:2386`)
+- Test: `packages/ui/test/component/provider-dialog-local-agent.test.tsx`
+- Test: `tests/e2e/local-agent-login-import.spec.ts`
+
+**Interfaces:**
+- Changes, in the effect. One new branch, placed after the Codex branch closes at `:1496` and before the comment at `:1497`:
+
+```ts
+    // An edit draft carries no plugins, so an automatic probe would send only the placeholder key. A saved local login provider is asked on Refresh or Check.
+    if (providerEditIndex !== undefined && isLocalAgentLoginDraft(providerDraft)) {
+      providerProbeRequestId.current += 1;
+      setProviderProbeError("");
+      setProviderProbeLoading(false);
+      return;
+    }
+```
+
+  It does not call `setProviderProbe(undefined)`. Opening the dialog already clears the probe (`openEditProviderDialog`, `:1286`), and an edit of the address clears it through `updateProviderDraft` (`:1421-1425`). `providerEditIndex` joins the effect's dependency list at `:1577`. `isLocalAgentLoginDraft` is already imported there, because the next branch uses it.
+- Changes, `ProviderConnectionStatusPanel`. `protocolDescription` gains one case after the `notProbed` case and before the `protocolDetected` case. When `localAgentImport && !probe` it is `LLMR has not asked this provider which protocols it supports.` The title and the state are not changed.
+- Changes, the picker call at `:2386`. `emptyCatalogText` becomes the Claude sentence when `claudeLoginProvider` is true, else `LLMR has not asked this provider for a model list. Refresh the list to ask, or add model IDs with Custom model.` when `localAgentImport && !probe`, else `undefined`.
+- Both new sentences depend on `probe` alone, so they also show for an add draft in the short time before its first probe starts. They show too after a probe that ran and failed, because the probe state is cleared on an error (`App.tsx:1476-1480`, `:1557-1561`) and for Codex with no `probeLocalAgentProvider` (`:1455-1458`), all read by the audit. There "has not asked" is not exact: LLMR asked and got no answer, and the error line above the pane says so. The plan author leaves the wording as it is, and it can change in review. After a Refresh that returns a result, the old sentences return and are true.
+- Not changed: `refreshProviderModels`, `checkProviderDraft`, the branch at `:1499`, `probeGatewayProvider` and every core file.
+
+- [ ] **Step 1: Write the failing tests.**
+  - Component, `provider-dialog-local-agent.test.tsx`: `a local login provider that was not asked says so`. The draft and the props of the file's test `a Codex login provider keeps its heading, its connection check and its model refresh`.
+
+```ts
+assert.match(html, /LLMR has not asked this provider which protocols it supports\./);
+assert.match(html, /LLMR has not asked this provider for a model list\. Refresh the list to ask/);
+assert.doesNotMatch(html, /Choose a provider endpoint/);
+assert.doesNotMatch(html, /did not return a model list/);
+const asked = render(draft, {
+  onCheck: async () => undefined,
+  onRefreshModels: async () => undefined,
+  probe: { models: [], normalizedBaseUrl: draft.baseUrl, protocols: [] },
+  providerPlugins: [{ key: "llmr-local-agent-codex-codex-oauth", providerName: "Codex" }]
+});
+assert.match(asked, /did not return a model list/);
+assert.doesNotMatch(asked, /has not asked this provider/);
+```
+
+  - In the same file, in `a Codex login provider keeps its heading, its connection check and its model refresh`, the last assertion becomes `assert.match(html, /LLMR has not asked this provider for a model list\./);`. Its render holds no probe, so it shows the new sentence.
+  - End to end, `tests/e2e/local-agent-login-import.spec.ts`. Two tests and two helpers. The saved providers point at a loopback port nothing listens on and carry an icon, so the icon effect is quiet when the dialog opens. Editing the address clears the icon (`components/providers.tsx:2309`), and core's icon lookup has no rule that leaves a loopback address alone (`providers/icons.ts:45-61`, read), so the first test answers the icon RPC itself. Its route is registered after `mockLocalAgentRpc`, because Playwright asks the newest route first.
+
+```ts
+const standInIcon = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E";
+
+async function openSavedProviderEditDialog(page: Page, current: CliWebRuntime, name: string, apiKey: string) {
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
+  await waitForBridge(page);
+  await page.evaluate(async (provider) => {
+    const config = await window.llmr!.getConfig();
+    config.Providers = [provider];
+    await window.llmr!.saveConfig(config);
+    await window.llmr!.setOnboardingFinished?.();
+  }, { api_base_url: "http://127.0.0.1:9/v1", api_key: apiKey, icon: standInIcon, models: ["stand-in-model"], name, type: "openai_chat_completions" });
+  await page.reload();
+  await waitForBridge(page);
+  await page.getByRole("button", { name: "Providers", exact: true }).click();
+  await page.locator(`button[aria-label="Edit ${name}"]:visible`).first().click();
+  return page.getByRole("dialog");
+}
+
+async function answerIconRpc(page: Page): Promise<void> {
+  await page.route("**/api/llmr/rpc", async (route) => {
+    const payload = route.request().postDataJSON() as { method?: string } | undefined;
+    if (payload?.method === "detectProviderIcon") {
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: {} }) });
+      return;
+    }
+    await route.fallback();
+  });
+}
+
+test("the edit dialog sends no probe for a saved local login provider", async ({ page }) => {
+  const probeRequests: Array<{ apiKey?: string; providerPlugins?: unknown[] }> = [];
+  await mockLocalAgentRpc(page, probeRequests);
+  await answerIconRpc(page);
+  const dialog = await openSavedProviderEditDialog(page, requireRuntime(), "Stand-in login", localAgentProviderApiKey);
+  await expect(dialog.getByText("Signed in with your local agent")).toBeVisible();
+  await expect(dialog.getByText("LLMR has not asked this provider which protocols it supports.")).toBeVisible();
+  await page.waitForTimeout(1000);
+  expect(probeRequests.length).toBe(0);
+  await dialog.getByLabel(/^API endpoint/).fill("http://127.0.0.1:10/v1");
+  await page.waitForTimeout(1000);
+  expect(probeRequests.length).toBe(0);
+});
+
+test("the edit dialog still probes a saved provider that has its own key", async ({ page }) => {
+  const probeRequests: Array<{ apiKey?: string; providerPlugins?: unknown[] }> = [];
+  await mockLocalAgentRpc(page, probeRequests);
+  await openSavedProviderEditDialog(page, requireRuntime(), "Stand-in key", "sk-stand-in-0001");
+  await expect.poll(() => probeRequests.length).toBeGreaterThan(0);
+});
+```
+
+    The recorder counts calls of the `probeProviderCandidates` RPC, one per probe run. Each run is the 12 requests the VM pass saw. The lengths are compared, so a failure prints a number. The second test is the control. It passes today and fails under a condition that skips every edit draft.
+- [ ] **Step 2: Run them and watch them fail.** `node build/test.mjs ui && node --test .test-dist/ui/test/component/provider-dialog-local-agent.test.js`. Expected, read from today's code and not run. The new component test fails at its first assertion, and the Codex test fails at its changed last assertion, because neither new sentence exists. Then `npm run build:assets && npx playwright test tests/e2e/local-agent-login-import.spec.ts`, and `git checkout -- packages/core/models.json packages/ui/src/generated`. Expected, inferred and not run. The first new test stops at "LLMR has not asked this provider which protocols it supports.", which today's page does not show. With that line removed it would stop at the first count with 1 or more, because the mocked result changes the protocol and the effect then runs again. The control passes. If the control fails on today's code, a selector or the fixture is wrong. Fix the test before any source change and say what differed.
+- [ ] **Step 3: Implement** as Interfaces says.
+- [ ] **Step 4: Run the tests, then `npm run test:ui` and the end-to-end spec.** Expected: PASS, with the spec's five existing tests unchanged and green. Smallest mutations caught. Dropping `providerEditIndex !== undefined` from the condition leaves the tests of this task green, so read the condition in review. It is the difference between this task and a change to the Add flow. Dropping `isLocalAgentLoginDraft` from the condition fails the control. Putting the condition into the branch at `:1499` passes every test here and wipes a Refresh result when that result changes the draft's protocol, which no test here reaches.
+- [ ] **Step 5: Run the gates.** `npm run typecheck`, `npm run lint`, `npm run test:architecture`.
+- [ ] **Step 6: Commit.** `fix(ui): send no automatic probe for a saved local login provider in the edit dialog`
+
+### Task 10: Refresh and Check use the saved login only for the saved address (question 5, the condition on Refresh and Check)
+
+It follows Task 9 on the branch and uses the same shared file.
+
+In the edit dialog of a provider that has a saved local login, Refresh and Check Connection send nothing while the address in the dialog differs from the saved one. The dialog says "Save the new address to check it with your local login." With the saved address in the dialog, both work as today. A provider that is being added is never blocked.
+
+**Evidence.** Refresh and Check resolve the plugins of a local-login draft with `providerConnectivityProviderPlugins` (`App.tsx:1633`, `:1684`), which matches a plugin by name, id and protocol and never by address (`shared/providers.ts:806-823`, `:846-912`, read). A core run with `fetch` stubbed showed that a plugin's token goes to whatever address the candidate holds (question 5, third round). VM pass, 2026-11-24: with the address edited in the dialog and not saved, Refresh sent 12 requests and Check Connection sent 22 to the unsaved address.
+
+**Why the action is blocked and not run without the login.** Two behaviours were weighed.
+
+- (i) Block the action and show the text. Written here.
+- (ii) Run it with no plugins. The probe then sends the placeholder key to the new address, 12 requests for Refresh and 22 for Check, and every one is answered as unauthorized. The probe marks a protocol supported on a 401, and Refresh applies its result to the draft (`App.tsx:1650-1658`), so an answer that proves nothing could change the draft's protocols. Check would report "HTTP 401" for an address that may be fine. The user would see a failure and no reason.
+
+With (i) nothing leaves the machine and the dialog says what to do. It blocks one fair case, a provider moved to a new address and checked before the save. The save is one click away, and the check works after it.
+
+**Where the text shows.** `setProviderProbeError` puts it in the form's alert (`components/providers.tsx:2644`), as the other early returns of both functions do ("No endpoint candidates available.", "Select or enter at least one model."). Check Connection first opens its confirmation dialog, and a blocked check returns the empty report, so that dialog shows 0 available and 0 unavailable while the alert is in the form behind it (read, `:3773-3780`, `:3874-3884`). That is how the two existing early returns of Check look today. Hiding the button while the address differs would read better and needs a new prop on the panel. It is not in this task.
+
+**Files:**
+- Modify: `packages/ui/src/pages/home/shared/providers.ts`
+- Modify: `packages/ui/src/pages/home/App.tsx` (`refreshProviderModels` `:1579-1674`, `checkProviderDraft` `:1676-1700`)
+- Test: `packages/ui/test/unit/provider-setup-steps.test.ts`
+- Test: `tests/e2e/local-agent-login-import.spec.ts`
+
+**Interfaces:**
+- Produces, in `shared/providers.ts`, after `providerConnectivityProviderPlugins`: `export function savedLoginAddressChanged(draft: AddProviderDraft, providerPlugins: unknown[] | undefined, existingProvider?: GatewayProviderConfig): boolean`. It is true when all four hold.
+  1. `existingProvider` is defined. A provider being added has no saved address, so it is never blocked.
+  2. `draft.providerPlugins.length === 0`. A draft with plugins of its own is an import, and those are not the saved login.
+  3. `providerConnectivityProviderPlugins(draft, providerPlugins, existingProvider).length > 0`. With no saved login there is nothing to guard.
+  4. `normalizeProviderBaseUrl(draft.baseUrl).toLowerCase() !== normalizeProviderBaseUrl(providerBaseUrl(existingProvider)).toLowerCase()`. Both names are already imported in the file (`normalizeProviderBaseUrl` at `:49`, `providerBaseUrl` from `./common` at `:58`, used at `:568`). The private `providerModelSourceMatches` (`:2363-2367`) makes the same comparison and is not reused, because it calls two empty addresses different.
+- Produces, in `shared/providers.ts`: `export const savedLoginAddressChangedMessage = "Save the new address to check it with your local login.";`
+- Changes, `refreshProviderModels`. After the `window.llmr` check at `:1583-1586` and before the request ids change at `:1588`:
+
+```ts
+    if (savedLoginAddressChanged(providerDraft, draftConfig.providerPlugins, providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex])) {
+      setProviderProbeError(savedLoginAddressChangedMessage);
+      return;
+    }
+```
+
+  The `existingProvider` constant at `:1591` moves above this check and is passed in place of the inline expression.
+- Changes, `checkProviderDraft`. After `existingProvider` is read at `:1683` and before `setProviderProbeError("")` at `:1692`:
+
+```ts
+    if (savedLoginAddressChanged(providerDraft, draftConfig.providerPlugins, existingProvider)) {
+      setProviderProbeError(savedLoginAddressChangedMessage);
+      return emptyReport;
+    }
+```
+
+- The text goes away when the address is edited again. `updateProviderDraft` clears it on any change of the draft (`App.tsx:1412`, read), and the effect of Task 9 clears it again.
+- **What this task does not do.** It does not change the gateway's own requests, which use the saved address and the live login. It does not change the automatic probe, which Task 9 settled. It does not guard an add draft from an import whose address is edited before the first save. Such a draft carries its own plugins, and nothing in the draft records the address the import gave it. It does not stop Refresh or Check from sending the placeholder key to an unsaved address for a provider that has no plugin entry, which is the provider the VM pass used. So the VM's counts of 12 and 22 for that provider do not change.
+
+- [ ] **Step 1: Write the failing unit test** in `provider-setup-steps.test.ts`. Add `createProviderDraftFromProvider`, `savedLoginAddressChanged` and `savedLoginAddressChangedMessage` to the file's import from `@llmr/ui/pages/home/shared/providers`. Test `the saved login is used only while the draft keeps the saved address`.
+
+```ts
+const saved = { api_base_url: "http://127.0.0.1:8799/v1", api_key: localAgentProviderApiKey, id: "stand-in-login", models: ["stand-in-model"], name: "Stand-in login", type: "openai_chat_completions" as const };
+const plugins = [{ key: "llmr-local-agent-stand-in-login-codex-oauth", providerName: "Stand-in login" }];
+const draft = createProviderDraftFromProvider(saved);
+const moved = { ...draft, baseUrl: "http://127.0.0.1:8800/v1" };
+assert.equal(savedLoginAddressChanged(draft, plugins, saved), false);
+assert.equal(savedLoginAddressChanged({ ...draft, baseUrl: "  http://127.0.0.1:8799/v1  " }, plugins, saved), false);
+assert.equal(savedLoginAddressChanged(moved, plugins, saved), true);
+assert.equal(savedLoginAddressChanged({ ...moved, name: "Renamed" }, plugins, saved), true);
+assert.equal(savedLoginAddressChanged(moved, [], saved), false);
+assert.equal(savedLoginAddressChanged({ ...moved, apiKey: "sk-stand-in-0001" }, plugins, saved), false);
+assert.equal(savedLoginAddressChanged(moved, plugins, undefined), false);
+assert.equal(savedLoginAddressChanged({ ...moved, providerPlugins: plugins }, [], saved), false);
+assert.equal(savedLoginAddressChangedMessage, "Save the new address to check it with your local login.");
+```
+
+    In order, the cases are the saved address, the same address with spaces, a moved address, a moved address on a renamed draft, no saved login, a key of the provider's own, a provider being added, and a draft with plugins of its own.
+- [ ] **Step 2: Add the stubs.** In `shared/providers.ts`, the function with the body `return false;` and its three parameters prefixed with an underscore, and the constant with its text.
+- [ ] **Step 3: Run it and watch it fail.** `node build/test.mjs ui && node --test --test-name-pattern="saved login is used only while" .test-dist/ui/test/unit/provider-setup-steps.test.js`. Expected: the build succeeds and the test fails at its third assertion, because the stub returns `false` (inferred from the stub).
+- [ ] **Step 4: Give the function its body and add the two checks** in `App.tsx` as Interfaces says.
+- [ ] **Step 5: Run the test, then `npm run test:ui`.** Expected: PASS. Smallest mutations caught. Comparing the raw strings fails the second assertion. Leaving out condition 3 fails the fifth and the sixth. Leaving out condition 1 throws on the seventh. Leaving out condition 2 fails the eighth assertion, because the draft's own plugins satisfy condition 3 (`providerConnectivityProviderPlugins` returns `draft.providerPlugins` first, `shared/providers.ts:811-813`).
+- [ ] **Step 6: Add the end-to-end test** to `tests/e2e/local-agent-login-import.spec.ts`. No component test reaches the two functions of `App.tsx`. It uses `standInIcon` from Task 9 and its own route, which records the two RPCs that send requests and answers the icon RPC, so nothing leaves the page.
+
+```ts
+test("Refresh and Check send nothing while a saved local login provider's address is unsaved", async ({ page }) => {
+  const current = requireRuntime();
+  const sent: string[] = [];
+  await page.route("**/api/llmr/rpc", async (route) => {
+    const method = (route.request().postDataJSON() as { method?: string } | undefined)?.method ?? "";
+    if (method === "probeProviderCandidates" || method === "checkProviderConnectivity") {
+      sent.push(method);
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: method === "probeProviderCandidates" ? probeResult : { failed: [], passed: [], results: [] } }) });
+      return;
+    }
+    if (method === "detectProviderIcon") {
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: {} }) });
+      return;
+    }
+    await route.continue();
+  });
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
+  await waitForBridge(page);
+  await page.evaluate(async ({ apiKey, icon }) => {
+    const config = await window.llmr!.getConfig();
+    config.Providers = [{ api_base_url: "http://127.0.0.1:9/v1", api_key: apiKey, icon, models: ["stand-in-model"], name: "Stand-in login", type: "openai_chat_completions" }];
+    config.providerPlugins = [{ key: "llmr-local-agent-stand-in-login-codex-oauth", providerName: "Stand-in login" }];
+    await window.llmr!.saveConfig(config);
+    await window.llmr!.setOnboardingFinished?.();
+  }, { apiKey: localAgentProviderApiKey, icon: standInIcon });
+  await page.reload();
+  await waitForBridge(page);
+  await page.getByRole("button", { name: "Providers", exact: true }).click();
+  await page.locator('button[aria-label="Edit Stand-in login"]:visible').first().click();
+  const dialog = page.getByRole("dialog").first();
+  const blocked = dialog.getByText("Save the new address to check it with your local login.");
+  await dialog.getByLabel(/^API endpoint/).fill("http://127.0.0.1:10/v1");
+  await dialog.getByRole("button", { name: "Refresh provider models" }).click();
+  await expect(blocked).toBeVisible();
+  await dialog.getByRole("button", { name: "Check Connection" }).click();
+  await page.getByRole("button", { name: "Start check" }).click();
+  await expect(page.getByText("Check results")).toBeVisible();
+  expect(sent.length).toBe(0);
+  await page.getByRole("button", { name: "Close", exact: true }).last().click();
+  await dialog.getByLabel(/^API endpoint/).fill("http://127.0.0.1:9/v1");
+  await expect(blocked).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Refresh provider models" }).click();
+  await expect.poll(() => sent.length).toBe(1);
+});
+```
+
+    Run `npm run build:assets && npx playwright test tests/e2e/local-agent-login-import.spec.ts`, then `git checkout -- packages/core/models.json packages/ui/src/generated`. Expected: PASS. Nothing in this test was run. Four things in it are inferred and are the first to check if it stops early: that the web bridge keeps the made-up plugin entry through the save and the reload, as it kept the two Claude entries in Task 2's test, that `getByLabel("API endpoint")` finds the address field, that the two dialogs are told apart as written, and that the saved icon keeps the icon effect quiet before the address is edited. On today's code the test would stop at the blocked text, with one probe sent. With the check in `refreshProviderModels` alone it would fail at `expect(sent.length).toBe(0)` with 1, which is what pins the check in `checkProviderDraft`. If the page differs from this, stop and report what it shows.
+- [ ] **Step 7: Run the gates.** `npm run typecheck`, `npm run lint`, `npm run test:architecture`.
+- [ ] **Step 8: Commit.** `fix(ui): use a saved local login only for the saved address on Refresh and Check`
+
+Then open PR 3. Before it: `npm run typecheck`, `npm run lint`, `npm run test:architecture`, `npm run test:ui`, and `tests/e2e/local-agent-login-import.spec.ts`. Say in the PR what Task 10 does not guard, in the words of its "What this task does not do".
+
+---
+
 ## Checks this plan adds to Gate B
 
 Gate B is the pass on the throwaway VM in the pass-through plan, with its checks B1 to B11. These join it. They run on the build that will ship. G2 repeats an item the pass-through plan already lists as open. On the VM, `<config dir>` is LLM Router's own data folder, `~/.llm-router` by default. A profile's settings file is `~/.claude/settings.json` for a system-default profile and `<config dir>/profiles/<profile id>/claude/settings.json` for any other.
@@ -761,7 +1092,7 @@ Gate B is the pass on the throwaway VM in the pass-through plan, with its checks
 
 PR 146 merged before the pass-through plan's Gate B ran. So Gate B no longer gates a merge. It gates the release, and nothing ships until it has passed on the build that will ship (FU-13).
 
-1. **The owner's answers.** Questions 1, 7 and 8 were answered on 2026-11-24 and nothing in PR 1 waits on him now. Questions 2, 3, 4, 5 and 9 were open then and gated no task of PR 1. Questions 2, 3 and 9 have since been settled by steps 4 and 6 below. Questions 4 and 5 are open, and the table under "Open with the owner" has their state.
+1. **The owner's answers.** Questions 1, 7 and 8 were answered on 2026-11-24 and nothing in PR 1 waits on him now. Questions 2, 3, 4, 5 and 9 were open then and gated no task of PR 1. Questions 2, 3 and 9 have since been settled by steps 4 and 6 below. Questions 4 and 5 were answered on 2026-11-24 and are Tasks 8 to 10, and the table under "Open with the owner" has their state.
 2. **The isolated probe runs, on this Mac.** P1 to P7 of the pass-through plan, as its section "Isolated probe runs on this Mac" describes, and one new run. They use only the Claude Code binary, under `env -i` with a temporary home, a stub API on loopback and a stand-in `security`. LLM Router is not run. P8 is recorded as one more row of that section's table:
 
    | # | Run | What it settles |
@@ -775,6 +1106,7 @@ PR 146 merged before the pass-through plan's Gate B ran. So Gate B no longer gat
 5. **Gate B on the build that will ship.** B1 to B11 and G1 to G10. A G2 failure adds a task before the release. **Not run before the release.** On 2026-11-24 the owner had 9.0.0 released ahead of Gate B, which overrides FU-13. Gate B now runs on the released 9.0.0 build, and a failure is a fix in a later release.
 6. **The version (question 2) and the release.** **Released, 2026-11-24:** v9.0.0, commit `4d91b833`, with PRs 146, 147 and 148. The owner chose 9.0.0 (question 2, answer (a)).
 7. **The owner's local steps** of the pass-through plan. Step 3 before the release is installed on his Mac, then step 2. Step 1 at any time.
+8. **PR 3**, Tasks 8 to 10. Written on 2026-11-24 after the VM pass on the released 9.0.0. It waits on no question. It ships in a release after 9.0.0, and the merge and that release need the owner's word.
 
 | Waits | On |
 |---|---|
@@ -786,15 +1118,15 @@ PR 146 merged before the pass-through plan's Gate B ran. So Gate B no longer gat
 
 ## Open with the owner
 
-Where the nine questions stand on 2026-11-24, after the release and three research rounds. **On 2026-11-24 the owner accepted the recommendations of rows 4, 5 and 8**, so no question is open. None of the three has a task yet. Before the tasks are written, the owner wants a pass on his disposable VM with the released app, so the task text rests on what the real app does. The scripts for that pass are outside the repo. The detail and the evidence are under each question below.
+Where the nine questions stand on 2026-11-24, after the release and three research rounds. **On 2026-11-24 the owner accepted the recommendations of rows 4, 5 and 8**, so no question is open. He then ran a pass on his disposable VM with the released app, so that the task text rests on what the real app does. Rows 4 and 5 are now Tasks 8, 9 and 10 under "PR 3". Row 8 builds nothing. The scripts for that pass are outside the repo. The detail and the evidence are under each question below.
 
 | # | Question | State | Recommended now | How it was checked | What a yes builds |
 |---|---|---|---|---|---|
 | 1 | Drop the stored `auth` block on load | Answered (a) | | | Built in PR 147 |
 | 2 | The version | Answered (a), 9.0.0 | | | Released |
 | 3 | The other agents' backups | Answered (a) | | | Built in PR 148 |
-| 4 | A linked `settings.json` | Answered, as recommended | (d) a docs sentence, with (f) five more words in the form's own sentence. The third round dropped (e), which no surface shows | What the write does to a link ran. The rest was read | One docs sentence and one changed sentence in the form. The three things the run showed do no harm and have no task |
-| 5 | The automatic probe and the placeholder key | Answered, as recommended | (b) for the automatic probe, and a base-URL condition on Refresh and Check. The third round changed this from (c) | Today's probe ran for Grok. A run with a stubbed `fetch` showed the plugin's token goes to whatever URL the draft holds. The rest was read | One added condition in the effect and one e2e test. The condition on Refresh and Check is a second small change |
+| 4 | A linked `settings.json` | Answered, as recommended | (d) a docs sentence, with (f) five more words in the form's own sentence. The third round dropped (e), which no surface shows | What the write does to a link ran. The rest was read | Task 8. Two docs sentences, the form's own sentence, and one more sentence in the System default hint. The three things the run showed do no harm and have no task |
+| 5 | The automatic probe and the placeholder key | Answered, as recommended | (b) for the automatic probe, and a base-URL condition on Refresh and Check. The third round changed this from (c) | Today's probe ran for Grok. A run with a stubbed `fetch` showed the plugin's token goes to whatever URL the draft holds. The rest was read | Task 9 for the automatic probe, with two sentences of the dialog changed so that they stay true. Task 10 for Refresh and Check, which blocks the action and says why |
 | 6 | How much the record says about backups | Answered (a) | | | Nothing |
 | 7 | The pass-through provider as the only provider | Answered (a), then (b) | | | Built in PR 147 |
 | 8 | The allowed model list in Claude login mode | Answered (c), and neither later idea is built | Build neither (a) nor (d) | Claude Code 2.1.330 ran in a temporary home. Its docs and the gateway's checks were read | Nothing. One more sentence in the form and a hint for `availableModels` are optional and have no task |
@@ -831,6 +1163,7 @@ The account connector of F-10 has no question of its own. It is option (c) of qu
 - **Names across tasks.** `isClaudeLoginProvider` takes a saved provider and comes from Task 2. `profileModelProviders` takes a profile draft and comes from Task 3. `isClaudeLoginProviderDraft` takes a provider draft and comes from Task 5. Core's `withoutClaudeLoginProviders` and `claudeLoginProviderNames` already exist.
 - **Order.** Each commit of PR 1 is green alone. Task 3 uses Task 2's helper. Task 4 needs neither. Task 5 follows Task 2 in the same shared file. Task 6's text is true only after Tasks 2 to 5. Task 7 edits sentences Task 6 wrote. Task 1 can land at any place before Task 6.
 - **Failure output.** No assertion compares a value that holds a key or a login through `assert.equal`.
+- **PR 3.** Questions 4 and 5 and VM finding VP-1 each have a task. Every test step gives a name and its assertions with made-up values on loopback addresses. Task 10 adds a stub before its first run. Tasks 8 and 9 import nothing new, so they need none. `savedLoginAddressChanged` takes a provider draft, the config's plugin list and the saved provider, in the order `providerConnectivityProviderPlugins` and `isClaudeLoginProviderDraft` take them. Task 10's end-to-end test relies on Task 9, because without it the edit of the address would start a probe. Each commit is green alone in the order 8, 9, 10. No new text names a provider host, and the only key in a test is the placeholder or a made-up string.
 
 ## Not verified
 
@@ -846,3 +1179,11 @@ The spec's "Not verified" list applies in full. This list holds only what is the
 - Task 3, Step 7. Its helper, its test and the four changed lines of `App.tsx` were written after the audits of 2026-11-23 and have their own audit.
 - Two backups made within the same millisecond get the same name (`backup-files.ts:9-12`), so a count of backups in Task 7's integration tests could come out one lower. The file's existing tests share that risk.
 - Every Gate B check. The probes ran on 2026-11-24.
+- PR 3 as a whole. No test of Tasks 8 to 10 was run, on today's code or on changed code. The expected failures of the component and unit tests are read from the code. Those of the three end-to-end tests are inferred.
+- Task 9's control, `the edit dialog still probes a saved provider that has its own key`, on today's code. If it does not pass before the change, the fixture is wrong and the first new test proves nothing.
+- Whether the web bridge keeps a plugin entry with a made-up `codex-oauth` key through a save and a reload, and whether a gateway started by the harness minds it. Task 10's end-to-end test needs it.
+- What a real local login does. The VM had none, so the VM pass saw only the placeholder. That a plugin's token goes to the address in the draft rests on one core run with `fetch` stubbed.
+- An add draft from an import whose address is edited before the first save. Refresh and Check send its own plugins to the edited address, and no task here guards it.
+- An App-only Claude Code profile with **System default**. The code chooses the settings file by scope alone, so it should still rewrite `~/.claude/settings.json`. Not run. If it does, the hint of Task 8 is true and says nothing about it.
+- A linked `~/.codex/config.toml`. Task 8 adds the link sentence for Claude Code only for that reason.
+- Whether the automatic probe's result can move a saved capability's address on a save, which question 5's third round left open. Task 9 removes that probe for these drafts, so the question no longer applies to them.

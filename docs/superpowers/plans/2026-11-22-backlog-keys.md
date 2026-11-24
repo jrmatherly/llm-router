@@ -1,12 +1,12 @@
 # Backlog: API Keys and Gateway Reload Implementation Plan
 
-> **Status, 2026-11-24: corrected and audited again, waiting for the owner's approval to build.** A second-model audit of 2026-11-22 found 3 Blockers and 6 Corrections. Each was read again in the code at `main` `81773a5d` and held, and the tasks below carry the corrections. A second audit of the corrected text on 2026-11-24 found no Blocker and 5 Corrections, 4 of them in test text, and those are applied too. The text changed by that last round was not audited a third time. The audits live outside the repo. Tasks 1 and 2 merged on 2026-11-24 (PRs 149 and 150). Task 4 and the second-round notes under "Open with the owner" were added the same day and audited once.
+> **Status, 2026-11-24: corrected and audited again, waiting for the owner's approval to build.** A second-model audit of 2026-11-22 found 3 Blockers and 6 Corrections. Each was read again in the code at `main` `81773a5d` and held, and the tasks below carry the corrections. A second audit of the corrected text on 2026-11-24 found no Blocker and 5 Corrections, 4 of them in test text, and those are applied too. The text changed by that last round was not audited a third time. The audits live outside the repo. Tasks 1 and 2 merged on 2026-11-24 (PRs 149 and 150). Task 4 and the second-round notes under "Open with the owner" were added the same day and audited once. Task 3 was rewritten the same day for the owner's answer (b), after a pass on his VM, and that text has its own audit.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A person who edits API keys keeps every key and every revocation that another window, the CLI or a profile wrote in the meantime, and a key added or revoked by another process takes effect in the running gateway without a manual restart.
 
-**Architecture:** Three tasks, one PR each, in order. Task 1 removes the two writes that replace the whole `api_keys` table from a list read earlier, so every key write reads and writes inside one transaction. Task 2 makes the process that owns the gateway poll the stored key list and reload once when it changes. Task 3 makes a profile launch wait for the gateway to accept the profile's own key before it falls back to another one, and say so when it does.
+**Architecture:** Four tasks, one PR each. Tasks 1 and 2 are merged. Task 4 is built next, then Task 3. Task 1 removes the two writes that replace the whole `api_keys` table from a list read earlier, so every key write reads and writes inside one transaction. Task 2 makes the process that owns the gateway poll the stored key list and reload once when it changes. Task 3 makes a profile launch wait for the gateway to accept the profile's own key, and refuses the launch with restart advice when it still does not. Task 4, added on 2026-11-24 and built before Task 3, starts an app profile's gateway from the full key list.
 
 **Tech Stack:** TypeScript, `better-sqlite3`, Electron 45, React, `node:test` with `node:assert/strict`.
 
@@ -58,7 +58,7 @@ Each line is a condition no row's own test covers. The test that pins it is in t
 |---|---|
 | K-1 | Task 1 |
 | K-2 | Task 2 |
-| K-3 | Tasks 3 and 4. One question is under "Open with the owner". Task 4 was added on 2026-11-24 and does not wait on it |
+| K-3 | Task 4, then Task 3. Both questions under "Open with the owner" are answered |
 
 ## Not in this plan
 
@@ -67,7 +67,7 @@ Each line is a condition no row's own test covers. The test that pins it is in t
 - A gateway that another process owns (`gatewayManagedExternally`). That process's owner runs the poll.
 - Concurrent `startGateway` calls. `GatewayService.start` has no lock (read). Task 2 keeps the poll from adding one by the two-tick rule and does not add a lock. It clears a timer before it sets one, so two overlapping starts leave one timer.
 - A key written between the moment a caller loads the config and the moment the service takes it. Task 2 reads its baseline when the service is given the config, so such a key is in the baseline and not in the child, and the poll does not see it. In the save handlers that window is the few calls between `saveApiKeysConfig` and `updateConfig` (read, not timed). The time the old child takes to stop is outside the window. The next key change or restart picks it up.
-- A gateway from a version without Task 2. Task 3's wait runs its full length against it on every launch that created a key, then warns.
+- A gateway from a version without Task 2. Task 3's wait runs its full length against it on every launch that created a key, then refuses the launch.
 - An edit of a generated key that was never stored. After a load failure whose generated `local-gateway` key could not be written, the page holds a key the store does not. An edit of it is skipped as deleted elsewhere (read, not run).
 - Two entries with one id in a saved list. No caller sends them (read). The second would replace the first.
 - An entry whose token another stored row already holds under another id. The repository keeps the earlier row and drops the later one, as today's whole-list write does (read). No page sets a token.
@@ -447,24 +447,31 @@ Expected: all pass. `npm run test:core` matters here beyond the new files. Any c
 
 ---
 
-### Task 3: Wait for the profile's own key before using another one (K-3)
+### Task 3: Wait for the profile's own key, and refuse the launch if the gateway still does not take it (K-3)
 
-Last, because the wait only ends well once Task 2 makes the gateway pick the key up.
+Rewritten on 2026-11-24 for the owner's answer (b), after the VM pass of that day. It first fell back to another key with a warning. Build it after Task 4, which removes the one case the wait cannot fix.
 
-`llmr <profile>` applies the profile in its own process, which can create the profile's key, and probes the running gateway milliseconds later (`cli.ts`, `ensureProfileGateway`). The gateway does not know the key yet, so the probe goes on to the other stored keys (`existingGatewayApiKeyCandidates`, `launch-service.ts`) and the agent is launched on the first one the gateway accepts. Nothing says so. The agent then runs its session on a key that is not the profile's, so settings that are matched by the profile's key id are not the ones in effect, and Logs name another key. Task 2 alone does not change this, because the reload takes seconds and the probe does not wait (read, not run). After this task the launch says that it waits, and waits up to 10 seconds for the gateway to accept the profile's key. If it still does not, the launch falls back as today and prints one warning.
+`llmr <profile>` applies the profile in its own process, which can create the profile's key, and probes the running gateway milliseconds later (`cli.ts`, `ensureProfileGateway`). The gateway does not know the key yet, so the probe goes on to the other stored keys (`existingGatewayApiKeyCandidates`, `launch-service.ts`) and the agent is launched on the first one the gateway accepts. Nothing says so. Task 2 alone does not change this, because the reload takes seconds and the probe does not wait (read, not run).
 
-The wait is waiting for Task 2's restart of the owner's gateway, so the gateway goes away and comes back while the launch waits. A probe in that gap finds no gateway. Handled as today, that result throws `ProfileGatewayUnavailableError`, and `cli.ts:168-186` answers that error by starting a service of its own on the port the owner is about to bind again (read). So inside the wait, no probe result ends the wait except the profile's key being accepted. Each probe of the wait sends the profile's key alone. A full probe sends every stored key in turn, and since v8.1.0 each refused one is a row in Logs and a count on the key (read, not run).
+**Seen on the VM, 2026-11-24, released 9.0.0.** After the desktop app opened an app profile, its gateway accepted that profile's key alone. `llmr "Claude Code" -- --version` then exited 0 in 2 seconds and printed only the agent's version. Afterwards the app profile's key was in the terminal profile's two helper files, and the terminal profile's own key was in no file. So the launch ran on another profile's key, said nothing, and wrote that key into the profile's files.
+
+After this task the launch says that it waits, and waits up to 10 seconds for the gateway to accept the profile's key. If it still does not, the launch is refused with a message that says how to restart the gateway. No agent is started and no key is written.
+
+The wait is waiting for Task 2's restart of the owner's gateway, so the gateway goes away and comes back while the launch waits. A probe in that gap finds no gateway. Handled as today, that result throws `ProfileGatewayUnavailableError`, and `cli.ts:168-186` answers that error, for a Grok, Kimi or Pi profile, by starting a service of its own on the port the owner is about to bind again (read). So inside the wait, no probe result ends the wait except the profile's key being accepted. Each probe of the wait sends the profile's key alone. A full probe sends every stored key in turn, and since v8.1.0 each refused one is a row in Logs and a count on the key (read, not run).
+
+**The message does not say "run llmr start".** Today's text for a refused key ends "Restart LLMR Desktop or run llmr start to refresh the gateway before opening this profile." (`existingGatewayConflictMessage`, `launch-service.ts:747-754`). Seen on the VM: with the desktop app open and its gateway holding one key, `llmr start` did not refresh that gateway. It started a second service, and the two then took the gateway port from each other about every 30 seconds for as long as both ran. A plain restart of the desktop app did fix the keys. With every key accepted, `llmr start` beside the desktop app left the gateway alone. So the advice is to restart the process that runs the gateway, and the text says which.
 
 **Files:**
-- Modify: `packages/core/src/profiles/launch-service.ts` (`ensureProfileGateway`, `ensureGatewayConfigRunning`)
+- Modify: `packages/core/src/profiles/launch-service.ts` (`ensureGatewayConfigRunning`, `probeExistingProfileGateway`, `existingGatewayConflictMessage`)
 - Test: `packages/core/test/unit/profiles/profile-gateway-probe.test.mjs`
 
 **Interfaces:**
 - Changes: the options of `ensureProfileGateway` and `ensureGatewayConfigRunning` gain `profileKeyWaitMs?: number`, default `10_000`. Callers in `cli.ts` and in `launch-service.ts` pass nothing.
 - Changes: `probeExistingProfileGateway(config, profile, candidateConfig, apiKeys?: string[])`. When `apiKeys` is given it is the whole candidate list.
-- Consumes: the `usable` result of that probe, which carries the accepted `apiKey`. Inside `ensureGatewayConfigRunning`, `config.APIKEY` is the profile's own token (`profileGatewayConfigFor`).
+- Changes: the `unauthorized` and `unusable` texts of `existingGatewayConflictMessage` end with the new advice in place of "Restart LLMR Desktop or run llmr start to refresh the gateway before opening this profile." No test asserts the old text (a search of `packages`, `tests` and `docs/src`, run 2026-11-24).
+- Consumes: the `usable` result of that probe, which carries the accepted `apiKey`. Inside `ensureGatewayConfigRunning`, `config.APIKEY` is the profile's own token (`profileGatewayConfigFor`). `ProfileGatewayUnavailableError` is exported from `launch-service.ts` (`:66`).
 
-- [ ] **Step 1: Write the failing tests.** In `profile-gateway-probe.test.mjs`. All three use a config with two keys, built from the file's `claudeProfileConfig()`: `config.APIKEY = "primary-token"` and `config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: "primary", key: "primary-token" }, <the profile key the helper already makes>]`. The `fetch` stub answers `/health` as the first test of the file does, and `/v1/models` by the bearer token.
+- [ ] **Step 1: Write the failing tests.** In `profile-gateway-probe.test.mjs`. All three use a config with two keys, built from the file's `claudeProfileConfig()`: `config.APIKEY = "primary-token"` and `config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: "primary", key: "primary-token" }, <the profile key the helper already makes>]`. The `fetch` stub answers `/health` as the first test of the file does, and `/v1/models` by the bearer token. Add `import { gatewayService } from "@llmr/core/gateway/service.ts";` and add `ProfileGatewayUnavailableError` to the import from `launch-service.ts`, unless Task 4 already added the first.
 
 ```js
 test("a profile launch waits for the gateway to accept the profile's own key", async (t) => {
@@ -472,14 +479,12 @@ test("a profile launch waits for the gateway to accept the profile's own key", a
   let primaryProbes = 0;
   // stub: "Bearer profile-token" answers 401 for its first two probes and 200 after, "Bearer primary-token" answers 200
   const info = t.mock.method(console, "info", () => {});
-  const warn = t.mock.method(console, "warn", () => {});
   const result = await ensureProfileGateway(config, profile, "Local subscription router", { profileKeyWaitMs: 5000, reuseExisting: true, startIfMissing: false });
   assert.equal(result.APIKEY, "profile-token");
   assert.equal(profileProbes, 3);
   assert.equal(primaryProbes, 1);
   assert.equal(info.mock.callCount(), 1);
   assert.match(String(info.mock.calls[0].arguments[0]), /Waiting for the gateway to accept the key of profile "Claude Main"/);
-  assert.equal(warn.mock.callCount(), 0);
 });
 
 test("a gateway that restarts during the wait is waited for, not replaced", async (t) => {
@@ -493,49 +498,65 @@ test("a gateway that restarts during the wait is waited for, not replaced", asyn
   assert.equal(start.mock.callCount(), 0);
 });
 
-test("a profile launch that falls back to another key says so and names no key", async (t) => {
+test("a profile launch is refused when the gateway does not accept the profile's own key", async (t) => {
   // stub: "Bearer profile-token" always answers 401, "Bearer primary-token" answers 200
-  const warn = t.mock.method(console, "warn", () => {});
-  const result = await ensureProfileGateway(config, profile, "Local subscription router", { profileKeyWaitMs: 0, reuseExisting: true, startIfMissing: false });
-  assert.equal(result.APIKEY, "primary-token");
-  assert.equal(warn.mock.callCount(), 1);
-  const message = String(warn.mock.calls[0].arguments[0]);
-  assert.match(message, /did not accept the key of profile "Claude Main"/);
-  assert.doesNotMatch(message, /profile-token|primary-token/);
+  const start = t.mock.method(gatewayService, "start", async () => ({ state: "error" }));
+  await assert.rejects(
+    ensureProfileGateway(config, profile, "Claude Main", { profileKeyWaitMs: 0, reuseExisting: true, startIfMissing: false }),
+    (error) => {
+      assert.equal(error instanceof ProfileGatewayUnavailableError, false);
+      assert.match(error.message, /does not accept the API key for Claude Main/);
+      assert.match(error.message, /quit LLMR Desktop and open it again/);
+      assert.doesNotMatch(error.message, /run llmr start to refresh/);
+      assert.doesNotMatch(error.message, /profile-token|primary-token/);
+      return true;
+    }
+  );
+  assert.equal(start.mock.callCount(), 0);
 });
 ```
 
-  The first and second tests take about one second of real time each, two polls of 500 ms. In the first, `primaryProbes` is 1 because only the first probe sends the whole key list. The second test leaves `startIfMissing` at its default and imports `gatewayService` from `@llmr/core/gateway/service.ts`, the facade `launch-service.ts` uses, so an implementation that handles the failed poll as today calls the mocked `start` and the count is 1.
+  The first and second tests take about one second of real time each, two polls of 500 ms. In the first, `primaryProbes` is 1 because only the first probe sends the whole key list. The second test leaves `startIfMissing` at its default, so an implementation that handles the failed poll as today calls the mocked `start` and the count is 1. The third must not reject with `ProfileGatewayUnavailableError`, because `cli.ts` answers that error by starting a service.
 
 - [ ] **Step 2: Run and see them fail.**
 
 Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/profiles/profile-gateway-probe.test.js`
-Expected: the first and second fail with `result.APIKEY` equal to `"primary-token"`, the third with a warn count of 0. The second audit ran the fixture on today's code and saw that key and no warning.
+Expected: the first and second fail with `result.APIKEY` equal to `"primary-token"`. The third fails because the promise resolves. The second audit of the first text ran the fixture on today's code and saw that key. The third test's failure is inferred.
 
-- [ ] **Step 3: Implement the wait and the warning in `launch-service.ts`.** `probeExistingProfileGateway` takes the optional `apiKeys` list and uses it in place of `existingGatewayApiKeyCandidates(...)` when it is given. In `ensureGatewayConfigRunning`, at both places where `probeExistingProfileGateway` returns `usable` with an `apiKey` that is not `config.APIKEY`, and `profileKeyWaitMs` is above 0:
+- [ ] **Step 3: Implement the wait and the refusal in `launch-service.ts`.** `probeExistingProfileGateway` takes the optional `apiKeys` list and uses it in place of `existingGatewayApiKeyCandidates(...)` when it is given. In `ensureGatewayConfigRunning`, at both places where `probeExistingProfileGateway` returns `usable` with an `apiKey` that is set and is not `config.APIKEY`:
 
-  1. Print once, with `console.info`: `[profile] Waiting for the gateway to accept the key of profile "<profile.name || profile.id>".`
+  1. When `profileKeyWaitMs` is above 0, print once, with `console.info`: `[profile] Waiting for the gateway to accept the key of profile "<profile.name || profile.id>".`
   2. Until `profileKeyWaitMs` has passed: wait 500 ms, then probe with `[config.APIKEY]` as the only candidate. A `usable` result ends the wait with the profile's key. Every other result, `unavailable` included, keeps waiting.
-  3. When the time is up, probe once more with the full candidate list and handle that result as that call site handles its probe today.
+  3. When the time is up, or at once when `profileKeyWaitMs` is 0, throw `new Error(existingGatewayConflictMessage({ endpoint: profileGatewayEndpoint(config), state: "unauthorized", status: 401 }, appName))`.
 
-  With `profileKeyWaitMs` at 0 the first result is used as it is today. Two limits, both read. The time bounds when a probe starts, not how long it runs: one probe can take several seconds against a port that accepts and does not answer, because each request is tried three times at 1200 ms. And a restart of the owner's gateway that is still under way when the time is up is handled as no gateway, as today. A launch against a gateway that will never take the key waits the full time, and the line of point 1 is what the user sees meanwhile. In `ensureProfileGateway`, where `result.acceptedApiKey !== result.config.APIKEY` already selects the fallback, call `console.warn` once with `[profile] The running LLM Router gateway did not accept the key of profile "<profile.name || profile.id>". This launch uses another key the gateway accepts, so the profile's model list does not apply to it. Restart the gateway to fix this.` The message never holds a key or part of one.
+  In `existingGatewayConflictMessage`, the `unauthorized` and `unusable` texts end with this sentence, copied exactly, in place of the one they have: `Restart the gateway before opening this profile. If LLMR Desktop is open, quit LLMR Desktop and open it again. If you started the gateway from a terminal, run llmr stop and then llmr start.` Keep one copy of the sentence in a constant.
+
+  `ensureProfileGateway` no longer needs its fallback branch, because `acceptedApiKey` is now the profile's key or unset. Remove the branch and return `result.config`. Nothing else reads `acceptedApiKey` (read by the audit), so drop the field from `EnsureGatewayConfigRunningResult` too. `profileGatewayConfigWithToken` stays, because `profileGatewayConfigFor` uses it.
+
+  Two limits, both read. The time bounds when a probe starts, not how long it runs: one probe can take several seconds against a port that accepts and does not answer, because each request is tried three times at 1200 ms. A launch against a gateway that will never take the key waits the full time, and the line of point 1 is what the user sees meanwhile.
 
 - [ ] **Step 4: Verify.**
 
 Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/profiles/profile-gateway-probe.test.js`
-Expected: every test passes, 0 fail. The five existing tests of the file use one key that is accepted, so they never wait.
+Expected: every test passes, 0 fail. The five existing tests of the file use one key that is accepted, so they never wait and are never refused.
 Run: `npm run typecheck && npm run lint && npm run test:architecture && npm run test:core && npm run test:cli`
 Expected: all pass.
 
-- [ ] **Step 5: Check the wait against Task 2's measurement.** If the time Task 2, Step 6 recorded between a key write and its first 200 is above 8 seconds, raise the default so it is that time plus 2 seconds, and say so in the PR description.
+- [ ] **Step 5: Check the wait against Task 2's measurement.** Task 2 recorded 2328 ms (single) and 1792 ms (compat) between a key write and its first 200, so the 10 second default stands. If a later measurement is above 8 seconds, raise the default so it is that time plus 2 seconds, and say so in the PR description.
 
-- [ ] **Step 6: Commit.** Subject: `fix(profiles): wait for the gateway to accept a profile's key before launching on another one`
+- [ ] **Step 6: Commit.** Subject: `fix(profiles): refuse a launch when the gateway does not accept the profile's key`
+
+What changes for a user, to say in the PR description. A launch that today starts on another key is refused after 10 seconds, with the restart advice. After Tasks 2 and 4 that is left for a gateway from a version without Task 2, a gateway another process owns, and a reload that was refused or failed.
+
+Not in this task. One more text gives the same advice and is left as it is: the Claude Code WIF message at `launch-service.ts:533`, "Restart LLMR Desktop or run llmr start to use WIF authentication." The two "is not running" messages at `:452` and `:460` say "Start LLMR Desktop or run llmr start", which is right when no gateway runs. The two owners that take the gateway port from each other are a finding of the VM pass with no task yet. Task 4 removes the state that set it off on the VM. The record of that pass has the rest.
 
 ---
 
 ### Task 4: Start an app profile's gateway from the full key list (K-3)
 
-Added on 2026-11-24, after the research of that day. It is its own PR and can be built before or after Task 3. Build it before Task 3 if the owner answers the second question below with (b), because it removes the one case Task 3's wait cannot fix.
+Added on 2026-11-24, after the research of that day. It is its own PR. **Build it first of the two**, before Task 3, because it removes the one case Task 3's wait cannot fix, and the VM pass of that day showed it does more than the research said.
+
+**Seen on the VM, 2026-11-24, released 9.0.0, single layout.** Three stored keys, all accepted. The desktop app opened an App-only Claude Code profile. The gateway child was replaced, and it then accepted that profile's key alone: the gateway's own first key and the other profile's key answered 401. Quitting and reopening the desktop app brought all three back. Two more things followed from the one-key gateway. A terminal launch of the other profile ran on the app profile's key (Task 3). And `llmr start`, run while the gateway held one key, started a second service that could not use that gateway, after which the two processes took the gateway port from each other about every 30 seconds, with or without requests being sent. The same `llmr start` beside a gateway that accepted every key started its service and left the gateway alone for the five minutes watched. So this task also removes the state that set off that exchange on the VM.
 
 `ensureGatewayConfigRunning` starts the gateway from the config it is given (`launch-service.ts:463`). For an app-profile open that is the config `profileGatewayConfigWithToken` builds: the caller's config with `APIKEY` set to the profile's token and `APIKEYS` replaced by one new entry that holds the token, the profile's key id, a name and a new `createdAt` (`:794-806`). The entry has no `limits` and no `expiresAt`. Three opens reach that start: `openOpenCodeAppProfile` and the Codex-compatible open through `ensureProfileGateway` (`:207`, `:307`), and `openClaudeAppProfile` directly (`:395`). All read. The CLI's own launch does not reach it, because it passes `startIfMissing: false` (`cli.ts:164-167`, `:183-186`, read). A Codex app launch from the CLI goes through the service's `openProfile` (`cli.ts:142-155`, read) and does.
 
@@ -597,12 +618,12 @@ Not in this task. An open still stops the running gateway and starts it again, b
 
 ## Open with the owner
 
-Where the two questions stand on 2026-11-24, after three research rounds. **Both were answered on 2026-11-24: the owner accepted the recommendation of each row.** So rule 4 stays as built, and Task 3 is built for (b) with the message the code already has, together with Task 4. Before Task 3's steps are rewritten for (b) and before either task is built, the owner wants a pass on his disposable VM with the released app, so the task text rests on what the real app does. The scripts for that pass are outside the repo. The detail and the evidence are under each question below.
+Where the two questions stand on 2026-11-24, after three research rounds. **Both were answered on 2026-11-24: the owner accepted the recommendation of each row.** So rule 4 stays as built, and Task 3 is built for (b), with a changed ending to the message the code already has, together with Task 4. The owner then ran a pass on his disposable VM with the released 9.0.0 app, so the task text rests on what the real app does. Task 3 was rewritten for (b) and Task 4 gained what the pass showed. The record of the pass is [`docs/superpowers/research/2026-11-24-decisions-vm-pass.md`](../research/2026-11-24-decisions-vm-pass.md). Its scripts and logs are outside the repo. The detail and the evidence are under each question below.
 
 | Question | Recommended now | How it was checked | What a yes builds |
 |---|---|---|---|
 | Task 2, rule 4: the keys changed and the stored config would not run the gateway | (a), as built. The third round changed this from (c) | (c) ran against the real gateway child in both layouts and works. The third round then read every way the case can be reached and found one, which a desktop install does not have | Nothing |
-| Task 3: the gateway still refuses the profile's key after the wait | (b), refuse the launch with the message the code already has, together with Task 4 | The single layout's refusal of a second stored key ran. Task 4's test and change ran. The rest was read | Task 3 with its (b) changes, and Task 4. Task 4 does not wait on the answer |
+| Task 3: the gateway still refuses the profile's key after the wait | (b), refuse the launch, together with Task 4 | The single layout's refusal of a second stored key ran. Task 4's test and change ran. The VM pass saw the one-key gateway and the launch on another profile's key in the released app | Task 4 first, then Task 3 as rewritten |
 
 **What should the gateway do when its keys changed in the store and the stored config would not run it? (Task 2, rule 4)**
 
@@ -637,11 +658,11 @@ Third research round, 2026-11-24, read at `1443952b` and not run. **Recommended 
 - **The one way found.** A server started with `--no-gateway`, or Docker's `LLMR_NO_GATEWAY`, on the same home as a gateway owner, whose user removes the last model. A desktop install has no such server.
 - **The owner's own change is not this case.** When the owner disables the gateway or removes its last provider, its save handler stops the child (`gateway-service.ts:227-246`, read by the researcher).
 
-So (c) works and would guard a case that needs two servers on one home, one of them started without a gateway. In that case the owner also keeps serving the providers the other server removed, which (c) does not change. The requested reload's missing check stays as it is for the same reason. Showing the refusal in the gateway status would need a new status field and UI, and is not recommended either.
+**Answered, 2026-11-24: (a), as built.** So (c) works and would guard a case that needs two servers on one home, one of them started without a gateway. In that case the owner also keeps serving the providers the other server removed, which (c) does not change. The requested reload's missing check stays as it is for the same reason. Showing the refusal in the gateway status would need a new status field and UI, and is not recommended either.
 
 **What should a profile launch do when the gateway still refuses the profile's own key after the wait? (K-3, Task 3)**
 
-- (a) Fall back to another accepted key and print the warning. Task 3 is written this way. The agent starts, on a key that is not the profile's.
+- (a) Fall back to another accepted key and print the warning. Task 3 was first written this way. The agent starts, on a key that is not the profile's.
 - (b) Refuse the launch with an error that says to restart the gateway. No session ever runs on another key. A user whose gateway is stale for a reason Task 2 does not cover cannot launch until they restart it.
 - (c) Keep today's behaviour and only add the warning, with no wait. A launch right after a profile's first apply then always runs on another key.
 
@@ -666,7 +687,7 @@ Second research round, 2026-11-24, read at `1d3c1d46` and not run. The recommend
 Third research round, 2026-11-24. The recommendation stays (b) with Task 4, and two points of the second round are corrected:
 
 - **Task 4 ran.** Its test failed on today's code at `started.APIKEY`, which was `"profile-token"`, and passed with the two changed lines of Step 3. The five existing tests of the file passed with them. The change and the test were removed afterwards.
-- **The refusal uses the message the code already has.** The warning text of Step 3 says "This launch uses another key the gateway accepts", which is false for a refusal. `existingGatewayConflictMessage` already says the gateway does not accept the key and to "Restart LLMR Desktop or run llmr start" (`launch-service.ts:747-750`, read by the session). That is also the only way out the user has: the CLI has no restart command and no page calls `restartGateway` (run by the session, a search). Not run: that `llmr start` makes a desktop-owned gateway take the stored keys.
+- **The refusal uses the message the code already has.** (Superseded the same day: after the VM pass, Task 3 replaces that message's last sentence.) The warning text of Step 3 says "This launch uses another key the gateway accepts", which is false for a refusal. `existingGatewayConflictMessage` already says the gateway does not accept the key and to "Restart LLMR Desktop or run llmr start" (`launch-service.ts:747-750`, read by the session). That is also the only way out the user has: the CLI has no restart command and no page calls `restartGateway` (run by the session, a search). Not run: that `llmr start` makes a desktop-owned gateway take the stored keys.
 - **A gateway still restarting when the wait ends.** The second round said the CLI then starts a service of its own. That holds only for Grok, Kimi and Pi on the CLI (`shouldAutoStartProfileGateway`, `launch-core.ts:84-89`, read by the session). Every other launch gets "LLMR gateway is not running" and stops. For those three, the new service adopts the owner's gateway if it is back and takes the port if it is not (inferred, not run). No change to Task 3 is recommended for it.
 
-Task 3 is written for (a) and does not wait on the answer. If the owner picks (b), Step 3's warning becomes `throw new Error(existingGatewayConflictMessage({ endpoint, state: "unauthorized", status: 401 }, appName))` with `profileGatewayEndpoint(config)` as the endpoint, and the third test asserts the rejection and that the message names no key. If (c), the wait and the first test are dropped.
+**Answered, 2026-11-24: (b), with Task 4.** Task 3 was rewritten for it the same day, after the VM pass. The pass showed that "run llmr start" is not advice to give while LLMR Desktop is open, so Task 3 also changes that sentence.
