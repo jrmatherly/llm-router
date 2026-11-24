@@ -178,7 +178,9 @@ export function formatCoreGatewayChildExit(
 ): string {
   const status = signal ?? code ?? (child.killed ? "killed" : "unknown status");
   const phaseSuffix = phase ? ` ${phase}` : "";
-  return appendGatewayChildOutput(child, `Core gateway exited with ${status}${phaseSuffix}.`);
+  const message = `Core gateway exited with ${status}${phaseSuffix}.`;
+  // LLM Router is what normally sends SIGTERM, so the child's output is not the cause.
+  return signal === "SIGTERM" ? message : appendGatewayChildOutput(child, message);
 }
 
 function resolveGatewayBootstrapEntry(): string {
@@ -532,7 +534,7 @@ function executableExists(candidate: string): boolean {
   return existsSync(candidate);
 }
 
-function captureGatewayChildOutput(child: ChildProcess): void {
+export function captureGatewayChildOutput(child: ChildProcess): void {
   gatewayChildOutput.set(child, { stderr: "", stdout: "" });
   child.stdout?.on("data", (chunk) => appendGatewayOutput(child, "stdout", chunk));
   child.stderr?.on("data", (chunk) => appendGatewayOutput(child, "stderr", chunk));
