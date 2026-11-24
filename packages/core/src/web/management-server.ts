@@ -490,8 +490,8 @@ const rpcHandlers: Record<string, RpcHandler> = {
   recoverGlobalProfile: (profileId) => recoverGlobalAgentProfile(readRequiredString(profileId, "Profile ID is required."), (config) => gatewayService.updateConfig(config)),
   resetCodexRateLimitCredit: (request) => resetCodexRateLimitCredit(request as ProviderAccountResetRequest),
   resetOverviewStatistics: () => resetOverviewStatistics(),
-  saveApiKeys: async (apiKeys) => {
-    const savedConfig = await saveApiKeysConfig(apiKeys as ApiKeyConfig[]);
+  saveApiKeys: async (apiKeys, base) => {
+    const savedConfig = await saveApiKeysConfig(apiKeys as ApiKeyConfig[], base as ApiKeyConfig[]);
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
     const nextConfig = syncedClaudeAppConfig.config;
     await reconcileProfileApiKeys(nextConfig);

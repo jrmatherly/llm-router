@@ -177,7 +177,7 @@ contextBridge.exposeInMainWorld("llmr", {
   resetOverviewStatistics: () => invoke(IPC_CHANNELS.appResetOverviewStatistics) as Promise<UsageStatsResetResult>,
   restartGateway: () => invoke(IPC_CHANNELS.appRestartGateway) as Promise<GatewayStatus>,
   restartProxy: () => invoke(IPC_CHANNELS.appRestartProxy) as Promise<ProxyStatus>,
-  saveApiKeys: (apiKeys: ApiKeyConfig[]) => invoke(IPC_CHANNELS.appSaveApiKeys, apiKeys) as Promise<AppConfig>,
+  saveApiKeys: (apiKeys: ApiKeyConfig[], base: ApiKeyConfig[]) => invoke(IPC_CHANNELS.appSaveApiKeys, apiKeys, base) as Promise<AppConfig>,
   saveConfig: (config: AppConfig, options?: AppSaveConfigOptions) => invoke(IPC_CHANNELS.appSaveConfig, config, options) as Promise<AppConfig>,
   selectPluginDirectory: () => invoke(IPC_CHANNELS.appSelectPluginDirectory) as Promise<PluginDirectorySelection | undefined>,
   setOnboardingFinished: () => invoke(IPC_CHANNELS.appSetOnboardingFinished) as Promise<boolean>,

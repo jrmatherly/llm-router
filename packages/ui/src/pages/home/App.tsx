@@ -1137,6 +1137,7 @@ function App() {
   }
 
   async function persistApiKeys(apiKeys: ApiKeyConfig[], setError: (message: string) => void): Promise<boolean> {
+    const base = currentDraft.current.APIKEYS;
     if (!window.llmr) {
       setError("API key persistence is only available in the Electron app.");
       return false;
@@ -1149,7 +1150,7 @@ function App() {
         throw new Error("This app build does not expose API key persistence. Rebuild and restart the Electron app.");
       }
       await configSaveQueue.current.run(
-        () => window.llmr!.saveApiKeys(apiKeys),
+        () => window.llmr!.saveApiKeys(apiKeys, base),
         (saved) => {
           const normalized = normalizeConfig(saved);
           setConfigSnapshots(

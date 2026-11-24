@@ -378,8 +378,8 @@ handle(IPC_CHANNELS.appSetThemePreference, async (_event, theme: unknown) => {
   applyAppThemePreference(savedTheme);
   return savedTheme;
 });
-handle(IPC_CHANNELS.appSaveApiKeys, async (_event, apiKeys: ApiKeyConfig[]) => {
-  const savedConfig = await saveApiKeysConfig(apiKeys);
+handle(IPC_CHANNELS.appSaveApiKeys, async (_event, apiKeys: ApiKeyConfig[], base: ApiKeyConfig[]) => {
+  const savedConfig = await saveApiKeysConfig(apiKeys, base);
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
   const nextConfig = syncedClaudeAppConfig.config;
   await reconcileProfileApiKeys(nextConfig);

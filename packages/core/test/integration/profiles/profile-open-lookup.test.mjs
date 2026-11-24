@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { CONFIGDIR } from "@llmr/core/config/constants.ts";
-import { replacePersistedApiKeys } from "@llmr/core/config/config-repository.ts";
+import { updatePersistedApiKeys } from "@llmr/core/config/config-repository.ts";
 import { getProfileOpenCommand, openProfileFromLlmr } from "@llmr/core/profiles/launch-service.ts";
 import { restoreGlobalProfileConfigsOnExit } from "@llmr/core/profiles/service.ts";
 import { isolateTestHome } from "../../../../../build/test-home.mjs";
@@ -25,7 +25,7 @@ for (const [name, open, error] of [
       isolateTestHome(home);
       delete process.env.CODEX_HOME;
       const config = globalProfilesConfig();
-      await replacePersistedApiKeys(config.APIKEYS);
+      await updatePersistedApiKeys(() => config.APIKEYS);
 
       await assert.rejects(open(config), error);
 
