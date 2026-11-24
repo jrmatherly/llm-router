@@ -4,7 +4,7 @@
 
 **Goal:** A person who turns on "Sign in with my Claude login" gets a form, a provider dialog, model pickers, a saved config and an upgrade note that all say what PR 146 does, before that change is released.
 
-**Architecture:** Two PRs. PR 1 is one branch with six tasks and one commit each. Task 1 is core and is built only if the owner answers question 1 with (a). Tasks 2, 3 and 5 are UI. Task 4 is core. Task 6 is docs. PR 2 is Task 7 alone and changes how a Claude Code settings backup is written. Core's probe result, the contract types and the request path are not touched.
+**Architecture:** Two PRs. PR 1 is one branch with six tasks and one commit each. Task 1 is core. The owner answered question 1 with (a) on 2026-11-24, so it is built. Tasks 2, 3 and 5 are UI. Task 4 is core. Task 6 is docs. PR 2 is Task 7 alone and changes how a Claude Code settings backup is written. Core's probe result, the contract types and the request path are not touched.
 
 **Tech Stack:** TypeScript, React, `node:test` with `node:assert/strict`, `renderToStaticMarkup`, Playwright for the `tests/e2e/` specs.
 
@@ -15,12 +15,12 @@
 ## Decisions this plan rests on
 
 - **PT-1 to PT-11.** From the pass-through spec. PT-1 to PT-8 are the owner's and settled. Nothing here contradicts one. PT-2 (the mode is chosen per profile, nothing switches it on, and Claude Code shows its own model list), PT-5 (no body rewrite) and PT-11 (a bare model id goes to the pass-through provider) are the ones these tasks lean on.
-- **FU-1 to FU-13.** Recommended by the sessions, 2026-11-23. None is the owner's decision yet. The owner confirms them by approving this plan. FU-1, FU-9 and FU-11 are Task 2. FU-10 is Tasks 3 and 4. FU-5 is Task 5. FU-2, FU-6 and FU-12 are Task 6. FU-3 is Task 1, and FU-3 and FU-4 together are question 1. FU-7 is Task 7. FU-8 is the split into two PRs. FU-13 is "Release order".
+- **FU-1 to FU-13.** Recommended by the sessions, 2026-11-23. On 2026-11-24 the owner answered questions 1, 7 and 8 and gave the word to revise this plan and start PR 1. The session reads that as approval of the FU decisions PR 1 builds. FU-7 and question 9 concern PR 2 and the release and are still his to confirm. FU-1, FU-9 and FU-11 are Task 2. FU-10 is Tasks 3 and 4. FU-5 is Task 5. FU-2, FU-6 and FU-12 are Task 6. FU-3 is Task 1, and FU-3 and FU-4 together are question 1. FU-7 is Task 7. FU-8 is the split into two PRs. FU-13 is "Release order".
 - **Plan author, changeable in review.** The wording of every line of UI copy and doc text below, the names of the new helpers, and the choice to leave the provider dialog's step marker and the pane label "Models detected from this provider" as they are. Five of the new texts call the provider `Claude Code API`, the name the import gives it. Core still finds the provider after a rename, through its id, so after a rename those texts name a provider that is not in the list.
 
 ## Global Constraints
 
-- There are no outside users. No compatibility path and no migration code. Whether Task 1 is migration code is question 1.
+- There are no outside users. No compatibility path and no migration code. The owner answered question 1 with (a): Task 1 is built.
 - Never weigh upstream parity.
 - LLM Router never writes `~/.claude.json`.
 - **The real app never runs on the owner's Mac.** No step here runs `npm run dev:electron`, `llmr` or `claude`. A check that needs a running UI goes through the end-to-end harness, which starts the web UI in a temporary home (`startCliWebServer`, `tests/e2e/cli-web-runtime.ts`). A check that needs the real apps is a Gate B row on the throwaway VM.
@@ -42,7 +42,7 @@
 
 Each line is a condition no single task's own test covers alone. The test that pins it is named at the end.
 
-1. A plugin entry that is not one of the two Claude entries keeps its `auth` block through a load, a save and a reload. Task 1, Step 1. This line goes if Task 1 is not built.
+1. A plugin entry that is not one of the two Claude entries keeps its `auth` block through a load, a save and a reload. Task 1, Step 1.
 2. A Claude-login profile with an allowed model list and no default model still cannot be saved. Task 2, Step 1, the first test's last assertion.
 3. A bare model id, which goes to the subscription, gets no "goes to another provider" line. Task 2, Step 1, the notice test.
 4. The UI and core name the same provider as the pass-through one, whatever key it holds. Task 2, Step 1, the parity test.
@@ -54,10 +54,10 @@ Each line is a condition no single task's own test covers alone. The test that p
 
 | Finding | Task |
 |---|---|
-| F-2 | 1, if the owner keeps it (question 1) |
+| F-2 | 1 |
 | F-1, F-12 (kept), F-13, F-15, F-16 | 2, and 6 for the docs |
-| F-17 | 2, Step 8, which waits on question 8 |
-| F-14 | 3 for the form and the card, 4 for core. Task 3, Step 7 waits on question 7 |
+| F-17 | 2, Step 8 |
+| F-14 | 3 for the form and the card, 4 for core. Task 3, Step 7 refuses the save for a profile with no provider it can use |
 | F-3, F-11, F-9 for the pass-through provider | 5 |
 | F-4, F-18 | 6 |
 | F-5 | 6 for the sentence, 7 for the change |
@@ -75,7 +75,7 @@ Each line is a condition no single task's own test covers alone. The test that p
 ## Not in this plan
 
 - **F-6, the empty `env` after a restore.** The backlog restore plan's Task 3 owns it.
-- **F-10, the account connector of a provider saved by an earlier version.** FU-4, unless the owner answers question 1 with (c).
+- **F-10, the account connector of a provider saved by an earlier version.** FU-4. The owner answered question 1 with (a), which leaves the connector as it is.
 - **F-9 for Codex, Grok and the other local-login providers.** Question 5.
 - **A neutral probe state in the contract types.** Weighed under F-3 and not chosen.
 - **The Routing page.** It still offers the pass-through provider as a rule target and as a fallback (`routing.tsx:74-79`, `:690-695`, read (review)). A rule that sends another caller there gets the "no login" refusal. The spec defers a warning, and the README note of Task 6 says what happens. It is a known limit of this release.
@@ -91,10 +91,8 @@ Branch `fix/pass-through-follow-ups` from `main`.
 
 ### Task 1: Drop the stored `auth` block when the config is loaded (F-2, FU-3)
 
-**Waits on the owner.** This task is built only with answer (a) to question 1, which is the answer the plan is written for. While the question is open, build nothing of it. Start the branch at Task 2 and add this task's commit when the answer comes. It is core only and no other task needs code from it, so its place on the branch does not matter.
+**Answered, 2026-11-24: (a).** The task is built. It is core only and no other task needs code from it, so its place on the branch does not matter.
 
-- **Answer (b).** The task is dropped. PR 1 has five commits and Review Focus 1 goes. For a config an earlier version saved, five texts then stay untrue until the provider is removed and added again. They are the dialog's "Nothing is stored." (`providers.tsx:2318`), the toggle's "without storing it" (`profiles.tsx:903`), `providers.md:14` and `:24`, and `profiles.md:59`. Task 6, Step 1 then adds the remove-and-add sentence to the README note. With that step done the five texts are true.
-- **Answer (c).** This plan does not specify the connector drop. It needs a short revision first, with the rule for which connector is removed and a fourth entry in the test.
 
 After an upgrade, the first save writes the config without the `auth` block that an earlier version stored in the two Claude plugin entries. A config that never held the block loads as before.
 
@@ -319,11 +317,13 @@ test("onboarding connects a Claude login profile with no default model", async (
 
     The settings file is in the harness's temporary home. Run `npm run build:assets && npx playwright test tests/e2e/claude-login-profile.spec.ts`, then `git checkout -- packages/core/models.json packages/ui/src/generated`. Expected: PASS. On today's code the heading, the toggle label and the button match, the web bridge keeps both plugin entries through the save and the reload, the toggle switches on, and the Next step button stays disabled, so the click times out (ran (second audit)). A variant that picked a model got through the save, and the settings file held `ANTHROPIC_CUSTOM_HEADERS` and no `apiKeyHelper` (ran (second audit)). The test catches a form that shows the field as optional and a submit check that still refuses.
 - [ ] **Step 7: Run the gates.** `npm run typecheck`, `npm run lint`, `npm run test:architecture`.
-- [ ] **Step 8, which waits on question 8. The allowed model list.** Skip this step while the question is open. It then becomes its own commit on the branch or its own PR. With answer (c), the form shows one more `<p>` under the toggle's help text, beside the two lines Interfaces puts there, while the toggle is on and `draft.availableModels.length > 0`. Its text is `This profile has an allowed model list. In Claude login mode, Claude Code can use only the models in it, and a pick from its own /model list that is not in it is refused. The list is under Advanced settings.`
+- [ ] **Step 8: The allowed model list.** The owner answered question 8 with (c) on 2026-11-24, with the line widened. It is part of this task's one commit. The form shows one more `<p>` under the toggle's help text, beside the two lines Interfaces puts there, while the toggle is on and `draft.availableModels.length > 0`. Its text is `This profile has an allowed model list. In Claude login mode it applies to every model Claude Code uses, including a pick from its own /model list and its background model. A request for a model that is not in the list is refused. The list is under Advanced settings.`
+
+    The line is wider than the first draft, which named only `/model` picks. With the list `["Claude Code API/claude-sonnet-5"]`, `profileDeniedModel` refuses `claude-haiku-5-5` and `claude-opus-5-5` as well as `claude-opus-4-8`, and passes `claude-sonnet-5` (ran, 2026-11-24, a throwaway test against `profiles/model-allowlist.ts` and `gateway/request/pipeline.ts`). A profile with a list always has a default model, because the form requires one (`shared/profiles.ts:669-671`), and `profileAllowedModels` always allows it. So the session's own start is not refused. What is refused is any other model Claude Code asks for. That a normal session sends Haiku requests in the background is inferred. The `-p` probe runs sent none, and Gate B check G10 looks for them.
 
     The line sits under the toggle and not beside the list. The list is inside Advanced settings, and the form opens that section only in edit mode (`profiles.tsx:743`, `:1018`). An add-mode render holds no "Allowed model list" text and an edit-mode render does, and the toggle's help text is in both (ran (second audit), ran (second fix round)). A user can also close the section in either mode. Under the toggle the line shows in both modes, next to the switch that makes the list matter, and the test below can render the form in add mode.
 
-    Test `the form warns that an allowed model list limits Claude Code's own picks`, with `listLine = /Claude Code can use only the models in it/`.
+    Test `the form warns that an allowed model list applies to every model Claude Code uses`, with `listLine = /it applies to every model Claude Code uses/`.
 
 ```ts
 assert.match(loginForm({ ...loginDraft(), availableModels: ["Claude Code API/claude-sonnet-5"], model: "Claude Code API/claude-sonnet-5" }), listLine);
@@ -331,7 +331,7 @@ assert.doesNotMatch(loginForm(loginDraft()), listLine);
 assert.doesNotMatch(loginForm({ ...createProfileDraft("claude-code"), availableModels: ["Fixture/first-model"], model: "Fixture/first-model" }), listLine);
 ```
 
-    The first assertion fails on today's code, where the line does not exist, and the other two hold. A line shown without a list fails the second assertion, and one shown with the toggle off fails the third. With answer (a) this step is replaced by a core change that this plan does not specify. Its starting point is under question 8.
+    The first assertion fails on today's code, where the line does not exist, and the other two hold. A line shown without a list fails the second assertion, and one shown with the toggle off fails the third. Making the list not apply to subscription requests, and writing the list into Claude Code's own `availableModels` setting so its `/model` list agrees, are follow-ups this plan does not specify. Their starting points are under question 8.
 - [ ] **Step 9: Commit.** `fix(ui): make the default model optional in Claude login mode and say where each model goes`
 
 ### Task 3: The profile form offers the pass-through provider only where it can work (F-14, FU-10, the UI half)
@@ -353,7 +353,7 @@ Only a Claude Code profile in Claude login mode carries a login, so every other 
 - Changes, in the form's `models` issue. When the filtered list has no model and the unfiltered one has, the text is, for `claude-code`, `Your only provider is Claude Code API. Turn on Sign in with my Claude login to use it, or add another provider.` For every other agent it is `Your only provider is Claude Code API. It works only in a Claude Code profile with Sign in with my Claude login on. Add another provider for this agent.` With no provider at all the text stays "Configure at least one enabled provider model before saving an agent profile."
 - Changes, in the form: one `<p className="text-[12px] text-muted-foreground">` above the model fields when the profile cannot use the pass-through provider and one of `model`, `fableModel`, `opusModel`, `sonnetModel`, `haikuModel` or an entry of `availableModels` names it. Text: `This profile names a Claude Code API model. Those work only in a Claude Code profile with Sign in with my Claude login on.` This is what an upgrader sees, whose helper-mode profile kept the default an earlier version used.
 - Changes: `defaultProfileClientModel(config)` skips providers for which `isClaudeLoginProvider(provider, config.providerPlugins)` is true.
-- Not changed: submit. `isProfileDraftSubmittable` takes no providers (`shared/profiles.ts:652-685`), and `canSubmitProfile` reads `hasAvailableGatewayModels(draftConfig)`, which counts the pass-through provider (`App.tsx:765-767`, read). So the new `models` issue is text only and blocks nothing. With the pass-through provider alone, a profile of an agent whose model is optional (Codex, Pi, Grok, OpenCode, Kilo, ZCode or Workbuddy) still saves with an empty model. Core then falls back as Task 4 says, and its requests fail as an unknown model. A Claude Code profile with the toggle off and a Kimi profile do not save, because their model is required and the picker offers none (inferred). Whether the save should be refused is the second part of question 7. This task builds the text and waits on nothing.
+- Changed by Step 7: submit. `isProfileDraftSubmittable` takes no providers (`shared/profiles.ts:652-685`), and `canSubmitProfile` reads `hasAvailableGatewayModels(draftConfig)`, which counts the pass-through provider for every agent (`App.tsx:765-767`, read). Steps 1 to 6 leave that as it is, so until Step 7 the new `models` issue is text only. Step 7 makes the save count only the providers the draft can use.
 
 - [ ] **Step 1: Write the failing tests** in `profiles.test.tsx`. Add `profileModelProviders` to the import on line 7.
   - `the pass-through provider is offered only to a Claude Code profile in Claude login mode`.
@@ -403,7 +403,23 @@ await expect(page.getByRole("button", { name: "Next step" })).toBeEnabled();
 ```
 
     Run it as Task 2, Step 6 says, and restore the generated files. Expected: PASS. On today's code the heading matches, Next step is disabled before and after the toggle, and the test stops at the "Your only provider" text, which does not exist yet (ran (second audit)). The last assertion needs Task 2's submit change, which the order gives it.
-- [ ] **Step 7, which waits on question 7. The pass-through provider as the only provider.** Steps 1 to 6 build answer (a) to both parts of the question and do not wait. With answer (b) to its first part, `createProfileDraft` gets no new parameter. The onboarding component and `App.tsx`'s Add profile opener switch the toggle on in the new draft when every enabled provider passes `isClaudeLoginProvider`, the end-to-end test of Step 6 expects the button enabled from the start, and the first-run text of Step 6 is asserted absent. With answer (c) to its first part, or answer (b) to its second, this plan does not specify the change. For the second part the starting point is `canSubmitProfile` and `canSubmitProfileEdit` (`App.tsx:766-767`) and the two guards that read `profileRouteTargetReady` (`:2999`, `:3057`), which would count the filtered list of the draft in hand.
+- [ ] **Step 7: A profile with no provider it can use is not saved.** The owner answered question 7 on 2026-11-24: (a) for a new Claude Code profile, which Steps 1 to 6 build, and (b) for a profile of another agent, which is this step. The form already refuses a save when there is no provider at all. This step applies the same rule to the providers the draft can use.
+
+    - Produces, in `shared/profiles.ts`: `export function profileHasUsableModels(draft: Pick<AddProfileDraft, "agent" | "envRows">, config: Pick<AppConfig, "Providers" | "providerPlugins" | "virtualModelProfiles">): boolean`. It returns `hasAvailableGatewayModels({ ...config, Providers: profileModelProviders(draft, config.Providers, config.providerPlugins ?? []) })`.
+    - Changes, in `App.tsx`: `profileRouteTargetReady` is replaced by two values, `profileHasUsableModels(profileDraft, draftConfig)` for `canSubmitProfile` and the guard in `submitProfileDraft` (`:2999`), and `profileHasUsableModels(profileEditDraft, draftConfig)` for `canSubmitProfileEdit` and the guard in the edit submit (`:3057`). The guards keep their message. The form's `models` issue of Interfaces already says which provider is missing. `App.tsx` then has no use left for `hasAvailableGatewayModels`, so its import (`:43`) goes, or `tsc` fails on an unused name. `shared/profiles.ts` gains the function on its existing import from `@llmr/core/contracts/app` (`:38`).
+    - Add the stub first, with the body `return true;`, then the test `a profile is saved only when it has a provider it can use` in `profiles.test.tsx`, with `profileHasUsableModels` joining the import line. `loginProviders`, `loginPlugins` and `loginDraft` are the fixtures of Step 1, and `Fixture` stands for the test file's ordinary provider.
+
+```ts
+const only = { Providers: loginProviders.filter((provider) => provider.name === "Claude Code API"), providerPlugins: loginPlugins, virtualModelProfiles: [] };
+const both = { ...only, Providers: loginProviders };
+assert.equal(profileHasUsableModels(createProfileDraft("codex"), only), false);
+assert.equal(profileHasUsableModels(createProfileDraft("claude-code"), only), false);
+assert.equal(profileHasUsableModels(loginDraft(), only), true);
+assert.equal(profileHasUsableModels(createProfileDraft("codex"), both), true);
+assert.equal(profileHasUsableModels(createProfileDraft("codex"), { ...only, Providers: [] }), false);
+```
+
+    With the stub the first, second and last assertions fail. The builder reads the fixtures of Step 1 before writing this and adjusts the two config objects to their real shape, keeping the five cases. An existing profile of another agent can then not be saved from the edit dialog while the pass-through provider is the only one, which is what the no-provider case already does. Switching a profile on or off does not go through this check (`updateProfileItem`, `App.tsx:3098`, read (third audit)). The changed `App.tsx` lines have no component test. Gate B check G6 covers them with the real app.
 - [ ] **Step 8: Run the gates and commit.** `npm run typecheck`, `npm run lint`, `npm run test:architecture`. Subject: `fix(ui): offer the Claude login provider only to a profile that can use it`
 
 ### Task 4: Core keeps the pass-through provider out of other agents' defaults and model lists (F-14, FU-10, the core half)
@@ -594,9 +610,9 @@ expect(probeRequests.length).toBe(0);
 
 Last in PR 1, because its text describes what Tasks 2 to 5 built.
 
-**One sentence waits on a check.** "Leave it empty and Claude Code starts on its own default model" is a statement about Claude Code. For a system-default profile LLM Router writes no model key, so Claude Code's own rule applies. For a shared-home profile LLM Router writes `"ANTHROPIC_MODEL": ""` (ran (review)), and what Claude Code does with that is probe P8 under "Release order". Write the sentences marked **P8** below only when P8 has passed. If PR 1 opens first, leave them out, say so in the PR, and add them in a docs commit to `main` once P8 has passed. If P8 fails, they are not written and F-7 becomes a defect with its own task.
+**Probe P8 passed on 2026-11-24**, so the sentences marked **P8** below are written. For a system-default profile LLM Router writes no model key, so Claude Code's own rule applies. For a shared-home profile LLM Router writes `"ANTHROPIC_MODEL": ""` (ran (review)), and Claude Code treats that as unset (ran, P8). Gate B check G3 repeats it behind LLM Router.
 
-**One sentence waits on question 1.** Step 1 marks it. PR 1 opens after that question is answered, because the README note differs by the answer.
+**Question 1 was answered (a)**, so the README gets no remove-and-add sentence.
 
 **Files:**
 - Modify: `README.md` (`:175-177`)
@@ -604,7 +620,7 @@ Last in PR 1, because its text describes what Tasks 2 to 5 built.
 - Modify: `docs/src/content/docs/en/configuration/providers.md` (the "Claude Code" section, `:12-24`)
 - Modify: `docs/superpowers/plans/2026-11-22-claude-code-login-pass-through.md` (its Status paragraph, the bullet "Open for the owner")
 
-- [ ] **Step 1: README.** The heading becomes `### Upgrading from 8.x`. After the sentence that ends "should use your Claude subscription." add: `A default model from another provider still starts every new session on that provider, whatever you pick with /model.` Then, **P8**: `Clear **Default model** in the profile to start on Claude Code's own default.` Then: `Route rules, fallbacks and other agents' profiles that name a Claude Code API model now fail with a message that says to sign in. Point them at another provider.` Then, only with answer (b) to question 1: `Remove the Claude Code API provider and add it again, which deletes the login an earlier version saved in LLMR's config.` The rest of the paragraph stays.
+- [ ] **Step 1: README.** The heading becomes `### Upgrading from 8.x`. After the sentence that ends "should use your Claude subscription." add: `A default model from another provider still starts every new session on that provider, whatever you pick with /model.` Then, **P8**: `Clear **Default model** in the profile to start on Claude Code's own default.` Then: `Route rules, fallbacks and other agents' profiles that name a Claude Code API model now fail with a message that says to sign in. Point them at another provider.` The rest of the paragraph stays.
 - [ ] **Step 2: `profiles.md`, the section "Claude login mode".**
   - After the paragraph that starts "Claude Code then shows its own model list", add: `With the toggle on, **Default model** is optional. A model from another provider in **Default model** starts every new session on that provider, and one in the Fable, Opus, Sonnet or Haiku field sends that choice there. The form says so under the field.` Then, **P8**: `Leave **Default model** empty and Claude Code starts on its own default model, on your subscription.`
   - After that paragraph add: `A profile opened only from LLMR has its own Claude home and starts signed out. Run /login once inside it, or turn on **Use my ~/.claude in the terminal**. A **System default** profile uses your normal login.` Put `/login` in code font.
@@ -735,17 +751,17 @@ Gate B is the pass on the throwaway VM in the pass-through plan, with its checks
 | G3 | A shared-home Claude-login profile with no default model. Read its settings file and confirm it holds `"ANTHROPIC_MODEL": ""`, then start Claude Code | Claude Code starts on its own default model and the first request succeeds, as probe P8 showed without LLM Router. If it fails or names an empty model, record it. That is F-7 becoming a defect |
 | G4 | A system-default Claude-login profile with no default model | `~/.claude/settings.json` has no `ANTHROPIC_MODEL` key. Claude Code starts on its own default and Logs show provider `Claude Code API` |
 | G5 | A Claude-login profile whose default is another provider's model, and whose Opus field is another provider's model | The form shows both lines of Task 2. A new session's requests appear in Logs under that provider. Picking Opus with `/model` sends requests to the Opus field's provider. Picking another model from Claude Code's own list sends them to `Claude Code API`. Quit and start Claude Code again and write down which model the new session starts on |
-| G6 | A fresh install. In onboarding, import only the Claude Code provider and go to "Connect agent" | The form shows the "Your only provider is Claude Code API" line and Next step is off. With the toggle on, onboarding finishes, and `claude -p "say ok"` is answered with provider `Claude Code API` in Logs. If the first part of question 7 was answered (b), the toggle is already on |
+| G6 | A fresh install. In onboarding, import only the Claude Code provider and go to "Connect agent" | The form shows the "Your only provider is Claude Code API" line and Next step is off. Before touching the toggle, pick Codex as the agent and confirm Next step stays off with the "Add another provider for this agent." line, then pick Claude Code again. A saved profile keeps Next step on, so this comes first. With the toggle on, onboarding finishes, and `claude -p "say ok"` is answered with provider `Claude Code API` in Logs |
 | G7 | A new Claude-login profile with the default scope, "Only opened from LLMR", and shared home off. Open Claude Code from it | The form shows the "starts signed out" line. Write down what Claude Code shows before a login. After `/login` inside it, a prompt is answered with provider `Claude Code API`. This also shows for real what probe P7 shows with a stub |
 | G8 | With `Claude Code API` as the first provider and one other provider, a Codex profile with an empty model | The card shows the other provider's model. Codex starts on it and is answered. Its model list does not offer a `Claude Code API` model |
 | G9 | Turn the toggle on in a Claude Code profile, then switch the `Claude Code API` provider off and send a prompt | The form shows "No Claude Code API provider is on." and the card reads `Claude login, no Claude Code API provider`. Logs show the prompt under another provider or refused with LLM Router's own message, and never under `Claude Code API`. Write down which of the two |
-| G10 | A Claude-login profile with an allowed model list that holds `Claude Code API/claude-sonnet-5`. Pick another Claude model with `/model` and send a prompt | The request is refused with "is not allowed for this profile", as F-17 found, and the form shows the line of Task 2, Step 8 under the toggle. If question 8 was answered (a), the request is answered instead |
+| G10 | A Claude-login profile with an allowed model list that holds `Claude Code API/claude-sonnet-5`. Pick another Claude model with `/model` and send a prompt | The request is refused with "is not allowed for this profile", as F-17 found, and the form shows the line of Task 2, Step 8 under the toggle. Also write down whether a normal session shows refused background requests in Logs for a model that is not in the list |
 
 ## Release order
 
 PR 146 merged before the pass-through plan's Gate B ran. So Gate B no longer gates a merge. It gates the release, and nothing ships until it has passed on the build that will ship (FU-13).
 
-1. **The owner's answers.** The table below says what waits on each. Question 1 comes before PR 1 opens. While it is open, nothing of Task 1 is built, and Tasks 2 to 6 are built apart from the one README sentence that depends on it.
+1. **The owner's answers.** Questions 1, 7 and 8 were answered on 2026-11-24 and nothing in PR 1 waits on him now. Questions 2, 3, 4, 5 and 9 are open and gate no task of PR 1.
 2. **The isolated probe runs, on this Mac.** P1 to P7 of the pass-through plan, as its section "Isolated probe runs on this Mac" describes, and one new run. They use only the Claude Code binary, under `env -i` with a temporary home, a stub API on loopback and a stand-in `security`. LLM Router is not run. P8 is recorded as one more row of that section's table:
 
    | # | Run | What it settles |
@@ -754,7 +770,7 @@ PR 146 merged before the pass-through plan's Gate B ran. So Gate B no longer gat
 
    **Ran, 2026-11-24, on Claude Code 2.1.330.** The results are in the pass-through plan under "Isolated probe runs on this Mac", "Results". P8 passed. An empty `ANTHROPIC_MODEL`, in a settings file or in the process environment, starts Claude Code on its own default model, the same id a run with no `ANTHROPIC_MODEL` carries. So the sentences marked P8 in Task 6 can be written, and G3 still checks the same behind LLM Router. P6 showed that Claude Code sends no `[1m]` suffix in `-p` mode, which G2 checks with the real apps.
 
-3. **PR 1**, Tasks 1 to 6, with Task 1 only if question 1 was answered (a).
+3. **PR 1**, Tasks 1 to 6.
 4. **PR 2**, Task 7. Recommended before Gate B, because it changes a restore and B7 should run on the build that ships. This is question 9.
 5. **Gate B on the build that will ship.** B1 to B11 and G1 to G10. A G2 failure adds a task before the release.
 6. **The version (question 2) and the release.**
@@ -762,10 +778,6 @@ PR 146 merged before the pass-through plan's Gate B ran. So Gate B no longer gat
 
 | Waits | On |
 |---|---|
-| Task 1, all of it, and Review Focus 1 | Question 1 |
-| Task 6, Step 1, the remove-and-add sentence, and the opening of PR 1 | Question 1 |
-| Task 2, Step 8 | Question 8 |
-| Task 3, Step 7 | Question 7 |
 | The docs sentences marked P8 in Task 6, Steps 1 and 2 | Probe P8 |
 | A docs sentence on what a signed-out Claude Code shows | Probes P4 and P7, then G7. No task here writes one |
 | Task 7's scope | Question 3 |
@@ -774,23 +786,24 @@ PR 146 merged before the pass-through plan's Gate B ran. So Gate B no longer gat
 
 ## Open with the owner
 
-1. **Is removing, on load, data that only one earlier version wrote migration code?** FU-3 removes the stored `auth` block on load and FU-4 leaves the dead account connector on load, so the two apply different standards to the same kind of change. The record's F-2 gives the precedent for and against, and the manual step that already clears the block. Options: (a) build Task 1. (b) Drop Task 1 and rely on the remove-and-add step. Five texts then stay untrue for an upgraded config until that step is done, and the README note gains a sentence that tells every upgrader to do it. Task 1 lists both. (c) Build Task 1 and also drop the dead connector on load, so both are treated the same way. That needs a short revision of this plan first. Recommended: (a), and the plan is written for it. The first audit and the design review leaned to (b), because the project has one install and a written step already covers it. The design review added that (c) is the consistent answer if the public 8.x releases count as having users. Those views are recorded for the owner and are not a second recommendation. What waits: all of Task 1, Review Focus 1, the remove-and-add sentence of Task 6, Step 1, and the opening of PR 1. While the question is open, nothing of Task 1 is built and Tasks 2 to 6 are built without it.
+1. **Is removing, on load, data that only one earlier version wrote migration code?** FU-3 removes the stored `auth` block on load and FU-4 leaves the dead account connector on load, so the two apply different standards to the same kind of change. The record's F-2 gives the precedent for and against, and the manual step that already clears the block. Options: (a) build Task 1. (b) Drop Task 1 and rely on the remove-and-add step. Five texts then stay untrue for an upgraded config until that step is done, and the README note gains a sentence that tells every upgrader to do it. Task 1 lists both. (c) Build Task 1 and also drop the dead connector on load, so both are treated the same way. That needs a short revision of this plan first. Recommended: (a), and the plan is written for it. The first audit and the design review leaned to (b), because the project has one install and a written step already covers it. The design review added that (c) is the consistent answer if the public 8.x releases count as having users. Those views are recorded for the owner and are not a second recommendation. **Answered, 2026-11-24: (a).** Before answering, the owner asked for more research. It read the pre-PR code and found that the import stored only the access token of the day of the import and no refresh token, and that neither option clears the database file's free pages.
 2. **Which version carries PR 146?** Options: (a) 9.0.0, which the project's practice implies, because the change is a `feat!` that removes a feature and needs a user action, as 5.0 and 7.0 did. (b) 8.2.0, with 6.1 and 7.2 as precedents for a minor that carried a README upgrade note. Recommended: (a). No task waits. Task 6 writes "Upgrading from 8.x", which is true for either. The release waits.
 3. **Should the other agents' backups change too?** The backups of Pi, OpenCode, Kilo and ZCode hold the profile key the same way. Options: (a) Claude Code only, as Task 7 is written, and leave the others to Tasks 6 to 8 of the backlog restore plan. (b) Add the four to Task 7 through the same `contentForBackup` option, with one "which line is LLM Router's" rule each. (c) Leave all backups as they are and drop Task 7. (d) In `backupCurrentFile`, blank the pattern `backup-files.ts` already has (`profileTokenPattern`, `:61`), as `saveRemovedConfigCopy` does. That is a few lines, it covers every agent, and no restore picks a different snapshot. The record's F-5 options table gives its limits, which were read and not run. Task 7's fixtures would need keys of the generated form, and the `{"env":{}}` result of Task 7, Step 1 stays. Recommended: (a) now, and (d) in place of (b) if the owner wants the four covered before the restore plan is built. Task 7 waits on this only if the answer is (b), (c) or (d).
 4. **Should LLM Router say anything when `settings.json` is a link into another folder (F-8)?** Options: (a) nothing in code, and tell the dotfiles and claude-multipass sessions, which the pass-through plan's local step 3 already does. (b) One sentence in the form when the settings file is a link. (c) Refuse Claude login mode for a linked file. Recommended: (a). No task waits.
 5. **Should the edit dialog stop probing the other local-login providers with the placeholder key (F-9)?** Options: (a) leave it until someone runs it and sees what each provider answers. (b) Skip the automatic probe for every local-login edit draft. Recommended: (a), because (b) also removes the model discovery those providers rely on. No task waits.
 6. **Should the record say less about which backup copies hold a key that is still in use?** Options: (a) keep its F-5 table and its "What limits it" paragraph, because Task 7 and its limits cannot be reviewed without them. (b) Shorten both to "a copy can hold the key line" and keep the detail in a private note. Recommended: (a). With (b), Task 6, Step 2 writes one sentence where it has three. No task waits. **Answered, 2026-11-23: (a).** The owner had the record pushed as written.
-7. **What should happen when the only provider is the pass-through one?** Task 3, Step 7 waits on both parts. Tasks 2 and 3 build answer (a) to each without waiting.
+7. **What should happen when the only provider is the pass-through one?** Answered on 2026-11-24, as each part says below.
    - **A new Claude Code profile, in onboarding or from Add profile.** PT-2 says nothing switches the mode on, and a new profile starts with the toggle off, so a person whose only provider is the Claude import reaches a profile step that cannot be finished as it stands. Options: (a) keep the toggle off and show the line "Your only provider is Claude Code API. Turn on Sign in with my Claude login to use it, or add another provider." (b) Start a new Claude Code profile with the toggle on when every enabled provider is the pass-through one. That is one click fewer, and it is an exception to PT-2 that only the owner can make. (c) Do not let the provider step count the Claude import alone as enough. Recommended: (a).
-   - **A profile of another agent.** Onboarding lets a person pick another agent. With the pass-through provider alone, a Codex, Pi, Grok, OpenCode, Kilo, ZCode or Workbuddy profile can still be saved with an empty model, because the new line is text only and the submit check counts the pass-through provider (`App.tsx:765-767`, read). Its requests then fail as an unknown model. Options: (a) leave the submit check as it is. The form says "Add another provider for this agent." and the profile saves. (b) Refuse the save until the profile has a provider it can use, which is what the form already does when there is no provider at all. That changes `App.tsx` and is not specified here. Task 3, Step 7 names where it starts. Recommended: (a) for this release, because it is text only and takes away nothing that works today. (b) is the rule the no-provider case already follows, if the owner wants a saved profile to always have a model it can use.
-8. **What should an allowed model list do in Claude login mode (F-17)?** Task 2, Step 8 waits. With a list set, Claude Code's own `/model` picks that are not in the list are refused with "is not allowed for this profile" (ran (review round)). The list picker offers only models a provider lists, and the imported provider lists one. Options: (a) the list does not apply to a request the pass-through rule routes. That is a core change in at least four places, the two `profileDeniedModel` functions (`gateway/request/pipeline.ts:1402`, `gateway/core-runtime/router-plugin.ts:1136`) and the two `count_tokens` checks (`gateway/http/request-handler.ts:273`, `router-plugin.ts:368`), and it needs its own tests. `isModelAllowedForProfile` has more callers, which build route and model lists (`gateway/llm-router-plugin.ts:1030`, `gateway/features/model-discovery.ts:169`, `:256`, `:315`) and were not traced. (b) The list must name the models. Nothing changes, and the docs say that a model is added to the provider with Custom model and then to the list. (c) The form says what happens, as Task 2, Step 8 is written. Recommended: (c) for this release, because it is text only and true, and (a) later if the owner wants the picks to work.
+   - **A profile of another agent.** Onboarding lets a person pick another agent. With the pass-through provider alone, a Codex, Pi, Grok, OpenCode, Kilo, ZCode or Workbuddy profile can still be saved with an empty model, because the new line is text only and the submit check counts the pass-through provider (`App.tsx:765-767`, read). Its requests then fail as an unknown model. Options: (a) leave the submit check as it is. The form says "Add another provider for this agent." and the profile saves. (b) Refuse the save until the profile has a provider it can use, which is what the form already does when there is no provider at all. Task 3, Step 7 specifies it. The plan first recommended (a). After the research of 2026-11-24 the session recommended (b), because Task 4 leaves such a profile with no model it can use and the form already refuses the no-provider case.
+   - **Answered, 2026-11-24: (a) for the first part and (b) for the second.** Task 3, Step 7 builds (b).
+8. **What should an allowed model list do in Claude login mode (F-17)?** With a list set, Claude Code's own `/model` picks that are not in the list are refused with "is not allowed for this profile" (ran (review round)). The list picker offers only models a provider lists, and the imported provider lists one. Options: (a) the list does not apply to a request the pass-through rule routes. That is a core change in at least four places, the two `profileDeniedModel` functions (`gateway/request/pipeline.ts:1402`, `gateway/core-runtime/router-plugin.ts:1136`) and the two `count_tokens` checks (`gateway/http/request-handler.ts:273`, `router-plugin.ts:368`), and it needs its own tests. `isModelAllowedForProfile` has more callers, which build route and model lists (`gateway/llm-router-plugin.ts:1030`, `gateway/features/model-discovery.ts:169`, `:256`, `:315`) and were not traced. (b) The list must name the models. Nothing changes, and the docs say that a model is added to the provider with Custom model and then to the list. (c) The form says what happens, as Task 2, Step 8 is written. (d) Write the profile's list into Claude Code's own `availableModels` setting, which Claude Code reads from any settings file and uses to hide and reject models (`~/.claude-code-docs/cache/claude-code__model-config.md:259-300`, read, 2026-11-24). Not designed and not run. Recommended: (c) for this release, because it is text only and true, and (a) or (d) later if the owner wants the picks to work. **Answered, 2026-11-24: (c), with the line widened** to every model Claude Code uses, after a run showed the list also refuses Claude Code's own default model. Task 2, Step 8 has the text.
 9. **Does PR 2 ship in the same release?** FU-7 first had the release ship with the backups as they are. Options: (a) PR 2 merges before Gate B and ships with PR 1, so B7 runs once, on the build that ships. (b) The release goes out without PR 2, and PR 2 gets its own pass of B7 on the VM before the release after it. Recommended: (a). Step 4 of "Release order" waits.
 
 The account connector of F-10 has no question of its own. It is option (c) of question 1.
 
 ## Self-review
 
-- **Coverage.** F-1 to F-5 and F-13 to F-18 each have a task or a step. F-2's task and the steps for F-17 and part of F-14 wait on questions 1, 8 and 7. F-7 is observed by P8 and G3 and is not closed. FU-1 to FU-13 each name a task or a section, and each is still a recommendation.
+- **Coverage.** F-1 to F-5 and F-13 to F-18 each have a task or a step. Questions 1, 7 and 8 are answered and no step waits on them. F-7 is observed by P8 and G3 and is not closed. FU-1 to FU-13 each name a task or a section, and the owner's word of 2026-11-24 covers the ones PR 1 builds. FU-7 and question 9 are still his to confirm.
 - **Steps.** Every test step gives a name, its assertions with real values and what joins the import line. Tasks 2, 3 and 5 add a stub before their first run. The Codex control of Task 5 passes before the change and says so. The text of Task 4's integration test was not run, though an apply of its profile was.
 - **No step runs the app.** The two visual checks of the first plan are now end-to-end tests in a temporary home, and what needs the real apps is a Gate B row.
 - **Names across tasks.** `isClaudeLoginProvider` takes a saved provider and comes from Task 2. `profileModelProviders` takes a profile draft and comes from Task 3. `isClaudeLoginProviderDraft` takes a provider draft and comes from Task 5. Core's `withoutClaudeLoginProviders` and `claudeLoginProviderNames` already exist.
@@ -807,6 +820,7 @@ The spec's "Not verified" list applies in full. This list holds only what is the
 - What the Grok route does with a request once the built-in rule does not apply.
 - A Claude Desktop request that resolves to the default route target while the pass-through provider is first. `inferClaudeAppGatewayTargetModel` reads the unfiltered list (`agents/claude-app/gateway-routes.ts:43`), and no task here changes it.
 - The discovery sentences of Task 6, Step 3. They rest on PT-2 and on the spec's reading of Claude Code's docs. LLM Router writes `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY` into the settings file of a Claude-login profile (ran (second audit)), and probe P1, which shows what Claude Code does with it, has not run.
-- The changes this plan leaves unspecified, which are answer (a) to question 8, answers (b) and (c) to the first part of question 7 beyond what Task 3, Step 7 says, answer (b) to its second part, and answer (c) to question 1.
+- The changes this plan leaves unspecified, which are answers (a) and (d) to question 8.
+- Task 3, Step 7. Its helper, its test and the four changed lines of `App.tsx` were written after the audits of 2026-11-23 and have their own audit.
 - Two backups made within the same millisecond get the same name (`backup-files.ts:9-12`), so a count of backups in Task 7's integration tests could come out one lower. The file's existing tests share that risk.
-- Probe P8, probes P1 to P7, and every Gate B check.
+- Every Gate B check. The probes ran on 2026-11-24.
