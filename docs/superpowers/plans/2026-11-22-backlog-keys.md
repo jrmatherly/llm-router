@@ -572,7 +572,7 @@ test("an app profile's gateway is started with every stored key and the open sti
 - [ ] **Step 2: Run and see it fail.**
 
 Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/profiles/profile-gateway-probe.test.js`
-Expected: the new test fails at `started.APIKEY`, which is `"profile-token"` today. Inferred, not run.
+Expected: the new test fails at `started.APIKEY`, which is `"profile-token"` today. Ran, 2026-11-24.
 
 - [ ] **Step 3: Implement.** In `ensureGatewayConfigRunning`, `gatewayService.start(config)` becomes `gatewayService.start(candidateConfig)`. The function still returns `config`. In `openClaudeAppProfile`, the call becomes `ensureGatewayConfigRunning(profileGatewayConfig, profile, "Claude App", {}, config)`. Nothing else changes. `profileGatewayConfigWithToken` stays, because the writers use it.
 
@@ -597,12 +597,12 @@ Not in this task. An open still stops the running gateway and starts it again, b
 
 ## Open with the owner
 
-Where the two questions stand on 2026-11-24, after two research rounds. Neither is answered. The detail and the evidence are under each question below.
+Where the two questions stand on 2026-11-24, after three research rounds. Neither is answered. The detail and the evidence are under each question below.
 
 | Question | Recommended now | How it was checked | What a yes builds |
 |---|---|---|---|
-| Task 2, rule 4: the keys changed and the stored config would not run the gateway | (c), keeping only the held keys that are still stored, and the same check on a requested reload | (c) with the whole stored list ran against the real gateway child in both layouts. The narrower form and the reload check were read, not run | A small follow-up PR to Task 2. No task is written for it yet |
-| Task 3: the gateway still refuses the profile's key after the wait | (b), refuse the launch, together with Task 4 | The single layout's refusal of a second stored key ran. The rest was read | Task 3 with its (b) changes, and Task 4. Task 4 does not wait on the answer |
+| Task 2, rule 4: the keys changed and the stored config would not run the gateway | (a), as built. The third round changed this from (c) | (c) ran against the real gateway child in both layouts and works. The third round then read every way the case can be reached and found one, which a desktop install does not have | Nothing |
+| Task 3: the gateway still refuses the profile's key after the wait | (b), refuse the launch with the message the code already has, together with Task 4 | The single layout's refusal of a second stored key ran. Task 4's test and change ran. The rest was read | Task 3 with its (b) changes, and Task 4. Task 4 does not wait on the answer |
 
 **What should the gateway do when its keys changed in the store and the stored config would not run it? (Task 2, rule 4)**
 
@@ -629,6 +629,16 @@ Second research round, 2026-11-24, read at `1d3c1d46` and not run. The recommend
 
 Also read: the runtime-config control route needs the gateway's primary key (`router-plugin.ts:741`), and another process sends the first stored key, so taking `APIKEY` from the store keeps that route usable. The gateway's ToolHub and media tool servers take the first key and are built again from the started config on every start (`config-compiler.ts:122-123`, read by the audit), so they follow the swap.
 
+Third research round, 2026-11-24, read at `1443952b` and not run. **Recommended now: (a), as built, and no follow-up.** The round asked how the case is reached, and the answer above was wrong in its example.
+
+- **`--no-gateway` stores nothing.** It only skips the start (`cli.ts:359-360`, read by the session). So `llmr serve --no-gateway` does not store a disabled config.
+- **No page writes `gateway.enabled`.** A search of `packages/ui/src` and `packages/electron/src` finds no write of it (run by the session), and its default is on. Only a config edited by hand turns it off.
+- **A second service of the usual kind does not reach it.** It adopts the owner's gateway, and its saves reach the owner as requested reloads (`gateway-service.ts:358-372`, read by the researcher, inferred).
+- **The one way found.** A server started with `--no-gateway`, or Docker's `LLMR_NO_GATEWAY`, on the same home as a gateway owner, whose user removes the last model. A desktop install has no such server.
+- **The owner's own change is not this case.** When the owner disables the gateway or removes its last provider, its save handler stops the child (`gateway-service.ts:227-246`, read by the researcher).
+
+So (c) works and would guard a case that needs two servers on one home, one of them started without a gateway. In that case the owner also keeps serving the providers the other server removed, which (c) does not change. The requested reload's missing check stays as it is for the same reason. Showing the refusal in the gateway status would need a new status field and UI, and is not recommended either.
+
 **What should a profile launch do when the gateway still refuses the profile's own key after the wait? (K-3, Task 3)**
 
 - (a) Fall back to another accepted key and print the warning. Task 3 is written this way. The agent starts, on a key that is not the profile's.
@@ -653,4 +663,10 @@ Second research round, 2026-11-24, read at `1d3c1d46` and not run. The recommend
 - **Who sees the refusal.** Only `cli.ts:164` and `:183` pass `reuseExisting`, so it is every `llmr <profile>` launch, the desktop app's "open in terminal" included. The message prints in a terminal. The desktop and management-server opens never reach it.
 - **One more change under (b).** A gateway that is still restarting when the wait ends is handled as no gateway, and `cli.ts:168-186` then starts a service of its own. Under (b) that result is a refusal too.
 
-Task 3 is written for (a) and does not wait on the answer. If the owner picks (b), Step 3's warning becomes a thrown `Error` with the same text, the second test asserts the rejection, and an `unavailable` result of the last probe throws the same `Error` in place of `ProfileGatewayUnavailableError`. If (c), the wait and the first test are dropped.
+Third research round, 2026-11-24. The recommendation stays (b) with Task 4, and two points of the second round are corrected:
+
+- **Task 4 ran.** Its test failed on today's code at `started.APIKEY`, which was `"profile-token"`, and passed with the two changed lines of Step 3. The five existing tests of the file passed with them. The change and the test were removed afterwards.
+- **The refusal uses the message the code already has.** The warning text of Step 3 says "This launch uses another key the gateway accepts", which is false for a refusal. `existingGatewayConflictMessage` already says the gateway does not accept the key and to "Restart LLMR Desktop or run llmr start" (`launch-service.ts:747-750`, read by the session). That is also the only way out the user has: the CLI has no restart command and no page calls `restartGateway` (run by the session, a search). Not run: that `llmr start` makes a desktop-owned gateway take the stored keys.
+- **A gateway still restarting when the wait ends.** The second round said the CLI then starts a service of its own. That holds only for Grok, Kimi and Pi on the CLI (`shouldAutoStartProfileGateway`, `launch-core.ts:84-89`, read by the session). Every other launch gets "LLMR gateway is not running" and stops. For those three, the new service adopts the owner's gateway if it is back and takes the port if it is not (inferred, not run). No change to Task 3 is recommended for it.
+
+Task 3 is written for (a) and does not wait on the answer. If the owner picks (b), Step 3's warning becomes `throw new Error(existingGatewayConflictMessage({ endpoint, state: "unauthorized", status: 401 }, appName))` with `profileGatewayEndpoint(config)` as the endpoint, and the third test asserts the rejection and that the message names no key. If (c), the wait and the first test are dropped.
