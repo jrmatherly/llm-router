@@ -1,6 +1,6 @@
 # Backlog: API Keys and Gateway Reload Implementation Plan
 
-> **Status, 2026-11-24: corrected and audited again, waiting for the owner's approval to build.** A second-model audit of 2026-11-22 found 3 Blockers and 6 Corrections. Each was read again in the code at `main` `81773a5d` and held, and the tasks below carry the corrections. A second audit of the corrected text on 2026-11-24 found no Blocker and 5 Corrections, 4 of them in test text, and those are applied too. The text changed by that last round was not audited a third time. The audits live outside the repo. Tasks 1 and 2 merged on 2026-11-24 (PRs 149 and 150). Task 4 and the second-round notes under "Open with the owner" were added the same day and audited once. Task 3 was rewritten the same day for the owner's answer (b), after a pass on his VM, and that text has its own audit.
+> **Status, 2026-11-24: corrected and audited again, waiting for the owner's approval to build.** A second-model audit of 2026-11-22 found 3 Blockers and 6 Corrections. Each was read again in the code at `main` `81773a5d` and held, and the tasks below carry the corrections. A second audit of the corrected text on 2026-11-24 found no Blocker and 5 Corrections, 4 of them in test text, and those are applied too. The text changed by that last round was not audited a third time. The audits live outside the repo. Tasks 1 and 2 merged on 2026-11-24 (PRs 149 and 150). Task 4 merged the same day (PR 151, `c53eb517`), with a second test that covers the Claude App open. Task 3 is the one task left. Task 4 and the second-round notes under "Open with the owner" were added the same day and audited once. Task 3 was rewritten the same day for the owner's answer (b), after a pass on his VM, and that text has its own audit.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -553,6 +553,8 @@ Not in this task. One more text gives the same advice and is left as it is: the 
 ---
 
 ### Task 4: Start an app profile's gateway from the full key list (K-3)
+
+**Merged, 2026-11-24: PR 151, `c53eb517`.** What the real apps do after it is still a check for the owner's VM.
 
 Added on 2026-11-24, after the research of that day. It is its own PR. **Build it first of the two**, before Task 3, because it removes the one case Task 3's wait cannot fix, and the VM pass of that day showed it does more than the research said.
 

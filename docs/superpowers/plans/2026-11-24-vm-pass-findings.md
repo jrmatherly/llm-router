@@ -71,7 +71,7 @@ Each line is a condition no task's first test covers. The test that pins it is i
 
 ## Order
 
-1. Keys plan Task 4 merges first. Task 1 here depends on it: with a one-key config the adopting side ends in `error`.
+1. Keys plan Task 4 merges first. Done, PR 151, `c53eb517`. Task 1 here depends on it: with a one-key config the adopting side ends in `error`.
 2. Tasks 1 and 2, one PR, branch `fix/gateway-restart-yields`.
 3. Keys plan Task 3 can go before or after step 2.
 4. Task 3, its own PR, branch `fix/app-activation-no-apple-event`, after the owner's VM check.
