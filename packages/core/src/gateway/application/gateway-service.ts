@@ -49,7 +49,8 @@ installSocketTypeOfServiceCompat();
 
 const coreGatewayLiveTokenRateSourceId = "core-gateway";
 const storedApiKeysPollMs = 1000;
-// Never equal to a stored list's JSON, so the next two ticks reload again.
+const storedApiKeysRetryMs = 60_000;
+// Never equal to a stored list's JSON, so the poll reloads again.
 const unappliedStoredApiKeys = "";
 let warnedMalformedRefusedKeyMessage = false;
 
@@ -155,6 +156,9 @@ class GatewayService {
   };
   private storedApiKeysBaseline?: string;
   private storedApiKeysPending?: string;
+  private storedApiKeysReadFailed = false;
+  private storedApiKeysReloadFailure?: string;
+  private storedApiKeysRetryAt = 0;
   private storedApiKeysTimer?: NodeJS.Timeout;
 
   setBrowserWebSearchMcpIntegration(integration: BrowserWebSearchMcpIntegration): void {
@@ -723,24 +727,31 @@ class GatewayService {
     }
   }
 
+  private async readStoredApiKeys(): Promise<string | undefined> {
+    try {
+      const stored = JSON.stringify(await loadPersistedApiKeys());
+      this.storedApiKeysReadFailed = false;
+      return stored;
+    } catch (error) {
+      if (!this.storedApiKeysReadFailed) console.warn(`[gateway] Failed to read the stored API keys: ${formatError(error)}`);
+      this.storedApiKeysReadFailed = true;
+      return undefined;
+    }
+  }
+
   private async rememberStoredApiKeys(): Promise<void> {
     this.storedApiKeysPending = undefined;
-    try {
-      this.storedApiKeysBaseline = JSON.stringify(await loadPersistedApiKeys());
-    } catch {
-      this.storedApiKeysBaseline = undefined;
-    }
+    this.storedApiKeysRetryAt = 0;
+    // A failed read keeps the older baseline, so a change is reloaded later and not taken as applied.
+    this.storedApiKeysBaseline = await this.readStoredApiKeys() ?? this.storedApiKeysBaseline;
   }
 
   // Compared with the stored list as of the last config taken, not with the held config, which callers mutate and which may hold keys never stored.
   private async checkStoredApiKeys(): Promise<void> {
     if (this.status.state !== "running" || this.status.gatewayManagedExternally || !(this.child || this.server)) return;
-    let seen: string;
-    try {
-      seen = JSON.stringify(await loadPersistedApiKeys());
-    } catch {
-      return;
-    }
+    if (Date.now() < this.storedApiKeysRetryAt) return;
+    const seen = await this.readStoredApiKeys();
+    if (seen === undefined) return;
     if (this.storedApiKeysBaseline === undefined) {
       this.storedApiKeysBaseline = seen;
     } else if (seen === this.storedApiKeysBaseline) {
@@ -763,14 +774,19 @@ class GatewayService {
     );
   }
 
+  // With no revision the reload is the key poll's own, and it keeps its failures apart from the ones a requested reload reports to its caller.
   private async reloadPersistedRuntimeConfig(expectedRevision: string | undefined, forceRestart: boolean): Promise<void> {
+    const keyPoll = expectedRevision === undefined;
     try {
       const nextConfig = await loadAppConfig();
       const loadError = appConfigLoadError(nextConfig);
       if (loadError) throw new Error(loadError);
       const actualRevision = gatewayRuntimeConfigRevision(nextConfig);
-      if (expectedRevision !== undefined && actualRevision !== expectedRevision) {
+      if (!keyPoll && actualRevision !== expectedRevision) {
         throw new Error(`Persisted configuration revision ${actualRevision || "(missing)"} does not match the requested revision ${expectedRevision}.`);
+      }
+      if (keyPoll && this.child && !(shouldRunGatewayRuntime(nextConfig) && hasAvailableGatewayModels(nextConfig))) {
+        throw new Error("The stored configuration would not run the gateway, so the running gateway keeps the API keys it started with.");
       }
       const restartRequired = forceRestart || !this.config ||
         this.runtimeConfigSignature !== runtimeGatewayConfigSignature(nextConfig);
@@ -782,13 +798,23 @@ class GatewayService {
       } else {
         await this.updateConfig(nextConfig);
       }
-      this.runtimeConfigReloadError = undefined;
+      if (keyPoll) {
+        this.storedApiKeysReloadFailure = undefined;
+      } else {
+        this.runtimeConfigReloadError = undefined;
+      }
     } catch (error) {
       const message = formatError(error);
-      // The poll's reload is tried again while the stored keys differ from what the gateway runs on, so the same failure is logged once.
-      if (expectedRevision === undefined) this.storedApiKeysBaseline = unappliedStoredApiKeys;
-      if (message !== this.runtimeConfigReloadError) console.error(`[gateway] Failed to reload persisted runtime configuration: ${message}`);
-      this.runtimeConfigReloadError = message;
+      if (!keyPoll) {
+        this.runtimeConfigReloadError = message;
+        console.error(`[gateway] Failed to reload persisted runtime configuration: ${message}`);
+        return;
+      }
+      // While the gateway still runs, the reload is tried again a minute later, and the same failure is logged once.
+      this.storedApiKeysBaseline = unappliedStoredApiKeys;
+      this.storedApiKeysRetryAt = Date.now() + storedApiKeysRetryMs;
+      if (message !== this.storedApiKeysReloadFailure) console.error(`[gateway] Failed to reload after a stored API key change: ${message}`);
+      this.storedApiKeysReloadFailure = message;
     }
   }
 

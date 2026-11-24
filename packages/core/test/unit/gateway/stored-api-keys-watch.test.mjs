@@ -54,7 +54,9 @@ test("a key write that the service itself follows with a new config does not rel
   const { reloads, service } = await runningService([first]);
   await updatePersistedApiKeys((current) => [...current, second]);
   await service.checkStoredApiKeys();
-  await service.rememberStoredApiKeys();
+  service.child = undefined;
+  service.server = {};
+  await service.updateConfig(createDefaultAppConfig());
   await service.checkStoredApiKeys();
   await service.checkStoredApiKeys();
   assert.deepEqual(reloads, []);
@@ -129,7 +131,52 @@ test("a key written while the old gateway stops is reloaded once the new one run
   assert.deepEqual(reloads, [[undefined, false]]);
 });
 
-test("a reload whose config load failed leaves the running gateway alone and is tried again", async () => {
+test("a restart after a crash keeps the baseline, so a key written while the child was down is reloaded", async () => {
+  const { reloads, service } = await runningService([first]);
+  await updatePersistedApiKeys((current) => [...current, second]);
+  service.child = undefined;
+  await service.startGateway(createDefaultAppConfig(), service.coreRestartGeneration);
+  service.child = {};
+  service.status = { coreEndpoint: "", endpoint: "", networkEndpoints: [], state: "running" };
+  await service.checkStoredApiKeys();
+  await service.checkStoredApiKeys();
+  assert.deepEqual(reloads, [[undefined, false]]);
+});
+
+test("a key reload that succeeds is not repeated", async () => {
+  const { service } = await runningService([first]);
+  delete service.schedulePersistedRuntimeConfigReload;
+  service.child = undefined;
+  service.server = {};
+  const starts = [];
+  service.start = async (config) => { starts.push(config); return service.getStatus(); };
+  await loadAppConfig();
+  await service.rememberStoredApiKeys();
+  await updatePersistedApiKeys((current) => [...current, second]);
+  for (let tick = 0; tick < 4; tick += 1) {
+    await service.checkStoredApiKeys();
+    await service.runtimeConfigReloadQueue;
+  }
+  assert.equal(starts.length, 1);
+  assert.deepEqual(starts[0].APIKEYS.map((key) => key.id), ["first", "second"]);
+});
+
+test("a key reload onto a stored config that would not run the gateway is refused", async (t) => {
+  const { service } = await runningService([first]);
+  const logged = t.mock.method(console, "error", () => {});
+  const starts = [];
+  service.start = async (config) => { starts.push(config); return service.getStatus(); };
+  await loadAppConfig();
+  await service.reloadPersistedRuntimeConfig(undefined, false);
+  assert.deepEqual(starts, []);
+  assert.equal(logged.mock.callCount(), 1);
+  assert.match(String(logged.mock.calls[0].arguments[0]), /would not run the gateway/);
+});
+
+test("a key reload whose config load failed leaves the gateway alone, is logged once and is tried again a minute later", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const logged = t.mock.method(console, "error", () => {});
+  t.mock.method(console, "warn", () => {});
   const { reloads, service } = await runningService([first]);
   const taken = [];
   service.start = async (config) => { taken.push(config); return service.getStatus(); };
@@ -139,9 +186,15 @@ test("a reload whose config load failed leaves the running gateway alone and is 
   assert.equal(database.prepare("UPDATE app_config SET value_json = '{' WHERE key = 'default'").run().changes, 1);
   database.close();
   await service.reloadPersistedRuntimeConfig(undefined, false);
+  await service.reloadPersistedRuntimeConfig(undefined, false);
   assert.deepEqual(taken, []);
-  assert.ok(service.runtimeConfigReloadError);
+  assert.equal(logged.mock.callCount(), 1);
+  assert.equal(service.runtimeConfigReloadError, undefined);
   await service.checkStoredApiKeys();
   await service.checkStoredApiKeys();
-  assert.equal(reloads.length, 1);
+  assert.deepEqual(reloads, []);
+  t.mock.timers.tick(60_000);
+  await service.checkStoredApiKeys();
+  await service.checkStoredApiKeys();
+  assert.deepEqual(reloads, [[undefined, false]]);
 });
