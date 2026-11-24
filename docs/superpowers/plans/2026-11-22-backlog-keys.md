@@ -597,7 +597,7 @@ Not in this task. An open still stops the running gateway and starts it again, b
 
 ## Open with the owner
 
-Where the two questions stand on 2026-11-24, after three research rounds. Neither is answered. The detail and the evidence are under each question below.
+Where the two questions stand on 2026-11-24, after three research rounds. **Both were answered on 2026-11-24: the owner accepted the recommendation of each row.** So rule 4 stays as built, and Task 3 is built for (b) with the message the code already has, together with Task 4. Before Task 3's steps are rewritten for (b) and before either task is built, the owner wants a pass on his disposable VM with the released app, so the task text rests on what the real app does. The scripts for that pass are outside the repo. The detail and the evidence are under each question below.
 
 | Question | Recommended now | How it was checked | What a yes builds |
 |---|---|---|---|
