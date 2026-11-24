@@ -58,7 +58,7 @@ If Claude App is already running, restart it or reopen it from LLMR when prompte
 
 Use this mode to run Claude Code through LLMR on your Claude subscription. It needs the `Claude Code API` provider, which you add from **Providers** through the Claude Code import entry. Claude Code keeps its own login. It sends that login with each request, and LLMR forwards it to Anthropic without reading, refreshing or storing it.
 
-The profile writes LLMR's base URL to its settings file and adds one line, `x-llmr-api-key: <gateway key>`, to `ANTHROPIC_CUSTOM_HEADERS`. Lines you already had in that variable stay. The gateway key sits in that file in plain text. A `settings.json.llmr-backup-<time>` copy beside the file can hold the same line. Switching the profile off revokes that key once LLMR has put the profile's settings back. Quitting LLMR puts a system-default profile's settings back and keeps the profile and its key, so a copy made then holds the key the profile still uses. The profile writes no `apiKeyHelper`.
+The profile writes LLMR's base URL to its settings file and adds one line, `x-llmr-api-key: <gateway key>`, to `ANTHROPIC_CUSTOM_HEADERS`. Lines you already had in that variable stay. The gateway key sits in that file in plain text. LLMR writes its `settings.json.llmr-backup-<time>` copies without that line. Switching the profile off revokes that key once LLMR has put the profile's settings back. Quitting LLMR puts a system-default profile's settings back and keeps the profile and its key. The profile writes no `apiKeyHelper`.
 
 Claude Code then shows its own model list, not the one LLMR serves. A model you pin as `Provider/model` still goes through LLMR to that provider, with its routing rules.
 
