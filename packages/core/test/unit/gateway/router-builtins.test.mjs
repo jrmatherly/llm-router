@@ -1015,6 +1015,31 @@ test("Grok internal title requests use the gateway default when the profile mode
   assert.equal(result.decision.reason, "builtin:grok-internal");
 });
 
+test("Grok internal title requests skip the Claude login provider when the profile model is unset", async () => {
+  const plugin = createRouterPlugin({
+    agent: "grok",
+    profileModel: "",
+    providerPlugins: [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }],
+    providers: [
+      { api_key: "llmr-local-agent-login", models: ["claude-sonnet-5"], name: "Claude Code API", type: "anthropic_messages" },
+      { models: ["claude-sonnet"], name: "Provider", type: "anthropic_messages" }
+    ]
+  });
+  const result = await plugin.routeRequest({
+    body: {
+      model: "grok-build"
+    },
+    headers: {
+      "user-agent": "grok/0.2.99"
+    },
+    method: "POST",
+    url: "/v1/responses"
+  });
+
+  assert.equal(result.body.model, "Provider/claude-sonnet");
+  assert.equal(result.decision.reason, "builtin:grok-internal");
+});
+
 test("Grok explicit model selection routes chat requests through a Responses provider", async () => {
   const config = {
     CUSTOM_ROUTER_PATH: "",

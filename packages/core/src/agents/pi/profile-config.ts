@@ -8,6 +8,7 @@ import {
   modelCatalogMaxInputTokens,
   type ModelCatalogEntry
 } from "@llmr/core/gateway/model-catalog";
+import { withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { backupBeforeWrite, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
 import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
@@ -187,7 +188,7 @@ function piCatalogMaxTokens(entry: ModelCatalogEntry | undefined): number | unde
 function piProfileModels(config: AppConfig, profile: ProfileConfig, defaultModel: string): string[] {
   return uniqueStrings([
     defaultModel,
-    ...buildCodexModelCatalogIds(config, defaultModel, { allowedModels: profileAllowedModels({ ...profile, model: defaultModel }) })
+    ...buildCodexModelCatalogIds(withoutClaudeLoginProviders(config), defaultModel, { allowedModels: profileAllowedModels({ ...profile, model: defaultModel }) })
   ].filter(Boolean));
 }
 

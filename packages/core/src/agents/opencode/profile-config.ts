@@ -3,6 +3,7 @@ import path from "node:path";
 import { buildCodexModelCatalog, type CodexModelCatalogItem } from "@llmr/core/agents/codex/model-catalog";
 import { parseJsoncRecord } from "@llmr/core/agents/local-providers/shared";
 import { isGatewayProviderEnabled, type AppConfig, type GatewayProviderConfig, type ProfileConfig, type ProviderModelMetadata } from "@llmr/core/contracts/app";
+import { withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { findModelCatalogEntry, findProviderModelCatalogEntry, type ModelCatalogEntry, modelCatalogMaxInputTokens, modelCatalogMaxOutputTokens } from "@llmr/core/gateway/model-catalog";
 import { backupBeforeWrite, backupMarker, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
@@ -121,7 +122,7 @@ function openCodeGatewayOverrides(config: AppConfig, profile: ProfileConfig, tok
 }
 
 function openCodeModelConfigs(config: AppConfig, profile: ProfileConfig, selectedModel: string): Record<string, unknown> {
-  const catalog = buildCodexModelCatalog(config, selectedModel, { allowedModels: profileAllowedModels(profile) });
+  const catalog = buildCodexModelCatalog(withoutClaudeLoginProviders(config), selectedModel, { allowedModels: profileAllowedModels(profile) });
   const resolutionConfig: OpenCodeModelResolutionConfig = {
     Providers: config.Providers ?? [],
     virtualModelProfiles: config.virtualModelProfiles ?? []
@@ -267,7 +268,7 @@ function gatewayEndpoint(config: AppConfig): string {
 }
 
 function defaultClientModel(config: AppConfig): string {
-  const enabledProviders = config.Providers.filter(isGatewayProviderEnabled);
+  const enabledProviders = withoutClaudeLoginProviders(config).Providers.filter(isGatewayProviderEnabled);
   const provider = enabledProviders.find((item) => item.name === config.preferredProvider) ?? enabledProviders[0];
   const model = provider?.models[0] ?? "default";
   return provider?.name ? `${provider.name}/${model}` : model;

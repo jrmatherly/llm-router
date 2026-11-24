@@ -8,6 +8,7 @@ import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import { buildCodexModelCatalog, type CodexModelCatalog, type CodexModelCatalogItem } from "@llmr/core/agents/codex/model-catalog";
 import { CODEX_APP_NET_RESPONDER_PORT, codexAppApiBaseUrl, ensureCodexAppNetResponder, secureCodexAppResponderLog } from "@llmr/core/agents/codex/app-net-responder";
 import { prepareCodexAppCdpUserDataDir } from "@llmr/core/agents/codex/media-preview-bridge";
+import { withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { backupBeforeWrite, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { buildProfileLaunchPlan, resolveCodexConfigFile } from "@llmr/core/profiles/launch-core";
 import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@llmr/core/platform/windows-app-discovery";
@@ -284,8 +285,9 @@ export function refreshCodexCompatibleAppProfileFiles(
 export function writeCodexCompatibleAppModelCatalog(
   configDir: string,
   profile: ProfileConfig,
-  config?: AppConfig
+  appConfig?: AppConfig
 ): CodexCompatibleAppModelCatalogWriteResult {
+  const config = appConfig && withoutClaudeLoginProviders(appConfig);
   const spec = codexCompatibleAppSpecForProfile(profile);
   const configFile = resolveCodexConfigFile(configDir, profile);
   const codexHome = codexCompatibleHomeFromConfigFile(spec, configFile);

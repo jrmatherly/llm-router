@@ -83,7 +83,7 @@ import { probeExistingLlmrGateway } from "@llmr/core/gateway/existing-gateway-pr
 import { resolveClaudeAppProfileUserDataDir } from "@llmr/core/agents/claude-app/launch";
 import { resolveZcodeConfigFile, writeZcodeGatewayConfig, zcodeHomeFromConfigFile } from "@llmr/core/agents/zcode/profile-config";
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME, contextArchiveConfigForProfile, contextArchiveMcpEnabled, contextArchiveMcpServer } from "@llmr/core/gateway/context-archive";
-import { claudeLoginProviderNames } from "@llmr/core/gateway/features/claude-login-pass-through";
+import { claudeLoginProviderNames, withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { claudeClientDiscoveryPayloads, createClaudeCliAutoCompactWindows } from "@llmr/core/gateway/features/model-discovery";
 import { claudeCodeOneMillionContextSuffix, llmrApiKeyHeader } from "@llmr/core/gateway/internal/shared";
 import { windowsBatchEscapeValue as cmdValue, windowsBatchSetLine as cmdSetLine } from "@llmr/core/platform/windows-batch";
@@ -734,7 +734,7 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
     const profileWithResolvedModel = { ...profile, model };
     const modelCatalogResult = writeFileWithBackup(
       modelCatalogFile,
-      codexModelCatalogJson(config, model, { allowedModels: profileAllowedModels(profileWithResolvedModel) })
+      codexModelCatalogJson(withoutClaudeLoginProviders(config), model, { allowedModels: profileAllowedModels(profileWithResolvedModel) })
     );
     const appModelCatalogResult = writeCodexCompatibleAppModelCatalog(CONFIGDIR, profileWithResolvedModel, config);
     const showAllSessions = profile.agent === "zcode" || profile.agent === "workbuddy" ? false : Boolean(profile.showAllSessions);

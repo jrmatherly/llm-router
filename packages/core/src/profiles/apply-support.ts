@@ -2,6 +2,7 @@ import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync
 import path from "node:path";
 import { CLAUDE_CODE_AUTH_MODE_ENV } from "@llmr/core/agents/claude-code/auth-mode";
 import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, isGatewayProviderEnabled, type AppConfig, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
+import { withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { normalizeRouteSelector } from "@llmr/core/gateway/llm-router-plugin";
 import { windowsBatchEscapeValue as cmdValue } from "@llmr/core/platform/windows-batch";
 import { chmodFileIfRequested, writeFileAtomic } from "@llmr/core/profiles/backup-files";
@@ -99,7 +100,7 @@ export function gatewayEndpoint(config: AppConfig): string {
 }
 
 export function defaultClientModel(config: AppConfig): string {
-  const enabledProviders = config.Providers.filter(isGatewayProviderEnabled);
+  const enabledProviders = withoutClaudeLoginProviders(config).Providers.filter(isGatewayProviderEnabled);
   const preferred = enabledProviders.find((provider) => provider.name === config.preferredProvider) ?? enabledProviders[0];
   if (preferred?.name && preferred.models[0]) {
     return `${preferred.name}/${preferred.models[0]}`;
