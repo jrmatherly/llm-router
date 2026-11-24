@@ -15,6 +15,7 @@ import { findRunningOpenCodeAppPid, launchOpenCodeAppProfile, openCodeAppLaunchS
 import { writeOpenCodeGatewayConfig } from "@llmr/core/agents/opencode/profile-config";
 import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime";
 import { CONFIGDIR } from "@llmr/core/config/constants";
+import { isApiKeyExpired } from "@llmr/core/gateway/auth/api-key-authorizer";
 import { endpoint } from "@llmr/core/gateway/core-runtime/supervisor";
 import { isLocalGatewayEndpoint, nonLocalGatewayMessage } from "@llmr/core/gateway/existing-gateway-probe";
 import { gatewayService } from "@llmr/core/gateway/service";
@@ -444,8 +445,7 @@ async function ensureGatewayConfigRunning(
     }
     if (existingGateway.state === "unavailable") {
       if (!startIfMissing) {
-        const reason = existingGateway.reason ? `: ${existingGateway.reason}` : "";
-        throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
+        throw gatewayNotRunningError(config, appName, existingGateway.reason);
       }
     } else {
       throw new Error(existingGatewayConflictMessage(existingGateway, appName));
@@ -453,7 +453,7 @@ async function ensureGatewayConfigRunning(
   }
 
   if (!startIfMissing) {
-    throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
+    throw gatewayNotRunningError(config, appName);
   }
 
   const startedStatus = await gatewayService.start(candidateConfig);
@@ -492,7 +492,13 @@ async function waitForProfileKey(
     last = await probeExistingProfileGateway(config, profile, config, [config.APIKEY]);
     if (last.state === "usable") return;
   }
+  // A gateway still gone after the wait is not restarting, so this is the state a launch with no gateway starts from.
+  if (last.state === "unavailable") throw gatewayNotRunningError(config, appName, last.reason);
   throw new Error(existingGatewayConflictMessage(last, appName));
+}
+
+function gatewayNotRunningError(config: AppConfig, appName: string, reason?: string): ProfileGatewayUnavailableError {
+  return new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason ? `: ${reason}` : ""}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
 }
 
 type ExistingProfileGatewayProbe =
@@ -806,9 +812,14 @@ function probeGatewayHost(host: string): string {
 }
 
 function profileGatewayConfigFor(config: AppConfig, profile: ReturnType<typeof findProfileForOpen>): AppConfig {
-  const token = findProfileApiKey(config, profile);
-  if (!token) {
+  const keyId = profileApiKeyId(profile);
+  const apiKey = config.APIKEYS.find((candidate) => candidate.id === keyId);
+  const token = apiKey?.key.trim();
+  if (!apiKey || !token) {
     throw new Error(`No LLMR API key was found for profile "${profile.name || profile.id}". Re-save the profile and try again.`);
+  }
+  if (isApiKeyExpired(apiKey)) {
+    throw new Error(`The API key of profile "${profile.name || profile.id}" expired on ${apiKey.expiresAt}. Give it a later expiry on the API Keys page, then open the profile again.`);
   }
   return profileGatewayConfigWithToken(config, profile, token);
 }
@@ -2186,12 +2197,6 @@ function stringRecord(value: Record<string, string> | undefined): Record<string,
     return {};
   }
   return Object.fromEntries(Object.entries(value).filter(([, item]) => typeof item === "string"));
-}
-
-function findProfileApiKey(config: AppConfig, profile: ReturnType<typeof findProfileForOpen>): string {
-  const keyId = profileApiKeyId(profile);
-  const key = config.APIKEYS.find((apiKey) => apiKey.id === keyId)?.key.trim();
-  return key || config.APIKEYS.find((apiKey) => apiKey.key.trim())?.key.trim() || config.APIKEY.trim();
 }
 
 function sanitizeProfilePathSegment(value: string): string {
