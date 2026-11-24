@@ -186,6 +186,24 @@ class GatewayService {
       };
       return this.getStatus();
     }
+    // The status holds the core port after a failed adoption, so the port comes from the config.
+    const runtimeEndpoint = coreRuntimeEndpoint(config);
+    if (recoveryGeneration !== undefined && await isCoreGatewayHealthy(runtimeEndpoint)) {
+      const existing = await probeExistingLlmrGateway(config);
+      if (recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
+      if (existing.state === "usable") {
+        await this.stopGateway({ nextConfig: config });
+        return this.adoptExternalGateway(config, existing.endpoint, existing.apiKey);
+      }
+      const lastError = existing.state === "unauthorized"
+        ? `Another LLM Router process serves ${existing.endpoint} and does not accept this process's key. Quit the other one, or restart this one.`
+        : `Another process serves ${runtimeEndpoint}.`;
+      if (lastError !== this.status.lastError) {
+        console.warn(`[gateway] ${lastError} Probe of ${existing.endpoint}: ${JSON.stringify({ ...existing, endpoint: undefined })}`);
+      }
+      this.status = { ...this.getStatus(), lastError, state: "error" };
+      return this.getStatus();
+    }
     // Read before the old child stops: a key written from here on stays outside the baseline, so the poll sees it once the gateway runs.
     if (recoveryGeneration === undefined) await this.rememberStoredApiKeys();
     await this.stopGateway({ nextConfig: config });
@@ -273,7 +291,8 @@ class GatewayService {
             runtimePort
           }
         );
-        await stopPreviousManagedCoreGateway(this.status.coreEndpoint);
+        // A restart's own child has exited and its marker is gone, so a live marker belongs to another process.
+        if (recoveryGeneration === undefined) await stopPreviousManagedCoreGateway(this.status.coreEndpoint);
         if (await isCoreGatewayHealthy(this.status.coreEndpoint)) {
           throw new Error(`Core gateway endpoint is already in use: ${this.status.coreEndpoint}`);
         }
@@ -639,7 +658,7 @@ class GatewayService {
   private scheduleCoreRestart(generation: number): void {
     if (generation !== this.coreRestartGeneration || this.coreRestartTimer) return;
     const delayMs = Math.min(30_000, 1_000 * 2 ** Math.min(this.coreRestartAttempts++, 5));
-    console.warn(`[gateway] Core gateway exited unexpectedly; restarting in ${delayMs}ms.`);
+    console.warn(`[gateway] Core gateway is not running; trying again in ${delayMs}ms.`);
     this.coreRestartTimer = setTimeout(async () => {
       this.coreRestartTimer = undefined;
       if (generation !== this.coreRestartGeneration || !this.config) return;
@@ -843,6 +862,12 @@ function assertManagedGatewayStartupContinues(child: ChildProcess, startupFailur
   if (startupFailure || child.exitCode !== null || child.signalCode !== null || child.killed) {
     throw startupFailure ?? new Error(formatCoreGatewayChildExit(child));
   }
+}
+
+function coreRuntimeEndpoint(config: AppConfig): string {
+  return shouldUseSingleGatewayRuntime(config)
+    ? endpoint(config.gateway.host, config.gateway.port)
+    : endpoint(config.gateway.coreHost, config.gateway.corePort);
 }
 
 async function removeManagedCoreGatewayMarkerBestEffort(): Promise<void> {
