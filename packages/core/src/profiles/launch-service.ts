@@ -419,32 +419,28 @@ export async function ensureProfileGateway(
   config: AppConfig,
   profile: ReturnType<typeof findProfileForOpen>,
   appName: string,
-  options: { reuseExisting?: boolean; startIfMissing?: boolean } = {}
+  options: ProfileGatewayOptions = {}
 ): Promise<AppConfig> {
-  const profileGatewayConfig = profileGatewayConfigFor(config, profile);
-  const result = await ensureGatewayConfigRunning(profileGatewayConfig, profile, appName, options, config);
-  return result.acceptedApiKey && result.acceptedApiKey !== result.config.APIKEY
-    ? profileGatewayConfigWithToken(result.config, profile, result.acceptedApiKey)
-    : result.config;
+  return ensureGatewayConfigRunning(profileGatewayConfigFor(config, profile), profile, appName, options, config);
 }
 
-type EnsureGatewayConfigRunningResult = {
-  acceptedApiKey?: string;
-  config: AppConfig;
-};
+type ProfileGatewayOptions = { profileKeyWaitMs?: number; reuseExisting?: boolean; startIfMissing?: boolean };
+
+const profileKeyPollMs = 500;
 
 async function ensureGatewayConfigRunning(
   config: AppConfig,
   profile: ReturnType<typeof findProfileForOpen>,
   appName: string,
-  options: { reuseExisting?: boolean; startIfMissing?: boolean } = {},
+  options: ProfileGatewayOptions = {},
   candidateConfig: AppConfig = config
-): Promise<EnsureGatewayConfigRunningResult> {
+): Promise<AppConfig> {
   const startIfMissing = options.startIfMissing !== false;
   if (options.reuseExisting) {
     const existingGateway = await probeExistingProfileGateway(config, profile, candidateConfig);
     if (existingGateway.state === "usable") {
-      return { acceptedApiKey: existingGateway.apiKey, config };
+      await waitForProfileKey(config, profile, appName, existingGateway.apiKey, options.profileKeyWaitMs);
+      return config;
     }
     if (existingGateway.state === "unavailable") {
       if (!startIfMissing) {
@@ -462,18 +458,41 @@ async function ensureGatewayConfigRunning(
 
   const startedStatus = await gatewayService.start(candidateConfig);
   if (startedStatus.state === "running") {
-    return { config };
+    return config;
   }
 
   if (options.reuseExisting && isAddressInUseError(startedStatus.lastError)) {
     const existingGateway = await probeExistingProfileGateway(config, profile, candidateConfig);
     if (existingGateway.state === "usable") {
-      return { acceptedApiKey: existingGateway.apiKey, config };
+      await waitForProfileKey(config, profile, appName, existingGateway.apiKey, options.profileKeyWaitMs);
+      return config;
     }
     throw new Error(existingGatewayConflictMessage(existingGateway, appName));
   }
 
   throw new Error(startedStatus.lastError || `LLMR gateway did not start for ${appName}.`);
+}
+
+// The gateway learns a key a launch has just stored by restarting, so it can be gone for part of the wait.
+// Only the profile's own key being accepted ends the wait: a launch on another key runs with that key's profile.
+async function waitForProfileKey(
+  config: AppConfig,
+  profile: ReturnType<typeof findProfileForOpen>,
+  appName: string,
+  acceptedApiKey: string | undefined,
+  waitMs = 10_000
+): Promise<void> {
+  if (!acceptedApiKey || acceptedApiKey === config.APIKEY) return;
+  // stderr, so the line stays out of output a script reads from the agent.
+  if (waitMs > 0) console.warn(`[profile] Waiting for the gateway to accept the key of profile "${profile.name || profile.id}".`);
+  let last: ExistingProfileGatewayProbe = { endpoint: profileGatewayEndpoint(config), state: "unauthorized", status: 401 };
+  const deadline = Date.now() + waitMs;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, profileKeyPollMs));
+    last = await probeExistingProfileGateway(config, profile, config, [config.APIKEY]);
+    if (last.state === "usable") return;
+  }
+  throw new Error(existingGatewayConflictMessage(last, appName));
 }
 
 type ExistingProfileGatewayProbe =
@@ -495,7 +514,8 @@ const existingGatewayFetchAttempts = 3;
 async function probeExistingProfileGateway(
   config: AppConfig,
   profile: ReturnType<typeof findProfileForOpen>,
-  candidateConfig: AppConfig = config
+  candidateConfig: AppConfig = config,
+  apiKeys: Array<string | undefined> = existingGatewayApiKeyCandidates(config, profile, candidateConfig)
 ): Promise<ExistingProfileGatewayProbe> {
   const endpoint = profileGatewayEndpoint(config);
   if (!isLocalGatewayEndpoint(endpoint)) {
@@ -516,7 +536,7 @@ async function probeExistingProfileGateway(
   }
 
   let lastUnauthorized: ExistingGatewayHttpProbe | undefined;
-  for (const apiKey of existingGatewayApiKeyCandidates(config, profile, candidateConfig)) {
+  for (const apiKey of apiKeys) {
     const headers: Record<string, string> = {
       "user-agent": "Claude Code"
     };
@@ -744,13 +764,15 @@ function unquoteShellValue(value: string): string {
   return value.replace(/^"|"$/g, "");
 }
 
+const restartGatewayAdvice = "Restart the gateway before opening this profile. If LLMR Desktop is open, quit LLMR Desktop and open it again. If you started the gateway from a terminal, run llmr stop and then llmr start.";
+
 function existingGatewayConflictMessage(probe: ExistingProfileGatewayProbe, appName: string): string {
   if (probe.state === "unauthorized") {
     const details = probe.message ? ` ${probe.message}` : "";
-    return `LLMR gateway is already running at ${probe.endpoint}, but it does not accept the API key for ${appName}.${details} Restart LLMR Desktop or run llmr start to refresh the gateway before opening this profile.`;
+    return `LLMR gateway is already running at ${probe.endpoint}, but it does not accept the API key for ${appName}.${details} ${restartGatewayAdvice}`;
   }
   if (probe.state === "unusable") {
-    return `LLMR gateway is already running at ${probe.endpoint}, but it cannot serve ${appName} right now (HTTP ${probe.status}). Restart LLMR Desktop or run llmr start to refresh the gateway before opening this profile.`;
+    return `LLMR gateway is already running at ${probe.endpoint}, but it cannot serve ${appName} right now (HTTP ${probe.status}). ${restartGatewayAdvice}`;
   }
   if (probe.state === "incompatible") {
     return `LLMR gateway is already running at ${probe.endpoint}, but it is not compatible with ${appName}. ${probe.message}`;
