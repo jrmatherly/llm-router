@@ -1969,6 +1969,7 @@ export function AddProviderForm({
   error,
   connectivityLoading = false,
   connectivityProbe,
+  existingProvider,
   hideSetupProgress = false,
   importProvider,
   mode,
@@ -1988,6 +1989,7 @@ export function AddProviderForm({
   connectivityProbe?: GatewayProviderProbeResult;
   draft: AddProviderDraft;
   error: string;
+  existingProvider?: GatewayProviderConfig;
   hideSetupProgress?: boolean;
   importProvider?: ProviderDeepLinkPayload;
   mode: "add" | "edit";
@@ -2020,7 +2022,7 @@ export function AddProviderForm({
   const detectedBaseUrl = providerCapabilityBaseUrlForProtocol(draft.baseUrl, detectedProtocol, probe);
   const safetyIssue = providerDraftSafetyIssue(draft, detectedBaseUrl);
   const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft);
-  const claudeLoginProvider = isClaudeLoginProviderDraft(draft, providerPlugins);
+  const claudeLoginProvider = isClaudeLoginProviderDraft(draft, providerPlugins, existingProvider);
   const setupStepIds = providerSetupStepsForDraft(draft);
   const localAgentProviderPlugins = useMemo(
     () => [...providerPlugins, ...draft.providerPlugins],
@@ -2051,7 +2053,7 @@ export function AddProviderForm({
       : draft.apiKey.trim()
   );
   const modelsReady = configuredModels.length > 0;
-  const connectionVerified = localAgentImport || providerProbeHasSupportedProtocol(connectivityProbe);
+  const connectionVerified = (localAgentImport && !claudeLoginProvider) || providerProbeHasSupportedProtocol(connectivityProbe);
   const showStep = (step: ProviderSetupStepId) => !activeStep || activeStep === step;
 
   function updateConfiguredModels(models: string[]) {
@@ -3527,6 +3529,7 @@ export function AddProviderDialog({
   connectivityProbe,
   draft,
   error,
+  existingProvider,
   importProvider,
   mode,
   onCheck,
@@ -3547,6 +3550,7 @@ export function AddProviderDialog({
   connectivityProbe?: GatewayProviderProbeResult;
   draft: AddProviderDraft;
   error: string;
+  existingProvider?: GatewayProviderConfig;
   importProvider?: ProviderDeepLinkPayload;
   mode: "add" | "edit";
   onCheck?: (models: string[]) => Promise<ProviderConnectivityCheckReport>;
@@ -3573,6 +3577,7 @@ export function AddProviderDialog({
   const wizardMode = mode === "add";
   const selectedPreset = findProviderPreset(draft.presetId);
   const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft);
+  const claudeLoginProvider = isClaudeLoginProviderDraft(draft, providerPlugins, existingProvider);
   const setupStepIds = providerSetupStepsForDraft(draft);
   const providerIdentityReady = Boolean(importProvider) || Boolean(selectedPreset || draft.baseUrl.trim());
   const credentialPoolReady = providerDraftHasReadyCredentialPool(draft);
@@ -3677,7 +3682,7 @@ export function AddProviderDialog({
               providerReady={providerIdentityReady}
               stepIds={setupStepIds}
               variant="divider"
-              verified={localAgentImport || providerProbeHasSupportedProtocol(connectivityProbe)}
+              verified={(localAgentImport && !claudeLoginProvider) || providerProbeHasSupportedProtocol(connectivityProbe)}
             />
           ) : null}
 
@@ -3688,6 +3693,7 @@ export function AddProviderDialog({
               connectivityProbe={connectivityProbe}
               draft={draft}
               error={error}
+              existingProvider={existingProvider}
               hideSetupProgress={!wizardMode}
               importProvider={importProvider}
               mode={mode}

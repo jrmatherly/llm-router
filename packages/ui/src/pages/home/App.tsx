@@ -3004,7 +3004,7 @@ function App() {
       return false;
     }
     if (!profileDraftHasModels) {
-      setProfileActionError("Configure at least one enabled provider model before saving an agent profile.");
+      setProfileActionError("This profile needs an enabled provider model it can use before it can be saved.");
       return false;
     }
     if (!canSubmitProfile) {
@@ -3062,7 +3062,7 @@ function App() {
       return false;
     }
     if (!profileEditDraftHasModels) {
-      setProfileActionError("Configure at least one enabled provider model before saving an agent profile.");
+      setProfileActionError("This profile needs an enabled provider model it can use before it can be saved.");
       return false;
     }
     if (!canSubmitProfileEdit) {
@@ -3495,6 +3495,7 @@ function App() {
             connectivityProbe: providerConnectivityProbe,
             draft: providerDraft,
             error: providerProbeError,
+            existingProvider: providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex],
             importProvider: providerImportOpen ? providerImportPayload : undefined,
             onChange: updateProviderDraft,
             mode: providerEditIndex === undefined ? "add" : "edit",

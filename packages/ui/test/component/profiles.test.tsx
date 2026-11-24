@@ -972,6 +972,9 @@ test("AddProfileForm marks the default model optional while the Claude login tog
   assert.equal(count(on, /Keep Claude Code default/g), count(off, /Keep Claude Code default/g) + 1);
   assert.doesNotMatch(on, /Default model is required\./);
   assert.match(off, /Default model is required\./);
+  const listed = loginForm({ ...loginDraft(), availableModels: ["Fixture/first-model"] });
+  assert.equal(count(listed, />Required<\/span>/g), count(off, />Required<\/span>/g), "an allowed model list makes the default model required again");
+  assert.equal(count(listed, /Keep Claude Code default/g), count(off, /Keep Claude Code default/g));
 });
 
 test("a model from another provider gets one line per field while the Claude login toggle is on", () => {
@@ -985,8 +988,11 @@ test("a model from another provider gets one line per field while the Claude log
   assert.equal(notice({ ...loginDraft(), model: "claude-opus-4-8" }), undefined);
   assert.equal(notice(loginDraft(), "opusModel"), undefined);
   assert.equal(notice({ ...createProfileDraft("claude-code"), model: "Fixture/first-model" }), undefined);
-  const html = loginForm({ ...loginDraft(), model: "Fixture/first-model", opusModel: "Fixture/first-model" });
-  assert.ok(html.includes(startLine) && html.includes("Claude Code&#x27;s Opus choice goes to Fixture"));
+  const html = loginForm({ ...loginDraft(), fableModel: "Fixture/first-model", haikuModel: "Fixture/first-model", model: "Fixture/first-model", opusModel: "Fixture/first-model", sonnetModel: "Fixture/first-model" });
+  assert.ok(html.includes(startLine));
+  for (const alias of ["Fable", "Opus", "Sonnet", "Haiku"]) {
+    assert.ok(html.includes(`Claude Code&#x27;s ${alias} choice goes to Fixture`), alias);
+  }
   assert.doesNotMatch(loginForm({ ...loginDraft(), model: "Claude Code API/claude-sonnet-5" }), /not to your Claude subscription/);
 });
 
@@ -995,6 +1001,7 @@ test("the form says when Claude login mode has no provider and when the profile 
   const signedOut = /starts signed out\. Run \/login once inside it/;
   assert.match(loginForm(loginDraft(), [loginProviders[0]]), missing);
   assert.match(loginForm(loginDraft(), loginProviders, []), missing);
+  assert.match(loginForm(loginDraft(), [loginProviders[0], { ...loginProviders[1], enabled: false }]), /No Claude Code API provider is on\. Add it under Providers, or turn it on\./);
   assert.doesNotMatch(loginForm(loginDraft()), missing);
   assert.doesNotMatch(loginForm(createProfileDraft("claude-code"), [loginProviders[0]]), missing);
   assert.match(loginForm(loginDraft()), signedOut);
@@ -1036,6 +1043,8 @@ test("the form says so when the only provider is the pass-through one", () => {
   assert.doesNotMatch(loginForm(loginDraft(), only), /Your only provider is Claude Code API/);
   assert.match(loginForm(createProfileDraft("codex"), []), /Configure at least one enabled provider model/);
   assert.match(loginForm({ ...createProfileDraft("claude-code"), model: "Claude Code API/claude-sonnet-5" }), /This profile names a Claude Code API model\./);
+  assert.match(loginForm({ ...createProfileDraft("claude-code"), model: "Fixture/first-model", opusModel: "Claude Code API/claude-sonnet-5" }), /This profile names a Claude Code API model\./);
+  assert.match(loginForm({ ...createProfileDraft("claude-code"), availableModels: ["Claude Code API/claude-sonnet-5"], model: "Fixture/first-model" }), /This profile names a Claude Code API model\./);
   assert.doesNotMatch(loginForm({ ...loginDraft(), model: "Claude Code API/claude-sonnet-5" }), /This profile names a Claude Code API model\./);
 });
 

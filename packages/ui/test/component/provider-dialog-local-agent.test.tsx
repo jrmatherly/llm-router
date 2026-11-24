@@ -89,6 +89,64 @@ test("the Claude Code login provider shows true text in every step and no check 
   assert.doesNotMatch(html, /Refresh provider models/);
 });
 
+const statusRowClass = (html: string, title: string) => {
+  const end = html.indexOf(`>${title}</div>`);
+  assert.ok(end > 0, `${title} row is rendered`);
+  const start = html.lastIndexOf("<div class=\"flex min-w-0 items-start gap-2 rounded-md border", end);
+  return html.slice(start, html.indexOf("\"", start + 12));
+};
+
+test("the not-checked panel shows neither row as passed and the Verify step stays pending", () => {
+  const draft = {
+    ...createProviderDraft([]),
+    apiKey: localAgentProviderApiKey,
+    baseUrl: "https://api.anthropic.com",
+    modelsText: "claude-sonnet-5",
+    name: "Claude Code API"
+  };
+  const html = render(draft, {
+    providerPlugins: [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }]
+  });
+  for (const title of ["Local login provider", "Not checked"]) {
+    const rowClass = statusRowClass(html, title);
+    assert.match(rowClass, /border-border/);
+    assert.doesNotMatch(rowClass, /emerald/);
+  }
+  assert.match(html, /Verify connection<\/div><div[^>]*>(Pending|In progress)</);
+});
+
+test("a renamed Claude Code login provider keeps its text and offers no check or refresh while edited", () => {
+  const saved = {
+    api_base_url: "https://api.anthropic.com",
+    api_key: localAgentProviderApiKey,
+    id: "claude-code-api",
+    models: ["claude-sonnet-5"],
+    name: "Claude Code API",
+    type: "anthropic"
+  };
+  const draft = {
+    ...createProviderDraft([]),
+    apiKey: localAgentProviderApiKey,
+    baseUrl: "https://api.anthropic.com",
+    modelsText: "claude-sonnet-5",
+    name: "My Claude",
+    protocol: "anthropic_messages" as const
+  };
+  const html = render(draft, {
+    existingProvider: saved,
+    onCheck: async () => undefined,
+    onRefreshModels: async () => undefined,
+    providerPlugins: [
+      { key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" },
+      { key: "llmr-local-agent-claude-code-api-claude-code-oauth-internal", providerName: "claude-code-api::anthropic_messages" }
+    ]
+  });
+  assert.match(html, /Uses the login Claude Code sends/);
+  assert.doesNotMatch(html, /Signed in with your local agent/);
+  assert.doesNotMatch(html, /Check Connection/);
+  assert.doesNotMatch(html, /Refresh provider models/);
+});
+
 test("a Codex login provider keeps its heading, its connection check and its model refresh", () => {
   const draft = {
     ...createProviderDraft([]),

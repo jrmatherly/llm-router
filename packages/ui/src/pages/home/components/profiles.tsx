@@ -744,6 +744,7 @@ export function AddProfileForm({
 }) {
   const [advancedOpen, setAdvancedOpen] = useState(mode === "edit");
   const claudeLogin = draft.agent === "claude-code" && claudeLoginEnabled(draft.envRows);
+  const defaultModelOptional = claudeLogin && draft.availableModels.length === 0;
   const providers = useMemo(
     () => profileModelProviders({ agent: draft.agent, envRows: draft.envRows }, allProviders, providerPlugins),
     [allProviders, draft.agent, draft.envRows, providerPlugins]
@@ -918,7 +919,7 @@ export function AddProfileForm({
             </div>
             <p className="text-[12px] text-muted-foreground">Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code's own. The gateway key is written to the settings file of this profile.</p>
             {claudeLogin && claudeLoginProviderMissing ? (
-              <p className="text-[12px] text-muted-foreground">No Claude Code API provider is on. Add it under Providers. Until then this profile uses your other providers.</p>
+              <p className="text-[12px] text-muted-foreground">No Claude Code API provider is on. Add it under Providers, or turn it on. Until then this profile uses your other providers.</p>
             ) : null}
             {claudeLogin && draft.scope !== "global" && !draft.claudeCodeSharedHome ? (
               <p className="text-[12px] text-muted-foreground">This profile has its own Claude home and starts signed out. Run /login once inside it, or turn on Use my ~/.claude in the terminal.</p>
@@ -935,11 +936,11 @@ export function AddProfileForm({
           <>
             <Field
               label="Default model"
-              requirement={claudeLogin ? "optional" : "required"}
-              requirementLabel={claudeLogin ? optionalFieldLabel : requiredFieldLabel}
+              requirement={defaultModelOptional ? "optional" : "required"}
+              requirementLabel={defaultModelOptional ? optionalFieldLabel : requiredFieldLabel}
             >
               <ModelSelector
-                placeholder={claudeLogin ? "Keep Claude Code default" : "Select default model"}
+                placeholder={defaultModelOptional ? "Keep Claude Code default" : "Select default model"}
                 providers={providers}
                 value={draft.model}
                 virtualModelProfiles={virtualModelProfiles}

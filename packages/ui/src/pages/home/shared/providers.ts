@@ -911,7 +911,7 @@ function normalizeProviderPluginName(value: string | undefined): string | undefi
   return trimmed ? trimmed.toLowerCase() : undefined;
 }
 
-// Core's rule in gateway/features/claude-login-pass-through.ts, which cannot go into the browser bundle.
+// Core's rule in gateway/features/claude-login-pass-through.ts, which cannot go into the browser bundle. For a provider with no id, core also matches its hashed runtime id and this matches the name only.
 export function isClaudeLoginProvider(provider: GatewayProviderConfig, providerPlugins: unknown[] | undefined): boolean {
   if (!isGatewayProviderEnabled(provider)) {
     return false;
