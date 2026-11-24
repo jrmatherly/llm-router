@@ -35,16 +35,34 @@ import { isClaudeLoginProvider, virtualModelProfileModelNames } from "./provider
 import { normalizeRouterRules } from "./routing";
 import { createKeyValueDraftRow, keyValueRowsFromRecord, recordFromKeyValueRows, stringRecordValue, validateProfileEnvRows } from "./virtual-models";
 import { CLAUDE_CODE_AUTH_MODE_ENV, normalizeClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
-import { gatewayModelSelectionMatcher, isGatewayProviderEnabled } from "@llmr/core/contracts/app";
+import { gatewayModelSelectionMatcher, hasAvailableGatewayModels, isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 import type { AddProfileDraft, BotGatewayConfigDraft } from "./types";
 
 export function defaultProfileClientModel(config: AppConfig): string {
-  const enabledProviders = config.Providers.filter(isGatewayProviderEnabled);
+  const enabledProviders = config.Providers.filter((provider) => isGatewayProviderEnabled(provider) && !isClaudeLoginProvider(provider, config.providerPlugins));
   const preferred = enabledProviders.find((provider) => provider.name === config.preferredProvider) ?? enabledProviders[0];
   if (preferred?.name && preferred.models[0]) {
     return `${preferred.name}/${preferred.models[0]}`;
   }
   return "gpt-5-codex";
+}
+
+export function profileModelProviders(
+  draft: Pick<AddProfileDraft, "agent" | "envRows">,
+  providers: GatewayProviderConfig[],
+  providerPlugins: unknown[] = []
+): GatewayProviderConfig[] {
+  if (draft.agent === "claude-code" && claudeLoginEnabled(draft.envRows)) {
+    return providers;
+  }
+  return providers.filter((provider) => !isClaudeLoginProvider(provider, providerPlugins));
+}
+
+export function profileHasUsableModels(
+  draft: Pick<AddProfileDraft, "agent" | "envRows">,
+  config: Pick<AppConfig, "Providers" | "providerPlugins" | "virtualModelProfiles">
+): boolean {
+  return hasAvailableGatewayModels({ ...config, Providers: profileModelProviders(draft, config.Providers, config.providerPlugins ?? []) });
 }
 
 export function normalizeProfileClientModel(value: string | undefined): string {

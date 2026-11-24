@@ -28,6 +28,30 @@ test.afterAll(async () => {
   runtime = undefined;
 });
 
+test("onboarding with only the Claude import asks for Claude login mode", async ({ page }) => {
+  if (!runtime) {
+    throw new Error("CLI web runtime was not started.");
+  }
+  const url = `${runtime.baseUrl}/#llmr_web_token=${encodeURIComponent(runtime.token)}`;
+  await page.goto(url);
+  await waitForBridge(page);
+  await page.evaluate(async (next) => {
+    const config = await window.llmr!.getConfig();
+    config.Providers = next.providers;
+    config.providerPlugins = next.providerPlugins;
+    await window.llmr!.saveConfig(config);
+  }, { providerPlugins: plugins, providers: [provider] });
+  await page.goto(url);
+  await page.reload();
+  await waitForBridge(page);
+  await expect(page.getByRole("heading", { name: "Connect agent" })).toBeVisible();
+  await expect(page.getByText("Your only provider is Claude Code API. Turn on Sign in with my Claude login to use it, or add another provider.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next step" })).toBeDisabled();
+  await page.getByLabel("Sign in with my Claude login").click();
+  await expect(page.getByText("Your only provider is Claude Code API.", { exact: false })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Next step" })).toBeEnabled();
+});
+
 test("onboarding connects a Claude login profile with no default model", async ({ page }) => {
   if (!runtime) {
     throw new Error("CLI web runtime was not started.");

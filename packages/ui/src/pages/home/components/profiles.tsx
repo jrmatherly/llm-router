@@ -8,7 +8,7 @@ import {
   cn, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader,
   DialogTitle, Field, GatewayProviderConfig, Info, Input, isClaudeLoginProvider, KeyValueRowsControl, LoaderCircle, motion,
   normalizeProfileScope, normalizeProfileSurface, Pencil, Plus, PopoverContent,
-  profileAgentLabel, profileAgentOptions, ProfileConfig, type ProfileAgentOption, profileModelProviderOptions, profileOpenSurfaces, profileScopeLabel, profileScopeOptions, profileSummaryItems, profileSurfaceLabel, profileSurfaceOptions,
+  profileAgentLabel, profileAgentOptions, ProfileConfig, type ProfileAgentOption, parseProfileModelValue, profileModelProviderOptions, profileModelProviders, profileOpenSurfaces, profileScopeLabel, profileScopeOptions, profileSummaryItems, profileSurfaceLabel, profileSurfaceOptions,
   Play, Power, RefreshCw, Search, Select, SelectControl, Settings, Terminal, Toggle, Trash2, formatAppError, useLayoutEffect, type KeyValueDraftRow, type ProfileOpenSurface, type ProfileRuntimeStatus, type ReactDragEvent, type ReactNode, type VirtualModelProfileConfig,
   copyTextToClipboard, formatClaudeSettingsDraft, formatRouterRuleCondition, formatRouterRuleTarget, isClaudeSettingsDraftValid, isPlainRecord, isRoutingRuleDraftSubmittable, normalizeProviderModelSelector, routerRuleTypeLabel, routingRuleFromDraft, type RouterRule, uniqueStrings, validateProfileEnvRows,
   useCallback, useEffect, useMemo, useRef, useState, withClaudeLogin, X
@@ -728,7 +728,7 @@ export function AddProfileForm({
   onChange,
   onCreateBot,
   providerPlugins = [],
-  providers,
+  providers: allProviders,
   virtualModelProfiles = []
 }: {
   agentOptions?: ProfileAgentOption[];
@@ -744,6 +744,13 @@ export function AddProfileForm({
 }) {
   const [advancedOpen, setAdvancedOpen] = useState(mode === "edit");
   const claudeLogin = draft.agent === "claude-code" && claudeLoginEnabled(draft.envRows);
+  const providers = useMemo(
+    () => profileModelProviders({ agent: draft.agent, envRows: draft.envRows }, allProviders, providerPlugins),
+    [allProviders, draft.agent, draft.envRows, providerPlugins]
+  );
+  const passThroughNames = allProviders.filter((provider) => isClaudeLoginProvider(provider, providerPlugins)).map((provider) => provider.name);
+  const namesPassThroughModel = !claudeLogin && [draft.model, draft.fableModel, draft.opusModel, draft.sonnetModel, draft.haikuModel, ...draft.availableModels]
+    .some((value) => passThroughNames.includes(parseProfileModelValue(value, allProviders, virtualModelProfiles).provider));
   const claudeLoginProviderMissing = !providers.some((provider) => isClaudeLoginProvider(provider, providerPlugins));
   const claudeLoginNotice = (field: ClaudeLoginModelField) => {
     const notice = claudeLoginModelNotice(draft, field, providers, providerPlugins, virtualModelProfiles);
@@ -766,7 +773,8 @@ export function AddProfileForm({
     ? draft.availableModels
     : allAllowedModelValues;
   const modelPlaceholder = firstProfileModelPlaceholder(modelProviderOptions);
-  const validation = profileDraftValidation(draft, botConfigs, availableModelCount);
+  const onlyPassThroughModels = availableModelCount === 0 && profileModelProviderOptions(allProviders, virtualModelProfiles).length > 0;
+  const validation = profileDraftValidation(draft, botConfigs, availableModelCount, onlyPassThroughModels);
   const optionalFieldLabel = "Optional";
   const requiredFieldLabel = "Required";
   const advancedIssueCount = [
@@ -919,6 +927,9 @@ export function AddProfileForm({
               <p className="text-[12px] text-muted-foreground">This profile has an allowed model list. In Claude login mode it applies to every model Claude Code uses, including a pick from its own /model list and its background model. A request for a model that is not in the list is refused. The list is under Advanced settings.</p>
             ) : null}
           </div>
+        ) : null}
+        {namesPassThroughModel ? (
+          <p className="text-[12px] text-muted-foreground sm:col-span-2">This profile names a Claude Code API model. Those work only in a Claude Code profile with Sign in with my Claude login on.</p>
         ) : null}
         {draft.agent === "claude-code" ? (
           <>
@@ -1873,14 +1884,19 @@ function normalizeAllowedModelSelection(value: string[], allValues: string[]): s
 function profileDraftValidation(
   draft: AddProfileDraft,
   botConfigs: BotGatewaySavedConfig[],
-  availableModelCount: number
+  availableModelCount: number,
+  onlyPassThroughModels: boolean
 ): Partial<Record<"allowedModels" | "bot" | "claudeSettings" | "defaultModel" | "env" | "handoff" | "kimiModel" | "models" | "name", string>> {
   const issues: Partial<Record<"allowedModels" | "bot" | "claudeSettings" | "defaultModel" | "env" | "handoff" | "kimiModel" | "models" | "name", string>> = {};
   if (!draft.name.trim()) {
     issues.name = "Profile name is required.";
   }
   if (availableModelCount === 0) {
-    issues.models = "Configure at least one enabled provider model before saving an agent profile.";
+    issues.models = !onlyPassThroughModels
+      ? "Configure at least one enabled provider model before saving an agent profile."
+      : draft.agent === "claude-code"
+        ? "Your only provider is Claude Code API. Turn on Sign in with my Claude login to use it, or add another provider."
+        : "Your only provider is Claude Code API. It works only in a Claude Code profile with Sign in with my Claude login on. Add another provider for this agent.";
   }
   if (draft.agent === "claude-code" && !claudeLoginEnabled(draft.envRows) && !draft.model.trim()) {
     issues.defaultModel = "Default model is required.";

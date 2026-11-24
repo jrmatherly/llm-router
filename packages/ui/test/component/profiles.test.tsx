@@ -6,7 +6,7 @@ import { claudeLoginProviderNames } from "@llmr/core/gateway/features/claude-log
 import { ModelMultiSelector } from "@llmr/ui/pages/home/components/model-selector.tsx";
 import { AddProfileForm, DeleteProfileDialog, ProfileOpenDialog, ProfileView } from "@llmr/ui/pages/home/components/profiles.tsx";
 import { isClaudeLoginProvider } from "@llmr/ui/pages/home/shared/providers.ts";
-import { claudeLoginEnabled, claudeLoginModelNotice, type ClaudeLoginModelField, createProfileDraft, createProfileDraftFromProfile, isProfileDraftSubmittable, withClaudeLogin, normalizeUnknownProfileItem, profileAgentLogoUrl, profileConfigFromDraft, profileDraftWithDetectedAppPath, profileModelProviderOptions, profileSummaryItems } from "@llmr/ui/pages/home/shared/profiles.ts";
+import { claudeLoginEnabled, claudeLoginModelNotice, type ClaudeLoginModelField, createProfileDraft, createProfileDraftFromProfile, isProfileDraftSubmittable, withClaudeLogin, normalizeUnknownProfileItem, profileAgentLogoUrl, profileConfigFromDraft, profileDraftWithDetectedAppPath, profileHasUsableModels, profileModelProviderOptions, profileModelProviders, profileSummaryItems } from "@llmr/ui/pages/home/shared/profiles.ts";
 import type { AddProfileDraft } from "@llmr/ui/pages/home/shared/types.ts";
 import { appConfigFixture } from "../fixtures/index.ts";
 
@@ -1017,6 +1017,42 @@ test("the profile card marks Claude login mode", () => {
   assert.equal(signIn(config), "Claude login");
   assert.equal(signIn({ ...config, providerPlugins: [] }), "Claude login, no Claude Code API provider");
   assert.equal(signIn(config, { ...profile, env: {} }), undefined);
+});
+
+test("the pass-through provider is offered only to a Claude Code profile in Claude login mode", () => {
+  const names = (draft: AddProfileDraft, plugins: unknown[] = loginPlugins) => profileModelProviders(draft, loginProviders, plugins).map((provider) => provider.name);
+  assert.deepEqual(names(loginDraft()), ["Fixture", "Claude Code API"]);
+  assert.deepEqual(names(createProfileDraft("claude-code")), ["Fixture"]);
+  assert.deepEqual(names(createProfileDraft("codex")), ["Fixture"]);
+  assert.deepEqual(names(createProfileDraft("codex"), []), ["Fixture", "Claude Code API"]);
+});
+
+test("the form says so when the only provider is the pass-through one", () => {
+  const only = [loginProviders[1]];
+  const claudeOnly = /Your only provider is Claude Code API\. Turn on Sign in with my Claude login to use it, or add another provider\./;
+  const otherOnly = /It works only in a Claude Code profile with Sign in with my Claude login on\. Add another provider for this agent\./;
+  assert.match(loginForm(createProfileDraft("claude-code"), only), claudeOnly);
+  assert.match(loginForm(createProfileDraft("codex"), only), otherOnly);
+  assert.doesNotMatch(loginForm(loginDraft(), only), /Your only provider is Claude Code API/);
+  assert.match(loginForm(createProfileDraft("codex"), []), /Configure at least one enabled provider model/);
+  assert.match(loginForm({ ...createProfileDraft("claude-code"), model: "Claude Code API/claude-sonnet-5" }), /This profile names a Claude Code API model\./);
+  assert.doesNotMatch(loginForm({ ...loginDraft(), model: "Claude Code API/claude-sonnet-5" }), /This profile names a Claude Code API model\./);
+});
+
+test("an empty model on another agent's card does not fall back to the pass-through provider", () => {
+  const config = { ...appConfigFixture(), Providers: [loginProviders[1], loginProviders[0]], providerPlugins: loginPlugins };
+  const codex = { agent: "codex", enabled: true, id: "c", model: "", name: "c", scope: "llmr" } as ProfileConfig;
+  assert.equal(profileSummaryItems(codex, config).find((item) => item.label === "Model")?.value, "Fixture/first-model");
+});
+
+test("a profile is saved only when it has a provider it can use", () => {
+  const only = { Providers: loginProviders.filter((provider) => provider.name === "Claude Code API"), providerPlugins: loginPlugins, virtualModelProfiles: [] };
+  const both = { ...only, Providers: loginProviders };
+  assert.equal(profileHasUsableModels(createProfileDraft("codex"), only), false);
+  assert.equal(profileHasUsableModels(createProfileDraft("claude-code"), only), false);
+  assert.equal(profileHasUsableModels(loginDraft(), only), true);
+  assert.equal(profileHasUsableModels(createProfileDraft("codex"), both), true);
+  assert.equal(profileHasUsableModels(createProfileDraft("codex"), { ...only, Providers: [] }), false);
 });
 
 test("the UI and core name the same provider as the pass-through one", () => {

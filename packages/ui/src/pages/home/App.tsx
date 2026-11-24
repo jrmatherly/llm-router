@@ -23,7 +23,7 @@ import {
   OverviewWidgetConfig, parseProviderAccountDraft, parseProviderExtraJsonDraft, pluginConfigPatchFromSettingsDraft,
   providerCredentialsFromDraft,
   PluginInstallCandidate, PluginMarketplaceEntry, PluginSettingsDraft, presetCapabilitiesFromDraft,
-  probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptions, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
+  probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptions, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, profileHasUsableModels, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
   profileOpenCommandFallback, profileOpenSurfaces, ProviderAccountSnapshot, providerApiKeySafetyIssue, ProviderConnectivityCheckReport, ProviderDeepLinkPayload, ProviderDeepLinkRequest, providerIdentitySafetyIssue, providerProbeCandidates,
   providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, providerSupportsDeferredToolsForSave, ProxyNetworkSnapshot,
   ProxyStatus, RequestLogListFilter, RequestLogPage,
@@ -40,7 +40,6 @@ import { renameProviderReferences } from "./shared/provider-references";
 import {
   AppDialogStack, FeedbackStack, LightToast, MainLayout, OnboardingLayout, PersistenceFeedback, shouldCheckForUpdateOnOpen
 } from "./components/index";
-import { hasAvailableGatewayModels } from "@llmr/core/contracts/app";
 
 type ProfileOpenDialogState = {
   busy?: "" | "cli" | "app";
@@ -762,9 +761,10 @@ function App() {
   const canSubmitProvider =
     Boolean(providerDraft.name.trim() && providerDraft.baseUrl.trim()) &&
     providerDialogModels.length > 0;
-  const profileRouteTargetReady = hasAvailableGatewayModels(draftConfig);
-  const canSubmitProfile = profileRouteTargetReady && isProfileDraftSubmittable(profileDraft) && isProfileBotSelectionValid(profileDraft, draftConfig.botConfigs);
-  const canSubmitProfileEdit = profileRouteTargetReady && profileEditIndex !== undefined && isProfileDraftSubmittable(profileEditDraft) && isProfileBotSelectionValid(profileEditDraft, draftConfig.botConfigs);
+  const profileDraftHasModels = profileHasUsableModels(profileDraft, draftConfig);
+  const profileEditDraftHasModels = profileHasUsableModels(profileEditDraft, draftConfig);
+  const canSubmitProfile = profileDraftHasModels && isProfileDraftSubmittable(profileDraft) && isProfileBotSelectionValid(profileDraft, draftConfig.botConfigs);
+  const canSubmitProfileEdit = profileEditDraftHasModels && profileEditIndex !== undefined && isProfileDraftSubmittable(profileEditDraft) && isProfileBotSelectionValid(profileEditDraft, draftConfig.botConfigs);
   const canSubmitApiKey = Boolean(apiKeyDraft.name.trim()) && (apiKeyDraft.expirationPreset !== "custom" || Boolean(apiKeyDraft.expiresAt.trim()));
   const canSubmitApiKeyEdit = apiKeyEditDraft.expirationPreset !== "custom" || Boolean(apiKeyEditDraft.expiresAt.trim());
   const canSubmitRoutingRule = isRoutingRuleDraftSubmittable(routingRuleDraft);
@@ -2996,7 +2996,7 @@ function App() {
     if (profileSubmitBusy) {
       return false;
     }
-    if (!profileRouteTargetReady) {
+    if (!profileDraftHasModels) {
       setProfileActionError("Configure at least one enabled provider model before saving an agent profile.");
       return false;
     }
@@ -3054,7 +3054,7 @@ function App() {
     if (profileEditIndex === undefined) {
       return false;
     }
-    if (!profileRouteTargetReady) {
+    if (!profileEditDraftHasModels) {
       setProfileActionError("Configure at least one enabled provider model before saving an agent profile.");
       return false;
     }
