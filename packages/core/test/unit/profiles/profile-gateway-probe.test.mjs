@@ -364,7 +364,7 @@ test("a gateway that is gone when the wait runs out is reported as not reachable
     ensureProfileGateway(config, profile, "Claude Main", { profileKeyWaitMs: 400, reuseExisting: true }),
     (error) => {
       assert.equal(error instanceof ProfileGatewayUnavailableError, false);
-      assert.match(error.message, /LLMR gateway is not reachable at http:\/\/127\.0\.0\.1:3466/);
+      assert.match(error.message, /LLMR gateway is not reachable at http:\/\/127\.0\.0\.1:3466.*quit LLMR Desktop and open it again/);
       assert.doesNotMatch(error.message, /does not accept the API key/);
       return true;
     }
@@ -389,4 +389,44 @@ test("a gateway found on the port after a failed start must accept the profile's
     /does not accept the API key for Claude Main/
   );
   assert.equal(start.mock.callCount(), 1);
+});
+
+function recordRequests(t) {
+  const previousFetch = globalThis.fetch;
+  const requests = [];
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+  });
+  globalThis.fetch = async (input) => {
+    requests.push(String(input));
+    throw new TypeError("fetch failed");
+  };
+  return requests;
+}
+
+test("a profile with no key of its own is refused and never opened on another key", async (t) => {
+  const requests = recordRequests(t);
+  const { config, profile } = twoKeyProfileConfig();
+  config.APIKEYS = [config.APIKEYS[0]];
+
+  await assert.rejects(
+    ensureProfileGateway(config, profile, "Claude Main", { reuseExisting: true, startIfMissing: false }),
+    /No LLMR API key was found for profile "Claude Main"\. Re-save the profile and try again\./
+  );
+  assert.deepEqual(requests, []);
+});
+
+test("a profile whose key has expired is refused at once with the expiry", async (t) => {
+  const requests = recordRequests(t);
+  const { config, profile } = twoKeyProfileConfig();
+  config.APIKEYS[1] = { ...config.APIKEYS[1], expiresAt: "2026-02-01T00:00:00.000Z" };
+
+  await assert.rejects(
+    ensureProfileGateway(config, profile, "Claude Main", { reuseExisting: true, startIfMissing: false }),
+    (error) => {
+      assert.equal(error.message, 'The API key of profile "Claude Main" expired on 2026-02-01T00:00:00.000Z. Give it a later expiry on the API Keys page, then open the profile again.');
+      return true;
+    }
+  );
+  assert.deepEqual(requests, []);
 });

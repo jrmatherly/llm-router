@@ -15,6 +15,7 @@ import { findRunningOpenCodeAppPid, launchOpenCodeAppProfile, openCodeAppLaunchS
 import { writeOpenCodeGatewayConfig } from "@llmr/core/agents/opencode/profile-config";
 import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime";
 import { CONFIGDIR } from "@llmr/core/config/constants";
+import { isApiKeyExpired } from "@llmr/core/gateway/auth/api-key-authorizer";
 import { endpoint } from "@llmr/core/gateway/core-runtime/supervisor";
 import { isLocalGatewayEndpoint, nonLocalGatewayMessage } from "@llmr/core/gateway/existing-gateway-probe";
 import { gatewayService } from "@llmr/core/gateway/service";
@@ -492,6 +493,8 @@ async function waitForProfileKey(
     last = await probeExistingProfileGateway(config, profile, config, [config.APIKEY]);
     if (last.state === "usable") return;
   }
+  // Not ProfileGatewayUnavailableError: the CLI answers that by starting a service, and a gateway that answered when the wait began may still be restarting in a process the CLI cannot see.
+  if (last.state === "unavailable") throw new Error(`${existingGatewayConflictMessage(last, appName)} ${restartGatewayAdvice}`);
   throw new Error(existingGatewayConflictMessage(last, appName));
 }
 
@@ -806,9 +809,14 @@ function probeGatewayHost(host: string): string {
 }
 
 function profileGatewayConfigFor(config: AppConfig, profile: ReturnType<typeof findProfileForOpen>): AppConfig {
-  const token = findProfileApiKey(config, profile);
-  if (!token) {
+  const keyId = profileApiKeyId(profile);
+  const apiKey = config.APIKEYS.find((candidate) => candidate.id === keyId);
+  const token = apiKey?.key.trim();
+  if (!apiKey || !token) {
     throw new Error(`No LLMR API key was found for profile "${profile.name || profile.id}". Re-save the profile and try again.`);
+  }
+  if (isApiKeyExpired(apiKey)) {
+    throw new Error(`The API key of profile "${profile.name || profile.id}" expired on ${apiKey.expiresAt}. Give it a later expiry on the API Keys page, then open the profile again.`);
   }
   return profileGatewayConfigWithToken(config, profile, token);
 }
@@ -2186,12 +2194,6 @@ function stringRecord(value: Record<string, string> | undefined): Record<string,
     return {};
   }
   return Object.fromEntries(Object.entries(value).filter(([, item]) => typeof item === "string"));
-}
-
-function findProfileApiKey(config: AppConfig, profile: ReturnType<typeof findProfileForOpen>): string {
-  const keyId = profileApiKeyId(profile);
-  const key = config.APIKEYS.find((apiKey) => apiKey.id === keyId)?.key.trim();
-  return key || config.APIKEYS.find((apiKey) => apiKey.key.trim())?.key.trim() || config.APIKEY.trim();
 }
 
 function sanitizeProfilePathSegment(value: string): string {
