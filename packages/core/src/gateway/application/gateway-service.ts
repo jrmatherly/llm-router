@@ -154,6 +154,7 @@ class GatewayService {
     networkEndpoints: [],
     state: "stopped"
   };
+  private storedApiKeysActedOn?: string;
   private storedApiKeysBaseline?: string;
   private storedApiKeysPending?: string;
   private storedApiKeysReadFailed = false;
@@ -749,9 +750,10 @@ class GatewayService {
   // Compared with the stored list as of the last config taken, not with the held config, which callers mutate and which may hold keys never stored.
   private async checkStoredApiKeys(): Promise<void> {
     if (this.status.state !== "running" || this.status.gatewayManagedExternally || !(this.child || this.server)) return;
-    if (Date.now() < this.storedApiKeysRetryAt) return;
     const seen = await this.readStoredApiKeys();
     if (seen === undefined) return;
+    // The wait after a failed reload covers the list that failed. A list that has changed since is reloaded without it.
+    if (Date.now() < this.storedApiKeysRetryAt && seen === this.storedApiKeysActedOn) return;
     if (this.storedApiKeysBaseline === undefined) {
       this.storedApiKeysBaseline = seen;
     } else if (seen === this.storedApiKeysBaseline) {
@@ -760,6 +762,7 @@ class GatewayService {
       // A save handler writes keys and then calls updateConfig; waiting for a second tick keeps a tick between the two from restarting twice.
       this.storedApiKeysPending = seen;
     } else {
+      this.storedApiKeysActedOn = seen;
       this.storedApiKeysBaseline = seen;
       this.storedApiKeysPending = undefined;
       this.schedulePersistedRuntimeConfigReload(undefined, false);

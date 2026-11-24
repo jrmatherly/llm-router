@@ -190,6 +190,7 @@ test("a key reload whose config load failed leaves the gateway alone, is logged 
   assert.deepEqual(taken, []);
   assert.equal(logged.mock.callCount(), 1);
   assert.equal(service.runtimeConfigReloadError, undefined);
+  service.storedApiKeysActedOn = JSON.stringify([first]);
   await service.checkStoredApiKeys();
   await service.checkStoredApiKeys();
   assert.deepEqual(reloads, []);
@@ -197,4 +198,23 @@ test("a key reload whose config load failed leaves the gateway alone, is logged 
   await service.checkStoredApiKeys();
   await service.checkStoredApiKeys();
   assert.deepEqual(reloads, [[undefined, false]]);
+});
+
+test("a key change made while a failed reload waits is reloaded without the wait", async (t) => {
+  t.mock.method(console, "error", () => {});
+  t.mock.method(console, "warn", () => {});
+  const { service } = await runningService([first]);
+  delete service.schedulePersistedRuntimeConfigReload;
+  const loads = t.mock.method(service, "reloadPersistedRuntimeConfig");
+  await updatePersistedApiKeys((current) => [...current, second]);
+  for (let tick = 0; tick < 4; tick += 1) {
+    await service.checkStoredApiKeys();
+    await service.runtimeConfigReloadQueue;
+  }
+  assert.equal(loads.mock.callCount(), 1);
+  await updatePersistedApiKeys(() => [second]);
+  await service.checkStoredApiKeys();
+  await service.checkStoredApiKeys();
+  await service.runtimeConfigReloadQueue;
+  assert.equal(loads.mock.callCount(), 2);
 });
