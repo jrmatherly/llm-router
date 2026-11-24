@@ -49,6 +49,8 @@ installSocketTypeOfServiceCompat();
 
 const coreGatewayLiveTokenRateSourceId = "core-gateway";
 const storedApiKeysPollMs = 1000;
+// Never equal to a stored list's JSON, so the next two ticks reload again.
+const unappliedStoredApiKeys = "";
 let warnedMalformedRefusedKeyMessage = false;
 
 type RouteScriptTestHeaders = Record<string, string | string[] | undefined>;
@@ -179,10 +181,11 @@ class GatewayService {
       };
       return this.getStatus();
     }
+    // Read before the old child stops: a key written from here on stays outside the baseline, so the poll sees it once the gateway runs.
+    if (recoveryGeneration === undefined) await this.rememberStoredApiKeys();
     await this.stopGateway({ nextConfig: config });
     if (recoveryGeneration !== undefined && recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
     this.holdConfig(config);
-    if (recoveryGeneration === undefined) await this.rememberStoredApiKeys();
     const coreAuthToken = generateCoreGatewayAuthToken();
     const scriptValidationErrors = await this.routeScriptRuntime.prepare(config.Router.rules);
     this.plugin = new LLMRouterPlugin(config, {
@@ -484,13 +487,13 @@ class GatewayService {
       return;
     }
 
+    await this.rememberStoredApiKeys();
     const scriptValidationErrors = await this.routeScriptRuntime.prepare(config.Router.rules);
     const nextPlugin = new LLMRouterPlugin(config, {
       scriptRuntime: this.routeScriptRuntime,
       scriptValidationErrors
     });
     this.holdConfig(config);
-    await this.rememberStoredApiKeys();
     this.plugin = nextPlugin;
     const singleGatewayRuntime = Boolean(this.child && !this.server && shouldRunGatewayRuntime(config));
     const runtimeCoreEndpoint = singleGatewayRuntime
@@ -753,7 +756,7 @@ class GatewayService {
   }
 
   private schedulePersistedRuntimeConfigReload(expectedRevision: string | undefined, forceRestart: boolean): void {
-    this.runtimeConfigReloadError = undefined;
+    if (expectedRevision !== undefined) this.runtimeConfigReloadError = undefined;
     this.runtimeConfigReloadQueue = this.runtimeConfigReloadQueue.then(
       () => this.reloadPersistedRuntimeConfig(expectedRevision, forceRestart),
       () => this.reloadPersistedRuntimeConfig(expectedRevision, forceRestart)
@@ -781,8 +784,11 @@ class GatewayService {
       }
       this.runtimeConfigReloadError = undefined;
     } catch (error) {
-      this.runtimeConfigReloadError = formatError(error);
-      console.error(`[gateway] Failed to reload persisted runtime configuration: ${this.runtimeConfigReloadError}`);
+      const message = formatError(error);
+      // The poll's reload is tried again while the stored keys differ from what the gateway runs on, so the same failure is logged once.
+      if (expectedRevision === undefined) this.storedApiKeysBaseline = unappliedStoredApiKeys;
+      if (message !== this.runtimeConfigReloadError) console.error(`[gateway] Failed to reload persisted runtime configuration: ${message}`);
+      this.runtimeConfigReloadError = message;
     }
   }
 
