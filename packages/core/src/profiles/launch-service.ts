@@ -445,7 +445,8 @@ async function ensureGatewayConfigRunning(
     }
     if (existingGateway.state === "unavailable") {
       if (!startIfMissing) {
-        throw gatewayNotRunningError(config, appName, existingGateway.reason);
+        const reason = existingGateway.reason ? `: ${existingGateway.reason}` : "";
+        throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
       }
     } else {
       throw new Error(existingGatewayConflictMessage(existingGateway, appName));
@@ -453,7 +454,7 @@ async function ensureGatewayConfigRunning(
   }
 
   if (!startIfMissing) {
-    throw gatewayNotRunningError(config, appName);
+    throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
   }
 
   const startedStatus = await gatewayService.start(candidateConfig);
@@ -492,13 +493,9 @@ async function waitForProfileKey(
     last = await probeExistingProfileGateway(config, profile, config, [config.APIKEY]);
     if (last.state === "usable") return;
   }
-  // A gateway still gone after the wait is not restarting, so this is the state a launch with no gateway starts from.
-  if (last.state === "unavailable") throw gatewayNotRunningError(config, appName, last.reason);
+  // Not ProfileGatewayUnavailableError: the CLI answers that by starting a service, and a gateway that answered when the wait began may still be restarting in a process the CLI cannot see.
+  if (last.state === "unavailable") throw new Error(`${existingGatewayConflictMessage(last, appName)} ${restartGatewayAdvice}`);
   throw new Error(existingGatewayConflictMessage(last, appName));
-}
-
-function gatewayNotRunningError(config: AppConfig, appName: string, reason?: string): ProfileGatewayUnavailableError {
-  return new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason ? `: ${reason}` : ""}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
 }
 
 type ExistingProfileGatewayProbe =
