@@ -770,7 +770,7 @@ PR 146 merged before the pass-through plan's Gate B ran. So Gate B no longer gat
 
    **Ran, 2026-11-24, on Claude Code 2.1.330.** The results are in the pass-through plan under "Isolated probe runs on this Mac", "Results". P8 passed. An empty `ANTHROPIC_MODEL`, in a settings file or in the process environment, starts Claude Code on its own default model, the same id a run with no `ANTHROPIC_MODEL` carries. So the sentences marked P8 in Task 6 can be written, and G3 still checks the same behind LLM Router. P6 showed that Claude Code sends no `[1m]` suffix in `-p` mode, which G2 checks with the real apps.
 
-3. **PR 1**, Tasks 1 to 6.
+3. **PR 1**, Tasks 1 to 6. **Merged, 2026-11-24:** PR 147, squash `ac4cbede`. Four reviews found one important defect, a renamed `Claude Code API` provider whose edit dialog showed the wrong text, and nine smaller points. All ten were fixed on the branch before the merge. As built, the Verify step is not marked done for this provider, **Default model** reads Required when the profile has an allowed model list, the two save errors read "This profile needs an enabled provider model it can use before it can be saved.", and the docs say the profile's key ends only after LLMR has restored the profile's settings.
 4. **PR 2**, Task 7. Recommended before Gate B, because it changes a restore and B7 should run on the build that ships. This is question 9.
 5. **Gate B on the build that will ship.** B1 to B11 and G1 to G10. A G2 failure adds a task before the release.
 6. **The version (question 2) and the release.**
