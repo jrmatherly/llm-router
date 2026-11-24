@@ -1,12 +1,12 @@
 # Backlog: API Keys and Gateway Reload Implementation Plan
 
-> **Status, 2026-11-24: corrected and audited again, waiting for the owner's approval to build.** A second-model audit of 2026-11-22 found 3 Blockers and 6 Corrections. Each was read again in the code at `main` `81773a5d` and held, and the tasks below carry the corrections. A second audit of the corrected text on 2026-11-24 found no Blocker and 5 Corrections, 4 of them in test text, and those are applied too. The text changed by that last round was not audited a third time. The audits live outside the repo. Tasks 1 and 2 merged on 2026-11-24 (PRs 149 and 150). Task 4 merged the same day (PR 151, `c53eb517`), with a second test that covers the Claude App open. Task 3 merged the same day (PR 153, `4b43ca2d`), so every task of this plan is merged and none is released. Task 4 and the second-round notes under "Open with the owner" were added the same day and audited once. Task 3 was rewritten the same day for the owner's answer (b), after a pass on his VM, and that text has its own audit.
+> **Status, 2026-11-24: corrected and audited again, waiting for the owner's approval to build.** A second-model audit of 2026-11-22 found 3 Blockers and 6 Corrections. Each was read again in the code at `main` `81773a5d` and held, and the tasks below carry the corrections. A second audit of the corrected text on 2026-11-24 found no Blocker and 5 Corrections, 4 of them in test text, and those are applied too. The text changed by that last round was not audited a third time. The audits live outside the repo. Tasks 1 and 2 merged on 2026-11-24 (PRs 149 and 150). Task 4 merged the same day (PR 151, `c53eb517`), with a second test that covers the Claude App open. Task 3 merged the same day (PR 153, `4b43ca2d`), so Tasks 1 to 4 are merged and none is released. Task 5 was added the same day from the research after PR 153, with the owner's acceptance of its three recommendations. An audit on another model built it from its text alone the same day, with every gate and the three mutations run, and found no Blocker and 4 Corrections, all applied. It waits for his word to build. Task 4 and the second-round notes under "Open with the owner" were added the same day and audited once. Task 3 was rewritten the same day for the owner's answer (b), after a pass on his VM, and that text has its own audit.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A person who edits API keys keeps every key and every revocation that another window, the CLI or a profile wrote in the meantime, and a key added or revoked by another process takes effect in the running gateway without a manual restart.
 
-**Architecture:** Four tasks, one PR each. Tasks 1 and 2 are merged. Task 4 is built next, then Task 3. Task 1 removes the two writes that replace the whole `api_keys` table from a list read earlier, so every key write reads and writes inside one transaction. Task 2 makes the process that owns the gateway poll the stored key list and reload once when it changes. Task 3 makes a profile launch wait for the gateway to accept the profile's own key, and refuses the launch with restart advice when it still does not. Task 4, added on 2026-11-24 and built before Task 3, starts an app profile's gateway from the full key list.
+**Architecture:** Five tasks, one PR each. Task 5 was added on 2026-11-24 and is the one not built. Tasks 1 and 2 are merged. Task 4 is built next, then Task 3. Task 1 removes the two writes that replace the whole `api_keys` table from a list read earlier, so every key write reads and writes inside one transaction. Task 2 makes the process that owns the gateway poll the stored key list and reload once when it changes. Task 3 makes a profile launch wait for the gateway to accept the profile's own key, and refuses the launch with restart advice when it still does not. Task 4, added on 2026-11-24 and built before Task 3, starts an app profile's gateway from the full key list.
 
 **Tech Stack:** TypeScript, `better-sqlite3`, Electron 45, React, `node:test` with `node:assert/strict`.
 
@@ -627,11 +627,119 @@ Not in this task. An open still stops the running gateway and starts it again, b
 
 ---
 
+### Task 5: A launch never ends on another key, on a wait that cannot help, or on the wrong error (K-3)
+
+Added on 2026-11-24 from the research after PR 153, which is under "Open with the owner". **The owner accepted its three recommendations the same day.** One PR, one commit, branch `fix/profile-launch-key-follow-ups`. Building it and merging it each need his word.
+
+Three faults are left in a terminal launch or an app open after Task 3.
+
+1. **A profile with no key of its own is opened on another key.** `findProfileApiKey` falls back to the first stored key, then to `APIKEY` (`launch-service.ts`, the function's last line). No stored config reaches the fallback, because every open applies the profiles first and the apply stores a key for each enabled profile or throws (run by the research). A config held in memory does reach it, and the open then runs on a key that is not the profile's and says nothing (run).
+2. **A profile key past its expiry gets a wait and advice that cannot help.** The gateway refuses the key, the launch waits 10 seconds, then says to restart the gateway (run by the research with no wait). The API Keys page offers an expiry on every key (`components/api-keys.tsx`, read, not clicked).
+3. **A gateway that is gone when the wait ends is a plain refusal.** The first probe of a launch throws `ProfileGatewayUnavailableError` for the same state, and `cli.ts` answers that error, for a Grok, Kimi or Pi profile on the cli surface, by starting a service and probing again (`cli.ts`, the `catch` after the first `ensureProfileGateway`, read).
+
+After this task a profile is opened on its own key or refused, an expired key is refused at once with its expiry, and a gateway gone at the end of the wait gives the error a launch with no gateway gives.
+
+**Files:**
+- Modify: `packages/core/src/profiles/launch-service.ts` (`profileGatewayConfigFor`, `findProfileApiKey`, `waitForProfileKey`, `ensureGatewayConfigRunning`)
+- Test: `packages/core/test/unit/profiles/profile-gateway-probe.test.mjs`
+
+**Interfaces:**
+- Removes: `findProfileApiKey`. Its one caller is `profileGatewayConfigFor` (a search of `packages`, run).
+- Changes, `profileGatewayConfigFor(config, profile)`. It finds the entry of `config.APIKEYS` whose `id` is `profileApiKeyId(profile)`. With no entry, or an entry whose trimmed `key` is empty, it throws the error it has today: `` `No LLMR API key was found for profile "${profile.name || profile.id}". Re-save the profile and try again.` `` With an entry for which `isApiKeyExpired(entry)` is true it throws `` new Error(`The API key of profile "${profile.name || profile.id}" expired on ${entry.expiresAt}. Give it a later expiry on the API Keys page, then open the profile again.`) ``. Otherwise it returns `profileGatewayConfigWithToken(config, profile, <the trimmed key>)` as today. Every open reaches this function before any probe, and before any start but one: `ensureProfileGateway` calls it, and `openClaudeAppProfile` calls it through `claudeAppGatewayConfigFor`. The one start that comes first is the service `cli.ts` starts for a Codex app open with no agent arguments, which runs before the open reaches the service by RPC (`cli.ts`, the `startService` call ahead of `openProfile`, read by the audit). There an expired key is refused after that service and its gateway have started.
+- Consumes: `isApiKeyExpired(apiKey: ApiKeyConfig): boolean` from `@llmr/core/gateway/auth/api-key-authorizer`, a new import in `launch-service.ts`. `existing-gateway-probe.ts` already imports it from there, and the architecture tests pass with the import (run).
+- Produces, in the same file, not exported: `function gatewayNotRunningError(config: AppConfig, appName: string, reason?: string): ProfileGatewayUnavailableError`. It returns `` new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason ? `: ${reason}` : ""}. Start LLMR Desktop or run llmr start before opening ${appName}.`) ``. The two `throw new ProfileGatewayUnavailableError(...)` lines of `ensureGatewayConfigRunning` build this same text and become `throw gatewayNotRunningError(config, appName, existingGateway.reason)` and `throw gatewayNotRunningError(config, appName)`.
+- Changes, `waitForProfileKey`. Before its last line, `if (last.state === "unavailable") throw gatewayNotRunningError(config, appName, last.reason);`. One comment gives the why: a gateway still gone after the wait is not restarting, so this is the state a launch with no gateway starts from. With `profileKeyWaitMs` 0 no probe runs, `last` keeps its first value and the refusal is unchanged.
+- Not changed: `cli.ts`, the wait's length and poll, every message of `existingGatewayConflictMessage`, the gateway.
+
+- [ ] **Step 1: Change one test and write two.** In `profile-gateway-probe.test.mjs`.
+
+  The test "a gateway that is gone when the wait runs out is reported as not reachable, and none is started" gets the name "a gateway that is gone when the wait runs out is reported as not running". Its three assertions on the error become:
+
+```js
+      assert.equal(error instanceof ProfileGatewayUnavailableError, true);
+      assert.match(error.message, /LLMR gateway is not running at http:\/\/127\.0\.0\.1:3466.*Start LLMR Desktop or run llmr start before opening Claude Main\./);
+      assert.doesNotMatch(error.message, /does not accept the API key/);
+```
+
+  Its last line, `assert.equal(start.mock.callCount(), 0);`, stays: `ensureProfileGateway` itself starts nothing, and the service the CLI starts is `cli.ts`'s.
+
+  Add at the end of the file:
+
+```js
+function failOnFetch(t) {
+  const previousFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+  });
+  globalThis.fetch = async (input) => {
+    throw new Error(`Unexpected request: ${String(input)}`);
+  };
+}
+
+test("a profile with no key of its own is refused and never opened on another key", async (t) => {
+  failOnFetch(t);
+  const { config, profile } = twoKeyProfileConfig();
+  config.APIKEYS = [config.APIKEYS[0]];
+
+  await assert.rejects(
+    ensureProfileGateway(config, profile, "Claude Main", { reuseExisting: true, startIfMissing: false }),
+    /No LLMR API key was found for profile "Claude Main"\. Re-save the profile and try again\./
+  );
+});
+
+test("a profile whose key has expired is refused at once with the expiry", async (t) => {
+  failOnFetch(t);
+  const { config, profile } = twoKeyProfileConfig();
+  config.APIKEYS[1] = { ...config.APIKEYS[1], expiresAt: "2026-02-01T00:00:00.000Z" };
+
+  await assert.rejects(
+    ensureProfileGateway(config, profile, "Claude Main", { reuseExisting: true, startIfMissing: false }),
+    (error) => {
+      assert.equal(error.message, 'The API key of profile "Claude Main" expired on 2026-02-01T00:00:00.000Z. Give it a later expiry on the API Keys page, then open the profile again.');
+      return true;
+    }
+  );
+});
+```
+
+  `twoKeyProfileConfig()` is the helper Task 3 added: `APIKEYS[0]` is the entry `primary` and `APIKEYS[1]` is the profile's. `failOnFetch` makes any probe fail the test's point: on today's code both new tests do send a request.
+
+- [ ] **Step 2: Run and see them fail.**
+
+Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/profiles/profile-gateway-probe.test.js`
+Expected, ran by the session on `main` `cb636ba8`: 11 pass and 3 fail. The changed test fails at `instanceof`, with `false`. Each new test fails because the rejection is `ProfileGatewayUnavailableError` with "LLMR gateway is not running at http://127.0.0.1:3466: Unexpected request: http://127.0.0.1:3466/health. ...", which shows that today's code went on to probe.
+
+- [ ] **Step 3: Implement** as Interfaces says.
+
+- [ ] **Step 4: Verify.**
+
+Run: the command of Step 2. Expected: 14 pass, 0 fail (ran by the session with a throwaway build).
+Run: `npm run typecheck && npm run lint && npm run test:architecture && npm run test:core && npm run test:cli`
+Expected: all pass. Ran by the audit from the task text: typecheck and lint clean, architecture 186 of 186, core 2106 tests and 0 failed, cli 21 of 21. Mutations, each alone, ran by the audit: the fallback put back fails only the no-key test, the expiry check dropped fails only the expiry test, and a plain error for `unavailable` fails only the gone-gateway test.
+
+- [ ] **Step 5: Commit.** Subject: `fix(profiles): refuse a profile with no usable key of its own, and report a gateway that is gone as not running`
+
+What changes for a user, to say in the PR description.
+
+- **An expired profile key stops an app open too.** The check is in the function every open goes through, so the desktop app's open of a profile with an expired key now fails with the expiry message before the gateway is started or an app is launched. The gateway refuses that key's requests, so the app opened and then could not make a request. The compat layout refused them before Task 4 as well, because its front reads the stored entry with its expiry first (`api-key-authorizer.ts`, `configuredApiKeys`). Task 4 added the refusal in the single layout. Both read by the audit, not run.
+- **An app that is already open is refused too.** Both app opens build the profile's config before they look for a running window (`openClaudeAppProfile`, `openCodexAppProfile`, read). With an expired key the open no longer brings that window forward and shows the expiry message, where today it activates a window whose requests are refused. Kept on purpose: the message is the one thing that tells the user why the app stopped working.
+- **A Grok, Kimi or Pi launch can start a service after the wait.** When the gateway is gone at the end of the wait, `cli.ts` starts a service and probes again, as it does when a launch finds no gateway. That second probe has the default wait of its own, so the worst case is two waits and a service start, about 20 seconds. It cannot loop: the second call is outside the `try`, so a second error ends the launch (read by the audit). Every other agent gets "LLMR gateway is not running ... Start LLMR Desktop or run llmr start".
+- **The first-stored-key fallback is gone.** No stored config reached it.
+
+Not in this task.
+
+- **A profile key over its request limit.** The launch is refused at the first probe with "cannot serve ... right now (HTTP 429)" and the restart advice. The probe's handling of a 429 was read. That the gateway answers 429 on `/v1/models` for such a key is inferred.
+- **What the started service meets.** If the first owner's gateway comes back by a restart, that restart adopts or waits (PR 152). If it comes back by a manual start or a stored-key reload, that start stops the other gateway once (read, not run). With real processes this is a check for the owner's VM, which he holds until the next release is out.
+- **The form of the date in the expiry message.** It prints `expiresAt` as stored. The form the API Keys page stores was not checked.
+- **A key whose `expiresAt` cannot be parsed.** `isApiKeyExpired` reads it as not expired (read), and so does this task.
+
+---
+
 ## Open with the owner
 
 ### Research after PR 153, 2026-11-24: three questions on a launch that ends on the wrong key or the wrong message
 
-Asked by the owner after the review of PR 153. Read and run at `main` `01c6d49a`. The runs were throwaway tests against the real config load, save and apply in a temporary home, deleted afterwards. Nothing here is built, and none of it is a task yet. Each needs the owner's word, and a task written and audited before it is built. The three fit one small PR.
+**Answered, 2026-11-24: the owner accepted all three recommendations. They are Task 5 of this plan.** Asked by the owner after the review of PR 153. Read and run at `main` `01c6d49a`. The runs were throwaway tests against the real config load, save and apply in a temporary home, deleted afterwards. Nothing here is built, and none of it is a task yet. Each needs the owner's word, and a task written and audited before it is built. The three fit one small PR.
 
 **1. A launch with the global profile switch off runs on the first stored key.** Reported by the review of PR 153, read and not run, rated 70.
 
