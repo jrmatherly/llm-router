@@ -752,6 +752,8 @@ PR 146 merged before the pass-through plan's Gate B ran. So Gate B no longer gat
    |---|---|---|
    | P8 | The fake login, the base URL and the custom header of P1, so the default is the subscription's and not an API key's. First a settings file passed with `--settings` whose `env` holds `"ANTHROPIC_MODEL": ""`. Then the same empty value in the process environment | Whether Claude Code starts on its own default model, and the model id the first request carries in each case. The docs sentences marked P8 in Task 6 wait on it |
 
+   **Ran, 2026-11-24, on Claude Code 2.1.330.** The results are in the pass-through plan under "Isolated probe runs on this Mac", "Results". P8 passed. An empty `ANTHROPIC_MODEL`, in a settings file or in the process environment, starts Claude Code on its own default model, the same id a run with no `ANTHROPIC_MODEL` carries. So the sentences marked P8 in Task 6 can be written, and G3 still checks the same behind LLM Router. P6 showed that Claude Code sends no `[1m]` suffix in `-p` mode, which G2 checks with the real apps.
+
 3. **PR 1**, Tasks 1 to 6, with Task 1 only if question 1 was answered (a).
 4. **PR 2**, Task 7. Recommended before Gate B, because it changes a restore and B7 should run on the build that ships. This is question 9.
 5. **Gate B on the build that will ship.** B1 to B11 and G1 to G10. A G2 failure adds a task before the release.

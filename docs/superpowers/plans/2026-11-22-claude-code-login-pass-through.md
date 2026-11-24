@@ -624,6 +624,23 @@ These need only the Claude Code binary and a loopback stub. The harness is the o
 
 P4 and P5 need the probe's `stub.mjs` to take a status and a body from its arguments.
 
+### Results, 2026-11-24
+
+All eight ran on Claude Code 2.1.330 in `-p` mode, after PR 146 merged, so none changed Task 6. P8 is the run the follow-ups plan adds. The stub accepts every request, so no row says what Anthropic accepts. The safety readings were the same before and after.
+
+| # | Result (ran) |
+|---|---|
+| P1 | No `GET /v1/models` reached the stub. The debug log has `[gatewayDiscovery] skipped: no credential (ANTHROPIC_AUTH_TOKEN, apiKeyHelper, or API key)`. The control with `ANTHROPIC_AUTH_TOKEN` sent `GET /v1/models?limit=1000`, so the result counts and the fact PT-2 rests on holds |
+| P2 | Both headers arrived from the settings file, beside the login |
+| P3 | The refresh went to `platform.claude.com:443` at the proxy and never to the stub. The stand-in saw one write-check item and no write of the login. After the failed refresh Claude Code sent the expired login to the stub once |
+| P4 | Claude Code prints `API Error: 400` and the message in full, and exits 1. The same line appears with and without Anthropic's error envelope, so the message needs none. One prompt made six requests within 20 ms, the later ones with one or two beta values removed |
+| P5 | Two requests at the stub and two refresh attempts at the proxy. It prints `Failed to authenticate. API Error: 401 stub` and exits 1 |
+| P6 | `--model "claude-opus-4-8[1m]"` arrived as `claude-opus-4-8`. `ANTHROPIC_MODEL="Claude Code API/claude-sonnet-5"` arrived as set. Two more runs put `[1m]` on `ANTHROPIC_MODEL`, once in a settings file with the provider prefix and once in the process environment. Both arrived without the suffix, and no run added a `context-1m` beta value. So in `-p` mode Claude Code sends no suffix, which is what the "Not verified" item on the suffix asks of P6. Where LLM Router removes a suffix that another caller sends is still not traced |
+| P7 | Claude Code prints `Not logged in · Please run /login` and exits 1. No request reached the stub |
+| P8 | With `"ANTHROPIC_MODEL": ""` in a `--settings` file, and with an empty `ANTHROPIC_MODEL` in the process environment, the request carried `claude-opus-5-5`. A control with no `ANTHROPIC_MODEL` carried the same id. An empty value behaves as an unset one |
+
+Not run: interactive mode, Claude Code 2.1.331, and the P4 refusal behind LLM Router, where six requests would be six rows in Logs. Gate B checks B6, G2, G3 and G7 cover these on the VM.
+
 ## Gate B, before merge
 
 On the throwaway VM, with the branch's desktop build and the real apps. Never on the owner's own Mac.
