@@ -165,11 +165,19 @@ function attemptMessage(response) {
 }
 
 function filesHolding(dir, text) {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((item) => {
-    const file = path.join(dir, item.name);
-    if (item.isDirectory()) return filesHolding(file, text);
+  const scan = (folder) => readdirSync(folder, { withFileTypes: true }).flatMap((item) => {
+    const file = path.join(folder, item.name);
+    if (item.isDirectory()) return scan(file);
     return item.isFile() && readFileSync(file).includes(text) ? [file] : [];
   });
+  // A file can vanish between the listing and the read, as a SQLite checkpoint does to a -wal file after moving its pages into a database file the scan may have read already, so the whole scan starts over.
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return scan(dir);
+    } catch (error) {
+      if (error.code !== "ENOENT" || attempt === 5) throw error;
+    }
+  }
 }
 
 async function until(predicate, timeoutMs = 10000) {

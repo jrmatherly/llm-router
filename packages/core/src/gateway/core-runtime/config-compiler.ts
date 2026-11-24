@@ -19,7 +19,7 @@ import { endpoint, gatewayRuntimeSupportsRouterPlugin, publicGatewayAuthTokens, 
 import { billingUsageSyncHeader, billingUsageSyncPath, coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayUpstreamProxyUrlEnv } from "@llmr/core/gateway/internal/shared";
 import type { BrowserWebSearchMcpIntegration, CoreGatewayProvider } from "@llmr/core/gateway/internal/shared";
 import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
-import { isLocalClaudeCodeOauthProviderPlugin } from "@llmr/core/providers/oauth-plugin";
+import { withoutClaudeCodeStoredLogin } from "@llmr/core/providers/oauth-plugin";
 import { isLocalAgentOauthProviderPlugin } from "@llmr/core/gateway/core-runtime/local-agent-auth-provider-hook";
 import { llmrRouterPluginKey } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { isOpenCodePublicFreeTierPlugin } from "@llmr/core/agents/local-providers/opencode-freetier";
@@ -698,18 +698,6 @@ function isLocalCodexOauthProviderPlugin(value: unknown): value is Record<string
   }
   const key = stringValue(value.key)?.toLowerCase() ?? "";
   return key.startsWith("llmr-local-agent-") && key.includes("codex-oauth");
-}
-
-
-// A config saved by an earlier version holds a token in these entries. It is dropped, never sent.
-function withoutClaudeCodeStoredLogin(providerPlugins: unknown[]): unknown[] {
-  return providerPlugins.map((plugin) => {
-    if (!isLocalClaudeCodeOauthProviderPlugin(plugin)) {
-      return plugin;
-    }
-    const { auth: _auth, ...rest } = plugin;
-    return rest;
-  });
 }
 
 

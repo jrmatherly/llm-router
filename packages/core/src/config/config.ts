@@ -25,6 +25,7 @@ import {
 import { providerRuntimeId } from "@llmr/core/routing/model-registry";
 import { reconcileProfileModelSelections } from "@llmr/core/profiles/model-selection";
 import { findProviderPresetByBaseUrl, primaryProviderPresetEndpoint, providerApiKeySafetyIssue, providerEndpointCanReceiveProviderApiKey } from "@llmr/core/providers/presets/index";
+import { withoutClaudeCodeStoredLogin } from "@llmr/core/providers/oauth-plugin";
 import type {
   AppConfig,
   ApiKeyConfig,
@@ -831,7 +832,7 @@ function pickConfig(value: Partial<AppConfig>): LoadedAppConfig {
     config.Providers = providers;
   }
   if (Array.isArray((value as Record<string, unknown>).providerPlugins)) {
-    config.providerPlugins = (value as Record<string, unknown>).providerPlugins as unknown[];
+    config.providerPlugins = withoutClaudeCodeStoredLogin((value as Record<string, unknown>).providerPlugins as unknown[]);
   }
   const virtualModelProfiles = (value as Record<string, unknown>).virtualModelProfiles;
   if (Array.isArray(virtualModelProfiles)) {

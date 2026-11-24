@@ -299,6 +299,7 @@ export function OnboardingView({
                       error={profileError}
                       onChange={onChangeProfile}
                       onCreateBot={() => undefined}
+                      providerPlugins={config.providerPlugins}
                       providers={config.Providers}
                       virtualModelProfiles={config.virtualModelProfiles ?? []}
                     />

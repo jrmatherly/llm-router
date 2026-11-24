@@ -5615,3 +5615,47 @@ test("a Codex restore that cannot remove one of LLMR's side files says which, an
   });
 });
 
+
+for (const agent of ["codex", "grok", "kilo", "kimi", "opencode", "pi", "workbuddy", "zcode"]) {
+  test(`an empty model on a ${agent} profile names the pass-through provider in no file`, { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+    const profileId = `claude-login-${agent}-catalog`;
+    const profileDir = path.join(CONFIGDIR, "profiles", profileId);
+    const config = createDefaultAppConfig();
+    config.Providers = [
+      { api_base_url: "https://example.test", api_key: "llmr-local-agent-login", models: ["claude-sonnet-5"], name: "Claude Code API", type: "anthropic_messages" },
+      { api_base_url: "https://example.test/other", api_key: "sk-other-key-0001", models: ["model"], name: "Other", type: "anthropic_messages" }
+    ];
+    config.preferredProvider = "Claude Code API";
+    config.providerPlugins = [
+      { key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" },
+      { key: "llmr-local-agent-claude-code-api-claude-code-oauth-internal", providerName: "claude-code-api::anthropic_messages" }
+    ];
+    config.profile.enabled = true;
+    config.profile.profiles = [{
+      agent,
+      codexHome: agent === "zcode" ? path.join(profileDir, "zcode") : "",
+      configFormat: "separate_profile_files",
+      enabled: true,
+      env: {},
+      id: profileId,
+      model: "",
+      name: `${agent} Catalog`,
+      scope: "llmr",
+      surface: agent === "workbuddy" ? "app" : "cli"
+    }];
+    const profileFiles = () => filesUnder(CONFIGDIR).filter((file) => file.includes(profileId) && lstatSync(file).isFile());
+    try {
+      const applied = await applyProfileFixture(config);
+      assert.equal(applied.clients[0].ok, true);
+      const holding = (value) => profileFiles().filter((file) => readFileSync(file, "utf8").includes(value)).length;
+      assert.ok(holding("Other/model") > 0);
+      assert.equal(holding("Claude Code API/"), 0);
+    } finally {
+      for (const file of profileFiles()) {
+        rmSync(file, { force: true });
+      }
+      rmSync(profileDir, { force: true, recursive: true });
+      await replacePersistedApiKeys([]);
+    }
+  });
+}

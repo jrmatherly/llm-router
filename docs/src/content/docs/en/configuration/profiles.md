@@ -50,7 +50,7 @@ Each Agent Profile is a separate launch configuration. Create multiple profiles 
 | Route Claude App launched outside LLMR through LLMR | Off by default. On, Claude App opened from the Dock or an account switcher also runs through LLMR in third-party mode, signed out of claude.ai. One profile at a time. |
 | Sign in with my Claude login | Off by default. CLI only. On, Claude Code signs in with your own claude.ai login and LLMR forwards it. See **Claude login mode** below. |
 
-After Claude Code CLI is opened from LLMR, it uses LLMR gateway model discovery. In Claude Code CLI, enter `/model` to view and switch the models exposed by LLMR, including normal provider models and visible Fusion models.
+After Claude Code CLI is opened from LLMR, it uses LLMR gateway model discovery. In Claude Code CLI, enter `/model` to view and switch the models exposed by LLMR, including normal provider models and visible Fusion models. In Claude login mode Claude Code shows its own list instead.
 
 If Claude App is already running, restart it or reopen it from LLMR when prompted.
 
@@ -58,9 +58,15 @@ If Claude App is already running, restart it or reopen it from LLMR when prompte
 
 Use this mode to run Claude Code through LLMR on your Claude subscription. It needs the `Claude Code API` provider, which you add from **Providers** through the Claude Code import entry. Claude Code keeps its own login. It sends that login with each request, and LLMR forwards it to Anthropic without reading, refreshing or storing it.
 
-The profile writes LLMR's base URL to its settings file and adds one line, `x-llmr-api-key: <gateway key>`, to `ANTHROPIC_CUSTOM_HEADERS`. Lines you already had in that variable stay. The gateway key sits in that file in plain text. The profile writes no `apiKeyHelper`.
+The profile writes LLMR's base URL to its settings file and adds one line, `x-llmr-api-key: <gateway key>`, to `ANTHROPIC_CUSTOM_HEADERS`. Lines you already had in that variable stay. The gateway key sits in that file in plain text. A `settings.json.llmr-backup-<time>` copy beside the file can hold the same line. Switching the profile off revokes that key once LLMR has put the profile's settings back. Quitting LLMR puts a system-default profile's settings back and keeps the profile and its key, so a copy made then holds the key the profile still uses. The profile writes no `apiKeyHelper`.
 
 Claude Code then shows its own model list, not the one LLMR serves. A model you pin as `Provider/model` still goes through LLMR to that provider, with its routing rules.
+
+With the toggle on, **Default model** is optional, unless the profile has an allowed model list. A model from another provider in **Default model** starts every new session on that provider, and one in the Fable, Opus, Sonnet or Haiku field sends that choice there. The form says so under the field. Leave **Default model** empty and Claude Code starts on its own default model, on your subscription.
+
+An allowed model list applies to every model Claude Code asks for in this mode, including a pick from its own `/model` list and its background model. A request for a model that is not in the list is refused. The profile's own default model is always allowed.
+
+A profile opened only from LLMR has its own Claude home and starts signed out. Run `/login` once inside it, or turn on **Use my ~/.claude in the terminal**. A **System default** profile uses your normal login.
 
 A request on your subscription works differently from other LLMR traffic:
 
@@ -74,7 +80,7 @@ Claude App and Claude Code CLI expose models differently:
 
 | Entry | Model list source | Notes |
 | --- | --- | --- |
-| Claude Code CLI | LLMR gateway model discovery | Use `/model` in the CLI to view the list; selected requests still go through LLMR providers, routing, and Fusion. |
+| Claude Code CLI | LLMR gateway model discovery, except in Claude login mode | Use `/model` in the CLI to view the list; selected requests still go through LLMR providers, routing, and Fusion. |
 | Claude App | LLMR model list | Open Claude App from LLMR to use the model list for this profile. |
 
 ### OpenCode

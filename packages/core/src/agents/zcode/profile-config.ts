@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { isGatewayProviderEnabled, type AppConfig, type ProfileConfig } from "@llmr/core/contracts/app";
+import { withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { normalizeRouteSelector } from "@llmr/core/gateway/llm-router-plugin";
 import { buildZcodeModelCatalog } from "@llmr/core/agents/zcode/model-catalog";
 import { backupBeforeWrite, writeFileAtomic } from "@llmr/core/profiles/backup-files";
@@ -53,7 +54,7 @@ export function writeZcodeGatewayConfig(
   const file = resolveZcodeConfigFile(profile);
   const model = normalizeClientModel(profile.model) || defaultClientModel(config);
   const providerId = sanitizeZcodeProviderId(profile.providerId || "") || "llm-router";
-  const modelCatalog = buildZcodeModelCatalog(config, model, { allowedModels: profileAllowedModels({ ...profile, model }) });
+  const modelCatalog = buildZcodeModelCatalog(withoutClaudeLoginProviders(config), model, { allowedModels: profileAllowedModels({ ...profile, model }) });
   const values: ZcodeGatewayConfigValues = {
     baseUrl: gatewayEndpoint(config),
     model,
@@ -275,7 +276,7 @@ function gatewayEndpoint(config: AppConfig): string {
 }
 
 function defaultClientModel(config: AppConfig): string {
-  const enabledProviders = config.Providers.filter(isGatewayProviderEnabled);
+  const enabledProviders = withoutClaudeLoginProviders(config).Providers.filter(isGatewayProviderEnabled);
   const preferred = enabledProviders.find((provider) => provider.name === config.preferredProvider) ?? enabledProviders[0];
   if (preferred?.name && preferred.models[0]) {
     return `${preferred.name}/${preferred.models[0]}`;

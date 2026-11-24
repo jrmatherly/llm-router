@@ -15,7 +15,7 @@ import {
   GatewayProviderProbeResult, gatewayServiceMessage, GatewayStatus, getDefaultOnboardingStep,
   isGatewayProviderEnabled, isMacPlatform, isPlainRecord, isProfileDraftSubmittable, isProviderNameDuplicate, isProviderProbeCandidateReady,
   isRoutingRuleDraftSubmittable,
-  isLocalAgentLoginDraft, isTraySupportedPlatform,
+  isClaudeLoginProviderDraft, isLocalAgentLoginDraft, isTraySupportedPlatform,
   LayoutGroup, mergeProviderModelLists, missingPluginDependenciesMessage, modelDescriptionsForModels, modelDisplayNamesForModels, modelMetadataForModels,
   navigation, NavigationId, normalizeApiKeys, normalizeBotGatewaySavedConfigs, normalizeConfig, normalizeObservabilityConfig, normalizeOverviewWidgets, normalizeProxyConfig,
   normalizeProfileItem, normalizeProviderBaseUrl, normalizeRouterFallbackConfig, normalizeThemePreference, normalizeToolHubConfig, normalizeTrayBalanceProgressConfig, normalizeTrayIconPreference,
@@ -23,7 +23,7 @@ import {
   OverviewWidgetConfig, parseProviderAccountDraft, parseProviderExtraJsonDraft, pluginConfigPatchFromSettingsDraft,
   providerCredentialsFromDraft,
   PluginInstallCandidate, PluginMarketplaceEntry, PluginSettingsDraft, presetCapabilitiesFromDraft,
-  probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptions, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
+  probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptions, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, profileHasUsableModels, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
   profileOpenCommandFallback, profileOpenSurfaces, ProviderAccountSnapshot, providerApiKeySafetyIssue, ProviderConnectivityCheckReport, ProviderDeepLinkPayload, ProviderDeepLinkRequest, providerIdentitySafetyIssue, providerProbeCandidates,
   providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, providerSupportsDeferredToolsForSave, ProxyNetworkSnapshot,
   ProxyStatus, RequestLogListFilter, RequestLogPage,
@@ -40,7 +40,6 @@ import { renameProviderReferences } from "./shared/provider-references";
 import {
   AppDialogStack, FeedbackStack, LightToast, MainLayout, OnboardingLayout, PersistenceFeedback, shouldCheckForUpdateOnOpen
 } from "./components/index";
-import { hasAvailableGatewayModels } from "@llmr/core/contracts/app";
 
 type ProfileOpenDialogState = {
   busy?: "" | "cli" | "app";
@@ -762,9 +761,10 @@ function App() {
   const canSubmitProvider =
     Boolean(providerDraft.name.trim() && providerDraft.baseUrl.trim()) &&
     providerDialogModels.length > 0;
-  const profileRouteTargetReady = hasAvailableGatewayModels(draftConfig);
-  const canSubmitProfile = profileRouteTargetReady && isProfileDraftSubmittable(profileDraft) && isProfileBotSelectionValid(profileDraft, draftConfig.botConfigs);
-  const canSubmitProfileEdit = profileRouteTargetReady && profileEditIndex !== undefined && isProfileDraftSubmittable(profileEditDraft) && isProfileBotSelectionValid(profileEditDraft, draftConfig.botConfigs);
+  const profileDraftHasModels = profileHasUsableModels(profileDraft, draftConfig);
+  const profileEditDraftHasModels = profileHasUsableModels(profileEditDraft, draftConfig);
+  const canSubmitProfile = profileDraftHasModels && isProfileDraftSubmittable(profileDraft) && isProfileBotSelectionValid(profileDraft, draftConfig.botConfigs);
+  const canSubmitProfileEdit = profileEditDraftHasModels && profileEditIndex !== undefined && isProfileDraftSubmittable(profileEditDraft) && isProfileBotSelectionValid(profileEditDraft, draftConfig.botConfigs);
   const canSubmitApiKey = Boolean(apiKeyDraft.name.trim()) && (apiKeyDraft.expirationPreset !== "custom" || Boolean(apiKeyDraft.expiresAt.trim()));
   const canSubmitApiKeyEdit = apiKeyEditDraft.expirationPreset !== "custom" || Boolean(apiKeyEditDraft.expiresAt.trim());
   const canSubmitRoutingRule = isRoutingRuleDraftSubmittable(routingRuleDraft);
@@ -1424,6 +1424,12 @@ function App() {
     }
   }
 
+  const claudeLoginProviderDraft = isClaudeLoginProviderDraft(
+    providerDraft,
+    draftConfig.providerPlugins,
+    providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex]
+  );
+
   useEffect(() => {
     const providerFormVisible = providerAddOpen || (activeView === "onboarding" && onboardingStep === "provider");
     if (!window.llmr || !providerFormVisible) {
@@ -1488,7 +1494,8 @@ function App() {
       };
     }
     // Local agent imports authenticate through their plugins, so their models can be discovered.
-    if (providerDraft.providerPlugins.length > 0 && !isLocalAgentLoginDraft(providerDraft)) {
+    // The Claude login provider holds no login of its own, so there is nothing to probe.
+    if ((providerDraft.providerPlugins.length > 0 && !isLocalAgentLoginDraft(providerDraft)) || claudeLoginProviderDraft) {
       providerProbeRequestId.current += 1;
       setProviderProbe(undefined);
       setProviderProbeError("");
@@ -1566,7 +1573,7 @@ function App() {
         setProviderProbeLoading(false);
       }
     };
-  }, [activeView, onboardingStep, providerAddOpen, providerDraft.apiKey, providerDraft.baseUrl, providerDraft.credentialMode, providerDraft.credentials, providerDraft.presetId, providerDraft.protocol, providerDraft.protocolDetectionMode, providerDraft.providerPlugins, providerImportDetectPending, providerImportOpen]);
+  }, [activeView, claudeLoginProviderDraft, onboardingStep, providerAddOpen, providerDraft.apiKey, providerDraft.baseUrl, providerDraft.credentialMode, providerDraft.credentials, providerDraft.presetId, providerDraft.protocol, providerDraft.protocolDetectionMode, providerDraft.providerPlugins, providerImportDetectPending, providerImportOpen]);
 
   async function refreshProviderModels(): Promise<void> {
     if (providerProbeLoading) {
@@ -2996,8 +3003,8 @@ function App() {
     if (profileSubmitBusy) {
       return false;
     }
-    if (!profileRouteTargetReady) {
-      setProfileActionError("Configure at least one enabled provider model before saving an agent profile.");
+    if (!profileDraftHasModels) {
+      setProfileActionError("This profile needs an enabled provider model it can use before it can be saved.");
       return false;
     }
     if (!canSubmitProfile) {
@@ -3054,8 +3061,8 @@ function App() {
     if (profileEditIndex === undefined) {
       return false;
     }
-    if (!profileRouteTargetReady) {
-      setProfileActionError("Configure at least one enabled provider model before saving an agent profile.");
+    if (!profileEditDraftHasModels) {
+      setProfileActionError("This profile needs an enabled provider model it can use before it can be saved.");
       return false;
     }
     if (!canSubmitProfileEdit) {
@@ -3421,6 +3428,7 @@ function App() {
             onChange: updateProfileDraft,
             onCreateBot: openBotSettingsWithAddDialog,
             onClose: () => setProfileAddOpen(false),
+            providerPlugins: draftConfig.providerPlugins,
             providers: draftConfig.Providers,
             submitting: profileSubmitBusy === "add",
             virtualModelProfiles: draftConfig.virtualModelProfiles ?? [],
@@ -3444,6 +3452,7 @@ function App() {
               setProfileEditIndex(undefined);
               setProfileActionError("");
             },
+            providerPlugins: draftConfig.providerPlugins,
             providers: draftConfig.Providers,
             submitting: profileSubmitBusy === "edit",
             virtualModelProfiles: draftConfig.virtualModelProfiles ?? [],
@@ -3486,6 +3495,7 @@ function App() {
             connectivityProbe: providerConnectivityProbe,
             draft: providerDraft,
             error: providerProbeError,
+            existingProvider: providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex],
             importProvider: providerImportOpen ? providerImportPayload : undefined,
             onChange: updateProviderDraft,
             mode: providerEditIndex === undefined ? "add" : "edit",

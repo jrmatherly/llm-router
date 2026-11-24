@@ -3,6 +3,7 @@ import path from "node:path";
 import { buildCodexModelCatalogIds } from "@llmr/core/agents/codex/model-catalog";
 import { parseJsoncRecord } from "@llmr/core/agents/local-providers/shared";
 import { isGatewayProviderEnabled, type AppConfig, type ProfileConfig } from "@llmr/core/contracts/app";
+import { withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { backupBeforeWrite, backupMarker, originalBackupSuffix, originalMissingSuffix, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
 import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-paths";
@@ -92,7 +93,7 @@ function kiloGatewayOverrides(config: AppConfig, profile: ProfileConfig, token: 
   const providerName = profile.providerName?.trim() || "LLM Router";
   const model = normalizeClientModel(profile.model) || defaultClientModel(config);
   const modelRef = `${providerId}/${model}`;
-  const models = buildCodexModelCatalogIds(config, model, { allowedModels: profileAllowedModels({ ...profile, model }) });
+  const models = buildCodexModelCatalogIds(withoutClaudeLoginProviders(config), model, { allowedModels: profileAllowedModels({ ...profile, model }) });
   return {
     $schema: "https://app.kilo.ai/config.json",
     model: modelRef,
@@ -180,7 +181,7 @@ function gatewayEndpoint(config: AppConfig): string {
 }
 
 function defaultClientModel(config: AppConfig): string {
-  const enabledProviders = config.Providers.filter(isGatewayProviderEnabled);
+  const enabledProviders = withoutClaudeLoginProviders(config).Providers.filter(isGatewayProviderEnabled);
   const provider = enabledProviders.find((item) => item.name === config.preferredProvider) ?? enabledProviders[0];
   const model = provider?.models[0] ?? "default";
   return provider?.name ? `${provider.name}/${model}` : model;

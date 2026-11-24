@@ -6,7 +6,7 @@ import { ROUTER_SCRIPT_MAX_TIMEOUT_MS, isGatewayProviderEnabled, type AppConfig,
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { applyAgentRequestEnrichers } from "@llmr/core/agents/request-enricher";
 import { buildClaudeAppGatewayModelRoutes, type ClaudeAppGatewayModelRoute, resolveClaudeAppGatewayRouteModel, stripClaudeAppGatewayOneMillionContextSuffix } from "@llmr/core/agents/claude-app/gateway-routes";
-import { carriesClaudeLogin, claudeLoginRouteFallback, claudeLoginRoutedModel } from "@llmr/core/gateway/features/claude-login-pass-through";
+import { carriesClaudeLogin, claudeLoginRouteFallback, claudeLoginRoutedModel, withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { claudeAppGatewayModelRouteOptions } from "@llmr/core/gateway/internal/shared";
 import { compileRouterConfig, type CompiledProfileRoutingConfig, type CompiledRouterConfig, type CompiledRouterRule } from "@llmr/core/routing/config-compiler";
 import type { RouteDecision, RouteDiagnostic, RouteModelRef, RouteRequest, RouteSource } from "@llmr/core/routing/contracts";
@@ -702,7 +702,7 @@ function resolveGrokProfileRouteTarget(config: AppConfig, profileModel: string |
   if (configured) {
     return configured;
   }
-  const enabledProviders = config.Providers.filter(isGatewayProviderEnabled);
+  const enabledProviders = withoutClaudeLoginProviders(config).Providers.filter(isGatewayProviderEnabled);
   const preferred = enabledProviders.find((provider) => provider.name === config.preferredProvider) ?? enabledProviders[0];
   return preferred?.name && preferred.models[0]
     ? `${preferred.name}/${preferred.models[0]}`

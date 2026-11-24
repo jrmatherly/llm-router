@@ -3,6 +3,7 @@ import path from "node:path";
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { availableGatewayModelIds, isGatewayProviderEnabled, type AppConfig, type ProfileClientApplyStatus, type ProfileConfig } from "@llmr/core/contracts/app";
 import { findModelCatalogEntry, modelCatalogMaxInputTokens, readCatalogCapability, type ModelCatalogEntry } from "@llmr/core/gateway/model-catalog";
+import { withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { windowsBatchEscapeValue as cmdValue, windowsBatchSetLine as cmdSetLine } from "@llmr/core/platform/windows-batch";
 import { cmdQuote, defaultClientModel, disabledStatus, firstTomlTableIndex, formatError, gatewayEndpoint, gatewayNoProxyHosts, linkProfileHomeEntry, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, tomlQuotedKey, tomlString, trimLeadingBlankLines, uniqueOrderedStrings, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
 import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
@@ -139,7 +140,7 @@ function kimiProfileModels(config: AppConfig, profile: ProfileConfig): string[] 
   const configured = (profile.availableModels ?? [])
     .map((candidate) => normalizeClientModel(candidate))
     .filter(Boolean);
-  const available = configured.length > 0 ? configured : availableGatewayModelIds(config);
+  const available = configured.length > 0 ? configured : availableGatewayModelIds(withoutClaudeLoginProviders(config));
   const defaultModel = normalizeClientModel(profile.model) || available[0] || defaultClientModel(config);
   return uniqueOrderedStrings([defaultModel, ...available]);
 }
