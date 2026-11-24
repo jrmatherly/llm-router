@@ -271,7 +271,7 @@ test("a profile launch waits for the gateway to accept the profile's own key", a
     profileProbes += 1;
     return profileProbes > 2 ? 200 : 401;
   });
-  const info = t.mock.method(console, "info", () => {});
+  const notice = t.mock.method(console, "warn", () => {});
   const { config, profile } = twoKeyProfileConfig();
 
   const result = await ensureProfileGateway(config, profile, "Local subscription router", { profileKeyWaitMs: 5000, reuseExisting: true, startIfMissing: false });
@@ -279,41 +279,40 @@ test("a profile launch waits for the gateway to accept the profile's own key", a
   assert.equal(result.APIKEY, "profile-token");
   assert.equal(profileProbes, 3);
   assert.equal(primaryProbes, 1);
-  assert.equal(info.mock.callCount(), 1);
-  assert.match(String(info.mock.calls[0].arguments[0]), /Waiting for the gateway to accept the key of profile "Claude Main"/);
+  assert.equal(notice.mock.callCount(), 1);
+  assert.match(String(notice.mock.calls[0].arguments[0]), /Waiting for the gateway to accept the key of profile "Claude Main"/);
 });
 
 test("a gateway that restarts during the wait is waited for, not replaced", async (t) => {
   let profileProbes = 0;
   let failedRequests = 0;
-  // One probe of a gateway that is down makes six requests: three of /health, then three of /.
-  let requestsWhileDown = 0;
+  // Down from the moment it accepts the other key until after the first poll, 500 ms later.
+  let downUntil = 0;
   stubGateway(t, (token) => {
-    if (requestsWhileDown > 0) {
-      requestsWhileDown -= 1;
+    if (Date.now() < downUntil) {
       failedRequests += 1;
       return "down";
     }
     if (token === "primary-token") {
-      requestsWhileDown = 6;
+      downUntil = Date.now() + 750;
       return 200;
     }
     if (token !== "profile-token") return 200;
     profileProbes += 1;
     return profileProbes > 1 ? 200 : 401;
   });
-  t.mock.method(console, "info", () => {});
+  t.mock.method(console, "warn", () => {});
   const start = t.mock.method(gatewayService, "start", async () => ({ state: "error" }));
   const { config, profile } = twoKeyProfileConfig();
 
   const result = await ensureProfileGateway(config, profile, "Local subscription router", { profileKeyWaitMs: 5000, reuseExisting: true });
 
   assert.equal(result.APIKEY, "profile-token");
-  assert.equal(failedRequests, 6);
+  assert.ok(failedRequests > 0);
   assert.equal(start.mock.callCount(), 0);
 });
 
-test("a profile launch is refused when the gateway does not accept the profile's own key", async (t) => {
+test("a profile launch is refused when the gateway does not accept the profile's own key", { timeout: 5000 }, async (t) => {
   stubGateway(t, (token) => token === "profile-token" ? 401 : 200);
   const start = t.mock.method(gatewayService, "start", async () => ({ state: "error" }));
   const { config, profile } = twoKeyProfileConfig();
@@ -330,4 +329,64 @@ test("a profile launch is refused when the gateway does not accept the profile's
     }
   );
   assert.equal(start.mock.callCount(), 0);
+});
+
+test("a profile launch is refused once the wait for the profile's own key runs out", { timeout: 5000 }, async (t) => {
+  let profileProbes = 0;
+  stubGateway(t, (token) => {
+    if (token !== "profile-token") return 200;
+    profileProbes += 1;
+    return 401;
+  });
+  const notice = t.mock.method(console, "warn", () => {});
+  const { config, profile } = twoKeyProfileConfig();
+
+  await assert.rejects(
+    ensureProfileGateway(config, profile, "Claude Main", { profileKeyWaitMs: 400, reuseExisting: true, startIfMissing: false }),
+    /does not accept the API key for Claude Main/
+  );
+  assert.equal(profileProbes, 2);
+  assert.equal(notice.mock.callCount(), 1);
+});
+
+test("a gateway that is gone when the wait runs out is reported as not reachable, and none is started", { timeout: 10000 }, async (t) => {
+  let down = false;
+  stubGateway(t, (token) => {
+    if (down) return "down";
+    if (token === "primary-token") down = true;
+    return token === "profile-token" ? 401 : 200;
+  });
+  t.mock.method(console, "warn", () => {});
+  const start = t.mock.method(gatewayService, "start", async () => ({ state: "error" }));
+  const { config, profile } = twoKeyProfileConfig();
+
+  await assert.rejects(
+    ensureProfileGateway(config, profile, "Claude Main", { profileKeyWaitMs: 400, reuseExisting: true }),
+    (error) => {
+      assert.equal(error instanceof ProfileGatewayUnavailableError, false);
+      assert.match(error.message, /LLMR gateway is not reachable at http:\/\/127\.0\.0\.1:3466/);
+      assert.doesNotMatch(error.message, /does not accept the API key/);
+      return true;
+    }
+  );
+  assert.equal(start.mock.callCount(), 0);
+});
+
+test("a gateway found on the port after a failed start must accept the profile's own key", { timeout: 5000 }, async (t) => {
+  let gatewayUp = false;
+  stubGateway(t, (token) => {
+    if (!gatewayUp) return "down";
+    return token === "profile-token" ? 401 : 200;
+  });
+  const start = t.mock.method(gatewayService, "start", async () => {
+    gatewayUp = true;
+    return { lastError: "listen EADDRINUSE: address already in use 127.0.0.1:3456", state: "error" };
+  });
+  const { config, profile } = twoKeyProfileConfig();
+
+  await assert.rejects(
+    ensureProfileGateway(config, profile, "Claude Main", { profileKeyWaitMs: 0, reuseExisting: true }),
+    /does not accept the API key for Claude Main/
+  );
+  assert.equal(start.mock.callCount(), 1);
 });
