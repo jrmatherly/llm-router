@@ -1005,7 +1005,7 @@ async function closeServer(server) {
 
 test("a profile save creates its key before the gateway starts, and a save with applyProfile false creates none", async (t) => {
   const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
-  const { loadPersistedApiKeys, replacePersistedApiKeys } = await import("@llmr/core/config/config-repository.ts");
+  const { loadPersistedApiKeys, updatePersistedApiKeys } = await import("@llmr/core/config/config-repository.ts");
   const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
   const { gatewayService } = await import("@llmr/core/gateway/service.ts");
   const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
@@ -1014,7 +1014,7 @@ test("a profile save creates its key before the gateway starts, and a save with 
   config.Providers = [{ api_base_url: "http://127.0.0.1:9/v1", api_key: "provider-key", id: "provider", models: ["model"], name: "Provider", type: "openai_chat_completions" }];
   config.profile.profiles = createDefaultAppConfig().profile.profiles;
   await saveAppConfig(config);
-  await replacePersistedApiKeys([]);
+  await updatePersistedApiKeys(() => []);
   const status = gatewayService.getStatus();
   const startedWithKeys = [];
   t.mock.method(gatewayService, "start", async (next) => {
@@ -1035,6 +1035,43 @@ test("a profile save creates its key before the gateway starts, and a save with 
     assert.deepEqual(await profileKeyIds(), ["profile:default-claude-code"]);
     assert.deepEqual(startedWithKeys, [[], ["profile:default-claude-code"]]);
     assert.equal(updateConfig.mock.callCount(), 0);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("the saveApiKeys RPC applies only the caller's changes", async (t) => {
+  const { loadPersistedApiKeys, updatePersistedApiKeys } = await import("@llmr/core/config/config-repository.ts");
+  const { gatewayService } = await import("@llmr/core/gateway/service.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const status = gatewayService.getStatus();
+  t.mock.method(gatewayService, "start", async () => status);
+  t.mock.method(gatewayService, "updateConfig", async () => undefined);
+  const token = "api-key-save-merge-test";
+  const runtime = await startWebManagementServer({ authToken: token, host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    const current = (await rpc(runtime.url, token, "getConfig")).value.APIKEYS;
+    await updatePersistedApiKeys((keys) => [...keys, { createdAt: "2026-02-01T00:00:00.000Z", id: "elsewhere", key: "elsewhere-token" }]);
+    const saved = (await rpc(runtime.url, token, "saveApiKeys", [[...current, { createdAt: "2026-02-02T00:00:00.000Z", id: "mine", key: "mine-token" }], current])).value;
+    const savedIds = saved.APIKEYS.map((key) => key.id);
+    assert.ok(savedIds.includes("elsewhere"));
+    assert.ok(savedIds.includes("mine"));
+
+    const refused = await fetch(new URL("/api/llmr/rpc", runtime.url), {
+      body: JSON.stringify({ args: [[]], method: "saveApiKeys" }),
+      headers: { "content-type": "application/json", "x-llmr-web-auth": token },
+      method: "POST"
+    });
+    assert.equal(refused.status, 500);
+    assert.match((await refused.json()).error.message, /Reload the page and save again/);
+    const storedIds = (await loadPersistedApiKeys()).map((key) => key.id);
+    assert.ok(storedIds.includes("elsewhere"));
+    assert.ok(storedIds.includes("mine"));
+
+    await rpc(runtime.url, token, "saveApiKeys", [saved.APIKEYS.filter((key) => key.id !== "elsewhere"), saved.APIKEYS]);
+    const afterDelete = (await loadPersistedApiKeys()).map((key) => key.id);
+    assert.ok(!afterDelete.includes("elsewhere"));
+    assert.ok(afterDelete.includes("mine"));
   } finally {
     await runtime.close();
   }

@@ -7,7 +7,7 @@ import {
   archiveLegacyJsonConfigFiles,
   loadPersistedApiKeys,
   loadPersistedAppConfig,
-  replacePersistedApiKeys,
+  updatePersistedApiKeys,
   updatePersistedAppConfig,
   replacePersistedConfigSnapshot
 } from "@llmr/core/config/config-repository";
@@ -358,7 +358,13 @@ export async function loadAppConfig(): Promise<AppConfig> {
     const shouldRepairKnownPlugins = pluginMigration.changed;
     if (loadedRawConfig.source !== "sqlite" || shouldPersistApiKeys || shouldRepairProviderCapabilities || shouldRepairKnownPlugins) {
       const sanitized = sanitizeConfigForDisk(config);
-      await replacePersistedConfigSnapshot(sanitized, apiKeys, appConfigRevision(loadedRawConfig.source === "sqlite" ? rawValue : undefined));
+      const storedApiKeys = await replacePersistedConfigSnapshot(
+        sanitized,
+        (current) => ensureGatewayApiKeys(uniqueApiKeyConfigs([...current.filter((apiKey) => !isDefaultSeedApiKey(apiKey)), ...configFileApiKeys])),
+        appConfigRevision(loadedRawConfig.source === "sqlite" ? rawValue : undefined)
+      );
+      config.APIKEYS = storedApiKeys;
+      config.APIKEY = storedApiKeys[0]?.key ?? "";
       config.configRevision = appConfigRevision(sanitized);
     } else {
       config.configRevision = appConfigRevision(rawValue);
@@ -376,11 +382,16 @@ export async function loadAppConfig(): Promise<AppConfig> {
       console.warn(`[config] Failed to load API keys: ${formatError(storeError)}`);
       return [] as ApiKeyConfig[];
     });
-    const apiKeys = ensureGatewayApiKeys(persistedApiKeys.filter((apiKey) => !isDefaultSeedApiKey(apiKey)));
+    let apiKeys = ensureGatewayApiKeys(persistedApiKeys.filter((apiKey) => !isDefaultSeedApiKey(apiKey)));
     if (persistedApiKeys.length === 0) {
-      await replacePersistedApiKeys(apiKeys).catch((storeError) => {
-        console.warn(`[config] Failed to persist generated API key: ${formatError(storeError)}`);
-      });
+      await updatePersistedApiKeys((current) => (current.length ? current : apiKeys)).then(
+        (stored) => {
+          apiKeys = ensureGatewayApiKeys(stored.filter((apiKey) => !isDefaultSeedApiKey(apiKey)));
+        },
+        (storeError) => {
+          console.warn(`[config] Failed to persist generated API key: ${formatError(storeError)}`);
+        }
+      );
     }
     const fallback: AppConfig = {
       ...DEFAULT_CONFIG,
@@ -700,12 +711,41 @@ function providerCredentialApiKey(credential: ProviderCredentialConfig): string 
   return credential.api_key || credential.apiKey || credential.apikey || "";
 }
 
-export async function saveApiKeysConfig(apiKeys: ApiKeyConfig[]): Promise<AppConfig> {
-  const normalized = ensureGatewayApiKeys(normalizeApiKeys(apiKeys, undefined).filter((apiKey) => !isDefaultSeedApiKey(apiKey)));
+export async function saveApiKeysConfig(next: ApiKeyConfig[], base: ApiKeyConfig[]): Promise<AppConfig> {
+  if (!Array.isArray(base)) {
+    throw new Error("This API key save did not say which list it started from. Reload the page and save again.");
+  }
+  const withoutSeed = (apiKeys: ApiKeyConfig[]) => apiKeys.filter((apiKey) => !isDefaultSeedApiKey(apiKey));
+  const nextKeys = withoutSeed(normalizeApiKeys(next, undefined));
+  const nextIds = new Set(nextKeys.map((apiKey) => apiKey.id));
+  const baseList = withoutSeed(normalizeApiKeys(base, undefined));
+  const baseKeys = new Map(baseList.map((apiKey) => [apiKey.id, apiKey]));
   return enqueueAppConfigWrite(async () => {
-    await replacePersistedApiKeys(normalized);
+    await updatePersistedApiKeys((current) => {
+      // A row counts as the caller's key only when its token is the one the caller saw, because profile and gateway ids are reused for new keys.
+      const result = withoutSeed(current).filter((row) => nextIds.has(row.id) || row.key !== baseKeys.get(row.id)?.key);
+      for (const apiKey of nextKeys) {
+        const seen = baseKeys.get(apiKey.id);
+        if (seen && sameApiKey(seen, apiKey)) continue;
+        const index = result.findIndex((row) => row.id === apiKey.id);
+        if (index >= 0) {
+          if (result[index].key === (seen ?? apiKey).key) result[index] = apiKey;
+        } else if (!seen) {
+          result.push(apiKey);
+        }
+      }
+      return ensureGatewayApiKeys(result);
+    });
     return loadAppConfig();
   });
+}
+
+function sameApiKey(left: ApiKeyConfig, right: ApiKeyConfig): boolean {
+  const comparable = ({ limits, ...rest }: ApiKeyConfig) => {
+    const sortedLimits = Object.entries(limits ?? {}).sort(([a], [b]) => a.localeCompare(b));
+    return JSON.stringify([rest.createdAt, rest.expiresAt, rest.id, rest.key, rest.name, sortedLimits]);
+  };
+  return comparable(left) === comparable(right);
 }
 
 async function loadRawAppConfig(): Promise<RawAppConfigLoadResult> {

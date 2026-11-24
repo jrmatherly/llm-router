@@ -154,7 +154,7 @@ declare global {
       resetOverviewStatistics: () => Promise<UsageStatsResetResult>;
       restartGateway: () => Promise<GatewayStatus>;
       restartProxy: () => Promise<ProxyStatus>;
-      saveApiKeys: (apiKeys: ApiKeyConfig[]) => Promise<AppConfig>;
+      saveApiKeys: (apiKeys: ApiKeyConfig[], base: ApiKeyConfig[]) => Promise<AppConfig>;
       /** Saves settings while preserving the credentials managed by saveApiKeys. */
       saveConfig: (config: AppConfig, options?: AppSaveConfigOptions) => Promise<AppConfig>;
       selectPluginDirectory: () => Promise<PluginDirectorySelection | undefined>;

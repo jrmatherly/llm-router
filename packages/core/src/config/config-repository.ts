@@ -125,14 +125,6 @@ export class ConfigRepository {
     return listApiKeys(database);
   }
 
-  async replaceApiKeys(apiKeys: ApiKeyConfig[]): Promise<ApiKeyConfig[]> {
-    const normalized = uniqueApiKeyConfigs(apiKeys);
-    const database = await this.getDatabase();
-    runTransaction(database, () => replaceApiKeyRows(database, normalized));
-    secureDatabaseFilePermissions(this.dbFile);
-    return normalized;
-  }
-
   async updateApiKeys(update: (current: ApiKeyConfig[]) => ApiKeyConfig[]): Promise<ApiKeyConfig[]> {
     const database = await this.getDatabase();
     let result: ApiKeyConfig[] = [];
@@ -147,19 +139,23 @@ export class ConfigRepository {
     return result;
   }
 
-  async replaceConfigSnapshot(value: unknown, apiKeys: ApiKeyConfig[], expectedRevision?: string): Promise<ApiKeyConfig[]> {
-    const normalized = uniqueApiKeyConfigs(apiKeys);
+  async replaceConfigSnapshot(value: unknown, updateApiKeys: (current: ApiKeyConfig[]) => ApiKeyConfig[], expectedRevision?: string): Promise<ApiKeyConfig[]> {
     const database = await this.getDatabase();
+    let result: ApiKeyConfig[] = [];
     runTransaction(database, () => {
       if (expectedRevision !== undefined) {
         const row = database.prepare("SELECT value_json FROM app_config WHERE key = ?").get(appConfigKey) as { value_json: string } | undefined;
         if (appConfigRevision(row ? JSON.parse(row.value_json) : undefined) !== expectedRevision) throw new AppConfigConflictError();
       }
       replaceAppConfigRow(database, appConfigKey, value);
-      replaceApiKeyRows(database, normalized);
+      const current = listApiKeys(database);
+      result = uniqueApiKeyConfigs(updateApiKeys(current));
+      if (JSON.stringify(result) !== JSON.stringify(current)) {
+        replaceApiKeyRows(database, result);
+      }
     });
     secureDatabaseFilePermissions(this.dbFile);
-    return normalized;
+    return result;
   }
 
   async archiveLegacyJsonConfigFiles(files: string[]): Promise<void> {
@@ -248,16 +244,12 @@ export async function loadPersistedApiKeys(): Promise<ApiKeyConfig[]> {
   return configRepository.listApiKeys();
 }
 
-export async function replacePersistedApiKeys(apiKeys: ApiKeyConfig[]): Promise<ApiKeyConfig[]> {
-  return configRepository.replaceApiKeys(apiKeys);
-}
-
 export async function updatePersistedApiKeys(update: (current: ApiKeyConfig[]) => ApiKeyConfig[]): Promise<ApiKeyConfig[]> {
   return configRepository.updateApiKeys(update);
 }
 
-export async function replacePersistedConfigSnapshot(value: unknown, apiKeys: ApiKeyConfig[], expectedRevision?: string): Promise<ApiKeyConfig[]> {
-  return configRepository.replaceConfigSnapshot(value, apiKeys, expectedRevision);
+export async function replacePersistedConfigSnapshot(value: unknown, updateApiKeys: (current: ApiKeyConfig[]) => ApiKeyConfig[], expectedRevision?: string): Promise<ApiKeyConfig[]> {
+  return configRepository.replaceConfigSnapshot(value, updateApiKeys, expectedRevision);
 }
 
 export async function archiveLegacyJsonConfigFiles(files: string[]): Promise<void> {

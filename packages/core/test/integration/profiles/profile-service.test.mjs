@@ -12,7 +12,7 @@ import { resolveKimiSourceHome } from "@llmr/core/agents/kimi/profile-config.ts"
 import { writePiGatewayConfig } from "@llmr/core/agents/pi/profile-config.ts";
 import { loadAppConfig } from "@llmr/core/config/config.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
-import { loadPersistedApiKeys, replacePersistedApiKeys, replacePersistedAppConfig } from "@llmr/core/config/config-repository.ts";
+import { loadPersistedApiKeys, replacePersistedAppConfig, updatePersistedApiKeys } from "@llmr/core/config/config-repository.ts";
 import { CONFIGDIR } from "@llmr/core/config/constants.ts";
 import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, reconcileProfileApiKeys, recoverGlobalAgentProfile, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service.ts";
 
@@ -243,7 +243,7 @@ test("profile service writes global Claude settings under the runtime home, neve
 });
 
 test("profile keys exist before any gateway runs, and a profile switched off loses its key", async () => {
-  await replacePersistedApiKeys([{ id: "user-key", key: "llmr-user-key-0123456789", name: "Mine" }]);
+  await updatePersistedApiKeys(() => [{ id: "user-key", key: "llmr-user-key-0123456789", name: "Mine" }]);
   try {
     const config = configWithProviderAndEnabledProfile("default-claude-code");
     await reconcileProfileApiKeys(config);
@@ -261,12 +261,12 @@ test("profile keys exist before any gateway runs, and a profile switched off los
     assert.deepEqual(config.APIKEYS.map((key) => key.id), ["user-key"]);
     assert.deepEqual((await loadAppConfig()).APIKEYS.map((key) => key.id), ["user-key"]);
   } finally {
-    await replacePersistedApiKeys([]);
+    await updatePersistedApiKeys(() => []);
   }
 });
 
 test("a profile gets no key while no provider offers a model", async () => {
-  await replacePersistedApiKeys([]);
+  await updatePersistedApiKeys(() => []);
   const config = configWithProviderAndEnabledProfile("default-claude-code");
   config.Providers = [];
   await reconcileProfileApiKeys(config);
@@ -3763,7 +3763,7 @@ function configWithProviderAndEnabledProfile(profileId) {
 }
 
 async function applyProfileFixture(config, options) {
-  await replacePersistedApiKeys(config.APIKEYS ?? []);
+  await updatePersistedApiKeys(() => config.APIKEYS ?? []);
   return applyProfileConfig(config, options);
 }
 
@@ -4005,7 +4005,7 @@ async function withAppliedDefaultProfiles(profileIds, run, beforeApply) {
     rmSync(claudeDir, { force: true, recursive: true });
     rmSync(codexDir, { force: true, recursive: true });
     rmSync(path.join(CONFIGDIR, "agent-config-state"), { force: true, recursive: true });
-    await replacePersistedApiKeys([]);
+    await updatePersistedApiKeys(() => []);
     await replacePersistedAppConfig(createDefaultAppConfig());
   };
   await cleanUp();
@@ -5773,7 +5773,7 @@ for (const agent of ["codex", "grok", "kilo", "kimi", "opencode", "pi", "workbud
         rmSync(file, { force: true });
       }
       rmSync(profileDir, { force: true, recursive: true });
-      await replacePersistedApiKeys([]);
+      await updatePersistedApiKeys(() => []);
     }
   });
 }
