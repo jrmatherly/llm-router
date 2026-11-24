@@ -416,7 +416,7 @@ for (const layout of ["single", "compat"]) {
     const firstPid = gateway.service.getStatus().pid;
     await updatePersistedApiKeys(() => [{ createdAt: "2026-01-01T00:00:00.000Z", id: "added", key: "sk-added-key-0004" }]);
     const deadline = Date.now() + 30000;
-    while (Date.now() < deadline && !(await status("sk-added-key-0004") === 200 && await status("sk-good-key-0001") === 401)) {
+    while (Date.now() < deadline && !(gateway.service.getStatus().state === "running" && await status("sk-added-key-0004") === 200 && await status("sk-good-key-0001") === 401)) {
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     assert.equal(await status("sk-added-key-0004"), 200);
@@ -430,17 +430,17 @@ for (const layout of ["single", "compat"]) {
 }
 ```
 
-  The last four lines are Review Focus 4 on the wire: one restart per change, and none after it. Note the time between the write and the first 200 in the PR description. Task 3's wait is checked against it.
+  The last four lines are Review Focus 4 on the wire: one restart per change, and none after it. The loop also waits for the state `running`. In the compat layout LLM Router's own front answers from the stored keys while the child is still restarting, so without that condition the pid is read in the middle of the restart (run by the builder: the case failed there). Note the time between the write and the first 200 in the PR description. Task 3's wait is checked against it. Measured on the build of 2026-11-24: 2328 ms in the single layout and 1792 ms in the compat layout, where that time is the front accepting the key and not the end of the restart.
 
 - [ ] **Step 7: Run the wire file with the real gateway entry.**
 
 Run: `node build/test.mjs core && LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" node --test .test-dist/core/test/integration/gateway/gateway-child-env-wire.test.js`. That is the value `.github/workflows/test.yml` sets. Without it every case of the file is skipped.
-Expected: every case passes in both layouts, 0 fail, 0 skipped. To see the new case fail first, run it with Step 4 reverted: each layout then keeps answering from the key list it started with.
+Expected: every case passes in both layouts, 0 fail, 0 skipped. To see the new case fail first, run it with Step 4 reverted. Run by the builder: the single layout then keeps refusing the added key, and the compat layout accepts the added key at once and keeps accepting the revoked one.
 
 - [ ] **Step 8: Run the gates.**
 
 Run: `npm run typecheck && npm run lint && npm run test:architecture && npm run test:core`
-Expected: all pass. `npm run test:core` matters here beyond the new files. Any core test that starts a real gateway for more than two seconds and writes a key without giving the service a new config would now be reloaded onto the stored config. A `loadAppConfig` call on an empty store is such a write, and the wire file had one until Step 6 stored its keys first. The other core tests that start a real gateway were not searched for it. If one fails, stop and report it before changing the test.
+Expected: all pass. `npm run test:core` matters here beyond the new files. Any core test that starts a real gateway for more than two seconds and writes a key without giving the service a new config would now be reloaded onto the stored config. A `loadAppConfig` call on an empty store is such a write, and the wire file had one until Step 6 stored its keys first. The other core tests that start a real gateway were not searched for it, and the whole core suite then ran with `LLMR_TEST_GATEWAY_ENTRY` set and passed (2074 pass, 0 fail, 2026-11-24). If one fails, stop and report it before changing the test.
 
 - [ ] **Step 9: Commit.** Subject: `fix(gateway): reload when another process changes the stored API keys`
 

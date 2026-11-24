@@ -6,7 +6,8 @@ import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { ApiKeyConfig, AppConfig, GatewayStatus, RouteScriptTestRequest, RouteScriptTestResult, RouteScriptValidationRequest, RouteScriptValidationResult, RouterRule } from "@llmr/core/contracts/app";
 import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, hasAvailableGatewayModels } from "@llmr/core/contracts/app";
-import { loadAppConfig } from "@llmr/core/config/config";
+import { appConfigLoadError, loadAppConfig } from "@llmr/core/config/config";
+import { loadPersistedApiKeys } from "@llmr/core/config/config-repository";
 import { backendService } from "@llmr/core/plugins/backend-service";
 import { getSystemProxyUrlForProtocol } from "@llmr/core/proxy/system-proxy-fetch";
 import { pluginService } from "@llmr/core/plugins/service";
@@ -47,6 +48,7 @@ import { setExternalLiveTokenRateSnapshot } from "@llmr/core/observability/strea
 installSocketTypeOfServiceCompat();
 
 const coreGatewayLiveTokenRateSourceId = "core-gateway";
+const storedApiKeysPollMs = 1000;
 let warnedMalformedRefusedKeyMessage = false;
 
 type RouteScriptTestHeaders = Record<string, string | string[] | undefined>;
@@ -149,6 +151,9 @@ class GatewayService {
     networkEndpoints: [],
     state: "stopped"
   };
+  private storedApiKeysBaseline?: string;
+  private storedApiKeysPending?: string;
+  private storedApiKeysTimer?: NodeJS.Timeout;
 
   setBrowserWebSearchMcpIntegration(integration: BrowserWebSearchMcpIntegration): void {
     this.browserWebSearchMcpIntegration = integration;
@@ -177,6 +182,7 @@ class GatewayService {
     await this.stopGateway({ nextConfig: config });
     if (recoveryGeneration !== undefined && recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
     this.holdConfig(config);
+    if (recoveryGeneration === undefined) await this.rememberStoredApiKeys();
     const coreAuthToken = generateCoreGatewayAuthToken();
     const scriptValidationErrors = await this.routeScriptRuntime.prepare(config.Router.rules);
     this.plugin = new LLMRouterPlugin(config, {
@@ -306,6 +312,8 @@ class GatewayService {
         pid: this.child?.pid,
         state: "running"
       };
+      clearInterval(this.storedApiKeysTimer);
+      this.storedApiKeysTimer = setInterval(() => { void this.checkStoredApiKeys(); }, storedApiKeysPollMs).unref();
       this.runtimeConfigReloadError = undefined;
       return this.getStatus();
     } catch (error) {
@@ -395,6 +403,8 @@ class GatewayService {
   }
 
   private async stopGateway(options: GatewayStopOptions = {}): Promise<GatewayStatus> {
+    clearInterval(this.storedApiKeysTimer);
+    this.storedApiKeysTimer = undefined;
     const child = this.child;
     const childCoreEndpoint = child ? this.status.coreEndpoint : "";
     this.child = undefined;
@@ -480,6 +490,7 @@ class GatewayService {
       scriptValidationErrors
     });
     this.holdConfig(config);
+    await this.rememberStoredApiKeys();
     this.plugin = nextPlugin;
     const singleGatewayRuntime = Boolean(this.child && !this.server && shouldRunGatewayRuntime(config));
     const runtimeCoreEndpoint = singleGatewayRuntime
@@ -709,7 +720,39 @@ class GatewayService {
     }
   }
 
-  private schedulePersistedRuntimeConfigReload(expectedRevision: string, forceRestart: boolean): void {
+  private async rememberStoredApiKeys(): Promise<void> {
+    this.storedApiKeysPending = undefined;
+    try {
+      this.storedApiKeysBaseline = JSON.stringify(await loadPersistedApiKeys());
+    } catch {
+      this.storedApiKeysBaseline = undefined;
+    }
+  }
+
+  // Compared with the stored list as of the last config taken, not with the held config, which callers mutate and which may hold keys never stored.
+  private async checkStoredApiKeys(): Promise<void> {
+    if (this.status.state !== "running" || this.status.gatewayManagedExternally || !(this.child || this.server)) return;
+    let seen: string;
+    try {
+      seen = JSON.stringify(await loadPersistedApiKeys());
+    } catch {
+      return;
+    }
+    if (this.storedApiKeysBaseline === undefined) {
+      this.storedApiKeysBaseline = seen;
+    } else if (seen === this.storedApiKeysBaseline) {
+      this.storedApiKeysPending = undefined;
+    } else if (seen !== this.storedApiKeysPending) {
+      // A save handler writes keys and then calls updateConfig; waiting for a second tick keeps a tick between the two from restarting twice.
+      this.storedApiKeysPending = seen;
+    } else {
+      this.storedApiKeysBaseline = seen;
+      this.storedApiKeysPending = undefined;
+      this.schedulePersistedRuntimeConfigReload(undefined, false);
+    }
+  }
+
+  private schedulePersistedRuntimeConfigReload(expectedRevision: string | undefined, forceRestart: boolean): void {
     this.runtimeConfigReloadError = undefined;
     this.runtimeConfigReloadQueue = this.runtimeConfigReloadQueue.then(
       () => this.reloadPersistedRuntimeConfig(expectedRevision, forceRestart),
@@ -717,11 +760,13 @@ class GatewayService {
     );
   }
 
-  private async reloadPersistedRuntimeConfig(expectedRevision: string, forceRestart: boolean): Promise<void> {
+  private async reloadPersistedRuntimeConfig(expectedRevision: string | undefined, forceRestart: boolean): Promise<void> {
     try {
       const nextConfig = await loadAppConfig();
+      const loadError = appConfigLoadError(nextConfig);
+      if (loadError) throw new Error(loadError);
       const actualRevision = gatewayRuntimeConfigRevision(nextConfig);
-      if (actualRevision !== expectedRevision) {
+      if (expectedRevision !== undefined && actualRevision !== expectedRevision) {
         throw new Error(`Persisted configuration revision ${actualRevision || "(missing)"} does not match the requested revision ${expectedRevision}.`);
       }
       const restartRequired = forceRestart || !this.config ||

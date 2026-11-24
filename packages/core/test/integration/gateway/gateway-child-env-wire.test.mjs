@@ -4,6 +4,8 @@ import { createServer, request } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { loadAppConfig } from "@llmr/core/config/config.ts";
+import { replacePersistedAppConfig, updatePersistedApiKeys } from "@llmr/core/config/config-repository.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
 import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
@@ -33,7 +35,7 @@ function send(port, route, { body, headers = {}, method = "GET" } = {}) {
   });
 }
 
-async function startGateway(t, layout, edit) {
+async function startGateway(t, layout, edit, { stored = false } = {}) {
   withEnv(t, {
     AUTH_STATIC_API_KEY: "sk-env-key-0003",
     GATEWAY_CORS_ORIGINS: "*",
@@ -62,10 +64,13 @@ async function startGateway(t, layout, edit) {
   config.profile.enabled = false; config.profile.profiles = [];
   config.plugins = [];
   edit?.(config);
-  const started = await service.start(config);
+  await updatePersistedApiKeys(() => config.APIKEYS);
+  if (stored) await replacePersistedAppConfig({ ...config, APIKEY: "", APIKEYS: [] });
+  const startConfig = stored ? await loadAppConfig() : config;
+  const started = await service.start(startConfig);
   assert.equal(started.state, "running", started.lastError);
   assert.equal(Boolean(service.server), layout === "compat");
-  return { corePort, publicPort, service };
+  return { corePort: startConfig.gateway.corePort, publicPort: startConfig.gateway.port, service };
 }
 
 for (const layout of ["single", "compat"]) {
@@ -151,3 +156,32 @@ test("the gateway child refuses an API key that has expired", { skip, timeout: 6
   const core = { authorization: `Bearer ${gateway.service.coreAuthToken}` };
   assert.equal((await send(gateway.publicPort, "/v1/models", { headers: core })).status, 200);
 });
+
+for (const layout of ["single", "compat"]) {
+  test(`a key another process adds answers 200 and a key it revokes answers 401 without a manual restart (${layout})`, { skip, timeout: 60000 }, async (t) => {
+    const gateway = await startGateway(t, layout, undefined, { stored: true });
+    const status = async (key) => {
+      try {
+        return (await send(gateway.publicPort, "/v1/models", { headers: { authorization: `Bearer ${key}` } })).status;
+      } catch {
+        return 0;
+      }
+    };
+    assert.equal(await status("sk-good-key-0001"), 200);
+    assert.equal(await status("sk-added-key-0004"), 401);
+    const firstPid = gateway.service.getStatus().pid;
+    await updatePersistedApiKeys(() => [{ createdAt: "2026-01-01T00:00:00.000Z", id: "added", key: "sk-added-key-0004" }]);
+    const deadline = Date.now() + 30000;
+    // The compat front answers from the stored keys while the child is still restarting, so the restart is over only once the state says so.
+    while (Date.now() < deadline && !(gateway.service.getStatus().state === "running" && await status("sk-added-key-0004") === 200 && await status("sk-good-key-0001") === 401)) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    assert.equal(await status("sk-added-key-0004"), 200);
+    assert.equal(await status("sk-good-key-0001"), 401);
+    const secondPid = gateway.service.getStatus().pid;
+    assert.notEqual(secondPid, firstPid);
+    await new Promise((resolve) => setTimeout(resolve, 3500));
+    assert.equal(gateway.service.getStatus().pid, secondPid);
+    assert.equal(gateway.service.getStatus().state, "running");
+  });
+}

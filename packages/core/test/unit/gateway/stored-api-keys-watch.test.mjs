@@ -1,0 +1,122 @@
+import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
+import test, { before } from "node:test";
+
+const root = path.join(process.env.LLMR_INTERNAL_HOME_DIR || os.tmpdir(), `stored-api-keys-watch-${process.pid}`);
+process.env.LLMR_INTERNAL_HOME_DIR = path.join(root, "home");
+process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(root, "app-data");
+process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(root, "user-data");
+
+let APP_CONFIG_DB_FILE;
+let Database;
+let createDefaultAppConfig;
+let gatewayService;
+let loadAppConfig;
+let updatePersistedApiKeys;
+before(async () => {
+  ({ APP_CONFIG_DB_FILE } = await import("@llmr/core/config/constants.ts"));
+  ({ default: Database } = await import("better-sqlite3"));
+  ({ createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts"));
+  ({ gatewayService } = await import("@llmr/core/gateway/application/gateway-service.ts"));
+  ({ loadAppConfig } = await import("@llmr/core/config/config.ts"));
+  ({ updatePersistedApiKeys } = await import("@llmr/core/config/config-repository.ts"));
+});
+
+const first = { createdAt: "2026-01-01T00:00:00.000Z", id: "first", key: "first-token" };
+const second = { createdAt: "2026-01-02T00:00:00.000Z", id: "second", key: "second-token" };
+
+async function runningService(keys) {
+  await updatePersistedApiKeys(() => keys);
+  const service = new gatewayService.constructor();
+  service.child = {};
+  service.status = { coreEndpoint: "", endpoint: "", networkEndpoints: [], state: "running" };
+  const reloads = [];
+  service.schedulePersistedRuntimeConfigReload = (revision, force) => { reloads.push([revision, force]); };
+  await service.rememberStoredApiKeys();
+  return { reloads, service };
+}
+
+test("a stored key change seen on two ticks reloads the gateway once", async () => {
+  const { reloads, service } = await runningService([first]);
+  await service.checkStoredApiKeys();
+  await updatePersistedApiKeys((current) => [...current, second]);
+  await service.checkStoredApiKeys();
+  assert.deepEqual(reloads, []);
+  await service.checkStoredApiKeys();
+  assert.deepEqual(reloads, [[undefined, false]]);
+  await service.checkStoredApiKeys();
+  await service.checkStoredApiKeys();
+  assert.equal(reloads.length, 1);
+});
+
+test("a key write that the service itself follows with a new config does not reload", async () => {
+  const { reloads, service } = await runningService([first]);
+  await updatePersistedApiKeys((current) => [...current, second]);
+  await service.checkStoredApiKeys();
+  await service.rememberStoredApiKeys();
+  await service.checkStoredApiKeys();
+  await service.checkStoredApiKeys();
+  assert.deepEqual(reloads, []);
+});
+
+test("a stored key change that is undone before the second tick does not reload", async () => {
+  const { reloads, service } = await runningService([first]);
+  await updatePersistedApiKeys((current) => [...current, second]);
+  await service.checkStoredApiKeys();
+  await updatePersistedApiKeys(() => [first]);
+  await service.checkStoredApiKeys();
+  await service.checkStoredApiKeys();
+  assert.deepEqual(reloads, []);
+});
+
+test("a service whose held keys were never stored is left alone", async () => {
+  const { reloads, service } = await runningService([first]);
+  service.config = { APIKEYS: [second], gateway: { host: "127.0.0.1", port: 0 } };
+  await service.checkStoredApiKeys();
+  await service.checkStoredApiKeys();
+  assert.deepEqual(reloads, []);
+});
+
+test("a stopped gateway and a gateway another process owns are not polled", async () => {
+  const { reloads, service } = await runningService([first]);
+  await updatePersistedApiKeys((current) => [...current, second]);
+  service.status = { ...service.status, gatewayManagedExternally: true };
+  await service.checkStoredApiKeys();
+  await service.checkStoredApiKeys();
+  service.status = { ...service.status, gatewayManagedExternally: undefined, state: "stopped" };
+  await service.checkStoredApiKeys();
+  await service.checkStoredApiKeys();
+  assert.deepEqual(reloads, []);
+});
+
+test("a key written while the gateway starts is reloaded once it runs", async () => {
+  await updatePersistedApiKeys(() => [first]);
+  const service = new gatewayService.constructor();
+  const reloads = [];
+  service.schedulePersistedRuntimeConfigReload = (revision, force) => { reloads.push([revision, force]); };
+  service.routeScriptRuntime.prepare = async () => {
+    await updatePersistedApiKeys((current) => [...current, second]);
+    return [];
+  };
+  await service.start(createDefaultAppConfig());
+  service.child = {};
+  service.status = { coreEndpoint: "", endpoint: "", networkEndpoints: [], state: "running" };
+  await service.checkStoredApiKeys();
+  await service.checkStoredApiKeys();
+  assert.deepEqual(reloads, [[undefined, false]]);
+});
+
+test("a reload whose config load failed leaves the running gateway alone", async () => {
+  const { service } = await runningService([first]);
+  const taken = [];
+  service.start = async (config) => { taken.push(config); return service.getStatus(); };
+  service.updateConfig = async (config) => { taken.push(config); };
+  await loadAppConfig();
+  const database = new Database(APP_CONFIG_DB_FILE);
+  assert.equal(database.prepare("UPDATE app_config SET value_json = '{' WHERE key = 'default'").run().changes, 1);
+  database.close();
+  await service.reloadPersistedRuntimeConfig(undefined, false);
+  assert.deepEqual(taken, []);
+  assert.ok(service.runtimeConfigReloadError);
+});
