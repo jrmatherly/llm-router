@@ -1,6 +1,6 @@
 # VM Pass Findings Implementation Plan
 
-> **Status, 2026-11-24: written from the second research pass, audited once on another model, the owner accepted every recommendation, waiting for his word to build.** On 2026-11-24 the owner accepted the recommendation for each of the seven findings, so no decision is open and the lines below that say a task "waits on the owner's answer" are settled. Building each PR still needs his word, as does each merge. Task 5 is a docs paragraph and was committed the same day. Nothing else was built. The audit wrote every test below as given and ran it on today's code, then against the smallest change each Interfaces block describes, in a throwaway worktree. It found 1 Blocker, in a fixture of Task 4, and 10 Corrections. All are applied. The text changed by that round was then reviewed by the session on 2026-11-24. It ran the one test added after the audit in the audit's worktree (17 of 17) and one more mutation. It found one gap behind Task 1's VM check, an adopted gateway that nobody watches, which is now under "Not in this plan".
+> **Status, 2026-11-24: written from the second research pass, audited once on another model, the owner accepted every recommendation, Tasks 1 and 2 merged on 2026-11-24 as PR 152 after keys plan Task 4 merged as PR 151. Task 3 waits on the owner's VM check, and Task 4 goes into follow-ups PR 3.** On 2026-11-24 the owner accepted the recommendation for each of the seven findings, so no decision is open and the lines below that say a task "waits on the owner's answer" are settled. Building each PR still needs his word, as does each merge. Task 5 is a docs paragraph and was committed the same day. Nothing else was built. The audit wrote every test below as given and ran it on today's code, then against the smallest change each Interfaces block describes, in a throwaway worktree. It found 1 Blocker, in a fixture of Task 4, and 10 Corrections. All are applied. The text changed by that round was then reviewed by the session on 2026-11-24. It ran the one test added after the audit in the audit's worktree (17 of 17) and one more mutation. It found one gap behind Task 1's VM check, an adopted gateway that nobody watches, which is now under "Not in this plan".
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -72,7 +72,7 @@ Each line is a condition no task's first test covers. The test that pins it is i
 ## Order
 
 1. Keys plan Task 4 merges first. Done, PR 151, `c53eb517`. Task 1 here depends on it: with a one-key config the adopting side ends in `error`.
-2. Tasks 1 and 2, one PR, branch `fix/gateway-restart-yields`.
+2. Tasks 1 and 2, one PR, branch `fix/gateway-restart-yields`. Done, PR 152, `72c747cd`.
 3. Keys plan Task 3 can go before or after step 2.
 4. Task 3, its own PR, branch `fix/app-activation-no-apple-event`, after the owner's VM check.
 5. Follow-ups PR 3 with Task 4 of this plan as its second commit: Task 8, this Task 4, Task 9, Task 10.
@@ -83,6 +83,14 @@ Each line is a condition no task's first test covers. The test that pins it is i
 ### Task 1: A restart that finds another gateway on its port adopts it or waits (VP-4, VP-5)
 
 Accepted by the owner, 2026-11-24. Build after keys plan Task 4 has merged.
+
+**Merged, 2026-11-24: PR 152, `72c747cd`, with three changes its review added to the text below.** Each was confirmed before it was made.
+
+- **A restart no longer calls `stopPreviousManagedCoreGateway`.** Interfaces below says that function's call is not changed. The review found that a first health check that timed out sent the restart down the normal start, where that call reads the marker and signals the process it names. A test with a real process named in the marker saw it get `SIGTERM` on the first build (run). A restart's own child has exited and its marker is gone, so the call now runs only for a manual start.
+- **The health check asks the port from the config, not `this.status.coreEndpoint`.** After an adoption that ends in an error the status holds the core port, which the other gateway does not serve in the single layout, so the next look fell through to the normal start (read, then pinned by a test and a mutation).
+- **`anotherGatewayOwnerMessage` is gone.** The two messages are built in place. The one for a gateway that did not refuse the key names the port that answered the health check, and the first wait is logged once with the probe's result.
+
+Three tests came with it: the timer keeps looking after a refusal and stops after an adoption, the look uses the port from the config, and the signal test above. Not changed, and still open: the wording "does not accept this process's key" when this process has no unexpired key to offer (not reached by any path found, inferred), and the compat layout's probe of this process's own public server, which "Not in this plan" already has.
 
 When a gateway child exits and the restart timer fires, the service looks at its port before it starts anything. If another healthy gateway answers there and accepts this process's key, the service adopts it and shows `running`. If it answers and refuses the key, the service shows an error that names the cause and looks again later. In neither case does it stop the other gateway. With the port free it restarts as today.
 
@@ -215,6 +223,8 @@ Expected: all pass. Ran by the audit: 2093 tests, 0 fail. `stored-api-keys-watch
 ### Task 2: An exit from `SIGTERM` shows no stderr (VP-6)
 
 Accepted by the owner, 2026-11-24. Same branch as Task 1, second commit.
+
+**Merged, 2026-11-24: PR 152, `72c747cd`, as written.** The child's stderr still reaches the log for every exit (`gateway-service.ts`, the `stderr` listener of the start), read by the review.
 
 **Evidence.** Ran, 2026-11-24, Node 24, stderr captured. Out of memory and `process.abort()` both exit from `SIGABRT` with the cause on stderr. A `SIGTERM` to the child comes from LLM Router, from another owner's start or this owner's stop. On the VM its stderr was a Fastify deprecation line shown as the error detail.
 
