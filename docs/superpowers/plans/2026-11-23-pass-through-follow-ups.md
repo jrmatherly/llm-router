@@ -815,6 +815,8 @@ assert.doesNotMatch(render({ ...createProfileDraft("codex"), scope: "global" }),
 
 ### Task 9: The edit dialog sends no automatic probe for a saved local-login provider (question 5, answer (b))
 
+**If Task 4 of [`2026-11-24-vm-pass-findings.md`](2026-11-24-vm-pass-findings.md) is approved, it is built before this task and changes three things here:** the condition of the new branch, one sentence of "Which drafts are skipped", and the fixture of the first end-to-end test. That task's last section lists them. The text below is as written before it.
+
 Opening the edit dialog of a provider whose key is the placeholder sends no probe request, and neither does typing in its address field. The dialog says the provider was not asked. Refresh and Check Connection still work on a click. Saving keeps the provider's saved protocols.
 
 **Evidence.** VM pass, 2026-11-24. Opening the edit dialog of a saved provider whose key is the placeholder sent 16 requests to the saved address with nothing clicked. 12 carried the placeholder, 5 model-list GETs and 7 protocol POSTs. 4 were icon fetches. Editing the address in the dialog, with nothing clicked and nothing saved, sent the same 16 to the new address. An earlier run against a stand-in showed the probe finds no model for such a provider, because an edit draft holds no plugin (question 5, first run).
@@ -1117,6 +1119,8 @@ PR 146 merged before the pass-through plan's Gate B ran. So Gate B no longer gat
 | The release | Gate B, question 2 |
 
 ## Open with the owner
+
+**Researched again on 2026-11-24, and two recommendations changed.** VP-3: bring the app forward through `NSRunningApplication` by process id, which sends no Apple Event, in place of the usage string, the skipped activation and the docs line. VP-9: the placeholder key and a login behind it, which is a plugin of the draft's own, Codex's default address or a matching plugin of the config. VP-7 and VP-8 stand. The tasks are in [`2026-11-24-vm-pass-findings.md`](2026-11-24-vm-pass-findings.md) and wait on the owner. Its Task 4 is VP-9, built in PR 3 between Tasks 8 and 9 here, and it changes Task 9's condition and one fixture. The paragraph below is the first recommendation, kept as written.
 
 **New on 2026-11-24, not answered.** The VM pass left four findings in this plan's area with no task. The research and a recommendation for each are in [`2026-11-24-decisions-vm-pass.md`](../research/2026-11-24-decisions-vm-pass.md), under "Decisions for the owner". VP-3, the macOS prompt for System Events on an app-profile open: add a usage string, skip the activation right after a fresh Claude Desktop launch, and add a docs line. VP-9, a provider whose key is the placeholder typed by hand shown as a local login: decide by a matching plugin, and only inside PR 3, where it changes Task 9's condition. VP-7, the settings file's mode going from 644 to 600: leave it and add a docs line. VP-8, backups that pile up: fold into the restore plan's fix round. If the owner accepts VP-3 or VP-9, the tasks are written into PR 3 and audited before it is built.
 

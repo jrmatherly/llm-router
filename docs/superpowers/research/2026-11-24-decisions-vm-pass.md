@@ -97,6 +97,8 @@ Three research passes read the code at `main` `9ce07d00` for the seven findings 
 
 ### Decisions for the owner
 
+**Superseded the same day for VP-3, VP-4, VP-5, VP-6 and VP-9.** A second research pass ran what this table only read, and four of its rows changed. The table under "Second research pass, 2026-11-24" at the end of this record is the one to decide from. The rows below are kept as first written.
+
 | Id | Recommended | Size | Why |
 |---|---|---|---|
 | VP-4 | Record the owner's process id in the marker, and never stop a gateway whose owner is alive and is another process. The start then fails with a message that names the other process | About 20 lines and 3 unit tests | It is the smallest change that ends the exchange in every case found, because an exchange needs both owners to stop each other's child |
@@ -157,3 +159,68 @@ Three research passes read the code at `main` `9ce07d00` for the seven findings 
 ### The shared-home key line, not seen on the VM
 
 Read, not run. A shared-home profile is never a System default profile, so its settings file is in LLM Router's own folder. Switching Claude login off while the profile stays on rewrites that file without the key. Switching the profile off removes only its helper files and leaves the settings file, so the key line stays in a mode-600 file under LLM Router's folder. That key is removed from the store with the profile, so the line holds a key that no longer works. No task covers it, and none is recommended.
+
+## Second research pass, 2026-11-24
+
+Three researchers took the seven findings again at `main` `f7f38103`, each told to break the recommendation above. This time things were run. The session then read the leading claim of each report in the code, and ran one check itself. "Ran" marks what a researcher ran, "ran by the session" what the session ran, "read by the session" what it read again. The tasks are in [`docs/superpowers/plans/2026-11-24-vm-pass-findings.md`](../plans/2026-11-24-vm-pass-findings.md).
+
+### Decisions for the owner, revised
+
+| Id | Recommended now | Changed from | Size | What it rests on |
+|---|---|---|---|---|
+| VP-4 | No owner id in the marker. A restart that finds another healthy gateway on its port does not stop it | An owner process id in the marker, and a start that fails beside a live owner | With VP-5, about 12 lines and 3 unit tests | Ran. The marker change ended the exchange and then made an app-profile open and `llmr start` fail beside a gateway that accepted every key |
+| VP-5 | The restart probes the gateway on its port. It adopts one it can use, and otherwise reports the other process and tries again later without a signal | The same probe, as a second step after VP-4 | In the row above | Ran in three layouts of two owners. Each ended after one change of owner |
+| VP-6 | Leave the child's stderr out of the message only when the child exited from `SIGTERM` | Leave it out for every signal | 1 line, 1 export and 1 test | Ran. A child that runs out of memory exits from `SIGABRT`, and its stderr is the heap report |
+| VP-3 | Bring the app forward through `NSRunningApplication` by process id, which sends no Apple Event. No usage string, no skipped activation and no docs line | A usage string, no activation after a fresh Claude Desktop launch, and a docs line | About 5 lines and 1 unit test | Ran by the session on macOS 27.2: the call brought another app forward and back, and returned `true` both times. Not run: the released app with two Claude instances, which is one command on the VM |
+| VP-9 | "Local login" means the placeholder key and one of three things: plugins of the draft's own, Codex's default address, or a plugin of the config that matches | A matching plugin alone | 30 to 35 lines, 4 tests change, 1 new | Ran. A saved Codex provider at Codex's address with no plugin matches no plugin today, and core still serves it as a login |
+| VP-7 | Leave the mode. One docs paragraph, which also covers two cases of a linked file found by this pass | One docs sentence | 3 sentences | Ran in a temporary folder on links |
+| VP-8 | No task now. Fold into the restore plan's fix round | Unchanged | Nothing | Read, and the unit tests of the pruning ran |
+
+### VP-4 and VP-5, run
+
+- **How it ran.** A throwaway test with two owner processes on one temporary home and one loopback port, against the real gateway entry (1.0.22-llmr.4). The file that gives each test process its own home was edited for the run and restored. Nothing of it is in the repo.
+- **The exchange reproduces on today's code.** A desktop owner on a one-key config and a CLI owner on the stored config took the port from each other with delays of 1, 2, 4, 8 and 16 s on each side. The delay is capped at 30 s and resets only when a child has lived 60 s (`gateway-service.ts:614-616`, `:641`, read by the session), which is the 30 s rhythm of the VM. Each loser's message was `Core gateway exited with SIGTERM.` followed by the deprecation line, the VM's banner text.
+- **Keys plan Task 4 does not close it.** The same exchange ran with both owners on the full key list, which is the state after Task 4: a CLI owner first, then a second owner that calls `start`. So the sentence above, "Two versions with the same keys adopt or fail without a signal", is wrong for every caller of `start`. Callers that start with no probe (run by the session, a search): `profiles/launch-service.ts:463`, `electron/src/main/ipc.ts:232` and `:363`, `deep-link.ts:142` and `:196`, `web/management-server.ts:353` and `:530`.
+- **The marker change, prototyped.** It ended the exchange. In the second layout the app-profile open then failed with "belongs to another LLM Router process", though that gateway accepted every key, and in the first `llmr start` failed. Making it usable means changing the seven callers above. It also needs rules for an owner id that was reused and for a marker written by a version without the field.
+- **The restart that yields, prototyped.** About 10 lines at the top of `startGateway`, on the restart path only. Desktop on one key, then CLI: one change of owner, the desktop's restart adopted the CLI's gateway, and the port answered every key for the 25 s watched. The adopter's status was `error`, because it sent its held one-key config to the owner and the owner's config route wants the primary key. Task 4 removes the one-key config, so Task 4 is built first. CLI, then a full-list owner: one change, the loser adopted and showed `running`, which is VP-5 with no UI change. An owner whose key the other gateway refuses: it reported the other process, probed again at 2, 4, 8 and 16 s, and sent no signal.
+- **Left by this design.** One change of owner still happens when a second process calls `start`, and it drops the requests in flight. The yielding side prints "Core gateway exited unexpectedly; restarting" before each new probe, which is then untrue, so the plan changes that line.
+- **The three owner changes four minutes apart are explained.** The three logs are single samples, at 10:04:56, 10:08:41 and 10:13:16. The rhythm above puts the fifteenth change at 10:08:19 on the desktop's side, and the log shows a desktop child started at 10:08:21. The next gap, 271 s, is nine changes at 30 s. So the exchange ran the whole time, and the guess above about the marker's removal is not needed (inferred from the logged times).
+- **`coreManagedExternally` is never set.** The status field is declared, passed on and cleared, and no source sets it to true (run by the session, a search). The live field is `gatewayManagedExternally`.
+- **One layout it does not cover.** A process in the single layout beside one in the compat layout: the compat server's `/health` reports `running` and not `ok`, so the restart does not see it and tries again every 30 s with no signal (read by the plan's audit, not run).
+- **Not run.** The real desktop app and CLI service with the change, which is a check for the VM. A service of an older version beside a new one. The yielding side taking the port again after the other process quits.
+
+### VP-6, run
+
+Four ways a child can die were run on Node 24 with stderr captured. Out of memory: `SIGABRT`, with the heap report on stderr. `process.abort()`: `SIGABRT`, with a native stack. `SIGSEGV`: nothing. `SIGKILL`: only what was printed before. A `SIGTERM` to the gateway child comes from LLM Router itself, from another owner's start or from this owner's stop, and this owner's own stop never reaches the message (`gateway-service.ts:609`, read by the session). So `SIGTERM` is the one signal whose stderr is never the cause. The deprecation line is Fastify's `FSTDEP023`, for an option the gateway fork passes, and goes away only with a fork change.
+
+### VP-3, run and documented
+
+- **Why the prompt appears with no entitlement.** `/usr/bin/osascript` is signed with `com.apple.private.tcc.allow-prompting` (ran by the session, `codesign -d --entitlements -`). The event is sent by `osascript`, and macOS names the app that started it. The build has no Apple Events entitlement and no usage string (read).
+- **A refusal is kept.** After "Don't Allow", later events fail with error -1743 and no prompt (Apple's documentation on resetting access to protected resources). The spawn ignores the result, so LLM Router shows nothing. `tccutil reset AppleEvents net.matherly.llmrouter` brings the prompt back.
+- **The call that needs no permission.** `osascript -l JavaScript -e 'ObjC.import("AppKit"); $.NSRunningApplication.runningApplicationWithProcessIdentifier(<pid>).activateWithOptions(2)'`. It chooses by process id, so it works with several instances of one app, and it sends no Apple Event. Ran by the session on macOS 27.2: it brought Finder forward and then the first app again, `true` both times, the front app read with `lsappinfo`. Since macOS 14 an activation is a request the system may refuse (Apple's AppKit documentation on cooperative activation), so the released app with two Claude instances is still to be seen on the VM.
+- **Other ways, each worse.** `open -a` and `tell application id ... to activate` address an app and cannot choose among its instances. `lsappinfo` has no verb that activates. Electron's `app.focus` is for LLM Router's own windows. A small native helper is the same API with a build and a signature to own.
+- **If the VM check fails.** The first recommendation stands, with one correction: skip the activation only when the launch went through `open` (`pidIsLauncher`, `agents/claude-app/launch.ts:137`, read by the session), so a Claude Desktop started from a bare executable path still gets it. Codex, ZCode, WorkBuddy and OpenCode are spawned directly and keep it.
+- **A reopen needs the activation.** Without it a click on a running profile shows only "is already running", and with several instances of one app the Dock shows the same icon for each.
+
+### VP-9, run
+
+- **The Codex case.** A provider at Codex's default address with the placeholder key and no plugin entry is a working login. Core adds its plugin when it builds the gateway config (`gateway/core-runtime/config-compiler.ts:301-341`, read by the session) and the probe reads the live Codex login for it (`providers/probe.ts:1009-1011`, read by the session). Ran: such a draft matches no plugin today. Under a rule of plugins alone it would be shown as a plain provider with the placeholder in an editable key field.
+- **The rule.** The placeholder key, and one of: the draft has plugins of its own (an import being added), the address is Codex's default, or `providerConnectivityProviderPlugins` matches a plugin of the config. That function keeps a key-only check of its own, because the new rule calls it.
+- **Four tests pin the key-only rule, not three.** `provider-setup-steps.test.ts:13` and `:19`, `onboarding.test.tsx:111`, and `tests/e2e/local-agent-login-import.spec.ts:157`, which saves a provider with no plugin entry and expects "Signed in with your local agent" (read by the session).
+- **Follow-ups Task 9.** Its condition becomes the new rule, and the fixture of its new end-to-end test needs a plugin entry. Task 10 is not affected.
+- **Run by the plan's audit.** A throwaway build of the rule passed `npm run test:ui` and the end-to-end spec. The web bridge keeps a made-up plugin entry through a save and a reload. A plugin key that contains `claude-code-oauth` makes a provider a Claude login provider, so a fixture for another login must not use one.
+- **The smaller fix.** Changing only the flag the Verify panel reads removes the two ticks and two sentences in about 3 lines. It leaves "No API key is needed", the hidden key field and the skipped credentials step, which are false for the same provider.
+- **No check at save.** A save that refused the placeholder without a plugin would also refuse every later save after someone removed a plugin row on the Extensions page.
+
+### VP-7, run
+
+- All write sites above hold (read). Ran in a temporary folder: a link to a 644 file keeps the link and makes the target 600. A link to a read-only file in a folder the user can write is still replaced through the link's target folder, and the target becomes 600. A link to a file in a folder the user cannot write, as with a Nix store, fails with `EACCES`, keeps the link and the target, and leaves a `.llmr-original` copy and a backup beside the link. The apply then returns a failure that only the log shows (inferred from two reads).
+- The sentence above on chezmoi is not documented as written. Its pages say the mode is part of a file's target state. That `status` reports a mode-only change is inferred.
+- The docs paragraph goes at the end of "Restore original settings" in `docs/src/content/docs/en/configuration/profiles.md`, because it holds for every agent.
+
+### VP-8 and the shared-home key line
+
+- The pruning rule holds: at most 6 copies for each file, no limit by age, and a restore never picks one of LLM Router's own (read, and the 15 unit tests of `backup-files.test.mjs` ran).
+- What the restore plan's fix round needs first. Its audit's three Blockers. PR 148's `contentForBackup` field in the types its Task 6 changes. Its Task 1's sentence that Claude Code keeps its key in a helper script, which is false in Claude login mode, and the comment at `profiles/service.ts:235` that says the same (read by the session). All 45 functions that plan names still exist (ran, a search).
+- The cheap fix, no backup of content that is purely LLM Router's own, collides with `profile-service.test.mjs:4734`, and is unsafe before the restore plan's Task 3 changes the check for "LLM Router's own".
+- The key line left in a profile's own settings file applies to every **Only opened from LLMR** Claude Code profile in Claude login mode, not only to a shared-home one. The key is removed from the store. No task.
