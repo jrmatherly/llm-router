@@ -193,3 +193,22 @@ test("Claude CLI bootstrap options are filtered by profile allowlist", () => {
   const response = createClaudeCliBootstrapResponse(config, apiKey);
   assert.equal(response.additional_model_options.length, 1);
 });
+
+test("a Claude login profile's allowed list refuses the models Claude Code asks for that it does not name", () => {
+  const config = testConfig({
+    agent: "claude-code",
+    availableModels: ["Claude Code API/claude-sonnet-5"],
+    env: { LLMR_CLAUDE_CODE_AUTH_MODE: "claude-login" },
+    model: "Claude Code API/claude-sonnet-5"
+  });
+  config.Providers = [
+    { models: ["claude-sonnet-5"], name: "Claude Code API", type: "anthropic" },
+    config.Providers[0]
+  ];
+  const profile = config.profile.profiles[0];
+  const denied = (id) => profileDeniedModelForTest(config, profile, id, `Claude Code API/${id}`);
+
+  assert.equal(denied("claude-haiku-5-5"), "Claude Code API/claude-haiku-5-5");
+  assert.equal(denied("claude-opus-4-8"), "Claude Code API/claude-opus-4-8");
+  assert.equal(denied("claude-sonnet-5"), undefined);
+});
