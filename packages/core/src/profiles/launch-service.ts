@@ -392,7 +392,7 @@ async function openClaudeAppProfile(config: AppConfig, profile: ReturnType<typeo
     defaultModel: profile.model,
     refreshModelDiscoveryCache: true
   });
-  await ensureGatewayConfigRunning(profileGatewayConfig, profile, "Claude App");
+  await ensureGatewayConfigRunning(profileGatewayConfig, profile, "Claude App", {}, config);
   const entry = registerProfileApp(profile, "app", await launchClaudeAppProfile(CONFIGDIR, profile, profileGatewayConfig));
   const started = await waitForProfileAppStart(entry, 12000);
   if (!started) {
@@ -460,7 +460,7 @@ async function ensureGatewayConfigRunning(
     throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
   }
 
-  const startedStatus = await gatewayService.start(config);
+  const startedStatus = await gatewayService.start(candidateConfig);
   if (startedStatus.state === "running") {
     return { config };
   }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CLAUDE_CODE_AUTH_MODE_ENV } from "@llmr/core/agents/claude-code/auth-mode.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
+import { gatewayService } from "@llmr/core/gateway/service.ts";
 import { ensureProfileGateway } from "@llmr/core/profiles/launch-service.ts";
 
 function claudeProfileConfig(authMode = "api-key-helper") {
@@ -214,4 +215,24 @@ test("unavailable profile gateway reports the probe failure reason", async () =>
   } finally {
     globalThis.fetch = previousFetch;
   }
+});
+
+test("an app profile's gateway is started with every stored key and the open still gets the profile's key", async (t) => {
+  const { config, profile } = claudeProfileConfig();
+  config.APIKEY = "primary-token";
+  config.APIKEYS = [
+    { createdAt: "2026-01-01T00:00:00.000Z", id: "primary", key: "primary-token" },
+    { ...config.APIKEYS[0], limits: { rpm: 5 } }
+  ];
+  const start = t.mock.method(gatewayService, "start", async () => ({ state: "running" }));
+
+  const result = await ensureProfileGateway(config, profile, "OpenCode App");
+
+  assert.equal(start.mock.callCount(), 1);
+  const started = start.mock.calls[0].arguments[0];
+  assert.equal(started.APIKEY, "primary-token");
+  assert.deepEqual(started.APIKEYS.map((apiKey) => apiKey.id), ["primary", "profile:claude-main"]);
+  assert.deepEqual(started.APIKEYS[1].limits, { rpm: 5 });
+  assert.equal(result.APIKEY, "profile-token");
+  assert.deepEqual(result.APIKEYS.map((apiKey) => apiKey.key), ["profile-token"]);
 });
