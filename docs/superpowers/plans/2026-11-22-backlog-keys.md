@@ -597,6 +597,13 @@ Not in this task. An open still stops the running gateway and starts it again, b
 
 ## Open with the owner
 
+Where the two questions stand on 2026-11-24, after two research rounds. Neither is answered. The detail and the evidence are under each question below.
+
+| Question | Recommended now | How it was checked | What a yes builds |
+|---|---|---|---|
+| Task 2, rule 4: the keys changed and the stored config would not run the gateway | (c), keeping only the held keys that are still stored, and the same check on a requested reload | (c) with the whole stored list ran against the real gateway child in both layouts. The narrower form and the reload check were read, not run | A small follow-up PR to Task 2. No task is written for it yet |
+| Task 3: the gateway still refuses the profile's key after the wait | (b), refuse the launch, together with Task 4 | The single layout's refusal of a second stored key ran. The rest was read | Task 3 with its (b) changes, and Task 4. Task 4 does not wait on the answer |
+
 **What should the gateway do when its keys changed in the store and the stored config would not run it? (Task 2, rule 4)**
 
 This happens only when the running gateway was started from a config that differs from the stored one.
