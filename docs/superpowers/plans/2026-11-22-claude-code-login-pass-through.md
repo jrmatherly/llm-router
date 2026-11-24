@@ -8,6 +8,18 @@
 
 **Tech Stack:** TypeScript, the gateway fork `@the-next-ai/ai-gateway` (Fastify), React, `node:test` with `node:assert/strict`, `vitest` in the fork.
 
+**Status, 2026-11-23: Tasks 1 to 9 are merged.** [PR 146](https://github.com/jrmatherly/llm-router/pull/146), squash commit `b138ecbe`, on gateway fork release `v1.0.22-llmr.4`. It is not released. Gate A passed before the build. Still owed: the isolated probe runs, Gate B and the owner's local steps, all below.
+
+As built, where it differs from the steps:
+
+- **Predicate rule 3 changed in review.** A Claude-login request with no `Bearer` value is still routed to the pass-through provider, carrying the value `none`, and gets the no-login 400. The spec's "One predicate" has the reason.
+- **Task 3.** The fork does not return the relayed response at each failure site. The failed attempt carries the upstream response, no further target is tried, and the existing tail relays it after publishing the raw trace. The trace mask also covers `bearer`, `csrf`, `jwt`, `apikey` and `signature` segments.
+- **Task 4.** The front door's target selection gained a branch, because another provider that lists the same bare model id was named for a carried request.
+- **Task 6.** Restore edits the custom-headers value where it sits and does not copy the `NO_PROXY` loop. A shared-home profile reads the user's lines from the user's file on every apply, and says so when that file cannot be read.
+- **Task 9.** The pass-through provider's probe returns one `supported: false` entry with the message "Not checked", so the connectivity check never reports a call that did not run as verified. The pass-through provider is also found from its internal plugin entry, whose provider name ends in `::<protocol>`.
+- **Not pinned by a test.** Five body-step guards in `gateway/request/pipeline.ts`: Cursor, the Codex bridges and Codex compact cannot fire on `POST /v1/messages`; web-search continuation and archive tool continuation need setup the tests do not build.
+- **Open for the owner.** `.llmr-backup-*` copies of a settings file can keep a gateway key after a restore. The README heading "Upgrading to 9.0" names a version the owner has not chosen. A model id with `[1m]` reaches Anthropic unchanged, and whether Anthropic accepts it is for Gate B.
+
 **Spec:** [`docs/superpowers/specs/2026-11-22-claude-code-login-pass-through.md`](../specs/2026-11-22-claude-code-login-pass-through.md). Decisions PT-1 to PT-11 and every `file:line` reference come from it. Read its Decisions table and its sections "The pass-through request" and "Profile settings and restore" before you start.
 
 **Evidence status.** The plan author read the files named below at `main` `eb84a3ba` and the fork at `26e74df` on 2026-11-22 and ran nothing. A second model audited the plan. A fix round then read every cited line again and ran two throwaway prototypes in a scratch worktree, loopback only, with a `security` stand-in and a temporary home. The worktree is deleted. Claims those runs settled carry **ran (fix round)**. Everything else is **read**. No size here is measured.
