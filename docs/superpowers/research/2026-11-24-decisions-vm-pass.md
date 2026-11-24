@@ -166,6 +166,8 @@ Three researchers took the seven findings again at `main` `f7f38103`, each told 
 
 ### Decisions for the owner, revised
 
+**Answered, 2026-11-24: the owner accepted every row below as recommended.** Nothing is built on that word alone. Each PR of the plan still needs his word to start and to merge.
+
 | Id | Recommended now | Changed from | Size | What it rests on |
 |---|---|---|---|---|
 | VP-4 | No owner id in the marker. A restart that finds another healthy gateway on its port does not stop it | An owner process id in the marker, and a start that fails beside a live owner | With VP-5, about 12 lines and 3 unit tests | Ran. The marker change ended the exchange and then made an app-profile open and `llmr start` fail beside a gateway that accepted every key |

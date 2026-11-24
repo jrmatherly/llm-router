@@ -1,6 +1,6 @@
 # VM Pass Findings Implementation Plan
 
-> **Status, 2026-11-24: written from the second research pass, audited once on another model, waiting for the owner's decisions.** No task here is approved. Each task names the decision it waits on, and the table under "Decisions this plan waits on" lists them. Nothing was built. The audit wrote every test below as given and ran it on today's code, then against the smallest change each Interfaces block describes, in a throwaway worktree. It found 1 Blocker, in a fixture of Task 4, and 10 Corrections. All are applied. The text changed by that round was not audited again.
+> **Status, 2026-11-24: written from the second research pass, audited once on another model, the owner accepted every recommendation, waiting for his word to build.** On 2026-11-24 the owner accepted the recommendation for each of the seven findings, so no decision is open and the lines below that say a task "waits on the owner's answer" are settled. Building each PR still needs his word, as does each merge. Task 5 is a docs paragraph and was committed the same day. Nothing else was built. The audit wrote every test below as given and ran it on today's code, then against the smallest change each Interfaces block describes, in a throwaway worktree. It found 1 Blocker, in a fixture of Task 4, and 10 Corrections. All are applied. The text changed by that round was not audited again.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -14,7 +14,9 @@
 
 **Evidence status.** The faults were seen on the owner's VM with the released 9.0.0 app. For Tasks 1 and 2 the fault and a prototype of the fix ran against the real gateway child, as throwaway code that is not in the repo. For Task 3 the new call ran on macOS 27.2 against other apps, not against the released app. For Task 4 the rule's inputs ran through the real `shared/providers.ts` in a scratch bundle. The plan author read every file and symbol named below at `main` `f7f38103` and ran none of the new tests. The audit then ran them: with its corrections and a throwaway build of Tasks 1 to 4, `npm run typecheck`, `npm run lint`, `npm run test:architecture`, `npm run test:core`, `npm run test:ui` (308 of 308) and the end-to-end spec of Task 4 (6 of 6) passed. Where a step still rests on something only read or inferred, the step says so.
 
-## Decisions this plan waits on
+## Decisions this plan rests on
+
+**Answered, 2026-11-24: the owner accepted every row as recommended.**
 
 | Finding | Recommended | Task | If the owner says no |
 |---|---|---|---|
