@@ -1,6 +1,6 @@
 # VM Pass Findings Implementation Plan
 
-> **Status, 2026-11-24: written from the second research pass, audited once on another model, the owner accepted every recommendation, waiting for his word to build.** On 2026-11-24 the owner accepted the recommendation for each of the seven findings, so no decision is open and the lines below that say a task "waits on the owner's answer" are settled. Building each PR still needs his word, as does each merge. Task 5 is a docs paragraph and was committed the same day. Nothing else was built. The audit wrote every test below as given and ran it on today's code, then against the smallest change each Interfaces block describes, in a throwaway worktree. It found 1 Blocker, in a fixture of Task 4, and 10 Corrections. All are applied. The text changed by that round was not audited again.
+> **Status, 2026-11-24: written from the second research pass, audited once on another model, the owner accepted every recommendation, waiting for his word to build.** On 2026-11-24 the owner accepted the recommendation for each of the seven findings, so no decision is open and the lines below that say a task "waits on the owner's answer" are settled. Building each PR still needs his word, as does each merge. Task 5 is a docs paragraph and was committed the same day. Nothing else was built. The audit wrote every test below as given and ran it on today's code, then against the smallest change each Interfaces block describes, in a throwaway worktree. It found 1 Blocker, in a fixture of Task 4, and 10 Corrections. All are applied. The text changed by that round was then reviewed by the session on 2026-11-24. It ran the one test added after the audit in the audit's worktree (17 of 17) and one more mutation. It found one gap behind Task 1's VM check, an adopted gateway that nobody watches, which is now under "Not in this plan".
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -24,7 +24,7 @@
 | VP-6 | No stderr in the message for a `SIGTERM` exit | Task 2 | The banner keeps the deprecation line until a fork change removes it |
 | VP-3 | Bring the app forward by process id with no Apple Event | Task 3, after the VM check in its Step 1 | The prompt stays. The record has the smaller change that only explains it |
 | VP-9 | Local login by plugin or Codex address | Task 4 | Follow-ups PR 3 is built as written |
-| VP-7 | Leave the file mode, add a docs paragraph | Task 5 | Nothing is written |
+| VP-7 | Leave the file mode, add a docs paragraph | Task 5, done | Nothing is written |
 | VP-8 | No task | None | |
 
 ## Global Constraints
@@ -38,7 +38,7 @@
 - Read a file with Read before you change it, so its path-scoped rule under `.claude/rules/` loads.
 - `npm run build:assets` and `npm run test:e2e` rewrite `packages/core/models.json` and `packages/ui/src/generated`. Restore them with `git checkout -- packages/core/models.json packages/ui/src/generated`.
 - Before each PR: `npm run typecheck`, `npm run lint`, `npm run test:architecture`, and the package suites the task touches.
-- No test, script or doc names a real provider host or holds a key, other than Codex's default address, which the source already holds. Test keys are made-up strings.
+- No new test, script or doc names a real provider host or holds a key, other than Codex's default address, which the source already holds. Test keys are made-up strings. The existing end-to-end test that Task 4 changes at `:157` already saves a provider at a real host, and this plan leaves that address as it is.
 - A push or tag on `jrmatherly/llmr-gateway` needs the owner's word each time. No task here needs one.
 - Merging needs the owner's word, once per PR.
 - The repository is public. Describe a change by what the code does.
@@ -58,6 +58,7 @@ Each line is a condition no task's first test covers. The test that pins it is i
 ## Not in this plan
 
 - **One change of owner.** A second process that calls `start` still stops the first one's child once, and requests in flight are dropped. Task 1 ends the exchange after that. Removing the first stop means `ensureStarted` in the seven callers that start with no probe, which the record lists. One of them is the app-profile open (`profiles/launch-service.ts:463`), where keys plan Task 4 already notes that an open restarts a gateway that serves the same config. Not run.
+- **An adopted gateway that nobody watches.** A process that has adopted another process's gateway shows `running` and runs no timer for it. The stored-key poll skips an adopted gateway (`gateway-service.ts:752`), and no other check of it exists (run by the session, a search for `gatewayManagedExternally`). So when the serving process quits, the adopter stays green while nothing answers, until a save, a launch or a restart calls `ensureStarted` or `start`. This is today's behaviour for a service started beside a running one, and Task 1 makes adoption the outcome of more cases. Read, not run. Recommended as the next task after this plan's VM check shows it: a health check of the adopted gateway on the timer the key poll uses, which starts this process's own gateway when the other one is gone. Not written, and it needs the owner's word.
 - **One process in the single layout beside one in the compat layout.** The compat server answers `/health` with its state, `running`, and not `ok` (`gateway/http/request-handler.ts:231-238`), so the check of Task 1 does not see it. The restart then takes the normal path, removes the other process's marker, fails on the port and tries again every 30 s, with no signal sent. Read by the audit, not run. Both processes read one stored config, so they have one layout unless one of them was started from another config.
 - **An owner id in the gateway marker.** Prototyped and dropped. The record has the run.
 - **A two-process wire test.** The research ran one by editing `build/test-home.mjs`, which gives every test process its own home. A kept test needs a supported way to share one home between two processes. The unit tests of Task 1 and the VM check stand in for it.
@@ -75,13 +76,13 @@ Each line is a condition no task's first test covers. The test that pins it is i
 3. Keys plan Task 3 can go before or after step 2.
 4. Task 3, its own PR, branch `fix/app-activation-no-apple-event`, after the owner's VM check.
 5. Follow-ups PR 3 with Task 4 of this plan as its second commit: Task 8, this Task 4, Task 9, Task 10.
-6. Task 5, a docs commit on `main`, at any time.
+6. Task 5, a docs commit on `main`. Done, `082624bc`.
 
 ---
 
 ### Task 1: A restart that finds another gateway on its port adopts it or waits (VP-4, VP-5)
 
-Waits on the owner's answer for VP-4 and VP-5. Build after keys plan Task 4 has merged.
+Accepted by the owner, 2026-11-24. Build after keys plan Task 4 has merged.
 
 When a gateway child exits and the restart timer fires, the service looks at its port before it starts anything. If another healthy gateway answers there and accepts this process's key, the service adopts it and shows `running`. If it answers and refuses the key, the service shows an error that names the cause and looks again later. In neither case does it stop the other gateway. With the port free it restarts as today.
 
@@ -189,19 +190,19 @@ test("a manual start does not look for another gateway first", async (t) => {
 });
 ```
 
-  Ran by the audit, for the five tests it had: the health check and the probe both reach `globalThis.fetch` in a test, because `fetchWithSystemProxy` calls the bare `fetch` for a loopback address (`proxy/system-proxy-fetch.ts:31-35`, `:244-253`), the probe returns `http://127.0.0.1:3456` for this config, and the four methods can be replaced on the instance. The test of the 500 answer was added after the audit and was not run. The probe gives a 500 on `/v1/models` the result `unusable` and only a 401 or 403 the result `unauthorized` (`existing-gateway-probe.ts:61-69`, read).
+  Ran by the audit, for the five tests it had: the health check and the probe both reach `globalThis.fetch` in a test, because `fetchWithSystemProxy` calls the bare `fetch` for a loopback address (`proxy/system-proxy-fetch.ts:31-35`, `:244-253`), the probe returns `http://127.0.0.1:3456` for this config, and the four methods can be replaced on the instance. The test of the 500 answer was added after the audit. The session ran it in the audit's worktree with the two-result message: 17 of 17. The probe gives a 500 on `/v1/models` the result `unusable` and only a 401 or 403 the result `unauthorized` (`existing-gateway-probe.ts:61-69`, read).
 
 - [ ] **Step 2: Run and see them fail.**
 
 Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/gateway/core-restart.test.js`
-Expected: the two adopt-or-wait tests, the 500 test and the cancelled test fail, because today's restart reaches `stopGateway` and `holdConfig` whatever answers on the port and rejects with "reached the normal start". The "nothing on its port" test and the manual-start test pass today. The eleven existing tests pass. Ran by the audit without the 500 test: 13 pass, 3 fail.
+Expected: the two adopt-or-wait tests, the 500 test and the cancelled test fail, because today's restart reaches `stopGateway` and `holdConfig` whatever answers on the port and rejects with "reached the normal start". The "nothing on its port" test and the manual-start test pass today. The eleven existing tests pass. Ran by the audit without the 500 test: 13 pass, 3 fail. The 500 test was not run on today's code.
 
 - [ ] **Step 3: Implement** as Interfaces says.
 
 - [ ] **Step 4: Verify.**
 
 Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/gateway/core-restart.test.js`
-Expected: all seventeen pass (the audit saw 16 of 16 without the 500 test). Smallest mutations caught. Dropping the generation check fails the cancelled test, and only that one (ran by the audit). Running the block for a manual start fails the last test. Calling the normal start in the refusing case fails the second test at `calls`.
+Expected: all seventeen pass (ran by the session in the audit's worktree). Smallest mutations caught. Dropping the generation check fails the cancelled test, and only that one (ran by the audit). Running the block for a manual start fails the last test, and only that one (ran by the session). Not run: calling the normal start in the refusing case, which should fail the second test at `calls`.
 Run: `npm run test:core`
 Expected: all pass. Ran by the audit: 2093 tests, 0 fail. `stored-api-keys-watch.test.mjs` and `gateway-child-env-wire.test.mjs` restart real and stubbed children and are the suites most likely to notice a change on this path.
 
@@ -209,11 +210,11 @@ Expected: all pass. Ran by the audit: 2093 tests, 0 fail. `stored-api-keys-watch
 
 - [ ] **Step 5: Commit.** Subject: `fix(gateway): a restart adopts or waits for another gateway on its port`
 
-**VM check, for the owner, on the build that holds this task and keys plan Task 4.** Open the desktop app, open an App-only profile, then run `llmr start`. Expected: one change of the gateway's owner, then the port keeps one owner for five minutes, every stored key answers, and the desktop window is green with no banner. Then quit the CLI service. Expected: the desktop app serves the port again within 30 s.
+**VM check, for the owner, on the build that holds this task and keys plan Task 4.** Open the desktop app, open an App-only profile, then run `llmr start`. Expected: one change of the gateway's owner, then the port keeps one owner for five minutes, every stored key answers, and the desktop window is green with no banner. Then quit the CLI service and note what the desktop window shows and whether a key still answers. Expected, read and not run: the window stays green and nothing answers, until a save or a restart of the desktop app. "Not in this plan" has the reason, under the adopted gateway that nobody watches.
 
 ### Task 2: An exit from `SIGTERM` shows no stderr (VP-6)
 
-Waits on the owner's answer for VP-6. Same branch as Task 1, second commit.
+Accepted by the owner, 2026-11-24. Same branch as Task 1, second commit.
 
 **Evidence.** Ran, 2026-11-24, Node 24, stderr captured. Out of memory and `process.abort()` both exit from `SIGABRT` with the cause on stderr. A `SIGTERM` to the child comes from LLM Router, from another owner's start or this owner's stop. On the VM its stderr was a Fastify deprecation line shown as the error detail.
 
@@ -252,7 +253,7 @@ test("an exit from SIGTERM shows no stderr, and every other exit keeps it", () =
 - [ ] **Step 2: Add the export, run and see it fail.**
 
 Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/gateway/core-exit-message.test.js`
-Expected: the first assertion fails, with `"Core gateway exited with SIGTERM.\nstderr:\na warning"` as the actual value (read from `appendGatewayChildOutput`, `:547-557`, not run).
+Expected: the first assertion fails, with `"Core gateway exited with SIGTERM.\nstderr:\na warning"` as the actual value (ran by the audit).
 
 - [ ] **Step 3: Implement** as Interfaces says.
 
@@ -270,7 +271,7 @@ Then open the PR for Tasks 1 and 2. Say in it what "Not in this plan" says about
 
 ### Task 3: Bring an agent app forward without an Apple Event (VP-3)
 
-Waits on the owner's answer for VP-3 and on the VM check of Step 1. Its own PR.
+Accepted by the owner, 2026-11-24. It still waits on the VM check of Step 1. Its own PR.
 
 Opening or reopening an App profile brings that app's window forward and raises no macOS prompt.
 
@@ -320,7 +321,7 @@ Expected: all pass.
 
 ### Task 4: A provider is a local login only with a login behind it (VP-9)
 
-Waits on the owner's answer for VP-9. It is built on the branch of follow-ups PR 3, `fix/vm-pass-follow-ups`, as the commit after that plan's Task 8 and before its Task 9. It changes two things in Task 9, which this task lists at its end.
+Accepted by the owner, 2026-11-24. It is built on the branch of follow-ups PR 3, `fix/vm-pass-follow-ups`, as the commit after that plan's Task 8 and before its Task 9. It changes eight things in that plan's PR 3, most of them in Task 9, which this task lists at its end.
 
 A provider whose key is the placeholder is shown as a local login when the draft has plugins of its own, when its address is Codex's default, or when a plugin of the config matches it. Otherwise it is a provider with a key, and the key field is shown.
 
@@ -445,22 +446,22 @@ Run: `npm run typecheck && npm run lint && npm run test:architecture`
 
 ### Task 5: The docs say what LLM Router does to a config file's mode and to a linked file (VP-7)
 
-Waits on the owner's answer for VP-7. Docs only, so it is one commit on `main`.
+Accepted by the owner, 2026-11-24. **Done the same day**, commit `082624bc` on `main`. The steps below are kept as the record of what was written.
 
 **Evidence.** Every write and restore of an agent's config file sets mode 600 (`profiles/apply-support.ts:15`, and the write sites the record lists). Ran, 2026-11-24, in a temporary folder: a link is kept and its target becomes 600, a read-only target in a folder the user can write is replaced, and a target in a folder the user cannot write is left with an error.
 
 **Files:**
 - Modify: `docs/src/content/docs/en/configuration/profiles.md` ("Restore original settings", after the Codex bullet at `:222` and before the paragraph that starts "The message after a restore")
 
-- [ ] **Step 1: Add one paragraph** at that place. It names the two main files and not every file, because some side files are written with no mode (`profiles/service.ts:3275`, `profiles/launch-service.ts:1940`, read by the audit):
+- [x] **Step 1: Add one paragraph** at that place. It names the two main files and not every file, because some side files are written with no mode (`profiles/service.ts:3275`, `profiles/launch-service.ts:1940`, read by the audit):
 
 ```md
 When LLMR writes an agent's main config file, such as `settings.json` or `config.toml`, it makes the file readable and writable only by you (mode 600), and a restore keeps that mode. If the file is a link, this applies to the file it points to, even one you made read-only. If LLMR cannot write in that file's folder, as in a Nix store, the profile is not applied and the LLMR log has the error.
 ```
 
-- [ ] **Step 2: Check the page.** Read the paragraph in the diff. Run `npm run test:architecture`, which holds the docs checks the commit gate runs. Expected: PASS.
+- [x] **Step 2: Check the page.** Read the paragraph in the diff. Run `npm run test:architecture`, which holds the docs checks the commit gate runs. Expected: PASS.
 
-- [ ] **Step 3: Commit.** Subject: `docs(profiles): say which mode LLMR gives a config file and what it does with a linked one`
+- [x] **Step 3: Commit.** Subject: `docs(profiles): say which mode LLMR gives a config file and what it does with a linked one`
 
 ---
 
@@ -474,8 +475,9 @@ When LLMR writes an agent's main config file, such as `settings.json` or `config
 
 ## Not verified
 
-- The test of the 500 answer in Task 1, and the two-result message it pins. Both were written after the audit.
-- The mutation claims of Task 1 other than the generation check.
+- The test of the 500 answer in Task 1 on today's code. It ran only against the change.
+- One mutation claim of Task 1, the normal start in the refusing case.
+- What a process that adopted a gateway does when the serving process quits. Read, not run.
 - The mixed layout under "Not in this plan", which was read and not run.
 - Task 1 with keys plan Task 4 applied. The research ran a full-list owner as a stand-in for it.
 - A service of an older version beside a build with Task 1, and the yielding side taking the port again after the other process quits. Both inferred.
