@@ -189,3 +189,17 @@ test("backupCurrentFile writes the text contentForBackup returns, and a plain co
   assert.equal(readFileSync(backupCurrentFile(file, { contentForBackup: (content) => content }), "utf8"), "old");
   assert.equal(readFileSync(file, "utf8"), "old");
 });
+
+test("backupCurrentFile prunes a rewritten backup but keeps the oldest unmanaged one", (t) => {
+  const { file } = setup(t);
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-21T00:00:00.000Z") });
+  const options = { contentForBackup: (content) => (content === "user" ? content : "stripped"), isManagedContent: (content) => content === "stripped" };
+  writeFileSync(file, "user", "utf8");
+  backupCurrentFile(file, options);
+  writeFileSync(file, "managed", "utf8");
+  for (let call = 1; call <= 7; call += 1) {
+    t.mock.timers.tick(1000);
+    backupCurrentFile(file, options);
+  }
+  assert.deepEqual(backupFiles(file).map((backup) => readFileSync(backup, "utf8")), ["user", "stripped", "stripped", "stripped", "stripped", "stripped"]);
+});

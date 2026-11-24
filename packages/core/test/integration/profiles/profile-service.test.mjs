@@ -863,7 +863,7 @@ test("a helper-mode restore after Claude login mode gives back the file the user
 });
 
 const claudeSettingsBackups = (file) => readdirSync(path.dirname(file)).filter((name) => name.startsWith("settings.json.llmr-backup-")).sort();
-const claudeSettingsBackupsHolding = (file, text) => filesHolding(path.dirname(file), text).length;
+const claudeDirFilesHolding = (file, text) => filesHolding(path.dirname(file), text).length;
 
 test("no backup of a Claude login settings file holds the gateway key line", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withClaudeLoginProfile("claude-login-backups", async ({ apply, config, key, settingsFile, switchOff }) => {
@@ -871,10 +871,10 @@ test("no backup of a Claude login settings file holds the gateway key line", { s
     const first = key();
     config.APIKEYS[0].key = "llmr-rotated-key-0002";
     await apply();
-    assert.equal(claudeSettingsBackupsHolding(settingsFile, `x-llmr-api-key: ${first}`), 0, "the backup an apply made holds no key");
+    assert.equal(claudeDirFilesHolding(settingsFile, `x-llmr-api-key: ${first}`), 0, "after a rotation no file in ~/.claude holds the old key, backups included");
     await switchOff();
-    assert.equal(claudeSettingsBackupsHolding(settingsFile, "x-llmr-api-key: llmr-rotated-key-0002"), 0, "the backup a restore made holds no key");
-    assert.equal(claudeSettingsBackupsHolding(settingsFile, "x-llmr-api-key"), 0);
+    assert.equal(claudeDirFilesHolding(settingsFile, "x-llmr-api-key: llmr-rotated-key-0002"), 0, "after a restore no file in ~/.claude holds the last key, backups included");
+    assert.equal(claudeDirFilesHolding(settingsFile, "x-llmr-api-key"), 0, "after a restore no file in ~/.claude holds a gateway key line");
     assert.ok(claudeSettingsBackups(settingsFile).length >= 2, "the backups were still made");
   }, { beforeApply: writeUserClaudeSettings({ theme: "dark" }) });
 });
@@ -895,21 +895,79 @@ test("a quit leaves no backup that holds the gateway key line", { skip: !process
     await apply();
     const thatKey = key();
     restoreGlobalProfileConfigsOnExit(config.profile.profiles);
-    assert.equal(claudeSettingsBackupsHolding(settingsFile, `x-llmr-api-key: ${thatKey}`), 0);
+    assert.equal(claudeDirFilesHolding(settingsFile, `x-llmr-api-key: ${thatKey}`), 0, "after a quit no file in ~/.claude holds the key, backups included");
   }, { beforeApply: writeUserClaudeSettings({ theme: "dark" }) });
 });
 
-test("an apply with no gateway model leaves no backup that holds the gateway key line", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  await withClaudeLoginProfile("claude-login-no-gateway-model", async ({ apply, config, key, readSettings, settingsFile }) => {
-    config.toolHub = { ...config.toolHub, enabled: true, llm: { ...config.toolHub.llm, apiKey: "resolver-key", baseUrl: "https://example.test/v1", model: "model" }, mcpServers: [{ command: "node", name: "backend", transport: "stdio" }] };
+test("the restore an apply with no gateway model runs leaves no file that holds the gateway key line", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-no-gateway-model", async ({ apply, config, key, settingsFile }) => {
     await apply();
-    assert.ok("LLMR_CLAUDE_CODE_MCP_CONFIG" in readSettings().env);
     const thatKey = key();
     config.Providers = [];
     await applyProfileFixture(config);
-    assert.equal(claudeSettingsBackupsHolding(settingsFile, `x-llmr-api-key: ${thatKey}`), 0);
+    assert.equal(claudeDirFilesHolding(settingsFile, `x-llmr-api-key: ${thatKey}`), 0, "no file in ~/.claude holds the key, backups included");
     assert.ok(claudeSettingsBackups(settingsFile).length >= 2);
   }, { beforeApply: writeUserClaudeSettings({ theme: "dark" }) });
+});
+
+for (const [name, loseState] of [["a deleted profile's restore", false], ["a restore with no profile state", true]]) {
+  test(`${name} leaves no backup that holds the gateway key line`, { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+    const id = loseState ? "claude-login-no-owner" : "claude-login-orphan";
+    await withClaudeLoginProfile(id, async ({ apply, key, settingsFile }) => {
+      await apply();
+      const thatKey = key();
+      if (loseState) {
+        rmSync(path.join(CONFIGDIR, "profiles", id), { force: true, recursive: true });
+      }
+      const before = claudeSettingsBackups(settingsFile).length;
+      restoreInactiveGlobalProfileConfigs([]);
+      assert.ok(claudeSettingsBackups(settingsFile).length > before, "the restore made a backup");
+      assert.equal(claudeDirFilesHolding(settingsFile, `x-llmr-api-key: ${thatKey}`), 0, "no file in ~/.claude holds the key, backups included");
+    }, { beforeApply: writeUserClaudeSettings({ theme: "dark" }) });
+  });
+}
+
+test("the gateway env sync leaves no backup that holds a gateway key line", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const seededKey = "llmr-seeded-key-0009";
+  await withClaudeLoginProfile("claude-login-sync", async ({ apply, userSettingsFile }) => {
+    await apply();
+    const backups = claudeSettingsBackups(userSettingsFile).map((name) => readFileSync(path.join(path.dirname(userSettingsFile), name), "utf8"));
+    assert.ok(backups.length > 0, "the sync made a backup");
+    assert.equal(backups.filter((content) => content.includes(seededKey)).length, 0, "no backup holds the seeded key");
+  }, {
+    beforeApply: writeUserClaudeSettings({
+      env: {
+        ANTHROPIC_API_BASE_URL: "http://127.0.0.1:3456",
+        ANTHROPIC_BASE_URL: "http://127.0.0.1:3456",
+        ANTHROPIC_CUSTOM_HEADERS: `X-Org-Route: prod\nx-llmr-api-key: ${seededKey}`,
+        CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456"
+      },
+      theme: "dark"
+    }),
+    scope: "llmr"
+  });
+});
+
+test("a backup of a settings file with no gateway key line is a byte-for-byte copy", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const userSettings = '{"theme":"dark","env":{"X_USER":"1"}}';
+  await withClaudeLoginProfile("claude-login-plain-copy", async ({ apply, settingsFile }) => {
+    await apply();
+    const backups = claudeSettingsBackups(settingsFile).map((name) => readFileSync(path.join(path.dirname(settingsFile), name), "utf8"));
+    assert.ok(backups.includes(userSettings), "a backup equals the user's file exactly");
+  }, { beforeApply: (file) => writeFileSync(file, userSettings) });
+});
+
+test("eight key rotations keep the backup of the user's own file", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-prune", async ({ apply, config, settingsFile }) => {
+    for (let rotation = 1; rotation <= 8; rotation += 1) {
+      config.APIKEYS[0].key = `llmr-rotated-key-${String(rotation).padStart(4, "0")}`;
+      await apply();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    const backups = claudeSettingsBackups(settingsFile).map((name) => JSON.parse(readFileSync(path.join(path.dirname(settingsFile), name), "utf8")));
+    assert.ok(backups.length > 5, "pruning ran");
+    assert.ok(backups.some((settings) => isDeepStrictEqual(settings, {})), "the user's own {} backup is kept");
+  }, { beforeApply: writeUserClaudeSettings({}) });
 });
 
 test("switching from the helper to Claude login removes the helper script", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
