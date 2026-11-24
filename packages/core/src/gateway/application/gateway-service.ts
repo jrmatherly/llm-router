@@ -186,14 +186,22 @@ class GatewayService {
       };
       return this.getStatus();
     }
-    if (recoveryGeneration !== undefined && await isCoreGatewayHealthy(this.status.coreEndpoint)) {
+    // The status holds the core port after a failed adoption, so the port comes from the config.
+    const runtimeEndpoint = coreRuntimeEndpoint(config);
+    if (recoveryGeneration !== undefined && await isCoreGatewayHealthy(runtimeEndpoint)) {
       const existing = await probeExistingLlmrGateway(config);
       if (recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
       if (existing.state === "usable") {
         await this.stopGateway({ nextConfig: config });
         return this.adoptExternalGateway(config, existing.endpoint, existing.apiKey);
       }
-      this.status = { ...this.getStatus(), lastError: anotherGatewayOwnerMessage(this.status.endpoint, existing.state === "unauthorized"), state: "error" };
+      const lastError = existing.state === "unauthorized"
+        ? `Another LLM Router process serves ${existing.endpoint} and does not accept this process's key. Quit the other one, or restart this one.`
+        : `Another process serves ${runtimeEndpoint}.`;
+      if (lastError !== this.status.lastError) {
+        console.warn(`[gateway] ${lastError} Probe of ${existing.endpoint}: ${JSON.stringify({ ...existing, endpoint: undefined })}`);
+      }
+      this.status = { ...this.getStatus(), lastError, state: "error" };
       return this.getStatus();
     }
     // Read before the old child stops: a key written from here on stays outside the baseline, so the poll sees it once the gateway runs.
@@ -283,7 +291,8 @@ class GatewayService {
             runtimePort
           }
         );
-        await stopPreviousManagedCoreGateway(this.status.coreEndpoint);
+        // A restart's own child has exited and its marker is gone, so a live marker belongs to another process.
+        if (recoveryGeneration === undefined) await stopPreviousManagedCoreGateway(this.status.coreEndpoint);
         if (await isCoreGatewayHealthy(this.status.coreEndpoint)) {
           throw new Error(`Core gateway endpoint is already in use: ${this.status.coreEndpoint}`);
         }
@@ -855,10 +864,10 @@ function assertManagedGatewayStartupContinues(child: ChildProcess, startupFailur
   }
 }
 
-function anotherGatewayOwnerMessage(gatewayEndpoint: string, keyRefused: boolean): string {
-  return keyRefused
-    ? `Another LLM Router process serves ${gatewayEndpoint} and does not accept this process's key. Quit the other one, or restart this one.`
-    : `Another process serves ${gatewayEndpoint}.`;
+function coreRuntimeEndpoint(config: AppConfig): string {
+  return shouldUseSingleGatewayRuntime(config)
+    ? endpoint(config.gateway.host, config.gateway.port)
+    : endpoint(config.gateway.coreHost, config.gateway.corePort);
 }
 
 async function removeManagedCoreGatewayMarkerBestEffort(): Promise<void> {

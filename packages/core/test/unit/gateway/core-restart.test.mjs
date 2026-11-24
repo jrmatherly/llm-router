@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import test from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
+import { removeManagedCoreGatewayMarker, writeManagedCoreGatewayMarker } from "@llmr/core/gateway/core-runtime/supervisor.ts";
 import { pluginService } from "@llmr/core/plugins/service.ts";
 import { resetRefusedKeyRequestsForTest } from "@llmr/core/gateway/auth/refused-key-requests.ts";
 import { llmrRefusedKeyRequestsMessageType } from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
@@ -307,4 +309,71 @@ test("a manual start does not look for another gateway first", async (t) => {
   await assert.rejects(service.startGateway(service.config), /reached the normal start/);
   assert.deepEqual(calls, ["remember", "stop", "hold"]);
   assert.equal(requests.length, 0);
+});
+
+test("a restart that finds another gateway refusing its key keeps looking, and one that adopts stops looking", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let modelsStatus = 401;
+  const requests = withFetch(t, (url) => url.pathname === "/health" ? health() : new Response("{}", { status: modelsStatus }));
+  const { child, service } = crashedService();
+  service.config = config();
+  service.status = { coreEndpoint: "http://127.0.0.1:3467", endpoint: "http://127.0.0.1:3456", networkEndpoints: [], state: "running" };
+  service.stopGateway = async () => service.getStatus();
+  service.adoptExternalGateway = async () => {
+    service.status = { ...service.status, gatewayManagedExternally: true, lastError: undefined, state: "running" };
+    return service.getStatus();
+  };
+  const settle = async () => { for (let i = 0; i < 20; i += 1) await new Promise((resolve) => setImmediate(resolve)); };
+  const probes = () => requests.filter((request) => request.path === "/v1/models").length;
+  await service.handleCoreGatewayTermination(child, undefined, "Core gateway exited with SIGTERM.");
+  t.mock.timers.tick(1_000);
+  await settle();
+  assert.equal(probes(), 1);
+  assert.equal(service.getStatus().state, "error");
+  assert.ok(service.coreRestartTimer, "an error leaves another look scheduled");
+  modelsStatus = 200;
+  t.mock.timers.tick(2_000);
+  await settle();
+  assert.equal(probes(), 2);
+  assert.equal(service.getStatus().state, "running");
+  assert.equal(service.coreRestartTimer, undefined);
+  t.mock.timers.tick(120_000);
+  await settle();
+  assert.equal(probes(), 2);
+});
+
+test("a restart looks at the port its gateway runs on when its last status names another", async (t) => {
+  const requests = withFetch(t, (url) => {
+    if (url.port !== "3456") throw new Error("connection refused");
+    return url.pathname === "/health" ? health() : Response.json({ data: [] });
+  });
+  const { calls, service } = restartingService(config());
+  service.status = { ...service.status, coreEndpoint: "http://127.0.0.1:3999" };
+  await service.startGateway(service.config, 3);
+  assert.deepEqual(calls, ["stop", "adopt http://127.0.0.1:3456 first-key"]);
+  assert.equal(requests.length > 0, true);
+});
+
+test("a restart whose first look times out does not signal the gateway another process started", async (t) => {
+  const other = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+  t.after(() => other.kill("SIGKILL"));
+  await writeManagedCoreGatewayMarker(other, "other-runtime");
+  t.after(() => removeManagedCoreGatewayMarker());
+  let healthReads = 0;
+  withFetch(t, (url) => {
+    if (url.pathname !== "/health") return Response.json({ data: [] });
+    healthReads += 1;
+    if (healthReads === 1) throw new Error("timed out");
+    return Response.json({ runtimeId: "other-runtime", status: "ok" });
+  });
+  const service = createService();
+  service.config = config();
+  service.config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  service.coreRestartGeneration = 3;
+  service.status = { coreEndpoint: "http://127.0.0.1:3456", endpoint: "http://127.0.0.1:3456", networkEndpoints: [], state: "error" };
+  const status = await service.startGateway(service.config, 3);
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.match(status.lastError, /already in use/);
+  assert.equal(other.signalCode, null);
+  assert.equal(other.exitCode, null);
 });
