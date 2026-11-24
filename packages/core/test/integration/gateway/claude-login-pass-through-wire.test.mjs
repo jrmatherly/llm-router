@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, request } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -9,7 +9,8 @@ import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { gatewayService } from "@llmr/core/gateway/application/gateway-service.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
 import { claudeLoginMissingMessage } from "@llmr/core/gateway/features/claude-login-pass-through.ts";
-import { closeRequestLogRuntime, flushRequestLogRuntime, getRequestLogs } from "@llmr/core/observability/request-log-store.ts";
+import { closeRequestLogRuntime, flushRequestLogRuntime, getRequestLogs, requestLogRuntime } from "@llmr/core/observability/request-log-store.ts";
+import { pluginService } from "@llmr/core/plugins/service.ts";
 import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 import { withEnv } from "../../support/with-env.mjs";
 
@@ -31,6 +32,18 @@ const claudeCodeBody = {
   x_future_field: 1
 };
 const limitReply = { error: { message: "stub limit", type: "rate_limit_error" }, type: "error" };
+const loginRefusedReply = { error: { message: "stub invalid login", type: "authentication_error" }, type: "error" };
+const webSearchProfile = {
+  displayName: "Search",
+  enabled: true,
+  execution: { clientToolsPolicy: "allow", matchWebSearch: true, maxToolCalls: 8, maxTurns: 6, mode: "tool_loop", streamMode: "optimistic" },
+  id: "search-1",
+  key: "search",
+  match: { exactAliases: [claudeCodeBody.model], prefixes: [], suffixes: [] },
+  materialization: { enabled: false, includeInGatewayModels: false },
+  metadata: { fusionWebSearch: { provider: "browser", toolName: "web_search_search_1" } },
+  tools: [{ name: "web_search_search_1", visibility: "internal" }]
+};
 const limitHeaders = { "anthropic-ratelimit-unified-status": "stub", "retry-after": "7", "x-should-retry": "false" };
 const messageReply = JSON.stringify({
   content: [{ text: "ok", type: "text" }],
@@ -328,10 +341,62 @@ for (const layout of ["single", "compat"]) {
     assert.equal(gateway.recorded.length, 1);
   });
 
+  test(`an upstream 401 reaches the caller unchanged after one request (${layout})`, { skip, timeout: 60000 }, async (t) => {
+    const gateway = await startGateway(t, layout, (config) => {
+      if (layout === "compat") config.Router.fallback = { mode: "retry", models: [], retryCount: 3 };
+    });
+    gateway.stub.reply = (res) => {
+      res.writeHead(401, { "content-type": "application/json" });
+      res.end(JSON.stringify(loginRefusedReply));
+    };
+    const response = await post(gateway, claudeCodeHeaders, claudeCodeBody);
+
+    assert.equal(response.status, 401);
+    assert.deepEqual(JSON.parse(response.body), loginRefusedReply);
+    assert.equal(gateway.recorded.length, 1);
+  });
+
+  test(`a Claude-login request with no login gets 400 even when another provider lists the model (${layout})`, { skip, timeout: 60000 }, async (t) => {
+    const gateway = await startGateway(t, layout, (config) => {
+      config.Providers.push({ api_base_url: config.Providers[0].api_base_url, api_key: "test-other-secret", id: "other", models: [claudeCodeBody.model], name: "Other", type: "anthropic_messages" });
+    });
+    const response = await post(gateway, { "x-llmr-api-key": profileKey }, claudeCodeBody);
+
+    assert.equal(response.status, 400);
+    assert.equal(gateway.recorded.length, 0);
+    assert.equal(attemptMessage(response).endsWith(claudeLoginMissingMessage), true, "the attempt names the missing login");
+  });
+
+  test(`the front door's body steps leave a Claude-login body as sent (${layout})`, { skip, timeout: 60000 }, async (t) => {
+    // Each switch turns on one front-door body step: managed compact with the compact header, hosted web search, a plugin request transform.
+    const gateway = await startGateway(t, layout, (config) => {
+      config.profile.profiles[0].managedCompact = true;
+      config.virtualModelProfiles = [webSearchProfile];
+    });
+    const transforms = pluginService.gatewayRequestTransforms;
+    pluginService.gatewayRequestTransforms = [...transforms, { id: "body-probe", pluginId: "customer", transform: ({ body }) => ({ body: { ...body, x_transformed: true } }) }];
+    t.after(() => { pluginService.gatewayRequestTransforms = transforms; });
+    const body = { ...claudeCodeBody, tools: [...claudeCodeBody.tools, { max_uses: 1, name: "web_search", type: "web_search_20250305" }] };
+    const response = await post(gateway, { ...claudeCodeHeaders, "x-context-compact": "true" }, body);
+
+    assert.equal(response.status, 200);
+    assert.equal(gateway.recorded.length, 1);
+    assert.deepEqual(JSON.parse(gateway.recorded[0].body), body);
+  });
+
+  test(`a model id with the [1m] suffix goes to the pass-through provider (${layout})`, { skip, timeout: 60000 }, async (t) => {
+    const gateway = await startGateway(t, layout);
+    const response = await post(gateway, claudeCodeHeaders, { ...claudeCodeBody, model: "claude-opus-4-8[1m]" });
+
+    assert.equal(response.status, 200);
+    assert.equal(gateway.recorded.length, 1);
+    assert.equal(JSON.parse(gateway.recorded[0].body).model, "claude-opus-4-8[1m]");
+    assert.equal(gateway.recorded[0].headers.authorization === login, true, "the upstream gets the caller's login");
+  });
+
   test(`no file under the data folder holds the login (${layout})`, { skip, timeout: 60000 }, async (t) => {
     // The log writer loads its worker from beside the running bundle, and a test bundle has none there.
-    const worker = path.join(__dirname, "request-log-worker.js");
-    if (!existsSync(worker)) symlinkSync(path.resolve(__dirname, "../../../runtime/request-log-worker.js"), worker);
+    requestLogRuntime.options.workerFile = path.resolve(__dirname, "../../../runtime/request-log-worker.js");
     const gateway = await startGateway(t, layout, (config) => {
       config.observability.requestLogs = true;
       config.observability.requestLogBodyCapture = "all";

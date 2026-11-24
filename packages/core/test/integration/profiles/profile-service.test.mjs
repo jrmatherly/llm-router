@@ -806,6 +806,18 @@ test("a shared-home profile carries the user's own custom headers", { skip: !pro
   }, { beforeApply: (file) => writeFileSync(file, userSettings), claudeCodeSharedHome: true, scope: "llmr" });
 });
 
+test("a shared-home profile whose own env sets custom headers uses them and not the user's file", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("claude-login-shared-home-own", async ({ apply, key, readSettings }) => {
+    await apply();
+    assert.ok(readSettings().env.ANTHROPIC_CUSTOM_HEADERS === `X-Profile-Route: own\nx-llmr-api-key: ${key()}`, "LLMR's file holds the profile's line and the gateway key line");
+  }, {
+    beforeApply: (file) => writeFileSync(file, `${JSON.stringify({ env: { ANTHROPIC_CUSTOM_HEADERS: "X-Org-Route: prod" } })}\n`),
+    claudeCodeSharedHome: true,
+    env: { ...claudeLoginEnv, ANTHROPIC_CUSTOM_HEADERS: "X-Profile-Route: own" },
+    scope: "llmr"
+  });
+});
+
 test("a shared-home profile follows the user's custom headers on the next apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const userSettings = (headers) => `${JSON.stringify({ env: headers ? { ANTHROPIC_CUSTOM_HEADERS: headers } : {} })}\n`;
   await withClaudeLoginProfile("claude-login-shared-home-edit", async ({ apply, key, readSettings, userSettingsFile }) => {

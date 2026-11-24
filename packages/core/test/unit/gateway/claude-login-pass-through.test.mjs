@@ -5,9 +5,12 @@ import path from "node:path";
 import test from "node:test";
 import { applyClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service.ts";
 import { buildClaudeAppGatewayModelRoutes, resolveClaudeAppGatewayRouteModel } from "@llmr/core/agents/claude-app/gateway-routes.ts";
+import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE } from "@llmr/core/contracts/app.ts";
-import { claudeLoginCarriedValue, claudeLoginPassThroughTarget, claudeLoginProviderNames, withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through.ts";
+import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
+import { claudeLoginCarriedValue, claudeLoginPassThroughTarget, claudeLoginProviderNames, claudeLoginRoutedProvider, withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through.ts";
 import { createGatewayModelsResponse } from "@llmr/core/gateway/features/model-discovery.ts";
+import { sanitizeHeaderValue } from "@llmr/core/providers/runtime-topology.ts";
 
 const apiKey = { createdAt: new Date(0).toISOString(), id: "profile:p1", key: "sk-profile-key-0001" };
 
@@ -95,6 +98,29 @@ test("a request with no model is not pass-through traffic", () => {
   assert.equal(target({ model: undefined }), undefined);
 });
 
+test("a model id with the [1m] suffix goes to the pass-through provider as sent", () => {
+  assert.equal(target({ model: "claude-opus-4-8[1m]" }), "Claude Code API/claude-opus-4-8[1m]");
+});
+
+test("the internal plugin entry alone still finds the pass-through provider", () => {
+  const config = passThroughConfig();
+  config.Providers[0].id = "claude-code-api";
+  config.providerPlugins = config.providerPlugins.filter((plugin) => plugin.key.endsWith("-internal"));
+  assert.deepEqual(claudeLoginProviderNames(config), ["Claude Code API"]);
+  assert.equal(target({}, config), "Claude Code API/claude-opus-4-8");
+});
+
+test("a provider whose name has a non-ASCII character is found from its sanitized routed id", () => {
+  const config = passThroughConfig();
+  config.Providers[0].name = "Claude Côde API";
+  config.providerPlugins = [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Côde API" }];
+  const routed = sanitizeHeaderValue("Claude Côde API/claude-opus-4-8");
+  assert.notEqual(routed, "Claude Côde API/claude-opus-4-8");
+  const found = claudeLoginRoutedProvider(config, { "x-llmr-caller-authorization": "none" }, routed);
+  assert.equal(found?.provider.name, "Claude Côde API");
+  assert.equal(found?.model, "claude-opus-4-8");
+});
+
 function listedIds(config, headers, key) {
   return createGatewayModelsResponse(config, headers, key).data.map((model) => model.id);
 }
@@ -158,4 +184,12 @@ test("Claude Desktop gets the no-models message when the pass-through provider i
     rmSync(dataDir, { force: true, recursive: true });
     rmSync(`${dataDir}-3p`, { force: true, recursive: true });
   }
+});
+
+test("the compiled gateway config marks only the pass-through provider's entries for credential pass-through", async () => {
+  const config = { ...createDefaultAppConfig(), ...passThroughConfig() };
+  config.Providers[0].id = "claude-code-api";
+  const compiled = await compileCoreGatewayConfig(config, "trace", "billing", "auth");
+  const marked = compiled.providers.map((provider) => [provider.baseurl, provider.clientCredentialPassthrough === true]);
+  assert.deepEqual(marked, [["https://example.test", true], ["https://example.test/other", false]]);
 });

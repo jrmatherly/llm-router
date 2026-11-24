@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { claudeCodeCandidate, importClaudeCodeProvider } from "@llmr/core/agents/local-providers/claude-code.ts";
-import { probeGatewayProvider } from "@llmr/core/providers/probe.ts";
+import { closeRequestLogRuntime, flushRequestLogRuntime, getRequestLogs, requestLogRuntime } from "@llmr/core/observability/request-log-store.ts";
+import { checkGatewayProviderConnectivity, probeGatewayProvider } from "@llmr/core/providers/probe.ts";
 import { withEnv } from "../../support/with-env.mjs";
 
 const skip = process.platform === "win32";
@@ -68,5 +69,34 @@ test("probing the Claude Code provider sends no request", { skip }, async (t) =>
   assert.equal(requests, 0);
   assert.deepEqual(probe.models, ["claude-sonnet-5"]);
   assert.equal(probe.detectedProtocol, "anthropic_messages");
+  assert.equal(probe.protocols[0].supported, false);
+  assert.match(probe.protocols[0].message, /^Not checked\./);
   assert.equal(home.securityCalled(), false);
+});
+
+test("a connectivity check of the Claude Code provider records no request-log row", { skip }, async (t) => {
+  withoutLogin(t);
+  requestLogRuntime.options.workerFile = path.resolve(__dirname, "../../../runtime/request-log-worker.js");
+  t.after(() => closeRequestLogRuntime());
+  const stub = createServer((_request, response) => response.writeHead(500).end());
+  await new Promise((resolve) => stub.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => stub.close(resolve)));
+  const check = (apiKey) => checkGatewayProviderConnectivity({
+    apiKey,
+    candidates: [{ baseUrl: `http://127.0.0.1:${stub.address().port}`, name: "Claude Code API", protocols: ["anthropic_messages"], source: "custom" }],
+    forceRefresh: true,
+    models: ["claude-sonnet-5"],
+    providerPlugins: [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }],
+    protocols: ["anthropic_messages"]
+  }, { requestLog: { enabled: true } });
+  const rows = async () => {
+    await flushRequestLogRuntime(1000);
+    return (await getRequestLogs({ pageSize: 10 })).items.length;
+  };
+  const before = await rows();
+
+  await check("llmr-local-agent-login");
+  assert.equal(await rows(), before);
+  await check("sk-other-key-0001");
+  assert.equal(await rows(), before + 1, "a provider with its own key does get a row");
 });
