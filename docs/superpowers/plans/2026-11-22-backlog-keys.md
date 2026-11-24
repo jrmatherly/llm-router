@@ -1,6 +1,6 @@
 # Backlog: API Keys and Gateway Reload Implementation Plan
 
-> **Status, 2026-11-24: corrected and audited again, waiting for the owner's approval to build.** A second-model audit of 2026-11-22 found 3 Blockers and 6 Corrections. Each was read again in the code at `main` `81773a5d` and held, and the tasks below carry the corrections. A second audit of the corrected text on 2026-11-24 found no Blocker and 5 Corrections, 4 of them in test text, and those are applied too. The text changed by that last round was not audited a third time. The audits live outside the repo.
+> **Status, 2026-11-24: corrected and audited again, waiting for the owner's approval to build.** A second-model audit of 2026-11-22 found 3 Blockers and 6 Corrections. Each was read again in the code at `main` `81773a5d` and held, and the tasks below carry the corrections. A second audit of the corrected text on 2026-11-24 found no Blocker and 5 Corrections, 4 of them in test text, and those are applied too. The text changed by that last round was not audited a third time. The audits live outside the repo. Tasks 1 and 2 merged on 2026-11-24 (PRs 149 and 150). Task 4 and the second-round notes under "Open with the owner" were added the same day and audited once.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -58,7 +58,7 @@ Each line is a condition no row's own test covers. The test that pins it is in t
 |---|---|
 | K-1 | Task 1 |
 | K-2 | Task 2 |
-| K-3 | Task 3. One question is under "Open with the owner", and the task does not wait on it |
+| K-3 | Tasks 3 and 4. One question is under "Open with the owner". Task 4 was added on 2026-11-24 and does not wait on it |
 
 ## Not in this plan
 
@@ -72,7 +72,7 @@ Each line is a condition no row's own test covers. The test that pins it is in t
 - Two entries with one id in a saved list. No caller sends them (read). The second would replace the first.
 - An entry whose token another stored row already holds under another id. The repository keeps the earlier row and drops the later one, as today's whole-list write does (read). No page sets a token.
 - A message for a request the merge leaves out. A delete or an edit of a key that was made again elsewhere, and a rotation or a delete from a caller that sends an empty `base`, are skipped without one. The page then shows the stored list, so the user sees the result.
-- A gateway the desktop app started for an app profile. `openCodexAppProfile`, `openOpenCodeAppProfile` and `openClaudeAppProfile` start the owner's gateway from a config whose key list is the profile's key alone (`launch-service.ts:207`, `:307`, `:395`, `:794-806`, read). After Task 2 the next change of the stored key list reloads that gateway from the stored config, so it then accepts every stored key. That is the stored state and the plan author takes it as intended. It can change in review without reopening the plan.
+- A gateway the desktop app started for an app profile. `openCodexAppProfile`, `openOpenCodeAppProfile` and `openClaudeAppProfile` start the owner's gateway from a config whose key list is the profile's key alone (`launch-service.ts:207`, `:307`, `:395`, `:794-806`, read). After Task 2 the next change of the stored key list reloads that gateway from the stored config, so it then accepts every stored key. The plan first took the one-key start as intended. The research of 2026-11-24 changed that, and Task 4 now starts that gateway from the full key list.
 
 ## Conflicts with other plans
 
@@ -533,6 +533,68 @@ Expected: all pass.
 
 ---
 
+### Task 4: Start an app profile's gateway from the full key list (K-3)
+
+Added on 2026-11-24, after the research of that day. It is its own PR and can be built before or after Task 3. Build it before Task 3 if the owner answers the second question below with (b), because it removes the one case Task 3's wait cannot fix.
+
+`ensureGatewayConfigRunning` starts the gateway from the config it is given (`launch-service.ts:463`). For an app-profile open that is the config `profileGatewayConfigWithToken` builds: the caller's config with `APIKEY` set to the profile's token and `APIKEYS` replaced by one new entry that holds the token, the profile's key id, a name and a new `createdAt` (`:794-806`). The entry has no `limits` and no `expiresAt`. Three opens reach that start: `openOpenCodeAppProfile` and the Codex-compatible open through `ensureProfileGateway` (`:207`, `:307`), and `openClaudeAppProfile` directly (`:395`). All read. The CLI's own launch does not reach it, because it passes `startIfMissing: false` (`cli.ts:164-167`, `:183-186`, read). A Codex app launch from the CLI goes through the service's `openProfile` (`cli.ts:142-155`, read) and does.
+
+After such an open the gateway holds one key until its next reload. Run, 2026-11-24: in the single layout a second stored key answered 401 at the start and five seconds later. In the compat layout it answered 200, because the front also accepts the stored keys (`api-key-authorizer.ts:157-165`, read). So the one-key list separates nothing in the compat layout, and in the single layout it refuses the keys of every other profile. The files the open writes still need the profile's token as `APIKEY` and as the first entry of `APIKEYS` (read by the researcher at `claude-app/gateway-service.ts:338` and `toolhub-config.ts:187`, not traced further). Nothing found needs the gateway itself to hold one key (inferred).
+
+After this task the gateway is started from the config before the narrowing, and the open still hands the narrowed config to everything else.
+
+**Files:**
+- Modify: `packages/core/src/profiles/launch-service.ts` (`ensureGatewayConfigRunning`, `openClaudeAppProfile`)
+- Test: `packages/core/test/unit/profiles/profile-gateway-probe.test.mjs`
+
+**Interfaces:**
+- Changes: none in a signature. `ensureGatewayConfigRunning` already takes `candidateConfig`, the config before the narrowing, and `ensureProfileGateway` already passes it.
+- Consumes: `gatewayService.start` from `@llmr/core/gateway/service.ts`, the facade `launch-service.ts` uses.
+
+- [ ] **Step 1: Write the failing test.** In `profile-gateway-probe.test.mjs`, with the two-key config of Task 3, Step 1, and `limits: { rpm: 5 }` added to the profile's entry. If Task 3 is not built yet, build that config here from `claudeProfileConfig()`. Add `import { gatewayService } from "@llmr/core/gateway/service.ts";` to the file's imports, which it does not have today.
+
+```js
+test("an app profile's gateway is started with every stored key and the open still gets the profile's key", async (t) => {
+  const start = t.mock.method(gatewayService, "start", async () => ({ state: "running" }));
+  const result = await ensureProfileGateway(config, profile, "OpenCode App");
+  assert.equal(start.mock.callCount(), 1);
+  const started = start.mock.calls[0].arguments[0];
+  assert.equal(started.APIKEY, "primary-token");
+  assert.deepEqual(started.APIKEYS.map((apiKey) => apiKey.id), ["primary", "profile:claude-main"]);
+  assert.deepEqual(started.APIKEYS[1].limits, { rpm: 5 });
+  assert.equal(result.APIKEY, "profile-token");
+  assert.deepEqual(result.APIKEYS.map((apiKey) => apiKey.key), ["profile-token"]);
+});
+```
+
+  The test passes no `reuseExisting`, so no probe runs and no `fetch` stub is needed. `rpm` is a field of `ApiKeyLimitConfig` (`contracts/app.ts:1679-1692`, read).
+
+- [ ] **Step 2: Run and see it fail.**
+
+Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/profiles/profile-gateway-probe.test.js`
+Expected: the new test fails at `started.APIKEY`, which is `"profile-token"` today. Inferred, not run.
+
+- [ ] **Step 3: Implement.** In `ensureGatewayConfigRunning`, `gatewayService.start(config)` becomes `gatewayService.start(candidateConfig)`. The function still returns `config`. In `openClaudeAppProfile`, the call becomes `ensureGatewayConfigRunning(profileGatewayConfig, profile, "Claude App", {}, config)`. Nothing else changes. `profileGatewayConfigWithToken` stays, because the writers use it.
+
+  What changes besides the key list, all read by the audit of 2026-11-24. Say each in the PR description.
+
+  - **The stored expiry and limits of the profile's key now apply in the single layout.** The narrowed entry had neither, so a profile key past its `expiresAt` is accepted there today and refused after this task (`supervisor.ts:438-443`). The compat front already applies both.
+  - **The gateway's own ToolHub and media tool servers use the first stored key in place of the profile's token.** They are built from the started config on every start (`config-compiler.ts:122-123`, `toolhub-config.ts:187`, `grok-media-config.ts:45`). That key is accepted, and their requests are counted under its id.
+  - **No case found where the profile loses its settings.** `findProfileApiKey` falls back to the first stored key, then to `config.APIKEY`, when the store has no entry with the profile's key id (`launch-service.ts:2169-2172`). Every open applies the profiles first (`:162`), which stores an entry for each enabled profile, and only an enabled profile can be opened. The fallback is reached only with the global profile switch off, where no key maps to a profile before or after this task. Not traced: `context-archive.ts:413`, `:426`, which match key ids without that switch.
+
+- [ ] **Step 4: Verify.**
+
+Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/profiles/profile-gateway-probe.test.js`
+Expected: every test passes, 0 fail.
+Run: `npm run typecheck && npm run lint && npm run test:architecture && npm run test:core`
+Expected: all pass.
+
+- [ ] **Step 5: Commit.** Subject: `fix(profiles): start an app profile's gateway with every stored key`
+
+Not in this task. An open still stops the running gateway and starts it again, because `start` always does (read by the researcher at `gateway-service.ts:173-193`). Skipping the start when the running gateway already serves this config is a separate change. What the real apps do after the change is a check for the owner's VM.
+
+---
+
 ## Open with the owner
 
 **What should the gateway do when its keys changed in the store and the stored config would not run it? (Task 2, rule 4)**
@@ -553,6 +615,13 @@ Research of 2026-11-24, read in the code at `8c75afb1` and not run:
 - **Where it shows.** One `console.error` line. `getStatus` does not carry it, and the UI shows `lastError` only when the gateway is not running (`App.tsx:727`).
 - **The requested reload differs.** A reload another process asks for has no such check, so it takes a disabled stored config and stops the gateway (`gateway-service.ts`, `reloadPersistedRuntimeConfig`).
 
+Second research round, 2026-11-24, read at `1d3c1d46` and not run. The recommendation stays (c), with two changes to it:
+
+- **Keep only the held keys that are still stored, with their stored fields, and add none.** The run above put the whole stored list in. A stored key whose profile the held config does not have would then be accepted with no profile, so no allowed model list and no Claude login routing would apply to it (inferred: a key is matched to its profile by key id). Removing a key is the case this question is about, and that still works. If no held key is left, the gateway runs and refuses every key, and the gateway status should say so.
+- **Give the requested reload the same check in the same change.** The check at `gateway-service.ts:791` covers the poll only (read). Without it the next requested reload stops the gateway that (c) kept running.
+
+Also read: the runtime-config control route needs the gateway's primary key (`router-plugin.ts:741`), and another process sends the first stored key, so taking `APIKEY` from the store keeps that route usable. The gateway's ToolHub and media tool servers take the first key and are built again from the started config on every start (`config-compiler.ts:122-123`, read by the audit), so they follow the swap.
+
 **What should a profile launch do when the gateway still refuses the profile's own key after the wait? (K-3, Task 3)**
 
 - (a) Fall back to another accepted key and print the warning. Task 3 is written this way. The agent starts, on a key that is not the profile's.
@@ -566,7 +635,15 @@ Recommendation: (b). It first read (a). The research of 2026-11-24 changed it, r
 - **Claude login mode does not work on another key.** A request is sent on with the user's Claude login only when the key it carries belongs to a Claude Code profile in that mode (`claude-login-pass-through.ts:65-69`). On another key the request is routed as an ordinary one: it is refused, or answered by another provider when the routing has one.
 - **The profile's settings follow the key.** The allowed model list, the default model, the agent routes, the limits and expiry, and the name in Logs are all those of the key the launch ended on.
 - **The launch writes that key into the agent's files.** `applyProfileRuntimeConfig(launchConfig, profile, launchConfig.APIKEY)` (`cli.ts:190`) writes it into the agent's settings and helper files, where it stays until the next apply.
-- **One case the wait cannot fix.** After the desktop app starts its gateway for an app profile, that gateway holds one key and the stored list has not changed, so no reload comes and the profile's key is never accepted. **Checked by a run, 2026-11-24** (a throwaway wire test in a temporary home, deleted afterwards): the store held keys A and B and the gateway was started with A alone. In the single layout B answered 401 at the start and 401 five seconds later, with the same child. In the compat layout B answered 200 both times, so this case is the single layout's. Why the compat layout accepts B was not traced.
+- **One case the wait cannot fix.** After the desktop app starts its gateway for an app profile, that gateway holds one key and the stored list has not changed, so no reload comes and the profile's key is never accepted. **Checked by a run, 2026-11-24** (a throwaway wire test in a temporary home, deleted afterwards): the store held keys A and B and the gateway was started with A alone. In the single layout B answered 401 at the start and 401 five seconds later, with the same child. In the compat layout B answered 200 both times, so this case is the single layout's. The compat front accepts the stored keys next to the ones the gateway was started with (`api-key-authorizer.ts:157-165`, read).
 - **What is left after Task 2.** A gateway from a version without the poll, a gateway another process owns, a refused or failed reload. Each needs a restart, which is what the error of (b) says.
 
-Task 3 is written for (a) and does not wait on the answer. If the owner picks (b), Step 3's warning becomes a thrown `Error` with the same text and the second test asserts the rejection. If (c), the wait and the first test are dropped.
+Second research round, 2026-11-24, read at `1d3c1d46` and not run. The recommendation stays (b), and Task 4 should ship with it:
+
+- **The case the wait cannot fix has a cause, and Task 4 removes it.** Without Task 4, (b) refuses every `llmr <profile>` launch of another profile after an app-profile open in the single layout, until the gateway is restarted.
+- **The fallback there ends on another profile's key.** The candidates are every stored key (`existingGatewayApiKeyCandidates`, `launch-service.ts:631-643`), so the launch is accepted on the key of the profile the app was opened for, and that profile's settings apply to it.
+- **(d) is weaker than (b).** In the other modes the fallback still starts the agent on whichever key answers first and writes that key into the agent's files.
+- **Who sees the refusal.** Only `cli.ts:164` and `:183` pass `reuseExisting`, so it is every `llmr <profile>` launch, the desktop app's "open in terminal" included. The message prints in a terminal. The desktop and management-server opens never reach it.
+- **One more change under (b).** A gateway that is still restarting when the wait ends is handled as no gateway, and `cli.ts:168-186` then starts a service of its own. Under (b) that result is a refusal too.
+
+Task 3 is written for (a) and does not wait on the answer. If the owner picks (b), Step 3's warning becomes a thrown `Error` with the same text, the second test asserts the rejection, and an `unavailable` result of the last probe throws the same `Error` in place of `ProfileGatewayUnavailableError`. If (c), the wait and the first test are dropped.
