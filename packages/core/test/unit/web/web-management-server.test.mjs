@@ -1057,10 +1057,21 @@ test("the saveApiKeys RPC applies only the caller's changes", async (t) => {
     assert.ok(savedIds.includes("elsewhere"));
     assert.ok(savedIds.includes("mine"));
 
-    await rpc(runtime.url, token, "saveApiKeys", [[]]);
+    const refused = await fetch(new URL("/api/llmr/rpc", runtime.url), {
+      body: JSON.stringify({ args: [[]], method: "saveApiKeys" }),
+      headers: { "content-type": "application/json", "x-llmr-web-auth": token },
+      method: "POST"
+    });
+    assert.equal(refused.status, 500);
+    assert.match((await refused.json()).error.message, /Reload the page and save again/);
     const storedIds = (await loadPersistedApiKeys()).map((key) => key.id);
     assert.ok(storedIds.includes("elsewhere"));
     assert.ok(storedIds.includes("mine"));
+
+    await rpc(runtime.url, token, "saveApiKeys", [saved.APIKEYS.filter((key) => key.id !== "elsewhere"), saved.APIKEYS]);
+    const afterDelete = (await loadPersistedApiKeys()).map((key) => key.id);
+    assert.ok(!afterDelete.includes("elsewhere"));
+    assert.ok(afterDelete.includes("mine"));
   } finally {
     await runtime.close();
   }

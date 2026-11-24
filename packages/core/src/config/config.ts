@@ -712,10 +712,13 @@ function providerCredentialApiKey(credential: ProviderCredentialConfig): string 
 }
 
 export async function saveApiKeysConfig(next: ApiKeyConfig[], base: ApiKeyConfig[]): Promise<AppConfig> {
+  if (!Array.isArray(base)) {
+    throw new Error("This API key save did not say which list it started from. Reload the page and save again.");
+  }
   const withoutSeed = (apiKeys: ApiKeyConfig[]) => apiKeys.filter((apiKey) => !isDefaultSeedApiKey(apiKey));
   const nextKeys = withoutSeed(normalizeApiKeys(next, undefined));
   const nextIds = new Set(nextKeys.map((apiKey) => apiKey.id));
-  const baseList = withoutSeed(normalizeApiKeys(Array.isArray(base) ? base : [], undefined));
+  const baseList = withoutSeed(normalizeApiKeys(base, undefined));
   const baseKeys = new Map(baseList.map((apiKey) => [apiKey.id, apiKey]));
   return enqueueAppConfigWrite(async () => {
     await updatePersistedApiKeys((current) => {

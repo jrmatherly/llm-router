@@ -129,11 +129,29 @@ test("a key edited in two places keeps the later save, and the same save still d
   assert.deepEqual(saved.APIKEYS, [{ ...retained, name: "Mine" }]);
 });
 
-test("a key list saved with an empty base deletes nothing", async () => {
+test("a key list saved with an empty base deletes nothing and updates a key it names by its stored token", async () => {
   await setKeys([retained, revoked]);
-  const saved = await configApi.saveApiKeysConfig([added], []);
-  assert.deepEqual(saved.APIKEYS, [retained, revoked, added]);
+  const saved = await configApi.saveApiKeysConfig([{ ...retained, name: "Renamed" }, added], []);
+  assert.deepEqual(saved.APIKEYS, [{ ...retained, name: "Renamed" }, revoked, added]);
 });
+
+test("a key save that does not say which list it started from is refused and writes nothing", async () => {
+  await setKeys([retained, revoked]);
+  await assert.rejects(configApi.saveApiKeysConfig([retained]), /Reload the page and save again/);
+  assert.deepEqual((await configApi.loadAppConfig()).APIKEYS, [retained, revoked]);
+});
+
+for (const [what, change] of [
+  ["expiry", { expiresAt: "2027-01-01T00:00:00.000Z" }],
+  ["limits", { limits: { rpm: 9 } }],
+  ["token", { key: "rotated-only-token" }]
+]) {
+  test(`an edit that changes only a key's ${what} is stored`, async () => {
+    const stale = (await setKeys([retained])).APIKEYS;
+    const saved = await configApi.saveApiKeysConfig([{ ...retained, ...change }], stale);
+    assert.deepEqual(saved.APIKEYS, [{ ...retained, ...change }]);
+  });
+}
 
 test("deleting the last key leaves one generated gateway key", async () => {
   const stale = (await setKeys([retained])).APIKEYS;
@@ -209,4 +227,35 @@ test("a key save removes a stored default seed key", async () => {
   await updatePersistedApiKeys((current) => [...current, { createdAt: new Date(0).toISOString(), id: "key-1", key: "sk-123", name: "API Key 1" }]);
   await configApi.saveApiKeysConfig([{ ...retained, name: "Renamed" }], stale);
   assert.deepEqual((await loadPersistedApiKeys()).map((key) => key.id), ["retained"]);
+});
+
+test("a config load that has to write keys removes a stored default seed key", async () => {
+  const { loadPersistedApiKeys, loadPersistedAppConfig, replacePersistedAppConfig, updatePersistedApiKeys } = await import("@llmr/core/config/config-repository.ts");
+  await setKeys([retained]);
+  await updatePersistedApiKeys((current) => [...current, { createdAt: new Date(0).toISOString(), id: "key-1", key: "sk-123", name: "API Key 1" }]);
+  await replacePersistedAppConfig({ ...(await loadPersistedAppConfig()), APIKEYS: [{ createdAt: "2026-01-01T00:00:00.000Z", id: "legacy", key: "legacy-token" }] });
+  const loaded = await configApi.loadAppConfig();
+  assert.deepEqual(loaded.APIKEYS.map((key) => key.id), ["retained", "legacy"]);
+  assert.deepEqual((await loadPersistedApiKeys()).map((key) => key.id), ["retained", "legacy"]);
+});
+
+test("a config load that fails with no stored key stores the key it hands out", async () => {
+  const { default: Database } = await import("better-sqlite3");
+  const { loadPersistedApiKeys, updatePersistedApiKeys } = await import("@llmr/core/config/config-repository.ts");
+  const { APP_CONFIG_DB_FILE } = await import("@llmr/core/config/constants.ts");
+  await configApi.loadAppConfig();
+  const database = new Database(APP_CONFIG_DB_FILE);
+  const row = database.prepare("SELECT value_json FROM app_config WHERE key = 'default'").get();
+  assert.equal(database.prepare("UPDATE app_config SET value_json = '{' WHERE key = 'default'").run().changes, 1);
+  try {
+    await updatePersistedApiKeys(() => []);
+    const fallback = await configApi.loadAppConfig();
+    assert.ok(configApi.appConfigLoadError(fallback));
+    assert.deepEqual(fallback.APIKEYS.map((key) => key.id), ["local-gateway"]);
+    assert.deepEqual(await loadPersistedApiKeys(), fallback.APIKEYS);
+    assert.deepEqual((await configApi.loadAppConfig()).APIKEYS, fallback.APIKEYS);
+  } finally {
+    database.prepare("UPDATE app_config SET value_json = ? WHERE key = 'default'").run(row.value_json);
+    database.close();
+  }
 });
