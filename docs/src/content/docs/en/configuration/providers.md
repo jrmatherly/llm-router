@@ -19,6 +19,8 @@ After import:
 2. The model list starts with `claude-sonnet-5`. The list only feeds LLMR's own model pickers. A Claude-login profile can use any Claude model, listed or not, and the provider's models are left out of the model lists LLMR serves to agents.
 3. LLMR creates two provider plugins that tie the provider to its forwarding step. They hold no token.
 
+LLMR does not probe or test this provider, because it has no login of its own to test with. The dialog shows **Not checked** and offers no **Check Connection**. Other agents' profiles are not offered its models.
+
 Only a Claude Code profile in Claude login mode can use the provider, because only such a profile sends a login for LLMR to forward. Turn on **Sign in with my Claude login** in the profile. A request that reaches the provider without a login fails with a message that says so. The provider has no account usage meters. Claude Code's own `/usage` still works.
 
 The provider is a gateway you run on your own machine for your own, unmodified Claude Code, and it stores nothing. Anthropic's terms allow an end user to sign in to the unmodified Claude Code binary with their own Claude subscription, and that is the only use this provider supports.
