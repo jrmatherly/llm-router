@@ -79,10 +79,11 @@ export function carriesClaudeLogin(headers: Headers | undefined): boolean {
   return Boolean(header(headers, llmrCallerAuthorizationHeader));
 }
 
+// The internal entry names its provider `<runtime id>::<protocol>`, and only that entry still matches after the provider is renamed.
 function claudeLoginProviders(config: ProviderConfig): GatewayProviderConfig[] {
   const bound = new Set((config.providerPlugins ?? [])
     .filter(isLocalClaudeCodeOauthProviderPlugin)
-    .map((plugin) => stringValue(plugin.providerName)?.toLowerCase()));
+    .map((plugin) => stringValue(plugin.providerName)?.toLowerCase().replace(/::[a-z_]+$/, "")));
   return config.Providers.filter((provider) =>
     isGatewayProviderEnabled(provider) &&
     (bound.has(provider.name.toLowerCase()) || bound.has(providerRuntimeId(provider).toLowerCase())));
