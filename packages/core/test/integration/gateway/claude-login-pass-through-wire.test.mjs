@@ -168,7 +168,14 @@ function filesHolding(dir, text) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((item) => {
     const file = path.join(dir, item.name);
     if (item.isDirectory()) return filesHolding(file, text);
-    return item.isFile() && readFileSync(file).includes(text) ? [file] : [];
+    if (!item.isFile()) return [];
+    try {
+      return readFileSync(file).includes(text) ? [file] : [];
+    } catch (error) {
+      // The running gateway removes its SQLite -wal and -shm files between the listing and the read.
+      if (error.code === "ENOENT") return [];
+      throw error;
+    }
   });
 }
 
