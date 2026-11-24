@@ -18,6 +18,7 @@ import { contextArchiveConfigForApiKey, contextArchiveMcpEnabled } from "@llmr/c
 import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution";
 import { filterModelIdsForProfile, isModelAllowedForProfile, profileForApiKey } from "@llmr/core/profiles/model-allowlist";
 import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
+import { withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 
 
 export function shouldServeGatewayModelsResponse(method: string, path: string): boolean {
@@ -105,13 +106,14 @@ export function createGatewayModelsResponse(config: AppConfig, headers: Incoming
   const contextArchiveConfig = contextArchiveConfigForApiKey(config, apiKey);
   const contextArchiveCompact = Boolean(contextArchiveConfig && contextArchiveMcpEnabled(contextArchiveConfig));
   const profile = profileForApiKey(config, apiKey);
+  const listed = withoutClaudeLoginProviders(config);
   if (isClaudeAppApiKey(apiKey)) {
-    return createClaudeAppGatewayModelsResponse(config, { contextArchiveCompact, profile });
+    return createClaudeAppGatewayModelsResponse(listed, { contextArchiveCompact, profile });
   }
   if (isClaudeCodeUserAgent(headers)) {
-    return createClaudeAppGatewayModelsResponse(config, { claudeCode: true, contextArchiveCompact, profile });
+    return createClaudeAppGatewayModelsResponse(listed, { claudeCode: true, contextArchiveCompact, profile });
   }
-  return createOpenAICompatibleGatewayModelsResponse(config, profile);
+  return createOpenAICompatibleGatewayModelsResponse(listed, profile);
 }
 
 

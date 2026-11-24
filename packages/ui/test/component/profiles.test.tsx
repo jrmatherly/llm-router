@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { gatewayModelSelectionMatcher, type GatewayProviderConfig, type ProfileConfig, type VirtualModelProfileConfig } from "@llmr/core/contracts/app.ts";
 import { ModelMultiSelector } from "@llmr/ui/pages/home/components/model-selector.tsx";
 import { AddProfileForm, DeleteProfileDialog, ProfileOpenDialog, ProfileView } from "@llmr/ui/pages/home/components/profiles.tsx";
-import { createProfileDraft, createProfileDraftFromProfile, isProfileDraftSubmittable, normalizeUnknownProfileItem, profileAgentLogoUrl, profileConfigFromDraft, profileDraftWithDetectedAppPath, profileModelProviderOptions, profileSummaryItems } from "@llmr/ui/pages/home/shared/profiles.ts";
+import { claudeLoginEnabled, createProfileDraft, createProfileDraftFromProfile, isProfileDraftSubmittable, withClaudeLogin, normalizeUnknownProfileItem, profileAgentLogoUrl, profileConfigFromDraft, profileDraftWithDetectedAppPath, profileModelProviderOptions, profileSummaryItems } from "@llmr/ui/pages/home/shared/profiles.ts";
 import type { AddProfileDraft } from "@llmr/ui/pages/home/shared/types.ts";
 import { appConfigFixture } from "../fixtures/index.ts";
 
@@ -897,4 +897,47 @@ test("every model the picker offers counts as configured, so a save keeps it", (
   const offered = profileModelProviderOptions(providers, virtualModelProfiles).flatMap((provider) => provider.models.map((model) => `${provider.name}/${model}`));
   assert.deepEqual(offered, ["Local/base", "Fusion/smart"], "a virtual model with no exact alias has no routable name to offer");
   assert.deepEqual(offered.filter((model) => !gatewayModelSelectionMatcher({ Providers: providers, virtualModelProfiles })(model)), []);
+});
+
+test("AddProfileForm offers the Claude login toggle on a Claude Code profile that can open in the terminal", () => {
+  const config = appConfigFixture();
+  const render = (overrides: Partial<ReturnType<typeof createProfileDraft>>) => renderToStaticMarkup(
+    <AddProfileForm
+      botConfigs={[]}
+      draft={{ ...createProfileDraft("claude-code"), ...overrides }}
+      error=""
+      mode="edit"
+      onChange={() => undefined}
+      onCreateBot={() => undefined}
+      providers={config.Providers}
+      virtualModelProfiles={config.virtualModelProfiles}
+    />
+  );
+  const toggle = /aria-label="Sign in with my Claude login"/;
+  const help = "Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code&#x27;s own. The gateway key is written to the settings file of this profile.";
+
+  for (const surface of ["cli", "auto"] as const) {
+    const html = render({ surface });
+    assert.match(html, toggle, surface);
+    assert.ok(html.includes(help), surface);
+  }
+  assert.match(render({ scope: "global", surface: "cli" }), toggle, "a system-default profile");
+  assert.doesNotMatch(render({ surface: "app" }), toggle);
+  assert.doesNotMatch(render({ ...createProfileDraft("codex"), surface: "cli" }), toggle);
+});
+
+test("the Claude login toggle adds and removes only its env row", () => {
+  const rows = createProfileDraft("claude-code").envRows;
+  assert.equal(claudeLoginEnabled(rows), false);
+
+  const on = withClaudeLogin(rows, true);
+  assert.equal(claudeLoginEnabled(on), true);
+  assert.deepEqual(on.filter((row) => row.key === "LLMR_CLAUDE_CODE_AUTH_MODE").map((row) => row.value), ["claude-login"]);
+  assert.equal(claudeLoginEnabled(withClaudeLogin(on, true)), true);
+  assert.equal(withClaudeLogin(on, true).length, on.length, "switching it on twice adds one row");
+
+  const off = withClaudeLogin(on, false);
+  assert.equal(claudeLoginEnabled(off), false);
+  assert.deepEqual(off, rows);
+  assert.equal(claudeLoginEnabled([{ id: "r", key: "LLMR_CLAUDE_CODE_AUTH_MODE", value: "api-key-helper" }]), false);
 });

@@ -32,6 +32,7 @@ import { recordProviderCredentialOutcome } from "@llmr/core/providers/credential
 import { codexApplyPatchBridgeResponseStream, prepareCodexApplyPatchBridgeRequest } from "@llmr/core/gateway/features/codex-patch-bridge";
 import { codexMultiAgentBridgeResponseStream, prepareCodexMultiAgentBridgeRequest } from "@llmr/core/gateway/features/codex-multi-agent-bridge";
 import { rewriteAnthropicMessageStartModelStream, shouldRewriteAnthropicMessageStartModel } from "@llmr/core/gateway/features/anthropic-response-model";
+import { claudeLoginCarriedValue, claudeLoginPassThroughTarget } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { prepareCursorOpenAICompatChatBody } from "@llmr/core/gateway/features/cursor-compat";
 import { filteredResponseHeaders, formatError, formatUpstreamErrorForLog, forwardHeaders, inferGatewayClient, readRequestBody, sendJson, shouldCaptureGatewayUsage, shouldSendBody, stripLocalGatewayAuthHeaders } from "@llmr/core/gateway/http/io";
 import { appendAggregateErrorAttemptSummary, shouldBufferAggregateErrorBody } from "@llmr/core/gateway/http/error-detail";
@@ -54,6 +55,7 @@ import { isModelAllowedForProfile, profileForApiKey } from "@llmr/core/profiles/
 import { pluginService } from "@llmr/core/plugins/service";
 import { finalizeOpenRouterDiscountProviderRouterSelection } from "@llmr/core/plugins/built-ins/openrouter-discount-provider-router";
 import {
+  llmrCallerAuthorizationHeader,
   llmrRouteHeaderNames,
   llmrRouteDiagnosticsHeader,
   llmrRouteReasonHeader,
@@ -161,7 +163,12 @@ export class GatewayRequestPipeline {
       const previousAuthApiKeyId = headers["x-auth-api-key-id"];
       const previousAuthSub = headers["x-auth-sub"];
       const previousClientRequestId = headers["x-client-request-id"];
+      // Set for a Claude-login request: its login is carried and no body transform below runs on it.
+      const claudeLoginTarget = claudeLoginPassThroughTarget({ apiKey, config: activeConfig, headers, method, model: requestedModel, path });
       if (apiKey) {
+        if (claudeLoginTarget) {
+          headers[llmrCallerAuthorizationHeader] = claudeLoginCarriedValue(headers);
+        }
         stripLocalGatewayAuthHeaders(headers);
         headers["x-auth-api-key-id"] = apiKey.id;
         headers["x-auth-sub"] = apiKey.id;
@@ -187,7 +194,7 @@ export class GatewayRequestPipeline {
       });
       const client = inferGatewayClient(apiKey, request.headers);
       const cursorCompatStartedAt = Date.now();
-      const cursorCompatPreparation = prepareCursorOpenAICompatChatBody(this.config, client, method, path, requestBody);
+      const cursorCompatPreparation = claudeLoginTarget ? undefined : prepareCursorOpenAICompatChatBody(this.config, client, method, path, requestBody);
       if (cursorCompatPreparation) {
         headers["x-llmr-cursor-openai-compat"] = sanitizeHeaderValue(cursorCompatPreparation.diagnostic);
       }
@@ -227,7 +234,7 @@ export class GatewayRequestPipeline {
       };
       const authenticatedProfile = profileForApiKey(activeConfig, apiKey);
       const claudeModelRewriteStartedAt = Date.now();
-      const claudeModelRewrite = prepareClaudeCodeDiscoveredModelRequest(this.config, request.headers, method, path, bodyToForward);
+      const claudeModelRewrite = claudeLoginTarget ? undefined : prepareClaudeCodeDiscoveredModelRequest(this.config, request.headers, method, path, bodyToForward);
       if (claudeModelRewrite) {
         headers["x-llmr-claude-model-discovery"] = sanitizeHeaderValue(claudeModelRewrite.diagnostic);
         bodyToForward = claudeModelRewrite.body;
@@ -244,7 +251,7 @@ export class GatewayRequestPipeline {
         });
       }
       const claudeAppModelRewriteStartedAt = Date.now();
-      const claudeAppModelRewrite = prepareClaudeAppDiscoveredModelRequest(this.config, method, path, bodyToForward, {
+      const claudeAppModelRewrite = claudeLoginTarget ? undefined : prepareClaudeAppDiscoveredModelRequest(this.config, method, path, bodyToForward, {
         profile: authenticatedProfile
       });
       if (claudeAppModelRewrite) {
@@ -478,7 +485,7 @@ export class GatewayRequestPipeline {
         return;
       }
 
-      const skipCodexBridgeForNativeResponses = shouldBypassCodexBridgeForNativeResponsesTarget(
+      const skipCodexBridgeForNativeResponses = Boolean(claudeLoginTarget) || shouldBypassCodexBridgeForNativeResponsesTarget(
         this.config,
         bodyToForward,
         path,
@@ -544,7 +551,7 @@ export class GatewayRequestPipeline {
         });
       }
 
-      const hostedWebSearchProtocolContext = createHostedWebSearchProtocolContext({
+      const hostedWebSearchProtocolContext = claudeLoginTarget ? undefined : createHostedWebSearchProtocolContext({
         body: bodyToForward,
         config: this.config,
         method,
@@ -599,7 +606,7 @@ export class GatewayRequestPipeline {
         }
       }
 
-      const claudeCodeWebSearchContinuationContext = !hostedWebSearchProtocolContext && this.browserWebSearchMcpIntegration
+      const claudeCodeWebSearchContinuationContext = !claudeLoginTarget && !hostedWebSearchProtocolContext && this.browserWebSearchMcpIntegration
         ? createClaudeCodeWebSearchContinuationContext({
             body: bodyToForward,
             config: this.config,
@@ -640,7 +647,7 @@ export class GatewayRequestPipeline {
 
       let upstreamPath = path;
       const requestProtocol = requestProtocolForPath(path) ?? (isCodexResponsesCompactPath(path) ? "openai_responses" : undefined);
-      const contextArchiveToolContinuation = prepareContextArchiveToolContinuationRequest({
+      const contextArchiveToolContinuation = claudeLoginTarget ? undefined : prepareContextArchiveToolContinuationRequest({
         apiKey,
         body: bodyToForward,
         config: this.config,
@@ -670,7 +677,7 @@ export class GatewayRequestPipeline {
       let contextArchiveResponseMode: ContextArchiveResponseMode | undefined;
       let codexCompactCompatResponseMode: ContextArchiveResponseMode | undefined;
       const contextArchiveStartedAt = Date.now();
-      const contextArchivePreparation = await prepareContextArchiveRequest({
+      const contextArchivePreparation = claudeLoginTarget ? undefined : await prepareContextArchiveRequest({
         apiKey,
         body: bodyToForward,
         config: this.config,
@@ -705,7 +712,7 @@ export class GatewayRequestPipeline {
       }
 
       const codexCompactCompatStartedAt = Date.now();
-      const codexCompactCompatPreparation = contextArchivePreparation
+      const codexCompactCompatPreparation = contextArchivePreparation || claudeLoginTarget
         ? undefined
         : prepareCodexCompactCompatRequest({
             body: bodyToForward,
@@ -737,7 +744,7 @@ export class GatewayRequestPipeline {
       }
 
       const pluginTransformStartedAt = Date.now();
-      const pluginTransform = await pluginService.applyGatewayRequestTransforms({
+      const pluginTransform = claudeLoginTarget ? undefined : await pluginService.applyGatewayRequestTransforms({
         body: parseJsonObjectSafe(bodyToForward),
         headers,
         method,
@@ -748,7 +755,7 @@ export class GatewayRequestPipeline {
         ...(routedTokenCount !== undefined ? { tokenCount: routedTokenCount } : {}),
         url: request.url ?? path
       });
-      if (pluginTransform.applied.length > 0) {
+      if (pluginTransform && pluginTransform.applied.length > 0) {
         if (pluginTransform.body) {
           bodyToForward = serializeJsonBody(pluginTransform.body);
         }

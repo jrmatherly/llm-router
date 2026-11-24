@@ -8,7 +8,7 @@ export { gatewayService } from "@llmr/core/gateway/application/gateway-service";
 export { prepareCodexApplyPatchBridgeRequest, transformCodexApplyPatchBridgeRequestBody, transformCodexApplyPatchBridgeResponseValue, transformCodexApplyPatchBridgeSseEvent } from "@llmr/core/gateway/features/codex-patch-bridge";
 export { prepareCodexMultiAgentBridgeRequest, transformCodexMultiAgentBridgeRequestBody, transformCodexMultiAgentBridgeResponseValue, transformCodexMultiAgentBridgeSseEvent } from "@llmr/core/gateway/features/codex-multi-agent-bridge";
 export { appendContextArchiveToolOutputsForTest, contextArchiveFunctionCallsForTest, parseContextArchiveToolResponseBodyForTest, prepareCodexCompactCompatRequest, prepareContextArchiveToolContinuationRequestForTest } from "@llmr/core/gateway/features/context-archive-continuation";
-export { normalizeClaudeCodeOauthProviderPlugins, normalizeCoreGatewayVirtualModelProfiles } from "@llmr/core/gateway/core-runtime/config-compiler";
+export { normalizeCoreGatewayVirtualModelProfiles } from "@llmr/core/gateway/core-runtime/config-compiler";
 export { fusionBuiltinToolArtifactsForTest, fusionFallbackToolDefinitions, fusionToolNamesBackedByMcpServers } from "@llmr/core/mcp/fusion-config";
 export type { BrowserAutomationMcpIntegration, BrowserWebSearchMcpIntegration, BrowserWebSearchMcpRegistration, BrowserWebSearchProtocolRecord, BrowserWebSearchProtocolResult } from "@llmr/core/gateway/internal/shared";
 export { prepareGatewayUpstreamAttemptForTest } from "@llmr/core/gateway/upstream/executor";

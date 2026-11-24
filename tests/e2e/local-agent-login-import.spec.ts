@@ -6,19 +6,17 @@ const localAgentProviderApiKey = "llmr-local-agent-login";
 const providerName = "Claude Code API";
 
 const candidate = {
-  detail: "Claude Code login detected. Click Import to add it as a gateway provider.",
+  detail: "Forwards the login Claude Code sends. Usable only from a Claude Code profile in Claude login mode. Nothing is stored.",
   id: "claude-code-api",
   importable: true,
   kind: "claude-code",
   models: ["claude-sonnet-5"],
   name: providerName,
   protocol: "anthropic_messages",
-  sourceFile: "~/.claude/.credentials.json",
   status: "available"
 };
 
 const oauthPlugin = {
-  auth: { headers: { authorization: "Bearer playwright-oauth-token" }, removeHeaders: ["x-api-key"], strict: true },
   key: "llmr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-claude-code-oauth",
   providerName: "__LLMR_PROVIDER_NAME__"
 };

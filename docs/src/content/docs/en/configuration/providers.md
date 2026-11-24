@@ -7,22 +7,21 @@ lead: "Add and manage upstream model providers in LLMR: import local agent sign-
 
 ## Import local agent login
 
-When you add a provider, LLMR scans for reusable local agent login state. If usable credentials are found, the add dialog shows the matching import entry. Importing creates a normal provider plus provider plugins, so LLMR can reuse the local agent authorization without requiring a pasted API key.
+When you add a provider, LLMR scans for reusable local agent login state. If usable credentials are found, the add dialog shows the matching import entry. The Claude Code entry is the exception: it needs no credentials and is always shown. Importing creates a normal provider plus provider plugins, so LLMR can reuse the local agent authorization without requiring a pasted API key.
 
 ### Claude Code
 
-Claude Code import reads local Claude Code OAuth credentials. When a usable access token is available, LLMR can import it as a `Claude Code API` provider.
+The Claude Code entry is always available. It adds a `Claude Code API` provider that forwards the claude.ai login Claude Code sends with each request. LLMR does not read, refresh or store that login, and adding the provider needs no login on the machine at that moment.
 
 After import:
 
-1. The protocol is `anthropic_messages`.
-2. The default model list includes `claude-sonnet-5`; you can later add or remove models in the provider model list.
-3. LLMR creates OAuth provider plugins that convert requests to use the Claude Code login state.
-4. Account usage reads the Anthropic OAuth usage endpoint and shows the 5-hour, weekly and per-model weekly windows (Fable today) as remaining percent in the provider list, the tray and the account panels. LLMR also reads the plan name from the OAuth profile endpoint at most once a day per login. A verified Ultra account has no 5-hour limit, so it shows its plan name instead of the 5-hour meter.
+1. The protocol is `anthropic_messages` and the API endpoint is `https://api.anthropic.com`.
+2. The model list starts with `claude-sonnet-5`. The list only feeds LLMR's own model pickers. A Claude-login profile can use any Claude model, listed or not, and the provider's models are left out of the model lists LLMR serves to agents.
+3. LLMR creates two provider plugins that tie the provider to its forwarding step. They hold no token.
 
-LLMR refreshes the imported login's access token with its refresh token when it expires and writes the new tokens back to the Keychain or credentials file, so the login stays usable while Claude Code itself is routed through LLMR. A login whose hex-encoded `security` command line exceeds 4032 bytes is written through the command line, as Claude Code does; the record is visible to local processes for the duration of that write.
+Only a Claude Code profile in Claude login mode can use the provider, because only such a profile sends a login for LLMR to forward. Turn on **Sign in with my Claude login** in the profile. A request that reaches the provider without a login fails with a message that says so. The provider has no account usage meters. Claude Code's own `/usage` still works.
 
-If LLMR only detects login traces but no usable access token, the import entry shows why it cannot be imported. Re-authenticate in Claude Code, then return to LLMR and add the provider again.
+The provider is a gateway you run on your own machine for your own, unmodified Claude Code, and it stores nothing. Anthropic's terms allow an end user to sign in to the unmodified Claude Code binary with their own Claude subscription, and that is the only use this provider supports.
 
 ### Codex
 

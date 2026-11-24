@@ -1,6 +1,6 @@
 export const CLAUDE_CODE_AUTH_MODE_ENV = "LLMR_CLAUDE_CODE_AUTH_MODE";
 
-export type ClaudeCodeGatewayAuthMode = "api-key-helper" | "wif";
+export type ClaudeCodeGatewayAuthMode = "api-key-helper" | "claude-login" | "wif";
 export type ClaudeCodeGatewayAuthModePreference = ClaudeCodeGatewayAuthMode | "auto";
 
 type ClaudeCodeAuthProfile = {
@@ -9,7 +9,7 @@ type ClaudeCodeAuthProfile = {
 
 export function resolveClaudeCodeGatewayAuthMode(profile: ClaudeCodeAuthProfile): ClaudeCodeGatewayAuthMode {
   const preference = claudeCodeGatewayAuthModePreference(profile);
-  if (preference === "wif" || preference === "api-key-helper") {
+  if (preference !== "auto") {
     return preference;
   }
 
@@ -18,10 +18,10 @@ export function resolveClaudeCodeGatewayAuthMode(profile: ClaudeCodeAuthProfile)
 }
 
 export function claudeCodeGatewayAuthModePreference(profile: ClaudeCodeAuthProfile): ClaudeCodeGatewayAuthModePreference {
-  return normalizeClaudeCodeGatewayAuthMode(
-    profile.env?.[CLAUDE_CODE_AUTH_MODE_ENV] ||
-    process.env[CLAUDE_CODE_AUTH_MODE_ENV]
-  );
+  const own = profile.env?.[CLAUDE_CODE_AUTH_MODE_ENV];
+  const preference = normalizeClaudeCodeGatewayAuthMode(own || process.env[CLAUDE_CODE_AUTH_MODE_ENV]);
+  // One process variable must not move every profile to the Claude login.
+  return preference === "claude-login" && !own ? "auto" : preference;
 }
 
 export function normalizeClaudeCodeGatewayAuthMode(value: string | undefined): ClaudeCodeGatewayAuthModePreference {
@@ -31,6 +31,9 @@ export function normalizeClaudeCodeGatewayAuthMode(value: string | undefined): C
   }
   if (normalized === "helper" || normalized === "api-key-helper" || normalized === "apikey-helper" || normalized === "legacy") {
     return "api-key-helper";
+  }
+  if (normalized === "claude-login" || normalized === "login") {
+    return "claude-login";
   }
   return "auto";
 }

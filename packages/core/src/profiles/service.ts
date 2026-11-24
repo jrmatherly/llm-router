@@ -19,6 +19,7 @@ import {
   claudeCodeModelEnv,
   claudeCodeMcpConfigEnv,
   clearClaudeCodeManagedModelEnv,
+  isClaudeCodeAccountFile,
   isClaudeCodeManagedModelEnvKey,
   isStaleClaudeCodeSettingsEnvKey,
   normalizeClaudeCodeClientModel
@@ -82,8 +83,9 @@ import { probeExistingLlmrGateway } from "@llmr/core/gateway/existing-gateway-pr
 import { resolveClaudeAppProfileUserDataDir } from "@llmr/core/agents/claude-app/launch";
 import { resolveZcodeConfigFile, writeZcodeGatewayConfig, zcodeHomeFromConfigFile } from "@llmr/core/agents/zcode/profile-config";
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME, contextArchiveConfigForProfile, contextArchiveMcpEnabled, contextArchiveMcpServer } from "@llmr/core/gateway/context-archive";
+import { claudeLoginProviderNames } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { claudeClientDiscoveryPayloads, createClaudeCliAutoCompactWindows } from "@llmr/core/gateway/features/model-discovery";
-import { claudeCodeOneMillionContextSuffix } from "@llmr/core/gateway/internal/shared";
+import { claudeCodeOneMillionContextSuffix, llmrApiKeyHeader } from "@llmr/core/gateway/internal/shared";
 import { windowsBatchEscapeValue as cmdValue, windowsBatchSetLine as cmdSetLine } from "@llmr/core/platform/windows-batch";
 import {
   TOOL_HUB_MCP_RUNTIME_FILE_NAME,
@@ -99,6 +101,7 @@ import { resolveRuntimeAppPath, resolveUserPath } from "@llmr/core/runtime/app-p
 const globalProfileTakeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
 const fallbackClientToken = "llmr-local";
 const publicExecutableMode = 0o755;
+const claudeCodeCustomHeadersEnvKey = "ANTHROPIC_CUSTOM_HEADERS";
 const claudeCodeWifFederationRuleId = "llmr-local";
 const claudeCodeWifOrganizationId = "llmr-local";
 const claudeModelDiscoveryFingerprintStateFile = path.join(CONFIGDIR, "claude-model-discovery-fingerprint.json");
@@ -505,10 +508,11 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
   }
 
   const sharedHome = claudeCodeUsesSharedHome(profile);
+  const userSettingsFile = sharedHome ? path.join(process.env.CLAUDE_CONFIG_DIR?.trim() || resolveUserPath("~/.claude"), "settings.json") : undefined;
   const gatewayPolicy = readClaudeCodeGatewayLoginPolicy([
     ...claudeCodeManagedSettingsFiles(),
     settingsFile,
-    ...(sharedHome ? [path.join(process.env.CLAUDE_CONFIG_DIR?.trim() || resolveUserPath("~/.claude"), "settings.json")] : [])
+    ...(userSettingsFile ? [userSettingsFile] : [])
   ]);
   if (gatewayPolicy) {
     return refusedProfileStatus(profile, settingsFile, `Claude Code on this machine is pinned to a Claude apps gateway by ${gatewayPolicy.key} in ${gatewayPolicy.file}. LLMR did not change ${settingsFile}; sign Claude Code in to the gateway, or point the gateway's upstream at LLMR instead.`);
@@ -560,6 +564,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     env.ANTHROPIC_BASE_URL = endpoint;
     env.ANTHROPIC_API_BASE_URL = endpoint;
     env.CLAUDE_AGENT_API_BASE_URL = endpoint;
+    const unreadableUserSettingsFile = applyClaudeCodeCustomHeadersEnv(env, authMode, token, managedProfileEnvKeys.includes(claudeCodeCustomHeadersEnvKey) ? undefined : userSettingsFile);
     applyGatewayNoProxyEnv(env, config);
     applyClaudeCodeGatewayCompatibilityEnv(env);
     for (const key of claudeCodeFirstPartyProviderEnvKeys) {
@@ -619,7 +624,13 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
       enabled: true,
       message: [
         changed ? `Claude Code settings are managed by LLMR (wrapper ${wrapperResult.file}).` : "Claude Code settings already match LLMR.",
-        ...(autoCompactResult.file ? [] : ["Claude Code uses its own auto-compact windows for this profile."])
+        ...(autoCompactResult.file ? [] : ["Claude Code uses its own auto-compact windows for this profile."]),
+        ...(authMode === "claude-login" && claudeLoginProviderNames(config).length === 0
+          ? ["Claude login mode needs the Claude Code API provider. Until one is on, this profile's requests take the normal route."]
+          : []),
+        ...(unreadableUserSettingsFile
+          ? [`Your custom headers could not be read from ${unreadableUserSettingsFile}, so this profile keeps the ones from the last apply.`]
+          : [])
       ].join(" "),
       ok: true,
       path: settingsFile
@@ -2395,6 +2406,9 @@ function writeClaudeCodeAutoCompactWindowsCache(
     return { changed: false };
   }
   const file = path.join(configDir, ".claude.json");
+  if (isClaudeCodeAccountFile(file)) {
+    return { changed: false };
+  }
   const current = readClaudeCodeGlobalConfigObject(file);
   const next = {
     ...current,
@@ -2868,8 +2882,55 @@ function claudeCodeManagedSettingsEnvKeys(
     ...Object.keys(mcpConfigEnv),
     ...Object.keys(wifEnv),
     CLAUDE_CODE_MCP_CONFIG_ENV,
+    claudeCodeCustomHeadersEnvKey,
     ...STALE_CLAUDE_CODE_SETTINGS_ENV_KEYS
   ]);
+}
+
+// A shared-home profile's file replaces the user's whole value, so the user's lines are read from their own file on every apply. The file is undefined when the profile's own env names the key.
+// Returns the user's file when it exists and cannot be read as JSON.
+function applyClaudeCodeCustomHeadersEnv(env: Record<string, string>, authMode: ClaudeCodeGatewayAuthMode, token: string, userSettingsFile: string | undefined): string | undefined {
+  withoutClaudeCodeGatewayKeyHeader(env);
+  if (authMode !== "claude-login") {
+    return undefined;
+  }
+  let own: string | undefined = env[claudeCodeCustomHeadersEnvKey];
+  let unreadable: string | undefined;
+  if (userSettingsFile) {
+    try {
+      const settings: unknown = existsSync(userSettingsFile) ? JSON.parse(readFileSync(userSettingsFile, "utf8")) : {};
+      const userEnv = isRecord(settings) ? settings.env : undefined;
+      own = isRecord(userEnv) && typeof userEnv[claudeCodeCustomHeadersEnvKey] === "string" ? userEnv[claudeCodeCustomHeadersEnvKey] : undefined;
+    } catch {
+      unreadable = userSettingsFile;
+    }
+  }
+  env[claudeCodeCustomHeadersEnvKey] = claudeCodeCustomHeadersWithGatewayKey(own, token);
+  return unreadable;
+}
+
+function withoutClaudeCodeGatewayKeyHeader(env: Record<string, unknown>): void {
+  const current = env[claudeCodeCustomHeadersEnvKey];
+  if (typeof current !== "string") {
+    return;
+  }
+  const own = claudeCodeCustomHeadersWithoutGatewayKey(current);
+  if (own) {
+    env[claudeCodeCustomHeadersEnvKey] = own;
+  } else {
+    delete env[claudeCodeCustomHeadersEnvKey];
+  }
+}
+
+function claudeCodeCustomHeadersWithGatewayKey(current: string | undefined, token: string): string {
+  const own = current === undefined ? "" : claudeCodeCustomHeadersWithoutGatewayKey(current);
+  return [...(own ? [own] : []), `${llmrApiKeyHeader}: ${token}`].join("\n");
+}
+
+function claudeCodeCustomHeadersWithoutGatewayKey(current: string): string {
+  const lines = current.split(/\r?\n/);
+  const own = lines.filter((line) => line.split(":")[0].trim().toLowerCase() !== llmrApiKeyHeader);
+  return own.length === lines.length ? current : own.join("\n");
 }
 
 function isManagedClaudeCodeSettingsEnvKey(key: string): boolean {
@@ -4032,6 +4093,7 @@ function withoutManagedClaudeCodeEnv(
       next[key] = remaining;
     }
   }
+  withoutClaudeCodeGatewayKeyHeader(next);
   return { ...displacedEnv, ...next };
 }
 

@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { claudeLoginRouteFallback } from "@llmr/core/gateway/features/claude-login-pass-through.ts";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 import { fetchUpstreamWithFallback } from "@llmr/core/gateway/upstream/executor.ts";
 import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace.ts";
@@ -49,6 +50,7 @@ function createRouterPlugin(options = {}) {
       enabled: options.profileRuntimeEnabled ?? true,
       profiles
     },
+    providerPlugins: options.providerPlugins ?? [],
     toolHub: options.toolHub,
     virtualModelProfiles: options.virtualModelProfiles ?? []
   }, {
@@ -3097,4 +3099,80 @@ test("built-in Claude Code subagent route ignores tags outside the first two mes
   assert.equal(result.body.model, "Provider/claude-sonnet");
   assert.match(result.body.messages[2].content, /Provider\/claude-opus/);
   assert.equal(result.decision.reason, "builtin:claude-code");
+});
+
+test("a request that carries the Claude login is routed to the pass-through provider with its body untouched", async () => {
+  const plugin = createRouterPlugin({
+    providerPlugins: [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }],
+    providers: [
+      { models: ["claude-sonnet", "claude-opus"], name: "Provider", type: "anthropic_messages" },
+      { models: ["claude-sonnet-5"], name: "Claude Code API", type: "anthropic_messages" }
+    ],
+    toolHub: {
+      enabled: true,
+      llm: { apiKey: "resolver-key", baseUrl: "https://example.test/v1", model: "resolver-model" },
+      maxTools: 5,
+      requestTimeoutMs: 60000
+    }
+  });
+  const body = {
+    messages: [{ content: "hello", role: "user" }],
+    model: "claude-opus-4-8",
+    system: [{ text: "<LLMR-SUBAGENT-MODEL>Provider/claude-opus</LLMR-SUBAGENT-MODEL>\nYou are a helper.", type: "text" }],
+    tools: [
+      { name: "mcp__llmr-toolhub__tool_hub_resolve", input_schema: { type: "object" } },
+      { name: "mcp__llmr-toolhub__tool_hub_invoke", input_schema: { type: "object" } }
+    ]
+  };
+  const sent = structuredClone(body);
+
+  const carried = await plugin.routeRequest({
+    body,
+    headers: { "user-agent": "claude-code/1.0", "x-llmr-caller-authorization": "Bearer sk-ant-oat01-FAKE" },
+    method: "POST",
+    url: "/v1/messages"
+  });
+  assert.equal(carried.decision.model, "Claude Code API/claude-opus-4-8");
+  assert.equal(carried.decision.reason, "claude-login");
+  assert.equal(carried.decision.source, "builtin");
+  assert.deepEqual(carried.decision.fallback, claudeLoginRouteFallback);
+  assert.deepEqual(carried.body, sent);
+
+  const plain = await plugin.routeRequest({
+    body: structuredClone(sent),
+    headers: { "user-agent": "claude-code/1.0" },
+    method: "POST",
+    url: "/v1/messages"
+  });
+  assert.notEqual(plain.decision.reason, "claude-login");
+  assert.notDeepEqual(plain.body, sent);
+  assert.equal(JSON.stringify(plain.body).includes("<LLMR-SUBAGENT-MODEL>"), false);
+});
+
+test("the front door names no other provider for a carried request whose model another provider lists", () => {
+  const attempt = prepareGatewayUpstreamAttemptForTest({
+    body: { messages: [], model: "claude-opus-4-8" },
+    config: {
+      Providers: [
+        { api_base_url: "https://example.test", api_key: "llmr-local-agent-login", id: "claude-code-api", models: ["claude-sonnet-5"], name: "Claude Code API", type: "anthropic_messages" },
+        { api_base_url: "https://example.test/other", capabilities: [{ baseUrl: "https://example.test/other", type: "anthropic_messages" }], credentials: [{ apiKey: "sk-other-key-0001", id: "first" }], id: "other", models: ["claude-opus-4-8"], name: "Other", type: "anthropic_messages" }
+      ],
+      Router: { fallback: { mode: "off", models: [], retryCount: 1 } },
+      providerPlugins: [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }],
+      virtualModelProfiles: []
+    },
+    fallback: claudeLoginRouteFallback,
+    headers: { "x-llmr-caller-authorization": "Bearer sk-ant-oat01-FAKE", "x-llmr-routed-model": "Claude Code API/claude-opus-4-8" },
+    method: "POST",
+    path: "/v1/messages",
+    routedModel: "Claude Code API/claude-opus-4-8"
+  });
+  assert.equal(attempt.headers["x-llmr-caller-authorization"] === "Bearer sk-ant-oat01-FAKE", true);
+  assert.equal(attempt.headers["x-target-provider"], "claude-code-api");
+  assert.equal(attempt.headers["x-target-providers"], undefined);
+  assert.equal(attempt.headers["x-llmr-logical-provider"], undefined);
+  assert.equal(attempt.headers["x-llmr-routed-model"], "Claude Code API/claude-opus-4-8");
+  assert.equal(attempt.logicalProvider, undefined);
+  assert.equal(attempt.credentialChain, undefined);
+  assert.deepEqual(attempt.body, { messages: [], model: "claude-opus-4-8" });
 });

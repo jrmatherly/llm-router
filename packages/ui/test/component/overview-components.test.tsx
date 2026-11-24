@@ -5,7 +5,7 @@ import { formatCodexResetCardExpiry, formatCodexResetCardNumber, OverviewStatist
 import { parseStatusBucketDate } from "@llmr/ui/pages/home/shared/controls.tsx";
 import { formatProviderAccountMeterValue, providerAccountMeterDetailValidityProgress } from "@llmr/ui/pages/home/shared/provider-accounts.ts";
 import type { GatewayProviderConfig, OverviewWidgetConfig, ProviderAccountSnapshot } from "@llmr/core/contracts/app.ts";
-import { accountSnapshots, installBrowserGlobals, ultraClaudeSnapshot, usageStats } from "../fixtures/index.ts";
+import { accountSnapshots, installBrowserGlobals, planQuotaSnapshot, usageStats } from "../fixtures/index.ts";
 
 installBrowserGlobals();
 
@@ -74,11 +74,11 @@ test("OverviewView renders every overview widget type", () => {
   assert.match(html, /Spend Receipt/);
 });
 
-test("Ultra Claude account shows plan, weekly and Fable rings", () => {
+test("an account ring card shows the plan and each quota meter", () => {
   const html = renderToStaticMarkup(
     <OverviewView
       overviewWidgets={[{ enabled: true, id: "account", size: "4:2", type: "account-balance", variant: "nested-rings" }]}
-      providerAccounts={[ultraClaudeSnapshot()]}
+      providerAccounts={[planQuotaSnapshot()]}
       refreshProviderAccounts={() => undefined}
       setUsageRange={() => undefined}
       usageRange="30d"
@@ -87,10 +87,9 @@ test("Ultra Claude account shows plan, weekly and Fable rings", () => {
     />
   );
 
-  assert.match(html, /Claude Code API · Ultra/);
-  assert.match(html, /7d quota/);
-  assert.match(html, /Fable weekly quota/);
-  assert.doesNotMatch(html, /5h quota/);
+  assert.match(html, /Example Provider · Pro/);
+  assert.match(html, /5h quota/);
+  assert.match(html, /Weekly quota/);
 });
 
 test("OverviewStatisticsResetDialog warns before deleting statistics", () => {

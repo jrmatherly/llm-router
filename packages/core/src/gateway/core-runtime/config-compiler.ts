@@ -3,7 +3,7 @@
  */
 import { isGatewayProviderEnabled } from "@llmr/core/contracts/app";
 import type { AppConfig, GatewayProviderConfig, GatewayProviderProtocol, VirtualModelProfileConfig } from "@llmr/core/contracts/app";
-import { codexDefaultBaseUrl, kimiAccessTokenExpired, kimiIdentityHeaders, localAgentProviderApiKey, readGrokAuth, readKimiAuth, resolveClaudeCodeAuthOrStored, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
+import { codexDefaultBaseUrl, kimiAccessTokenExpired, kimiIdentityHeaders, localAgentProviderApiKey, readGrokAuth, readKimiAuth, resolveGrokAuth, resolveKimiAuth } from "@llmr/core/agents/local-providers/service";
 import { codexOauthWithoutCredentials } from "@llmr/core/agents/local-providers/codex";
 import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
 import { pluginService } from "@llmr/core/plugins/service";
@@ -11,14 +11,15 @@ import { normalizeRouteSelector, providerRuntimeId } from "@llmr/core/routing/mo
 import { isRecord, stringListValue, stringValue } from "@llmr/core/gateway/internal/value";
 import { fusionBuiltinToolArtifacts, fusionToolFallbackMcpServer, normalizeFusionWebSearchProfileToolName, toolHubMcpServer, withCodexCompatibleVirtualModelProfiles, withFusionVirtualModelAliases, withFusionVisionToolInstructions, withFusionWebSearchToolInstructions } from "@llmr/core/mcp/fusion-config";
 import { mediaToolsMcpServer } from "@llmr/core/mcp/grok-media-config";
+import { claudeLoginProviderNames } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { resolveGatewayPublicModelId } from "@llmr/core/gateway/features/model-discovery";
 import { activeProviderCredentials, inferProtocol, normalizedProviderCapabilities, normalizeProviderProtocol, providerCapabilityForClientProtocol, providerCapabilityInternalName, providerCapabilityNameMatches, providerCredentialInternalName, providerProtocolForClientProtocol, sortProviderCredentialsForConfig, toCoreGatewayProviders } from "@llmr/core/providers/runtime-topology";
 import { buildRawTraceConfig } from "@llmr/core/observability/raw-trace-sync";
 import { endpoint, gatewayRuntimeSupportsRouterPlugin, publicGatewayAuthTokens, resolveLocalAgentAuthProviderHookEntry, resolveRouterPluginEntry, resolveUndiciProxyAgentModule, resolveUpstreamHeaderSanitizerEntry, writeGatewayProxyPreloadFile } from "@llmr/core/gateway/core-runtime/supervisor";
-import { billingUsageSyncHeader, billingUsageSyncPath, claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta, coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayUpstreamProxyUrlEnv } from "@llmr/core/gateway/internal/shared";
+import { billingUsageSyncHeader, billingUsageSyncPath, coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayUpstreamProxyUrlEnv } from "@llmr/core/gateway/internal/shared";
 import type { BrowserWebSearchMcpIntegration, CoreGatewayProvider } from "@llmr/core/gateway/internal/shared";
 import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
-import { isLocalClaudeCodeOauthProviderPlugin, mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
+import { isLocalClaudeCodeOauthProviderPlugin } from "@llmr/core/providers/oauth-plugin";
 import { isLocalAgentOauthProviderPlugin } from "@llmr/core/gateway/core-runtime/local-agent-auth-provider-hook";
 import { llmrRouterPluginKey } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { isOpenCodePublicFreeTierPlugin } from "@llmr/core/agents/local-providers/opencode-freetier";
@@ -63,7 +64,7 @@ export async function compileCoreGatewayConfig(
       )
     : [];
   const pluginBillingConfig = isRecord(pluginCoreGatewayConfig.billing) ? pluginCoreGatewayConfig.billing : {};
-  const allConfiguredProviderPlugins = normalizeClaudeCodeOauthProviderPlugins([
+  const allConfiguredProviderPlugins = withoutClaudeCodeStoredLogin([
     ...(config.providerPlugins ?? []),
     ...pluginService.getCoreProviderPlugins()
   ]);
@@ -74,7 +75,7 @@ export async function compileCoreGatewayConfig(
     config.Providers.filter(isGatewayProviderEnabled)
   );
   const providerPluginsWithRuntimeDefaults = await withKimiOauthRuntimeDefaults(
-    await withGrokOauthRuntimeDefaults(await withClaudeCodeOauthRuntimeDefaults(withCodexOauthRuntimeDefaults(configuredProviderPluginsWithLocalCodexFallbacks)))
+    await withGrokOauthRuntimeDefaults(withCodexOauthRuntimeDefaults(configuredProviderPluginsWithLocalCodexFallbacks))
   );
   const codexOauthProviderNames = codexOauthLocalProviderNames(providerPluginsWithRuntimeDefaults);
   const enabledProviders = config.Providers.filter(isGatewayProviderEnabled);
@@ -101,9 +102,11 @@ export async function compileCoreGatewayConfig(
       token: billingUsageSyncToken
     }
   );
+  const passThroughProviderNames = claudeLoginProviderNames(config);
   const providers = [
     ...enabledProviders
-      .flatMap((provider) => toCoreGatewayProviders(withCodexOauthProviderBaseUrl(provider, codexOauthProviderNames)))
+      .flatMap((provider) => toCoreGatewayProviders(withCodexOauthProviderBaseUrl(provider, codexOauthProviderNames))
+        .map((compiled) => passThroughProviderNames.includes(provider.name) ? { ...compiled, clientCredentialPassthrough: true } : compiled))
       .filter((provider): provider is CoreGatewayProvider => Boolean(provider)),
     ...builtinToolArtifacts.providers
   ];
@@ -194,10 +197,10 @@ function routerPluginConfig(
   }
   return {
     config: {
-      // Stored Codex plugins may carry tokens; the router plugin's copy of the app config must not.
+      // Stored Codex and Claude Code plugins may carry tokens; the router plugin's copy of the app config must not.
       appConfig: {
         ...config,
-        providerPlugins: config.providerPlugins?.map((plugin) => isLocalCodexOauthProviderPlugin(plugin)
+        providerPlugins: withoutClaudeCodeStoredLogin(config.providerPlugins ?? []).map((plugin) => isLocalCodexOauthProviderPlugin(plugin)
           ? { ...plugin, codexOauth: codexOauthWithoutCredentials }
           : plugin)
       },
@@ -545,35 +548,6 @@ function withCodexOauthRuntimeDefaults(providerPlugins: unknown[]): unknown[] {
 }
 
 
-async function withClaudeCodeOauthRuntimeDefaults(providerPlugins: unknown[]): Promise<unknown[]> {
-  if (!providerPlugins.some(isLocalClaudeCodeOauthProviderPlugin)) {
-    return providerPlugins;
-  }
-  const oauth = await resolveClaudeCodeAuthOrStored();
-  if (!oauth?.accessToken) {
-    return providerPlugins;
-  }
-
-  return providerPlugins.map((plugin) => {
-    if (!isLocalClaudeCodeOauthProviderPlugin(plugin)) {
-      return plugin;
-    }
-    const currentAuth = isRecord(plugin.auth) ? plugin.auth : {};
-    const currentHeaders = isRecord(currentAuth.headers) ? currentAuth.headers : {};
-    return {
-      ...plugin,
-      auth: {
-        ...currentAuth,
-        headers: {
-          ...currentHeaders,
-          authorization: `Bearer ${oauth.accessToken}`
-        }
-      }
-    };
-  });
-}
-
-
 async function withGrokOauthRuntimeDefaults(providerPlugins: unknown[]): Promise<unknown[]> {
   const grokAuth = await resolveGrokAuth().catch(() => readGrokAuth());
   if (!grokAuth?.accessToken || grokAccessTokenExpired(grokAuth)) {
@@ -727,37 +701,14 @@ function isLocalCodexOauthProviderPlugin(value: unknown): value is Record<string
 }
 
 
-export function normalizeClaudeCodeOauthProviderPlugins(providerPlugins: unknown[]): unknown[] {
+// A config saved by an earlier version holds a token in these entries. It is dropped, never sent.
+function withoutClaudeCodeStoredLogin(providerPlugins: unknown[]): unknown[] {
   return providerPlugins.map((plugin) => {
     if (!isLocalClaudeCodeOauthProviderPlugin(plugin)) {
       return plugin;
     }
-
-    const auth = isRecord(plugin.auth) ? plugin.auth : {};
-    const headers = isRecord(auth.headers) ? auth.headers : {};
-    const configuredBeta = Object.entries(headers)
-      .find(([name]) => name.trim().toLowerCase() === claudeCodeOauthBetaHeader)?.[1];
-    const defaultBeta = mergeAnthropicBetaValues(
-      configuredAnthropicBetaDefault(configuredBeta),
-      claudeCodeOauthRequiredBeta
-    );
-    const normalizedHeaders = Object.fromEntries(
-      Object.entries(headers).filter(([name]) => name.trim().toLowerCase() !== claudeCodeOauthBetaHeader)
-    );
-
-    return {
-      ...plugin,
-      auth: {
-        ...auth,
-        headers: {
-          ...normalizedHeaders,
-          [claudeCodeOauthBetaHeader]: {
-            default: defaultBeta,
-            from: `request.headers.${claudeCodeOauthBetaHeader}`
-          }
-        }
-      }
-    };
+    const { auth: _auth, ...rest } = plugin;
+    return rest;
   });
 }
 
@@ -810,17 +761,6 @@ function compiledProviderNameForPlugin(
   }
 
   return configuredName;
-}
-
-
-function configuredAnthropicBetaDefault(value: unknown): string | undefined {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (!isRecord(value)) {
-    return undefined;
-  }
-  return stringValue(value.default);
 }
 
 

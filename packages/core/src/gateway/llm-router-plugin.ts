@@ -6,6 +6,7 @@ import { ROUTER_SCRIPT_MAX_TIMEOUT_MS, isGatewayProviderEnabled, type AppConfig,
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { applyAgentRequestEnrichers } from "@llmr/core/agents/request-enricher";
 import { buildClaudeAppGatewayModelRoutes, type ClaudeAppGatewayModelRoute, resolveClaudeAppGatewayRouteModel, stripClaudeAppGatewayOneMillionContextSuffix } from "@llmr/core/agents/claude-app/gateway-routes";
+import { carriesClaudeLogin, claudeLoginRouteFallback, claudeLoginRoutedModel } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { claudeAppGatewayModelRouteOptions } from "@llmr/core/gateway/internal/shared";
 import { compileRouterConfig, type CompiledProfileRoutingConfig, type CompiledRouterConfig, type CompiledRouterRule } from "@llmr/core/routing/config-compiler";
 import type { RouteDecision, RouteDiagnostic, RouteModelRef, RouteRequest, RouteSource } from "@llmr/core/routing/contracts";
@@ -75,6 +76,15 @@ export class LLMRouterPlugin {
     trace?: RouteTraceObserver;
     url: string;
   }): Promise<{ body: Record<string, unknown>; decision: ClaudeCodeRouteDecision }> {
+    const claudeLoginModel = carriesClaudeLogin(input.headers)
+      ? claudeLoginRoutedModel(this.config, typeof input.body.model === "string" ? input.body.model : undefined)
+      : undefined;
+    if (claudeLoginModel) {
+      return {
+        body: input.body,
+        decision: { diagnostics: [], fallback: claudeLoginRouteFallback, model: claudeLoginModel, reason: "claude-login", source: "builtin", tokenCount: 0 }
+      };
+    }
     const body = input.bodyOwnership === "owned" ? input.body : cloneRecord(input.body);
     const request: MutableRequestLike = {
       body,

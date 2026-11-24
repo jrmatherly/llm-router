@@ -172,6 +172,10 @@ The desktop app needs macOS 13 (Ventura) or later on a Mac.
 
 Your agent is now connected to LLMR. To add conditions, retries, request rewrites, or fallback models, open **Routing**.
 
+### Upgrading to 9.0
+
+LLMR no longer imports, refreshes or writes back your Claude Code login, and the Claude 5-hour, weekly and plan meters are gone. The `Claude Code API` provider now forwards the login Claude Code sends from a profile with **Sign in with my Claude login** turned on. Turn that on in each Claude Code profile that should use your Claude subscription. Claude Code's own `/usage` still shows your limits.
+
 ### Upgrading to 7.2
 
 The New API Account plugin is gone. It could not read New API's subscription response. Delete it under **Extensions**, and remove its `plugin` entry from the provider's **Raw connector JSON**, or the provider keeps showing a "not registered" error. Then use **Insert New API subscription quota**, which needs a New API access token with the `wallet:read` scope.

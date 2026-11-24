@@ -13,6 +13,7 @@ export type CoreGatewayProvider = {
   apikey?: string;
   baseurl?: string;
   billing?: unknown;
+  clientCredentialPassthrough?: boolean;
   extraBody?: unknown;
   extraHeaders?: unknown;
   models: string[];
@@ -32,7 +33,10 @@ export const claudeAppGatewayModelRouteOptions: ClaudeAppGatewayModelRouteOption
   supportsOneMillionContext: (model) => Boolean(findModelCatalogEntry(model)?.limits?.supports1MContext)
 };
 
+export const llmrApiKeyHeader = "x-llmr-api-key";
+
 export const sdkCompatibleTokenHeaderNames = [
+  llmrApiKeyHeader,
   "authorization",
   "x-api-key",
   "api-key",
@@ -236,10 +240,6 @@ export class UpstreamRequestError extends Error {
 
 
 export const requireFromHere = createRequire(__filename);
-
-export const claudeCodeOauthBetaHeader = "anthropic-beta";
-
-export const claudeCodeOauthRequiredBeta = "oauth-2025-04-20";
 
 export const coreGatewayAuthHeader = "x-llmr-core-auth";
 

@@ -2,7 +2,7 @@ import { isRestorableGlobalProfile } from "@llmr/core/contracts/app";
 import { useDraftClose } from "./unsaved-changes";
 import {
   AddProfileDraft, AddRoutingRuleDraft, AgentLogo, AnimatedIconSwap, AnimatedPopover, AnimatePresence, AppConfig, Badge, BotGatewaySavedConfig, botGatewaySavedConfigLabel, BotHandoffScanTarget, Button,
-  Card, CardContent, CardHeader, CardTitle, Check, ChevronDown, CircleAlert, Copy,
+  Card, CardContent, CardHeader, CardTitle, Check, ChevronDown, CircleAlert, claudeLoginEnabled, Copy,
   createKeyValueDraftRow,
   createRoutingRuleDraft, createRoutingRuleDraftFromRule,
   cn, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader,
@@ -11,7 +11,7 @@ import {
   profileAgentLabel, profileAgentOptions, ProfileConfig, type ProfileAgentOption, profileModelProviderOptions, profileOpenSurfaces, profileScopeLabel, profileScopeOptions, profileSummaryItems, profileSurfaceLabel, profileSurfaceOptions,
   Play, Power, RefreshCw, Search, Select, SelectControl, Settings, Terminal, Toggle, Trash2, formatAppError, useLayoutEffect, type KeyValueDraftRow, type ProfileOpenSurface, type ProfileRuntimeStatus, type ReactDragEvent, type ReactNode, type VirtualModelProfileConfig,
   copyTextToClipboard, formatClaudeSettingsDraft, formatRouterRuleCondition, formatRouterRuleTarget, isClaudeSettingsDraftValid, isPlainRecord, isRoutingRuleDraftSubmittable, normalizeProviderModelSelector, routerRuleTypeLabel, routingRuleFromDraft, type RouterRule, uniqueStrings, validateProfileEnvRows,
-  useCallback, useEffect, useMemo, useRef, useState, X
+  useCallback, useEffect, useMemo, useRef, useState, withClaudeLogin, X
 } from "../shared/index";
 import claudeCodeConfigOptionsJson from "@/generated/claude-code-config-options.json";
 import { PopoverPortal } from "@/components/ui/popover";
@@ -892,6 +892,15 @@ export function AddProfileForm({
               <Toggle ariaLabel="Use my ~/.claude in the terminal" checked={draft.claudeCodeSharedHome} onChange={(claudeCodeSharedHome) => onChange({ claudeCodeSharedHome })} />
             </div>
             <p className="text-[12px] text-muted-foreground">Claude Code keeps your login, history, plugins and settings, and LLMR passes its gateway settings for each launch. LLMR does not write your settings.json.</p>
+          </div>
+        ) : null}
+        {draft.agent === "claude-code" && draft.surface !== "app" ? (
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
+              <span className="text-[12px] font-medium">Sign in with my Claude login</span>
+              <Toggle ariaLabel="Sign in with my Claude login" checked={claudeLoginEnabled(draft.envRows)} onChange={(enabled) => onChange({ envRows: withClaudeLogin(draft.envRows, enabled) })} />
+            </div>
+            <p className="text-[12px] text-muted-foreground">Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code's own. The gateway key is written to the settings file of this profile.</p>
           </div>
         ) : null}
         {draft.agent === "claude-code" ? (

@@ -84,7 +84,7 @@ One pure function decides whether a request is pass-through traffic, and both la
 
 1. The gateway key arrived in `x-llmr-api-key`.
 2. The key's profile is an enabled Claude Code profile whose auth mode resolves to `claude-login` (`profileForApiKey`, `profiles/model-allowlist.ts:9-23`, read).
-3. `authorization` starts with `Bearer `.
+3. `authorization` starts with `Bearer `. **Changed in review of PR 146:** this is no longer a condition of the predicate. A request that meets the other rules is routed to the pass-through provider either way. Without a `Bearer` value the internal header carries the value `none`, which the provider hook refuses with the 400 below. Before the change such a request took the normal route with the gateway key, and another provider that listed the same model id could answer it.
 4. An enabled pass-through provider exists.
 5. The model id, as Claude Code sent it, either has no provider prefix or is prefixed with the pass-through provider's name.
 6. The request is `POST /v1/messages`. This rule is the fix round's. `count_tokens` is answered locally and the list routes call no provider, so carrying a login for them would only keep it on the request longer.

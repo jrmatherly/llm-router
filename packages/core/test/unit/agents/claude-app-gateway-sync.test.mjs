@@ -485,3 +485,19 @@ function createConfig(overrides = {}) {
     ...overrides
   };
 }
+
+test("sync with the pass-through provider as the only provider returns the no-models result", async () => {
+  const { BACKUP_FILE, syncClaudeAppGatewayConfig } = await loadModules();
+  const { NO_AVAILABLE_GATEWAY_MODELS_MESSAGE } = await import("@llmr/core/contracts/app.ts");
+  const config = takeoverConfig();
+  config.Providers = [{ api_base_url: "https://example.test", api_key: "llmr-local-agent-login", models: ["claude-sonnet-5"], name: "Claude Code API", type: "anthropic_messages" }];
+  config.providerPlugins = [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }];
+  try {
+    const synced = await syncClaudeAppGatewayConfig(config);
+    assert.equal(synced.result.message, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE);
+    assert.equal(synced.configChanged, false);
+    assert.equal(existsSync(claudeAppPaths().configLibraryFile), false);
+  } finally {
+    cleanup(BACKUP_FILE);
+  }
+});

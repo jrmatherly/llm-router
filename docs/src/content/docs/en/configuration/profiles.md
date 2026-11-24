@@ -48,10 +48,27 @@ Each Agent Profile is a separate launch configuration. Create multiple profiles 
 | Environment variables | Optional advanced overrides; leave empty for normal use. |
 | Bot | Applies only to the Claude App entry. Select a saved Bot, then choose AgentClaw message forwarding or handoff. |
 | Route Claude App launched outside LLMR through LLMR | Off by default. On, Claude App opened from the Dock or an account switcher also runs through LLMR in third-party mode, signed out of claude.ai. One profile at a time. |
+| Sign in with my Claude login | Off by default. CLI only. On, Claude Code signs in with your own claude.ai login and LLMR forwards it. See **Claude login mode** below. |
 
 After Claude Code CLI is opened from LLMR, it uses LLMR gateway model discovery. In Claude Code CLI, enter `/model` to view and switch the models exposed by LLMR, including normal provider models and visible Fusion models.
 
 If Claude App is already running, restart it or reopen it from LLMR when prompted.
+
+#### Claude login mode
+
+Use this mode to run Claude Code through LLMR on your Claude subscription. It needs the `Claude Code API` provider, which you add from **Providers** through the Claude Code import entry. Claude Code keeps its own login. It sends that login with each request, and LLMR forwards it to Anthropic without reading, refreshing or storing it.
+
+The profile writes LLMR's base URL to its settings file and adds one line, `x-llmr-api-key: <gateway key>`, to `ANTHROPIC_CUSTOM_HEADERS`. Lines you already had in that variable stay. The gateway key sits in that file in plain text. The profile writes no `apiKeyHelper`.
+
+Claude Code then shows its own model list, not the one LLMR serves. A model you pin as `Provider/model` still goes through LLMR to that provider, with its routing rules.
+
+A request on your subscription works differently from other LLMR traffic:
+
+- A model named without a provider prefix goes to your subscription through the `Claude Code API` provider. It skips Router rules and virtual models.
+- LLMR sends the request as Claude Code wrote it. The context archive, web search and ToolHub do not run on it.
+- It does not fall back to another provider when it hits a limit or an error. Claude Code sees Anthropic's own error.
+- If Claude Code is signed out, the request fails with a message that tells you to sign in. No other provider answers it.
+- Gateway plugins you installed may still see the request, including the login, on its way to Anthropic.
 
 Claude App and Claude Code CLI expose models differently:
 
@@ -132,6 +149,8 @@ WorkBuddy supports App only, so its entry mode is fixed to `App only`.
 ### Claude Code
 
 Claude Code supports CLI and App. Create separate profiles when you want different models, scopes, or Bots.
+
+To use your Claude subscription in the CLI, turn on **Sign in with my Claude login**. Claude Code then keeps and sends its own login, LLMR forwards it, and Claude Code shows its own model list. The details are under **Claude login mode** above.
 
 With a Bot bound, Claude App can relay conversations through the selected IM channel.
 

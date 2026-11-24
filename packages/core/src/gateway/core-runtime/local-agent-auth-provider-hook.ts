@@ -1,14 +1,11 @@
 import {
   ClaudeAppsGatewayAuthError,
   claudeAppsGatewaySessionExpired,
-  ClaudeCodeRefreshAuthError,
   readClaudeAppsGatewaySession,
-  readClaudeCodeOauth,
   readCodexAuth,
   readGrokAuth,
   readKimiAuth,
   resolveClaudeAppsGatewaySession,
-  resolveClaudeCodeAuth,
   resolveCodexAuth,
   resolveGrokAuth,
   resolveKimiAuth,
@@ -19,14 +16,15 @@ import { codexAccessTokenExpired } from "@llmr/core/agents/local-providers/codex
 import { applyOpenCodePublicFreeTierHeaders, isOpenCodePublicFreeTierPlugin, withOpenCodePublicFreeTierTools } from "@llmr/core/agents/local-providers/opencode-freetier";
 import { grokAccessTokenExpired, grokClientVersion } from "@llmr/core/agents/local-providers/grok";
 import { kimiAccessTokenExpired, kimiIdentityHeaders } from "@llmr/core/agents/local-providers/kimi";
+import { llmrCallerAuthorizationHeader } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
+import { claudeLoginMissingMessage } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { transformCodexApplyPatchBridgeRequestBody } from "@llmr/core/gateway/features/codex-patch-bridge";
-import { claudeCodeOauthBetaHeader, claudeCodeOauthRequiredBeta } from "@llmr/core/gateway/internal/shared";
 import { isRecord, stringValue } from "@llmr/core/gateway/internal/value";
-import { mergeAnthropicBetaValues } from "@llmr/core/providers/oauth-plugin";
 
 const liveProviderPluginKeyPrefix = "module:llmr-live-auth:";
 const configProviderPluginKeyPrefix = "config:";
 const localAgentProviderPluginKeyPrefix = "llmr-local-agent-";
+const bearerPrefix = "Bearer ";
 
 type HeaderRecord = Record<string, string>;
 
@@ -181,34 +179,20 @@ async function authenticateWithBearer(
   };
 }
 
-async function authenticateClaudeCode(
+// The login is the caller's own. Nothing here reads one from disk, stores one or refreshes one.
+function authenticateClaudeCode(
   input: ProviderPluginInput,
   plugin: Record<string, unknown>
-): Promise<ProviderHookResult> {
-  let auth: Awaited<ReturnType<typeof resolveClaudeCodeAuth>>;
-  try {
-    auth = await resolveClaudeCodeAuth();
-  } catch (error) {
-    if (error instanceof ClaudeCodeRefreshAuthError) {
-      return { error: error.message, ok: false };
-    }
-    auth = readClaudeCodeOauth();
+): ProviderHookResult {
+  const login = requestHeader(input.request?.headers, llmrCallerAuthorizationHeader);
+  if (!login?.startsWith(bearerPrefix)) {
+    return { error: claudeLoginMissingMessage, ok: false };
   }
-  const token = auth?.accessToken || originalBearerToken(plugin);
-  if (!token) {
-    return { error: "Claude Code access token was not found.", ok: false };
-  }
-  const headers = withBearerAuth(input.upstreamRequest.headers, token, originalRemoveHeaders(plugin));
-  headers[claudeCodeOauthBetaHeader] = mergeAnthropicBetaValues(
-    requestHeader(input.request?.headers, claudeCodeOauthBetaHeader),
-    originalAnthropicBetaDefault(plugin),
-    claudeCodeOauthRequiredBeta
-  );
   return {
     ok: true,
     value: {
       ...input.upstreamRequest,
-      headers
+      headers: withBearerAuth(input.upstreamRequest.headers, login.slice(bearerPrefix.length), originalRemoveHeaders(plugin))
     }
   };
 }
@@ -468,8 +452,7 @@ function originalRemoveHeaders(plugin: Record<string, unknown>): string[] {
 
 function originalBearerToken(plugin: Record<string, unknown>): string | undefined {
   const authorization = originalAuthHeader(plugin, "authorization");
-  const prefix = "Bearer ";
-  return authorization?.startsWith(prefix) ? authorization.slice(prefix.length).trim() || undefined : undefined;
+  return authorization?.startsWith(bearerPrefix) ? authorization.slice(bearerPrefix.length).trim() || undefined : undefined;
 }
 
 function originalAuthHeader(plugin: Record<string, unknown>, name: string): string | undefined {
@@ -482,27 +465,6 @@ function originalRequestHeader(plugin: Record<string, unknown>, name: string): s
   const request = isRecord(plugin.request) ? plugin.request : undefined;
   const headers = isRecord(request?.headers) ? request.headers : undefined;
   return recordHeader(headers, name);
-}
-
-function originalAnthropicBetaDefault(plugin: Record<string, unknown>): string | undefined {
-  const value = originalAuthHeaderValue(plugin, claudeCodeOauthBetaHeader);
-  if (typeof value === "string") {
-    return value;
-  }
-  if (isRecord(value)) {
-    return stringValue(value.default);
-  }
-  return undefined;
-}
-
-function originalAuthHeaderValue(plugin: Record<string, unknown>, name: string): unknown {
-  const auth = isRecord(plugin.auth) ? plugin.auth : undefined;
-  const headers = isRecord(auth?.headers) ? auth.headers : undefined;
-  if (!headers) {
-    return undefined;
-  }
-  const normalizedName = name.toLowerCase();
-  return Object.entries(headers).find(([key]) => key.trim().toLowerCase() === normalizedName)?.[1];
 }
 
 function recordHeader(headers: Record<string, unknown> | undefined, name: string): string | undefined {

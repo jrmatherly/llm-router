@@ -20,7 +20,7 @@ import {
 import { TrayApp } from "@llmr/ui/pages/tray/TrayApp.tsx";
 import { TrayDetailApp } from "@llmr/ui/pages/tray/TrayDetailApp.tsx";
 import { accountSnapshotLabel, applyTrayThemePreference, createSourceTabs } from "@llmr/ui/pages/tray/shared.tsx";
-import { accountSnapshots, installBrowserGlobals, ultraClaudeSnapshot, usageStats, usageTotals } from "../fixtures/index.ts";
+import { accountSnapshots, installBrowserGlobals, planQuotaSnapshot, usageStats, usageTotals } from "../fixtures/index.ts";
 
 installBrowserGlobals();
 
@@ -34,7 +34,7 @@ const componentVariants = {
 } as const;
 
 test("Tray account label shows the plan", () => {
-  assert.equal(accountSnapshotLabel(ultraClaudeSnapshot()), "Claude Code API · Ultra");
+  assert.equal(accountSnapshotLabel(planQuotaSnapshot()), "Example Provider · Pro");
   assert.equal(accountSnapshotLabel(accountSnapshots()[0]), "openai / Primary Key");
 });
 
