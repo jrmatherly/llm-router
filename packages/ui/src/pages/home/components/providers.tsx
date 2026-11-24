@@ -1,7 +1,7 @@
 import { ClaudeAppsGatewaySignInForm } from "./claude-apps-gateway-sign-in";
 import { useDraftClose } from "./unsaved-changes";
 import {
-  AddProviderDraft, isLocalAgentLoginDraft, localAgentProviderApiKey, openExternalUrl, providerConnectivityProviderPlugins, type ProviderSetupStepId, providerSetupStepsForDraft, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
+  AddProviderDraft, isClaudeLoginProviderDraft, isLocalAgentLoginDraft, localAgentProviderApiKey, openExternalUrl, type ProviderSetupStepId, providerSetupStepsForDraft, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
   Box, Braces, Button, Card, CardContent, CardHeader, CardTitle,
   Check, Checkbox, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, cn,
   compareProviderAccountSnapshots, copyTextToClipboard, createDefaultProviderAccountDraft, createModelCatalogItems, createProviderAccountDraftFromConfig, createProviderCredentialDraft,
@@ -23,7 +23,6 @@ import {
 import { PopoverPortal } from "@/components/ui/popover";
 import { Tooltip, TooltipPortal } from "@/components/ui/tooltip";
 import { chromeLoginImportFailureMessage } from "@/lib/chrome-login-import";
-import { isLocalClaudeCodeOauthProviderPlugin } from "@llmr/core/providers/oauth-plugin";
 import { providerUrlWithDefaultScheme } from "@llmr/core/providers/url";
 import type { ChromeLoginImportJob, LocalAgentProviderCandidate, OpenRouterProviderCatalogItem, OpenRouterProviderCatalogRequest, ProviderAccountHttpJsonConnectorConfig, ProviderAccountWebContentJsonConnectorConfig } from "@llmr/core/contracts/app";
 import type { ReactNode } from "react";
@@ -1737,6 +1736,7 @@ function ProviderFormStepHeader({
 }
 
 function ProviderConnectionStatusPanel({
+  claudeLoginProvider,
   className,
   connectivityLoading,
   connectivityProbe,
@@ -1746,6 +1746,7 @@ function ProviderConnectionStatusPanel({
   probe,
   probeLoading
 }: {
+  claudeLoginProvider: boolean;
   className?: string;
   connectivityLoading: boolean;
   connectivityProbe?: GatewayProviderProbeResult;
@@ -1755,6 +1756,7 @@ function ProviderConnectionStatusPanel({
   probe?: GatewayProviderProbeResult;
   probeLoading: boolean;
 }) {
+  const notProbed = claudeLoginProvider && !probeLoading && !connectivityLoading;
   const protocolDetected = providerProbeHasSupportedProtocol(probe) || Boolean(probe?.detectedProtocol);
   const connectionVerified = providerProbeHasSupportedProtocol(connectivityProbe);
   const protocolTitle = probeLoading
@@ -1766,27 +1768,33 @@ function ProviderConnectionStatusPanel({
         : "Waiting for provider details";
   const protocolDescription = probeLoading
     ? "LLMR is checking which API protocols this endpoint supports."
-    : protocolDetected
-      ? "Compatible API protocols were found automatically. You can turn off auto detection in Advanced settings and select protocols manually."
-      : "Choose a provider endpoint so LLMR can detect compatible protocols.";
+    : notProbed
+      ? "LLMR does not probe this provider. It uses the Anthropic Messages protocol."
+      : protocolDetected
+        ? "Compatible API protocols were found automatically. You can turn off auto detection in Advanced settings and select protocols manually."
+        : "Choose a provider endpoint so LLMR can detect compatible protocols.";
   const requestTitle = connectivityLoading
     ? "Checking connection"
-    : localAgentImport
-      ? "Available after saving"
-      : connectionVerified
-        ? "Connection verified"
-        : hasConnectivityCheckInputs
-          ? "Not verified yet"
-          : "Waiting for required fields";
+    : notProbed
+      ? "Not checked"
+      : localAgentImport
+        ? "Available after saving"
+        : connectionVerified
+          ? "Connection verified"
+          : hasConnectivityCheckInputs
+            ? "Not verified yet"
+            : "Waiting for required fields";
   const requestDescription = connectivityLoading
     ? "LLMR is sending a limited real model request."
-    : localAgentImport
-      ? "The imported local agent login is connected when this provider is saved."
-      : connectionVerified
-        ? "A real model request succeeded with the selected provider settings."
-        : hasConnectivityCheckInputs
-          ? "Optional. Check Connection sends a real model request and may consume provider credits."
-          : "API endpoint, API key, and at least one model are required before verification.";
+    : notProbed
+      ? "This provider forwards the login Claude Code sends and has none of its own to test with."
+      : localAgentImport
+        ? "The imported local agent login is connected when this provider is saved."
+        : connectionVerified
+          ? "A real model request succeeded with the selected provider settings."
+          : hasConnectivityCheckInputs
+            ? "Optional. Check Connection sends a real model request and may consume provider credits."
+            : "API endpoint, API key, and at least one model are required before verification.";
 
   return (
     <div className={cn("rounded-md border border-border bg-muted/20 p-3", className)}>
@@ -1794,11 +1802,11 @@ function ProviderConnectionStatusPanel({
         <ProviderConnectionStatusRow
           description={protocolDescription}
           loading={probeLoading}
-          state={protocolDetected || localAgentImport ? "success" : "pending"}
+          state={!notProbed && (protocolDetected || localAgentImport) ? "success" : "pending"}
           title={protocolTitle}
         />
         <ProviderConnectionStatusRow
-          action={onCheck && hasConnectivityCheckInputs ? (
+          action={onCheck && hasConnectivityCheckInputs && !claudeLoginProvider ? (
             <Button
               className="h-8 px-2"
               disabled={connectivityLoading || probeLoading}
@@ -1814,7 +1822,7 @@ function ProviderConnectionStatusPanel({
           ) : null}
           description={requestDescription}
           loading={connectivityLoading}
-          state={connectionVerified || localAgentImport ? "success" : hasConnectivityCheckInputs ? "warning" : "pending"}
+          state={notProbed ? "pending" : connectionVerified || localAgentImport ? "success" : hasConnectivityCheckInputs ? "warning" : "pending"}
           title={requestTitle}
         />
       </div>
@@ -2012,7 +2020,7 @@ export function AddProviderForm({
   const detectedBaseUrl = providerCapabilityBaseUrlForProtocol(draft.baseUrl, detectedProtocol, probe);
   const safetyIssue = providerDraftSafetyIssue(draft, detectedBaseUrl);
   const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft);
-  const claudeLoginProvider = localAgentImport && providerConnectivityProviderPlugins(draft, providerPlugins).some(isLocalClaudeCodeOauthProviderPlugin);
+  const claudeLoginProvider = isClaudeLoginProviderDraft(draft, providerPlugins);
   const setupStepIds = providerSetupStepsForDraft(draft);
   const localAgentProviderPlugins = useMemo(
     () => [...providerPlugins, ...draft.providerPlugins],
@@ -2313,9 +2321,9 @@ export function AddProviderForm({
         ) : null}
         {showStep("credentials") ? localAgentImport ? (
           <div className="sm:col-span-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px] leading-5">
-            <div className="font-semibold text-foreground">Signed in with your local agent</div>
+            <div className="font-semibold text-foreground">{claudeLoginProvider ? "Uses the login Claude Code sends" : "Signed in with your local agent"}</div>
             <div className="text-muted-foreground">
-              {claudeLoginProvider ? "This provider forwards the login Claude Code sends. Nothing is stored." : `This provider uses the login from ${draft.name}. No API key is needed.`}
+              {claudeLoginProvider ? "This provider forwards the login Claude Code sends. Nothing is stored. Turn on Sign in with my Claude login in a Claude Code profile to use it." : `This provider uses the login from ${draft.name}. No API key is needed.`}
             </div>
           </div>
         ) : (
@@ -2373,11 +2381,12 @@ export function AddProviderForm({
                 catalogModels={providerProbeModelsForProtocol(probe, draft.protocol)}
                 defaults={draft.catalogModelMetadata}
                 displayNames={draft.modelDisplayNames}
+                emptyCatalogText={claudeLoginProvider ? "LLMR does not ask this provider for a model list. Add model IDs with Custom model." : undefined}
                 loading={probeLoading}
                 metadata={draft.modelMetadata}
                 onMetadataChange={(modelMetadata) => onChange({ modelMetadata })}
                 onQueryChange={(modelSearch) => onChange({ modelSearch })}
-                onRefresh={onRefreshModels}
+                onRefresh={claudeLoginProvider ? undefined : onRefreshModels}
                 onSelectedChange={updateConfiguredModels}
                 openRouterDiscountRouting={draft.presetId === "openrouter"}
                 openRouterProviderCatalogRequest={draft.presetId === "openrouter"
@@ -2395,10 +2404,11 @@ export function AddProviderForm({
         {showStep("verify") ? (
           <>
             <ProviderFormStepHeader
-              description="Run a real model request before relying on this provider."
+              description={claudeLoginProvider ? "LLMR does not test this provider." : "Run a real model request before relying on this provider."}
               title="Verify connection"
             />
             <ProviderConnectionStatusPanel
+              claudeLoginProvider={claudeLoginProvider}
               className="sm:col-span-2"
               connectivityLoading={connectivityLoading}
               connectivityProbe={connectivityProbe}
@@ -3950,6 +3960,7 @@ function ProviderModelPicker({
   catalogModels,
   defaults,
   displayNames,
+  emptyCatalogText,
   loading = false,
   metadata,
   onMetadataChange,
@@ -3964,6 +3975,7 @@ function ProviderModelPicker({
   catalogModels: string[];
   defaults?: NonNullable<AddProviderDraft["catalogModelMetadata"]>;
   displayNames?: Record<string, string>;
+  emptyCatalogText?: string;
   loading?: boolean;
   metadata?: NonNullable<AddProviderDraft["modelMetadata"]>;
   onMetadataChange: (value: AddProviderDraft["modelMetadata"]) => void;
@@ -4110,7 +4122,7 @@ function ProviderModelPicker({
             <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-8 text-center text-[12px] text-muted-foreground">
               <div>{catalog.length === 0 ? "No provider models" : "No matching models"}</div>
               {catalog.length === 0 ? (
-                <div className="mt-1 text-[11px] leading-4">This provider did not return a model list. Add model IDs with Custom model.</div>
+                <div className="mt-1 text-[11px] leading-4">{emptyCatalogText ?? "This provider did not return a model list. Add model IDs with Custom model."}</div>
               ) : null}
             </div>
           ) : (

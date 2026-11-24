@@ -822,6 +822,15 @@ export function providerConnectivityProviderPlugins(
   );
 }
 
+export function isClaudeLoginProviderDraft(
+  draft: AddProviderDraft,
+  providerPlugins: unknown[] | undefined,
+  existingProvider?: GatewayProviderConfig
+): boolean {
+  return (draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft)) &&
+    providerConnectivityProviderPlugins(draft, providerPlugins, existingProvider).some(isLocalClaudeCodeOauthProviderPlugin);
+}
+
 export function removeLocalAgentProviderPluginsForProvider(
   current: unknown[] | undefined,
   provider: GatewayProviderConfig | undefined

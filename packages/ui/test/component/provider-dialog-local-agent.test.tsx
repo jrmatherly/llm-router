@@ -62,3 +62,50 @@ test("credentials step returns after the import is replaced", () => {
   assert.match(html, /API key/);
   assert.doesNotMatch(html, /Signed in with your local agent/);
 });
+
+test("the Claude Code login provider shows true text in every step and no check or refresh", () => {
+  const draft = {
+    ...createProviderDraft([]),
+    apiKey: localAgentProviderApiKey,
+    baseUrl: "https://api.anthropic.com",
+    modelsText: "claude-sonnet-5",
+    name: "Claude Code API"
+  };
+  const html = render(draft, {
+    onCheck: async () => undefined,
+    onRefreshModels: async () => undefined,
+    providerPlugins: [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }]
+  });
+  assert.match(html, /Uses the login Claude Code sends/);
+  assert.match(html, /LLMR does not probe this provider\./);
+  assert.match(html, /Not checked/);
+  assert.match(html, /LLMR does not ask this provider for a model list\./);
+  assert.match(html, /LLMR does not test this provider\./);
+  assert.doesNotMatch(html, /Signed in with your local agent/);
+  assert.doesNotMatch(html, /Choose a provider endpoint/);
+  assert.doesNotMatch(html, /did not return a model list/);
+  assert.doesNotMatch(html, /Check Connection/);
+  assert.doesNotMatch(html, /is connected when this provider is saved/);
+  assert.doesNotMatch(html, /Refresh provider models/);
+});
+
+test("a Codex login provider keeps its heading, its connection check and its model refresh", () => {
+  const draft = {
+    ...createProviderDraft([]),
+    apiKey: localAgentProviderApiKey,
+    baseUrl: "https://codex.example.test/v1",
+    modelsText: "gpt-5",
+    name: "Codex"
+  };
+  const html = render(draft, {
+    onCheck: async () => undefined,
+    onRefreshModels: async () => undefined,
+    providerPlugins: [{ key: "llmr-local-agent-codex-codex-oauth", providerName: "Codex" }]
+  });
+  assert.match(html, /Signed in with your local agent/);
+  assert.match(html, /Check Connection/);
+  assert.match(html, /Available after saving/);
+  assert.match(html, /Refresh provider models/);
+  assert.match(html, /Run a real model request/);
+  assert.match(html, /did not return a model list/);
+});

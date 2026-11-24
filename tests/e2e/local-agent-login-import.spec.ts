@@ -80,7 +80,7 @@ test("onboarding drops the credentials step after a local agent import", async (
   await expect(page.getByLabel("API key")).toHaveCount(0);
 });
 
-test("onboarding discovers the imported login's models through its plugins", async ({ page }) => {
+test("onboarding sends no probe for the imported Claude login", async ({ page }) => {
   const current = requireRuntime();
   const probeRequests: Array<{ apiKey?: string; providerPlugins?: unknown[] }> = [];
   await mockLocalAgentRpc(page, probeRequests);
@@ -91,13 +91,11 @@ test("onboarding discovers the imported login's models through its plugins", asy
   await page.getByRole("button", { name: "Next step" }).click();
 
   await expect(page.getByText("Choose the models that should be available through this provider.")).toBeVisible();
-  for (const model of discoveredModels) {
-    await expect(page.getByText(model, { exact: true }).first()).toBeVisible();
-  }
-  await expect(page.getByText("No provider models")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Refresh provider models" })).toBeVisible();
-  expect(probeRequests.length).toBeGreaterThan(0);
-  expect(probeRequests[0]).toMatchObject({ apiKey: localAgentProviderApiKey, providerPlugins: [oauthPlugin] });
+  await expect(page.getByText("claude-sonnet-5", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("LLMR does not ask this provider for a model list.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Refresh provider models" })).toHaveCount(0);
+  await page.waitForTimeout(1000);
+  expect(probeRequests.length).toBe(0);
 });
 
 test("the add provider dialog goes from the import to Pick models and back", async ({ page }) => {
@@ -126,6 +124,34 @@ test("the add provider dialog goes from the import to Pick models and back", asy
   await dialog.getByRole("button", { name: "Previous", exact: true }).click();
   await expect(dialog.getByText("Choose provider").first()).toBeVisible();
   await expect(dialog.getByRole("progressbar")).toHaveAttribute("aria-label", "Step 1 / 3");
+});
+
+test("the add provider dialog shows the imported Claude login as not checked", async ({ page }) => {
+  const current = requireRuntime();
+  const probeRequests: Array<{ apiKey?: string; providerPlugins?: unknown[] }> = [];
+  await mockLocalAgentRpc(page, probeRequests);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
+  await waitForBridge(page);
+  await page.evaluate(async () => {
+    await window.llmr?.setOnboardingFinished?.();
+  });
+  await page.reload();
+  await waitForBridge(page);
+  await page.getByRole("button", { name: "Providers", exact: true }).click();
+  await page.getByRole("button", { name: "Add provider", exact: true }).first().click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Import", exact: true }).click();
+  await dialog.getByRole("button", { name: "Next", exact: true }).click();
+
+  await expect(dialog.getByText("Pick models")).toBeVisible();
+  await dialog.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(dialog.getByText("Not checked", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("LLMR does not probe this provider.", { exact: false })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Check Connection" })).toHaveCount(0);
+  await page.waitForTimeout(1000);
+  expect(probeRequests.length).toBe(0);
 });
 
 test("editing an imported provider shows the local login notice instead of the marker", async ({ page }) => {
