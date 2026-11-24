@@ -215,3 +215,96 @@ function refusedKeyMessage(count, times) {
     type: llmrRefusedKeyRequestsMessageType
   };
 }
+
+function withFetch(t, handler) {
+  const previousFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(String(input));
+    requests.push({ authorization: new Headers(init.headers).get("authorization"), host: url.hostname, path: url.pathname });
+    return handler(url);
+  };
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+  });
+  return requests;
+}
+
+function config() {
+  const value = createDefaultAppConfig();
+  value.APIKEY = "first-key";
+  value.APIKEYS = [{ id: "first", key: "first-key", name: "First" }];
+  value.gateway.host = "127.0.0.1";
+  value.gateway.port = 3456;
+  return value;
+}
+
+const health = () => Response.json({ core: "http://127.0.0.1:3467", status: "ok", timestamp: "2026-01-01T00:00:00.000Z" });
+
+function restartingService(config) {
+  const service = createService();
+  service.config = config;
+  service.coreRestartGeneration = 3;
+  service.status = { coreEndpoint: "http://127.0.0.1:3467", endpoint: "http://127.0.0.1:3456", networkEndpoints: [], state: "error" };
+  const calls = [];
+  service.stopGateway = async () => { calls.push("stop"); return service.getStatus(); };
+  service.adoptExternalGateway = async (_config, endpoint, apiKey) => {
+    calls.push(`adopt ${endpoint} ${apiKey}`);
+    service.status = { ...service.status, gatewayManagedExternally: true, state: "running" };
+    return service.getStatus();
+  };
+  service.rememberStoredApiKeys = async () => { calls.push("remember"); };
+  service.holdConfig = () => { calls.push("hold"); throw new Error("reached the normal start"); };
+  return { calls, service };
+}
+
+test("a restart adopts another gateway on its port that accepts its key", async (t) => {
+  withFetch(t, (url) => url.pathname === "/health" ? health() : Response.json({ data: [] }));
+  const { calls, service } = restartingService(config());
+  const status = await service.startGateway(service.config, 3);
+  assert.deepEqual(calls, ["stop", "adopt http://127.0.0.1:3456 first-key"]);
+  assert.equal(status.state, "running");
+  assert.equal(status.gatewayManagedExternally, true);
+});
+
+test("a restart leaves another gateway that refuses its key alone and says who serves the port", async (t) => {
+  withFetch(t, (url) => url.pathname === "/health" ? health() : new Response("{}", { status: 401 }));
+  const { calls, service } = restartingService(config());
+  const status = await service.startGateway(service.config, 3);
+  assert.deepEqual(calls, []);
+  assert.equal(status.state, "error");
+  assert.equal(status.lastError, "Another LLM Router process serves http://127.0.0.1:3456 and does not accept this process's key. Quit the other one, or restart this one.");
+});
+
+test("a restart says only that the port is served when the other gateway fails without refusing the key", async (t) => {
+  withFetch(t, (url) => url.pathname === "/health" ? health() : new Response("{}", { status: 500 }));
+  const { calls, service } = restartingService(config());
+  const status = await service.startGateway(service.config, 3);
+  assert.deepEqual(calls, []);
+  assert.equal(status.lastError, "Another process serves http://127.0.0.1:3456.");
+});
+
+test("a restart with nothing on its port starts a gateway as before", async (t) => {
+  withFetch(t, () => { throw new Error("connection refused"); });
+  const { calls, service } = restartingService(config());
+  await assert.rejects(service.startGateway(service.config, 3), /reached the normal start/);
+  assert.deepEqual(calls, ["stop", "hold"]);
+});
+
+test("a restart cancelled while it probes adopts nothing", async (t) => {
+  const { calls, service } = restartingService(config());
+  withFetch(t, (url) => {
+    if (url.pathname !== "/health") service.coreRestartGeneration = 4;
+    return url.pathname === "/health" ? health() : Response.json({ data: [] });
+  });
+  await service.startGateway(service.config, 3);
+  assert.deepEqual(calls, []);
+});
+
+test("a manual start does not look for another gateway first", async (t) => {
+  const requests = withFetch(t, () => health());
+  const { calls, service } = restartingService(config());
+  await assert.rejects(service.startGateway(service.config), /reached the normal start/);
+  assert.deepEqual(calls, ["remember", "stop", "hold"]);
+  assert.equal(requests.length, 0);
+});

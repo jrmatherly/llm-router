@@ -186,6 +186,16 @@ class GatewayService {
       };
       return this.getStatus();
     }
+    if (recoveryGeneration !== undefined && await isCoreGatewayHealthy(this.status.coreEndpoint)) {
+      const existing = await probeExistingLlmrGateway(config);
+      if (recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
+      if (existing.state === "usable") {
+        await this.stopGateway({ nextConfig: config });
+        return this.adoptExternalGateway(config, existing.endpoint, existing.apiKey);
+      }
+      this.status = { ...this.getStatus(), lastError: anotherGatewayOwnerMessage(this.status.endpoint, existing.state === "unauthorized"), state: "error" };
+      return this.getStatus();
+    }
     // Read before the old child stops: a key written from here on stays outside the baseline, so the poll sees it once the gateway runs.
     if (recoveryGeneration === undefined) await this.rememberStoredApiKeys();
     await this.stopGateway({ nextConfig: config });
@@ -639,7 +649,7 @@ class GatewayService {
   private scheduleCoreRestart(generation: number): void {
     if (generation !== this.coreRestartGeneration || this.coreRestartTimer) return;
     const delayMs = Math.min(30_000, 1_000 * 2 ** Math.min(this.coreRestartAttempts++, 5));
-    console.warn(`[gateway] Core gateway exited unexpectedly; restarting in ${delayMs}ms.`);
+    console.warn(`[gateway] Core gateway is not running; trying again in ${delayMs}ms.`);
     this.coreRestartTimer = setTimeout(async () => {
       this.coreRestartTimer = undefined;
       if (generation !== this.coreRestartGeneration || !this.config) return;
@@ -843,6 +853,12 @@ function assertManagedGatewayStartupContinues(child: ChildProcess, startupFailur
   if (startupFailure || child.exitCode !== null || child.signalCode !== null || child.killed) {
     throw startupFailure ?? new Error(formatCoreGatewayChildExit(child));
   }
+}
+
+function anotherGatewayOwnerMessage(gatewayEndpoint: string, keyRefused: boolean): string {
+  return keyRefused
+    ? `Another LLM Router process serves ${gatewayEndpoint} and does not accept this process's key. Quit the other one, or restart this one.`
+    : `Another process serves ${gatewayEndpoint}.`;
 }
 
 async function removeManagedCoreGatewayMarkerBestEffort(): Promise<void> {
