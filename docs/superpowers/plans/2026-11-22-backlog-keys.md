@@ -542,7 +542,16 @@ This happens only when the running gateway was started from a config that differ
 - (a) Keep running on the key list it started with, log the failure once and try again each minute. Task 2 is built this way. A key removed elsewhere stays accepted by this gateway until the stored config can run or the gateway is restarted, which is what happened before Task 2 in every case.
 - (b) Stop the gateway. No removed key stays accepted. A key change in another process then takes a working gateway down.
 
-Recommendation: (a). The two automated reviews of PR 150 disagreed on this: the error-handling review rated the stop as the more serious fault, and the commit security review asked for the stop.
+- (c) Restart on the config the gateway holds, with only the stored key list put in its place. A removed key stops being accepted and a working gateway is not stopped. Found by the research of 2026-11-24, which sizes it at about three lines and a test. Not built and not prototyped. Not checked: what the gateway child uses the first key of the list for.
+
+Recommendation: (c), with the refusal also shown in the gateway status. It first read (a). The two automated reviews of PR 150 disagreed on (a) and (b): the error-handling review rated the stop as the more serious fault, and the commit security review asked for the stop.
+
+Research of 2026-11-24, read in the code at `8c75afb1` and not run:
+
+- **How it is reached.** A process that does not own the gateway saves a config that disables the gateway or removes its last model, for example `llmr serve --no-gateway`. Its key reconcile, or any later key change, then sets off the owner's poll, and rule 4 refuses (inferred). The owner's own save handlers store first and then hand over the stored config (`ipc.ts:324-366`, `:381-386`, `management-server.ts:494-532`), so they cannot cause it. An app-profile open starts the gateway from a one-key config, and the stored config still runs, so rule 4 does not fire there.
+- **How long it lasts.** Until the stored config can run again, a save in the owner, a restart or a quit.
+- **Where it shows.** One `console.error` line. `getStatus` does not carry it, and the UI shows `lastError` only when the gateway is not running (`App.tsx:727`).
+- **The requested reload differs.** A reload another process asks for has no such check, so it takes a disabled stored config and stops the gateway (`gateway-service.ts`, `reloadPersistedRuntimeConfig`).
 
 **What should a profile launch do when the gateway still refuses the profile's own key after the wait? (K-3, Task 3)**
 
@@ -550,4 +559,14 @@ Recommendation: (a). The two automated reviews of PR 150 disagreed on this: the 
 - (b) Refuse the launch with an error that says to restart the gateway. No session ever runs on another key. A user whose gateway is stale for a reason Task 2 does not cover cannot launch until they restart it.
 - (c) Keep today's behaviour and only add the warning, with no wait. A launch right after a profile's first apply then always runs on another key.
 
-Recommendation: (a). Task 3 does not wait on the answer. If the owner picks (b), Step 3's warning becomes a thrown `Error` with the same text and the second test asserts the rejection. If (c), the wait and the first test are dropped.
+- (d) Refuse only for a Claude Code profile in Claude login mode, and fall back with the warning for the others. Found by the research of 2026-11-24. It is the least that makes that mode correct.
+
+Recommendation: (b). It first read (a). The research of 2026-11-24 changed it, read in the code at `8c75afb1` and not run:
+
+- **Claude login mode does not work on another key.** A request is sent on with the user's Claude login only when the key it carries belongs to a Claude Code profile in that mode (`claude-login-pass-through.ts:65-69`). On another key the request is routed as an ordinary one: it is refused, or answered by another provider when the routing has one.
+- **The profile's settings follow the key.** The allowed model list, the default model, the agent routes, the limits and expiry, and the name in Logs are all those of the key the launch ended on.
+- **The launch writes that key into the agent's files.** `applyProfileRuntimeConfig(launchConfig, profile, launchConfig.APIKEY)` (`cli.ts:190`) writes it into the agent's settings and helper files, where it stays until the next apply.
+- **One case the wait cannot fix.** After the desktop app starts its gateway for an app profile, that gateway holds one key and the stored list has not changed, so no reload comes and the profile's key is never accepted.
+- **What is left after Task 2.** A gateway from a version without the poll, a gateway another process owns, a refused or failed reload. Each needs a restart, which is what the error of (b) says.
+
+Task 3 is written for (a) and does not wait on the answer. If the owner picks (b), Step 3's warning becomes a thrown `Error` with the same text and the second test asserts the rejection. If (c), the wait and the first test are dropped.
