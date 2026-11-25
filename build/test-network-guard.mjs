@@ -15,11 +15,12 @@ if (!original[marker]) {
     const where = `${target.host}:${target.port}`;
     const log = process.env.LLMR_TEST_NETWORK_LOG;
     if (log) {
+      const owner = process.env.LLMR_TEST_FILE ?? (process.argv[1] ? path.relative(process.cwd(), process.argv[1]) : "");
       try {
-        const owner = process.env.LLMR_TEST_FILE ?? (process.argv[1] ? path.relative(process.cwd(), process.argv[1]) : "");
         appendFileSync(log, `${where}\t${owner}\n`);
-      } catch {
+      } catch (error) {
         // A child that outlives a direct run's home gets ENOENT here, and connect must not throw.
+        process.stderr.write(`test network guard: refused ${where}, not logged (${error.code})\n`);
       }
     }
     const error = Object.assign(new Error(`test network guard: refused ${where}`), { code: "ECONNREFUSED" });
@@ -35,5 +36,5 @@ function isLoopback(host) {
     return true;
   }
   const name = String(host).toLowerCase().replace(/^\[(.*)\]$/, "$1");
-  return name === "localhost" || name === "::1" || name === "0.0.0.0" || name === "::" || /^127\./.test(name) || /^::ffff:127\./.test(name);
+  return name === "localhost" || name === "::1" || name === "0.0.0.0" || name === "::" || (net.isIP(name) !== 0 && (/^127\./.test(name) || /^::ffff:127\./.test(name)));
 }

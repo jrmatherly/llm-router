@@ -13,6 +13,9 @@ export function isolateTestHome(testHome, env = process.env) {
   env.LLMR_INTERNAL_USER_DATA_DIR = path.join(testHome, "user-data");
   env.LLMR_INTERNAL_CLAUDE_CODE_MANAGED_SETTINGS_DIR = path.join(testHome, "claude-code-managed-settings");
   delete env.CODEX_HOME;
+  for (const name of ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy"]) {
+    delete env[name];
+  }
   return env;
 }
 

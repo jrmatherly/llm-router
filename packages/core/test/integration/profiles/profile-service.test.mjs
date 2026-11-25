@@ -6,7 +6,6 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { isDeepStrictEqual } from "node:util";
-import { assertCodexFilesParse } from "../../support/codex-toml.mjs";
 import { writeWorkbuddyModelsConfig } from "@llmr/core/agents/codex/app-launch.ts";
 import { resolveGrokSourceHome } from "@llmr/core/agents/grok/profile-config.ts";
 import { resolveKimiSourceHome } from "@llmr/core/agents/kimi/profile-config.ts";
@@ -16,6 +15,7 @@ import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { loadPersistedApiKeys, replacePersistedAppConfig, updatePersistedApiKeys } from "@llmr/core/config/config-repository.ts";
 import { CONFIGDIR } from "@llmr/core/config/constants.ts";
 import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, reconcileProfileApiKeys, recoverGlobalAgentProfile, applyTakeoversAfterGatewayReplaced, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service.ts";
+import { assertCodexFilesParse } from "../../support/codex-toml.mjs";
 
 test("Grok profile source home follows profile and process environment overrides", () => {
   const previous = {
@@ -4058,7 +4058,7 @@ function filesHolding(dir, value) {
 }
 
 async function withAppliedDefaultProfiles(profileIds, run, beforeApply, options = {}) {
-  const parse = options.parse ?? true;
+  const parseAfter = options.parseAfter ?? true;
   const runtimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   const claudeDir = path.join(runtimeHome, ".claude");
@@ -4087,12 +4087,10 @@ async function withAppliedDefaultProfiles(profileIds, run, beforeApply, options 
     if (profileIds.includes("default-codex")) {
       assert.match(codexToken ?? "", /^llmr-profile-/);
       assert.ok(readFileSync(codexConfigFile, "utf8").includes(codexToken), "the applied config.toml holds the profile's token");
-      if (parse) {
-        assertCodexFilesParse(codexDir);
-      }
+      assertCodexFilesParse(codexDir);
     }
     await run({ claudeDir, codexConfigFile, codexDir, codexToken, config });
-    if (parse) {
+    if (parseAfter) {
       assertCodexFilesParse(codexDir, { allowNone: true });
     }
   } finally {
@@ -4556,7 +4554,7 @@ test("restoring a Codex config with a value the user left open still removes LLM
     assert.equal(result.status.ok, true, result.status.message);
     assert.equal(readFileSync(codexConfigFile, "utf8"), broken);
     assert.deepEqual(filesHolding(codexDir, codexToken), []);
-  }, undefined, { parse: false });
+  }, undefined, { parseAfter: false });
 });
 
 test("restoring a Codex config twice changes nothing the second time", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
@@ -5829,7 +5827,7 @@ test("a profile table the user adds to a Codex config LLMR created moves to the 
   }
 });
 
-test("a moved profile table's own model setting goes whole when its value spans lines", { skip: !process.env.LLMR_INTERNAL_HOME_DIR, todo: "S-2 in the profile file, fixed in Task 3" }, async () => {
+test("a moved profile table's own model setting goes whole when its value spans lines", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
     const profileFile = path.join(codexDir, "llm-router.config.toml");
     rmSync(profileFile);
@@ -5840,7 +5838,9 @@ test("a moved profile table's own model setting goes whole when its value spans 
     assert.equal(lines.includes("  \"not-a-model\","), false);
     assert.equal(lines.includes("]"), false);
     assert.equal(lines.includes("keep = 1"), true);
-  });
+    // S-2: fails on purpose until stripper Task 3; then this throws-check fails and is removed.
+    assert.throws(() => assertCodexFilesParse(codexDir), /llm-router\.config\.toml does not parse as TOML/);
+  }, undefined, { parseAfter: false });
 });
 
 test("a restore that writes the original Codex config back says so, and that the user's profile settings are in it again", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {

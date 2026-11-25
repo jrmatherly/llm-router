@@ -33,8 +33,9 @@ if (ownsHome) {
     }
     try {
       rmSync(home, { force: true, maxRetries: 3, recursive: true });
-    } catch {
+    } catch (error) {
       // On Windows an open database handle refuses the removal; a leftover folder must not fail a passing run.
+      console.warn(`could not remove the test home ${home} (${error.code})`);
     }
   });
 }

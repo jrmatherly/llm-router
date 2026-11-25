@@ -58,7 +58,7 @@ test("#1781 actual gateway preserves parallel Anthropic tool IDs in Chat and Res
     }));
     child = spawn(process.execPath, [path.resolve("node_modules/@the-next-ai/ai-gateway/dist/index.js")], {
       cwd: root,
-      env: { PATH: process.env.PATH, ELECTRON_RUN_AS_NODE: process.env.ELECTRON_RUN_AS_NODE, GATEWAY_CONFIG_PATH: configFile },
+      env: { PATH: process.env.PATH, ELECTRON_RUN_AS_NODE: process.env.ELECTRON_RUN_AS_NODE, GATEWAY_CONFIG_PATH: configFile, LLMR_TEST_FILE: process.env.LLMR_TEST_FILE, LLMR_TEST_NETWORK_LOG: process.env.LLMR_TEST_NETWORK_LOG, NODE_OPTIONS: process.env.NODE_OPTIONS },
       stdio: ["ignore", "pipe", "pipe"]
     });
     exited = once(child, "exit");

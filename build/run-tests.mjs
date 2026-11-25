@@ -79,8 +79,9 @@ async function runProject(project) {
   } finally {
     try {
       rmSync(testHome, { force: true, maxRetries: 3, recursive: true });
-    } catch {
+    } catch (error) {
       // On Windows a handle still open refuses the removal; it must not hide the suite's result.
+      console.warn(`could not remove the test home ${testHome} (${error.code})`);
     }
   }
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -42,16 +42,41 @@ const workerFetch = (host) => `import { parentPort } from "node:worker_threads";
 
 test("a connection to a host that is not loopback is refused before any lookup", () => {
   const suiteLog = process.env.LLMR_TEST_NETWORK_LOG;
-  const before = suiteLog ? refusedConnections(suiteLog) : [];
+  const outsideLines = () => (suiteLog ? refusedConnections(suiteLog) : []).filter((line) => line.startsWith("outside.invalid:443"));
+  const before = outsideLines();
   const { out, refused } = runGuarded(outsideScript);
   for (const message of [out.fetch, out.https, out.net]) {
     assert.match(message, /test network guard: refused outside\.invalid:443/);
   }
   assert.equal(refused.length, 1, refused.join("\n"));
   assert.ok(refused[0].startsWith("outside.invalid:443\t"), refused[0]);
-  if (suiteLog) {
-    assert.deepEqual(refusedConnections(suiteLog), before);
+  assert.deepEqual(outsideLines(), before);
+});
+
+test("a name that only starts like a loopback address, and the (port, host) form, are refused", () => {
+  const { out, refused } = runGuarded(`
+    const net = await import("node:net");
+    const out = {};
+    try { await fetch("http://127.evil.invalid/"); } catch (error) { out.name = error.cause?.message ?? error.message; }
+    out.portHost = await new Promise((resolve) => new net.Socket().connect(443, "outside.invalid").on("error", (error) => resolve(error.message)));
+    console.log(JSON.stringify(out));
+  `);
+  assert.match(out.name, /test network guard: refused 127\.evil\.invalid:80/);
+  assert.match(out.portHost, /test network guard: refused outside\.invalid:443/);
+  assert.deepEqual(refused.map((line) => line.split("\t")[0]), ["127.evil.invalid:80", "outside.invalid:443"]);
+});
+
+test("a log the guard cannot write still refuses, and says why on stderr", () => {
+  const env = { ...process.env };
+  for (const name of ["NODE_OPTIONS", "LLMR_TEST_FILE"]) {
+    delete env[name];
   }
+  guardTestNetwork(env, defaultGuard, path.join(os.tmpdir(), "llmr-no-such-dir", "network-refused.log"));
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", 'try { await fetch("https://outside.invalid/"); } catch (error) { console.log(error.cause?.message ?? error.message); }'], { encoding: "utf8", env });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /test network guard: refused outside\.invalid:443/);
+  assert.match(result.stderr, /outside\.invalid:443/);
+  assert.match(result.stderr, /ENOENT/);
 });
 
 test("loopback still connects, by address, by name and by socket path", () => {
@@ -64,6 +89,7 @@ test("loopback still connects, by address, by name and by socket path", () => {
     const port = server.address().port;
     const byAddress = (await fetch("http://127.0.0.1:" + port + "/")).status;
     const byName = (await fetch("http://localhost:" + port + "/")).status;
+    const byUpperName = (await fetch("http://LOCALHOST:" + port + "/")).status;
     server.close();
     const socketPath = path.join(process.env.LLMR_TEST_HOME, "s.sock");
     const unix = net.createServer((socket) => socket.end());
@@ -73,9 +99,9 @@ test("loopback still connects, by address, by name and by socket path", () => {
       client.on("error", reject);
     });
     unix.close();
-    console.log(JSON.stringify({ byAddress, byName, socket }));
+    console.log(JSON.stringify({ byAddress, byName, byUpperName, socket }));
   `);
-  assert.deepEqual(out, { byAddress: 200, byName: 200, socket: true });
+  assert.deepEqual(out, { byAddress: 200, byName: 200, byUpperName: 200, socket: true });
   assert.deepEqual(refused, []);
 });
 
@@ -145,6 +171,29 @@ test("under the runner a worker thread is refused too", { skip: underRunner ? fa
     worker.once("error", reject);
   });
   assert.match(message, /test network guard: refused worker6\.invalid:443/);
+});
+
+test("the runner prints each suite's refusals with the file that made them", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-runner-copy-"));
+  try {
+    mkdirSync(path.join(root, "build"));
+    for (const name of ["run-tests.mjs", "test-home-env.mjs", "test-network-guard.mjs"]) {
+      copyFileSync(path.join(projectRoot, "build", name), path.join(root, "build", name));
+    }
+    symlinkSync(path.join(projectRoot, "node_modules"), path.join(root, "node_modules"), "junction");
+    mkdirSync(path.join(root, ".test-dist", "cli", "test"), { recursive: true });
+    writeFileSync(path.join(root, ".test-dist", "cli", "test", "reach.test.js"), 'require("node:test")("reach", async () => { try { await fetch("https://outside.invalid/"); } catch {} });\n');
+    const env = { ...process.env };
+    // NODE_TEST_CONTEXT would make the inner node --test report to this one instead of running its files.
+    for (const name of ["LLMR_TEST_HOME", "LLMR_TEST_NETWORK_LOG", "LLMR_TEST_FILE", "NODE_OPTIONS", "NODE_TEST_CONTEXT"]) {
+      delete env[name];
+    }
+    const result = spawnSync(process.execPath, [path.join(root, "build", "run-tests.mjs"), "cli"], { cwd: root, encoding: "utf8", env });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.includes(`cli: 1 connection to an outside host was refused\noutside.invalid:443\t${path.join(".test-dist", "cli", "test", "reach.test.js")}\n`), result.stdout);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test("a direct run prints what it refused", () => {
