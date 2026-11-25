@@ -1,8 +1,8 @@
 # Four Test Faults Behind the Red Intel Mac Entry Implementation Plan
 
-> **Status, 2026-11-25 (UTC): written from the logs, audited once and corrected, not built.** The audit built every task in a throwaway worktree and found two Blockers, in Tasks 2 and 3. Both tasks are rewritten below. The session ran the rewritten tasks, and no second model has read the rewritten text. "Audit" at the end says what each round ran. No task is approved for build until the owner says so.
+> **Status, 2026-11-25 (UTC): built and merged as PR 163 (`2b1c6916`).** The four tasks are one commit each, and a fifth commit fixed what the review found: a time limit on Task 1's warm-up hook, an architecture test that pins the runner's line from Task 3, and the port test's child processes claiming in the run's folder. The Intel Mac entry passed on both of the PR's runs. That does not prove the faults are gone, since each showed in one to four of thirteen jobs. Question 2 below is not answered. The text below is the plan as it was built from, after one audit: the audit found two Blockers, in Tasks 2 and 3, both tasks were rewritten, and the session ran the rewritten tasks. "Audit" at the end says what each round ran.
 
-> **Delivery.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) has no row for this plan. Its decisions 1 to 8 apply. The four tasks touch four test files, one test helper and the test runner, so they land as one branch, `fix/intel-mac-test-faults`, and one squash-merged PR with one commit per task. No product code changes.
+> **Delivery.** [`2026-11-25-delivery-order.md`](../2026-11-25-delivery-order.md) has no row for this plan. Its decisions 1 to 8 apply. The four tasks touch four test files, one test helper and the test runner, so they land as one branch, `fix/intel-mac-test-faults`, and one squash-merged PR with one commit per task. No product code changes.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
