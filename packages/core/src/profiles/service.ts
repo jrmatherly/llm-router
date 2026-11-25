@@ -78,7 +78,7 @@ import {
   stripManagedCodexConfigContent
 } from "@llmr/core/profiles/codex-config-strip";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
-import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
+import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig, syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
 import { probeExistingLlmrGateway } from "@llmr/core/gateway/existing-gateway-probe";
 import { resolveClaudeAppProfileUserDataDir } from "@llmr/core/agents/claude-app/launch";
 import { resolveZcodeConfigFile, writeZcodeGatewayConfig, zcodeHomeFromConfigFile } from "@llmr/core/agents/zcode/profile-config";
@@ -3573,6 +3573,38 @@ export async function restoreTakeoversWhenNoGatewayServes(): Promise<void> {
   }
 }
 
+// The other side of restoreTakeoversWhenNoGatewayServes: another process restored the takeovers as it stopped, and this one serves now. Never throws.
+export async function applyTakeoversAfterGatewayReplaced(): Promise<void> {
+  let config: AppConfig;
+  try {
+    // From the store, as the restore reads it: the config this process holds can be older than a save the other process made, and an apply prunes the keys of profiles it does not list.
+    config = await loadAppConfig();
+  } catch (error) {
+    console.error(`Skipped applying profiles after taking over the gateway: ${formatError(error)}`);
+    return;
+  }
+  const loadError = appConfigLoadError(config);
+  if (loadError) {
+    console.error(`Skipped applying profiles after taking over the gateway: ${loadError}`);
+    return;
+  }
+  let synced = config;
+  try {
+    synced = (await syncClaudeAppGatewayConfig(config)).config;
+  } catch (error) {
+    console.error(`Failed to sync Claude App gateway config after taking over the gateway: ${formatError(error)}`);
+  }
+  try {
+    for (const client of (await applyProfileConfig(synced, { excludeAgents: ["zcode"] })).clients) {
+      if (!client.ok) {
+        console.error(`Failed to apply ${client.client} profile after taking over the gateway: ${client.message}`);
+      }
+    }
+  } catch (error) {
+    console.error(`Failed to apply profiles after taking over the gateway: ${formatError(error)}`);
+  }
+}
+
 function synchronizeGlobalProfileTakeovers(
   profiles: ProfileConfig[],
   canTakeOver: boolean,
@@ -3598,7 +3630,8 @@ function synchronizeGlobalProfileTakeovers(
 function storeGlobalProfileTakeoverRecords(records: GlobalProfileTakeoverRecord[]): void {
   const previous = ownedGlobalProfileTakeovers;
   ownedGlobalProfileTakeovers = records;
-  if (JSON.stringify(previous) === JSON.stringify(records)) {
+  // Another LLM Router process can clear the marker file as it stops, so matching records in memory do not show the file is there.
+  if (JSON.stringify(previous) === JSON.stringify(records) && (records.length === 0) !== existsSync(globalProfileTakeoverFile)) {
     return;
   }
   if (records.length > 0) {

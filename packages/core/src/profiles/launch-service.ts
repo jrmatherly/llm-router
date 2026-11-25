@@ -445,8 +445,7 @@ async function ensureGatewayConfigRunning(
     }
     if (existingGateway.state === "unavailable") {
       if (!startIfMissing) {
-        const reason = existingGateway.reason ? `: ${existingGateway.reason}` : "";
-        throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
+        throw gatewayNotRunningError(config, appName, existingGateway.reason);
       }
     } else {
       throw new Error(existingGatewayConflictMessage(existingGateway, appName));
@@ -454,7 +453,7 @@ async function ensureGatewayConfigRunning(
   }
 
   if (!startIfMissing) {
-    throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
+    throw gatewayNotRunningError(config, appName);
   }
 
   const startedStatus = await gatewayService.start(candidateConfig);
@@ -484,8 +483,8 @@ async function waitForProfileKey(
   waitMs = 10_000
 ): Promise<void> {
   if (!acceptedApiKey || acceptedApiKey === config.APIKEY) return;
-  // stderr, so the line stays out of output a script reads from the agent.
-  if (waitMs > 0) console.warn(`[profile] Waiting for the gateway to accept the key of profile "${profile.name || profile.id}".`);
+  // stderr, so the line stays out of output a script reads from the agent. Only on a terminal: a program that captures stderr shows it after the launch, when the wait is over.
+  if (waitMs > 0 && process.stderr.isTTY) console.warn(`[profile] Waiting for the gateway to accept the key of profile "${profile.name || profile.id}".`);
   let last: ExistingProfileGatewayProbe = { endpoint: profileGatewayEndpoint(config), state: "unauthorized", status: 401 };
   const deadline = Date.now() + waitMs;
   while (Date.now() < deadline) {
@@ -493,9 +492,16 @@ async function waitForProfileKey(
     last = await probeExistingProfileGateway(config, profile, config, [config.APIKEY]);
     if (last.state === "usable") return;
   }
-  // Not ProfileGatewayUnavailableError: the CLI answers that by starting a service, and a gateway that answered when the wait began may still be restarting in a process the CLI cannot see.
-  if (last.state === "unavailable") throw new Error(`${existingGatewayConflictMessage(last, appName)} ${restartGatewayAdvice}`);
+  // The error a launch that finds no gateway gets, which the CLI answers for some agents by starting a service. A process that was only restarting the gateway adopts that service or is adopted by it.
+  if (last.state === "unavailable") {
+    const during = `it stopped answering while this launch waited ${waitMs / 1000} seconds for it to accept the key of profile "${profile.name || profile.id}"`;
+    throw gatewayNotRunningError(config, appName, last.reason ? `${during} (${last.reason})` : during);
+  }
   throw new Error(existingGatewayConflictMessage(last, appName));
+}
+
+function gatewayNotRunningError(config: AppConfig, appName: string, reason?: string): ProfileGatewayUnavailableError {
+  return new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason ? `: ${reason}` : ""}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
 }
 
 type ExistingProfileGatewayProbe =
@@ -1013,23 +1019,31 @@ function activateProfileAppWindow(entry: Pick<RunningProfileApp, "pid" | "userDa
   for (const delayMs of [250, 1200]) {
     setTimeout(() => {
       const pid = profileAppMainPid(entry) ?? entry.pid;
-      if (!isProcessAlive(pid)) {
+      if (pid === undefined || !isProcessAlive(pid)) {
         return;
       }
       try {
-        const child = spawn("/usr/bin/osascript", [
-          "-e",
-          `tell application "System Events" to set frontmost of the first process whose unix id is ${pid} to true`
-        ], {
+        const { args, command } = profileAppActivationCommand(pid);
+        const child = spawn(command, args, {
           detached: true,
           stdio: "ignore"
         });
+        // A spawn that fails reports through this event, which the catch below does not see, and an unheard error event ends the process.
+        child.on("error", () => {});
         child.unref();
       } catch {
         // Activation is best-effort; the app process itself has already been started.
       }
     }, delayMs).unref();
   }
+}
+
+// Activation by process id sends no Apple Event, so macOS asks for no Automation access.
+export function profileAppActivationCommand(pid: number): { args: string[]; command: string } {
+  return {
+    args: ["-l", "JavaScript", "-e", `ObjC.import("AppKit"); $.NSRunningApplication.runningApplicationWithProcessIdentifier(${pid}).activateWithOptions(2)`],
+    command: "/usr/bin/osascript"
+  };
 }
 
 function runningProfileApp(profileId: string, surface: ProfileOpenRequest["surface"]): RunningProfileApp | undefined {

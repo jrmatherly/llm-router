@@ -130,6 +130,8 @@ class GatewayService {
     getGlobalBillingConfig: () => pluginService.getCoreGatewayConfig().billing
   });
   private adoptedGatewayGoneSince?: number;
+  private adoptedGatewayReplaced = false;
+  private adoptedGatewayReplacedHandler?: () => unknown;
   private adoptedGatewayReloads = 0;
   private adoptedGatewayTimer?: NodeJS.Timeout;
   private child?: ChildProcess;
@@ -169,6 +171,11 @@ class GatewayService {
 
   setBrowserWebSearchMcpIntegration(integration: BrowserWebSearchMcpIntegration): void {
     this.browserWebSearchMcpIntegration = integration;
+  }
+
+  // The process that served the adopted gateway restores the agent configs when it stops, so the host applies them again once this process serves.
+  setAdoptedGatewayReplacedHandler(handler: () => unknown): void {
+    this.adoptedGatewayReplacedHandler = handler;
   }
 
   setBrowserAutomationMcpIntegration(integration: BrowserAutomationMcpIntegration): void {
@@ -347,6 +354,7 @@ class GatewayService {
       clearInterval(this.storedApiKeysTimer);
       this.storedApiKeysTimer = setInterval(() => { void this.checkStoredApiKeys(); }, storedApiKeysPollMs).unref();
       this.runtimeConfigReloadError = undefined;
+      this.storedApiKeysReloadFailure = undefined;
       return this.getStatus();
     } catch (error) {
       if (recoveryGeneration !== undefined && recoveryGeneration !== this.coreRestartGeneration) return this.getStatus();
@@ -658,6 +666,7 @@ class GatewayService {
   private cancelCoreRestart(): void {
     this.coreRestartGeneration += 1;
     this.coreRestartAttempts = 0;
+    this.adoptedGatewayReplaced = false;
     if (this.coreRestartTimer) clearTimeout(this.coreRestartTimer);
     this.coreRestartTimer = undefined;
   }
@@ -674,6 +683,7 @@ class GatewayService {
       try {
         const status = await recovery;
         if (status.state === "error") this.scheduleCoreRestart(generation);
+        else this.tellHostAdoptedGatewayReplaced(status);
       } catch (error) {
         console.warn(`[gateway] Core gateway restart failed: ${formatError(error)}`);
         this.scheduleCoreRestart(generation);
@@ -681,6 +691,15 @@ class GatewayService {
         if (this.coreRecovery === recovery) this.coreRecovery = undefined;
       }
     }, delayMs);
+  }
+
+  private tellHostAdoptedGatewayReplaced(status: GatewayStatus): void {
+    const replaced = this.adoptedGatewayReplaced;
+    this.adoptedGatewayReplaced = false;
+    if (!replaced || status.state !== "running" || status.gatewayManagedExternally) return;
+    void Promise.resolve().then(() => this.adoptedGatewayReplacedHandler?.()).catch((error) => {
+      console.warn(`[gateway] Failed after taking over from an adopted gateway: ${formatError(error)}`);
+    });
   }
 
   private handleCoreGatewayMessage(child: ChildProcess, message: unknown): void {
@@ -810,6 +829,7 @@ class GatewayService {
   // With no revision the reload is the key poll's own, and it keeps its failures apart from the ones a requested reload reports to its caller.
   private async reloadPersistedRuntimeConfig(expectedRevision: string | undefined, forceRestart: boolean): Promise<void> {
     const keyPoll = expectedRevision === undefined;
+    let restartGeneration: number | undefined;
     try {
       const nextConfig = await loadAppConfig();
       const loadError = appConfigLoadError(nextConfig);
@@ -824,7 +844,10 @@ class GatewayService {
       const restartRequired = forceRestart || !this.config ||
         this.runtimeConfigSignature !== runtimeGatewayConfigSignature(nextConfig);
       if (restartRequired) {
-        const status = await this.start(nextConfig);
+        const starting = this.start(nextConfig);
+        // Taken before the await: a stop that comes in while this start runs moves the generation on, and the restart below must not undo that stop.
+        restartGeneration = this.coreRestartGeneration;
+        const status = await starting;
         if (status.state === "error") {
           throw new Error(status.lastError || "LLMR gateway failed to restart with the updated configuration.");
         }
@@ -846,6 +869,8 @@ class GatewayService {
       // While the gateway still runs, the reload is tried again a minute later, and the same failure is logged once.
       this.storedApiKeysBaseline = unappliedStoredApiKeys;
       this.storedApiKeysRetryAt = Date.now() + storedApiKeysRetryMs;
+      // The poll stops while the gateway is down, so a start that failed here gets the restart a crash gets.
+      if (this.status.state === "error" && this.config && restartGeneration !== undefined) this.scheduleCoreRestart(restartGeneration);
       if (message !== this.storedApiKeysReloadFailure) console.error(`[gateway] Failed to reload after a stored API key change: ${message}`);
       this.storedApiKeysReloadFailure = message;
     }
@@ -886,6 +911,7 @@ class GatewayService {
     console.warn(`[gateway] ${lastError} Last check: ${silence}. Starting one here.`);
     this.status = { ...this.status, gatewayManagedExternally: undefined, lastError, state: "error" };
     this.coreRestartAttempts = 0;
+    this.adoptedGatewayReplaced = true;
     this.scheduleCoreRestart(generation);
   }
 

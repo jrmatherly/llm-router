@@ -272,6 +272,7 @@ test("a profile launch waits for the gateway to accept the profile's own key", a
     return profileProbes > 2 ? 200 : 401;
   });
   const notice = t.mock.method(console, "warn", () => {});
+  stderrIsTerminal(t, true);
   const { config, profile } = twoKeyProfileConfig();
 
   const result = await ensureProfileGateway(config, profile, "Local subscription router", { profileKeyWaitMs: 5000, reuseExisting: true, startIfMissing: false });
@@ -282,6 +283,32 @@ test("a profile launch waits for the gateway to accept the profile's own key", a
   assert.equal(notice.mock.callCount(), 1);
   assert.match(String(notice.mock.calls[0].arguments[0]), /Waiting for the gateway to accept the key of profile "Claude Main"/);
 });
+
+test("a launch whose stderr is not a terminal waits without the waiting line", async (t) => {
+  let profileProbes = 0;
+  stubGateway(t, (token) => {
+    if (token !== "profile-token") return 200;
+    profileProbes += 1;
+    return profileProbes > 1 ? 200 : 401;
+  });
+  const notice = t.mock.method(console, "warn", () => {});
+  stderrIsTerminal(t, false);
+  const { config, profile } = twoKeyProfileConfig();
+
+  const result = await ensureProfileGateway(config, profile, "Local subscription router", { profileKeyWaitMs: 5000, reuseExisting: true, startIfMissing: false });
+
+  assert.equal(result.APIKEY, "profile-token");
+  assert.equal(profileProbes, 2);
+  assert.equal(notice.mock.callCount(), 0);
+});
+
+function stderrIsTerminal(t, value) {
+  const previous = process.stderr.isTTY;
+  process.stderr.isTTY = value;
+  t.after(() => {
+    process.stderr.isTTY = previous;
+  });
+}
 
 test("a gateway that restarts during the wait is waited for, not replaced", async (t) => {
   let profileProbes = 0;
@@ -339,6 +366,7 @@ test("a profile launch is refused once the wait for the profile's own key runs o
     return 401;
   });
   const notice = t.mock.method(console, "warn", () => {});
+  stderrIsTerminal(t, true);
   const { config, profile } = twoKeyProfileConfig();
 
   await assert.rejects(
@@ -349,7 +377,7 @@ test("a profile launch is refused once the wait for the profile's own key runs o
   assert.equal(notice.mock.callCount(), 1);
 });
 
-test("a gateway that is gone when the wait runs out is reported as not reachable, and none is started", { timeout: 10000 }, async (t) => {
+test("a gateway that is gone when the wait runs out is reported as not running, the error a launch with no gateway gets", { timeout: 10000 }, async (t) => {
   let down = false;
   stubGateway(t, (token) => {
     if (down) return "down";
@@ -363,8 +391,9 @@ test("a gateway that is gone when the wait runs out is reported as not reachable
   await assert.rejects(
     ensureProfileGateway(config, profile, "Claude Main", { profileKeyWaitMs: 400, reuseExisting: true }),
     (error) => {
-      assert.equal(error instanceof ProfileGatewayUnavailableError, false);
-      assert.match(error.message, /LLMR gateway is not reachable at http:\/\/127\.0\.0\.1:3466.*quit LLMR Desktop and open it again/);
+      assert.equal(error instanceof ProfileGatewayUnavailableError, true);
+      assert.match(error.message, /^LLMR gateway is not running at http:\/\/127\.0\.0\.1:3466: .+\. Start LLMR Desktop or run llmr start before opening Claude Main\.$/);
+      assert.match(error.message, /it stopped answering while this launch waited 0\.4 seconds for it to accept the key of profile "Claude Main" \(/);
       assert.doesNotMatch(error.message, /does not accept the API key/);
       return true;
     }

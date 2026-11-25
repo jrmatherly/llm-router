@@ -161,6 +161,70 @@ test("a key reload that succeeds is not repeated", async () => {
   assert.deepEqual(starts[0].APIKEYS.map((key) => key.id), ["first", "second"]);
 });
 
+test("a key restart that fails gets the restart a crash gets", async (t) => {
+  t.mock.method(console, "error", () => {});
+  const { service } = await runningService([first]);
+  delete service.schedulePersistedRuntimeConfigReload;
+  service.child = undefined;
+  service.server = {};
+  let startGeneration;
+  service.start = async (config) => {
+    service.cancelCoreRestart();
+    startGeneration = service.coreRestartGeneration;
+    service.config = config;
+    service.status = { ...service.status, lastError: "Core gateway exited during startup with 1.", state: "error" };
+    return service.getStatus();
+  };
+  const scheduled = [];
+  service.scheduleCoreRestart = (generation) => { scheduled.push(generation); };
+  await loadAppConfig();
+  await service.rememberStoredApiKeys();
+  await updatePersistedApiKeys((current) => [...current, second]);
+  for (let tick = 0; tick < 4; tick += 1) {
+    await service.checkStoredApiKeys();
+    await service.runtimeConfigReloadQueue;
+  }
+  assert.deepEqual(scheduled, [startGeneration]);
+});
+
+test("a stop that comes in while a key restart is starting is not undone by the restart", async (t) => {
+  t.mock.method(console, "error", () => {});
+  t.mock.method(console, "warn", () => {});
+  const { service } = await runningService([first]);
+  t.after(() => clearTimeout(service.coreRestartTimer));
+  delete service.schedulePersistedRuntimeConfigReload;
+  service.child = undefined;
+  service.server = {};
+  service.start = async (config) => {
+    service.cancelCoreRestart();
+    await Promise.resolve();
+    // What stop() does first, while this start is still running. The start then fails because its child was stopped.
+    service.cancelCoreRestart();
+    service.config = config;
+    service.status = { ...service.status, lastError: "Core gateway exited during startup with SIGTERM.", state: "error" };
+    return service.getStatus();
+  };
+  await loadAppConfig();
+  await service.rememberStoredApiKeys();
+  await updatePersistedApiKeys((current) => [...current, second]);
+  for (let tick = 0; tick < 4; tick += 1) {
+    await service.checkStoredApiKeys();
+    await service.runtimeConfigReloadQueue;
+  }
+  assert.equal(service.coreRestartTimer, undefined);
+});
+
+test("a key reload that is refused while the gateway runs schedules no restart", async (t) => {
+  t.mock.method(console, "error", () => {});
+  const { service } = await runningService([first]);
+  const scheduled = [];
+  service.scheduleCoreRestart = (generation) => { scheduled.push(generation); };
+  service.start = async () => service.getStatus();
+  service.config = await loadAppConfig();
+  await service.reloadPersistedRuntimeConfig(undefined, false);
+  assert.deepEqual(scheduled, []);
+});
+
 test("a key reload onto a stored config that would not run the gateway is refused", async (t) => {
   const { service } = await runningService([first]);
   const logged = t.mock.method(console, "error", () => {});
