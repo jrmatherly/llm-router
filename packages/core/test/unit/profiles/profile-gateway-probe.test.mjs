@@ -272,6 +272,7 @@ test("a profile launch waits for the gateway to accept the profile's own key", a
     return profileProbes > 2 ? 200 : 401;
   });
   const notice = t.mock.method(console, "warn", () => {});
+  stderrIsTerminal(t, true);
   const { config, profile } = twoKeyProfileConfig();
 
   const result = await ensureProfileGateway(config, profile, "Local subscription router", { profileKeyWaitMs: 5000, reuseExisting: true, startIfMissing: false });
@@ -282,6 +283,32 @@ test("a profile launch waits for the gateway to accept the profile's own key", a
   assert.equal(notice.mock.callCount(), 1);
   assert.match(String(notice.mock.calls[0].arguments[0]), /Waiting for the gateway to accept the key of profile "Claude Main"/);
 });
+
+test("a launch whose stderr is not a terminal waits without the waiting line", async (t) => {
+  let profileProbes = 0;
+  stubGateway(t, (token) => {
+    if (token !== "profile-token") return 200;
+    profileProbes += 1;
+    return profileProbes > 1 ? 200 : 401;
+  });
+  const notice = t.mock.method(console, "warn", () => {});
+  stderrIsTerminal(t, false);
+  const { config, profile } = twoKeyProfileConfig();
+
+  const result = await ensureProfileGateway(config, profile, "Local subscription router", { profileKeyWaitMs: 5000, reuseExisting: true, startIfMissing: false });
+
+  assert.equal(result.APIKEY, "profile-token");
+  assert.equal(profileProbes, 2);
+  assert.equal(notice.mock.callCount(), 0);
+});
+
+function stderrIsTerminal(t, value) {
+  const previous = process.stderr.isTTY;
+  process.stderr.isTTY = value;
+  t.after(() => {
+    process.stderr.isTTY = previous;
+  });
+}
 
 test("a gateway that restarts during the wait is waited for, not replaced", async (t) => {
   let profileProbes = 0;
@@ -339,6 +366,7 @@ test("a profile launch is refused once the wait for the profile's own key runs o
     return 401;
   });
   const notice = t.mock.method(console, "warn", () => {});
+  stderrIsTerminal(t, true);
   const { config, profile } = twoKeyProfileConfig();
 
   await assert.rejects(

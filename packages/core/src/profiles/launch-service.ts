@@ -483,8 +483,8 @@ async function waitForProfileKey(
   waitMs = 10_000
 ): Promise<void> {
   if (!acceptedApiKey || acceptedApiKey === config.APIKEY) return;
-  // stderr, so the line stays out of output a script reads from the agent.
-  if (waitMs > 0) console.warn(`[profile] Waiting for the gateway to accept the key of profile "${profile.name || profile.id}".`);
+  // stderr, so the line stays out of output a script reads from the agent. Only on a terminal: a program that captures stderr shows it after the launch, when the wait is over.
+  if (waitMs > 0 && process.stderr.isTTY) console.warn(`[profile] Waiting for the gateway to accept the key of profile "${profile.name || profile.id}".`);
   let last: ExistingProfileGatewayProbe = { endpoint: profileGatewayEndpoint(config), state: "unauthorized", status: 401 };
   const deadline = Date.now() + waitMs;
   while (Date.now() < deadline) {
