@@ -46,6 +46,8 @@ const probeResult = {
   }
 };
 
+const standInIcon = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E";
+
 let runtime: CliWebRuntime | undefined;
 
 test.beforeAll(async () => {
@@ -204,6 +206,55 @@ test("a provider whose key is the placeholder typed by hand shows its key field"
   await expect(dialog.getByText("Local login provider")).toHaveCount(0);
   await expect(dialog.locator(`input[value="${localAgentProviderApiKey}"]`)).toHaveCount(1);
 });
+
+test("the edit dialog sends no probe for a saved local login provider", async ({ page }) => {
+  const probeRequests: Array<{ apiKey?: string; providerPlugins?: unknown[] }> = [];
+  await mockLocalAgentRpc(page, probeRequests);
+  await answerIconRpc(page);
+  const dialog = await openSavedProviderEditDialog(page, requireRuntime(), "Stand-in login", localAgentProviderApiKey, [{ key: "llmr-local-agent-stand-in-login-codex-oauth", providerName: "Stand-in login" }]);
+  await expect(dialog.getByText("Signed in with your local agent")).toBeVisible();
+  await expect(dialog.getByText("LLMR has not asked this provider which protocols it supports.")).toBeVisible();
+  await page.waitForTimeout(1000);
+  expect(probeRequests.length).toBe(0);
+  await dialog.getByLabel(/^API endpoint/).fill("http://127.0.0.1:10/v1");
+  await page.waitForTimeout(1000);
+  expect(probeRequests.length).toBe(0);
+});
+
+test("the edit dialog still probes a saved provider that has its own key", async ({ page }) => {
+  const probeRequests: Array<{ apiKey?: string; providerPlugins?: unknown[] }> = [];
+  await mockLocalAgentRpc(page, probeRequests);
+  await openSavedProviderEditDialog(page, requireRuntime(), "Stand-in key", "sk-stand-in-0001");
+  await expect.poll(() => probeRequests.length).toBeGreaterThan(0);
+});
+
+async function openSavedProviderEditDialog(page: Page, current: CliWebRuntime, name: string, apiKey: string, providerPlugins: unknown[] = []) {
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
+  await waitForBridge(page);
+  await page.evaluate(async ({ provider, plugins }) => {
+    const config = await window.llmr!.getConfig();
+    config.Providers = [provider];
+    config.providerPlugins = plugins;
+    await window.llmr!.saveConfig(config);
+    await window.llmr!.setOnboardingFinished?.();
+  }, { plugins: providerPlugins, provider: { api_base_url: "http://127.0.0.1:9/v1", api_key: apiKey, icon: standInIcon, models: ["stand-in-model"], name, type: "openai_chat_completions" } });
+  await page.reload();
+  await waitForBridge(page);
+  await page.getByRole("button", { name: "Providers", exact: true }).click();
+  await page.locator(`button[aria-label="Edit ${name}"]:visible`).first().click();
+  return page.getByRole("dialog");
+}
+
+async function answerIconRpc(page: Page): Promise<void> {
+  await page.route("**/api/llmr/rpc", async (route) => {
+    const payload = route.request().postDataJSON() as { method?: string } | undefined;
+    if (payload?.method === "detectProviderIcon") {
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: {} }) });
+      return;
+    }
+    await route.fallback();
+  });
+}
 
 async function mockLocalAgentRpc(page: Page, probeRequests?: Array<{ apiKey?: string; providerPlugins?: unknown[] }>): Promise<void> {
   await page.route("**/api/llmr/rpc", async (route) => {

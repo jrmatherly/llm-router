@@ -15,7 +15,7 @@ import {
   GatewayProviderProbeResult, gatewayServiceMessage, GatewayStatus, getDefaultOnboardingStep,
   isGatewayProviderEnabled, isMacPlatform, isPlainRecord, isProfileDraftSubmittable, isProviderNameDuplicate, isProviderProbeCandidateReady,
   isRoutingRuleDraftSubmittable,
-  hasLocalAgentLoginKey, isClaudeLoginProviderDraft, isLocalCodexProviderDraft, isTraySupportedPlatform,
+  hasLocalAgentLoginKey, isClaudeLoginProviderDraft, isLocalAgentLoginDraft, isLocalCodexProviderDraft, isTraySupportedPlatform,
   LayoutGroup, mergeProviderModelLists, missingPluginDependenciesMessage, modelDescriptionsForModels, modelDisplayNamesForModels, modelMetadataForModels,
   navigation, NavigationId, normalizeApiKeys, normalizeBotGatewaySavedConfigs, normalizeConfig, normalizeObservabilityConfig, normalizeOverviewWidgets, normalizeProxyConfig,
   normalizeProfileItem, normalizeProviderBaseUrl, normalizeRouterFallbackConfig, normalizeThemePreference, normalizeToolHubConfig, normalizeTrayBalanceProgressConfig, normalizeTrayIconPreference,
@@ -1422,6 +1422,7 @@ function App() {
     draftConfig.providerPlugins,
     providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex]
   );
+  const localAgentLoginDraft = isLocalAgentLoginDraft(providerDraft, draftConfig.providerPlugins, providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex]);
 
   useEffect(() => {
     const providerFormVisible = providerAddOpen || (activeView === "onboarding" && onboardingStep === "provider");
@@ -1485,6 +1486,13 @@ function App() {
           setProviderProbeLoading(false);
         }
       };
+    }
+    // An edit draft carries no plugins, so an automatic probe would send only the placeholder key. A saved local login provider is asked on Refresh or Check.
+    if (providerEditIndex !== undefined && localAgentLoginDraft) {
+      providerProbeRequestId.current += 1;
+      setProviderProbeError("");
+      setProviderProbeLoading(false);
+      return;
     }
     // Local agent imports authenticate through their plugins, so their models can be discovered.
     // The Claude login provider holds no login of its own, so there is nothing to probe.
@@ -1566,7 +1574,7 @@ function App() {
         setProviderProbeLoading(false);
       }
     };
-  }, [activeView, claudeLoginProviderDraft, onboardingStep, providerAddOpen, providerDraft.apiKey, providerDraft.baseUrl, providerDraft.credentialMode, providerDraft.credentials, providerDraft.presetId, providerDraft.protocol, providerDraft.protocolDetectionMode, providerDraft.providerPlugins, providerImportDetectPending, providerImportOpen]);
+  }, [activeView, claudeLoginProviderDraft, localAgentLoginDraft, onboardingStep, providerAddOpen, providerDraft.apiKey, providerDraft.baseUrl, providerDraft.credentialMode, providerDraft.credentials, providerDraft.presetId, providerDraft.protocol, providerDraft.protocolDetectionMode, providerDraft.providerPlugins, providerEditIndex, providerImportDetectPending, providerImportOpen]);
 
   async function refreshProviderModels(): Promise<void> {
     if (providerProbeLoading) {

@@ -165,5 +165,32 @@ test("a Codex login provider keeps its heading, its connection check and its mod
   assert.match(html, /Available after saving/);
   assert.match(html, /Refresh provider models/);
   assert.match(html, /Run a real model request/);
-  assert.match(html, /did not return a model list/);
+  assert.match(html, /LLMR has not asked this provider for a model list\./);
+});
+
+test("a local login provider that was not asked says so", () => {
+  const draft = {
+    ...createProviderDraft([]),
+    apiKey: localAgentProviderApiKey,
+    baseUrl: "https://codex.example.test/v1",
+    modelsText: "gpt-5",
+    name: "Codex"
+  };
+  const html = render(draft, {
+    onCheck: async () => undefined,
+    onRefreshModels: async () => undefined,
+    providerPlugins: [{ key: "llmr-local-agent-codex-codex-oauth", providerName: "Codex" }]
+  });
+  assert.match(html, /LLMR has not asked this provider which protocols it supports\./);
+  assert.match(html, /LLMR has not asked this provider for a model list\. Refresh the list to ask/);
+  assert.doesNotMatch(html, /Choose a provider endpoint/);
+  assert.doesNotMatch(html, /did not return a model list/);
+  const asked = render(draft, {
+    onCheck: async () => undefined,
+    onRefreshModels: async () => undefined,
+    probe: { models: [], normalizedBaseUrl: draft.baseUrl, protocols: [] },
+    providerPlugins: [{ key: "llmr-local-agent-codex-codex-oauth", providerName: "Codex" }]
+  });
+  assert.match(asked, /did not return a model list/);
+  assert.doesNotMatch(asked, /has not asked this provider/);
 });

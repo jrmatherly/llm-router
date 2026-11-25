@@ -1770,9 +1770,11 @@ function ProviderConnectionStatusPanel({
     ? "LLMR is checking which API protocols this endpoint supports."
     : notProbed
       ? "LLMR does not probe this provider. It uses the Anthropic Messages protocol."
-      : protocolDetected
-        ? "Compatible API protocols were found automatically. You can turn off auto detection in Advanced settings and select protocols manually."
-        : "Choose a provider endpoint so LLMR can detect compatible protocols.";
+      : localAgentImport && !probe
+        ? "LLMR has not asked this provider which protocols it supports."
+        : protocolDetected
+          ? "Compatible API protocols were found automatically. You can turn off auto detection in Advanced settings and select protocols manually."
+          : "Choose a provider endpoint so LLMR can detect compatible protocols.";
   const requestTitle = connectivityLoading
     ? "Checking connection"
     : notProbed
@@ -2383,7 +2385,11 @@ export function AddProviderForm({
                 catalogModels={providerProbeModelsForProtocol(probe, draft.protocol)}
                 defaults={draft.catalogModelMetadata}
                 displayNames={draft.modelDisplayNames}
-                emptyCatalogText={claudeLoginProvider ? "LLMR does not ask this provider for a model list. Add model IDs with Custom model." : undefined}
+                emptyCatalogText={claudeLoginProvider
+                  ? "LLMR does not ask this provider for a model list. Add model IDs with Custom model."
+                  : localAgentImport && !probe
+                    ? "LLMR has not asked this provider for a model list. Refresh the list to ask, or add model IDs with Custom model."
+                    : undefined}
                 loading={probeLoading}
                 metadata={draft.modelMetadata}
                 onMetadataChange={(modelMetadata) => onChange({ modelMetadata })}
