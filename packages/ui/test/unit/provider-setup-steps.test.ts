@@ -9,7 +9,9 @@ import {
   isLocalAgentLoginDraft,
   localAgentProviderApiKey,
   providerSetupStepIds,
-  providerSetupStepsForDraft
+  providerSetupStepsForDraft,
+  savedLoginAddressChanged,
+  savedLoginAddressChangedMessage
 } from "@llmr/ui/pages/home/shared/providers";
 
 const loginPlugins = [{ key: "llmr-local-agent-stand-in-login-codex-oauth", providerName: "Stand-in login" }];
@@ -54,4 +56,20 @@ test("a Claude login draft is told apart from other local-login drafts", () => {
   assert.equal(isClaudeLoginProviderDraft(marked, saved), true);
   assert.equal(isClaudeLoginProviderDraft(marked, [{ key: "llmr-local-agent-codex-codex-oauth", providerName: "Claude Code API" }]), false);
   assert.equal(isClaudeLoginProviderDraft({ ...marked, apiKey: "sk-test" }, saved), false);
+});
+
+test("the saved login is used only while the draft keeps the saved address", () => {
+  const saved = { api_base_url: "http://127.0.0.1:8799/v1", api_key: localAgentProviderApiKey, id: "stand-in-login", models: ["stand-in-model"], name: "Stand-in login", type: "openai_chat_completions" as const };
+  const plugins = [{ key: "llmr-local-agent-stand-in-login-codex-oauth", providerName: "Stand-in login" }];
+  const draft = createProviderDraftFromProvider(saved);
+  const moved = { ...draft, baseUrl: "http://127.0.0.1:8800/v1" };
+  assert.equal(savedLoginAddressChanged(draft, plugins, saved), false);
+  assert.equal(savedLoginAddressChanged({ ...draft, baseUrl: "  http://127.0.0.1:8799/v1  " }, plugins, saved), false);
+  assert.equal(savedLoginAddressChanged(moved, plugins, saved), true);
+  assert.equal(savedLoginAddressChanged({ ...moved, name: "Renamed" }, plugins, saved), true);
+  assert.equal(savedLoginAddressChanged(moved, [], saved), false);
+  assert.equal(savedLoginAddressChanged({ ...moved, apiKey: "sk-stand-in-0001" }, plugins, saved), false);
+  assert.equal(savedLoginAddressChanged(moved, plugins, undefined), false);
+  assert.equal(savedLoginAddressChanged({ ...moved, providerPlugins: plugins }, [], saved), false);
+  assert.equal(savedLoginAddressChangedMessage, "Save the new address to check it with your local login.");
 });

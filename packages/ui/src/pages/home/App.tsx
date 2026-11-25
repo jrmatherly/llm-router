@@ -25,7 +25,7 @@ import {
   PluginInstallCandidate, PluginMarketplaceEntry, PluginSettingsDraft, presetCapabilitiesFromDraft,
   probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptions, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, profileHasUsableModels, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
   profileOpenCommandFallback, profileOpenSurfaces, ProviderAccountSnapshot, providerApiKeySafetyIssue, ProviderConnectivityCheckReport, ProviderDeepLinkPayload, ProviderDeepLinkRequest, providerIdentitySafetyIssue, providerProbeCandidates,
-  providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, providerSupportsDeferredToolsForSave, ProxyNetworkSnapshot,
+  providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, providerSupportsDeferredToolsForSave, ProxyNetworkSnapshot, savedLoginAddressChanged, savedLoginAddressChangedMessage,
   ProxyStatus, RequestLogListFilter, RequestLogPage,
   ResolvedTheme, resolvePluginInstallPlan, resolveProviderDeepLinkCatalogModels, removeLocalAgentProviderPluginsForProvider, RouterRule, routingRuleFromDraft, SettingsPageId,
   setProviderPresets, splitLines, appErrorMessage, TrayBalanceProgressConfig, TrayWidgetConfig,
@@ -1584,11 +1584,15 @@ function App() {
       setProviderProbeError("Request failed.");
       return;
     }
+    const existingProvider = providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex];
+    if (savedLoginAddressChanged(providerDraft, draftConfig.providerPlugins, existingProvider)) {
+      setProviderProbeError(savedLoginAddressChangedMessage);
+      return;
+    }
 
     providerProbeRequestId.current += 1;
     providerConnectivityRequestId.current += 1;
     const requestId = providerProbeRequestId.current;
-    const existingProvider = providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex];
     const refreshProtocols = providerDraft.protocolDetectionMode === "manual"
       ? uniqueProviderProtocols(providerDraft.selectedProtocols.length > 0 ? providerDraft.selectedProtocols : [providerDraft.protocol])
       : undefined;
@@ -1689,6 +1693,10 @@ function App() {
       }))
       .filter((candidate) => isProviderProbeCandidateReady(candidate) && candidate.protocols.length > 0);
 
+    if (savedLoginAddressChanged(providerDraft, draftConfig.providerPlugins, existingProvider)) {
+      setProviderProbeError(savedLoginAddressChangedMessage);
+      return emptyReport;
+    }
     setProviderProbeError("");
     if (!window.llmr) {
       setProviderProbeError("Request failed.");

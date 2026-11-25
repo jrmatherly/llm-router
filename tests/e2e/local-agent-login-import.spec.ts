@@ -228,6 +228,51 @@ test("the edit dialog still probes a saved provider that has its own key", async
   await expect.poll(() => probeRequests.length).toBeGreaterThan(0);
 });
 
+test("Refresh and Check send nothing while a saved local login provider's address is unsaved", async ({ page }) => {
+  const current = requireRuntime();
+  const sent: string[] = [];
+  await page.route("**/api/llmr/rpc", async (route) => {
+    const method = (route.request().postDataJSON() as { method?: string } | undefined)?.method ?? "";
+    if (method === "probeProviderCandidates" || method === "checkProviderConnectivity") {
+      sent.push(method);
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: method === "probeProviderCandidates" ? probeResult : { failed: [], passed: [], results: [] } }) });
+      return;
+    }
+    if (method === "detectProviderIcon") {
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: {} }) });
+      return;
+    }
+    await route.continue();
+  });
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
+  await waitForBridge(page);
+  await page.evaluate(async ({ apiKey, icon }) => {
+    const config = await window.llmr!.getConfig();
+    config.Providers = [{ api_base_url: "http://127.0.0.1:9/v1", api_key: apiKey, icon, models: ["stand-in-model"], name: "Stand-in login", type: "openai_chat_completions" }];
+    config.providerPlugins = [{ key: "llmr-local-agent-stand-in-login-codex-oauth", providerName: "Stand-in login" }];
+    await window.llmr!.saveConfig(config);
+    await window.llmr!.setOnboardingFinished?.();
+  }, { apiKey: localAgentProviderApiKey, icon: standInIcon });
+  await page.reload();
+  await waitForBridge(page);
+  await page.getByRole("button", { name: "Providers", exact: true }).click();
+  await page.locator('button[aria-label="Edit Stand-in login"]:visible').first().click();
+  const dialog = page.getByRole("dialog").first();
+  const blocked = dialog.getByText("Save the new address to check it with your local login.");
+  await dialog.getByLabel(/^API endpoint/).fill("http://127.0.0.1:10/v1");
+  await dialog.getByRole("button", { name: "Refresh provider models" }).click();
+  await expect(blocked).toBeVisible();
+  await dialog.getByRole("button", { name: "Check Connection" }).click();
+  await page.getByRole("button", { name: "Start check" }).click();
+  await expect(page.getByText("Check results")).toBeVisible();
+  expect(sent.length).toBe(0);
+  await page.getByRole("button", { name: "Close", exact: true }).last().click();
+  await dialog.getByLabel(/^API endpoint/).fill("http://127.0.0.1:9/v1");
+  await expect(blocked).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Refresh provider models" }).click();
+  await expect.poll(() => sent.length).toBe(1);
+});
+
 async function openSavedProviderEditDialog(page: Page, current: CliWebRuntime, name: string, apiKey: string, providerPlugins: unknown[] = []) {
   await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
   await waitForBridge(page);

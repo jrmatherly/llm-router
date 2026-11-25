@@ -839,6 +839,15 @@ export function providerConnectivityProviderPlugins(
   );
 }
 
+export const savedLoginAddressChangedMessage = "Save the new address to check it with your local login.";
+
+export function savedLoginAddressChanged(draft: AddProviderDraft, providerPlugins: unknown[] | undefined, existingProvider?: GatewayProviderConfig): boolean {
+  return existingProvider !== undefined &&
+    draft.providerPlugins.length === 0 &&
+    providerConnectivityProviderPlugins(draft, providerPlugins, existingProvider).length > 0 &&
+    normalizeProviderBaseUrl(draft.baseUrl).toLowerCase() !== normalizeProviderBaseUrl(providerBaseUrl(existingProvider)).toLowerCase();
+}
+
 export function isClaudeLoginProviderDraft(
   draft: AddProviderDraft,
   providerPlugins: unknown[] | undefined,
