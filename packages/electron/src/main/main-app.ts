@@ -7,7 +7,7 @@ import { syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway
 import { deepLinkService } from "./deep-link";
 import { gatewayService } from "@llmr/core/gateway/service";
 import "./ipc";
-import { applyProfileConfig, reconcileProfileApiKeys, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
+import { applyProfileConfig, applyTakeoversAfterGatewayReplaced, reconcileProfileApiKeys, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { ensureLlmrCliLauncher, persistPreparedLlmrCliPath, prepareLlmrCliLauncherRuntime, type LlmrCliLauncherPreparation } from "@llmr/core/profiles/launch-service";
 import { syncLaunchAtLogin } from "./launch-at-login";
 import { proxyService } from "@llmr/core/proxy/service";
@@ -39,6 +39,7 @@ if (!gotTheLock) {
 function startPrimaryInstance(): void {
   // Fires for the default session and every partition, so no session escapes the policy.
   app.on("session-created", installPermissionPolicy);
+  gatewayService.setAdoptedGatewayReplacedHandler(applyTakeoversAfterGatewayReplaced);
   gatewayService.setBrowserAutomationMcpIntegration(browserAutomationMcpService);
   gatewayService.setBrowserWebSearchMcpIntegration(browserWebSearchMcpService);
   deepLinkService.register();

@@ -130,6 +130,8 @@ class GatewayService {
     getGlobalBillingConfig: () => pluginService.getCoreGatewayConfig().billing
   });
   private adoptedGatewayGoneSince?: number;
+  private adoptedGatewayReplaced = false;
+  private adoptedGatewayReplacedHandler?: (config: AppConfig) => unknown;
   private adoptedGatewayReloads = 0;
   private adoptedGatewayTimer?: NodeJS.Timeout;
   private child?: ChildProcess;
@@ -169,6 +171,11 @@ class GatewayService {
 
   setBrowserWebSearchMcpIntegration(integration: BrowserWebSearchMcpIntegration): void {
     this.browserWebSearchMcpIntegration = integration;
+  }
+
+  // The process that served the adopted gateway restores the agent configs when it stops, so the host applies them again once this process serves.
+  setAdoptedGatewayReplacedHandler(handler: (config: AppConfig) => unknown): void {
+    this.adoptedGatewayReplacedHandler = handler;
   }
 
   setBrowserAutomationMcpIntegration(integration: BrowserAutomationMcpIntegration): void {
@@ -658,6 +665,7 @@ class GatewayService {
   private cancelCoreRestart(): void {
     this.coreRestartGeneration += 1;
     this.coreRestartAttempts = 0;
+    this.adoptedGatewayReplaced = false;
     if (this.coreRestartTimer) clearTimeout(this.coreRestartTimer);
     this.coreRestartTimer = undefined;
   }
@@ -674,6 +682,7 @@ class GatewayService {
       try {
         const status = await recovery;
         if (status.state === "error") this.scheduleCoreRestart(generation);
+        else this.tellHostAdoptedGatewayReplaced(status);
       } catch (error) {
         console.warn(`[gateway] Core gateway restart failed: ${formatError(error)}`);
         this.scheduleCoreRestart(generation);
@@ -681,6 +690,16 @@ class GatewayService {
         if (this.coreRecovery === recovery) this.coreRecovery = undefined;
       }
     }, delayMs);
+  }
+
+  private tellHostAdoptedGatewayReplaced(status: GatewayStatus): void {
+    const replaced = this.adoptedGatewayReplaced;
+    this.adoptedGatewayReplaced = false;
+    const config = this.config;
+    if (!replaced || !config || status.state !== "running" || status.gatewayManagedExternally) return;
+    void Promise.resolve().then(() => this.adoptedGatewayReplacedHandler?.(config)).catch((error) => {
+      console.warn(`[gateway] Failed after taking over from an adopted gateway: ${formatError(error)}`);
+    });
   }
 
   private handleCoreGatewayMessage(child: ChildProcess, message: unknown): void {
@@ -886,6 +905,7 @@ class GatewayService {
     console.warn(`[gateway] ${lastError} Last check: ${silence}. Starting one here.`);
     this.status = { ...this.status, gatewayManagedExternally: undefined, lastError, state: "error" };
     this.coreRestartAttempts = 0;
+    this.adoptedGatewayReplaced = true;
     this.scheduleCoreRestart(generation);
   }
 

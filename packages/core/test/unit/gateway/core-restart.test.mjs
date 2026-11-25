@@ -499,3 +499,99 @@ test("a reload of the adopted gateway that is still waiting for it holds the wat
   await pass(5_000);
   assert.equal(starts.length, 1);
 });
+
+function replacingService(t, startGateway) {
+  withFetch(t, () => { throw new Error("connection refused"); });
+  t.mock.method(console, "warn", () => {});
+  const adopted = adoptedService(t);
+  const told = [];
+  adopted.service.setAdoptedGatewayReplacedHandler((config) => { told.push(config.gateway.port); });
+  adopted.service.startGateway = async () => startGateway(adopted.service);
+  return { ...adopted, told };
+}
+
+const ownGatewayRuns = (service) => {
+  service.status = { ...service.status, gatewayManagedExternally: undefined, lastError: undefined, state: "running" };
+  return service.getStatus();
+};
+
+test("a process that starts a gateway in place of the one it adopted tells its host once", async (t) => {
+  const { pass, told } = replacingService(t, ownGatewayRuns);
+  await pass(12_000);
+  assert.deepEqual(told, []);
+  await pass(1_000);
+  assert.deepEqual(told, [3456]);
+  await pass(60_000);
+  assert.deepEqual(told, [3456]);
+});
+
+test("the host is told when the gateway starts, not on a start that fails first", async (t) => {
+  let attempts = 0;
+  const { pass, told } = replacingService(t, (service) => {
+    attempts += 1;
+    if (attempts > 1) return ownGatewayRuns(service);
+    service.status = { ...service.status, lastError: "port taken", state: "error" };
+    return service.getStatus();
+  });
+  await pass(13_000);
+  assert.deepEqual(told, []);
+  await pass(2_000);
+  assert.deepEqual(told, [3456]);
+});
+
+test("the host is not told when the restart adopts another gateway", async (t) => {
+  const { pass, service, told } = replacingService(t, (current) => {
+    current.markExternalGatewayRunning(config(), "http://127.0.0.1:3456", "first-key");
+    return current.getStatus();
+  });
+  service.startGateway = ((adopt) => async () => {
+    globalThis.fetch = async () => Response.json({ status: "ok" });
+    return adopt();
+  })(service.startGateway);
+  await pass(20_000);
+  assert.equal(service.getStatus().gatewayManagedExternally, true);
+  assert.deepEqual(told, []);
+});
+
+test("a stop between the takeover and the restart tells the host nothing, and neither does a later crash", async (t) => {
+  const { pass, service, told } = replacingService(t, ownGatewayRuns);
+  await pass(12_000);
+  assert.equal(service.getStatus().state, "error");
+  service.cancelCoreRestart();
+  service.child = {};
+  service.status = { ...service.status, state: "running" };
+  await service.handleCoreGatewayTermination(service.child, undefined, "Core gateway exited with SIGTERM.");
+  await pass(5_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.deepEqual(told, []);
+});
+
+test("a host whose handler throws leaves the gateway running", async (t) => {
+  const { pass, service } = replacingService(t, ownGatewayRuns);
+  service.setAdoptedGatewayReplacedHandler(() => { throw new Error("could not write"); });
+  await pass(14_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.equal(service.coreRestartTimer, undefined);
+});
+
+test("the host is not told when the restart leaves the gateway stopped", async (t) => {
+  const { pass, told } = replacingService(t, (service) => {
+    service.status = { ...service.status, gatewayManagedExternally: undefined, state: "stopped" };
+    return service.getStatus();
+  });
+  await pass(20_000);
+  assert.deepEqual(told, []);
+});
+
+test("a crash of the gateway that replaced the adopted one does not tell the host again", async (t) => {
+  const { pass, service, told } = replacingService(t, (current) => {
+    current.child = {};
+    return ownGatewayRuns(current);
+  });
+  await pass(13_000);
+  assert.deepEqual(told, [3456]);
+  await service.handleCoreGatewayTermination(service.child, undefined, "Core gateway exited with SIGTERM.");
+  await pass(5_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.deepEqual(told, [3456]);
+});

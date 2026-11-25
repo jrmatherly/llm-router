@@ -14,7 +14,7 @@ import { loadAppConfig } from "@llmr/core/config/config.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { loadPersistedApiKeys, replacePersistedAppConfig, updatePersistedApiKeys } from "@llmr/core/config/config-repository.ts";
 import { CONFIGDIR } from "@llmr/core/config/constants.ts";
-import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, reconcileProfileApiKeys, recoverGlobalAgentProfile, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service.ts";
+import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, reconcileProfileApiKeys, recoverGlobalAgentProfile, applyTakeoversAfterGatewayReplaced, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service.ts";
 
 test("Grok profile source home follows profile and process environment overrides", () => {
   const previous = {
@@ -466,6 +466,40 @@ test("profile service refuses to apply a Claude Code profile when a managed sett
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
     rmSync(takeoverFile, { force: true });
     rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("takeovers another process restored are applied again by the process that takes over the gateway", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  const settingsFile = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".claude", "settings.json");
+  const original = `${JSON.stringify({ theme: "dark" }, null, 2)}\n`;
+  const profile = { agent: "claude-code", enabled: true, env: {}, id: "default-claude-code", model: "Provider/model", name: "Claude Code", scope: "global", settingsFile: "~/.claude/settings.json", smallFastModel: "", surface: "auto" };
+  const config = createDefaultAppConfig();
+  config.APIKEY = "llmr-profile-takeover-again-test";
+  config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-profile-takeover-again-test", name: "Profile: Claude Code" }];
+  config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  config.profile.enabled = true;
+  config.profile.profiles = [profile];
+  const pointsAtGateway = () => Boolean(JSON.parse(readFileSync(settingsFile, "utf8")).apiKeyHelper);
+  try {
+    rmSync(takeoverFile, { force: true });
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, original);
+    await applyProfileFixture(config);
+    assert.equal(pointsAtGateway(), true);
+    const marker = readFileSync(takeoverFile, "utf8");
+
+    // What another process does to the files as it stops, which leaves this process holding its own record of them.
+    writeFileSync(settingsFile, original);
+    rmSync(takeoverFile);
+
+    await applyTakeoversAfterGatewayReplaced(config);
+    assert.equal(pointsAtGateway(), true);
+    assert.equal(readFileSync(takeoverFile, "utf8"), marker);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(path.dirname(settingsFile), { force: true, recursive: true });
   }
 });
 

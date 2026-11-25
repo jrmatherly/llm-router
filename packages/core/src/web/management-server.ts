@@ -37,7 +37,7 @@ import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-pr
 import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
-import { applyProfileConfig, reconcileProfileApiKeys, recoverGlobalAgentProfile, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
+import { applyProfileConfig, applyTakeoversAfterGatewayReplaced, reconcileProfileApiKeys, recoverGlobalAgentProfile, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, openProfileInTerminal, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
@@ -182,6 +182,7 @@ export async function startWebManagementServer(options: WebManagementServerOptio
   warnAboutUnusableWebOrigins();
 
   if (options.startGateway !== false) {
+    gatewayService.setAdoptedGatewayReplacedHandler(applyTakeoversAfterGatewayReplaced);
     await startConfiguredServices("web startup");
   } else {
     // A database used only by --no-gateway servers would otherwise never get a retention or be pruned.
