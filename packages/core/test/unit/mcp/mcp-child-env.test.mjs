@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,7 +8,7 @@ import { replacePersistedAppConfig } from "@llmr/core/config/config-repository.t
 import { loadAppConfig } from "@llmr/core/config/config.ts";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
-import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env.ts";
+import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env.ts";
 import { listMcpServerTools } from "@llmr/core/mcp/tool-discovery.ts";
 import { withEnv } from "../../support/with-env.mjs";
 
@@ -127,4 +128,38 @@ test("the filter keeps LLMR settings that only name where a secret lives", () =>
     PATH: "/usr/bin"
   });
   assert.deepEqual(env, { LLMR_REMOTE_SYNC_API_KEY_FILE: "/path/to/key", LLMR_REMOTE_SYNC_API_KEY_HELPER: "helper --print", PATH: "/usr/bin" });
+});
+
+test("the filter matches a name in any letter case", () => {
+  const env = withoutLlmrSecretEnv({
+    LLMR_web_auth_token: "secret",
+    Llmr_Remote_Sync_Api_Key: "secret",
+    Llmr_Remote_Sync_Api_Key_File: "/path/to/key",
+    llmr_service_instance_token: "secret",
+    Path: "C:\\Windows"
+  });
+  assert.deepEqual(env, { Llmr_Remote_Sync_Api_Key_File: "/path/to/key", Path: "C:\\Windows" });
+});
+
+test("mergeChildEnv lets a later layer replace a variable, without regard to letter case only on Windows", () => {
+  const merged = mergeChildEnv({ PATH: "inherited", Other: "kept" }, { Path: "override" });
+  assert.deepEqual(merged, process.platform === "win32"
+    ? { Other: "kept", Path: "override" }
+    : { Other: "kept", PATH: "inherited", Path: "override" });
+});
+
+test("on Windows three spellings of one name leave one key, the last", (t) => {
+  const platform = Object.getOwnPropertyDescriptor(process, "platform");
+  Object.defineProperty(process, "platform", { value: "win32" });
+  t.after(() => Object.defineProperty(process, "platform", platform));
+  assert.deepEqual(
+    mergeChildEnv({ PATH: "first", Other: "kept" }, { Path: "second" }, { path: "third", PATH_EXTRA: "kept" }),
+    { Other: "kept", PATH_EXTRA: "kept", path: "third" }
+  );
+  assert.deepEqual(mergeChildEnv({ Path: "first", PATH: "second" }), { PATH: "second" });
+});
+
+test("a child started with a merged environment sees the override", { skip: process.platform !== "win32" }, () => {
+  const env = mergeChildEnv({ ...process.env, LLMR_MERGE_PROBE: "inherited" }, { llmr_merge_probe: "override" });
+  assert.equal(execFileSync(process.execPath, ["-p", "process.env.LLMR_MERGE_PROBE"], { encoding: "utf8", env }).trim(), "override");
 });

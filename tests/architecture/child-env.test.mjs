@@ -19,5 +19,29 @@ test("no child but LLMR itself is handed a spread of the whole environment", () 
       if (count) found[file] = count;
     }
   }
-  assert.deepEqual(found, ownProcessSpreads, "spread withoutLlmrSecretEnv() into a child's env, not process.env");
+  assert.deepEqual(found, ownProcessSpreads, "pass withoutLlmrSecretEnv() to mergeChildEnv, not process.env");
+});
+
+test("no source file spreads the filtered environment under other layers", () => {
+  const spread = /\.\.\.\s*withoutLlmrSecretEnv\s*\(|Object\.assign\([^)]*withoutLlmrSecretEnv\s*\(/g;
+  const found = {};
+  for (const root of readdirSync("packages").map((name) => path.join("packages", name, "src"))) {
+    for (const entry of readdirSync(root, { recursive: true, withFileTypes: true })) {
+      if (!entry.isFile() || !/\.tsx?$/.test(entry.name)) continue;
+      const file = path.join(entry.parentPath, entry.name);
+      const count = readFileSync(file, "utf8").match(spread)?.length ?? 0;
+      if (count) found[file] = count;
+    }
+  }
+  assert.deepEqual(
+    found,
+    {},
+    "pass withoutLlmrSecretEnv() to mergeChildEnv as its first layer. This check misses a copy held in a variable and spread later, and an aliased import."
+  );
+});
+
+test("the Codex runtime script copies the whole environment in one place only", () => {
+  const runtime = readFileSync("packages/core/src/agents/codex/cli-middleware-runtime-source.runtime.cjs", "utf8");
+  // The one copy is the bot gateway client, which runs inside LLMR's own process.
+  assert.equal(runtime.match(/Object\.assign\(\{\},\s*process\.env\b|\.\.\.process\.env\b/g)?.length, 1, "use mergeChildEnv for a child's environment");
 });

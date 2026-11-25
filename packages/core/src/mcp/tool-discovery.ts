@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import type {
   GatewayMcpRemoteServerConfig,
@@ -57,7 +57,7 @@ async function listStdioMcpServerTools(server: GatewayMcpStdioServerConfig, time
   return new Promise((resolve, reject) => {
     const child = spawn(server.command, server.args, {
       cwd: server.cwd || undefined,
-      env: { ...withoutLlmrSecretEnv(), ...server.env },
+      env: mergeChildEnv(withoutLlmrSecretEnv(), server.env),
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true
     }) as ChildProcessWithoutNullStreams;

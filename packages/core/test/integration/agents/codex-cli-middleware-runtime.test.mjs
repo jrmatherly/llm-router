@@ -8,6 +8,9 @@ import { pathToFileURL } from "node:url";
 import { codexBaseInstructions } from "@llmr/core/agents/codex/base-instructions.ts";
 import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime.ts";
 import { buildCodexModelCatalog } from "@llmr/core/agents/codex/model-catalog.ts";
+import { mergeChildEnv } from "@llmr/core/mcp/child-env.ts";
+import { batchFileLaunch, npmShimTarget, resolveCommandFile, windowsBatchArgument } from "@llmr/core/platform/command-path.ts";
+import { intactArguments, npmExeShim, npmNodeShim, shimOnlyArguments } from "../../support/windows-command-cases.mjs";
 
 test("generated Codex CLI middleware runtime is valid JavaScript", () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-check-"));
@@ -37,6 +40,20 @@ test("#1851 Pi dispatch consumes only the profile selector and preserves the pro
       writeFileSync(fakePi, `#!/bin/sh\nexec "${process.execPath}" "${capture}" "$@"\n`);
       chmodSync(fakePi, 0o700);
     }
+    const runPi = (args, direct, realPi, env = process.env) => spawnSync(process.execPath, [runtime, ...args], {
+      encoding: "utf8", timeout: 10000,
+      env: { ...env, LLMR_PI_WRAPPER: "1", LLMR_REAL_PI_BIN: realPi,
+        LLMR_REAL_CODEX_CLI_PATH: realPi, LLMR_PI_PROVIDER: "llmr", LLMR_PI_MODEL: "Provider/model",
+        LLMR_PI_TEST_OUTPUT: output, LLMR_CLI_DIRECT_PROFILE_DISPATCH: direct ? "1" : "", LLMR_CODEX_DEFAULT_ARGS: "--version" },
+    });
+    const assertDelivered = (args, direct, expected, realPi = fakePi, env = process.env) => {
+      rmSync(output, { force: true });
+      const result = runPi(args, direct, realPi, env);
+      assert.equal(result.status, 0, result.stderr);
+      const captured = JSON.parse(readFileSync(output, "utf8"));
+      assert.deepEqual(captured.args, ["--provider", "llmr", "--model", "Provider/model", ...expected]);
+      assert.equal(captured.marker, undefined);
+    };
     for (const [args, direct, expected] of [
       [["Pi"], true, []],
       [["pi"], true, []],
@@ -44,17 +61,145 @@ test("#1851 Pi dispatch consumes only the profile selector and preserves the pro
       [["Pi", "--", 'quote " and & % !', "--model", "custom"], true, ['quote " and & % !', "--model", "custom"]],
       [["Pi"], false, ["Pi"]],
     ]) {
-      const result = spawnSync(process.execPath, [runtime, ...args], {
-        encoding: "utf8", timeout: 10000,
-        env: { ...process.env, LLMR_PI_WRAPPER: "1", LLMR_REAL_PI_BIN: fakePi,
-          LLMR_REAL_CODEX_CLI_PATH: fakePi, LLMR_PI_PROVIDER: "llmr", LLMR_PI_MODEL: "Provider/model",
-          LLMR_PI_TEST_OUTPUT: output, LLMR_CLI_DIRECT_PROFILE_DISPATCH: direct ? "1" : "", LLMR_CODEX_DEFAULT_ARGS: "--version" },
-      });
-      assert.equal(result.status, 0, result.stderr);
-      const captured = JSON.parse(readFileSync(output, "utf8"));
-      assert.deepEqual(captured.args, ["--provider", "llmr", "--model", "Provider/model", ...expected]);
-      assert.equal(captured.marker, undefined);
+      assertDelivered(args, direct, expected);
     }
+    for (const row of intactArguments) {
+      assertDelivered(["Pi", "--", row], true, [row]);
+    }
+    if (process.platform !== "win32") {
+      for (const row of shimOnlyArguments) {
+        assertDelivered(["Pi", "--", row], true, [row]);
+      }
+      return;
+    }
+
+    const shimDir = path.join(dir, "shim");
+    const shimScript = path.join(shimDir, "node_modules", "fake-cli", "bin", "cli.js");
+    mkdirSync(path.dirname(shimScript), { recursive: true });
+    writeFileSync(shimScript, readFileSync(capture, "utf8"));
+    const shimPi = path.join(shimDir, "pi.cmd");
+    writeFileSync(shimPi, npmNodeShim("node_modules\\fake-cli\\bin\\cli.js"));
+    for (const row of [...intactArguments, ...shimOnlyArguments]) {
+      assertDelivered(["Pi", "--", row], true, [row], shimPi);
+    }
+    const inheritedPath = Object.entries(process.env).find(([name]) => name.toUpperCase() === "PATH")?.[1] ?? "";
+    const shimFirst = {
+      ...Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== "PATH")),
+      Path: `${shimDir};${inheritedPath}`
+    };
+    assertDelivered(["Pi", "--", "hello world"], true, ["hello world"], "pi", shimFirst);
+
+    const refused = runPi(["Pi", "--", "line1\nline2"], true, fakePi);
+    assert.notEqual(refused.status, 0);
+    assert.match(refused.stderr, /line break/);
+  } finally { rmSync(dir, { force: true, recursive: true }); }
+});
+
+test("the runtime script and command-path.ts answer the same for every case", () => {
+  let files = new Set();
+  const isFile = (file) => files.has(file.toLowerCase());
+  const globals = {
+    fs: {
+      statSync: (file) => {
+        if (!isFile(file)) throw new Error("ENOENT");
+        return { isFile: () => true };
+      }
+    },
+    path: path.win32,
+    process: { env: { PATH: "C:\\bin" }, platform: "win32" },
+    WINDOWS_CMD_META_CHARS: runtimeWindowsCmdMetaChars()
+  };
+  const resolveRuntime = evaluateRuntimeFunction("resolveWindowsCommandFile", ["windowsEnvValue", "windowsEnvList"], "", globals);
+  for (const [known, command, env] of [
+    [["c:\\bin\\pi", "c:\\bin\\pi.cmd"], "pi", { Path: "C:\\bin" }],
+    [["c:\\a\\pi.cmd", "c:\\b\\pi.exe"], "pi", { Path: "C:\\a;C:\\b" }],
+    [["c:\\bin\\pi.cmd"], "pi", { path: "C:\\bin" }],
+    [["c:\\bin\\pi.cmd"], "pi", { Path: "C:\\bin", PATH: "C:\\none" }],
+    [["c:\\bin\\pi.cmd"], "pi", {}],
+    [["c:\\bin\\pi.cmd"], "pi", { Path: "C:\\bin", pathext: ".cmd" }],
+    [["c:\\bin\\pi.cmd"], "pi.exe", { Path: "C:\\bin" }],
+    [["c:\\bin\\pi.cmd", ".\\pi.cmd"], ".\\pi.cmd", { Path: "C:\\bin" }],
+  ]) {
+    files = new Set(known);
+    assert.equal(resolveRuntime(command, env), resolveCommandFile(command, env, { isFile, platform: "win32" }), JSON.stringify([known, command, env]));
+  }
+
+  const escapeRuntime = evaluateRuntimeFunction("escapeWindowsCmdArgument", [], "", globals);
+  for (const row of intactArguments) {
+    assert.equal(escapeRuntime(row), windowsBatchArgument(row), JSON.stringify(row));
+  }
+
+  const shimTargetRuntime = evaluateRuntimeFunction("npmShimTarget");
+  const nodeShim = npmNodeShim("node_modules\\fake-cli\\bin\\cli.js");
+  const exeShim = npmExeShim("node_modules\\fake-cli\\bin\\tool.exe");
+  const lastExeLine = '"%dp0%\\node_modules\\fake-cli\\bin\\tool.exe"   %*';
+  for (const text of [
+    nodeShim,
+    exeShim,
+    '@echo off\r\n"node" "x.js" %*\r\n',
+    nodeShim.replace('"%_prog%"  ', '"%_prog%" --inspect '),
+    nodeShim.replace('SET "_prog=node"', 'SET "_prog=bash"'),
+    exeShim.replace(lastExeLine, `SET X=1\r\n${lastExeLine}`)
+  ]) {
+    assert.deepEqual(shimTargetRuntime(text), npmShimTarget(text), text);
+  }
+
+  const escapeCommandRuntime = evaluateRuntimeFunction("escapeWindowsCmdCommand", [], "", globals);
+  for (const file of ["C:\\bin\\hand.cmd", "C:\\sp ace (x86) & co\\hand.cmd", "C:\\pct%OS%dir\\hand.cmd"]) {
+    assert.equal(`"${escapeCommandRuntime(file)}"`, batchFileLaunch(file, []).args.at(-1), file);
+  }
+
+  const cmdTarget = "c:\\bin\\node_modules\\fake-cli\\bin\\tool.cmd";
+  files = new Set([cmdTarget]);
+  const shimLaunchRuntime = evaluateRuntimeFunction("npmShimLaunch", ["npmShimTarget", "isExecutableFile", "resolveWindowsCommandFile", "windowsEnvValue", "windowsEnvList"], "", {
+    ...globals,
+    fs: { ...globals.fs, readFileSync: () => npmExeShim("node_modules\\fake-cli\\bin\\tool.cmd") }
+  });
+  assert.equal(shimLaunchRuntime("C:\\bin\\fake-cli.cmd", { Path: "C:\\bin" }), null);
+
+  const mergeRuntime = evaluateRuntimeFunction("mergeChildEnv", [], "", globals);
+  const platform = Object.getOwnPropertyDescriptor(process, "platform");
+  Object.defineProperty(process, "platform", { value: "win32" });
+  try {
+    for (const layers of [
+      [{ PATH: "inherited", Other: "kept" }, { Path: "override" }],
+      [{ PATH: "first", Other: "kept" }, { Path: "second" }, { path: "third", PATH_EXTRA: "kept" }],
+      [{ Path: "first", PATH: "second" }]
+    ]) {
+      assert.deepEqual(mergeRuntime(...layers), mergeChildEnv(...layers));
+    }
+  } finally {
+    Object.defineProperty(process, "platform", platform);
+  }
+});
+
+test("a refused Codex launch leaves no placeholder auth file behind", { skip: process.platform !== "win32" }, () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-refused-launch-"));
+  try {
+    const runtimeFile = writeRuntimeScript(dir);
+    const fakeCodex = path.join(dir, "codex.cmd");
+    const codexHome = path.join(dir, "codex-home");
+    const isolatedHome = path.join(dir, "home");
+    mkdirSync(codexHome, { recursive: true });
+    mkdirSync(isolatedHome, { recursive: true });
+    writeFileSync(fakeCodex, "@echo off\r\n");
+    const result = spawnSync(process.execPath, [runtimeFile, "app-server", "line1\nline2"], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        CODEX_HOME: codexHome,
+        HOME: isolatedHome,
+        LLMR_CODEX_CHATGPT_AUTH_FILE: "",
+        LLMR_PROFILE_SCOPE: "llmr",
+        LLMR_REAL_CODEX_CLI_PATH: fakeCodex,
+        USERPROFILE: isolatedHome
+      },
+      input: "",
+      timeout: 10000
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /line break/);
+    assert.equal(existsSync(path.join(codexHome, "auth.json")), false);
   } finally { rmSync(dir, { force: true, recursive: true }); }
 });
 
@@ -1794,19 +1939,26 @@ function writeRuntimeScript(dir) {
   return file;
 }
 
-function evaluateRuntimeFunction(name, dependencies = [], configDir = "") {
+function runtimeWindowsCmdMetaChars() {
+  const literal = /const WINDOWS_CMD_META_CHARS = (\/.+\/g);/.exec(codexCliMiddlewareRuntimeScript());
+  assert.notEqual(literal, null);
+  return Function(`return ${literal[1]};`)();
+}
+
+function evaluateRuntimeFunction(name, dependencies = [], configDir = "", globals = {}) {
   const runtime = codexCliMiddlewareRuntimeScript();
   const source = [
     ...dependencies.map((dependency) => extractRuntimeFunctionSource(runtime, dependency)),
     extractRuntimeFunctionSource(runtime, name)
   ].join("\n");
-  const fsRuntime = { existsSync, mkdirSync, readFileSync, writeFileSync };
-  return Function("path", "pathToFileURL", "fs", "CONFIG_DIR", `${source}; return ${name};`)(
+  const scope = {
+    CONFIG_DIR: configDir,
+    fs: { existsSync, mkdirSync, readFileSync, writeFileSync },
     path,
     pathToFileURL,
-    fsRuntime,
-    configDir
-  );
+    ...globals
+  };
+  return Function(...Object.keys(scope), `${source}; return ${name};`)(...Object.values(scope));
 }
 
 function extractRuntimeFunctionSource(source, name) {

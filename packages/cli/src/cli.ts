@@ -9,8 +9,9 @@ import { launchClaudeAppProfile, resolveClaudeAppProfileUserDataDir } from "@llm
 import { codexDesktopAppName, launchZcodeAppProfile } from "@llmr/core/agents/codex/app-launch";
 import { loadAppConfig } from "@llmr/core/config/config";
 import { APP_NAME, CONFIGDIR } from "@llmr/core/config/constants";
+import { spawnCommandLaunch } from "@llmr/core/platform/command-path";
 import { installSocketTypeOfServiceCompat } from "@llmr/core/platform/socket-compat";
-import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { applyProfileConfig, applyProfileRuntimeConfig } from "@llmr/core/profiles/service";
 import { ensureProfileGateway, ProfileGatewayUnavailableError } from "@llmr/core/profiles/launch-service";
 import { buildProfileLaunchPlan, defaultProfileOpenSurface, findProfileForOpen, profileLaunchSpawnCommand, resolveProfileOpenSurface, shouldAutoStartProfileGateway } from "@llmr/core/profiles/launch-core";
@@ -228,18 +229,16 @@ async function main(): Promise<void> {
       throw new Error(`Profile launcher was not found: ${plan.command}. Open LLMR once or re-save the profile.`);
     }
 
-    const childEnv = {
-      ...withoutLlmrSecretEnv(),
-      ...plan.env,
-      ...botGatewayProfileEnv(launchConfig, profile, resolvedSurface)
-    };
+    const childEnv = mergeChildEnv(
+      withoutLlmrSecretEnv(),
+      plan.env,
+      botGatewayProfileEnv(launchConfig, profile, resolvedSurface)
+    );
     delete childEnv.ELECTRON_RUN_AS_NODE;
 
-    const launch = profileLaunchSpawnCommand(plan);
-    const child = spawn(launch.command, launch.args, {
+    const child = spawnCommandLaunch(profileLaunchSpawnCommand(plan), {
       env: childEnv,
-      stdio: "inherit",
-      windowsVerbatimArguments: !!launch.windowsVerbatimArguments
+      stdio: "inherit"
     });
     const code = await waitForChild(child);
     process.exitCode = code;

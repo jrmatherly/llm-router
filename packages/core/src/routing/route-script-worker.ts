@@ -109,7 +109,7 @@ const routeInvocationSource = `(() => {
       throw new Error(message);
     }
   };
-  const environment = deepFreeze(JSON.parse(environmentJson));
+  const { foldCase, values: environment } = deepFreeze(JSON.parse(environmentJson));
   const hash = (value) => {
     const text = String(value);
     let output = 2166136261;
@@ -121,7 +121,7 @@ const routeInvocationSource = `(() => {
   };
   const api = deepFreeze({
     env: (name) => {
-      const key = String(name);
+      const key = foldCase ? String(name).toUpperCase() : String(name);
       return Object.hasOwn(environment, key) ? environment[key] : undefined;
     },
     fetch: (url, options) => call("fetch", [url, options]),
@@ -202,9 +202,17 @@ function createRouteScriptBridge(deadline: number, estimateTokens: (body: Record
   });
 }
 
-function routeScriptEnvironment(): Record<string, string> {
-  return Object.fromEntries(Object.entries(withoutLlmrSecretEnv())
-    .filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+// A worker's process.env is a case-sensitive copy on Windows, where names are not, so the lookup folds case.
+function routeScriptEnvironment(): { foldCase: boolean; values: Record<string, string> } {
+  const foldCase = process.platform === "win32";
+  const values: Record<string, string> = {};
+  for (const [name, value] of Object.entries(withoutLlmrSecretEnv())) {
+    const key = foldCase ? name.toUpperCase() : name;
+    if (typeof value === "string" && !Object.hasOwn(values, key)) {
+      values[key] = value;
+    }
+  }
+  return { foldCase, values };
 }
 
 async function controlledFetch(

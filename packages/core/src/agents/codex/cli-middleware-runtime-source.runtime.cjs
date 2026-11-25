@@ -313,10 +313,16 @@ async function runCodexCliMiddleware(args) {
 
   const cleanupAuthBootstrap = createEphemeralCodexApiKeyBootstrap(runtimeAgent);
   const launch = supervisedCodexAppServerLaunch(runtimeAgent, realCli, realArgs);
-  const child = spawnAgentCli(launch.command, launch.args, {
-    env: childEnvForAgent(runtimeAgent),
-    stdio: ["pipe", "pipe", "inherit"]
-  });
+  let child;
+  try {
+    child = spawnAgentCli(launch.command, launch.args, {
+      env: childEnvForAgent(runtimeAgent),
+      stdio: ["pipe", "pipe", "inherit"]
+    });
+  } catch (error) {
+    cleanupAuthBootstrap();
+    throw error;
+  }
   child.on("error", (error) => {
     cleanupAuthBootstrap();
     log("codex_cli_spawn_error", { error: formatError(error) });
@@ -463,37 +469,51 @@ function spawnAgentCli(command, args, options) {
     return childProcess.spawn(command, args, options);
   }
 
-  const commandFile = resolveWindowsCommandFile(command, options && options.env);
+  const env = options && options.env;
+  const commandFile = resolveWindowsCommandFile(command, env);
   if (commandFile && /\.(?:com|exe)$/i.test(commandFile)) {
     return childProcess.spawn(commandFile, args, options);
   }
 
+  const direct = commandFile ? npmShimLaunch(commandFile, env) : null;
+  if (direct) {
+    return childProcess.spawn(direct.command, direct.args.concat(args), options);
+  }
+
+  if (args.some((arg) => /[\r\n]/.test(String(arg)))) {
+    throw new Error("A line break cannot be passed to " + (commandFile || command) + " on Windows, because it is a batch file. A program installed as an .exe or by npm can receive one.");
+  }
   const shellCommand = [escapeWindowsCmdCommand(commandFile || command)]
     .concat(args.map(escapeWindowsCmdArgument))
     .join(" ");
   return childProcess.spawn(
     process.env.ComSpec || process.env.COMSPEC || "cmd.exe",
-    ["/d", "/s", "/c", '"' + shellCommand + '"'],
+    ["/d", "/v:off", "/s", "/c", '"' + shellCommand + '"'],
     { ...options, windowsVerbatimArguments: true }
   );
+}
+
+// The rules below are a copy of packages/core/src/platform/command-path.ts, which this script cannot import.
+// With two spellings of a name, Node gives a child the one that sorts first.
+function windowsEnvValue(env, name) {
+  const key = Object.keys(env).filter((candidate) => candidate.toUpperCase() === name).sort()[0];
+  return (key === undefined ? undefined : env[key]) || "";
+}
+
+function windowsEnvList(value) {
+  return String(value).split(";").map((entry) => entry.trim().replace(/^"|"$/g, "")).filter(Boolean);
 }
 
 function resolveWindowsCommandFile(command, env) {
   const value = String(command || "").trim().replace(/^"|"$/g, "");
   if (!value) return "";
-  const commandExt = path.extname(value);
-  const pathExt = String((env && (env.PATHEXT || env.Pathext)) || process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD")
-    .split(";")
-    .map((extension) => extension.trim())
-    .filter(Boolean);
-  const extensions = commandExt ? [""] : ["", ...pathExt];
-  const hasPath = path.isAbsolute(value) || value.includes("\\") || value.includes("/");
-  const directories = hasPath
+  const source = env || process.env;
+  // A bare name is never tried without an extension: npm puts an extensionless shell script beside each .cmd.
+  const extensions = path.extname(value)
     ? [""]
-    : String((env && (env.PATH || env.Path)) || process.env.PATH || "")
-      .split(path.delimiter)
-      .map((directory) => directory.replace(/^"|"$/g, ""))
-      .filter(Boolean);
+    : windowsEnvList(windowsEnvValue(source, "PATHEXT") || ".COM;.EXE;.BAT;.CMD");
+  const hasPath = path.isAbsolute(value) || value.includes("\\") || value.includes("/");
+  const directories = hasPath ? [""] : windowsEnvList(windowsEnvValue(source, "PATH"));
 
   for (const directory of directories) {
     for (const extension of extensions) {
@@ -507,18 +527,62 @@ function resolveWindowsCommandFile(command, env) {
   return "";
 }
 
-const WINDOWS_CMD_META_CHARS = /([()\][%!^"\`<>&|;, *?])/g;
+function npmShimTarget(shimText) {
+  const head = ["@ECHO off", "GOTO start", ":find_dp0", "SET dp0=%~dp0", "EXIT /b", ":start", "SETLOCAL", "CALL :find_dp0"];
+  const target = '"%dp0%\\\u0000"';
+  const pattern = (lines) => new RegExp("^" + lines
+    .map((line) => line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("\u0000", '([^"%\\r\\n]+)'))
+    .join("\\r?\\n") + "(?:\\r?\\n)?$");
+  const node = pattern(head.concat([
+    "",
+    'IF EXIST "%dp0%\\node.exe" (',
+    '  SET "_prog=%dp0%\\node.exe"',
+    ") ELSE (",
+    '  SET "_prog=node"',
+    "  SET PATHEXT=%PATHEXT:;.JS;=;%",
+    ")",
+    "",
+    'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  ' + target + " %*"
+  ])).exec(shimText);
+  if (node) return { runsNode: true, target: node[1] };
+  const exe = pattern(head.concat([target + "   %*"])).exec(shimText);
+  return exe ? { runsNode: false, target: exe[1] } : undefined;
+}
+
+// An npm shim only picks node and forwards its arguments, so what it wraps is started without cmd.exe.
+function npmShimLaunch(commandFile, env) {
+  let shim;
+  try {
+    shim = npmShimTarget(fs.readFileSync(commandFile, "utf8"));
+  } catch {
+    return null;
+  }
+  if (!shim) return null;
+  const directory = path.dirname(commandFile);
+  const target = path.join(directory, shim.target);
+  if (!isExecutableFile(target)) return null;
+  if (!shim.runsNode) {
+    return /\.(?:com|exe)$/i.test(target) ? { command: target, args: [] } : null;
+  }
+  const bundled = path.join(directory, "node.exe");
+  const node = isExecutableFile(bundled) ? bundled : resolveWindowsCommandFile("node", env);
+  return /\.exe$/i.test(node) ? { command: node, args: [target] } : null;
+}
+
+// The colon is here because cmd.exe ends a percent reference's name at "%" or ":".
+const WINDOWS_CMD_META_CHARS = /([()\][%!^"\`<>&|;, *?:])/g;
 
 function escapeWindowsCmdCommand(value) {
   return String(value).replace(WINDOWS_CMD_META_CHARS, "^$1");
 }
 
+// Carets twice: a batch file that forwards %* parses the line a second time.
 function escapeWindowsCmdArgument(value) {
   let escaped = String(value);
-  escaped = escaped.replace(/(?=(\\+?)?)\1"/g, "$1$1\\\"");
-  escaped = escaped.replace(/(?=(\\+?)?)\1$/g, "$1$1");
+  escaped = escaped.replace(/(\\*)"/g, "$1$1\\\"");
+  escaped = escaped.replace(/(\\*)$/, "$1$1");
   escaped = '"' + escaped + '"';
-  return escaped.replace(WINDOWS_CMD_META_CHARS, "^$1");
+  return escaped.replace(WINDOWS_CMD_META_CHARS, "^$1").replace(WINDOWS_CMD_META_CHARS, "^$1");
 }
 
 function realCliArgs(profile, modelProvider, configFormat, args) {
@@ -4085,13 +4149,11 @@ function claudeCommand(work) {
   const extra = splitShellLike(nonEmptyEnv("LLMR_CLAUDE_CODE_EXTRA_ARGS") || "");
   args.push(...extra);
   const settingsEnv = work.claudeConfigDir ? claudeSettingsEnv(work.claudeConfigDir) : {};
-  const env = withoutKeys({
-    ...process.env,
-    ...settingsEnv,
+  const env = withoutKeys(mergeChildEnv(process.env, settingsEnv, {
     CODEX_SESSION_ID: work.threadId,
     CODEX_THREAD_ID: work.threadId,
     CODEX_TURN_ID: work.turnId
-  }, ["LLMR_CLAUDE_CODE_BOT_WORKER", "ELECTRON_RUN_AS_NODE"]);
+  }), ["LLMR_CLAUDE_CODE_BOT_WORKER", "ELECTRON_RUN_AS_NODE"]);
   if (work.claudeConfigDir) {
     env.CLAUDE_CONFIG_DIR = work.claudeConfigDir;
   }
@@ -7193,6 +7255,24 @@ function withoutKeys(env, keys) {
   const next = { ...env };
   for (const key of keys) delete next[key];
   return next;
+}
+
+// A copy of mergeChildEnv in packages/core/src/mcp/child-env.ts. Later layers win, and on Windows a name
+// replaces any earlier spelling of it.
+function mergeChildEnv(...layers) {
+  const foldCase = process.platform === "win32";
+  const merged = {};
+  const spelling = new Map();
+  for (const layer of layers) {
+    for (const [name, value] of Object.entries(layer)) {
+      const folded = foldCase ? name.toUpperCase() : name;
+      const previous = spelling.get(folded);
+      if (previous !== undefined && previous !== name) delete merged[previous];
+      spelling.set(folded, name);
+      merged[name] = value;
+    }
+  }
+  return merged;
 }
 
 function childEnvForAgent(agent) {

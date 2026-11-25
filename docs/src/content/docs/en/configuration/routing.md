@@ -226,7 +226,7 @@ Each file read or write is limited to 1 MiB.
 
 | API | Returns | Description |
 | --- | --- | --- |
-| `api.env(name)` | `string \| undefined` | Read any environment variable visible to the LLMR process. |
+| `api.env(name)` | `string \| undefined` | Read any environment variable visible to the LLMR process. On Windows the name is matched without regard to letter case. |
 | `api.hash(value)` | `number` | Return a stable unsigned 32-bit hash of the string form, useful for stable rollout buckets. Use it for bucketing only, not for security. |
 
 #### Return values
