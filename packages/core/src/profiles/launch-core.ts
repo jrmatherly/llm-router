@@ -5,6 +5,7 @@ import { resolveKiloConfigFile as resolveKiloProfileConfigFile } from "@llmr/cor
 import { resolveOpenCodeConfigFile as resolveOpenCodeProfileConfigFile } from "@llmr/core/agents/opencode/profile-config";
 import { piWrapperFilename, resolvePiAgentDir, resolvePiSessionDir } from "@llmr/core/agents/pi/profile-config";
 import { resolveZcodeConfigFile } from "@llmr/core/agents/zcode/profile-config";
+import { batchFileLaunch, type CommandLaunch } from "@llmr/core/platform/command-path";
 import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 
 export type ProfileLaunchPlan = {
@@ -13,12 +14,6 @@ export type ProfileLaunchPlan = {
   env: Record<string, string>;
   profile: ProfileConfig;
   surface: ProfileOpenSurface;
-};
-
-export type ProfileLaunchSpawnCommand = {
-  args: string[];
-  command: string;
-  windowsVerbatimArguments?: boolean;
 };
 
 export function findProfileForOpen(config: Pick<AppConfig, "profile">, profileRef: string): ProfileConfig {
@@ -234,22 +229,10 @@ function buildPiLaunchPlan(
   };
 }
 
-export function profileLaunchSpawnCommand(plan: Pick<ProfileLaunchPlan, "args" | "command">): ProfileLaunchSpawnCommand {
-  if (!isWindowsCommandScript(plan.command)) {
-    return {
-      args: plan.args,
-      command: plan.command
-    };
-  }
-  let cmdLine = `"${plan.command}"`;
-  if (plan.args && plan.args.length > 0) {
-    cmdLine += " " + plan.args.join(" ");
-  }
-  return {
-    args: ["/d", "/v:off", "/c", cmdLine],
-    command: process.env.ComSpec || process.env.COMSPEC || "cmd.exe",
-    windowsVerbatimArguments: true
-  };
+export function profileLaunchSpawnCommand(plan: Pick<ProfileLaunchPlan, "args" | "command">): CommandLaunch {
+  return isWindowsCommandScript(plan.command)
+    ? batchFileLaunch(plan.command, plan.args)
+    : { args: plan.args, command: plan.command };
 }
 
 export function llmrManagedProfileDir(configDir: string, profile: ProfileConfig): string {

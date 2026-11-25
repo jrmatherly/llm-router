@@ -25,6 +25,7 @@ import { buildProfileLaunchPlan, findProfileForOpen, profileLaunchSpawnCommand, 
 import { profileApiKeyId } from "@llmr/core/profiles/api-key";
 import { backupFiles, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { applyProfileConfig, cleanupGeneratedBinBackups } from "@llmr/core/profiles/service";
+import { spawnCommandLaunch } from "@llmr/core/platform/command-path";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@llmr/core/platform/windows-system";
 import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
 
@@ -179,8 +180,7 @@ export async function openProfileFromLlmr(config: AppConfig, request: ProfileOpe
     throw new Error(`Profile launcher was not found: ${plan.command}. Re-save the profile and try again.`);
   }
 
-  const launch = profileLaunchSpawnCommand(plan);
-  const child = spawn(launch.command, launch.args, {
+  const child = spawnCommandLaunch(profileLaunchSpawnCommand(plan), {
     detached: true,
     env: {
       ...withoutLlmrSecretEnv(),
@@ -1544,12 +1544,11 @@ function startCodexAppBotWorker(config: AppConfig, profile: ReturnType<typeof fi
     LLMR_PROFILE_SURFACE: "app"
   };
   delete env.ELECTRON_NO_ATTACH_CONSOLE;
-  const child = spawn(launch.command, launch.args, {
+  const child = spawnCommandLaunch(launch, {
     detached: false,
     env,
     stdio: ["ignore", "ignore", "pipe"],
-    windowsHide: true,
-    windowsVerbatimArguments: launch.windowsVerbatimArguments
+    windowsHide: true
   });
   codexAppBotWorkers.set(profile.id, { agent: profile.agent, child, stateDir: botEnv.LLMR_BOT_GATEWAY_STATE_DIR });
   child.stderr?.on("data", (chunk) => {
