@@ -2,6 +2,8 @@
 
 > **Status, 2026-11-24: written from the second research pass, audited once on another model, the owner accepted every recommendation, Tasks 1 and 2 merged on 2026-11-24 as PR 152 after keys plan Task 4 merged as PR 151. Task 3 waits on the owner's VM check, and Task 4 goes into follow-ups PR 3.** On 2026-11-24 the owner accepted the recommendation for each of the seven findings, so no decision is open and the lines below that say a task "waits on the owner's answer" are settled. Building each PR still needs his word, as does each merge. Task 5 is a docs paragraph and was committed the same day. Nothing else was built. The audit wrote every test below as given and ran it on today's code, then against the smallest change each Interfaces block describes, in a throwaway worktree. It found 1 Blocker, in a fixture of Task 4, and 10 Corrections. All are applied. The text changed by that round was then reviewed by the session on 2026-11-24. It ran the one test added after the audit in the audit's worktree (17 of 17) and one more mutation. It found one gap behind Task 1's VM check, an adopted gateway that nobody watches, which is now under "Not in this plan". Task 6 was added for it on 2026-11-24 on the owner's word, audited once, and merged on 2026-11-25 as PR 155.
 
+> **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A person who runs the desktop app and the CLI service on one machine keeps a working gateway and a truthful status window, opening an agent app raises no macOS permission prompt, and a provider is called a local login only when it is one.
@@ -76,11 +78,11 @@ Each line is a condition no task's first test covers. The test that pins it is i
 1. Keys plan Task 4 merges first. Done, PR 151, `c53eb517`. Task 1 here depends on it: with a one-key config the adopting side ends in `error`.
 2. Tasks 1 and 2, one PR, branch `fix/gateway-restart-yields`. Done, PR 152, `72c747cd`.
 3. Keys plan Task 3 can go before or after step 2.
-4. Task 3, its own PR, branch `fix/app-activation-no-apple-event`, after the owner's VM check.
+4. Task 3. Batch 1 of the delivery order, with no VM check first.
 5. Follow-ups PR 3 with Task 4 of this plan as its second commit: Task 8, this Task 4, Task 9, Task 10.
 6. Task 5, a docs commit on `main`. Done, `082624bc`.
 7. Task 6, its own PR, branch `fix/adopted-gateway-watch`. Done, PR 155, `533244e9`.
-8. Task 7, its own PR, branch `fix/apply-takeovers-after-takeover`. It needs Task 6. Keys plan Task 6 waits on it.
+8. Task 7. Batch 1 of the delivery order, as its first commit. Keys plan Task 6 follows it in the same branch.
 
 ---
 
@@ -285,7 +287,7 @@ Then open the PR for Tasks 1 and 2. Say in it what "Not in this plan" says about
 
 ### Task 3: Bring an agent app forward without an Apple Event (VP-3)
 
-Accepted by the owner, 2026-11-24. It still waits on the VM check of Step 1. Its own PR.
+Accepted by the owner, 2026-11-24. It no longer waits on the VM check of Step 1: on 2026-11-25 the owner moved every VM check to one pass at the end, so the task is built on the run its Evidence names and Step 1 is a line of that pass. Batch 1 of the delivery order.
 
 Opening or reopening an App profile brings that app's window forward and raises no macOS prompt.
 
@@ -299,7 +301,7 @@ Opening or reopening an App profile brings that app's window forward and raises 
 - Produces, in `launch-service.ts`, beside the two `...ForTest` exports (`:1114`, `:1171`): `export function profileAppActivationCommandForTest(pid: number): { args: string[]; command: string }`. It returns `command: "/usr/bin/osascript"` and `args: ["-l", "JavaScript", "-e", script]`, where `script` is exactly `` `ObjC.import("AppKit"); $.NSRunningApplication.runningApplicationWithProcessIdentifier(${pid}).activateWithOptions(2)` ``. The option `2` is `NSApplicationActivateIgnoringOtherApps`, the value the run used.
 - Changes, `activateProfileAppWindow`. Its `spawn` takes the command and the arguments from that function. The alive check becomes `if (pid === undefined || !isProcessAlive(pid)) return;`, because the pid there is `number | undefined` and the new function takes a number (typecheck fails without it, ran by the audit). The two delays, `detached`, `stdio: "ignore"`, `unref` and the seven callers stay. The comment in its `catch` stays. Apple marks option `2` as deprecated since macOS 14, where an activation became a request. It is the value that ran.
 
-- [ ] **Step 1: The owner's VM check, before any code.** On the VM with released 9.0.0: start two Claude Code App profiles, so that two Claude instances run. Put Terminal in front. Find the main process id of the instance further back with `ps -axo pid,command | grep -- --user-data-dir`. Run `sleep 3; osascript -l JavaScript -e 'ObjC.import("AppKit"); $.NSRunningApplication.runningApplicationWithProcessIdentifier(<pid>).activateWithOptions(2)'` and click another window during the three seconds. Expected: no prompt, `true` printed, and that instance in front. Repeat five times, and once with the instance on another Space. If any run prompts, prints `false` or leaves the window behind, stop. The record's section "VP-3, run and documented" then has the change to build in place of this task, under "If the VM check fails".
+- [ ] **Step 1: The owner's VM check.** Not before the code any more: it runs in the end pass, and a failure there is a fix in the remediation plan. On the VM with released 9.0.0: start two Claude Code App profiles, so that two Claude instances run. Put Terminal in front. Find the main process id of the instance further back with `ps -axo pid,command | grep -- --user-data-dir`. Run `sleep 3; osascript -l JavaScript -e 'ObjC.import("AppKit"); $.NSRunningApplication.runningApplicationWithProcessIdentifier(<pid>).activateWithOptions(2)'` and click another window during the three seconds. Expected: no prompt, `true` printed, and that instance in front. Repeat five times, and once with the instance on another Space. If any run prompts, prints `false` or leaves the window behind, stop. The record's section "VP-3, run and documented" then has the change to build in place of this task, under "If the VM check fails".
 
 - [ ] **Step 2: Write the failing test** in `profile-app-process-detection.test.mjs`. Add `profileAppActivationCommandForTest` to the file's import.
 

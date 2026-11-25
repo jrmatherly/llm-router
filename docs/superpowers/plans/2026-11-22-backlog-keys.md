@@ -2,6 +2,8 @@
 
 > **Status, 2026-11-24: corrected and audited again, waiting for the owner's approval to build.** A second-model audit of 2026-11-22 found 3 Blockers and 6 Corrections. Each was read again in the code at `main` `81773a5d` and held, and the tasks below carry the corrections. A second audit of the corrected text on 2026-11-24 found no Blocker and 5 Corrections, 4 of them in test text, and those are applied too. The text changed by that last round was not audited a third time. The audits live outside the repo. Tasks 1 and 2 merged on 2026-11-24 (PRs 149 and 150). Task 4 merged the same day (PR 151, `c53eb517`), with a second test that covers the Claude App open. Task 3 merged the same day (PR 153, `4b43ca2d`), so Tasks 1 to 4 are merged and none is released. Task 5 was added the same day from the research after PR 153, with the owner's acceptance of its three recommendations. An audit on another model built it from its text alone the same day, with every gate and the three mutations run, and found no Blocker and 4 Corrections, all applied. It merged the same day as PR 154, with one of its three changes taken out by the review, so every task of this plan is merged and none is released. Task 4 and the second-round notes under "Open with the owner" were added the same day and audited once. Task 3 was rewritten the same day for the owner's answer (b), after a pass on his VM, and that text has its own audit.
 
+> **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A person who edits API keys keeps every key and every revocation that another window, the CLI or a profile wrote in the meantime, and a key added or revoked by another process takes effect in the running gateway without a manual restart.
@@ -770,7 +772,7 @@ Written 2026-11-25 on the owner's word. He accepted the change on 2026-11-24 as 
 **Evidence.**
 - **Run, 2026-11-25, `main` `51b15a2d`.** With the test of Step 1 changed, `profile-gateway-probe.test.mjs` gave 13 pass and 1 fail on today's code, at the `instanceof` assertion with `false`. With a throwaway build of the change it gave 14 of 14, and `npm run typecheck`, `npm run lint`, `npm run test:architecture` (186 of 186), `npm run test:core` (2113 tests, 0 failed) and `npm run test:cli` (21 of 21) passed. The throwaway build is not in the repo.
 - **Not run.** Nothing in this task ran on two real LLM Router processes. The cases above are read from the code, apart from the three runs the bullets name.
-- **The run this was to wait for.** The VM findings plan asked for a real-process run before this merges. The VM check below is that run, and the PR waits for it.
+- **The run this was to wait for.** The VM findings plan asked for a real-process run before this merges. The VM check below is that run. On 2026-11-25 the owner moved every VM check to one pass at the end, so the PR does not wait for it. Batch 1 of the delivery order.
 
 **Files:**
 - Modify: `packages/core/src/profiles/launch-service.ts` (`ensureGatewayConfigRunning` `:446-458`, `waitForProfileKey` `:496-498`, one new function after it)

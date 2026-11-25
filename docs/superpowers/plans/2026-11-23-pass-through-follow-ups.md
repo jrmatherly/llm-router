@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
+
 **Goal:** A person who turns on "Sign in with my Claude login" gets a form, a provider dialog, model pickers, a saved config and an upgrade note that all say what PR 146 does, before that change is released.
 
 **Architecture:** Three PRs. PR 1 is one branch with six tasks and one commit each. Task 1 is core. The owner answered question 1 with (a) on 2026-11-24, so it is built. Tasks 2, 3 and 5 are UI. Task 4 is core. Task 6 is docs. PR 2 is Task 7 alone and changes how a Claude Code settings backup is written. PR 3 is one branch with Tasks 8, 9 and 10 and one commit each. It was added on 2026-11-24, after the release of 9.0.0 and a pass on a disposable VM, and it is UI and docs only. Core's probe result, the contract types and the request path are not touched.
