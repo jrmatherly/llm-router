@@ -1,6 +1,6 @@
 # VM Pass Findings Implementation Plan
 
-> **Status, 2026-11-24: written from the second research pass, audited once on another model, the owner accepted every recommendation, Tasks 1 and 2 merged on 2026-11-24 as PR 152 after keys plan Task 4 merged as PR 151. Task 3 waits on the owner's VM check, and Task 4 goes into follow-ups PR 3.** On 2026-11-24 the owner accepted the recommendation for each of the seven findings, so no decision is open and the lines below that say a task "waits on the owner's answer" are settled. Building each PR still needs his word, as does each merge. Task 5 is a docs paragraph and was committed the same day. Nothing else was built. The audit wrote every test below as given and ran it on today's code, then against the smallest change each Interfaces block describes, in a throwaway worktree. It found 1 Blocker, in a fixture of Task 4, and 10 Corrections. All are applied. The text changed by that round was then reviewed by the session on 2026-11-24. It ran the one test added after the audit in the audit's worktree (17 of 17) and one more mutation. It found one gap behind Task 1's VM check, an adopted gateway that nobody watches, which is now under "Not in this plan".
+> **Status, 2026-11-24: written from the second research pass, audited once on another model, the owner accepted every recommendation, Tasks 1 and 2 merged on 2026-11-24 as PR 152 after keys plan Task 4 merged as PR 151. Task 3 waits on the owner's VM check, and Task 4 goes into follow-ups PR 3.** On 2026-11-24 the owner accepted the recommendation for each of the seven findings, so no decision is open and the lines below that say a task "waits on the owner's answer" are settled. Building each PR still needs his word, as does each merge. Task 5 is a docs paragraph and was committed the same day. Nothing else was built. The audit wrote every test below as given and ran it on today's code, then against the smallest change each Interfaces block describes, in a throwaway worktree. It found 1 Blocker, in a fixture of Task 4, and 10 Corrections. All are applied. The text changed by that round was then reviewed by the session on 2026-11-24. It ran the one test added after the audit in the audit's worktree (17 of 17) and one more mutation. It found one gap behind Task 1's VM check, an adopted gateway that nobody watches, which is now under "Not in this plan". Task 6 was added for it on 2026-11-24 on the owner's word, audited once, and is not built.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -54,11 +54,13 @@ Each line is a condition no task's first test covers. The test that pins it is i
 4. A child that ran out of memory. Its exit is `SIGABRT` and its stderr must stay in the message. Task 2, Step 1.
 5. A saved Codex provider at Codex's default address whose plugin entry is gone. It must still read as a local login. Task 4, Step 1.
 6. A provider whose key is the placeholder typed by hand. Its key field must be shown, in the Add flow and in the edit dialog. Task 4, Steps 1 and 5.
+7. The process an adopter took its gateway from is only restarting. The adopter must not start a gateway inside the wait. Task 6, Step 1, the test of the gateway that answers again.
+8. `stop` or `start` is called while the check of the adopted gateway is in flight. Nothing may be started after it. Task 6, Step 1, the last test.
 
 ## Not in this plan
 
 - **One change of owner.** A second process that calls `start` still stops the first one's child once, and requests in flight are dropped. Task 1 ends the exchange after that. Removing the first stop means `ensureStarted` in the seven callers that start with no probe, which the record lists. One of them is the app-profile open (`profiles/launch-service.ts:463`), where keys plan Task 4 already notes that an open restarts a gateway that serves the same config. Not run.
-- **An adopted gateway that nobody watches.** A process that has adopted another process's gateway shows `running` and runs no timer for it. The stored-key poll skips an adopted gateway (`gateway-service.ts:752`), and no other check of it exists (run by the session, a search for `gatewayManagedExternally`). So when the serving process quits, the adopter stays green while nothing answers, until a save, a launch or a restart calls `ensureStarted` or `start`. This is today's behaviour for a service started beside a running one, and Task 1 makes adoption the outcome of more cases. Read, not run. Recommended as the next task after this plan's VM check shows it: a health check of the adopted gateway on the timer the key poll uses, which starts this process's own gateway when the other one is gone. Not written, and it needs the owner's word.
+- **An adopted gateway that nobody watches.** A process that has adopted another process's gateway shows `running` and runs no timer for it. The stored-key poll skips an adopted gateway (`gateway-service.ts:771`), and no other check of it exists (run by the session, a search for `gatewayManagedExternally`). So when the serving process quits, the adopter stays green while nothing answers, until a save, a launch or a restart calls `ensureStarted` or `start`. This is today's behaviour for a service started beside a running one, and Task 1 makes adoption the outcome of more cases. Read when this line was written, and since run by the session: Task 6 is the fix, written on the owner's word of 2026-11-24.
 - **One process in the single layout beside one in the compat layout.** The compat server answers `/health` with its state, `running`, and not `ok` (`gateway/http/request-handler.ts:231-238`), so the check of Task 1 does not see it. The restart then takes the normal path, removes the other process's marker, fails on the port and tries again every 30 s, with no signal sent. Read by the audit, not run. Both processes read one stored config, so they have one layout unless one of them was started from another config.
 - **An owner id in the gateway marker.** Prototyped and dropped. The record has the run.
 - **A two-process wire test.** The research ran one by editing `build/test-home.mjs`, which gives every test process its own home. A kept test needs a supported way to share one home between two processes. The unit tests of Task 1 and the VM check stand in for it.
@@ -77,6 +79,7 @@ Each line is a condition no task's first test covers. The test that pins it is i
 4. Task 3, its own PR, branch `fix/app-activation-no-apple-event`, after the owner's VM check.
 5. Follow-ups PR 3 with Task 4 of this plan as its second commit: Task 8, this Task 4, Task 9, Task 10.
 6. Task 5, a docs commit on `main`. Done, `082624bc`.
+7. Task 6, its own PR, branch `fix/adopted-gateway-watch`. It needs Task 1, which is merged, and waits on nothing else.
 
 ---
 
@@ -473,11 +476,193 @@ When LLMR writes an agent's main config file, such as `settings.json` or `config
 
 - [x] **Step 3: Commit.** Subject: `docs(profiles): say which mode LLMR gives a config file and what it does with a linked one`
 
+### Task 6: A process watches the gateway it adopted and starts its own when that one is gone
+
+Written 2026-11-24 from "Not in this plan", on the owner's word to write and audit it. Building it needs his word. Its own PR, branch `fix/adopted-gateway-watch`.
+
+**Audited once on another model, 2026-11-24.** The audit built the task from this text alone and ran every gate and mutation. It found no Blocker and four Corrections, all applied below: the watch has to act after a failed reload, the retry count has to be reset, one more test for two mutations that survived, and two sentences that were inexact. The session ran the first two again before applying them: each new assertion failed on the task as first written and passed with the change. The text changed by that round was not audited again.
+
+**Evidence.**
+- **Run, 2026-11-24, `main` `1fc3603e`.** A service put into the adopted state by `markExternalGatewayRunning`, with every request failing, was left for 3.5 seconds. Its status stayed `running`, it sent no request, and it held no key-poll timer and no restart timer.
+- **Read, not run on real processes.** The state is reached with no race. A Grok, Kimi or Pi launch that finds no gateway starts a service of its own (`cli.ts:173`). The desktop app, opened after it, finds that gateway and adopts it (`main-app.ts:228`, `gateway-service.ts:377-391`). When the agent exits, that service stops itself 2 seconds after its last lease is gone (`cli.ts:556-573`). The desktop window then shows a running gateway while nothing answers, until a save, a launch or a restart.
+- **Read by the audit, and run.** A save while the adopted gateway is gone makes it worse. The reload fails and leaves `error` with `gatewayManagedExternally` set (`gateway-service.ts:739-745`). From then on a save or the tray's Restart goes to the reload again and fails again (`ipc.ts:224-230`, `gateway-service.ts:416-420`). Only Start, a launch or an app restart recovers it. A model refresh or a key save reaches this with nobody at the window (`main-app.ts:262`, `ipc.ts:386`, `:453`).
+- **Prototype, run.** The change below was built as throwaway code with the six tests of Step 1. `core-restart.test.mjs` passed 26 of 26, and `npm run typecheck`, `npm run lint`, `npm run test:architecture` (186 of 186) and `npm run test:core` (2112 tests, 0 failed) passed. The mutations of Step 4 each failed a test, on the session's build or the audit's. The prototype is not in the repo.
+
+**What changes for a user.** A window that adopted another process's gateway goes from green to an error about 10 to 12 seconds after that gateway stops answering, then back to green once this process's own gateway is up, which the restart begins one second later. The first request after the other process quits can still fail during that time.
+
+**Files:**
+- Modify: `packages/core/src/gateway/existing-gateway-probe.ts` (a new export before `nonLocalGatewayMessage`)
+- Modify: `packages/core/src/gateway/application/gateway-service.ts` (the constants at `:51`, the fields of the class at `:130`, `stopGateway` `:432`, `markExternalGatewayRunning` `:843`, one new method after it)
+- Test: `packages/core/test/unit/gateway/core-restart.test.mjs` (six tests and one helper at the end)
+
+**Interfaces:**
+- Produces, in `existing-gateway-probe.ts`: `export async function isGatewayEndpointAnswering(endpoint: string): Promise<boolean>`. It returns `(await fetchExistingGateway(endpoint, "/health", {}, 1)).status !== undefined`: one attempt, no key sent, and any HTTP answer counts. One comment gives the why: the compat server answers `/health` with a state that is not `ok`, so `isCoreGatewayHealthy` would call a compat owner gone.
+- Produces, in `gateway-service.ts`: `const adoptedGatewayGoneMs = 10_000` and `const adoptedGatewayPollMs = 2000`, and two private fields, `adoptedGatewayGoneSince?: number` and `adoptedGatewayTimer?: NodeJS.Timeout`.
+- Changes, `markExternalGatewayRunning`. After it sets the status it clears `adoptedGatewayGoneSince`, clears any earlier `adoptedGatewayTimer`, and sets a new one with `setInterval(() => { void this.checkAdoptedGateway(); }, adoptedGatewayPollMs).unref()`.
+- Changes, `stopGateway`. Beside the lines that clear `storedApiKeysTimer` it clears `adoptedGatewayTimer` and sets it to `undefined`. Nothing else clears the timer. In a state the watch skips, it ticks and does nothing until the next `stopGateway`.
+- Produces, `private async checkAdoptedGateway(): Promise<void>`, in this order:
+  1. Return unless the status has `gatewayManagedExternally`. The state is not checked: a failed reload leaves `error` with the flag set (`:739-745`), and the watch must still act then.
+  2. Take `this.coreRestartGeneration`, then `await isGatewayEndpointAnswering(this.status.endpoint)`.
+  3. Return if the generation changed during the await, or the status no longer has `gatewayManagedExternally`.
+  4. If it answered, clear `adoptedGatewayGoneSince` and return.
+  5. Set `adoptedGatewayGoneSince ??= Date.now()`. Return while `Date.now() - adoptedGatewayGoneSince < adoptedGatewayGoneMs`.
+  6. Log once with `console.warn`, set the status to `{ ...this.status, gatewayManagedExternally: undefined, lastError, state: "error" }` with `lastError` = `` `The LLM Router gateway at ${this.status.endpoint} that this process was using is gone.` ``, set `this.coreRestartAttempts = 0`, and call `this.scheduleCoreRestart(generation)`. The reset matters: a restart of Task 1 that ended in an adoption leaves the count above zero, and the next restart would then wait up to 30 seconds (`:660`, run by the audit: with a count of 3 the start came at 8 seconds).
+  One comment above it gives the why of the wait: the serving process may only be restarting.
+- Consumes, unchanged: `scheduleCoreRestart` and the restart path of Task 1. That path adopts another healthy gateway on the port, waits when one refuses this process's key, and starts a child when the port is free. It does not run `stopPreviousManagedCoreGateway`, so it signals no process.
+
+**Why 10 seconds.** The serving process restarts its gateway when a stored key changes, and the gateway is gone for that time. An earlier session measured about 2 seconds for it. A launch already waits 10 seconds for the same restart (`launch-service.ts:484`). If this process started a gateway inside that time, the serving process's own start would then find a healthy gateway named in the marker and signal it (`supervisor.ts:775-800`, read). That is the exchange Task 1 ended.
+
+- [ ] **Step 1: Write the tests.** Append to `core-restart.test.mjs`. `withFetch`, `config` and `createService` are the file's own.
+
+```js
+function adoptedService(t) {
+  t.mock.timers.enable({ apis: ["Date", "setInterval", "setTimeout"] });
+  const service = createService();
+  t.after(() => clearInterval(service.adoptedGatewayTimer));
+  service.markExternalGatewayRunning(config(), "http://127.0.0.1:3456", "first-key");
+  const settle = async () => { for (let i = 0; i < 20; i += 1) await new Promise((resolve) => setImmediate(resolve)); };
+  const pass = async (ms) => {
+    for (let elapsed = 0; elapsed < ms; elapsed += 1_000) {
+      t.mock.timers.tick(1_000);
+      await settle();
+    }
+  };
+  return { pass, service };
+}
+
+test("an adopted gateway that stays gone for the wait is replaced by this process's own, and not sooner", async (t) => {
+  const requests = withFetch(t, () => { throw new Error("connection refused"); });
+  const { pass, service } = adoptedService(t);
+  const starts = [];
+  service.startGateway = async (config, generation) => { starts.push([config.gateway.port, generation]); return service.getStatus(); };
+  service.coreRestartAttempts = 3;
+  await pass(10_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.equal(service.getStatus().gatewayManagedExternally, true);
+  assert.deepEqual(starts, []);
+  await pass(2_000);
+  assert.equal(service.getStatus().state, "error");
+  assert.equal(service.getStatus().gatewayManagedExternally, undefined);
+  assert.match(service.getStatus().lastError, /gateway at http:\/\/127\.0\.0\.1:3456 that this process was using is gone/);
+  await pass(1_000);
+  assert.deepEqual(starts, [[3456, 0]]);
+  assert.deepEqual([...new Set(requests.map((request) => `${request.path} ${request.authorization}`))], ["/health null"]);
+  const seen = requests.length;
+  await pass(30_000);
+  assert.equal(requests.length, seen);
+});
+
+test("an adopted gateway that answers again within the wait is kept, in either layout", async (t) => {
+  let answer = () => { throw new Error("connection refused"); };
+  withFetch(t, () => answer());
+  const { pass, service } = adoptedService(t);
+  service.startGateway = async () => { throw new Error("started a gateway"); };
+  await pass(8_000);
+  answer = () => Response.json({ status: "running" });
+  await pass(2_000);
+  answer = () => { throw new Error("connection refused"); };
+  await pass(8_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.equal(service.getStatus().gatewayManagedExternally, true);
+  assert.equal(service.coreRestartTimer, undefined);
+});
+
+test("a stop ends the watch of an adopted gateway", async (t) => {
+  const requests = withFetch(t, () => { throw new Error("connection refused"); });
+  const { pass, service } = adoptedService(t);
+  await service.stop();
+  assert.equal(service.adoptedGatewayTimer, undefined);
+  await pass(30_000);
+  assert.equal(requests.length, 0);
+  assert.equal(service.getStatus().state, "stopped");
+});
+
+test("a stop while the adopted gateway is being checked starts nothing", async (t) => {
+  let fail;
+  withFetch(t, () => new Promise((_resolve, reject) => { fail = reject; }));
+  const { pass, service } = adoptedService(t);
+  service.adoptedGatewayGoneSince = Date.now() - 60_000;
+  await pass(2_000);
+  service.cancelCoreRestart();
+  fail(new Error("connection refused"));
+  await pass(1_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.equal(service.coreRestartTimer, undefined);
+});
+
+test("a save that fails while the adopted gateway is gone still lets the watch replace it", async (t) => {
+  withFetch(t, () => { throw new Error("connection refused"); });
+  const { pass, service } = adoptedService(t);
+  const starts = [];
+  service.startGateway = async (_config, generation) => { starts.push(generation); return service.getStatus(); };
+  await pass(4_000);
+  await service.updateConfig(config()).catch(() => undefined);
+  assert.equal(service.getStatus().state, "error");
+  await pass(10_000);
+  assert.equal(starts.length > 0, true);
+});
+
+test("a gateway adopted again is watched once, on the port it serves", async (t) => {
+  const requests = withFetch(t, (url) => {
+    if (url.port !== "3456") throw new Error("connection refused");
+    return Response.json({ status: "ok" });
+  });
+  const { pass, service } = adoptedService(t);
+  service.startGateway = async () => { throw new Error("started a gateway"); };
+  service.markExternalGatewayRunning(config(), "http://127.0.0.1:3456", "first-key");
+  await pass(14_000);
+  assert.equal(requests.length, 7);
+  assert.equal(service.getStatus().state, "running");
+});
+```
+
+- [ ] **Step 2: Run and see it fail.**
+
+Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/gateway/core-restart.test.js`
+Expected, ran by the session on `main` `1fc3603e`: 22 pass and 4 fail. The first test fails at `assert.equal(service.getStatus().state, "error")` with `"running"`. The fourth fails with a `TypeError` at `fail(...)`, because no check ran and so no request was ever made. The fifth fails at its last assertion with `false`, and the sixth at `requests.length` with 0. The second and third pass on today's code, because nothing watches and nothing starts. Each of them is held by a mutation in Step 4.
+
+- [ ] **Step 3: Implement** as Interfaces says.
+
+- [ ] **Step 4: Verify.**
+
+Run: the command of Step 2. Expected: 26 of 26 pass (ran on the prototype).
+Run: `npm run typecheck && npm run lint && npm run test:architecture && npm run test:core`
+Expected: all pass (ran on the prototype).
+Mutations, each alone, each expected to fail the test named (the first five ran on the session's first prototype and again in the audit, the last four in the audit or the session's second run):
+- Remove the return of point 5. Fails the first and second tests.
+- Remove the clearing of `adoptedGatewayGoneSince` in point 4. Fails the second test.
+- Remove the generation comparison of point 3. Fails the fourth test.
+- Remove the two lines added to `stopGateway`. Fails the third test.
+- Make `isGatewayEndpointAnswering` true only when the body's `status` is `ok`. Fails the second test.
+- Put the `running` check back into point 1. Fails the fifth test.
+- Remove the reset of `coreRestartAttempts`. Fails the first test.
+- Ask `this.status.coreEndpoint` in place of `this.status.endpoint`. Fails the sixth test.
+- Leave the earlier interval uncleared in `markExternalGatewayRunning`. Fails the sixth test.
+
+Known to survive, and left: three fetch attempts in place of one, and the reset of `adoptedGatewayGoneSince` in `markExternalGatewayRunning` removed. The next failing check starts a fresh wait either way (read by the audit).
+
+- [ ] **Step 5: Commit.** Subject: `fix(gateway): watch an adopted gateway and start one when it is gone`
+
+**VM check, for the owner, on the build that holds this task.** Two runs.
+1. With no LLM Router process running, open a Grok, Kimi or Pi profile from a terminal, then open the desktop app. Quit the agent. Expected: the desktop window shows an error within about 15 seconds and is green again a few seconds later, and a stored key answers on the gateway port.
+2. Open the desktop app, then run `llmr start`, then `llmr stop`. Expected: the same.
+In both, watch the port for five minutes after. Expected: one owner.
+
+**Not in this task.**
+- **The first seconds after the other process quits.** Requests fail until this process's gateway is up, about 12 seconds plus the start. A shorter wait would bring back the exchange of owners.
+- **The config the new gateway starts from.** It is the config of the last adoption or reload that worked. A save whose reload failed is not in it. A process that never ran a gateway of its own has no stored-key baseline, so a key another process stored after the adoption is not accepted until this process saves or restarts (read at `gateway-service.ts:776-777`, not run).
+- **An adopted gateway that answers but no longer accepts this process's key.** The watch sends no key and does not see it.
+- **The save and Restart paths while the flag is set.** They still go to the reload of the adopted gateway (`ipc.ts:224-230`, `gateway-service.ts:416-420`). With the watch that state ends by itself within about 12 seconds, so they are left as they are.
+- **The warning logged twice.** Two checks that overlap can both reach point 6. The second restart is not scheduled (`:659`), and the line is printed twice (read by the audit).
+- **Two adopters of one gateway.** Both start when it is gone. One child loses the port, and that process's restart adopts the other (inferred from Task 1, not run).
+
+**After this task.** Keys plan Task 5 took one change out of PR 154: a Grok, Kimi or Pi launch that starts its own service when the gateway is gone at the end of the launch's wait. The owner accepted that change on 2026-11-24, and it was withdrawn because the desktop app, having adopted that service, would be left with nothing answering when the agent exits. This task removes that reason. The two-line change can then go back as its own task, with a real-process run before it merges.
+
 ---
 
 ## Self-review
 
-- **Coverage.** VP-3 is Task 3. VP-4 and VP-5 are Task 1. VP-6 is Task 2. VP-7 is Task 5. VP-9 is Task 4. VP-8 and the key line left in a profile's own settings file have no task, and "Not in this plan" says why. VP-1 is Task 8 of the follow-ups plan and VP-2 needs nothing.
+- **Coverage.** The adopted gateway nobody watches is Task 6. VP-3 is Task 3. VP-4 and VP-5 are Task 1. VP-6 is Task 2. VP-7 is Task 5. VP-9 is Task 4. VP-8 and the key line left in a profile's own settings file have no task, and "Not in this plan" says why. VP-1 is Task 8 of the follow-ups plan and VP-2 needs nothing.
 - **Steps.** Every test step gives a name and its assertions with made-up values. Tasks 2, 3 and 4 add an export or a stub before their first run and say so.
 - **Names across tasks.** `hasLocalAgentLoginKey` and the three-parameter `isLocalAgentLoginDraft` come from Task 4 and are used by follow-ups Task 9 as this plan's Task 4 says. `savedLoginAddressChanged` of follow-ups Task 10 takes the same three parameters in the same order. Nothing else crosses a task.
 - **Order.** Task 1 needs keys plan Task 4. Task 2 needs nothing. Task 3 needs the VM check. Task 4 goes between follow-ups Tasks 8 and 9. Task 5 needs nothing.
@@ -487,7 +672,8 @@ When LLMR writes an agent's main config file, such as `settings.json` or `config
 
 - The test of the 500 answer in Task 1 on today's code. It ran only against the change.
 - One mutation claim of Task 1, the normal start in the refusing case.
-- What a process that adopted a gateway does when the serving process quits. Read, not run.
+- What a process that adopted a gateway does when the serving process quits, on real processes. A unit run shows it notices nothing today. Task 6 ran as a prototype against the unit tests only.
+- Task 6 with two adopters, with a slow `/health`, and how often the desktop window and the tray read the status, so whether the short error is seen. Inferred or not looked at.
 - The mixed layout under "Not in this plan", which was read and not run.
 - Task 1 with keys plan Task 4 applied. The research ran a full-list owner as a stand-in for it.
 - A service of an older version beside a build with Task 1, and the yielding side taking the port again after the other process quits. Both inferred.
