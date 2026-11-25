@@ -1,7 +1,7 @@
 import { ClaudeAppsGatewaySignInForm } from "./claude-apps-gateway-sign-in";
 import { useDraftClose } from "./unsaved-changes";
 import {
-  AddProviderDraft, isClaudeLoginProviderDraft, isLocalAgentLoginDraft, localAgentProviderApiKey, openExternalUrl, type ProviderSetupStepId, providerSetupStepsForDraft, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
+  AddProviderDraft, isClaudeLoginProviderDraft, isLocalAgentLoginDraft, localAgentProviderApiKey, openExternalUrl, type ProviderSetupStepId, providerSetupStepsForDraft, savedLoginAddressChanged, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
   Box, Braces, Button, Card, CardContent, CardHeader, CardTitle,
   Check, Checkbox, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, cn,
   compareProviderAccountSnapshots, copyTextToClipboard, createDefaultProviderAccountDraft, createModelCatalogItems, createProviderAccountDraftFromConfig, createProviderCredentialDraft,
@@ -1770,9 +1770,11 @@ function ProviderConnectionStatusPanel({
     ? "LLMR is checking which API protocols this endpoint supports."
     : notProbed
       ? "LLMR does not probe this provider. It uses the Anthropic Messages protocol."
-      : protocolDetected
-        ? "Compatible API protocols were found automatically. You can turn off auto detection in Advanced settings and select protocols manually."
-        : "Choose a provider endpoint so LLMR can detect compatible protocols.";
+      : localAgentImport && !probe
+        ? "LLMR has not asked this provider which protocols it supports."
+        : protocolDetected
+          ? "Compatible API protocols were found automatically. You can turn off auto detection in Advanced settings and select protocols manually."
+          : "Choose a provider endpoint so LLMR can detect compatible protocols.";
   const requestTitle = connectivityLoading
     ? "Checking connection"
     : notProbed
@@ -2021,9 +2023,9 @@ export function AddProviderForm({
     : probe?.detectedProtocol ?? draft.protocol;
   const detectedBaseUrl = providerCapabilityBaseUrlForProtocol(draft.baseUrl, detectedProtocol, probe);
   const safetyIssue = providerDraftSafetyIssue(draft, detectedBaseUrl);
-  const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft);
+  const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft, providerPlugins, existingProvider);
   const claudeLoginProvider = isClaudeLoginProviderDraft(draft, providerPlugins, existingProvider);
-  const setupStepIds = providerSetupStepsForDraft(draft);
+  const setupStepIds = providerSetupStepsForDraft(draft, providerPlugins, existingProvider);
   const localAgentProviderPlugins = useMemo(
     () => [...providerPlugins, ...draft.providerPlugins],
     [draft.providerPlugins, providerPlugins]
@@ -2383,7 +2385,11 @@ export function AddProviderForm({
                 catalogModels={providerProbeModelsForProtocol(probe, draft.protocol)}
                 defaults={draft.catalogModelMetadata}
                 displayNames={draft.modelDisplayNames}
-                emptyCatalogText={claudeLoginProvider ? "LLMR does not ask this provider for a model list. Add model IDs with Custom model." : undefined}
+                emptyCatalogText={claudeLoginProvider
+                  ? "LLMR does not ask this provider for a model list. Add model IDs with Custom model."
+                  : localAgentImport && !probe
+                    ? "LLMR has not asked this provider for a model list. Refresh the list to ask, or add model IDs with Custom model."
+                    : undefined}
                 loading={probeLoading}
                 metadata={draft.modelMetadata}
                 onMetadataChange={(modelMetadata) => onChange({ modelMetadata })}
@@ -3576,9 +3582,9 @@ export function AddProviderDialog({
   const submitDisabled = !canSubmit || submitLoading;
   const wizardMode = mode === "add";
   const selectedPreset = findProviderPreset(draft.presetId);
-  const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft);
+  const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft, providerPlugins, existingProvider);
   const claudeLoginProvider = isClaudeLoginProviderDraft(draft, providerPlugins, existingProvider);
-  const setupStepIds = providerSetupStepsForDraft(draft);
+  const setupStepIds = providerSetupStepsForDraft(draft, providerPlugins, existingProvider);
   const providerIdentityReady = Boolean(importProvider) || Boolean(selectedPreset || draft.baseUrl.trim());
   const credentialPoolReady = providerDraftHasReadyCredentialPool(draft);
   const credentialReady = localAgentImport || Boolean(
@@ -3697,7 +3703,7 @@ export function AddProviderDialog({
               hideSetupProgress={!wizardMode}
               importProvider={importProvider}
               mode={mode}
-              onCheck={onCheck ? async () => setCheckConfirmOpen(true) : undefined}
+              onCheck={onCheck ? async () => savedLoginAddressChanged(draft, providerPlugins, existingProvider) ? onCheck([]) : setCheckConfirmOpen(true) : undefined}
               onChange={onChange}
               onDetect={onDetect}
               onIconDetectingChange={setIconDetecting}

@@ -82,12 +82,29 @@ export const providerSetupStepIds: ProviderSetupStepId[] = ["provider", "credent
 
 const localAgentLoginSetupStepIds: ProviderSetupStepId[] = ["provider", "models", "verify"];
 
-export function isLocalAgentLoginDraft(draft: Pick<AddProviderDraft, "apiKey" | "credentialMode" | "credentials">): boolean {
+export function hasLocalAgentLoginKey(draft: Pick<AddProviderDraft, "apiKey" | "credentialMode" | "credentials">): boolean {
   return providerConnectivityApiKeyFromDraft(draft) === localAgentProviderApiKey;
 }
 
-export function providerSetupStepsForDraft(draft: Pick<AddProviderDraft, "apiKey" | "credentialMode" | "credentials">): ProviderSetupStepId[] {
-  return isLocalAgentLoginDraft(draft) ? localAgentLoginSetupStepIds : providerSetupStepIds;
+export const localCodexDefaultBaseUrl = "https://chatgpt.com/backend-api/codex";
+
+export function isLocalCodexProviderDraft(draft: AddProviderDraft): boolean {
+  return (
+    draft.apiKey.trim() === localAgentProviderApiKey &&
+    normalizeProviderBaseUrl(draft.baseUrl) === normalizeProviderBaseUrl(localCodexDefaultBaseUrl)
+  );
+}
+
+export function isLocalAgentLoginDraft(draft: AddProviderDraft, providerPlugins: unknown[] | undefined, existingProvider?: GatewayProviderConfig): boolean {
+  return hasLocalAgentLoginKey(draft) && (
+    draft.providerPlugins.length > 0 ||
+    isLocalCodexProviderDraft(draft) ||
+    providerConnectivityProviderPlugins(draft, providerPlugins, existingProvider).length > 0
+  );
+}
+
+export function providerSetupStepsForDraft(draft: AddProviderDraft, providerPlugins: unknown[] | undefined, existingProvider?: GatewayProviderConfig): ProviderSetupStepId[] {
+  return isLocalAgentLoginDraft(draft, providerPlugins, existingProvider) ? localAgentLoginSetupStepIds : providerSetupStepIds;
 }
 
 export function createModelCatalogItems(config: AppConfig): ModelCatalogItem[] {
@@ -811,7 +828,7 @@ export function providerConnectivityProviderPlugins(
   if (draft.providerPlugins.length > 0) {
     return draft.providerPlugins.filter(providerPluginEnabled);
   }
-  if (!isLocalAgentLoginDraft(draft)) {
+  if (!hasLocalAgentLoginKey(draft)) {
     return [];
   }
 
@@ -822,12 +839,21 @@ export function providerConnectivityProviderPlugins(
   );
 }
 
+export const savedLoginAddressChangedMessage = "Save the new address to check it with your local login.";
+
+export function savedLoginAddressChanged(draft: AddProviderDraft, providerPlugins: unknown[] | undefined, existingProvider?: GatewayProviderConfig): boolean {
+  return existingProvider !== undefined &&
+    draft.providerPlugins.length === 0 &&
+    providerConnectivityProviderPlugins(draft, providerPlugins, existingProvider).length > 0 &&
+    normalizeProviderBaseUrl(draft.baseUrl) !== normalizeProviderBaseUrl(providerBaseUrl(existingProvider));
+}
+
 export function isClaudeLoginProviderDraft(
   draft: AddProviderDraft,
   providerPlugins: unknown[] | undefined,
   existingProvider?: GatewayProviderConfig
 ): boolean {
-  return (draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft)) &&
+  return (draft.providerPlugins.length > 0 || hasLocalAgentLoginKey(draft)) &&
     providerConnectivityProviderPlugins(draft, providerPlugins, existingProvider).some(isLocalClaudeCodeOauthProviderPlugin);
 }
 
@@ -847,11 +873,13 @@ function localAgentProviderPluginNamesForDraft(
   draft: AddProviderDraft,
   existingProvider: GatewayProviderConfig | undefined
 ): Set<string> {
-  const existingProviderIdOrName = existingProvider?.id || existingProvider?.name;
+  if (!existingProvider) {
+    return providerPluginMatchNames([draft.name], draft.protocol);
+  }
+  const existingProviderIdOrName = existingProvider.id || existingProvider.name;
   return providerPluginMatchNames([
-    draft.name,
-    existingProvider?.name,
-    existingProvider?.id,
+    existingProvider.name,
+    existingProvider.id,
     existingProviderIdOrName ? providerNameSlug(existingProviderIdOrName) : undefined
   ], draft.protocol);
 }

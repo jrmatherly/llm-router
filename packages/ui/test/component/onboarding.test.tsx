@@ -7,6 +7,7 @@ import { OnboardingView } from "@llmr/ui/pages/home/components/onboarding.tsx";
 import {
   createProfileDraft,
   createProviderDraft,
+  createProviderDraftFromProvider,
   fallbackGatewayStatus,
   localAgentProviderApiKey
 } from "@llmr/ui/pages/home/shared/index.tsx";
@@ -114,7 +115,8 @@ test("Onboarding skips credentials for a local agent import", () => {
     apiKey: localAgentProviderApiKey,
     baseUrl: "https://api.anthropic.com",
     modelsText: "claude-sonnet-5",
-    name: "Claude Code API"
+    name: "Claude Code API",
+    providerPlugins: [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }]
   };
   const html = renderToStaticMarkup(
     <OnboardingView
@@ -143,6 +145,23 @@ test("Onboarding skips credentials for a local agent import", () => {
 
   assert.doesNotMatch(html, /Add credentials/);
   assert.match(html, /Pick models/);
+  assert.match(html, /aria-label="Step 1 \/ 5"/);
+});
+
+test("Onboarding keeps a renamed saved login provider a local login", () => {
+  const saved = { api_base_url: "http://127.0.0.1:8799/v1", api_key: localAgentProviderApiKey, id: "stand-in-login", models: ["stand-in-model"], name: "Stand-in login", type: "openai_chat_completions" as const };
+  const props = onboardingProps("provider");
+  props.config.Providers = [saved];
+  props.config.providerPlugins = [{ key: "llmr-local-agent-stand-in-login-codex-oauth", providerName: "Stand-in login" }];
+  const html = renderToStaticMarkup(
+    <OnboardingView
+      {...props}
+      existingProvider={saved}
+      providerDraft={{ ...createProviderDraftFromProvider(saved), name: "Renamed" }}
+    />
+  );
+
+  assert.doesNotMatch(html, /Add credentials/);
   assert.match(html, /aria-label="Step 1 \/ 5"/);
 });
 

@@ -1,6 +1,6 @@
 import {
   AddApiKeyDraft, AddProfileDraft, AddProviderDraft, AddRoutingRuleDraft, AgentAnalysisSessionSelection, AgentAnalysisSnapshot, AgentFilterValue,
-  ApiKeyConfig, AppConfig, appCopy, AppInfo, AppSaveConfigOptions, AppUpdateStatus, localAgentProviderApiKey,
+  ApiKeyConfig, AppConfig, appCopy, AppInfo, AppSaveConfigOptions, AppUpdateStatus,
   applyProviderProbeResult, AppToast, BotGatewaySavedConfig, buildExtensionList, buildProviderImportDraft,
   cloneConfig, createApiKeyDraft, createApiKeyEditDraft,
   createApiKeyList, createEmptyAgentAnalysis,
@@ -15,7 +15,7 @@ import {
   GatewayProviderProbeResult, gatewayServiceMessage, GatewayStatus, getDefaultOnboardingStep,
   isGatewayProviderEnabled, isMacPlatform, isPlainRecord, isProfileDraftSubmittable, isProviderNameDuplicate, isProviderProbeCandidateReady,
   isRoutingRuleDraftSubmittable,
-  isClaudeLoginProviderDraft, isLocalAgentLoginDraft, isTraySupportedPlatform,
+  hasLocalAgentLoginKey, isClaudeLoginProviderDraft, isLocalAgentLoginDraft, isLocalCodexProviderDraft, isTraySupportedPlatform,
   LayoutGroup, mergeProviderModelLists, missingPluginDependenciesMessage, modelDescriptionsForModels, modelDisplayNamesForModels, modelMetadataForModels,
   navigation, NavigationId, normalizeApiKeys, normalizeBotGatewaySavedConfigs, normalizeConfig, normalizeObservabilityConfig, normalizeOverviewWidgets, normalizeProxyConfig,
   normalizeProfileItem, normalizeProviderBaseUrl, normalizeRouterFallbackConfig, normalizeThemePreference, normalizeToolHubConfig, normalizeTrayBalanceProgressConfig, normalizeTrayIconPreference,
@@ -25,7 +25,7 @@ import {
   PluginInstallCandidate, PluginMarketplaceEntry, PluginSettingsDraft, presetCapabilitiesFromDraft,
   probeProviderCandidates, probeProviderDeepLinkPayload, profileAgentLabel, profileAgentOptions, profileDraftWithDetectedAppPath, profileEnvRowsForAgent, profileHasUsableModels, ProfileConfig, ProfileOpenSurface, ProfileRuntimeStatus, profileConfigFromDraft, providerAccountApiKeySafetyIssue,
   profileOpenCommandFallback, profileOpenSurfaces, ProviderAccountSnapshot, providerApiKeySafetyIssue, ProviderConnectivityCheckReport, ProviderDeepLinkPayload, ProviderDeepLinkRequest, providerIdentitySafetyIssue, providerProbeCandidates,
-  providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, providerSupportsDeferredToolsForSave, ProxyNetworkSnapshot,
+  providerAutoFetchKnownModelsForSave, providerBaseUrl, providerCapabilitiesForProtocols, providerCapabilitiesForSave, providerConnectivityApiKeyFromDraft, providerConnectivityProviderPlugins, providerGlobalBaseUrlForProbe, providerManualFieldsForSave, providerProbeCandidatesApiKeySafetyIssue, providerProbeHasSupportedProtocol, providerProbeInputKey, providerProtocolOptions, providerSelectableProtocolsFromProbe, providerSupportsDeferredToolsForSave, ProxyNetworkSnapshot, savedLoginAddressChanged, savedLoginAddressChangedMessage,
   ProxyStatus, RequestLogListFilter, RequestLogPage,
   ResolvedTheme, resolvePluginInstallPlan, resolveProviderDeepLinkCatalogModels, removeLocalAgentProviderPluginsForProvider, RouterRule, routingRuleFromDraft, SettingsPageId,
   setProviderPresets, splitLines, appErrorMessage, TrayBalanceProgressConfig, TrayWidgetConfig,
@@ -59,15 +59,7 @@ type ConfigSaveFeedbackTarget = "global" | "form" | "silent";
 const providerNamePlaceholder = "__LLMR_PROVIDER_NAME__";
 const providerNameSlugPlaceholder = "__LLMR_PROVIDER_NAME_SLUG__";
 const providerInternalNamePlaceholder = "__LLMR_PROVIDER_INTERNAL_NAME__";
-const localCodexDefaultBaseUrl = "https://chatgpt.com/backend-api/codex";
 const localCodexProviderId = "codex-api";
-
-function isLocalCodexProviderDraft(draft: AddProviderDraft): boolean {
-  return (
-    draft.apiKey.trim() === localAgentProviderApiKey &&
-    normalizeProviderBaseUrl(draft.baseUrl) === normalizeProviderBaseUrl(localCodexDefaultBaseUrl)
-  );
-}
 
 function localCodexProviderDraftProbeKey(draft: AddProviderDraft): string {
   return JSON.stringify([
@@ -1430,6 +1422,7 @@ function App() {
     draftConfig.providerPlugins,
     providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex]
   );
+  const localAgentLoginDraft = isLocalAgentLoginDraft(providerDraft, draftConfig.providerPlugins, providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex]);
 
   useEffect(() => {
     const providerFormVisible = providerAddOpen || (activeView === "onboarding" && onboardingStep === "provider");
@@ -1494,9 +1487,16 @@ function App() {
         }
       };
     }
+    // An edit draft carries no plugins, so an automatic probe would send only the placeholder key. A saved local login provider is asked on Refresh or Check.
+    if (providerEditIndex !== undefined && localAgentLoginDraft) {
+      providerProbeRequestId.current += 1;
+      setProviderProbeError("");
+      setProviderProbeLoading(false);
+      return;
+    }
     // Local agent imports authenticate through their plugins, so their models can be discovered.
     // The Claude login provider holds no login of its own, so there is nothing to probe.
-    if ((providerDraft.providerPlugins.length > 0 && !isLocalAgentLoginDraft(providerDraft)) || claudeLoginProviderDraft) {
+    if ((providerDraft.providerPlugins.length > 0 && !hasLocalAgentLoginKey(providerDraft)) || claudeLoginProviderDraft) {
       providerProbeRequestId.current += 1;
       setProviderProbe(undefined);
       setProviderProbeError("");
@@ -1574,7 +1574,7 @@ function App() {
         setProviderProbeLoading(false);
       }
     };
-  }, [activeView, claudeLoginProviderDraft, onboardingStep, providerAddOpen, providerDraft.apiKey, providerDraft.baseUrl, providerDraft.credentialMode, providerDraft.credentials, providerDraft.presetId, providerDraft.protocol, providerDraft.protocolDetectionMode, providerDraft.providerPlugins, providerImportDetectPending, providerImportOpen]);
+  }, [activeView, claudeLoginProviderDraft, localAgentLoginDraft, onboardingStep, providerAddOpen, providerDraft.apiKey, providerDraft.baseUrl, providerDraft.credentialMode, providerDraft.credentials, providerDraft.presetId, providerDraft.protocol, providerDraft.protocolDetectionMode, providerDraft.providerPlugins, providerEditIndex, providerImportDetectPending, providerImportOpen]);
 
   async function refreshProviderModels(): Promise<void> {
     if (providerProbeLoading) {
@@ -1584,11 +1584,15 @@ function App() {
       setProviderProbeError("Request failed.");
       return;
     }
+    const existingProvider = providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex];
+    if (savedLoginAddressChanged(providerDraft, draftConfig.providerPlugins, existingProvider)) {
+      setProviderProbeError(savedLoginAddressChangedMessage);
+      return;
+    }
 
     providerProbeRequestId.current += 1;
     providerConnectivityRequestId.current += 1;
     const requestId = providerProbeRequestId.current;
-    const existingProvider = providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex];
     const refreshProtocols = providerDraft.protocolDetectionMode === "manual"
       ? uniqueProviderProtocols(providerDraft.selectedProtocols.length > 0 ? providerDraft.selectedProtocols : [providerDraft.protocol])
       : undefined;
@@ -1689,6 +1693,10 @@ function App() {
       }))
       .filter((candidate) => isProviderProbeCandidateReady(candidate) && candidate.protocols.length > 0);
 
+    if (savedLoginAddressChanged(providerDraft, draftConfig.providerPlugins, existingProvider)) {
+      setProviderProbeError(savedLoginAddressChangedMessage);
+      return emptyReport;
+    }
     setProviderProbeError("");
     if (!window.llmr) {
       setProviderProbeError("Request failed.");
@@ -3196,6 +3204,7 @@ function App() {
               canSubmitProvider,
               config: draftConfig,
               endpoint: gatewayEndpoint,
+              existingProvider: providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex],
               gatewayStatus,
               onCheckProvider: checkProviderDraft,
               onComplete: completeOnboarding,
