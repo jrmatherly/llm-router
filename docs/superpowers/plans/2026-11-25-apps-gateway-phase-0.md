@@ -1,6 +1,6 @@
 # Claude Apps Gateway Management, Phase 0 Implementation Plan
 
-> **Status, 2026-11-25: written, audited once on another model with its three blockers and nine corrections applied, not built.** No task here is built and none is merged. Building each PR needs the owner's word, as does each merge.
+> **Status, 2026-11-25: Tasks 1 to 4 are built and merged as PR 160 (`922626dc`). Task 5 is not built and is the last commit of batch 16.** The plan was written and audited once on another model with its three blockers and nine corrections applied. Building each PR needs the owner's word, as does each merge.
 
 > **Delivery.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) lists Tasks 1 to 4 as its batch 17 and Task 5 as the last commit of its batch 16. "Where this fits" below repeats that. Where that file and this one disagree on order or branch, that file is right.
 
