@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { Readable, Writable } from "node:stream";
-import test from "node:test";
+import test, { before } from "node:test";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
 import {
@@ -9,6 +9,10 @@ import {
   createSseBoundaryTracker,
   terminalErrorFrame
 } from "@llmr/core/gateway/request/sse-terminal.ts";
+
+// A test that outlives its cap is still running when the next one starts, so a
+// fetch saved per test can be the previous test's replacement.
+const realFetch = globalThis.fetch;
 
 // A real SSE parser over the bytes the client would receive. Assertions look at
 // dispatched events, not substrings: the whole defect is a frame that reaches
@@ -147,14 +151,13 @@ async function proxyTruncatedStream(input) {
     getPlugin: () => plugin,
     getStatus: () => ({ coreEndpoint: "http://127.0.0.1:3457", endpoint: "http://127.0.0.1:3456" })
   });
-  const originalFetch = globalThis.fetch;
   try {
     return await withTruncatedUpstream(input.events, input.contentType ?? "text/event-stream", async (url) => {
       globalThis.fetch = (target, init) => {
         if (String(target).includes("/__llmr/route")) {
           return Promise.reject(new Error("core gateway route endpoint is not running"));
         }
-        return originalFetch(url, { method: "POST", signal: init?.signal });
+        return realFetch(url, { method: "POST", signal: init?.signal });
       };
       const request = Readable.from([JSON.stringify(input.body)]);
       request.method = "POST";
@@ -176,7 +179,7 @@ async function proxyTruncatedStream(input) {
       };
     });
   } finally {
-    globalThis.fetch = originalFetch;
+    globalThis.fetch = realFetch;
   }
 }
 
@@ -283,6 +286,12 @@ const truncationFixtures = {
     'event: response.created\ndata: {"type":"response.created","resp'
   ]
 };
+
+// The first request through a pipeline loads and indexes the model catalog.
+// Paid here, it is not counted against the first test's cap.
+before(async () => {
+  await proxyTruncatedStream({ ...requestBodies.anthropic_messages, events: truncationFixtures.anthropic_messages[0] });
+}, { timeout: 30_000 });
 
 const positionNames = ["after a dispatched event", "at the undelivered blank line", "mid-line mid-event"];
 

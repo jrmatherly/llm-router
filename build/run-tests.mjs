@@ -42,6 +42,7 @@ async function runProject(project) {
   const networkLog = path.join(testHome, "network-refused.log");
   const env = guardTestNetwork({
     ...isolateTestHome(testHome, { ...process.env }),
+    LLMR_TEST_PORT_CLAIMS: path.join(testHome, "port-claims"),
     ...(runtime === "electron" ? { ELECTRON_RUN_AS_NODE: "1" } : {})
   }, path.join(__dirname, "test-network-guard.mjs"), networkLog);
   delete env.LLMR_TEST_FILE;

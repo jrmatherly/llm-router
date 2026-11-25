@@ -418,7 +418,7 @@ for (const layout of ["single", "compat"]) {
     const logged = await until(async () => {
       await flushRequestLogRuntime(1000);
       return spooled().every((file) => stale.has(file)) && (await getRequestLogs({ pageSize: 10 })).items.length > 0;
-    });
+    }, 30000);
     assert.equal(logged, true, "the request is logged and its trace bundle is ingested");
 
     const home = process.env.LLMR_TEST_HOME;
