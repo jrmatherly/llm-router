@@ -87,7 +87,8 @@ When it is built, this is the branch. By then the batches it meets are merged, s
 - **A task under about 100 lines of change** is built once, on the batch's branch, and gets one review round that covers the task text and the code together.
 - **A design that spans commits** keeps its text audit before any build. That is the Codex scanner of batch 6, restore 3 in batch 9, pricing 3 in batch 13b, the cost basis of batch 14 and the client label rule of batch 16.
 - **The gateway phase 0 plan** ([`2026-11-25-apps-gateway-phase-0.md`](2026-11-25-apps-gateway-phase-0.md)) belongs to another session, which audits and commits it. This file orders its tasks and changes none of its text. It is on `main` as `0be5ad63`, audited once on another model. Its Task 5 deletes the marked-key row of the label rule, the guide sentence and the check of the client value that client label Task 2 writes one commit earlier, so whoever builds batch 16 expects that check to be rewritten by the fourth commit. Not checked by either session: line overlap of batch 17 with batches 2 and 8 in `providers.tsx` and `ipc.ts`.
-- **Every draft plan's text changed in its fix round and has not been audited since.** The audit of a batch's tasks on another model, before the build or with it as the two lines above say, is still owed.
+- **Batch 3's four tasks were audited on 2026-11-25** at `main` `fddb278a`, on another model, by building them in throwaway worktrees: 3 Blockers and 4 Corrections in harness Tasks 1 and 2, no Blocker and 5 Corrections in harness Task 3 and stripper Task 1. All are applied to the two plans.
+- **Every other draft plan's text changed in its fix round and has not been audited since.** The audit of a batch's tasks on another model, before the build or with it as the two lines above say, is still owed.
 - **A task whose review finds a fault in its design** leaves the batch and gets its own PR, so the rest can merge.
 - **A batch whose diff the reviewers cannot hold** is split at a commit. Batch 14 has its split point named in the table.
 
@@ -142,6 +143,7 @@ Each has a default, which is built unless he says otherwise.
 | 15 | Which usage events a trace may name a provider for | Only an event with no tokens and no cost | Logs |
 | 16 | H-7 of the harness plan, which waits on his Claude Desktop check | The end pass | Harness |
 | 17 | Whether the reviewers, the fixes and the merge on green can run without his `review-pr` line each time | No. Merging needs his word once per PR | All |
+| 18 | Should a test run also leave nothing else in the temp folder? Harness Task 1 removes the temporary homes only. One `npm run test` leaves 124 other entries, about 38 MB, that tests and `context-archive.ts` write to the temp folder (audit of batch 3, run). The smallest change is for the runner to point `TMPDIR`, `TMP` and `TEMP` inside the suite's home. It was not built or run, and a longer temp path can break a test that listens on a socket path | No. Task 1's title and the plan's goal now say "temporary home" | Harness |
 
 Four choices the researchers made on evidence, which a review can change: restore 3 keeps a profile's record while a saved original exists; a save's notice is set only by a profile's own restore; a usage row from the gateway's billing counts as an estimate; and a reported cost of 0 counts as absent.
 

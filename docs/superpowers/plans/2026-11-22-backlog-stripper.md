@@ -1,6 +1,6 @@
 # Backlog: Codex Config Stripper Implementation Plan
 
-> **Status, 2026-11-24: fix round done, text not yet re-audited.** Every Blocker and Correction of the 2026-11-22 audit was checked at `main` `c491eb48`, most by a run of the real apply and restore paths with each Codex file parsed by Python `tomllib` (TOML 1.0) in place of `smol-toml`. Both Blockers and all seven Corrections hold, and the text below is corrected for each. The Codex functions this plan changes have not changed since the plan was drafted, so no task is already done (run, `git diff eb84a3ba..c491eb48` shows no change to `codex-config-strip.ts` and none to the Codex functions of `service.ts`). Nobody verified any planned code, since no fix was prototyped. Nor `smol-toml` itself, Windows, or Codex's own reading of any output. The changed text needs one audit on another model before batch 6 (the delivery order's rule for the scanner).
+> **Status, 2026-11-25: Task 1 audited on another model at `main` `fddb278a` with harness Task 3, and corrected (no Blocker, two Corrections in this plan). Tasks 2 to 6 still owe their text audit.** The audit built both tasks in order and reproduced every red and green this task's steps expect. What follows is the fix round's status of 2026-11-24. Every Blocker and Correction of the 2026-11-22 audit was checked at `main` `c491eb48`, most by a run of the real apply and restore paths with each Codex file parsed by Python `tomllib` (TOML 1.0) in place of `smol-toml`. Both Blockers and all seven Corrections hold, and the text below is corrected for each. The Codex functions this plan changes have not changed since the plan was drafted, so no task is already done (run, `git diff eb84a3ba..c491eb48` shows no change to `codex-config-strip.ts` and none to the Codex functions of `service.ts`). Nobody verified any planned code, since no fix was prototyped. Nor `smol-toml` itself, Windows, or Codex's own reading of any output. The changed text needs one audit on another model before batch 6 (the delivery order's rule for the scanner).
 
 > **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
 
@@ -115,7 +115,7 @@ The restore plan's Task 5 puts Workbuddy on the Codex stripper. It consumes `isC
 
 ---
 
-### Task 1: Parse every Codex file the tests write, and pin three restore conditions (S-8)
+### Task 1: Parse the Codex files the profile tests leave behind, and pin three restore conditions (S-8)
 
 First, because every later task proves its output with this check, and because the check has to be seen failing on S-1, S-2 and S-6 before a fix can claim to have turned it green.
 
@@ -125,7 +125,7 @@ No user-visible change. After this PR a Codex test fails when an apply or a rest
 - Modify: `packages/core/test/integration/profiles/profile-service.test.mjs` (`withAppliedDefaultProfiles`, new tests after `plantCodexOriginal`, new tests after `awkwardProfileTables`, one `todo` on an existing test)
 
 **Interfaces:**
-- Consumes: `assertCodexFilesParse(codexDir, { allowNone })` from harness Task 3, imported as `import { assertCodexFilesParse } from "../../support/codex-toml.mjs";`. By the harness plan's text (read, not built): it parses each file directly inside `codexDir` whose name ends in `.toml`, and never `config.toml.llmr-original` or `config.toml.llmr-backup-*`. It throws an `AssertionError` naming the file and carrying the parser's message. It also throws when the directory is missing or holds no `.toml` file, unless `allowNone: true`, which returns `[]`. If the merged harness task differs, use its name and path and keep these semantics.
+- Consumes: `assertCodexFilesParse(codexDir, { allowNone })` from harness Task 3, already imported by its Step 6. Add no second import. By the harness plan's text (read, not built): it parses each file directly inside `codexDir` whose name ends in `.toml`, and never `config.toml.llmr-original` or `config.toml.llmr-backup-*`. It throws an `AssertionError` naming the file and carrying the parser's message. It also throws when the directory is missing or holds no `.toml` file, unless `allowNone: true`, which returns `[]`. If the merged harness task differs, use its name and path and keep these semantics.
 - Consumes: the call harness Task 3 Step 6 adds inside the `if (profileIds.includes("default-codex"))` block of `withAppliedDefaultProfiles`. This task puts it under the `options.parse` switch and does not add a second one.
 - Produces: `withAppliedDefaultProfiles(profileIds, run, beforeApply, options = {})` with `options.parse` (default `true`). When it is true, the helper calls `assertCodexFilesParse(codexDir)` after `applyProfileConfig(config)` inside the `default-codex` block, and `assertCodexFilesParse(codexDir, { allowNone: true })` after `run` returns, before `cleanUp`. The after-apply call stays inside the block because 19 calls of the helper leave no `.toml` file after the apply, and 38 leave none after `run` (run, with a parse sweep of the whole file).
 - Produces: three `todo` tests that Tasks 2 and 3 turn green, named in Step 3, and a `todo` on one existing test, named in Step 2.
@@ -193,7 +193,7 @@ test("a quoted root key in the user's Codex config is the same key to LLM Router
 });
 ```
 
-`awkwardProfileTables`, `tripleDouble` and `countOf` are declared near the end of the file today. Move the three declarations above `plantCodexOriginal`, or place these tests after them. Do not copy them.
+`tripleDouble`, `tripleSingle`, `awkwardProfileTables` and `countOf` are declared near the end of the file today, and `awkwardProfileTables` reads `tripleSingle` when the file loads. Move the four declarations, in that order, above `plantCodexOriginal`. Do not copy them. The test bundle turns them into `var`, so a missed one gives no error, only an `undefined` inside a fixture (audit, run: two existing tests fail).
 
 - [ ] **Step 4: Run the three and record the failures.**
 
