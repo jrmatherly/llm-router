@@ -1,6 +1,6 @@
 import {
   AddApiKeyDraft, AddProfileDraft, AddProviderDraft, AddRoutingRuleDraft, AgentAnalysisSessionSelection, AgentAnalysisSnapshot, AgentFilterValue,
-  ApiKeyConfig, AppConfig, appCopy, AppInfo, AppSaveConfigOptions, AppUpdateStatus, localAgentProviderApiKey,
+  ApiKeyConfig, AppConfig, appCopy, AppInfo, AppSaveConfigOptions, AppUpdateStatus,
   applyProviderProbeResult, AppToast, BotGatewaySavedConfig, buildExtensionList, buildProviderImportDraft,
   cloneConfig, createApiKeyDraft, createApiKeyEditDraft,
   createApiKeyList, createEmptyAgentAnalysis,
@@ -15,7 +15,7 @@ import {
   GatewayProviderProbeResult, gatewayServiceMessage, GatewayStatus, getDefaultOnboardingStep,
   isGatewayProviderEnabled, isMacPlatform, isPlainRecord, isProfileDraftSubmittable, isProviderNameDuplicate, isProviderProbeCandidateReady,
   isRoutingRuleDraftSubmittable,
-  isClaudeLoginProviderDraft, isLocalAgentLoginDraft, isTraySupportedPlatform,
+  hasLocalAgentLoginKey, isClaudeLoginProviderDraft, isLocalCodexProviderDraft, isTraySupportedPlatform,
   LayoutGroup, mergeProviderModelLists, missingPluginDependenciesMessage, modelDescriptionsForModels, modelDisplayNamesForModels, modelMetadataForModels,
   navigation, NavigationId, normalizeApiKeys, normalizeBotGatewaySavedConfigs, normalizeConfig, normalizeObservabilityConfig, normalizeOverviewWidgets, normalizeProxyConfig,
   normalizeProfileItem, normalizeProviderBaseUrl, normalizeRouterFallbackConfig, normalizeThemePreference, normalizeToolHubConfig, normalizeTrayBalanceProgressConfig, normalizeTrayIconPreference,
@@ -59,15 +59,7 @@ type ConfigSaveFeedbackTarget = "global" | "form" | "silent";
 const providerNamePlaceholder = "__LLMR_PROVIDER_NAME__";
 const providerNameSlugPlaceholder = "__LLMR_PROVIDER_NAME_SLUG__";
 const providerInternalNamePlaceholder = "__LLMR_PROVIDER_INTERNAL_NAME__";
-const localCodexDefaultBaseUrl = "https://chatgpt.com/backend-api/codex";
 const localCodexProviderId = "codex-api";
-
-function isLocalCodexProviderDraft(draft: AddProviderDraft): boolean {
-  return (
-    draft.apiKey.trim() === localAgentProviderApiKey &&
-    normalizeProviderBaseUrl(draft.baseUrl) === normalizeProviderBaseUrl(localCodexDefaultBaseUrl)
-  );
-}
 
 function localCodexProviderDraftProbeKey(draft: AddProviderDraft): string {
   return JSON.stringify([
@@ -1496,7 +1488,7 @@ function App() {
     }
     // Local agent imports authenticate through their plugins, so their models can be discovered.
     // The Claude login provider holds no login of its own, so there is nothing to probe.
-    if ((providerDraft.providerPlugins.length > 0 && !isLocalAgentLoginDraft(providerDraft)) || claudeLoginProviderDraft) {
+    if ((providerDraft.providerPlugins.length > 0 && !hasLocalAgentLoginKey(providerDraft)) || claudeLoginProviderDraft) {
       providerProbeRequestId.current += 1;
       setProviderProbe(undefined);
       setProviderProbeError("");

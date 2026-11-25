@@ -2021,9 +2021,9 @@ export function AddProviderForm({
     : probe?.detectedProtocol ?? draft.protocol;
   const detectedBaseUrl = providerCapabilityBaseUrlForProtocol(draft.baseUrl, detectedProtocol, probe);
   const safetyIssue = providerDraftSafetyIssue(draft, detectedBaseUrl);
-  const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft);
+  const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft, providerPlugins, existingProvider);
   const claudeLoginProvider = isClaudeLoginProviderDraft(draft, providerPlugins, existingProvider);
-  const setupStepIds = providerSetupStepsForDraft(draft);
+  const setupStepIds = providerSetupStepsForDraft(draft, providerPlugins, existingProvider);
   const localAgentProviderPlugins = useMemo(
     () => [...providerPlugins, ...draft.providerPlugins],
     [draft.providerPlugins, providerPlugins]
@@ -3576,9 +3576,9 @@ export function AddProviderDialog({
   const submitDisabled = !canSubmit || submitLoading;
   const wizardMode = mode === "add";
   const selectedPreset = findProviderPreset(draft.presetId);
-  const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft);
+  const localAgentImport = draft.providerPlugins.length > 0 || isLocalAgentLoginDraft(draft, providerPlugins, existingProvider);
   const claudeLoginProvider = isClaudeLoginProviderDraft(draft, providerPlugins, existingProvider);
-  const setupStepIds = providerSetupStepsForDraft(draft);
+  const setupStepIds = providerSetupStepsForDraft(draft, providerPlugins, existingProvider);
   const providerIdentityReady = Boolean(importProvider) || Boolean(selectedPreset || draft.baseUrl.trim());
   const credentialPoolReady = providerDraftHasReadyCredentialPool(draft);
   const credentialReady = localAgentImport || Boolean(

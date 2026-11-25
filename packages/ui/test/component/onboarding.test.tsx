@@ -114,7 +114,8 @@ test("Onboarding skips credentials for a local agent import", () => {
     apiKey: localAgentProviderApiKey,
     baseUrl: "https://api.anthropic.com",
     modelsText: "claude-sonnet-5",
-    name: "Claude Code API"
+    name: "Claude Code API",
+    providerPlugins: [{ key: "llmr-local-agent-claude-code-api-claude-code-oauth", providerName: "Claude Code API" }]
   };
   const html = renderToStaticMarkup(
     <OnboardingView

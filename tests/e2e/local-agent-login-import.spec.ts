@@ -167,6 +167,7 @@ test("editing an imported provider shows the local login notice instead of the m
       name,
       type: "anthropic_messages"
     }];
+    config.providerPlugins = [{ key: "llmr-local-agent-stand-in-codex-oauth", providerName: name }];
     await window.llmr!.saveConfig(config);
     await window.llmr!.setOnboardingFinished?.();
   }, { apiKey: localAgentProviderApiKey, name: providerName });
@@ -180,6 +181,28 @@ test("editing an imported provider shows the local login notice instead of the m
   await expect(dialog.getByText(`This provider uses the login from ${providerName}. No API key is needed.`)).toBeVisible();
   await expect(dialog.getByText("Add credentials")).toHaveCount(0);
   await expect(dialog.locator(`input[value="${localAgentProviderApiKey}"]`)).toHaveCount(0);
+});
+
+test("a provider whose key is the placeholder typed by hand shows its key field", async ({ page }) => {
+  const current = requireRuntime();
+  await mockLocalAgentRpc(page);
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
+  await waitForBridge(page);
+  await page.evaluate(async (apiKey) => {
+    const config = await window.llmr!.getConfig();
+    config.Providers = [{ api_base_url: "http://127.0.0.1:9/v1", api_key: apiKey, models: ["stand-in-model"], name: "Typed by hand", type: "openai_chat_completions" }];
+    config.providerPlugins = [];
+    await window.llmr!.saveConfig(config);
+    await window.llmr!.setOnboardingFinished?.();
+  }, localAgentProviderApiKey);
+  await page.reload();
+  await waitForBridge(page);
+  await page.getByRole("button", { name: "Providers", exact: true }).click();
+  await page.locator('button[aria-label="Edit Typed by hand"]:visible').first().click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Signed in with your local agent")).toHaveCount(0);
+  await expect(dialog.getByText("Local login provider")).toHaveCount(0);
+  await expect(dialog.locator(`input[value="${localAgentProviderApiKey}"]`)).toHaveCount(1);
 });
 
 async function mockLocalAgentRpc(page: Page, probeRequests?: Array<{ apiKey?: string; providerPlugins?: unknown[] }>): Promise<void> {

@@ -105,8 +105,8 @@ export function OnboardingView({
   const activeDetails = onboardingStepDetails[activeStep];
   const previousStep = onboardingStepOrder[activeIndex - 1];
   const nextStep = getNextOnboardingStep(activeStep, config, readiness);
-  const localAgentProviderImport = providerDraft.providerPlugins.length > 0 || isLocalAgentLoginDraft(providerDraft);
-  const providerSetupSteps = providerSetupStepsForDraft(providerDraft);
+  const localAgentProviderImport = providerDraft.providerPlugins.length > 0 || isLocalAgentLoginDraft(providerDraft, config.providerPlugins);
+  const providerSetupSteps = providerSetupStepsForDraft(providerDraft, config.providerPlugins);
   const providerIdentityReady = Boolean(findProviderPreset(providerDraft.presetId) || providerDraft.baseUrl.trim());
   const providerCredentialReady = localAgentProviderImport || Boolean(
     providerDraft.credentialMode === "pool"
