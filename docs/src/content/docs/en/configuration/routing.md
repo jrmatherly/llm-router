@@ -226,7 +226,7 @@ Each file read or write is limited to 1 MiB.
 
 | API | Returns | Description |
 | --- | --- | --- |
-| `api.env(name)` | `string \| undefined` | Read any environment variable visible to the LLMR process. On Windows the name is matched without regard to letter case. |
+| `api.env(name)` | `string \| undefined` | Read an environment variable visible to the LLMR process. LLMR's own credentials are hidden: a name that starts with `LLMR_` and holds `TOKEN`, `SECRET`, `PASSWORD` or `API_KEY` returns `undefined`, unless it ends in `_FILE` or `_HELPER`. On Windows the name is matched without regard to letter case. |
 | `api.hash(value)` | `number` | Return a stable unsigned 32-bit hash of the string form, useful for stable rollout buckets. Use it for bucketing only, not for security. |
 
 #### Return values
@@ -321,7 +321,7 @@ if (policyUrl) {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${api.env("LLMR_ROUTING_POLICY_TOKEN") ?? ""}`
+      authorization: `Bearer ${api.env("ROUTING_POLICY_TOKEN") ?? ""}`
     },
     body: JSON.stringify({
       tenant,
