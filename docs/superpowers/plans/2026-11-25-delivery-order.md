@@ -60,6 +60,16 @@ Not a PR:
 - **Pricing 8**, the service tier price. It waits on the owner's answer in the pricing plan.
 - **Pricing 6**, the cost OpenRouter reports. The gateway fork's usage type has no cost field, so the figure does not reach LLM Router (read in gateway `1.0.22-llmr.4`). It waits on the owner's answer on a fork change.
 
+## Recorded, not yet in the order
+
+**Gateway phase 1**, [`2026-11-25-apps-gateway-phase-1.md`](2026-11-25-apps-gateway-phase-1.md), on `main` as `26616b96`, audited once by the session that owns it. That session asked on 2026-11-25 for it to be a batch here. It is a new page and not a fix, so whether it is built before the release and the VM pass at the end, or after them, is the owner's to say. Until he does, it is not one of the batches above and "The end" does not wait for it.
+
+If he puts it in, this is the batch:
+
+| Branch | Tasks | Shared ground | Needs |
+|---|---|---|---|
+| `feat/apps-gateway-page` | Gateway phase 1 Tasks 1 to 6, one commit each. Its plan names a split after Task 3 if the reviewers cannot hold six: Tasks 1 to 3 are core with tests, Tasks 4 to 6 are the page | `contracts/app.ts`, `ipc-channels.ts`, `config/config.ts`, `config-repository.ts`, the gateway agent folder, `ipc.ts`, `preload.ts`, `management-server.ts`, `App.tsx`, `layout.tsx`, a new `apps-gateway.tsx`, seven files under the UI's `shared/` | Batch 17. Not open beside batch 8, which rewrites the save handler in `ipc.ts` and `management-server.ts`, or batch 16, which edits the gateway guide. It also meets batches 2, 12 and 14 in `App.tsx` and `contracts/app.ts`. Its Task 6 Step 2 is a harness run with Docker and the `claude` binary. Only files were compared, not lines |
+
 ## Order
 
 1. Batch 1 is merged. Batch 2 is written and audited and is next.
