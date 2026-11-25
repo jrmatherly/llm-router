@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   isProfileAppMainProcessCommandForTest,
-  isProfileAppRunningWithProbeForTest
+  isProfileAppRunningWithProbeForTest,
+  profileAppActivationCommandForTest
 } from "@llmr/core/profiles/launch-service.ts";
 
 const userDataDir = "/Users/example/.llm-router/profiles/codex/codex/.llm-router/codex-app-user-data/codex";
@@ -72,4 +73,12 @@ test("profile app liveness uses process discovery for launcher pids", () => {
   assert.equal(running, false);
   assert.equal(pidChecks, 0);
   assert.equal(discoveryCalls, 1);
+});
+
+test("an app is brought forward by process id with no Apple Event", () => {
+  const { args, command } = profileAppActivationCommandForTest(4242);
+  assert.equal(command, "/usr/bin/osascript");
+  assert.deepEqual(args.slice(0, 3), ["-l", "JavaScript", "-e"]);
+  assert.equal(args[3], 'ObjC.import("AppKit"); $.NSRunningApplication.runningApplicationWithProcessIdentifier(4242).activateWithOptions(2)');
+  assert.doesNotMatch(args.join(" "), /System Events|tell application/);
 });

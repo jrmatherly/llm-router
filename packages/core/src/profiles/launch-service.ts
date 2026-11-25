@@ -1016,14 +1016,12 @@ function activateProfileAppWindow(entry: Pick<RunningProfileApp, "pid" | "userDa
   for (const delayMs of [250, 1200]) {
     setTimeout(() => {
       const pid = profileAppMainPid(entry) ?? entry.pid;
-      if (!isProcessAlive(pid)) {
+      if (pid === undefined || !isProcessAlive(pid)) {
         return;
       }
       try {
-        const child = spawn("/usr/bin/osascript", [
-          "-e",
-          `tell application "System Events" to set frontmost of the first process whose unix id is ${pid} to true`
-        ], {
+        const { args, command } = profileAppActivationCommandForTest(pid);
+        const child = spawn(command, args, {
           detached: true,
           stdio: "ignore"
         });
@@ -1033,6 +1031,14 @@ function activateProfileAppWindow(entry: Pick<RunningProfileApp, "pid" | "userDa
       }
     }, delayMs).unref();
   }
+}
+
+// Activation by process id sends no Apple Event, so macOS asks for no Automation access.
+export function profileAppActivationCommandForTest(pid: number): { args: string[]; command: string } {
+  return {
+    args: ["-l", "JavaScript", "-e", `ObjC.import("AppKit"); $.NSRunningApplication.runningApplicationWithProcessIdentifier(${pid}).activateWithOptions(2)`],
+    command: "/usr/bin/osascript"
+  };
 }
 
 function runningProfileApp(profileId: string, surface: ProfileOpenRequest["surface"]): RunningProfileApp | undefined {
