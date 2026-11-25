@@ -62,6 +62,18 @@ test("every package a workspace's source imports is declared in that workspace's
   assert.deepEqual(violations, []);
 });
 
+test("the TOML parser is a root dev dependency and no workspace declares it", () => {
+  const root = JSON.parse(readFileSync(path.join(projectRoot, "package.json"), "utf8"));
+  assert.match(root.devDependencies["smol-toml"] ?? "", /^\d+\.\d+\.\d+$/);
+  assert.equal(root.dependencies?.["smol-toml"], undefined);
+  for (const packageName of packageNames) {
+    const manifest = JSON.parse(readFileSync(path.join(projectRoot, "packages", packageName, "package.json"), "utf8"));
+    for (const field of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"]) {
+      assert.equal(manifest[field]?.["smol-toml"], undefined, `${packageName} ${field}`);
+    }
+  }
+});
+
 test("npm and Docker builds carry the plugin-capable gateway runtime", () => {
   const buildConfig = readFileSync(path.join(projectRoot, "build", "esbuild.config.mjs"), "utf8");
   const manifest = JSON.parse(readFileSync(path.join(projectRoot, "package.json"), "utf8"));

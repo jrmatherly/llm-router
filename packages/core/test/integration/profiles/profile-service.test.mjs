@@ -15,6 +15,7 @@ import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { loadPersistedApiKeys, replacePersistedAppConfig, updatePersistedApiKeys } from "@llmr/core/config/config-repository.ts";
 import { CONFIGDIR } from "@llmr/core/config/constants.ts";
 import { applyProfileConfig, applyProfileRuntimeConfig, cleanupGeneratedBinBackups, reconcileProfileApiKeys, recoverGlobalAgentProfile, applyTakeoversAfterGatewayReplaced, restoreInactiveGlobalProfileConfigs, restoreGlobalProfileConfigsOnExit, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service.ts";
+import { assertCodexFilesParse } from "../../support/codex-toml.mjs";
 
 test("Grok profile source home follows profile and process environment overrides", () => {
   const previous = {
@@ -3102,6 +3103,29 @@ test("profile service does not strip the global settings file while a router-sco
   });
 });
 
+test("while a router-scoped Claude profile is enabled, a takeover copy among the backups is still read as the snapshot", () => {
+  const gateway = (url) => ({ ANTHROPIC_API_BASE_URL: url, ANTHROPIC_BASE_URL: url, CLAUDE_AGENT_API_BASE_URL: url });
+  withScratchRuntimeHome((settingsFile) => {
+    writeFileSync(`${settingsFile}.llmr-original-missing`, "");
+    writeFileSync(`${settingsFile}.llmr-backup-2099-01-01T00-00-00-000Z`, `${JSON.stringify({ env: gateway("http://127.0.0.1:9999"), permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`);
+    writeFileSync(settingsFile, `${JSON.stringify({ env: gateway("http://127.0.0.1:3456") }, null, 2)}\n`);
+    restoreInactiveGlobalProfileConfigs([{
+      agent: "claude-code",
+      enabled: true,
+      env: {},
+      id: "claude-code-2",
+      model: "Provider/model",
+      name: "Claude Code",
+      scope: "llmr",
+      settingsFile: "~/.claude/settings.json",
+      smallFastModel: "",
+      surface: "auto"
+    }]);
+    assert.equal(existsSync(settingsFile), true);
+    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")).permissions, { allow: ["Bash(ls)"] });
+  }, { takeoverBackup: false });
+});
+
 test("profile service writes no backup when a user-owned settings file holds nothing LLMR-managed", () => {
   withScratchRuntimeHome((settingsFile) => {
     const userOnly = `${JSON.stringify({ env: { USER_VALUE: "kept" }, permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`;
@@ -4033,7 +4057,8 @@ function filesHolding(dir, value) {
   return filesUnder(dir).filter((file) => readFileSync(file, "utf8").includes(value));
 }
 
-async function withAppliedDefaultProfiles(profileIds, run, beforeApply) {
+async function withAppliedDefaultProfiles(profileIds, run, beforeApply, options = {}) {
+  const parseAfter = options.parseAfter ?? true;
   const runtimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   const claudeDir = path.join(runtimeHome, ".claude");
@@ -4062,8 +4087,12 @@ async function withAppliedDefaultProfiles(profileIds, run, beforeApply) {
     if (profileIds.includes("default-codex")) {
       assert.match(codexToken ?? "", /^llmr-profile-/);
       assert.ok(readFileSync(codexConfigFile, "utf8").includes(codexToken), "the applied config.toml holds the profile's token");
+      assertCodexFilesParse(codexDir);
     }
     await run({ claudeDir, codexConfigFile, codexDir, codexToken, config });
+    if (parseAfter) {
+      assertCodexFilesParse(codexDir, { allowNone: true });
+    }
   } finally {
     await cleanUp();
   }
@@ -4525,7 +4554,7 @@ test("restoring a Codex config with a value the user left open still removes LLM
     assert.equal(result.status.ok, true, result.status.message);
     assert.equal(readFileSync(codexConfigFile, "utf8"), broken);
     assert.deepEqual(filesHolding(codexDir, codexToken), []);
-  });
+  }, undefined, { parseAfter: false });
 });
 
 test("restoring a Codex config twice changes nothing the second time", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
@@ -4931,12 +4960,103 @@ const userCodexOriginal = [
 ].join("\n");
 const llmrCodexWrites = /LLMR|llmr-model-catalog|model_providers\.llm-router|model_provider = "llm-router"|Provider\/model/;
 
+const tripleDouble = "\"".repeat(3);
+const tripleSingle = "'".repeat(3);
+const awkwardProfileTables = {
+  "plain keys": { existing: "sandbox_mode = \"read-only\"\n", moved: "sandbox_mode = \"workspace-write\"\n" },
+  "a nested array": { existing: "sandbox_mode = \"read-only\"\n", moved: "x = [\n  [1, 2],\n]\ny = 3\n" },
+  "a bracket line in a literal string": { existing: "k = 0\n", moved: `notes = ${tripleSingle}\n[not]\n${tripleSingle}\nk = 1\n` },
+  "a value that spans lines on both sides": { existing: `notes = ${tripleDouble}\nsandbox_mode = "inside"\n${tripleDouble}\n`, moved: `notes = ${tripleDouble}\nmodel = "inside too"\n${tripleDouble}\n` },
+  "a quoted key": { existing: "\"sandbox_mode\" = \"read-only\"\n", moved: "sandbox_mode = \"workspace-write\"\n" },
+  "a dotted key against an inline table": { existing: "a.b = 1\n", moved: "a = { c = 2 }\n" },
+  "a key that names a table in the profile file": { existing: "sandbox_mode = \"read-only\"\n\n[sandbox_workspace_write]\nnetwork_access = false\n", moved: "sandbox_workspace_write = { network_access = true }\n" }
+};
+
+function countOf(text, part) {
+  return text.split(part).length - 1;
+}
+
 function plantCodexOriginal(content = userCodexOriginal) {
   return ({ codexDir }) => {
     mkdirSync(codexDir, { recursive: true });
     writeFileSync(path.join(codexDir, "config.toml"), content);
   };
 }
+
+test("a profile table in the user's own Codex config comes back whole after an edited restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR, todo: "S-1, fixed in Task 2" }, async () => {
+  for (const [name, { moved }] of Object.entries(awkwardProfileTables)) {
+    const original = `model_provider = "openai"\n\n[profiles.llm-router]\n${moved}\n[projects."/tmp/own"]\ntrust_level = "untrusted"\n`;
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      writeFileSync(fixture.codexConfigFile, `${readFileSync(fixture.codexConfigFile, "utf8")}\n[mcp_servers.x]\ncommand = "x"\n`);
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, name);
+      const restored = readFileSync(fixture.codexConfigFile, "utf8");
+      assert.equal(countOf(restored, `[profiles.llm-router]\n${moved}`), 1, `${name}: ${restored}`);
+      assert.match(restored, /\[mcp_servers\.x\]/, name);
+    }, plantCodexOriginal(original));
+  }
+});
+
+const multiLineModel = `model = ${tripleDouble}\ngpt-mine\n${tripleDouble}\n`;
+test("a root key whose value spans lines survives an apply and comes back whole", { skip: !process.env.LLMR_INTERNAL_HOME_DIR, todo: "S-2, fixed in Task 3" }, async () => {
+  for (const eol of ["\n", "\r\n"]) {
+    const original = `${multiLineModel}model_provider = "openai"\n`.replaceAll("\n", eol);
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      writeFileSync(fixture.codexConfigFile, `${readFileSync(fixture.codexConfigFile, "utf8")}${eol}[mcp_servers.x]${eol}command = "x"${eol}`);
+      await recoverGlobalAgentProfile("default-codex");
+      const restored = readFileSync(fixture.codexConfigFile, "utf8");
+      // Without its last line end, which the writer gives as a line feed in its root block.
+      assert.equal(countOf(restored, multiLineModel.trimEnd().replaceAll("\n", eol)), 1, restored);
+      assert.equal(countOf(restored, "model_provider = \"openai\""), 1, restored);
+    }, plantCodexOriginal(original));
+  }
+});
+
+test("a quoted root key in the user's Codex config is the same key to LLM Router", { skip: !process.env.LLMR_INTERNAL_HOME_DIR, todo: "S-6, fixed in Task 3" }, async () => {
+  const original = "\"model_provider\" = \"openai\"\n\"model\" = \"gpt-mine\"\n";
+  for (const edit of [false, true]) {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      if (edit) {
+        appendUserCodexTables(fixture);
+      }
+      await recoverGlobalAgentProfile("default-codex");
+      const restored = readFileSync(fixture.codexConfigFile, "utf8");
+      assertHoldsEveryLine(restored, original);
+      assert.doesNotMatch(restored, llmrCodexWrites);
+      if (!edit) {
+        assert.equal(restored, original);
+      }
+    }, plantCodexOriginal(original));
+  }
+});
+
+test("a managed Codex config that a strip leaves unchanged gets the saved original back, and a copy of what it held", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const replaced = `notes = ${tripleDouble}\n[model_providers.llm-router]\n${tripleDouble}\n`;
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    writeFileSync(fixture.codexConfigFile, replaced);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), "model_provider = \"openai\"\n");
+    const copies = safetyCopies(fixture.codexConfigFile);
+    assert.equal(copies.length, 1);
+    assert.equal(readFileSync(copies[0], "utf8"), replaced);
+  }, plantCodexOriginal("model_provider = \"openai\"\n"));
+});
+
+test("an apply backs up a Codex config of the user's that differs from the saved original, as it is", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const comments = "# just a note\n";
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const backups = codexBackups(fixture.codexDir);
+    assert.equal(backups.length, 1);
+    assert.equal(readFileSync(path.join(fixture.codexDir, backups[0]), "utf8"), comments);
+    await recoverGlobalAgentProfile("default-codex");
+    assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), comments);
+  }, ({ codexDir }) => {
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(path.join(codexDir, "config.toml.llmr-original"), "model = \"old\"\n");
+    writeFileSync(path.join(codexDir, "config.toml"), comments);
+  });
+});
 
 function filesBesideCodexConfigHolding({ codexConfigFile, codexDir, codexToken }) {
   return filesHolding(codexDir, codexToken).filter((file) => file !== codexConfigFile);
@@ -5650,22 +5770,6 @@ test("a line added to LLMR's Codex profile file is copied even when the user's o
   }, plantCodexOriginal(original));
 });
 
-const tripleDouble = "\"".repeat(3);
-const tripleSingle = "'".repeat(3);
-const awkwardProfileTables = {
-  "plain keys": { existing: "sandbox_mode = \"read-only\"\n", moved: "sandbox_mode = \"workspace-write\"\n" },
-  "a nested array": { existing: "sandbox_mode = \"read-only\"\n", moved: "x = [\n  [1, 2],\n]\ny = 3\n" },
-  "a bracket line in a literal string": { existing: "k = 0\n", moved: `notes = ${tripleSingle}\n[not]\n${tripleSingle}\nk = 1\n` },
-  "a value that spans lines on both sides": { existing: `notes = ${tripleDouble}\nsandbox_mode = "inside"\n${tripleDouble}\n`, moved: `notes = ${tripleDouble}\nmodel = "inside too"\n${tripleDouble}\n` },
-  "a quoted key": { existing: "\"sandbox_mode\" = \"read-only\"\n", moved: "sandbox_mode = \"workspace-write\"\n" },
-  "a dotted key against an inline table": { existing: "a.b = 1\n", moved: "a = { c = 2 }\n" },
-  "a key that names a table in the profile file": { existing: "sandbox_mode = \"read-only\"\n\n[sandbox_workspace_write]\nnetwork_access = false\n", moved: "sandbox_workspace_write = { network_access = true }\n" }
-};
-
-function countOf(text, part) {
-  return text.split(part).length - 1;
-}
-
 test("a profile table the user adds to a Codex config replaces their settings in LLMR's profile file whole, and the earlier ones are kept as a copy", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   for (const [name, { existing, moved }] of Object.entries(awkwardProfileTables)) {
     await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
@@ -5734,7 +5838,9 @@ test("a moved profile table's own model setting goes whole when its value spans 
     assert.equal(lines.includes("  \"not-a-model\","), false);
     assert.equal(lines.includes("]"), false);
     assert.equal(lines.includes("keep = 1"), true);
-  });
+    // S-2: fails on purpose until stripper Task 3; then this throws-check fails and is removed.
+    assert.throws(() => assertCodexFilesParse(codexDir), /llm-router\.config\.toml does not parse as TOML/);
+  }, undefined, { parseAfter: false });
 });
 
 test("a restore that writes the original Codex config back says so, and that the user's profile settings are in it again", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
