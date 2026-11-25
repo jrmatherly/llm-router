@@ -401,6 +401,8 @@ test("web RPC routes the Claude apps gateway login triplet", async () => {
     assert.deepEqual(payload.value, { canceled: false });
     const wait = await rpc(runtime.url, authToken, "waitClaudeAppsGatewayLogin", [{ sessionId: "nope", timeoutMs: 10 }]);
     assert.equal(wait.value.status, "canceled");
+    const signOut = await rpc(runtime.url, authToken, "signOutClaudeAppsGateway", [{ candidateId: "claude-apps-gateway:nope" }]);
+    assert.deepEqual(signOut.value, { signedOut: false });
   } finally {
     await runtime.close();
   }

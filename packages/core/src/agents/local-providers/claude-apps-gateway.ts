@@ -1,15 +1,22 @@
-import type { LocalAgentProviderCandidate, LocalAgentProviderImportResult } from "@llmr/core/contracts/app";
+import type {
+  ClaudeAppsGatewaySignOutRequest,
+  ClaudeAppsGatewaySignOutResult,
+  LocalAgentProviderCandidate,
+  LocalAgentProviderImportResult
+} from "@llmr/core/contracts/app";
 import {
   ClaudeAppsGatewayAuthError,
   claudeAppsGatewaySessionExpired,
   claudeAppsGatewaySlug,
   fetchClaudeAppsGatewayModels,
   listClaudeAppsGatewaySessions,
+  removeClaudeAppsGatewaySession,
   resolveClaudeAppsGatewaySession,
   type ClaudeAppsGatewaySession
 } from "@llmr/core/agents/claude-apps-gateway/session-store";
 import {
   bearerAuthPlugin,
+  localAgentProviderApiKey,
   modelDisplayNamesForModels,
   providerInternalNamePlaceholder,
   providerPayload,
@@ -57,11 +64,24 @@ export async function importClaudeAppsGatewayProvider(
   return {
     candidate: nextCandidate,
     provider: providerPayload(nextCandidate, uniqueProviderName(providerNames, candidate.name), session.gatewayUrl),
+    // The runtime hook sets the session's token on each request, so a signed-out gateway leaves no token in the config.
     providerPlugins: [
-      { ...bearerAuthPlugin("claude-apps-gateway-oauth", session.accessToken), ...plugin },
-      { ...bearerAuthPlugin("claude-apps-gateway-oauth-internal", session.accessToken, {}, providerInternalNamePlaceholder), ...plugin }
+      { ...bearerAuthPlugin("claude-apps-gateway-oauth", localAgentProviderApiKey), ...plugin },
+      { ...bearerAuthPlugin("claude-apps-gateway-oauth-internal", localAgentProviderApiKey, {}, providerInternalNamePlaceholder), ...plugin }
     ]
   };
+}
+
+export async function signOutClaudeAppsGateway(
+  request: ClaudeAppsGatewaySignOutRequest,
+  configDir?: string
+): Promise<ClaudeAppsGatewaySignOutResult> {
+  const stored = listClaudeAppsGatewaySessions(configDir).find((item) => claudeAppsGatewayCandidateId(item.gatewayUrl) === request.candidateId);
+  if (!stored) {
+    return { signedOut: false };
+  }
+  await removeClaudeAppsGatewaySession(stored.gatewayUrl, configDir);
+  return { signedOut: true };
 }
 
 function claudeAppsGatewayCandidate(session: ClaudeAppsGatewaySession): LocalAgentProviderCandidate {

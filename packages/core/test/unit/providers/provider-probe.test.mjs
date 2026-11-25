@@ -491,6 +491,119 @@ test("connectivity probe uses the live Claude apps gateway session token", async
   assert.ok(calls.every((call) => call.authorization === "Bearer live-token" && call.xApiKey === null), JSON.stringify(calls));
 });
 
+test("a probe of a signed-out Claude apps gateway fails with the sign-in message and sends no request", async (t) => {
+  const gatewayUrl = "http://127.0.0.1:49132";
+  fs.rmSync(claudeAppsGatewaySessionFile(gatewayUrl), { force: true });
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (input, init) => {
+    calls.push({ authorization: new Headers(init?.headers).get("authorization"), pathname: new URL(String(input)).pathname });
+    return new Response(JSON.stringify({ id: "ok" }), { headers: { "content-type": "application/json" }, status: 200 });
+  };
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+  });
+
+  const report = await checkGatewayProviderConnectivity({
+    apiKey: "llmr-local-agent-login",
+    candidates: [{ baseUrl: gatewayUrl, name: "Claude apps gateway", protocols: ["anthropic_messages"], source: "custom" }],
+    forceRefresh: true,
+    models: ["claude-sonnet-4-6"],
+    providerPlugins: [{
+      auth: { headers: { authorization: "Bearer baked-expired" }, removeHeaders: ["x-api-key"], strict: true },
+      claudeAppsGateway: { url: gatewayUrl },
+      key: "llmr-local-agent-gw-claude-apps-gateway-oauth",
+      providerName: "gw"
+    }],
+    protocols: ["anthropic_messages"]
+  });
+
+  assert.equal(report.passed.length, 0);
+  assert.match(report.failed[0]?.message ?? "", /Claude apps gateway session was not found\. Sign in again\./);
+  assert.deepEqual(calls, []);
+});
+
+test("a probe of a Claude apps gateway whose expired token cannot be refreshed says so and does not send the old token", async (t) => {
+  const gatewayUrl = "http://127.0.0.1:49133";
+  const sourceFile = claudeAppsGatewaySessionFile(gatewayUrl);
+  persistClaudeAppsGatewaySession({
+    accessToken: "stale-token",
+    expiresAt: Math.floor(Date.now() / 1000) - 3600,
+    gatewayUrl,
+    models: ["claude-sonnet-4-6"],
+    refreshToken: "refresh-token",
+    sourceFile
+  });
+  const previousFetch = globalThis.fetch;
+  const authorizations = [];
+  globalThis.fetch = async (_input, init) => {
+    authorizations.push(new Headers(init?.headers).get("authorization"));
+    throw new Error("network is down");
+  };
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    fs.rmSync(sourceFile, { force: true });
+  });
+
+  const report = await checkGatewayProviderConnectivity({
+    apiKey: "llmr-local-agent-login",
+    candidates: [{ baseUrl: gatewayUrl, name: "Claude apps gateway", protocols: ["anthropic_messages"], source: "custom" }],
+    forceRefresh: true,
+    models: ["claude-sonnet-4-6"],
+    providerPlugins: [{
+      auth: { headers: { authorization: "Bearer llmr-local-agent-login" }, removeHeaders: ["x-api-key"], strict: true },
+      claudeAppsGateway: { url: gatewayUrl },
+      key: "llmr-local-agent-gw-claude-apps-gateway-oauth",
+      providerName: "gw"
+    }],
+    protocols: ["anthropic_messages"]
+  });
+
+  assert.equal(report.passed.length, 0);
+  assert.match(report.failed[0]?.message ?? "", /Claude apps gateway token could not be refreshed: /);
+  assert.ok(!authorizations.includes("Bearer stale-token"), JSON.stringify(authorizations));
+});
+
+test("a probe of a Claude apps gateway whose token expired with no refresh token asks for a new sign-in and sends nothing", async (t) => {
+  const gatewayUrl = "http://127.0.0.1:49134";
+  const sourceFile = claudeAppsGatewaySessionFile(gatewayUrl);
+  persistClaudeAppsGatewaySession({
+    accessToken: "stale-token",
+    expiresAt: Math.floor(Date.now() / 1000) - 3600,
+    gatewayUrl,
+    models: ["claude-sonnet-4-6"],
+    sourceFile
+  });
+  const previousFetch = globalThis.fetch;
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests += 1;
+    return new Response(JSON.stringify({ id: "ok" }), { headers: { "content-type": "application/json" }, status: 200 });
+  };
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    fs.rmSync(sourceFile, { force: true });
+  });
+
+  const report = await checkGatewayProviderConnectivity({
+    apiKey: "llmr-local-agent-login",
+    candidates: [{ baseUrl: gatewayUrl, name: "Claude apps gateway", protocols: ["anthropic_messages"], source: "custom" }],
+    forceRefresh: true,
+    models: ["claude-sonnet-4-6"],
+    providerPlugins: [{
+      auth: { headers: { authorization: "Bearer llmr-local-agent-login" }, removeHeaders: ["x-api-key"], strict: true },
+      claudeAppsGateway: { url: gatewayUrl },
+      key: "llmr-local-agent-gw-claude-apps-gateway-oauth",
+      providerName: "gw"
+    }],
+    protocols: ["anthropic_messages"]
+  });
+
+  assert.equal(report.passed.length, 0);
+  assert.match(report.failed[0]?.message ?? "", /Claude apps gateway session ended\. Sign in again/);
+  assert.equal(requests, 0);
+});
+
 function codexUpstream(t, codex, calls) {
   useFetch(t, codex, async (url, init) => {
     const headers = new Headers(init?.headers);

@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs as parseNodeArgs } from "node:util";
@@ -96,6 +96,7 @@ export function parseArgs(argv) {
     options: {
       "api-key": { type: "string" },
       "dex-port": { default: "15556", type: "string" },
+      keep: { default: false, type: "boolean" },
       "load-test": { default: false, type: "boolean" },
       port: { default: "18080", type: "string" },
       upstream: { default: "http://127.0.0.1:3456", type: "string" }
@@ -105,10 +106,27 @@ export function parseArgs(argv) {
   return {
     dexPort: parsePort(values["dex-port"], "--dex-port"),
     gatewayPort: parsePort(values.port, "--port"),
+    keep: values.keep,
     loadTest: values["load-test"],
     upstreamApiKey: values["api-key"],
     upstreamBaseUrl: values.upstream
   };
+}
+
+const gatewayEnvPassThrough = ["CLAUDE_GATEWAY_DRAIN_TIMEOUT_MS", "CLAUDE_GATEWAY_LOG_FORMAT", "CLAUDE_GATEWAY_LOG_LEVEL", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"];
+
+/**
+ * @param {NodeJS.ProcessEnv} base
+ * @param {string} stateDir
+ * @returns {NodeJS.ProcessEnv}
+ */
+export function gatewayChildEnv(base, stateDir) {
+  /** @type {NodeJS.ProcessEnv} */
+  const env = { CLAUDE_CONFIG_DIR: path.join(stateDir, "claude"), CLAUDE_GATEWAY_ALLOW_LOOPBACK: "1", HOME: stateDir, PATH: base.PATH };
+  for (const name of gatewayEnvPassThrough) {
+    if (base[name] !== undefined) env[name] = base[name];
+  }
+  return env;
 }
 
 function parsePort(value, flag) {
@@ -121,40 +139,78 @@ function parsePort(value, flag) {
 
 function main(argv) {
   const args = parseArgs(argv);
-  try {
-    execFileSync("claude", ["--version"], { stdio: "ignore" });
-  } catch (error) {
-    throw error?.code === "ENOENT" ? new Error("claude is not on PATH; install Claude Code (this harness was verified with 2.1.310).") : error;
-  }
   const harnessDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "docker", "claude-apps-gateway");
+  const stateDir = path.join(harnessDir, ".state");
+  mkdirSync(stateDir, { mode: 0o700, recursive: true });
+  const gatewayEnv = gatewayChildEnv(process.env, stateDir);
+  try {
+    execFileSync("claude", ["--version"], { env: gatewayEnv, stdio: "ignore" });
+  } catch (error) {
+    if (!args.keep) rmSync(stateDir, { force: true, recursive: true });
+    throw error?.code === "ENOENT" ? new Error("claude is not on PATH; install Claude Code.") : error;
+  }
   const composeFile = path.join(harnessDir, "compose.yaml");
+  const dexFile = path.join(harnessDir, "dex.rendered.yaml");
+  const gatewayFile = path.join(harnessDir, "gateway.rendered.yaml");
   const teardownHint = `containers may still be running: docker compose -f ${composeFile} down -v`;
   const secrets = { adminWriteKey: randomBytes(32).toString("base64url"), jwtSecret: randomBytes(32).toString("base64url") };
   const gatewayYaml = renderGatewayConfig({ ...args, ...secrets });
-  const env = { ...process.env, CLAUDE_GATEWAY_ALLOW_LOOPBACK: "1", DEX_PORT: String(args.dexPort) };
-  writeFileSync(path.join(harnessDir, "dex.rendered.yaml"), renderDexConfig(args));
-  try {
-    execFileSync("docker", ["compose", "-f", composeFile, "up", "-d", "--wait"], { env, stdio: "inherit" });
-  } catch (error) {
-    throw new Error(error?.code === "ENOENT" ? "docker is not on PATH" : `docker compose failed; ${teardownHint}`);
+  // Docker finds its plugins and socket through the caller's home, so compose keeps the caller's environment.
+  const composeEnv = { ...process.env, DEX_PORT: String(args.dexPort) };
+  let composeStarted = false;
+  let cleanedUp = false;
+  const cleanUp = () => {
+    if (cleanedUp) return true;
+    cleanedUp = true;
+    if (args.keep) {
+      console.log(`--keep: ${teardownHint}`);
+      return true;
+    }
+    let containersRemoved = !composeStarted;
+    if (composeStarted) {
+      try {
+        execFileSync("docker", ["compose", "-f", composeFile, "down", "-v"], { env: composeEnv, stdio: "inherit" });
+        containersRemoved = true;
+      } catch {
+        console.error(`docker compose down failed; ${teardownHint}`);
+      }
+    }
+    for (const file of [gatewayFile, dexFile, stateDir]) rmSync(file, { force: true, recursive: true });
+    console.log(containersRemoved ? "removed the harness containers, volume, rendered files and state directory" : "removed the rendered files and state directory");
+    return containersRemoved;
+  };
+  /** @type {import("node:child_process").ChildProcess | undefined} */
+  let child;
+  // Registered before compose runs: a handler keeps this process alive through a signal during the blocking `up`, so the catch below can clean up.
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+    process.on(signal, () => child?.kill(signal === "SIGHUP" ? "SIGTERM" : signal));
   }
-  const gatewayFile = path.join(harnessDir, "gateway.rendered.yaml");
-  writeFileSync(gatewayFile, gatewayYaml, { mode: 0o600 });
+  try {
+    writeFileSync(dexFile, renderDexConfig(args));
+    writeFileSync(gatewayFile, gatewayYaml, { mode: 0o600 });
+    composeStarted = true;
+    execFileSync("docker", ["compose", "-f", composeFile, "up", "-d", "--wait"], { env: composeEnv, stdio: "inherit" });
+  } catch (error) {
+    const dockerMissing = error?.syscall === "spawnSync docker";
+    if (dockerMissing) composeStarted = false;
+    cleanUp();
+    throw dockerMissing ? new Error("docker is not on PATH") : composeStarted ? new Error("docker compose failed") : error;
+  }
   console.log(`gateway config: ${gatewayFile}`);
   console.log(`admin write key (shown once): ${secrets.adminWriteKey}`);
   console.log(`postgres: ${postgresUrl}`);
   console.log("A new JWT secret was generated; tokens from earlier runs are invalid.");
   console.log(args.loadTest ? "load-test mode: the gateway answers /v1/messages itself" : `upstream: ${args.upstreamBaseUrl}`);
-  const child = spawn("claude", ["gateway", "--config", gatewayFile], { env, stdio: "inherit" });
-  process.on("SIGINT", () => child.kill("SIGINT"));
-  process.on("SIGTERM", () => child.kill("SIGTERM"));
+  child = spawn("claude", ["gateway", "--config", gatewayFile], { env: gatewayEnv, stdio: "inherit" });
   child.on("error", (error) => {
-    console.error(`failed to start claude gateway: ${error.message}; ${teardownHint}`);
+    console.error(`failed to start claude gateway: ${error.message}`);
+    cleanUp();
     process.exit(1);
   });
   child.on("exit", (code, signal) => {
-    console.log(`gateway stopped; ${teardownHint}`);
-    process.exit(signal === "SIGINT" || signal === "SIGTERM" ? 0 : code ?? 1);
+    console.log("gateway stopped");
+    const cleaned = cleanUp();
+    process.exit(!cleaned ? 1 : signal === "SIGINT" || signal === "SIGTERM" ? 0 : code ?? 1);
   });
 }
 

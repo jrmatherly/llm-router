@@ -236,6 +236,7 @@ const webClientBridge: LlmrApi = {
   setProxyNetworkCaptureEnabled: (enabled) => rpc("setProxyNetworkCaptureEnabled", [enabled]) as ReturnType<LlmrApi["setProxyNetworkCaptureEnabled"]>,
   setTrayDetailOpen: () => Promise.resolve(),
   showMainWindow: () => Promise.resolve(),
+  signOutClaudeAppsGateway: (request) => rpc("signOutClaudeAppsGateway", [request]) as ReturnType<LlmrApi["signOutClaudeAppsGateway"]>,
   startBotGatewayQrLogin: (request) => rpc("startBotGatewayQrLogin", [request]) as ReturnType<LlmrApi["startBotGatewayQrLogin"]>,
   startClaudeAppsGatewayLogin: (request) => rpc("startClaudeAppsGatewayLogin", [request]) as ReturnType<LlmrApi["startClaudeAppsGatewayLogin"]>,
   startGateway: () => rpc("startGateway") as ReturnType<LlmrApi["startGateway"]>,

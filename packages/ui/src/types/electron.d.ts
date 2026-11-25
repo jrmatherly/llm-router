@@ -35,6 +35,8 @@ import type {
   ClaudeAppsGatewayLoginStartResult,
   ClaudeAppsGatewayLoginWaitRequest,
   ClaudeAppsGatewayLoginWaitResult,
+  ClaudeAppsGatewaySignOutRequest,
+  ClaudeAppsGatewaySignOutResult,
   GatewayMcpToolInfo,
   GatewayProviderConnectivityCheckReport,
   GatewayProviderConnectivityCheckRequest,
@@ -163,6 +165,7 @@ declare global {
       setThemePreference?: (theme: AppConfig["theme"]) => Promise<AppConfig["theme"]>;
       setTrayDetailOpen: (open: boolean, provider?: string) => Promise<void>;
       showMainWindow: () => Promise<void>;
+      signOutClaudeAppsGateway: (request: ClaudeAppsGatewaySignOutRequest) => Promise<ClaudeAppsGatewaySignOutResult>;
       startChromeLoginImport?: (request: ChromeLoginImportRequest) => Promise<ChromeLoginImportJob>;
       startGateway: () => Promise<GatewayStatus>;
       startBotGatewayQrLogin: (request: BotGatewayQrLoginStartRequest) => Promise<BotGatewayQrLoginStartResult>;

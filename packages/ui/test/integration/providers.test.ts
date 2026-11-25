@@ -10,7 +10,7 @@ import { minimaxChinaProviderPreset } from "@llmr/core/providers/presets/minimax
 import { moonshotGlobalProviderPreset } from "@llmr/core/providers/presets/moonshot/index.ts";
 import { qiniuAiProviderPreset } from "@llmr/core/providers/presets/qiniu-ai/index.ts";
 import { xiaomiMimoProviderPreset } from "@llmr/core/providers/presets/xiaomi/index.ts";
-import { AddProviderDialog, AddProviderForm, ProviderConnectivityCheckDialog, ProvidersView, localAgentProviderAlreadyImported, localAgentProviderPluginSuffixesForCandidate, uniqueProviderProbeProtocolRows } from "@llmr/ui/pages/home/components/providers.tsx";
+import { AddProviderDialog, AddProviderForm, ProviderConnectivityCheckDialog, ProvidersView, localAgentProviderAlreadyImported, localAgentProviderCandidateRows, localAgentProviderPluginSuffixesForCandidate, uniqueProviderProbeProtocolRows } from "@llmr/ui/pages/home/components/providers.tsx";
 import {
   applyProviderProbeResult,
   buildProviderImportDraft,
@@ -1767,6 +1767,33 @@ test("an imported Claude apps gateway hides only its own host's candidate", () =
   };
   assert.equal(localAgentProviderAlreadyImported(candidate("a.example.com", "a.example.com"), [provider], [plugin]), true);
   assert.equal(localAgentProviderAlreadyImported(candidate("b.example.com:8443", "b.example.com-8443"), [provider], [plugin]), false);
+});
+
+test("an imported Claude apps gateway keeps its row, and an imported agent of another kind does not", () => {
+  const gateway = {
+    id: "claude-apps-gateway:a.example.com",
+    importable: true,
+    kind: "claude-apps-gateway" as const,
+    models: ["claude-sonnet-4-6"],
+    name: "Claude apps gateway (a.example.com)",
+    protocol: "anthropic_messages" as const,
+    status: "available" as const
+  };
+  const codex = { ...gateway, id: "codex", kind: "codex" as const, name: "Codex" };
+  const missing = { ...gateway, id: "claude-code", importable: false, kind: "claude-code" as const, name: "Claude Code", status: "missing" as const };
+  const providers = [
+    { api_key: "llmr-local-agent-login", models: [], name: "Work gateway" },
+    { api_key: "llmr-local-agent-login", models: [], name: "Codex" }
+  ];
+  const plugins = [{
+    claudeAppsGateway: { url: "https://a.example.com" },
+    key: "llmr-local-agent-work-gateway-claude-apps-gateway-oauth",
+    providerName: "Work gateway"
+  }];
+  assert.equal(localAgentProviderAlreadyImported(gateway, providers, plugins), true);
+  assert.equal(localAgentProviderAlreadyImported(codex, providers, plugins), true);
+
+  assert.deepEqual(localAgentProviderCandidateRows([gateway, codex, missing], providers, plugins), [{ candidate: gateway, imported: true }]);
 });
 
 test("provider probe models prefer the protocol-scoped list", () => {

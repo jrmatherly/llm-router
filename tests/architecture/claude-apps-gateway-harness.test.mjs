@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import test from "node:test";
-import { parseArgs, renderDexConfig, renderGatewayConfig } from "../../scripts/claude-apps-gateway-dev.mjs";
+import { gatewayChildEnv, parseArgs, renderDexConfig, renderGatewayConfig } from "../../scripts/claude-apps-gateway-dev.mjs";
 
 const base = { adminWriteKey: "a".repeat(32), dexPort: 15556, gatewayPort: 18080, jwtSecret: "b".repeat(48) };
 
@@ -47,9 +48,35 @@ test("harness containers publish only on loopback", () => {
 });
 
 test("parseArgs defaults and flags", () => {
-  assert.deepEqual(parseArgs([]), { dexPort: 15556, gatewayPort: 18080, loadTest: false, upstreamApiKey: undefined, upstreamBaseUrl: "http://127.0.0.1:3456" });
+  assert.deepEqual(parseArgs([]), { dexPort: 15556, gatewayPort: 18080, keep: false, loadTest: false, upstreamApiKey: undefined, upstreamBaseUrl: "http://127.0.0.1:3456" });
   const parsed = parseArgs(["--load-test", "--port", "18090", "--dex-port", "15557", "--upstream", "http://10.0.0.5:3456", "--api-key", "k"]);
-  assert.deepEqual(parsed, { dexPort: 15557, gatewayPort: 18090, loadTest: true, upstreamApiKey: "k", upstreamBaseUrl: "http://10.0.0.5:3456" });
+  assert.deepEqual(parsed, { dexPort: 15557, gatewayPort: 18090, keep: false, loadTest: true, upstreamApiKey: "k", upstreamBaseUrl: "http://10.0.0.5:3456" });
+  assert.equal(parseArgs(["--keep"]).keep, true);
   assert.throws(() => parseArgs(["--bogus"]), /--bogus/);
   assert.throws(() => parseArgs(["--port", "abc"]), /--port/);
+});
+
+test("the gateway gets its own home and config directory, and none of the caller's secrets", () => {
+  const stateDir = path.join(path.sep, "work", "state");
+  const env = gatewayChildEnv({
+    ANTHROPIC_API_KEY: "made-up-key",
+    CLAUDE_CONFIG_DIR: "/home/someone/.claude",
+    HOME: "/home/someone",
+    HTTPS_PROXY: "http://proxy.invalid:3128",
+    LLMR_WEB_AUTH_TOKEN: "made-up-token",
+    PATH: "/usr/bin"
+  }, stateDir);
+  assert.deepEqual(env, {
+    CLAUDE_CONFIG_DIR: path.join(stateDir, "claude"),
+    CLAUDE_GATEWAY_ALLOW_LOOPBACK: "1",
+    HOME: stateDir,
+    HTTPS_PROXY: "http://proxy.invalid:3128",
+    PATH: "/usr/bin"
+  });
+});
+
+test("the harness state directory and rendered files are not tracked", () => {
+  const ignore = readFileSync("docker/claude-apps-gateway/.gitignore", "utf8").split(/\r?\n/);
+  assert.ok(ignore.includes(".state/"));
+  assert.ok(ignore.includes("*.rendered.yaml"));
 });
