@@ -152,7 +152,7 @@ test("UsageStore aggregates stats in SQLite without loading all events", async (
     assert.equal(stats.recentRequests.length, 2);
     assert.equal(stats.models[0]?.requestCount, 1);
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -206,7 +206,7 @@ test("UsageStore records usage while the price catalog loads and prices it after
     }
     assert.equal(stats.totals.costUsd, 0.5, "both rows are priced once the catalog loads");
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -239,7 +239,7 @@ test("UsageStore cache ratio denominator includes cache tokens when total tokens
     assert.equal(stats.recentRequests[0]?.totalTokens, 105);
     assert.equal(stats.recentRequests[0]?.cacheRatio, 0.9);
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -287,7 +287,7 @@ test("UsageStore excludes proxy rows by default and includes them on request", a
     assert.equal(withProxy.totals.requestCount, 2);
     assert.equal(withProxy.totals.totalTokens, 312);
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -319,7 +319,7 @@ test("UsageStore treats null web RPC usage filters as empty filters", async () =
     assert.equal(defaultRangeStats.range, "7d");
     assert.equal(defaultRangeStats.totals.requestCount, 1);
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -346,7 +346,7 @@ test("UsageStore keeps the Fusion logical model while grouping by the upstream m
     assert.equal(stats.recentRequests[0]?.logicalModel, "Fusion/kimisearch");
     assert.equal(stats.totals.requestCount, 1);
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -414,7 +414,7 @@ test("UsageStore prices the routed upstream model when the response echoes a rul
       database.close();
     }
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -451,7 +451,7 @@ test("#1791 UsageStore records DeepSeek-native prompt cache hits", async () => {
     assert.equal(stats.totals.outputTokens, 10);
     assert.equal(stats.totals.totalTokens, 1010);
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -487,7 +487,7 @@ test("UsageStore attributes Claude App encoded response model IDs to the routed 
     assert.equal(stats.recentRequests[0]?.logicalModel, "Fusion/kimisearch");
     assert.notEqual(stats.models[0]?.model, encodedModel);
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -532,7 +532,7 @@ test("UsageStore attributes client-visible provider-prefixed response models to 
     assert.equal(stats.models[0]?.provider, "dashscope-private");
     assert.notEqual(stats.models[0]?.model, "dashscope-private/ZHIPU/GLM-5.3");
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -579,7 +579,7 @@ test("UsageStore keeps physical response models with unknown provider prefixes v
     assert.equal(stats.models[0]?.model, "ZHIPU/GLM-5.3");
     assert.equal(stats.models[0]?.provider, "dashscope-private");
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -644,7 +644,7 @@ test("lightweight usage synchronization records and deduplicates Fusion internal
       database.close();
     }
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -701,7 +701,7 @@ test("lightweight Fusion usage normalizes OpenAI cache tokens and estimates unco
       provider: "OpenAI Compatible"
     }]);
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -749,7 +749,7 @@ test("lightweight Fusion usage preserves slash-containing external model IDs thr
       provider: "unknown"
     }]);
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -800,7 +800,7 @@ test("lightweight Fusion usage honors numeric-string zero costs from global core
     assert.equal(stats.totals.costUsd, 0);
     assert.equal(estimateCallCount, 0);
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -894,7 +894,7 @@ test("UsageStore backfills missing events from request logs", async () => {
     assert.equal(reread.totals.requestCount, 1);
     assert.equal(reread.totals.totalTokens, 17);
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -970,7 +970,7 @@ test("UsageStore reset clears overview stats and does not backfill old request l
     assert.equal(afterNewRequest.totals.totalTokens, 10);
     assert.equal(afterNewRequest.providerModels[0]?.provider, "beta");
   } finally {
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -986,7 +986,7 @@ test("#1801 unknown HTTP status is excluded from failure and success rate counts
     assert.equal(stats.totals.errorCount, 1);
     assert.equal(stats.totals.successRate, 0.5);
     assert.equal(stats.models[0].successRate, 0.5);
-  } finally { removeTestDir(dir); }
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
 });
 
 test("UsageStore drops usage events older than the retention window", async () => {
@@ -999,7 +999,7 @@ test("UsageStore drops usage events older than the retention window", async () =
 
     const totals = await new UsageStore(dbFile).getTotalsSince(new Date(0), {}, { includeProxy: true });
     assert.equal(totals.requestCount, 1);
-  } finally { removeTestDir(dir); }
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
 });
 
 test("UsageStore backs off request-log backfill after it fails", async (t) => {
@@ -1039,7 +1039,7 @@ test("UsageStore backs off request-log backfill after it fails", async (t) => {
     assert.equal((await usageStore.getStats("24h", { includeProxy: true })).totals.requestCount, 0, "still backing off");
     t.mock.timers.tick(60_001);
     assert.equal((await usageStore.getStats("24h", { includeProxy: true })).totals.requestCount, 1, "retried after the backoff");
-  } finally { removeTestDir(dir); }
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
 });
 
 test("the usage sweep skips a row resolved as unpriced and still prices a row written before any catalog", async () => {
@@ -1070,7 +1070,7 @@ test("the usage sweep skips a row resolved as unpriced and still prices a row wr
     } finally {
       database.close();
     }
-  } finally { removeTestDir(dir); }
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
 });
 
 test("a log row copied into the totals keeps its price source, and a log database without the column still copies", async () => {
@@ -1124,7 +1124,7 @@ test("a log row copied into the totals keeps its price source, and a log databas
       } finally {
         database.close();
       }
-    } finally { removeTestDir(dir); }
+    } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
   }
 });
 
@@ -1233,7 +1233,7 @@ test("a request priced once keeps one cost and one source in Logs and in the tot
     assert.equal(logRow.cost_source, "models.dev");
   } finally {
     await preloadUsagePriceCatalog({ forceRefresh: true }).catch(() => undefined);
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });
 
@@ -1248,6 +1248,6 @@ test("a request resolved to no price is estimated by neither writer, whatever ca
     assert.deepEqual({ ...usageRow }, { cost_source: "unpriced", cost_usd: null });
   } finally {
     await preloadUsagePriceCatalog({ forceRefresh: true }).catch(() => undefined);
-    removeTestDir(dir);
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
 });

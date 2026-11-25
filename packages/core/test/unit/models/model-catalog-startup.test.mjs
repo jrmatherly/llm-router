@@ -26,7 +26,7 @@ after(() => {
     if (previousEnv[key] === undefined) delete process.env[key];
     else process.env[key] = previousEnv[key];
   }
-  removeTestDir(runtimeRoot);
+  removeTestDir(runtimeRoot, ["config.sqlite"]);
 });
 
 test("web management server is ready before the catalog CDN answers", async () => {

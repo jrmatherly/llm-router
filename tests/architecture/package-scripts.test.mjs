@@ -69,3 +69,12 @@ test("typecheck covers the Codex runtime script without strict mode", () => {
   assert.deepEqual(runtimeProject.files, ["packages/core/src/agents/codex/cli-middleware-runtime-source.runtime.cjs"]);
   assert.doesNotMatch(readFileSync(runtimeProject.files[0], "utf8"), /@ts-(?:nocheck|ignore|expect-error)/);
 });
+
+test("test:packages runs the suite of every package that has tests", () => {
+  const { scripts } = JSON.parse(readFileSync("package.json", "utf8"));
+  assert.equal(scripts["test:packages"], "npm run test --workspaces --if-present");
+  for (const name of ["cli", "core", "electron", "ui"]) {
+    const { scripts: packageScripts } = JSON.parse(readFileSync(`packages/${name}/package.json`, "utf8"));
+    assert.equal(packageScripts.test, `node ../../build/test.mjs ${name} && node ../../build/run-tests.mjs ${name}`, name);
+  }
+});

@@ -116,11 +116,16 @@ test("the package suites also run on Windows and an Intel Mac", () => {
   const job = jobBlocks(".github/workflows/test.yml").get("platforms");
   assert.match(job, gatewayEntry);
   assert.match(job, /^ {4}runs-on: \$\{\{ matrix\.runner \}\}$/m);
-  assert.match(job, /^ {12}runner: windows-2025$/m);
-  assert.match(job, /^ {12}runner: macos-26-intel$/m);
+  const release = readFileSync(".github/workflows/release.yml", "utf8");
+  for (const runner of ["windows-2025", "macos-26-intel"]) {
+    assert.ok(job.includes(`\n            runner: ${runner}\n`), runner);
+    assert.match(release, new RegExp(`^ +(runner|runs-on): ${runner}$`, "m"), `release.yml no longer builds on ${runner}`);
+  }
   assert.match(job, /^ {6}fail-fast: false$/m);
   assert.match(job, /^ {4}timeout-minutes: \d+$/m);
   assert.ok(job.includes("run: npm ci\n"));
   assert.ok(job.includes("run: npm run test:packages\n"));
-  assert.doesNotMatch(job, /continue-on-error|^ {4}needs:/m);
+  assert.doesNotMatch(job, /^ +(needs|if|exclude):/m);
+  assert.deepEqual(job.match(/continue-on-error.*/g), ["continue-on-error: ${{ matrix.allowed_to_fail == true }}"]);
+  assert.deepEqual(job.match(/^.*\n.*allowed_to_fail: true$/gm), ["            runner: windows-2025\n            allowed_to_fail: true"]);
 });

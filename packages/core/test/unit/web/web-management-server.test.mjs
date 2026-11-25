@@ -22,7 +22,7 @@ after(() => {
   setOptionalEnv("LLMR_INTERNAL_APP_DATA_DIR", previousRuntimeEnv.appData);
   setOptionalEnv("LLMR_INTERNAL_HOME_DIR", previousRuntimeEnv.home);
   setOptionalEnv("LLMR_INTERNAL_USER_DATA_DIR", previousRuntimeEnv.userData);
-  removeTestDir(runtimeRoot);
+  removeTestDir(runtimeRoot, ["config.sqlite"]);
 });
 
 test("normalizeExternalHttpTarget accepts absolute http, https, and LLMR plugin URLs only", async () => {
