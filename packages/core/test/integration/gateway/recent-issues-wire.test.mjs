@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
+import { removeTestDir, testTempRoot } from "../../support/test-temp-dir.mjs";
 
 // This suite deliberately crosses the real gateway / HTTP / spool / SQLite
 // boundaries. Point LLMR_TEST_GATEWAY_ENTRY at an unpatched build to reproduce
@@ -16,7 +16,7 @@ test("recent issues: production HTTP, tool replay, logs and usage SQLite", {
   skip: !gatewayEntry && "set LLMR_TEST_GATEWAY_ENTRY to the gateway production entry",
   timeout: 60000
 }, async (t) => {
-  const root = mkdtempSync(path.join(tmpdir(), "llmr-wire-issues-"));
+  const root = mkdtempSync(path.join(testTempRoot, "llmr-wire-issues-"));
   const previousEnv = Object.fromEntries(["LLMR_INTERNAL_HOME_DIR", "LLMR_INTERNAL_APP_DATA_DIR", "LLMR_INTERNAL_USER_DATA_DIR"].map(key => [key, process.env[key]]));
   process.env.LLMR_INTERNAL_HOME_DIR = path.join(root, "home");
   process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(root, "data");
@@ -179,7 +179,7 @@ test("recent issues: production HTTP, tool replay, logs and usage SQLite", {
     await logs.close({ timeoutMs: 5000 });
     await Promise.all([close(upstream), close(sink)]);
     for (const [key, value] of Object.entries(previousEnv)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
-    rmSync(root, { recursive: true, force: true });
+    removeTestDir(root);
   }
 });
 

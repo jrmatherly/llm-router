@@ -6,13 +6,14 @@ import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
+import { removeTestDir, testTempRoot } from "../../support/test-temp-dir.mjs";
 
 const previousRuntimeEnv = {
   appData: process.env.LLMR_INTERNAL_APP_DATA_DIR,
   home: process.env.LLMR_INTERNAL_HOME_DIR,
   userData: process.env.LLMR_INTERNAL_USER_DATA_DIR
 };
-const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "llmr-web-management-test-"));
+const runtimeRoot = mkdtempSync(path.join(testTempRoot, "llmr-web-management-test-"));
 process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(runtimeRoot, "app-data");
 process.env.LLMR_INTERNAL_HOME_DIR = path.join(runtimeRoot, "home");
 process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(runtimeRoot, "user-data");
@@ -21,7 +22,7 @@ after(() => {
   setOptionalEnv("LLMR_INTERNAL_APP_DATA_DIR", previousRuntimeEnv.appData);
   setOptionalEnv("LLMR_INTERNAL_HOME_DIR", previousRuntimeEnv.home);
   setOptionalEnv("LLMR_INTERNAL_USER_DATA_DIR", previousRuntimeEnv.userData);
-  rmSync(runtimeRoot, { force: true, recursive: true });
+  removeTestDir(runtimeRoot);
 });
 
 test("normalizeExternalHttpTarget accepts absolute http, https, and LLMR plugin URLs only", async () => {

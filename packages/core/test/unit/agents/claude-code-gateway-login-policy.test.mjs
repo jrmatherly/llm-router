@@ -83,7 +83,7 @@ test("managed settings directory follows the platform", () => {
   assert.deepEqual(claudeCodeManagedSettingsFiles(path.join(os.tmpdir(), "llmr-gateway-login-policy-absent")), []);
 });
 
-test("an unreadable managed-settings.d is no policy and warns", { skip: process.getuid?.() === 0 }, () => {
+test("an unreadable managed-settings.d is no policy and warns", { skip: process.getuid?.() === 0 || (process.platform === "win32" && "chmod cannot make a folder unreadable on Windows") }, () => {
   withTempDir((dir) => {
     const dropInDir = path.join(dir, "managed-settings.d");
     mkdirSync(dropInDir);

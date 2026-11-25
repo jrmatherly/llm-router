@@ -19,7 +19,7 @@ test("a background service is started, reused and stopped without printing a sup
     LLMR_WEB_AUTH_TOKEN: token
   });
   const run = (args) => spawnSync(process.execPath, [cliRuntime, ...args], { encoding: "utf8", env, timeout: 60_000 });
-  const stateFile = path.join(home, ".llm-router", "service.json");
+  const stateFile = serviceStateFile(home);
   t.after(() => {
     run(["stop"]);
     try {
@@ -63,7 +63,7 @@ test("--allow-remote reaches the background service", async (t) => {
   });
   delete env.LLMR_WEB_ALLOW_REMOTE;
   const run = (args) => spawnSync(process.execPath, [cliRuntime, ...args], { encoding: "utf8", env, timeout: 60_000 });
-  const stateFile = path.join(home, ".llm-router", "service.json");
+  const stateFile = serviceStateFile(home);
   t.after(() => {
     run(["stop"]);
     try {
@@ -79,6 +79,13 @@ test("--allow-remote reaches the background service", async (t) => {
   assert.equal(new URL(JSON.parse(readFileSync(stateFile, "utf8")).url).hostname, "0.0.0.0");
   assert.equal(run(["stop"]).status, 0);
 });
+
+// On Windows the config folder is under the app data folder, not a dot folder in the home.
+function serviceStateFile(home) {
+  return process.platform === "win32"
+    ? path.join(home, "app-data", "llm-router", "service.json")
+    : path.join(home, ".llm-router", "service.json");
+}
 
 function freePort() {
   return new Promise((resolve, reject) => {

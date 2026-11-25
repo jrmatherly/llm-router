@@ -85,8 +85,12 @@ test("OpenCode free-tier user agent prefers an explicit override", () => {
 
 test("OpenCode free-tier user agent reads the installed CLI version", () => {
   const binDir = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-freetier-bin-"));
-  writeFileSync(path.join(binDir, "opencode"), "#!/bin/sh\necho 'opencode version 7.8.9'\n");
-  chmodSync(path.join(binDir, "opencode"), 0o755);
+  if (process.platform === "win32") {
+    writeFileSync(path.join(binDir, "opencode.cmd"), "@echo opencode version 7.8.9\r\n");
+  } else {
+    writeFileSync(path.join(binDir, "opencode"), "#!/bin/sh\necho 'opencode version 7.8.9'\n");
+    chmodSync(path.join(binDir, "opencode"), 0o755);
+  }
   const previousPath = process.env.PATH;
   const previousOverride = process.env.LLMR_OPENCODE_USER_AGENT;
   process.env.PATH = `${binDir}${path.delimiter}${previousPath ?? ""}`;

@@ -41,7 +41,7 @@ test("#1776 Windows apps in standard locations are found without starting PowerS
   t.after(() => Object.defineProperty(process, "platform", platform));
   t.mock.method(fs, "statSync", (file) => ({
     isDirectory: () => false,
-    isFile: () => /\/(ChatGPT|OpenCode)\.exe$/.test(String(file))
+    isFile: () => /[\\/](ChatGPT|OpenCode)\.exe$/.test(String(file))
   }));
   t.mock.method(fs, "existsSync", () => true);
   const spawn = t.mock.method(childProcess, "spawnSync", () => ({ status: 0, stdout: "" }));

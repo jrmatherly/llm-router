@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { preloadUsagePriceCatalog, resolveRequestPrice } from "@llmr/core/models/pricing-service.ts";
@@ -10,6 +9,7 @@ import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts"
 import { GatewayBillingSynchronizer } from "@llmr/core/usage/billing-sync.ts";
 import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution.ts";
 import { UsageStore } from "@llmr/core/usage/store.ts";
+import { removeTestDir, testTempRoot } from "../../support/test-temp-dir.mjs";
 
 // Stores built without an injected loader warm the real price catalog.
 globalThis.fetch = async () => {
@@ -106,7 +106,7 @@ test("usage attribution preserves slash-containing physical model IDs", () => {
 });
 
 test("UsageStore aggregates stats in SQLite without loading all events", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-test-"));
   try {
     const store = new UsageStore(path.join(dir, "usage.sqlite"));
     const now = new Date();
@@ -152,12 +152,12 @@ test("UsageStore aggregates stats in SQLite without loading all events", async (
     assert.equal(stats.recentRequests.length, 2);
     assert.equal(stats.models[0]?.requestCount, 1);
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("UsageStore records usage while the price catalog loads and prices it afterwards", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-catalog-pending-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-catalog-pending-test-"));
   try {
     const file = path.join(dir, "usage.sqlite");
     let catalogLoaded = false;
@@ -206,12 +206,12 @@ test("UsageStore records usage while the price catalog loads and prices it after
     }
     assert.equal(stats.totals.costUsd, 0.5, "both rows are priced once the catalog loads");
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("UsageStore cache ratio denominator includes cache tokens when total tokens omit cache", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-cache-ratio-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-cache-ratio-test-"));
   try {
     const store = new UsageStore(path.join(dir, "usage.sqlite"));
 
@@ -239,12 +239,12 @@ test("UsageStore cache ratio denominator includes cache tokens when total tokens
     assert.equal(stats.recentRequests[0]?.totalTokens, 105);
     assert.equal(stats.recentRequests[0]?.cacheRatio, 0.9);
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("UsageStore excludes proxy rows by default and includes them on request", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-proxy-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-proxy-test-"));
   try {
     const store = new UsageStore(path.join(dir, "usage.sqlite"));
     const createdAt = new Date().toISOString();
@@ -287,12 +287,12 @@ test("UsageStore excludes proxy rows by default and includes them on request", a
     assert.equal(withProxy.totals.requestCount, 2);
     assert.equal(withProxy.totals.totalTokens, 312);
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("UsageStore treats null web RPC usage filters as empty filters", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-null-filter-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-null-filter-test-"));
   try {
     const store = new UsageStore(path.join(dir, "usage.sqlite"));
 
@@ -319,12 +319,12 @@ test("UsageStore treats null web RPC usage filters as empty filters", async () =
     assert.equal(defaultRangeStats.range, "7d");
     assert.equal(defaultRangeStats.totals.requestCount, 1);
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("UsageStore keeps the Fusion logical model while grouping by the upstream model", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-fusion-attribution-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-fusion-attribution-test-"));
   try {
     const store = new UsageStore(path.join(dir, "usage.sqlite"));
     await store.record({
@@ -346,12 +346,12 @@ test("UsageStore keeps the Fusion logical model while grouping by the upstream m
     assert.equal(stats.recentRequests[0]?.logicalModel, "Fusion/kimisearch");
     assert.equal(stats.totals.requestCount, 1);
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("UsageStore prices the routed upstream model when the response echoes a rule alias", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-alias-pricing-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-alias-pricing-test-"));
   try {
     const pricing = {
       inputUsdPerMillionTokens: 1,
@@ -414,12 +414,12 @@ test("UsageStore prices the routed upstream model when the response echoes a rul
       database.close();
     }
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("#1791 UsageStore records DeepSeek-native prompt cache hits", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-deepseek-cache-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-deepseek-cache-test-"));
   try {
     const store = new UsageStore(path.join(dir, "usage.sqlite"));
     await store.recordCapture({
@@ -451,12 +451,12 @@ test("#1791 UsageStore records DeepSeek-native prompt cache hits", async () => {
     assert.equal(stats.totals.outputTokens, 10);
     assert.equal(stats.totals.totalTokens, 1010);
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("UsageStore attributes Claude App encoded response model IDs to the routed upstream model", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-claude-app-encoded-model-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-claude-app-encoded-model-test-"));
   try {
     const store = new UsageStore(path.join(dir, "usage.sqlite"));
     const encodedModel = `anthropic/claude-llmr-h${Buffer.from("Fusion/kimisearch", "utf8").toString("hex")}`;
@@ -487,12 +487,12 @@ test("UsageStore attributes Claude App encoded response model IDs to the routed 
     assert.equal(stats.recentRequests[0]?.logicalModel, "Fusion/kimisearch");
     assert.notEqual(stats.models[0]?.model, encodedModel);
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("UsageStore attributes client-visible provider-prefixed response models to the bare model", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-client-visible-selector-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-client-visible-selector-test-"));
   try {
     const store = new UsageStore(path.join(dir, "usage.sqlite"));
     const config = {
@@ -532,12 +532,12 @@ test("UsageStore attributes client-visible provider-prefixed response models to 
     assert.equal(stats.models[0]?.provider, "dashscope-private");
     assert.notEqual(stats.models[0]?.model, "dashscope-private/ZHIPU/GLM-5.3");
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("UsageStore keeps physical response models with unknown provider prefixes verbatim", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-physical-slash-model-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-physical-slash-model-test-"));
   try {
     const store = new UsageStore(path.join(dir, "usage.sqlite"));
     const config = {
@@ -579,12 +579,12 @@ test("UsageStore keeps physical response models with unknown provider prefixes v
     assert.equal(stats.models[0]?.model, "ZHIPU/GLM-5.3");
     assert.equal(stats.models[0]?.provider, "dashscope-private");
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("lightweight usage synchronization records and deduplicates Fusion internal upstream calls", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-fusion-internal-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-fusion-internal-test-"));
   try {
     let estimateCallCount = 0;
     const store = new UsageStore(path.join(dir, "usage.sqlite"), {
@@ -644,12 +644,12 @@ test("lightweight usage synchronization records and deduplicates Fusion internal
       database.close();
     }
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("lightweight Fusion usage normalizes OpenAI cache tokens and estimates unconfigured zero costs", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-fusion-zero-cost-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-fusion-zero-cost-test-"));
   try {
     const estimatedInputs = [];
     const store = new UsageStore(path.join(dir, "usage.sqlite"), {
@@ -701,12 +701,12 @@ test("lightweight Fusion usage normalizes OpenAI cache tokens and estimates unco
       provider: "OpenAI Compatible"
     }]);
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("lightweight Fusion usage preserves slash-containing external model IDs through storage", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-fusion-external-model-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-fusion-external-model-test-"));
   try {
     const estimatedInputs = [];
     const store = new UsageStore(path.join(dir, "usage.sqlite"), {
@@ -749,12 +749,12 @@ test("lightweight Fusion usage preserves slash-containing external model IDs thr
       provider: "unknown"
     }]);
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("lightweight Fusion usage honors numeric-string zero costs from global core billing rates", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-fusion-global-rate-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-fusion-global-rate-test-"));
   try {
     let estimateCallCount = 0;
     const store = new UsageStore(path.join(dir, "usage.sqlite"), {
@@ -800,7 +800,7 @@ test("lightweight Fusion usage honors numeric-string zero costs from global core
     assert.equal(stats.totals.costUsd, 0);
     assert.equal(estimateCallCount, 0);
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
@@ -853,7 +853,7 @@ test("lightweight Fusion usage coalesces concurrent deliveries of the same event
 });
 
 test("UsageStore backfills missing events from request logs", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-request-log-backfill-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-request-log-backfill-test-"));
   try {
     const requestLogDbFile = path.join(dir, "request-logs.sqlite");
     const requestLogStore = new RequestLogStore(requestLogDbFile);
@@ -894,12 +894,12 @@ test("UsageStore backfills missing events from request logs", async () => {
     assert.equal(reread.totals.requestCount, 1);
     assert.equal(reread.totals.totalTokens, 17);
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("UsageStore reset clears overview stats and does not backfill old request logs", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-reset-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-reset-test-"));
   try {
     const requestLogDbFile = path.join(dir, "request-logs.sqlite");
     const requestLogStore = new RequestLogStore(requestLogDbFile);
@@ -970,12 +970,12 @@ test("UsageStore reset clears overview stats and does not backfill old request l
     assert.equal(afterNewRequest.totals.totalTokens, 10);
     assert.equal(afterNewRequest.providerModels[0]?.provider, "beta");
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    removeTestDir(dir);
   }
 });
 
 test("#1801 unknown HTTP status is excluded from failure and success rate counts", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-outcome-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-outcome-"));
   try {
     const store = new UsageStore(path.join(dir, "usage.sqlite"));
     for (const statusCode of [0, 200, 500]) {
@@ -986,11 +986,11 @@ test("#1801 unknown HTTP status is excluded from failure and success rate counts
     assert.equal(stats.totals.errorCount, 1);
     assert.equal(stats.totals.successRate, 0.5);
     assert.equal(stats.models[0].successRate, 0.5);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { removeTestDir(dir); }
 });
 
 test("UsageStore drops usage events older than the retention window", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-retention-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-retention-test-"));
   try {
     const dbFile = path.join(dir, "usage.sqlite");
     const event = { durationMs: 1, method: "POST", model: "alpha-model", path: "/v1/messages", provider: "alpha", statusCode: 200 };
@@ -999,11 +999,11 @@ test("UsageStore drops usage events older than the retention window", async () =
 
     const totals = await new UsageStore(dbFile).getTotalsSince(new Date(0), {}, { includeProxy: true });
     assert.equal(totals.requestCount, 1);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { removeTestDir(dir); }
 });
 
 test("UsageStore backs off request-log backfill after it fails", async (t) => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-backfill-backoff-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-backfill-backoff-test-"));
   try {
     const requestLogDbFile = path.join(dir, "request-logs.sqlite");
     writeFileSync(requestLogDbFile, "not a sqlite database");
@@ -1039,11 +1039,11 @@ test("UsageStore backs off request-log backfill after it fails", async (t) => {
     assert.equal((await usageStore.getStats("24h", { includeProxy: true })).totals.requestCount, 0, "still backing off");
     t.mock.timers.tick(60_001);
     assert.equal((await usageStore.getStats("24h", { includeProxy: true })).totals.requestCount, 1, "retried after the backoff");
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { removeTestDir(dir); }
 });
 
 test("the usage sweep skips a row resolved as unpriced and still prices a row written before any catalog", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-unpriced-sweep-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-unpriced-sweep-test-"));
   try {
     let loaded = false;
     let sweepDone;
@@ -1070,12 +1070,12 @@ test("the usage sweep skips a row resolved as unpriced and still prices a row wr
     } finally {
       database.close();
     }
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { removeTestDir(dir); }
 });
 
 test("a log row copied into the totals keeps its price source, and a log database without the column still copies", async () => {
   for (const dropColumn of [false, true]) {
-    const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-copy-cost-source-test-"));
+    const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-copy-cost-source-test-"));
     try {
       const requestLogDbFile = path.join(dir, "request-logs.sqlite");
       const logs = new RequestLogStore(requestLogDbFile);
@@ -1124,7 +1124,7 @@ test("a log row copied into the totals keeps its price source, and a log databas
       } finally {
         database.close();
       }
-    } finally { rmSync(dir, { recursive: true, force: true }); }
+    } finally { removeTestDir(dir); }
   }
 });
 
@@ -1220,7 +1220,7 @@ async function recordHaikuRequest(dir, requestId, price) {
 // These two tests load a price catalog into module state, so they stay last
 // and unload it when they finish.
 test("a request priced once keeps one cost and one source in Logs and in the totals after the catalog changes", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-logs-cost-parity-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-logs-cost-parity-test-"));
   try {
     await loadHaikuCatalog(0.1, 0.5);
     const price = resolveRequestPrice(customHaikuConfig, customHaikuProvider.name, "claude-haiku-5-5");
@@ -1233,12 +1233,12 @@ test("a request priced once keeps one cost and one source in Logs and in the tot
     assert.equal(logRow.cost_source, "models.dev");
   } finally {
     await preloadUsagePriceCatalog({ forceRefresh: true }).catch(() => undefined);
-    rmSync(dir, { recursive: true, force: true });
+    removeTestDir(dir);
   }
 });
 
 test("a request resolved to no price is estimated by neither writer, whatever catalog each holds", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "llmr-usage-logs-unpriced-test-"));
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-logs-unpriced-test-"));
   try {
     await loadHaikuCatalog(0.2, 1);
 
@@ -1248,6 +1248,6 @@ test("a request resolved to no price is estimated by neither writer, whatever ca
     assert.deepEqual({ ...usageRow }, { cost_source: "unpriced", cost_usd: null });
   } finally {
     await preloadUsagePriceCatalog({ forceRefresh: true }).catch(() => undefined);
-    rmSync(dir, { recursive: true, force: true });
+    removeTestDir(dir);
   }
 });

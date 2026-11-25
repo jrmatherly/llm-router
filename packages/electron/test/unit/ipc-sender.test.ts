@@ -18,7 +18,7 @@ test("isAppRendererFrame rejects other frames", () => {
 });
 
 test("isAppRendererFrame accepts frames under an encoded install path", () => {
-  const spaced = pathToFileURL("/Applications/LLM Router.app/Contents/Resources/app.asar/dist/renderer/").toString();
+  const spaced = pathToFileURL("/Applications/LLM Router.app/Contents/Resources/app.asar/dist/renderer/", { windows: false }).toString();
   assert.equal(isAppRendererFrame("file:///Applications/LLM%20Router.app/Contents/Resources/app.asar/dist/renderer/pages/home/index.html", spaced), true);
   assert.equal(isAppRendererFrame("file:///C:/Users/JASONM~1/app/renderer/pages/home/index.html", "file:///C:/Users/JASONM%7E1/app/renderer/"), true);
 });

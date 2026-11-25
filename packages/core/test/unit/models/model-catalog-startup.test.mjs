@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { createServer } from "node:http";
-import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
+import { removeTestDir, testTempRoot } from "../../support/test-temp-dir.mjs";
 
 const envKeys = [
   "LLMR_INTERNAL_APP_DATA_DIR",
@@ -14,7 +14,7 @@ const envKeys = [
   "LLMR_MODELS_JSON_PATH"
 ];
 const previousEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
-const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "llmr-catalog-startup-test-"));
+const runtimeRoot = mkdtempSync(path.join(testTempRoot, "llmr-catalog-startup-test-"));
 process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(runtimeRoot, "app-data");
 process.env.LLMR_INTERNAL_HOME_DIR = path.join(runtimeRoot, "home");
 process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(runtimeRoot, "user-data");
@@ -26,7 +26,7 @@ after(() => {
     if (previousEnv[key] === undefined) delete process.env[key];
     else process.env[key] = previousEnv[key];
   }
-  rmSync(runtimeRoot, { force: true, recursive: true });
+  removeTestDir(runtimeRoot);
 });
 
 test("web management server is ready before the catalog CDN answers", async () => {
@@ -57,12 +57,14 @@ test("web management server is ready before the catalog CDN answers", async () =
       assert.equal(response.status, 200);
       return (await response.json()).value;
     };
+    const askedAt = Date.now();
     assert.equal((await appInfo()).modelCatalogRefreshError, undefined);
+    const appInfoMs = Date.now() - askedAt;
     cdn.closeAllConnections();
     const { modelCatalogRefreshError } = await import("@llmr/core/models/catalog-file.ts");
     const failureDeadline = Date.now() + 2_000;
     while (modelCatalogRefreshError() === undefined && Date.now() < failureDeadline) await new Promise((resolve) => setTimeout(resolve, 10));
-    assert.match(modelCatalogRefreshError() ?? "", /^fetch failed: .+/, "the failed download is recorded with its cause");
+    assert.match(modelCatalogRefreshError() ?? "", /^fetch failed: .+/, `the failed download is recorded with its cause (getAppInfo answered after ${appInfoMs}ms)`);
     assert.equal((await appInfo()).modelCatalogRefreshError, modelCatalogRefreshError());
   } finally {
     await runtime.close();

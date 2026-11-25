@@ -10,7 +10,8 @@ import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 test("ToolHub MCP runtime source keeps a shebang for direct MCP Inspector execution", () => {
   const source = readFileSync(path.join(process.cwd(), "packages", "core", "src", "mcp", "toolhub-mcp.ts"), "utf8");
-  assert.equal(source.startsWith("#!/usr/bin/env node\n"), true);
+  // A Windows checkout may hold the file with CRLF line endings.
+  assert.match(source, /^#!\/usr\/bin\/env node\r?\n/);
 });
 
 test("built ToolHub MCP runtime accepts newline JSON stdio used by MCP Inspector", async (t) => {

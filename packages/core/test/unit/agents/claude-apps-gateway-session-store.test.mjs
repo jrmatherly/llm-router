@@ -35,7 +35,10 @@ test("sessions persist with mode 0600 and list per host", (t) => {
   persistClaudeAppsGatewaySession(second);
   persistClaudeAppsGatewaySession(first);
 
-  assert.equal(statSync(first.sourceFile).mode & 0o777, 0o600);
+  // Windows has no permission bits; Node reports 0o666 for every writable file there.
+  if (process.platform !== "win32") {
+    assert.equal(statSync(first.sourceFile).mode & 0o777, 0o600);
+  }
   assert.equal(path.basename(first.sourceFile), "a.example.com-8443.json");
   assert.deepEqual(listClaudeAppsGatewaySessions(configDir).map((item) => item.gatewayUrl), ["https://a.example.com:8443", "https://b.example.com"]);
   assert.deepEqual(readClaudeAppsGatewaySession("https://a.example.com:8443", configDir), first);
