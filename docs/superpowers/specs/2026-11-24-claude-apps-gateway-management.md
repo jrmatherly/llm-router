@@ -120,7 +120,7 @@ type ManagedAppsGateway = {
   id: string;
   name: string;
   url: string;                       // origin, same rule as the session store; unique across records
-  adminKey?: { keyRef: string; access: "read" | "write" };   // unset means the signed-in user's bearer
+  adminKey?: { keyRef: string; access: "read" | "write" };   // phase 2; unset means the signed-in user's bearer
 } & (
   | { mode: "remote" }
   | {
@@ -134,21 +134,21 @@ type ManagedAppsGateway = {
 type AppsGatewayStatus =
   | { state: "unreachable"; error: string }
   | { state: "starting" | "stopped" | "crashed"; detail?: string }   // owned only
-  | { state: "not-ready"; reason: string; version?: string }
-  | { state: "ready"; version: string; protocolVersion: number; adminApi: boolean };
+  | { state: "not-ready"; reason: string }
+  | { state: "ready"; version?: string; protocolVersion: number; signIn: boolean };
 
 type AppsGatewayIdentity =
   | { state: "signed-out" }
-  | { state: "signed-in"; sub: string; email?: string; groups: string[]; expiresAt: number; canRefresh: boolean; admin: "yes" | "no" | "unknown" };
+  | { state: "signed-in"; sub?: string; email?: string; groups: string[]; expiresAt: number; canRefresh: boolean; admin: "yes" | "no" | "no-admin-api" | "unknown" };
 ```
 
 Rules that follow from the shape:
 
 - The records live in a new `AppConfig` section named `appsGateways`, so it cannot be read as the existing `gateway` key.
 - A session belongs to an origin, not to a record, which is why `url` is unique. Signing out of a gateway signs out its one record.
-- Secrets (an admin key, and later the config document's secrets) need a store that does not exist yet. Building it is part of phase 1: a table beside `api_keys`, with the record holding only a reference. No RPC returns a secret's value. A new RPC that returns anything outside `AppConfig` gets no masking from the web layer, so it must not carry a secret at all.
-- `admin` is `unknown` until an admin route answers. It is set again by every admin call: a 200 makes it `yes`, a 401 or 403 makes it `no`. It is never cached across a refresh, because the gateway re-reads a person's groups at refresh, so an admin who was removed keeps working for up to `ttl_hours`. The gateway is the only judge of who is an admin. The interface never decides from a group name.
-- The session store gains `sub` and `groups`, decoded from the JWT for display only. The gateway verifies the token. LLMR does not.
+- Secrets (an admin key, and later the config document's secrets) need a store that does not exist yet. Building it is part of phase 2, where the first secret appears: a table beside `api_keys`, with the record holding only a reference. No RPC returns a secret's value. A new RPC that returns anything outside `AppConfig` gets no masking from the web layer, so it must not carry a secret at all.
+- `admin` is `unknown` until an admin route answers. It is set again by every admin call: a 200 makes it `yes`, a 401 or 403 makes it `no`, and a 404 makes it `no-admin-api`, because a gateway with no `admin:` block has no such route (run on 2.1.332). Whether a gateway has an admin API can only be told with a valid bearer, so it is part of a person's identity and not of the gateway's status. It is never cached across a refresh, because the gateway re-reads a person's groups at refresh, so an admin who was removed keeps working for up to `ttl_hours`. The gateway is the only judge of who is an admin. The interface never decides from a group name.
+- `sub` and `groups` are read from the access token each time they are shown, for display only, and are not stored. The gateway verifies the token. LLMR does not. The version in a status is optional, because it is read from the landing page's text.
 - Whether a remote gateway has a supervisor is not stored on the record. It is read from the supervisor rows.
 - Status is derived on demand from `/healthz`, `/readyz`, the discovery document and the landing page. Nothing about status is stored. `ready` means the gateway says it is ready. With a readiness grace period set, that is not proof that Postgres is up.
 - `owned.stateDir` is never the user's own Claude directory. The gateway writes `.claude.json` and `backups/` into `CLAUDE_CONFIG_DIR`, and LLMR must not cause a write to `~/.claude.json`.
@@ -261,9 +261,9 @@ Each phase is one or more squash-merged PRs and ends in a check on a real gatewa
 
 | Phase | Closes | What ships | Proof |
 |---|---|---|---|
-| 0 | G-16, then G-3, G-5, G-6, G-13, G-14, G-15 | The fixes, one PR each, with `rpcHandlers` typed against the client API first because every later PR adds methods. Then sign-out end to end, the key flag with its migration and the identity fields, no bearer written at import, the guide corrected, the harness tidied. | Unit tests, plus one harness run: a request with a forged header on an ordinary key is not attributed. |
-| 1 | G-1, G-2 | The record, the secrets store, the status derivation, the page with Status and sign-in for a gateway named by URL. | Harness: the page shows ready, version 2.1.x, the mock user, their group, admin yes. Stop Postgres with the default grace of 0: not ready, with the gateway's reason. |
-| 2 | G-4 | Spend, Caps, Audit, Served to me. | Harness: create and delete a cap from the page, and see both in Audit under the user's own id. |
+| 0 | G-16, then G-3, G-5, G-6, G-13, G-14, G-15 | Planned in [`2026-11-25-apps-gateway-phase-0.md`](../plans/2026-11-25-apps-gateway-phase-0.md), which groups them into fewer PRs by the delivery order. The fixes, one PR each, with `rpcHandlers` typed against the client API first because every later PR adds methods. Then sign-out end to end, the key flag with its migration and the identity fields, no bearer written at import, the guide corrected, the harness tidied. | Unit tests, plus one harness run: a request with a forged header on an ordinary key is not attributed. |
+| 1 | G-1, G-2 | The record, the status derivation, the per-browser sign-in for the web interface, the page with Status and sign-in for a gateway named by URL. Planned in [`2026-11-25-apps-gateway-phase-1.md`](../plans/2026-11-25-apps-gateway-phase-1.md). | Harness: the page shows ready, version 2.1.x, the mock user, their group, admin yes. Stop Postgres with the default grace of 0: not ready, with the gateway's reason. |
+| 2 | G-4 | The secrets store and the static admin key. Spend, Caps, Audit, Served to me. | Harness: create and delete a cap from the page, and see both in Audit under the user's own id. |
 | 3 | G-7 | People: the join of gateway spend and LLMR usage per person, keyed on the user id and on the e-mail only where no id was recorded. It starts empty and fills from the day the phase 0 identity fields ship. | Harness with LLMR as the upstream: one request appears under the mock user with LLMR's tokens and the gateway's cap. |
 | 4a | G-8, G-17 | The supervisor module running inside LLMR (boot, restart, last good file), the Process section, the first-run flow, the one-action wiring of LLMR as the upstream. | Kill the gateway: it comes back with backoff. Start a second LLMR: it cannot take the gateway. The real home's Claude files are unchanged. |
 | 4b | G-10 | The Activity section from the audit events on stderr. | Activity shows the sign-in and the request from the harness run. |
