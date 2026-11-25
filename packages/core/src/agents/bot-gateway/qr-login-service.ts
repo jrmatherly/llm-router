@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 import type {
@@ -183,11 +183,10 @@ async function createQrClient(bot: BotGatewayRuntimeConfig, stateDir: string): P
   const { electronRunAsNode, ...commandOptions } = command ?? {};
   const client = sdk.createBotGatewayClient({
     transport: "stdio",
-    env: {
-      ...withoutLlmrSecretEnv(),
+    env: mergeChildEnv(withoutLlmrSecretEnv(), {
       ...(electronRunAsNode ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
       BOT_GATEWAY_STATE_DIR: stateDir
-    },
+    }),
     ...commandOptions
   }) as BotGatewayClientWithRequest;
   if (!client || typeof client.request !== "function" || typeof client.health !== "function") {

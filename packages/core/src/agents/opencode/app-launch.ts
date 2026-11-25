@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@llmr/core/platform/windows-app-discovery";
 import { windowsSystemCommand } from "@llmr/core/platform/windows-system";
 import type { ProfileConfig } from "@llmr/core/contracts/app";
@@ -73,15 +73,12 @@ export function launchOpenCodeAppProfile(
     ].filter(Boolean).join(" "));
   }
   const userDataDir = resolveOpenCodeDesktopUserDataDir();
-  const env: NodeJS.ProcessEnv = {
-    ...withoutLlmrSecretEnv(),
-    ...profile.env,
-    ...extraEnv,
+  const env = mergeChildEnv(withoutLlmrSecretEnv(), profile.env ?? {}, extraEnv, {
     LLMR_PROFILE_SURFACE: "app",
     OPENCODE_CLIENT: "desktop",
     OPENCODE_CONFIG: configFile,
     OPENCODE_CONFIG_CONTENT: inlineConfig
-  };
+  });
   delete env.ELECTRON_RUN_AS_NODE;
   const child = spawn(lookup.executable, openCodeAppLaunchArgs(), {
     detached: true,

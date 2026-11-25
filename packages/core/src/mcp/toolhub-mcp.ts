@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import os from "node:os";
 import path from "node:path";
 import OpenAI from "openai";
-import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { isLoopbackHostname } from "@llmr/core/net/loopback";
 
 type JsonPrimitive = boolean | null | number | string;
@@ -1298,7 +1298,7 @@ class StdioMcpClient implements McpClient {
     }
     const child = spawn(this.server.command, this.server.args ?? [], {
       cwd: this.server.cwd || undefined,
-      env: { ...withoutLlmrSecretEnv(), ...this.server.env },
+      env: mergeChildEnv(withoutLlmrSecretEnv(), this.server.env ?? {}),
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true
     }) as ChildProcessWithoutNullStreams;

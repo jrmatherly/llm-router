@@ -7,3 +7,23 @@ const llmrSecretEnvName = /^LLMR_\w*(TOKEN|SECRET|PASSWORD|API_KEY)(?!\w*_(FILE|
 export function withoutLlmrSecretEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(env).filter(([name]) => !llmrSecretEnvName.test(name)));
 }
+
+// Later layers win. On Windows a name replaces any earlier spelling of it, because a child given two
+// spellings of one name receives only the one that sorts first, whichever layer set it.
+export function mergeChildEnv(...layers: Array<Record<string, string | undefined>>): NodeJS.ProcessEnv {
+  const foldCase = process.platform === "win32";
+  const merged: NodeJS.ProcessEnv = {};
+  const spelling = new Map<string, string>();
+  for (const layer of layers) {
+    for (const [name, value] of Object.entries(layer)) {
+      const folded = foldCase ? name.toUpperCase() : name;
+      const previous = spelling.get(folded);
+      if (previous !== undefined && previous !== name) {
+        delete merged[previous];
+      }
+      spelling.set(folded, name);
+      merged[name] = value;
+    }
+  }
+  return merged;
+}

@@ -4149,13 +4149,11 @@ function claudeCommand(work) {
   const extra = splitShellLike(nonEmptyEnv("LLMR_CLAUDE_CODE_EXTRA_ARGS") || "");
   args.push(...extra);
   const settingsEnv = work.claudeConfigDir ? claudeSettingsEnv(work.claudeConfigDir) : {};
-  const env = withoutKeys({
-    ...process.env,
-    ...settingsEnv,
+  const env = withoutKeys(mergeChildEnv(process.env, settingsEnv, {
     CODEX_SESSION_ID: work.threadId,
     CODEX_THREAD_ID: work.threadId,
     CODEX_TURN_ID: work.turnId
-  }, ["LLMR_CLAUDE_CODE_BOT_WORKER", "ELECTRON_RUN_AS_NODE"]);
+  }), ["LLMR_CLAUDE_CODE_BOT_WORKER", "ELECTRON_RUN_AS_NODE"]);
   if (work.claudeConfigDir) {
     env.CLAUDE_CONFIG_DIR = work.claudeConfigDir;
   }
@@ -7257,6 +7255,24 @@ function withoutKeys(env, keys) {
   const next = { ...env };
   for (const key of keys) delete next[key];
   return next;
+}
+
+// A copy of mergeChildEnv in packages/core/src/mcp/child-env.ts. Later layers win, and on Windows a name
+// replaces any earlier spelling of it.
+function mergeChildEnv(...layers) {
+  const foldCase = process.platform === "win32";
+  const merged = {};
+  const spelling = new Map();
+  for (const layer of layers) {
+    for (const [name, value] of Object.entries(layer)) {
+      const folded = foldCase ? name.toUpperCase() : name;
+      const previous = spelling.get(folded);
+      if (previous !== undefined && previous !== name) delete merged[previous];
+      spelling.set(folded, name);
+      merged[name] = value;
+    }
+  }
+  return merged;
 }
 
 function childEnvForAgent(agent) {

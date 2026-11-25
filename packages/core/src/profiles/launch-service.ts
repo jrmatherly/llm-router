@@ -2,7 +2,7 @@ import { execFile, spawn, spawnSync, type ChildProcess } from "node:child_proces
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
-import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { assertAvailableGatewayModels, type AppConfig, type ProfileConfig, type ProfileOpenCommandResult, type ProfileOpenRequest, type ProfileOpenResult, type ProfileRuntimeEntry, type ProfileRuntimeStatus, type ProfileStopResult } from "@llmr/core/contracts/app";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import { applyClaudeAppGatewayConfig, claudeAppTakesOverDirectLaunches, readClaudeAppGatewayApiKeyCandidates } from "@llmr/core/agents/claude-app/gateway-service";
@@ -182,11 +182,7 @@ export async function openProfileFromLlmr(config: AppConfig, request: ProfileOpe
 
   const child = spawnCommandLaunch(profileLaunchSpawnCommand(plan), {
     detached: true,
-    env: {
-      ...withoutLlmrSecretEnv(),
-      ...plan.env,
-      ...botGatewayProfileEnv(config, profile, surface)
-    },
+    env: mergeChildEnv(withoutLlmrSecretEnv(), plan.env, botGatewayProfileEnv(config, profile, surface)),
     stdio: "ignore"
   });
   const spawnError = await waitForImmediateSpawnError(child, 500);
@@ -1425,11 +1421,7 @@ export function claudeAppBotWorkerEnv(profile: ProfileConfig, botEnv: Record<str
   const settingsFile = resolveClaudeCodeSettingsFile(CONFIGDIR, profile);
   const claudeAppUserDataDir = resolveClaudeAppProfileUserDataDir(CONFIGDIR, profile);
   const configDir = claudeCodeConfigDir(settingsFile);
-  const env: NodeJS.ProcessEnv = {
-    ...withoutLlmrSecretEnv(),
-    ...stringRecord(profile.env),
-    ...readClaudeCodeSettingsEnv(settingsFile),
-    ...botEnv,
+  const env = mergeChildEnv(withoutLlmrSecretEnv(), stringRecord(profile.env), readClaudeCodeSettingsEnv(settingsFile), botEnv, {
     ...(electronRunAsNode ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
     LLMR_CLAUDE_BASE_CONFIG_DIR: path.dirname(settingsFile),
     ...(configDir ? { [CLAUDE_CODE_CONFIG_DIR_ENV]: configDir } : {}),
@@ -1440,7 +1432,7 @@ export function claudeAppBotWorkerEnv(profile: ProfileConfig, botEnv: Record<str
     LLMR_CODEX_MODEL: profile.model.trim(),
     LLMR_CODEX_WORKSPACE_NAME: profile.name || profile.id,
     LLMR_PROFILE_SURFACE: "app"
-  };
+  });
   delete env.ELECTRON_NO_ATTACH_CONSOLE;
   if (!configDir) {
     delete env[CLAUDE_CODE_CONFIG_DIR_ENV];
@@ -1474,10 +1466,7 @@ function startOpenCodeAppBotWorker(
   const runtimeFile = path.join(CONFIGDIR, "bin", "llmr-codex-cli-middleware.js");
   ensureBotWorkerRuntime(runtimeFile);
   const nodeLaunch = nodeRuntimeLaunch();
-  const env: NodeJS.ProcessEnv = {
-    ...withoutLlmrSecretEnv(),
-    ...stringRecord(profile.env),
-    ...botEnv,
+  const env = mergeChildEnv(withoutLlmrSecretEnv(), stringRecord(profile.env), botEnv, {
     ...(nodeLaunch.electronRunAsNode ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
     LLMR_OPENCODE_BOT_WORKER: "1",
     LLMR_OPENCODE_WORKSPACE_NAME: profile.name || profile.id,
@@ -1485,7 +1474,7 @@ function startOpenCodeAppBotWorker(
     OPENCODE_CLIENT: "cli",
     OPENCODE_CONFIG: configFile,
     OPENCODE_CONFIG_CONTENT: inlineConfig
-  };
+  });
   delete env.ELECTRON_NO_ATTACH_CONSOLE;
 
   const child = spawn(nodeLaunch.command, [runtimeFile, "opencode-bot-worker", "--workspace-name", profile.name || profile.id], {
@@ -1536,13 +1525,10 @@ function startCodexAppBotWorker(config: AppConfig, profile: ReturnType<typeof fi
   stopCodexAppBotWorker(profile.id);
   const plan = buildProfileLaunchPlan(CONFIGDIR, profile, "app", ["codex-bot-worker", "--workspace-name", profile.name || profile.id]);
   const launch = profileLaunchSpawnCommand(plan);
-  const env: NodeJS.ProcessEnv = {
-    ...withoutLlmrSecretEnv(),
-    ...plan.env,
-    ...botEnv,
+  const env = mergeChildEnv(withoutLlmrSecretEnv(), plan.env, botEnv, {
     LLMR_CODEX_BOT_WORKER: "1",
     LLMR_PROFILE_SURFACE: "app"
-  };
+  });
   delete env.ELECTRON_NO_ATTACH_CONSOLE;
   const child = spawnCommandLaunch(launch, {
     detached: false,

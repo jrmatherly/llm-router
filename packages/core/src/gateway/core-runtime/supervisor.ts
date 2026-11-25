@@ -17,7 +17,7 @@ import type { AppConfig, GatewayNetworkEndpoint } from "@llmr/core/contracts/app
 import { isApiKeyExpired } from "@llmr/core/gateway/auth/api-key-authorizer";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import { uniqueStrings } from "@llmr/core/gateway/internal/collections";
-import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
 import { formatError, readHeader } from "@llmr/core/gateway/http/io";
 import { coreGatewayAuthHeader, coreGatewayAuthTokenEnv, gatewayEntryOverrideEnv, gatewayPackageCandidates, gatewayRuntimeIdEnv, gatewayRuntimeMarkerFile, gatewayUpstreamProxyUrlEnv, requireFromHere } from "@llmr/core/gateway/internal/shared";
@@ -377,8 +377,7 @@ function createGatewayProcessEnv(
   const authTokens = publicGatewayMode
     ? publicGatewayAuthTokens(config, coreAuthToken)
     : [coreAuthToken];
-  const env: NodeJS.ProcessEnv = {
-    ...withoutLlmrSecretEnv(),
+  const env = mergeChildEnv(withoutLlmrSecretEnv(), {
     AUTH_ENABLED: "true",
     AUTH_MODE: "static_api_key",
     AUTH_REQUIRED: "true",
@@ -389,7 +388,7 @@ function createGatewayProcessEnv(
     [coreGatewayAuthTokenEnv]: authTokens.join(","),
     HOST: config.gateway.coreHost,
     PORT: String(config.gateway.corePort)
-  };
+  });
   if (electronRunAsNode) {
     env.ELECTRON_RUN_AS_NODE = "1";
   } else {

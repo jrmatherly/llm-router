@@ -11,7 +11,7 @@ import { loadAppConfig } from "@llmr/core/config/config";
 import { APP_NAME, CONFIGDIR } from "@llmr/core/config/constants";
 import { spawnCommandLaunch } from "@llmr/core/platform/command-path";
 import { installSocketTypeOfServiceCompat } from "@llmr/core/platform/socket-compat";
-import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { applyProfileConfig, applyProfileRuntimeConfig } from "@llmr/core/profiles/service";
 import { ensureProfileGateway, ProfileGatewayUnavailableError } from "@llmr/core/profiles/launch-service";
 import { buildProfileLaunchPlan, defaultProfileOpenSurface, findProfileForOpen, profileLaunchSpawnCommand, resolveProfileOpenSurface, shouldAutoStartProfileGateway } from "@llmr/core/profiles/launch-core";
@@ -229,11 +229,11 @@ async function main(): Promise<void> {
       throw new Error(`Profile launcher was not found: ${plan.command}. Open LLMR once or re-save the profile.`);
     }
 
-    const childEnv = {
-      ...withoutLlmrSecretEnv(),
-      ...plan.env,
-      ...botGatewayProfileEnv(launchConfig, profile, resolvedSurface)
-    };
+    const childEnv = mergeChildEnv(
+      withoutLlmrSecretEnv(),
+      plan.env,
+      botGatewayProfileEnv(launchConfig, profile, resolvedSurface)
+    );
     delete childEnv.ELECTRON_RUN_AS_NODE;
 
     const child = spawnCommandLaunch(profileLaunchSpawnCommand(plan), {

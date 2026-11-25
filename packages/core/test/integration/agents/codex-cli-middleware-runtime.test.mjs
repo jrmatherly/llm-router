@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 import { codexBaseInstructions } from "@llmr/core/agents/codex/base-instructions.ts";
 import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime.ts";
 import { buildCodexModelCatalog } from "@llmr/core/agents/codex/model-catalog.ts";
+import { mergeChildEnv } from "@llmr/core/mcp/child-env.ts";
 import { npmShimTarget, resolveCommandFile, windowsBatchArgument } from "@llmr/core/platform/command-path.ts";
 import { intactArguments, npmExeShim, npmNodeShim, shimOnlyArguments } from "../../support/windows-command-cases.mjs";
 
@@ -141,6 +142,21 @@ test("the runtime script and command-path.ts answer the same for every case", ()
     exeShim.replace(lastExeLine, `SET X=1\r\n${lastExeLine}`)
   ]) {
     assert.deepEqual(shimTargetRuntime(text), npmShimTarget(text), text);
+  }
+
+  const mergeRuntime = evaluateRuntimeFunction("mergeChildEnv", [], "", globals);
+  const platform = Object.getOwnPropertyDescriptor(process, "platform");
+  Object.defineProperty(process, "platform", { value: "win32" });
+  try {
+    for (const layers of [
+      [{ PATH: "inherited", Other: "kept" }, { Path: "override" }],
+      [{ PATH: "first", Other: "kept" }, { Path: "second" }, { path: "third", PATH_EXTRA: "kept" }],
+      [{ Path: "first", PATH: "second" }]
+    ]) {
+      assert.deepEqual(mergeRuntime(...layers), mergeChildEnv(...layers));
+    }
+  } finally {
+    Object.defineProperty(process, "platform", platform);
   }
 });
 
