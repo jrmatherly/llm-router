@@ -80,6 +80,7 @@ Each line is a condition no task's first test covers. The test that pins it is i
 5. Follow-ups PR 3 with Task 4 of this plan as its second commit: Task 8, this Task 4, Task 9, Task 10.
 6. Task 5, a docs commit on `main`. Done, `082624bc`.
 7. Task 6, its own PR, branch `fix/adopted-gateway-watch`. Done, PR 155, `533244e9`.
+8. Task 7, its own PR, branch `fix/apply-takeovers-after-takeover`. It needs Task 6. Keys plan Task 6 waits on it.
 
 ---
 
@@ -486,7 +487,7 @@ Written 2026-11-24 from "Not in this plan", on the owner's word to write and aud
 - **The message and the helper.** `isGatewayEndpointAnswering` became `gatewayEndpointSilence(endpoint): Promise<string | undefined>`, which returns the reason when nothing answered. The log line carries it as "Last check: ...". The status text is now "The LLM Router gateway at ..., run by another LLM Router process, stopped answering.", because a `/health` that times out is not a gateway that is gone.
 - **Not changed, the 10 seconds.** The code reviewer asked for more than 20, since the other process's slowest restart of its own is a 2 second stop plus a 15 second startup limit (`supervisor.ts:32`, read, not reproduced). Kept, because every real exit of the other process would then cost 10 more seconds with nothing answering. The owner's to change.
 - **Open with the owner: a stop in the owning process is undone.** When the service is stopped in the process that owns the gateway, a process that adopted it starts its own 10 seconds later. Nothing signals a deliberate stop today. Read by the review, not run.
-- **Found after the merge, 2026-11-25, by the audit of keys plan Task 6 (read, not run).** When the process whose gateway was adopted is a profile-managed service, its shutdown restores the agent takeovers, because nothing serves at that moment (`web/management-server.ts:611-617`, `profiles/service.ts:3541-3573`). The watch then brings a gateway back, and nothing applies the profiles again until a save, a model refresh or a restart of the desktop app. So after the first run of the VM check below, the window is green and the agents' own config files no longer point at LLM Router. The restore is older than this PR. No task yet. Keys plan Task 6 has the detail.
+- **Found after the merge, 2026-11-25, by the audit of keys plan Task 6 (read, not run).** When the process whose gateway was adopted is a profile-managed service, its shutdown restores the agent takeovers, because nothing serves at that moment (`web/management-server.ts:611-617`, `profiles/service.ts:3541-3573`). The watch then brings a gateway back, and nothing applies the profiles again until a save, a model refresh or a restart of the desktop app. So after the first run of the VM check below, the window is green and the agents' own config files no longer point at LLM Router. The restore is older than this PR. Task 7 is the fix. Keys plan Task 6 has the detail.
 - **Not changed, older than the PR:** a reload that fails inside `adoptExternalGateway` is never logged, and a start that fails on the core host leaves `gatewayManagedExternally` set.
 
 The text below is the task as it was audited, kept as written. Where it names `isGatewayEndpointAnswering`, the old message or six tests, the merged code has the three changes above.
@@ -668,6 +669,223 @@ In both, watch the port for five minutes after. Expected: one owner.
 - **Two adopters of one gateway.** Both start when it is gone. One child loses the port, and that process's restart adopts the other (inferred from Task 1, not run).
 
 **After this task.** Keys plan Task 5 took one change out of PR 154: a Grok, Kimi or Pi launch that starts its own service when the gateway is gone at the end of the launch's wait. The owner accepted that change on 2026-11-24, and it was withdrawn because the desktop app, having adopted that service, would be left with nothing answering when the agent exits. This task removes that reason. The two-line change can then go back as its own task, with a real-process run before it merges.
+
+---
+
+### Task 7: A process that starts a gateway in place of the one it adopted applies the agent configs again
+
+Written 2026-11-25 on the owner's word, from the audit of keys plan Task 6. Building it needs his word. Its own PR, branch `fix/apply-takeovers-after-takeover`. Keys plan Task 6 waits on it.
+
+**Audited once on another model, 2026-11-25.** The audit built the task from this text, ran every gate and mutation, and ran the two-process case for real: one process applied a global Claude Code profile, a child process sharing its temporary home ran the restore, and the first applied again. It found no Blocker and six Corrections, all applied below. The largest changes the design: the stale record is fixed where it is kept, in `storeGlobalProfileTakeoverRecords`, and the reset this task first put in the new function is gone. The session ran that change again before applying it, with every gate. The text changed by that round was not audited again.
+
+**The fault.** A process that stops its gateway restores the agent configs it took over when no LLM Router gateway serves at that moment (`profiles/service.ts`, `restoreTakeoversWhenNoGatewayServes`, called from `web/management-server.ts:561` and `:616`, `electron/src/main/ipc.ts:417` and `main-app.ts:197`). That is right at that moment: the agents would otherwise point at nothing. A process that had adopted that gateway then starts its own about 12 seconds later (Task 6), and nothing applies the configs again. A profile is applied only at startup and after a save or a model refresh (`main-app.ts:233` and `:264`, `management-server.ts:595` and `:622`). So the window is green, a gateway answers, and a global profile's agent settings and the Claude App gateway config no longer point at LLM Router, until a save, a model refresh or a restart. It runs both ways: a service that stops beside the desktop app, and the desktop app that quits beside a service.
+
+**Evidence.**
+- **Read, 2026-11-25, `main` `a623b76c`.** The restore and every caller of `applyProfileConfig`. No call sits on the path from the watch to a running gateway (`gateway-service.ts`, `checkAdoptedGateway`, `scheduleCoreRestart`, `startGateway`).
+- **Run in two processes, by the audit.** Process A applied a global Claude Code profile in a temporary home. A child process B sharing that home ran `restoreTakeoversWhenNoGatewayServes`: the settings no longer pointed at the gateway and the marker file was gone. A applied again through the function below: the settings pointed at the gateway and the marker was back. B restored again and the user's own settings came back. With B killed before it restored, two more applies by A added no backup file and left the user's saved original alone.
+- **The stale record, run.** After B's restore, an ordinary `applyProfileConfig` in A wrote the settings and left no marker file, because A's own record in memory still matched (`storeGlobalProfileTakeoverRecords`, the early return). That holds for every apply in A, a save and a model refresh included, not only this task's.
+- **Prototype, run.** The change below with its eight tests: `core-restart.test.mjs` 34 of 34, the new integration test 1 of 1, and `npm run typecheck`, `npm run lint`, `npm run test:architecture`, `test:core`, `test:ui`, `test:electron` and `test:cli` passed. The mutations of Step 4 each failed a test. The prototype is not in the repo.
+- **Not run.** Two long-running LLM Router processes with a real gateway. Codex, OpenCode and Pi global profiles, and the Claude App config file, across the two-process run.
+
+**What changes for a user.** After a service or the desktop app stops and another LLM Router process takes the gateway over, that process applies the profiles again as it does at its own startup. The agents' config files point at LLM Router again a second or two after the window turns green.
+
+**Files:**
+- Modify: `packages/core/src/gateway/application/gateway-service.ts` (two fields, one setter, `cancelCoreRestart`, the timer callback of `scheduleCoreRestart`, `checkAdoptedGateway`, one new method)
+- Modify: `packages/core/src/profiles/service.ts` (`syncClaudeAppGatewayConfig` joins an existing import, one new export before `synchronizeGlobalProfileTakeovers`, one condition in `storeGlobalProfileTakeoverRecords`)
+- Modify: `packages/core/src/web/management-server.ts` (`applyTakeoversAfterGatewayReplaced` joins the existing import from `@llmr/core/profiles/service`, one line in `startWebManagementServer`)
+- Modify: `packages/electron/src/main/main-app.ts` (the same import, one line in `startPrimaryInstance`)
+- Test: `packages/core/test/unit/gateway/core-restart.test.mjs` (seven tests and two helpers at the end)
+- Test: `packages/core/test/integration/profiles/profile-service.test.mjs` (one test, before "a shared-home Claude Code profile never writes ~/.claude ...")
+
+**Interfaces:**
+- Produces, in `gateway-service.ts`: two private fields, `adoptedGatewayReplaced = false` and `adoptedGatewayReplacedHandler?: (config: AppConfig) => unknown`, and a public `setAdoptedGatewayReplacedHandler(handler: (config: AppConfig) => unknown): void` beside `setBrowserAutomationMcpIntegration`. One comment on the setter gives the why: the process that served the adopted gateway restores the agent configs when it stops, so the host applies them again once this process serves.
+- Changes, `checkAdoptedGateway`. In its last step, before `this.scheduleCoreRestart(generation)`, it sets `this.adoptedGatewayReplaced = true`.
+- Changes, `cancelCoreRestart`. It sets `this.adoptedGatewayReplaced = false`, so a `stop` or `start` that comes in between tells the host nothing. The host callers of `ensureStarted`, `restart` and `stop` apply or restore after their own call. Three callers of `gatewayService.start` apply nothing after it: `deep-link.ts:142` and `:196`, and `ensureProfileGateway` (`launch-service.ts:460`). "Not in this task" has that case.
+- Changes, the timer callback of `scheduleCoreRestart`. After `const status = await recovery;` the line `if (status.state === "error") this.scheduleCoreRestart(generation);` gains `else this.tellHostAdoptedGatewayReplaced(status);`.
+- Produces, `private tellHostAdoptedGatewayReplaced(status: GatewayStatus): void`. It reads `adoptedGatewayReplaced` and clears it. It returns unless it was set, a config is held, `status.state` is `running` and `status.gatewayManagedExternally` is not set. Otherwise it calls the handler with the held config through `void Promise.resolve().then(...).catch(...)`, and the `catch` logs with `console.warn`. A restart that fails leaves the flag set, because the callback schedules another and does not call this method. A restart that adopts another gateway clears it and tells nothing: the process that serves applied its own.
+- Produces, in `profiles/service.ts`: `export async function applyTakeoversAfterGatewayReplaced(config: AppConfig): Promise<void>`. It never throws. In order: it returns, logging with `console.error`, when `appConfigLoadError(config)` is set, because a host that adopted after a failed load holds the default config and a sync of that would restore the Claude App config while a gateway serves; then `syncClaudeAppGatewayConfig(config)` in a `try` whose `catch` logs, keeping the config it returns; then, in a second `try` whose `catch` logs, `applyProfileConfig(<that config>, { excludeAgents: ["zcode"] })`, logging each client that is not `ok` with `console.error`. `syncClaudeAppGatewayConfig` joins the existing import from `@llmr/core/agents/claude-app/gateway-service`.
+- Changes, `storeGlobalProfileTakeoverRecords`. Its early return becomes `if (JSON.stringify(previous) === JSON.stringify(records) && (records.length === 0) !== existsSync(globalProfileTakeoverFile)) { return; }`. One comment gives the why: another LLM Router process can clear the marker file as it stops, so matching records in memory do not show the file is there. It costs one `existsSync` per apply.
+- Changes, both hosts: `gatewayService.setAdoptedGatewayReplacedHandler(applyTakeoversAfterGatewayReplaced);`. In `management-server.ts` it is the first line inside `if (options.startGateway !== false)` of `startWebManagementServer`. In `main-app.ts` it goes beside the two `gatewayService.set...Integration` calls of `startPrimaryInstance`.
+- Not changed: `restoreTakeoversWhenNoGatewayServes`, `startGateway`, `reconcileProfileApiKeys` (the apply does its work itself, read by the audit), what a crash restart of this process's own gateway does (nobody restored anything then, and each apply can add a backup file), ZCode, which both hosts leave out of the startup apply too.
+
+- [ ] **Step 1: Write the tests.** Append to `core-restart.test.mjs`. `adoptedService`, `withFetch` and `config` are the file's own.
+
+```js
+function replacingService(t, startGateway) {
+  withFetch(t, () => { throw new Error("connection refused"); });
+  t.mock.method(console, "warn", () => {});
+  const adopted = adoptedService(t);
+  const told = [];
+  adopted.service.setAdoptedGatewayReplacedHandler((config) => { told.push(config.gateway.port); });
+  adopted.service.startGateway = async () => startGateway(adopted.service);
+  return { ...adopted, told };
+}
+
+const ownGatewayRuns = (service) => {
+  service.status = { ...service.status, gatewayManagedExternally: undefined, lastError: undefined, state: "running" };
+  return service.getStatus();
+};
+
+test("a process that starts a gateway in place of the one it adopted tells its host once", async (t) => {
+  const { pass, told } = replacingService(t, ownGatewayRuns);
+  await pass(12_000);
+  assert.deepEqual(told, []);
+  await pass(1_000);
+  assert.deepEqual(told, [3456]);
+  await pass(60_000);
+  assert.deepEqual(told, [3456]);
+});
+
+test("the host is told when the gateway starts, not on a start that fails first", async (t) => {
+  let attempts = 0;
+  const { pass, told } = replacingService(t, (service) => {
+    attempts += 1;
+    if (attempts > 1) return ownGatewayRuns(service);
+    service.status = { ...service.status, lastError: "port taken", state: "error" };
+    return service.getStatus();
+  });
+  await pass(13_000);
+  assert.deepEqual(told, []);
+  await pass(2_000);
+  assert.deepEqual(told, [3456]);
+});
+
+test("the host is not told when the restart adopts another gateway", async (t) => {
+  const { pass, service, told } = replacingService(t, (current) => {
+    current.markExternalGatewayRunning(config(), "http://127.0.0.1:3456", "first-key");
+    return current.getStatus();
+  });
+  service.startGateway = ((adopt) => async () => {
+    globalThis.fetch = async () => Response.json({ status: "ok" });
+    return adopt();
+  })(service.startGateway);
+  await pass(20_000);
+  assert.equal(service.getStatus().gatewayManagedExternally, true);
+  assert.deepEqual(told, []);
+});
+
+test("a stop between the takeover and the restart tells the host nothing, and neither does a later crash", async (t) => {
+  const { pass, service, told } = replacingService(t, ownGatewayRuns);
+  await pass(12_000);
+  assert.equal(service.getStatus().state, "error");
+  service.cancelCoreRestart();
+  service.child = {};
+  service.status = { ...service.status, state: "running" };
+  await service.handleCoreGatewayTermination(service.child, undefined, "Core gateway exited with SIGTERM.");
+  await pass(5_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.deepEqual(told, []);
+});
+
+test("a host whose handler throws leaves the gateway running", async (t) => {
+  const { pass, service } = replacingService(t, ownGatewayRuns);
+  service.setAdoptedGatewayReplacedHandler(() => { throw new Error("could not write"); });
+  await pass(14_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.equal(service.coreRestartTimer, undefined);
+});
+
+test("the host is not told when the restart leaves the gateway stopped", async (t) => {
+  const { pass, told } = replacingService(t, (service) => {
+    service.status = { ...service.status, gatewayManagedExternally: undefined, state: "stopped" };
+    return service.getStatus();
+  });
+  await pass(20_000);
+  assert.deepEqual(told, []);
+});
+
+test("a crash of the gateway that replaced the adopted one does not tell the host again", async (t) => {
+  const { pass, service, told } = replacingService(t, (current) => {
+    current.child = {};
+    return ownGatewayRuns(current);
+  });
+  await pass(13_000);
+  assert.deepEqual(told, [3456]);
+  await service.handleCoreGatewayTermination(service.child, undefined, "Core gateway exited with SIGTERM.");
+  await pass(5_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.deepEqual(told, [3456]);
+});
+```
+
+  In `profile-service.test.mjs`, add `applyTakeoversAfterGatewayReplaced` to the import from `@llmr/core/profiles/service.ts`, and before the shared-home test:
+
+```js
+test("takeovers another process restored are applied again by the process that takes over the gateway", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
+  const settingsFile = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".claude", "settings.json");
+  const original = `${JSON.stringify({ theme: "dark" }, null, 2)}\n`;
+  const profile = { agent: "claude-code", enabled: true, env: {}, id: "default-claude-code", model: "Provider/model", name: "Claude Code", scope: "global", settingsFile: "~/.claude/settings.json", smallFastModel: "", surface: "auto" };
+  const config = createDefaultAppConfig();
+  config.APIKEY = "llmr-profile-takeover-again-test";
+  config.APIKEYS = [{ createdAt: "2026-01-01T00:00:00.000Z", id: `profile:${profile.id}`, key: "llmr-profile-takeover-again-test", name: "Profile: Claude Code" }];
+  config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  config.profile.enabled = true;
+  config.profile.profiles = [profile];
+  const pointsAtGateway = () => Boolean(JSON.parse(readFileSync(settingsFile, "utf8")).apiKeyHelper);
+  try {
+    rmSync(takeoverFile, { force: true });
+    mkdirSync(path.dirname(settingsFile), { recursive: true });
+    writeFileSync(settingsFile, original);
+    await applyProfileFixture(config);
+    assert.equal(pointsAtGateway(), true);
+    const marker = readFileSync(takeoverFile, "utf8");
+
+    // What another process does to the files as it stops, which leaves this process holding its own record of them.
+    writeFileSync(settingsFile, original);
+    rmSync(takeoverFile);
+
+    await applyTakeoversAfterGatewayReplaced(config);
+    assert.equal(pointsAtGateway(), true);
+    assert.equal(readFileSync(takeoverFile, "utf8"), marker);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(takeoverFile, { force: true });
+    rmSync(path.dirname(settingsFile), { force: true, recursive: true });
+  }
+});
+```
+
+- [ ] **Step 2: Run and see them fail.**
+
+Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/gateway/core-restart.test.js`
+Expected: 27 pass and 7 fail, each new test with `TypeError: adopted.service.setAdoptedGatewayReplacedHandler is not a function`. Ran by the session and the audit on `main` `a623b76c` with the first five tests, 27 pass and 5 fail. The last two use the same helper.
+The integration file does not build until the export exists, so its test is run in Step 4.
+
+- [ ] **Step 3: Implement** as Interfaces says.
+
+- [ ] **Step 4: Verify.**
+
+Run: the command of Step 2. Expected: 34 of 34 (ran on the prototype).
+Run: `node --test --test-name-pattern="takeovers another process restored" .test-dist/core/test/integration/profiles/profile-service.test.js`. Expected: 1 pass (ran on the prototype).
+Run: `npm run typecheck && npm run lint && npm run test:architecture && npm run test:core && npm run test:ui && npm run test:electron && npm run test:cli`
+Expected: all pass (ran on the prototype).
+Mutations, each alone, each expected to fail the test named (ran on the prototype):
+- Put the early return of `storeGlobalProfileTakeoverRecords` back without the check of the file. Fails the integration test at the marker file.
+- Skip the `applyProfileConfig` call. Fails the integration test at the settings file.
+- Remove the clearing in `cancelCoreRestart`. Fails "a stop between the takeover and the restart ...".
+- Tell the host whether or not the flag was set. Fails the same test.
+- Drop the check of `gatewayManagedExternally`. Fails "the host is not told when the restart adopts another gateway".
+- Remove the line that sets the flag in `checkAdoptedGateway`. Fails the first two new tests.
+- Call the handler with no `catch`. Fails "a host whose handler throws leaves the gateway running".
+- Drop the check that the state is `running`. Fails "the host is not told when the restart leaves the gateway stopped" (ran by the audit).
+- Leave the flag set once the host is told. Fails "a crash of the gateway that replaced the adopted one ..." (ran by the audit).
+
+Known to survive, and left: skipping `syncClaudeAppGatewayConfig`, and dropping the ZCode exclusion. Neither has a test.
+
+- [ ] **Step 5: Commit.** Subject: `fix(profiles): apply the agent configs again when a process takes over an adopted gateway`
+
+**VM check, for the owner, on the build that holds this task.** The two runs of Task 6's VM check, with one more look in each: after the window is green again, a global profile's agent settings file and the Claude App gateway config point at LLM Router.
+
+**Not in this task.**
+- **A Stop in the process that owns the gateway.** A process that had adopted it starts its own gateway (Task 6) and now applies the agent configs again as well. Nothing signals a deliberate stop. This is the one way this task is worse for a user than today (inferred), and it is open with the owner under Task 6.
+- **A start in the window that applies nothing.** A plugin-app deep link or a profile open that starts the gateway between the takeover and the restart clears the flag and applies no profiles (`deep-link.ts:142`, `:196`, `launch-service.ts:460`), so the configs stay restored until the next save, refresh or restart. The window is the one second before the restart, or longer while the port is held (read, not run).
+- **A restore is not byte for byte.** It can leave an empty `env` object in a settings file that had none (seen by the audit's run). Older than this task.
+- **The seconds in between.** From the other process's restore to this process's apply, about 12 seconds, the agents run on their own configs. That is the state the restore is for.
+- **The host wiring has no test.** Each host gets one line. The function it registers is tested, and so is the call of whatever is registered.
+- **A second backup file.** Each apply of a global profile can add a backup of the file it takes over (VP-8, the restore plan's fix round).
+- **The config applied.** It is the one this process held when its gateway started, not a fresh read of the stored one.
+- **A process that adopts again.** It tells its host nothing, on the reading that the process which serves applied its own at its start. A third process that is neither is not covered (inferred).
 
 ---
 
