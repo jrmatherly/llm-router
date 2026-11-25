@@ -111,3 +111,16 @@ test("Dependabot covers both lockfiles, the workflows and the compose images", (
     assert.match(config, new RegExp(`- package-ecosystem: ${ecosystem}\\n    directory: "${directory}"\\n`), `${ecosystem} ${directory}`);
   }
 });
+
+test("the package suites also run on Windows and an Intel Mac", () => {
+  const job = jobBlocks(".github/workflows/test.yml").get("platforms");
+  assert.match(job, gatewayEntry);
+  assert.match(job, /^ {4}runs-on: \$\{\{ matrix\.runner \}\}$/m);
+  assert.match(job, /^ {12}runner: windows-2025$/m);
+  assert.match(job, /^ {12}runner: macos-26-intel$/m);
+  assert.match(job, /^ {6}fail-fast: false$/m);
+  assert.match(job, /^ {4}timeout-minutes: \d+$/m);
+  assert.ok(job.includes("run: npm ci\n"));
+  assert.ok(job.includes("run: npm run test:packages\n"));
+  assert.doesNotMatch(job, /continue-on-error|^ {4}needs:/m);
+});
