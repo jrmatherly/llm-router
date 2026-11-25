@@ -445,8 +445,7 @@ async function ensureGatewayConfigRunning(
     }
     if (existingGateway.state === "unavailable") {
       if (!startIfMissing) {
-        const reason = existingGateway.reason ? `: ${existingGateway.reason}` : "";
-        throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
+        throw gatewayNotRunningError(config, appName, existingGateway.reason);
       }
     } else {
       throw new Error(existingGatewayConflictMessage(existingGateway, appName));
@@ -454,7 +453,7 @@ async function ensureGatewayConfigRunning(
   }
 
   if (!startIfMissing) {
-    throw new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
+    throw gatewayNotRunningError(config, appName);
   }
 
   const startedStatus = await gatewayService.start(candidateConfig);
@@ -493,9 +492,13 @@ async function waitForProfileKey(
     last = await probeExistingProfileGateway(config, profile, config, [config.APIKEY]);
     if (last.state === "usable") return;
   }
-  // Not ProfileGatewayUnavailableError: the CLI answers that by starting a service, and a gateway that answered when the wait began may still be restarting in a process the CLI cannot see.
-  if (last.state === "unavailable") throw new Error(`${existingGatewayConflictMessage(last, appName)} ${restartGatewayAdvice}`);
+  // The error a launch that finds no gateway gets, which the CLI answers for some agents by starting a service. A process that was only restarting the gateway adopts that service or is adopted by it.
+  if (last.state === "unavailable") throw gatewayNotRunningError(config, appName, last.reason);
   throw new Error(existingGatewayConflictMessage(last, appName));
+}
+
+function gatewayNotRunningError(config: AppConfig, appName: string, reason?: string): ProfileGatewayUnavailableError {
+  return new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason ? `: ${reason}` : ""}. Start LLMR Desktop or run llmr start before opening ${appName}.`);
 }
 
 type ExistingProfileGatewayProbe =

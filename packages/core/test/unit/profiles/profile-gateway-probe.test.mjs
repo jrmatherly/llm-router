@@ -349,7 +349,7 @@ test("a profile launch is refused once the wait for the profile's own key runs o
   assert.equal(notice.mock.callCount(), 1);
 });
 
-test("a gateway that is gone when the wait runs out is reported as not reachable, and none is started", { timeout: 10000 }, async (t) => {
+test("a gateway that is gone when the wait runs out is reported as not running, the error a launch with no gateway gets", { timeout: 10000 }, async (t) => {
   let down = false;
   stubGateway(t, (token) => {
     if (down) return "down";
@@ -363,8 +363,8 @@ test("a gateway that is gone when the wait runs out is reported as not reachable
   await assert.rejects(
     ensureProfileGateway(config, profile, "Claude Main", { profileKeyWaitMs: 400, reuseExisting: true }),
     (error) => {
-      assert.equal(error instanceof ProfileGatewayUnavailableError, false);
-      assert.match(error.message, /LLMR gateway is not reachable at http:\/\/127\.0\.0\.1:3466.*quit LLMR Desktop and open it again/);
+      assert.equal(error instanceof ProfileGatewayUnavailableError, true);
+      assert.match(error.message, /^LLMR gateway is not running at http:\/\/127\.0\.0\.1:3466: .+\. Start LLMR Desktop or run llmr start before opening Claude Main\.$/);
       assert.doesNotMatch(error.message, /does not accept the API key/);
       return true;
     }
