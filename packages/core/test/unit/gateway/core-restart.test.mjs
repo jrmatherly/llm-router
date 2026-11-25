@@ -377,3 +377,125 @@ test("a restart whose first look times out does not signal the gateway another p
   assert.equal(other.signalCode, null);
   assert.equal(other.exitCode, null);
 });
+
+function adoptedService(t) {
+  t.mock.timers.enable({ apis: ["Date", "setInterval", "setTimeout"] });
+  const service = createService();
+  t.after(() => clearInterval(service.adoptedGatewayTimer));
+  service.markExternalGatewayRunning(config(), "http://127.0.0.1:3456", "first-key");
+  const settle = async () => { for (let i = 0; i < 20; i += 1) await new Promise((resolve) => setImmediate(resolve)); };
+  const pass = async (ms) => {
+    for (let elapsed = 0; elapsed < ms; elapsed += 1_000) {
+      t.mock.timers.tick(1_000);
+      await settle();
+    }
+  };
+  return { pass, service };
+}
+
+test("an adopted gateway that stays gone for the wait is replaced by this process's own, and not sooner", async (t) => {
+  const requests = withFetch(t, () => { throw new Error("connection refused"); });
+  const { pass, service } = adoptedService(t);
+  const starts = [];
+  service.startGateway = async (config, generation) => { starts.push([config.gateway.port, generation]); return service.getStatus(); };
+  service.coreRestartAttempts = 3;
+  const warn = t.mock.method(console, "warn", () => {});
+  await pass(10_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.equal(service.getStatus().gatewayManagedExternally, true);
+  assert.deepEqual(starts, []);
+  await pass(2_000);
+  assert.equal(service.getStatus().state, "error");
+  assert.equal(service.getStatus().gatewayManagedExternally, undefined);
+  assert.match(service.getStatus().lastError, /gateway at http:\/\/127\.0\.0\.1:3456, run by another LLM Router process, stopped answering/);
+  assert.match(String(warn.mock.calls[0].arguments[0]), /Last check: connection refused\. Starting one here\./);
+  await pass(1_000);
+  assert.deepEqual(starts, [[3456, 0]]);
+  assert.deepEqual([...new Set(requests.map((request) => `${request.path} ${request.authorization}`))], ["/health null"]);
+  const seen = requests.length;
+  await pass(30_000);
+  assert.equal(requests.length, seen);
+});
+
+test("an adopted gateway that answers again within the wait is kept, in either layout", async (t) => {
+  let answer = () => { throw new Error("connection refused"); };
+  withFetch(t, () => answer());
+  const { pass, service } = adoptedService(t);
+  service.startGateway = async () => { throw new Error("started a gateway"); };
+  await pass(8_000);
+  answer = () => Response.json({ status: "running" });
+  await pass(2_000);
+  answer = () => { throw new Error("connection refused"); };
+  await pass(8_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.equal(service.getStatus().gatewayManagedExternally, true);
+  assert.equal(service.coreRestartTimer, undefined);
+});
+
+test("a stop ends the watch of an adopted gateway", async (t) => {
+  const requests = withFetch(t, () => { throw new Error("connection refused"); });
+  const { pass, service } = adoptedService(t);
+  await service.stop();
+  assert.equal(service.adoptedGatewayTimer, undefined);
+  await pass(30_000);
+  assert.equal(requests.length, 0);
+  assert.equal(service.getStatus().state, "stopped");
+});
+
+test("a stop while the adopted gateway is being checked starts nothing", async (t) => {
+  let fail;
+  withFetch(t, () => new Promise((_resolve, reject) => { fail = reject; }));
+  const { pass, service } = adoptedService(t);
+  service.adoptedGatewayGoneSince = Date.now() - 60_000;
+  await pass(2_000);
+  service.cancelCoreRestart();
+  fail(new Error("connection refused"));
+  await pass(1_000);
+  assert.equal(service.getStatus().state, "running");
+  assert.equal(service.coreRestartTimer, undefined);
+});
+
+test("a save that fails while the adopted gateway is gone still lets the watch replace it", async (t) => {
+  withFetch(t, () => { throw new Error("connection refused"); });
+  const { pass, service } = adoptedService(t);
+  const starts = [];
+  service.startGateway = async (_config, generation) => { starts.push(generation); return service.getStatus(); };
+  await pass(4_000);
+  await service.updateConfig(config()).catch(() => undefined);
+  assert.equal(service.getStatus().state, "error");
+  await pass(10_000);
+  assert.equal(starts.length > 0, true);
+});
+
+test("a gateway adopted again is watched once, on the port it serves", async (t) => {
+  const requests = withFetch(t, (url) => {
+    if (url.port !== "3456") throw new Error("connection refused");
+    return Response.json({ status: "ok" });
+  });
+  const { pass, service } = adoptedService(t);
+  service.startGateway = async () => { throw new Error("started a gateway"); };
+  service.markExternalGatewayRunning(config(), "http://127.0.0.1:3456", "first-key");
+  await pass(14_000);
+  assert.equal(requests.length, 7);
+  assert.equal(service.getStatus().state, "running");
+});
+
+test("a reload of the adopted gateway that is still waiting for it holds the watch back", async (t) => {
+  withFetch(t, (url) => {
+    if (url.pathname === "/health") throw new Error("connection refused");
+    return new Response("{}", { status: 202 });
+  });
+  const { pass, service } = adoptedService(t);
+  const starts = [];
+  service.startGateway = async (_config, generation) => { starts.push(generation); return service.getStatus(); };
+  const reload = service.restart(config()).catch((error) => error);
+  await pass(19_000);
+  assert.deepEqual(starts, []);
+  assert.equal(service.getStatus().gatewayManagedExternally, true);
+  await pass(2_000);
+  assert.match(String((await reload).message), /Timed out waiting for the running LLMR gateway/);
+  await pass(8_000);
+  assert.deepEqual(starts, []);
+  await pass(5_000);
+  assert.equal(starts.length, 1);
+});

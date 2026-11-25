@@ -76,6 +76,12 @@ export async function existingGatewayPredatesManagerKey(endpoint: string, apiKey
   return probe.status === 200;
 }
 
+// Any HTTP answer counts: the compat server answers /health with a state that is not "ok".
+export async function gatewayEndpointSilence(endpoint: string): Promise<string | undefined> {
+  const probe = await fetchExistingGateway(endpoint, "/health", {}, 1);
+  return probe.status === undefined ? probe.reason || "no answer" : undefined;
+}
+
 export const nonLocalGatewayMessage = "The configured gateway host is not an address of this machine.";
 
 export function isLocalGatewayEndpoint(endpoint: string): boolean {
