@@ -96,6 +96,8 @@ Tasks 3, 4 and 5 do not depend on each other.
 
 ### Task 1: Remove the temporary home a test run makes (H-1, H-2)
 
+**Merged, 2026-11-25: PR 158, `033c1281`, batch 3.** Two additions from its review. `isolateTestHome` also deletes `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY` and their lowercase forms, because a proxy on loopback carried a test's request outside (run by a reviewer). A home that cannot be removed is reported with `console.warn`, in the direct run and in the runner.
+
 Today every `node build/run-tests.mjs` run leaves one empty `llmr-test-home-*` folder, because `build/run-tests.mjs:7` imports `build/test-home.mjs`, whose top level makes a home. A direct `node --test` run, the single-file command in `AGENTS.md`, leaves a home that holds a config database and can reach 20 MB. After this task the runner's import makes no folder, and a process that made its own home removes it when it exits. Other files that tests and source write to the temp folder are not this task's: on `fddb278a` one `npm run test` leaves 130 entries before this task and 124 after it (audit, run with a private `TMPDIR`). The PR names that number.
 
 **Files:**
@@ -150,6 +152,8 @@ Add `existsSync` and `readdirSync` to the file's `node:fs` import. The run fails
 ---
 
 ### Task 2: Refuse and report every connection a test makes to an outside host (H-3, first step)
+
+**Merged, 2026-11-25: PR 158, `033c1281`, batch 3.** Changes from its review. The `127.` and `::ffff:127.` forms count as loopback only for an IP literal, since `127.evil.example` passed the guard and went to DNS (run). A refusal that cannot be logged is written to stderr with the error's code. Four gateway wire tests that started their child with a bare env now pass `NODE_OPTIONS`, `LLMR_TEST_NETWORK_LOG` and `LLMR_TEST_FILE` to it. The runner's printed report has a test that runs the real runner on a planted file in a temporary root, with `NODE_TEST_CONTEXT` removed so the nested `node --test` runs. `refusalReport(lines)` builds the sentence for both callers. The PR's CI run refused 1 connection in cli and 19 in core. Not run on Windows: that runner test symlinks `node_modules`.
 
 Today seven or eight core test files and one CLI test's child process connect to public catalog hosts, depending on timing, and a test passes or fails by what those hosts answer (run, the list is under Step 7). After this task no test process, worker thread or child process can open a connection to a host that is not loopback, and each run prints what it refused. The run does not fail on a refusal yet. Task 6 changes that.
 
@@ -235,6 +239,8 @@ Today seven or eight core test files and one CLI test's child process connect to
 ---
 
 ### Task 3: Parse the Codex files the profile tests write with a real TOML parser (H-4, B-4)
+
+**Merged, 2026-11-25: PR 158, `033c1281`, batch 3.** Built as written. The helper's import in `profile-service.test.mjs` sits after the `@llmr/...` aliases.
 
 Today no test parses the TOML that LLM Router writes, so an output that Codex cannot load passes every test (read, `smol-toml` and any other TOML parser are absent from `node_modules` and the lockfile). After this task a helper fails a test when any Codex file directly inside a directory does not parse, and the Codex applies made through `withAppliedDefaultProfiles` call it. Nothing changes for a user, and no source file may import the parser.
 

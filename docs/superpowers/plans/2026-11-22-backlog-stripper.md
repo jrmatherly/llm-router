@@ -117,6 +117,8 @@ The restore plan's Task 5 puts Workbuddy on the Codex stripper. It consumes `isC
 
 ### Task 1: Parse the Codex files the profile tests leave behind, and pin three restore conditions (S-8)
 
+**Merged, 2026-11-25: PR 158, `033c1281`, batch 3.** Three changes from its review, which Tasks 2 and 3 must follow. First, the B1 test, `a moved profile table's own model setting goes whole when its value spans lines`, carries no `todo`. Under `todo` its four assertions, which pass today, protected nothing (run: a `todo` test that fails for any reason exits 0). It passes `{ parseAfter: false }` and pins the known failure with `assert.throws(() => assertCodexFilesParse(codexDir), /llm-router\.config\.toml does not parse as TOML/)`. Second, the fixture's opt-out is `parseAfter: false` and skips only the parse after the test body. The parse after the apply always runs. Third, `tests/architecture/test-todo-markers.test.mjs` pins the exact list of `todo` reasons in the two Codex test files and counts every spelling of the word. So three tests are `todo`, not four, and a task that removes a `todo` removes its entry from that list in the same commit.
+
 First, because every later task proves its output with this check, and because the check has to be seen failing on S-1, S-2 and S-6 before a fix can claim to have turned it green.
 
 No user-visible change. After this PR a Codex test fails when an apply or a restore leaves a `.toml` file that does not parse, and three conditions of PR 138 that had no test have one.
@@ -279,6 +281,8 @@ Expected: PASS on unchanged source. Then, one at a time, and each put back after
 
 ### Task 2: Read a Codex config by statement (S-1, S-10, the strip half of S-6, part of S-14)
 
+**Changed by PR 158.** Step 3 also removes `"S-1, fixed in Task 2"` from the list in `tests/architecture/test-todo-markers.test.mjs`. Without that the architecture suite fails.
+
 Second, because Tasks 3 to 5 are written on the statement type this task produces.
 
 A user whose original `config.toml` has a `[profiles.<id>]` table with a nested array or a multi-line string gets that table back whole after an edited restore, where today the restored file stops inside the value and does not parse. A root line put back into a CRLF file ends in CRLF. A strip sees `"model_provider" = ...` as the key it is.
@@ -408,6 +412,8 @@ Expected: FAIL. The first two fail on `scanTomlStatements` not being exported. T
 ---
 
 ### Task 3: Write and restore a Codex config by statement, with no line-pattern reader left (S-2, S-5, S-6, S-12, rest of S-14)
+
+**Changed by PR 158.** The B1 test has no `todo` to remove. Where this task says its `todo` goes, remove its `assert.throws` on the parse and its `{ parseAfter: false }` option, which fail once the profile file parses. Step 2 also removes the S-2 and S-6 entries from `tests/architecture/test-todo-markers.test.mjs`, which leaves that list empty. The grep of Step 6 still holds.
 
 Third, because it migrates the callers Task 2 did not own, and deletes the helpers the scanner replaces.
 

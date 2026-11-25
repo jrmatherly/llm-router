@@ -37,7 +37,7 @@ Nineteen PRs. The plans hold 49 tasks that are not built: 44 in the nine plans t
 |---|---|---|---|---|
 | 1 | `fix/launch-and-gateway-ownership`. **Merged, PR 156, `92c8cf3f`** | VM findings 7, VM findings 8, keys 6, VM findings 3, then the terminal-only waiting line | `gateway-service.ts`, `launch-service.ts`, `profiles/service.ts` | Nothing. Keys 6 comes after VM findings 7 and 8 inside the branch |
 | 2 | `fix/provider-form-local-login`. **Merged, PR 157, `3aef9d00`** | Follow-ups 8, VM findings 4, follow-ups 9, follow-ups 10, in that order | `App.tsx`, `providers.tsx`, `shared/providers.ts` | Nothing. This is follow-ups PR 3 as already planned |
-| 3 | `test/harness-and-codex-parse` | Harness 1, 2, 3, stripper 1 | `build/test-home.mjs`, `build/test-home-env.mjs`, `build/run-tests.mjs`, the Codex parse helper | Nothing. Tests and harness only |
+| 3 | `test/harness-and-codex-parse`. **Merged, PR 158, `033c1281`** | Harness 1, 2, 3, stripper 1 | `build/test-home.mjs`, `build/test-home-env.mjs`, `build/run-tests.mjs`, the Codex parse helper | Nothing. Tests and harness only |
 | 4 | `ci/package-suites-matrix` | Harness 4 | `.github/workflows/test.yml`, and whatever tests its first run shows need a fix | Batch 3. Kept apart because a red matrix job blocks a release. Not open beside batches 6 to 10b: its test fixes can land in `profile-service.test.mjs`, which they change |
 | 5 | `fix/gateway-log-control` | Harness 5 | The gateway fork, then two `package.json` pins | His word for the fork push and tag. The fork is at `v1.0.22-llmr.4`, so this releases `llmr.5` |
 | 6 | `fix/codex-config-scanner` | Stripper 2, 3 | `codex-config-strip.ts`, `profiles/service.ts` | Batch 3 |
@@ -73,7 +73,7 @@ When it is built, this is the branch. By then the batches it meets are merged, s
 
 ## Order
 
-1. Batches 1 and 2 are merged. Batch 3 is next, and batch 17 can start beside it.
+1. Batches 1, 2 and 3 are merged. Batch 4 is next, and batch 17 can start beside it.
 2. Batch 3, then 4, with 4 merged before batch 6 opens. Batch 5 at any point once the owner gives his word on the fork.
 3. Batches 6, 7, 8, 9, 10a, 10b, one after another. All six change `profiles/service.ts`.
 4. Batches 11 and 12, then batch 16, then 13a, 13b, 14, 15, one after another. All of them meet in the request log store or the usage store. Batch 16 comes straight after batch 12 so that the later phases of the gateway program are not held behind four pricing batches. It can also go after batch 15. It is never open beside 13a to 15.
@@ -153,6 +153,8 @@ Four choices the researchers made on evidence, which a review can change: restor
 - **`stored-api-keys-watch.test.mjs` depends on the order of its tests.** One test corrupts the stored config and does not put it back. Nine of twelve random orders failed, tests older than PR 156 included (run by that review).
 - **A saved local login that LLM Router has not checked shows green ticks, and they stay green after a check that failed.** The status panel forces both rows green for a local login (`components/providers.tsx`, `ProviderConnectionStatusPanel`). Older than PR 157, whose text "LLMR has not asked this provider" now sits beside a green tick. It needs a decision on what the rows say. Found by the review of PR 157, read and not run.
 - **The message from Refresh on a changed address is the banner at the bottom of the provider form**, which can be off-screen in a long edit dialog. Found by the review of PR 157, read and not run.
+- **`build/run-tests.mjs` on an install without the Electron binary fails with a misleading error.** It imports `electron` at the top, which then tries to download the binary, and the network guard refuses that, so "the test runner leaves no folder in the temp directory" reports `fetch failed`. A plain `npm ci` in a fresh worktree has no binary, because `electron` is not in `allowScripts`. Found by the review of PR 158, run.
+- **The network guard has three ways around it that are stated and not closed**: the macOS system proxy read through `networksetup` when a proxy app listens on loopback, a custom `lookup` given with a loopback name, and DNS or UDP. Found by the review of PR 158, each run.
 - **No test covers what the CLI does after a launch's wait ends with the gateway gone**, which is to start a service for a Grok, Kimi or Pi profile.
 
 ## Not verified
