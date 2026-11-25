@@ -73,6 +73,7 @@ test("stdio discovery: a write to a server that closed its stdin rejects and doe
 
   await assert.rejects(
     listMcpServerTools({ args: [script], command: process.execPath, env: {}, name: "probe", startupTimeoutMs: 3000, transport: "stdio" }),
-    /EPIPE/
+    // Windows reports no error to a writer whose child closed its stdin, so the request ends at its timeout there.
+    process.platform === "win32" ? /timed out/ : /EPIPE/
   );
 });

@@ -230,7 +230,7 @@ test("profile service writes global Claude settings under the runtime home, neve
     assert.equal(result.clients.some((client) => client.client === "claude-code" && client.ok), true);
     assert.equal(readFileSync(processSettingsFile, "utf8"), untouched);
     assert.deepEqual(readdirSync(path.dirname(processSettingsFile)), ["settings.json"]);
-    const helperFile = path.join(CONFIGDIR, "bin", "llmr-claude-code-api-key-default-claude-code");
+    const helperFile = path.join(CONFIGDIR, "bin", `llmr-claude-code-api-key-default-claude-code${process.platform === "win32" ? ".cmd" : ""}`);
     const written = JSON.parse(readFileSync(runtimeSettingsFile, "utf8"));
     assert.equal(written.apiKeyHelper, process.platform === "win32" ? `"${helperFile}"` : helperFile);
   } finally {
@@ -1098,9 +1098,15 @@ test("a global Claude Code profile with its own settings file keeps CLAUDE_CONFI
     assert.equal(applied?.ok, true);
     assert.doesNotMatch(applied?.message ?? "", /own auto-compact windows/);
     assert.ok(JSON.parse(readFileSync(path.join(dir, ".claude.json"), "utf8")).autoCompactWindowsCache);
-    const wrapper = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}`), "utf8");
-    assert.ok(wrapper.split("\n").includes(`export CLAUDE_CONFIG_DIR='${dir}'`));
-    assert.doesNotMatch(wrapper, /^unset CLAUDE_CONFIG_DIR$/m);
+    if (process.platform === "win32") {
+      const wrapper = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}.cmd`), "utf8");
+      assert.ok(wrapper.split("\r\n").includes(`set CLAUDE_CONFIG_DIR=${dir}`), wrapper);
+      assert.doesNotMatch(wrapper, /^set CLAUDE_CONFIG_DIR=\r?$/m);
+    } else {
+      const wrapper = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}`), "utf8");
+      assert.ok(wrapper.split("\n").includes(`export CLAUDE_CONFIG_DIR='${dir}'`));
+      assert.doesNotMatch(wrapper, /^unset CLAUDE_CONFIG_DIR$/m);
+    }
     assert.equal(existsSync(path.join(home, ".claude.json")), false);
   } finally {
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
@@ -1108,15 +1114,16 @@ test("a global Claude Code profile with its own settings file keeps CLAUDE_CONFI
   }
 });
 
-test("a default-home Claude Code profile's sh wrapper unsets CLAUDE_CONFIG_DIR after any profile value", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("a default-home Claude Code profile's wrapper clears CLAUDE_CONFIG_DIR after any profile value", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const home = process.env.LLMR_INTERNAL_HOME_DIR;
   const { config, profile } = defaultHomeClaudeFixture("default-home-order", { env: { CLAUDE_CONFIG_DIR: "/somewhere/else" } });
+  const windows = process.platform === "win32";
   try {
     await applyProfileFixture(config);
-    const lines = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}`), "utf8").split("\n");
-    const unsetAt = lines.indexOf("unset CLAUDE_CONFIG_DIR");
-    assert.ok(unsetAt > 0);
-    assert.deepEqual(lines.slice(unsetAt + 1).filter((line) => line.includes("CLAUDE_CONFIG_DIR")), []);
+    const lines = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}${windows ? ".cmd" : ""}`), "utf8").split(windows ? "\r\n" : "\n");
+    const clearedAt = lines.indexOf(windows ? "set CLAUDE_CONFIG_DIR=" : "unset CLAUDE_CONFIG_DIR");
+    assert.ok(clearedAt > 0);
+    assert.deepEqual(lines.slice(clearedAt + 1).filter((line) => line.includes("CLAUDE_CONFIG_DIR")), []);
   } finally {
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
     rmSync(path.join(home, ".claude"), { force: true, recursive: true });
@@ -1188,10 +1195,12 @@ test("a saved config with the top-level profile flag stuck off still applies its
 test("profile service does not rewrite user Claude settings for stale legacy profile flags without profiles", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const home = mkdtempSync(path.join(os.tmpdir(), "llmr-stale-legacy-profile-home-"));
   const previousHome = process.env.HOME;
+  const previousUserProfile = process.env.USERPROFILE;
   const previousRuntimeHome = process.env.LLMR_INTERNAL_HOME_DIR;
   const takeoverFile = path.join(CONFIGDIR, "global-profile-takeover.json");
   try {
     process.env.HOME = home;
+    process.env.USERPROFILE = home;
     process.env.LLMR_INTERNAL_HOME_DIR = home;
     assert.equal(os.homedir(), home);
     const settingsFile = path.join(home, ".claude", "settings.json");
@@ -1269,6 +1278,7 @@ test("profile service does not rewrite user Claude settings for stale legacy pro
     rmSync(home, { force: true, recursive: true });
     restoreEnv("LLMR_INTERNAL_HOME_DIR", previousRuntimeHome);
     restoreEnv("HOME", previousHome);
+    restoreEnv("USERPROFILE", previousUserProfile);
   }
 });
 
@@ -2690,8 +2700,13 @@ test("profile service writes a Pi config and wrapper that points inference to LL
   assert.match(content, /USER_VALUE.*kept/);
   assert.match(content, /NO_PROXY.*127\.0\.0\.1,localhost,::1/);
   assert.match(content, /\/custom\/bin\/pi/);
-  assert.match(content, /--provider .*llmr-pi/);
-  assert.match(content, /--model .*Provider\/model/);
+  if (process.platform === "win32") {
+    assert.match(content, /^set LLMR_PI_PROVIDER=llmr-pi\r$/m);
+    assert.match(content, /^set LLMR_PI_MODEL=Provider\/model\r$/m);
+  } else {
+    assert.match(content, /--provider .*llmr-pi/);
+    assert.match(content, /--model .*Provider\/model/);
+  }
   assert.equal(content.includes("/ignored/pi"), false);
   assert.equal(provider.api, "openai-responses");
   assert.equal(provider.baseUrl, `http://127.0.0.1:${config.gateway.port}/v1`);
@@ -3595,7 +3610,7 @@ test("profile service restores global agent configs on exit", () => {
       const managed = "# BEGIN LLMR managed profile\nmodel = \"test\"\n# END LLMR managed profile\n";
       writeFileSync(codexFile, managed);
       mkdirSync(path.dirname(codexWrittenRecordFile(codexFile)), { recursive: true });
-      writeFileSync(codexWrittenRecordFile(codexFile), JSON.stringify({ edited: false, file: path.resolve(codexFile), sha256: createHash("sha256").update(managed).digest("hex") }));
+      writeFileSync(codexWrittenRecordFile(codexFile), JSON.stringify({ edited: false, file: codexRecordedPath(codexFile), sha256: createHash("sha256").update(managed).digest("hex") }));
     };
     writeManagedCodex();
     writeFileSync(openCodeFile, `${JSON.stringify({
@@ -4165,9 +4180,22 @@ test("restoring a Codex config whose LLMR markers were deleted by hand still rem
   });
 });
 
+// The record is keyed by the path in lower case on Windows, where two spellings name one file.
+function codexRecordedPath(codexConfigFile) {
+  const resolved = path.resolve(codexConfigFile);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
 function codexWrittenRecordFile(codexConfigFile) {
-  const key = createHash("sha256").update(path.resolve(codexConfigFile)).digest("hex").slice(0, 16);
+  const key = createHash("sha256").update(codexRecordedPath(codexConfigFile)).digest("hex").slice(0, 16);
   return path.join(CONFIGDIR, "agent-config-state", key, "written.json");
+}
+
+// Windows has no permission bits; Node reports 0o666 for every writable file there.
+function assertPrivateFile(file, message) {
+  if (process.platform !== "win32") {
+    assert.equal(statSync(file).mode & 0o777, 0o600, message);
+  }
 }
 
 function readCodexWrittenRecord(codexConfigFile) {
@@ -4191,7 +4219,7 @@ test("an apply records which Codex lines LLMR wrote, and every restore outcome c
     await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
       const record = readCodexWrittenRecord(fixture.codexConfigFile);
       assert.equal(record.sha256, sha256(readFileSync(fixture.codexConfigFile, "utf8")), name);
-      assert.equal(record.file, path.resolve(fixture.codexConfigFile), name);
+      assert.equal(record.file, codexRecordedPath(fixture.codexConfigFile), name);
       assert.equal(record.edited, false, name);
       assert.match(record.modelLine, /^model = /, name);
       edit(fixture);
@@ -4229,7 +4257,7 @@ test("restoring a Codex config someone else edited keeps a copy of it without th
       assert.match(copy, /\[mcp_servers\.mine\]/, name);
       assert.match(copy, /\[model_providers\.llm-router\]/, name);
       assert.equal(copy.includes(fixture.codexToken), false, name);
-      assert.equal(statSync(copies[0]).mode & 0o777, 0o600, name);
+      assertPrivateFile(copies[0], name);
     });
   }
 });
@@ -4435,7 +4463,7 @@ test("a record left over from an earlier takeover does not cost the user a Codex
     mkdirSync(codexDir, { recursive: true });
     writeFileSync(codexConfigFile, original);
     mkdirSync(path.dirname(codexWrittenRecordFile(codexConfigFile)), { recursive: true });
-    writeFileSync(codexWrittenRecordFile(codexConfigFile), JSON.stringify({ edited: false, file: path.resolve(codexConfigFile), modelLine: "model = \"my-own\"", sha256: "stale" }));
+    writeFileSync(codexWrittenRecordFile(codexConfigFile), JSON.stringify({ edited: false, file: codexRecordedPath(codexConfigFile), modelLine: "model = \"my-own\"", sha256: "stale" }));
   });
 });
 
@@ -5288,7 +5316,7 @@ test("an apply over an edited Codex config keeps a backup of the user's content 
     const backup = readFileSync(path.join(fixture.codexDir, backups[0]), "utf8");
     assertHoldsEveryLine(backup, `${userCodexOriginal}${userCodexAdditions}`);
     assert.doesNotMatch(backup, llmrCodexWrites);
-    assert.equal(statSync(path.join(fixture.codexDir, backups[0])).mode & 0o777, 0o600);
+    assertPrivateFile(path.join(fixture.codexDir, backups[0]));
     await applyProfileConfig(fixture.config);
     assert.equal(codexBackups(fixture.codexDir).length, 1);
     await recoverGlobalAgentProfile("default-codex");

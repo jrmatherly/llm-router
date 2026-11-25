@@ -10,7 +10,8 @@ import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
 
 test("ToolHub MCP runtime source keeps a shebang for direct MCP Inspector execution", () => {
   const source = readFileSync(path.join(process.cwd(), "packages", "core", "src", "mcp", "toolhub-mcp.ts"), "utf8");
-  assert.equal(source.startsWith("#!/usr/bin/env node\n"), true);
+  // A Windows checkout may hold the file with CRLF line endings.
+  assert.match(source, /^#!\/usr\/bin\/env node\r?\n/);
 });
 
 test("built ToolHub MCP runtime accepts newline JSON stdio used by MCP Inspector", async (t) => {
@@ -584,7 +585,8 @@ test("built ToolHub MCP runtime survives a backend that closes its stdin after t
     return;
   }
   const message = resolved.response.error?.message ?? "";
-  assert.ok(message.includes("stdio-test: write EPIPE"), message);
+  // Windows reports no error to a writer whose child closed its stdin, so the request ends at its timeout there.
+  assert.ok(message.includes(process.platform === "win32" ? "stdio-test: MCP stdio request timed out (stdio-test)" : "stdio-test: write EPIPE"), message);
 });
 
 test("built ToolHub MCP runtime reports a missing backend command at once and lists at most three backends", async (t) => {
