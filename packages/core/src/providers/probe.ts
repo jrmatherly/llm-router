@@ -959,12 +959,13 @@ async function providerProbeAuthRequest(
   const gatewayUrl = localClaudeAppsGatewayProbeUrl(apiKey, providerPlugins);
   if (gatewayUrl) {
     const session = await resolveClaudeAppsGatewaySession(gatewayUrl).catch(() => readClaudeAppsGatewaySession(gatewayUrl));
-    if (session?.accessToken) {
-      const headers = new Headers(request.init.headers);
-      headers.set("authorization", `Bearer ${session.accessToken}`);
-      headers.delete("x-api-key");
-      request = { ...request, init: { ...request.init, headers } };
+    if (!session?.accessToken) {
+      throw new Error("Claude apps gateway session was not found. Sign in again.");
     }
+    const headers = new Headers(request.init.headers);
+    headers.set("authorization", `Bearer ${session.accessToken}`);
+    headers.delete("x-api-key");
+    request = { ...request, init: { ...request.init, headers } };
   }
 
   return request;

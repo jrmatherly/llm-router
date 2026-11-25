@@ -19,7 +19,7 @@ test("no sessions means no candidates", (t) => {
 test("a stored session becomes an importable candidate and a bearer provider", async (t) => {
   const configDir = tempConfigDir(t);
   const gateway = await fakeGateway(t);
-  persistClaudeAppsGatewaySession(session(configDir, gateway.url, { models: ["claude-sonnet-4-6"] }));
+  persistClaudeAppsGatewaySession(session(configDir, gateway.url, { accessToken: "session-access-token-7f3a", models: ["claude-sonnet-4-6"] }));
 
   const [candidate] = claudeAppsGatewayCandidates(configDir);
   assert.equal(candidate.kind, "claude-apps-gateway");
@@ -43,7 +43,8 @@ test("a stored session becomes an importable candidate and a bearer provider", a
   assert.equal(result.providerPlugins[1].providerName, "__LLMR_PROVIDER_INTERNAL_NAME__");
   assert.deepEqual(result.providerPlugins[0].claudeAppsGateway, { url: gateway.url });
   assert.deepEqual(result.providerPlugins[1].claudeAppsGateway, { url: gateway.url });
-  assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer tok");
+  assert.equal(result.providerPlugins[0].auth.headers.authorization, "Bearer llmr-local-agent-login");
+  assert.equal(JSON.stringify(result).includes("session-access-token-7f3a"), false, "the session token is not in the import result");
 });
 
 test("import falls back to the stored models when the live list fails", async (t) => {
@@ -140,7 +141,7 @@ async function fakeGateway(t, options = {}) {
       response.end(JSON.stringify({ error: "invalid_grant" }));
       return;
     }
-    if (request.url === "/v1/models" && request.headers.authorization === "Bearer tok" && !options.modelsStatus) {
+    if (request.url === "/v1/models" && request.headers.authorization === "Bearer session-access-token-7f3a" && !options.modelsStatus) {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ data: [{ id: "claude-sonnet-4-6" }, { display_name: "Claude Opus 4.6", id: "claude-opus-4-6" }] }));
       return;
