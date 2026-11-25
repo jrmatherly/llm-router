@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -7,6 +7,7 @@ import path from "node:path";
 import OpenAI from "openai";
 import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { isLoopbackHostname } from "@llmr/core/net/loopback";
+import { commandLaunch, spawnCommandLaunch } from "@llmr/core/platform/command-path";
 
 type JsonPrimitive = boolean | null | number | string;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -1296,9 +1297,10 @@ class StdioMcpClient implements McpClient {
     if (this.child) {
       return this.child;
     }
-    const child = spawn(this.server.command, this.server.args ?? [], {
+    const env = mergeChildEnv(withoutLlmrSecretEnv(), this.server.env ?? {});
+    const child = spawnCommandLaunch(commandLaunch(this.server.command, this.server.args ?? [], env), {
       cwd: this.server.cwd || undefined,
-      env: mergeChildEnv(withoutLlmrSecretEnv(), this.server.env ?? {}),
+      env,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true
     }) as ChildProcessWithoutNullStreams;

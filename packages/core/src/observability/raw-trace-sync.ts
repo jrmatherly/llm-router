@@ -45,6 +45,7 @@ type RawTraceSynchronizerDependencies = {
   inboxMaxBundles?: number;
   inboxMaxBytes?: number;
   measureDirectorySize?: (directory: string) => Promise<number>;
+  now?: () => number;
   pendingRetryMaxMs?: number;
   replayIntervalMs?: number;
   replayMaxBundlesPerPass?: number;
@@ -248,6 +249,10 @@ export class RawTraceSynchronizer {
       this.processingTasks.delete(task);
     });
     this.processingTasks.add(task);
+  }
+
+  private now(): number {
+    return this.dependencies.now?.() ?? Date.now();
   }
 
   private spoolDirectory(): string {
@@ -686,10 +691,10 @@ export class RawTraceSynchronizer {
     scanGeneration: number
   ): Promise<void> {
     const snapshot = await rawTraceDirectorySnapshot(directory).catch(() => ({
-      newestMtimeMs: Date.now(),
+      newestMtimeMs: this.now(),
       sizeBytes: this.storageLimits().inboxMaxBytes + 1
     }));
-    const now = Date.now();
+    const now = this.now();
     const existing = this.sourceObservations.get(directory);
     if (existing) {
       if (existing.sizeBytes !== snapshot.sizeBytes || existing.newestMtimeMs !== snapshot.newestMtimeMs) {
@@ -735,7 +740,7 @@ export class RawTraceSynchronizer {
         // Capacity pressure must never classify a producer that is still
         // appending to a stream as abandoned. Reclaim only after a full quiet
         // period measured from file activity, not the directory mtime.
-        if (Date.now() - observation.lastActivityAt < graceMs) continue;
+        if (this.now() - observation.lastActivityAt < graceMs) continue;
         if (observation.kind === "staging") {
           try {
             const stored = await publishStagedRawTraceBundle(

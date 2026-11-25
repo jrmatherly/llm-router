@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
   isRecord,
@@ -7,6 +7,7 @@ import {
   readString
 } from "@llmr/core/agents/local-providers/shared";
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { commandLaunch } from "@llmr/core/platform/command-path";
 
 /**
  * Free-tier client fingerprint for login-less ("public") OpenCode Zen imports.
@@ -224,13 +225,19 @@ function randomOpenCodeIdPart(): string {
 
 function readInstalledOpenCodeUserAgent(): string | undefined {
   try {
-    const output = execFileSync("opencode", ["--version"], {
+    const env = withoutLlmrSecretEnv();
+    const launch = commandLaunch("opencode", ["--version"], env);
+    const result = spawnSync(launch.command, launch.args, {
       encoding: "utf8",
-      env: withoutLlmrSecretEnv(),
+      env,
       stdio: ["ignore", "pipe", "ignore"],
-      timeout: 3000
-    }).trim();
-    const version = output.match(/\d+\.\d+\.\d+/)?.[0];
+      timeout: 3000,
+      windowsVerbatimArguments: launch.windowsVerbatimArguments
+    });
+    if (result.error || result.status !== 0) {
+      return undefined;
+    }
+    const version = result.stdout.match(/\d+\.\d+\.\d+/)?.[0];
     return version ? `opencode/${version}` : undefined;
   } catch {
     // The LLMR host may not have the OpenCode CLI installed; callers fall back

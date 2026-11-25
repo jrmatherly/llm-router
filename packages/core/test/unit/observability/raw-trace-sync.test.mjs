@@ -773,21 +773,63 @@ test("raw trace keeps an over-capacity streaming source while its files are acti
   const bodyFile = path.join(bundleDirectory, "upstream_response.sse");
   mkdirSync(bundleDirectory, { recursive: true });
   writeFileSync(bodyFile, "data: start\n\n");
+  const graceMs = 60_000;
+  let clock = Date.now();
+  let clockReads = 0;
   const synchronizer = new RawTraceSynchronizer({
     getConfig: createConfig,
     inboxMaxBytes: 1,
+    now: () => {
+      clockReads += 1;
+      return clock;
+    },
     replayIntervalMs: 5,
-    sourceBundleGraceMs: 30,
+    sourceBundleGraceMs: graceMs,
+    sourceScanIntervalMs: 5,
+    spoolDirectory
+  });
+  // A scan reads the clock once to observe the source and once to judge it, so three reads span one whole scan.
+  const nextScan = async () => {
+    const reads = clockReads;
+    await waitFor(() => clockReads >= reads + 3);
+  };
+  try {
+    await synchronizer.start();
+    await nextScan();
+    for (let index = 0; index < 4; index += 1) {
+      // Half a grace: the first sighting dates activity to the file's time, just before the frozen clock.
+      clock += graceMs / 2;
+      appendFileSync(bodyFile, `data: ${index}\n\n`);
+      await nextScan();
+      assert.equal(existsSync(bundleDirectory), true, `append ${index} kept the source`);
+    }
+    clock += graceMs;
+    await waitFor(() => !existsSync(bundleDirectory));
+    assert.equal(readdirSync(path.join(spoolDirectory, ".llmr-dead-letter")).length, 1);
+  } finally {
+    await synchronizer.stop();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a source already quiet for a full grace when first seen is moved on the first scan", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-quiet-source-test-"));
+  const spoolDirectory = path.join(dir, "spool");
+  const bundleDirectory = path.join(spoolDirectory, "quiet-stream");
+  mkdirSync(bundleDirectory, { recursive: true });
+  writeFileSync(path.join(bundleDirectory, "upstream_response.sse"), "data: start\n\n");
+  const graceMs = 60_000;
+  const synchronizer = new RawTraceSynchronizer({
+    getConfig: createConfig,
+    inboxMaxBytes: 1,
+    now: () => Date.now() + 2 * graceMs,
+    replayIntervalMs: 5,
+    sourceBundleGraceMs: graceMs,
     sourceScanIntervalMs: 5,
     spoolDirectory
   });
   try {
     await synchronizer.start();
-    for (let index = 0; index < 4; index += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 15));
-      appendFileSync(bodyFile, `data: ${index}\n\n`);
-    }
-    assert.equal(existsSync(bundleDirectory), true);
     await waitFor(() => !existsSync(bundleDirectory));
     assert.equal(readdirSync(path.join(spoolDirectory, ".llmr-dead-letter")).length, 1);
   } finally {

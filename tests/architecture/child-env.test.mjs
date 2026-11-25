@@ -45,3 +45,12 @@ test("the Codex runtime script copies the whole environment in one place only", 
   // The one copy is the bot gateway client, which runs inside LLMR's own process.
   assert.equal(runtime.match(/Object\.assign\(\{\},\s*process\.env\b|\.\.\.process\.env\b/g)?.length, 1, "use mergeChildEnv for a child's environment");
 });
+
+test("the routing guide's api.env examples read names the filter lets a route script see", () => {
+  const pattern = /const llmrSecretEnvName = \/(.+)\/(\w*);/.exec(readFileSync("packages/core/src/mcp/child-env.ts", "utf8"));
+  assert.ok(pattern, "child-env.ts no longer declares llmrSecretEnvName the way this test reads it");
+  const hidden = new RegExp(pattern[1], pattern[2]);
+  const names = [...readFileSync("docs/src/content/docs/en/configuration/routing.md", "utf8").matchAll(/api\.env\("([^"]+)"\)/g)].map((match) => match[1]);
+  assert.ok(names.length >= 3, `read only ${names.length} api.env examples from the routing guide`);
+  assert.deepEqual(names.filter((name) => hidden.test(name)), []);
+});

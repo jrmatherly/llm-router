@@ -3,6 +3,7 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createInterface } from "node:readline";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 import { codexBaseInstructions } from "@llmr/core/agents/codex/base-instructions.ts";
@@ -751,6 +752,76 @@ test("Claude Code app-server lists the model from LLMR_CLAUDE_CODE_MODEL", { ski
   const response = result.stdout.trim().split(/\r?\n/).map((line) => JSON.parse(line)).find((line) => line.id === 1);
   assert.deepEqual(response.result.data.map((item) => item.id), ["Provider/only-llmr"]);
 });
+
+test("Claude Code app-server runs a turn against the CLI it names", async (t) => {
+  const completed = await runClaudeCodeTurn(t, {});
+  assert.equal(completed.params.turn.status, "completed", JSON.stringify(completed.params.turn));
+});
+
+test("Claude Code app-server reports a failed turn when the CLI cannot be started", async (t) => {
+  const completed = await runClaudeCodeTurn(t, { model: "no\u0000model" });
+  assert.equal(completed.params.turn.status, "failed", JSON.stringify(completed.params.turn));
+  assert.match(JSON.stringify(completed.params.turn.error), /null bytes/);
+});
+
+async function runClaudeCodeTurn(t, threadParams) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-runtime-claude-turn-"));
+  const packageDir = path.join(dir, "node_modules", "fake-claude");
+  mkdirSync(packageDir, { recursive: true });
+  writeFileSync(path.join(packageDir, "cli.js"), [
+    "require('node:readline').createInterface({ input: process.stdin }).on('line', (line) => {",
+    "  if (JSON.parse(line).type === 'control_request') return;",
+    "  process.stdout.write(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: 'fake reply' }) + '\\n', () => process.exit(0));",
+    "});"
+  ].join("\n"));
+  const env = {
+    ...process.env,
+    CLAUDE_CONFIG_DIR: dir,
+    CLAUDE_USER_DATA_DIR: "",
+    CODEX_HOME: dir,
+    HOME: dir,
+    LLMR_CLAUDE_APP_USER_DATA_PATH: "",
+    LLMR_CLAUDE_CODE_EXTRA_ARGS: "",
+    LLMR_CLAUDE_CODE_MODEL: "",
+    LLMR_CODEX_REMOTE_FRONTEND_MODE: "claude-code",
+    LLMR_INTERNAL_HOME_DIR: dir,
+    USERPROFILE: dir
+  };
+  if (process.platform === "win32") {
+    writeFileSync(path.join(dir, "fake-claude.cmd"), npmNodeShim("node_modules\\fake-claude\\cli.js"));
+    env.LLMR_CLAUDE_CODE_BIN = "fake-claude";
+    env.Path = `${dir};${process.env.PATH ?? ""}`;
+  } else {
+    env.LLMR_CLAUDE_CODE_BIN = path.join(dir, "fake-claude");
+    writeFileSync(env.LLMR_CLAUDE_CODE_BIN, `#!/bin/sh\nexec "${process.execPath}" "${path.join(packageDir, "cli.js")}" "$@"\n`);
+    chmodSync(env.LLMR_CLAUDE_CODE_BIN, 0o755);
+  }
+  const child = spawn(process.execPath, [writeRuntimeScript(dir), "app-server"], { env, stdio: ["pipe", "pipe", "pipe"] });
+  t.after(() => {
+    child.kill();
+    rmSync(dir, { force: true, maxRetries: 5, recursive: true });
+  });
+  let stderr = "";
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+  const send = (message) => child.stdin.write(`${JSON.stringify(message)}\n`);
+  send({ id: 1, method: "thread/start", params: { cwd: dir, ...threadParams } });
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`No turn/completed within 15 seconds. ${stderr}`)), 15_000);
+    child.on("exit", () => reject(new Error(`The app-server exited before turn/completed. ${stderr}`)));
+    createInterface({ input: child.stdout }).on("line", (line) => {
+      const message = JSON.parse(line);
+      if (message.id === 1) {
+        send({ id: 2, method: "turn/start", params: { input: [{ text: "hello", type: "text" }], threadId: message.result.thread.id } });
+        child.stdin.end();
+      } else if (message.method === "turn/completed") {
+        clearTimeout(timer);
+        resolve(message);
+      }
+    });
+  });
+}
 
 test("the runtime reads the frontend mode from REMOTE_FRONTEND_MODE only", () => {
   const names = ["LLMR_CODEX_CORE_MODE", "LLMR_CODEX_REMOTE_FRONTEND_MODE", "LLMR_ZCODE_PROFILE", "LLMR_REAL_ZCODE_CLI_PATH", "ZCODE_CLI_PATH", "ZCODE_STORAGE_DIR", "ZCODE_HOME"];

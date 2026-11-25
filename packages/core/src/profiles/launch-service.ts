@@ -11,7 +11,7 @@ import { resolveClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/
 import { CLAUDE_CODE_CONFIG_DIR_ENV, claudeCodeConfigDir } from "@llmr/core/agents/claude-code/environment";
 import { codexDesktopAppName, launchCodexAppProfile, launchWorkbuddyAppProfile, launchZcodeAppProfile, prepareCodexAppNetResponder, refreshCodexCompatibleAppProfileFiles, workbuddyDesktopAppName } from "@llmr/core/agents/codex/app-launch";
 import { CodexAppMediaPreviewBridge, shouldEnableCodexMediaPreviewBridge } from "@llmr/core/agents/codex/media-preview-bridge";
-import { findRunningOpenCodeAppPid, launchOpenCodeAppProfile, openCodeAppLaunchSignature } from "@llmr/core/agents/opencode/app-launch";
+import { findInstalledOpenCodeAppExecutable, findRunningOpenCodeAppPid, launchOpenCodeAppProfile, openCodeAppLaunchSignature } from "@llmr/core/agents/opencode/app-launch";
 import { writeOpenCodeGatewayConfig } from "@llmr/core/agents/opencode/profile-config";
 import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime";
 import { CONFIGDIR } from "@llmr/core/config/constants";
@@ -26,6 +26,7 @@ import { profileApiKeyId } from "@llmr/core/profiles/api-key";
 import { backupFiles, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { applyProfileConfig, cleanupGeneratedBinBackups } from "@llmr/core/profiles/service";
 import { spawnCommandLaunch } from "@llmr/core/platform/command-path";
+import { findAfterAppxLoad } from "@llmr/core/platform/windows-app-discovery";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@llmr/core/platform/windows-system";
 import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
 
@@ -173,6 +174,8 @@ export async function openProfileFromLlmr(config: AppConfig, request: ProfileOpe
     return await openCodexAppProfile(config, profile);
   }
   if (profile.agent === "opencode" && surface === "app") {
+    // The OpenCode launch is synchronous, so the package list it may need is loaded here.
+    await findAfterAppxLoad(() => findInstalledOpenCodeAppExecutable(profile.appPath));
     return await openOpenCodeAppProfile(config, profile);
   }
   const plan = buildProfileLaunchPlan(CONFIGDIR, profile, surface);
@@ -873,7 +876,7 @@ function profileBotRuntimeStatus(profileId: string): ProfileRuntimeEntry["botGat
 }
 
 export function getProfileRuntimeStatus(): ProfileRuntimeStatus {
-  cleanupExitedProfileApps();
+  cleanupExitedProfileApps({ trustMonitor: true });
   return {
     profiles: [...runningProfileApps.values()]
       .filter((entry) => !entry.stopRequested)
@@ -1000,13 +1003,46 @@ function registerExistingProfileApp(
     surface,
     userDataDir: existing.userDataDir
   };
-  entry.monitor = setInterval(() => {
-    if (!isProfileAppRunning(entry)) cleanupProfileAppEntry(key, entry);
-  }, 2_000);
-  entry.monitor.unref?.();
+  entry.monitor = monitorProfileApp(() => findProfileAppMainPid(entry), () => cleanupProfileAppEntry(key, entry));
   runningProfileApps.set(key, entry);
   return entry;
 }
+
+export const registerExistingProfileAppForTest = registerExistingProfileApp;
+
+const monitorProbeFailureLimit = 5;
+
+// A probe that fails says nothing about the app, so the entry stays until the failures reach the limit in a row.
+function monitorProfileApp(probe: () => Promise<number | undefined>, onGone: () => void, intervalMs = 2_000): NodeJS.Timeout {
+  let failures = 0;
+  let probing = false;
+  const monitor = setInterval(() => {
+    if (probing) {
+      return;
+    }
+    probing = true;
+    new Promise<number | undefined>((resolve) => resolve(probe())).then((pid) => {
+      failures = 0;
+      return pid === undefined;
+    }, (error: unknown) => {
+      failures += 1;
+      const gone = failures >= monitorProbeFailureLimit;
+      console.warn(`[profile] Could not check whether a profile app is still running (${failures} of ${monitorProbeFailureLimit})${gone ? ", so it is treated as closed" : ""}: ${formatError(error)}`);
+      return gone;
+    }).then((gone) => {
+      probing = false;
+      if (gone) {
+        onGone();
+      }
+    }).catch((error: unknown) => {
+      console.warn(`[profile] Could not clean up after a profile app closed: ${formatError(error)}`);
+    });
+  }, intervalMs);
+  monitor.unref?.();
+  return monitor;
+}
+
+export const monitorProfileAppForTest = monitorProfileApp;
 
 function activateProfileAppWindow(entry: Pick<RunningProfileApp, "pid" | "userDataDir">): void {
   if (process.platform !== "darwin") {
@@ -1061,7 +1097,7 @@ function runningProfileAppForAgent(
   surface: ProfileOpenRequest["surface"],
   excludedProfileId?: string
 ): RunningProfileApp | undefined {
-  cleanupExitedProfileApps();
+  cleanupExitedProfileApps({ trustMonitor: false });
   return [...runningProfileApps.values()].find((entry) =>
     entry.agent === agent &&
     entry.surface === surface &&
@@ -1070,8 +1106,12 @@ function runningProfileAppForAgent(
   );
 }
 
-function cleanupExitedProfileApps(): void {
+// An entry with a monitor is removed by it, so its presence is the monitor's last answer.
+function cleanupExitedProfileApps(options: { trustMonitor: boolean }): void {
   for (const [key, entry] of runningProfileApps) {
+    if (options.trustMonitor && entry.monitor) {
+      continue;
+    }
     if (!isProfileAppRunning(entry)) {
       cleanupProfileAppEntry(key, entry);
     }
@@ -1158,41 +1198,78 @@ export function isProfileAppRunningWithProbeForTest(
   return profileAppRunningWithProbe(entry, probe);
 }
 
+const profileAppMainPidOptions = { encoding: "utf8", maxBuffer: 1024 * 1024, windowsHide: true } as const;
+
 function profileAppMainPid(entry: Pick<RunningProfileApp, "userDataDir">): number | undefined {
   if (!entry.userDataDir) {
     return undefined;
   }
   const marker = normalizeProcessPath(entry.userDataDir);
-  if (process.platform === "win32") {
-    return windowsProfileAppMainPid(marker);
-  }
-  return posixProfileAppMainPid(marker);
-}
-
-function posixProfileAppMainPid(marker: string): number | undefined {
+  const { args, command } = profileAppMainPidCommand(marker);
   try {
-    const result = spawnSync("ps", ["-Ao", "pid=,command="], {
-      encoding: "utf8"
-    });
-    if (result.error || result.status !== 0) {
-      return undefined;
-    }
-    for (const line of result.stdout.split(/\r?\n/)) {
-      const match = line.match(/^\s*(\d+)\s+(.+)$/);
-      if (!match) {
-        continue;
-      }
-      const pid = Number(match[1]);
-      const command = match[2];
-      if (!Number.isFinite(pid) || pid <= 0 || pid === process.pid) {
-        continue;
-      }
-      if (isProfileAppMainProcessCommand(command, marker)) {
-        return pid;
-      }
-    }
+    const result = spawnSync(command, args, profileAppMainPidOptions);
+    return result.error || result.status !== 0 ? undefined : parseProfileAppMainPid(result.stdout, marker);
   } catch {
     return undefined;
+  }
+}
+
+// Rejects when the command cannot start, exits with an error or times out. No output resolves as no pid.
+function findProfileAppMainPid(entry: Pick<RunningProfileApp, "userDataDir">): Promise<number | undefined> {
+  if (!entry.userDataDir) {
+    return Promise.resolve(undefined);
+  }
+  const marker = normalizeProcessPath(entry.userDataDir);
+  const { args, command } = profileAppMainPidCommand(marker);
+  return new Promise((resolve, reject) => {
+    execFile(command, args, { ...profileAppMainPidOptions, timeout: 5_000 }, (error, stdout) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(parseProfileAppMainPid(stdout, marker));
+      }
+    });
+  });
+}
+
+export const findProfileAppMainPidForTest = findProfileAppMainPid;
+
+function profileAppMainPidCommand(marker: string): { args: string[]; command: string } {
+  if (process.platform !== "win32") {
+    return { args: ["-Ao", "pid=,command="], command: "ps" };
+  }
+  const script = [
+    "$ErrorActionPreference = 'SilentlyContinue'",
+    `$marker = ${powershellString(marker)}`,
+    `$hostPid = ${process.pid}`,
+    "$selfPid = $PID",
+    "Get-CimInstance Win32_Process | Where-Object {",
+    "  $_.ProcessId -ne $selfPid -and",
+    "  $_.ProcessId -ne $hostPid -and",
+    "  $_.CommandLine -and",
+    "  (($_.CommandLine -replace '\\\\', '/').ToLowerInvariant().Contains($marker)) -and",
+    "  ($_.CommandLine -notmatch '\\s--type=') -and",
+    "  ($_.CommandLine -notmatch '(?i)(?:browser_)?crashpad_handler(?:\\.exe)?(?:\\s|$)') -and",
+    "  ($_.CommandLine -notmatch '(?i)ptype=crashpad-handler')",
+    "} | Sort-Object ProcessId | Select-Object -First 1 -ExpandProperty ProcessId"
+  ].join("\n");
+  return {
+    args: ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
+    command: windowsSystemCommand("powershell.exe")
+  };
+}
+
+// The Windows command prints the pid it chose. Elsewhere the output is every process, one per line.
+function parseProfileAppMainPid(stdout: string, marker: string): number | undefined {
+  for (const line of stdout.split(/\r?\n/)) {
+    const match = process.platform === "win32" ? /^\s*(\d+)\s*$/.exec(line) : /^\s*(\d+)\s+(.+)$/.exec(line);
+    const pid = Number(match?.[1]);
+    if (!match || !Number.isFinite(pid) || pid <= 0 || pid === process.pid) {
+      continue;
+    }
+    if (process.platform === "win32" || isProfileAppMainProcessCommand(match[2], marker)) {
+      return pid;
+    }
   }
   return undefined;
 }
@@ -1214,48 +1291,6 @@ export function isProfileAppMainProcessCommandForTest(command: string, userDataD
 
 function normalizeProcessPath(value: string): string {
   return process.platform === "win32" ? value.replace(/\\/g, "/").toLowerCase() : value;
-}
-
-function windowsProfileAppMainPid(marker: string): number | undefined {
-  const script = [
-    "$ErrorActionPreference = 'SilentlyContinue'",
-    `$marker = ${powershellString(marker)}`,
-    `$hostPid = ${process.pid}`,
-    "$selfPid = $PID",
-    "Get-CimInstance Win32_Process | Where-Object {",
-    "  $_.ProcessId -ne $selfPid -and",
-    "  $_.ProcessId -ne $hostPid -and",
-    "  $_.CommandLine -and",
-    "  (($_.CommandLine -replace '\\\\', '/').ToLowerInvariant().Contains($marker)) -and",
-    "  ($_.CommandLine -notmatch '\\s--type=') -and",
-    "  ($_.CommandLine -notmatch '(?i)(?:browser_)?crashpad_handler(?:\\.exe)?(?:\\s|$)') -and",
-    "  ($_.CommandLine -notmatch '(?i)ptype=crashpad-handler')",
-    "} | Sort-Object ProcessId | Select-Object -First 1 -ExpandProperty ProcessId"
-  ].join("\n");
-  try {
-    const result = spawnSync(windowsSystemCommand("powershell.exe"), [
-      "-NoProfile",
-      "-NonInteractive",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-Command",
-      script
-    ], {
-      encoding: "utf8",
-      maxBuffer: 1024 * 1024,
-      windowsHide: true
-    });
-    if (result.error || result.status !== 0) {
-      return undefined;
-    }
-    const pid = result.stdout
-      .split(/\r?\n/)
-      .map((line) => Number(line.trim()))
-      .find((value) => Number.isFinite(value) && value > 0 && value !== process.pid);
-    return pid;
-  } catch {
-    return undefined;
-  }
 }
 
 function sendProfileProcessSignal(pid: number | undefined, signal: NodeJS.Signals): void {
