@@ -860,12 +860,15 @@ export function AddProfileForm({
                 : profileScopeOptions}
             value={draft.scope}
           />
-          {draft.agent === "claude-code" && draft.surface !== "cli" ? (
+          {draft.agent === "claude-code" && draft.surface === "auto" ? (
             <p className="text-[12px] text-muted-foreground">Applies to the CLI entry. The App entry uses the toggle below.</p>
+          ) : null}
+          {draft.agent === "claude-code" && draft.surface === "app" ? (
+            <p className="text-[12px] text-muted-foreground">The App entry uses the toggle below.</p>
           ) : null}
           {draft.scope === "global" && (draft.agent === "claude-code" || draft.agent === "codex") ? (
             <p className="text-[12px] text-muted-foreground">
-              LLMR rewrites {draft.agent === "codex" ? "~/.codex/config.toml" : "~/.claude/settings.json"} while it runs. It keeps a copy of your file if you had one, and puts things back when you quit LLMR or click Restore original settings.
+              LLMR rewrites {draft.agent === "codex" ? "~/.codex/config.toml" : "~/.claude/settings.json"} while it runs. It keeps a copy of your file if you had one, and puts things back when you quit LLMR or click Restore original settings.{draft.agent === "claude-code" ? " If that file is a link, LLMR writes to the file it links to and keeps the link." : null}
             </p>
           ) : null}
         </Field>
@@ -917,7 +920,7 @@ export function AddProfileForm({
               <span className="text-[12px] font-medium">Sign in with my Claude login</span>
               <Toggle ariaLabel="Sign in with my Claude login" checked={claudeLoginEnabled(draft.envRows)} onChange={(enabled) => onChange({ envRows: withClaudeLogin(draft.envRows, enabled) })} />
             </div>
-            <p className="text-[12px] text-muted-foreground">Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code's own. The gateway key is written to the settings file of this profile.</p>
+            <p className="text-[12px] text-muted-foreground">Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code's own. The gateway key is written to the settings file of this profile, or to the file it links to.</p>
             {claudeLogin && claudeLoginProviderMissing ? (
               <p className="text-[12px] text-muted-foreground">No Claude Code API provider is on. Add it under Providers, or turn it on. Until then this profile uses your other providers.</p>
             ) : null}

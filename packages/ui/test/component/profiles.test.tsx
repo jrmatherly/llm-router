@@ -91,6 +91,9 @@ test("AddProfileForm names the file a system-default profile rewrites, and says 
   assert.match(render({ ...createProfileDraft("claude-code"), scope: "global" }), /LLMR rewrites ~\/\.claude\/settings\.json while it runs\..*Restore original settings\./);
   assert.match(render({ ...createProfileDraft("codex"), scope: "global" }), /LLMR rewrites ~\/\.codex\/config\.toml while it runs\./);
   assert.doesNotMatch(render({ ...createProfileDraft("claude-code"), scope: "llmr" }), /LLMR rewrites/);
+  const linkLine = /Restore original settings\. If that file is a link, LLMR writes to the file it links to and keeps the link\./;
+  assert.match(render({ ...createProfileDraft("claude-code"), scope: "global" }), linkLine);
+  assert.doesNotMatch(render({ ...createProfileDraft("codex"), scope: "global" }), /If that file is a link/);
 });
 
 test("AddProfileForm keeps profile routing inside Advanced settings", () => {
@@ -845,7 +848,10 @@ test("Claude Code App profiles expose the direct-launch takeover toggle next to 
   const html = renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "app" });
   assert.match(html, /Route Claude App launched outside LLMR through LLMR/);
   assert.match(html, /Only one profile can have this on/);
-  assert.match(html, /Applies to the CLI entry/);
+  assert.doesNotMatch(html, /Applies to the CLI entry/);
+  assert.match(html, />The App entry uses the toggle below\.</);
+  assert.match(renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "auto" }), />Applies to the CLI entry\. The App entry uses the toggle below\.</);
+  assert.doesNotMatch(renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "cli" }), /The App entry uses the toggle below/);
   assert.ok(html.indexOf("Route Claude App launched outside LLMR") < html.indexOf("Advanced settings"));
   assert.doesNotMatch(renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "cli" }), /Route Claude App launched outside LLMR/);
   assert.doesNotMatch(renderAddProfileForm({ ...createProfileDraft("codex"), surface: "app" }), /Route Claude App launched outside LLMR/);
@@ -916,7 +922,7 @@ test("AddProfileForm offers the Claude login toggle on a Claude Code profile tha
     />
   );
   const toggle = /aria-label="Sign in with my Claude login"/;
-  const help = "Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code&#x27;s own. The gateway key is written to the settings file of this profile.";
+  const help = "Claude Code sends your claude.ai login and LLMR forwards it to Anthropic without storing it. The model list is Claude Code&#x27;s own. The gateway key is written to the settings file of this profile, or to the file it links to.";
 
   for (const surface of ["cli", "auto"] as const) {
     const html = render({ surface });
