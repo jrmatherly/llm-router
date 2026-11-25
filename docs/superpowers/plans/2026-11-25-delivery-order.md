@@ -36,7 +36,7 @@ Nineteen PRs. The plans hold 49 tasks that are not built: 44 in the nine plans t
 | # | Branch | Tasks, one commit each | Shared ground | Needs |
 |---|---|---|---|---|
 | 1 | `fix/launch-and-gateway-ownership`. **Merged, PR 156, `92c8cf3f`** | VM findings 7, VM findings 8, keys 6, VM findings 3, then the terminal-only waiting line | `gateway-service.ts`, `launch-service.ts`, `profiles/service.ts` | Nothing. Keys 6 comes after VM findings 7 and 8 inside the branch |
-| 2 | `fix/provider-form-local-login` | Follow-ups 8, VM findings 4, follow-ups 9, follow-ups 10, in that order | `App.tsx`, `providers.tsx`, `shared/providers.ts` | Nothing. This is follow-ups PR 3 as already planned |
+| 2 | `fix/provider-form-local-login`. **Merged, PR 157, `3aef9d00`** | Follow-ups 8, VM findings 4, follow-ups 9, follow-ups 10, in that order | `App.tsx`, `providers.tsx`, `shared/providers.ts` | Nothing. This is follow-ups PR 3 as already planned |
 | 3 | `test/harness-and-codex-parse` | Harness 1, 2, 3, stripper 1 | `build/test-home.mjs`, `build/test-home-env.mjs`, `build/run-tests.mjs`, the Codex parse helper | Nothing. Tests and harness only |
 | 4 | `ci/package-suites-matrix` | Harness 4 | `.github/workflows/test.yml`, and whatever tests its first run shows need a fix | Batch 3. Kept apart because a red matrix job blocks a release. Not open beside batches 6 to 10b: its test fixes can land in `profile-service.test.mjs`, which they change |
 | 5 | `fix/gateway-log-control` | Harness 5 | The gateway fork, then two `package.json` pins | His word for the fork push and tag. The fork is at `v1.0.22-llmr.4`, so this releases `llmr.5` |
@@ -73,7 +73,7 @@ When it is built, this is the branch. By then the batches it meets are merged, s
 
 ## Order
 
-1. Batch 1 is merged. Batch 2 is written and audited and is next.
+1. Batches 1 and 2 are merged. Batch 3 is next, and batch 17 can start beside it.
 2. Batch 3, then 4, with 4 merged before batch 6 opens. Batch 5 at any point once the owner gives his word on the fork.
 3. Batches 6, 7, 8, 9, 10a, 10b, one after another. All six change `profiles/service.ts`.
 4. Batches 11 and 12, then batch 16, then 13a, 13b, 14, 15, one after another. All of them meet in the request log store or the usage store. Batch 16 comes straight after batch 12 so that the later phases of the gateway program are not held behind four pricing batches. It can also go after batch 15. It is never open beside 13a to 15.
@@ -82,7 +82,7 @@ When it is built, this is the branch. By then the batches it meets are merged, s
 
 ## Before a batch is built
 
-- **Batch 2** is ready. Its tasks were audited on 2026-11-24. Batch 1 merged on 2026-11-25, and its review found two defects that neither the research nor the audits had: keep the review round on every batch.
+- **Batches 1 and 2 merged on 2026-11-25.** Batch 1's review found two defects that neither the research nor the audits had. Batch 2's review found three, one of them a regression the batch itself made in onboarding: keep the review round on every batch, and review the fix commit too.
 - **Every other batch comes from a draft plan** whose audit found Blockers that nobody has checked. Its fix round happens right before the batch is built, for that batch's tasks only: read each Blocker and Correction against the code as it is then, correct the task text, and have the changed text audited once on another model. The audits are outside the repo, in `private/audits/2026-11-22-audit-<plan>.md`.
 - **A task under about 100 lines of change** is built once, on the batch's branch, and gets one review round that covers the task text and the code together.
 - **A design that spans commits** keeps its text audit before any build. That is the Codex scanner of batch 6, restore 3 in batch 9, pricing 3 in batch 13b, the cost basis of batch 14 and the client label rule of batch 16.
@@ -149,6 +149,8 @@ Four choices the researchers made on evidence, which a review can change: restor
 
 - **A failed apply of the agent configs reaches no log a person reads, and nothing tries it again.** The desktop app keeps no log file and a service started in the background discards its output, so the window can be green while an agent's config file was never rewritten. This is so for the apply at startup and, since PR 156, for the apply after a takeover. It needs a place in the status the window shows. Found by the review of PR 156, read and not run.
 - **`stored-api-keys-watch.test.mjs` depends on the order of its tests.** One test corrupts the stored config and does not put it back. Nine of twelve random orders failed, tests older than PR 156 included (run by that review).
+- **A saved local login that LLM Router has not checked shows green ticks, and they stay green after a check that failed.** The status panel forces both rows green for a local login (`components/providers.tsx`, `ProviderConnectionStatusPanel`). Older than PR 157, whose text "LLMR has not asked this provider" now sits beside a green tick. It needs a decision on what the rows say. Found by the review of PR 157, read and not run.
+- **The message from Refresh on a changed address is the banner at the bottom of the provider form**, which can be off-screen in a long edit dialog. Found by the review of PR 157, read and not run.
 - **No test covers what the CLI does after a launch's wait ends with the gateway gone**, which is to start a service for a Grok, Kimi or Pi profile.
 
 ## Not verified

@@ -79,7 +79,7 @@ Each line is a condition no task's first test covers. The test that pins it is i
 2. Tasks 1 and 2, one PR, branch `fix/gateway-restart-yields`. Done, PR 152, `72c747cd`.
 3. Keys plan Task 3 can go before or after step 2.
 4. Task 3. Done, PR 156, `92c8cf3f`.
-5. Follow-ups PR 3 with Task 4 of this plan as its second commit: Task 8, this Task 4, Task 9, Task 10.
+5. Follow-ups PR 3 with Task 4 of this plan as its second commit: Task 8, this Task 4, Task 9, Task 10. Done, PR 157, `3aef9d00`, batch 2 of the delivery order.
 6. Task 5, a docs commit on `main`. Done, `082624bc`.
 7. Task 6, its own PR, branch `fix/adopted-gateway-watch`. Done, PR 155, `533244e9`.
 8. Tasks 7, 8 and 3. Done, PR 156, `92c8cf3f`, batch 1 of the delivery order.
@@ -338,6 +338,8 @@ Expected: all pass.
 ---
 
 ### Task 4: A provider is a local login only with a login behind it (VP-9)
+
+**Merged, 2026-11-25: PR 157, `3aef9d00`, batch 2.** The branch was `fix/provider-form-local-login`. One change from its review: onboarding edits a saved provider, so it now passes that provider to the login rule and to its form. Without it, renaming a saved login in onboarding showed the API-key step.
 
 Accepted by the owner, 2026-11-24. It is built on the branch of follow-ups PR 3, `fix/vm-pass-follow-ups`, as the commit after that plan's Task 8 and before its Task 9. It changes eight things in that plan's PR 3, most of them in Task 9, which this task lists at its end.
 

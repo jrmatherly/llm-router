@@ -765,6 +765,8 @@ Branch `fix/vm-pass-follow-ups` from `main`. Three tasks, one commit each. All t
 
 ### Task 8: The profile form and the docs say where the gateway key goes for a linked settings file, and the scope hint fits an App-only profile (question 4 answers (d) and (f), VM finding VP-1)
 
+**Merged, 2026-11-25: PR 157, `3aef9d00`, batch 2.** Built as written.
+
 Text only. No behaviour changes.
 
 A person whose `settings.json` is a link reads, in the form and in the docs, that the key goes into the file the link points to. An App-only Claude Code profile no longer reads about a CLI entry it does not have.
@@ -816,6 +818,8 @@ assert.doesNotMatch(render({ ...createProfileDraft("codex"), scope: "global" }),
 - [ ] **Step 8: Commit.** `fix(ui): say where the gateway key goes for a linked settings file and fit the scope hint to an App-only profile`
 
 ### Task 9: The edit dialog sends no automatic probe for a saved local-login provider (question 5, answer (b))
+
+**Merged, 2026-11-25: PR 157, `3aef9d00`, batch 2.** Built with the changes VM findings Task 4 lists. Its Playwright helper takes the config plugins with the provider.
 
 **Task 4 of [`2026-11-24-vm-pass-findings.md`](2026-11-24-vm-pass-findings.md) was accepted on 2026-11-24. It is built before this task and changes three things here:** the condition of the new branch, one sentence of "Which drafts are skipped", and the fixture of the first end-to-end test. That task's last section lists them. The text below is as written before it.
 
@@ -944,6 +948,8 @@ test("the edit dialog still probes a saved provider that has its own key", async
 - [ ] **Step 6: Commit.** `fix(ui): send no automatic probe for a saved local login provider in the edit dialog`
 
 ### Task 10: Refresh and Check use the saved login only for the saved address (question 5, the condition on Refresh and Check)
+
+**Merged, 2026-11-25: PR 157, `3aef9d00`, batch 2.** Three changes from its review. A saved provider finds its login by its saved names only, so a renamed draft cannot borrow another provider's login. Check on a changed address shows the message and opens no check dialog, in the provider dialog and in onboarding. The address comparison keeps path case, so `/V1` and `/v1` differ.
 
 It follows Task 9 on the branch and uses the same shared file.
 
