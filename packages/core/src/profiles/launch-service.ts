@@ -493,7 +493,10 @@ async function waitForProfileKey(
     if (last.state === "usable") return;
   }
   // The error a launch that finds no gateway gets, which the CLI answers for some agents by starting a service. A process that was only restarting the gateway adopts that service or is adopted by it.
-  if (last.state === "unavailable") throw gatewayNotRunningError(config, appName, last.reason);
+  if (last.state === "unavailable") {
+    const during = `it stopped answering while this launch waited ${waitMs / 1000} seconds for it to accept the key of profile "${profile.name || profile.id}"`;
+    throw gatewayNotRunningError(config, appName, last.reason ? `${during} (${last.reason})` : during);
+  }
   throw new Error(existingGatewayConflictMessage(last, appName));
 }
 
@@ -1020,11 +1023,13 @@ function activateProfileAppWindow(entry: Pick<RunningProfileApp, "pid" | "userDa
         return;
       }
       try {
-        const { args, command } = profileAppActivationCommandForTest(pid);
+        const { args, command } = profileAppActivationCommand(pid);
         const child = spawn(command, args, {
           detached: true,
           stdio: "ignore"
         });
+        // A spawn that fails reports through this event, which the catch below does not see, and an unheard error event ends the process.
+        child.on("error", () => {});
         child.unref();
       } catch {
         // Activation is best-effort; the app process itself has already been started.
@@ -1034,7 +1039,7 @@ function activateProfileAppWindow(entry: Pick<RunningProfileApp, "pid" | "userDa
 }
 
 // Activation by process id sends no Apple Event, so macOS asks for no Automation access.
-export function profileAppActivationCommandForTest(pid: number): { args: string[]; command: string } {
+export function profileAppActivationCommand(pid: number): { args: string[]; command: string } {
   return {
     args: ["-l", "JavaScript", "-e", `ObjC.import("AppKit"); $.NSRunningApplication.runningApplicationWithProcessIdentifier(${pid}).activateWithOptions(2)`],
     command: "/usr/bin/osascript"

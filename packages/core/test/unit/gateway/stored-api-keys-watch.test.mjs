@@ -167,7 +167,10 @@ test("a key restart that fails gets the restart a crash gets", async (t) => {
   delete service.schedulePersistedRuntimeConfigReload;
   service.child = undefined;
   service.server = {};
+  let startGeneration;
   service.start = async (config) => {
+    service.cancelCoreRestart();
+    startGeneration = service.coreRestartGeneration;
     service.config = config;
     service.status = { ...service.status, lastError: "Core gateway exited during startup with 1.", state: "error" };
     return service.getStatus();
@@ -181,7 +184,34 @@ test("a key restart that fails gets the restart a crash gets", async (t) => {
     await service.checkStoredApiKeys();
     await service.runtimeConfigReloadQueue;
   }
-  assert.deepEqual(scheduled, [service.coreRestartGeneration]);
+  assert.deepEqual(scheduled, [startGeneration]);
+});
+
+test("a stop that comes in while a key restart is starting is not undone by the restart", async (t) => {
+  t.mock.method(console, "error", () => {});
+  t.mock.method(console, "warn", () => {});
+  const { service } = await runningService([first]);
+  t.after(() => clearTimeout(service.coreRestartTimer));
+  delete service.schedulePersistedRuntimeConfigReload;
+  service.child = undefined;
+  service.server = {};
+  service.start = async (config) => {
+    service.cancelCoreRestart();
+    await Promise.resolve();
+    // What stop() does first, while this start is still running. The start then fails because its child was stopped.
+    service.cancelCoreRestart();
+    service.config = config;
+    service.status = { ...service.status, lastError: "Core gateway exited during startup with SIGTERM.", state: "error" };
+    return service.getStatus();
+  };
+  await loadAppConfig();
+  await service.rememberStoredApiKeys();
+  await updatePersistedApiKeys((current) => [...current, second]);
+  for (let tick = 0; tick < 4; tick += 1) {
+    await service.checkStoredApiKeys();
+    await service.runtimeConfigReloadQueue;
+  }
+  assert.equal(service.coreRestartTimer, undefined);
 });
 
 test("a key reload that is refused while the gateway runs schedules no restart", async (t) => {

@@ -3574,7 +3574,15 @@ export async function restoreTakeoversWhenNoGatewayServes(): Promise<void> {
 }
 
 // The other side of restoreTakeoversWhenNoGatewayServes: another process restored the takeovers as it stopped, and this one serves now. Never throws.
-export async function applyTakeoversAfterGatewayReplaced(config: AppConfig): Promise<void> {
+export async function applyTakeoversAfterGatewayReplaced(): Promise<void> {
+  let config: AppConfig;
+  try {
+    // From the store, as the restore reads it: the config this process holds can be older than a save the other process made, and an apply prunes the keys of profiles it does not list.
+    config = await loadAppConfig();
+  } catch (error) {
+    console.error(`Skipped applying profiles after taking over the gateway: ${formatError(error)}`);
+    return;
+  }
   const loadError = appConfigLoadError(config);
   if (loadError) {
     console.error(`Skipped applying profiles after taking over the gateway: ${loadError}`);

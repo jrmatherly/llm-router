@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   isProfileAppMainProcessCommandForTest,
   isProfileAppRunningWithProbeForTest,
-  profileAppActivationCommandForTest
+  profileAppActivationCommand
 } from "@llmr/core/profiles/launch-service.ts";
 
 const userDataDir = "/Users/example/.llm-router/profiles/codex/codex/.llm-router/codex-app-user-data/codex";
@@ -76,7 +76,7 @@ test("profile app liveness uses process discovery for launcher pids", () => {
 });
 
 test("an app is brought forward by process id with no Apple Event", () => {
-  const { args, command } = profileAppActivationCommandForTest(4242);
+  const { args, command } = profileAppActivationCommand(4242);
   assert.equal(command, "/usr/bin/osascript");
   assert.deepEqual(args.slice(0, 3), ["-l", "JavaScript", "-e"]);
   assert.equal(args[3], 'ObjC.import("AppKit"); $.NSRunningApplication.runningApplicationWithProcessIdentifier(4242).activateWithOptions(2)');

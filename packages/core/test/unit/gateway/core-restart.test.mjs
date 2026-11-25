@@ -505,7 +505,7 @@ function replacingService(t, startGateway) {
   t.mock.method(console, "warn", () => {});
   const adopted = adoptedService(t);
   const told = [];
-  adopted.service.setAdoptedGatewayReplacedHandler((config) => { told.push(config.gateway.port); });
+  adopted.service.setAdoptedGatewayReplacedHandler(() => { told.push("told"); });
   adopted.service.startGateway = async () => startGateway(adopted.service);
   return { ...adopted, told };
 }
@@ -520,9 +520,9 @@ test("a process that starts a gateway in place of the one it adopted tells its h
   await pass(12_000);
   assert.deepEqual(told, []);
   await pass(1_000);
-  assert.deepEqual(told, [3456]);
+  assert.deepEqual(told, ["told"]);
   await pass(60_000);
-  assert.deepEqual(told, [3456]);
+  assert.deepEqual(told, ["told"]);
 });
 
 test("the host is told when the gateway starts, not on a start that fails first", async (t) => {
@@ -536,7 +536,7 @@ test("the host is told when the gateway starts, not on a start that fails first"
   await pass(13_000);
   assert.deepEqual(told, []);
   await pass(2_000);
-  assert.deepEqual(told, [3456]);
+  assert.deepEqual(told, ["told"]);
 });
 
 test("the host is not told when the restart adopts another gateway", async (t) => {
@@ -589,9 +589,9 @@ test("a crash of the gateway that replaced the adopted one does not tell the hos
     return ownGatewayRuns(current);
   });
   await pass(13_000);
-  assert.deepEqual(told, [3456]);
+  assert.deepEqual(told, ["told"]);
   await service.handleCoreGatewayTermination(service.child, undefined, "Core gateway exited with SIGTERM.");
   await pass(5_000);
   assert.equal(service.getStatus().state, "running");
-  assert.deepEqual(told, [3456]);
+  assert.deepEqual(told, ["told"]);
 });

@@ -393,6 +393,7 @@ test("a gateway that is gone when the wait runs out is reported as not running, 
     (error) => {
       assert.equal(error instanceof ProfileGatewayUnavailableError, true);
       assert.match(error.message, /^LLMR gateway is not running at http:\/\/127\.0\.0\.1:3466: .+\. Start LLMR Desktop or run llmr start before opening Claude Main\.$/);
+      assert.match(error.message, /it stopped answering while this launch waited 0\.4 seconds for it to accept the key of profile "Claude Main" \(/);
       assert.doesNotMatch(error.message, /does not accept the API key/);
       return true;
     }

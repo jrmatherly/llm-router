@@ -485,6 +485,7 @@ test("takeovers another process restored are applied again by the process that t
     rmSync(takeoverFile, { force: true });
     mkdirSync(path.dirname(settingsFile), { recursive: true });
     writeFileSync(settingsFile, original);
+    await replacePersistedAppConfig(config);
     await applyProfileFixture(config);
     assert.equal(pointsAtGateway(), true);
     const marker = readFileSync(takeoverFile, "utf8");
@@ -493,10 +494,14 @@ test("takeovers another process restored are applied again by the process that t
     writeFileSync(settingsFile, original);
     rmSync(takeoverFile);
 
-    await applyTakeoversAfterGatewayReplaced(config);
+    // The process that takes over holds the config it loaded before the other one saved this profile.
+    const held = createDefaultAppConfig();
+    await applyTakeoversAfterGatewayReplaced(held);
     assert.equal(pointsAtGateway(), true);
     assert.equal(readFileSync(takeoverFile, "utf8"), marker);
+    assert.deepEqual((await loadPersistedApiKeys()).map((apiKey) => apiKey.id), [`profile:${profile.id}`]);
   } finally {
+    await replacePersistedAppConfig(createDefaultAppConfig());
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
     rmSync(takeoverFile, { force: true });
     rmSync(path.dirname(settingsFile), { force: true, recursive: true });
