@@ -9,7 +9,7 @@ import { codexBaseInstructions } from "@llmr/core/agents/codex/base-instructions
 import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime.ts";
 import { buildCodexModelCatalog } from "@llmr/core/agents/codex/model-catalog.ts";
 import { mergeChildEnv } from "@llmr/core/mcp/child-env.ts";
-import { npmShimTarget, resolveCommandFile, windowsBatchArgument } from "@llmr/core/platform/command-path.ts";
+import { batchFileLaunch, npmShimTarget, resolveCommandFile, windowsBatchArgument } from "@llmr/core/platform/command-path.ts";
 import { intactArguments, npmExeShim, npmNodeShim, shimOnlyArguments } from "../../support/windows-command-cases.mjs";
 
 test("generated Codex CLI middleware runtime is valid JavaScript", () => {
@@ -143,6 +143,19 @@ test("the runtime script and command-path.ts answer the same for every case", ()
   ]) {
     assert.deepEqual(shimTargetRuntime(text), npmShimTarget(text), text);
   }
+
+  const escapeCommandRuntime = evaluateRuntimeFunction("escapeWindowsCmdCommand", [], "", globals);
+  for (const file of ["C:\\bin\\hand.cmd", "C:\\sp ace (x86) & co\\hand.cmd", "C:\\pct%OS%dir\\hand.cmd"]) {
+    assert.equal(`"${escapeCommandRuntime(file)}"`, batchFileLaunch(file, []).args.at(-1), file);
+  }
+
+  const cmdTarget = "c:\\bin\\node_modules\\fake-cli\\bin\\tool.cmd";
+  files = new Set([cmdTarget]);
+  const shimLaunchRuntime = evaluateRuntimeFunction("npmShimLaunch", ["npmShimTarget", "isExecutableFile", "resolveWindowsCommandFile", "windowsEnvValue", "windowsEnvList"], "", {
+    ...globals,
+    fs: { ...globals.fs, readFileSync: () => npmExeShim("node_modules\\fake-cli\\bin\\tool.cmd") }
+  });
+  assert.equal(shimLaunchRuntime("C:\\bin\\fake-cli.cmd", { Path: "C:\\bin" }), null);
 
   const mergeRuntime = evaluateRuntimeFunction("mergeChildEnv", [], "", globals);
   const platform = Object.getOwnPropertyDescriptor(process, "platform");

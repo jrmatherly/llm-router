@@ -56,6 +56,8 @@ export const intactArguments = [
   'quote " and & % !',
   'tail\\"',
   "tail\\",
+  "tail\\\\",
+  'a\\\\"b',
   "(parens) [x]",
   "tab\there",
   "",

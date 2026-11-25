@@ -481,7 +481,7 @@ function spawnAgentCli(command, args, options) {
   }
 
   if (args.some((arg) => /[\r\n]/.test(String(arg)))) {
-    throw new Error("A line break cannot be passed to " + (commandFile || command) + " on Windows.");
+    throw new Error("A line break cannot be passed to " + (commandFile || command) + " on Windows, because it is a batch file. A program installed as an .exe or by npm can receive one.");
   }
   const shellCommand = [escapeWindowsCmdCommand(commandFile || command)]
     .concat(args.map(escapeWindowsCmdArgument))
@@ -579,8 +579,8 @@ function escapeWindowsCmdCommand(value) {
 // Carets twice: a batch file that forwards %* parses the line a second time.
 function escapeWindowsCmdArgument(value) {
   let escaped = String(value);
-  escaped = escaped.replace(/(?=(\\+?)?)\1"/g, "$1$1\\\"");
-  escaped = escaped.replace(/(?=(\\+?)?)\1$/g, "$1$1");
+  escaped = escaped.replace(/(\\*)"/g, "$1$1\\\"");
+  escaped = escaped.replace(/(\\*)$/, "$1$1");
   escaped = '"' + escaped + '"';
   return escaped.replace(WINDOWS_CMD_META_CHARS, "^$1").replace(WINDOWS_CMD_META_CHARS, "^$1");
 }

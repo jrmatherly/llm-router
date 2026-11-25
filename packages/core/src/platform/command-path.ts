@@ -116,7 +116,7 @@ export function windowsBatchArgument(value: string): string {
 
 export function batchFileLaunch(file: string, args: string[]): CommandLaunch {
   if (args.some((arg) => /[\r\n]/.test(arg))) {
-    throw new Error(`A line break cannot be passed to ${file} on Windows.`);
+    throw new Error(`A line break cannot be passed to ${file} on Windows, because it is a batch file. A program installed as an .exe or by npm can receive one.`);
   }
   const line = [file.replace(windowsBatchMetaCharacters, "^$1"), ...args.map(windowsBatchArgument)].join(" ");
   return {

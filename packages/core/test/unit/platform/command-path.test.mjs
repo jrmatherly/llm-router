@@ -44,6 +44,8 @@ test("the path variable is read in any letter case, and the first spelling in so
   const host = windowsHost(["c:\\bin\\pi.cmd"]);
   assert.equal(resolveCommandFile("pi", { path: "C:\\bin" }, host), "C:\\bin\\pi.CMD");
   assert.equal(resolveCommandFile("pi", { Path: "C:\\bin", PATH: "C:\\none" }, host), "");
+  assert.equal(resolveCommandFile("pi", { PATH: "C:\\none", Path: "C:\\bin" }, host), "");
+  assert.equal(resolveCommandFile("pi", { Path: "C:\\none", PATH: "C:\\bin" }, host), "C:\\bin\\pi.CMD");
   assert.deepEqual(commandSearchPath({ pathext: ".X;.Y", Path: '"C:\\a";;C:\\b' }), {
     directories: ["C:\\a", "C:\\b"],
     extensions: [".X", ".Y"]
@@ -117,6 +119,13 @@ test("commandLaunch starts an executable, the target of an npm shim, or cmd.exe"
       command: process.env.ComSpec || "cmd.exe",
       windowsVerbatimArguments: true
     }
+  );
+  assert.deepEqual(
+    commandLaunch("fake-cli", ["x"], env, windowsHost(
+      ["c:\\bin\\node_modules\\fake-cli\\bin\\tool.cmd"],
+      { "c:\\bin\\fake-cli.cmd": npmExeShim("node_modules\\fake-cli\\bin\\tool.cmd") }
+    )).args,
+    ["/d", "/v:off", "/s", "/c", '"C^:\\bin\\fake-cli.CMD ^^^"x^^^""']
   );
   assert.deepEqual(commandLaunch("missing", ["x"], env, windowsHost([])), { args: ["x"], command: "missing" });
 });
