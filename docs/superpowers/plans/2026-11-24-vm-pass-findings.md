@@ -78,11 +78,11 @@ Each line is a condition no task's first test covers. The test that pins it is i
 1. Keys plan Task 4 merges first. Done, PR 151, `c53eb517`. Task 1 here depends on it: with a one-key config the adopting side ends in `error`.
 2. Tasks 1 and 2, one PR, branch `fix/gateway-restart-yields`. Done, PR 152, `72c747cd`.
 3. Keys plan Task 3 can go before or after step 2.
-4. Task 3. Batch 1 of the delivery order, with no VM check first.
+4. Task 3. Done, PR 156, `92c8cf3f`.
 5. Follow-ups PR 3 with Task 4 of this plan as its second commit: Task 8, this Task 4, Task 9, Task 10.
 6. Task 5, a docs commit on `main`. Done, `082624bc`.
 7. Task 6, its own PR, branch `fix/adopted-gateway-watch`. Done, PR 155, `533244e9`.
-8. Task 7. Batch 1 of the delivery order, as its first commit. Keys plan Task 6 follows it in the same branch.
+8. Tasks 7, 8 and 3. Done, PR 156, `92c8cf3f`, batch 1 of the delivery order.
 
 ---
 
@@ -286,6 +286,8 @@ Then open the PR for Tasks 1 and 2. Say in it what "Not in this plan" says about
 ---
 
 ### Task 3: Bring an agent app forward without an Apple Event (VP-3)
+
+**Merged, 2026-11-25: PR 156, `92c8cf3f`, batch 1.** Two changes from its review: the exported function is `profileAppActivationCommand`, since production code calls it, and the spawned child has an `error` listener, because a spawn that fails reports through that event and an unheard one ends the process. An architecture test, `gateway-takeover-wiring.test.mjs`, pins that the source holds no Apple Event. Two reviewers noted that option `2` is deprecated since macOS 14 and that a background `osascript` may not bring the window forward. Nobody ran that, and it is a line of the end pass.
 
 Accepted by the owner, 2026-11-24. It no longer waits on the VM check of Step 1: on 2026-11-25 the owner moved every VM check to one pass at the end, so the task is built on the run its Evidence names and Step 1 is a line of that pass. Batch 1 of the delivery order.
 
@@ -676,6 +678,8 @@ In both, watch the port for five minutes after. Expected: one owner.
 
 ### Task 7: A process that starts a gateway in place of the one it adopted applies the agent configs again
 
+**Merged, 2026-11-25: PR 156, `92c8cf3f`, batch 1, with one defect fixed by its review.** The task passed the config the process held to the apply. A reviewer found, and a test then showed, that a held config older than a save by the other process makes the apply remove a new profile's key from the key store and take over an agent that was switched off. As merged, `applyTakeoversAfterGatewayReplaced()` takes no argument and reads the stored config, as the restore does, and the handler is `() => unknown`. So the line "The config applied" under "Not in this task" below no longer holds. Both host lines are pinned by `tests/architecture/gateway-takeover-wiring.test.mjs`, since removing one passed the whole core suite. Left by the review, with no task: a failed apply after a takeover reaches no log a person reads and is not retried, as with the startup apply; and no test covers the Claude App config being applied again or the load-error return.
+
 Written 2026-11-25 on the owner's word, from the audit of keys plan Task 6. Building it needs his word. Its own PR, branch `fix/apply-takeovers-after-takeover`. Keys plan Task 6 waits on it.
 
 **Audited once on another model, 2026-11-25.** The audit built the task from this text, ran every gate and mutation, and ran the two-process case for real: one process applied a global Claude Code profile, a child process sharing its temporary home ran the restore, and the first applied again. It found no Blocker and six Corrections, all applied below. The largest changes the design: the stale record is fixed where it is kept, in `storeGlobalProfileTakeoverRecords`, and the reset this task first put in the new function is gone. The session ran that change again before applying it, with every gate. The text changed by that round was not audited again.
@@ -892,6 +896,8 @@ Known to survive, and left: skipping `syncClaudeAppGatewayConfig`, and dropping 
 ---
 
 ### Task 8: A key restart that fails gets the restart a crash gets
+
+**Merged, 2026-11-25: PR 156, `92c8cf3f`, batch 1, with two faults of this text fixed on the way.** First, the test of Step 1 passed alone and failed with its file: an older test in `stored-api-keys-watch.test.mjs` corrupts the stored config and does not put it back, so the reload never reached the start. The two tests sit before "a key reload onto a stored config that would not run the gateway is refused", and the guard test sets `service.config`, without which its mutation survived. Second, the review found that the line of Interfaces reads the generation after the start has finished, so a stop that came in while the start ran was undone a second later (reproduced by a test). As merged, the generation is taken when `start` is called and before it is awaited, and a third test covers a stop during the start. The key reload's failure record is also cleared when a start reaches running. The steps below are the text as first written.
 
 Written 2026-11-25 from the research on the owner's four open questions. Batch 1 of the delivery order, after Task 7. Not audited as text: it is under 100 lines and is reviewed with its code, as the delivery order says.
 

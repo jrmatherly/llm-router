@@ -748,6 +748,8 @@ Not in this task.
 
 ### Task 6: A gateway that is gone when the wait ends gives the error a launch with no gateway gives (K-3)
 
+**Merged, 2026-11-25: PR 156, `92c8cf3f`, batch 1 of the delivery order, after VM findings Tasks 7 and 8 in the same branch.** One change from its review: the error at the end of the wait now says the gateway stopped answering while the launch waited, and for how long, before the advice on what to start. With this every task of this plan is merged.
+
 Written 2026-11-25 on the owner's word. He accepted the change on 2026-11-24 as the third change of Task 5, and the review of PR 154 took it out. This task puts it back after PR 155. One PR, one commit, branch `fix/launch-gone-gateway-error`. Building it and merging it each need his word.
 
 **Audited once on another model, 2026-11-25. Its advice: do not build this until the restore of the agent takeovers below is handled, or the owner accepts it by name.** The audit built the task from this text, and every gate passed. It found 2 Blockers in the reasoning, not in the code, and 6 Corrections. All are applied below. The first Blocker was run on a real gateway child. The second was read by the audit, and the session read the restore itself again (`web/management-server.ts:611-617`, `profiles/service.ts:3541-3573`). The text changed by that round was not audited again.

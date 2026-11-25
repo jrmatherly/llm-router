@@ -34,7 +34,7 @@ Nineteen PRs. The plans hold 49 tasks that are not built: 44 in the nine plans t
 
 | # | Branch | Tasks, one commit each | Shared ground | Needs |
 |---|---|---|---|---|
-| 1 | `fix/launch-and-gateway-ownership` | VM findings 7, VM findings 8, keys 6, VM findings 3, then the terminal-only waiting line | `gateway-service.ts`, `launch-service.ts`, `profiles/service.ts` | Nothing. Keys 6 comes after VM findings 7 and 8 inside the branch |
+| 1 | `fix/launch-and-gateway-ownership`. **Merged, PR 156, `92c8cf3f`** | VM findings 7, VM findings 8, keys 6, VM findings 3, then the terminal-only waiting line | `gateway-service.ts`, `launch-service.ts`, `profiles/service.ts` | Nothing. Keys 6 comes after VM findings 7 and 8 inside the branch |
 | 2 | `fix/provider-form-local-login` | Follow-ups 8, VM findings 4, follow-ups 9, follow-ups 10, in that order | `App.tsx`, `providers.tsx`, `shared/providers.ts` | Nothing. This is follow-ups PR 3 as already planned |
 | 3 | `test/harness-and-codex-parse` | Harness 1, 2, 3, stripper 1 | `build/test-home.mjs`, `build/test-home-env.mjs`, `build/run-tests.mjs`, the Codex parse helper | Nothing. Tests and harness only |
 | 4 | `ci/package-suites-matrix` | Harness 4 | `.github/workflows/test.yml`, and whatever tests its first run shows need a fix | Batch 3. Kept apart because a red matrix job blocks a release. Not open beside batches 6 to 10b: its test fixes can land in `profile-service.test.mjs`, which they change |
@@ -62,7 +62,7 @@ Not a PR:
 
 ## Order
 
-1. Batches 1 and 2. Both are written and audited. They can be open together: one is core, the other is the provider form.
+1. Batch 1 is merged. Batch 2 is written and audited and is next.
 2. Batch 3, then 4, with 4 merged before batch 6 opens. Batch 5 at any point once the owner gives his word on the fork.
 3. Batches 6, 7, 8, 9, 10a, 10b, one after another. All six change `profiles/service.ts`.
 4. Batches 11 and 12, then batch 16, then 13a, 13b, 14, 15, one after another. All of them meet in the request log store or the usage store. Batch 16 comes straight after batch 12 so that the later phases of the gateway program are not held behind four pricing batches. It can also go after batch 15. It is never open beside 13a to 15.
@@ -71,7 +71,7 @@ Not a PR:
 
 ## Before a batch is built
 
-- **Batches 1 and 2** are ready. Their tasks were audited on 2026-11-24 and 2026-11-25.
+- **Batch 2** is ready. Its tasks were audited on 2026-11-24. Batch 1 merged on 2026-11-25, and its review found two defects that neither the research nor the audits had: keep the review round on every batch.
 - **Every other batch comes from a draft plan** whose audit found Blockers that nobody has checked. Its fix round happens right before the batch is built, for that batch's tasks only: read each Blocker and Correction against the code as it is then, correct the task text, and have the changed text audited once on another model. The audits are outside the repo, in `private/audits/2026-11-22-audit-<plan>.md`.
 - **A task under about 100 lines of change** is built once, on the batch's branch, and gets one review round that covers the task text and the code together.
 - **A design that spans commits** keeps its text audit before any build. That is the Codex scanner of batch 6, restore 3 in batch 9, pricing 3 in batch 13b, the cost basis of batch 14 and the client label rule of batch 16.
@@ -90,6 +90,8 @@ After the last batch, or earlier if the owner calls it:
    - PRs 151 to 155, which merged with no run on the real apps.
    - VM findings Task 1's check, Task 3's Step 1 and the check after it, Task 6's two runs and Task 7's look at the agent settings.
    - Keys plan Task 6's check.
+   - Whether an agent app comes forward when it is behind another window, since the activation option of PR 156 is deprecated since macOS 14 and nobody ran it against a background app.
+   - After a takeover, that the agents' config files follow the stored profile list (PR 156).
    - Any check a batch's own tasks name.
 3. A remediation plan for what the pass finds, then a release of its own.
 
@@ -131,6 +133,12 @@ Each has a default, which is built unless he says otherwise.
 | 17 | Whether the reviewers, the fixes and the merge on green can run without his `review-pr` line each time | No. Merging needs his word once per PR | All |
 
 Four choices the researchers made on evidence, which a review can change: restore 3 keeps a profile's record while a saved original exists; a save's notice is set only by a profile's own restore; a usage row from the gateway's billing counts as an estimate; and a reported cost of 0 counts as absent.
+
+## Findings with no task
+
+- **A failed apply of the agent configs reaches no log a person reads, and nothing tries it again.** The desktop app keeps no log file and a service started in the background discards its output, so the window can be green while an agent's config file was never rewritten. This is so for the apply at startup and, since PR 156, for the apply after a takeover. It needs a place in the status the window shows. Found by the review of PR 156, read and not run.
+- **`stored-api-keys-watch.test.mjs` depends on the order of its tests.** One test corrupts the stored config and does not put it back. Nine of twelve random orders failed, tests older than PR 156 included (run by that review).
+- **No test covers what the CLI does after a launch's wait ends with the gateway gone**, which is to start a service for a Grok, Kimi or Pi profile.
 
 ## Not verified
 
