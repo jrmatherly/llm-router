@@ -101,6 +101,8 @@ llmr serve [--host <host>] [--allow-remote] [--port <port>] [--open|--no-open] [
 - If the new command requires the gateway, LLMR tries to start it inside the existing management process.
 - If the state file is stale or the process has exited, LLMR cleans up the old state and starts a new service.
 
+When the desktop app and a background service both run, one of them serves the gateway and the other uses it. Stopping the gateway in one hands it to the other: the one still running starts its own gateway about 10 seconds after the first stops answering. To stop the gateway on the machine, stop both.
+
 To change listener settings, stop first:
 
 ```sh
