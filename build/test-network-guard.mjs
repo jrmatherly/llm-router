@@ -15,11 +15,11 @@ if (!original[marker]) {
     const where = `${target.host}:${target.port}`;
     const log = process.env.LLMR_TEST_NETWORK_LOG;
     if (log) {
-      const owner = process.env.LLMR_TEST_FILE ?? (process.argv[1] ? path.relative(process.cwd(), process.argv[1]) : "");
       try {
+        const owner = process.env.LLMR_TEST_FILE ?? (process.argv[1] ? path.relative(process.cwd(), process.argv[1]) : "");
         appendFileSync(log, `${where}\t${owner}\n`);
       } catch (error) {
-        // A child that outlives a direct run's home gets ENOENT here, and connect must not throw.
+        // A child that outlives a direct run's home gets ENOENT here, as does process.cwd() in a removed folder, and connect must not throw.
         process.stderr.write(`test network guard: refused ${where}, not logged (${error.code})\n`);
       }
     }
