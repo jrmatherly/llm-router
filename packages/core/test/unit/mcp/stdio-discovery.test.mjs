@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { listMcpServerTools, mcpDiscoveryMaxTimeoutMs } from "@llmr/core/mcp/tool-discovery.ts";
+import { npmNodeShim } from "../../support/windows-command-cases.mjs";
 
 for (const probe of [
   { label: "a silent server times out at its own startup timeout", pattern: /timed out after 1000 ms\.$/, script: "process.stdin.resume();" },
@@ -75,5 +76,39 @@ test("stdio discovery: a write to a server that closed its stdin rejects and doe
     listMcpServerTools({ args: [script], command: process.execPath, env: {}, name: "probe", startupTimeoutMs: 3000, transport: "stdio" }),
     // Windows reports no error to a writer whose child closed its stdin, so the request ends at its timeout there.
     process.platform === "win32" ? /timed out/ : /EPIPE/
+  );
+});
+
+test("a stdio server named by a command on the path is started", { skip: process.platform !== "win32" }, async (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-stdio-discovery-"));
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  mkdirSync(path.join(dir, "node_modules", "fake-mcp"), { recursive: true });
+  copyFileSync(path.resolve("packages/core/test/support/stub-mcp-server.mjs"), path.join(dir, "node_modules", "fake-mcp", "server.mjs"));
+  writeFileSync(path.join(dir, "fake-mcp.cmd"), npmNodeShim("node_modules\\fake-mcp\\server.mjs"));
+
+  const tools = await listMcpServerTools({
+    args: [],
+    command: "fake-mcp",
+    env: { Path: `${dir};${process.env.PATH ?? ""}` },
+    name: "fake",
+    stdioMessageMode: "newline-json",
+    transport: "stdio"
+  });
+
+  assert.deepEqual(tools.map((tool) => tool.name), ["stub_tool"]);
+});
+
+test("a line break for a batch-file stdio server rejects the discovery, under a stubbed platform", async (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-stdio-discovery-"));
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  const file = path.join(dir, "hand.cmd");
+  writeFileSync(file, "@echo off\r\n");
+  const platform = Object.getOwnPropertyDescriptor(process, "platform");
+  Object.defineProperty(process, "platform", { value: "win32" });
+  t.after(() => Object.defineProperty(process, "platform", platform));
+
+  await assert.rejects(
+    listMcpServerTools({ args: ["line1\nline2"], command: file, env: {}, name: "fake", stdioMessageMode: "newline-json", transport: "stdio" }),
+    /line break/
   );
 });
