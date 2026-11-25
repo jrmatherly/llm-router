@@ -213,8 +213,8 @@ test("a matching Start Menu shortcut is read with one PowerShell run that has a 
   assert.equal(candidates.includes("C:\\ChatGPT\\ChatGPT.exe"), true);
   assert.equal(spawnSync.mock.callCount(), 1);
   const [, args, options] = spawnSync.mock.calls[0].arguments;
-  assert.match(args.at(-1), /ChatGPT\.lnk/);
-  assert.doesNotMatch(args.at(-1), /Other\.lnk/);
+  assert.doesNotMatch(args.at(-1), /\.lnk/);
+  assert.deepEqual(JSON.parse(options.env.LLMR_SHORTCUT_FILES), [path.join(programs, "Apps/ChatGPT.lnk")]);
   assert.equal(options.timeout, 5000);
 });
 

@@ -2,6 +2,7 @@ import { execFile, spawnSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
 import { commandSearchPath } from "@llmr/core/platform/command-path";
 import { windowsSystemCommand } from "@llmr/core/platform/windows-system";
 
@@ -92,7 +93,7 @@ function windowsShortcutTargetCandidates(options: WindowsDesktopAppDiscoveryOpti
   const script = [
     "$ErrorActionPreference = 'SilentlyContinue';",
     "$shell = New-Object -ComObject WScript.Shell;",
-    `@(${shortcuts.map((file) => `'${powerShellSingleQuotedString(file)}'`).join(",")}) |`,
+    "$env:LLMR_SHORTCUT_FILES | ConvertFrom-Json |",
     "  ForEach-Object {",
     "    try {",
     "      $target = $shell.CreateShortcut($_).TargetPath;",
@@ -110,6 +111,8 @@ function windowsShortcutTargetCandidates(options: WindowsDesktopAppDiscoveryOpti
     script
   ], {
     encoding: "utf8",
+    // The file names travel outside the script text, so no character in a name can end a quoted literal.
+    env: mergeChildEnv(withoutLlmrSecretEnv(), { LLMR_SHORTCUT_FILES: JSON.stringify(shortcuts) }),
     timeout: 5_000,
     windowsHide: true
   });
@@ -424,8 +427,4 @@ function pushUnique(values: string[], value: string): void {
   if (!values.includes(value)) {
     values.push(value);
   }
-}
-
-function powerShellSingleQuotedString(value: string): string {
-  return value.replace(/'/g, "''");
 }
