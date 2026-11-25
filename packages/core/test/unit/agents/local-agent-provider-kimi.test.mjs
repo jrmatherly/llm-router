@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import childProcess from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { importKimiProvider, kimiCandidates, resolveKimiAuth } from "@llmr/core/agents/local-providers/kimi.ts";
+import { importKimiProvider, kimiCandidates, kimiIdentityHeaders, resolveKimiAuth } from "@llmr/core/agents/local-providers/kimi.ts";
 
 test("Kimi CLI OAuth login is discovered from inline TOML and imported", async () => {
   await withKimiHome(async (kimiHome) => {
@@ -262,6 +263,43 @@ oauth = { storage = "file", key = "oauth/kimi-code", oauth_host = "http://127.0.
     );
   });
 });
+
+test("the Kimi version is read from a batch-file CLI", { skip: process.platform !== "win32" }, async () => {
+  await withKimiHome(async (kimiHome) => {
+    await withKimiBatchFile(kimiHome, () => {
+      assert.equal(kimiIdentityHeaders()["User-Agent"], "kimi-code-cli/1.2.3");
+    });
+  });
+});
+
+test("the Kimi version read goes through cmd.exe for a batch file, under a stubbed platform", async (t) => {
+  await withKimiHome(async (kimiHome) => {
+    await withKimiBatchFile(kimiHome, () => {
+      const platform = Object.getOwnPropertyDescriptor(process, "platform");
+      Object.defineProperty(process, "platform", { value: "win32" });
+      t.after(() => Object.defineProperty(process, "platform", platform));
+      const spawnSync = t.mock.method(childProcess, "spawnSync", () => ({ status: 0, stdout: "1.2.3\r\n" }));
+
+      assert.equal(kimiIdentityHeaders()["User-Agent"], "kimi-code-cli/1.2.3");
+      const [command, , options] = spawnSync.mock.calls[0].arguments;
+      assert.match(command, /cmd\.exe$/i);
+      assert.equal(options.windowsVerbatimArguments, true);
+    });
+  });
+});
+
+async function withKimiBatchFile(kimiHome, run) {
+  const file = path.join(kimiHome, "kimi.cmd");
+  writeFileSync(file, "@echo 1.2.3\r\n");
+  const previousBin = process.env.LLMR_KIMI_BIN;
+  process.env.LLMR_KIMI_BIN = file;
+  delete process.env.KIMI_CODE_VERSION;
+  try {
+    await run();
+  } finally {
+    restoreEnv("LLMR_KIMI_BIN", previousBin);
+  }
+}
 
 async function withKimiHome(run) {
   const kimiHome = mkdtempSync(path.join(os.tmpdir(), "llmr-kimi-provider-"));

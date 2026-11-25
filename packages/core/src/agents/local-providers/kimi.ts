@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -11,6 +11,7 @@ import type {
   ProviderModelMetadata
 } from "@llmr/core/contracts/app";
 import { withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
+import { commandLaunch } from "@llmr/core/platform/command-path";
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
 import { findProviderPresetByBaseUrl } from "@llmr/core/providers/presets/index";
 import { resolveUserPath } from "@llmr/core/runtime/app-paths";
@@ -669,14 +670,18 @@ function kimiStorageRoot(): string {
 function kimiCliVersion(): string {
   const explicit = process.env.KIMI_CODE_VERSION?.trim();
   if (explicit) return asciiHeader(explicit, "unknown");
+  const env = withoutLlmrSecretEnv();
   for (const command of kimiCliCandidates()) {
     try {
-      const value = execFileSync(command, ["--version"], {
+      const launch = commandLaunch(command, ["--version"], env);
+      const result = spawnSync(launch.command, launch.args, {
         encoding: "utf8",
-        env: withoutLlmrSecretEnv(),
+        env,
         stdio: ["ignore", "pipe", "ignore"],
-        timeout: 2_000
-      }).trim();
+        timeout: 2_000,
+        windowsVerbatimArguments: launch.windowsVerbatimArguments
+      });
+      const value = result.error || result.status !== 0 ? "" : result.stdout.trim();
       if (value) return asciiHeader(value, "unknown");
     } catch {
       continue;
