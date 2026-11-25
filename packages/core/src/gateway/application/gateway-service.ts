@@ -14,7 +14,7 @@ import { pluginService } from "@llmr/core/plugins/service";
 import { proxyService } from "@llmr/core/proxy/service";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler";
-import { existingGatewayPredatesManagerKey, isAddressInUseMessage, isGatewayEndpointAnswering, probeExistingLlmrGateway, reloadExistingLlmrGatewayConfig } from "@llmr/core/gateway/existing-gateway-probe";
+import { existingGatewayPredatesManagerKey, gatewayEndpointSilence, isAddressInUseMessage, probeExistingLlmrGateway, reloadExistingLlmrGatewayConfig } from "@llmr/core/gateway/existing-gateway-probe";
 import { closeServer, formatError, sendGatewayError } from "@llmr/core/gateway/http/io";
 import { RawTraceSynchronizer } from "@llmr/core/observability/raw-trace-sync";
 import { GatewayBillingSynchronizer } from "@llmr/core/usage/billing-sync";
@@ -130,6 +130,7 @@ class GatewayService {
     getGlobalBillingConfig: () => pluginService.getCoreGatewayConfig().billing
   });
   private adoptedGatewayGoneSince?: number;
+  private adoptedGatewayReloads = 0;
   private adoptedGatewayTimer?: NodeJS.Timeout;
   private child?: ChildProcess;
   private coreRestartAttempts = 0;
@@ -734,6 +735,8 @@ class GatewayService {
 
   private async reloadExternalGatewayConfig(config: AppConfig, forceRestart: boolean): Promise<void> {
     const currentEndpoint = this.status.endpoint || endpoint(config.gateway.host, config.gateway.port);
+    // The reload waits while the other process restarts its gateway, for longer than the watch does.
+    this.adoptedGatewayReloads += 1;
     try {
       const externalGateway = await reloadExistingLlmrGatewayConfig(
         currentEndpoint,
@@ -750,6 +753,8 @@ class GatewayService {
         state: "error"
       };
       throw new Error(message, { cause: error });
+    } finally {
+      this.adoptedGatewayReloads -= 1;
     }
   }
 
@@ -869,16 +874,16 @@ class GatewayService {
   private async checkAdoptedGateway(): Promise<void> {
     if (!this.status.gatewayManagedExternally) return;
     const generation = this.coreRestartGeneration;
-    const answering = await isGatewayEndpointAnswering(this.status.endpoint);
-    if (generation !== this.coreRestartGeneration || !this.status.gatewayManagedExternally) return;
-    if (answering) {
+    const silence = await gatewayEndpointSilence(this.status.endpoint);
+    if (generation !== this.coreRestartGeneration || !this.status.gatewayManagedExternally || this.adoptedGatewayReloads > 0) return;
+    if (!silence) {
       this.adoptedGatewayGoneSince = undefined;
       return;
     }
     this.adoptedGatewayGoneSince ??= Date.now();
     if (Date.now() - this.adoptedGatewayGoneSince < adoptedGatewayGoneMs) return;
-    const lastError = `The LLM Router gateway at ${this.status.endpoint} that this process was using is gone.`;
-    console.warn(`[gateway] ${lastError} Starting one here.`);
+    const lastError = `The LLM Router gateway at ${this.status.endpoint}, run by another LLM Router process, stopped answering.`;
+    console.warn(`[gateway] ${lastError} Last check: ${silence}. Starting one here.`);
     this.status = { ...this.status, gatewayManagedExternally: undefined, lastError, state: "error" };
     this.coreRestartAttempts = 0;
     this.scheduleCoreRestart(generation);

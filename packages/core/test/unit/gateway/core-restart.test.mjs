@@ -399,6 +399,7 @@ test("an adopted gateway that stays gone for the wait is replaced by this proces
   const starts = [];
   service.startGateway = async (config, generation) => { starts.push([config.gateway.port, generation]); return service.getStatus(); };
   service.coreRestartAttempts = 3;
+  const warn = t.mock.method(console, "warn", () => {});
   await pass(10_000);
   assert.equal(service.getStatus().state, "running");
   assert.equal(service.getStatus().gatewayManagedExternally, true);
@@ -406,7 +407,8 @@ test("an adopted gateway that stays gone for the wait is replaced by this proces
   await pass(2_000);
   assert.equal(service.getStatus().state, "error");
   assert.equal(service.getStatus().gatewayManagedExternally, undefined);
-  assert.match(service.getStatus().lastError, /gateway at http:\/\/127\.0\.0\.1:3456 that this process was using is gone/);
+  assert.match(service.getStatus().lastError, /gateway at http:\/\/127\.0\.0\.1:3456, run by another LLM Router process, stopped answering/);
+  assert.match(String(warn.mock.calls[0].arguments[0]), /Last check: connection refused\. Starting one here\./);
   await pass(1_000);
   assert.deepEqual(starts, [[3456, 0]]);
   assert.deepEqual([...new Set(requests.map((request) => `${request.path} ${request.authorization}`))], ["/health null"]);
@@ -476,4 +478,24 @@ test("a gateway adopted again is watched once, on the port it serves", async (t)
   await pass(14_000);
   assert.equal(requests.length, 7);
   assert.equal(service.getStatus().state, "running");
+});
+
+test("a reload of the adopted gateway that is still waiting for it holds the watch back", async (t) => {
+  withFetch(t, (url) => {
+    if (url.pathname === "/health") throw new Error("connection refused");
+    return new Response("{}", { status: 202 });
+  });
+  const { pass, service } = adoptedService(t);
+  const starts = [];
+  service.startGateway = async (_config, generation) => { starts.push(generation); return service.getStatus(); };
+  const reload = service.restart(config()).catch((error) => error);
+  await pass(19_000);
+  assert.deepEqual(starts, []);
+  assert.equal(service.getStatus().gatewayManagedExternally, true);
+  await pass(2_000);
+  assert.match(String((await reload).message), /Timed out waiting for the running LLMR gateway/);
+  await pass(8_000);
+  assert.deepEqual(starts, []);
+  await pass(5_000);
+  assert.equal(starts.length, 1);
 });
