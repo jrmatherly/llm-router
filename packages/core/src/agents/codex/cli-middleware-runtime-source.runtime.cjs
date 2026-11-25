@@ -3735,12 +3735,19 @@ class ClaudeCodeAppServer {
       claudeConfigDir: work.claudeConfigDir || "",
       expectedUserDataDir: currentClaudeAppUserDataDir()
     });
-    const child = childProcess.spawn(command.command, command.args, {
-      cwd: work.cwd,
-      env: command.env,
-      stdio: ["pipe", "pipe", "pipe"],
-      detached: process.platform !== "win32"
-    });
+    let child;
+    try {
+      child = spawnAgentCli(command.command, command.args, {
+        cwd: work.cwd,
+        env: command.env,
+        stdio: ["pipe", "pipe", "pipe"],
+        detached: process.platform !== "win32"
+      });
+    } catch (error) {
+      log("claude_spawn_error", { threadId: work.threadId, turnId: work.turnId, error: formatError(error) });
+      this.completeTurn(work, thread, turn, started, { error: formatError(error), text: "" });
+      return;
+    }
     let childSpawnError = null;
     child.on("error", (error) => {
       childSpawnError = error;
@@ -3825,25 +3832,35 @@ class ClaudeCodeAppServer {
     stdoutRl.close();
     stderrRl.close();
     this.active.delete(key);
-    const text = stream.resultText || stream.emitted || stream.pending;
-    turn.agentText = text;
-    turn.error = work.cancelRequested
-      ? "Turn canceled."
-      : work.timedOut
-        ? "Turn timed out after " + formatDuration(wallTimeoutMs) + "."
-        : stream.resultError || (childSpawnError ? formatError(childSpawnError) : code === 0 ? null : stderr.trim() || "Claude Code exited with code " + code);
+    this.completeTurn(work, thread, turn, started, {
+      agentStarted: stream.agentStarted,
+      code,
+      error: work.cancelRequested
+        ? "Turn canceled."
+        : work.timedOut
+          ? "Turn timed out after " + formatDuration(wallTimeoutMs) + "."
+          : stream.resultError || (childSpawnError ? formatError(childSpawnError) : code === 0 ? null : stderr.trim() || "Claude Code exited with code " + code),
+      latestUsage: stream.latestUsage,
+      text: stream.resultText || stream.emitted || stream.pending,
+      tools: Array.from(stream.tools.values())
+    });
+  }
+
+  completeTurn(work, thread, turn, started, result) {
+    turn.agentText = result.text;
+    turn.error = result.error;
     turn.status = work.cancelRequested ? "interrupted" : turn.error ? "failed" : "completed";
     turn.completedAt = nowSeconds();
     turn.durationMs = Date.now() - started;
-    turn.toolItems = Array.from(stream.tools.values()).map((tool) => toolItemJson(work.threadId, work.cwd, tool));
+    turn.toolItems = (result.tools || []).map((tool) => toolItemJson(work.threadId, work.cwd, tool));
     thread.updatedAt = turn.completedAt;
-    thread.latestTokenUsageInfo = stream.latestUsage;
+    thread.latestTokenUsageInfo = result.latestUsage || null;
     updateClaudeAppLocalAgentSession(thread, {
       lastActivityAt: Date.now(),
       title: thread.name || thread.preview || promptTitle(thread.preview || work.prompt)
     });
     this.persistBotThread(work.threadId);
-    if (!stream.agentStarted && text) {
+    if (!result.agentStarted && result.text) {
       writeNotification("item/completed", {
         threadId: thread.id,
         turnId: turn.id,
@@ -3853,7 +3870,7 @@ class ClaudeCodeAppServer {
     }
     writeNotification("turn/completed", { threadId: thread.id, turn: turnJson(turn, false) });
     writeNotification("thread/stream/state", threadStreamState(thread));
-    log("claude_turn_exit", { threadId: work.threadId, turnId: work.turnId, code, error: turn.error });
+    log("claude_turn_exit", { threadId: work.threadId, turnId: work.turnId, code: result.code, error: turn.error });
   }
 
   handleClaudeOutputLine(line, work, stream, child) {
