@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { isolateTestHome } from "../../../../build/test-home.mjs";
+import { isolateTestHome } from "../../../../build/test-home-env.mjs";
 
 const cliRuntime = path.join(process.cwd(), ".test-dist", "cli", "runtime", "cli.js");
 const rootPackageVersion = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")).version;

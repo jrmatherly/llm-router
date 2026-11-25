@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { isolateTestHome } from "../../build/test-home.mjs";
+import { isolateTestHome } from "../../build/test-home-env.mjs";
 
 // The bundle is CommonJS, so import.meta.url is empty; both runners start in the repo root.
 const projectRoot = process.cwd();
@@ -31,6 +31,7 @@ test("a compiled test run outside run-tests gets a temporary HOME", () => {
     assert.equal(seen.homedir, seen.home, "os.homedir follows the isolated HOME");
     assert.equal(seen.internal, seen.home);
     assert.ok(seen.home.startsWith(os.tmpdir()), seen.home);
+    assert.equal(existsSync(seen.home), false, "a process that made its own home removes it at exit");
   } finally {
     rmSync(realHome, { force: true, recursive: true });
   }
@@ -46,6 +47,7 @@ test("each test process takes a home of its own inside the one run-tests isolate
       assert.equal(path.dirname(seen.home), testHome);
       assert.equal(seen.internal, seen.home);
       assert.equal(seen.homedir, seen.home);
+      assert.equal(existsSync(seen.home), true, "a home inside a home someone else set is theirs to remove");
     }
     assert.notEqual(first.home, second.home, "test files run at the same time and must not share persisted keys or config");
   } finally {
@@ -53,7 +55,33 @@ test("each test process takes a home of its own inside the one run-tests isolate
   }
 });
 
+test("a test file that throws still removes its home", () => {
+  const env = { ...process.env };
+  delete env.LLMR_TEST_HOME;
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", `
+    await import(${JSON.stringify(guard)});
+    console.log(process.env.HOME);
+    throw new Error("planted");
+  `], { encoding: "utf8", env });
+  assert.equal(result.status, 1, result.stderr);
+  assert.equal(existsSync(result.stdout.trim()), false);
+});
+
 test("build/test.mjs bundles the guard into tests that never import it", () => {
   const compiled = path.join(projectRoot, ".test-dist", "architecture", "test", "build-output-swap.test.js");
   assert.match(readFileSync(compiled, "utf8"), /llmr-test-home-/, `${compiled} lacks the guard; rebuild with node build/test.mjs architecture`);
+});
+
+test("the test runner leaves no folder in the temp directory", () => {
+  const temp = mkdtempSync(path.join(os.tmpdir(), "llmr-runner-temp-"));
+  try {
+    const env = { ...process.env, TEMP: temp, TMP: temp, TMPDIR: temp };
+    delete env.LLMR_TEST_HOME;
+    const result = spawnSync(process.execPath, [path.join(projectRoot, "build", "run-tests.mjs"), "zz-no-such-project"], { encoding: "utf8", env });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Unknown test project: zz-no-such-project/);
+    assert.deepEqual(readdirSync(temp), []);
+  } finally {
+    rmSync(temp, { force: true, recursive: true });
+  }
 });

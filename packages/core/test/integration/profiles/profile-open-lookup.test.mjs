@@ -8,7 +8,7 @@ import { CONFIGDIR } from "@llmr/core/config/constants.ts";
 import { updatePersistedApiKeys } from "@llmr/core/config/config-repository.ts";
 import { getProfileOpenCommand, openProfileFromLlmr } from "@llmr/core/profiles/launch-service.ts";
 import { restoreGlobalProfileConfigsOnExit } from "@llmr/core/profiles/service.ts";
-import { isolateTestHome } from "../../../../../build/test-home.mjs";
+import { isolateTestHome } from "../../../../../build/test-home-env.mjs";
 
 const homeEnvKeys = ["CODEX_HOME", ...Object.keys(isolateTestHome("", {}))];
 

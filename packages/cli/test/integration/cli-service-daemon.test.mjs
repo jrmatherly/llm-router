@@ -5,7 +5,7 @@ import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { isolateTestHome } from "../../../../build/test-home.mjs";
+import { isolateTestHome } from "../../../../build/test-home-env.mjs";
 
 const cliRuntime = path.join(process.cwd(), ".test-dist", "cli", "runtime", "cli.js");
 const token = "daemon-test-token-0123456789-0123456789";

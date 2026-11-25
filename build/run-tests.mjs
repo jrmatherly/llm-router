@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isolateTestHome } from "./test-home.mjs";
+import { isolateTestHome } from "./test-home-env.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
@@ -66,7 +66,11 @@ async function runProject(project) {
       });
     });
   } finally {
-    rmSync(testHome, { force: true, recursive: true });
+    try {
+      rmSync(testHome, { force: true, maxRetries: 3, recursive: true });
+    } catch {
+      // On Windows a handle still open refuses the removal; it must not hide the suite's result.
+    }
   }
 }
 
