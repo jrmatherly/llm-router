@@ -6,7 +6,7 @@ Runs Anthropic's Claude apps gateway on this machine with LLM Router as its sing
 
 | Piece | Where | Notes |
 | --- | --- | --- |
-| `claude gateway` | Native process on the host, `http://127.0.0.1:18080` | The `gateway` subcommand of the installed Claude Code binary (verified with 2.1.310). Started by the script with `CLAUDE_GATEWAY_ALLOW_LOOPBACK=1`. |
+| `claude gateway` | Native process on the host, `http://127.0.0.1:18080` | The `gateway` subcommand of the installed Claude Code binary. Started by the script with `CLAUDE_GATEWAY_ALLOW_LOOPBACK=1`. It runs with its own home and config directory under docker/claude-apps-gateway/.state, so it does not read or write your Claude files. |
 | PostgreSQL | Docker, `127.0.0.1:15432` | `postgres:16-alpine`, database `gateway`, user `gw`, password `pw`, named volume `pgdata`. |
 | Dex | Docker, `http://127.0.0.1:15556` | Mock OIDC issuer. The `mockCallback` connector signs every login in as `kilgore@kilgore.trout` with groups `[authors]`. |
 | LLM Router | Wherever you run it, default `http://127.0.0.1:3456` | The gateway forwards `/v1/messages` here with `forward_user_identity: true`, so LLMR's request log attributes each call to the developer's e-mail. |
@@ -27,7 +27,7 @@ Without LLMR, to check the sign-in surface alone:
 node scripts/claude-apps-gateway-dev.mjs --load-test
 ```
 
-Flags: `--upstream <url>` (default `http://127.0.0.1:3456`), `--port <n>` (gateway, default 18080), `--dex-port <n>` (default 15556).
+Flags: `--upstream <url>` (default `http://127.0.0.1:3456`), `--port <n>` (gateway, default 18080), `--dex-port <n>` (default 15556), `--keep` (leave the containers, volume and rendered files when the gateway exits).
 
 Check the gateway is up:
 
@@ -45,6 +45,8 @@ curl -s http://127.0.0.1:18080/.well-known/oauth-authorization-server | jq .devi
 
 ## Tear down
 
+The script stops the containers, removes the volume and deletes the rendered files when the gateway exits. Pass --keep to leave them, and then run:
+
 ```bash
 docker compose -f docker/claude-apps-gateway/compose.yaml down -v
 ```
@@ -52,8 +54,10 @@ docker compose -f docker/claude-apps-gateway/compose.yaml down -v
 ## Notes
 
 - LLMR's gateway-pinned guard reads `managed-settings.json` and `managed-settings.d/*.json` plus the profile's own settings file. Managed settings delivered through a macOS plist or the Windows registry (HKLM) are not read.
-- `--load-test` needs an empty database. The gateway refuses load-test mode once any developer has spent anything, so run the teardown command between a real run and a load-test run.
+- `--load-test` needs an empty database. The script removes the volume on exit, so this matters only after a run with --keep.
 
 ## Verified
 
 2026-10-26, Claude Code 2.1.310 (`claude gateway`), Dex v2.44.0, postgres:16-alpine. Device-flow sign-in as `kilgore@kilgore.trout`, one `POST /v1/messages` through the gateway to an LLMR build on port 3457 (`--upstream http://127.0.0.1:3457`) with a local mock upstream on 3999 that logs received headers: HTTP 200 and the request log row shows Client `kilgore@kilgore.trout`. The mock upstream logged the headers it received: `x-claude-gateway-user-email`, `x-litellm-end-user-id` and `x-claude-gateway-user-id` were absent, while a request sent to LLMR directly with those headers was attributed the same way and reached the upstream without them.
+
+2026-11-24, Claude Code 2.1.332, load-test mode with a scratch home: boot, device-flow sign-in as the mock user, the spend-limit and cost-report admin routes with that user's bearer, and a restart that kept the session.

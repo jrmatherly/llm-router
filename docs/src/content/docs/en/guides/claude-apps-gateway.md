@@ -47,11 +47,7 @@ The repository ships a harness under `docker/claude-apps-gateway/` that runs Pos
 node scripts/claude-apps-gateway-dev.mjs --api-key <llmr-client-key>
 ```
 
-`--load-test` replaces the upstream with the gateway's canned reply so the sign-in surface can be checked without LLMR. `--port`, `--dex-port` and `--upstream` move the gateway, the issuer and the LLMR endpoint. Every login through the mock issuer is `kilgore@kilgore.trout`; after one request, LLMR's Logs page shows that e-mail as the client. Tear down with:
-
-```bash
-docker compose -f docker/claude-apps-gateway/compose.yaml down -v
-```
+`--load-test` replaces the upstream with the gateway's canned reply so the sign-in surface can be checked without LLMR. `--port`, `--dex-port` and `--upstream` move the gateway, the issuer and the LLMR endpoint. Every login through the mock issuer is `kilgore@kilgore.trout`; after one request, LLMR's Logs page shows that e-mail as the client. The script removes the containers and the rendered files when the gateway exits. Pass --keep to leave them.
 
 ## Use a gateway as an LLMR provider
 
