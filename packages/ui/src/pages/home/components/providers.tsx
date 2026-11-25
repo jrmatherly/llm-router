@@ -1,7 +1,7 @@
 import { ClaudeAppsGatewaySignInForm } from "./claude-apps-gateway-sign-in";
 import { useDraftClose } from "./unsaved-changes";
 import {
-  AddProviderDraft, isClaudeLoginProviderDraft, isLocalAgentLoginDraft, localAgentProviderApiKey, openExternalUrl, type ProviderSetupStepId, providerSetupStepsForDraft, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
+  AddProviderDraft, isClaudeLoginProviderDraft, isLocalAgentLoginDraft, localAgentProviderApiKey, openExternalUrl, type ProviderSetupStepId, providerSetupStepsForDraft, savedLoginAddressChanged, AnimatedDisclosure, AnimatedIconSwap, AnimatedListItem, AnimatedPopover, AnimatePresence, AppConfig, Badge,
   Box, Braces, Button, Card, CardContent, CardHeader, CardTitle,
   Check, Checkbox, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, cn,
   compareProviderAccountSnapshots, copyTextToClipboard, createDefaultProviderAccountDraft, createModelCatalogItems, createProviderAccountDraftFromConfig, createProviderCredentialDraft,
@@ -3703,7 +3703,7 @@ export function AddProviderDialog({
               hideSetupProgress={!wizardMode}
               importProvider={importProvider}
               mode={mode}
-              onCheck={onCheck ? async () => setCheckConfirmOpen(true) : undefined}
+              onCheck={onCheck ? async () => savedLoginAddressChanged(draft, providerPlugins, existingProvider) ? onCheck([]) : setCheckConfirmOpen(true) : undefined}
               onChange={onChange}
               onDetect={onDetect}
               onIconDetectingChange={setIconDetecting}

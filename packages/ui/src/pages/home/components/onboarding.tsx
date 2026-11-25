@@ -1,8 +1,8 @@
 import {
   AddProfileDraft, AddProviderDraft, AppConfig, Button, Check, ChevronLeft,
-  ChevronRight, cn, findProviderPreset, GatewayProviderProbeResult, GatewayStatus, Gauge, getNextOnboardingStep,
+  ChevronRight, cn, findProviderPreset, GatewayProviderConfig, GatewayProviderProbeResult, GatewayStatus, Gauge, getNextOnboardingStep,
   isOnboardingProfileReady, isOnboardingProviderReady, Layers3, LucideIcon, mergeProviderModelLists, motion, motionEase,
-  isLocalAgentLoginDraft, LoaderCircle, onboardingMascotSpriteUrl, OnboardingReadinessOptions, OnboardingStepId, onboardingStepOrder, type ProfileAgentOption, providerDraftHasReadyCredentialPool, ProviderConnectivityCheckReport, type ProviderSetupStepId, providerSetupStepsForDraft, reducedMotionTransition, splitLines, useEffect, useReducedMotion,
+  isLocalAgentLoginDraft, LoaderCircle, onboardingMascotSpriteUrl, OnboardingReadinessOptions, OnboardingStepId, onboardingStepOrder, type ProfileAgentOption, providerDraftHasReadyCredentialPool, ProviderConnectivityCheckReport, type ProviderSetupStepId, providerSetupStepsForDraft, reducedMotionTransition, savedLoginAddressChanged, splitLines, useEffect, useReducedMotion,
   useState,
   UserRound, X
 } from "../shared/index";
@@ -45,6 +45,7 @@ export function OnboardingView({
   canSubmitProvider,
   config,
   endpoint,
+  existingProvider,
   gatewayStartupError,
   gatewayStatus,
   onCheckProvider,
@@ -72,6 +73,7 @@ export function OnboardingView({
   canSubmitProvider: boolean;
   config: AppConfig;
   endpoint: string;
+  existingProvider?: GatewayProviderConfig;
   gatewayStartupError?: string;
   gatewayStatus: GatewayStatus;
   onCheckProvider: (models?: string[]) => Promise<ProviderConnectivityCheckReport>;
@@ -105,8 +107,8 @@ export function OnboardingView({
   const activeDetails = onboardingStepDetails[activeStep];
   const previousStep = onboardingStepOrder[activeIndex - 1];
   const nextStep = getNextOnboardingStep(activeStep, config, readiness);
-  const localAgentProviderImport = providerDraft.providerPlugins.length > 0 || isLocalAgentLoginDraft(providerDraft, config.providerPlugins);
-  const providerSetupSteps = providerSetupStepsForDraft(providerDraft, config.providerPlugins);
+  const localAgentProviderImport = providerDraft.providerPlugins.length > 0 || isLocalAgentLoginDraft(providerDraft, config.providerPlugins, existingProvider);
+  const providerSetupSteps = providerSetupStepsForDraft(providerDraft, config.providerPlugins, existingProvider);
   const providerIdentityReady = Boolean(findProviderPreset(providerDraft.presetId) || providerDraft.baseUrl.trim());
   const providerCredentialReady = localAgentProviderImport || Boolean(
     providerDraft.credentialMode === "pool"
@@ -268,9 +270,10 @@ export function OnboardingView({
                       connectivityProbe={providerConnectivityProbe}
                       draft={providerDraft}
                       error={providerError}
+                      existingProvider={existingProvider}
                       activeStep={providerSetupStep}
                       mode={providerReady ? "edit" : "add"}
-                      onCheck={async () => setProviderCheckOpen(true)}
+                      onCheck={async () => savedLoginAddressChanged(providerDraft, config.providerPlugins, existingProvider) ? onCheckProvider([]) : setProviderCheckOpen(true)}
                       onChange={onChangeProvider}
                       onIconDetectingChange={setProviderIconDetecting}
                       onRefreshModels={onRefreshProviderModels}

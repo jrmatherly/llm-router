@@ -263,14 +263,40 @@ test("Refresh and Check send nothing while a saved local login provider's addres
   await dialog.getByRole("button", { name: "Refresh provider models" }).click();
   await expect(blocked).toBeVisible();
   await dialog.getByRole("button", { name: "Check Connection" }).click();
-  await page.getByRole("button", { name: "Start check" }).click();
-  await expect(page.getByText("Check results")).toBeVisible();
+  await expect(blocked).toBeVisible();
+  await expect(page.getByText("Check results")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Start check" })).toHaveCount(0);
   expect(sent.length).toBe(0);
-  await page.getByRole("button", { name: "Close", exact: true }).last().click();
   await dialog.getByLabel(/^API endpoint/).fill("http://127.0.0.1:9/v1");
   await expect(blocked).toHaveCount(0);
   await dialog.getByRole("button", { name: "Refresh provider models" }).click();
   await expect.poll(() => sent.length).toBe(1);
+});
+
+test("the add provider dialog still probes an imported login that brings its own plugins", async ({ page }) => {
+  const current = requireRuntime();
+  const probeRequests: Array<{ apiKey?: string; providerPlugins?: unknown[] }> = [];
+  const grokCandidate = { ...candidate, detail: "Uses the Grok CLI login.", id: "grok", kind: "grok", models: ["grok-stand-in"], name: "Grok", protocol: "openai_chat_completions" };
+  const grokPlugin = { key: "llmr-local-agent-__LLMR_PROVIDER_NAME_SLUG__-grok-oauth", providerName: "__LLMR_PROVIDER_NAME__" };
+  await mockLocalAgentRpc(page, probeRequests, {
+    candidate: grokCandidate,
+    provider: { apiKey: localAgentProviderApiKey, baseUrl: "https://cli-chat-proxy.grok.com/v1", models: grokCandidate.models, name: "Grok", protocol: grokCandidate.protocol },
+    providerPlugins: [grokPlugin]
+  });
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
+  await waitForBridge(page);
+  await page.evaluate(async () => {
+    await window.llmr?.setOnboardingFinished?.();
+  });
+  await page.reload();
+  await waitForBridge(page);
+  await page.getByRole("button", { name: "Providers", exact: true }).click();
+  await page.getByRole("button", { name: "Add provider", exact: true }).first().click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Import", exact: true }).click();
+
+  await expect.poll(() => probeRequests.length).toBeGreaterThan(0);
+  expect(probeRequests[0]?.providerPlugins?.length).toBeGreaterThan(0);
 });
 
 async function openSavedProviderEditDialog(page: Page, current: CliWebRuntime, name: string, apiKey: string, providerPlugins: unknown[] = []) {
@@ -301,7 +327,7 @@ async function answerIconRpc(page: Page): Promise<void> {
   });
 }
 
-async function mockLocalAgentRpc(page: Page, probeRequests?: Array<{ apiKey?: string; providerPlugins?: unknown[] }>): Promise<void> {
+async function mockLocalAgentRpc(page: Page, probeRequests?: Array<{ apiKey?: string; providerPlugins?: unknown[] }>, imported: typeof importResult = importResult): Promise<void> {
   await page.route("**/api/llmr/rpc", async (route) => {
     const payload = route.request().postDataJSON() as { args?: unknown[]; method?: string } | undefined;
     if (payload?.method === "probeProviderCandidates") {
@@ -310,11 +336,11 @@ async function mockLocalAgentRpc(page: Page, probeRequests?: Array<{ apiKey?: st
       return;
     }
     if (payload?.method === "getLocalAgentProviderCandidates") {
-      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: [candidate] }) });
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: [imported.candidate] }) });
       return;
     }
     if (payload?.method === "importLocalAgentProvider") {
-      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: importResult }) });
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, value: imported }) });
       return;
     }
     await route.continue();

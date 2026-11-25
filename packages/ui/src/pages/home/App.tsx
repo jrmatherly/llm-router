@@ -3204,6 +3204,7 @@ function App() {
               canSubmitProvider,
               config: draftConfig,
               endpoint: gatewayEndpoint,
+              existingProvider: providerEditIndex === undefined ? undefined : draftConfig.Providers[providerEditIndex],
               gatewayStatus,
               onCheckProvider: checkProviderDraft,
               onComplete: completeOnboarding,

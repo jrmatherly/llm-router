@@ -850,7 +850,9 @@ test("Claude Code App profiles expose the direct-launch takeover toggle next to 
   assert.match(html, /Only one profile can have this on/);
   assert.doesNotMatch(html, /Applies to the CLI entry/);
   assert.match(html, />The App entry uses the toggle below\.</);
-  assert.match(renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "auto" }), />Applies to the CLI entry\. The App entry uses the toggle below\.</);
+  const autoHtml = renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "auto" });
+  assert.match(autoHtml, />Applies to the CLI entry\. The App entry uses the toggle below\.</);
+  assert.doesNotMatch(autoHtml, />The App entry uses the toggle below\.</);
   assert.doesNotMatch(renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "cli" }), /The App entry uses the toggle below/);
   assert.ok(html.indexOf("Route Claude App launched outside LLMR") < html.indexOf("Advanced settings"));
   assert.doesNotMatch(renderAddProfileForm({ ...createProfileDraft("claude-code"), surface: "cli" }), /Route Claude App launched outside LLMR/);

@@ -193,4 +193,7 @@ test("a local login provider that was not asked says so", () => {
   });
   assert.match(asked, /did not return a model list/);
   assert.doesNotMatch(asked, /has not asked this provider/);
+  const keyed = render({ ...draft, apiKey: "sk-stand-in-0001" }, { onCheck: async () => undefined, onRefreshModels: async () => undefined });
+  assert.match(keyed, /Choose a provider endpoint so LLMR can detect compatible protocols\./);
+  assert.doesNotMatch(keyed, /has not asked this provider/);
 });

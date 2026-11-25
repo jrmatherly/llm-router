@@ -8,6 +8,7 @@ import {
   isClaudeLoginProviderDraft,
   isLocalAgentLoginDraft,
   localAgentProviderApiKey,
+  providerConnectivityProviderPlugins,
   providerSetupStepIds,
   providerSetupStepsForDraft,
   savedLoginAddressChanged,
@@ -71,5 +72,18 @@ test("the saved login is used only while the draft keeps the saved address", () 
   assert.equal(savedLoginAddressChanged({ ...moved, apiKey: "sk-stand-in-0001" }, plugins, saved), false);
   assert.equal(savedLoginAddressChanged(moved, plugins, undefined), false);
   assert.equal(savedLoginAddressChanged({ ...moved, providerPlugins: plugins }, [], saved), false);
+  assert.equal(savedLoginAddressChanged({ ...draft, baseUrl: "http://127.0.0.1:8799/V1" }, plugins, saved), true);
   assert.equal(savedLoginAddressChangedMessage, "Save the new address to check it with your local login.");
+});
+
+test("a renamed draft does not borrow another provider's login", () => {
+  const saved = { api_base_url: "https://typed.example.test/v1", api_key: localAgentProviderApiKey, id: "typed", models: ["typed-model"], name: "Typed", type: "openai_chat_completions" as const };
+  const plugins = [{ key: "llmr-local-agent-codex-codex-oauth", providerName: "Codex" }];
+  const renamed = { ...createProviderDraftFromProvider(saved), name: "Codex" };
+  assert.equal(isLocalAgentLoginDraft(renamed, plugins, saved), false);
+  assert.deepEqual(providerConnectivityProviderPlugins(renamed, plugins, saved), []);
+  assert.equal(savedLoginAddressChanged({ ...renamed, baseUrl: "https://moved.example.test/v1" }, plugins, saved), false);
+  const added = { ...createProviderDraft([]), apiKey: localAgentProviderApiKey, baseUrl: "https://typed.example.test/v1", name: "Codex" };
+  assert.equal(isLocalAgentLoginDraft(added, plugins), true);
+  assert.deepEqual(providerConnectivityProviderPlugins(added, plugins), plugins);
 });

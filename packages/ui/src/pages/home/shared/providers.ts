@@ -845,7 +845,7 @@ export function savedLoginAddressChanged(draft: AddProviderDraft, providerPlugin
   return existingProvider !== undefined &&
     draft.providerPlugins.length === 0 &&
     providerConnectivityProviderPlugins(draft, providerPlugins, existingProvider).length > 0 &&
-    normalizeProviderBaseUrl(draft.baseUrl).toLowerCase() !== normalizeProviderBaseUrl(providerBaseUrl(existingProvider)).toLowerCase();
+    normalizeProviderBaseUrl(draft.baseUrl) !== normalizeProviderBaseUrl(providerBaseUrl(existingProvider));
 }
 
 export function isClaudeLoginProviderDraft(
@@ -873,11 +873,13 @@ function localAgentProviderPluginNamesForDraft(
   draft: AddProviderDraft,
   existingProvider: GatewayProviderConfig | undefined
 ): Set<string> {
-  const existingProviderIdOrName = existingProvider?.id || existingProvider?.name;
+  if (!existingProvider) {
+    return providerPluginMatchNames([draft.name], draft.protocol);
+  }
+  const existingProviderIdOrName = existingProvider.id || existingProvider.name;
   return providerPluginMatchNames([
-    draft.name,
-    existingProvider?.name,
-    existingProvider?.id,
+    existingProvider.name,
+    existingProvider.id,
     existingProviderIdOrName ? providerNameSlug(existingProviderIdOrName) : undefined
   ], draft.protocol);
 }
