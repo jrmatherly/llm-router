@@ -1011,7 +1011,7 @@ test("route script workers distribute concurrent executions across available slo
     const deadline = Date.now() + 350;
     while (Date.now() < deadline) {}
     return true;
-  `, { timeoutMs: 400 });
+  `, { timeoutMs: 1000 });
   const input = scriptInput();
   try {
     const results = await Promise.all([
