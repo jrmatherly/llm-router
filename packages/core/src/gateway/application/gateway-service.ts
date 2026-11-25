@@ -865,6 +865,8 @@ class GatewayService {
       // While the gateway still runs, the reload is tried again a minute later, and the same failure is logged once.
       this.storedApiKeysBaseline = unappliedStoredApiKeys;
       this.storedApiKeysRetryAt = Date.now() + storedApiKeysRetryMs;
+      // The poll stops while the gateway is down, so a start that failed here gets the restart a crash gets.
+      if (this.status.state === "error" && this.config) this.scheduleCoreRestart(this.coreRestartGeneration);
       if (message !== this.storedApiKeysReloadFailure) console.error(`[gateway] Failed to reload after a stored API key change: ${message}`);
       this.storedApiKeysReloadFailure = message;
     }
