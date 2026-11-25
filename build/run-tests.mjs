@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isolateTestHome } from "./test-home-env.mjs";
+import { guardTestNetwork, isolateTestHome, refusalReport, refusedConnectionFailsRun, refusedConnections } from "./test-home-env.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
@@ -39,21 +39,32 @@ async function runProject(project) {
   const testHome = mkdtempSync(path.join(os.tmpdir(), `llmr-${project}-test-home-`));
   const runtime = testProjects[project].runtime;
   const executable = runtime === "electron" ? electron : process.execPath;
+  const networkLog = path.join(testHome, "network-refused.log");
+  const env = guardTestNetwork({
+    ...isolateTestHome(testHome, { ...process.env }),
+    ...(runtime === "electron" ? { ELECTRON_RUN_AS_NODE: "1" } : {})
+  }, path.join(__dirname, "test-network-guard.mjs"), networkLog);
+  delete env.LLMR_TEST_FILE;
   console.log(`\nRunning ${project} tests with ${runtime}...`);
 
   try {
     await new Promise((resolve, reject) => {
       const child = spawn(executable, ["--test", ...testFiles], {
         cwd: projectRoot,
-        env: {
-          ...isolateTestHome(testHome, { ...process.env }),
-          ...(runtime === "electron" ? { ELECTRON_RUN_AS_NODE: "1" } : {})
-        },
+        env,
         stdio: "inherit"
       });
 
       child.on("error", reject);
       child.on("exit", (code, signal) => {
+        const refused = refusedConnections(networkLog);
+        if (refused.length > 0) {
+          console.log([`${project}: ${refusalReport(refused)}`, ...refused].join("\n"));
+          if (refusedConnectionFailsRun) {
+            reject(new Error(`${project} tests connected to an outside host`));
+            return;
+          }
+        }
         if (signal) {
           reject(new Error(`${project} tests exited from signal ${signal}`));
           return;

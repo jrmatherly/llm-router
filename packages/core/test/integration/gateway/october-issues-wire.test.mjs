@@ -481,7 +481,7 @@ setGlobalDispatcher(new LoopbackOnly());
       const compiled = await compileCoreGatewayConfig(config, "trace", "billing", "auth");
       providerName = compiled.providers[0].name;
       const plugins = compiled.plugins.filter(plugin => plugin.key !== "llm-router").map(plugin => ({ ...plugin, modulePath: path.resolve(__dirname, "../../../runtime", path.basename(plugin.modulePath)) }));
-      const env = { ...process.env, HOME: root, USERPROFILE: root, LLMR_INTERNAL_HOME_DIR: root, CODEX_REFRESH_TOKEN_URL_OVERRIDE: `${stubUrl}/oauth/token`, LLMR_TEST_CHATGPT_ORIGIN: stubUrl, NODE_OPTIONS: `--import=${pathToFileURL(preload).href}` };
+      const env = { ...process.env, HOME: root, USERPROFILE: root, LLMR_INTERNAL_HOME_DIR: root, CODEX_REFRESH_TOKEN_URL_OVERRIDE: `${stubUrl}/oauth/token`, LLMR_TEST_CHATGPT_ORIGIN: stubUrl, NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${pathToFileURL(preload).href}`].filter(Boolean).join(" ") };
       delete env.CODEX_HOME;
       const gateway = await startGateway(root, { providers: compiled.providers, providerPlugins: compiled.providerPlugins, plugins }, env);
       gateways.push(gateway);

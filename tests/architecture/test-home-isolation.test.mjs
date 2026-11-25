@@ -70,6 +70,7 @@ test("a test file that throws still removes its home", () => {
 test("build/test.mjs bundles the guard into tests that never import it", () => {
   const compiled = path.join(projectRoot, ".test-dist", "architecture", "test", "build-output-swap.test.js");
   assert.match(readFileSync(compiled, "utf8"), /llmr-test-home-/, `${compiled} lacks the guard; rebuild with node build/test.mjs architecture`);
+  assert.match(readFileSync(compiled, "utf8"), /test network guard: refused/);
 });
 
 test("the test runner leaves no folder in the temp directory", () => {
