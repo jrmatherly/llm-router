@@ -93,7 +93,8 @@ function windowsShortcutTargetCandidates(options: WindowsDesktopAppDiscoveryOpti
   const script = [
     "$ErrorActionPreference = 'SilentlyContinue';",
     "$shell = New-Object -ComObject WScript.Shell;",
-    "$env:LLMR_SHORTCUT_FILES | ConvertFrom-Json |",
+    // In parentheses, because Windows PowerShell 5.1 passes a JSON array down the pipeline as one object.
+    "($env:LLMR_SHORTCUT_FILES | ConvertFrom-Json) |",
     "  ForEach-Object {",
     "    try {",
     "      $target = $shell.CreateShortcut($_).TargetPath;",
@@ -117,6 +118,7 @@ function windowsShortcutTargetCandidates(options: WindowsDesktopAppDiscoveryOpti
     windowsHide: true
   });
   if (result.status !== 0) {
+    console.warn(`[apps] Could not read where ${shortcuts.length} shortcut(s) point: ${result.error?.message ?? `PowerShell exited with ${result.status}`}`);
     return [];
   }
 
@@ -261,12 +263,14 @@ export function prefetchWindowsAppxPackages(): Promise<void> {
           "-Command",
           "$ErrorActionPreference = 'SilentlyContinue'; Get-AppxPackage | ForEach-Object { $_.Name + \"`t\" + $_.PackageFullName + \"`t\" + $_.InstallLocation }"
         ], { encoding: "utf8", timeout: 15_000, windowsHide: true }, (error, stdout) => {
+          if (error) console.warn(`[apps] Could not read the list of installed app packages: ${error.message}`);
           resolve(error ? undefined : stdout
             .split(/\r?\n/)
             .map((line) => line.split("\t").map((field) => field.trim()))
             .filter((fields) => fields.length === 3 && fields[2]));
         });
-      } catch {
+      } catch (error) {
+        console.warn(`[apps] Could not read the list of installed app packages: ${error instanceof Error ? error.message : String(error)}`);
         resolve(undefined);
       }
     }).then((packages) => {
@@ -376,7 +380,14 @@ function readDirectoryEntries(dir: string, recursive = false): string[] {
   try {
     return readdirSync(dir, { recursive }) as string[];
   } catch {
-    return [];
+    if (!recursive) {
+      return [];
+    }
+    // One unreadable folder fails the whole recursive read, so each level is read on its own and that folder is skipped.
+    return readDirectoryEntries(dir).flatMap((entry) => [
+      entry,
+      ...readDirectoryEntries(path.join(dir, entry), true).map((child) => path.join(entry, child))
+    ]);
   }
 }
 

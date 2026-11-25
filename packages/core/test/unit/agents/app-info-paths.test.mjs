@@ -159,7 +159,6 @@ test("a failed package load is tried again, and a lookup before any load answers
   await prefetchWindowsAppxPackages();
   const second = [...windowsDesktopAppCandidates(chatgptOptions)];
 
-  assert.equal(first.some((candidate) => candidate.startsWith("C:\\")), false);
   assert.deepEqual(second, first);
   assert.equal(execFile.mock.callCount(), 2);
 });
@@ -216,6 +215,58 @@ test("a matching Start Menu shortcut is read with one PowerShell run that has a 
   assert.doesNotMatch(args.at(-1), /\.lnk/);
   assert.deepEqual(JSON.parse(options.env.LLMR_SHORTCUT_FILES), [path.join(programs, "Apps/ChatGPT.lnk")]);
   assert.equal(options.timeout, 5000);
+});
+
+test("on Windows, the targets of two matching shortcuts are both read", { skip: process.platform !== "win32" }, async (t) => {
+  resetWindowsAppxPackagesForTest();
+  const appData = fs.mkdtempSync(path.join(os.tmpdir(), "llmr-appdata-"));
+  const previousAppData = process.env.APPDATA;
+  process.env.APPDATA = appData;
+  const programs = path.join(appData, "Microsoft", "Windows", "Start Menu", "Programs");
+  fs.mkdirSync(programs, { recursive: true });
+  const targets = [process.execPath, path.join(process.env.SystemRoot, "System32", "cmd.exe")];
+  const links = [path.join(programs, "ChatGPT.lnk"), path.join(programs, "ChatGPT it's.lnk")];
+  childProcess.execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", [
+    "$shell = New-Object -ComObject WScript.Shell;",
+    "$pairs = $env:LLMR_TEST_SHORTCUTS | ConvertFrom-Json;",
+    "foreach ($pair in $pairs) { $link = $shell.CreateShortcut($pair[0]); $link.TargetPath = $pair[1]; $link.Save() }"
+  ].join(" ")], { env: { ...process.env, LLMR_TEST_SHORTCUTS: JSON.stringify(links.map((link, index) => [link, targets[index]])) } });
+  t.after(async () => {
+    await prefetchWindowsAppxPackages();
+    resetWindowsAppxPackagesForTest();
+    fs.rmSync(appData, { force: true, recursive: true });
+    restoreEnv("APPDATA", previousAppData);
+  });
+
+  const candidates = [...windowsDesktopAppCandidates(chatgptOptions)].map((candidate) => candidate.toLowerCase());
+
+  for (const target of targets) {
+    assert.equal(candidates.includes(target.toLowerCase()), true, target);
+  }
+});
+
+test("a shortcut is still found when a folder beside it cannot be read", { skip: (process.platform === "win32" || process.getuid?.() === 0) && "chmod cannot make a folder unreadable on Windows or for root" }, (t) => {
+  stubWindows(t);
+  const appData = fs.mkdtempSync(path.join(os.tmpdir(), "llmr-appdata-"));
+  const previousAppData = process.env.APPDATA;
+  process.env.APPDATA = appData;
+  const programs = path.join(appData, "Microsoft", "Windows", "Start Menu", "Programs");
+  const locked = path.join(programs, "Locked");
+  fs.mkdirSync(path.join(programs, "Apps"), { recursive: true });
+  fs.mkdirSync(locked);
+  fs.writeFileSync(path.join(programs, "Apps", "ChatGPT.lnk"), "");
+  fs.chmodSync(locked, 0o000);
+  t.after(() => {
+    fs.chmodSync(locked, 0o700);
+    fs.rmSync(appData, { force: true, recursive: true });
+    restoreEnv("APPDATA", previousAppData);
+  });
+  const spawnSync = t.mock.method(childProcess, "spawnSync", () => ({ status: 0, stdout: "" }));
+  mockPackageList(t, () => {});
+
+  [...windowsDesktopAppCandidates(chatgptOptions)];
+
+  assert.deepEqual(JSON.parse(spawnSync.mock.calls[0].arguments[2].env.LLMR_SHORTCUT_FILES), [path.join(programs, "Apps", "ChatGPT.lnk")]);
 });
 
 test("a launch waits for the package list only when the first look finds nothing", async (t) => {

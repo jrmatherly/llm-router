@@ -1024,14 +1024,18 @@ function monitorProfileApp(probe: () => Promise<number | undefined>, onGone: () 
     new Promise<number | undefined>((resolve) => resolve(probe())).then((pid) => {
       failures = 0;
       return pid === undefined;
-    }, () => {
+    }, (error: unknown) => {
       failures += 1;
-      return failures >= monitorProbeFailureLimit;
+      const gone = failures >= monitorProbeFailureLimit;
+      console.warn(`[profile] Could not check whether a profile app is still running (${failures} of ${monitorProbeFailureLimit})${gone ? ", so it is treated as closed" : ""}: ${formatError(error)}`);
+      return gone;
     }).then((gone) => {
       probing = false;
       if (gone) {
         onGone();
       }
+    }).catch((error: unknown) => {
+      console.warn(`[profile] Could not clean up after a profile app closed: ${formatError(error)}`);
     });
   }, intervalMs);
   monitor.unref?.();
