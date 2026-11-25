@@ -14,7 +14,7 @@ import { pluginService } from "@llmr/core/plugins/service";
 import { proxyService } from "@llmr/core/proxy/service";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler";
-import { existingGatewayPredatesManagerKey, isAddressInUseMessage, probeExistingLlmrGateway, reloadExistingLlmrGatewayConfig } from "@llmr/core/gateway/existing-gateway-probe";
+import { existingGatewayPredatesManagerKey, isAddressInUseMessage, isGatewayEndpointAnswering, probeExistingLlmrGateway, reloadExistingLlmrGatewayConfig } from "@llmr/core/gateway/existing-gateway-probe";
 import { closeServer, formatError, sendGatewayError } from "@llmr/core/gateway/http/io";
 import { RawTraceSynchronizer } from "@llmr/core/observability/raw-trace-sync";
 import { GatewayBillingSynchronizer } from "@llmr/core/usage/billing-sync";
@@ -48,6 +48,8 @@ import { setExternalLiveTokenRateSnapshot } from "@llmr/core/observability/strea
 installSocketTypeOfServiceCompat();
 
 const coreGatewayLiveTokenRateSourceId = "core-gateway";
+const adoptedGatewayGoneMs = 10_000;
+const adoptedGatewayPollMs = 2000;
 const storedApiKeysPollMs = 1000;
 const storedApiKeysRetryMs = 60_000;
 // Never equal to a stored list's JSON, so the poll reloads again.
@@ -127,6 +129,8 @@ class GatewayService {
     getConfig: () => this.config,
     getGlobalBillingConfig: () => pluginService.getCoreGatewayConfig().billing
   });
+  private adoptedGatewayGoneSince?: number;
+  private adoptedGatewayTimer?: NodeJS.Timeout;
   private child?: ChildProcess;
   private coreRestartAttempts = 0;
   private coreRestartGeneration = 0;
@@ -432,6 +436,8 @@ class GatewayService {
   private async stopGateway(options: GatewayStopOptions = {}): Promise<GatewayStatus> {
     clearInterval(this.storedApiKeysTimer);
     this.storedApiKeysTimer = undefined;
+    clearInterval(this.adoptedGatewayTimer);
+    this.adoptedGatewayTimer = undefined;
     const child = this.child;
     const childCoreEndpoint = child ? this.status.coreEndpoint : "";
     this.child = undefined;
@@ -854,6 +860,28 @@ class GatewayService {
       networkEndpoints: gatewayNetworkEndpoints(config.gateway.host, config.gateway.port),
       state: "running"
     };
+    this.adoptedGatewayGoneSince = undefined;
+    clearInterval(this.adoptedGatewayTimer);
+    this.adoptedGatewayTimer = setInterval(() => { void this.checkAdoptedGateway(); }, adoptedGatewayPollMs).unref();
+  }
+
+  // The serving process may only be restarting, so the gateway has to stay gone for the whole wait before this process starts its own.
+  private async checkAdoptedGateway(): Promise<void> {
+    if (!this.status.gatewayManagedExternally) return;
+    const generation = this.coreRestartGeneration;
+    const answering = await isGatewayEndpointAnswering(this.status.endpoint);
+    if (generation !== this.coreRestartGeneration || !this.status.gatewayManagedExternally) return;
+    if (answering) {
+      this.adoptedGatewayGoneSince = undefined;
+      return;
+    }
+    this.adoptedGatewayGoneSince ??= Date.now();
+    if (Date.now() - this.adoptedGatewayGoneSince < adoptedGatewayGoneMs) return;
+    const lastError = `The LLM Router gateway at ${this.status.endpoint} that this process was using is gone.`;
+    console.warn(`[gateway] ${lastError} Starting one here.`);
+    this.status = { ...this.status, gatewayManagedExternally: undefined, lastError, state: "error" };
+    this.coreRestartAttempts = 0;
+    this.scheduleCoreRestart(generation);
   }
 
 }
