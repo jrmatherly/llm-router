@@ -11,7 +11,7 @@ import { resolveClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/
 import { CLAUDE_CODE_CONFIG_DIR_ENV, claudeCodeConfigDir } from "@llmr/core/agents/claude-code/environment";
 import { codexDesktopAppName, launchCodexAppProfile, launchWorkbuddyAppProfile, launchZcodeAppProfile, prepareCodexAppNetResponder, refreshCodexCompatibleAppProfileFiles, workbuddyDesktopAppName } from "@llmr/core/agents/codex/app-launch";
 import { CodexAppMediaPreviewBridge, shouldEnableCodexMediaPreviewBridge } from "@llmr/core/agents/codex/media-preview-bridge";
-import { findRunningOpenCodeAppPid, launchOpenCodeAppProfile, openCodeAppLaunchSignature } from "@llmr/core/agents/opencode/app-launch";
+import { findInstalledOpenCodeAppExecutable, findRunningOpenCodeAppPid, launchOpenCodeAppProfile, openCodeAppLaunchSignature } from "@llmr/core/agents/opencode/app-launch";
 import { writeOpenCodeGatewayConfig } from "@llmr/core/agents/opencode/profile-config";
 import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-middleware-runtime";
 import { CONFIGDIR } from "@llmr/core/config/constants";
@@ -26,6 +26,7 @@ import { profileApiKeyId } from "@llmr/core/profiles/api-key";
 import { backupFiles, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { applyProfileConfig, cleanupGeneratedBinBackups } from "@llmr/core/profiles/service";
 import { spawnCommandLaunch } from "@llmr/core/platform/command-path";
+import { findAfterAppxLoad } from "@llmr/core/platform/windows-app-discovery";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@llmr/core/platform/windows-system";
 import { resolveRuntimeAppPath } from "@llmr/core/runtime/app-paths";
 
@@ -173,6 +174,8 @@ export async function openProfileFromLlmr(config: AppConfig, request: ProfileOpe
     return await openCodexAppProfile(config, profile);
   }
   if (profile.agent === "opencode" && surface === "app") {
+    // The OpenCode launch is synchronous, so the package list it may need is loaded here.
+    await findAfterAppxLoad(() => findInstalledOpenCodeAppExecutable(profile.appPath));
     return await openOpenCodeAppProfile(config, profile);
   }
   const plan = buildProfileLaunchPlan(CONFIGDIR, profile, surface);

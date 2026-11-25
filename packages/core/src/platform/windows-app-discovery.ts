@@ -1,7 +1,8 @@
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { commandSearchPath } from "@llmr/core/platform/command-path";
 import { windowsSystemCommand } from "@llmr/core/platform/windows-system";
 
 export type WindowsDesktopAppDiscoveryOptions = {
@@ -52,8 +53,18 @@ export function* windowsDesktopAppCandidates(options: WindowsDesktopAppDiscovery
   yield* candidates;
   yield* windowsAppExecutionAliasCandidates(options);
   yield* windowsShortcutTargetCandidates(options);
-  yield* windowsMsixPackageCandidates(options);
+  // Before the package step, so an app on the path starts no package load.
   yield* windowsWhereCandidates(options.whereNames);
+  yield* windowsMsixPackageCandidates(options);
+}
+
+export async function findAfterAppxLoad<T extends { executable?: string }>(lookup: () => T): Promise<T> {
+  const found = lookup();
+  if (found.executable || process.platform !== "win32") {
+    return found;
+  }
+  await prefetchWindowsAppxPackages();
+  return lookup();
 }
 
 function windowsShortcutTargetCandidates(options: WindowsDesktopAppDiscoveryOptions): string[] {
@@ -66,22 +77,25 @@ function windowsShortcutTargetCandidates(options: WindowsDesktopAppDiscoveryOpti
     return [];
   }
 
-  const pattern = names.map(escapeRegExp).join("|");
+  const shortcuts = unique([
+    process.env.APPDATA ? path.join(process.env.APPDATA, "Microsoft", "Windows", "Start Menu", "Programs") : undefined,
+    process.env.ProgramData ? path.join(process.env.ProgramData, "Microsoft", "Windows", "Start Menu", "Programs") : undefined,
+    process.env.USERPROFILE ? path.join(process.env.USERPROFILE, "Desktop") : undefined,
+    process.env.PUBLIC ? path.join(process.env.PUBLIC, "Desktop") : undefined
+  ].filter((value): value is string => Boolean(value?.trim())))
+    .flatMap((root) => readDirectoryEntries(root, true).map((entry) => path.join(root, entry)))
+    .filter((file) => file.toLowerCase().endsWith(".lnk") && nameContainsKeyword(path.basename(file, path.extname(file)), names));
+  if (shortcuts.length === 0) {
+    return [];
+  }
+
   const script = [
     "$ErrorActionPreference = 'SilentlyContinue';",
-    "$roots = @(",
-    "  [Environment]::GetFolderPath('Programs'),",
-    "  [Environment]::GetFolderPath('CommonPrograms'),",
-    "  [Environment]::GetFolderPath('Desktop'),",
-    "  [Environment]::GetFolderPath('CommonDesktopDirectory')",
-    ") | Where-Object { $_ } | Select-Object -Unique;",
-    `$pattern = '${powerShellSingleQuotedString(pattern)}';`,
     "$shell = New-Object -ComObject WScript.Shell;",
-    "Get-ChildItem -LiteralPath $roots -Filter '*.lnk' -File -Recurse |",
-    "  Where-Object { $_.BaseName -match $pattern } |",
+    `@(${shortcuts.map((file) => `'${powerShellSingleQuotedString(file)}'`).join(",")}) |`,
     "  ForEach-Object {",
     "    try {",
-    "      $target = $shell.CreateShortcut($_.FullName).TargetPath;",
+    "      $target = $shell.CreateShortcut($_).TargetPath;",
     "      if ($target) { $target }",
     "    } catch {}",
     "  }"
@@ -96,6 +110,7 @@ function windowsShortcutTargetCandidates(options: WindowsDesktopAppDiscoveryOpti
     script
   ], {
     encoding: "utf8",
+    timeout: 5_000,
     windowsHide: true
   });
   if (result.status !== 0) {
@@ -221,41 +236,60 @@ function windowsPackageRoots(): string[] {
   ].filter((value): value is string => Boolean(value?.trim())));
 }
 
+const appxMaxAgeMs = 30_000;
+let appxPackages: { loadedAt: number; packages: string[][] } | undefined;
+let appxLoad: Promise<void> | undefined;
+let appxGeneration = 0;
+
+// Resolves at once with a list younger than 30 seconds. Never rejects: a failed load keeps the list it had.
+export function prefetchWindowsAppxPackages(): Promise<void> {
+  if (process.platform !== "win32" || (appxPackages && Date.now() - appxPackages.loadedAt <= appxMaxAgeMs)) {
+    return Promise.resolve();
+  }
+  if (!appxLoad) {
+    const generation = appxGeneration;
+    appxLoad = new Promise<string[][] | undefined>((resolve) => {
+      try {
+        execFile(windowsSystemCommand("powershell.exe"), [
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-Command",
+          "$ErrorActionPreference = 'SilentlyContinue'; Get-AppxPackage | ForEach-Object { $_.Name + \"`t\" + $_.PackageFullName + \"`t\" + $_.InstallLocation }"
+        ], { encoding: "utf8", timeout: 15_000, windowsHide: true }, (error, stdout) => {
+          resolve(error ? undefined : stdout
+            .split(/\r?\n/)
+            .map((line) => line.split("\t").map((field) => field.trim()))
+            .filter((fields) => fields.length === 3 && fields[2]));
+        });
+      } catch {
+        resolve(undefined);
+      }
+    }).then((packages) => {
+      if (generation !== appxGeneration) {
+        return;
+      }
+      appxLoad = undefined;
+      if (packages) {
+        appxPackages = { loadedAt: Date.now(), packages };
+      }
+    });
+  }
+  return appxLoad;
+}
+
+export function resetWindowsAppxPackagesForTest(): void {
+  appxGeneration += 1;
+  appxPackages = undefined;
+  appxLoad = undefined;
+}
+
 function windowsAppxPackageInstallLocations(packageKeywords: string[]): string[] {
-  if (packageKeywords.length === 0) {
-    return [];
-  }
-
-  const pattern = packageKeywords.map(escapeRegExp).join("|");
-  const script = [
-    "$ErrorActionPreference = 'SilentlyContinue';",
-    `$pattern = '${powerShellSingleQuotedString(pattern)}';`,
-    "Get-AppxPackage | Where-Object {",
-    "  ($_.Name -match $pattern) -or",
-    "  ($_.PackageFullName -match $pattern) -or",
-    "  ($_.InstallLocation -match $pattern)",
-    "} | ForEach-Object { $_.InstallLocation }"
-  ].join(" ");
-
-  const result = spawnSync(windowsSystemCommand("powershell.exe"), [
-    "-NoProfile",
-    "-NonInteractive",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-Command",
-    script
-  ], {
-    encoding: "utf8",
-    windowsHide: true
-  });
-  if (result.status !== 0) {
-    return [];
-  }
-
-  return result.stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  void prefetchWindowsAppxPackages();
+  return (appxPackages?.packages ?? [])
+    .filter((fields) => fields.some((field) => nameContainsKeyword(field, packageKeywords)))
+    .map((fields) => fields[2]);
 }
 
 function pushWindowsExecutableCandidates(
@@ -277,18 +311,13 @@ function pushWindowsExecutableCandidates(
 }
 
 function windowsWhereCandidates(names: string[]): string[] {
+  const { directories, extensions } = commandSearchPath();
+  const wanted = new Set(names.flatMap((name) => [name, ...extensions.map((extension) => name + extension)]).map((name) => name.toLowerCase()));
   const candidates: string[] = [];
-  for (const name of names) {
-    const result = spawnSync(windowsSystemCommand("where.exe"), [name], {
-      encoding: "utf8",
-      windowsHide: true
-    });
-    if (result.status !== 0) {
-      continue;
-    }
-    for (const line of result.stdout.split(/\r?\n/)) {
-      if (line.trim()) {
-        pushUnique(candidates, line.trim());
+  for (const directory of directories) {
+    for (const entry of readDirectoryEntries(directory)) {
+      if (wanted.has(entry.toLowerCase())) {
+        pushUnique(candidates, path.join(directory, entry));
       }
     }
   }
@@ -340,9 +369,9 @@ function windowsExecutableInDir(
   return undefined;
 }
 
-function readDirectoryEntries(dir: string): string[] {
+function readDirectoryEntries(dir: string, recursive = false): string[] {
   try {
-    return readdirSync(dir);
+    return readdirSync(dir, { recursive }) as string[];
   } catch {
     return [];
   }
@@ -399,8 +428,4 @@ function pushUnique(values: string[], value: string): void {
 
 function powerShellSingleQuotedString(value: string): string {
   return value.replace(/'/g, "''");
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

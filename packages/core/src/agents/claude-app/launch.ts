@@ -8,7 +8,7 @@ import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import { prepareClaudeAppVmStorage } from "@llmr/core/agents/claude-app/vm-storage";
 import { CLAUDE_CODE_CONFIG_DIR_ENV, claudeCodeConfigDir, claudeCodeModelEnv as claudeCodeProfileModelEnv, isClaudeCodeManagedModelEnvKey } from "@llmr/core/agents/claude-code/environment";
 import { resolveClaudeCodeSettingsFile } from "@llmr/core/profiles/launch-core";
-import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@llmr/core/platform/windows-app-discovery";
+import { findAfterAppxLoad, normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@llmr/core/platform/windows-app-discovery";
 import { resolveUserPath } from "@llmr/core/runtime/app-paths";
 
 type ClaudeAppLookupResult = {
@@ -41,7 +41,7 @@ type ClaudeAppCandidateOptions = {
 };
 
 export async function launchClaudeAppProfile(configDir: string, profile: ProfileConfig, config?: AppConfig): Promise<ClaudeAppLaunchResult> {
-  const lookup = findInstalledClaudeAppExecutable(profile.appPath);
+  const lookup = await findAfterAppxLoad(() => findInstalledClaudeAppExecutable(profile.appPath));
   if (!lookup.executable) {
     throw new Error([
       "Claude App was not found. Install Claude App or set CLAUDE_APP_PATH to its executable, then try again.",

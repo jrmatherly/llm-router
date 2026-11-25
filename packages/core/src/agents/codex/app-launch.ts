@@ -11,7 +11,7 @@ import { prepareCodexAppCdpUserDataDir } from "@llmr/core/agents/codex/media-pre
 import { withoutClaudeLoginProviders } from "@llmr/core/gateway/features/claude-login-pass-through";
 import { backupBeforeWrite, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import { buildProfileLaunchPlan, resolveCodexConfigFile } from "@llmr/core/profiles/launch-core";
-import { normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@llmr/core/platform/windows-app-discovery";
+import { findAfterAppxLoad, normalizeWindowsDesktopAppCandidate, windowsDesktopAppCandidates } from "@llmr/core/platform/windows-app-discovery";
 import { buildZcodeModelCatalog } from "@llmr/core/agents/zcode/model-catalog";
 import { writeZcodeGatewayConfig, zcodeHomeFromConfigFile } from "@llmr/core/agents/zcode/profile-config";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
@@ -588,7 +588,7 @@ async function launchCodexCompatibleAppProfile(
   spec: CodexCompatibleAppSpec,
   config?: AppConfig
 ): Promise<CodexAppLaunchResult> {
-  const lookup = findInstalledCodexCompatibleAppExecutable(spec, profile.appPath);
+  const lookup = await findAfterAppxLoad(() => findInstalledCodexCompatibleAppExecutable(spec, profile.appPath));
   if (!lookup.executable) {
     throw new Error([
       `${spec.displayName} was not found. Install ${spec.displayName} or set ${spec.envPathKeys[1]} to its executable, then try again.`,
