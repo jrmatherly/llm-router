@@ -633,7 +633,7 @@ Not in this task. An open still stops the running gateway and starts it again, b
 
 - **Built as written:** the fallback is deleted, and an expired profile key is refused at once with its expiry.
 - **Taken out: `ProfileGatewayUnavailableError` for a gateway that is gone when the wait ends.** Two reviewers found what the research and the audit missed. `waitForProfileKey` runs only after a probe that found a gateway, so "gone" at the end means a gateway that answered seconds earlier. And the desktop app writes no state the CLI can read: only `cli.ts` calls `writeServiceState` (a search, run). So the CLI cannot tell a desktop gateway that is restarting from one that is gone, and for a Grok, Kimi or Pi launch it would start a service beside the open app. The research's sentence "a gateway still gone after 10 seconds is not about to come back" was an inference from one measurement. The refusal stays the plain error of PR 153, and now ends with the restart advice. `gatewayNotRunningError` was not added.
-- **Not open with the owner.** He accepted this change on 2026-11-24 ("Yes, accept all"), and an earlier form of this line was wrong to hand the question back to him. What is left is how to make it safe. The session traced the cost on 2026-11-24: the desktop app adopts the service such a launch starts, and when the agent exits that service stops and the desktop window stays green with nothing answering (read, not run on real processes). Task 6 of the VM findings plan removes that. The two-line change goes back after it, with a run on real processes before it merges.
+- **Not open with the owner.** He accepted this change on 2026-11-24 ("Yes, accept all"), and an earlier form of this line was wrong to hand the question back to him. What is left is how to make it safe. The session traced the cost on 2026-11-24: the desktop app adopts the service such a launch starts, and when the agent exits that service stops and the desktop window stays green with nothing answering (read, not run on real processes). Task 6 of the VM findings plan removed that (PR 155, merged 2026-11-25). Task 6 of this plan is the task that puts the change back. Its audit advises against building it until the restore of the agent takeovers it describes is handled.
 - **Test change from the review:** the two new tests record every request and assert that none is sent. The helper is `recordRequests`, not `failOnFetch`, because the probe catches a fetch error and the first form only worked through the error's text.
 
 The text below is the task as it was audited, kept as written.
@@ -741,6 +741,81 @@ Not in this task.
 - **What the started service meets.** If the first owner's gateway comes back by a restart, that restart adopts or waits (PR 152). If it comes back by a manual start or a stored-key reload, that start stops the other gateway once (read, not run). With real processes this is a check for the owner's VM, which he holds until the next release is out.
 - **The form of the date in the expiry message.** It prints `expiresAt` as stored. The form the API Keys page stores was not checked.
 - **A key whose `expiresAt` cannot be parsed.** `isApiKeyExpired` reads it as not expired (read), and so does this task.
+
+---
+
+### Task 6: A gateway that is gone when the wait ends gives the error a launch with no gateway gives (K-3)
+
+Written 2026-11-25 on the owner's word. He accepted the change on 2026-11-24 as the third change of Task 5, and the review of PR 154 took it out. This task puts it back after PR 155. One PR, one commit, branch `fix/launch-gone-gateway-error`. Building it and merging it each need his word.
+
+**Audited once on another model, 2026-11-25. Its advice: do not build this until the restore of the agent takeovers below is handled, or the owner accepts it by name.** The audit built the task from this text, and every gate passed. It found 2 Blockers in the reasoning, not in the code, and 6 Corrections. All are applied below. The first Blocker was run on a real gateway child. The second was read by the audit, and the session read the restore itself again (`web/management-server.ts:611-617`, `profiles/service.ts:3541-3573`). The text changed by that round was not audited again.
+
+**What it changes for a user.** A Grok, Kimi or Pi launch from a terminal that waited for its key and found the gateway gone at the end starts a service of its own and goes on, as the same launch does when it finds no gateway at the start. Today it stops with advice to restart the gateway. Every other agent gets "LLMR gateway is not running ... Start LLMR Desktop or run llmr start" in place of "is not reachable" with the restart advice.
+
+**Why it was taken out, and what is different now.**
+- **The objection of PR 154 still holds as a fact.** The wait begins only after a probe found a gateway, and the desktop app writes no state the CLI can read (only `cli.ts` calls `writeServiceState`). So at the end of the wait the CLI cannot tell a gateway that is restarting from one that is gone.
+- **What the wait does settle (read, not run).** The gateway restarts for a stored key within about 3 seconds of the key being stored, a 1 second poll with a second tick to confirm (`gateway-service.ts`, `checkStoredApiKeys`), and an earlier session measured the restart at about 2 seconds. A last probe that finds nothing after 10 seconds means a restart that failed, a gateway that is gone, or a restart more than three times slower than measured. That holds for the single layout. In the compat layout LLM Router's own front comes back on the public port before the child, so the gone-at-the-end case is rarer there and was not traced.
+- **The same start already happens without this task.** A Grok, Kimi or Pi launch whose first probe falls inside another process's restart gets `ProfileGatewayUnavailableError` today and starts a service (`launch-service.ts:446-449`, `cli.ts:168-182`, read). That first probe runs right after the launch stores its key, so it falls inside a restart only when something else set that restart off. This task adds the moment most likely to fall inside one: the end of a wait for the restart this launch's own key set off. It adds no new kind of start.
+- **What the service does beside a process that is restarting (read, not run on real processes).** The service starts its gateway with `ensureStarted` (`web/management-server.ts:590`). That probes first and adopts a gateway that answers. With none answering it starts its own. It signals the process named in the gateway marker only when that process's gateway is healthy at that moment, and otherwise removes the marker (`supervisor.ts`, `stopPreviousManagedCoreGateway`, both halves run by the audit in a throwaway test). So the gateway that serves afterwards can run with no marker, and a later manual start in a third process then fails with "already in use" and takes nothing over (inferred). A gateway that turns healthy between the service's first probe and that call is signalled, and its restart then adopts the service's gateway or races it (read).
+- **Where the other process ends up (read, not run on real processes).**
+  1. Its gateway was gone for good. The service serves. If the other process is still retrying, its restart adopts the service's gateway (PR 152) and watches it (PR 155). When the agent exits and the service stops, that process starts its own gateway about 12 seconds later.
+  2. It was restarting after a crash and loses the port. The same as 1.
+  3. It was restarting for a stored key or a save, and loses the port or has its new child signalled. That start is not a recovery, so it ends in `error` and does not try again (`gateway-service.ts`, the `catch` of `startGateway`, and `handleCoreGatewayTermination`, which reschedules only a gateway that was `running`). The service serves and the launch works. The desktop window shows the error for the whole session, and its stored-key poll does nothing in that state (run by the audit). When the agent exits, nothing serves, the takeovers are restored as the bullet below says, and the window stays in error until Start is clicked. This is the worst case. It needs a restart slower than about 7 seconds, and a refusal would leave the same person restarting the desktop app by hand.
+  4. It wins the port. The service's own start fails, and `ensureStarted` does not adopt, because it adopts after a failed start only when the failure's text names `EADDRINUSE` (`gateway-service.ts`, `ensureStarted`), and it does not: a real gateway child started on a held port ended in `error` with "Core gateway exited during startup with 1." (run by the audit). The service keeps running with its gateway in error. The launch's second probe finds the other gateway and goes on, if that gateway accepts the profile's key by then. If it is still starting, the launch ends with "LLMR gateway is not running ... Start LLMR Desktop", which is wrong for that moment. The service stops 2 seconds after the agent exits.
+- **In cases 1, 2 and 3 the desktop app's agent takeovers are undone when the agent exits (read, not run).** The service's shutdown runs `restoreTakeoversWhenNoGatewayServes` (`web/management-server.ts:611-617`). It probes once, and at that moment nothing serves, so it restores the global profile configs and the Claude App gateway config (`profiles/service.ts:3541-3573`). The other process's gateway comes back about 12 seconds later and does not apply them again: nothing on that path calls `applyProfileConfig`, which runs only at startup and after a save or a model refresh (read by the audit). They stay restored until a save, a model refresh or a restart of the desktop app. A refusal leaves them alone. This is older than this task: a launch that finds no gateway reaches it today, and so does the path PR 155 was written for.
+- **Two more cases, both harmless (read).** A person who stops the gateway in the desktop app during the wait gets a service, as a launch after Stop does today. A host that is not this machine never begins the wait, because the first probe is already `unavailable`.
+- **PR 155 is what changed, and it is not enough.** Before it, cases 1 and 2 ended with a process that had adopted the service and showed a running gateway with nothing answering. After it the gateway comes back, with the takeovers restored.
+- **Where that leaves the change.** It is better when the other gateway is gone for good or its restart failed: the launch works where it was refused. It is worse when that gateway was only slow or recovering: a refusal costs one more try a few seconds later and leaves the desktop app as it was.
+
+**Evidence.**
+- **Run, 2026-11-25, `main` `51b15a2d`.** With the test of Step 1 changed, `profile-gateway-probe.test.mjs` gave 13 pass and 1 fail on today's code, at the `instanceof` assertion with `false`. With a throwaway build of the change it gave 14 of 14, and `npm run typecheck`, `npm run lint`, `npm run test:architecture` (186 of 186), `npm run test:core` (2113 tests, 0 failed) and `npm run test:cli` (21 of 21) passed. The throwaway build is not in the repo.
+- **Not run.** Nothing in this task ran on two real LLM Router processes. The cases above are read from the code, apart from the three runs the bullets name.
+- **The run this was to wait for.** The VM findings plan asked for a real-process run before this merges. The VM check below is that run, and the PR waits for it.
+
+**Files:**
+- Modify: `packages/core/src/profiles/launch-service.ts` (`ensureGatewayConfigRunning` `:446-458`, `waitForProfileKey` `:496-498`, one new function after it)
+- Test: `packages/core/test/unit/profiles/profile-gateway-probe.test.mjs` (the test at `:352`)
+
+**Interfaces:**
+- Produces, in `launch-service.ts`, not exported, after `waitForProfileKey`: `function gatewayNotRunningError(config: AppConfig, appName: string, reason?: string): ProfileGatewayUnavailableError`. It returns `` new ProfileGatewayUnavailableError(`LLMR gateway is not running at ${profileGatewayEndpoint(config)}${reason ? `: ${reason}` : ""}. Start LLMR Desktop or run llmr start before opening ${appName}.`) ``.
+- Changes, `ensureGatewayConfigRunning`. Its two `throw new ProfileGatewayUnavailableError(...)` statements build this same text and become `throw gatewayNotRunningError(config, appName, existingGateway.reason)` and `throw gatewayNotRunningError(config, appName)`. The local `reason` of the first goes.
+- Changes, `waitForProfileKey`. The line `if (last.state === "unavailable") throw new Error(...)` becomes `if (last.state === "unavailable") throw gatewayNotRunningError(config, appName, last.reason);`. The comment above it is replaced by one that gives the new why: this is the error a launch that finds no gateway gets, the CLI answers it for some agents by starting a service, and a process that was only restarting the gateway adopts that service or is adopted by it.
+- Not changed: `cli.ts`, the wait's length and poll, `existingGatewayConflictMessage` and `restartGatewayAdvice` (both still used by the refusals for a key that is not accepted and for a failed start), the gateway. With `profileKeyWaitMs` 0 no probe runs, `last` keeps its first value, `unauthorized`, and the refusal is unchanged.
+
+- [ ] **Step 1: Change one test.** In `profile-gateway-probe.test.mjs`, the test "a gateway that is gone when the wait runs out is reported as not reachable, and none is started" gets the name "a gateway that is gone when the wait runs out is reported as not running, the error a launch with no gateway gets". Its first two assertions on the error become:
+
+```js
+      assert.equal(error instanceof ProfileGatewayUnavailableError, true);
+      assert.match(error.message, /^LLMR gateway is not running at http:\/\/127\.0\.0\.1:3466: .+\. Start LLMR Desktop or run llmr start before opening Claude Main\.$/);
+```
+
+  The third, `assert.doesNotMatch(error.message, /does not accept the API key/)`, and the last line, `assert.equal(start.mock.callCount(), 0)`, stay. `ensureProfileGateway` starts nothing itself. The service is `cli.ts`'s to start.
+
+- [ ] **Step 2: Run and see it fail.**
+
+Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/profiles/profile-gateway-probe.test.js`
+Expected, ran by the session: 13 pass and 1 fail, at `instanceof`, with `false`.
+
+- [ ] **Step 3: Implement** as Interfaces says.
+
+- [ ] **Step 4: Verify.**
+
+Run: the command of Step 2. Expected: 14 of 14 (ran on the throwaway build).
+Run: `npm run typecheck && npm run lint && npm run test:architecture && npm run test:core && npm run test:cli`
+Expected: all pass (ran on the throwaway build).
+Mutation: a plain `Error` for `unavailable` in `waitForProfileKey` fails the changed test, which is Step 2's run.
+
+- [ ] **Step 5: Commit.** Subject: `fix(profiles): report a gateway that is gone after the wait as not running`
+
+Say in the PR description what "What it changes for a user" says, the four cases, and that none of them ran on real processes.
+
+**VM check, for the owner, on the build that holds this task and PR 155.** With the desktop app open and a Grok, Kimi or Pi profile whose key the gateway does not hold yet, start the launch from a terminal and quit the desktop app while the launch prints its waiting line. Expected: after the wait the launch starts a service and the agent opens. Then open the desktop app again and quit the agent. Expected: the desktop window is green again within about 15 seconds and a stored key answers. The desktop app must be quit within about 2 seconds of the waiting line, since the wait ends as soon as its restart takes the key. Try again if the launch goes on without waiting. After the window is green again, check that the global profile's agent settings and the Claude App gateway config still point at LLM Router. Case 3 cannot be made on purpose without slowing a restart, and is not part of the check.
+
+**Not in this task.**
+- **The restore of the takeovers when a profile-managed service stops beside another LLM Router process.** The bullet above. It needs its own task: either that shutdown leaves the takeovers when another process had adopted its gateway, or a process that starts its own gateway from the watch applies the profiles again. Not designed.
+- **A start that is not a recovery and loses the port does not try again.** Case 3 above. It is today's behaviour for any second process that takes the port during a restart, and making that start retry or adopt is its own change in `gateway-service.ts`.
+- **The two waits.** After the first wait the CLI starts a service and probes again with a wait of its own, about 20 seconds in the worst case. It cannot loop: the second call is outside the `try`, so a second error ends the launch (read by the audit of Task 5).
+- **Telling a restart from a gateway that is gone.** It needs state the desktop app writes and the CLI reads. Not written.
 
 ---
 
