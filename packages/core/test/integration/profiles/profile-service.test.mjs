@@ -1114,15 +1114,16 @@ test("a global Claude Code profile with its own settings file keeps CLAUDE_CONFI
   }
 });
 
-test("a default-home Claude Code profile's sh wrapper unsets CLAUDE_CONFIG_DIR after any profile value", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || (process.platform === "win32" && "Windows gets a cmd wrapper, not the sh wrapper; the cmd wrapper test covers it") }, async () => {
+test("a default-home Claude Code profile's wrapper clears CLAUDE_CONFIG_DIR after any profile value", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const home = process.env.LLMR_INTERNAL_HOME_DIR;
   const { config, profile } = defaultHomeClaudeFixture("default-home-order", { env: { CLAUDE_CONFIG_DIR: "/somewhere/else" } });
+  const windows = process.platform === "win32";
   try {
     await applyProfileFixture(config);
-    const lines = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}`), "utf8").split("\n");
-    const unsetAt = lines.indexOf("unset CLAUDE_CONFIG_DIR");
-    assert.ok(unsetAt > 0);
-    assert.deepEqual(lines.slice(unsetAt + 1).filter((line) => line.includes("CLAUDE_CONFIG_DIR")), []);
+    const lines = readFileSync(path.join(CONFIGDIR, "bin", `llmr-claude-code-wrapper-${profile.id}${windows ? ".cmd" : ""}`), "utf8").split(windows ? "\r\n" : "\n");
+    const clearedAt = lines.indexOf(windows ? "set CLAUDE_CONFIG_DIR=" : "unset CLAUDE_CONFIG_DIR");
+    assert.ok(clearedAt > 0);
+    assert.deepEqual(lines.slice(clearedAt + 1).filter((line) => line.includes("CLAUDE_CONFIG_DIR")), []);
   } finally {
     restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
     rmSync(path.join(home, ".claude"), { force: true, recursive: true });
