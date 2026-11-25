@@ -1375,6 +1375,7 @@ function LocalAgentProviderImportPanel({
   const [loading, setLoading] = useState(false);
   const [importingId, setImportingId] = useState("");
   const [signingOutId, setSigningOutId] = useState("");
+  const [signOutFailed, setSignOutFailed] = useState(false);
   const [scanAttempt, setScanAttempt] = useState(0);
 
   useEffect(() => {
@@ -1384,6 +1385,7 @@ function LocalAgentProviderImportPanel({
     let cancelled = false;
     setLoading(true);
     setError("");
+    setSignOutFailed(false);
     void window.llmr.getLocalAgentProviderCandidates()
       .then((items) => {
         if (!cancelled) {
@@ -1415,6 +1417,7 @@ function LocalAgentProviderImportPanel({
     }
     setImportingId(candidate.id);
     setError("");
+    setSignOutFailed(false);
     try {
       const result = await window.llmr.importLocalAgentProvider({
         id: candidate.id,
@@ -1455,11 +1458,13 @@ function LocalAgentProviderImportPanel({
     }
     setSigningOutId(candidate.id);
     setError("");
+    setSignOutFailed(false);
     try {
       await window.llmr.signOutClaudeAppsGateway({ candidateId: candidate.id });
       setScanAttempt((value) => value + 1);
     } catch (signOutError) {
       setError(formatAppError(signOutError));
+      setSignOutFailed(true);
     } finally {
       setSigningOutId("");
     }
@@ -1557,7 +1562,7 @@ function LocalAgentProviderImportPanel({
       {error ? (
         <div className="mt-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
           <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <div><p>Local provider import failed. Scan again or configure an API key manually.</p><details className="mt-2"><summary className="cursor-pointer">Technical details</summary><p className="mt-1 break-all">{error}</p></details></div>
+          <div><p>{signOutFailed ? "Sign out failed. The stored session is still there." : "Local provider import failed. Scan again or configure an API key manually."}</p><details className="mt-2"><summary className="cursor-pointer">Technical details</summary><p className="mt-1 break-all">{error}</p></details></div>
         </div>
       ) : null}
     </div>

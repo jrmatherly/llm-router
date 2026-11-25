@@ -113,7 +113,7 @@ test("sign-out waits for a refresh in flight, so the refresh cannot write the se
   assert.equal(existsSync(stored.sourceFile), false);
 });
 
-test("sign-out drops a refreshed session that could not be saved", { skip: process.platform === "win32" && "chmod cannot make a directory unwritable on Windows" }, async (t) => {
+test("sign-out drops a refreshed session that could not be saved", { skip: (process.platform === "win32" || process.getuid?.() === 0) && "chmod cannot make a directory unwritable on Windows or for root" }, async (t) => {
   const configDir = tempConfigDir(t);
   const gateway = await fakeGateway(t, async (_request, response) => {
     json(response, 200, { access_token: "new", expires_in: 3600, refresh_token: "rotated", token_type: "Bearer" });

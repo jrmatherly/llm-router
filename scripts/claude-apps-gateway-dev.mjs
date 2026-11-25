@@ -146,7 +146,7 @@ function main(argv) {
   try {
     execFileSync("claude", ["--version"], { env: gatewayEnv, stdio: "ignore" });
   } catch (error) {
-    rmSync(stateDir, { force: true, recursive: true });
+    if (!args.keep) rmSync(stateDir, { force: true, recursive: true });
     throw error?.code === "ENOENT" ? new Error("claude is not on PATH; install Claude Code.") : error;
   }
   const composeFile = path.join(harnessDir, "compose.yaml");
@@ -160,11 +160,11 @@ function main(argv) {
   let composeStarted = false;
   let cleanedUp = false;
   const cleanUp = () => {
-    if (cleanedUp) return;
+    if (cleanedUp) return true;
     cleanedUp = true;
     if (args.keep) {
       console.log(`--keep: ${teardownHint}`);
-      return;
+      return true;
     }
     let containersRemoved = !composeStarted;
     if (composeStarted) {
@@ -177,25 +177,37 @@ function main(argv) {
     }
     for (const file of [gatewayFile, dexFile, stateDir]) rmSync(file, { force: true, recursive: true });
     console.log(containersRemoved ? "removed the harness containers, volume, rendered files and state directory" : "removed the rendered files and state directory");
+    return containersRemoved;
   };
-  writeFileSync(dexFile, renderDexConfig(args));
+  /** @type {import("node:child_process").ChildProcess | undefined} */
+  let child;
+  // Registered before compose runs: without a handler, a signal during the blocking `up` ends this process with nothing cleaned up.
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+    process.on(signal, () => {
+      if (child) {
+        child.kill(signal === "SIGHUP" ? "SIGTERM" : signal);
+      } else {
+        process.exit(cleanUp() ? 130 : 1);
+      }
+    });
+  }
   try {
+    writeFileSync(dexFile, renderDexConfig(args));
+    writeFileSync(gatewayFile, gatewayYaml, { mode: 0o600 });
     composeStarted = true;
     execFileSync("docker", ["compose", "-f", composeFile, "up", "-d", "--wait"], { env: composeEnv, stdio: "inherit" });
   } catch (error) {
-    composeStarted = error?.code !== "ENOENT";
+    const dockerMissing = error?.syscall === "spawnSync docker";
+    if (dockerMissing) composeStarted = false;
     cleanUp();
-    throw new Error(error?.code === "ENOENT" ? "docker is not on PATH" : "docker compose failed");
+    throw dockerMissing ? new Error("docker is not on PATH") : composeStarted ? new Error("docker compose failed") : error;
   }
-  writeFileSync(gatewayFile, gatewayYaml, { mode: 0o600 });
   console.log(`gateway config: ${gatewayFile}`);
   console.log(`admin write key (shown once): ${secrets.adminWriteKey}`);
   console.log(`postgres: ${postgresUrl}`);
   console.log("A new JWT secret was generated; tokens from earlier runs are invalid.");
   console.log(args.loadTest ? "load-test mode: the gateway answers /v1/messages itself" : `upstream: ${args.upstreamBaseUrl}`);
-  const child = spawn("claude", ["gateway", "--config", gatewayFile], { env: gatewayEnv, stdio: "inherit" });
-  process.on("SIGINT", () => child.kill("SIGINT"));
-  process.on("SIGTERM", () => child.kill("SIGTERM"));
+  child = spawn("claude", ["gateway", "--config", gatewayFile], { env: gatewayEnv, stdio: "inherit" });
   child.on("error", (error) => {
     console.error(`failed to start claude gateway: ${error.message}`);
     cleanUp();
@@ -203,8 +215,8 @@ function main(argv) {
   });
   child.on("exit", (code, signal) => {
     console.log("gateway stopped");
-    cleanUp();
-    process.exit(signal === "SIGINT" || signal === "SIGTERM" ? 0 : code ?? 1);
+    const cleaned = cleanUp();
+    process.exit(!cleaned ? 1 : signal === "SIGINT" || signal === "SIGTERM" ? 0 : code ?? 1);
   });
 }
 

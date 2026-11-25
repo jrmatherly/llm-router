@@ -15,7 +15,7 @@ import type {
 import { codexDefaultBaseUrl, codexOauthRequiredScopes, resolveCodexAuth } from "@llmr/core/agents/local-providers/codex";
 import { opencodeCatalogProtocolModelMap } from "@llmr/core/agents/local-providers/opencode";
 import { localAgentProviderApiKey } from "@llmr/core/agents/local-providers/shared";
-import { readClaudeAppsGatewaySession, resolveClaudeAppsGatewaySession } from "@llmr/core/agents/local-providers/service";
+import { ClaudeAppsGatewayAuthError, claudeAppsGatewaySessionExpired, readClaudeAppsGatewaySession, resolveClaudeAppsGatewaySession } from "@llmr/core/agents/local-providers/service";
 import { isLocalClaudeCodeOauthProviderPlugin } from "@llmr/core/providers/oauth-plugin";
 import { findProviderPresetByBaseUrl, providerApiKeySafetyIssue } from "@llmr/core/providers/presets/index";
 import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
@@ -958,7 +958,16 @@ async function providerProbeAuthRequest(
 
   const gatewayUrl = localClaudeAppsGatewayProbeUrl(apiKey, providerPlugins);
   if (gatewayUrl) {
-    const session = await resolveClaudeAppsGatewaySession(gatewayUrl).catch(() => readClaudeAppsGatewaySession(gatewayUrl));
+    const session = await resolveClaudeAppsGatewaySession(gatewayUrl).catch((error: unknown) => {
+      if (error instanceof ClaudeAppsGatewayAuthError) {
+        throw new Error("Claude apps gateway session ended. Sign in again from Providers, Add, Import local agent provider.");
+      }
+      const stored = readClaudeAppsGatewaySession(gatewayUrl);
+      if (stored && claudeAppsGatewaySessionExpired(stored, undefined, 0)) {
+        throw new Error(`Claude apps gateway token could not be refreshed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      return stored;
+    });
     if (!session?.accessToken) {
       throw new Error("Claude apps gateway session was not found. Sign in again.");
     }
