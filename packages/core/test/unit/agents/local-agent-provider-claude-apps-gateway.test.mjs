@@ -7,7 +7,8 @@ import test from "node:test";
 import {
   claudeAppsGatewayCandidateId,
   claudeAppsGatewayCandidates,
-  importClaudeAppsGatewayProvider
+  importClaudeAppsGatewayProvider,
+  signOutClaudeAppsGateway
 } from "@llmr/core/agents/local-providers/claude-apps-gateway.ts";
 import { claudeAppsGatewaySessionFile, persistClaudeAppsGatewaySession } from "@llmr/core/agents/claude-apps-gateway/session-store.ts";
 
@@ -103,6 +104,16 @@ test("two gateways give two candidates", (t) => {
     "claude-apps-gateway:a.example.com",
     "claude-apps-gateway:b.example.com-8443"
   ]);
+});
+
+test("sign-out by candidate id removes that gateway's session and leaves another gateway's", async (t) => {
+  const configDir = tempConfigDir(t);
+  persistClaudeAppsGatewaySession(session(configDir, "https://a.example.com"));
+  persistClaudeAppsGatewaySession(session(configDir, "https://b.example.com:8443"));
+
+  assert.deepEqual(await signOutClaudeAppsGateway({ candidateId: "claude-apps-gateway:a.example.com" }, configDir), { signedOut: true });
+  assert.deepEqual(claudeAppsGatewayCandidates(configDir).map((candidate) => candidate.id), ["claude-apps-gateway:b.example.com-8443"]);
+  assert.deepEqual(await signOutClaudeAppsGateway({ candidateId: "claude-apps-gateway:a.example.com" }, configDir), { signedOut: false });
 });
 
 function tempConfigDir(t) {

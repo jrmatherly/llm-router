@@ -28,7 +28,7 @@ test("gateway URLs normalize to an origin and refuse plain http off loopback", (
   assert.equal(claudeAppsGatewaySlug("https://GW.Example.com:8443"), "gw.example.com-8443");
 });
 
-test("sessions persist with mode 0600 and list per host", (t) => {
+test("sessions persist with mode 0600 and list per host", async (t) => {
   const configDir = tempConfigDir(t);
   const second = session(configDir, "https://b.example.com", { accessToken: "b" });
   const first = session(configDir, "https://a.example.com:8443", { accessToken: "a", email: "dev@example.com", modelDisplayNames: { "claude-sonnet-4-6": "Claude Sonnet 4.6" } });
@@ -47,9 +47,10 @@ test("sessions persist with mode 0600 and list per host", (t) => {
   writeFileSync(path.join(configDir, "claude-apps-gateway", "broken.json"), "{");
   assert.equal(listClaudeAppsGatewaySessions(configDir).length, 2);
 
-  removeClaudeAppsGatewaySession("https://a.example.com:8443", configDir);
+  await removeClaudeAppsGatewaySession("https://a.example.com:8443", configDir);
   assert.equal(existsSync(first.sourceFile), false);
   assert.equal(readClaudeAppsGatewaySession("https://a.example.com:8443", configDir), undefined);
+  assert.equal(await resolveClaudeAppsGatewaySession("https://a.example.com:8443", configDir), undefined);
 });
 
 test("expired sessions refresh and persist the new tokens", async (t) => {
@@ -90,6 +91,46 @@ test("a refresh that cannot be saved is kept in memory, so a rotated refresh tok
   } finally {
     chmodSync(directory, 0o700);
   }
+});
+
+test("sign-out waits for a refresh in flight, so the refresh cannot write the session back", async (t) => {
+  const configDir = tempConfigDir(t);
+  let release;
+  const released = new Promise((resolve) => {
+    release = resolve;
+  });
+  const gateway = await fakeGateway(t, async (_request, response) => {
+    await released;
+    json(response, 200, { access_token: "new", expires_in: 3600, refresh_token: "rotated", token_type: "Bearer" });
+  });
+  const stored = session(configDir, gateway.url, { accessToken: "stale", expiresAt: 1, refreshToken: "old" });
+  persistClaudeAppsGatewaySession(stored);
+
+  const resolving = resolveClaudeAppsGatewaySession(gateway.url, configDir);
+  const removing = removeClaudeAppsGatewaySession(gateway.url, configDir);
+  release();
+  await Promise.all([resolving, removing]);
+  assert.equal(existsSync(stored.sourceFile), false);
+});
+
+test("sign-out drops a refreshed session that could not be saved", { skip: process.platform === "win32" && "chmod cannot make a directory unwritable on Windows" }, async (t) => {
+  const configDir = tempConfigDir(t);
+  const gateway = await fakeGateway(t, async (_request, response) => {
+    json(response, 200, { access_token: "new", expires_in: 3600, refresh_token: "rotated", token_type: "Bearer" });
+  });
+  const stored = session(configDir, gateway.url, { accessToken: "stale", expiresAt: 1, refreshToken: "old" });
+  persistClaudeAppsGatewaySession(stored);
+  const directory = path.dirname(stored.sourceFile);
+  t.mock.method(console, "warn", () => undefined);
+  chmodSync(directory, 0o500);
+  try {
+    assert.equal((await resolveClaudeAppsGatewaySession(gateway.url, configDir))?.refreshToken, "rotated");
+  } finally {
+    chmodSync(directory, 0o700);
+  }
+
+  await removeClaudeAppsGatewaySession(gateway.url, configDir);
+  assert.equal(await resolveClaudeAppsGatewaySession(gateway.url, configDir), undefined);
 });
 
 test("a valid session resolves without a refresh", async (t) => {

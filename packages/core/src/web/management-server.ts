@@ -31,6 +31,7 @@ import {
 import { appDeepLinkProtocol } from "@llmr/core/contracts/deep-link";
 import { detectProviderIcon } from "@llmr/core/providers/icons";
 import { fetchProviderManifest } from "@llmr/core/providers/manifest-service";
+import { signOutClaudeAppsGateway } from "@llmr/core/agents/local-providers/claude-apps-gateway";
 import { getLocalAgentProviderCandidates, importLocalAgentProvider, probeLocalAgentProvider } from "@llmr/core/agents/local-providers/service";
 import { getProviderCatalogModels } from "@llmr/core/providers/model-catalog";
 import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-provider-catalog";
@@ -66,6 +67,7 @@ import type {
   ClaudeAppsGatewayLoginCancelRequest,
   ClaudeAppsGatewayLoginStartRequest,
   ClaudeAppsGatewayLoginWaitRequest,
+  ClaudeAppsGatewaySignOutRequest,
   GatewayPluginAppConfig,
   GatewayPluginPermission,
   GatewayPluginSurface,
@@ -547,6 +549,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
     return true;
   },
   setProxyNetworkCaptureEnabled: (enabled) => proxyService.setNetworkCaptureEnabled(Boolean(enabled)),
+  signOutClaudeAppsGateway: (request) => signOutClaudeAppsGateway(request as ClaudeAppsGatewaySignOutRequest),
   startBotGatewayQrLogin: (request) => startBotGatewayQrLogin(request as BotGatewayQrLoginStartRequest),
   startClaudeAppsGatewayLogin: (request) => startClaudeAppsGatewayLogin(request as ClaudeAppsGatewayLoginStartRequest),
   startGateway: async () => {

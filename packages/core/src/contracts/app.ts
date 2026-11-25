@@ -1861,6 +1861,14 @@ export type ClaudeAppsGatewayLoginCancelResult = {
   canceled: boolean;
 };
 
+export type ClaudeAppsGatewaySignOutRequest = {
+  candidateId: string;
+};
+
+export type ClaudeAppsGatewaySignOutResult = {
+  signedOut: boolean;
+};
+
 export type BotGatewayQrWindowOpenRequest = {
   scanTimeoutMs?: number;
   sessionId: string;

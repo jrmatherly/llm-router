@@ -52,6 +52,7 @@ export const IPC_CHANNELS = {
   appClaudeAppsGatewayLoginCancel: "llmr:app:claude-apps-gateway-login-cancel",
   appClaudeAppsGatewayLoginStart: "llmr:app:claude-apps-gateway-login-start",
   appClaudeAppsGatewayLoginWait: "llmr:app:claude-apps-gateway-login-wait",
+  appClaudeAppsGatewaySignOut: "llmr:app:claude-apps-gateway-sign-out",
   appProbeLocalAgentProvider: "llmr:app:probe-local-agent-provider",
   appProbeProvider: "llmr:app:probe-provider",
   appProbeProviderCandidates: "llmr:app:probe-provider-candidates",

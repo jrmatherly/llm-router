@@ -66,7 +66,7 @@ The token names the developer who approved the sign-in, not LLMR. The gateway's 
 
 The session refreshes itself in the background. When the gateway refuses a refresh, for example after the developer is removed from the identity provider or the gateway's JWT secret rotates, requests to the provider fail with a message to sign in again. Signing in again from the same panel repairs a provider you already imported; there is no need to import it a second time.
 
-To sign out, delete the session file for that gateway host under `~/.llm-router/claude-apps-gateway/` (`%APPDATA%\llm-router\claude-apps-gateway\` on Windows). The gateway offers no revocation endpoint, so sign-out is local.
+To sign out, open **Providers → Add → Import local agent provider** and choose **Sign out** on the gateway's row. A provider imported from that gateway then fails with a message to sign in again. The gateway offers no revocation endpoint, so sign-out is local: it deletes the stored session, and the gateway's own session ends when its token expires. A request already in flight can finish, and the gateway process LLM Router runs may keep a token it holds in memory until it restarts.
 
 Verified 2026-11-01 against the local harness in load-test mode (`claude gateway` from Claude Code 2.1.316, LLMR commit `215c6d19`, `llmr serve` web UI): device sign-in, import, Check Connection on all 14 models, and a `/v1/messages` request through LLMR that returned the gateway's canned reply with `authorization` logged as `[redacted]`.
 

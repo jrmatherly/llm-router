@@ -1370,10 +1370,11 @@ function LocalAgentProviderImportPanel({
   providerPlugins: unknown[];
   providers: GatewayProviderConfig[];
 }) {
-  const [candidates, setCandidates] = useState<LocalAgentProviderCandidate[]>([]);
+  const [candidates, setCandidates] = useState<LocalAgentProviderCandidateRow[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [importingId, setImportingId] = useState("");
+  const [signingOutId, setSigningOutId] = useState("");
   const [scanAttempt, setScanAttempt] = useState(0);
 
   useEffect(() => {
@@ -1386,10 +1387,7 @@ function LocalAgentProviderImportPanel({
     void window.llmr.getLocalAgentProviderCandidates()
       .then((items) => {
         if (!cancelled) {
-          setCandidates(items.filter((item) =>
-            item.status !== "missing" &&
-            !localAgentProviderAlreadyImported(item, providers, providerPlugins)
-          ));
+          setCandidates(localAgentProviderCandidateRows(items, providers, providerPlugins));
         }
       })
       .catch((scanError) => {
@@ -1451,6 +1449,24 @@ function LocalAgentProviderImportPanel({
     }
   }
 
+  async function signOutCandidate(candidate: LocalAgentProviderCandidate) {
+    if (!window.llmr?.signOutClaudeAppsGateway) {
+      return;
+    }
+    setSigningOutId(candidate.id);
+    setError("");
+    try {
+      await window.llmr.signOutClaudeAppsGateway({ candidateId: candidate.id });
+      setScanAttempt((value) => value + 1);
+    } catch (signOutError) {
+      setError(formatAppError(signOutError));
+    } finally {
+      setSigningOutId("");
+    }
+  }
+
+  const busy = Boolean(importingId) || Boolean(signingOutId);
+
   return (
     <div className="sm:col-span-2 rounded-md border border-border bg-muted/20 p-3">
       <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
@@ -1458,7 +1474,7 @@ function LocalAgentProviderImportPanel({
           <div className="truncate text-[12px] font-semibold text-foreground">Import local agent provider</div>
           <div className="mt-0.5 text-[12px] leading-5 text-muted-foreground">LLMR scanned this computer for local Claude Code, Codex, Grok CLI, Kimi CLI, OpenCode CLI, and ZCode providers. Click Import to add one as a gateway provider. Or sign in to your organization's Claude apps gateway.</div>
         </div>
-        <Button aria-label="Scan local providers again" disabled={loading || Boolean(importingId)} onClick={() => setScanAttempt((value) => value + 1)} size="sm" variant="outline">
+        <Button aria-label="Scan local providers again" disabled={loading || busy} onClick={() => setScanAttempt((value) => value + 1)} size="sm" variant="outline">
           {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           Scan again
         </Button>
@@ -1468,7 +1484,7 @@ function LocalAgentProviderImportPanel({
 
       {candidates.length > 0 ? (
         <div className="grid grid-cols-1 gap-2">
-          {candidates.map((candidate) => {
+          {candidates.map(({ candidate, imported }) => {
             const iconUrl = localAgentProviderIconUrls[candidate.kind];
             const importing = importingId === candidate.id;
             return (
@@ -1497,20 +1513,37 @@ function LocalAgentProviderImportPanel({
                         <Button onClick={() => onChange({ presetId: customProviderPresetId }, true)} size="sm" variant="outline">Configure API key manually</Button>
                       </div>
                     )}
+                    {candidate.kind === "claude-apps-gateway" ? (
+                      <div className="mt-1 text-[12px] leading-5 text-muted-foreground">Signing out stops every provider imported from this gateway until you sign in again.</div>
+                    ) : null}
                   </div>
                 </div>
-                <Button
-                  className="h-8 px-2"
-                  disabled={!candidate.importable || Boolean(importingId)}
-                  onClick={() => void importCandidate(candidate)}
-                  type="button"
-                  variant={candidate.importable ? "default" : "outline"}
-                >
-                  <AnimatedIconSwap iconKey={importing ? "importing" : "import"}>
-                    {importing ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                  </AnimatedIconSwap>
-                  Import
-                </Button>
+                <div className="flex items-center gap-2">
+                  {candidate.kind === "claude-apps-gateway" ? (
+                    <Button
+                      className="h-8 px-2"
+                      disabled={busy}
+                      onClick={() => void signOutCandidate(candidate)}
+                      type="button"
+                      variant="outline"
+                    >
+                      {signingOutId === candidate.id ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : null}
+                      Sign out
+                    </Button>
+                  ) : null}
+                  <Button
+                    className="h-8 px-2"
+                    disabled={imported || !candidate.importable || busy}
+                    onClick={() => void importCandidate(candidate)}
+                    type="button"
+                    variant={candidate.importable && !imported ? "default" : "outline"}
+                  >
+                    <AnimatedIconSwap iconKey={importing ? "importing" : "import"}>
+                      {importing ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                    </AnimatedIconSwap>
+                    {imported ? "Imported" : "Import"}
+                  </Button>
+                </div>
               </div>
             );
           })}
@@ -1547,6 +1580,26 @@ export function localAgentProviderPluginSuffixesForCandidate(candidate: LocalAge
     return [baseSuffix, `${baseSuffix}-internal`];
   }
   return localAgentProviderPluginSuffixes[candidate.kind];
+}
+
+type LocalAgentProviderCandidateRow = {
+  candidate: LocalAgentProviderCandidate;
+  imported: boolean;
+};
+
+export function localAgentProviderCandidateRows(
+  items: LocalAgentProviderCandidate[],
+  providers: GatewayProviderConfig[],
+  providerPlugins: unknown[]
+): LocalAgentProviderCandidateRow[] {
+  return items.flatMap((candidate) => {
+    if (candidate.status === "missing") {
+      return [];
+    }
+    const imported = localAgentProviderAlreadyImported(candidate, providers, providerPlugins);
+    // An imported gateway keeps its row so it can be signed out of.
+    return !imported || candidate.kind === "claude-apps-gateway" ? [{ candidate, imported }] : [];
+  });
 }
 
 export function localAgentProviderAlreadyImported(

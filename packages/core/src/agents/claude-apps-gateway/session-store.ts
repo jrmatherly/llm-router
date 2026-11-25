@@ -90,8 +90,12 @@ export function persistClaudeAppsGatewaySession(session: ClaudeAppsGatewaySessio
   }
 }
 
-export function removeClaudeAppsGatewaySession(gatewayUrl: string, configDir?: string): void {
-  rmSync(claudeAppsGatewaySessionFile(gatewayUrl, configDir), { force: true });
+export async function removeClaudeAppsGatewaySession(gatewayUrl: string, configDir?: string): Promise<void> {
+  const key = claudeAppsGatewaySessionFile(gatewayUrl, configDir);
+  // A refresh that finished after the delete would write the session back. This covers this process only; the gateway child refreshes on its own.
+  while (refreshInFlight.has(key)) await refreshInFlight.get(key)?.catch(() => undefined);
+  rmSync(key, { force: true });
+  unsavedRefreshes.delete(key);
 }
 
 export function claudeAppsGatewaySessionExpired(

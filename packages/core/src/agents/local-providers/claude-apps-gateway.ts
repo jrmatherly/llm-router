@@ -1,10 +1,16 @@
-import type { LocalAgentProviderCandidate, LocalAgentProviderImportResult } from "@llmr/core/contracts/app";
+import type {
+  ClaudeAppsGatewaySignOutRequest,
+  ClaudeAppsGatewaySignOutResult,
+  LocalAgentProviderCandidate,
+  LocalAgentProviderImportResult
+} from "@llmr/core/contracts/app";
 import {
   ClaudeAppsGatewayAuthError,
   claudeAppsGatewaySessionExpired,
   claudeAppsGatewaySlug,
   fetchClaudeAppsGatewayModels,
   listClaudeAppsGatewaySessions,
+  removeClaudeAppsGatewaySession,
   resolveClaudeAppsGatewaySession,
   type ClaudeAppsGatewaySession
 } from "@llmr/core/agents/claude-apps-gateway/session-store";
@@ -62,6 +68,18 @@ export async function importClaudeAppsGatewayProvider(
       { ...bearerAuthPlugin("claude-apps-gateway-oauth-internal", session.accessToken, {}, providerInternalNamePlaceholder), ...plugin }
     ]
   };
+}
+
+export async function signOutClaudeAppsGateway(
+  request: ClaudeAppsGatewaySignOutRequest,
+  configDir?: string
+): Promise<ClaudeAppsGatewaySignOutResult> {
+  const stored = listClaudeAppsGatewaySessions(configDir).find((item) => claudeAppsGatewayCandidateId(item.gatewayUrl) === request.candidateId);
+  if (!stored) {
+    return { signedOut: false };
+  }
+  await removeClaudeAppsGatewaySession(stored.gatewayUrl, configDir);
+  return { signedOut: true };
 }
 
 function claudeAppsGatewayCandidate(session: ClaudeAppsGatewaySession): LocalAgentProviderCandidate {
