@@ -18,6 +18,7 @@ Read these before any batch. A plan line or a handoff line that contradicts one 
 4. **Merging needs his word, once per PR.** Unchanged.
 5. **A push or tag on `jrmatherly/llmr-gateway` needs his word each time.** Unchanged.
 6. **The Grok, Kimi and Pi start after the launch wait is accepted** (2026-11-24). Keys plan Task 6 builds it. Evidence found since changed its order, not the decision.
+7. **The client label batch and the gateway program's identity task are one PR** (2026-11-25). Batch 16 builds client label 3, 1, 2, then gateway phase 0 Task 5. He accepted what the two sessions had agreed.
 
 ## What this file overrides
 
@@ -111,7 +112,7 @@ Each has a default, which is built unless he says otherwise.
 
 | # | Question | Default | Plan |
 |---|---|---|---|
-| 1 | Settled on 2026-11-25 with the session that owns the gateway spec, and the owner's to overrule. The client label plan builds the per-key mark, which is the spec's G-5. The gateway phase 0 plan's Task 5 builds the spec's G-6 on it, as the last commit of the same batch. That session confirmed three things: none of its later phases reads the stored Logs request headers, so question 4's default suits it; `x-litellm-end-user-id` is meant to feed neither the label nor a field after its Task 5; and the redaction must apply where the Logs row is stored and not to the trace the import reads, which is where the code applies it today (`request-log-store.ts`, `request-log-runtime.ts`, read) and what batch 16's wire test for the single layout pins | One PR, batch 16 | Client label, gateway phase 0 |
+| 1 | Decided by the owner on 2026-11-25, decision 7 above, after the two sessions agreed. The client label plan builds the per-key mark, which is the spec's G-5. The gateway phase 0 plan's Task 5 builds the spec's G-6 on it, as the last commit of the same batch. That session confirmed three things: none of its later phases reads the stored Logs request headers, so question 4's default suits it; `x-litellm-end-user-id` is meant to feed neither the label nor a field after its Task 5; and the redaction must apply where the Logs row is stored and not to the trace the import reads, which is where the code applies it today (`request-log-store.ts`, `request-log-runtime.ts`, read) and what batch 16's wire test for the single layout pins | One PR, batch 16 | Client label, gateway phase 0 |
 | 2 | Should the gateway fork carry a provider's reported cost through to LLM Router? Pricing 6 cannot work without it | No. Drop P-5 for now | Pricing |
 | 3 | Which price a priority or flex request takes when the rule's price has no service-tier figure. Pricing 8 waits on it | The pricing plan's option C | Pricing |
 | 4 | Store the identity headers as `[redacted]` in Logs for every key, or only for a key without the mark | Every key | Client label |
