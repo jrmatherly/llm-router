@@ -100,6 +100,37 @@ test("onboarding sends no probe for the imported Claude login", async ({ page })
   expect(probeRequests.length).toBe(0);
 });
 
+test("onboarding keeps a saved local login provider a login after a rename", async ({ page }) => {
+  const current = requireRuntime();
+  await page.goto(`${current.baseUrl}/#llmr_web_token=${encodeURIComponent(current.token)}`);
+  await waitForBridge(page);
+  await page.evaluate(async ({ apiKey, icon }) => {
+    const config = await window.llmr!.getConfig();
+    config.Providers = [{ api_base_url: "http://127.0.0.1:9/v1", api_key: apiKey, icon, models: ["stand-in-model"], name: "Stand-in login", type: "openai_chat_completions" }];
+    config.providerPlugins = [{ key: "llmr-local-agent-stand-in-login-codex-oauth", providerName: "Stand-in login" }];
+    await window.llmr!.saveConfig(config);
+  }, { apiKey: localAgentProviderApiKey, icon: standInIcon });
+  await page.reload();
+  await waitForBridge(page);
+  const back = page.getByRole("button", { name: "Back", exact: true });
+  await back.click();
+  while (await back.count() > 0) {
+    await back.click();
+  }
+
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Stand-in login");
+  await page.getByLabel("Name", { exact: true }).fill("Renamed login");
+  await expect(page.getByText("Add credentials")).toHaveCount(0);
+  await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuemax", "5");
+
+  await page.evaluate(async () => {
+    const config = await window.llmr!.getConfig();
+    config.Providers = [];
+    config.providerPlugins = [];
+    await window.llmr!.saveConfig(config);
+  });
+});
+
 test("the add provider dialog goes from the import to Pick models and back", async ({ page }) => {
   const current = requireRuntime();
   await mockLocalAgentRpc(page);
@@ -260,12 +291,14 @@ test("Refresh and Check send nothing while a saved local login provider's addres
   const dialog = page.getByRole("dialog").first();
   const blocked = dialog.getByText("Save the new address to check it with your local login.");
   await dialog.getByLabel(/^API endpoint/).fill("http://127.0.0.1:10/v1");
-  await dialog.getByRole("button", { name: "Refresh provider models" }).click();
-  await expect(blocked).toBeVisible();
   await dialog.getByRole("button", { name: "Check Connection" }).click();
   await expect(blocked).toBeVisible();
   await expect(page.getByText("Check results")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Start check" })).toHaveCount(0);
+  await dialog.getByLabel(/^API endpoint/).fill("http://127.0.0.1:11/v1");
+  await expect(blocked).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Refresh provider models" }).click();
+  await expect(blocked).toBeVisible();
   expect(sent.length).toBe(0);
   await dialog.getByLabel(/^API endpoint/).fill("http://127.0.0.1:9/v1");
   await expect(blocked).toHaveCount(0);
