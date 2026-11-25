@@ -38,7 +38,7 @@ Nineteen PRs. The plans hold 49 tasks that are not built: 44 in the nine plans t
 | 1 | `fix/launch-and-gateway-ownership`. **Merged, PR 156, `92c8cf3f`** | VM findings 7, VM findings 8, keys 6, VM findings 3, then the terminal-only waiting line | `gateway-service.ts`, `launch-service.ts`, `profiles/service.ts` | Nothing. Keys 6 comes after VM findings 7 and 8 inside the branch |
 | 2 | `fix/provider-form-local-login`. **Merged, PR 157, `3aef9d00`** | Follow-ups 8, VM findings 4, follow-ups 9, follow-ups 10, in that order | `App.tsx`, `providers.tsx`, `shared/providers.ts` | Nothing. This is follow-ups PR 3 as already planned |
 | 3 | `test/harness-and-codex-parse`. **Merged, PR 158, `033c1281`** | Harness 1, 2, 3, stripper 1 | `build/test-home.mjs`, `build/test-home-env.mjs`, `build/run-tests.mjs`, the Codex parse helper | Nothing. Tests and harness only |
-| 4 | `ci/package-suites-matrix`. **Open as draft PR 159, built and reviewed, waiting on question 12** | Harness 4 | `.github/workflows/test.yml`, and whatever tests its first run shows need a fix | Batch 3. Kept apart because a red matrix job blocks a release. Not open beside batches 6 to 10b: its test fixes can land in `profile-service.test.mjs`, which they change |
+| 4 | `ci/package-suites-matrix`. **Merged, PR 159, `1b09fc2d`, with the Windows entry allowed to fail** | Harness 4 | `.github/workflows/test.yml`, and whatever tests its first run shows need a fix | Batch 3. Kept apart because a red matrix job blocks a release. Not open beside batches 6 to 10b: its test fixes can land in `profile-service.test.mjs`, which they change |
 | 5 | `fix/gateway-log-control` | Harness 5 | The gateway fork, then two `package.json` pins | His word for the fork push and tag. The fork is at `v1.0.22-llmr.4`, so this releases `llmr.5` |
 | 6 | `fix/codex-config-scanner` | Stripper 2, 3 | `codex-config-strip.ts`, `profiles/service.ts` | Batch 3 |
 | 7 | `fix/codex-ownership-and-backups` | Stripper 4, 5, 6 | `codex-config-strip.ts`, `backup-files.ts`, `profiles/service.ts` | Batch 6. About 110 source lines and 230 of test |
@@ -59,7 +59,7 @@ Nineteen PRs. The plans hold 49 tasks that are not built: 44 in the nine plans t
 
 | Branch | Tasks, one commit each | Shared ground | Needs |
 |---|---|---|---|
-| `fix/windows-launch-and-env` | Windows 1, 2, 3, 4, 5 | A new `platform/command-path.ts`, the Codex runtime script, `launch-service.ts`, `mcp/child-env.ts`, `routing/route-script-worker.ts`, 12 call sites that merge an environment | Batch 4's branch, so each commit gets a Windows run. It meets batch 8 in `launch-service.ts` |
+| `fix/windows-launch-and-env` | Windows 1, 2, 3, 4, 5 | A new `platform/command-path.ts`, the Codex runtime script, `launch-service.ts`, `mcp/child-env.ts`, `routing/route-script-worker.ts`, 12 call sites that merge an environment | Nothing: batch 4 is merged, so the branch is cut from `main` and each commit gets a Windows run. It meets batch 8 in `launch-service.ts` |
 | `fix/windows-platform-faults` | Windows 6, 7, 8, 9, 10, 11, 12 | `local-providers/opencode-freetier.ts`, the two stdio MCP start sites, `platform/windows-app-discovery.ts`, the profile app monitor, `raw-trace-sync.ts`, `.github/workflows/test.yml` | The branch above. It meets batches 11, 13a and 16 in `raw-trace-sync.ts`. Its Tasks 9 and 10 carry two designs written after the audit and not built, so its review round reads those first |
 
 Not a PR:
@@ -80,7 +80,7 @@ When it is built, this is the branch. By then the batches it meets are merged, s
 
 ## Order
 
-1. Batches 1, 2 and 3 are merged. Batch 4 is built as draft PR 159 and waits on the owner's answer to question 12. Batch 6 waits for batch 4. Batch 17 can start now.
+1. Batches 1, 2 and 3 are merged. Batch 4 merged as PR 159 on 2026-11-25 with the Windows entry allowed to fail, so batch 6 can start. Batch 17 is being built.
 2. Batch 3, then 4, with 4 merged before batch 6 opens. Batch 5 at any point once the owner gives his word on the fork.
 3. Batches 6, 7, 8, 9, 10a, 10b, one after another. All six change `profiles/service.ts`.
 4. Batches 11 and 12, then batch 16, then 13a, 13b, 14, 15, one after another. All of them meet in the request log store or the usage store. Batch 16 comes straight after batch 12 so that the later phases of the gateway program are not held behind four pricing batches. It can also go after batch 15. It is never open beside 13a to 15.
@@ -89,6 +89,7 @@ When it is built, this is the branch. By then the batches it meets are merged, s
 
 ## Before a batch is built
 
+- **Batch 4's review, 2026-11-25.** Three reviewers and a review of the fix commit found five things, all fixed in the PR: the architecture test passed with the job switched off by an `if:` or Windows removed by an `exclude:` (run as mutations); a second spelling of the allowance on the Intel Mac entry passed it too (run); the two closed-stdin tests were skipped on Windows where they could expect the product's timeout, and now pass there; the cleanup helper swallowed any locked file on Windows, and now each caller names the databases it knows stay open; `test:packages` was not pinned. Not built: an Apple silicon runner in the matrix, which the requirement does not name.
 - **Batches 1 and 2 merged on 2026-11-25.** Batch 1's review found two defects that neither the research nor the audits had. Batch 2's review found three, one of them a regression the batch itself made in onboarding: keep the review round on every batch, and review the fix commit too.
 - **Every other batch comes from a draft plan** whose audit found Blockers that nobody has checked. Its fix round happens right before the batch is built, for that batch's tasks only: read each Blocker and Correction against the code as it is then, correct the task text, and have the changed text audited once on another model. The audits are outside the repo, in `private/audits/2026-11-22-audit-<plan>.md`.
 - **A task under about 100 lines of change** is built once, on the batch's branch, and gets one review round that covers the task text and the code together.
@@ -144,7 +145,7 @@ Each has a default, which is built unless he says otherwise.
 | 9 | Should the Restore original settings button cover the agents that get a stripper? | As the restore plan recommends | Restore |
 | 10 | May restore Task 9 download another Codex version? | The installed version only | Restore |
 | 11 | Should Workbuddy's `models.json` get a stripper too? | No. It holds a placeholder and no key | Restore |
-| 12 | **Asked on 2026-11-25, with the first run's result.** The Intel Mac passes. Windows fails four tests for product faults, listed under "Windows, from PR 159" below, and one unsorted test. None loses or corrupts a user's file. Merged as it is, every push to `main` has a red Tests run and `npm run release` refuses. The choices: hold PR 159 until the four are fixed; merge with the Windows entry allowed to fail, which needs the architecture test's ban on `continue-on-error` lifted for that entry and a comment naming the open rows; or fix the four in a batch of their own first | The harness plan recommends blocking only for a fault that loses or corrupts a user's file, and allowing the job to fail otherwise | Harness |
+| 12 | **Answered on 2026-11-25: the owner's review line for PR 159 said to merge once CI is green, and it merged as `1b09fc2d` with the Windows entry allowed to fail (`continue-on-error` for that matrix entry only). The Tests run concludes `success` while the Windows check shows red (run `45681008530`), so `npm run release` is not refused. Windows faults Task 12 removes the allowance. The question as asked:** The first run's result. The Intel Mac passes. Windows fails four tests for product faults, listed under "Windows, from PR 159" below, and one unsorted test. None loses or corrupts a user's file. Merged as it is, every push to `main` has a red Tests run and `npm run release` refuses. The choices: hold PR 159 until the four are fixed; merge with the Windows entry allowed to fail, which needs the architecture test's ban on `continue-on-error` lifted for that entry and a comment naming the open rows; or fix the four in a batch of their own first | The harness plan recommends blocking only for a fault that loses or corrupts a user's file, and allowing the job to fail otherwise | Harness |
 | 13 | When the fork commit of harness 5 is released | When nothing else needs a fork release sooner | Harness |
 | 14 | The single layout's refusal body keeps the fork's prefix | Keep it. Removing it needs a fork release | Logs |
 | 15 | Which usage events a trace may name a provider for | Only an event with no tokens and no cost | Logs |
