@@ -1,6 +1,6 @@
 # VM Pass Findings Implementation Plan
 
-> **Status, 2026-11-24: written from the second research pass, audited once on another model, the owner accepted every recommendation, Tasks 1 and 2 merged on 2026-11-24 as PR 152 after keys plan Task 4 merged as PR 151. Task 3 waits on the owner's VM check, and Task 4 goes into follow-ups PR 3.** On 2026-11-24 the owner accepted the recommendation for each of the seven findings, so no decision is open and the lines below that say a task "waits on the owner's answer" are settled. Building each PR still needs his word, as does each merge. Task 5 is a docs paragraph and was committed the same day. Nothing else was built. The audit wrote every test below as given and ran it on today's code, then against the smallest change each Interfaces block describes, in a throwaway worktree. It found 1 Blocker, in a fixture of Task 4, and 10 Corrections. All are applied. The text changed by that round was then reviewed by the session on 2026-11-24. It ran the one test added after the audit in the audit's worktree (17 of 17) and one more mutation. It found one gap behind Task 1's VM check, an adopted gateway that nobody watches, which is now under "Not in this plan". Task 6 was added for it on 2026-11-24 on the owner's word, audited once, and is not built.
+> **Status, 2026-11-24: written from the second research pass, audited once on another model, the owner accepted every recommendation, Tasks 1 and 2 merged on 2026-11-24 as PR 152 after keys plan Task 4 merged as PR 151. Task 3 waits on the owner's VM check, and Task 4 goes into follow-ups PR 3.** On 2026-11-24 the owner accepted the recommendation for each of the seven findings, so no decision is open and the lines below that say a task "waits on the owner's answer" are settled. Building each PR still needs his word, as does each merge. Task 5 is a docs paragraph and was committed the same day. Nothing else was built. The audit wrote every test below as given and ran it on today's code, then against the smallest change each Interfaces block describes, in a throwaway worktree. It found 1 Blocker, in a fixture of Task 4, and 10 Corrections. All are applied. The text changed by that round was then reviewed by the session on 2026-11-24. It ran the one test added after the audit in the audit's worktree (17 of 17) and one more mutation. It found one gap behind Task 1's VM check, an adopted gateway that nobody watches, which is now under "Not in this plan". Task 6 was added for it on 2026-11-24 on the owner's word, audited once, and merged on 2026-11-25 as PR 155.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -79,7 +79,7 @@ Each line is a condition no task's first test covers. The test that pins it is i
 4. Task 3, its own PR, branch `fix/app-activation-no-apple-event`, after the owner's VM check.
 5. Follow-ups PR 3 with Task 4 of this plan as its second commit: Task 8, this Task 4, Task 9, Task 10.
 6. Task 5, a docs commit on `main`. Done, `082624bc`.
-7. Task 6, its own PR, branch `fix/adopted-gateway-watch`. It needs Task 1, which is merged, and waits on nothing else.
+7. Task 6, its own PR, branch `fix/adopted-gateway-watch`. Done, PR 155, `533244e9`.
 
 ---
 
@@ -479,6 +479,16 @@ When LLMR writes an agent's main config file, such as `settings.json` or `config
 ### Task 6: A process watches the gateway it adopted and starts its own when that one is gone
 
 Written 2026-11-24 from "Not in this plan", on the owner's word to write and audit it. Building it needs his word. Its own PR, branch `fix/adopted-gateway-watch`.
+
+**Merged, 2026-11-25: PR 155, `533244e9`, with two changes from its review.** Two reviewers on another model read it, and each finding was checked before it was acted on.
+
+- **The watch is held back while a reload is in flight.** A save or Restart in the adopting process waits up to 20 seconds for the other process to restart (`existing-gateway-probe.ts`, `runtimeConfigReloadTimeoutMs`). The watch fired 10 seconds into that wait. A new test reproduced it on the first commit, with three starts inside the wait. `reloadExternalGatewayConfig` now counts itself in `adoptedGatewayReloads`, and the check returns after its await while that count is above zero. A seventh test pins it, and a mutation that removes the count fails it (run).
+- **The message and the helper.** `isGatewayEndpointAnswering` became `gatewayEndpointSilence(endpoint): Promise<string | undefined>`, which returns the reason when nothing answered. The log line carries it as "Last check: ...". The status text is now "The LLM Router gateway at ..., run by another LLM Router process, stopped answering.", because a `/health` that times out is not a gateway that is gone.
+- **Not changed, the 10 seconds.** The code reviewer asked for more than 20, since the other process's slowest restart of its own is a 2 second stop plus a 15 second startup limit (`supervisor.ts:32`, read, not reproduced). Kept, because every real exit of the other process would then cost 10 more seconds with nothing answering. The owner's to change.
+- **Open with the owner: a stop in the owning process is undone.** When the service is stopped in the process that owns the gateway, a process that adopted it starts its own 10 seconds later. Nothing signals a deliberate stop today. Read by the review, not run.
+- **Not changed, older than the PR:** a reload that fails inside `adoptExternalGateway` is never logged, and a start that fails on the core host leaves `gatewayManagedExternally` set.
+
+The text below is the task as it was audited, kept as written. Where it names `isGatewayEndpointAnswering`, the old message or six tests, the merged code has the three changes above.
 
 **Audited once on another model, 2026-11-24.** The audit built the task from this text alone and ran every gate and mutation. It found no Blocker and four Corrections, all applied below: the watch has to act after a failed reload, the retry count has to be reset, one more test for two mutations that survived, and two sentences that were inexact. The session ran the first two again before applying them: each new assertion failed on the task as first written and passed with the change. The text changed by that round was not audited again.
 
