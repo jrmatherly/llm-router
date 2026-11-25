@@ -1,6 +1,5 @@
 import { formatErrorMessage } from "@llmr/core/contracts/error-message";
-
-type NavigationId = "onboarding" | "overview" | "observability" | "api-keys" | "server" | "profile" | "networking" | "logs" | "providers" | "models" | "routing" | "virtual-models" | "extensions";
+import type { NavigationId } from "./types";
 
 export type AppCopy = {
   navigation: Record<NavigationId, string>;

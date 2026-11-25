@@ -42,6 +42,7 @@ import type {
   VirtualModelFusionWebSearchProvider,
   VirtualModelToolVisibility
 } from "@llmr/core/contracts/app";
+import type { NavigationId, OnboardingStepId } from "./types";
 import anthropicProviderIconUrl from "@/assets/provider-icons/anthropic.png";
 import bailianProviderIconUrl from "@/assets/provider-icons/bailian.ico";
 import deepseekProviderIconUrl from "@/assets/provider-icons/deepseek.ico";
@@ -65,9 +66,6 @@ import trayCyanIconUrl from "@/assets/tray-cyan.png";
 import trayOrangeIconUrl from "@/assets/tray-orange.png";
 import trayVioletIconUrl from "@/assets/tray-violet.png";
 
-type ViewId = "onboarding" | "overview" | "observability" | "api-keys" | "server" | "profile" | "networking" | "logs" | "providers" | "models" | "routing" | "virtual-models" | "extensions";
-type NavigationId = ViewId;
-type OnboardingStepId = "provider" | "profile" | "enter";
 type ProviderAccountDraftMode = "standard" | "http-json" | "browser" | "raw";
 type ApiKeyLimitMetric = "images" | "requests" | "tokens";
 type ApiKeyExpirationPreset = "7d" | "30d" | "90d" | "custom" | "never";
