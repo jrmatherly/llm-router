@@ -1,6 +1,6 @@
 # Claude apps gateway management inside LLM Router
 
-Status: draft for the owner's review, 2026-11-24. Audited the same day by two reviewers on other models, one for facts and one for the design, then reviewed twice more by the author with further live runs and a reading of Anthropic's terms. Confirmed findings from all three are applied. Nothing here is built. This spec lists what is wrong or missing today, the target design, and a build order. A plan per phase follows once the owner picks what to build.
+Status: accepted by the owner on 2026-11-24, ready for a plan per phase. Audited the same day by two reviewers on other models, one for facts and one for the design, then reviewed twice more by the author with further live runs and a reading of Anthropic's terms. Confirmed findings from all three are applied. Nothing here is built. This spec lists what is wrong or missing today, the target design, and a build order. A plan per phase follows once the owner picks what to build.
 
 ## Why
 
@@ -20,6 +20,7 @@ Taken on 2026-11-24. A later line in this spec or in a plan that contradicts one
 | D-2 | Config management is versioned: drafts, numbered versions, publish and rollback. A read-only view or a plain edit-and-apply form is not enough. |
 | D-3 | This run delivers this spec with a ranked gap list. Plans come after the owner picks. |
 | D-4 | D-1 and D-2 retire the "Not in this phase" rulings of the two earlier specs that kept the admin API and the admin console out of LLMR (`specs/completed/2026-10-25-claude-apps-gateway-integration.md:44`, `specs/completed/2026-10-25-claude-apps-gateway-client.md:57-62`). Their reason was that another console owned that work. |
+| D-5 | The owner accepted all ten recommendations in "Decisions on the researched questions" below (O-1 to O-10). Each recommendation there is a decision. Two carry a later step that is still the owner's: the licence confirmation in O-2 before phase 6, and the choice in O-5 after phase 5. |
 
 ## What was established, and how
 
@@ -220,7 +221,7 @@ A remote gateway has no config route, so LLMR alone cannot publish to it. The on
 
 ### Deployment
 
-`docker/claude-apps-gateway/` becomes a supported shape next to the harness. It is a Compose file with LLMR, Postgres and the gateway, loopback-published like the existing files. How the `claude` binary reaches the image is open decision O-2.
+`docker/claude-apps-gateway/` becomes a supported shape next to the harness. It is a Compose file with LLMR, Postgres and the gateway, loopback-published like the existing files. How the `claude` binary reaches the image is decision O-2.
 
 ## Build order
 
@@ -235,16 +236,16 @@ Each phase is one or more squash-merged PRs and ends in a check on a real gatewa
 | 4a | G-8, G-17 | The supervisor, the Process section, the first-run flow, the one-action wiring of LLMR as the upstream. | Kill the child: it comes back with backoff. Start a second LLMR: it cannot take the child. The real home's Claude files are unchanged. |
 | 4b | G-10 | The Activity section from the audit events on stderr. | Activity shows the sign-in and the request from the harness run. |
 | 5 | G-9, G-18, G-19 | The control plane for an owned gateway, with the rule for who may publish and LLMR's record of it. Start and stop are recorded from phase 4a. | Publish a good version: the gateway is ready on the new file, people stay signed in, and the record names the publisher. Publish a broken one: the gateway is back on the last good file and the version reads failed. Publish with Postgres stopped: nothing is restarted and no version is marked failed. |
-| 6 | G-11 | The Compose deployment, with a build step that downloads and verifies the operator's own copy of the binary. It waits on O-2. | `docker compose up` on a clean machine reaches a ready gateway managed from LLMR's web UI. |
+| 6 | G-11 | The Compose deployment, with a build step that downloads and verifies the operator's own copy of the binary. It waits on the licence confirmation in O-2. | `docker compose up` on a clean machine reaches a ready gateway managed from LLMR's web UI. |
 | 7 | G-12 | The remote agent. | A gateway on another host takes a published version and reports it. |
 
 Phases 0 to 2 use only calls that were run live for this spec. Phases 4a and 5 carry the risk: process control, and a publish that must never leave a gateway down. Each of those starts with a throwaway prototype of its riskiest step before its plan is written.
 
-## Open decisions
+## Decisions on the researched questions
 
-These are the owner's. Each was researched on 2026-11-24. The last column is what the research found, and the recommendation rests on it.
+The owner accepted every recommendation in this table on 2026-11-24 (D-5), so the third column is the decision. Each question was researched the same day, and the last column is what the research found.
 
-| # | Question | Recommendation | What the research found |
+| # | Question | Decision | What the research found |
 |---|---|---|---|
 | O-1 | Build the cost report into Spend? | Yes, behind a version check, with the `effective` route as the fallback for older gateways. | It is not undocumented, as an earlier draft said. The changelog adds it in 2.1.317, and it mirrors Anthropic's public Analytics API. That API is marked beta, so the shape can still change. It ran live. |
 | O-2 | How does the `claude` binary get into a container? | Installed by the operator at build, from a pinned release and checked against the signed manifest. Not shipped in any image LLMR publishes. Have this confirmed by whoever advises the owner on licences before phase 6. | Anthropic's terms state no right to redistribute. The licence file is a copyright line. The legal page sets conditions on preinstalling Claude Code in a product. The deploy guide tells each operator to build their own image. |
