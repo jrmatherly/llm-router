@@ -181,15 +181,9 @@ function main(argv) {
   };
   /** @type {import("node:child_process").ChildProcess | undefined} */
   let child;
-  // Registered before compose runs: without a handler, a signal during the blocking `up` ends this process with nothing cleaned up.
+  // Registered before compose runs: a handler keeps this process alive through a signal during the blocking `up`, so the catch below can clean up.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
-    process.on(signal, () => {
-      if (child) {
-        child.kill(signal === "SIGHUP" ? "SIGTERM" : signal);
-      } else {
-        process.exit(cleanUp() ? 130 : 1);
-      }
-    });
+    process.on(signal, () => child?.kill(signal === "SIGHUP" ? "SIGTERM" : signal));
   }
   try {
     writeFileSync(dexFile, renderDexConfig(args));

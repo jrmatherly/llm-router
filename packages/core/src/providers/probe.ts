@@ -958,9 +958,10 @@ async function providerProbeAuthRequest(
 
   const gatewayUrl = localClaudeAppsGatewayProbeUrl(apiKey, providerPlugins);
   if (gatewayUrl) {
+    const signInAgain = "Claude apps gateway session ended. Sign in again from Providers, Add, Import local agent provider.";
     const session = await resolveClaudeAppsGatewaySession(gatewayUrl).catch((error: unknown) => {
       if (error instanceof ClaudeAppsGatewayAuthError) {
-        throw new Error("Claude apps gateway session ended. Sign in again from Providers, Add, Import local agent provider.");
+        throw new Error(signInAgain);
       }
       const stored = readClaudeAppsGatewaySession(gatewayUrl);
       if (stored && claudeAppsGatewaySessionExpired(stored, undefined, 0)) {
@@ -970,6 +971,9 @@ async function providerProbeAuthRequest(
     });
     if (!session?.accessToken) {
       throw new Error("Claude apps gateway session was not found. Sign in again.");
+    }
+    if (!session.refreshToken && claudeAppsGatewaySessionExpired(session, undefined, 0)) {
+      throw new Error(signInAgain);
     }
     const headers = new Headers(request.init.headers);
     headers.set("authorization", `Bearer ${session.accessToken}`);
