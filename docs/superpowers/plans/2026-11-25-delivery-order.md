@@ -4,7 +4,9 @@
 
 **Goal:** Build every planned task that is not built yet in as few branches, reviews and merges as the code allows, with no stop for a VM pass along the way.
 
-**Written 2026-11-25** from the file lists and the cross-plan notes of nine plans, read at `main` `c87fc875`. It was not audited. The grouping of the six draft plans is an estimate until each has had its fix round.
+**Written 2026-11-25** from the file lists and the cross-plan notes of nine plans, read at `main` `c87fc875`. It was not audited. Dates in this file are UTC.
+
+**Regrouped the same day after the fix round of the six draft plans.** One researcher per plan, on another model, checked every Blocker and Correction of its 2026-11-22 audit against `main` `c491eb48`, corrected the plan's text, and judged its batches. Of 12 Blockers, 11 hold and one was overtaken by PR 146. Two new Blockers were found. The session checked seven of their claims against the code before folding them in, and all seven held. The table below is the result. Each plan's status line says what its round ran and what it did not.
 
 ## The owner's decisions
 
@@ -27,38 +29,41 @@ Read these before any batch. A plan line or a handoff line that contradicts one 
 
 ## The batches
 
-Sixteen PRs. The plans hold 44 tasks that are not built, written as about 39 PRs before VM findings Task 8 was added. Forty-two are in the table and two are not PRs.
+Eighteen PRs. The plans hold 44 tasks that are not built, written as about 39 PRs before VM findings Task 8 was added. Forty-one are in the table and three are not PRs. Batch numbers are kept from the first grouping, so a batch that was split has a letter.
 
 | # | Branch | Tasks, one commit each | Shared ground | Needs |
 |---|---|---|---|---|
 | 1 | `fix/launch-and-gateway-ownership` | VM findings 7, VM findings 8, keys 6, VM findings 3, then the terminal-only waiting line | `gateway-service.ts`, `launch-service.ts`, `profiles/service.ts` | Nothing. Keys 6 comes after VM findings 7 and 8 inside the branch |
 | 2 | `fix/provider-form-local-login` | Follow-ups 8, VM findings 4, follow-ups 9, follow-ups 10, in that order | `App.tsx`, `providers.tsx`, `shared/providers.ts` | Nothing. This is follow-ups PR 3 as already planned |
 | 3 | `test/harness-and-codex-parse` | Harness 1, 2, 3, stripper 1 | `build/test-home.mjs`, `build/test-home-env.mjs`, `build/run-tests.mjs`, the Codex parse helper | Nothing. Tests and harness only |
-| 4 | `ci/package-suites-matrix` | Harness 4 | `.github/workflows/test.yml` | Nothing. Kept apart because a red matrix job blocks a release |
-| 5 | `fix/gateway-log-control` | Harness 5 | The gateway fork, then two `package.json` pins | His word for the fork push and tag |
+| 4 | `ci/package-suites-matrix` | Harness 4 | `.github/workflows/test.yml`, and whatever tests its first run shows need a fix | Batch 3. Kept apart because a red matrix job blocks a release. Not open beside batches 6 to 10b: its test fixes can land in `profile-service.test.mjs`, which they change |
+| 5 | `fix/gateway-log-control` | Harness 5 | The gateway fork, then two `package.json` pins | His word for the fork push and tag. The fork is at `v1.0.22-llmr.4`, so this releases `llmr.5` |
 | 6 | `fix/codex-config-scanner` | Stripper 2, 3 | `codex-config-strip.ts`, `profiles/service.ts` | Batch 3 |
-| 7 | `fix/codex-ownership-and-backups` | Stripper 4, 5, 6, restore 5 | `codex-config-strip.ts`, `backup-files.ts`, `profiles/service.ts` | Batch 6 |
+| 7 | `fix/codex-ownership-and-backups` | Stripper 4, 5, 6 | `codex-config-strip.ts`, `backup-files.ts`, `profiles/service.ts` | Batch 6. About 110 source lines and 230 of test |
 | 8 | `fix/save-restore-statuses` | Restore 1, 2 | `profiles/service.ts`, the save path through `ipc.ts`, `management-server.ts`, `cli.ts`, `App.tsx` | Batch 7 |
-| 9 | `fix/restore-corrections` | Restore 3, 4 | `profiles/service.ts`, `backup-files.ts` | Batch 8 |
-| 10 | `fix/agent-config-strippers` | Restore 6, 7, 8 | A new `json-config-strip.ts`, three `profile-config.ts` files, `profiles/service.ts` | Batch 9 |
-| 11 | `fix/trace-import-and-refusals` | Logs 1, 2 | `router-plugin.ts`, `raw-trace-sync.ts`, `usage/store.ts` | Nothing |
+| 9 | `fix/restore-corrections` | Restore 3, 4, 5 | `profiles/service.ts`, `backup-files.ts` | Batch 8. Restore 5 moved here from batch 7: it uses `isCodexFamily` from restore 4. Restore 3 carries an inferred design and is audited as text first |
+| 10a | `fix/opencode-kilo-stripper` | Restore 6 | A new `json-config-strip.ts`, `profile-config.ts`, `profiles/service.ts` | Batch 9. Split from 10b: together they are about 540 source lines and 530 of test |
+| 10b | `fix/pi-zcode-strippers` | Restore 7, 8 | `json-config-strip.ts`, two `profile-config.ts` files, `profiles/service.ts` | Batch 10a |
+| 11 | `fix/trace-import-and-refusals` | Logs 1, 2 | `router-plugin.ts`, `raw-trace-sync.ts`, `usage/store.ts` | Nothing. About 130 source lines and 340 of test |
 | 12 | `fix/logs-page` | Logs 3, 4 | `network-logs.tsx`, `request-log-store.ts`, `App.tsx` | Batch 11 |
-| 13 | `fix/pricing-one-shape` | Pricing 1, 2, 3, harness 6 | `pricing-service.ts`, `usage/store.ts`, `request-log-store.ts` | Batches 3 and 11. Harness 6 waits on pricing 3, so it is the last commit |
-| 14 | `fix/cost-basis` | Pricing 4, 5 | `pricing-service.ts`, `usage/store.ts`, ten cost surfaces, `network-logs.tsx` | Batches 12 and 13 |
-| 15 | `fix/reported-cost-and-tiers` | Pricing 6, 7 | `pricing-service.ts`, `response-usage.ts`, `request-log-store.ts` | Batch 14 |
-| 16 | `fix/client-label` | Client label 1, 2, 3 | `router-plugin.ts`, `raw-trace-sync.ts`, `request-log-store.ts`, the API Keys page | Batches 11 and 15, since it meets the same store |
+| 13a | `refactor/pricing-one-shape` | Pricing 1, 2 | `pricing-service.ts`, `usage/store.ts`, `request-log-store.ts`, `response-usage.ts` | Batch 12. Two subtractions with no change in behaviour |
+| 13b | `fix/pricing-main-process-catalog` | Pricing 3, harness 6 | `pricing-service.ts`, `usage/store.ts`, `request-log-store.ts`, `request-log-runtime.ts`, the three `build/` harness files | Batches 3 and 13a. Pricing 3 gained a column, a table and a command between threads in its fix round, so it is audited as text first. Harness 6 waits on it and is the last commit |
+| 14 | `fix/cost-basis` | Pricing 4, 5 | `pricing-service.ts`, `usage/store.ts`, `contracts/app.ts`, ten cost surfaces, `network-logs.tsx` | Batches 12 and 13b. About 360 source lines. If the reviewers cannot hold it, split at pricing 5 Step 4: the core half first, then the surfaces. Pricing 5 is audited as text first |
+| 15 | `fix/long-prompt-tiers` | Pricing 7 | `pricing-service.ts`, `usage/store.ts`, `request-log-store.ts` | Batch 14. Pricing 6 left this batch and waits on the owner |
+| 16 | `fix/client-label` | Client label 3, 1, 2, in that order | `router-plugin.ts`, `raw-trace-sync.ts`, `request-log-store.ts`, the API Keys page, two header files | Batch 11, whose hook, trace import and wire helper it builds on. It meets the pricing batches in one line of `request-log-store.ts`, so it is rebased, not blocked. See the first question under "Open with the owner" before it is built |
 
 Not a PR:
 
 - **Restore 9**, the Codex token command prototype. It changes no product code. Its result goes to the owner.
 - **Pricing 8**, the service tier price. It waits on the owner's answer in the pricing plan.
+- **Pricing 6**, the cost OpenRouter reports. The gateway fork's usage type has no cost field, so the figure does not reach LLM Router (read in gateway `1.0.22-llmr.4`). It waits on the owner's answer on a fork change.
 
 ## Order
 
 1. Batches 1 and 2. Both are written and audited. They can be open together: one is core, the other is the provider form.
-2. Batch 3, then 4. Batch 5 at any point once the owner gives his word on the fork.
-3. Batches 6, 7, 8, 9, 10, one after another. All five change `profiles/service.ts`.
-4. Batches 11, 12, 13, 14, 15, 16, one after another. All six meet in the request log store or the usage store. One batch from this row and one from row 3 can be open together, except where they meet: batch 8 shares `App.tsx`, `contracts/app.ts`, `ipc.ts` and `management-server.ts` with batches 12 and 16, so batch 8 is not open beside either.
+2. Batch 3, then 4, with 4 merged before batch 6 opens. Batch 5 at any point once the owner gives his word on the fork.
+3. Batches 6, 7, 8, 9, 10a, 10b, one after another. All six change `profiles/service.ts`.
+4. Batches 11, 12, 13a, 13b, 14, 15, one after another. All six meet in the request log store or the usage store. Batch 16 can follow batch 11 at any point in this row, with a rebase. One batch from this row and one from row 3 can be open together, except where they meet: batch 8 shares `App.tsx`, `contracts/app.ts`, `ipc.ts` and `management-server.ts` with batches 12 and 16, so batch 8 is not open beside either.
 5. The end.
 
 ## Before a batch is built
@@ -66,13 +71,14 @@ Not a PR:
 - **Batches 1 and 2** are ready. Their tasks were audited on 2026-11-24 and 2026-11-25.
 - **Every other batch comes from a draft plan** whose audit found Blockers that nobody has checked. Its fix round happens right before the batch is built, for that batch's tasks only: read each Blocker and Correction against the code as it is then, correct the task text, and have the changed text audited once on another model. The audits are outside the repo, in `private/audits/2026-11-22-audit-<plan>.md`.
 - **A task under about 100 lines of change** is built once, on the batch's branch, and gets one review round that covers the task text and the code together.
-- **A design that spans commits** keeps its text audit before any build. That is the Codex scanner of batch 6, the cost basis of batch 14 and the client label rule of batch 16.
+- **A design that spans commits** keeps its text audit before any build. That is the Codex scanner of batch 6, restore 3 in batch 9, pricing 3 in batch 13b, the cost basis of batch 14 and the client label rule of batch 16.
+- **Every draft plan's text changed in its fix round and has not been audited since.** The audit of a batch's tasks on another model, before the build or with it as the two lines above say, is still owed.
 - **A task whose review finds a fault in its design** leaves the batch and gets its own PR, so the rest can merge.
-- **A batch whose diff the reviewers cannot hold** is split at a commit. Batches 7, 13 and 14 are the likely ones.
+- **A batch whose diff the reviewers cannot hold** is split at a commit. Batch 14 has its split point named in the table.
 
 ## The end
 
-After batch 16, or earlier if the owner calls it:
+After the last batch, or earlier if the owner calls it:
 
 1. One release, with his version.
 2. One VM pass on that release, on his UTM VM. It covers, in one sitting:
@@ -96,13 +102,34 @@ Each was run or read on `main` `d9a40cc7`. The recommendation is what is built u
 | Should "Waiting for the gateway" print only on a terminal? | The desktop app keeps no log of its warnings (a search of `packages/electron/src/main`, run), so nothing is lost there. multipass's menu bar app reads stderr through a pipe and shows it as a row note after a switch that worked (`AppState.swift:276`, read). Run from a terminal, multipass passes the terminal through and the line still shows live | Yes. One condition, `process.stderr.isTTY`, and the test that pins the line sets it | Batch 1, last commit |
 | A restart for a stored key that loses the port ends in `error` and does not try again | Reproduced (run): one failed start, then nothing for two minutes of poll ticks. Two lines give it the restart a crash gets, which adopts the gateway that holds the port | Build it. It also removes the worst case of keys plan Task 6 | VM findings Task 8, batch 1 |
 
-Still open with the owner, and stopping nothing:
+## Open with the owner
 
-- **H-7 of the harness plan**, which waits on his Claude Desktop check. It goes to the end pass.
-- **Whether the reviewers, the fixes and the merge on green can run without his `review-pr` line each time.** Until he says so, merging needs his word once per PR.
+Each has a default, which is built unless he says otherwise. Only the first can waste work if the default is wrong.
+
+| # | Question | Default | Plan |
+|---|---|---|---|
+| 1 | The client label plan and the accepted spec [`2026-11-24-claude-apps-gateway-management.md`](../specs/2026-11-24-claude-apps-gateway-management.md) overlap. The spec's G-5 is the same per-key mark as client label Tasks 1 and 2. Its G-6 moves the e-mail out of the `client` field, which Task 2 puts there for a marked key. Neither names the other | Build batch 16 as planned. The spec's phase 0 then takes G-5 as done and builds G-6 on it, replacing one row of the rule table and three guide sentences. The other ways: fold Tasks 1 and 2 into the spec's phase 0, or rework Task 2 to the G-6 shape now | Client label |
+| 2 | Should the gateway fork carry a provider's reported cost through to LLM Router? Pricing 6 cannot work without it | No. Drop P-5 for now | Pricing |
+| 3 | Which price a priority or flex request takes when the rule's price has no service-tier figure. Pricing 8 waits on it | The pricing plan's option C | Pricing |
+| 4 | Store the identity headers as `[redacted]` in Logs for every key, or only for a key without the mark | Every key | Client label |
+| 5 | Should an apply refuse a Codex provider id of `openai`, `ollama` or `lmstudio`? | Refuse | Stripper |
+| 6 | Should a Codex provider table written without a header count as that table? | No. State the limit | Stripper |
+| 7 | Drop the S-7 part of stripper Task 5, which no product path reaches? | Drop it | Stripper |
+| 8 | Should `saveApiKeys` stop applying profiles while the gateway is stopped? | As the restore plan recommends | Restore |
+| 9 | Should the Restore original settings button cover the agents that get a stripper? | As the restore plan recommends | Restore |
+| 10 | May restore Task 9 download another Codex version? | The installed version only | Restore |
+| 11 | Should Workbuddy's `models.json` get a stripper too? | No. It holds a placeholder and no key | Restore |
+| 12 | A product fault on Windows or the Intel Mac that the first matrix run finds | A red platform job blocks a release, as the harness plan says | Harness |
+| 13 | When the fork commit of harness 5 is released | When nothing else needs a fork release sooner | Harness |
+| 14 | The single layout's refusal body keeps the fork's prefix | Keep it. Removing it needs a fork release | Logs |
+| 15 | Which usage events a trace may name a provider for | Only an event with no tokens and no cost | Logs |
+| 16 | H-7 of the harness plan, which waits on his Claude Desktop check | The end pass | Harness |
+| 17 | Whether the reviewers, the fixes and the merge on green can run without his `review-pr` line each time | No. Merging needs his word once per PR | All |
+
+Four choices the researchers made on evidence, which a review can change: restore 3 keeps a profile's record while a saved original exists; a save's notice is set only by a profile's own restore; a usage row from the gateway's billing counts as an estimate; and a reported cost of 0 counts as absent.
 
 ## Not verified
 
-- The size of each batch's diff. The grouping comes from file lists and dependency notes.
-- Whether a draft task is already covered by a PR that merged after its plan was written.
+- The size of each batch's diff. The figures in the table are the researchers' estimates from the task text. None was measured.
+- Any task's code. The fix rounds ran the faults and read the code. They built no task.
 - The three older plans in this folder, `2026-11-21-v8-clean-vm-fixes.md` and the two open audit plans. They are not ordered here.

@@ -1,6 +1,6 @@
 # Backlog: Costs and Pricing Implementation Plan
 
-> **Status, 2026-11-22: draft, not ready to build.** A second-model audit found Blockers in this plan, and none has been checked in the code or corrected here. Do not build from it until its fix round is done. The audit lives outside the repo.
+> **Status, 2026-11-24: fix round done, text audit owed.** The 2026-11-22 audit's 2 Blockers and 11 Corrections were checked against `main` at `c491eb48`, and the task text was corrected for each one that holds. `pricing-service.ts`, `usage/store.ts`, `request-log-store.ts`, `request-log-runtime.ts`, `request-log-worker.ts`, `raw-trace-sync.ts` and the UI cost surfaces did not change between `eb84a3ba` and `c491eb48` (run, `git diff --stat`), so their line numbers hold on today's `main`. `pipeline.ts`, `gateway-service.ts` and `providers.tsx` changed, and their references are updated. Batches 11 and 12 edit the same files before this plan builds, so each task's first act is to re-read the lines it names. Not verified this round: any new test text written here (none was run), OpenRouter's credit unit, the live models.dev tier rule, and whether a same-protocol OpenRouter response keeps `usage.cost`. Tasks 3 and 5 changed in design and need the one text audit on another model before they are built. Task 6 now waits for the owner, as Task 8 does.
 
 > **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
 
@@ -8,13 +8,13 @@
 
 **Goal:** A person reading a cost in LLM Router can tell a listed price from an estimate, a reported charge and an unknown, sees the same figure in Logs and in the totals from the first request after a launch, and is told when a price source cannot be loaded.
 
-**Architecture:** Seven tasks, each one branch and one squash-merged PR, plus an eighth that waits for the owner. Tasks 1 to 3 are subtractions that leave one input shape, one usage extractor and one catalog lookup, in the main process only. Task 4 reports the state of that one catalog. Task 5 carries a closed `CostBasis` with every cost and changes the ten cost surfaces. Tasks 6 and 7 read two things the price data already holds, a cost OpenRouter reports and the catalogs' long-prompt tiers.
+**Architecture:** Six tasks to build, one commit each, on the branches the delivery index names, plus Tasks 6 and 8, which wait for the owner. Tasks 1 to 3 are subtractions that leave one input shape, one usage extractor and one catalog lookup, in the main process only. Task 4 reports the state of that one catalog. Task 5 carries a closed `CostBasis` with every cost and changes the ten cost surfaces. Tasks 6 and 7 read two things the price data already holds, a cost OpenRouter reports and the catalogs' long-prompt tiers.
 
 **Tech Stack:** TypeScript, `better-sqlite3`, a `node:worker_threads` writer for request logs, React, `node:test` with `node:assert/strict`, component tests that render with `renderToStaticMarkup`, Playwright for one step.
 
 **Spec:** [`docs/superpowers/research/2026-11-22-open-items-validation.md`](../research/2026-11-22-open-items-validation.md). Row ids P-1 to P-8, decisions B-1 to B-9 and outside facts X-1 to X-15 come from that record. Task 8 of [`2026-11-21-v8-clean-vm-fixes.md`](2026-11-21-v8-clean-vm-fixes.md), with its "As built (PR 144)" note and decision V-21, is the base this plan changes. Read both before a task.
 
-**Evidence status.** Written 2026-11-22 against `main` at `eb84a3ba`. Every path, symbol and line named below was read in the code that day. No fix here was prototyped, and no new test in this plan was run. Where a step rests on something only read or inferred, the step says so and the task's first step is the check.
+**Evidence status.** Written 2026-11-22 against `main` at `eb84a3ba`, and re-read against `c491eb48` on 2026-11-24. Every path, symbol and line named below was read on `c491eb48`. On that commit the five test files this plan extends pass, 105 of 105 (run). No fix here was prototyped, and no new test in this plan was run. Where a step rests on something only read or inferred, the step says so and the task's first step is the check.
 
 ## Decisions this plan rests on
 
@@ -25,7 +25,8 @@
 - **X-7, X-8, X-9.** A long-prompt tier is chosen by the prompt size, which counts cache reads and cache writes. models.dev carries `cost.tiers` and no service-tier price. LiteLLM carries suffixed fields. Tasks 7 and 8.
 - **X-10.** OpenRouter returns `usage.cost` in every response, in credits. Task 6.
 - **X-11, X-12.** Other tools label a figure as estimated and say when no price matched. A tooltip alone is not enough, so the tilde, the dash and the caption are text.
-- **The plan author chose these**, and any can change in review. The dash is the `-` character that two Agent Analysis panels already print; a cost stored with no recorded source counts as an estimate; a user price wins over a cost the provider reports; a tier with no cache price of its own keeps the base entry's cache prices.
+- **The plan author chose these**, and any can change in review. The dash is the `-` character that two Agent Analysis panels already print; a cost stored with no recorded source counts as an estimate; a user price wins over a cost the provider reports; a tier with no cache price of its own keeps the base entry's cache prices; a LiteLLM tier with no output price of its own keeps the base output price, not the next lower tier's (Task 7).
+- **The fix round chose these, on evidence**, and either can change in review. A `gateway_billing` cost is an estimate, not a reported charge: the gateway computes its `x-gateway-billing-*-cost` headers from its own configured rates, and its bundle reads no provider cost field (read, `node_modules/@the-next-ai/ai-gateway` 1.0.22-llmr.4). A reported cost of 0 counts as absent, so V-21 ("only a user price can yield a cost of 0") gains no new exception (Task 6).
 
 ## Global Constraints
 
@@ -40,17 +41,19 @@
 - Before each PR: `npm run typecheck`, `npm run lint`, `npm run test:architecture`, and the package suites the task touches. Tasks 3, 6 and 7 also run `npm run build:assets`, because the request log worker bundle changes. Task 5 also runs `npm run test:e2e`.
 - No test, script or doc names a real provider host or holds a key. A price catalog is served to a test through a stubbed `globalThis.fetch`, as `withPriceCatalogs` in `packages/core/test/unit/models/pricing-service.test.mjs` does.
 - A push or tag on `jrmatherly/llmr-gateway` needs the owner's word each time. No task here touches the fork.
-- Merging needs the owner's word, once per PR. No two PRs of this plan run at the same time. Start each from `main` after the one before it has merged.
+- Merging needs the owner's word, once per PR. Branches, the grouping of tasks into PRs and the order come from `2026-11-25-delivery-order.md` (batches 13, 14 and 15). Start each batch from `main` after the batch before it has merged.
+- No task waits on a VM check. Each "VM check, for the end pass" line is a line of the owner's one VM pass at the end of the program.
 
 ## Review Focus
 
 Each line names a condition that no single row's test covers. The test that pins it sits in the task named at the end of the line.
 
 1. A machine that is offline from the first launch. Every price source fails, requests are recorded with no cost, and when the network returns the Logs row and the usage row of each request get the same price from the full rule. Task 3, Step 1.
-2. A request log row that is written after its price update arrives. The row is still priced. Task 3, Step 3.
-3. A total that mixes a listed price, a median estimate, a request with no price and a user price of 0. The caption's two figures match the rows, the user's 0 shows as `$0.00` and not as a dash, and a total with nothing priced shows a dash. Task 5, Steps 1 and 5.
+2. A request log row that is written after its price update arrives, also when the writer or the app restarts in between. The row is still priced. Task 3, Step 3.
+3. A total that mixes a listed price, a median estimate, a request with no price and a user price of 0. The caption's two figures match the rows, the user's 0 shows as `$0.00` and not as a dash, also when the only other request in the range has no price, and a total with nothing priced shows a dash. Task 5, Steps 1 and 5.
 4. A row stored before this plan, with a cost and an empty or `request_log` source. It shows as an estimate whose source reads "Not recorded", never as unknown and never as listed. Task 5, Step 1.
-5. An OpenRouter request made with the user's own upstream key, where `usage.is_byok` is true. The reported figure is not used, and the request is priced by the rule. Task 6, Step 2.
+5. A request made before the first catalog load whose response names a rule alias or a virtual model, not the routed model. The sweep prices it by the routed model, as the request path would have, and never marks it unpriced for the alias. Task 3, Step 4.
+6. A long offline stretch followed by a sweep over thousands of waiting rows. The sweep's price updates do not crowd real request records out of the log queue. Task 3, Step 6.
 
 ## Rows this plan closes
 
@@ -62,7 +65,7 @@ Each line names a condition that no single row's test covers. The test that pins
 | P-3 | 4 |
 | P-1 | 5 |
 | P-8 | 5, Step 9 |
-| P-5 | 6 |
+| P-5 | 6, waiting for the owner |
 | P-4, long-prompt tiers | 7 |
 | P-4, service tier | 8, waiting for the owner |
 | P-4, batch | None. No batch route exists (`grep "/batches" packages/core/src` finds nothing), so a batch price has nothing to apply to. |
@@ -71,11 +74,13 @@ Each line names a condition that no single row's test covers. The test that pins
 
 After Task 3 merges, the request log worker thread and `RequestLogStore` make no outside fetch. The worker no longer imports `preloadUsagePriceCatalog`, and `RequestLogStore.record` no longer awaits a catalog load. From that point a test process reaches a price catalog host only through the main thread's `preloadUsagePriceCatalog`, which a stub of `globalThis.fetch` in the test file can reach. The validation record's run named two such main-thread files that stay after Task 3: `credential-and-model-routing.test.mjs` for the price catalog and `unit/web/web-management-server.test` for the model catalog. This plan does not stub them and does not add the runner guard. Both belong to the harness plan (H-3).
 
+One new main-thread source comes with Task 3 (inferred, not run). `GatewayService` connects the `usageStore` singleton to the rule, so a test that builds a `GatewayService` and records a usage row with tokens and no price starts the sweep, which calls `preloadUsagePriceCatalog`. A `UsageStore` a test builds itself is never connected and never loads a catalog. Harness Task 6's Step 2 report finds any such file.
+
 ## Not in this plan
 
 - Batch prices, for the reason in the table above.
 - LiteLLM's `tiered_pricing` range arrays (56 entries per the outside-facts report), Anthropic fast mode and US-only inference (`usage.speed`, `usage.inference_geo`), and OpenAI regional uplifts. No catalog LLM Router reads carries a price table for them in a form the rule uses today.
-- The gateway's `x-gateway-billing-total-cost` response header, which only `mcp/fusion-vision-mcp.ts` reads. Whether it is a provider charge or the gateway's own rate estimate was not checked.
+- The gateway's `x-gateway-billing-total-cost` response header, which only `mcp/fusion-vision-mcp.ts` reads. It is the gateway's own calculation from its configured billing rates, not a provider charge (read in the gateway bundle).
 - Seeding prices from the bundled `models.json`. The generated file keeps no `canonical_model_id`, so the maker step of the rule could not run on it.
 - Re-pricing rows already stored with a cost.
 
@@ -204,16 +209,16 @@ A request made before the price catalog has loaded, which includes the first req
 
 It sits here because Task 4 reports on the one catalog this task leaves, and Task 5's count of unpriced requests is only right once a waiting row is priced by the same rule as any other.
 
-**Why the request path does not wait for the catalog instead.** `recordGatewayRequestLog` returns its enqueue result synchronously (`request-log-store.ts:1950`), and the pipeline's `priceFor` is called inside that synchronous path (`pipeline.ts:272` and `:359`). Awaiting a catalog fetch there, with its 5 second timeout per source, would change that contract and delay the Logs row of every request made while a source is down. Read in the code, and the reason the validation record gives.
+**Why the request path does not wait for the catalog instead.** `recordGatewayRequestLog` returns its enqueue result synchronously (`request-log-store.ts:1950`), and the pipeline's `priceFor` (defined at `pipeline.ts:279`) is called inside that synchronous path (`:301` and `:366`). Awaiting a catalog fetch there, with its 5 second timeout per source, would change that contract and delay the Logs row of every request made while a source is down. Read in the code, and the reason the validation record gives.
 
-**What the sweep prices by.** The sweep resolves on the provider and the model stored on the usage row. The provider is the configured provider's name, so the base URL mapping applies, which is the step the old fallback skipped. The model is the one shown in Overview, which is the response's model name when the response states one. `priceFor` prices the routed model. The two differ only when a provider answers with a different name than the one configured, and then the sweep prices the name the provider gave. Read, not run. It affects only rows written before the catalog loaded.
+**What the sweep prices by.** The sweep resolves on the provider stored on the usage row and on a new `price_model` column, which holds the model the request path priced. The stored provider is already the one the request path priced (`record` stores `event.provider`, which `recordCapture` sets to `target.provider`), so the base URL mapping applies, which is the step the old fallback skipped. The stored `model` column is not the priced model. `recordCapture` stores the response's model (`usage/store.ts:362`), and the request path prices `target.model`, the routed model (`:727`). They differ for every rule alias and virtual model profile, which is the normal case (`UsageStore prices the routed upstream model when the response echoes a rule alias`, `usage-store.test.mjs:353`). A run on 2026-11-24 confirmed it. With a provider whose model is `vendor-model` and a response that says `my-alias`, the routed model priced `priced` and the stored model priced `unpriced`. A sweep on the stored model would mark such a row `unpriced` in both tables for good. A row with an empty `price_model` (a row copied from Logs, or one written before this task) is resolved on its `model`.
 
 **Files:**
 - Modify: `packages/core/src/models/pricing-service.ts`
 - Modify: `packages/core/src/usage/store.ts`
 - Modify: `packages/core/src/observability/request-log-store.ts`, `packages/core/src/observability/request-log-runtime.ts`, `packages/core/src/observability/request-log-worker.ts`
 - Modify: `packages/core/src/gateway/application/gateway-service.ts`
-- Test: `packages/core/test/integration/gateway/request-pipeline-cost-parity.test.mjs`, `packages/core/test/integration/observability/request-log-pricing-transaction.test.mjs`, `packages/core/test/integration/usage/usage-store.test.mjs`, `packages/core/test/unit/models/pricing-service.test.mjs`
+- Test: `packages/core/test/integration/gateway/request-pipeline-cost-parity.test.mjs`, `packages/core/test/integration/observability/request-log-pricing-transaction.test.mjs`, `packages/core/test/integration/usage/usage-store.test.mjs`, `packages/core/test/unit/models/pricing-service.test.mjs`. On `c491eb48` no other test names `pricingRefreshNeeded`, `"maintenance"` or `backfillMissingUsageCosts` (run, `grep -rln` over `packages/core/test`).
 
 **Interfaces:**
 - Removes from `pricing-service.ts`: `estimateUsageCostUsd` (the async one that loads a catalog), and the catalog lookup inside `estimateUsageCostUsdFromLoadedCatalog` (lines 154 to 156).
@@ -222,13 +227,15 @@ It sits here because Task 4 reports on the one catalog this task leaves, and Tas
 - Removes from `request-log-worker.ts`: `schedulePricingRefresh`, `schedulePricingBackfillPage`, the three variables they use, and the import of `preloadUsagePriceCatalog`. Removes the `"maintenance"` message type from `WorkerResponse` in `request-log-runtime.ts`.
 - Produces in `request-log-store.ts`:
   - `export type RequestLogPriceUpdate = { price: { price: ResolvedModelPrice; state: "priced" } | { state: "unpriced" }; requestId: string }`
-  - a third member of `RequestLogStoreWriteCommand`: `{ input: RequestLogPriceUpdate; kind: "price-update" }`
-  - `export function enqueueGatewayRequestLogPrice(update: RequestLogPriceUpdate): RequestLogEnqueueResult`, which calls `requestLogRuntime.enqueuePriceUpdate(update)`
-- Produces in `request-log-runtime.ts`: `RequestLogRuntime.enqueuePriceUpdate(input: RequestLogPriceUpdate): RequestLogEnqueueResult`. It queues the command with the next `sequence`, like `enqueueRawTrace`, so it runs after every write enqueued before it.
+  - a third member of `RequestLogStoreWriteCommand`: `{ input: RequestLogPriceUpdate[]; kind: "price-update" }`. One command carries one sweep page's updates, so a sweep over many rows costs the queue one item per page of 500, not one per row.
+  - a table `request_log_pending_prices (request_id TEXT PRIMARY KEY, received_at INTEGER NOT NULL, price_json TEXT NOT NULL)`, created beside `request_log_pending_updates` (`request-log-store.ts:1587`) and pruned by the same `pendingRawTraceTtlMs` in `prunePendingRawTraceUpdates`. It holds an update whose row is not written yet. It is a table and not a `Map` because an acked command is never resent (`handleWriterMessage`, `request-log-runtime.ts:761`) while a raw-trace bundle is retried after a restart, so an in-memory park loses the update when the writer or the app restarts.
+  - `export function enqueueGatewayRequestLogPrices(updates: RequestLogPriceUpdate[]): RequestLogEnqueueResult`, which calls `requestLogRuntime.enqueuePriceUpdates(updates)`
+- Produces in `request-log-runtime.ts`: `RequestLogRuntime.enqueuePriceUpdates(input: RequestLogPriceUpdate[]): RequestLogEnqueueResult`. It queues one command with the next `sequence`, like `enqueueRawTrace`, so it runs after every write enqueued before it. It goes through `enqueue`, so a closed runtime or a full queue refuses it. A refused command is not retried. Its Logs rows keep no cost and read "Not priced yet" after Task 5, while their usage rows are priced. That loss is accepted and stated here.
 - Produces in `usage/store.ts`:
-  - `UsageStore.connectPricing(dependencies: { enqueueRequestLogPrice: (update: RequestLogPriceUpdate) => unknown; resolvePrice: (provider: string, model: string) => RequestPriceOutcome }): void`. A store that was never connected records and never sweeps.
+  - a column `price_model TEXT NOT NULL DEFAULT ''` on `usage_events`, added in `ensureUsageSchema` the way `cost_source` was (`usage/store.ts:626`). `UsageEventInput` gains `priceModel?: string`. `recordCapture` passes `priceModel: target.model`, and `record` stores it.
+  - `UsageStore.connectPricing(dependencies: { enqueueRequestLogPrices: (updates: RequestLogPriceUpdate[]) => unknown; resolvePrice: (provider: string, model: string) => RequestPriceOutcome }): void`. A store that was never connected records and never sweeps.
   - `export function connectUsagePricing(dependencies: Parameters<UsageStore["connectPricing"]>[0]): void`, which connects the `usageStore` singleton
-- Consumes: `resolveRequestPrice` and `unpricedCostSource` from `pricing-service.ts`, unchanged.
+- Consumes: `resolveRequestPrice` and `unpricedCostSource` from `pricing-service.ts`, unchanged, and `shouldRecordRequestLogs` from `raw-trace-sync.ts` (`:1497`).
 
 - [ ] **Step 1: Write the end-to-end test that fails today.** Add to `request-pipeline-cost-parity.test.mjs`, reusing its `modelsDev`, `catalogFetch`, `readRows` and `until` helpers and the first test's config, request and pipeline setup:
 
@@ -242,7 +249,7 @@ test("a request written while no price source is loaded gets the full rule's pri
   // write sees a catalog due for a refresh and starts the sweep.
   mock.timers.enable({ apis: ["Date"], now: Date.now() + 6 * 60 * 1000 });
   connectUsagePricing({
-    enqueueRequestLogPrice: enqueueGatewayRequestLogPrice,
+    enqueueRequestLogPrices: enqueueGatewayRequestLogPrices,
     resolvePrice: (provider, model) => resolveRequestPrice(config, provider, model)
   });
   globalThis.fetch = /* the first test's handler, serving catalogFetch(modelsDev(3, 3)) */;
@@ -259,12 +266,16 @@ test("a request written while no price source is loaded gets the full rule's pri
 });
 ```
 
-The mapped provider's price is $3 and $3 per million, so 1,000 input and 100 output tokens cost $0.0033. The maker's entry, which the old fallback would pick, gives $0.0013. The test imports `connectUsagePricing` from `usage/store.ts`, `enqueueGatewayRequestLogPrice` from `request-log-store.ts` and `resolveRequestPrice` from `pricing-service.ts`. The two tests share the module's catalog and the two databases, so this test deletes the rows the first one left before it sends its request, or filters by its own `request_id`.
+The mapped provider's price is $3 and $3 per million, so 1,000 input and 100 output tokens cost $0.0033. The maker's entry, which the old fallback would pick, gives $0.0013. The test imports `connectUsagePricing` from `usage/store.ts`, `enqueueGatewayRequestLogPrices` from `request-log-store.ts` and `resolveRequestPrice` from `pricing-service.ts`. The two tests share the module's catalog, the two databases and the `requestLogRuntime` singleton, so this test deletes the rows the first one left before it sends its request, or filters by its own `request_id`.
 
-- [ ] **Step 2: Run it and see it fail.**
+The existing test's `finally` calls `closeRequestLogRuntime()`, and a closed runtime stays closed for good (`closed = true` at `request-log-runtime.ts:378`, never reset). A run on 2026-11-24 showed `enqueueRecord` after `closeRequestLogRuntime()` returning `{"accepted":false,"degraded":false,"reason":"closed"}`. So move that call out of the first test's `finally` into one `after(() => closeRequestLogRuntime())` hook at file level, imported from `node:test`. Without the move, every test added after the first waits 10 seconds in `until` and fails with "the log row was not priced". Tasks 6 and 7 add tests to this file and rely on the move.
+
+- [ ] **Step 2: Run it and see it fail, then see the defect on `main`.**
 
 Run: `node build/test.mjs core && node --test .test-dist/core/test/integration/gateway/request-pipeline-cost-parity.test.js`
-Expected: FAIL, `connectUsagePricing` is not exported. To see the defect itself, remove the `connectUsagePricing` call and run again. Both rows are then priced by the old fallback at 0.0013. If they are not, stop and report, because the cause stated above is then wrong.
+Expected: FAIL, `connectUsagePricing` is not exported, so the module does not load.
+
+To see the defect itself, check out `main` in a scratch copy of the test file, delete the two new imports and the `connectUsagePricing` call, and run it there. Expected on `main`: both rows priced by the old fallback at 0.0013 with source `models.dev`. If they are not, stop and report, because the cause stated above is then wrong. Delete the scratch copy and its `.test-dist` output. On the new code the same body without the call leaves both rows with no cost, which is why the check runs on `main`.
 
 - [ ] **Step 3: Pin the log store's side.** In `request-log-pricing-transaction.test.mjs`, delete `RequestLogStore commits while a background pricing refresh is stalled` and `the back-fill skips a row resolved as unpriced and still prices a row written before any catalog`, remove the `late-request` command and the two back-fill assertions from `a log row stores where its price came from and keeps it through a raw-trace re-price and a back-fill` (rename it to end at `a raw-trace re-price`), and remove every `pricingRefreshNeeded` assertion. Add, using the file's `openStore`, `createRecord`, `usageBody` and `litellmPrice`:
 
@@ -275,7 +286,7 @@ const noCatalogRecord = (requestId, sequence) => ({
   kind: "record",
   sequence
 });
-const priceUpdate = (requestId, price, sequence) => ({ input: { price, requestId }, kind: "price-update", sequence });
+const priceUpdate = (requestId, price, sequence) => ({ input: [{ price, requestId }], kind: "price-update", sequence });
 
 test("a row written with no catalog has no cost until a price update prices it from the row's own tokens", async () => {
   const { dir, readRow, store } = openStore("llmr-request-log-price-update-test-");
@@ -303,62 +314,82 @@ test("a price update leaves a row that already has a cost, and a later raw trace
   } finally { await store.close(); rmSync(dir, { force: true, recursive: true }); }
 });
 
-test("a price update that arrives before its row prices the row when it is written, and one for a request that is never logged writes nothing", async () => {
-  const { dir, readRow, store } = openStore("llmr-request-log-price-update-early-test-");
+test("a price update that arrives before its row prices the row when it is written, also after the store reopens, and one for a request that is never logged writes nothing", async () => {
+  const { dbFile, dir, readRow, store } = openStore("llmr-request-log-price-update-early-test-");
+  let reopened;
   try {
     await store.writeBatch([priceUpdate("early", litellmPrice, 1), priceUpdate("never-logged", litellmPrice, 2)]);
     assert.deepEqual(readRow("never-logged"), {});
-    await store.writeBatch([noCatalogRecord("early", 3)]);
+    await store.close();
+    reopened = new RequestLogStore(dbFile);
+    await reopened.writeBatch([noCatalogRecord("early", 3)]);
     assert.deepEqual(readRow("early"), { cost_source: "litellm", cost_usd: 6 });
-  } finally { await store.close(); rmSync(dir, { force: true, recursive: true }); }
+  } finally { await reopened?.close(); await store.close(); rmSync(dir, { force: true, recursive: true }); }
 });
 ```
+
+`openStore` (`request-log-pricing-transaction.test.mjs:336`) builds `dbFile` and does not return it today. Add `dbFile` to the object it returns. The reopen is what proves the park is durable. With one store instance an in-memory park would pass too.
 
 - [ ] **Step 4: Pin the usage store's side.** In `usage-store.test.mjs`, rewrite `UsageStore records usage while the price catalog loads and prices it afterwards` and `the usage sweep skips a row resolved as unpriced and still prices a row written before any catalog` so the sweep is driven by `connectPricing` and not by the `estimateCost` stub answering without a price. The second becomes:
 
 ```js
-test("the usage sweep prices a waiting row by the connected rule, marks a row the rule cannot price, and sends both outcomes to the request log", async () => {
+test("the usage sweep prices a waiting row by the connected rule and the priced model, marks a row the rule cannot price, and sends both outcomes to the request log", async () => {
   // store built with loadPriceCatalog and priceCatalogNeedsRefresh as today, and no estimateCost option
   const sent = [];
   const price = { price: { pricing: { inputUsdPerMillionTokens: 100_000, outputUsdPerMillionTokens: 0 }, source: "litellm" }, state: "priced" };
   store.connectPricing({
-    enqueueRequestLogPrice: (update) => sent.push(update),
+    enqueueRequestLogPrices: (updates) => sent.push(...updates),
     resolvePrice: (_provider, model) => model === "known-model" ? price : { state: "unpriced" }
   });
   await store.record({ ...event, model: "known-model", price: { state: "no-catalog" }, requestId: "waiting" });
+  await store.record({ ...event, model: "my-alias", price: { state: "no-catalog" }, priceModel: "known-model", requestId: "alias" });
   await store.record({ ...event, model: "no-price-model", price: { state: "no-catalog" }, requestId: "unpriced" });
   await store.record({ ...event, model: "known-model", price: { state: "no-catalog" }, requestId: "" });
-  await swept;
+  await until(() => row("waiting").cost_usd !== null && row("alias").cost_usd !== null && row("unpriced").cost_source === "unpriced" && rowWithoutRequestId().cost_usd !== null);
   assert.deepEqual(row("waiting"), { cost_source: "litellm", cost_usd: 1 });
+  assert.deepEqual(row("alias"), { cost_source: "litellm", cost_usd: 1 });
   assert.deepEqual(row("unpriced"), { cost_source: "unpriced", cost_usd: null });
+  assert.deepEqual(rowWithoutRequestId(), { cost_source: "litellm", cost_usd: 1 });
   assert.deepEqual(sent.sort((left, right) => left.requestId < right.requestId ? -1 : 1), [
+    { price, requestId: "alias" },
     { price: { state: "unpriced" }, requestId: "unpriced" },
     { price, requestId: "waiting" }
   ]);
 });
 ```
 
-The event has 10 input tokens, so the price above gives $1. More than one sweep can run, so the test sorts what was sent. A row with no request id is priced and sends nothing. Add one more test. A store that `connectPricing` was never called on records a `no-catalog` row and never calls `loadPriceCatalog`.
+The event has 10 input tokens, so the price above gives $1. The `alias` row stores the response's model and is priced by `priceModel`. More than one sweep can run, so the test waits on a condition over the rows and sorts what was sent. The current test awaits a `swept` promise and then a `setTimeout(20)` (`usage-store.test.mjs:1045` to `1062`). That depends on the order of `setImmediate` and microtasks. Write a small `until(read)` helper in the file that polls every 10 ms for 2 seconds, and `row` and `rowWithoutRequestId` helpers that open the database, read `cost_source, cost_usd` and close it. A row with no request id is priced and sends nothing. Add one more test. A store that `connectPricing` was never called on records a `no-catalog` row and never calls `loadPriceCatalog`.
 
-- [ ] **Step 5: Make the estimator price from a price only.** In `pricing-service.ts`, delete `estimateUsageCostUsd`, rename `estimateUsageCostUsdFromLoadedCatalog` to `estimateUsageCost`, and delete the catalog lookup at lines 154 to 156 so a call with no complete `pricing` returns `undefined`. In `pricing-service.test.mjs`, a test that used the old function to read a catalog price now asserts on `resolveRequestPrice` with a config (the calls at lines 127 to 140, 201, 332, 456 and 466). The test `the fallback estimate unwraps a route selector and strips the provider prefix` becomes the same assertions on `resolveRequestPrice`. Calls that pass a `pricing` keep their assertions under the new name.
+- [ ] **Step 5: Make the estimator price from a price only.** In `pricing-service.ts`, delete `estimateUsageCostUsd`, rename `estimateUsageCostUsdFromLoadedCatalog` to `estimateUsageCost`, and delete the catalog lookup at lines 154 to 156 so a call with no complete `pricing` returns `undefined`. In `pricing-service.test.mjs`, a test that used the old function to read a catalog price now asserts on `resolveRequestPrice` with a config (the calls at lines 127 to 140, 201, 332, 456 and 466). The test `the fallback estimate unwraps a route selector and strips the provider prefix` (line 462) becomes the same assertions on `resolveRequestPrice`. Calls that pass a `pricing` keep their assertions under the new name (lines 35, 43, 54, 223, 228 and 246). The `await estimateUsageCostUsd(input)` assertion at line 30 is deleted, because the line after it asserts the same result through the cache-only function.
 
-- [ ] **Step 6: Stop the worker pricing.** In `request-log-store.ts`, `record()` calls `estimateUsageCost(costInput)` in both branches of the transaction check, so it no longer awaits. Delete the removals listed under Interfaces. In `writeBatch`, handle `kind: "price-update"` by a new private `applyPriceUpdate(database, input)`. The rule it encodes:
+- [ ] **Step 6: Stop the worker pricing.** In `request-log-store.ts`, `record()` calls `estimateUsageCost(costInput)` in both branches of the transaction check, so it no longer awaits. Delete the removals listed under Interfaces. In `writeBatch`, handle `kind: "price-update"` by calling a new private `applyPriceUpdate(database, update)` for each update in the command's array. The rule it encodes:
   - It acts on the row with that `request_id` only while `cost_usd IS NULL AND cost_source = ''`.
   - `priced`: the cost is `estimateUsageCost` over the row's stored token columns with the update's pricing and source. It writes `cost_usd`, `cost_source` and `pricing_json`, as `record()` does for a resolved price.
   - `unpriced`: it writes `cost_source = 'unpriced'`.
-  - No row with that id: it keeps the update in a `Map` on the store, capped at 500 entries with the oldest dropped. `record()` takes and removes the entry for its request id when its own `input.price` is absent or `no-catalog`.
+  - No row with that id: it writes the update to `request_log_pending_prices`, replacing an earlier one for the same id. The record branch of `writeBatch`, beside its `takePendingRawTraceUpdate` call (`request-log-store.ts:509`), takes and deletes the entry for its request id and applies it with `applyPriceUpdate` after `record()`, so it acts only when the record left `cost_usd` NULL and `cost_source` empty. The table is pruned with `request_log_pending_updates`.
 
-  In `request-log-runtime.ts`, add `enqueuePriceUpdate`, give the command a fixed small `sizeBytes`, and widen the three places that branch on `command.kind` (`estimate`, the drop warning at line 813, `withoutSize`). In the worker, `reviveCommand` returns a `price-update` command unchanged.
+  In `request-log-runtime.ts`, add `enqueuePriceUpdates`. Its command's `sizeBytes` is 128 per update, a fixed estimate in place of `estimateRecordBytes` and `estimateRawTraceBytes`. Of the places that branch on `command.kind`, `markRecordAdmissionsCommitted` (`:498`) already skips non-records, and the raw-trace cleanup (`:847`) already keys on `raw-trace-update`. The drop path at `:804` and `:813` needs a reading for the new kind: the warning says "Dropping" for it, as for a record, and it remembers no admission. `withoutSize` (`:1162`) does not branch and needs no change. In the worker, `reviveCommand` (`request-log-worker.ts:153`) must return a `price-update` command unchanged, because its last branch calls `Buffer.from(input.requestBody)` and would throw on one.
 
-- [ ] **Step 7: Make the sweep use the rule.** In `usage/store.ts`, `priceUnpricedEvents` also selects `request_id`, and for each row calls the connected `resolvePrice(provider, model)`:
+- [ ] **Step 7: Make the sweep use the rule.** In `usage/store.ts`, add the `price_model` column and field named under Interfaces. `priceUnpricedEvents` (`:300`) also selects `request_id` and `price_model`, and for each row calls the connected `resolvePrice(provider, price_model || model)`:
   - `priced`: cost from `this.estimateCost` with the outcome's pricing and source, then the existing update.
   - `unpriced`: `UPDATE usage_events SET cost_source = 'unpriced' WHERE id = ? AND cost_usd IS NULL`.
   - `no-catalog`: nothing.
-  - For the first two, when `request_id` is not empty, call `enqueueRequestLogPrice({ price, requestId })`.
+  - For the first two, when `request_id` is not empty, add `{ price, requestId }` to the page's list. After the page's transaction, when the list is not empty, call `enqueueRequestLogPrices(list)` once.
 
-  `priceUnpricedEventsAfterCatalogLoads` returns at once on a store with no pricing connection. `record()` is unchanged. With `estimateUsageCost` as its default estimator, a `no-catalog` row now gets no cost and source `''`.
+  `priceUnpricedEventsAfterCatalogLoads` returns at once on a store with no pricing connection. `record()` stores `price_model` and is otherwise unchanged. With `estimateUsageCost` as its default estimator, a `no-catalog` row now gets no cost and source `''`.
 
-- [ ] **Step 8: Connect it.** In `gateway-service.ts`, beside the `requestPipeline` field, call `connectUsagePricing({ enqueueRequestLogPrice: enqueueGatewayRequestLogPrice, resolvePrice: (provider, model) => resolveRequestPrice(this.config, provider, model) })` once, in the constructor or a field initialiser. Read `packages/core/test/architecture/gateway-service-architecture.test.mjs` first. The call goes in `gateway/application/gateway-service.ts`, not in the `gateway/service.ts` facade.
+  A usage row whose provider is still `unknown` is resolved as it is. `setProviderIfUnknown`, which logs plan Task 1 adds, fills the provider only for a refused request, which has no tokens (read in the logs plan), and the sweep selects only rows with tokens. So the two do not meet.
+
+- [ ] **Step 8: Connect it.** In `gateway-service.ts`, beside the `requestPipeline` field (`:115`), call `connectUsagePricing` once, in the constructor or a field initialiser:
+
+  ```ts
+  connectUsagePricing({
+    enqueueRequestLogPrices: (updates) => this.config && shouldRecordRequestLogs(this.config) ? enqueueGatewayRequestLogPrices(updates) : undefined,
+    resolvePrice: (provider, model) => resolveRequestPrice(this.config, provider, model)
+  });
+  ```
+
+  The check on `shouldRecordRequestLogs` is the one the raw-trace importer makes before it enqueues (`raw-trace-sync.ts:419`). Without it, a sweep with request logs off would start the writer thread through `enqueue` (`request-log-runtime.ts:420`), create a request-log database, and park every update. `this.config` is undefined until the gateway starts (`:505`), and `resolveRequestPrice` accepts that. Read `packages/core/test/architecture/gateway-service-architecture.test.mjs` first. The call goes in `gateway/application/gateway-service.ts`, not in the `gateway/service.ts` facade.
 
 - [ ] **Step 9: Run the gates.**
 
@@ -381,13 +412,14 @@ It sits after Task 3 because there is then one catalog to report on.
 - Test: `packages/core/test/unit/models/pricing-service.test.mjs`, `packages/ui/test/component/overview-components.test.tsx`, `packages/ui/test/fixtures/index.ts`
 
 **Interfaces:**
-- Produces in `contracts/app.ts`: `export type PriceSourceStatus = { lastError?: string; loadedAt?: string; source: "litellm" | "models.dev" | "openrouter" }`, and `priceSources: PriceSourceStatus[]` on `UsageStatsSnapshot`.
-- Produces in `pricing-service.ts`: `export function usagePriceCatalogStatus(): PriceSourceStatus[]`, ordered by `source`. It is empty before the first load attempt. `loadedAt` is the ISO time of the last successful load and survives a later failure. `lastError` is the message of the latest failed attempt, cut to 200 characters, and is absent after a success. An absent value is an omitted key, not a key set to `undefined`, because the test compares with `deepEqual`.
+- Produces in `contracts/app.ts`: `export type PriceSourceStatus = { failing?: true; loadedAt?: string; source: "litellm" | "models.dev" | "openrouter" }`, and `priceSources: PriceSourceStatus[]` on `UsageStatsSnapshot`.
+- Produces in `pricing-service.ts`: `export function usagePriceCatalogStatus(): PriceSourceStatus[]`, ordered by `source`. It is empty before the first load attempt. `loadedAt` is the ISO time of the last successful load and survives a later failure. `failing` is `true` while the latest attempt failed, and absent after a success. An absent value is an omitted key, not a key set to `undefined`, because the test compares with `deepEqual`.
+- The snapshot carries no error message. It reaches the renderer and the web management API, a proxy or socket error can name the proxy host, and the UI shows only source names. The message stays in the existing `console.warn` (`pricing-service.ts:454`).
 
 - [ ] **Step 1: Write the failing core test.** In `pricing-service.test.mjs`:
 
 ```js
-test("each price source reports its last successful load and its latest error", async () => {
+test("each price source reports its last successful load and whether its latest load failed", async () => {
   const originalFetch = globalThis.fetch;
   let modelsDevUp = false;
   globalThis.fetch = async (url) => {
@@ -402,15 +434,15 @@ test("each price source reports its last successful load and its latest error", 
     await preloadUsagePriceCatalog({ forceRefresh: true });
     const failing = usagePriceCatalogStatus();
     assert.deepEqual(failing.map((status) => status.source), ["litellm", "models.dev", "openrouter"]);
-    assert.deepEqual(failing[1], { lastError: "offline", source: "models.dev" });
+    assert.deepEqual(failing[1], { failing: true, source: "models.dev" });
     assert.equal(typeof failing[0].loadedAt, "string");
-    assert.equal(failing[0].lastError, undefined);
+    assert.equal(failing[0].failing, undefined);
 
     modelsDevUp = true;
     mock.timers.tick(5 * 60 * 1000);
     await preloadUsagePriceCatalog();
     const loaded = usagePriceCatalogStatus()[1];
-    assert.equal(loaded.lastError, undefined);
+    assert.equal(loaded.failing, undefined);
     assert.equal(typeof loaded.loadedAt, "string");
   } finally {
     mock.timers.reset();
@@ -424,7 +456,7 @@ test("each price source reports its last successful load and its latest error", 
 Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/models/pricing-service.test.js`
 Expected: FAIL, `usagePriceCatalogStatus` is not exported.
 
-- [ ] **Step 3: Record the status in `loadPriceCatalog`.** `SourcePrices` gains `lastError?: string` and `loadedAt?: number`. A success sets `loadedAt` and clears `lastError`. A failure sets `lastError` and keeps the cached `loadedAt`. `usagePriceCatalogStatus` reads the module's `catalog`.
+- [ ] **Step 3: Record the status in `loadPriceCatalog`** (`pricing-service.ts:435`). `SourcePrices` already has `failed: boolean` (`:85`), which a success clears and a failure sets. It gains `loadedAt?: number`. A success sets it, and a failure keeps the cached one. `usagePriceCatalogStatus` reads the module's `catalog` and maps `failed` to `failing`.
 
 - [ ] **Step 4: Carry it in the snapshot.** `UsageStore.getStats` adds `priceSources: usagePriceCatalogStatus()`. `emptySnapshot`, `createEmptyUsageStats` and the `usageStats` fixture add `priceSources: []`.
 
@@ -444,8 +476,8 @@ test("Overview names the price sources that cannot be loaded, and says nothing w
   );
   const failing = render([
     { loadedAt: "2026-11-22T10:00:00.000Z", source: "litellm" },
-    { lastError: "offline", source: "models.dev" },
-    { lastError: "HTTP 503", loadedAt: "2026-11-21T10:00:00.000Z", source: "openrouter" }
+    { failing: true, source: "models.dev" },
+    { failing: true, loadedAt: "2026-11-21T10:00:00.000Z", source: "openrouter" }
   ]);
   assert.match(failing, /role="status"/);
   assert.match(failing, /Prices could not be loaded from models\.dev and OpenRouter\. Some request costs are missing or older until they load\./);
@@ -454,7 +486,7 @@ test("Overview names the price sources that cannot be loaded, and says nothing w
 });
 ```
 
-- [ ] **Step 6: Render the line.** In `OverviewView`, directly under the `overview-toolbar` element, render one `role="status"` line when any entry has a `lastError`. The names shown are `models.dev`, `LiteLLM` and `OpenRouter`, joined with commas and a final "and". The sentence is the one in the test. Style it as `AnalysisNotice` in the same file does.
+- [ ] **Step 6: Render the line.** In `OverviewView`, directly under the `overview-toolbar` element, render one `role="status"` line when any entry is `failing`. The names shown are `models.dev`, `LiteLLM` and `OpenRouter`, joined with commas and a final "and". The sentence is the one in the test. Style it as `AnalysisNotice` in the same file does.
 
 - [ ] **Step 7: Run the gates.**
 
@@ -465,7 +497,7 @@ Expected: all pass.
 
 ---
 
-### Task 5: Show an estimate, an unknown and a reported cost as what they are (P-1, P-8, B-1)
+### Task 5: Show an estimate and an unknown cost as what they are (P-1, P-8, B-1)
 
 Every cost surface prints one number today. A median of reseller offers looks like a list price, and a request with no price looks free, because `formatUsdCost` turns a missing cost into `$0.00`. After this task a single cost shows `~$0.000016` when it is an estimate and `-` when it is unknown, a total shows a tilde and a caption when part of it is approximate or missing, and Logs detail names where the price came from.
 
@@ -478,20 +510,21 @@ It sits after Task 3 because a row waiting for the catalog and a row no source c
 
 **Interfaces:**
 - Produces in `contracts/app.ts`:
-  - `export type CostBasis = "listed" | "estimate" | "user" | "reported" | "unknown";`
+  - `export type CostBasis = "listed" | "estimate" | "user" | "unknown";`. No source stored today is a provider's reported charge (see Decisions on `gateway_billing`), so `reported` is not a member yet. Task 6 adds it with the first source that is one.
   - `costBasis?: CostBasis` and `costSource?: string` on `RequestLogEntry`
   - `costBasis?: CostBasis` on `AgentAnalysisRequestRow` and `AgentAnalysisTraceRun`
-  - `estimatedCostUsd: number` and `unpricedRequestCount: number` on `UsageTotals`, which `UsageSeriesPoint`, `UsageComparisonRow` and `AgentAnalysisTotals` extend
-- Produces in `pricing-service.ts`:
-  - `export const listedCostSources = ["litellm", "models.dev", "openrouter"]`, `export const reportedCostSources = ["gateway_billing"]` (Task 6 adds one)
+  - `estimatedCostUsd: number`, `pricedRequestCount: number` and `unpricedRequestCount: number` on `UsageTotals`, which `UsageSeriesPoint`, `UsageComparisonRow` and `AgentAnalysisTotals` extend
+  - `export const listedCostSources = ["litellm", "models.dev", "openrouter"]`
   - `export function costBasisFor(row: { billableTokens: number; costSource: string; costUsd: number | undefined }): CostBasis | undefined`
-  - `export function totalCostBasis(totals: Pick<UsageTotals, "costUsd" | "estimatedCostUsd" | "unpricedRequestCount">): CostBasis | undefined`
+  - `export function totalCostBasis(totals: Pick<UsageTotals, "estimatedCostUsd" | "pricedRequestCount" | "unpricedRequestCount">): CostBasis | undefined`
+  - These three live in `contracts/app.ts` as pure code, beside its 58 other exported functions and constants, and not in `pricing-service.ts`. The renderer may import from core only the pure modules `.claude/rules/ui.md` lists, and `pricing-service.ts` imports `system-proxy-fetch`, the model catalog and the model registry. So the UI, the usage store's SQL and the log store all derive the basis from one place.
 - Produces in `packages/ui/src/pages/home/shared/usage.ts`:
   - `formatCost(costUsd: number | undefined, basis: CostBasis | undefined): string`
-  - `formatTotalCost(totals: Pick<UsageTotals, "costUsd" | "estimatedCostUsd" | "unpricedRequestCount">): string`
+  - `formatTotalCost(totals: Pick<UsageTotals, "costUsd" | "estimatedCostUsd" | "pricedRequestCount" | "unpricedRequestCount">): string`, which calls `totalCostBasis`
   - `totalCostCaption(totals: Pick<UsageTotals, "estimatedCostUsd" | "unpricedRequestCount">): string | undefined`
   - `priceSourceLabel(costSource: string | undefined, basis: CostBasis | undefined): string`
   - `formatUsdCost` stays, for a number that is known to be a cost.
+  - The components import these helpers from `../shared/index` through `shared/external.tsx`, which lists `formatUsdCost` in two export lists (`:319` and `:428`). Add the four new functions to both. The tray takes them from `tray/shared.tsx` (`:34`).
 
 **The rule `costBasisFor` encodes**, in this order:
 
@@ -501,10 +534,11 @@ It sits after Task 3 because a row waiting for the catalog and a row no source c
 | `costUsd` is `undefined` | `unknown` |
 | `costSource` is `custom` | `user` |
 | `costSource` is in `listedCostSources` | `listed` |
-| `costSource` is in `reportedCostSources` | `reported` |
-| anything else, which covers `models.dev-median`, `request_log` and `''` | `estimate` |
+| anything else, which covers `models.dev-median`, `gateway_billing`, `request_log` and `''` | `estimate` |
 
-`billableTokens` is input plus output plus cache read plus cache write tokens. `totalCostBasis` gives `unknown` when `costUsd` is 0 and `unpricedRequestCount` is above 0, `estimate` when `estimatedCostUsd` or `unpricedRequestCount` is above 0, and none otherwise.
+`billableTokens` is input plus output plus cache read plus cache write tokens. `pricedRequestCount` counts rows with tokens and a cost, a user price of 0 included. `totalCostBasis` gives `unknown` when `pricedRequestCount` is 0 and `unpricedRequestCount` is above 0, `estimate` when `estimatedCostUsd` or `unpricedRequestCount` is above 0, and none otherwise. The rule keys on the priced count and not on `costUsd` being 0, so a range with one request at the user's $0 price and one unpriced request shows `~$0.00` and its caption, not a dash.
+
+`gateway_billing` is an estimate because the gateway computes it from its own configured billing rates (see Decisions). Its basis reads `estimate`, so a single such cost shows a tilde.
 
 **What each cost surface shows after the change.** The ten surfaces are the validation record's.
 
@@ -517,7 +551,7 @@ It sits after Task 3 because a row waiting for the catalog and a row no source c
 | 5 | Agent sessions table | `dashboard.tsx:6197` | summed number | `formatTotalCost(session)` |
 | 6 | Agent session requests panel | `dashboard.tsx:4729` | `formatUsdCost(request.costUsd ?? 0)` | `formatCost(request.costUsd, request.costBasis)` |
 | 7 | Agent trace table and trajectory node | `dashboard.tsx:5447`, `:5658` | number, or `-` when missing | `formatCost(run.costUsd, run.costBasis)`. `AgentTrajectoryNode` gains `costBasis`, copied where `costUsd` is at lines 5170 and 6113 |
-| 8 | Agent Analysis totals | `buildAgentAnalysisTotals`, `request-log-store.ts:4165` | `sum(costUsd ?? 0)` | also sums `estimatedCostUsd` and counts `unpricedRequestCount` from each request's `costBasis`. The root trace run takes `costBasis: totalCostBasis(totals)` |
+| 8 | Agent Analysis totals | `buildAgentAnalysisTotals`, `request-log-store.ts:4165` | `sum(costUsd ?? 0)` | also sums `estimatedCostUsd` and counts `pricedRequestCount` and `unpricedRequestCount` from each request's `costBasis`. The root trace run takes `costBasis: totalCostBasis(totals)` |
 | 9 | Tray "Cost" and "Today Cost" | `TrayApp.tsx:240`, `overview-panel.tsx:58` | summed number | `formatTotalCost(totals)`, no caption, because a stat tile has one line |
 | 10 | Share cards | `share-cards.tsx:236`, `:435` | summed number | `formatTotalCost(totals)` in both. The Spend Receipt also prints `totalCostCaption(totals)` under its "Estimated cost" label, so an exported image carries it |
 
@@ -536,12 +570,12 @@ The native tray title shows tokens only (`tray-controller.ts:355`). The CLI prin
 | Price source, `custom` | `Your price` |
 | Price source, `models.dev`, `litellm`, `openrouter` | `models.dev list price`, `LiteLLM list price`, `OpenRouter list price` |
 | Price source, `models.dev-median` | `Median of reseller prices on models.dev` |
-| Price source, `gateway_billing` | `Reported by the gateway` |
+| Price source, `gateway_billing` | `Calculated by the gateway from its billing rates` |
 | Price source, `unpriced` | `No price found` |
 | Price source, `''` with basis `unknown` | `Not priced yet` |
 | Price source, anything else | `Not recorded` |
 
-- [ ] **Step 1: Write the failing core tests.** In `pricing-service.test.mjs`:
+- [ ] **Step 1: Write the failing core tests.** In `pricing-service.test.mjs`, importing `costBasisFor` and `totalCostBasis` from `@llmr/core/contracts/app.ts`:
 
 ```js
 test("a cost's basis comes from its stored source, its amount and its tokens", () => {
@@ -551,7 +585,7 @@ test("a cost's basis comes from its stored source, its amount and its tokens", (
   assert.equal(basis("openrouter", 0.1), "listed");
   assert.equal(basis("models.dev-median", 0.1), "estimate");
   assert.equal(basis("custom", 0), "user");
-  assert.equal(basis("gateway_billing", 0.1), "reported");
+  assert.equal(basis("gateway_billing", 0.1), "estimate");
   assert.equal(basis("unpriced", undefined), "unknown");
   assert.equal(basis("", undefined), "unknown");
   assert.equal(basis("", 0.1), "estimate");
@@ -561,11 +595,15 @@ test("a cost's basis comes from its stored source, its amount and its tokens", (
 });
 
 test("a total's basis is unknown with nothing priced, an estimate with any approximate or missing part, and plain otherwise", () => {
-  assert.equal(totalCostBasis({ costUsd: 0, estimatedCostUsd: 0, unpricedRequestCount: 2 }), "unknown");
-  assert.equal(totalCostBasis({ costUsd: 1, estimatedCostUsd: 0, unpricedRequestCount: 2 }), "estimate");
-  assert.equal(totalCostBasis({ costUsd: 1, estimatedCostUsd: 0.3, unpricedRequestCount: 0 }), "estimate");
-  assert.equal(totalCostBasis({ costUsd: 1, estimatedCostUsd: 0, unpricedRequestCount: 0 }), undefined);
-  assert.equal(totalCostBasis({ costUsd: 0, estimatedCostUsd: 0, unpricedRequestCount: 0 }), undefined);
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 0, unpricedRequestCount: 2 }), "unknown");
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 2 }), "estimate");
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0.3, pricedRequestCount: 2, unpricedRequestCount: 0 }), "estimate");
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 0 }), undefined);
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 0, unpricedRequestCount: 0 }), undefined);
+});
+
+test("a user price of 0 beside an unpriced request makes an estimate, not an unknown", () => {
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 1 }), "estimate");
 });
 ```
 
@@ -585,6 +623,7 @@ assert.equal(stats.totals.requestCount, 6);
 assert.ok(Math.abs(stats.totals.costUsd - 1.3) < 1e-9);
 assert.ok(Math.abs(stats.totals.estimatedCostUsd - 0.3) < 1e-9);
 assert.equal(stats.totals.unpricedRequestCount, 2);
+assert.equal(stats.totals.pricedRequestCount, 3);
 const byModel = Object.fromEntries(stats.models.map((row) => [row.model, row]));
 assert.equal(byModel["median-model"].estimatedCostUsd, byModel["median-model"].costUsd);
 assert.equal(byModel["listed-model"].estimatedCostUsd, 0);
@@ -613,9 +652,9 @@ Add one row inserted with raw SQL that has `cost_usd = 2`, `input_tokens = 10` a
 Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/models/pricing-service.test.js`
 Expected: FAIL, `costBasisFor` is not exported.
 
-- [ ] **Step 3: Build the core side.** Add the type and the fields to `contracts/app.ts`, and the two lists and two functions to `pricing-service.ts`.
-  - `usage/store.ts`: `usageTotalsSelect` gains two sums over the same rows. `estimated_cost_usd` sums `cost_usd` where it is not null, the four token columns sum above 0, and `cost_source` is not `custom` and not in the two lists. `unpriced_request_count` counts rows where `cost_usd IS NULL` and the four token columns sum above 0. Build the SQL list from the exported arrays so the SQL and `costBasisFor` cannot disagree. `usageTotalsFromRow`, `emptyTotals` and `buildTotals` carry the two fields. `StoredUsageEvent` gains `costBasis`, set in `toStoredUsageEvent` from the raw row before `normalizeCost` turns a null cost into 0.
-  - `request-log-store.ts`: add `cost_source` to the three `SELECT` lists that read `cost_usd` (near lines 1200, 1362 and 5256). `toRequestLogEntry` sets `costBasis` and `costSource`, both absent when `costBasisFor` returns none. `toAnalyzedAgentRequest`, the request row and the trace run copy `costBasis`. `buildAgentAnalysisTotals` and `emptyAgentAnalysisTotals` carry the two fields, and the root trace run at line 3814 takes `totalCostBasis(totals)`.
+- [ ] **Step 3: Build the core side.** Add the type, the fields, the list and the two functions to `contracts/app.ts`.
+  - `usage/store.ts`: `usageTotalsSelect` (`:887`) gains three aggregates over the same rows. `estimated_cost_usd` sums `cost_usd` where it is not null, the four token columns sum above 0, and `cost_source` is not `custom` and not in `listedCostSources`. `priced_request_count` counts rows where `cost_usd IS NOT NULL` and the four token columns sum above 0. `unpriced_request_count` counts rows where `cost_usd IS NULL` and the four token columns sum above 0. Build the SQL list from the exported array so the SQL and `costBasisFor` cannot disagree. `usageTotalsFromRow` (`:1081`), `emptyTotals` (`:156`) and `buildTotals` (`:1183`) carry the three fields. `StoredUsageEvent` gains `costBasis`, set in `toStoredUsageEvent` (`:863`) from the raw row before `normalizeCost` (`:1436`) turns a null cost into 0.
+  - `request-log-store.ts`: add `cost_source` to the three `SELECT` lists that read `cost_usd` (lines 1200, 1362 and 5256). `toRequestLogEntry` (`:5281`) returns `StoredRequestLogEntry` (`:242`), not `RequestLogEntry`, so `StoredRequestLogEntry` gains `costBasis?` and `costSource?`. `list` and `getDetail` hand the stored entry on as a `RequestLogEntry` with no mapping in between (`getDetail` at `:1238` returns `readRequestLogById`'s result), so the two fields reach the renderer once both types carry them. Both are absent when `costBasisFor` returns none. `toAnalyzedAgentRequest` (`:2026`, which copies `costUsd` at `:2043`), the request row and the trace run copy `costBasis`. `buildAgentAnalysisTotals` (`:4155`) and the `emptyAgentAnalysisTotals` constant (`:415`) carry the three fields, and the root trace run at line 3814 takes `totalCostBasis(totals)`.
 
 - [ ] **Step 4: Run the core tests of Step 1 and `npm run test:core`.** Expected: all pass.
 
@@ -625,18 +664,18 @@ Expected: FAIL, `costBasisFor` is not exported.
 test("a single cost shows a tilde for an estimate, a dash for an unknown, and a user price of zero as zero", () => {
   assert.equal(formatCost(0.000016, "listed"), "$0.000016");
   assert.equal(formatCost(0.000016, "estimate"), "~$0.000016");
-  assert.equal(formatCost(0.000016, "reported"), "$0.000016");
   assert.equal(formatCost(undefined, "unknown"), "-");
   assert.equal(formatCost(0, "user"), "$0.00");
   assert.equal(formatCost(undefined, undefined), "-");
 });
 
 test("a total shows a tilde when part of it is approximate or missing, and a dash when nothing is priced", () => {
-  assert.equal(formatTotalCost({ costUsd: 0.005, estimatedCostUsd: 0, unpricedRequestCount: 0 }), "$0.005000");
-  assert.equal(formatTotalCost({ costUsd: 0.005, estimatedCostUsd: 0.003, unpricedRequestCount: 0 }), "~$0.005000");
-  assert.equal(formatTotalCost({ costUsd: 0.005, estimatedCostUsd: 0, unpricedRequestCount: 1 }), "~$0.005000");
-  assert.equal(formatTotalCost({ costUsd: 0, estimatedCostUsd: 0, unpricedRequestCount: 3 }), "-");
-  assert.equal(formatTotalCost({ costUsd: 0, estimatedCostUsd: 0, unpricedRequestCount: 0 }), "$0.00");
+  assert.equal(formatTotalCost({ costUsd: 0.005, estimatedCostUsd: 0, pricedRequestCount: 2, unpricedRequestCount: 0 }), "$0.005000");
+  assert.equal(formatTotalCost({ costUsd: 0.005, estimatedCostUsd: 0.003, pricedRequestCount: 2, unpricedRequestCount: 0 }), "~$0.005000");
+  assert.equal(formatTotalCost({ costUsd: 0.005, estimatedCostUsd: 0, pricedRequestCount: 2, unpricedRequestCount: 1 }), "~$0.005000");
+  assert.equal(formatTotalCost({ costUsd: 0, estimatedCostUsd: 0, pricedRequestCount: 0, unpricedRequestCount: 3 }), "-");
+  assert.equal(formatTotalCost({ costUsd: 0, estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 1 }), "~$0.00");
+  assert.equal(formatTotalCost({ costUsd: 0, estimatedCostUsd: 0, pricedRequestCount: 0, unpricedRequestCount: 0 }), "$0.00");
 });
 
 test("a total's caption states the approximate part and the requests without a price, and is absent when both are zero", () => {
@@ -650,7 +689,7 @@ test("a price source reads as words for every stored value", () => {
   assert.equal(priceSourceLabel("custom", "user"), "Your price");
   assert.equal(priceSourceLabel("models.dev", "listed"), "models.dev list price");
   assert.equal(priceSourceLabel("models.dev-median", "estimate"), "Median of reseller prices on models.dev");
-  assert.equal(priceSourceLabel("gateway_billing", "reported"), "Reported by the gateway");
+  assert.equal(priceSourceLabel("gateway_billing", "estimate"), "Calculated by the gateway from its billing rates");
   assert.equal(priceSourceLabel("unpriced", "unknown"), "No price found");
   assert.equal(priceSourceLabel("", "unknown"), "Not priced yet");
   assert.equal(priceSourceLabel("", "estimate"), "Not recorded");
@@ -659,10 +698,10 @@ test("a price source reads as words for every stored value", () => {
 
 Amounts under one cent keep `formatUsdCost`'s six decimals, which makes the expected strings independent of the test machine's locale.
 
-Component tests, one per surface group, each with `renderToStaticMarkup` and the fixtures in `packages/ui/test/fixtures/index.ts` (whose `usageTotals` gains `estimatedCostUsd: 0` and `unpricedRequestCount: 0`):
+Component tests, one per surface group, each with `renderToStaticMarkup` and the fixtures in `packages/ui/test/fixtures/index.ts` (whose `usageTotals` gains `estimatedCostUsd: 0`, `pricedRequestCount: 0` and `unpricedRequestCount: 0`):
   - `observability.test.tsx`: `LogExpandedDetails` for an entry with `costBasis: "estimate"`, `costSource: "models.dev-median"`, `costUsd: 0.000016` matches `~$0.000016` and `Median of reseller prices on models.dev`. With `costBasis: "unknown"`, `costSource: "unpriced"` and no `costUsd` it matches `No price found` and does not match `$0.00`. With no `costBasis` it does not match `Price source`.
   - `observability.test.tsx`: `AgentAnalysisView` with one request row whose `costBasis` is `"estimate"` and `costUsd` is `0.000016` matches `~$0.000016` in the requests panel.
-  - `overview-components.test.tsx`: an `estimated-cost` metric widget in each of the four variants, with `usageTotals({ costUsd: 0.005, estimatedCostUsd: 0.003, unpricedRequestCount: 3 })`, matches `~$0.005000` and `~$0.003000 approximate · 3 requests without a price`. With the default totals it matches neither a tilde before the amount nor `approximate`.
+  - `overview-components.test.tsx`: an `estimated-cost` metric widget in each of the four variants, with `usageTotals({ costUsd: 0.005, estimatedCostUsd: 0.003, pricedRequestCount: 2, unpricedRequestCount: 3 })`, matches `~$0.005000` and `~$0.003000 approximate · 3 requests without a price`. With the default totals it matches neither a tilde before the amount nor `approximate`.
   - `tray-components.test.tsx`: the stats module with the same totals matches `~$0.005000`.
   - `share-cards.test.tsx`: the Spend Receipt with the same totals matches `~$0.005000` and the caption.
 
@@ -671,7 +710,7 @@ Component tests, one per surface group, each with `renderToStaticMarkup` and the
 Run: `node build/test.mjs ui && node --test .test-dist/ui/test/unit/usage-format.test.js`
 Expected: FAIL, `formatCost` is not exported.
 
-- [ ] **Step 7: Build the UI side.** Add the four functions to `shared/usage.ts` and re-export the two the tray uses from `tray/shared.tsx`. `emptyUsageTotals` and the tray's empty totals gain the two fields. Change each surface as the table says. `overviewMetricDatum` returns an optional `caption`, and `OverviewMetricWidget` renders it as its own text element after the value in each variant, with no `truncate` class so it wraps (X-12). Nothing is conveyed by colour or by a `title` alone.
+- [ ] **Step 7: Build the UI side.** Add the four functions to `shared/usage.ts`, importing `CostBasis` and `totalCostBasis` from `@llmr/core/contracts/app`. Add them to both export lists in `shared/external.tsx` (`:319`, `:428`), and re-export the two the tray uses from `tray/shared.tsx` (`:34`). `emptyUsageTotals` (`shared/usage.ts:127`) and the tray's empty totals (`tray/shared.tsx:90`) gain the three fields. Typecheck lists every other `UsageTotals` literal that now lacks them. Change each surface as the table says. `overviewMetricDatum` returns an optional `caption`, and `OverviewMetricWidget` renders it as its own text element after the value in each variant, with no `truncate` class so it wraps (X-12). Nothing is conveyed by colour or by a `title` alone.
 
 - [ ] **Step 8: Run `npm run test:ui`.** Expected: all pass.
 
@@ -681,7 +720,7 @@ Expected: FAIL, `formatCost` is not exported.
   - Fill only `Cache read(1M tokens/$)` with `0.5`, and save.
   - Assert with `expect.poll` on `window.llmr!.getConfig()` that `Providers[0].modelMetadata[model].pricing` equals `{ cacheReadUsdPerMillionTokens: 0.5 }`.
 
-  Then prove the test can fail: in `updatePricing` (`providers.tsx:4790`) temporarily merge `defaults?.[model]` into `current`, run the spec, see it fail, and revert.
+  Then prove the test can fail: in `updatePricing` (`providers.tsx:4812` on `c491eb48`; PR 147 moved it) temporarily merge `defaults?.[model]` into `current`, run the spec, see it fail, and revert.
 
 Run: `npm run test:e2e`
 Expected: all pass. Then `git checkout -- packages/core/models.json packages/ui/src/generated`.
@@ -695,11 +734,13 @@ Expected: all pass.
 
 ---
 
-### Task 6: Use the cost OpenRouter reports (P-5)
+### Task 6: Use the cost OpenRouter reports (P-5). Waits for the owner
 
 OpenRouter states what it charged for a request in `usage.cost` (X-10). LLM Router ignores it and estimates from the `/models` list price. That estimate is wrong by design for a user of the bundled OpenRouter discount router, which picks an endpoint by its price. After this task a request served by an OpenRouter provider stores the reported figure, with source `provider_reported`, and shows it as reported.
 
-It sits after Task 5, which displays the new source, and before Task 7, because a reported cost makes a tier estimate moot for these requests.
+It sits after Task 5, which displays the new source. It does not block Task 7.
+
+**Why it waits.** The figure does not reach LLM Router on a translated response. The gateway parses every upstream usage block into `StandardUsage`, which has token counts, cache fields and `server_tool_use` and no cost field (`node_modules/@the-next-ai/ai-gateway/dist/types.d.ts:870`, version 1.0.22-llmr.4). Its formatters rebuild `usage` from that object. No file in the bundle reads `usage.cost`, `is_byok` or `upstream_inference_cost` (run, `grep -r` over `dist/`, no match). So a request from Claude Code (Anthropic messages) to an OpenRouter provider (chat completions), the bundled discount-router case this task is for, loses the field before LLM Router parses the body. A same-protocol response and the single-layout raw-trace body might keep it. Neither was checked. Making the main case work needs a fork change that carries `cost` through `StandardUsage`, and a push or tag on the fork needs the owner's word. The question is the second under "Open with the owner". Until it is answered, this task is not in a batch.
 
 **Labelled assumption.** One OpenRouter credit is one US dollar. X-10 says the unit is credits, and the page the validation pass read never says dollars. This repo already rests on the same reading in two places. The OpenRouter preset labels the account's `total_credits` and `total_usage` with `unit: "USD"` (`packages/core/src/providers/presets/openrouter/index.ts:17`), and the price catalog reads OpenRouter's per-token `pricing` as dollars (`fetchOpenRouterPrices`). Neither proves it. Step 1 is the check, and the task stops there if it fails.
 
@@ -707,19 +748,23 @@ It sits after Task 5, which displays the new source, and before Task 7, because 
 - Only a provider the rule already treats as OpenRouter is trusted, by the test `openRouterEntry` uses (a base URL that maps to the `openrouter` catalog id, or a name that contains `openrouter`). A `usage.cost` from any other provider is ignored, because its unit is unknown.
 - A request with `usage.is_byok: true` is not trusted. For such a request `cost` may be OpenRouter's fee alone, with the upstream charge in `cost_details.upstream_inference_cost`. The record does not settle that, so the request is priced by the rule as today.
 - A price the user set for the model wins over the reported cost. The user wrote it on purpose.
-- Not checked: whether the body LLM Router parses still holds `usage.cost` after the gateway translates a response between protocols. When it does not, the estimate is used as today.
+- A reported cost of 0 counts as absent, and the request is priced by the rule. V-21 lets only a user price yield 0, and this keeps it so.
+- Where the body LLM Router parses does not hold `usage.cost`, the estimate is used as today. Step 1 says where it does.
 
 **Files:**
-- Modify: `packages/core/src/usage/response-usage.ts`, `packages/core/src/models/pricing-service.ts`, `packages/core/src/usage/store.ts` (`recordCapture`), `packages/core/src/observability/request-log-store.ts` (`record`, `updateFromRawTrace`), `packages/ui/src/pages/home/shared/usage.ts` (`priceSourceLabel`)
+- Modify: `packages/core/src/usage/response-usage.ts`, `packages/core/src/models/pricing-service.ts`, `packages/core/src/contracts/app.ts` (`CostBasis`, `reportedCostSources`, `costBasisFor`), `packages/core/src/usage/store.ts` (`recordCapture`), `packages/core/src/observability/request-log-store.ts` (`record`, `updateFromRawTrace`), `packages/ui/src/pages/home/shared/usage.ts` (`formatCost`, `priceSourceLabel`)
 - Test: `packages/core/test/unit/usage/response-usage.test.mjs`, `packages/core/test/unit/models/pricing-service.test.mjs`, `packages/core/test/integration/gateway/request-pipeline-cost-parity.test.mjs`, `packages/core/test/integration/observability/request-log-pricing-transaction.test.mjs`, `packages/ui/test/unit/usage-format.test.ts`
 
 **Interfaces:**
-- `ResponseUsage` gains `reportedCostUsd?: number`. It is `usage.cost` when that is a finite number of 0 or more and `usage.is_byok` is not `true`.
+- `ResponseUsage` gains `reportedCostUsd?: number`. It is `usage.cost` when that is a finite number above 0 and `usage.is_byok` is not `true`.
 - `RequestPriceOutcome` gains an optional `trustReportedCost?: true` on each of its three states. `resolveRequestPrice` sets it for an OpenRouter provider, except on a `custom` price.
-- `reportedCostSources` becomes `["gateway_billing", "provider_reported"]`. `export const providerReportedCostSource = "provider_reported"`.
+- In `contracts/app.ts`, `CostBasis` gains `"reported"`, and `export const reportedCostSources = ["provider_reported"]`. `costBasisFor` gives `reported` for a source in it, after the `listed` row. `formatCost` prints a reported cost with no tilde.
 - `priceSourceLabel("provider_reported", "reported")` is `Reported by the provider`.
 
-- [ ] **Step 1: Check the assumption.** Read OpenRouter's own statement of what a credit is worth, on its documentation or FAQ, and record the sentence and the date in this task. Then, if the owner has an OpenRouter key to hand, compare `usage.cost` of one real response with the same request's charge on the OpenRouter activity page. If the documentation does not say that a credit is a dollar, stop and report. The task does not continue on the repo's own two uses alone.
+- [ ] **Step 1: Check where the figure arrives, and its unit.**
+  - Write a wire test in `packages/core/test/integration/gateway/`, modelled on `october-issues-wire.test.mjs`, with a loopback stub upstream configured as a provider named `My OpenRouter` that answers with `usage.cost: 0.0123`. Send one request per case and read what `recordCapture` and `RequestLogStore.record` receive: chat completions in and out (same protocol), Anthropic messages in and chat completions out (translated), each with streaming on and off, in both the compatibility and the single layout. The stub is local and holds no key.
+  - Expected from the reading above: the translated cases lose the field. If every case loses it, stop and report to the owner, because the task then needs the fork change. If only the translated cases lose it, the owner decides whether the same-protocol cases are worth building alone.
+  - Read OpenRouter's own statement of what a credit is worth, on its documentation or FAQ, and record the sentence and the date in this task. If it does not say that a credit is a dollar, stop and report. The repo's two uses above do not settle it.
 
 - [ ] **Step 2: Write the failing tests.** In `response-usage.test.mjs`:
 
@@ -727,7 +772,7 @@ It sits after Task 5, which displays the new source, and before Task 7, because 
 test("a cost the provider reports is read, and is not read for a request made with the user's own upstream key", () => {
   const body = (usage) => JSON.stringify({ model: "m", usage: { completion_tokens: 1, prompt_tokens: 1, ...usage } });
   assert.equal(extractUsageFromBody(body({ cost: 0.0123 })).reportedCostUsd, 0.0123);
-  assert.equal(extractUsageFromBody(body({ cost: 0 })).reportedCostUsd, 0);
+  assert.equal(extractUsageFromBody(body({ cost: 0 })).reportedCostUsd, undefined);
   assert.equal(extractUsageFromBody(body({ cost: 0.0123, is_byok: true })).reportedCostUsd, undefined);
   assert.equal(extractUsageFromBody(body({ cost: -1 })).reportedCostUsd, undefined);
   assert.equal(extractUsageFromBody(body({ cost: "0.0123" })).reportedCostUsd, undefined);
@@ -750,7 +795,7 @@ assert.equal(resolveRequestPrice(config, "VM Custom", "claude-haiku-5-5").trustR
 
 and a fourth, with a user price set on the OpenRouter provider's model: `trustReportedCost` is `undefined` and the source is `custom`.
 
-In `request-pipeline-cost-parity.test.mjs`, a third test with a provider named `My OpenRouter`, which the rule treats as OpenRouter by its name, and an upstream body whose `usage` holds `cost: 0.0123` beside its token counts. Both rows read `{ cost_source: "provider_reported", cost_usd: 0.0123 }`, and `assert.deepEqual(logRow, usageRow)`. The same request with `is_byok: true` gives both rows the catalog's price and source.
+In `request-pipeline-cost-parity.test.mjs`, which after Task 3 closes the runtime in an `after()` hook, a test with a provider named `My OpenRouter`, which the rule treats as OpenRouter by its name, and an upstream body whose `usage` holds `cost: 0.0123` beside its token counts. Both rows read `{ cost_source: "provider_reported", cost_usd: 0.0123 }`, and `assert.deepEqual(logRow, usageRow)`. The same request with `is_byok: true` gives both rows the catalog's price and source. This body reaches the pipeline untranslated, so the test proves the store side only. Step 1's wire test is what proves the field arrives.
 
 In `request-log-pricing-transaction.test.mjs`: a record with `price: { state: "no-catalog", trustReportedCost: true }` and a body with `usage.cost: 0.5` stores `{ cost_source: "provider_reported", cost_usd: 0.5 }`, and a raw trace for that row whose body says `cost: 0.75` changes the cost to 0.75. A row whose source is `litellm` keeps its cost when a raw trace with a `usage.cost` arrives.
 
@@ -783,9 +828,11 @@ A Claude Haiku 5.5 request whose prompt is over 100,000 tokens is estimated at a
 It sits last among the built tasks because it changes how every catalog price is applied, and it builds on the one lookup Task 3 leaves.
 
 **Evidence and its limits.**
-- 904 offers in the bundled `packages/core/models.json` carry a `tiers` array (counted 2026-11-22). That file is a snapshot of the same source, and the pricing service fetches the live one. The shape `{ input, output, cache_read, cache_write, tier: { type: "context", size } }` is X-9's.
-- Assumed, from X-7 and X-8 and not from models.dev's own documentation. A tier applies when the prompt is over `size` tokens, not at it, and it prices the whole request, output included. Step 1 checks it.
-- In the same snapshot, 104 of those offers have a tier with no cache read price, and 20 of the 104 have a base cache price. For those the tier keeps the base entry's cache prices, which under-states a cached long prompt on those offers. Nothing is scaled, because no catalog states the scaled figure.
+- 904 offers in the bundled `packages/core/models.json` carry a tier list, 66 of them more than one tier (run again 2026-11-24). That file is a converted snapshot of the same source: it holds the list under `tiered.tiers` beside a camelCase `per1MTokens` base, and its tiers have no `tier.type`. The pricing service fetches the live `api.json`, whose shape `{ input, output, cache_read, cache_write, tier: { type: "context", size } }` under `cost.tiers` is X-9's. Step 4 requires only `tier.size`, so a missing `type` does no harm.
+- Assumed, from X-7 and X-8 and not from models.dev's own documentation. A tier applies when the prompt is over `size` tokens, not at it, and it prices the whole request, output included. Step 1 checks it. 26 offers write sizes as N+1 (32001, 200001 and others), which under the "over `size`" rule moves the threshold by one token (audit count, not re-run).
+- In the same snapshot, 104 of those offers have a tier with no cache read price (run again). Of those, 17 have a base cache read price by a count of `per1MTokens.cacheRead` on 2026-11-24, where the drafter and the audit counted 20. For those the tier keeps the base entry's cache prices, which under-states a cached long prompt on those offers. Nothing is scaled, because no catalog states the scaled figure.
+- The snapshot's `anthropic/claude-haiku-5-5` matches X-7 (run): a base of $0.10 and $0.50 with cache read $0.01, and one tier at 100,000 of $0.50 and $2.50 with cache read $0.05 and cache write $0.625.
+- 710 snapshot offers also carry a `context_over_200k` field, and on the one the audit read its threshold disagreed with the tier's `size`. This task reads `tiers` only (audit count, not re-run).
 - A tier is chosen when the cost is written. A later token correction from a raw trace re-prices the Logs row from the price stored on it, so a correction that crosses a tier's size keeps the first tier. Accepted.
 
 **Files:**
@@ -861,7 +908,7 @@ test("a user price has no tiers", async () => {
 
 The first test's three costs: 20,000 at $0.5, 130,000 at $0.05 and 1,000 at $2.5 per million is $0.019. 20,000 at $0.1, 30,000 at $0.01 and 1,000 at $0.5 is $0.0028. 20,000 at $0.1, 80,000 at $0.01 and 1,000 at $0.5 is $0.0033. The third LiteLLM tier has no output price of its own, so it keeps the base output price of $4.
 
-In `request-pipeline-cost-parity.test.mjs`, a test whose catalog gives the mapped provider's model a tier at 100,000 and whose upstream body reports `input_tokens: 150000`. Both rows hold the tier's cost, and `assert.deepEqual(logRow, usageRow)`.
+In `request-pipeline-cost-parity.test.mjs`, which after Task 3 closes the runtime in an `after()` hook, a test whose catalog gives the mapped provider's model a tier at 100,000 and whose upstream body reports `input_tokens: 150000`. Both rows hold the tier's cost, and `assert.deepEqual(logRow, usageRow)`.
 
 - [ ] **Step 3: Run them and see them fail.**
 
@@ -904,8 +951,14 @@ Not covered either way: Anthropic's fast mode (`usage.speed`) and OpenAI's newer
 
 1. **Which price a priority or flex request takes when the rule's price has no service-tier figure.** Task 8 waits on this. models.dev, which prices most models first under V-21, has no service-tier price. LiteLLM has one for 468 entries (priority) and 335 (flex), per the validation pass.
    - **A. Only where the price already came from LiteLLM.** No change to the rule. Changes very few requests, and a priority request on a models.dev price stays at about half its real cost.
-   - **B. For a request whose response reports `priority` or `flex`, take LiteLLM's entry for that model when it has a price for the tier, and label it `litellm`.** The figure is a listed one. The rule gains a branch that depends on the response, so the price can no longer be resolved before the response arrives for those requests.
+   - **B. For a request whose response reports `priority` or `flex`, take LiteLLM's entry for that model when it has a price for the tier, and label it `litellm`.** The figure is a listed one. The rule gains a branch that depends on the response body. `priceFor` already resolves after the response headers arrive (`pipeline.ts:279`), so the cost is reading the body's `service_tier` before resolving, which for a stream is at its end.
    - **C. Do not price the tier. Mark such a request's cost as an estimate** (Task 5's tilde) when the response reports a tier other than `default` and the price has no figure for it. Small, honest, and no new price logic.
    - **Recommendation: C now, B later if the owner wants the figure.** C costs a few lines on top of Task 8's settled parts and never shows a standard price as exact for a request that was not standard. B is the only option that shows the right number, and it reopens "resolved once per request".
 
-Nothing else in this plan waits on the owner. Task 6 rests on a labelled assumption with its check as Step 1, and stops there if the check fails.
+2. **Whether to change the gateway fork so a provider's reported cost survives protocol translation.** Task 6 waits on this. The fork's `StandardUsage` has no cost field, and nothing in the bundle reads `usage.cost` (read, 1.0.22-llmr.4). Without a fork change, Task 6 helps only a same-protocol OpenRouter request, if any, which its Step 1 wire test would show.
+   - **A. Change the fork.** Add an optional `cost` (and `is_byok`) to `StandardUsage`, read them from an OpenRouter chat completion, and emit them in every formatter's `usage`. Then build Task 6 against the new pin. Needs the owner's word for the fork push and tag.
+   - **B. Build Task 6 for same-protocol requests only**, if Step 1 shows the field arrives there.
+   - **C. Drop P-5.** Keep pricing OpenRouter requests from OpenRouter's own `/models` entry, as the rule does today, and let Task 5 label it a list price.
+   - **Recommendation: C now, A later if the owner uses the discount router.** C costs nothing and shows an honest label. A is the only option that shows the charged figure for the bundled case. B builds a reader for a path the main case never takes. Task 6's Step 1 is cheap and settles B either way, so run it first if the owner leans to A or B.
+
+Nothing else in this plan waits on the owner.
