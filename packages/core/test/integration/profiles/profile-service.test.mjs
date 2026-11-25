@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { isDeepStrictEqual } from "node:util";
+import { assertCodexFilesParse } from "../../support/codex-toml.mjs";
 import { writeWorkbuddyModelsConfig } from "@llmr/core/agents/codex/app-launch.ts";
 import { resolveGrokSourceHome } from "@llmr/core/agents/grok/profile-config.ts";
 import { resolveKimiSourceHome } from "@llmr/core/agents/kimi/profile-config.ts";
@@ -4062,6 +4063,7 @@ async function withAppliedDefaultProfiles(profileIds, run, beforeApply) {
     if (profileIds.includes("default-codex")) {
       assert.match(codexToken ?? "", /^llmr-profile-/);
       assert.ok(readFileSync(codexConfigFile, "utf8").includes(codexToken), "the applied config.toml holds the profile's token");
+      assertCodexFilesParse(codexDir);
     }
     await run({ claudeDir, codexConfigFile, codexDir, codexToken, config });
   } finally {
