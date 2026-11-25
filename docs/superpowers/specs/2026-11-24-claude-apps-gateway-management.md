@@ -20,7 +20,7 @@ Taken on 2026-11-24. A later line in this spec or in a plan that contradicts one
 | D-2 | Config management is versioned: drafts, numbered versions, publish and rollback. A read-only view or a plain edit-and-apply form is not enough. |
 | D-3 | This run delivers this spec with a ranked gap list. Plans come after the owner picks. |
 | D-4 | D-1 and D-2 retire the "Not in this phase" rulings of the two earlier specs that kept the admin API and the admin console out of LLMR (`specs/completed/2026-10-25-claude-apps-gateway-integration.md:44`, `specs/completed/2026-10-25-claude-apps-gateway-client.md:57-62`). Their reason was that another console owned that work. |
-| D-5 | The owner accepted all ten recommendations in "Decisions on the researched questions" below (O-1 to O-10). Each recommendation there is a decision. One carries a later step that is still the owner's: the choice in O-5 after phase 5. |
+| D-5 | The owner accepted all ten recommendations in "Decisions on the researched questions" below (O-1 to O-10). Each recommendation there is a decision. O-5 was revised afterwards and is under "Still open". |
 
 ## What was established, and how
 
@@ -92,7 +92,7 @@ Rank is by what blocks the goal first, then by harm done today. "Fix" is a defec
 | 9 | G-9 | Missing | No config control plane: a stored document, versions, typed editors, validation, publish by write-restart-wait-rollback. |
 | 10 | G-10 | Missing | No activity view from the gateway's own audit events (sign-ins, refused requests, metered spend). The only source is the owned gateway's stderr. |
 | 11 | G-11 | Missing | No supported deployment. `docker/claude-apps-gateway/` is a test harness, and the LLMR image cannot run a gateway. |
-| 12 | G-12 | Missing | No way to publish config to a remote gateway. The gateway offers none, so it needs a small agent beside the remote gateway that pulls from LLMR. |
+| 12 | G-12 | Missing | No way to publish config to a gateway on another machine. The gateway offers none, so it needs a supervisor beside that gateway that pulls from LLMR. The owner's work deployment already runs this pattern. |
 | 13 | G-13 | Fix | A never-used bearer is written into `config.sqlite` at import and goes stale there. |
 | 14 | G-14 | Fix | The guide understates how long, and where, a developer's e-mail is kept. |
 | 15 | G-15 | Fix | Harness upkeep: it leaves containers and a rendered file holding the JWT secret, it passes LLMR's whole environment to the child, and three files disagree on the verified version. |
@@ -143,6 +143,7 @@ Rules that follow from the shape:
 - Secrets (an admin key, and later the config document's secrets) need a store that does not exist yet. Building it is part of phase 1: a table beside `api_keys`, with the record holding only a reference. No RPC returns a secret's value. A new RPC that returns anything outside `AppConfig` gets no masking from the web layer, so it must not carry a secret at all.
 - `admin` is `unknown` until an admin route answers. It is set again by every admin call: a 200 makes it `yes`, a 401 or 403 makes it `no`. It is never cached across a refresh, because the gateway re-reads a person's groups at refresh, so an admin who was removed keeps working for up to `ttl_hours`. The gateway is the only judge of who is an admin. The interface never decides from a group name.
 - The session store gains `sub` and `groups`, decoded from the JWT for display only. The gateway verifies the token. LLMR does not.
+- Whether a remote gateway has a supervisor is not stored on the record. It is read from the supervisor rows.
 - Status is derived on demand from `/healthz`, `/readyz`, the discovery document and the landing page. Nothing about status is stored. `ready` means the gateway says it is ready. With a readiness grace period set, that is not proof that Postgres is up.
 - `owned.stateDir` is never the user's own Claude directory. The gateway writes `.claude.json` and `backups/` into `CLAUDE_CONFIG_DIR`, and LLMR must not cause a write to `~/.claude.json`.
 
@@ -159,9 +160,9 @@ A top-level page, "Apps gateway", listing the managed gateways. Selecting one sh
 | Audit | owned, remote; needs an admin credential | `spend_limits/audit` |
 | Served to me | owned, remote | `/v1/models`, `/managed/settings`, `/api/oauth/usage` as the signed-in user |
 | People | owned, remote; best with LLMR as the upstream | the join in G-7 |
-| Process | owned | the supervisor: state, restarts, stderr tail |
+| Process | owned; remote when a supervisor runs beside it | the row per supervisor: version, last poll, last verdict. For an owned gateway also restarts and the stderr tail |
 | Activity | owned | the gateway's JSON audit events parsed from stderr |
-| Config | owned; remote only through the agent in G-12 | the control plane |
+| Config | owned; remote when a supervisor runs beside it. Without one, a remote gateway's Config can still author a version and export the file | the control plane |
 
 The provider import stays where it is, and gains a link to the gateway's record.
 
@@ -174,56 +175,74 @@ The provider import stays where it is, and gains a link to the gateway's record.
 - For an owned gateway LLMR creates that key and writes the `upstreams` entry itself (`provider: anthropic`, `base_url` of this LLMR, `forward_user_identity: true`), so the wiring is one action and cannot be half done.
 - There are no consumers to migrate, so the old meaning of `client` is dropped without a compatibility path.
 
-### Supervising an owned gateway
+### One supervisor, in two places
 
-A second supervisor, written for this child, in its own module. It does not go into `gateway/service.ts` or `GatewayService`.
+A gateway that LLMR configures is always run by a supervisor: a small loop that owns the config file and the gateway process. The same module runs in two places.
 
-- It copies the proven parts of the existing supervisor: restart backoff of `min(30 s, 1 s * 2^n)` reset after 60 s up, generation counters to cancel stale work, and a pid-plus-identity check before any kill.
+- **Inside LLMR**, for an owned gateway on LLMR's own machine. It reads versions straight from LLMR's store.
+- **Beside a gateway on another machine**, started as `llmr apps-gateway-supervisor`. It pulls versions from LLMR over HTTP.
+
+The loop and the publish states are identical in both. This is what makes a remote gateway a first-class case: a version drafted and published in LLMR is applied on the other machine, through a canary, with no one touching that machine. The pattern is not new. The owner's work deployment has run it in production since 2026-08: a supervisor as the gateway container's first process, pull and never push, one instance as the canary, automatic restore. This design takes its behaviour and none of its code.
+
+The loop:
+
+- **Boot.** Fetch the active version, write the file, start the gateway, wait for readiness. If LLMR cannot be reached, boot from the last good file and keep retrying. If LLMR answers that there is no active version, stay not ready and retry. The last good file is written only after a config has become ready.
+- **Every 30 s.** Restart a dead gateway, with the backoff below. If a candidate is offered to this supervisor, canary it. Otherwise, if the active version changed, apply it. If the active version's number changed and its rendered bytes did not, adopt the number without a restart.
+- **Canary.** Apply the candidate and wait for readiness. A gateway that exits during the wait ends it at once. Report `ok`, or report failure with the last 40 lines of the gateway's stderr, and on failure put the previous file back and restart. A verdict is kept until LLMR accepts it. A lost report is sent again and the candidate is never applied twice.
+- **Pull, never push.** A remote supervisor calls LLMR. LLMR holds no credential for the other machine. The supervisor's token is its own: it can fetch a version, claim a candidate and report a verdict, and nothing else. It is not the web token and not an admin credential.
+
+What the module takes from LLMR's existing supervisor, and what it adds:
+
+- It is a new module. It does not go into `gateway/service.ts` or `GatewayService`.
+- Restart backoff of `min(30 s, 1 s * 2^n)` reset after 60 s up, generation counters to cancel stale work, and a pid-plus-identity check before any kill.
 - Readiness is HTTP: `/healthz`, then `/readyz`, then the discovery document.
-- The child's environment is built from an allow list: `PATH`, the proxy and cloud SDK variables the config needs, `CLAUDE_CONFIG_DIR` set to `stateDir`, `HOME` set inside `stateDir`, `CLAUDE_GATEWAY_LOG_FORMAT=json` and the secrets the config names. `withoutLlmrSecretEnv()` is not enough here, because it lets `HOME`, `CLAUDE_*` and `ANTHROPIC_*` through.
-- One LLMR process owns a child. Ownership is a marker in `stateDir` holding the owner's pid and the child's pid, checked against the live processes before any start or kill. A second LLMR process (the desktop app beside `llmr serve`, say) shows the gateway as owned by the other and can neither start, stop nor publish. A test starts two supervisors over one `stateDir`.
+- The gateway's environment is built from an allow list: `PATH`, the proxy and cloud SDK variables the config needs, `CLAUDE_CONFIG_DIR` set to `stateDir`, `HOME` set inside `stateDir`, `CLAUDE_GATEWAY_LOG_FORMAT=json` and the secrets the config names. `withoutLlmrSecretEnv()` is not enough here, because it lets `HOME`, `CLAUDE_*` and `ANTHROPIC_*` through.
+- One supervisor owns a gateway process. Inside LLMR, ownership is a marker in `stateDir` holding the owner's pid and the gateway's pid, checked against the live processes before any start or kill. A second LLMR process shows the gateway as owned by the other and can neither start, stop nor publish. A test starts two supervisors over one `stateDir`.
+- Each supervisor has a name, and LLMR keeps a row per name: the version it runs, when it last asked, its last verdict. The page shows these rows, and a row that has been silent for 10 minutes reads stale.
+- Several supervisors may serve one gateway address behind a load balancer. One of them takes the canary. The others apply the promoted version on their next poll after a random delay of up to 20 s. That is safe for two. Beyond two, a supervisor must take a lease in LLMR before it restarts, and that lease is part of the phase that ships the remote supervisor.
 - Stop is `SIGTERM` and a wait of up to the drain time.
-- Captured stderr is kept to a size cap. Secrets are passed by environment or file and never on the command line, so they do not appear in it.
+- Captured stderr is kept to a size cap. Secrets are passed by environment or file and never on the command line, so they do not appear in it. A failure report has secret-shaped values removed before it is stored.
 - LLMR does not run Postgres. The owner of the machine supplies a URL. The Docker shape supplies one as a Compose service.
-- Owned mode is offered on Linux and macOS, and on macOS the page says Anthropic supports it for development only. On Windows the page offers remote mode only and says why.
+- An owned gateway is offered on Linux and macOS, and on macOS the page says Anthropic supports it for development only. The remote supervisor is for Linux. On Windows the page offers a remote gateway only and says why.
+- A remote supervisor needs an LLMR it can reach, which means `llmr serve` or Docker. If that LLMR is down, the gateway keeps serving its last good file.
 - An owned gateway listens on loopback unless the document sets `listen.host` otherwise, and the editor repeats the gateway's own warning when it does.
 
 ### The config control plane
 
 - A document is LLMR's own typed model of the gateway config, not YAML text. Rendering to YAML is a pure function, as the harness's `renderGatewayConfig` already is. Keys LLMR has no editor for are carried in a raw passthrough block so a new gateway key does not wait on an LLMR release.
-- A version is an immutable row: number, document, author, time, note, and the sha256 of its rendered file. LLMR knows which version is running because it wrote the file and started the child. LLMR cannot compute the gateway's `config.load` hash, but the hash is stable for a given file. So LLMR stores the hash the gateway logs the first time a version boots, and a later boot that logs a different one means the file was changed outside LLMR.
-- States: `draft`, `published`, `failed`, `superseded`. One draft at a time per gateway.
-- Publish, for an owned gateway, in order:
-  1. Preflight without touching the running gateway: the binary is there, Postgres answers, the issuer's discovery document answers.
-  2. Render and write the file with mode 0600 beside the last good one.
-  3. Restart the child and wait for readiness.
-  4. If it does not come up, put the last good file back and restart again. If the old file comes up, the new version is `failed`, with the gateway's own error text. If the old file does not come up either, the result is an outage, the version stays a draft and the page says what the gateway reported.
+- A version is an immutable row: number, document, author, time, note, and the sha256 of its rendered file. LLMR knows which version each supervisor runs because the supervisor says so on every poll, by LLMR's own hash. The gateway's `config.load` hash is not used for this: it is a hash of the parsed content, not of the file.
+- States: `draft`, `candidate`, `active`, `superseded`, `failed`. There is one candidate at a time per gateway. Cancel returns a candidate to draft. A failed version can be published again, for a cause that was outside the document.
+- Publish, in order:
+  1. For an owned gateway, a preflight that touches nothing: the binary is there, Postgres answers, the issuer's discovery document answers.
+  2. The version becomes the candidate.
+  3. One supervisor claims it and runs the canary.
+  4. Ready: the version becomes active and the one before it superseded. Every other supervisor follows on its next poll.
+  5. Not ready: the supervisor restores the previous file. If the gateway comes back on it, the version is `failed` and the page shows the gateway's own output. If it does not come back either, that is an outage and not a bad version: the version returns to draft and the page shows the gateway as down with what it reported.
+- The gateway is the only judge of its own config. It exits in under a second on a key it does not accept, with a list of the fields at fault. The canary turns that into the check before promotion. LLMR's own validation before publish catches less and is there to save a restart. (The exit time and the error's shape were measured in the owner's work deployment on 2.1.232 and not re-run for this spec.)
+- A canary proves that the gateway boots. It does not prove the config is right. A wrong model list boots, and an `access_control` rule that locks everyone out still answers `/readyz`. So after a promotion LLMR checks from outside that `/v1/models` answers for the signed-in user and that a device sign-in can start, and it puts a failed check in front of the operator with the rollback beside it.
+- Restoring never needs a sign-in. The supervisor restores on its own. And when a gateway is down or can sign no one in, the operator may publish without a gateway identity, and LLMR's record says that was the reason. Without this rule a broken `oidc` block could not be repaired from LLMR, because the sign-in it would need is the thing that is broken.
 - A restart keeps people signed in, and a device login in progress survives it, as long as the signing secret is unchanged (measured). New connections are refused from the moment the old process is told to stop until the new one is ready, and that holds for every client, LLMR included when the gateway is one of its providers. With nothing in flight that gap was about a second in the harness. With a stream in flight it lasts until the stream ends or the drain limit passes, 25 s by default, and a stream still open at the limit is cut with no error the client can read (all measured). So:
   - Publish asks for confirmation and states the worst case: up to the drain limit of refused connections, and any reply still streaming at the limit is lost.
-  - The drain limit is a setting of the owned gateway, passed as `CLAUDE_GATEWAY_DRAIN_TIMEOUT_MS`. The supervisor waits that long plus a margin before it treats a stop as hung.
+  - The drain limit is a setting of the gateway, passed as `CLAUDE_GATEWAY_DRAIN_TIMEOUT_MS`. The supervisor waits that long plus a margin before it treats a stop as hung.
   - When this LLMR is the gateway's upstream, the confirmation shows how many requests from that gateway are in flight, which LLMR can count. For any other upstream it says the count is unknown.
   - A version that removes the signing secret in use signs everyone out, and the page says that before the publish.
-  - A publish with no downtime would need a second gateway process behind a proxy. That is not in this program.
-- Rollback is a publish of an earlier version's document as a new version.
-- Secrets never enter a version. The document holds references. LLMR renders the YAML itself, so a list of secrets (a rotating `session.jwt_secret`, say) is rendered as a list whose every element is its own `${VAR}`, and the supervisor passes the values in the child's environment. A field that must be a file uses `${file:}` with a 0600 file in `stateDir`. The version's hash is over the file with references in it, not over the values.
+  - With several supervisors behind a load balancer only one restarts at a time, so a publish need not interrupt service. With one, it does.
+- Rollback copies an earlier version's whole document into a new draft and publishes it through the same canary.
+- Every published version can be exported as its rendered file. That is the backup of the control plane, and it serves an operator who delivers config through a pipeline of their own.
+- Secrets never enter a version. The document holds references. LLMR renders the YAML itself, so a list of secrets (a rotating `session.jwt_secret`, say) is rendered as a list whose every element is its own `${VAR}`. For an owned gateway LLMR passes the values in the gateway's environment. For a remote one the values live on that machine, in its supervisor's environment, and never pass through LLMR. A field that must be a file uses `${file:}` with a 0600 file in `stateDir`.
 - The raw passthrough block cannot hold a secret reference. A key that needs one waits for an editor.
-- The editors record the gateway version they were written against. The page warns when the running binary is older or newer than that, and a publish that fails on an unknown key says which key.
-- Validation before publish is LLMR's own schema check. It cannot be complete, because the gateway has no validate flag and its schema is not published. The restart-and-rollback path is what makes a bad config safe.
+- The editors record the gateway version they were written against. Each supervisor reports its gateway's version. The page warns when one is older or newer than the editors, and a failed canary names the key the gateway refused.
 
 ### Who may change a gateway
 
 - Starting, stopping and publishing are the acts that can hurt people other than the operator. A publish can change `managed` policy, which runs on developers' machines.
-- A publish that changes `managed`, `oidc`, `admin` or `upstreams` needs a signed-in gateway session whose user the gateway accepts as an admin at that moment. A static admin key is not enough for these, because it names no person.
-- LLMR keeps its own record of every start, stop, publish and rollback: time, the gateway user's id and e-mail when one is signed in, the version, and the outcome. The gateway's audit trail covers spend caps only, so without this record a config change has no author.
+- A publish that changes `managed`, `oidc`, `admin` or `upstreams` needs a signed-in gateway session whose user the gateway accepts as an admin at that moment. A static admin key is not enough for these, because it names no person. The one exception is the repair of a gateway that can sign no one in, described above.
+- LLMR keeps its own record of every start, stop, publish, cancel, claim, verdict and rollback: time, the actor, the version and the outcome. A person is recorded by their gateway user id and e-mail. A supervisor is recorded by its name. The gateway's audit trail covers spend caps only, so without this record a config change has no author.
 - Over `llmr serve` and in Docker the shared web token is the outer gate, and everyone who holds it is one operator as far as LLMR can tell. The record says so by naming the gateway user and not an LLMR user.
-
-### Remote publish
-
-A remote gateway has no config route, so LLMR alone cannot publish to it. The only general answer is a small process that runs beside the remote gateway, pulls the active version from LLMR, writes the file, restarts the gateway and reports back. Until that exists a remote gateway gets every section except Process, Activity and Config, and Config can still be used to author a document and export the rendered file.
 
 ### Deployment
 
-`docker/claude-apps-gateway/` becomes a supported shape next to the harness. It is a Compose file with LLMR, Postgres and the gateway, loopback-published like the existing files. How the `claude` binary reaches the image is decision O-2.
+`docker/claude-apps-gateway/` becomes a supported shape next to the harness. It is a Compose file with three services, loopback-published like the existing files: LLMR, Postgres, and a gateway container whose first process is the supervisor, pulling from the LLMR service. The gateway image is built by the operator from LLMR's image plus their own copy of the `claude` binary, as decision O-2 says.
 
 ## Build order
 
@@ -235,13 +254,13 @@ Each phase is one or more squash-merged PRs and ends in a check on a real gatewa
 | 1 | G-1, G-2 | The record, the secrets store, the status derivation, the page with Status and sign-in for a gateway named by URL. | Harness: the page shows ready, version 2.1.x, the mock user, their group, admin yes. Stop Postgres with the default grace of 0: not ready, with the gateway's reason. |
 | 2 | G-4 | Spend, Caps, Audit, Served to me. | Harness: create and delete a cap from the page, and see both in Audit under the user's own id. |
 | 3 | G-7 | People: the join of gateway spend and LLMR usage per person, keyed on the user id and on the e-mail only where no id was recorded. It starts empty and fills from the day the phase 0 identity fields ship. | Harness with LLMR as the upstream: one request appears under the mock user with LLMR's tokens and the gateway's cap. |
-| 4a | G-8, G-17 | The supervisor, the Process section, the first-run flow, the one-action wiring of LLMR as the upstream. | Kill the child: it comes back with backoff. Start a second LLMR: it cannot take the child. The real home's Claude files are unchanged. |
+| 4a | G-8, G-17 | The supervisor module running inside LLMR (boot, restart, last good file), the Process section, the first-run flow, the one-action wiring of LLMR as the upstream. | Kill the gateway: it comes back with backoff. Start a second LLMR: it cannot take the gateway. The real home's Claude files are unchanged. |
 | 4b | G-10 | The Activity section from the audit events on stderr. | Activity shows the sign-in and the request from the harness run. |
-| 5 | G-9, G-18, G-19 | The control plane for an owned gateway, with the rule for who may publish and LLMR's record of it. Start and stop are recorded from phase 4a. | Publish a good version: the gateway is ready on the new file, people stay signed in, and the record names the publisher. Publish a broken one: the gateway is back on the last good file and the version reads failed. Publish with Postgres stopped: nothing is restarted and no version is marked failed. |
-| 6 | G-11 | The Compose deployment, with a build step that downloads and verifies the operator's own copy of the binary. It follows O-2. | `docker compose up` on a clean machine reaches a ready gateway managed from LLMR's web UI. |
-| 7 | G-12 | The remote agent. | A gateway on another host takes a published version and reports it. |
+| 5 | G-9, G-18, G-19 | The control plane for an owned gateway: versions, candidate and canary, the checks after promotion, export, the rule for who may publish and LLMR's record of it. Start and stop are recorded from phase 4a. | Publish a good version: the gateway is ready on the new file, people stay signed in, and the record names the publisher. Publish a broken one: the gateway is back on the last good file and the version reads failed with the gateway's output. Publish with Postgres stopped: nothing is restarted and no version is marked failed. Break `oidc`, then repair it with no one signed in. |
+| 6 | G-12 | The supervisor run beside a gateway on another machine: the pull endpoints with their own token, `llmr apps-gateway-supervisor`, the row per supervisor, the lease for more than two. | Two supervisors in containers against one LLMR: one canaries a published version, the other follows, and a broken version is restored with no one touching either container. Stop LLMR: both keep serving. |
+| 7 | G-11 | The Compose deployment built on phase 6, with a build step that downloads and verifies the operator's own copy of the binary. It follows O-2. | `docker compose up` on a clean machine reaches a ready gateway, and a version published from LLMR's web UI lands on it. |
 
-Phases 0 to 2 use only calls that were run live for this spec. Phases 4a and 5 carry the risk: process control, and a publish that must never leave a gateway down. Each of those starts with a throwaway prototype of its riskiest step before its plan is written.
+Phases 0 to 2 use only calls that were run live for this spec. Phases 4a and 5 carry the risk: process control, and a publish that must never leave a gateway down. Phase 6 is small by comparison, because the loop it ships is the one phases 4a and 5 already built. Each of those starts with a throwaway prototype of its riskiest step before its plan is written.
 
 ## Decisions on the researched questions
 
@@ -253,7 +272,7 @@ The owner accepted every recommendation in this table on 2026-11-24 (D-5), so th
 | O-2 | How does the `claude` binary get into a container? | Installed by the operator at build, from a pinned release and checked against the signed manifest. Not shipped in any image LLMR publishes. This path needs no further confirmation, because LLMR distributes nothing of Anthropic's. Only Anthropic can grant a right to ship the binary, so that question is put to Anthropic if shipping it is ever wanted. | Anthropic's terms state no right to redistribute. The licence file is a copyright line. The legal page sets conditions on preinstalling Claude Code in a product. The deploy guide tells each operator to build their own image. |
 | O-3 | The default admin credential. | The signed-in user's bearer. A read key is offered for an unattended, read-only view. A write key is offered and marked as naming no person. | The bearer ran live and audits as `oidc:<sub>`. A key audits as `admin-key:<id>`. Losing admin at the identity provider takes effect at the next refresh, within `ttl_hours`. One caution: LLMR holds one session per gateway, so over `llmr serve` everyone with the web token acts as whoever signed in. The page must say so. |
 | O-4 | Where the page sits in the sidebar. | Its own entry under Setup, after Providers. | The groups today are Workspace, Setup (Providers, Profiles, Routing), Monitor (Logs, Observability) and Advanced (`components/layout.tsx:37-40`). A gateway is infrastructure beside the providers. This is cheap to change later. |
-| O-5 | Build phase 7, the remote agent? | Not as a shipped agent. Phase 5 already exports a rendered file. If a remote gateway needs more, add an authenticated endpoint that serves the active version, and document a pull script. Decide after phase 5. | The pattern is proven: an existing console's supervisor pulls a version every 30 s, writes it, restarts the gateway, waits for readiness and puts the last good file back on failure. Anthropic's deploy guide mounts the config from a ConfigMap, so many operators will want the exported file in their own pipeline and no agent at all. |
+| O-5 | Build the supervisor for a gateway on another machine? | Revised on 2026-11-24, after the owner pointed to his work deployment. See O-5 under "Still open". | The first answer, an exported file and no agent, undersold a pattern that is already proven in production. |
 | O-6 | Should LLMR accept the gateway's OTLP relay? | Not in this program, but record it as the next one. It is the only way a remote gateway could get an Activity view, because the stderr events exist only for an owned gateway. | LLMR has no OTLP receiver. Clients send `http/protobuf` unless a policy sets `OTEL_EXPORTER_OTLP_PROTOCOL=http/json`, so a JSON-only receiver would work for a gateway whose policy LLMR writes. Each export carries the person's id, e-mail and groups. |
 | O-7 | When LLMR quits, does an owned gateway stop? | Stop with the desktop app. Keep running when LLMR runs as a server, and adopt it on the next start. Make it a setting of the gateway. | LLMR stops its internal gateway on exit in both modes today (`electron/src/main/main-app.ts`, `web/management-server.ts:613`), so keeping this one up is a deliberate difference. The reason is measured: a stop refuses connections for up to the drain limit and cuts long streams, and an LLMR upgrade should not do that to a team. Adoption is needed anyway, because a crash of LLMR leaves the child running. |
 | O-8 | Are phases 1 to 3 built before any process control, so they ship for a gateway named by URL? | Yes. | Every call those phases need ran live over plain HTTP from outside the gateway. An owned gateway is the same thing plus a process. |
@@ -264,6 +283,7 @@ The owner accepted every recommendation in this table on 2026-11-24 (D-5), so th
 
 | # | Question | Recommendation | What the research found |
 |---|---|---|---|
+| O-5 (revised) | Build the supervisor for a gateway on another machine? | Yes, as phase 6, and as the same module that runs an owned gateway. A version published in LLMR is then applied on the other machine through a canary. The exported file stays for operators who deliver config themselves. | The owner's work deployment does this today: pull and never push, one instance as the canary, automatic restore, a last good file for when the console is away. Its design notes also record the limits this spec now carries: a canary proves boot and not correctness, and restoring must never need a sign-in. |
 | O-11 | Over `llmr serve` and in Docker, whose identity do admin actions carry? This refines O-3, which the owner accepted before this was researched. | Each browser signs in to the gateway for admin work on its own. That session is held in the server's memory against a handle the browser keeps, it is never written to disk, and it ends with the gateway's session. The stored session stays for provider traffic only and is not used for admin calls in these modes. The desktop app has one user and keeps using the stored session for both. | LLMR knows a web caller only by the shared token, so with one stored session every admin change is audited under whoever signed in first. The pending device login already works this way: a per-process map keyed by a random handle (`agents/claude-apps-gateway/device-login-service.ts:37`). Without this, the rule that a risky publish needs a named admin cannot hold in these modes. |
 
 ## Not in this program
