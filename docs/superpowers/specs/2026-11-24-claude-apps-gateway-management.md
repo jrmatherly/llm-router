@@ -32,7 +32,9 @@ Each row says how the fact was checked. "Live" means a run on 2026-11-24 against
 | A device sign-in that sends no `client_id` and no `scope` (what LLMR sends today) returns an access token, a refresh token and `expires_in: 28800` with `ttl_hours: 8`. The token is a JWT carrying `sub`, `email`, `name`, `groups`. | Live |
 | That bearer, for a user in `admin.admin_groups`, reads and writes the admin API. A cap created with it is audited as `oidc:<sub>`. With no credential the API answers 401. | Live |
 | Admin routes: `GET`/`POST /v1/organizations/spend_limits`, `GET`/`DELETE /v1/organizations/spend_limits/{id}`, `GET .../spend_limits/effective`, `GET .../spend_limits/audit`. They exist only when the config has an `admin:` block. | Live for list, create, effective and audit. Binary and docs for the rest. |
-| `GET /v1/organizations/analytics/cost` returns cost per user or per group per day, 31 days at most. It is in no docs page. | Live (200, per-user rows). Binary for the parameters. |
+| `GET /v1/organizations/analytics/cost` returns cost per user or per group per day, 31 days at most. The changelog records it as added to the gateway's admin API in 2.1.317, with a daily record of each person's groups that the report groups by. The gateway's own docs pages do not describe it. Its path, parameters and row shape match Anthropic's public Analytics API route of the same name, which is in beta. | Live (200, per-user rows). Binary for the parameters. Changelog and the public API page, read 2026-11-24. |
+| The spend limits API also takes a pooled group budget (`pooled_budget`), one monthly budget shared by a group's members. | Changelog and binary. Not run. |
+| The gateway gains config keys often. The changelog shows `oidc.groups_jsonpath` in 2.1.331, and `admin.pooled_conflict_rule`, `login_notice` and others in the weeks before. | Changelog |
 | A static `x-api-key` from `admin.write_keys` or `admin.read_keys` is the other admin credential. It is audited as `admin-key:<id>`. | Live (a cap created with the harness's write key, audited as `admin-key:dev`) |
 | `/healthz` answers `ok`. `/readyz` answers `ready`, and `503 store unavailable` when Postgres is down while `/healthz` stays 200. `/.well-known/oauth-authorization-server` answers only after a full boot and carries `gateway_protocol_version: 1`. The landing page `/` shows the version. | Live |
 | `/v1/models` items are `{type, id, display_name, max_input_tokens?}`. `/api/oauth/usage` returns the caller's own spend and caps. `/managed/settings` answers `404 not configured` with no `managed:` block. | Live |
@@ -150,7 +152,7 @@ A top-level page, "Apps gateway", listing the managed gateways. Selecting one sh
 | Status | owned, remote | `/healthz`, `/readyz`, discovery, `/`, the session |
 | Sign in, sign out | owned, remote | the existing device login, plus removal of the session |
 | Spend | owned, remote; needs an admin credential | `spend_limits/effective`, `analytics/cost` |
-| Caps | owned, remote; needs an admin credential with write | `spend_limits` |
+| Caps | owned, remote; needs an admin credential with write | `spend_limits`, pooled group budgets included |
 | Audit | owned, remote; needs an admin credential | `spend_limits/audit` |
 | Served to me | owned, remote | `/v1/models`, `/managed/settings`, `/api/oauth/usage` as the signed-in user |
 | People | owned, remote; best with LLMR as the upstream | the join in G-7 |
@@ -240,20 +242,20 @@ Phases 0 to 2 use only calls that were run live for this spec. Phases 4a and 5 c
 
 ## Open decisions
 
-These are the owner's. Each has a recommendation.
+These are the owner's. Each was researched on 2026-11-24. The last column is what the research found, and the recommendation rests on it.
 
-| # | Question | Recommendation |
-|---|---|---|
-| O-1 | Build `analytics/cost` into Spend, given that Anthropic documents it nowhere? | Yes, behind a capability check, with the documented `effective` route as the fallback. Say in the interface that the figure comes from an undocumented route. |
-| O-2 | How does the `claude` binary get into a container: baked into a published image, or installed by the person who builds it? | Installed by the operator at build, from a pinned release and checked against the signed manifest, as Anthropic's deploy guide describes. Not shipped in any image LLMR publishes. The terms were read on 2026-11-24 and state no right to redistribute, so shipping it would need Anthropic's written agreement. The owner should have this confirmed by whoever advises him on licences before phase 6. |
-| O-3 | The default admin credential. | The signed-in user's bearer, so each change is audited under a person. A static key is offered for unattended use and marked as such. |
-| O-4 | Where the page sits in the sidebar. | Its own entry under Setup. |
-| O-5 | Build phase 7 at all? | Decide after phase 5. It is only worth it if a remote gateway that LLMR does not run needs LLMR as its control plane. |
-| O-6 | Should LLMR accept the gateway's OTLP relay, so client metrics land in LLMR? | Not in this program. LLMR has no OTLP receiver, and nothing in the goal needs one yet. |
-| O-7 | When LLMR quits, does an owned gateway stop or keep running? | Keep running under `llmr serve` and in Docker, where LLMR is a server. Stop with the desktop app, as the internal gateway does, unless the owner sets it to stay up. On the next start LLMR adopts a child whose marker and pid still match. |
-| O-8 | Is the page built before any process control exists, so that phases 1 to 3 ship for remote gateways alone? | Yes. They use only calls that were run live, and an owned gateway is a remote one plus a process. |
-| O-9 | Is a spend console in LLMR still wanted, given that Claude Desktop already shows spend limits to gateway admins? | Yes. Desktop's view covers caps only and one gateway. LLMR adds the cost report, the audit trail and the join with LLMR's own usage. If the owner disagrees, phase 2 shrinks to Audit and Served to me. |
-| O-10 | What does LLMR call the page and the feature? | "Apps gateway", with body text that says it manages Anthropic's Claude apps gateway. Anthropic's terms bar its names inside a product or feature name. |
+| # | Question | Recommendation | What the research found |
+|---|---|---|---|
+| O-1 | Build the cost report into Spend? | Yes, behind a version check, with the `effective` route as the fallback for older gateways. | It is not undocumented, as an earlier draft said. The changelog adds it in 2.1.317, and it mirrors Anthropic's public Analytics API. That API is marked beta, so the shape can still change. It ran live. |
+| O-2 | How does the `claude` binary get into a container? | Installed by the operator at build, from a pinned release and checked against the signed manifest. Not shipped in any image LLMR publishes. Have this confirmed by whoever advises the owner on licences before phase 6. | Anthropic's terms state no right to redistribute. The licence file is a copyright line. The legal page sets conditions on preinstalling Claude Code in a product. The deploy guide tells each operator to build their own image. |
+| O-3 | The default admin credential. | The signed-in user's bearer. A read key is offered for an unattended, read-only view. A write key is offered and marked as naming no person. | The bearer ran live and audits as `oidc:<sub>`. A key audits as `admin-key:<id>`. Losing admin at the identity provider takes effect at the next refresh, within `ttl_hours`. One caution: LLMR holds one session per gateway, so over `llmr serve` everyone with the web token acts as whoever signed in. The page must say so. |
+| O-4 | Where the page sits in the sidebar. | Its own entry under Setup, after Providers. | The groups today are Workspace, Setup (Providers, Profiles, Routing), Monitor (Logs, Observability) and Advanced (`components/layout.tsx:37-40`). A gateway is infrastructure beside the providers. This is cheap to change later. |
+| O-5 | Build phase 7, the remote agent? | Not as a shipped agent. Phase 5 already exports a rendered file. If a remote gateway needs more, add an authenticated endpoint that serves the active version, and document a pull script. Decide after phase 5. | The pattern is proven: an existing console's supervisor pulls a version every 30 s, writes it, restarts the gateway, waits for readiness and puts the last good file back on failure. Anthropic's deploy guide mounts the config from a ConfigMap, so many operators will want the exported file in their own pipeline and no agent at all. |
+| O-6 | Should LLMR accept the gateway's OTLP relay? | Not in this program, but record it as the next one. It is the only way a remote gateway could get an Activity view, because the stderr events exist only for an owned gateway. | LLMR has no OTLP receiver. Clients send `http/protobuf` unless a policy sets `OTEL_EXPORTER_OTLP_PROTOCOL=http/json`, so a JSON-only receiver would work for a gateway whose policy LLMR writes. Each export carries the person's id, e-mail and groups. |
+| O-7 | When LLMR quits, does an owned gateway stop? | Stop with the desktop app. Keep running when LLMR runs as a server, and adopt it on the next start. Make it a setting of the gateway. | LLMR stops its internal gateway on exit in both modes today (`electron/src/main/main-app.ts`, `web/management-server.ts:613`), so keeping this one up is a deliberate difference. The reason is measured: a stop refuses connections for up to the drain limit and cuts long streams, and an LLMR upgrade should not do that to a team. Adoption is needed anyway, because a crash of LLMR leaves the child running. |
+| O-8 | Are phases 1 to 3 built before any process control, so they ship for a gateway named by URL? | Yes. | Every call those phases need ran live over plain HTTP from outside the gateway. An owned gateway is the same thing plus a process. |
+| O-9 | Is a spend console in LLMR still wanted, given that Claude Desktop shows spend limits to gateway admins? | Yes. | Anthropic's docs say the Desktop view covers spend limits only. It was not seen. LLMR adds the cost report, the audit trail, pooled budgets and the join with LLMR's own usage. If the owner disagrees, phase 2 shrinks to Audit and Served to me. |
+| O-10 | What does LLMR call the page? | "Apps gateway" as the label, with body text that says it manages Anthropic's Claude apps gateway. No Anthropic logo. | The legal page allows an accurate plain-text statement and bars Anthropic's names inside a product or feature name. The trademark guidelines (effective Aug 1, 2024) are stricter in general terms and say nothing about descriptive use. LLMR already labels things "Claude Code" where it names the tool a profile is for, and that is outside this spec. |
 
 ## Not in this program
 
@@ -269,4 +271,4 @@ These are the owner's. Each has a recommendation.
 - English only. One page per view file is not required, but a new view does not go into `providers.tsx`.
 - Every new RPC method lands in all of: `contracts/app.ts`, `ipc-channels.ts`, the Electron handler, preload, `electron.d.ts`, `web-client-bridge.ts` and `rpcHandlers`.
 - A device login started over the web RPC must be finished by the same process, because pending logins live in memory.
-- Undocumented gateway behaviour (the cost route, `cri`, `oidc`-less boot, the extra config keys) is used only behind a check that the running gateway has it, and is named as undocumented where it surfaces.
+- A feature that depends on the gateway's version (the cost report needs 2.1.317 or later) is used only behind a check that the running gateway has it. Behaviour found in the binary that Anthropic's gateway pages do not describe (the `cri` block, booting without `oidc`) is not built on.
