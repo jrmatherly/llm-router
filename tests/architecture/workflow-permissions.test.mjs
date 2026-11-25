@@ -126,7 +126,5 @@ test("the package suites also run on Windows and an Intel Mac", () => {
   assert.ok(job.includes("run: npm ci\n"));
   assert.ok(job.includes("run: npm run test:packages\n"));
   assert.doesNotMatch(job, /^ +(needs|if|exclude):/m);
-  assert.deepEqual(job.match(/continue-on-error.*/g), ["continue-on-error: ${{ matrix.allowed_to_fail == true }}"]);
-  assert.deepEqual(job.match(/allowed_to_fail.*/g), ["allowed_to_fail == true }}", "allowed_to_fail: true"]);
-  assert.deepEqual(job.match(/^.*\n.*allowed_to_fail: true$/gm), ["            runner: windows-2025\n            allowed_to_fail: true"]);
+  assert.doesNotMatch(job, /continue-on-error|allowed_to_fail/);
 });
