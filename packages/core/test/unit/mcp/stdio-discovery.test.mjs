@@ -65,7 +65,7 @@ process.stdout.write(JSON.stringify({ id: message.id, jsonrpc: "2.0", result: {}
 setInterval(() => {}, 1000);
 `;
 
-test("stdio discovery: a write to a server that closed its stdin rejects and does not crash the process", async (t) => {
+test("stdio discovery: a write to a server that closed its stdin rejects and does not crash the process", { skip: process.platform === "win32" && "Windows reports no error to a writer whose child closed its stdin, so there is no EPIPE to handle" }, async (t) => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "llmr-stdio-discovery-"));
   t.after(() => rmSync(dir, { force: true, recursive: true }));
   const script = path.join(dir, "server.cjs");

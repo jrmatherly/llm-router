@@ -579,7 +579,7 @@ test("built ToolHub MCP runtime reports a backend that exits before its handshak
   assert.ok(message.includes("stdio-test: MCP server exited (stdio-test): 3"), message);
 });
 
-test("built ToolHub MCP runtime survives a backend that closes its stdin after the handshake", async (t) => {
+test("built ToolHub MCP runtime survives a backend that closes its stdin after the handshake", { skip: process.platform === "win32" && "Windows reports no error to a writer whose child closed its stdin, so there is no EPIPE to handle" }, async (t) => {
   const resolved = await resolveWithBackends(t, [{ ...stdioBackend(t, CLOSES_STDIN_STDBACKEND_SCRIPT), ...shortTimeouts }]);
   if (!resolved) {
     return;
