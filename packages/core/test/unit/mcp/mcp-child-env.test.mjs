@@ -128,3 +128,14 @@ test("the filter keeps LLMR settings that only name where a secret lives", () =>
   });
   assert.deepEqual(env, { LLMR_REMOTE_SYNC_API_KEY_FILE: "/path/to/key", LLMR_REMOTE_SYNC_API_KEY_HELPER: "helper --print", PATH: "/usr/bin" });
 });
+
+test("the filter matches a name in any letter case", () => {
+  const env = withoutLlmrSecretEnv({
+    LLMR_web_auth_token: "secret",
+    Llmr_Remote_Sync_Api_Key: "secret",
+    Llmr_Remote_Sync_Api_Key_File: "/path/to/key",
+    llmr_service_instance_token: "secret",
+    Path: "C:\\Windows"
+  });
+  assert.deepEqual(env, { Llmr_Remote_Sync_Api_Key_File: "/path/to/key", Path: "C:\\Windows" });
+});

@@ -1141,6 +1141,18 @@ test("the token estimate is the same on both sides of its 1 MiB branch", async (
   assert.equal(large - small, Math.ceil(repeats * 6 * 1.15) - Math.ceil(1000 * 6 * 1.15));
 });
 
+test("api.env matches a name without regard to letter case only on Windows", async () => {
+  const runtime = new RouteScriptRuntime({ workerCount: 1, workerFile });
+  const script = routeScript(`return [typeof api.env("PATH"), typeof api.env("path"), typeof api.env("Path")];`);
+  try {
+    const result = await runtime.execute("env-case", script, buildRouteScriptInput({ body: {}, headers: {}, log: console, method: "POST", url: "/v1/messages" }));
+    assert.equal(result.status, "ok");
+    assert.deepEqual(result.value, process.platform === "win32" ? ["string", "string", "string"] : ["string", "undefined", "undefined"]);
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("route scripts cannot read LLMR's own secrets from the environment", async (t) => {
   const previous = process.env.LLMR_SERVICE_INSTANCE_TOKEN;
   t.after(() => {
@@ -1149,11 +1161,11 @@ test("route scripts cannot read LLMR's own secrets from the environment", async 
   });
   process.env.LLMR_SERVICE_INSTANCE_TOKEN = "service-instance-secret";
   const runtime = new RouteScriptRuntime({ workerCount: 1, workerFile });
-  const script = routeScript(`return [api.env("LLMR_SERVICE_INSTANCE_TOKEN"), typeof api.env("PATH")];`);
+  const script = routeScript(`return [api.env("LLMR_SERVICE_INSTANCE_TOKEN"), typeof api.env("PATH"), api.env("llmr_service_instance_token")];`);
   try {
     const result = await runtime.execute("env-filter", script, buildRouteScriptInput({ body: {}, headers: {}, log: console, method: "POST", url: "/v1/messages" }));
     assert.equal(result.status, "ok");
-    assert.deepEqual(result.value, [null, "string"]);
+    assert.deepEqual(result.value, [null, "string", null]);
   } finally {
     await runtime.close();
   }
