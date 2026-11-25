@@ -16,7 +16,7 @@ function homeSeenBy(env) {
     await import(${JSON.stringify(guard)});
     const os = await import("node:os");
     const proxies = ${JSON.stringify(proxyNames)}.filter((name) => process.env[name] !== undefined);
-    console.log(JSON.stringify({ codexHome: process.env.CODEX_HOME, home: process.env.HOME, homedir: os.homedir(), internal: process.env.LLMR_INTERNAL_HOME_DIR, proxies }));
+    console.log(JSON.stringify({ claims: process.env.LLMR_TEST_PORT_CLAIMS, codexHome: process.env.CODEX_HOME, home: process.env.HOME, homedir: os.homedir(), internal: process.env.LLMR_INTERNAL_HOME_DIR, proxies }));
   `], { encoding: "utf8", env });
   assert.equal(result.status, 0, result.stderr);
   return JSON.parse(result.stdout.trim());
@@ -126,5 +126,21 @@ test("the test runner leaves no folder in the temp directory", () => {
     assert.deepEqual(readdirSync(temp), []);
   } finally {
     rmSync(temp, { force: true, recursive: true });
+  }
+});
+
+test("every test process of a run is given the same folder for port claims", () => {
+  const testHome = mkdtempSync(path.join(os.tmpdir(), "llmr-runner-home-"));
+  try {
+    const claims = path.join(testHome, "port-claims");
+    const env = { ...isolateTestHome(testHome, { ...process.env }), LLMR_TEST_PORT_CLAIMS: claims };
+    assert.deepEqual([homeSeenBy(env).claims, homeSeenBy(env).claims], [claims, claims], "a folder per test file keeps no two files off one port");
+    assert.match(
+      readFileSync(path.join(projectRoot, "build", "run-tests.mjs"), "utf8"),
+      /LLMR_TEST_PORT_CLAIMS: path\.join\(testHome, "port-claims"\)/,
+      "without it reserveLoopbackPort falls back to one process's memory"
+    );
+  } finally {
+    rmSync(testHome, { force: true, recursive: true });
   }
 });

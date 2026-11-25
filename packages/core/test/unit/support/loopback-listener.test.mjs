@@ -25,7 +25,9 @@ test("two test processes never reserve the same port", async () => {
     const ports = [];
     for (let index = 0; index < 400; index += 1) ports.push(await reserveLoopbackPort());
     console.log(JSON.stringify(ports));`;
-  const claims = mkdtempSync(path.join(tmpdir(), "llmr-port-claims-"));
+  // Under the runner the children use the run's folder, so their probes stay off ports other files hold.
+  const ownClaims = process.env.LLMR_TEST_PORT_CLAIMS ? undefined : mkdtempSync(path.join(tmpdir(), "llmr-port-claims-"));
+  const claims = ownClaims ?? process.env.LLMR_TEST_PORT_CLAIMS;
   const run = () => new Promise((resolve, reject) => {
     execFile(process.execPath, ["--input-type=module", "-e", script], { env: { ...process.env, LLMR_TEST_PORT_CLAIMS: claims } },
       (error, stdout) => error ? reject(error) : resolve(JSON.parse(stdout)));
@@ -34,6 +36,6 @@ test("two test processes never reserve the same port", async () => {
     const [first, second] = await Promise.all([run(), run()]);
     assert.deepEqual(first.filter((port) => second.includes(port)), []);
   } finally {
-    rmSync(claims, { force: true, recursive: true });
+    if (ownClaims) rmSync(ownClaims, { force: true, recursive: true });
   }
 });

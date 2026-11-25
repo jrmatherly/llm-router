@@ -291,7 +291,7 @@ const truncationFixtures = {
 // Paid here, it is not counted against the first test's cap.
 before(async () => {
   await proxyTruncatedStream({ ...requestBodies.anthropic_messages, events: truncationFixtures.anthropic_messages[0] });
-});
+}, { timeout: 30_000 });
 
 const positionNames = ["after a dispatched event", "at the undelivered blank line", "mid-line mid-event"];
 
