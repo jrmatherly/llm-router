@@ -19,6 +19,7 @@ Read these before any batch. A plan line or a handoff line that contradicts one 
 5. **A push or tag on `jrmatherly/llmr-gateway` needs his word each time.** Unchanged.
 6. **The Grok, Kimi and Pi start after the launch wait is accepted** (2026-11-24). Keys plan Task 6 builds it. Evidence found since changed its order, not the decision.
 7. **The client label batch and the gateway program's identity task are one PR** (2026-11-25). Batch 16 builds client label 3, 1, 2, then gateway phase 0 Task 5. He accepted what the two sessions had agreed.
+8. **Gateway phase 1 is built after the release** (2026-11-25). The new Apps gateway page is not one of the batches, and the release and the VM pass at the end do not wait for it.
 
 ## What this file overrides
 
@@ -60,11 +61,11 @@ Not a PR:
 - **Pricing 8**, the service tier price. It waits on the owner's answer in the pricing plan.
 - **Pricing 6**, the cost OpenRouter reports. The gateway fork's usage type has no cost field, so the figure does not reach LLM Router (read in gateway `1.0.22-llmr.4`). It waits on the owner's answer on a fork change.
 
-## Recorded, not yet in the order
+## After the release
 
-**Gateway phase 1**, [`2026-11-25-apps-gateway-phase-1.md`](2026-11-25-apps-gateway-phase-1.md), on `main` as `26616b96`, audited once by the session that owns it. That session asked on 2026-11-25 for it to be a batch here. It is a new page and not a fix, so whether it is built before the release and the VM pass at the end, or after them, is the owner's to say. Until he does, it is not one of the batches above and "The end" does not wait for it.
+**Gateway phase 1**, [`2026-11-25-apps-gateway-phase-1.md`](2026-11-25-apps-gateway-phase-1.md), on `main` as `26616b96`, audited once by the session that owns it. That session asked on 2026-11-25 for it to be a batch here. It is a new page and not a fix, and the owner said the same day that it is built after the release (decision 8). It is not one of the batches above. He has not said where it sits beside the remediation plan that follows the VM pass.
 
-If he puts it in, this is the batch:
+When it is built, this is the branch. By then the batches it meets are merged, so the constraints in the last column are a record of which files to re-read, not an order:
 
 | Branch | Tasks | Shared ground | Needs |
 |---|---|---|---|
