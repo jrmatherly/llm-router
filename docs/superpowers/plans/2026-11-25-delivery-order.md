@@ -27,11 +27,11 @@ Read these before any batch. A plan line or a handoff line that contradicts one 
 
 ## The batches
 
-Sixteen PRs. The plans hold 43 tasks that are not built, written as about 39 PRs. Forty-one are in the table and two are not PRs.
+Sixteen PRs. The plans hold 44 tasks that are not built, written as about 39 PRs before VM findings Task 8 was added. Forty-two are in the table and two are not PRs.
 
 | # | Branch | Tasks, one commit each | Shared ground | Needs |
 |---|---|---|---|---|
-| 1 | `fix/launch-and-gateway-ownership` | VM findings 7, keys 6, VM findings 3 | `gateway-service.ts`, `launch-service.ts`, `profiles/service.ts` | Nothing. Keys 6 comes after VM findings 7 inside the branch |
+| 1 | `fix/launch-and-gateway-ownership` | VM findings 7, VM findings 8, keys 6, VM findings 3, then the terminal-only waiting line | `gateway-service.ts`, `launch-service.ts`, `profiles/service.ts` | Nothing. Keys 6 comes after VM findings 7 and 8 inside the branch |
 | 2 | `fix/provider-form-local-login` | Follow-ups 8, VM findings 4, follow-ups 9, follow-ups 10, in that order | `App.tsx`, `providers.tsx`, `shared/providers.ts` | Nothing. This is follow-ups PR 3 as already planned |
 | 3 | `test/harness-and-codex-parse` | Harness 1, 2, 3, stripper 1 | `build/test-home.mjs`, `build/test-home-env.mjs`, `build/run-tests.mjs`, the Codex parse helper | Nothing. Tests and harness only |
 | 4 | `ci/package-suites-matrix` | Harness 4 | `.github/workflows/test.yml` | Nothing. Kept apart because a red matrix job blocks a release |
@@ -85,17 +85,21 @@ After batch 16, or earlier if the owner calls it:
 
 The owner can cut a release before the end at any time. It needs no VM pass.
 
-## Open with the owner
+## The four questions, researched 2026-11-25
 
-None of these stops a batch. Each has a default, which is built unless he says otherwise.
+Each was run or read on `main` `d9a40cc7`. The recommendation is what is built unless the owner says otherwise.
 
-| Question | Default | Where it lands |
-|---|---|---|
-| Print "Waiting for the gateway" only when stderr is a terminal, so a multipass switch shows no stale note | Yes, as one more commit | Batch 1 |
-| A stop in the process that owns the gateway is undone by an adopter 10 seconds later, which after VM findings Task 7 also takes the agent configs back | Leave it. Nothing signals a deliberate stop today | No batch |
-| The watch waits 10 seconds. A reviewer asked for more than 20 | Keep 10 | No batch |
-| A restart for a stored key that loses the port ends in `error` and does not try again | No task. Keys plan Task 6 describes it | No batch |
-| H-7 of the harness plan, which waits on his Claude Desktop check | The end pass | The end |
+| Question | What the research found | Recommendation | Where it lands |
+|---|---|---|---|
+| Should a stop in the process that owns the gateway stay stopped, when another LLM Router process had adopted it? | Stop is already per process. Stop in a process that adopted a gateway only drops the adoption, and the other process keeps serving (`gateway-service.ts`, `stop` and `stopGateway`, which signal only this process's own child; `ipc.ts`, `appStopGateway`; read). So today the gateway is up while any LLM Router process has it switched on. A marker that made an owner's Stop machine-wide would make the same button mean two things: stop for everyone when this process owns the gateway, stop for this process only when it adopted | Leave the behaviour. Say it in the docs: with two LLM Router processes, Stop in one hands the gateway to the other | One docs paragraph, in batch 1 |
+| Should the watch wait 10 seconds, or more than 20? | Twelve restarts of a real gateway child, in a temporary home on this Mac with a one-provider config, left the port unanswered for 221 to 804 ms, median about 355 ms (run). An earlier session measured about 2 seconds on the VM from a key's write to its first accepted request, which includes the poll. The 17 seconds behind the request for 20 is the sum of two timeouts, not a restart anyone measured. Every real exit of the other process costs the wait in full | Keep 10. It is twelve times the slowest restart measured here and five times the VM's figure. Not measured: a large config, or a machine under load | No change |
+| Should "Waiting for the gateway" print only on a terminal? | The desktop app keeps no log of its warnings (a search of `packages/electron/src/main`, run), so nothing is lost there. multipass's menu bar app reads stderr through a pipe and shows it as a row note after a switch that worked (`AppState.swift:276`, read). Run from a terminal, multipass passes the terminal through and the line still shows live | Yes. One condition, `process.stderr.isTTY`, and the test that pins the line sets it | Batch 1, last commit |
+| A restart for a stored key that loses the port ends in `error` and does not try again | Reproduced (run): one failed start, then nothing for two minutes of poll ticks. Two lines give it the restart a crash gets, which adopts the gateway that holds the port | Build it. It also removes the worst case of keys plan Task 6 | VM findings Task 8, batch 1 |
+
+Still open with the owner, and stopping nothing:
+
+- **H-7 of the harness plan**, which waits on his Claude Desktop check. It goes to the end pass.
+- **Whether the reviewers, the fixes and the merge on green can run without his `review-pr` line each time.** Until he says so, merging needs his word once per PR.
 
 ## Not verified
 

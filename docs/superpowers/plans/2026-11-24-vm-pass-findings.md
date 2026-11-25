@@ -891,6 +891,79 @@ Known to survive, and left: skipping `syncClaudeAppGatewayConfig`, and dropping 
 
 ---
 
+### Task 8: A key restart that fails gets the restart a crash gets
+
+Written 2026-11-25 from the research on the owner's four open questions. Batch 1 of the delivery order, after Task 7. Not audited as text: it is under 100 lines and is reviewed with its code, as the delivery order says.
+
+**The fault, run 2026-11-25 on `main` `d9a40cc7`.** When a stored key changes, the gateway restarts itself (`gateway-service.ts`, `checkStoredApiKeys`, `reloadPersistedRuntimeConfig`). If that start fails, the status is `error`, and nothing tries again: the key poll does nothing unless the state is `running`, and a start that is not a recovery schedules none. A throwaway test made the start fail, moved the clock two minutes on and ticked the poll eight times. One start, state `error`, no restart scheduled. A crash of a running gateway does get a restart, which adopts another LLM Router gateway on the port, waits when one refuses this process's key, or starts a child (Task 1).
+
+**Why it matters here.** It is case 3 of keys plan Task 6, the worst one: a process restarting for a stored key loses the port to a service a launch started, ends in `error`, and stays there until someone clicks Start. With this task that process adopts the service's gateway, watches it (Task 6) and applies the agent configs again when it takes over (Task 7).
+
+**Prototype, run.** Two lines in the `catch` of `reloadPersistedRuntimeConfig`. The same throwaway test then saw one restart scheduled. `stored-api-keys-watch.test.mjs` and `core-restart.test.mjs` passed, 40 of 40 with the throwaway test. The full suites were not run on it.
+
+**Files:**
+- Modify: `packages/core/src/gateway/application/gateway-service.ts` (the key poll's branch of the `catch` in `reloadPersistedRuntimeConfig`)
+- Test: `packages/core/test/unit/gateway/stored-api-keys-watch.test.mjs` (one test at the end)
+
+**Interfaces:**
+- Changes, `reloadPersistedRuntimeConfig`. In its `catch`, in the branch the key poll takes, after `this.storedApiKeysRetryAt` is set: `if (this.status.state === "error" && this.config) this.scheduleCoreRestart(this.coreRestartGeneration);`. One comment gives the why: the poll stops while the gateway is down, so a start that failed here gets the restart a crash gets.
+- Not changed: a reload another process or a save asked for. Its caller is told of the failure and can act. A failure that leaves the gateway running, such as a stored config that would not run it, keeps today's retry a minute later.
+
+- [ ] **Step 1: Write the failing test.** Append to `stored-api-keys-watch.test.mjs`. `runningService`, `first` and `second` are the file's own.
+
+```js
+test("a key restart that fails gets the restart a crash gets", async (t) => {
+  t.mock.method(console, "error", () => {});
+  const { service } = await runningService([first]);
+  delete service.schedulePersistedRuntimeConfigReload;
+  service.child = undefined;
+  service.server = {};
+  service.start = async (config) => {
+    service.config = config;
+    service.status = { ...service.status, lastError: "Core gateway exited during startup with 1.", state: "error" };
+    return service.getStatus();
+  };
+  const scheduled = [];
+  service.scheduleCoreRestart = (generation) => { scheduled.push(generation); };
+  await loadAppConfig();
+  await service.rememberStoredApiKeys();
+  await updatePersistedApiKeys((current) => [...current, second]);
+  for (let tick = 0; tick < 4; tick += 1) {
+    await service.checkStoredApiKeys();
+    await service.runtimeConfigReloadQueue;
+  }
+  assert.deepEqual(scheduled, [service.coreRestartGeneration]);
+});
+
+test("a key reload that is refused while the gateway runs schedules no restart", async (t) => {
+  t.mock.method(console, "error", () => {});
+  const { service } = await runningService([first]);
+  const scheduled = [];
+  service.scheduleCoreRestart = (generation) => { scheduled.push(generation); };
+  service.start = async () => service.getStatus();
+  await loadAppConfig();
+  await service.reloadPersistedRuntimeConfig(undefined, false);
+  assert.deepEqual(scheduled, []);
+});
+```
+
+- [ ] **Step 2: Run and see it fail.**
+
+Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/gateway/stored-api-keys-watch.test.js`
+Expected: the first new test fails at its last assertion with `[]` (ran as a throwaway on today's code, which printed no restart scheduled). The second passes on today's code and is the guard: remove the `state === "error"` condition and it fails (read, not run).
+
+- [ ] **Step 3: Implement** as Interfaces says.
+
+- [ ] **Step 4: Verify.** The command of Step 2, then `npm run typecheck && npm run lint && npm run test:architecture && npm run test:core`.
+
+- [ ] **Step 5: Commit.** Subject: `fix(gateway): restart after a key reload that failed to start`
+
+**VM check, for the end pass.** None of its own. It changes what Task 6's and keys plan Task 6's checks can show.
+
+**Not in this task.** A start a person asked for that fails is left with its error, as today.
+
+---
+
 ## Self-review
 
 - **Coverage.** The adopted gateway nobody watches is Task 6. VP-3 is Task 3. VP-4 and VP-5 are Task 1. VP-6 is Task 2. VP-7 is Task 5. VP-9 is Task 4. VP-8 and the key line left in a profile's own settings file have no task, and "Not in this plan" says why. VP-1 is Task 8 of the follow-ups plan and VP-2 needs nothing.
