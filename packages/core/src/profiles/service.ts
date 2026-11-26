@@ -1546,13 +1546,28 @@ function buildCodexConfigToml(
 
 // `record` describes the file being replaced, not the one being written.
 function writeGlobalCodexConfig(file: string, content: string, providerId: string, record: CodexWrittenRecord | undefined): { backupFile?: string; changed: boolean } {
+  return writeGlobalManagedConfig(
+    file,
+    content,
+    codexManagedContent("codex", [providerId], file),
+    (previous, snapshot) => stripManagedCodexConfigContent(previous, [providerId], record, readCodexDisplacedConfig(snapshot ?? "", [providerId])),
+    (previous) => isAsWritten(record, previous)
+  );
+}
+
+function writeGlobalManagedConfig(
+  file: string,
+  content: string,
+  matchers: RestoreManagedContentMatchers,
+  stripPrevious: (previous: string, snapshot: string | undefined) => string | undefined,
+  asWritten: (previous: string) => boolean
+): { backupFile?: string; changed: boolean } {
   mkdirSync(path.dirname(file), { recursive: true });
   const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
   if (previous === content) {
     chmodFileIfRequested(file, privateFileMode);
     return { changed: false };
   }
-  const matchers = codexManagedContent("codex", [providerId], file);
   const managed = previous !== undefined && matchers.isManagedContent(previous);
   if (!managed) {
     // A file LLMR already manages is nobody's original, and a copy of it would hold the token.
@@ -1562,7 +1577,7 @@ function writeGlobalCodexConfig(file: string, content: string, providerId: strin
   // With no original, what is left of a managed file after a strip would pass for the user's original at the next restore and be written back.
   // A managed file that is as LLMR wrote it holds nothing the snapshot lacks.
   let backupFile: string | undefined;
-  if (previous !== undefined && !(managed && (noOriginal || isAsWritten(record, previous)))) {
+  if (previous !== undefined && !(managed && (noOriginal || asWritten(previous)))) {
     let snapshot: string | undefined;
     let snapshotRead = true;
     try {
@@ -1575,7 +1590,7 @@ function writeGlobalCodexConfig(file: string, content: string, providerId: strin
     }
     if (snapshotRead) {
       const kept = managed
-        ? stripManagedCodexConfigContent(previous, [providerId], record, readCodexDisplacedConfig(snapshot ?? "", [providerId]))
+        ? stripPrevious(previous, snapshot)
         : matchers.stripManagedContent?.(previous) ?? previous;
       // A backup equal to the snapshot a restore would choose adds nothing.
       if (kept !== undefined && kept !== snapshot && !(managed && isEmptyConfigContent(kept))) {
