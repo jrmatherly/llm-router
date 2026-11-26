@@ -3418,8 +3418,9 @@ test("the sweep restores the user's own provider env from a deleted profile's ta
     assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
     assert.deepEqual(readSettings(), userProviderClaudeSettings);
     const state = JSON.parse(readFileSync(stateFile, "utf8"));
-    assert.deepEqual(state.displacedEnv, {});
-    assert.deepEqual(state.endpoints, []);
+    // The user's original is still beside the file, so the record outlives the restore.
+    assert.deepEqual(state.displacedEnv, userDisplacedEnv);
+    assert.ok(state.endpoints.length > 0);
   });
 });
 
@@ -4084,6 +4085,8 @@ async function withAppliedDefaultProfiles(profileIds, run, beforeApply, options 
     rmSync(claudeDir, { force: true, recursive: true });
     rmSync(codexDir, { force: true, recursive: true });
     rmSync(path.join(CONFIGDIR, "agent-config-state"), { force: true, recursive: true });
+    // A Claude Code record outlives its restore, so the next test would start with this one's.
+    rmSync(path.join(CONFIGDIR, "profiles"), { force: true, recursive: true });
     await updatePersistedApiKeys(() => []);
     await replacePersistedAppConfig(createDefaultAppConfig());
   };
@@ -4290,6 +4293,326 @@ test("restoring a Claude Code settings file the user edited keeps a copy of it",
     assert.equal(copy.apiKeyHelper, applied.apiKeyHelper);
   });
 });
+
+const userProxyEnv = { CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "0", NO_PROXY: "localhost,corp.internal", no_proxy: "127.0.0.1" };
+const corpUrl = "https://corp-gateway.example.test";
+const userBaseUrls = { ANTHROPIC_API_BASE_URL: corpUrl, ANTHROPIC_BASE_URL: corpUrl, CLAUDE_AGENT_API_BASE_URL: corpUrl };
+
+function plantUserClaudeSettings(user) {
+  return ({ claudeDir }) => {
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(user)}\n`);
+  };
+}
+
+function readClaudeSettings(claudeDir) {
+  return JSON.parse(readFileSync(path.join(claudeDir, "settings.json"), "utf8"));
+}
+
+async function switchClaudeCodeOff(config) {
+  config.profile.profiles.find((profile) => profile.id === "default-claude-code").enabled = false;
+  await replacePersistedAppConfig(config);
+}
+
+test("a restore gives back the user's own NO_PROXY hosts and compatibility value", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userProxyEnv };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const result = await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a quit gives back the user's own NO_PROXY hosts and compatibility value", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userProxyEnv };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const statuses = restoreGlobalProfileConfigsOnExit(config.profile.profiles);
+    assert.ok(statuses.every((status) => status.ok), JSON.stringify(statuses));
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore of settings the user edited keeps their NO_PROXY hosts and a host they added", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const applied = readClaudeSettings(claudeDir);
+    const edited = { ...applied, env: { ...applied.env, NO_PROXY: `${applied.env.NO_PROXY},added.example` }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited, null, 2)}\n`);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), { env: { ...userProxyEnv, NO_PROXY: "localhost,corp.internal,added.example" }, permissions: { allow: ["Bash(ls)"] } });
+  }, plantUserClaudeSettings({ env: userProxyEnv }));
+});
+
+test("a restore gives back three base URLs the user had set alike", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userBaseUrls };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const result = await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    assert.equal((await loadPersistedApiKeys()).some((apiKey) => apiKey.id === "profile:default-claude-code"), false);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore gives back the user's own base URLs beside their other settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userBaseUrls, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a second apply keeps the record of the user's own base URLs", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userBaseUrls, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    config.Providers[0].models.push("model-2");
+    config.profile.profiles.find((profile) => profile.id === "default-claude-code").model = "Provider/model-2";
+    await applyProfileConfig(config);
+    await replacePersistedAppConfig(config);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore leaves no empty env in a file that had none", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save that switches Claude Code off gives back the user's own NO_PROXY hosts", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userProxyEnv, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a later save and a quit leave a restored Claude Code file as the restore left it", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userProxyEnv, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    restoreGlobalProfileConfigsOnExit(config.profile.profiles);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save after a restore keeps a model the user set since", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus-2", ANTHROPIC_DEFAULT_SONNET_MODEL: "my-sonnet" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited)}\n`);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save after a restore keeps a base URL the user deleted since", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ...userBaseUrls, USER_VALUE: "kept" } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify({ env: { USER_VALUE: "kept" } })}\n`);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), { env: { USER_VALUE: "kept" } });
+  }, plantUserClaudeSettings(user));
+});
+
+test("a takeover after the user cleared their settings does not bring back what an earlier one displaced", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userBaseUrls };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const cleared = { permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(cleared)}\n`);
+    config.profile.profiles.find((profile) => profile.id === "default-claude-code").enabled = true;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), cleared);
+  }, plantUserClaudeSettings(user));
+});
+
+test("switching Claude Code off, on at a new port and off again gives back the user's settings each time", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ...userProxyEnv, ...userBaseUrls }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const profile = config.profile.profiles.find((item) => item.id === "default-claude-code");
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    config.gateway.port += 1;
+    profile.enabled = true;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    assert.equal(readClaudeSettings(claudeDir).env.ANTHROPIC_BASE_URL, `http://127.0.0.1:${config.gateway.port}`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore keeps base URLs and a compatibility value the user set while LLM Router held the file", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const applied = readClaudeSettings(claudeDir);
+    const edited = { ...applied, env: { ...applied.env, ...userBaseUrls, CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "0" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited, null, 2)}\n`);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), { env: { ...userBaseUrls, CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "0" }, permissions: { allow: ["Bash(ls)"] } });
+  });
+});
+
+test("a restore takes the gateway's own host out of the user's NO_PROXY", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userProxyEnv, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    assert.match(readClaudeSettings(claudeDir).env.NO_PROXY, /gateway\.example\.test/);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user), { configure: (config) => { config.gateway.host = "gateway.example.test"; } });
+});
+
+test("a takeover whose record was lost is still told from the user's settings by LLM Router's helper", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    rmSync(path.join(CONFIGDIR, "profiles", "default-claude-code", "claude", "settings-state.json"));
+    config.gateway.port += 1;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore gives back an empty env the user had", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: {} };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore of a settings file LLM Router created releases the record", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const stateFile = path.join(CONFIGDIR, "profiles", "default-claude-code", "claude", "settings-state.json");
+    assert.ok(JSON.parse(readFileSync(stateFile, "utf8")).endpoints.length > 0);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(existsSync(path.join(claudeDir, "settings.json")), false);
+    assert.deepEqual(JSON.parse(readFileSync(stateFile, "utf8")).endpoints, []);
+  });
+});
+
+function withCustomPathClaudeFixture(run) {
+  return async () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "llmr-custom-claude-"));
+    const settingsFile = path.join(root, "work-claude", "settings.json");
+    const globalFile = path.join(root, "work-claude", ".claude.json");
+    const { config, profile } = defaultHomeClaudeFixture("custom-path-claude", { settingsFile });
+    const restore = () => applyProfileConfig({ ...config, profile: { ...config.profile, profiles: [{ ...profile, enabled: false }] } });
+    const copies = () => readdirSync(path.dirname(globalFile)).filter((name) => name.startsWith(".claude.json.llmr"));
+    try {
+      await run({ config, copies, globalFile, profile, restore, root, settingsFile });
+    } finally {
+      restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+      rmSync(root, { force: true, recursive: true });
+    }
+  };
+}
+
+test("a restore takes its cache out of a custom-path .claude.json and keeps the account", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, copies, globalFile, restore }) => {
+  mkdirSync(path.dirname(globalFile), { recursive: true });
+  writeFileSync(globalFile, "{\"oauthAccount\":{\"emailAddress\":\"user@example.test\"}}");
+  await applyProfileFixture(config);
+  assert.ok(Object.hasOwn(JSON.parse(readFileSync(globalFile, "utf8")), "autoCompactWindowsCache"));
+  await restore();
+  assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")), { oauthAccount: { emailAddress: "user@example.test" } });
+  assert.deepEqual(copies(), []);
+}));
+
+test("a restore removes a custom-path .claude.json that LLM Router created", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, copies, globalFile, restore }) => {
+  await applyProfileFixture(config);
+  assert.equal(existsSync(globalFile), true);
+  await restore();
+  assert.equal(existsSync(globalFile), false);
+  assert.deepEqual(copies(), []);
+}));
+
+test("a restore keeps a cache value Claude Code wrote itself", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, globalFile, restore }) => {
+  await applyProfileFixture(config);
+  writeFileSync(globalFile, `${JSON.stringify({ ...JSON.parse(readFileSync(globalFile, "utf8")), autoCompactWindowsCache: { mine: 1 } })}\n`);
+  await restore();
+  assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")).autoCompactWindowsCache, { mine: 1 });
+}));
+
+test("a restore leaves the copies beside a home-folder .claude.json alone", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  const globalFile = path.join(home, ".claude.json");
+  const state = "{\"autoCompactWindowsCache\":{\"mine\":1},\"oauthAccount\":{}}\n";
+  const planted = [".claude.json.llmr-original", ".claude.json.llmr-original-missing", ".claude.json.llmr-backup-2026-01-01T00-00-00-000Z"].map((name) => path.join(home, name));
+  const { config, profile } = defaultHomeClaudeFixture("home-settings-copies", { settingsFile: "~/settings.json" });
+  try {
+    writeFileSync(globalFile, state);
+    for (const file of planted) {
+      writeFileSync(file, state);
+    }
+    await applyProfileFixture(config);
+    profile.enabled = false;
+    await applyProfileFixture(config);
+    assert.equal(readFileSync(globalFile, "utf8"), state);
+    assert.deepEqual(planted.filter((file) => !existsSync(file)), []);
+  } finally {
+    removeHomeSettingsFixture(home);
+  }
+});
+
+test("a custom-path .claude.json that does not parse does not stop the settings restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, globalFile, restore, settingsFile }) => {
+  mkdirSync(path.dirname(settingsFile), { recursive: true });
+  writeFileSync(settingsFile, `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } })}\n`);
+  await applyProfileFixture(config);
+  writeFileSync(globalFile, "{ \"oauthAccount\": ");
+  const result = await restore();
+  assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), { permissions: { allow: ["Bash(ls)"] } });
+  assert.equal(readFileSync(globalFile, "utf8"), "{ \"oauthAccount\": ");
+  assert.ok(result.clients.filter((status) => status.client === "claude-code").every((status) => status.ok), JSON.stringify(result.clients));
+}));
+
+test("a quit returns a status for every record when a custom-path .claude.json does not parse", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, globalFile, profile, settingsFile }) => {
+  await applyProfileFixture(config);
+  writeFileSync(globalFile, "{ \"oauthAccount\": ");
+  const statuses = restoreGlobalProfileConfigsOnExit([profile, { ...profile, id: "second", settingsFile: path.join(path.dirname(path.dirname(settingsFile)), "other", "settings.json") }], { manageMarker: false });
+  assert.equal(statuses.length, 2);
+  assert.equal(existsSync(settingsFile), false);
+}));
+
+test("a later save keeps a cache value Claude Code wrote after the restore, even one equal to LLM Router's", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, globalFile, restore }) => {
+  mkdirSync(path.dirname(globalFile), { recursive: true });
+  writeFileSync(globalFile, "{\"oauthAccount\":{}}");
+  await applyProfileFixture(config);
+  const written = JSON.parse(readFileSync(globalFile, "utf8")).autoCompactWindowsCache;
+  await restore();
+  writeFileSync(globalFile, `${JSON.stringify({ autoCompactWindowsCache: written, oauthAccount: {} })}\n`);
+  await restore();
+  assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")), { autoCompactWindowsCache: written, oauthAccount: {} });
+}));
+
+test("a restore puts back the cache value a custom-path .claude.json held before LLM Router", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, copies, globalFile, restore }) => {
+  mkdirSync(path.dirname(globalFile), { recursive: true });
+  writeFileSync(globalFile, `${JSON.stringify({ autoCompactWindowsCache: { mine: 1 }, oauthAccount: {} })}\n`);
+  await applyProfileFixture(config);
+  assert.notDeepEqual(JSON.parse(readFileSync(globalFile, "utf8")).autoCompactWindowsCache, { mine: 1 });
+  await restore();
+  assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")), { autoCompactWindowsCache: { mine: 1 }, oauthAccount: {} });
+  assert.deepEqual(copies(), []);
+}));
 
 test("a restore after the user deleted their Claude Code settings keeps a copy of what the backups held", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
@@ -4686,7 +5009,7 @@ test("a stale marker beside an old clean backup still restores the user's newest
     const settingsFile = path.join(claudeDir, "settings.json");
     assert.match(readFileSync(settingsFile, "utf8"), /apiKeyHelper/);
     await recoverGlobalAgentProfile("default-claude-code");
-    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "corp.internal" } });
+    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "localhost,corp.internal" } });
   }, ({ claudeDir }) => {
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(path.join(claudeDir, "settings.json.llmr-original-missing"), "");
