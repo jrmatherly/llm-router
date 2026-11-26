@@ -5,7 +5,7 @@ import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MO
 import { resolveClaudeCodeGatewayAuthMode, type ClaudeCodeGatewayAuthMode } from "@llmr/core/agents/claude-code/auth-mode";
 import { claudeCodeManagedSettingsFiles, readClaudeCodeGatewayLoginPolicy } from "@llmr/core/agents/claude-code/gateway-login-policy";
 import { appConfigLoadError, disableGlobalAgentProfile, loadAppConfig } from "@llmr/core/config/config";
-import { updatePersistedApiKeys } from "@llmr/core/config/config-repository";
+import { loadPersistedApiKeys, updatePersistedApiKeys } from "@llmr/core/config/config-repository";
 import { botGatewayProfileEnv } from "@llmr/core/agents/bot-gateway/env";
 import {
   CLAUDE_CODE_CONFIG_DIR_ENV,
@@ -185,7 +185,10 @@ export function applyProfileConfig(
   config: AppConfig,
   options: ApplyProfileConfigOptions = {}
 ): Promise<ProfileApplyResult> {
-  return enqueueApply(() => applyProfileConfigNow(config, options));
+  return enqueueApply(async () => {
+    const result = await applyProfileConfigNow(config, options);
+    return { ...result, clients: mergeProfileStatuses(result.clients) };
+  });
 }
 
 // The disable is saved by the time refreshRuntime runs, so its failure is reported in the status, never thrown.
@@ -209,7 +212,7 @@ export async function recoverGlobalAgentProfile(
         }
         cleanupClaudeCodeGeneratedFiles(profile);
       }
-      const owner = config.profile.profiles.find((other) => other.agent === profile.agent && isEnabledGlobalProfile(other) && profilePath(other) === file);
+      const owner = enabledOwnerOfFile(profile, config.profile.profiles);
       const restored: ProfileClientApplyStatus = owner
         ? {
             client: profile.agent,
@@ -236,9 +239,7 @@ export async function recoverGlobalAgentProfile(
     }
   });
   let result = status;
-  // After a failed restore the agent can still hold the key, and revoking it would leave the agent with a dead one.
-  // Only Codex keeps its key in the config file itself, so only there can a failure after that file was settled be told apart.
-  if (status.ok || (profile.agent === "codex" && Boolean(token) && !fileMayHold(profilePath(profile), token ?? ""))) {
+  if (mayRevokeProfileKey(profile, status, token)) {
     try {
       await reconcileProfileApiKeys(config);
     } catch (error) {
@@ -273,13 +274,18 @@ async function applyProfileConfigNow(
   const excludedAgents = new Set(options.excludeAgents ?? []);
   const allProfiles = profileEntries(config);
   const profiles = allProfiles.filter((profile) => !excludedAgents.has(profile.agent));
-  cleanupInactiveOpenCodeWrappers(allProfiles);
-  cleanupInactiveKiloWrappers(allProfiles);
-  cleanupInactiveClaudeCodeGeneratedFiles(allProfiles);
-  await pruneInactiveProfileApiKeys(config, allProfiles);
+  const released = await releaseDisabledProfileKeys(config, allProfiles);
+  // A profile whose key was kept may still be pointed at by its agent, so its wrapper and helper files stay too,
+  // and the passes below leave it to the release, which already restored and reported it.
+  const keyIds = new Set(config.APIKEYS.map((apiKey) => apiKey.id));
+  const keptKey = (profile: ProfileConfig) => !profile.enabled && keyIds.has(profileApiKeyId(profile));
+  const holders = allProfiles.map((profile) => keptKey(profile) ? { ...profile, enabled: true } : profile);
+  cleanupInactiveOpenCodeWrappers(holders);
+  cleanupInactiveKiloWrappers(holders);
+  cleanupInactiveClaudeCodeGeneratedFiles(holders);
   const result: ProfileApplyResult = {
     appliedAt,
-    clients: [],
+    clients: released,
     enabled: profiles.some((profile) => profile.enabled)
   };
   const takeoverStatuses = synchronizeGlobalProfileTakeovers(
@@ -289,7 +295,7 @@ async function applyProfileConfigNow(
   );
 
   if (!result.enabled) {
-    result.clients = profiles.map((profile) => disabledProfileStatus(profile));
+    result.clients.push(...profiles.map((profile) => disabledProfileStatus(profile)));
     result.clients.push(...takeoverStatuses);
     result.clients.push(...restoreInactiveGlobalProfileConfigs(profiles));
     return result;
@@ -297,7 +303,7 @@ async function applyProfileConfigNow(
 
   if (!hasAvailableGatewayModels(config)) {
     const managedCleanupResult = cleanupManagedClaudeCodeToolHubArtifacts(profiles, { includeActive: true });
-    result.clients = profiles.map((profile) => {
+    result.clients.push(...profiles.filter((profile) => !keptKey(profile)).map((profile) => {
       const cleanupResult = profile.agent === "claude-code"
         ? cleanupClaudeCodeUnavailableProfileArtifacts(profile)
         : { ok: true };
@@ -315,7 +321,7 @@ async function applyProfileConfigNow(
             message: `${status.message} Failed to clean stale ToolHub config: ${cleanupMessage}`
           }
         : status;
-    });
+    }));
     result.clients.push(...takeoverStatuses);
     result.clients.push(...restoreInactiveGlobalProfileConfigs(profiles));
     return result;
@@ -323,7 +329,7 @@ async function applyProfileConfigNow(
 
   const profileApiKeys = await ensureProfileApiKeys(config, profiles);
 
-  for (const profile of profiles) {
+  for (const profile of profiles.filter((item) => !keptKey(item))) {
     const token = profileApiKeys.get(profile.id) ?? fallbackClientToken;
     result.clients.push(
       profile.agent === "claude-code"
@@ -821,6 +827,7 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
       appliedAt,
       backupFile: writeResult.backupFile,
       client: profile.agent,
+      copy: separateProfileResult?.copy,
       enabled: true,
       message: `${changed
         ? `${clientName} config is managed by LLMR${extras.length ? ` (${extras.join(", ")})` : ""}.`
@@ -1002,15 +1009,18 @@ function profileEntries(config: AppConfig): ProfileConfig[] {
   return profiles.map((profile) => profile.enabled ? { ...profile, enabled: false } : profile);
 }
 
-export async function reconcileProfileApiKeys(config: AppConfig): Promise<void> {
+export async function reconcileProfileApiKeys(config: AppConfig): Promise<ProfileClientApplyStatus[]> {
   if (appConfigLoadError(config)) {
-    return;
+    return [];
   }
   const profiles = profileEntries(config);
-  await pruneInactiveProfileApiKeys(config, profiles);
+  const released = await enqueueApply(() => releaseDisabledProfileKeys(config, profiles));
+  // Most callers drop the statuses, so a failed restore is logged here or nowhere.
+  warnProfileApplyFailures({ clients: released });
   if (hasAvailableGatewayModels(config)) {
     await ensureProfileApiKeys(config, profiles);
   }
+  return released;
 }
 
 async function ensureProfileApiKeys(config: AppConfig, profiles: ProfileConfig[]): Promise<Map<string, string>> {
@@ -1024,11 +1034,70 @@ async function ensureProfileApiKeys(config: AppConfig, profiles: ProfileConfig[]
   return tokens;
 }
 
-async function pruneInactiveProfileApiKeys(config: AppConfig, profiles: ProfileConfig[]): Promise<void> {
+// Several passes of one save can touch one file, and the person is told about each file once: a failure first, then an apply, then a change.
+export function mergeProfileStatuses(statuses: ProfileClientApplyStatus[]): ProfileClientApplyStatus[] {
+  const groups = new Map<string, ProfileClientApplyStatus[]>();
+  for (const status of statuses) {
+    const resolved = resolveUserPath(status.path);
+    const key = `${status.client}\0${process.platform === "win32" ? resolved.toLowerCase() : resolved}`;
+    groups.set(key, [...(groups.get(key) ?? []), status]);
+  }
+  return [...groups.values()].map((group) => {
+    const kept = group.find((status) => !status.ok) ?? group.find((status) => status.enabled) ?? group.find((status) => status.changed) ?? group[0];
+    const named = kept.copy ? undefined : group.find((status) => status.copy);
+    return named ? { ...kept, copy: named.copy, message: withSentence(kept.message, `LLMR kept a copy of what you had at ${named.copy}.`) } : kept;
+  });
+}
+
+// A message can end in an error's own text, which carries no final period.
+function withSentence(message: string, sentence: string): string {
+  return `${message}${/[.!?]$/.test(message.trimEnd()) ? "" : "."} ${sentence}`;
+}
+
+export function warnProfileApplyFailures(result: Pick<ProfileApplyResult, "clients">, log: (line: string) => void = console.warn): void {
+  for (const status of result.clients.filter((item) => !item.ok)) {
+    log(`[profile:${status.client}] ${status.message}`);
+  }
+}
+
+// Pruning first would leave an agent whose restore then fails pointed at LLMR with a key that answers 401.
+async function releaseDisabledProfileKeys(config: AppConfig, profiles: ProfileConfig[]): Promise<ProfileClientApplyStatus[]> {
+  const keys = new Map((await loadPersistedApiKeys()).map((apiKey) => [apiKey.id, apiKey.key]));
+  const statuses: ProfileClientApplyStatus[] = [];
+  const holders: ProfileConfig[] = [];
+  for (const profile of profiles) {
+    const id = profileApiKeyId(profile);
+    if (profile.enabled || !keys.has(id) || !isGlobalProfile(profile) || enabledOwnerOfFile(profile, profiles)) {
+      continue;
+    }
+    let status: ProfileClientApplyStatus;
+    try {
+      status = disabledProfileStatus(profile, profiles);
+    } catch (error) {
+      status = failedRestoreStatus(profile.agent, profilePath(profile), error);
+    }
+    if (!mayRevokeProfileKey(profile, status, keys.get(id))) {
+      holders.push({ ...profile, enabled: true });
+      status = { ...status, message: withSentence(status.message, "LLMR kept this profile's API key working, because the agent may still hold it.") };
+    }
+    statuses.push(status);
+  }
   config.APIKEYS = await updatePersistedApiKeys((current) =>
-    pruneInactiveProfileApiKeysFromList(current, profiles).apiKeys
+    pruneInactiveProfileApiKeysFromList(current, [...profiles, ...holders]).apiKeys
   );
   config.APIKEY = config.APIKEYS[0]?.key ?? "";
+  return statuses;
+}
+
+function enabledOwnerOfFile(profile: ProfileConfig, profiles: ProfileConfig[]): ProfileConfig | undefined {
+  const file = profilePath(profile);
+  return profiles.find((other) => other.agent === profile.agent && isEnabledGlobalProfile(other) && profilePath(other) === file);
+}
+
+// After a failed restore the agent can still hold the key, and revoking it would leave the agent with a dead one.
+// Only Codex keeps its key in the config file itself, so only there can a failure after that file was settled be told apart.
+function mayRevokeProfileKey(profile: ProfileConfig, status: ProfileClientApplyStatus, token: string | undefined): boolean {
+  return status.ok || (profile.agent === "codex" && Boolean(token) && !fileMayHold(profilePath(profile), token ?? ""));
 }
 
 function profilePath(profile: ProfileConfig): string {
@@ -3150,7 +3219,8 @@ function restoreDisabledCodexProfile(profile: ProfileConfig, configFile: string,
         ? `${base} Your own profile settings, which LLMR had moved to ${providerId}.config.toml, are in it again.${base === status.message ? "" : suffix}`
         : `${name} config now holds only your own profile settings, which LLMR had moved to ${providerId}.config.toml.${suffix}`
       : status.message;
-    return copy ? { ...status, message: `${message} LLMR kept a copy of what else you had in ${providerId}.config.toml at ${copy}.` } : { ...status, message };
+    const changed = status.changed || returned;
+    return copy ? { ...status, changed, copy, message: `${message} LLMR kept a copy of what else you had in ${providerId}.config.toml at ${copy}.` } : { ...status, changed, message };
   } catch (error) {
     // config.toml is settled by now, so the message keeps what happened to it and names the file that failed.
     console.error(`Failed to remove LLMR's files beside ${resolveUserPath(configFile)}: ${formatError(error)}`);
@@ -3749,6 +3819,7 @@ function restoreDisabledZcodeProfile(profile: ProfileConfig, configFile: string)
   const missingBackup = results.some((result) => result.missingBackup);
   return {
     backupFile: results.find((result) => result.backupFile)?.backupFile,
+    changed,
     client: "zcode",
     enabled: false,
     message: missingBackup
@@ -3773,6 +3844,7 @@ function disabledRestoreStatus(
 ): ProfileClientApplyStatus {
   return {
     backupFile: restoreResult.backupFile,
+    changed: restoreResult.changed,
     client,
     enabled: false,
     message: restoreResult.missingBackup

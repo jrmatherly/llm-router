@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import type { AppSaveResult } from "@llmr/core/contracts/app";
 import { expect, test, type Page } from "@playwright/test";
 import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./cli-web-runtime";
 
@@ -94,14 +95,44 @@ test("onboarding lets the user skip the agent, then connects only the agent they
   expect(secondKey).toMatch(/^llmr-profile-/);
   expect(secondKey).not.toBe(profileKey);
   await expect.poll(() => gatewayStatusFor(gateway.endpoint, secondKey).catch(() => 401)).not.toBe(401);
-  await saveProfilesEnabled(page, () => false);
+  const switchedOff = await saveProfilesEnabled(page, () => false);
+  const claudeStatuses = switchedOff.statuses.filter((status) => status.client === "claude-code");
+  expect(claudeStatuses).toHaveLength(1);
+  expect(claudeStatuses[0]?.message).toMatch(/Switch it on to undo this/);
   await expect.poll(() => gatewayStatusFor(gateway.endpoint, secondKey).catch(() => 0)).toBe(401);
+
+  await saveProfilesEnabled(page, (id) => id === "default-claude-code");
+  await expect.poll(() => existsSync(claudeSettingsFile) ? readFileSync(claudeSettingsFile, "utf8") : "").toMatch(/apiKeyHelper/);
+  await page.evaluate(() => window.llmr!.setOnboardingFinished?.());
+  await page.reload();
+  await waitForBridge(page);
+  await page.getByRole("button", { exact: true, name: "Agent Profiles" }).click();
+  await page.getByRole("switch", { exact: true, name: "Enabled" }).click();
+  await expect(page.getByText(/Switch it on to undo this/)).toBeVisible();
+
+  await saveProfilesEnabled(page, (id) => id === "default-claude-code");
+  await expect.poll(() => existsSync(claudeSettingsFile) ? readFileSync(claudeSettingsFile, "utf8") : "").toMatch(/apiKeyHelper/);
+  await page.reload();
+  await waitForBridge(page);
+  await page.getByRole("button", { exact: true, name: "Agent Profiles" }).click();
+  const claudeDir = path.dirname(claudeSettingsFile);
+  writeFileSync(claudeSettingsFile, "{}\n");
+  chmodSync(claudeDir, 0o500);
+  try {
+    const profileName = (await page.evaluate(() => window.llmr!.getConfig())).profile.profiles.find((profile) => profile.id === "default-claude-code")?.name ?? "";
+    await page.getByRole("button", { exact: true, name: `Edit ${profileName}` }).click();
+    await page.getByRole("button", { exact: true, name: "Save" }).click();
+    await expect(page.getByRole("heading", { name: "Edit Profile" })).toHaveCount(0);
+    await expect(page.getByText(/EACCES|permission denied/i).first()).toBeVisible();
+  } finally {
+    chmodSync(claudeDir, 0o700);
+  }
 });
 
-async function saveProfilesEnabled(page: Page, enabled: (id: string) => boolean): Promise<void> {
+async function saveProfilesEnabled(page: Page, enabled: (id: string) => boolean): Promise<AppSaveResult> {
   const next = await page.evaluate(() => window.llmr!.getConfig());
   next.profile.profiles = next.profile.profiles.map((profile) => ({ ...profile, enabled: enabled(profile.id) }));
-  await page.evaluate((config) => window.llmr!.saveConfig(config), next);
+  return page.evaluate((config) => window.llmr!.saveConfig(config), next);
 }
 
 async function gatewayStatusFor(endpoint: string, apiKey: string): Promise<number> {

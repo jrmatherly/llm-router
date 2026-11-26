@@ -38,7 +38,7 @@ import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-pr
 import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { stopProviderModelAutoRefreshService, syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
-import { applyProfileConfig, applyTakeoversAfterGatewayReplaced, reconcileProfileApiKeys, recoverGlobalAgentProfile, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
+import { applyProfileConfig, applyTakeoversAfterGatewayReplaced, mergeProfileStatuses, reconcileProfileApiKeys, recoverGlobalAgentProfile, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, openProfileInTerminal, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
@@ -497,11 +497,11 @@ const rpcHandlers: Record<string, RpcHandler> = {
     const savedConfig = await saveApiKeysConfig(apiKeys as ApiKeyConfig[], base as ApiKeyConfig[]);
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
     const nextConfig = syncedClaudeAppConfig.config;
-    await reconcileProfileApiKeys(nextConfig);
+    const released = await reconcileProfileApiKeys(nextConfig);
     await gatewayService.updateConfig(nextConfig);
-    logProfileApplyResult(await applyProfileConfig(nextConfig));
+    const applied = await applyProfileIfServiceRunning(nextConfig, gatewayService.getStatus());
     invalidateProviderAccountSnapshotCache();
-    return nextConfig;
+    return { config: nextConfig, statuses: mergeProfileStatuses([...released, ...(applied?.clients ?? [])]) };
   },
   saveConfig: async (config, options) => {
     const previousConfig = await loadAppConfig();
@@ -516,9 +516,8 @@ const rpcHandlers: Record<string, RpcHandler> = {
     await applyRequestLogRetentionDays(savedConfig.observability.requestLogRetentionDays);
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
     savedConfig = syncedClaudeAppConfig.config;
-    if ((options as AppSaveConfigOptions | undefined)?.applyProfile !== false) {
-      await reconcileProfileApiKeys(savedConfig);
-    }
+    const applyProfile = (options as AppSaveConfigOptions | undefined)?.applyProfile !== false;
+    const released = applyProfile ? await reconcileProfileApiKeys(savedConfig) : [];
     let runtimeStatus = gatewayService.getStatus();
     const restartRequired = syncedClaudeAppConfig.configChanged ||
       shouldRestartGatewayForRuntimeConfigChange(previousConfig, savedConfig);
@@ -534,12 +533,10 @@ const rpcHandlers: Record<string, RpcHandler> = {
     } else {
       await gatewayService.updateConfig(savedConfig);
     }
-    if ((options as AppSaveConfigOptions | undefined)?.applyProfile !== false) {
-      await applyProfileIfServiceRunning(savedConfig, runtimeStatus);
-    }
+    const applied = applyProfile ? await applyProfileIfServiceRunning(savedConfig, runtimeStatus) : undefined;
     invalidateProviderAccountSnapshotCache();
     syncProviderModelAutoRefresh(savedConfig);
-    return savedConfig;
+    return { config: savedConfig, statuses: mergeProfileStatuses([...released, ...(applied?.clients ?? [])]) };
   },
   scanBotHandoffBluetoothTargets: () => scanBotHandoffBluetoothTargets(),
   scanBotHandoffWifiTargets: () => scanBotHandoffWifiTargets(),
@@ -620,11 +617,13 @@ async function stopConfiguredServices(): Promise<void> {
   await restoreTakeoversWhenNoGatewayServes();
 }
 
-async function applyProfileIfServiceRunning(config: AppConfig, status: GatewayStatus): Promise<void> {
+async function applyProfileIfServiceRunning(config: AppConfig, status: GatewayStatus): Promise<ProfileApplyResult | undefined> {
   if (status.state !== "running") {
-    return;
+    return undefined;
   }
-  logProfileApplyResult(await applyProfileConfig(config));
+  const result = await applyProfileConfig(config);
+  logProfileApplyResult(result);
+  return result;
 }
 
 function syncProviderModelAutoRefresh(config: AppConfig): void {

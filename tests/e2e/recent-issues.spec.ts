@@ -18,7 +18,7 @@ test("#1825/#1826/#1819 stale RPC saves preserve providers, rules, fallback and 
   peer.Router.fallback = { mode: "model-chain", models: ["Peer Provider/old", "Peer Provider/new"], retryCount: 1 };
   const peerSave = await rpc("saveConfig", [peer, { applyProfile: false }]);
   expect(peerSave.status()).toBe(200);
-  const saved = (await peerSave.json()).value;
+  const saved = (await peerSave.json()).value.config;
   const conflict = await rpc("saveConfig", [{ ...stale, autoStart: !stale.autoStart }, { applyProfile: false }]);
   expect(conflict.status()).toBe(409);
   expect((await conflict.json()).ok).toBe(false);
