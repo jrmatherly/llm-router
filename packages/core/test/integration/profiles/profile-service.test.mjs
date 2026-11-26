@@ -6594,6 +6594,11 @@ test("a merged status names the copy another pass kept in its own message", () =
     { client: "codex", enabled: true, message: "Codex config is managed by LLMR.", ok: true, path: "/x" }
   ]);
   assert.equal(merged.message, "Codex config is managed by LLMR. LLMR kept a copy of what you had at /copy.");
+  const [unpunctuated] = mergeProfileStatuses([
+    { client: "codex", copy: "/copy", enabled: false, message: "Restored.", ok: true, path: "/x" },
+    { client: "codex", enabled: true, message: "EISDIR: illegal operation on a directory, read", ok: false, path: "/x" }
+  ]);
+  assert.equal(unpunctuated.message, "EISDIR: illegal operation on a directory, read. LLMR kept a copy of what you had at /copy.");
 });
 
 test("a status that names its own copy is not repeated by the merge", () => {
@@ -6645,6 +6650,7 @@ test("a save reports a restore that throws and keeps that profile's key", { skip
       await updatePersistedApiKeys((keys) => [...keys, { createdAt: "2026-01-01T00:00:00.000Z", id: "profile:zcode-off", key: "llmr-profile-zcode-off", name: "Profile: ZCode" }]);
       const statuses = await reconcileProfileApiKeys(config);
       assert.deepEqual(statuses.map((status) => [status.client, status.ok]), [["zcode", false]], JSON.stringify(statuses));
+      assert.match(statuses[0].message, /[.!?] LLMR kept this profile's API key working/, statuses[0].message);
       assert.equal(await hasKey("profile:zcode-off"), true);
     } finally {
       rmSync(zcodeHome, { force: true, recursive: true });

@@ -1045,8 +1045,13 @@ export function mergeProfileStatuses(statuses: ProfileClientApplyStatus[]): Prof
   return [...groups.values()].map((group) => {
     const kept = group.find((status) => !status.ok) ?? group.find((status) => status.enabled) ?? group.find((status) => status.changed) ?? group[0];
     const named = kept.copy ? undefined : group.find((status) => status.copy);
-    return named ? { ...kept, copy: named.copy, message: `${kept.message} LLMR kept a copy of what you had at ${named.copy}.` } : kept;
+    return named ? { ...kept, copy: named.copy, message: withSentence(kept.message, `LLMR kept a copy of what you had at ${named.copy}.`) } : kept;
   });
+}
+
+// A message can end in an error's own text, which carries no final period.
+function withSentence(message: string, sentence: string): string {
+  return `${message}${/[.!?]$/.test(message.trimEnd()) ? "" : "."} ${sentence}`;
 }
 
 export function warnProfileApplyFailures(result: Pick<ProfileApplyResult, "clients">, log: (line: string) => void = console.warn): void {
@@ -1073,7 +1078,7 @@ async function releaseDisabledProfileKeys(config: AppConfig, profiles: ProfileCo
     }
     if (!mayRevokeProfileKey(profile, status, keys.get(id))) {
       holders.push({ ...profile, enabled: true });
-      status = { ...status, message: `${status.message} LLMR kept this profile's API key working, because the agent may still hold it.` };
+      status = { ...status, message: withSentence(status.message, "LLMR kept this profile's API key working, because the agent may still hold it.") };
     }
     statuses.push(status);
   }
