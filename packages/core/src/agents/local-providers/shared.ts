@@ -157,7 +157,8 @@ export function readJsoncRecord(file: string): Record<string, unknown> | undefin
 
 export function parseJsoncRecord(value: string): Record<string, unknown> | undefined {
   try {
-    const parsed = JSON.parse(stripJsonCommentsAndTrailingCommas(value)) as unknown;
+    // An editor on Windows can start the file with a byte order mark, which JSON.parse refuses.
+    const parsed = JSON.parse(stripJsonCommentsAndTrailingCommas(value.replace(/^\uFEFF/, ""))) as unknown;
     return isRecord(parsed) ? parsed : undefined;
   } catch {
     return undefined;

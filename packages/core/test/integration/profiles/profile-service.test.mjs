@@ -5708,6 +5708,73 @@ test("an OpenCode config LLM Router created and the user deleted leaves a safety
   });
 });
 
+const profileKey = async (id) => (await loadPersistedApiKeys()).find((apiKey) => apiKey.id === `profile:${id}`)?.key;
+
+test("a switched-off Kilo profile on the file an enabled OpenCode profile uses leaves OpenCode's takeover to OpenCode", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonRoot(async (root) => {
+    const file = path.join(root, "opencode.jsonc");
+    const openCode = providerJsonProfile("opencode", file);
+    const kilo = providerJsonProfile("kilo", file, { enabled: false });
+    const config = providerJsonConfig([openCode, kilo]);
+    await updatePersistedApiKeys(() => []);
+    await applyProfileConfig(config);
+    const key = await profileKey("opencode");
+    assert.ok(readFileSync(file, "utf8").includes(key));
+    assert.equal(existsSync(`${file}.llmr-original-missing`), true, "OpenCode's takeover marker is still there");
+    config.profile.profiles = [{ ...openCode, enabled: false }, kilo];
+    const result = await applyProfileConfig(config);
+    assert.deepEqual(result.clients.filter((status) => !status.ok), []);
+    assert.equal(existsSync(file), false);
+    assert.deepEqual(filesHolding(root, key), []);
+  });
+});
+
+test("a switched-off OpenCode profile on the file an enabled one uses leaves the enabled profile's provider in place", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonRoot(async (root) => {
+    const file = path.join(root, "opencode.jsonc");
+    const config = providerJsonConfig([
+      providerJsonProfile("opencode", file, { id: "on", name: "on" }),
+      providerJsonProfile("opencode", file, { enabled: false, id: "off", name: "off" })
+    ]);
+    await applyProfileConfig(config);
+    const key = await profileKey("on");
+    assert.match(key ?? "", /^llmr-profile-/);
+    assert.ok(existsSync(file) && readFileSync(file, "utf8").includes(key), "the enabled profile's config is still in place");
+  });
+});
+
+test("an OpenCode config that starts with a byte order mark keeps the user's settings through an apply and an edited restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, restore }) => {
+    apply();
+    assert.equal(JSON.parse(readFileSync(file, "utf8")).theme, "dark", "the apply keeps the user's settings");
+    addProviderJsonMcp(file);
+    restore();
+    const restored = JSON.parse(readFileSync(file, "utf8").replace(/^\uFEFF/, ""));
+    assert.equal(restored.theme, "dark");
+    assert.equal(restored.model, "other/x");
+    assert.deepEqual(restored.mcp, providerJsonMcp);
+  }, { original: "\uFEFF{\n  \"model\": \"other/x\",\n  \"theme\": \"dark\"\n}\n" });
+});
+
+test("a save reports a locked folder of a switched-off OpenCode profile instead of throwing", { skip: !process.env.LLMR_INTERNAL_HOME_DIR || process.platform === "win32" || process.getuid?.() === 0 }, async () => {
+  await withProviderJsonRoot(async (root) => {
+    const dir = path.join(root, "opencode");
+    const file = path.join(dir, "opencode.jsonc");
+    const profile = providerJsonProfile("opencode", file);
+    const config = providerJsonConfig([profile]);
+    applyProfileRuntimeConfig(config, profile, providerJsonKey);
+    addProviderJsonMcp(file);
+    chmodSync(dir, 0o500);
+    try {
+      config.profile.profiles = [{ ...profile, enabled: false }];
+      const result = await applyProfileConfig(config);
+      assert.ok(result.clients.some((status) => status.client === "opencode" && !status.ok));
+    } finally {
+      chmodSync(dir, 0o700);
+    }
+  });
+});
+
 test("a restore after the profile's provider id changed still removes LLM Router's provider and its key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withProviderJsonRoot(async (root) => {
     const file = path.join(root, "opencode.jsonc");

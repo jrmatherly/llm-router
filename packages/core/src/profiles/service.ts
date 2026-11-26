@@ -1073,11 +1073,18 @@ async function releaseDisabledProfileKeys(config: AppConfig, profiles: ProfileCo
 
 function enabledOwnerOfFile(profile: ProfileConfig, profiles: ProfileConfig[]): ProfileConfig | undefined {
   const file = profilePath(profile);
+  // A caller can pass the config's own list, which still holds this profile as it was before it was switched off.
   return profiles.find((other) =>
-    (other.agent === profile.agent || (isCodexFamily(other.agent) && isCodexFamily(profile.agent))) &&
+    other.id !== profile.id &&
+    configFamily(other.agent) === configFamily(profile.agent) &&
     isEnabledGlobalProfile(other) &&
     sameFile(profilePath(other), file)
   );
+}
+
+// Agents of one family write one config format, so a profile of each can share a file.
+function configFamily(agent: ProfileClientKind): ProfileClientKind {
+  return isCodexFamily(agent) ? "codex" : agent === "kilo" ? "opencode" : agent;
 }
 
 // A linked folder gives one file two paths. A file that does not exist yet is found through its folder.
@@ -1103,8 +1110,8 @@ function isCodexFamily(agent: ProfileClientKind): boolean {
   return agent === "codex" || agent === "workbuddy";
 }
 
-function sharedWithEnabledCodexFamilyProfile(profiles: ProfileConfig[], file: string): boolean {
-  return profiles.some((profile) => isCodexFamily(profile.agent) && isEnabledGlobalProfile(profile) && sameFile(resolveCodexConfigFile(profile), file));
+function sharedWithEnabledProfile(profiles: ProfileConfig[], agent: ProfileClientKind, file: string): boolean {
+  return profiles.some((profile) => configFamily(profile.agent) === configFamily(agent) && isEnabledGlobalProfile(profile) && sameFile(profilePath(profile), file));
 }
 
 // After a failed restore the agent can still hold the key, and revoking it would leave the agent with a dead one.
@@ -3517,6 +3524,11 @@ function disabledProfileStatus(profile: ProfileConfig, others: ProfileConfig[] =
     return disabledPiStatus(profile);
   }
   if (profile.agent === "opencode" || profile.agent === "kilo") {
+    // The apply loop reaches a disabled profile after the enabled one that shares its file, so restoring here would strip the owner's config.
+    const owner = enabledOwnerOfFile(profile, others);
+    if (owner) {
+      return stillManagedStatus(profile, owner, profilePath(profile));
+    }
     return restoreDisabledGlobalProfile(
       profile,
       profilePath(profile),
@@ -3591,7 +3603,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
     for (const file of uniqueResolvedPaths([
       ...codexProfiles.map(globalCodexConfigCandidate)
     ])) {
-      if (sharedWithEnabledCodexFamilyProfile(profiles, file)) {
+      if (sharedWithEnabledProfile(profiles, "codex", file)) {
         continue;
       }
       try {
@@ -3611,7 +3623,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
       ...workbuddyProfiles.map(globalCodexConfigCandidate)
     ])) {
       // The takeover sync still restores this profile's models.json from its record.
-      if (sharedWithEnabledCodexFamilyProfile(profiles, file)) {
+      if (sharedWithEnabledProfile(profiles, "workbuddy", file)) {
         continue;
       }
       const restoreResult = restoreGlobalConfigFile(file, { ...codexManagedContent("workbuddy", providerIds, file), mode: privateFileMode });
@@ -3628,18 +3640,32 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
   const openCodeProfiles = profiles.filter((profile) => profile.agent === "opencode");
   if (openCodeProfiles.length > 0 && !openCodeProfiles.some((profile) => profile.enabled && isGlobalProfile(profile))) {
     for (const file of uniqueResolvedPaths(openCodeProfiles.map(globalOpenCodeConfigCandidate))) {
-      const restoreResult = restoreGlobalConfigFile(file, { ...providerJsonManagedContent("opencode"), mode: privateFileMode });
-      if (restoreResult.changed || restoreResult.missingBackup) {
-        statuses.push(inactiveGlobalCleanupStatus("opencode", file, restoreResult));
+      if (sharedWithEnabledProfile(profiles, "opencode", file)) {
+        continue;
+      }
+      try {
+        const restoreResult = restoreGlobalConfigFile(file, { ...providerJsonManagedContent("opencode"), mode: privateFileMode });
+        if (restoreResult.changed || restoreResult.missingBackup) {
+          statuses.push(inactiveGlobalCleanupStatus("opencode", file, restoreResult));
+        }
+      } catch (error) {
+        statuses.push(failedRestoreStatus("opencode", file, error));
       }
     }
   }
   const kiloProfiles = profiles.filter((profile) => profile.agent === "kilo");
   if (kiloProfiles.length > 0 && !kiloProfiles.some((profile) => profile.enabled && isGlobalProfile(profile))) {
     for (const file of uniqueResolvedPaths(kiloProfiles.map(globalKiloConfigCandidate))) {
-      const restoreResult = restoreGlobalConfigFile(file, { ...providerJsonManagedContent("kilo"), mode: privateFileMode });
-      if (restoreResult.changed || restoreResult.missingBackup) {
-        statuses.push(inactiveGlobalCleanupStatus("kilo", file, restoreResult));
+      if (sharedWithEnabledProfile(profiles, "kilo", file)) {
+        continue;
+      }
+      try {
+        const restoreResult = restoreGlobalConfigFile(file, { ...providerJsonManagedContent("kilo"), mode: privateFileMode });
+        if (restoreResult.changed || restoreResult.missingBackup) {
+          statuses.push(inactiveGlobalCleanupStatus("kilo", file, restoreResult));
+        }
+      } catch (error) {
+        statuses.push(failedRestoreStatus("kilo", file, error));
       }
     }
   }
