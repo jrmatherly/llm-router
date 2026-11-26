@@ -11,6 +11,7 @@ import {
   backupFiles,
   ensureOriginalSnapshot,
   pruneBackups,
+  removeFileKeepingLink,
   saveRemovedConfigCopy,
   writeFileAtomic
 } from "@llmr/core/profiles/backup-files.ts";
@@ -65,6 +66,23 @@ test("writeFileAtomic writes through a symlink and keeps the link", posixOnly, (
   assert.ok(lstatSync(link).isSymbolicLink());
   assert.equal(readFileSync(target, "utf8"), "new");
   assert.deepEqual(readdirSync(dir).filter((name) => name.endsWith(".tmp")), []);
+});
+
+test("removeFileKeepingLink removes the target and keeps the link", posixOnly, (t) => {
+  const { dir } = setup(t);
+  const target = path.join(dir, "dotfiles-settings.json");
+  const link = path.join(dir, "linked.json");
+  symlinkSync(target, link);
+  writeFileAtomic(link, "x");
+  removeFileKeepingLink(link);
+  assert.ok(lstatSync(link).isSymbolicLink());
+  assert.equal(existsSync(target), false);
+});
+
+test("removeFileKeepingLink removes a plain file", (t) => {
+  const { file } = setup(t);
+  removeFileKeepingLink(file);
+  assert.equal(existsSync(file), false);
 });
 
 test("writeFileAtomic removes temp files left by a dead writer and keeps a live writer's", posixOnly, (t) => {

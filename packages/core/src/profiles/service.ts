@@ -51,7 +51,7 @@ import {
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { profileApiKeyId, pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
 import { cmdQuote, defaultClientModel, disabledStatus, formatError, gatewayEndpoint, gatewayNoProxyHosts, isRecord, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, stringRecord, tomlKey, tomlString, trimLeadingBlankLines, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
-import { type BackupOptions, backupBeforeWrite, backupContent, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, saveRemovedConfigCopy, writeFileAtomic } from "@llmr/core/profiles/backup-files";
+import { type BackupOptions, backupBeforeWrite, backupContent, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, removeFileKeepingLink, saveRemovedConfigCopy, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import {
   type CodexWrittenLines,
   type CodexWrittenRecord,
@@ -722,7 +722,7 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
   const configFile = resolveCodexConfigFile(profile);
   if (!profile.enabled) {
     // The apply loop reaches a disabled profile after the enabled one that shares its file, so restoring here would strip the owner's config.
-    const owner = config.profile.profiles.find((other) => other.agent === profile.agent && isEnabledGlobalProfile(other) && profilePath(other) === profilePath(profile));
+    const owner = enabledOwnerOfFile(profile, config.profile.profiles);
     if (owner) {
       return {
         client: profile.agent,
@@ -1092,7 +1092,20 @@ async function releaseDisabledProfileKeys(config: AppConfig, profiles: ProfileCo
 
 function enabledOwnerOfFile(profile: ProfileConfig, profiles: ProfileConfig[]): ProfileConfig | undefined {
   const file = profilePath(profile);
-  return profiles.find((other) => other.agent === profile.agent && isEnabledGlobalProfile(other) && profilePath(other) === file);
+  return profiles.find((other) =>
+    (other.agent === profile.agent || (isCodexFamily(other.agent) && isCodexFamily(profile.agent))) &&
+    isEnabledGlobalProfile(other) &&
+    profilePath(other) === file
+  );
+}
+
+// Workbuddy writes Codex's config format, so a Codex and a Workbuddy profile can share one config.toml.
+function isCodexFamily(agent: ProfileClientKind): boolean {
+  return agent === "codex" || agent === "workbuddy";
+}
+
+function sharedWithEnabledCodexFamilyProfile(profiles: ProfileConfig[], file: string): boolean {
+  return profiles.some((profile) => isCodexFamily(profile.agent) && isEnabledGlobalProfile(profile) && resolveCodexConfigFile(profile) === file);
 }
 
 // After a failed restore the agent can still hold the key, and revoking it would leave the agent with a dead one.
@@ -3279,7 +3292,7 @@ function restoreDisabledCodexProfile(profile: ProfileConfig, configFile: string,
   // A config.toml that still holds LLMR's content still names the catalog, and another enabled profile in the directory still reads these files.
   if (
     !status.ok || profile.agent !== "codex" || !isGlobalProfile(profile) ||
-    others.some((other) => other.agent === "codex" && other.enabled && path.dirname(resolveCodexConfigFile(other)) === dir)
+    others.some((other) => isCodexFamily(other.agent) && other.enabled && path.dirname(resolveCodexConfigFile(other)) === dir)
   ) {
     return status;
   }
@@ -3373,7 +3386,7 @@ function restoreSideFile(file: string): void {
   if (existsSync(originalFile)) {
     writeFileAtomic(file, readFileSync(originalFile));
   } else if (existsSync(originalMissingFilePath(file))) {
-    rmSync(file, { force: true });
+    removeFileKeepingLink(file);
   } else {
     return;
   }
@@ -3487,6 +3500,9 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
     for (const file of uniqueResolvedPaths([
       ...codexProfiles.map(globalCodexConfigCandidate)
     ])) {
+      if (sharedWithEnabledCodexFamilyProfile(profiles, file)) {
+        continue;
+      }
       try {
         const restoreResult = restoreGlobalConfigFile(file, { ...codexManagedContent("codex", providerIds, file), mode: privateFileMode });
         if (restoreResult.changed || restoreResult.missingBackup) {
@@ -3503,6 +3519,10 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
     for (const file of uniqueResolvedPaths([
       ...workbuddyProfiles.map(globalCodexConfigCandidate)
     ])) {
+      // The takeover sync still restores this profile's models.json from its record.
+      if (sharedWithEnabledCodexFamilyProfile(profiles, file)) {
+        continue;
+      }
       const restoreResult = restoreGlobalConfigFile(file, {
         isManagedContent: (content) => providerIds.some((providerId) => isManagedCodexConfigContent(content, providerId)),
         mode: privateFileMode
@@ -4052,7 +4072,7 @@ function restoreGlobalConfigFileContent(
     }
     if (currentManaged) {
       const backupFile = backupCurrentConfigFile(file, options);
-      rmSync(file, { force: true });
+      removeFileKeepingLink(file);
       return { backupFile, changed: true, file, missingBackup: false, restored: true };
     }
     return { changed: false, file, missingBackup: false, restored: current === undefined };
@@ -4092,7 +4112,7 @@ function saveNewestUserBackupCopy(file: string, strip: (content: string) => stri
 // Only for a file that had no original. The caller has saved any safety copy. A backup beside the file would hold the profile's token, or would equal the stripped file, so this writes none.
 function writeStrippedConfigFile(file: string, stripped: string, mode: number | undefined): RestoreFileResult {
   if (isEmptyConfigContent(stripped)) {
-    rmSync(file, { force: true });
+    removeFileKeepingLink(file);
     return { changed: true, file, missingBackup: false, removed: true, restored: true };
   }
   writeFileAtomic(file, stripped, { mode });

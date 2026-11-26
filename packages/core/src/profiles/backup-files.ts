@@ -138,6 +138,11 @@ export function writeFileAtomic(file: string, content: string | Uint8Array, opti
   }
 }
 
+// A link the user made stays, so a later write lands in their dotfiles again.
+export function removeFileKeepingLink(file: string): void {
+  rmSync(resolveWriteTarget(file), { force: true });
+}
+
 function isWindowsLockedTargetError(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException).code;
   return process.platform === "win32" && (code === "EPERM" || code === "EBUSY" || code === "EACCES");

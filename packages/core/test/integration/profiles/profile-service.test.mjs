@@ -6474,6 +6474,155 @@ test("a save leaves the model catalog another enabled Codex profile in the direc
   });
 });
 
+function linkAgentConfigsInto(dotfiles, targets = {}) {
+  return ({ claudeDir, codexDir }) => {
+    mkdirSync(dotfiles, { recursive: true });
+    mkdirSync(claudeDir, { recursive: true });
+    mkdirSync(codexDir, { recursive: true });
+    for (const [name, content] of Object.entries(targets)) {
+      writeFileSync(path.join(dotfiles, name), content);
+    }
+    symlinkSync(path.join(dotfiles, "codex-config.toml"), path.join(codexDir, "config.toml"));
+    symlinkSync(path.join(dotfiles, "claude-settings.json"), path.join(claudeDir, "settings.json"));
+  };
+}
+
+test("a restore of a config behind a dangling link removes the file LLM Router created and keeps the link", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const dotfiles = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "dotfiles");
+  try {
+    await withAppliedDefaultProfiles(["default-codex", "default-claude-code"], async ({ claudeDir, codexDir, codexToken }) => {
+      assert.ok(readFileSync(path.join(dotfiles, "codex-config.toml"), "utf8").includes(codexToken));
+      await recoverGlobalAgentProfile("default-codex");
+      await recoverGlobalAgentProfile("default-claude-code");
+      assert.ok(lstatSync(path.join(codexDir, "config.toml")).isSymbolicLink());
+      assert.ok(lstatSync(path.join(claudeDir, "settings.json")).isSymbolicLink());
+      assert.equal(existsSync(path.join(dotfiles, "codex-config.toml")), false);
+      assert.equal(existsSync(path.join(dotfiles, "claude-settings.json")), false);
+      assert.deepEqual(filesHolding(dotfiles, codexToken), []);
+    }, linkAgentConfigsInto(dotfiles));
+  } finally {
+    rmSync(dotfiles, { force: true, recursive: true });
+  }
+});
+
+test("a link whose target exists keeps both after a restore", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const dotfiles = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "dotfiles");
+  const codexOriginal = "model_provider = \"openai\"\n";
+  try {
+    await withAppliedDefaultProfiles(["default-codex", "default-claude-code"], async ({ claudeDir, codexDir }) => {
+      await recoverGlobalAgentProfile("default-codex");
+      await recoverGlobalAgentProfile("default-claude-code");
+      assert.ok(lstatSync(path.join(codexDir, "config.toml")).isSymbolicLink());
+      assert.ok(lstatSync(path.join(claudeDir, "settings.json")).isSymbolicLink());
+      assert.equal(readFileSync(path.join(dotfiles, "codex-config.toml"), "utf8"), codexOriginal);
+      assert.deepEqual(JSON.parse(readFileSync(path.join(dotfiles, "claude-settings.json"), "utf8")), { permissions: { allow: ["Bash(ls)"] } });
+    }, linkAgentConfigsInto(dotfiles, { "claude-settings.json": "{\"permissions\":{\"allow\":[\"Bash(ls)\"]}}\n", "codex-config.toml": codexOriginal }));
+  } finally {
+    rmSync(dotfiles, { force: true, recursive: true });
+  }
+});
+
+async function shareCodexDirWithWorkbuddy({ codexDir, config }) {
+  config.profile.profiles.push(globalWorkbuddyProfile(codexDir));
+  await applyProfileConfig(config);
+  await replacePersistedAppConfig(config);
+}
+
+test("a Codex restore leaves a config that an enabled Workbuddy profile shares", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    await shareCodexDirWithWorkbuddy(fixture);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.match(result.status.message, /still manages/);
+    assert.match(readFileSync(fixture.codexConfigFile, "utf8"), /\[model_providers\.llm-router\]/);
+  });
+});
+
+test("a save that switches Codex off leaves the config Workbuddy shares", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    await shareCodexDirWithWorkbuddy(fixture);
+    await switchOff(fixture.config, "default-codex");
+    await applyProfileConfig(fixture.config);
+    const workbuddyKey = (await loadPersistedApiKeys()).find((apiKey) => apiKey.id === "profile:workbuddy-global")?.key;
+    const content = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.match(content, /\[model_providers\.llm-router\]/);
+    assert.ok(workbuddyKey && content.includes(workbuddyKey));
+  });
+});
+
+test("switching Workbuddy off leaves the config an enabled Codex profile shares", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    await shareCodexDirWithWorkbuddy(fixture);
+    await switchOff(fixture.config, "workbuddy-global");
+    const applied = await applyProfileConfig(fixture.config);
+    const content = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.match(content, /\[model_providers\.llm-router\]/);
+    assert.ok(content.includes(fixture.codexToken));
+    assert.equal(await hasKey("profile:workbuddy-global"), false);
+    assert.match(applied.clients.find((status) => status.client === "workbuddy")?.message ?? "", /still manages/);
+  });
+});
+
+test("switching off both profiles that share a config.toml leaves no config the user never had", { skip: "fails until Workbuddy uses the Codex stripper" }, async () => {
+  for (const order of [["default-codex", "workbuddy-global"], ["workbuddy-global", "default-codex"]]) {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      await shareCodexDirWithWorkbuddy(fixture);
+      const keys = (await loadPersistedApiKeys()).map((key) => key.key);
+      for (const id of order) {
+        await switchOff(fixture.config, id);
+        await applyProfileConfig(fixture.config);
+      }
+      assert.equal(existsSync(fixture.codexConfigFile), false, String(order));
+      assert.equal(existsSync(`${fixture.codexConfigFile}.llmr-original`), false, String(order));
+      for (const key of keys) {
+        assert.deepEqual(filesHolding(fixture.codexDir, key), [], String(order));
+      }
+    });
+  }
+});
+
+test("a Codex restore leaves the side files an enabled Workbuddy profile in the same directory reads", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+    config.profile.profiles.push({ ...globalWorkbuddyProfile(undefined), codexHome: undefined, configFile: path.join(codexDir, "workbuddy.toml") });
+    await applyProfileConfig(config);
+    await replacePersistedAppConfig(config);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(existsSync(codexConfigFile), false);
+    assert.equal(existsSync(path.join(codexDir, "llmr-model-catalog.json")), true);
+    assert.equal(existsSync(path.join(codexDir, "llm-router.config.toml")), true);
+  });
+});
+
+test("a restore of a managed file with no strip, behind a dangling link, keeps the link", { skip: process.platform === "win32" }, () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-models-link-"));
+  try {
+    const workbuddyHome = path.join(root, ".workbuddy");
+    const target = path.join(root, "dotfiles", "models.json");
+    mkdirSync(workbuddyHome, { recursive: true });
+    mkdirSync(path.dirname(target), { recursive: true });
+    symlinkSync(target, path.join(workbuddyHome, "models.json"));
+    const profile = globalWorkbuddyProfile(workbuddyHome);
+    writeWorkbuddyModelsConfig(workbuddyHome, profile);
+    assert.equal(existsSync(target), true);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.equal(lstatSync(path.join(workbuddyHome, "models.json")).isSymbolicLink(), true);
+    assert.equal(existsSync(target), false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("an enabled router-scoped Workbuddy profile does not keep a global Codex config", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+    config.profile.profiles.push({ ...globalWorkbuddyProfile(codexDir), scope: "llmr" });
+    await applyProfileConfig(config);
+    await replacePersistedAppConfig(config);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.doesNotMatch(result.status.message, /still manages/);
+    assert.equal(existsSync(codexConfigFile), false);
+  });
+});
+
 test("a save releases the key of a generated-scope profile without a restore status",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
     await switchOff(config, "default-codex");
