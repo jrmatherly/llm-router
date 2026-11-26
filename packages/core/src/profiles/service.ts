@@ -3127,7 +3127,8 @@ function restoreDisabledCodexProfile(profile: ProfileConfig, configFile: string,
     profile,
     configFile,
     `${codexCompatibleClientName(profile.agent)} profile is disabled.`,
-    codexManagedContent(profile.agent, reservedCodexProviderIds.includes(providerId) ? [] : [providerId], configFile),
+    // A reserved id is never LLMR's, but the file may still hold what LLMR wrote under the id it had before.
+    codexManagedContent(profile.agent, reservedCodexProviderIds.includes(providerId) ? codexCompatibleProviderIds(others) : [providerId], configFile),
     staysDisabled
   );
   const dir = path.dirname(configFile);

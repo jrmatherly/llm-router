@@ -5410,6 +5410,27 @@ test("after a reserved provider id is refused, no restore takes the user's own l
   }
 });
 
+test("recovering a Codex profile whose id was changed to a reserved one after the apply still removes LLMR's provider and token", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const edited of [false, true]) {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      if (edited) {
+        appendUserCodexTables(fixture);
+      }
+      withCodexProviderId("openai")(fixture.config);
+      await replacePersistedAppConfig(fixture.config);
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, result.status.message);
+      const restored = readFileSync(fixture.codexConfigFile, "utf8");
+      assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), [], `${edited}: ${restored}`);
+      assert.equal(restored.includes("[model_providers.llm-router]"), false, `${edited}: ${restored}`);
+      assert.equal(restored.includes("model_provider = \"llm-router\""), false, `${edited}: ${restored}`);
+      if (!edited) {
+        assert.equal(restored, userCodexOriginal);
+      }
+    }, plantCodexOriginal());
+  }
+});
+
 test("a Codex profile whose provider id only resembles a reserved one is applied", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   for (const providerId of ["openai-custom", "OpenAI"]) {
     await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile }) => {
