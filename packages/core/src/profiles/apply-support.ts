@@ -146,6 +146,10 @@ function isEnvName(value: string): boolean {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
 }
 
+export function tomlKey(value: string): string {
+  return /^[A-Za-z0-9_-]+$/.test(value) ? value : tomlQuotedKey(value);
+}
+
 export function tomlQuotedKey(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }

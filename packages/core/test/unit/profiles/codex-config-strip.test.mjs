@@ -1,17 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  codexProfileTableBody,
+  collapseBlankStatements,
   decideCodexRootLines,
+  isManagedCodexConfigContent,
   isRootKeyInsideManagedBlock,
+  managedConfiguredModel,
   managedProviderEnd,
   managedProviderStart,
   managedRootEnd,
   managedRootStart,
   readCodexDisplacedConfig,
   removeCodexMcpServerTable,
+  removeManagedConfiguredModelLine,
+  removeManagedMarkerLines,
+  removeRootTomlKeys,
   removeTablesOutsideValues,
   removeTomlTable,
+  rootTomlAssignment,
+  sameRootAssignment,
   scanTomlLines,
+  scanTomlStatements,
   stripManagedCodexConfigContent
 } from "@llmr/core/profiles/codex-config-strip.ts";
 
@@ -107,7 +117,7 @@ test("removeTablesOutsideValues hands the predicate the header without its comme
     seen.push(header);
     return false;
   });
-  assert.deepEqual(seen, ["[a.\"b]#\"]", "[[d]]"]);
+  assert.deepEqual(seen, ["a.\"b]#\"", "[[d]]"]);
 });
 
 test("scanTomlLines ends a multi-line string at its closing run, not at an escaped quote or one quote early", () => {
@@ -454,6 +464,12 @@ test("a displaced line stays out where the user removed or replaced LLMR's line,
   );
 });
 
+test("a displaced profile table stays out where the file holds an array of tables of that name", () => {
+  const aot = "[[profiles.llm-router]]\nmodel = \"aot\"\n";
+  const stripped = stripManagedCodexConfigContent(managed(`${aot}\n`), ["llm-router"], { modelLine: ours }, { profileTables: ["[profiles.llm-router]\nx = 1\n"] });
+  assert.equal(stripped, aot);
+});
+
 test("a displaced model line stays out while the model line in the file is the user's own", () => {
   const stripped = stripManagedCodexConfigContent(managed("").replace("model = \"Provider/model\"", "model = \"gpt-mine\""), ["llm-router"], {}, { model: "model = \"gpt-mine\"" });
   assert.equal(stripped, "model = \"gpt-mine\"\n");
@@ -491,4 +507,126 @@ test("readCodexDisplacedConfig reads a root key from its own line, not from text
   const quotes = "\"".repeat(3);
   const snapshot = `notes = ${quotes}\nmodel = "inside"\nmodel_provider = "inside"\n${quotes}\nmodel = "real"\n`;
   assert.deepEqual(readCodexDisplacedConfig(snapshot, ["llm-router"]), { model: "model = \"real\"" });
+});
+
+test("joining the statements of a file gives the file back", () => {
+  const join = (content) => scanTomlStatements(content).flatMap(({ lines }) => lines).join("");
+  for (const content of [...Object.values(userFiles), usersOriginal, afterCodexMcpAdd, "a = 1", "a = [\n", "a = 1\r\nb = '''\r\nx\r\n'''\r\n"]) {
+    assert.equal(join(content), content);
+    assert.equal(join(managed(content)), managed(content));
+  }
+});
+
+test("an assignment owns every line of its value, and knows its key, table and line end", () => {
+  const statements = scanTomlStatements("\"model\" = \"\"\"\nx\n\"\"\"\r\n# c\n\n[ profiles . \"b.c\" ] # mine\na.\"b\" = [\n  [1],\n]  # end\n");
+  assert.deepEqual(statements.map(({ kind, key, header, table, eol, lines }) => ({ kind, key, header, table, eol, count: lines.length })), [
+    { kind: "assignment", key: "model", header: undefined, table: "", eol: "\r\n", count: 3 },
+    { kind: "comment", key: undefined, header: undefined, table: "", eol: "\n", count: 1 },
+    { kind: "blank", key: undefined, header: undefined, table: "", eol: "\n", count: 1 },
+    { kind: "header", key: undefined, header: "profiles.\"b.c\"", table: "profiles.\"b.c\"", eol: "\n", count: 1 },
+    { kind: "assignment", key: "a.b", header: undefined, table: "profiles.\"b.c\"", eol: "\n", count: 3 }
+  ]);
+  assert.equal(scanTomlStatements("model  =  \"x\"  # mine\n")[0].value, "\"x\"");
+  assert.equal(scanTomlStatements("note = \"a # b\" # c\n")[0].value, "\"a # b\"");
+});
+
+test("a header is the same table however it is spelled", () => {
+  const user = "[mcp_servers.mine]\ncommand = \"my-server\"\n";
+  for (const header of ["[model_providers.llm-router]", "[ model_providers . \"llm-router\" ]", "[model_providers.'llm-router'] # x"]) {
+    assert.equal(removeTomlTable(`${header}\nname = "n"\n\n${user}`, "model_providers", "llm-router"), user, header);
+    assert.deepEqual(readCodexDisplacedConfig(`${header.replace("model_providers", "profiles")}\nx = 1\n`, ["llm-router"]).profileTables?.length, 1, header);
+  }
+});
+
+test("readCodexDisplacedConfig reads a profile table whole when a value in it has a line that starts with a bracket", () => {
+  const table = "[profiles.llm-router]\nx = [\n  [1, 2],\n]\ny = 3\n";
+  assert.deepEqual(readCodexDisplacedConfig(`${table}\n[projects.x]\nk = 1\n`, ["llm-router"]).profileTables, [`${table}\n`]);
+});
+
+test("readCodexDisplacedConfig reads a quoted root key and a value that spans lines", () => {
+  const model = "\"model\" = \"\"\"\ngpt-mine\n\"\"\"";
+  assert.deepEqual(readCodexDisplacedConfig(`${model}\r\n'model_provider' = "openai"\r\n`, ["llm-router"]), {
+    eol: "\r\n",
+    model,
+    modelProvider: "'model_provider' = \"openai\""
+  });
+});
+
+test("a strip removes LLMR's line under a quoted key, and puts a displaced line back with the snapshot's line end", () => {
+  const quoted = managed("").replace("model_provider = \"llm-router\"", "\"model_provider\" = \"llm-router\"");
+  assert.equal(stripManagedCodexConfigContent(quoted, ["llm-router"], { modelLine: ours }), "");
+  const stripped = stripManagedCodexConfigContent(managed(""), ["llm-router"], { modelLine: ours }, { eol: "\r\n", modelProvider: "model_provider = \"openai\"" });
+  assert.equal(stripped, "model_provider = \"openai\"\r\n");
+});
+
+test("rootTomlAssignment returns a root key with every line of its value, whether or not the key is quoted", () => {
+  const model = "\"model\" = \"\"\"\ngpt-mine\n\"\"\"";
+  assert.equal(rootTomlAssignment(`# mine\n  ${model}\nother = 1\n[t]\nmodel = "in a table"\n`, "model"), model);
+  assert.equal(rootTomlAssignment("notes = \"\"\"\nmodel = \"inside\"\n\"\"\"\n", "model"), undefined);
+});
+
+test("removeRootTomlKeys removes a quoted key and every line of a value", () => {
+  assert.equal(removeRootTomlKeys("\"model\" = [\n  \"a\",\n]\r\nkeep = 1\r\n'model_provider' = \"x\"\r\n", ["model", "model_provider"]), "keep = 1\r\n");
+});
+
+test("a marker or a configured-model line inside a value is text, and stays", () => {
+  const notes = "notes = \"\"\"\n# BEGIN LLMR managed profile\n# LLMR configured model = \"x\"\n\"\"\"\n";
+  assert.equal(removeManagedMarkerLines(`${managedRootStart}\n${notes}${managedRootEnd}\n`), notes);
+  assert.equal(removeManagedConfiguredModelLine(`# LLMR configured model = "y"\n${notes}`), notes);
+  assert.equal(managedConfiguredModel(notes), undefined);
+  assert.equal(isManagedCodexConfigContent(notes, "llm-router"), false);
+  assert.equal(isManagedCodexConfigContent("notes = \"\"\"\n[model_providers.llm-router]\n\"\"\"\n", "llm-router"), false);
+  assert.equal(isManagedCodexConfigContent(managed(""), "llm-router"), true);
+});
+
+test("codexProfileTableBody takes every table of that name, as the remover does", () => {
+  const source = "[profiles.llm-router]\na = 1\n\n[other]\nk = 0\n\n[profiles.\"llm-router\"]\nb = 2\n";
+  assert.equal(codexProfileTableBody(source, "llm-router"), "a = 1\n\nb = 2");
+  assert.equal(removeTomlTable(source, "profiles", "llm-router"), "[other]\nk = 0\n\n");
+});
+
+test("collapseBlankStatements shortens a run of blank lines outside a value and leaves a string alone", () => {
+  const notes = "notes = \"\"\"\na\n\n\n\n\nb\n\"\"\"\n";
+  assert.equal(collapseBlankStatements(`a = 1\n\n\n\n\n${notes}`), `a = 1\n\n\n${notes}`);
+});
+
+test("removeTomlTable takes the statements its readers read, so a comment below the table goes with it", () => {
+  const source = "[profiles.llm-router]\nmodel = \"x\"\n\n# about projects\n[projects.\"/tmp\"]\ntrust_level = \"trusted\"\n";
+  assert.equal(removeTomlTable(source, "profiles", "llm-router"), "[projects.\"/tmp\"]\ntrust_level = \"trusted\"\n");
+});
+
+test("an array of tables is not the table of the same name", () => {
+  const source = "[[profiles.llm-router]]\nmodel = \"aot\"\n[profiles.llm-router.sub]\nx = 1\n";
+  assert.equal(removeTomlTable(source, "profiles", "llm-router"), source);
+  assert.equal(isManagedCodexConfigContent("[[model_providers.llm-router]]\nname = \"n\"\n", "llm-router"), false);
+});
+
+test("a recorded value that spans lines matches only when every line of it does", () => {
+  const multiLine = (text) => `model = """\n${text}\n"""`;
+  assert.equal(sameRootAssignment(multiLine("A"), multiLine("B")), false);
+  assert.equal(sameRootAssignment(multiLine("A"), multiLine("A")), true);
+  assert.equal(sameRootAssignment("model = \"x\"  # mine", "model = \"x\""), true);
+});
+
+test("rootTomlAssignment drops the white space at both ends, and keeps the inner lines of a value", () => {
+  assert.equal(rootTomlAssignment("model = \"gpt-5\"\r", "model"), "model = \"gpt-5\"");
+  assert.equal(rootTomlAssignment("model = [\r\n  \"a\",\r\n]  \r\n", "model"), "model = [\r\n  \"a\",\r\n]");
+});
+
+test("removeCodexMcpServerTable takes a server's own subtables and keeps the user's child tables unless asked", () => {
+  const server = "[mcp_servers.x]\ncommand = \"c\"\n\n[mcp_servers.x.env]\nK = \"v\"\n\n[mcp_servers.x.http_headers]\nA = \"b\"\n\n[mcp_servers.x.env_http_headers]\nB = \"c\"\n\n";
+  const tool = "[mcp_servers.x.tools.t]\napproval_mode = \"approve\"\n";
+  assert.equal(removeCodexMcpServerTable(`${server}${tool}`, "x"), tool);
+  assert.equal(removeCodexMcpServerTable(`${server}${tool}`, "x", { includeChildTables: true }), "");
+});
+
+test("with no record a show_all_sessions line below LLMR's root block is the user's", () => {
+  const content = managed("").replace(`${managedRootEnd}\n`, `${managedRootEnd}\nshow_all_sessions = true\n`);
+  assert.equal(strip(content), "show_all_sessions = true\n");
+});
+
+test("a config with LLMR's provider table and no marker is LLMR's", () => {
+  for (const header of ["[model_providers.llm-router]", "[model_providers.\"llm-router\"]"]) {
+    assert.equal(isManagedCodexConfigContent(`model = "x"\n\n${header}\nname = "n"\n`, "llm-router"), true, header);
+  }
 });
