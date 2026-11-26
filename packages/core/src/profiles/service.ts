@@ -4176,7 +4176,10 @@ function restoreGlobalConfigFileContent(
       const result: RestoreFileResult = stripped === undefined
         ? { absent: true, changed: false, file, missingBackup: false, restored: true }
         : writeStrippedConfigFile(file, stripped, options.mode, options.isEmptyContent);
-      forgetMissingOriginal(file);
+      // What is left can be what LLMR wrote for another agent on the same file, whose restore still needs the marker.
+      if (stripped === undefined || !options.isManagedContent(stripped)) {
+        forgetMissingOriginal(file);
+      }
       return result;
     }
     if (currentManaged) {
@@ -4448,10 +4451,10 @@ function codexManagedContent(agent: ProfileClientKind, providerIds: string[], fi
 }
 
 function providerJsonManagedContent(client: ProviderJsonClient): RestoreManagedContentMatchers {
-  const schema = client === "kilo" ? kiloDefaultSchema : openCodeDefaultSchema;
+  // An OpenCode and a Kilo profile can share one file, which then has one original, marker and record, so either client's schema and provider are LLMR's.
   return {
-    isEmptyContent: (content) => isEmptyProviderJsonContent(content, schema),
-    isManagedContent: (content) => isManagedProviderJsonContent(content, client),
+    isEmptyContent: (content) => isEmptyProviderJsonContent(content, openCodeDefaultSchema) || isEmptyProviderJsonContent(content, kiloDefaultSchema),
+    isManagedContent: (content) => isManagedProviderJsonContent(content, "opencode") || isManagedProviderJsonContent(content, "kilo"),
     parses: (content) => parseJsoncRecord(content) !== undefined,
     stripBeforeSnapshot: true,
     stripLiveContent: (content, snapshot) => stripManagedProviderJsonContent(content, { client }, snapshot),

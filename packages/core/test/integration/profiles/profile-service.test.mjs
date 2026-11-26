@@ -5798,7 +5798,68 @@ test("no backup of a Kilo config holds the key after a second apply", { skip: !p
   }, { agent: "kilo" });
 });
 
-test("a switched-off OpenCode profile on the file an enabled one uses leaves the enabled profile's provider in place",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+const providerJsonFailures = (statuses) => statuses.filter((status) => !status.ok).map((status) => `${status.client}: ${status.message}`);
+
+test("an OpenCode and a Kilo profile that were both on for one file leave no profile key and no failed restore once both are switched off", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonRoot(async (root) => {
+    const file = path.join(root, "shared.jsonc");
+    const openCode = providerJsonProfile("opencode", file, { providerId: "oc" });
+    const kilo = providerJsonProfile("kilo", file, { providerId: "kl" });
+    const config = providerJsonConfig([openCode, kilo]);
+    await applyProfileConfig(config);
+    config.profile.profiles = [{ ...openCode, enabled: false }, kilo];
+    assert.deepEqual(providerJsonFailures((await applyProfileConfig(config)).clients), [], "switching OpenCode off while Kilo stays on");
+    config.profile.profiles = [{ ...openCode, enabled: false }, { ...kilo, enabled: false }];
+    assert.deepEqual(providerJsonFailures((await applyProfileConfig(config)).clients), []);
+    assert.equal(await profileKey("kilo"), undefined, "Kilo's key is released");
+    assert.deepEqual(filesHolding(root, "llmr-profile-"), []);
+  });
+});
+
+for (const providerIds of [["oc", "kl"], ["llm-router", "llm-router"]]) {
+  test(`a quit with an OpenCode and a Kilo profile on one file LLM Router created gives the file back and leaves no profile key, provider ids ${providerIds.join(" and ")}`, { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+    await withProviderJsonRoot(async (root) => {
+      const file = path.join(root, "shared.jsonc");
+      const config = providerJsonConfig([providerJsonProfile("opencode", file, { providerId: providerIds[0] }), providerJsonProfile("kilo", file, { providerId: providerIds[1] })]);
+      await applyProfileConfig(config);
+      assert.deepEqual(providerJsonFailures(restoreGlobalProfileConfigsOnExit(config.profile.profiles, { manageMarker: false })), []);
+      assert.equal(existsSync(file), false);
+      assert.deepEqual(filesHolding(root, "llmr-profile-"), []);
+    });
+  });
+}
+
+test("a Kilo restore does not put an OpenCode provider that LLM Router wrote back as the user's own", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonRoot(async (root) => {
+    const file = path.join(root, "shared.jsonc");
+    const openCode = providerJsonProfile("opencode", file);
+    const kilo = providerJsonProfile("kilo", file);
+    const config = providerJsonConfig([openCode, kilo]);
+    await applyProfileConfig(config);
+    restoreGlobalProfileConfigsOnExit(config.profile.profiles);
+    await applyProfileConfig(config);
+    config.profile.profiles = [{ ...openCode, enabled: false }, { ...kilo, enabled: false }];
+    assert.deepEqual(providerJsonFailures((await applyProfileConfig(config)).clients), []);
+    assert.equal(existsSync(file) && readFileSync(file, "utf8").includes("x-llmr-client"), false, "the live config holds none of LLM Router's providers");
+  });
+});
+
+test("switching off an OpenCode and a Kilo profile on the user's config gives it back and leaves no file that holds a key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonRoot(async (root) => {
+    const file = path.join(root, "opencode.jsonc");
+    writeFileSync(file, "{\"theme\":\"dark\"}\n");
+    const openCode = providerJsonProfile("opencode", file);
+    const kilo = providerJsonProfile("kilo", file);
+    const config = providerJsonConfig([openCode, kilo]);
+    await applyProfileConfig(config);
+    config.profile.profiles = [{ ...openCode, enabled: false }, { ...kilo, enabled: false }];
+    assert.deepEqual(providerJsonFailures((await applyProfileConfig(config)).clients), []);
+    assert.equal(JSON.parse(readFileSync(file, "utf8")).theme, "dark");
+    assert.deepEqual(filesHolding(root, "llmr-profile-"), []);
+  });
+});
+
+test("a switched-off OpenCode profile on the file an enabled one uses leaves the enabled profile's provider in place", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withProviderJsonRoot(async (root) => {
     const file = path.join(root, "opencode.jsonc");
     const config = providerJsonConfig([
