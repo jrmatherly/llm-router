@@ -3410,16 +3410,16 @@ test("deleting the global Claude profile restores the user's own provider env", 
 test("the sweep restores the user's own provider env from a deleted profile's takeover state", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ config, readSettings, settingsFile }) => {
     const profile = config.profile.profiles[0];
-    const stateFile = path.join(CONFIGDIR, "profiles", profile.id, "claude", "settings-state.json");
     assert.equal(applyProfileRuntimeConfig(config, profile, "llmr-profile-displaced-env-test").ok, true);
     config.profile.enabled = true;
     config.profile.profiles = [];
     await applyProfileFixture(config);
     assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
     assert.deepEqual(readSettings(), userProviderClaudeSettings);
-    const state = JSON.parse(readFileSync(stateFile, "utf8"));
-    assert.deepEqual(state.displacedEnv, {});
-    assert.deepEqual(state.endpoints, []);
+    const edited = { ...userProviderClaudeSettings, env: { ...userProviderClaudeSettings.env, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" } };
+    writeFileSync(settingsFile, `${JSON.stringify(edited)}\n`);
+    await applyProfileFixture(config);
+    assert.deepEqual(readSettings(), edited);
   });
 });
 
@@ -4084,6 +4084,8 @@ async function withAppliedDefaultProfiles(profileIds, run, beforeApply, options 
     rmSync(claudeDir, { force: true, recursive: true });
     rmSync(codexDir, { force: true, recursive: true });
     rmSync(path.join(CONFIGDIR, "agent-config-state"), { force: true, recursive: true });
+    // A Claude Code record outlives its restore, so the next test would start with this one's.
+    rmSync(path.join(CONFIGDIR, "profiles"), { force: true, recursive: true });
     await updatePersistedApiKeys(() => []);
     await replacePersistedAppConfig(createDefaultAppConfig());
   };
@@ -4289,6 +4291,711 @@ test("restoring a Claude Code settings file the user edited keeps a copy of it",
     assert.deepEqual(copy.permissions, { allow: ["Bash(ls)"] });
     assert.equal(copy.apiKeyHelper, applied.apiKeyHelper);
   });
+});
+
+const userProxyEnv = { CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "0", NO_PROXY: "localhost,corp.internal", no_proxy: "127.0.0.1" };
+const corpUrl = "https://corp-gateway.example.test";
+const userBaseUrls = { ANTHROPIC_API_BASE_URL: corpUrl, ANTHROPIC_BASE_URL: corpUrl, CLAUDE_AGENT_API_BASE_URL: corpUrl };
+
+function plantUserClaudeSettings(user) {
+  return ({ claudeDir }) => {
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(user)}\n`);
+  };
+}
+
+function readClaudeSettings(claudeDir) {
+  return JSON.parse(readFileSync(path.join(claudeDir, "settings.json"), "utf8"));
+}
+
+async function switchClaudeCodeOff(config) {
+  config.profile.profiles.find((profile) => profile.id === "default-claude-code").enabled = false;
+  await replacePersistedAppConfig(config);
+}
+
+test("a restore gives back the user's own NO_PROXY hosts and compatibility value", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userProxyEnv };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const result = await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a quit gives back the user's own NO_PROXY hosts and compatibility value", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userProxyEnv };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const statuses = restoreGlobalProfileConfigsOnExit(config.profile.profiles);
+    assert.ok(statuses.every((status) => status.ok), JSON.stringify(statuses));
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore of settings the user edited keeps their NO_PROXY hosts and a host they added", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const applied = readClaudeSettings(claudeDir);
+    const edited = { ...applied, env: { ...applied.env, NO_PROXY: `${applied.env.NO_PROXY},added.example` }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited, null, 2)}\n`);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), { env: { ...userProxyEnv, NO_PROXY: "localhost,corp.internal,added.example" }, permissions: { allow: ["Bash(ls)"] } });
+  }, plantUserClaudeSettings({ env: userProxyEnv }));
+});
+
+test("a restore gives back three base URLs the user had set alike", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userBaseUrls };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const result = await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    assert.equal((await loadPersistedApiKeys()).some((apiKey) => apiKey.id === "profile:default-claude-code"), false);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore gives back the user's own base URLs beside their other settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userBaseUrls, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a second apply keeps the record of the user's own base URLs", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userBaseUrls, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    config.Providers[0].models.push("model-2");
+    config.profile.profiles.find((profile) => profile.id === "default-claude-code").model = "Provider/model-2";
+    await applyProfileConfig(config);
+    await replacePersistedAppConfig(config);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore leaves no empty env in a file that had none", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save that switches Claude Code off gives back the user's own NO_PROXY hosts", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userProxyEnv, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a later save and a quit leave a restored Claude Code file as the restore left it", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userProxyEnv, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    restoreGlobalProfileConfigsOnExit(config.profile.profiles);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save after a restore keeps a model the user set since", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus-2", ANTHROPIC_DEFAULT_SONNET_MODEL: "my-sonnet" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited)}\n`);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save after a restore keeps a base URL the user deleted since", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ...userBaseUrls, USER_VALUE: "kept" } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify({ env: { USER_VALUE: "kept" } })}\n`);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), { env: { USER_VALUE: "kept" } });
+  }, plantUserClaudeSettings(user));
+});
+
+test("a takeover after the user cleared their settings does not bring back what an earlier one displaced", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userBaseUrls };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const cleared = { permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(cleared)}\n`);
+    config.profile.profiles.find((profile) => profile.id === "default-claude-code").enabled = true;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), cleared);
+  }, plantUserClaudeSettings(user));
+});
+
+test("switching Claude Code off, on at a new port and off again gives back the user's settings each time", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ...userProxyEnv, ...userBaseUrls }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const profile = config.profile.profiles.find((item) => item.id === "default-claude-code");
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    config.gateway.port += 1;
+    profile.enabled = true;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    assert.equal(readClaudeSettings(claudeDir).env.ANTHROPIC_BASE_URL, `http://127.0.0.1:${config.gateway.port}`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore keeps base URLs and a compatibility value the user set while LLM Router held the file", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const applied = readClaudeSettings(claudeDir);
+    const edited = { ...applied, env: { ...applied.env, ...userBaseUrls, CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "0" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited, null, 2)}\n`);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), { env: { ...userBaseUrls, CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "0" }, permissions: { allow: ["Bash(ls)"] } });
+  });
+});
+
+test("a restore takes the gateway's own host out of the user's NO_PROXY", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userProxyEnv, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    assert.match(readClaudeSettings(claudeDir).env.NO_PROXY, /gateway\.example\.test/);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user), { configure: (config) => { config.gateway.host = "gateway.example.test"; } });
+});
+
+test("a takeover whose record was lost is still told from the user's settings by LLM Router's helper", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    rmSync(path.join(CONFIGDIR, "profiles", "default-claude-code", "claude", "settings-state.json"));
+    config.gateway.port += 1;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore gives back an empty env the user had", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: {} };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore of a settings file LLM Router created leaves one the user writes there later alone", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.equal(existsSync(path.join(claudeDir, "settings.json")), false);
+    const own = { env: { ANTHROPIC_BASE_URL: corpUrl, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "localhost" } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(own)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), own);
+    config.profile.profiles.find((profile) => profile.id === "default-claude-code").enabled = true;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), own);
+  });
+});
+
+function withCustomPathClaudeFixture(run) {
+  return async () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "llmr-custom-claude-"));
+    const settingsFile = path.join(root, "work-claude", "settings.json");
+    const globalFile = path.join(root, "work-claude", ".claude.json");
+    const { config, profile } = defaultHomeClaudeFixture("custom-path-claude", { settingsFile });
+    const restore = () => applyProfileConfig({ ...config, profile: { ...config.profile, profiles: [{ ...profile, enabled: false }] } });
+    const copies = () => readdirSync(path.dirname(globalFile)).filter((name) => name.startsWith(".claude.json.llmr"));
+    try {
+      await run({ config, copies, globalFile, profile, restore, root, settingsFile });
+    } finally {
+      restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+      rmSync(root, { force: true, recursive: true });
+    }
+  };
+}
+
+test("a restore takes its cache out of a custom-path .claude.json and keeps the account", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, copies, globalFile, restore }) => {
+  mkdirSync(path.dirname(globalFile), { recursive: true });
+  writeFileSync(globalFile, "{\"oauthAccount\":{\"emailAddress\":\"user@example.test\"}}");
+  await applyProfileFixture(config);
+  assert.ok(Object.hasOwn(JSON.parse(readFileSync(globalFile, "utf8")), "autoCompactWindowsCache"));
+  await restore();
+  assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")), { oauthAccount: { emailAddress: "user@example.test" } });
+  assert.deepEqual(copies(), []);
+}));
+
+test("a restore removes a custom-path .claude.json that LLM Router created", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, copies, globalFile, restore }) => {
+  await applyProfileFixture(config);
+  assert.equal(existsSync(globalFile), true);
+  await restore();
+  assert.equal(existsSync(globalFile), false);
+  assert.deepEqual(copies(), []);
+}));
+
+test("a restore keeps a cache value Claude Code wrote itself", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, globalFile, restore }) => {
+  await applyProfileFixture(config);
+  writeFileSync(globalFile, `${JSON.stringify({ ...JSON.parse(readFileSync(globalFile, "utf8")), autoCompactWindowsCache: { mine: 1 } })}\n`);
+  await restore();
+  assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")).autoCompactWindowsCache, { mine: 1 });
+}));
+
+test("a restore leaves the copies beside a home-folder .claude.json alone", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const home = process.env.LLMR_INTERNAL_HOME_DIR;
+  const globalFile = path.join(home, ".claude.json");
+  const state = "{\"autoCompactWindowsCache\":{\"mine\":1},\"oauthAccount\":{}}\n";
+  const planted = [".claude.json.llmr-original", ".claude.json.llmr-original-missing", ".claude.json.llmr-backup-2026-01-01T00-00-00-000Z"].map((name) => path.join(home, name));
+  const { config, profile } = defaultHomeClaudeFixture("home-settings-copies", { settingsFile: "~/settings.json" });
+  try {
+    writeFileSync(globalFile, state);
+    for (const file of planted) {
+      writeFileSync(file, state);
+    }
+    await applyProfileFixture(config);
+    profile.enabled = false;
+    await applyProfileFixture(config);
+    assert.equal(readFileSync(globalFile, "utf8"), state);
+    assert.deepEqual(planted.filter((file) => !existsSync(file)), []);
+  } finally {
+    removeHomeSettingsFixture(home);
+  }
+});
+
+test("a custom-path .claude.json that does not parse does not stop the settings restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, globalFile, restore, settingsFile }) => {
+  mkdirSync(path.dirname(settingsFile), { recursive: true });
+  writeFileSync(settingsFile, `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } })}\n`);
+  await applyProfileFixture(config);
+  writeFileSync(globalFile, "{ \"oauthAccount\": ");
+  const result = await restore();
+  assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), { permissions: { allow: ["Bash(ls)"] } });
+  assert.equal(readFileSync(globalFile, "utf8"), "{ \"oauthAccount\": ");
+  assert.ok(result.clients.filter((status) => status.client === "claude-code").every((status) => status.ok), JSON.stringify(result.clients));
+}));
+
+test("a quit returns a status for every record when a custom-path .claude.json does not parse", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, globalFile, profile, settingsFile }) => {
+  await applyProfileFixture(config);
+  writeFileSync(globalFile, "{ \"oauthAccount\": ");
+  const statuses = restoreGlobalProfileConfigsOnExit([profile, { ...profile, id: "second", settingsFile: path.join(path.dirname(path.dirname(settingsFile)), "other", "settings.json") }], { manageMarker: false });
+  assert.equal(statuses.length, 2);
+  assert.equal(existsSync(settingsFile), false);
+}));
+
+test("a later save keeps a cache value Claude Code wrote after the restore, even one equal to LLM Router's", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, globalFile, restore }) => {
+  mkdirSync(path.dirname(globalFile), { recursive: true });
+  writeFileSync(globalFile, "{\"oauthAccount\":{}}");
+  await applyProfileFixture(config);
+  const written = JSON.parse(readFileSync(globalFile, "utf8")).autoCompactWindowsCache;
+  await restore();
+  writeFileSync(globalFile, `${JSON.stringify({ autoCompactWindowsCache: written, oauthAccount: {} })}\n`);
+  await restore();
+  assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")), { autoCompactWindowsCache: written, oauthAccount: {} });
+}));
+
+test("a restore puts back the cache value a custom-path .claude.json held before LLM Router", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, copies, globalFile, restore }) => {
+  mkdirSync(path.dirname(globalFile), { recursive: true });
+  writeFileSync(globalFile, `${JSON.stringify({ autoCompactWindowsCache: { mine: 1 }, oauthAccount: {} })}\n`);
+  await applyProfileFixture(config);
+  assert.notDeepEqual(JSON.parse(readFileSync(globalFile, "utf8")).autoCompactWindowsCache, { mine: 1 });
+  await restore();
+  assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")), { autoCompactWindowsCache: { mine: 1 }, oauthAccount: {} });
+  assert.deepEqual(copies(), []);
+}));
+
+const ownModelAndProxy = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+
+function withoutGatewayBaseUrls(settings) {
+  const env = { ...settings.env };
+  delete env.ANTHROPIC_API_BASE_URL;
+  delete env.ANTHROPIC_BASE_URL;
+  delete env.CLAUDE_AGENT_API_BASE_URL;
+  return { ...settings, env };
+}
+
+async function cleanClaudeLoginFixture() {
+  restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+  rmSync(path.join(CONFIGDIR, "profiles"), { force: true, recursive: true });
+  rmSync(path.join(CONFIGDIR, "global-profile-takeover.json"), { force: true });
+  await updatePersistedApiKeys(() => []);
+  await replacePersistedAppConfig(createDefaultAppConfig());
+}
+
+test("an apply over a takeover whose base URLs the user removed keeps the record of what the user had", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(withoutGatewayBaseUrls(readClaudeSettings(claudeDir)), null, 2)}\n`);
+    await applyProfileConfig(config);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), ownModelAndProxy);
+  }, plantUserClaudeSettings(ownModelAndProxy));
+});
+
+test("switching Claude Code off removes LLM Router's values from a file the user took the helper and base URLs out of", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const { apiKeyHelper: _helper, ...applied } = readClaudeSettings(claudeDir);
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(withoutGatewayBaseUrls(applied), null, 2)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), ownModelAndProxy);
+  }, plantUserClaudeSettings(ownModelAndProxy));
+});
+
+test("switching a Claude login profile off removes LLM Router's values from a file the user took the base URLs out of", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("login-marks-removed", async ({ apply, readSettings, switchOff: off, userSettingsFile }) => {
+      await apply();
+      writeFileSync(userSettingsFile, `${JSON.stringify(withoutGatewayBaseUrls(readSettings()))}\n`);
+      await off();
+      assert.deepEqual(readSettings(), ownModelAndProxy);
+    }, { beforeApply: writeUserClaudeSettings(ownModelAndProxy) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
+});
+
+test("a Claude login takeover whose env block the user deleted still gives back what it displaced", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_BASE_URL: corpUrl, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("login-env-deleted", async ({ apply, readSettings, switchOff: off, userSettingsFile }) => {
+      await apply();
+      const { env: _env, ...withoutEnv } = readSettings();
+      writeFileSync(userSettingsFile, `${JSON.stringify(withoutEnv)}\n`);
+      await apply();
+      await off();
+      assert.deepEqual(readSettings(), user);
+    }, { beforeApply: writeUserClaudeSettings(user) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
+});
+
+test("a Claude login takeover whose record was lost is not given back as the user's settings after a port change", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("login-record-lost", async ({ apply, config, readSettings, switchOff: off }) => {
+      await apply();
+      const firstEndpoint = readSettings().env.ANTHROPIC_BASE_URL;
+      rmSync(path.join(CONFIGDIR, "profiles", "login-record-lost", "claude", "settings-state.json"));
+      config.gateway.port += 1;
+      await apply();
+      await off();
+      const restored = readSettings();
+      assert.equal(JSON.stringify(restored).includes(firstEndpoint), false, JSON.stringify(restored));
+      assert.equal(restored.env?.ANTHROPIC_MODEL, undefined);
+      assert.deepEqual(restored.permissions, { allow: ["Bash(ls)"] });
+    }, { beforeApply: writeUserClaudeSettings(ownModelAndProxy) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
+});
+
+test("a save after a restore keeps what the user changed in a file whose own three base URLs are alike", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ...userBaseUrls, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "localhost,corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = {
+      env: { ...userBaseUrls, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus-2", ANTHROPIC_DEFAULT_SONNET_MODEL: "my-sonnet", NO_PROXY: "corp.internal,127.0.0.1" },
+      permissions: { allow: ["Bash(ls)"] }
+    };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited)}\n`);
+    const before = readdirSync(claudeDir).length;
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+    assert.equal(readdirSync(claudeDir).length, before, "a later save makes no new copy of a file it has no business with");
+  }, plantUserClaudeSettings(user));
+});
+
+test("a switched-off Claude Code profile leaves the settings file an enabled one shares, wherever it sits in the list", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const settingsFile = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".claude", "settings.json");
+  for (const siblingFirst of [true, false]) {
+    await cleanClaudeLoginFixture();
+    try {
+      const { config, profile } = defaultHomeClaudeFixture("shared-on");
+      const sibling = { ...profile, enabled: false, id: "shared-off", name: "shared-off" };
+      config.APIKEYS = [];
+      config.profile.profiles = siblingFirst ? [sibling, profile] : [profile, sibling];
+      await replacePersistedAppConfig(config);
+      await applyProfileConfig(config);
+      assert.equal(existsSync(settingsFile), true, `sibling first: ${siblingFirst}`);
+      assert.equal(typeof JSON.parse(readFileSync(settingsFile, "utf8")).apiKeyHelper, "string", `sibling first: ${siblingFirst}`);
+    } finally {
+      await cleanClaudeLoginFixture();
+      rmSync(path.dirname(settingsFile), { force: true, recursive: true });
+    }
+  }
+});
+
+test("a switched-off Claude Code profile leaves the .claude.json copies of an enabled one in the same custom folder", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-shared-custom-claude-"));
+  const settingsFile = path.join(root, "work-claude", "settings.json");
+  const globalFile = path.join(root, "work-claude", ".claude.json");
+  const own = { autoCompactWindowsCache: { mine: 1 }, oauthAccount: { emailAddress: "user@example.test" } };
+  await cleanClaudeLoginFixture();
+  try {
+    const { config, profile } = defaultHomeClaudeFixture("shared-custom-on", { settingsFile });
+    const sibling = { ...profile, enabled: false, id: "shared-custom-off", name: "shared-custom-off" };
+    config.APIKEYS = [];
+    config.profile.profiles = [sibling, profile];
+    mkdirSync(path.dirname(globalFile), { recursive: true });
+    writeFileSync(globalFile, `${JSON.stringify(own)}\n`);
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    await applyProfileConfig(config);
+    profile.enabled = false;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")), own);
+  } finally {
+    await cleanClaudeLoginFixture();
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a switched-off Claude Code profile with its own settings file leaves the .claude.json an enabled one in the folder uses, and says so", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-shared-folder-claude-"));
+  const settingsFile = path.join(root, "work-claude", "settings.json");
+  const globalFile = path.join(root, "work-claude", ".claude.json");
+  const own = { autoCompactWindowsCache: { mine: 1 }, oauthAccount: { emailAddress: "user@example.test" } };
+  await cleanClaudeLoginFixture();
+  try {
+    const { config, profile } = defaultHomeClaudeFixture("folder-on", { settingsFile });
+    const sibling = { ...profile, enabled: true, id: "folder-off", name: "folder-off", settingsFile: path.join(root, "work-claude", "other-settings.json") };
+    config.APIKEYS = [];
+    config.profile.profiles = [profile, sibling];
+    mkdirSync(path.dirname(globalFile), { recursive: true });
+    writeFileSync(globalFile, `${JSON.stringify(own)}\n`);
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    sibling.enabled = false;
+    await replacePersistedAppConfig(config);
+    const result = await applyProfileConfig(config);
+    const siblingStatus = result.clients.find((status) => status.path === sibling.settingsFile);
+    assert.match(siblingStatus?.message ?? "", /Profile "folder-on" still uses .*\.claude\.json, so LLMR left it and its copies unchanged\./, JSON.stringify(result.clients));
+    profile.enabled = false;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")), own);
+  } finally {
+    await cleanClaudeLoginFixture();
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a switched-off Claude Code profile leaves the .claude.json an enabled one uses when it reaches the folder through a link", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-linked-folder-claude-"));
+  const settingsFile = path.join(root, "work-claude", "settings.json");
+  const globalFile = path.join(root, "work-claude", ".claude.json");
+  const own = { autoCompactWindowsCache: { mine: 1 }, oauthAccount: { emailAddress: "user@example.test" } };
+  await cleanClaudeLoginFixture();
+  try {
+    const { config, profile } = defaultHomeClaudeFixture("folder-on", { settingsFile });
+    mkdirSync(path.dirname(globalFile), { recursive: true });
+    symlinkSync(path.dirname(globalFile), path.join(root, "link"));
+    const sibling = { ...profile, enabled: true, id: "folder-off", name: "folder-off", settingsFile: path.join(root, "link", "other-settings.json") };
+    config.APIKEYS = [];
+    config.profile.profiles = [profile, sibling];
+    writeFileSync(globalFile, `${JSON.stringify(own)}\n`);
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    sibling.enabled = false;
+    await replacePersistedAppConfig(config);
+    const result = await applyProfileConfig(config);
+    const siblingStatus = result.clients.find((status) => status.path === sibling.settingsFile);
+    assert.match(siblingStatus?.message ?? "", /Profile "folder-on" still uses .*\.claude\.json, so LLMR left it and its copies unchanged\./, JSON.stringify(result.clients));
+  } finally {
+    await cleanClaudeLoginFixture();
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a quit logs a custom-path .claude.json it could not restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, globalFile, profile }) => {
+  await applyProfileFixture(config);
+  writeFileSync(globalFile, "{ \"oauthAccount\": ");
+  const logged = [];
+  const error = console.error;
+  console.error = (line) => logged.push(String(line));
+  try {
+    restoreGlobalProfileConfigsOnExit([profile], { manageMarker: false });
+  } finally {
+    console.error = error;
+  }
+  assert.ok(logged.some((line) => line.includes(globalFile)), JSON.stringify(logged));
+}));
+
+test("a save that switches Codex off leaves the config Workbuddy reaches through a linked folder", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const link = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "codex-link");
+  try {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      symlinkSync(fixture.codexDir, link);
+      fixture.config.profile.profiles.push(globalWorkbuddyProfile(link));
+      await applyProfileConfig(fixture.config);
+      await replacePersistedAppConfig(fixture.config);
+      await switchOff(fixture.config, "default-codex");
+      await applyProfileConfig(fixture.config);
+      const workbuddyKey = (await loadPersistedApiKeys()).find((apiKey) => apiKey.id === "profile:workbuddy-global")?.key;
+      const content = readFileSync(fixture.codexConfigFile, "utf8");
+      assert.match(content, /\[model_providers\.llm-router\]/);
+      assert.ok(workbuddyKey && content.includes(workbuddyKey));
+    }, undefined, { parseAfter: false });
+  } finally {
+    rmSync(link, { force: true });
+  }
+});
+
+test("a save that switches Codex off leaves the catalog Workbuddy reads through a linked folder", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const link = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "codex-link");
+  try {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      symlinkSync(fixture.codexDir, link);
+      fixture.config.profile.profiles.find((profile) => profile.id === "default-codex").configFile = path.join(fixture.codexDir, "work.toml");
+      // First, so its own apply does not write the catalog back after the Codex restore.
+      fixture.config.profile.profiles.unshift(globalWorkbuddyProfile(link));
+      await applyProfileConfig(fixture.config);
+      await replacePersistedAppConfig(fixture.config);
+      await switchOff(fixture.config, "default-codex");
+      await applyProfileConfig(fixture.config);
+      assert.ok(existsSync(path.join(fixture.codexDir, "llmr-model-catalog.json")));
+    }, undefined, { parseAfter: false });
+  } finally {
+    rmSync(link, { force: true });
+  }
+});
+
+test("a restore that meets a link to a folder where LLMR wrote a file says it could not remove it and leaves the folder", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const folder = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "catalog-folder");
+  try {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexDir }) => {
+      const catalog = path.join(codexDir, "llmr-model-catalog.json");
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(path.join(folder, "keep.txt"), "mine");
+      rmSync(catalog);
+      symlinkSync(folder, catalog);
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, false);
+      assert.match(result.status.message, /could not remove all of its own files beside it: .*directory/i);
+      assert.ok(lstatSync(catalog).isSymbolicLink());
+      assert.equal(readFileSync(path.join(folder, "keep.txt"), "utf8"), "mine");
+    });
+  } finally {
+    rmSync(folder, { force: true, recursive: true });
+  }
+});
+
+const wifProfile = { env: { LLMR_CLAUDE_CODE_AUTH_MODE: "wif" }, passThrough: false };
+const usersOwnWifFixtureSettings = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+
+test("a save after a restore keeps a model the user set since, when the profile has been deleted", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus-2", ANTHROPIC_DEFAULT_SONNET_MODEL: "my-sonnet" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited)}\n`);
+    config.profile.profiles = config.profile.profiles.filter((profile) => profile.id !== "default-claude-code");
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a federation-mode takeover whose record was lost is still told from the user's settings by LLM Router's rule", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("wif-record-lost", async ({ apply, config, readSettings, switchOff: off }) => {
+      await apply();
+      const firstEndpoint = readSettings().env.ANTHROPIC_BASE_URL;
+      rmSync(path.join(CONFIGDIR, "profiles", "wif-record-lost", "claude", "settings-state.json"));
+      config.gateway.port += 1;
+      await apply();
+      await off();
+      assert.equal(JSON.stringify(readSettings()).includes(firstEndpoint), false, JSON.stringify(readSettings()));
+    }, { ...wifProfile, beforeApply: writeUserClaudeSettings(usersOwnWifFixtureSettings) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
+});
+
+test("a federation-mode takeover stripped down to LLM Router's rule still gives back what it displaced", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("wif-env-stripped", async ({ apply, readSettings, switchOff: off, userSettingsFile }) => {
+      await apply();
+      const applied = readSettings();
+      assert.equal(typeof applied.env.ANTHROPIC_FEDERATION_RULE_ID, "string");
+      writeFileSync(userSettingsFile, `${JSON.stringify({ ...applied, env: { ANTHROPIC_FEDERATION_RULE_ID: applied.env.ANTHROPIC_FEDERATION_RULE_ID } })}\n`);
+      await apply();
+      await off();
+      assert.deepEqual(readSettings(), usersOwnWifFixtureSettings);
+    }, { ...wifProfile, beforeApply: writeUserClaudeSettings(usersOwnWifFixtureSettings) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
+});
+
+test("a save after a restore keeps a model the user set beside their own three alike base URLs", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userBaseUrls };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = { env: { ...userBaseUrls, ANTHROPIC_MODEL: "my-model" } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save after a restore does not bring back a model the user deleted beside their own three alike base URLs", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ...userBaseUrls, ANTHROPIC_MODEL: "my-model" } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify({ env: userBaseUrls })}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), { env: userBaseUrls });
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore of settings the user edited keeps the empty env they had", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: {} };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const applied = readClaudeSettings(claudeDir);
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify({ ...applied, permissions: { allow: ["Bash(ls)"] } })}\n`);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), { env: {}, permissions: { allow: ["Bash(ls)"] } });
+  }, plantUserClaudeSettings(user));
+});
+
+test("switching a Claude login profile off keeps the empty env the user had", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("login-empty-env", async ({ apply, switchOff, userSettingsFile }) => {
+    await apply();
+    await switchOff();
+    assert.deepEqual(JSON.parse(readFileSync(userSettingsFile, "utf8")), { env: {} });
+  }, { beforeApply: (file) => writeFileSync(file, "{\"env\":{}}\n") });
 });
 
 test("a restore after the user deleted their Claude Code settings keeps a copy of what the backups held", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
@@ -4686,7 +5393,7 @@ test("a stale marker beside an old clean backup still restores the user's newest
     const settingsFile = path.join(claudeDir, "settings.json");
     assert.match(readFileSync(settingsFile, "utf8"), /apiKeyHelper/);
     await recoverGlobalAgentProfile("default-claude-code");
-    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "corp.internal" } });
+    assert.deepEqual(JSON.parse(readFileSync(settingsFile, "utf8")), { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "localhost,corp.internal" } });
   }, ({ claudeDir }) => {
     mkdirSync(claudeDir, { recursive: true });
     writeFileSync(path.join(claudeDir, "settings.json.llmr-original-missing"), "");
@@ -5844,19 +6551,9 @@ test("a save cleans up the Codex side files an earlier LLMR left beside a disabl
   });
 });
 
-test("a restore leaves the side files of a Workbuddy profile and of a router-scoped Codex profile alone", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-side-files-"));
+test("a restore leaves the side files of a router-scoped Codex profile alone", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const profileDir = path.join(CONFIGDIR, "profiles", "router-scoped-codex");
   try {
-    const workbuddyHome = path.join(root, ".workbuddy");
-    const catalog = path.join(workbuddyHome, "llmr-model-catalog.json");
-    mkdirSync(workbuddyHome, { recursive: true });
-    writeFileSync(catalog, "{}");
-    writeFileSync(`${catalog}.llmr-original-missing`, "");
-    const statuses = restoreGlobalProfileConfigsOnExit([globalWorkbuddyProfile(workbuddyHome)], { manageMarker: false });
-    assert.match(statuses[0].message, /^Workbuddy profile is disabled\. LLMR found nothing to restore/);
-    assert.equal(existsSync(catalog), true);
-
     await withAppliedDefaultProfiles(["default-claude-code"], async ({ config }) => {
       const routerScoped = { ...config.profile.profiles.find((profile) => profile.id === "default-codex"), enabled: true, id: "router-scoped-codex", scope: "llmr" };
       config.profile.profiles.push(routerScoped);
@@ -5868,8 +6565,164 @@ test("a restore leaves the side files of a Workbuddy profile and of a router-sco
       assert.equal(catalogs().length, 1);
     });
   } finally {
-    rmSync(root, { force: true, recursive: true });
     rmSync(profileDir, { force: true, recursive: true });
+  }
+});
+
+async function withAppliedWorkbuddyProfile(run, beforeApply) {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-strip-"));
+  const workbuddyHome = path.join(root, ".workbuddy");
+  const workbuddyConfigFile = path.join(workbuddyHome, "config.toml");
+  const profile = globalWorkbuddyProfile(workbuddyHome);
+  const config = configWithProviderAndEnabledProfile("default-claude-code");
+  for (const other of config.profile.profiles) {
+    other.enabled = false;
+  }
+  config.profile.profiles.push(profile);
+  const restore = async () => {
+    profile.enabled = false;
+    const result = await applyProfileConfig(config);
+    assertCodexFilesParse(workbuddyHome, { allowNone: true });
+    return result;
+  };
+  try {
+    beforeApply?.({ workbuddyConfigFile, workbuddyHome });
+    await applyProfileConfig(config);
+    await replacePersistedAppConfig(config);
+    const key = (await loadPersistedApiKeys()).find((apiKey) => apiKey.id === "profile:workbuddy-global")?.key;
+    assert.ok(key && readFileSync(workbuddyConfigFile, "utf8").includes(key), "the applied config.toml holds the profile's key");
+    assertCodexFilesParse(workbuddyHome);
+    await run({ config, key, profile, restore, workbuddyConfigFile, workbuddyHome });
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(root, { force: true, recursive: true });
+    rmSync(path.join(CONFIGDIR, "global-profile-takeover.json"), { force: true });
+    rmSync(path.join(CONFIGDIR, "agent-config-state"), { force: true, recursive: true });
+    rmSync(path.join(CONFIGDIR, "profiles"), { force: true, recursive: true });
+    await updatePersistedApiKeys(() => []);
+    await replacePersistedAppConfig(createDefaultAppConfig());
+  }
+}
+
+function plantWorkbuddyConfig(content) {
+  return ({ workbuddyConfigFile, workbuddyHome }) => {
+    mkdirSync(workbuddyHome, { recursive: true });
+    writeFileSync(workbuddyConfigFile, content);
+  };
+}
+
+test("switching a Workbuddy profile off leaves no file that holds its key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ config, key, restore, workbuddyConfigFile, workbuddyHome }) => {
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      restoreGlobalProfileConfigsOnExit(config.profile.profiles);
+      await applyProfileConfig(config);
+    }
+    await restore();
+    assert.deepEqual(filesHolding(workbuddyHome, key), []);
+    assert.equal(readFileSync(workbuddyConfigFile, "utf8"), "model_provider = \"openai\"\n");
+  }, plantWorkbuddyConfig("model_provider = \"openai\"\n"));
+});
+
+test("switching a Workbuddy profile off keeps a table added during the takeover", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ key, restore, workbuddyConfigFile, workbuddyHome }) => {
+    writeFileSync(workbuddyConfigFile, `${readFileSync(workbuddyConfigFile, "utf8")}${userCodexAdditions}`);
+    await restore();
+    const restored = readFileSync(workbuddyConfigFile, "utf8");
+    assert.match(restored, /\[mcp_servers\.mine\]/);
+    assert.match(restored, /trust_level/);
+    assert.doesNotMatch(restored, llmrCodexContent);
+    assert.deepEqual(filesHolding(workbuddyHome, key), []);
+  });
+});
+
+test("switching a Workbuddy profile off removes the side files LLM Router wrote", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ restore, workbuddyHome }) => {
+    await restore();
+    const names = readdirSync(workbuddyHome);
+    assert.deepEqual(names.filter((name) => name !== ".llm-router" && !name.startsWith("models.json") && /llm-router|llmr/.test(name)), []);
+    assert.ok(names.includes(".llm-router"));
+    const models = names.filter((name) => name.startsWith("models.json")).sort();
+    assert.equal(models.length, 2, String(models));
+    assert.match(models[0], /^models\.json\.llmr-backup-.+$/);
+    assert.equal(models[1], "models.json.llmr-original-missing");
+  });
+});
+
+test("a Workbuddy restore says what it did", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ restore, workbuddyConfigFile }) => {
+    writeFileSync(workbuddyConfigFile, `${readFileSync(workbuddyConfigFile, "utf8")}${userCodexAdditions}`);
+    const result = await restore();
+    assert.equal(
+      result.clients.find((status) => status.client === "workbuddy")?.message,
+      "LLMR's settings were removed from Workbuddy config and your own settings were kept. Profile is disabled. Switch it on to undo this. Workbuddy may ask you to log in."
+    );
+  });
+});
+
+test("a Workbuddy restore gives back a provider table of the user's own under LLM Router's id", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const edited of [false, true]) {
+    await withAppliedWorkbuddyProfile(async ({ key, restore, workbuddyConfigFile, workbuddyHome }) => {
+      if (edited) {
+        writeFileSync(workbuddyConfigFile, `${readFileSync(workbuddyConfigFile, "utf8")}${userCodexAdditions}`);
+      }
+      await restore();
+      const restored = readFileSync(workbuddyConfigFile, "utf8");
+      if (edited) {
+        assertHoldsEveryLine(restored, usersProviderOriginal);
+        assert.match(restored, /\[mcp_servers\.mine\]/);
+      } else {
+        assert.equal(restored, usersProviderOriginal);
+      }
+      assert.deepEqual(filesHolding(workbuddyHome, key), [], String(edited));
+    }, plantWorkbuddyConfig(usersProviderOriginal));
+  }
+});
+
+test("the sweep strips a Workbuddy config no profile restores, and keeps what the user added", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ key, profile, workbuddyConfigFile, workbuddyHome }) => {
+    writeFileSync(workbuddyConfigFile, `${readFileSync(workbuddyConfigFile, "utf8")}${userCodexAdditions}`);
+    const statuses = restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assertCodexFilesParse(workbuddyHome);
+    const restored = readFileSync(workbuddyConfigFile, "utf8");
+    assert.match(restored, /\[mcp_servers\.mine\]/);
+    assert.doesNotMatch(restored, llmrCodexContent);
+    assert.equal(restored.includes(key), false);
+    assert.equal(statuses.find((status) => status.path === workbuddyConfigFile)?.message, "LLMR's settings were removed from Workbuddy config and your own settings were kept.");
+  });
+});
+
+test("a profile table the user added to a Workbuddy config LLM Router created comes back, and the message names Workbuddy", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ config, restore, workbuddyConfigFile }) => {
+    writeFileSync(workbuddyConfigFile, `${readFileSync(workbuddyConfigFile, "utf8")}\n[profiles.llm-router]\napproval_policy = "never"\n`);
+    await applyProfileConfig(config);
+    const result = await restore();
+    assert.equal(readFileSync(workbuddyConfigFile, "utf8"), "[profiles.llm-router]\napproval_policy = \"never\"\n");
+    assert.equal(
+      result.clients.find((status) => status.client === "workbuddy")?.message,
+      "Workbuddy config now holds only your own profile settings, which LLMR had moved to llm-router.config.toml. Profile is disabled. Switch it on to undo this. Workbuddy may ask you to log in."
+    );
+  });
+});
+
+test("a router-scoped Workbuddy profile keeps no record of what it wrote", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const stateDir = path.join(CONFIGDIR, "agent-config-state");
+  const profileDir = path.join(CONFIGDIR, "profiles", "workbuddy-global");
+  try {
+    rmSync(stateDir, { force: true, recursive: true });
+    const config = configWithProviderAndEnabledProfile("default-claude-code");
+    for (const other of config.profile.profiles) {
+      other.enabled = false;
+    }
+    config.profile.profiles.push({ ...globalWorkbuddyProfile(undefined), codexHome: undefined, scope: "llmr" });
+    await applyProfileConfig(config);
+    assert.equal(filesUnder(profileDir).some((file) => file.endsWith("config.toml")), true);
+    assert.deepEqual(filesUnder(stateDir).filter((file) => file.endsWith("written.json")), []);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(stateDir, { force: true, recursive: true });
+    rmSync(profileDir, { force: true, recursive: true });
+    await updatePersistedApiKeys(() => []);
+    await replacePersistedAppConfig(createDefaultAppConfig());
   }
 });
 
@@ -6148,6 +7001,155 @@ test("a save leaves the model catalog another enabled Codex profile in the direc
     const statuses = await reconcileProfileApiKeys(config);
     assert.equal(statuses.length, 1, JSON.stringify(statuses));
     assert.equal(existsSync(catalog), true, statuses[0].message);
+  });
+});
+
+function linkAgentConfigsInto(dotfiles, targets = {}) {
+  return ({ claudeDir, codexDir }) => {
+    mkdirSync(dotfiles, { recursive: true });
+    mkdirSync(claudeDir, { recursive: true });
+    mkdirSync(codexDir, { recursive: true });
+    for (const [name, content] of Object.entries(targets)) {
+      writeFileSync(path.join(dotfiles, name), content);
+    }
+    symlinkSync(path.join(dotfiles, "codex-config.toml"), path.join(codexDir, "config.toml"));
+    symlinkSync(path.join(dotfiles, "claude-settings.json"), path.join(claudeDir, "settings.json"));
+  };
+}
+
+test("a restore of a config behind a dangling link removes the file LLM Router created and keeps the link", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const dotfiles = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "dotfiles");
+  try {
+    await withAppliedDefaultProfiles(["default-codex", "default-claude-code"], async ({ claudeDir, codexDir, codexToken }) => {
+      assert.ok(readFileSync(path.join(dotfiles, "codex-config.toml"), "utf8").includes(codexToken));
+      await recoverGlobalAgentProfile("default-codex");
+      await recoverGlobalAgentProfile("default-claude-code");
+      assert.ok(lstatSync(path.join(codexDir, "config.toml")).isSymbolicLink());
+      assert.ok(lstatSync(path.join(claudeDir, "settings.json")).isSymbolicLink());
+      assert.equal(existsSync(path.join(dotfiles, "codex-config.toml")), false);
+      assert.equal(existsSync(path.join(dotfiles, "claude-settings.json")), false);
+      assert.deepEqual(filesHolding(dotfiles, codexToken), []);
+    }, linkAgentConfigsInto(dotfiles));
+  } finally {
+    rmSync(dotfiles, { force: true, recursive: true });
+  }
+});
+
+test("a link whose target exists keeps both after a restore", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const dotfiles = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "dotfiles");
+  const codexOriginal = "model_provider = \"openai\"\n";
+  try {
+    await withAppliedDefaultProfiles(["default-codex", "default-claude-code"], async ({ claudeDir, codexDir }) => {
+      await recoverGlobalAgentProfile("default-codex");
+      await recoverGlobalAgentProfile("default-claude-code");
+      assert.ok(lstatSync(path.join(codexDir, "config.toml")).isSymbolicLink());
+      assert.ok(lstatSync(path.join(claudeDir, "settings.json")).isSymbolicLink());
+      assert.equal(readFileSync(path.join(dotfiles, "codex-config.toml"), "utf8"), codexOriginal);
+      assert.deepEqual(JSON.parse(readFileSync(path.join(dotfiles, "claude-settings.json"), "utf8")), { permissions: { allow: ["Bash(ls)"] } });
+    }, linkAgentConfigsInto(dotfiles, { "claude-settings.json": "{\"permissions\":{\"allow\":[\"Bash(ls)\"]}}\n", "codex-config.toml": codexOriginal }));
+  } finally {
+    rmSync(dotfiles, { force: true, recursive: true });
+  }
+});
+
+async function shareCodexDirWithWorkbuddy({ codexDir, config }) {
+  config.profile.profiles.push(globalWorkbuddyProfile(codexDir));
+  await applyProfileConfig(config);
+  await replacePersistedAppConfig(config);
+}
+
+test("a Codex restore leaves a config that an enabled Workbuddy profile shares", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    await shareCodexDirWithWorkbuddy(fixture);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.match(result.status.message, /still manages/);
+    assert.match(readFileSync(fixture.codexConfigFile, "utf8"), /\[model_providers\.llm-router\]/);
+  });
+});
+
+test("a save that switches Codex off leaves the config Workbuddy shares", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    await shareCodexDirWithWorkbuddy(fixture);
+    await switchOff(fixture.config, "default-codex");
+    await applyProfileConfig(fixture.config);
+    const workbuddyKey = (await loadPersistedApiKeys()).find((apiKey) => apiKey.id === "profile:workbuddy-global")?.key;
+    const content = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.match(content, /\[model_providers\.llm-router\]/);
+    assert.ok(workbuddyKey && content.includes(workbuddyKey));
+  });
+});
+
+test("switching Workbuddy off leaves the config an enabled Codex profile shares", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    await shareCodexDirWithWorkbuddy(fixture);
+    await switchOff(fixture.config, "workbuddy-global");
+    const applied = await applyProfileConfig(fixture.config);
+    const content = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.match(content, /\[model_providers\.llm-router\]/);
+    assert.ok(content.includes(fixture.codexToken));
+    assert.equal(await hasKey("profile:workbuddy-global"), false);
+    assert.match(applied.clients.find((status) => status.client === "workbuddy")?.message ?? "", /still manages/);
+  });
+});
+
+test("switching off both profiles that share a config.toml leaves no config the user never had", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const order of [["default-codex", "workbuddy-global"], ["workbuddy-global", "default-codex"]]) {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      await shareCodexDirWithWorkbuddy(fixture);
+      const keys = (await loadPersistedApiKeys()).map((key) => key.key);
+      for (const id of order) {
+        await switchOff(fixture.config, id);
+        await applyProfileConfig(fixture.config);
+      }
+      assert.equal(existsSync(fixture.codexConfigFile), false, String(order));
+      assert.equal(existsSync(`${fixture.codexConfigFile}.llmr-original`), false, String(order));
+      for (const key of keys) {
+        assert.deepEqual(filesHolding(fixture.codexDir, key), [], String(order));
+      }
+    });
+  }
+});
+
+test("a Codex restore leaves the side files an enabled Workbuddy profile in the same directory reads", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+    config.profile.profiles.push({ ...globalWorkbuddyProfile(undefined), codexHome: undefined, configFile: path.join(codexDir, "workbuddy.toml") });
+    await applyProfileConfig(config);
+    await replacePersistedAppConfig(config);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(existsSync(codexConfigFile), false);
+    assert.equal(existsSync(path.join(codexDir, "llmr-model-catalog.json")), true);
+    assert.equal(existsSync(path.join(codexDir, "llm-router.config.toml")), true);
+  });
+});
+
+test("a restore of a managed file with no strip, behind a dangling link, keeps the link", { skip: process.platform === "win32" }, () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-models-link-"));
+  try {
+    const workbuddyHome = path.join(root, ".workbuddy");
+    const target = path.join(root, "dotfiles", "models.json");
+    mkdirSync(workbuddyHome, { recursive: true });
+    mkdirSync(path.dirname(target), { recursive: true });
+    symlinkSync(target, path.join(workbuddyHome, "models.json"));
+    const profile = globalWorkbuddyProfile(workbuddyHome);
+    writeWorkbuddyModelsConfig(workbuddyHome, profile);
+    assert.equal(existsSync(target), true);
+    restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assert.equal(lstatSync(path.join(workbuddyHome, "models.json")).isSymbolicLink(), true);
+    assert.equal(existsSync(target), false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("an enabled router-scoped Workbuddy profile does not keep a global Codex config", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+    config.profile.profiles.push({ ...globalWorkbuddyProfile(codexDir), scope: "llmr" });
+    await applyProfileConfig(config);
+    await replacePersistedAppConfig(config);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.doesNotMatch(result.status.message, /still manages/);
+    assert.equal(existsSync(codexConfigFile), false);
   });
 });
 
@@ -6698,4 +7700,144 @@ test("a save that puts the user's profile table back into a Codex config they de
     assert.match(readFileSync(codexConfigFile, "utf8"), /approval_policy = "never"/);
     assert.equal(status.changed, true, status.message);
   });
+});
+
+test("a re-enable whose record could not be written is still undone when the profile is switched off", { skip: modeTestSkip }, async () => {
+  const user = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const profile = config.profile.profiles.find((item) => item.id === "default-claude-code");
+    const stateDir = path.join(CONFIGDIR, "profiles", "default-claude-code", "claude");
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    profile.enabled = true;
+    await replacePersistedAppConfig(config);
+    chmodSync(stateDir, 0o500);
+    try {
+      const failed = (await applyProfileConfig(config)).clients.find((client) => client.client === "claude-code");
+      assert.equal(failed.ok, false, failed.message);
+    } finally {
+      chmodSync(stateDir, 0o700);
+    }
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    const settings = readClaudeSettings(claudeDir);
+    assert.equal(settings.apiKeyHelper, undefined, JSON.stringify(settings));
+    assert.equal(JSON.stringify(settings).includes("127.0.0.1"), false, JSON.stringify(settings));
+    assert.deepEqual(settings.permissions, user.permissions);
+  }, plantUserClaudeSettings(user));
+});
+
+test("switching Claude Code on again records what the file holds then, after a switch-off that found the user's own file already back", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_BASE_URL: corpUrl, ANTHROPIC_MODEL: "my-model" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const file = path.join(claudeDir, "settings.json");
+    const profile = config.profile.profiles.find((item) => item.id === "default-claude-code");
+    // A dotfiles tool, or the user, puts the user's own file back while LLM Router holds it.
+    writeFileSync(file, `${JSON.stringify(user)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = { env: { ANTHROPIC_BASE_URL: "https://new-corp.example.test", ANTHROPIC_MODEL: "my-model-2" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(file, `${JSON.stringify(edited)}\n`);
+    profile.enabled = true;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save keeps what the user changes after a switch-off that found their own file already back", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_MODEL: "my-model", NO_PROXY: "localhost,corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const file = path.join(claudeDir, "settings.json");
+    writeFileSync(file, `${JSON.stringify(user)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = { env: { ANTHROPIC_DEFAULT_SONNET_MODEL: "my-sonnet", ANTHROPIC_MODEL: "my-model-2", NO_PROXY: "corp.internal,127.0.0.1" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(file, `${JSON.stringify(edited)}\n`);
+    const before = readdirSync(claudeDir).length;
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+    assert.equal(readdirSync(claudeDir).length, before, "a later save makes no new copy");
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save keeps a model the user adds after a switch-off that found nothing of LLM Router's", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const file = path.join(claudeDir, "settings.json");
+    writeFileSync(file, `${JSON.stringify(user)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    const edited = { env: { ANTHROPIC_MODEL: "my-model" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(file, `${JSON.stringify(edited)}\n`);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a switch-off over a settings file that does not parse leaves LLM Router's values for a later save to remove once it parses", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const file = path.join(claudeDir, "settings.json");
+    const taken = readFileSync(file, "utf8");
+    writeFileSync(file, "{ \"permissions\": ");
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    writeFileSync(file, taken);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("switching Claude Code off gives back what it displaced when the user deleted the env block and no apply ran since", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_BASE_URL: corpUrl, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const { env: _env, ...withoutEnv } = readClaudeSettings(claudeDir);
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(withoutEnv)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a Claude login takeover whose env block the user deleted gives back what it displaced with no apply in between", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_BASE_URL: corpUrl, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("login-env-deleted-no-apply", async ({ apply, readSettings, switchOff: off, userSettingsFile }) => {
+      await apply();
+      const { env: _env, ...withoutEnv } = readSettings();
+      writeFileSync(userSettingsFile, `${JSON.stringify(withoutEnv)}\n`);
+      await off();
+      assert.deepEqual(readSettings(), user);
+    }, { beforeApply: writeUserClaudeSettings(user) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
+});
+
+test("a save leaves a restored file alone when the profile reaches ~/.claude through a linked folder", { skip: modeTestSkip }, async () => {
+  const user = { env: { NO_PROXY: "corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+  const link = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "claude-link");
+  try {
+    await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+      await switchClaudeCodeOff(config);
+      await applyProfileConfig(config);
+      assert.deepEqual(readClaudeSettings(claudeDir), user);
+      const edited = { env: { CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1", NO_PROXY: "localhost,corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+      writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited)}\n`);
+      await applyProfileConfig(config);
+      assert.deepEqual(readClaudeSettings(claudeDir), edited);
+    }, ({ claudeDir }) => {
+      plantUserClaudeSettings(user)({ claudeDir });
+      rmSync(link, { force: true });
+      symlinkSync(claudeDir, link);
+    }, { configure: (config) => { config.profile.profiles.find((item) => item.id === "default-claude-code").settingsFile = path.join(link, "settings.json"); } });
+  } finally {
+    rmSync(link, { force: true });
+  }
 });
