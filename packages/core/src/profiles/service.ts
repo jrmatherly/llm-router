@@ -1293,17 +1293,18 @@ function writeClaudeCodeSettingsStateFile(file: string, state: ClaudeCodeProfile
 }
 
 function claudeCodeSettingsStateFilesOf(settingsFile: string): string[] {
-  const key = normalizedFileKey(settingsFile);
   return managedClaudeCodeGeneratedFiles("settings-state.json").filter((file) => {
     const state = readClaudeCodeSettingsStateFile(file);
-    return state.settingsFile !== undefined && normalizedFileKey(state.settingsFile) === key;
+    return state.settingsFile !== undefined && sameFile(state.settingsFile, settingsFile);
   });
 }
 
 // Every profile's record of the file is settled at once: the file is the user's again, whichever profile's restore gave it back.
+// A profile with no state never took the file over, so it gets none: a flag there would hide leftovers from the sweep.
 function releaseClaudeCodeSettingsFile(settingsFile: string, stateFiles: string[] = []): void {
-  for (const file of new Set([...claudeCodeSettingsStateFilesOf(settingsFile), ...stateFiles])) {
-    writeClaudeCodeSettingsStateFile(file, { ...readClaudeCodeSettingsStateFile(file), displacedEnv: {}, endpoints: [], hadEnv: undefined, restored: true });
+  for (const file of new Set([...claudeCodeSettingsStateFilesOf(settingsFile), ...stateFiles.filter((stateFile) => existsSync(stateFile))])) {
+    const state = readClaudeCodeSettingsStateFile(file);
+    writeClaudeCodeSettingsStateFile(file, { ...state, displacedEnv: {}, endpoints: [], hadEnv: undefined, restored: true, settingsFile: state.settingsFile ?? settingsFile });
   }
 }
 

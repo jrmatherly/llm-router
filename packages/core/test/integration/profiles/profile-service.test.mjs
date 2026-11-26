@@ -4803,6 +4803,33 @@ test("a switched-off Claude Code profile with its own settings file leaves the .
   }
 });
 
+test("a switched-off Claude Code profile leaves the .claude.json an enabled one uses when it reaches the folder through a link", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-linked-folder-claude-"));
+  const settingsFile = path.join(root, "work-claude", "settings.json");
+  const globalFile = path.join(root, "work-claude", ".claude.json");
+  const own = { autoCompactWindowsCache: { mine: 1 }, oauthAccount: { emailAddress: "user@example.test" } };
+  await cleanClaudeLoginFixture();
+  try {
+    const { config, profile } = defaultHomeClaudeFixture("folder-on", { settingsFile });
+    mkdirSync(path.dirname(globalFile), { recursive: true });
+    symlinkSync(path.dirname(globalFile), path.join(root, "link"));
+    const sibling = { ...profile, enabled: true, id: "folder-off", name: "folder-off", settingsFile: path.join(root, "link", "other-settings.json") };
+    config.APIKEYS = [];
+    config.profile.profiles = [profile, sibling];
+    writeFileSync(globalFile, `${JSON.stringify(own)}\n`);
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    sibling.enabled = false;
+    await replacePersistedAppConfig(config);
+    const result = await applyProfileConfig(config);
+    const siblingStatus = result.clients.find((status) => status.path === sibling.settingsFile);
+    assert.match(siblingStatus?.message ?? "", /Profile "folder-on" still uses .*\.claude\.json, so LLMR left it and its copies unchanged\./, JSON.stringify(result.clients));
+  } finally {
+    await cleanClaudeLoginFixture();
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test("a quit logs a custom-path .claude.json it could not restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, globalFile, profile }) => {
   await applyProfileFixture(config);
   writeFileSync(globalFile, "{ \"oauthAccount\": ");
@@ -4831,6 +4858,25 @@ test("a save that switches Codex off leaves the config Workbuddy reaches through
       const content = readFileSync(fixture.codexConfigFile, "utf8");
       assert.match(content, /\[model_providers\.llm-router\]/);
       assert.ok(workbuddyKey && content.includes(workbuddyKey));
+    }, undefined, { parseAfter: false });
+  } finally {
+    rmSync(link, { force: true });
+  }
+});
+
+test("a save that switches Codex off leaves the catalog Workbuddy reads through a linked folder", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const link = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "codex-link");
+  try {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      symlinkSync(fixture.codexDir, link);
+      fixture.config.profile.profiles.find((profile) => profile.id === "default-codex").configFile = path.join(fixture.codexDir, "work.toml");
+      // First, so its own apply does not write the catalog back after the Codex restore.
+      fixture.config.profile.profiles.unshift(globalWorkbuddyProfile(link));
+      await applyProfileConfig(fixture.config);
+      await replacePersistedAppConfig(fixture.config);
+      await switchOff(fixture.config, "default-codex");
+      await applyProfileConfig(fixture.config);
+      assert.ok(existsSync(path.join(fixture.codexDir, "llmr-model-catalog.json")));
     }, undefined, { parseAfter: false });
   } finally {
     rmSync(link, { force: true });
@@ -7771,5 +7817,27 @@ test("a Claude login takeover whose env block the user deleted gives back what i
     }, { beforeApply: writeUserClaudeSettings(user) });
   } finally {
     await cleanClaudeLoginFixture();
+  }
+});
+
+test("a save leaves a restored file alone when the profile reaches ~/.claude through a linked folder", { skip: modeTestSkip }, async () => {
+  const user = { env: { NO_PROXY: "corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+  const link = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "claude-link");
+  try {
+    await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+      await switchClaudeCodeOff(config);
+      await applyProfileConfig(config);
+      assert.deepEqual(readClaudeSettings(claudeDir), user);
+      const edited = { env: { CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1", NO_PROXY: "localhost,corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+      writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited)}\n`);
+      await applyProfileConfig(config);
+      assert.deepEqual(readClaudeSettings(claudeDir), edited);
+    }, ({ claudeDir }) => {
+      plantUserClaudeSettings(user)({ claudeDir });
+      rmSync(link, { force: true });
+      symlinkSync(claudeDir, link);
+    }, { configure: (config) => { config.profile.profiles.find((item) => item.id === "default-claude-code").settingsFile = path.join(link, "settings.json"); } });
+  } finally {
+    rmSync(link, { force: true });
   }
 });
