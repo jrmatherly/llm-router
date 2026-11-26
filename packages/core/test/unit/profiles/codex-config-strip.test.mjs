@@ -19,6 +19,7 @@ import {
   removeTablesOutsideValues,
   removeTomlTable,
   rootTomlAssignment,
+  sameRootAssignment,
   scanTomlLines,
   scanTomlStatements,
   stripManagedCodexConfigContent
@@ -116,7 +117,7 @@ test("removeTablesOutsideValues hands the predicate the header without its comme
     seen.push(header);
     return false;
   });
-  assert.deepEqual(seen, ["a.\"b]#\"", "d"]);
+  assert.deepEqual(seen, ["a.\"b]#\"", "[[d]]"]);
 });
 
 test("scanTomlLines ends a multi-line string at its closing run, not at an escaped quote or one quote early", () => {
@@ -581,4 +582,45 @@ test("codexProfileTableBody takes every table of that name, as the remover does"
 test("collapseBlankStatements shortens a run of blank lines outside a value and leaves a string alone", () => {
   const notes = "notes = \"\"\"\na\n\n\n\n\nb\n\"\"\"\n";
   assert.equal(collapseBlankStatements(`a = 1\n\n\n\n\n${notes}`), `a = 1\n\n\n${notes}`);
+});
+
+test("removeTomlTable takes the statements its readers read, so a comment below the table goes with it", () => {
+  const source = "[profiles.llm-router]\nmodel = \"x\"\n\n# about projects\n[projects.\"/tmp\"]\ntrust_level = \"trusted\"\n";
+  assert.equal(removeTomlTable(source, "profiles", "llm-router"), "[projects.\"/tmp\"]\ntrust_level = \"trusted\"\n");
+});
+
+test("an array of tables is not the table of the same name", () => {
+  const source = "[[profiles.llm-router]]\nmodel = \"aot\"\n[profiles.llm-router.sub]\nx = 1\n";
+  assert.equal(removeTomlTable(source, "profiles", "llm-router"), source);
+  assert.equal(isManagedCodexConfigContent("[[model_providers.llm-router]]\nname = \"n\"\n", "llm-router"), false);
+});
+
+test("a recorded value that spans lines matches only when every line of it does", () => {
+  const multiLine = (text) => `model = """\n${text}\n"""`;
+  assert.equal(sameRootAssignment(multiLine("A"), multiLine("B")), false);
+  assert.equal(sameRootAssignment(multiLine("A"), multiLine("A")), true);
+  assert.equal(sameRootAssignment("model = \"x\"  # mine", "model = \"x\""), true);
+});
+
+test("rootTomlAssignment drops the white space at both ends, and keeps the inner lines of a value", () => {
+  assert.equal(rootTomlAssignment("model = \"gpt-5\"\r", "model"), "model = \"gpt-5\"");
+  assert.equal(rootTomlAssignment("model = [\r\n  \"a\",\r\n]  \r\n", "model"), "model = [\r\n  \"a\",\r\n]");
+});
+
+test("removeCodexMcpServerTable takes a server's own subtables and keeps the user's child tables unless asked", () => {
+  const server = "[mcp_servers.x]\ncommand = \"c\"\n\n[mcp_servers.x.env]\nK = \"v\"\n\n[mcp_servers.x.http_headers]\nA = \"b\"\n\n[mcp_servers.x.env_http_headers]\nB = \"c\"\n\n";
+  const tool = "[mcp_servers.x.tools.t]\napproval_mode = \"approve\"\n";
+  assert.equal(removeCodexMcpServerTable(`${server}${tool}`, "x"), tool);
+  assert.equal(removeCodexMcpServerTable(`${server}${tool}`, "x", { includeChildTables: true }), "");
+});
+
+test("with no record a show_all_sessions line below LLMR's root block is the user's", () => {
+  const content = managed("").replace(`${managedRootEnd}\n`, `${managedRootEnd}\nshow_all_sessions = true\n`);
+  assert.equal(strip(content), "show_all_sessions = true\n");
+});
+
+test("a config with LLMR's provider table and no marker is LLMR's", () => {
+  for (const header of ["[model_providers.llm-router]", "[model_providers.\"llm-router\"]"]) {
+    assert.equal(isManagedCodexConfigContent(`model = "x"\n\n${header}\nname = "n"\n`, "llm-router"), true, header);
+  }
 });

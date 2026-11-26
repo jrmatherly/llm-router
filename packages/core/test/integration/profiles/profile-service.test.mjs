@@ -5080,11 +5080,61 @@ test("a run of blank lines inside one of the user's strings is kept by an apply 
   }, plantCodexOriginal(`model_provider = "openai"\n${notes}\n`));
 });
 
+test("a comment below the user's profile table is not copied by an apply and an edited restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "model_provider = \"openai\"\n\n[profiles.llm-router]\nmodel = \"x\"\n\n# about projects\n[projects.\"/tmp\"]\ntrust_level = \"trusted\"\n";
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    for (let cycle = 1; cycle <= 3; cycle += 1) {
+      if (cycle > 1) {
+        await applyProfileConfig(fixture.config);
+      }
+      writeFileSync(fixture.codexConfigFile, `${readFileSync(fixture.codexConfigFile, "utf8")}\n[mcp_servers.cycle${cycle}]\ncommand = "x"\n`);
+      await recoverGlobalAgentProfile("default-codex");
+      const restored = readFileSync(fixture.codexConfigFile, "utf8");
+      assert.equal(countOf(restored, "# about projects"), 1, `${cycle}: ${restored}`);
+      assertCodexFilesParse(fixture.codexDir, { allowNone: true });
+    }
+  }, plantCodexOriginal(original));
+});
+
+test("an array of tables under the profile's name is not the user's profile table", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "model_provider = \"openai\"\n\n[[profiles.llm-router]]\nmodel = \"aot\"\n[profiles.llm-router.sub]\nx = 1\n";
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    appendUserCodexTables(fixture);
+    await recoverGlobalAgentProfile("default-codex");
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.equal(countOf(restored, "[[profiles.llm-router]]\nmodel = \"aot\"\n[profiles.llm-router.sub]\nx = 1\n"), 1, restored);
+  }, plantCodexOriginal(original));
+});
+
+test("an edit to a value that spans lines in LLMR's Codex profile file is kept as a copy", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "model_provider = \"openai\"\n\n[profiles.llm-router]\nx = [\n  1,\n]\n";
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexDir }) => {
+    const profileFile = path.join(codexDir, "llm-router.config.toml");
+    const profile = readFileSync(profileFile, "utf8");
+    assert.equal(countOf(profile, "x = [\n  1,\n]"), 1, profile);
+    writeFileSync(profileFile, profile.replace("  1,\n", "  2,\n"));
+    await recoverGlobalAgentProfile("default-codex");
+    const copies = safetyCopies(profileFile);
+    assert.equal(copies.length, 1);
+    assert.match(readFileSync(copies[0], "utf8"), /^ {2}2,$/m);
+  }, plantCodexOriginal(original));
+});
+
+test("a run of blank lines inside a string of a moved profile table comes into the profile file whole", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const notes = `notes = ${tripleDouble}\na\n\n\n\nb\n${tripleDouble}`;
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+    writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\n[profiles.llm-router]\n${notes}\n`);
+    await applyProfileConfig(config);
+    assert.equal(countOf(readFileSync(path.join(codexDir, "llm-router.config.toml"), "utf8"), notes), 1);
+  });
+});
+
 test("a Codex config the user replaced, with LLMR's header only as text in a string, is left as they wrote it", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const replaced = `notes = ${tripleDouble}\n[model_providers.llm-router]\n${tripleDouble}\n`;
   await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
     writeFileSync(fixture.codexConfigFile, replaced);
-    await recoverGlobalAgentProfile("default-codex");
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
     assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), replaced);
     assert.deepEqual(safetyCopies(fixture.codexConfigFile), []);
   }, plantCodexOriginal("model_provider = \"openai\"\n"));

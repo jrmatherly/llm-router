@@ -46,8 +46,10 @@ export function removeCodexMcpServerTable(
     named.includes(header) || (options.includeChildTables === true && header.startsWith(`${table}.`)));
 }
 
+// Takes the statements `readCodexDisplacedConfig` and `codexProfileTableBody` read, so a table moved out and put back is never also kept here.
 export function removeTomlTable(source: string, section: string, name: string): string {
-  return removeTablesOutsideValues(source, (header) => header === `${section}.${tomlKey(name)}`);
+  const removed = `${section}.${tomlKey(name)}`;
+  return joinStatements(scanTomlStatements(source).filter(({ table }) => table !== removed));
 }
 
 export type CodexWrittenRecord = {
@@ -123,8 +125,12 @@ function isMarker({ kind, lines }: TomlStatement): boolean {
   return kind === "comment" && codexManagedMarkers.includes(lines[0].trim());
 }
 
+// A one-line value is compared without its spacing and comment, and a value that spans lines by every line of it.
 function rootAssignmentValue(text: string | undefined): string | undefined {
-  return text === undefined ? undefined : scanTomlStatements(text)[0]?.value;
+  const statement = text === undefined ? undefined : scanTomlStatements(text)[0];
+  return statement?.value === undefined
+    ? undefined
+    : [statement.value, ...statement.lines.slice(1).map((line) => line.slice(0, line.length - lineEnd(line).length))].join("\n");
 }
 
 export function sameRootAssignment(line: string | undefined, recorded: string | undefined): boolean {
@@ -208,8 +214,8 @@ export function stripManagedCodexConfigContent(
       isConfiguredModelComment(statement) ||
       (key === "model_provider" && providerValues.includes(value)) ||
       (key === "model_catalog_json" && value.includes("llmr-model-catalog.json")) ||
-      (key === "model" && (written ? sameRootAssignment(statement.lines[0], written.modelLine) : value === configuredModel)) ||
-      (key === "show_all_sessions" && (written ? sameRootAssignment(statement.lines[0], written.showAllSessionsLine) : inRootBlock))
+      (key === "model" && (written ? sameRootAssignment(statement.lines.join(""), written.modelLine) : value === configuredModel)) ||
+      (key === "show_all_sessions" && (written ? sameRootAssignment(statement.lines.join(""), written.showAllSessionsLine) : inRootBlock))
     ) {
       const usersLine = displaced[displacedRootKeys[key as keyof typeof displacedRootKeys]];
       if (key !== undefined && usersLine !== undefined && !putBack.has(key)) {
@@ -248,7 +254,7 @@ export function stripManagedCodexConfigContent(
 
 export function rootTomlAssignment(source: string, key: string): string | undefined {
   const statement = scanTomlStatements(source).find((item) => item.table === "" && item.key === key);
-  return statement === undefined ? undefined : statementText(statement).trimStart();
+  return statement === undefined ? undefined : statementText(statement).trim();
 }
 
 // A value that spans lines goes with its key, and whole lines go, so a CRLF file keeps no stray carriage return.
@@ -377,7 +383,8 @@ function readTomlStatement(line: string, table: string): TomlStatement {
   if (trimmed.startsWith("[")) {
     const width = code.startsWith("[[") && code.endsWith("]]") ? 2 : 1;
     const path = code.endsWith("]") ? readTomlKeyPath(code.slice(width, -width)) : undefined;
-    const header = path?.end === code.length - 2 * width ? path.path : undefined;
+    // An array of tables keeps its brackets, so it is never taken for the table of the same name.
+    const header = path?.end === code.length - 2 * width ? (width === 2 ? `[[${path.path}]]` : path.path) : undefined;
     // A header with no readable path still starts a table, so the keys under it are never taken for root keys.
     return { ...base, header, kind: "header", table: header ?? trimmed };
   }
