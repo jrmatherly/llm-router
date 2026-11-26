@@ -1,6 +1,14 @@
 # Request Log Flush and Cleanup Test Faults Implementation Plan
 
-> **Status, 2026-11-26 (UTC): audited once on another model at `main` `19d6aeb6` by building all three tasks from the text, and corrected. Nothing is built.** A pushed plan changes no code. The audit checked every line of Evidence against the code and all held. It found one Blocker and three Corrections in Task 1's tests, all applied below and marked "audit": the first test could not tell one budget from two, a mutation named dead code, a command ran a skipped test, and the fixture pointer named the wrong test. With its own corrected test the audit's build passed typecheck, lint, the architecture suite and `npm run test:core` (2219 tests, 0 fail), and its new tests passed 40 runs in a row on macOS. The budget test below was redesigned after the audit to assert no elapsed time, and that version has not been built.
+> **Status, 2026-11-26 (UTC): merged as [PR 165](https://github.com/jrmatherly/llm-router/pull/165), squash commit `bf7425d7`.** The Windows entry passed on all three pushes of the branch with no rerun. The task bodies below describe the code as planned. Review changed these things from the steps below:
+> - Two of Task 1's tests would have failed on a slow runner. A mutation and load review ran them under a preload that delays timers: the unhandled-rejection test failed with the main thread's timers about 100 ms late, and the writer-error test with the worker more than a second late. Both now wait on events. The fixture holds its `flush` reply until the next batch arrives, the writer-error test has a 60 second budget, and no test sleeps a fixed time. A review of that round ran the six flush tests 270 times under lag and 40 under load with no failure.
+> - Two tests were added for mutants that survived: a flush that finishes in time leaves no timer behind, and a record queued while a flush waits on its checkpoint counts as pending.
+> - Task 2 also changes the wire test's `stopGateway`. It waits for the child's exit after the forced kill, where it returned at once, and rejects naming the child if no exit comes within five seconds. A gateway child that outlived the stop could hold the same `config.sqlite`, and the wider cleanup list would have hidden it.
+> - The comment on the race says that the checkpoint or the writer work ahead of it may still be running, and Task 3's assert carries the flush result in its message.
+>
+> Not done: anything on Windows outside CI.
+
+> **Status before the build, 2026-11-26 (UTC): audited once on another model at `main` `19d6aeb6` by building all three tasks from the text, and corrected. Nothing is built.** A pushed plan changes no code. The audit checked every line of Evidence against the code and all held. It found one Blocker and three Corrections in Task 1's tests, all applied below and marked "audit": the first test could not tell one budget from two, a mutation named dead code, a command ran a skipped test, and the fixture pointer named the wrong test. With its own corrected test the audit's build passed typecheck, lint, the architecture suite and `npm run test:core` (2219 tests, 0 fail), and its new tests passed 40 runs in a row on macOS. The budget test below was redesigned after the audit to assert no elapsed time, and that version has not been built.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -10,7 +18,7 @@
 
 **Tech Stack:** TypeScript, `node:test` with `node:assert/strict`, `better-sqlite3`.
 
-**Where this sits.** Outside the batches of [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md), on the owner's word of 2026-11-25, before batch 7. It closes that file's finding "A request log `flush()` throws when its checkpoint takes over the caller's budget" and the Windows cleanup failure recorded beside PR 164. The third fault of that day, two backups in one millisecond sharing a file name, is row S-15 and stays in batch 7.
+**Where this sits.** Outside the batches of [`2026-11-25-delivery-order.md`](../2026-11-25-delivery-order.md), on the owner's word of 2026-11-25, before batch 7. It closes that file's finding "A request log `flush()` throws when its checkpoint takes over the caller's budget" and the Windows cleanup failure recorded beside PR 164. The third fault of that day, two backups in one millisecond sharing a file name, is row S-15 and stays in batch 7.
 
 ## Evidence
 
