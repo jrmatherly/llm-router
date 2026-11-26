@@ -268,12 +268,19 @@ function stripCodexConfig(
   const eol = displaced.eol ?? "\n";
   const kept: string[] = [];
   const statements = scanTomlStatements(content);
-  // Decided while the markers are still there: the table remover below reads the text without them.
-  const llmrProviderTables = providerTableOwners(statements, providerIds).map(({ llmr }) => llmr);
+  const providerHeaders = providerIds.map(providerTablePath);
+  const mcpTables = [TOOL_HUB_MCP_SERVER_NAME, CONTEXT_ARCHIVE_MCP_SERVER_NAME].map((serverName) => `mcp_servers.${tomlKey(serverName)}`);
+  // One scan decides and removes: a line this strip takes out can be what left a value open, so a scan of the result can see other headers.
+  const inRemovedTable = removedTableStatements(statements, ({ table }, index) =>
+    (providerHeaders.includes(table) && isLlmrProviderTable(statements, index)) ||
+    mcpTables.some((mcpTable) => table === mcpTable || table.startsWith(`${mcpTable}.`)), isMarker);
   let inRootBlock = false;
-  for (const statement of statements) {
+  for (const [index, statement] of statements.entries()) {
     if (isMarker(statement)) {
       inRootBlock = statement.lines[0].trim() === managedRootStart;
+      continue;
+    }
+    if (inRemovedTable[index]) {
       continue;
     }
     const inRoot = statement.table === "";
@@ -303,12 +310,7 @@ function stripCodexConfig(
       kept[index] = "";
     }
   }
-  const providerHeaders = providerIds.map(providerTablePath);
-  const mcpTables = [TOOL_HUB_MCP_SERVER_NAME, CONTEXT_ARCHIVE_MCP_SERVER_NAME].map((serverName) => `mcp_servers.${tomlKey(serverName)}`);
-  let providerHeader = 0;
-  const next = removeTablesOutsideValues(kept.join(""), (header) =>
-    (providerHeaders.includes(header) && llmrProviderTables[providerHeader++] === true) ||
-    mcpTables.some((table) => header === table || header.startsWith(`${table}.`)));
+  const next = kept.join("");
   if (next === content) {
     return undefined;
   }
@@ -506,33 +508,56 @@ function lineEnd(line: string): TomlStatement["eol"] {
 }
 
 export function removeTablesOutsideValues(content: string, isRemoved: (header: string) => boolean): string {
-  const kept: string[] = [];
+  const statements = scanTomlStatements(content);
+  const removed = removedTableStatements(statements, ({ table }) => isRemoved(table));
+  return joinStatements(statements.filter((_, index) => !removed[index]));
+}
+
+// Whether each statement goes with a removed table. A statement `isSkipped` names, such as a marker the caller drops anyway, counts as absent.
+function removedTableStatements(
+  statements: TomlStatement[],
+  isRemovedHeader: (header: TomlStatement, index: number) => boolean,
+  isSkipped: (statement: TomlStatement) => boolean = () => false
+): boolean[] {
+  const removed = statements.map(() => false);
   let removing = false;
   // A comment block set off by a blank line belongs to the table below it, not to the one being removed.
-  let commentsAboveNextHeader: string[] = [];
+  let commentsAboveNextHeader: number[] = [];
   let blankSinceBody = false;
-  for (const { kind, lines, table } of scanTomlStatements(content)) {
+  const keepComments = () => {
+    for (const index of commentsAboveNextHeader) {
+      removed[index] = false;
+    }
+    commentsAboveNextHeader = [];
+  };
+  for (const [index, statement] of statements.entries()) {
+    if (isSkipped(statement)) {
+      continue;
+    }
+    const { kind } = statement;
     if (kind === "header") {
-      kept.push(...commentsAboveNextHeader);
-      commentsAboveNextHeader = [];
+      keepComments();
       blankSinceBody = false;
-      removing = isRemoved(table);
+      removing = isRemovedHeader(statement, index);
     }
     if (!removing) {
-      kept.push(...lines);
-    } else if (kind === "blank") {
+      continue;
+    }
+    removed[index] = true;
+    if (kind === "blank") {
       blankSinceBody = true;
       if (commentsAboveNextHeader.length > 0) {
-        commentsAboveNextHeader.push(...lines);
+        commentsAboveNextHeader.push(index);
       }
     } else if (kind === "comment" && blankSinceBody) {
-      commentsAboveNextHeader.push(...lines);
+      commentsAboveNextHeader.push(index);
     } else {
       commentsAboveNextHeader = [];
       blankSinceBody = false;
     }
   }
-  return [...kept, ...commentsAboveNextHeader].join("");
+  keepComments();
+  return removed;
 }
 
 // Returns where the line's comment starts, or its length.

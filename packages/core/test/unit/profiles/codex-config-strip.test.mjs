@@ -666,3 +666,24 @@ test("a displaced provider table is appended once, and not when the file still h
   const kept = managed("").replace(`${managedProviderStart}\n`, "").replace("llmr-profile-TEST", "another-key");
   assert.equal(countOf(stripManagedCodexConfigContent(kept, ["llm-router"], { modelLine: ours }, displaced), "[model_providers.llm-router]"), 1);
 });
+
+test("a removed root line that left a value open does not change which provider table is LLMR's", () => {
+  const content = [
+    "model_catalog_json = [\"/x/llmr-model-catalog.json\"",
+    "",
+    "[notes]",
+    "text = \"\"\"",
+    "[model_providers.llm-router]",
+    "experimental_bearer_token = \"llmr-profile-OLD\"",
+    "\"\"\"",
+    "",
+    "[model_providers.llm-router]",
+    "name = \"Mine\"",
+    "experimental_bearer_token = \"my-own-secret\"",
+    ""
+  ].join("\n");
+  for (const stripped of [strip(content), stripCodexSnapshotContent(content, ["llm-router"])]) {
+    assert.equal(stripped.includes("experimental_bearer_token = \"my-own-secret\""), true, stripped);
+    assert.equal(stripped.includes("llmr-profile-OLD"), false, stripped);
+  }
+});

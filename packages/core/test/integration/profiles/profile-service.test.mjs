@@ -5304,6 +5304,17 @@ test("a comment below a user's own provider table comes back once after an edite
   }
 });
 
+test("a restore removes the profile's token from a Codex config whose own value was left open", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const applied = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.ok(applied.includes(fixture.codexToken));
+    writeFileSync(fixture.codexConfigFile, applied.replace("# BEGIN LLMR managed Codex provider", "[tui]\nbanner = \"\"\"\n[model_providers.llm-router]\n\"\"\"\n# BEGIN LLMR managed Codex provider"));
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), []);
+  }, plantCodexOriginal("model_catalog_json = [\"/my/a.json\"\napproval_policy = \"never\"\n"), { applied: false, parseAfter: false });
+});
+
 test("a saved Codex original holds no profile token from an earlier takeover", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const oldToken = "llmr-profile-oldtokenvalue";
   const original = [
