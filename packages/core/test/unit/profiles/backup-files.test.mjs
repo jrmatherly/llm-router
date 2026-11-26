@@ -145,6 +145,13 @@ test("ensureOriginalSnapshot keeps the bytes of a file that is not valid UTF-8, 
   assert.deepEqual(readdirSync(dir).filter((name) => name.endsWith(".tmp")), []);
 });
 
+test("ensureOriginalSnapshot given no mode gives the original the file's own mode", posixOnly, (t) => {
+  const { file } = setup(t);
+  chmodSync(file, 0o600);
+  ensureOriginalSnapshot(file, "old");
+  assert.equal(statSync(`${file}.llmr-original`).mode & 0o777, 0o600);
+});
+
 test("ensureOriginalSnapshot records a missing file", (t) => {
   const { dir } = setup(t);
   const file = path.join(dir, "absent.json");
