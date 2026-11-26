@@ -5327,6 +5327,22 @@ test("a saved Codex original holds no profile token from an earlier takeover", {
   }, plantCodexOriginal(original));
 });
 
+test("a profile table added again and again does not push out the copy of the user's first profile settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const table of ["sandbox_mode = \"read-only\"\n", "sandbox_mode = \"read-only\"\nmodel = \"gpt-mine\"\n"]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+      const profileFile = path.join(codexDir, "llm-router.config.toml");
+      writeFileSync(profileFile, `${readFileSync(profileFile, "utf8")}approval_policy = "never"  # S0 mine\n`);
+      for (let round = 0; round < 4; round += 1) {
+        writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\n[profiles.llm-router]\n${table}`);
+        await applyProfileConfig(config);
+      }
+      const copies = safetyCopies(profileFile);
+      assert.equal(copies.length, 1, table);
+      assert.match(readFileSync(copies[0], "utf8"), /# S0 mine/, table);
+    });
+  }
+});
+
 test("a Codex config with Windows line endings holds one copy of LLMR's blocks after a second apply, and none after a restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const original = "# mine\r\nmodel = \"gpt-mine\"\r\nmodel_provider = \"openai\"\r\n\r\n[mcp_servers.mine]\r\ncommand = \"my-server\"\r\n";
   for (const edit of [false, true]) {

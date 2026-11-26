@@ -176,6 +176,18 @@ test("saveRemovedConfigCopy keeps the newest three copies, private, with no prof
   assert.deepEqual(backupFiles(file), []);
 });
 
+test("two copies of one file in the same millisecond are both kept", posixOnly, (t) => {
+  const { dir, file } = setup(t);
+  const stateDir = path.join(dir, "state", "key");
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-21T00:00:00.000Z") });
+  const first = saveRemovedConfigCopy(stateDir, file, "one\n");
+  const second = saveRemovedConfigCopy(stateDir, file, "two\n");
+  assert.notEqual(first, second);
+  assert.equal(readFileSync(first, "utf8"), "one\n");
+  assert.equal(readFileSync(second, "utf8"), "two\n");
+  assert.deepEqual(backupFiles(path.join(stateDir, path.basename(file))), [first, second]);
+});
+
 test("backupContent writes the given text, not the file, as a private backup and prunes like any other", posixOnly, (t) => {
   const { file } = setup(t);
   t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-21T00:00:00.000Z") });

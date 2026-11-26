@@ -1541,13 +1541,14 @@ function maybeWriteSeparateCodexProfileFile(
   const moved = codexProfileTableBody(source, values.providerId);
   const existing = existsSync(file) ? readFileSync(file, "utf8") : "";
   // The writer takes the user's `[profiles.<provider>]` table out of config.toml on every apply. One written while this file exists is their newest word, so it replaces what they had here, whole. Folding the two together means editing TOML line by line, which three attempts each got wrong for some input.
+  const next = buildSeparateCodexProfileToml(moved || existing, values);
+  // Compared as the user's content of each file, because the writer puts `model` first and `moved` would differ on every apply.
+  const usersContent = codexProfileFileUsersContent(existing, values.providerId);
   let copy: string | undefined;
-  if (moved && codexProfileFileUsersContent(existing, values.providerId)) {
+  if (moved && usersContent && usersContent !== codexProfileFileUsersContent(next, values.providerId)) {
     copy = saveConfigSafetyCopy(file, existing);
     console.warn(`[profiles] The [profiles.${values.providerId}] table added to ${resolveUserPath(configFile)} replaced your settings in ${resolveUserPath(file)}. The earlier ones are at ${copy}.`);
   }
-  const previous = moved || existing;
-  const next = buildSeparateCodexProfileToml(previous, values);
   const writeResult = writeFileWithBackup(file, next, { mode: privateFileMode });
   return {
     changed: writeResult.changed,

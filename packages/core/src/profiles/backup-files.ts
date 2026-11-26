@@ -7,8 +7,13 @@ export const originalMissingSuffix = ".llmr-original-missing";
 export const backupMarker = ".llmr-backup-";
 
 export function backupFilePath(file: string): string {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return `${file}${backupMarker}${timestamp}`;
+  const name = `${file}${backupMarker}${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  // Only a file in the way picks another name: a directory there must still fail the write.
+  let free = name;
+  for (let suffix = 1; lstatSync(free, { throwIfNoEntry: false })?.isFile(); suffix += 1) {
+    free = `${name}-${suffix}`;
+  }
+  return free;
 }
 
 export function backupFiles(file: string): string[] {
