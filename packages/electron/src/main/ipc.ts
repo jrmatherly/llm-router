@@ -44,7 +44,7 @@ import { getOpenRouterProviderCatalog } from "@llmr/core/providers/openrouter-pr
 import { getProviderPresets } from "@llmr/core/providers/presets/index";
 import { checkGatewayProviderConnectivity, probeGatewayProvider, probeGatewayProviderCandidates } from "@llmr/core/providers/probe";
 import { syncProviderModelAutoRefreshService } from "@llmr/core/providers/model-auto-refresh";
-import { applyProfileConfig, reconcileProfileApiKeys, recoverGlobalAgentProfile, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
+import { applyProfileConfig, mergeProfileStatuses, reconcileProfileApiKeys, recoverGlobalAgentProfile, restoreTakeoversWhenNoGatewayServes } from "@llmr/core/profiles/service";
 import { desktopCliCommandName, getProfileOpenCommand, getProfileRuntimeStatus, openProfileFromLlmr, openProfileInTerminal, stopProfileFromLlmr } from "@llmr/core/profiles/launch-service";
 import { getPluginMarketplace } from "@llmr/core/plugins/marketplace";
 import { ensureProxyCertificateAuthority } from "@llmr/core/proxy/certificates";
@@ -350,9 +350,8 @@ handle(IPC_CHANNELS.appSaveConfig, async (_event, config: AppConfig, options?: A
   }
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
   savedConfig = syncedClaudeAppConfig.config;
-  if (options?.applyProfile !== false) {
-    await reconcileProfileApiKeys(savedConfig);
-  }
+  const applyProfile = options?.applyProfile !== false;
+  const released = applyProfile ? await reconcileProfileApiKeys(savedConfig) : [];
   let runtimeStatus = gatewayService.getStatus();
   const restartRequired = syncedClaudeAppConfig.configChanged ||
     shouldRestartGatewayForRuntimeConfigChange(previousConfig, savedConfig);
@@ -368,14 +367,12 @@ handle(IPC_CHANNELS.appSaveConfig, async (_event, config: AppConfig, options?: A
   } else {
     await gatewayService.updateConfig(savedConfig);
   }
-  if (options?.applyProfile !== false) {
-    await applyProfileIfServiceRunning(savedConfig, runtimeStatus);
-  }
+  const applied = applyProfile ? await applyProfileIfServiceRunning(savedConfig, runtimeStatus) : undefined;
   await builtInBrowserService.syncProxy(savedConfig);
   await trayController.refreshIconFromConfig(savedConfig);
   invalidateProviderAccountSnapshotCache();
   syncProviderModelAutoRefresh(savedConfig);
-  return savedConfig;
+  return { config: savedConfig, statuses: mergeProfileStatuses([...released, ...(applied?.clients ?? [])]) };
 });
 handle(IPC_CHANNELS.appSetThemePreference, async (_event, theme: unknown) => {
   const savedTheme = await saveAppThemePreference(theme);
@@ -386,11 +383,11 @@ handle(IPC_CHANNELS.appSaveApiKeys, async (_event, apiKeys: ApiKeyConfig[], base
   const savedConfig = await saveApiKeysConfig(apiKeys, base);
   const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
   const nextConfig = syncedClaudeAppConfig.config;
-  await reconcileProfileApiKeys(nextConfig);
+  const released = await reconcileProfileApiKeys(nextConfig);
   await gatewayService.updateConfig(nextConfig);
-  logProfileApplyResult(await applyProfileConfig(nextConfig));
+  const applied = await applyProfileIfServiceRunning(nextConfig, gatewayService.getStatus());
   invalidateProviderAccountSnapshotCache();
-  return nextConfig;
+  return { config: nextConfig, statuses: mergeProfileStatuses([...released, ...(applied?.clients ?? [])]) };
 });
 handle(IPC_CHANNELS.appSetOnboardingFinished, async () => {
   await markOnboardingFinished();
@@ -442,11 +439,13 @@ handle(IPC_CHANNELS.appRestartProxy, async () => {
   return proxyService.getStatus();
 });
 
-async function applyProfileIfServiceRunning(config: AppConfig, status: GatewayStatus): Promise<void> {
+async function applyProfileIfServiceRunning(config: AppConfig, status: GatewayStatus): Promise<ProfileApplyResult | undefined> {
   if (status.state !== "running") {
-    return;
+    return undefined;
   }
-  logProfileApplyResult(await applyProfileConfig(config));
+  const result = await applyProfileConfig(config);
+  logProfileApplyResult(result);
+  return result;
 }
 
 function syncProviderModelAutoRefresh(config: AppConfig): void {

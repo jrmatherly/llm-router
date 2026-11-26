@@ -1609,7 +1609,9 @@ export function enforceSingleEnabledGlobalProfilePerAgent(
 export type ProfileClientApplyStatus = {
   appliedAt?: string;
   backupFile?: string;
+  changed?: boolean;
   client: ProfileClientKind;
+  copy?: string;
   enabled: boolean;
   message: string;
   ok: boolean;
@@ -1934,6 +1936,8 @@ export type AppConfig = {
 export type AppSaveConfigOptions = {
   applyProfile?: boolean;
 };
+
+export type AppSaveResult = { config: AppConfig; statuses: ProfileClientApplyStatus[] };
 
 export type GlobalProfileRecoveryResult = {
   config: AppConfig;

@@ -24,7 +24,7 @@ import { mediaToolsGatewayEndpoint } from "@llmr/core/mcp/grok-media-config";
 import { buildProfileLaunchPlan, findProfileForOpen, profileLaunchSpawnCommand, profileOpenCommand, profileOpenSurfaces, resolveClaudeCodeSettingsFile, resolveProfileOpenSurface } from "@llmr/core/profiles/launch-core";
 import { profileApiKeyId } from "@llmr/core/profiles/api-key";
 import { backupFiles, writeFileAtomic } from "@llmr/core/profiles/backup-files";
-import { applyProfileConfig, cleanupGeneratedBinBackups } from "@llmr/core/profiles/service";
+import { applyProfileConfig, cleanupGeneratedBinBackups, warnProfileApplyFailures } from "@llmr/core/profiles/service";
 import { spawnCommandLaunch } from "@llmr/core/platform/command-path";
 import { findAfterAppxLoad } from "@llmr/core/platform/windows-app-discovery";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@llmr/core/platform/windows-system";
@@ -113,7 +113,7 @@ export async function getProfileOpenCommand(config: AppConfig, request: ProfileO
   assertAvailableGatewayModels(config);
   const profile = findProfileForOpen(config, request.profileId);
   const surface = resolveProfileOpenSurface(profile, request.surface);
-  await applyProfileConfig(config);
+  warnProfileApplyFailures(await applyProfileConfig(config));
   if (options.ensureLauncher) {
     ensureLlmrCliLauncher(config);
   }
@@ -162,11 +162,7 @@ export async function openProfileFromLlmr(config: AppConfig, request: ProfileOpe
   assertAvailableGatewayModels(config);
   const profile = findProfileForOpen(config, request.profileId);
   const surface = resolveProfileOpenSurface(profile, request.surface);
-  for (const client of (await applyProfileConfig(config)).clients) {
-    if (!client.ok) {
-      console.warn(`[profile:${client.client}] ${client.message}`);
-    }
-  }
+  warnProfileApplyFailures(await applyProfileConfig(config));
   if (profile.agent === "claude-code" && surface === "app") {
     return openClaudeAppProfile(config, profile);
   }

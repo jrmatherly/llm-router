@@ -13,6 +13,7 @@ import type {
   AppRenderHtmlPngRequest,
   AppRenderHtmlPngResult,
   AppSaveConfigOptions,
+  AppSaveResult,
   AppUpdateStatus,
   ApiKeyConfig,
   BotGatewayQrLoginCancelRequest,
@@ -156,9 +157,9 @@ declare global {
       resetOverviewStatistics: () => Promise<UsageStatsResetResult>;
       restartGateway: () => Promise<GatewayStatus>;
       restartProxy: () => Promise<ProxyStatus>;
-      saveApiKeys: (apiKeys: ApiKeyConfig[], base: ApiKeyConfig[]) => Promise<AppConfig>;
+      saveApiKeys: (apiKeys: ApiKeyConfig[], base: ApiKeyConfig[]) => Promise<AppSaveResult>;
       /** Saves settings while preserving the credentials managed by saveApiKeys. */
-      saveConfig: (config: AppConfig, options?: AppSaveConfigOptions) => Promise<AppConfig>;
+      saveConfig: (config: AppConfig, options?: AppSaveConfigOptions) => Promise<AppSaveResult>;
       selectPluginDirectory: () => Promise<PluginDirectorySelection | undefined>;
       setOnboardingFinished: () => Promise<boolean>;
       setProxyNetworkCaptureEnabled: (enabled: boolean) => Promise<ProxyNetworkSnapshot>;

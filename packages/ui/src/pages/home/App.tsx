@@ -35,7 +35,9 @@ import {
 } from "./shared/index";
 import { preserveEqualPollingSnapshot, startVisiblePolling } from "./shared/polling";
 import { configsEqual, createConfigSaveQueue, mergeSavedApiKeys, reconcileRecoveredProfileConfig, reconcileSavedConfig } from "./shared/config-persistence";
+import type { AppSaveResult } from "@llmr/core/contracts/app";
 import { onboardingProfileIndex, withOnboardingProfile } from "./shared/onboarding-profile";
+import { profileStatusNotices } from "./shared/profile-status-notices";
 import { renameProviderReferences } from "./shared/provider-references";
 import {
   AppDialogStack, FeedbackStack, LightToast, MainLayout, OnboardingLayout, PersistenceFeedback, shouldCheckForUpdateOnOpen
@@ -1116,16 +1118,23 @@ function App() {
     }
   }
 
-  function enqueueConfigSave(config: AppConfig, options?: AppSaveConfigOptions): Promise<AppConfig> {
+  function enqueueConfigSave(config: AppConfig, options?: AppSaveConfigOptions): Promise<AppSaveResult> {
     const baseDraft = currentDraft.current;
     return configSaveQueue.current.run(
       () => window.llmr!.saveConfig(config, options),
       (saved) => {
-        const normalized = normalizeConfig(saved);
+        const normalized = normalizeConfig(saved.config);
         const draft = normalizeConfig(reconcileSavedConfig(baseDraft, currentDraft.current, normalized));
         setConfigSnapshots(normalized, draft);
+        showProfileStatuses(saved);
       }
     );
+  }
+
+  function showProfileStatuses(saved: AppSaveResult) {
+    const { errors, notices } = profileStatusNotices(saved.statuses);
+    if (errors.length > 0) setProfileActionError(errors.join(" "));
+    if (notices.length > 0) showToast(notices.join(" "));
   }
 
   async function persistApiKeys(apiKeys: ApiKeyConfig[], setError: (message: string) => void): Promise<boolean> {
@@ -1144,11 +1153,12 @@ function App() {
       await configSaveQueue.current.run(
         () => window.llmr!.saveApiKeys(apiKeys, base),
         (saved) => {
-          const normalized = normalizeConfig(saved);
+          const normalized = normalizeConfig(saved.config);
           setConfigSnapshots(
             mergeSavedApiKeys(currentSaved.current, normalized),
             mergeSavedApiKeys(currentDraft.current, normalized)
           );
+          showProfileStatuses(saved);
         }
       );
       setError("");

@@ -204,10 +204,10 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
     return { applyResult, saved };
   }, { profileId });
 
-  expect(result.saved?.profile.profiles).toHaveLength(1);
-  expect(result.saved?.profile.profiles[0]?.agent).toBe("workbuddy");
-  expect(result.saved?.profile.profiles[0]?.showAllSessions).toBe(false);
-  expect(result.saved?.profile.profiles[0]?.surface).toBe("app");
+  expect(result.saved?.config.profile.profiles).toHaveLength(1);
+  expect(result.saved?.config.profile.profiles[0]?.agent).toBe("workbuddy");
+  expect(result.saved?.config.profile.profiles[0]?.showAllSessions).toBe(false);
+  expect(result.saved?.config.profile.profiles[0]?.surface).toBe("app");
 
   const workbuddyStatus = result.applyResult?.clients.find((client) => client.client === "workbuddy");
   expect(workbuddyStatus?.ok, workbuddyStatus?.message).toBe(true);

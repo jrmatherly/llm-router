@@ -185,7 +185,10 @@ export function applyProfileConfig(
   config: AppConfig,
   options: ApplyProfileConfigOptions = {}
 ): Promise<ProfileApplyResult> {
-  return enqueueApply(() => applyProfileConfigNow(config, options));
+  return enqueueApply(async () => {
+    const result = await applyProfileConfigNow(config, options);
+    return { ...result, clients: mergeProfileStatuses(result.clients) };
+  });
 }
 
 // The disable is saved by the time refreshRuntime runs, so its failure is reported in the status, never thrown.
@@ -822,6 +825,7 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
       appliedAt,
       backupFile: writeResult.backupFile,
       client: profile.agent,
+      copy: separateProfileResult?.copy,
       enabled: true,
       message: `${changed
         ? `${clientName} config is managed by LLMR${extras.length ? ` (${extras.join(", ")})` : ""}.`
@@ -1024,6 +1028,27 @@ async function ensureProfileApiKeys(config: AppConfig, profiles: ProfileConfig[]
   });
   config.APIKEY = config.APIKEYS[0]?.key ?? "";
   return tokens;
+}
+
+// Several passes of one save can touch one file, and the person is told about each file once: a failure first, then an apply, then a change.
+export function mergeProfileStatuses(statuses: ProfileClientApplyStatus[]): ProfileClientApplyStatus[] {
+  const groups = new Map<string, ProfileClientApplyStatus[]>();
+  for (const status of statuses) {
+    const resolved = resolveUserPath(status.path);
+    const key = `${status.client}\0${process.platform === "win32" ? resolved.toLowerCase() : resolved}`;
+    groups.set(key, [...(groups.get(key) ?? []), status]);
+  }
+  return [...groups.values()].map((group) => {
+    const kept = group.find((status) => !status.ok) ?? group.find((status) => status.enabled) ?? group.find((status) => status.changed) ?? group[0];
+    const named = kept.copy ? undefined : group.find((status) => status.copy);
+    return named ? { ...kept, copy: named.copy, message: `${kept.message} ${named.message}` } : kept;
+  });
+}
+
+export function warnProfileApplyFailures(result: Pick<ProfileApplyResult, "clients">, log: (line: string) => void = console.warn): void {
+  for (const status of result.clients.filter((item) => !item.ok)) {
+    log(`[profile:${status.client}] ${status.message}`);
+  }
 }
 
 // A switched-off profile is restored before its key goes, and keeps the key while its agent may still hold it.
@@ -3185,7 +3210,8 @@ function restoreDisabledCodexProfile(profile: ProfileConfig, configFile: string,
         ? `${base} Your own profile settings, which LLMR had moved to ${providerId}.config.toml, are in it again.${base === status.message ? "" : suffix}`
         : `${name} config now holds only your own profile settings, which LLMR had moved to ${providerId}.config.toml.${suffix}`
       : status.message;
-    return copy ? { ...status, message: `${message} LLMR kept a copy of what else you had in ${providerId}.config.toml at ${copy}.` } : { ...status, message };
+    const changed = status.changed || returned;
+    return copy ? { ...status, changed, copy, message: `${message} LLMR kept a copy of what else you had in ${providerId}.config.toml at ${copy}.` } : { ...status, changed, message };
   } catch (error) {
     // config.toml is settled by now, so the message keeps what happened to it and names the file that failed.
     console.error(`Failed to remove LLMR's files beside ${resolveUserPath(configFile)}: ${formatError(error)}`);
@@ -3784,6 +3810,7 @@ function restoreDisabledZcodeProfile(profile: ProfileConfig, configFile: string)
   const missingBackup = results.some((result) => result.missingBackup);
   return {
     backupFile: results.find((result) => result.backupFile)?.backupFile,
+    changed,
     client: "zcode",
     enabled: false,
     message: missingBackup
@@ -3808,6 +3835,7 @@ function disabledRestoreStatus(
 ): ProfileClientApplyStatus {
   return {
     backupFile: restoreResult.backupFile,
+    changed: restoreResult.changed,
     client,
     enabled: false,
     message: restoreResult.missingBackup

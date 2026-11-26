@@ -12,7 +12,7 @@ import { APP_NAME, CONFIGDIR } from "@llmr/core/config/constants";
 import { spawnCommandLaunch } from "@llmr/core/platform/command-path";
 import { installSocketTypeOfServiceCompat } from "@llmr/core/platform/socket-compat";
 import { mergeChildEnv, withoutLlmrSecretEnv } from "@llmr/core/mcp/child-env";
-import { applyProfileConfig, applyProfileRuntimeConfig } from "@llmr/core/profiles/service";
+import { applyProfileConfig, applyProfileRuntimeConfig, warnProfileApplyFailures } from "@llmr/core/profiles/service";
 import { ensureProfileGateway, ProfileGatewayUnavailableError } from "@llmr/core/profiles/launch-service";
 import { buildProfileLaunchPlan, defaultProfileOpenSurface, findProfileForOpen, profileLaunchSpawnCommand, resolveProfileOpenSurface, shouldAutoStartProfileGateway } from "@llmr/core/profiles/launch-core";
 import { assertWebManagementStartAllowed, describeWebManagementUrl, openSystemExternal, startWebManagementServer, webManagementOpenUrl } from "@llmr/core/web/management-server";
@@ -155,7 +155,7 @@ async function main(): Promise<void> {
     process.stdout.write(`${opened.message}\n`);
     return;
   }
-  await applyProfileConfig(config);
+  warnProfileApplyFailures(await applyProfileConfig(config));
 
   const autoStartProfileGateway = shouldAutoStartProfileGateway(profile, resolvedSurface);
   let profileGatewayLease = autoStartProfileGateway ? acquireManagedProfileGatewayLease() : undefined;
