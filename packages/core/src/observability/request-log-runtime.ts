@@ -359,17 +359,30 @@ export class RequestLogRuntime {
     if (!this.writerWorker && this.queue.length === 0 && this.cleanupTasks.size === 0) {
       return { pending: 0, timedOut: false };
     }
+    const deadline = Date.now() + Math.max(1, options.timeoutMs);
     this.schedulePump(true);
     const drained = await waitUntil(
       () => this.queue.length === 0 && this.inFlight.size === 0 && this.cleanupTasks.size === 0,
       options.timeoutMs
     );
+    let checkpointTimedOut = false;
     if (drained && this.writerWorker) {
-      await withTimeout(this.writerRpc("flush", []), Math.max(1, options.timeoutMs));
+      let timer: NodeJS.Timeout | undefined;
+      // A slow checkpoint leaves every record committed, so it is reported like a slow drain rather than thrown.
+      try {
+        checkpointTimedOut = await Promise.race([
+          this.writerRpc("flush", []).then(() => false),
+          new Promise<boolean>((resolve) => {
+            timer = setTimeout(() => resolve(true), Math.max(1, deadline - Date.now()));
+          })
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
     }
     return {
       pending: this.queue.length + [...this.inFlight.values()].reduce((total, batch) => total + batch.commands.length, 0),
-      timedOut: !drained
+      timedOut: !drained || checkpointTimedOut
     };
   }
 
