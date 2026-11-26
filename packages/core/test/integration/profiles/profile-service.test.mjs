@@ -5790,7 +5790,32 @@ test("a save reports a locked folder of a switched-off OpenCode profile instead 
   });
 });
 
-test("a restore after the profile's provider id changed still removes LLM Router's provider and its key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+for (const agent of ["opencode", "kilo"]) {
+  test(`a ${agent} config that did not parse when the profile was switched off is cleaned by the next save after the user repairs it`, { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+    await withProviderJsonRoot(async (root) => {
+      const file = path.join(root, `${agent}.jsonc`);
+      const profile = providerJsonProfile(agent, file);
+      const config = providerJsonConfig([profile]);
+      await applyProfileConfig(config);
+      const key = await profileKey(agent);
+      const repaired = `${JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), mcp: providerJsonMcp }, null, 2)}\n`;
+      writeFileSync(file, repaired.replace(/\n}\n$/, ",\n}}\n"));
+      config.profile.profiles = [{ ...profile, enabled: false }];
+      const broken = await applyProfileConfig(config);
+      assert.match(broken.clients.find((status) => status.client === agent && !status.ok)?.message ?? "", /not valid JSON/);
+      assert.ok(readFileSync(file, "utf8").includes(key), "the file that does not parse is left alone");
+      assert.equal(await profileKey(agent), key, "the key the file still holds keeps working");
+      writeFileSync(file, repaired);
+      const result = await applyProfileConfig(config);
+      assert.deepEqual(result.clients.filter((status) => !status.ok).map((status) => status.message), []);
+      assert.deepEqual(filesHolding(root, key), []);
+      assert.deepEqual(JSON.parse(readFileSync(file, "utf8")).mcp, providerJsonMcp);
+      assert.equal(await profileKey(agent), undefined);
+    });
+  });
+}
+
+test("a restore after the profile's provider id changed still removes LLM Router's provider and its key",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withProviderJsonRoot(async (root) => {
     const file = path.join(root, "opencode.jsonc");
     const profile = providerJsonProfile("opencode", file, { providerId: "a" });

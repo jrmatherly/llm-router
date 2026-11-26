@@ -29,6 +29,7 @@ import { codexCliMiddlewareRuntimeScript } from "@llmr/core/agents/codex/cli-mid
 import { codexModelCatalogJson } from "@llmr/core/agents/codex/model-catalog";
 import { applyGrokProfile, grokWrapperPath } from "@llmr/core/agents/grok/profile-config";
 import { applyKimiProfile, kimiWrapperPath } from "@llmr/core/agents/kimi/profile-config";
+import { parseJsoncRecord } from "@llmr/core/agents/local-providers/shared";
 import {
   kiloDefaultSchema,
   resolveKiloConfigFile,
@@ -3343,6 +3344,7 @@ type RestoreManagedContentMatchers = {
   isEmptyContent?: (content: string) => boolean;
   isManagedContent: (content: string) => boolean;
   onReleased?: () => void;
+  parses?: (content: string) => boolean;
   // Set where a live file that changed since LLMR wrote it is stripped in place, and the snapshot only supplies what the apply displaced. Such a file's token never goes into a backup.
   stripBeforeSnapshot?: boolean;
   stripLiveContent?: (content: string, snapshot?: string) => string | undefined;
@@ -4095,6 +4097,10 @@ function restoreGlobalConfigFileContent(
   options: RestoreManagedContentMatchers & { keepLiveFile?: boolean; mode?: number }
 ): RestoreFileResult {
   const current = existsSync(file) ? readFileSync(file, "utf8") : undefined;
+  // Text that does not parse can still hold LLMR's provider and key, so every mark of the takeover stays for the pass after the user repairs it.
+  if (current !== undefined && options.parses?.(current) === false && hasTakeoverSnapshot(file)) {
+    throw new Error("it is not valid JSON, so LLMR left it unchanged. Fix the file and save again.");
+  }
   const currentManaged = current !== undefined && options.isManagedContent(current);
   const strip = options.keepLiveFile ? undefined : options.stripLiveContent ?? options.stripManagedContent;
   const originalMissing = existsSync(originalMissingFilePath(file));
@@ -4441,6 +4447,7 @@ function providerJsonManagedContent(client: ProviderJsonClient): RestoreManagedC
   return {
     isEmptyContent: (content) => isEmptyProviderJsonContent(content, schema),
     isManagedContent: (content) => isManagedProviderJsonContent(content, client),
+    parses: (content) => parseJsoncRecord(content) !== undefined,
     stripBeforeSnapshot: true,
     stripLiveContent: (content, snapshot) => stripManagedProviderJsonContent(content, { client }, snapshot),
     stripManagedContent: (content) => stripManagedProviderJsonContent(content, { client })
