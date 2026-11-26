@@ -77,7 +77,6 @@ test("recent issues: production HTTP, tool replay, logs and usage SQLite", {
   });
   const sink = createServer((req, res) => void sync.handle(req, res));
   let gateway;
-  const gatewayChildren = [];
   const usageView = new UsageStore(path.join(root, "unused.sqlite"), { requestLogDbFile: REQUEST_LOGS_DB_FILE });
   try {
     await sync.start();
@@ -96,7 +95,6 @@ test("recent issues: production HTTP, tool replay, logs and usage SQLite", {
     let expectedRows = 0;
     for (const billing of [false, true]) {
       gateway = await startGateway(root, { ...baseConfig, billing: { enabled: billing } });
-      gatewayChildren.push(gateway.child);
       for (const fusion of [false, true]) for (const stream of [false, true]) {
         const label = `billing=${billing} fusion=${fusion} stream=${stream}`;
         const response = await fetch(`${gateway.url}/v1/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ model: `${runtimeName}/${model}${fusion ? ":fusion" : ""}`, max_tokens: 4, stream, messages: [{ role: "user", content: "hi" }] }) });
@@ -156,7 +154,6 @@ test("recent issues: production HTTP, tool replay, logs and usage SQLite", {
     assert.ok(router, "LLMR route resolver must be installed for #1804");
     router.modulePath = path.resolve(__dirname, "../../../runtime/router-plugin.js");
     gateway = await startGateway(root, { ...baseConfig, providers: routingCompiled.providers, plugins: [router], virtualModelProfiles: routingCompiled.virtualModelProfiles, rawTrace: { enabled: false }, billing: { enabled: false } });
-    gatewayChildren.push(gateway.child);
     for (const stream of [false, true]) {
       const before = captures.length;
       const result = await fetchUpstreamWithFallback({
@@ -182,7 +179,6 @@ test("recent issues: production HTTP, tool replay, logs and usage SQLite", {
     await logs.close({ timeoutMs: 5000 });
     await Promise.all([close(upstream), close(sink)]);
     for (const [key, value] of Object.entries(previousEnv)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
-    assert.ok(gatewayChildren.every(child => child.exitCode !== null || child.signalCode !== null), "every gateway child exited before the cleanup removes the test folder");
     // A price-catalog load for the unpriced native model opens the process's config repository under root, and it stays open until the test process exits.
     removeTestDir(root, ["config.sqlite", "usage.sqlite", "unused.sqlite"]);
   }
@@ -215,5 +211,12 @@ async function startGateway(root, config) {
 async function stopGateway({ child }) {
   if (child.exitCode !== null || child.signalCode !== null) return;
   child.kill("SIGTERM");
-  await new Promise(resolve => { const timer = setTimeout(() => child.kill("SIGKILL"), 2000); child.once("exit", () => { clearTimeout(timer); resolve(); }); });
+  // A child that outlives this would hold its files open under the test folder, so the stop waits for the exit and names a child that never exits.
+  await new Promise((resolve, reject) => {
+    let timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      timer = setTimeout(() => reject(new Error(`gateway child ${child.pid} did not exit after SIGKILL`)), 5000);
+    }, 2000);
+    child.once("exit", () => { clearTimeout(timer); resolve(); });
+  });
 }
