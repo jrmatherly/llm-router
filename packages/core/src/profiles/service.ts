@@ -1055,7 +1055,7 @@ export function warnProfileApplyFailures(result: Pick<ProfileApplyResult, "clien
   }
 }
 
-// A switched-off profile is restored before its key goes, and keeps the key while its agent may still hold it.
+// Pruning first would leave an agent whose restore then fails pointed at LLMR with a key that answers 401.
 async function releaseDisabledProfileKeys(config: AppConfig, profiles: ProfileConfig[]): Promise<ProfileClientApplyStatus[]> {
   const keys = new Map((await loadPersistedApiKeys()).map((apiKey) => [apiKey.id, apiKey.key]));
   const statuses: ProfileClientApplyStatus[] = [];

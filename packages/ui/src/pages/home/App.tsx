@@ -1,3 +1,4 @@
+import type { AppSaveResult } from "@llmr/core/contracts/app";
 import {
   AddApiKeyDraft, AddProfileDraft, AddProviderDraft, AddRoutingRuleDraft, AgentAnalysisSessionSelection, AgentAnalysisSnapshot, AgentFilterValue,
   ApiKeyConfig, AppConfig, appCopy, AppInfo, AppSaveConfigOptions, AppUpdateStatus,
@@ -35,7 +36,6 @@ import {
 } from "./shared/index";
 import { preserveEqualPollingSnapshot, startVisiblePolling } from "./shared/polling";
 import { configsEqual, createConfigSaveQueue, mergeSavedApiKeys, reconcileRecoveredProfileConfig, reconcileSavedConfig } from "./shared/config-persistence";
-import type { AppSaveResult } from "@llmr/core/contracts/app";
 import { onboardingProfileIndex, withOnboardingProfile } from "./shared/onboarding-profile";
 import { profileStatusNotices } from "./shared/profile-status-notices";
 import { renameProviderReferences } from "./shared/provider-references";
