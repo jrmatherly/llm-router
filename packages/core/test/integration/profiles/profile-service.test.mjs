@@ -4093,13 +4093,14 @@ async function withAppliedDefaultProfiles(profileIds, run, beforeApply, options 
     for (const profileId of profileIds.slice(1)) {
       config.profile.profiles.find((profile) => profile.id === profileId).enabled = true;
     }
+    options.configure?.(config);
     beforeApply?.({ claudeDir, codexDir });
     await applyProfileConfig(config);
     await replacePersistedAppConfig(config);
     const tokens = Object.fromEntries((await loadPersistedApiKeys()).map((apiKey) => [apiKey.id, apiKey.key]));
     const codexConfigFile = path.join(codexDir, "config.toml");
     const codexToken = tokens["profile:default-codex"];
-    if (profileIds.includes("default-codex")) {
+    if (profileIds.includes("default-codex") && options.applied !== false) {
       assert.match(codexToken ?? "", /^llmr-profile-/);
       assert.ok(readFileSync(codexConfigFile, "utf8").includes(codexToken), "the applied config.toml holds the profile's token");
       assertCodexFilesParse(codexDir);
@@ -5236,6 +5237,208 @@ test("no file beside a Codex config holds the profile's token after a second app
   }
 });
 
+const usersProviderKey = "my-own-secret";
+const usersHeaderValue = "my-own-header-value";
+const usersProviderOriginal = [
+  "model_provider = \"llm-router\"",
+  "",
+  "[model_providers.llm-router]",
+  "name = \"Mine\"",
+  "base_url = \"https://mine.example.test/v1\"",
+  `experimental_bearer_token = "${usersProviderKey}"`,
+  "",
+  "[model_providers.llm-router.http_headers]",
+  `X-Mine = "${usersHeaderValue}"`,
+  ""
+].join("\n");
+
+test("a user's own provider table under LLM Router's id, key included, is on disk at every step and comes back byte for byte", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const reapply of [false, true]) {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      const original = `${fixture.codexConfigFile}.llmr-original`;
+      assert.equal(readFileSync(original, "utf8"), usersProviderOriginal, "the original is saved as the user wrote it");
+      const applied = readFileSync(fixture.codexConfigFile, "utf8");
+      assert.equal(countOf(applied, "[model_providers.llm-router]"), 1);
+      assert.equal(applied.includes(usersProviderKey), false, "LLM Router's table replaced the user's in the live file");
+      assert.equal(applied.includes("[model_providers.llm-router.http_headers]"), false, "the user's child table is not attached to LLM Router's provider");
+      assert.deepEqual(filesHolding(fixture.codexDir, usersProviderKey), [original]);
+      assert.deepEqual(filesHolding(fixture.codexDir, usersHeaderValue), [original]);
+      if (reapply) {
+        await applySecondCodexModel(fixture.config);
+        await replacePersistedAppConfig(fixture.config);
+        assert.deepEqual(filesHolding(fixture.codexDir, usersProviderKey), [original]);
+        assert.deepEqual(filesBesideCodexConfigHolding(fixture), []);
+      }
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, result.status.message);
+      assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), usersProviderOriginal, String(reapply));
+      assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), [], String(reapply));
+    }, plantCodexOriginal(usersProviderOriginal));
+  }
+});
+
+test("a user's own provider table comes back once, with their key, after they edited the file while LLM Router had it", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    appendUserCodexTables(fixture);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assertHoldsEveryLine(restored, usersProviderOriginal);
+    assert.match(restored, /\[mcp_servers\.mine\]/);
+    assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), []);
+    assert.equal(restored.includes("llmr-model-catalog"), false);
+  }, plantCodexOriginal(usersProviderOriginal));
+});
+
+test("a comment below a user's own provider table comes back once after an edited restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const eol of ["\n", "\r\n"]) {
+    const original = `${usersProviderOriginal}\n# about my servers\n[mcp_servers.keep]\ncommand = "keep"\n`.replaceAll("\n", eol);
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      appendUserCodexTables(fixture);
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, result.status.message);
+      const restored = readFileSync(fixture.codexConfigFile, "utf8");
+      assert.equal(countOf(restored, "# about my servers"), 1, restored);
+      assert.equal(countOf(restored, "[model_providers.llm-router.http_headers]"), 1, restored);
+    }, plantCodexOriginal(original));
+  }
+});
+
+test("a model_provider line the user points at their own provider table after a restore stays through a later apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = usersProviderOriginal.replace("model_provider = \"llm-router\"", "model_provider = \"openai\"");
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), original);
+    const pointed = original.replace("model_provider = \"openai\"", "model_provider = \"llm-router\"");
+    writeFileSync(fixture.codexConfigFile, pointed);
+    const codex = fixture.config.profile.profiles.find((profile) => profile.id === "default-codex");
+    codex.enabled = false;
+    fixture.config.profile.profiles.find((profile) => profile.id === "default-claude-code").enabled = true;
+    await applyProfileConfig(fixture.config);
+    assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), pointed);
+  }, plantCodexOriginal(original));
+});
+
+test("a restore removes the profile's token from a Codex config whose own value was left open", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const applied = readFileSync(fixture.codexConfigFile, "utf8");
+    assert.ok(applied.includes(fixture.codexToken));
+    writeFileSync(fixture.codexConfigFile, applied.replace("# BEGIN LLMR managed Codex provider", "[tui]\nbanner = \"\"\"\n[model_providers.llm-router]\n\"\"\"\n# BEGIN LLMR managed Codex provider"));
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), []);
+  }, plantCodexOriginal("model_catalog_json = [\"/my/a.json\"\napproval_policy = \"never\"\n"), { applied: false, parseAfter: false });
+});
+
+test("a saved Codex original holds no profile token from an earlier takeover", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const oldToken = "llmr-profile-oldtokenvalue";
+  const original = [
+    "model_provider = \"openai\"",
+    "",
+    "# BEGIN LLMR managed ToolHub MCP",
+    "[mcp_servers.llmr-toolhub]",
+    "command = \"node\"",
+    "",
+    "[mcp_servers.llmr-toolhub.env]",
+    `TOOLHUB_OPENAI_API_KEY = "${oldToken}"`,
+    "# END LLMR managed ToolHub MCP",
+    ""
+  ].join("\n");
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    assert.deepEqual(filesHolding(fixture.codexDir, oldToken), []);
+    assert.equal(readFileSync(`${fixture.codexConfigFile}.llmr-original`, "utf8"), "model_provider = \"openai\"\n");
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), "model_provider = \"openai\"\n");
+    assert.deepEqual(filesHolding(fixture.codexDir, oldToken), []);
+  }, plantCodexOriginal(original));
+});
+
+test("a profile table added again and again does not push out the copy of the user's first profile settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const table of ["sandbox_mode = \"read-only\"\n", "sandbox_mode = \"read-only\"\nmodel = \"gpt-mine\"\n"]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+      const profileFile = path.join(codexDir, "llm-router.config.toml");
+      writeFileSync(profileFile, `${readFileSync(profileFile, "utf8")}approval_policy = "never"  # S0 mine\n`);
+      for (let round = 0; round < 4; round += 1) {
+        writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\n[profiles.llm-router]\n${table}`);
+        await applyProfileConfig(config);
+      }
+      const copies = safetyCopies(profileFile);
+      assert.equal(copies.length, 1, table);
+      assert.match(readFileSync(copies[0], "utf8"), /# S0 mine/, table);
+    });
+  }
+});
+
+const withCodexProviderId = (providerId) => (config) => {
+  config.profile.profiles.find((profile) => profile.id === "default-codex").providerId = providerId;
+};
+
+test("a Codex profile whose provider id Codex reserves is refused, and the user's config is not touched", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const providerId of ["openai", "ollama", "lmstudio", "gcp", "amazon-bedrock", "amazon-bedrock-runtime"]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+      const status = await applyProfileConfig(config);
+      const refused = status.clients.find((client) => client.client === "codex");
+      assert.equal(refused?.ok, false, providerId);
+      assert.ok(refused.message.includes(providerId), providerId);
+      assert.ok(refused.message.includes(codexConfigFile), providerId);
+      assert.equal(readFileSync(codexConfigFile, "utf8"), userCodexOriginal, providerId);
+      assert.deepEqual(readdirSync(codexDir), ["config.toml"], providerId);
+    }, plantCodexOriginal(), { applied: false, configure: withCodexProviderId(providerId) });
+  }
+});
+
+test("after a reserved provider id is refused, no restore takes the user's own line of that id", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "model_provider = \"ollama\"\n";
+  const restores = {
+    "the exit restore": ({ config }) => restoreGlobalProfileConfigsOnExit(config.profile.profiles),
+    "the sweep of an apply with Codex off": ({ config }) => {
+      config.profile.profiles.find((profile) => profile.id === "default-codex").enabled = false;
+      return applyProfileConfig(config);
+    }
+  };
+  for (const [name, restore] of Object.entries(restores)) {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      withCodexProviderId("ollama")(fixture.config);
+      const status = await applyProfileConfig(fixture.config);
+      assert.equal(status.clients.find((client) => client.client === "codex")?.ok, false, name);
+      assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), original, name);
+      await restore(fixture);
+      assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), original, name);
+    }, plantCodexOriginal(original));
+  }
+});
+
+test("recovering a Codex profile whose id was changed to a reserved one after the apply still removes LLMR's provider and token", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const edited of [false, true]) {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      if (edited) {
+        appendUserCodexTables(fixture);
+      }
+      withCodexProviderId("openai")(fixture.config);
+      await replacePersistedAppConfig(fixture.config);
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, result.status.message);
+      const restored = readFileSync(fixture.codexConfigFile, "utf8");
+      assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), [], `${edited}: ${restored}`);
+      assert.equal(restored.includes("[model_providers.llm-router]"), false, `${edited}: ${restored}`);
+      assert.equal(restored.includes("model_provider = \"llm-router\""), false, `${edited}: ${restored}`);
+      if (!edited) {
+        assert.equal(restored, userCodexOriginal);
+      }
+    }, plantCodexOriginal());
+  }
+});
+
+test("a Codex profile whose provider id only resembles a reserved one is applied", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const providerId of ["openai-custom", "OpenAI"]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile }) => {
+      assert.equal(readFileSync(codexConfigFile, "utf8").includes(`[model_providers.${providerId}]`), true, providerId);
+    }, plantCodexOriginal(), { configure: withCodexProviderId(providerId) });
+  }
+});
+
 test("a Codex config with Windows line endings holds one copy of LLMR's blocks after a second apply, and none after a restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const original = "# mine\r\nmodel = \"gpt-mine\"\r\nmodel_provider = \"openai\"\r\n\r\n[mcp_servers.mine]\r\ncommand = \"my-server\"\r\n";
   for (const edit of [false, true]) {
@@ -6027,3 +6230,66 @@ for (const agent of ["codex", "grok", "kilo", "kimi", "opencode", "pi", "workbud
     }
   });
 }
+
+test("a saved Codex original of a file that held only LLMR's servers holds no profile token", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const oldToken = "llmr-profile-oldtokenvalue";
+  const original = [
+    "# BEGIN LLMR managed ToolHub MCP",
+    "[mcp_servers.llmr-toolhub]",
+    "command = \"node\"",
+    "",
+    "[mcp_servers.llmr-toolhub.env]",
+    `TOOLHUB_OPENAI_API_KEY = "${oldToken}"`,
+    "# END LLMR managed ToolHub MCP",
+    ""
+  ].join("\n");
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    assert.deepEqual(filesHolding(fixture.codexDir, oldToken), []);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.deepEqual(filesHolding(fixture.codexDir, oldToken), []);
+  }, plantCodexOriginal(original));
+});
+
+test("a reserved Codex provider id is refused after it is sanitized", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const providerId of [" openai ", "openai/"]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+      const status = await applyProfileConfig(config);
+      assert.equal(status.clients.find((client) => client.client === "codex")?.ok, false, providerId);
+      assert.equal(readFileSync(codexConfigFile, "utf8"), userCodexOriginal, providerId);
+      assert.deepEqual(readdirSync(codexDir), ["config.toml"], providerId);
+    }, plantCodexOriginal(), { applied: false, configure: withCodexProviderId(providerId) });
+  }
+});
+
+test("a disabled Codex profile with a reserved provider id beside the enabled one is not refused", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
+    const status = await applyProfileConfig(config);
+    const codex = status.clients.filter((client) => client.client === "codex");
+    assert.equal(codex.length, 2);
+    assert.deepEqual(codex.map((client) => client.ok), [true, true], codex.map((client) => client.message).join("; "));
+  }, plantCodexOriginal(), {
+    configure: (config) => {
+      const enabled = config.profile.profiles.find((profile) => profile.id === "default-codex");
+      config.profile.profiles.push({ ...enabled, enabled: false, id: "old-openai-codex", name: "Old", providerId: "openai" });
+    }
+  });
+});
+
+test("a Workbuddy profile under a provider id Codex reserves is still applied", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const workbuddyHome = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".workbuddy-reserved");
+  mkdirSync(workbuddyHome, { recursive: true });
+  try {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
+      const status = await applyProfileConfig(config);
+      const workbuddy = status.clients.find((client) => client.client === "workbuddy");
+      assert.equal(workbuddy?.ok, true, workbuddy?.message);
+    }, undefined, {
+      configure: (config) => {
+        config.profile.profiles.push({ agent: "workbuddy", codexHome: workbuddyHome, enabled: true, env: {}, id: "workbuddy-reserved", model: "gpt-5-codex", name: "WorkBuddy", providerId: "openai", scope: "global", surface: "app" });
+      }
+    });
+  } finally {
+    rmSync(workbuddyHome, { force: true, recursive: true });
+  }
+});

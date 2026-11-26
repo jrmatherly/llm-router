@@ -727,10 +727,13 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
     }
     return restoreDisabledCodexProfile(profile, configFile, config.profile.profiles);
   }
+  const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
+  if (profile.agent === "codex" && reservedCodexProviderIds.includes(providerId)) {
+    return refusedProfileStatus(profile, configFile, `Codex does not start with a config that defines its built-in provider "${providerId}". Set this profile's providerId in LLM Router's config to another id. LLMR left ${configFile} unchanged.`);
+  }
 
   try {
     const endpoint = `${gatewayEndpoint(config).replace(/\/+$/g, "")}/v1`;
-    const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
     const providerName = profile.providerName?.trim() || "LLM Router";
     const model = normalizeClientModel(profile.model) || defaultClientModel(config);
     const source = existsSync(configFile) ? readFileSync(configFile, "utf8") : "";
@@ -1419,7 +1422,7 @@ function writeGlobalCodexConfig(file: string, content: string, providerId: strin
   const managed = previous !== undefined && matchers.isManagedContent(previous);
   if (!managed) {
     // A file LLMR already manages is nobody's original, and a copy of it would hold the token.
-    ensureOriginalSnapshot(file, previous, privateFileMode);
+    ensureOriginalSnapshot(file, previous, privateFileMode, previous === undefined ? undefined : matchers.stripManagedContent?.(previous));
   }
   const noOriginal = existsSync(originalMissingFilePath(file)) && !existsSync(originalBackupFilePath(file));
   // With no original, what is left of a managed file after a strip would pass for the user's original at the next restore and be written back.
@@ -1540,13 +1543,14 @@ function maybeWriteSeparateCodexProfileFile(
   const moved = codexProfileTableBody(source, values.providerId);
   const existing = existsSync(file) ? readFileSync(file, "utf8") : "";
   // The writer takes the user's `[profiles.<provider>]` table out of config.toml on every apply. One written while this file exists is their newest word, so it replaces what they had here, whole. Folding the two together means editing TOML line by line, which three attempts each got wrong for some input.
+  const next = buildSeparateCodexProfileToml(moved || existing, values);
+  // Compared as the user's content of each file, because the writer puts `model` first and `moved` would differ on every apply.
+  const usersContent = codexProfileFileUsersContent(existing, values.providerId);
   let copy: string | undefined;
-  if (moved && codexProfileFileUsersContent(existing, values.providerId)) {
+  if (moved && usersContent && usersContent !== codexProfileFileUsersContent(next, values.providerId)) {
     copy = saveConfigSafetyCopy(file, existing);
     console.warn(`[profiles] The [profiles.${values.providerId}] table added to ${resolveUserPath(configFile)} replaced your settings in ${resolveUserPath(file)}. The earlier ones are at ${copy}.`);
   }
-  const previous = moved || existing;
-  const next = buildSeparateCodexProfileToml(previous, values);
   const writeResult = writeFileWithBackup(file, next, { mode: privateFileMode });
   return {
     changed: writeResult.changed,
@@ -3123,7 +3127,8 @@ function restoreDisabledCodexProfile(profile: ProfileConfig, configFile: string,
     profile,
     configFile,
     `${codexCompatibleClientName(profile.agent)} profile is disabled.`,
-    codexManagedContent(profile.agent, [providerId], configFile),
+    // A reserved id is never LLMR's, but the file may still hold what LLMR wrote under the id it had before.
+    codexManagedContent(profile.agent, reservedCodexProviderIds.includes(providerId) ? codexCompatibleProviderIds(others) : [providerId], configFile),
     staysDisabled
   );
   const dir = path.dirname(configFile);
@@ -3453,10 +3458,11 @@ function globalCodexConfigCandidate(profile: ProfileConfig): string {
   return profile.configFile || defaultCodexConfigFile(profile.agent);
 }
 
+// A reserved id is never LLMR's, since an apply refuses it, so a line of that id is the user's.
 function codexCompatibleProviderIds(profiles: ProfileConfig[]): string[] {
   return [...new Set([
     "llm-router",
-    ...profiles.map((profile) => sanitizeCodexProviderId(profile.providerId || "")).filter(Boolean)
+    ...profiles.map((profile) => sanitizeCodexProviderId(profile.providerId || "")).filter((id) => id && !reservedCodexProviderIds.includes(id))
   ])];
 }
 
@@ -4203,6 +4209,9 @@ function toolHubResolverModel(config: AppConfig): string {
 function normalizeUrlForMatch(value: string | undefined): string {
   return (value || "").trim().replace(/\/+$/g, "");
 }
+
+// Codex's RESERVED_MODEL_PROVIDER_IDS, read at rust-v0.172.0.
+const reservedCodexProviderIds = ["openai", "ollama", "lmstudio", "gcp", "amazon-bedrock", "amazon-bedrock-runtime"];
 
 function sanitizeCodexProviderId(value: string): string {
   return value.trim().replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");

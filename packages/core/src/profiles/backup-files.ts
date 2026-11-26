@@ -7,8 +7,13 @@ export const originalMissingSuffix = ".llmr-original-missing";
 export const backupMarker = ".llmr-backup-";
 
 export function backupFilePath(file: string): string {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return `${file}${backupMarker}${timestamp}`;
+  const name = `${file}${backupMarker}${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  // Only a file in the way picks another name: a directory there must still fail the write.
+  let free = name;
+  for (let suffix = 1; lstatSync(free, { throwIfNoEntry: false })?.isFile(); suffix += 1) {
+    free = `${name}-${suffix}`;
+  }
+  return free;
 }
 
 export function backupFiles(file: string): string[] {
@@ -43,7 +48,7 @@ export function pruneBackups(file: string, keep = 5, isManagedContent?: (content
   }
 }
 
-export function ensureOriginalSnapshot(file: string, previous: string | undefined, mode?: number): void {
+export function ensureOriginalSnapshot(file: string, previous: string | undefined, mode?: number, content?: string): void {
   const originalBackup = `${file}${originalBackupSuffix}`;
   const originalMissing = `${file}${originalMissingSuffix}`;
   if (existsSync(originalBackup) || existsSync(originalMissing)) {
@@ -54,11 +59,12 @@ export function ensureOriginalSnapshot(file: string, previous: string | undefine
     chmodFileIfRequested(originalMissing, mode);
     return;
   }
-  copyFileSync(file, originalBackup);
-  chmodFileIfRequested(originalBackup, mode);
+  // Atomic, because an original that exists is never written again: a partial one would be kept for good. The file's own bytes and mode, as a copy keeps them.
+  writeFileAtomic(originalBackup, content ?? readFileSync(file), { mode: mode ?? (statSync(file).mode & 0o777) });
 }
 
-const profileTokenPattern = /llmr-profile-[A-Za-z0-9_-]+/g;
+export const profileTokenPrefix = "llmr-profile-";
+const profileTokenPattern = new RegExp(`${profileTokenPrefix}[A-Za-z0-9_-]+`, "g");
 
 // Only LLMR's profile token is blanked, so the copy still holds any other secret the file held. It sits in LLMR's own folder, where no restore looks for a snapshot.
 export function saveRemovedConfigCopy(stateDir: string, file: string, content: string): string {

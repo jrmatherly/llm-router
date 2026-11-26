@@ -136,12 +136,38 @@ test("ensureOriginalSnapshot writes once and never refreshes", (t) => {
   assert.equal(readFileSync(`${file}.llmr-original`, "utf8"), "first");
 });
 
+test("ensureOriginalSnapshot keeps the bytes of a file that is not valid UTF-8, and leaves no temp file", (t) => {
+  const { dir, file } = setup(t);
+  const bytes = Buffer.from([0xff, 0xfe, 0x41, 0x0a]);
+  writeFileSync(file, bytes);
+  ensureOriginalSnapshot(file, bytes.toString("utf8"), undefined);
+  assert.deepEqual(readFileSync(`${file}.llmr-original`), bytes);
+  assert.deepEqual(readdirSync(dir).filter((name) => name.endsWith(".tmp")), []);
+});
+
+test("ensureOriginalSnapshot given no mode gives the original the file's own mode", posixOnly, (t) => {
+  const { file } = setup(t);
+  chmodSync(file, 0o600);
+  ensureOriginalSnapshot(file, "old");
+  assert.equal(statSync(`${file}.llmr-original`).mode & 0o777, 0o600);
+});
+
 test("ensureOriginalSnapshot records a missing file", (t) => {
   const { dir } = setup(t);
   const file = path.join(dir, "absent.json");
   ensureOriginalSnapshot(file, undefined, undefined);
   assert.ok(existsSync(`${file}.llmr-original-missing`));
   assert.ok(!existsSync(`${file}.llmr-original`));
+});
+
+test("ensureOriginalSnapshot writes the given text in place of a copy of the file", posixOnly, (t) => {
+  const { file } = setup(t);
+  writeFileSync(file, "raw\n");
+  ensureOriginalSnapshot(file, "raw\n", 0o600, "stripped\n");
+  assert.equal(readFileSync(`${file}.llmr-original`, "utf8"), "stripped\n");
+  ensureOriginalSnapshot(file, "raw\n", 0o600, "later\n");
+  assert.equal(readFileSync(`${file}.llmr-original`, "utf8"), "stripped\n");
+  assert.equal(statSync(`${file}.llmr-original`).mode & 0o777, 0o600);
 });
 
 test("saveRemovedConfigCopy keeps the newest three copies, private, with no profile token", posixOnly, (t) => {
@@ -164,6 +190,18 @@ test("saveRemovedConfigCopy keeps the newest three copies, private, with no prof
     assert.equal(content.split("\n").slice(1).join("\n"), 'token = "<removed LLMR profile token>"\nagain = "<removed LLMR profile token>"\nmine = "sk-user"\n');
   }
   assert.deepEqual(backupFiles(file), []);
+});
+
+test("two copies of one file in the same millisecond are both kept", posixOnly, (t) => {
+  const { dir, file } = setup(t);
+  const stateDir = path.join(dir, "state", "key");
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-21T00:00:00.000Z") });
+  const first = saveRemovedConfigCopy(stateDir, file, "one\n");
+  const second = saveRemovedConfigCopy(stateDir, file, "two\n");
+  assert.notEqual(first, second);
+  assert.equal(readFileSync(first, "utf8"), "one\n");
+  assert.equal(readFileSync(second, "utf8"), "two\n");
+  assert.deepEqual(backupFiles(path.join(stateDir, path.basename(file))), [first, second]);
 });
 
 test("backupContent writes the given text, not the file, as a private backup and prunes like any other", posixOnly, (t) => {
@@ -202,4 +240,13 @@ test("backupCurrentFile prunes a rewritten backup but keeps the oldest unmanaged
     backupCurrentFile(file, options);
   }
   assert.deepEqual(backupFiles(file).map((backup) => readFileSync(backup, "utf8")), ["user", "stripped", "stripped", "stripped", "stripped", "stripped"]);
+});
+
+test("three copies of one file in the same millisecond are all kept", posixOnly, (t) => {
+  const { dir, file } = setup(t);
+  const stateDir = path.join(dir, "state", "key");
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-21T00:00:00.000Z") });
+  const copies = ["one\n", "two\n", "three\n"].map((content) => saveRemovedConfigCopy(stateDir, file, content));
+  assert.equal(new Set(copies).size, 3);
+  assert.deepEqual(copies.map((copy) => readFileSync(copy, "utf8")), ["one\n", "two\n", "three\n"]);
 });

@@ -1,6 +1,7 @@
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME } from "@llmr/core/gateway/context-archive";
 import { TOOL_HUB_MCP_SERVER_NAME } from "@llmr/core/mcp/toolhub-config";
 import { tomlKey, tomlString, trimLeadingBlankLines } from "@llmr/core/profiles/apply-support";
+import { profileTokenPrefix } from "@llmr/core/profiles/backup-files";
 
 export const managedRootStart = "# BEGIN LLMR managed profile";
 export const managedRootEnd = "# END LLMR managed profile";
@@ -31,8 +32,42 @@ function isConfiguredModelComment({ kind, lines, table }: TomlStatement): boolea
   return kind === "comment" && table === "" && lines[0].trim().startsWith(managedConfiguredModelPrefix);
 }
 
+// LLMR writes no child table of its provider, so every `model_providers.<id>.<name>` table is the user's and would otherwise attach to LLMR's.
 export function removeCodexProviderTable(source: string, providerId: string): string {
-  return removeTomlTable(source, "model_providers", providerId);
+  const removed = providerTablePath(providerId);
+  return joinStatements(scanTomlStatements(source).filter(({ table }) => !isProviderTableOrChild(table, removed)));
+}
+
+function providerTablePath(providerId: string): string {
+  return `model_providers.${tomlKey(providerId)}`;
+}
+
+function isProviderTableOrChild(table: string, providerTable: string): boolean {
+  return table === providerTable || table.startsWith(`${providerTable}.`);
+}
+
+// A provider table is LLMR's by what only LLMR writes, its marker above the header or its profile token, never by its name, which a user can choose too.
+function providerTableOwners(statements: TomlStatement[], providerIds: string[]): Array<{ llmr: boolean; table: string }> {
+  const tables = providerIds.map(providerTablePath);
+  return statements.flatMap((statement, index) =>
+    statement.kind === "header" && tables.includes(statement.table) ? [{ llmr: isLlmrProviderTable(statements, index), table: statement.table }] : []);
+}
+
+function isLlmrProviderTable(statements: TomlStatement[], headerIndex: number): boolean {
+  let above = headerIndex - 1;
+  while (statements[above]?.kind === "blank") {
+    above -= 1;
+  }
+  if (statements[above]?.kind === "comment" && statements[above].lines[0].trim() === managedProviderStart) {
+    return true;
+  }
+  for (let at = headerIndex + 1; at < statements.length && statements[at].kind !== "header"; at += 1) {
+    const { key, value = "" } = statements[at];
+    if (key === "experimental_bearer_token" && ["\"", "'"].some((quote) => value.startsWith(`${quote}${profileTokenPrefix}`))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function removeCodexMcpServerTable(
@@ -145,6 +180,7 @@ export type CodexDisplacedConfig = {
   modelCatalogJson?: string;
   modelProvider?: string;
   profileTables?: string[];
+  providerTables?: string[];
   showAllSessions?: string;
 };
 
@@ -166,20 +202,31 @@ export function readCodexDisplacedConfig(snapshot: string, providerIds: string[]
     }
   }
   const headers = providerIds.map((providerId) => `profiles.${tomlKey(providerId)}`);
-  const profileTables: string[] = [];
+  const providerTablePaths = providerIds.map(providerTablePath);
+  const profileTables = displacedTables(statements, (table) => headers.includes(table));
+  const providerTables = displacedTables(statements, (table) => providerTablePaths.some((providerTable) => isProviderTableOrChild(table, providerTable)));
+  return {
+    ...displaced,
+    ...(profileTables.length > 0 ? { profileTables } : {}),
+    ...(providerTables.length > 0 ? { providerTables } : {})
+  };
+}
+
+function displacedTables(statements: TomlStatement[], isTaken: (table: string) => boolean): string[] {
+  const tables: string[] = [];
   let inTable = false;
   for (const { kind, lines, table } of statements) {
     if (kind === "header") {
-      inTable = headers.includes(table);
+      inTable = isTaken(table);
       if (inTable) {
-        profileTables.push("");
+        tables.push("");
       }
     }
     if (inTable) {
-      profileTables[profileTables.length - 1] += lines.join("");
+      tables[tables.length - 1] += lines.join("");
     }
   }
-  return profileTables.length > 0 ? { ...displaced, profileTables } : displaced;
+  return tables;
 }
 
 function statementText({ eol, lines }: TomlStatement): string {
@@ -199,13 +246,27 @@ export function stripManagedCodexConfigContent(
   const putBack = new Map<string, number>();
   const usersRootKeys = new Set<string>();
   const configuredModel = managedConfiguredModel(content);
-  const providerValues = providerIds.flatMap((providerId) => [tomlString(providerId), `'${providerId}'`]);
+  const statements = scanTomlStatements(content);
+  // A `model_provider` line beside the user's own provider table of that id names their table.
+  const usersTables = providerTableOwners(statements, providerIds).filter(({ llmr }) => !llmr).map(({ table }) => table);
+  const providerValues = providerIds
+    .filter((providerId) => !usersTables.includes(providerTablePath(providerId)))
+    .flatMap((providerId) => [tomlString(providerId), `'${providerId}'`]);
   const eol = displaced.eol ?? "\n";
   const kept: string[] = [];
+  const providerHeaders = providerIds.map(providerTablePath);
+  const mcpTables = [TOOL_HUB_MCP_SERVER_NAME, CONTEXT_ARCHIVE_MCP_SERVER_NAME].map((serverName) => `mcp_servers.${tomlKey(serverName)}`);
+  // One scan decides and removes: a line this strip takes out can be what left a value open, so a scan of the result can see other headers.
+  const inRemovedTable = removedTableStatements(statements, ({ table }, index) =>
+    (providerHeaders.includes(table) && isLlmrProviderTable(statements, index)) ||
+    mcpTables.some((mcpTable) => table === mcpTable || table.startsWith(`${mcpTable}.`)), isMarker);
   let inRootBlock = false;
-  for (const statement of scanTomlStatements(content)) {
+  for (const [index, statement] of statements.entries()) {
     if (isMarker(statement)) {
       inRootBlock = statement.lines[0].trim() === managedRootStart;
+      continue;
+    }
+    if (inRemovedTable[index]) {
       continue;
     }
     const inRoot = statement.table === "";
@@ -235,11 +296,7 @@ export function stripManagedCodexConfigContent(
       kept[index] = "";
     }
   }
-  const providerHeaders = providerIds.map((providerId) => `model_providers.${tomlKey(providerId)}`);
-  const mcpTables = [TOOL_HUB_MCP_SERVER_NAME, CONTEXT_ARCHIVE_MCP_SERVER_NAME].map((serverName) => `mcp_servers.${tomlKey(serverName)}`);
-  const next = removeTablesOutsideValues(kept.join(""), (header) =>
-    providerHeaders.includes(header) ||
-    mcpTables.some((table) => header === table || header.startsWith(`${table}.`)));
+  const next = kept.join("");
   if (next === content) {
     return undefined;
   }
@@ -248,7 +305,7 @@ export function stripManagedCodexConfigContent(
   const present = new Set(scanTomlStatements(stripped).filter(({ kind }) => kind === "header").map(({ table }) => table));
   // A table of that name written as an array of tables is there too, and a second definition would stop the file loading.
   const isPresent = (table: string) => present.has(table) || present.has(`[[${table}]]`);
-  const missingTables = (displaced.profileTables ?? []).filter((table) => !isPresent(scanTomlStatements(table)[0]?.table ?? ""));
+  const missingTables = [...(displaced.profileTables ?? []), ...(displaced.providerTables ?? [])].filter((table) => !isPresent(scanTomlStatements(table)[0]?.table ?? ""));
   return missingTables.length === 0
     ? stripped
     : [stripped.trimEnd(), ...missingTables.map((table) => table.trimEnd())].filter(Boolean).join(`${eol}${eol}`).concat(eol);
@@ -293,10 +350,9 @@ export function codexProfileTableBody(source: string, providerId: string): strin
 }
 
 export function isManagedCodexConfigContent(content: string, providerId: string): boolean {
-  const providerHeader = `model_providers.${tomlKey(providerId)}`;
-  return scanTomlStatements(content).some(({ kind, lines, table }) =>
-    (kind === "comment" && [managedRootStart, managedProviderStart].includes(lines[0].trim())) ||
-    (kind === "header" && table === providerHeader));
+  const statements = scanTomlStatements(content);
+  return statements.some(({ kind, lines }) => kind === "comment" && [managedRootStart, managedProviderStart].includes(lines[0].trim())) ||
+    providerTableOwners(statements, [providerId]).some(({ llmr }) => llmr);
 }
 
 export function collapseBlankStatements(content: string): string {
@@ -438,33 +494,56 @@ function lineEnd(line: string): TomlStatement["eol"] {
 }
 
 export function removeTablesOutsideValues(content: string, isRemoved: (header: string) => boolean): string {
-  const kept: string[] = [];
+  const statements = scanTomlStatements(content);
+  const removed = removedTableStatements(statements, ({ table }) => isRemoved(table));
+  return joinStatements(statements.filter((_, index) => !removed[index]));
+}
+
+// Whether each statement goes with a removed table. A statement `isSkipped` names, such as a marker the caller drops anyway, counts as absent.
+function removedTableStatements(
+  statements: TomlStatement[],
+  isRemovedHeader: (header: TomlStatement, index: number) => boolean,
+  isSkipped: (statement: TomlStatement) => boolean = () => false
+): boolean[] {
+  const removed = statements.map(() => false);
   let removing = false;
   // A comment block set off by a blank line belongs to the table below it, not to the one being removed.
-  let commentsAboveNextHeader: string[] = [];
+  let commentsAboveNextHeader: number[] = [];
   let blankSinceBody = false;
-  for (const { kind, lines, table } of scanTomlStatements(content)) {
+  const keepComments = () => {
+    for (const index of commentsAboveNextHeader) {
+      removed[index] = false;
+    }
+    commentsAboveNextHeader = [];
+  };
+  for (const [index, statement] of statements.entries()) {
+    if (isSkipped(statement)) {
+      continue;
+    }
+    const { kind } = statement;
     if (kind === "header") {
-      kept.push(...commentsAboveNextHeader);
-      commentsAboveNextHeader = [];
+      keepComments();
       blankSinceBody = false;
-      removing = isRemoved(table);
+      removing = isRemovedHeader(statement, index);
     }
     if (!removing) {
-      kept.push(...lines);
-    } else if (kind === "blank") {
+      continue;
+    }
+    removed[index] = true;
+    if (kind === "blank") {
       blankSinceBody = true;
       if (commentsAboveNextHeader.length > 0) {
-        commentsAboveNextHeader.push(...lines);
+        commentsAboveNextHeader.push(index);
       }
     } else if (kind === "comment" && blankSinceBody) {
-      commentsAboveNextHeader.push(...lines);
+      commentsAboveNextHeader.push(index);
     } else {
       commentsAboveNextHeader = [];
       blankSinceBody = false;
     }
   }
-  return [...kept, ...commentsAboveNextHeader].join("");
+  keepComments();
+  return removed;
 }
 
 // Returns where the line's comment starts, or its length.
