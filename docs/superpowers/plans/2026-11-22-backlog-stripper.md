@@ -1,5 +1,7 @@
 # Backlog: Codex Config Stripper Implementation Plan
 
+> **Status, 2026-11-25, batch 6: Tasks 2 and 3 audited on another model at `main` `024c3262` by building both from the text in a scratch worktree, and corrected (one Blocker, seven Corrections, all applied below and each marked "batch 6 audit").** The Blocker was that the marker remover as written left the blank lines around a marker, which made a second apply add a blank line and failed an existing CRLF test. With the corrections the audit's build passed typecheck, lint, the architecture suite and `npm run test:core` (2203 tests, 0 fail) after Task 3, and every mutation the steps name failed as intended. PR 156 changed no Codex function these tasks touch (read by the audit). Tasks 4 to 6 still owe their text audit. Not checked by that audit: Windows, a real Codex, and the LF case of the Blocker.
+
 > **Status, 2026-11-25: Task 1 audited on another model at `main` `fddb278a` with harness Task 3, and corrected (no Blocker, two Corrections in this plan). Tasks 2 to 6 still owe their text audit.** The audit built both tasks in order and reproduced every red and green this task's steps expect. What follows is the fix round's status of 2026-11-24. Every Blocker and Correction of the 2026-11-22 audit was checked at `main` `c491eb48`, most by a run of the real apply and restore paths with each Codex file parsed by Python `tomllib` (TOML 1.0) in place of `smol-toml`. Both Blockers and all seven Corrections hold, and the text below is corrected for each. The Codex functions this plan changes have not changed since the plan was drafted, so no task is already done (run, `git diff eb84a3ba..c491eb48` shows no change to `codex-config-strip.ts` and none to the Codex functions of `service.ts`). Nobody verified any planned code, since no fix was prototyped. Nor `smol-toml` itself, Windows, or Codex's own reading of any output. The changed text needs one audit on another model before batch 6 (the delivery order's rule for the scanner).
 
 > **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
@@ -321,13 +323,13 @@ export function removeTablesOutsideValues(content: string, isRemoved: (header: s
   - `header` and `key` are normalised paths: each segment is unquoted, then written with `tomlKey`, and segments are joined with `.`. White space around a dot and a trailing comment are dropped. `[ model_providers . "llm-router" ] # x` and `[model_providers.llm-router]` both give `model_providers.llm-router`. `[profiles."b.c"]` gives `profiles."b.c"`. `[[fallbacks]]` gives `fallbacks`, because no caller tells an array of tables from a table.
   - Unquoting drops the quotes of a basic or a literal string and decodes no escape. A key written with an escape, such as `"llm-router"`, is another key to LLM Router. That is a stated limit, not a case to test.
   - A table defined without a header, as `[model_providers]` with `llm-router = { ... }` under it or a root `model_providers.llm-router.name = ...`, has no header statement of that path. The scanner does not treat it as that table (C7 of the audit, "Open with the owner", question 2).
-  - `table` is the `header` of the nearest header statement above, `""` before the first.
+  - `table` is the `header` of the nearest header statement above, `""` before the first. A header with no readable path, such as `[a b]`, gives its own trimmed text as `table`, so the keys under it are never taken for root keys (batch 6 audit).
   - `value` is the first line's text after the `=`, with the comment cut where `scanTomlLine` says it starts, trimmed. For `model  =  "x"  # mine` it is `"x"`.
 - Changes: `CodexDisplacedConfig` gains `eol?: "\r\n"`, set only when the snapshot's first statement ends in CRLF. A file whose first line ends in LF and whose later lines end in CRLF gets LF put-backs, which TOML allows. A snapshot with line feeds reads as it does today, so the existing `deepEqual` assertions on it stand. Each root value is the whole statement's text without its last line end.
 - Changes: `removeTablesOutsideValues` hands its predicate the normalised path, not the header's text. `removeTomlTable`, `removeCodexProviderTable` and `removeCodexMcpServerTable` keep their signatures and become calls to it. A comment block set off by a blank line above the next header now survives all three, as it already does in the strip.
 - Every other export of the file keeps its signature.
 
-- [ ] **Step 1: Write the failing unit tests** in `codex-config-strip.test.mjs`.
+- [ ] **Step 1: Write the failing unit tests** in `codex-config-strip.test.mjs`. Add `scanTomlStatements` to the file's import from `@llmr/core/profiles/codex-config-strip.ts`. Put the tests at the end of the file, because they use `usersOriginal` and `afterCodexMcpAdd`, which are declared late (batch 6 audit).
 
 ```js
 test("joining the statements of a file gives the file back", () => {
@@ -385,8 +387,10 @@ Update one existing test to the new shape. In `removeTablesOutsideValues hands t
 
 - [ ] **Step 2: Run them and watch them fail.**
 
+The build bundles every core test, so a missing export stops it with `No matching export ... for import "scanTomlStatements"` and no test runs, the integration run of Step 3 included (batch 6 audit, run). First add `export function scanTomlStatements(): never { throw new Error("not built"); }` to `codex-config-strip.ts`. Step 5 replaces it.
+
 Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/profiles/codex-config-strip.test.js`
-Expected: FAIL. The first two fail on `scanTomlStatements` not being exported. The bracket-line test returns `["[profiles.llm-router]\nx = [\n"]`.
+Expected: FAIL. The first two fail with `not built`. The bracket-line test returns `["[profiles.llm-router]\nx = [\n"]`.
 
 - [ ] **Step 3: Remove `todo` from the S-1 test and watch it fail.** Run the single-file integration command with `--test-name-pattern="comes back whole after an edited restore"`. Expected: FAIL, as recorded in Task 1.
 
@@ -395,7 +399,7 @@ Expected: FAIL. The first two fail on `scanTomlStatements` not being exported. T
 - [ ] **Step 5: Add `TomlStatement` and `scanTomlStatements`** to `codex-config-strip.ts`, by the rules in the Interfaces block.
 
 - [ ] **Step 6: Rebuild every reader in the file on statements.** One rule each:
-  - `removeTablesOutsideValues`: a table is a header statement and every statement after it up to the next header. The comment rule it has today stays. `removeTomlTable` removes the table whose `header` is `` `${section}.${tomlKey(name)}` ``. `removeCodexMcpServerTable` removes `mcp_servers.<name>`, its four named child tables, and with `includeChildTables` every header that starts with `mcp_servers.<name>.`.
+  - `removeTablesOutsideValues`: a table is a header statement and every statement after it up to the next header. The comment rule it has today stays. `removeTomlTable` removes the table whose `header` is `` `${section}.${tomlKey(name)}` ``. `removeCodexMcpServerTable` removes `mcp_servers.<name>`, its three named child tables (`env`, `http_headers`, `env_http_headers`), and with `includeChildTables` every header that starts with `mcp_servers.<name>.`.
   - `readCodexDisplacedConfig`: a root value is the first statement with `table === ""` and that `key`. A profile table is every statement from a header equal to `` `profiles.${tomlKey(id)}` `` up to the next header.
   - `stripManagedCodexConfigContent`: it decides per statement. A removed assignment goes with every line of its value. A marker and the configured-model comment are comment statements, so text inside a value is never one. A put-back line ends with `displaced.eol ?? "\n"`. An appended table is joined with that line end too.
   - `isRootKeyInsideManagedBlock` and `managedConfiguredModel`: by statement kind and `key`. `managedConfiguredModel` reads only a comment statement in the root.
@@ -439,17 +443,18 @@ export function collapseBlankStatements(content: string): string;
 
   - `rootTomlAssignment` returns the whole root statement with that `key`, every line of its value, without leading white space and without its last line end.
   - `removeRootTomlKeys` removes every root statement whose `key` is in `keys`.
-  - `removeManagedMarkerLines` removes each comment statement whose trimmed text is in `codexManagedMarkers`. It takes no marker list: it had one caller and one list.
+  - `removeManagedMarkerLines` removes each comment statement whose trimmed text is in `codexManagedMarkers`, and every blank statement directly above or below one, as the regex does today (its `^\s*` and trailing `\s*` take those lines). Without the blank lines, an apply over a file LLM Router wrote adds a blank line above its provider block, and `a Codex config saved with Windows line endings after LLMR wrote it stays loadable through the next apply and a restore` fails at "four more applies leave the file as the first one did" (batch 6 audit, run). It takes no marker list: it had one caller and one list.
   - `removeManagedConfiguredModelLine` removes each root comment statement that starts with `managedConfiguredModelPrefix`.
-  - `codexProfileTableBody` replaces `legacyCodexProfileTableBody`. It takes the body statements of every table whose `header` is `` `profiles.${tomlKey(providerId)}` ``, in file order, splits their text into lines, drops each line's own line end, joins the lines with a line feed and trims the result, as `legacyCodexProfileTableBody` does today for one table. `removeTomlTable` already removes every one, so the mover and the remover take the same tables (S-5).
-  - `collapseBlankStatements` drops a blank statement when the two statements before it are blank too, so a run of blank lines outside a value is three at most. A line inside a value is never a blank statement, so a string keeps its lines. It replaces `.replace(/\n{4,}/g, "\n\n\n")` in `buildCodexConfigToml` and `buildSeparateCodexProfileToml`.
+  - `codexProfileTableBody` replaces `legacyCodexProfileTableBody`. It takes the body statements of every table whose `header` is `` `profiles.${tomlKey(providerId)}` ``, in file order, takes their lines, drops each line's own line end without a `split`, joins the lines with a line feed and trims the result, as `legacyCodexProfileTableBody` does today for one table. `removeTomlTable` already removes every one, so the mover and the remover take the same tables (S-5).
+  - `collapseBlankStatements` drops a blank statement when the two statements before it are blank too, so a run of blank lines outside a value is two at most, which is what the `\n{4,}` replace gives today. Unlike that replace it also shortens a run of CRLF blank lines and of lines that hold only spaces (batch 6 audit, inferred). A line inside a value is never a blank statement, so a string keeps its lines. It replaces `.replace(/\n{4,}/g, "\n\n\n")` in `buildCodexConfigToml` and `buildSeparateCodexProfileToml`.
   - `isManagedCodexConfigContent` keeps its rule and loses its patterns: true when a comment statement is `managedRootStart` or `managedProviderStart`, or a header statement is `` `model_providers.${tomlKey(providerId)}` ``. Task 4 changes the rule.
 - Changes in `service.ts`: `managedModelAssignment` keeps its rule. With the user's `model` statement whole from `rootTomlAssignment`, a moved table's `model` that spans lines is kept whole while the configured model is unchanged, as a one-line `model` is today. `removeCodexProfileTable` is deleted and its one caller calls `removeTomlTable(content, "profiles", providerId)`. `returnCodexProfileTable` tests for the header with statements and compares settings as statement texts. `codexProfileFileUsersContent` drops the first root statement with `key === "show_all_sessions"` and `value === "true"`, not a line that reads so.
-- After this task `service.ts` imports neither `scanTomlLines` nor `escapeRegExp`.
+- After this task `service.ts` imports neither `scanTomlLines` nor `escapeRegExp`, and it drops `tomlQuotedKey` and `codexManagedMarkers` from its imports, which lint otherwise reports as unused (batch 6 audit).
+- Four behaviours change with the move to statements and no test pins them. State each in the PR (batch 6 audit, read): `rootTomlAssignment` keeps white space at the end of the statement's last line; `managedConfiguredModel` reads its comment only in the root, where it read it anywhere; `returnCodexProfileTable` no longer counts a moved table with a multi-line value as left behind every time, so that case stops making a safety copy on each apply; `codexProfileFileUsersContent` drops only a root `show_all_sessions = true`, where the pattern dropped the first such line anywhere.
 
 - [ ] **Step 1: Write the failing tests.**
 
-In `codex-config-strip.test.mjs`:
+In `codex-config-strip.test.mjs`, add to the import `rootTomlAssignment`, `removeRootTomlKeys`, `removeManagedMarkerLines`, `removeManagedConfiguredModelLine`, `managedConfiguredModel`, `isManagedCodexConfigContent`, `codexProfileTableBody` and `collapseBlankStatements`, whichever the file does not import yet (batch 6 audit). Then:
 
 ```js
 test("rootTomlAssignment returns a root key with every line of its value, whether or not the key is quoted", () => {
@@ -484,9 +489,9 @@ test("collapseBlankStatements shortens a run of blank lines outside a value and 
 });
 ```
 
-In `profile-service.test.mjs`, rewrite the B1 test. Its name becomes `a moved profile table's own model setting that spans lines comes into the profile file whole`, and its `todo` goes. After the apply `countOf(profile, "model = [\n  \"not-a-model\",\n]")` is 1, `countOf(profile, "model =")` is 1, `keep = 1` is a line of it, and the parse check passes. It pins the rule of `managedModelAssignment`, which keeps the user's `model` while the configured model is unchanged.
+In `profile-service.test.mjs`, rewrite the B1 test. Its name becomes `a moved profile table's own model setting that spans lines comes into the profile file whole`, and its `todo` goes. After the apply `countOf(profile, "model = [\n  \"not-a-model\",\n]")` is 1, the number of its lines that match `/^model\s*=/` is 1 (a `countOf` of `model =` gives 2, because the configured-model comment holds that text: batch 6 audit, run), `keep = 1` is a line of it, and the parse check passes. It pins the rule of `managedModelAssignment`, which keeps the user's `model` while the configured model is unchanged.
 
-In `profile-service.test.mjs`, beside the C3 input:
+In `profile-service.test.mjs`, after the S-6 test, beside the marker test below:
 
 ```js
 test("a run of blank lines inside one of the user's strings is kept by an apply and an edited restore", ..., async () => {
@@ -516,7 +521,7 @@ test("a marker line inside one of the user's strings does not make their Codex c
 });
 ```
 
-- [ ] **Step 2: Remove `todo` from the S-2 and S-6 tests.** Run the unit file and, in the integration file, `--test-name-pattern="survives an apply and comes back whole|is the same key to LLM Router|does not make their Codex config|comes into the profile file whole|blank lines inside one of the user's strings"`. Expected: the unit tests fail on missing exports. The S-2 and S-6 tests fail as recorded in Task 1. The marker test fails at the `.llmr-original` read (the audit ran its input: no original is saved). The B1 test fails at its `countOf` of the array. The blank-line test fails at its first `countOf` (run on that input).
+- [ ] **Step 2: Remove `todo` from the S-2 and S-6 tests.** As in Task 2 Step 2, the build stops on a missing export, so first add one throwing stub per new export of the Interfaces block. Step 3 replaces them (batch 6 audit, run). Run the unit file and, in the integration file, `--test-name-pattern="survives an apply and comes back whole|is the same key to LLM Router|does not make their Codex config|comes into the profile file whole|blank lines inside one of the user's strings"`. Expected: the unit tests fail with `not built`. The S-2 and S-6 tests fail as recorded in Task 1. The marker test fails at the `.llmr-original` read (the audit ran its input: no original is saved). The B1 test fails at its `countOf` of the array. The blank-line test fails at its first `countOf` (run on that input).
 
 - [ ] **Step 3: Add the seven functions** to `codex-config-strip.ts` by the Interfaces block, and export them.
 
@@ -538,12 +543,12 @@ Run: `grep -n "scanTomlLines(" packages/core/src/profiles/codex-config-strip.ts`
 Expected: three lines, the definition and the calls in `scanTomlStatements` and `firstCodexTableIndex`.
 
 Run: `grep -nE "new RegExp|\.split\(|\.replace\(/|\.test\(|\.exec\(|\.match\(|/\^" packages/core/src/profiles/codex-config-strip.ts`
-Expected: only these survivors, each named in the PR. The split inside `scanTomlLines`. `firstCodexTableIndex`'s `/^\s*\[/gm` and its `exec` loop, which skip a match that starts inside a value. The strip's trailing `.replace(/\n{2,}$/, "\n")`, which acts on the end of the file only. `escapeRegExp`'s own `replace` if it still has a caller, and delete `escapeRegExp` if it has none. Any other hit is a line-pattern reader left behind.
+Expected: only these survivors, each named in the PR. The split inside `scanTomlLines`. `firstCodexTableIndex`'s `/^\s*\[/gm` and its `exec` loop, which skip a match that starts inside a value. The strip's trailing `.replace(/\n{2,}$/, "\n")`, which acts on the end of the file only. The scanner's own tests on one header's brackets or on one key segment, inside `scanTomlStatements` and its helpers: they read a single header or segment and never a file (batch 6 audit, where the build had three). `escapeRegExp`'s own `replace` if it still has a caller, and delete `escapeRegExp` if it has none (the audit's build left it none). Any other hit is a line-pattern reader left behind.
 
 Run: `grep -nF '\n{4,}' packages/core/src/profiles/service.ts`
 Expected: no output. Then read `returnCodexProfileTable` and `codexProfileFileUsersContent` once more: neither holds a regex or a split. `trimLeadingBlankLines` in `apply-support.ts` stays: it acts on the start of the text only, where no value can be open.
 
-- [ ] **Step 8: Break it three times.** Make `rootTomlAssignment` return only the statement's first line and confirm the S-2 test and the B1 test fail at the parse check. Make `isManagedCodexConfigContent` test with `content.includes(managedRootStart)` and confirm the marker test fails. Put the `\n{4,}` replace back in `buildCodexConfigToml` and confirm the blank-line test fails. Put all three back.
+- [ ] **Step 8: Break it three times.** Make `rootTomlAssignment` return only the statement's first line and confirm the S-2 test fails at the parse check and the B1 test at its `countOf` of the array. Make `isManagedCodexConfigContent` test with `content.includes(managedRootStart)` and confirm the marker test fails. Put the `\n{4,}` replace back in `buildCodexConfigToml` and confirm the blank-line test fails. Put all three back.
 
 - [ ] **Step 9: Run the gates and commit.** `npm run typecheck`, `npm run lint`, `npm run test:architecture`. Then `fix(profiles): write and restore a Codex config by statement, with no line-pattern reader left`
 
