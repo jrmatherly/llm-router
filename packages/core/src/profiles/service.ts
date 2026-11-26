@@ -275,9 +275,11 @@ async function applyProfileConfigNow(
   const allProfiles = profileEntries(config);
   const profiles = allProfiles.filter((profile) => !excludedAgents.has(profile.agent));
   const released = await releaseDisabledProfileKeys(config, allProfiles);
-  // A profile whose key was kept may still be pointed at by its agent, so its wrapper and helper files stay too.
+  // A profile whose key was kept may still be pointed at by its agent, so its wrapper and helper files stay too,
+  // and the passes below leave it to the release, which already restored and reported it.
   const keyIds = new Set(config.APIKEYS.map((apiKey) => apiKey.id));
-  const holders = allProfiles.map((profile) => !profile.enabled && keyIds.has(profileApiKeyId(profile)) ? { ...profile, enabled: true } : profile);
+  const keptKey = (profile: ProfileConfig) => !profile.enabled && keyIds.has(profileApiKeyId(profile));
+  const holders = allProfiles.map((profile) => keptKey(profile) ? { ...profile, enabled: true } : profile);
   cleanupInactiveOpenCodeWrappers(holders);
   cleanupInactiveKiloWrappers(holders);
   cleanupInactiveClaudeCodeGeneratedFiles(holders);
@@ -301,7 +303,7 @@ async function applyProfileConfigNow(
 
   if (!hasAvailableGatewayModels(config)) {
     const managedCleanupResult = cleanupManagedClaudeCodeToolHubArtifacts(profiles, { includeActive: true });
-    result.clients.push(...profiles.map((profile) => {
+    result.clients.push(...profiles.filter((profile) => !keptKey(profile)).map((profile) => {
       const cleanupResult = profile.agent === "claude-code"
         ? cleanupClaudeCodeUnavailableProfileArtifacts(profile)
         : { ok: true };
@@ -327,7 +329,7 @@ async function applyProfileConfigNow(
 
   const profileApiKeys = await ensureProfileApiKeys(config, profiles);
 
-  for (const profile of profiles) {
+  for (const profile of profiles.filter((item) => !keptKey(item))) {
     const token = profileApiKeys.get(profile.id) ?? fallbackClientToken;
     result.clients.push(
       profile.agent === "claude-code"

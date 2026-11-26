@@ -6075,7 +6075,30 @@ test("an apply keeps the helper of a Claude Code profile whose key it kept", { s
   });
 });
 
-test("a save leaves a file another enabled profile of the agent still manages", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("an apply keeps the helper of a Claude Code profile whose key it kept while another profile stays on, with or without models", { skip: modeTestSkip }, async () => {
+  for (const withoutModels of [false, true]) {
+    await withAppliedDefaultProfiles(["default-claude-code", "default-codex"], async ({ claudeDir, config }) => {
+      const token = (await loadPersistedApiKeys()).find((key) => key.id === "profile:default-claude-code").key;
+      const helper = JSON.parse(readFileSync(path.join(claudeDir, "settings.json"), "utf8")).apiKeyHelper.replace(/^"|"$/g, "");
+      chmodSync(claudeDir, 0o500);
+      try {
+        if (withoutModels) {
+          config.Providers[0].models = [];
+        }
+        await switchOff(config, "default-claude-code");
+        const result = await applyProfileConfig(config);
+        const status = result.clients.find((item) => item.client === "claude-code");
+        assert.match(status?.message ?? "", /kept this profile's API key working/, `${withoutModels}: ${JSON.stringify(result.clients)}`);
+        assert.equal(await hasKey("profile:default-claude-code"), true, String(withoutModels));
+        assert.ok(existsSync(helper) && readFileSync(helper, "utf8").includes(token), `without models ${withoutModels}: the settings file still names a helper that answers with the kept key`);
+      } finally {
+        chmodSync(claudeDir, 0o700);
+      }
+    });
+  }
+});
+
+test("a save leaves a file another enabled profile of the agent still manages",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexToken, config }) => {
     const original = config.profile.profiles.find((profile) => profile.id === "default-codex");
     config.profile.profiles.push({ ...original, id: "second-codex", name: "Second" });
