@@ -4093,13 +4093,14 @@ async function withAppliedDefaultProfiles(profileIds, run, beforeApply, options 
     for (const profileId of profileIds.slice(1)) {
       config.profile.profiles.find((profile) => profile.id === profileId).enabled = true;
     }
+    options.configure?.(config);
     beforeApply?.({ claudeDir, codexDir });
     await applyProfileConfig(config);
     await replacePersistedAppConfig(config);
     const tokens = Object.fromEntries((await loadPersistedApiKeys()).map((apiKey) => [apiKey.id, apiKey.key]));
     const codexConfigFile = path.join(codexDir, "config.toml");
     const codexToken = tokens["profile:default-codex"];
-    if (profileIds.includes("default-codex")) {
+    if (profileIds.includes("default-codex") && options.applied !== false) {
       assert.match(codexToken ?? "", /^llmr-profile-/);
       assert.ok(readFileSync(codexConfigFile, "utf8").includes(codexToken), "the applied config.toml holds the profile's token");
       assertCodexFilesParse(codexDir);
@@ -5340,6 +5341,32 @@ test("a profile table added again and again does not push out the copy of the us
       assert.equal(copies.length, 1, table);
       assert.match(readFileSync(copies[0], "utf8"), /# S0 mine/, table);
     });
+  }
+});
+
+const withCodexProviderId = (providerId) => (config) => {
+  config.profile.profiles.find((profile) => profile.id === "default-codex").providerId = providerId;
+};
+
+test("a Codex profile whose provider id Codex reserves is refused, and the user's config is not touched", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const providerId of ["openai", "ollama", "lmstudio", "gcp", "amazon-bedrock", "amazon-bedrock-runtime"]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+      const status = await applyProfileConfig(config);
+      const refused = status.clients.find((client) => client.client === "codex");
+      assert.equal(refused?.ok, false, providerId);
+      assert.ok(refused.message.includes(providerId), providerId);
+      assert.ok(refused.message.includes(codexConfigFile), providerId);
+      assert.equal(readFileSync(codexConfigFile, "utf8"), userCodexOriginal, providerId);
+      assert.deepEqual(readdirSync(codexDir), ["config.toml"], providerId);
+    }, plantCodexOriginal(), { applied: false, configure: withCodexProviderId(providerId) });
+  }
+});
+
+test("a Codex profile whose provider id only resembles a reserved one is applied", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const providerId of ["openai-custom", "OpenAI"]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile }) => {
+      assert.equal(readFileSync(codexConfigFile, "utf8").includes(`[model_providers.${providerId}]`), true, providerId);
+    }, plantCodexOriginal(), { configure: withCodexProviderId(providerId) });
   }
 });
 

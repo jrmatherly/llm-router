@@ -728,10 +728,13 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
     }
     return restoreDisabledCodexProfile(profile, configFile, config.profile.profiles);
   }
+  const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
+  if (profile.agent === "codex" && reservedCodexProviderIds.includes(providerId)) {
+    return refusedProfileStatus(profile, configFile, `Codex does not start with a config that defines its built-in provider "${providerId}". Choose another provider id for this profile. LLMR left ${configFile} unchanged.`);
+  }
 
   try {
     const endpoint = `${gatewayEndpoint(config).replace(/\/+$/g, "")}/v1`;
-    const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
     const providerName = profile.providerName?.trim() || "LLM Router";
     const model = normalizeClientModel(profile.model) || defaultClientModel(config);
     const source = existsSync(configFile) ? readFileSync(configFile, "utf8") : "";
@@ -4205,6 +4208,9 @@ function toolHubResolverModel(config: AppConfig): string {
 function normalizeUrlForMatch(value: string | undefined): string {
   return (value || "").trim().replace(/\/+$/g, "");
 }
+
+// Codex's RESERVED_MODEL_PROVIDER_IDS, read at rust-v0.172.0.
+const reservedCodexProviderIds = ["openai", "ollama", "lmstudio", "gcp", "amazon-bedrock", "amazon-bedrock-runtime"];
 
 function sanitizeCodexProviderId(value: string): string {
   return value.trim().replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
