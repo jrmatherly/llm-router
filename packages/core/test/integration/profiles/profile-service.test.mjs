@@ -1378,7 +1378,8 @@ test("profile service restores between-session user edits after many takeover re
       await applyProfileFixture(config);
     }
     const backups = readdirSync(root).filter((name) => name.startsWith("opencode.json.llmr-backup-"));
-    assert.equal(backups.length, 6);
+    // Only the first apply over the user's edit backs it up; each later one replaces a file LLMR wrote.
+    assert.equal(backups.length, 1);
 
     config.profile.enabled = true;
     config.profile.profiles = [{ ...profile, enabled: false }];
@@ -3605,22 +3606,23 @@ test("profile service restores global agent configs on exit", () => {
         CLAUDE_AGENT_API_BASE_URL: "http://127.0.0.1:3456"
       }
     })}\n`);
-    // Without a record that says the file is as LLMR wrote it, a Codex restore strips the file in place.
-    const writeManagedCodex = () => {
-      const managed = "# BEGIN LLMR managed profile\nmodel = \"test\"\n# END LLMR managed profile\n";
-      writeFileSync(codexFile, managed);
-      mkdirSync(path.dirname(codexWrittenRecordFile(codexFile)), { recursive: true });
-      writeFileSync(codexWrittenRecordFile(codexFile), JSON.stringify({ edited: false, file: codexRecordedPath(codexFile), sha256: createHash("sha256").update(managed).digest("hex") }));
+    // Without a record that says the file is as LLMR wrote it, a Codex, OpenCode or Kilo restore strips the file in place.
+    const writeManaged = (file, managed) => {
+      writeFileSync(file, managed);
+      mkdirSync(path.dirname(codexWrittenRecordFile(file)), { recursive: true });
+      writeFileSync(codexWrittenRecordFile(file), JSON.stringify({ edited: false, file: codexRecordedPath(file), sha256: createHash("sha256").update(managed).digest("hex") }));
     };
+    const writeManagedCodex = () => writeManaged(codexFile, "# BEGIN LLMR managed profile\nmodel = \"test\"\n# END LLMR managed profile\n");
+    const writeManagedOpenCode = (content) => writeManaged(openCodeFile, `${JSON.stringify(content)}\n`);
     writeManagedCodex();
-    writeFileSync(openCodeFile, `${JSON.stringify({
+    writeManagedOpenCode({
       model: "llm-router/test",
       provider: {
         "llm-router": {
           options: { headers: { "x-llmr-client": "opencode" } }
         }
       }
-    })}\n`);
+    });
     for (const file of [zcodeFile, zcodeV2File]) {
       writeFileSync(file, `${JSON.stringify({ provider: { "llm-router": {} } })}\n`);
     }
@@ -3652,9 +3654,9 @@ test("profile service restores global agent configs on exit", () => {
     }
 
     writeManagedCodex();
-    writeFileSync(openCodeFile, `${JSON.stringify({
+    writeManagedOpenCode({
       provider: { "llm-router": { options: { headers: { "x-llmr-client": "opencode" } } } }
-    })}\n`);
+    });
     for (const file of [zcodeFile, zcodeV2File]) {
       writeFileSync(file, `${JSON.stringify({ provider: { "llm-router": {} } })}\n`);
     }
@@ -5535,7 +5537,7 @@ test("restoring original settings revokes the profile's key", { skip: !process.e
   });
 });
 
-test("restoring an OpenCode config LLMR created still keeps a backup of it", () => {
+test("restoring an OpenCode config LLM Router created keeps no backup of it", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-opencode-no-original-"));
   try {
     const openCodeFile = path.join(root, "opencode.jsonc");
@@ -5547,10 +5549,208 @@ test("restoring an OpenCode config LLMR created still keeps a backup of it", () 
     }], { manageMarker: false });
     assert.equal(statuses.every((status) => status.ok), true);
     assert.equal(existsSync(openCodeFile), false);
-    assert.equal(readdirSync(root).filter((name) => name.includes(".llmr-backup-")).length, 1);
+    assert.equal(readdirSync(root).filter((name) => name.includes(".llmr-backup-")).length, 0);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
+});
+
+const providerJsonKey = "llmr-profile-TEST";
+const providerJsonMcp = { mine: { command: ["my-server"], type: "local" } };
+const userOpenCodeOriginal = "// my config\n{\n  \"model\": \"other/x\", // mine\n  \"theme\": \"dark\"\n}\n";
+
+function providerJsonConfig(profiles) {
+  const config = createDefaultAppConfig();
+  config.Providers = [{ api_base_url: "https://example.test/v1", api_key: "provider-key", models: ["model"], name: "Provider" }];
+  config.profile.enabled = true;
+  config.profile.profiles = profiles;
+  return config;
+}
+
+function providerJsonProfile(agent, file, extra = {}) {
+  return { agent, configFile: file, enabled: true, env: {}, id: agent, model: "test", name: agent, providerId: "llm-router", scope: "global", surface: "auto", ...extra };
+}
+
+async function withProviderJsonRoot(run) {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-provider-json-"));
+  try {
+    await run(root);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+    rmSync(path.join(CONFIGDIR, "agent-config-state"), { force: true, recursive: true });
+    rmSync(path.join(CONFIGDIR, "global-profile-takeover.json"), { force: true });
+    await updatePersistedApiKeys(() => []);
+  }
+}
+
+// One global OpenCode or Kilo profile on a config in its own temporary folder, applied and restored with a fixed key.
+function withProviderJsonProfile(run, { agent = "opencode", original } = {}) {
+  return withProviderJsonRoot(async (root) => {
+    const file = path.join(root, `${agent}.jsonc`);
+    if (original !== undefined) {
+      writeFileSync(file, original);
+    }
+    const profile = providerJsonProfile(agent, file);
+    const config = providerJsonConfig([profile]);
+    const apply = (changes = {}) => applyProfileRuntimeConfig(config, { ...profile, ...changes }, providerJsonKey);
+    await run({ apply, file, restore: () => apply({ enabled: false }), root });
+  });
+}
+
+function addProviderJsonMcp(file) {
+  writeFileSync(file, `${JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), mcp: providerJsonMcp }, null, 2)}\n`);
+}
+
+const userOpenCodeEdited = { $schema: "https://opencode.ai/config.json", mcp: providerJsonMcp, model: "other/x", theme: "dark" };
+
+for (const agent of ["opencode", "kilo"]) {
+  const name = agent === "kilo" ? "a Kilo config" : "an OpenCode config LLM Router created";
+  test(`${name} keeps what the user added to it`, { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+    await withProviderJsonProfile(async ({ apply, file, restore, root }) => {
+      apply();
+      addProviderJsonMcp(file);
+      assert.equal(restore().ok, true);
+      const restored = JSON.parse(readFileSync(file, "utf8"));
+      assert.deepEqual(restored.mcp, providerJsonMcp);
+      assert.equal(Object.hasOwn(restored, "model"), false);
+      assert.equal(Object.hasOwn(restored, "small_model"), false);
+      assert.equal(Object.hasOwn(restored.provider ?? {}, "llm-router"), false);
+      assert.deepEqual(filesHolding(root, providerJsonKey), []);
+      assert.deepEqual(readdirSync(root).filter((entry) => entry.includes(".llmr-")), []);
+    }, { agent });
+  });
+}
+
+test("an OpenCode config LLM Router created and nobody edited is removed", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, restore, root }) => {
+    apply();
+    restore();
+    assert.deepEqual(readdirSync(root), []);
+  });
+});
+
+test("an OpenCode config nobody edited comes back byte for byte, comments included", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, restore }) => {
+    apply();
+    restore();
+    assert.equal(readFileSync(file, "utf8"), userOpenCodeOriginal);
+  }, { original: userOpenCodeOriginal });
+});
+
+test("an OpenCode config nobody edited comes back byte for byte after a second apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, restore }) => {
+    apply();
+    apply({ model: "other-model" });
+    restore();
+    assert.equal(readFileSync(file, "utf8"), userOpenCodeOriginal);
+  }, { original: userOpenCodeOriginal });
+});
+
+test("an OpenCode config the user edited keeps the edit and gets their own model back", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, restore }) => {
+    apply();
+    addProviderJsonMcp(file);
+    restore();
+    assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), userOpenCodeEdited);
+    const copies = safetyCopies(file);
+    assert.equal(copies.length, 1);
+    assert.equal(readFileSync(copies[0], "utf8").includes(providerJsonKey), false);
+  }, { original: userOpenCodeOriginal });
+});
+
+test("no backup of an OpenCode config holds the key after a second apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, root }) => {
+    apply();
+    apply({ model: "other-model" });
+    assert.deepEqual(filesHolding(root, providerJsonKey), [file]);
+  });
+});
+
+test("two restores in a row change nothing the second time", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, restore }) => {
+    apply();
+    addProviderJsonMcp(file);
+    restore();
+    const once = readFileSync(file, "utf8");
+    const copies = safetyCopies(file).length;
+    restore();
+    assert.equal(readFileSync(file, "utf8"), once);
+    assert.equal(safetyCopies(file).length, copies);
+  });
+});
+
+test("an OpenCode config the user deleted during the takeover comes back from the backup an apply wrote, with their edit and no key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, restore, root }) => {
+    apply();
+    addProviderJsonMcp(file);
+    apply({ model: "other-model" });
+    rmSync(file);
+    restore();
+    assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), userOpenCodeEdited);
+    assert.deepEqual(filesHolding(root, providerJsonKey), []);
+  }, { original: userOpenCodeOriginal });
+});
+
+test("an OpenCode config LLM Router created and the user deleted leaves a safety copy of the newest backup that holds their settings", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, restore, root }) => {
+    apply();
+    const applied = readFileSync(file, "utf8");
+    writeFileSync(`${file}.llmr-backup-2026-01-01T00-00-00-000Z`, `${JSON.stringify({ ...JSON.parse(applied), mcp: providerJsonMcp }, null, 2)}\n`);
+    writeFileSync(`${file}.llmr-backup-2026-01-02T00-00-00-000Z`, applied);
+    rmSync(file);
+    restore();
+    assert.deepEqual(readdirSync(root), []);
+    const copies = safetyCopies(file);
+    assert.equal(copies.length, 1);
+    const copy = readFileSync(copies[0], "utf8");
+    assert.match(copy, /my-server/);
+    assert.equal(copy.includes(providerJsonKey), false);
+  });
+});
+
+test("a restore after the profile's provider id changed still removes LLM Router's provider and its key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonRoot(async (root) => {
+    const file = path.join(root, "opencode.jsonc");
+    const profile = providerJsonProfile("opencode", file, { providerId: "a" });
+    const config = providerJsonConfig([profile]);
+    applyProfileRuntimeConfig(config, profile, providerJsonKey);
+    const status = applyProfileRuntimeConfig(config, { ...profile, enabled: false, providerId: "b" }, providerJsonKey);
+    assert.equal(status.ok, true, status.message);
+    assert.deepEqual(filesHolding(root, providerJsonKey), []);
+  });
+});
+
+test("a provider of the user's own under LLM Router's id comes back after an edited restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const own = { name: "Mine", options: { baseURL: "https://example.test/v1" } };
+  await withProviderJsonProfile(async ({ apply, file, restore }) => {
+    apply();
+    addProviderJsonMcp(file);
+    restore();
+    const restored = JSON.parse(readFileSync(file, "utf8"));
+    assert.deepEqual(restored.provider, { "llm-router": own });
+    assert.equal(restored.model, "llm-router/mine");
+    assert.deepEqual(restored.mcp, providerJsonMcp);
+  }, { original: `${JSON.stringify({ model: "llm-router/mine", provider: { "llm-router": own } }, null, 2)}\n` });
+});
+
+test("an OpenCode config LLM Router created and the user deleted after a second apply stays deleted", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, restore, root }) => {
+    apply();
+    addProviderJsonMcp(file);
+    apply({ model: "other-model" });
+    rmSync(file);
+    restore();
+    assert.deepEqual(readdirSync(root), []);
+  });
+});
+
+test("an apply keeps no backup of an edited OpenCode config that holds nothing of the user's", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, root }) => {
+    apply();
+    writeFileSync(file, `${JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), model: "llm-router/other" }, null, 2)}\n`);
+    apply({ model: "other-model" });
+    assert.deepEqual(readdirSync(root).filter((entry) => entry.includes(".llmr-backup-")), []);
+  }, { original: "{}\n" });
 });
 
 test("restoring a Codex config keeps a table Codex wrote inside LLMR's provider block", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {

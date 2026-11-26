@@ -30,14 +30,12 @@ import { codexModelCatalogJson } from "@llmr/core/agents/codex/model-catalog";
 import { applyGrokProfile, grokWrapperPath } from "@llmr/core/agents/grok/profile-config";
 import { applyKimiProfile, kimiWrapperPath } from "@llmr/core/agents/kimi/profile-config";
 import {
-  isManagedKiloConfigContent,
-  kiloProviderId,
+  kiloDefaultSchema,
   resolveKiloConfigFile,
   writeKiloGatewayConfig
 } from "@llmr/core/agents/kilo/profile-config";
 import {
-  isManagedOpenCodeConfigContent,
-  openCodeProviderId,
+  openCodeDefaultSchema,
   resolveOpenCodeConfigFile,
   writeOpenCodeGatewayConfig
 } from "@llmr/core/agents/opencode/profile-config";
@@ -82,6 +80,7 @@ import {
   scanTomlStatements,
   stripManagedCodexConfigContent
 } from "@llmr/core/profiles/codex-config-strip";
+import { isEmptyProviderJsonContent, isManagedProviderJsonContent, type ProviderJsonClient, stripManagedProviderJsonContent } from "@llmr/core/profiles/json-config-strip";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
 import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig, syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
 import { probeExistingLlmrGateway } from "@llmr/core/gateway/existing-gateway-probe";
@@ -870,18 +869,15 @@ function applyPiProfile(config: AppConfig, profile: ProfileConfig, token: string
 
 function applyOpenCodeProfile(config: AppConfig, profile: ProfileConfig, token: string, appliedAt: string): ProfileClientApplyStatus {
   const configFile = resolveOpenCodeConfigFile(CONFIGDIR, profile);
-  const providerId = openCodeProviderId(profile);
   if (!profile.enabled) {
-    return restoreDisabledGlobalProfile(
-      profile,
-      configFile,
-      "OpenCode profile is disabled.",
-      { isManagedContent: (content) => isManagedOpenCodeConfigContent(content, providerId) }
-    );
+    return disabledProfileStatus(profile, config.profile.profiles);
   }
 
   try {
-    const configResult = writeOpenCodeGatewayConfig(CONFIGDIR, config, profile, token, { backup: true });
+    const configResult = writeOpenCodeGatewayConfig(CONFIGDIR, config, profile, token, {
+      backup: true,
+      write: isGlobalProfile(profile) ? writeGlobalProviderJsonConfig("opencode") : undefined
+    });
     const wrapperResult = writeOpenCodeWrapper(profile, configResult.file, configResult.inlineConfig);
     return {
       appliedAt,
@@ -907,18 +903,15 @@ function applyOpenCodeProfile(config: AppConfig, profile: ProfileConfig, token: 
 
 function applyKiloProfile(config: AppConfig, profile: ProfileConfig, token: string, appliedAt: string): ProfileClientApplyStatus {
   const configFile = resolveKiloConfigFile(CONFIGDIR, profile);
-  const providerId = kiloProviderId(profile);
   if (!profile.enabled) {
-    return restoreDisabledGlobalProfile(
-      profile,
-      configFile,
-      "Kilo CLI profile is disabled.",
-      { isManagedContent: (content) => isManagedKiloConfigContent(content, providerId) }
-    );
+    return disabledProfileStatus(profile, config.profile.profiles);
   }
 
   try {
-    const configResult = writeKiloGatewayConfig(CONFIGDIR, config, profile, token, { backup: true });
+    const configResult = writeKiloGatewayConfig(CONFIGDIR, config, profile, token, {
+      backup: true,
+      write: isGlobalProfile(profile) ? writeGlobalProviderJsonConfig("kilo") : undefined
+    });
     const wrapperResult = writeKiloWrapper(profile, configResult.file, configResult.inlineConfig);
     return {
       appliedAt,
@@ -1555,6 +1548,35 @@ function writeGlobalCodexConfig(file: string, content: string, providerId: strin
   );
 }
 
+function writeGlobalProviderJsonConfig(client: ProviderJsonClient): (file: string, content: string) => { backupFile?: string; changed: boolean } {
+  return (file, content) => {
+    const matchers = providerJsonManagedContent(client);
+    const source = existsSync(file) ? readFileSync(file, "utf8") : undefined;
+    const result = writeGlobalManagedConfig(
+      file,
+      content,
+      matchers,
+      (previous, snapshot) => stripManagedProviderJsonContent(previous, { client }, snapshot),
+      (previous) => isAsWritten(readCodexWrittenRecord(file), previous)
+    );
+    writeConfigRecord(file, source, source !== undefined && matchers.isManagedContent(source));
+    return result;
+  };
+}
+
+// After the file, unlike Codex's: a crash between the two leaves the old record, which no longer matches the file, so the next restore treats it as edited.
+function writeConfigRecord(file: string, source: string | undefined, sourceManaged: boolean): void {
+  // A record beside a file with nothing of LLMR's in it is left over from an earlier takeover.
+  const previous = sourceManaged ? readCodexWrittenRecord(file) : undefined;
+  const recordFile = codexWrittenRecordFile(file);
+  mkdirSync(path.dirname(recordFile), { recursive: true });
+  writeFileAtomic(recordFile, `${JSON.stringify({
+    edited: previous ? previous.edited || sha256Hex(source ?? "") !== previous.sha256 : sourceManaged,
+    file: normalizedFileKey(file),
+    sha256: sha256Hex(readFileSync(file, "utf8"))
+  } satisfies CodexWrittenRecord, null, 2)}\n`, { mode: privateFileMode });
+}
+
 function writeGlobalManagedConfig(
   file: string,
   content: string,
@@ -1593,7 +1615,7 @@ function writeGlobalManagedConfig(
         ? stripPrevious(previous, snapshot)
         : matchers.stripManagedContent?.(previous) ?? previous;
       // A backup equal to the snapshot a restore would choose adds nothing.
-      if (kept !== undefined && kept !== snapshot && !(managed && isEmptyConfigContent(kept))) {
+      if (kept !== undefined && kept !== snapshot && !(managed && (matchers.isEmptyContent ?? isEmptyConfigContent)(kept))) {
         backupFile = backupContent(file, kept, { isManagedContent: matchers.isManagedContent, mode: privateFileMode });
       }
     }
@@ -3313,6 +3335,7 @@ type RestoreFileResult = {
 
 type RestoreManagedContentMatchers = {
   contentForBackup?: (content: string) => string;
+  isEmptyContent?: (content: string) => boolean;
   isManagedContent: (content: string) => boolean;
   onReleased?: () => void;
   // Set where a live file that changed since LLMR wrote it is stripped in place, and the snapshot only supplies what the apply displaced. Such a file's token never goes into a backup.
@@ -3493,22 +3516,13 @@ function disabledProfileStatus(profile: ProfileConfig, others: ProfileConfig[] =
   if (profile.agent === "pi") {
     return disabledPiStatus(profile);
   }
-  if (profile.agent === "opencode") {
-    const providerId = openCodeProviderId(profile);
+  if (profile.agent === "opencode" || profile.agent === "kilo") {
     return restoreDisabledGlobalProfile(
       profile,
-      resolveOpenCodeConfigFile(CONFIGDIR, profile),
-      "OpenCode profile is disabled.",
-      { isManagedContent: (content) => isManagedOpenCodeConfigContent(content, providerId) }
-    );
-  }
-  if (profile.agent === "kilo") {
-    const providerId = kiloProviderId(profile);
-    return restoreDisabledGlobalProfile(
-      profile,
-      resolveKiloConfigFile(CONFIGDIR, profile),
-      "Kilo CLI profile is disabled.",
-      { isManagedContent: (content) => isManagedKiloConfigContent(content, providerId) }
+      profilePath(profile),
+      `${codexCompatibleClientName(profile.agent)} profile is disabled.`,
+      providerJsonManagedContent(profile.agent),
+      staysDisabled
     );
   }
   const clientName = codexCompatibleClientName(profile.agent);
@@ -3613,15 +3627,8 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
   }
   const openCodeProfiles = profiles.filter((profile) => profile.agent === "opencode");
   if (openCodeProfiles.length > 0 && !openCodeProfiles.some((profile) => profile.enabled && isGlobalProfile(profile))) {
-    const providerIds = [...new Set([
-      "llm-router",
-      ...openCodeProfiles.map(openCodeProviderId)
-    ])];
     for (const file of uniqueResolvedPaths(openCodeProfiles.map(globalOpenCodeConfigCandidate))) {
-      const restoreResult = restoreGlobalConfigFile(file, {
-        isManagedContent: (content) => providerIds.some((providerId) => isManagedOpenCodeConfigContent(content, providerId)),
-        mode: privateFileMode
-      });
+      const restoreResult = restoreGlobalConfigFile(file, { ...providerJsonManagedContent("opencode"), mode: privateFileMode });
       if (restoreResult.changed || restoreResult.missingBackup) {
         statuses.push(inactiveGlobalCleanupStatus("opencode", file, restoreResult));
       }
@@ -3629,15 +3636,8 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
   }
   const kiloProfiles = profiles.filter((profile) => profile.agent === "kilo");
   if (kiloProfiles.length > 0 && !kiloProfiles.some((profile) => profile.enabled && isGlobalProfile(profile))) {
-    const providerIds = [...new Set([
-      "llm-router",
-      ...kiloProfiles.map(kiloProviderId)
-    ])];
     for (const file of uniqueResolvedPaths(kiloProfiles.map(globalKiloConfigCandidate))) {
-      const restoreResult = restoreGlobalConfigFile(file, {
-        isManagedContent: (content) => providerIds.some((providerId) => isManagedKiloConfigContent(content, providerId)),
-        mode: privateFileMode
-      });
+      const restoreResult = restoreGlobalConfigFile(file, { ...providerJsonManagedContent("kilo"), mode: privateFileMode });
       if (restoreResult.changed || restoreResult.missingBackup) {
         statuses.push(inactiveGlobalCleanupStatus("kilo", file, restoreResult));
       }
@@ -4032,7 +4032,7 @@ function disabledRestoreStatus(
 
 // A restore asks for no confirmation, so its message says what happened to the file and, when the profile stays disabled, how to undo it. Agents without a stripper keep the older wording.
 function restoredConfigMessage(client: ProfileClientKind, result: Partial<RestoreFileResult>, staysDisabled = false): string | undefined {
-  if (client !== "claude-code" && !isCodexFamily(client)) {
+  if (client !== "claude-code" && client !== "opencode" && client !== "kilo" && !isCodexFamily(client)) {
     return undefined;
   }
   const name = codexCompatibleClientName(client);
@@ -4059,7 +4059,7 @@ function restoreGlobalConfigFile(
   options: RestoreManagedContentMatchers & { keepLiveFile?: boolean; mode?: number }
 ): RestoreFileResult {
   const result = restoreGlobalConfigFileContent(file, options);
-  // Last, so a failure before it leaves the record for the next restore. Not through `onReleased`: the sweep for inactive Codex profiles never calls it. It runs for every agent's file and finds a record only for Codex.
+  // Last, so a failure before it leaves the record for the next restore. Not through `onReleased`: the sweep for inactive Codex profiles never calls it. It runs for every agent's file and finds a record only for the agents that write one.
   if (!options.keepLiveFile && !result.missingBackup) {
     clearCodexWrittenRecord(file);
   }
@@ -4087,7 +4087,7 @@ function restoreGlobalConfigFileContent(
       }
       // This file holds content LLMR did not write, so the strip is a guess about someone else's file.
       saveConfigSafetyCopy(file, current);
-      const result = writeStrippedConfigFile(file, stripped, options.mode);
+      const result = writeStrippedConfigFile(file, stripped, options.mode, options.isEmptyContent);
       forgetMissingOriginal(file);
       return result;
     }
@@ -4134,13 +4134,13 @@ function restoreGlobalConfigFileContent(
       }
       // Each copy is saved before anything is changed or deleted, so a failed save leaves the restore to run again.
       if (current === undefined) {
-        saveNewestUserBackupCopy(file, options.stripManagedContent ?? strip);
+        saveNewestUserBackupCopy(file, options.stripManagedContent ?? strip, options.isEmptyContent);
       } else if (!isUntouchedSinceWritten(file, current)) {
         saveConfigSafetyCopy(file, current);
       }
       const result: RestoreFileResult = stripped === undefined
         ? { absent: true, changed: false, file, missingBackup: false, restored: true }
-        : writeStrippedConfigFile(file, stripped, options.mode);
+        : writeStrippedConfigFile(file, stripped, options.mode, options.isEmptyContent);
       forgetMissingOriginal(file);
       return result;
     }
@@ -4165,18 +4165,18 @@ function saveConfigSafetyCopy(file: string, content: string): string {
   return saveRemovedConfigCopy(path.dirname(codexWrittenRecordFile(file)), file, content);
 }
 
-// For a file that had no original. Only Codex has a record. A managed Claude Code file holds only LLMR's keys, and a Codex file without a record cannot show an edit, so neither gets a copy here.
+// For a file that had no original. Only Codex, Workbuddy, OpenCode and Kilo have a record. A managed Claude Code file holds only LLMR's keys, and a file without a record cannot show an edit, so neither gets a copy here.
 function isUntouchedSinceWritten(file: string, current: string): boolean {
   const record = readCodexWrittenRecord(file);
   return !record || isAsWritten(record, current);
 }
 
 // The user deleted the live file, so the backups about to go are the last place their settings are.
-function saveNewestUserBackupCopy(file: string, strip: (content: string) => string | undefined): void {
+function saveNewestUserBackupCopy(file: string, strip: (content: string) => string | undefined, isEmptyContent = isEmptyConfigContent): void {
   for (const backup of backupFiles(file).reverse()) {
     const content = readFileSync(backup, "utf8");
     const kept = strip(content);
-    if (kept !== undefined && !isEmptyConfigContent(kept)) {
+    if (kept !== undefined && !isEmptyContent(kept)) {
       saveConfigSafetyCopy(file, content);
       return;
     }
@@ -4184,8 +4184,8 @@ function saveNewestUserBackupCopy(file: string, strip: (content: string) => stri
 }
 
 // Only for a file that had no original. The caller has saved any safety copy. A backup beside the file would hold the profile's token, or would equal the stripped file, so this writes none.
-function writeStrippedConfigFile(file: string, stripped: string, mode: number | undefined): RestoreFileResult {
-  if (isEmptyConfigContent(stripped)) {
+function writeStrippedConfigFile(file: string, stripped: string, mode: number | undefined, isEmptyContent = isEmptyConfigContent): RestoreFileResult {
+  if (isEmptyContent(stripped)) {
     removeFileKeepingLink(file);
     return { changed: true, file, missingBackup: false, removed: true, restored: true };
   }
@@ -4409,6 +4409,17 @@ function codexManagedContent(agent: ProfileClientKind, providerIds: string[], fi
           stripManagedContent: (content: string) => stripManagedCodexConfigContent(content, providerIds)
         }
       : {})
+  };
+}
+
+function providerJsonManagedContent(client: ProviderJsonClient): RestoreManagedContentMatchers {
+  const schema = client === "kilo" ? kiloDefaultSchema : openCodeDefaultSchema;
+  return {
+    isEmptyContent: (content) => isEmptyProviderJsonContent(content, schema),
+    isManagedContent: (content) => isManagedProviderJsonContent(content, client),
+    stripBeforeSnapshot: true,
+    stripLiveContent: (content, snapshot) => stripManagedProviderJsonContent(content, { client }, snapshot),
+    stripManagedContent: (content) => stripManagedProviderJsonContent(content, { client })
   };
 }
 

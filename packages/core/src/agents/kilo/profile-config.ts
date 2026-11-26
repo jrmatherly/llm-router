@@ -15,6 +15,8 @@ export type KiloProfileConfigWriteResult = {
   inlineConfig: string;
 };
 
+export const kiloDefaultSchema = "https://app.kilo.ai/config.json";
+
 export function resolveKiloConfigFile(configDir: string, profile: ProfileConfig): string {
   if (profile.scope === "llmr" || profile.scope === "custom") {
     const slug = sanitizePathSegment(profile.id || profile.name || "kilo") || "kilo";
@@ -45,7 +47,7 @@ export function writeKiloGatewayConfig(
   config: AppConfig,
   profile: ProfileConfig,
   token: string,
-  options: { backup?: boolean } = {}
+  options: { backup?: boolean; write?: (file: string, content: string) => { backupFile?: string; changed: boolean } } = {}
 ): KiloProfileConfigWriteResult {
   const file = resolveKiloConfigFile(configDir, profile);
   const source = readJsoncObject(file);
@@ -57,13 +59,13 @@ export function writeKiloGatewayConfig(
     ...source,
     $schema: typeof source.$schema === "string" && source.$schema.trim()
       ? source.$schema
-      : "https://app.kilo.ai/config.json",
+      : kiloDefaultSchema,
     model: overrides.model,
     provider: providers,
     small_model: overrides.small_model
   };
   const content = `${JSON.stringify(next, null, 2)}\n`;
-  const writeResult = writeJsonFile(file, content, options, (candidate) => isManagedKiloConfigContent(candidate, providerId));
+  const writeResult = options.write ? options.write(file, content) : writeJsonFile(file, content, options, (candidate) => isManagedKiloConfigContent(candidate, providerId));
   return {
     ...writeResult,
     file,
@@ -95,7 +97,7 @@ function kiloGatewayOverrides(config: AppConfig, profile: ProfileConfig, token: 
   const modelRef = `${providerId}/${model}`;
   const models = buildCodexModelCatalogIds(withoutClaudeLoginProviders(config), model, { allowedModels: profileAllowedModels({ ...profile, model }) });
   return {
-    $schema: "https://app.kilo.ai/config.json",
+    $schema: kiloDefaultSchema,
     model: modelRef,
     provider: {
       [providerId]: {
