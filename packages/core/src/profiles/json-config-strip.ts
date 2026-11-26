@@ -28,11 +28,10 @@ export function stripManagedProviderJsonContent(content: string, options: Provid
   }
   const original = snapshot === undefined ? undefined : parseJsoncRecord(snapshot);
   const originalProviders = original && isRecord(original.provider) ? original.provider : {};
-  const originalLlmrIds = original ? llmrProviderIds(original, options.client) : [];
   const next: Record<string, unknown> = { ...config };
   const providers = { ...(config.provider as Record<string, unknown>) };
   for (const id of ids) {
-    if (Object.hasOwn(originalProviders, id) && !originalLlmrIds.includes(id)) {
+    if (Object.hasOwn(originalProviders, id)) {
       providers[id] = originalProviders[id];
     } else {
       delete providers[id];

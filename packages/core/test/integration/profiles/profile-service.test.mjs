@@ -5750,7 +5750,55 @@ test("a switched-off Kilo profile on the file an enabled OpenCode profile uses l
   });
 });
 
-test("a switched-off OpenCode profile on the file an enabled one uses leaves the enabled profile's provider in place", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("a switched-off OpenCode profile on the file an enabled Kilo profile uses leaves Kilo's takeover to Kilo", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonRoot(async (root) => {
+    const file = path.join(root, "kilo.jsonc");
+    const kilo = providerJsonProfile("kilo", file);
+    const openCode = providerJsonProfile("opencode", file, { enabled: false });
+    const config = providerJsonConfig([kilo, openCode]);
+    await applyProfileConfig(config);
+    const key = await profileKey("kilo");
+    assert.ok(readFileSync(file, "utf8").includes(key));
+    assert.equal(existsSync(`${file}.llmr-original-missing`), true, "Kilo's takeover marker is still there");
+    config.profile.profiles = [{ ...kilo, enabled: false }, openCode];
+    const result = await applyProfileConfig(config);
+    assert.deepEqual(result.clients.filter((status) => !status.ok), []);
+    assert.equal(existsSync(file), false);
+  });
+});
+
+test("an OpenCode config taken over beside a record left from an earlier takeover still comes back byte for byte", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, restore }) => {
+    const record = codexWrittenRecordFile(file);
+    mkdirSync(path.dirname(record), { recursive: true });
+    writeFileSync(record, JSON.stringify({ edited: false, file: codexRecordedPath(file), sha256: "0".repeat(64) }));
+    assert.equal(apply().ok, true);
+    assert.equal(restore().ok, true);
+    assert.equal(readFileSync(file, "utf8"), userOpenCodeOriginal);
+  }, { original: userOpenCodeOriginal });
+});
+
+for (const agent of ["opencode", "kilo"]) {
+  test(`a quit's status for ${agent} does not tell the person to switch the profile on, and a switch-off does`, { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+    await withProviderJsonProfile(async ({ apply, file, restore }) => {
+      apply();
+      const [quit] = restoreGlobalProfileConfigsOnExit([providerJsonProfile(agent, file)], { manageMarker: false });
+      assert.match(quit.message, /config was removed because it did not exist before LLMR\.$/);
+      apply();
+      assert.match(restore().message, /Switch it on to undo this/);
+    }, { agent });
+  });
+}
+
+test("no backup of a Kilo config holds the key after a second apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, root }) => {
+    apply();
+    apply({ model: "other-model" });
+    assert.deepEqual(filesHolding(root, providerJsonKey), [file]);
+  }, { agent: "kilo" });
+});
+
+test("a switched-off OpenCode profile on the file an enabled one uses leaves the enabled profile's provider in place",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withProviderJsonRoot(async (root) => {
     const file = path.join(root, "opencode.jsonc");
     const config = providerJsonConfig([
