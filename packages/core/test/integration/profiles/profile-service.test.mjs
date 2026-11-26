@@ -5995,7 +5995,24 @@ test("a save keeps the key of a Codex profile whose config could not be restored
   });
 });
 
-test("a save prunes the key of a profile it restored, and says how to undo it", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("a reconcile whose restore fails writes one line to the log", { skip: modeTestSkip }, async (t) => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexDir, config }) => {
+    chmodSync(codexDir, 0o500);
+    try {
+      await switchOff(config, "default-codex");
+      const warn = t.mock.method(console, "warn", () => undefined);
+      await reconcileProfileApiKeys(config);
+      const lines = warn.mock.calls.map((call) => String(call.arguments[0])).filter((line) => line.startsWith("[profile:"));
+      warn.mock.restore();
+      assert.equal(lines.length, 1, JSON.stringify(lines));
+      assert.match(lines[0], /^\[profile:codex\] .*kept this profile's API key working/);
+    } finally {
+      chmodSync(codexDir, 0o700);
+    }
+  });
+});
+
+test("a save prunes the key of a profile it restored, and says how to undo it",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
     await switchOff(config, "default-codex");
     const statuses = await reconcileProfileApiKeys(config);

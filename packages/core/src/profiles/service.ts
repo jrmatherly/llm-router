@@ -1015,6 +1015,8 @@ export async function reconcileProfileApiKeys(config: AppConfig): Promise<Profil
   }
   const profiles = profileEntries(config);
   const released = await enqueueApply(() => releaseDisabledProfileKeys(config, profiles));
+  // Most callers drop the statuses, so a failed restore is logged here or nowhere.
+  warnProfileApplyFailures({ clients: released });
   if (hasAvailableGatewayModels(config)) {
     await ensureProfileApiKeys(config, profiles);
   }
