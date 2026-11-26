@@ -3197,7 +3197,7 @@ function returnCodexProfileTable(configFile: string, profileFile: string, provid
   const body = (tableStart === -1 ? kept : kept.slice(0, tableStart)).trim();
   const config = existsSync(configFile) ? readFileSync(configFile, "utf8") : "";
   const profileHeader = `profiles.${tomlKey(providerId)}`;
-  const headerInConfig = scanTomlStatements(config).some(({ kind, table }) => kind === "header" && table === profileHeader);
+  const headerInConfig = scanTomlStatements(config).some(({ kind, table }) => kind === "header" && (table === profileHeader || table === `[[${profileHeader}]]`));
   // A table cannot be folded into the profile table. Keys cannot be added to a table config.toml already has without guessing which of two values the user means, unless they are the ones it holds.
   const settings = (text: string) => scanTomlStatements(text).filter(({ kind }) => kind === "assignment").map(({ lines }) => lines.join("").trim());
   const inConfig = new Set(settings(codexProfileTableBody(config, providerId)));

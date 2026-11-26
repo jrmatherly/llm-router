@@ -464,6 +464,12 @@ test("a displaced line stays out where the user removed or replaced LLMR's line,
   );
 });
 
+test("a displaced profile table stays out where the file holds an array of tables of that name", () => {
+  const aot = "[[profiles.llm-router]]\nmodel = \"aot\"\n";
+  const stripped = stripManagedCodexConfigContent(managed(`${aot}\n`), ["llm-router"], { modelLine: ours }, { profileTables: ["[profiles.llm-router]\nx = 1\n"] });
+  assert.equal(stripped, aot);
+});
+
 test("a displaced model line stays out while the model line in the file is the user's own", () => {
   const stripped = stripManagedCodexConfigContent(managed("").replace("model = \"Provider/model\"", "model = \"gpt-mine\""), ["llm-router"], {}, { model: "model = \"gpt-mine\"" });
   assert.equal(stripped, "model = \"gpt-mine\"\n");

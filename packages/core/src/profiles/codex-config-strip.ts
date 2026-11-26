@@ -246,7 +246,9 @@ export function stripManagedCodexConfigContent(
   const stripped = trimLeadingBlankLines(next).replace(/\n{2,}$/, "\n");
   // The writer moves the user's `[profiles.<provider>]` table into a file of its own, so one that is absent here was taken, not deleted.
   const present = new Set(scanTomlStatements(stripped).filter(({ kind }) => kind === "header").map(({ table }) => table));
-  const missingTables = (displaced.profileTables ?? []).filter((table) => !present.has(scanTomlStatements(table)[0]?.table ?? ""));
+  // A table of that name written as an array of tables is there too, and a second definition would stop the file loading.
+  const isPresent = (table: string) => present.has(table) || present.has(`[[${table}]]`);
+  const missingTables = (displaced.profileTables ?? []).filter((table) => !isPresent(scanTomlStatements(table)[0]?.table ?? ""));
   return missingTables.length === 0
     ? stripped
     : [stripped.trimEnd(), ...missingTables.map((table) => table.trimEnd())].filter(Boolean).join(`${eol}${eol}`).concat(eol);

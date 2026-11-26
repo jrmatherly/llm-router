@@ -5106,6 +5106,16 @@ test("an array of tables under the profile's name is not the user's profile tabl
   }, plantCodexOriginal(original));
 });
 
+test("a setting added to LLMR's Codex profile file is not returned beside an array of tables of the profile's name", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "model_provider = \"openai\"\n\n[[profiles.llm-router]]\nmodel = \"aot\"\n";
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir }) => {
+    const profileFile = path.join(codexDir, "llm-router.config.toml");
+    writeFileSync(profileFile, `${readFileSync(profileFile, "utf8")}foo = 1\n`);
+    await recoverGlobalAgentProfile("default-codex");
+    assert.doesNotMatch(readFileSync(codexConfigFile, "utf8"), /^\[profiles\.llm-router\]$/m);
+  }, plantCodexOriginal(original));
+});
+
 test("an edit to a value that spans lines in LLMR's Codex profile file is kept as a copy", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const original = "model_provider = \"openai\"\n\n[profiles.llm-router]\nx = [\n  1,\n]\n";
   await withAppliedDefaultProfiles(["default-codex"], async ({ codexDir }) => {
