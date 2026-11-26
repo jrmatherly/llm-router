@@ -13,6 +13,7 @@ import {
   managedRootStart,
   readCodexDisplacedConfig,
   removeCodexMcpServerTable,
+  removeCodexProviderTable,
   removeManagedConfiguredModelLine,
   removeManagedMarkerLines,
   removeRootTomlKeys,
@@ -684,4 +685,43 @@ test("a removed root line that left a value open does not change which provider 
   const stripped = strip(content);
   assert.equal(stripped.includes("experimental_bearer_token = \"my-own-secret\""), true, stripped);
   assert.equal(stripped.includes("llmr-profile-OLD"), false, stripped);
+});
+
+const worksTable = "[model_providers.work]\nname = \"Mine\"\nexperimental_bearer_token = \"my-work-secret\"\n";
+
+test("a provider table under LLMR's marker and a blank line is LLMR's even after its token was changed", () => {
+  const rotated = managed("").replace("llmr-profile-TEST", "another-key").replace(`${managedProviderStart}\n`, `${managedProviderStart}\n\n`);
+  assert.equal(stripManagedCodexConfigContent(rotated, ["llm-router"], { modelLine: ours }), "");
+});
+
+test("with two provider ids the user's table stays and LLMR's goes, in either order", () => {
+  for (const content of [
+    `${rootBlock}${worksTable}\n${providerBlock}`,
+    `${managed("")}${worksTable}`,
+    `${managed("")}\n${worksTable}`
+  ]) {
+    const stripped = stripManagedCodexConfigContent(content, ["llm-router", "work"], { modelLine: ours });
+    assert.equal(countOf(stripped, "[model_providers.work]"), 1, content);
+    assert.equal(stripped.includes("my-work-secret"), true, content);
+    assert.equal(stripped.includes("llmr-profile-TEST"), false, content);
+    assert.equal(stripped.includes("[model_providers.llm-router]"), false, content);
+  }
+});
+
+test("a provider table with LLMR's token in single quotes is LLMR's", () => {
+  const table = "[model_providers.llm-router]\nname = \"LLM Router\"\nexperimental_bearer_token = 'llmr-profile-TEST'\n";
+  assert.equal(isManagedCodexConfigContent(table, "llm-router"), true);
+  assert.equal(strip(`[a]\nk = 1\n\n${table}`), "[a]\nk = 1\n");
+});
+
+test("with two provider ids a strip keeps a model_provider line only for the id the user has a table of", () => {
+  const ids = ["llm-router", "work"];
+  assert.equal(stripManagedCodexConfigContent(`model_provider = "llm-router"\n\n${worksTable}`, ids), worksTable);
+  assert.equal(stripManagedCodexConfigContent(`model_provider = "work"\n\n${worksTable}`, ids), undefined);
+});
+
+test("a provider id that only starts with LLMR's id is another table", () => {
+  const others = "[model_providers.llm-router2]\nname = \"x\"\n\n[model_providers.llm-router-old]\nname = \"y\"\n";
+  assert.equal(removeCodexProviderTable(others, "llm-router"), others);
+  assert.equal(readCodexDisplacedConfig(others, ["llm-router"]).providerTables, undefined);
 });

@@ -6209,3 +6209,66 @@ for (const agent of ["codex", "grok", "kilo", "kimi", "opencode", "pi", "workbud
     }
   });
 }
+
+test("a saved Codex original of a file that held only LLMR's servers holds no profile token", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const oldToken = "llmr-profile-oldtokenvalue";
+  const original = [
+    "# BEGIN LLMR managed ToolHub MCP",
+    "[mcp_servers.llmr-toolhub]",
+    "command = \"node\"",
+    "",
+    "[mcp_servers.llmr-toolhub.env]",
+    `TOOLHUB_OPENAI_API_KEY = "${oldToken}"`,
+    "# END LLMR managed ToolHub MCP",
+    ""
+  ].join("\n");
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    assert.deepEqual(filesHolding(fixture.codexDir, oldToken), []);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.deepEqual(filesHolding(fixture.codexDir, oldToken), []);
+  }, plantCodexOriginal(original));
+});
+
+test("a reserved Codex provider id is refused after it is sanitized", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const providerId of [" openai ", "openai/"]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+      const status = await applyProfileConfig(config);
+      assert.equal(status.clients.find((client) => client.client === "codex")?.ok, false, providerId);
+      assert.equal(readFileSync(codexConfigFile, "utf8"), userCodexOriginal, providerId);
+      assert.deepEqual(readdirSync(codexDir), ["config.toml"], providerId);
+    }, plantCodexOriginal(), { applied: false, configure: withCodexProviderId(providerId) });
+  }
+});
+
+test("a disabled Codex profile with a reserved provider id beside the enabled one is not refused", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
+    const status = await applyProfileConfig(config);
+    const codex = status.clients.filter((client) => client.client === "codex");
+    assert.equal(codex.length, 2);
+    assert.deepEqual(codex.map((client) => client.ok), [true, true], codex.map((client) => client.message).join("; "));
+  }, plantCodexOriginal(), {
+    configure: (config) => {
+      const enabled = config.profile.profiles.find((profile) => profile.id === "default-codex");
+      config.profile.profiles.push({ ...enabled, enabled: false, id: "old-openai-codex", name: "Old", providerId: "openai" });
+    }
+  });
+});
+
+test("a Workbuddy profile under a provider id Codex reserves is still applied", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const workbuddyHome = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".workbuddy-reserved");
+  mkdirSync(workbuddyHome, { recursive: true });
+  try {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
+      const status = await applyProfileConfig(config);
+      const workbuddy = status.clients.find((client) => client.client === "workbuddy");
+      assert.equal(workbuddy?.ok, true, workbuddy?.message);
+    }, undefined, {
+      configure: (config) => {
+        config.profile.profiles.push({ agent: "workbuddy", codexHome: workbuddyHome, enabled: true, env: {}, id: "workbuddy-reserved", model: "gpt-5-codex", name: "WorkBuddy", providerId: "openai", scope: "global", surface: "app" });
+      }
+    });
+  } finally {
+    rmSync(workbuddyHome, { force: true, recursive: true });
+  }
+});

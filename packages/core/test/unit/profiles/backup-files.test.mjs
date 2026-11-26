@@ -234,3 +234,12 @@ test("backupCurrentFile prunes a rewritten backup but keeps the oldest unmanaged
   }
   assert.deepEqual(backupFiles(file).map((backup) => readFileSync(backup, "utf8")), ["user", "stripped", "stripped", "stripped", "stripped", "stripped"]);
 });
+
+test("three copies of one file in the same millisecond are all kept", posixOnly, (t) => {
+  const { dir, file } = setup(t);
+  const stateDir = path.join(dir, "state", "key");
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-21T00:00:00.000Z") });
+  const copies = ["one\n", "two\n", "three\n"].map((content) => saveRemovedConfigCopy(stateDir, file, content));
+  assert.equal(new Set(copies).size, 3);
+  assert.deepEqual(copies.map((copy) => readFileSync(copy, "utf8")), ["one\n", "two\n", "three\n"]);
+});
