@@ -1097,7 +1097,6 @@ function App() {
         setConfigSaveState("saved");
         setConfigSaveError("");
       }
-      setError("");
       return true;
     } catch (error) {
       const message = formatAppError(error);
@@ -2781,7 +2780,6 @@ function App() {
         command = result.command;
       }
       await copyTextToClipboard(command);
-      setProfileActionError("");
       showToast("Copied");
     } catch (error) {
       setProfileActionError(formatAppError(error));
@@ -3059,7 +3057,6 @@ function App() {
       }
       setProfileAddOpen(false);
       setProfileDraft(createProfileDraft());
-      setProfileActionError("");
       if (activeView === "onboarding") {
         setOnboardingProfileConfirmed(true);
         setOnboardingProfileSkipped(false);
@@ -3114,7 +3111,6 @@ function App() {
       }
       setProfileEditIndex(undefined);
       setProfileEditDraft(createProfileDraft());
-      setProfileActionError("");
       return true;
     } finally {
       setProfileSubmitBusy("");
