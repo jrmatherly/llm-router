@@ -6167,19 +6167,9 @@ test("a save cleans up the Codex side files an earlier LLMR left beside a disabl
   });
 });
 
-test("a restore leaves the side files of a Workbuddy profile and of a router-scoped Codex profile alone", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-side-files-"));
+test("a restore leaves the side files of a router-scoped Codex profile alone", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const profileDir = path.join(CONFIGDIR, "profiles", "router-scoped-codex");
   try {
-    const workbuddyHome = path.join(root, ".workbuddy");
-    const catalog = path.join(workbuddyHome, "llmr-model-catalog.json");
-    mkdirSync(workbuddyHome, { recursive: true });
-    writeFileSync(catalog, "{}");
-    writeFileSync(`${catalog}.llmr-original-missing`, "");
-    const statuses = restoreGlobalProfileConfigsOnExit([globalWorkbuddyProfile(workbuddyHome)], { manageMarker: false });
-    assert.match(statuses[0].message, /^Workbuddy profile is disabled\. LLMR found nothing to restore/);
-    assert.equal(existsSync(catalog), true);
-
     await withAppliedDefaultProfiles(["default-claude-code"], async ({ config }) => {
       const routerScoped = { ...config.profile.profiles.find((profile) => profile.id === "default-codex"), enabled: true, id: "router-scoped-codex", scope: "llmr" };
       config.profile.profiles.push(routerScoped);
@@ -6191,8 +6181,164 @@ test("a restore leaves the side files of a Workbuddy profile and of a router-sco
       assert.equal(catalogs().length, 1);
     });
   } finally {
-    rmSync(root, { force: true, recursive: true });
     rmSync(profileDir, { force: true, recursive: true });
+  }
+});
+
+async function withAppliedWorkbuddyProfile(run, beforeApply) {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-workbuddy-strip-"));
+  const workbuddyHome = path.join(root, ".workbuddy");
+  const workbuddyConfigFile = path.join(workbuddyHome, "config.toml");
+  const profile = globalWorkbuddyProfile(workbuddyHome);
+  const config = configWithProviderAndEnabledProfile("default-claude-code");
+  for (const other of config.profile.profiles) {
+    other.enabled = false;
+  }
+  config.profile.profiles.push(profile);
+  const restore = async () => {
+    profile.enabled = false;
+    const result = await applyProfileConfig(config);
+    assertCodexFilesParse(workbuddyHome, { allowNone: true });
+    return result;
+  };
+  try {
+    beforeApply?.({ workbuddyConfigFile, workbuddyHome });
+    await applyProfileConfig(config);
+    await replacePersistedAppConfig(config);
+    const key = (await loadPersistedApiKeys()).find((apiKey) => apiKey.id === "profile:workbuddy-global")?.key;
+    assert.ok(key && readFileSync(workbuddyConfigFile, "utf8").includes(key), "the applied config.toml holds the profile's key");
+    assertCodexFilesParse(workbuddyHome);
+    await run({ config, key, profile, restore, workbuddyConfigFile, workbuddyHome });
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(root, { force: true, recursive: true });
+    rmSync(path.join(CONFIGDIR, "global-profile-takeover.json"), { force: true });
+    rmSync(path.join(CONFIGDIR, "agent-config-state"), { force: true, recursive: true });
+    rmSync(path.join(CONFIGDIR, "profiles"), { force: true, recursive: true });
+    await updatePersistedApiKeys(() => []);
+    await replacePersistedAppConfig(createDefaultAppConfig());
+  }
+}
+
+function plantWorkbuddyConfig(content) {
+  return ({ workbuddyConfigFile, workbuddyHome }) => {
+    mkdirSync(workbuddyHome, { recursive: true });
+    writeFileSync(workbuddyConfigFile, content);
+  };
+}
+
+test("switching a Workbuddy profile off leaves no file that holds its key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ config, key, restore, workbuddyConfigFile, workbuddyHome }) => {
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      restoreGlobalProfileConfigsOnExit(config.profile.profiles);
+      await applyProfileConfig(config);
+    }
+    await restore();
+    assert.deepEqual(filesHolding(workbuddyHome, key), []);
+    assert.equal(readFileSync(workbuddyConfigFile, "utf8"), "model_provider = \"openai\"\n");
+  }, plantWorkbuddyConfig("model_provider = \"openai\"\n"));
+});
+
+test("switching a Workbuddy profile off keeps a table added during the takeover", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ key, restore, workbuddyConfigFile, workbuddyHome }) => {
+    writeFileSync(workbuddyConfigFile, `${readFileSync(workbuddyConfigFile, "utf8")}${userCodexAdditions}`);
+    await restore();
+    const restored = readFileSync(workbuddyConfigFile, "utf8");
+    assert.match(restored, /\[mcp_servers\.mine\]/);
+    assert.match(restored, /trust_level/);
+    assert.doesNotMatch(restored, llmrCodexContent);
+    assert.deepEqual(filesHolding(workbuddyHome, key), []);
+  });
+});
+
+test("switching a Workbuddy profile off removes the side files LLM Router wrote", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ restore, workbuddyHome }) => {
+    await restore();
+    const names = readdirSync(workbuddyHome);
+    assert.deepEqual(names.filter((name) => name !== ".llm-router" && !name.startsWith("models.json") && /llm-router|llmr/.test(name)), []);
+    assert.ok(names.includes(".llm-router"));
+    const models = names.filter((name) => name.startsWith("models.json")).sort();
+    assert.equal(models.length, 2, String(models));
+    assert.match(models[0], /^models\.json\.llmr-backup-.+$/);
+    assert.equal(models[1], "models.json.llmr-original-missing");
+  });
+});
+
+test("a Workbuddy restore says what it did", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ restore, workbuddyConfigFile }) => {
+    writeFileSync(workbuddyConfigFile, `${readFileSync(workbuddyConfigFile, "utf8")}${userCodexAdditions}`);
+    const result = await restore();
+    assert.equal(
+      result.clients.find((status) => status.client === "workbuddy")?.message,
+      "LLMR's settings were removed from Workbuddy config and your own settings were kept. Profile is disabled. Switch it on to undo this. Workbuddy may ask you to log in."
+    );
+  });
+});
+
+test("a Workbuddy restore gives back a provider table of the user's own under LLM Router's id", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const edited of [false, true]) {
+    await withAppliedWorkbuddyProfile(async ({ key, restore, workbuddyConfigFile, workbuddyHome }) => {
+      if (edited) {
+        writeFileSync(workbuddyConfigFile, `${readFileSync(workbuddyConfigFile, "utf8")}${userCodexAdditions}`);
+      }
+      await restore();
+      const restored = readFileSync(workbuddyConfigFile, "utf8");
+      if (edited) {
+        assertHoldsEveryLine(restored, usersProviderOriginal);
+        assert.match(restored, /\[mcp_servers\.mine\]/);
+      } else {
+        assert.equal(restored, usersProviderOriginal);
+      }
+      assert.deepEqual(filesHolding(workbuddyHome, key), [], String(edited));
+    }, plantWorkbuddyConfig(usersProviderOriginal));
+  }
+});
+
+test("the sweep strips a Workbuddy config no profile restores, and keeps what the user added", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ key, profile, workbuddyConfigFile, workbuddyHome }) => {
+    writeFileSync(workbuddyConfigFile, `${readFileSync(workbuddyConfigFile, "utf8")}${userCodexAdditions}`);
+    const statuses = restoreInactiveGlobalProfileConfigs([{ ...profile, enabled: false }]);
+    assertCodexFilesParse(workbuddyHome);
+    const restored = readFileSync(workbuddyConfigFile, "utf8");
+    assert.match(restored, /\[mcp_servers\.mine\]/);
+    assert.doesNotMatch(restored, llmrCodexContent);
+    assert.equal(restored.includes(key), false);
+    assert.equal(statuses.find((status) => status.path === workbuddyConfigFile)?.message, "LLMR's settings were removed from Workbuddy config and your own settings were kept.");
+  });
+});
+
+test("a profile table the user added to a Workbuddy config LLM Router created comes back, and the message names Workbuddy", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedWorkbuddyProfile(async ({ config, restore, workbuddyConfigFile }) => {
+    writeFileSync(workbuddyConfigFile, `${readFileSync(workbuddyConfigFile, "utf8")}\n[profiles.llm-router]\napproval_policy = "never"\n`);
+    await applyProfileConfig(config);
+    const result = await restore();
+    assert.equal(readFileSync(workbuddyConfigFile, "utf8"), "[profiles.llm-router]\napproval_policy = \"never\"\n");
+    assert.equal(
+      result.clients.find((status) => status.client === "workbuddy")?.message,
+      "Workbuddy config now holds only your own profile settings, which LLMR had moved to llm-router.config.toml. Profile is disabled. Switch it on to undo this. Workbuddy may ask you to log in."
+    );
+  });
+});
+
+test("a router-scoped Workbuddy profile keeps no record of what it wrote", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const stateDir = path.join(CONFIGDIR, "agent-config-state");
+  const profileDir = path.join(CONFIGDIR, "profiles", "workbuddy-global");
+  try {
+    rmSync(stateDir, { force: true, recursive: true });
+    const config = configWithProviderAndEnabledProfile("default-claude-code");
+    for (const other of config.profile.profiles) {
+      other.enabled = false;
+    }
+    config.profile.profiles.push({ ...globalWorkbuddyProfile(undefined), codexHome: undefined, scope: "llmr" });
+    await applyProfileConfig(config);
+    assert.equal(filesUnder(profileDir).some((file) => file.endsWith("config.toml")), true);
+    assert.deepEqual(filesUnder(stateDir).filter((file) => file.endsWith("written.json")), []);
+  } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(stateDir, { force: true, recursive: true });
+    rmSync(profileDir, { force: true, recursive: true });
+    await updatePersistedApiKeys(() => []);
+    await replacePersistedAppConfig(createDefaultAppConfig());
   }
 });
 
@@ -6562,7 +6708,7 @@ test("switching Workbuddy off leaves the config an enabled Codex profile shares"
   });
 });
 
-test("switching off both profiles that share a config.toml leaves no config the user never had", { skip: "fails until Workbuddy uses the Codex stripper" }, async () => {
+test("switching off both profiles that share a config.toml leaves no config the user never had", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   for (const order of [["default-codex", "workbuddy-global"], ["workbuddy-global", "default-codex"]]) {
     await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
       await shareCodexDirWithWorkbuddy(fixture);

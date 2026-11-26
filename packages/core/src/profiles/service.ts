@@ -757,8 +757,8 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
     const contextArchiveMcp = profile.agent === "codex"
       ? codexContextArchiveMcpConfig(config, profile, token)
       : undefined;
-    // No restore reaches a Workbuddy or generated-scope config, so only a global Codex one keeps a record.
-    const recordsWrittenLines = profile.agent === "codex" && isGlobalProfile(profile);
+    // No restore reaches a generated-scope config, so only a global one keeps a record.
+    const recordsWrittenLines = isCodexFamily(profile.agent) && isGlobalProfile(profile);
     const sourceManaged = isManagedCodexConfigContent(source, providerId);
     // A record beside a file with nothing of LLMR's in it is left over from an earlier takeover.
     const previous = recordsWrittenLines && sourceManaged ? readCodexWrittenRecord(configFile) : undefined;
@@ -3291,13 +3291,13 @@ function restoreDisabledCodexProfile(profile: ProfileConfig, configFile: string,
   const dir = path.dirname(configFile);
   // A config.toml that still holds LLMR's content still names the catalog, and another enabled profile in the directory still reads these files.
   if (
-    !status.ok || profile.agent !== "codex" || !isGlobalProfile(profile) ||
+    !status.ok || !isCodexFamily(profile.agent) || !isGlobalProfile(profile) ||
     others.some((other) => isCodexFamily(other.agent) && other.enabled && path.dirname(resolveCodexConfigFile(other)) === dir)
   ) {
     return status;
   }
   const hadConfig = existsSync(configFile);
-  const name = codexCompatibleClientName("codex");
+  const name = codexCompatibleClientName(profile.agent);
   const suffix = staysDisabled ? ` Profile is disabled. Switch it on to undo this. ${name} may ask you to log in.` : "";
   try {
     const { copy, returned } = restoreCodexSideFiles(profile, configFile, providerId);
@@ -3523,10 +3523,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
       if (sharedWithEnabledCodexFamilyProfile(profiles, file)) {
         continue;
       }
-      const restoreResult = restoreGlobalConfigFile(file, {
-        isManagedContent: (content) => providerIds.some((providerId) => isManagedCodexConfigContent(content, providerId)),
-        mode: privateFileMode
-      });
+      const restoreResult = restoreGlobalConfigFile(file, { ...codexManagedContent("workbuddy", providerIds, file), mode: privateFileMode });
       if (restoreResult.changed || restoreResult.missingBackup) {
         statuses.push(inactiveGlobalCleanupStatus("workbuddy", file, restoreResult));
       }
@@ -3958,7 +3955,7 @@ function disabledRestoreStatus(
 
 // A restore asks for no confirmation, so its message says what happened to the file and, when the profile stays disabled, how to undo it. Agents without a stripper keep the older wording.
 function restoredConfigMessage(client: ProfileClientKind, result: Partial<RestoreFileResult>, staysDisabled = false): string | undefined {
-  if (client !== "claude-code" && client !== "codex") {
+  if (client !== "claude-code" && !isCodexFamily(client)) {
     return undefined;
   }
   const name = codexCompatibleClientName(client);
@@ -4318,7 +4315,7 @@ function codexManagedContent(agent: ProfileClientKind, providerIds: string[], fi
   const isManagedContent = (content: string) => providerIds.some((providerId) => isManagedCodexConfigContent(content, providerId));
   return {
     isManagedContent,
-    ...(agent === "codex"
+    ...(isCodexFamily(agent)
       ? {
           stripBeforeSnapshot: true,
           // The record describes the live file only: a backup or the original is stripped by its text.
