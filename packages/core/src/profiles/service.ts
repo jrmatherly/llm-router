@@ -213,15 +213,7 @@ export async function recoverGlobalAgentProfile(
         cleanupClaudeCodeGeneratedFiles(profile);
       }
       const owner = enabledOwnerOfFile(profile, config.profile.profiles);
-      const restored: ProfileClientApplyStatus = owner
-        ? {
-            client: profile.agent,
-            enabled: false,
-            message: `${codexCompatibleClientName(profile.agent)} profile is disabled. Profile "${owner.name || owner.id}" still manages ${file}, so LLMR left it unchanged.`,
-            ok: true,
-            path: file
-          }
-        : disabledProfileStatus(profile, config.profile.profiles);
+      const restored = owner ? stillManagedStatus(profile, owner, file) : disabledProfileStatus(profile, config.profile.profiles);
       // A normal save releases Claude App the same way once no profile takes it over.
       if (!config.profile.profiles.some(claudeAppTakesOverDirectLaunches)) {
         restoreClaudeAppGatewayConfig();
@@ -515,7 +507,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
   const settingsFile = resolveClaudeCodeSettingsFile(profile);
   if (!profile.enabled) {
     cleanupClaudeCodeGeneratedFiles(profile);
-    return restoreDisabledClaudeCodeProfile(profile);
+    return restoreDisabledClaudeCodeProfile(profile, config.profile.profiles);
   }
 
   const sharedHome = claudeCodeUsesSharedHome(profile);
@@ -725,13 +717,7 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
     // The apply loop reaches a disabled profile after the enabled one that shares its file, so restoring here would strip the owner's config.
     const owner = enabledOwnerOfFile(profile, config.profile.profiles);
     if (owner) {
-      return {
-        client: profile.agent,
-        enabled: false,
-        message: `${clientName} profile is disabled. Profile "${owner.name || owner.id}" still manages ${configFile}, so LLMR left it unchanged.`,
-        ok: true,
-        path: configFile
-      };
+      return stillManagedStatus(profile, owner, configFile);
     }
     return restoreDisabledCodexProfile(profile, configFile, config.profile.profiles);
   }
@@ -2592,8 +2578,12 @@ function restoreClaudeCodeGlobalConfigCache(profile: ProfileConfig, settingsFile
   }
 }
 
-function restoreDisabledClaudeCodeProfile(profile: ProfileConfig, staysDisabled = true): ProfileClientApplyStatus {
+function restoreDisabledClaudeCodeProfile(profile: ProfileConfig, others: ProfileConfig[] = [], staysDisabled = true): ProfileClientApplyStatus {
   const settingsFile = resolveClaudeCodeSettingsFile(profile);
+  const owner = enabledOwnerOfFile(profile, others);
+  if (owner) {
+    return stillManagedStatus(profile, owner, settingsFile);
+  }
   const recordedSha256 = readClaudeCodeProfileSettingsState(profile).globalConfigCacheSha256;
   const disabledMessage = "Claude Code profile is disabled.";
   const status = isGlobalProfile(profile) && isRestoredClaudeCodeSettingsFile(settingsFile)
@@ -2602,13 +2592,32 @@ function restoreDisabledClaudeCodeProfile(profile: ProfileConfig, staysDisabled 
   if (!status.ok) {
     return status;
   }
+  const globalFile = claudeCodeGlobalConfigFile(profile, settingsFile);
+  const sharer = globalFile && others.find((other) =>
+    other.agent === "claude-code" && isEnabledGlobalProfile(other) && claudeCodeGlobalConfigFile(other, resolveClaudeCodeSettingsFile(other)) === globalFile
+  );
+  if (sharer) {
+    return { ...status, message: withSentence(status.message, `Profile "${sharer.name || sharer.id}" still uses ${globalFile}, so LLMR left it and its copies unchanged.`) };
+  }
   try {
     restoreClaudeCodeGlobalConfigCache(profile, settingsFile, recordedSha256);
     return status;
   } catch (error) {
+    // A quit and the takeover sync show no message, so the log is the only place this reaches.
+    console.error(`Failed to restore ${globalFile}: ${formatError(error)}`);
     // The settings file no longer points at LLMR, so the restore stands, and the hash stays for a later pass to try again.
     return { ...status, message: `${status.message} ${formatError(error)} LLMR left that file and its copies unchanged.` };
   }
+}
+
+function stillManagedStatus(profile: ProfileConfig, owner: ProfileConfig, file: string): ProfileClientApplyStatus {
+  return {
+    client: profile.agent,
+    enabled: false,
+    message: `${codexCompatibleClientName(profile.agent)} profile is disabled. Profile "${owner.name || owner.id}" still manages ${file}, so LLMR left it unchanged.`,
+    ok: true,
+    path: file
+  };
 }
 
 function readClaudeCodeGlobalConfigObject(file: string): Record<string, unknown> {
@@ -3429,7 +3438,7 @@ function fileMayHold(file: string, value: string): boolean {
 
 function disabledProfileStatus(profile: ProfileConfig, others: ProfileConfig[] = [], staysDisabled = true): ProfileClientApplyStatus {
   if (profile.agent === "claude-code") {
-    return restoreDisabledClaudeCodeProfile(profile, staysDisabled);
+    return restoreDisabledClaudeCodeProfile(profile, others, staysDisabled);
   }
   if (profile.agent === "zcode") {
     return restoreDisabledZcodeProfile(profile, resolveZcodeConfigFile(profile));

@@ -4721,6 +4721,96 @@ test("a save after a restore keeps what the user changed in a file whose own thr
   }, plantUserClaudeSettings(user));
 });
 
+test("a switched-off Claude Code profile leaves the settings file an enabled one shares, wherever it sits in the list", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const settingsFile = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".claude", "settings.json");
+  for (const siblingFirst of [true, false]) {
+    await cleanClaudeLoginFixture();
+    try {
+      const { config, profile } = defaultHomeClaudeFixture("shared-on");
+      const sibling = { ...profile, enabled: false, id: "shared-off", name: "shared-off" };
+      config.APIKEYS = [];
+      config.profile.profiles = siblingFirst ? [sibling, profile] : [profile, sibling];
+      await replacePersistedAppConfig(config);
+      await applyProfileConfig(config);
+      assert.equal(existsSync(settingsFile), true, `sibling first: ${siblingFirst}`);
+      assert.equal(typeof JSON.parse(readFileSync(settingsFile, "utf8")).apiKeyHelper, "string", `sibling first: ${siblingFirst}`);
+    } finally {
+      await cleanClaudeLoginFixture();
+      rmSync(path.dirname(settingsFile), { force: true, recursive: true });
+    }
+  }
+});
+
+test("a switched-off Claude Code profile leaves the .claude.json copies of an enabled one in the same custom folder", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-shared-custom-claude-"));
+  const settingsFile = path.join(root, "work-claude", "settings.json");
+  const globalFile = path.join(root, "work-claude", ".claude.json");
+  const own = { autoCompactWindowsCache: { mine: 1 }, oauthAccount: { emailAddress: "user@example.test" } };
+  await cleanClaudeLoginFixture();
+  try {
+    const { config, profile } = defaultHomeClaudeFixture("shared-custom-on", { settingsFile });
+    const sibling = { ...profile, enabled: false, id: "shared-custom-off", name: "shared-custom-off" };
+    config.APIKEYS = [];
+    config.profile.profiles = [sibling, profile];
+    mkdirSync(path.dirname(globalFile), { recursive: true });
+    writeFileSync(globalFile, `${JSON.stringify(own)}\n`);
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    await applyProfileConfig(config);
+    profile.enabled = false;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")), own);
+  } finally {
+    await cleanClaudeLoginFixture();
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a switched-off Claude Code profile with its own settings file leaves the .claude.json an enabled one in the folder uses, and says so", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-shared-folder-claude-"));
+  const settingsFile = path.join(root, "work-claude", "settings.json");
+  const globalFile = path.join(root, "work-claude", ".claude.json");
+  const own = { autoCompactWindowsCache: { mine: 1 }, oauthAccount: { emailAddress: "user@example.test" } };
+  await cleanClaudeLoginFixture();
+  try {
+    const { config, profile } = defaultHomeClaudeFixture("folder-on", { settingsFile });
+    const sibling = { ...profile, enabled: true, id: "folder-off", name: "folder-off", settingsFile: path.join(root, "work-claude", "other-settings.json") };
+    config.APIKEYS = [];
+    config.profile.profiles = [profile, sibling];
+    mkdirSync(path.dirname(globalFile), { recursive: true });
+    writeFileSync(globalFile, `${JSON.stringify(own)}\n`);
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    sibling.enabled = false;
+    await replacePersistedAppConfig(config);
+    const result = await applyProfileConfig(config);
+    const siblingStatus = result.clients.find((status) => status.path === sibling.settingsFile);
+    assert.match(siblingStatus?.message ?? "", /Profile "folder-on" still uses .*\.claude\.json, so LLMR left it and its copies unchanged\./, JSON.stringify(result.clients));
+    profile.enabled = false;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")), own);
+  } finally {
+    await cleanClaudeLoginFixture();
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a quit logs a custom-path .claude.json it could not restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, withCustomPathClaudeFixture(async ({ config, globalFile, profile }) => {
+  await applyProfileFixture(config);
+  writeFileSync(globalFile, "{ \"oauthAccount\": ");
+  const logged = [];
+  const error = console.error;
+  console.error = (line) => logged.push(String(line));
+  try {
+    restoreGlobalProfileConfigsOnExit([profile], { manageMarker: false });
+  } finally {
+    console.error = error;
+  }
+  assert.ok(logged.some((line) => line.includes(globalFile)), JSON.stringify(logged));
+}));
+
 const wifProfile = { env: { LLMR_CLAUDE_CODE_AUTH_MODE: "wif" }, passThrough: false };
 const usersOwnWifFixtureSettings = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
 
