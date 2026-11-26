@@ -5373,6 +5373,27 @@ test("a Codex profile whose provider id Codex reserves is refused, and the user'
   }
 });
 
+test("after a reserved provider id is refused, no restore takes the user's own line of that id", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = "model_provider = \"ollama\"\n";
+  const restores = {
+    "the exit restore": ({ config }) => restoreGlobalProfileConfigsOnExit(config.profile.profiles),
+    "the sweep of an apply with Codex off": ({ config }) => {
+      config.profile.profiles.find((profile) => profile.id === "default-codex").enabled = false;
+      return applyProfileConfig(config);
+    }
+  };
+  for (const [name, restore] of Object.entries(restores)) {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      withCodexProviderId("ollama")(fixture.config);
+      const status = await applyProfileConfig(fixture.config);
+      assert.equal(status.clients.find((client) => client.client === "codex")?.ok, false, name);
+      assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), original, name);
+      await restore(fixture);
+      assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), original, name);
+    }, plantCodexOriginal(original));
+  }
+});
+
 test("a Codex profile whose provider id only resembles a reserved one is applied", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   for (const providerId of ["openai-custom", "OpenAI"]) {
     await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile }) => {

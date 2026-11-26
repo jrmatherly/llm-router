@@ -3128,7 +3128,7 @@ function restoreDisabledCodexProfile(profile: ProfileConfig, configFile: string,
     profile,
     configFile,
     `${codexCompatibleClientName(profile.agent)} profile is disabled.`,
-    codexManagedContent(profile.agent, [providerId], configFile),
+    codexManagedContent(profile.agent, reservedCodexProviderIds.includes(providerId) ? [] : [providerId], configFile),
     staysDisabled
   );
   const dir = path.dirname(configFile);
@@ -3458,10 +3458,11 @@ function globalCodexConfigCandidate(profile: ProfileConfig): string {
   return profile.configFile || defaultCodexConfigFile(profile.agent);
 }
 
+// A reserved id is never LLMR's, since an apply refuses it, so a line of that id is the user's.
 function codexCompatibleProviderIds(profiles: ProfileConfig[]): string[] {
   return [...new Set([
     "llm-router",
-    ...profiles.map((profile) => sanitizeCodexProviderId(profile.providerId || "")).filter(Boolean)
+    ...profiles.map((profile) => sanitizeCodexProviderId(profile.providerId || "")).filter((id) => id && !reservedCodexProviderIds.includes(id))
   ])];
 }
 
