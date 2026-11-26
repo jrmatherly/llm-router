@@ -6203,6 +6203,9 @@ test("a merged status keeps the copy another pass over the file named", () => {
     { client: "codex", enabled: true, message: "Codex config is managed by LLMR.", ok: true, path: "/x" }
   ]);
   assert.equal(merged.copy, "/copy");
+  assert.ok(merged.message.startsWith("Codex config is managed by LLMR."), merged.message);
+  assert.ok(merged.message.includes("/copy"), merged.message);
+  assert.doesNotMatch(merged.message, /Restored\./);
 });
 
 test("a merged status keeps a failure that a later pass reports", () => {

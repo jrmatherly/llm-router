@@ -1043,7 +1043,7 @@ export function mergeProfileStatuses(statuses: ProfileClientApplyStatus[]): Prof
   return [...groups.values()].map((group) => {
     const kept = group.find((status) => !status.ok) ?? group.find((status) => status.enabled) ?? group.find((status) => status.changed) ?? group[0];
     const named = kept.copy ? undefined : group.find((status) => status.copy);
-    return named ? { ...kept, copy: named.copy, message: `${kept.message} ${named.message}` } : kept;
+    return named ? { ...kept, copy: named.copy, message: `${kept.message} LLMR kept a copy of what you had at ${named.copy}.` } : kept;
   });
 }
 
