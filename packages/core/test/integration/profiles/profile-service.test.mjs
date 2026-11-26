@@ -4504,8 +4504,14 @@ test("a restore of a settings file LLM Router created leaves one the user writes
   await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
     await recoverGlobalAgentProfile("default-claude-code");
     assert.equal(existsSync(path.join(claudeDir, "settings.json")), false);
-    const own = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "localhost" } };
+    const own = { env: { ANTHROPIC_BASE_URL: corpUrl, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "localhost" } };
     writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(own)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), own);
+    config.profile.profiles.find((profile) => profile.id === "default-claude-code").enabled = true;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
     await switchClaudeCodeOff(config);
     await applyProfileConfig(config);
     assert.deepEqual(readClaudeSettings(claudeDir), own);
@@ -7648,4 +7654,122 @@ test("a save that puts the user's profile table back into a Codex config they de
     assert.match(readFileSync(codexConfigFile, "utf8"), /approval_policy = "never"/);
     assert.equal(status.changed, true, status.message);
   });
+});
+
+test("a re-enable whose record could not be written is still undone when the profile is switched off", { skip: modeTestSkip }, async () => {
+  const user = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const profile = config.profile.profiles.find((item) => item.id === "default-claude-code");
+    const stateDir = path.join(CONFIGDIR, "profiles", "default-claude-code", "claude");
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    profile.enabled = true;
+    await replacePersistedAppConfig(config);
+    chmodSync(stateDir, 0o500);
+    try {
+      const failed = (await applyProfileConfig(config)).clients.find((client) => client.client === "claude-code");
+      assert.equal(failed.ok, false, failed.message);
+    } finally {
+      chmodSync(stateDir, 0o700);
+    }
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    const settings = readClaudeSettings(claudeDir);
+    assert.equal(settings.apiKeyHelper, undefined, JSON.stringify(settings));
+    assert.equal(JSON.stringify(settings).includes("127.0.0.1"), false, JSON.stringify(settings));
+    assert.deepEqual(settings.permissions, user.permissions);
+  }, plantUserClaudeSettings(user));
+});
+
+test("switching Claude Code on again records what the file holds then, after a switch-off that found the user's own file already back", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_BASE_URL: corpUrl, ANTHROPIC_MODEL: "my-model" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const file = path.join(claudeDir, "settings.json");
+    const profile = config.profile.profiles.find((item) => item.id === "default-claude-code");
+    // A dotfiles tool, or the user, puts the user's own file back while LLM Router holds it.
+    writeFileSync(file, `${JSON.stringify(user)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = { env: { ANTHROPIC_BASE_URL: "https://new-corp.example.test", ANTHROPIC_MODEL: "my-model-2" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(file, `${JSON.stringify(edited)}\n`);
+    profile.enabled = true;
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save keeps what the user changes after a switch-off that found their own file already back", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_MODEL: "my-model", NO_PROXY: "localhost,corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const file = path.join(claudeDir, "settings.json");
+    writeFileSync(file, `${JSON.stringify(user)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = { env: { ANTHROPIC_DEFAULT_SONNET_MODEL: "my-sonnet", ANTHROPIC_MODEL: "my-model-2", NO_PROXY: "corp.internal,127.0.0.1" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(file, `${JSON.stringify(edited)}\n`);
+    const before = readdirSync(claudeDir).length;
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+    assert.equal(readdirSync(claudeDir).length, before, "a later save makes no new copy");
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save keeps a model the user adds after a switch-off that found nothing of LLM Router's", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const file = path.join(claudeDir, "settings.json");
+    writeFileSync(file, `${JSON.stringify(user)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    const edited = { env: { ANTHROPIC_MODEL: "my-model" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(file, `${JSON.stringify(edited)}\n`);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a switch-off over a settings file that does not parse leaves LLM Router's values for a later save to remove once it parses", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const file = path.join(claudeDir, "settings.json");
+    const taken = readFileSync(file, "utf8");
+    writeFileSync(file, "{ \"permissions\": ");
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    writeFileSync(file, taken);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("switching Claude Code off gives back what it displaced when the user deleted the env block and no apply ran since", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_BASE_URL: corpUrl, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const { env: _env, ...withoutEnv } = readClaudeSettings(claudeDir);
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(withoutEnv)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a Claude login takeover whose env block the user deleted gives back what it displaced with no apply in between", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_BASE_URL: corpUrl, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("login-env-deleted-no-apply", async ({ apply, readSettings, switchOff: off, userSettingsFile }) => {
+      await apply();
+      const { env: _env, ...withoutEnv } = readSettings();
+      writeFileSync(userSettingsFile, `${JSON.stringify(withoutEnv)}\n`);
+      await off();
+      assert.deepEqual(readSettings(), user);
+    }, { beforeApply: writeUserClaudeSettings(user) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
 });

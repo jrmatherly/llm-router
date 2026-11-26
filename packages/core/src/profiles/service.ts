@@ -604,6 +604,8 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     for (const key of profileSettingsState.envKeys) {
       managedEnvKeys.add(key);
     }
+    // Before the write, so a failure after it never leaves LLMR's values beside a record that says a restore gave the file back.
+    unsettleClaudeCodeSettingsFile(settingsFile);
     const writeResult = writeClaudeCodeSettingsIfManagedChanged(settingsFile, currentSettings, nextSettings, managedEnvKeys, managedSettingComparePaths, claudeCodeManagedContent(profile).isManagedContent);
     const settingsStateResult = writeClaudeCodeSettingsStateFile(claudeCodeProfileSettingsStateFile(profile), {
       ...displaced,
@@ -613,7 +615,6 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
       paths: managedSettingPaths,
       settingsFile
     });
-    unsettleClaudeCodeSettingsFile(settingsFile);
     const changed = writeResult.changed ||
       settingsStateResult.changed ||
       Boolean(helperResult?.changed) ||
@@ -3321,8 +3322,13 @@ function restoreDisabledGlobalProfile(
 
   try {
     const restoreResult = restoreGlobalConfigFile(file, { ...matchers, mode: privateFileMode });
-    if (restoreResult.changed || restoreResult.restored) {
-      matchers.onReleased?.();
+    // A pass that changed nothing still gave the file back: a record kept past it would be trusted by the next apply and used to strip every later save.
+    if (
+      matchers.onReleased &&
+      (restoreResult.changed || restoreResult.restored ||
+        (!restoreResult.missingBackup && (!existsSync(file) || matchers.takeoverContent?.(readFileSync(file, "utf8")) !== "unparsed")))
+    ) {
+      matchers.onReleased();
     }
     return disabledRestoreStatus(profile.agent, file, disabledMessage, restoreResult, profile.name || profile.id || profile.agent, staysDisabled);
   } catch (error) {
@@ -4295,6 +4301,8 @@ function stripManagedClaudeCodeSettingsContent(
     if (hadEnv && !keepEmptyEnv && Object.keys(env).length === 0) {
       delete nextSettings.env;
     }
+  } else if (nextSettings.env === undefined && Object.keys(displacedEnv).length > 0) {
+    nextSettings.env = { ...displacedEnv };
   }
   return jsonValuesEqual(settings, nextSettings) ? undefined : `${JSON.stringify(nextSettings, null, 2)}\n`;
 }
