@@ -179,7 +179,8 @@ test("recent issues: production HTTP, tool replay, logs and usage SQLite", {
     await logs.close({ timeoutMs: 5000 });
     await Promise.all([close(upstream), close(sink)]);
     for (const [key, value] of Object.entries(previousEnv)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
-    removeTestDir(root, ["usage.sqlite", "unused.sqlite"]);
+    // A price-catalog load for the unpriced native model opens the process's config repository under root, and it stays open until the test process exits.
+    removeTestDir(root, ["config.sqlite", "usage.sqlite", "unused.sqlite"]);
   }
 });
 
