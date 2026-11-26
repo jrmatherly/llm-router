@@ -6,6 +6,8 @@
 
 > **Batch 8 fix round, 2026-11-26, at `main` `41d0016a`.** Tasks 1 and 2 only. Task 1's fault was run again in a temporary test home and is unchanged: `reconcileProfileApiKeys` returns `undefined`, the key is pruned, the token stays in `config.toml`, and the apply returns three not-ok Codex statuses on one path. Every symbol the two tasks name was read again and exists, and the line numbers in both tasks are from this commit. Every caller of the `saveConfig` and `saveApiKeys` RPCs was searched for again: Task 2 Step 7 misses none, and `tests/system/docker-smoke.mjs` reads only the whole value as text. **Audited the same day by building both tasks on another model**, in a worktree cut from that commit: 3 Blockers, 7 Corrections, 6 design findings and 8 extra tests, all applied below. The report, with the full source of every extra test, is outside the repo in `private/audits/2026-11-26-audit-restore-batch8.md`. The session ran the first Blocker again on the audit's build and it held. Built as corrected, every gate passed in the audit, `npm run test:e2e` included. Measured: Task 1 is 49 source lines added and 97 of test, Task 2 is 94 and 127. Not run by anyone: Windows, the desktop app's toast, the `ipc.ts` handlers (typechecked only), and a restore failure of OpenCode, Kilo or Workbuddy.
 
+> **Tasks 3, 4 and 5 are built: PR 169, `6e17c91c`, 2026-11-26.** Tasks 6 to 9 are not. Task 3 was not built as its text below says, so read the code for it. Its review found that both the text's design and the first build decided "a restore already gave this file back" from the file's content, which lost a user's settings in four cases where `main` kept them. What is built: each Claude Code profile's `settings-state.json` records `restored`, set by a finished restore (one that changed nothing included) on every state that names the file and cleared by every apply before it writes the settings file. A pass with the profile off skips a file with the flag. On record an apply keeps the stored displaced values whatever the file holds, and with no record three alike base URLs are LLM Router's only beside its helper, its federation rule or its key header. `hadEnv` records that the user's file had an `env` block. `stripLiveContent` and "The record outlives the restore" below are not in the code. Also built beyond the text: an owner check so a switched-off Claude Code profile leaves the settings file and `.claude.json` an enabled one uses, `sameFile` for two paths that reach one file (Task 4), and a log line for a failed cache restore on a quit. The record is in the delivery index under "Before a batch is built".
+
 > **Batch 9 text audit, 2026-11-26, at `main` `3c2ebb78`.** Tasks 3, 4 and 5 were built from the text on another model in two worktrees, Task 3 in one and Tasks 4 and 5 in the other, and every gate passed on both builds. Task 3: 2 Blockers, 7 Corrections, 5 design findings, 13 extra tests. Tasks 4 and 5: 1 Blocker, 13 Corrections, 4 design findings, 9 extra tests. All are applied below. Two design findings change Task 3's design, which was inferred and is now corrected from a run: a kept record did not leave a restored file alone, and it handed the user's old values to the next takeover. The first fix was prototyped by the audit and reverted. The second was not built by anyone, so Task 3 states it as behaviour with the three tests that pin it, and the builder's choice of mechanism is reviewed. The session ran none of the audits' findings again. Measured: Task 3 is about 110 source lines and 290 of test, Task 4 is 30 and 169, Task 5 is 7 and 161. The reports are outside the repo, in `private/audits/2026-11-26-audit-restore-batch9-task3.md` and `private/audits/2026-11-26-audit-restore-batch9-task45.md`, with the full source of every extra test. Not run by anyone: Windows, Claude login mode against the new takeover rule, a symlinked custom settings folder, Task 3 together with Tasks 4 and 5.
 
 > **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
@@ -231,7 +233,7 @@ assert.deepEqual(profileStatusNotices([
 
 ---
 
-### Task 3: Remove a Claude Code value only while it is the one LLM Router wrote (R-8, R-9)
+### Task 3: Remove a Claude Code value only while it is the one LLM Router wrote (R-8, R-9). Built, PR 169, with another design than the text
 
 Independent of Tasks 1 and 2. Third, because it has the most ways to lose a user's settings and should not share a release with Tasks 5 to 8.
 
@@ -313,7 +315,7 @@ const userBaseUrls = { ANTHROPIC_API_BASE_URL: corpUrl, ANTHROPIC_BASE_URL: corp
 
 ---
 
-### Task 4: Leave a user's link in place, and leave a file two agents share to the one still enabled (R-7, R-10)
+### Task 4: Leave a user's link in place, and leave a file two agents share to the one still enabled (R-7, R-10). Built, PR 169
 
 After Task 1, whose `enabledOwnerOfFile` this task widens. Small, and before Task 5 makes Workbuddy use the Codex restore.
 
@@ -346,7 +348,7 @@ A user whose agent config is a link into a dotfiles folder, with the target not 
 
 ---
 
-### Task 5: Put Workbuddy on the Codex stripper (R-6, R-11, B-2)
+### Task 5: Put Workbuddy on the Codex stripper (R-6, R-11, B-2). Built, PR 169
 
 After Task 4, which protects a file Workbuddy shares with Codex. First of the stripper tasks, because Workbuddy's `config.toml` is the Codex format and the Codex stripper already exists.
 
