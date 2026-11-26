@@ -540,7 +540,7 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     const currentSettings = readClaudeCodeSettingsObject(settingsFile);
     const authMode = resolveClaudeCodeGatewayAuthMode(profile);
     const profileSettingsState = readClaudeCodeProfileSettingsState(profile);
-    const displacedEnv = claudeCodeDisplacedEnv(existsSync(settingsFile) ? currentSettings : undefined, profileSettingsState, endpoint);
+    const displaced = claudeCodeDisplacedSettings(currentSettings, profileSettingsState, endpoint);
     const takeoverEndpoints = uniqueStrings([...profileSettingsState.endpoints, endpoint]);
     const profileSettings = claudeCodeProfileSettings(profile, authMode);
     const profileSettingsEnv = withoutBotGatewayEnv(Object.fromEntries(stringRecord(profileSettings.env)));
@@ -614,13 +614,14 @@ function applyClaudeCodeProfile(config: AppConfig, profile: ProfileConfig, token
     }
     const writeResult = writeClaudeCodeSettingsIfManagedChanged(settingsFile, currentSettings, nextSettings, managedEnvKeys, managedSettingComparePaths, claudeCodeManagedContent(profile).isManagedContent);
     const settingsStateResult = writeClaudeCodeSettingsStateFile(claudeCodeProfileSettingsStateFile(profile), {
-      displacedEnv,
+      ...displaced,
       endpoints: takeoverEndpoints,
       envKeys: managedProfileEnvKeys,
       globalConfigCacheSha256: autoCompactResult.sha256,
       paths: managedSettingPaths,
       settingsFile
     });
+    unsettleClaudeCodeSettingsFile(settingsFile);
     const changed = writeResult.changed ||
       settingsStateResult.changed ||
       Boolean(helperResult?.changed) ||
@@ -1150,7 +1151,11 @@ type ClaudeCodeProfileSettingsState = {
   endpoints: string[];
   envKeys: string[];
   globalConfigCacheSha256?: string;
+  // The user's file had an env block when the takeover began, so one the strip empties stays, as `{}`.
+  hadEnv?: true;
   paths: string[];
+  // A restore gave settingsFile back and no apply has taken it over since.
+  restored?: true;
   settingsFile?: string;
 };
 
@@ -1174,41 +1179,43 @@ function readClaudeCodeSettingsStateFile(file: string): ClaudeCodeProfileSetting
     endpoints: uniqueStrings(endpoints),
     envKeys: uniqueStrings(envKeys),
     ...(typeof state.globalConfigCacheSha256 === "string" ? { globalConfigCacheSha256: state.globalConfigCacheSha256 } : {}),
+    ...(state.hadEnv === true ? { hadEnv: true } : {}),
     paths: uniquePathStrings(paths),
+    ...(state.restored === true ? { restored: true } : {}),
     ...(typeof state.settingsFile === "string" ? { settingsFile: state.settingsFile } : {})
   };
 }
 
-// The user's own provider, auth, base-URL, proxy and model env that apply overwrites or deletes, so release can put it back.
-function claudeCodeDisplacedEnv(
-  currentSettings: Record<string, unknown> | undefined,
-  stored: Pick<ClaudeCodeProfileSettingsState, "displacedEnv" | "endpoints">,
+// What of the user's an apply overwrites or deletes, so release can put it back: their provider, auth, base-URL, proxy and model env, and whether they had an env block.
+function claudeCodeDisplacedSettings(
+  currentSettings: Record<string, unknown>,
+  stored: Pick<ClaudeCodeProfileSettingsState, "displacedEnv" | "endpoints" | "hadEnv">,
   endpoint: string
-): Record<string, string> {
-  const env = Object.fromEntries(stringRecord(currentSettings?.env));
-  const recorded = [...stored.endpoints, endpoint];
-  const userWif = env.ANTHROPIC_FEDERATION_RULE_ID !== claudeCodeWifFederationRuleId;
-  const llmrHelper = isManagedClaudeCodeApiKeyHelper(currentSettings?.apiKeyHelper);
-  // Three alike base URLs alone can be the user's own; only LLMR's helper or federation rule beside them makes them a takeover.
-  if (
-    claudeCodeGatewayEnvKeys.some((key) => recorded.includes(env[key])) ||
-    (isClaudeCodeGatewayTakeoverEnv(env) && (llmrHelper || !userWif))
-  ) {
-    return stored.displacedEnv;
+): Pick<ClaudeCodeProfileSettingsState, "displacedEnv" | "hadEnv"> {
+  // On record the file is LLMR's until a restore releases it, so what the user removed from it since is still owed, and what is in it now may be LLMR's.
+  if (stored.endpoints.length > 0) {
+    return { displacedEnv: stored.displacedEnv, hadEnv: stored.hadEnv };
   }
-  const current = Object.fromEntries(Object.entries(env).filter(([key, value]) =>
-    !recorded.includes(value) &&
-    ((claudeCodeFirstPartyProviderEnvKeys as readonly string[]).includes(key) ||
-      (claudeCodeGatewayEnvKeys as readonly string[]).includes(key) ||
-      (claudeCodeNoProxyEnvKeys as readonly string[]).includes(key) ||
-      (claudeCodeGatewayCompatibilityEnvKeys as readonly string[]).includes(key) ||
-      (userWif && isClaudeCodeWifEnvKey(key)) ||
-      isClaudeCodeManagedModelEnvKey(key))
+  const env = Object.fromEntries(stringRecord(currentSettings.env));
+  const routerWif = env.ANTHROPIC_FEDERATION_RULE_ID === claudeCodeWifFederationRuleId;
+  const gatewayKeyHeader = typeof env[claudeCodeCustomHeadersEnvKey] === "string" &&
+    claudeCodeCustomHeadersWithoutGatewayKey(env[claudeCodeCustomHeadersEnvKey]) !== env[claudeCodeCustomHeadersEnvKey];
+  // With the record lost, three alike base URLs are LLMR's only beside a mark each auth mode writes: the helper, the federation rule or the key header.
+  if (
+    claudeCodeGatewayEnvKeys.some((key) => env[key] === endpoint) ||
+    (isClaudeCodeGatewayTakeoverEnv(env) && (isManagedClaudeCodeApiKeyHelper(currentSettings.apiKeyHelper) || routerWif || gatewayKeyHeader))
+  ) {
+    return { displacedEnv: {} };
+  }
+  const displacedEnv = Object.fromEntries(Object.entries(env).filter(([key]) =>
+    (claudeCodeFirstPartyProviderEnvKeys as readonly string[]).includes(key) ||
+    (claudeCodeGatewayEnvKeys as readonly string[]).includes(key) ||
+    (claudeCodeNoProxyEnvKeys as readonly string[]).includes(key) ||
+    (claudeCodeGatewayCompatibilityEnvKeys as readonly string[]).includes(key) ||
+    (!routerWif && isClaudeCodeWifEnvKey(key)) ||
+    isClaudeCodeManagedModelEnvKey(key)
   ));
-  // A takeover whose settings file or env block was deleted still owes the user what it displaced.
-  // A file with none of LLMR's marks is one a restore gave back, so the user has those values already, or cleared them since.
-  const llmrsFile = currentSettings === undefined || llmrHelper || !userWif || isClaudeCodeGatewayTakeoverEnv(env);
-  return stored.endpoints.length > 0 && llmrsFile && Object.keys(current).length === 0 ? stored.displacedEnv : current;
+  return isRecord(currentSettings.env) ? { displacedEnv, hadEnv: true } : { displacedEnv };
 }
 
 // LLMR writes all three gateway keys to its endpoint; a user's own base URL rarely sets all three alike.
@@ -1228,16 +1235,13 @@ function claudeCodeManagedSettingsScope(profile: ProfileConfig): ClaudeCodeProfi
 
 function claudeCodeManagedContent(profile: ProfileConfig): RestoreManagedContentMatchers {
   const scope = claudeCodeManagedSettingsScope(profile);
-  const strip = (content: string) => stripManagedClaudeCodeSettingsContent(content, scope.envKeys, scope.paths, scope.displacedEnv, scope.endpoints);
-  const takeoverContent = (content: string) => claudeCodeTakeoverContent(content, scope.endpoints, strip);
+  const strip = (content: string) => stripManagedClaudeCodeSettingsContent(content, scope.envKeys, scope.paths, scope.displacedEnv, scope.endpoints, scope.hadEnv);
   return {
     contentForBackup: claudeCodeSettingsBackupContent,
     isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, scope.paths, scope.endpoints),
-    onReleased: () => releaseClaudeCodeSettingsState(claudeCodeProfileSettingsStateFile(profile)),
-    // On record, a live file with none of LLMR's marks is one a restore gave back, and whatever the user did with it since is theirs.
-    stripLiveContent: (content) => scope.endpoints.length > 0 && takeoverContent(content) === "none" ? undefined : strip(content),
+    onReleased: () => releaseClaudeCodeSettingsFile(resolveClaudeCodeSettingsFile(profile), [claudeCodeProfileSettingsStateFile(profile)]),
     stripManagedContent: strip,
-    takeoverContent
+    takeoverContent: (content) => claudeCodeTakeoverContent(content, scope.endpoints, strip)
   };
 }
 
@@ -1275,44 +1279,61 @@ function writeClaudeCodeSettingsStateFile(file: string, state: ClaudeCodeProfile
     endpoints: state.endpoints,
     envKeys: uniqueStrings(state.envKeys),
     globalConfigCacheSha256: state.globalConfigCacheSha256,
+    hadEnv: state.hadEnv,
     paths: uniquePathStrings(state.paths),
+    restored: state.restored,
     settingsFile: state.settingsFile
   }, null, 2)}\n`;
   return writeGeneratedFileIfChanged(file, content, { mode: privateFileMode });
 }
 
-// While a copy is left beside the file, every later pass on it strips, and only the record tells LLMR's values from the user's.
-function releaseClaudeCodeSettingsState(file: string): void {
-  const state = readClaudeCodeSettingsStateFile(file);
-  if (hasClaudeCodeTakeoverState(state) && !(state.settingsFile !== undefined && hasTakeoverSnapshot(state.settingsFile))) {
-    writeClaudeCodeSettingsStateFile(file, { ...state, displacedEnv: {}, endpoints: [] });
+function claudeCodeSettingsStateFilesOf(settingsFile: string): string[] {
+  const key = normalizedFileKey(settingsFile);
+  return managedClaudeCodeGeneratedFiles("settings-state.json").filter((file) => {
+    const state = readClaudeCodeSettingsStateFile(file);
+    return state.settingsFile !== undefined && normalizedFileKey(state.settingsFile) === key;
+  });
+}
+
+// Every profile's record of the file is settled at once: the file is the user's again, whichever profile's restore gave it back.
+function releaseClaudeCodeSettingsFile(settingsFile: string, stateFiles: string[] = []): void {
+  for (const file of new Set([...claudeCodeSettingsStateFilesOf(settingsFile), ...stateFiles])) {
+    writeClaudeCodeSettingsStateFile(file, { ...readClaudeCodeSettingsStateFile(file), displacedEnv: {}, endpoints: [], hadEnv: undefined, restored: true });
   }
+}
+
+// An apply takes the file over for every profile that names it, so no older restore of another one can settle it while this record is lost.
+function unsettleClaudeCodeSettingsFile(settingsFile: string): void {
+  for (const file of claudeCodeSettingsStateFilesOf(settingsFile)) {
+    const state = readClaudeCodeSettingsStateFile(file);
+    if (state.restored) {
+      writeClaudeCodeSettingsStateFile(file, { ...state, restored: undefined });
+    }
+  }
+}
+
+// Whatever the file holds since a restore gave it back is the user's, so no later pass with the profile off touches it until an apply takes it over again.
+function isRestoredClaudeCodeSettingsFile(settingsFile: string): boolean {
+  return claudeCodeSettingsStateFilesOf(settingsFile).some((file) => readClaudeCodeSettingsStateFile(file).restored);
 }
 
 // A deleted profile has no owner in the config, but its state file outlives it and still holds what its takeover displaced.
 function orphanedClaudeCodeManagedContent(settingsFile: string): RestoreManagedContentMatchers | undefined {
-  const key = normalizedFileKey(settingsFile);
-  const stateFiles = managedClaudeCodeGeneratedFiles("settings-state.json").filter((file) => {
-    const state = readClaudeCodeSettingsStateFile(file);
-    return state.settingsFile !== undefined && normalizedFileKey(state.settingsFile) === key && hasClaudeCodeTakeoverState(state);
-  });
-  if (stateFiles.length === 0) {
+  const states = claudeCodeSettingsStateFilesOf(settingsFile).map(readClaudeCodeSettingsStateFile).filter(hasClaudeCodeTakeoverState);
+  if (states.length === 0) {
     return undefined;
   }
-  const states = stateFiles.map(readClaudeCodeSettingsStateFile);
   const paths = uniquePathStrings(states.flatMap((state) => state.paths));
   const envKeys = uniqueStrings(states.flatMap((state) => state.envKeys));
   const endpoints = uniqueStrings(states.flatMap((state) => state.endpoints));
   const displacedEnv = Object.assign({}, ...states.map((state) => state.displacedEnv)) as Record<string, string>;
-  const strip = (content: string) => stripManagedClaudeCodeSettingsContent(content, envKeys, paths, displacedEnv, endpoints);
-  const takeoverContent = (content: string) => claudeCodeTakeoverContent(content, endpoints, strip);
+  const strip = (content: string) => stripManagedClaudeCodeSettingsContent(content, envKeys, paths, displacedEnv, endpoints, states.some((state) => state.hadEnv));
   return {
     contentForBackup: claudeCodeSettingsBackupContent,
     isManagedContent: (content) => isManagedClaudeCodeSettingsContent(content, paths, endpoints),
-    onReleased: () => stateFiles.forEach(releaseClaudeCodeSettingsState),
-    stripLiveContent: (content) => endpoints.length > 0 && takeoverContent(content) === "none" ? undefined : strip(content),
+    onReleased: () => releaseClaudeCodeSettingsFile(settingsFile),
     stripManagedContent: strip,
-    takeoverContent
+    takeoverContent: (content) => claudeCodeTakeoverContent(content, endpoints, strip)
   };
 }
 
@@ -2574,7 +2595,10 @@ function restoreClaudeCodeGlobalConfigCache(profile: ProfileConfig, settingsFile
 function restoreDisabledClaudeCodeProfile(profile: ProfileConfig, staysDisabled = true): ProfileClientApplyStatus {
   const settingsFile = resolveClaudeCodeSettingsFile(profile);
   const recordedSha256 = readClaudeCodeProfileSettingsState(profile).globalConfigCacheSha256;
-  const status = restoreDisabledGlobalProfile(profile, settingsFile, "Claude Code profile is disabled.", claudeCodeManagedContent(profile), staysDisabled);
+  const disabledMessage = "Claude Code profile is disabled.";
+  const status = isGlobalProfile(profile) && isRestoredClaudeCodeSettingsFile(settingsFile)
+    ? disabledRestoreStatus("claude-code", settingsFile, disabledMessage, { changed: false, file: settingsFile, missingBackup: false, restored: false }, profile.name || profile.id, staysDisabled)
+    : restoreDisabledGlobalProfile(profile, settingsFile, disabledMessage, claudeCodeManagedContent(profile), staysDisabled);
   if (!status.ok) {
     return status;
   }
@@ -3466,6 +3490,9 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
         .filter(Boolean)
     ])) {
       try {
+        if (isRestoredClaudeCodeSettingsFile(file)) {
+          continue;
+        }
         const owners = claudeProfiles.filter((profile) => resolveClaudeCodeSettingsFile(profile) === file);
         const liveOwner = owners.find((profile) => hasClaudeCodeTakeoverState(readClaudeCodeProfileSettingsState(profile)));
         const owner = liveOwner ?? owners[0];
@@ -4225,7 +4252,8 @@ function stripManagedClaudeCodeSettingsContent(
   managedEnvKeys: string[] = [],
   managedSettingPaths: string[] = [],
   displacedEnv: Record<string, string> = {},
-  endpoints: string[] = []
+  endpoints: string[] = [],
+  keepEmptyEnv = false
 ): string | undefined {
   const settings = parseJsonContent(content);
   if (!settings) {
@@ -4236,7 +4264,7 @@ function stripManagedClaudeCodeSettingsContent(
     const hadEnv = Object.keys(nextSettings.env).length > 0;
     const env = withoutManagedClaudeCodeEnv(nextSettings.env, managedEnvKeys, displacedEnv, endpoints);
     nextSettings.env = env;
-    if (hadEnv && Object.keys(env).length === 0) {
+    if (hadEnv && !keepEmptyEnv && Object.keys(env).length === 0) {
       delete nextSettings.env;
     }
   }

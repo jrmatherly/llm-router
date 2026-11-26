@@ -3410,17 +3410,16 @@ test("deleting the global Claude profile restores the user's own provider env", 
 test("the sweep restores the user's own provider env from a deleted profile's takeover state", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withGlobalClaudeProfileRelease(userProviderClaudeSettings, async ({ config, readSettings, settingsFile }) => {
     const profile = config.profile.profiles[0];
-    const stateFile = path.join(CONFIGDIR, "profiles", profile.id, "claude", "settings-state.json");
     assert.equal(applyProfileRuntimeConfig(config, profile, "llmr-profile-displaced-env-test").ok, true);
     config.profile.enabled = true;
     config.profile.profiles = [];
     await applyProfileFixture(config);
     assert.doesNotMatch(readFileSync(settingsFile, "utf8"), /127\.0\.0\.1/);
     assert.deepEqual(readSettings(), userProviderClaudeSettings);
-    const state = JSON.parse(readFileSync(stateFile, "utf8"));
-    // The user's original is still beside the file, so the record outlives the restore.
-    assert.deepEqual(state.displacedEnv, userDisplacedEnv);
-    assert.ok(state.endpoints.length > 0);
+    const edited = { ...userProviderClaudeSettings, env: { ...userProviderClaudeSettings.env, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" } };
+    writeFileSync(settingsFile, `${JSON.stringify(edited)}\n`);
+    await applyProfileFixture(config);
+    assert.deepEqual(readSettings(), edited);
   });
 });
 
@@ -4501,13 +4500,15 @@ test("a restore gives back an empty env the user had", { skip: !process.env.LLMR
   }, plantUserClaudeSettings(user));
 });
 
-test("a restore of a settings file LLM Router created releases the record", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
-  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
-    const stateFile = path.join(CONFIGDIR, "profiles", "default-claude-code", "claude", "settings-state.json");
-    assert.ok(JSON.parse(readFileSync(stateFile, "utf8")).endpoints.length > 0);
+test("a restore of a settings file LLM Router created leaves one the user writes there later alone", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
     await recoverGlobalAgentProfile("default-claude-code");
     assert.equal(existsSync(path.join(claudeDir, "settings.json")), false);
-    assert.deepEqual(JSON.parse(readFileSync(stateFile, "utf8")).endpoints, []);
+    const own = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "localhost" } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(own)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), own);
   });
 });
 
@@ -4613,6 +4614,207 @@ test("a restore puts back the cache value a custom-path .claude.json held before
   assert.deepEqual(JSON.parse(readFileSync(globalFile, "utf8")), { autoCompactWindowsCache: { mine: 1 }, oauthAccount: {} });
   assert.deepEqual(copies(), []);
 }));
+
+const ownModelAndProxy = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+
+function withoutGatewayBaseUrls(settings) {
+  const env = { ...settings.env };
+  delete env.ANTHROPIC_API_BASE_URL;
+  delete env.ANTHROPIC_BASE_URL;
+  delete env.CLAUDE_AGENT_API_BASE_URL;
+  return { ...settings, env };
+}
+
+async function cleanClaudeLoginFixture() {
+  restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+  rmSync(path.join(CONFIGDIR, "profiles"), { force: true, recursive: true });
+  rmSync(path.join(CONFIGDIR, "global-profile-takeover.json"), { force: true });
+  await updatePersistedApiKeys(() => []);
+  await replacePersistedAppConfig(createDefaultAppConfig());
+}
+
+test("an apply over a takeover whose base URLs the user removed keeps the record of what the user had", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(withoutGatewayBaseUrls(readClaudeSettings(claudeDir)), null, 2)}\n`);
+    await applyProfileConfig(config);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), ownModelAndProxy);
+  }, plantUserClaudeSettings(ownModelAndProxy));
+});
+
+test("switching Claude Code off removes LLM Router's values from a file the user took the helper and base URLs out of", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    const { apiKeyHelper: _helper, ...applied } = readClaudeSettings(claudeDir);
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(withoutGatewayBaseUrls(applied), null, 2)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), ownModelAndProxy);
+  }, plantUserClaudeSettings(ownModelAndProxy));
+});
+
+test("switching a Claude login profile off removes LLM Router's values from a file the user took the base URLs out of", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("login-marks-removed", async ({ apply, readSettings, switchOff: off, userSettingsFile }) => {
+      await apply();
+      writeFileSync(userSettingsFile, `${JSON.stringify(withoutGatewayBaseUrls(readSettings()))}\n`);
+      await off();
+      assert.deepEqual(readSettings(), ownModelAndProxy);
+    }, { beforeApply: writeUserClaudeSettings(ownModelAndProxy) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
+});
+
+test("a Claude login takeover whose env block the user deleted still gives back what it displaced", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_BASE_URL: corpUrl, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("login-env-deleted", async ({ apply, readSettings, switchOff: off, userSettingsFile }) => {
+      await apply();
+      const { env: _env, ...withoutEnv } = readSettings();
+      writeFileSync(userSettingsFile, `${JSON.stringify(withoutEnv)}\n`);
+      await apply();
+      await off();
+      assert.deepEqual(readSettings(), user);
+    }, { beforeApply: writeUserClaudeSettings(user) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
+});
+
+test("a Claude login takeover whose record was lost is not given back as the user's settings after a port change", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("login-record-lost", async ({ apply, config, readSettings, switchOff: off }) => {
+      await apply();
+      const firstEndpoint = readSettings().env.ANTHROPIC_BASE_URL;
+      rmSync(path.join(CONFIGDIR, "profiles", "login-record-lost", "claude", "settings-state.json"));
+      config.gateway.port += 1;
+      await apply();
+      await off();
+      const restored = readSettings();
+      assert.equal(JSON.stringify(restored).includes(firstEndpoint), false, JSON.stringify(restored));
+      assert.equal(restored.env?.ANTHROPIC_MODEL, undefined);
+      assert.deepEqual(restored.permissions, { allow: ["Bash(ls)"] });
+    }, { beforeApply: writeUserClaudeSettings(ownModelAndProxy) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
+});
+
+test("a save after a restore keeps what the user changed in a file whose own three base URLs are alike", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ...userBaseUrls, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "localhost,corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = {
+      env: { ...userBaseUrls, ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus-2", ANTHROPIC_DEFAULT_SONNET_MODEL: "my-sonnet", NO_PROXY: "corp.internal,127.0.0.1" },
+      permissions: { allow: ["Bash(ls)"] }
+    };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited)}\n`);
+    const before = readdirSync(claudeDir).length;
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+    assert.equal(readdirSync(claudeDir).length, before, "a later save makes no new copy of a file it has no business with");
+  }, plantUserClaudeSettings(user));
+});
+
+const wifProfile = { env: { LLMR_CLAUDE_CODE_AUTH_MODE: "wif" }, passThrough: false };
+const usersOwnWifFixtureSettings = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
+
+test("a save after a restore keeps a model the user set since, when the profile has been deleted", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus" }, permissions: { allow: ["Bash(ls)"] } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus-2", ANTHROPIC_DEFAULT_SONNET_MODEL: "my-sonnet" }, permissions: { allow: ["Bash(ls)"] } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited)}\n`);
+    config.profile.profiles = config.profile.profiles.filter((profile) => profile.id !== "default-claude-code");
+    await replacePersistedAppConfig(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a federation-mode takeover whose record was lost is still told from the user's settings by LLM Router's rule", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("wif-record-lost", async ({ apply, config, readSettings, switchOff: off }) => {
+      await apply();
+      const firstEndpoint = readSettings().env.ANTHROPIC_BASE_URL;
+      rmSync(path.join(CONFIGDIR, "profiles", "wif-record-lost", "claude", "settings-state.json"));
+      config.gateway.port += 1;
+      await apply();
+      await off();
+      assert.equal(JSON.stringify(readSettings()).includes(firstEndpoint), false, JSON.stringify(readSettings()));
+    }, { ...wifProfile, beforeApply: writeUserClaudeSettings(usersOwnWifFixtureSettings) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
+});
+
+test("a federation-mode takeover stripped down to LLM Router's rule still gives back what it displaced", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await cleanClaudeLoginFixture();
+  try {
+    await withClaudeLoginProfile("wif-env-stripped", async ({ apply, readSettings, switchOff: off, userSettingsFile }) => {
+      await apply();
+      const applied = readSettings();
+      assert.equal(typeof applied.env.ANTHROPIC_FEDERATION_RULE_ID, "string");
+      writeFileSync(userSettingsFile, `${JSON.stringify({ ...applied, env: { ANTHROPIC_FEDERATION_RULE_ID: applied.env.ANTHROPIC_FEDERATION_RULE_ID } })}\n`);
+      await apply();
+      await off();
+      assert.deepEqual(readSettings(), usersOwnWifFixtureSettings);
+    }, { ...wifProfile, beforeApply: writeUserClaudeSettings(usersOwnWifFixtureSettings) });
+  } finally {
+    await cleanClaudeLoginFixture();
+  }
+});
+
+test("a save after a restore keeps a model the user set beside their own three alike base URLs", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: userBaseUrls };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    const edited = { env: { ...userBaseUrls, ANTHROPIC_MODEL: "my-model" } };
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify(edited)}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), edited);
+  }, plantUserClaudeSettings(user));
+});
+
+test("a save after a restore does not bring back a model the user deleted beside their own three alike base URLs", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: { ...userBaseUrls, ANTHROPIC_MODEL: "my-model" } };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), user);
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify({ env: userBaseUrls })}\n`);
+    await switchClaudeCodeOff(config);
+    await applyProfileConfig(config);
+    assert.deepEqual(readClaudeSettings(claudeDir), { env: userBaseUrls });
+  }, plantUserClaudeSettings(user));
+});
+
+test("a restore of settings the user edited keeps the empty env they had", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const user = { env: {} };
+  await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir }) => {
+    const applied = readClaudeSettings(claudeDir);
+    writeFileSync(path.join(claudeDir, "settings.json"), `${JSON.stringify({ ...applied, permissions: { allow: ["Bash(ls)"] } })}\n`);
+    await recoverGlobalAgentProfile("default-claude-code");
+    assert.deepEqual(readClaudeSettings(claudeDir), { env: {}, permissions: { allow: ["Bash(ls)"] } });
+  }, plantUserClaudeSettings(user));
+});
+
+test("switching a Claude login profile off keeps the empty env the user had", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withClaudeLoginProfile("login-empty-env", async ({ apply, switchOff, userSettingsFile }) => {
+    await apply();
+    await switchOff();
+    assert.deepEqual(JSON.parse(readFileSync(userSettingsFile, "utf8")), { env: {} });
+  }, { beforeApply: (file) => writeFileSync(file, "{\"env\":{}}\n") });
+});
 
 test("a restore after the user deleted their Claude Code settings keeps a copy of what the backups held", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
