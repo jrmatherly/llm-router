@@ -1,5 +1,16 @@
 # Backlog: Codex Config Stripper Implementation Plan
 
+> **Status, 2026-11-26 (UTC), batch 7 fix round: Tasks 4 to 6 read against the merged scanner and corrected, Task 7 added, and the S-7 part of Task 5 removed.** The owner's word of that day covers batch 7 with the refusal built and S-7 dropped. Each change below is marked "batch 7 fix round".
+> - **Task 4's writer removes a provider table by statement.** The text had it call `removeTablesOutsideValues`, which keeps a comment set off by a blank line, while the new `providerTables` reader takes a table up to the next header. Run against the merged scanner on a file with a comment below the user's provider table: that comment was in the file twice after an edited restore, and once with a writer that removes by statement. It is the fault batch 6's review fixed for a profile table.
+> - **Codex refuses to start on a config that defines a built-in provider id (X-3, run).** Codex 0.172.0, under an empty environment and a temporary home, exits 1 with `failed to load bootstrap configuration` on the table LLM Router writes when the id is `openai`, `ollama`, `lmstudio`, `gcp`, `amazon-bedrock` or `amazon-bedrock-runtime`. A control with `llm-router` loaded. The list is `RESERVED_MODEL_PROVIDER_IDS` in `codex-rs/config/src/config_toml.rs` at tag `rust-v0.172.0` (read). So the plan's inference that such a table "has no effect" was wrong, there are six ids and not three, and Task 7 refuses them. No UI component edits a Codex profile's provider id (searched), so the refusal is in the core apply path only.
+> - **Task 4's third test used the id `openai`**, which Task 7 refuses. The audit below then removed the test.
+> - **S-7 is not built.** Its new rule would remove one line and leave LLM Router's provider table. Run at the strip: a file LLM Router wrote under one id, stripped for another id, keeps the old `model_provider` line and the old `[model_providers.<id>]` table with the profile token in it. That needs a profile's provider id changed by hand between an apply and an edited restore, and it is recorded in the delivery order as a finding with no task.
+> - A child of the provider written as an array of tables, `[[model_providers.<id>.x]]`, is not matched by the prefix rule (run). Codex's provider type has no such field (read), so it is stated as a limit.
+>
+> **Tasks 4 to 7 audited the same day on another model, by building all four from this text in a scratch worktree at `main` `af8e92bf`, and corrected (two Blockers, eleven Corrections, each marked "batch 7 audit" below).** As written the text did not build green. Task 4's snapshot strip kept every `model_provider` line, which broke two existing tests: a backup that is a copy of a file LLM Router managed was taken for the user's, and a leftover line of LLM Router's with no table came back after a restore. Codex 0.172.0 does not load such a line: `Model provider \`llm-router\` not found` (run, binary alone in a temporary home). So the snapshot strip now keeps the line only beside a provider table of the user's of that id, the third integration test of Task 4 is gone, and S-11 is closed for that case only. Task 6's `existsSync` broke three tests that plant a directory at the copy's name to make the copy fail. With the corrections the audit's build passed typecheck, lint, the architecture suite and `npm run test:core` after each task (2234 tests, 0 fail after Task 7), and every mutation the steps name failed as intended. Measured diff: Task 4 about 81 source lines and 106 of test, Task 5 8 and 33, Task 6 12 and 28, Task 7 8 and 26. Not checked by the audit: a real Codex, Windows, the Workbuddy effect of Task 4, and an original that is not valid UTF-8.
+>
+> Not run by anyone: Workbuddy's own reserved ids, and the id-change path through the real apply and restore.
+
 > **Status, 2026-11-26 (UTC): Tasks 2 and 3 are merged as [PR 164](https://github.com/jrmatherly/llm-router/pull/164), squash commit `06ea2534`, batch 6 of the delivery order.** Their bodies below describe the code as planned. Review changed five things from the steps below, and Tasks 4 to 6 are read against the merged code before batch 7 is built:
 > - `removeTomlTable` (and so `removeCodexProviderTable`) removes a table up to the next header, as `main` did and as `readCodexDisplacedConfig` and `codexProfileTableBody` read it. The text had it keep a comment block set off by a blank line, and that comment was then copied on every apply and edited restore. `removeCodexMcpServerTable` and the strip keep the comment rule.
 > - A `[[x]]` header's `header` and `table` keep the double brackets (`[[fallbacks]]` gives `[[fallbacks]]`), so an array of tables is never the table of the same name. The text gave both the same path, and a valid file with `[[profiles.<id>]]` came back unparseable. The two places that ask whether a profile table is already in the file (`returnCodexProfileTable`, and the appended tables of the strip) count the array form as present.
@@ -19,7 +30,7 @@
 
 **Goal:** A Codex user whose `config.toml` holds unusual but valid TOML, or their own provider table under the id LLM Router uses, can switch a profile on and off and still have a file Codex loads, with every setting and key of theirs in it.
 
-**Architecture:** One statement-level scanner in `packages/core/src/profiles/codex-config-strip.ts` replaces every line pattern that reads or removes part of a Codex config. A statement is a key with all the lines of its value, a table header, a comment or a blank line. On top of it, a provider table counts as LLM Router's only by something LLM Router alone writes (its marker pair or its profile token), and a saved original is treated as the user's file. Six tasks, one commit each, in three PRs: Task 1 in batch 3, Tasks 2 and 3 in batch 6, Tasks 4, 5 and 6 in batch 7 of the delivery order.
+**Architecture:** One statement-level scanner in `packages/core/src/profiles/codex-config-strip.ts` replaces every line pattern that reads or removes part of a Codex config. A statement is a key with all the lines of its value, a table header, a comment or a blank line. On top of it, a provider table counts as LLM Router's only by something LLM Router alone writes (its marker pair or its profile token), and a saved original is treated as the user's file. Seven tasks, one commit each, in three PRs: Task 1 in batch 3, Tasks 2 and 3 in batch 6, Tasks 4, 5, 6 and 7 in batch 7 of the delivery order.
 
 **Tech Stack:** TypeScript, `node:test` with `node:assert/strict`, `smol-toml` as a dev dependency in tests only (from the harness plan).
 
@@ -34,7 +45,7 @@
 - **B-4.** `smol-toml` is a dev dependency. Tests assert that every Codex file LLM Router writes parses. Nothing ships to users, and there is no runtime parse guard.
 - **V-7 and V-17 of the v8 plan stand.** A restore removes only what LLM Router wrote. A root key goes only while it holds the value LLM Router wrote. LLM Router keeps no copy of its own token. A safety copy goes to LLM Router's own folder, token blanked, last three per file.
 - **X-1.** Codex 0.134.0 and later do not read a `[profiles.<name>]` table in `config.toml`. S-1, S-3 and S-5 concern a legacy file. They are fixed where the scanner fixes them, and their own steps are small.
-- **X-3.** The ids `openai`, `ollama` and `lmstudio` are reserved in Codex. This plan keeps a user's own `model_provider` line for such an id (S-11). Whether an apply should refuse such an id is under "Open with the owner".
+- **X-3.** Six ids are reserved in Codex 0.172.0: `openai`, `ollama`, `lmstudio`, `gcp`, `amazon-bedrock` and `amazon-bedrock-runtime` (run, 2026-11-26). Task 7 refuses a Codex profile under one of them.
 - **X-5.** A bare key and a quoted key are the same key. A value can span lines, and a line inside it can start with `[`. A line end is LF or CRLF.
 - **Task 4e of the v8 plan** is the model for S-13: content is LLM Router's by a value only LLM Router writes, not by a name the user can also choose.
 
@@ -69,7 +80,7 @@ Each line names a condition no single row's test covers. The test that pins it s
 2. A table header written with spaces, a quoted name or a trailing comment (`[ model_providers . "llm-router" ] # x`) is the same table to every reader and remover. Task 2, Step 1, test `a header is the same table however it is spelled`.
 3. A user with their own `[model_providers.llm-router]` table changes the profile's model and applies a second time before restoring. The file still comes back byte for byte, and their key is on disk after each step. Task 4, Step 1, the `reapply` case.
 4. A Codex config with CRLF line ends and a root value that spans lines parses after the apply and after an edited restore. Task 3, Step 1, the CRLF case of the S-2 test.
-5. A `written.json` record saved before Task 5 has no `modelProviderLine`. A restore with such a record still removes LLM Router's `model_provider` line and puts the user's back. Task 5, Step 1, test `a record with no model_provider line falls back to the provider id`. This line goes if the owner drops the S-7 part of Task 5 ("Open with the owner", question 3).
+5. Removed in the batch 7 fix round with the S-7 part of Task 5. The number is kept so the lines below keep theirs.
 6. A child table of the user's own provider, such as `[model_providers.llm-router.http_headers]`, is never part of LLM Router's provider while the profile applies, and comes back with its parent. Task 4, Step 1, the first test.
 
 ## Rows this plan closes
@@ -82,11 +93,11 @@ Each line names a condition no single row's test covers. The test that pins it s
 | S-3 | 6 | |
 | S-5 | 3 | For consistency only. The mover and the remover take the same tables |
 | S-6 | 3 | Red case written in Task 1. Task 2 fixes the strip half |
-| S-7 | 5 | Low. No product path reaches the new rule (open question 3) |
+| S-7 | none | Not built (owner, 2026-11-26). The limit stays, and the delivery order records what a changed provider id leaves behind |
 | S-8 | 1 | Tests only |
 | S-9 | 5 | After S-11, which changes what a snapshot strip removes |
 | S-10 | 2 | The put-back line only. Blank lines LLM Router wrote keep their LF |
-| S-11 | 4 | |
+| S-11 | 4 | Narrowed by the batch 7 audit: the line is kept beside the user's own provider table of that id. A line with no table is removed as on `main`, and a built-in id is refused by Task 7 |
 | S-12 | 3 | Both halves, see "Where this plan departs from the research" |
 | S-13 | 4 | The one row with a permanent loss. Task 4 also covers the user's child tables of that provider (B2 of the audit) |
 | S-14 | 2 and 3 | `managedConfiguredModel` in Task 2, the other three in Task 3 |
@@ -111,14 +122,14 @@ Functions in `packages/core/src/profiles/service.ts` that this plan changes, mov
 |---|---|---|
 | `tomlKey` | 2 | Leaves `service.ts` for `apply-support.ts`, unchanged |
 | `removeManagedMarkerLines`, `removeRootTomlKeys`, `rootTomlAssignment`, `removeManagedConfiguredModelLine`, `legacyCodexProfileTableBody`, `removeCodexProfileTable`, `isManagedCodexConfigContent` | 3 | Leave `service.ts`. Their replacements are exported from `codex-config-strip.ts` |
-| `buildCodexConfigToml`, `buildSeparateCodexProfileToml`, `managedModelAssignment` | 3 | Call the replacements. The blank-line collapse goes by statement. `buildCodexConfigToml` also removes the child tables of a provider of that id (Task 4) and returns `modelProviderLine` in `written` (Task 5, S-7 part) |
+| `buildCodexConfigToml`, `buildSeparateCodexProfileToml`, `managedModelAssignment` | 3 | Call the replacements. The blank-line collapse goes by statement. `buildCodexConfigToml` also removes the child tables of a provider of that id (Task 4) |
 | `returnCodexProfileTable`, `codexProfileFileUsersContent` | 3 | Read by statement |
 | `codexManagedContent` | 4 | `stripManagedContent` becomes the snapshot strip |
 | `writeGlobalCodexConfig` | 5 | Passes the stripped text to `ensureOriginalSnapshot` |
-| `readCodexWrittenRecord` | 5 | Accepts the new optional field |
+| `applyCodexProfile` | 7 | Refuses a Codex profile whose provider id Codex reserves, before any file is written |
 | `maybeWriteSeparateCodexProfileFile` | 6 | One more condition before the copy |
 
-This plan does not change `restoreGlobalConfigFile`, `restoreGlobalConfigFileContent`, `originalSnapshotCandidate`, `restoreDisabledCodexProfile`, `restoreInactiveGlobalProfileConfigs`, `applyCodexProfile` or any Claude Code function. That is true of their text, not of what they do: Task 4's rule reaches every caller of `isManagedCodexConfigContent` and of `codexManagedContent`'s `stripManagedContent` (both listed in Task 4). Task 1 adds tests that pin three conditions inside `restoreGlobalConfigFileContent` and `writeGlobalCodexConfig`. A restore-plan task that changes one of those conditions on purpose changes its test in the same PR.
+This plan does not change `restoreGlobalConfigFile`, `restoreGlobalConfigFileContent`, `originalSnapshotCandidate`, `restoreDisabledCodexProfile`, `restoreInactiveGlobalProfileConfigs` or any Claude Code function. Of `applyCodexProfile` it changes only the refusal of Task 7. That is true of their text, not of what they do: Task 4's rule reaches every caller of `isManagedCodexConfigContent` and of `codexManagedContent`'s `stripManagedContent` (both listed in Task 4). Task 1 adds tests that pin three conditions inside `restoreGlobalConfigFileContent` and `writeGlobalCodexConfig`. A restore-plan task that changes one of those conditions on purpose changes its test in the same PR.
 
 In `packages/core/src/profiles/backup-files.ts` this plan changes `ensureOriginalSnapshot` (Task 5) and `backupFilePath` (Task 6), and exports `profileTokenPrefix` (Task 4).
 
@@ -567,13 +578,13 @@ Expected: no output. Then read `returnCodexProfileTable` and `codexProfileFileUs
 
 Fourth, because the rule is written on Task 3's statement-based `isManagedCodexConfigContent`, and because Task 5 strips the saved original with the snapshot strip this task adds.
 
-A user who already has `[model_providers.llm-router]` in their `config.toml`, with their own endpoint and key, keeps it. Today LLM Router takes that file for its own, saves no original, replaces the table, and then cannot restore: the user's table and key are in no file. A user whose profile uses a provider id they also use themselves, such as `openai`, gets their `model_provider` line back after a restore.
+A user who already has `[model_providers.llm-router]` in their `config.toml`, with their own endpoint and key, keeps it. Today LLM Router takes that file for its own, saves no original, replaces the table, and then cannot restore: the user's table and key are in no file. Their `model_provider` line, which names that table, comes back with it.
 
 **The rule.** A `[model_providers.<id>]` table is LLM Router's only when one of these holds:
 - the statement before its header, blank lines skipped, is the comment `managedProviderStart`;
 - its body has an `experimental_bearer_token` whose `value` starts with a quote and then `profileTokenPrefix`.
 
-Any other table of that name is the user's. A file is managed when it holds LLM Router's root or provider start marker as a comment statement, or a provider table that is LLM Router's by this rule. A saved original or a backup is the user's file, so a strip of one leaves its `model_provider` line alone. Such a line with no table beside it only loads in Codex for a built-in id, so it is a choice the user made (inferred from X-3, not run against Codex).
+Any other table of that name is the user's. A file is managed when it holds LLM Router's root or provider start marker as a comment statement, or a provider table that is LLM Router's by this rule. A strip of a saved original or a backup keeps a `model_provider` line of that id only when the same file holds a provider table of that id that is the user's by this rule (batch 7 audit). A line of that id with no table beside it is removed, as on `main`: Codex does not load it (`Model provider not found`, run on 0.172.0), it is what an earlier takeover leaves behind, and a built-in id, the one case where such a line loads, is refused by Task 7.
 
 **What the writer still does.** `buildCodexConfigToml` removes any table of that name from the live file, because two tables of one name do not load. The user's table is then only in `config.toml.llmr-original`, which is the copy this task makes sure exists, and a restore puts it back.
 
@@ -586,13 +597,12 @@ Any other table of that name is the user's. A file is managed when it holds LLM 
 **Interfaces:**
 - Consumes: `scanTomlStatements`, `isManagedCodexConfigContent` and the parse check from Tasks 1 to 3.
 - Produces, in `backup-files.ts`: `export const profileTokenPrefix = "llmr-profile-";`. `profileTokenPattern` is built from it and stays private.
-- Produces, in `codex-config-strip.ts`: `export function stripCodexSnapshotContent(content: string, providerIds: string[]): string | undefined`. It is `stripManagedCodexConfigContent(content, providerIds)` with one difference: a root `model_provider` line is never removed.
+- Produces, in `codex-config-strip.ts`: `export function stripCodexSnapshotContent(content: string, providerIds: string[]): string | undefined`. It is `stripManagedCodexConfigContent(content, providerIds)` with one difference (batch 7 audit): a root `model_provider` line that names one of the ids is kept when the content holds a provider table of that id that is not LLM Router's. Every other file is stripped as before, so a backup that is a copy of a file LLM Router managed still comes out empty and `saveNewestUserBackupCopy` does not take it for the user's (run: `a restore after the user deleted their Codex config copies the newest backup that holds something of theirs`), and a leftover line with no table still goes (run: `an apply over the user's own Codex config that still held a line of LLMR's backs it up without that line`). Both tests pass unchanged.
 - Changes: `stripManagedCodexConfigContent` and `isManagedCodexConfigContent` use the rule above for a provider table. ToolHub and Context Archive tables are still removed by name, because those names are LLM Router's own.
-- Changes: `buildCodexConfigToml` calls `removeTablesOutsideValues` with a predicate that is true for a header equal to `model_providers.<tomlKey(providerId)>` or starting with that path and a dot, in place of `removeCodexProviderTable`.
+- Changes (batch 7 fix round): `removeCodexProviderTable` removes, by statement, every statement whose `table` is `model_providers.<tomlKey(providerId)>` or starts with that path and a dot. It does not go through `removeTablesOutsideValues`. That function keeps a comment set off by a blank line, the `providerTables` reader below takes it, and the comment is then in the file twice after an edited restore (run on the merged scanner). `removeTomlTable` is unchanged, so a `[profiles.<id>.x]` child is still left by it. `buildCodexConfigToml` calls `removeCodexProviderTable` as it does today. The cost, stated in the PR: a comment between the user's provider table and the next header leaves the live file while the profile applies, and after an edited restore it comes back at the end with the provider table.
 - Changes: `CodexDisplacedConfig` gains `providerTables?: string[]`. `readCodexDisplacedConfig` fills it with each table of the snapshot whose path is `model_providers.<id>` or starts with `model_providers.<id>.`, read the way `profileTables` are. A strip appends each displaced provider table whose header path is not left in its result, exactly as it does for a profile table.
-- Changes: in `codexManagedContent`, `stripManagedContent` becomes `(content) => stripCodexSnapshotContent(content, providerIds)`. `stripLiveContent` is unchanged. That matcher has five uses, and each now keeps a `model_provider` line (read). `originalSnapshotCandidate` strips a non-managed snapshot with it, and with no original it skips a backup it changes. `saveNewestUserBackupCopy` keeps a backup it leaves something in. `writeGlobalCodexConfig` uses it as `kept` for a previous file that is not managed and, with no original, as the snapshot's skip test. Each of them reads a backup or a file LLM Router does not take for its own, which is the user's file under this task's rule, so keeping their `model_provider` line is intended. A backup made while LLM Router had the file still holds LLM Router's marked provider table, so with no original it is still changed by the strip and still skipped (inferred).
+- Changes: in `codexManagedContent`, `stripManagedContent` becomes `(content) => stripCodexSnapshotContent(content, providerIds)`. `stripLiveContent` is unchanged. That matcher has five uses, and each now keeps a `model_provider` line that stands beside the user's own table of that id (read). `originalSnapshotCandidate` strips a non-managed snapshot with it, and with no original it skips a backup it changes. `saveNewestUserBackupCopy` keeps a backup it leaves something in. `writeGlobalCodexConfig` uses it as `kept` for a previous file that is not managed and, with no original, as the snapshot's skip test. A backup made while LLM Router had the file still holds LLM Router's marked provider table, so with no original it is still changed by the strip and still skipped (inferred).
 - Changes, with no edit of their text: every caller of `isManagedCodexConfigContent` (read). `applyCodexProfile` uses it for `sourceManaged`, which sets `managedWithoutRecord` and the record's `edited`, and for the `isManagedContent` of `writeFileWithBackup` on a Workbuddy or a generated-scope Codex file, which steers backup pruning. The Workbuddy loop of `restoreInactiveGlobalProfileConfigs` uses it to choose a snapshot. A Workbuddy file always gets an original at its first write, because `writeFileWithBackup` calls `ensureOriginalSnapshot` whatever the content (read). So the effect on Workbuddy is at the restore: an original that holds the user's own provider table is skipped as managed today and is accepted after this task (inferred, not run). State it in the PR. Restore Task 5 rebuilds the Workbuddy restore on the Codex stripper later.
-- Produces, in the test file: `withAppliedDefaultProfiles` takes `options.configure?: (config) => void`, called on the config before `beforeApply`.
 
 - [ ] **Step 1: Write the failing integration tests.** The first is the most exact test of the plan. Do not weaken an assertion in it to make it pass.
 
@@ -650,24 +660,22 @@ test("a user's own provider table comes back once, with their key, after they ed
   }, plantCodexOriginal(usersProviderOriginal));
 });
 
-test("a profile whose provider id is one the user also uses gives their model_provider line back", ..., async () => {
-  const original = "model = \"gpt-mine\"\nmodel_provider = \"openai\"\n";
-  for (const edit of [false, true]) {
+test("a comment below a user's own provider table comes back once after an edited restore", ..., async () => {
+  for (const eol of ["\n", "\r\n"]) {
+    const original = `${usersProviderOriginal}\n# about my servers\n[mcp_servers.keep]\ncommand = "keep"\n`.replaceAll("\n", eol);
     await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
-      if (edit) {
-        appendUserCodexTables(fixture);
-      }
-      await recoverGlobalAgentProfile("default-codex");
+      appendUserCodexTables(fixture);
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, result.status.message);
       const restored = readFileSync(fixture.codexConfigFile, "utf8");
-      assertHoldsEveryLine(restored, original);
-      assert.equal(restored.includes("[model_providers.openai]"), false);
-      if (!edit) {
-        assert.equal(restored, original);
-      }
-    }, plantCodexOriginal(original), { configure: (config) => { config.profile.profiles.find((profile) => profile.id === "default-codex").providerId = "openai"; } });
+      assert.equal(countOf(restored, "# about my servers"), 1, restored);
+      assert.equal(countOf(restored, "[model_providers.llm-router.http_headers]"), 1, restored);
+    }, plantCodexOriginal(original));
   }
 });
 ```
+
+Batch 7 audit. The third test of this step, `a profile whose provider id is one the user also uses gives their model_provider line back`, is gone: its original held a `model_provider` line with no table, which the narrowed rule removes. The test above replaces it. It was run green on the audit's build and red with the writer on `removeTablesOutsideValues`, which no other test noticed. The marker test in Step 2 was run the same way against the marker arm of the rule.
 
 - [ ] **Step 2: Write the failing unit tests.**
 
@@ -682,9 +690,19 @@ test("a provider table with no marker above it and no LLMR token is the user's",
   assert.equal(isManagedCodexConfigContent(`${managedProviderStart}\n\n${usersTable}`, "llm-router"), true);
 });
 
-test("a snapshot strip keeps the model_provider line and still removes what only LLMR writes", () => {
-  const snapshot = `model_provider = "llm-router"\nmodel_catalog_json = "/tmp/codex-home/llmr-model-catalog.json"\n\n[mcp_servers.llmr-toolhub]\ncommand = "node"\n`;
-  assert.equal(stripCodexSnapshotContent(snapshot, ["llm-router"]), "model_provider = \"llm-router\"\n");
+test("a snapshot strip keeps a model_provider line only beside the user's own table of that id", () => {
+  const llmrs = `model_catalog_json = "/tmp/codex-home/llmr-model-catalog.json"\n\n[mcp_servers.llmr-toolhub]\ncommand = "node"\n`;
+  const leftover = stripCodexSnapshotContent(`model_provider = "llm-router"\n${llmrs}`, ["llm-router"]);
+  assert.equal(leftover.includes("model_provider"), false);
+  const withUsersTable = stripCodexSnapshotContent(`model_provider = "llm-router"\n${llmrs}\n${usersTable}`, ["llm-router"]);
+  assert.match(withUsersTable, /^model_provider = "llm-router"\n/);
+  assert.equal(withUsersTable.includes("my-own-secret"), true);
+  assert.equal(withUsersTable.includes("llmr-toolhub"), false);
+});
+
+test("a provider table under LLMR's marker is LLMR's even after its token was changed", () => {
+  const rotated = managed("").replace("llmr-profile-TEST", "another-key");
+  assert.equal(stripManagedCodexConfigContent(rotated, ["llm-router"], { modelLine: ours }), "");
 });
 
 test("a displaced provider table is appended once, and not when the file still has one of that name", () => {
@@ -698,39 +716,37 @@ test("a displaced provider table is appended once, and not when the file still h
 
 Add `const countOf = (text, part) => text.split(part).length - 1;` to the unit file.
 
-- [ ] **Step 3: Give LLM Router's token to the unit fixtures that plant a bare table as LLM Router's.** In each of these tests, every `[model_providers.llm-router]` table, however its header is spelled, gains the line `experimental_bearer_token = "llmr-profile-TEST"`, and the expected text is unchanged: `LLMR's tables are removed however their header is written` (its three provider headers only), `a removed table ends at an array-of-tables header and keeps the comment above it`, `a comment at the end of LLMR's table goes with the table` (the token is only in a comment there today), and `removing LLMR's tables from between the user's keeps their spacing and their comments`.
+- [ ] **Step 3: Give LLM Router's token to the unit fixtures that plant a bare table as LLM Router's.** In each of these tests, every `[model_providers.llm-router]` table, however its header is spelled, gains the line `experimental_bearer_token = "llmr-profile-TEST"`, and the expected text is unchanged: `LLMR's tables are removed however their header is written` (its three provider headers only), `a removed table ends at an array-of-tables header and keeps the comment above it`, `a comment at the end of LLMR's table goes with the table` (the token is only in a comment there today), `removing LLMR's tables from between the user's keeps their spacing and their comments`, and `a config with LLMR's provider table and no marker is LLMR's` (both headers, batch 7 audit: it fails `false !== true` without them).
 
-- [ ] **Step 4: Run and watch them fail.** Unit file, then the integration file with `--test-name-pattern="own provider table|also uses"`. Expected: the first integration test fails at reading `config.toml.llmr-original`, which does not exist (run on this input with the child table). The third fails at `assertHoldsEveryLine` for `model_provider = "openai"` (the audit ran S-11).
+- [ ] **Step 4: Run and watch them fail.** First add `export function stripCodexSnapshotContent(content: string, providerIds: string[]) { return stripManagedCodexConfigContent(content, providerIds); }`, or the bundle stops on a missing export and nothing runs (batch 7 audit, run). Then the unit file, then the integration file with `--test-name-pattern="own provider table"`. Expected, each run by the audit: the unit tests fail on assertions (`true !== false` at the first `isManagedCodexConfigContent`, and `undefined` for `providerTables`). The first integration test fails at reading `config.toml.llmr-original`, which does not exist. The second fails at `assertHoldsEveryLine` for `model_provider = "llm-router"`. The two tests the audit added pass or fail as Step 8 says only once the rule exists.
 
 - [ ] **Step 5: Export `profileTokenPrefix`** from `backup-files.ts` and build `profileTokenPattern` from it.
 
-- [ ] **Step 6: Apply the rule** in `isManagedCodexConfigContent` and in the strip's provider-table predicate, through one shared private function in `codex-config-strip.ts`, so the two cannot disagree. Add `stripCodexSnapshotContent` and `providerTables`. Point `codexManagedContent` at the snapshot strip.
+- [ ] **Step 6: Apply the rule** in `isManagedCodexConfigContent` and in the strip, through one shared private function in `codex-config-strip.ts`, so the two cannot disagree. In the strip, decide which provider headers are LLM Router's on the statements of the content as given, before the loop that drops marker statements. The table remover runs on text with the markers gone, so it is handed the decision per header in order, not the rule (batch 7 audit: a predicate that applied the rule there would never see a marker). Replace the stub of Step 4 with `stripCodexSnapshotContent`, add `providerTables`, and point `codexManagedContent` at the snapshot strip.
 
-- [ ] **Step 7: Run the tests.** The new ones pass. `restoring a Codex config whose LLMR markers were deleted by hand still removes LLMR's provider` still passes: that file keeps LLM Router's token. Then `npm run test:core`. An integration fixture that plants a bare table of that name as LLM Router's gets the token line too, and the PR lists each one.
+- [ ] **Step 7: Run the tests.** The new ones pass. The two tests named in the Interfaces line for `stripCodexSnapshotContent` pass unchanged: if either fails, the snapshot strip is keeping a line it should not (batch 7 audit). `restoring a Codex config whose LLMR markers were deleted by hand still removes LLMR's provider` still passes: that file keeps LLM Router's token. Then `npm run test:core`. An integration fixture that plants a bare table of that name as LLM Router's gets the token line too, and the PR lists each one.
 
-- [ ] **Step 8: Break it four times.** Make the rule match by header name alone and confirm the first integration test fails. Make `stripCodexSnapshotContent` remove the `model_provider` line and confirm the first and third fail. Drop `providerTables` from the strip and confirm the second fails. Make the writer remove only the parent table and confirm the first fails at the child-table assertion. Put all four back.
+- [ ] **Step 8: Break it six times.** Make the rule match by header name alone and confirm the first integration test fails. Make `stripCodexSnapshotContent` remove the `model_provider` line always and confirm the first and second fail. Drop `providerTables` from the strip and confirm the second fails. Make the writer remove only the parent table and confirm the first fails at the child-table assertion. Batch 7 audit, each run: remove the marker arm of the rule and confirm `a provider table under LLMR's marker is LLMR's even after its token was changed` fails, and put the writer back on `removeTablesOutsideValues` and confirm `a comment below a user's own provider table comes back once after an edited restore` fails. Put all six back.
 
-- [ ] **Step 9: State the limits in the PR, run the gates, commit.** Limits, each inferred from the rule. A live file where someone removed LLM Router's marker and changed its token keeps that table after a restore, because nothing in it is LLM Router's any more. A table of the user's with no marker and no LLM Router token is the user's, by design. A profile token the user copied by hand into their own table of that id makes the table LLM Router's, so the snapshot strip drops it from the saved original, and that key is revoked at restore anyway. A child table the user adds to LLM Router's provider while the profile applies stays after a restore, with no parent. A displaced provider table comes back at the end of an edited file, not where it was. The effect on Workbuddy named in the Interfaces block. Then `npm run typecheck`, `npm run lint`, `npm run test:architecture`, and `fix(profiles): keep a user's own Codex provider table and model_provider line` Then `npm run typecheck`, `npm run lint`, `npm run test:architecture`, and `fix(profiles): keep a user's own Codex provider table and model_provider line`
+- [ ] **Step 9: State the limits in the PR, run the gates, commit.** Limits, each inferred from the rule. A live file where someone removed LLM Router's marker and changed its token keeps that table after a restore, because nothing in it is LLM Router's any more. A table of the user's with no marker and no LLM Router token is the user's, by design. A profile token the user copied by hand into their own table of that id makes the table LLM Router's, so the snapshot strip drops it from the saved original, and that key is revoked at restore anyway. A child table the user adds to LLM Router's provider while the profile applies stays after a restore, with no parent. A displaced provider table comes back at the end of an edited file, not where it was, and a comment between it and the next header comes with it, while a comment above its header stays where it was and then sits above the next table (batch 7 audit, run). A `model_provider` line of that id with no table of the user's beside it is removed, as on `main`. A child written as an array of tables, `[[model_providers.<id>.x]]`, is not taken for a child and stays in the live file (run, and Codex's provider type has no such field). The effect on Workbuddy named in the Interfaces block. Then `npm run typecheck`, `npm run lint`, `npm run test:architecture`, and `fix(profiles): keep a user's own Codex provider table and model_provider line`
 
 ---
 
-### Task 5: Keep no profile token in a saved original, and remove only the `model_provider` line LLM Router wrote (S-9, S-7)
+### Task 5: Keep no profile token in a saved original (S-9)
 
 Fifth, because the first snapshot is written through Task 4's snapshot strip. Written through today's strip, it would lose the user's `model_provider` line (S-11).
 
-A `config.toml` that LLM Router does not take for its own, but that still holds a ToolHub table from an earlier takeover, is saved as the original today with the old profile token in it, and that copy outlives the restore. After this task the original is saved without LLM Router's content. A `model_provider` line left from another provider id is removed only when it is the line LLM Router recorded writing.
+A `config.toml` that LLM Router does not take for its own, but that still holds a ToolHub table from an earlier takeover, is saved as the original today with the old profile token in it, and that copy outlives the restore. After this task the original is saved without LLM Router's content.
 
-**The S-7 part reaches no product path.** `codexManagedContent` hands the record to `stripLiveContent` only when the live content tests managed, and the S-7 input (a leftover `model_provider` line, no markers, no table) does not (read in `codexManagedContent`). The spec says no product path produced the input. So on the real restore path the old rule stays, and only the unit tests change. "Open with the owner", question 3, asks whether to drop it. Until he answers it is built, and the PR says it reaches only the unit tests. The S-7 part is marked below. Dropping it removes those lines and Review Focus 5.
+**The S-7 part was removed in the batch 7 fix round** (owner, 2026-11-26). It added `modelProviderLine` to the record and a rule to the strip. The status at the top of this plan says why it is not built.
 
 **Files:**
-- Modify: `packages/core/src/profiles/backup-files.ts` (`ensureOriginalSnapshot`), `packages/core/src/profiles/service.ts` (`writeGlobalCodexConfig`, `buildCodexConfigToml`, `readCodexWrittenRecord`), `packages/core/src/profiles/codex-config-strip.ts` (`CodexWrittenRecord`, `CodexWrittenLines`, the strip)
-- Test: `packages/core/test/unit/profiles/backup-files.test.mjs`, `packages/core/test/unit/profiles/codex-config-strip.test.mjs`, `packages/core/test/integration/profiles/profile-service.test.mjs`
+- Modify: `packages/core/src/profiles/backup-files.ts` (`ensureOriginalSnapshot`), `packages/core/src/profiles/service.ts` (`writeGlobalCodexConfig`)
+- Test: `packages/core/test/unit/profiles/backup-files.test.mjs`, `packages/core/test/integration/profiles/profile-service.test.mjs`
 
 **Interfaces:**
 - Consumes: `stripCodexSnapshotContent` through `matchers.stripManagedContent`, from Task 4.
 - Changes: `ensureOriginalSnapshot(file: string, previous: string | undefined, mode?: number, content?: string): void`. With `content`, the original is written with that text. Without it, the file is copied as today. Every other caller passes three arguments and is unchanged.
-- Changes, S-7 part: `CodexWrittenRecord` gains `modelProviderLine?: string`, and `CodexWrittenLines` picks it too. `buildCodexConfigToml` returns it in `written` as the `model_provider` line it wrote. `readCodexWrittenRecord` accepts it as an optional line.
-- Changes, S-7 part: in a strip with `written.modelProviderLine` set, a root `model_provider` line is LLM Router's when `sameRootAssignment` matches it against that line. With no such field the test is today's, the provider ids. `stripCodexSnapshotContent` is unaffected.
 
 - [ ] **Step 1: Write the failing tests.**
 
@@ -744,24 +760,8 @@ test("ensureOriginalSnapshot writes the given text in place of a copy of the fil
   assert.equal(readFileSync(`${file}.llmr-original`, "utf8"), "stripped\n");
   ensureOriginalSnapshot(file, "raw\n", 0o600, "later\n");
   assert.equal(readFileSync(`${file}.llmr-original`, "utf8"), "stripped\n");
-});
-```
-
-In `codex-config-strip.test.mjs`, S-7 part:
-
-```js
-test("a model_provider line goes only when it is the one LLMR recorded, whatever the provider id is now", () => {
-  const content = "model_provider = \"old-id\"\n\n[mcp_servers.mine]\ncommand = \"x\"\n";
-  const displaced = { modelProvider: "model_provider = \"openai\"" };
-  assert.equal(
-    stripManagedCodexConfigContent(content, ["new-id"], { modelProviderLine: "model_provider = \"old-id\"" }, displaced),
-    "model_provider = \"openai\"\n\n[mcp_servers.mine]\ncommand = \"x\"\n"
-  );
-  assert.equal(stripManagedCodexConfigContent(content, ["new-id"], { modelProviderLine: "model_provider = \"new-id\"" }, displaced), undefined);
-});
-
-test("a record with no model_provider line falls back to the provider id", () => {
-  assert.equal(stripManagedCodexConfigContent(managed(""), ["llm-router"], { modelLine: ours }, { modelProvider: "model_provider = \"openai\"" }), "model_provider = \"openai\"\n");
+  // under posixOnly, batch 7 audit: dropping the mode failed no test
+  assert.equal(statSync(`${file}.llmr-original`).mode & 0o777, 0o600);
 });
 ```
 
@@ -793,25 +793,21 @@ test("a saved Codex original holds no profile token from an earlier takeover", .
 });
 ```
 
-S-7 part. Extend the existing test `an apply records which Codex lines LLMR wrote, and every restore outcome clears the record` with `assert.equal(record.modelProviderLine, "model_provider = \"llm-router\"", name);`.
+- [ ] **Step 2: Run and watch them fail.** Expected: the `backup-files` test reads `raw\n`. The integration test finds the token in `config.toml.llmr-original`.
 
-- [ ] **Step 2: Run and watch them fail.** Expected: the `backup-files` test reads `raw\n`. The first strip test returns `undefined` for its first assertion. The integration test finds the token in `config.toml.llmr-original`. The fallback test passes today and is there to fail under a wrong build.
+- [ ] **Step 3: Add the fourth parameter to `ensureOriginalSnapshot`** and pass it from `writeGlobalCodexConfig` as `previous === undefined ? undefined : matchers.stripManagedContent?.(previous)`. A file the strip does not change is then copied as today, so Task 4's byte-for-byte test still holds and an original whose bytes are not valid UTF-8 is not rewritten from decoded text (batch 7 audit: with `?? previous` every test passed too, so nothing needs it; the UTF-8 consequence is read, not run). The written original gets the mode the copy gets.
 
-- [ ] **Step 3: Add the fourth parameter to `ensureOriginalSnapshot`** and pass it from `writeGlobalCodexConfig` as `previous === undefined ? undefined : matchers.stripManagedContent?.(previous) ?? previous`. A file the strip does not change is written as it is, so Task 4's byte-for-byte test still holds.
+- [ ] **Step 4: Run the tests.** The new ones pass. Task 4's integration tests still pass. Then `npm run test:core`.
 
-- [ ] **Step 4, S-7 part: Record and use `modelProviderLine`** as the Interfaces block says.
+- [ ] **Step 5: Break it twice.** Pass no fourth argument in `writeGlobalCodexConfig` and confirm the integration test fails. Drop the mode on the written original and confirm the `backup-files` test fails. Put both back.
 
-- [ ] **Step 5: Run the tests.** The new ones pass. Task 4's three integration tests still pass. Then `npm run test:core`.
-
-- [ ] **Step 6: Break it twice.** Pass no fourth argument in `writeGlobalCodexConfig` and confirm the integration test fails. S-7 part: ignore `written.modelProviderLine` in the strip and confirm the first strip test fails. Put both back.
-
-- [ ] **Step 7: Run the gates and commit.** `npm run typecheck`, `npm run lint`, `npm run test:architecture`. Then `fix(profiles): keep no profile token in a saved Codex original, and remove only the model_provider line LLMR wrote`
+- [ ] **Step 6: Run the gates and commit.** `npm run typecheck`, `npm run lint`, `npm run test:architecture`. Then `fix(profiles): keep no profile token in a saved Codex original`
 
 ---
 
 ### Task 6: Keep the copy of a user's first profile settings, and never overwrite a copy (S-3, S-15)
 
-Last, because it depends on nothing above and concerns a legacy table (X-1) and a collision nobody has observed.
+Sixth, because it depends on nothing above and concerns a legacy table (X-1) and a collision seen once, in CI (run `45740554528`).
 
 A user whose script re-adds the same `[profiles.<id>]` table to `config.toml` before every apply loses the only copy of the settings they first had in the profile file, after the fourth apply. After this task a table equal to what the profile file already holds makes no new copy. Two copies or backups of one file made in the same millisecond get two names.
 
@@ -821,7 +817,7 @@ A user whose script re-adds the same `[profiles.<id>]` table to `config.toml` be
 
 **Interfaces:**
 - Changes: `maybeWriteSeparateCodexProfileFile` saves a copy only when the user's content of the existing profile file is not empty and differs from the user's content of the file it is about to write. Both go through `codexProfileFileUsersContent`. Comparing with `moved` itself would still copy on every apply when the moved table holds a `model` key, because the writer puts `model` first (inferred from `buildSeparateCodexProfileToml`, Note 3 of the audit).
-- Changes: `backupFilePath(file: string): string` returns a path that does not exist. When the timestamped name is taken it appends `-1`, then `-2`, and so on. `backupFiles` matches by prefix and sorts by name, so a suffixed name is found and sorts after the plain one.
+- Changes: `backupFilePath(file: string): string` returns a name no file holds. When a file has the timestamped name it appends `-1`, then `-2`, and so on. `backupFiles` matches by prefix and sorts by name, so a suffixed name is found, sorts after the plain one and before the next millisecond's. Limits, stated in the PR (batch 7 audit, run): from ten copies in one millisecond the names sort out of order, and once pruning has freed the plain name a fifth copy in that millisecond takes it, sorts first and is pruned at once. Neither is a case a product path makes.
 
 - [ ] **Step 1: Write the failing tests.**
 
@@ -860,15 +856,81 @@ test("two copies of one file in the same millisecond are both kept", posixOnly, 
 });
 ```
 
-- [ ] **Step 2: Run and watch them fail.** Expected: the first finds three copies, none with `S0`. The second fails at `notEqual`.
+- [ ] **Step 2: Run and watch them fail.** Expected: the first fails at the count, `3 !== 1`. The second fails at `notEqual`.
 
 - [ ] **Step 3: Add the condition** in `maybeWriteSeparateCodexProfileFile`. Build `next` before the copy. Read `codexProfileFileUsersContent(existing, values.providerId)` once, and copy only when `moved` is not empty, that content is not empty, and it is not equal to `codexProfileFileUsersContent(next, values.providerId)`.
 
-- [ ] **Step 4: Make `backupFilePath` return a free name**, with `existsSync`.
+- [ ] **Step 4: Make `backupFilePath` return a name no file holds**, with `lstatSync(name, { throwIfNoEntry: false })?.isFile()`. Not `existsSync` (batch 7 audit, Blocker, run): `a restore that cannot save its copy leaves the edited config as it was`, `a restore that cannot save its copy does not stop another agent being applied or restored` and `a restore that fails leaves the profile's key working, because the agent's file still holds it` plant a directory at the name to make the copy fail, and a directory in the way must still fail the write.
 
-- [ ] **Step 5: Run the tests.** Both pass. `backupFilePath names a timestamped backup beside the file` and `a profile table the user adds to a Codex config replaces their settings in LLMR's profile file whole, and the earlier ones are kept as a copy` still pass. Then `npm run test:core`.
+- [ ] **Step 5: Run the tests.** Both pass, and the three tests named in Step 4 pass unchanged. `backupFilePath names a timestamped backup beside the file` and `a profile table the user adds to a Codex config replaces their settings in LLMR's profile file whole, and the earlier ones are kept as a copy` still pass. Then `npm run test:core`.
 
-- [ ] **Step 6: Run the gates and commit.** `npm run typecheck`, `npm run lint`, `npm run test:architecture`. Then `fix(profiles): keep the copy of a user's first profile settings, and never overwrite a copy`
+- [ ] **Step 6: Break it three times** (batch 7 audit, each run). Copy whenever a table was moved and confirm the new integration test fails `3 !== 1`. Compare with `moved` itself and confirm it fails for the table with `model` only. Return the timestamped name without the search and confirm the unit test fails at `notEqual`. Put all three back.
+
+- [ ] **Step 7: Run the gates and commit.** `npm run typecheck`, `npm run lint`, `npm run test:architecture`. Then `fix(profiles): keep the copy of a user's first profile settings, and never overwrite a copy`
+
+---
+
+### Task 7: Refuse a Codex profile whose provider id Codex reserves (X-3)
+
+Added in the batch 7 fix round, on the owner's word of 2026-11-26. Last, and it depends on nothing above.
+
+A Codex profile whose provider id is one of Codex's built-in ids is applied today, LLM Router reports it applied, and Codex then refuses to start: `failed to load bootstrap configuration`, `model_providers contains reserved built-in provider IDs` (run on Codex 0.172.0 for `openai`, `ollama` and `lmstudio`). For `gcp`, `amazon-bedrock` and `amazon-bedrock-runtime` the error is that the table sets fields a built-in provider does not allow (run). After this task the apply refuses such a profile before it writes any file in the Codex folder, and the status says which id and why. The profile's key and the takeover marker in LLM Router's own folder are still written (batch 7 audit, run), and a later exit restore finds nothing to restore.
+
+**The ids.** `openai`, `ollama`, `lmstudio`, `gcp`, `amazon-bedrock`, `amazon-bedrock-runtime`. They are compared as Codex compares them, exactly and after `sanitizeCodexProviderId`, so `OpenAI` is not refused (read in Codex's `validate_reserved_model_provider_ids`, not run).
+
+**Scope.** Only `profile.agent === "codex"`. Workbuddy and ZCode take a provider id through the same sanitizer, and what their own binaries reserve is not known. No UI component edits the id (searched), so nothing changes in the UI. A restore is not refused: a profile applied under such an id by an earlier version must still come back.
+
+**Files:**
+- Modify: `packages/core/src/profiles/service.ts` (`applyCodexProfile`, and a constant beside `sanitizeCodexProviderId`)
+- Test: `packages/core/test/integration/profiles/profile-service.test.mjs`
+
+**Interfaces:**
+- Consumes: `refusedProfileStatus(profile, file, message)`, which the Claude Code gateway-pin refusal already returns.
+- Produces, in the test file (batch 7 audit): `withAppliedDefaultProfiles` takes `options.configure?: (config) => void`, called on the config before `beforeApply`, and `options.applied`. With `applied: false` it skips the token and parse assertions after the apply. Its cleanup removes the key and the takeover marker a refused apply leaves, which a test with its own setup would leak into later tests.
+- Produces, private to `service.ts`: the list of six ids, with a one-line comment that names Codex's `RESERVED_MODEL_PROVIDER_IDS` and the version it was read at.
+- Changes: `applyCodexProfile`, for an enabled Codex profile, returns `refusedProfileStatus` when the sanitized provider id is in the list. The check sits after the disabled branch and before the `try`, so before the first write, which is the model catalog file (batch 7 audit, run: below the catalog write the directory listing fails, above the disabled branch a disabled profile is refused). The message names the id, says that Codex does not start with a config that defines a built-in provider, and says that LLM Router left the file unchanged.
+
+- [ ] **Step 1: Write the failing tests** (the setup is the audit's, run).
+
+```js
+const withCodexProviderId = (providerId) => (config) => {
+  config.profile.profiles.find((profile) => profile.id === "default-codex").providerId = providerId;
+};
+
+test("a Codex profile whose provider id Codex reserves is refused, and the user's config is not touched", ..., async () => {
+  for (const providerId of ["openai", "ollama", "lmstudio", "gcp", "amazon-bedrock", "amazon-bedrock-runtime"]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexDir, config }) => {
+      const status = await applyProfileConfig(config);
+      const refused = status.clients.find((client) => client.client === "codex");
+      assert.equal(refused?.ok, false, providerId);
+      assert.ok(refused.message.includes(providerId), providerId);
+      assert.ok(refused.message.includes(codexConfigFile), providerId);
+      assert.equal(readFileSync(codexConfigFile, "utf8"), userCodexOriginal, providerId);
+      assert.deepEqual(readdirSync(codexDir), ["config.toml"], providerId);
+    }, plantCodexOriginal(), { applied: false, configure: withCodexProviderId(providerId) });
+  }
+});
+
+test("a Codex profile whose provider id only resembles a reserved one is applied", ..., async () => {
+  for (const providerId of ["openai-custom", "OpenAI"]) {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile }) => {
+      assert.equal(readFileSync(codexConfigFile, "utf8").includes(`[model_providers.${providerId}]`), true, providerId);
+    }, plantCodexOriginal(), { configure: withCodexProviderId(providerId) });
+  }
+});
+```
+
+- [ ] **Step 2: Run and watch the first fail.** Expected: `ok` is `true` for `openai`. The second passes today and is there to fail under a build that refuses by prefix or without regard to case.
+
+- [ ] **Step 3: Add the list and the check.**
+
+- [ ] **Step 4: Run the tests.** Both pass. Then `npm run test:core`. A fixture elsewhere that applies a Codex profile under one of the six ids changes its id, and the PR lists each one.
+
+- [ ] **Step 5: Break it four times.** Remove one id from the list and confirm the first test fails for it. Move the check below the model catalog write and confirm the first test fails at the directory listing. Refuse by prefix, then compare in lower case, and confirm the second test fails each time. Put all four back.
+
+- [ ] **Step 6: Run the gates and commit.** `npm run typecheck`, `npm run lint`, `npm run test:architecture`. Then `fix(profiles): refuse a Codex profile whose provider id Codex reserves`
+
+Limits for the PR. The list is Codex 0.172.0's, and a later Codex can reserve more. No test pins that Workbuddy and ZCode are not refused (batch 7 audit: refusing them too failed nothing). The desktop Open and the CLI's app surface go on after a refused apply and then report that the profile's launcher was not found, which hides the reason (read, not run). That is a finding of the delivery order, not part of this task. A file already written under such an id by an earlier version stays as it is until the profile is disabled or restored. Nothing here reads which Codex is installed.
 
 ---
 
@@ -891,6 +953,8 @@ X-3 says Codex reserves those ids and does not let a config override them. If th
 
 No task of this plan waits on it. If the owner picks (a), it becomes Task 7.
 
+**Answered 2026-11-26: (a), refuse, in the core apply path.** It is Task 7. X-3 was run that day against Codex 0.172.0: Codex does not ignore the table, it refuses to start, and for six ids, not three. The profile editor has no field for the id, so nothing there rejects it.
+
 **2. Should a provider table defined without a header count as that table?** (C7 of the audit.) An original of `[model_providers]` with `llm-router = { ... }` under it, or a root `model_providers.llm-router.name = "Mine"`, defines the provider table with no header. Today the apply writes a second `[model_providers.llm-router]` beside it, and the file does not parse: "Cannot declare ('model_providers', 'llm-router') twice" (run, both forms). The scanner as written goes by headers, so Tasks 2 to 4 do not change this.
 
 - (a) State the limit in Task 4's PR, and do nothing else. Recommended. No report or test names this form (inferred), and an edited restore would need a way to put a root or a `[model_providers]` statement back in place, which this plan does not have.
@@ -898,7 +962,9 @@ No task of this plan waits on it. If the owner picks (a), it becomes Task 7.
 
 **3. Should Task 5 drop its S-7 part?** It adds `modelProviderLine` to the record and a rule to the strip, but the real restore path passes the record only for a live file that tests managed, and the S-7 input does not (read). The spec says no product path produced the input. Recommended: drop it. That removes about 15 lines of source and 20 of test from Task 5, the field in `written.json`, and Review Focus 5. Built as written until he answers.
 
+**Answered 2026-11-26: dropped.** Task 5 and Review Focus 5 are corrected for it.
+
 ## VM check, for the end pass
 
-- Run a real Codex with a profile whose provider id is `openai`, and see whether it uses LLM Router's `[model_providers.openai]` table or its built-in provider (question 1, X-3).
+- Done on 2026-11-26 outside the VM, with the Codex binary alone in a temporary home: a config that defines `[model_providers.openai]` does not load (question 1, X-3). Left for the pass: that LLM Router's window shows the refusal of Task 7 for such a profile.
 - Run a real Codex on a `config.toml` that LLM Router wrote over each Review Focus input, and see that it loads the file and the user's settings in it.
