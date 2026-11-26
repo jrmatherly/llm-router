@@ -12,6 +12,7 @@ import {
   removeTablesOutsideValues,
   removeTomlTable,
   scanTomlLines,
+  scanTomlStatements,
   stripManagedCodexConfigContent
 } from "@llmr/core/profiles/codex-config-strip.ts";
 
@@ -107,7 +108,7 @@ test("removeTablesOutsideValues hands the predicate the header without its comme
     seen.push(header);
     return false;
   });
-  assert.deepEqual(seen, ["[a.\"b]#\"]", "[[d]]"]);
+  assert.deepEqual(seen, ["a.\"b]#\"", "d"]);
 });
 
 test("scanTomlLines ends a multi-line string at its closing run, not at an escaped quote or one quote early", () => {
@@ -491,4 +492,54 @@ test("readCodexDisplacedConfig reads a root key from its own line, not from text
   const quotes = "\"".repeat(3);
   const snapshot = `notes = ${quotes}\nmodel = "inside"\nmodel_provider = "inside"\n${quotes}\nmodel = "real"\n`;
   assert.deepEqual(readCodexDisplacedConfig(snapshot, ["llm-router"]), { model: "model = \"real\"" });
+});
+
+test("joining the statements of a file gives the file back", () => {
+  const join = (content) => scanTomlStatements(content).flatMap(({ lines }) => lines).join("");
+  for (const content of [...Object.values(userFiles), usersOriginal, afterCodexMcpAdd, "a = 1", "a = [\n", "a = 1\r\nb = '''\r\nx\r\n'''\r\n"]) {
+    assert.equal(join(content), content);
+    assert.equal(join(managed(content)), managed(content));
+  }
+});
+
+test("an assignment owns every line of its value, and knows its key, table and line end", () => {
+  const statements = scanTomlStatements("\"model\" = \"\"\"\nx\n\"\"\"\r\n# c\n\n[ profiles . \"b.c\" ] # mine\na.\"b\" = [\n  [1],\n]  # end\n");
+  assert.deepEqual(statements.map(({ kind, key, header, table, eol, lines }) => ({ kind, key, header, table, eol, count: lines.length })), [
+    { kind: "assignment", key: "model", header: undefined, table: "", eol: "\r\n", count: 3 },
+    { kind: "comment", key: undefined, header: undefined, table: "", eol: "\n", count: 1 },
+    { kind: "blank", key: undefined, header: undefined, table: "", eol: "\n", count: 1 },
+    { kind: "header", key: undefined, header: "profiles.\"b.c\"", table: "profiles.\"b.c\"", eol: "\n", count: 1 },
+    { kind: "assignment", key: "a.b", header: undefined, table: "profiles.\"b.c\"", eol: "\n", count: 3 }
+  ]);
+  assert.equal(scanTomlStatements("model  =  \"x\"  # mine\n")[0].value, "\"x\"");
+  assert.equal(scanTomlStatements("note = \"a # b\" # c\n")[0].value, "\"a # b\"");
+});
+
+test("a header is the same table however it is spelled", () => {
+  const user = "[mcp_servers.mine]\ncommand = \"my-server\"\n";
+  for (const header of ["[model_providers.llm-router]", "[ model_providers . \"llm-router\" ]", "[model_providers.'llm-router'] # x"]) {
+    assert.equal(removeTomlTable(`${header}\nname = "n"\n\n${user}`, "model_providers", "llm-router"), user, header);
+    assert.deepEqual(readCodexDisplacedConfig(`${header.replace("model_providers", "profiles")}\nx = 1\n`, ["llm-router"]).profileTables?.length, 1, header);
+  }
+});
+
+test("readCodexDisplacedConfig reads a profile table whole when a value in it has a line that starts with a bracket", () => {
+  const table = "[profiles.llm-router]\nx = [\n  [1, 2],\n]\ny = 3\n";
+  assert.deepEqual(readCodexDisplacedConfig(`${table}\n[projects.x]\nk = 1\n`, ["llm-router"]).profileTables, [`${table}\n`]);
+});
+
+test("readCodexDisplacedConfig reads a quoted root key and a value that spans lines", () => {
+  const model = "\"model\" = \"\"\"\ngpt-mine\n\"\"\"";
+  assert.deepEqual(readCodexDisplacedConfig(`${model}\r\n'model_provider' = "openai"\r\n`, ["llm-router"]), {
+    eol: "\r\n",
+    model,
+    modelProvider: "'model_provider' = \"openai\""
+  });
+});
+
+test("a strip removes LLMR's line under a quoted key, and puts a displaced line back with the snapshot's line end", () => {
+  const quoted = managed("").replace("model_provider = \"llm-router\"", "\"model_provider\" = \"llm-router\"");
+  assert.equal(stripManagedCodexConfigContent(quoted, ["llm-router"], { modelLine: ours }), "");
+  const stripped = stripManagedCodexConfigContent(managed(""), ["llm-router"], { modelLine: ours }, { eol: "\r\n", modelProvider: "model_provider = \"openai\"" });
+  assert.equal(stripped, "model_provider = \"openai\"\r\n");
 });

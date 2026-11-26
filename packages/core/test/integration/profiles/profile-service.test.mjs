@@ -5011,7 +5011,7 @@ function plantCodexOriginal(content = userCodexOriginal) {
   };
 }
 
-test("a profile table in the user's own Codex config comes back whole after an edited restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR, todo: "S-1, fixed in Task 2" }, async () => {
+test("a profile table in the user's own Codex config comes back whole after an edited restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   for (const [name, { moved }] of Object.entries(awkwardProfileTables)) {
     const original = `model_provider = "openai"\n\n[profiles.llm-router]\n${moved}\n[projects."/tmp/own"]\ntrust_level = "untrusted"\n`;
     await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {

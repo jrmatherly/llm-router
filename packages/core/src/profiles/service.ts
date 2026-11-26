@@ -50,7 +50,7 @@ import {
 } from "@llmr/core/agents/pi/profile-config";
 import { CONFIGDIR } from "@llmr/core/config/constants";
 import { profileApiKeyId, pruneInactiveProfileApiKeysFromList, syncProfileApiKeys } from "@llmr/core/profiles/api-key";
-import { cmdQuote, defaultClientModel, disabledStatus, formatError, gatewayEndpoint, gatewayNoProxyHosts, isRecord, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, stringRecord, tomlQuotedKey, tomlString, trimLeadingBlankLines, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
+import { cmdQuote, defaultClientModel, disabledStatus, formatError, gatewayEndpoint, gatewayNoProxyHosts, isRecord, normalizeClientModel, privateDirMode, privateExecutableMode, privateFileMode, profileEnv, providerBaseUrl, sanitizeProfilePathSegment, shellQuote, stringRecord, tomlKey, tomlQuotedKey, tomlString, trimLeadingBlankLines, writeGeneratedFileIfChanged } from "@llmr/core/profiles/apply-support";
 import { type BackupOptions, backupBeforeWrite, backupContent, backupCurrentFile, backupFiles, backupMarker, chmodFileIfRequested, ensureOriginalSnapshot, originalBackupSuffix, originalMissingSuffix, saveRemovedConfigCopy, writeFileAtomic } from "@llmr/core/profiles/backup-files";
 import {
   type CodexWrittenLines,
@@ -4334,10 +4334,6 @@ function defaultCodexCliCommand(agent: ProfileConfig["agent"]): string {
 
 function defaultCodexCompatibleHome(agent: ProfileConfig["agent"], configFile: string): string {
   return agent === "zcode" ? zcodeHomeFromConfigFile(configFile) : path.dirname(configFile);
-}
-
-function tomlKey(value: string): string {
-  return /^[A-Za-z0-9_-]+$/.test(value) ? value : tomlQuotedKey(value);
 }
 
 function tomlStringArray(values: string[]): string {

@@ -1,6 +1,6 @@
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME } from "@llmr/core/gateway/context-archive";
 import { TOOL_HUB_MCP_SERVER_NAME } from "@llmr/core/mcp/toolhub-config";
-import { tomlQuotedKey, tomlString, trimLeadingBlankLines } from "@llmr/core/profiles/apply-support";
+import { tomlKey, tomlString, trimLeadingBlankLines } from "@llmr/core/profiles/apply-support";
 
 export const managedRootStart = "# BEGIN LLMR managed profile";
 export const managedRootEnd = "# END LLMR managed profile";
@@ -23,8 +23,10 @@ export const codexManagedMarkers = [
 ];
 
 export function managedConfiguredModel(source: string): string | undefined {
-  const pattern = new RegExp(`^\\s*${escapeRegExp(managedConfiguredModelPrefix)}(.+?)\\s*$`, "m");
-  return source.match(pattern)?.[1];
+  const comment = scanTomlStatements(source)
+    .map(({ kind, lines, table }) => kind === "comment" && table === "" ? lines[0].trim() : "")
+    .find((text) => text.startsWith(managedConfiguredModelPrefix));
+  return comment?.slice(managedConfiguredModelPrefix.length) || undefined;
 }
 
 export function removeCodexProviderTable(source: string, providerId: string): string {
@@ -36,66 +38,14 @@ export function removeCodexMcpServerTable(
   serverName: string,
   options: { includeChildTables?: boolean } = {}
 ): string {
-  const lines = scanTomlLines(source);
-  const headers = new Set([
-    `[mcp_servers.${serverName}]`,
-    `[mcp_servers.${tomlQuotedKey(serverName)}]`,
-    `[mcp_servers.${serverName}.env]`,
-    `[mcp_servers.${tomlQuotedKey(serverName)}.env]`,
-    `[mcp_servers.${serverName}.http_headers]`,
-    `[mcp_servers.${tomlQuotedKey(serverName)}.http_headers]`,
-    `[mcp_servers.${serverName}.env_http_headers]`,
-    `[mcp_servers.${tomlQuotedKey(serverName)}.env_http_headers]`
-  ]);
-  const kept: string[] = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const { inValue, line } = lines[index];
-    const trimmed = line.trim();
-    if (inValue || (!headers.has(trimmed) && !isCodexMcpServerChildTable(trimmed, serverName, Boolean(options.includeChildTables)))) {
-      kept.push(line);
-      continue;
-    }
-
-    index += 1;
-    while (index < lines.length && (lines[index].inValue || !/^\s*\[/.test(lines[index].line))) {
-      index += 1;
-    }
-    index -= 1;
-  }
-  return kept.join("");
+  const table = `mcp_servers.${tomlKey(serverName)}`;
+  const named = [table, `${table}.env`, `${table}.http_headers`, `${table}.env_http_headers`];
+  return removeTablesOutsideValues(source, (header) =>
+    named.includes(header) || (options.includeChildTables === true && header.startsWith(`${table}.`)));
 }
 
-function isCodexMcpServerChildTable(trimmedLine: string, serverName: string, enabled: boolean): boolean {
-  if (!enabled) {
-    return false;
-  }
-  return trimmedLine.startsWith(`[mcp_servers.${serverName}.`) ||
-    trimmedLine.startsWith(`[mcp_servers.${tomlQuotedKey(serverName)}.`);
-}
-
-// A line that starts with `[` inside an array or a multi-line string is not a header, and a table cut there leaves the rest of its value behind as broken TOML.
 export function removeTomlTable(source: string, section: string, name: string): string {
-  const lines = scanTomlLines(source);
-  const headers = new Set([
-    `[${section}.${name}]`,
-    `[${section}.${tomlQuotedKey(name)}]`
-  ]);
-  const isHeader = (index: number) => !lines[index].inValue && /^\s*\[/.test(lines[index].line);
-  const kept: string[] = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const { inValue, line } = lines[index];
-    if (inValue || !headers.has(line.trim())) {
-      kept.push(line);
-      continue;
-    }
-
-    index += 1;
-    while (index < lines.length && !isHeader(index)) {
-      index += 1;
-    }
-    index -= 1;
-  }
-  return kept.join("");
+  return removeTablesOutsideValues(source, (header) => header === `${section}.${tomlKey(name)}`);
 }
 
 export type CodexWrittenRecord = {
@@ -154,24 +104,25 @@ export function decideCodexRootLines(input: {
 
 export function isRootKeyInsideManagedBlock(source: string, key: string): boolean {
   let inRootBlock = false;
-  for (const { inValue, line } of scanTomlLines(source)) {
-    const trimmed = line.trim();
-    if (inValue) {
-      continue;
-    }
-    if (codexManagedMarkers.includes(trimmed)) {
-      inRootBlock = trimmed === managedRootStart;
-    } else if (trimmed.startsWith("[")) {
+  for (const statement of scanTomlStatements(source)) {
+    if (statement.kind === "header") {
       return false;
-    } else if (inRootBlock && new RegExp(`^${escapeRegExp(key)}\\s*=`).test(trimmed)) {
+    }
+    if (isMarker(statement)) {
+      inRootBlock = statement.lines[0].trim() === managedRootStart;
+    } else if (inRootBlock && statement.key === key) {
       return true;
     }
   }
   return false;
 }
 
-function rootAssignmentValue(line: string | undefined): string | undefined {
-  return line === undefined ? undefined : /^[A-Za-z_]+\s*=\s*(.*?)(?:\s+#.*)?$/.exec(line.trim())?.[1];
+function isMarker({ kind, lines }: TomlStatement): boolean {
+  return kind === "comment" && codexManagedMarkers.includes(lines[0].trim());
+}
+
+function rootAssignmentValue(text: string | undefined): string | undefined {
+  return text === undefined ? undefined : scanTomlStatements(text)[0]?.value;
 }
 
 export function sameRootAssignment(line: string | undefined, recorded: string | undefined): boolean {
@@ -181,6 +132,7 @@ export function sameRootAssignment(line: string | undefined, recorded: string | 
 
 // What an apply took out of the user's file: whole lines and tables as the user wrote them.
 export type CodexDisplacedConfig = {
+  eol?: "\r\n";
   model?: string;
   modelCatalogJson?: string;
   modelProvider?: string;
@@ -195,33 +147,36 @@ const displacedRootKeys = {
   show_all_sessions: "showAllSessions"
 } as const;
 
-// Reads them the way the writer removes them, one line per root key and a table up to the next header, so what comes back is what went.
+// Reads them the way the writer removes them, a root key with every line of its value and a table up to the next header, so what comes back is what went.
 export function readCodexDisplacedConfig(snapshot: string, providerIds: string[]): CodexDisplacedConfig {
-  const rootEnd = firstCodexTableIndex(snapshot);
-  const root = rootEnd === -1 ? snapshot : snapshot.slice(0, rootEnd);
-  const displaced: CodexDisplacedConfig = {};
+  const statements = scanTomlStatements(snapshot);
+  const displaced: CodexDisplacedConfig = statements[0]?.eol === "\r\n" ? { eol: "\r\n" } : {};
   for (const [key, field] of Object.entries(displacedRootKeys)) {
-    const assignment = new RegExp(`^[ \\t]*${key}\\s*=`);
-    const line = scanTomlLines(root).find((item) => !item.inValue && assignment.test(item.line))?.line.replace(/\r?\n$/, "");
-    if (line !== undefined) {
-      displaced[field] = line;
+    const statement = statements.find((item) => item.table === "" && item.key === key);
+    if (statement !== undefined) {
+      displaced[field] = statementText(statement);
     }
   }
-  const headers = providerIds.flatMap((providerId) => [`[profiles.${providerId}]`, `[profiles.${tomlQuotedKey(providerId)}]`]);
+  const headers = providerIds.map((providerId) => `profiles.${tomlKey(providerId)}`);
   const profileTables: string[] = [];
-  let table: string[] | undefined;
-  for (const line of snapshot.split(/(?<=\n)/)) {
-    if (/^\s*\[/.test(line)) {
-      table = headers.includes(line.trim()) ? [] : undefined;
-      if (table) {
+  let inTable = false;
+  for (const { kind, lines, table } of statements) {
+    if (kind === "header") {
+      inTable = headers.includes(table);
+      if (inTable) {
         profileTables.push("");
       }
     }
-    if (table) {
-      profileTables[profileTables.length - 1] += line;
+    if (inTable) {
+      profileTables[profileTables.length - 1] += lines.join("");
     }
   }
   return profileTables.length > 0 ? { ...displaced, profileTables } : displaced;
+}
+
+function statementText({ eol, lines }: TomlStatement): string {
+  const text = lines.join("");
+  return text.slice(0, text.length - eol.length);
 }
 
 // Codex adds its own tables inside LLMR's last marker pair (codex-cli 0.171.0, `codex mcp add`), so the markers bound nothing: each line goes by what it holds.
@@ -237,39 +192,34 @@ export function stripManagedCodexConfigContent(
   const usersRootKeys = new Set<string>();
   const configuredModel = managedConfiguredModel(content);
   const providerValues = providerIds.flatMap((providerId) => [tomlString(providerId), `'${providerId}'`]);
+  const eol = displaced.eol ?? "\n";
   const kept: string[] = [];
-  let inRoot = true;
   let inRootBlock = false;
-  for (const { inValue, line } of scanTomlLines(content)) {
-    if (inValue) {
-      kept.push(line);
+  for (const statement of scanTomlStatements(content)) {
+    if (isMarker(statement)) {
+      inRootBlock = statement.lines[0].trim() === managedRootStart;
       continue;
     }
-    const trimmed = line.trim();
-    if (codexManagedMarkers.includes(trimmed)) {
-      inRootBlock = trimmed === managedRootStart;
-      continue;
-    }
-    inRoot = inRoot && !trimmed.startsWith("[");
-    const [, key, value] = (inRoot ? /^([A-Za-z_]+)\s*=\s*(.*?)(?:\s+#.*)?$/.exec(trimmed) : null) ?? [];
+    const inRoot = statement.table === "";
+    const { key, value = "" } = inRoot ? statement : {};
     if (
-      (inRoot && trimmed.startsWith(managedConfiguredModelPrefix)) ||
+      (inRoot && statement.kind === "comment" && statement.lines[0].trim().startsWith(managedConfiguredModelPrefix)) ||
       (key === "model_provider" && providerValues.includes(value)) ||
       (key === "model_catalog_json" && value.includes("llmr-model-catalog.json")) ||
-      (key === "model" && (written ? sameRootAssignment(trimmed, written.modelLine) : value === configuredModel)) ||
-      (key === "show_all_sessions" && (written ? sameRootAssignment(trimmed, written.showAllSessionsLine) : inRootBlock))
+      (key === "model" && (written ? sameRootAssignment(statement.lines[0], written.modelLine) : value === configuredModel)) ||
+      (key === "show_all_sessions" && (written ? sameRootAssignment(statement.lines[0], written.showAllSessionsLine) : inRootBlock))
     ) {
       const usersLine = displaced[displacedRootKeys[key as keyof typeof displacedRootKeys]];
-      if (usersLine !== undefined && !putBack.has(key)) {
+      if (key !== undefined && usersLine !== undefined && !putBack.has(key)) {
         putBack.set(key, kept.length);
-        kept.push(`${usersLine}\n`);
+        kept.push(`${usersLine}${eol}`);
       }
       continue;
     }
     if (key !== undefined) {
       usersRootKeys.add(key);
     }
-    kept.push(line);
+    kept.push(...statement.lines);
   }
   // A line of that key the user wrote beside LLMR's is their choice, and a second one would stop the file loading.
   for (const [key, index] of putBack) {
@@ -277,22 +227,21 @@ export function stripManagedCodexConfigContent(
       kept[index] = "";
     }
   }
-  const providerHeaders = providerIds.flatMap((providerId) => [`[model_providers.${providerId}]`, `[model_providers.${tomlQuotedKey(providerId)}]`]);
-  const mcpPrefixes = [TOOL_HUB_MCP_SERVER_NAME, CONTEXT_ARCHIVE_MCP_SERVER_NAME]
-    .flatMap((serverName) => [`[mcp_servers.${serverName}`, `[mcp_servers.${tomlQuotedKey(serverName)}`]);
+  const providerHeaders = providerIds.map((providerId) => `model_providers.${tomlKey(providerId)}`);
+  const mcpTables = [TOOL_HUB_MCP_SERVER_NAME, CONTEXT_ARCHIVE_MCP_SERVER_NAME].map((serverName) => `mcp_servers.${tomlKey(serverName)}`);
   const next = removeTablesOutsideValues(kept.join(""), (header) =>
     providerHeaders.includes(header) ||
-    mcpPrefixes.some((prefix) => header === `${prefix}]` || header.startsWith(`${prefix}.`)));
+    mcpTables.some((table) => header === table || header.startsWith(`${table}.`)));
   if (next === content) {
     return undefined;
   }
   const stripped = trimLeadingBlankLines(next).replace(/\n{2,}$/, "\n");
   // The writer moves the user's `[profiles.<provider>]` table into a file of its own, so one that is absent here was taken, not deleted.
-  const present = new Set(scanTomlLines(stripped).filter(({ inValue }) => !inValue).map(({ line }) => line.trim()));
-  const missingTables = (displaced.profileTables ?? []).filter((table) => !present.has(table.slice(0, table.indexOf("\n")).trim()));
+  const present = new Set(scanTomlStatements(stripped).filter(({ kind }) => kind === "header").map(({ table }) => table));
+  const missingTables = (displaced.profileTables ?? []).filter((table) => !present.has(scanTomlStatements(table)[0]?.table ?? ""));
   return missingTables.length === 0
     ? stripped
-    : [stripped.trimEnd(), ...missingTables.map((table) => table.trimEnd())].filter(Boolean).join("\n\n").concat("\n");
+    : [stripped.trimEnd(), ...missingTables.map((table) => table.trimEnd())].filter(Boolean).join(`${eol}${eol}`).concat(eol);
 }
 
 export function escapeRegExp(value: string): string {
@@ -334,29 +283,120 @@ export function scanTomlLines(content: string): Array<{ inValue: boolean; line: 
   return state.multiline !== "" || state.depth > 0 ? lines.map(({ line }) => ({ inValue: false, line })) : lines;
 }
 
-export function removeTablesOutsideValues(content: string, isHeader: (header: string) => boolean): string {
+// A statement is a key with every line of its value, a table header, a comment or a blank line, so a line that starts with `[` inside a value is never a header.
+export type TomlStatement = {
+  eol: "" | "\n" | "\r\n";
+  header?: string;
+  key?: string;
+  kind: "assignment" | "blank" | "comment" | "header";
+  lines: string[];
+  table: string;
+  value?: string;
+};
+
+export function scanTomlStatements(content: string): TomlStatement[] {
+  const statements: TomlStatement[] = [];
+  let table = "";
+  for (const { inValue, line } of scanTomlLines(content)) {
+    const last = statements.at(-1);
+    if (inValue && last) {
+      last.lines.push(line);
+      last.eol = lineEnd(line);
+      continue;
+    }
+    const statement = readTomlStatement(line, table);
+    table = statement.table;
+    statements.push(statement);
+  }
+  return statements;
+}
+
+function readTomlStatement(line: string, table: string): TomlStatement {
+  const trimmed = line.trim();
+  const base = { eol: lineEnd(line), lines: [line], table };
+  if (trimmed === "") {
+    return { ...base, kind: "blank" };
+  }
+  if (trimmed.startsWith("#")) {
+    return { ...base, kind: "comment" };
+  }
+  const code = trimmed.slice(0, scanTomlLine(trimmed, { depth: 0, multiline: "" })).trim();
+  if (trimmed.startsWith("[")) {
+    const width = code.startsWith("[[") && code.endsWith("]]") ? 2 : 1;
+    const path = code.endsWith("]") ? readTomlKeyPath(code.slice(width, -width)) : undefined;
+    const header = path?.end === code.length - 2 * width ? path.path : undefined;
+    // A header with no readable path still starts a table, so the keys under it are never taken for root keys.
+    return { ...base, header, kind: "header", table: header ?? trimmed };
+  }
+  const path = readTomlKeyPath(code);
+  return path !== undefined && code[path.end] === "="
+    ? { ...base, key: path.path, kind: "assignment", value: code.slice(path.end + 1).trim() }
+    : { ...base, kind: "assignment" };
+}
+
+// Each segment is unquoted without decoding an escape, then written as `tomlKey` writes it, so a bare and a quoted spelling of a key give the same path.
+function readTomlKeyPath(text: string): { end: number; path: string } | undefined {
+  const segments: string[] = [];
+  let index = skipBlanks(text, 0);
+  for (;;) {
+    const quote = text[index];
+    if (quote === "\"" || quote === "'") {
+      const end = oneLineStringEnd(text, index);
+      if (end > text.length) {
+        return undefined;
+      }
+      segments.push(text.slice(index + 1, end - 1));
+      index = end;
+    } else {
+      const bare = /^[A-Za-z0-9_-]+/.exec(text.slice(index))?.[0];
+      if (bare === undefined) {
+        return undefined;
+      }
+      segments.push(bare);
+      index += bare.length;
+    }
+    index = skipBlanks(text, index);
+    if (text[index] !== ".") {
+      return { end: index, path: segments.map(tomlKey).join(".") };
+    }
+    index = skipBlanks(text, index + 1);
+  }
+}
+
+function skipBlanks(text: string, start: number): number {
+  let index = start;
+  while (text[index] === " " || text[index] === "\t") {
+    index += 1;
+  }
+  return index;
+}
+
+function lineEnd(line: string): TomlStatement["eol"] {
+  return line.endsWith("\r\n") ? "\r\n" : line.endsWith("\n") ? "\n" : "";
+}
+
+export function removeTablesOutsideValues(content: string, isRemoved: (header: string) => boolean): string {
   const kept: string[] = [];
   let removing = false;
   // A comment block set off by a blank line belongs to the table below it, not to the one being removed.
   let commentsAboveNextHeader: string[] = [];
   let blankSinceBody = false;
-  for (const { inValue, line } of scanTomlLines(content)) {
-    const trimmed = line.trim();
-    if (!inValue && trimmed.startsWith("[")) {
+  for (const { kind, lines, table } of scanTomlStatements(content)) {
+    if (kind === "header") {
       kept.push(...commentsAboveNextHeader);
       commentsAboveNextHeader = [];
       blankSinceBody = false;
-      removing = isHeader(trimmed.slice(0, scanTomlLine(trimmed, { depth: 0, multiline: "" })).trim());
+      removing = isRemoved(table);
     }
     if (!removing) {
-      kept.push(line);
-    } else if (!inValue && trimmed === "") {
+      kept.push(...lines);
+    } else if (kind === "blank") {
       blankSinceBody = true;
       if (commentsAboveNextHeader.length > 0) {
-        commentsAboveNextHeader.push(line);
+        commentsAboveNextHeader.push(...lines);
       }
-    } else if (!inValue && blankSinceBody && trimmed.startsWith("#")) {
-      commentsAboveNextHeader.push(line);
+    } else if (kind === "comment" && blankSinceBody) {
+      commentsAboveNextHeader.push(...lines);
     } else {
       commentsAboveNextHeader = [];
       blankSinceBody = false;
