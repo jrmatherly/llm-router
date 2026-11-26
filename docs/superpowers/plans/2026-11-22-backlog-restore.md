@@ -2,6 +2,8 @@
 
 > **Status, 2026-11-24: fix round done against `main` at `c491eb48`, not yet re-audited.** Every Blocker and Correction of the 2026-11-22 audit was checked against the code. Three were run in a temporary test home (the blocked Codex reconcile of Task 1, the later restore pass of B1, the shared Workbuddy file of Task 4), the rest were read. The text below is corrected for each finding that holds and for the drift since PRs 146 to 155. B2 was overtaken by PR 146. Not verified this round: no task was built, no UI or Playwright test was run, Kilo, Pi and ZCode paths were read only, and the B1 and B3 fixes written into Task 3 are inferred from the code, with the test that proves them in Task 3 Step 2. The changed text still needs its one audit on another model, as the delivery index asks. The audit lives outside the repo.
 
+> **Tasks 1 and 2 are built: PR 167, `8c7ae6ba`, 2026-11-26.** Tasks 3 to 9 are not. The review round changed four things the text below does not say, so read the code for them: the two per-profile loops of `applyProfileConfigNow` skip a switched-off profile whose key was kept; a merged status that carries a copy over appends one sentence naming the copy and not the other status's message; `persistConfig` no longer clears the profile error after a save; and `reconcileProfileApiKeys` logs a failed release itself. The record is in the delivery index under "Before a batch is built".
+
 > **Batch 8 fix round, 2026-11-26, at `main` `41d0016a`.** Tasks 1 and 2 only. Task 1's fault was run again in a temporary test home and is unchanged: `reconcileProfileApiKeys` returns `undefined`, the key is pruned, the token stays in `config.toml`, and the apply returns three not-ok Codex statuses on one path. Every symbol the two tasks name was read again and exists, and the line numbers in both tasks are from this commit. Every caller of the `saveConfig` and `saveApiKeys` RPCs was searched for again: Task 2 Step 7 misses none, and `tests/system/docker-smoke.mjs` reads only the whole value as text. **Audited the same day by building both tasks on another model**, in a worktree cut from that commit: 3 Blockers, 7 Corrections, 6 design findings and 8 extra tests, all applied below. The report, with the full source of every extra test, is outside the repo in `private/audits/2026-11-26-audit-restore-batch8.md`. The session ran the first Blocker again on the audit's build and it held. Built as corrected, every gate passed in the audit, `npm run test:e2e` included. Measured: Task 1 is 49 source lines added and 97 of test, Task 2 is 94 and 127. Not run by anyone: Windows, the desktop app's toast, the `ipc.ts` handlers (typechecked only), and a restore failure of OpenCode, Kilo or Workbuddy.
 
 > **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
@@ -111,7 +113,7 @@ Each line names a condition no row's own test covers. The test that pins it sits
 
 ---
 
-### Task 1: Restore a switched-off profile before its key is pruned (R-4, the status of R-1b)
+### Task 1: Restore a switched-off profile before its key is pruned (R-4, the status of R-1b). Built, PR 167
 
 First, because Task 2 shows the status this task produces.
 
@@ -146,7 +148,7 @@ const result: ProfileApplyResult = { appliedAt, clients: released, enabled: prof
 - Produces: `enabledOwnerOfFile(profile: ProfileConfig, profiles: ProfileConfig[]): ProfileConfig | undefined`, private. It is the lookup `recoverGlobalAgentProfile` does inline today (`service.ts:213`). It returns another profile of the same agent for which `isEnabledGlobalProfile` holds and whose `profilePath` equals this one's.
 
 **The rule `releaseDisabledProfileKeys` encodes.** For each persisted key whose id is `profileApiKeyId(profile)` for a profile in `profiles` that is not enabled:
-- When `isGlobalProfile(profile)` and `enabledOwnerOfFile` finds no owner, run `disabledProfileStatus(profile, config.profile.profiles)` inside a `try` and turn a throw into `failedRestoreStatus`.
+- When `isGlobalProfile(profile)` and `enabledOwnerOfFile` finds no owner, run `disabledProfileStatus(profile, profiles)` inside a `try` (the text said `config.profile.profiles` until the review of PR 167, and that left Codex's side files when the profile feature was off) and turn a throw into `failedRestoreStatus`.
 - Keep the key when that status is not ok, unless the agent is `codex`, the key has a value and `fileMayHold(profilePath(profile), key)` is false. This is the test `recoverGlobalAgentProfile` applies today, moved into one helper that both call.
 - For a kept key, append to the status message: ` LLMR kept this profile's API key working, because the agent may still hold it.`
 - Prune every other inactive profile key in one `updatePersistedApiKeys` call, as `pruneInactiveProfileApiKeysFromList` does today, with the kept ids left in.
@@ -168,7 +170,7 @@ const result: ProfileApplyResult = { appliedAt, clients: released, enabled: prof
 
 ---
 
-### Task 2: Tell the person what an apply or a restore did (R-1, R-1b, R-14)
+### Task 2: Tell the person what an apply or a restore did (R-1, R-1b, R-14). Built, PR 167
 
 After Task 1, whose status this task returns.
 
