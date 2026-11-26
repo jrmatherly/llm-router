@@ -2049,7 +2049,8 @@ test("a flush that finishes in time leaves no timer behind", async () => {
   try {
     const before = timers();
     assert.equal((await runtime.flush({ timeoutMs: 60_000 })).timedOut, false);
-    assert.equal(timers(), before);
+    // An unrelated timer may end meanwhile, so only one more than before is a timer the flush left.
+    assert.ok(timers() <= before, `${timers()} timers are active, ${before} were before the flush`);
   } finally {
     await runtime.close({ timeoutMs: 50 });
     rmSync(dir, { force: true, recursive: true });
