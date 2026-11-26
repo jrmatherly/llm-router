@@ -877,7 +877,7 @@ function applyOpenCodeProfile(config: AppConfig, profile: ProfileConfig, token: 
   try {
     const configResult = writeOpenCodeGatewayConfig(CONFIGDIR, config, profile, token, {
       backup: true,
-      write: isGlobalProfile(profile) ? writeGlobalProviderJsonConfig("opencode") : undefined
+      write: globalProviderJsonWriter(profile)
     });
     const wrapperResult = writeOpenCodeWrapper(profile, configResult.file, configResult.inlineConfig);
     return {
@@ -911,7 +911,7 @@ function applyKiloProfile(config: AppConfig, profile: ProfileConfig, token: stri
   try {
     const configResult = writeKiloGatewayConfig(CONFIGDIR, config, profile, token, {
       backup: true,
-      write: isGlobalProfile(profile) ? writeGlobalProviderJsonConfig("kilo") : undefined
+      write: globalProviderJsonWriter(profile)
     });
     const wrapperResult = writeKiloWrapper(profile, configResult.file, configResult.inlineConfig);
     return {
@@ -1554,7 +1554,12 @@ function writeGlobalCodexConfig(file: string, content: string, providerId: strin
   );
 }
 
-function writeGlobalProviderJsonConfig(client: ProviderJsonClient): (file: string, content: string) => { backupFile?: string; changed: boolean } {
+// Every writer of a global OpenCode or Kilo config passes this, so the record a restore trusts always matches what was written last.
+export function globalProviderJsonWriter(profile: ProfileConfig): ((file: string, content: string) => { backupFile?: string; changed: boolean }) | undefined {
+  if (!isGlobalProfile(profile)) {
+    return undefined;
+  }
+  const client: ProviderJsonClient = profile.agent === "kilo" ? "kilo" : "opencode";
   return (file, content) => {
     const matchers = providerJsonManagedContent(client);
     const source = existsSync(file) ? readFileSync(file, "utf8") : undefined;
