@@ -5576,9 +5576,11 @@ async function withProviderJsonRoot(run) {
   try {
     await run(root);
   } finally {
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
     rmSync(root, { force: true, recursive: true });
     rmSync(path.join(CONFIGDIR, "agent-config-state"), { force: true, recursive: true });
     rmSync(path.join(CONFIGDIR, "global-profile-takeover.json"), { force: true });
+    rmSync(path.join(CONFIGDIR, "profiles"), { force: true, recursive: true });
     await updatePersistedApiKeys(() => []);
   }
 }
@@ -5590,9 +5592,10 @@ function withProviderJsonProfile(run, { agent = "opencode", original } = {}) {
     if (original !== undefined) {
       writeFileSync(file, original);
     }
-    const profile = providerJsonProfile(agent, file);
-    const config = providerJsonConfig([profile]);
-    const apply = (changes = {}) => applyProfileRuntimeConfig(config, { ...profile, ...changes }, providerJsonKey);
+    const apply = (changes = {}) => {
+      const profile = { ...providerJsonProfile(agent, file), ...changes };
+      return applyProfileRuntimeConfig(providerJsonConfig([profile]), profile, providerJsonKey);
+    };
     await run({ apply, file, restore: () => apply({ enabled: false }), root });
   });
 }
@@ -5743,6 +5746,18 @@ test("a switched-off OpenCode profile on the file an enabled one uses leaves the
   });
 });
 
+for (const agent of ["codex", "claude-code"]) {
+  test(`a ${agent} list entry that is on is taken over by the first save although a switched-off entry has the same id`, { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+    await withProviderJsonRoot(async (root) => {
+      const file = path.join(root, agent === "codex" ? "config.toml" : "settings.json");
+      const on = { ...providerJsonProfile(agent, file, { id: "same", name: "on" }), settingsFile: agent === "claude-code" ? file : undefined };
+      const result = await applyProfileConfig(providerJsonConfig([on, { ...on, enabled: false, name: "off" }]));
+      assert.deepEqual(result.clients.filter((status) => !status.ok).map((status) => status.message), []);
+      assert.equal(existsSync(file) && /127\.0\.0\.1/.test(readFileSync(file, "utf8")), true, result.clients[0]?.message);
+    });
+  });
+}
+
 test("an OpenCode config that starts with a byte order mark keeps the user's settings through an apply and an edited restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withProviderJsonProfile(async ({ apply, file, restore }) => {
     apply();
@@ -5781,7 +5796,8 @@ test("a restore after the profile's provider id changed still removes LLM Router
     const profile = providerJsonProfile("opencode", file, { providerId: "a" });
     const config = providerJsonConfig([profile]);
     applyProfileRuntimeConfig(config, profile, providerJsonKey);
-    const status = applyProfileRuntimeConfig(config, { ...profile, enabled: false, providerId: "b" }, providerJsonKey);
+    const off = { ...profile, enabled: false, providerId: "b" };
+    const status = applyProfileRuntimeConfig(providerJsonConfig([off]), off, providerJsonKey);
     assert.equal(status.ok, true, status.message);
     assert.deepEqual(filesHolding(root, providerJsonKey), []);
   });

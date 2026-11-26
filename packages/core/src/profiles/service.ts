@@ -1073,9 +1073,7 @@ async function releaseDisabledProfileKeys(config: AppConfig, profiles: ProfileCo
 
 function enabledOwnerOfFile(profile: ProfileConfig, profiles: ProfileConfig[]): ProfileConfig | undefined {
   const file = profilePath(profile);
-  // A caller can pass the config's own list, which still holds this profile as it was before it was switched off.
   return profiles.find((other) =>
-    other.id !== profile.id &&
     configFamily(other.agent) === configFamily(profile.agent) &&
     isEnabledGlobalProfile(other) &&
     sameFile(profilePath(other), file)
