@@ -59,12 +59,8 @@ export function ensureOriginalSnapshot(file: string, previous: string | undefine
     chmodFileIfRequested(originalMissing, mode);
     return;
   }
-  if (content === undefined) {
-    copyFileSync(file, originalBackup);
-  } else {
-    writeFileSync(originalBackup, content, mode === undefined ? "utf8" : { encoding: "utf8", mode });
-  }
-  chmodFileIfRequested(originalBackup, mode);
+  // Atomic, because an original that exists is never written again: a partial one would be kept for good. The file's own bytes and mode, as a copy keeps them.
+  writeFileAtomic(originalBackup, content ?? readFileSync(file), { mode: mode ?? (statSync(file).mode & 0o777) });
 }
 
 export const profileTokenPrefix = "llmr-profile-";

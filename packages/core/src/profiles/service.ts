@@ -729,7 +729,7 @@ function applyCodexProfile(config: AppConfig, profile: ProfileConfig, token: str
   }
   const providerId = sanitizeCodexProviderId(profile.providerId || "") || "llm-router";
   if (profile.agent === "codex" && reservedCodexProviderIds.includes(providerId)) {
-    return refusedProfileStatus(profile, configFile, `Codex does not start with a config that defines its built-in provider "${providerId}". Choose another provider id for this profile. LLMR left ${configFile} unchanged.`);
+    return refusedProfileStatus(profile, configFile, `Codex does not start with a config that defines its built-in provider "${providerId}". Set this profile's providerId in LLM Router's config to another id. LLMR left ${configFile} unchanged.`);
   }
 
   try {

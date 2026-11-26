@@ -136,6 +136,15 @@ test("ensureOriginalSnapshot writes once and never refreshes", (t) => {
   assert.equal(readFileSync(`${file}.llmr-original`, "utf8"), "first");
 });
 
+test("ensureOriginalSnapshot keeps the bytes of a file that is not valid UTF-8, and leaves no temp file", (t) => {
+  const { dir, file } = setup(t);
+  const bytes = Buffer.from([0xff, 0xfe, 0x41, 0x0a]);
+  writeFileSync(file, bytes);
+  ensureOriginalSnapshot(file, bytes.toString("utf8"), undefined);
+  assert.deepEqual(readFileSync(`${file}.llmr-original`), bytes);
+  assert.deepEqual(readdirSync(dir).filter((name) => name.endsWith(".tmp")), []);
+});
+
 test("ensureOriginalSnapshot records a missing file", (t) => {
   const { dir } = setup(t);
   const file = path.join(dir, "absent.json");
