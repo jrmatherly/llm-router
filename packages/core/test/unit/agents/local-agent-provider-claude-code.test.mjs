@@ -91,7 +91,7 @@ test("a connectivity check of the Claude Code provider records no request-log ro
   }, { requestLog: { enabled: true } });
   const rows = async () => {
     const flushed = await flushRequestLogRuntime(10_000);
-    assert.equal(flushed.timedOut, false, "the request log did not flush in 10 seconds");
+    assert.equal(flushed.timedOut, false, `the request log did not flush in 10 seconds: ${JSON.stringify(flushed)}`);
     return (await getRequestLogs({ pageSize: 10 })).items.length;
   };
   const before = await rows();

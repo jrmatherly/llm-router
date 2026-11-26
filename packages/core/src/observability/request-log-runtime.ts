@@ -368,7 +368,7 @@ export class RequestLogRuntime {
     let checkpointTimedOut = false;
     if (drained && this.writerWorker) {
       let timer: NodeJS.Timeout | undefined;
-      // A slow checkpoint leaves every record committed, so it is reported like a slow drain rather than thrown.
+      // Every record is committed, and the checkpoint or the writer work ahead of it may still be running, which is reported like a slow drain rather than thrown.
       try {
         checkpointTimedOut = await Promise.race([
           this.writerRpc("flush", []).then(() => false),
