@@ -190,7 +190,7 @@ Build them in this order. Each is its own file and produces working software alo
 | 3 | [`2026-11-22-backlog-logs.md`](../plans/2026-11-22-backlog-logs.md) | L-1 to L-15 except L-5 | Late rows affect every user of the default layout. |
 | 3b | [`2026-11-22-backlog-client-label.md`](../plans/2026-11-22-backlog-client-label.md) | L-5, C-1 to C-5 | After the logs plan, which changes the refusal path the label is read on. |
 | 4 | [`2026-11-22-backlog-pricing.md`](../plans/2026-11-22-backlog-pricing.md) | P-1 to P-8 | The display row needs the single catalog first. |
-| 5 | [`2026-11-22-backlog-stripper.md`](../plans/2026-11-22-backlog-stripper.md) | S-1 to S-15 | Needs the TOML check. Rare inputs, one permanent loss (S-13). |
+| 5 | [`2026-11-22-backlog-stripper.md`](../plans/completed/2026-11-22-backlog-stripper.md) | S-1 to S-15 | Needs the TOML check. Rare inputs, one permanent loss (S-13). |
 | 6 | [`2026-11-22-backlog-restore.md`](../plans/2026-11-22-backlog-restore.md) | R-1 to R-14 | Shares `profiles/service.ts` with the stripper plan, so it follows it. |
 
 The Codex token prototype (B-3) is the last task of the restore plan. H-7 has no task: it waits for the owner's Claude Desktop check.
