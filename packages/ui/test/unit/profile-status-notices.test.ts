@@ -12,3 +12,9 @@ test("a save shows failures, kept copies and restores of profiles just switched 
     { ...status, enabled: true, message: "applied" }
   ]), { errors: ["failed"], notices: ["restored", "copy kept"] });
 });
+
+test("a restore that changed a file and then failed shows only as an error", () => {
+  assert.deepEqual(profileStatusNotices([
+    { changed: true, client: "codex", copy: "/copy", enabled: false, message: "restored, then a side file failed", ok: false, path: "/x" }
+  ]), { errors: ["restored, then a side file failed"], notices: [] });
+});

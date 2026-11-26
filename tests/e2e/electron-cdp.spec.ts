@@ -264,6 +264,58 @@ test("applies Workbuddy profiles through the desktop bridge", async () => {
   expect(virtualSession.allAccounts).toHaveLength(1);
 });
 
+test("a desktop save reports what it did to an agent's config, and applies only when asked and while the gateway runs", async () => {
+  const current = requireRuntime();
+  const codexConfigFile = path.join(current.testHome, ".codex", "config.toml");
+  const save = (enabled: boolean, options?: { applyProfile?: boolean }, gateway = true) => current.mainPage.evaluate(async (input) => {
+    const config = await window.llmr!.getConfig();
+    config.Providers = [{ api_base_url: "http://127.0.0.1:9/v1", api_key: "e2e-provider-key", id: "electron-cdp-provider", models: ["electron-cdp-model"], name: "Electron CDP Provider", type: "openai_chat_completions" }];
+    config.preferredProvider = "Electron CDP Provider";
+    config.gateway.enabled = input.gateway;
+    config.profile = {
+      ...config.profile,
+      enabled: true,
+      profiles: [{
+        agent: "codex", codexCliPath: "", codexHome: "", configFile: "~/.codex/config.toml", enabled: input.enabled, env: {}, id: "codex-e2e", managedCompact: false,
+        model: "Electron CDP Provider/electron-cdp-model", name: "Codex E2E", providerId: "llm-router", providerName: "LLM Router", scope: "global", showAllSessions: false, surface: "auto"
+      }]
+    };
+    return window.llmr!.saveConfig(config, input.options);
+  }, { enabled, gateway, options });
+
+  await save(false, { applyProfile: false });
+  expect((await current.mainPage.evaluate(() => window.llmr!.getGatewayStatus())).state).toBe("running");
+
+  expect((await save(true, { applyProfile: false })).statuses).toEqual([]);
+  expect(existsSync(codexConfigFile)).toBe(false);
+
+  const applied = await save(true);
+  expect(existsSync(codexConfigFile)).toBe(true);
+  expect(applied.statuses.some((status) => status.client === "codex" && status.enabled && status.ok)).toBe(true);
+  const runningKeys = await current.mainPage.evaluate(async () => {
+    const base = (await window.llmr!.getConfig()).APIKEYS;
+    return window.llmr!.saveApiKeys([...base, { createdAt: "2026-02-02T00:00:00.000Z", id: "running-e2e", key: "running-e2e-token" }], base);
+  });
+  expect(runningKeys.statuses.some((status) => status.client === "codex" && status.enabled && status.ok)).toBe(true);
+
+  const switchedOff = (await save(false)).statuses.filter((status) => status.client === "codex");
+  expect(switchedOff, JSON.stringify(switchedOff)).toHaveLength(1);
+  expect(switchedOff[0]?.changed).toBe(true);
+  expect(switchedOff[0]?.message).toMatch(/Switch it on to undo this/);
+  expect(existsSync(codexConfigFile)).toBe(false);
+
+  await current.mainPage.evaluate(() => window.llmr!.stopGateway());
+  await save(true, { applyProfile: false }, false);
+  expect((await current.mainPage.evaluate(() => window.llmr!.getGatewayStatus())).state).not.toBe("running");
+  const keys = await current.mainPage.evaluate(async () => {
+    const base = (await window.llmr!.getConfig()).APIKEYS;
+    return window.llmr!.saveApiKeys([...base, { createdAt: "2026-02-02T00:00:00.000Z", id: "stopped-e2e", key: "stopped-e2e-token" }], base);
+  });
+  expect(existsSync(codexConfigFile)).toBe(false);
+  expect(keys.statuses.some((status) => status.enabled)).toBe(false);
+  await save(false, { applyProfile: false }, false);
+});
+
 async function startElectronOverCdp(): Promise<ElectronCdpRuntime> {
   const cdpPort = await findAvailablePort();
   const gatewayPort = await findAvailablePort();

@@ -1143,3 +1143,107 @@ test("the saveApiKeys RPC applies the agents and returns their statuses while th
     await saveAppConfig({ ...(await loadAppConfig()), Providers: before.Providers, profile: before.profile });
   }
 });
+
+test("the saveConfig RPC tells the person once what switching a profile off did to its file", async (t) => {
+  const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { gatewayService } = await import("@llmr/core/gateway/service.ts");
+  const { restoreGlobalProfileConfigsOnExit } = await import("@llmr/core/profiles/service.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const codexDir = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".codex");
+  const config = await loadAppConfig();
+  const before = structuredClone(config);
+  config.Providers = [{ api_base_url: "http://127.0.0.1:9/v1", api_key: "provider-key", id: "provider", models: ["model"], name: "Provider", type: "openai_chat_completions" }];
+  config.profile.enabled = true;
+  config.profile.profiles = createDefaultAppConfig().profile.profiles;
+  config.profile.profiles.find((profile) => profile.id === "default-codex").enabled = true;
+  await saveAppConfig(config);
+  const status = gatewayService.getStatus();
+  t.mock.method(gatewayService, "getStatus", () => ({ ...status, state: "running" }));
+  t.mock.method(gatewayService, "start", async () => ({ ...status, state: "running" }));
+  t.mock.method(gatewayService, "updateConfig", async () => undefined);
+  const token = "save-config-switch-off-test";
+  const runtime = await startWebManagementServer({ authToken: token, host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    const on = (await rpc(runtime.url, token, "saveConfig", [(await rpc(runtime.url, token, "getConfig")).value])).value.config;
+    assert.equal(existsSync(path.join(codexDir, "config.toml")), true);
+    on.profile.profiles.find((profile) => profile.id === "default-codex").enabled = false;
+    const saved = (await rpc(runtime.url, token, "saveConfig", [on])).value;
+    const codex = saved.statuses.filter((item) => item.client === "codex");
+    assert.equal(codex.length, 1, JSON.stringify(codex));
+    assert.equal(codex[0].ok, true, codex[0].message);
+    assert.equal(codex[0].changed, true, JSON.stringify(codex[0]));
+    assert.match(codex[0].message, /Switch it on to undo this/);
+  } finally {
+    await runtime.close();
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(codexDir, { force: true, recursive: true });
+    await saveAppConfig({ ...(await loadAppConfig()), Providers: before.Providers, profile: before.profile });
+  }
+});
+
+test("the saveConfig RPC asked not to apply leaves the agents alone while the gateway runs", async (t) => {
+  const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { gatewayService } = await import("@llmr/core/gateway/service.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const codexDir = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".codex");
+  const before = structuredClone(await loadAppConfig());
+  const status = gatewayService.getStatus();
+  t.mock.method(gatewayService, "getStatus", () => ({ ...status, state: "running" }));
+  t.mock.method(gatewayService, "start", async () => ({ ...status, state: "running" }));
+  t.mock.method(gatewayService, "updateConfig", async () => undefined);
+  const token = "save-config-no-apply-test";
+  const runtime = await startWebManagementServer({ authToken: token, host: "127.0.0.1", port: 0, startGateway: false });
+  try {
+    const config = (await rpc(runtime.url, token, "getConfig")).value;
+    config.Providers = [{ api_base_url: "http://127.0.0.1:9/v1", api_key: "provider-key", id: "provider", models: ["model"], name: "Provider", type: "openai_chat_completions" }];
+    config.profile.enabled = true;
+    config.profile.profiles = createDefaultAppConfig().profile.profiles;
+    config.profile.profiles.find((profile) => profile.id === "default-codex").enabled = true;
+    const saved = (await rpc(runtime.url, token, "saveConfig", [config, { applyProfile: false }])).value;
+    assert.equal(existsSync(path.join(codexDir, "config.toml")), false);
+    assert.deepEqual(saved.statuses, []);
+  } finally {
+    await runtime.close();
+    rmSync(codexDir, { force: true, recursive: true });
+    await saveAppConfig({ ...(await loadAppConfig()), Providers: before.Providers, profile: before.profile });
+  }
+});
+
+test("the saveApiKeys RPC reports a file it still cannot restore once", { skip: process.platform === "win32" || process.getuid?.() === 0 }, async (t) => {
+  const { chmodSync } = await import("node:fs");
+  const { loadAppConfig, saveAppConfig } = await import("@llmr/core/config/config.ts");
+  const { createDefaultAppConfig } = await import("@llmr/core/config/default-config.ts");
+  const { gatewayService } = await import("@llmr/core/gateway/service.ts");
+  const { applyProfileConfig, restoreGlobalProfileConfigsOnExit } = await import("@llmr/core/profiles/service.ts");
+  const { startWebManagementServer } = await import("@llmr/core/web/management-server.ts");
+  const codexDir = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".codex");
+  const config = await loadAppConfig();
+  const before = structuredClone(config);
+  config.Providers = [{ api_base_url: "http://127.0.0.1:9/v1", api_key: "provider-key", id: "provider", models: ["model"], name: "Provider", type: "openai_chat_completions" }];
+  config.profile.enabled = true;
+  config.profile.profiles = createDefaultAppConfig().profile.profiles;
+  config.profile.profiles.find((profile) => profile.id === "default-codex").enabled = true;
+  await applyProfileConfig(await saveAppConfig(config));
+  const status = gatewayService.getStatus();
+  t.mock.method(gatewayService, "getStatus", () => ({ ...status, state: "running" }));
+  t.mock.method(gatewayService, "updateConfig", async () => undefined);
+  const token = "api-key-save-blocked-test";
+  const runtime = await startWebManagementServer({ authToken: token, host: "127.0.0.1", port: 0, startGateway: false });
+  chmodSync(codexDir, 0o500);
+  try {
+    const off = await loadAppConfig();
+    off.profile.profiles.find((profile) => profile.id === "default-codex").enabled = false;
+    await saveAppConfig(off);
+    const current = (await rpc(runtime.url, token, "getConfig")).value.APIKEYS;
+    const saved = (await rpc(runtime.url, token, "saveApiKeys", [[...current, { createdAt: "2026-02-02T00:00:00.000Z", id: "blocked", key: "blocked-token" }], current])).value;
+    assert.equal(saved.statuses.filter((item) => item.client === "codex" && !item.ok).length, 1, JSON.stringify(saved.statuses));
+  } finally {
+    chmodSync(codexDir, 0o700);
+    await runtime.close();
+    restoreGlobalProfileConfigsOnExit([], { manageMarker: true });
+    rmSync(codexDir, { force: true, recursive: true });
+    await saveAppConfig({ ...(await loadAppConfig()), Providers: before.Providers, profile: before.profile });
+  }
+});

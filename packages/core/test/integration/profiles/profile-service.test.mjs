@@ -6012,7 +6012,7 @@ test("a reconcile whose restore fails writes one line to the log", { skip: modeT
   });
 });
 
-test("a save prunes the key of a profile it restored, and says how to undo it",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("a save prunes the key of a profile it restored, and says how to undo it", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
     await switchOff(config, "default-codex");
     const statuses = await reconcileProfileApiKeys(config);
@@ -6028,14 +6028,14 @@ test("a save with the profile feature switched off leaves nothing of LLMR's in t
     config.profile.enabled = false;
     await replacePersistedAppConfig(config);
     const statuses = await reconcileProfileApiKeys(config);
-    assert.deepEqual(statuses.map((status) => status.ok), [true], JSON.stringify(statuses));
+    assert.deepEqual(statuses.map((status) => [status.ok, status.changed]), [[true, true]], JSON.stringify(statuses));
     assert.deepEqual(filesUnder(codexDir), []);
     assert.deepEqual(filesHolding(codexDir, codexToken), []);
     assert.equal(await hasKey("profile:default-codex"), false);
   });
 });
 
-test("a save keeps the key of a Claude Code profile whose settings could not be restored",{ skip: modeTestSkip }, async () => {
+test("a save keeps the key of a Claude Code profile whose settings could not be restored", { skip: modeTestSkip }, async () => {
   await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
     chmodSync(claudeDir, 0o500);
     try {
@@ -6127,7 +6127,7 @@ test("an apply keeps the helper of a Claude Code profile whose key it kept while
   }
 });
 
-test("a save leaves a file another enabled profile of the agent still manages",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("a save leaves a file another enabled profile of the agent still manages", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, codexToken, config }) => {
     const original = config.profile.profiles.find((profile) => profile.id === "default-codex");
     config.profile.profiles.push({ ...original, id: "second-codex", name: "Second" });
@@ -6138,7 +6138,20 @@ test("a save leaves a file another enabled profile of the agent still manages",{
   });
 });
 
-test("a save releases the key of a generated-scope profile without a restore status", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("a save leaves the model catalog another enabled Codex profile in the directory reads", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexDir, config }) => {
+    const catalog = path.join(codexDir, "llmr-model-catalog.json");
+    assert.equal(existsSync(catalog), true);
+    const original = config.profile.profiles.find((profile) => profile.id === "default-codex");
+    config.profile.profiles.push({ ...original, configFile: path.join(codexDir, "other.toml"), enabled: true, id: "other-codex", name: "Other" });
+    await switchOff(config, "default-codex");
+    const statuses = await reconcileProfileApiKeys(config);
+    assert.equal(statuses.length, 1, JSON.stringify(statuses));
+    assert.equal(existsSync(catalog), true, statuses[0].message);
+  });
+});
+
+test("a save releases the key of a generated-scope profile without a restore status",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
     await switchOff(config, "default-codex");
     assert.deepEqual(await reconcileProfileApiKeys(config), []);
@@ -6565,4 +6578,118 @@ test("a Workbuddy profile under a provider id Codex reserves is still applied", 
   } finally {
     rmSync(workbuddyHome, { force: true, recursive: true });
   }
+});
+
+test("a merged status keeps one status per agent when two agents share a file", () => {
+  const merged = mergeProfileStatuses([
+    { client: "codex", enabled: false, message: "Codex config was restored.", ok: true, path: "/x" },
+    { client: "workbuddy", enabled: true, message: "Workbuddy config is managed by LLMR.", ok: true, path: "/x" }
+  ]);
+  assert.deepEqual(merged.map((status) => status.client), ["codex", "workbuddy"]);
+});
+
+test("a merged status names the copy another pass kept in its own message", () => {
+  const [merged] = mergeProfileStatuses([
+    { changed: true, client: "codex", copy: "/copy", enabled: false, message: "Restored. LLMR kept a copy at /copy.", ok: true, path: "/x" },
+    { client: "codex", enabled: true, message: "Codex config is managed by LLMR.", ok: true, path: "/x" }
+  ]);
+  assert.equal(merged.message, "Codex config is managed by LLMR. LLMR kept a copy of what you had at /copy.");
+});
+
+test("a status that names its own copy is not repeated by the merge", () => {
+  const status = { client: "codex", copy: "/copy", enabled: true, message: "Managed. LLMR kept a copy at /copy.", ok: true, path: "/x" };
+  assert.deepEqual(mergeProfileStatuses([status, { client: "codex", enabled: false, message: "Absent.", ok: true, path: "/x" }]), [status]);
+});
+
+test("a merged status keeps the pass that changed the file over an earlier one that did not", () => {
+  const [merged] = mergeProfileStatuses([
+    { client: "codex", enabled: false, message: "Codex config is absent, so LLMR had nothing to restore.", ok: true, path: "/x" },
+    { changed: true, client: "codex", enabled: false, message: "Codex config was removed because it did not exist before LLMR.", ok: true, path: "/x" }
+  ]);
+  assert.equal(merged.changed, true, merged.message);
+});
+
+test("a merged status treats a home-relative path and its resolved path as one file", () => {
+  const merged = mergeProfileStatuses([
+    { client: "codex", enabled: false, message: "first", ok: true, path: "~/.codex/config.toml" },
+    { client: "codex", enabled: false, message: "second", ok: true, path: path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? os.homedir(), ".codex", "config.toml") }
+  ]);
+  assert.equal(merged.length, 1, JSON.stringify(merged));
+});
+
+test("an apply with no gateway model still reports the restore of a profile just switched off", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-claude-code", "default-codex"], async ({ config }) => {
+    await switchOff(config, "default-codex");
+    config.Providers = [];
+    const codex = (await applyProfileConfig(config)).clients.filter((status) => status.client === "codex");
+    assert.equal(codex.some((status) => status.changed), true, JSON.stringify(codex));
+  });
+});
+
+test("a save beside a running apply restores a switched-off profile once", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
+    await switchOff(config, "default-codex");
+    const [applied, released] = await Promise.all([applyProfileConfig(config), reconcileProfileApiKeys(config)]);
+    assert.deepEqual(released, []);
+    assert.equal(applied.clients.filter((status) => status.client === "codex" && status.changed).length, 1, JSON.stringify(applied.clients));
+  });
+});
+
+test("a save reports a restore that throws and keeps that profile's key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
+    const zcodeHome = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".zcode");
+    mkdirSync(path.join(zcodeHome, "cli", "config.json"), { recursive: true });
+    try {
+      config.profile.profiles.push({ agent: "zcode", enabled: false, env: {}, id: "zcode-off", model: "Provider/model", name: "ZCode", providerId: "llm-router", scope: "global", surface: "app" });
+      await replacePersistedAppConfig(config);
+      await updatePersistedApiKeys((keys) => [...keys, { createdAt: "2026-01-01T00:00:00.000Z", id: "profile:zcode-off", key: "llmr-profile-zcode-off", name: "Profile: ZCode" }]);
+      const statuses = await reconcileProfileApiKeys(config);
+      assert.deepEqual(statuses.map((status) => [status.client, status.ok]), [["zcode", false]], JSON.stringify(statuses));
+      assert.equal(await hasKey("profile:zcode-off"), true);
+    } finally {
+      rmSync(zcodeHome, { force: true, recursive: true });
+    }
+  });
+});
+
+test("a save that restores a profile names the copy it kept in its status", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexDir, config }) => {
+    const profileFile = path.join(codexDir, "llm-router.config.toml");
+    writeFileSync(profileFile, `${readFileSync(profileFile, "utf8")}approval_policy = "never"\n`);
+    await switchOff(config, "default-codex");
+    const [status] = await reconcileProfileApiKeys(config);
+    assert.deepEqual(status.copy ? [status.copy] : [], safetyCopies(profileFile), status.message);
+    assert.ok(status.message.includes(status.copy), status.message);
+  }, plantCodexOriginal());
+});
+
+test("a save that restores a ZCode profile just switched off says it changed the file", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const zcodeHome = path.join(process.env.LLMR_INTERNAL_HOME_DIR, ".zcode");
+  try {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
+      assert.ok(existsSync(path.join(zcodeHome, "cli", "config.json")), "the apply wrote ZCode's config");
+      await switchOff(config, "zcode-on");
+      const zcode = (await reconcileProfileApiKeys(config)).filter((status) => status.client === "zcode");
+      assert.equal(zcode.length, 1, JSON.stringify(zcode));
+      assert.equal(zcode[0].changed, true, zcode[0].message);
+    }, undefined, {
+      configure: (config) => {
+        config.profile.profiles.push({ agent: "zcode", enabled: true, env: {}, id: "zcode-on", model: "Provider/model", name: "ZCode", providerId: "llm-router", scope: "global", surface: "app" });
+      }
+    });
+  } finally {
+    rmSync(zcodeHome, { force: true, recursive: true });
+  }
+});
+
+test("a save that puts the user's profile table back into a Codex config they deleted says it changed the file", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, config }) => {
+    writeFileSync(codexConfigFile, `${readFileSync(codexConfigFile, "utf8")}\n[profiles.llm-router]\napproval_policy = "never"\n`);
+    await applyProfileConfig(config);
+    rmSync(codexConfigFile);
+    await switchOff(config, "default-codex");
+    const [status] = await reconcileProfileApiKeys(config);
+    assert.match(readFileSync(codexConfigFile, "utf8"), /approval_policy = "never"/);
+    assert.equal(status.changed, true, status.message);
+  });
 });
