@@ -90,7 +90,8 @@ test("a connectivity check of the Claude Code provider records no request-log ro
     protocols: ["anthropic_messages"]
   }, { requestLog: { enabled: true } });
   const rows = async () => {
-    await flushRequestLogRuntime(1000);
+    const flushed = await flushRequestLogRuntime(10_000);
+    assert.equal(flushed.timedOut, false, "the request log did not flush in 10 seconds");
     return (await getRequestLogs({ pageSize: 10 })).items.length;
   };
   const before = await rows();
