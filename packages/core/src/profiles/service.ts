@@ -1065,7 +1065,7 @@ async function releaseDisabledProfileKeys(config: AppConfig, profiles: ProfileCo
     }
     let status: ProfileClientApplyStatus;
     try {
-      status = disabledProfileStatus(profile, config.profile.profiles);
+      status = disabledProfileStatus(profile, profiles);
     } catch (error) {
       status = failedRestoreStatus(profile.agent, profilePath(profile), error);
     }

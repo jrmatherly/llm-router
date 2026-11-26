@@ -6006,7 +6006,19 @@ test("a save prunes the key of a profile it restored, and says how to undo it", 
   });
 });
 
-test("a save keeps the key of a Claude Code profile whose settings could not be restored", { skip: modeTestSkip }, async () => {
+test("a save with the profile feature switched off leaves nothing of LLMR's in the Codex directory", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexDir, codexToken, config }) => {
+    config.profile.enabled = false;
+    await replacePersistedAppConfig(config);
+    const statuses = await reconcileProfileApiKeys(config);
+    assert.deepEqual(statuses.map((status) => status.ok), [true], JSON.stringify(statuses));
+    assert.deepEqual(filesUnder(codexDir), []);
+    assert.deepEqual(filesHolding(codexDir, codexToken), []);
+    assert.equal(await hasKey("profile:default-codex"), false);
+  });
+});
+
+test("a save keeps the key of a Claude Code profile whose settings could not be restored",{ skip: modeTestSkip }, async () => {
   await withAppliedDefaultProfiles(["default-claude-code"], async ({ claudeDir, config }) => {
     chmodSync(claudeDir, 0o500);
     try {
