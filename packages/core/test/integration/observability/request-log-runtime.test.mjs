@@ -1993,3 +1993,116 @@ async function waitForCondition(predicate, timeoutMs) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }
+
+test("a flush whose checkpoint outlasts its budget reports timedOut and does not throw", async () => {
+  const { dir, runtime } = await startFlushFixture({ holdFlush: true });
+  try {
+    assert.equal((await runtime.flush({ timeoutMs: 100 })).timedOut, true);
+  } finally {
+    await runtime.close({ timeoutMs: 50 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("the drain and the checkpoint of a flush share one budget", { timeout: 20000 }, async () => {
+  const { dir, runtime } = await startFlushFixture({ ackDelayMs: 2000, flushDelayMs: 2000 });
+  try {
+    runtime.enqueueRecord(createRecord("after-warm-up"));
+    assert.equal((await runtime.flush({ timeoutMs: 3000 })).timedOut, true);
+  } finally {
+    await runtime.close({ timeoutMs: 50 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a flush whose writer reports an error still rejects", async () => {
+  const { dir, runtime } = await startFlushFixture({ flushError: "checkpoint failed in fixture" });
+  try {
+    await assert.rejects(runtime.flush({ timeoutMs: 60_000 }), /checkpoint failed in fixture/);
+  } finally {
+    await runtime.close({ timeoutMs: 50 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a checkpoint that fails after its flush timed out is not an unhandled rejection", async () => {
+  const { dir, runtime } = await startFlushFixture({ flushError: "late checkpoint failure", holdFlush: true });
+  const unhandled = [];
+  const record = (reason) => unhandled.push(reason);
+  process.once("unhandledRejection", record);
+  try {
+    assert.equal((await runtime.flush({ timeoutMs: 50 })).timedOut, true);
+    runtime.enqueueRecord(createRecord("releases-the-checkpoint"));
+    await waitForCondition(() => runtime.metrics().committed === 2, 10_000);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.removeListener("unhandledRejection", record);
+    await runtime.close({ timeoutMs: 50 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a flush that finishes in time leaves no timer behind", async () => {
+  const { dir, runtime } = await startFlushFixture({});
+  const timers = () => process.getActiveResourcesInfo().filter((name) => name === "Timeout").length;
+  try {
+    const before = timers();
+    assert.equal((await runtime.flush({ timeoutMs: 60_000 })).timedOut, false);
+    // An unrelated timer may end meanwhile, so the count may drop and must not rise. Only referenced timers are counted, and the flush's timer is one.
+    assert.ok(timers() <= before, `${timers()} timers are active, ${before} were before the flush`);
+  } finally {
+    await runtime.close({ timeoutMs: 50 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a record queued while a flush waits on its checkpoint is counted as pending", async () => {
+  const { dir, runtime } = await startFlushFixture({ ackOnlyWarmUp: true, holdFlush: true });
+  try {
+    const flushing = runtime.flush({ timeoutMs: 60_000 });
+    await new Promise((resolve) => setImmediate(resolve));
+    runtime.enqueueRecord(createRecord("during-checkpoint"));
+    assert.deepEqual(await flushing, { pending: 1, timedOut: false });
+  } finally {
+    await runtime.close({ timeoutMs: 50 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+// holdFlush keeps the flush reply until the next batch arrives, so a test orders the events itself instead of racing timers.
+async function startFlushFixture({ ackDelayMs = 0, ackOnlyWarmUp = false, flushDelayMs = 0, flushError = null, holdFlush = false }) {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-flush-budget-test-"));
+  const fixture = path.join(dir, "slow-flush-worker.cjs");
+  writeFileSync(fixture, `
+    const { parentPort } = require("node:worker_threads");
+    const flushError = ${JSON.stringify(flushError)};
+    let batches = 0;
+    let heldFlush;
+    parentPort.postMessage({ type: "ready" });
+    parentPort.on("message", (message) => {
+      if (message.type === "batch") {
+        batches += 1;
+        if (heldFlush) parentPort.postMessage(heldFlush);
+        heldFlush = undefined;
+        if (${ackOnlyWarmUp} && batches > 1) return;
+        setTimeout(() => parentPort.postMessage({ batchId: message.batchId, type: "ack" }), ${ackDelayMs}).unref();
+        return;
+      }
+      if (message.method === "flush") {
+        const response = flushError === null
+          ? { requestId: message.requestId, result: true, type: "response" }
+          : { error: flushError, requestId: message.requestId, type: "response" };
+        if (${holdFlush}) heldFlush = response;
+        else setTimeout(() => parentPort.postMessage(response), ${flushDelayMs}).unref();
+        return;
+      }
+      parentPort.postMessage({ requestId: message.requestId, result: true, type: "response" });
+      if (message.method === "shutdown") parentPort.close();
+    });
+  `);
+  const runtime = createRequestLogRuntime({ batchMaxWaitMs: 1, dbFile: path.join(dir, "request-logs.sqlite"), workerFile: fixture });
+  runtime.enqueueRecord(createRecord("warm-up"));
+  await waitForCondition(() => runtime.metrics().committed === 1, 10_000);
+  return { dir, runtime };
+}

@@ -179,7 +179,8 @@ test("recent issues: production HTTP, tool replay, logs and usage SQLite", {
     await logs.close({ timeoutMs: 5000 });
     await Promise.all([close(upstream), close(sink)]);
     for (const [key, value] of Object.entries(previousEnv)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
-    removeTestDir(root, ["usage.sqlite", "unused.sqlite"]);
+    // A price-catalog load for the unpriced native model opens the process's config repository under root, and it stays open until the test process exits.
+    removeTestDir(root, ["config.sqlite", "usage.sqlite", "unused.sqlite"]);
   }
 });
 
@@ -208,7 +209,14 @@ async function startGateway(root, config) {
   } catch (error) { child.kill(); throw new Error(`${error}\n${output}`); }
 }
 async function stopGateway({ child }) {
-  if (child.exitCode !== null) return;
+  if (child.exitCode !== null || child.signalCode !== null) return;
   child.kill("SIGTERM");
-  await new Promise(resolve => { const timer = setTimeout(() => { child.kill("SIGKILL"); resolve(); }, 2000); child.once("exit", () => { clearTimeout(timer); resolve(); }); });
+  // A child that outlives this would hold its files open under the test folder, so the stop waits for the exit and names a child that never exits.
+  await new Promise((resolve, reject) => {
+    let timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      timer = setTimeout(() => reject(new Error(`gateway child ${child.pid} did not exit after SIGKILL`)), 5000);
+    }, 2000);
+    child.once("exit", () => { clearTimeout(timer); resolve(); });
+  });
 }
