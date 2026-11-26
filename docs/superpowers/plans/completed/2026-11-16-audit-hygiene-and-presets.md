@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, `node:test`, `git grep`, Astro docs (Markdown and CSS only).
 
-**Spec:** `docs/superpowers/specs/2026-11-16-audit-remediation.md`. This plan fixes F-B1 to F-B9 under decisions D-1 and D-2. `README.md:216` (the `windows-latest` text in F-B9) belongs to RS-4 in the [release safety plan](2026-11-16-audit-release-safety.md) and is not touched here.
+**Spec:** `docs/superpowers/specs/2026-11-16-audit-remediation.md`. This plan fixes F-B1 to F-B9 under decisions D-1 and D-2. `README.md:216` (the `windows-latest` text in F-B9) belongs to RS-4 in the [release safety plan](../2026-11-16-audit-release-safety.md) and is not touched here.
 
 ## Global Constraints
 
@@ -453,7 +453,7 @@ Open the PR from `chore/remove-reseller-presets` and squash-merge it. Put the re
 ## HP-3: Repo hygiene
 
 **Fixes:** F-B4, F-B5, F-B6, F-B7, F-B8, and the `README.md:205` half of F-B9.
-**Depends on:** None. HP-1 edits other lines of `scripts/llmr-rename.mjs`, and RS-4 in the [release safety plan](2026-11-16-audit-release-safety.md) edits `README.md:216`. Rebase if either lands first.
+**Depends on:** None. HP-1 edits other lines of `scripts/llmr-rename.mjs`, and RS-4 in the [release safety plan](../2026-11-16-audit-release-safety.md) edits `README.md:216`. Rebase if either lands first.
 **Branch:** `chore/repo-hygiene`
 **Size:** S.
 **Owner steps:** Confirm the copyright line in Task 2 Step 2 (`Copyright (c) 2026 Jason Matherly`) before merge. It is a legal notice in the owner's name.

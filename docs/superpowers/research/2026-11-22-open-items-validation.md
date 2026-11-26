@@ -1,6 +1,6 @@
 # Open items validation, 2026-11-22
 
-This record validates the 56 rows of the "Open items" table at the end of [`docs/superpowers/plans/2026-11-21-v8-clean-vm-fixes.md`](../plans/2026-11-21-v8-clean-vm-fixes.md) against `main` at `eb84a3ba` (v8.1.0), and records the owner's decisions on them. It is the spec for the six backlog plans listed under "Plans". Each plan cites rows by their id here.
+This record validates the 56 rows of the "Open items" table at the end of [`docs/superpowers/plans/completed/2026-11-21-v8-clean-vm-fixes.md`](../plans/completed/2026-11-21-v8-clean-vm-fixes.md) against `main` at `eb84a3ba` (v8.1.0), and records the owner's decisions on them. It is the spec for the six backlog plans listed under "Plans". Each plan cites rows by their id here.
 
 ## How it was checked
 

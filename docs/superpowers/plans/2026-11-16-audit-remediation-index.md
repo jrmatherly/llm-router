@@ -6,16 +6,18 @@
 
 **Spec:** [`docs/superpowers/specs/2026-11-16-audit-remediation.md`](../specs/2026-11-16-audit-remediation.md). Read its Goal, Global constraints and Decisions in full before starting any PR. A plan line that contradicts a decision is wrong.
 
+**Status on 2026-11-25.** Every PR of the program is merged, the last being CG-7 as PR 108 on 2026-11-18. Seven of the eight plans are in `completed/`. The release safety plan stays open for RS-5, where four of six settings are not applied (its status line has the read-backs). This index and the spec stay here until RS-5 is done. The list under "Steps only the owner can do" was not checked against what the owner has run.
+
 ## The plans
 
 | Plan | PR ids | Fixes |
 |---|---|---|
 | [Release safety](2026-11-16-audit-release-safety.md) | RS-1 to RS-5 | F-A1 to F-A13 |
-| [Provider presets and repo hygiene](2026-11-16-audit-hygiene-and-presets.md) | HP-1 to HP-3 | F-B1 to F-B9 |
+| [Provider presets and repo hygiene](completed/2026-11-16-audit-hygiene-and-presets.md) | HP-1 to HP-3 | F-B1 to F-B9 |
 | [Core gateway](completed/2026-11-16-audit-core-gateway.md) | CG-1 to CG-9 | F-C1 to F-C12 (F-C13 is deferred) |
 | [Electron 45 upgrade](completed/2026-11-16-audit-electron-upgrade.md) | EU-1, EU-2 | F-D1 to F-D3 |
 | [Desktop hardening and UI dependency cleanup](completed/2026-11-16-audit-desktop-hardening.md) | DH-1 to DH-3 | F-D4 to F-D11 |
-| [Upstream leftovers](2026-11-16-audit-upstream-leftovers.md) | UL-1, UL-2 | F-E1, F-E2 |
+| [Upstream leftovers](completed/2026-11-16-audit-upstream-leftovers.md) | UL-1, UL-2 | F-E1, F-E2 |
 | [Lint and test type-checking](completed/2026-11-16-audit-tooling.md) | TL-1, TL-2 | F-F1 to F-F3 |
 | [Codex runtime source and profile service extraction](completed/2026-11-16-audit-structure.md) | ST-1 to ST-5 | F-G1, F-G2 |
 

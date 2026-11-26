@@ -924,6 +924,17 @@ Expected: `📚 Build` runs on the PR, because the PR touches `docs/**` and the 
 **Size:** S
 **Owner steps:** every step.
 
+**Status on 2026-11-25, read with `gh api` and `gh secret list`. Two of six are applied.**
+
+| # | Setting | Read on 2026-11-25 |
+|---|---|---|
+| 1 | Dependabot version updates | Not applied, as far as the API shows: no Dependabot PR exists, and `automated-security-fixes` reads `false`. The toggle itself has no API |
+| 2 | Required checks on `main` | Applied. The ruleset requires `🧪 Unit and architecture`, `🎭 End to end` and `🐳 Docker smoke`. `📦 Build gateway` is not required, and the Tests workflow has had no job of that name since PR 109. The Intel Mac and Windows jobs added on 2026-11-25 are not required checks, and nobody has decided whether they should be |
+| 3 | SHA pinning for actions | Not applied. `sha_pinning_required` is `false` |
+| 4 | Merge methods | Not applied. Merge, rebase and squash are all allowed |
+| 5 | Apple signing secrets | Applied. The `release` environment holds the five names behind a `v*` tag policy, and no secret is left at repository level |
+| 6 | Tag ruleset | Not applied. The only ruleset is `main: tests must pass` |
+
 The values in the "Now" column were read with `gh api` on 2026-11-16. Run each change, then its read-back. Stop if a read-back does not show the expected value.
 
 | # | Setting | Now | After | Run after |
@@ -974,7 +985,7 @@ gh api -X PATCH repos/jrmatherly/llm-router -F allow_merge_commit=false -F allow
 
 Read-back: `gh api repos/jrmatherly/llm-router --jq '{allow_merge_commit, allow_rebase_merge, allow_squash_merge}'` prints `false`, `false`, `true`.
 
-- [ ] **Step 5: Move the Apple secrets into a `release` environment**
+- [x] **Step 5: Move the Apple secrets into a `release` environment**
 
 Create the environment before the first release after RS-2. If the `macos` job names an environment that does not exist, GitHub creates it with no tag limit (GitHub docs behaviour, not observed here).
 

@@ -12,7 +12,7 @@
 
 **Tech Stack:** TypeScript, `better-sqlite3`, a `node:worker_threads` writer for request logs, React, `node:test` with `node:assert/strict`, component tests that render with `renderToStaticMarkup`, Playwright for one step.
 
-**Spec:** [`docs/superpowers/research/2026-11-22-open-items-validation.md`](../research/2026-11-22-open-items-validation.md). Row ids P-1 to P-8, decisions B-1 to B-9 and outside facts X-1 to X-15 come from that record. Task 8 of [`2026-11-21-v8-clean-vm-fixes.md`](2026-11-21-v8-clean-vm-fixes.md), with its "As built (PR 144)" note and decision V-21, is the base this plan changes. Read both before a task.
+**Spec:** [`docs/superpowers/research/2026-11-22-open-items-validation.md`](../research/2026-11-22-open-items-validation.md). Row ids P-1 to P-8, decisions B-1 to B-9 and outside facts X-1 to X-15 come from that record. Task 8 of [`completed/2026-11-21-v8-clean-vm-fixes.md`](completed/2026-11-21-v8-clean-vm-fixes.md), with its "As built (PR 144)" note and decision V-21, is the base this plan changes. Read both before a task.
 
 **Evidence status.** Written 2026-11-22 against `main` at `eb84a3ba`, and re-read against `c491eb48` on 2026-11-24. Every path, symbol and line named below was read on `c491eb48`. On that commit the five test files this plan extends pass, 105 of 105 (run). No fix here was prototyped, and no new test in this plan was run. Where a step rests on something only read or inferred, the step says so and the task's first step is the check.
 

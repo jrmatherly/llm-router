@@ -116,6 +116,7 @@ After the last batch, or earlier if the owner calls it:
    - Keys plan Task 6's check.
    - Whether an agent app comes forward when it is behind another window, since the activation option of PR 156 is deprecated since macOS 14 and nobody ran it against a background app.
    - After a takeover, that the agents' config files follow the stored profile list (PR 156).
+   - The checks of the v8 plan that were never run: Task 11's Pass 1 to Pass 3, its signed-dmg and upgrade checks, and Task 10 Steps 3 and 4 ([`completed/2026-11-21-v8-clean-vm-fixes.md`](completed/2026-11-21-v8-clean-vm-fixes.md)). They were written for 8.0.1, so read each against the release under test before running it. Added 2026-11-25.
    - Any check a batch's own tasks name.
 3. A remediation plan for what the pass finds, then a release of its own.
 
@@ -183,5 +184,13 @@ Four choices the researchers made on evidence, which a review can change: restor
 ## Not verified
 
 - The size of each batch's diff. The figures in the table are the researchers' estimates from the task text. None was measured.
-- Any task's code. The fix rounds ran the faults and read the code. They built no task.
-- The three older plans in this folder, `2026-11-21-v8-clean-vm-fixes.md` and the two open audit plans. They are not ordered here.
+- The code of any task in a batch that is not merged. The fix rounds ran the faults and read the code. They built no task.
+
+## The older plans, checked 2026-11-25
+
+Four older plans sat in this folder and were not ordered here. None holds a code task that is not built.
+
+- **The v8 plan** is in [`completed/`](completed/2026-11-21-v8-clean-vm-fixes.md). Every code task is merged and released. Its VM checks are a line of the end pass above, and its Open items became the backlog plans this file batches.
+- **The audit program's hygiene and upstream leftovers plans** are in `completed/`. Their five PRs (69, 70, 71, 90, 91) are merged, read from GitHub.
+- **The audit program's release safety plan** stays open for RS-5, which is repository settings and not a PR. Its PRs 64 to 67 are merged. Four of RS-5's six settings are not applied, read from the GitHub API: Dependabot version updates, SHA pinning for actions, squash-only merges and the tag ruleset. They are the owner's steps and gate nothing here.
+- **The audit program's index** stays with it. Its list "Steps only the owner can do" holds manual checks and release notes that nobody has recorded as done. Which of them the owner ran was not checked.

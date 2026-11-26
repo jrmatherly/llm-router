@@ -2,7 +2,7 @@
 
 Running record of the v8.0.0 checks in a disposable UTM macOS VM, started 2026-11-20. Fixes are batched: nothing here is fixed until the pass ends and Jason says to start.
 
-The fix plan is [`docs/superpowers/plans/2026-11-21-v8-clean-vm-fixes.md`](../plans/2026-11-21-v8-clean-vm-fixes.md), written 2026-11-21 and awaiting review. Where the plan's cause for a finding differs from an early note below, the plan is the later reading.
+The fix plan is [`docs/superpowers/plans/completed/2026-11-21-v8-clean-vm-fixes.md`](../plans/completed/2026-11-21-v8-clean-vm-fixes.md), written 2026-11-21 and awaiting review. Where the plan's cause for a finding differs from an early note below, the plan is the later reading.
 
 ## Setup
 

@@ -12,7 +12,7 @@
 
 **Tech Stack:** TypeScript, Electron 45, React, `better-sqlite3`, `node:test` with `node:assert/strict`, Playwright for `tests/e2e/`.
 
-**Spec:** [`docs/superpowers/research/2026-11-22-open-items-validation.md`](../research/2026-11-22-open-items-validation.md). Row ids R-1 to R-14 come from its Findings table. Read each row a task names before you start the task. The standing decisions V-7, V-13, V-16 and V-17 are in [`2026-11-21-v8-clean-vm-fixes.md`](2026-11-21-v8-clean-vm-fixes.md), with the history of the restore code in its Tasks 4a to 4e and Appendices C to E.
+**Spec:** [`docs/superpowers/research/2026-11-22-open-items-validation.md`](../research/2026-11-22-open-items-validation.md). Row ids R-1 to R-14 come from its Findings table. Read each row a task names before you start the task. The standing decisions V-7, V-13, V-16 and V-17 are in [`completed/2026-11-21-v8-clean-vm-fixes.md`](completed/2026-11-21-v8-clean-vm-fixes.md), with the history of the restore code in its Tasks 4a to 4e and Appendices C to E.
 
 **Evidence status.** The research ran the rows marked "run" in the spec in a temporary home through throwaway tests. No fix in this plan was prototyped. The plan author read every symbol named below in `main` at `eb84a3ba` and ran nothing. The fix round of 2026-11-24 re-read every named symbol at `c491eb48` (each one still exists), and line numbers below are from that commit. A claim marked "read" or "inferred" in a task was not executed, and that task's first step is the check that confirms it.
 

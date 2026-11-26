@@ -67,7 +67,7 @@ The review of PR 106 changed these points:
 
 TL-1 had merged, so `biome.json` excludes `*.runtime.cjs` as the constraints say. The optional Windows check under Owner steps is still open.
 
-**Ordering against the [upstream leftovers plan](../2026-11-16-audit-upstream-leftovers.md).** UL-1 and UL-2 edit this script (the `TZ` override and the `CODEXL_*` names). Either order works, and neither needs a fixed hash.
+**Ordering against the [upstream leftovers plan](2026-11-16-audit-upstream-leftovers.md).** UL-1 and UL-2 edit this script (the `TZ` override and the `CODEXL_*` names). Either order works, and neither needs a fixed hash.
 
 - If the leftovers PRs merged first, this PR moves the edited text. The emitted hash is then not `e35ead7b…`. That is expected.
 - If this PR merges first, the leftovers PRs edit `cli-middleware-runtime-source.runtime.cjs` instead of `cli-middleware-runtime.ts`, at the same text anchors, three lines earlier.
