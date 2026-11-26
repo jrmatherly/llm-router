@@ -3349,12 +3349,13 @@ type RestoreManagedContentMatchers = {
   isEmptyContent?: (content: string) => boolean;
   isManagedContent: (content: string) => boolean;
   onReleased?: () => void;
-  parses?: (content: string) => boolean;
   // Set where a live file that changed since LLMR wrote it is stripped in place, and the snapshot only supplies what the apply displaced. Such a file's token never goes into a backup.
   stripBeforeSnapshot?: boolean;
   stripLiveContent?: (content: string, snapshot?: string) => string | undefined;
   stripManagedContent?: (content: string) => string | undefined;
   takeoverContent?: (content: string) => TakeoverContent;
+  // Content that does not parse but still carries LLMR's mark, so it can hold LLMR's settings and key.
+  unreadableTakeover?: (content: string) => boolean;
 };
 
 // "parsed": valid content that carries the marks of an LLMR takeover. "unparsed": content that is not valid for its format.
@@ -4102,8 +4103,8 @@ function restoreGlobalConfigFileContent(
   options: RestoreManagedContentMatchers & { keepLiveFile?: boolean; mode?: number }
 ): RestoreFileResult {
   const current = existsSync(file) ? readFileSync(file, "utf8") : undefined;
-  // The record lives from an apply to the restore that gives the file back, so text that does not parse in between can still hold LLMR's provider and key. Every mark of the takeover stays for the pass after the user repairs it.
-  if (current !== undefined && options.parses?.(current) === false && readCodexWrittenRecord(file) !== undefined) {
+  // Every mark of the takeover stays for the pass after the user repairs the file.
+  if (current !== undefined && options.unreadableTakeover?.(current)) {
     throw new Error("it is not valid JSON, so LLMR left it unchanged. Fix the file and save again.");
   }
   const currentManaged = current !== undefined && options.isManagedContent(current);
@@ -4455,10 +4456,10 @@ function providerJsonManagedContent(client: ProviderJsonClient): RestoreManagedC
   return {
     isEmptyContent: (content) => isEmptyProviderJsonContent(content, openCodeDefaultSchema) || isEmptyProviderJsonContent(content, kiloDefaultSchema),
     isManagedContent: (content) => isManagedProviderJsonContent(content, "opencode") || isManagedProviderJsonContent(content, "kilo"),
-    parses: (content) => parseJsoncRecord(content) !== undefined,
     stripBeforeSnapshot: true,
     stripLiveContent: (content, snapshot) => stripManagedProviderJsonContent(content, { client }, snapshot),
-    stripManagedContent: (content) => stripManagedProviderJsonContent(content, { client })
+    stripManagedContent: (content) => stripManagedProviderJsonContent(content, { client }),
+    unreadableTakeover: (content) => parseJsoncRecord(content) === undefined && /x-llmr-client/i.test(content)
   };
 }
 
