@@ -79,6 +79,18 @@ test("removeFileKeepingLink removes the target and keeps the link", posixOnly, (
   assert.equal(existsSync(target), false);
 });
 
+test("removeFileKeepingLink refuses a link to a folder and leaves both", posixOnly, (t) => {
+  const { dir } = setup(t);
+  const folder = path.join(dir, "folder");
+  const link = path.join(dir, "linked.json");
+  mkdirSync(folder);
+  writeFileSync(path.join(folder, "keep.txt"), "mine");
+  symlinkSync(folder, link);
+  assert.throws(() => removeFileKeepingLink(link), /directory/i);
+  assert.ok(lstatSync(link).isSymbolicLink());
+  assert.equal(readFileSync(path.join(folder, "keep.txt"), "utf8"), "mine");
+});
+
 test("removeFileKeepingLink removes a plain file", (t) => {
   const { file } = setup(t);
   removeFileKeepingLink(file);

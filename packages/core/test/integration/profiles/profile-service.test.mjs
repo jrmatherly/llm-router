@@ -4811,6 +4811,46 @@ test("a quit logs a custom-path .claude.json it could not restore", { skip: !pro
   assert.ok(logged.some((line) => line.includes(globalFile)), JSON.stringify(logged));
 }));
 
+test("a save that switches Codex off leaves the config Workbuddy reaches through a linked folder", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const link = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "codex-link");
+  try {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      symlinkSync(fixture.codexDir, link);
+      fixture.config.profile.profiles.push(globalWorkbuddyProfile(link));
+      await applyProfileConfig(fixture.config);
+      await replacePersistedAppConfig(fixture.config);
+      await switchOff(fixture.config, "default-codex");
+      await applyProfileConfig(fixture.config);
+      const workbuddyKey = (await loadPersistedApiKeys()).find((apiKey) => apiKey.id === "profile:workbuddy-global")?.key;
+      const content = readFileSync(fixture.codexConfigFile, "utf8");
+      assert.match(content, /\[model_providers\.llm-router\]/);
+      assert.ok(workbuddyKey && content.includes(workbuddyKey));
+    }, undefined, { parseAfter: false });
+  } finally {
+    rmSync(link, { force: true });
+  }
+});
+
+test("a restore that meets a link to a folder where LLMR wrote a file says it could not remove it and leaves the folder", { skip: process.platform === "win32" || !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const folder = path.join(process.env.LLMR_INTERNAL_HOME_DIR ?? "", "catalog-folder");
+  try {
+    await withAppliedDefaultProfiles(["default-codex"], async ({ codexDir }) => {
+      const catalog = path.join(codexDir, "llmr-model-catalog.json");
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(path.join(folder, "keep.txt"), "mine");
+      rmSync(catalog);
+      symlinkSync(folder, catalog);
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, false);
+      assert.match(result.status.message, /could not remove all of its own files beside it: .*directory/i);
+      assert.ok(lstatSync(catalog).isSymbolicLink());
+      assert.equal(readFileSync(path.join(folder, "keep.txt"), "utf8"), "mine");
+    });
+  } finally {
+    rmSync(folder, { force: true, recursive: true });
+  }
+});
+
 const wifProfile = { env: { LLMR_CLAUDE_CODE_AUTH_MODE: "wif" }, passThrough: false };
 const usersOwnWifFixtureSettings = { env: { ANTHROPIC_DEFAULT_OPUS_MODEL: "my-opus", NO_PROXY: "corp.internal" }, permissions: { allow: ["Bash(ls)"] } };
 

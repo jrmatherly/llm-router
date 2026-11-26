@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmdirSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY_ENV, NO_AVAILABLE_GATEWAY_MODELS_MESSAGE, claudeAppTakesOverDirectLaunches, claudeCodeUsesSharedHome, enforceSingleEnabledGlobalProfilePerAgent, hasAvailableGatewayModels, isEnabledGlobalProfile, isGatewayProviderEnabled, type AppConfig, type GlobalProfileRecoveryResult, type ProfileApplyResult, type ProfileClientApplyStatus, type ProfileClientKind, type ProfileConfig } from "@llmr/core/contracts/app";
@@ -1082,8 +1082,26 @@ function enabledOwnerOfFile(profile: ProfileConfig, profiles: ProfileConfig[]): 
   return profiles.find((other) =>
     (other.agent === profile.agent || (isCodexFamily(other.agent) && isCodexFamily(profile.agent))) &&
     isEnabledGlobalProfile(other) &&
-    profilePath(other) === file
+    sameFile(profilePath(other), file)
   );
+}
+
+// A linked folder gives one file two paths. A file that does not exist yet is found through its folder.
+function sameFile(a: string, b: string): boolean {
+  return canonicalFileKey(a) === canonicalFileKey(b);
+}
+
+function canonicalFileKey(file: string): string {
+  const resolved = path.resolve(resolveUserPath(file));
+  try {
+    return normalizedFileKey(realpathSync(resolved));
+  } catch {
+    try {
+      return normalizedFileKey(path.join(realpathSync(path.dirname(resolved)), path.basename(resolved)));
+    } catch {
+      return normalizedFileKey(resolved);
+    }
+  }
 }
 
 // Workbuddy writes Codex's config format, so a Codex and a Workbuddy profile can share one config.toml.
@@ -1092,7 +1110,7 @@ function isCodexFamily(agent: ProfileClientKind): boolean {
 }
 
 function sharedWithEnabledCodexFamilyProfile(profiles: ProfileConfig[], file: string): boolean {
-  return profiles.some((profile) => isCodexFamily(profile.agent) && isEnabledGlobalProfile(profile) && resolveCodexConfigFile(profile) === file);
+  return profiles.some((profile) => isCodexFamily(profile.agent) && isEnabledGlobalProfile(profile) && sameFile(resolveCodexConfigFile(profile), file));
 }
 
 // After a failed restore the agent can still hold the key, and revoking it would leave the agent with a dead one.
@@ -2593,9 +2611,10 @@ function restoreDisabledClaudeCodeProfile(profile: ProfileConfig, others: Profil
     return status;
   }
   const globalFile = claudeCodeGlobalConfigFile(profile, settingsFile);
-  const sharer = globalFile && others.find((other) =>
-    other.agent === "claude-code" && isEnabledGlobalProfile(other) && claudeCodeGlobalConfigFile(other, resolveClaudeCodeSettingsFile(other)) === globalFile
-  );
+  const sharer = globalFile && others.find((other) => {
+    const otherFile = other.agent === "claude-code" && isEnabledGlobalProfile(other) ? claudeCodeGlobalConfigFile(other, resolveClaudeCodeSettingsFile(other)) : undefined;
+    return otherFile !== undefined && sameFile(otherFile, globalFile);
+  });
   if (sharer) {
     return { ...status, message: withSentence(status.message, `Profile "${sharer.name || sharer.id}" still uses ${globalFile}, so LLMR left it and its copies unchanged.`) };
   }
@@ -3325,7 +3344,7 @@ function restoreDisabledCodexProfile(profile: ProfileConfig, configFile: string,
   // A config.toml that still holds LLMR's content still names the catalog, and another enabled profile in the directory still reads these files.
   if (
     !status.ok || !isCodexFamily(profile.agent) || !isGlobalProfile(profile) ||
-    others.some((other) => isCodexFamily(other.agent) && other.enabled && path.dirname(resolveCodexConfigFile(other)) === dir)
+    others.some((other) => isCodexFamily(other.agent) && other.enabled && sameFile(path.dirname(resolveCodexConfigFile(other)), dir))
   ) {
     return status;
   }
