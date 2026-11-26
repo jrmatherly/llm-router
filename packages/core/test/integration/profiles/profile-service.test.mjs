@@ -5679,7 +5679,7 @@ test("an OpenCode config rewritten the way opening the OpenCode app rewrites it 
   });
 });
 
-test("no backup of an OpenCode config holds the key after a second apply",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("no backup of an OpenCode config holds the key after a second apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withProviderJsonProfile(async ({ apply, file, root }) => {
     apply();
     apply({ model: "other-model" });
@@ -5942,7 +5942,18 @@ for (const agent of ["opencode", "kilo"]) {
   });
 }
 
-test("a restore after the profile's provider id changed still removes LLM Router's provider and its key",{ skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+test("a config a restore gave back is left alone by later passes although it is not a JSON object", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonProfile(async ({ apply, file, restore }) => {
+    apply();
+    assert.equal(restore().ok, true);
+    assert.equal(readFileSync(file, "utf8"), "[1, 2]\n");
+    const again = restore();
+    assert.equal(again.ok, true, again.message);
+    assert.deepEqual(restoreInactiveGlobalProfileConfigs([providerJsonProfile("opencode", file, { enabled: false })]).filter((status) => !status.ok), []);
+  }, { original: "[1, 2]\n" });
+});
+
+test("a restore after the profile's provider id changed still removes LLM Router's provider and its key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withProviderJsonRoot(async (root) => {
     const file = path.join(root, "opencode.jsonc");
     const profile = providerJsonProfile("opencode", file, { providerId: "a" });

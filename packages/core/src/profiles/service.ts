@@ -4102,8 +4102,8 @@ function restoreGlobalConfigFileContent(
   options: RestoreManagedContentMatchers & { keepLiveFile?: boolean; mode?: number }
 ): RestoreFileResult {
   const current = existsSync(file) ? readFileSync(file, "utf8") : undefined;
-  // Text that does not parse can still hold LLMR's provider and key, so every mark of the takeover stays for the pass after the user repairs it.
-  if (current !== undefined && options.parses?.(current) === false && hasTakeoverSnapshot(file)) {
+  // The record lives from an apply to the restore that gives the file back, so text that does not parse in between can still hold LLMR's provider and key. Every mark of the takeover stays for the pass after the user repairs it.
+  if (current !== undefined && options.parses?.(current) === false && readCodexWrittenRecord(file) !== undefined) {
     throw new Error("it is not valid JSON, so LLMR left it unchanged. Fix the file and save again.");
   }
   const currentManaged = current !== undefined && options.isManagedContent(current);
