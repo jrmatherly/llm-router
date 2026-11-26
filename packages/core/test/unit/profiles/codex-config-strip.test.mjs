@@ -22,7 +22,6 @@ import {
   sameRootAssignment,
   scanTomlLines,
   scanTomlStatements,
-  stripCodexSnapshotContent,
   stripManagedCodexConfigContent
 } from "@llmr/core/profiles/codex-config-strip.ts";
 
@@ -639,16 +638,16 @@ const usersTable = "[model_providers.llm-router]\nname = \"Mine\"\nexperimental_
 test("a provider table with no marker above it and no LLMR token is the user's", () => {
   assert.equal(isManagedCodexConfigContent(usersTable, "llm-router"), false);
   assert.equal(strip(usersTable), undefined);
-  assert.equal(stripCodexSnapshotContent(`model_provider = "llm-router"\n\n${usersTable}`, ["llm-router"]), undefined);
+  assert.equal(strip(`model_provider = "llm-router"\n\n${usersTable}`), undefined);
   assert.equal(isManagedCodexConfigContent(usersTable.replace("my-own-secret", "llmr-profile-TEST"), "llm-router"), true);
   assert.equal(isManagedCodexConfigContent(`${managedProviderStart}\n\n${usersTable}`, "llm-router"), true);
 });
 
-test("a snapshot strip keeps a model_provider line only beside the user's own table of that id", () => {
+test("a strip keeps a model_provider line only beside the user's own table of that id", () => {
   const llmrs = `model_catalog_json = "/tmp/codex-home/llmr-model-catalog.json"\n\n[mcp_servers.llmr-toolhub]\ncommand = "node"\n`;
-  const leftover = stripCodexSnapshotContent(`model_provider = "llm-router"\n${llmrs}`, ["llm-router"]);
+  const leftover = strip(`model_provider = "llm-router"\n${llmrs}`);
   assert.equal(leftover.includes("model_provider"), false);
-  const withUsersTable = stripCodexSnapshotContent(`model_provider = "llm-router"\n${llmrs}\n${usersTable}`, ["llm-router"]);
+  const withUsersTable = strip(`model_provider = "llm-router"\n${llmrs}\n${usersTable}`);
   assert.match(withUsersTable, /^model_provider = "llm-router"\n/);
   assert.equal(withUsersTable.includes("my-own-secret"), true);
   assert.equal(withUsersTable.includes("llmr-toolhub"), false);
@@ -682,8 +681,7 @@ test("a removed root line that left a value open does not change which provider 
     "experimental_bearer_token = \"my-own-secret\"",
     ""
   ].join("\n");
-  for (const stripped of [strip(content), stripCodexSnapshotContent(content, ["llm-router"])]) {
-    assert.equal(stripped.includes("experimental_bearer_token = \"my-own-secret\""), true, stripped);
-    assert.equal(stripped.includes("llmr-profile-OLD"), false, stripped);
-  }
+  const stripped = strip(content);
+  assert.equal(stripped.includes("experimental_bearer_token = \"my-own-secret\""), true, stripped);
+  assert.equal(stripped.includes("llmr-profile-OLD"), false, stripped);
 });

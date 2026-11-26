@@ -80,7 +80,6 @@ import {
   removeTomlTable,
   rootTomlAssignment,
   scanTomlStatements,
-  stripCodexSnapshotContent,
   stripManagedCodexConfigContent
 } from "@llmr/core/profiles/codex-config-strip";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
@@ -4152,7 +4151,7 @@ function codexManagedContent(agent: ProfileClientKind, providerIds: string[], fi
               isManagedContent(content) ? readCodexWrittenRecord(file) : undefined,
               snapshot === undefined ? undefined : readCodexDisplacedConfig(snapshot, providerIds)
             ),
-          stripManagedContent: (content: string) => stripCodexSnapshotContent(content, providerIds)
+          stripManagedContent: (content: string) => stripManagedCodexConfigContent(content, providerIds)
         }
       : {})
   };

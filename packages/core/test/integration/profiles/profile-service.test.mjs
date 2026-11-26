@@ -5304,6 +5304,22 @@ test("a comment below a user's own provider table comes back once after an edite
   }
 });
 
+test("a model_provider line the user points at their own provider table after a restore stays through a later apply", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = usersProviderOriginal.replace("model_provider = \"llm-router\"", "model_provider = \"openai\"");
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), original);
+    const pointed = original.replace("model_provider = \"openai\"", "model_provider = \"llm-router\"");
+    writeFileSync(fixture.codexConfigFile, pointed);
+    const codex = fixture.config.profile.profiles.find((profile) => profile.id === "default-codex");
+    codex.enabled = false;
+    fixture.config.profile.profiles.find((profile) => profile.id === "default-claude-code").enabled = true;
+    await applyProfileConfig(fixture.config);
+    assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), pointed);
+  }, plantCodexOriginal(original));
+});
+
 test("a restore removes the profile's token from a Codex config whose own value was left open", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
     const applied = readFileSync(fixture.codexConfigFile, "utf8");

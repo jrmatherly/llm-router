@@ -241,33 +241,19 @@ export function stripManagedCodexConfigContent(
   content: string,
   providerIds: string[],
   written?: CodexWrittenLines,
-  displaced?: CodexDisplacedConfig
-): string | undefined {
-  return stripCodexConfig(content, providerIds, written, displaced, []);
-}
-
-// A saved original or a backup is the user's file: a `model_provider` line beside their own provider table of that id names that table.
-export function stripCodexSnapshotContent(content: string, providerIds: string[]): string | undefined {
-  const usersTables = providerTableOwners(scanTomlStatements(content), providerIds).filter(({ llmr }) => !llmr).map(({ table }) => table);
-  return stripCodexConfig(content, providerIds, undefined, undefined, providerIds.filter((providerId) => usersTables.includes(providerTablePath(providerId))));
-}
-
-function stripCodexConfig(
-  content: string,
-  providerIds: string[],
-  written: CodexWrittenLines | undefined,
-  displaced: CodexDisplacedConfig = {},
-  keptModelProviderIds: string[]
+  displaced: CodexDisplacedConfig = {}
 ): string | undefined {
   const putBack = new Map<string, number>();
   const usersRootKeys = new Set<string>();
   const configuredModel = managedConfiguredModel(content);
+  const statements = scanTomlStatements(content);
+  // A `model_provider` line beside the user's own provider table of that id names their table.
+  const usersTables = providerTableOwners(statements, providerIds).filter(({ llmr }) => !llmr).map(({ table }) => table);
   const providerValues = providerIds
-    .filter((providerId) => !keptModelProviderIds.includes(providerId))
+    .filter((providerId) => !usersTables.includes(providerTablePath(providerId)))
     .flatMap((providerId) => [tomlString(providerId), `'${providerId}'`]);
   const eol = displaced.eol ?? "\n";
   const kept: string[] = [];
-  const statements = scanTomlStatements(content);
   const providerHeaders = providerIds.map(providerTablePath);
   const mcpTables = [TOOL_HUB_MCP_SERVER_NAME, CONTEXT_ARCHIVE_MCP_SERVER_NAME].map((serverName) => `mcp_servers.${tomlKey(serverName)}`);
   // One scan decides and removes: a line this strip takes out can be what left a value open, so a scan of the result can see other headers.
