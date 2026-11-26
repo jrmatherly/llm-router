@@ -43,7 +43,7 @@ export function pruneBackups(file: string, keep = 5, isManagedContent?: (content
   }
 }
 
-export function ensureOriginalSnapshot(file: string, previous: string | undefined, mode?: number): void {
+export function ensureOriginalSnapshot(file: string, previous: string | undefined, mode?: number, content?: string): void {
   const originalBackup = `${file}${originalBackupSuffix}`;
   const originalMissing = `${file}${originalMissingSuffix}`;
   if (existsSync(originalBackup) || existsSync(originalMissing)) {
@@ -54,7 +54,11 @@ export function ensureOriginalSnapshot(file: string, previous: string | undefine
     chmodFileIfRequested(originalMissing, mode);
     return;
   }
-  copyFileSync(file, originalBackup);
+  if (content === undefined) {
+    copyFileSync(file, originalBackup);
+  } else {
+    writeFileSync(originalBackup, content, mode === undefined ? "utf8" : { encoding: "utf8", mode });
+  }
   chmodFileIfRequested(originalBackup, mode);
 }
 

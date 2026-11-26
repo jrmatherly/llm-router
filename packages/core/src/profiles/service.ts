@@ -1420,7 +1420,7 @@ function writeGlobalCodexConfig(file: string, content: string, providerId: strin
   const managed = previous !== undefined && matchers.isManagedContent(previous);
   if (!managed) {
     // A file LLMR already manages is nobody's original, and a copy of it would hold the token.
-    ensureOriginalSnapshot(file, previous, privateFileMode);
+    ensureOriginalSnapshot(file, previous, privateFileMode, previous === undefined ? undefined : matchers.stripManagedContent?.(previous));
   }
   const noOriginal = existsSync(originalMissingFilePath(file)) && !existsSync(originalBackupFilePath(file));
   // With no original, what is left of a managed file after a strip would pass for the user's original at the next restore and be written back.

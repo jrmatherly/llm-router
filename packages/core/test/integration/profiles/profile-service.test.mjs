@@ -5303,6 +5303,30 @@ test("a comment below a user's own provider table comes back once after an edite
   }
 });
 
+test("a saved Codex original holds no profile token from an earlier takeover", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const oldToken = "llmr-profile-oldtokenvalue";
+  const original = [
+    "model_provider = \"openai\"",
+    "",
+    "# BEGIN LLMR managed ToolHub MCP",
+    "[mcp_servers.llmr-toolhub]",
+    "command = \"node\"",
+    "",
+    "[mcp_servers.llmr-toolhub.env]",
+    `TOOLHUB_OPENAI_API_KEY = "${oldToken}"`,
+    "# END LLMR managed ToolHub MCP",
+    ""
+  ].join("\n");
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    assert.deepEqual(filesHolding(fixture.codexDir, oldToken), []);
+    assert.equal(readFileSync(`${fixture.codexConfigFile}.llmr-original`, "utf8"), "model_provider = \"openai\"\n");
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), "model_provider = \"openai\"\n");
+    assert.deepEqual(filesHolding(fixture.codexDir, oldToken), []);
+  }, plantCodexOriginal(original));
+});
+
 test("a Codex config with Windows line endings holds one copy of LLMR's blocks after a second apply, and none after a restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const original = "# mine\r\nmodel = \"gpt-mine\"\r\nmodel_provider = \"openai\"\r\n\r\n[mcp_servers.mine]\r\ncommand = \"my-server\"\r\n";
   for (const edit of [false, true]) {

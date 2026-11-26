@@ -144,6 +144,16 @@ test("ensureOriginalSnapshot records a missing file", (t) => {
   assert.ok(!existsSync(`${file}.llmr-original`));
 });
 
+test("ensureOriginalSnapshot writes the given text in place of a copy of the file", posixOnly, (t) => {
+  const { file } = setup(t);
+  writeFileSync(file, "raw\n");
+  ensureOriginalSnapshot(file, "raw\n", 0o600, "stripped\n");
+  assert.equal(readFileSync(`${file}.llmr-original`, "utf8"), "stripped\n");
+  ensureOriginalSnapshot(file, "raw\n", 0o600, "later\n");
+  assert.equal(readFileSync(`${file}.llmr-original`, "utf8"), "stripped\n");
+  assert.equal(statSync(`${file}.llmr-original`).mode & 0o777, 0o600);
+});
+
 test("saveRemovedConfigCopy keeps the newest three copies, private, with no profile token", posixOnly, (t) => {
   const { dir, file } = setup(t);
   const stateDir = path.join(dir, "state", "key");
