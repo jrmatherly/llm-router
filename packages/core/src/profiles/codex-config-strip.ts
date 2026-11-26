@@ -23,10 +23,12 @@ export const codexManagedMarkers = [
 ];
 
 export function managedConfiguredModel(source: string): string | undefined {
-  const comment = scanTomlStatements(source)
-    .map(({ kind, lines, table }) => kind === "comment" && table === "" ? lines[0].trim() : "")
-    .find((text) => text.startsWith(managedConfiguredModelPrefix));
-  return comment?.slice(managedConfiguredModelPrefix.length) || undefined;
+  const comment = scanTomlStatements(source).find(isConfiguredModelComment);
+  return comment?.lines[0].trim().slice(managedConfiguredModelPrefix.length) || undefined;
+}
+
+function isConfiguredModelComment({ kind, lines, table }: TomlStatement): boolean {
+  return kind === "comment" && table === "" && lines[0].trim().startsWith(managedConfiguredModelPrefix);
 }
 
 export function removeCodexProviderTable(source: string, providerId: string): string {
@@ -203,7 +205,7 @@ export function stripManagedCodexConfigContent(
     const inRoot = statement.table === "";
     const { key, value = "" } = inRoot ? statement : {};
     if (
-      (inRoot && statement.kind === "comment" && statement.lines[0].trim().startsWith(managedConfiguredModelPrefix)) ||
+      isConfiguredModelComment(statement) ||
       (key === "model_provider" && providerValues.includes(value)) ||
       (key === "model_catalog_json" && value.includes("llmr-model-catalog.json")) ||
       (key === "model" && (written ? sameRootAssignment(statement.lines[0], written.modelLine) : value === configuredModel)) ||
@@ -244,8 +246,59 @@ export function stripManagedCodexConfigContent(
     : [stripped.trimEnd(), ...missingTables.map((table) => table.trimEnd())].filter(Boolean).join(`${eol}${eol}`).concat(eol);
 }
 
-export function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+export function rootTomlAssignment(source: string, key: string): string | undefined {
+  const statement = scanTomlStatements(source).find((item) => item.table === "" && item.key === key);
+  return statement === undefined ? undefined : statementText(statement).trimStart();
+}
+
+// A value that spans lines goes with its key, and whole lines go, so a CRLF file keeps no stray carriage return.
+export function removeRootTomlKeys(source: string, keys: string[]): string {
+  return joinStatements(scanTomlStatements(source).filter(({ key, table }) => table !== "" || key === undefined || !keys.includes(key)));
+}
+
+// The blank lines around a marker go with it, or each apply over a file LLMR wrote would add one above its provider block.
+export function removeManagedMarkerLines(source: string): string {
+  const statements = scanTomlStatements(source);
+  const nearestOther = (index: number, step: number) => {
+    let at = index;
+    while (statements[at]?.kind === "blank") {
+      at += step;
+    }
+    return statements[at];
+  };
+  const besideMarker = (index: number) => [nearestOther(index, -1), nearestOther(index, 1)].some((other) => other !== undefined && isMarker(other));
+  return joinStatements(statements.filter((statement, index) =>
+    !isMarker(statement) && !(statement.kind === "blank" && besideMarker(index))));
+}
+
+export function removeManagedConfiguredModelLine(source: string): string {
+  return joinStatements(scanTomlStatements(source).filter((statement) => !isConfiguredModelComment(statement)));
+}
+
+export function codexProfileTableBody(source: string, providerId: string): string {
+  const header = `profiles.${tomlKey(providerId)}`;
+  return scanTomlStatements(source)
+    .filter(({ kind, table }) => kind !== "header" && table === header)
+    .flatMap(({ lines }) => lines.map((line) => line.slice(0, line.length - lineEnd(line).length)))
+    .join("\n")
+    .trim();
+}
+
+export function isManagedCodexConfigContent(content: string, providerId: string): boolean {
+  const providerHeader = `model_providers.${tomlKey(providerId)}`;
+  return scanTomlStatements(content).some(({ kind, lines, table }) =>
+    (kind === "comment" && [managedRootStart, managedProviderStart].includes(lines[0].trim())) ||
+    (kind === "header" && table === providerHeader));
+}
+
+export function collapseBlankStatements(content: string): string {
+  const statements = scanTomlStatements(content);
+  return joinStatements(statements.filter(({ kind }, index) =>
+    !(kind === "blank" && statements[index - 1]?.kind === "blank" && statements[index - 2]?.kind === "blank")));
+}
+
+function joinStatements(statements: TomlStatement[]): string {
+  return statements.flatMap(({ lines }) => lines).join("");
 }
 
 type TomlScanState = { depth: number; multiline: "" | "\"\"\"" | "'''" };

@@ -1,16 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  codexProfileTableBody,
+  collapseBlankStatements,
   decideCodexRootLines,
+  isManagedCodexConfigContent,
   isRootKeyInsideManagedBlock,
+  managedConfiguredModel,
   managedProviderEnd,
   managedProviderStart,
   managedRootEnd,
   managedRootStart,
   readCodexDisplacedConfig,
   removeCodexMcpServerTable,
+  removeManagedConfiguredModelLine,
+  removeManagedMarkerLines,
+  removeRootTomlKeys,
   removeTablesOutsideValues,
   removeTomlTable,
+  rootTomlAssignment,
   scanTomlLines,
   scanTomlStatements,
   stripManagedCodexConfigContent
@@ -542,4 +550,35 @@ test("a strip removes LLMR's line under a quoted key, and puts a displaced line 
   assert.equal(stripManagedCodexConfigContent(quoted, ["llm-router"], { modelLine: ours }), "");
   const stripped = stripManagedCodexConfigContent(managed(""), ["llm-router"], { modelLine: ours }, { eol: "\r\n", modelProvider: "model_provider = \"openai\"" });
   assert.equal(stripped, "model_provider = \"openai\"\r\n");
+});
+
+test("rootTomlAssignment returns a root key with every line of its value, whether or not the key is quoted", () => {
+  const model = "\"model\" = \"\"\"\ngpt-mine\n\"\"\"";
+  assert.equal(rootTomlAssignment(`# mine\n  ${model}\nother = 1\n[t]\nmodel = "in a table"\n`, "model"), model);
+  assert.equal(rootTomlAssignment("notes = \"\"\"\nmodel = \"inside\"\n\"\"\"\n", "model"), undefined);
+});
+
+test("removeRootTomlKeys removes a quoted key and every line of a value", () => {
+  assert.equal(removeRootTomlKeys("\"model\" = [\n  \"a\",\n]\r\nkeep = 1\r\n'model_provider' = \"x\"\r\n", ["model", "model_provider"]), "keep = 1\r\n");
+});
+
+test("a marker or a configured-model line inside a value is text, and stays", () => {
+  const notes = "notes = \"\"\"\n# BEGIN LLMR managed profile\n# LLMR configured model = \"x\"\n\"\"\"\n";
+  assert.equal(removeManagedMarkerLines(`${managedRootStart}\n${notes}${managedRootEnd}\n`), notes);
+  assert.equal(removeManagedConfiguredModelLine(`# LLMR configured model = "y"\n${notes}`), notes);
+  assert.equal(managedConfiguredModel(notes), undefined);
+  assert.equal(isManagedCodexConfigContent(notes, "llm-router"), false);
+  assert.equal(isManagedCodexConfigContent("notes = \"\"\"\n[model_providers.llm-router]\n\"\"\"\n", "llm-router"), false);
+  assert.equal(isManagedCodexConfigContent(managed(""), "llm-router"), true);
+});
+
+test("codexProfileTableBody takes every table of that name, as the remover does", () => {
+  const source = "[profiles.llm-router]\na = 1\n\n[other]\nk = 0\n\n[profiles.\"llm-router\"]\nb = 2\n";
+  assert.equal(codexProfileTableBody(source, "llm-router"), "a = 1\n\nb = 2");
+  assert.equal(removeTomlTable(source, "profiles", "llm-router"), "[other]\nk = 0\n\n");
+});
+
+test("collapseBlankStatements shortens a run of blank lines outside a value and leaves a string alone", () => {
+  const notes = "notes = \"\"\"\na\n\n\n\n\nb\n\"\"\"\n";
+  assert.equal(collapseBlankStatements(`a = 1\n\n\n\n\n${notes}`), `a = 1\n\n\n${notes}`);
 });
