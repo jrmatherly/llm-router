@@ -58,7 +58,8 @@ export function ensureOriginalSnapshot(file: string, previous: string | undefine
   chmodFileIfRequested(originalBackup, mode);
 }
 
-const profileTokenPattern = /llmr-profile-[A-Za-z0-9_-]+/g;
+export const profileTokenPrefix = "llmr-profile-";
+const profileTokenPattern = new RegExp(`${profileTokenPrefix}[A-Za-z0-9_-]+`, "g");
 
 // Only LLMR's profile token is blanked, so the copy still holds any other secret the file held. It sits in LLMR's own folder, where no restore looks for a snapshot.
 export function saveRemovedConfigCopy(stateDir: string, file: string, content: string): string {

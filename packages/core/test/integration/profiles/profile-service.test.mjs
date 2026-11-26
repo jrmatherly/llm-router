@@ -5236,6 +5236,73 @@ test("no file beside a Codex config holds the profile's token after a second app
   }
 });
 
+const usersProviderKey = "my-own-secret";
+const usersHeaderValue = "my-own-header-value";
+const usersProviderOriginal = [
+  "model_provider = \"llm-router\"",
+  "",
+  "[model_providers.llm-router]",
+  "name = \"Mine\"",
+  "base_url = \"https://mine.example.test/v1\"",
+  `experimental_bearer_token = "${usersProviderKey}"`,
+  "",
+  "[model_providers.llm-router.http_headers]",
+  `X-Mine = "${usersHeaderValue}"`,
+  ""
+].join("\n");
+
+test("a user's own provider table under LLM Router's id, key included, is on disk at every step and comes back byte for byte", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const reapply of [false, true]) {
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      const original = `${fixture.codexConfigFile}.llmr-original`;
+      assert.equal(readFileSync(original, "utf8"), usersProviderOriginal, "the original is saved as the user wrote it");
+      const applied = readFileSync(fixture.codexConfigFile, "utf8");
+      assert.equal(countOf(applied, "[model_providers.llm-router]"), 1);
+      assert.equal(applied.includes(usersProviderKey), false, "LLM Router's table replaced the user's in the live file");
+      assert.equal(applied.includes("[model_providers.llm-router.http_headers]"), false, "the user's child table is not attached to LLM Router's provider");
+      assert.deepEqual(filesHolding(fixture.codexDir, usersProviderKey), [original]);
+      assert.deepEqual(filesHolding(fixture.codexDir, usersHeaderValue), [original]);
+      if (reapply) {
+        await applySecondCodexModel(fixture.config);
+        await replacePersistedAppConfig(fixture.config);
+        assert.deepEqual(filesHolding(fixture.codexDir, usersProviderKey), [original]);
+        assert.deepEqual(filesBesideCodexConfigHolding(fixture), []);
+      }
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, result.status.message);
+      assert.equal(readFileSync(fixture.codexConfigFile, "utf8"), usersProviderOriginal, String(reapply));
+      assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), [], String(reapply));
+    }, plantCodexOriginal(usersProviderOriginal));
+  }
+});
+
+test("a user's own provider table comes back once, with their key, after they edited the file while LLM Router had it", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+    appendUserCodexTables(fixture);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    const restored = readFileSync(fixture.codexConfigFile, "utf8");
+    assertHoldsEveryLine(restored, usersProviderOriginal);
+    assert.match(restored, /\[mcp_servers\.mine\]/);
+    assert.deepEqual(filesHolding(fixture.codexDir, fixture.codexToken), []);
+    assert.equal(restored.includes("llmr-model-catalog"), false);
+  }, plantCodexOriginal(usersProviderOriginal));
+});
+
+test("a comment below a user's own provider table comes back once after an edited restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  for (const eol of ["\n", "\r\n"]) {
+    const original = `${usersProviderOriginal}\n# about my servers\n[mcp_servers.keep]\ncommand = "keep"\n`.replaceAll("\n", eol);
+    await withAppliedDefaultProfiles(["default-codex"], async (fixture) => {
+      appendUserCodexTables(fixture);
+      const result = await recoverGlobalAgentProfile("default-codex");
+      assert.equal(result.status.ok, true, result.status.message);
+      const restored = readFileSync(fixture.codexConfigFile, "utf8");
+      assert.equal(countOf(restored, "# about my servers"), 1, restored);
+      assert.equal(countOf(restored, "[model_providers.llm-router.http_headers]"), 1, restored);
+    }, plantCodexOriginal(original));
+  }
+});
+
 test("a Codex config with Windows line endings holds one copy of LLMR's blocks after a second apply, and none after a restore", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   const original = "# mine\r\nmodel = \"gpt-mine\"\r\nmodel_provider = \"openai\"\r\n\r\n[mcp_servers.mine]\r\ncommand = \"my-server\"\r\n";
   for (const edit of [false, true]) {

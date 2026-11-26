@@ -1,6 +1,7 @@
 import { CONTEXT_ARCHIVE_MCP_SERVER_NAME } from "@llmr/core/gateway/context-archive";
 import { TOOL_HUB_MCP_SERVER_NAME } from "@llmr/core/mcp/toolhub-config";
 import { tomlKey, tomlString, trimLeadingBlankLines } from "@llmr/core/profiles/apply-support";
+import { profileTokenPrefix } from "@llmr/core/profiles/backup-files";
 
 export const managedRootStart = "# BEGIN LLMR managed profile";
 export const managedRootEnd = "# END LLMR managed profile";
@@ -31,8 +32,42 @@ function isConfiguredModelComment({ kind, lines, table }: TomlStatement): boolea
   return kind === "comment" && table === "" && lines[0].trim().startsWith(managedConfiguredModelPrefix);
 }
 
+// LLMR writes no child table of its provider, so every `model_providers.<id>.<name>` table is the user's and would otherwise attach to LLMR's.
 export function removeCodexProviderTable(source: string, providerId: string): string {
-  return removeTomlTable(source, "model_providers", providerId);
+  const removed = providerTablePath(providerId);
+  return joinStatements(scanTomlStatements(source).filter(({ table }) => !isProviderTableOrChild(table, removed)));
+}
+
+function providerTablePath(providerId: string): string {
+  return `model_providers.${tomlKey(providerId)}`;
+}
+
+function isProviderTableOrChild(table: string, providerTable: string): boolean {
+  return table === providerTable || table.startsWith(`${providerTable}.`);
+}
+
+// A provider table is LLMR's by what only LLMR writes, its marker above the header or its profile token, never by its name, which a user can choose too.
+function providerTableOwners(statements: TomlStatement[], providerIds: string[]): Array<{ llmr: boolean; table: string }> {
+  const tables = providerIds.map(providerTablePath);
+  return statements.flatMap((statement, index) =>
+    statement.kind === "header" && tables.includes(statement.table) ? [{ llmr: isLlmrProviderTable(statements, index), table: statement.table }] : []);
+}
+
+function isLlmrProviderTable(statements: TomlStatement[], headerIndex: number): boolean {
+  let above = headerIndex - 1;
+  while (statements[above]?.kind === "blank") {
+    above -= 1;
+  }
+  if (statements[above]?.kind === "comment" && statements[above].lines[0].trim() === managedProviderStart) {
+    return true;
+  }
+  for (let at = headerIndex + 1; at < statements.length && statements[at].kind !== "header"; at += 1) {
+    const { key, value = "" } = statements[at];
+    if (key === "experimental_bearer_token" && ["\"", "'"].some((quote) => value.startsWith(`${quote}${profileTokenPrefix}`))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function removeCodexMcpServerTable(
@@ -145,6 +180,7 @@ export type CodexDisplacedConfig = {
   modelCatalogJson?: string;
   modelProvider?: string;
   profileTables?: string[];
+  providerTables?: string[];
   showAllSessions?: string;
 };
 
@@ -166,20 +202,31 @@ export function readCodexDisplacedConfig(snapshot: string, providerIds: string[]
     }
   }
   const headers = providerIds.map((providerId) => `profiles.${tomlKey(providerId)}`);
-  const profileTables: string[] = [];
+  const providerTablePaths = providerIds.map(providerTablePath);
+  const profileTables = displacedTables(statements, (table) => headers.includes(table));
+  const providerTables = displacedTables(statements, (table) => providerTablePaths.some((providerTable) => isProviderTableOrChild(table, providerTable)));
+  return {
+    ...displaced,
+    ...(profileTables.length > 0 ? { profileTables } : {}),
+    ...(providerTables.length > 0 ? { providerTables } : {})
+  };
+}
+
+function displacedTables(statements: TomlStatement[], isTaken: (table: string) => boolean): string[] {
+  const tables: string[] = [];
   let inTable = false;
   for (const { kind, lines, table } of statements) {
     if (kind === "header") {
-      inTable = headers.includes(table);
+      inTable = isTaken(table);
       if (inTable) {
-        profileTables.push("");
+        tables.push("");
       }
     }
     if (inTable) {
-      profileTables[profileTables.length - 1] += lines.join("");
+      tables[tables.length - 1] += lines.join("");
     }
   }
-  return profileTables.length > 0 ? { ...displaced, profileTables } : displaced;
+  return tables;
 }
 
 function statementText({ eol, lines }: TomlStatement): string {
@@ -194,16 +241,37 @@ export function stripManagedCodexConfigContent(
   content: string,
   providerIds: string[],
   written?: CodexWrittenLines,
-  displaced: CodexDisplacedConfig = {}
+  displaced?: CodexDisplacedConfig
+): string | undefined {
+  return stripCodexConfig(content, providerIds, written, displaced, []);
+}
+
+// A saved original or a backup is the user's file: a `model_provider` line beside their own provider table of that id names that table.
+export function stripCodexSnapshotContent(content: string, providerIds: string[]): string | undefined {
+  const usersTables = providerTableOwners(scanTomlStatements(content), providerIds).filter(({ llmr }) => !llmr).map(({ table }) => table);
+  return stripCodexConfig(content, providerIds, undefined, undefined, providerIds.filter((providerId) => usersTables.includes(providerTablePath(providerId))));
+}
+
+function stripCodexConfig(
+  content: string,
+  providerIds: string[],
+  written: CodexWrittenLines | undefined,
+  displaced: CodexDisplacedConfig = {},
+  keptModelProviderIds: string[]
 ): string | undefined {
   const putBack = new Map<string, number>();
   const usersRootKeys = new Set<string>();
   const configuredModel = managedConfiguredModel(content);
-  const providerValues = providerIds.flatMap((providerId) => [tomlString(providerId), `'${providerId}'`]);
+  const providerValues = providerIds
+    .filter((providerId) => !keptModelProviderIds.includes(providerId))
+    .flatMap((providerId) => [tomlString(providerId), `'${providerId}'`]);
   const eol = displaced.eol ?? "\n";
   const kept: string[] = [];
+  const statements = scanTomlStatements(content);
+  // Decided while the markers are still there: the table remover below reads the text without them.
+  const llmrProviderTables = providerTableOwners(statements, providerIds).map(({ llmr }) => llmr);
   let inRootBlock = false;
-  for (const statement of scanTomlStatements(content)) {
+  for (const statement of statements) {
     if (isMarker(statement)) {
       inRootBlock = statement.lines[0].trim() === managedRootStart;
       continue;
@@ -235,10 +303,11 @@ export function stripManagedCodexConfigContent(
       kept[index] = "";
     }
   }
-  const providerHeaders = providerIds.map((providerId) => `model_providers.${tomlKey(providerId)}`);
+  const providerHeaders = providerIds.map(providerTablePath);
   const mcpTables = [TOOL_HUB_MCP_SERVER_NAME, CONTEXT_ARCHIVE_MCP_SERVER_NAME].map((serverName) => `mcp_servers.${tomlKey(serverName)}`);
+  let providerHeader = 0;
   const next = removeTablesOutsideValues(kept.join(""), (header) =>
-    providerHeaders.includes(header) ||
+    (providerHeaders.includes(header) && llmrProviderTables[providerHeader++] === true) ||
     mcpTables.some((table) => header === table || header.startsWith(`${table}.`)));
   if (next === content) {
     return undefined;
@@ -248,7 +317,7 @@ export function stripManagedCodexConfigContent(
   const present = new Set(scanTomlStatements(stripped).filter(({ kind }) => kind === "header").map(({ table }) => table));
   // A table of that name written as an array of tables is there too, and a second definition would stop the file loading.
   const isPresent = (table: string) => present.has(table) || present.has(`[[${table}]]`);
-  const missingTables = (displaced.profileTables ?? []).filter((table) => !isPresent(scanTomlStatements(table)[0]?.table ?? ""));
+  const missingTables = [...(displaced.profileTables ?? []), ...(displaced.providerTables ?? [])].filter((table) => !isPresent(scanTomlStatements(table)[0]?.table ?? ""));
   return missingTables.length === 0
     ? stripped
     : [stripped.trimEnd(), ...missingTables.map((table) => table.trimEnd())].filter(Boolean).join(`${eol}${eol}`).concat(eol);
@@ -293,10 +362,9 @@ export function codexProfileTableBody(source: string, providerId: string): strin
 }
 
 export function isManagedCodexConfigContent(content: string, providerId: string): boolean {
-  const providerHeader = `model_providers.${tomlKey(providerId)}`;
-  return scanTomlStatements(content).some(({ kind, lines, table }) =>
-    (kind === "comment" && [managedRootStart, managedProviderStart].includes(lines[0].trim())) ||
-    (kind === "header" && table === providerHeader));
+  const statements = scanTomlStatements(content);
+  return statements.some(({ kind, lines }) => kind === "comment" && [managedRootStart, managedProviderStart].includes(lines[0].trim())) ||
+    providerTableOwners(statements, [providerId]).some(({ llmr }) => llmr);
 }
 
 export function collapseBlankStatements(content: string): string {
