@@ -25,6 +25,12 @@ type ZcodeGatewayConfigValues = {
   models: string[];
 };
 
+type ZcodeWriteOptions = {
+  backup?: boolean;
+  isManagedContent?: (content: string) => boolean;
+  write?: (file: string, content: string) => { backupFile?: string; changed: boolean };
+};
+
 const legacyZcodeTomlConfigFile = "~/.zcode/config.toml";
 const defaultZcodeContextWindow = 128_000;
 const defaultZcodeMaxOutputTokens = 8_192;
@@ -49,7 +55,7 @@ export function writeZcodeGatewayConfig(
   config: AppConfig,
   profile: ProfileConfig,
   token: string,
-  options: { backup?: boolean; isManagedContent?: (content: string) => boolean } = {}
+  options: ZcodeWriteOptions = {}
 ): ZcodeProfileConfigWriteResult {
   const file = resolveZcodeConfigFile(profile);
   const model = normalizeClientModel(profile.model) || defaultClientModel(config);
@@ -239,9 +245,12 @@ function zcodeV2CacheRevision(source: Record<string, unknown>): number {
 function writeJsonFile(
   file: string,
   value: Record<string, unknown>,
-  options: { backup?: boolean; isManagedContent?: (content: string) => boolean }
+  options: ZcodeWriteOptions
 ): ZcodeProfileConfigWriteResult {
   const content = `${JSON.stringify(value, null, 2)}\n`;
+  if (options.write) {
+    return { ...options.write(file, content), file };
+  }
   mkdirSync(path.dirname(file), { recursive: true });
   const previous = existsSync(file) ? readFileSync(file, "utf8") : undefined;
   if (previous === content) {
