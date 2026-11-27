@@ -108,8 +108,7 @@ type UsageSnapshot = UsageNumbers & {
 type RequestLogUsageContext = {
   model: string;
   path: string;
-  pricing?: ProviderModelPricing;
-  pricingSource?: UsagePricingSource;
+  price?: ResolvedModelPrice;
   provider: string;
 };
 
@@ -765,7 +764,7 @@ export class RequestLogStore {
           totalTokens,
           cost?.amountUsd ?? null,
           write.estimate ? pricingSource ?? cost?.source ?? "" : unpricedCostSource,
-          pricing ? JSON.stringify(pricing) : "",
+          price ? storedPriceJson(price) : "",
           JSON.stringify(requestHeaders),
           JSON.stringify(responseHeaders),
           requestBody.text,
@@ -975,7 +974,8 @@ export class RequestLogStore {
         // Only a complete price stored with the row re-prices it. A price
         // resolved for the trace may differ from the one the usage row was
         // written with, so any other row waits for the usage sweep's price update.
-        const cost = hasCompleteProviderModelPricing(existingUsageContext.pricing)
+        const storedPrice = existingUsageContext.price;
+        const cost = storedPrice
           ? estimateUsageCost({
               cacheReadTokens,
               cacheWrite1hTokens,
@@ -984,8 +984,8 @@ export class RequestLogStore {
               inputTokens,
               model,
               outputTokens,
-              pricing: existingUsageContext.pricing,
-              pricingSource: existingUsageContext.pricingSource,
+              pricing: pricingForPrompt(storedPrice, promptTokenCount({ cacheReadTokens, cacheWriteTokens, inputTokens })),
+              pricingSource: storedPrice.source,
               provider
             })
           : undefined;
@@ -1554,8 +1554,10 @@ export class RequestLogStore {
       ON request_route_traces(request_id);
     `);
     ensureRequestLogSchema(database);
-    ensureRequestRouteTraceSchema(database);
-    ensurePendingRawTraceUpdateSchema(database);
+    database.transaction(() => {
+      ensureRequestRouteTraceSchema(database);
+      ensurePendingRawTraceUpdateSchema(database);
+    }).immediate();
     ensureRawTraceEventSchema(database);
     database.exec(`
       CREATE UNIQUE INDEX IF NOT EXISTS request_logs_event_id_idx
@@ -1741,7 +1743,7 @@ export class RequestLogStore {
         provider: String(row.provider ?? "")
       });
       changed += Number(database.prepare("UPDATE request_logs SET cost_usd = ?, cost_source = ?, pricing_json = ? WHERE id = ?")
-        .run(cost?.amountUsd ?? null, source, JSON.stringify(pricing), row.id).changes);
+        .run(cost?.amountUsd ?? null, source, storedPriceJson(update.price.price), row.id).changes);
     }
     if (changed > 0) this.revision += 1;
   }
@@ -4585,6 +4587,19 @@ function migrateRequestLogModelSummaries(database: SqlDatabase): void {
 }
 
 function ensureRequestLogSchema(database: SqlDatabase): void {
+  // Under the write lock, so another process cannot add a column between the read and the add.
+  const needsModelSummaryMigration = database.transaction(() => ensureRequestLogColumns(database)).immediate();
+  if (needsModelSummaryMigration) {
+    migrateRequestLogModelSummaries(database);
+  }
+
+  ensureRequestLogMigrationSchema(database);
+  migrateGatewayOutcome(database);
+  migrateGatewayFinalAttempt(database);
+  ensureRequestLogIndexes(database);
+}
+
+function ensureRequestLogColumns(database: SqlDatabase): boolean {
   const columns = new Set(
     queryRows(database, "PRAGMA table_info(request_logs)")
       .map((row) => String(row.name ?? ""))
@@ -4658,15 +4673,10 @@ function ensureRequestLogSchema(database: SqlDatabase): void {
   addColumn("error", "TEXT NOT NULL DEFAULT ''");
   addColumn("forwarded_user_email", "TEXT NOT NULL DEFAULT ''");
   addColumn("forwarded_user_id", "TEXT NOT NULL DEFAULT ''");
+  return needsModelSummaryMigration;
+}
 
-  if (needsModelSummaryMigration) {
-    migrateRequestLogModelSummaries(database);
-  }
-
-  ensureRequestLogMigrationSchema(database);
-  migrateGatewayOutcome(database);
-  migrateGatewayFinalAttempt(database);
-
+function ensureRequestLogIndexes(database: SqlDatabase): void {
   database.exec("CREATE INDEX IF NOT EXISTS request_logs_created_at_idx ON request_logs(created_at)");
   database.exec("CREATE INDEX IF NOT EXISTS request_logs_credential_id_idx ON request_logs(credential_id)");
   database.exec("CREATE INDEX IF NOT EXISTS request_logs_model_idx ON request_logs(model)");
@@ -6200,10 +6210,28 @@ function readRequestLogUsageContext(database: SqlDatabase, requestId: string): R
   return {
     model: normalizeLabel(String(row?.model ?? ""), "unknown"),
     path: normalizeLabel(String(row?.path ?? ""), ""),
-    pricing: parseStoredModelPricing(row?.pricing_json),
-    pricingSource: parseUsagePricingSource(row?.cost_source),
+    price: parseStoredPrice(row?.pricing_json, parseUsagePricingSource(row?.cost_source)),
     provider: normalizeLabel(String(row?.provider ?? ""), "unknown")
   };
+}
+
+// The base fields stay flat, so a row written before tiers were stored still parses.
+function storedPriceJson(price: ResolvedModelPrice): string {
+  return JSON.stringify({ ...price.pricing, ...(price.tiers?.length ? { tiers: price.tiers } : {}) });
+}
+
+function parseStoredPrice(value: unknown, source: UsagePricingSource | undefined): ResolvedModelPrice | undefined {
+  const parsed = typeof value === "string" ? parseJson(value) : value;
+  const pricing = parseStoredModelPricing(parsed);
+  if (!source || !isRecord(parsed) || !hasCompleteProviderModelPricing(pricing)) {
+    return undefined;
+  }
+  const tiers = (Array.isArray(parsed.tiers) ? parsed.tiers : []).flatMap((tier) => {
+    if (!isRecord(tier) || typeof tier.abovePromptTokens !== "number" || !(tier.abovePromptTokens > 0)) return [];
+    const tierPricing = parseStoredModelPricing(tier.pricing);
+    return hasCompleteProviderModelPricing(tierPricing) ? [{ abovePromptTokens: tier.abovePromptTokens, pricing: tierPricing }] : [];
+  });
+  return { pricing, source, ...(tiers.length > 0 ? { tiers } : {}) };
 }
 
 function parseStoredModelPricing(value: unknown): ProviderModelPricing | undefined {

@@ -236,3 +236,25 @@ test("Agent Analysis totals count each request by its basis, and the session's r
     removeTestDir(dir, ["request-logs.sqlite"]);
   }
 });
+
+test("a stored cost on a request with no tokens counts in the totals by its source, and a total beside an unpriced request is an estimate, not a dash", async () => {
+  const billedNoTokens = { costSource: "gateway_billing", costUsd: 0.5, tokens: {} };
+  const alone = await usageStoreWithRows("llmr-usage-basis-no-token-cost-test-", [billedNoTokens]);
+  const beside = await usageStoreWithRows("llmr-usage-basis-no-token-cost-beside-test-", [billedNoTokens, { costSource: "", tokens: { input: 10 } }]);
+  try {
+    const aloneTotals = (await alone.store.getStats("24h", { includeProxy: true })).totals;
+    assert.deepEqual(costFields(aloneTotals), { estimatedCostUsd: 0.5, pricedRequestCount: 1, unpricedRequestCount: 0 });
+    assert.equal(totalCostBasis(aloneTotals), "estimate");
+    const besideTotals = (await beside.store.getStats("24h", { includeProxy: true })).totals;
+    assert.deepEqual(costFields(besideTotals), { estimatedCostUsd: 0.5, pricedRequestCount: 1, unpricedRequestCount: 1 });
+    assert.equal(totalCostBasis(besideTotals), "estimate");
+    assert.equal(costBasisFor({ billableTokens: 0, costSource: "gateway_billing", costUsd: 0.5 }), "estimate");
+    assert.equal(costBasisFor({ billableTokens: 0, costSource: "models.dev", costUsd: 0.5 }), "listed");
+    assert.equal(costBasisFor({ billableTokens: 0, costSource: "custom", costUsd: 0.5 }), "user");
+    assert.equal(costBasisFor({ billableTokens: 0, costSource: "gateway_billing", costUsd: 0 }), undefined);
+    assert.equal(costBasisFor({ billableTokens: 0, costSource: "", costUsd: undefined }), undefined);
+  } finally {
+    removeTestDir(alone.dir, ["usage.sqlite", "request-logs.sqlite"]);
+    removeTestDir(beside.dir, ["usage.sqlite", "request-logs.sqlite"]);
+  }
+});

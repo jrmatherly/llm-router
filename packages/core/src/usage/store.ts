@@ -562,7 +562,13 @@ export class UsageStore {
         value TEXT NOT NULL
       );
     `);
-    ensureUsageSchema(database);
+    const columns = new Set(queryRows(database, "PRAGMA table_info(usage_events)").map((row) => String(row.name ?? "")));
+    if (usageSchemaColumns.every((column) => columns.has(column))) {
+      ensureUsageSchema(database);
+    } else {
+      // Under the write lock, so another process cannot add a column between the read and the add.
+      database.transaction(() => ensureUsageSchema(database)).immediate();
+    }
 
     this.database = database;
     return database;
@@ -614,6 +620,7 @@ export class UsageStore {
       // A log database the request log writer has not opened since the column was added lacks it.
       const sourceColumns = new Set(queryRows(database, "PRAGMA request_log_source.table_info(request_logs)").map((column) => column.name));
       const hasCostSource = sourceColumns.has("cost_source");
+      const hasResolvedModel = sourceColumns.has("resolved_model");
       const hasForwardedIdentity = sourceColumns.has("forwarded_user_email") && sourceColumns.has("forwarded_user_id");
       database.prepare(`
           INSERT INTO usage_events (
@@ -624,6 +631,7 @@ export class UsageStore {
             path,
             model,
             logical_model,
+            price_model,
             provider,
             credential_id,
             status_code,
@@ -646,6 +654,7 @@ export class UsageStore {
             logs.path,
             logs.model,
             logs.model,
+            ${hasResolvedModel ? "logs.resolved_model" : "''"},
             logs.provider,
             logs.credential_id,
             logs.status_code,
@@ -695,6 +704,9 @@ export function onUsageRecorded(listener: () => void): () => void {
     usageEvents.off("recorded", listener);
   };
 }
+
+// A column that ensureUsageSchema adds goes into this list too.
+const usageSchemaColumns = ["client", "cost_usd", "cost_source", "logical_model", "credential_id", "forwarded_user_email", "forwarded_user_id", "price_model"];
 
 function ensureUsageSchema(database: SqlDatabase): void {
   const columns = new Set(
@@ -995,11 +1007,11 @@ const billableTokensSql = "input_tokens + output_tokens + cache_read_tokens + ca
 const usageTotalsSelect = `
             COUNT(*) AS request_count,
             COALESCE(SUM(CASE
-              WHEN cost_usd IS NOT NULL AND ${billableTokensSql} > 0
+              WHEN cost_usd IS NOT NULL AND (${billableTokensSql} > 0 OR cost_usd > 0)
                 AND cost_source NOT IN (${["custom", ...listedCostSources].map((source) => `'${source}'`).join(", ")})
               THEN cost_usd ELSE 0
             END), 0) AS estimated_cost_usd,
-            COALESCE(SUM(CASE WHEN cost_usd IS NOT NULL AND ${billableTokensSql} > 0 THEN 1 ELSE 0 END), 0) AS priced_request_count,
+            COALESCE(SUM(CASE WHEN cost_usd IS NOT NULL AND (${billableTokensSql} > 0 OR cost_usd > 0) THEN 1 ELSE 0 END), 0) AS priced_request_count,
             COALESCE(SUM(CASE WHEN cost_usd IS NULL AND ${billableTokensSql} > 0 THEN 1 ELSE 0 END), 0) AS unpriced_request_count,
             COALESCE(SUM(input_tokens), 0) AS input_tokens,
             COALESCE(SUM(output_tokens), 0) AS output_tokens,

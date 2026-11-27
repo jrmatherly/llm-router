@@ -9,6 +9,7 @@ import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts"
 import { GatewayBillingSynchronizer } from "@llmr/core/usage/billing-sync.ts";
 import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution.ts";
 import { UsageStore } from "@llmr/core/usage/store.ts";
+import { addColumnAtTheNthReadOfTheColumns, addColumnRightAfterTheColumnsAreRead } from "../../support/sqlite-schema-race.mjs";
 import { removeTestDir, testTempRoot } from "../../support/test-temp-dir.mjs";
 
 // Stores built without an injected loader warm the real price catalog.
@@ -1394,4 +1395,85 @@ test("a request resolved to no price is estimated by neither writer, whatever ca
     await preloadUsagePriceCatalog({ forceRefresh: true }).catch(() => undefined);
     removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
+});
+
+test("an older usage database opens when another process adds the same column between this one's read of the columns and its own add", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-schema-race-test-"));
+  const file = path.join(dir, "usage.sqlite");
+  try {
+    await new UsageStore(file).record({ durationMs: 1, method: "POST", model: "m", path: "/v1/messages", provider: "p", requestId: "old", statusCode: 200 });
+    const legacy = createBetterSqliteDatabase(file);
+    try {
+      legacy.exec("ALTER TABLE usage_events DROP COLUMN forwarded_user_email");
+    } finally {
+      legacy.close();
+    }
+    const restore = addColumnRightAfterTheColumnsAreRead(file, "usage_events", "forwarded_user_email TEXT NOT NULL DEFAULT ''");
+    let stats;
+    try {
+      stats = await new UsageStore(file).getStats("24h", { includeProxy: true });
+    } finally {
+      restore();
+    }
+    assert.equal(stats.totals.requestCount, 1);
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
+});
+
+test("an up-to-date usage database opens at once while another connection holds the write lock", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-schema-no-lock-test-"));
+  const file = path.join(dir, "usage.sqlite");
+  try {
+    await new UsageStore(file).record({ durationMs: 1, method: "POST", model: "m", path: "/v1/messages", provider: "p", requestId: "old", statusCode: 200 });
+    const holder = createBetterSqliteDatabase(file);
+    try {
+      holder.exec("BEGIN IMMEDIATE");
+      const started = Date.now();
+      const stats = await new UsageStore(file).getStats("24h", { includeProxy: true });
+      assert.equal(stats.totals.requestCount, 1);
+      assert.ok(Date.now() - started < 2_000, `waited ${Date.now() - started} ms`);
+      holder.exec("ROLLBACK");
+    } finally {
+      holder.close();
+    }
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
+});
+
+test("a usage database that lacks any one column the schema adds opens when another process adds that column right after the schema reads the columns", async () => {
+  const root = mkdtempSync(path.join(testTempRoot, "llmr-usage-schema-race-each-column-test-"));
+  const files = ["seed.sqlite"];
+  try {
+    const seedFile = path.join(root, "seed.sqlite");
+    const seed = createBetterSqliteDatabase(seedFile);
+    const original = ["id", "created_at", "request_id", "method", "path", "model", "provider", "status_code", "duration_ms", "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens", "total_tokens"];
+    try {
+      seed.exec(`CREATE TABLE usage_events (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL, request_id TEXT NOT NULL DEFAULT '', method TEXT NOT NULL, path TEXT NOT NULL, model TEXT NOT NULL DEFAULT 'unknown', provider TEXT NOT NULL DEFAULT 'unknown', status_code INTEGER NOT NULL DEFAULT 0, duration_ms INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cache_read_tokens INTEGER NOT NULL DEFAULT 0, cache_write_tokens INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0)`);
+    } finally {
+      seed.close();
+    }
+    const upgraded = await new UsageStore(seedFile).getDatabase();
+    const added = upgraded.prepare("PRAGMA table_info(usage_events)").all().filter((column) => !original.includes(column.name));
+    assert.ok(added.length >= 8, `the schema adds ${added.length} columns`);
+    for (const column of added) {
+      files.push(`${column.name}.sqlite`);
+      const file = path.join(root, `${column.name}.sqlite`);
+      await new UsageStore(file).record({ durationMs: 1, method: "POST", model: "m", path: "/v1/messages", provider: "p", requestId: "old", statusCode: 200 });
+      const legacy = createBetterSqliteDatabase(file);
+      try {
+        for (const index of legacy.prepare("PRAGMA index_list(usage_events)").all()) {
+          if (legacy.prepare(`PRAGMA index_info(${index.name})`).all().some((part) => part.name === column.name)) legacy.exec(`DROP INDEX ${index.name}`);
+        }
+        legacy.exec(`ALTER TABLE usage_events DROP COLUMN ${column.name}`);
+      } finally {
+        legacy.close();
+      }
+      const columnSql = `${column.name} ${column.type}${column.notnull ? " NOT NULL" : ""}${column.dflt_value === null ? "" : ` DEFAULT ${column.dflt_value}`}`;
+      const race = addColumnAtTheNthReadOfTheColumns(file, "usage_events", columnSql, 2);
+      try {
+        assert.equal((await new UsageStore(file).getStats("24h", { includeProxy: true })).totals.requestCount, 1, column.name);
+        assert.ok(race.reads() >= 2, `${column.name}: the columns were read ${race.reads()} times, so the race was not staged`);
+      } finally {
+        race.restore();
+      }
+    }
+  } finally { removeTestDir(root, files); }
 });

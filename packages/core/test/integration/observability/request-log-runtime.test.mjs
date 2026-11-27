@@ -1276,6 +1276,49 @@ test("RequestLogRuntime says which retention it asked for while the database hol
   }
 });
 
+test("RequestLogRuntime says nothing is pending when another process stored the retention it asked for", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-retention-equal-test-"));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  const runtime = createRequestLogRuntime({ dbFile, workerFile });
+  let database;
+  try {
+    await runtime.setRetentionDays(7);
+    await runtime.list({});
+    database = createBetterSqliteDatabase(dbFile);
+    database.exec("BEGIN EXCLUSIVE");
+    await assert.rejects(runtime.setRetentionDays(3), /locked/);
+    database.exec("ROLLBACK");
+    database.prepare("UPDATE request_log_settings SET value = '3' WHERE key = 'retention_days'").run();
+    const page = await runtime.list({});
+    assert.equal(page.retentionDays, 3);
+    assert.equal(page.retentionRequestedDays, undefined);
+  } finally {
+    database?.close();
+    await runtime.close({ timeoutMs: 5_000 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("RequestLogRuntime reads a retention it saved as applied after another process writes its own", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-retention-other-test-"));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  const runtime = createRequestLogRuntime({ dbFile, workerFile });
+  let database;
+  try {
+    await runtime.setRetentionDays(3);
+    await runtime.list({});
+    database = createBetterSqliteDatabase(dbFile);
+    database.prepare("UPDATE request_log_settings SET value = '5' WHERE key = 'retention_days'").run();
+    const page = await runtime.list({});
+    assert.equal(page.retentionDays, 5);
+    assert.equal(page.retentionRequestedDays, undefined);
+  } finally {
+    database?.close();
+    await runtime.close({ timeoutMs: 5_000 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("RequestLogRuntime terminally rejects delayed raw traces for records dropped by overload", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-shared-admission-test-"));
   const realDateNow = Date.now;

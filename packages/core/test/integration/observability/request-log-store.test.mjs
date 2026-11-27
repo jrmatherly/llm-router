@@ -11,6 +11,7 @@ import { requestLogRequestedModel, requestLogResponseModel } from "@llmr/core/ob
 import { resolveStreamRequestLogOutcome } from "@llmr/core/gateway/internal/shared.ts";
 import { RequestRouteTraceRecorder } from "@llmr/core/observability/route-trace.ts";
 import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
+import { addColumnRightAfterTheColumnsAreRead } from "../../support/sqlite-schema-race.mjs";
 
 const execFileAsync = promisify(execFile);
 const isBoundedHeapWorker = process.env.LLMR_REQUEST_LOG_BOUNDED_HEAP_WORKER === "1";
@@ -2429,4 +2430,85 @@ test("#1801 unknown raw trace status is neutral while transport and HTTP errors 
     assert.equal(analysis.totals.errorCount, 2);
     assert.equal(analysis.totals.successRate, 1 / 3);
   } finally { await store.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("an older request log database opens when another process adds the same column between this one's read of the columns and its own add", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-schema-race-test-"));
+  const file = path.join(dir, "request-logs.sqlite");
+  let store;
+  try {
+    const first = new RequestLogStore(file);
+    await first.list({ pageSize: 1 });
+    await first.close();
+    const legacy = createBetterSqliteDatabase(file);
+    try {
+      legacy.exec("ALTER TABLE request_logs DROP COLUMN forwarded_user_email");
+    } finally {
+      legacy.close();
+    }
+    const restore = addColumnRightAfterTheColumnsAreRead(file, "request_logs", "forwarded_user_email TEXT NOT NULL DEFAULT ''");
+    try {
+      store = new RequestLogStore(file);
+      assert.equal((await store.list({ pageSize: 1 })).total, 0);
+    } finally {
+      restore();
+    }
+  } finally {
+    await store?.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("an older pending-update table opens when another process adds the same column between the read and the add", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-pending-race-test-"));
+  const file = path.join(dir, "request-logs.sqlite");
+  let store;
+  try {
+    const first = new RequestLogStore(file);
+    await first.list({ pageSize: 1 });
+    await first.close();
+    const legacy = createBetterSqliteDatabase(file);
+    try {
+      legacy.exec("ALTER TABLE request_log_pending_updates DROP COLUMN update_bytes");
+    } finally {
+      legacy.close();
+    }
+    const restore = addColumnRightAfterTheColumnsAreRead(file, "request_log_pending_updates", "update_bytes INTEGER NOT NULL DEFAULT 0");
+    try {
+      store = new RequestLogStore(file);
+      assert.equal((await store.list({ pageSize: 1 })).total, 0);
+    } finally {
+      restore();
+    }
+  } finally {
+    await store?.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("an older route trace table opens when another process adds the same column between the read and the add", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-route-trace-race-test-"));
+  const file = path.join(dir, "request-logs.sqlite");
+  let store;
+  try {
+    const first = new RequestLogStore(file);
+    await first.list({ pageSize: 1 });
+    await first.close();
+    const legacy = createBetterSqliteDatabase(file);
+    try {
+      legacy.exec("ALTER TABLE request_route_traces DROP COLUMN trace_json");
+    } finally {
+      legacy.close();
+    }
+    const restore = addColumnRightAfterTheColumnsAreRead(file, "request_route_traces", "trace_json TEXT NOT NULL DEFAULT ''");
+    try {
+      store = new RequestLogStore(file);
+      assert.equal((await store.list({ pageSize: 1 })).total, 0);
+    } finally {
+      restore();
+    }
+  } finally {
+    await store?.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
 });
