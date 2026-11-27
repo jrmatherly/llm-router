@@ -315,10 +315,14 @@ import {
   formatCompactNumber,
   formatPercent,
   formatStatusCodeCounts,
+  formatCost,
   formatToolCounts,
+  formatTotalCost,
   formatUsdCost,
   logSelectOptions,
-  normalizeAgentFilterValue
+  normalizeAgentFilterValue,
+  priceSourceLabel,
+  totalCostCaption
 } from "./usage";
 import {
   agentAnalysisRangeOptions,
@@ -424,10 +428,14 @@ export {
   formatCompactNumber,
   formatPercent,
   formatStatusCodeCounts,
+  formatCost,
   formatToolCounts,
+  formatTotalCost,
   formatUsdCost,
   logSelectOptions,
-  normalizeAgentFilterValue
+  normalizeAgentFilterValue,
+  priceSourceLabel,
+  totalCostCaption
 };
 export {
   agentAnalysisRangeOptions,

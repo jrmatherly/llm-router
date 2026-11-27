@@ -8,7 +8,7 @@ import {
   Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle,
   DragEndEvent, DragOverEvent, DragOverlay, DragStartEvent, Field, formatAxisNumber, formatBytes,
   formatCompactNumber, formatDuration, formatLogDateTime, formatPercent, formatPercentFixed, formatProviderAccountDetailDate, formatProviderAccountMeterTitle, formatProviderAccountMeterValue,
-  formatStatusBucketDate, formatSystemStatusRange, formatUsdCost, KeyboardSensor,
+  formatCost, formatStatusBucketDate, formatSystemStatusRange, formatTotalCost, KeyboardSensor,
   LabelList, LayoutGroup, Line, LoaderCircle, MeasuringStrategy, MetricTone,
   motion, normalizeAgentFilterValue, normalizeOverviewWidget, normalizeOverviewWidgets,
   OverviewAccountCardSize, OverviewMetricKind, overviewMetricOptions, overviewWidgetCollisionDetection, OverviewWidgetConfig, OverviewWidgetSize, overviewWidgetSizeOptions,
@@ -17,7 +17,7 @@ import {
   providerAccountSnapshotKey, providerAccountSnapshotLabel, providerDisplayIcon,
   ProviderAccountMeter, ProviderAccountSnapshot, ReactNode, ReactPointerEvent, rectSortingStrategy, RefreshCw, RequestLogEntry, requestLogRetentionNotice, Select,
   SelectControl, SortableContext, sortableKeyboardCoordinates, systemStatusPointTooltip,
-  Tabs, TabsList, TabsTrigger, Tooltip, Trash2, UsageComparisonRow, usageRangeOptions,
+  Tabs, TabsList, TabsTrigger, Tooltip, totalCostCaption, Trash2, UsageComparisonRow, usageRangeOptions,
   GatewayProviderConfig, UsageSeriesPoint, UsageStatsRange, UsageStatsSnapshot, usageStatusTone, UsageTotals,
   usageRangeDays, useEffect, useMemo, useRef, useSensor, useSensors, useSortable,
   useState, X, XAxis, YAxis
@@ -30,7 +30,7 @@ import {
   Rocket, Server, UsersRound, WalletCards, Wifi
 } from "lucide-react";
 import { Tooltip as UiTooltip, TooltipPortal } from "@/components/ui/tooltip";
-import type { PriceSourceStatus } from "@llmr/core/contracts/app";
+import type { CostBasis, PriceSourceStatus } from "@llmr/core/contracts/app";
 
 type OverviewUsageFilters = {
   modelFilter: string;
@@ -1304,6 +1304,7 @@ function OverviewMetricWidget({
 }) {
   const item = overviewMetricDatum(metric, totals);
   const showsRatio = totals.requestCount > 0 && overviewMetricShowsRatio(metric);
+  const caption = item.caption ? <div className="text-[10px] font-medium leading-tight text-muted-foreground">{item.caption}</div> : null;
 
   if (variant === "compact") {
     return (
@@ -1313,7 +1314,10 @@ function OverviewMetricWidget({
             <span aria-hidden="true" className="overview-metric-dot" />
             <div className="min-w-0 truncate text-[12px] font-medium text-muted-foreground">{item.label}</div>
           </div>
-          <div className="shrink-0 text-[19px] font-semibold tracking-[-0.02em]">{item.value}</div>
+          <div className="min-w-0 text-right">
+            <div className="whitespace-nowrap text-[19px] font-semibold tracking-[-0.02em]">{item.value}</div>
+            {caption}
+          </div>
         </CardContent>
       </Card>
     );
@@ -1327,6 +1331,7 @@ function OverviewMetricWidget({
             <div className="min-w-0 truncate text-[12px] font-medium text-muted-foreground">{item.label}</div>
             <div className="shrink-0 text-[18px] font-semibold tracking-tight">{item.value}</div>
           </div>
+          {caption}
           <div className="overview-metric-track mt-3">
             <div className="overview-metric-fill" style={{ width: `${Math.max(3, Math.round(item.ratio * 100))}%` }} />
           </div>
@@ -1343,6 +1348,7 @@ function OverviewMetricWidget({
           <div className="min-w-0">
             <div className="truncate text-[12px] font-medium text-muted-foreground">{item.label}</div>
             <div className="truncate text-[18px] font-semibold tracking-tight">{item.value}</div>
+            {caption}
           </div>
         </CardContent>
       </Card>
@@ -1361,6 +1367,7 @@ function OverviewMetricWidget({
         <div className="min-w-0">
           <div className="truncate text-[11px] font-medium text-muted-foreground">{item.label}</div>
           <div className="mt-0.5 truncate text-[24px] font-semibold tracking-[-0.035em] text-foreground">{item.value}</div>
+          {caption}
         </div>
         {showsRatio ? (
           <div className="overview-metric-track">
@@ -2384,7 +2391,7 @@ function overviewTokenMixVariant(value: OverviewWidgetVariant): "bars" | "donut"
   return value === "donut" || value === "pie" || value === "stacked" ? value : "bars";
 }
 
-function overviewMetricDatum(metric: OverviewMetricKind, totals: UsageTotals): { label: string; ratio: number; tone: MetricTone; value: string } {
+function overviewMetricDatum(metric: OverviewMetricKind, totals: UsageTotals): { caption?: string; label: string; ratio: number; tone: MetricTone; value: string } {
   if (metric === "total-tokens") {
     return { label: "Total tokens", ratio: totals.totalTokens > 0 ? 1 : 0, tone: "teal", value: formatCompactNumber(totals.totalTokens) };
   }
@@ -2401,7 +2408,13 @@ function overviewMetricDatum(metric: OverviewMetricKind, totals: UsageTotals): {
     return { label: "Cache ratio", ratio: totals.cacheRatio, tone: "indigo", value: formatPercent(totals.cacheRatio) };
   }
   if (metric === "estimated-cost") {
-    return { label: "Estimated cost", ratio: Math.min(1, Math.max(0, (totals.costUsd ?? 0) / 1)), tone: "slate", value: formatUsdCost(totals.costUsd) };
+    return {
+      caption: totalCostCaption(totals),
+      label: "Estimated cost",
+      ratio: Math.min(1, Math.max(0, (totals.costUsd ?? 0) / 1)),
+      tone: "slate",
+      value: formatTotalCost(totals)
+    };
   }
   if (metric === "success-rate") {
     return { label: "Request success rate", ratio: totals.successRate, tone: "teal", value: totals.requestCount > 0 ? formatPercent(totals.successRate) : "—" };
@@ -4707,7 +4720,7 @@ function AgentSessionDetailTabs({
   );
 }
 
-function AgentSessionRequestsPanel({ detail }: { detail: AgentSessionDetail }) {
+export function AgentSessionRequestsPanel({ detail }: { detail: AgentSessionDetail }) {
   const requests = useMemo(() => [...detail.requests].sort(compareSessionRequestsByTime), [detail.requests]);
   const [selectedRequestLogId, setSelectedRequestLogId] = useState<number>();
 
@@ -4743,7 +4756,7 @@ function AgentSessionRequestsPanel({ detail }: { detail: AgentSessionDetail }) {
                   <td className="max-w-[300px] px-3 py-2" title={`${request.provider}/${request.model}`}>{request.provider}/{request.model}</td>
                   <td className="px-3 py-2 text-right" title={request.tools.join(", ")}>{formatCompactNumber(request.toolCallCount)}</td>
                   <td className="px-3 py-2 text-right">{formatCompactNumber(request.totalTokens)}</td>
-                  <td className="px-3 py-2 text-right">{formatUsdCost(request.costUsd ?? 0)}</td>
+                  <td className="px-3 py-2 text-right">{formatCost(request.costUsd, request.costBasis)}</td>
                   <td className="px-3 py-2 text-right">{formatDuration(request.durationMs)}</td>
                   <td className="px-3 py-2 text-right">
                     <Button
@@ -4989,6 +5002,7 @@ type AgentTrajectoryDetailTab = "preview" | "raw";
 type AgentTrajectoryNode = {
   children: AgentTrajectoryNode[];
   content: string;
+  costBasis?: CostBasis;
   costUsd?: number;
   createdAt: string;
   durationMs: number;
@@ -5184,6 +5198,7 @@ function traceRunTrajectoryNode(run: AgentAnalysisTraceRun): AgentTrajectoryNode
   const node: AgentTrajectoryNode = {
     children: [],
     content: trajectoryRunContent(run),
+    costBasis: run.costBasis,
     costUsd: run.costUsd,
     createdAt: run.startedAt,
     durationMs: run.durationMs,
@@ -5461,7 +5476,7 @@ function AgentTracePanel({ trace }: { trace: AgentTraceDetail }) {
                   </td>
                   <td className="px-3 py-2 text-right">{run.totalTokens > 0 ? formatCompactNumber(run.totalTokens) : "-"}</td>
                   <td className="px-3 py-2 text-right">{run.cacheReadTokens + run.cacheWriteTokens > 0 ? formatCompactNumber(run.cacheReadTokens + run.cacheWriteTokens) : "-"}</td>
-                  <td className="px-3 py-2 text-right">{run.costUsd !== undefined ? formatUsdCost(run.costUsd) : "-"}</td>
+                  <td className="px-3 py-2 text-right">{formatCost(run.costUsd, run.costBasis)}</td>
                   <td className="px-3 py-2 text-right">{formatCompactNumber(run.concurrentRequests)}</td>
                   <td className="px-3 py-2 text-right">{formatDuration(run.durationMs)}</td>
                 </tr>
@@ -5672,7 +5687,7 @@ function AgentTrajectoryNodePreview({ node }: { node: AgentTrajectoryNode }) {
         <div className="text-muted-foreground">Tokens</div>
         <div>{node.totalTokens > 0 ? `${formatCompactNumber(node.totalTokens)} tok` : "-"}</div>
         <div className="text-muted-foreground">Cost</div>
-        <div>{node.costUsd !== undefined ? formatUsdCost(node.costUsd) : "-"}</div>
+        <div>{formatCost(node.costUsd, node.costBasis)}</div>
       </div>
 
       <div>
@@ -6127,6 +6142,7 @@ function trajectoryRunContent(run: AgentAnalysisTraceRun): string {
 function trajectoryNodeRawJson(node: AgentTrajectoryNode): string {
   return JSON.stringify({
     content: node.content,
+    costBasis: node.costBasis,
     costUsd: node.costUsd,
     durationMs: node.durationMs,
     error: node.error,
@@ -6211,7 +6227,7 @@ function AgentSessionsCard({
                     <td className="px-3 py-2 text-right">{formatCompactNumber(session.subagentCallCount)}</td>
                     <td className="px-3 py-2 text-right">{formatCompactNumber(session.errorCount)}</td>
                     <td className="px-3 py-2 text-right">{formatPercentFixed(session.cacheRatio)}</td>
-                    <td className="px-3 py-2 text-right font-semibold">{formatUsdCost(session.costUsd)}</td>
+                    <td className="px-3 py-2 text-right font-semibold">{formatTotalCost(session)}</td>
                     <td className="max-w-[240px] px-3 py-2" title={session.models.join(", ")}>{session.models.join(", ") || "-"}</td>
                     <td className="max-w-[220px] px-3 py-2" title={session.providers.join(", ")}>{session.providers.join(", ") || "-"}</td>
                     <td className="max-w-[220px] px-3 py-2 font-mono" title={session.userAgent}>{compactUserAgent(session.userAgent)}</td>
@@ -6304,7 +6320,7 @@ function UsageAnalysisCard({
                       </td>
                     ))}
                     <td className="px-3 py-2 text-right font-semibold">{formatCompactNumber(row.totalTokens)}</td>
-                    {showCost ? <td className="px-3 py-2 text-right font-semibold">{formatUsdCost(row.costUsd)}</td> : null}
+                    {showCost ? <td className="px-3 py-2 text-right font-semibold">{formatTotalCost(row)}</td> : null}
                     <td className="px-3 py-2 text-right">{formatCompactNumber(row.requestCount)}</td>
                     {showTokenBreakdown ? <td className="px-3 py-2 text-right">{formatCompactNumber(row.inputTokens)}</td> : null}
                     {showTokenBreakdown ? <td className="px-3 py-2 text-right">{formatCompactNumber(row.outputTokens)}</td> : null}
@@ -6400,7 +6416,7 @@ function UsageTooltip({
             </div>
             <div className="flex min-w-[150px] items-center justify-between gap-4">
               <span className="text-muted-foreground">Cost</span>
-              <span className="font-medium">{formatUsdCost(point.costUsd)}</span>
+              <span className="font-medium">{formatTotalCost(point)}</span>
             </div>
           </>
         ) : null}

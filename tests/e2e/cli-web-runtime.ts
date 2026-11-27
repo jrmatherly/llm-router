@@ -20,7 +20,7 @@ export type CliWebRuntime = {
   token: string;
 };
 
-export async function startCliWebServer(authToken: string): Promise<CliWebRuntime> {
+export async function startCliWebServer(authToken: string, env: Record<string, string> = {}): Promise<CliWebRuntime> {
   const port = await findAvailablePort();
   const testHome = mkdtempSync(path.join(os.tmpdir(), "llmr-playwright-home-"));
   const child = spawn(process.execPath, [
@@ -43,7 +43,8 @@ export async function startCliWebServer(authToken: string): Promise<CliWebRuntim
       // background; keep the suite off the network.
       LLMR_MODEL_CATALOG_PATH: path.join(projectRoot, "packages", "core", "models.json"),
       LLMR_WEB_AUTH_TOKEN: authToken,
-      HOME: testHome
+      HOME: testHome,
+      ...env
     },
     stdio: ["ignore", "pipe", "pipe"]
   });

@@ -110,11 +110,14 @@ export function usageTotals(patch: Partial<UsageTotals> = {}): UsageTotals {
     cacheTokens: 2400,
     costUsd: 1.23,
     errorCount: 2,
+    estimatedCostUsd: 0,
     inputTokens: 6200,
     outputTokens: 3400,
+    pricedRequestCount: 0,
     requestCount: 128,
     successRate: 0.984,
     totalTokens: 12000,
+    unpricedRequestCount: 0,
     ...patch
   };
 }

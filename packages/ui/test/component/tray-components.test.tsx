@@ -76,6 +76,25 @@ test("UsageOverviewPanel renders every enabled overview tray module", () => {
   assert.match(html, /Syncing usage\.\.\./);
 });
 
+test("the tray's Today Cost marks a partly approximate total", () => {
+  const activeStats = usageStats("30d");
+  const html = renderToStaticMarkup(
+    <UsageOverviewPanel
+      accountRefreshing={false}
+      accountSnapshots={[]}
+      activeStats={activeStats}
+      componentVariants={componentVariants}
+      loading={false}
+      modules={new Set(["stats"])}
+      monthTotals={usageTotals()}
+      todayTotals={usageTotals({ costUsd: 0.005, estimatedCostUsd: 0.003, pricedRequestCount: 2, unpricedRequestCount: 3 })}
+      topModel={activeStats.models[0]}
+      weekTotals={usageTotals()}
+    />
+  );
+  assert.match(html, /~\$0\.005000/);
+});
+
 test("UsageDetailPanel renders configured detail widgets and empty state", () => {
   const activeStats = usageStats("7d");
   const html = renderToStaticMarkup(

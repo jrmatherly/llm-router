@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
+import { costBasisFor, totalCostBasis } from "@llmr/core/contracts/app.ts";
 import {
   estimateUsageCost,
   parseUsagePricingSource,
@@ -582,4 +583,32 @@ test("each price source reports its last successful load and whether its latest 
     mock.timers.reset();
     globalThis.fetch = originalFetch;
   }
+});
+
+test("a cost's basis comes from its stored source, its amount and its tokens", () => {
+  const basis = (costSource, costUsd, billableTokens = 10) => costBasisFor({ billableTokens, costSource, costUsd });
+  assert.equal(basis("models.dev", 0.1), "listed");
+  assert.equal(basis("litellm", 0.1), "listed");
+  assert.equal(basis("openrouter", 0.1), "listed");
+  assert.equal(basis("models.dev-median", 0.1), "estimate");
+  assert.equal(basis("custom", 0), "user");
+  assert.equal(basis("gateway_billing", 0.1), "estimate");
+  assert.equal(basis("unpriced", undefined), "unknown");
+  assert.equal(basis("", undefined), "unknown");
+  assert.equal(basis("", 0.1), "estimate");
+  assert.equal(basis("request_log", 0.1), "estimate");
+  assert.equal(basis("models.dev", undefined, 0), undefined);
+  assert.equal(basis("", undefined, 0), undefined);
+});
+
+test("a total's basis is unknown with nothing priced, an estimate with any approximate or missing part, and plain otherwise", () => {
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 0, unpricedRequestCount: 2 }), "unknown");
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 2 }), "estimate");
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0.3, pricedRequestCount: 2, unpricedRequestCount: 0 }), "estimate");
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 0 }), undefined);
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 0, unpricedRequestCount: 0 }), undefined);
+});
+
+test("a user price of 0 beside an unpriced request makes an estimate, not an unknown", () => {
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 1 }), "estimate");
 });

@@ -1,7 +1,7 @@
 import { formatErrorMessage } from "@llmr/core/contracts/error-message";
 import {
   AppConfig, applyTrayThemePreference, createSourceTabs, DEFAULT_TRAY_WIDGETS, defaultTrayWidgetVariant, emptySnapshots, formatCompactNumber, formatProviderName,
-  formatPercent, formatUpdated, formatUsdCost, normalizeTrayWidgets, ProviderAccountSnapshot, rangeLabel,
+  formatPercent, formatTotalCost, formatUpdated, normalizeTrayWidgets, ProviderAccountSnapshot, rangeLabel,
   SnapshotMap, SourceTab, TrayComponentVariants, TrayWidgetConfig, UsageComparisonRow, UsageStatsFilter, UsageStatsRange, UsageTotals, useCallback, useEffect,
   useMemo, useState, useTrayThemePreference
 } from "./shared";
@@ -237,7 +237,7 @@ function TrayRuntimeWidget({
         items={[
           { label: `${rangeLabel(selectedRange)} tokens`, value: formatCompactNumber(activeTotals.totalTokens) },
           { label: `${rangeLabel(selectedRange)} requests`, value: formatCompactNumber(activeTotals.requestCount) },
-          { label: `${rangeLabel(selectedRange)} Cost`, value: formatUsdCost(activeTotals.costUsd) },
+          { label: `${rangeLabel(selectedRange)} Cost`, value: formatTotalCost(activeTotals) },
           { label: "Success rate", value: formatPercent(activeTotals.successRate) }
         ]}
         variant={(widget.variant ?? defaultTrayWidgetVariant("stats")) as TrayComponentVariants["stats"]}

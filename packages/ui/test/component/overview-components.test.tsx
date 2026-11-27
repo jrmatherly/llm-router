@@ -4,8 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { formatCodexResetCardExpiry, formatCodexResetCardNumber, OverviewStatisticsResetDialog, OverviewView } from "@llmr/ui/pages/home/components/dashboard.tsx";
 import { parseStatusBucketDate } from "@llmr/ui/pages/home/shared/controls.tsx";
 import { formatProviderAccountMeterValue, providerAccountMeterDetailValidityProgress } from "@llmr/ui/pages/home/shared/provider-accounts.ts";
-import type { GatewayProviderConfig, OverviewWidgetConfig, PriceSourceStatus, ProviderAccountSnapshot } from "@llmr/core/contracts/app.ts";
-import { accountSnapshots, installBrowserGlobals, planQuotaSnapshot, usageStats } from "../fixtures/index.ts";
+import type { GatewayProviderConfig, OverviewWidgetConfig, PriceSourceStatus, ProviderAccountSnapshot, UsageTotals } from "@llmr/core/contracts/app.ts";
+import { accountSnapshots, installBrowserGlobals, planQuotaSnapshot, usageStats, usageTotals } from "../fixtures/index.ts";
 
 installBrowserGlobals();
 
@@ -129,6 +129,27 @@ test("overview metric cards only show progress for ratio-based data", () => {
   assert.doesNotMatch(renderMetric("requests", "card"), /overview-metric-track/);
   assert.match(renderMetric("cache-ratio", "card"), /overview-metric-track/);
   assert.match(renderMetric("requests", "bar"), /overview-metric-track/);
+});
+
+test("the estimated cost card marks a partly approximate total and captions it in every variant", () => {
+  const renderCost = (variant: "bar" | "card" | "compact" | "ring", totals: UsageTotals) => renderToStaticMarkup(
+    <OverviewView
+      overviewWidgets={[{ enabled: true, id: `metric-cost-${variant}`, metric: "estimated-cost", size: "1:1", type: "metric", variant }]}
+      providerAccounts={[]}
+      setUsageRange={() => undefined}
+      usageRange="30d"
+      usageStats={{ ...usageStats("30d"), totals }}
+      onWidgetsChange={() => undefined}
+    />
+  );
+  for (const variant of ["bar", "card", "compact", "ring"] as const) {
+    const mixed = renderCost(variant, usageTotals({ costUsd: 0.005, estimatedCostUsd: 0.003, pricedRequestCount: 2, unpricedRequestCount: 3 }));
+    assert.match(mixed, /~\$0\.005000/, variant);
+    assert.match(mixed, /~\$0\.003000 approximate · 3 requests without a price/, variant);
+    const plain = renderCost(variant, usageTotals());
+    assert.doesNotMatch(plain, />~\$/, variant);
+    assert.doesNotMatch(plain, /approximate/, variant);
+  }
 });
 
 test("OverviewView renders the empty widget layout state", () => {

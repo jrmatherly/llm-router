@@ -5,14 +5,14 @@ import type { RefusedKeyRequests, RequestRouteTrace, RequestRouteTraceChange, Re
 import {
   AnimatedIconSwap, Check, ChevronDown, ChevronLeft,
   ChevronRight, clampNumber, clientInitial, cn, Copy, copyTextToClipboard,
-  createLogBodyPreviewText, Database, Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, formatBytes, formatCompactNumber, formatDuration,
-  formatLogDateTime, formatLogTokenSummary, formatNetworkRequestRaw, formatNetworkResponseRaw, formatRouteTracePath, formatUsdCost,
+  createLogBodyPreviewText, Database, Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, formatBytes, formatCompactNumber, formatCost, formatDuration,
+  formatLogDateTime, formatLogTokenSummary, formatNetworkRequestRaw, formatNetworkResponseRaw, formatRouteTracePath,
   FormattedLogBody,
   isJsonContainer, isLargeLogBody, jsonChildPath, logRequestModel,
   LogBodyFormatMode, logBodyFullTextLimit, logBodyLargeTextThreshold, logBodyPreviewTextLimit, LogBodyWorkerResponse,
   logResolvedRouteModel, logSelectOptions, motion, MoveRight, Network, networkCodeLabel,
   networkExchangeMatchesQuery, networkHeaderRows, networkLifecycleLabel, networkQueryRows, networkRowId, networkSummaryRows,
-  Pause, Play, prepareLogBodyForWorker, ProxyNetworkBody, ProxyNetworkExchange, ProxyNetworkSnapshot, ProxyStatus,
+  Pause, Play, prepareLogBodyForWorker, priceSourceLabel, ProxyNetworkBody, ProxyNetworkExchange, ProxyNetworkSnapshot, ProxyStatus,
   ReactNode, ReactPointerEvent, RefreshCw, RequestLogBody, RequestLogBodyChunk, RequestLogEntry, RequestLogListFilter,
   RequestLogPage, requestLogPageSizeOptions, requestLogRangeOptions, requestLogRetentionNotice, requestLogRetentionPendingNotice, RequestLogStatusFilter, requestLogStatusOptions, Search, Select, Trash2,
   usageRangeDays, UsageStatsRange, useCallback, useEffect, useMemo, useRef, useState
@@ -1049,7 +1049,8 @@ export function LogExpandedDetails({
         <LogMetric label="Cache read" value={formatCompactNumber(entry.cacheReadTokens, numberLocale)} />
         <LogMetric label="Cache write" value={formatCompactNumber(entry.cacheWriteTokens, numberLocale)} />
         <LogMetric label="Total" value={formatCompactNumber(entry.totalTokens, numberLocale)} />
-        <LogMetric label="Cost" value={formatUsdCost(entry.costUsd ?? 0)} />
+        <LogMetric label="Cost" value={formatCost(entry.costUsd, entry.costBasis)} />
+        {entry.costBasis ? <LogMetric label="Price source" value={priceSourceLabel(entry.costSource, entry.costBasis)} /> : null}
       </div>
       {entry.retryAttempts.length > 0 ? <LogRetryAttempts attempts={entry.retryAttempts} /> : null}
       {entry.routeTrace ? <LogRouteTrace trace={entry.routeTrace} /> : null}

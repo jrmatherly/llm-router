@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { RouteMapCard, SharePosterHeader } from "@llmr/ui/pages/home/components/share-cards.tsx";
+import { RouteMapCard, ShareCardWidget, SharePosterHeader } from "@llmr/ui/pages/home/components/share-cards.tsx";
 import type { UsageStatsSnapshot } from "@llmr/ui/pages/home/shared/index";
 
 const emptyTotals = {
@@ -10,11 +10,14 @@ const emptyTotals = {
   cacheTokens: 0,
   costUsd: 0,
   errorCount: 0,
+  estimatedCostUsd: 0,
   inputTokens: 0,
   outputTokens: 0,
+  pricedRequestCount: 0,
   requestCount: 0,
   successRate: 0,
-  totalTokens: 0
+  totalTokens: 0,
+  unpricedRequestCount: 0
 };
 
 const emptyUsageStats: UsageStatsSnapshot = {
@@ -37,4 +40,13 @@ test("share card route map and poster header name the product", () => {
   const header = renderToStaticMarkup(<SharePosterHeader {...minimalPosterHeaderProps} />);
   assert.match(header, />Route Map</);
   assert.match(header, />LLMR</);
+});
+
+test("the spend receipt marks a partly approximate total and prints its caption", () => {
+  const totals = { ...emptyTotals, costUsd: 0.005, estimatedCostUsd: 0.003, pricedRequestCount: 2, unpricedRequestCount: 3 };
+  const html = renderToStaticMarkup(
+    <ShareCardWidget providerAccounts={[]} type="share-spend-receipt" usageRange="7d" usageStats={{ ...emptyUsageStats, totals }} />
+  );
+  assert.match(html, /~\$0\.005000/);
+  assert.match(html, /~\$0\.003000 approximate · 3 requests without a price/);
 });
