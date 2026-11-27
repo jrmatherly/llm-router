@@ -23,7 +23,7 @@
 - **B-7.** A stored retention value that is not a whole number from 1 to 90 becomes 90, with a warning. Task 3.
 - **B-8.** The plan author's choices, open to change in review: the refused-key entries sit in a closed `<details>` (L-3), the three refusal reasons are one set in both processes (L-4), a long log value wraps (L-14). Tasks 2 and 4.
 - **B-9.** L-13 and L-16 are closed with no change. L-11 is closed by the evidence under its row.
-- **B-5.** Decided by the owner on 2026-11-22 (the spec's Decisions table). [`2026-11-22-backlog-client-label.md`](../2026-11-22-backlog-client-label.md) builds it, as batch 16, after this plan. No task here changes `inferGatewayClient` or `clientNameHeaders`. See "Hand-off to the client label plan".
+- **B-5.** Decided by the owner on 2026-11-22 (the spec's Decisions table). [`2026-11-22-backlog-client-label.md`](2026-11-22-backlog-client-label.md) builds it, as batch 16, after this plan. No task here changes `inferGatewayClient` or `clientNameHeaders`. See "Hand-off to the client label plan".
 - **Fix round, 2026-11-24.** Two choices made against the audit, both open to change in review. A trace fills in the provider only of a usage event that has no tokens and no cost (Task 1, Step 6, audit C7). The pending retention line compares what this process asked for with what its writer last saved, not with the database (Task 3, audit C2).
 - **X-12.** A browser `title` tooltip is out of reach for keyboard and touch users. Task 4.
 - **X-15.** Electron gives no way to stop the default `userData` folder being made. L-16.
@@ -480,7 +480,7 @@ Build in this order: L-15 first, because it removes code that L-12 would otherwi
 
 ## Hand-off to the client label plan
 
-**Rows it carries:** L-5, and the research's finding that the client label is uncut outside the refused-key notice and that `x-forwarded-client-cert` is one of its sources. B-5 is decided, and [`2026-11-22-backlog-client-label.md`](../2026-11-22-backlog-client-label.md) builds it as batch 16, after this plan. No task above changes `inferGatewayClient`, `clientNameHeaders`, or the length of a stored client label.
+**Rows it carries:** L-5, and the research's finding that the client label is uncut outside the refused-key notice and that `x-forwarded-client-cert` is one of its sources. B-5 is decided, and [`2026-11-22-backlog-client-label.md`](2026-11-22-backlog-client-label.md) builds it as batch 16, after this plan. No task above changes `inferGatewayClient`, `clientNameHeaders`, or the length of a stored client label.
 
 **What that plan consumes from this one:** the third parameter `configure?: (config) => void` of `startWireService` (Task 2, Step 4), and the reason `Invalid API key.` (Task 2). It also rewrites `raw trace usage capture keeps the client label the request log gets` and says to give the copies Task 1 makes the same change.
 

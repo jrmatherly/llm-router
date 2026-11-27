@@ -20,7 +20,7 @@
 
 **From the spec, all accepted by the owner on 2026-11-24.** The fork has no consumers, so `client` changes meaning with no compatibility path. An API key carries a mark that lets it forward identity. The usage and request-log rows gain a forwarded user id and e-mail apart from `client`.
 
-**From the delivery order, decision 7 under "The owner's decisions", 2026-11-25.** Batch 16 builds client label Tasks 3, 1 and 2 and then Task 5 of this plan, in one PR. The client label plan ([`2026-11-22-backlog-client-label.md`](2026-11-22-backlog-client-label.md), batch 16) already builds the per-key mark, as `trustedForwarder`, and the rule that only a marked key's identity headers count. That is the spec's G-5. This plan does not build G-5. It adds G-6 on top as the last commit of the same branch, so the two are reviewed and merged together. If the owner picks another answer to that item, Task 5 is rewritten and Tasks 1 to 4 do not change.
+**From the delivery order, decision 7 under "The owner's decisions", 2026-11-25.** Batch 16 builds client label Tasks 3, 1 and 2 and then Task 5 of this plan, in one PR. The client label plan ([`2026-11-22-backlog-client-label.md`](completed/2026-11-22-backlog-client-label.md), batch 16) already builds the per-key mark, as `trustedForwarder`, and the rule that only a marked key's identity headers count. That is the spec's G-5. This plan does not build G-5. It adds G-6 on top as the last commit of the same branch, so the two are reviewed and merged together. If the owner picks another answer to that item, Task 5 is rewritten and Tasks 1 to 4 do not change.
 
 **Plan author, changeable in review without reopening the plan:**
 
