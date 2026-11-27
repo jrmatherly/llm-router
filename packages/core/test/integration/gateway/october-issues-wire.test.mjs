@@ -231,8 +231,10 @@ for (const layout of ["single", "compat"]) {
   });
 }
 
-test("a single-layout Logs row appears within 1500 ms of the answer", { skip, timeout: 60000 }, async (t) => {
-  const { port } = await startWireService(t, "single");
+test("a single-layout Logs row is imported on the gateway's notice, not by the periodic scan", { skip, timeout: 60000 }, async (t) => {
+  const { port, service } = await startWireService(t, "single");
+  // The row's own time is 20 fsyncs and three SQLite writes, so a bound on it measures the runner's disk.
+  service.rawTraceSynchronizer.dependencies.sourceScanIntervalMs = 3_600_000;
   const model = `no-provider-has-this-model-timed-${Date.now()}`;
   const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
     body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model }),
@@ -240,9 +242,7 @@ test("a single-layout Logs row appears within 1500 ms of the answer", { skip, ti
     method: "POST"
   });
   assert.equal(response.status, 400, await response.text());
-  const answeredAt = Date.now();
   await until(async () => (await requestLogRuntime.list({ pageSize: 100 })).items.some(item => item.model === model), 10000);
-  assert.ok(Date.now() - answeredAt < 1500, `row took ${Date.now() - answeredAt} ms`);
 });
 
 test("a trace left in the spool gives a usage event dated at its start", { skip, timeout: 60000 }, async (t) => {
