@@ -145,7 +145,7 @@ The text is harness Task 5, Steps 6 and 7, in [`2026-11-22-backlog-harness.md`](
 
 ---
 
-### Task 2: A 0 in a price tier's field reads as absent (F-PRICE-28)
+### Task 2: A 0 in a price tier's field reads as absent (F-PRICE-28). Built, PR 180
 
 Today a tier's 0 replaces the base entry's price for that field, so a long prompt's cache writes cost nothing on the 10 bundled tiers that list a cache write of 0.
 
@@ -216,7 +216,7 @@ test("a base entry that lists input at 0 beside a real output stays priced with 
 
 ---
 
-### Task 3: A stored cost on a request with no tokens gets a basis (F-PRICE-2)
+### Task 3: A stored cost on a request with no tokens gets a basis (F-PRICE-2). Built, PR 180
 
 Today `costBasisFor` returns nothing whenever a row has no billable tokens, before it looks at the cost, so a total shows `-` while $0.50 is stored.
 
@@ -262,7 +262,7 @@ test("a stored cost on a request with no tokens counts in the totals by its sour
 
 ---
 
-### Task 4: A row copied from Logs into the totals is priced by its routed model (F-PRICE-11)
+### Task 4: A row copied from Logs into the totals is priced by its routed model (F-PRICE-11). Built, PR 180
 
 Today `backfillFromAttachedRequestLog` copies `logs.model` and no `price_model`, so the sweep resolves the alias the response named and marks the row `unpriced` for good. The survey for F-PRICE-10 found this path is the one that serves a cancelled or failed stream in the compatibility layout.
 
@@ -334,7 +334,7 @@ test("a log database with no resolved_model column is still copied into the tota
 
 ---
 
-### Task 5: A Logs row keeps its price's tiers, so a trace that brings the tokens chooses the tier (F-PRICE-1)
+### Task 5: A Logs row keeps its price's tiers, so a trace that brings the tokens chooses the tier (F-PRICE-1). Built, PR 180
 
 Today a Logs row stores only the tier chosen when its price was written. A row priced with no tokens stores the base price, and the raw trace that brings 150,000 tokens re-prices from that base: Logs shows $0.0155 where the usage row shows $0.0775. The request log store has no config and cannot resolve a price a second time, so the tiers go on the row.
 
@@ -459,7 +459,7 @@ test("a log row whose pricing_json is the old flat shape is re-priced by a trace
 
 ---
 
-### Task 6: Two processes that open an older database at once do not collide on a new column (F-LABEL-4)
+### Task 6: Two processes that open an older database at once do not collide on a new column (F-LABEL-4). Built, PR 180
 
 Both stores read a table's columns and then add the missing ones, outside a transaction. A second process that adds the same column in between makes the first fail with `duplicate column name`. A desktop app and a CLI that start together after an upgrade can do this. It failed 2 of 48 opens in a forced race of eight processes (the review of PR 174, run).
 
@@ -631,7 +631,7 @@ A second process that opens an older database now waits for the first. Both stor
 
 ---
 
-### Task 7: The Logs page does not say a retention is pending when the database already holds it (F-LOGS-5)
+### Task 7: The Logs page does not say a retention is pending when the database already holds it (F-LOGS-5). Built, PR 180
 
 Today the page can say "kept for 3 days" and "Settings ask for 3 days. That has not been applied" together. The fault is in core and not in the page: `RequestLogRuntime.list` sends `retentionRequestedDays` whenever the requested value differs from the one it last saved, even when the database holds the requested value.
 
@@ -700,7 +700,9 @@ test("RequestLogRuntime reads a retention it saved as applied after another proc
 
 ---
 
-### Task 8: An identity header sent twice gives its first value (F-LABEL-5)
+### Task 8: An identity header sent twice gives its first value (F-LABEL-5). Built, then dropped on the owner's word
+
+**Not on `main`.** The commit was built and reviewed, then removed from PR 180 before the merge, and `forwardedIdentity` in `io.ts` is as it was. A harness run through `claude gateway` 2.1.332 showed that the gateway replaces a client's forged, repeated or mixed-case copy of each identity header with one copy of the signed-in user's value, in 7 requests against 5 controls (the build session's run, recorded in the register and in `private/research/2026-11-27-identity-header-order/`). So the repeated header this task fixes never arrives through the gateway, and the rule would cut an id that holds a comma, such as a directory-name `sub` (inferred). F-LABEL-5 stays open in the register for the remediation plan. The text below is kept as the record of what was built. Its Step 5 gates were run for the six tasks that merged.
 
 Node joins a repeated custom header into one string with a comma, so "Gateway user" shows `a@example.com, b@example.com` (run).
 
@@ -762,7 +764,7 @@ The text is restore Task 9 in [`2026-11-22-backlog-restore.md`](2026-11-22-backl
 
 ### Task 10: Release 9.1.0
 
-**Before.** Tasks 2 to 8 are merged. Task 1 is merged too if the owner gave his word for it. `main` is clean and level with origin, and the Tests run for its head passed, Windows and the Intel Mac included.
+**Before.** Tasks 2 to 7 are merged as PR 180 (`0500d2f3`). Task 1 is merged too if the owner gave his word for it. `main` is clean and level with origin, and the Tests run for its head passed, Windows and the Intel Mac included.
 
 - [ ] **Step 1: Draft the notes.** An "Upgrading to 9.1" header and a "What's new" header, written from the commit messages of PRs 149 to 179, the PR of Tasks 2 to 8, and Task 1's PR if it merged. Check each sentence against its PR's message. Sentences earlier sessions owed are the "Paste the release note" lines under "Steps only the owner can do" in [`2026-11-16-audit-remediation-index.md`](2026-11-16-audit-remediation-index.md). All six are already in the notes of `v8.0.0` (read by the decision research), so none is owed for 9.1.0. A plain `git grep -i "release note" -- docs/superpowers` returns 63 lines, most of them in finished plans (the audit's run). The notes stay neutral about the fault fixed in 8.0.1, as before. The owner reads the draft.
 - [ ] **Step 2: Cut it.** `npm run release -- 9.1.0`. Expected: a commit `chore: release v9.1.0`, the tag, and a push that reports the required checks bypassed, which is normal.
@@ -795,7 +797,7 @@ One sitting on the owner's UTM VM, on the released build. It is his to run. The 
 
 ### Task 12: The remediation plan
 
-- [ ] **Step 1: Gather.** Every line Task 11 marked failed, every register row whose disposition is `remediation` or `test`, and every `decide` row the owner has answered with a change. Leave out the seven rows Tasks 2 to 8 fixed, five of which the register's tables still list as `remediation`. Include the second half of F-PRICE-10, a sweep started by the back-fill, which the tables list as a `limit`.
+- [ ] **Step 1: Gather.** Every line Task 11 marked failed, every register row whose disposition is `remediation` or `test`, and every `decide` row the owner has answered with a change. Leave out the six rows Tasks 2 to 7 fixed, four of which the register's tables still list as `remediation`. F-LABEL-5 is not fixed and stays in. Include the second half of F-PRICE-10, a sweep started by the back-fill, which the tables list as a `limit`.
 - [ ] **Step 2: Group and write.** A new plan under `docs/superpowers/plans/`, written with superpowers:writing-plans, grouped by the files the fixes share so that each group is one branch and one PR. Each task's text is checked against the code on another model before the plan is committed, as Tasks 2 to 8 here were.
 - [ ] **Step 3: The owner reads it** and says which groups are built and in what release.
 
@@ -803,7 +805,7 @@ Gateway phase 1, [`2026-11-25-apps-gateway-phase-1.md`](2026-11-25-apps-gateway-
 
 ## Not in this plan
 
-- The register's other rows. It has 170 in its tables and F-PRICE-36 above them. Tasks 2 to 8 fix 7, so 164 remain. Each waits for Task 12 or for the owner's answer.
+- The register's other rows. It has 170 in its tables and F-PRICE-36 above them. Tasks 2 to 7 fixed 6, so 165 remain. Each waits for Task 12 or for the owner's answer.
 - A sweep started by the back-fill (the survey's second line for F-PRICE-10). The case is rare: the compatibility layout, a stream the client cancels or that fails partway, and the window before the catalog loads (read and inferred, not run). Task 4 fixes the half that marked such a row `unpriced` for good.
 - Anything under "Open with the owner". No task is written for a row there until he answers it. A row in group A that he accepts joins the branch of Tasks 2 to 8 as one more commit, or goes to `main` as docs.
 
