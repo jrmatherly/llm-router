@@ -7,16 +7,20 @@ import { removeTestDir, testTempRoot } from "../../support/test-temp-dir.mjs";
 const previousRuntimeEnv = {
   appData: process.env.LLMR_INTERNAL_APP_DATA_DIR,
   home: process.env.LLMR_INTERNAL_HOME_DIR,
+  modelCatalog: process.env.LLMR_MODEL_CATALOG_PATH,
   userData: process.env.LLMR_INTERNAL_USER_DATA_DIR
 };
 const runtimeRoot = mkdtempSync(path.join(testTempRoot, "llmr-request-log-retention-save-test-"));
 process.env.LLMR_INTERNAL_APP_DATA_DIR = path.join(runtimeRoot, "app-data");
 process.env.LLMR_INTERNAL_HOME_DIR = path.join(runtimeRoot, "home");
 process.env.LLMR_INTERNAL_USER_DATA_DIR = path.join(runtimeRoot, "user-data");
+// The management server downloads the model catalog at start. A local file keeps it offline.
+process.env.LLMR_MODEL_CATALOG_PATH = path.resolve("packages", "core", "models.json");
 
 after(() => {
   setOptionalEnv("LLMR_INTERNAL_APP_DATA_DIR", previousRuntimeEnv.appData);
   setOptionalEnv("LLMR_INTERNAL_HOME_DIR", previousRuntimeEnv.home);
+  setOptionalEnv("LLMR_MODEL_CATALOG_PATH", previousRuntimeEnv.modelCatalog);
   setOptionalEnv("LLMR_INTERNAL_USER_DATA_DIR", previousRuntimeEnv.userData);
   removeTestDir(runtimeRoot, ["config.sqlite"]);
 });

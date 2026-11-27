@@ -16,8 +16,10 @@ import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler";
 import { existingGatewayPredatesManagerKey, gatewayEndpointSilence, isAddressInUseMessage, probeExistingLlmrGateway, reloadExistingLlmrGatewayConfig } from "@llmr/core/gateway/existing-gateway-probe";
 import { closeServer, formatError, sendGatewayError } from "@llmr/core/gateway/http/io";
-import { RawTraceSynchronizer } from "@llmr/core/observability/raw-trace-sync";
+import { RawTraceSynchronizer, shouldRecordRequestLogs } from "@llmr/core/observability/raw-trace-sync";
+import { enqueueGatewayRequestLogPrices } from "@llmr/core/observability/request-log-store";
 import { GatewayBillingSynchronizer } from "@llmr/core/usage/billing-sync";
+import { connectUsagePricing } from "@llmr/core/usage/store";
 import { assertLoopbackCoreHost, endpoint, formatCoreGatewayChildExit, gatewayNetworkEndpoints, gatewayRuntimeSupportsRouterPlugin, generateCoreGatewayAuthToken, isCoreGatewayHealthy, loopbackCoreHostError, removeManagedCoreGatewayMarker, shouldRunGatewayRuntime, shouldRunUnifiedServer, spawnGatewayProcess, stopPreviousManagedCoreGateway, waitForCoreGatewayStop, waitForManagedCoreGatewayReady, writeManagedCoreGatewayMarker } from "@llmr/core/gateway/core-runtime/supervisor";
 import { coreGatewayAuthHeader } from "@llmr/core/gateway/internal/shared";
 import { foldChildRefusedKeyRequests, mergeChildRefusedKeyRequests, refusedKeyRequests } from "@llmr/core/gateway/auth/refused-key-requests";
@@ -31,7 +33,7 @@ import {
   type LlmrRefusedKeyRequestsMessage
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline";
-import { preloadUsagePriceCatalog } from "@llmr/core/models/pricing-service";
+import { preloadUsagePriceCatalog, resolveRequestPrice } from "@llmr/core/models/pricing-service";
 import { GatewayHttpRequestHandler } from "@llmr/core/gateway/http/request-handler";
 import { gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control";
 import { runtimeGatewayConfigSignature } from "@llmr/core/gateway/runtime-change";
@@ -169,6 +171,14 @@ class GatewayService {
   private storedApiKeysReloadFailure?: string;
   private storedApiKeysRetryAt = 0;
   private storedApiKeysTimer?: NodeJS.Timeout;
+
+  constructor() {
+    // With request logs off, an enqueue would start the writer thread and create the log database.
+    connectUsagePricing({
+      enqueueRequestLogPrices: (updates) => this.config && shouldRecordRequestLogs(this.config) ? enqueueGatewayRequestLogPrices(updates) : undefined,
+      resolvePrice: (provider, model) => resolveRequestPrice(this.config, provider, model)
+    });
+  }
 
   setBrowserWebSearchMcpIntegration(integration: BrowserWebSearchMcpIntegration): void {
     this.browserWebSearchMcpIntegration = integration;

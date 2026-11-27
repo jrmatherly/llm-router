@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { guardTestNetwork, isolateTestHome, refusalReport, refusedConnectionFailsRun, refusedConnections } from "./test-home-env.mjs";
+import { guardTestNetwork, isolateTestHome, refusalReport, refusedConnections } from "./test-home-env.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
@@ -61,10 +61,8 @@ async function runProject(project) {
         const refused = refusedConnections(networkLog);
         if (refused.length > 0) {
           console.log([`${project}: ${refusalReport(refused)}`, ...refused].join("\n"));
-          if (refusedConnectionFailsRun) {
-            reject(new Error(`${project} tests connected to an outside host`));
-            return;
-          }
+          reject(new Error(`${project} tests tried to reach an outside host`));
+          return;
         }
         if (signal) {
           reject(new Error(`${project} tests exited from signal ${signal}`));

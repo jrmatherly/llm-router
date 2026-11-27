@@ -12,7 +12,6 @@ import {
 } from "@llmr/core/observability/request-log-store";
 import { resolveRawTraceBodyLimit } from "@llmr/core/observability/request-log-limits";
 import { compactBase64ImagePayloads } from "@llmr/core/observability/request-log-body";
-import { preloadUsagePriceCatalog } from "@llmr/core/models/pricing-service";
 
 type RevivedRawTraceBody = RequestLogRawTraceFile & {
   text: string;
@@ -38,10 +37,7 @@ type WorkerMessage = {
 const configuration = workerData as WorkerConfiguration;
 const store = new RequestLogStore(configuration.dbFile);
 let chain = Promise.resolve();
-let pricingBackfillActive = false;
-let pricingRefreshPromise: Promise<void> | undefined;
 let queryRevision = -1;
-let shuttingDown = false;
 
 void store.initialize().then(() => {
   parentPort?.postMessage({ type: "ready" });
@@ -63,9 +59,8 @@ async function handleMessage(message: WorkerMessage): Promise<void> {
   if (message.type === "batch") {
     if (configuration.mode !== "writer") throw new Error("Query worker cannot process writes.");
     const commands = message.commands ?? [];
-    const result = await store.writeBatch(commands.map(reviveCommand));
+    await store.writeBatch(commands.map(reviveCommand));
     parentPort?.postMessage({ batchId: message.batchId, type: "ack" });
-    if (result.pricingRefreshNeeded) schedulePricingRefresh();
     return;
   }
 
@@ -101,7 +96,6 @@ async function handleMessage(message: WorkerMessage): Promise<void> {
       result = true;
       break;
     case "shutdown":
-      shuttingDown = true;
       await store.close();
       result = true;
       break;
@@ -112,45 +106,8 @@ async function handleMessage(message: WorkerMessage): Promise<void> {
   if (message.method === "shutdown") parentPort?.close();
 }
 
-function schedulePricingRefresh(): void {
-  if (shuttingDown || pricingRefreshPromise) return;
-  pricingRefreshPromise = preloadUsagePriceCatalog()
-    .then(() => {
-      if (shuttingDown) return;
-      schedulePricingBackfillPage();
-    })
-    .catch((error) => {
-      console.warn(`[request-log] Failed to refresh pricing catalog: ${formatError(error)}`);
-    })
-    .finally(() => {
-      pricingRefreshPromise = undefined;
-    });
-}
-
-function schedulePricingBackfillPage(beforeId?: number): void {
-  if (shuttingDown || (pricingBackfillActive && beforeId === undefined)) return;
-  pricingBackfillActive = true;
-  chain = chain.then(async () => {
-    if (shuttingDown) {
-      pricingBackfillActive = false;
-      return;
-    }
-    const page = await store.backfillMissingUsageCostsPage({ beforeId });
-    if (page.updated > 0) parentPort?.postMessage({ type: "maintenance", updated: page.updated });
-    if (page.nextBeforeId === undefined) {
-      pricingBackfillActive = false;
-      return;
-    }
-    // Yield between pages so normal log writes already queued by the parent can
-    // run before the next maintenance batch.
-    setImmediate(() => schedulePricingBackfillPage(page.nextBeforeId));
-  }).catch((error) => {
-    pricingBackfillActive = false;
-    console.warn(`[request-log] Failed to backfill usage costs: ${formatError(error)}`);
-  });
-}
-
 function reviveCommand(command: RequestLogStoreWriteCommand): RequestLogStoreWriteCommand {
+  if (command.kind === "price-update") return command;
   if (command.kind === "raw-trace-update") {
     const input = { ...command.input };
     const maxBodyBytes = resolveRawTraceBodyLimit(command.rawTraceFiles?.maxBodyBytes);

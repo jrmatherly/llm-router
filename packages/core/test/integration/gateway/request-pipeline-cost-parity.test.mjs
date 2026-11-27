@@ -2,14 +2,18 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { Readable, Writable } from "node:stream";
-import test, { mock } from "node:test";
+import test, { after, mock } from "node:test";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { REQUEST_LOGS_DB_FILE, USAGE_DB_FILE } from "@llmr/core/config/constants.ts";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
-import { preloadUsagePriceCatalog } from "@llmr/core/models/pricing-service.ts";
-import { closeRequestLogRuntime, flushRequestLogRuntime, requestLogRuntime } from "@llmr/core/observability/request-log-store.ts";
+import { preloadUsagePriceCatalog, resolveRequestPrice } from "@llmr/core/models/pricing-service.ts";
+import { closeRequestLogRuntime, enqueueGatewayRequestLogPrices, flushRequestLogRuntime, requestLogRuntime } from "@llmr/core/observability/request-log-store.ts";
 import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
+import { connectUsagePricing } from "@llmr/core/usage/store.ts";
+
+// A closed runtime stays closed, so it closes once, after every test here.
+after(() => closeRequestLogRuntime());
 
 // The base URL maps to models.dev's "deepseek" provider, whose price differs
 // from the maker's: only the pipeline's lookup uses that mapping.
@@ -110,6 +114,70 @@ test("one request through the pipeline stores the same cost and source in its lo
     await reload;
     mock.timers.reset();
     globalThis.fetch = previousFetch;
-    await closeRequestLogRuntime();
+  }
+});
+
+test("a request written while no price source is loaded gets the full rule's price in both rows once the catalog loads", async () => {
+  requestLogRuntime.options.workerFile = path.resolve(__dirname, "../../../runtime/request-log-worker.js");
+  const config = createDefaultAppConfig();
+  config.contextArchive.enabled = false;
+  config.observability = { ...config.observability, requestLogBodyCapture: "all", requestLogs: true, requestLogSuccessSampleRate: 1 };
+  config.Providers = [{ api_base_url: "https://api.deepseek.com", models: ["shared-model"], name: "DS", type: "anthropic_messages" }];
+
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error("offline"); };
+  await preloadUsagePriceCatalog({ forceRefresh: true });
+  // A failed source is retried after 5 minutes. Six minutes later the usage
+  // write sees a catalog due for a refresh and starts the sweep.
+  mock.timers.enable({ apis: ["Date"], now: Date.now() + 6 * 60 * 1000 });
+  connectUsagePricing({
+    enqueueRequestLogPrices: enqueueGatewayRequestLogPrices,
+    resolvePrice: (provider, model) => resolveRequestPrice(config, provider, model)
+  });
+  const servedCatalog = catalogFetch(modelsDev(3, 3));
+  const loads = [];
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    const catalog = await servedCatalog(input);
+    if (catalog) return catalog;
+    if (new URL(url).pathname.startsWith("/__llmr/")) return new Response(null, { status: 404 });
+    const body = JSON.stringify({ content: [{ text: "ok", type: "text" }], id: "msg", model: "shared-model", role: "assistant", type: "message", usage: { input_tokens: 1000, output_tokens: 100 } });
+    return new Response(body, { headers: { "content-type": "application/json", "x-gateway-target-provider-name": "DS" }, status: 200 });
+  };
+  const router = new LLMRouterPlugin(config);
+  const pipeline = new GatewayRequestPipeline({
+    getBrowserWebSearchMcpIntegration: () => undefined,
+    getConfig: () => config,
+    getCoreAuthToken: () => "test",
+    getPlugin: () => router,
+    getStatus: () => ({ coreEndpoint: "http://127.0.0.1:3457", endpoint: "http://127.0.0.1:3456" }),
+    refreshUsagePriceCatalog: () => { loads.push(preloadUsagePriceCatalog()); }
+  });
+  const earlier = new Set(readRows(USAGE_DB_FILE, "SELECT request_id FROM usage_events").map((row) => row.request_id));
+  const ownRows = (rows) => rows.filter((row) => !earlier.has(row.request_id));
+  try {
+    const request = Readable.from([Buffer.from(JSON.stringify({ messages: [{ content: "hi", role: "user" }], model: "DS/shared-model" }))]);
+    request.method = "POST";
+    request.url = "/v1/messages";
+    request.headers = { "content-type": "application/json" };
+    let status;
+    const response = new Writable({ write(_chunk, _encoding, done) { done(); } });
+    response.writeHead = (value) => { status = value; return response; };
+    await pipeline.proxyRequest(request, response, "/v1/messages");
+    assert.equal(status, 200);
+
+    const priced = (rows) => rows.length > 0 && rows[0].cost_usd !== null && rows;
+    const [usageRow] = await until(() => priced(ownRows(readRows(USAGE_DB_FILE, "SELECT cost_source, cost_usd, request_id FROM usage_events"))), "the usage row was not priced");
+    const [logRow] = await until(async () => {
+      await flushRequestLogRuntime(1_000);
+      return priced(ownRows(readRows(REQUEST_LOGS_DB_FILE, "SELECT cost_source, cost_usd, request_id FROM request_logs")));
+    }, "the log row was not priced");
+    assert.deepEqual(logRow, usageRow);
+    assert.equal(usageRow.cost_source, "models.dev");
+    assert.ok(Math.abs(usageRow.cost_usd - 0.0033) < 1e-12, `priced by the mapped provider, not the maker: ${usageRow.cost_usd}`);
+  } finally {
+    await Promise.all(loads);
+    mock.timers.reset();
+    globalThis.fetch = previousFetch;
   }
 });

@@ -173,7 +173,7 @@ test("under the runner a worker thread is refused too", { skip: underRunner ? fa
   assert.match(message, /test network guard: refused worker6\.invalid:443/);
 });
 
-test("the runner prints each suite's refusals with the file that made them", () => {
+test("the runner prints each suite's refusals with the file that made them, and fails", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "llmr-runner-copy-"));
   try {
     mkdirSync(path.join(root, "build"));
@@ -189,32 +189,40 @@ test("the runner prints each suite's refusals with the file that made them", () 
       delete env[name];
     }
     const result = spawnSync(process.execPath, [path.join(root, "build", "run-tests.mjs"), "cli"], { cwd: root, encoding: "utf8", env });
-    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /cli tests tried to reach an outside host/);
     assert.ok(result.stdout.includes(`cli: 1 connection to an outside host was refused\noutside.invalid:443\t${path.join(".test-dist", "cli", "test", "reach.test.js")}\n`), result.stdout);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
 });
 
-test("a direct run prints what it refused", () => {
+function runDirect(hosts) {
   const testHome = path.join(projectRoot, "build", "test-home.mjs");
-  const run = (hosts) => {
-    const env = { ...process.env };
-    for (const name of ["LLMR_TEST_HOME", "LLMR_TEST_NETWORK_LOG", "LLMR_TEST_FILE", "NODE_OPTIONS"]) {
-      delete env[name];
+  const env = { ...process.env };
+  for (const name of ["LLMR_TEST_HOME", "LLMR_TEST_NETWORK_LOG", "LLMR_TEST_FILE", "NODE_OPTIONS"]) {
+    delete env[name];
+  }
+  return spawnSync(process.execPath, ["--input-type=module", "-e", `
+    await import(${JSON.stringify(testHome)});
+    for (const host of ${JSON.stringify(hosts)}) {
+      try { await fetch("https://" + host + "/"); } catch {}
     }
-    return spawnSync(process.execPath, ["--input-type=module", "-e", `
-      await import(${JSON.stringify(testHome)});
-      for (const host of ${JSON.stringify(hosts)}) {
-        try { await fetch("https://" + host + "/"); } catch {}
-      }
-    `], { encoding: "utf8", env });
-  };
-  const one = run(["outside.invalid"]);
-  assert.equal(one.status, 0, one.stderr);
+  `], { encoding: "utf8", env });
+}
+
+test("a direct run that was refused a connection fails", () => {
+  const one = runDirect(["outside.invalid"]);
+  assert.equal(one.status, 1, one.stderr);
   assert.match(one.stderr, /1 connection to an outside host was refused/);
   assert.ok(one.stderr.includes("outside.invalid:443"), one.stderr);
-  const two = run(["one.invalid", "two.invalid"]);
-  assert.equal(two.status, 0, two.stderr);
+  const two = runDirect(["one.invalid", "two.invalid"]);
+  assert.equal(two.status, 1, two.stderr);
   assert.match(two.stderr, /2 connections to an outside host were refused/);
+});
+
+test("a direct run that made no outside connection passes", () => {
+  const none = runDirect([]);
+  assert.equal(none.status, 0, none.stderr);
+  assert.doesNotMatch(none.stderr, /outside host/);
 });

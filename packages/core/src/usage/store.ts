@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { decodeClaudeAppGatewayRouteId } from "@llmr/core/agents/claude-app/gateway-routes";
 import { REQUEST_LOGS_DB_FILE, USAGE_DB_FILE } from "@llmr/core/config/constants";
 import {
-  estimateUsageCostUsdFromLoadedCatalog,
+  estimateUsageCost,
   preloadUsagePriceCatalog,
   pricingForWrite,
   resolveRequestPrice,
@@ -16,6 +16,7 @@ import {
   type UsageCostEstimate,
   type UsageCostInput
 } from "@llmr/core/models/pricing-service";
+import type { RequestLogPriceUpdate } from "@llmr/core/observability/request-log-store";
 import { createBetterSqliteDatabase, type BetterSqliteDatabase } from "@llmr/core/storage/sqlite-native";
 import { normalizeUsageInputTokens } from "@llmr/core/usage/normalization";
 import { extractUsageFromBody, mergeUsageSnapshots } from "@llmr/core/usage/response-usage";
@@ -66,6 +67,7 @@ export type UsageEventInput = {
   modelIsRouteSelector?: boolean;
   path: string;
   price?: RequestPriceOutcome;
+  priceModel?: string;
   provider?: string;
   requestId?: string;
   statusCode: number;
@@ -107,6 +109,11 @@ type UsageStatsQueryOptions = {
 type UsageCostEstimator = (
   input: UsageCostInput
 ) => UsageCostEstimate | undefined | Promise<UsageCostEstimate | undefined>;
+
+type UsagePricingConnection = {
+  enqueueRequestLogPrices: (updates: RequestLogPriceUpdate[]) => unknown;
+  resolvePrice: (provider: string, model: string) => RequestPriceOutcome;
+};
 
 type UsageStoreOptions = {
   estimateCost?: UsageCostEstimator;
@@ -170,6 +177,7 @@ export class UsageStore {
   private initPromise?: Promise<SqlDatabase>;
   private readonly loadPriceCatalog: () => Promise<void>;
   private readonly priceCatalogNeedsRefresh: () => boolean;
+  private pricing?: UsagePricingConnection;
   private pricingSweep?: Promise<void>;
   private pricingSweepQueued = false;
   private readonly requestLogDbFile?: string;
@@ -178,10 +186,14 @@ export class UsageStore {
   private requestLogBackfillRetryAt = 0;
 
   constructor(private readonly dbFile: string, options: UsageStoreOptions = {}) {
-    this.estimateCost = options.estimateCost ?? estimateUsageCostUsdFromLoadedCatalog;
+    this.estimateCost = options.estimateCost ?? estimateUsageCost;
     this.loadPriceCatalog = options.loadPriceCatalog ?? preloadUsagePriceCatalog;
     this.priceCatalogNeedsRefresh = options.priceCatalogNeedsRefresh ?? usagePriceCatalogNeedsRefresh;
     this.requestLogDbFile = options.requestLogDbFile;
+  }
+
+  connectPricing(dependencies: UsagePricingConnection): void {
+    this.pricing = dependencies;
   }
 
   async record(event: UsageEventInput): Promise<void> {
@@ -199,6 +211,7 @@ export class UsageStore {
     const model = normalizeLabel(route.model ?? event.model, "unknown");
     const provider = normalizeLabel(event.provider ?? route.provider, "unknown");
     const logicalModel = normalizeLabel(event.logicalModel ?? event.model, model);
+    const priceModel = normalizeLabel(event.priceModel, "");
     const credentialId = normalizeLabel(event.credentialId, "");
     const explicitCost = normalizeOptionalCost(event.costUsd);
     // Read before estimating: a catalog that lands in between must still sweep this row.
@@ -245,8 +258,9 @@ export class UsageStore {
         cost_usd,
         cost_source,
         forwarded_user_email,
-        forwarded_user_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        forwarded_user_id,
+        price_model
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     statement.run(
@@ -269,24 +283,35 @@ export class UsageStore {
       costUsd ?? null,
       costSource,
       event.forwardedUserEmail ?? "",
-      event.forwardedUserId ?? ""
+      event.forwardedUserId ?? "",
+      priceModel
     );
     usageEvents.emit("recorded");
-    if (costUsd === undefined && write.estimate && totalTokens > 0 && model !== "unknown" && catalogNeedsRefresh) {
+    if (costUsd === undefined && write.estimate && totalTokens > 0 && model !== "unknown" &&
+      (catalogNeedsRefresh || this.catalogLandedSince(event, provider, priceModel || model))) {
       this.priceUnpricedEventsAfterCatalogLoads(database);
     }
+  }
+
+  // The price was resolved before the row was written, so a catalog that landed
+  // in between leaves a "no-catalog" row that no due catalog would sweep.
+  private catalogLandedSince(event: UsageEventInput, provider: string, model: string): boolean {
+    return event.price?.state === "no-catalog" && this.pricing !== undefined &&
+      this.pricing.resolvePrice(provider, model).state !== "no-catalog";
   }
 
   // The remote price catalog can take seconds to load, so recording never
   // waits for it. A sweep after each load prices every recent row still missing
   // a cost, including rows left by an earlier run or a partial catalog.
   private priceUnpricedEventsAfterCatalogLoads(database: SqlDatabase): void {
+    const pricing = this.pricing;
+    if (!pricing) return;
     if (this.pricingSweep) {
       this.pricingSweepQueued = true;
       return;
     }
     this.pricingSweep = this.loadPriceCatalog()
-      .then(() => this.priceUnpricedEvents(database))
+      .then(() => this.priceUnpricedEvents(database, pricing))
       .catch((error) => {
         console.warn(`[usage] Failed to price usage events: ${formatError(error)}`);
       })
@@ -299,16 +324,17 @@ export class UsageStore {
       });
   }
 
-  private async priceUnpricedEvents(database: SqlDatabase): Promise<void> {
+  private async priceUnpricedEvents(database: SqlDatabase, pricing: UsagePricingConnection): Promise<void> {
     const since = new Date(Date.now() - unpricedUsageSweepWindowMs).toISOString();
     const update = database.prepare("UPDATE usage_events SET cost_usd = ?, cost_source = ? WHERE id = ? AND cost_usd IS NULL");
+    const markUnpriced = database.prepare(`UPDATE usage_events SET cost_source = '${unpricedCostSource}' WHERE id = ? AND cost_usd IS NULL`);
     let beforeId = Number.MAX_SAFE_INTEGER;
     let updated = 0;
     for (;;) {
       const rows = queryRows(
         database,
         `
-          SELECT id, cache_read_tokens, cache_write_tokens, input_tokens, model, output_tokens, provider
+          SELECT id, cache_read_tokens, cache_write_tokens, input_tokens, model, output_tokens, price_model, provider, request_id
           FROM usage_events
           WHERE id < ?
             AND created_at >= ?
@@ -320,21 +346,38 @@ export class UsageStore {
         `,
         [beforeId, since, unpricedUsageSweepPageSize]
       );
-      const costs: Array<[number, UsageCostEstimate]> = [];
+      const outcomes: Array<{ cost?: UsageCostEstimate; id: number; price: RequestLogPriceUpdate["price"]; requestId: string }> = [];
       for (const row of rows) {
+        const model = String(row.model ?? "");
+        const provider = String(row.provider ?? "");
+        const outcome = pricing.resolvePrice(provider, String(row.price_model ?? "") || model);
+        const base = { id: normalizeCount(row.id), requestId: String(row.request_id ?? "") };
+        if (outcome.state === "unpriced") {
+          outcomes.push({ ...base, price: outcome });
+          continue;
+        }
+        if (outcome.state !== "priced") continue;
         const cost = await this.estimateCost({
           cacheReadTokens: normalizeCount(row.cache_read_tokens),
           cacheWriteTokens: normalizeCount(row.cache_write_tokens),
           inputTokens: normalizeCount(row.input_tokens),
-          model: String(row.model ?? ""),
+          model,
           outputTokens: normalizeCount(row.output_tokens),
-          provider: String(row.provider ?? "")
+          pricing: outcome.price.pricing,
+          pricingSource: outcome.price.source,
+          provider
         });
-        if (cost) costs.push([normalizeCount(row.id), cost]);
+        if (cost) outcomes.push({ ...base, cost, price: outcome });
       }
+      const sent: RequestLogPriceUpdate[] = [];
       database.transaction(() => {
-        for (const [id, cost] of costs) updated += Number(update.run(cost.amountUsd, cost.source, id).changes);
+        for (const { cost, id, price, requestId } of outcomes) {
+          const changes = Number((cost ? update.run(cost.amountUsd, cost.source, id) : markUnpriced.run(id)).changes);
+          updated += changes;
+          if (changes > 0 && requestId) sent.push({ price, requestId });
+        }
       })();
+      if (sent.length > 0) pricing.enqueueRequestLogPrices(sent);
       if (rows.length < unpricedUsageSweepPageSize) break;
       beforeId = normalizeCount(rows[rows.length - 1]?.id);
       await new Promise((resolve) => setImmediate(resolve));
@@ -378,6 +421,7 @@ export class UsageStore {
       path: input.path,
       client: input.client,
       price: input.price ?? resolveRequestPrice(input.config, provider, target.model),
+      priceModel: target.model,
       provider,
       credentialId: readCredentialId(input.responseHeaders),
       requestId: input.requestId,
@@ -492,7 +536,8 @@ export class UsageStore {
         cost_usd REAL,
         cost_source TEXT NOT NULL DEFAULT '',
         forwarded_user_email TEXT NOT NULL DEFAULT '',
-        forwarded_user_id TEXT NOT NULL DEFAULT ''
+        forwarded_user_id TEXT NOT NULL DEFAULT '',
+        price_model TEXT NOT NULL DEFAULT ''
       );
       CREATE INDEX IF NOT EXISTS usage_events_created_at_idx ON usage_events(created_at);
       CREATE INDEX IF NOT EXISTS usage_events_model_idx ON usage_events(model);
@@ -626,6 +671,10 @@ export class UsageStore {
 
 export const usageStore = new UsageStore(USAGE_DB_FILE, { requestLogDbFile: REQUEST_LOGS_DB_FILE });
 
+export function connectUsagePricing(dependencies: Parameters<UsageStore["connectPricing"]>[0]): void {
+  usageStore.connectPricing(dependencies);
+}
+
 export function onUsageRecorded(listener: () => void): () => void {
   usageEvents.on("recorded", listener);
   return () => {
@@ -661,6 +710,9 @@ function ensureUsageSchema(database: SqlDatabase): void {
   }
   if (!columns.has("forwarded_user_id")) {
     database.exec("ALTER TABLE usage_events ADD COLUMN forwarded_user_id TEXT NOT NULL DEFAULT ''");
+  }
+  if (!columns.has("price_model")) {
+    database.exec("ALTER TABLE usage_events ADD COLUMN price_model TEXT NOT NULL DEFAULT ''");
   }
   database.exec("CREATE INDEX IF NOT EXISTS usage_events_client_idx ON usage_events(client)");
   database.exec("CREATE INDEX IF NOT EXISTS usage_events_created_at_idx ON usage_events(created_at)");

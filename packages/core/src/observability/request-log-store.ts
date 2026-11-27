@@ -6,14 +6,13 @@ import { StringDecoder } from "node:string_decoder";
 import { REQUEST_LOG_BODIES_DIR, REQUEST_LOGS_DB_FILE } from "@llmr/core/config/constants";
 import { decodeClaudeAppGatewayRouteId } from "@llmr/core/agents/claude-app/gateway-routes";
 import {
-  estimateUsageCostUsd,
-  estimateUsageCostUsdFromLoadedCatalog,
+  estimateUsageCost,
   hasCompleteProviderModelPricing,
   parseUsagePricingSource,
   pricingForWrite,
   unpricedCostSource,
-  usagePriceCatalogNeedsRefresh,
   type RequestPriceOutcome,
+  type ResolvedModelPrice,
   type UsagePricingSource
 } from "@llmr/core/models/pricing-service";
 import { createBetterSqliteDatabase, type BetterSqliteDatabase, type BetterSqliteStatement } from "@llmr/core/storage/sqlite-native";
@@ -228,16 +227,14 @@ export type RequestLogStoreWriteCommand = {
   input: RequestLogRawTraceUpdateInput;
   kind: "raw-trace-update";
   rawTraceFiles?: RequestLogRawTraceFiles;
+} | {
+  input: RequestLogPriceUpdate[];
+  kind: "price-update";
 });
 
-export type RequestLogCostBackfillPage = {
-  nextBeforeId?: number;
-  scanned: number;
-  updated: number;
-};
-
-export type RequestLogStoreWriteResult = {
-  pricingRefreshNeeded: boolean;
+export type RequestLogPriceUpdate = {
+  price: { price: ResolvedModelPrice; state: "priced" } | { state: "unpriced" };
+  requestId: string;
 };
 
 type StoredRequestLogEntry = {
@@ -495,12 +492,10 @@ export class RequestLogStore {
     database?.close();
   }
 
-  async writeBatch(commands: RequestLogStoreWriteCommand[]): Promise<RequestLogStoreWriteResult> {
-    if (commands.length === 0) return { pricingRefreshNeeded: false };
+  async writeBatch(commands: RequestLogStoreWriteCommand[]): Promise<void> {
+    if (commands.length === 0) return;
     const database = await this.getDatabase();
     const orderedCommands = [...commands].sort((left, right) => left.sequence - right.sequence);
-    const pricingRefreshNeeded = batchNeedsUsagePricing(database, orderedCommands) &&
-      usagePriceCatalogNeedsRefresh();
     this.pruneOldRequestLogs(database);
     database.exec("BEGIN IMMEDIATE");
     try {
@@ -522,7 +517,14 @@ export class RequestLogStore {
                 rememberProcessedRawTraceBundle(database, pending.bundleId, requestId);
               }
             }
+            const parkedPrice = this.takePendingPrice(database, requestId);
+            if (parkedPrice) this.applyPriceUpdate(database, { price: parkedPrice, requestId });
           }
+          continue;
+        }
+        if (command.kind === "price-update") {
+          for (const update of command.input) this.applyPriceUpdate(database, update);
+          prunePendingRawTraceUpdates(database, Date.now(), this.bodyDir);
           continue;
         }
         const bundleId = command.input.bundleId?.trim();
@@ -531,6 +533,8 @@ export class RequestLogStore {
         }
         if (command.input.allowStandaloneRecord && !hasRequestLogWithRequestId(database, command.input.requestId.trim())) {
           await this.record(standaloneRecordInputFromRawTrace(command.input, command.rawTraceFiles));
+          const parkedPrice = this.takePendingPrice(database, command.input.requestId.trim());
+          if (parkedPrice) this.applyPriceUpdate(database, { price: parkedPrice, requestId: command.input.requestId.trim() });
           if (bundleId) {
             rememberProcessedRawTraceBundle(database, bundleId, command.input.requestId.trim());
           }
@@ -546,84 +550,11 @@ export class RequestLogStore {
       }
       database.exec("COMMIT");
       flushRequestLogBodyDeletes(database, this.bodyDir);
-      return { pricingRefreshNeeded };
     } catch (error) {
       if (database.inTransaction) database.exec("ROLLBACK");
       flushRequestLogBodyDeletes(database, this.bodyDir);
       throw error;
     }
-  }
-
-  async backfillMissingUsageCosts(limit = 1_000): Promise<number> {
-    let beforeId: number | undefined;
-    let updated = 0;
-    do {
-      const page = await this.backfillMissingUsageCostsPage({ beforeId, limit });
-      updated += page.updated;
-      beforeId = page.nextBeforeId;
-    } while (beforeId !== undefined);
-    return updated;
-  }
-
-  async backfillMissingUsageCostsPage(options: {
-    beforeId?: number;
-    limit?: number;
-  } = {}): Promise<RequestLogCostBackfillPage> {
-    const database = await this.getDatabase();
-    const limit = Math.max(1, Math.floor(options.limit ?? 1_000));
-    const beforeId = options.beforeId === undefined
-      ? undefined
-      : Math.max(1, Math.floor(options.beforeId));
-    const rows = queryRows(
-      database,
-      `
-        SELECT
-          id,
-          cache_read_tokens,
-          cache_write_tokens,
-          input_tokens,
-          model,
-          output_tokens,
-          cost_source,
-          pricing_json,
-          provider
-        FROM request_logs
-        WHERE cost_usd IS NULL
-          AND cost_source <> '${unpricedCostSource}'
-          AND (cache_read_tokens + cache_write_tokens + input_tokens + output_tokens) > 0
-          ${beforeId === undefined ? "" : "AND id < ?"}
-        ORDER BY id DESC
-        LIMIT ?
-      `,
-      beforeId === undefined ? [limit] : [beforeId, limit]
-    );
-    const update = database.prepare("UPDATE request_logs SET cost_usd = ?, cost_source = ? WHERE id = ? AND cost_usd IS NULL");
-    let updated = 0;
-    database.transaction(() => {
-      for (const row of rows) {
-        const cost = estimateUsageCostUsdFromLoadedCatalog({
-          cacheReadTokens: normalizeCount(row.cache_read_tokens),
-          cacheWriteTokens: normalizeCount(row.cache_write_tokens),
-          inputTokens: normalizeCount(row.input_tokens),
-          model: String(row.model ?? ""),
-          outputTokens: normalizeCount(row.output_tokens),
-          pricing: parseStoredModelPricing(row.pricing_json),
-          pricingSource: parseUsagePricingSource(row.cost_source),
-          provider: String(row.provider ?? "")
-        });
-        if (!cost) continue;
-        updated += Number(update.run(cost.amountUsd, cost.source, normalizeCount(row.id)).changes);
-      }
-    })();
-    if (updated > 0) this.revision += 1;
-    const lastId = rows.length === limit
-      ? normalizeCount(rows[rows.length - 1]?.id)
-      : 0;
-    return {
-      ...(lastId > 0 ? { nextBeforeId: lastId } : {}),
-      scanned: rows.length,
-      updated
-    };
   }
 
   async record(input: RequestLogRecordInput): Promise<void> {
@@ -703,11 +634,7 @@ export class RequestLogStore {
       pricingSource,
       provider: providerName
     };
-    const cost = !write.estimate
-      ? undefined
-      : database.inTransaction
-        ? estimateUsageCostUsdFromLoadedCatalog(costInput)
-        : await estimateUsageCostUsd(costInput);
+    const cost = write.estimate ? estimateUsageCost(costInput) : undefined;
     const ownsBodyTransaction = !database.inTransaction;
     if (ownsBodyTransaction) database.exec("BEGIN IMMEDIATE");
     try {
@@ -1039,9 +966,9 @@ export class RequestLogStore {
         const provider = normalizeLabel(providerFromTrace ?? existingUsageContext.provider, "unknown");
         // Only a complete price stored with the row re-prices it. A price
         // resolved for the trace may differ from the one the usage row was
-        // written with, so any other row keeps its cost for the back-fill.
+        // written with, so any other row waits for the usage sweep's price update.
         const cost = hasCompleteProviderModelPricing(existingUsageContext.pricing)
-          ? estimateUsageCostUsdFromLoadedCatalog({
+          ? estimateUsageCost({
               cacheReadTokens,
               cacheWrite1hTokens,
               cacheWrite5mTokens,
@@ -1604,6 +1531,12 @@ export class RequestLogStore {
         update_json TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS request_log_pending_prices (
+        request_id TEXT PRIMARY KEY,
+        received_at INTEGER NOT NULL,
+        price_json TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS request_route_hops_request_idx
       ON request_route_hops(request_log_id, seq);
 
@@ -1754,6 +1687,57 @@ export class RequestLogStore {
     database.prepare("DELETE FROM request_log_pending_updates WHERE request_id = ?").run(requestId);
     const parsed = parseJson(String(row.update_json ?? ""));
     return isRecord(parsed) ? parsed as RequestLogRawTraceUpdateInput : undefined;
+  }
+
+  // A row with no cost and no source waits for this. With no row yet, the update
+  // is parked in a table, not memory: an acked command is never resent.
+  private applyPriceUpdate(database: SqlDatabase, update: RequestLogPriceUpdate): void {
+    const requestId = update.requestId.trim();
+    if (!requestId) return;
+    const rows = queryRows(
+      database,
+      "SELECT id, cache_read_tokens, cache_write_tokens, cost_source, cost_usd, input_tokens, model, output_tokens, provider FROM request_logs WHERE request_id = ?",
+      [requestId]
+    );
+    if (rows.length === 0) {
+      database.prepare(`
+        INSERT INTO request_log_pending_prices (request_id, received_at, price_json)
+        VALUES (?, ?, ?)
+        ON CONFLICT(request_id) DO UPDATE SET
+          received_at = excluded.received_at,
+          price_json = excluded.price_json
+      `).run(requestId, Date.now(), JSON.stringify(update.price));
+      return;
+    }
+    let changed = 0;
+    for (const row of rows.filter((candidate) => candidate.cost_usd === null && candidate.cost_source === "")) {
+      if (update.price.state === "unpriced") {
+        changed += Number(database.prepare("UPDATE request_logs SET cost_source = ? WHERE id = ?").run(unpricedCostSource, row.id).changes);
+        continue;
+      }
+      const { pricing, source } = update.price.price;
+      const cost = estimateUsageCost({
+        cacheReadTokens: normalizeCount(row.cache_read_tokens),
+        cacheWriteTokens: normalizeCount(row.cache_write_tokens),
+        inputTokens: normalizeCount(row.input_tokens),
+        model: String(row.model ?? ""),
+        outputTokens: normalizeCount(row.output_tokens),
+        pricing,
+        pricingSource: source,
+        provider: String(row.provider ?? "")
+      });
+      changed += Number(database.prepare("UPDATE request_logs SET cost_usd = ?, cost_source = ?, pricing_json = ? WHERE id = ?")
+        .run(cost?.amountUsd ?? null, source, JSON.stringify(pricing), row.id).changes);
+    }
+    if (changed > 0) this.revision += 1;
+  }
+
+  private takePendingPrice(database: SqlDatabase, requestId: string): RequestLogPriceUpdate["price"] | undefined {
+    const row = queryRows(database, "SELECT price_json FROM request_log_pending_prices WHERE request_id = ? LIMIT 1", [requestId])[0];
+    if (!row) return undefined;
+    database.prepare("DELETE FROM request_log_pending_prices WHERE request_id = ?").run(requestId);
+    const parsed = parseJson(String(row.price_json ?? ""));
+    return isRecord(parsed) ? parsed as RequestLogPriceUpdate["price"] : undefined;
   }
 
   private prepareRawTraceInput(
@@ -1966,6 +1950,10 @@ export function recordGatewayRequestLog(input: RequestLogRecordInput): RequestLo
 
 export function markGatewayRequestLogDropped(requestId: string, reason = "sampled"): void {
   requestLogRuntime.rejectRecord(requestId, reason);
+}
+
+export function enqueueGatewayRequestLogPrices(updates: RequestLogPriceUpdate[]): RequestLogEnqueueResult {
+  return requestLogRuntime.enqueuePriceUpdates(updates);
 }
 
 export function enqueueGatewayRequestLogFromRawTrace(
@@ -6110,6 +6098,8 @@ function prunePendingRawTraceUpdates(database: SqlDatabase, now: number, bodyDir
   );
   database.prepare("DELETE FROM request_log_pending_updates WHERE received_at < ?")
     .run(now - pendingRawTraceTtlMs);
+  database.prepare("DELETE FROM request_log_pending_prices WHERE received_at < ?")
+    .run(now - pendingRawTraceTtlMs);
   if (bodyDir) deleteRequestLogBodyRefs(database, bodyDir, bodyRefsFromPendingRawTraceRows(expiredRows));
   const rows = queryRows(
     database,
@@ -6264,56 +6254,6 @@ function headersToRecord(headers: Headers | HeaderRecord | undefined): HeaderRec
 function headerValue(headers: Record<string, string | string[]>, name: string): string | undefined {
   const value = headers[name.toLowerCase()];
   return Array.isArray(value) ? value[0] : value;
-}
-
-function batchNeedsUsagePricing(
-  database: SqlDatabase,
-  commands: RequestLogStoreWriteCommand[]
-): boolean {
-  for (const command of commands) {
-    // A price the main process resolved, or found none for, needs no catalog here.
-    const resolved = command.input.price !== undefined && command.input.price.state !== "no-catalog";
-    if (command.kind === "raw-trace-update") {
-      if (!resolved && rawTraceHasBillableUsage(command.input)) return true;
-      continue;
-    }
-    if (!resolved && recordHasBillableUsage(command.input)) return true;
-    const requestId = command.input.requestId?.trim();
-    if (!requestId) continue;
-    const row = queryRows(
-      database,
-      "SELECT update_json FROM request_log_pending_updates WHERE request_id = ? LIMIT 1",
-      [requestId]
-    )[0];
-    const pending = parseJson(String(row?.update_json ?? ""));
-    if (isRecord(pending) && rawTraceHasBillableUsage(pending as RequestLogRawTraceUpdateInput)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function recordHasBillableUsage(input: RequestLogRecordInput): boolean {
-  const bodyUsage = extractUsageFromBody(input.responseBodyText ?? "");
-  return hasBillableUsageComponents(
-    mergeUsageSnapshots(extractUsageFromBillingHeaders(input.responseHeaders), bodyUsage) ?? {}
-  );
-}
-
-function rawTraceHasBillableUsage(input: RequestLogRawTraceUpdateInput): boolean {
-  const bodyUsage = extractUsageFromBody(input.responseBodyText ?? "");
-  return hasBillableUsageComponents(
-    mergeUsageSnapshots(extractUsageFromBillingHeaders(input.responseHeaders), bodyUsage) ?? {}
-  );
-}
-
-function hasBillableUsageComponents(usage: UsageNumbers): boolean {
-  return normalizeCount(usage.inputTokens) +
-    normalizeCount(usage.outputTokens) +
-    normalizeCount(usage.cacheReadTokens) +
-    normalizeCount(usage.cacheWrite1hTokens) +
-    normalizeCount(usage.cacheWrite5mTokens) +
-    normalizeCount(usage.cacheWriteTokens) > 0;
 }
 
 function extractUsageFromBillingHeaders(headers: Headers | HeaderRecord | undefined): UsageNumbers | undefined {
