@@ -285,3 +285,97 @@ test("a log database with no resolved_model column is still copied into the tota
     assert.deepEqual({ ...(await store.getDatabase()).prepare("SELECT model, price_model FROM usage_events WHERE request_id = 'old-log'").get() }, { model: "known-model", price_model: "" });
   } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
 });
+
+test("a long prompt's log row whose tokens arrive after its price takes the tier its usage row takes, in every order of price update and trace", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-sweep-late-tokens-tier-"));
+  const logs = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
+  const usage = new UsageStore(path.join(dir, "usage.sqlite"), { loadPriceCatalog: async () => {}, priceCatalogNeedsRefresh: () => false });
+  try {
+    const tiered = {
+      price: {
+        pricing: { inputUsdPerMillionTokens: 1, outputUsdPerMillionTokens: 2 },
+        source: "models.dev",
+        tiers: [{ abovePromptTokens: 100_000, pricing: { inputUsdPerMillionTokens: 3, outputUsdPerMillionTokens: 6 } }]
+      },
+      state: "priced"
+    };
+    const longBody = '{"usage":{"input_tokens":150000,"output_tokens":0}}';
+    await usage.record({ ...event, price: tiered, requestId: "usage-row", usage: { inputTokens: 150_000 } });
+    const usageCost = (await usage.getDatabase()).prepare("SELECT cost_usd FROM usage_events WHERE request_id = 'usage-row'").get().cost_usd;
+    assert.ok(Math.abs(usageCost - 0.45) < 1e-12, "the usage row takes the tier");
+
+    const now = new Date().toISOString();
+    let sequence = 0;
+    const record = (requestId, price, responseBodyText) => ({
+      eventId: `${requestId}-event`,
+      input: { completedAt: now, durationMs: 1, method: "POST", model: "known-model", path: "/v1/messages", price, providerName: "alpha", requestBody: Buffer.from("{}"), requestHeaders: {}, requestId, responseBodyText, responseHeaders: {}, startedAt: now, statusCode: 200, url: "http://127.0.0.1:3456/v1/messages" },
+      kind: "record",
+      sequence: sequence += 1
+    });
+    const trace = (requestId) => ({ input: { requestId, responseBodyText: longBody }, kind: "raw-trace-update", sequence: sequence += 1 });
+    const priceUpdate = (requestId) => ({ input: [{ price: tiered, requestId }], kind: "price-update", sequence: sequence += 1 });
+
+    await logs.writeBatch([record("priced-no-tokens", tiered, "{}")]);
+    await logs.writeBatch([trace("priced-no-tokens")]);
+    await logs.writeBatch([record("waiting-no-tokens", { state: "no-catalog" }, "{}")]);
+    await logs.writeBatch([priceUpdate("waiting-no-tokens")]);
+    await logs.writeBatch([trace("waiting-no-tokens")]);
+    const shortBody = '{"usage":{"input_tokens":50000,"output_tokens":0}}';
+    await logs.writeBatch([record("update-then-trace", { state: "no-catalog" }, shortBody)]);
+    await logs.writeBatch([priceUpdate("update-then-trace")]);
+    await logs.writeBatch([trace("update-then-trace")]);
+    await logs.writeBatch([record("trace-then-update", { state: "no-catalog" }, shortBody)]);
+    await logs.writeBatch([trace("trace-then-update")]);
+    await logs.writeBatch([priceUpdate("trace-then-update")]);
+
+    const logCost = async (requestId) => (await logs.getDatabase()).prepare("SELECT cost_usd FROM request_logs WHERE request_id = ?").get(requestId).cost_usd;
+    const ids = ["priced-no-tokens", "waiting-no-tokens", "update-then-trace", "trace-then-update"];
+    const costs = Object.fromEntries(await Promise.all(ids.map(async (requestId) => [requestId, await logCost(requestId)])));
+    assert.deepEqual(costs, Object.fromEntries(ids.map((requestId) => [requestId, usageCost])));
+  } finally {
+    await logs.close();
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
+  }
+});
+
+test("a trace's cache reads count toward the tier, as they do for the usage row", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-sweep-cache-tier-"));
+  const logs = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
+  const usage = new UsageStore(path.join(dir, "usage.sqlite"), { loadPriceCatalog: async () => {}, priceCatalogNeedsRefresh: () => false });
+  try {
+    const tiered = { price: { pricing: { cacheReadUsdPerMillionTokens: 0.1, inputUsdPerMillionTokens: 1, outputUsdPerMillionTokens: 2 }, source: "models.dev", tiers: [{ abovePromptTokens: 100_000, pricing: { cacheReadUsdPerMillionTokens: 0.3, inputUsdPerMillionTokens: 3, outputUsdPerMillionTokens: 6 } }] }, state: "priced" };
+    await usage.record({ ...event, price: tiered, requestId: "usage-row", usage: { cacheReadTokens: 60_000, inputTokens: 60_000 } });
+    const usageCost = (await usage.getDatabase()).prepare("SELECT cost_usd FROM usage_events WHERE request_id = 'usage-row'").get().cost_usd;
+    const now = new Date().toISOString();
+    await logs.writeBatch([{ eventId: "e", input: { completedAt: now, durationMs: 1, method: "POST", model: "known-model", path: "/v1/messages", price: tiered, providerName: "alpha", requestBody: Buffer.from("{}"), requestHeaders: {}, requestId: "log-row", responseBodyText: "{}", responseHeaders: {}, startedAt: now, statusCode: 200, url: "http://127.0.0.1:3456/v1/messages" }, kind: "record", sequence: 1 }]);
+    await logs.writeBatch([{ input: { requestId: "log-row", responseBodyText: '{"usage":{"cache_read_input_tokens":60000,"input_tokens":60000,"output_tokens":0}}' }, kind: "raw-trace-update", sequence: 2 }]);
+    const logCost = (await logs.getDatabase()).prepare("SELECT cost_usd FROM request_logs WHERE request_id = 'log-row'").get().cost_usd;
+    assert.ok(Math.abs(logCost - usageCost) < 1e-12, `log ${logCost} usage ${usageCost}`);
+  } finally {
+    await logs.close();
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
+  }
+});
+
+test("a log row whose pricing_json is the old flat shape is re-priced by a trace at its stored price", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-sweep-old-flat-"));
+  const logs = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
+  try {
+    const now = new Date().toISOString();
+    await logs.writeBatch([{
+      eventId: "flat-event",
+      input: { completedAt: now, durationMs: 1, method: "POST", model: "known-model", path: "/v1/messages", price: { state: "no-catalog" }, providerName: "alpha", requestBody: Buffer.from("{}"), requestHeaders: {}, requestId: "flat", responseBodyText: "{}", responseHeaders: {}, startedAt: now, statusCode: 200, url: "http://127.0.0.1:3456/v1/messages" },
+      kind: "record",
+      sequence: 1
+    }]);
+    (await logs.getDatabase()).prepare("UPDATE request_logs SET cost_source = 'models.dev', pricing_json = ? WHERE request_id = 'flat'")
+      .run(JSON.stringify({ inputUsdPerMillionTokens: 3, outputUsdPerMillionTokens: 6 }));
+    await logs.writeBatch([{ input: { requestId: "flat", responseBodyText: '{"usage":{"input_tokens":150000,"output_tokens":0}}' }, kind: "raw-trace-update", sequence: 2 }]);
+    const row = { ...(await logs.getDatabase()).prepare("SELECT cost_source, cost_usd FROM request_logs WHERE request_id = 'flat'").get() };
+    assert.equal(row.cost_source, "models.dev");
+    assert.ok(Math.abs(row.cost_usd - 0.45) < 1e-12, `cost ${row.cost_usd}`);
+  } finally {
+    await logs.close();
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
+  }
+});
