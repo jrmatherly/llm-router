@@ -9,7 +9,9 @@ import {
   estimateUsageCost,
   hasCompleteProviderModelPricing,
   parseUsagePricingSource,
+  pricingForPrompt,
   pricingForWrite,
+  promptTokenCount,
   unpricedCostSource,
   type RequestPriceOutcome,
   type ResolvedModelPrice,
@@ -625,8 +627,9 @@ export class RequestLogStore {
     // the persisted header JSON remains redacted.
     const credentialInfo = readCredentialLogInfo(rawResponseHeaders, rawRequestHeaders);
     const write = pricingForWrite(input);
-    const pricing = write.estimate ? write.pricing : undefined;
-    const pricingSource = write.estimate ? write.pricingSource : undefined;
+    const price = write.estimate ? write.price : undefined;
+    const pricing = price && pricingForPrompt(price, promptTokenCount({ cacheReadTokens, cacheWriteTokens, inputTokens }));
+    const pricingSource = price?.source;
     const costInput = {
       cacheReadTokens,
       cacheWrite1hTokens,
@@ -1722,11 +1725,15 @@ export class RequestLogStore {
         changed += Number(database.prepare("UPDATE request_logs SET cost_source = ? WHERE id = ?").run(unpricedCostSource, row.id).changes);
         continue;
       }
-      const { pricing, source } = update.price.price;
-      const cost = estimateUsageCost({
+      const { source } = update.price.price;
+      const tokens = {
         cacheReadTokens: normalizeCount(row.cache_read_tokens),
         cacheWriteTokens: normalizeCount(row.cache_write_tokens),
-        inputTokens: normalizeCount(row.input_tokens),
+        inputTokens: normalizeCount(row.input_tokens)
+      };
+      const pricing = pricingForPrompt(update.price.price, promptTokenCount(tokens));
+      const cost = estimateUsageCost({
+        ...tokens,
         model: String(row.model ?? ""),
         outputTokens: normalizeCount(row.output_tokens),
         pricing,
