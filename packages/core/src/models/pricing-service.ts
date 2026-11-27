@@ -13,9 +13,13 @@ export type CompleteModelPricing = ProviderModelPricing & {
   outputUsdPerMillionTokens: number;
 };
 
+export type PriceTier = { abovePromptTokens: number; pricing: CompleteModelPricing };
+
 export type ResolvedModelPrice = {
   pricing: CompleteModelPricing;
   source: UsagePricingSource;
+  // Ascending by abovePromptTokens. A user price has none.
+  tiers?: PriceTier[];
 };
 
 // "unpriced": every catalog source loaded and none holds a price, so the usage
@@ -55,13 +59,14 @@ export const unpricedCostSource = "unpriced";
 
 export type WritePricing =
   | { estimate: false }
-  | { estimate: true; pricing?: ProviderModelPricing; pricingSource?: UsagePricingSource };
+  | { estimate: true; price?: ResolvedModelPrice };
 
 type CatalogEntry = {
   canonicalModelId?: string;
   model: string;
   pricing: CompleteModelPricing;
   source: CatalogPricingSource;
+  tiers?: PriceTier[];
 };
 
 type BareNameOffers = {
@@ -171,7 +176,7 @@ export function resolveRequestPrice(
     catalogProviderIdsForBaseUrl(provider?.baseurl || provider?.baseUrl || provider?.api_base_url)
   );
   if (entry) {
-    return { price: { pricing: entry.pricing, source: entry.source }, state: "priced" };
+    return { price: { pricing: entry.pricing, source: entry.source, ...(entry.tiers ? { tiers: entry.tiers } : {}) }, state: "priced" };
   }
   // "unpriced" is stored and never swept again, so it needs every source: a source that failed may hold the price.
   return Array.from(catalog.values()).some((source) => source.failed) ? { state: "no-catalog" } : { state: "unpriced" };
@@ -180,12 +185,21 @@ export function resolveRequestPrice(
 /** "no-catalog" leaves the row with no cost, for the usage sweep and its price update to price. */
 export function pricingForWrite(input: RequestPriceInput): WritePricing {
   if (input.price?.state === "priced") {
-    return { estimate: true, pricing: input.price.price.pricing, pricingSource: input.price.price.source };
+    return { estimate: true, price: input.price.price };
   }
   if (input.price?.state === "unpriced") {
     return { estimate: false };
   }
   return { estimate: true };
+}
+
+// A tier applies when the prompt is over its size, and prices the whole request.
+export function pricingForPrompt(price: ResolvedModelPrice, promptTokens: number): CompleteModelPricing {
+  return price.tiers?.findLast((tier) => promptTokens > tier.abovePromptTokens)?.pricing ?? price.pricing;
+}
+
+export function promptTokenCount(usage: { cacheReadTokens?: number; cacheWriteTokens?: number; inputTokens?: number }): number {
+  return normalizeCount(usage.cacheReadTokens) + normalizeCount(usage.cacheWriteTokens) + normalizeCount(usage.inputTokens);
 }
 
 export function parseUsagePricingSource(value: unknown): UsagePricingSource | undefined {
@@ -465,34 +479,43 @@ async function fetchLiteLlmPrices(): Promise<PriceIndex> {
     if (model === "sample_spec" || !isRecord(value)) {
       continue;
     }
-    const cacheWrite = firstNumber(value, [
+    const tiers = Object.keys(value).flatMap((field) => {
+      const thousands = /^input_cost_per_token_above_(\d+)k_tokens$/.exec(field)?.[1];
+      return thousands ? [{ pricing: liteLlmPricing(value, `_above_${thousands}k_tokens`), size: Number(thousands) * 1000 }] : [];
+    });
+    addCatalogEntry(index, normalizeKey(model), model, "litellm", liteLlmPricing(value), undefined, tiers);
+  }
+  return index;
+}
+
+// A suffix such as "_above_200k_tokens" reads a long-prompt tier's fields.
+function liteLlmPricing(value: Record<string, unknown>, suffix = ""): ProviderModelPricing {
+  const read = (fields: string[]) => perMillion(firstNumber(value, fields.map((field) => `${field}${suffix}`)));
+  return {
+    cacheReadUsdPerMillionTokens: read([
+      "cache_read_input_token_cost",
+      "input_cache_read_cost_per_token",
+      "cache_read_cost_per_token"
+    ]),
+    cacheWrite1hUsdPerMillionTokens: read([
+      "cache_creation_input_token_cost_above_1hr",
+      "input_cache_write_1h"
+    ]),
+    cacheWriteUsdPerMillionTokens: read([
       "cache_creation_input_token_cost",
       "input_cache_write_cost_per_token",
       "cache_write_cost_per_token"
-    ]);
-    addCatalogEntry(index, normalizeKey(model), model, "litellm", {
-      cacheReadUsdPerMillionTokens: perMillion(firstNumber(value, [
-        "cache_read_input_token_cost",
-        "input_cache_read_cost_per_token",
-        "cache_read_cost_per_token"
-      ])),
-      cacheWrite1hUsdPerMillionTokens: perMillion(firstNumber(value, [
-        "cache_creation_input_token_cost_above_1hr",
-        "input_cache_write_1h"
-      ])),
-      cacheWriteUsdPerMillionTokens: perMillion(cacheWrite),
-      inputUsdPerMillionTokens: perMillion(firstNumber(value, [
-        "input_cost_per_token",
-        "prompt_cost_per_token"
-      ])),
-      outputUsdPerMillionTokens: perMillion(firstNumber(value, [
-        "output_cost_per_token",
-        "completion_cost_per_token",
-        "output_cost_per_reasoning_token"
-      ]))
-    });
-  }
-  return index;
+    ]),
+    inputUsdPerMillionTokens: read([
+      "input_cost_per_token",
+      "prompt_cost_per_token"
+    ]),
+    outputUsdPerMillionTokens: read([
+      "output_cost_per_token",
+      "completion_cost_per_token",
+      "output_cost_per_reasoning_token"
+    ])
+  };
 }
 
 async function fetchModelsDevPrices(): Promise<PriceIndex> {
@@ -519,17 +542,25 @@ async function fetchModelsDevPrices(): Promise<PriceIndex> {
       if (canonicalModelId) offers.canonicalIds.add(canonicalModelId);
       index.byBareName.set(bare, offers);
       const cost = isRecord(model.cost) ? model.cost : {};
-      addCatalogEntry(index, key, readString(model.id) || modelKey, "models.dev", {
-        cacheReadUsdPerMillionTokens: readNumber(cost.cache_read),
-        cacheWrite1hUsdPerMillionTokens: readNumber(cost.cache_write_1h),
-        cacheWrite5mUsdPerMillionTokens: readNumber(cost.cache_write_5m),
-        cacheWriteUsdPerMillionTokens: readNumber(cost.cache_write),
-        inputUsdPerMillionTokens: readNumber(cost.input),
-        outputUsdPerMillionTokens: readNumber(cost.output)
-      }, canonicalModelId);
+      const tiers = (Array.isArray(cost.tiers) ? cost.tiers : []).filter(isRecord).map((tier) => ({
+        pricing: modelsDevPricing(tier),
+        size: readNumber(isRecord(tier.tier) ? tier.tier.size : undefined)
+      }));
+      addCatalogEntry(index, key, readString(model.id) || modelKey, "models.dev", modelsDevPricing(cost), canonicalModelId, tiers);
     }
   }
   return index;
+}
+
+function modelsDevPricing(cost: Record<string, unknown>): ProviderModelPricing {
+  return {
+    cacheReadUsdPerMillionTokens: readNumber(cost.cache_read),
+    cacheWrite1hUsdPerMillionTokens: readNumber(cost.cache_write_1h),
+    cacheWrite5mUsdPerMillionTokens: readNumber(cost.cache_write_5m),
+    cacheWriteUsdPerMillionTokens: readNumber(cost.cache_write),
+    inputUsdPerMillionTokens: readNumber(cost.input),
+    outputUsdPerMillionTokens: readNumber(cost.output)
+  };
 }
 
 async function fetchOpenRouterPrices(): Promise<PriceIndex> {
@@ -567,11 +598,10 @@ function addCatalogEntry(
   model: string,
   source: ModelPricingSource,
   candidate: ProviderModelPricing,
-  canonicalModelId?: string
+  canonicalModelId?: string,
+  tierCandidates: Array<{ pricing: ProviderModelPricing; size: number | undefined }> = []
 ): void {
-  const pricing = Object.fromEntries(
-    Object.entries(candidate).filter(([, value]) => value !== undefined)
-  ) as ProviderModelPricing;
+  const pricing = definedPrices(candidate);
   if (
     !key ||
     !hasCompleteProviderModelPricing(pricing) ||
@@ -579,7 +609,23 @@ function addCatalogEntry(
   ) {
     return;
   }
-  index.byKey.set(key, { ...(canonicalModelId ? { canonicalModelId } : {}), model: model.trim(), pricing, source });
+  // A tier's own fields overlay the base entry's, so a tier with no cache price keeps the base one.
+  const tiers = tierCandidates
+    .filter(({ pricing: tier, size }) => size !== undefined && size > 0 &&
+      (tier.inputUsdPerMillionTokens !== undefined || tier.outputUsdPerMillionTokens !== undefined))
+    .map(({ pricing: tier, size }) => ({ abovePromptTokens: size as number, pricing: { ...pricing, ...definedPrices(tier) } }))
+    .sort((left, right) => left.abovePromptTokens - right.abovePromptTokens);
+  index.byKey.set(key, {
+    ...(canonicalModelId ? { canonicalModelId } : {}),
+    model: model.trim(),
+    pricing,
+    source,
+    ...(tiers.length > 0 ? { tiers } : {})
+  });
+}
+
+function definedPrices(candidate: ProviderModelPricing): ProviderModelPricing {
+  return Object.fromEntries(Object.entries(candidate).filter(([, value]) => value !== undefined)) as ProviderModelPricing;
 }
 
 // Guesses the maker from the provider's name, for a provider whose base URL maps to no catalog id.

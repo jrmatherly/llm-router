@@ -5,6 +5,8 @@ import {
   estimateUsageCost,
   parseUsagePricingSource,
   preloadUsagePriceCatalog,
+  pricingForPrompt,
+  promptTokenCount,
   providerModelPricingForUsage,
   resolveRequestPrice,
   usagePriceCatalogStatus
@@ -616,4 +618,58 @@ test("a total's basis is unknown with nothing priced, an estimate with any appro
 
 test("a user price of 0 beside an unpriced request makes an estimate, not an unknown", () => {
   assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 1 }), "estimate");
+});
+
+const tieredHaiku = {
+  anthropic: { models: { "claude-haiku-5-5": {
+    cost: {
+      cache_read: 0.01, input: 0.1, output: 0.5,
+      tiers: [{ cache_read: 0.05, input: 0.5, output: 2.5, tier: { size: 100000, type: "context" } }]
+    },
+    id: "claude-haiku-5-5"
+  } } }
+};
+
+test("a prompt over a tier's size is priced at the tier, and one at or under it at the base price", async () => {
+  await withPriceCatalogs({ modelsDev: tieredHaiku }, () => {
+    const outcome = resolveRequestPrice(customConfig, "VM Custom", "claude-haiku-5-5");
+    assert.deepEqual(outcome.price.tiers, [{
+      abovePromptTokens: 100000,
+      pricing: { cacheReadUsdPerMillionTokens: 0.05, inputUsdPerMillionTokens: 0.5, outputUsdPerMillionTokens: 2.5 }
+    }]);
+    const cost = (usage) => estimateUsageCost({
+      ...usage, model: "claude-haiku-5-5", outputTokens: 1000,
+      pricing: pricingForPrompt(outcome.price, promptTokenCount(usage)), pricingSource: outcome.price.source
+    }).amountUsd;
+    assert.ok(Math.abs(cost({ cacheReadTokens: 130_000, inputTokens: 20_000 }) - 0.019) < 1e-12);
+    assert.ok(Math.abs(cost({ cacheReadTokens: 30_000, inputTokens: 20_000 }) - 0.0028) < 1e-12);
+    assert.ok(Math.abs(cost({ cacheReadTokens: 80_000, inputTokens: 20_000 }) - 0.0033) < 1e-12, "exactly 100,000 is the base price");
+  });
+});
+
+test("a tier with no cache price keeps the base entry's cache price", async () => {
+  const modelsDev = { lab: { models: { m: { cost: { cache_read: 0.2, input: 1, output: 2, tiers: [{ input: 2, output: 4, tier: { size: 200000 } }] } } } } };
+  await withPriceCatalogs({ modelsDev }, () => {
+    const price = resolveRequestPrice({ Providers: [{ baseUrl: "https://api.example.com", models: ["m"], name: "Lab" }] }, "Lab", "lab/m").price;
+    assert.deepEqual(pricingForPrompt(price, 200_001), { cacheReadUsdPerMillionTokens: 0.2, inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 4 });
+  });
+});
+
+test("LiteLLM's above-N fields become tiers, ascending", async () => {
+  const liteLlm = { "tiered-model": {
+    input_cost_per_token: 0.000001, input_cost_per_token_above_200k_tokens: 0.000002, input_cost_per_token_above_272k_tokens: 0.000003,
+    output_cost_per_token: 0.000004, output_cost_per_token_above_200k_tokens: 0.000006
+  } };
+  await withPriceCatalogs({ liteLlm }, () => {
+    const price = resolveRequestPrice(customConfig, "VM Custom", "tiered-model").price;
+    assert.deepEqual(price.tiers.map((tier) => [tier.abovePromptTokens, tier.pricing.inputUsdPerMillionTokens, tier.pricing.outputUsdPerMillionTokens]), [[200000, 2, 6], [272000, 3, 4]]);
+  });
+});
+
+test("a user price has no tiers", async () => {
+  const pricing = { inputUsdPerMillionTokens: 9, outputUsdPerMillionTokens: 9 };
+  const config = { Providers: [{ ...customProvider, modelMetadata: { "claude-haiku-5-5": { pricing } } }] };
+  await withPriceCatalogs({ modelsDev: tieredHaiku }, () => {
+    assert.equal(resolveRequestPrice(config, "VM Custom", "claude-haiku-5-5").price.tiers, undefined);
+  });
 });

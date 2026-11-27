@@ -181,3 +181,102 @@ test("a request written while no price source is loaded gets the full rule's pri
     globalThis.fetch = previousFetch;
   }
 });
+
+// 150,000 prompt tokens over the tier's 100,000: 150,000 at $3 and 100 at $6 per million.
+const tieredModelsDev = {
+  deepseek: { models: { "shared-model": { cost: { input: 1, output: 2, tiers: [{ input: 3, output: 6, tier: { size: 100000, type: "context" } }] } } } }
+};
+const tieredCost = 0.4506;
+
+async function proxyLongPrompt(config, onRefresh) {
+  const servedCatalog = catalogFetch(tieredModelsDev);
+  globalThis.fetch = async (input) => {
+    const catalog = await servedCatalog(input);
+    if (catalog) return catalog;
+    if (new URL(String(input)).pathname.startsWith("/__llmr/")) return new Response(null, { status: 404 });
+    const body = JSON.stringify({ content: [{ text: "ok", type: "text" }], id: "msg", model: "shared-model", role: "assistant", type: "message", usage: { input_tokens: 150000, output_tokens: 100 } });
+    return new Response(body, { headers: { "content-type": "application/json", "x-gateway-target-provider-name": "DS" }, status: 200 });
+  };
+  const router = new LLMRouterPlugin(config);
+  const pipeline = new GatewayRequestPipeline({
+    getBrowserWebSearchMcpIntegration: () => undefined,
+    getConfig: () => config,
+    getCoreAuthToken: () => "test",
+    getPlugin: () => router,
+    getStatus: () => ({ coreEndpoint: "http://127.0.0.1:3457", endpoint: "http://127.0.0.1:3456" }),
+    refreshUsagePriceCatalog: onRefresh
+  });
+  const request = Readable.from([Buffer.from(JSON.stringify({ messages: [{ content: "hi", role: "user" }], model: "DS/shared-model" }))]);
+  request.method = "POST";
+  request.url = "/v1/messages";
+  request.headers = { "content-type": "application/json" };
+  let status;
+  const response = new Writable({ write(_chunk, _encoding, done) { done(); } });
+  response.writeHead = (value) => { status = value; return response; };
+  await pipeline.proxyRequest(request, response, "/v1/messages");
+  assert.equal(status, 200);
+}
+
+function longPromptConfig() {
+  requestLogRuntime.options.workerFile = path.resolve(__dirname, "../../../runtime/request-log-worker.js");
+  const config = createDefaultAppConfig();
+  config.contextArchive.enabled = false;
+  config.observability = { ...config.observability, requestLogBodyCapture: "all", requestLogs: true, requestLogSuccessSampleRate: 1 };
+  config.Providers = [{ api_base_url: "https://api.deepseek.com", models: ["shared-model"], name: "DS", type: "anthropic_messages" }];
+  return config;
+}
+
+async function pricedRows(earlier) {
+  const own = (rows) => rows.filter((row) => !earlier.has(row.request_id));
+  const priced = (rows) => rows.length > 0 && rows[0].cost_usd !== null && rows;
+  const [usageRow] = await until(() => priced(own(readRows(USAGE_DB_FILE, "SELECT cost_source, cost_usd, request_id FROM usage_events"))), "the usage row was not priced");
+  const [logRow] = await until(async () => {
+    await flushRequestLogRuntime(1_000);
+    return priced(own(readRows(REQUEST_LOGS_DB_FILE, "SELECT cost_source, cost_usd, request_id FROM request_logs")));
+  }, "the log row was not priced");
+  return { logRow, usageRow };
+}
+
+function earlierRequestIds() {
+  return new Set(readRows(USAGE_DB_FILE, "SELECT request_id FROM usage_events").map((row) => row.request_id));
+}
+
+test("a prompt over a catalog tier's size is priced at that tier in its log row and its usage row", async () => {
+  const config = longPromptConfig();
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = catalogFetch(tieredModelsDev);
+  await preloadUsagePriceCatalog({ forceRefresh: true });
+  const earlier = earlierRequestIds();
+  try {
+    await proxyLongPrompt(config, () => {});
+    const { logRow, usageRow } = await pricedRows(earlier);
+    assert.deepEqual(logRow, usageRow);
+    assert.ok(Math.abs(usageRow.cost_usd - tieredCost) < 1e-12, `priced at the tier: ${usageRow.cost_usd}`);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("a long prompt written before the catalog loads is priced at the tier by the sweep and the price update", async () => {
+  const config = longPromptConfig();
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error("offline"); };
+  await preloadUsagePriceCatalog({ forceRefresh: true });
+  mock.timers.enable({ apis: ["Date"], now: Date.now() + 6 * 60 * 1000 });
+  connectUsagePricing({
+    enqueueRequestLogPrices: enqueueGatewayRequestLogPrices,
+    resolvePrice: (provider, model) => resolveRequestPrice(config, provider, model)
+  });
+  const loads = [];
+  const earlier = earlierRequestIds();
+  try {
+    await proxyLongPrompt(config, () => { loads.push(preloadUsagePriceCatalog()); });
+    const { logRow, usageRow } = await pricedRows(earlier);
+    assert.deepEqual(logRow, usageRow);
+    assert.ok(Math.abs(usageRow.cost_usd - tieredCost) < 1e-12, `priced at the tier: ${usageRow.cost_usd}`);
+  } finally {
+    await Promise.all(loads);
+    mock.timers.reset();
+    globalThis.fetch = previousFetch;
+  }
+});

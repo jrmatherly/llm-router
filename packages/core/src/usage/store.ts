@@ -8,7 +8,9 @@ import { REQUEST_LOGS_DB_FILE, USAGE_DB_FILE } from "@llmr/core/config/constants
 import {
   estimateUsageCost,
   preloadUsagePriceCatalog,
+  pricingForPrompt,
   pricingForWrite,
+  promptTokenCount as tierPromptTokens,
   resolveRequestPrice,
   unpricedCostSource,
   usagePriceCatalogNeedsRefresh,
@@ -234,8 +236,8 @@ export class UsageStore {
           inputTokens,
           model,
           outputTokens,
-          pricing: write.pricing,
-          ...(write.pricingSource ? { pricingSource: write.pricingSource } : {}),
+          pricing: write.price && pricingForPrompt(write.price, tierPromptTokens({ cacheReadTokens, cacheWriteTokens, inputTokens })),
+          ...(write.price ? { pricingSource: write.price.source } : {}),
           provider
         })
       : undefined;
@@ -365,13 +367,16 @@ export class UsageStore {
           continue;
         }
         if (outcome.state !== "priced") continue;
-        const cost = await this.estimateCost({
+        const tokens = {
           cacheReadTokens: normalizeCount(row.cache_read_tokens),
           cacheWriteTokens: normalizeCount(row.cache_write_tokens),
-          inputTokens: normalizeCount(row.input_tokens),
+          inputTokens: normalizeCount(row.input_tokens)
+        };
+        const cost = await this.estimateCost({
+          ...tokens,
           model,
           outputTokens: normalizeCount(row.output_tokens),
-          pricing: outcome.price.pricing,
+          pricing: pricingForPrompt(outcome.price, tierPromptTokens(tokens)),
           pricingSource: outcome.price.source,
           provider
         });
