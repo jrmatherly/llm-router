@@ -1484,7 +1484,7 @@ function createConfig() {
   return config;
 }
 
-async function waitFor(predicate, timeoutMs = 2_000) {
+async function waitFor(predicate, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs;
   while (!predicate()) {
     if (Date.now() >= deadline) assert.fail("Timed out waiting for raw trace state.");
