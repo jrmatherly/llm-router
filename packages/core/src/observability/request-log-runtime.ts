@@ -328,8 +328,12 @@ export class RequestLogRuntime {
 
   async list(filter?: RequestLogListFilter): Promise<RequestLogPage> {
     const page = await this.query<RequestLogPage>("list", [filter]);
-    // Requested against saved, not against the database: another process may write its own value there.
-    if (this.requestedRetentionDays !== undefined && this.requestedRetentionDays !== this.savedRetentionDays) {
+    // Against saved too, not only the database: another process may write its own value there.
+    if (
+      this.requestedRetentionDays !== undefined &&
+      this.requestedRetentionDays !== this.savedRetentionDays &&
+      this.requestedRetentionDays !== page.retentionDays
+    ) {
       return { ...page, retentionRequestedDays: this.requestedRetentionDays };
     }
     return page;
