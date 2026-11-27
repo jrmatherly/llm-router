@@ -290,6 +290,8 @@ export const claudeAppsGatewayIdentityHeaderNames = new Set([
   "x-litellm-end-user-id"
 ]);
 
+export const clientDisplayNameHeaderNames = ["x-llmr-client", "x-client-name"] as const;
+
 export const proxyHeaderDenyList = new Set(["connection", coreGatewayAuthHeader, "host", "upgrade"]);
 
 export const responseHeaderDenyList = new Set(["connection", "content-encoding", "transfer-encoding"]);

@@ -59,6 +59,8 @@ export type UsageEventInput = {
   createdAt?: string;
   credentialId?: string;
   durationMs: number;
+  forwardedUserEmail?: string;
+  forwardedUserId?: string;
   logicalModel?: string;
   method: string;
   model?: string;
@@ -80,6 +82,8 @@ export type UsageCaptureInput = {
   createdAt?: string;
   durationMs: number;
   fallbackModel?: string;
+  forwardedUserEmail?: string;
+  forwardedUserId?: string;
   method: string;
   path: string;
   // Resolved once by the caller and shared with the request log write.
@@ -246,8 +250,10 @@ export class UsageStore {
         cache_write_tokens,
         total_tokens,
         cost_usd,
-        cost_source
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        cost_source,
+        forwarded_user_email,
+        forwarded_user_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     statement.run(
@@ -268,7 +274,9 @@ export class UsageStore {
       cacheWriteTokens,
       totalTokens,
       costUsd ?? null,
-      costSource
+      costSource,
+      event.forwardedUserEmail ?? "",
+      event.forwardedUserId ?? ""
     );
     usageEvents.emit("recorded");
     if (costUsd === undefined && write.estimate && totalTokens > 0 && model !== "unknown" && catalogNeedsRefresh) {
@@ -368,6 +376,8 @@ export class UsageStore {
     await this.record({
       createdAt: input.createdAt,
       durationMs: input.durationMs,
+      forwardedUserEmail: input.forwardedUserEmail,
+      forwardedUserId: input.forwardedUserId,
       method: input.method,
       logicalModel: fallbackAttribution.logicalModel ?? input.fallbackModel,
       model,
@@ -487,7 +497,9 @@ export class UsageStore {
         cache_write_tokens INTEGER NOT NULL DEFAULT 0,
         total_tokens INTEGER NOT NULL DEFAULT 0,
         cost_usd REAL,
-        cost_source TEXT NOT NULL DEFAULT ''
+        cost_source TEXT NOT NULL DEFAULT '',
+        forwarded_user_email TEXT NOT NULL DEFAULT '',
+        forwarded_user_id TEXT NOT NULL DEFAULT ''
       );
       CREATE INDEX IF NOT EXISTS usage_events_created_at_idx ON usage_events(created_at);
       CREATE INDEX IF NOT EXISTS usage_events_model_idx ON usage_events(model);
@@ -548,8 +560,9 @@ export class UsageStore {
     database.exec(`ATTACH DATABASE ${sqlString(requestLogDbFile)} AS request_log_source`);
     try {
       // A log database the request log writer has not opened since the column was added lacks it.
-      const hasCostSource = queryRows(database, "PRAGMA request_log_source.table_info(request_logs)")
-        .some((column) => column.name === "cost_source");
+      const sourceColumns = new Set(queryRows(database, "PRAGMA request_log_source.table_info(request_logs)").map((column) => column.name));
+      const hasCostSource = sourceColumns.has("cost_source");
+      const hasForwardedIdentity = sourceColumns.has("forwarded_user_email") && sourceColumns.has("forwarded_user_id");
       database.prepare(`
           INSERT INTO usage_events (
             created_at,
@@ -569,7 +582,9 @@ export class UsageStore {
             cache_write_tokens,
             total_tokens,
             cost_usd,
-            cost_source
+            cost_source,
+            forwarded_user_email,
+            forwarded_user_id
           )
           SELECT
             logs.created_at,
@@ -589,7 +604,9 @@ export class UsageStore {
             logs.cache_write_tokens,
             logs.total_tokens,
             logs.cost_usd,
-            ${hasCostSource ? "COALESCE(NULLIF(logs.cost_source, ''), 'request_log')" : "'request_log'"}
+            ${hasCostSource ? "COALESCE(NULLIF(logs.cost_source, ''), 'request_log')" : "'request_log'"},
+            ${hasForwardedIdentity ? "logs.forwarded_user_email" : "''"},
+            ${hasForwardedIdentity ? "logs.forwarded_user_id" : "''"}
           FROM request_log_source.request_logs AS logs
           WHERE logs.source_usage_id IS NULL
             AND logs.path NOT LIKE ?
@@ -645,6 +662,12 @@ function ensureUsageSchema(database: SqlDatabase): void {
   }
   if (!columns.has("credential_id")) {
     database.exec("ALTER TABLE usage_events ADD COLUMN credential_id TEXT NOT NULL DEFAULT ''");
+  }
+  if (!columns.has("forwarded_user_email")) {
+    database.exec("ALTER TABLE usage_events ADD COLUMN forwarded_user_email TEXT NOT NULL DEFAULT ''");
+  }
+  if (!columns.has("forwarded_user_id")) {
+    database.exec("ALTER TABLE usage_events ADD COLUMN forwarded_user_id TEXT NOT NULL DEFAULT ''");
   }
   database.exec("CREATE INDEX IF NOT EXISTS usage_events_client_idx ON usage_events(client)");
   database.exec("CREATE INDEX IF NOT EXISTS usage_events_created_at_idx ON usage_events(created_at)");

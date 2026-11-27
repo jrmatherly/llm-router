@@ -23,14 +23,14 @@ test("the refused key log keeps the newest five entries and counts every refusal
 test("the refused key log cuts the client label and the route, and drops the query string", () => {
   resetRefusedKeyRequestsForTest();
   recordRefusedKeyRequest({
-    headers: { "x-llmr-client": "c".repeat(70) },
+    headers: { "user-agent": "c".repeat(300), "x-llmr-client": "Spoof" },
     reason: "Invalid API key.",
     route: `/${"r".repeat(129)}?api_key=SECRET`
   });
   recordRefusedKeyRequest({ headers: {}, reason: "Invalid API key.", route: "/v1/remote?key=SECRET#frag" });
 
   const [queried, long] = refusedKeyRequests().recent;
-  assert.equal(long.client.length, 60);
+  assert.equal(long.client, "c".repeat(120));
   assert.equal(long.route.length, 120);
   assert.equal(queried.route, "/v1/remote");
   assert.doesNotMatch(JSON.stringify(refusedKeyRequests()), /SECRET/);
@@ -86,7 +86,7 @@ test("a child snapshot is bounded before it is held", () => {
     assert.equal(snapshot.recent.length, 5);
     for (const entry of snapshot.recent) {
       assert.ok(entry.route.length <= 120);
-      assert.ok(entry.client.length <= 60);
+      assert.equal(entry.client.length, 120);
       assert.equal(entry.reason.length, 120);
     }
   }

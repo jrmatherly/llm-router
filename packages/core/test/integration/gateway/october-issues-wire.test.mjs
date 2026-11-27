@@ -340,6 +340,190 @@ test("refused-key counts survive a killed core", { skip, timeout: 60000 }, async
   assert.equal(refusedKeyCount(service), before + 2);
 });
 
+const forwarderKey = { createdAt: new Date(0).toISOString(), id: "forwarder", key: "sk-wire-forwarder-0002", trustedForwarder: true };
+const markedProfileKey = { createdAt: new Date(0).toISOString(), id: "profile:codex", key: "sk-wire-profile-0003", trustedForwarder: true };
+
+for (const [name, layout] of [["single", "single"], ["compat", "compat"], ["single, logs off", "single"]]) {
+  test(`the client label follows the key's trusted forwarder mark (${name})`, { skip, timeout: 90000 }, async (t) => {
+    const logsOn = name !== "single, logs off";
+    const { port, service } = await startWireService(t, layout, (config) => {
+      config.APIKEYS.push(forwarderKey, markedProfileKey);
+      if (!logsOn) config.observability.requestLogs = false;
+    });
+    const modelFor = (kind) => `no-provider-${name.replaceAll(/\W+/g, "-")}-${kind}`;
+    const requests = [
+      ["marked", { authorization: "Bearer sk-wire-forwarder-0002", "x-claude-gateway-user-email": "dev@example.com" }, 400],
+      ["unmarked", { authorization: "Bearer sk-wire-key-0001", "x-auth-api-key-id": "forwarder", "x-auth-sub": "forwarder", "x-claude-gateway-user-email": "other@example.com" }, 400],
+      ["profile", { authorization: "Bearer sk-wire-profile-0003", "x-claude-gateway-user-email": "other@example.com" }, 400],
+      ["refused", { authorization: "Bearer sk-wrong-key-7777", "x-claude-gateway-user-email": "other@example.com", "x-llmr-client": "Spoof" }, 401]
+    ];
+    const before = refusedKeyCount(service);
+    for (const [kind, headers, status] of requests) {
+      const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+        body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model: modelFor(kind) }),
+        headers: { ...headers, "content-type": "application/json" },
+        method: "POST"
+      });
+      assert.equal(response.status, status, `${kind}: ${await response.text()}`);
+    }
+    const database = await usageStore.getDatabase();
+    const usageRows = (kind) => database.prepare("SELECT client FROM usage_events WHERE model = ?").all(modelFor(kind));
+    const expected = {
+      marked: layout === "compat" ? "forwarder" : "Node.js",
+      profile: layout === "compat" ? "profile:codex" : "Node.js",
+      unmarked: layout === "compat" ? "wire" : "Node.js"
+    };
+    for (const [kind, client] of Object.entries(expected)) {
+      await until(() => usageRows(kind).length > 0, 20000);
+      assert.deepEqual(usageRows(kind), [{ client }], kind);
+    }
+    let logRows = [];
+    if (logsOn) {
+      await until(async () => {
+        await flushRequestLogRuntime(1000);
+        logRows = (await requestLogRuntime.list({ pageSize: 200 })).items.filter((item) => Object.keys(expected).some((kind) => item.model === modelFor(kind)));
+        return Object.keys(expected).every((kind) => logRows.some((item) => item.model === modelFor(kind)));
+      }, 20000);
+      for (const row of logRows) assert.equal(row.client, expected[Object.keys(expected).find((kind) => row.model === modelFor(kind))], row.model);
+    }
+    await until(() => refusedKeyCount(service) === before + 1, 5000);
+    const { refusedForKey } = service.getStatus();
+    assert.equal(refusedForKey.recent[0].client, "Node.js");
+    assert.deepEqual(usageRows("refused"), []);
+    const stored = JSON.stringify([Object.keys(expected).map(usageRows), logRows, refusedForKey]);
+    for (const part of ["other@example.com", "Spoof"]) assert.equal(stored.includes(part), false, part);
+  });
+}
+
+for (const layout of ["single", "compat"]) {
+  test(`the client label holds for every source and caller (${layout})`, { skip, timeout: 120000 }, async (t) => {
+    const { port, service, upstreamHeaders } = await startWireService(t, layout, (config) => {
+      config.APIKEYS.push(
+        forwarderKey,
+        { ...markedProfileKey, name: "Profile: Codex" },
+        { createdAt: new Date(0).toISOString(), id: "long", key: "sk-wire-long-0004", name: "n".repeat(300) }
+      );
+    });
+    const keys = { forwarder: "sk-wire-forwarder-0002", long: "sk-wire-long-0004", "profile:codex": "sk-wire-profile-0003", wire: "sk-wire-key-0001", wrong: "sk-wrong-key-6666" };
+    const identity = (email) => ({ "x-claude-gateway-user-email": email, "x-claude-gateway-user-id": `id-of-${email}`, "x-litellm-end-user-id": email });
+    const forged = { "x-auth-api-key-id": "forwarder", "x-auth-sub": "forwarder" };
+    const single = layout === "single";
+    const cases = [
+      ["marked-identity", "forwarder", identity("dev@example.com"), single ? "Node.js" : "forwarder"],
+      ["marked-bare", "forwarder", {}, single ? "Node.js" : "forwarder"],
+      ["marked-display", "forwarder", { ...identity("dev@example.com"), "x-llmr-client": "Tool" }, "Tool"],
+      ["marked-litellm-only", "forwarder", { "x-litellm-end-user-id": "lite@example.com" }, single ? "Node.js" : "forwarder"],
+      ["marked-id-only", "forwarder", { "x-claude-gateway-user-id": "sub-123" }, single ? "Node.js" : "forwarder"],
+      ["marked-long-email", "forwarder", { "x-claude-gateway-user-email": `${"a".repeat(300)}@example.com` }, single ? "Node.js" : "forwarder"],
+      ["plain-forged", "wire", { ...forged, ...identity("other@example.com") }, single ? "Node.js" : "wire"],
+      ["plain-display", "wire", { "x-client-name": "MyTool" }, "MyTool"],
+      ["plain-long-display", "wire", { "x-llmr-client": "c".repeat(300) }, "c".repeat(120)],
+      ["plain-long-agent", "wire", { "user-agent": `${"u".repeat(300)}/1.0` }, single ? "u".repeat(120) : "wire"],
+      ["plain-cert", "wire", { "x-forwarded-client-cert": "By=spiffe://a;Hash=b" }, single ? "Node.js" : "wire"],
+      ["profile-marked", "profile:codex", identity("other@example.com"), single ? "Node.js" : "Profile: Codex"],
+      ["long-key-name", "long", {}, single ? "Node.js" : "n".repeat(120)],
+      ["refused", "wrong", { ...forged, ...identity("other@example.com"), "user-agent": `${"r".repeat(300)}/1.0`, "x-client-name": "Spoof", "x-forwarded-client-cert": "Spoof", "x-llmr-client": "Spoof" }],
+      ["missing", undefined, { ...forged, ...identity("other@example.com"), "x-llmr-client": "Spoof" }]
+    ];
+    const modelFor = (request) => `audit-${layout}-${request}`;
+    const send = async (key, headers, model) => {
+      const response = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+        body: JSON.stringify({ max_tokens: 16, messages: [{ content: "hi", role: "user" }], model }),
+        headers: { ...(key ? { authorization: `Bearer ${keys[key]}` } : {}), ...headers, "content-type": "application/json" },
+        method: "POST"
+      });
+      const text = await response.text();
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      return { status: response.status, text };
+    };
+    const before = refusedKeyCount(service);
+    for (const [request, key, headers, client] of cases) {
+      const { status, text } = await send(key, headers, modelFor(request));
+      assert.equal(status, client === undefined ? 401 : 400, `${request}: ${text}`);
+    }
+    const upstream = await send("forwarder", { ...identity("dev@example.com"), "client-cert": ":MIIB:", "x-client-name": "codex-cli" }, "Provider/native");
+    assert.equal(upstream.status, 200, upstream.text);
+
+    const database = await usageStore.getDatabase();
+    const usageRows = (request) => database.prepare("SELECT client FROM usage_events WHERE model = ?").all(modelFor(request));
+    const accepted = cases.filter(([, , , client]) => client !== undefined);
+    for (const [request, , , client] of accepted) {
+      await until(() => usageRows(request).length > 0, 20000);
+      assert.deepEqual(usageRows(request), [{ client }], request);
+    }
+    let logRows = [];
+    await until(async () => {
+      await flushRequestLogRuntime(1000);
+      logRows = (await requestLogRuntime.list({ pageSize: 500 })).items.filter((item) => item.model?.startsWith(`audit-${layout}-`) || item.model?.endsWith("native"));
+      return accepted.every(([request]) => logRows.some((item) => item.model === modelFor(request)));
+    }, 20000);
+    for (const [request, , , client] of accepted) {
+      for (const row of logRows.filter((item) => item.model === modelFor(request))) assert.equal(row.client, client, request);
+    }
+    for (const request of ["refused", "missing"]) {
+      assert.deepEqual(usageRows(request), [], request);
+      assert.equal(logRows.some((item) => item.model === modelFor(request)), false, request);
+    }
+    await until(() => refusedKeyCount(service) === before + 2, 5000);
+    const [newest, previous] = service.getStatus().refusedForKey.recent;
+    assert.equal(newest.client, "Node.js");
+    assert.equal(previous.client, "r".repeat(120));
+    if (!single) {
+      const forgedRow = logRows.find((item) => item.model === modelFor("plain-forged"));
+      for (const name of Object.keys(identity("x"))) assert.equal(forgedRow.requestHeaders[name], "[redacted]", name);
+    }
+    const details = await Promise.all(logRows.map((row) => requestLogRuntime.getDetail({ id: row.id })));
+    const stored = JSON.stringify([logRows, details]);
+    for (const part of ["other@example.com", "id-of-other", "Spoof"]) assert.equal(stored.includes(part), false, part);
+    for (const row of [...logRows, ...details]) {
+      assert.equal(JSON.stringify([row?.requestHeaders, row?.responseHeaders, row?.routeTrace]).includes("dev@example.com"), false, row?.model);
+    }
+    assert.equal(upstreamHeaders.length, 1);
+    assert.deepEqual(Object.keys(upstreamHeaders[0]).filter((header) => /claude-gateway|litellm|client-cert|x-client-name|x-auth|x-llmr/.test(header)), []);
+  });
+}
+
+for (const layout of ["single", "compat"]) {
+  test(`a request from a marked key is recorded under the developer's id and e-mail, and one from another key naming the same developer is not (${layout})`, { skip, timeout: 60000 }, async (t) => {
+    const { port } = await startWireService(t, layout, (config) => {
+      config.APIKEYS.push(forwarderKey);
+    });
+    const identity = { "x-claude-gateway-user-email": "dev@example.com", "x-claude-gateway-user-id": "sub-123", "x-litellm-end-user-id": "dev@example.com" };
+    const modelFor = (kind) => `forwarded-${layout}-${kind}`;
+    for (const [kind, key] of [["marked", "sk-wire-forwarder-0002"], ["plain", "sk-wire-key-0001"]]) {
+      const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+        body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model: modelFor(kind) }),
+        headers: { ...identity, authorization: `Bearer ${key}`, "content-type": "application/json" },
+        method: "POST"
+      });
+      assert.equal(response.status, 400, `${kind}: ${await response.text()}`);
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    }
+    const database = await usageStore.getDatabase();
+    const usageRows = (kind) => database.prepare("SELECT client, forwarded_user_email, forwarded_user_id FROM usage_events WHERE model = ?").all(modelFor(kind)).map((row) => ({ ...row }));
+    const expected = {
+      marked: { client: layout === "compat" ? "forwarder" : "Node.js", forwarded_user_email: "dev@example.com", forwarded_user_id: "sub-123" },
+      plain: { client: layout === "compat" ? "wire" : "Node.js", forwarded_user_email: "", forwarded_user_id: "" }
+    };
+    for (const [kind, row] of Object.entries(expected)) {
+      await until(() => usageRows(kind).length > 0, 20000);
+      assert.deepEqual(usageRows(kind), [row], kind);
+    }
+    let logRows = [];
+    await until(async () => {
+      await flushRequestLogRuntime(1000);
+      logRows = (await requestLogRuntime.list({ pageSize: 200 })).items.filter((item) => Object.keys(expected).some((kind) => item.model === modelFor(kind)));
+      return Object.keys(expected).every((kind) => logRows.some((item) => item.model === modelFor(kind)));
+    }, 20000);
+    for (const row of logRows) {
+      const marked = row.model === modelFor("marked");
+      assert.deepEqual([row.client, row.forwardedUserEmail, row.forwardedUserId], marked
+        ? [expected.marked.client, "dev@example.com", "sub-123"]
+        : [expected.plain.client, undefined, undefined], row.model);
+    }
+  });
+}
+
 function refusedKeyCount(service) {
   return service.getStatus().refusedForKey?.count ?? 0;
 }
@@ -350,7 +534,15 @@ async function startWireService(t, layout, configure) {
   requestLogRuntime.options.workerFile = path.resolve(__dirname, "../../../runtime/request-log-worker.js");
   const service = new gatewayService.constructor();
   const upstreamCalls = [];
-  const upstream = createServer((req, res) => { upstreamCalls.push(req.url); req.resume(); res.end("{}"); });
+  const upstreamHeaders = [];
+  const upstream = createServer((req, res) => {
+    upstreamCalls.push(req.url);
+    upstreamHeaders.push(req.headers);
+    req.resume();
+    if (!req.url?.endsWith("/v1/messages")) return res.end("{}");
+    res.setHeader("content-type", "application/json");
+    res.end(JSON.stringify({ content: [{ text: "ok", type: "text" }], id: "msg_wire", model: "native", role: "assistant", stop_reason: "end_turn", stop_sequence: null, type: "message", usage: { input_tokens: 1, output_tokens: 1 } }));
+  });
   t.after(async () => {
     await service.stop();
     await close(upstream);
@@ -376,7 +568,7 @@ async function startWireService(t, layout, configure) {
   const started = await service.start(config);
   assert.equal(started.state, "running", started.lastError);
   assert.equal(Boolean(service.server), layout === "compat");
-  return { port, service, upstreamCalls };
+  return { port, service, upstreamCalls, upstreamHeaders };
 }
 
 test("Codex requests reach the upstream unchanged when the login comes from the live hook", { skip, timeout: 30000 }, async (t) => {

@@ -259,3 +259,45 @@ test("a config load that fails with no stored key stores the key it hands out", 
     database.close();
   }
 });
+
+test("a trusted forwarder mark is stored with its key and survives a settings save and a key save from an older list", async () => {
+  const stale = await setKeys([retained, revoked]);
+  const marked = await configApi.saveApiKeysConfig([{ ...retained, trustedForwarder: true }, revoked], stale.APIKEYS);
+  assert.deepEqual(marked.APIKEYS, [{ ...retained, trustedForwarder: true }, revoked]);
+  await configApi.saveAppConfig({ ...marked, autoStart: !marked.autoStart });
+  const saved = await configApi.saveApiKeysConfig([retained, { ...revoked, name: "Edited" }], stale.APIKEYS);
+  assert.deepEqual(saved.APIKEYS, [{ ...retained, trustedForwarder: true }, { ...revoked, name: "Edited" }]);
+});
+
+test("switching the trusted forwarder mark off removes it from the stored key", async () => {
+  const marked = await setKeys([{ ...retained, trustedForwarder: true }]);
+  assert.deepEqual(marked.APIKEYS, [{ ...retained, trustedForwarder: true }]);
+  const saved = await configApi.saveApiKeysConfig([retained], marked.APIKEYS);
+  assert.deepEqual(saved.APIKEYS, [retained]);
+  assert.equal("trustedForwarder" in saved.APIKEYS[0], false);
+});
+
+test("a profile key is stored without the trusted forwarder mark", async () => {
+  const { loadPersistedApiKeys, updatePersistedApiKeys } = await import("@llmr/core/config/config-repository.ts");
+  const profileKey = { createdAt: "2026-01-01T00:00:00.000Z", id: "profile:codex", key: "profile-token" };
+  await updatePersistedApiKeys(() => [{ ...profileKey, trustedForwarder: true }, { ...retained, trustedForwarder: true }, { ...revoked, trustedForwarder: "yes" }]);
+  assert.deepEqual(await loadPersistedApiKeys(), [profileKey, { ...retained, trustedForwarder: true }, revoked]);
+});
+
+test("a settings save from a snapshot read before the mark was set keeps the mark", async () => {
+  const stale = await setKeys([retained, revoked]);
+  await configApi.saveApiKeysConfig([{ ...retained, trustedForwarder: true }, revoked], stale.APIKEYS);
+  const saved = await configApi.saveAppConfig({ ...stale, autoStart: !stale.autoStart });
+  assert.deepEqual(saved.APIKEYS, [{ ...retained, trustedForwarder: true }, revoked]);
+});
+
+test("a key in the config's own list brings its mark when it is first stored, a profile key does not, and a stored key takes no mark from it", async () => {
+  const { loadPersistedAppConfig, replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+  await setKeys([retained]);
+  const fromFile = { createdAt: "2026-01-01T00:00:00.000Z", id: "from-file", key: "from-file-token", trustedForwarder: true };
+  const profileFromFile = { createdAt: "2026-01-01T00:00:00.000Z", id: "profile:file", key: "profile-file-token", trustedForwarder: true };
+  await replacePersistedAppConfig({ ...(await loadPersistedAppConfig()), APIKEYS: [fromFile, profileFromFile, { ...retained, trustedForwarder: true }] });
+  const loaded = await configApi.loadAppConfig();
+  const { trustedForwarder: _mark, ...profileStored } = profileFromFile;
+  assert.deepEqual(loaded.APIKEYS, [retained, fromFile, profileStored]);
+});

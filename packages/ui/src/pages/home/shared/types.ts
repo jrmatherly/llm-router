@@ -148,6 +148,7 @@ export type AddApiKeyDraft = {
   expiresAt: string;
   limitRows: ApiKeyLimitDraftRow[];
   name: string;
+  trustedForwarder: boolean;
 };
 
 export type AddProfileDraft = {

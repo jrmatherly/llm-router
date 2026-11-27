@@ -138,6 +138,8 @@ export type RequestLogRecordInput = {
   error?: string;
   eventId?: string;
   fallbackModel?: string;
+  forwardedUserEmail?: string;
+  forwardedUserId?: string;
   maxBodyBytes?: number;
   method: string;
   model?: string;
@@ -180,6 +182,8 @@ export type RequestLogRawTraceUpdateInput = {
   deferBodyCaptureUntilRecord?: boolean;
   deferOutcomeUntilRecord?: boolean;
   durationMs?: number;
+  forwardedUserEmail?: string;
+  forwardedUserId?: string;
   method?: string;
   model?: string;
   path?: string;
@@ -252,6 +256,8 @@ type StoredRequestLogEntry = {
   credentialSaturated: boolean;
   durationMs: number;
   error: string;
+  forwardedUserEmail?: string;
+  forwardedUserId?: string;
   id: number;
   inputTokens: number;
   isStream: boolean;
@@ -786,8 +792,10 @@ export class RequestLogStore {
           response_body_truncated,
           response_body_ref,
           stream_metrics_json,
-          error
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          error,
+          forwarded_user_email,
+          forwarded_user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       let inserted = false;
@@ -841,7 +849,9 @@ export class RequestLogStore {
           responseBody.truncated ? 1 : 0,
           responseBody.bodyRef ?? "",
           streamMetrics ? JSON.stringify(streamMetrics) : "",
-          responseError ?? ""
+          responseError ?? "",
+          input.forwardedUserEmail ?? "",
+          input.forwardedUserId ?? ""
         );
         if (result.changes === 0) return;
         inserted = true;
@@ -1209,7 +1219,9 @@ export class RequestLogStore {
             response_body_content_type,
             response_body_size_bytes,
             response_body_truncated,
-            error
+            error,
+            forwarded_user_id,
+            forwarded_user_email
           FROM request_logs
           ${query.where}
           ORDER BY created_at DESC, id DESC
@@ -1543,7 +1555,9 @@ export class RequestLogStore {
         response_body_truncated INTEGER NOT NULL DEFAULT 0,
         response_body_ref TEXT NOT NULL DEFAULT '',
         stream_metrics_json TEXT NOT NULL DEFAULT '',
-        error TEXT NOT NULL DEFAULT ''
+        error TEXT NOT NULL DEFAULT '',
+        forwarded_user_email TEXT NOT NULL DEFAULT '',
+        forwarded_user_id TEXT NOT NULL DEFAULT ''
       );
 
       CREATE TABLE IF NOT EXISTS request_route_traces (
@@ -1818,7 +1832,7 @@ function standaloneRecordInputFromRawTrace(
   const durationMs = normalizeCount(input.durationMs);
   const startedAt = normalizeFilterValue(input.startedAt) ??
     startedAtFromCompletedAt(completedAt, durationMs);
-  const client = normalizeFilterValue(input.client) ?? inferGatewayClient(undefined, requestHeaders);
+  const client = normalizeFilterValue(input.client) ?? inferGatewayClient({ kind: "refused" }, requestHeaders);
 
   return {
     bodyCapturePolicy,
@@ -1828,6 +1842,8 @@ function standaloneRecordInputFromRawTrace(
     durationMs,
     ...(input.bundleId ? { eventId: `raw-trace:${input.bundleId}` } : {}),
     fallbackModel: input.model,
+    forwardedUserEmail: input.forwardedUserEmail,
+    forwardedUserId: input.forwardedUserId,
     maxBodyBytes,
     method: input.method ?? "POST",
     model: input.model,
@@ -2160,7 +2176,8 @@ function inferAgentKind(
     return "claude-code";
   }
 
-  return "unknown";
+  // Last, so a key's name never outranks what the headers or the body say.
+  return inferAgentFromText(entry.client) ?? "unknown";
 }
 
 function readAgentHeaderSignals(headers: Record<string, string | string[]>): string {
@@ -4635,6 +4652,8 @@ function ensureRequestLogSchema(database: SqlDatabase): void {
   addColumn("response_body_ref", "TEXT NOT NULL DEFAULT ''");
   addColumn("stream_metrics_json", "TEXT NOT NULL DEFAULT ''");
   addColumn("error", "TEXT NOT NULL DEFAULT ''");
+  addColumn("forwarded_user_email", "TEXT NOT NULL DEFAULT ''");
+  addColumn("forwarded_user_id", "TEXT NOT NULL DEFAULT ''");
 
   if (needsModelSummaryMigration) {
     migrateRequestLogModelSummaries(database);
@@ -5270,7 +5289,9 @@ function readRequestLogById(database: SqlDatabase, id: number): StoredRequestLog
         response_body_size_bytes,
         response_body_truncated,
         response_body_ref,
-        error
+        error,
+        forwarded_user_id,
+        forwarded_user_email
       FROM request_logs
       WHERE rowid = ?
       LIMIT 1
@@ -5313,6 +5334,8 @@ function toRequestLogEntry(row: Record<string, SqlValue>): StoredRequestLogEntry
     credentialSaturated: normalizeCount(row.credential_saturated) === 1,
     durationMs: normalizeCount(row.duration_ms),
     error: String(row.error ?? ""),
+    ...(row.forwarded_user_email ? { forwardedUserEmail: String(row.forwarded_user_email) } : {}),
+    ...(row.forwarded_user_id ? { forwardedUserId: String(row.forwarded_user_id) } : {}),
     id: normalizeCount(row.id),
     inputTokens: normalizeCount(row.input_tokens),
     isStream,

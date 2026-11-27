@@ -1776,11 +1776,10 @@ function toProxyNetworkExchange(record: ProxyNetworkCaptureRecord): ProxyNetwork
   };
 }
 
-function inferProxyClient(headers: IncomingHttpHeaders): string {
+export function inferProxyClient(headers: IncomingHttpHeaders): string {
   const explicitClient =
     readHeader(headers["x-llmr-client"]) ??
-    readHeader(headers["x-client-name"]) ??
-    readHeader(headers["x-forwarded-client-cert"]);
+    readHeader(headers["x-client-name"]);
   if (explicitClient) {
     return explicitClient;
   }

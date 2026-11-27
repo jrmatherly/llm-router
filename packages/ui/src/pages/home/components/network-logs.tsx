@@ -1036,6 +1036,7 @@ export function LogExpandedDetails({
         {entry.streamSpeedSampleStatus ? <LogMetric label="Speed sample" value={streamSpeedSampleLabel(entry.streamSpeedSampleStatus)} /> : null}
         <LogMetric label="Request ID" value={entry.requestId || "-"} />
         <LogMetric label="Client" value={entry.client || "-"} />
+        {entry.forwardedUserEmail || entry.forwardedUserId ? <LogMetric label="Gateway user" value={entry.forwardedUserEmail || entry.forwardedUserId || ""} /> : null}
         <LogMetric label="Provider" value={entry.provider || "-"} />
         <LogMetric label="Model" value={entry.model || "-"} />
         {entry.credentialId ? <LogMetric label="Credential" value={entry.credentialId} /> : null}

@@ -86,6 +86,80 @@ test("RequestLogStore backfills model summaries when upgrading an existing datab
   }
 });
 
+function forwardedRecordInput(requestId, extra = {}) {
+  const createdAt = new Date().toISOString();
+  return {
+    completedAt: createdAt,
+    durationMs: 1,
+    method: "POST",
+    path: "/v1/messages",
+    requestBody: Buffer.from("{}"),
+    requestHeaders: { "content-type": "application/json" },
+    requestId,
+    startedAt: createdAt,
+    statusCode: 200,
+    url: "http://127.0.0.1:3456/v1/messages",
+    ...extra
+  };
+}
+
+async function forwardedFieldsById(store) {
+  const { items } = await store.list({ pageSize: 25 });
+  const details = await Promise.all(items.map((item) => store.getDetail({ id: item.id })));
+  return Object.fromEntries(items.map((item, index) => [item.requestId, {
+    detail: [details[index].forwardedUserEmail, details[index].forwardedUserId],
+    list: [item.forwardedUserEmail, item.forwardedUserId]
+  }]));
+}
+
+test("a row keeps the forwarded id and e-mail it was recorded with", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-forwarded-identity-test-"));
+  const store = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
+  try {
+    await store.record(forwardedRecordInput("forwarded", { forwardedUserEmail: "dev@example.com", forwardedUserId: "sub-123" }));
+    await store.record(forwardedRecordInput("plain"));
+    await store.writeBatch([{
+      input: { allowStandaloneRecord: true, forwardedUserEmail: "trace@example.com", forwardedUserId: "sub-456", method: "POST", path: "/v1/messages", requestId: "traced", statusCode: 200 },
+      kind: "raw-trace-update",
+      sequence: 1
+    }]);
+    assert.deepEqual(await forwardedFieldsById(store), {
+      forwarded: { detail: ["dev@example.com", "sub-123"], list: ["dev@example.com", "sub-123"] },
+      plain: { detail: [undefined, undefined], list: [undefined, undefined] },
+      traced: { detail: ["trace@example.com", "sub-456"], list: ["trace@example.com", "sub-456"] }
+    });
+  } finally {
+    await store.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a database made before these columns gains them when it is opened", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-forwarded-columns-test-"));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  let store = new RequestLogStore(dbFile);
+  try {
+    await store.record(forwardedRecordInput("old"));
+    await store.close();
+    const legacy = createBetterSqliteDatabase(dbFile);
+    try {
+      legacy.exec("ALTER TABLE request_logs DROP COLUMN forwarded_user_email");
+      legacy.exec("ALTER TABLE request_logs DROP COLUMN forwarded_user_id");
+    } finally {
+      legacy.close();
+    }
+    store = new RequestLogStore(dbFile);
+    await store.record(forwardedRecordInput("new", { forwardedUserEmail: "dev@example.com", forwardedUserId: "sub-123" }));
+    assert.deepEqual(await forwardedFieldsById(store), {
+      new: { detail: ["dev@example.com", "sub-123"], list: ["dev@example.com", "sub-123"] },
+      old: { detail: [undefined, undefined], list: [undefined, undefined] }
+    });
+  } finally {
+    await store.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("RequestLogStore resumes interrupted gateway migrations across bounded batches", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-paged-migration-test-"));
   const dbFile = path.join(dir, "request-logs.sqlite");
@@ -2227,6 +2301,42 @@ test("RequestLogStore identifies OpenCode from its explicit client header", asyn
     assert.equal(analysis.scannedRequestCount, 1);
     assert.equal(analysis.agents[0]?.agent, "opencode");
     assert.equal(analysis.agents[0]?.label, "OpenCode");
+  } finally {
+    await store?.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a row whose headers name no agent takes its agent from its client label", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-client-label-agent-test-"));
+  let store;
+  try {
+    store = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
+    const startedAt = new Date().toISOString();
+    const row = (requestId, client, userAgent, content = "hello") => ({
+      client,
+      completedAt: startedAt,
+      durationMs: 25,
+      method: "POST",
+      path: "/v1/chat/completions",
+      providerName: "test-provider",
+      providerProtocol: "openai_chat_completions",
+      requestBody: Buffer.from(JSON.stringify({ messages: [{ content, role: "user" }], model: "Provider/model" }), "utf8"),
+      requestHeaders: { "content-type": "application/json", "user-agent": userAgent },
+      requestId,
+      responseBodyText: JSON.stringify({ choices: [], model: "Provider/model" }),
+      responseHeaders: { "content-type": "application/json" },
+      startedAt,
+      statusCode: 200,
+      url: "http://127.0.0.1:3456/v1/chat/completions"
+    });
+    await store.record(row("client-label-only", "opencode", "generic-openai-client/1.0"));
+    await store.record(row("header-wins", "opencode", "kilo-code/1.0"));
+    await store.record(row("body-wins", "codex", "generic-openai-client/1.0", "You are Claude Code."));
+
+    const analysis = await store.analyze({ agent: "all", range: "30d" });
+    const agents = Object.fromEntries(analysis.recentRequests.map((request) => [request.requestId, request.agent]));
+    assert.deepEqual(agents, { "body-wins": "claude-code", "client-label-only": "opencode", "header-wins": "kilo" });
   } finally {
     await store?.close();
     rmSync(dir, { force: true, recursive: true });

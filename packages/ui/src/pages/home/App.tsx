@@ -3408,7 +3408,8 @@ function App() {
             error: apiKeyError,
             onChange: updateApiKeyEditDraft,
             onClose: () => setApiKeyEditIndex(undefined),
-            onSubmit: submitApiKeyEditDraft
+            onSubmit: submitApiKeyEditDraft,
+            showTrustedForwarder: !apiKeyEditItem.key.id.startsWith("profile:")
           } : undefined}
           extensionDelete={extensionDeleteItem ? {
             extension: extensionDeleteItem,

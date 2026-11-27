@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { inferGatewayClient } from "@llmr/core/gateway/http/io.ts";
+import { isSensitiveRequestLogHeaderName } from "@llmr/core/observability/sensitive-headers.ts";
 import {
   createGatewayPlugin,
   rewriteUpstreamProviderUrl,
@@ -321,7 +322,10 @@ test("gateway sanitizer hook does not forward reverse proxy metadata to provider
         "x-forwarded-port": "80",
         "x-forwarded-proto": "http",
         "x-real-ip": "192.0.2.10",
-        "x-custom-provider-header": "custom-value"
+        "x-custom-provider-header": "custom-value",
+        "client-cert": ":MIIB:",
+        "client-cert-chain": ":MIIC:",
+        "x-client-name": "codex-cli"
       }
     },
     upstreamRequest
@@ -332,6 +336,12 @@ test("gateway sanitizer hook does not forward reverse proxy metadata to provider
     "content-type": "application/json",
     "x-custom-provider-header": "custom-value"
   });
+
+  const providerSet = await hook.transformRequest({
+    request: { headers: { "x-client-name": "codex-cli" } },
+    upstreamRequest: { ...upstreamRequest, headers: { ...upstreamRequest.headers, "x-client-name": "provider-set" } }
+  });
+  assert.equal(providerSet.value.headers["x-client-name"], "provider-set");
 });
 
 test("Claude apps gateway identity headers are attributed at ingress and never reach the provider", () => {
@@ -355,5 +365,7 @@ test("Claude apps gateway identity headers are attributed at ingress and never r
   }
   assert.deepEqual(sanitizeUpstreamProviderHeaders({ ...identity, "x-keep": "yes" }), { "x-keep": "yes" });
   assert.deepEqual(sanitizeUpstreamProviderHeaders({ "X-Claude-Gateway-User-Email": "a@b", " X-LiteLLM-End-User-Id ": "a@b", "x-keep": "yes" }), { "x-keep": "yes" });
-  assert.equal(inferGatewayClient(undefined, request.headers), "kilgore@kilgore.trout");
+  assert.equal(inferGatewayClient({ kind: "key", trustedForwarder: true }, request.headers), "Claude");
+  assert.equal(inferGatewayClient({ kind: "refused" }, request.headers), "Claude");
+  for (const name of Object.keys(identity)) assert.equal(isSensitiveRequestLogHeaderName(name), true, name);
 });

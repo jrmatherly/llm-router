@@ -1073,6 +1073,47 @@ test("the usage sweep skips a row resolved as unpriced and still prices a row wr
   } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
 });
 
+test("a row keeps the forwarded id and e-mail it was recorded with", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-forwarded-identity-test-"));
+  try {
+    const dbFile = path.join(dir, "usage.sqlite");
+    const store = new UsageStore(dbFile);
+    const event = { durationMs: 1, method: "POST", model: "alpha-model", path: "/v1/messages", provider: "alpha", statusCode: 200 };
+    await store.record({ ...event, forwardedUserEmail: "dev@example.com", forwardedUserId: "sub-123", requestId: "forwarded" });
+    await store.record({ ...event, requestId: "plain" });
+    await store.recordCapture({ bodyText: "", durationMs: 1, forwardedUserEmail: "cap@example.com", forwardedUserId: "sub-456", method: "POST", path: "/v1/messages", requestId: "captured", responseHeaders: new Headers(), statusCode: 200 });
+    const rows = (await store.getDatabase()).prepare("SELECT request_id, forwarded_user_email, forwarded_user_id FROM usage_events ORDER BY id").all().map((row) => ({ ...row }));
+    assert.deepEqual(rows, [
+      { forwarded_user_email: "dev@example.com", forwarded_user_id: "sub-123", request_id: "forwarded" },
+      { forwarded_user_email: "", forwarded_user_id: "", request_id: "plain" },
+      { forwarded_user_email: "cap@example.com", forwarded_user_id: "sub-456", request_id: "captured" }
+    ]);
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
+});
+
+test("a database made before these columns gains them when it is opened", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-forwarded-columns-test-"));
+  try {
+    const dbFile = path.join(dir, "usage.sqlite");
+    const event = { durationMs: 1, method: "POST", model: "alpha-model", path: "/v1/messages", provider: "alpha", statusCode: 200 };
+    await new UsageStore(dbFile).record({ ...event, requestId: "old" });
+    const legacy = createBetterSqliteDatabase(dbFile);
+    try {
+      legacy.exec("ALTER TABLE usage_events DROP COLUMN forwarded_user_email");
+      legacy.exec("ALTER TABLE usage_events DROP COLUMN forwarded_user_id");
+    } finally {
+      legacy.close();
+    }
+    const store = new UsageStore(dbFile);
+    await store.record({ ...event, forwardedUserEmail: "dev@example.com", forwardedUserId: "sub-123", requestId: "new" });
+    const rows = (await store.getDatabase()).prepare("SELECT request_id, forwarded_user_email, forwarded_user_id FROM usage_events ORDER BY id").all().map((row) => ({ ...row }));
+    assert.deepEqual(rows, [
+      { forwarded_user_email: "", forwarded_user_id: "", request_id: "old" },
+      { forwarded_user_email: "dev@example.com", forwarded_user_id: "sub-123", request_id: "new" }
+    ]);
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
+});
+
 test("a log row copied into the totals keeps its price source, and a log database without the column still copies", async () => {
   for (const dropColumn of [false, true]) {
     const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-copy-cost-source-test-"));
@@ -1086,6 +1127,8 @@ test("a log row copied into the totals keeps its price source, and a log databas
         input: {
           completedAt: createdAt,
           durationMs: 10,
+          forwardedUserEmail: "dev@example.com",
+          forwardedUserId: "sub-123",
           method: "POST",
           path: "/v1/messages",
           price: { price: { pricing, source: "models.dev-median" }, state: "priced" },
@@ -1118,8 +1161,8 @@ test("a log row copied into the totals keeps its price source, and a log databas
       const database = createBetterSqliteDatabase(usageDbFile);
       try {
         assert.deepEqual(
-          { ...database.prepare("SELECT cost_source, cost_usd FROM usage_events WHERE request_id = 'median-request'").get() },
-          { cost_source: dropColumn ? "request_log" : "models.dev-median", cost_usd: 5 }
+          { ...database.prepare("SELECT cost_source, cost_usd, forwarded_user_email, forwarded_user_id FROM usage_events WHERE request_id = 'median-request'").get() },
+          { cost_source: dropColumn ? "request_log" : "models.dev-median", cost_usd: 5, forwarded_user_email: "dev@example.com", forwarded_user_id: "sub-123" }
         );
       } finally {
         database.close();
