@@ -17,6 +17,12 @@ export const llmrLiveTokenRateConfigMessageType = "llmr:live-token-rate-config";
 export const llmrLiveTokenRateSnapshotMessageType = "llmr:live-token-rate-snapshot";
 export const llmrLiveTokenRateStreamHookKey = "llmr-live-token-rate-stream-hook";
 export const llmrRefusedKeyRequestsMessageType = "llmr:refused-key-requests";
+export const llmrRawTraceReadyMessageType = "llmr:raw-trace-ready";
+
+export type LlmrRawTraceReadyMessage = {
+  protocolVersion: 1;
+  type: typeof llmrRawTraceReadyMessageType;
+};
 
 export type LlmrRefusedKeyRequestsMessage = {
   count: number;

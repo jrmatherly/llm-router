@@ -36,6 +36,7 @@ import {
   llmrRouteSourceHeader,
   llmrRouteStageHeader,
   llmrRouteTokenCountHeader,
+  llmrRawTraceReadyMessageType,
   llmrRawTraceSyncAckRouteKey,
   llmrRuntimeConfigReloadMessageType,
   llmrRoutedModelHeader,
@@ -44,6 +45,7 @@ import {
   llmrRouterRouteResolverKey,
   llmrRouterRequestTransformKey,
   encodeLlmrRouteFallbackHeader,
+  type LlmrRawTraceReadyMessage,
   type LlmrRefusedKeyRequestsMessage,
   type LlmrRouterPluginRouteRequest
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
@@ -277,6 +279,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
             }
           });
         }
+        sharedRawTraceReadyPublisher.publish();
         return reply.code(202).send({
           accepted: true,
           durable: false,
@@ -675,6 +678,52 @@ const sharedRefusedKeyRequestPublisher = new RefusedKeyRequestPublisher();
 
 export function resetRefusedKeyRequestPublisherForTest(): void {
   sharedRefusedKeyRequestPublisher.reset();
+}
+
+const rawTraceReadyPublishIntervalMs = 100;
+
+class RawTraceReadyPublisher {
+  private lastPublishedAt = Number.NEGATIVE_INFINITY;
+  private publishTimer?: NodeJS.Timeout;
+
+  publish(): void {
+    if (typeof process.send !== "function" || this.publishTimer) {
+      return;
+    }
+    const delayMs = rawTraceReadyPublishIntervalMs - (Date.now() - this.lastPublishedAt);
+    if (delayMs <= 0) {
+      this.publishNow();
+      return;
+    }
+    this.publishTimer = setTimeout(() => {
+      this.publishTimer = undefined;
+      this.publishNow();
+    }, delayMs);
+    this.publishTimer.unref?.();
+  }
+
+  reset(): void {
+    clearTimeout(this.publishTimer);
+    this.publishTimer = undefined;
+    this.lastPublishedAt = Number.NEGATIVE_INFINITY;
+  }
+
+  private publishNow(): void {
+    this.lastPublishedAt = Date.now();
+    const message: LlmrRawTraceReadyMessage = { protocolVersion: 1, type: llmrRawTraceReadyMessageType };
+    try {
+      // With a callback, a closed channel reaches it instead of an "error" on process, which would end the child.
+      process.send?.(message, () => undefined);
+    } catch {
+      // A lost message leaves the trace for the parent's periodic scan.
+    }
+  }
+}
+
+const sharedRawTraceReadyPublisher = new RawTraceReadyPublisher();
+
+export function resetRawTraceReadyPublisherForTest(): void {
+  sharedRawTraceReadyPublisher.reset();
 }
 
 function refusedKeyRequestRoute(requestInput: GatewayRequestHookInput): string {

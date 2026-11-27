@@ -12,6 +12,7 @@ import {
   llmrLiveTokenRateSnapshotMessageType,
   llmrLiveTokenRateStreamHookKey,
   llmrOpenRouterDiscountFinalizeResponseHookKey,
+  llmrRawTraceReadyMessageType,
   llmrRefusedKeyRequestsMessageType,
   llmrRuntimeConfigReloadMessageType,
   llmrRouteReasonHeader,
@@ -22,10 +23,10 @@ import {
   llmrRouterRequestTransformKey
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
 import { coalesceAnthropicReasoningResponse } from "@llmr/core/gateway/features/anthropic-reasoning-response.ts";
-import { coreGatewayAuthHeader } from "@llmr/core/gateway/internal/shared.ts";
+import { coreGatewayAuthHeader, rawTraceSyncHeader, rawTraceSyncPath } from "@llmr/core/gateway/internal/shared.ts";
 import { llmrRemoteControlPathPrefix } from "@llmr/core/gateway/remote-control-service.ts";
 import { gatewayRuntimeConfigControlPath, gatewayRuntimeConfigRevision } from "@llmr/core/gateway/runtime-config-control.ts";
-import { createGatewayPlugin, resetRefusedKeyRequestPublisherForTest } from "@llmr/core/gateway/core-runtime/router-plugin.ts";
+import { createGatewayPlugin, resetRawTraceReadyPublisherForTest, resetRefusedKeyRequestPublisherForTest } from "@llmr/core/gateway/core-runtime/router-plugin.ts";
 import { providerRuntimeId } from "@llmr/core/routing/model-registry.ts";
 import { sanitizeHeaderValue, toCoreGatewayProviders } from "@llmr/core/providers/runtime-topology.ts";
 
@@ -915,6 +916,86 @@ async function refusedKeyHarness(t) {
   const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: config, coreAuthToken: "core-token", publicGatewayMode: true } } });
   return { messages, plugin };
 }
+
+async function rawTraceReadyHarness(t) {
+  resetRawTraceReadyPublisherForTest();
+  const originalSend = process.send;
+  const messages = [];
+  process.send = (message) => {
+    if (message?.type === llmrRawTraceReadyMessageType) messages.push(message);
+    return true;
+  };
+  t.after(() => {
+    resetRawTraceReadyPublisherForTest();
+    if (originalSend) process.send = originalSend;
+    else delete process.send;
+  });
+  const plugin = await createGatewayPlugin({ plugin: { config: { appConfig: createDefaultAppConfig(), coreAuthToken: "core-token", publicGatewayMode: true } } });
+  const route = plugin.httpRoutes.find((item) => item.path === rawTraceSyncPath);
+  const ack = (token = "token") => {
+    const reply = createReply();
+    route.handler({
+      config: { rawTrace: { sync: { headers: { [rawTraceSyncHeader]: "token" } } } },
+      reply,
+      request: { headers: { [rawTraceSyncHeader]: token } }
+    });
+    return reply;
+  };
+  return { ack, messages };
+}
+
+test("the trace ack tells the parent a trace is ready", async (t) => {
+  const { ack, messages } = await rawTraceReadyHarness(t);
+  const reply = ack();
+
+  assert.equal(reply.statusCode, 202);
+  assert.equal(reply.payload.localSpool, true);
+  assert.deepEqual(messages, [{ protocolVersion: 1, type: "llmr:raw-trace-ready" }]);
+});
+
+test("a wrong sync token sends no message", async (t) => {
+  const { ack, messages } = await rawTraceReadyHarness(t);
+  const reply = ack("wrong");
+
+  assert.equal(reply.statusCode, 401);
+  assert.deepEqual(messages, []);
+});
+
+test("a burst of acks sends a first message at once and one more after 100 ms", async (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: 1_000_000 });
+  const { ack, messages } = await rawTraceReadyHarness(t);
+  for (let index = 0; index < 5; index += 1) ack();
+  assert.equal(messages.length, 1);
+
+  t.mock.timers.tick(100);
+  assert.equal(messages.length, 2);
+  t.mock.timers.tick(100);
+  assert.equal(messages.length, 2);
+});
+
+test("a closed channel does not end the child", async (t) => {
+  const { ack } = await rawTraceReadyHarness(t);
+  process.send = () => { throw new Error("channel closed"); };
+  assert.equal(ack().statusCode, 202);
+
+  resetRawTraceReadyPublisherForTest();
+  let callbacks = 0;
+  process.send = (_message, callback) => {
+    assert.equal(typeof callback, "function");
+    callbacks += 1;
+    callback(new Error("channel closed"));
+    return false;
+  };
+  const errors = [];
+  const onError = (error) => errors.push(error);
+  process.on("error", onError);
+  t.after(() => process.off("error", onError));
+  assert.equal(ack().statusCode, 202);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(callbacks, 1);
+  assert.deepEqual(errors, []);
+});
 
 function refusedKeyHookInput(headers) {
   return {

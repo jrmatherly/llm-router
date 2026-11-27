@@ -25,6 +25,7 @@ import type { BrowserAutomationMcpIntegration, BrowserWebSearchMcpIntegration, G
 import {
   llmrLiveTokenRateConfigMessageType,
   llmrLiveTokenRateSnapshotMessageType,
+  llmrRawTraceReadyMessageType,
   llmrRefusedKeyRequestsMessageType,
   llmrRuntimeConfigReloadMessageType,
   type LlmrRefusedKeyRequestsMessage
@@ -715,6 +716,11 @@ class GatewayService {
     }
     if (isRefusedKeyRequestsMessage(message)) {
       mergeChildRefusedKeyRequests(message);
+      return;
+    }
+    const record = message as { protocolVersion?: unknown; type?: unknown } | null;
+    if (record?.type === llmrRawTraceReadyMessageType && record.protocolVersion === 1) {
+      this.rawTraceSynchronizer.scanSourcesSoon();
       return;
     }
     if ((message as { type?: unknown } | null)?.type === llmrRefusedKeyRequestsMessageType) {
