@@ -78,27 +78,38 @@ test("LogsView keeps disabled request logs discoverable with an enable action", 
   assert.match(html, /Enable request logs/);
 });
 
+const refusedForKey = {
+  count: 2,
+  recent: [
+    { at: "2026-11-22T10:00:02.000Z", client: "Codex", reason: "Invalid API key.", route: "/v1/responses" },
+    { at: "2026-11-22T10:00:01.000Z", client: "unknown", reason: "API key is missing.", route: "/v1/messages" }
+  ]
+};
+
+const render = (enabled: boolean, refused?: typeof refusedForKey) => renderToStaticMarkup(
+  <LogsView
+    enabled={enabled}
+    error=""
+    filter={{ page: 1, pageSize: 25, status: "all" }}
+    loading={false}
+    onEnable={() => undefined}
+    page={emptyLogPage}
+    refreshLogs={() => undefined}
+    refusedForKey={refused}
+    updateFilter={() => undefined}
+  />
+);
+
+test("LogsView folds the refused-key entries away until they are asked for", () => {
+  const html = render(true, refusedForKey);
+  const notice = firstMatch(html, /<div class="[^"]*network-notice[^"]*">.*?<\/details><\/div>/);
+  assert.match(notice, /<details><summary[^>]*><span role="status">2 requests were refused/);
+  assert.doesNotMatch(notice, /<details[^>]*open/);
+  assert.match(notice, /<\/summary><ul/);
+  assert.match(notice, /Codex/);
+});
+
 test("LogsView shows requests refused for the API key, with logs on or off, and nothing at zero", () => {
-  const refusedForKey = {
-    count: 2,
-    recent: [
-      { at: "2026-11-22T10:00:02.000Z", client: "Codex", reason: "Invalid or expired API key.", route: "/v1/responses" },
-      { at: "2026-11-22T10:00:01.000Z", client: "unknown", reason: "API key is missing.", route: "/v1/messages" }
-    ]
-  };
-  const render = (enabled: boolean, refused?: typeof refusedForKey) => renderToStaticMarkup(
-    <LogsView
-      enabled={enabled}
-      error=""
-      filter={{ page: 1, pageSize: 25, status: "all" }}
-      loading={false}
-      onEnable={() => undefined}
-      page={emptyLogPage}
-      refreshLogs={() => undefined}
-      refusedForKey={refused}
-      updateFilter={() => undefined}
-    />
-  );
   const line = /2 requests were refused for a missing, wrong or expired API key since LLM Router started\./;
 
   for (const enabled of [true, false]) {
@@ -134,7 +145,7 @@ test("LogsView words one refused request in the singular, with its time, outside
     assert.doesNotMatch(html, /1 requests were/);
     assert.ok(formatLogDateTime(at));
     assert.ok(html.includes(formatLogDateTime(at)), "the refusal's time is shown");
-    const notice = firstMatch(html, /<div class="[^"]*"><div[^>]*role="status"[^>]*>1 request was refused/);
+    const notice = firstMatch(html, /<div class="[^"]*"><details><summary[^>]*><span role="status">1 request was refused/);
     assert.doesNotMatch(notice.match(/^<div class="([^"]*)"/)?.[1] ?? "", /network-shell/);
   }
 });

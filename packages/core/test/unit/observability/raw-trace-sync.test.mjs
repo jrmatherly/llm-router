@@ -1337,6 +1337,76 @@ test("#1867 source sweep and upload share one durable bundle adoption", async ()
   }
 });
 
+function writeSourceBundle(spoolDirectory, name) {
+  const source = path.join(spoolDirectory, name);
+  mkdirSync(source, { recursive: true });
+  const bodyFile = path.join(source, "upstream_request.json");
+  writeFileSync(bodyFile, `{"model":"${name}"}`);
+  writeFileSync(path.join(source, "manifest.json"), JSON.stringify({
+    parts: [{ filePath: bodyFile, partType: "upstream_request" }], requestId: `bundle-${name}`, turnKey: name
+  }));
+}
+
+test("a scan asked for adopts a source bundle without waiting for the scan interval", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-scan-soon-"));
+  const spoolDirectory = path.join(dir, "spool");
+  const seen = [];
+  writeSourceBundle(spoolDirectory, "a");
+  const synchronizer = new RawTraceSynchronizer({
+    enqueueUpdate: async (input) => { seen.push(input.requestId); return true; },
+    getConfig: createConfig,
+    replayIntervalMs: 60000,
+    sourceScanIntervalMs: 60000,
+    spoolDirectory
+  });
+  try {
+    await synchronizer.start();
+    await waitFor(() => seen.includes("a"));
+    writeSourceBundle(spoolDirectory, "b");
+    synchronizer.scanSourcesSoon();
+    await waitFor(() => seen.includes("b"));
+  } finally {
+    await synchronizer.stop();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a scan asked for during a replay still runs", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-scan-during-replay-"));
+  const spoolDirectory = path.join(dir, "spool");
+  const seen = [];
+  let entered = false;
+  let openGate;
+  const gate = new Promise(resolve => { openGate = resolve; });
+  writeSourceBundle(spoolDirectory, "a");
+  const synchronizer = new RawTraceSynchronizer({
+    enqueueUpdate: async (input) => {
+      if (input.requestId === "a") {
+        entered = true;
+        await gate;
+      }
+      seen.push(input.requestId);
+      return true;
+    },
+    getConfig: createConfig,
+    replayIntervalMs: 60000,
+    sourceScanIntervalMs: 60000,
+    spoolDirectory
+  });
+  try {
+    await synchronizer.start();
+    await waitFor(() => entered);
+    writeSourceBundle(spoolDirectory, "b");
+    synchronizer.scanSourcesSoon();
+    openGate();
+    await waitFor(() => seen.includes("a") && seen.includes("b"));
+  } finally {
+    openGate();
+    await synchronizer.stop();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("#1867 broken source bundles expire even below inbox capacity", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-broken-source-"));
   const spoolDirectory = path.join(dir, "spool");
@@ -1491,5 +1561,101 @@ test("raw trace usage capture keeps the client label the request log gets", asyn
     globalThis.fetch = originalFetch;
     await synchronizer.stop();
     rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+async function sendUsageTrace({ requestId, startedAt, target }) {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-usage-time-"));
+  const spoolDirectory = path.join(dir, "spool");
+  const bundleDirectory = path.join(spoolDirectory, "bundle");
+  const clientMetadataFile = path.join(bundleDirectory, "client_request_metadata.json");
+  const responseMetadataFile = path.join(bundleDirectory, "upstream_response_metadata.json");
+  const responseFile = path.join(bundleDirectory, "upstream_response.json");
+  const responseBody = JSON.stringify({ model: target.model, usage: { input_tokens: 11, output_tokens: 7 } });
+  mkdirSync(bundleDirectory, { recursive: true });
+  writeFileSync(clientMetadataFile, JSON.stringify({ headers: {} }));
+  writeFileSync(responseMetadataFile, JSON.stringify({ headers: { "content-type": "application/json" }, statusCode: 200 }));
+  writeFileSync(responseFile, responseBody);
+  let enqueued = false;
+  const originalFetch = globalThis.fetch;
+  // The price catalog is remote; usage must be recorded while it hangs.
+  globalThis.fetch = (_url, init) => new Promise((_resolve, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+  });
+  const synchronizer = new RawTraceSynchronizer({
+    enqueueUpdate: async () => {
+      enqueued = true;
+      return true;
+    },
+    getConfig: createConfig,
+    spoolDirectory
+  });
+  try {
+    const result = await sendRawTrace(synchronizer, {
+      parts: [
+        { filePath: clientMetadataFile, partType: "client_request_metadata" },
+        { filePath: responseMetadataFile, partType: "upstream_response_metadata" },
+        { contentType: "application/json", filePath: responseFile, originalBytes: responseBody.length, partType: "upstream_response" }
+      ],
+      requestId: `bundle-${requestId}`,
+      ...(startedAt === undefined ? {} : { startedAt }),
+      target,
+      turnKey: requestId
+    });
+    assert.equal(result.statusCode, 202);
+    // Usage is recorded before the request-log update is enqueued.
+    await waitFor(() => enqueued);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await synchronizer.stop();
+    rmSync(dir, { force: true, recursive: true });
+  }
+}
+
+async function usageEventsFor(requestId) {
+  const { usageStore } = await import("@llmr/core/usage/store.ts");
+  return (await usageStore.getDatabase()).prepare("SELECT created_at, provider FROM usage_events WHERE request_id = ?").all(requestId);
+}
+
+test("a trace's usage event is dated at the trace's start", async () => {
+  const requestId = `usage-start-${Date.now()}`;
+  const startedAt = new Date(Date.now() - 3_600_000).toISOString();
+  await sendUsageTrace({ requestId, startedAt, target: { model: `stub-model-${requestId}`, providerName: "Stub" } });
+  const [event] = await usageEventsFor(requestId);
+  assert.equal(event.created_at, startedAt);
+});
+
+test("a trace's start time in another date format is stored as an ISO timestamp", async () => {
+  const requestId = `usage-start-format-${Date.now()}`;
+  const startedAt = new Date(Date.now() - 3_600_000).toUTCString();
+  await sendUsageTrace({ requestId, startedAt, target: { model: `stub-model-${requestId}`, providerName: "Stub" } });
+  const [event] = await usageEventsFor(requestId);
+  assert.equal(event.created_at, new Date(startedAt).toISOString());
+});
+
+test("a trace with no usable start time is dated at its import", async () => {
+  for (const [name, startedAt] of [["none", undefined], ["not-a-date", "not a date"], ["future", new Date(Date.now() + 3_600_000).toISOString()]]) {
+    const requestId = `usage-bad-start-${name}-${Date.now()}`;
+    const sentAt = new Date().toISOString();
+    await sendUsageTrace({ requestId, startedAt, target: { model: `stub-model-${requestId}`, providerName: "Stub" } });
+    const [event] = await usageEventsFor(requestId);
+    assert.ok(event.created_at >= sentAt && event.created_at <= new Date().toISOString(), event.created_at);
+  }
+});
+
+test("a trace names the provider of a usage event recorded as unknown", async () => {
+  const { usageStore } = await import("@llmr/core/usage/store.ts");
+  const cases = [
+    ["unknown", {}, "Stub"],
+    ["named", { provider: "Other" }, "Other"],
+    ["with-tokens", { usage: { inputTokens: 5, outputTokens: 2 } }, "unknown"]
+  ];
+  for (const [name, recorded, expected] of cases) {
+    const requestId = `usage-provider-${name}-${Date.now()}`;
+    await usageStore.record({ durationMs: 1, method: "POST", path: "/v1/chat/completions", requestId, statusCode: 400, ...recorded });
+    await sendUsageTrace({ requestId, target: { model: `stub-model-${requestId}`, providerName: "Stub" } });
+    const events = await usageEventsFor(requestId);
+    assert.equal(events.length, 1, name);
+    assert.equal(events[0].provider, expected, name);
   }
 });

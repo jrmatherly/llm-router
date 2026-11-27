@@ -10,6 +10,7 @@ import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
 import { LLMRouterPlugin } from "@llmr/core/gateway/llm-router-plugin.ts";
 import { GatewayRequestPipeline } from "@llmr/core/gateway/request/pipeline.ts";
+import { RAW_TRACE_SPOOL_DIR } from "@llmr/core/config/constants.ts";
 import { closeRequestLogRuntime, flushRequestLogRuntime, requestLogRuntime } from "@llmr/core/observability/request-log-store.ts";
 
 import { gatewayService, singleGatewayRuntimeBlockersForTest } from "@llmr/core/gateway/application/gateway-service.ts";
@@ -208,8 +209,8 @@ for (const layout of ["single", "compat"]) {
       const totals = await usageStore.getTotalsSince(since, { model }, { includeProxy: true });
       assert.equal(totals.requestCount, 1, `usage read ${read}: ${JSON.stringify(totals)}`);
       assert.equal(totals.errorCount, 1, `usage read ${read}`);
-      const events = database.prepare("SELECT request_id, status_code FROM usage_events WHERE model = ?").all(model);
-      assert.deepEqual(events, [{ request_id: row.requestId, status_code: 400 }], `usage read ${read}`);
+      const events = database.prepare("SELECT provider, request_id, status_code FROM usage_events WHERE model = ?").all(model);
+      assert.deepEqual(events, [{ provider: "Provider", request_id: row.requestId, status_code: 400 }], `usage read ${read}`);
     };
     await readUsage(1);
     // A duplicate event would come from a later trace sync, so the second read waits for the log to settle.
@@ -220,6 +221,61 @@ for (const layout of ["single", "compat"]) {
     await readUsage(2);
   });
 }
+
+test("a single-layout Logs row appears within 1500 ms of the answer", { skip, timeout: 60000 }, async (t) => {
+  const { port } = await startWireService(t, "single");
+  const model = `no-provider-has-this-model-timed-${Date.now()}`;
+  const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+    body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model }),
+    headers: { authorization: "Bearer sk-wire-key-0001", "content-type": "application/json" },
+    method: "POST"
+  });
+  assert.equal(response.status, 400, await response.text());
+  const answeredAt = Date.now();
+  await until(async () => (await requestLogRuntime.list({ pageSize: 100 })).items.some(item => item.model === model), 10000);
+  assert.ok(Date.now() - answeredAt < 1500, `row took ${Date.now() - answeredAt} ms`);
+});
+
+test("a trace left in the spool gives a usage event dated at its start", { skip, timeout: 60000 }, async (t) => {
+  await startWireService(t, "single");
+  const turnKey = `spool-left-${Date.now()}`;
+  const model = `spool-left-model-${Date.now()}`;
+  const startedAt = new Date(Date.now() - 3_600_000).toISOString();
+  const bundle = path.join(RAW_TRACE_SPOOL_DIR, turnKey);
+  mkdirSync(bundle, { recursive: true });
+  const files = {
+    client_request_metadata: [path.join(bundle, "client_request_metadata.json"), JSON.stringify({ headers: {} })],
+    upstream_response: [path.join(bundle, "upstream_response.json"), JSON.stringify({ model, usage: { input_tokens: 3, output_tokens: 2 } })],
+    upstream_response_metadata: [path.join(bundle, "upstream_response_metadata.json"), JSON.stringify({ headers: { "content-type": "application/json" }, statusCode: 200 })]
+  };
+  for (const [filePath, text] of Object.values(files)) writeFileSync(filePath, text);
+  const parts = Object.entries(files).map(([partType, [filePath, text]]) => ({
+    ...(partType === "upstream_response" ? { contentType: "application/json", originalBytes: text.length } : {}),
+    filePath,
+    partType
+  }));
+  writeFileSync(path.join(bundle, "manifest.json"), JSON.stringify({ parts, requestId: `${turnKey}-bundle`, startedAt, target: { model, providerName: "Provider" }, turnKey }));
+  await until(() => usageStore.hasRequestId(turnKey), 10000);
+  const event = (await usageStore.getDatabase()).prepare("SELECT created_at FROM usage_events WHERE request_id = ?").get(turnKey);
+  assert.equal(event.created_at, startedAt);
+});
+
+test("Logs rows sent before the gateway stops are listed after it", { skip, timeout: 60000 }, async (t) => {
+  const { port, service } = await startWireService(t, "single");
+  const models = [0, 1, 2].map(index => `no-provider-has-this-model-stop-${index}-${Date.now()}`);
+  for (const model of models) {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model }),
+      headers: { authorization: "Bearer sk-wire-key-0001", "content-type": "application/json" },
+      method: "POST"
+    });
+    assert.equal(response.status, 400, await response.text());
+  }
+  const listed = async () => (await requestLogRuntime.list({ pageSize: 100 })).items.filter(item => models.includes(item.model)).length;
+  await until(async () => await listed() === 3, 10000);
+  await service.stop();
+  assert.equal(await listed(), 3);
+});
 
 test("a request with a wrong API key shows on the gateway status without the key", { skip, timeout: 60000 }, async (t) => {
   const { port, service } = await startWireService(t, "single");
@@ -236,10 +292,32 @@ test("a request with a wrong API key shows on the gateway status without the key
   const { refusedForKey } = service.getStatus();
   const [newest] = refusedForKey.recent;
   assert.ok(newest.at >= sentAt, `newest refusal ${newest.at} was made after ${sentAt}`);
-  assert.equal(newest.reason, "Invalid or expired API key.");
+  assert.equal(newest.reason, "Invalid API key.");
   assert.equal(newest.route, "/v1/chat/completions");
   for (const part of [wrongKey, wrongKey.slice(-4), "x=1"]) assert.equal(JSON.stringify(refusedForKey).includes(part), false, part);
 });
+
+for (const layout of ["single", "compat"]) {
+  test(`an expired key gets the same 401 in both layouts (${layout})`, { skip, timeout: 60000 }, async (t) => {
+    const expiredKey = "sk-wire-expired-0002";
+    const { port, service } = await startWireService(t, layout, (config) => {
+      config.APIKEYS.push({ createdAt: new Date(0).toISOString(), expiresAt: "2020-01-02T00:00:00.000Z", id: "wire-expired", key: expiredKey });
+    });
+    const before = refusedKeyCount(service);
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model: "Provider/native" }),
+      headers: { authorization: `Bearer ${expiredKey}`, "content-type": "application/json" },
+      method: "POST"
+    });
+    const text = await response.text();
+    assert.equal(response.status, 401, text);
+    const message = JSON.parse(text).error?.message;
+    if (layout === "compat") assert.equal(message, "API key is expired.");
+    else assert.match(message, /beforeAuth failed: API key is expired\.$/);
+    await until(() => refusedKeyCount(service) === before + 1, 5000);
+    assert.equal(service.getStatus().refusedForKey.recent[0].reason, "API key is expired.");
+  });
+}
 
 test("refused-key counts survive a killed core", { skip, timeout: 60000 }, async (t) => {
   const { port, service } = await startWireService(t, "single");
@@ -266,7 +344,7 @@ function refusedKeyCount(service) {
   return service.getStatus().refusedForKey?.count ?? 0;
 }
 
-async function startWireService(t, layout) {
+async function startWireService(t, layout, configure) {
   const originalEntry = process.env.LLMR_GATEWAY_ENTRY;
   process.env.LLMR_GATEWAY_ENTRY = entry;
   requestLogRuntime.options.workerFile = path.resolve(__dirname, "../../../runtime/request-log-worker.js");
@@ -293,6 +371,7 @@ async function startWireService(t, layout) {
   config.observability = { ...config.observability, requestLogs: true, requestLogBodyCapture: "all", requestLogSuccessSampleRate: 1 };
   config.profile.enabled = false; config.profile.profiles = [];
   config.plugins = [];
+  configure?.(config);
   assert.deepEqual(singleGatewayRuntimeBlockersForTest(config, { gatewayRuntimeSupportsRouterPlugin: () => true }), layout === "single" ? [] : ["context-archive"]);
   const started = await service.start(config);
   assert.equal(started.state, "running", started.lastError);

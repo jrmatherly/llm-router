@@ -77,6 +77,7 @@ export type UsageCaptureInput = {
   bodyText: string;
   client?: string;
   config?: Pick<AppConfig, "Providers" | "virtualModelProfiles">;
+  createdAt?: string;
   durationMs: number;
   fallbackModel?: string;
   method: string;
@@ -365,6 +366,7 @@ export class UsageStore {
       input.fallbackModel;
 
     await this.record({
+      createdAt: input.createdAt,
       durationMs: input.durationMs,
       method: input.method,
       logicalModel: fallbackAttribution.logicalModel ?? input.fallbackModel,
@@ -379,6 +381,18 @@ export class UsageStore {
       statusCode: input.statusCode,
       usage
     });
+  }
+
+  async setProviderIfUnknown(requestId: string, provider: string | undefined): Promise<void> {
+    const normalizedRequestId = requestId.trim();
+    const normalizedProvider = normalizeLabel(provider, "unknown");
+    if (!normalizedRequestId || normalizedProvider === "unknown") return;
+    const database = await this.getDatabase();
+    // An event with tokens keeps the cost it was priced at under `unknown`.
+    const result = database.prepare(
+      "UPDATE usage_events SET provider = ? WHERE request_id = ? AND provider = 'unknown' AND total_tokens = 0 AND cost_usd IS NULL"
+    ).run(normalizedProvider, normalizedRequestId);
+    if (Number(result.changes) > 0) usageEvents.emit("recorded");
   }
 
   async hasRequestId(requestId: string): Promise<boolean> {
@@ -692,6 +706,7 @@ export async function recordGatewayUsageCaptureIfMissing(input: UsageCaptureInpu
   try {
     const requestId = input.requestId?.trim();
     if (requestId && await usageStore.hasRequestId(requestId)) {
+      await usageStore.setProviderIfUnknown(requestId, resolveUsagePricingTarget(input.config, input).provider);
       return;
     }
     await usageStore.recordCapture(input);

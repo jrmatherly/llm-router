@@ -32,17 +32,32 @@ export async function authorize(
     return { ok: false };
   }
 
-  const token = readAuthToken(request.headers) || readRemoteControlQueryAuthToken(request);
-  const apiKey = token ? findApiKeyByToken(apiKeys, token) : undefined;
-  if (apiKey && !isApiKeyExpired(apiKey)) {
-    return { ok: true, apiKey };
+  const check = checkApiKeyToken(apiKeys, readAuthToken(request.headers) || readRemoteControlQueryAuthToken(request));
+  if (check.ok) {
+    return { ok: true, apiKey: check.apiKey };
   }
 
-  const message = apiKey ? "API key is expired." : token ? "Invalid API key." : "API key is missing.";
   // Only the pathname: remote control accepts the key as ?api_key= or ?key=.
-  recordRefusedKeyRequest({ headers: request.headers, reason: message, route: requestPathname(request.url) });
-  sendJson(response, 401, { error: { message } });
+  recordRefusedKeyRequest({ headers: request.headers, reason: check.reason, route: requestPathname(request.url) });
+  sendJson(response, 401, { error: { message: check.reason } });
   return { ok: false };
+}
+
+export const apiKeyRefusalReasons = {
+  expired: "API key is expired.",
+  invalid: "Invalid API key.",
+  missing: "API key is missing."
+} as const;
+
+export type ApiKeyTokenCheck =
+  | { apiKey: ApiKeyConfig; ok: true }
+  | { ok: false; reason: (typeof apiKeyRefusalReasons)[keyof typeof apiKeyRefusalReasons] };
+
+export function checkApiKeyToken(apiKeys: ApiKeyConfig[], token: string | undefined): ApiKeyTokenCheck {
+  if (!token) return { ok: false, reason: apiKeyRefusalReasons.missing };
+  const apiKey = findApiKeyByToken(apiKeys, token);
+  if (!apiKey) return { ok: false, reason: apiKeyRefusalReasons.invalid };
+  return isApiKeyExpired(apiKey) ? { ok: false, reason: apiKeyRefusalReasons.expired } : { apiKey, ok: true };
 }
 
 function requestPathname(url: string | undefined): string {
@@ -63,8 +78,8 @@ export async function resolveApiKeyFromHeaders(
     return undefined;
   }
 
-  const apiKey = findApiKeyByToken(await configuredApiKeys(config, options), token);
-  return apiKey && !isApiKeyExpired(apiKey) ? apiKey : undefined;
+  const check = checkApiKeyToken(await configuredApiKeys(config, options), token);
+  return check.ok ? check.apiKey : undefined;
 }
 
 export async function handleClaudeCodeWifTokenRequest(

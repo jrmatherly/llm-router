@@ -3,7 +3,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { pipeline, Readable } from "node:stream";
 import type { ApiKeyConfig, AppConfig, GatewayProviderConfig, GatewayProviderProtocol, ProfileConfig, RouterRule } from "@llmr/core/contracts/app";
 import {
+  apiKeyRefusalReasons,
+  checkApiKeyToken,
   claudeCodeWifTokenPath,
+  configuredApiKeys,
   exchangeClaudeCodeWifToken,
   resolveApiKeyFromHeaders
 } from "@llmr/core/gateway/auth/api-key-authorizer";
@@ -36,6 +39,7 @@ import {
   llmrRouteSourceHeader,
   llmrRouteStageHeader,
   llmrRouteTokenCountHeader,
+  llmrRawTraceReadyMessageType,
   llmrRawTraceSyncAckRouteKey,
   llmrRuntimeConfigReloadMessageType,
   llmrRoutedModelHeader,
@@ -44,6 +48,7 @@ import {
   llmrRouterRouteResolverKey,
   llmrRouterRequestTransformKey,
   encodeLlmrRouteFallbackHeader,
+  type LlmrRawTraceReadyMessage,
   type LlmrRefusedKeyRequestsMessage,
   type LlmrRouterPluginRouteRequest
 } from "@llmr/core/gateway/core-runtime/router-plugin-contract";
@@ -277,6 +282,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
             }
           });
         }
+        sharedRawTraceReadyPublisher.publish();
         return reply.code(202).send({
           accepted: true,
           durable: false,
@@ -385,7 +391,7 @@ export async function createGatewayPlugin(input: GatewayPluginFactoryInput = {})
           if (!authorization.ok || !readAuthToken(requestInput.request?.headers)) {
             sharedRefusedKeyRequestPublisher.record({
               headers: requestInput.request?.headers ?? {},
-              reason: authorization.ok ? "API key is missing." : authorization.error,
+              reason: authorization.ok ? apiKeyRefusalReasons.missing : authorization.error,
               route: refusedKeyRequestRoute(requestInput)
             });
           }
@@ -675,6 +681,52 @@ const sharedRefusedKeyRequestPublisher = new RefusedKeyRequestPublisher();
 
 export function resetRefusedKeyRequestPublisherForTest(): void {
   sharedRefusedKeyRequestPublisher.reset();
+}
+
+const rawTraceReadyPublishIntervalMs = 100;
+
+class RawTraceReadyPublisher {
+  private lastPublishedAt = Number.NEGATIVE_INFINITY;
+  private publishTimer?: NodeJS.Timeout;
+
+  publish(): void {
+    if (typeof process.send !== "function" || this.publishTimer) {
+      return;
+    }
+    const delayMs = rawTraceReadyPublishIntervalMs - (Date.now() - this.lastPublishedAt);
+    if (delayMs <= 0) {
+      this.publishNow();
+      return;
+    }
+    this.publishTimer = setTimeout(() => {
+      this.publishTimer = undefined;
+      this.publishNow();
+    }, delayMs);
+    this.publishTimer.unref?.();
+  }
+
+  reset(): void {
+    clearTimeout(this.publishTimer);
+    this.publishTimer = undefined;
+    this.lastPublishedAt = Number.NEGATIVE_INFINITY;
+  }
+
+  private publishNow(): void {
+    this.lastPublishedAt = Date.now();
+    const message: LlmrRawTraceReadyMessage = { protocolVersion: 1, type: llmrRawTraceReadyMessageType };
+    try {
+      // With a callback, a closed channel reaches it instead of an "error" on process, which would end the child.
+      process.send?.(message, () => undefined);
+    } catch {
+      // A lost message leaves the trace for the parent's periodic scan.
+    }
+  }
+}
+
+const sharedRawTraceReadyPublisher = new RawTraceReadyPublisher();
+
+export function resetRawTraceReadyPublisherForTest(): void {
+  sharedRawTraceReadyPublisher.reset();
 }
 
 function refusedKeyRequestRoute(requestInput: GatewayRequestHookInput): string {
@@ -1052,17 +1104,17 @@ async function resolvePublicGatewayAuth(
   const token = readAuthToken(headers) ?? readRemoteControlQueryAuthToken(options.url);
   if (!token) {
     return options.rejectMissing
-      ? { ok: false, status: 401, error: "API key is missing." }
+      ? { ok: false, status: 401, error: apiKeyRefusalReasons.missing }
       : { ok: true };
   }
   if (isStaticBypassToken(token, options.coreAuthToken, options.publicAuthKeys ?? [])) {
     return { ok: true };
   }
 
-  const apiKey = await resolveApiKey(config, authHeadersForToken(headers, token));
-  return apiKey
-    ? { ok: true, apiKey }
-    : { ok: false, status: 401, error: "Invalid or expired API key." };
+  const check = checkApiKeyToken(await configuredApiKeys(config, { includePersisted: false }), token);
+  return check.ok
+    ? { ok: true, apiKey: check.apiKey }
+    : { ok: false, status: 401, error: check.reason };
 }
 
 function setApiKeyAuthContextHeaders(headers: Record<string, HeaderValue> | undefined, apiKey: ApiKeyConfig | undefined): void {
@@ -1465,16 +1517,6 @@ function readRemoteControlQueryAuthToken(url: string | undefined): string | unde
   } catch {
     return undefined;
   }
-}
-
-function authHeadersForToken(
-  headers: Record<string, HeaderValue> | undefined,
-  token: string
-): Record<string, HeaderValue> {
-  return {
-    ...(headers ?? {}),
-    authorization: `Bearer ${token}`
-  };
 }
 
 function isStaticBypassToken(token: string, coreAuthToken: string | undefined, publicAuthKeys: readonly string[]): boolean {

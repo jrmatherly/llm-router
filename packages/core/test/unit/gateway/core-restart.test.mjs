@@ -6,7 +6,7 @@ import { gatewayService } from "@llmr/core/gateway/application/gateway-service.t
 import { removeManagedCoreGatewayMarker, writeManagedCoreGatewayMarker } from "@llmr/core/gateway/core-runtime/supervisor.ts";
 import { pluginService } from "@llmr/core/plugins/service.ts";
 import { resetRefusedKeyRequestsForTest } from "@llmr/core/gateway/auth/refused-key-requests.ts";
-import { llmrRefusedKeyRequestsMessageType } from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
+import { llmrRawTraceReadyMessageType, llmrRefusedKeyRequestsMessageType } from "@llmr/core/gateway/core-runtime/router-plugin-contract.ts";
 
 // A fresh service without starting HTTP, plugins, or child processes.
 function createService() {
@@ -154,6 +154,17 @@ test("refused-key counts survive a core restart and only the current child is he
   ]);
 });
 
+test("a trace-ready message from the current child asks for a scan, and one from a replaced child does not", () => {
+  const { child, service } = crashedService();
+  let scans = 0;
+  service.rawTraceSynchronizer.scanSourcesSoon = () => { scans += 1; };
+  service.handleCoreGatewayMessage(child, { protocolVersion: 1, type: llmrRawTraceReadyMessageType });
+  assert.equal(scans, 1);
+  service.adoptCoreGatewayChild({});
+  service.handleCoreGatewayMessage(child, { protocolVersion: 1, type: llmrRawTraceReadyMessageType });
+  assert.equal(scans, 1);
+});
+
 test("a status with no refused-key requests carries no refusedForKey", () => {
   resetRefusedKeyRequestsForTest();
   const { service } = crashedService();
@@ -213,7 +224,7 @@ function refusedKeyMessage(count, times) {
   return {
     count,
     protocolVersion: 1,
-    recent: times.map((at) => ({ at, client: "Codex", reason: "Invalid or expired API key.", route: "/v1/responses" })),
+    recent: times.map((at) => ({ at, client: "Codex", reason: "Invalid API key.", route: "/v1/responses" })),
     type: llmrRefusedKeyRequestsMessageType
   };
 }

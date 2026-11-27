@@ -160,6 +160,7 @@ export class RawTraceSynchronizer {
   private startupPromise?: Promise<void>;
   private storageReady = false;
   private sourceScanGeneration = 0;
+  private sourceScanWanted = false;
   private readonly sourceObservations = new Map<string, RawTraceSourceObservation>();
   // Uploads, source/staging recovery, and retention must not move the same
   // directory while another operation is still making its durable publication.
@@ -193,6 +194,20 @@ export class RawTraceSynchronizer {
     await this.replayPromise?.catch(() => undefined);
     await Promise.allSettled(this.processingTasks);
     await this.waitForDeadLetterPrune();
+  }
+
+  scanSourcesSoon(): void {
+    if (!this.started) return;
+    this.sourceScanWanted = true;
+    if (!this.storageReady) return;
+    const running = this.replayPromise;
+    if (!running) {
+      void this.replay();
+      return;
+    }
+    void running.then(() => {
+      if (this.started && this.sourceScanWanted) return this.replay();
+    });
   }
 
   async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
@@ -315,10 +330,11 @@ export class RawTraceSynchronizer {
     ]);
     const now = Date.now();
     await this.refreshInboxIndex();
-    if (now - this.lastSourceScanAt >= positiveInterval(
+    if (this.sourceScanWanted || now - this.lastSourceScanAt >= positiveInterval(
       this.dependencies.sourceScanIntervalMs,
       defaultRawTraceSourceScanIntervalMs
     )) {
+      this.sourceScanWanted = false;
       await this.reconcileSourceBundles();
       this.lastSourceScanAt = now;
     }
@@ -1574,10 +1590,13 @@ async function recordUsageCaptureFromRawTrace(
   }
 
   const responseHeaders = headersFromRawTrace(input.responseHeaders);
+  const startedAt = Date.parse(input.startedAt ?? "");
   await recordGatewayUsageCaptureIfMissing({
     bodyText: await rawTraceUsageBodyText(input, files.responseBody),
     client: input.client,
     config,
+    // Range queries compare created_at as text, so it is always rewritten in one format.
+    ...(Number.isFinite(startedAt) && startedAt <= Date.now() ? { createdAt: new Date(startedAt).toISOString() } : {}),
     durationMs: numberValue(input.durationMs) ?? 0,
     fallbackModel: input.model,
     method,
