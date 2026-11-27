@@ -1309,15 +1309,15 @@ function OverviewMetricWidget({
   if (variant === "compact") {
     return (
       <Card className="overview-card overview-metric-card flex h-full min-h-0 min-w-0 flex-col" data-tone={item.tone}>
-        <CardContent className="flex min-h-0 flex-1 items-center justify-between gap-3 p-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <span aria-hidden="true" className="overview-metric-dot" />
-            <div className="min-w-0 truncate text-[12px] font-medium text-muted-foreground">{item.label}</div>
+        <CardContent className="flex min-h-0 flex-1 flex-col justify-center gap-1 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span aria-hidden="true" className="overview-metric-dot" />
+              <div className="min-w-0 truncate text-[12px] font-medium text-muted-foreground">{item.label}</div>
+            </div>
+            <div className="shrink-0 text-[19px] font-semibold tracking-[-0.02em]">{item.value}</div>
           </div>
-          <div className="min-w-0 text-right">
-            <div className="whitespace-nowrap text-[19px] font-semibold tracking-[-0.02em]">{item.value}</div>
-            {caption}
-          </div>
+          {caption ? <div className="text-right">{caption}</div> : null}
         </CardContent>
       </Card>
     );

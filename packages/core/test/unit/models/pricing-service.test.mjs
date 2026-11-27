@@ -579,6 +579,11 @@ test("each price source reports its last successful load and whether its latest 
     const loaded = usagePriceCatalogStatus()[1];
     assert.equal(loaded.failing, undefined);
     assert.equal(typeof loaded.loadedAt, "string");
+
+    modelsDevUp = false;
+    mock.timers.tick(24 * 60 * 60 * 1000);
+    await preloadUsagePriceCatalog();
+    assert.deepEqual(usagePriceCatalogStatus()[1], { failing: true, loadedAt: loaded.loadedAt, source: "models.dev" });
   } finally {
     mock.timers.reset();
     globalThis.fetch = originalFetch;

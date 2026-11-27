@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { preloadUsagePriceCatalog, resolveRequestPrice } from "@llmr/core/models/pricing-service.ts";
+import { preloadUsagePriceCatalog, resolveRequestPrice, usagePriceCatalogStatus } from "@llmr/core/models/pricing-service.ts";
 import { RequestLogStore } from "@llmr/core/observability/request-log-store.ts";
 import { providerRuntimeId } from "@llmr/core/routing/model-registry.ts";
 import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
@@ -1367,6 +1367,10 @@ test("a request priced once keeps one cost and one source in Logs and in the tot
     await loadHaikuCatalog(0.2, 1);
 
     const { logRow, usageRow } = await recordHaikuRequest(dir, "vm-request-1", price);
+
+    const { priceSources } = await new UsageStore(path.join(dir, "usage.sqlite")).getStats("24h");
+    assert.equal(priceSources.length, 3);
+    assert.deepEqual(priceSources, usagePriceCatalogStatus(), "the usage snapshot carries the price sources' status");
 
     assert.ok(Math.abs(logRow.cost_usd - 0.0000163) < 1e-12, "priced by the catalog the request was resolved against");
     assert.deepEqual({ ...usageRow }, { ...logRow });
