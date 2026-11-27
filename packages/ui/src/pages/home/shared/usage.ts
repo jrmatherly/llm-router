@@ -1,11 +1,13 @@
-import type {
-  AgentAnalysisSnapshot,
-  AgentKind,
-  RequestLogListFilter,
-  RequestLogPage,
-  UsageStatsRange,
-  UsageStatsSnapshot,
-  UsageTotals
+import {
+  totalCostBasis,
+  type AgentAnalysisSnapshot,
+  type AgentKind,
+  type CostBasis,
+  type RequestLogListFilter,
+  type RequestLogPage,
+  type UsageStatsRange,
+  type UsageStatsSnapshot,
+  type UsageTotals
 } from "@llmr/core/contracts/app";
 import type { AgentFilterValue } from "./options";
 
@@ -19,6 +21,7 @@ export function createEmptyUsageStats(range: UsageStatsRange): UsageStatsSnapsho
     clientModels: [],
     generatedAt: new Date().toISOString(),
     models: [],
+    priceSources: [],
     providerModels: [],
     range,
     recentRequests: [],
@@ -131,11 +134,14 @@ export function emptyUsageTotals(): UsageTotals {
     cacheTokens: 0,
     costUsd: 0,
     errorCount: 0,
+    estimatedCostUsd: 0,
     inputTokens: 0,
     outputTokens: 0,
+    pricedRequestCount: 0,
     requestCount: 0,
     successRate: 0,
-    totalTokens: 0
+    totalTokens: 0,
+    unpricedRequestCount: 0
   };
 }
 
@@ -160,6 +166,44 @@ export function formatUsdCost(value: number | undefined): string {
     minimumFractionDigits: normalized >= 100 ? 0 : 2,
     style: "currency"
   }).format(normalized);
+}
+
+export function formatCost(costUsd: number | undefined, basis: CostBasis | undefined): string {
+  if (costUsd === undefined || basis === "unknown") {
+    return "-";
+  }
+  return `${basis === "estimate" ? "~" : ""}${formatUsdCost(costUsd)}`;
+}
+
+export function formatTotalCost(totals: Pick<UsageTotals, "costUsd" | "estimatedCostUsd" | "pricedRequestCount" | "unpricedRequestCount">): string {
+  return formatCost(totals.costUsd, totalCostBasis(totals));
+}
+
+export function totalCostCaption(totals: Pick<UsageTotals, "estimatedCostUsd" | "unpricedRequestCount">): string | undefined {
+  const parts = [
+    totals.estimatedCostUsd > 0 ? `~${formatUsdCost(totals.estimatedCostUsd)} approximate` : "",
+    totals.unpricedRequestCount > 0
+      ? `${totals.unpricedRequestCount} ${totals.unpricedRequestCount === 1 ? "request" : "requests"} without a price`
+      : ""
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
+const priceSourceLabels = new Map([
+  ["custom", "Your price"],
+  ["gateway_billing", "Calculated by the gateway from its billing rates"],
+  ["litellm", "LiteLLM list price"],
+  ["models.dev", "models.dev list price"],
+  ["models.dev-median", "Median of reseller prices on models.dev"],
+  ["openrouter", "OpenRouter list price"],
+  ["unpriced", "No price found"]
+]);
+
+export function priceSourceLabel(costSource: string | undefined, basis: CostBasis | undefined): string {
+  if (!costSource && basis === "unknown") {
+    return "Not priced yet";
+  }
+  return priceSourceLabels.get(costSource ?? "") ?? "Not recorded";
 }
 
 export function formatAxisNumber(value: number): string {

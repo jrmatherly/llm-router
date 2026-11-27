@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { formatLogTokenSummary, logRequestModel, logResponseModel } from "@llmr/ui/pages/home/shared/logs.ts";
-import { formatCompactNumber, formatPercentFixed, formatUsdCost as formatHomeUsdCost } from "@llmr/ui/pages/home/shared/usage.ts";
+import {
+  formatCompactNumber,
+  formatCost,
+  formatPercentFixed,
+  formatTotalCost,
+  formatUsdCost as formatHomeUsdCost,
+  priceSourceLabel,
+  totalCostCaption
+} from "@llmr/ui/pages/home/shared/usage.ts";
 import { formatUsdCost as formatTrayUsdCost } from "@llmr/ui/pages/tray/shared.tsx";
 import type { RequestLogEntry } from "@llmr/core/contracts/app.ts";
 
@@ -97,4 +105,38 @@ test("request log model summaries stay stable without list body text", () => {
   assert.equal(logRequestModel(entry), "request-model");
   assert.equal(logResponseModel(entry), "response-model");
   assert.equal(logResponseModel({ ...entry, responseModel: "" }), "resolved-model");
+});
+
+test("a single cost shows a tilde for an estimate, a dash for an unknown, and a user price of zero as zero", () => {
+  assert.equal(formatCost(0.000016, "listed"), "$0.000016");
+  assert.equal(formatCost(0.000016, "estimate"), "~$0.000016");
+  assert.equal(formatCost(undefined, "unknown"), "-");
+  assert.equal(formatCost(0, "user"), "$0.00");
+  assert.equal(formatCost(undefined, undefined), "-");
+});
+
+test("a total shows a tilde when part of it is approximate or missing, and a dash when nothing is priced", () => {
+  assert.equal(formatTotalCost({ costUsd: 0.005, estimatedCostUsd: 0, pricedRequestCount: 2, unpricedRequestCount: 0 }), "$0.005000");
+  assert.equal(formatTotalCost({ costUsd: 0.005, estimatedCostUsd: 0.003, pricedRequestCount: 2, unpricedRequestCount: 0 }), "~$0.005000");
+  assert.equal(formatTotalCost({ costUsd: 0.005, estimatedCostUsd: 0, pricedRequestCount: 2, unpricedRequestCount: 1 }), "~$0.005000");
+  assert.equal(formatTotalCost({ costUsd: 0, estimatedCostUsd: 0, pricedRequestCount: 0, unpricedRequestCount: 3 }), "-");
+  assert.equal(formatTotalCost({ costUsd: 0, estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 1 }), "~$0.00");
+  assert.equal(formatTotalCost({ costUsd: 0, estimatedCostUsd: 0, pricedRequestCount: 0, unpricedRequestCount: 0 }), "$0.00");
+});
+
+test("a total's caption states the approximate part and the requests without a price, and is absent when both are zero", () => {
+  assert.equal(totalCostCaption({ estimatedCostUsd: 0.003, unpricedRequestCount: 3 }), "~$0.003000 approximate · 3 requests without a price");
+  assert.equal(totalCostCaption({ estimatedCostUsd: 0.003, unpricedRequestCount: 0 }), "~$0.003000 approximate");
+  assert.equal(totalCostCaption({ estimatedCostUsd: 0, unpricedRequestCount: 1 }), "1 request without a price");
+  assert.equal(totalCostCaption({ estimatedCostUsd: 0, unpricedRequestCount: 0 }), undefined);
+});
+
+test("a price source reads as words for every stored value", () => {
+  assert.equal(priceSourceLabel("custom", "user"), "Your price");
+  assert.equal(priceSourceLabel("models.dev", "listed"), "models.dev list price");
+  assert.equal(priceSourceLabel("models.dev-median", "estimate"), "Median of reseller prices on models.dev");
+  assert.equal(priceSourceLabel("gateway_billing", "estimate"), "Calculated by the gateway from its billing rates");
+  assert.equal(priceSourceLabel("unpriced", "unknown"), "No price found");
+  assert.equal(priceSourceLabel("", "unknown"), "Not priced yet");
+  assert.equal(priceSourceLabel("", "estimate"), "Not recorded");
 });

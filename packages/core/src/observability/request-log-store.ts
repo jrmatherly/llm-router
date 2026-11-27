@@ -1,4 +1,4 @@
-import { requestLogOutcome } from "@llmr/core/contracts/app";
+import { costBasisFor, requestLogOutcome, totalCostBasis, type CostBasis } from "@llmr/core/contracts/app";
 import { randomUUID } from "node:crypto";
 import { closeSync, copyFileSync, existsSync, fstatSync, mkdirSync, opendirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
@@ -243,6 +243,8 @@ type StoredRequestLogEntry = {
   cacheWriteTokens: number;
   client: string;
   completedAt: string;
+  costBasis?: CostBasis;
+  costSource?: string;
   costUsd: number | undefined;
   createdAt: string;
   credentialChain: string[];
@@ -420,6 +422,7 @@ const emptyAgentAnalysisTotals: AgentAnalysisTotals = {
   cacheWriteTokens: 0,
   costUsd: 0,
   errorCount: 0,
+  estimatedCostUsd: 0,
   inputTokens: 0,
   maxConcurrentRequests: 0,
   maxDurationMs: 0,
@@ -427,12 +430,14 @@ const emptyAgentAnalysisTotals: AgentAnalysisTotals = {
   p50DurationMs: 0,
   p95DurationMs: 0,
   p99DurationMs: 0,
+  pricedRequestCount: 0,
   requestCount: 0,
   sessionCount: 0,
   subagentCallCount: 0,
   successRate: 0,
   toolCallCount: 0,
-  totalTokens: 0
+  totalTokens: 0,
+  unpricedRequestCount: 0
 };
 type AgentAnalysisCacheEntry = {
   filterKey: string;
@@ -1132,6 +1137,7 @@ export class RequestLogStore {
             cache_write_tokens,
             total_tokens,
             cost_usd,
+            cost_source,
             request_headers,
             response_headers,
             ${requestLogBodyMetadataSelect},
@@ -1298,6 +1304,7 @@ export class RequestLogStore {
             cache_write_tokens,
             total_tokens,
             cost_usd,
+            cost_source,
             request_headers,
             response_headers,
             request_body_text,
@@ -2041,6 +2048,7 @@ function toAnalyzedAgentRequest(entry: StoredRequestLogEntry): AnalyzedAgentRequ
     completedAt: entry.completedAt,
     concurrentRequests: 1,
     ...(details.conversationMessages ? { conversation: buildAgentConversationTurn(entry, details) } : {}),
+    ...(entry.costBasis ? { costBasis: entry.costBasis } : {}),
     costUsd: entry.costUsd,
     createdAt: entry.createdAt,
     durationMs: entry.durationMs,
@@ -3804,6 +3812,7 @@ function buildAgentTrace(
   const endMs = Math.max(...ordered.map((request) => request.endedAtMs));
   const durationMs = Math.max(0, endMs - startMs);
   const totals = buildAgentAnalysisTotals(ordered);
+  const rootCostBasis = totalCostBasis(totals);
   const rootRunId = `agent:${first.agent}:${sessionId}`;
   const toolResults = buildToolResultLookup(ordered, extraToolResults);
   let toolCallSequenceIndex = 0;
@@ -3813,6 +3822,7 @@ function buildAgentTrace(
       cacheReadTokens: totals.cacheReadTokens,
       cacheWriteTokens: totals.cacheWriteTokens,
       concurrentRequests: totals.maxConcurrentRequests,
+      ...(rootCostBasis ? { costBasis: rootCostBasis } : {}),
       costUsd: totals.costUsd,
       depth: 0,
       durationMs,
@@ -3971,6 +3981,7 @@ function requestTraceRun({
     cacheReadTokens: request.cacheReadTokens,
     cacheWriteTokens: request.cacheWriteTokens,
     concurrentRequests: request.concurrentRequests,
+    ...(request.costBasis ? { costBasis: request.costBasis } : {}),
     costUsd: request.costUsd,
     depth,
     durationMs: request.durationMs,
@@ -4180,6 +4191,7 @@ function buildAgentAnalysisTotals(requests: AnalyzedAgentRequest[]): AgentAnalys
     cacheWriteTokens,
     costUsd,
     errorCount,
+    estimatedCostUsd: sum(requests, (request) => request.costBasis === "estimate" ? request.costUsd ?? 0 : 0),
     inputTokens,
     maxConcurrentRequests: maxConcurrentRequests(requests),
     maxDurationMs: durations.at(-1) ?? 0,
@@ -4187,12 +4199,14 @@ function buildAgentAnalysisTotals(requests: AnalyzedAgentRequest[]): AgentAnalys
     p50DurationMs: percentile(durations, 0.5),
     p95DurationMs: percentile(durations, 0.95),
     p99DurationMs: percentile(durations, 0.99),
+    pricedRequestCount: requests.filter((request) => request.costBasis !== undefined && request.costBasis !== "unknown").length,
     requestCount: requests.length,
     sessionCount,
     subagentCallCount: requests.filter((request) => Boolean(request.subagentModel)).length,
     successRate: ratio(successfulRequests, successfulRequests + errorCount),
     toolCallCount: sum(requests, (request) => request.toolCallCount),
-    totalTokens
+    totalTokens,
+    unpricedRequestCount: requests.filter((request) => request.costBasis === "unknown").length
   };
 }
 
@@ -5258,6 +5272,7 @@ function readRequestLogById(database: SqlDatabase, id: number): StoredRequestLog
         cache_write_tokens,
         total_tokens,
         cost_usd,
+        cost_source,
         request_headers,
         response_headers,
         request_body_text,
@@ -5287,6 +5302,12 @@ function readRequestLogById(database: SqlDatabase, id: number): StoredRequestLog
 function toRequestLogEntry(row: Record<string, SqlValue>): StoredRequestLogEntry {
   const costUsd = asFloat(row.cost_usd);
   const outputTokens = normalizeCount(row.output_tokens);
+  const costSource = String(row.cost_source ?? "");
+  const costBasis = costBasisFor({
+    billableTokens: normalizeCount(row.input_tokens) + outputTokens + normalizeCount(row.cache_read_tokens) + normalizeCount(row.cache_write_tokens),
+    costSource,
+    costUsd
+  });
   const streamMetrics = parseStoredStreamMetrics(row.stream_metrics_json);
   const outputTokensPerSecond = streamMetrics?.sampleStatus === "complete" &&
     streamMetrics.activeOutputMs !== undefined && streamMetrics.activeOutputMs > 0 && outputTokens >= 2
@@ -5310,6 +5331,7 @@ function toRequestLogEntry(row: Record<string, SqlValue>): StoredRequestLogEntry
     cacheWriteTokens: normalizeCount(row.cache_write_tokens),
     client: normalizeLabel(String(row.client ?? ""), "unknown"),
     completedAt: String(row.completed_at ?? ""),
+    ...(costBasis ? { costBasis, costSource } : {}),
     costUsd,
     createdAt: String(row.created_at ?? ""),
     credentialChain: parseCredentialChain(String(row.credential_chain ?? "")),

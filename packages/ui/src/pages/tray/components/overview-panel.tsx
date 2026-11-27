@@ -1,5 +1,5 @@
 import {
-  formatCompactNumber, formatUsdCost, ProviderAccountSnapshot, TrayComponentVariants, TrayWindowModuleId, UsageComparisonRow,
+  formatCompactNumber, formatTotalCost, ProviderAccountSnapshot, TrayComponentVariants, TrayWindowModuleId, UsageComparisonRow,
   UsageStatsSnapshot, UsageTotals
 } from "../shared";
 import { AccountSummaryPanel } from "./account-panel";
@@ -55,7 +55,7 @@ export function UsageOverviewPanel({
           { label: `7d tokens`, value: formatCompactNumber(weekTotals.totalTokens) },
           { label: `30d tokens`, value: formatCompactNumber(monthTotals.totalTokens) },
           { label: "Today req", value: formatCompactNumber(todayTotals.requestCount) },
-          { label: `Today Cost`, value: formatUsdCost(todayTotals.costUsd) }
+          { label: `Today Cost`, value: formatTotalCost(todayTotals) }
         ]}
         variant={componentVariants.stats}
       />

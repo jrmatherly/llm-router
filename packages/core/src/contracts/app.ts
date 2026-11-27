@@ -2313,12 +2313,31 @@ export function requestLogOutcome(entry: { error?: string; ok: boolean; statusCo
   return entry.ok ? "completed" : "error";
 }
 
+export type CostBasis = "listed" | "estimate" | "user" | "unknown";
+
+export const listedCostSources = ["litellm", "models.dev", "openrouter"];
+
+export function costBasisFor(row: { billableTokens: number; costSource: string; costUsd: number | undefined }): CostBasis | undefined {
+  if (row.billableTokens <= 0) {
+    return undefined;
+  }
+  if (row.costUsd === undefined) {
+    return "unknown";
+  }
+  if (row.costSource === "custom") {
+    return "user";
+  }
+  return listedCostSources.includes(row.costSource) ? "listed" : "estimate";
+}
+
 export type RequestLogEntry = {
   activeOutputMs?: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
   client: string;
   completedAt?: string;
+  costBasis?: CostBasis;
+  costSource?: string;
   costUsd?: number;
   createdAt: string;
   credentialChain: string[];
@@ -2398,12 +2417,22 @@ export type UsageTotals = {
   cacheTokens: number;
   costUsd: number;
   errorCount: number;
+  estimatedCostUsd: number;
   inputTokens: number;
   outputTokens: number;
+  pricedRequestCount: number;
   requestCount: number;
   successRate: number;
   totalTokens: number;
+  unpricedRequestCount: number;
 };
+
+export function totalCostBasis(totals: Pick<UsageTotals, "estimatedCostUsd" | "pricedRequestCount" | "unpricedRequestCount">): CostBasis | undefined {
+  if (totals.pricedRequestCount === 0 && totals.unpricedRequestCount > 0) {
+    return "unknown";
+  }
+  return totals.estimatedCostUsd > 0 || totals.unpricedRequestCount > 0 ? "estimate" : undefined;
+}
 
 export type UsageSeriesPoint = UsageTotals & {
   bucket: string;
@@ -2422,10 +2451,17 @@ export type UsageComparisonRow = UsageTotals & {
   provider?: string;
 };
 
+export type PriceSourceStatus = {
+  failing?: true;
+  loadedAt?: string;
+  source: "litellm" | "models.dev" | "openrouter";
+};
+
 export type UsageStatsSnapshot = {
   clientModels: UsageComparisonRow[];
   generatedAt: string;
   models: UsageComparisonRow[];
+  priceSources: PriceSourceStatus[];
   providerModels: UsageComparisonRow[];
   range: UsageStatsRange;
   recentRequests: UsageComparisonRow[];
@@ -2481,6 +2517,7 @@ export type AgentAnalysisRequestRow = {
   cacheWriteTokens: number;
   client: string;
   concurrentRequests: number;
+  costBasis?: CostBasis;
   costUsd?: number;
   createdAt: string;
   durationMs: number;
@@ -2591,6 +2628,7 @@ export type AgentAnalysisTraceRun = {
   cacheReadTokens: number;
   cacheWriteTokens: number;
   concurrentRequests: number;
+  costBasis?: CostBasis;
   costUsd?: number;
   depth: number;
   durationMs: number;

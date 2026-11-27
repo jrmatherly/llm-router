@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { preloadUsagePriceCatalog, resolveRequestPrice } from "@llmr/core/models/pricing-service.ts";
+import { preloadUsagePriceCatalog, resolveRequestPrice, usagePriceCatalogStatus } from "@llmr/core/models/pricing-service.ts";
 import { RequestLogStore } from "@llmr/core/observability/request-log-store.ts";
 import { providerRuntimeId } from "@llmr/core/routing/model-registry.ts";
 import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts";
@@ -151,6 +151,45 @@ test("UsageStore aggregates stats in SQLite without loading all events", async (
     assert.equal(stats.totals.outputTokens, 11);
     assert.equal(stats.recentRequests.length, 2);
     assert.equal(stats.models[0]?.requestCount, 1);
+  } finally {
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
+  }
+});
+
+test("UsageStore totals split the approximate part of a cost and count the requests with and without a price", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-cost-basis-test-"));
+  try {
+    const store = new UsageStore(path.join(dir, "usage.sqlite"));
+    const priced = (source, inputUsdPerMillionTokens) => ({ price: { pricing: { inputUsdPerMillionTokens, outputUsdPerMillionTokens: 0 }, source }, state: "priced" });
+    const event = (model, price, usage = { inputTokens: 10 }) => ({
+      ...(usage === null ? {} : { usage }),
+      durationMs: 1,
+      method: "POST",
+      model,
+      path: "/v1/messages",
+      price,
+      provider: "alpha",
+      requestId: model,
+      statusCode: 200
+    });
+    await store.record(event("listed-model", priced("models.dev", 100_000)));
+    await store.record(event("median-model", priced("models.dev-median", 30_000)));
+    await store.record(event("user-zero-model", priced("custom", 0)));
+    await store.record(event("unpriced-model", { state: "unpriced" }));
+    await store.record(event("waiting-model", { state: "no-catalog" }));
+    await store.record(event("no-tokens-model", { state: "unpriced" }, null));
+
+    const stats = await store.getStats("24h", { includeProxy: true });
+    assert.equal(stats.totals.requestCount, 6);
+    assert.ok(Math.abs(stats.totals.costUsd - 1.3) < 1e-9);
+    assert.ok(Math.abs(stats.totals.estimatedCostUsd - 0.3) < 1e-9);
+    assert.equal(stats.totals.unpricedRequestCount, 2);
+    assert.equal(stats.totals.pricedRequestCount, 3);
+    const byModel = Object.fromEntries(stats.models.map((row) => [row.model, row]));
+    assert.equal(byModel["median-model"].estimatedCostUsd, byModel["median-model"].costUsd);
+    assert.equal(byModel["listed-model"].estimatedCostUsd, 0);
+    assert.equal(stats.recentRequests.reduce((count, row) => count + row.unpricedRequestCount, 0), 2);
+    assert.equal(stats.series.reduce((count, point) => count + point.unpricedRequestCount, 0), 2);
   } finally {
     removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
@@ -1328,6 +1367,10 @@ test("a request priced once keeps one cost and one source in Logs and in the tot
     await loadHaikuCatalog(0.2, 1);
 
     const { logRow, usageRow } = await recordHaikuRequest(dir, "vm-request-1", price);
+
+    const { priceSources } = await new UsageStore(path.join(dir, "usage.sqlite")).getStats("24h");
+    assert.equal(priceSources.length, 3);
+    assert.deepEqual(priceSources, usagePriceCatalogStatus(), "the usage snapshot carries the price sources' status");
 
     assert.ok(Math.abs(logRow.cost_usd - 0.0000163) < 1e-12, "priced by the catalog the request was resolved against");
     assert.deepEqual({ ...usageRow }, { ...logRow });

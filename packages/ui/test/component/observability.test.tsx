@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AgentAnalysisSessionRow, AgentAnalysisTraceRun, RequestLogEntry, RequestLogListFilter, RequestLogPage } from "@llmr/core/contracts/app.ts";
-import { AgentAnalysisView, fitAgentAnalysisRange } from "@llmr/ui/pages/home/components/dashboard.tsx";
+import { AgentAnalysisView, AgentSessionRequestsPanel, fitAgentAnalysisRange } from "@llmr/ui/pages/home/components/dashboard.tsx";
 import { LogExpandedDetails, LogsView } from "@llmr/ui/pages/home/components/network-logs.tsx";
 import { formatLogDateTime } from "@llmr/ui/pages/home/shared/logs.ts";
 import { createEmptyAgentAnalysis } from "@llmr/ui/pages/home/shared/usage.ts";
@@ -254,6 +254,7 @@ test("AgentAnalysisView keeps session headings horizontal and shows cache rate a
     costUsd: 1.25,
     durationMs: 900,
     errorCount: 0,
+    estimatedCostUsd: 0.5,
     id: "session-cache-cost",
     inputTokens: 500,
     lastSeenAt: "2026-07-23T00:01:00.000Z",
@@ -264,6 +265,7 @@ test("AgentAnalysisView keeps session headings horizontal and shows cache rate a
     p50DurationMs: 420,
     p95DurationMs: 500,
     p99DurationMs: 500,
+    pricedRequestCount: 2,
     providers: ["anthropic"],
     requestCount: 2,
     sessionCount: 1,
@@ -272,7 +274,8 @@ test("AgentAnalysisView keeps session headings horizontal and shows cache rate a
     successRate: 1,
     toolCallCount: 1,
     topTools: [{ count: 1, name: "Read" }],
-    totalTokens: 1000
+    totalTokens: 1000,
+    unpricedRequestCount: 0
   };
   const snapshot = {
     ...createEmptyAgentAnalysis("24h"),
@@ -310,7 +313,8 @@ test("AgentAnalysisView keeps session headings horizontal and shows cache rate a
         cacheWriteTokens: 100,
         client: session.client,
         concurrentRequests: 1,
-        costUsd: 0.25,
+        costBasis: "estimate" as const,
+        costUsd: 0.000016,
         createdAt: session.startedAt,
         durationMs: 420,
         id: 42,
@@ -416,7 +420,8 @@ test("AgentAnalysisView keeps session headings horizontal and shows cache rate a
             cacheReadTokens: 300,
             cacheWriteTokens: 100,
             concurrentRequests: 1,
-            costUsd: 0.25,
+            costBasis: "estimate",
+            costUsd: 0.000017,
             depth: 1,
             durationMs: 420,
             endedAt: session.lastSeenAt,
@@ -499,10 +504,15 @@ test("AgentAnalysisView keeps session headings horizontal and shows cache rate a
   assert.match(html, /Token/);
   assert.match(html, /\$1\.25/);
   assert.match(html, /\$0\.75/);
+  assert.match(html, /<td[^>]*>~\$1\.25<\/td>/);
+  assert.match(html, /~\$0\.000017/);
   assert.doesNotMatch(html, /1 \/ 2 requests\./);
   assert.match(html, /border-amber-200/);
   assert.match(html, /min-w-\[64px\]/);
   assert.match(html, /whitespace-nowrap/);
+
+  const requestsPanel = renderToStaticMarkup(<AgentSessionRequestsPanel detail={snapshot.selectedSession} />);
+  assert.match(requestsPanel, /~\$0\.000016/);
 });
 
 test("AgentAnalysisView surfaces bounded analysis and missing session states", () => {
@@ -580,4 +590,16 @@ test("LogExpandedDetails keeps a gap between summary columns and wraps a long va
   const value = firstMatch(html, new RegExp(`<div class="[^"]*"[^>]*>${"r".repeat(200)}<`));
   assert.match(value, /\[overflow-wrap:anywhere\]/);
   assert.doesNotMatch(value, /truncate|title=/);
+});
+
+test("LogExpandedDetails marks an estimated cost, shows an unknown one as a dash, and names the price source", () => {
+  const estimate = renderToStaticMarkup(<LogExpandedDetails entry={{ ...sampleRequestLogEntry, costBasis: "estimate", costSource: "models.dev-median", costUsd: 0.000016 }} />);
+  assert.match(estimate, /~\$0\.000016/);
+  assert.match(estimate, /Median of reseller prices on models\.dev/);
+
+  const unknown = renderToStaticMarkup(<LogExpandedDetails entry={{ ...sampleRequestLogEntry, costBasis: "unknown", costSource: "unpriced", costUsd: undefined }} />);
+  assert.match(unknown, /No price found/);
+  assert.doesNotMatch(unknown, /\$0\.00/);
+
+  assert.doesNotMatch(renderToStaticMarkup(<LogExpandedDetails entry={sampleRequestLogEntry} />), /Price source/);
 });

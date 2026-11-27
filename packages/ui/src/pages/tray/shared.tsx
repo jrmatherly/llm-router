@@ -31,7 +31,7 @@ import type {
 
 export { defaultTrayWidgetVariant, normalizeTrayComponentVariants, normalizeTrayIconPreference, normalizeTrayWidgets, normalizeTrayWindowModules } from "../home/shared/common";
 export { formatDuration } from "../home/shared/network";
-export { formatCompactNumber, formatPercent, formatUsdCost, rangeLabel } from "../home/shared/usage";
+export { formatCompactNumber, formatPercent, formatTotalCost, formatUsdCost, rangeLabel } from "../home/shared/usage";
 
 export  {
   createContext, useCallback, useContext, useEffect, useMemo, useState, createRoot,
@@ -89,11 +89,14 @@ export const emptyTotals: UsageTotals = {
   cacheTokens: 0,
   costUsd: 0,
   errorCount: 0,
+  estimatedCostUsd: 0,
   inputTokens: 0,
   outputTokens: 0,
+  pricedRequestCount: 0,
   requestCount: 0,
   successRate: 0,
-  totalTokens: 0
+  totalTokens: 0,
+  unpricedRequestCount: 0
 };
 
 export const emptySnapshots: SnapshotMap = {
@@ -196,6 +199,7 @@ export function createEmptySnapshot(range: UsageStatsRange): UsageStatsSnapshot 
     clientModels: [],
     generatedAt: new Date().toISOString(),
     models: [],
+    priceSources: [],
     providerModels: [],
     range,
     recentRequests: [],

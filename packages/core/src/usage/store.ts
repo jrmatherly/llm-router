@@ -12,6 +12,7 @@ import {
   resolveRequestPrice,
   unpricedCostSource,
   usagePriceCatalogNeedsRefresh,
+  usagePriceCatalogStatus,
   type RequestPriceOutcome,
   type UsageCostEstimate,
   type UsageCostInput
@@ -26,16 +27,19 @@ import {
   type UsageModelAttribution
 } from "@llmr/core/usage/model-attribution";
 import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
-import type {
-  AppConfig,
-  GatewayProviderProtocol,
-  UsageComparisonRow,
-  UsageStatsFilter,
-  UsageSeriesPoint,
-  UsageStatsRange,
-  UsageStatsResetResult,
-  UsageStatsSnapshot,
-  UsageTotals
+import {
+  costBasisFor,
+  listedCostSources,
+  type AppConfig,
+  type CostBasis,
+  type GatewayProviderProtocol,
+  type UsageComparisonRow,
+  type UsageStatsFilter,
+  type UsageSeriesPoint,
+  type UsageStatsRange,
+  type UsageStatsResetResult,
+  type UsageStatsSnapshot,
+  type UsageTotals
 } from "@llmr/core/contracts/app";
 
 type SqlDatabase = BetterSqliteDatabase;
@@ -131,6 +135,7 @@ type StoredUsageEvent = {
   cacheReadTokens: number;
   cacheWriteTokens: number;
   client: string;
+  costBasis: CostBasis | undefined;
   costSource: string;
   costUsd: number;
   createdAt: string;
@@ -164,11 +169,14 @@ const emptyTotals: UsageTotals = {
   cacheTokens: 0,
   costUsd: 0,
   errorCount: 0,
+  estimatedCostUsd: 0,
   inputTokens: 0,
   outputTokens: 0,
+  pricedRequestCount: 0,
   requestCount: 0,
   successRate: 0,
-  totalTokens: 0
+  totalTokens: 0,
+  unpricedRequestCount: 0
 };
 
 export class UsageStore {
@@ -467,6 +475,7 @@ export class UsageStore {
       clientModels: readClientModelRows(database, query),
       generatedAt: now.toISOString(),
       models: readModelRows(database, query),
+      priceSources: usagePriceCatalogStatus(),
       providerModels: readProviderModelRows(database, query),
       range: normalizedRange,
       recentRequests: readRecentRequestRows(database, query),
@@ -944,21 +953,31 @@ function cleanupSqliteTempCopy(file: string): void {
 }
 
 function toStoredUsageEvent(row: Record<string, SqlValue>): StoredUsageEvent {
+  const costSource = String(row.cost_source ?? "");
+  const cacheReadTokens = normalizeCount(row.cache_read_tokens);
+  const cacheWriteTokens = normalizeCount(row.cache_write_tokens);
+  const inputTokens = normalizeCount(row.input_tokens);
+  const outputTokens = normalizeCount(row.output_tokens);
   return {
-    cacheReadTokens: normalizeCount(row.cache_read_tokens),
-    cacheWriteTokens: normalizeCount(row.cache_write_tokens),
+    cacheReadTokens,
+    cacheWriteTokens,
     client: normalizeLabel(String(row.client ?? ""), "unknown"),
-    costSource: String(row.cost_source ?? ""),
+    costBasis: costBasisFor({
+      billableTokens: inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens,
+      costSource,
+      costUsd: row.cost_usd === null || row.cost_usd === undefined ? undefined : normalizeCost(row.cost_usd)
+    }),
+    costSource,
     costUsd: normalizeCost(row.cost_usd),
     createdAt: String(row.created_at ?? ""),
     credentialId: normalizeLabel(String(row.credential_id ?? ""), ""),
     durationMs: normalizeCount(row.duration_ms),
     id: normalizeCount(row.id),
-    inputTokens: normalizeCount(row.input_tokens),
+    inputTokens,
     logicalModel: normalizeLabel(String(row.logical_model ?? row.model ?? ""), "unknown"),
     method: String(row.method ?? ""),
     model: normalizeLabel(String(row.model ?? ""), "unknown"),
-    outputTokens: normalizeCount(row.output_tokens),
+    outputTokens,
     path: normalizeLabel(String(row.path ?? ""), "/"),
     provider: normalizeLabel(String(row.provider ?? ""), "unknown"),
     requestId: String(row.request_id ?? ""),
@@ -967,8 +986,16 @@ function toStoredUsageEvent(row: Record<string, SqlValue>): StoredUsageEvent {
   };
 }
 
+const billableTokensSql = "input_tokens + output_tokens + cache_read_tokens + cache_write_tokens";
 const usageTotalsSelect = `
             COUNT(*) AS request_count,
+            COALESCE(SUM(CASE
+              WHEN cost_usd IS NOT NULL AND ${billableTokensSql} > 0
+                AND cost_source NOT IN (${["custom", ...listedCostSources].map((source) => `'${source}'`).join(", ")})
+              THEN cost_usd ELSE 0
+            END), 0) AS estimated_cost_usd,
+            COALESCE(SUM(CASE WHEN cost_usd IS NOT NULL AND ${billableTokensSql} > 0 THEN 1 ELSE 0 END), 0) AS priced_request_count,
+            COALESCE(SUM(CASE WHEN cost_usd IS NULL AND ${billableTokensSql} > 0 THEN 1 ELSE 0 END), 0) AS unpriced_request_count,
             COALESCE(SUM(input_tokens), 0) AS input_tokens,
             COALESCE(SUM(output_tokens), 0) AS output_tokens,
             COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
@@ -1176,11 +1203,14 @@ function usageTotalsFromRow(row: Record<string, SqlValue> | undefined): UsageTot
     cacheTokens,
     costUsd: normalizeCost(row?.cost_usd),
     errorCount,
+    estimatedCostUsd: normalizeCost(row?.estimated_cost_usd),
     inputTokens: normalizeCount(row?.input_tokens),
     outputTokens: normalizeCount(row?.output_tokens),
+    pricedRequestCount: normalizeCount(row?.priced_request_count),
     requestCount,
     successRate: ratio(successfulRequests, successfulRequests + errorCount),
-    totalTokens: normalizeCount(row?.computed_total_tokens)
+    totalTokens: normalizeCount(row?.computed_total_tokens),
+    unpricedRequestCount: normalizeCount(row?.unpriced_request_count)
   };
 }
 
@@ -1284,11 +1314,14 @@ function buildTotals(events: StoredUsageEvent[]): UsageTotals {
     cacheTokens,
     costUsd,
     errorCount,
+    estimatedCostUsd: sum(events, (event) => event.costBasis === "estimate" ? event.costUsd : 0),
     inputTokens,
     outputTokens,
+    pricedRequestCount: events.filter((event) => event.costBasis !== undefined && event.costBasis !== "unknown").length,
     requestCount,
     successRate: ratio(successfulRequests, successfulRequests + errorCount),
-    totalTokens
+    totalTokens,
+    unpricedRequestCount: events.filter((event) => event.costBasis === "unknown").length
   };
 }
 
@@ -1474,6 +1507,7 @@ function emptySnapshot(range: UsageStatsRange): UsageStatsSnapshot {
     clientModels: [],
     generatedAt: new Date().toISOString(),
     models: [],
+    priceSources: [],
     providerModels: [],
     range,
     recentRequests: [],

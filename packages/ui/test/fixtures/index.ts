@@ -110,11 +110,14 @@ export function usageTotals(patch: Partial<UsageTotals> = {}): UsageTotals {
     cacheTokens: 2400,
     costUsd: 1.23,
     errorCount: 2,
+    estimatedCostUsd: 0,
     inputTokens: 6200,
     outputTokens: 3400,
+    pricedRequestCount: 0,
     requestCount: 128,
     successRate: 0.984,
     totalTokens: 12000,
+    unpricedRequestCount: 0,
     ...patch
   };
 }
@@ -161,6 +164,7 @@ export function usageStats(range: UsageStatsRange = "30d", patch: Partial<UsageS
     ],
     generatedAt: "2026-06-30T00:00:00.000Z",
     models,
+    priceSources: [],
     providerModels: [
       usageRow("provider:openai", "OpenAI", { credentialId: "primary", model: "gpt-4.1", provider: "openai", totalTokens: 7200 }),
       usageRow("provider:anthropic", "Anthropic", { credentialId: "secondary", model: "claude-sonnet", provider: "anthropic", totalTokens: 4800 })

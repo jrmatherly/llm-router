@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { disposeCliWebRuntime, startCliWebServer, type CliWebRuntime } from "./cli-web-runtime";
 
@@ -262,6 +265,67 @@ test("resumes an unrelated pending autosave after the provider form save fails",
   ]);
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Done", exact: true })).toBeEnabled();
+});
+
+test("a price edit on a catalog model saves only the field the user typed", async ({ page }) => {
+  // A preset's base URL is a real host, so the catalog's defaults come from a one-model catalog for a loopback URL.
+  const catalogDir = mkdtempSync(path.join(os.tmpdir(), "llmr-playwright-catalog-"));
+  const catalogPath = path.join(catalogDir, "models.json");
+  writeFileSync(catalogPath, JSON.stringify({
+    models: [{
+      id: "fixture/priced-model",
+      modalities: { output: ["text"] },
+      model: "priced-model",
+      pricing: {
+        offers: [{
+          model: "priced-model",
+          per1MTokens: { input: 3, output: 15 },
+          provider: "fixture",
+          source: "models.dev",
+          sourceUnit: "usd_per_1m_tokens"
+        }]
+      },
+      provider: "fixture",
+      sourceRecords: [{ model: "priced-model", provider: "fixture", providerApi: "http://127.0.0.1:9/v1" }]
+    }],
+    schemaVersion: 2
+  }));
+  const pricedRuntime = await startCliWebServer(cliWebAuthToken, { LLMR_MODEL_CATALOG_PATH: catalogPath });
+  try {
+    await page.goto(`${pricedRuntime.baseUrl}/#llmr_web_token=${encodeURIComponent(pricedRuntime.token)}`);
+    await waitForBridge(page);
+    await page.evaluate(async () => {
+      const config = await window.llmr!.getConfig();
+      config.Providers = [{
+        api_base_url: "http://127.0.0.1:9/v1",
+        api_key: "sk-priced-model",
+        models: ["priced-model"],
+        name: "priced-provider",
+        type: "openai_chat_completions"
+      }];
+      await window.llmr!.saveConfig(config);
+      await window.llmr!.setOnboardingFinished?.();
+    });
+    await page.reload();
+    await waitForBridge(page);
+
+    await page.getByRole("button", { name: "Providers", exact: true }).click();
+    await page.locator('button[aria-label="Edit priced-provider"]:visible').first().click();
+    const dialog = page.getByRole("dialog", { name: "Edit Provider", exact: true });
+    await dialog.getByRole("button", { name: /^priced-model/ }).click();
+    await expect(dialog.getByLabel("Input(1M tokens/$)")).toHaveAttribute("placeholder", "3");
+    await dialog.getByLabel("Cache read(1M tokens/$)").fill("0.5");
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect.poll(async () => page.evaluate(async () => {
+      const config = await window.llmr!.getConfig();
+      return config.Providers[0]?.modelMetadata?.["priced-model"]?.pricing;
+    })).toEqual({ cacheReadUsdPerMillionTokens: 0.5 });
+  } finally {
+    await disposeCliWebRuntime(pricedRuntime);
+    rmSync(catalogDir, { force: true, recursive: true });
+  }
 });
 
 async function prepareProviderRegressionPage(page: Page, withReferences = false): Promise<void> {

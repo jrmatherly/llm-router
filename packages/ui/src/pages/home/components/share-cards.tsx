@@ -1,7 +1,7 @@
 import {
   Button, cn, Download, formatCompactNumber, formatDuration, formatPercent, formatProviderAccountMeterTitle,
-  formatProviderAccountMeterValue, formatUsdCost, LoaderCircle, primaryProviderAccountMeter, providerAccountMeterRemainingRatio,
-  providerAccountSnapshotKey, rangeLabel, ReactNode, UsageStatsRange, UsageStatsSnapshot, useRef, useState, type OverviewWidgetType, type ProviderAccountMeter, type ProviderAccountSnapshot
+  formatProviderAccountMeterValue, formatTotalCost, LoaderCircle, primaryProviderAccountMeter, providerAccountMeterRemainingRatio,
+  providerAccountSnapshotKey, rangeLabel, ReactNode, totalCostCaption, UsageStatsRange, UsageStatsSnapshot, useRef, useState, type OverviewWidgetType, type ProviderAccountMeter, type ProviderAccountSnapshot
 } from "../shared/index";
 import { productShortName } from "../shared/brand";
 import { buildTokenActivity, type TokenActivityCell } from "@/lib/usage-activity";
@@ -233,7 +233,7 @@ function UsageWrappedCard({ usageStats }: { usageStats: UsageStatsSnapshot }) {
       </div>
       <div className="mt-8 grid grid-cols-2 gap-3">
         <PosterStat label="Requests" value={formatCompactNumber(totals.requestCount)} />
-        <PosterStat label="Estimated cost" value={formatUsdCost(totals.costUsd)} />
+        <PosterStat label="Estimated cost" value={formatTotalCost(totals)} />
         <PosterStat label="Cache ratio" value={formatPercent(totals.cacheRatio)} />
         <PosterStat label="Longest streak" value={`${formatCompactNumber(activity.longestStreak)} ${activity.longestStreak === 1 ? "day" : "days"}`} />
       </div>
@@ -426,14 +426,16 @@ function SpendReceiptCard({
     { label: "Average latency", value: formatDuration(totals.avgDurationMs) },
     { label: "Success rate", value: formatPercent(totals.successRate) }
   ];
+  const costCaption = totalCostCaption(totals);
 
   return (
     <SharePoster tone="slate">
       <SharePosterHeader title="Spend Receipt" tone="slate" />
       <div className="mt-7 rounded-[22px] border border-slate-300 bg-white/74 p-5 shadow-[0_16px_34px_rgba(71,85,105,0.12)]">
         <div className="border-b border-dashed border-slate-300 pb-4 text-center">
-          <div className="text-[40px] font-black leading-none text-slate-950">{formatUsdCost(totals.costUsd)}</div>
+          <div className="text-[40px] font-black leading-none text-slate-950">{formatTotalCost(totals)}</div>
           <div className="mt-2 text-[12px] font-bold uppercase text-slate-500">Estimated cost</div>
+          {costCaption ? <div className="mt-1 text-[12px] font-semibold text-slate-500">{costCaption}</div> : null}
         </div>
         <div className="mt-4 space-y-2 border-b border-dashed border-slate-300 pb-4">
           {rows.map((row) => (

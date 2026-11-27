@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
+import { costBasisFor, totalCostBasis } from "@llmr/core/contracts/app.ts";
 import {
   estimateUsageCost,
   parseUsagePricingSource,
   preloadUsagePriceCatalog,
   providerModelPricingForUsage,
-  resolveRequestPrice
+  resolveRequestPrice,
+  usagePriceCatalogStatus
 } from "@llmr/core/models/pricing-service.ts";
 
 const pricing = {
@@ -550,4 +552,68 @@ test("a failing price source is logged once per failure streak, and an empty pay
   } finally {
     warn.mock.restore();
   }
+});
+
+test("each price source reports its last successful load and whether its latest load failed", async () => {
+  const originalFetch = globalThis.fetch;
+  let modelsDevUp = false;
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    if (target.includes("litellm")) return Response.json({ "m": { input_cost_per_token: 0.000001, output_cost_per_token: 0.000002 } });
+    if (target.includes("openrouter.ai")) return Response.json({ data: [{ id: "lab/m", pricing: { completion: "0.000001", prompt: "0.000001" } }] });
+    if (!modelsDevUp) throw new Error("offline");
+    return Response.json({ lab: { models: { m: { cost: { input: 1, output: 1 } } } } });
+  };
+  mock.timers.enable({ apis: ["Date"], now: Date.now() });
+  try {
+    await preloadUsagePriceCatalog({ forceRefresh: true });
+    const failing = usagePriceCatalogStatus();
+    assert.deepEqual(failing.map((status) => status.source), ["litellm", "models.dev", "openrouter"]);
+    assert.deepEqual(failing[1], { failing: true, source: "models.dev" });
+    assert.equal(typeof failing[0].loadedAt, "string");
+    assert.equal(failing[0].failing, undefined);
+
+    modelsDevUp = true;
+    mock.timers.tick(5 * 60 * 1000);
+    await preloadUsagePriceCatalog();
+    const loaded = usagePriceCatalogStatus()[1];
+    assert.equal(loaded.failing, undefined);
+    assert.equal(typeof loaded.loadedAt, "string");
+
+    modelsDevUp = false;
+    mock.timers.tick(24 * 60 * 60 * 1000);
+    await preloadUsagePriceCatalog();
+    assert.deepEqual(usagePriceCatalogStatus()[1], { failing: true, loadedAt: loaded.loadedAt, source: "models.dev" });
+  } finally {
+    mock.timers.reset();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a cost's basis comes from its stored source, its amount and its tokens", () => {
+  const basis = (costSource, costUsd, billableTokens = 10) => costBasisFor({ billableTokens, costSource, costUsd });
+  assert.equal(basis("models.dev", 0.1), "listed");
+  assert.equal(basis("litellm", 0.1), "listed");
+  assert.equal(basis("openrouter", 0.1), "listed");
+  assert.equal(basis("models.dev-median", 0.1), "estimate");
+  assert.equal(basis("custom", 0), "user");
+  assert.equal(basis("gateway_billing", 0.1), "estimate");
+  assert.equal(basis("unpriced", undefined), "unknown");
+  assert.equal(basis("", undefined), "unknown");
+  assert.equal(basis("", 0.1), "estimate");
+  assert.equal(basis("request_log", 0.1), "estimate");
+  assert.equal(basis("models.dev", undefined, 0), undefined);
+  assert.equal(basis("", undefined, 0), undefined);
+});
+
+test("a total's basis is unknown with nothing priced, an estimate with any approximate or missing part, and plain otherwise", () => {
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 0, unpricedRequestCount: 2 }), "unknown");
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 2 }), "estimate");
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0.3, pricedRequestCount: 2, unpricedRequestCount: 0 }), "estimate");
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 0 }), undefined);
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 0, unpricedRequestCount: 0 }), undefined);
+});
+
+test("a user price of 0 beside an unpriced request makes an estimate, not an unknown", () => {
+  assert.equal(totalCostBasis({ estimatedCostUsd: 0, pricedRequestCount: 1, unpricedRequestCount: 1 }), "estimate");
 });

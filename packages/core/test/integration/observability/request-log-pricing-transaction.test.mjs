@@ -189,6 +189,50 @@ test("a log row stores where its price came from and keeps it through a raw-trac
   }
 });
 
+test("a log entry carries its cost's basis and stored source, also for a row stored before the source was recorded", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-cost-basis-test-"));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  let store = new RequestLogStore(dbFile);
+  try {
+    const priced = (source) => ({ price: { pricing: { inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 8 }, source }, state: "priced" });
+    const usage = '{"usage":{"input_tokens":1000,"output_tokens":10}}';
+    await store.writeBatch([
+      { eventId: "listed-event", input: { ...createRecord("listed", usage), price: priced("models.dev") }, kind: "record", sequence: 1 },
+      { eventId: "median-event", input: { ...createRecord("median", usage), price: priced("models.dev-median") }, kind: "record", sequence: 2 },
+      { eventId: "unpriced-event", input: { ...createRecord("unpriced", usage), price: { state: "unpriced" } }, kind: "record", sequence: 3 },
+      { eventId: "no-tokens-event", input: { ...createRecord("no-tokens", "{}"), price: priced("models.dev") }, kind: "record", sequence: 4 }
+    ]);
+    const page = await store.list({ pageSize: 10 });
+    const byRequest = Object.fromEntries(page.items.map((item) => [item.requestId, [item.costBasis, item.costSource]]));
+    assert.deepEqual(byRequest, {
+      listed: ["listed", "models.dev"],
+      median: ["estimate", "models.dev-median"],
+      "no-tokens": [undefined, undefined],
+      unpriced: ["unknown", "unpriced"]
+    });
+    const median = page.items.find((item) => item.requestId === "median");
+    const detail = await store.getDetail({ id: median.id });
+    assert.deepEqual([detail?.costBasis, detail?.costSource], ["estimate", "models.dev-median"]);
+
+    await store.close();
+    const database = createBetterSqliteDatabase(dbFile);
+    try {
+      database.prepare(`
+        INSERT INTO request_logs (created_at, request_id, method, path, url, status_code, ok, duration_ms, input_tokens, cost_usd)
+        VALUES (?, 'before-source', 'POST', '/v1/messages', 'http://127.0.0.1:3456/v1/messages', 200, 1, 10, 10, 2)
+      `).run(new Date().toISOString());
+    } finally {
+      database.close();
+    }
+    store = new RequestLogStore(dbFile);
+    const legacy = (await store.list({ pageSize: 10 })).items.find((item) => item.requestId === "before-source");
+    assert.deepEqual([legacy?.costBasis, legacy?.costSource], ["estimate", ""]);
+  } finally {
+    await store.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 const usageBody = '{"usage":{"input_tokens":1000000,"output_tokens":500000}}';
 
 async function loadCatalog(liteLlm) {

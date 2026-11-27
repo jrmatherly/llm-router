@@ -1,5 +1,5 @@
 import { fetchWithSystemProxy } from "@llmr/core/proxy/system-proxy-fetch";
-import type { AppConfig, ProviderModelPricing } from "@llmr/core/contracts/app";
+import type { AppConfig, PriceSourceStatus, ProviderModelPricing } from "@llmr/core/contracts/app";
 import { catalogProviderIdsForBaseUrl } from "@llmr/core/providers/model-catalog";
 import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
 
@@ -82,6 +82,7 @@ type SourcePrices = {
   expiresAt: number;
   failed: boolean;
   index: PriceIndex;
+  loadedAt?: number;
 };
 
 type PriceCatalog = Map<ModelPricingSource, SourcePrices>;
@@ -123,6 +124,14 @@ export async function preloadUsagePriceCatalog(options: { forceRefresh?: boolean
 export function usagePriceCatalogNeedsRefresh(): boolean {
   const now = Date.now();
   return !catalog || Array.from(catalog.values()).some((source) => now >= source.expiresAt);
+}
+
+export function usagePriceCatalogStatus(): PriceSourceStatus[] {
+  return Array.from(catalog ?? [], ([source, { failed, loadedAt }]) => ({
+    ...(failed ? { failing: true as const } : {}),
+    ...(loadedAt === undefined ? {} : { loadedAt: new Date(loadedAt).toISOString() }),
+    source
+  })).sort((left, right) => left.source.localeCompare(right.source));
 }
 
 /** Never reads the catalog: a cost comes only from a complete input.pricing. */
@@ -430,13 +439,13 @@ async function loadPriceCatalog(previous: PriceCatalog | undefined): Promise<Pri
       (error: unknown) => ({ error: error instanceof Error ? error.message : String(error) })
     );
     if ("index" in result) {
-      next.set(source, { expiresAt: now + catalogTtlMs, failed: false, index: result.index });
+      next.set(source, { expiresAt: now + catalogTtlMs, failed: false, index: result.index, loadedAt: now });
       return;
     }
     if (!cached?.failed) {
       console.warn(`[usage] Could not load prices from ${source}: ${result.error}`);
     }
-    next.set(source, { expiresAt: now + failedSourceRetryMs, failed: true, index: cached?.index ?? emptyPriceIndex() });
+    next.set(source, { expiresAt: now + failedSourceRetryMs, failed: true, index: cached?.index ?? emptyPriceIndex(), loadedAt: cached?.loadedAt });
   }));
   return next;
 }
