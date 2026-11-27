@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Status, 2026-11-27: written, not built.** The owner chose the scope that day: the two wrong costs, the survey, and the small fixes with a one-line recommendation, released as 9.1.0. Tasks 2 to 8 were checked against `main` `b504d153` on another model before this text was written. That check wrote each task's test and saw it fail on `main` for the reason the finding gives, then built each fix in a throwaway worktree and saw the test pass (run). Nobody reviewed those throwaway fixes, and this text was not audited after it was written. The lead checked that every helper the tests below call exists in the file each test goes into (run). The check's tests as patches against `b504d153`, and its throwaway fixes, are outside the repo in `private/research/2026-11-27-pre-release-findings/` of the main checkout. Tasks 1, 9, 10, 11 and 12 point at text that already exists and add none.
+> **Status, 2026-11-27: written, not built.** The owner chose the scope that day: the two wrong costs, the survey, and the small fixes with a one-line recommendation, released as 9.1.0. Tasks 2 to 8 were checked against `main` `b504d153` on another model before this text was written. That check wrote each task's test and saw it fail on `main` for the reason the finding gives, then built each fix in a throwaway worktree and saw the test pass (run). Nobody reviewed those throwaway fixes. **Audited the same day** on another model, which built Tasks 2 to 8 from this text alone in a throwaway worktree, without the first check's fixes: no Blocker, 11 Corrections, 1 design finding and 6 gaps, all applied below. Every test failed as its "Expected" says and every fix passed, and the core suite was green at each of the seven commits (2457 passed, 0 failed, 82 skipped at the last, and 2523 passed with the gateway entry set). It ran 23 mutants: 18 killed, 1 equivalent and 4 survivors, and each survivor now has a test here that it saw fail on the mutant (run). The design finding changed Task 6. The text the audit's corrections changed was not built again. The audit's build, its extra tests and its mutant script are outside the repo in `private/audits/2026-11-27-audit-finish-plan/`. The check's tests as patches against `b504d153`, and its throwaway fixes, are outside the repo in `private/research/2026-11-27-pre-release-findings/` of the main checkout. Tasks 1, 9, 10, 11 and 12 point at text that already exists and add none.
 
 **Goal:** Release what is on `main` as 9.1.0 with seven small faults fixed first, run the one VM pass on that release, and leave every other open finding in a remediation plan.
 
@@ -40,33 +40,85 @@
 
 ## Open with the owner
 
-Each has a default. The release does not wait for any of them unless he says so.
+Every `decide` row of the register, researched on 2026-11-27 as of that month, on another run than the one that wrote the row. The notes hold the evidence and the options:
+[pricing](../research/2026-11-27-decisions-pricing.md), [free models](../research/2026-11-27-zero-listed-price.md), [restore and Codex](../research/2026-11-27-decisions-restore.md), [logs, label, gateway and UI](../research/2026-11-27-decisions-logs-label-gateway.md), [tests, CI and repository](../research/2026-11-27-decisions-tests-ci-repo.md).
 
-| # | Question | Default | Evidence |
+Each recommendation is the researcher's and is labelled with how it is known. The lead re-ran none of them. Nothing here is built until the owner answers, and the release waits for none of it. A row with no answer keeps its default.
+
+### A. A change is recommended before 9.1.0
+
+Small enough to join the branch of Tasks 2 to 8 or go straight to `main` as docs. Each needs his yes.
+
+| Row | Recommendation | Size | Evidence |
 |---|---|---|---|
-| 1 | **F-PRICE-3.** Should a zero that is the offer of the provider the request went to show `$0.00` and "Listed at no charge"? The research recommends yes: it changes 80 live offers on 8 presets, and a zero from any other offer stays "no price here". It changes the last sentence of V-21, which V-21's own row says was the plan author's (read) | No change. A free model reads "No price found", as built | The zero-listed-price note |
-| 2 | **New, from that research.** 207 live zero offers take a paid price from another provider's offer today and show it as a list price with no tilde. A free OpenCode model reads as 0.3 and 1.2 per million. Should a zero offer stop the rule from following its canonical id to the maker's entry? The cause was read and then inferred, and the count was run by the researcher only | No change until he answers. Register row F-PRICE-36 | The same note, "Gaps" 1 |
-| 3 | Release the fork commit of batch 5 with 9.1.0, or hold it for the next fork release | Hold. 9.1.0 ships on `llmr.4` | Task 1 |
-| 4 | Pricing Task 6, the cost a provider reports, needs a fork change | No. Drop P-5 for now | Delivery index question 2 |
-| 5 | Pricing Task 8, the service tier price | The pricing plan's option C, built after the release | Delivery index question 3 |
-| 6 | Where gateway phase 1 sits beside the remediation release | After it | Delivery index, "After the release" |
-| 7 | The gateway phase 0 plan's status line still says Task 5 is not built. Another session owns the file | This session corrects the one line on his word | `2026-11-25-apps-gateway-phase-0.md` line 3 |
-| 8 | RS-5, four repository settings | After the release. They gate nothing | Register row F-TEST-5 |
+| F-PRICE-34 | Rename "Estimated cost" to "Cost" on the Overview card and both share cards. The tray and Logs detail already say "Cost", and since PR 177 a total with no tilde holds list and user prices under a label that calls it estimated | Six strings: four in the app, two in the configuration docs page | read |
+| F-CODEX-1 | State the limit on the user-facing Codex docs page: a provider table written with no header, under the same id as the profile's, makes an apply write a file Codex refuses, and switching the profile off restores the original byte for byte | One docs sentence | run on Codex 0.172.0 in a temporary home |
+| F-RESTORE-2 | Say in the docs that for OpenCode, Kilo, Pi, ZCode and Workbuddy the way back when a save is refused is to stop the gateway or quit. The button stays as it is | One docs sentence | read |
+
+### B. A change is recommended for the remediation release
+
+| Row | Recommendation | Why not now | Evidence |
+|---|---|---|---|
+| F-PRICE-3 | Show `$0.00` and "Listed at no charge" only for a zero that is the offer of the provider the request went to. A zero from any other offer stays "no price here". It changes 80 live offers on 8 presets and the last sentence of V-21, which V-21's own row says was the plan author's | A rule change with a new cost source and a label. Default until then: a free model reads "No price found", as built | run on the live catalogs, the rule read |
+| F-PRICE-36 | A zero offer adds no canonical id, so it cannot borrow the maker's paid price. Build it in the PR that builds F-PRICE-3. Corrected by the second researcher: the 207 reproduces and 9.0.0 has the same code, so the figures are old and only the "list price" label without a tilde is new. The one-condition fix moves 77 of the 199 models.dev cases. The other 122 take a maker's price by V-21's maker step, working as decided. With F-PRICE-3 it fixes 88 of 199. On a custom provider 68 of 2,934 model names go from a maker's price to unpriced | Same PR as F-PRICE-3 | run on catalogs saved at 17:58 UTC |
+| F-PRICE-7 | Accept the pricing plan's option C for a priority or flex request, with two corrections to its wording. Anthropic reports `service_tier: "standard"` on an ordinary request, so "a tier other than `default`" would mark every Anthropic request. Anthropic's real premium is fast mode, `usage.speed: "fast"`, which C should cover. Unknown: whether the gateway keeps those two fields through translation | Pricing Task 8 is not built, and its text needs the corrections first | fetched provider docs through a tool that summarises, the plan read |
+| F-LABEL-1 | Show the key's name in both layouts. It reads as one argument where the trace import builds its row. The key is the only anchor for who called that the caller cannot choose | A behaviour change with no test yet. With a proxied request the layouts could still differ (not run) | read |
+| F-UI-1 | A saved local login shows grey until LLM Router has checked it, green after a pass and amber after a failure. Today both rows are green whenever the provider is a local login and neither reads a check result, so never checked, passed and failed look the same. Two step markers in the same file use the same condition and must follow | A UI change that wants a look in a window | read |
+| F-RESTORE-1 | Not the row's option. Taking a ZCode cache entry by its id fixed three of six scenarios in a scratch prototype and made one worse. If it is closed, record the ids written at apply time and read that record when the config is gone, about 20 to 40 lines (inferred). Unknown, and the fact that would change this: whether ZCode itself deletes or rewrites its config | Rare, and the same shape of rule failed twice in batch 9 | run in a temporary home, no ZCode binary on this Mac |
+| F-CODEX-1 | Beyond the docs sentence: refuse the apply with a not-ok status when the user's own headerless provider has the profile's id, as stripper Task 7 does for reserved ids | A new refusal | run |
+| F-GATEWAY-1 | Release the fork commit no later than the remediation release. Fastify 6 is at alpha 6 with no date, and LLM Router's range cannot pull it. Until then a terminal user sees one deprecation line per start, and the tested commit lives on one disk. Pushing it as a branch with no tag would end that risk and needs his word | He said not yet on 2026-11-27 | npm and the lockfile read, the fork's state run |
+
+### C. The default holds
+
+| Row | What stays | Note from the research |
+|---|---|---|
+| F-PRICE-4 | The dash for a request with no tokens | |
+| F-PRICE-5 | Both stores keep their own usage rule | No real provider stream was shown to send a reasoning-only chunk |
+| F-PRICE-6 | No fork change for a provider's reported cost. Pricing Task 6 stays dropped | If it returns, the fork may not be needed: the trace body LLM Router already parses is the upstream's own body and would carry OpenRouter's `usage.cost` (read, not run). The pricing plan assumes the fork is the only way |
+| F-PRICE-8 | A gateway billing cost counts as an estimate | One exception found: the fork reads xAI's reported cost for the embeddings, image and video endpoints, so that one cost is a real charge shown with a tilde |
+| F-PRICE-9 | A reported cost of 0 counts as absent | A bring-your-own-key request inside the allowance carries no OpenRouter fee, so a reported 0 is not "free" |
+| F-LOGS-1 | The refusal body keeps the fork's prefix | Drop it only as a passenger on a fork release made for another reason. LLM Router cannot strip it on its own side (inferred) |
+| F-LOGS-2 | A trace names a provider only for an event with no tokens and no cost | |
+| F-LABEL-2 | Identity headers are stored as `[redacted]` for every key | Nothing is lost: a marked key's e-mail and id have their own columns and show as "Gateway user". LiteLLM, Langfuse and Helicone all put identity in a named field (fetched docs) |
+| F-RESTORE-3 | Restore Task 9 runs on the installed Codex only | It is 0.172.0, npm's latest that day. The premise holds at config load. The Codex config reference now also lists `gateway_oauth.credential_export`, a command that prints one access token, which Task 9 does not mention |
+| F-RESTORE-4 | Workbuddy's `models.json` gets no stripper | It holds a placeholder and no key |
+| F-RESTORE-5 | A save's notice is set only by a profile's own restore | The row's other half was stale and is corrected: "a profile's record is kept while a saved original exists" is not in the code. Batch 9's review replaced it with a flag set on every finished restore |
+| F-GATEWAY-2 | The remediation release comes before gateway phase 1 | The phase 1 plan was audited once on 2026-11-25. About thirty PRs have merged since, several in its files, so it needs a fresh audit before it is built |
+
+### D. Tests, CI and the repository
+
+| Row | Recommendation | When | Evidence |
+|---|---|---|---|
+| F-TEST-3 | **Differs from the default.** Make the Windows and Intel Mac jobs required checks, once the Windows failure of PR 172's merge commit has a cause. A red platform job already stops `npm run release`, so the merge gate is looser than the release gate. Cost over 68 runs: a median of 0.4 minutes more wait per run and 3.3 at the 90th percentile. Failures since 2026-11-26: Windows 7 of 88 attempts, Intel Mac 1 of 86, and the Linux unit job that is already required 5 of 88, all five the timing test PR 179 replaced. Do not pair it with `continue-on-error`. A required check is named by the matrix entry's display name, so a rename in `test.yml` would hang every PR, and an architecture test should pin the names | After 9.1.0 | run on the workflow's history, GitHub docs fetched. That it also lets auto-merge switch on was not tried |
+| F-TEST-1 | No timed assertion, as the default says. A third option closes the gap with no clock: two route scripts that each wait for a file the other writes. A prototype on the real compiled worker gave both results in 14 to 27 ms on two workers, five of five, and a timeout on one worker | Remediation release | run in a temporary home |
+| F-TEST-2 | Leave the temp folder entries for 9.1.0. The fix the delivery index sketches, a temp folder inside the suite's home, breaks a test on a Mac: the socket path is 117 bytes against a limit of 103. A short sibling folder gives 92 and passes. The count was 60 entries and 11 MB on the package suites without the gateway entry, not 124 | Remediation release, or never | run |
+| F-TEST-4 | Run H-7, the Claude Desktop check, in the end pass. Nothing outside his own app can show it | Task 11 | read |
+| F-TEST-5 | Leave RS-5's four settings until after the release. All four read back as not applied, and none would break the release script, a docs push to `main` or Renovate. SHA pinning is safe to enforce now: all 39 `uses:` lines are pinned. **His call:** Renovate's PR 168 and Dependabot version updates would do the same job twice, so run one. The research leans to Renovate with a real config, because it also covers the Dockerfile digests and `.node-version`, and says PR 168 should not merge as it stands or before 9.1.0. Choose Dependabot if a third-party app with write access to a repository that signs releases is not acceptable. This partly reopens RS-4's choice of Dependabot | After 9.1.0 | read from the GitHub API, docs fetched |
+| F-DOCS-1 | Of the audit program's owner steps, the repository shows 7 done and 2 not done (RS-5's remaining steps and CG-7's live `codex login` check), and 8 only he can know: the Windows and Linux installs, EU-2's four macOS checks and the auto-update from 7.2.1, DH-1's Windows home page, DH-2's Chrome checks, HP-2's saved preset and CG-9's curl checks. All six owed release notes are in the notes of `v8.0.0` | He says which he ran, at the end pass | read from the repo, GitHub and the release |
+
+Gaps that research named and nobody has weighed: the main ruleset does not require a branch to be up to date, so a PR can merge on checks from a stale base. The tag ruleset as planned does not restrict who creates a `v*` tag, and such a tag starts the Release workflow with the signing secrets. An environment named `copilot` exists with no protection rule and is in no plan.
+
+### Other questions
+
+| Question | Default |
+|---|---|
+| The gateway phase 0 plan's status line still says Task 5 is not built. Another session owns the file | This session corrects the one line on his word |
+| Run restore Task 9 before or after the release | After. The research recommends it, and it changes no product code |
 
 ## Review Focus
 
-What the tasks' tests do not exercise and a reviewer should try, most likely first.
+The five inputs the first draft of this plan left without a test. The audit ran each, and four now have a test in the task that owns the code.
 
-1. **A Logs row written by 9.0.0 or by today's `main`, then a trace.** Its `pricing_json` is the flat shape with no `tiers`. It must be read and re-priced at its stored price. Task 5's helper writes the flat shape for a price with no tiers, so the existing tests of a re-priced row cover the read (`request-log-price-update.test.mjs`, `request-log-pricing-transaction.test.mjs`). No test seeds a row by hand in the old shape.
-2. **A tier that states 0 on one side only.** Task 2 drops the 0 and the tier takes the base entry's price for that side. Its test covers a 0 cache field and a tier of 0 and 0. No test has input 0 beside a real output.
-3. **A second process that holds the schema lock for more than 5 seconds.** The open throws `SQLITE_BUSY` after the busy timeout, which blocks the thread while it waits. That is no worse than today's error and no test reaches it.
-4. **An identity id that contains a comma.** Task 8 keeps the part before the first comma. An e-mail address cannot hold an unquoted comma. An id could, and it would be cut.
-5. **A stored cost of exactly 0 on a request with no tokens.** Task 3 leaves it with no basis, so it shows a dash and not `~$0.00`. The test asserts it. The audit's own wording would give it a basis, and F-PRICE-4 keeps the dash.
+1. **A Logs row written by 9.0.0 or by today's `main`, then a trace.** Its `pricing_json` is the flat shape with no `tiers`. It is re-priced at its stored price (run). Pinned in Task 5.
+2. **A tier that states 0 on one side only.** The tier takes the base entry's price for that side (run). Pinned in Task 2.
+3. **Another process that holds a write lock while this one opens.** An up-to-date usage database opens at once and takes no lock. An older one, and the request log database in any state, waits up to 5 seconds on the thread and then throws `SQLITE_BUSY`. For the request log that is what `main` does (run). The up-to-date case is pinned in Task 6. The 5 second failure has no test, since it would add 5 seconds to the suite.
+4. **An identity id that contains a comma.** It is cut at the comma (run). An e-mail address cannot hold an unquoted comma. Pinned in Task 8 as a stated limit.
+5. **A stored cost of exactly 0 on a request with no tokens.** It gets no basis, so it shows a dash and not `~$0.00`. Task 3's test asserts it. This rests on the default of F-PRICE-4, which keeps the dash.
 
 ## Order
 
 1. Tasks 2 to 8, one branch, one PR. Nothing else is open beside it, since it touches both stores.
-2. Task 1 whenever the owner gives his word. Before the release if he answers question 3 with yes, after it otherwise.
+2. Task 1 whenever the owner gives his word. Before the release if he says so, after it otherwise (F-GATEWAY-1).
 3. Task 9 at any time. It changes no product code.
 4. Task 10, the release. Then Task 11, the VM pass. Then Task 12.
 
@@ -88,7 +140,7 @@ The text is harness Task 5, Steps 6 and 7, in [`2026-11-22-backlog-harness.md`](
 
 - [ ] **Step 1: GATE.** The owner's word for the fork push and the tag. Nothing below runs before it.
 - [ ] **Step 2: Release the fork.** Harness Task 5 Step 6 as written: merge the branch into `llmr`, `npm version 1.0.22-llmr.5 --no-git-tag-version`, commit `chore: release 1.0.22-llmr.5`, push, tag, push the tag. Expected: the fork's release workflow passes and the release holds the `.tgz`. The recipe and the `gh run watch` note are in [`completed/2026-11-18-gateway-fork.md`](completed/2026-11-18-gateway-fork.md), Task 1 Step 7 and Task 3 Step 6.
-- [ ] **Step 3: Bump LLM Router.** Harness Task 5 Step 7 as written, on `fix/gateway-log-control` from `main`. Expected: `git diff --stat` shows the two manifests and the lockfile, and `npm run typecheck`, `npm run lint`, `npm run test:architecture` and `npm run test:core` with `LLMR_TEST_GATEWAY_ENTRY` set all pass.
+- [ ] **Step 3: Bump LLM Router.** Harness Task 5 Step 7 as written, on `fix/gateway-log-control` from `main`. Expected: `git diff --stat` shows the two manifests and the lockfile, the lock still resolves one `node_modules/fastify` at 5.10.0 or later, and `npm run typecheck`, `rtk bypass npm run lint`, `npm run test:architecture` and `LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" npm run test:core` all pass.
 - [ ] **Step 4: Commit and open the PR.** `fix(gateway): move to gateway 1.0.22-llmr.5, which starts without the Fastify deprecation warning`. The merge needs his word.
 
 ---
@@ -130,7 +182,34 @@ test("a 0 in a tier's field reads as absent, so the tier keeps the base entry's 
 });
 ```
 
-- [ ] **Step 2: Run it and see it fail.** `node build/test.mjs core && node --test .test-dist/core/test/unit/models/pricing-service.test.js`. Expected: FAIL, with `cacheReadUsdPerMillionTokens: 0` and `cacheWriteUsdPerMillionTokens: 0` where 0.2 and 1.25 are expected.
+Append these two as well. The first fails on `main`. The second passes on `main` and fails if the fix is applied to the base entry too.
+
+```js
+test("a tier that states 0 on one side takes the base entry's price for that side", async () => {
+  const lab = { Providers: [{ baseUrl: "https://api.example.com", models: ["m"], name: "Lab" }] };
+  const modelsDev = { lab: { models: { m: { cost: { input: 1, output: 2, tiers: [
+    { input: 0, output: 4, tier: { size: 200000 } },
+    { input: 3, output: 0, tier: { size: 300000 } }
+  ] } } } } };
+  await withPriceCatalogs({ modelsDev }, () => {
+    const price = resolveRequestPrice(lab, "Lab", "lab/m").price;
+    assert.deepEqual(pricingForPrompt(price, 200_001), { inputUsdPerMillionTokens: 1, outputUsdPerMillionTokens: 4 });
+    assert.deepEqual(pricingForPrompt(price, 300_001), { inputUsdPerMillionTokens: 3, outputUsdPerMillionTokens: 2 });
+  });
+});
+
+test("a base entry that lists input at 0 beside a real output stays priced with its 0", async () => {
+  const lab = { Providers: [{ baseUrl: "https://api.example.com", models: ["m"], name: "Lab" }] };
+  const modelsDev = { lab: { models: { m: { cost: { input: 0, output: 5 } } } } };
+  await withPriceCatalogs({ modelsDev }, () => {
+    const outcome = resolveRequestPrice(lab, "Lab", "lab/m");
+    assert.equal(outcome.state, "priced");
+    assert.deepEqual(outcome.price.pricing, { inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 5 });
+  });
+});
+```
+
+- [ ] **Step 2: Run the file and see the first two fail.** `node build/test.mjs core && node --test .test-dist/core/test/unit/models/pricing-service.test.js`. Expected: the first FAILS with `cacheReadUsdPerMillionTokens: 0` and `cacheWriteUsdPerMillionTokens: 0` where 0.2 and 1.25 are expected, the one-side test fails too, and the base-entry test passes.
 - [ ] **Step 3: Add `positivePrices` and use it in the overlay.** Map each tier candidate's pricing through it first, then run the existing filter (input or output defined, size above 0), then spread the result over the base as today. `definedPrices` stays for the base entry, where a 0 on one side has a meaning.
 - [ ] **Step 4: Run the file again.** Expected: PASS, every test in the file. Then `request-pipeline-cost-parity.test.js` under `integration/gateway`: PASS.
 - [ ] **Step 5: Commit.** `fix(usage): read a 0 in a price tier's field as absent`
@@ -177,7 +256,7 @@ test("a stored cost on a request with no tokens counts in the totals by its sour
 
 - [ ] **Step 2: Run it and see it fail.** `node --test .test-dist/core/test/integration/usage/cost-basis-extra.test.js` after the build. Expected: FAIL, `estimatedCostUsd: 0, pricedRequestCount: 0` where 0.5 and 1 are expected.
 - [ ] **Step 3: Change `costBasisFor`.** Replace its first two checks with one: when the cost is undefined, or the row has no billable tokens and a cost of 0 or less, return `"unknown"` for a row with tokens and `undefined` for a row without. The source checks below stay.
-- [ ] **Step 4: Change the SQL to match.** In `usageTotalsSelect`, the condition for `estimated_cost_usd` and the one for `priced_request_count` both become `cost_usd IS NOT NULL AND (${billableTokensSql} > 0 OR cost_usd > 0)`. The unpriced count is unchanged. Nothing else is edited: `toStoredUsageEvent`, `toRequestLogEntry` and the Agent Analysis totals call `costBasisFor`, and the UI only formats a basis.
+- [ ] **Step 4: Change the SQL to match.** In `usageTotalsSelect`, in the condition for `estimated_cost_usd` and in the one for `priced_request_count`, replace `${billableTokensSql} > 0` with `(${billableTokensSql} > 0 OR cost_usd > 0)`. The `cost_source NOT IN (...)` clause of the estimated sum stays: dropping it fails the 198-shape test (run by the audit). The unpriced count is unchanged. Nothing else is edited: `toStoredUsageEvent`, `toRequestLogEntry` and the Agent Analysis totals call `costBasisFor`, and the UI only formats a basis.
 - [ ] **Step 5: Run the file again.** Expected: PASS, and its first test, which puts 198 row shapes through both the function and the SQL, still passes. That test is the guard against the two drifting apart. Then `pricing-service.test.js`: PASS.
 - [ ] **Step 6: Commit.** `fix(usage): give a stored cost its basis when the request has no tokens`
 
@@ -266,8 +345,8 @@ Today a Logs row stores only the tier chosen when its price was written. A row p
 **Interfaces:**
 - Consumes: `ResolvedModelPrice`, `pricingForPrompt` and `promptTokenCount` from `models/pricing-service.ts`, as they are.
 - Produces, private to the file:
-  - `function storedPriceJson(price: ResolvedModelPrice): string`. It writes the flat base fields as today, plus a `tiers` array only when the price has tiers. A price with no tiers gives the same text as today.
-  - `function parseStoredPrice(value: unknown, source: UsagePricingSource | undefined): ResolvedModelPrice | undefined`. It reuses `parseStoredModelPricing` for the base and for each tier, so a flat row written before this change still parses.
+  - `function storedPriceJson(price: ResolvedModelPrice): string`. It writes the base price's fields flat, where today the chosen tier's fields are written, plus a `tiers` array of `{ abovePromptTokens, pricing }` only when the price has tiers. For a price with no tiers the text is the same as today.
+  - `function parseStoredPrice(value: unknown, source: UsagePricingSource | undefined): ResolvedModelPrice | undefined`. It reuses `parseStoredModelPricing` for the base and for each tier, so a flat row written before this change still parses. It returns `undefined` when the source is not a known source or the base is not complete, and it skips a tier that does not parse.
   - `RequestLogUsageContext` holds `price?: ResolvedModelPrice` in place of `pricing` and `pricingSource`.
 
 - [ ] **Step 1: Write the failing test.** Append:
@@ -326,7 +405,53 @@ test("a long prompt's log row whose tokens arrive after its price takes the tier
 });
 ```
 
-- [ ] **Step 2: Run it and see it fail.** Expected: FAIL with `'priced-no-tokens': 0.15, 'waiting-no-tokens': 0.15, 'update-then-trace': 0.15, 'trace-then-update': 0.45` against 0.45 for all four.
+Append these two as well. The first fails on `main` and kills a fix that leaves cache tokens out of the prompt count. The second passes on `main` and must keep passing: it is the row an install already holds.
+
+```js
+test("a trace's cache reads count toward the tier, as they do for the usage row", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-sweep-cache-tier-"));
+  const logs = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
+  const usage = new UsageStore(path.join(dir, "usage.sqlite"), { loadPriceCatalog: async () => {}, priceCatalogNeedsRefresh: () => false });
+  try {
+    const tiered = { price: { pricing: { cacheReadUsdPerMillionTokens: 0.1, inputUsdPerMillionTokens: 1, outputUsdPerMillionTokens: 2 }, source: "models.dev", tiers: [{ abovePromptTokens: 100_000, pricing: { cacheReadUsdPerMillionTokens: 0.3, inputUsdPerMillionTokens: 3, outputUsdPerMillionTokens: 6 } }] }, state: "priced" };
+    await usage.record({ ...event, price: tiered, requestId: "usage-row", usage: { cacheReadTokens: 60_000, inputTokens: 60_000 } });
+    const usageCost = (await usage.getDatabase()).prepare("SELECT cost_usd FROM usage_events WHERE request_id = 'usage-row'").get().cost_usd;
+    const now = new Date().toISOString();
+    await logs.writeBatch([{ eventId: "e", input: { completedAt: now, durationMs: 1, method: "POST", model: "known-model", path: "/v1/messages", price: tiered, providerName: "alpha", requestBody: Buffer.from("{}"), requestHeaders: {}, requestId: "log-row", responseBodyText: "{}", responseHeaders: {}, startedAt: now, statusCode: 200, url: "http://127.0.0.1:3456/v1/messages" }, kind: "record", sequence: 1 }]);
+    await logs.writeBatch([{ input: { requestId: "log-row", responseBodyText: '{"usage":{"cache_read_input_tokens":60000,"input_tokens":60000,"output_tokens":0}}' }, kind: "raw-trace-update", sequence: 2 }]);
+    const logCost = (await logs.getDatabase()).prepare("SELECT cost_usd FROM request_logs WHERE request_id = 'log-row'").get().cost_usd;
+    assert.ok(Math.abs(logCost - usageCost) < 1e-12, `log ${logCost} usage ${usageCost}`);
+  } finally {
+    await logs.close();
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
+  }
+});
+
+test("a log row whose pricing_json is the old flat shape is re-priced by a trace at its stored price", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-sweep-old-flat-"));
+  const logs = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
+  try {
+    const now = new Date().toISOString();
+    await logs.writeBatch([{
+      eventId: "flat-event",
+      input: { completedAt: now, durationMs: 1, method: "POST", model: "known-model", path: "/v1/messages", price: { state: "no-catalog" }, providerName: "alpha", requestBody: Buffer.from("{}"), requestHeaders: {}, requestId: "flat", responseBodyText: "{}", responseHeaders: {}, startedAt: now, statusCode: 200, url: "http://127.0.0.1:3456/v1/messages" },
+      kind: "record",
+      sequence: 1
+    }]);
+    (await logs.getDatabase()).prepare("UPDATE request_logs SET cost_source = 'models.dev', pricing_json = ? WHERE request_id = 'flat'")
+      .run(JSON.stringify({ inputUsdPerMillionTokens: 3, outputUsdPerMillionTokens: 6 }));
+    await logs.writeBatch([{ input: { requestId: "flat", responseBodyText: '{"usage":{"input_tokens":150000,"output_tokens":0}}' }, kind: "raw-trace-update", sequence: 2 }]);
+    const row = { ...(await logs.getDatabase()).prepare("SELECT cost_source, cost_usd FROM request_logs WHERE request_id = 'flat'").get() };
+    assert.equal(row.cost_source, "models.dev");
+    assert.ok(Math.abs(row.cost_usd - 0.45) < 1e-12, `cost ${row.cost_usd}`);
+  } finally {
+    await logs.close();
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
+  }
+});
+```
+
+- [ ] **Step 2: Run the file and see the first two fail.** `node build/test.mjs core && node --test .test-dist/core/test/integration/usage/usage-sweep.test.js`. Expected: the first FAILS with `'priced-no-tokens': 0.15, 'waiting-no-tokens': 0.15, 'update-then-trace': 0.15, 'trace-then-update': 0.45` against 0.45 for all four. The cache-reads test fails too. The flat-shape test passes.
 - [ ] **Step 3: Store the tiers.** Add `storedPriceJson` and call it where `record` and `applyPriceUpdate` write `pricing_json`. `record` writes `""` when it has no price, as today.
 - [ ] **Step 4: Read the tiers and choose again.** Add `parseStoredPrice`, have `readRequestLogUsageContext` build `price` with it, and in `updateFromRawTrace` re-price with `pricingForPrompt(storedPrice, promptTokenCount({ cacheReadTokens, cacheWriteTokens, inputTokens }))` and the stored price's source. `pricing_json` has no other reader and no other writer.
 - [ ] **Step 5: Run the file and its neighbours.** `usage-sweep`, and under `integration/observability` and `integration/gateway`: `request-log-price-update`, `request-log-pricing-transaction`, `request-log-store`, `request-pipeline-cost-parity`. Expected: PASS, all of them.
@@ -442,13 +567,67 @@ test("an older request log database opens when another process adds the same col
 });
 ```
 
-- [ ] **Step 3: Run both files and see both fail.** Expected: each new test FAILS with `SqliteError: duplicate column name: forwarded_user_email`. `RequestLogStore bounded heap regression` fails too while the new test in its file fails, because it re-runs the file in a child process.
-- [ ] **Step 4: Usage store.** In `open`, run the schema check as `database.transaction(() => ensureUsageSchema(database)).immediate();`.
-- [ ] **Step 5: Request log store.** Split `ensureRequestLogSchema` into the two functions above. It then runs `ensureRequestLogColumns` inside `database.transaction(...).immediate()`, the three migrations outside it as today, and `ensureRequestLogIndexes` last. In `open`, wrap `ensureRequestRouteTraceSchema` and `ensurePendingRawTraceUpdateSchema` together in one more `.immediate()` transaction.
-- [ ] **Step 6: Run the files.** `usage-store`, `request-log-store` and `request-log-backfill`. Expected: PASS, the two race tests and the three migration tests included.
+In `request-log-store.test.mjs`, append this too. It covers the two side tables, which nothing else does:
+
+```js
+test("an older pending-update table opens when another process adds the same column between the read and the add", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-pending-race-test-"));
+  const file = path.join(dir, "request-logs.sqlite");
+  let store;
+  try {
+    const first = new RequestLogStore(file);
+    await first.list({ pageSize: 1 });
+    await first.close();
+    const legacy = createBetterSqliteDatabase(file);
+    try {
+      legacy.exec("ALTER TABLE request_log_pending_updates DROP COLUMN update_bytes");
+    } finally {
+      legacy.close();
+    }
+    const restore = addColumnRightAfterTheColumnsAreRead(file, "request_log_pending_updates", "update_bytes INTEGER NOT NULL DEFAULT 0");
+    try {
+      store = new RequestLogStore(file);
+      assert.equal((await store.list({ pageSize: 1 })).total, 0);
+    } finally {
+      restore();
+    }
+  } finally {
+    await store?.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+```
+
+In `usage-store.test.mjs`, append this too. It passes on `main` and must keep passing. It is the inverse of a test the audit ran, and was not run in this form:
+
+```js
+test("an up-to-date usage database opens at once while another connection holds the write lock", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-schema-no-lock-test-"));
+  const file = path.join(dir, "usage.sqlite");
+  try {
+    await new UsageStore(file).record({ durationMs: 1, method: "POST", model: "m", path: "/v1/messages", provider: "p", requestId: "old", statusCode: 200 });
+    const holder = createBetterSqliteDatabase(file);
+    try {
+      holder.exec("BEGIN IMMEDIATE");
+      const started = Date.now();
+      const stats = await new UsageStore(file).getStats("24h", { includeProxy: true });
+      assert.equal(stats.totals.requestCount, 1);
+      assert.ok(Date.now() - started < 2_000, `waited ${Date.now() - started} ms`);
+      holder.exec("ROLLBACK");
+    } finally {
+      holder.close();
+    }
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
+});
+```
+
+- [ ] **Step 3: Run both files and see the three race tests fail.** Expected: each race test FAILS with `SqliteError: duplicate column name`, for `forwarded_user_email` twice and `update_bytes` once. The up-to-date test passes. `RequestLogStore bounded heap regression` fails too while the new test in its file fails, because it re-runs the file in a child process.
+- [ ] **Step 4: Usage store.** In `open`, read `PRAGMA table_info(usage_events)`. When every column `ensureUsageSchema` adds is present, call `ensureUsageSchema(database)` as today. Otherwise run it as `database.transaction(() => ensureUsageSchema(database)).immediate();`, which reads the columns again under the lock. The eight column names are one constant beside `ensureUsageSchema`, with a one-line comment that a column added to the function goes into the list too. Why not the lock on every open: with it, an up-to-date database waited 5.2 seconds and then failed to open while another connection held a write transaction, where `main` opens in about 3 ms (the audit's run). A column in the function and not in the list reopens the race for that column only.
+- [ ] **Step 5: Request log store.** Split `ensureRequestLogSchema` into the two functions above. It then runs `ensureRequestLogColumns` inside `database.transaction(...).immediate()`, then `ensureRequestLogMigrationSchema` and the three migrations outside it as today, and `ensureRequestLogIndexes` last. This store takes the lock on every open. That is not new: its open already waits out the busy timeout and fails under another connection's write lock on `main` (the audit's probe, 5.2 seconds on both). In `open`, wrap `ensureRequestRouteTraceSchema` and `ensurePendingRawTraceUpdateSchema` together in one more `.immediate()` transaction.
+- [ ] **Step 6: Run the files.** `.test-dist/core/test/integration/usage/usage-store.test.js`, `.test-dist/core/test/integration/observability/request-log-store.test.js` and `.test-dist/core/test/unit/observability/request-log-backfill.test.js`. Expected: PASS, the four new tests and the migration tests included.
 - [ ] **Step 7: Commit.** `fix(usage): add a database's new columns inside one write transaction, so two processes cannot collide`
 
-A second process now waits for the first. Both stores set a busy timeout of 5 seconds, and the wait blocks the thread. After it the open throws `SQLITE_BUSY`. Not in this task: `config-repository.ts` near `:350` and `request-log-admission-store.ts` near `:389` add columns the same way, and neither failed in the review's race.
+A second process that opens an older database now waits for the first. Both stores set a busy timeout of 5 seconds, and the wait blocks the thread. After it the open throws `SQLITE_BUSY`. Considered and not built: no lock at all, with the column adds run again when one fails on `duplicate column name`, since each add is safe to repeat. It would need no list and no wait, and nobody has run it. Not in this task: `config-repository.ts` near `:350` and `request-log-admission-store.ts` near `:389` add columns the same way, and neither failed in the review's race.
 
 ---
 
@@ -490,8 +669,32 @@ test("RequestLogRuntime says nothing is pending when another process stored the 
 });
 ```
 
-- [ ] **Step 2: Run it and see it fail.** `node --test .test-dist/core/test/integration/observability/request-log-runtime.test.js`. Expected: FAIL, `3 !== undefined` on the last assertion. The one before it passes, so the database does hold 3.
-- [ ] **Step 3: Add the condition.** In `list`, send the field only when the requested retention also differs from `page.retentionDays`.
+Append this beside it. It passes on `main` and fails if Step 3 replaces the existing half of the condition where it should add to it:
+
+```js
+test("RequestLogRuntime reads a retention it saved as applied after another process writes its own", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-retention-other-test-"));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  const runtime = createRequestLogRuntime({ dbFile, workerFile });
+  let database;
+  try {
+    await runtime.setRetentionDays(3);
+    await runtime.list({});
+    database = createBetterSqliteDatabase(dbFile);
+    database.prepare("UPDATE request_log_settings SET value = '5' WHERE key = 'retention_days'").run();
+    const page = await runtime.list({});
+    assert.equal(page.retentionDays, 5);
+    assert.equal(page.retentionRequestedDays, undefined);
+  } finally {
+    database?.close();
+    await runtime.close({ timeoutMs: 5_000 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+```
+
+- [ ] **Step 2: Run the file and see the first fail.** `node build/test.mjs core && node --test .test-dist/core/test/integration/observability/request-log-runtime.test.js`. Expected: the first FAILS, `3 !== undefined` on its last assertion. The assertion before it passes, so the database does hold 3. The test takes about 5 seconds, because the locked save waits out the busy timeout. The second test passes.
+- [ ] **Step 3: Add the condition.** In `list`, keep the existing check against the saved value and add a second: send the field only when the requested retention also differs from `page.retentionDays`.
 - [ ] **Step 4: Run the file again.** Expected: PASS, with `says which retention it asked for while the database holds another` still passing.
 - [ ] **Step 5: Commit.** `fix(logs): say no retention is pending when the database already holds the one asked for`
 
@@ -537,13 +740,14 @@ test("an identity header sent twice gives its first value, as Node joins the two
   }
   assert.deepEqual(forwardedIdentity(forwarder, { "x-claude-gateway-user-email": " a@example.com , b@example.com" }), { userEmail: "a@example.com" });
   assert.deepEqual(forwardedIdentity(forwarder, { "x-claude-gateway-user-id": ["id-a", "id-b"] }), { userId: "id-a" });
+  assert.deepEqual(forwardedIdentity(forwarder, { "x-claude-gateway-user-id": "tenant,42" }), { userId: "tenant" }, "an id that holds a comma is cut at it, a stated limit");
 });
 ```
 
-- [ ] **Step 2: Run it and see it fail.** `node --test .test-dist/core/test/unit/gateway/http-boundary.test.js`. Expected: FAIL, with `userEmail: 'a@example.com, b@example.com'` and `userId: 'id-a, id-b'`.
+- [ ] **Step 2: Run it and see it fail.** `node build/test.mjs core && node --test .test-dist/core/test/unit/gateway/http-boundary.test.js`. Expected: FAIL, with `userEmail: 'a@example.com, b@example.com'` and `userId: 'id-a, id-b'`.
 - [ ] **Step 3: Take the first value.** In `forwardedIdentity`, split each value at the first comma and trim it before the existing length cut.
 - [ ] **Step 4: Run the file again.** Expected: PASS.
-- [ ] **Step 5: Run the gates and open the PR.** `npm run typecheck`, `rtk bypass npm run lint`, `npm run test:architecture`, `npm run test:core`. Expected: all pass. Then commit `fix(gateway): take the first value of an identity header sent twice`, push the branch, and open the PR. Its body lists the seven findings by ID, and what was not run. The merge needs the owner's word.
+- [ ] **Step 5: Run the gates and open the PR.** `npm run typecheck`, `rtk bypass npm run lint`, `npm run test:architecture`, and `LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" npm run test:core`. CI sets that variable. Without it 82 tests are skipped, the wire tests over `io.ts` among them. Expected: all pass, and the core suite skips 16 tests and not 82. Then commit `fix(gateway): take the first value of an identity header sent twice`, push the branch, and open the PR. Its body lists the seven findings by ID, and what was not run. The merge needs the owner's word.
 
 ---
 
@@ -558,13 +762,13 @@ The text is restore Task 9 in [`2026-11-22-backlog-restore.md`](2026-11-22-backl
 
 ### Task 10: Release 9.1.0
 
-**Before.** Tasks 2 to 8 are merged. Task 1 is merged too if the owner answered question 3 with yes. `main` is clean and level with origin, and the Tests run for its head passed, Windows and the Intel Mac included.
+**Before.** Tasks 2 to 8 are merged. Task 1 is merged too if the owner gave his word for it. `main` is clean and level with origin, and the Tests run for its head passed, Windows and the Intel Mac included.
 
-- [ ] **Step 1: Draft the notes.** An "Upgrading to 9.1" header and a "What's new" header, written from the commit messages of PRs 149 to 179 and the PR of Tasks 2 to 8. Check each sentence against its PR's message. `git grep -i "release note" -- docs/superpowers` finds sentences earlier sessions owed. The notes stay neutral about the fault fixed in 8.0.1, as before. The owner reads the draft.
+- [ ] **Step 1: Draft the notes.** An "Upgrading to 9.1" header and a "What's new" header, written from the commit messages of PRs 149 to 179, the PR of Tasks 2 to 8, and Task 1's PR if it merged. Check each sentence against its PR's message. Sentences earlier sessions owed are the "Paste the release note" lines under "Steps only the owner can do" in [`2026-11-16-audit-remediation-index.md`](2026-11-16-audit-remediation-index.md). All six are already in the notes of `v8.0.0` (read by the decision research), so none is owed for 9.1.0. A plain `git grep -i "release note" -- docs/superpowers` returns 63 lines, most of them in finished plans (the audit's run). The notes stay neutral about the fault fixed in 8.0.1, as before. The owner reads the draft.
 - [ ] **Step 2: Cut it.** `npm run release -- 9.1.0`. Expected: a commit `chore: release v9.1.0`, the tag, and a push that reports the required checks bypassed, which is normal.
 - [ ] **Step 3: Watch the Release run.** Find it with `gh run list --workflow=release.yml`. Expected: 14 assets on the release. `gh run watch --exit-status` can return 1 while the Linux and Windows jobs still run, so watch again before calling it failed. If "Create draft release" fails, `gh run rerun <id> --failed`.
 - [ ] **Step 4: Check the Docker release.** It follows by itself from a successful Release run. Expected: image tags `9.1.0`, `9.1` and `latest`.
-- [ ] **Step 5: Put the notes on.** `gh release edit v9.1.0 --notes-file <draft>`, with the two headers above the generated list.
+- [ ] **Step 5: Put the notes on.** `gh release edit v9.1.0 --notes-file <draft>`, with the two headers above the generated list. The Release run publishes the release itself, so this edits notes that are already public. Have the draft ready before Step 2.
 - [ ] **Step 6: Record it.** In the delivery index's "State" section and in this plan's status line: the commit, the run id and what shipped.
 
 ---
@@ -580,6 +784,10 @@ One sitting on the owner's UTM VM, on the released build. It is his to run. The 
   - F-UI-3: at 720 px a save error that persists does not cover onboarding's footer buttons.
   - F-TEST-4: H-7 of the harness plan, the Claude Desktop check.
   - Two processes started together on an upgraded install both open (Task 6 of this plan).
+  - F-GATEWAY-19, second half: whether the gateway fork has a request path that skips the provider hook. This is a read of the fork's code and not a VM step, and the session does it while writing the checklist.
+  - Every "VM check, for the owner" paragraph of the plans this program built. That is what "any check a batch's own tasks name" means in the delivery index, and nobody has listed them. They are in the harness, restore and pricing plans in this folder and in the keys, pass-through, follow-ups, VM findings, stripper, logs and client label plans under `completed/`.
+  - The "Not verified" lists of those plans and of the gateway phase 0 plan, where a line names something only a real app or a real login can show.
+  - The in-app checks of the audit program that nobody recorded as run: EU-2, DH-1, HP-2, DH-2, CG-7 and CG-9 under "Steps only the owner can do" in the audit index.
 - [ ] **Step 2: The owner runs it.** Each line is marked passed, failed or not run, with what was seen.
 - [ ] **Step 3: Record the results** in that file and commit it to `main`.
 
@@ -587,21 +795,21 @@ One sitting on the owner's UTM VM, on the released build. It is his to run. The 
 
 ### Task 12: The remediation plan
 
-- [ ] **Step 1: Gather.** Every line Task 11 marked failed, every register row whose disposition is `remediation` or `test`, and every `decide` row the owner has answered with a change.
+- [ ] **Step 1: Gather.** Every line Task 11 marked failed, every register row whose disposition is `remediation` or `test`, and every `decide` row the owner has answered with a change. Leave out the seven rows Tasks 2 to 8 fixed, five of which the register's tables still list as `remediation`. Include the second half of F-PRICE-10, a sweep started by the back-fill, which the tables list as a `limit`.
 - [ ] **Step 2: Group and write.** A new plan under `docs/superpowers/plans/`, written with superpowers:writing-plans, grouped by the files the fixes share so that each group is one branch and one PR. Each task's text is checked against the code on another model before the plan is committed, as Tasks 2 to 8 here were.
 - [ ] **Step 3: The owner reads it** and says which groups are built and in what release.
 
-Gateway phase 1, [`2026-11-25-apps-gateway-phase-1.md`](2026-11-25-apps-gateway-phase-1.md), comes after that release unless he answers question 6 otherwise.
+Gateway phase 1, [`2026-11-25-apps-gateway-phase-1.md`](2026-11-25-apps-gateway-phase-1.md), comes after that release unless he says otherwise (F-GATEWAY-2). It is audited again first, since about thirty PRs have merged since its one audit.
 
 ## Not in this plan
 
-- The other 160 rows of the register. Each waits for Task 12 or for the owner's answer.
+- The register's other rows. It has 170 in its tables and F-PRICE-36 above them. Tasks 2 to 8 fix 7, so 164 remain. Each waits for Task 12 or for the owner's answer.
 - A sweep started by the back-fill (the survey's second line for F-PRICE-10). The case is rare: the compatibility layout, a stream the client cancels or that fails partway, and the window before the catalog loads (read and inferred, not run). Task 4 fixes the half that marked such a row `unpriced` for good.
-- F-PRICE-3 and F-PRICE-36. No task is written for either until the owner answers questions 1 and 2.
+- Anything under "Open with the owner". No task is written for a row there until he answers it. A row in group A that he accepts joins the branch of Tasks 2 to 8 as one more commit, or goes to `main` as docs.
 
 ## Self-review
 
 - **Coverage.** Every item the owner chose has a task: F-PRICE-28 (2), F-PRICE-2 (3), F-PRICE-11 (4), F-PRICE-1 (5), F-LABEL-4 (6), F-LOGS-5 (7), F-LABEL-5 (8). The survey for F-PRICE-10 is done and is a research note. Batch 5, restore Task 9, the release, the VM pass and the remediation plan each have a task.
 - **Names.** `storedPriceJson`, `parseStoredPrice`, `positivePrices`, `ensureRequestLogColumns`, `ensureRequestLogIndexes` and `addColumnRightAfterTheColumnsAreRead` are each defined in one task and used only there.
-- **What rests on a run and what does not.** Each test in Tasks 2 to 8 failed on `main` and passed on a throwaway fix (run by the check on another model). Line numbers are that check's reading of `b504d153` and move as commits land. The expected time, the release steps and the VM list are not run.
+- **What rests on a run and what does not.** Each test in Tasks 2 to 8 was built twice from two texts by two runs on another model: once before this plan was written and once from this plan's text alone. The tests the audit added passed or failed as each step says (its run). Two things were not run in the form written here: the up-to-date usage database test in Task 6, which is the inverse of one the audit ran, and Task 6 Step 4's wording, which describes the audit's prototype. Line numbers are that check's reading of `b504d153` and move as commits land. The expected time, the release steps and the VM list are not run.
 - **Not checked.** The full core suite with all seven fixes together. The UI, Electron and CLI suites. Whether `resolved_model` holds a route selector on some path, where the sweep would be handed the selector. Whether any real tier means a 0 as free. What the gateway fork forwards when a client sends an identity header twice in the single layout.

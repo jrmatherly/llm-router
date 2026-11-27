@@ -197,7 +197,7 @@ Each has a default, which is built unless he says otherwise.
 | 17 | Whether the reviewers, the fixes and the merge on green can run without his `review-pr` line each time | No. Merging needs his word once per PR | All |
 | 18 | Should a test run also leave nothing else in the temp folder? Harness Task 1 removes the temporary homes only. One `npm run test` leaves 124 other entries, about 38 MB, that tests and `context-archive.ts` write to the temp folder (audit of batch 3, run). The smallest change is for the runner to point `TMPDIR`, `TMP` and `TEMP` inside the suite's home. It was not built or run, and a longer temp path can break a test that listens on a socket path | No. Task 1's title and the plan's goal now say "temporary home" | Harness |
 
-Four choices the researchers made on evidence, which a review can change: restore 3 keeps a profile's record while a saved original exists; a save's notice is set only by a profile's own restore; a usage row from the gateway's billing counts as an estimate; and a reported cost of 0 counts as absent.
+Four choices the researchers made on evidence, which a review can change: restore 3 keeps a profile's record while a saved original exists; a save's notice is set only by a profile's own restore; a usage row from the gateway's billing counts as an estimate; and a reported cost of 0 counts as absent. **Corrected 2026-11-27:** the first is not in the code. Batch 9's review replaced it, and a finished restore clears the record and sets a flag whether or not a saved original exists (read by the decision research of that day).
 
 ## Findings with no task
 
