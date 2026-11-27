@@ -2318,11 +2318,8 @@ export type CostBasis = "listed" | "estimate" | "user" | "unknown";
 export const listedCostSources = ["litellm", "models.dev", "openrouter"];
 
 export function costBasisFor(row: { billableTokens: number; costSource: string; costUsd: number | undefined }): CostBasis | undefined {
-  if (row.billableTokens <= 0) {
-    return undefined;
-  }
-  if (row.costUsd === undefined) {
-    return "unknown";
+  if (row.costUsd === undefined || (row.billableTokens <= 0 && row.costUsd <= 0)) {
+    return row.billableTokens > 0 ? "unknown" : undefined;
   }
   if (row.costSource === "custom") {
     return "user";

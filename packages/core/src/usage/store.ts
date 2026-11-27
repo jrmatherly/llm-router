@@ -995,11 +995,11 @@ const billableTokensSql = "input_tokens + output_tokens + cache_read_tokens + ca
 const usageTotalsSelect = `
             COUNT(*) AS request_count,
             COALESCE(SUM(CASE
-              WHEN cost_usd IS NOT NULL AND ${billableTokensSql} > 0
+              WHEN cost_usd IS NOT NULL AND (${billableTokensSql} > 0 OR cost_usd > 0)
                 AND cost_source NOT IN (${["custom", ...listedCostSources].map((source) => `'${source}'`).join(", ")})
               THEN cost_usd ELSE 0
             END), 0) AS estimated_cost_usd,
-            COALESCE(SUM(CASE WHEN cost_usd IS NOT NULL AND ${billableTokensSql} > 0 THEN 1 ELSE 0 END), 0) AS priced_request_count,
+            COALESCE(SUM(CASE WHEN cost_usd IS NOT NULL AND (${billableTokensSql} > 0 OR cost_usd > 0) THEN 1 ELSE 0 END), 0) AS priced_request_count,
             COALESCE(SUM(CASE WHEN cost_usd IS NULL AND ${billableTokensSql} > 0 THEN 1 ELSE 0 END), 0) AS unpriced_request_count,
             COALESCE(SUM(input_tokens), 0) AS input_tokens,
             COALESCE(SUM(output_tokens), 0) AS output_tokens,
