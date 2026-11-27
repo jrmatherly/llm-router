@@ -348,7 +348,7 @@ function TrustedForwarderField({ checked, onChange }: { checked: boolean; onChan
       <div className="min-w-0 flex-1">
         <div className="text-[12px] font-medium text-foreground">Trusted forwarder</div>
         <div className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
-          Take the client shown in Logs from the identity headers sent with this key. Switch it on only for the key a Claude apps gateway uses.
+          Record the gateway user named by the identity headers sent with this key. Switch it on only for the key a Claude apps gateway uses.
         </div>
       </div>
       <Switch aria-label="Trusted forwarder" checked={checked} onCheckedChange={onChange} />

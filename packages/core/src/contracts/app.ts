@@ -2326,6 +2326,8 @@ export type RequestLogEntry = {
   credentialSaturated: boolean;
   durationMs: number;
   error?: string;
+  forwardedUserEmail?: string;
+  forwardedUserId?: string;
   id: number;
   inputTokens: number;
   isStream: boolean;

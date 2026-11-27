@@ -40,7 +40,7 @@ curl -s http://127.0.0.1:18080/.well-known/oauth-authorization-server | jq .devi
 1. Back up `~/.claude/settings.json`, then add `"forceLoginMethod": "gateway"` and `"forceLoginGatewayUrl": "http://127.0.0.1:18080"`. LLMR's Claude Code profile apply refuses to touch a settings file whose `forceLoginMethod` is `gateway`, so the pin survives a running LLMR.
 2. Run `claude`, then `/login`. Accept the fingerprint prompt and approve the mock user in the browser.
 3. Pick with `/model` a model id that LLMR routes. The gateway forwards the id unchanged to its `anthropic` upstream, so an LLMR provider or virtual model must answer to that exact id.
-4. Send a prompt. With Request logs enabled under Settings, LLMR's Logs page shows a row whose detail panel reads Client `kilgore@kilgore.trout` when the client key is marked as a trusted forwarder. The gateway resolves a model alias such as `claude-sonnet-4-5` to its dated id (`claude-sonnet-4-5-20250929`) before forwarding, so the LLMR provider must list the dated id.
+4. Send a prompt. With Request logs enabled under Settings, LLMR's Logs page shows a row whose detail panel reads Gateway user `kilgore@kilgore.trout` when the client key is marked as a trusted forwarder. The gateway resolves a model alias such as `claude-sonnet-4-5` to its dated id (`claude-sonnet-4-5-20250929`) before forwarding, so the LLMR provider must list the dated id.
 5. Restore `~/.claude/settings.json`.
 
 ## Tear down

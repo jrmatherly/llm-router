@@ -228,7 +228,7 @@ test("raw trace bundle preserves manifest lifecycle metadata", async () => {
   }
 });
 
-test("a trace names the developer only when its key is a trusted forwarder", async () => {
+test("a trace records the developer only when its key is a trusted forwarder", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-raw-trace-forwarder-test-"));
   const spoolDirectory = path.join(dir, "spool");
   const bundleDirectory = path.join(spoolDirectory, "producer-bundle");
@@ -248,15 +248,16 @@ test("a trace names the developer only when its key is a trusted forwarder", asy
   const key = (id, trustedForwarder) => ({ createdAt: new Date(0).toISOString(), id, key: `${id}-token`, ...(trustedForwarder ? { trustedForwarder } : {}) });
   const clientFor = async (clientHeaders, apiKeys) => {
     writeFileSync(clientMetadataFile, JSON.stringify({ headers: clientHeaders }));
-    return (await readRawTraceRequestLogBundle(manifest, spoolDirectory, apiKeys)).update.client;
+    const { update } = await readRawTraceRequestLogBundle(manifest, spoolDirectory, apiKeys);
+    return [update.client, update.forwardedUserEmail];
   };
   try {
-    assert.equal(await clientFor(headers, [key("gw", true)]), "dev@example.com");
-    assert.equal(await clientFor(headers, [key("gw", false)]), "Claude");
-    assert.equal(await clientFor(headers, []), "Claude");
-    assert.equal(await clientFor({ ...headers, "x-auth-sub": "profile:codex" }, [key("profile:codex", true)]), "Claude");
+    assert.deepEqual(await clientFor(headers, [key("gw", true)]), ["Claude", "dev@example.com"]);
+    assert.deepEqual(await clientFor(headers, [key("gw", false)]), ["Claude", undefined]);
+    assert.deepEqual(await clientFor(headers, []), ["Claude", undefined]);
+    assert.deepEqual(await clientFor({ ...headers, "x-auth-sub": "profile:codex" }, [key("profile:codex", true)]), ["Claude", undefined]);
     const { "x-auth-sub": _sub, ...withoutKey } = headers;
-    assert.equal(await clientFor({ ...withoutKey, "x-llmr-client": "Spoof" }, [key("gw", true)]), "Claude");
+    assert.deepEqual(await clientFor({ ...withoutKey, "x-llmr-client": "Spoof" }, [key("gw", true)]), ["Claude", undefined]);
   } finally {
     rmSync(dir, { force: true, recursive: true });
   }
@@ -1553,7 +1554,7 @@ test("raw trace usage capture keeps the client label the request log gets", asyn
   const model = `stub-model-${Date.now()}`;
   const responseBody = JSON.stringify({ model, usage: { input_tokens: 11, output_tokens: 7 } });
   mkdirSync(bundleDirectory, { recursive: true });
-  writeFileSync(clientMetadataFile, JSON.stringify({ headers: { "x-auth-sub": "gw", "x-claude-gateway-user-email": "dev@example.com" } }));
+  writeFileSync(clientMetadataFile, JSON.stringify({ headers: { "user-agent": "claude-cli/2.1.310", "x-auth-sub": "gw", "x-claude-gateway-user-email": "dev@example.com", "x-claude-gateway-user-id": "sub-123" } }));
   writeFileSync(responseMetadataFile, JSON.stringify({ headers: { "content-type": "application/json" }, statusCode: 200 }));
   writeFileSync(responseFile, responseBody);
   const requestId = `usage-client-${Date.now()}`;
@@ -1585,12 +1586,15 @@ test("raw trace usage capture keeps the client label the request log gets", asyn
     assert.equal(result.statusCode, 202);
     // Usage is recorded before the request-log update is enqueued.
     await waitFor(() => enqueued !== undefined);
-    assert.equal(enqueued.client, "dev@example.com");
+    assert.equal(enqueued.client, "Claude");
+    assert.deepEqual([enqueued.forwardedUserEmail, enqueued.forwardedUserId], ["dev@example.com", "sub-123"]);
     assert.equal(await usageStore.hasRequestId(requestId), true);
     const stats = await usageStore.getStats("today", { includeProxy: true });
     const row = stats.clientModels.find((entry) => entry.model === model && entry.provider === "Stub");
     assert.ok(row, JSON.stringify(stats.clientModels));
-    assert.equal(row.client, "dev@example.com");
+    assert.equal(row.client, "Claude");
+    const stored = (await usageStore.getDatabase()).prepare("SELECT forwarded_user_email, forwarded_user_id FROM usage_events WHERE request_id = ?").get(requestId);
+    assert.deepEqual({ ...stored }, { forwarded_user_email: "dev@example.com", forwarded_user_id: "sub-123" });
   } finally {
     globalThis.fetch = originalFetch;
     await synchronizer.stop();

@@ -14,10 +14,10 @@ export type GatewayClientCaller =
   | { kind: "refused" }
   | { kind: "key"; name?: string; trustedForwarder: boolean };
 
-const clientLabelHeaderSources: ReadonlyArray<{ names: readonly string[]; when: "key" | "trustedForwarder" }> = [
-  { names: clientDisplayNameHeaderNames, when: "key" },
-  { names: ["x-claude-gateway-user-email", "x-litellm-end-user-id"], when: "trustedForwarder" }
-];
+export type ForwardedIdentity = {
+  userEmail?: string;
+  userId?: string;
+};
 
 export function isTrustedForwarderKey(apiKey: Pick<ApiKeyConfig, "id" | "trustedForwarder"> | undefined): boolean {
   return apiKey?.trustedForwarder === true && profileIdFromApiKeyId(apiKey.id) === undefined;
@@ -25,6 +25,15 @@ export function isTrustedForwarderKey(apiKey: Pick<ApiKeyConfig, "id" | "trusted
 
 export function gatewayClientCallerForKey(apiKey: Pick<ApiKeyConfig, "id" | "name" | "trustedForwarder">): GatewayClientCaller {
   return { kind: "key", name: apiKey.name?.trim() || apiKey.id?.trim(), trustedForwarder: isTrustedForwarderKey(apiKey) };
+}
+
+export function forwardedIdentity(caller: GatewayClientCaller, headers: IncomingHttpHeaders): ForwardedIdentity {
+  if (caller.kind !== "key" || !caller.trustedForwarder) {
+    return {};
+  }
+  const userEmail = readHeader(headers["x-claude-gateway-user-email"])?.slice(0, maxGatewayClientLabelLength);
+  const userId = readHeader(headers["x-claude-gateway-user-id"])?.slice(0, maxGatewayClientLabelLength);
+  return { ...(userEmail ? { userEmail } : {}), ...(userId ? { userId } : {}) };
 }
 
 export function inferGatewayClient(caller: GatewayClientCaller, headers: IncomingHttpHeaders): string | undefined {
@@ -36,11 +45,7 @@ function gatewayClientLabel(caller: GatewayClientCaller, headers: IncomingHttpHe
   if (caller.kind === "refused") {
     return userAgentClient;
   }
-  const explicit = clientLabelHeaderSources
-    .filter((source) => source.when === "key" || caller.trustedForwarder)
-    .flatMap((source) => source.names)
-    .map((name) => readHeader(headers[name]))
-    .find(Boolean);
+  const explicit = clientDisplayNameHeaderNames.map((name) => readHeader(headers[name])).find(Boolean);
   if (explicit) {
     return explicit;
   }

@@ -21,7 +21,7 @@ import { rawTraceMaxPartBytes, resolveRawTraceBodyLimit } from "@llmr/core/obser
 import { maxRequestLogModelLength } from "@llmr/core/observability/request-log-model";
 import { redactSensitiveUrlQuery } from "@llmr/core/observability/sensitive-headers";
 import { isRecord, numberValue, stringValue } from "@llmr/core/gateway/internal/value";
-import { formatError, type GatewayClientCaller, inferGatewayClient, isTrustedForwarderKey, parseJsonObject, readHeader, readRequestBody, sendJson, shouldCaptureGatewayUsage } from "@llmr/core/gateway/http/io";
+import { formatError, forwardedIdentity, type GatewayClientCaller, inferGatewayClient, isTrustedForwarderKey, parseJsonObject, readHeader, readRequestBody, sendJson, shouldCaptureGatewayUsage } from "@llmr/core/gateway/http/io";
 import { endpoint } from "@llmr/core/gateway/core-runtime/supervisor";
 import { maxUsageCaptureBytes, rawTraceSyncHeader, rawTraceSyncPath } from "@llmr/core/gateway/internal/shared";
 import type { RawTracePartText } from "@llmr/core/gateway/internal/shared";
@@ -1599,6 +1599,8 @@ async function recordUsageCaptureFromRawTrace(
     ...(Number.isFinite(startedAt) && startedAt <= Date.now() ? { createdAt: new Date(startedAt).toISOString() } : {}),
     durationMs: numberValue(input.durationMs) ?? 0,
     fallbackModel: input.model,
+    forwardedUserEmail: input.forwardedUserEmail,
+    forwardedUserId: input.forwardedUserId,
     method,
     path,
     price,
@@ -1722,6 +1724,7 @@ export async function readRawTraceRequestLogBundle(
     ? { kind: "key", trustedForwarder: isTrustedForwarderKey(apiKeys.find((apiKey) => apiKey.id === apiKeyId)) }
     : { kind: "refused" };
   const client = inferGatewayClient(caller, clientRequestHeaders ?? {});
+  const forwarded = forwardedIdentity(caller, clientRequestHeaders ?? {});
   const attempt = positiveAttemptNumber(readUnknownHeader(
     clientRequestHeaders,
     "x-llmr-route-attempt"
@@ -1740,6 +1743,8 @@ export async function readRawTraceRequestLogBundle(
       ...(client ? { client } : {}),
       ...(stringValue(manifest.completedAt) ? { completedAt: stringValue(manifest.completedAt) } : {}),
       ...(numberValue(manifest.durationMs) !== undefined ? { durationMs: numberValue(manifest.durationMs) } : {}),
+      ...(forwarded.userEmail ? { forwardedUserEmail: forwarded.userEmail } : {}),
+      ...(forwarded.userId ? { forwardedUserId: forwarded.userId } : {}),
       method: stringValue(requestMetadata?.method) || "POST",
       model: refusedBeforeUpstream ? model?.slice(0, maxRequestLogModelLength) : model,
       path: pathFromUrl(url),

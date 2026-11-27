@@ -4,6 +4,7 @@ import {
   abortSignalMessage,
   filteredResponseHeaders,
   forwardHeaders,
+  forwardedIdentity,
   gatewayClientCallerForKey,
   inferGatewayClient,
   isTrustedForwarderKey,
@@ -175,16 +176,31 @@ test("gateway method and abort helpers cover body and cancellation edge cases", 
   assert.equal(abortSignalMessage(textController.signal), "timed out");
 });
 
-test("inferGatewayClient names the developer only for a trusted forwarder key", () => {
+test("inferGatewayClient never names the developer, whatever the key", () => {
   const identity = { "x-claude-gateway-user-email": " dev@example.com ", "user-agent": "claude-cli/2.1.310" };
-  assert.equal(inferGatewayClient(forwarder, identity), "dev@example.com");
-  assert.equal(inferGatewayClient(forwarder, { "x-litellm-end-user-id": "dev@example.com" }), "dev@example.com");
+  assert.equal(inferGatewayClient(forwarder, identity), "Apps gateway key");
+  assert.equal(inferGatewayClient(forwarder, { "x-litellm-end-user-id": "dev@example.com" }), "Apps gateway key");
   assert.equal(inferGatewayClient(forwarder, { "x-llmr-client": "Proxy", "x-claude-gateway-user-email": "dev@example.com" }), "Proxy");
   assert.equal(inferGatewayClient(forwarder, { "x-claude-gateway-user-email": "   " }), "Apps gateway key");
   assert.equal(inferGatewayClient(forwarder, { "x-claude-gateway-user-id": "sub-123" }), "Apps gateway key");
   assert.equal(inferGatewayClient(plain, identity), "Team key");
   assert.equal(inferGatewayClient(plain, { "x-litellm-end-user-id": "dev@example.com", "user-agent": "curl/8.0" }), "Team key");
   assert.equal(inferGatewayClient(refused, identity), "Claude");
+});
+
+test("a marked key's forwarded id and e-mail are read into their own fields, and its label is the tool", () => {
+  const headers = {
+    "user-agent": "claude-cli/2.1.310",
+    "x-claude-gateway-user-email": " dev@example.com ",
+    "x-claude-gateway-user-id": "sub-123",
+    "x-litellm-end-user-id": "dev@example.com"
+  };
+  assert.deepEqual(forwardedIdentity(forwarder, headers), { userEmail: "dev@example.com", userId: "sub-123" });
+  assert.equal(inferGatewayClient({ kind: "key", trustedForwarder: true }, headers), "Claude");
+  assert.equal(inferGatewayClient(forwarder, headers), "Apps gateway key");
+  assert.deepEqual(forwardedIdentity(plain, headers), {});
+  assert.deepEqual(forwardedIdentity(refused, headers), {});
+  assert.deepEqual(forwardedIdentity(forwarder, { "user-agent": "claude-cli/2.1.310" }), {});
 });
 
 test("a refused caller is named from its User-Agent alone, and every label is cut to 120 characters", () => {
@@ -194,5 +210,5 @@ test("a refused caller is named from its User-Agent alone, and every label is cu
   assert.equal(inferGatewayClient(refused, { "user-agent": "u".repeat(300) }), "u".repeat(120));
   assert.equal(inferGatewayClient(plain, { "x-llmr-client": "c".repeat(300) }), "c".repeat(120));
   assert.equal(inferGatewayClient({ kind: "key", name: "n".repeat(300), trustedForwarder: false }, {}), "n".repeat(120));
-  assert.equal(inferGatewayClient(forwarder, { "x-claude-gateway-user-email": `${"a".repeat(300)}@example.com` }).length, 120);
+  assert.equal(forwardedIdentity(forwarder, { "x-claude-gateway-user-email": `${"a".repeat(300)}@example.com` }).userEmail.length, 120);
 });

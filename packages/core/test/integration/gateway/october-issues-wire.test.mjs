@@ -369,7 +369,7 @@ for (const [name, layout] of [["single", "single"], ["compat", "compat"], ["sing
     const database = await usageStore.getDatabase();
     const usageRows = (kind) => database.prepare("SELECT client FROM usage_events WHERE model = ?").all(modelFor(kind));
     const expected = {
-      marked: "dev@example.com",
+      marked: layout === "compat" ? "forwarder" : "Node.js",
       profile: layout === "compat" ? "profile:codex" : "Node.js",
       unmarked: layout === "compat" ? "wire" : "Node.js"
     };
@@ -409,12 +409,12 @@ for (const layout of ["single", "compat"]) {
     const forged = { "x-auth-api-key-id": "forwarder", "x-auth-sub": "forwarder" };
     const single = layout === "single";
     const cases = [
-      ["marked-identity", "forwarder", identity("dev@example.com"), "dev@example.com"],
+      ["marked-identity", "forwarder", identity("dev@example.com"), single ? "Node.js" : "forwarder"],
       ["marked-bare", "forwarder", {}, single ? "Node.js" : "forwarder"],
       ["marked-display", "forwarder", { ...identity("dev@example.com"), "x-llmr-client": "Tool" }, "Tool"],
-      ["marked-litellm-only", "forwarder", { "x-litellm-end-user-id": "lite@example.com" }, "lite@example.com"],
+      ["marked-litellm-only", "forwarder", { "x-litellm-end-user-id": "lite@example.com" }, single ? "Node.js" : "forwarder"],
       ["marked-id-only", "forwarder", { "x-claude-gateway-user-id": "sub-123" }, single ? "Node.js" : "forwarder"],
-      ["marked-long-email", "forwarder", { "x-claude-gateway-user-email": `${"a".repeat(300)}@example.com` }, "a".repeat(120)],
+      ["marked-long-email", "forwarder", { "x-claude-gateway-user-email": `${"a".repeat(300)}@example.com` }, single ? "Node.js" : "forwarder"],
       ["plain-forged", "wire", { ...forged, ...identity("other@example.com") }, single ? "Node.js" : "wire"],
       ["plain-display", "wire", { "x-client-name": "MyTool" }, "MyTool"],
       ["plain-long-display", "wire", { "x-llmr-client": "c".repeat(300) }, "c".repeat(120)],
@@ -474,12 +474,53 @@ for (const layout of ["single", "compat"]) {
     }
     const details = await Promise.all(logRows.map((row) => requestLogRuntime.getDetail({ id: row.id })));
     const stored = JSON.stringify([logRows, details]);
-    for (const part of ["other@example.com", "id-of-", "Spoof"]) assert.equal(stored.includes(part), false, part);
+    for (const part of ["other@example.com", "id-of-other", "Spoof"]) assert.equal(stored.includes(part), false, part);
     for (const row of [...logRows, ...details]) {
       assert.equal(JSON.stringify([row?.requestHeaders, row?.responseHeaders, row?.routeTrace]).includes("dev@example.com"), false, row?.model);
     }
     assert.equal(upstreamHeaders.length, 1);
     assert.deepEqual(Object.keys(upstreamHeaders[0]).filter((header) => /claude-gateway|litellm|client-cert|x-client-name|x-auth|x-llmr/.test(header)), []);
+  });
+}
+
+for (const layout of ["single", "compat"]) {
+  test(`a request from a marked key is recorded under the developer's id and e-mail, and one from another key naming the same developer is not (${layout})`, { skip, timeout: 60000 }, async (t) => {
+    const { port } = await startWireService(t, layout, (config) => {
+      config.APIKEYS.push(forwarderKey);
+    });
+    const identity = { "x-claude-gateway-user-email": "dev@example.com", "x-claude-gateway-user-id": "sub-123", "x-litellm-end-user-id": "dev@example.com" };
+    const modelFor = (kind) => `forwarded-${layout}-${kind}`;
+    for (const [kind, key] of [["marked", "sk-wire-forwarder-0002"], ["plain", "sk-wire-key-0001"]]) {
+      const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+        body: JSON.stringify({ messages: [{ content: "hi", role: "user" }], model: modelFor(kind) }),
+        headers: { ...identity, authorization: `Bearer ${key}`, "content-type": "application/json" },
+        method: "POST"
+      });
+      assert.equal(response.status, 400, `${kind}: ${await response.text()}`);
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    }
+    const database = await usageStore.getDatabase();
+    const usageRows = (kind) => database.prepare("SELECT client, forwarded_user_email, forwarded_user_id FROM usage_events WHERE model = ?").all(modelFor(kind)).map((row) => ({ ...row }));
+    const expected = {
+      marked: { client: layout === "compat" ? "forwarder" : "Node.js", forwarded_user_email: "dev@example.com", forwarded_user_id: "sub-123" },
+      plain: { client: layout === "compat" ? "wire" : "Node.js", forwarded_user_email: "", forwarded_user_id: "" }
+    };
+    for (const [kind, row] of Object.entries(expected)) {
+      await until(() => usageRows(kind).length > 0, 20000);
+      assert.deepEqual(usageRows(kind), [row], kind);
+    }
+    let logRows = [];
+    await until(async () => {
+      await flushRequestLogRuntime(1000);
+      logRows = (await requestLogRuntime.list({ pageSize: 200 })).items.filter((item) => Object.keys(expected).some((kind) => item.model === modelFor(kind)));
+      return Object.keys(expected).every((kind) => logRows.some((item) => item.model === modelFor(kind)));
+    }, 20000);
+    for (const row of logRows) {
+      const marked = row.model === modelFor("marked");
+      assert.deepEqual([row.client, row.forwardedUserEmail, row.forwardedUserId], marked
+        ? [expected.marked.client, "dev@example.com", "sub-123"]
+        : [expected.plain.client, undefined, undefined], row.model);
+    }
   });
 }
 

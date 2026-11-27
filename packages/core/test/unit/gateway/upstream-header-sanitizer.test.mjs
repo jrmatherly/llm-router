@@ -365,7 +365,7 @@ test("Claude apps gateway identity headers are attributed at ingress and never r
   }
   assert.deepEqual(sanitizeUpstreamProviderHeaders({ ...identity, "x-keep": "yes" }), { "x-keep": "yes" });
   assert.deepEqual(sanitizeUpstreamProviderHeaders({ "X-Claude-Gateway-User-Email": "a@b", " X-LiteLLM-End-User-Id ": "a@b", "x-keep": "yes" }), { "x-keep": "yes" });
-  assert.equal(inferGatewayClient({ kind: "key", trustedForwarder: true }, request.headers), "kilgore@kilgore.trout");
+  assert.equal(inferGatewayClient({ kind: "key", trustedForwarder: true }, request.headers), "Claude");
   assert.equal(inferGatewayClient({ kind: "refused" }, request.headers), "Claude");
   for (const name of Object.keys(identity)) assert.equal(isSensitiveRequestLogHeaderName(name), true, name);
 });
