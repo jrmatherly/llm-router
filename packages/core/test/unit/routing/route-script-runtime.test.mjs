@@ -1006,22 +1006,25 @@ test("route scripts reject non-JSON and oversized results without poisoning late
 });
 
 test("route script workers distribute concurrent executions across available slots", async () => {
+  // Each script waits for the file the other writes, so both finish only when they run at the same time.
+  const directory = mkdtempSync(path.join(os.tmpdir(), "llmr-route-script-parallel-"));
   const runtime = new RouteScriptRuntime({ workerCount: 2, workerFile });
   const script = routeScript(`
-    const deadline = Date.now() + 350;
-    while (Date.now() < deadline) {}
+    await api.fs.writeText(input.body.mine, "ready");
+    while (!(await api.fs.exists(input.body.theirs))) {}
     return true;
-  `, { timeoutMs: 1000 });
-  const input = scriptInput();
+  `, { timeoutMs: 10_000 });
+  const flag = (name) => path.join(directory, `${name}.flag`);
   try {
     const results = await Promise.all([
-      runtime.execute("parallel-a", script, input),
-      runtime.execute("parallel-b", script, input)
+      runtime.execute("parallel-a", script, scriptInput({ mine: flag("a"), theirs: flag("b") })),
+      runtime.execute("parallel-b", script, scriptInput({ mine: flag("b"), theirs: flag("a") }))
     ]);
 
     assert.deepEqual(results.map((result) => result.status), ["ok", "ok"]);
   } finally {
     await runtime.close();
+    rmSync(directory, { force: true, recursive: true });
   }
 });
 
