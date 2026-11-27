@@ -4,6 +4,8 @@
 
 > **Status, 2026-11-27: written, audited by building, not built.** An audit on another model built Tasks 1 to 7 from this text alone, without the prototypes: 1 Blocker, 19 Corrections, 3 design findings and 4 gaps, all applied below. With every task built, typecheck and lint pass, the architecture suite is 218 of 218, the core suite with the gateway entry is 2,537 passed and 16 skipped, and the UI suite 337 of 337 (its run). It ran 13 mutants: 9 killed and 4 survivors, three of which now have a test here. The audit removed one task: the fault Task 6 fixed was already gone. The text its corrections changed was not built again. Its build and tests are outside the repo in `private/audits/2026-11-27-audit-remediation-plan/`. What follows is the status as first written.
 
+> **Reviewed against the code, 2026-11-27, by the lead.** Every file, symbol, test name, helper and line reference the tasks name was checked at `main` (`2636b447`), and the tests' expected values against the audit's patches. Nothing was built or run. Five changes: Task 4 Step 1 counted three `gw` assertions where the audit's patch changes four; Task 2 Step 4 now makes its check inside the function's `try`, on the text already read; Task 1 gains a docs step and a stale assertion message to reword; Task 2 names what its tests do not cover; and "Order" carries the three points of the build method it had left out. Task 2 Step 4's placement and Task 1 Step 7c were not built.
+
 > **As first written.** Every code task here comes from a prototype that a research run on another model built at `v9.1.0`, with a test it saw fail there and pass on the prototype (its run). The lead copied each test from that run's patch and has not built or run any of it. No task is approved: each waits on the owner's answer to the decision it names. The VM pass on 9.1.0 has not been run, so its failed lines are not here yet.
 
 **Goal:** Build the changes two rounds of research recommend for the release after 9.1.0, and leave every other open finding listed with the reason it waits.
@@ -71,6 +73,8 @@ What the tasks' tests do not exercise and a reviewer should try, most likely fir
 
 The method for each branch is the one batch 10b set in the delivery index: a builder on Opus in a worktree from this text, one callers reviewer on Fable given the lead's guesses, one fix round, and a test for any mutant that survives. The text was audited by building on 2026-11-27, as the status line says. A task the VM pass adds later gets the same audit before it is built.
 
+Three points of that entry this summary left out, which hold here too. The builder of Task 2 runs the profile restore harness before it hands back, since Task 2 is the only task that changes `profiles/service.ts`: it is in `private/research/2026-11-26-batch9-review/` and `2026-11-26-batch10a-review/`, which a builder may open. One branch is built per session, in a fresh session resumed from the handoff. And the owner is told the expected duration when a branch starts.
+
 ---
 
 ### Task 1: A zero the request's own provider lists is a price of zero (F-PRICE-3, F-PRICE-36)
@@ -83,6 +87,7 @@ This changes the last sentence of decision V-21, "Only a price the user set can 
 - Modify: `packages/core/src/models/pricing-service.ts`: `CatalogPricingSource`, `pricingSources`, `PriceIndex`, the two own-provider steps (`openRouterEntry` and `mappedProviderEntry`), `fetchModelsDevPrices`, `addCatalogEntry`, and the amount check that refuses a cost of 0
 - Modify: `packages/core/src/contracts/app.ts`: `listedCostSources`
 - Modify: `packages/ui/src/pages/home/shared/usage.ts`: the price source labels
+- Modify: `docs/src/content/docs/en/configuration/overview.md` and `docs/src/content/docs/en/configuration/providers.md`: one sentence each
 - Test: `packages/core/test/unit/models/pricing-service.test.mjs`
 - Create: `packages/ui/test/unit/listed-free-label.test.ts`
 
@@ -128,7 +133,7 @@ The third assertion is F-PRICE-36: a free host's offer on a custom provider must
 - [ ] **Step 4: Let only the request's own provider use one.** Add `ownEntry` and call it in the two own-provider steps in place of the direct `byKey.get`. No later step of the rule reads `zeroKeys`.
 - [ ] **Step 5: A zero offer names no maker.** In `fetchModelsDevPrices`, add an offer's `canonical_model_id` to `offers.canonicalIds` only when its input and output are not both 0.
 - [ ] **Step 6: Let the source through.** Add `"listed-free"` to `CatalogPricingSource`, to `listedCostSources`, and as `"listed-free": true` to `pricingSources`, which is checked against the full set of sources, so typecheck fails without it and a stored row could not be read back. Let the amount check accept a cost of 0 for it as it does for `"custom"`. Add the label `["listed-free", "Listed at no charge"]`. Two comments become false and are rewritten: the one above the amount check that says only a user's price may come to zero, and the one above `addCatalogEntry` that calls a price of 0 and 0 "no price here".
-- [ ] **Step 7: Fix the one test that pins the old rule.** `a catalog entry priced 0 for input and output does not stop the rule`, in the same file, expects DeepSeek's zero to fall through to the LiteLLM price of 0.8 and 2. Change its first expectation to `{ inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 0 }` under `"listed-free"`, and rename it to say that a zero from the request's own provider stops the rule. Any other failure is a fault of the change.
+- [ ] **Step 7: Fix the one test that pins the old rule.** `a catalog entry priced 0 for input and output does not stop the rule`, in the same file, expects DeepSeek's zero to fall through to the LiteLLM price of 0.8 and 2. Change its first expectation to `{ inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 0 }` under `"listed-free"`, and rename it to say that a zero from the request's own provider stops the rule. Its second assertion still passes, and its message, "only a user price may come to zero", is no longer true: reword it to say that a list price that comes to zero is no cost. Any other failure is a fault of the change.
 - [ ] **Step 7b: Pin the label.** The core test checks no label, and a change that drops the label survives it (the audit's mutant). Create `packages/ui/test/unit/listed-free-label.test.ts`:
 
 ```ts
@@ -145,6 +150,7 @@ test("a cost the request's own provider lists at zero reads as that list price",
 ```
 
 If the UI package keeps its unit tests under another folder, put it beside the nearest test of `shared/usage.ts`.
+- [ ] **Step 7c: Say it in the docs.** Two pages describe the price rule step by step and name the source `models.dev-median`: the "Cost shows `-`" row of `docs/src/content/docs/en/configuration/overview.md` and the local-services paragraph of `docs/src/content/docs/en/configuration/providers.md`. Add one sentence to each, after the step for the provider the base URL maps to: a model that provider lists at zero is recorded as free, with the source `listed-free`. Added by the review of 2026-11-27. The audit's build changed no docs.
 - [ ] **Step 8: Run the suites.** The test file, then `npm run test:core` with the gateway entry, then `npm run test:ui`. Expected: all pass. The research run saw 2,551 core tests with that one failure before Step 7, and 336 of 336 UI tests.
 - [ ] **Step 9: Commit.** `feat(usage): price a model its own provider lists at zero as free, and stop a free offer borrowing a paid price`
 
@@ -160,7 +166,7 @@ Branch `fix/codex-headerless-refusal`. Codex 0.172.0 loads a provider written in
 
 **Files:**
 - Modify: `packages/core/src/profiles/codex-config-strip.ts`
-- Modify: `packages/core/src/profiles/service.ts`: `applyCodexProfile`, right after the refusal of a reserved provider id
+- Modify: `packages/core/src/profiles/service.ts`: `applyCodexProfile`, inside its `try`, right after it reads the config file into `source`
 - Test: `packages/core/test/integration/profiles/profile-service.test.mjs`
 
 **Interfaces:**
@@ -243,11 +249,13 @@ All four tests were built and run by the audit. The safe-forms test passes on `m
 
 - [ ] **Step 2: Run it and see it fail.** `node build/test.mjs core && LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" node --test .test-dist/core/test/integration/profiles/profile-service.test.js`. Expected: the first test FAILS on its first form with `true !== false`. If the second test fails on `main`, the task's premise about the safe forms is wrong: stop and report.
 - [ ] **Step 3: Add `headerlessCodexProviderTable`** in `codex-config-strip.ts`, over the statements `scanTomlStatements` gives, comparing keys through `tomlKey` so a quoted id matches.
-- [ ] **Step 4: Refuse in `applyCodexProfile`.** For every agent that function serves, and not only when `profile.agent === "codex"` as the reserved-id refusal beside it does: the doubled table breaks the file whichever agent writes it. When the config file exists and the function returns a case, return `refusedProfileStatus` with one of these messages, where `<file>` is the config file and `<id>` the provider id:
+- [ ] **Step 4: Refuse in `applyCodexProfile`.** For every agent that function serves, and not only when `profile.agent === "codex"` as the reserved-id refusal beside it does: the doubled table breaks the file whichever agent writes it. Call the function on the `source` that `applyCodexProfile` already reads at the top of its `try`, before the model catalog file is written, which is the first write. Do not read the file a second time before the `try`, as the audit's build did: nothing above `applyCodexProfile` catches, so a config file that cannot be read would throw out of the whole apply where today it gives this one client a failed status (read on 2026-11-27, not run). When the function returns a case, return `refusedProfileStatus` with one of these messages, where `<file>` is the config file and `<id>` the provider id:
   - `"own-id"`: `<file> defines the provider "<id>" without its own [model_providers.<id>] header, so Codex would not start once LLMR adds its table. Move that provider under its own header, or set this profile's providerId in LLM Router's config to another id. LLMR left <file> unchanged.`
   - `"root-inline"`: `<file> defines model_providers on one line, so Codex would not start once LLMR adds its table. Write each provider under its own [model_providers.<name>] header. LLMR left <file> unchanged.`
 - [ ] **Step 5: Run the file and the core suite.** Expected: PASS. The research run's prototype left 2,551 core tests at 0 failures.
 - [ ] **Step 6: Commit.** `fix(profiles): refuse a Codex apply over a provider written with no header of its own`
+
+Not tested: the refusal for an agent other than Codex. Every test here applies `default-codex`, so a change that refuses only when `profile.agent === "codex"` survives them. A reviewer reads that condition.
 
 Not in this task: teaching the scanner the headerless forms. A refusal turns a false ok into a true one for about 13 lines. The docs sentence that names these forms is already on `main`.
 
@@ -347,7 +355,7 @@ Branch `fix/client-label-key-name`. Today a request with a valid key and no disp
 - Consumes: `gatewayClientCallerForKey` from `gateway/http/io.ts`, as it is.
 - Produces: in `readRawTraceRequestLogBundle`, a caller built with `gatewayClientCallerForKey(apiKey)` when the trace's key id names a stored key, `{ kind: "key", trustedForwarder: false }` when it names none, and `{ kind: "refused" }` when the trace has no key id.
 
-- [ ] **Step 1: Change what six tests expect.** These pin the old single-layout label. The four in `october-issues-wire.test.mjs` have names built from a template, so search for the words before "(single)". Their expectations are written as a choice by layout: five as `layout === "compat" ? X : "Node.js"`, nine as `single ? "Node.js" : X`, and one as `single ? "u".repeat(120) : "wire"`. Each becomes its compatibility value alone. The two `"Node.js"` assertions on `refusedForKey` stay. The two in `raw-trace-sync.test.mjs` have no compatibility case and their keys have no name, so the expected client becomes the key's id, `gw` in three assertions and `profile:codex` in one, and a trace with no stored key or no key id keeps `Claude`. The six:
+- [ ] **Step 1: Change what six tests expect.** These pin the old single-layout label. The four in `october-issues-wire.test.mjs` have names built from a template, so search for the words before "(single)". Their expectations are written as a choice by layout: five as `layout === "compat" ? X : "Node.js"`, nine as `single ? "Node.js" : X`, and one as `single ? "u".repeat(120) : "wire"`. Each becomes its compatibility value alone. The two `"Node.js"` assertions on `refusedForKey` stay. The two in `raw-trace-sync.test.mjs` have no compatibility case and their keys have no name, so the expected client becomes the key's id, `gw` in four assertions (two in each test) and `profile:codex` in one, and a trace with no stored key or no key id keeps `Claude`. The six:
   - in `october-issues-wire.test.mjs`: `the client label holds for every source and caller (single)`, `the client label follows the key's trusted forwarder mark (single)`, `the client label follows the key's trusted forwarder mark (single, logs off)`, and `a request from a marked key is recorded under the developer's id and e-mail, and one from another key naming the same developer is not (single)`
   - in `raw-trace-sync.test.mjs`: `raw trace usage capture keeps the client label the request log gets` and `a trace records the developer only when its key is a trusted forwarder`
 - [ ] **Step 2: Run both files and see the six fail.** With the gateway entry set. Expected: those six FAIL on the client label and nothing else does.
@@ -515,5 +523,5 @@ Each waits for the owner, for the VM pass, or for a design nobody has made.
 
 - **Coverage.** Every row round two recommends a change for has a task or a line under "Not in this plan" with its reason: F-PRICE-3 and 36 (1), F-CODEX-1 (2), F-UI-1 (3), F-LABEL-1 (4), F-TEST-13 (5), F-TEST-1 (7), F-TEST-3 (8), F-TEST-5 (9, and the rulesets already applied), F-GATEWAY-1 (10), F-RESTORE-3, F-GATEWAY-2 and F-PRICE-7 (11).
 - **Names.** `ownEntry`, `zeroKeys`, `"listed-free"` and `headerlessCodexProviderTable` are each defined in one task and used only there.
-- **What rests on a run and what does not.** Tasks 1 to 5 and 7 were built twice by two runs on another model: once as prototypes, and once from this plan's text alone. Every test here was run by the second. Written after it and not built again: the wording its corrections changed, which is Step 6 and 7b of Task 1, Step 4's "every agent" of Task 2, the two descriptions of Task 3 and Step 1 of Task 4.
+- **What rests on a run and what does not.** Tasks 1 to 5 and 7 were built twice by two runs on another model: once as prototypes, and once from this plan's text alone. Every test here was run by the second. Written after it and not built again: the wording its corrections changed, which is Step 6 and 7b of Task 1, Step 4's "every agent" of Task 2, the two descriptions of Task 3 and Step 1 of Task 4. Written by the later review and built by nobody: where Task 2 Step 4 makes its check, and Task 1 Step 7c.
 - **Not checked.** A real Codex loading or refusing any form of Task 2: the audit checked only that each file parses as TOML. Any task in a window. Any Windows run. Either setting of Tasks 8 and 9 in effect. Review Focus 1's count of 23 on today's catalogs.
