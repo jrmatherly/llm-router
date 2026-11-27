@@ -344,7 +344,7 @@ export class UsageStore {
 
   async recordCapture(input: UsageCaptureInput): Promise<void> {
     const headersUsage = extractUsageFromBillingHeaders(input.responseHeaders);
-    const bodyUsage = extractUsageFromBody(input.bodyText);
+    const bodyUsage = extractUsageFromBody(input.bodyText, false);
     // Normalize each source under its own convention before merging them: on a
     // translated response the billing headers and the body state input tokens
     // differently, and one shared rule is wrong for one of them.

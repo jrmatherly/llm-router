@@ -32,3 +32,15 @@ test("a body with no usage gives nothing", () => {
   assert.equal(extractUsageFromBody("{}"), undefined);
   assert.equal(extractUsageFromBody(""), undefined);
 });
+
+test("a chunk that states only a reasoning count is read for Logs and skipped for the usage row", () => {
+  const stream = [
+    `data: ${JSON.stringify({ model: "a", usage: { completion_tokens: 5, prompt_tokens: 10 } })}`,
+    `data: ${JSON.stringify({ model: "b", usage: { completion_tokens_details: { reasoning_tokens: 2 } } })}`
+  ].join("\n");
+  assert.equal(extractUsageFromBody(stream).model, "b");
+  assert.equal(extractUsageFromBody(stream, false).model, "a");
+  const reasoningOnly = JSON.stringify({ model: "b", usage: { reasoning_tokens: 2 } });
+  assert.equal(extractUsageFromBody(reasoningOnly).reasoningTokens, 2);
+  assert.equal(extractUsageFromBody(reasoningOnly, false), undefined);
+});

@@ -11,7 +11,10 @@ export type ResponseUsage = {
   totalTokens?: number;
 };
 
-export function extractUsageFromBody(text: string): ResponseUsage | undefined {
+// The usage store passes false: its rows hold no reasoning count, so a chunk that states
+// only one must not name the row's model or its cache convention.
+export function extractUsageFromBody(text: string, reasoningCounts = true): ResponseUsage | undefined {
+  const counted = (usage: ResponseUsage) => hasUsageNumbers(reasoningCounts ? usage : { ...usage, reasoningTokens: undefined });
   const snapshots: ResponseUsage[] = [];
   const trimmed = text.trim();
   if (!trimmed) {
@@ -21,12 +24,12 @@ export function extractUsageFromBody(text: string): ResponseUsage | undefined {
   const parsed = parseJson(trimmed);
   if (parsed !== undefined) {
     const snapshot = extractUsageSnapshot(parsed);
-    return snapshot && hasUsageNumbers(snapshot) ? snapshot : undefined;
+    return snapshot && counted(snapshot) ? snapshot : undefined;
   }
 
   for (const payload of parseStreamPayloads(trimmed)) {
     const snapshot = extractUsageSnapshot(payload);
-    if (snapshot && hasUsageNumbers(snapshot)) {
+    if (snapshot && counted(snapshot)) {
       snapshots.push(snapshot);
     }
   }
