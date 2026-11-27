@@ -1567,7 +1567,11 @@ export function globalProviderJsonWriter(profile: ProfileConfig): ((file: string
       file,
       content,
       matchers,
-      (previous, snapshot) => stripManagedProviderJsonContent(previous, { client }, snapshot),
+      // A backup keeps only the user's content, so neither client's provider goes into it when the two share the file.
+      (previous, snapshot) => {
+        const withoutOpenCode = stripManagedProviderJsonContent(previous, { client: "opencode" }, snapshot);
+        return stripManagedProviderJsonContent(withoutOpenCode ?? previous, { client: "kilo" }, snapshot) ?? withoutOpenCode;
+      },
       (previous) => isAsWritten(readCodexWrittenRecord(file), previous)
     );
     writeConfigRecord(file, source, source !== undefined && matchers.isManagedContent(source));

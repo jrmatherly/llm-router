@@ -5859,6 +5859,22 @@ test("switching off an OpenCode and a Kilo profile on the user's config gives it
   });
 });
 
+test("a second apply over an edited config an OpenCode and a Kilo profile share backs up neither profile's key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withProviderJsonRoot(async (root) => {
+    const file = path.join(root, "opencode.jsonc");
+    writeFileSync(file, "{\"theme\":\"dark\"}\n");
+    const openCode = providerJsonProfile("opencode", file);
+    const kilo = providerJsonProfile("kilo", file, { providerId: "kl" });
+    const config = providerJsonConfig([openCode, kilo]);
+    await applyProfileConfig(config);
+    addProviderJsonMcp(file);
+    config.profile.profiles = [{ ...openCode, model: "other-model" }, { ...kilo, model: "other-model" }];
+    await applyProfileConfig(config);
+    assert.deepEqual(filesHolding(root, "llmr-profile-"), [file]);
+    assert.ok(readdirSync(root).some((entry) => entry.includes(".llmr-backup-")), "the user's edit is backed up");
+  });
+});
+
 test("a switched-off OpenCode profile on the file an enabled one uses leaves the enabled profile's provider in place", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withProviderJsonRoot(async (root) => {
     const file = path.join(root, "opencode.jsonc");
