@@ -211,6 +211,9 @@ test("LogsView states the database's retention and says when another was asked f
   assert.match(none, /Settings ask for 3 days\. The log database has no retention yet, so it keeps every row\. Saving any setting tries again\./);
   assert.doesNotMatch(none, /Request logs are kept for/);
   assert.match(render(emptyLogPage), /Request logs are kept for 7 days\./);
+  const longRange = (page: RequestLogPage) => firstMatch(render(page), /<option[^>]*>Last 30 days<\/option>/);
+  assert.doesNotMatch(longRange({ ...emptyLogPage, retentionDays: 30 }), /disabled=""/);
+  assert.match(longRange(emptyLogPage), /disabled=""/);
 });
 
 test("LogsView offers preset date ranges and disables those longer than the retention", () => {
