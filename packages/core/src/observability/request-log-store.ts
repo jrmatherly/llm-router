@@ -2176,7 +2176,8 @@ function inferAgentKind(
     return "claude-code";
   }
 
-  return "unknown";
+  // Last, so a key's name never outranks what the headers or the body say.
+  return inferAgentFromText(entry.client) ?? "unknown";
 }
 
 function readAgentHeaderSignals(headers: Record<string, string | string[]>): string {

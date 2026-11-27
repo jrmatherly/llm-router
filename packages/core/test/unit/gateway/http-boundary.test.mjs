@@ -201,6 +201,7 @@ test("a marked key's forwarded id and e-mail are read into their own fields, and
   assert.deepEqual(forwardedIdentity(plain, headers), {});
   assert.deepEqual(forwardedIdentity(refused, headers), {});
   assert.deepEqual(forwardedIdentity(forwarder, { "user-agent": "claude-cli/2.1.310" }), {});
+  assert.deepEqual(forwardedIdentity(forwarder, { "x-litellm-end-user-id": "dev@example.com" }), {});
 });
 
 test("a refused caller is named from its User-Agent alone, and every label is cut to 120 characters", () => {
