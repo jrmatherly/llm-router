@@ -92,7 +92,7 @@ export const overviewMetricOptions: Array<{ label: string; value: OverviewMetric
   { label: "Output tokens", value: "output-tokens" },
   { label: "Cache tokens", value: "cache-tokens" },
   { label: "Cache ratio", value: "cache-ratio" },
-  { label: "Estimated cost", value: "estimated-cost" },
+  { label: "Cost", value: "estimated-cost" },
   { label: "Success rate", value: "success-rate" },
   { label: "Errors", value: "errors" },
   { label: "Average latency", value: "avg-latency" }

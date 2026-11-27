@@ -85,7 +85,7 @@ Size constraints:
 | `output-tokens` | Output tokens |
 | `cache-tokens` | Cache tokens |
 | `cache-ratio` | Cache ratio |
-| `estimated-cost` | Estimated cost, calculated from model pricing data |
+| `estimated-cost` | Cost, calculated from model pricing data |
 | `success-rate` | Success rate |
 | `errors` | Error count |
 | `avg-latency` | Average latency |
@@ -117,7 +117,7 @@ Share card widgets can export PNGs through the download button in the card heade
 | Model Leaderboard | `share-model-leaderboard` | Models ranked by tokens. |
 | AI Fuel Cockpit | `share-fuel-cockpit` | Up to 3 account quota gauges. Requires account / usage connectors. |
 | Token Calendar Poster | `share-token-calendar` | Contribution-calendar style token activity poster. |
-| Spend Receipt | `share-spend-receipt` | Estimated cost, requests, tokens, latency, and success rate for the selected range. |
+| Spend Receipt | `share-spend-receipt` | Cost, requests, tokens, latency, and success rate for the selected range. |
 
 ## Data sources and troubleshooting
 
