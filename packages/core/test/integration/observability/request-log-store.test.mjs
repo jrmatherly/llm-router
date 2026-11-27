@@ -2485,3 +2485,30 @@ test("an older pending-update table opens when another process adds the same col
     rmSync(dir, { force: true, recursive: true });
   }
 });
+
+test("an older route trace table opens when another process adds the same column between the read and the add", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-route-trace-race-test-"));
+  const file = path.join(dir, "request-logs.sqlite");
+  let store;
+  try {
+    const first = new RequestLogStore(file);
+    await first.list({ pageSize: 1 });
+    await first.close();
+    const legacy = createBetterSqliteDatabase(file);
+    try {
+      legacy.exec("ALTER TABLE request_route_traces DROP COLUMN trace_json");
+    } finally {
+      legacy.close();
+    }
+    const restore = addColumnRightAfterTheColumnsAreRead(file, "request_route_traces", "trace_json TEXT NOT NULL DEFAULT ''");
+    try {
+      store = new RequestLogStore(file);
+      assert.equal((await store.list({ pageSize: 1 })).total, 0);
+    } finally {
+      restore();
+    }
+  } finally {
+    await store?.close();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});

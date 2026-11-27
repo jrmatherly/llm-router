@@ -26,3 +26,31 @@ export function addColumnRightAfterTheColumnsAreRead(file, table, columnSql) {
   };
   return () => { Database.prototype.prepare = prepare; };
 }
+
+// UsageStore.open reads a table's columns twice, once to choose its path and once inside the schema
+// function, and two opens collide at the second. This fires at the read the caller names.
+export function addColumnAtTheNthReadOfTheColumns(file, table, columnSql, nth) {
+  const prepare = Database.prototype.prepare;
+  let reads = 0;
+  Database.prototype.prepare = function (sql, ...rest) {
+    const statement = prepare.call(this, sql, ...rest);
+    if (sql.trim() !== `PRAGMA table_info(${table})`) return statement;
+    reads += 1;
+    if (reads !== nth) return statement;
+    const all = statement.all.bind(statement);
+    statement.all = (...params) => {
+      const rows = all(...params);
+      const other = new Database(file, { timeout: 100 });
+      try {
+        other.exec(`ALTER TABLE ${table} ADD COLUMN ${columnSql}`);
+      } catch (error) {
+        if (!/locked|busy/i.test(error.message)) throw error;
+      } finally {
+        other.close();
+      }
+      return rows;
+    };
+    return statement;
+  };
+  return { reads: () => reads, restore: () => { Database.prototype.prepare = prepare; } };
+}
