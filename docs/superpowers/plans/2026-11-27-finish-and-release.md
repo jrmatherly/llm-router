@@ -121,7 +121,7 @@ The owner asked for a deeper round on groups B, C and D. Four runs on another mo
 
 **Confirmed as they were, now by a run:** F-PRICE-4, F-PRICE-5, F-PRICE-8, F-PRICE-9, F-PRICE-36, F-LABEL-1 (one file, 5 lines in and 4 out, and a proxied request causes no split), F-LOGS-2, F-LABEL-2, F-RESTORE-3 (the `auth` table stays the base, and restore Task 9's text needs three small edits before it runs), F-RESTORE-4, F-RESTORE-5, F-TEST-1 (50 of 50 runs, and a serial mutant fails), F-TEST-2 (61 entries and 11 MB, all from tests), F-TEST-4, F-DOCS-1 (the VM checklist already carries every open owner step).
 
-**New findings, most serious first.** None has a task.
+**New findings, most serious first.** None has a task. **The three ZCode findings (1, 2 and 5) are deferred by the owner on 2026-11-27**: testing focuses on Claude Code for now, and ZCode waits for a later follow-up. They stay listed so that follow-up starts from them.
 
 1. **Two System default ZCode profiles leave the profile key on disk** (run). One on, one off with another provider id, two saves, then a switch-off. The switch-off is refused and the key stays in ZCode's own config. Codex and OpenCode pass the same run.
 2. **The current ZCode app may ignore every file LLM Router writes** (read in its public source, not run, no ZCode installed here). It keeps providers in another file and reads the three LLM Router writes only once. A takeover may then do nothing, or ZCode may copy the profile key into a file no restore knows. Check VM-12 of the VM checklist looks for it.
