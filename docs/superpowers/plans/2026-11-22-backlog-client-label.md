@@ -1,6 +1,6 @@
 # Backlog: Client Label Implementation Plan
 
-> **Status, 2026-11-24: fix round done, text audit owed.** This round checked the 2026-11-22 audit's 2 Blockers and 9 Corrections against `main` `c491eb48` and corrected the task text. It also corrected drift from PRs 146 to 155, which merged after the draft. The keys plan is built (PRs 149 to 154), and Task 1 now names the merge as built. The logs plan is not built, and Task 2 says what to do either way. This round did not build any task or run the wire test's new cases, and the changed text has had no second-model audit. The delivery index wants that audit before this batch is built, because the label rule spans commits. Read "Open with the owner" first. The accepted Claude apps gateway management spec plans the same key mark (its G-5) and moves the e-mail out of `client` (its G-6).
+> **Status, 2026-11-27: text audit done by building, not built for the product.** A second model built Tasks 3, 1 and 2 from this text at `main` `c8efa3a5`, test-first, in a throwaway worktree, and corrected the text where it was wrong. No step failed to build and no planned test expected a wrong result. It ran the rule on the wire in both layouts with request logs on, off and with body capture `none`: a marked key with and without identity headers, an unmarked key that sends identity headers and its own `x-auth-sub` and `x-auth-api-key-id`, a profile key carrying the mark, a caller with a wrong key and one with no key that send every label header, and a label over 120 characters from each source. Every expected label held. It ran 23 mutants of the rule against the planned tests: 20 were killed, two are killed only by a request and an assertion this audit added to Task 2 Steps 1 and 2, and one fails no test. It read the trace's client headers from the spool in every mode: the three identity header values and `x-auth-sub` are readable where the import reads them. Not run: the desktop app, the web page in a browser, the Docker harness, `npm run test:electron`, a save from two real windows, and two processes opening one database at the same instant. "Behaviour the audit measured" below lists what the rule does that the tasks did not say. Read "Open with the owner" first. The accepted Claude apps gateway management spec plans the same key mark (its G-5) and moves the e-mail out of `client` (its G-6).
 
 > **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
 
@@ -10,17 +10,17 @@
 
 **Goal:** The client a person reads in Logs and in the usage totals is one LLM Router can stand behind. A developer's email shows only for requests sent with a key the owner marked as a trusted forwarder, a caller without a valid key is named from its `User-Agent` alone, and no label is longer than 120 characters.
 
-**Architecture:** Three tasks, one commit each, on batch 16's branch `fix/client-label` and in one squash-merged PR. Build them in the order Task 3, Task 1, Task 2. Task 3 stops three header names reaching a provider and adds the list of display-name headers that Task 2 reads. Task 1 adds a `trustedForwarder` mark to an API key, stores it with the key and puts a switch on the API Keys page. Task 2 puts the whole label rule in `inferGatewayClient` as data, gives every caller the key it has in hand, keeps identity header values out of stored Logs headers, and changes the guide in the same commit.
+**Architecture:** Three tasks, one commit each, on batch 16's branch `fix/client-label-and-forwarded-identity` and in one squash-merged PR. Build them in the order Task 3, Task 1, Task 2. Task 3 stops three header names reaching a provider and adds the list of display-name headers that Task 2 reads. Task 1 adds a `trustedForwarder` mark to an API key, stores it with the key and puts a switch on the API Keys page. Task 2 puts the whole label rule in `inferGatewayClient` as data, gives every caller the key it has in hand, keeps identity header values out of stored Logs headers, and changes the guide in the same commit.
 
 **Tech Stack:** TypeScript, `better-sqlite3`, Electron 45, React, `node:test` with `node:assert/strict`, component tests that render with `renderToStaticMarkup`.
 
 **Spec:** [`docs/superpowers/research/2026-11-22-open-items-validation.md`](../research/2026-11-22-open-items-validation.md). Row L-5, findings C-1 to C-7, decisions B-5 and B-10 and outside facts X-16 to X-21 come from that record. Read its "Client identity" section before you start. Read also "Identity from a gateway that forwards to LLMR" in [`2026-11-24-claude-apps-gateway-management.md`](../specs/2026-11-24-claude-apps-gateway-management.md), which plans the same mark.
 
-**Evidence status.** The plan author read every file, symbol and test named below at `main` `eb84a3ba` on 2026-11-22. A second-model audit the same day ran a throwaway wire test in both layouts and every trace mode. Its results, which this plan relies on, are these. In the single layout the stored trace's `x-auth-sub` holds the key id in every mode, `x-auth-api-key-id` reads `***` when the trace is redacted, and a caller's own `x-auth-sub` is overwritten for a valid key (run). In the compatibility layout the host's label wins over the trace's (run). Node's `fetch` sends `user-agent: node`, which maps to `Node.js` (run). The fix round on 2026-11-24 read every cited symbol again at `main` `c491eb48`. It ran three things. The existing tests the tasks change pass on `main` (139 of 139, run). `ApiKeysView` and `EditApiKeyDialog` render under `renderToStaticMarkup`, and the `Switch` control renders `role="switch"` with `aria-checked="true"` (run, throwaway test, deleted). Today's API Keys dialogs hold no `Switch` (read). No size here is measured.
+**Evidence status.** The plan author read every file, symbol and test named below at `main` `eb84a3ba` on 2026-11-22. A second-model audit the same day ran a throwaway wire test in both layouts and every trace mode. Its results, which this plan relies on, are these. In the single layout the stored trace's `x-auth-sub` holds the key id in every mode, `x-auth-api-key-id` reads `***` when the trace is redacted, and a caller's own `x-auth-sub` is overwritten for a valid key (run). In the compatibility layout the host's label wins over the trace's (run). Node's `fetch` sends `user-agent: node`, which maps to `Node.js` (run). The fix round on 2026-11-24 read every cited symbol again at `main` `c491eb48`. It ran three things. The existing tests the tasks change pass on `main` (139 of 139, run). `ApiKeysView` and `EditApiKeyDialog` render under `renderToStaticMarkup`, and the `Switch` control renders `role="switch"` with `aria-checked="true"` (run, throwaway test, deleted). Today's API Keys dialogs hold no `Switch` (read). The text audit on 2026-11-27 built the three tasks at `main` `c8efa3a5` with gateway `1.0.22-llmr.4` and ran every test named below. Two facts above changed since the first audit (run). With request logs on, the trace the import reads holds `x-auth-api-key-id` and `authorization` as `[redacted]`, where the first audit read the key id and the token. `x-auth-sub` still holds the key id in every mode, and the identity headers hold their values. Measured for the audit's build, in lines added: Task 3 is 6 of source and 9 of test, Task 1 is 61 and 128, Task 2 is 61 and 152 with 9 of docs. That counts the tests the audit added to the steps and not the 229-line wire matrix it ran, which Task 2 Step 1 describes.
 
 **Built after** [`2026-11-22-backlog-keys.md`](2026-11-22-backlog-keys.md), which is built. This plan uses `saveApiKeysConfig(next, base)` in `packages/core/src/config/config.ts`, `updatePersistedApiKeys(update)` in `config-repository.ts` and the `setKeys(keys)` helper in `config-credential-writes.test.mjs`, all as built (read).
 
-**Meets** [`2026-11-22-backlog-logs.md`](completed/2026-11-22-backlog-logs.md), which is built (PRs 172 and 173, 2026-11-27). Its Task 2 Step 4 gives `startWireService` an optional third parameter `(config) => void` and changes the single layout's refusal text from `Invalid or expired API key.` to `Invalid API key.` (read). This plan needs the parameter and not the text. If this plan is built first, Task 2 adds the parameter as that step describes, and the logs plan's step then finds it in place. No assertion here reads the refusal reason, so the order does not change any expected value.
+**Meets** [`2026-11-22-backlog-logs.md`](completed/2026-11-22-backlog-logs.md), which is built (PRs 172 and 173, 2026-11-27). `startWireService(t, layout, configure)` has its optional third parameter `(config) => void` on `main`, and the single layout's refusal text is `Invalid API key.` (run). This plan uses the parameter as it is. No assertion here reads the refusal reason.
 
 ## Decisions this plan rests on
 
@@ -118,7 +118,7 @@ A caller's `x-client-name`, and the `Client-Cert` and `Client-Cert-Chain` header
   Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/gateway/upstream-header-sanitizer.test.js`
   Expected: FAIL, with `client-cert`, `client-cert-chain` and `x-client-name` present in the first call's result.
 
-- [ ] **Step 3: Remove the three names from the client side.** Add `client-cert` and `client-cert-chain` to `frontDoorHeaderNames`, in alphabetical order. Add `clientDisplayNameHeaderNames` to `shared.ts`. In `mergeUpstreamProviderHeaders`, the loop over `requestHeaders` also skips a name in `clientDisplayNameHeaderNames`. `x-llmr-client` is already skipped by the `x-llmr-` prefix. `sanitizeUpstreamProviderHeaders` does not change, so a provider's own header survives.
+- [ ] **Step 3: Remove the three names from the client side.** Add `client-cert` and `client-cert-chain` to `frontDoorHeaderNames`, in alphabetical order. Add `clientDisplayNameHeaderNames` to `shared.ts`. In `mergeUpstreamProviderHeaders`, the loop over `requestHeaders` also skips a name in `clientDisplayNameHeaderNames`. Write the check as `clientDisplayNameHeaderNames.some((name) => name === normalized)`: the list is a tuple of two literals, so `includes(normalized)` with a plain string does not type-check. `x-llmr-client` is already skipped by the `x-llmr-` prefix. `sanitizeUpstreamProviderHeaders` does not change, so a provider's own header survives.
 
 - [ ] **Step 4: Verify.** Same command as Step 2. Expected: PASS. Then `npm run typecheck && npm run lint && npm run test:architecture && npm run test:core`.
 
@@ -183,6 +183,28 @@ How a key is stored, read in the code at `c491eb48`. `api_keys` is created by `c
 
   The second test's first assertion makes it fail today, because today's store drops the mark on the way in. Without it the test would pass before the change.
 
+  Two more tests in the same file, added by the text audit. Both pass once Steps 3 and 4 are done (run). The first pins Review Focus 4 as it is worded: the test above saves the settings from a snapshot that already holds the mark, and this one saves from a snapshot read before it. The second is the only test that fails when `parseApiKeyConfig` drops the mark (run as a mutant).
+
+  ```js
+  test("a settings save from a snapshot read before the mark was set keeps the mark", async () => {
+    const stale = await setKeys([retained, revoked]);
+    await configApi.saveApiKeysConfig([{ ...retained, trustedForwarder: true }, revoked], stale.APIKEYS);
+    const saved = await configApi.saveAppConfig({ ...stale, autoStart: !stale.autoStart });
+    assert.deepEqual(saved.APIKEYS, [{ ...retained, trustedForwarder: true }, revoked]);
+  });
+
+  test("a key in the config's own list brings its mark when it is first stored, a profile key does not, and a stored key takes no mark from it", async () => {
+    const { loadPersistedAppConfig, replacePersistedAppConfig } = await import("@llmr/core/config/config-repository.ts");
+    await setKeys([retained]);
+    const fromFile = { createdAt: "2026-01-01T00:00:00.000Z", id: "from-file", key: "from-file-token", trustedForwarder: true };
+    const profileFromFile = { createdAt: "2026-01-01T00:00:00.000Z", id: "profile:file", key: "profile-file-token", trustedForwarder: true };
+    await replacePersistedAppConfig({ ...(await loadPersistedAppConfig()), APIKEYS: [fromFile, profileFromFile, { ...retained, trustedForwarder: true }] });
+    const loaded = await configApi.loadAppConfig();
+    const { trustedForwarder: _mark, ...profileStored } = profileFromFile;
+    assert.deepEqual(loaded.APIKEYS, [retained, fromFile, profileStored]);
+  });
+  ```
+
   New file `config-repository-trusted-forwarder-column.test.mjs`, one test, `a key database made before the trusted forwarder column opens, and a mark saves and loads`. Copy the environment setup and the `createApiKeyDatabase` helper from `config-repository-existing-data-migration.test.mjs`, with the folder named `config-repository-trusted-forwarder-${process.pid}`. Create only the database at `APP_CONFIG_DB_FILE`, with the row `{ id: "existing-key", key: "sk-existing" }`. Then:
 
   ```js
@@ -198,13 +220,13 @@ How a key is stored, read in the code at `c491eb48`. `api_keys` is created by `c
 
 - [ ] **Step 3: Add the field and the column.**
   - `contracts/app.ts`: `trustedForwarder?: boolean;` as the last member of `ApiKeyConfig`.
-  - `config-repository.ts`, `createSchema`: add `trusted_forwarder INTEGER NOT NULL DEFAULT 0` as the last column of the `CREATE TABLE IF NOT EXISTS api_keys` statement. After the `database.exec` that creates the tables, run one immediate transaction (`database.transaction(fn).immediate()`) that reads `PRAGMA table_info(api_keys)` with `queryRows` and runs `ALTER TABLE api_keys ADD COLUMN trusted_forwarder INTEGER NOT NULL DEFAULT 0` when no row is named `trusted_forwarder`. The immediate transaction matters because the app and an `llmr` command can open the same database at once. Without it both could see no column, and the second `ALTER` would fail the open with "duplicate column name" (inferred by the audit). With it the second opener waits on the connection's `busy_timeout` and then sees the column. `config-repository.ts` has had no `ALTER TABLE` until now, so this is the file's first column change (read).
+  - `config-repository.ts`, `createSchema`: add `trusted_forwarder INTEGER NOT NULL DEFAULT 0` as the last column of the `CREATE TABLE IF NOT EXISTS api_keys` statement. After the `database.exec` that creates the tables, run one immediate transaction that reads `PRAGMA table_info(api_keys)` with `queryRows` and runs `ALTER TABLE api_keys ADD COLUMN trusted_forwarder INTEGER NOT NULL DEFAULT 0` when no row is named `trusted_forwarder`. Use the file's own `runTransaction(database, fn)`, which opens with `BEGIN IMMEDIATE` (read), and not `database.transaction(fn).immediate()`. The immediate transaction matters because the app and an `llmr` command can open the same database at once. Without it both could see no column, and the second `ALTER` would fail the open with "duplicate column name" (inferred by the audit). With it the second opener waits on the connection's `busy_timeout` and then sees the column. `config-repository.ts` has had no `ALTER TABLE` until now, so this is the file's first column change (read).
   - `listApiKeys` selects `trusted_forwarder`. `StoredApiKeyRow` gains `trustedForwarder: boolean`, which `toStoredApiKeyRow` sets from `Number(row.trusted_forwarder) === 1` and `toApiKeyConfig` copies by the rule under Interfaces. `replaceApiKeyRows` names the column and writes `1` or `0`.
   - Leave `readLegacyApiKeyRows` and `insertRawApiKeyRows` as they are. A legacy database has no such column, and the insert names its seven columns, so the default applies.
 
 - [ ] **Step 4: Carry the field through the core copy sites.**
   - The repository's `uniqueApiKeyConfigs` carries the mark only when it is `true` and `profileIdFromApiKeyId(id)` is `undefined`, where `id` is the one it has just made unique. Every read and write of the table passes it, so no stored profile key holds the mark.
-  - `config.ts`'s `uniqueApiKeyConfigs` and `parseApiKeyConfig` carry it by the rule under Interfaces, so a key in a config file can hold `"trustedForwarder": true`. `loadAppConfig` can build `config.APIKEYS` from config-file keys without a store write, so a profile key with the mark can reach `config.APIKEYS` (read by the audit). Task 2's `isTrustedForwarderKey` ignores the mark on such a key. That is the rule where trust is read. The store rule keeps the table clean.
+  - `config.ts`'s `uniqueApiKeyConfigs` and `parseApiKeyConfig` carry it by the rule under Interfaces, so a key in the config's own `APIKEYS` list can hold `"trustedForwarder": true`. `loadAppConfig` stores such a key on the load that first sees it, and hands back the stored list, so a profile key in that list arrives without the mark (run by the text audit, against the first audit's reading). The mark comes in only with a key that is not stored yet: a key already in the table keeps the table's value, whatever the config's list says (run). A config built in code, as the wire test builds one, can still hold a marked profile key, so Task 2's `isTrustedForwarderKey` ignores the mark on such a key. That is the rule where trust is read. The store rule keeps the table clean.
   - `config.ts`'s `sameApiKey` adds `rest.trustedForwarder === true` to the array it compares.
 
 - [ ] **Step 5: Run the core tests.** Same command as Step 2. Expected: every test in both files passes.
@@ -287,7 +309,7 @@ The hook sets those two headers only when a key resolves, so a request that pass
 **Interfaces:**
 - Consumes: `trustedForwarder?: boolean` on `ApiKeyConfig` (Task 1).
 - Consumes: `clientDisplayNameHeaderNames` from `@llmr/core/gateway/internal/shared` (Task 3).
-- Consumes: `startWireService(t, layout, configure?: (config) => void)`. The logs plan's Task 2 Step 4 adds the third parameter. If it is not on `main` yet, add it here as that step describes. It runs on the config just before `service.start`. Today `startWireService` takes `(t, layout)` (read).
+- Consumes: `startWireService(t, layout, configure?: (config) => void)`, as it is on `main`. `configure` runs on the config just before `service.start` (read).
 - Produces in `io.ts`:
 
   ```ts
@@ -305,20 +327,47 @@ The hook sets those two headers only when a key resolves, so a request that pass
 - Changes: `inferProxyClient` in `proxy/service.ts` becomes an export, for its test.
 - The logs plan's "Waiting for B-5" table lists these same functions. Its only signature change that meets this plan is the `startWireService` parameter. No change to `api-key-authorizer.ts` is needed: `authorize` keeps passing `request.headers`, and the refused rule lives in `refusedKeyRequestEntry`.
 
-- [ ] **Step 1: Write the wire test that settles the trace question.** In `october-issues-wire.test.mjs`, add a loop over `[["single", "single"], ["compat", "compat"], ["single, logs off", "single"]]` as `[name, layout]` with the test `the client label follows the key's trusted forwarder mark (${name})`. Start with `startWireService(t, layout, configure)`, where `configure` appends `{ createdAt: new Date(0).toISOString(), id: "forwarder", key: "sk-wire-forwarder-0002", trustedForwarder: true }` to `config.APIKEYS` and, for the third case, sets `config.observability.requestLogs = false`. The loop's cases run in one process and share one usage database (run by the audit), so each request's model is `` `no-provider-${name.replaceAll(/\W+/g, "-")}-${kind}` `` with `kind` the request's name below. No provider has these models, as in the test above it. Take `before = refusedKeyCount(service)` before the first request.
+- [ ] **Step 1: Write the wire test that settles the trace question.** In `october-issues-wire.test.mjs`, add a loop over `[["single", "single"], ["compat", "compat"], ["single, logs off", "single"]]` as `[name, layout]` with the test `the client label follows the key's trusted forwarder mark (${name})`. Start with `startWireService(t, layout, configure)`, where `configure` appends `{ createdAt: new Date(0).toISOString(), id: "forwarder", key: "sk-wire-forwarder-0002", trustedForwarder: true }` and the profile key `{ createdAt: new Date(0).toISOString(), id: "profile:codex", key: "sk-wire-profile-0003", trustedForwarder: true }` to `config.APIKEYS` and, for the third case, sets `config.observability.requestLogs = false`. The loop's cases run in one process and share one usage database (run by the audit), so each request's model is `` `no-provider-${name.replaceAll(/\W+/g, "-")}-${kind}` `` with `kind` the request's name below. No provider has these models, as in the test above it. Take `before = refusedKeyCount(service)` before the first request.
 
   | Request | Headers besides `content-type` | Status |
   |---|---|---|
   | marked | `authorization: Bearer sk-wire-forwarder-0002`, `x-claude-gateway-user-email: dev@example.com` | 400 |
   | unmarked | `authorization: Bearer sk-wire-key-0001`, `x-claude-gateway-user-email: other@example.com`, `x-auth-sub: forwarder`, `x-auth-api-key-id: forwarder` | 400 |
+  | profile | `authorization: Bearer sk-wire-profile-0003`, `x-claude-gateway-user-email: other@example.com` | 400 |
   | refused | `authorization: Bearer sk-wrong-key-7777`, `x-llmr-client: Spoof`, `x-claude-gateway-user-email: other@example.com` | 401 |
 
   Read each label from `usage_events` with `database.prepare("SELECT client FROM usage_events WHERE model = ?").all(model)`, polling with `until` as the test above does. Assertions:
   - marked: `[{ client: "dev@example.com" }]` in all three cases.
   - unmarked: `[{ client: "Node.js" }]` in the two single cases, because the trace import passes no key name and the test's `fetch` sends a `User-Agent` of `node`. `[{ client: "wire" }]` in `compat`, the key's id, because the key has no name.
-  - With logs on, the Logs row for each of the two models has the same `client` as its usage event.
-  - refused: poll `until(() => refusedKeyCount(service) === before + 1, 5000)`, because the single layout's child publishes refusals at most once a second (`refusedKeyRequestPublishIntervalMs`, read). Then `service.getStatus().refusedForKey.recent[0].client` is `Node.js`. Do not assert the reason. The single layout's text depends on whether the logs plan's Task 2 has landed.
-  - `JSON.stringify` of the usage rows, of the Logs rows for the two models with their `requestHeaders`, and of `refusedForKey` holds neither `other@example.com` nor `Spoof`. In `compat` this needs Step 5's redaction, because the host stores each request's forwarded headers in its Logs row (run by the audit).
+  - profile: `[{ client: "Node.js" }]` in the two single cases and `[{ client: "profile:codex" }]` in `compat`. The text audit added this request. Without it, a pipeline that builds its caller without `gatewayClientCallerForKey` and so believes the mark on a profile key passes every other test (run as a mutant).
+  - With logs on, the Logs row for each of the three models has the same `client` as its usage event. `requestLogRuntime.list` returns each row with its `requestHeaders` (run).
+  - refused: poll `until(() => refusedKeyCount(service) === before + 1, 5000)`, because the single layout's child publishes refusals at most once a second (`refusedKeyRequestPublishIntervalMs`, read). Then `service.getStatus().refusedForKey.recent[0].client` is `Node.js`. The refused request has no usage event in either layout (run), so assert that its model's usage rows are `[]`.
+  - `JSON.stringify` of the usage rows, of the Logs rows for the three models with their `requestHeaders`, and of `refusedForKey` holds neither `other@example.com` nor `Spoof`. In `compat` this needs Step 5's redaction, because the host stores each request's forwarded headers in its Logs row (run by the audit, and run again as a mutant: with the three names left out of the sensitive list only the `compat` case fails).
+
+  Send the four requests one after another, as written. Do not add more requests to this test without a pause between them: in the single layout only 7 or 8 of 12 requests sent back to back got a usage event, on `main` as on the branch (run, finding 11 under "Behaviour the audit measured").
+
+  **A second test, the matrix the text audit ran.** `the client label holds for every source and caller (${layout})`, for `single` and `compat`, with request logs on. The audit ran it in six cases, the two layouts with logs on, logs off and body capture `none`, with the same labels in all six. Two cases are enough to keep. `configure` appends the `forwarder` and `profile:codex` keys above, the second with the name `Profile: Codex`, and `{ createdAt: new Date(0).toISOString(), id: "long", key: "sk-wire-long-0004", name: "n".repeat(300) }`. The upstream stub answers `/v1/messages` with a valid Anthropic message and records the headers it receives. Wait 700 ms after each request, for the reason above. `identity(email)` is the three headers `x-claude-gateway-user-email: email`, `x-claude-gateway-user-id: id-of-<email>` and `x-litellm-end-user-id: email`. `forged` is `x-auth-api-key-id: forwarder` and `x-auth-sub: forwarder`. Every model is `audit-<layout>-<request>`, which no provider has, except the last request.
+
+  | Request | Key | Other headers | Client in `single` | Client in `compat` |
+  |---|---|---|---|---|
+  | marked-identity | forwarder | `identity("dev@example.com")` | `dev@example.com` | `dev@example.com` |
+  | marked-bare | forwarder | none | `Node.js` | `forwarder` |
+  | marked-display | forwarder | `identity("dev@example.com")`, `x-llmr-client: Tool` | `Tool` | `Tool` |
+  | marked-litellm-only | forwarder | `x-litellm-end-user-id: lite@example.com` | `lite@example.com` | `lite@example.com` |
+  | marked-id-only | forwarder | `x-claude-gateway-user-id: sub-123` | `Node.js` | `forwarder` |
+  | marked-long-email | forwarder | `x-claude-gateway-user-email` of 300 `a` and `@example.com` | its first 120 characters | the same |
+  | plain-forged | wire | `forged`, `identity("other@example.com")` | `Node.js` | `wire` |
+  | plain-display | wire | `x-client-name: MyTool` | `MyTool` | `MyTool` |
+  | plain-long-display | wire | `x-llmr-client` of 300 `c` | 120 `c` | 120 `c` |
+  | plain-long-agent | wire | `user-agent` of 300 `u` and `/1.0` | 120 `u` | `wire` |
+  | plain-cert | wire | `x-forwarded-client-cert: By=spiffe://a;Hash=b` | `Node.js` | `wire` |
+  | profile-marked | profile:codex | `identity("other@example.com")` | `Node.js` | `Profile: Codex` |
+  | long-key-name | long | none | `Node.js` | 120 `n` |
+  | refused | a wrong key | `forged`, `identity("other@example.com")`, `user-agent` of 300 `r` and `/1.0`, and `Spoof` as `x-llmr-client`, `x-client-name` and `x-forwarded-client-cert` | 401, no usage event, no Logs row | the same |
+  | missing | none | `forged`, `identity("other@example.com")`, `x-llmr-client: Spoof` | 401, no usage event, no Logs row | the same |
+  | upstream | forwarder | `identity("dev@example.com")`, `client-cert: :MIIB:`, `x-client-name: codex-cli`, model `Provider/native` | 200 | 200 |
+
+  Assertions, all of which held in the audit's run: each request's usage rows are the one label in its column, and its Logs row has the same `client`. The refused-key count rose by two, and the two newest entries name `Node.js` (the missing key) and 120 `r` (the wrong key). In `compat` the Logs row of `plain-forged` holds `[redacted]` for each of the three identity headers. `JSON.stringify` of every Logs row and of each row's `requestLogRuntime.getDetail({ id })` holds none of `other@example.com`, `id-of-` and `Spoof`, and no row's `requestHeaders`, `responseHeaders` or `routeTrace` holds `dev@example.com`. The upstream stub received one request, with no header whose name matches `/claude-gateway|litellm|client-cert|x-client-name|x-auth|x-llmr/`.
 
 - [ ] **Step 2: Write the failing unit tests.**
 
@@ -360,9 +409,12 @@ The hook sets those two headers only when a key resolves, so a request that pass
     assert.equal(inferGatewayClient(refused, { "user-agent": "custom-client/2.1" }), "custom-client");
     assert.equal(inferGatewayClient(refused, { "user-agent": "u".repeat(300) }), "u".repeat(120));
     assert.equal(inferGatewayClient(plain, { "x-llmr-client": "c".repeat(300) }), "c".repeat(120));
+    assert.equal(inferGatewayClient({ kind: "key", name: "n".repeat(300), trustedForwarder: false }, {}), "n".repeat(120));
     assert.equal(inferGatewayClient(forwarder, { "x-claude-gateway-user-email": `${"a".repeat(300)}@example.com` }).length, 120);
   });
   ```
+
+  The key-name line in the third test is from the text audit. A cut that skips the key's name passes every other unit test (run as a mutant).
 
   `upstream-header-sanitizer.test.mjs`: the last assertion of `Claude apps gateway identity headers are attributed at ingress and never reach the provider` becomes two lines, `inferGatewayClient({ kind: "key", trustedForwarder: true }, request.headers)` equal to `kilgore@kilgore.trout` and `inferGatewayClient({ kind: "refused" }, request.headers)` equal to `Claude`. Add, with `isSensitiveRequestLogHeaderName` imported from `@llmr/core/observability/sensitive-headers.ts`, `for (const name of Object.keys(identity)) assert.equal(isSensitiveRequestLogHeaderName(name), true, name);`.
 
@@ -372,7 +424,7 @@ The hook sets those two headers only when a key resolves, so a request that pass
 
   `raw-trace-sync.test.mjs`:
   - `raw trace bundle preserves manifest lifecycle metadata`: the client metadata headers become `{ "x-auth-sub": "wire", "x-llmr-client": "opencode" }`. The `opencode` assertion stays. An `x-auth-sub` not in the key list still makes the caller a key, so the display name counts.
-  - `raw trace usage capture keeps the client label the request log gets`: the headers become `{ "x-auth-sub": "gw", "x-claude-gateway-user-email": "dev@example.com" }`, and `getConfig` returns `createConfig()` with `APIKEYS` set to `[{ createdAt: new Date(0).toISOString(), id: "gw", key: "gw-token", trustedForwarder: true }]`. Its assertions stay. If the logs plan has landed, it has copied this test three times. Give each copy that still asserts the email the same two changes.
+  - `raw trace usage capture keeps the client label the request log gets`: the headers become `{ "x-auth-sub": "gw", "x-claude-gateway-user-email": "dev@example.com" }`, and `getConfig` returns `createConfig()` with `APIKEYS` set to `[{ createdAt: new Date(0).toISOString(), id: "gw", key: "gw-token", trustedForwarder: true }]`. Its assertions stay. It is the only test in the file that asserts the email: the logs plan added a helper, `sendUsageTrace`, whose traces carry no headers, and not copies of this test (run). This test is also the one that pins where the mark is read, because it fails when `attemptStoredBundle` does not pass the keys of the config it holds at import (run as a mutant).
   - New test `a trace names the developer only when its key is a trusted forwarder`: write one bundle directory as the lifecycle test does, with client headers `{ "user-agent": "claude-cli/2.1.310", "x-auth-sub": "gw", "x-auth-api-key-id": "***", "x-claude-gateway-user-email": "dev@example.com" }`. Read it with `readRawTraceRequestLogBundle(manifest, spoolDirectory, apiKeys)` and assert `bundle.update.client`: `dev@example.com` with the marked `gw` key, `Claude` with the same key unmarked, and `Claude` with an empty list. Rewrite the metadata with `x-auth-sub: "profile:codex"` and a marked key of that id, and assert `Claude`. Then rewrite it without `x-auth-sub`, add `"x-llmr-client": "Spoof"`, and assert `Claude` with the marked `gw` key.
 
   `capture-headers.test.mjs`, new test `the proxy names a client from its display name or User-Agent, never from a certificate header`: `inferProxyClient({ "x-forwarded-client-cert": "By=spiffe://a", "user-agent": "curl/8.0" })` is `curl`, and `inferProxyClient({ "x-llmr-client": "kilo" })` is `kilo`. Import it from `@llmr/core/proxy/service.ts`.
@@ -380,14 +432,14 @@ The hook sets those two headers only when a key resolves, so a request that pass
 - [ ] **Step 3: Run them and see them fail.**
 
   Run: `node build/test.mjs core && node --test .test-dist/core/test/unit/gateway/http-boundary.test.js .test-dist/core/test/unit/gateway/refused-key-requests.test.js .test-dist/core/test/unit/gateway/router-plugin.test.js .test-dist/core/test/unit/gateway/upstream-header-sanitizer.test.js .test-dist/core/test/unit/observability/raw-trace-sync.test.js .test-dist/core/test/unit/proxy/capture-headers.test.js`
-  Expected: the new and changed tests fail. `gatewayClientCallerForKey`, `isTrustedForwarderKey` and `inferProxyClient` are not exported, so the build may fail first. Check its exit code.
+  Expected: the build fails, because `gatewayClientCallerForKey`, `isTrustedForwarderKey` and `inferProxyClient` are not exported yet (run). Check its exit code: `node --test` then runs the stale `.test-dist` and reports every test as passing.
 
 - [ ] **Step 4: Implement the rule in `io.ts`.** Delete `clientNameHeaders`. Hold the table above as data: an ordered list of `{ names, when }` entries, where `names` is `clientDisplayNameHeaderNames` with `when: "key"` and `["x-claude-gateway-user-email", "x-litellm-end-user-id"]` with `when: "trustedForwarder"`. `inferGatewayClient` returns the `User-Agent` mapping for a refused caller, and otherwise the first non-empty header of the entries the caller qualifies for, then the name and `User-Agent` in today's order. One `slice(0, maxGatewayClientLabelLength)` at the single return path covers every source. `inferClientFromUserAgent` does not change. `isTrustedForwarderKey` imports `profileIdFromApiKeyId` from `@llmr/core/profiles/api-key`, which imports only `node:crypto` and the contracts (read).
 
 - [ ] **Step 5: Migrate every caller in the same commit.**
   - `pipeline.ts`: `inferGatewayClient(apiKey ? gatewayClientCallerForKey(apiKey) : { kind: "refused" }, request.headers)`. The Cursor call below it takes the same `client` as today.
   - `refused-key-requests.ts`: `refusedKeyRequestEntry` passes `{ kind: "refused" }`. Delete `maxClientLength` and use `maxGatewayClientLabelLength` in `boundedRefusedKeyRequest`.
-  - `raw-trace-sync.ts`: `readRawTraceRequestLogBundle` reads the key id with `readHeader(clientRequestHeaders?.["x-auth-sub"])`. With an id the caller is `{ kind: "key", trustedForwarder: isTrustedForwarderKey(apiKeys.find((apiKey) => apiKey.id === id)) }`. Without one it is `{ kind: "refused" }`. Its one production caller, in `attemptStoredBundle`, passes `config.APIKEYS` from the `config` it already holds.
+  - `raw-trace-sync.ts`: `readRawTraceRequestLogBundle` reads the key id with `readHeader(clientRequestHeaders?.["x-auth-sub"])`. With an id the caller is `{ kind: "key", trustedForwarder: isTrustedForwarderKey(apiKeys.find((apiKey) => apiKey.id === id)) }`. Without one it is `{ kind: "refused" }`. Its one production caller, in `attemptStoredBundle`, passes `config.APIKEYS` from the `config` it already holds. Add `ApiKeyConfig` to the file's type import from `@llmr/core/contracts/app`, which names only `AppConfig` today (read).
   - `request-log-store.ts`: the fallback in `standaloneRecordInputFromRawTrace` passes `{ kind: "refused" }`.
   - `sensitive-headers.ts`: add `x-claude-gateway-user-email`, `x-claude-gateway-user-id` and `x-litellm-end-user-id` to `sensitiveRequestLogHeaderNames`, in order. The request log store, the request log runtime, the route trace and the proxy capture already store a sensitive name's value as `[redacted]` (read). The label is computed from the live headers before any of them, so it is unchanged.
   - `router-plugin.ts`: inside `if (publicGatewayMode)` in the `llmr-public-auth-context` `beforeAuth` hook, beside `stripUntrustedLlmrRouteHeaders`, delete `x-auth-api-key-id` and `x-auth-sub` from the request's headers before `resolvePublicGatewayAuth`.
@@ -398,7 +450,7 @@ The hook sets those two headers only when a key resolves, so a request that pass
 - [ ] **Step 7: Run the wire test.**
 
   Run: `node build/test.mjs core && LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" node --test .test-dist/core/test/integration/gateway/october-issues-wire.test.js`
-  Expected: every test passes, the three new cases included. A failure of the marked request in `single, logs off` alone means the trace did not carry `x-auth-sub`, against the audit's run. Stop and report. The alternative is a header of LLM Router's own that the hook sets, and that is a design change for the owner to see.
+  Expected: every test passes, the three new cases and the two matrix cases included (run by the text audit). A failure of the marked request in `single, logs off` alone means the trace did not carry `x-auth-sub`, against both audits' runs. Stop and report. The alternative is a header of LLM Router's own that the hook sets, and that is a design change for the owner to see.
 
 - [ ] **Step 8: Check nothing else calls the old shape.**
 
@@ -414,6 +466,24 @@ The hook sets those two headers only when a key resolves, so a request that pass
 - [ ] **Step 10: Run the gates and commit.** `npm run typecheck && npm run lint && npm run test:architecture && npm run test:core`, the last with `LLMR_TEST_GATEWAY_ENTRY` set. Subject: `fix(gateway): take a request's client from identity headers only for a trusted forwarder key`
 
 **VM check, for the end pass.** With the harness in `docker/claude-apps-gateway/`, sign a Claude Code session in through the gateway and send a prompt. With the gateway's key unmarked the Logs row's client is the key's name or `User-Agent` name. With it marked the client is `kilgore@kilgore.trout`. In both, the row's request headers show the identity headers as `[redacted]`. No task waits on this.
+
+---
+
+## Behaviour the audit measured
+
+The text audit of 2026-11-27 found these by building and running the tasks. None is fixed here and none is part of a task. They are for the owner's later review, with the batch's other findings. "Run" means the audit's wire matrix or a test named above.
+
+1. **A trace on disk holds the identity header values of any key.** In the single layout, and in the compatibility layout with request logs on, the trace bundle in the spool holds `x-claude-gateway-user-email`, `x-claude-gateway-user-id` and `x-litellm-end-user-id` as sent, for a marked key and an unmarked one, until the import removes the bundle (run, read from the spool in each mode). The label rule depends on this for a marked key. X-21's limit is on the stored label and the Logs row, not on the spool or its dead-letter folder.
+2. **The compatibility layout's Logs row still stores other caller headers whole.** `x-forwarded-client-cert`, `client-cert` and `x-client-name` are in the row's request headers as sent (run). They name nothing and reach no provider. C-2's long certificate value is no longer a label and is still in that row.
+3. **A caller can still choose the text of its label.** A refused caller is named from the first token of its `User-Agent`, up to 120 characters, so `User-Agent: someone@example.com` shows that text in the refused-key notice (run with 300 `r`). A caller with a valid key can do the same with a display-name header, as the plan states.
+4. **The mark in the config's own key list counts once.** It is stored with a key the list introduces, and ignored for a key that is already stored (run, Task 1 Step 1). The API Keys page is the way to change it.
+5. **A marked key with no identity header reads differently in the two layouts**, `Node.js` in the single layout and the key's name or id in the compatibility layout (run). This is "Open with the owner", item 3, for one more caller.
+6. **In the single layout a request that passes with the core token is named from its `User-Agent` alone**, because Step 5 removes the key id headers it sent and the hook sets none for it. Its `x-llmr-client` is not read (inferred from the unit test of the hook and the trace rule, not run on the wire). No code in the repo sends that header with the core token (grep).
+7. **Step 5's removal also changes what two other readers see.** `routeAuthContext` and the profile lookup in `llm-router-plugin.ts`, and `buildRouteScriptInput`, read `x-auth-api-key-id`. Before this plan a core-token request in the single layout could name any key id to them. After it, such a request has none (read, not run). No code in the repo sends one (grep).
+8. **`x-llmr-proxy-mode: gateway` is the caller's own header** and decides whether the key's name or the `User-Agent` comes first (read). Unchanged by this plan.
+9. **A key whose id is exactly `profile:`** is not a profile key to `profileIdFromApiKeyId`, so the store keeps its mark, while the page hides the switch for it (read, not run).
+10. **One mutant of the rule changes no test:** the fallback in `standaloneRecordInputFromRawTrace` built as a marked key instead of a refused caller. It reads the provider-bound headers, which hold no identity header and no display name the caller sent after Task 3, so the audit found no caller input that shows the difference.
+11. **Already on `main`, not from this plan:** in the single layout, of 12 requests for unknown models sent back to back, 8 got a usage event within 70 seconds in two runs, one on `main` `c8efa3a5` and one on the branch, and 7 within 12 seconds in a third. The spool was empty afterwards. The cause was not looked for. Sent 700 ms apart, each of the matrix's 14 accepted requests did, in every run the audit made.
 
 ---
 
