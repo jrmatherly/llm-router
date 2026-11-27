@@ -418,6 +418,35 @@ test("UsageStore prices the routed upstream model when the response echoes a rul
   }
 });
 
+test("a chunk that states only a reasoning count does not name the usage row's model", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-test-"));
+  try {
+    const store = new UsageStore(path.join(dir, "usage.sqlite"), { estimateCost: async () => undefined });
+    await store.recordCapture({
+      bodyText: [
+        `data: ${JSON.stringify({ model: "counted-model", usage: { completion_tokens: 5, prompt_tokens: 10 } })}`,
+        `data: ${JSON.stringify({ model: "reasoning-only-model", usage: { completion_tokens_details: { reasoning_tokens: 2 } } })}`
+      ].join("\n"),
+      config: { Providers: [] },
+      durationMs: 1,
+      fallbackModel: "fallback-model",
+      method: "POST",
+      path: "/v1/chat/completions",
+      requestId: "reasoning-only-chunk",
+      responseHeaders: new Headers({ "content-type": "text/event-stream" }),
+      statusCode: 200
+    });
+    const database = createBetterSqliteDatabase(path.join(dir, "usage.sqlite"));
+    try {
+      assert.equal(database.prepare("SELECT model FROM usage_events").get().model, "counted-model");
+    } finally {
+      database.close();
+    }
+  } finally {
+    removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
+  }
+});
+
 test("#1791 UsageStore records DeepSeek-native prompt cache hits", async () => {
   const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-deepseek-cache-test-"));
   try {
