@@ -1701,6 +1701,7 @@ export type ApiKeyConfig = {
   key: string;
   limits?: ApiKeyLimitConfig;
   name?: string;
+  trustedForwarder?: boolean;
 };
 
 export type ProxySystemStatus = {

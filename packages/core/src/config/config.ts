@@ -745,7 +745,7 @@ export async function saveApiKeysConfig(next: ApiKeyConfig[], base: ApiKeyConfig
 function sameApiKey(left: ApiKeyConfig, right: ApiKeyConfig): boolean {
   const comparable = ({ limits, ...rest }: ApiKeyConfig) => {
     const sortedLimits = Object.entries(limits ?? {}).sort(([a], [b]) => a.localeCompare(b));
-    return JSON.stringify([rest.createdAt, rest.expiresAt, rest.id, rest.key, rest.name, sortedLimits]);
+    return JSON.stringify([rest.createdAt, rest.expiresAt, rest.id, rest.key, rest.name, sortedLimits, rest.trustedForwarder === true]);
   };
   return comparable(left) === comparable(right);
 }
@@ -3775,7 +3775,8 @@ function parseApiKeyConfig(value: unknown, index: number): ApiKeyConfig | undefi
     id: readString(value.id) || `key-${index + 1}`,
     key,
     ...(limits ? { limits } : {}),
-    ...(name ? { name } : {})
+    ...(name ? { name } : {}),
+    ...(value.trustedForwarder === true ? { trustedForwarder: true } : {})
   };
 }
 
@@ -3835,7 +3836,8 @@ function uniqueApiKeyConfigs(values: Array<ApiKeyConfig | undefined>): ApiKeyCon
       id: value.id,
       key: trimmed,
       ...(value.limits ? { limits: value.limits } : {}),
-      ...(value.name ? { name: value.name } : {})
+      ...(value.name ? { name: value.name } : {}),
+      ...(value.trustedForwarder === true ? { trustedForwarder: true } : {})
     });
   }
   return result;

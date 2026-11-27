@@ -11,6 +11,7 @@ import {
   ONBOARDING_FINISHED_FILE
 } from "@llmr/core/config/constants";
 import type { ApiKeyConfig, ApiKeyLimitConfig } from "@llmr/core/contracts/app";
+import { profileIdFromApiKeyId } from "@llmr/core/profiles/api-key";
 import { createBetterSqliteDatabase, type BetterSqliteDatabase } from "@llmr/core/storage/sqlite-native";
 
 type SqlDatabase = BetterSqliteDatabase;
@@ -24,6 +25,7 @@ type StoredApiKeyRow = {
   limitsJson: string;
   name: string;
   storedKey: string;
+  trustedForwarder: boolean;
 };
 
 const appConfigKey = "default";
@@ -271,7 +273,8 @@ function createSchema(database: SqlDatabase): void {
       encryption TEXT NOT NULL DEFAULT '${plainStorage}',
       created_at TEXT NOT NULL,
       expires_at TEXT NOT NULL DEFAULT '',
-      limits_json TEXT NOT NULL DEFAULT ''
+      limits_json TEXT NOT NULL DEFAULT '',
+      trusted_forwarder INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS api_keys_created_at_idx ON api_keys(created_at);
 
@@ -342,6 +345,11 @@ function createSchema(database: SqlDatabase): void {
     INSERT OR IGNORE INTO config_schema_migrations (id, applied_at, details_json)
     VALUES ('${cleanupQueueBackfillMigrationId}', '${new Date().toISOString()}', '');
   `);
+  runTransaction(database, () => {
+    if (!queryRows(database, "PRAGMA table_info(api_keys)").some((column) => column.name === "trusted_forwarder")) {
+      database.exec("ALTER TABLE api_keys ADD COLUMN trusted_forwarder INTEGER NOT NULL DEFAULT 0");
+    }
+  });
 }
 
 function migrateLegacySqliteStores(database: SqlDatabase, removeFile: (file: string) => void): void {
@@ -679,7 +687,7 @@ function replaceJsonRow(database: SqlDatabase, table: "app_config" | "runtime_st
 
 function listApiKeys(database: SqlDatabase): ApiKeyConfig[] {
   const rows = queryRows(database, `
-    SELECT id, name, encrypted_key, encryption, created_at, expires_at, limits_json
+    SELECT id, name, encrypted_key, encryption, created_at, expires_at, limits_json, trusted_forwarder
     FROM api_keys
     ORDER BY rowid
   `);
@@ -689,8 +697,8 @@ function listApiKeys(database: SqlDatabase): ApiKeyConfig[] {
 function replaceApiKeyRows(database: SqlDatabase, apiKeys: ApiKeyConfig[]): void {
   const statement = database.prepare(`
     INSERT INTO api_keys (
-      id, name, encrypted_key, encryption, created_at, expires_at, limits_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      id, name, encrypted_key, encryption, created_at, expires_at, limits_json, trusted_forwarder
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
   database.exec("DELETE FROM api_keys");
   for (const apiKey of apiKeys) {
@@ -701,7 +709,8 @@ function replaceApiKeyRows(database: SqlDatabase, apiKeys: ApiKeyConfig[]): void
       plainStorage,
       apiKey.createdAt,
       apiKey.expiresAt ?? "",
-      apiKey.limits ? JSON.stringify(apiKey.limits) : ""
+      apiKey.limits ? JSON.stringify(apiKey.limits) : "",
+      apiKey.trustedForwarder === true ? 1 : 0
     );
   }
 }
@@ -726,7 +735,8 @@ function toApiKeyConfig(row: Record<string, SqlValue>): ApiKeyConfig | undefined
     id: stored.id,
     key,
     ...(limits ? { limits } : {}),
-    ...(stored.name ? { name: stored.name } : {})
+    ...(stored.name ? { name: stored.name } : {}),
+    ...(stored.trustedForwarder ? { trustedForwarder: true } : {})
   };
 }
 
@@ -743,7 +753,8 @@ function toStoredApiKeyRow(row: Record<string, SqlValue>): StoredApiKeyRow | und
     id,
     limitsJson: readString(row.limits_json) || "",
     name: readString(row.name) || "",
-    storedKey
+    storedKey,
+    trustedForwarder: Number(row.trusted_forwarder) === 1
   };
 }
 
@@ -786,7 +797,8 @@ function uniqueApiKeyConfigs(values: Array<ApiKeyConfig | undefined>): ApiKeyCon
       id,
       key,
       ...(value.limits ? { limits: value.limits } : {}),
-      ...(value.name ? { name: value.name } : {})
+      ...(value.name ? { name: value.name } : {}),
+      ...(value.trustedForwarder === true && profileIdFromApiKeyId(id) === undefined ? { trustedForwarder: true } : {})
     });
   }
   return result;

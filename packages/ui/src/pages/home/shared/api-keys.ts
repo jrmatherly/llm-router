@@ -24,7 +24,8 @@ export function normalizeApiKeys(values: unknown, legacyKey?: string): ApiKeyCon
       id: apiKey.id,
       key: trimmed,
       ...(apiKey.limits ? { limits: apiKey.limits } : {}),
-      ...(apiKey.name ? { name: apiKey.name } : {})
+      ...(apiKey.name ? { name: apiKey.name } : {}),
+      ...(apiKey.trustedForwarder === true ? { trustedForwarder: true } : {})
     });
   }
   return result;
@@ -56,7 +57,8 @@ export function normalizeApiKeyConfig(value: unknown, index: number): ApiKeyConf
     id: stringValue(value.id) || `key-${index + 1}`,
     key,
     ...(limits ? { limits } : {}),
-    ...(name ? { name } : {})
+    ...(name ? { name } : {}),
+    ...(value.trustedForwarder === true ? { trustedForwarder: true } : {})
   };
 }
 
@@ -91,7 +93,8 @@ export function createApiKeyDraft(): AddApiKeyDraft {
     expirationPreset: "never",
     expiresAt: toDatetimeLocalValue(addDays(new Date(), 30)),
     limitRows: [],
-    name: ""
+    name: "",
+    trustedForwarder: false
   };
 }
 
@@ -100,7 +103,8 @@ export function createApiKeyEditDraft(apiKey: ApiKeyConfig): AddApiKeyDraft {
     expirationPreset: apiKey.expiresAt ? "custom" : "never",
     expiresAt: datetimeLocalValueFromIso(apiKey.expiresAt),
     limitRows: apiKeyLimitRowsFromConfig(apiKey.limits),
-    name: apiKey.name ?? ""
+    name: apiKey.name ?? "",
+    trustedForwarder: apiKey.trustedForwarder === true
   };
 }
 
@@ -129,7 +133,8 @@ export function createGeneratedApiKey(draft: AddApiKeyDraft): ApiKeyConfig {
     id: generateApiKeyId(),
     key,
     ...(limits ? { limits } : {}),
-    name: draft.name.trim()
+    name: draft.name.trim(),
+    ...(draft.trustedForwarder ? { trustedForwarder: true } : {})
   };
 }
 
@@ -142,7 +147,8 @@ export function updateApiKeyEditableConfig(apiKey: ApiKeyConfig, draft: AddApiKe
     key: apiKey.key,
     ...(apiKey.name ? { name: apiKey.name } : {}),
     ...(expiresAt ? { expiresAt } : {}),
-    ...(limits ? { limits } : {})
+    ...(limits ? { limits } : {}),
+    ...(draft.trustedForwarder ? { trustedForwarder: true } : {})
   };
 }
 

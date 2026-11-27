@@ -5,7 +5,7 @@ import {
   cn, Copy, copyTextToClipboard, createApiKeyLimitDraftRow, Dialog, DialogBody,
   DialogContent, DialogFooter, DialogHeader, DialogTitle, disclosureSpringTransition, Field,
   formatApiKeyExpiration, formatApiKeyLimits, Input, KeyRound, limitWindowOptions, LimitWindowPreset,
-  motion, Pencil, Plus, Search, SelectControl,
+  motion, Pencil, Plus, Search, SelectControl, Switch,
   Trash2, useMemo, useState, X
 } from "../shared/index";
 export function ApiKeysView({
@@ -90,6 +90,7 @@ export function ApiKeysView({
                     >
                       <div className="min-w-0">
                         <div className="truncate text-[12px] font-semibold" title={apiKey.name}>{apiKey.name}</div>
+                        {apiKey.key.trustedForwarder ? <div className="truncate text-[11px] text-muted-foreground">Trusted forwarder</div> : null}
                       </div>
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-1.5 text-[12px] font-semibold leading-5" title={apiKey.masked}>
@@ -181,6 +182,7 @@ export function AddApiKeyDialog({
               </Field>
             ) : null}
           </motion.div>
+          <TrustedForwarderField checked={draft.trustedForwarder} onChange={(trustedForwarder) => onChange({ trustedForwarder })} />
           <ApiKeyAdvancedSettings draft={draft} onChange={onChange} />
 
           {error ? <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive flex items-start gap-2"><CircleAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" /><span>{error}</span></div> : null}
@@ -277,7 +279,8 @@ export function EditApiKeyDialog({
   error,
   onChange,
   onClose,
-  onSubmit
+  onSubmit,
+  showTrustedForwarder
 }: {
   canSubmit: boolean;
   draft: AddApiKeyDraft;
@@ -285,6 +288,7 @@ export function EditApiKeyDialog({
   onChange: (patch: Partial<AddApiKeyDraft>) => void;
   onClose: () => void;
   onSubmit: () => void;
+  showTrustedForwarder: boolean;
 }) {
   const expirationOptions = apiKeyExpirationOptions;
 
@@ -316,6 +320,9 @@ export function EditApiKeyDialog({
             ) : null}
           </div>
 
+          {showTrustedForwarder ? (
+            <TrustedForwarderField checked={draft.trustedForwarder} onChange={(trustedForwarder) => onChange({ trustedForwarder })} />
+          ) : null}
           <ApiKeyAdvancedSettings defaultOpen draft={draft} onChange={onChange} />
 
           {error ? <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive flex items-start gap-2"><CircleAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" /><span>{error}</span></div> : null}
@@ -332,6 +339,20 @@ export function EditApiKeyDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function TrustedForwarderField({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <div className="mt-4 flex min-w-0 items-center gap-3 rounded-md border border-border bg-background px-3 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="text-[12px] font-medium text-foreground">Trusted forwarder</div>
+        <div className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+          Take the client shown in Logs from the identity headers sent with this key. Switch it on only for the key a Claude apps gateway uses.
+        </div>
+      </div>
+      <Switch aria-label="Trusted forwarder" checked={checked} onCheckedChange={onChange} />
+    </div>
   );
 }
 
