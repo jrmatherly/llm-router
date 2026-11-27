@@ -2410,7 +2410,7 @@ function overviewMetricDatum(metric: OverviewMetricKind, totals: UsageTotals): {
   if (metric === "estimated-cost") {
     return {
       caption: totalCostCaption(totals),
-      label: "Estimated cost",
+      label: "Cost",
       ratio: Math.min(1, Math.max(0, (totals.costUsd ?? 0) / 1)),
       tone: "slate",
       value: formatTotalCost(totals)
