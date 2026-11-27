@@ -777,7 +777,9 @@ The text is restore Task 9 in [`2026-11-22-backlog-restore.md`](2026-11-22-backl
 
 ---
 
-### Task 11: The VM pass on 9.1.0
+### Task 11: The VM pass on 9.1.0. Step 1 done, the pass is the owner's
+
+**The checklist is [`../research/2026-11-27-vm-pass-9.1.0-checklist.md`](../research/2026-11-27-vm-pass-9.1.0-checklist.md)**, written 2026-11-27 after the release: 53 checks on the VM in eight groups and 9 off it, each read against the code at `v9.1.0`, with a list of the checks dropped and why. Its writer estimates a sitting of about six hours. Nothing in it was run, so every command and helper script in it is untried. The lead checked 13 of its quoted UI strings against the source and all 13 are there (run). It also answers the second half of F-GATEWAY-19 by a read of the fork: one path skips the provider hook, the provider health check, and nothing LLM Router sets or calls reaches it.
 
 One sitting on the owner's UTM VM, on the released build. It is his to run. The session prepares the scripts and the checklist, as it did for the pass of 2026-11-24 (`docs/superpowers/research/2026-11-24-decisions-vm-pass.md`).
 
