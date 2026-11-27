@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import test, { after } from "node:test";
+import test, { after, mock } from "node:test";
 import { pathToFileURL } from "node:url";
 import { createDefaultAppConfig } from "@llmr/core/config/default-config.ts";
 import { compileCoreGatewayConfig } from "@llmr/core/gateway/core-runtime/config-compiler.ts";
@@ -18,6 +18,15 @@ import { pluginService } from "@llmr/core/plugins/service.ts";
 import { resolveRuntimeConfigDir } from "@llmr/core/runtime/app-paths.ts";
 import { usageStore } from "@llmr/core/usage/store.ts";
 import { reserveLoopbackPort } from "../../support/loopback-listener.mjs";
+
+// The price catalogs load in this process. Only the test's own loopback servers answer.
+const loopbackFetch = globalThis.fetch;
+mock.method(globalThis, "fetch", (input, init) => {
+  const { hostname } = new URL(input instanceof Request ? input.url : String(input));
+  return ["127.0.0.1", "[::1]", "localhost"].includes(hostname)
+    ? loopbackFetch(input, init)
+    : Promise.reject(new TypeError(`fetch failed: ${hostname} is outside the test`));
+});
 
 const entry = process.env.LLMR_TEST_GATEWAY_ENTRY;
 const skip = !entry && "set LLMR_TEST_GATEWAY_ENTRY to the gateway production entry";

@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { guardTestNetwork, isolateTestHome, refusalReport, refusedConnectionFailsRun, refusedConnections } from "./test-home-env.mjs";
+import { guardTestNetwork, isolateTestHome, refusalReport, refusedConnections } from "./test-home-env.mjs";
 import "./test-network-guard.mjs";
 
 // Compiled test bundles import this first. `node --test` on one file runs with
@@ -27,9 +27,7 @@ if (ownsHome) {
     const refused = refusedConnections(networkLog);
     if (refused.length > 0) {
       console.error([refusalReport(refused), ...refused].join("\n"));
-      if (refusedConnectionFailsRun) {
-        process.exitCode = 1;
-      }
+      process.exitCode = 1;
     }
     try {
       rmSync(home, { force: true, maxRetries: 3, recursive: true });

@@ -139,6 +139,8 @@ function runCli(args, { env = {}, timeout } = {}) {
     env: {
       ...process.env,
       LLMR_CLI_COMMAND_NAME: "",
+      // A local catalog keeps the CLI from downloading one at start.
+      LLMR_MODEL_CATALOG_PATH: path.join(process.cwd(), "packages", "core", "models.json"),
       ...env
     },
     timeout

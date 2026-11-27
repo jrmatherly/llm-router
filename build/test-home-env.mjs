@@ -2,8 +2,6 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const refusedConnectionFailsRun = false;
-
 export function isolateTestHome(testHome, env = process.env) {
   env.LLMR_TEST_HOME = testHome;
   env.HOME = testHome;
