@@ -4103,8 +4103,12 @@ function restoreGlobalConfigFileContent(
   options: RestoreManagedContentMatchers & { keepLiveFile?: boolean; mode?: number }
 ): RestoreFileResult {
   const current = existsSync(file) ? readFileSync(file, "utf8") : undefined;
-  // Every mark of the takeover stays for the pass after the user repairs the file.
-  if (current !== undefined && options.unreadableTakeover?.(current)) {
+  // Every mark of the takeover stays for the pass after the user repairs the file. Without an original, marker or record LLMR never took the file over, whatever its text mentions.
+  if (
+    current !== undefined &&
+    options.unreadableTakeover?.(current) &&
+    (existsSync(originalBackupFilePath(file)) || existsSync(originalMissingFilePath(file)) || readCodexWrittenRecord(file) !== undefined)
+  ) {
     throw new Error("it is not valid JSON, so LLMR left it unchanged. Fix the file and save again.");
   }
   const currentManaged = current !== undefined && options.isManagedContent(current);

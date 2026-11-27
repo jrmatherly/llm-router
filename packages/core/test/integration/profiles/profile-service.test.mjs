@@ -5892,6 +5892,23 @@ test("a config a restore gave back is left alone by later passes although it is 
   }, { original: "[1, 2]\n" });
 });
 
+const brokenUserOpenCodeConfig = "{\n  // \"headers\": { \"x-llmr-client\": \"opencode\" }\n  \"theme\": \"dark\",,\n}\n";
+
+for (const [name, profile] of [
+  ["a switched-off OpenCode profile that was never applied", { enabled: false }],
+  ["an enabled OpenCode profile scoped to LLM Router", { scope: "llmr" }]
+]) {
+  test(`${name} reports no failure for the user's own config that does not parse and mentions x-llmr-client`, { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+    await withProviderJsonRoot(async (root) => {
+      const file = path.join(root, "opencode.jsonc");
+      writeFileSync(file, brokenUserOpenCodeConfig);
+      const result = await applyProfileConfig(providerJsonConfig([providerJsonProfile("opencode", file, profile)]));
+      assert.deepEqual(result.clients.filter((status) => !status.ok).map((status) => status.message), []);
+      assert.equal(readFileSync(file, "utf8"), brokenUserOpenCodeConfig);
+    });
+  });
+}
+
 test("a restore after the profile's provider id changed still removes LLM Router's provider and its key", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
   await withProviderJsonRoot(async (root) => {
     const file = path.join(root, "opencode.jsonc");
