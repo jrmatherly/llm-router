@@ -76,6 +76,10 @@ test("LogsView keeps disabled request logs discoverable with an enable action", 
 
   assert.match(html, /Request logs are off/);
   assert.match(html, /Enable request logs/);
+  const wrapper = firstMatch(html, /^<div class="[^"]*"/);
+  assert.match(wrapper, /overflow-y-auto/);
+  assert.match(wrapper, /(^|[" ])-m-5 /);
+  assert.match(wrapper, / p-5[ "]/);
 });
 
 const refusedForKey = {
@@ -567,8 +571,10 @@ test("#1801 LogsView shows missing HTTP status as neutral", () => {
   assert.doesNotMatch(html, /network-dot-error|network-state-pill-error/);
 });
 
-test("LogExpandedDetails keeps a gap between summary columns and titles each value", () => {
-  const html = renderToStaticMarkup(<LogExpandedDetails entry={sampleRequestLogEntry} />);
+test("LogExpandedDetails keeps a gap between summary columns and wraps a long value", () => {
+  const html = renderToStaticMarkup(<LogExpandedDetails entry={{ ...sampleRequestLogEntry, requestId: "r".repeat(200) }} />);
   assert.match(html, /network-body-meta[^"]*gap-x-4/);
-  assert.match(html, /title="req-token-copy"[^>]*>req-token-copy</);
+  const value = firstMatch(html, new RegExp(`<div class="[^"]*"[^>]*>${"r".repeat(200)}<`));
+  assert.match(value, /\[overflow-wrap:anywhere\]/);
+  assert.doesNotMatch(value, /truncate|title=/);
 });

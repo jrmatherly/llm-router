@@ -499,7 +499,7 @@ export function LogsView({
 
   if (!enabled) {
     return (
-      <div className="network-view flex min-w-0 flex-col overflow-y-auto">
+      <div className="-m-5 flex h-[calc(100%+2.5rem)] min-w-0 flex-col overflow-y-auto p-5 max-[720px]:-m-3 max-[720px]:h-[calc(100%+1.5rem)] max-[720px]:p-3">
         {refusedNotice}
         <MonitorDisabledView
           actionLabel="Enable request logs"
@@ -1434,7 +1434,7 @@ function LogMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <div className="network-muted truncate text-[11px]">{label}</div>
-      <div className="truncate font-mono text-[12px] font-semibold" title={value}>{value}</div>
+      <div className="[overflow-wrap:anywhere] font-mono text-[12px] font-semibold">{value}</div>
     </div>
   );
 }

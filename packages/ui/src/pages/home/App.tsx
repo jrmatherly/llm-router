@@ -3186,7 +3186,6 @@ function App() {
   const persistenceFeedback = (
     <PersistenceFeedback
       actionError={actionError}
-      contained={!settingsOpen}
       disconnected={runtimeDisconnected}
       error={configSaveError}
       inline={settingsOpen}
@@ -3617,7 +3616,7 @@ function App() {
         />
         <FeedbackStack>
           {!settingsOpen ? persistenceFeedback : null}
-          <LightToast contained toast={toast} />
+          <LightToast toast={toast} />
         </FeedbackStack>
       </div>
     </LayoutGroup>
