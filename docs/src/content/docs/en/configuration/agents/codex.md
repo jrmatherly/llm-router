@@ -95,6 +95,7 @@ With a Bot bound and ChatGPT opened from LLMR, ChatGPT can relay conversations t
 
 - **Requests bypass LLMR:** confirm the profile is **Enabled** and you opened Codex from LLMR; a directly-opened Codex is unaffected unless the scope is **System default**.
 - **You want Codex off LLMR again:** use **Restore original settings** on the System default profile. See [Restore original settings](/en/configuration/profiles/#restore-original-settings).
+- **Codex refuses `config.toml` with a duplicate key after you enable a System default profile:** your own file defines a provider with the same id as the profile's without a `[model_providers.<id>]` header, for example as an inline table. LLMR does not recognise that form and writes a second table. Switch the profile off to get your original file back, then write your provider under a header or give it another id.
 - **ChatGPT keeps asking to sign in:** sign in to ChatGPT normally, then reopen it from LLMR.
 - **Wrong model in the app:** confirm the **Codex model** field; if left empty, LLMR falls back to the first available default model.
 - **The app says application network requirements are missing:** update LLMR and reopen the app. LLMR explicitly declares that this entry point needs no additional application network domains.
