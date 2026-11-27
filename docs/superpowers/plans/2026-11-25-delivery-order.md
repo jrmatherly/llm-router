@@ -20,6 +20,7 @@ Read these before any batch. A plan line or a handoff line that contradicts one 
 6. **The Grok, Kimi and Pi start after the launch wait is accepted** (2026-11-24). Keys plan Task 6 builds it. Evidence found since changed its order, not the decision.
 7. **The client label batch and the gateway program's identity task are one PR** (2026-11-25). Batch 16 builds client label 3, 1, 2, then gateway phase 0 Task 5. He accepted what the two sessions had agreed.
 8. **Gateway phase 1 is built after the release** (2026-11-25). The new Apps gateway page is not one of the batches, and the release and the VM pass at the end do not wait for it.
+9. **A batch builds its tasks and nothing else** (2026-11-26). What an audit or a review finds beyond the task is written under "Findings with no task" with its evidence and a recommendation, for the owner to review and decide later. It is not added to the batch, however small. He said this after batches 9 and 10a each took about two and a half hours, most of it fix rounds for findings the session had added to the task: four faults already on `main` and a rare shared-file setup in batch 10a, an owner check and a linked-folder case in batch 9. The session's reading, not his words: a fault the batch's own change introduces, where the branch breaks what `main` did right, is still fixed in the batch.
 
 ## What this file overrides
 
