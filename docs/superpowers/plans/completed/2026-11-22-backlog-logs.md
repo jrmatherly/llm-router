@@ -1,8 +1,10 @@
 # Backlog: Logs, Usage Timing, Retention and Layout Implementation Plan
 
+> **Built, 2026-11-27.** Tasks 1 and 2 merged as PR 172 (`1191300a`) and Tasks 3 and 4 as PR 173 (`566f71aa`). Where the build corrected this text, and what its reviews left open, is in [`2026-11-25-delivery-order.md`](../2026-11-25-delivery-order.md) under "Before a batch is built" and "Findings with no task". The task text below is as it was before the build.
+
 > **Status, 2026-11-24: fix round done, changed text not yet audited.** Every Blocker and Correction of the 2026-11-22 audit (outside the repo) was checked against `main` `c491eb48`, after PRs 146 to 155. Both Blockers and all nine Corrections hold. C5 needed only a label, since its test pins today's behaviour. The task text below is corrected for each, and for the drift this round found. Run this round: the core unit and integration files these tasks change (135 tests, all pass), the wire file with the gateway entry (12 pass), and one throwaway test of a retention write under a held lock, since deleted. Not run: any step's new test, the browser checks, and the fix-round text itself. The delivery index wants this text audited once on another model before batch 11 is built.
 
-> **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
+> **Delivery, 2026-11-25.** [`2026-11-25-delivery-order.md`](../2026-11-25-delivery-order.md) groups this plan's unbuilt tasks into batches with other plans' tasks and sets the order. It overrides this plan's lines on branches, on one PR per task, and on waiting for a VM check: the owner's VM pass comes once, at the end.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -12,7 +14,7 @@
 
 **Tech Stack:** TypeScript, Electron 45, React, Tailwind 4, `better-sqlite3`, `node:test` with `node:assert/strict`, component tests that render with `renderToStaticMarkup`.
 
-**Spec:** [`docs/superpowers/research/2026-11-22-open-items-validation.md`](../research/2026-11-22-open-items-validation.md). Row ids L-1 to L-16 come from its group L. Read each row a task names before you start the task.
+**Spec:** [`docs/superpowers/research/2026-11-22-open-items-validation.md`](../../research/2026-11-22-open-items-validation.md). Row ids L-1 to L-16 come from its group L. Read each row a task names before you start the task.
 
 **Evidence status.** The research ran rows L-1, L-2, L-5, L-8, L-8b, L-9 and L-10 in the test runner. Every other row was read. No fix in this plan was prototyped, and nothing was checked in the desktop app. The plan author re-read every file, symbol and test named below at `main` `eb84a3ba`. A step that rests on something only read says so, and a number that was estimated from classes is named as an estimate. The fix round of 2026-11-24 re-read the same names at `main` `c491eb48`. Since `eb84a3ba` these PRs touched the files named here: PR 146 (the beforeAuth hook in `router-plugin.ts`), PRs 147 and 149 (`config.ts` and `App.tsx`, and in 149 the key-save handlers of `management-server.ts` and `ipc.ts`), and PRs 150, 152 and 155 (`gateway-service.ts`). None of them changed a symbol a task here names. Only line numbers moved (read). No task or part of one is already built (read).
 
@@ -21,7 +23,7 @@
 - **B-7.** A stored retention value that is not a whole number from 1 to 90 becomes 90, with a warning. Task 3.
 - **B-8.** The plan author's choices, open to change in review: the refused-key entries sit in a closed `<details>` (L-3), the three refusal reasons are one set in both processes (L-4), a long log value wraps (L-14). Tasks 2 and 4.
 - **B-9.** L-13 and L-16 are closed with no change. L-11 is closed by the evidence under its row.
-- **B-5.** Decided by the owner on 2026-11-22 (the spec's Decisions table). [`2026-11-22-backlog-client-label.md`](2026-11-22-backlog-client-label.md) builds it, as batch 16, after this plan. No task here changes `inferGatewayClient` or `clientNameHeaders`. See "Hand-off to the client label plan".
+- **B-5.** Decided by the owner on 2026-11-22 (the spec's Decisions table). [`2026-11-22-backlog-client-label.md`](../2026-11-22-backlog-client-label.md) builds it, as batch 16, after this plan. No task here changes `inferGatewayClient` or `clientNameHeaders`. See "Hand-off to the client label plan".
 - **Fix round, 2026-11-24.** Two choices made against the audit, both open to change in review. A trace fills in the provider only of a usage event that has no tokens and no cost (Task 1, Step 6, audit C7). The pending retention line compares what this process asked for with what its writer last saved, not with the database (Task 3, audit C2).
 - **X-12.** A browser `title` tooltip is out of reach for keyboard and touch users. Task 4.
 - **X-15.** Electron gives no way to stop the default `userData` folder being made. L-16.
@@ -478,7 +480,7 @@ Build in this order: L-15 first, because it removes code that L-12 would otherwi
 
 ## Hand-off to the client label plan
 
-**Rows it carries:** L-5, and the research's finding that the client label is uncut outside the refused-key notice and that `x-forwarded-client-cert` is one of its sources. B-5 is decided, and [`2026-11-22-backlog-client-label.md`](2026-11-22-backlog-client-label.md) builds it as batch 16, after this plan. No task above changes `inferGatewayClient`, `clientNameHeaders`, or the length of a stored client label.
+**Rows it carries:** L-5, and the research's finding that the client label is uncut outside the refused-key notice and that `x-forwarded-client-cert` is one of its sources. B-5 is decided, and [`2026-11-22-backlog-client-label.md`](../2026-11-22-backlog-client-label.md) builds it as batch 16, after this plan. No task above changes `inferGatewayClient`, `clientNameHeaders`, or the length of a stored client label.
 
 **What that plan consumes from this one:** the third parameter `configure?: (config) => void` of `startWireService` (Task 2, Step 4), and the reason `Invalid API key.` (Task 2). It also rewrites `raw trace usage capture keeps the client label the request log gets` and says to give the copies Task 1 makes the same change.
 

@@ -20,7 +20,7 @@
 
 **Built after** [`2026-11-22-backlog-keys.md`](2026-11-22-backlog-keys.md), which is built. This plan uses `saveApiKeysConfig(next, base)` in `packages/core/src/config/config.ts`, `updatePersistedApiKeys(update)` in `config-repository.ts` and the `setKeys(keys)` helper in `config-credential-writes.test.mjs`, all as built (read).
 
-**Meets** [`2026-11-22-backlog-logs.md`](2026-11-22-backlog-logs.md), which is not built. Its Task 2 Step 4 gives `startWireService` an optional third parameter `(config) => void` and changes the single layout's refusal text from `Invalid or expired API key.` to `Invalid API key.` (read). This plan needs the parameter and not the text. If this plan is built first, Task 2 adds the parameter as that step describes, and the logs plan's step then finds it in place. No assertion here reads the refusal reason, so the order does not change any expected value.
+**Meets** [`2026-11-22-backlog-logs.md`](completed/2026-11-22-backlog-logs.md), which is built (PRs 172 and 173, 2026-11-27). Its Task 2 Step 4 gives `startWireService` an optional third parameter `(config) => void` and changes the single layout's refusal text from `Invalid or expired API key.` to `Invalid API key.` (read). This plan needs the parameter and not the text. If this plan is built first, Task 2 adds the parameter as that step describes, and the logs plan's step then finds it in place. No assertion here reads the refusal reason, so the order does not change any expected value.
 
 ## Decisions this plan rests on
 
