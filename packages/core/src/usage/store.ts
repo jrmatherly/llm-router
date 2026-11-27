@@ -614,6 +614,7 @@ export class UsageStore {
       // A log database the request log writer has not opened since the column was added lacks it.
       const sourceColumns = new Set(queryRows(database, "PRAGMA request_log_source.table_info(request_logs)").map((column) => column.name));
       const hasCostSource = sourceColumns.has("cost_source");
+      const hasResolvedModel = sourceColumns.has("resolved_model");
       const hasForwardedIdentity = sourceColumns.has("forwarded_user_email") && sourceColumns.has("forwarded_user_id");
       database.prepare(`
           INSERT INTO usage_events (
@@ -624,6 +625,7 @@ export class UsageStore {
             path,
             model,
             logical_model,
+            price_model,
             provider,
             credential_id,
             status_code,
@@ -646,6 +648,7 @@ export class UsageStore {
             logs.path,
             logs.model,
             logs.model,
+            ${hasResolvedModel ? "logs.resolved_model" : "''"},
             logs.provider,
             logs.credential_id,
             logs.status_code,

@@ -237,10 +237,8 @@ test("a row whose resolved price gives no amount for its tokens stays waiting an
   } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
 });
 
-// Finding, not a rule: the copy from Logs carries no price_model, so the sweep
-// resolves the alias the response named and marks both rows unpriced for good.
-test("FINDING a waiting log row copied into the totals is resolved by the response's alias, not by the routed model the log row holds", async () => {
-  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-sweep-copied-alias-"));
+test("a waiting log row copied into the totals is priced by the routed model the log row holds, in both rows", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-sweep-copied-routed-"));
   const logFile = path.join(dir, "request-logs.sqlite");
   const logs = new RequestLogStore(logFile);
   try {
@@ -251,8 +249,7 @@ test("FINDING a waiting log row copied into the totals is resolved by the respon
       kind: "record",
       sequence: 1
     }]);
-    const file = path.join(dir, "usage.sqlite");
-    const store = new UsageStore(file, { loadPriceCatalog: async () => {}, priceCatalogNeedsRefresh: () => true, requestLogDbFile: logFile });
+    const store = new UsageStore(path.join(dir, "usage.sqlite"), { loadPriceCatalog: async () => {}, priceCatalogNeedsRefresh: () => true, requestLogDbFile: logFile });
     let writes = Promise.resolve();
     store.connectPricing({
       enqueueRequestLogPrices: (updates) => { writes = writes.then(() => logs.writeBatch([{ input: updates, kind: "price-update", sequence: 2 }])); },
@@ -260,14 +257,31 @@ test("FINDING a waiting log row copied into the totals is resolved by the respon
     });
     await store.getStats("24h", { includeProxy: true });
     await store.record({ ...event, requestId: "trigger" });
-    const read = (database, table) => ({ ...database.prepare(`SELECT cost_source, cost_usd, model FROM ${table} WHERE request_id = 'copied'`).get() });
-    await until(async () => read(await store.getDatabase(), "usage_events").cost_source === "unpriced");
+    const read = (database, table) => ({ ...database.prepare(`SELECT cost_source, cost_usd FROM ${table} WHERE request_id = 'copied'`).get() });
+    await until(async () => read(await store.getDatabase(), "usage_events").cost_source !== "");
     await writes;
-    assert.deepEqual(read(await store.getDatabase(), "usage_events"), { cost_source: "unpriced", cost_usd: null, model: "my-alias" });
-    assert.deepEqual(read(await logs.getDatabase(), "request_logs"), { cost_source: "unpriced", cost_usd: null, model: "my-alias" });
-    assert.deepEqual({ ...(await logs.getDatabase()).prepare("SELECT resolved_model FROM request_logs").get() }, { resolved_model: "Vendor/some-model" });
+    assert.deepEqual({ ...(await store.getDatabase()).prepare("SELECT price_model FROM usage_events WHERE request_id = 'copied'").get() }, { price_model: "Vendor/some-model" });
+    assert.deepEqual(read(await store.getDatabase(), "usage_events"), { cost_source: "litellm", cost_usd: 1 });
+    assert.deepEqual(read(await logs.getDatabase(), "request_logs"), { cost_source: "litellm", cost_usd: 1 });
   } finally {
     await logs.close();
     removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
+});
+
+test("a log database with no resolved_model column is still copied into the totals", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-sweep-copied-old-log-"));
+  const logFile = path.join(dir, "request-logs.sqlite");
+  try {
+    const legacy = createBetterSqliteDatabase(logFile);
+    try {
+      legacy.exec(`CREATE TABLE request_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, source_usage_id INTEGER, created_at TEXT NOT NULL, request_id TEXT NOT NULL DEFAULT '', client TEXT NOT NULL DEFAULT 'unknown', method TEXT NOT NULL, path TEXT NOT NULL, provider TEXT NOT NULL DEFAULT 'unknown', credential_id TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT 'unknown', status_code INTEGER NOT NULL DEFAULT 0, duration_ms INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cache_read_tokens INTEGER NOT NULL DEFAULT 0, cache_write_tokens INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0, cost_usd REAL)`);
+      legacy.prepare("INSERT INTO request_logs (created_at, request_id, method, path, provider, model, input_tokens, output_tokens, total_tokens) VALUES (?, 'old-log', 'POST', '/v1/messages', 'alpha', 'known-model', 10, 1, 11)").run(new Date().toISOString());
+    } finally {
+      legacy.close();
+    }
+    const store = new UsageStore(path.join(dir, "usage.sqlite"), { loadPriceCatalog: async () => {}, priceCatalogNeedsRefresh: () => true, requestLogDbFile: logFile });
+    await store.getStats("24h", { includeProxy: true });
+    assert.deepEqual({ ...(await store.getDatabase()).prepare("SELECT model, price_model FROM usage_events WHERE request_id = 'old-log'").get() }, { model: "known-model", price_model: "" });
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
 });
