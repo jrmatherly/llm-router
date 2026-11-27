@@ -46,9 +46,9 @@ Counted by a script over the tables below.
 | GATEWAY | 0 | 2 | 11 | 0 | 6 | 19 |
 | UI | 0 | 1 | 0 | 0 | 4 | 5 |
 | WIN | 0 | 0 | 0 | 0 | 2 | 2 |
-| TEST | 0 | 5 | 0 | 26 | 0 | 31 |
+| TEST | 0 | 4 | 0 | 27 | 0 | 31 |
 | DOCS | 0 | 1 | 0 | 0 | 2 | 3 |
-| Total | 2 | 27 | 27 | 26 | 88 | 170 |
+| Total | 2 | 26 | 27 | 27 | 88 | 170 |
 
 ## Before release
 
@@ -88,7 +88,6 @@ Each question can be answered yes or no. The default is what happens with no ans
 | F-GATEWAY-1 | The fork commit of harness Task 5 has no release. | Delivery index question 13 | old | read | Hold it until another fork change needs a release? | Yes | No |
 | F-GATEWAY-2 | Gateway phase 1 is built after the release, and nobody has said where it sits beside the remediation plan. | Delivery index, "After the release" | new | read | Remediation release first? | none given | No |
 | F-UI-1 | A saved local login that LLM Router has not checked shows green ticks, and they stay green after a failed check. PR 157's text "LLMR has not asked this provider" now sits beside a green tick. | PR 157 review | old | read | Should an unchecked local login show green? | Yes, as today. The source gives no recommendation. | No |
-| F-TEST-1 | `route script workers distribute concurrent executions across available slots` passes on one worker, so nothing tests that route scripts run side by side. | PR 163 audit and mutation review | old | run | Add a timed assertion, which a slow runner can fail? | No | No |
 | F-TEST-2 | One `npm run test` leaves 124 entries, about 38 MB, in the temp folder beside the temporary homes it removes. | Delivery index question 18 | old | run | Leave them? | Yes | No |
 | F-TEST-3 | The Windows and Intel Mac jobs are not required checks, so a red one does not block a merge and GitHub called PR 178 unstable. | Harness plan question 1, PR 178 | new | run | Leave them out of the required list? | Yes | No |
 | F-TEST-4 | H-7 of the harness plan waits on the owner's Claude Desktop check. | Delivery index question 16 | old | read | Run it in the end pass? | Yes | No |
@@ -261,7 +260,6 @@ Question 17 of the delivery index, whether merges can go without his review line
 | F-TEST-10 | The network guard has three stated ways around it (the macOS system proxy, a custom `lookup`, DNS or UDP), and it does not count a refusal in a child that loses `LLMR_TEST_NETWORK_LOG`. | PRs 158 and 176 | new | run | none given | test |
 | F-TEST-11 | Two discovery tests read the real file system under a stubbed Windows platform, and fail on a developer's Windows machine with OpenCode or Claude installed. | PR 162 review | new | read | none given | test |
 | F-TEST-12 | No test covers what the CLI does after a launch's wait ends with the gateway gone, which is to start a service for a Grok, Kimi or Pi profile. | Delivery index | new | read | none given | test |
-| F-TEST-13 | Two tests of `raw-trace-sync.test.mjs` timed out on Windows at the merge commit of PR 172, one failure in three runs, cause not known. | PR 172 | new | run `45931512907` | Run the file 20 times on a Windows runner at `1191300a` and at `69d60de5`. | test |
 | F-TEST-14 | Three mutants of PR 172 survive with the behaviour right (the scan flag never cleared, any `protocolVersion` accepted, a scan after `stop()`). | PR 172 | new | run | One assertion each. | test |
 | F-TEST-15 | The compact classes of the logs-off wrapper are pinned by a measurement and no test, and the desktop save handler's change has no test. | PR 173 | new | run and read | none given | test |
 | F-TEST-16 | The "Gateway user" line has no component test and nobody saw it rendered. | PR 174 | new | not run | none given | test |
@@ -280,6 +278,8 @@ Question 17 of the delivery index, whether merges can go without his review line
 | F-TEST-29 | Two mutants of the restore work survive. One drops the `settingsFile` default in a release, and one calls `removedTableStatements` without its skip of markers. | PRs 166 and 169 | new | run | none given | test |
 | F-TEST-30 | Three one-off failures nobody named or explained. The Profiles page switch in `onboarding-chosen-agent.spec.ts` (batch 8), one architecture test in a builder's worktree (batch 7), and the OpenCode free-tier user-agent test (PR 170). | Batch 7, 8 and 10a reviews | unknown | run | none given | test |
 | F-TEST-31 | No kept test runs two processes on one home. The research ran one by editing `build/test-home.mjs`. | VM findings plan, "Not in this plan" | new | read | A supported way to share one home between two test processes. | test |
+| F-TEST-32 | The test of F-TEST-1 proves two route scripts run at the same time. It proves they land on separate workers only because a worker runs one request at a time, and no test is known to pin that rule by itself: with both places that serialize a worker removed, the test passes on one worker. | PR 182 review | old | run by the reviewer, not repeated | A test that runs two scripts on one worker and asserts they do not overlap, after checking that none exists. | test |
+| F-TEST-33 | `raw-trace-sync.test.mjs` has a retry loop near line 916 with its own 2 second deadline, which PR 182's change to `waitFor` does not reach. It was not one of the tests that timed out. | PR 182 review | old | read | Leave it unless it fails on a slow runner. | test |
 
 ## DOCS
 
@@ -295,6 +295,7 @@ Each was listed as open somewhere and is not a row above.
 - **The four Windows product faults of PR 159's first run and the unsorted raw trace test.** PRs 161 and 162, by the delivery index's own text and the merged commits.
 - **The Intel Mac entry's four test faults.** PR 163, by the delivery index's text.
 - **The request log `flush()` budget fault and the `config.sqlite` cleanup failure on Windows.** PR 165, by the delivery index's text.
+- **F-TEST-1 and F-TEST-13.** PR 182 (`05ce1d74`): the route-script test now fails on one worker (run), and the raw trace tests wait ten seconds. The Windows stall itself was not reproduced, so F-TEST-13 is closed on one green Windows run.
 - **Row S-15, two backups in one millisecond sharing a name.** PR 166, stripper Task 6. The cross-process half is still open as F-RESTORE-36.
 - **`a single-layout Logs row appears within 1500 ms of the answer` failing on slow disks.** PR 179. What it found about the fsync chain is F-LOGS-12.
 - **The OpenCode and Kilo sweep loops with no `try`** (PR 167's finding). PR 170. Read today in `restoreInactiveGlobalProfileConfigs`, where both loops now catch. The Workbuddy, Pi and ZCode loops do not, which is F-RESTORE-13.

@@ -44,8 +44,8 @@ No task starts before the owner answers its row. A row he answers with "no" take
 | 2 | F-CODEX-1 | Refuse an apply over a provider written with no header of its own | open |
 | 3 | F-UI-1 | A saved local login shows grey until checked, green on a pass, amber on a failure | open |
 | 4 | F-LABEL-1 | A request is named by its key in both layouts | open |
-| 5, 7 | F-TEST-13, F-TEST-1 | Fix one test fault and prove route scripts run side by side | open |
-| 8 | F-TEST-3 | Make the Windows and Intel Mac jobs required checks | open, after Task 5 is merged |
+| 5, 7 | F-TEST-13, F-TEST-1 | Fix one test fault and prove route scripts run side by side | yes, 2026-11-27. **Merged, PR 182, `05ce1d74`** |
+| 8 | F-TEST-3 | Make the Windows and Intel Mac jobs required checks | open. Task 5 is merged; Windows has passed once since, on the PR |
 | 9 | F-TEST-5 | Dependabot version updates, and close Renovate's PR 168 | open |
 | 10 | F-GATEWAY-1 | Release the gateway fork as `llmr.5` | "not yet", 2026-11-27 |
 | 11 | F-RESTORE-3, F-GATEWAY-2, F-PRICE-7 | Correct three plans' text | none needed, docs only |
@@ -374,9 +374,9 @@ Branch `test/platform-flakes`, with Task 7. Two tests of `raw-trace-sync.test.mj
 **Files:**
 - Modify: `packages/core/test/unit/observability/raw-trace-sync.test.mjs`: the `waitFor` helper near the end of the file
 
-- [ ] **Step 1: Raise the default.** `waitFor(predicate, timeoutMs = 2_000)` becomes `timeoutMs = 10_000`. A test that passes waits no longer than before.
-- [ ] **Step 2: Run the file.** `node build/test.mjs core && node --test .test-dist/core/test/unit/observability/raw-trace-sync.test.js`. Expected: PASS, in about the time it took before.
-- [ ] **Step 3: Commit.** `test(core): give the raw trace tests ten seconds for a disk that stalls`
+- [x] **Step 1: Raise the default.** `waitFor(predicate, timeoutMs = 2_000)` becomes `timeoutMs = 10_000`. A test that passes waits no longer than before.
+- [x] **Step 2: Run the file.** `node build/test.mjs core && node --test .test-dist/core/test/unit/observability/raw-trace-sync.test.js`. Expected: PASS, in about the time it took before.
+- [x] **Step 3: Commit.** `test(core): give the raw trace tests ten seconds for a disk that stalls`
 
 ---
 
@@ -395,7 +395,7 @@ Today `route script workers distribute concurrent executions across available sl
 **Files:**
 - Modify: `packages/core/test/unit/routing/route-script-runtime.test.mjs`: that one test
 
-- [ ] **Step 1: Replace the test's body.**
+- [x] **Step 1: Replace the test's body.**
 
 ```js
 test("route script workers distribute concurrent executions across available slots", async () => {
@@ -424,9 +424,9 @@ test("route script workers distribute concurrent executions across available slo
 
 `mkdtempSync`, `rmSync` and `os` are already imported in that file (the audit's run).
 
-- [ ] **Step 2: Run it 20 times.** Expected: 20 of 20 pass, in about 20 ms each (the audit's run).
-- [ ] **Step 3: See it fail on one worker.** Change `workerCount: 2` to `1` and run once. Expected: FAIL with `[ 'timeout', 'ok' ]` after about 10 seconds. Put it back.
-- [ ] **Step 4: Run the gate and open the PR** for Tasks 5 and 7. Commit this task as `test(core): prove route scripts run side by side without a clock`.
+- [x] **Step 2: Run it 20 times.** Expected: 20 of 20 pass, in about 20 ms each (the audit's run).
+- [x] **Step 3: See it fail on one worker.** Change `workerCount: 2` to `1` and run once. Expected: FAIL with `[ 'timeout', 'ok' ]` after about 10 seconds. Put it back.
+- [x] **Step 4: Run the gate and open the PR** for Tasks 5 and 7. Commit this task as `test(core): prove route scripts run side by side without a clock`.
 
 ---
 
@@ -516,7 +516,7 @@ Each waits for the owner, for the VM pass, or for a design nobody has made.
 - **Deferred by the owner on 2026-11-27, ZCode.** Two System default ZCode profiles leave the profile key on disk (the research run). The current ZCode app may ignore every file LLM Router writes (read in its public source). A user's ZCode cache that names LLM Router's id refuses the switch-off. And F-RESTORE-1: the rule round one proposed should not be built as specified, since it makes a failed switch-off stick in 186 of 4,000 generated scenarios.
 - **Deferred against round two's advice.** Round two said to fix the provider-name strip in the price lookup in Task 1's PR, and sketched two ways: try the model id as sent before the stripped form, or strip only when the provider's own model list holds the stripped name. It is left out here because neither way was built, no unit test pins the fault, only a script over the live catalogs shows it, and it changes the lookup for paid models too. It needs a prototype and a failing test of its own first. Until then 23 of the 96 offers Task 1 aims at stay wrong for a provider left at its preset name.
 - **Open, no design.** The fork change for a single-layout refusal's reason (F-LOGS-1). The identity header rule (F-LABEL-5): the gateway replaces a client's copy, so a repeated header never arrives through it, and the rule waits for a case that needs it.
-- **Open, a decision.** Pricing Task 8 itself, once its text is corrected. Squash-only merges and SHA pinning for actions, the two RS-5 settings left beside Task 9. The 88 `remediation` and 26 `test` rows of the register, which nobody has sorted into tasks: the owner says which matter after the VM pass.
+- **Open, a decision.** Pricing Task 8 itself, once its text is corrected. Squash-only merges and SHA pinning for actions, the two RS-5 settings left beside Task 9. The 88 `remediation` and 27 `test` rows of the register, which nobody has sorted into tasks: the owner says which matter after the VM pass.
 - **Stays as it is, by both rounds.** F-PRICE-4, 5, 6, 8 and 9. F-LOGS-2, F-LABEL-2. F-RESTORE-2, 4 and 5. F-TEST-2. F-GATEWAY-2, apart from the four text lines of Task 11.
 
 ## Self-review
