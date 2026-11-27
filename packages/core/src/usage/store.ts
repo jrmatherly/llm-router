@@ -14,8 +14,7 @@ import {
   usagePriceCatalogNeedsRefresh,
   type RequestPriceOutcome,
   type UsageCostEstimate,
-  type UsageCostInput,
-  type UsagePricingSource
+  type UsageCostInput
 } from "@llmr/core/models/pricing-service";
 import { createBetterSqliteDatabase, type BetterSqliteDatabase } from "@llmr/core/storage/sqlite-native";
 import { normalizeUsageInputTokens } from "@llmr/core/usage/normalization";
@@ -28,7 +27,6 @@ import { modelRegistryForConfig } from "@llmr/core/routing/model-registry";
 import type {
   AppConfig,
   GatewayProviderProtocol,
-  ProviderModelPricing,
   UsageComparisonRow,
   UsageStatsFilter,
   UsageSeriesPoint,
@@ -68,8 +66,6 @@ export type UsageEventInput = {
   path: string;
   price?: RequestPriceOutcome;
   provider?: string;
-  pricing?: ProviderModelPricing;
-  pricingSource?: UsagePricingSource;
   requestId?: string;
   statusCode: number;
   usage?: UsageNumbers;

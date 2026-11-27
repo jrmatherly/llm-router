@@ -146,8 +146,6 @@ export type RequestLogRecordInput = {
   path: string;
   price?: RequestPriceOutcome;
   providerName?: string;
-  pricing?: ProviderModelPricing;
-  pricingSource?: UsagePricingSource;
   providerProtocol?: GatewayProviderProtocol;
   requestedModel?: string;
   requestBody: Buffer;
@@ -170,8 +168,6 @@ export type RequestLogRecordInput = {
 
 export type RequestLogRawTraceUpdateInput = {
   price?: RequestPriceOutcome;
-  pricing?: ProviderModelPricing;
-  pricingSource?: UsagePricingSource;
   allowStandaloneRecord?: boolean;
   attempt?: number;
   bodyCapturePolicy?: "all" | "errors" | "none";
@@ -1850,8 +1846,6 @@ function standaloneRecordInputFromRawTrace(
     path: input.path ?? pathFromUrl(input.url) ?? "/",
     price: input.price,
     providerName: input.provider,
-    pricing: input.pricing,
-    pricingSource: input.pricingSource,
     requestBody: requestBody.buffer,
     requestBodySizeBytes: requestBody.sizeBytes,
     requestBodyTruncated: requestBody.truncated,
@@ -6282,7 +6276,7 @@ function batchNeedsUsagePricing(
       if (!resolved && rawTraceHasBillableUsage(command.input)) return true;
       continue;
     }
-    if (!resolved && recordHasBillableUsage(command.input) && !hasCompleteProviderModelPricing(command.input.pricing)) return true;
+    if (!resolved && recordHasBillableUsage(command.input)) return true;
     const requestId = command.input.requestId?.trim();
     if (!requestId) continue;
     const row = queryRows(
