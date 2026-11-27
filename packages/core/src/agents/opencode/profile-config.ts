@@ -18,6 +18,8 @@ export type OpenCodeProfileConfigWriteResult = {
   inlineConfig: string;
 };
 
+export const openCodeDefaultSchema = "https://opencode.ai/config.json";
+
 const defaultOpenCodeContextWindow = 128_000;
 const defaultOpenCodeMaxOutputTokens = 8_192;
 
@@ -50,7 +52,7 @@ export function writeOpenCodeGatewayConfig(
   config: AppConfig,
   profile: ProfileConfig,
   token: string,
-  options: { backup?: boolean } = {}
+  options: { backup?: boolean; write?: (file: string, content: string) => { backupFile?: string; changed: boolean } } = {}
 ): OpenCodeProfileConfigWriteResult {
   const file = resolveOpenCodeConfigFile(configDir, profile);
   const source = readJsoncObject(file);
@@ -62,13 +64,13 @@ export function writeOpenCodeGatewayConfig(
     ...source,
     $schema: typeof source.$schema === "string" && source.$schema.trim()
       ? source.$schema
-      : "https://opencode.ai/config.json",
+      : openCodeDefaultSchema,
     model: overrides.model,
     provider: providers,
     small_model: overrides.small_model
   };
   const content = `${JSON.stringify(next, null, 2)}\n`;
-  const writeResult = writeJsonFile(file, content, options, (candidate) => isManagedOpenCodeConfigContent(candidate, providerId));
+  const writeResult = options.write ? options.write(file, content) : writeJsonFile(file, content, options, (candidate) => isManagedOpenCodeConfigContent(candidate, providerId));
   return {
     ...writeResult,
     file,
@@ -100,7 +102,7 @@ function openCodeGatewayOverrides(config: AppConfig, profile: ProfileConfig, tok
   const modelRef = `${providerId}/${model}`;
   const models = openCodeModelConfigs(config, { ...profile, model }, model);
   return {
-    $schema: "https://opencode.ai/config.json",
+    $schema: openCodeDefaultSchema,
     model: modelRef,
     provider: {
       [providerId]: {

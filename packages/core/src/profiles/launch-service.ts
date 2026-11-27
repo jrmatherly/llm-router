@@ -24,7 +24,7 @@ import { mediaToolsGatewayEndpoint } from "@llmr/core/mcp/grok-media-config";
 import { buildProfileLaunchPlan, findProfileForOpen, profileLaunchSpawnCommand, profileOpenCommand, profileOpenSurfaces, resolveClaudeCodeSettingsFile, resolveProfileOpenSurface } from "@llmr/core/profiles/launch-core";
 import { profileApiKeyId } from "@llmr/core/profiles/api-key";
 import { backupFiles, writeFileAtomic } from "@llmr/core/profiles/backup-files";
-import { applyProfileConfig, cleanupGeneratedBinBackups, warnProfileApplyFailures } from "@llmr/core/profiles/service";
+import { applyProfileConfig, cleanupGeneratedBinBackups, globalProviderJsonWriter, warnProfileApplyFailures } from "@llmr/core/profiles/service";
 import { spawnCommandLaunch } from "@llmr/core/platform/command-path";
 import { findAfterAppxLoad } from "@llmr/core/platform/windows-app-discovery";
 import { windowsEnvironmentChangedPowerShellLines, windowsSystemCommand } from "@llmr/core/platform/windows-system";
@@ -206,7 +206,7 @@ async function openOpenCodeAppProfile(config: AppConfig, profile: ReturnType<typ
     profileGatewayConfig,
     profile,
     profileGatewayConfig.APIKEY,
-    { backup: false }
+    { backup: false, write: globalProviderJsonWriter(profile) }
   );
   const botEnv = botGatewayProfileEnv(profileGatewayConfig, profile, "app");
   const launchSignature = openCodeAppLaunchSignature(profile, configResult.file, configResult.inlineConfig, botEnv);
