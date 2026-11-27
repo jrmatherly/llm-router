@@ -2,17 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Status, 2026-11-27: written, not built, not yet audited.** Every code task here comes from a prototype that a research run on another model built at `v9.1.0`, with a test it saw fail there and pass on the prototype (its run). The lead copied each test from that run's patch and has not built or run any of it. No task is approved: each waits on the owner's answer to the decision it names. The VM pass on 9.1.0 has not been run, so its failed lines are not here yet.
+> **Status, 2026-11-27: written, audited by building, not built.** An audit on another model built Tasks 1 to 7 from this text alone, without the prototypes: 1 Blocker, 19 Corrections, 3 design findings and 4 gaps, all applied below. With every task built, typecheck and lint pass, the architecture suite is 218 of 218, the core suite with the gateway entry is 2,537 passed and 16 skipped, and the UI suite 337 of 337 (its run). It ran 13 mutants: 9 killed and 4 survivors, three of which now have a test here. The audit removed one task: the fault Task 6 fixed was already gone. The text its corrections changed was not built again. Its build and tests are outside the repo in `private/audits/2026-11-27-audit-remediation-plan/`. What follows is the status as first written.
+
+> **As first written.** Every code task here comes from a prototype that a research run on another model built at `v9.1.0`, with a test it saw fail there and pass on the prototype (its run). The lead copied each test from that run's patch and has not built or run any of it. No task is approved: each waits on the owner's answer to the decision it names. The VM pass on 9.1.0 has not been run, so its failed lines are not here yet.
 
 **Goal:** Build the changes two rounds of research recommend for the release after 9.1.0, and leave every other open finding listed with the reason it waits.
 
-**Architecture:** Five small branches, each one PR, grouped by the files they share so none is open beside another that touches the same file. Three more pieces are not code in this repository: the gateway fork release, two repository settings, and edits to three plans' text. What the VM pass finds joins as new tasks once it has run.
+**Architecture:** Five small branches, each one PR. No two change the same source file. Task 4 and the branch of Tasks 5 and 7 both edit `raw-trace-sync.test.mjs`, in different tests, so whichever merges second rebases. Three more pieces are not code in this repository: the gateway fork release, two repository settings, and edits to three plans' text. What the VM pass finds joins as new tasks once it has run.
 
 **Tech Stack:** TypeScript on Node, React, `node:test` with `node:assert/strict`, better-sqlite3, npm workspaces, GitHub Actions.
 
 **Spec:** This plan argues from these, and an executor reads the first two.
 - [`2026-11-27-finish-and-release.md`](2026-11-27-finish-and-release.md), section "Open with the owner" and its "Round two" table. Where the two rounds disagree, round two is right.
-- [`2026-11-27-open-findings.md`](2026-11-27-open-findings.md), the register. Every `F-...` id below is a row there.
+- [`2026-11-27-open-findings.md`](2026-11-27-open-findings.md), the register. Every `F-...` id below is a row of its tables, except F-PRICE-36, which is a bullet under "The owner's answers".
 - The round two notes under `../research/2026-11-27-decisions-*-round-2.md`, one per area.
 - [`2026-11-25-delivery-order.md`](2026-11-25-delivery-order.md), decisions 1 to 9, which bind this plan.
 
@@ -22,7 +24,7 @@
 - Never run `npm run test:e2e`, Playwright, Electron or the desktop app on the owner's Mac. CI runs them.
 - Never run `npm run build:assets` or `npm run models:build` on a branch.
 - One test file: `node build/test.mjs <pkg> && node --test .test-dist/<pkg>/test/<unit|integration|component>/<path>.test.js`. No `--scope`.
-- The gate before a PR: `npm run typecheck`, `rtk bypass npm run lint`, `npm run test:architecture`, and `LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" npm run test:core`. Without that variable 82 core tests are skipped.
+- The gate before a PR: `npm run typecheck`, `rtk bypass npm run lint`, `npm run test:architecture`, `LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" npm run test:core`, and `npm run test:ui` for a branch that changes the UI. Without that variable 82 core tests are skipped, and with it 16, which run only on other platforms.
 - A task builds what its text says and nothing else (decision 9). Anything else found goes into the register with its evidence.
 - One commit per task. Each commit holds its change and its test.
 - Merging needs the owner's word, once per PR. A push or a tag on `jrmatherly/llmr-gateway` needs his word each time.
@@ -40,8 +42,8 @@ No task starts before the owner answers its row. A row he answers with "no" take
 | 2 | F-CODEX-1 | Refuse an apply over a provider written with no header of its own | open |
 | 3 | F-UI-1 | A saved local login shows grey until checked, green on a pass, amber on a failure | open |
 | 4 | F-LABEL-1 | A request is named by its key in both layouts | open |
-| 5, 6, 7 | F-TEST-3, F-TEST-1 | Fix two test faults and prove route scripts run side by side | open |
-| 8 | F-TEST-3 | Make the Windows and Intel Mac jobs required checks | open, after Tasks 5 and 6 are merged |
+| 5, 7 | F-TEST-13, F-TEST-1 | Fix one test fault and prove route scripts run side by side | open |
+| 8 | F-TEST-3 | Make the Windows and Intel Mac jobs required checks | open, after Task 5 is merged |
 | 9 | F-TEST-5 | Dependabot version updates, and close Renovate's PR 168 | open |
 | 10 | F-GATEWAY-1 | Release the gateway fork as `llmr.5` | "not yet", 2026-11-27 |
 | 11 | F-RESTORE-3, F-GATEWAY-2, F-PRICE-7 | Correct three plans' text | none needed, docs only |
@@ -52,22 +54,22 @@ Already done on his word and not tasks here: the two ruleset changes of F-TEST-5
 
 What the tasks' tests do not exercise and a reviewer should try, most likely first.
 
-1. **A provider left at its preset name.** The price lookup strips the provider's name from the front of a model id, so a provider named `NVIDIA` or `OpenRouter` looks up the wrong name, and 23 of the 96 zero offers Task 1 aims at stay wrong (the research run). Task 1 does not fix that. A reviewer should confirm the count has not grown.
-2. **A row priced before Task 1 and read after it.** A stored `cost_source` of `listed-free` must read as a list price on every surface. Task 1's test checks the basis and one label. No test renders the Overview caption or the tray with such a row.
-3. **A Codex config the profile already doubled under 9.1.0.** After Task 2 the next apply is refused and the switch-off restores the original (the research run). No test starts from a file that already holds both tables.
+1. **A provider left at its preset name.** The price lookup strips the provider's name from the front of a model id, so a provider named `NVIDIA` or `OpenRouter` looks up the wrong name, and 23 of the 96 zero offers Task 1 aims at stay wrong (the research run). Task 1 does not fix that, against round two's advice, for the reason under "Not in this plan". A reviewer should confirm the count has not grown.
+2. **A row stored before Task 1.** A free model's request priced by 9.1.0 is stored as unpriced, and the sweep never prices such a row again, so that history keeps reading "No price found" after Task 1 (read). A row stored after it reads as a list price: the basis, the label and the totals follow from `listedCostSources` (read), and Task 1 pins the basis and the label. No test renders the Overview caption or the tray with such a row.
+3. **A Codex config the profile already doubled under 9.1.0.** After Task 2 the next apply is refused and the switch-off removes LLM Router's table and token (run by the audit). Pinned in Task 2. Not asserted: that the user's own line is kept.
 4. **A saved local login reopened after a passed check.** The check's result is forgotten when the dialog closes, so after Task 3 the provider opens grey each time (read). That is the task's stated limit, not a failure.
-5. **A Claude Code request through a Claude apps gateway.** After Task 4 it reads as the forwarder key's name in the single layout too, as it already does in the other. The developer is in "Gateway user". No test asserts the label of such a row in Logs.
+5. **A Claude Code request through a Claude apps gateway.** After Task 4 it reads as the forwarder key's name in the single layout too, as it already does in the other, and the developer is in "Gateway user". One of the six tests Task 4 changes covers it: a `claude-cli` request through a trusted forwarder key is labelled by the key, with the developer's e-mail (the audit's run).
 
 ## Order
 
 1. Task 11 at any time. It is docs only and goes straight to `main`.
-2. Tasks 5, 6 and 7, one branch. They are tests only and unblock Task 8.
-3. Tasks 1, 2, 3 and 4, one branch each, in any order. No two share a file, so two can be open together.
-4. Task 8 after the branch of Tasks 5 to 7 is merged and has run green on Windows three times.
+2. Tasks 5 and 7, one branch. They are tests only, and Task 5 unblocks Task 8. Task 6 was removed by the audit and its number is kept.
+3. Tasks 1, 2, 3 and 4, one branch each, in any order. No two share a source file, so two can be open together.
+4. Task 8 after the branch of Tasks 5 and 7 is merged and has run green on Windows three times.
 5. Tasks 9 and 10 on his word, at any time.
 6. The VM pass results join as tasks when the pass has run. See "When the VM pass has run".
 
-The method for each branch is the one batch 10b set in the delivery index: a builder on Opus in a worktree from this text, one callers reviewer on Fable given the lead's guesses, one fix round, and a test for any mutant that survives. **Before any branch is built, its tasks' text is audited by building on another model**, as the finish plan's was. That audit found 11 corrections and one wrong design in text that looked finished.
+The method for each branch is the one batch 10b set in the delivery index: a builder on Opus in a worktree from this text, one callers reviewer on Fable given the lead's guesses, one fix round, and a test for any mutant that survives. The text was audited by building on 2026-11-27, as the status line says. A task the VM pass adds later gets the same audit before it is built.
 
 ---
 
@@ -78,15 +80,16 @@ Branch `fix/listed-free-price`. Today the rule treats every catalog price of 0 a
 This changes the last sentence of decision V-21, "Only a price the user set can yield a cost of 0". That sentence was the plan author's and not the owner's, by V-21's own row.
 
 **Files:**
-- Modify: `packages/core/src/models/pricing-service.ts`: `CatalogPricingSource`, `PriceIndex`, the two own-provider steps (`openRouterEntry` and `mappedProviderEntry`), `fetchModelsDevPrices`, `addCatalogEntry`, and the amount check that refuses a cost of 0
+- Modify: `packages/core/src/models/pricing-service.ts`: `CatalogPricingSource`, `pricingSources`, `PriceIndex`, the two own-provider steps (`openRouterEntry` and `mappedProviderEntry`), `fetchModelsDevPrices`, `addCatalogEntry`, and the amount check that refuses a cost of 0
 - Modify: `packages/core/src/contracts/app.ts`: `listedCostSources`
 - Modify: `packages/ui/src/pages/home/shared/usage.ts`: the price source labels
 - Test: `packages/core/test/unit/models/pricing-service.test.mjs`
+- Create: `packages/ui/test/unit/listed-free-label.test.ts`
 
 **Interfaces:**
 - Produces: the cost source `"listed-free"`, a member of `CatalogPricingSource` and of `listedCostSources`, with the label "Listed at no charge".
 - Produces: `PriceIndex.zeroKeys: Set<string>`, the keys of offers listed at 0 and 0.
-- Produces, private to `pricing-service.ts`: `function ownEntry(index: PriceIndex | undefined, key: string): CatalogEntry | undefined`. It returns the priced entry for `key`, or an entry of 0 and 0 under `"listed-free"` when `key` is in `zeroKeys`. Only the two own-provider steps call it.
+- Produces, private to `pricing-service.ts`: `function ownEntry(index: PriceIndex | undefined, key: string): CatalogEntry | undefined`. It returns the priced entry for `key`, or exactly `{ model: key, pricing: { inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 0 }, source: "listed-free" }` when `key` is in `zeroKeys`, with no cache fields, since the test compares the whole value. Only the two own-provider steps call it.
 
 - [ ] **Step 1: Write the failing test.** Append:
 
@@ -124,10 +127,28 @@ The third assertion is F-PRICE-36: a free host's offer on a custom provider must
 - [ ] **Step 3: Keep the zero offers.** `addCatalogEntry` adds the key of an offer priced 0 and 0 to `index.zeroKeys` and still adds no priced entry for it. A new index starts with an empty set.
 - [ ] **Step 4: Let only the request's own provider use one.** Add `ownEntry` and call it in the two own-provider steps in place of the direct `byKey.get`. No later step of the rule reads `zeroKeys`.
 - [ ] **Step 5: A zero offer names no maker.** In `fetchModelsDevPrices`, add an offer's `canonical_model_id` to `offers.canonicalIds` only when its input and output are not both 0.
-- [ ] **Step 6: Let the source through.** Add `"listed-free"` to `CatalogPricingSource` and to `listedCostSources`, let the amount check accept a cost of 0 for it as it does for `"custom"`, and add the label `["listed-free", "Listed at no charge"]`.
-- [ ] **Step 7: Fix the one test that pins the old rule.** One existing test in the same file expects a listed zero to be unpriced for the provider that lists it. It now fails. Change its expectation to the free price. Any other failure is a fault of the change.
+- [ ] **Step 6: Let the source through.** Add `"listed-free"` to `CatalogPricingSource`, to `listedCostSources`, and as `"listed-free": true` to `pricingSources`, which is checked against the full set of sources, so typecheck fails without it and a stored row could not be read back. Let the amount check accept a cost of 0 for it as it does for `"custom"`. Add the label `["listed-free", "Listed at no charge"]`. Two comments become false and are rewritten: the one above the amount check that says only a user's price may come to zero, and the one above `addCatalogEntry` that calls a price of 0 and 0 "no price here".
+- [ ] **Step 7: Fix the one test that pins the old rule.** `a catalog entry priced 0 for input and output does not stop the rule`, in the same file, expects DeepSeek's zero to fall through to the LiteLLM price of 0.8 and 2. Change its first expectation to `{ inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 0 }` under `"listed-free"`, and rename it to say that a zero from the request's own provider stops the rule. Any other failure is a fault of the change.
+- [ ] **Step 7b: Pin the label.** The core test checks no label, and a change that drops the label survives it (the audit's mutant). Create `packages/ui/test/unit/listed-free-label.test.ts`:
+
+```ts
+import assert from "node:assert/strict";
+import test from "node:test";
+import { costBasisFor } from "@llmr/core/contracts/app.ts";
+import { priceSourceLabel } from "@llmr/ui/pages/home/shared/usage.ts";
+
+test("a cost the request's own provider lists at zero reads as that list price", () => {
+  const basis = costBasisFor({ billableTokens: 11, costSource: "listed-free", costUsd: 0 });
+  assert.equal(basis, "listed");
+  assert.equal(priceSourceLabel("listed-free", basis), "Listed at no charge");
+});
+```
+
+If the UI package keeps its unit tests under another folder, put it beside the nearest test of `shared/usage.ts`.
 - [ ] **Step 8: Run the suites.** The test file, then `npm run test:core` with the gateway entry, then `npm run test:ui`. Expected: all pass. The research run saw 2,551 core tests with that one failure before Step 7, and 336 of 336 UI tests.
 - [ ] **Step 9: Commit.** `feat(usage): price a model its own provider lists at zero as free, and stop a free offer borrowing a paid price`
+
+Stated limit: a request stored as unpriced before this task stays so, since the sweep never prices an unpriced row again. Only requests made after the upgrade read as free.
 
 Measured by the research run on catalogs fetched 2026-11-27, each zero offer asked for on its own provider: 73 become `$0.00` (36 from unpriced, 23 from a median, 14 from a paid list price), 74 go from a paid list price to unpriced, and 551 do not change. Of those 551, 207 still carry a paid price, all on providers the rule cannot recognise.
 
@@ -143,7 +164,7 @@ Branch `fix/codex-headerless-refusal`. Codex 0.172.0 loads a provider written in
 - Test: `packages/core/test/integration/profiles/profile-service.test.mjs`
 
 **Interfaces:**
-- Consumes: `scanTomlStatements` and `tomlKey` in `codex-config-strip.ts`, and `refusedProfileStatus` in `service.ts`, as they are.
+- Consumes: `scanTomlStatements` in `codex-config-strip.ts`, `tomlKey` from `apply-support.ts`, already imported there, and `refusedProfileStatus` in `service.ts`, as they are. `scanTomlStatements` writes each key segment through `tomlKey`, so compare against `tomlKey(providerId)`.
 - Produces: `export function headerlessCodexProviderTable(source: string, providerId: string): "own-id" | "root-inline" | undefined`. It returns `"own-id"` when an assignment defines the profile's provider with no header of its own: a key `<id>` or `<id>.<field>` under `[model_providers]`, or `model_providers.<id>` or `model_providers.<id>.<field>` at the root. It returns `"root-inline"` when the root assigns `model_providers` itself, whatever ids it holds. Otherwise `undefined`.
 
 The research prototype returned a boolean and one message. Its message named `[model_providers.<id>]` even for a root inline table of another id, which is wrong, so this task asks for the two cases apart.
@@ -190,11 +211,39 @@ test("a Codex apply goes ahead over a provider of another id written with no hea
 });
 ```
 
-The first five forms are the research run's. `inlineRootOtherId` and the second test are new here and were not run.
+Append these two as well. The first passes before and after, and fails if the id is matched without its dot boundary (the audit's mutant). The second is the upgrade case:
+
+```js
+test("a provider id that only starts with the profile's id is not refused", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  const original = `model_providers.llm-router-old.name = "Mine"\nmodel_providers.llm-router-old.base_url = "http://127.0.0.1:9/v1"\n`;
+  await withAppliedDefaultProfiles(["default-codex"], async ({ config }) => {
+    const codex = (await applyProfileConfig(config)).clients.find((client) => client.client === "codex");
+    assert.equal(codex?.ok, true, codex?.message);
+  }, plantCodexOriginal(original), { applied: false });
+});
+
+test("a config 9.1.0 already doubled is refused on the next apply, and the switch-off removes LLMR's table", { skip: !process.env.LLMR_INTERNAL_HOME_DIR }, async () => {
+  await withAppliedDefaultProfiles(["default-codex"], async ({ codexConfigFile, config }) => {
+    const doubled = `model_providers.llm-router.name = "Mine"\n${readFileSync(codexConfigFile, "utf8")}`;
+    writeFileSync(codexConfigFile, doubled);
+    const codex = (await applyProfileConfig(config)).clients.find((client) => client.client === "codex");
+    assert.equal(codex?.ok, false);
+    assert.match(codex.message, /without its own \[model_providers\.llm-router\] header/);
+    assert.equal(readFileSync(codexConfigFile, "utf8"), doubled);
+    const result = await recoverGlobalAgentProfile("default-codex");
+    assert.equal(result.status.ok, true, result.status.message);
+    const restored = readFileSync(codexConfigFile, "utf8");
+    assert.doesNotMatch(restored, /\[model_providers\.llm-router\]/);
+    assert.doesNotMatch(restored, /llmr-profile-/);
+  }, plantCodexOriginal(), { parseAfter: false });
+});
+```
+
+All four tests were built and run by the audit. The safe-forms test passes on `main` before the change, so the premise holds.
 
 - [ ] **Step 2: Run it and see it fail.** `node build/test.mjs core && LLMR_TEST_GATEWAY_ENTRY="$PWD/node_modules/@the-next-ai/ai-gateway/bin/next-ai-gateway.js" node --test .test-dist/core/test/integration/profiles/profile-service.test.js`. Expected: the first test FAILS on its first form with `true !== false`. If the second test fails on `main`, the task's premise about the safe forms is wrong: stop and report.
 - [ ] **Step 3: Add `headerlessCodexProviderTable`** in `codex-config-strip.ts`, over the statements `scanTomlStatements` gives, comparing keys through `tomlKey` so a quoted id matches.
-- [ ] **Step 4: Refuse in `applyCodexProfile`.** When the config file exists and the function returns a case, return `refusedProfileStatus` with one of these messages, where `<file>` is the config file and `<id>` the provider id:
+- [ ] **Step 4: Refuse in `applyCodexProfile`.** For every agent that function serves, and not only when `profile.agent === "codex"` as the reserved-id refusal beside it does: the doubled table breaks the file whichever agent writes it. When the config file exists and the function returns a case, return `refusedProfileStatus` with one of these messages, where `<file>` is the config file and `<id>` the provider id:
   - `"own-id"`: `<file> defines the provider "<id>" without its own [model_providers.<id>] header, so Codex would not start once LLMR adds its table. Move that provider under its own header, or set this profile's providerId in LLM Router's config to another id. LLMR left <file> unchanged.`
   - `"root-inline"`: `<file> defines model_providers on one line, so Codex would not start once LLMR adds its table. Write each provider under its own [model_providers.<name>] header. LLMR left <file> unchanged.`
 - [ ] **Step 5: Run the file and the core suite.** Expected: PASS. The research run's prototype left 2,551 core tests at 0 failures.
@@ -211,7 +260,7 @@ Branch `fix/provider-local-login-status`. Today both rows of the provider form's
 **Files:**
 - Modify: `packages/ui/src/pages/home/components/providers.tsx`: `ProviderConnectionStatusPanel`, the `connectionVerified` line of `AddProviderForm`, and the `verified` prop in `AddProviderDialog`
 - Create: `packages/ui/test/component/provider-local-login-status.test.tsx`
-- Modify: the one existing UI test that asserts the text "Available after saving"
+- Modify: `packages/ui/test/component/provider-dialog-local-agent.test.tsx`, the test `a Codex login provider keeps its heading, its connection check and its model refresh`, which asserts the text "Available after saving"
 
 **Interfaces:**
 - Produces: for a local login, the second row reads "Not checked" and is grey before any check, reads "Connection verified" and is green after a check that found a supported protocol, and reads "Last check failed" and is amber after one that did not. The first row is green only when a probe or a passed check found a protocol. `connectionVerified` is true only when the check passed. The Verify step reads "Done" only then.
@@ -263,7 +312,7 @@ test("a saved local login shows grey before a check, green after a pass, amber a
   const failed = render(probe(false), "401 Unauthorized");
   assert.deepEqual(rows(never).map((row) => row.split("=")[1]), ["grey", "grey"]);
   assert.deepEqual(rows(passed).map((row) => row.split("=")[1]), ["green", "green"]);
-  assert.match(rows(failed)[1], /=amber$/);
+  assert.deepEqual(rows(failed).map((row) => row.split("=")[1]), ["grey", "amber"]);
   assert.match(never, /Not checked/);
   assert.match(failed, /Last check failed/);
   assert.notEqual(verifyStep(never), "Done");
@@ -272,13 +321,15 @@ test("a saved local login shows grey before a check, green after a pass, amber a
 });
 ```
 
-The research run's test asserted only the second row after a pass. The second assertion here asks for both rows green, which is the fix round two found missing: a passed check never turned the first row green, because that row reads `probe` and the check writes `connectivityProbe`. That assertion was not run.
+Built and run by the audit. Two assertions guard against a half fix and do not fail at 9.1.0. Both rows green after a pass is true today through the shortcut this task removes, and fails only if the shortcut goes and a passed check is not counted. The first row grey after a failed check kills a fix that turns it green after any check (the audit's mutant).
 
 - [ ] **Step 2: Run it and see it fail.** `node build/test.mjs ui && node --test .test-dist/ui/test/component/provider-local-login-status.test.js`. Expected: FAIL on the first assertion, with both rows green before any check.
-- [ ] **Step 3: Read the check's result.** In `ProviderConnectionStatusPanel`, the second row's title, text and state follow `connectionVerified` first, then, for a local login, whether a check has run. The first row's state counts a passed check as a detected protocol and no longer counts a local login by itself. In `AddProviderForm` and `AddProviderDialog`, verified means the check found a supported protocol and nothing else. The Claude Code login provider cannot be checked and keeps the "Not checked" text it has today.
-- [ ] **Step 4: Fix the one test that pins the old text.** One existing UI test asserts "Available after saving". It now fails. Change it to the new text for its state.
+- [ ] **Step 3: Read the check's result.** In `ProviderConnectionStatusPanel`, the second row's title, text and state follow `connectionVerified` first, then, for a local login, whether a check has run. Its description is "LLMR has not sent a request through this local login yet. Check Connection sends one." before a check and "The last real model request through this local login failed. Check Connection tries again." after a failed one. Delete `claudeLoginProvider` in `AddProviderDialog`, which nothing reads once `verified` follows the check alone, or typecheck fails. The first row's state counts a passed check as a detected protocol and no longer counts a local login by itself. In `AddProviderForm` and `AddProviderDialog`, verified means the check found a supported protocol and nothing else. The Claude Code login provider cannot be checked and keeps the "Not checked" text it has today.
+- [ ] **Step 4: Fix the one test that pins the old text.** In `provider-dialog-local-agent.test.tsx`, the test named above asserts "Available after saving". It now fails. Change that assertion to `/Not checked/`.
 - [ ] **Step 5: Run the UI suite and typecheck.** `npm run test:ui && npm run typecheck`. Expected: all pass.
 - [ ] **Step 6: Commit.** `fix(ui): show a saved local login as checked only after a check passed`
+
+Not tested: the dialog's own Verify step. `AddProviderDialog` renders into a portal, so a static render gives nothing, the UI tests have no DOM, and a change that keeps the old shortcut in the dialog's `verified` prop survives every test (the audit's mutant). Its progress bar shows only when adding a provider. A reviewer reads that one line.
 
 Stated limit: a check is forgotten when the dialog closes, so a saved local login opens grey each time. Keeping the result is not in this task. Nobody has looked at this panel in a window, and the VM pass has a check for it.
 
@@ -296,7 +347,7 @@ Branch `fix/client-label-key-name`. Today a request with a valid key and no disp
 - Consumes: `gatewayClientCallerForKey` from `gateway/http/io.ts`, as it is.
 - Produces: in `readRawTraceRequestLogBundle`, a caller built with `gatewayClientCallerForKey(apiKey)` when the trace's key id names a stored key, `{ kind: "key", trustedForwarder: false }` when it names none, and `{ kind: "refused" }` when the trace has no key id.
 
-- [ ] **Step 1: Change what six tests expect.** These pin the old single-layout label. In each, change the expected client from the `User-Agent` name to the key's name, as the same test's compatibility case already expects:
+- [ ] **Step 1: Change what six tests expect.** These pin the old single-layout label. The four in `october-issues-wire.test.mjs` have names built from a template, so search for the words before "(single)". Their expectations are written as a choice by layout: five as `layout === "compat" ? X : "Node.js"`, nine as `single ? "Node.js" : X`, and one as `single ? "u".repeat(120) : "wire"`. Each becomes its compatibility value alone. The two `"Node.js"` assertions on `refusedForKey` stay. The two in `raw-trace-sync.test.mjs` have no compatibility case and their keys have no name, so the expected client becomes the key's id, `gw` in three assertions and `profile:codex` in one, and a trace with no stored key or no key id keeps `Claude`. The six:
   - in `october-issues-wire.test.mjs`: `the client label holds for every source and caller (single)`, `the client label follows the key's trusted forwarder mark (single)`, `the client label follows the key's trusted forwarder mark (single, logs off)`, and `a request from a marked key is recorded under the developer's id and e-mail, and one from another key naming the same developer is not (single)`
   - in `raw-trace-sync.test.mjs`: `raw trace usage capture keeps the client label the request log gets` and `a trace records the developer only when its key is a trusted forwarder`
 - [ ] **Step 2: Run both files and see the six fail.** With the gateway entry set. Expected: those six FAIL on the client label and nothing else does.
@@ -308,9 +359,9 @@ What moves beside the label (the research run): in Agent Analysis a key named `c
 
 ---
 
-### Task 5: The raw trace tests wait long enough for a slow disk (F-TEST-3)
+### Task 5: The raw trace tests wait long enough for a slow disk (F-TEST-13)
 
-Branch `test/platform-flakes`, with Tasks 6 and 7. Two tests of `raw-trace-sync.test.mjs` timed out on Windows at PR 172's merge commit. The cause is found: each does 33 to 40 fsyncs inside a 2 second wait, and that runner's disk stalled. A preload that slows only `FileHandle.sync()` by 120 to 200 ms reproduces both failures (the research run).
+Branch `test/platform-flakes`, with Task 7. Two tests of `raw-trace-sync.test.mjs` timed out on Windows at PR 172's merge commit. The cause is found: each does 33 to 40 fsyncs inside a 2 second wait, and that runner's disk stalled. A preload that slows only `FileHandle.sync()` by 120 to 200 ms reproduces both failures (the research run).
 
 **Files:**
 - Modify: `packages/core/test/unit/observability/raw-trace-sync.test.mjs`: the `waitFor` helper near the end of the file
@@ -321,18 +372,11 @@ Branch `test/platform-flakes`, with Tasks 6 and 7. Two tests of `raw-trace-sync.
 
 ---
 
-### Task 6: The retention save test waits for the page it asserts on (new, from round two)
+### Task 6: Removed by the audit
 
-A new Windows flake at 9.1.0 code. The test `a --no-gateway start and a save both write the retention, and a locked log database does not hold a save up` waits for the database to hold 3 and then reads the page at once, while `RequestLogRuntime.list` still reports the pending retention until the writer's acknowledgement lands. It got 3 where `undefined` was expected, once on Windows.
+Round two reported a new Windows flake in `a --no-gateway start and a save both write the retention, and a locked log database does not hold a save up` (`packages/core/test/unit/web/request-log-retention-save.test.mjs`) and called it 9.1.0 code. It was not. The failing run was at `94dadde2`, which is before PR 180, and PR 180 made `RequestLogRuntime.list` compare the requested retention with the page's own (checked by the lead with `git merge-base`: PR 180 is not in `94dadde2` and is in `v9.1.0`). At `main` the page's retention and that condition come from one read, so the test cannot see 3 beside a pending 3. The audit delayed the writer's acknowledgement by 1.5 seconds and the test passed 3 of 3. With the delay and PR 180's condition taken out, it failed exactly as CI had.
 
-**Files:**
-- Modify: `packages/core/test/integration/observability/request-log-retention-save.test.mjs`: the last read of that test
-
-- [ ] **Step 1: Wait on the page.** Before the last `assert.equal(applied.retentionRequestedDays, undefined)`, read the page with the file's own polling helper until `retentionRequestedDays` is undefined, with the timeout the test's other waits use. Keep the assertion.
-- [ ] **Step 2: Run the file ten times.** Expected: 10 of 10 pass.
-- [ ] **Step 3: Commit.** `test(core): wait for the retention to read as applied before asserting it`
-
-The fault was read in the test and the runtime and seen once in CI. Nobody reproduced it locally, so ten passes do not prove the fix. Three green Windows runs after the merge are the evidence Task 8 asks for.
+So there is nothing to fix, and no task. The number is kept so the others do not move.
 
 ---
 
@@ -370,11 +414,11 @@ test("route script workers distribute concurrent executions across available slo
 });
 ```
 
-Add `mkdtempSync` and `rmSync` to the file's `node:fs` import and `os` from `node:os` if they are not there.
+`mkdtempSync`, `rmSync` and `os` are already imported in that file (the audit's run).
 
-- [ ] **Step 2: Run it 20 times.** Expected: 20 of 20 pass, each in well under a second. The research run saw 50 of 50.
-- [ ] **Step 3: See it fail on one worker.** Change `workerCount: 2` to `1` and run once. Expected: FAIL with one result `timeout`, after 10 seconds. Put it back.
-- [ ] **Step 4: Run the gate and open the PR** for Tasks 5 to 7. Commit this task as `test(core): prove route scripts run side by side without a clock`.
+- [ ] **Step 2: Run it 20 times.** Expected: 20 of 20 pass, in about 20 ms each (the audit's run).
+- [ ] **Step 3: See it fail on one worker.** Change `workerCount: 2` to `1` and run once. Expected: FAIL with `[ 'timeout', 'ok' ]` after about 10 seconds. Put it back.
+- [ ] **Step 4: Run the gate and open the PR** for Tasks 5 and 7. Commit this task as `test(core): prove route scripts run side by side without a clock`.
 
 ---
 
@@ -382,14 +426,28 @@ Add `mkdtempSync` and `rmSync` to the file's `node:fs` import and `os` from `nod
 
 Not code, apart from one test. A red platform job already stops `npm run release`, so the merge gate is looser than the release gate. Since 2026-11-26 Windows failed 4 of 35 first attempts on PRs, the required Linux job 2 of 35, and the Intel Mac job none (the research run over 172 runs).
 
-**Before.** The branch of Tasks 5 to 7 is merged and the Tests workflow has passed on Windows three times in a row since.
+**Before.** The branch of Tasks 5 and 7 is merged and the Tests workflow has passed on Windows three times in a row since.
 
 **Files:**
-- Modify: `tests/architecture/package-scripts.test.mjs`, or the architecture test that already reads `test.yml`
+- Modify: `tests/architecture/workflow-permissions.test.mjs`, beside its test `the package suites also run on Windows and an Intel Mac`
 
-- [ ] **Step 1: Pin the names.** A required check is named by the matrix entry's display name, so a rename in `.github/workflows/test.yml` would leave every PR waiting for a check that never reports. Add an assertion that `test.yml` still produces the check names `🧪 Unit (Windows)` and `🧪 Unit (Intel Mac)`. Land it as its own small PR.
+- [ ] **Step 1: Pin the names.** The job is named `🧪 Unit (${{ matrix.display_name }})`, with the display names `Windows` and `Intel Mac`, so a rename in `.github/workflows/test.yml` would leave every PR waiting for a check that never reports. Add this test and land it as its own small PR:
+
+```js
+test("the Tests workflow still reports the required platform check names", () => {
+  const workflow = readFileSync(".github/workflows/test.yml", "utf8");
+  const platforms = workflow.split(/^(?= {2}[\w-]+:$)/m).find((job) => job.startsWith("  platforms:\n"));
+  assert.ok(platforms);
+  const template = /^ {4}name: (.*)\$\{\{ matrix\.display_name \}\}(.*)$/m.exec(platforms);
+  assert.ok(template, "the job name is built from matrix.display_name");
+  const names = [...platforms.matchAll(/^ {10}- display_name: (.+)$/gm)].map((match) => `${template[1]}${match[1]}${template[2]}`);
+  assert.deepEqual(names, ["🧪 Unit (Windows)", "🧪 Unit (Intel Mac)"]);
+});
+```
+
+  It passes today, and renaming `Intel Mac` in the workflow makes it fail (the audit's run). Use the file's own way of reading the workflow if it has one.
 - [ ] **Step 2: GATE. The owner's word.** Then add both names to the ruleset `main: tests must pass`, pinned to the GitHub Actions app as its three checks already are. Keep "require branches to be up to date" off: with about three direct pushes to `main` for each PR merge, it would leave almost every PR behind.
-- [ ] **Step 3: Check it.** `gh api repos/jrmatherly/llm-router/rules/branches/main` lists five checks. An open PR whose five checks passed reads clean to merge.
+- [ ] **Step 3: Check it.** `gh api repos/jrmatherly/llm-router/rules/branches/main` lists five checks, where it lists three today. An open PR whose five checks passed reads clean to merge.
 
 No merge queue. They are for repositories an organization owns, and this one is a user's.
 
@@ -403,7 +461,7 @@ Round two leans to Dependabot. Renovate also covers the Dockerfile `ARG` digests
 - Modify: `.github/dependabot.yml`
 
 - [ ] **Step 1: GATE. The owner chooses Dependabot, Renovate or neither.** Nothing below runs before that.
-- [ ] **Step 2: Write the config.** A draft that passes the architecture test's check of that file is in the private folder as `tests-ci-repo/dependabot.yml`. The lead copies it into the branch, since a builder does not open that folder. It groups the four packages that have install scripts, so a bump of one arrives as its own PR and the hand step, `npm install-scripts approve <pkg>`, is not missed.
+- [ ] **Step 2: Replace the config.** `.github/dependabot.yml` already exists with four entries: GitHub Actions, npm at the root as one group that leaves the gateway package out, npm under `docs`, and the compose images of the Claude apps gateway harness. Its check is `Dependabot covers both lockfiles, the workflows and the compose images` in `tests/architecture/workflow-permissions.test.mjs`. The repository is a fork, where version updates need the toggle of Step 3, and Dependabot has never opened a PR here. A draft that passes that check is in the private folder as `tests-ci-repo/dependabot.yml`. The lead copies it into the branch, since a builder does not open that folder. It groups the four packages that have install scripts, so a bump of one arrives as its own PR and the hand step, `npm install-scripts approve <pkg>`, is not missed.
 - [ ] **Step 3: Switch it on.** "Dependabot version updates" in the repository's settings. A fork needs the toggle. It is the owner's click.
 - [ ] **Step 4: Close PR 168** with one line saying why, and ask the owner whether to remove the Renovate app from the repository.
 - [ ] **Step 5: State the two gaps** in the repository's contributor notes: the Dockerfile digests and `.node-version` stay manual.
@@ -427,9 +485,9 @@ Not in this task: the fork change for F-LOGS-1. In the single layout a refusal t
 
 ### Task 11: Correct three plans' text. Docs only, straight to `main`
 
-- [ ] **Step 1: Restore Task 9**, in `2026-11-22-backlog-restore.md`. Point it at the Codex config reference's new address, which moved to learn.chatgpt.com. Add a row for `model_providers.<id>.gateway_oauth.credential_export` beside the `auth` table, with the finding that with its default header it cannot be combined with `auth`, `env_key`, `experimental_bearer_token` or `requires_openai_auth` on Codex 0.172.0, so the `auth` table stays the base. Close its download question as "the installed version only".
-- [ ] **Step 2: The gateway phase 1 plan**, `2026-11-25-apps-gateway-phase-1.md`. Every name it uses exists at 9.1.0. Four lines are out of date: the "Where this fits" row, since batches 8, 16 and 17 are merged; two preconditions that phase 0 has met; and Task 5 Step 4, which tells the builder to run `npm run test:e2e` locally. Replace that step with "left to CI". Another session owns that plan, so ask the owner before editing it.
-- [ ] **Step 3: Pricing Task 8**, in `2026-11-22-backlog-pricing.md`. Restate option C as the list of tiers that mark a cost: OpenAI `priority`, `fast`, `flex` or `ultrafast` in `service_tier`; Anthropic `usage.speed` of `fast`; Google `priority` or `flex` in the `x-gemini-service-tier` response header. Say that Anthropic's `service_tier` of `standard` is an ordinary request, and that a translated reply that is not streamed drops these fields, as it drops a provider's reported cost.
+- [ ] **Step 1: Restore Task 9**, in `2026-11-22-backlog-restore.md`, near lines 562 to 600. It has no link to the Codex config reference today, so add one to its opening paragraph: https://learn.chatgpt.com/docs/config-file/config-reference, which answers and is where the old address now redirects (one request, 2026-11-27). Add a row for `model_providers.<id>.gateway_oauth.credential_export` beside the `auth` table, with the finding that with its default header it cannot be combined with `auth`, `env_key`, `experimental_bearer_token` or `requires_openai_auth` on Codex 0.172.0, so the `auth` table stays the base. Close its download question as "the installed version only".
+- [ ] **Step 2: The gateway phase 1 plan**, `2026-11-25-apps-gateway-phase-1.md`. Every name it uses exists at 9.1.0. Four lines are out of date: the "Where this fits" row near line 92, since batches 8, 16 and 17 are merged; two preconditions that phase 0 has met, near lines 5 and 17; and Task 5 Step 4 near line 426, which tells the builder to run `npm run test:e2e` locally. Replace that step with "left to CI". Another session owns that plan, so ask the owner before editing it.
+- [ ] **Step 3: Pricing Task 8**, in `2026-11-22-backlog-pricing.md`. That task has two options lettered C. The one to restate is the first, near line 1013, which begins "Do not price the tier. Mark such a request's cost as an estimate". Restate it as the list of tiers that mark a cost: OpenAI `priority`, `fast`, `flex` or `ultrafast` in `service_tier`; Anthropic `usage.speed` of `fast`; Google `priority` or `flex` in the `x-gemini-service-tier` response header. Say that Anthropic's `service_tier` of `standard` is an ordinary request, and that a translated reply that is not streamed drops these fields, as it drops a provider's reported cost.
 - [ ] **Step 4:** Commit each as its own docs commit.
 
 ---
@@ -448,13 +506,14 @@ The checklist is [`../research/2026-11-27-vm-pass-9.1.0-checklist.md`](../resear
 Each waits for the owner, for the VM pass, or for a design nobody has made.
 
 - **Deferred by the owner on 2026-11-27, ZCode.** Two System default ZCode profiles leave the profile key on disk (the research run). The current ZCode app may ignore every file LLM Router writes (read in its public source). A user's ZCode cache that names LLM Router's id refuses the switch-off. And F-RESTORE-1: the rule round one proposed should not be built as specified, since it makes a failed switch-off stick in 186 of 4,000 generated scenarios.
-- **Open, no design.** The provider-name strip in the price lookup (Review Focus 1). The fork change for a single-layout refusal's reason (F-LOGS-1). The identity header rule (F-LABEL-5): the gateway replaces a client's copy, so a repeated header never arrives through it, and the rule waits for a case that needs it.
+- **Deferred against round two's advice.** Round two said to fix the provider-name strip in the price lookup in Task 1's PR, and sketched two ways: try the model id as sent before the stripped form, or strip only when the provider's own model list holds the stripped name. It is left out here because neither way was built, no unit test pins the fault, only a script over the live catalogs shows it, and it changes the lookup for paid models too. It needs a prototype and a failing test of its own first. Until then 23 of the 96 offers Task 1 aims at stay wrong for a provider left at its preset name.
+- **Open, no design.** The fork change for a single-layout refusal's reason (F-LOGS-1). The identity header rule (F-LABEL-5): the gateway replaces a client's copy, so a repeated header never arrives through it, and the rule waits for a case that needs it.
 - **Open, a decision.** Pricing Task 8 itself, once its text is corrected. Squash-only merges and SHA pinning for actions, the two RS-5 settings left beside Task 9. The 88 `remediation` and 26 `test` rows of the register, which nobody has sorted into tasks: the owner says which matter after the VM pass.
 - **Stays as it is, by both rounds.** F-PRICE-4, 5, 6, 8 and 9. F-LOGS-2, F-LABEL-2. F-RESTORE-2, 4 and 5. F-TEST-2. F-GATEWAY-2, apart from the four text lines of Task 11.
 
 ## Self-review
 
-- **Coverage.** Every row round two recommends a change for has a task or a line under "Not in this plan" with its reason: F-PRICE-3 and 36 (1), F-CODEX-1 (2), F-UI-1 (3), F-LABEL-1 (4), F-TEST-3 (5, 6, 8), F-TEST-1 (7), F-TEST-5 (9, and the rulesets already applied), F-GATEWAY-1 (10), F-RESTORE-3, F-GATEWAY-2 and F-PRICE-7 (11).
+- **Coverage.** Every row round two recommends a change for has a task or a line under "Not in this plan" with its reason: F-PRICE-3 and 36 (1), F-CODEX-1 (2), F-UI-1 (3), F-LABEL-1 (4), F-TEST-13 (5), F-TEST-1 (7), F-TEST-3 (8), F-TEST-5 (9, and the rulesets already applied), F-GATEWAY-1 (10), F-RESTORE-3, F-GATEWAY-2 and F-PRICE-7 (11).
 - **Names.** `ownEntry`, `zeroKeys`, `"listed-free"` and `headerlessCodexProviderTable` are each defined in one task and used only there.
-- **What rests on a run and what does not.** The tests of Tasks 1, 3, 5 and 7, and five forms of Task 2's first test, are the research runs' own, each seen failing at `v9.1.0` and passing on a prototype. Written here and never run: the sixth form and the second test of Task 2, with the two-case return and the two messages; the both-rows assertion and the two text assertions of Task 3; the step order of Task 4; all of Task 6; the 10 second timeout in Task 7, where the prototype used 30.
-- **Not checked.** That the five branches are free of each other at the line level. Any task in a window. Either setting of Tasks 8 and 9 in effect.
+- **What rests on a run and what does not.** Tasks 1 to 5 and 7 were built twice by two runs on another model: once as prototypes, and once from this plan's text alone. Every test here was run by the second. Written after it and not built again: the wording its corrections changed, which is Step 6 and 7b of Task 1, Step 4's "every agent" of Task 2, the two descriptions of Task 3 and Step 1 of Task 4.
+- **Not checked.** A real Codex loading or refusing any form of Task 2: the audit checked only that each file parses as TOML. Any task in a window. Any Windows run. Either setting of Tasks 8 and 9 in effect. Review Focus 1's count of 23 on today's catalogs.

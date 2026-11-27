@@ -129,7 +129,7 @@ The owner asked for a deeper round on groups B, C and D. Four runs on another mo
 4. **A single-layout refusal hides its reason from the client**, as the F-LOGS-1 row says.
 5. **A user's ZCode cache that names LLM Router's id refuses the switch-off** (run). No key is involved.
 6. **The price lookup strips the provider's name from a model id**, as the F-PRICE-3 row says. It is older than 9.1.0.
-7. **A new Windows flake at 9.1.0**, in `request-log-retention-save.test.mjs`: its last assertion reads the page before the runtime clears the pending retention. The fix is to wait on the page.
+7. **Withdrawn.** Round two reported a new Windows flake at 9.1.0 in `request-log-retention-save.test.mjs`. The failing run was before PR 180, which removed the cause, and the audit of the remediation plan could not make the test fail at `main` with the writer's acknowledgement delayed (run). Nothing to fix.
 8. **Claude Code retries a 401 eleven times over 180 seconds** before showing it, so a wrong key looks like a hang. A 403 is not retried.
 9. **Smaller.** Agent Analysis differs by layout apart from the label. The no-key message differs by layout. OpenAI's discounted background windows report the default tier, so no tier rule can mark them. A catalog whose response holds only zeros counts as a failed source. The proxy certificate installer file is never removed, and only a call the UI never makes reaches it.
 
