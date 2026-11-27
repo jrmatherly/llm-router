@@ -81,7 +81,7 @@ import {
   scanTomlStatements,
   stripManagedCodexConfigContent
 } from "@llmr/core/profiles/codex-config-strip";
-import { isEmptyProviderJsonContent, isManagedProviderJsonContent, type ProviderJsonClient, stripManagedProviderJsonContent } from "@llmr/core/profiles/json-config-strip";
+import { isEmptyPiModelsContent, isEmptyProviderJsonContent, isManagedProviderJsonContent, type ProviderJsonClient, stripManagedPiModelsContent, stripManagedProviderJsonContent } from "@llmr/core/profiles/json-config-strip";
 import { profileAllowedModels } from "@llmr/core/profiles/model-allowlist";
 import { refreshClaudeAppModelDiscoveryCache, restoreClaudeAppGatewayConfig, syncClaudeAppGatewayConfig } from "@llmr/core/agents/claude-app/gateway-service";
 import { probeExistingLlmrGateway } from "@llmr/core/gateway/existing-gateway-probe";
@@ -1560,14 +1560,23 @@ export function globalProviderJsonWriter(profile: ProfileConfig): ((file: string
     return undefined;
   }
   const client: ProviderJsonClient = profile.agent === "kilo" ? "kilo" : "opencode";
+  return globalManagedJsonWriter(
+    providerJsonManagedContent(client),
+    (previous, snapshot) => stripManagedProviderJsonContent(previous, { client }, snapshot)
+  );
+}
+
+function globalManagedJsonWriter(
+  matchers: RestoreManagedContentMatchers,
+  stripPrevious: (previous: string, snapshot: string | undefined) => string | undefined
+): (file: string, content: string) => { backupFile?: string; changed: boolean } {
   return (file, content) => {
-    const matchers = providerJsonManagedContent(client);
     const source = existsSync(file) ? readFileSync(file, "utf8") : undefined;
     const result = writeGlobalManagedConfig(
       file,
       content,
       matchers,
-      (previous, snapshot) => stripManagedProviderJsonContent(previous, { client }, snapshot),
+      stripPrevious,
       (previous) => isAsWritten(readCodexWrittenRecord(file), previous)
     );
     writeConfigRecord(file, source, source !== undefined && matchers.isManagedContent(source));
@@ -2307,7 +2316,17 @@ function writePiWrapper(
 ): { backupFile?: string; changed: boolean; configFile: string; file: string } {
   const binDir = path.join(CONFIGDIR, "bin");
   mkdirSync(binDir, { mode: privateDirMode, recursive: true });
-  const configResult = writePiGatewayConfig(CONFIGDIR, config, profile, token, defaultModel);
+  const providerId = piProviderId(profile);
+  const configResult = writePiGatewayConfig(
+    CONFIGDIR,
+    config,
+    profile,
+    token,
+    defaultModel,
+    isGlobalProfile(profile)
+      ? globalManagedJsonWriter(piManagedContent([providerId]), (previous, snapshot) => stripManagedPiModelsContent(previous, [providerId], snapshot))
+      : undefined
+  );
   const file = piWrapperPath(profile);
   const runtimeFile = path.join(binDir, codexMiddlewareRuntimeFilename());
   const runtimeResult = process.platform === "win32"
@@ -2333,12 +2352,8 @@ function disabledPiStatus(profile: ProfileConfig): ProfileClientApplyStatus {
   if (!isGlobalProfile(profile)) {
     return disabledStatus("pi", piWrapperPath(profile), "Pi profile is disabled.");
   }
-  const providerId = piProviderId(profile);
   const file = piModelsFile(profile);
-  const restoreResult = restoreGlobalConfigFile(file, {
-    isManagedContent: (content) => isManagedPiModelsContent(content, providerId),
-    mode: privateFileMode
-  });
+  const restoreResult = restoreGlobalConfigFile(file, { ...piManagedContent([piProviderId(profile)]), mode: privateFileMode });
   return toleratingMissingBackup(
     disabledRestoreStatus("pi", file, "Pi profile is disabled.", restoreResult, profile.name || profile.id || profile.agent, false),
     restoreResult
@@ -3683,10 +3698,7 @@ export function restoreInactiveGlobalProfileConfigs(profiles: ProfileConfig[]): 
       if (!hasTakeoverSnapshot(file)) {
         continue;
       }
-      const restoreResult = restoreGlobalConfigFile(file, {
-        isManagedContent: (content) => providerIds.some((providerId) => isManagedPiModelsContent(content, providerId)),
-        mode: privateFileMode
-      });
+      const restoreResult = restoreGlobalConfigFile(file, { ...piManagedContent(providerIds), mode: privateFileMode });
       if (restoreResult.changed || restoreResult.missingBackup) {
         statuses.push(toleratingMissingBackup(inactiveGlobalCleanupStatus("pi", file, restoreResult), restoreResult));
       }
@@ -4064,7 +4076,7 @@ function disabledRestoreStatus(
 
 // A restore asks for no confirmation, so its message says what happened to the file and, when the profile stays disabled, how to undo it. Agents without a stripper keep the older wording.
 function restoredConfigMessage(client: ProfileClientKind, result: Partial<RestoreFileResult>, staysDisabled = false): string | undefined {
-  if (client !== "claude-code" && client !== "opencode" && client !== "kilo" && !isCodexFamily(client)) {
+  if (client !== "claude-code" && client !== "opencode" && client !== "kilo" && client !== "pi" && !isCodexFamily(client)) {
     return undefined;
   }
   const name = codexCompatibleClientName(client);
@@ -4461,6 +4473,16 @@ function providerJsonManagedContent(client: ProviderJsonClient): RestoreManagedC
     stripLiveContent: (content, snapshot) => stripManagedProviderJsonContent(content, { client }, snapshot),
     stripManagedContent: (content) => stripManagedProviderJsonContent(content, { client }),
     unreadableTakeover: (content) => parseJsoncRecord(content) === undefined && /x-llmr-client/i.test(content)
+  };
+}
+
+function piManagedContent(providerIds: string[]): RestoreManagedContentMatchers {
+  return {
+    isEmptyContent: isEmptyPiModelsContent,
+    isManagedContent: (content) => providerIds.some((providerId) => isManagedPiModelsContent(content, providerId)),
+    stripBeforeSnapshot: true,
+    stripLiveContent: (content, snapshot) => stripManagedPiModelsContent(content, providerIds, snapshot),
+    stripManagedContent: (content) => stripManagedPiModelsContent(content, providerIds)
   };
 }
 

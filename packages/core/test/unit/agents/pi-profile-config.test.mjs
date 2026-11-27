@@ -64,11 +64,49 @@ test("Pi profile config writes an LLMR OpenAI Responses provider", () => {
   }
 });
 
-test("isManagedPiModelsContent matches only an LLMR-only provider map", () => {
-  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "llm-router": {} } }), "llm-router"), true);
-  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "llm-router": {}, "my-ollama": {} } }), "llm-router"), false);
+test("isManagedPiModelsContent matches LLMR's provider by its client header, whatever else the file holds", () => {
+  const llmr = { headers: { "x-llmr-client": "pi" } };
+  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "llm-router": llmr } }), "llm-router"), true);
+  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "llm-router": llmr, "my-ollama": {} }, theme: "x" }), "llm-router"), true);
+  assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "llm-router": {} } }), "llm-router"), false);
   assert.equal(isManagedPiModelsContent(JSON.stringify({ providers: { "my-ollama": {} } }), "llm-router"), false);
   assert.equal(isManagedPiModelsContent("not json", "llm-router"), false);
+});
+
+test("an apply keeps the user's other providers in models.json", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-pi-merge-"));
+  try {
+    const agentDir = path.join(root, "pi-agent");
+    const file = path.join(agentDir, "models.json");
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(file, `${JSON.stringify({ providers: { "my-ollama": { baseUrl: "http://localhost:11434" } }, theme: "x" })}\n`);
+    const profile = { agent: "pi", configFile: agentDir, enabled: true, id: "pi-global", model: "", name: "Pi", scope: "global", surface: "cli" };
+
+    writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token", "default");
+
+    const payload = JSON.parse(readFileSync(file, "utf8"));
+    assert.deepEqual(Object.keys(payload), ["providers", "theme"]);
+    assert.deepEqual(Object.keys(payload.providers), ["my-ollama", "llm-router"]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("an apply over a models.json that is not a JSON object names the file and writes nothing", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "llmr-pi-unparsed-"));
+  try {
+    const agentDir = path.join(root, "pi-agent");
+    const file = path.join(agentDir, "models.json");
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(file, "{ \"providers\": ");
+    const profile = { agent: "pi", configFile: agentDir, enabled: true, id: "pi-global", model: "", name: "Pi", scope: "global", surface: "cli" };
+
+    assert.throws(() => writePiGatewayConfig(root, createDefaultAppConfig(), profile, "token", "default"), (error) => error.message.includes(file));
+    assert.equal(readFileSync(file, "utf8"), "{ \"providers\": ");
+    assert.deepEqual(readdirSync(agentDir), ["models.json"]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test("a global Pi profile snapshots and backs up the user's models.json before writing", () => {

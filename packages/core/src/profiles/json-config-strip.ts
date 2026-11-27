@@ -56,6 +56,37 @@ export function stripManagedProviderJsonContent(content: string, options: Provid
   return `${JSON.stringify(next, null, 2)}\n`;
 }
 
+// A user's own provider may be named llm-router, so only the client header marks LLMR's.
+export function isLlmrPiProvider(value: unknown): boolean {
+  return isRecord(value) && isRecord(value.headers) && value.headers["x-llmr-client"] === "pi";
+}
+
+export function stripManagedPiModelsContent(content: string, providerIds: string[], snapshot?: string): string | undefined {
+  const models = parseJsoncRecord(content);
+  const providers = models && isRecord(models.providers) ? { ...models.providers } : {};
+  const ids = providerIds.filter((id) => isLlmrPiProvider(providers[id]));
+  if (!models || ids.length === 0) {
+    return undefined;
+  }
+  const original = snapshot === undefined ? undefined : parseJsoncRecord(snapshot);
+  const originalProviders = original && isRecord(original.providers) ? original.providers : {};
+  for (const id of ids) {
+    if (Object.hasOwn(originalProviders, id)) {
+      providers[id] = originalProviders[id];
+    } else {
+      delete providers[id];
+    }
+  }
+  return `${JSON.stringify({ ...models, providers }, null, 2)}\n`;
+}
+
+export function isEmptyPiModelsContent(content: string): boolean {
+  const models = parseJsoncRecord(content);
+  return models !== undefined && Object.entries(models).every(([key, value]) =>
+    key === "providers" && isRecord(value) && Object.keys(value).length === 0
+  );
+}
+
 export function isEmptyProviderJsonContent(content: string, schema: string): boolean {
   const config = parseJsoncRecord(content);
   return config !== undefined && Object.entries(config).every(([key, value]) =>
