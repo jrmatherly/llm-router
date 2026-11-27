@@ -1554,8 +1554,10 @@ export class RequestLogStore {
       ON request_route_traces(request_id);
     `);
     ensureRequestLogSchema(database);
-    ensureRequestRouteTraceSchema(database);
-    ensurePendingRawTraceUpdateSchema(database);
+    database.transaction(() => {
+      ensureRequestRouteTraceSchema(database);
+      ensurePendingRawTraceUpdateSchema(database);
+    }).immediate();
     ensureRawTraceEventSchema(database);
     database.exec(`
       CREATE UNIQUE INDEX IF NOT EXISTS request_logs_event_id_idx
@@ -4585,6 +4587,19 @@ function migrateRequestLogModelSummaries(database: SqlDatabase): void {
 }
 
 function ensureRequestLogSchema(database: SqlDatabase): void {
+  // Under the write lock, so another process cannot add a column between the read and the add.
+  const needsModelSummaryMigration = database.transaction(() => ensureRequestLogColumns(database)).immediate();
+  if (needsModelSummaryMigration) {
+    migrateRequestLogModelSummaries(database);
+  }
+
+  ensureRequestLogMigrationSchema(database);
+  migrateGatewayOutcome(database);
+  migrateGatewayFinalAttempt(database);
+  ensureRequestLogIndexes(database);
+}
+
+function ensureRequestLogColumns(database: SqlDatabase): boolean {
   const columns = new Set(
     queryRows(database, "PRAGMA table_info(request_logs)")
       .map((row) => String(row.name ?? ""))
@@ -4658,15 +4673,10 @@ function ensureRequestLogSchema(database: SqlDatabase): void {
   addColumn("error", "TEXT NOT NULL DEFAULT ''");
   addColumn("forwarded_user_email", "TEXT NOT NULL DEFAULT ''");
   addColumn("forwarded_user_id", "TEXT NOT NULL DEFAULT ''");
+  return needsModelSummaryMigration;
+}
 
-  if (needsModelSummaryMigration) {
-    migrateRequestLogModelSummaries(database);
-  }
-
-  ensureRequestLogMigrationSchema(database);
-  migrateGatewayOutcome(database);
-  migrateGatewayFinalAttempt(database);
-
+function ensureRequestLogIndexes(database: SqlDatabase): void {
   database.exec("CREATE INDEX IF NOT EXISTS request_logs_created_at_idx ON request_logs(created_at)");
   database.exec("CREATE INDEX IF NOT EXISTS request_logs_credential_id_idx ON request_logs(credential_id)");
   database.exec("CREATE INDEX IF NOT EXISTS request_logs_model_idx ON request_logs(model)");

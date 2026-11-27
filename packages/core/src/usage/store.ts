@@ -562,7 +562,13 @@ export class UsageStore {
         value TEXT NOT NULL
       );
     `);
-    ensureUsageSchema(database);
+    const columns = new Set(queryRows(database, "PRAGMA table_info(usage_events)").map((row) => String(row.name ?? "")));
+    if (usageSchemaColumns.every((column) => columns.has(column))) {
+      ensureUsageSchema(database);
+    } else {
+      // Under the write lock, so another process cannot add a column between the read and the add.
+      database.transaction(() => ensureUsageSchema(database)).immediate();
+    }
 
     this.database = database;
     return database;
@@ -698,6 +704,9 @@ export function onUsageRecorded(listener: () => void): () => void {
     usageEvents.off("recorded", listener);
   };
 }
+
+// A column that ensureUsageSchema adds goes into this list too.
+const usageSchemaColumns = ["client", "cost_usd", "cost_source", "logical_model", "credential_id", "forwarded_user_email", "forwarded_user_id", "price_model"];
 
 function ensureUsageSchema(database: SqlDatabase): void {
   const columns = new Set(

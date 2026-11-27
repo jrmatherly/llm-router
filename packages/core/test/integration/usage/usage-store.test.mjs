@@ -9,6 +9,7 @@ import { createBetterSqliteDatabase } from "@llmr/core/storage/sqlite-native.ts"
 import { GatewayBillingSynchronizer } from "@llmr/core/usage/billing-sync.ts";
 import { resolveUsageModelAttribution } from "@llmr/core/usage/model-attribution.ts";
 import { UsageStore } from "@llmr/core/usage/store.ts";
+import { addColumnRightAfterTheColumnsAreRead } from "../../support/sqlite-schema-race.mjs";
 import { removeTestDir, testTempRoot } from "../../support/test-temp-dir.mjs";
 
 // Stores built without an injected loader warm the real price catalog.
@@ -1394,4 +1395,45 @@ test("a request resolved to no price is estimated by neither writer, whatever ca
     await preloadUsagePriceCatalog({ forceRefresh: true }).catch(() => undefined);
     removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]);
   }
+});
+
+test("an older usage database opens when another process adds the same column between this one's read of the columns and its own add", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-schema-race-test-"));
+  const file = path.join(dir, "usage.sqlite");
+  try {
+    await new UsageStore(file).record({ durationMs: 1, method: "POST", model: "m", path: "/v1/messages", provider: "p", requestId: "old", statusCode: 200 });
+    const legacy = createBetterSqliteDatabase(file);
+    try {
+      legacy.exec("ALTER TABLE usage_events DROP COLUMN forwarded_user_email");
+    } finally {
+      legacy.close();
+    }
+    const restore = addColumnRightAfterTheColumnsAreRead(file, "usage_events", "forwarded_user_email TEXT NOT NULL DEFAULT ''");
+    let stats;
+    try {
+      stats = await new UsageStore(file).getStats("24h", { includeProxy: true });
+    } finally {
+      restore();
+    }
+    assert.equal(stats.totals.requestCount, 1);
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
+});
+
+test("an up-to-date usage database opens at once while another connection holds the write lock", async () => {
+  const dir = mkdtempSync(path.join(testTempRoot, "llmr-usage-schema-no-lock-test-"));
+  const file = path.join(dir, "usage.sqlite");
+  try {
+    await new UsageStore(file).record({ durationMs: 1, method: "POST", model: "m", path: "/v1/messages", provider: "p", requestId: "old", statusCode: 200 });
+    const holder = createBetterSqliteDatabase(file);
+    try {
+      holder.exec("BEGIN IMMEDIATE");
+      const started = Date.now();
+      const stats = await new UsageStore(file).getStats("24h", { includeProxy: true });
+      assert.equal(stats.totals.requestCount, 1);
+      assert.ok(Date.now() - started < 2_000, `waited ${Date.now() - started} ms`);
+      holder.exec("ROLLBACK");
+    } finally {
+      holder.close();
+    }
+  } finally { removeTestDir(dir, ["usage.sqlite", "request-logs.sqlite"]); }
 });
