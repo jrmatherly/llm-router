@@ -533,6 +533,8 @@ export class RequestLogStore {
         }
         if (command.input.allowStandaloneRecord && !hasRequestLogWithRequestId(database, command.input.requestId.trim())) {
           await this.record(standaloneRecordInputFromRawTrace(command.input, command.rawTraceFiles));
+          const parkedPrice = this.takePendingPrice(database, command.input.requestId.trim());
+          if (parkedPrice) this.applyPriceUpdate(database, { price: parkedPrice, requestId: command.input.requestId.trim() });
           if (bundleId) {
             rememberProcessedRawTraceBundle(database, bundleId, command.input.requestId.trim());
           }

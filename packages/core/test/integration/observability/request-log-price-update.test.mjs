@@ -242,3 +242,35 @@ test("a row stored with a cost and no recorded source keeps its cost when a pric
     assert.deepEqual(readRow("old"), { cost_source: "", cost_usd: 5, input_tokens: 1000000, pricing_json: "" });
   } finally { await store.close(); rmSync(dir, { force: true, recursive: true }); }
 });
+
+test("a price update that arrives before a row the raw trace itself creates prices that row", async () => {
+  const { dir, pending, readRow, store } = open("llmr-request-log-price-update-standalone-test-");
+  try {
+    const standalone = {
+      input: { allowStandaloneRecord: true, method: "POST", model: "m", path: "/v1/messages", price: { state: "no-catalog" }, provider: "p", requestId: "standalone", responseBodyText: usageBody, statusCode: 200 },
+      kind: "raw-trace-update",
+      sequence: 2
+    };
+    await store.writeBatch([priceUpdate("standalone", litellmPrice, 1), standalone]);
+    assert.deepEqual(
+      { cost_source: readRow("standalone").cost_source, cost_usd: readRow("standalone").cost_usd },
+      { cost_source: "litellm", cost_usd: 6 }
+    );
+    assert.deepEqual(pending(), []);
+  } finally { await store.close(); rmSync(dir, { force: true, recursive: true }); }
+});
+
+test("a price update prices every waiting row of its request, each from its own tokens", async () => {
+  const { dir, query, store } = open("llmr-request-log-price-update-shared-id-test-");
+  try {
+    await store.writeBatch([
+      record("shared", 1),
+      { ...record("shared", 2, doubledBody), eventId: "shared-second-event" }
+    ]);
+    await store.writeBatch([priceUpdate("shared", litellmPrice, 3)]);
+    assert.deepEqual(
+      query("SELECT cost_usd FROM request_logs WHERE request_id = ? ORDER BY id", "shared").map((row) => row.cost_usd),
+      [6, 12]
+    );
+  } finally { await store.close(); rmSync(dir, { force: true, recursive: true }); }
+});
