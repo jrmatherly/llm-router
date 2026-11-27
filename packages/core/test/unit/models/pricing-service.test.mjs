@@ -689,3 +689,48 @@ test("a user price has no tiers", async () => {
     assert.equal(resolveRequestPrice(config, "VM Custom", "claude-haiku-5-5").price.tiers, undefined);
   });
 });
+
+test("a 0 in a tier's field reads as absent, so the tier keeps the base entry's price for that field", async () => {
+  const lab = { Providers: [{ baseUrl: "https://api.example.com", models: ["m"], name: "Lab" }] };
+  const modelsDev = { lab: { models: { m: { cost: { cache_read: 0.2, cache_write: 1.25, input: 1, output: 2, tiers: [
+    { cache_read: 0, cache_write: 0, input: 2, output: 4, tier: { size: 200000 } },
+    { input: 0, output: 0, tier: { size: 300000 } }
+  ] } } } } };
+  await withPriceCatalogs({ modelsDev }, () => {
+    const price = resolveRequestPrice(lab, "Lab", "lab/m").price;
+    assert.deepEqual(pricingForPrompt(price, 200_001), { cacheReadUsdPerMillionTokens: 0.2, cacheWriteUsdPerMillionTokens: 1.25, inputUsdPerMillionTokens: 2, outputUsdPerMillionTokens: 4 });
+    assert.deepEqual(price.tiers.map((tier) => tier.abovePromptTokens), [200000], "a tier whose input and output are both 0 is left out");
+  });
+  const liteLlm = { "tiered-model": {
+    cache_creation_input_token_cost: 0.00000125, cache_creation_input_token_cost_above_200k_tokens: 0,
+    input_cost_per_token: 0.000001, input_cost_per_token_above_200k_tokens: 0.000002,
+    output_cost_per_token: 0.000004, output_cost_per_token_above_200k_tokens: 0
+  } };
+  await withPriceCatalogs({ liteLlm }, () => {
+    const tier = pricingForPrompt(resolveRequestPrice(customConfig, "VM Custom", "tiered-model").price, 200_001);
+    assert.deepEqual([tier.inputUsdPerMillionTokens, tier.outputUsdPerMillionTokens, tier.cacheWriteUsdPerMillionTokens], [2, 4, 1.25]);
+  });
+});
+
+test("a tier that states 0 on one side takes the base entry's price for that side", async () => {
+  const lab = { Providers: [{ baseUrl: "https://api.example.com", models: ["m"], name: "Lab" }] };
+  const modelsDev = { lab: { models: { m: { cost: { input: 1, output: 2, tiers: [
+    { input: 0, output: 4, tier: { size: 200000 } },
+    { input: 3, output: 0, tier: { size: 300000 } }
+  ] } } } } };
+  await withPriceCatalogs({ modelsDev }, () => {
+    const price = resolveRequestPrice(lab, "Lab", "lab/m").price;
+    assert.deepEqual(pricingForPrompt(price, 200_001), { inputUsdPerMillionTokens: 1, outputUsdPerMillionTokens: 4 });
+    assert.deepEqual(pricingForPrompt(price, 300_001), { inputUsdPerMillionTokens: 3, outputUsdPerMillionTokens: 2 });
+  });
+});
+
+test("a base entry that lists input at 0 beside a real output stays priced with its 0", async () => {
+  const lab = { Providers: [{ baseUrl: "https://api.example.com", models: ["m"], name: "Lab" }] };
+  const modelsDev = { lab: { models: { m: { cost: { input: 0, output: 5 } } } } };
+  await withPriceCatalogs({ modelsDev }, () => {
+    const outcome = resolveRequestPrice(lab, "Lab", "lab/m");
+    assert.equal(outcome.state, "priced");
+    assert.deepEqual(outcome.price.pricing, { inputUsdPerMillionTokens: 0, outputUsdPerMillionTokens: 5 });
+  });
+});

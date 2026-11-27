@@ -611,9 +611,10 @@ function addCatalogEntry(
   }
   // A tier's own fields overlay the base entry's, so a tier with no cache price keeps the base one.
   const tiers = tierCandidates
+    .map(({ pricing: tier, size }) => ({ pricing: positivePrices(tier), size }))
     .filter(({ pricing: tier, size }) => size !== undefined && size > 0 &&
       (tier.inputUsdPerMillionTokens !== undefined || tier.outputUsdPerMillionTokens !== undefined))
-    .map(({ pricing: tier, size }) => ({ abovePromptTokens: size as number, pricing: { ...pricing, ...definedPrices(tier) } }))
+    .map(({ pricing: tier, size }) => ({ abovePromptTokens: size as number, pricing: { ...pricing, ...tier } }))
     .sort((left, right) => left.abovePromptTokens - right.abovePromptTokens);
   index.byKey.set(key, {
     ...(canonicalModelId ? { canonicalModelId } : {}),
@@ -626,6 +627,11 @@ function addCatalogEntry(
 
 function definedPrices(candidate: ProviderModelPricing): ProviderModelPricing {
   return Object.fromEntries(Object.entries(candidate).filter(([, value]) => value !== undefined)) as ProviderModelPricing;
+}
+
+// A catalog lists a tier's 0 where it means "same as the base entry".
+function positivePrices(candidate: ProviderModelPricing): ProviderModelPricing {
+  return Object.fromEntries(Object.entries(candidate).filter(([, value]) => typeof value === "number" && value > 0)) as ProviderModelPricing;
 }
 
 // Guesses the maker from the provider's name, for a provider whose base URL maps to no catalog id.
