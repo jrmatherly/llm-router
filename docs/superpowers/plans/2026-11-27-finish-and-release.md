@@ -836,7 +836,9 @@ One sitting on the owner's UTM VM, on the released build. It is his to run. The 
 
 ---
 
-### Task 12: The remediation plan
+### Task 12: The remediation plan. Written 2026-11-27, ahead of the VM pass
+
+**The plan is [`2026-11-27-remediation.md`](2026-11-27-remediation.md).** It holds a task for each change round two recommends, each from a prototype with a test seen failing at `v9.1.0`, and each waiting on the owner's answer. The VM pass's failed lines join it when the pass has run. The steps below are how that plan was meant to be written and stay as the record.
 
 - [ ] **Step 1: Gather.** Every line Task 11 marked failed, every register row whose disposition is `remediation` or `test`, and every `decide` row the owner has answered with a change. Leave out the six rows Tasks 2 to 7 fixed, four of which the register's tables still list as `remediation`. F-LABEL-5 is not fixed and stays in. Include the second half of F-PRICE-10, a sweep started by the back-fill, which the tables list as a `limit`.
 - [ ] **Step 2: Group and write.** A new plan under `docs/superpowers/plans/`, written with superpowers:writing-plans, grouped by the files the fixes share so that each group is one branch and one PR. Each task's text is checked against the code on another model before the plan is committed, as Tasks 2 to 8 here were.
