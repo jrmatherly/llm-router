@@ -185,6 +185,30 @@ test("LogsView says how long request logs are kept only when it is given the ret
   assert.doesNotMatch(render(), /Request logs are kept for/);
 });
 
+test("LogsView states the database's retention and says when another was asked for", () => {
+  const render = (page: RequestLogPage) => renderToStaticMarkup(
+    <LogsView
+      error=""
+      filter={{ page: 1, pageSize: 25, status: "all" }}
+      loading={false}
+      page={page}
+      refreshLogs={() => undefined}
+      retentionDays={7}
+      updateFilter={() => undefined}
+    />
+  );
+
+  assert.match(render({ ...emptyLogPage, retentionDays: 12 }), /Request logs are kept for 12 days\./);
+  assert.doesNotMatch(render({ ...emptyLogPage, retentionDays: 12 }), /has not been applied/);
+  const pending = render({ ...emptyLogPage, retentionDays: 12, retentionRequestedDays: 3 });
+  assert.match(pending, /Request logs are kept for 12 days\./);
+  assert.match(pending, /role="alert"[^>]*>Settings ask for 3 days\. That has not been applied to the log database yet\. Saving any setting tries again\./);
+  const none = render({ ...emptyLogPage, retentionRequestedDays: 3 });
+  assert.match(none, /Settings ask for 3 days\. The log database has no retention yet, so it keeps every row\. Saving any setting tries again\./);
+  assert.doesNotMatch(none, /Request logs are kept for/);
+  assert.match(render(emptyLogPage), /Request logs are kept for 7 days\./);
+});
+
 test("LogsView offers preset date ranges and disables those longer than the retention", () => {
   const render = (props: { filter?: RequestLogListFilter; retentionDays?: number } = {}) => renderToStaticMarkup(
     <LogsView

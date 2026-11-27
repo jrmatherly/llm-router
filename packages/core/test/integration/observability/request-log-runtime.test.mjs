@@ -1221,6 +1221,61 @@ test("RequestLogRuntime saves a retention value the writer died before saving on
   }
 });
 
+test("RequestLogRuntime sends an unchanged retention to the writer once", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-retention-once-test-"));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  const fixture = path.join(dir, "worker.cjs");
+  const sent = path.join(dir, "sent.log");
+  writeFileSync(fixture, `
+    const { parentPort } = require('node:worker_threads');
+    const fs = require('node:fs');
+    parentPort.on('message', (message) => {
+      if (message.method === 'setRetentionDays') fs.appendFileSync(${JSON.stringify(sent)}, message.args[0] + '\\n');
+    });
+    require(${JSON.stringify(workerFile)});
+  `);
+  const runtime = createRequestLogRuntime({ dbFile, workerFile: fixture });
+  try {
+    // The writer's ready handler also sends the requested value, so a first save that starts the writer can send it twice.
+    runtime.enqueueRecord(createRecord("retention-once-warm-up"));
+    assert.equal((await runtime.flush({ timeoutMs: 5_000 })).timedOut, false);
+    await runtime.setRetentionDays(7);
+    await runtime.setRetentionDays(7);
+    await runtime.setRetentionDays(8);
+    assert.deepEqual(readFileSync(sent, "utf8").trim().split("\n"), ["7", "8"]);
+  } finally {
+    await runtime.close({ timeoutMs: 5_000 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("RequestLogRuntime says which retention it asked for while the database holds another", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-retention-pending-test-"));
+  const dbFile = path.join(dir, "request-logs.sqlite");
+  const runtime = createRequestLogRuntime({ dbFile, workerFile });
+  let database;
+  try {
+    await runtime.setRetentionDays(7);
+    await runtime.list({});
+    database = createBetterSqliteDatabase(dbFile);
+    database.exec("BEGIN EXCLUSIVE");
+    await assert.rejects(runtime.setRetentionDays(30), /locked/);
+    const pending = await runtime.list({});
+    assert.equal(pending.retentionDays, 7);
+    assert.equal(pending.retentionRequestedDays, 30);
+    database.exec("ROLLBACK");
+    await runtime.setRetentionDays(30);
+    const applied = await runtime.list({});
+    assert.equal(applied.retentionDays, 30);
+    assert.equal(applied.retentionRequestedDays, undefined);
+    assert.equal(runtime.metrics().writerRestarts, 0);
+  } finally {
+    database?.close();
+    await runtime.close({ timeoutMs: 5_000 });
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
 test("RequestLogRuntime terminally rejects delayed raw traces for records dropped by overload", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "llmr-request-log-runtime-shared-admission-test-"));
   const realDateNow = Date.now;

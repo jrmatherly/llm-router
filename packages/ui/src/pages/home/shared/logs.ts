@@ -20,6 +20,14 @@ export function requestLogRetentionNotice(days: number): string {
   return `Request logs are kept for ${days} ${days === 1 ? "day" : "days"}. Change this in Settings.`;
 }
 
+export function requestLogRetentionPendingNotice(requestedDays: number, storedDays: number | undefined): string {
+  const asked = `Settings ask for ${requestedDays} ${requestedDays === 1 ? "day" : "days"}.`;
+  const state = storedDays === undefined
+    ? "The log database has no retention yet, so it keeps every row."
+    : "That has not been applied to the log database yet.";
+  return `${asked} ${state} Saving any setting tries again.`;
+}
+
 export function formatLogDateTime(value: string): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) {

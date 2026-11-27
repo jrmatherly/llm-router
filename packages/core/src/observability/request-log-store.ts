@@ -1217,6 +1217,7 @@ export class RequestLogStore {
         `,
         [...query.params, pageSize, offset]
     ).map(toRequestLogEntry);
+    const retentionDays = readRequestLogRetentionDays(database);
 
     return {
       generatedAt: new Date().toISOString(),
@@ -1224,6 +1225,7 @@ export class RequestLogStore {
       options: await this.getFilterOptions(),
       page: normalizedPage,
       pageSize,
+      ...(retentionDays === undefined ? {} : { retentionDays }),
       total: count,
       totalPages
     };

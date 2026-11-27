@@ -2374,6 +2374,8 @@ export type RequestLogPage = {
   options: RequestLogFilterOptions;
   page: number;
   pageSize: number;
+  retentionDays?: number;
+  retentionRequestedDays?: number;
   total: number;
   totalPages: number;
 };

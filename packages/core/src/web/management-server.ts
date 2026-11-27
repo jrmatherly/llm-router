@@ -513,7 +513,7 @@ const rpcHandlers: Record<string, RpcHandler> = {
       }
     }
     let savedConfig = await saveAppConfig(nextInput);
-    await applyRequestLogRetentionDays(savedConfig.observability.requestLogRetentionDays);
+    void applyRequestLogRetentionDays(savedConfig.observability.requestLogRetentionDays);
     const syncedClaudeAppConfig = await syncClaudeAppGatewayConfig(savedConfig);
     savedConfig = syncedClaudeAppConfig.config;
     const applyProfile = (options as AppSaveConfigOptions | undefined)?.applyProfile !== false;
