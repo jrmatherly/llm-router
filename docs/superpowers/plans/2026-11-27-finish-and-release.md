@@ -762,7 +762,9 @@ The text is restore Task 9 in [`2026-11-22-backlog-restore.md`](2026-11-22-backl
 
 ---
 
-### Task 10: Release 9.1.0
+### Task 10: Release 9.1.0. Done 2026-11-27
+
+**Released on the owner's word.** Commit `6596e807`, tag `v9.1.0`, on gateway fork `v1.0.22-llmr.4`. The Tests run for `main`'s head passed before the cut (run `46065459250`). Release run `46066501758` passed on every job with no rerun, and the release is public with 14 assets. Docker run `46067533723` passed, with image tags `9.1.0`, `9.1` and `latest`. It ships PRs 149 to 181. The "Upgrading to 9.1" and "What's new" sections were put above the generated list with `gh release edit`. They were written from the opening of each squash-merge message, with five messages read in full, and the owner was shown the draft before the cut. Not checked: each sentence against its PR's full message, and the installed app on any machine.
 
 **Before.** Tasks 2 to 7 are merged as PR 180 (`0500d2f3`), and so is PR 181, the cost label (`26bd76c6`). Task 1 is merged too if the owner gave his word for it. `main` is clean and level with origin, and the Tests run for its head passed, Windows and the Intel Mac included.
 

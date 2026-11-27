@@ -13,7 +13,7 @@
 Checked that day at `main` `b504d153` against GitHub's list of merged PRs and the tags of both repositories. Every PR number and squash hash in the table below matches (read).
 
 - **Merged.** 18 of the 19 batches, both Windows PRs, and three PRs of test faults outside the batches (163, 165, 179). The Tests run for `b504d153` passed, Windows and the Intel Mac included (read).
-- **Released.** None of it. The last release is `v9.0.0`, cut on 2026-11-24 with PRs up to 148. PRs 149 to 179 are on `main` and in no release, and `main` is 125 commits past the tag (run).
+- **Released on 2026-11-27 as `v9.1.0`** (`6596e807`), with PRs 149 to 181: the batches below, six of the seven pre-release fixes (PR 180) and the cost label (PR 181). The line that follows is the state before that release. Before it: none of it was released. The last release is `v9.0.0`, cut on 2026-11-24 with PRs up to 148. PRs 149 to 179 are on `main` and in no release, and `main` is 125 commits past the tag (run).
 - **Not merged.** Batch 5. Its fork commit is built and waits on the owner's word, as its row says.
 - **Not built, and not a PR.** Restore Task 9, a prototype with no product code. Pricing Tasks 6 and 8, which wait on the owner's answers to questions 2 and 3 below.
 - **Findings nobody fixed.** They are listed by PR under "Findings with no task" below. [`2026-11-27-open-findings.md`](2026-11-27-open-findings.md) is the same list as one register, by area, with a proposed disposition for each.
