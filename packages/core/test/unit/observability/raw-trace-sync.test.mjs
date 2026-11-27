@@ -1625,6 +1625,14 @@ test("a trace's usage event is dated at the trace's start", async () => {
   assert.equal(event.created_at, startedAt);
 });
 
+test("a trace's start time in another date format is stored as an ISO timestamp", async () => {
+  const requestId = `usage-start-format-${Date.now()}`;
+  const startedAt = new Date(Date.now() - 3_600_000).toUTCString();
+  await sendUsageTrace({ requestId, startedAt, target: { model: `stub-model-${requestId}`, providerName: "Stub" } });
+  const [event] = await usageEventsFor(requestId);
+  assert.equal(event.created_at, new Date(startedAt).toISOString());
+});
+
 test("a trace with no usable start time is dated at its import", async () => {
   for (const [name, startedAt] of [["none", undefined], ["not-a-date", "not a date"], ["future", new Date(Date.now() + 3_600_000).toISOString()]]) {
     const requestId = `usage-bad-start-${name}-${Date.now()}`;
