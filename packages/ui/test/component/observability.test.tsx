@@ -76,6 +76,10 @@ test("LogsView keeps disabled request logs discoverable with an enable action", 
 
   assert.match(html, /Request logs are off/);
   assert.match(html, /Enable request logs/);
+  const wrapper = firstMatch(html, /^<div class="[^"]*"/);
+  assert.match(wrapper, /overflow-y-auto/);
+  assert.match(wrapper, /(^|[" ])-m-5 /);
+  assert.match(wrapper, / p-5[ "]/);
 });
 
 const refusedForKey = {
@@ -183,6 +187,33 @@ test("LogsView says how long request logs are kept only when it is given the ret
   assert.match(render(7), /Request logs are kept for 7 days\. Change this in Settings\./);
   assert.match(render(1), /Request logs are kept for 1 day\. Change this in Settings\./);
   assert.doesNotMatch(render(), /Request logs are kept for/);
+});
+
+test("LogsView states the database's retention and says when another was asked for", () => {
+  const render = (page: RequestLogPage) => renderToStaticMarkup(
+    <LogsView
+      error=""
+      filter={{ page: 1, pageSize: 25, status: "all" }}
+      loading={false}
+      page={page}
+      refreshLogs={() => undefined}
+      retentionDays={7}
+      updateFilter={() => undefined}
+    />
+  );
+
+  assert.match(render({ ...emptyLogPage, retentionDays: 12 }), /Request logs are kept for 12 days\./);
+  assert.doesNotMatch(render({ ...emptyLogPage, retentionDays: 12 }), /has not been applied/);
+  const pending = render({ ...emptyLogPage, retentionDays: 12, retentionRequestedDays: 3 });
+  assert.match(pending, /Request logs are kept for 12 days\./);
+  assert.match(pending, /role="alert"[^>]*>Settings ask for 3 days\. That has not been applied to the log database yet\. Saving any setting tries again\./);
+  const none = render({ ...emptyLogPage, retentionRequestedDays: 3 });
+  assert.match(none, /Settings ask for 3 days\. The log database has no retention yet, so it keeps every row\. Saving any setting tries again\./);
+  assert.doesNotMatch(none, /Request logs are kept for/);
+  assert.match(render(emptyLogPage), /Request logs are kept for 7 days\./);
+  const longRange = (page: RequestLogPage) => firstMatch(render(page), /<option[^>]*>Last 30 days<\/option>/);
+  assert.doesNotMatch(longRange({ ...emptyLogPage, retentionDays: 30 }), /disabled=""/);
+  assert.match(longRange(emptyLogPage), /disabled=""/);
 });
 
 test("LogsView offers preset date ranges and disables those longer than the retention", () => {
@@ -543,8 +574,10 @@ test("#1801 LogsView shows missing HTTP status as neutral", () => {
   assert.doesNotMatch(html, /network-dot-error|network-state-pill-error/);
 });
 
-test("LogExpandedDetails keeps a gap between summary columns and titles each value", () => {
-  const html = renderToStaticMarkup(<LogExpandedDetails entry={sampleRequestLogEntry} />);
+test("LogExpandedDetails keeps a gap between summary columns and wraps a long value", () => {
+  const html = renderToStaticMarkup(<LogExpandedDetails entry={{ ...sampleRequestLogEntry, requestId: "r".repeat(200) }} />);
   assert.match(html, /network-body-meta[^"]*gap-x-4/);
-  assert.match(html, /title="req-token-copy"[^>]*>req-token-copy</);
+  const value = firstMatch(html, new RegExp(`<div class="[^"]*"[^>]*>${"r".repeat(200)}<`));
+  assert.match(value, /\[overflow-wrap:anywhere\]/);
+  assert.doesNotMatch(value, /truncate|title=/);
 });

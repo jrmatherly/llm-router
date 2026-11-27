@@ -14,7 +14,7 @@ import {
   networkExchangeMatchesQuery, networkHeaderRows, networkLifecycleLabel, networkQueryRows, networkRowId, networkSummaryRows,
   Pause, Play, prepareLogBodyForWorker, ProxyNetworkBody, ProxyNetworkExchange, ProxyNetworkSnapshot, ProxyStatus,
   ReactNode, ReactPointerEvent, RefreshCw, RequestLogBody, RequestLogBodyChunk, RequestLogEntry, RequestLogListFilter,
-  RequestLogPage, requestLogPageSizeOptions, requestLogRangeOptions, requestLogRetentionNotice, RequestLogStatusFilter, requestLogStatusOptions, Search, Select, Trash2,
+  RequestLogPage, requestLogPageSizeOptions, requestLogRangeOptions, requestLogRetentionNotice, requestLogRetentionPendingNotice, RequestLogStatusFilter, requestLogStatusOptions, Search, Select, Trash2,
   usageRangeDays, UsageStatsRange, useCallback, useEffect, useMemo, useRef, useState
 } from "../shared/index";
 import { TooltipPortal } from "@/components/ui/tooltip";
@@ -376,6 +376,8 @@ export function LogsView({
   retentionDays?: number;
   updateFilter: (patch: RequestLogListFilter, resetPage?: boolean) => void;
 }) {
+  // A pending value must not fall back to the prop: after a save the prop is the value just asked for.
+  const statedRetentionDays = page.retentionRequestedDays !== undefined ? page.retentionDays : page.retentionDays ?? retentionDays;
   const refusedNotice = refusedForKey && refusedForKey.count > 0
     ? <RefusedKeyRequestsNotice refused={refusedForKey} />
     : null;
@@ -497,7 +499,7 @@ export function LogsView({
 
   if (!enabled) {
     return (
-      <div className="network-view flex min-w-0 flex-col overflow-y-auto">
+      <div className="-m-5 flex h-[calc(100%+2.5rem)] min-w-0 flex-col overflow-y-auto p-5 max-[720px]:-m-3 max-[720px]:h-[calc(100%+1.5rem)] max-[720px]:p-3">
         {refusedNotice}
         <MonitorDisabledView
           actionLabel="Enable request logs"
@@ -544,7 +546,7 @@ export function LogsView({
             onValueChange={(value) => updateFilter({ range: (value || undefined) as UsageStatsRange | undefined })}
             options={requestLogRangeOptions.map((option) => ({
               ...option,
-              disabled: option.value !== "" && retentionDays !== undefined && usageRangeDays(option.value) > retentionDays
+              disabled: option.value !== "" && statedRetentionDays !== undefined && usageRangeDays(option.value) > statedRetentionDays
             }))}
             value={filter.range ?? ""}
           />
@@ -614,8 +616,13 @@ export function LogsView({
           </button>
         </div>
 
-        {retentionDays ? (
-          <div className="border-b px-3 py-1 text-[11px] text-muted-foreground">{requestLogRetentionNotice(retentionDays)}</div>
+        {statedRetentionDays ? (
+          <div className="border-b px-3 py-1 text-[11px] text-muted-foreground">{requestLogRetentionNotice(statedRetentionDays)}</div>
+        ) : null}
+        {page.retentionRequestedDays !== undefined ? (
+          <div className="border-b px-3 py-1 text-[11px] text-destructive" role="alert">
+            {requestLogRetentionPendingNotice(page.retentionRequestedDays, page.retentionDays)}
+          </div>
         ) : null}
 
         {error ? (
@@ -1427,7 +1434,7 @@ function LogMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <div className="network-muted truncate text-[11px]">{label}</div>
-      <div className="truncate font-mono text-[12px] font-semibold" title={value}>{value}</div>
+      <div className="[overflow-wrap:anywhere] font-mono text-[12px] font-semibold">{value}</div>
     </div>
   );
 }

@@ -32,7 +32,7 @@ Request logs are governed by four low-level config options (the defaults fit mos
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `requestLogRetentionDays` | `7` | Number of days request logs are kept, from `1` to `90`. `1` keeps today's and yesterday's requests. |
+| `requestLogRetentionDays` | `7` | Number of days request logs are kept, from `1` to `90`. `1` keeps today's and yesterday's requests. A stored value that is not a whole number from `1` to `90` is read as `90`, with a warning. |
 | `requestLogBodyCapture` | `all` | Whether to record request and response bodies: `all` records all, `errors` records bodies only for failed requests, `none` records no bodies. |
 | `requestLogMaxBodyBytes` | `52428800` (50 MiB) | In-memory body capture and preview budget for a single request or response body. File-backed raw trace bodies can exceed this limit; the full body is stored in sidecar storage and loaded on demand from the Logs page. |
 | `requestLogSuccessSampleRate` | `1` | Sampling rate for successful requests, between `0` and `1`. `1` records all, `0.1` records roughly one in ten. |

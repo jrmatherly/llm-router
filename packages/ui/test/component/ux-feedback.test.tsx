@@ -25,16 +25,18 @@ test("failed saves expose an actionable alert and collapsed diagnostic details",
   assert.match(html, />Retry saving<\/button>/);
   assert.match(html, /<details[^>]*><summary/);
   assert.doesNotMatch(html, /<details[^>]*open/);
+  assert.doesNotMatch(html, /class="[^"]*fixed/);
 });
 
-test("global feedback stack keeps save feedback and toast notifications at the top", () => {
+test("global feedback stack sits at the top, and at the bottom in the compact layout", () => {
   const html = renderToStaticMarkup(
     <FeedbackStack>
-      <PersistenceFeedback actionError="" contained disconnected={false} error="" onDismissAction={() => {}} onRetry={() => {}} state="saving" />
-      <LightToast contained toast={{ id: 1, message: "Copied" }} />
+      <PersistenceFeedback actionError="" disconnected={false} error="" onDismissAction={() => {}} onRetry={() => {}} state="saving" />
+      <LightToast toast={{ id: 1, message: "Copied" }} />
     </FeedbackStack>
   );
   assert.match(html, /fixed left-1\/2 top-14/);
+  assert.match(html, /fixed left-1\/2 top-14[^"]*max-\[720px\]:top-auto[^"]*max-\[720px\]:bottom-3/);
   assert.match(html, /Saving changes/);
   assert.match(html, /Copied/);
   assert.doesNotMatch(html, /bottom-4/);

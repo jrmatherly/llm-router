@@ -114,6 +114,13 @@ test("a date range that is not one of the presets lists every date", withDatabas
   assert.equal((await store.list({ range: "bogus" })).total, 4);
 }));
 
+test("a page states the retention the database holds", withDatabase(async (open) => {
+  const store = open();
+  assert.equal((await store.list({})).retentionDays, undefined);
+  await setDays(store, 12);
+  assert.equal((await store.list({})).retentionDays, 12);
+}));
+
 test("a store with no saved value prunes nothing", withDatabase(async (open) => {
   const first = open();
   await first.record(rowStartedAt(new Date("2000-01-01T00:00:00.000Z")));

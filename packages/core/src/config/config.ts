@@ -134,6 +134,8 @@ const REMOVED_LEGACY_ROUTER_RULE_IDS = new Set([
 const INTERNAL_GATEWAY_CORE_HOST = "127.0.0.1";
 const GENERATED_GATEWAY_API_KEY_ID = "local-gateway";
 const GATEWAY_PLUGIN_PERMISSION_ID_SET = new Set<string>(GATEWAY_PLUGIN_PERMISSION_IDS);
+// loadAppConfig runs on every RPC, so a bad stored value would otherwise warn on each one.
+let warnedMalformedRequestLogRetention = false;
 
 const DEFAULT_CONFIG: AppConfig = createDefaultAppConfig({
   coreHost: INTERNAL_GATEWAY_CORE_HOST
@@ -1080,11 +1082,17 @@ function parseObservability(value: unknown): Partial<ObservabilityConfig> | unde
   if (typeof value.requestLogMaxBodyBytes === "number" && Number.isFinite(value.requestLogMaxBodyBytes)) {
     observability.requestLogMaxBodyBytes = Math.max(0, Math.min(maxRequestLogBodyBytes, Math.floor(value.requestLogMaxBodyBytes)));
   }
-  if (typeof value.requestLogRetentionDays === "number" && Number.isFinite(value.requestLogRetentionDays)) {
-    observability.requestLogRetentionDays = Math.max(
-      minRequestLogRetentionDays,
-      Math.min(maxRequestLogRetentionDays, Math.floor(value.requestLogRetentionDays))
-    );
+  if (value.requestLogRetentionDays !== undefined) {
+    const days = value.requestLogRetentionDays;
+    if (typeof days === "number" && Number.isInteger(days) && days >= minRequestLogRetentionDays && days <= maxRequestLogRetentionDays) {
+      observability.requestLogRetentionDays = days;
+    } else {
+      observability.requestLogRetentionDays = maxRequestLogRetentionDays;
+      if (!warnedMalformedRequestLogRetention) {
+        warnedMalformedRequestLogRetention = true;
+        console.warn(`The stored request log retention ${typeof days === "string" ? JSON.stringify(days) : String(days)} is not a whole number of days from ${minRequestLogRetentionDays} to ${maxRequestLogRetentionDays}, so ${maxRequestLogRetentionDays} days is used.`);
+      }
+    }
   }
   if (typeof value.requestLogSuccessSampleRate === "number" && Number.isFinite(value.requestLogSuccessSampleRate)) {
     observability.requestLogSuccessSampleRate = Math.max(0, Math.min(1, value.requestLogSuccessSampleRate));

@@ -13,10 +13,21 @@ async function loadWithRetention(value) {
   return (await loadAppConfig()).observability.requestLogRetentionDays;
 }
 
-test("request log retention is clamped to 1 to 90 whole days when the config loads", async () => {
-  assert.equal(await loadWithRetention(500), 90);
-  assert.equal(await loadWithRetention(0), 1);
-  assert.equal(await loadWithRetention(2.7), 2);
+test("a stored retention that is not a whole number from 1 to 90 loads as 90, with a warning", async () => {
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args.join(" "));
+  try {
+    for (const value of [500, 0, 2.7, -3, "30", null, Number.NaN]) {
+      assert.equal(await loadWithRetention(value), 90, String(value));
+    }
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert.ok(warnings.some((warning) => /request log retention/i.test(warning)), warnings.join("\n"));
+  assert.equal(await loadWithRetention(1), 1);
+  assert.equal(await loadWithRetention(90), 90);
+  assert.equal(await loadWithRetention(30), 30);
 });
 
 test("a config without a request log retention loads the default", async () => {

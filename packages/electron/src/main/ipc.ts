@@ -336,7 +336,7 @@ handle(IPC_CHANNELS.appSaveConfig, async (_event, config: AppConfig, options?: A
   const launchAtLoginChanged = Boolean(config.launchAtLogin) !== Boolean(previousConfig.launchAtLogin);
   let savedConfig = await saveAppConfig(config);
   applyAppThemePreference(savedConfig.theme);
-  await applyRequestLogRetentionDays(savedConfig.observability.requestLogRetentionDays);
+  void applyRequestLogRetentionDays(savedConfig.observability.requestLogRetentionDays);
   if (launchAtLoginChanged) {
     try {
       syncLaunchAtLogin(savedConfig);
