@@ -87,7 +87,7 @@ Evidence, outside git, is in `private/research/2026-11-27-decisions-round-2/test
    - The platform jobs report as `🧪 Unit (${{ matrix.display_name }})`, so the required names are `🧪 Unit (Windows)` and `🧪 Unit (Intel Mac)` (read). No test pins those names, or the three already required.
    - `continue-on-error` cannot creep in. `tests/architecture/workflow-permissions.test.mjs` already forbids it on the job (read).
 5. **Attack.** Who is worse off? The owner, at about one rerun every nine PRs. Do nothing? Then red PRs keep merging as `UNSTABLE` and auto-merge never waits. A third option is to require Intel Mac alone now, since it failed 0 of 35 on PRs.
-6. **Verdict.** Stands, with changes, in this order in the remediation release. First the 10 s `waitFor`. Second, a fix to the retention test's last assertion: it should wait for the page, not the database (see New findings). Third, add both contexts to the ruleset, each with `integration_id: 15368` (F-TEST-5). Medium-high confidence. I would hold Windows back if the next 50 PR runs fail it more than about 10% after those fixes.
+6. **Verdict.** Stands, with changes, in this order in the remediation release. First the 10 s `waitFor`. Second, a fix to the retention test's last assertion: it should wait for the page, not the database (see New findings). Third, add both contexts to the ruleset, hardened as F-TEST-5 says. Medium-high confidence. I would hold Windows back if the next 50 PR runs fail it more than about 10% after those fixes.
 
 ## F-TEST-4: H-7, the Claude Desktop check
 
