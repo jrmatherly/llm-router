@@ -47,7 +47,7 @@ Each recommendation is the researcher's and is labelled with how it is known. Th
 
 ### A. A change is recommended before 9.1.0
 
-Small enough to join the branch of Tasks 2 to 8 or go straight to `main` as docs. Each needs his yes.
+**Accepted by the owner on 2026-11-27, all three.** The rename is open as PR 181 on `fix/cost-label`, with the four suites passing locally and no look at the surfaces in a window. The two docs sentences are on `main` as `fca8e250`. The merge of PR 181 needs his word.
 
 | Row | Recommendation | Size | Evidence |
 |---|---|---|---|
@@ -764,7 +764,7 @@ The text is restore Task 9 in [`2026-11-22-backlog-restore.md`](2026-11-22-backl
 
 ### Task 10: Release 9.1.0
 
-**Before.** Tasks 2 to 7 are merged as PR 180 (`0500d2f3`). Task 1 is merged too if the owner gave his word for it. `main` is clean and level with origin, and the Tests run for its head passed, Windows and the Intel Mac included.
+**Before.** Tasks 2 to 7 are merged as PR 180 (`0500d2f3`), and PR 181 (the cost label) is merged. Task 1 is merged too if the owner gave his word for it. `main` is clean and level with origin, and the Tests run for its head passed, Windows and the Intel Mac included.
 
 - [ ] **Step 1: Draft the notes.** An "Upgrading to 9.1" header and a "What's new" header, written from the commit messages of PRs 149 to 179, the PR of Tasks 2 to 8, and Task 1's PR if it merged. Check each sentence against its PR's message. Sentences earlier sessions owed are the "Paste the release note" lines under "Steps only the owner can do" in [`2026-11-16-audit-remediation-index.md`](2026-11-16-audit-remediation-index.md). All six are already in the notes of `v8.0.0` (read by the decision research), so none is owed for 9.1.0. A plain `git grep -i "release note" -- docs/superpowers` returns 63 lines, most of them in finished plans (the audit's run). The notes stay neutral about the fault fixed in 8.0.1, as before. The owner reads the draft.
 - [ ] **Step 2: Cut it.** `npm run release -- 9.1.0`. Expected: a commit `chore: release v9.1.0`, the tag, and a push that reports the required checks bypassed, which is normal.
