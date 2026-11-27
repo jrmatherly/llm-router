@@ -2313,7 +2313,7 @@ test("a row whose headers name no agent takes its agent from its client label", 
   try {
     store = new RequestLogStore(path.join(dir, "request-logs.sqlite"));
     const startedAt = new Date().toISOString();
-    const row = (requestId, client, userAgent) => ({
+    const row = (requestId, client, userAgent, content = "hello") => ({
       client,
       completedAt: startedAt,
       durationMs: 25,
@@ -2321,7 +2321,7 @@ test("a row whose headers name no agent takes its agent from its client label", 
       path: "/v1/chat/completions",
       providerName: "test-provider",
       providerProtocol: "openai_chat_completions",
-      requestBody: Buffer.from(JSON.stringify({ messages: [{ content: "hello", role: "user" }], model: "Provider/model" }), "utf8"),
+      requestBody: Buffer.from(JSON.stringify({ messages: [{ content, role: "user" }], model: "Provider/model" }), "utf8"),
       requestHeaders: { "content-type": "application/json", "user-agent": userAgent },
       requestId,
       responseBodyText: JSON.stringify({ choices: [], model: "Provider/model" }),
@@ -2332,10 +2332,11 @@ test("a row whose headers name no agent takes its agent from its client label", 
     });
     await store.record(row("client-label-only", "opencode", "generic-openai-client/1.0"));
     await store.record(row("header-wins", "opencode", "kilo-code/1.0"));
+    await store.record(row("body-wins", "codex", "generic-openai-client/1.0", "You are Claude Code."));
 
     const analysis = await store.analyze({ agent: "all", range: "30d" });
     const agents = Object.fromEntries(analysis.recentRequests.map((request) => [request.requestId, request.agent]));
-    assert.deepEqual(agents, { "client-label-only": "opencode", "header-wins": "kilo" });
+    assert.deepEqual(agents, { "body-wins": "claude-code", "client-label-only": "opencode", "header-wins": "kilo" });
   } finally {
     await store?.close();
     rmSync(dir, { force: true, recursive: true });
